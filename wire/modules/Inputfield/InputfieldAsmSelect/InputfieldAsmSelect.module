@@ -1,0 +1,123 @@
+<?php namespace ProcessWire;
+
+/**
+ * A Page List Selector for selecting a single page
+ *
+ */
+class InputfieldAsmSelect extends InputfieldSelectMultiple implements InputfieldHasArrayValue {
+
+	protected $asmOptions = array();
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('asmSelect', __FILE__),
+			'version' => 120,
+			'summary' => __('Multiple selection, progressive enhancement to select multiple', __FILE__), // Module Summary
+			'permanent' => true, 
+			);
+	}
+	
+	public function __construct() {
+		$this->set('usePageEdit', 0);
+		parent::__construct();
+	}
+
+	public function init() {
+
+		// asmSelect requires jQuery UI, so we enforce it being loaded here
+		$this->wire('modules')->get('JqueryCore'); // required by jQuery UI
+		$this->wire('modules')->get('JqueryUI'); 
+
+		parent::init(); 
+
+		$this->setAsmSelectOption('sortable', true); 
+
+		// an optional edit or detail link where items can be modified or viewed
+		// i.e. /path/to/page/?id={value} where {value} is replaced with option value
+		$this->setAsmSelectOption('editLink', ''); 
+
+		// only applicable if editLink is set. set to false if you don't want edit link to be modal
+		$this->setAsmSelectOption('editLinkModal', true);
+
+		if($this->wire('adminTheme')) {
+			// replace jquery ui icon default with a font-awesome icon
+			$this->setAsmSelectOption('removeLabel', "<i class='fa fa-trash'></i>");
+
+			// replace jquery ui icon default with a font-awesome icon
+			$this->setAsmSelectOption('sortLabel', "<i class='fa fa-fw fa-arrows'></i>");
+		}
+			
+		// cancel the 'size' attribute used by select multiple
+		$this->set('size', null); 
+	}
+
+	public function setAsmSelectOption($key, $value) {
+		$this->asmOptions[$key] = $value; 
+	}
+	
+	/**
+	 * Called before render()
+	 *
+	 * @param Inputfield $parent
+	 * @param bool $renderValueMode
+	 * @return bool
+	 *
+	 */
+	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+		
+		if(!empty($this->asmOptions['editLink'])) {
+			$this->wire('modules')->get('JqueryUI')->use('modal');
+		}
+
+		if($this->hasFieldtype == 'FieldtypePage' && $this->usePageEdit && !$this->editLink) {
+			$this->setAsmSelectOption('editLink', $this->wire('config')->urls->admin . 'page/edit/?id={value}');
+			$this->setAsmSelectOption('editLinkOnlySelected', false);
+			$this->setAsmSelectOption('editLinkButtonSelector', ".InputfieldSubmit button.ui-button:visible");
+			$this->setAsmSelectOption('editLinkModal', true);
+		}
+
+		// require javascript and css
+		$class = $this->className();
+		$info = self::getModuleInfo();
+		$ver = $info['version'];
+		$jsfile = $this->wire('config')->debug ? 'jquery.asmselect.js' : 'jquery.asmselect.min.js';
+
+		$this->config->scripts->add($this->config->urls->$class . "asmselect/$jsfile?v=$ver");
+		$this->config->styles->add($this->config->urls->$class . "$class.css?v=$ver");
+		$this->config->styles->add($this->config->urls->$class . "asmselect/jquery.asmselect.css?v=$ver");
+		
+		$this->config->js($this->id, $this->asmOptions); 
+		
+		return parent::renderReady($parent, $renderValueMode);
+	}
+	
+	public function ___render() {
+		
+		$selectedOptions = $this->attr('value'); 
+		
+		foreach($selectedOptions as $id) {
+			if(!isset($this->options[$id])) continue; 
+			$label = $this->options[$id]; 
+			unset($this->options[$id]); 	
+			$this->addOption($id, $label); 
+		}
+
+		return parent::___render();
+	}
+
+	public function ___getConfigInputfields() {
+		$inputfields = parent::___getConfigInputfields();
+		if($this->hasFieldtype != 'FieldtypePage') return $inputfields;
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'usePageEdit');
+		$f->label = $this->_('Link selected pages to page editor?');
+		$f->description = $this->_('When enabled, the selected label(s) will link to edit the selected page.');
+		$f->addOption(0, $this->_('No'));
+		$f->addOption(1, $this->_('Yes (in modal window)'));
+		$f->attr('value', $this->usePageEdit);
+		$f->optionColumns = 1;
+		$f->collapsed = Inputfield::collapsedBlank;
+		$inputfields->add($f);
+		return $inputfields;
+	}
+}

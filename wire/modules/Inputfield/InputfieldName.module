@@ -1,0 +1,40 @@
+<?php namespace ProcessWire;
+
+/**
+ * An Inputfield for handling ProcessWire "name" fields
+ *
+ */
+class InputfieldName extends InputfieldText {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Name', __FILE__), // Module Title
+			'version' => 100,
+			'summary' => __('Text input validated as a ProcessWire name field', __FILE__), // Module Summary
+			'permanent' => true, 
+			);
+	}
+
+	public function __construct() {
+		$this->sanitizeMethod = 'name'; // method from sanitizer to use for value sanitization
+		parent::__construct();
+	}
+
+	public function init() {
+		parent::init();
+		$this->attr('type', 'text'); 
+		$this->attr('maxlength', Pages::nameMaxLength); 
+		$this->attr('size', 0); 
+		$this->attr('name', 'name'); 
+		$this->set('required', true); 
+		$this->label = $this->_('Name'); // default field label
+		$this->description = $this->_('Any combination of letters (a-z), numbers (0-9) and underscores (no spaces).'); // default field description
+		$this->sanitizeMethod = 'name'; // method from sanitizer to use for value sanitization
+	}
+
+	protected function setAttributeValue($value) {
+		$value = call_user_func(array($this->wire('sanitizer'), $this->sanitizeMethod), $value); 
+		return $value; 
+	}
+
+}

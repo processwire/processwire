@@ -1,0 +1,6 @@
+select.TranslationFileSelect {
+	width: 100%;
+	font-family: monospace;
+	font-size: 12px; 
+	padding: 5px;
+}

@@ -1,0 +1,1480 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Repeater Fieldtype
+ *
+ * Maintains a collection of fields that are repeated for any number of times.
+ *
+ * For documentation about how Fieldtypes work, see: 
+ * /wire/core/Fieldtype.php
+ * /wire/core/FieldtypeMulti.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ * @todo: automatic sorting.
+ * @todo: look into possibility of only creating repeater parents when there is at least one item.
+ * 
+ * @property int $repeatersRootPageID
+ * @method saveConfigInputfields(Field $field, Template $template, Page $parent)
+ * 
+ * Page status notes for repeater items: 
+ * - Unpublished & Hidden: Ready page, not yet used. Appears in unformatted repeater PageArray but user has not saved it.
+ * - Unpublished & On: Publish requested and can be published as long as no input errors. 
+ * - Unpublished & NOT On: Item has been unpublished.
+ * 
+ * Unpublished or hidden pages do not appear in formatted PageArray value, only in unformatted. 
+ *
+ */
+
+class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Repeater', __FILE__), // Module Title
+			'summary' => __('Maintains a collection of fields that are repeated for any number of times.', __FILE__), // Module Summary
+			'version' => 105,
+			'autoload' => true,
+			'installs' => 'InputfieldRepeater'
+			);
+	}
+
+	const templateNamePrefix = 'repeater_';
+	const fieldPageNamePrefix = 'for-field-';
+	const repeaterPageNamePrefix = 'for-page-'; 
+	const defaultRepeaterMaxItems = 0;
+
+	const collapseExisting = 0;
+	const collapseNone = 3;
+	const collapseAll = 1;
+	
+	const loadingNew = 0;
+	const loadingAll = 1;
+	const loadingOff = 2;
+
+	/**
+	 * When non-zero, a deletePageField function call occurred and we shouldn't re-create any repeater parents
+	 *
+	 * The value it contains is the ID of the parent page used by the field for repeater items
+	 *
+	 */
+	protected $deletePageField = 0;
+
+	/**
+	 * Page assigned by our ProcessPageEdit::ajaxSave hook, kept for comparison for editable() access
+	 * 
+	 * @var Page
+	 *
+	 */
+	protected $ajaxPage;
+
+	/**
+	 * Name of field that appeared in HTTP_X_FIELDNAME, before it was modified
+	 *
+	 */
+	protected $ajaxFieldName = '';
+
+	/**
+	 * Construct the Repeater Fieldtype
+	 *
+	 */
+	public function __construct() {
+
+		require_once(dirname(__FILE__) . '/RepeaterPage.php'); 
+		require_once(dirname(__FILE__) . '/RepeaterPageArray.php'); 
+
+		$this->set('repeatersRootPageID', 0); 	
+	}
+
+	/**	
+	 * Setup a hook to Pages::delete so that we can remove references when pages are deleted
+	 *
+	 */
+	public function init() {
+		$this->wire('pages')->addHookAfter('deleteReady', $this, 'hookPagesDelete');
+		parent::init();
+	}
+
+	/**	
+	 * Setup a hook so that we can keep ajax saves working with ProcessPageEdit
+	 *
+	 */
+	public function ready() {
+		// if(in_array('WirePageEditor', wireClassImplements((string) $this->wire('page')->process))) { // @todo
+		
+		// make sure that all templates used by repeater pages enforce a Page type of RepeaterPage
+		foreach($this->wire('fields') as $field) {
+			if(!$field->type instanceof FieldtypeRepeater) continue;
+			$template = $field->type->getRepeaterTemplate($field);
+			if(!$template) continue;
+			if(__NAMESPACE__) {
+				$template->setQuietly('pageClass', wireClassName($field->type->getPageClass()));
+			} else {
+				$template->setQuietly('pageClass', $field->type->getPageClass());
+			}
+		}
+	
+		if($this->wire('page')->process == 'ProcessPageEdit') {
+			
+			$this->addHookBefore('ProcessPageEdit::ajaxSave', $this, 'hookProcessPageEditAjaxSave');
+			
+			if($this->wire('config')->ajax) {
+				// handle scenario of repeater within repeater field
+				$fieldName = $this->wire('input')->get('field');
+				$pageID = (int) $this->wire('input')->get('id');
+				if($pageID && strpos($fieldName, '_repeater') && preg_match('/^(.+)_repeater\d+$/', $fieldName, $matches)) {
+					$editPage = $this->wire('pages')->get($pageID);
+					if($editPage->id && strpos($editPage->template->name, self::templateNamePrefix) === 0) {
+						// update field name to exclude the _repeater1234 part at the end, so that PageEdit recognizes it
+						$this->wire('input')->get->field = $matches[1];
+					}
+				}
+			}
+			if(!$this->wire('user')->isSuperuser()) {
+				$this->addHookAfter('PagePermissions::pageEditable', $this, 'hookPagePermissionsPageEditableAjax');
+			}
+		}
+		
+		$this->addHookBefore('PageFinder::getQuery', $this, 'hookPageFinderGetQuery'); 
+
+	}
+
+	/**
+	 * Get the class used for repeater Page objects
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function getPageClass() {
+		return __NAMESPACE__ . "\\RepeaterPage";
+	}
+
+	/**
+	 * Get the class used for repeater PageArray objects
+	 *
+	 * @return string
+	 * 
+	 */
+	public function getPageArrayClass() {
+		return __NAMESPACE__ . "\\RepeaterPageArray";
+	}
+
+	/**
+	 * Hook called after PagePermissions::pageEditable() when Process is ProcessPageEdit and call is ajax
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookPagePermissionsPageEditableAjax(HookEvent $event) {
+		if($event->return) return;
+		$page = $event->arguments(0);
+		if(!$page instanceof RepeaterPage) return;
+		$n = 0;
+		while($page instanceof RepeaterPage) {
+			$page = $page->getForPage();
+			if(++$n > 20) break;
+		}
+		if(!$page instanceof RepeaterPage) $event->return = $page->editable();
+	}
+
+	/**
+	 * Hook into PageFinder::getQuery
+	 *
+	 * Determines if the query is attempting to directly search a field used by a repeater. 
+	 * If it is, then it specifically excludes them. This is so that one could use a 'title' field
+	 * in both a repeater and elsewhere, and not worry about repeaters themselves appearing in 
+	 * search results for an admin.
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookPageFinderGetQuery(HookEvent $event) {
+
+		static $fieldsUsedInRepeaters = null;
+		static $templatesUsedByRepeaters = array();
+
+		/** @var Selectors $selectors */
+		$selectors = $event->arguments[0]; 
+		/** @var PageFinder $pageFinder */
+		$pageFinder = $event->object; 
+		$pageFinderOptions = $pageFinder->getOptions();
+
+		// determine which fields are used in repeaters
+		if(is_null($fieldsUsedInRepeaters)) {
+			$fieldsUsedInRepeaters = array('title'); // title used by admin template (repeater parents)
+			foreach($this->wire('templates') as $template) {
+				if(strpos($template->name, self::templateNamePrefix) === 0) {
+					$templatesUsedByRepeaters[] = $template->id; 
+					foreach($template->fieldgroup as $field) {
+						$fieldsUsedInRepeaters[] = $field->name; 
+					}
+				}
+			}
+		}
+
+		// did we find a field used by a repeater in the selector?
+		$found = false;
+
+		// was include=all specified?
+		$includeAll = !empty($pageFinderOptions['findAll']);
+
+		// if user is guest, then repeater pages will already be excluded (since they don't have view access to them) so no need for extra filter
+		if(!$includeAll && $this->wire('user')->isGuest()) $includeAll = true; 
+
+		// determine if any of the fields used in the selector are also used in a repeater
+		// and set $found and $includeAll as appropriate
+		if(!$includeAll) foreach($selectors as $selector) {
+
+			$fields = $selector->field; 
+			if(!is_array($fields)) $fields = array($fields);
+
+			foreach($fields as $name) {
+
+				if(strpos($name, '.')) {
+					/** @noinspection PhpUnusedLocalVariableInspection */
+					list($name, $unused) = explode('.', $name); // field.subfield
+				}
+
+				// is field name one used by a repeater?
+				if(in_array($name, $fieldsUsedInRepeaters)) $found = true;
+
+				if($name == 'status' && $selector->operator == '<' && $selector->value == Page::statusMax) {
+					// include=all is the same as status<Page::statusMax, so we look for that here
+					$includeAll = true;
+				} else if(in_array($name, array('parent', 'parent_id', 'template', 'templates_id')) && $selector->operator == '=') {
+					// optimization: if parent, parent_id, template, or templates_id is given, and an equals '=' operator is used, 
+					// there's no need to explicitly exclude repeaters since the parent and/or template is specific
+					$includeAll = true;
+				} else if($name == 'templates_id' && $selector->operator == '=' && in_array($selector->value, $templatesUsedByRepeaters)) {
+					// ensure that the repeaters own queries work since they specify a templates_id
+					// note: this is now redundent given the code added directly above this, but kept for clarification
+					$includeAll = true;
+				} else if($name == 'has_parent' && $selector->value != 1 && $selector->operator == '=' && $selector->value != '/') {
+					// if has_parent is specified and is not homepage, no need to exclude results
+					$includeAll = true;
+				}
+
+				if($includeAll) break;
+			}
+			
+			if($includeAll) break;
+		}
+
+		// if field is one used by a repeater, and there was no include=all, 
+		// then exclude repeaters from appearing in these PageFinder search results
+		if($found && !$includeAll) {
+			// for reference: $selectors->add(new SelectorNotEqual('has_parent', $this->repeatersRootPageID)); 
+			$selectors->add(new SelectorNotEqual('templates_id', $templatesUsedByRepeaters)); // more efficient than has_parent
+		}
+	}
+
+	/**
+	 * This hook is called before ProcessPageEdit::ajaxSave
+	 *
+	 * We modify the HTTP_X_FIELDNAME var to remove the "_repeater123" portion of the variable, 
+	 * since ProcessPageEdit doesn't know about repeaters. 
+	 * 
+	 * @param HookEvent $event
+	 *
+ 	 */
+	public function hookProcessPageEditAjaxSave(HookEvent $event) {
+
+		// if this isn't a repeater field we're dealing with, then abort
+		if(!isset($_SERVER['HTTP_X_FIELDNAME']) || !preg_match('/^(.+)(_repeater(\d+))$/', $_SERVER['HTTP_X_FIELDNAME'], $matches)) return;
+		$fieldName = $this->wire('sanitizer')->fieldName($matches[1]); 
+		$repeaterPageID = (int) $matches[3]; 
+		if($repeaterPageID < 1) return;
+
+		// make sure the owning page is editable since we'll be replacing the $page param that goes to ajaxSave
+		/** @var Page $ownerPage */
+		$ownerPage = $event->arguments[0]; 
+		if(!$ownerPage->editable()) return;
+
+		// make sure it's a valid repeaterPage
+		$repeaterPage = $this->wire('pages')->get($repeaterPageID); 
+		if(!$repeaterPage->id) return; 
+
+		// check that the given repeaterPage is actually a repeater component of the ownerPage
+		if($repeaterPage->id != $ownerPage->id && !$this->isRepeaterItemValidOnPage($repeaterPage, $ownerPage)) {
+			$this->error("Repeater item $repeaterPage not valid for owner page $ownerPage");
+			return;
+		}
+		
+		// repopulate the ProcessPageEdit::ajaxSave function's argument to be the repeaterPage rather than the ownerPage
+		$args = $event->arguments; 
+		$args[0] = $repeaterPage; 
+		$event->arguments = $args; 
+
+		// repopulate the server header to be the fieldName (sans _repeater\d+)
+		$this->ajaxFieldName = $this->wire('sanitizer')->fieldName($_SERVER['HTTP_X_FIELDNAME']);
+		$_SERVER['HTTP_X_FIELDNAME'] = $fieldName;
+
+		// save a copy for comparison in our hookPageEditable function 
+		$this->ajaxPage = $repeaterPage;
+
+		// add a hook to allow edit access because some users may not have access
+		// to the repeater pages themselves, and ProcessPageEdit's editable check
+		// prevents them from completing the ajax save. this hook fixes that.
+		$this->addHookAfter('ProcessPageEdit::ajaxEditable', $this, 'hookProcessPageEditAjaxEditable'); 
+
+		// ensures that InputfieldFile outputs markup with the proper fieldname, including the repeater_ part
+		$this->addHookBefore('InputfieldFile::renderItem', $this, 'hookInputfieldFileRenderItem'); 
+	}
+
+	/**
+	 * Is the given repeater item valid on the given owner page?
+	 * 
+	 * @param Page $repeaterItem
+	 * @param Page $ownerPage
+	 * @return null|Field Returns the repeater Field object that is valid, or null if not valid
+	 * 
+	 */
+	protected function isRepeaterItemValidOnPage(Page $repeaterItem, Page $ownerPage) {
+		
+		$hasField = null;
+		$repeaters = array();
+		
+		foreach($ownerPage->fieldgroup as $f) {
+			if(!$f->type instanceof FieldtypeRepeater) continue;
+			$repeaters[$f->name] = $f->name;
+			$grandparent = $this->getRepeaterParent($f);
+			$name = self::repeaterPageNamePrefix . $ownerPage->id; 
+			$parent = $grandparent->child("name=$name, include=all");
+			if(!$parent->id) continue;
+			$child = $parent->child("include=all, id=$repeaterItem->id");
+			if($child->id) {
+				// found it, it's valid
+				$hasField = $f;
+				break;
+			}
+		}
+		
+		if($hasField) return $hasField;
+		
+		// check for nested repeater
+		foreach($repeaters as $name) {
+			$repeaterItems = $ownerPage->get($name);	
+			if(!$repeaterItems || !$repeaterItems instanceof PageArray) continue;
+			foreach($repeaterItems as $nestedOwnerPage) {
+				// perform recursive check
+				$hasField = $this->isRepeaterItemValidOnPage($repeaterItem, $nestedOwnerPage);
+				if($hasField) break;
+			}
+			if($hasField) break;	
+		}
+		
+		return $hasField;
+	}
+
+	/**
+	 * Temporary hook into Page::editable to capture the editable check for the page we swapped into the ajaxSave
+	 *
+	 * Prevents the 'no access' error when non-superuser attempts to perform an ajax save
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookProcessPageEditAjaxEditable(HookEvent $event) {
+		/** @var Page $page */
+		$page = $event->arguments[0]; 
+		$fieldName = isset($event->arguments[1]) ? $this->wire('sanitizer')->fieldName($event->arguments[1]) : '';
+		if($page->id && $this->ajaxPage && $this->ajaxPage->id == $page->id) {
+			$event->return = true; 
+		}
+
+		// if a fieldName was specified, double check that it's a valid field in a repeater
+		if($event->return && $fieldName) {
+			if(!$this->ajaxPage->hasField($fieldName)) $event->return = false;
+		}
+	}
+
+	/**
+	 * Ensure that InputfieldFile outputs markup with the proper fieldname (including the repeater_ part)
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookInputfieldFileRenderItem(HookEvent $event) {
+		$arguments = $event->arguments; 
+		$id = $arguments[1]; 
+		$id = str_replace($_SERVER['HTTP_X_FIELDNAME'], $this->ajaxFieldName, $id); 
+		$arguments[1] = $id; 
+		$event->arguments = $arguments; 
+	
+		// update id attribute of the Inputfield itself
+		// so that anything in InputfieldFile referring to it's overall id attribute
+		// reflects the actual id attribute of the Inputfield
+		/** @var Inputfield $inputfield */
+		$inputfield = $event->object; 
+		$id = $inputfield->attr('id');
+		$id = str_replace($_SERVER['HTTP_X_FIELDNAME'], $this->ajaxFieldName, $id); 
+		$inputfield->attr('id', $id); 
+	}
+
+	/**
+	 * Delete any repeater pages that are owned by a page that was deleted
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookPagesDelete(HookEvent $event) {
+
+		$page = $event->arguments[0];
+
+		foreach($page->template->fieldgroup as $field) {
+			if(!$field->type instanceof FieldtypeRepeater) continue; 
+			$fieldParent = $this->wire('pages')->get($field->parent_id); 	
+			if(!$fieldParent->id) continue; 
+			$p = $fieldParent->child('include=all, name=' . self::repeaterPageNamePrefix . $page->id); 	
+			if(!$p->id) continue; 
+			$p->addStatus(Page::statusSystemOverride); 
+			$p->removeStatus(Page::statusSystem);
+			$this->message("Deleted repeater page {$p->path}", Notice::debug); 
+			$this->wire('pages')->delete($p, true);
+		}
+	}
+
+	/**
+	 * FieldtypeRepeater instances are only compatible with other FieldtypeRepeater derived classes. 
+	 *
+	 * @param Field $field 
+	 * @return WireArray
+	 *
+	 */
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = parent::___getCompatibleFieldtypes($field); 
+		foreach($fieldtypes as $type) if(!$type instanceof FieldtypeRepeater) $fieldtypes->remove($type); 
+		return $fieldtypes; 
+	}
+
+	/**
+	 * Get a blank value of this type, i.e. return a blank PageArray
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return PageArray
+	 *
+	 */
+	public function getBlankValue(Page $page, Field $field) {
+		$class = $this->getPageArrayClass();
+		$pageArray = $this->wire(new $class($page, $field));
+		$pageArray->setTrackChanges(true);
+		return $pageArray;
+	}
+
+	/**
+	 * Returns a unique name for a repeater page
+	 *
+	 * @return string
+	 *
+	 */
+	protected function getUniqueRepeaterPageName() {
+		static $cnt = 0;
+		return str_replace('.', '-', microtime(true)) . '-' . (++$cnt);
+	}
+
+	/**
+	 * Get the class for the Inputfield (template method)
+	 * 
+	 * @return string
+	 * 
+	 */
+	protected function getInputfieldClass() {
+		return 'InputfieldRepeater';
+	}
+
+	/**
+	 * Return an InputfieldRepeater, ready to be used
+	 *
+	 * @param Page $page Page being edited
+	 * @param Field $field Field that needs an Inputfield
+	 * @return Inputfield
+	 *
+	 */
+	public function getInputfield(Page $page, Field $field) {
+
+		$inputfield = $this->wire('modules')->get($this->getInputfieldClass()); 
+		$inputfield->set('page', $page); 
+		$inputfield->set('field', $field);
+		$inputfield->set('repeaterMaxItems', $field->get('repeaterMaxItems')); 
+		$inputfield->set('repeaterReadyItems', 0);  // ready items deprecated
+
+		$pageArray = $page->getUnformatted($field->name); 
+		if(!$pageArray instanceof PageArray) $pageArray = $this->getBlankValue($page, $field); 
+		
+		// we want to check that this page actually has the field before creating ready pages
+		// this is just since PW may call getInputfield with a dummyPage (usually homepage) for tests
+		// and we don't want to go on creating readyPages or setting up parent/template where not used
+		if($page->hasField($field)) {
+			if(!count($pageArray)) {
+				// force the wakeup function to be called since it wouldn't have been for a field that doesn't yet exist
+				$pageArray = $this->wakeupValue($page, $field, null);
+			}
+		}
+		$page->set($field->name, $pageArray); 
+		$inputfield->attr('value', $pageArray); 
+
+		return $inputfield; 
+	}
+
+	/**
+	 * Get next page ready to be used as a new repeater item, creating it if it doesn't already exist
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param PageArray $value
+	 * @param array $notIDs Optional Page IDs that should be excluded from the next ready page
+	 * @return Page
+	 * 
+	 */
+	public function getNextReadyPage(Page $page, Field $field, PageArray $value, array $notIDs = array()) {
+		$readyPage = null;
+		foreach($value as $item) {
+			if($item->hasStatus(Page::statusUnpublished) 
+				&& $item->hasStatus(Page::statusHidden) 
+				&& $item->id
+				&& !in_array($item->id, $notIDs)) {
+				// existing/unused ready item that we will reuse	
+				$readyPage = $item;
+				// touch the modified date for existing page to identify it as still current
+				$query = $this->wire('database')->prepare('UPDATE pages SET modified=NOW(), modified_users_id=:user_id WHERE id=:id');
+				$query->bindValue(':id', $readyPage->id, \PDO::PARAM_INT);
+				$query->bindValue(':user_id', $this->wire('user')->id, \PDO::PARAM_INT);
+				$query->execute();
+				break;
+			}
+		}
+		if(!$readyPage) {
+			$readyPage = $this->getBlankRepeaterPage($page, $field);
+			$readyPage->sort = count($value);
+			$readyPage->save();
+		}
+		$readyPage->setQuietly('_repeater_new', 1);
+		return $readyPage;
+	}
+
+	/**
+	 * Returns a blank page ready for use as a repeater
+	 *
+	 * Also ensures that the parent repeater page exists.
+	 * This is public so that the Inputfield can pull from it too.
+	 *
+	 * @param Field $field
+	 * @param Page $page The page that the repeater field lives on
+	 * @return Page
+	 *
+	 */
+	public function getBlankRepeaterPage(Page $page, Field $field) {
+		$parent = $this->getRepeaterPageParent($page, $field); 
+		$class = $this->getPageClass();
+		$readyPage = $this->wire(new $class());
+		$readyPage->template = $this->getRepeaterTemplate($field);
+		if($parent->id) $readyPage->parent = $parent; 
+		$readyPage->addStatus(Page::statusOn); // request publish for new items by defalt
+		$readyPage->addStatus(Page::statusHidden); // ready page
+		$readyPage->addStatus(Page::statusUnpublished); // ready page
+		$readyPage->name = $this->getUniqueRepeaterPageName();
+		$readyPage->setForPage($page);
+		$readyPage->setForField($field);
+		return $readyPage; 
+	}
+
+	/**
+	 * Given a raw value (value as stored in DB), return the value as it would appear in a Page object
+	 *
+	 * Something to note is that this wakeup function is different than most in that the $value it is given 
+	 * is just an array like array('data' => 123, 'parent_id' => 456) -- it doesn't actually contain any of the
+	 * repeater page data other than saying how many there are and the parent where they are stored. So this 
+	 * wakeup function can technically do it's job without even having the $value, unlike most other fieldtypes.
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array $value
+	 * @return PageArray $value
+	 *
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+
+		$parent_id = null; 
+		$field_parent_id = $field->get('parent_id'); 
+		$template_id = $field->get('template_id'); 
+		$outputFormatting = $page->outputFormatting();
+
+		// if it's already in the target format, leave it
+		if($value instanceof PageArray) return $value; 
+
+		// if this field has no parent set, just return a blank pageArray
+		if(!$field_parent_id) return $this->getBlankValue($page, $field); 
+
+		if(is_array($value) && !empty($value['parent_id'])) {
+			// this is what we get if there was a record in the DB and the parent has been setup
+			$parent_id = (int) $value['parent_id'];	
+
+		} else {
+			// no record in the DB yet, so setup the parent if it isn't already
+			$parent = $this->getRepeaterPageParent($page, $field); 
+			$parent_id = $parent->id; 
+		}
+
+		// get the template_id used by the repeater pages
+		if(!$template_id) $template_id = $this->getRepeaterTemplate($field)->id; 
+
+		// if we were unable to determine a parent for some reason, then just return a blank pageArray
+		if(!$parent_id || !$template_id) return $this->getBlankValue($page, $field); 
+
+		// build the selector: find pages with our parent
+		// $selector = "parent_id=$parent_id, templates_id=$template_id, sort=sort, check_access=0";
+		$selector = "parent_id=$parent_id, templates_id=$template_id, sort=sort, include=all";
+
+		/*
+		if($outputFormatting) { 
+			// if an unpublished page is being previewed, let unpublished items be shown (ready items will be removed afterwards)
+			if($page->hasStatus(Page::statusUnpublished) && $page->editable($field->name)) $selector .= ", include=all"; 
+		} else {
+			// if the page is an edit state, then make it include the hidden/unpublished ready pages
+			if($page->editable($field->name)) $selector .= ", include=all";
+		}
+		*/
+
+		// load the repeater pages
+		$a = $this->wire('pages')->find($selector);
+		$class = $this->getPageArrayClass(true);
+		$pageArray = $this->wire(new $class($page, $field)); 
+		$pageArray->import($a);
+		$pageArray->resetTrackChanges(true); 
+
+		return $pageArray; 
+
+	}
+
+	/**
+	 * Given an 'awake' value, as set by wakeupValue, convert the value back to a basic type for storage in DB. 
+	 *
+	 * In this case, the sleepValue doesn't represent the actual value as they are stored in pages. 
+	 *              
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array|object $value
+	 * @return array
+	 *
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+
+		$sleepValue = array();
+
+		// if value is already an array, then just return it
+		if(is_array($value)) return $sleepValue; 
+	
+		// if $value isn't a PageArray, then abort	
+		if(!$value instanceof PageArray) return array();
+
+		$count = 0; 
+		$ids = array();
+
+		// iterate through the array and count how many published we have
+		foreach($value as $p) {
+			if(!$p->id || $p->isHidden() || $p->isUnpublished()) continue; 
+			$ids[] = $p->id;
+			$count++;
+		}
+
+		// our sleepValue is simply just the total number of repeater pages
+		// a cache of page IDs in 'data' (for export portability)
+		// and a quick reference to the parent where they are contained
+		$sleepValue = array(
+			'data' => implode(',', $ids),
+			'count' => $count,
+			'parent_id' => $this->getRepeaterPageParent($page, $field)->id, 
+			);	
+
+		return $sleepValue;
+	}
+
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		$a = array();
+		foreach($value as $k => $p) {
+			/** @var Page $p */
+			if($p->isUnpublished()) continue; 
+			$v = array();
+			foreach($p->template->fieldgroup as $f) {
+				if(!$p->hasField($f)) continue;
+				$v[$f->name] = $f->type->exportValue($p, $f, $p->getUnformatted($f->name), $options); 
+			}
+			$a[] = $v; 
+		}
+		return $a; 	
+	}
+
+
+	/**
+	 * Get information used by selectors for querying this field
+	 *
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 *
+	 */
+	public function ___getSelectorInfo(Field $field, array $data = array()) {
+		$info = $this->wire('modules')->get('FieldtypePage')->getSelectorInfo($field, $data);
+		$info['operators'] = array(); // force it to be non selectable, subfields only
+		return $info;
+	}
+
+	/**
+	 * Return the parent used by the repeater pages for the given Page and Field
+	 *
+	 * i.e. /processwire/repeaters/for-field-name/for-page-name/
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Page
+	 *
+	 */
+	protected function getRepeaterPageParent(Page $page, Field $field) { 
+
+		$repeaterParent = $this->getRepeaterParent($field);
+		$parent = $repeaterParent->child('name=' . self::repeaterPageNamePrefix . $page->id . ', include=all'); 
+		if($parent->id) return $parent; 
+
+		$parent = $this->wire('pages')->newPage(array('template' => $repeaterParent->template));
+		$parent->parent = $repeaterParent; 
+		$parent->name = self::repeaterPageNamePrefix . $page->id;
+		$parent->title = $page->name;
+		$parent->addStatus(Page::statusSystem);
+
+		// exit early if a field is in the process of being deleted
+		// so that a repeater page parent doesn't get automatically re-created
+		if($this->deletePageField === $field->get('parent_id')) return $parent; 
+
+		$parent->save();
+		$this->message("Created Repeater Page Parent: " . $parent->path, Notice::debug); 
+
+		return $parent; 
+	}
+
+	/**
+	 * Return the repeater parent used by $field, i.e. /processwire/repeaters/for-field-name/
+	 * 
+	 * Auto generate a repeater parent page named 'for-field-[id]', if it doesn't already exist
+	 *
+	 * @param Field $field
+	 * @return Page
+	 * @throws WireException
+	 *
+	 */
+	protected function getRepeaterParent(Field $field) {
+
+		$parentID = (int) $field->get('parent_id');
+		if($parentID) {
+			$parent = $this->wire('pages')->get($parentID); 
+			if($parent->id) return $parent; 
+		}
+
+		
+		$repeatersRootPage = $this->wire('pages')->get((int) $this->repeatersRootPageID); 
+		$parentName = self::fieldPageNamePrefix . $field->id; 
+
+		// we call this just to ensure it exists, so template is created if it doesn't exist yet
+		if(!$field->get('template_id')) $this->getRepeaterTemplate($field); 
+
+		$parent = $repeatersRootPage->child("name=$parentName, include=all"); 
+
+		if(!$parent->id) {
+			$parent = $this->wire('pages')->newPage(array('template' => $repeatersRootPage->template));
+			$parent->parent = $repeatersRootPage; 
+			$parent->name = $parentName;
+			$parent->title = $field->name; 
+			$parent->addStatus(Page::statusSystem);
+			$parent->save();
+			$this->message('Created Repeater Parent: ' . $parent->path, Notice::debug); 
+		}
+
+		if($parent->id) {
+			if(!$field->get('parent_id')) {
+				// parent_id setting not yet in field
+				$field->set('parent_id', $parent->id); 
+				$field->save();
+			}
+		} else {
+			throw new WireException("Unable to create repeater parent {$repeatersRootPage->path}$parentName"); 
+		}
+
+		return $parent; 
+	}
+
+
+	/**
+	 * Return the repeater template used by Field, i.e. repeater_name
+	 * 
+	 * Auto generate a repeater template, if it doesn't already exist.
+	 *
+	 * @param Field $field
+	 * @return Template
+	 * @throws WireException
+	 *
+	 */
+	protected function getRepeaterTemplate(Field $field) {
+
+		$template = null;
+		$templateID = (int) $field->get('template_id');
+		if($templateID) $template = $this->wire('templates')->get($templateID); 
+		if($template) return $template;
+
+		// template does not exist, so we create it
+		$templateName = self::templateNamePrefix . $field->name; 
+
+		// make sure the template name isn't already in use, make a unique one if it is
+		$n = 0; 
+		while($this->wire('templates')->get($templateName) || $this->wire('fieldgroups')->get($templateName)) {
+			$templateName = self::templateNamePrefix . $field->name . (++$n); 
+		}
+
+		// create the fieldgroup
+		$fieldgroup = $this->wire(new Fieldgroup());
+		$fieldgroup->name = $templateName;
+		$fieldgroup->save();	
+
+		if(!$fieldgroup->id) throw new WireException("Unable to create repeater fieldgroup: $templateName"); 
+
+		// create the template
+		$template = $this->wire(new Template()); 
+		$template->name = $templateName; 
+		$template->fieldgroup = $fieldgroup; 
+		$template->flags = Template::flagSystem;	
+		$template->noChildren = 1; 
+		$template->noParents = 1; // prevents users from creating pages with this template, but not us
+		$template->noGlobal = 1; 
+		$template->save();
+
+		if(!$template->id) throw new WireException("Unable to create repeater template: $templateName"); 
+
+		// save the template_id setting to the field
+		$field->set('template_id', $template->id); 	
+		$field->save();
+
+		$this->message("Created Repeater Template $template", Notice::debug);
+
+		return $template; 
+	}
+
+	/**
+	 * Handles the sanitization and convertion to PageArray value
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param mixed $value
+	 * @return PageArray
+	 *
+	 */
+	public function sanitizeValue(Page $page, Field $field, $value) {
+
+		// if they are setting it to a PageArray, then we'll take it
+		if($value instanceof PageArray) return $value; 
+
+		// otherwise, lets get the current value so we can add to it or return it
+		$pageArray = $page->get($field->name); 
+
+		// if no value was provided, then return the existing value already in the page
+		if(!$value) return $pageArray; 
+
+		// if it's a string, see if we can convert it to a Page or PageArray
+		if(is_string($value)) $value = $this->sanitizeValueString($page, $field, $value); 
+
+		// if it's a Page, and not  NullPage, add it to the existing PageArray
+		if($value instanceof Page) {
+			$pageArray->add($value); 
+			return $pageArray; 
+		}
+
+		// if it's a new PageArray, combine it with the existing PageArray
+		if($value instanceof PageArray) {
+			foreach($value as $pg) {
+				if(!$pg->id) continue; 
+				$pageArray->add($pg); 
+			}
+			return $pageArray; 
+		}
+
+		if(!is_array($value)) $value = array($value); 
+		foreach($value as $p) $pageArray->add($p); 
+
+		return $pageArray; 
+	}
+
+	/**
+	 * Given a string value return a Page or PageArray
+	 *	
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $value
+	 * @return Page|PageArray
+	 *
+	 */
+	protected function sanitizeValueString(Page $page, Field $field, $value) {
+
+		$result = false;
+
+		if(ctype_digit("$value")) {
+			// single page ID
+			$result = $this->wire('pages')->get((int) $value); 
+
+		} else if(strpos($value, ',')) {
+			// csv string of page IDs
+			$value = explode(',', $value); 	
+			$result = array();
+			foreach($value as $k => $v) {
+				$v = (int) $v; 
+				if($v) $result[] = $v; 
+			}
+			$result = $this->wire('pages')->getById($result, $this->getRepeaterTemplate($field), $field->get('parent_id')); 
+
+		} else if(Selectors::stringHasOperator($value)) {
+			// selector
+			$parentID = $field->get('parent_id');
+			$templateID = $field->get('template_id');
+			$result = $this->wire('pages')->find("parent_id=$parentID, templates_id=$templateID, $value");
+
+		} else if(strlen($value) && $value[0] == '/') {
+			// path
+			$result = $this->wire('pages')->get($value); 
+		}
+
+		return $result; 
+	}
+
+	/**
+	 * Perform output formatting on the value delivered to the API
+	 *
+	 * If the repeaterMaxItems setting is 1, then we format the value to dereference as single Page rather than a PageArray.
+	 *
+	 * This method is only used when $page->outputFormatting is true. 
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param PageArray $value
+	 * @return PageArray
+	 *
+	 */
+	public function ___formatValue(Page $page, Field $field, $value) {
+
+		if(!$value instanceof PageArray) return $this->getBlankValue($page, $field);
+
+		/* TBA
+		if($field->repeaterMaxItems == 1) {
+			if(count($value)) $value = $value->first();
+				else $value = new NullPage();
+		}
+		*/
+	
+		// used as a clone if a formatted version of $value is different from non-formatted
+		$formatted = null;
+
+		// remove unpublished and ready items that shouldn't be here
+		foreach($value as $p) {
+
+			/*
+			if($p->status < Page::statusHidden) continue; 
+			$remove = false; 
+			if($p->isHidden()) {
+				// hidden pages (assumed to be a ready page) should never be included when page is being viewed (outputFormatting)
+				$remove = true; 
+			} else if($p->isUnpublished() && !$page->isUnpublished()) {
+				// unpublished items may only be included if the page is also unpublished (and presumably being previewed)
+				$remove = true; 
+			}
+			if($remove) {
+			*/
+			
+			if($p->isHidden() || $p->isUnpublished()) {
+				if(is_null($formatted)) $formatted = clone $value;
+				$trackChanges = $formatted->trackChanges();
+				$formatted->setTrackChanges(false); 
+				$formatted->remove($p); 
+				$formatted->setTrackChanges($trackChanges); 
+			}
+		}
+
+		return is_null($formatted) ? $value : $formatted;
+	}
+
+	/**
+	 * Update a DatabaseQuerySelect object to match a Page
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param string $value
+	 * @return DatabaseQuerySelect
+	 *
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+
+		$field = $query->field;
+
+		if($subfield == 'count') { 
+			$value = (int) $value; 
+
+			if(	($operator == '=' && $value == 0) || 
+				(in_array($operator, array('<', '<=')) && $value > -1) ||
+				($operator == '!=' && $value)) {
+
+				$templateIDs = array();
+				foreach($field->getTemplates() as $template) $templateIDs[] = (int) $template->id; 
+				if(count($templateIDs)) {
+					$templateIDs = implode(',', $templateIDs); 
+					$sql = 	"($table.count{$operator}$value OR " . 
+						"($table.count IS NULL AND pages.templates_id IN($templateIDs)))";
+					$query->where($sql); 
+				} else {
+					$query->where("1>2"); // forced non-match
+				}
+
+			} else {
+				$query->where("($table.count{$operator}$value)"); 
+			}
+
+		} else if($subfield == 'parent_id' || $subfield == 'parent') {  
+
+			$subfield = 'parent_id';
+			if(is_object($value)) $value = (string) $value; 
+			$value = (int) $value;
+			$query->where("($table.$subfield{$operator}$value)"); 
+
+		} else if($subfield == 'data' || $subfield == 'id' || !$subfield) {
+			
+			if($subfield == 'id') $subfield = '';
+		
+			// support matching of IDs via word matching fulltext index
+			if(ctype_digit("$value") && !empty($value)) {
+				if($operator === '=') { 
+					$operator = '~=';
+				} else if($operator === '!=') {
+					// @todo specify NOT
+					$operator = '~=';
+				}
+			}
+
+			if(in_array($operator, array('*=', '~=', '^=', '$=', '%='))) {
+				$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
+				$ft->match($table, $subfield, $operator, $value);
+
+			} else if(empty($value)) { 
+				// match where count is 0
+				$query->where("$table.count{$operator}0"); 
+
+			} else {
+				// match /path/to/page or other, not implemented
+			}
+			
+		} else {
+			$f = $this->wire('fields')->get($subfield);
+			if($f) {
+				// match fields from the repeater template
+				// perform a separate find() operation for the subfield
+				$pageFinder = $this->wire(new PageFinder());
+				$value = $this->wire('sanitizer')->selectorValue($value);
+				$templateID = $field->get('template_id');
+				$selectors = $this->wire(new Selectors("templates_id=$templateID, check_access=0, $f->name$operator$value"));
+				$matches = $pageFinder->find($selectors);
+
+				// use the IDs found from the separate find() as our getMatchQuery
+				if(count($matches)) {
+					$ids = array();
+					foreach($matches as $match) $ids[$match['parent_id']] = $match['parent_id'];
+					$query->where("$table.parent_id IN(" . implode(',', $ids) . ")");
+				} else {
+					$query->where("1>2");  // force a non-match
+				}
+			}
+			
+		}
+
+		return $query; 
+	}
+
+	/**
+	 * Return the database schema in predefined format 
+	 * 
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
+	public function getDatabaseSchema(Field $field) {
+
+		$schema = parent::getDatabaseSchema($field); 
+
+		// fields
+		$schema['data'] = 'text NOT NULL';
+		$schema['count'] = 'int NOT NULL';
+		$schema['parent_id'] = 'int NOT NULL';
+
+		// indexes
+		$schema['keys']['data'] = 'FULLTEXT KEY `data` (`data`)'; // just a cache of CSV page IDs for portability
+		$schema['keys']['data_exact'] = 'KEY `data_exact` (`data`(1))'; // just for checking if the field has a value
+		$schema['keys']['count'] = 'KEY `count` (`count`, `pages_id`)'; 
+		$schema['keys']['parent_id'] = 'KEY parent_id (`parent_id`, `pages_id`)';
+	
+		// indicate that this schema does not hold all data managed by this fieldtype
+		$schema['xtra']['all'] = false; 
+
+		return $schema;
+	}
+
+	/**
+	 * Save the given field from page 
+	 *
+	 * @param Page $page Page object to save. 
+	 * @param Field $field Field to retrieve from the page. 
+	 * @return bool True on success, false on DB save failure.
+	 *
+	 */
+	public function ___savePageField(Page $page, Field $field) {
+
+		if(!$page->id || !$field->id) return false;
+		$value = $page->get($field->name); 
+
+		// pages that will be saved
+		$savePages = array();
+
+		// options to pass to save() or clone()
+		$saveOptions = array('uncacheAll' => false); 
+
+		// pages that will be deleted
+		$deletePages = $value->getItemsRemoved();
+
+		$repeaterParent = $this->getRepeaterPageParent($page, $field);
+		$parent_id = $repeaterParent->id;
+		$template_id = $field->get('template_id'); 
+
+		// iterate through each page in the pageArray value
+		// and determine which need to be saved 
+		foreach($value as $key => $p) {
+			
+			/** @var Page $p */
+
+			if($p->template->id != $template_id) {
+				$value->remove($p);
+				$this->message("Removed invalid template ({$p->template->name}) page {$p->path} from field $field", Notice::debug); 
+				continue; 
+			}
+
+			if($p->parent->id != $parent_id) {
+				// clone the individual repeater pages
+				$value->remove($p); 
+				$p = $this->wire('pages')->clone($p, $repeaterParent, false, $saveOptions);
+				$value->add($p);
+				$this->message("Cloned to repeater {$p->path} from field $field", Notice::debug); 
+				continue; 
+			}
+
+			if($p->isNew() && !$p->name && !$p->title) {
+				// if we've got a new repeater page without a name or title
+				// then it's not going to save because it has no way of generating a name
+				// so we will generate one for it
+				$p->name = $this->getUniqueRepeaterPageName();
+			}
+
+			if($p->isChanged() || $p->isNew()) {
+				// if the page has changed or is new, then we will queue it to be saved
+				$savePages[] = $p; 
+
+			} else if($p->id && $p->isUnpublished() && !$p->isHidden()) {
+				// if the page has an ID, but is still unpublished, though not hidden, then we queue it to be saved (and published)
+				$savePages[] = $p; 
+			}
+		}
+
+		// iterate the pages that had changes and need to be saved
+		foreach($savePages as $p) {
+			
+			if($p->id) {
+				// existing page
+				$isHidden = $p->isHidden();
+				$isUnpublished = $p->isUnpublished();
+				$isOn = $p->hasStatus(Page::statusOn);
+				$isProcessed = $p->get('_repeater_processed') === true;
+				$hasErrors = $p->get('_repeater_errors') ? true : false;
+				
+				if($isHidden && $isUnpublished) continue; // this is a 'ready' page, we can ignore
+				
+				$changes = implode(', ', $p->getChanges());
+				$this->message("Saved Repeater {$p->path} " . ($changes ? "($changes)" : ''), Notice::debug); 
+
+				if($isUnpublished && $isOn && $isProcessed && !$hasErrors) {
+					// publish requested and allowed
+					$p->removeStatus(Page::statusUnpublished);
+				}
+
+			} else {
+				$this->message("Added New Repeater", Notice::debug); 
+			}
+
+			// save the repeater page
+			$this->wire('pages')->save($p, $saveOptions);				
+		}
+
+		// iterate through the pages that were removed
+		foreach($deletePages as $p) {
+			// if the deleted value is still present in the pageArray, then don't delete it
+			if($value->has($p)) continue; 
+			// $this->message("Deleted Repeater", Notice::debug); 
+			// delete the repeater page
+			$this->wire('pages')->delete($p);
+		}
+
+		$result = parent::___savePageField($page, $field);
+		// ensure that any of our cloned page replacements (removes) don't get recorded any follow-up saves
+		$value->resetTrackChanges();
+		return $result;
+	}
+
+	/**
+	 * Delete the given field, which implies: drop the table $field->table
+	 *
+	 * This should only be called by the Fields class since fieldgroups_fields lookup entries must be deleted before this method is called. 
+	 *
+	 * With the repeater, we must delete the associated fieldgroup, template and parent as well
+	 *
+	 * @param Field $field Field object
+	 * @return bool True on success, false on DB delete failure.
+	 *
+	 */
+	public function ___deleteField(Field $field) {
+
+		$template = $this->wire('templates')->get((int) $field->get('template_id')); 
+		$parent = $this->wire('pages')->get((int) $field->get('parent_id')); 
+
+		// delete the pages used by this field
+		// check that the parent really is still in our repeaters structure before deleting anything
+		if($parent->id && $parent->parent_id == $this->repeatersRootPageID) {
+
+			$parentPath = $parent->path;
+
+			// remove system status from repeater field parent
+			$parent->addStatus(Page::statusSystemOverride); 
+			$parent->removeStatus(Page::statusSystem); 
+
+			// remove system status from repeater page parents
+			foreach($parent->children as $child) {
+				$child->addStatus(Page::statusSystemOverride);
+				$child->removeStatus(Page::statusSystem); 
+			}
+
+			// resursively delete the field parent and everything below it 
+			$this->wire('pages')->delete($parent, true); 
+
+			$this->message("Deleted Repeater Parent $parentPath", Notice::debug); 
+		}
+
+		// delete the template used by this field
+		// check that the template still has system flag before deleting it
+		if($template && ($template->flags & Template::flagSystem)) {
+
+			$templateName = $template->name; 
+
+			// remove system flag from the template
+			$template->flags = Template::flagSystemOverride; 
+			$template->flags = 0;
+
+			// delete the template
+			$this->wire('templates')->delete($template); 	
+
+			// delete the fieldgroup
+			$fieldgroup = $this->wire('fieldgroups')->get($templateName); 
+			if($fieldgroup) $this->wire('fieldgroups')->delete($fieldgroup); 
+
+			$this->message("Deleted Repeater Template $templateName", Notice::debug); 
+		}
+
+		return parent::___deleteField($field); 
+	}
+
+	/**
+	 * Delete the given Field from the given Page
+	 *
+	 * @param Page $page 
+	 * @param Field $field Field object
+	 * @return bool True on success, false on DB delete failure.
+	 *
+	 */
+	public function ___deletePageField(Page $page, Field $field) {
+
+		$result = parent::___deletePageField($page, $field); 
+		$this->deletePageField = $field->get('parent_id');
+		$fieldParent = $this->wire('pages')->get($field->get('parent_id'));
+
+		// confirm that this field parent page is still part of the pages we manage
+		if($fieldParent->parent_id == $this->repeatersRootPageID) {
+			// locate the repeater page parent
+			$parent = $fieldParent->child('name=' . self::repeaterPageNamePrefix . $page->id); 
+			if($parent->id) { 
+				// remove system status from repeater page parent
+				$parent->addStatus(Page::statusSystemOverride);
+				$parent->removeStatus(Page::statusSystem);
+				$this->message("Deleted {$parent->path}", Notice::debug); 
+				// delete the repeater page parent and all the repeater pages in it
+				$this->wire('pages')->delete($parent, true); 
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Delete old ready pages that are just taking up space
+	 * 
+	 * @param Field $field
+	 * @param bool $delete Specify true to delete the old ready pages
+	 * @param int $secondsOld Number of seconds old that the page has to be to be considered "old" (default=259200 or 3 days)
+	 * @return int Count of old ready pages, or if $delete===true, then number that was deleted
+	 * 
+	 */
+	public function countOldReadyPages(Field $field, $delete = false, $secondsOld = 259200) {
+		if(!$field->type instanceof FieldtypeRepeater) return 0;
+		$cnt = 0;
+		$template = $this->getRepeaterTemplate($field);
+		$parent = $this->getRepeaterParent($field);
+		if(!$template || !$parent) return 0;
+		$status = Page::statusHidden + Page::statusUnpublished;
+		$modified = time() - $secondsOld;
+		$selector = "has_parent=$parent, template=$template, status>=$status, modified<=$modified, include=all";
+		if($delete) {
+			$items = $this->wire('pages')->find($selector);
+			foreach($items as $item) {
+				try {
+					if($item->delete()) $cnt++;
+				} catch(\Exception $e) {
+					$this->error("Error deleting old repeater item $item->path - " . $e->getMessage());
+				}
+			}
+		} else {
+			$cnt = $this->wire('pages')->count($selector);
+		}
+		return $cnt;
+	}
+
+	/**
+	 * Create a cloned copy of Field
+	 * 
+	 * @param Field $field
+	 * @throws WireException
+	 * @return Field
+	 *
+	 */
+	public function ___cloneField(Field $field) {
+		throw new WireException("Sorry, repeater fields are not currently cloneable."); 	
+		/*	
+		$field = parent::___cloneField($field); 
+		$field->parent_id = null;
+		$field->template_id = null;
+		return $field; 
+		*/
+	}
+
+	/**
+	 * Return configuration fields definable for each FieldtypePage
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+
+		$inputfields = parent::___getConfigInputfields($field);
+		$template = $this->getRepeaterTemplate($field); 
+		$parent = $this->getRepeaterParent($field); 
+
+		if($this->wire('input')->post->repeaterFields) {
+			$this->saveConfigInputfields($field, $template, $parent);
+		}
+		
+		require_once(__DIR__ . '/config.php');
+		$helper = new FieldtypeRepeaterConfigHelper($field);
+		$inputfields = $helper->getConfigInputfields($inputfields, $template, $parent);
+		return $inputfields; 
+	}
+
+	/**
+	 * Helper to getConfigInputfields, handles adding and removing of repeater fields
+	 * 
+	 * @param Field $field
+	 * @param Template $template
+	 * @param Page $parent
+	 * 
+	 */
+	protected function ___saveConfigInputfields(Field $field, Template $template, Page $parent) {
+		require_once(__DIR__ . '/config.php');
+		$helper = new FieldtypeRepeaterConfigHelper($field);
+		$helper->saveConfigInputfields($template);
+	}
+
+	/**
+	 * Just here to fulfill ConfigurableModule interface
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function getModuleConfigInputfields(array $data) {
+		return $this->wire(new InputfieldWrapper());
+	}
+
+	/**
+	 * Remove advanced options that aren't supposed with repeaters
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigAdvancedInputfields(Field $field) {
+		$inputfields = parent::___getConfigAdvancedInputfields($field);
+		// these two are potential troublemakers when it comes to repeaters
+		$inputfields->remove($inputfields->get('autojoin'));
+		$inputfields->remove($inputfields->get('global'));
+		return $inputfields;
+	}
+
+	/**
+	 * Install the module
+	 *
+	 */
+	public function ___install() {
+
+		$adminRoot = $this->wire('pages')->get($this->wire('config')->adminRootPageID); 
+
+		$page = $this->wire('pages')->newPage(array('template' => 'admin')); 
+		$page->parent = $adminRoot; 
+		$page->status = Page::statusHidden | Page::statusLocked | Page::statusSystemID;
+		$page->name = 'repeaters';
+		$page->title = 'Repeaters';
+		$page->sort = $adminRoot->numChildren;
+		$page->save();
+
+		$configData = array('repeatersRootPageID' => $page->id); 
+		$this->wire('modules')->saveModuleConfigData($this, $configData);
+
+		$this->message("Added page {$page->path}", Notice::debug); 
+	}
+
+	/**
+	 * Uninstall the module
+	 *
+	 */
+	public function ___uninstall() {
+
+		// delete the repeaters page
+		$page = $this->wire('pages')->get($this->repeatersRootPageID); 
+		if($page->id) { 
+			$page->addStatus(Page::statusSystemOverride); 
+			$page->removeStatus(Page::statusSystem); 
+			$page->removeStatus(Page::statusSystemID); 
+			$page->removeStatus(Page::statusSystemOverride);
+			$page->removeStatus(Page::statusLocked); 
+			if($page->id) $this->wire('pages')->delete($page); 
+			$this->message("Removed page {$page->path}", Notice::debug); 
+		}
+	}
+
+}
+

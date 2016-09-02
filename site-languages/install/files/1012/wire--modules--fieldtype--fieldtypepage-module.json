@@ -1,0 +1,45 @@
+{
+    "file": "wire\/modules\/Fieldtype\/FieldtypePage.module",
+    "textdomain": "wire--modules--fieldtype--fieldtypepage-module",
+    "translations": {
+        "e28f86b62065207ceeb0b5057eb98537": {
+            "text": "Wenn ihr Feld mehrere Seiten enth\u00e4lt, sollten Sie die erste Option (PageArray) w\u00e4hlen. Falls ihr Feld nur eine einzelne Seite enthalten muss, dann w\u00e4hlen Sie eine der Optionen f\u00fcr einzelne Seiten (wenn Sie nicht sicher sind welche, w\u00e4hlen Sie die letzte Option)."
+        },
+        "7b438db8547ac1c9ab6c7ba6cb1532db": {
+            "text": "Mehrere Seiten (PageArray)"
+        },
+        "a24fcc695edbc57c60c768a732d2f30d": {
+            "text": "Einzelne Seite (Page) oder boolean falsch wenn keine ausgew\u00e4hlt"
+        },
+        "94a53712b9a34f922a776fc5aa68d31f": {
+            "text": "Einzelne Seite (Page) oder leere Seite (NullPage) wenn keine ausgew\u00e4hlt"
+        },
+        "d1d7182c9905811b10bcd1f5bdcb9eda": {
+            "text": "Referenzieren in API als"
+        },
+        "7d5f7f76b51ac880e91da28dbc52df35": {
+            "text": "Unver\u00f6ffentlichte Seiten erlauben?"
+        },
+        "58b4f6dae2009a3d22a395a94de85360": {
+            "text": "Wenn ausgew\u00e4hlt sind unver\u00f6ffentlichte Seiten als Feld-Eintrag erlaubt. Unver\u00f6ffentlichte Seiten sind nicht im Frontend sichtbar, mit Ausnahme derer welche bearbeitbar sind."
+        },
+        "2d6565614947b2a6daba1a06515124da": {
+            "text": "Verwaiste Seitenverweise finden und bereinigen."
+        },
+        "35a326c72a6584f3c7d70109b5cd45f1": {
+            "text": "Warnung: zur Sicherheit sollten Sie zuerst ein Backup ihrer Datenbank durchf\u00fchren."
+        },
+        "f7e35a334f1501cc0365458563f90cf5": {
+            "text": "Dies bereinigt ein Problem in \u00e4lteren Versionen von ProcessWire. Dort konnten Verweise auf bereits gel\u00f6schte Seiten bestehen bleiben. Falls Sie bei Suchvorg\u00e4ngen nach Seiten falsche Resultate erhalten (speziell mit Selektoren welche pageref.count nutzen), sollten Sie diesen Reinigungsvorgang durchf\u00fchren."
+        },
+        "081c14de091c8761b82f930fd59c8f16": {
+            "text": "Finden und bereinigen..."
+        },
+        "393e717c8215abdbe581b21180abfa2b": {
+            "text": "Kann Seite nicht finden"
+        },
+        "34a56e6d474c258bb9f4553aae0c7b81": {
+            "text": "Kann Template nicht finden"
+        }
+    }
+}

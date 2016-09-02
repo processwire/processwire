@@ -1,0 +1,34 @@
+#content strong {
+	font-weight: bold; 
+}
+
+#content li {
+	margin: 3px 0;
+	padding: 3px 4px;
+}
+
+#content a {
+	font-weight: bold; 
+}
+
+#content label {
+	font-weight: bold; 
+}
+
+#content button {
+	padding: 2px 7px 2px 0; 
+	font-size: 1em;
+}
+
+#content .ui-state-error {
+	font-weight: bold; 
+}
+
+#content h2 {
+	margin-top: 1.5em; 
+}
+
+#content form h2:first-child {
+        margin-top: 0;
+}
+

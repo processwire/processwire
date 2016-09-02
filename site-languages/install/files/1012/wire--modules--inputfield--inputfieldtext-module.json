@@ -1,0 +1,51 @@
+{
+    "file": "wire\/modules\/Inputfield\/InputfieldText.module",
+    "textdomain": "wire--modules--inputfield--inputfieldtext-module",
+    "translations": {
+        "03272093fac940815539048b032444ea": {
+            "text": "Einzelne Zeile Text"
+        },
+        "6f6cb72d544962fa333e2e34ce64f719": {
+            "text": "Gr\u00f6\u00dfe"
+        },
+        "7fcc26bcb0e9d85b555592f97cde9539": {
+            "text": "Die angezeigte Gr\u00f6\u00dfe dieses Feldes (in Zeichen). F\u00fcr volle Gr\u00f6\u00dfe auf 0 setzen."
+        },
+        "2eb8badec738786d01bb81d0ee6ab3c0": {
+            "text": "Maximale Gr\u00f6\u00dfe"
+        },
+        "a4965347ff8523a66897b92fec81e04e": {
+            "text": "Die maximal zul\u00e4ssige Gr\u00f6\u00dfe dieses Feldes (in Zeichen)."
+        },
+        "6485c7641245873388f0170f472183c6": {
+            "text": "Platzhalter-Text"
+        },
+        "dc08a8f73b667ceb56b5a22449e41d3e": {
+            "text": "Optionaler Platzhalter-Text, der erscheint, wenn das Feld leer ist."
+        },
+        "68adfe27201a615848e5da595ae9f690": {
+            "text": "Vorgabewert"
+        },
+        "c3924ea34ee91e9de3ff80493fce8527": {
+            "text": "Optionaler Vorgabe-\/Standardwert, mit dem das Feld vorbelegt wird."
+        },
+        "e79dbc99408f4949cb46ad5b73c7408a": {
+            "text": "Wenn markiert, werden alle HTML Tags von Input bei Ausf\u00fchrung entfernt."
+        },
+        "e69230ccdb60475aa38ea2c4cdc72ea0": {
+            "text": "Dies wird empfohlen falls das Feld kein HTML unterst\u00fctzen muss."
+        },
+        "3c5d93eab9cf5f9c46905bcf44e863af": {
+            "text": "Passt nicht zum geforderten Muster"
+        },
+        "0c576bc57cb2f57f4a2632d59599c26e": {
+            "text": "Tags entfernen"
+        },
+        "6a5e3a3d3be1a3d27b96e1e378c31ad9": {
+            "text": "Optionale Regul\u00e4re Ausdr\u00fccke, die f\u00fcr das Eingabe-Feld als Voraussetzung definiert werden k\u00f6nnen. Diese finden zum einen auf der Client Seite (durch HTML5-Attribute) Anwendung und werden auf dem Server zur Validierung genutzt. Tragen Sie bitte ein Beispiel in die Feld Beschreibung ein."
+        },
+        "27615527f65d7d865a330397568fe263": {
+            "text": "Gehen Sie auf [html5pattern.com](http:\/\/html5pattern.com\/), um Beispiele zu Hilfen zu erhalten."
+        }
+    }
+}

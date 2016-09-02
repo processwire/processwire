@@ -1,0 +1,252 @@
+<?php namespace ProcessWire;
+
+/**
+ * Class SystemUpdater
+ * 
+ * ProcessWire System Helper Module
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class SystemUpdater extends WireData implements Module, ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('System Updater', __FILE__), // Module Title
+			'summary' => __('Manages system versions and upgrades.', __FILE__), // Module Summary
+			'permanent' => true, 
+			'singular' => true, 
+			'autoload' => false, 
+
+			/**
+			 * This version number is important, as this updater keeps the systemVersion up with this version
+			 *
+			 */
+			'version' => 15, 
+			);
+	}
+
+	protected $configData = array(
+		// systemVersion generally represents the DB schema version, but 
+		// can represent anything about the system that's related to the individual installation.
+		// 0 = the first version when this module was created, should remain there. 
+		'systemVersion' => 0, 
+		);
+
+	/**
+	 * Number of updates that were applied during this request
+	 *
+	 */
+	protected $numUpdatesApplied = 0;
+
+	/**
+	 * Part of the ConfigurableModule interface, sets config data to the module
+	 *
+	 */
+	public function setConfigData(array $data) {
+		$this->configData = array_merge($this->configData, $data);
+	}
+	
+	/**
+	 * Perform version checks and update as needed
+	 *
+	 */
+	public function init() {
+
+		$config = $this->wire('config');
+		$info = self::getModuleInfo();
+		$moduleVersion = $info['version'];
+		
+		foreach($this->configData as $key => $value) {
+			if($key == 'coreVersion') continue;
+			$config->$key = $value; 
+		}
+		
+		$systemVersion = (int) $config->systemVersion;
+		
+		if(empty($systemVersion)) {
+			// double check, just in case (should not be possible for this to occur)
+			$this->configData = $this->wire('modules')->getModuleConfigData($this);
+			$systemVersion = (int) isset($this->configData['systemVersion']) ? $this->configData['systemVersion'] : 0;
+		}
+
+		while($systemVersion < $moduleVersion) {
+
+			// apply the incremental version update
+			if(!$this->update($systemVersion+1)) break;
+
+			// we increment the config systemVersion so that the version is also available to the updater
+			$systemVersion++;
+
+			// we save the configData for every version in case an update throws an exception
+			// then already applied updates won't be applied again
+			$this->saveSystemVersion($systemVersion); 
+			$this->numUpdatesApplied++;
+		}
+
+		if($this->numUpdatesApplied > 0) {
+			// if updates were applied, reset the modules cache 
+			$this->modules->resetCache();
+		}
+
+	}
+
+	/**
+	 * Called after ProcessWire API ready
+	 * 
+	 */
+	public function ready() {
+		static $called = false;
+		if($called) return; // just in case we add auto-ready support to non-autoload modules 
+		
+		if($this->wire('page')->template != 'admin') return;
+		if($this->wire('config')->ajax) return;
+		
+		$versionChanged = false;
+		$coreVersion = isset($this->configData['coreVersion']) ? $this->configData['coreVersion'] : '';
+		$configVersion = $this->wire('config')->version;
+		if($coreVersion != $configVersion) $this->coreVersionChange($coreVersion, $configVersion);
+		$called = true;
+	}
+
+	/**
+	 * Hook called when the core version changes, in case any listeners want it
+	 * 
+	 * Note that version change is only detected when a page from the admin is viewed. 
+	 * To hook this, hook to "SystemUpdater::coreVersionChange"
+	 * 
+	 * @param $fromVersion
+	 * @param $toVersion
+	 * 
+	 */
+	protected function ___coreVersionChange($fromVersion, $toVersion) {
+		
+		$this->message(sprintf($this->_('Detected core version change %1$s => %2$s'), $fromVersion, $toVersion));
+		
+		if( (strpos($fromVersion, '2') === 0 && strpos($toVersion, '3') === 0) ||
+			(strpos($fromVersion, '3') === 0 && strpos($toVersion, '2') === 0)) {
+			// clear FileCompiler cache
+			$config = $this->wire('config');
+			if($config->templateCompile || $config->moduleCompile) {
+				$compiler = new FileCompiler($this->wire('config')->paths->templates);
+				$compiler->clearCache(true);
+				$this->message($this->_('Cleared file compiler cache')); 
+			}
+		}
+		
+		if(!$this->numUpdatesApplied) {
+			// reset modules cache, only if it hasn't been reset already by a system update
+			$this->modules->resetCache();
+		}
+		
+		$this->configData['coreVersion'] = $toVersion;
+		$this->wire('modules')->saveModuleConfigData($this, $this->configData);
+		
+	}
+
+	/**
+	 * Save the system version as the given version number
+	 *
+	 * @param int $version
+	 *
+	 */ 
+	public function saveSystemVersion($version) {
+		$version = (int) $version;
+		$this->wire('config')->systemVersion = $version; 
+		$this->configData['systemVersion'] = $version;
+		$this->configData['coreVersion'] = $this->wire('config')->version;
+		$this->wire('modules')->saveModuleConfigData($this, $this->configData);
+		$this->message("Update #$version: Completed!"); 
+	}
+
+	/**
+	 * Check for an update file in the format: SystemUpdater123 where '123' is the version it upgrades to
+	 *
+ 	 * If found, instantiate the class and it's constructor should perform the update or add any hooks necessary to perform the update
+	 *
+	 */ 
+	protected function update($version) {
+		
+		require_once(dirname(__FILE__) . '/SystemUpdate.php');
+		
+		$className = 'SystemUpdate' . $version;
+		$filename = $this->config->paths->SystemUpdater . $className . '.php';
+		$className = wireClassName($className, true);
+		$errorMessage = sprintf('Failed to apply update %d', $version); 
+		
+		if(is_file($filename)) {
+			try {
+				include($filename); 
+				$update = $this->wire(new $className($this)); 
+				$update->message('Initializing update'); 
+				$success = $update->execute();
+			} catch(\Exception $e) {
+				$msg = $errorMessage . " - " . $e->getMessage(); 
+				if($update) $update->error($msg); 
+					else $this->error($msg); 
+				$success = false;
+			}
+			if(!$success) {
+				if($success === false) $update->error($errorMessage);
+				return false;
+			}
+		}
+		return true; 
+	}
+	
+	public function message($text, $flags = 0) {
+		$this->log($text);
+		return parent::message($text, $flags);
+	}
+
+	public function error($text, $flags = 0) {
+		$text = "ERROR: $text";
+		$this->log($text);
+		return parent::error($text, $flags);
+	}
+
+	/**
+	 * Log a message to system-updater.txt log file
+	 *
+	 */
+	public function log($text) {
+		$options = array('showUser' => false, 'showPage' => false); 
+		$this->wire('log')->save('system-updater', $text, $options); 
+	}
+
+	/**
+	 * Required for ConfigurableModule interface
+	 *
+	 */
+	public function getModuleConfigInputfields(array $data) {
+		
+		$inputfields = $this->wire(new InputfieldWrapper());
+
+		$logfile = $this->wire('config')->paths->logs . 'system-updater.txt';
+		if(is_file($logfile)) {
+			$f = $this->wire('modules')->get('InputfieldMarkup'); 	
+			$f->attr('name', '_log'); 
+			$f->label = $this->_('System Update Log'); 
+			$f->value = '<pre>' . $this->wire('sanitizer')->entities(file_get_contents($logfile)) . '</pre>';
+			$inputfields->add($f); 
+		}
+		
+		$f = $this->wire('modules')->get('InputfieldInteger'); 
+		$f->attr('name', 'systemVersion'); 
+		$f->label = $this->_('System Version'); 
+		$f->description = $this->_('This lets you re-apply a system version update by reducing the version number.');
+		$f->attr('value', $data['systemVersion']); 
+		$inputfields->add($f);
+	
+		$f = $this->wire('modules')->get('InputfieldHidden');
+		$f->attr('name', 'coreVersion');
+		$f->attr('value', $this->wire('config')->version);
+		$inputfields->add($f);
+
+		return $inputfields;
+	}
+
+
+}

@@ -1,0 +1,22 @@
+{
+   "file":"wire\/modules\/Inputfield\/InputfieldRadios\/InputfieldRadios.module",
+   "textdomain":"wire--modules--inputfield--inputfieldradios--inputfieldradios-module",
+   "translations":{
+      "cf8a8cf17df1b387458f33ace69f49be":{
+         "text":"Radio-Buttons in Spalten"
+      },
+      "7041d69f9024a46791714e59812fa68f":{
+         "text":"Radio-Buttons"
+      },
+      "692fd08ceebbbf5818d492fae7ebe7db":{
+         "text":"Radio-Buttons, um ein einzelnes Feld auszuw\u00e4hlen"
+      },
+      "9cf19cb880b90f114795a612ab1d660f":{
+         "text":"Wenn Sie die Radio-Buttons in Spalten (anstatt gestapelt) ausgeben m\u00f6chten, geben Sie die gew\u00fcnschte Anzahl Spalten (bis zu zehn) ein. Um die Buttons nebeneinander (inline) anzuzeigen, geben Sie 1 ein."
+      },
+      "a4b7341d7cd692bd8fbd2595040ad78d":{
+         "text":"Wenn hier keine Nummer angegeben ist, wird jeder Radio-Button auf einer eigenen Zeile dargestellt."
+      }
+   }
+}
+

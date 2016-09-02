@@ -1,0 +1,36 @@
+{
+    "file": "wire\/modules\/Inputfield\/InputfieldInteger.module",
+    "textdomain": "wire--modules--inputfield--inputfieldinteger-module",
+    "translations": {
+        "15b920388c8c88882ae50ac7e68a52ad": {
+            "text": "Integer (positiv oder negativ)"
+        },
+        "ddf1608e4f7def4fd584f806267255d4": {
+            "text": "Numerischer Input-Typ"
+        },
+        "339f8a8a3ec4255e3982690df6c764fc": {
+            "text": "Bei ausgew\u00e4hltem \"Number\"-Typ stehen in Browsern, die es unterst\u00fctzen, einige zus\u00e4tzliche, client-seitige Pr\u00fcfungen zur Verf\u00fcgung."
+        },
+        "702a538a7348a9e52b08913558867f70": {
+            "text": "Minimal-Wert"
+        },
+        "e9aac774de6f4b2d481938ff2403e5a8": {
+            "text": "Der zul\u00e4ssige minimale Wert f\u00fcr dieses Feld. Leer lassen, um ihn zu ignorieren."
+        },
+        "48b0ece3cdd23c3605c8d7ee617c43ca": {
+            "text": "Maximal-Wert"
+        },
+        "41f052267baa5d7342df9bad1b957733": {
+            "text": "Der zul\u00e4ssige maximale Wert f\u00fcr dieses Feld. Leer lassen, um ihn zu ignorieren."
+        },
+        "edb082a8145b0705db7f2b843ed57471": {
+            "text": "Zahlen (HTML5)"
+        },
+        "100b8cad7cf2a56f6df78f171f97a1ec": {
+            "text": "beliebig"
+        },
+        "004d36e4fa95eec8357b066aa20e9d8d": {
+            "text": "Festgelegter Wert %3$s entfernt weil au\u00dferhalb des Wertebereiches (min=%1$s, max=%2$s)"
+        }
+    }
+}

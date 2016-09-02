@@ -1,0 +1,78 @@
+<?php namespace ProcessWire;
+
+class InputfieldFloat extends InputfieldInteger {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Float', __FILE__), // Module Title
+			'summary' => __('Floating point number with precision', __FILE__), // Module Summary
+			'version' => 103,
+			'permanent' => true, 
+			);
+	}
+
+	public function __construct() {
+		$this->set('precision', 2); 
+		parent::__construct();
+	}
+
+	public function init() {
+		parent::init();
+		$this->attr('step', 'any'); // HTML5 attr required to support decimals with 'number' types
+	}
+
+	protected function sanitizeValue($value) {
+		if(!is_float($value) && !is_int($value)) {
+			$value = FieldtypeFloat::strToFloat((string) $value);
+		}
+		$precision = $this->precision; 
+		if(is_null($precision)) $precision = FieldtypeFloat::getPrecision($value); 
+		return strlen("$value") ? round((float) $value, $precision) : '';
+	}
+
+	/**
+	 * Returns true if number is in valid range, false if not
+	 *
+	 * Overriding the function from InputfieldInteger to ensure float types (rather than int types) are used
+	 *
+	 */
+	protected function isInRange($value) {
+		$inRange = true;
+		$min = $this->attr('min');
+		$max = $this->attr('max');
+		if(strlen("$value")) {
+			if(strlen("$min") && ((float) $value) < ((float) $min)) {
+				$inRange = false;
+			}
+			if(strlen("$max") && ((float) $value) > ((float) $max)) {
+				$inRange = false;
+			}
+		}
+		return $inRange;
+	}
+
+	/**
+	 * Override method from Inputfield to properly handle HTML5 number values
+	 * 
+	 * @param array $attributes
+	 * @return string
+	 * 
+	 */
+	public function getAttributesString(array $attributes = null) {
+		if($attributes && $attributes['type'] === 'number' && is_float($attributes['value'])) {
+			if(strlen("$attributes[value]") && !ctype_digit(str_replace('.', '', $attributes['value']))) {
+				// the HTML5 number input type requires "." as the decimal
+				$locale = localeconv();
+				$decimal = $locale['decimal_point'];
+				if($decimal !== '.' && strpos("$attributes[value]", $decimal) !== false) {
+					$parts = explode($decimal, $attributes['value'], 2);
+					if(count($parts) == 2) {
+						$attributes['value'] = implode('.', $parts);
+					}
+				}
+			}
+		}
+		return parent::getAttributesString($attributes);
+	}
+
+}

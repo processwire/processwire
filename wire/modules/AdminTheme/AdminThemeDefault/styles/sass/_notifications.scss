@@ -1,0 +1,181 @@
+// General Notice/Notification styles
+.NoticeMessage {
+	color: $no-message-color;
+	background: $no-message-bg;
+	
+	i.fa {
+		color: $no-message-icon-color; 
+	}
+
+	&.open, &:hover {
+		color: $no-message-open-color;
+		background: $no-message-open-bg;
+	}
+	
+	a {
+		color: $no-message-link-color;
+		&:hover {
+			color: $no-message-link-hover-color;
+		}
+	}
+}
+
+.NoticeWarning {
+	color: $no-warning-color;
+	background: $no-warning-bg;
+	
+	i.fa {
+		color: $no-warning-icon-color; 
+	}
+
+	&.open, &:hover {
+		color: $no-warning-open-color;
+		background: $no-warning-open-bg;
+	}
+	
+	a {
+		color: $no-warning-link-color;
+		&:hover {
+			color: $no-warning-link-hover-color;
+		}
+	}
+}
+
+.NoticeError {
+	color: $no-error-color;
+	background: $no-error-bg;
+	
+	i.fa {
+		color: $no-error-icon-color; 
+	}
+
+	&.open, &:hover {
+		color: $no-error-open-color;
+		background: $no-error-open-bg;
+	}
+	
+	a {
+		color: $no-error-link-color;
+		&:hover {
+			color: $no-error-link-hover-color;
+		}
+	}
+}
+
+#NotificationList .NotificationHasProgress {
+	background: $progressbar-bg;
+	color: $progressbar-text-color; 
+
+	.NotificationProgress {
+		background: $progressbar-value-bg;
+	}
+	i.fa {
+		color: $progressbar-text-color; 
+	}
+	a, a:hover {
+		color: $progressbar-text-color; 
+	}
+}
+
+
+// Specific to #NotificationList
+#NotificationList, #notices {
+	.NoticeMessage,
+	.NoticeError,
+	.NoticeWarning {
+		padding: 0.25em 0; 
+		border: none; 
+		border-bottom: 1px solid $no-border-color;
+		
+		a {
+			text-decoration: underline;
+		}
+	}
+}
+
+	
+// Specific to #NotificationBug
+#NotificationBug {
+	color: $no-bug-color; 
+	background: $no-bug-bg;
+	left: 25%;
+	
+	&:hover {
+		color: $no-bug-hover-color;
+		background: $no-bug-hover-bg;
+	}
+
+	&.open {
+		color: $no-bug-open-color; 
+		background: $no-bug-open-bg;
+		
+		&:hover {
+			color: $no-bug-open-hover-color;
+			background: $no-bug-open-hover-bg;
+		}
+	}
+	
+	&.NoticeWarning {
+		color: $no-warning-color;
+		background: $no-warning-bg;
+	}
+	
+	&.NoticeError {
+		color: $no-error-color;
+		background: $no-error-bg;
+	}
+
+	/* All Mobile Sizes (devices and browser) */
+	@media only screen and (max-width: 767px) {
+		left: 55%; 
+	}
+}
+
+// Specific to #NotificationGhosts
+#NotificationGhosts {
+	top: 54px; 
+	
+	li {
+		.NoticeMessage {
+			color: $no-ghost-message-color; 	
+			background: $no-ghost-message-bg;
+			
+			i.fa {
+				color: $no-ghost-message-icon-color;
+			}
+		}
+		.NoticeWarning {
+			color: $no-ghost-warning-color;
+			background: $no-ghost-warning-bg;
+			
+			i.fa {
+				color: $no-ghost-warning-icon-color;
+			}
+		}
+		.NoticeError {
+			color: $no-ghost-error-color;
+			background: $no-ghost-error-bg;
+			
+			i.fa {
+				color: $no-ghost-error-icon-color;
+			}
+		}
+	}
+}
+
+#notices .notice-remove {
+	float: right; 
+	color: $highlight-color; 
+	text-decoration: none; 
+	padding: 0 0.5em 0 1em; 
+}
+
+
+.ui-state-highlight a,
+.ui-state-error a {
+	text-decoration: underline; 
+}
+
+p span.ui-state-error {
+	padding: 0.25em 0.5em;
+}

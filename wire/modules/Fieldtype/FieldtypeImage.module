@@ -1,0 +1,82 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Image Fieldtype
+ *
+ * Field that stores one or more image files. 
+ *
+ * For documentation about the fields used in this class, please see:  
+ * /wire/core/Fieldtype.php
+ * /wire/core/FieldtypeMulti.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class FieldtypeImage extends FieldtypeFile {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Images',
+			'version' => 101,
+			'summary' => 'Field that stores one or more GIF, JPG, or PNG images',
+			'permanent' => true, 
+			);
+	}
+
+	public function getBlankValue(Page $page, Field $field) {
+		$pageimages = $this->wire(new Pageimages($page));
+		$pageimages->setField($field);
+		$pageimages->setTrackChanges(true); 
+		return $pageimages; 
+	}
+
+	protected function getBlankPagefile(Pagefiles $pagefiles, $filename) {
+		return $this->wire(new Pageimage($pagefiles, $filename)); 
+	}
+
+	/*
+	public function getInputfield(Page $page, Field $field) {
+
+		// even though we don't want this input field, call it anyway
+		parent::getInputfield($page, $field); 
+
+		$inputfield = $this->modules->get("InputfieldImage"); 
+		$inputfield->class = $this->className();
+
+		$this->setupHooks($page, $field, $inputfield);
+
+		return $inputfield;
+	}
+	*/
+
+	protected function getDefaultFileExtensions() {
+		return "gif jpg jpeg png";
+	}
+
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		$pagefiles = $value; 
+		$value = parent::___exportValue($page, $field, $value, $options); 
+		foreach($value as $k => $v) {
+			$img = $pagefiles->get($v['name']); 
+			$value[$k]['width'] = $img->width();
+			$value[$k]['height'] = $img->height();
+		}
+		return $value; 	
+	}
+
+	public function ___getConfigInputfields(Field $field) {
+
+		$inputfields = parent::___getConfigInputfields($field);
+		$f = $inputfields->get('outputString'); 
+		$f->attr('placeholder', "i.e. <img src='{url}' alt='{description}' />");
+		$f->notes .= ", {width}, {height}";
+		
+		return $inputfields; 
+	}
+
+
+}
+

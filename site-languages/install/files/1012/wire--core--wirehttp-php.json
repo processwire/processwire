@@ -1,0 +1,21 @@
+{
+    "file": "wire\/core\/WireHttp.php",
+    "textdomain": "wire--core--wirehttp-php",
+    "translations": {
+        "17cdc65517e6e324dfb960273bee2d99": {
+            "text": "WireHttp::download-OpenSSL Erweiterung erforderlich aber nicht vorhanden."
+        },
+        "467af8bc03dee4f2214f406ef27a2cd2": {
+            "text": "fopen Fehler f\u00fcr Dateiname:"
+        },
+        "77c7f3f51ebd4fa702990b4e33b1b168": {
+            "text": "Download URLs m\u00fcssen mit http:\/\/ oder https:\/\/ beginnen"
+        },
+        "477b108941919947d3935e031360afdb": {
+            "text": "Dateien herunterladen wird nicht unterst\u00fctzt (allow_url_fopen deaktiviert und\/oder CURL nicht installiert)"
+        },
+        "0209b06558d47ad36cee247c670ff405": {
+            "text": "Datei kann nicht heruntergeladen werden"
+        }
+    }
+}

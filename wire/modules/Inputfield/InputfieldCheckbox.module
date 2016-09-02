@@ -1,0 +1,173 @@
+<?php namespace ProcessWire;
+
+/**
+ * An Inputfield for handling a single checkbox
+ *
+ * Note: if you want a checkbox already checked, you need to add a setAttribute('checked', 'checked'); 
+ * 
+ * @property string $checkedValue
+ * @property string $uncheckedValue
+ * @property string $label2 Alterate label to display next to checkbox (default=use regular label)
+ * @property int $autocheck When set to 1, setting value attribute to non-blank/non-zero automatically triggers checked. 
+ *
+ */
+class InputfieldCheckbox extends Inputfield {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Checkbox', __FILE__), // Module Title
+			'summary' => __('Single checkbox toggle', __FILE__), // Module Summary
+			'version' => 104,
+			'permanent' => true, 
+			);
+	}
+
+	const checkedValueDefault = 1; 
+	const uncheckedValueDefault = '';
+
+	/**
+	 * True if the $checkedValue set manually (and should be used as a label), false if it was inherited from $value attribute
+	 *
+	 */
+	protected $checkedValueIsLabel = false;
+
+	public function __construct() {
+		$this->set('checkedValue', self::checkedValueDefault); 
+		$this->checkedValueIsLabel = false; // cancel line above
+		$this->set('uncheckedValue', self::uncheckedValueDefault); 
+		$this->set('label2', ''); // alternate label for checkbox only
+
+		// when autocheck set to 1, setting the value attribute to non-zero automatically triggered checked=checked attribute
+		$this->set('autocheck', 0); 
+
+		parent::__construct();
+	}
+
+	public function init() {
+		parent::init();
+		$this->attr('checked', ''); 
+		//$this->set('skipLabel', Inputfield::skipLabelFor); // tell InputfieldWrapper not to use a 'for' attribute with it's autogen'd <label>
+	}
+
+	public function ___render() {
+		$this->set('skipLabel', $this->description || $this->label2 ? Inputfield::skipLabelFor : Inputfield::skipLabelHeader); 
+		// TBA: if($this->uncheckedValue) return $this->renderRadio();
+		$attrs = $this->getAttributes();
+		$attrs['value'] = $this->checkedValue; 
+		$label = $this->label;
+		if($this->checkedValueIsLabel) $label = $this->checkedValue;
+			else if($this->label2) $label = $this->label2; 
+		$out = 	
+			"\n<label><input type='checkbox' " . $this->getAttributesString($attrs) . " />" . 
+			"<span class='pw-no-select'>" . $this->entityEncode($label) . "</span></label>"; 
+		return $out; 
+	}
+
+	/* TBA: May move to be a separate 'toggle' Inputfield, keeping for reference
+	public function ___renderRadio() {
+
+		$attrs = $this->getAttributes();
+
+		$attrs['value'] = $this->checkedValue; 
+		$attrs['checked'] = $this->attr('value') == $this->checkedValue ? 'checked' : '';
+		if(empty($attrs['checked'])) unset($attrs['checked']); 
+		$label = $this->entityEncode($this->checkedValue);
+		$out = "\n<label><input type='radio' " . $this->getAttributesString($attrs) . " /> $label</label> "; 
+
+		$attrs['value'] = $this->uncheckedValue; 
+		$attrs['checked'] = $this->attr('value') == $this->uncheckedValue ? 'checked' : '';
+		if(empty($attrs['checked'])) unset($attrs['checked']); 
+		$label = $this->entityEncode($this->uncheckedValue);
+		$out .= "\n<label><input type='radio' " . $this->getAttributesString($attrs) . " /> $label</label> "; 
+
+		return $out; 
+	}
+	*/
+
+	public function ___renderValue() {
+		$value = $this->attr('value');
+		if($value != self::uncheckedValueDefault && $value != $this->uncheckedValue) {
+			$value = $this->wire('sanitizer')->entities($this->checkedValue); 
+			$value = $value === "1" ? $this->_('Checked') : $value;
+			$value = "<i class='fa fa-check-square-o'></i> $value";
+		} else {
+			$value = $this->wire('sanitizer')->entities($this->uncheckedValue);
+			$value = empty($value) ? $this->_('Not checked') : $value;
+			$value = "<i class='fa fa-square-o'></i> $value";
+		}
+		return $value; 
+	}
+
+	public function setAttribute($key, $value) {
+
+		if($key == 'value' && $value && "$value" !== "$this->uncheckedValue") {
+			if("$value" !== (string) self::checkedValueDefault) {
+				$this->checkedValue = $value; 
+				$this->checkedValueIsLabel = false;
+			}
+			// autocheck mode: when non-zero 'value' set, then 'checked=checked' is assumed
+			if($this->autocheck || $this->formBuilder) $this->attr('checked', 'checked');
+		}
+
+
+		return parent::setAttribute($key, $value); 
+	}
+
+	public function set($key, $value) {
+		if($key == 'checkedValue' && $value != self::checkedValueDefault) $this->checkedValueIsLabel = true; 
+		return parent::set($key, $value); 
+	}	
+	
+	public function isChecked() {
+		$checked = $this->attr('checked'); 
+		return !empty($checked); 
+	}
+
+	public function isEmpty() {
+		// return $this->attr('value') != $this->checkedValue; 
+		return !$this->isChecked();
+	}
+
+	public function ___processInput(WireInputData $input) {
+
+		$value = $input[$this->name];
+		$checked = $this->isChecked();
+		if(!empty($value)) {
+			if(!$checked) $this->trackChange('value', $this->uncheckedValue, $this->checkedValue); 
+			parent::attr('checked', 'checked'); 
+			parent::attr('value', $this->checkedValue); 
+		} else {
+			if($checked) $this->trackChange('value', $this->checkedValue, $this->uncheckedValue); 
+			parent::attr('checked', ''); 
+			parent::attr('value', $this->uncheckedValue); 
+		}
+
+		return $this; 
+	}
+
+	public function ___getConfigInputfields() {
+
+		$inputfields = parent::___getConfigInputfields();
+
+		if($this->hasFieldtype) return $inputfields;
+
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', 'checkedValue');
+		$f->attr('value', $this->checkedValue);
+		$f->label = $this->_('Checked Value');
+		$f->collapsed = $this->checkedValue == self::checkedValueDefault ? Inputfield::collapsedYes : Inputfield::collapsedNo;
+		$f->description = $this->_('When populated with something other than "1", this will appear as a label directly next to the checkbox.'); 
+		$f->required = true; 
+		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', 'uncheckedValue');
+		$f->attr('value', "$this->uncheckedValue");
+		$f->label = $this->_('Unchecked Value');
+		$f->collapsed = $this->uncheckedValue == self::uncheckedValueDefault ? Inputfield::collapsedYes : Inputfield::collapsedNo;
+		$f->description = $this->_('This only appears in result entries, not in the form itself. You should leave this blank unless you want it to hold a specific value.');
+		$inputfields->add($f);
+
+		return $inputfields;
+	}
+}

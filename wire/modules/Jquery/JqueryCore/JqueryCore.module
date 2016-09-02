@@ -1,0 +1,73 @@
+<?php namespace ProcessWire;
+
+/**
+ * Class JqueryCore
+ * 
+ * jQuery core + optional extras
+ * 
+ */
+
+class JqueryCore extends ModuleJS { 
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'jQuery Core',
+			'version' => 183,
+			'summary' => 'jQuery Core as required by ProcessWire Admin and plugins',
+			'href' => 'http://jquery.com', 
+			'permanent' => true,
+			'singular' => true,
+			'autoload' => false
+			);
+	}
+
+	/**
+	 * Set devMode to true in order to test/develop with newer versions of jQuery
+	 * 
+	 */
+	const devMode = false;
+
+	
+	public function __construct() {
+		$this->addComponents(array(
+			'core-dev' => 'jquery-1.11.1.js',
+			'latest' => 'jquery-1.11.1.js',
+			'migrate-dev' => 'jquery-migrate-1.2.1.js',
+			'cookie' => 'jquery.cookie.js',
+			'iframe-resizer' => 'iframe-resizer.min.js',
+			'iframe-resizer-frame' => 'iframe-resizer-frame.min.js', 
+			'longclick' => 'jquery.longclick.min.js',
+			'simulate' => 'jquery.simulate.min.js',
+			'xregexp' => 'xregexp.js', // no "min.js" intended
+			));
+		$info = self::getModuleInfo();
+		$this->config->scripts->prepend($this->config->urls->JqueryCore . "JqueryCore.js?v=$info[version]");
+	}
+
+	public function ___use($name) {
+		if($name == 'latest') {
+			$info = self::getModuleInfo();
+			$this->config->scripts->remove($this->config->urls->JqueryCore . "JqueryCore.js?v=$info[version]");
+			$this->config->scripts->prepend($this->config->urls->JqueryCore . $this->components['latest']); 
+			return $this; 
+		}
+		return parent::___use($name); 
+	}	
+
+	/**
+	 * Initialize JqueryCore
+	 * 
+	 */
+	public function init() {
+		
+		if(self::devMode) {
+			$this->use('core-dev');
+			$this->use('migrate-dev');
+			$this->loadStyles = false;
+			$this->loadScripts = false;
+		}
+		
+		parent::init();
+	
+	}
+}

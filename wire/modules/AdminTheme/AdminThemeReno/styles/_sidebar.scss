@@ -1,0 +1,316 @@
+/***********************************************************************************************
+ * Sidebar Navigation
+ *
+ */
+
+#branding:not(.hide),
+#masthead:not(.full),
+#sidebar:not(.hide),
+#main:not(.full),
+.main-nav-toggle:not(.full){
+	transition: all $speed ease-in;
+}
+
+#sidebar {
+	position: absolute;
+	z-index: 10;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: $mainnav-width;
+	background: $mainnav-bg-color;
+	height: 100%;
+	border-right: $mainnav-border;
+	padding-top: $masthead-height;
+
+	@media only screen and (min-width: $wide-screen-width) {
+		width: $mainnav-width-wide;
+	}
+
+	&.closed, &.hide{
+		left: -999px;
+	}
+
+	#main-nav{
+		height: 100%;
+		overflow-y: auto;
+	}
+
+	#main-nav, #main-nav ul {
+		list-style-type: none;
+		margin: 0;
+		padding: 0;
+	}
+
+	#main-nav a{
+		display: block;
+		padding: 0.75em 0.5em 0.75em 1.3em;
+		color: $mainnav-link-color;
+		font-weight: normal;
+		position: relative;
+		overflow: hidden;
+		
+		small {
+			opacity: 0.6;
+		}
+	}
+	
+	#main-nav a span {
+		white-space: nowrap;
+	}
+
+	#main-nav > li > a:hover{
+		color: $mainnav-link-hover-color;
+		background: $mainnav-link-hover-bg;
+	}
+
+	#main-nav li{
+		margin: 0;
+	}
+
+	#main-nav > li{
+		margin: 0 0 1px 0;
+	}
+
+	#main-nav > li > a > i{
+		color: $mainnav-icon-color;
+		padding: 0;
+		margin: 0 8px 0 0;
+		width: 16px;
+		display: inline-block;
+		text-align: center;
+		font-size: 14px; // font awesome renders clearer at 14px;
+	}
+	
+	#main-nav a.current i.current-icon {
+		// added by ryan
+		float: right;
+		margin-right: 11px;
+		margin-top: 4px; 
+	}
+	
+	#main-nav a.has-quicklinks.current {
+		// added by ryan
+		&.no-arrow i.current-icon,
+		&:hover i.current-icon {
+			display: none;
+		}
+	}
+
+	#main-nav > li > a.current:not(.parent) > i{
+		color: $mainnav-link-current-color;
+	}
+
+	#main-nav a.current:not(.parent){
+		background: $mainnav-link-current-bg;
+		color: $mainnav-link-current-color;
+	}
+
+	#main-nav li ul,
+	a.open, .current.parent,
+	#main-nav > li:not(.current) > a:not(.current):hover{
+		background: $mainnav-open-bg-color;
+	}
+
+	#main-nav a.current:not(.parent):after{
+		content: ' ';
+		height: 0;
+		position: absolute;
+		width: 0;
+		right: -2px;
+		top: 15px;
+		z-index: 12;
+		border: 8px solid transparent;
+		border-right-color: $white;
+	}
+
+	.no-arrow:after{
+		display: none;
+	}
+
+	#main-nav a.parent + ul li a.current:after{
+		top: 7px;
+	}
+
+	#main-nav li ul{
+		padding: 0 0 15px 0;
+		line-height: 22px;
+		display: none;
+	}
+
+	#main-nav ul li a{
+		padding: 4px 0 4px 20px;
+		font-weight: normal;
+		position: relative;
+		color: $mainnav-sub-link-color;
+		margin-bottom: 1px;
+		
+		&.quicklinks-open {
+			background: $mainnav-sub-link-hover-bg;
+			color: $mainnav-sub-link-color;
+		}
+
+		&:hover {
+			background: $mainnav-sub-link-hover-bg;
+			color: $mainnav-sub-link-hover-color;
+
+			& .quicklink-open{
+				visibility: visible;
+			}
+		}
+	
+	}
+
+	#main-nav li ul li ul li a{
+		padding: 0 10px 0 20px;
+		word-wrap:break-word;
+	}
+
+	#main-nav li ul li ul {
+		position: absolute;
+		left: 0;
+		z-index: 100;
+		top: 0;
+		bottom: 0;
+		padding: $masthead-height 0 20px 0;
+		font-size: 14px;
+		width: 100%;
+		height: 100%;
+		display: none;
+		border-right: $quicklinks-border;
+		background: $quicklinks-bg;
+		overflow-y: auto;
+		overflow-x: hidden;
+
+		@media only screen and (min-width: 480px) {
+			left: $mainnav-width;
+			width: $mainnav-width-wide;
+			padding: 0 0 20px 0;
+		}
+
+		@media only screen and (min-width: $wide-screen-width) {
+			left: $mainnav-width-wide;
+			width: $mainnav-width-wide; 
+		}
+
+
+
+		& li a {
+			color: $quicklinks-link-color;
+			
+			i.fa {
+				float: right;
+				color: $mainnav-icon-color;
+				margin-top: 4px;
+				margin-right: 7px; 
+			}
+		}
+		
+		& li a:hover {
+			color: $quicklinks-hover-color;
+			background: $quicklinks-hover-bg;
+		}
+
+		& li.highlight a, 
+		& li.add a {
+			color: $quicklinks-addnew-color;
+			i.fa {
+				float: none; 
+				color: $quicklinks-addnew-color;
+				margin-top: 0;
+				margin-right: 0;
+			}
+		}
+		& li.separator {
+			margin-top: 0.3em;
+			padding-top: 0.25em;
+			border-top: $quicklinks-border;
+		}
+	}
+
+
+	#main-nav ul li a:not(.current) .quicklink-open{
+		color: $mainnav-icon-color;
+	}
+
+	#main-nav li.parent ul li:not(.current) a:hover{
+		text-decoration: underline;
+	}
+
+	#main-nav li.parent ul li.current a{
+		color: #fff;
+	}
+
+	#main-nav .icon{
+		color: $mainnav-icon-color;
+		margin: 0 5px 0 0;
+	}
+
+	.open .icon,
+	#main-nav > li:hover .icon{
+	}
+
+	#main-nav .current .icon{
+		color: #fff;
+	}
+
+	a.parent:after{
+		font-family: "fontAwesome";
+		content: "\f078";
+		position: absolute;
+		width: 0;
+		height: 0;
+		right: 25px;
+		top: 12px;
+		z-index: 9;
+		font-size: 11px;
+		color: $mainnav-icon-color;
+		font-weight: normal;
+	}
+
+	.quicklink-open{
+		position: absolute;
+		right: 0;
+		padding: 5px 17px;
+		visibility: hidden;
+		&.active {
+			visibility: visible;
+			color: $quicklinks-icon-active !important;
+		}
+	}
+
+	.quicklink-close{
+		color: $quicklinks-header-color;
+		font-size: 16px;
+		padding: 0.75em 20px 0.75em 20px;
+		position: relative !important;
+
+		& i {
+			color: $mainnav-icon-color;
+			margin-right: 5px;
+		}
+
+		& .close{
+			position: absolute;
+			right: 15px;
+			top: 15px;
+			line-height: 1;
+			color: $mainnav-icon-color;
+
+			& i:hover {
+				cursor: pointer;
+				color: $link;
+			}
+		}
+
+	}
+
+	#main-nav .current .quicklink-open{
+		color: $quicklinks-icon-current-color !important;
+	}
+
+	#main-nav .current .quicklink-open.active{
+		color: $quicklinks-icon-current-active !important;
+	}
+
+}

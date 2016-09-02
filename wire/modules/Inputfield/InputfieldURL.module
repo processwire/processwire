@@ -1,0 +1,81 @@
+<?php namespace ProcessWire;
+
+/**
+ * Class InputfieldURL
+ * 
+ * An Inputfield for handling input of URLs
+ * 
+ * @property int|bool $noRelative Whether relative URLs are disabled
+ * @property int|bool $addRoot Whether to prepend root path
+ * @property int|bool $allowIDN Whether to allow IDNs
+ * @property int|bool $allowQuotes Whether to allow quote characters in URLs
+ *
+ */
+class InputfieldURL extends InputfieldText {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('URL', __FILE__), // Module Title
+			'summary' => __('URL in valid format', __FILE__), // Module Summary
+			'version' => 102,
+			);
+	}
+
+	public function __construct() {
+		parent::__construct();
+		$this->setAttribute('type', 'text'); 
+		$this->setAttribute('maxlength', 1024); 
+		$this->setAttribute('size', 0); 
+		$this->setAttribute('name', 'href'); 
+		$this->label = 'URL';
+		$this->set('noRelative', 0); // whether relative URLs are disabled
+		$this->set('addRoot', 0); // whether to prepend root path
+		$this->set('allowIDN', 0); // whether to allow IDNs
+		$this->set('allowQuotes', 0); // whether to allow quote characters in URLs
+	}
+
+	public function ___render() {
+		$rootUrl = $this->config->urls->root;
+		if($this->addRoot && !$this->noRelative && !$this->notes && strlen($rootUrl) > 1) {
+			$this->notes = sprintf($this->_("Start local URLs with \"/\" and leave off the \"%s\" part."), $rootUrl); // Instruction for local URLs displayed when site is running from a subdirectory
+		}
+		return parent::___render();
+	}
+
+	protected function setAttributeValue($value) {
+
+		if(strlen($value)) {
+			$value = trim($value); 
+			$unsanitized = $value; 
+			$value = $this->wire('sanitizer')->url($value, array(
+				'allowRelative' => $this->noRelative ? false : true,
+				'allowIDN' => $this->allowIDN ? true : false,
+				'stripQuotes' => $this->allowQuotes ? false : true,
+			));
+
+			if(!$value || $unsanitized != $value && "http://$unsanitized" != $value) {
+				$error = true;
+				if($value && strpos($unsanitized, '%') !== false) {
+					$test = rawurldecode($unsanitized);
+					if($value == $test || $value == "http://$test") $error = false;
+				}
+				if($error) {
+					$this->error($this->name . ': ' . $this->_("Error found - please check that it is a valid URL")); // Error message when invalid URL found
+				}
+
+			} else if($value != $unsanitized && $value == "http://$unsanitized") {
+				$this->message($this->name . ': ' . $this->_("Note that \"http://\" was added")); // Message displayed when http scheme was automatically added to the URL
+			}
+
+		} else $value = '';
+
+		return $value; 
+	}
+
+	public function ___getConfigInputfields() {
+		$inputfields = parent::___getConfigInputfields();
+		$f = $inputfields->get('stripTags');
+		if($f) $inputfields->remove($f);
+		return $inputfields;
+	}
+}

@@ -1,0 +1,393 @@
+/***********************************************************************************************
+ * MASTHEAD
+ *
+ */
+
+.main-nav-toggle {
+	position: absolute;
+	height: $masthead-height;
+	padding: 1em 1.3em 0 1.7em;
+	margin: 0;
+	z-index: 9;
+	background: $mainnav-toggle-bg !important;
+	left: $mainnav-width;
+	color: $mainnav-toggle-color;
+	border-left: $mainnav-toggle-border;
+	font-size: 14px !important; // font awesome renders clearer at 14px;
+	transition: all $speed ease-in-out;
+	@media only screen and (min-width: $wide-screen-width) {
+		left: $mainnav-width-wide;
+	}
+	&:hover,
+	&.closed:hover{
+		color: $mainnav-toggle-hover-color;
+		background: $mainnav-toggle-hover-bg;
+	}
+
+	&.closed {
+		left: 0;
+		border-left: none;
+		color: $mainnav-toggle-closed-color;
+	}
+
+	&:before{
+		position: absolute;
+		content: "\f0d9";
+		left: 13px;
+		padding-top: 1px;
+		font-family: fontAwesome;
+		font-size: 11px;
+		color: $mainnav-toggle-color;
+	}
+
+	&.closed:before{
+		content: "\f0da";
+		color: $mainnav-toggle-color;
+	}
+}
+
+#branding {
+	position: absolute;
+	z-index: 11;
+	top: 0;
+	left: 0;
+	width: $mainnav-width;
+	height: $masthead-height;
+	background: $masthead-bg;
+
+	@media only screen and (min-width: $wide-screen-width) {
+		width: $mainnav-width-wide;
+	}
+
+	&.closed, &.hide {
+		left: -999px;
+	}
+}
+
+#logo {
+	float: left;
+	margin: 1em 0 0 1.5em;
+	max-width: 140px;
+
+	img.sm {
+		display: none;
+	}
+
+	img {
+		max-width: 100%;
+	}
+}
+
+#masthead {
+	height: $masthead-height;
+	background: $masthead-bg;
+	padding: 0 1.5em 0 $mainnav-width;
+	position: relative;
+	z-index: 08;
+	font-size: 0.9em;
+
+	@media only screen and (min-width: $wide-screen-width) {
+		padding-left: $mainnav-width-wide;
+	}
+
+	&.closed, &.full {
+		padding-left: 0;
+	}
+
+	.container {
+		line-height: 1;
+	}
+
+	#topnav {
+		float: right;
+		position: relative;
+		height: $masthead-height;
+
+		> li {
+			padding: 0;
+			margin: 0;
+			list-style: none;
+			display: inline-block;
+			position: relative;
+		}
+
+		> li > a {
+			background: $topnav-link-bg;
+			color: $topnav-link-color;
+			display: inline-block;
+			margin: 0 ;
+			padding: 1em 1.2em 1em 1.2em;
+			height: $masthead-height;
+			font-weight: $tabs-font-weight;
+			vertical-align: middle;
+			transition: all $speed ease-in-out;
+
+			&:hover,
+			&.hover{
+				color: $topnav-link-hover-color;
+				background: $topnav-link-bg-hover;
+			}
+
+			& i {
+				font-size: 16px;
+			}
+
+		}
+
+		li.avatar {
+
+			& > a > i.fa {
+				display: none;
+			}
+
+			a { 
+				padding-top: 1em;
+				padding-right: 1.5em;
+
+				span{
+					max-width: 220px;
+					overflow: hidden;
+					white-space: nowrap;
+					text-overflow: ellipsis;
+					display: inline-block;	
+					vertical-align: top;
+					position: relative;
+				}
+			}
+			
+			img{
+				border-radius: 50%;
+				margin: 0 4px 0 0;
+				width: 26px;
+				height: 26px;
+				vertical-align: top;
+			}
+
+		}
+
+		& li.dropdown{
+			position: relative;
+
+			&:not(.superuser) > a:after{
+				content:"\f0d7";
+				font-family: fontAwesome;
+				color: $topnav-link-color;
+				margin-left: 7px;
+				font-size: 11px;
+
+			}
+
+			ul {
+				display: block;
+				visibility: hidden;
+				opacity: 0;
+				background: $dropdown-bg;
+				box-shadow: $dropdown-shadow;
+				border: $dropdown-border;
+				border-top: none;
+				width: 100%;
+				min-width: 200px;
+				position: absolute;
+				padding: .5em 0;
+				top: $masthead-height - 5;
+				right: 0;
+				transition: top $speed ease-in, opacity $speed ease-in;
+
+				&:before{
+					position: absolute;
+					z-index: 10;
+					top: -14px;
+					right: 1.1em;
+					content: "";
+					border-width: 8px;
+					border-style: solid;
+					border-color: transparent transparent $dropdown-bg transparent;
+
+				}
+				li {
+					white-space: nowrap;
+					display: block;
+				}
+				li a{
+					padding: 0.5em 1em;
+					display: block;
+					color: $dropdown-link-color;
+					white-space: nowrap;
+					&:hover{
+						background: $dropdown-link-hover-bg;
+					}
+
+					& i.fa{
+						color: $dropdown-icon-color;
+						margin-right: 6px;
+					}
+
+					&.current{
+						color: $dropdown-current-color;
+						background: $dropdown-current-bg;
+
+						&:hover{
+							color: $dropdown-current-color;
+							background: $dropdown-current-bg;
+						}
+
+						& i.fa{
+							color: $dropdown-current-color;
+						}
+					}
+				}
+
+				&.open{
+					visibility: visible !important;
+					opacity: 1 !important;
+					top: $masthead-height !important;
+					z-index: 08 !important;
+				}
+			}
+
+			&.superuser ul:before{
+				right: 0.8em;
+			}
+		}
+
+
+		// see .dropdown-menu styles below
+		.quicklinks{
+			padding: 1em;
+			i.fa {
+				font-size: 14px !important;
+			}
+		}
+
+		a.on:hover,
+		a.on {
+			color: $mainnav-link-current-color;
+			background: $mainnav-link-current-bg;
+			text-decoration: none;
+		}
+	}
+	
+	#NotificationBug {
+		left: $mainnav-width + 90;
+		
+		@media only screen and (min-width: $wide-screen-width) {
+			left: $mainnav-width-wide + 90;
+		}
+
+		&.closed{
+			left: 90px;
+		}
+	}
+
+
+} /* #masthead */
+
+/***********************************************************************************************
+ * Masthead dropdown <ul> Menu
+ *
+ */
+
+.dropdown-menu {
+	display: none;
+	position: relative;
+	z-index: 100;
+	
+	&,
+	& ul {
+		border: $dropdown-border;
+		border-radius: 0 0 3px 3px !important;
+		box-shadow: $dropdown-shadow;
+	}
+	
+	.ui-menu-icon {
+		display: none;
+	}
+
+	.has-items-icon {
+		float: right;
+		position: relative;
+		right: 0.5em;
+		top: 3px;
+	}
+
+	// add-new dropdown
+	&.dropdown-menu-rounded,
+	&.shortcuts {
+		min-width: 200px;
+		padding: 0.3em 0 0.3em 0;
+		background: $dropdown-bg;
+		box-shadow: $dropdown-shadow;
+		border: $dropdown-border;
+		font-size: 14px;
+
+		a {
+			border-radius: 0 !important;
+			padding: 0.4em 0 0.4em 0.6em;
+
+			&.ui-state-focus,
+			&.ui-state-active,
+			&:hover {
+				color: $text-color;
+				background: $dropdown-link-hover-bg !important;
+				border-color: $dropdown-link-hover-bg;
+			}
+			
+			i.fa {
+				color: $mainnav-icon-color;
+			}
+
+		}
+
+	}
+
+	&.topnav {
+
+		background: $dropdown-bg;
+		padding: 0.2em 0 0.4em 0;
+
+		.ui-menu-item {
+			min-width: 8em;
+			border: 0 !important;
+
+			> a {
+				background: none;
+				border-radius: 0 !important;
+				color: $dropdown-link-color;
+				padding: 0.3em 0 0.3em 1em;
+				font-size: 0.9em;
+				line-height: 1;
+				&:hover {
+					background: $dropdown-link-hover-bg !important;
+					color: $dropdown-link-hover-color;
+				}
+			}
+
+			&.add a {
+				color: $link;
+				&:hover {
+					color: $dark-link;
+				}
+			}
+
+			.ui-state-active {
+				border-color: $dropdown-bg !important;
+				background: $dropdown-bg;
+				color: $link;
+			}
+		}
+
+		ul {
+			background: $dropdown-bg;
+			border-color: $dropdown-bg;
+			width: 15em;
+			border-radius: 3px !important;
+			box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+			> li > a {
+				padding: 0.2em 1em 0.2em 1em !important;
+				word-wrap: break-word
+			}
+		}
+
+		li { min-width: 10em;}
+	}
+}

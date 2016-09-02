@@ -1,0 +1,399 @@
+<?php namespace ProcessWire;
+
+/**
+ * An Inputfield for handling single line "text" form inputs
+ * 
+ * @property string $type Input type (typically "text")
+ * @property int $size Size of input or 0 for full width
+ * @property int $minlength Minimum allowed length of value (usually combined with 'required' option)
+ * @property int $maxlength Maximum allowed length of value
+ * @property string $placeholder Placeholder attribute text
+ * @property string $pattern HTML5 pattern attribute
+ * @property string $initValue Optional initial/default value
+ * @property bool $stripTags Should HTML tags be stripped from value?
+ * @property bool $useLanguages When combined with multi-language support, setting this to true will provide one input per language. Get/set each language value with the "value[languageID]" property, and just "value" for default language. 
+ * @property bool|int $requiredAttr When combined with "required" option, this also makes it use the HTML5 "required" attribute. (default=false)
+ * @property int $showCount Show a character counter (1) or word counter (2) or neither (0). Recommended value is 1 when using minlength or maxlength.
+ * 
+ *
+ */
+class InputfieldText extends Inputfield {
+
+	const defaultMaxlength = 2048; 
+	
+	const showCountNone = 0;
+	const showCountChars = 1;
+	const showCountWords = 2;
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Text', __FILE__), // Module Title
+			'summary' => __('Single line of text', __FILE__), // Module Summary
+			'version' => 106,
+			'permanent' => true, 
+			);
+	}
+
+	/**
+	 * Construct
+	 * 
+	 * @throws WireException
+	 * 
+	 */
+	public function __construct() {
+		parent::__construct();
+		$this->setAttribute('type', 'text'); 
+		$this->setAttribute('size', 0); 
+		$this->setAttribute('maxlength', $this->getDefaultMaxlength()); 
+		$this->setAttribute('placeholder', '');
+		$this->setAttribute('pattern', '');
+		$this->setAttribute('minlength', 0);
+		$this->set('requiredAttr', 0);
+		$this->set('initValue', ''); // optional initial value
+		$this->set('stripTags', false); // strip tags from input?
+		$this->set('showCount', self::showCountNone);
+
+		// if multi-language, support placeholders for each language
+		$languages = $this->wire('languages');
+		if($languages) foreach($languages as $language) {
+			// set to blank value so that Field::getInputfield() will recogize this setting is for InputfieldText 
+			if(!$language->isDefault()) $this->set("placeholder$language", '');
+		}
+	}
+
+	/**
+	 * Get the default maxlength attribute value
+	 * 
+	 * @return mixed
+	 * 
+	 */
+	public function getDefaultMaxlength() {
+		return self::defaultMaxlength;
+	}
+
+	/**
+	 * Render ready
+	 * 
+	 * @param Inputfield $parent
+	 * @param bool $renderValueMode
+	 * @return bool
+	 * @throws WireException
+	 * 
+	 */
+	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+		$showCount = (int) $this->getSetting('showCount');
+		if($showCount) {
+			$this->addClass('InputfieldTextLength');
+			$this->attr('data-showCount', $showCount); 
+			$config = $this->wire('config');
+			if(!$config->js('InputfieldTextLength')) {
+				$labels = array(
+					'word1' => $this->_('1 word'), 
+					'words' => $this->_('%d words'), 
+					'char1' => $this->_('1 character'),
+					'chars' => $this->_('%d characters'),
+					'min' => $this->_('(at least %d required)'),
+					'max' => $this->_('(%d max)'),
+				);
+				$config->scripts->add($config->urls->InputfieldText . 'InputfieldTextLength.js');
+				$config->js('InputfieldTextLength', $labels); 
+			}
+		}
+		return parent::renderReady($parent, $renderValueMode);
+	}
+
+	/**
+	 * Render Inputfield
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function ___render() {
+		$attrStr = $this->getAttributesString();
+		$out = "\n<input $attrStr />"; 
+		return $out; 
+	}
+
+	/**
+	 * Get all attributes in an associative array
+	 * 
+	 * @return array
+	 * 
+	 */
+	public function getAttributes() {
+		$attrs = parent::getAttributes();
+		
+		if(empty($attrs['size'])) {
+			unset($attrs['size']); 
+			$attrs['class'] = (empty($attrs['class']) ? '' : $attrs['class'] . ' ') . 'InputfieldMaxWidth';
+		}
+		
+		if(!strlen($attrs['value']) && $this->initValue) {
+			$attrs['value'] = $this->initValue; 
+		}
+
+		if($this->required && $this->requiredAttr && !$this->getSetting('showIf') && !$this->getSetting('requiredIf')) {
+			$attrs['required'] = 'required';
+		}
+
+		if(isset($attrs['minlength'])) {
+			// convert minlength attr to a data-minlength attr, since minlength doesn't have wide browser support
+			if($attrs['minlength'] > 0) $attrs['data-minlength'] = $attrs['minlength'];
+			unset($attrs['minlength']);
+		}
+		
+		if(isset($attrs['maxlength']) && (int) $attrs['maxlength'] < 1) unset($attrs['maxlength']);
+
+		return $attrs; 
+	}
+
+	/**
+	 * Set an attribute
+	 * 
+	 * @param array|string $key
+	 * @param array|int|string $value
+	 * @return $this
+	 * 
+	 */
+	public function setAttribute($key, $value) {
+
+		if($key == 'maxlength' && $value !== 0 && $value !== "0" && ((int) $value) < 1) {
+			$value = $this->getDefaultMaxlength();
+		}
+		if($key == 'minlength') {
+			$value = (int) $value; 
+			if($value < 1) $value = 0;
+		}
+		if($key == 'value') $value = $this->setAttributeValue($value); 
+
+		return parent::setAttribute($key, $value); 
+	}
+
+	/**
+	 * Prepare the 'value' attribute
+	 * 
+	 * @param string $value
+	 * @return string
+	 * @throws WireException
+	 * 
+	 */
+	protected function setAttributeValue($value) {
+		
+		if($this->maxlength > 0) { 
+			$value = $this->wire('sanitizer')->text($value, array(
+				'maxLength' => $this->maxlength, 
+				'maxBytes' => $this->maxlength*4, 
+				'stripTags' => false,
+				)); 
+		}
+		
+		if($this->stripTags) $value = strip_tags($value);
+
+		return $value; 
+	}
+
+	/**
+	 * Return the length of the given value
+	 * 
+	 * @param string $value
+	 * @param bool $countWords Optionally get a word count rather than a character count. 
+	 * @return int
+	 * 
+	 */
+	protected function getValueLength($value, $countWords = false) {
+		if($countWords) {
+			return str_word_count($value); 
+		} else {
+			return function_exists('mb_strlen') ? mb_strlen($value) : strlen($value);
+		}
+	}
+
+	/**
+	 * Process input
+	 * 
+	 * @param WireInputData $input
+	 * @return $this
+	 * 
+	 */
+	public function ___processInput(WireInputData $input) {
+		
+		parent::___processInput($input);
+
+		$name = $this->attr('name');
+		$value = $this->attr('value');
+		$minlength = (int) $this->attr('minlength');
+		$maxlength = (int) $this->attr('maxlength');
+		$length = $this->getValueLength($value);
+		
+		if($length > 0) {
+			
+			if($this->pattern) {
+				$regex = '#' . str_replace('#', '\#', $this->pattern) . '#'; // add delimeters
+				if(!preg_match($regex, $value)) $this->error($this->_('Does not match required pattern'));
+			} 
+			
+			if($minlength > 0 && $length < $minlength) {
+				$this->error(sprintf(
+					$this->_('A minimum of %1$d characters are required (currently there are %2$d characters).'),
+					$minlength, $length)
+				);
+			}
+			
+			if($maxlength > 0) {
+				$dirtyValue = trim($input->$name);
+				$dirtyLength = $this->getValueLength($dirtyValue);
+				if($dirtyLength > $maxlength) {
+					$this->error(sprintf(
+						$this->_('Value exceeded maximum allowed length of %d characters and has been truncated.'), $maxlength)
+					);
+				}
+			}
+		}
+
+		return $this;
+	}
+
+	/**
+	 * Get field configuration
+	 * 
+	 * @return InputfieldWrapper
+	 * @throws WireException
+	 * 
+	 */
+	public function ___getConfigInputfields() {
+		
+		$inputfields = parent::___getConfigInputfields();
+
+		/** @var InputfieldCheckbox $required */
+		$required = $inputfields->getChildByName('required');
+		
+		if($required) {
+			$required->set('columnWidth', 50);
+			/** @var InputfieldCheckbox $field */
+			$field = $this->modules->get('InputfieldCheckbox');
+			$field->attr('name', 'requiredAttr');
+			$field->label = $this->_('Also use HTML5 “required” attribute?');
+			$field->showIf = "required=1, showIf='', requiredIf=''";
+			$field->description = $this->_('Use only on fields *always* visible to the user.');
+			$field->icon = 'html5';
+			$field->columnWidth = 50;
+			if($this->requiredAttr) $field->attr('checked', 'checked');
+			$required->getParent()->insertAfter($field, $required);
+		}
+
+		/** @var InputfieldInteger $field */
+		$field = $this->modules->get('InputfieldInteger');
+		$field->setAttribute('name', 'minlength');
+		$field->label = $this->_('Minimum length');
+		$field->setAttribute('value', (int) $this->minlength);
+		$field->setAttribute('size', 6);
+		$field->description = $this->_('The minimum length (in characters) that are required by this field.');
+		$field->notes = $this->_('If the field is not “required” then minimum length is only enforced when a value is present.'); 
+		$field->columnWidth = 50;
+		$inputfields->append($field);
+
+		/** @var InputfieldInteger $field */
+		$field = $this->modules->get('InputfieldInteger');
+		$field->setAttribute('name', 'maxlength'); 
+		$field->label = $this->_('Maximum length');
+		$field->setAttribute('value', $this->attr('maxlength')); 
+		$field->setAttribute('size', 6); 
+		$field->description = $this->_('The maximum length (in characters) that are allowed by this field.');
+		$field->notes = $this->_('A value of “0” indicates no maximum.');
+		$field->columnWidth = 50;
+		$inputfields->append($field);
+	
+		/** @var InputfieldRadios $field */
+		$field = $this->modules->get('InputfieldRadios');
+		$field->attr('name', 'showCount'); 
+		$field->label = $this->_('Counter'); 
+		$field->addOption(0, $this->_('No counter'));
+		$field->addOption(1, $this->_('Character counter'));
+		$field->addOption(2, $this->_('Word counter'));
+		$field->attr('value', (int) $this->getSetting('showCount'));
+		$field->description = $this->_('It is recommended that you show a character counter when using minimum/maximum length settings above.');
+		$field->optionColumns = 1;
+		if(!$field->attr('value')) $field->collapsed = Inputfield::collapsedYes;
+		$inputfields->add($field);
+	
+		/** @var InputfieldInteger $field */
+		$field = $this->modules->get('InputfieldInteger');
+		$field->setAttribute('name', 'size');
+		$field->label = $this->_('Size');
+		$field->setAttribute('value', $this->attr('size') > 0 ? $this->attr('size') : 0);
+		$field->setAttribute('size', 4);
+		$field->description = $this->_('The displayed width of this field (in characters). Set to 0 for full width.');
+		$field->collapsed = Inputfield::collapsedYes;
+		$inputfields->append($field);
+
+		/** @var InputfieldCheckbox $field */
+		$field = $this->modules->get('InputfieldCheckbox'); 
+		$field->attr('name', 'stripTags'); 
+		$field->label = $this->_('Strip Tags'); 
+		$field->description = $this->_('When checked, any HTML tags will be stripped from the input when the form is processed.'); 
+		$field->notes = $this->_('This is recommended if the field does not need to support HTML in it.'); 
+		$field->attr('value', 1);
+		if($this->stripTags) {
+			$field->attr('checked', 'checked');
+		} else {
+			$field->collapsed = Inputfield::collapsedYes;
+		}
+		$inputfields->append($field); 
+
+		/** @var InputfieldText $field */
+		$field = $this->modules->get('InputfieldText');
+		$field->setAttribute('name', 'placeholder'); 
+		$field->label = $this->_('Placeholder Text');
+		$field->setAttribute('value', $this->attr('placeholder')); 
+		$field->description = $this->_('Optional placeholder phrase of text that appears in the field when blank.'); 
+		$field->collapsed = Inputfield::collapsedBlank;
+		if($this->wire('languages')) {
+			$field->useLanguages = true;
+			foreach($this->wire('languages') as $language) {
+				if($language->isDefault()) continue;
+				$value = $this->getSetting("placeholder$language");
+				if(!is_null($value)) $field->set("value$language", $value);
+			}
+		}
+		$inputfields->append($field);
+
+		/** @var InputfieldText $field */
+		$field = $this->modules->get('InputfieldText');
+		$field->setAttribute('name', 'pattern'); 
+		$field->label = $this->_('Pattern');
+		$field->setAttribute('value', $this->attr('pattern')); 
+		$field->description = $this->_('Optional regular expression pattern to require in the input. This is used both client side (HTML5 pattern attribute) and server side for validation. Be sure to provide an example of the required pattern in your field description.'); // Pattern description
+		$field->notes = $this->_('See [html5pattern.com](http://html5pattern.com) for examples of patterns you can use and create.'); // Pattern notes
+		$field->collapsed = Inputfield::collapsedBlank;
+		$inputfields->append($field);
+
+		if($this->hasFieldtype === false) { 
+			/** @var InputfieldText $field */
+			$field = $this->modules->get('InputfieldText');
+			$field->setAttribute('name', 'initValue'); 
+			$field->label = $this->_('Initial Value');
+			$field->description = $this->_('Optional initial/default value pre-populated for the user.'); 
+			$field->setAttribute('value', $this->initValue); 
+			$field->collapsed = Inputfield::collapsedBlank; 
+			$inputfields->append($field);
+		}
+
+		return $inputfields; 
+	}
+
+	/**
+	 * Get array of field names allowed for field/template context
+	 * 
+	 * @param Field $field
+	 * @return array
+	 * 
+	 */
+	public function ___getConfigAllowContext($field) {
+		$a = array('initValue', 'pattern', 'placeholder', 'maxlength', 'minlength', 'required', 'requiredAttr'); 
+		return array_merge(parent::___getConfigAllowContext($field), $a); 
+	}
+	
+
+
+	
+}

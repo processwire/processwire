@@ -1,0 +1,31 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Newlines to List Textformatter
+ *
+ * Converts each new line into a list item, then surrounds them all with a <ul> tag.
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class TextformatterNewlineUL extends Textformatter {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Newlines to Unordered List', 
+			'version' => 100, 
+			'summary' => "Converts newlines to <li> list items and surrounds in an <ul> unordered list. ", 
+		); 
+	}
+
+	public function format(&$str) {
+		$str = trim($str);
+		if(!strlen($str)) return;
+		$cnt = 0; 
+		$str = preg_replace('/^(.+?)([\r\n]+|$)$/m', "\t<li>$1</li>", $str, -1, $cnt); 
+		if($cnt) $str = "<ul>\n$str\n</ul>";
+	}
+}

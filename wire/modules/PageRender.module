@@ -1,0 +1,702 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire PageRender Module
+ *
+ * Adds a render method to Page, as used by the PageView Process. 
+ * This module is also able to cache page renders.
+ * It hooks into Pages and Fieldtypes to ensure cache files are cleaned/deleted when pages are saved/deleted.
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ * @method renderPage(HookEvent $event)
+ * @method clearCacheFileAll(Page $page)
+ * @method clearCacheFilePages(PageArray $items, Page $page)
+ *
+ */
+
+class PageRender extends WireData implements Module, ConfigurableModule {
+
+	const cacheDirName = 'Page';
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Page Render', __FILE__), // Module Title
+			'summary' => __('Adds a render method to Page and caches page output.', __FILE__), // Module Summary
+			'version' => 105, 
+			'permanent' => true, 
+			'singular' => true, 
+			'autoload' => true, 
+			);
+	}
+
+	/**
+	 * Instance of Config, cached wire('config')
+	 *
+	 */
+	protected $config; 
+
+	/**
+	 * Stack of pages when rendering recursively
+	 *
+	 */
+	protected $pageStack = array();
+
+	/**
+	 * Keeps track of recursion level when rendering recursively
+	 *
+	 * Used to determine when pageStack should be maintained
+	 *
+	 */
+	protected $renderRecursionLevel = 0;
+
+	/**
+	 * Page that get() method should pull properties from for rendering fields
+	 * 
+	 * Note: every get() call sets this back to NULL after it has executed.
+	 * 
+	 * @var null|Page 
+	 * 
+	 */
+	protected $propertyPage = null;
+	
+	/**
+	 * Initialize the hooks
+	 *
+	 */
+	public function init() {
+		$this->useFuel(false);
+		$this->config = $this->wire('config'); 
+		$this->addHook('Page::render', $this, 'renderPage');
+		// $this->addHook('Page::renderField', $this, 'renderField');
+		$this->wire('pages')->addHookAfter('save', $this, 'clearCacheFile'); 
+		$this->wire('pages')->addHookAfter('delete', $this, 'clearCacheFile'); 
+		// $this->addHookAfter('Fieldtype::savePageField', $this, 'savePageField'); // removed, see note in commented function
+	}
+
+	/**
+	 * API ready
+	 * 
+	 */
+	public function ready() {
+		if($this->wire('page')->template != 'admin') {
+			$this->addHookBefore('Page::render', $this, 'beforeRenderPage', array('priority' => 1));
+		}
+	}
+
+	/**
+	 * Set page for get() properties / field rendering
+	 * 
+	 * @param Page $page
+	 * 
+	 */
+	public function setPropertyPage(Page $page) {
+		$this->propertyPage = $page;
+	}
+
+	/**
+	 * Handle page field renders like $page->render->title
+	 * 
+	 * @param string $key
+	 * @return string|mixed
+	 * 
+	 */
+	public function __get($key) {
+		if(!$this->propertyPage) return parent::__get($key);	
+		$out = $this->propertyPage->renderField($key);
+		$this->propertyPage = null;
+		return $out;
+	}
+
+	/**
+	 * Is the page render cache allowed for this request?
+	 *
+	 * @param Page $page
+	 * @return bool
+	 *
+	 */
+	public function isCacheAllowed($page) {
+
+		if(!$page->template || ((int) $page->template->cache_time) < 1) return false; 
+
+		if(!$this->wire('user')->isGuest()) {
+			if(!$page->template->useCacheForUsers) return false; 
+			if($page->editable()) return false;
+		}
+
+		$allowed = true;
+
+		if(count($_GET) && $page->template->noCacheGetVars) {
+			if(strpos($page->template->noCacheGetVars, '*') !== false) {
+				$allowed = false;
+			} else {
+				$vars = explode(' ', $page->template->noCacheGetVars);
+				foreach($vars as $name) if($name && isset($_GET[$name])) $allowed = false;
+			}
+		} 
+
+		if($allowed && count($_POST) && $page->template->noCachePostVars) {
+			if(strpos($page->template->noCachePostVars, '*') !== false) {
+				$allowed = false;
+			} else {
+				$vars = explode(' ', $page->template->noCachePostVars);
+				foreach($vars as $name) if($name && isset($_POST[$name])) $allowed = false;
+			}
+		}
+
+		// NOTE: other modules may set a session var of PageRenderNoCachePage containing a page ID to temporarily
+		// remove caching for some page, if necessary. 
+		if($this->wire('session')->PageRenderNoCachePage && $this->wire('session')->PageRenderNoCachePage == $page->id) $allowed = false;
+
+		return $allowed; 
+	}
+	
+	/**
+	 * Get a CacheFile object corresponding to this Page
+	 *
+	 * Note that this does not check if the page is cachable. This is so that if a cachable setting changes the cache can still be removed. 
+	 *
+	 * @param int|Page $page May provide page id (int) only if using for deleting a cache file. Must provide Page object otherwise.
+	 * @param array $options
+	 * @return CacheFile
+	 * @throws WireException
+	 *
+	 */
+	public function getCacheFile($page, array $options = array()) {
+
+		$config = $this->config;
+		$defaults = array(
+			'prependFile' => '',
+			'appendFile' => '', 
+			'filename' => '', 
+			);
+
+		$options = array_merge($defaults, $options); 
+		$path = $config->paths->cache . self::cacheDirName . "/";
+		if(is_object($page)) {
+			$id = $page->id;
+			$cacheTime = (int) $page->template->cache_time; 
+		} else {
+			$id = (int) $page;
+			$cacheTime = 3600;
+		}
+		
+		if(!is_dir($path)) {
+			if(!$this->wire('files')->mkdir($path, true)) throw new WireException("Cache path does not exist: $path");
+			if($config->chmodDir) chmod($path, octdec($config->chmodDir));
+		}
+
+		$cacheFile = new CacheFile($path, $id, $cacheTime);
+
+		if($this->wire('page') === $page) {
+			// this part is skipped if arguments provided an id (int) rather than a Page object
+			$secondaryID = '';
+			$pageNum = $this->wire('input')->pageNum; 
+			$urlSegments = $this->wire('input')->urlSegments; 
+
+			if(count($urlSegments)) {
+				foreach($urlSegments as $urlSegment) {
+					$secondaryID .= $this->wire('sanitizer')->pageName($urlSegment) . '+';
+				}
+			}
+
+			if($options['prependFile'] || $options['appendFile'] || $options['filename']) {
+				$secondaryID .= md5($options['prependFile'] . '+' . $options['appendFile'] . '+' . $options['filename']) . '+';
+			}
+			if($config->ajax) $secondaryID .= 'ajax+'; // #1262
+			if($config->https) $secondaryID .= 'https+';
+			if($pageNum > 1) $secondaryID .= "page{$pageNum}";
+			$secondaryID = rtrim($secondaryID, '+'); 
+			if($this->wire('languages')) { 
+				$language = $this->wire('user')->language; 
+				if($language && $language->id && !$language->isDefault()) $secondaryID .= "_" . $language->id;
+			}
+			if($secondaryID) $cacheFile->setSecondaryID($secondaryID);
+		}	
+
+		return $cacheFile;
+	}
+
+	/**
+	 * Clear all cached pages
+	 * 
+	 * @param Page $page
+	 * @throws WireException
+	 * 
+	 */
+	public function ___clearCacheFileAll(Page $page) {
+		if($page->template->cache_time > 0) {
+			$cacheFile = $this->getCacheFile($page);
+			$cacheFile->expireAll();
+		}
+		
+		if($this->config->debug && $page->template->cache_time != 0) {
+			$this->message($this->_('Expired page cache for entire site'));
+		}
+	}
+
+	/**
+	 * Clear cache for multiple pages by ID
+	 * 
+	 * @param PageArray $items
+	 * @param Page $page Page that initiated the clear
+	 * @throws WireException
+	 * 
+	 */
+	public function ___clearCacheFilePages(PageArray $items, Page $page) {
+		foreach($items as $p) {
+			if(((int) $p->template->cache_time) < 1) continue;
+			$cf = $this->getCacheFile($p);
+			if($cf->exists()) $cf->remove();
+			// if($this->config->debug) $this->message(sprintf($this->_('Cleared cache file: %s'), $cf));
+		}
+	}
+
+	/**
+	 * Hook to clear the cache file after a Pages::save or Pages::delete call
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function clearCacheFile($event) {
+		
+		$page = $event->arguments[0]; 
+		if(((int) $page->template->cache_time) == 0) return;
+		$cacheExpire = $page->template->cacheExpire; 
+
+		if($cacheExpire == Template::cacheExpireNone) {
+			if($event->method == 'delete') $cacheExpire = Template::cacheExpirePage; 
+				else return;
+		}
+
+		if($cacheExpire == Template::cacheExpireSite) {
+			// expire entire cache
+			$this->clearCacheFileAll($page);
+
+		} else {
+	
+			// clear the page that was saved
+			if($page->template->cache_time > 0) {
+				$cacheFile = $this->getCacheFile($page);
+				if($cacheFile->exists()) {
+					$cacheFile->remove();
+					$this->message($this->_('Cleared cache file:') . " $cacheFile", Notice::debug);
+				}
+			}
+			
+			$pageIDs = array();
+
+			if($cacheExpire == Template::cacheExpireParents || $cacheExpire == Template::cacheExpireSpecific) {
+				// expire specific pages or parents
+				if($cacheExpire == Template::cacheExpireParents) {
+					foreach($page->parents as $parent) $pageIDs[] = $parent->id;
+
+				} else if(is_array($page->template->cacheExpirePages) && count($page->template->cacheExpirePages)) {
+					$pageIDs = $page->template->cacheExpirePages;
+				}
+			} else if($cacheExpire == Template::cacheExpireSelector && $page->template->cacheExpireSelector) {
+				// expire pages matching a selector
+				$finder = $this->wire(new PageFinder());
+				$selectors = new Selectors();
+				$selectors->init($page->template->cacheExpireSelector);
+				$pageIDs = $finder->findIDs($selectors, array(
+					'getTotal'   => false,
+					'findHidden' => true
+				));
+			}
+		
+			if(count($pageIDs)) {
+				$items = $this->wire('pages')->getById($pageIDs, array(
+					'cache'          => false,
+					'getNumChildren' => false,
+					'autojoin'       => false,
+					'findTemplates'  => false,
+					'joinSortfield'  => false
+				));
+				$this->clearCacheFilePages($items, $page);
+				$this->message(sprintf($this->_('Cleared cache file for %d page(s)'), count($pageIDs)), Notice::debug);
+			}
+		}
+	}
+
+	/**
+	 * Hook called before any other hooks to Page::render
+	 * 
+	 * We use this to determine if Page::render() should be a render() or a renderField()
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function beforeRenderPage(HookEvent $event) {
+		$fieldName = $event->arguments(0);
+		if($fieldName && is_string($fieldName) && $this->wire('sanitizer')->fieldName($fieldName) === $fieldName) {
+			// render field requested, cancel page render and hooks, and delegate to renderField
+			$file = $event->arguments(1); // optional basename of file to use for render
+			if(!is_string($file)) $file = null;
+			$event->cancelHooks = true;
+			$event->replace = true;
+			$event->return = $event->object->renderField($fieldName, $file);
+		}
+	}
+
+	/**
+	 * Return a string with the rendered output of this Page (per it's Template)
+	 *
+	 * If the page's template has caching enabled, then this method will return a cached page render, when valid, 
+	 * or save a new cache. Caches are only saved on guest users. 
+	 *
+	 * #param array|string options Array of options, or filename (string) to render. Options [all optional] may be: 
+	 * 	forceBuildCache: If true, the cache will be re-created for this page, regardless of whether it's expired or not. (default=false)
+	 *	allowCache: Allow cache to be used when template settings ask for it. (default=true)
+	 *	filename: Filename to render, optionally relative to /site/templates/. Absolute paths must resolve somewhere in PW's install. (default=blank)
+	 *	prependFile: Filename to prepend to output, must be in /site/templates/. (default=$config->prependTemplateFile)
+	 * 	prependFiles: Array of additional filenames to prepend to output, must be relative to /site/templates/ (default=array($page->template->prependFile))
+	 *	appendFile: Filename to append to output, must be in /site/templates/. (default=$config->appendTemplateFile)
+	 * 	appendFiles: Array of additional filenames to append to output, must be relative to /site/templates/ (default=array($page->template->appendFile))
+	 *	pageStack: An array of pages, when recursively rendering. Used internally. You can examine it but not change it. 
+	 *	
+	 * #param array $options 
+	 *	If you specified a filename for the first option, you may use the options array mentioned above as 2nd argument.
+	 * 	This $options array will also be passed to the template as variable $options. Given that, you may add additional
+	 *	variables of your own names to $options as needed for communication with the template, if it suits your need. 
+	 *
+	 * @param HookEvent $event
+	 * @return string rendered data
+	 * @throws WirePermissionException|WireException
+	 *
+	 */
+	public function ___renderPage($event) {
+	
+		/** @var Page $page */
+		$page = $event->object;
+		
+		/** @var Template $template */
+		$template = $page->template;
+		
+		$this->wire('pages')->setOutputFormatting(true);
+
+		if($page->status >= Page::statusUnpublished && !$page->viewable()) {
+			throw new WirePermissionException("Page '{$page->url}' is not currently viewable.");
+		}
+
+		$_page = $this->wire('page'); // just in case one page is rendering another, save the previous
+		$config = $this->wire('config');
+		$compiler = null;
+		if($config->templateCompile && $template->compile) {
+			$compilerOptions = array(
+				'namespace' => strlen(__NAMESPACE__) > 0, 
+				'includes' => $template->compile >= 2 ? true : false, 
+				'modules' => true, 
+				'skipIfNamespace' => $template->compile == 3 ? true : false,
+			);
+			$compiler = $this->wire(new FileCompiler($config->paths->templates, $compilerOptions));
+		}
+		$this->renderRecursionLevel++;
+		
+		// set the context of the new page to be system-wide
+		// only applicable if rendering a page within a page
+		if(!$_page || $page->id != $_page->id) $this->wire('page', $page);
+		if($this->renderRecursionLevel > 1) $this->pageStack[] = $_page; 
+
+		// arguments to $page->render() may be a string with filename to render or array of options
+		$options = $event->arguments(0);
+		$options2 = $event->arguments(1);
+
+		// normalize options to array
+		if(is_string($options) && strlen($options)) $options = array('filename' => $options); // arg1 is filename
+		if(!is_array($options)) $options = array(); // no args specified
+		if(is_array($options2)) $options = array_merge($options2, $options); // arg2 is $options 
+
+		$defaultOptions = array(
+			'filename' => '', // default blank means filename comes from $page
+			'prependFile' => $template->noPrependTemplateFile ? null : $config->prependTemplateFile,
+			'prependFiles' => $template->prependFile ? array($template->prependFile) : array(), 
+			'appendFile' => $template->noAppendTemplateFile ? null : $config->appendTemplateFile,
+			'appendFiles' => $template->appendFile ? array($template->appendFile) : array(),
+			'allowCache' => true, 
+			'forceBuildCache' => false,
+			'pageStack' => array(), // set after array_merge
+			);
+
+		$options = array_merge($defaultOptions, $options);
+		$options['pageStack'] = $this->pageStack;
+
+		$cacheAllowed = $options['allowCache'] && $this->isCacheAllowed($page); 
+		$cacheFile = null;
+
+		if($cacheAllowed) {
+			$cacheFile = $this->getCacheFile($page, $options);
+			if(!$options['forceBuildCache'] && ($data = $cacheFile->get()) !== false) {
+				$event->return = $data;
+				if($_page) $this->wire('page', $_page);
+				return;
+			}
+		}
+		
+
+		$of = $page->of();
+		if(!$of) $page->of(true);
+
+		$data = '';
+		$output = $page->output(true);
+		if($output) {
+
+			// global prepend/append include files apply only to user-defined templates, not system templates
+			if(!($template->flags & Template::flagSystem)) {
+				foreach(array('prependFile' => 'prependFiles', 'appendFile' => 'appendFiles') as $singular => $plural) {
+					if($options[$singular]) array_unshift($options[$plural], $options[$singular]);
+					foreach($options[$plural] as $file) {
+						if(!ctype_alnum(str_replace(array(".", "-", "_", "/"), "", $file))) continue;
+						if(strpos($file, '..') !== false || strpos($file, '/.') !== false) continue; 
+						$file = $config->paths->templates . trim($file, '/');
+						if(!is_file($file)) continue; 
+						if($compiler && $compilerOptions['includes']) {
+							$file = $compiler->compile($file);
+						}	
+						if($plural == 'prependFiles') {
+							$output->setPrependFilename($file);
+						} else {
+							$output->setAppendFilename($file);
+						}
+					}
+				}
+			}
+
+			// option to change the filename that is used for output rendering
+			if($options['filename'] && strpos($options['filename'], '..') === false) {
+				$filename = $config->paths->templates . ltrim($options['filename'], '/');
+				$setFilename = '';
+				if(is_file($filename)) {
+					// path relative from /site/templates/
+					$setFilename = $filename; 
+				} else {
+					// absolute path, ensure it is somewhere within web root
+					$filename = $options['filename'];
+					if(strpos($filename, $config->paths->root) === 0 && is_file($filename)) $setFilename = $filename; 
+				}
+
+				if($setFilename) {
+					if($compiler) {
+						$output->setChdir(dirname($setFilename));
+						$setFilename = $compiler->compile($setFilename);
+					}
+					$output->setFilename($setFilename);
+					$options['filename'] = $setFilename;
+				} else {
+					throw new WireException("Invalid output file location or specified file does not exist. $setFilename"); 
+				}
+			} else {
+				if($compiler) {
+					$options['filename'] = $compiler->compile($template->filename);
+					$output->setFilename($options['filename']);
+					$output->setChdir(dirname($template->filename));
+				} else {
+					$options['filename'] = $template->filename;
+				}
+			}
+
+			// pass along the $options as a local variable to the template so that one can provide their 
+			// own additional variables in it if they want to
+			$output->set('options', $options);
+
+			$data = $output->render();
+		}
+
+		if($data && $cacheAllowed && $cacheFile) $cacheFile->save($data);
+		$event->return = $data; 
+
+		if(!$of) $page->of($of);
+		if($_page && $_page->id != $page->id) {
+			$this->wire('page', $_page); 
+		}
+		if(count($this->pageStack)) array_pop($this->pageStack); 
+		$this->renderRecursionLevel--;
+	}
+
+	/**
+	 * Renders a field value
+	 * 
+	 * if $fieldName is omitted (blank), a $file and $value must be provided
+	 * 
+	 * @param Page $page
+	 * @param string $fieldName
+	 * @param string $file
+	 * @param mixed $value
+	 * @return string|mixed
+	 *
+	 */
+	public function renderField(Page $page, $fieldName, $file = '', $value = null) {
+
+		/*
+		if(strpos($fieldName, '/') && empty($file)) {
+			$file = $fieldName;
+			$fieldName = '';	
+		}
+		*/
+		if(strlen($fieldName)) {
+			$fieldName = $this->wire('sanitizer')->fieldName($fieldName);
+		}
+	
+		if(is_null($value) && $fieldName) $value = $page->getFormatted($fieldName);
+		if(is_null($value)) return '';
+
+		if($fieldName) {
+			$field = $page->getField($fieldName);
+			if(!$field) $field = $this->wire('fields')->get($fieldName);
+			$fieldtypeName = $field && $field->type ? $field->type->className() : '';
+		} else {
+			$field = null;
+			$fieldtypeName = '';
+		}
+		
+		$path = $this->wire('config')->paths->fieldTemplates;
+		$files = array();
+		
+		if($file) {
+			// a render file or path was specified
+			if(strpos($file, '\\') !== false) $file = str_replace('\\', '/', $file);
+			$hasTrailingSlash = substr($file, -1) == '/';
+			$hasLeadingSlash = strpos($file, '/') === 0;
+			$file = trim($file, '/');
+			if(substr($file, -4) == '.php') $file = substr($file, 0, -4);
+
+			if($hasLeadingSlash && $file) {
+				// VERY SPECIFIC
+				// use only what was specified
+				$files[] = $file;
+
+			} else if(!$hasTrailingSlash && strpos($file, '/') !== false) {
+				// SPECIFIC RENDER FILE
+				// file includes a directory off of fields/[dir]
+				$parts = explode('/', $file);
+				foreach($parts as $key => $part) {
+					$parts[$key] = $this->wire('sanitizer')->name($part);
+				}
+				$file = implode('/', $parts);
+				$file = str_replace('..', '', $file);
+				// i.e. fields/custom_dir/custom_name.php
+				$files[] = $file;
+
+			} else if($hasTrailingSlash && $fieldName) {
+				// GROUP DIRECTORY
+				// specifies a group name, referring to a directory, i.e. "group_name/"
+				// i.e. fields/custom_name/field_name.php
+				$files[] = "$file/$fieldName";
+
+			} else if($fieldName) {
+				// FIELD DIRECTORY WITH CUSTOM NAMED RENDER FILE
+				// i.e. fields/field_name/custom_name.php
+				$files[] = "$fieldName/$file";
+
+				// GROUP DIRECTORY WITH FIELD NAMED RENDER FILE
+				// i.e. fields/field_name/custom_name.php
+				$files[] = "$file/$fieldName";
+
+				// CUSTOM NAMED RENDER FILE ONLY (NO GROUP)
+				// i.e. fields/custom_name.php
+				$files[] = $file;
+			} else {
+				$files[] = $file;
+			}
+
+		} else if($fieldName) {
+			// no render file was specified, check for possible template context files
+
+			if(strpos($fieldtypeName, 'Repeater') === false) {
+				// FIELD DIRECTORY WITH TEMPLATE NAME
+				// i.e. fields/field_name/template_name.php
+				$files[] = "$fieldName/{$page->template->name}";
+			}
+			
+			// TEMPLATE DIRECTORY WITH FIELD NAME
+			// i.e. fields/template_name/field_name.php
+			$files[] = "{$page->template->name}/$fieldName";
+			
+			// FIELD NAME WITH TEMPLATE NAME
+			// i.e. fields/field_name.template_name.php
+			$files[] = "$fieldName.{$page->template->name}";
+
+		}
+	
+		// LAST FALLBACK/DEFAULT
+		// i.e. fields/field_name.php
+		if($fieldName) $files[] = $fieldName;
+	
+		$renderFile = '';
+	
+		foreach($files as $f) {
+			$file = "$path$f.php";
+			if(!is_file($file)) continue;
+			$renderFile = $file;
+			break;
+		}
+		
+		if(!$renderFile) {
+			if($fieldName) {
+				return $page->getMarkup($fieldName);
+			} else {
+				return '';
+			}
+		}
+	
+		if($this->wire('config')->templateCompile) {
+			$renderFile = $this->wire('files')->compile($renderFile, array('skipIfNamespace' => true));
+		}
+		
+		$tpl = $this->wire(new TemplateFile($renderFile));
+		$tpl->set('page', $page);
+		$tpl->set('value', $value);
+		$tpl->set('field', $field);
+		
+		return $tpl->render();
+	}
+
+	/**
+	 * Provide a disk cache clearing capability within the module's configuration screen
+	 *
+	 */
+	public function getModuleConfigInputfields(array $data) {
+
+		$path = $this->wire('config')->paths->cache . self::cacheDirName . '/';
+		$numPages = 0;
+		$numFiles = 0;
+		$inputfields = $this->wire(new InputfieldWrapper());
+		$dir = null;
+		$clearNow = $this->wire('input')->post->clearCache ? true : false; 
+
+		try { $dir = new \DirectoryIterator($path); } catch(\Exception $e) { }
+
+		if($dir) foreach($dir as $file) {
+			if(!$file->isDir() || $file->isDot() || !ctype_digit($file->getFilename())) continue; 
+			$numPages++; 
+			if(!$clearNow) continue; 
+			$d = new \DirectoryIterator($file->getPathname()); 
+			foreach($d as $f) {
+				if(!$f->isDir() && preg_match('/\.cache$/D', $f->getFilename())) {
+					$numFiles++; 
+					@unlink($f->getPathname()); 
+				}
+			}
+			@rmdir($file->getPathname()); 
+		}
+
+		if($clearNow) {
+			$inputfields->message(sprintf($this->_('Cleared %d cache files for %d pages'), $numFiles, $numPages)); 
+			$numPages = 0;
+		}
+
+		$name = "clearCache";
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', $name);
+		$f->attr('value', 1);
+		$f->label = $this->_('Clear the Page Render Disk Cache?'); 
+		$f->description = sprintf($this->_('There are currently %d pages cached in %s'), $numPages, $path);
+
+		$inputfields->append($f);
+
+		return $inputfields;
+
+	}
+
+}

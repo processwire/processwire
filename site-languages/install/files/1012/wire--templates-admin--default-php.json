@@ -1,0 +1,57 @@
+{
+    "file": "wire\/templates-admin\/default.php",
+    "textdomain": "wire--templates-admin--default-php",
+    "translations": {
+        "453aceb005ceaf54a47da15fee8b2a26": {
+            "text": "Seiten"
+        },
+        "ad2376beebecdcf7846ba973fa1a005b": {
+            "text": "Verwaltung"
+        },
+        "bf17ac149e2e7a530c677e9bd51d3fd2": {
+            "text": "Module"
+        },
+        "bf733d8a933c1601697f364223fc7ecb": {
+            "text": "Zugriff"
+        },
+        "9cfefed8fb9497baa5cd519d7d2bb5d7": {
+            "text": "de"
+        },
+        "a7d6475ec8993b7224d6facc8cb0ead6": {
+            "text": "Seite"
+        },
+        "5e248eb2e87e649e91cc3168e20adf90": {
+            "text": "Seite ansehen"
+        },
+        "3a08e2e340ab29fd9263af48193cbf8e": {
+            "text": "Sprachen"
+        },
+        "f9aae5fda8d810a29f12d1e61b4ab25f": {
+            "text": "Benutzer"
+        },
+        "a5cd3ed116608dac017f14c046ea56bf": {
+            "text": "Benutzerrollen"
+        },
+        "d08ccf52b4cdd08e41cfb99ec42e0b29": {
+            "text": "Berechtigungen"
+        },
+        "a4ca5edd20d0b5d502ebece575681f58": {
+            "text": "Felder"
+        },
+        "de9ced9bf5e9829de4a93ad8c9d7a170": {
+            "text": "Neu hinzuf\u00fcgen"
+        },
+        "cce99c598cfdb9773ab041d54c3d973a": {
+            "text": "Profil"
+        },
+        "0323de4f66a1700e2173e9bcdce02715": {
+            "text": "Ausloggen"
+        },
+        "3b0c14770e6bd663518496da60f524da": {
+            "text": "Baum"
+        },
+        "4cfa6c981549e990fe2344e4c805405e": {
+            "text": "Finden"
+        }
+    }
+}

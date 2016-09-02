@@ -1,0 +1,39 @@
+
+.InputfieldPageListSelectMultiple ol {
+	margin: 0.5em 0;
+	list-style: none;
+}
+
+	.InputfieldPageListSelectMultiple ol li {
+		/* li item from the html list above */
+		position: relative;
+		margin: 0 0 1px 0 !important; 
+		padding: 3px 7px;
+		list-style: none !important;
+		width: 100%;
+		line-height: 1.1em;
+		display: block;
+		cursor: move;
+	}
+
+		.InputfieldPageListSelectMultiple ol li .itemSort {
+			opacity: 0.7; 
+		}
+
+		.InputfieldPageListSelectMultiple ol li .itemLabel {
+			/* this is a span that surrounds the text in the item, except for the remove link */
+			cursor: move;
+		}
+
+		.InputfieldPageListSelectMultiple ol li .itemRemove {
+			/* the remove link in each list item */
+			float: right;
+		}
+
+		.InputfieldPageListSelectMultiple ol li .itemValue {
+			display: none; 
+		}
+
+		.InputfieldPageListSelectMultiple ol li.itemTemplate {
+			display: none !important;
+		}

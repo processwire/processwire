@@ -1,0 +1,27 @@
+{
+    "file": "wire\/modules\/Process\/ProcessPageType\/ProcessPageType.module",
+    "textdomain": "wire--modules--process--processpagetype--processpagetype-module",
+    "translations": {
+        "de9ced9bf5e9829de4a93ad8c9d7a170": {
+            "text": "Neu hinzuf\u00fcgen"
+        },
+        "89872ab3eb9af52f34b4dd82077758fc": {
+            "text": "Nach Template filtern"
+        },
+        "8cd0d0c99b062b3d22e8c7188ba33ab2": {
+            "text": "Alle anzeigen"
+        },
+        "6a5b847af3d97df722040debdbccfbed": {
+            "text": "Seitentyp"
+        },
+        "3d10fda1b8b9895bade8da5233636cbf": {
+            "text": "Seiten eines bestimmten Typs auflisten, bearbeiten und hinzuf\u00fcgen"
+        },
+        "bce455aa81509f2a4dbb9acb3581a0be": {
+            "text": "Welche Felder sollen in der Auflistung der Seiten angezeigt werden?"
+        },
+        "9f8f70e6d54311627f02da284603db7a": {
+            "text": "Derzeit keine Elemente zum anzeigen."
+        }
+    }
+}

@@ -1,0 +1,119 @@
+.pw-panel-button {
+	position: absolute;
+	z-index: 999;
+	display: block;
+	padding: 7px 5px !important;
+	margin: 0 !important;
+	transition: none !important; /* AdminThemeReno */
+}
+	.pw-panel-left .pw-panel-button {
+		right: -17px;
+		border-radius: 0 5px 5px 0 !important;
+	}
+	.pw-panel-right .pw-panel-button {
+		left: 0;
+		border-radius: 5px 0 0 5px !important;
+	}
+	.pw-panel-button,
+	.pw-panel-button.ui-state-active,
+	.pw-panel-button.ui-state-default,
+	.pw-panel-button.ui-state-hover,
+	.pw-panel-button.ui-state-focus {
+		display: block;
+		cursor: pointer;
+	}
+	
+	.pw-panel-button .ui-button-text {
+		/* for AdminThemeReno */
+		padding: 0 !important;
+		margin: 0 !important;
+	}
+
+	.pw-panel-button-closed {
+		top: 130px;
+	}
+	
+	.pw-panel-button-closed.pw-panel-button-hidden {
+		display: none !important;
+	}
+
+	.pw-panel-button-open {
+		top: 130px; 	
+	}
+		.pw-panel-left .pw-panel-button-open {
+			right: -20px;
+		}
+		.pw-panel-right .pw-panel-button-open {
+			left: 0;
+		}
+
+	.pw-panel-button-text {
+		padding: 3px 7px !important;
+	}
+		.pw-panel-left .pw-panel-button-text {
+			transform-origin: 100% 0;
+			transform: rotate(90deg);
+			border-radius: 5px 5px 0 0 !important;
+		}
+		.pw-panel-right .pw-panel-button-text {
+			transform-origin: 0 100%;
+			transform: rotate(-90deg);
+			border-radius: 5px 5px 0 0 !important;
+		}
+		
+		.pw-panel-button-text i {
+			margin-right: 4px; 
+		}
+
+.pw-panel-container {
+	position: fixed; 
+	top: 0;
+	width: 55%;
+	height: 100%;
+	z-index: 1000;
+	box-sizing: border-box;
+}
+
+	.pw-panel-left.pw-panel-container-closed {
+		left: -55%;
+	}
+	.pw-panel-right.pw-panel-container-closed {
+		right: -55%;
+	}
+
+	.pw-panel-container-open {
+		box-shadow: 1px 0 3px rgba(0,0,0,0.3);
+	}
+		.pw-panel-left.pw-panel-container-open {
+			left: 0;
+		}
+		.pw-panel-right.pw-panel-container-open {
+			right: 0;
+		}
+
+	.pw-panel-content {
+		position: relative;
+		z-index: 1000;
+		margin: 0;
+		padding: 0;
+		border: none;
+		width: 100%;
+		height: 100%;
+		background: #fff;
+	}
+	
+	.pw-panel-container .ui-resizable-handle {
+		width: 12px;
+		cursor: ew-resize;
+		z-index: 1001;
+	}
+
+#pw-panel-shade {
+	position: fixed; 
+	top: 0;
+	left: 0;
+	background: rgba(0,0,0,0.5);
+	width: 100%;
+	height: 100%; 
+	z-index: 999;
+}

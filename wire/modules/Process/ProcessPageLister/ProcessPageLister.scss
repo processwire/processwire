@@ -1,0 +1,206 @@
+// ProcessPageLister CSS
+
+#ProcessLister {
+	margin-top: -2px; 
+}
+
+#ProcessListerResultsTab {
+	padding-top: 0.5em; 
+}
+
+#ProcessListerResults {
+	
+	#ProcessListerTable > table {
+		
+		clear: both;
+		position: relative;
+		
+		td table {
+			width: 100%;
+		}
+		
+		& > thead {
+			th {
+				font-size: 0.857142857142857em;
+				i {
+					// icons
+					font-size: 14px;
+				}
+			}
+			th strong {
+				// icon + first word of label 
+				white-space: nowrap;
+			}
+			th b,
+			.th b {
+				display: none;
+			}
+			th:first-child {
+				padding-left: 0; /* reno */
+			}
+		}
+		
+		& > tbody > tr > td {
+			font-size: 0.928571428571429em;
+			
+			&:first-child,
+			&:first-child > a {
+				padding-left: 0; /* reno */
+			}
+			ul.MarkupFieldtype {
+				margin: 0;
+				padding-left: 0;
+				& > li {
+					margin: 0;
+					padding-left: 0;
+				}
+				& > li + li {
+					border-top: 1px solid #eee;
+				}
+			}
+			& > *:first-child,
+			& .col_preview > *:first-child {
+				margin-top: 0;
+			}
+			& > *:last-child,
+			& .col_preview > *:last-child {
+				margin-bottom: 0;
+			}
+		}
+		
+	} // table
+	
+	.PageListerActions {
+		display: none;
+		line-height: 1.3em;
+		text-transform: lowercase;
+		
+		a.PageExtra {
+			margin-bottom: 3px;
+		}
+		a.PageExtras i {
+			margin-left: 3px;
+			margin-right: 2px;
+		}
+		a.PageExtras.open i {
+			margin-left: 2px;
+			margin-right: 3px;
+		}
+	}
+	
+	.row_message {
+		display: inline;
+	}
+	
+	.PageListStatusUnpublished {
+		text-decoration: line-through;
+		opacity: 0.5;
+	}
+
+	.PageListStatusHidden {
+		opacity: 0.5;
+	}
+	
+	.MarkupPagerNav {
+		float: right;
+	}
+
+	.nobr {
+		white-space: nowrap;
+	}
+	
+	table + .MarkupPagerNav {
+		margin: 0;
+	}
+	
+	.datetime {
+		white-space: nowrap;
+	}
+
+	td:not(.col_editing) .InputfieldHasFileList {
+		.InputfieldHeader {
+			display: none;
+		}
+		.InputfieldContent {
+			padding: 5px;
+			border: none;
+			margin-top: 5px;
+			margin-bottom: 5px;
+		}
+	}
+
+	@media only screen and (max-width: 767px) {
+		table.ProcessListerTable + .MarkupPagerNav {
+			margin-bottom: 1em;
+		}
+		.MarkupPagerNav {
+			float: none;
+		}
+	}
+
+}
+
+.AdminDataTable p {
+	margin: 1em 0;
+}
+
+#ProcessListerResults + a button {
+	float: left;
+	margin-right: 0;
+	margin-top: 0;
+}
+
+#ProcessListerSpinner {
+	margin-left: 0.5em;
+	font-size: 20px;
+	position: relative;
+	i {
+		position: absolute;
+		top: -15px;
+		left: 0;
+	}
+}
+
+#content .lister_headline {
+	float: left;
+	@media only screen and (max-width: 767px) {
+		float: none;
+		clear: both;
+	}
+}
+
+#lister_open_cnt {
+	display: none;
+}
+
+#filters_spinner {
+	float: right; 
+	margin-top: 4px; 
+}
+
+#ProcessListerRefreshTab {
+	float: right; 
+}
+
+p.version {
+	clear: both; 
+	padding-top: 1em; 
+}
+
+#ProcessListerScript {
+	display: none;
+}
+
+#table_bookmarks {
+	margin-top: 0.5em;
+}
+
+.AdminThemeReno {
+	a.lister-lightbox {
+		padding: 0 !important;
+	}
+	a.lister-lightbox img {
+		margin: 0 !important;
+	}
+}
+

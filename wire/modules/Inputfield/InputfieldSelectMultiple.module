@@ -1,0 +1,47 @@
+<?php namespace ProcessWire;
+
+class InputfieldSelectMultiple extends InputfieldSelect implements InputfieldHasArrayValue {
+
+	const defaultSize = 10; 
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Select Multiple', __FILE__), // Module Title
+			'summary' => __('Select multiple items from a list', __FILE__), // Module Summary
+			'version' => 101,
+			'permanent' => true, 
+			);
+	}
+
+	public function __construct() {
+		parent::__construct();
+		$this->setAttribute('multiple', 'multiple'); 
+		$this->setAttribute('size', self::defaultSize); 
+	}
+
+	/**
+	 * Add options only if they are non-blank
+	 *
+	 * We don't need blank options in a select multiple since the unselected state involves no selected options
+	 *
+	 */
+	public function addOption($value, $label = null, array $attributes = null) {
+		if(is_null($value) || (is_string($value) && !strlen($value))) return $this; 
+		return parent::addOption($value, $label, $attributes); 
+	}
+
+	public function ___getConfigInputfields() {
+		$inputfields = parent::___getConfigInputfields();	
+		if($this->className() == 'InputfieldSelectMultiple') {
+			// descending classes may null out the 'size' attribute if they don't need it
+			$f = $this->wire('modules')->get('InputfieldInteger'); 
+			$f->label = $this->_('Size: number of rows visible at once in the select multiple'); 
+			$f->attr('name', 'size'); 
+			$f->attr('value', (int) $this->attr('size')); 
+			$inputfields->add($f);
+		}
+		return $inputfields; 
+	}
+
+
+}

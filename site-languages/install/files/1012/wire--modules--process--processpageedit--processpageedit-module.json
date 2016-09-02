@@ -1,0 +1,201 @@
+{
+    "file": "wire\/modules\/Process\/ProcessPageEdit\/ProcessPageEdit.module",
+    "textdomain": "wire--modules--process--processpageedit--processpageedit-module",
+    "translations": {
+        "df74a326081d841aef061c999c7979f3": {
+            "text": "Ge\u00e4ndert: %s"
+        },
+        "c0df350b3d4fe22546834d74cdc77023": {
+            "text": "Ver\u00f6ffentlicht: %s"
+        },
+        "9ce0bc0d85071636f750e39ea86f86c0": {
+            "text": "Gespeichert: %s"
+        },
+        "f15c1cae7882448b3fb0404682e17e61": {
+            "text": "Inhalt"
+        },
+        "a1c508c8dcf832bde214942a479c63e5": {
+            "text": "Diese Seite ist im Papierkorb"
+        },
+        "2cb4bb1ee54691377c8778a8823eb4dd": {
+            "text": "Diese Seite ist zur Zeit unver\u00f6ffentlicht"
+        },
+        "404dd23de1c6c7edc7927e5262b93a1b": {
+            "text": "Speichern + unver\u00f6ffentlicht lassen"
+        },
+        "110a4b01beabd53b661a47d4b44bd7a8": {
+            "text": "Ver\u00f6ffentlichen"
+        },
+        "c9cc8cce247e49bae79f15173ce97354": {
+            "text": "Speichern"
+        },
+        "64e4aca4297806247f62a7b5f8cbd3df": {
+            "text": "Unterseiten"
+        },
+        "9b30437c5e1e966fa90525c93356fd3f": {
+            "text": "Unterseiten"
+        },
+        "b5c4bc5ddd4b490f3e2bf5abc0945f1d": {
+            "text": "F\u00fcr diese Seite existieren zur Zeit keine Unterseiten"
+        },
+        "a13cc55582da47cab1f7cc7518700c6e": {
+            "text": "Neue Unterseite anlegen"
+        },
+        "7e92f49c92e3f91ed88f03063fc34748": {
+            "text": "Sortiereinstellungen"
+        },
+        "591acadb8502cd6db313b718df45a6f4": {
+            "text": "System-Felder"
+        },
+        "833956a760d996ae61ea8b385e9fb6f0": {
+            "text": "Eigene Felder"
+        },
+        "d49042595c2674084c92d561b714d522": {
+            "text": "Umgekehrte Sortierreihenfolge?"
+        },
+        "f4f70727dc34561dfde1a3c529b6205c": {
+            "text": "Einstellungen"
+        },
+        "30269022e9d8f51beaabb52e5d0de2b7": {
+            "text": "Elternseite"
+        },
+        "4059b0251f66a18cb56f544728796875": {
+            "text": "Informationen"
+        },
+        "cacab211629daeffac10e13574e49d9e": {
+            "text": "Versteckt: Seite nicht in Listen oder Suchergebnissen zeigen"
+        },
+        "ab4b835121255016ef73bea7f4ea45a7": {
+            "text": "Gesperrt: Seite vor Bearbeitung sch\u00fctzen"
+        },
+        "0fdd10ee950975e58b122abb2de3a49b": {
+            "text": "Unver\u00f6ffentlicht: Seite als Entwurf speichern"
+        },
+        "f2a6c498fb90ee345d997f888fce3b18": {
+            "text": "L\u00f6schen"
+        },
+        "aa47bb0913144619a0a9abc59d59d6ed": {
+            "text": "Dauerhaft l\u00f6schen"
+        },
+        "7a289ea949902e8fa53efb4b3b4ccea0": {
+            "text": "In den Papierkorb verschieben"
+        },
+        "4351cfebe4b61d8aa5efa1d020710005": {
+            "text": "Ansehen"
+        },
+        "bbbabdbe1b262f75d99d62880b953be1": {
+            "text": "Rolle"
+        },
+        "13944cf77acdf1b9e49f6383c101ae89": {
+            "text": "(jeder)"
+        },
+        "17f8097b4af11ef352554fc7dd416c34": {
+            "text": "Das Template \"%s\" ist nicht erlaubt"
+        },
+        "c4101b17a6f3bb8ffbe40eb9edef2347": {
+            "text": "Diese Seite ist nicht l\u00f6schbar"
+        },
+        "827884bd1b673b7e58def7d09bf59b8b": {
+            "text": "Seite gel\u00f6scht: %s"
+        },
+        "a419fb9d9fe259c36eb1e4a99462bd1f": {
+            "text": "Seite in den Papierkorb verschoben: %s"
+        },
+        "7ba9fe21b073af37b16f989e23112967": {
+            "text": "Unbekannte Seite"
+        },
+        "b8e75fd085c6615286cee6fdc4e880ec": {
+            "text": "Diese Seite ist f\u00fcr \u00c4nderungen gesperrt"
+        },
+        "386397f000925f7d90c87a913a678eed": {
+            "text": "Sie haben keine Berechtigung, diese Seite zu \u00e4ndern"
+        },
+        "36c2b914f293a142343cba0f3157d748": {
+            "text": "Berechtigungen"
+        },
+        "567d412904b379e49382b6e3b90881ca": {
+            "text": "Erstellt von %1$s am %2$s"
+        },
+        "1dec6a532601f755520b9567091e1bf8": {
+            "text": "Zuletzt ge\u00e4ndert von %1$s am %2$s"
+        },
+        "ea1a60a080fc428d2c18d9e6d33ded08": {
+            "text": "Falls Sie wollen, dass alle derzeitigen und zuk\u00fcnftigen Unterseiten automatisch nach einem bestimmten Feld sortiert werden, w\u00e4hlen Sie das Feld unten aus und kreuzen Sie ggf. die \"Umgekehrte Sortierreihenfolge?\"-Checkbox an, um eine absteigend Sortierreihenfolge zu nutzen. Ignorieren Sie die Sortiereinstellungen einfach, falls Sie die Seiten per Drag'n'Drop selbst ordnen wollen."
+        },
+        "62a92c8e1a013dc0c9a67f2769642e9f": {
+            "text": "Kreuzen sie die Box an, um zu best\u00e4tigen, dass sie dies wollen."
+        },
+        "6e2e3de95055596f315a073f771342e3": {
+            "text": "Diese Seite kann zur Zeit nicht gel\u00f6scht werden."
+        },
+        "d2387a51d9f67d60dfc2cbb23bd04af2": {
+            "text": "Wer hat Zugriff auf diese Seite?"
+        },
+        "eec429d33814974270e5ab8a04a3d23e": {
+            "text": "Der Zugriff ist durch dieses Template geregelt: %s"
+        },
+        "890e4f4dd63b6c580cbf534f25914565": {
+            "text": "Der Zugriff ist von \"%1$s\" geerbt und wird durch dieses Template geregelt: %2$s"
+        },
+        "6c86eb040dbb20b1c6e1e891774b27ac": {
+            "text": "Seite kann nicht in den Papierkorb zu verschoben werden"
+        },
+        "8f1db4fbdd736bfc472e99f61be9e56f": {
+            "text": "Template von \"%1$s\" zu \"%2$s\" wechseln"
+        },
+        "11daf8e4f72e87c440ed3e0cac443157": {
+            "text": "Best\u00e4tigen Sie die \u00c4nderung des Templates"
+        },
+        "48af63aeec834982fcf91e325aaea998": {
+            "text": "Achtung, die \u00c4nderung des Templates wird folgende Felder l\u00f6schen:"
+        },
+        "729a51874fe901b092899e9e8b31c97a": {
+            "text": "Sind Sie sicher?"
+        },
+        "e4c2fcbaac781d00fe1e192a4d94c0e9": {
+            "text": "Bitte best\u00e4tigen Sie, dass Sie das obere verstanden haben, in dem Sie die Checkbox unten ankreuzen."
+        },
+        "6b102e11bd33fb8f4be6a6cecf2c491b": {
+            "text": "Sie haben nicht die Berechtigung, das Template zu \u00e4ndern."
+        },
+        "854de5f33bda667c67117b0aaee5a9cf": {
+            "text": "Dieses Template ist nicht erlaubt"
+        },
+        "d4ad7f8661990f191def1fb3a6accbd9": {
+            "text": "Template ge\u00e4ndert zu: \"%s\""
+        },
+        "fcdd8c7fe4647ee6186ea45dd69d425d": {
+            "text": "Unterseiten werden gem\u00e4\u00df Template-Einstellungen mittels \"%s\" sortiert."
+        },
+        "7ddc881b8c4b63699dd8487273384a38": {
+            "text": "Unterseiten werden sortiert gem\u00e4\u00df"
+        },
+        "6adf97f83acf6453d4a6a4b1070f3754": {
+            "text": "Keine"
+        },
+        "20a90cbb1d0984f5ecf4fe0cf01fe47e": {
+            "text": "Manuelles Drag 'n' Drop"
+        },
+        "1ad359c38781f8fc924a380559d60c42": {
+            "text": "Angelegt vom Benutzer"
+        },
+        "421318b075c43ddcd5426197f778c43c": {
+            "text": "Kann nicht gespeichert werden, eher Fehler korrigiert wurden."
+        },
+        "265dabf958cffe4bf96d445dcddf8678": {
+            "text": "%d \u00c4nderung"
+        },
+        "4e5878c0e4b4e901ee96c19e7fd05914": {
+            "text": "%d \u00c4nderungen"
+        },
+        "7b9bb8a9e6b0d2b64837e652485e11c9": {
+            "text": "Bearbeite Seite: %s"
+        },
+        "70d9be9b139893aa6c69b5e77e614311": {
+            "text": "Best\u00e4tigen"
+        },
+        "30b78fb546fe9686f84a740a5e5524a3": {
+            "text": "Name der Seiten-URL ge\u00e4ndert auf \"%s\" weil der gew\u00fcnschte Name bereits vergeben ist."
+        }
+    }
+}

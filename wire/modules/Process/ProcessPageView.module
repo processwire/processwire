@@ -1,0 +1,783 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page View Process
+ *
+ * Enables viewing or Processes, one of the core components in connecting ProcessWire to HTTP.
+ * 
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ * @method string execute($internal = true)
+ * @method string executeExternal()
+ * @method ready()
+ * @method finished()
+ * @method failed(\Exception $e)
+ * @method sendFile($page, $basename)
+ * @method string pageNotFound($page, $url, $triggerReady = false, $reason = '')
+ *
+ */
+class ProcessPageView extends Process {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Page View', __FILE__), // getModuleInfo title
+			'summary' => __('All page views are routed through this Process', __FILE__), // getModuleInfo summary 
+			'version' => 104, 
+			'permanent' => true, 
+			'permission' => 'page-view',
+			);
+	}
+
+	/**
+	 * Response types 
+	 *
+	 */
+	const responseTypeError = 0;
+	const responseTypeNormal = 1; 
+	const responseTypeAjax = 2; 
+	const responseTypeFile = 4; 
+	const responseTypeRedirect = 8; 
+	const responseTypeExternal = 16; 
+
+	/**
+	 * Response type (see response type codes above)
+	 *
+	 */
+	protected $responseType = 1; 
+
+	/**
+	 * URL that should be redirected to for this request
+ 	 * 
+	 * Set by other methods in this class, and checked by the execute method before rendering. 
+ 	 *
+	 */
+	protected $redirectURL = '';
+
+	/**
+	 * True if any redirects should be delayed until after API ready() has been issued
+	 * 
+	 */
+	protected $delayRedirects = false; 
+
+	/**
+	 * Sanitized URL that generated this request
+ 	 * 
+	 * Set by the getPage() method and passed to the pageNotFound function.
+ 	 *
+	 */
+	protected $requestURL = '';
+
+	/**
+	 * Unsanitized URL from $_SERVER['REQUEST_URI']
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $dirtyURL = '';
+
+	/**
+	 * Requested filename, if URL in /path/to/page/-/filename.ext format
+	 *
+	 */
+	protected $requestFile = '';
+
+	/**
+	 * Prefixes allowed for page numbers in URLs
+	 *
+	 */
+	protected $pageNumUrlPrefixes = array();
+
+	/**
+	 * Page number found in the URL or null if not found
+	 * 
+	 */
+	protected $pageNum = null;
+
+	/**
+	 * Page number prefix found in the URL or null if not found
+	 *
+	 */
+	protected $pageNumPrefix = null;
+
+	public function __construct() {
+		// no parent call intentional
+	}
+	
+	public function init() {
+	
+		$this->dirtyURL = isset($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '';
+		if(empty($this->dirtyURL) && !empty($_SERVER['QUERY_STRING'])) $this->dirtyURL = '?' . $_SERVER['QUERY_STRING'];
+
+		// check if there is an 'it' GET variable present in the request URL query string, which we don't want here
+		if(isset($_GET['it']) && strpos($this->dirtyURL, '?it=') !== false || strpos($this->dirtyURL, '&it=')) {
+			// force to use path in request url rather than contents of 'it' var
+			list($it, $x) = explode('?', $this->dirtyURL);
+			$rootURL = $this->wire('config')->urls->root;
+			if(strlen($rootURL) > 1 && strpos($it, $rootURL) === 0) $it = substr($it, strlen($rootURL)-1);
+			$it = str_replace('index.php', '', $it);
+			$_GET['it'] = $it;
+		}
+		
+		// no parent call intentional
+	}
+
+	/**
+	 * Retrieve a page, check access, and render
+	 * 
+	 * @param bool $internal True if request should be internally processed. False if PW is bootstrapped externally. 
+	 * @return string Output of request
+ 	 *
+	 */
+	public function ___execute($internal = true) {
+	
+		if(!$internal) return $this->executeExternal();
+
+		$this->responseType = self::responseTypeNormal;
+		$config = $this->config; 
+		$debug = $config->debug; 
+		if($config->usePoweredBy !== null) header('X-Powered-By:' . ($config->usePoweredBy ? ' ProcessWire CMS' : ''));
+		if(is_array($config->pageNumUrlPrefixes)) foreach($config->pageNumUrlPrefixes as $prefix) {
+			$this->pageNumUrlPrefixes[$prefix] = $prefix;
+		}
+		if(!count($this->pageNumUrlPrefixes)) {
+			$prefix = $this->config->pageNumUrlPrefix;
+			if(strlen($prefix)) $this->pageNumUrlPrefixes[$prefix] = $prefix;
+		}
+
+		$this->pages->setOutputFormatting(true); 
+		if($debug) Debug::timer('ProcessPageView.getPage()'); 
+		$page = $this->getPage();
+
+		if($page && $page->id) {
+			if($debug) Debug::saveTimer('ProcessPageView.getPage()', $page->path); 
+			$page->setOutputFormatting(true); 
+			$_page = $page;
+			$page = $this->checkAccess($page); 
+			if(!$page || $_page->id == $config->http404PageID) {
+				return $this->pageNotFound($_page, $this->requestURL, true, 'access not allowed');
+			}
+			
+			if(!$this->delayRedirects) {
+				$this->checkProtocol($page); 
+				if($this->redirectURL) $this->session->redirect($this->redirectURL);
+			}
+			
+			$this->wire('page', $page); 
+			$this->ready();
+			$page = $this->wire('page'); // in case anything changed it
+			
+			if($this->delayRedirects) {
+				$this->checkProtocol($page); 
+				if($this->redirectURL) $this->session->redirect($this->redirectURL);
+			}
+
+			try {
+				$this->wire()->setStatus(ProcessWire::statusRender);
+
+				if($this->requestFile) {
+					
+					$this->responseType = self::responseTypeFile;
+					$this->sendFile($page, $this->requestFile);
+					
+				} else {
+
+					$contentType = $page->template->contentType; 
+					if($contentType) {
+						if(strpos($contentType, '/') === false) {
+							if(isset($config->contentTypes[$contentType])) {
+								$contentType = $config->contentTypes[$contentType];
+							} else {
+								$contentType = '';
+							}
+						}
+						if($contentType) header("Content-Type: $contentType");
+					}
+
+					if($config->ajax) {
+						$this->responseType = self::responseTypeAjax;
+						return $page->render();
+
+					} else {
+						return $page->render();
+					}
+				}
+
+			} catch(Wire404Exception $e) {
+				return $this->pageNotFound($page, $this->requestURL, false, '404 thrown during render');
+			}
+
+		} else {
+			return $this->pageNotFound(new NullPage(), $this->requestURL, true, 'requested page resolved to NullPage'); 
+		}
+
+	}
+
+	/**
+	 * Method executed when externally bootstrapped
+	 * 
+	 * @return blank string
+	 * 
+	 */
+	public function ___executeExternal() {
+		$this->setResponseType(self::responseTypeExternal);
+		$config = $this->wire('config'); 
+		$config->external = true; 
+		if($config->externalPageID) {
+			$page = $this->wire('pages')->get((int) $config->externalPageID); 
+		} else {
+			$page = $this->wire('pages')->newNullPage();
+		}
+		$this->wire('page', $page);
+		$this->ready();
+		$this->wire()->setStatus(ProcessWire::statusRender);
+		return '';
+	}
+
+	/**
+	 * Hook called when the $page API var is ready, and before the $page is rendered. 
+	 *
+	 */
+	public function ___ready() { 
+		$this->wire()->setStatus(ProcessWire::statusReady);
+	}
+
+	/**
+	 * Hook called with the pageview has been finished and output has been sent. Note this is called in /index.php.
+	 *	
+ 	 */
+	public function ___finished() { 
+		$this->wire()->setStatus(ProcessWire::statusFinished);
+	}
+
+	/**
+	 * Hook called when the pageview failed to finish due to an exception.
+	 *
+	 * Sends a copy of the exception that occurred.
+	 *	
+ 	 */
+	public function ___failed(\Exception $e) { 
+		$this->wire()->setStatus(ProcessWire::statusFailed);
+	}
+
+	/**
+	 * Get the requested page and populate it with identified urlSegments or page numbers
+ 	 *
+	 * @return Page|null
+	 *
+	 */
+	protected function getPage() {
+	
+		$config = $this->wire('config');
+		$shit = isset($_GET['it']) ? trim($_GET['it']) : "/"; // dirty
+		$it = preg_replace('{[^-_./a-zA-Z0-9]}', '', $shit); // clean
+		unset($_GET['it']);
+		
+		if($shit !== $it && $config->pageNameCharset == 'UTF8') {
+			$it = $this->wire('sanitizer')->pagePathNameUTF8($shit);
+		}
+		
+		if(!isset($it[0]) || $it[0] != '/') $it = "/$it";
+		if(strpos($it, '//') !== false) return null;
+
+		// if request contains index.php and the $it string does not, make it redirect to correct version
+		$forceRedirect = strpos($this->dirtyURL, 'index.php') !== false && strpos($it, 'index.php') === false;
+		
+		$numParts = substr_count($it, '/');
+		if($numParts > $config->maxUrlDepth) return null;
+
+		if($config->pagefileSecure) {
+			$page = $this->checkRequestFile($it);
+			if(is_object($page)) return $page; // Page or NullPage
+		}
+
+		// optimization to filter out page numbers first
+		$maybePrefix = false;
+		foreach($this->pageNumUrlPrefixes as $prefix) {
+			if(strpos($it, '/' . $prefix) !== false) {
+				$maybePrefix = true;
+				break;
+			}
+		}
+		if($maybePrefix && preg_match('{/(' . implode('|', $this->pageNumUrlPrefixes) . ')(\d+)/?$}', $it, $matches)) {
+			// URL contains a page number, but we'll let it be handled by the checkUrlSegments function later
+			$this->pageNumPrefix = $matches[1]; 
+			$this->pageNum = (int) $matches[2]; 
+			$page = null;
+		} else { 
+			$page = $this->pages->get("path=$it, status<" . Page::statusMax); 
+		}
+
+		$hasTrailingSlash = substr($it, -1) == '/';
+
+		if($page && $page->id) {
+			if($forceRedirect) {
+				$this->redirectURL = $page->url;
+			} else {
+				// trailing slash vs. non trailing slash, enforced if not homepage 
+				// redirect to proper trailed slash version if incorrect version is present.
+				// note: this section only executed if no URL segments or page numbers were present
+				$s = $page->template->slashUrls;
+				if($page->id > 1 && ((!$hasTrailingSlash && $s !== 0) || ($hasTrailingSlash && $s === 0))) {
+					$this->redirectURL = $page->url;
+				}
+			}
+			return $page; 
+		}
+
+		$this->requestURL = $it; 
+		$urlSegments = array();
+		$maxSegments = $config->maxUrlSegments; 
+		if(is_null($maxSegments)) $maxSegments = 4; // default
+		$cnt = 0;
+
+		// if the page isn't found, then check if a page one path level before exists
+		// this loop allows for us to have both a urlSegment and a pageNum
+		while((!$page || !$page->id) && $cnt < $maxSegments) { 
+			$it = rtrim($it, '/'); 
+			$pos = strrpos($it, '/')+1;
+			$urlSegment = substr($it, $pos);
+			$urlSegments[$cnt] = $urlSegment; 
+			$it = substr($it, 0, $pos); // $it no longer includes the urlSegment
+			$selector = "path=" . $this->wire('sanitizer')->selectorValue($it, 2048) . ", status<" . Page::statusMax;
+			$page = $this->pages->get($selector);
+			$cnt++; 
+		}
+
+		// if we still found no page, then we can abort
+		if(!$page || !$page->id) return null;
+
+		// if URL segments and/or page numbers are present and not allowed then abort
+		if(!$this->checkUrlSegments($urlSegments, $page)) return null;
+		
+		if($forceRedirect && !$this->redirectURL) $this->redirectURL = $page->url;
+		
+		return $page; 
+	}
+
+	/**
+	 * Check if the requested URL is to a secured page file
+	 *
+	 * This function sets $this->requestFile when it finds one.
+	 * This function updates the $it variable when pagefile found.
+	 * Returns Page when a pagefile was found and matched to a page.
+	 * Returns NullPage when request should result in a 404. 
+	 * Returns true, and updates $it, when pagefile was found using old/deprecated method.
+	 * Returns false when none found.
+	 *
+	 * @param string $it Request URL
+	 * @return bool|Page|NullPage 
+	 *
+	 */
+	protected function checkRequestFile(&$it) {
+		$config = $this->wire('config');
+
+		// check for secured filename, method 1: actual file URL, minus leading "." or "-"
+		if(strpos(rtrim($config->urls->root, '/') . $it, $config->urls->files) === 0) {
+			if(preg_match('{/([\d\/]+)/([-_.a-zA-Z0-9]+)$}', $it, $matches) && strpos($matches[2], '.')) {
+				// request is consistent with those that would match to a file
+				$this->requestFile = $matches[2]; 	
+				$idPath = str_replace('/', '', $matches[1]); 
+				$page = $this->pages->get((int) $idPath); // Page or NullPage
+				return $page; 
+			} else {
+				// request was to something in /site/assets/files/ but we don't recognize it
+				// tell caller that this should be a 404
+				return $this->wire('pages')->newNullPage();
+			}
+		}
+
+		// check for secured filename: method 2 (deprecated), used only if $config->pagefileUrlPrefix is defined
+		$filePrefix = $config->pagefileUrlPrefix;
+		if($filePrefix && strpos($it, '/' . $filePrefix) !== false) { 
+			if(preg_match('{^(.*/)' . $filePrefix . '([-_.a-zA-Z0-9]+)$}', $it, $matches) && strpos($matches[2], '.')) {
+				$it = $matches[1];
+				$this->requestFile = $matches[2]; 
+				return true; 
+			}
+		} 
+
+		return false;
+	}
+
+	/**
+	 * Identify and populate URL segments and page numbers
+	 *
+	 * @param array $urlSegments URL segments as found in getPage()
+	 * @param Page $page
+	 * @return bool Returns false if URL segments found and aren't allowed
+	 *
+	 */
+	protected function checkUrlSegments(array $urlSegments, Page $page) {
+
+		if(!count($urlSegments)) return true; 
+
+		$lastSegment = reset($urlSegments);
+		$urlSegments = array_reverse($urlSegments); 
+		$pageNum = 1; 
+
+		// check if the last urlSegment is setting a page number and that page numbers are allowed
+		if(!is_null($this->pageNum) && $lastSegment === "$this->pageNumPrefix$this->pageNum" && $page->template->allowPageNum) {
+			// meets the requirements for a page number: last portion of URL and starts with 'page'
+			$pageNum = (int) $this->pageNum; 
+			if($pageNum < 1) $pageNum = 1;
+			if($pageNum > 1 && !$this->wire('user')->isLoggedin()) {
+				$maxPageNum = $this->wire('config')->maxPageNum; 
+				if(!$maxPageNum) $maxPageNum = 999;
+				if($pageNum > $maxPageNum) return false; 
+			}
+			$page->pageNum = $pageNum; // backwards compatibility
+			$this->input->setPageNum($pageNum); 
+			array_pop($urlSegments); 
+		} 
+
+		// return false if URL segments aren't allowed with this page template
+		if($page->template != 'admin' && count($urlSegments)) { 
+			if(!$this->isAllowedUrlSegment($page, $urlSegments)) return false;
+		}	
+
+		// now set the URL segments to the $input API variable
+		$cnt = 1; 
+		foreach($urlSegments as $urlSegment) {
+			if($cnt == 1) $page->urlSegment = $urlSegment; // backwards compatibility
+			$this->input->setUrlSegment($cnt, $urlSegment);
+			$cnt++;
+		}
+	
+		if($pageNum > 1 || count($urlSegments)) {
+			$hasTrailingSlash = substr($this->requestURL, -1) == '/';
+			// $url=URL with urlSegments and no trailing slash
+			// $url = rtrim(rtrim($page->url, '/') . '/' . $this->input->urlSegmentStr, '/');
+			$redirectPath = null;
+			if($pageNum > 1 && $page->template->slashPageNum) {
+				if($page->template->slashPageNum == 1 && !$hasTrailingSlash) {
+					// enforce trailing slash on page numbers
+					//$this->redirectURL = "$url/$this->pageNumPrefix$pageNum/";
+					$redirectPath = "/$this->pageNumPrefix$pageNum/";
+				} else if($page->template->slashPageNum == -1 && $hasTrailingSlash) {
+					// enforce NO trailing slash on page numbers
+					// $this->redirectURL =  "$url/$this->pageNumPrefix$pageNum";
+					$redirectPath = "/$this->pageNumPrefix$pageNum";
+				}
+				
+			} else if(count($urlSegments) && $page->template->slashUrlSegments) {
+				if($page->template->slashUrlSegments == 1 && !$hasTrailingSlash) {
+					// enforce trailing slash with URL segments
+					// $this->redirectURL = "$url/";
+					$redirectPath = "/";
+					
+				} else if($page->template->slashUrlSegments == -1 && $hasTrailingSlash) {
+					// enforce no trailing slash with URL segments
+					// $this->redirectURL = $url;
+					$redirectPath = "";
+				}
+			}
+			
+			if($redirectPath !== null) {
+				// redirect will occur to a proper slash format
+				if($this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
+					// ensure that LanguageSupportPageNames reaches a ready() state, since 
+					// it can modify the output of $page->url (if installed)
+					$this->wire('page', $page);
+					$this->wire('modules')->get('LanguageSupportPageNames')->ready();
+				}
+				$this->redirectURL = rtrim(rtrim($page->url, '/') . '/' . $this->input->urlSegmentStr, '/') . $redirectPath;
+			}
+		}
+
+		return true; 
+	}
+
+	/**
+	 * Is the given URL segment allowed according to the page template's settings?
+	 *
+	 * @param Page $page
+	 * @param string|array $segment May be a single segment or path of segments
+	 * @return bool
+	 *
+	 */
+	protected function isAllowedUrlSegment(Page $page, $segment) {
+
+		$urlSegments = $page->template->urlSegments();
+
+		if(is_array($urlSegments)) {
+			// only specific URL segments are allowed
+			if(is_array($segment)) $segment = implode('/', $segment);
+			$segment = trim($segment, '/');
+			$allowed = false;
+			foreach($urlSegments as $allowedSegment) {
+				if(strpos($allowedSegment, 'regex:') === 0) {
+					$regex = '{' . trim(substr($allowedSegment, 6)) . '}';
+					$allowed = preg_match($regex, $segment);
+
+				} else if($segment === $allowedSegment) {
+					$allowed = true;
+				}
+				if($allowed) break;
+			}
+			return $allowed;
+
+		} else if($urlSegments > 0) {
+			// all URL segments are allowed
+			return true;
+
+		} else {
+			// no URL segments are allowed
+			return false;
+		}
+
+	}
+
+	/**
+	 * Check that the current user has access to the page and return it 
+	 *
+	 * If the user doesn't have access, then a login Page or NULL (for 404) is returned instead. 
+	 *
+	 * @param $page
+	 * @return Page|null
+	 *
+	 */
+	protected function checkAccess($page) {
+
+		if($page->viewable()) return $page; 
+	
+		if($this->requestFile) {
+			// if a file was requested, we still allow view even if page doesn't have template file
+			// this is something that viewable() does not echeck
+			if($page->editable()) return $page;
+			if($this->checkAccessDelegated($page)) return $page; 
+			if($page->status < Page::statusUnpublished && $this->wire('user')->hasPermission('page-view', $page)) return $page;
+		}
+
+		$accessTemplate = $page->getAccessTemplate();
+		$redirectLogin = $accessTemplate ? $accessTemplate->redirectLogin : false;
+		$requestPage = $page;
+
+		if($redirectLogin) {
+			$config = $this->wire('config');
+			$disallowIDs = array($config->trashPageID); // don't allow login redirect for these pages
+			if($page->id && in_array($page->id, $disallowIDs)) {
+				$page = null;
+			} else if(ctype_digit("$redirectLogin")) {
+				// redirect login provided as a page ID
+				$redirectLogin = (int) $redirectLogin;
+				if($redirectLogin == 1) $redirectLogin = $this->config->loginPageID; 
+				$page = $this->pages->get($redirectLogin); 
+			} else {
+				// redirect login provided as a URL, optionally with an {id} tag for requested page ID
+				$redirectLogin = str_replace('{id}', $page->id, $redirectLogin); 
+				$this->redirectURL = $redirectLogin;
+			}
+			
+			// in case anything needs to know the originally requested login page
+			$this->wire('session')->setFor('ProcessPageView', 'loginRequestPageID', $requestPage->id);
+			
+		} else {
+			$page = null;
+		}
+		
+		return $page; 
+	}
+
+	/**
+	 * Check access to a delegated page (like a repeater)
+	 * 
+	 * Note: this should move to PagePermissions.module or FieldtypeRepeater.module 
+	 * if a similar check is needed somewhere else in the core.
+	 * 
+	 * @param Page $page
+	 * @return Page|null
+	 * 
+	 */
+	protected function checkAccessDelegated(Page $page) {
+		if(strpos($page->template->name, 'repeater_') == 0) {
+			if(!$this->wire('modules')->isInstalled('FieldtypeRepeater')) return false;
+			$fieldName = substr($page->template->name, strpos($page->template->name, '_') + 1); // repeater_(fieldName)
+			if(!$fieldName) return false;
+			$field = $this->wire('fields')->get($fieldName);
+			if(!$field) return false;
+			$forPageID = substr($page->parent->name, strrpos($page->parent->name, '-') + 1); // for-page-(id)
+			$forPage = $this->wire('pages')->get((int) $forPageID);
+			// delegate viewable check to the page the repeater lives on
+			if($forPage->id && $forPage->viewable($field)) return $page;
+		}
+		return null;
+	}
+
+	/**
+	 * If the template requires a different protocol than what is here, then redirect to it.
+	 *
+	 * This method just silently sets the $this->redirectURL var if a redirect is needed. 
+	 * Note this does not work if GET vars are present in the URL -- they will be lost in the redirect.
+	 *
+	 * @param Page $page
+	 *
+	 */
+	protected function checkProtocol($page) {
+
+		$requireHTTPS = $page->template->https;
+		if($requireHTTPS == 0) return; // neither HTTP or HTTPS required
+		
+		$config = $this->wire('config');
+		$isHTTPS = $config->https; 
+		$scheme = '';
+
+		if($requireHTTPS == -1 && $isHTTPS) {
+			// HTTP required: redirect to HTTP non-secure version
+			$scheme = "http";
+
+		} else if($requireHTTPS == 1 && !$isHTTPS) {
+			// HTTPS required: redirect to HTTPS secure version
+			$scheme = "https";
+		}
+		
+		if(!$scheme) return;
+		
+		if($this->redirectURL) {
+			if(strpos($this->redirectURL, '://') !== false) {
+				$url = str_replace(array('http://', 'https://'), "$scheme://", $this->redirectURL);
+			} else {
+				$url = "$scheme://$config->httpHost$this->redirectURL";
+			}
+		} else {
+			$url = "$scheme://$config->httpHost$page->url";
+		}
+		$input = $this->wire('input'); 
+	
+		if($this->redirectURL) {
+			// existing redirectURL will already have segments/page numbers as needed
+			
+		} else {
+			$urlSegmentStr = $input->urlSegmentStr;
+			if(strlen($urlSegmentStr) && $page->template->urlSegments) {
+				$url = rtrim($url, '/') . '/' . $urlSegmentStr;
+				if($page->template->slashUrlSegments) {
+					// use defined setting for trailing slash
+					if($page->template->slashUrlSegments == 1) $url .= '/';
+				} else {
+					// use whatever the request came with	
+					if(substr($this->requestURL, -1) == '/') $url .= '/';
+				}
+			}
+
+			$pageNum = $input->pageNum;
+			if($pageNum > 1 && $page->template->allowPageNum) {
+				$prefix = $this->pageNumPrefix ? $this->pageNumPrefix : $this->wire('config')->pageNumUrlPrefix;
+				if(!$prefix) $prefix = 'page';
+				$url .= "$prefix$pageNum";
+				if($page->template->slashPageNum) {
+					// defined setting for trailing slash	
+					if($page->template->slashPageNum == 1) $url .= '/';
+				} else {
+					// use whatever setting the URL came with
+					if(substr($this->requestURL, '-1') == '/') $url .= '/';
+				}
+			}
+		}
+		
+		$this->redirectURL = $url;
+	}
+	
+	/**
+	 * Passthru a file for a non-public page
+	 *
+	 * If the page is public, then it just does a 301 redirect to the file.
+	 *
+	 */
+	protected function ___sendFile($page, $basename) {
+
+		$err = 'File not found';
+
+		// use the static hasPath first to make sure this page actually has a files directory
+		// this ensures one isn't automatically created when we call $page->filesManager->path below
+		if(!PagefilesManager::hasPath($page)) throw new Wire404Exception($err);
+
+		$filename = $page->filesManager->path() . $basename; 
+		if(!is_file($filename)) throw new Wire404Exception($err);
+
+		if($page->isPublic()) {
+			// deprecated, only necessary for method 2 in checkRequestFile
+			$this->wire('session')->redirect($page->filesManager->url() . $basename); 
+
+		} else {
+			$options = array('exit' => false);
+			wireSendFile($filename, $options);
+		}
+	}
+
+	/**
+	 * Called when a page is not found, sends 404 header, and displays the configured 404 page instead.
+	 *
+	 * Method is hookable, for instance if you wanted to log 404s.
+	 *
+	 * @param Page|null $page Page that was found if applicable (like if user didn't have permission or $page's template threw the 404). If not applicable then NULL will be given instead.
+	 * @param string $url The URL that the request originated from (like $_SERVER['REQUEST_URI'] but already sanitized)
+	 * @param bool $triggerReady Whether or not the ready() hook should be triggered (default=false)
+	 * @param string $reason Reason why 404 occurred, for debugging purposes (en text)
+	 * @throws WireException
+	 * @return string
+	 */
+	protected function ___pageNotFound($page, $url, $triggerReady = false, $reason = '') {
+
+		$this->responseType = self::responseTypeError; 
+		$config = $this->config;
+		$this->header404();
+
+		if($config->http404PageID) {
+			$page = $this->pages->get($config->http404PageID); 
+			if(!$page) throw new WireException("config::http404PageID does not exist - please check your config"); 
+			$this->wire('page', $page); 
+			if($triggerReady) $this->ready();
+			return $page->render();
+		} else {
+			return "404 page not found";
+		}
+	}
+
+	/**
+	 * Send a 404 header, but not more than once per request
+	 * 
+	 */
+	protected function header404() {
+		static $n = 0;
+		if(!$n) header("HTTP/1.1 404 Page Not Found"); 
+		$n++;
+	}
+
+	/**
+	 * Return the response type for this request, as one of the responseType constants
+	 *
+	 * @return int
+	 *
+	 */
+	public function getResponseType() {
+		return $this->responseType; 
+	}
+
+	/**
+	 * Set the response type for this request, see responseType constants in this class
+	 *
+	 * @param int $responseType
+	 *
+	 */
+	public function setResponseType($responseType) {
+		$this->responseType = (int) $responseType; 
+	}
+
+	/**
+	 * Set whether any redirects should be performed after the API ready() call
+	 * 
+	 * This is used by LanguageSupportPageNames to delay redirects until after http/https schema is determined. 
+	 *
+	 * @param bool $delayRedirects
+	 *
+	 */
+	public function setDelayRedirects($delayRedirects) {
+		$this->delayRedirects = $delayRedirects ? true : false;
+	}
+
+}
+

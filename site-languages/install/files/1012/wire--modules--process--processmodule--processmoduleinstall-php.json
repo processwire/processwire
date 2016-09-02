@@ -1,0 +1,57 @@
+{
+    "file": "wire\/modules\/Process\/ProcessModule\/ProcessModuleInstall.php",
+    "textdomain": "wire--modules--process--processmodule--processmoduleinstall-php",
+    "translations": {
+        "5bb84f541cde4c248e5f6f58ae92c49e": {
+            "text": "Kann Dateien nicht in neues Verzeichnis kopieren:"
+        },
+        "82d70ccfc2a2e0bb66507a3f90c4690e": {
+            "text": "Kann fehlerhaftes Modul Verzeichnis nicht l\u00f6schen:"
+        },
+        "e7df9a3e1460bdfcaabe5b2e451a6594": {
+            "text": "Keine hochgeladenen Dateien gefunden"
+        },
+        "ccb108ad977122d69f8bbc7758997ff2": {
+            "text": "Stellen Sie sicher, dass das Verzeichnis \/site\/assets\/cache\/ Schreibrechte f\u00fcr PHP hat."
+        },
+        "cfe1ee62b0efc597562d0b78c5196d47": {
+            "text": "Stellen Sie sicher, dass das Verzeichnis \/site\/modules\/ Schreibrechte f\u00fcr PHP hat."
+        },
+        "34484ec9b680d2670f6c0d0a6ea5cb5a": {
+            "text": "Die ZipArchive Klasse wird ben\u00f6tigt und ihr PHP hat dies nicht."
+        },
+        "af32834e6517e929e3993eb018b46ac0": {
+            "text": "Kann keine Modul Dateien finden"
+        },
+        "c137d70093460b298739f9503c46eeaa": {
+            "text": "Verzeichnis ist ein symbolischer Link"
+        },
+        "2a3cd9a18eaf3b274b4fa40068fff003": {
+            "text": "Dateien erfolgreich in neues Verzeichnis kopiert:"
+        },
+        "5a3527463defe3c1e1ab721c4942f331": {
+            "text": "Kann Verzeichnis nicht erstellen:"
+        },
+        "a7e401f040fc37065b5d7a8b01e5a592": {
+            "text": "Kann Modul Dateien nicht kopieren:"
+        },
+        "0e30f791217cbeee87323db58731e58f": {
+            "text": "Bestehende %s gesichert"
+        },
+        "34e8dc0a73d373618c591be38800cd3c": {
+            "text": "Sicherung von %s wiederhergestellt"
+        },
+        "21b1483780050057a84adbf35ec57c05": {
+            "text": "Hochladen kann nicht abgeschlossen werden"
+        },
+        "c8e5b4f1bb72c62949a522f6925e80c8": {
+            "text": "Herunterladen kann nicht abgeschlossen werden"
+        },
+        "a4e29333ef852fef776eecdb5b3ac6a1": {
+            "text": "Ung\u00fcltige Download-URL festgelegt"
+        },
+        "e830879e542fd52ca82f599ce41b6668": {
+            "text": "Heruntergeladene ZIP-Datei: %s (%d Bytes)"
+        }
+    }
+}

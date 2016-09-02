@@ -1,0 +1,49 @@
+<?php namespace ProcessWire;
+
+/**
+ * An Inputfield for handling "button" buttons
+ * 
+ * @property string $href URL to link to
+ * @property string $aclass Optional class name(s) for <a> element (if href is used). 
+ *
+ */
+class InputfieldButton extends InputfieldSubmit {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Button', __FILE__), // Module Title
+			'summary' => __('Form button element that you can optionally pass an href attribute to.', __FILE__), // Module Summary
+			'version' => 100,
+			'permanent' => true, 
+			);
+	}
+
+	public function init() {
+		parent::init();
+		$this->attr('id', '');
+		$this->attr('type', 'button'); 
+		$this->attr('name', 'button'); 
+		$this->attr('value', 'Button'); 
+		$this->attr('href', ''); 
+		$this->set('aclass', ''); 
+		$this->set('target', '');
+		$this->skipLabel = Inputfield::skipLabelBlank; 
+	}
+
+	public function ___render() {
+		$href = $this->attr('href');
+		if($href) $this->attr('href', '');
+		$out = parent::___render();
+		if($href) { 
+			$out = trim($out); 
+			$attr = $this->aclass ? " class='$this->aclass'" : "";
+			if($this->target) $attr .= " target='" . $this->wire('sanitizer')->entities($this->target) . "'";
+			$out = "<a$attr href='$href'>$out</a>";
+			$this->attr('href', $href); 
+		}
+		
+		return $out; 
+	}
+
+	
+}

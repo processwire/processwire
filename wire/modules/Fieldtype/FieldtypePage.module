@@ -1,0 +1,1265 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Fieldtype
+ *
+ * Field that stories references to one or more ProcessWire pages. 
+ *
+ * For documentation about the fields used in this class, please see:  
+ * /wire/core/Fieldtype.php
+ * /wire/core/FieldtypeMulti.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Page Reference',
+			'version' => 103,
+			'summary' => 'Field that stores one or more references to ProcessWire pages',
+			'permanent' => true, 
+			);
+	}
+
+	const derefAsPageArray = 0; 
+	const derefAsPageOrFalse = 1; 
+	const derefAsPageOrNullPage = 2;
+
+	/**
+	 * Subfield names that will match to the 'pages' table, rather than custom fields
+	 *
+	 */
+	protected $nativeNames = array(
+		'name', 
+		'status',
+		'template',
+		'templates_id',
+		'parent',
+		'parent_id',
+		'created',
+		'modified',
+		'published',
+		);
+
+
+	/**	
+	 * Setup a hook to Pages::delete so that we can remove references when pages are deleted
+	 *
+	 */
+	public function init() {
+		$pages = $this->wire('pages'); 
+		if($pages) {
+			$pages->addHookAfter('delete', $this, 'hookPagesDelete');
+		} else {
+			$this->addHookAfter('Pages::delete', $this, 'hookPagesDelete');
+		}
+	}
+
+	/**
+	 * FieldtypePage instances are only compatible with other FieldtypePage derived classes. 
+	 * 
+	 * @param Field $field
+	 * @return Fieldtypes
+	 *
+	 */
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = parent::___getCompatibleFieldtypes($field); 
+		foreach($fieldtypes as $type) if(!$type instanceof FieldtypePage) $fieldtypes->remove($type); 
+		return $fieldtypes; 
+	}
+
+	/**
+	 * Delete any records that are referencing the page that was deleted
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookPagesDelete($event) {
+		if(!$event->return) return; // if delete failed, then don't continue
+		$page_id = $event->arguments[0]->id; 
+		$database = $this->wire('database');
+		foreach($this->wire('fields') as $field) {
+			if(!$field->type instanceof FieldtypePage) continue; 
+			$table = $database->escapeTable($field->table);
+			// delete references to this page
+			$query = $database->prepare("DELETE FROM `$table` WHERE data=:page_id");
+			$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
+			$query->execute();
+			// delete references this page is keeping to other pages
+			$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id");
+			$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
+			$query->execute();
+		}	
+	}
+
+	/**
+	 * We want FieldtypePage to autoload so that it can monitor page deletes
+	 * 
+	 * @return bool
+	 *
+	 */
+	public function isAutoload() {
+		return true; 
+	}
+
+	/**
+	 * Return an InputfieldPage of the type configured
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return InputfieldPage
+	 *
+	 */
+	public function getInputfield(Page $page, Field $field) {
+		$inputfield = $this->wire('modules')->get("InputfieldPage"); 
+		$inputfield->class = $this->className();
+		return $inputfield; 
+	}
+
+	/**
+	 * Given a raw value (value as stored in DB), return the value as it would appear in a Page object
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array $value
+	 * @return string|int|array|object $value
+	 *
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+
+		$template = null;
+		$template_id = $field->get('template_id');
+		$derefAsPage = $field->get('derefAsPage');
+		$allowUnpub = $field->get('allowUnpub');
+		
+		if($template_id) $template = $this->wire('templates')->get($template_id); 
+		
+		// handle $value if it's blank, Page, or PageArray
+		if($derefAsPage > 0) {
+			// value will ultimately be a single Page
+			if(!$value) return $this->getBlankValue($page, $field); 
+		
+			// if it's already a Page, then we're good: return it
+			if($value instanceof Page) return $value; 	
+		
+			// if it's a PageArray and should be a Page, determine what happens next
+			if($value instanceof PageArray) {
+				// if there's a Page in there, return the first one
+				if(count($value) > 0) return $value->first();
+		
+				// it's an empty array, so return whatever our default is
+				return $this->getBlankValue($page, $field); 
+			}
+		
+		} else {
+			// value will ultimately be multiple pages
+		
+			// if it's already a PageArray, great, just return it
+			if($value instanceof PageArray) return $value; 
+		
+			// setup our default/blank value 
+			$pageArray = $this->getBlankValue($page, $field); 
+		
+			// if $value is blank, then return our default/blank value
+			if(empty($value)) return $pageArray; 
+		}
+		
+		// if we made it this far, then we know that the value was not empty
+		// so it's going to need to be populated from one type to the target type
+		
+		// we're going to be dealing with $value as an array this point forward
+		// this is for compatibility with the Pages::getById function
+		if(!is_array($value)) $value = array($value); 
+		// $value = $this->validatePageIDs($page, $value); 
+		
+		if($derefAsPage > 0) {
+			// we're going to return a single page, NullPage or false
+			$pg = false;
+			if(count($value)) {
+				// get the first value in a PageArray, using $template and parent for optimization
+				$pageArray = $this->wire('pages')->getById(array((int) reset($value)), $template); 
+				if(count($pageArray)) $pg = $pageArray->first();
+			}
+		
+			if($pg && $pg->status >= Page::statusUnpublished && !$allowUnpub) $pg = false; 
+			if(!$pg) $pg = $this->getBlankValue($page, $field); 
+		
+			return $pg; 
+		
+		} else {
+			// we're going to return a PageArray
+			if(!count($value)) return $this->getBlankValue($page, $field); 
+			$pageArray = $this->wire('pages')->getById($value, $template); 
+			foreach($pageArray as $pg) {
+				// remove any pages that have an unpublished status
+				if($pg->status >= Page::statusUnpublished && !$allowUnpub) $pageArray->remove($pg); 
+			}
+			$pageArray->resetTrackChanges(); 
+			return $pageArray; 
+		}
+	}
+
+	/**
+	 * Pre-validate the given page IDs
+	 * 
+	 * @param Page $page
+	 * @param array $ids
+	 * @return array
+	protected function validatePageIDs(Page $page, array $ids) {
+		foreach($ids as $key => $id) {
+			// ensure no circular reference
+			if($id == $page->id) unset($ids[$key]); 
+		}
+		return $ids; 
+	}
+	 */
+
+	/**
+	 * Given an 'awake' value, as set by wakeupValue, convert the value back to a basic type for storage in DB. 
+	 *              
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array|object $value
+	 * @return string|int
+	 *
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+		
+		$sleepValue = array();
+		
+		if($field->get('derefAsPage') > 0) {
+			// if the $value isn't specifically a Page, make it a blank array for storage
+			if(!$value instanceof Page || !$value->id) return $sleepValue; 
+			// if $value is a Page (not a NullPage) then place it's ID in an array for storage
+			$this->isValidPage($value, $field, $page, true);
+			$sleepValue[] = $value->id; 
+		} else {
+			// if $value isn't a PageArray then we'll store a blank array
+			if(!$value instanceof PageArray) return $sleepValue; 
+			// iterate through the array and place each Page ID
+			foreach($value as $pg) {
+				if(!$pg->id) continue;
+				$this->isValidPage($pg, $field, $page, true);
+				$sleepValue[] = $pg->id; 
+			}
+		}
+		
+		return $sleepValue;
+	}
+
+	/**
+	 * Export value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|int|object|string $value
+	 * @param array $options
+	 * @return array|string
+	 * 
+	 */
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		if($value instanceof Page) return $this->exportValuePage($page, $field, $value, $options); 	
+		if(!$value instanceof PageArray) return array();
+		$a = array();
+		foreach($value as $k => $v) {
+			$a[] = $this->exportValuePage($page, $field, $v, $options); 	
+		}
+		// in human mode just return the titles separated by a carriage return
+		if(!empty($options['human'])) return implode("\n", $a); 
+		return $a; 
+	}
+
+	protected function exportValuePage(Page $page, Field $field, Page $value, array $options = array()) {
+		if($page) {}
+		if($field) {}
+		if(!$value->id) return array();
+		// in human mode, just return the title or name
+		if(!empty($options['human'])) return $value->get('title|name'); 
+		// otherwise return an array of info
+		$a = array(); 
+		if($value->template && $value->template->fieldgroup->has('title')) $a['title'] = $value->getUnformatted('title'); 
+		$a['id'] = $value->id; 
+		$a['name'] = $value->name; 
+		$a['path'] = $value->path; 
+		$a['template'] = (string) $value->template;
+		$a['parent_id'] = $value->parent_id; 
+		return $a; 
+	}
+
+	/**
+	 * Format the given value for output. 
+	 *
+	 * In this case, we remove non-listable (unpublished) pages when necessary.
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|WireArray|object $value
+	 * @return string
+	 *
+	 */
+	public function ___formatValue(Page $page, Field $field, $value) {
+		if($field->get('allowUnpub')) return $value; 
+
+		// remove unpublished pages for front-end formatted output
+		if($value instanceof Page) {
+			if($value->hasStatus(Page::statusUnpublished)) $value = $this->getBlankValue($page, $field); 
+
+		} else if($value instanceof PageArray) {
+			foreach($value as $item) {
+				if($item->hasStatus(Page::statusUnpublished)) $value->remove($item); 
+			}
+		}
+
+		return $value;
+	}
+
+	/**
+	 * Render markup value for field
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param null $value
+	 * @param string $property
+	 * @return MarkupFieldtype|string
+	 * 
+	 */
+	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
+		$labelFieldName = $field->get('labelFieldName');
+		$labelFieldFormat = $field->get('labelFieldFormat');
+		if(is_null($value)) $value = $page->getFormatted($field->name);
+		if($property === '.') $property = '';
+		if(empty($property) && $labelFieldName) {
+			if($labelFieldName === '.') {
+				if(strlen($labelFieldFormat)) $property = $labelFieldFormat;
+					else $property = 'name';
+			} else {
+				$property = $labelFieldName;
+			}
+		} 
+		return parent::___markupValue($page, $field, $value, $property);
+	}
+
+
+	/**
+	 * Return either a blank Page or a blank PageArray or boolean false (depending on derefAsPage setting)
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Page|PageArray|bool
+	 *
+	 */
+	public function getBlankValue(Page $page, Field $field) {
+		
+		$derefAsPage = $field->get('derefAsPage');
+
+		if($derefAsPage == FieldtypePage::derefAsPageOrFalse) {
+			// single page possible blank values
+			return false;
+
+		} else if($derefAsPage == FieldtypePage::derefAsPageOrNullPage) {
+			// single page possible blank values
+			return $this->wire('pages')->newNullPage(); 
+			
+		} else {
+			// multi page blank value (FieldtypePage::derefAsPageArray)
+			$pageArray = $this->wire('pages')->newPageArray();
+			$pageArray->setTrackChanges(true);
+			return $pageArray;
+		}
+	}
+	
+	/**
+	 * Given a string value return either a Page or PageArray
+	 *	
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $value
+	 * @return Page|PageArray
+	 *
+	 */
+	protected function sanitizeValueString(Page $page, Field $field, $value) {
+
+		$result = false;
+		$parent_id = $field->get('parent_id');
+		$template_id = $field->get('template_id');
+
+		if(Selectors::stringHasOperator($value)) {
+			// selector string
+			$selector = $value; 
+			/** @var InputfieldPage $inputfield */
+			$inputfield = $field->getInputfield($page); 
+			/** @var PageArray $selectablePages */
+			$selectablePages = $inputfield->getSelectablePages($page); 
+			$result = $selectablePages->filter($selector); 
+
+		} else if(ctype_digit("$value")) {
+			// page ID
+			$result = $this->pages->get("id=" . $value); 
+			
+		} else if(strpos($value, '-') === 0 && ctype_digit(ltrim($value, '-'))) {
+			// page ID to remove from value
+			$result = $this->pages->get("id=" . ltrim($value, '-')); 
+			$result->set('_FieldtypePage_remove', $result->id); 
+			
+		} else if(strpos($value, '|') !== false && ctype_digit(str_replace('|', '', $value))) {
+			// CSV string separated by '|' characters
+			$result = $this->pages->getById(explode('|', $value)); 	
+
+		} else if(strlen($value) && $value[0] == '/') {
+			// path to page
+			$result = $this->pages->get($value);
+
+		} else if(strpos($value, "\n") !== false || strpos($value, '|') !== false) {
+			// multiple references in a newline or pipe separated string
+			$values = str_replace(array("\r\n", "\r", "|"), "\n", $value);
+			// string has been normalized to newline separated only
+			$values = explode("\n", $values); 
+			foreach($values as $str) {
+				$v = $this->sanitizeValueString($page, $field, $str); // recursive
+				if($v && $v->id) {
+					if(!$result) $result = $this->wire('pages')->newPageArray();
+					$result->add($v); 
+				}
+			}
+			
+		} else if($parent_id) {
+			// set by title
+			$parentIDs = is_array($parent_id) ? implode('|', $parent_id) : $parent_id; 
+			$result = $this->wire('pages')->get("parent_id=$parentIDs, title=" . $this->wire('sanitizer')->selectorValue($value));
+			// set by name
+			if(!$result->id) $result = $this->wire('pages')->get("parent_id=$parentIDs, name=" . 
+				$this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($value))); 
+			
+		} else if($template_id) {
+			// set by title 
+			$templateIDs = is_array($template_id) ? implode('|', $template_id) : $template_id;
+			$result = $this->wire('pages')->get("templates_id=$templateIDs, title=" . $this->wire('sanitizer')->selectorValue($value));
+			// set by name
+			if(!$result->id) $result = $this->wire('pages')->get("templates_id=$templateIDs, name=" . 
+				$this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($value))); 
+		}
+		
+		if(!$result && $this->wire('config')->debug) {
+			$this->warning("Unable to locate page match for: $value"); 
+		}
+
+		return $result; 
+	}
+
+	/**
+	 * Given a value of unknown type, return a Page or PageArray (depending on $field->derefAsPage setting)
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Page|PageArray|string|int $value
+	 * @return Page|PageArray|bool Returns false if value can't be converted to the proper object type.
+	 *
+	 */
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		if($field->get('derefAsPage') > 0) {
+			// Page
+			$value = $this->sanitizeValuePage($page, $field, $value); 
+		} else {
+			// PageArray
+			$value = $this->sanitizeValuePageArray($page, $field, $value); 
+		}
+		return $value; 
+	}
+	
+	/**
+	 * Handles the sanitization of values when target is a single Page
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Page|PageArray
+	 * @return Page|bool|null
+	 *
+	 */
+	protected function sanitizeValuePage(Page $page, Field $field, $value) {
+
+		if(!$value) return $this->getBlankValue($page, $field); 
+		
+		if($value instanceof Page) {
+			// ok
+		} else if($value instanceof PageArray) {
+			$value = $value->first();
+		} else if(is_string($value) || is_int($value)) {
+			$value = $this->sanitizeValueString($page, $field, $value); 
+			if($value instanceof PageArray) $value = $value->first();
+			if(is_object($value) && $value->get('_FieldtypePage_remove') === $value->id) {
+				$value->__unset('_FieldtypePage_remove'); 
+				$value = null; // remove item 
+			}
+		}
+		
+		$value = (($value instanceof Page) && $value->id) ? $value : $this->getBlankValue($page, $field); 
+		
+		if($value && $value->id && $page->id == $value->id) {
+			$value = $this->getBlankValue($page, $field); // prevent circular references
+		}
+		
+		return $value; 
+	}
+
+	/**
+	 * Validate that that $value is a valid Page for this field
+	 * 
+	 * @param Page $value The value to validate
+	 * @param Field $field The field the value is for
+	 * @param Page $forPage The page the value will exist on 
+	 * @param bool $throwException Whether to throw an exception when not valid (default=false)
+	 * @throws WireException
+	 * @return bool
+	 *
+	 */
+	public function isValidPage(Page $value, Field $field, Page $forPage, $throwException = false) {
+	
+		if(InputfieldPage::isValidPage($value, $field, $forPage)) {
+			$valid = true;
+		} else {
+			$valid = false;
+			$reason = $forPage->get("_isValidPage"); 
+			if($throwException) throw new WireException("Page $value is not valid for $field->name ($reason)");
+		}
+		
+		return $valid;
+	}
+
+	/**
+	 * Handles the sanitization of values when target is a PageArray and $value is undetermined
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Page|PageArray $value
+	 * @return PageArray
+	 *
+	 */
+	protected function sanitizeValuePageArray(Page $page, Field $field, $value) {
+
+		// if they are setting it to a PageArray, then we'll take it
+		if($value instanceof PageArray) {
+			// double check there aren't circular references
+			foreach($value as $v) if($v->id == $page->id) $value->remove($v); 
+			return $value;
+		} 
+		
+		// otherwise, lets get the current value so we can add to it or return it
+		$pageArray = $page->get($field->name); 
+
+		// if no value was provided, then return the existing value already in the page
+		if(!$value) return $pageArray; 
+
+		// if it's a string, see if we can convert it to a Page or PageArray
+		if(is_string($value)) $value = $this->sanitizeValueString($page, $field, $value); 
+
+		// if it's a Page, and not  NullPage, add it to the existing PageArray
+		if($value instanceof Page) {
+			if($value->get('_FieldtypePage_remove') === $value->id) {
+				$value->__unset('_FieldtypePage_remove'); 
+				return $pageArray->remove($value); // remove
+			}
+			if($value->id && $value->id != $page->id) $pageArray->add($value); 
+			return $pageArray;
+		}
+
+		// if it's a new PageArray, combine it with the existing PageArray
+		if($value instanceof PageArray) {
+			foreach($value as $pg) {
+				if(!$pg->id || $pg->id == $page->id) continue; 
+				$pageArray->add($pg); 
+			}
+			return $pageArray; 
+		}
+
+		// value is an int or array of int|string|Page, load to pages, add to $pageArray
+		if(!is_array($value)) $value = array($value); 
+		foreach($value as $v) {
+			if(is_object($v) && $v instanceof Page) {
+				// Page object
+				if($v->id == $page->id) continue;
+				$pg = $v; 
+			} else if(is_int($v)) {
+				// integer page ID
+				if($v == $page->id) continue;
+				$pg = $this->wire('pages')->get($v);
+			} else if(is_string($v)) {
+				// path or selector string
+				if(ctype_digit($v)) {
+					$v = (int) $v;
+					if($v == $page->id) continue;
+				}
+				$pg = $this->wire('pages')->get($v);
+			} else {
+				// unrecognized type: can't make a page object from it
+				continue; 
+			}
+			if($pg->id && $pg->id != $page->id) $pageArray->add($pg);
+		}
+
+		return $pageArray; 
+	}
+
+	/**
+	 * Update a DatabaseQuerySelect object to match a Page
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param string $value
+	 * @return DatabaseQuerySelect
+	 * @throws WireException
+	 *
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+
+		$names = array(
+			'id',
+			'data',
+			'pages_id',
+			'path',
+			'url',
+			'sort',
+			);
+
+		$database = $this->wire('database');
+		
+		// when $idstr is true, indicates $value is a multi-value CSV ID string (converts to boolean once known)
+		$idstr = null; 
+
+		// if subfield is 'data' (meaning no subfield specified) and it's in the format of 'some-string', 
+		// then we assume this to be a page name
+		if($subfield == 'data' 
+			&& !ctype_digit("$value") 
+			&& strlen($value) 
+			&& strpos($value, '/') === false
+			&& strpos($value, 'page.') !== 0) {
+			
+			$idstr = strpos($value, ',') !== false && ctype_digit(str_replace(',', '', $value));
+			if(!$idstr) $subfield = 'name';
+		}
+
+		// let the FieldtypeMulti base class handle count queries
+		if($subfield == 'count') {
+			
+			return parent::getMatchQuery($query, $table, $subfield, $operator, $value);
+
+		} else if(in_array($subfield, $names)) { 
+
+			if(!$database->isOperator($operator)) {
+				throw new WireException("Operator '$operator' is not implemented in {$this->className}");
+			}
+			
+			if(in_array($subfield, array('id', 'path', 'url'))) $subfield = 'data';
+
+			// if a page path rather than page ID was provided, then we translate the path to an ID for API syntax convenience
+			if($idstr || !ctype_digit("$value")) {
+				if(is_null($idstr) && $subfield == 'data' && strpos($value, ',') !== false) {
+					$idstr = ctype_digit(str_replace(',', '', $value));
+				}
+				if($subfield == 'data' && $idstr) {
+					// CSV string of page IDs
+					$value = trim($value, ",");
+					$idstr = true; 
+				} else if(substr(trim($value), 0, 1) == '/') {
+					// path from root
+					$v = $this->pages->get($value); 
+					if($v && $v->id) $value = $v->id; 
+				}
+			}
+
+			$value = $database->escapeStr($value); 
+			$subfield = $database->escapeCol($subfield);
+
+			if($operator == '!=') {
+				$t = $database->escapeTable($query->field->getTable());
+				$where = 
+					"SELECT COUNT(*) FROM $t " . 
+					"WHERE $t.pages_id=pages.id " . 
+					"AND " . ($idstr ? "$t.$subfield IN($value)" : "$t.$subfield='$value'");
+				$query->where("($where)=0");
+			} else if($operator == '=' && $idstr) {
+				$query->where("($table.{$subfield} IN($value))"); 
+			} else {
+				$query->where("($table.{$subfield}{$operator}'$value')"); 
+			}
+
+		} else if($this->getMatchQueryNative($query, $table, $subfield, $operator, $value)) {
+			// great
+
+		} else if($this->getMatchQueryCustom($query, $table, $subfield, $operator, $value)) {
+			// wonderful as well
+
+		} else {
+			// we were unable to determine what subfield is
+			throw new WireException("Unknown subfield: $subfield"); 
+		}
+
+		return $query; 
+	}
+
+	/**
+	 * Update a query object to match a Page with a subfield native to pages table
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param string $value
+	 * @return bool True if used, false if not
+	 *
+	 */
+	protected function getMatchQueryNative($query, $table, $subfield, $operator, $value) {
+
+		$database = $this->wire('database');
+
+		if(!in_array($subfield, $this->nativeNames)) return false; 
+
+		// we let the custom field query matcher handle the '!=' scenario
+		if(!$database->isOperator($operator)) return $this->getMatchQueryCustom($query, $table, $subfield, $operator, $value); 
+
+		if($subfield == 'created' || $subfield == 'modified' || $subfield == 'published') {
+			if(!ctype_digit($value)) $value = strtotime($value); 
+			$value = (int) $value;
+			$value = date('Y-m-d H:i:s', $value); 
+
+		} else if(in_array($subfield, array('template', 'templates_id'))) {
+			$template = $this->templates->get($subfield); 
+			$value = $template ? $template->id : 0; 
+			$subfield = 'templates_id';
+			
+		} else if(in_array($subfield, array('parent', 'parent_id'))) {
+			if(!ctype_digit("$value")) $value = $this->pages->get($value)->id; 
+			$subfield = 'parent_id';	
+			
+		} else if($subfield == 'status') {
+			$statuses = Page::getStatuses();
+			if(ctype_digit("$value")) {
+				$value = (int) $value; 
+			} else if(isset($statuses[$value])) {
+				$value = $statuses[$value]; 
+			} else $value = 0;
+		
+		} else if($subfield == 'name') {
+			$value = $this->sanitizer->pageName($value, Sanitizer::toAscii); 
+
+		} else $value = (int) $value; 
+
+		static $n = 0;
+		$table = $database->escapeTable($table);
+		$table2 = "_fieldtypepage" . (++$n);
+		$subfield = $database->escapeCol($subfield);
+
+		$value = $database->escapeStr($value); 
+		$query->join("pages AS $table2 ON $table2.$subfield$operator'$value'"); 
+		$query->where("($table.data=$table2.id)"); 
+
+		return true; 
+	}
+
+	/**
+	 * Update a DatabaseSelectQuery object to match a Page containing a matching custom subfield
+	 * 
+	 * Note: $field->findPagesCode is not implemented and thus not supported here. 
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param string $value
+	 * @return bool true if used, false if not
+	 * @throws WireException if selector not supported
+	 *
+	 */
+	protected function getMatchQueryCustom($query, $table, $subfield, $operator, $value) {
+		
+		$database = $this->wire('database');
+		$field = $query->field;
+		$group = $query->group;
+		$table = $database->escapeTable($table);
+		$selector = 'include=hidden, '; // @todo should $selector include check_access=0 or even include=all? 
+		$pageFinder = $this->wire(new PageFinder());
+		$pageFinderOptions = array('getTotal' => false);
+		$value = $this->wire('sanitizer')->selectorValue($value);
+		$findPagesSelector = $field->get('findPagesSelector');
+		$parent_id = $field->get('parent_id');
+		$template_id = $field->get('template_id');
+
+		if(in_array($subfield, $this->nativeNames)) {
+			// fine then, we can handle that here when needed (like !=)
+		} else {
+			$subfield = $this->wire('fields')->get($subfield);
+			if(!$subfield) return false; // not a custom field
+			$subfield = $subfield->name; 
+		}
+
+		if($findPagesSelector) {
+			// remove the existing include=hidden, only if selector specifies a different include=something
+			if(strpos($findPagesSelector, 'include=') !== false) $selector = '';
+			$selector .= $findPagesSelector . ", ";
+			if(strpos($selector, 'page.') !== false) {
+				// remove any page.property from selector as it won't be applicable during a getMatchQuery
+				$selector = preg_replace('/\bpage\.[a-zA-Z0-9_]+\s*[=!]+\s*[^,]*,?/', '', $selector);
+				$selector = preg_replace('/[a-zA-Z0-9_.]+\s*[=!]+\s*page\.[a-zA-Z0-9_]+\s*,?/', '', $selector);
+			}
+		}
+		
+		if($parent_id) $selector .= "parent_id=$parent_id, ";
+		
+		if(is_array($template_id)) {
+			if(count($template_id)) $selector .= "templates_id=" . implode('|', $template_id) . ", ";
+		} else if($template_id) { 
+			$selector .= "templates_id=$template_id, ";
+		}
+
+		if(!is_null($group)) {
+			// combine with other selectors sharing the same group so that both must match in our subquery below
+			foreach($query->selectors as $item) {
+				if($item->group !== $group) continue; 
+				if($item === $query->selector) continue; 
+				$itemField = $item->field; 
+				if(is_array($itemField)) {
+					if(count($itemField) > 1) throw new WireException("Selector not supported"); 
+					$itemField = reset($itemField); 
+				}
+				/** @noinspection PhpUnusedLocalVariableInspection */
+				list($itemField, $itemSubfield) = explode('.', $itemField); 
+				if($itemField != $field->name) continue; // only group the same fields together in one selector query
+				if(!preg_match('/^' . $group . '@' . $field->name . '\.(([_a-zA-z0-9]+).*)$/', (string) $item, $matches)) continue; 
+				// extract the field name portion so we just get the subfield and rest of the selector
+				$selector .= "$matches[1], ";
+			}
+		}
+		
+		if($operator == '!=') {
+
+			$selector .= "$subfield=$value, ";
+			$matches = $pageFinder->find(new Selectors(trim($selector, ', ')), $pageFinderOptions);
+			if(count($matches)) { 
+				$ids = array();
+				foreach($matches as $match) $ids[$match['id']] = (int) $match['id'];
+				static $xcnt = 0; 
+				$fieldTable = $database->escapeTable($field->table); 
+				$t = 'x_' . $fieldTable . (++$xcnt);
+				$query->leftjoin("$fieldTable AS $t ON $t.pages_id=pages.id AND $t.data IN(" . implode(',', $ids) . ")"); 
+				$query->parentQuery->where("$t.data IS NULL"); 
+			}
+
+		} else {
+
+			$selector .= "{$subfield}$operator$value, ";
+			$selectors = $this->wire(new Selectors(trim($selector, ', ')));
+			$matches = $pageFinder->find($selectors, $pageFinderOptions);
+
+			// use the IDs found from the separate find() as our getMatchQuery
+			if(count($matches)) {
+				$ids = array();
+				foreach($matches as $match) {
+					$ids[$match['id']] = (int) $match['id'];
+				}
+				$query->where("$table.data IN(" . implode(',', $ids) . ")");
+			} else {
+				$query->where("1>2"); // forced non-match
+			}
+
+		}
+
+		return true;
+	}
+
+	/**
+	 * Return the database schema in predefined format 
+	 * 
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
+	public function getDatabaseSchema(Field $field) {
+		$schema = parent::getDatabaseSchema($field); 
+		$schema['data'] = 'int NOT NULL';
+		$schema['keys']['data'] = 'KEY data (data, pages_id, sort)'; 
+		return $schema;
+	}
+
+	/**
+	 * Return array with information about what properties and operators can be used with this field
+	 * 
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 *
+	 */
+	public function ___getSelectorInfo(Field $field, array $data = array()) {
+
+		$info = parent::___getSelectorInfo($field, $data); 
+		if(!isset($data['level'])) $data['level'] = 0;
+		$info['input'] = 'page';
+		if($data['level'] > 0) return $info;
+
+		$subfields = array();
+		$fieldgroups = array();
+		$template_id = $field->get('template_id');
+		$parent_id = $field->get('parent_id');
+
+		if($template_id) {
+			// determine fieldgroup(s) from template setting
+			// template_id can be int or array of ints
+			if(!is_array($template_id)) $template_id = array($template_id); 
+			foreach($template_id as $tid) {
+				$template = $this->wire('templates')->get((int) $tid);
+				if($template) $fieldgroups[] = $template->fieldgroup; 
+			}
+
+		} else if($parent_id) {
+			// determine fieldgroup(s) from family settings
+			$parent = $this->wire('pages')->get((int) $parent_id); 
+			if($parent->id) {
+				foreach($parent->template->childTemplates as $template_id) {
+					$template = $this->wire('templates')->get((int) $template_id); 		
+					if(!$template) continue; 
+					$fieldgroups[$template->fieldgroup->id] = $template->fieldgroup;
+				}
+	
+				foreach($this->wire('templates') as $template) {
+					if(!in_array($parent->template->id, $template->parentTemplates)) continue; 
+					if(!$this->wire('pages')->count("parent=$parent_id, template=$template->id, include=all")) continue; 
+					$fieldgroups[$template->fieldgroup->id] = $template->fieldgroup; 
+				}
+			}
+		}
+
+		if(!count($fieldgroups)) {
+			// if no fieldgorups found, then we have no choice but to use all fields
+			//$fieldgroups[] = $this->wire('fields'); 
+		}
+
+		foreach($fieldgroups as $fieldgroup) {
+			foreach($fieldgroup as $f) {
+				if(!$f->type) continue; 
+				if(strpos("$f->type", "FieldtypeFieldset") === 0) continue; 
+				if(isset($subfields[$f->name])) continue; 
+				$subfields[$f->name] = $f->type->getSelectorInfo($f, array('level' => $data['level']+1)); 
+			}
+		}
+	
+		$subfields['count'] = array(
+			'name' => 'count', 
+			'label' => $this->_('Count'), // Label for 'count' property of a PageArray
+			'input' => 'number', 
+			);
+
+		$info['subfields'] = $subfields;
+
+		return $info; 
+	}
+
+	/**
+	 * Return configuration fields definable for each FieldtypePage
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+
+		$inputfields = parent::___getConfigInputfields($field);
+	
+		/** @var InputfieldRadios $select */
+		$select = $this->modules->get("InputfieldRadios"); 
+		$select->attr('name', 'derefAsPage'); 
+		$select->label = $this->_('Dereference in API as');
+		$select->description = $this->_('If your field will contain multiple pages, then you should select the first option (PageArray). If your field only needs to contain a single page, then select one of the single Page options (if you are not sure which, select the last option).'); // Long description for: dereference in API
+		$select->addOption(FieldtypePage::derefAsPageArray, $this->_('Multiple pages (PageArray)')); 
+		$select->addOption(FieldtypePage::derefAsPageOrFalse, $this->_('Single page (Page) or boolean false when none selected')); 
+		$select->addOption(FieldtypePage::derefAsPageOrNullPage, $this->_('Single page (Page) or empty page (NullPage) when none selected')); 
+
+		$select->attr('value', (int) $field->get('derefAsPage'));  
+		$inputfields->append($select);
+
+		return $inputfields; 
+	}
+
+	/**
+	 * Return advanced configuration fields definable for each FieldtypePage
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigAdvancedInputfields(Field $field) {
+		$inputfields = parent::___getConfigAdvancedInputfields($field);
+
+		/** @var InputfieldCheckbox $checkbox */
+		$checkbox = $this->modules->get('InputfieldCheckbox'); 
+		$checkbox->attr('name', 'allowUnpub'); 
+		$checkbox->label = $this->_('Allow unpublished pages?'); 
+		$checkbox->description = $this->_('When checked, unpublished pages are allowed in the field value. Unpublished pages will not appear on the front-end, except to those with edit access.'); // Description for allowUnpub option
+		$checkbox->attr('value', 1); 
+		$checkbox->attr('checked', $field->get('allowUnpub') ? 'checked' : ''); 
+		$inputfields->prepend($checkbox); 
+
+		return $inputfields;
+	}
+
+	/**
+	 * Export configuration values for external consumption
+	 *
+	 * Use this method to externalize any config values when necessary.
+	 * For example, internal IDs should be converted to GUIDs where possible.
+	 * 
+	 * FieldtypePage: Note the exported config values here are actually from 
+	 * InputfieldPage, but we're handling them in here rather than 
+	 * InputfieldPage::exportConfigData() to increase the reusability of these
+	 * conversions (parent_id and template_id) which are common conversions
+	 * used by other Fieldtypes. 
+	 *
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 *
+	 */
+	public function ___exportConfigData(Field $field, array $data) {
+		$data = parent::___exportConfigData($field, $data); 
+		if(!empty($data['parent_id']) && ctype_digit("$data[parent_id]")) {
+			// convert parent ID to parent path
+			$data['parent_id'] = $this->wire('pages')->get((int) $data['parent_id'])->path;
+		}
+		if(!empty($data['template_id'])) { 
+			if(is_array($data['template_id'])) {
+				// convert array of template ids to template names
+				foreach($data['template_id'] as $key => $id) {
+					if(ctype_digit("$id")) continue;
+					$template = $this->wire('templates')->get((int) $id);
+					if($template) $data['template_id'][$key] = $template->name;
+				}
+			} else if(ctype_digit("$data[template_id]")) {
+				// convert template id to template name
+				$template = $this->wire('templates')->get((int) $data['template_id']);
+				if($template) $data['template_id'] = $template->name;
+			}
+		}
+		return $data;
+	}
+
+	/**
+	 * Convert an array of exported data to a format that will be understood internally
+	 * 
+	 * FieldtypePage: Note the mported config values here are actually from
+	 * InputfieldPage, but we're handling them in here rather than
+	 * InputfieldPage::importConfigData() to increase the reusability of these
+	 * conversions (parent_id and template_id) which are common conversions
+	 * used by other Fieldtypes.
+	 *
+	 *
+	 * @param Field $field
+	 * @param array $data
+	 * @return array Data as given and modified as needed. Also included is $data[errors], an associative array
+	 *	indexed by property name containing errors that occurred during import of config data.
+	 *
+	 */
+	public function ___importConfigData(Field $field, array $data) {
+		$data = parent::___importConfigData($field, $data);
+		// parent page
+		if(!empty($data['parent_id']) && !ctype_digit("$data[parent_id]")) {
+			// we have a page apth rather than id
+			$id = $this->wire('pages')->get("path=" . $this->wire('sanitizer')->selectorValue($data['parent_id']))->id;
+			if(!$id) $data['errors']['parent_id'] = $this->_('Unable to find page') . " - $data[parent_id].";
+			$data['parent_id'] = $id;
+		}
+		// template
+		if(!empty($data['template_id'])) {
+			// template_id can be an id or array of IDs, but we will be importing a template name or array of them
+			$errors = array();
+			$isArray = is_array($data['template_id']); 
+			if(!$isArray) $data['template_id'] = array($data['template_id']); 
+			foreach($data['template_id'] as $key => $name) { 
+				if(ctype_digit("$name")) continue; 
+				// we have a template name rather than id
+				$template = $this->wire('templates')->get($this->wire('sanitizer')->name($name));
+				if($template) {
+					$data['template_id'][$key] = $template->id;
+				} else {
+					$errors[] = $this->_('Unable to find template') . " - $name.";
+				}
+			}
+			if(!$isArray) $data['template_id'] = reset($data['template_id']);
+			if(count($errors)) $data['errors']['template_id'] = implode(" \n", $errors); 
+		}
+		return $data;
+	}
+
+	/**
+	 * Find and clean orphaned references in each of FieldtypePage's tables
+	 *
+	 * Previous versions of PW had an issue where a reference to a deleted page could still exist in some instances.
+	 * This could cause "reference.count>0" type selectors to produce inaccurate results. This cleans up for that.
+	 * This may also be handy if a Page reference table has become corrupted by some other means. 
+ 	 *	
+	 *
+	 */
+	public function cleanOrphanedReferences() {
+
+		$database = $this->wire('database'); 
+		$totalCleaned = 0; 
+
+		foreach($this->wire('fields') as $field) {
+
+			if(!$field->type instanceof FieldtypePage) continue; 
+			$table = $database->escapeTable($field->getTable()); 
+
+			foreach(array('data', 'pages_id') as $key) {
+
+				$sql = "SELECT $table.pages_id, $table.data FROM $table LEFT JOIN pages ON $table.$key=pages.id WHERE pages.id IS NULL";
+				$query = $database->prepare($sql); 
+				$query->execute();
+				$numCleaned = 0;
+
+				/** @noinspection PhpAssignmentInConditionInspection */
+				while($row = $query->fetch(\PDO::FETCH_NUM)) {
+					list($pages_id, $data) = $row; 
+					$q = $database->prepare("DELETE FROM $table WHERE pages_id=:pages_id AND data=:data"); 
+					$q->bindValue(':pages_id', $pages_id, \PDO::PARAM_INT); 
+					$q->bindValue(':data', $data, \PDO::PARAM_INT); 
+					$q->execute();
+					$numCleaned++;
+				}
+
+				$totalCleaned += $numCleaned; 
+
+				if($numCleaned) $this->message("Fixed $numCleaned orphaned '$key' references for field '$field->name'"); 
+			}
+		}
+
+		if(!$totalCleaned) $this->message("No problems found"); 
+			else $this->message("Found and fixed a total of $totalCleaned issues."); 
+	}
+	
+	/**
+	 * Return pages referencing the given $page, optionally indexed by field name
+	 * 
+	 * Not currently applicable, for future use. 
+	 *
+	 * The default behavior when no arguments are provided (except $page) is to simply return a PageArray of all pages
+	 * referencing the given one (excluding hidden, unpublished, trash, no-access, etc.). Specify "include=all"
+	 * as your $selector if you want to include all pages without filtering. If the quantity may be large,
+	 * you should also include a "limit=100" (replacing 100 with your limit). This method supports pagination
+	 * when specifying a limit.
+	 *
+	 * @param Page $page Page to get references for
+	 * @param string|bool $selector Optionally filter/modify returned result, i.e. "limit=10, include=all", etc.
+	 * 	Or specify boolean TRUE to get a count. 
+	 * @param bool|Field|null $field Optionally specify Field to limit results to (default includes all fields of this type),
+	 * 	Or boolean TRUE to return array indexed by field name.
+	 * @return PageArray|array Returns one of the following, according to the provided arguments:
+	 * 	- returns PageArray as default behavior, including when given a $selector string and/or Field object.
+	 * 	- returns array of PageArray objects if $field argument is TRUE ($selector may be populated string or blank string).
+	 *
+	 */
+	private function findReferences(Page $page, $selector = '', $field = false) {
+
+		// modifier option defaults
+		$getCount = false;
+		$byField = false;
+		$fieldName = '';
+
+		// determine which modifier options are used
+		if($selector === true) {
+			$getCount = true;
+			$selector = '';
+		}
+
+		if(is_bool($field) || is_null($field)) {
+			$byField = $field ? true : false;
+		} else if(is_string($field)) {
+			$fieldName = $this->wire('sanitizer')->fieldName($field);
+		} else if(is_int($field)) {
+			$field = $this->wire('fields')->get($field);
+			if($field) $fieldName = $field->name;
+		} else if($field instanceof Field) {
+			$fieldName = $field->name;
+		}
+
+		// results
+		$fieldNames = array();
+		$fieldCounts = array();
+		$total = 0;
+
+		foreach($this->wire('fields') as $field) {
+			if($fieldName && $field->name != $fieldName) continue;
+			if(!$field->type instanceof FieldtypePage) continue;
+			$table = $field->getTable();
+			$sql = "SELECT COUNT(*) FROM `$table` WHERE data=:id";
+			$query = $this->wire('database')->prepare($sql);
+			$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
+			$query->execute();
+			$cnt = (int) $query->fetchColumn();
+			if($cnt) {
+				$fieldNames[$field->id] = $field->name;
+				$fieldCounts[$field->name] = $cnt;
+				$total += $cnt;
+			}
+			$query->closeCursor();
+		}
+
+		// return count or array of counts
+		if($getCount) return $byField ? $fieldCounts : $total;
+
+		// no references found and PageArray requested, return blank PageArray
+		if(!$total) return $this->wire('pages')->newPageArray();
+
+		if($byField) {
+			// return array of PageArrays indexed by fieldName
+			$result = array();
+			foreach($fieldNames as $fieldName) {
+				$selector = "$fieldName=$page->id, $selector";
+				$items = $this->wire('pages')->find(rtrim($selector, ", "));
+				if($items->count()) {
+					$result[$fieldName] = $items;
+				}
+			}
+
+		} else {
+			// return PageArray of all references
+			$selector = implode('|', $fieldNames) . "=$page->id, $selector";
+			$result = $this->wire('pages')->find(rtrim($selector, ", "));
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Module configuration screen
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function getModuleConfigInputfields(array $data) {
+		if($data) {}
+
+		$inputfields = $this->wire(new InputfieldWrapper());
+		/** @var InputfieldCheckbox $inputfield */
+		$inputfield = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$inputfield->attr('name', '_clean'); 
+		$inputfield->attr('value', 1); 
+		$inputfield->label = $this->_('Find and clean orphaned page references'); 
+		$inputfield->description = $this->_('This cleans up for an issue in older versions of ProcessWire that could leave orphaned page references for deleted pages. If you are getting inaccurate results from page finding operations (especially with selectors using pageref.count), then you may want to run this.'); // Find and clean description
+		$inputfield->icon = 'eraser';
+		$inputfield->collapsed = Inputfield::collapsedYes; 
+		$inputfield->notes = $this->_('Warning: To be safe you should back-up your database before running this.'); // Find and clean notes
+		$inputfields->add($inputfield); 
+
+		if($this->wire('input')->post('_clean')) {
+			$this->message($this->_('Finding and cleaning...')); 
+			$this->wire('fieldtypes')->get('FieldtypePage')->cleanOrphanedReferences();
+		}
+
+		return $inputfields;
+	}
+
+}
+

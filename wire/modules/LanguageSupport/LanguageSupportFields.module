@@ -1,0 +1,517 @@
+<?php namespace ProcessWire;
+
+/**
+ * Multi-language support fields module
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class LanguageSupportFields extends WireData implements Module {
+
+	/**
+	 * Return information about the module
+	 *
+	 */
+	static public function getModuleInfo() {
+		return array(
+			'title' => 'Languages Support - Fields',
+			'version' => 100,
+			'summary' => 'Required to use multi-language fields.',
+			'author' => 'Ryan Cramer',
+			'autoload' => true,
+			'singular' => true,
+			'requires' => array(
+				'LanguageSupport'
+				),
+			'installs' => array(
+				'FieldtypePageTitleLanguage',
+				'FieldtypeTextareaLanguage',
+				'FieldtypeTextLanguage', 
+				)
+			);
+	}
+
+	/**
+	 * Cached names of fields that are dealing in multiple languages. 
+	 *
+	 */
+	protected $multilangFields = array();
+
+	/**
+	 * Cached names of fields that have alternate language-specific versions
+	 *
+	 * Indexed by original field name and value is an array of the language-alternate versions
+	 *
+	 */
+	protected $multilangAlternateFields = array();
+
+	/**
+	 * Construct and set our dynamic config vars
+	 *
+	 */
+	public function __construct() {
+
+		// load other required classes
+		$dirname = dirname(__FILE__); 
+		require_once($dirname . '/LanguagesValueInterface.php'); 
+		require_once($dirname . '/FieldtypeLanguageInterface.php'); 
+		require_once($dirname . '/LanguagesPageFieldValue.php'); 
+		$this->addHookAfter('FieldtypeLanguageInterface::loadPageField', $this, 'fieldtypeLoadPageField'); 
+		$this->addHookAfter('FieldtypeLanguageInterface::wakeupValue', $this, 'fieldtypeWakeupValue'); 
+		$this->addHookAfter('FieldtypeLanguageInterface::getConfigInputfields', $this, 'fieldtypeGetConfigInputfields'); 
+	}
+
+	public function init() { 
+		// intentionally left blank
+	}
+
+	/**
+	 * Initialize the language support API vars
+	 *
+	 */
+	public function LS_init() {
+
+		$this->addHookBefore('FieldtypeLanguageInterface::sleepValue', $this, 'fieldtypeSleepValue'); 
+		$this->addHookBefore('PageFinder::getQuery', $this, 'pageFinderGetQuery'); 
+		$this->addHookBefore('Fieldtype::formatValue', $this, 'hookFieldtypeFormatValue'); 
+
+		$languageNames = array();
+		$fieldNames = array(); 
+
+		foreach($this->wire('languages') as $language) {
+			$languageNames[] = $language->name; 
+		}
+
+		// keep track of which fields are multilanguage
+		foreach($this->wire('fields') as $field) {
+			if($field->type instanceof FieldtypeLanguageInterface) {
+				$this->multilangFields[] = $field->name; 	
+			}
+			$fieldNames[] = $field->name; 
+		}
+
+		// determine which fields have language alternates, i.e. 'title_es' is an alternate for 'title'
+		foreach($fieldNames as $fieldName) {
+			foreach($languageNames as $languageName) {
+				$altName = $fieldName . '_' . $languageName; 
+				if(in_array($altName, $fieldNames)) {
+					if(!isset($this->multilangAlternateFields[$fieldName])) $this->multilangAlternateFields[$fieldName] = array();
+					$this->multilangAlternateFields[$fieldName][] = $altName; 
+				}
+			}
+		}	
+	}
+
+	/**
+	 * Called by ProcessWire when the API and known $page is ready
+	 *
+	 */
+	public function LS_ready() {
+		$this->languages->addHook('added', $this, 'hookLanguageAdded'); 
+		$this->languages->addHook('deleted', $this, 'hookLanguageDeleted'); 
+	}
+
+	/**
+	 * Hook into FieldtypeText::formatValue
+	 *
+	 * Replace a value of one field with the value from another field that has the same name, but with the language name appended to it. 
+	 * Example: title and title_es
+	 *
+	 */
+	public function hookFieldtypeFormatValue(HookEvent $event) {
+
+		$field = $event->arguments[1]; 
+		if($field->name == 'language') return;
+
+		$language = $this->wire('user')->get('language'); 
+		if(!$language || !$language->id || $language->isDefault()) return;
+
+		// exit quickly if we can determine now we don't need to continue
+		if(!isset($this->multilangAlternateFields[$field->name])) return; 
+
+		$page = $event->arguments[0]; 
+
+		// determine name of language field, if present.
+		// note that if the language name contains dashes or dots (- or .) the field name should contain underscores there instead
+		$newName = $field->name . '_' . str_replace(array('-', '.'), '_', $language->name); 
+		$newField = $page->fieldgroup->getField($newName);
+		if(!$newField) return;
+
+		// unformatted so nothing can modify it first
+		$value = $page->getUnformatted($newName); 
+
+		// if the page doesn't have a populated language-specific field, then exit
+		// this will make it fallback to the default language value
+		if(empty($value)) return;
+		if(is_object($value)) {
+			if($value instanceof WireArray && !$value->count()) return;
+			if($value instanceof NullPage) return; 
+		}
+
+		// we have a new field: swap $field with $newField in the arguments
+		$newValue = $page->get($newName); // get formatted version
+		$arguments = $event->arguments; 
+		$arguments[1] = $newField; 
+		$arguments[2] = $newValue; 
+		$event->arguments = $arguments; 
+	}
+
+	/**
+	 * Hook called when new language added
+	 *
+	 */
+	public function hookLanguageAdded(HookEvent $event) {
+
+		$language = $event->arguments[0];
+
+		if($language->template->name != LanguageSupport::languageTemplateName) return; 
+
+		foreach($this->multilangFields as $name) {
+			$field = $this->wire('fields')->get($name); 	
+			if($field) $this->fieldLanguageAdded($field, $language); 
+		}
+
+		$this->languageAdded($language); 
+	}
+
+	/**
+	 * Hookable function called when a new language is added 
+	 *
+	 */
+	public function ___languageAdded(Page $language) {
+		// hookable, intentionally blank
+	}
+
+	/**
+	 * Hook called when language is deleted
+	 *
+	 */
+	public function hookLanguageDeleted(HookEvent $event) {
+
+		$language = $event->arguments[0];
+		if($language->template->name != LanguageSupport::languageTemplateName) return; 
+
+		foreach($this->multilangFields as $name) {
+			$field = $this->wire('fields')->get($name); 	
+			if($field) $this->fieldLanguageRemoved($field, $language); 
+		}
+
+		$this->languageDeleted($language); 
+	}
+
+	/**
+	 * Hookable function called when a language is deleted
+	 *
+	 */
+	public function ___languageDeleted(Page $language) {
+		// hookable, intentionally blank
+	}
+
+
+	/**
+	 * Called when a new language is added to the system for each field that implements FieldtypeLanguageInterface
+	 *
+	 */
+	public function ___fieldLanguageAdded(Field $field, Page $language) {
+
+		if($language->isDefault) return;
+		
+		if(!($field->type instanceof FieldtypeLanguageInterface)) return;
+		
+		$schema = $field->type->getDatabaseSchema($field);
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->table);
+
+		foreach($schema as $name => $value) {
+			if(!preg_match('/[^\d]+' . $language->id . '$/', $name)) continue; 
+			// field in schema ends with the language ID
+			try {
+				$database->exec("ALTER TABLE `{$table}` ADD `$name` $value");
+			} catch(\Exception $e) {
+				$this->error($e->getMessage(), Notice::log); 
+			}
+		}
+
+		foreach($schema['keys'] as $name => $value) {
+			if(!preg_match('/[^\d]+' . $language->id . '$/', $name)) continue; 
+			// index in schema ends with the language ID
+			try {
+				$database->exec("ALTER TABLE `{$table}` ADD $value");
+			} catch(\Exception $e) {
+				$this->error($e->getMessage(), Notice::log); 
+			}
+		}
+
+	}
+	
+	/**
+	 * Called when a language is removed from the system for each field that implements FieldtypeLanguageInterface
+	 *
+	 */
+	protected function ___fieldLanguageRemoved(Field $field, Page $language) {
+
+		if($language->isDefault) return;
+		
+		if(!($field->type instanceof FieldtypeLanguageInterface)) return;
+		
+		$schema = $field->type->getDatabaseSchema($field);
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->table);
+
+		foreach($schema as $name => $value) {
+			if(!preg_match('/[^\d]+' . $language->id . '$/', $name)) continue; 
+			try { 
+				$database->exec("ALTER TABLE `{$table}` DROP COLUMN `$name`"); 
+			} catch(\Exception $e) { 
+				// just catch, no need for fatal errors here
+			}
+		}
+	}
+
+	/**
+	 * Hook into PageFinder::getQuery
+	 *
+	 * Adjusts the selectors passed to the query so that find operations search in user's native language version, as well as the default version.
+	 *
+	 * We may make this behavior configurable later on, as one may want to limit the search to 1 language only.
+	 *
+	 */
+	public function pageFinderGetQuery(HookEvent $event) {
+
+		$user = $this->wire('user');
+		$language = $user->language;
+		$database = $this->wire('database');
+
+		if(!$language || !$language->id || $language->isDefault()) return;
+
+		$arguments = $event->arguments; 
+		$selectors = $arguments[0]; 
+
+		foreach($selectors as $key => $selector) {
+
+			$changed = false; 
+			$fields = $selector->field;
+			$fields = is_array($fields) ? $fields : array($fields);
+
+			foreach($fields as $key => $field) {
+
+				$subfield = '';
+				if(strpos($field, '.')) list($field, $subfield) = explode('.', $field); 
+				
+				$field = $database->escapeCol($field);
+				$subfield = $database->escapeCol($subfield);
+
+				if(isset($this->multilangAlternateFields[$field])) {
+					// account for multilang alternates like 'title_es' for 'title'
+					$altName = $field . '_' . $database->escapeCol($user->language->name); 
+					if(in_array($altName, $this->multilangAlternateFields[$field])) {
+						if($subfield) $altName .= ".$subfield";
+						array_unshift($fields, $altName); 
+						$changed = true; 
+					}
+				}
+
+				// next we account for actual multilang fields
+				if(!in_array($field, $this->multilangFields)) continue; 
+				if(!$subfield) $subfield = 'data';
+
+				if($subfield === 'data') {
+					array_unshift($fields, "$field.$subfield" . (int) $user->language->id); 
+					$changed = true; 
+				}
+			}
+
+			if($changed) $selector->field = $fields;
+		}
+
+		$arguments[0] = $selectors; 
+		$event->arguments = $arguments; 
+	}
+
+	/**
+	 * Hook into FieldtypeLanguageInterface::loadPageField
+	 *
+	 * Converts the value to a LanguagesPageFieldValue
+	 *
+	 */
+	public function fieldtypeLoadPageField(HookEvent $event) {
+		$page = $event->arguments[0];
+		$field = $event->arguments[1];
+		$value = $event->return; 
+		if($value instanceof LanguagesPageFieldValue) return; 
+		$v = new LanguagesPageFieldValue($page, $field, $value); 
+		$event->return = $v;
+	}
+
+	/**
+	 * Hook into FieldtypeLanguageInterface::wakeupValue
+	 *
+	 * Converts the value to a LanguagesPageFieldValue
+	 *
+	 */
+	public function fieldtypeWakeupValue(HookEvent $event) {
+
+		$page = $event->arguments[0];
+		$field = $event->arguments[1];
+		$value = $event->return; 
+
+		if($value instanceof LanguagesPageFieldValue) {
+			$value->setTrackChanges(true); 
+			$value->setField($field); 
+			// good
+		} else if(is_array($value)) {
+			$value = new LanguagesPageFieldValue($page, $field, $value); 
+			$value->setTrackChanges(true); 
+			$value->setField($field); 
+			$event->return = $value;
+		}
+
+	}
+
+	/**
+	 * Hook into FieldtypeLanguageInterface::sleepValue
+	 *
+	 * Converts a LanguagesPageFieldValue to an array
+	 *
+	 */
+	public function fieldtypeSleepValue(HookEvent $event) {
+
+		$page = $event->arguments[0];
+		$field = $event->arguments[1];
+		$value = $event->arguments[2]; 
+		//$value = $event->return;
+		$values = array();
+
+		if(!$value instanceof LanguagesPageFieldValue) return;
+
+		foreach($this->wire('languages') as $language) {
+			if($language->isDefault()) $key = 'data';
+				else $key = 'data' . $language->id; 
+			$values[$key] = $value->getLanguageValue($language->id); 
+		}
+		
+		/*
+		if(!strlen($values['data'])) foreach($values as $k => $v) {
+			// prevent the possibility of the default language having
+			// a blank value while some other language has a populated value
+			if(!strlen($v)) continue;
+			$values['data'] = $v; 
+			break;
+		}
+		*/
+	
+		// ensure that sleepValue is getting an array
+		$event->setArgument(2, $values);
+		// $event->return = $values; 
+	}
+
+	public function fieldtypeGetConfigInputfields(HookEvent $event) {
+
+		$field = $event->arguments(0); 
+		$inputfields = $event->return;		
+		
+		$f = $this->wire('modules')->get('InputfieldRadios'); 
+		$f->attr('name', 'langBlankInherit'); 
+		$f->label = $this->_('Language Support / Blank Behavior'); 
+		$f->description = $this->_("What should happen when this field's value is blank?"); 
+		$f->notes = $this->_('Applies only to non-default language values on the front-end of your site.'); 
+		$f->addOption(LanguagesPageFieldValue::langBlankInheritDefault, $this->_('Inherit value from default language')); 
+		$f->addOption(LanguagesPageFieldValue::langBlankInheritNone, $this->_('Remain blank')); 
+		$f->attr('value', (int) $field->langBlankInherit); 
+		$f->collapsed = Inputfield::collapsedBlank;
+		$inputfields->add($f); 
+	}
+
+	/**
+	 * Given a field name, return an array of alternate language field names
+	 *
+	 * Returns a blank array if none found
+	 *
+	 * @param string $fieldName
+	 * @return array
+	 *
+	 */
+	public function getAlternateFields($fieldName) {
+		if(isset($this->multilangAlternateFields[$fieldName])) return $this->multilangAlternateFields[$fieldName]; 
+		return array();
+	}
+
+	/**
+	 * Given an alternate field name, return the parent (default-language) version of it
+	 *
+	 * @param string $altFieldName
+	 * @param bool $returnLanguage Specify true if you want this function to return the language rather than the parent field name. 
+	 * @return string|Language Returns blank string if none found
+	 *
+	 */
+	public function getAlternateFieldParent($altFieldName, $returnLanguage = false) {
+		$pos = strrpos($altFieldName, '_'); 
+		if(!$pos) return '';
+		$parentName = substr($altFieldName, 0, $pos);
+		// $this->message($parentName); 
+		if(isset($this->multilangAlternateFields[$parentName]) && in_array($altFieldName, $this->multilangAlternateFields[$parentName])) {
+			if(!$returnLanguage) return $parentName; 
+			$languageName = substr($altFieldName, $pos+1); 
+			return $this->wire('languages')->get($languageName); 
+		}
+		return '';
+	}
+
+	/**
+	 * Get the language associated with the alternate field name
+	 *
+	 * @param string $altFieldName
+	 * @return Page|false Language page associated with the field, or blank string or false if not found
+	 *
+	 */
+	public function getAlternateFieldLanguage($altFieldName) {
+		return $this->getAlternateFieldParent($altFieldName, true);
+	}
+
+	/**
+	 * Is the given field name a language alternate field?
+	 * 
+	 * If it is, the Language of the field is returned.
+	 * If it isn't, then boolean false is returned. 
+	 * 
+	 * This method also accounts for default language. 
+	 * 
+	 * @param string $name
+	 * @return bool|Language
+	 * 
+	 */
+	public function isAlternateField($name) {
+		if(isset($this->multilangAlternateFields[$name])) {
+			// default language for an alternate field set
+			return $this->wire('languages')->getDefault();
+		}
+		if(!strpos($name, '_')) return false;
+		$language = $this->getAlternateFieldParent($name, true);
+		if($language && $language->id) return $language; 
+		return false;
+	}
+
+	/**
+	 * Install the module
+	 *
+	 */
+	public function ___install() {
+		$this->modules->get('FieldtypeTextLanguage'); 
+	}
+
+	/**
+	 * Uninstall the module
+	 *
+	 */
+	public function ___uninstall() {
+		// first check if there are any fields using the LanguageInterface
+		$errors = '';
+		foreach($this->wire('fields') as $field) {
+			if($field->type instanceof FieldtypeLanguageInterface) $errors .= $field->name . ", "; 
+		}
+		if($errors) throw new WireException("Can't uninstall because these fields use the language interface: " . rtrim($errors, ", ")); 
+	}
+
+}

@@ -1,0 +1,30 @@
+{
+   "file":"wire\/modules\/Fieldtype\/FieldtypeDatetime.module",
+   "textdomain":"wire--modules--fieldtype--fieldtypedatetime-module",
+   "translations":{
+      "eb44c7b0eebc98a8441abb862a254b3d":{
+         "text":"Ausgabeformat Datum"
+      },
+      "e7033eefffec056f8898dab5295ef2f6":{
+         "text":"W\u00e4hlen Sie das Format, das verwendet werden soll, um das Datum \u00fcber dieses Feld auszugeben"
+      },
+      "6adf97f83acf6453d4a6a4b1070f3754":{
+         "text":"Keines"
+      },
+      "8a4b7daad69389d978a2ea6bab5b07f8":{
+         "text":"Ausgabeformat Uhrzeit"
+      },
+      "cce774e589c4c23ce9c8cc7cb958861a":{
+         "text":"Wenn Sie zus\u00e4tzlich zum Datum die Uhrzeit ausgeben m\u00f6chten, w\u00e4hlen Sie das Format, das in diesem Feld f\u00fcr die Uhrzeit verwendet werden soll. Es wird mit dem Datumsformat kombiniert."
+      },
+      "7b9ea642d1b10d7efc18d2c64a8940f8":{
+         "text":"Datum und Uhrzeit werden entsprechend des unten stehenden Formats ausgegeben. Dieses wird automatisch aus den oben gew\u00e4hlten Formaten f\u00fcr Datum\/Uhrzeit erstellt, kann aber nach Ihren W\u00fcnschen angepasst werden."
+      },
+      "e606a86ec2852d83f2ea4622de245889":{
+         "text":"Weitere Informationen, wie dieses Format angepasst werden kann, finden Sie in der Funktionsreferenz zu [PHP date](http:\/\/www.php.net\/manual\/de\/function.date.php). Alternativ k\u00f6nnen Sie [PHP strftime](http:\/\/www.php.net\/manual\/de\/function.strftime.php) verwenden, falls Sie lokalisierte Formate ben\u00f6tigen."
+      },
+      "c1a326c2753f410fad585781390da97f":{
+         "text":"Ausgabeformat f\u00fcr Datum\/ Zeit"
+      }
+   }
+}

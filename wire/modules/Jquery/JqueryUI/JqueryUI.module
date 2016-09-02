@@ -1,0 +1,38 @@
+<?php namespace ProcessWire;
+
+class JqueryUI extends ModuleJS { 
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'jQuery UI',
+			'version' => 196,
+			'summary' => 'jQuery UI as required by ProcessWire and plugins',
+			'href' => 'http://ui.jquery.com', 
+			'permanent' => true, 
+		);
+	}
+	
+	public function __construct() {
+		$debug = $this->wire('config')->debug;
+		$this->addComponents(array(
+			'modal' => $debug ? 'modal.js' : 'modal.min.js',
+			'panel' => $debug ? 'panel.js' : 'panel.min.js', 
+			'touch' => 'touch.js' 
+			));
+	}
+	
+	public function init() {
+		parent::init();
+		if($this->wire('session')->touch) $this->use('touch'); 
+	}
+
+	public function ___use($name) {
+		if($name == 'panel') {
+			// also add stylesheet when panel component requested
+			$this->config->styles->add($this->config->urls->JqueryUI . "panel.css");
+		}
+		return parent::___use($name);
+	}
+
+
+}

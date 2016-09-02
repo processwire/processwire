@@ -1,0 +1,226 @@
+/**
+ * Predefined colors
+ *
+ */
+
+$white: #FFF; 
+$black: #222; 
+$brown: #743A25;
+$light-khaki: #E6E4D8;
+$green: #6F9D0E;
+$light-green: #82BE05;
+$cyan: #0E9D98;
+$orange: #F64704;
+$light-orange: #D8744E;
+$red: #a30000;
+$light-purple: #8E94C2;
+$dark-purple: #333E99;
+
+/**
+ * Colors and styles for specific elements
+ *
+ */
+
+$container-max-width: 1200px; 
+
+$regular-font: Arial, sans-serif; 
+$normal-weight: normal; 
+$bold-weight: bold; 
+$base-font-size: 0.9375em;
+$base-line-height: 1.6em; 
+$text-bg: $white; 
+$text-color: $black;
+$medium-text-color: #777; 
+$light-text-color: #999; 
+$reverse-text-color: $white;
+
+$tabs-radius: 6px; 
+$tabs-height: 2.6em; 
+$tabs-font-weight: normal;
+
+$menu-radius: 0; /* for ui-menu items */
+
+$subtle-bg: lighten($light-khaki, 5%);
+$subtle-border: $light-khaki; 
+
+$link-color: $orange;
+$link-hover-color: $cyan;
+$link-hover-bg: none; 
+$link-current-color: $light-green;
+$link-current-bg: none; 
+$link-active-bg: none; 
+$link-active-color: $orange; 
+
+$alt-link-color: $green;
+
+$button-bg: $light-green; 
+$button-border: $light-green;
+$button-color: $white;
+$button-hover-color: $white; 
+$button-hover-bg: $link-hover-color;
+$button-hover-border: $link-hover-color; 
+$button-active-color:  $white;
+$button-active-bg: darken($link-hover-color, 10%); 
+$button-active-border: $button-active-bg; 
+$button-radius: 5px; 
+
+$ui-state-default-bg: $light-orange;
+$ui-state-default-color: $reverse-text-color; 
+$ui-state-hover-bg: darken($light-orange, 10%);
+$ui-state-hover-color: $reverse-text-color; 
+
+$label-link-color: $black;
+$label-link-bg: #fff; 
+$label-link-collapsed-color: lighten($label-link-color, 50%); 
+$label-link-collapsed-bg: #fff; 
+$label-link-hover-color: $orange;
+
+$table-th-color: $light-purple;
+$table-th-active-color: $dark-purple; 
+
+$highlight-bg: $light-green; 
+$highlight-color: $reverse-text-color;
+$highlight-border: 1px solid $white; 
+
+$item-header-bg: $light-green;
+$item-header-color: $white; 
+$item-header-hover-color: $white;
+$item-header-hover-bg: $link-hover-color; 
+$item-border: 1px solid $subtle-border; 
+
+$masthead-bg: #615652; 
+
+$breadcrumbs-bg: $subtle-bg;
+$breadcrumbs-color: transparentize($masthead-bg, 0.6);
+$breadcrumbs-link-color: transparentize($masthead-bg, 0.2); 
+$breadcrumbs-link-color: $link-color; 
+$breadcrumbs-link-hover-color: $link-color; 
+$breadcrumbs-border: 1px solid darken($breadcrumbs-bg, 5%); 
+$breadcrumbs-title-color: $text-color; 
+
+$topnav-link-color: $reverse-text-color;
+$topnav-link-bg: none; 
+$topnav-link-hover-color: $reverse-text-color; 
+$topnav-link-hover-bg: transparentize($reverse-text-color, 0.8); 
+$topnav-link-current-color: $text-color; 
+$topnav-link-current-bg: $subtle-bg;
+
+$action-link-font-size: 0.923076923076923em;
+$action-link-color: $white;
+$action-link-font-size: 1em; 
+$action-link-bg: $light-green; 
+$action-link-border: none; 
+$action-link-hover-color: $white;
+$action-link-hover-bg: $cyan;
+$action-link-hover-border: 1px solid $cyan;
+$action-link-active-color: $reverse-text-color; 
+$action-link-active-bg: $orange;
+
+$pagelist-link-color: $brown; 
+$pagelist-link-hover-color: $link-hover-color;
+$pagelist-link-open-color: $orange; 
+$pagelist-link-open-bg: none; 
+$pagelist-link-active-color: $orange; 
+$pagelist-link-icon-color: $orange; 
+
+$pagination-font-size: 0.769230769230769em; 
+$pagination-link-color: $text-color; 
+$pagination-link-bg: $subtle-border; 
+$pagination-link-current-color: $reverse-text-color;
+$pagination-link-current-bg: $link-active-color;
+$pagination-link-hover-color: $white;
+$pagination-link-hover-bg: $link-hover-color;
+$pagination-link-active-color: $white; 
+$pagination-link-active-bg: $link-hover-color; 
+$pagination-link-border-radius: 3px; 
+
+$wiretab-link-bg: none; 
+$wiretab-link-border: 1px solid transparent; 
+$wiretab-link-color: $masthead-bg; 
+$wiretab-link-hover-bg: transparentize($white, 0.5);
+$wiretab-link-hover-border: 1px solid darken($subtle-bg, 5%); 
+$wiretab-link-hover-color: $cyan;
+$wiretab-link-current-bg: $white; 
+$wiretab-link-current-color: $text-color; 
+$wiretab-link-current-border: $wiretab-link-hover-border; 
+$wiretab-link-active-bg: $subtle-bg;
+$wiretab-link-active-color: $text-color; 
+
+$footer-font-size: 0.875em; 
+$footer-bg: $subtle-bg; 
+$footer-color: $light-text-color; 
+$footer-link-color: $orange;
+
+$error-bg: darken($orange, 5%); 
+$error-border: $red; 
+$error-color: #fff; 
+
+$notes-bg: #ffffdd; 
+$notes-font-size: 0.846153846153846em;
+
+$form-top-margin-adjustment: -2px; 
+
+$input-color: $text-color;
+$input-border: 1px solid;
+$input-border-color: #7C7C7C #C3C3C3 #DDDDDD #C3C3C3; 
+$input-bg: lighten($subtle-bg, 3%);
+$input-line-height: 1.3em;
+$input-padding: 0.2em 0.3em;
+
+$progressbar-bg: $ui-state-default-bg; 
+$progressbar-value-bg: $ui-state-hover-bg;
+$progressbar-text-color: $reverse-text-color; 
+
+/**
+ * Notifications (prefixed with "no")
+ *
+ */
+
+$no-border-color: #fff;
+
+$no-message-color: $highlight-color;
+$no-message-bg: $highlight-bg;
+$no-message-open-color: $no-message-color; 
+$no-message-open-bg: darken($no-message-bg, 5%); 
+$no-message-icon-color: $no-message-color;
+$no-message-link-color: transparentize($no-message-color, 0.2);
+$no-message-link-hover-color: $no-message-color;
+
+$no-warning-color: $white;
+$no-warning-bg: $cyan;
+$no-warning-open-color: $no-warning-color; 
+$no-warning-open-bg: darken($no-warning-bg, 5%); 
+$no-warning-icon-color: $no-warning-color;
+$no-warning-link-color: transparentize($no-warning-color, 0.2);
+$no-warning-link-hover-color: $no-warning-color;
+
+$no-error-color: $error-color; 
+$no-error-bg: $error-bg;
+$no-error-open-color: $no-error-color; 
+$no-error-open-bg: darken($error-bg, 5%) ;
+$no-error-icon-color: $no-error-color;
+$no-error-link-color: transparentize($no-error-color, 0.2);
+$no-error-link-hover-color: $no-error-color;
+
+$no-bug-color: #fff;
+$no-bug-bg: rgba(255, 255, 255, 0.3); 
+$no-bug-open-color: #fff; 
+$no-bug-open-bg: rgba(255, 255, 255, 0.5);
+$no-bug-hover-color: #fff; 
+$no-bug-hover-bg: rgba(255, 255, 255, 0.5);
+$no-bug-open-hover-color: #fff; 
+$no-bug-open-hover-bg: rgba(255, 255, 255, 0.3); 
+
+$no-ghost-message-color: #fff;
+$no-ghost-message-bg: #000;
+$no-ghost-message-icon-color: $no-ghost-message-color;
+
+$no-ghost-warning-color: $no-warning-color;
+$no-ghost-warning-bg: $no-warning-bg;
+$no-ghost-warning-icon-color: $no-ghost-warning-color;
+
+$no-ghost-error-color: $no-error-color;
+$no-ghost-error-bg: $no-error-bg;
+$no-ghost-error-icon-color: $no-ghost-error-color;
+
+

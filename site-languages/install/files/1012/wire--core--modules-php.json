@@ -1,0 +1,36 @@
+{
+    "file": "wire\/core\/Modules.php",
+    "textdomain": "wire--core--modules-php",
+    "translations": {
+        "336fe202866724eda0e075643f972571": {
+            "text": "Achtung: scheinbar gibt es zwei Kopien des Moduls \"%s\" im Dateisystem."
+        },
+        "01d68b9ea1b4ff3238768d9a30bcfa33": {
+            "text": "Bitte entfernen Sie das eine aus \/site\/modules\/, es sei denn es werden aus bestimmten Gr\u00fcnden beide ben\u00f6tigt."
+        },
+        "3919fe955716c54c409b522a1003f3e0": {
+            "text": "Sie haben keine Berechtigung um dieses Modul auszuf\u00fchren"
+        },
+        "8fbd3d16ca5c99185a023c9b7e6bb3e9": {
+            "text": "Berechtigung hinzugef\u00fcgt: %s"
+        },
+        "e349b4d55d1eb71f3b313924149aa242": {
+            "text": "Fehler bein hinzuf\u00fcgen von Berechtigung: %s"
+        },
+        "d8b74ebbc7d2d9e0bb9860f5875e6a58": {
+            "text": "Module automatisch installieren"
+        },
+        "2ccb0669e8a2f6a3117f340bb36e8d4b": {
+            "text": "Module automatisch deinstallieren"
+        },
+        "37ab3f591b07274ff3b4c891af63e4d1": {
+            "text": "Berechtigung entfernt: %s"
+        },
+        "7dd5a577bde82df3631263cfd04a07bb": {
+            "text": "Fehler beim entfernen von Berechtigung: %s"
+        },
+        "141e30f2de96660020efd996cc916413": {
+            "text": "Fehlerhafte Modul Abh\u00e4ngigkeit: %s ben\u00f6tigt %s"
+        }
+    }
+}

@@ -1,0 +1,199 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire FieldtypeFieldsetOpen and InputfieldFieldsetOpen
+ *
+ * Provides a Fieldtype and Inputfield for opening a Fieldset. 
+ *
+ * For documentation about the fields used in this class, please see:  
+ * /wire/core/Fieldtype.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class InputfieldFieldsetOpen extends InputfieldWrapper { } 
+
+class FieldtypeFieldsetOpen extends Fieldtype {
+
+	/**
+	 * Appended to the name of a 'Close' version of a FieldsetOpen
+	 *
+	 */
+	const fieldsetCloseIdentifier = '_END';
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Fieldset (Open)',
+			'version' => 100,
+			'summary' => 'Open a fieldset to group fields. Should be followed by a Fieldset (Close) after one or more fields.',
+			'permanent' => true, 
+			);
+	}
+
+	/**
+	 * Have the hooks been setup for this Fieldset?
+	 *
+	 */
+	protected static $hooked = false;
+
+	/**
+	 * Setup hooks to minotor when Fields are added and deleted
+	 *
+	 * But only do it once so that we don't have the same hooks setup when there are multiple Fieldsets
+	 *
+	 */
+	public function init() {
+		if(!self::$hooked && ($this->process == 'ProcessField' || $this->process = 'ProcessTemplate')) {
+			$this->addHook('ProcessField::fieldAdded', $this, 'hookFieldAdded'); 
+			$this->addHook('ProcessField::fieldDeleted', $this, 'hookFieldDeleted'); 
+			$this->addHook('ProcessTemplate::fieldAdded', $this, 'hookTemplateFieldAdded'); 
+			$this->addHook('ProcessTemplate::fieldRemoved', $this, 'hookTemplateFieldRemoved'); 
+		}
+		self::$hooked = true;
+	}
+
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		return null;
+	}
+
+	public function getInputfield(Page $page, Field $field) {
+		$inputfield = $this->wire(new InputfieldFieldsetOpen());
+		$inputfield->class = $this->className();
+		return $inputfield; 
+	}
+
+	public function savePageField(Page $page, Field $field) {
+		return true; 
+	}
+
+	public function ___getConfigInputfields(Field $field) {
+		$inputfields = parent::___getConfigInputfields($field);
+		return $inputfields; 
+	}
+
+	public function ___getConfigAdvancedInputfields(Field $field) {
+		$inputfields = parent::___getConfigAdvancedInputfields($field); 
+		// these really aren't applicable with fieldsets, so remove them
+		$inputfields->remove($inputfields->get('autojoin')); 
+		$inputfields->remove($inputfields->get('global')); 
+		return $inputfields; 
+	}
+
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = $this->wire(new Fieldtypes());
+		foreach($this->wire('fieldtypes') as $fieldtype) {
+			if($fieldtype instanceof FieldtypeFieldsetOpen) $fieldtypes->add($fieldtype); 
+		}
+		return $fieldtypes; 
+	}
+
+	public function loadPageField(Page $page, Field $field) {
+		return '';
+	}
+
+	public function getLoadQuery(Field $field, DatabaseQuerySelect $query) {
+		return $query;
+	}
+	
+	/**
+	 * For hooks to share in determining if this is a field they want to operate on
+	 *
+	 */
+	protected function isFieldset(Field $field) {
+		return $field->type instanceof FieldtypeFieldsetOpen && !($field->type instanceof FieldtypeFieldsetClose);
+	}
+
+	/**
+	 * Hook executed when field is added via ProcessField
+	 *
+	 */
+	public function hookFieldAdded($event) {
+
+		$field = $event->arguments[0]; 
+		if(!$this->isFieldset($field)) return; 
+
+		$closer = $this->wire(new Field());
+		$closer->type = $this->wire(new FieldtypeFieldsetClose());
+		$closer->name = $field->name . self::fieldsetCloseIdentifier;
+		$closer->label = "Close an open fieldset";
+		$closer->description = "This field was added automatically to accompany fieldset '$field'. It should be placed in your template/fieldgroup wherever you want the fieldset to end.";
+		$closer->save();	
+		
+		$this->message("Also added field '$closer', to accompany '$field'"); 
+	}
+
+	/**
+	 * Hook executed when field is deleted via ProcessField
+	 *
+	 */
+	public function hookFieldDeleted($event) {
+
+		$field = $event->arguments[0]; 
+		if(!$this->isFieldset($field)) return; 
+
+		$closer = $this->wire('fields')->get($field->name . self::fieldsetCloseIdentifier); 
+		if(!$closer) return; 
+
+		$this->wire('fields')->delete($closer); 
+		$this->message("Delete also issued for field '$closer'"); 
+	}
+
+	/**
+	 * Hook executed when field is added to a template via ProcessTemplate
+	 *
+	 */
+	public function hookTemplateFieldAdded($event) {
+		list($field, $template) = $event->arguments; 
+		if(!$this->isFieldset($field)) return; 
+		$closer = $this->wire('fields')->get($field->name . self::fieldsetCloseIdentifier); 
+		if(!$closer) return; 
+		$template->fieldgroup->add($closer); 
+		$this->message("Also added field '$closer', which should be placed where you want to close fieldset '$field'"); 
+	}
+
+	/**
+	 * Hook executed when field is removed from a template via ProcessTemplate
+	 *
+	 */
+	public function hookTemplateFieldRemoved($event) {
+		list($field, $template) = $event->arguments; 
+		if(!$this->isFieldset($field)) return; 
+		$closer = $this->wire('fields')->get($field->name . self::fieldsetCloseIdentifier); 
+		if(!$closer) return; 
+		$template->fieldgroup->remove($closer); 
+		$this->message("Also removed '$closer', which accompanies '$field'"); 
+	}
+
+	/**
+	 * Hook called by Fields::save() after a field using this type has been renamed
+	 *
+	 * Note that PW already takes care of renaming the field_[name] table.
+	 * Most Fieldtypes don't need to do anything here, but this exists just in case.
+	 *
+	 * #pw-internal
+	 *
+	 * @param Field $field
+	 * @param string $prevName Previous name (current name can be found in $field->name)
+	 *
+	 */
+	public function ___renamedField(Field $field, $prevName) {
+		// avoid ending up in infinite loop, since FieldtypeFieldsetClose extends this
+		if($this instanceof FieldtypeFieldsetClose) return;
+		// rename the _END field to match this one
+		$fields = $this->wire('fields');
+		$endField = $fields->get($field->name . self::fieldsetCloseIdentifier);
+		if(!$endField) {
+			$endField = $fields->get($prevName . self::fieldsetCloseIdentifier);
+			if($endField) {
+				$endField->name = $field->name . self::fieldsetCloseIdentifier;
+				$fields->save($endField);
+			}
+		}
+		parent::___renamedField($field, $prevName); 
+	}
+}
+
+

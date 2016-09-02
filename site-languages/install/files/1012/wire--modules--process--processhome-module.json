@@ -1,0 +1,12 @@
+{
+   "file":"wire\/modules\/Process\/ProcessHome.module",
+   "textdomain":"wire--modules--process--processhome-module",
+   "translations":{
+      "3555f18b32d499274ee3fcfb73c15558":{
+         "text":"Agiert als Platzhalter-Prozess f\u00fcr die Wurzelseite des Adminbereiches. Stellt die richtige Flow-Kontrolle nach dem Login sicher."
+      },
+      "56cc559d234df2ffabc88b8926592264":{
+         "text":"Admin Start"
+      }
+   }
+}

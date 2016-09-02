@@ -1,0 +1,182 @@
+<?php namespace ProcessWire;
+
+/**
+ * Class InputfieldInteger
+ * 
+ * @property string $inputType
+ * @property int|float $initValue
+ * @property int|float $min
+ * @property int|float $max
+ * @property int $size
+ * 
+ */
+
+class InputfieldInteger extends Inputfield {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Integer', __FILE__), // Module Title
+			'summary' => __('Integer (positive or negative)', __FILE__), // Module Summary
+			'version' => 104,
+			'permanent' => true, 
+			);
+	}
+
+	public function init() {
+		parent::init();
+		$this->set('inputType', 'text');
+		$this->attr('type', 'text'); 
+		$this->attr('min', ''); // blank means not set
+		$this->attr('max', '');  // blank means not set
+		$this->attr('size', '10');
+		$this->set('initValue', '');
+	}
+
+	public function ___render() {
+		if(!$this->attr('type')) $this->attr('type', 'text');
+		$attrs = $this->getAttributes();	
+		$note = '';
+		
+		if(empty($attrs['size'])) {
+			$attrs['class'] = (isset($attrs['class']) ? "$attrs[class] " : "") . 'InputfieldMaxWidth';
+			unset($attrs['size']);
+		}
+
+		if(empty($attrs['min']) && empty($attrs['max'])) {
+			// if both min+max are 0, then consider them non-applicable
+			unset($attrs['min'], $attrs['max']); 
+		} else {
+			// unset any that aren't applicable
+			if(strlen("$attrs[min]")) $note .= sprintf($this->_('Min: %d'), $attrs['min']); 
+				else unset($attrs['min']);
+			if(strlen("$attrs[max]")) $note .= ($note ? ', ' : '') . sprintf($this->_('Max: %d'), $attrs['max']); 
+				else unset($attrs['max']); 
+		}
+
+		// these attributes not valid for 'text' type
+		if($attrs['type'] == 'text') unset($attrs['step'], $attrs['min'], $attrs['max']);
+
+		if($note) $note = " <span class='details'>$note</span>";
+		if(!strlen($attrs['value']) && strlen($this->initValue)) {
+			$attrs['value'] = (int) $this->initValue;
+		}
+
+		$out = "<input " . $this->getAttributesString($attrs) . " />"; // . $note; 
+		return $out; 
+	}
+
+	protected function sanitizeValue($value) {
+		$value = trim($value);
+		if(!strlen("$value")) return '';
+		$negative = substr($value, 0, 1) === '-';
+		if($negative) $value = substr($value, 1); 
+		if(!ctype_digit("$value")) $value = preg_replace('/[^\d,.]/', '', $value); // remove non digits, like commas, etc.
+		if(!strlen("$value")) return '';
+		if(strpos($value, '.') !== false || strpos($value, ',') !== false) $value = round($value);
+		$value = (int) $value; 
+		if($negative) $value = -1 * $value;
+		return $value; 
+	}
+
+	public function isEmpty() {
+		return strlen("{$this->value}") === 0; 
+	}
+
+	protected function isInRange($value) {
+		$inRange = true;
+		$min = $this->attr('min');
+		$max = $this->attr('max');
+		if(strlen("$value")) {
+			if(strlen("$min") && ((int) $value) < ((int) $min)) {
+				$inRange = false;
+			}
+			if(strlen("$max") && ((int) $value) > ((int) $max)) {
+				$inRange = false;
+			}
+		}
+		return $inRange;
+	}
+
+	public function setAttribute($key, $value) {
+
+		if($key == 'value') {
+			$value = $this->sanitizeValue($value); 
+			if(strlen("$value") && !$this->isInRange($value)) {
+				$min = $this->attr('min');
+				$max = $this->attr('max'); 
+				$any = $this->_('any'); 
+				if(!strlen("$min")) $min = $any;
+				if(!strlen("$max")) $max = $any;
+				$this->error(sprintf($this->_('Specified value %3$s removed because it is out of bounds (min=%1$s, max=%2$s)'), $min, $max, $value));
+				$value = $this->attr('value'); // restore previous value
+			}
+		}
+
+		return parent::setAttribute($key, $value); 
+	}
+	
+	public function set($key, $value) {
+		if($key == 'inputType') {
+			$this->attr('type', $value); 
+		} else if($key == 'min' || $key == 'max') {
+			if(strlen("$value")) {
+				$value = strpos($value, '.') !== false ? (float) $value : (int) $value; 
+			}
+		}
+		return parent::set($key, $value);
+	}
+
+	public function getConfigInputfields() {
+		$inputfields = parent::getConfigInputfields();
+
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'inputType');
+		$f->label = $this->_('Numeric Input Type'); 
+		$f->addOption('text', $this->_('Text')); 
+		$f->addOption('number', $this->_('Number (HTML5)')); 
+		$f->attr('value', $this->inputType);
+		$f->description = $this->_('Choosing the "Number" type enables some additional client-side validation in browsers that support it.');
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+		
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->attr('name', 'size');
+		$f->label = $this->_('Input Size'); 
+		$f->description = $this->_('Specify the size attribute for the input, or specify 0 for full width.');
+		$f->notes = sprintf($this->_('The default value is %d.'), $f->attr('size'));
+		$f->columnWidth = 50;
+		$f->attr('value', $this->attr('size'));
+		$f->attr('min', 0);
+		$f->attr('type', 'number');
+		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', 'min');
+		$f->attr('value', $this->attr('min')); 
+		$f->label = $this->_('Minimum Value'); 
+		$f->description = $this->_('The minimum allowed value for this field. Leave blank to ignore.'); 
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', 'max');
+		$f->attr('value', $this->attr('max')); 
+		$f->label = $this->_('Maximum Value'); 
+		$f->description = $this->_('The maximum allowed value for this field. Leave blank to ignore.'); 
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+	
+		if($this->hasFieldtype === false) {
+			$f = $this->wire('modules')->get('InputfieldText');
+			$f->attr('name', 'initValue');
+			$f->attr('value', $this->initValue);
+			$f->label = $this->_('Initial value');
+			$f->description = $this->_('Initial assigned value.');
+			$f->collapsed = Inputfield::collapsedBlank;
+			$inputfields->add($f);
+		}
+
+		return $inputfields; 
+	}
+
+}

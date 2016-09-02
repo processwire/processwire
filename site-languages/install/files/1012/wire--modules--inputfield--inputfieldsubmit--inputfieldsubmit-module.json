@@ -1,0 +1,12 @@
+{
+   "file":"wire\/modules\/Inputfield\/InputfieldSubmit\/InputfieldSubmit.module",
+   "textdomain":"wire--modules--inputfield--inputfieldsubmit--inputfieldsubmit-module",
+   "translations":{
+      "a4d3b161ce1309df1c4e25df28694b7b":{
+         "text":"Absenden"
+      },
+      "297eb192f98270827a86fb18005b1e35":{
+         "text":"Button, um Formulare abzusenden"
+      }
+   }
+}

@@ -1,0 +1,60 @@
+{
+    "file": "wire\/modules\/Inputfield\/InputfieldTinyMCE\/InputfieldTinyMCE.module",
+    "textdomain": "wire--modules--inputfield--inputfieldtinymce--inputfieldtinymce-module",
+    "translations": {
+        "ea4788705e6873b424c65e91c2846b19": {
+            "text": "Abbrechen"
+        },
+        "259738ca35a086ce9d269623e5ab5d37": {
+            "text": "Link einf\u00fcgen"
+        },
+        "446a6000511ab6fb0711400379a62a04": {
+            "text": "Bild ausw\u00e4hlen"
+        },
+        "03274f27f51f0c39e06e0e6cd07e01a9": {
+            "text": "Bild bearbeiten"
+        },
+        "586dfebdb944d7af7c4720be84d7fa50": {
+            "text": "Bild speichern"
+        },
+        "941c891be23b6a837de1d46c30efad2a": {
+            "text": "Dieses Bild einf\u00fcgen"
+        },
+        "a616a1ef7aa1ee32d7d31c742923a202": {
+            "text": "Anderes Bild ausw\u00e4hlen"
+        },
+        "9cfefed8fb9497baa5cd519d7d2bb5d7": {
+            "text": "de"
+        },
+        "c52cec1acd3726638b497fc3b39cb851": {
+            "text": "Erweiterte Konfigurations-Optionen f\u00fcr TinyMCE"
+        },
+        "9247ce0e73d45c25608e5e5fac2d781c": {
+            "text": "Die folgenden Felder sind spezifisch f\u00fcr TinyMCE; Details zu diesen Optionen finden Sie auf der Webseite des TinyMCE. Generell empfiehlt sich, die hier vorgegebenen Standardwerte beizubehalten, sofern Sie nicht mit der Konfiguration von TinyMCE vertraut sind."
+        },
+        "c0c126335fecd7cae389dfbf58c5622d": {
+            "text": "Geben Sie optional eine URL zu einer Datei content.css (relativ zum Wurzelverzeichnis Ihrer Seite) an, so wird TinyMCE diese Datei anstelle der Standarddatei in \/wire\/modules\/Inputfield\/InputfieldTinyMCE\/content.css f\u00fcr die Option 'content_css' nutzen. Beachten Sie bitte, dass Ihre content.css auch die folgenden Styles aus der Standarddatei enthalten sollte: .align_left, .align_right, and .align_center"
+        },
+        "96b75e3952ad31abfa95420bdb00cec3": {
+            "text": "Beispiel: \/site\/templates\/styles\/content.css"
+        },
+        "5e0f16068f575dd9db39e18c16f0522f": {
+            "text": "Zus\u00e4tzliche Einstellungen f\u00fcr TinyMCE"
+        },
+        "05c89e10b124c14e5502e938a4cfc7e2": {
+            "text": "Beispiel: theme_advanced_styles:Header 1=header1;Header 2=header2;Header 3=header3;Table Row=tableRow1"
+        },
+        "e9cc0e7796a91954d22c949695a127f7": {
+            "text": "Falls es andere TinyMCE-Einstellungen (die oben nicht gelistet wurden) gibt, die sie angeben m\u00f6chten, geben Sie sie im Format Schl\u00fcssel:Wert (eines pro Zeile) an."
+        },
+        "060cba1f9aaf01aa7573c92e30e634d8": {
+            "text": "F\u00fcgen Sie optional eigene 3rd-Party-Plugins f\u00fcr TinyMCE hinzu. Geben Sie ein Plugin pro Zeile im Format Schl\u00fcssel:Wert an, wobei Schl\u00fcssel des Name des Plugins und Wert der Pfad zum Plugin ist."
+        },
+        "af33d545f762188f4ac0cbf35c07d1a3": {
+            "text": "Beispiel: bramus_cssextras : \/site\/tinymce\/myplugins\/bramus_cssextras"
+        },
+        "cc622260b5aec87bc7427108ffc573ab": {
+            "text": "Als Alternative zu TinyMCE bietet sich das [CKEditor]([http:\/\/modules.processwire.com\/modules\/inputfield-ckeditor\/) Modul an, welches im Modul-Verzeichnis verf\u00fcgbar ist."
+        }
+    }
+}

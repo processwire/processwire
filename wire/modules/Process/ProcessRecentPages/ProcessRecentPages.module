@@ -1,0 +1,419 @@
+<?php namespace ProcessWire;
+
+/**
+ * Recent pages list for admin
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * 
+ * @todo: make everything configurable
+ * 
+ * https://processwire.com
+ * 
+ * Translatable labels:
+ *
+ * __('Edited');
+ * __('Created');
+ * __('Edited by me');
+ * __('Created by me');
+ * __('Add another'); 
+ *
+ */
+
+class ProcessRecentPages extends Process {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Recent Pages', 
+			'summary' => 'Shows a list of recently edited pages in your admin.', 
+			'version' => 2, 
+			'author' => 'Ryan Cramer', 
+			'href' => 'http://modules.processwire.com/', 
+			'icon' => 'clock-o',
+			'permission' => 'page-edit-recent', 
+			'permissions' => array(
+				'page-edit-recent' => 'Can see recently edited pages'
+				),
+			'page' => array(
+				'name' => 'recent-pages', 
+				'parent' => 'page',
+				'title' => 'Recent', 
+				),
+			'useNavJSON' => true, 
+			'nav' => array(
+				array(
+					'url' => '?edited=1',
+					'label' => 'Edited',
+					'icon' => 'users',
+					'navJSON' => 'navJSON/?edited=1',
+				),
+				array(
+					'url' => '?added=1',
+					'label' => 'Created',
+					'icon' => 'users',
+					'navJSON' => 'navJSON/?added=1&me=1',
+				),
+				array(
+					'url' => '?edited=1&me=1', 
+					'label' => 'Edited by me', 
+					'icon' => 'user',
+					'navJSON' => 'navJSON/?edited=1&me=1', 
+				),
+				array(
+					'url' => '?added=1&me=1', 
+					'label' => 'Created by me',
+					'icon' => 'user',
+					'navJSON' => 'navJSON/?added=1&me=1', 
+				),
+				array(
+					'url' => 'another/',
+					'label' => 'Add another',
+					'icon' => 'plus-circle',
+					'navJSON' => 'anotherNavJSON/',
+				)
+			)
+		);
+	}
+
+	/**
+	 * Shared translation labels
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $labels = array();
+
+	/**
+	 * Oldest date to match or pages (hopefully equal to site installation date)
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $oldestDate = 0;
+	
+	public function __construct() {
+		$this->set('itemLimit', 15); 
+	}
+	
+	public function init() {
+		$this->addHookProperty('Page::recentTimeStr', $this, 'hookPageRecentTimeStr'); 
+		parent::init();
+		$this->labels['nothing'] = $this->_('No pages match (yet)'); 
+		$this->oldestDate = (int) @filemtime($this->wire('config')->paths->assets . 'installed.php'); 
+	}
+
+	/**
+	 * Add a 'recentTimeStr' property to all Page objects while this Process is active
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookPageRecentTimeStr(HookEvent $event) {	
+		$page = $event->object; 
+		$time = $this->getSort() == '-created' ? $page->created : $page->modified; 
+		$event->return = wireRelativeTimeStr($time, true, false); 
+	}
+
+	/**
+	 * Provides output for recent edited/added nav options ajax calls
+	 * 
+	 * @param array $options
+	 * @return string
+	 * 
+	 */
+	public function ___executeNavJSON(array $options = array()) {
+
+		$options['add'] = '';
+		$options['iconKey'] = 'template.icon';
+		$options['itemLabel'] = 'title|name';
+		$options['itemLabel2'] = 'recentTimeStr';
+		$options['sort'] = false; 
+
+		$selector = str_replace(',,', ',', $this->getSelectorString());
+		
+		$items = $this->wire('pages')->find("$selector, limit=$this->itemLimit"); 
+		if(!$this->wire('user')->isSuperuser()) foreach($items as $item) {
+			if(!$item->editable()) $items->remove($item); 
+		}
+		$options['items'] = $items; 
+
+		return parent::___executeNavJSON($options); 
+	}
+
+	/**
+	 * Update selector string to exclude things we won't want showing in any of our results
+	 * 
+	 * @param string $selector
+	 * 
+	 */
+	protected function updateSelectorString(&$selector) {
+		
+		$adminID = $this->wire('config')->adminRootPageID; 
+		$selector .= ", has_parent!=$adminID";
+		
+		if($this->wire('modules')->isInstalled('FieldtypePageTable')) {
+			$this->wire('modules')->get('FieldtypePageTable');
+			$skipTemplates = array();
+			$skipParents = array();
+			foreach($this->wire('fields') as $field) {
+				if(!$field->type instanceof FieldtypePageTable) continue;
+				if(!empty($field->parent_id)) $skipParents[] = $field->parent_id;
+				if(!empty($field->template_id)) {
+					$value = $field->template_id; 
+					if(is_array($value)) $skipTemplates = array_merge($skipTemplates, $value);
+						else $skipTemplates[] = $value;
+				}
+			}
+			if(count($skipTemplates)) $selector .= ", template!=" . implode('|', $skipTemplates); 
+			if(count($skipParents)) $selector .= ", parent_id!=" . implode('|', $skipParents); 
+		}
+	}
+	
+	/**
+	 * Get selector string to find pages for navJSON (not used by 'add another')
+	 *
+	 * @return string
+	 *
+	 */
+	protected function getSelectorString() {
+
+		$sort = $this->getSort();
+		$selector = "include=unpublished, sort=$sort";
+		
+		$this->updateSelectorString($selector); 
+
+		if($this->input->get('me')) {
+			if($sort == '-modified') {
+				$selector .= ",,modified_users_id=$this->user, modified>=$this->oldestDate";
+			} else if($sort == '-created') {
+				$selector .= ",,created_users_id=$this->user, created>=$this->oldestDate";
+			}
+		}
+
+		return $selector;
+	}
+
+	/**
+	 * Get the current sort for navJSON (not used by 'add another')
+	 *
+	 * @return string
+	 *
+	 */
+	protected function getSort() {
+		if($this->input->get('added')) {
+			return "-created";
+		} else {
+			return "-modified";
+		}
+	}
+
+	/**
+	 * Provide the interactive view for when user clicks on Added/Edited menu items rather than pages
+	 *
+	 * This basically redirects to a Lister that shows the pages.
+	 *
+	 */
+	public function ___execute() {
+
+		$selector = $this->getSelectorString();
+		$useLister = false;
+		$out = '';
+
+		if($useLister) {
+			if(strpos($selector, ',,') !== false) {
+				list($initSelector, $defaultSelector) = explode(',,', $selector);
+			} else {
+				$initSelector = $selector;
+				$defaultSelector = '';
+			}
+			$a = array(
+				'initSelector' => $initSelector,
+				'defaultSelector' => $defaultSelector,
+				'defaultSort' => $this->getSort(),
+			);
+			$url = ProcessPageLister::addSessionBookmark('recent-pages', $a);
+			if($url) {
+				$this->session->redirect($url);
+			} else {
+				$this->error($this->_('This feature requires page-lister permission'));
+			}
+		} else {
+			$table = $this->wire('modules')->get('MarkupAdminDataTable');
+			$table->setEncodeEntities(false);
+			$table->headerRow(array(
+				$this->_x('Page', 'th'),
+				$this->_x('Parent', 'th'),
+				$this->_x('Template', 'th'),
+				$this->_x('Created', 'th'),
+				$this->_x('Modified', 'th')
+			));
+			$items = $this->wire('pages')->find("$selector, limit=$this->itemLimit"); 
+			$sanitizer = $this->wire('sanitizer');
+			$title = $this->_('Recent pages');
+			foreach($items as $item) {
+				if(!$item->editable()) continue;	
+				$created = $item->created;
+				$modified = $item->modified;
+				if($created < $this->oldestDate) $created = $this->oldestDate; 
+				if($modified < $this->oldestDate) $modified = $this->oldestDate; 
+				$table->row(array(
+					"<!--$item->id-->" . $sanitizer->entities1($item->get('title|name')) => $item->editURL, 
+					$sanitizer->entities1($item->parent->get('title|name')), 
+					$sanitizer->entities1($item->template->getLabel()), 
+					"<span class='sort-date'>$created</span>" . wireRelativeTimeStr($created), 
+					"<span class='sort-date'>$modified</span>" . wireRelativeTimeStr($modified)
+				));
+				$me = $this->input->get('me'); 
+				if($this->getSort() == '-created') {
+					if($me) $title = sprintf($this->_('Pages recently created by %s'), $this->wire('user')->name); 
+						else $title = $this->_('Recently created pages');
+				} else {
+					if($me) $title = sprintf($this->_('Pages recently edited by %s'), $this->wire('user')->name); 
+						else $title = $this->_('Recently edited pages'); 
+				}
+			}
+			$out .= "<h2>$title</h2>";
+			if(count($items)) { 
+				$out .= $table->render();
+			} else {
+				$out .= "<p>" . $this->labels['nothing'] . "</p>";
+			}	
+		}
+		return $out; 
+	}
+
+	/**
+	 * The /edit/ option redirects to the page editor for the given page ID
+	 *
+	 * @throws WireException On invalid page ID
+	 *
+	 */
+	public function ___executeEdit() {
+		$id = (int) $this->input->get('id');
+		if(!$id) throw new WireException("No page ID");
+		$this->session->redirect("../edit/?id=$id");
+	}
+
+
+	/**
+	 * Returns array of 'add another' pages
+	 * 
+	 * There is only one of each parent/template combination here. 
+	 * Each returned page has two additional properties populated:
+	 * 	- _addAnotherURL: URL to add another of the same type
+	 * 	- _addAnotherLabel: Recommended label for links
+	 * 
+	 * @param int $limit Max items to include
+	 * @param string|int $oldest Timestamp or strtotime() compatible oldest date to retrieve from
+	 * @param int $userID When omitted, current user assumed
+	 * @return array of Page objects
+	 * 
+	 */
+	public function getAddAnotherNavItems($limit = 10, $oldest = 0, $userID = 0) {
+		
+		$items = array();
+		if(empty($oldest)) $oldest = $this->oldestDate; 
+			else if(!ctype_digit($oldest)) $oldest = strtotime($oldest);
+		if(!$userID) $userID = $this->wire('user')->id;
+		$n = 0;
+		$_selector = "include=unpublished, created_users_id=$userID, created>=$oldest, sort=-created, limit=50";
+		$this->updateSelectorString($_selector); 
+
+		do {
+			$selector = $_selector; 
+			if(count($items)) {
+				$selector .= ", id!=";
+				foreach($items as $item) $selector .= $item->id . '|';
+				$selector = rtrim($selector, '|');
+			}
+			
+			$matches = $this->wire('pages')->find($selector);
+			foreach($matches as $item) {
+				
+				if(!$item->editable() || !$item->parent->addable()) continue;
+				if($item->template->noParents) continue; 
+				if($item->parent->template->noChildren) continue; 
+				
+				$childTemplates = $item->parent->template->childTemplates; 
+				if(count($childTemplates) && !in_array($item->template->id, $childTemplates)) continue; 
+				
+				$parentTemplates = $item->template->parentTemplates; 
+				if(count($parentTemplates) && !in_array($item->parent->template->id, $parentTemplates)) continue;
+				
+				$key = $item->parent->id . "-" . $item->template->id; // limit to 1 parent-template match
+				if(isset($items[$key])) continue;
+				
+				$url = $this->wire('config')->urls->admin . "page/add/?parent_id=$item->parent_id&template_id={$item->template->id}"; 
+				$label = $this->sanitizer->entities($item->template->getLabel());
+				$label .= ' <small>' . sprintf($this->_('in %s'), $item->parent->get('title|name')) . '</small>';
+				$item->set('_addAnotherURL', $url);
+				$item->set('_addAnotherLabel', $label); 
+				
+				$items[$key] = $item;
+			}
+		} while(count($items) < $limit && (++$n < 10));
+		
+		return $items;
+	}
+
+	/**
+	 * Provides the navJSON data for the 'add another' menu item
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function ___executeAnotherNavJSON() {
+		
+		$data = array(
+			'url' => '',
+			'label' => $this->_((string) $this->page->get('title|name')),
+			'icon' => '',
+			'list' => array(),
+		);
+	
+		$items = $this->getAddAnotherNavItems();
+		foreach($items as $item) {
+			$data['list'][] = array(
+				'url' => $item->_addAnotherURL, 
+				'label' => $item->_addAnotherLabel,
+				'icon' => $item->template->getIcon(), 
+			);
+		}
+		if(!count($items)) {
+			$data['list'][] = array(
+				'url' => $this->wire('config')->urls->admin, 
+				'label' => $this->labels['nothing'], 
+			);
+		}
+		
+		if($this->wire('config')->ajax) header("Content-Type: application/json");
+		return json_encode($data);
+	}
+
+	/**
+	 * Outputs a table of 'add another' pages, for when user clicks on the 'Add another' text rather than a page item
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function ___executeAnother() {
+		$items = $this->getAddAnotherNavItems();
+		if(!count($items)) return "<h2>" . $this->labels['no-created'] . "</h2>";
+		$this->headline($this->_('Add another'));
+		$table = $this->wire('modules')->get('MarkupAdminDataTable'); 
+		$table->headerRow(array(
+			$this->_x('Template', 'th'), 
+			$this->_x('Parent', 'th'),
+			$this->_x('Last Created', 'th')
+		));
+		foreach($items as $item) {
+			$table->row(array(
+				$item->template->getLabel() => $item->_addAnotherURL,
+				$item->parent->get('title|name'),
+				wireRelativeTimeStr($item->created)
+			));
+		}
+		return "<h2>" . $this->_('Click any item to add another of the same type') . "</h2>" . $table->render();
+	}
+
+}
+

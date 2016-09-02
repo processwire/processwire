@@ -1,0 +1,121 @@
+<?php namespace ProcessWire;
+
+/**
+ * Intended just for outputting markup as help or commentary among other Inputfields
+ *
+ */ 
+
+class InputfieldMarkup extends InputfieldWrapper {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Markup', __FILE__),
+			'summary' => __('Contains any other markup and optionally child Inputfields', __FILE__),
+			'version' => 102,
+			'permanent' => true, 
+			);
+	}
+	
+	protected $renderValueMode = false;
+
+	public function init() {
+		$this->set('markupText', '');
+		$this->set('markupFunction', null); // closure or name of function that returns markup, receives $this as arg0.
+		$this->set('textformatters', array());
+		$this->skipLabel = Inputfield::skipLabelBlank;
+		parent::init();
+	}	
+
+	public function ___render() {
+		
+		$out = '';
+		$value = $this->attr('value');
+		
+		if(strlen($value)) {
+			$out .= "\n" . $value;
+		}
+		
+		$markupFunction = $this->getSetting('markupFunction');
+		$markupText = $this->getSetting('markupText');
+		$textformatters = $this->getSetting('textformatters');
+		$description = $this->getSetting('description');
+		
+		if($markupFunction !== null & is_callable($markupFunction)) {
+			$out .= "\n" . call_user_func($markupFunction, $this);
+		}
+		if(strlen($markupText)) {
+			$out .= "\n" . $markupText;
+		}
+		$out = trim($out);
+
+		if(count($textformatters)) {
+			foreach($textformatters as $className) {
+				$t = $this->wire('modules')->get($className);
+				if(!$t) continue; 
+				$t->formatValue($this->wire('page'), $this->wire(new Field()), $out);
+			}	
+		}
+
+		if(strlen($description)) {
+			$textFormat = $this->getSetting('textFormat');
+			if($this->getSetting('entityEncodeText') !== false && $textFormat != Inputfield::textFormatNone) {
+				if($textFormat == Inputfield::textFormatBasic) {
+					$description = $this->entityEncode($description, Inputfield::textFormatBasic);
+					$out = "\n<p class='description'>{$description}</p>$out";
+				} else if($textFormat == Inputfield::textFormatMarkdown) {
+					$out = "\n<div class='description'>" . $this->entityEncode($description, Inputfield::textFormatMarkdown) . "</div>$out";
+				}
+			} else {
+				$out = "\n<div class='description'>$description</div>$out"; 
+			}
+			$this->description = ''; // prevents it from appearing again at the bottom
+		}
+
+		// prevent possible double render 
+		$v = $this->attr('value');
+		$this->attr('value', '');
+		$out .= parent::___render(); 
+		$this->attr('value', $v);
+		
+		return $out; 
+	}
+
+	public function ___renderValue() {
+		$this->renderValueMode = true; 
+		$out = $this->render();
+		$this->renderValueMode = false;
+		return $out; 
+	}
+
+	public function ___getConfigInputfields() {
+
+		$inputfields = parent::___getConfigInputfields();		
+		if($this->hasFieldtype) return $inputfields;
+
+		$f = $this->wire('modules')->get('InputfieldTextarea');
+		$f->attr('id+name', 'markupText'); 
+		$f->attr('value', $this->markupText);
+		$f->attr('rows', 10);
+		$f->label = $this->_('Markup Text');
+		$inputfields->add($f);
+
+		$f = $this->modules->get('InputfieldAsmSelect');
+		$f->attr('id+name', 'textformatters');
+		$f->label = $this->_('Text Formatters');
+
+		foreach($this->modules->find("className^=Textformatter") as $textformatter) {
+			$info = $textformatter->getModuleInfo();
+			$f->addOption($textformatter->className(), "$info[title]");
+		}
+
+		$f->attr('value', $this->textformatters);
+
+		$f->description = $this->_('Select the format that your Markup Text is in, or the formatters that you want to be applied to it, in the order you want them applied.'); 
+		$f->notes = $this->_('If your Markup Text is plain HTML, you may not want to select any Text Formatters.');
+		$inputfields->add($f);
+
+		return $inputfields;
+	}
+	
+}
+

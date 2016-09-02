@@ -1,0 +1,338 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Textarea Fieldtype
+ *
+ * Stores a large block of multi-line text.
+ *
+ * For documentation about the fields used in this class, please see:  
+ * /wire/core/Fieldtype.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ * Properties set to $field that is using this type, acceessed by $field->get('property'):
+ *
+ * - contentType (int): Content type of field output using a self::contentType* constant (default=self::contentTypeUnknown)
+ * - htmlOptions (array): Options for content-type Markup/HTML using self::html* constants (default=null or blank array)
+ * - inputfieldClass (string): Inputfield class/module name to use for this field (default=InputfieldTextarea)
+ *
+ */
+
+class FieldtypeTextarea extends FieldtypeText {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Textarea',
+			'version' => 106,
+			'summary' => 'Field that stores multiple lines of text',
+			'permanent' => true,
+		);
+	}
+
+	/**
+	 * The default Inputfield class associated with this Fieldtype
+	 *
+	 */
+	const defaultInputfieldClass = 'InputfieldTextarea';
+
+	/**
+	 * Indicates an unknown or plain text content type
+	 *
+ 	 */
+	const contentTypeUnknown = 0;
+
+	/**
+	 * Indicates a Markup/HTML content type with basic root path QA
+	 *
+	 */
+	const contentTypeHTML = 1;
+
+	/**
+	 * Indicates a Markup/HTML content type with all htmlImage* options enabled
+	 * 
+	 */
+	const contentTypeImageHTML = 2;
+
+	/**
+	 * HTML options: <a> tag management to abstract page URLs in href attributes so they can be dynamically updated
+	 *
+	 */
+	const htmlLinkAbstract = 2; 
+	
+	/**
+	 * HTML options: <img> tag management to replace blank alt attributes with file description
+	 * 
+	 */
+	const htmlImageReplaceBlankAlt = 4;
+	
+	/**
+	 * HTML options: <img> tag management to remove or re-create images that don't exist
+	 *
+	 */
+	const htmlImageRemoveNoExists = 8;
+	
+	/**
+	 * HTML options: <img> tag management to remove images that user doesn't have access to
+	 *
+	 */
+	const htmlImageRemoveNoAccess = 16;
+
+	/**
+	 * Instance of MarkupQA 
+	 * 
+	 * @var MarkupQA
+	 * 
+	 */
+	protected $markupQA = null;
+
+	/**
+	 * Instanceof FieldtypeTextareaHelper 
+	 * 
+	 * @var FieldtypeTextareaHelper
+	 * 
+	 */
+	protected $configHelper = null;
+
+	public function init() {
+		$this->set('inputfieldClass', self::defaultInputfieldClass); 
+		$this->set('contentType', self::contentTypeUnknown); 
+		$this->set('htmlOptions', array());
+		parent::init();
+	}
+
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		return parent::sanitizeValue($page, $field, $value); 
+	}
+
+	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
+		if(is_null($value)) $value = $page->getFormatted($field->name);
+		if($field->get('contentType') >= self::contentTypeHTML) {
+			$value = $this->formatValue($page, $field, $value); 	
+		} else {
+			$value = parent::___markupValue($page, $field, $value, $property);
+		}
+		return $value; 
+	}
+	
+	public function ___formatValue(Page $page, Field $field, $value) {
+		$value = parent::___formatValue($page, $field, $value);
+		return $value; 
+	}
+
+	public function ___sleepValue(Page $page, Field $field, $value) {
+		$value = parent::___sleepValue($page, $field, $value);
+		if($field->get('contentType') >= self::contentTypeHTML) $this->htmlReplacements($page, $field,$value, true);
+		return $value; 
+	}
+	
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+		// note: we do this here in addition to loadPageField to account for values that came
+		// from external resources (not loaded from DB). 
+		$value = parent::___wakeupValue($page, $field, $value);
+		if($field->get('contentType') >= self::contentTypeHTML) {
+			$this->htmlReplacements($page, $field, $value, false);
+		}
+		return $value;
+	}
+	
+	public function ___loadPageField(Page $page, Field $field) {
+		$value = parent::___loadPageField($page, $field);
+		if($field->get('contentType') >= self::contentTypeHTML) {
+			$this->htmlReplacements($page, $field, $value, false);
+		}
+		return $value; 
+	}
+
+	/**
+	 * Get the MarkupQA instance
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return MarkupQA
+	 * @throws WireException If called the first time without page or field arguments
+	 * 
+	 */
+	public function markupQA(Page $page = null, Field $field = null) {
+		if(is_null($this->markupQA)) {
+			$this->markupQA = $this->wire(new MarkupQA($page, $field));
+		} else {
+			if($page) $this->markupQA->setPage($page);
+			if($field) $this->markupQA->setField($field);
+		}
+		return $this->markupQA;
+	}
+
+	/**
+	 * Content Type HTML replacements accounting for href and src attributes
+	 * 
+	 * This ensures that sites migrated from one subdirectory to another, or from a subdirectory to
+	 * a non-subdir, or non-subdir to a subdir, continue working. This adds runtime context
+	 * to 'href' and 'src' attributes in HTML.
+	 *
+	 * This method modifies the $value directly rather than returning it.
+	 *
+	 * In order to make the abstracted attributes identifiable to this function (so they can be reversed)
+	 * it replaces the space preceding the attribute name with a tab character. This ensures the HTML
+	 * underneath still remains compliant in case it is later extracted directly from the DB for
+	 * data conversion or something like that. 
+	 * 
+	 * This one handles a string value or array of string values (like for multi-language support)
+	 * 
+	 * Note: this is called by both loadPageField and wakeupValue, so will be called with the same
+	 * arguments twice during load of a value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+ 	 * @param string|array $value Value to look for attributes (or array of values)
+	 * @param bool $sleep When true, convert links starting with root URL to "/". When false, do the reverse. 
+	 * 	
+	 */
+	protected function htmlReplacements(Page $page, Field $field, &$value, $sleep = true) {
+		
+		$languages = $this->wire('languages');
+		
+		if(is_array($value)) {
+			// array of values, most likely multi-language data123 columns from loadPageField 
+			foreach($value as $k => $v) {
+				if(is_string($v)) {
+					$this->_htmlReplacement($page, $field, $v, $sleep);
+				} else {
+					$this->htmlReplacements($page, $field, $v, $sleep); // recursive
+				}
+				$value[$k] = $v;
+			}
+			
+		} else if(is_object($value) && $languages && $value instanceof LanguagesValueInterface && $value instanceof Wire) {
+			// most likely a LanguagesPageFieldValue, but can be any type implementing LanguagesValueInterface
+			/** @var Wire|LanguagesValueInterface $value */
+			$trackChanges = $value->trackChanges();
+			$value->setTrackChanges(false);
+			foreach($languages as $language) {
+				/** @var LanguagesValueInterface $value */
+				$v = $value->getLanguageValue($language->id);
+				$this->_htmlReplacement($page, $field, $v, $sleep);
+				$value->setLanguageValue($language, $v, $field);
+			}
+			if($trackChanges) $value->setTrackChanges($trackChanges);
+			
+		} else if(is_string($value)) {
+			// standard textarea string
+			$this->_htmlReplacement($page, $field, $value, $sleep);
+		}
+	}
+
+	/**
+	 * Helper for htmlReplacements, to process single value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $value
+	 * @param bool $sleep
+	 * 
+	 */
+	protected function _htmlReplacement(Page $page, Field $field, &$value, $sleep) {
+	
+		if(!strlen($value)) return;
+		
+		$markupQA = $this->markupQA($page, $field);
+		$contentType = $field->get('contentType');
+		$htmlOptions = $field->get('htmlOptions');
+		
+		if(!is_array($htmlOptions)) $htmlOptions = array();
+
+		if($sleep) {
+			$markupQA->sleepUrls($value);
+			if(in_array(self::htmlLinkAbstract, $htmlOptions)) $markupQA->sleepLinks($value);
+		} else {
+			if(in_array(self::htmlLinkAbstract, $htmlOptions)) $markupQA->wakeupLinks($value);
+			$markupQA->wakeupUrls($value);
+			$useCheckImg = false;
+			if($contentType == self::contentTypeImageHTML) {
+				// keep default options, which means all enabled
+				$opts = array();
+				$useCheckImg = true;
+			} else {
+				// set image options specifically
+				$opts = array(
+					'replaceBlankAlt' => in_array(self::htmlImageReplaceBlankAlt, $htmlOptions),
+					'removeNoExists' => in_array(self::htmlImageRemoveNoExists, $htmlOptions),
+					'removeNoAccess' => in_array(self::htmlImageRemoveNoAccess, $htmlOptions)
+				);
+				foreach($opts as $val) if($val) $useCheckImg = true;
+			}
+			if($useCheckImg) $markupQA->checkImgTags($value, $opts);
+		}
+	}
+
+	/**
+	 * Get the Inputfield module that provides input for Field
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Inputfield
+	 * 
+	 */
+	public function getInputfield(Page $page, Field $field) {
+
+		$inputfieldClass = $field->get('inputfieldClass');
+		
+		if($inputfieldClass) {
+			$inputfield = $this->modules->getModule($inputfieldClass, array('noSubstitute' => true)); 
+		} else {
+			$inputfield = $this->modules->get(self::defaultInputfieldClass); 
+		}
+		
+		if(!$inputfield) {
+			$inputfield = $this->modules->get(self::defaultInputfieldClass);
+			$this->configHelper()->getInputfieldError($field);
+		}
+		
+		$inputfield->class = $this->className();
+		return $inputfield; 
+	}
+
+	/**
+	 * Get database schema used by the Field
+	 * 
+	 * @param Field $field
+	 * @return array
+	 * 
+	 */
+	public function getDatabaseSchema(Field $field) {
+		$schema = parent::getDatabaseSchema($field); 
+		$schema['data'] = 'mediumtext NOT NULL';
+		$schema['keys']['data'] = 'FULLTEXT KEY data (data)'; 
+		return $schema;
+	}
+
+	/**
+	 * Get an instance of the FieldtypeTextareaHelper config helper
+	 * 
+	 * @return FieldtypeTextareaHelper
+	 * 
+	 */
+	public function configHelper() {
+		if(is_null($this->configHelper)) {
+			require_once($this->wire('config')->paths->FieldtypeTextarea . 'FieldtypeTextareaHelper.php');
+			$this->configHelper = new FieldtypeTextareaHelper();
+		}
+		return $this->configHelper;
+	}
+
+	/**
+	 * Get Inputfields to configure the Field
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 * 
+	 */
+	public function ___getConfigInputfields(Field $field) {
+		$this->markupQA()->setVerbose(true);
+		$inputfields = parent::___getConfigInputfields($field);
+		$inputfields = $this->configHelper()->getConfigInputfields($field, $inputfields);
+		return $inputfields; 
+	}
+
+}
+

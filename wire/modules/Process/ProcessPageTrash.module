@@ -1,0 +1,90 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Trash Process
+ *
+ * Provides empty trash capability. 
+ * 
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class ProcessPageTrash extends Process {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Page Trash', __FILE__), // getModuleInfo title
+			'summary' => __('Handles emptying of Page trash', __FILE__), // getModuleInfo summary 
+			'version' => 102, 
+			'permanent' => true, 
+			); 
+	}
+
+	/**
+	 * Check if an empty request has been received and delete if so, otherwise render a confirmation form
+	 *
+	 */
+	public function ___execute() {
+
+		if(!$this->wire('user')->isSuperuser()) throw new WirePermissionException();
+
+		if(isset($_POST['submit_empty']) && !empty($_POST['confirm_empty'])) {
+			$this->session->CSRF->validate();
+			$totalDeleted = $this->wire('pages')->emptyTrash();
+			$message = $this->_('Emptied the trash') . ' ' .
+				sprintf($this->_n('(%d page)', '(%d pages)', abs($totalDeleted)), abs($totalDeleted));
+			if($totalDeleted < 0) $message .= ' - ' . $this->_('Not all pages could be deleted');
+			$this->session->message($message);
+			// redirect to admin root after emptying trash
+			$this->session->redirect($this->config->urls->admin);
+		} else {
+			// render a form showing what pages are in the trash and confirming they want to empty it
+			return $this->render();
+		}
+	}	
+
+	/**
+	 * Render a form showing what pages are in the trash and confirming they want to empty it
+	 *
+	 */
+	protected function render() {
+
+		$trashPages = $this->pages->get($this->config->trashPageID)->children("limit=2, status<" . Page::statusMax);
+
+		$form = $this->modules->get("InputfieldForm"); 
+		$form->attr('action', './'); 
+		$form->attr('method', 'post'); 
+
+		if(!count($trashPages)) return "<h2>" . $this->_("The trash is empty") . "</h2>";
+
+		$field = $this->modules->get("InputfieldMarkup"); 
+		$field->label = $this->_("The following pages are in the trash"); 
+		$pageList = $this->modules->get('ProcessPageList');
+		$pageList->set('id', $this->config->trashPageID);
+		$pageList->set('showRootPage', false);
+		$field->value = $pageList->execute();
+		$form->add($field); 
+
+		$field = $this->modules->get("InputfieldCheckbox"); 
+		$field->attr('name', 'confirm_empty'); 
+		$field->attr('value', 1); 
+		$field->label = $this->_('Empty trash');
+		$field->description = $this->_("Please confirm that you want to empty the page trash.");
+		$field->notes = $this->_("If there are too many items in the trash, you may have to empty it multiple times."); 
+		$form->add($field);
+
+		$field = $this->modules->get("InputfieldSubmit"); 
+		$field->attr('name', 'submit_empty'); 
+		$form->add($field); 
+
+		return $form->render();		
+
+
+	}
+	
+}
+

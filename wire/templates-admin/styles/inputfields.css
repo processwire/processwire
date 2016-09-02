@@ -1,0 +1,256 @@
+/**********************************************************************************************
+ * ProcessWire Admin Control Panel - Skyscraper Theme - inputfields.css
+ *
+ * This file provides common styling for ProcessWire inputfields. All other Inputfield styles
+ * are provided by the Inputfield modules themselves.
+ *
+ * Copyright 2012 by Ryan Cramer
+ *
+ */
+
+.Inputfields fieldset, 
+.Inputfields input, 
+.Inputfields select,
+.Inputfields textarea,
+.Inputfields label {
+	/* reset */
+	margin: 0;
+	padding: 0;
+}
+	
+.Inputfields,
+.Inputfields .Inputfield,
+.Inputfields label,
+.Inputfields input,
+.Inputfields select,
+.Inputfields textarea,
+.Inputfields table {
+	font-size: 12px; 
+}
+
+.Inputfields input,
+.Inputfields select,
+.Inputfields textarea {
+	max-width: 100%; 
+}
+
+.InputfieldForm .Inputfields,
+.InputfieldForm .Inputfields > .Inputfield {
+	list-style: none;
+	margin: 1em 0;
+	padding: 0;
+}
+	.InputfieldForm .Inputfields .Inputfields {
+		/* nested .Inputfields list needs no bottom margin since it'll already be offset from the parent's padding */
+		margin-bottom: 0; 
+	}
+
+	.Inputfields > .Inputfield {
+		display: block;
+		clear: both; 
+	}
+
+.Inputfields > .Inputfield > .ui-widget-content:before,
+.Inputfields > .Inputfield > .ui-widget-content:after {
+    /* @soma clearfix */
+    content: " ";
+    display: table;
+}
+.Inputfields > .Inputfield > .ui-widget-content:after {
+    /* @soma clearfix  */
+    clear: both;
+}
+
+.Inputfields > .Inputfield > .ui-widget-content {
+    /* the Inputfield's content, padded from the borders */
+    padding: 1em;
+}
+
+.Inputfields .ui-widget-header {
+	/* typically the Inputfield's <label> */
+	padding: 0.25em 0 0.25em 1em; 
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-o-user-select: none;
+	user-select: none; /* prevent selection of this element */
+}
+
+.Inputfields label {
+	/* label usually the same as the .ui-widget-header, but this applies to other labels too */
+	display: block;
+}
+
+
+/**
+ * Tweaks specific to percentage width floated fields
+ *
+ */
+
+.InputfieldForm .Inputfields > .InputfieldColumnWidth {
+	/* an Inputfield that has a percentage width assigned to it */
+	float: left; 
+	clear: none; 
+	margin-top: 0; 
+	margin-left: 1%; 
+}
+	.InputfieldForm .Inputfields .InputfieldColumnWidthFirst,
+	.InputfieldForm .Inputfields .InputfieldColumnWidth + .InputfieldSubmit {
+		/* first Inputfield with a percent width... */
+		/* ...or the last percentage-width Inputifeld before the submit button */
+		clear: both; 
+		margin-left: 0; 
+	}
+    
+    .InputfieldForm .Inputfields .InputfieldColumnWidthFirstTmp, 
+    .InputfieldForm .Inputfields .InputfieldColumnWidthFirst.InputfieldStateHidden + .Inputfield {
+        /* for support of inputfield dependencies */
+        clear: both;
+        margin-left: 0; 
+    }
+    
+/**
+ * Margin and padding tweaks to prevent doubled visual whitespace
+ *
+ */
+
+.InputfieldForm .Inputfields > .Inputfield > .ui-widget-content > *:first-child,
+.InputfieldForm .Inputfields > .Inputfield > .ui-widget-content > div > *:first-child,
+.InputfieldForm .Inputfields > .Inputfield:first-child {
+	/* first child element of an Inputfield or it's content needs no top margin since it is already padded */
+	margin-top: 0;
+}
+
+.InputfieldForm .Inputfields .Inputfields > .Inputfield:last-child,
+.InputfieldForm .Inputfields > .Inputfield > .ui-widget-content > *:last-child {
+	/* last child element in an Inputfield content needs no margin since it is already padded */
+	margin-bottom: 0;
+}
+	.InputfieldForm .Inputfields > .Inputfield > .ui-widget-content .Inputfields.ui-helper-clearfix:last-child {
+		/* prevents extra space in the situation described by the selector */
+		/* example: the page editor sort settings box */
+		margin-bottom: -1em !important; 
+	}
+
+
+/**
+ * Inputfield states (collapsd vs. open, etc.)
+ *
+ */
+
+.Inputfields .InputfieldStateToggle {
+	cursor: pointer;
+}
+
+	.Inputfields .InputfieldStateToggle span.ui-icon,
+	.Inputfields .InputfieldStateToggle i.toggle-icon {
+		/* the open/close icon that goes with most Inputfields */
+		float: right;
+		padding-right: 0.5em;
+	}
+	.Inputfields .InputfieldStateToggle i.toggle-icon {
+		padding-right: 0.75em;
+		line-height: 1.7em;
+		opacity: 0.5;
+	}
+
+
+	/*
+	.Inputfields .InputfieldStateToggle span.ui-icon {
+		float: right; 
+		padding-right: 0.25em; 
+	}
+	*/
+
+	.Inputfields > .InputfieldStateCollapsed .ui-widget-header {
+		/* collapsed Inputfields appear sightly faded */
+		opacity: 0.6; 
+	}
+	.Inputfields > .InputfieldStateCollapsed .ui-widget-header:hover {
+		/* when hovering, they are no longer faded */
+		opacity: 1.0; 
+	}
+
+	.Inputfields > .InputfieldStateCollapsed .ui-widget-content {
+		/* collapsed Inputfields don't show their content (only header) */
+		display: none;
+	}
+
+.InputfieldForm .Inputfields .InputfieldStateError {
+	/* borders can break floated columns, so we avoid borders here */
+	border: none; 
+}
+
+.InputfieldStateRequired > label.ui-widget-header:first-child:after {
+	content: ' *';
+}
+
+/****************************************************************************
+ * Specific Inputfield types
+ *
+ * Defined here rather than as separate CSS files because their styles are 
+ * shared or there may be relationships with other Inputfields
+ *
+ */
+
+.Inputfields .InputfieldHidden {
+	display: none; 
+}
+
+/**
+ * Buttons
+ *
+ */
+
+.Inputfields .InputfieldSubmit,
+.Inputfields .InputfieldButton {
+	/* enable horizontal stack of buttons */
+	clear: none; 
+}
+	.Inputfields .InputfieldSubmit .ui-widget-content,
+	.Inputfields .InputfieldButton .ui-widget-content {
+		/* we don't need our visual furniture for buttons */
+		padding: 0; 
+		background: none; 
+		border: none; 
+	}
+
+	.Inputfields .InputfieldSubmit .ui-widget-header,
+	.Inputfields .InputfieldButton .ui-widget-header {
+		/* no need for a header with buttons */
+		display: none; 
+	}
+
+/**
+ * Text/Textarea fields
+ *
+ */
+
+.Inputfields textarea, 
+.InputfieldMaxWidth {
+	/* full width fields */
+	width: 100%; 
+}
+	.Inputfields textarea {
+		display: block;
+	}
+
+
+/****************************************************************************
+ * Render Value Mode 
+ *
+ * Used when only values are being rendered in the form (no inputs)
+ *
+ */
+
+.InputfieldRenderValueMode .InputfieldSelect li,
+.InputfieldRenderValueMode .InputfieldRadios li,
+.InputfieldRenderValueMode .InputfieldCheckboxes li {
+        margin: 0;
+}
+
+.InputfieldRenderValueMode .InputfieldSubmit,
+.InputfieldRenderValueMode .InputfieldButton {
+	display: none; 
+}
+

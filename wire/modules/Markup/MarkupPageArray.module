@@ -1,0 +1,154 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire MarkupPageArray module
+ *
+ * Adds convenience methods to all PageArray instances for markup generation
+ * 
+ * It adds PageArray::render() which generates a basic unordered list of linked pages. 
+ * It can be called from any PageArray: 
+ *
+ * $items = $pages->find("id>0, limit=10"); // replace id>0 with your selector
+ * echo $items->render(); // renders a basic list of linked pages
+ * 
+ * It will also generate pagination if the selector had a limit placed on it (i.e. "limit=10"),
+ * and there are more pages left to render, and the page's template supports page numbers. 
+ *
+ * Also adds a PageArray::renderPager() method, which is convenient when you are generating your
+ * own page list markup, but just want to use the automatic pagination generator. 
+ * 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class MarkupPageArray extends WireData implements Module {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'PageArray Markup', 
+			'summary' => 'Adds a render() method to all PageArray instances for basic unordered list generation of PageArrays.', 
+			'version' => 100, 
+			'permanent' => false, 
+			'singular' => true, 
+			'autoload' => true, 
+			);
+	}
+
+	public function init() { 
+		$this->addHook("PageArray::render", $this, "renderPageArray"); 
+		$this->addHook("PageArray::renderPager", $this, "renderPager"); 
+	}	
+
+	/**
+	 * Render markup for a PageArray
+	 *
+	 * Can be accessed as $mypages->render() where '$mypages' is any instance of a PageArray. 
+	 *
+	 * Be sure to see the $defaultOptions in the method if you want to change it's behavior or output. 
+	 *
+	 * @param array $options Optional list of options to modify the behavior and output. 
+	 * @return string
+	 *
+	 */
+	public function renderPageArray(HookEvent $event) {
+
+		$pageArray = $event->object; 
+		if(!count($pageArray)) return '';
+		$arguments = $event->arguments; 
+		$options = array();
+
+		$defaultOptions = array(
+
+			// markup for the list container, specify {out} where generated items should go
+			'listMarkup' => "\n<ul class='PageArray'>{out}\n</ul>", 
+
+			// markup for list item. note {title} may be any valid page field, or you may use multiple fields
+			'itemMarkup' => "\n\t<li><a href='{url}'>{title}</a></li>", 
+
+			// options to send to the pager (optional). See MarkupPagerNav::$options
+			'pagerOptions' => array(), 	
+
+			// show pagination links at the top (when applicable)?
+			'pagerTop' => false,  		
+
+			// show pagination links at the bottom (when applicable)?
+			'pagerBottom' => true, 		
+
+			// getVars for pager, but preferably use $input->whitelist instead!
+			'getVars' => array(), 		
+
+			// number of links to use for pagination, typically 10. 
+			'numPageLinks' => 10, 		
+
+			// base URL for pagination
+			'baseUrl' => '',
+			); 
+
+		if(isset($arguments[0]) && is_array($arguments[0])) $options = $arguments[0]; 
+		$options = array_merge($defaultOptions, $options); 
+
+		$out = '';
+
+		if(preg_match_all('/\{[-_a-z0-9|]+\}/i', $options['itemMarkup'], $matches)) $fields = $matches[0]; 
+			else $fields = array();
+		
+		foreach($pageArray as $page) {
+			if(!$page->viewable()) continue; 
+			$values = array();
+			foreach($fields as $field) $values[$field] = $page->get(trim($field, '{}')); 
+			$out .= str_replace($fields, $values, $options['itemMarkup']); 
+		}
+
+		$out = str_replace('{out}', $out, $options['listMarkup']); 
+
+		if(($options['pagerTop'] || $options['pagerBottom']) && $pageArray->getTotal() > count($pageArray))  {
+
+			$pager = $this->modules->get('MarkupPagerNav'); 	
+			$pagerOptions = $options['pagerOptions']; 
+
+			if(!empty($options['baseUrl'])) $pager->setBaseUrl($options['baseUrl']); 
+				else $pager->setBaseUrl($this->page->url); 
+
+			if(empty($options['getVars'])) $pagerOptions['getVars'] = $options['getVars'];
+			if(empty($options['numPageLinks'])) $pagerOptions['numPageLinks'] = $options['numPageLinks'];
+
+			$pagerOut = $pager->render($pageArray, $pagerOptions); 
+
+			if($options['pagerTop']) $out = $pagerOut . $out; 
+			if($options['pagerBottom']) $out .= $pagerOut; 
+		} 
+
+		$event->return = $out; 
+	}
+
+	/**
+	 * Render pagination markup for a PageArray
+	 *
+	 * i.e. echo $mypages->renderPager(), where '$mypages' is a PageArray instance
+	 *
+	 * @param array $options Optional options to provide to MarkupPagerNav - see MarkupPagerNav::$options
+	 * @return string
+	 *
+	 */
+	public function renderPager(HookEvent $event) {
+		$pageArray = $event->object; 
+		if(!$pageArray->getLimit()) return; 
+		$arguments = $event->arguments; 
+		$options = array();
+		if(isset($arguments[0]) && is_array($arguments[0])) $options = $arguments[0]; 
+		$pager = $this->modules->get('MarkupPagerNav'); 
+		if(empty($options['baseUrl'])) {
+			$baseUrl = $this->wire('page')->url;
+			$urlSegmentStr = $this->wire('input')->urlSegmentStr; 
+			if(strlen($urlSegmentStr)) $baseUrl = rtrim($baseUrl, '/') . "/$urlSegmentStr/";
+			$pager->setBaseUrl($baseUrl); 
+		}
+		$event->return = $pager->render($pageArray, $options); 
+	}
+
+
+}
+

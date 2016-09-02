@@ -1,0 +1,66 @@
+{
+    "file": "wire\/modules\/Inputfield\/InputfieldPageTable\/InputfieldPageTable.module",
+    "textdomain": "wire--modules--inputfield--inputfieldpagetable--inputfieldpagetable-module",
+    "translations": {
+        "140092f149378fe66bcd1b7e472cde79": {
+            "text": "Bitte vor Verwendung dieses Feldes ein Template ausw\u00e4hlen."
+        },
+        "541d5efe9732bde27704a4d578691629": {
+            "text": "Bitte vor Verwendung dieses Feldes ein oder mehrere Spalten in den Einstellungen festlegen."
+        },
+        "30069b6e08c01b280dea5aec4bf871e0": {
+            "text": "[leer]"
+        },
+        "9ea0c76f6c8f1bc93ccb7f5825d8da15": {
+            "text": "Tabellenfelder zur Darstellung im Admin"
+        },
+        "420fb882b998481add0d526522ffff81": {
+            "text": "Geben Sie hier die Namen der Felder (1 pro Zeile) an, welche als Spalten in der Tabelle angezeigt werden sollen. Um eine Spaltenbreite f\u00fcr das Feld festzulegen, gibt man \"feld_name=30\" an. \"30\" entspricht hier der Breite (in Prozent) der Spalte. Bei Angabe von Breiten darauf achten, dass die Summe aller Spalten 100 ergibt."
+        },
+        "290cc1b749092b6f62035343a4e4f9eb": {
+            "text": "Sie k\u00f6nnen jedes vorgegebene oder eigene Felder angeben. Sie k\u00f6nnen ebenso Subfelder (field.subfield) verwenden, mit Feldern welche mehrere Eigenschaften beinhalten, wie page references."
+        },
+        "c775db1b4b86e060f703a4e7cedc292f": {
+            "text": "Eigene Felder, welche ihren ausgew\u00e4hlten Templates zugewiesen sind, beinhalten folgendes:"
+        },
+        "8ea5a88f78fabcfdc906c9cb8ec013f2": {
+            "text": "Um hier eine Liste der m\u00f6glichen eigenen Felder zu sehen, w\u00e4hlen Sie ein Template im Details Tab. Dann speichern und dies erneut aufrufen."
+        },
+        "34ff6bbc0c075f35e92dc68a218b7cc2": {
+            "text": "Automatisches Format f\u00fcr Seiten Namen"
+        },
+        "9264201faa8a6ca75fc27583eafe1e88": {
+            "text": "Wenn ausgef\u00fcllt, werden Seiten mit dem \"Neu hinzuf\u00fcgen\" Button automatisch erstellt, unter Verwendung dieses Namens-Formats. Wenn leer, wird der Nutzer aufgefordert, einen Namen einzugeben, bevor die Seite erstellt wird."
+        },
+        "e4f63a8ac32b32675310ab45dd15e6cb": {
+            "text": "Falls das Format des Namens nicht-alphanumerische Zeichen enth\u00e4lt, wird es als ein [PHP Datum](http:\/\/www.php.net\/manual\/en\/function.date.php) Format betrachtet. Falls es nur alphanumerische Zeichen enth\u00e4lt, wird es direkt verwendet. Falls notwendig, wird am Ende eine Nummer angeh\u00e4ngt zur eindeutigen Erkennung."
+        },
+        "9ad1067becc6f575ac4c13c7294fdffe": {
+            "text": "Beispiel: **Ymd:His** ist ein gutes Namensformat f\u00fcr auf Datum\/Zeit basierende Seiten-Namen."
+        },
+        "848656e110ec0bd90b47b5bf7c961c95": {
+            "text": "Erstellt"
+        },
+        "872db811a5e431cc819ba322361af380": {
+            "text": "Ge\u00e4ndert"
+        },
+        "036eabaedf4f638437a5ecdf7582d541": {
+            "text": "Ge\u00e4ndert von"
+        },
+        "5058207150146a31a3722ea410dac987": {
+            "text": "Erstellt von"
+        },
+        "fab3cb63defc8837e34f8ff45d16299f": {
+            "text": "Pfad"
+        },
+        "615d41dc9054191178b392de366b7168": {
+            "text": "Eltern"
+        },
+        "1817eacf444b166d0c26160f2176ae96": {
+            "text": "Kinder"
+        },
+        "d02df721111f58d691538543749d7ce0": {
+            "text": "Neu hinzuf\u00fcgen"
+        }
+    }
+}

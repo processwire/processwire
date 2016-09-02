@@ -1,0 +1,55 @@
+.InputfieldCheckboxes ul {
+	margin-left: 0;
+	padding-left: 0;
+	list-style: none; 
+}
+
+.InputfieldCheckboxes ul li {
+	/* we don't need checkboxes/radios to have bullets, etc. */
+	list-style: none !important;
+	/* no need for top/bottom margins in a group of checkboxes or radios */
+	margin: 0 !important;
+}
+
+.InputfieldCheckboxes ul li label {
+	display: inline-block;
+	white-space: nowrap;
+	vertical-align: top;
+}
+
+.InputfieldCheckboxes .pw-no-select {
+}
+
+.InputfieldCheckboxes table label input, 
+.InputfieldCheckboxes li input {
+	margin-right: 0.5em;
+}
+
+.InputfieldCheckboxes li input {
+}
+
+.InputfieldCheckboxes table,
+.InputfieldCheckboxesColumns,
+.InputfieldCheckboxesFloated {
+	width: 100%; 
+}
+
+.Inputfields .InputfieldCheckboxesFloated li,
+.Inputfields .InputfieldCheckboxesColumns li {
+	display: block;
+	float: left; 
+}
+
+.Inputfields .InputfieldCheckboxesFloated li {
+	padding-right: 1em; 
+}
+
+.inputfields .InputfieldCheckboxesColumns li {
+	padding-right: 1%; 
+	padding-bottom: 1%; 
+}
+
+.InputfieldCheckboxes table label {
+	white-space: nowrap;
+}
+

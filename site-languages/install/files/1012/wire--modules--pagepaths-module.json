@@ -1,0 +1,12 @@
+{
+   "file":"wire\/modules\/PagePaths.module",
+   "textdomain":"wire--modules--pagepaths-module",
+   "translations":{
+      "d6fee4e5741568290c0f4c4edc81f70f":{
+         "text":"%d Pfad aktualisiert"
+      },
+      "b198072961bf47ed9c790c1006f98372":{
+         "text":"%d Pfade aktualisiert"
+      }
+   }
+}

@@ -1,0 +1,105 @@
+#columnWidth {
+	float: left; 
+	margin-right: 1em; 
+	margin-bottom: 1em; 
+}
+
+#columnWidthSlider {
+	float: left;
+	width: 70%; 
+	position: relative;
+	top: 3px; 
+}
+
+#wrap_columnWidth p.notes {
+	clear: both; 
+}
+
+#fieldgroupContext {
+	position: absolute;
+	top: 0;
+	right: 0;
+}
+body.modal #fieldgroupContext {
+	position: absolute;
+	top: -9999px;
+	right: 0;
+}
+
+#modal_cancel_button {
+	display: none; 
+}
+
+#ProcessFieldList table td {
+	width: 35%; 
+}
+
+#ProcessFieldList table td:nth-child(3),
+#ProcessFieldList table td:last-child {
+	width: 15%; 
+}
+
+
+#ProcessFieldList table td a.fieldFlag {
+	float: right; 
+    margin-left: 0.5em; 
+}
+
+#ProcessFieldList .InputfieldMarkup {
+	margin-bottom: 1em;
+}
+
+/**
+ * Import/export 
+ *
+ */
+
+#add_field_button,
+#export_button,
+#import_button {
+	margin-top: 0;
+}
+#export_button,
+#import_button {
+	float: right;
+	margin-left: 0.25em;
+}
+
+#export_fields,
+#export_data,
+#import_data {
+	width: 100%;
+	font-family: monospace;
+	padding: 5px;
+}
+
+#import_form table {
+	margin-top: 1em;
+	margin-bottom: 1em; 
+}
+
+#import_form table th,
+#import_form table td {
+	width: 33.33333%; 
+}
+
+#import_form .InputfieldFieldset {
+	margin-bottom: 1em;
+}
+
+#import_form ul.ui-state-error-text li {
+	margin: 0;
+}
+
+#import_form .import_toggle {
+	margin-bottom: 0;
+}
+
+#import_form .import_toggle label {
+	margin-right: 0.5em;
+	display: inline;
+}
+
+.pw-init #ProcessFieldEdit {
+	display: none;
+}

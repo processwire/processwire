@@ -1,0 +1,118 @@
+<?php namespace ProcessWire;
+
+/**
+ * FileCompilerTags (example FileCompiler module)
+ * 
+ * Enables {var} or {var.property} variables in markup sections of a file. 
+ * Can be used with any API variable.
+ *
+ * @property string $openTag
+ * @property string $closeTag
+ * 
+ */
+
+class FileCompilerTags extends FileCompilerModule implements ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Tags File Compiler',
+			'version' => 1,
+			'summary' => 'Enables {var} or {var.property} variables in markup sections of a file. Can be used with any API variable.',
+		);
+	}	
+	
+	public function __construct() {
+		$this->set('openTag', '{');
+		$this->set('closeTag', '}');
+		parent::__construct();
+	}
+	
+	/**
+	 * Compile a section of markup
+	 *
+	 * @param string $data
+	 * @return string
+	 *
+	 */
+	public function compileMarkup($data) {
+
+		$markup =& $data;
+		if(strpos($markup, $this->openTag) === false || strpos($markup, $this->closeTag) === false) return $markup;
+
+		$replacements = array();
+		$openTag = preg_quote($this->openTag, '#');
+		$closeTag = preg_quote($this->closeTag, '#');
+		$regex = '#' . $openTag . '([_a-zA-Z](?:[_.|a-zA-Z0-9]|->)+)' . $closeTag . '#';
+
+		if(!preg_match_all($regex, $markup, $matches)) return $markup;
+		
+		foreach($matches[1] as $key => $tag) {
+			
+			$full = $matches[0][$key];
+			if(isset($replacements[$full])) continue;
+
+			if(strpos($tag, '->') !== false) {
+				$tag = str_replace('->', '.', $tag);
+			}
+
+			if(strpos($tag, '.') !== false) {
+				list($varName, $theRest) = explode('.', $tag, 2);
+			} else {
+				$varName = $tag;
+				$theRest = '';
+			}
+
+			$theRestOR = str_replace('|', '_OR_', $theRest);
+
+			if(empty($varName)) continue;
+
+			// allow for use of locally scope variable, or attempt to pull from $page if not locally scoped
+			$replacement = "<" . "?php " .
+				"if(isset(\$$varName)) { " .
+					"if(\$$varName instanceof Page) { " .
+						"echo " . ($theRest ? "\${$varName}->getMarkup('{" . $theRest . "}');" : "\$$varName; ") .
+					"} else {" .
+						"echo \$$varName" . ($theRest ? "->" . str_replace('.', '->', $theRestOR) : "") . "; " .
+					"}" .
+				"} else if(\\ProcessWire\\wire('$varName') !== null) { " .
+					"if(\\ProcessWire\\wire('$varName') instanceof Page) { " .
+						"echo " . ($theRest ? "\\ProcessWire\\wire('$varName')->getMarkup('{" . $theRest . "}');" : "\\ProcessWire\\wire('$varName'); ") .
+					"} else {" .
+						"echo \\ProcessWire\\wire('$varName')" . ($theRest ? "->" . str_replace('.', '->', $theRestOR) : "") . "; " .
+					"}" .
+				"} else if(\\ProcessWire\\wire('page')->get('$varName') !== null) { " .
+					"echo \\ProcessWire\\wire('page')->getMarkup('{" . $tag . "}'); " .
+				"} else { " .
+					"echo '" . $matches[0][$key] . "';" .
+				"} ?" . ">";
+			
+			if(!strlen(__NAMESPACE__)) {
+				$replacement = str_replace("\\ProcessWire\\", "", $replacement);
+			}
+
+			$replacements[$full] = $replacement;
+		}
+		$markup = str_replace(array_keys($replacements), array_values($replacements), $markup);
+
+		return $markup;
+	}
+	
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		
+		parent::getModuleConfigInputfields($inputfields);
+		
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', 'openTag');
+		$f->label = $this->_('Open Tag character(s)');
+		$f->attr('value', $this->openTag);
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+		
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', 'closeTag');
+		$f->label = $this->_('Close Tag character(s)');
+		$f->attr('value', $this->closeTag);
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+	}
+}

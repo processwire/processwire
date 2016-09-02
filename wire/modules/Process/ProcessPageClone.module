@@ -1,0 +1,409 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Clone Process
+ *
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ * Optional GET variables: 
+ * - redirect_page (int): Contains ID of page to redirect to after clone.
+ *
+ */
+
+class ProcessPageClone extends Process {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Page Clone', __FILE__),
+			'summary' => __('Provides ability to clone/copy/duplicate pages in the admin. Adds a "copy" option to all applicable pages in the PageList.', __FILE__), 
+			'version' => 103, 
+			'autoload' => "template=admin",  // Note: most Process modules should not be 'autoload', this is an exception.
+			'permission' => 'page-clone',
+			'permissions' => array(
+				'page-clone' => 'Clone a page',
+				'page-clone-tree' => 'Clone a tree of pages'
+			),
+			'page' => array(
+				'name' => 'clone',
+				'title' => 'Clone',
+				'parent' => 'page',
+				'status' => Page::statusHidden, 
+				)
+			); 
+	}
+
+	/**
+	 * The page being cloned
+	 *
+	 */
+	protected $page; 
+
+	/**
+	 * The action link label used in the PageList
+	 * 
+	 * Redefined for mult-language support in the ready method. 
+	 *
+	 */
+	protected $pageListActionLabel = 'Copy';
+
+	/**
+	 * URL to the admin, cached here to avoid repeat $config calls
+	 *
+ 	 */
+	protected $adminUrl = '';
+
+	/**
+	 * Called when the API and $page loaded are ready
+	 *
+	 * We use this to determine whether we should add a hook or not.
+	 * If we're in ProcessPageList, we add the hook.
+	 *	
+	 */
+	public function ready() {
+		$this->adminUrl = $this->wire('config')->urls->admin;
+		$this->pageListActionLabel = $this->_('Copy'); // Action label that appears in PageList
+		$this->addHookAfter("ProcessPageListActions::getExtraActions", $this, 'hookPageListActions');
+		$this->addHookAfter("ProcessPageListActions::processAction", $this, 'hookProcessExtraAction'); 
+	}
+
+	/**
+	 * Hook into ProcessPageListActions::getExtraActions to return a 'copy' action when appropriate
+	 *
+	 */
+	public function hookPageListActions(HookEvent $event) {
+		$page = $event->arguments[0]; 	
+		$actions = array();
+		if($this->hasPermission($page)) {
+			$actions['copy'] = array(
+				'cn'   => 'Copy',
+				'name' => $this->pageListActionLabel,
+				'url'  => "{$this->adminUrl}page/clone/?id={$page->id}",
+			);
+			if(!$page->numChildren) {
+				$actions['copy']['url'] = "{$this->adminUrl}page/?action=clone&id={$page->id}";
+				$actions['copy']['ajax'] = true;
+			}
+		}
+		if(count($actions)) $event->return = $actions + $event->return;
+	}
+
+	/**
+	 * Hook to ProcessPageListActions::processAction()
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookProcessExtraAction(HookEvent $event) {
+		$page = $event->arguments(0);
+		$action = $event->arguments(1); 
+		if($action !== 'clone') return;
+		$result = $this->processAjax($page, true); 
+		if(!empty($result['page'])) $result['appendItem'] = $result['page'];
+		$event->return = $result;	
+	}
+
+	/**
+	 * Main execution: Display Copy Page form or process it
+	 *
+	 */
+	public function ___execute() {
+		$this->headline($this->_('Copy Page')); // Headline
+		$error = $this->_("Unable to load page");
+		$id = (int) $this->wire('input')->get->id;
+		if(!$id) throw new WireException($error); 
+		$this->page = $this->wire('pages')->get($id); 
+		if($this->page->id < 2) throw new WireException($error); 
+		if(!$this->hasPermission($this->page)) throw new WirePermissionException($error); 
+		if($this->wire('input')->post->submit_clone) $this->process();
+		//if($this->wire('config')->ajax && $_SERVER['REQUEST_METHOD'] == 'POST') return $this->processAjax();
+		return $this->render();	
+	}	
+
+	/**
+	 * Check if the current user has permission to clone the given page
+	 *
+	 * @param Page $page
+	 * @return bool
+	 *
+	 */
+	public function hasPermission(Page $page) {
+		$user = $this->user; 
+
+		if($page->hasStatus(Page::statusSystem) || $page->hasStatus(Page::statusSystemID)) return false; 
+		if($page->parent->template->noChildren) return false; 
+		if($page->template->noParents) return false; 
+
+		if(count($page->parent->template->childTemplates) && !in_array($page->template->id, $page->parent->template->childTemplates)) return false; 
+		if(count($page->template->parentTemplates) && !in_array($page->parent->template->id, $page->template->parentTemplates)) return false; 
+		
+		if($user->isSuperuser()) return true; 
+		if($user->hasPermission('page-create', $page) && $user->hasPermission('page-clone', $page) && $page->parent->addable()) return true; 
+
+		return false; 
+	}
+
+	/**
+	 * Return array with suggested 'name' and 'title' elements for given $page
+	 * 
+	 * @param $page
+	 * @return array
+	 * 
+	 */
+	protected function getSuggestedNameAndTitle($page) {
+		$n = 0;
+		$name = '';
+		do {
+			$n++;
+			$name = $page->name; 
+			$nStr = "-$n";
+			if(strlen($name) + strlen($nStr) > Pages::nameMaxLength) $name = substr($name, 0, Pages::nameMaxLength - strlen($nStr));
+			$name .= $nStr;
+		} while($this->wire('pages')->count("parent=$page->parent, include=all, name=$name"));
+		$copy = $this->_('(copy)'); 
+		$copyN = $this->_('(copy %d)');
+		$title = $page->title;
+		// @todo support multi-language titles
+		if(strpos($title, $copy) !== false) $title = str_replace(" $copy", '', $title);
+		$regexCopyN = str_replace('%d', '[0-9]+', $copyN);
+		$regexCopyN = str_replace(array('(', ')'), array('\\(', '\\)'), $regexCopyN);
+		$title = preg_replace("/$regexCopyN/", '', $title);
+		$title .= ' ' . ($n > 1 ? sprintf($copyN, $n) : $copy);
+		$result = array('name' => $name, 'title' => $title, 'n' => $n);
+		if($this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
+			foreach($this->wire('languages') as $language) {
+				if($language->isDefault()) continue;
+				$value = $page->get("name$language");
+				if(strlen($value)) $result["name$language"] = $value . '-' . $n;
+			}
+		}
+		return $result;
+	}
+
+	/**
+	 * Render a form asking for information to be used for the new cloned page. 
+	 *
+	 */
+	protected function ___buildForm() {
+
+		$form = $this->modules->get("InputfieldForm"); 
+		$form->attr('action', './?id=' . $this->page->id); 
+		$form->attr('method', 'post'); 
+		$form->description = sprintf($this->_("This will make a copy of %s"), $this->page->path); // Form description/headline
+		$form->addClass('InputfieldFormFocusFirst');
+		
+		$suggested = $this->getSuggestedNameAndTitle($this->page);
+
+		$titleField = $this->modules->get("InputfieldPageTitle"); 
+		$titleField->attr('name', 'clone_page_title'); 
+		$titleField->attr('value', $suggested['title']);
+		$titleField->label = $this->_("Title of new page"); // Label for title field
+
+		$nameField = $this->modules->get("InputfieldPageName"); 
+		$nameField->attr('name', 'clone_page_name'); 
+		$nameField->attr('value', $suggested['name']);
+		$nameField->parentPage = $this->page->parent;
+
+		$languages = $this->wire('languages'); 
+		$useLanguages = $languages;
+		if($useLanguages) {
+			/** @var Field $title */
+			$title = $this->wire('fields')->get('title');
+			$titleUseLanguages = $title 
+				&& $this->page->template->fieldgroup->hasField($title) 
+				&& $title->getInputfield($this->page)->getSetting('useLanguages');
+			$nameUseLanguages = $this->wire('modules')->isInstalled('LanguageSupportPageNames'); 
+			if($titleUseLanguages) $titleField->useLanguages = true;
+			if($nameUseLanguages) $nameField->useLanguages = true; 
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				if($titleUseLanguages) {
+					$value = $this->page->title->getLanguageValue($language);
+					$titleField->set("value$language->id", $value);
+				}
+				if($nameUseLanguages) {
+					$value = $this->page->get("name$language->id"); 
+					if(strlen($value))  $nameField->set("value$language->id", $value . '-' . $suggested['n']); 
+				}
+			}
+		}
+		
+		if($this->page->template->fieldgroup->hasField('title')) $form->add($titleField); 
+		$form->add($nameField); 
+
+		$field = $this->modules->get("InputfieldCheckbox"); 
+		$field->attr('name', 'clone_page_unpublished'); 
+		$field->attr('value', 1); 
+		$field->label = $this->_("Make the new page unpublished?");
+		$field->collapsed = Inputfield::collapsedYes; 
+		$field->description = $this->_("If checked, the cloned page will be given an unpublished status so that it can't yet be seen on the front-end of your site."); 
+		$form->add($field);
+
+		if($this->page->numChildren && $this->user->hasPermission('page-clone-tree', $this->page)) { 
+			$field = $this->modules->get("InputfieldCheckbox"); 
+			$field->attr('name', 'clone_page_tree'); 
+			$field->attr('value', 1); 
+			$field->label = $this->_("Copy children too?");
+			$field->description = $this->_("If checked, all children, grandchildren, etc., will also be cloned with this page."); 
+			$field->notes = $this->_("Warning: if there is a very large structure of pages below this, it may be time consuming or impossible to complete.");
+			$field->collapsed = Inputfield::collapsedYes; 
+			$form->add($field);
+		}
+
+		$field = $this->modules->get("InputfieldSubmit"); 
+		$field->attr('name', 'submit_clone'); 
+		$form->add($field); 
+		
+		if(isset($_GET['redirect_page'])) {
+			$field = $this->wire('modules')->get('InputfieldHidden');
+			$field->attr('name', 'redirect_page');
+			$field->attr('value', (int) $_GET['redirect_page']);
+			$form->add($field);
+		}
+
+		return $form;
+	}
+	
+	/**
+	 * Render a form asking for information to be used for the new cloned page.
+	 *
+	 */
+	protected function ___render() {
+		$form = $this->buildForm();
+		return $form->render();
+	}
+
+	/**
+	 * User has clicked submit, so we create the clone, then redirect to it in PageList
+	 *
+	 */
+	protected function ___process() {
+
+		$page = clone $this->page; 
+		$input = $this->input; 
+		
+		$originalName = $page->name; 
+
+		$this->session->CSRF->validate();
+		$form = $this->buildForm();
+		$form->processInput($this->wire('input')->post); 
+		
+		if($input->post->clone_page_unpublished) $page->addStatus(Page::statusUnpublished); 
+		$cloneTree = $input->post->clone_page_tree && $this->user->hasPermission('page-clone-tree', $this->page);
+		
+		$titleField = $form->get('clone_page_title');
+		$nameField = $form->get('clone_page_name');
+		
+		if($nameField->useLanguages) {
+			foreach($this->wire('languages') as $language) {
+				$valueAttr = $language->isDefault() ? "value" : "value$language->id";
+				$nameAttr = $language->isDefault() ? "name" : "name$language->id";
+				$value = $nameField->get($valueAttr); 				
+				$page->set($nameAttr, $value); 
+			}
+		} else {
+			$page->name = $nameField->value;
+		}
+
+		set_time_limit(3600);
+		
+		$clone = $this->pages->clone($page, $page->parent, $cloneTree);
+		if(!$clone->id) throw new WireException(sprintf($this->_("Unable to clone page %s"), $page->path));
+
+		if($titleField->getSetting('useLanguages') && is_object($clone->title)) {
+			foreach($this->wire('languages') as $language) {
+				$valueAttr = $language->isDefault() ? "value" : "value$language->id";
+				$value = $titleField->get($valueAttr);
+				$clone->title->setLanguageValue($language, $value); 
+			}
+		} else {
+			$clone->title = $titleField->value; 
+		}
+		$clone->save();
+		$this->message(sprintf($this->_('Cloned page "%1$s" to "%2$s"'), $originalName, $clone->name)); 
+		
+		$redirectURL = null;
+		if(isset($_POST['redirect_page'])) {
+			$redirectPageID = (int) $_POST['redirect_page'];
+			if($redirectPageID > 0) {
+				$redirectPage = $this->wire('pages')->get((int) $_POST['redirect_page']);
+				if($redirectPage->viewable()) $redirectURL = $redirectPage->url;
+			} else {
+				$redirectURL = false;	
+			}
+		}
+		if(is_null($redirectURL)) $redirectURL = $this->wire('config')->urls->admin . 'page/list/';
+		if($redirectURL) $redirectURL .= "?open=$clone->id";
+
+		$this->session->redirect($redirectURL);
+	}
+
+	/**
+	 * Process an ajax clone request
+	 * 
+	 * Outputs JSON result and exits
+	 * 
+	 * @param Page $original
+	 * @param bool $returnArray
+	 * @return array|null
+	 * 
+	 */
+	public function processAjax(Page $original = null, $returnArray = false) {
+	
+		if(is_null($original)) $original = $this->page;
+		$page = clone $original; 
+		$originalName = $original->name;
+		$suggested = $this->getSuggestedNameAndTitle($page);
+		$cloneOptions = array(
+			'set' => array(
+				// keep original $page modified date and user id, since ajax mode doesn't 
+				// give the user the option to edit the page before cloning it 
+				'modified' => $original->modified,
+				'modified_users_id' => $original->modified_users_id,
+				// pages cloned in ajax are always unpublished
+				'status' => $page->status | Page::statusUnpublished,
+				'title' => $suggested['title'], 
+			)
+		);
+		
+		$cloneTree = false; // clone tree mode now allowed in ajax mode
+		$error = null;
+		
+		try {
+			$clone = $this->wire('pages')->clone($page, $page->parent, $cloneTree, $cloneOptions);
+		} catch(\Exception $e) {
+			$error = $e->getMessage();	
+		}
+		
+		$result = array(
+			'action' => 'clone', 
+			'success' => $clone->id > 0 && $clone->id != $page->id && is_null($error),
+			'message' => '', 
+			'page' => $clone->id, 
+		);
+
+		if($clone->id) {
+			$result['message'] = $this->wire('sanitizer')->unentities(
+				sprintf($this->_('Cloned to: %s'), $clone->path)
+			);
+		} else {
+			// error
+			$result['message'] = $error ? $error : $this->_('Unable to clone page'); 
+		}
+		
+		if($returnArray) return $result;
+	
+		header("Content-type: application/json");
+		echo json_encode($result);	
+		exit;
+	}
+
+	public function getPage() {
+		return $this->page; 
+	}
+
+}
+

@@ -1,0 +1,87 @@
+<?php namespace ProcessWire;
+
+class InputfieldIcon extends Inputfield {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Icon', __FILE__), // Module Title
+			'summary' => __('Select an icon', __FILE__), // Module Summary
+			'version' => 2,
+		);
+	}
+	
+	const prefix = 'fa-';
+	
+	protected $options = array();
+	
+	public function __construct() {
+		parent::__construct();
+		$this->options = file(dirname(__FILE__) . '/icons.inc', FILE_IGNORE_NEW_LINES); 
+		$this->set('prefixValue', true); // should value attr always start with prefix? (externally)
+	}
+	
+	public function init() {
+		parent::init();
+		$this->icon = 'puzzle-piece';
+	}
+	
+	public function ___render() {
+		$out = '';
+		$attrs = $this->getAttributes();
+		$value = $attrs['value'];
+		if($value && strpos($value, self::prefix) !== 0) $value = self::prefix . $value;
+		if($value) $this->icon = $value;
+		unset($attrs['value']);
+		$out .= "\n<select " . $this->getAttributesString($attrs) . ">";
+		if(!$this->getSetting('required')) $out .= "\n\t<option value=''></option>";
+		foreach($this->options as $option) {
+			$option = trim($option); 
+			$selected = $value == $option ? " selected='selected'" : "";
+			$label = ucfirst(substr($option, 3)); 
+			$label = str_replace('-', ' ', $label); 
+			$out .= "\n\t<option$selected value='$option'>$label</option>";
+		}
+		$out .= "</select>&nbsp;&nbsp;";
+		$out .=
+			"<i class='fa fa-angle-right ui-priority-secondary'></i>&nbsp;" . 
+			"<a class='InputfieldIconShowAll' target='_blank' href='#'>" . 
+			"<small>" . $this->_('Show All Icons') . "</small></a>" . 
+			"<div class='InputfieldIconAll'></div>";
+		return $out;
+
+	}
+	
+	public function setAttribute($key, $value) {
+		if($key == 'value' && !empty($value)) {
+			if(strpos($value, self::prefix) !== 0) $value = self::prefix . $value;
+			$index = array_search($value, $this->options);
+			if(is_int($index)) {
+				$value = $this->options[$index];
+			} else {
+				$value = '';
+			}
+		}
+		return parent::setAttribute($key, $value); 
+	}
+	
+	public function getAttribute($key) {
+		if($key == 'value') {
+			$value = parent::getAttribute($key);
+			if(empty($value)) return $value;
+			if($this->prefixValue) {
+				if(strpos($value, self::prefix) !== 0) {
+					// add prefix 
+					$value = self::prefix . $value;
+				}
+			} else {
+				if(strpos($value, self::prefix) === 0) {
+					// remove prefix
+					$value = substr($value, strlen(self::prefix));
+				}
+			}
+			return $value;
+		}
+		return parent::getAttribute($key);
+	}
+
+}

@@ -1,0 +1,57 @@
+<?php namespace ProcessWire;
+
+require_once(dirname(__FILE__) . '/FieldtypeTextLanguage.module'); 
+
+/**
+ * Provides multi-langage page title field
+ *
+ * This makes all page title fields multi-language 
+ *
+ * Another option for field titles is to create separate title_{language_name} fields,
+ * and use/place them where you want them. If you go that route, then you don't need this module.
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class FieldtypePageTitleLanguage extends FieldtypeTextLanguage implements FieldtypePageTitleCompatible {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Page Title (Multi-Language)',
+			'version' => 100,
+			'summary' => 
+				'Field that stores a page title in multiple languages. ' . 
+				'Use this only if you want title inputs created for ALL languages on ALL pages. ' . 
+				'Otherwise create separate languaged-named title fields, i.e. title_fr, title_es, title_fi, etc. ',
+			'author' => 'Ryan Cramer',
+			'requires' => array(
+				'LanguageSupportFields', 
+				'FieldtypeTextLanguage'
+				)
+			);
+	}
+
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = $this->wire(new Fieldtypes());
+		$fieldtypes->add($this->wire('fieldtypes')->get('FieldtypePageTitle')); 
+	
+		foreach($this->wire('fieldtypes') as $fieldtype) {
+			if($fieldtype instanceof FieldtypePageTitleCompatible) $fieldtypes->add($fieldtype);
+		}
+	
+		return $fieldtypes;
+	}
+	
+	public function isAdvanced() {
+		return true;
+	}
+	
+	public function getInputfield(Page $page, Field $field) {
+		$inputField = $this->modules->get('InputfieldPageTitle');
+		return $inputField;
+	}
+
+}

@@ -1,0 +1,83 @@
+#content strong {
+	font-weight: bold; 
+}
+
+#content em {
+	font-style: italic;
+}
+
+#content li {
+	margin: 3px 0;
+	padding: 3px 10px;
+}
+
+#content a {
+	font-weight: bold; 
+}
+
+#content label {
+	font-weight: bold; 
+}
+
+#content button.floated {
+	float: left; 
+}
+
+#content label .detail {
+	font-weight: normal;
+}
+
+#content h2 {
+	margin-bottom: 0.25em;
+	border-bottom: 1px dotted #ccc; 
+	padding-bottom: 0.25em;
+}
+
+#content h2 + p {
+	padding-top: 0.5em;
+	margin-top: 0;
+}
+
+#content p + h2,
+#content li + h2 {
+	margin-top: 1.5em;
+}
+
+#content form > li.ui-state-error:first-child {
+	margin-top: 1em; 
+}
+
+.container {
+ 	max-width: 1024px; 
+}
+
+#breadcrumbs ul li a {
+	margin: 0;
+	padding: 0;
+}
+
+#breadcrumbs li.title {
+	width: 50%; 
+	margin: 0; 
+	padding: 0; 
+}
+
+#breadcrumbs li.support {
+	margin: 0;
+	padding: 0;
+	text-align: right; 
+	width: 49%; 
+
+}
+
+@media only screen and (max-width: 767px) {
+	#logo {
+		display: block;
+	}
+}
+
+@media only screen and (max-width: 479px) {
+	#breadcrumbs li.support {
+		display: none; 
+	}
+}

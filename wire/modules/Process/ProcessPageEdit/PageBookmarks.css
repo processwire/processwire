@@ -1,0 +1,16 @@
+.content ul.bookmarks {
+	margin: 1em 0;
+}
+
+.content ul.bookmarks li {
+	margin: 0;
+}
+.content ul.bookmarks li.separator {
+	border-top: 1px solid #eee;
+	margin-top: 0.5em;
+	padding-top: 0.5em;
+}
+
+.content ul.bookmarks li .role-name {
+	float: right; 
+}

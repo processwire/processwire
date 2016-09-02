@@ -1,0 +1,26 @@
+/**
+ * Styles for the container (inline only)
+ *
+ */
+
+.InputfieldForm .InputfieldCKEditorInline {
+	padding: 10px; 
+	border: 1px dashed #ccc; 
+	overflow: hidden;
+	background: #fff; 
+}
+
+.InputfieldForm .InputfieldCKEditorInline *:first-child {
+	/* lets the padding above take precedence */
+	margin-top: 0;
+}
+
+.InputfieldForm .InputfieldCKEditorInline *:last-child {
+	/* lets the padding above take precedence */
+	margin-bottom: 0;
+}
+
+.InputfieldForm div.cke_editable_inline.cke_focus {
+	border-color: #fff;
+}
+

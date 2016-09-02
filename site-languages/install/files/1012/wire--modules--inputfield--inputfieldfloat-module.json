@@ -1,0 +1,12 @@
+{
+   "file":"wire\/modules\/Inputfield\/InputfieldFloat.module",
+   "textdomain":"wire--modules--inputfield--inputfieldfloat-module",
+   "translations":{
+      "7de752758d9c197324e94fd4a993f9d2":{
+         "text":"Flie\u00dfkommazahl mit Genauigkeit"
+      },
+      "22ae0e2b89e5e3d477f988cc36d3272b":{
+         "text":"Flie\u00dfkommazahl"
+      }
+   }
+}

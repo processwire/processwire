@@ -1,0 +1,1139 @@
+<?php namespace ProcessWire;
+
+/**
+ * Class PageFrontEdit
+ * 
+ * Enables front-end editing of page fields.
+ * 
+ * @property array $inlineEditFields
+ * @property string $buttonLocation
+ * @property string $buttonType
+ * @property string $editRegionAttr
+ * @property string $editRegionTag
+ * @property bool|int $inlineLimitPage Limit editor to current page only
+ * 
+ * @property array $inlineAllowFieldtypes
+ * 
+ */
+
+class PageFrontEdit extends WireData implements Module {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Front-End Page Editor',
+			'summary' => 'Enables front-end editing of page fields.',
+			'version' => 2,
+			'author' => 'Ryan Cramer',
+			'license' => 'MPL 2.0',
+			'icon' => 'cube', 
+			'autoload' => true, 
+			'permissions' => array(
+				'page-edit-front' => 'Use the front-end page editor',
+			)
+		);
+	}
+
+	/**
+	 * Mode for debugging/developing this module, should always be false in production
+	 * 
+	 */
+	const debug = false;
+
+	/**
+	 * Names of fields applying front end editing to
+	 * 
+	 * @var array of field names
+	 * 
+	 */
+	protected $inlineEditors = array();
+
+	/**
+	 * Names of fields applying modal editing to
+	 * 
+	 * @var array of field names, indexed by "page_id-field_id"
+	 * 
+	 */
+	protected $modalEditors = array();
+
+	/**
+	 * Page this front-end editor is for
+	 * 
+	 * @var Page
+	 * 
+	 */
+	protected $page;
+
+	/**
+	 * Whether or not the editor should be applied for any requested fields
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $inlineEditorActive = true;
+
+	/**
+	 * The field ID of an field that is allowed for edits, even if not in inlineEditFields
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $inlineEditField = 0;
+
+	/**
+	 * Whether or not the editor is allowed for this request
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $editorAllowed = false;
+
+	/**
+	 * Priority of Page::render hook
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $renderHookPriority = 102;
+
+	/**
+	 * Priority for Fieldtype::formatValue hook
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $formatHookPriority = 200;
+	
+	/**
+	 * Editor number for setting ID attributes on .pw-edit divs
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $editorNum = 0;
+	
+	public function __construct() {
+		// allowed base Fieldtypes for inline editing (all others go modal)
+		$this->set('inlineAllowFieldtypes', array(
+			'FieldtypeText',
+			'FieldtypeInteger'
+		));
+	}
+	
+	public function init() {
+		if($this->wire('config')->ajax && $this->wire('input')->post('action') == 'PageFrontEditSave') {
+			$this->addHookAfter('ProcessWire::ready', $this, 'inlineSaveEdits');
+		}
+	}
+
+	/**
+	 * Ready state, attach hooks
+	 * 
+	 */
+	public function ready() {
+		
+		// check if we should allow editor for current page
+		$page = $this->wire('page');
+		if($page->template == 'admin') return;
+		
+		$config = $this->wire('config');
+		$this->addHook('Page::edit', $this, 'hookPageEditor');
+		$this->addHook('Page::editor', $this, 'hookPageEditor');
+
+		if(isset($_GET['livepreview'])) return; // PWPD
+		
+		$contentType = $page->template->contentType;
+		if($contentType && $contentType != 'html' && $contentType != 'text/html') return;
+	
+		$user = $this->wire('user');
+		if($user->isGuest() 
+			|| ($page->hasStatus(Page::statusDraft) && !$page->get('_isDraft'))
+			|| !$page->editable() 
+			|| !$user->hasPermission('page-edit-front', $page)) {
+			// replace any <edit> tags or "edit" attributes in the markup
+			$this->addHookAfter('Page::render', $this, 'hookPageRenderNoEdit', array(
+				'priority' => $this->renderHookPriority
+			));
+			return;
+		}
+		
+		// editing is allowed
+		$this->editorAllowed = true; 
+		$this->setPage($page);
+		$input = $this->wire('input');
+		
+		if($config->ajax && $input->post('action') == 'PageFrontEditSave') {
+			// skip, this is handled by another hook
+			
+		} else if($this->wire('templates')->get('admin')->https == 1 && !$config->https && $page->template->https != -1) {
+			// hooks allowed, but we need the same scheme as admin
+			$url = $input->httpUrl(true);
+			if(strpos($url, 'http://') === 0) {
+				$url = str_replace('http://', 'https://', $url);
+				$this->wire('session')->redirect($url, false);
+			}
+		} else {
+			// we are allowing this page to use the editor, so attach hooks
+			foreach($this->inlineAllowFieldtypes as $fieldtypeClass) {
+				$this->addHookAfter("$fieldtypeClass::formatValue", $this, 'inlineHookFormatValue', array(
+					'priority' => $this->formatHookPriority
+				));
+			}
+			$this->addHookAfter('Page::render', $this, 'hookPageRender', array(
+				'priority' => $this->renderHookPriority
+			));
+		}
+	}
+
+	/**
+	 * Set the page being edited
+	 * 
+	 * @param Page $page
+	 * 
+	 */
+	public function setPage(Page $page) {
+		$this->page = $page;
+	}
+
+	/**
+	 * Is the given page and field editable on the front-end?
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool
+	 * 
+	 */
+	public function inlineIsEditable(Page $page, Field $field) {
+		if(!$this->inlineEditorActive || !$this->editorAllowed) return false;
+		if(!in_array($field->id, $this->inlineEditFields) && $field->id != $this->inlineEditField) return false;
+		if($this->inlineLimitPage && $page->id != $this->page->id && in_array($field->id, $this->inlineEditFields)) return false;
+		if(!$this->wire('user')->hasPermission('page-edit-front', $page)) return false;
+		if(!$page->editable($field)) return false;
+		return true;
+	}
+	
+	/**
+	 * Is the given page and field saveable on the front-end?
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool
+	 *
+	 */
+	public function inlineIsSaveable(Page $page, Field $field) {
+		if(!$this->editorAllowed) return false;
+		if(!$this->inlineSupported($field)) return false;
+		// if(!in_array($field->id, $this->inlineEditFields) && $field->id != $this->inlineEditField) return false;
+		if(!$this->wire('user')->hasPermission('page-edit-front', $page)) return false;
+		if(!$page->editable($field)) return false;
+		return true;
+	}
+
+	/**
+	 * Is inline mode supported for the given field?
+	 * 
+	 * @param Field $field
+	 * @return bool
+	 * 
+	 */
+	public function inlineSupported(Field $field) {
+		$classParents = wireClassParents($field->type);
+		$className = $field->type->className();
+		$supported = false;
+		foreach($this->inlineAllowFieldtypes as $allowClass) {
+			if($allowClass == $className || in_array($allowClass, $classParents)) {
+				$supported = true;	
+				break;
+			}
+		}
+		return $supported;
+	}
+
+	/**
+	 * Add Page::edit() method with this hook
+	 * 
+	 * This method enables any of the following:
+	 *  - Retrieving the current editor status (enabled or disabled), by supplying no arguments.
+	 *  - Setting the current editor status by supplying a bool (true or false).
+	 *  - Retrieving an editable value ready for output by supplying a field name.
+	 *  - Retrieving a value in non-editable form by supplying a field name and false as 2nd argument. 
+	 * 
+	 * Examples: 
+	 *  $isActive = $page->edit(); // returns whether editor is currently active
+	 *  $page->edit(true); // enables the editor (false disables)
+	 *  $value = $page->edit('field_name'); // retrieve editable value, if field_name is editable
+	 *  $value = $page->edit('field_name', false); // retrieve non-editable formatted value value
+	 *  $value = $page->edit('field_name', '<strong>markup</strong>'); // make editable region with markup (inline or modal)
+	 *  $value = $page->edit('field_name', '<strong>markup</strong>', true); // make editable region, forcing modal
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookPageEditor(HookEvent $event) {
+
+		/** @var Page $page */
+		$page = $event->object;
+		$arg1 = $event->arguments(0);
+		$arg2 = $event->arguments(1);
+		$arg3 = $event->arguments(2);
+		$livePreview = isset($_GET['livepreview']); // PWPD
+
+		if(is_null($arg1)) {
+			// no arguments specified
+			$event->return = $livePreview ? false : $this->inlineEditorActive;
+			return;
+		}
+
+		if(is_bool($arg1)) {
+			// set editor active state
+			if(!$livePreview) $this->inlineEditorActive = $arg1;
+			$event->return = $page;
+			return;
+		}
+		
+		if($arg2 === false) {
+			// request to retrieve value without editor
+			$editorActive = $this->inlineEditorActive;
+			$this->inlineEditorActive = false;
+			$event->return = $page->getFormatted($arg1);
+			$this->inlineEditorActive = $editorActive;
+			return;
+		}
+		
+		// at this point, we require arg1 to be the field name
+		if(!is_string($arg1)) {
+			$event->return = 'Invalid argument to $page->edit()';
+			return;
+		}
+
+		// if given field name doesn't map to a custom field, delegate the request to $page instead
+		$renderField = false;
+		$field = $this->wire('fields')->get($arg1);
+		if(!$field) {
+			if(strpos($arg1, '_') === 0 && substr($arg1, -1) === '_') {
+				$renderField = true;
+				$arg1 = substr($arg1, 1, -1);
+				$field = $this->wire('fields')->get($arg1);
+				if(!$field) $arg1 = "_{$arg1}_"; // restore if it didn't resolve to a field
+			}
+			if(!$field) {
+				$event->return = $page->get($arg1);
+				return;
+			}
+		}
+
+		if(is_string($arg2)) {
+			// make a markup string editable for indicated field, arg1 is field name, arg2 is markup
+			if($page->editable($field->name) && !$livePreview) {
+				// field is editable, return markup wrapped in modal editor
+				$forceModal = $arg3 === true;
+				if(!$forceModal && $this->inlineSupported($field)) {
+					$this->inlineEditField = $field->id;
+					$event->return = $this->inlineRenderEditor($page, $field, $arg2);
+					$this->inlineEditField = 0;
+				} else {
+					$event->return = $this->modalRenderEditor($page, array($field), $arg2);
+				}
+				return;
+			} else {
+				// field is not editable by user, just return original markup
+				$event->return = $arg2; 
+				return;
+			}
+		}
+
+		// now try for inline editable field
+		if(!$livePreview && $this->inlineIsSaveable($page, $field)) {
+			// if inline can be used, use it...
+			$editorActive = $this->inlineEditorActive;
+			$this->inlineEditorActive = true;
+			if(!in_array($field->id, $this->inlineEditFields)) $this->inlineEditField = $field->id; 
+			$event->return = $renderField ? $page->renderField($field->name) : $page->getFormatted($field->name);
+			$this->inlineEditorActive = $editorActive;
+			$this->inlineEditField = 0;
+		} else {
+			// ...otherwise just return the formatted value
+			$event->return = $renderField ? $page->renderField($field->name) : $page->getFormatted($field->name);
+		}
+	}
+	
+	/**
+	 * Hook after Page::render for when we are supporting editable regions
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookPageRender(HookEvent $event) {
+
+		$this->editorNum = 0;
+		$out = $event->return;
+		if(stripos($out, "<html") === false) return;
+		
+		$hasEditTags = strpos($out, "<$this->editRegionTag") !== false; // i.e. <edit title>
+		$hasEditAttr = strpos($out, " $this->editRegionAttr=") !== false; // i.e. <div edit='title'>
+		
+		if(strpos($out, "id=pw-edit-") === false && !$hasEditTags && !$hasEditAttr) return;
+		
+		/** @var Page $page */
+		$page = $event->object;
+
+		if(!$this->editorAllowed) {
+			$this->hookPageRenderNoEdit($event);
+			return;
+		}
+		
+		// parse <edit> tags
+		$numEditable = 0;
+		if($hasEditTags) $numEditable += $hasEditTags ? $this->populateEditTags($page, $out) : 0;
+		if($hasEditAttr) $numEditable += $this->populateEditAttrs($page, $out);
+		$numEditable += count($this->inlineEditors);
+		
+		if(!$numEditable) {
+			$event->return = $out;
+			return;
+		}
+		
+		header("X-Frame-Options: SAMEORIGIN");
+
+		// bundle in any needed javascript files and related assets
+		if(stripos($out, '</body>')) {
+			$out = str_ireplace("</body>", $this->renderAssets() . "</body>", $out);
+		} else {
+			$out .= $this->renderAssets();
+		}
+
+		$event->return = $out;
+	}
+
+	/**
+	 * Page::render for situations where the page is NOT editable
+	 * 
+	 * This removes any <edit> tags.
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookPageRenderNoEdit(HookEvent $event) {
+		
+		$out = $event->return;
+		$tag = $this->editRegionTag;
+		$attr = $this->editRegionAttr;
+		
+		$hasEditTags = strpos($out, "<$tag") !== false;
+		$hasEditAttr = strpos($out, "$attr=") !== false;
+		
+		if($hasEditTags) {
+			// remove modal edit tags
+			$out = preg_replace('!</?' . $tag . '\s[^>]*>\s*!is', '', $out);
+		}
+		
+		if($hasEditAttr) {
+			// remove modal edit attributes
+			$out = preg_replace('!(<[^>]+?)\s' . $attr . '=["\']?[^"\'\s>]*["\']?!is', '$1', $out);
+		}
+	
+		if($hasEditTags || $hasEditAttr) {
+			// update markup
+			$event->return = $out;
+		}
+	}
+
+	/**
+	 * Populate <edit> tags in the markup
+	 * 
+	 * Supported formats (one or more fields on current page): 
+	 *  <edit field_name>...</edit>
+	 *  <edit field='field_name'>...</edit>
+	 *  <edit field='field1,field2,field3'>...</edit>
+	 * 
+	 * Supported formats (one or more fields, with specific page "123"):
+	 *  <edit 123.field_name>...</edit>
+	 *  <edit field='123.field_name'>...</edit>
+	 *  <edit page='123' field='field_name'>...</edit>
+	 *  <edit page='123' field='field1,field2,field3'>...</edit>
+	 * 
+	 * @param Page $page
+	 * @param string $out
+	 * @param bool|null $editable
+	 * @return int Number of tags populated
+	 * 
+	 */
+	protected function populateEditTags(Page $page, &$out, $editable = null) {
+
+		$tag = $this->editRegionTag;
+		if(!preg_match_all('!<' . $tag . '([^>]+)>(.*?)</' . $tag . '>!is', $out, $matches)) return 0;
+		
+		if(is_null($editable)) $editable = $page->editable();
+		$numReplaced = 0;
+		$numEditable = 0;
+		
+		foreach($matches[0] as $key => $fullMatch) {
+			
+			$names = '';
+			$pageID = $page->id;
+			$attrs = explode(' ', $matches[1][$key]);
+			$markup = $matches[2][$key];
+			
+			if(strpos($markup, 'pw-edit-') !== false) {
+				$out = str_replace($fullMatch, $markup, $out);
+				continue; 
+			}
+			
+			foreach($attrs as $attr) {
+				$attr = trim($attr);
+				if(empty($attr)) continue;
+				if(strpos($attr, '=') !== false) {
+					list($attrName, $attrValue) = explode('=', $attr);
+					$attrName = trim($attrName, ' ');
+					$attrValue = trim($attrValue, ' "\'');
+					if(in_array($attrName, array('name', 'names', 'field', 'fields'))) {
+						$names = $attrValue;
+					} else if($attrName == 'page') {
+						$pageID = $attrValue;
+					}
+				} else if(empty($names)) {
+					$names = $attr;
+					if(strpos($names, ':') !== false) {
+						list($pageID, $names) = explode(':', $names);
+					} else if(strpos($names, '.') !== false) {
+						list($pageID, $names) = explode('.', $names);
+					}
+				}
+			}
+			
+			if(ctype_digit($names) && !ctype_digit($pageID)) {
+				list($names, $pageID) = array($pageID, $names); // swap order detected
+			}
+	
+			$fields = array();
+			$inlineSupported = false;
+			
+			if($names) {
+				$p = $page;
+				if($pageID != $page->id && $pageID != $page->path) {
+					if(ctype_digit($pageID)) {
+						$pageID = (int) $pageID; 
+					} else {
+						$pageID = $this->wire('sanitizer')->path($pageID);
+					}
+					$p = $this->wire('pages')->get($pageID);
+					if(!$p->id) $p = $page;
+				}
+				foreach(explode(',', $names) as $name) {
+					$name = trim($name);
+					$field = $this->wire('fields')->get($name);
+					if($editable && $p->editable($name)) {
+						$fields[$name] = $field;
+						if($this->inlineSupported($field)) $inlineSupported = true;
+					}
+				}
+			}
+			
+			if(count($fields) == 1 && $inlineSupported) {
+				$out = str_replace($fullMatch, $this->inlineRenderEditor($p, reset($fields), $markup), $out);
+				$numEditable++;
+			} else if(count($fields)) {
+				$out = str_replace($fullMatch, $this->modalRenderEditor($p, $fields, $markup), $out);
+				$numEditable++;
+			} else {
+				$out = str_replace($fullMatch, $markup, $out);
+			}
+			$numReplaced++;
+		}
+		
+		return $numEditable;
+	}
+
+	/**
+	 * Update "edit" attributes for modal editing
+	 *
+	 * @param Page $page
+	 * @param $out
+	 * @return int
+	 *
+	 */
+	protected function populateEditAttrs(Page $page, &$out) {
+
+		$numEditable = 0;
+		$editRegionAttr = $this->editRegionAttr;
+
+		if(stripos($out, " $editRegionAttr=") === false) return $numEditable;
+
+		//          tag        attr1                                    data              attr2
+		$regex = '!<([a-z0-9]+)([^>]*?)\s+' . $editRegionAttr . '=["\']?([^\s>"\']+)["\']?([^>]*)>!is';
+		if(!preg_match_all($regex, $out, $matches)) return $numEditable;
+
+		foreach($matches[0] as $key => $fullMatch) {
+			
+			$tag = $matches[1][$key];
+			$attr = $matches[2][$key];
+			$attr .= trim((strlen($attr) ? ' ' : '') . $matches[4][$key]);
+			$data = $matches[3][$key];
+
+			if(strpos($data, ':') !== false) {
+				list($pageID, $fieldNames) = explode(':', $data);
+			} else if(strpos($data, '.') !== false) {
+				list($pageID, $fieldNames) = explode('.', $data);
+			} else {
+				list($pageID, $fieldNames) = array(0, '');
+			}
+			if($pageID && $fieldNames) {	
+				if(ctype_digit($fieldNames) && !ctype_digit($pageID)) {
+					list($pageID, $fieldNames) = array($fieldNames, $pageID); // swap order detected
+				}
+				// check if pageID is actually a page path
+				$pageID = ctype_digit($pageID) ? (int) $pageID : $this->wire('sanitizer')->path($pageID);
+				if(!$pageID) continue; // skip
+				$editPage = $this->wire('pages')->get($pageID);
+				if(!$editPage->id) continue; // skip 
+			} else {
+				$fieldNames = $data;
+				$editPage = $page;
+			}
+		
+			$fieldNames = explode(',', $fieldNames);
+			$fieldIDs = array();
+			
+			foreach($fieldNames as $k => $v) {
+				$fieldName = $this->wire('sanitizer')->fieldName(trim($v));
+				$field = $this->wire('fields')->get($fieldName);
+				if(!$field || !$editPage->editable($fieldName)) {
+					unset($fieldNames[$k]);
+				} else {
+					$fieldIDs[] = $field->id;
+				}
+			}
+			
+			if(!count($fieldNames)) continue;
+			$fieldNames = implode(',', $fieldNames);
+			$editURL = $editPage->editUrl() . "&fields=$fieldNames&modal=1";
+
+			$modalID = 'pw-edit-modal-' . $this->getModalID($page, $fieldIDs);
+			if(strpos(" $attr", " id=") === false) {
+				$attr = "id=$modalID $attr";
+			} else {
+				$attr = "data-id=$modalID $attr";
+			}
+			
+			$attr .= " " .
+				"data-class='pw-edit-attr pw-edit-modal pw-modal pw-modal-dblclick' " .
+				"data-href='$editURL' " .
+				"data-fields='$fieldNames' " .
+				"data-buttons='button.ui-button[type=submit]' " .
+				"data-autoclose=''";
+
+			$newTag = "<$tag " . trim($attr) . ">";
+			$out = $this->strReplaceOne($fullMatch, $newTag, $out);
+			$this->editorNum++;
+			$numEditable++;
+		}
+
+		return $numEditable;
+	}
+
+	/**
+	 * Hook to Fieldtype::formatValue
+	 * 
+	 * Updates formatted values to include inline markup needed for the editor. 
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function inlineHookFormatValue(HookEvent $event) {
+
+		$field = $event->arguments(1);
+		if(!in_array($field->id, $this->inlineEditFields) && $field->id != $this->inlineEditField) return;
+		
+		$page = $event->arguments(0);
+		$formatted = $event->return;
+		if(is_object($formatted)) $formatted = (string) $formatted;
+
+		if(empty($formatted)) return;
+
+		if(!$this->inlineIsEditable($page, $field)) return;
+		if(!$this->inlineEditorActive) return;
+	
+		$event->return = $this->inlineRenderEditor($page, $field, $formatted);
+	}
+
+	/**
+	 * Render markup output for javascripts and editor interface
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function renderAssets() {
+
+		$scripts = array();
+		$className = $this->className();
+		
+		$modules = $this->wire('modules');
+		$config = $this->wire('config');
+		$draft = (int) $this->wire('input')->get('draft');
+		$adminTheme = $this->wire('user')->admin_theme;
+		$ckeditor = $config->urls->InputfieldCKEditor . "ckeditor-" . InputfieldCKEditor::CKEDITOR_VERSION . '/';
+		$configJS = $config->js();
+		$configJS['modals'] = $config->modals;
+		$configJS['urls'] = array(
+			'admin' => $config->urls->admin,
+		);
+		$configJS['PageFrontEdit'] = array(
+			'labels' => array(
+				'cancelConfirm' => $this->_('Are you sure you want to cancel?')
+			),
+			'files' => array(
+				'modal' => $config->urls->JqueryUI . 'modal.min.js',
+				'ckeditor' => $ckeditor . 'ckeditor.js',
+				'css' => ($config->urls->$className) . "$className.css?nocache" . mt_rand(),	
+				'fa' => $config->urls->adminTemplates . "styles/font-awesome/css/font-awesome.min.css", 
+			),
+			'adminTheme' => $adminTheme ? $adminTheme : 'AdminThemeDefault',
+			'pageURL' => $this->wire('page')->url . ($draft ? "?draft=$draft" : "")
+		);
+	
+		
+		$scripts[] = "window.CKEDITOR_BASEPATH = '$ckeditor';";
+		$scripts[] = ($config->urls->$className) . $className . 'Load.js';
+		
+		if(self::debug && defined("JSON_PRETTY_PRINT")) {
+			$configJSON = json_encode($configJS, JSON_PRETTY_PRINT); // for debugging
+		} else {
+			$configJSON = json_encode($configJS);
+		}
+		
+		$scripts[] = 
+			"var _pwfe={config:$configJSON};" . 
+			"if(typeof ProcessWire == 'undefined'){" . 
+				"var ProcessWire=_pwfe;" . 
+			"}else{" . 
+				"for(var _pwfekey in _pwfe.config) ProcessWire.config[_pwfekey]=_pwfe.config[_pwfekey];" . 
+			"}" . 
+			"_pwfe=null;" . 
+			"if(typeof config == 'undefined') var config=ProcessWire.config;"; // legacy
+
+		$loadItems = array();
+		
+		// jQuery
+		$loadItems[] = array(
+			'test' => "function() { return (typeof jQuery == 'undefined'); }",
+			'file' => $config->urls->JqueryCore . 'JqueryCore.js',
+			'after' => "function() { " . 
+				"jQuery.noConflict(); " .
+			"}"
+		);
+		
+		// jQuery UI
+		$loadItems[] = array(
+			'test' => "function() { " .
+				"jQuery('[data-class^=pw-edit-attr]').each(function() { " . 
+					"jQuery(this).addClass(jQuery(this).attr('data-class')); " . 
+				"});" . 
+				"return (typeof jQuery.ui == 'undefined'); " . 
+			"}",
+			'file' => $config->urls->JqueryUI . 'JqueryUI.js',
+		);
+
+		// add in our PageFrontEdit.js file
+		$loadItems[] = array(
+			'file' => ($config->urls->$className) . $className . '.js?nc=' . filemtime(dirname(__FILE__) . "/$className.js")
+		);
+
+		$loadItemsJSON = "{$className}Load(" . json_encode($loadItems) . ");";
+		$loadItemsJSON = str_replace(array('"function(', '}"'), array('function(', '}'), $loadItemsJSON);
+		$scripts[] = $loadItemsJSON;
+		
+		
+		// button labels
+		$saveLabel = $this->_('Save');
+		$savingLabel = $this->_('Saving…');
+		$savedLabel = $this->_('Saved!');
+		$cancelLabel = $this->_('Cancel');
+
+		// render the scripts to markup
+		$out = '';
+		foreach($scripts as $script) {
+			if(strpos($script, ' ') !== false || strpos($script, '(') !== false) {
+				$out .= "<script>$script</script>";
+			} else {
+				$out .= "<script src='$script?NoMinify=1'></script>";
+			}
+			if(self::debug) $out .= "\n";
+		}
+	
+		// render the editor interface buttons
+		$lang = $this->wire('user')->language;
+		$lang = $lang ? $lang->id : 0;
+		$class = "pw-edit-buttons pw-edit-buttons-type-$this->buttonType pw-edit-buttons-location-$this->buttonLocation";
+		$editURL = $this->page->editUrl();
+		$viewURL = $this->wire('sanitizer')->entities($this->wire('input')->url(true));
+		
+		$out .= 
+			"<input type='hidden' id='Inputfield_id' value='{$this->page->id}' />" . // for CKE plugins
+			"<input type='hidden' id='pw-edit-lang' value='$lang' />" .
+			"<input type='hidden' id='pw-edit-href' value='$editURL' />" . // edit
+			"<input type='hidden' id='pw-url' value='$viewURL' />" . // view
+			$this->wire('session')->CSRF->renderInput() . 
+			"<div class='ui-widget $class' style='display:none'>" . 
+				"<button class='ui-button pw-edit-save'>" . 
+					"<i class='fa fa-check fa-fw'></i><span>&nbsp;$saveLabel</span>" . 
+				"</button>" . 
+				"<button class='ui-button pw-edit-cancel ui-priority-secondary'>" . 
+					"<i class='fa fa-times fa-fw'></i><span>&nbsp;$cancelLabel</span>" . 
+				"</button>" . 
+				"<button class='ui-button pw-edit-saving' style='display:none'>" . 
+					"<i class='fa fa-spin fa-spinner fa-fw'></i>&nbsp;$savingLabel" . 
+				"</button>" . 
+				"<button class='ui-button pw-edit-saved' style='display:none'>" . 
+					"<i class='fa fa-check fa-fw'></i>&nbsp;$savedLabel" . 
+				"</button>" . 
+			"</div>" . 
+			"<i id='pw-fa-test' class='fa fa-fw'></i>"; // to test width to see if font-awesome already loaded
+
+		return $out;
+	}
+
+	/**
+	 * Render the inline editor
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $formatted Formatted value
+	 * @return string
+	 * 
+	 */
+	protected function inlineRenderEditor(Page $page, Field $field, $formatted) {
+		
+		if(strpos($formatted, "id=pw-editor-$field->name")) return $formatted;
+
+		$unformatted = $page->getUnformatted($field->name);
+		if(is_object($unformatted)) $unformatted = (string) $unformatted; 
+		$this->inlineEditors[$field->name] = $field->name;
+
+		// make sure we've got any initialization from the Inputfield
+		$inputfield = $field->___getInputfield($page);
+		$inputfield->attr('name', $field->name);
+		$inputfield->renderReady(null, false);
+
+		// use div tags for 'textarea' fields and 'span' tags for text fields
+		$tag = $field->type instanceof FieldtypeTextarea ? 'div' : 'span';
+
+		// return the editor markup
+		$this->editorNum++;
+		
+		return
+			"<$tag id=pw-edit-$this->editorNum class='pw-edit pw-edit-$inputfield' data-name=$field->name " . 
+				"data-page=$page->id style='position:relative'>" .
+				"<$tag class=pw-edit-orig>" .
+					$formatted .
+				"</$tag>" .
+				"<$tag class=pw-edit-copy id=pw-editor-$field->name-$page->id " .
+					"style='display:none;-webkit-user-select:text;user-select:text;' contenteditable>" .
+				  	$unformatted .
+				"</$tag>" .
+			"</$tag>";
+	}
+
+	/**
+	 * Render the modal editor
+	 * 
+	 * Take the given markup and render a modal editor around it for the given Page and Field
+	 * 
+	 * @param Page $page
+	 * @param array $fields Array of Field objects
+	 * @param string $markup
+	 * @return string
+	 * 
+	 */
+	protected function modalRenderEditor(Page $page, array $fields, $markup) {
+
+		$modalID = $this->getModalID($page, $fields);
+		$tag = "div";
+		$_fields = array();
+		foreach($fields as $field) $_fields[] = $field->name;
+		$fieldsStr = implode(',', $_fields);
+		$editURL = $page->editUrl() . "&fields=$fieldsStr&modal=1";
+		$this->editorNum++;
+		
+		if($this->wire('input')->get('pw_edit_fields')) {
+			$markup = preg_replace('/\.(gif|png|jpg|jpeg)\b/i', '.$1?nocache=' . time(), $markup);
+		}
+		
+		$out = 
+			"<$tag " . 
+				"id=pw-edit-modal-$modalID " . 
+				"class='pw-modal pw-modal-dblclick pw-edit-modal' " . 
+				"data-href='$editURL' " . 
+				"data-fields='$fieldsStr' " . 
+				"data-buttons='button.ui-button[type=submit]' " .
+				"data-autoclose=''>" . 
+				$markup . 
+			"</$tag>"; 
+		
+		return $out;
+	}
+
+	/**
+	 * Get next available modal editor ID attribute
+	 * 
+	 * @param Page $page
+	 * @param Field|string|array $field
+	 * @return string
+	 * 
+	 */
+	protected function getModalID(Page $page, $field) {
+		if(is_array($field)) {
+			$fields = array();
+			foreach($field as $f) {
+				$fields[] = $f instanceof Field ? $f->id : $f;
+			}
+			$field = implode('-', $fields);
+		} else if($field instanceof Field) {
+			$field = $field->id;
+		}
+		$modalID = "$page->id-$field";
+		$n = 0;
+		while(isset($this->modalEditors[$modalID])) {
+			$n++;
+			$modalID = "$page->id-{$field}_$n";
+		}
+		$this->modalEditors[$modalID] = $field;
+		return $modalID;
+	}
+
+	/**
+	 * Like str_replace but only replaces one rather than all
+	 * 
+	 * @param string $search
+	 * @param string $replace
+	 * @param string $subject
+	 * @return string
+	 * 
+	 */	
+	protected function strReplaceOne($search, $replace, $subject) {
+		$first = strpos($subject, $search);
+		$last = strrpos($subject, $search); 
+		if($first !== false) {
+			if($first === $last) return str_replace($search, $replace, $subject);
+			$before = substr($subject, 0, $first);
+			$after = substr($subject, $first + strlen($search));
+			return $before . $replace . $after;
+		} else {
+			return $subject;
+		}
+	}
+	
+
+	/**
+	 * Execute the ajax page save action
+	 * 
+	 * Outputs JSON and halts execution.
+	 * 
+	 */
+	protected function inlineSaveEdits() {
+
+		$this->inlineEditorActive = true; 
+		
+		$input = $this->wire('input');
+		$pageID = (int) $input->post('id');
+		$langID = (int) $input->post('language');
+		$fields = $input->post('fields');
+		$user = $this->wire('user');
+	
+		// JSON return data
+		$data = array(
+			'status' => 0, // 0=error, 1=success, 2=success but with errors
+			'error' => '', // new line separated errors
+			'changes' => '', // csv field names
+			'formatted' => array(), // formatted field values
+			'unformatted' => array(), // unformatted field values
+		);
+	
+		if(!$this->page || !$this->page->id) {
+			$data['error'] = "Page is not available for front-end edits";
+		} else if($pageID != $this->page->id) {
+			$data['error'] = "Edited page does not match current page ID ($pageID != {$this->page->id})";
+		} else if($this->wire('languages') && ($langID != $user->language->id)) {
+			$data['error'] = "Edited language does not match current language ($langID != {$this->user->language})";
+		} else if(!$this->page->editable()) {
+			$data['error'] = "Page is not editable by this user (page $pageID, user {$this->user->name})";
+		} else if(!is_array($fields)) {
+			$data['error'] = "No changes to save";
+		} else {
+			// okay to make edits
+			try {
+				$this->wire('session')->CSRF->validate();
+				$data = $this->inlineProcessSaveEdits($fields, $data);
+			} catch(WireCSRFException $e) {
+				$data['error'] = "Failed CSRF check";	
+			}
+		}
+	
+		header("Content-type: application/json");
+		echo json_encode($data);
+		exit;
+	}
+
+	/**
+	 * Save the given fields to the page and populate the result $data array
+	 * @param array $fields
+	 * @param array $data
+	 * @return array
+	 * 
+	 */
+	protected function inlineProcessSaveEdits(array $fields, array $data) {
+
+		$languages = $this->wire('languages');
+		$language = $languages ? $this->wire('user')->language : null;
+		$pages = $this->wire('pages');
+		$pages->uncacheAll();
+		$pages->setOutputFormatting(false);
+		$input = $this->wire('input');
+		$errors = array();
+		$pagesToSave = array();
+		$names = array();
+		$draft = (int) $this->wire('input')->get('draft');
+		
+		foreach($fields as $key => $value) {
+			
+			if($this->wire('sanitizer')->name($key) != $key) {
+				unset($fields[$key]);
+				continue;
+			}
+		
+			list($pageID, $name) = explode('__', $key, 2);
+			$name = $this->wire('sanitizer')->fieldName($name);
+			$names[$key] = $name;
+			$field = $this->wire('fields')->get($name);
+			$useLanguages = in_array('FieldtypeLanguageInterface', wireClassImplements($field->type));
+			$pageID = (int) $pageID; 
+			if(!$pageID) continue;
+	
+			if(isset($pagesToSave[$pageID])) {
+				$page = $pagesToSave[$pageID];
+			} else {
+				if($pageID == $this->wire('page')->id) {
+					// ensure we are using same instance as the one loaded
+					$page = $this->wire('page');
+				} else {
+					$page = $pages->get($pageID);
+				}
+				if(!$page->id) continue;
+				$page->resetTrackChanges(true);
+				$page->setOutputFormatting(false);
+				$pagesToSave[$pageID] = $page;
+			}
+			
+			if(!$field) {
+				$errors[] = "Field '$name' does not exist.";
+				continue;
+			}
+			
+			if(!$this->inlineIsSaveable($page, $field)) {
+				$errors[] = "Field '$name' is not saveable.";
+				continue; 
+			}
+			
+			// let the Inputfield process the input
+			$inputfield = $field->___getInputfield($page);
+		
+			// jQuery HTML function entity encodes things like & to &amp; even if they don't appear in the source
+			// so we determine if it's necessary to decode them here
+			if($inputfield instanceof InputfieldCKEditor) {
+				$decode = false;
+			} else if($inputfield instanceof InputfieldTextarea) {
+				if($field->contentType >= FieldtypeTextarea::contentTypeHTML) {
+					$decode = false;
+				} else {
+					$decode = true;
+				}
+			} else if($inputfield instanceof InputfieldText) {
+				$decode = true;
+			} else {
+				$decode = false;
+			}
+			
+			if($decode) {
+				$value = $this->wire('sanitizer')->unentities($value);
+			}
+			
+			$input->post->$name = $value;
+			
+			$inputfield->attr('name', $name);
+			$inputfield->attr('value', $page->getUnformatted($name));
+			$inputfield->resetTrackChanges(true);
+			$inputfield->processInput($input->post);
+			
+			$_errors = $inputfield->getErrors(true);
+			
+			if(count($_errors)) {
+				foreach($_errors as $error) {
+					if(strpos($error, $name) === false) $error .= " (field=$name)";
+					$errors[] = $error;
+				}
+				continue;
+			}
+			
+			if($inputfield->isChanged()) {
+				$page->of(false);
+				if($language && $useLanguages) {
+					$value = $page->get($name);
+					if(is_object($value) && in_array('LanguagesValueInterface', wireClassImplements($value))) {
+						$value->setLanguageValue($language, $inputfield->attr('value'));
+						$page->set($name, $value);
+						$page->trackChange($name);
+					} else {
+						$page->set($name, $inputfield->attr('value'));
+					}
+				} else {
+					$page->set($name, $inputfield->attr('value'));
+				}
+			}
+		}
+
+		// save the pages that were modified
+		foreach($pagesToSave as $page) {
+			
+			$changes = $page->getChanges();
+			
+			if(count($changes)) {
+				try {
+					$page->save();
+					$data['status'] = count($errors) ? 2 : 1;
+				}
+				catch(\Exception $e) {
+					$data['status'] = $data['status'] ? 2 : 0;
+					$error = $e->getMessage();
+					$errors[] = $error;
+				}
+				
+			} else {
+				if(!$data['status']) $data['status'] = 3; // no changes
+			}
+
+			if(count($errors)) {
+				$data['error'] .= " \n" . implode(" \n", $errors);
+			}
+
+			if($draft && $page->id == $this->wire('page')->id) {
+				// use existing $page
+			} else {
+				// get fresh copy of page
+				$page = $pages->get((int) $page->id);
+			}
+			$page->of(false);
+
+			foreach($fields as $key => $value) {
+				if(strpos($key, $page->id . '__') !== 0) continue;
+				$name = $names[$key];	
+				$data['unformatted'][$key] = (string) $page->getUnformatted($name);
+				$data['formatted'][$key] = (string) $page->getFormatted($name);
+			}
+		}
+		
+		$data['error'] = trim($data['error']);
+		
+		return $data;
+	}
+}
+
+
+

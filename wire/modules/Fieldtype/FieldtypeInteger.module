@@ -1,0 +1,142 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Integer Fieldtype
+ *
+ * Field that stores an integer value. 
+ *
+ * For documentation about the fields used in this class, please see:  
+ * /wire/core/Fieldtype.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ */
+
+class FieldtypeInteger extends Fieldtype {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Integer',
+			'version' => 101,
+			'summary' => 'Field that stores an integer',
+			'permanent' => true, 
+			);
+	}
+
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = parent::___getCompatibleFieldtypes($field); 
+		foreach($fieldtypes as $type) {
+			if(	!$type instanceof FieldtypeInteger && 
+				!$type instanceof FieldtypeFloat &&
+				$type != 'FieldtypeText') {
+
+				$fieldtypes->remove($type); 
+			}
+		}
+		return $fieldtypes; 
+	}
+	
+	public function isEmptyValue(Field $field, $value) {
+		if(($value === "0" || $value === 0) && $field->zeroNotEmpty) {
+			// when zeroNotEmpty option is set, we don't count a literal "0" is being a blank value
+			return false;
+		}
+		return empty($value); 
+	}
+
+	public function getBlankValue(Page $page, Field $field) {
+		return '';
+	}
+	
+	public function sanitizeValue(Page $page, Field $field, $value) {
+
+		if(is_string($value) && strlen($value) && !ctype_digit(ltrim($value, '-'))) {
+			// string value with one or more non-digit characters
+			$value = trim($value); 
+			
+			if(preg_match('/^(\de\d|0x\d+|\+\d+)/', $value)) {
+				// likely a valid number, but in a non-native format to PW 
+				// examples: 1e123213, 0x1234, +123 (intval handles these)
+				$value = intval($value);
+
+			} else if(preg_match('/^[^-+\d.]+/', $value)) {
+				// string starting with something we don't recognize, let PHP decide
+				// example: bd#79
+				$value = intval($value); 
+				if($value === 0) $value = ''; // blank rather than zero
+				
+			} else {
+				// string value that looks like a number but has some other stuff in it
+
+				// see if there are some definitely non-number chars in there, and truncate
+				// the string to that point if we find any
+				if(preg_match('/^(-?[\d,. ]+)([^\d,. ]+)/', $value, $matches)) {
+					$value = $matches[1];
+				}
+
+				// check to see if we're dealing with a potential float val or thousands separators
+				if(strpos($value, '.') !== false || strpos($value, ',') !== false || strpos($value, ' ') !== false) {
+					// convert float values to rounded integers
+					// also handles values with thousands separators
+					$value = round(FieldtypeFloat::strToFloat($value));
+
+				} else if(is_numeric($value)) {
+					// let PHP decide how to convert it 
+					$value = intval($value);
+
+				} else {
+					// default: replace non numeric characters
+					$negative = substr(trim($value), 0, 1) == '-';
+					$value = preg_replace('/[^\d]/', '', $value);
+					$value = strlen($value) ? (int) $value : '';
+					if($negative && is_int($value)) $value = $value * -1;
+				}
+			}
+		}
+		
+		$value = strlen("$value") ? (int) $value : '';
+
+		return $value;
+
+	}
+
+	public function getInputfield(Page $page, Field $field) {
+		$inputfield = $this->modules->get('InputfieldInteger'); 
+		$inputfield->class = $this->className();
+		return $inputfield; 
+	}
+
+	public function getDatabaseSchema(Field $field) {
+		$schema = parent::getDatabaseSchema($field);
+		$schema['data'] = 'int NOT NULL';
+		return $schema;
+	}
+	
+	public function ___getConfigInputfields(Field $field) {
+		$inputfields = parent::___getConfigInputfields($field); 
+		$f = $this->wire('modules')->get('InputfieldRadios'); 
+		$f->label = $this->_('Are blank and 0 equivalent?'); 
+		$f->description = $this->_('This affects how ProcessWire matches pages during database find operations.') . ' ' . 
+			$this->_('If 0 and blank are equivalent (the Yes option) then a search for **field=0** or **field=""** will produce the same results.') . ' ' . 
+			$this->_('If they or not equivalent (the No option) then a search for **field=0** will only match fields containing the value 0, and **field=""** will only match fields with no value.') . ' ' . 
+			$this->_('As another example, with the Yes option **field<1** would match both the value 0 and no value, and with the No option it would match only 0.'); 
+		$f->attr('name', 'zeroNotEmpty'); 
+		$f->addOption(0, $this->_('Yes - Blank and 0 are equivalent'));
+		$f->addOption(1, $this->_('No - Blank and 0 have different meanings')); 
+		$f->attr('value', (int) $field->zeroNotEmpty);
+		$inputfields->add($f); 
+		
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->attr('name', 'defaultValue');
+		$f->label = $this->_('Default value'); 
+		$f->description = $this->_('This value is assigned as the default for this field on newly created pages. It does not affect existing pages.');
+		$f->collapsed = Inputfield::collapsedBlank;
+		$f->attr('value', strlen($field->defaultValue) ? (int) $field->defaultValue : ''); 
+		$inputfields->add($f);
+		
+		return $inputfields; 
+	}
+
+}
+

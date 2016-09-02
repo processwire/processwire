@@ -1,0 +1,561 @@
+/****************************************************************************************
+ * Theme specific jQuery UI overrides and additions
+ *
+ */
+
+.ui-icon {
+	float: left; 
+	margin-right: 2px; 
+}
+
+.ui-widget {
+	font-size: 1em; 
+}
+
+.Inputfields li:not(.Inputfield) .ui-widget-header .ui-icon,
+.ui-state-default .ui-icon,
+.ui-state-hover .ui-icon, 
+.ui-state-highlight .ui-icon,
+.ui-state-error .ui-icon {
+	/* use white icons */
+	background-image: url(images/ui-icons_ffffff_256x240.png);
+}
+
+/**
+ * asmSelect and similar
+ *
+ */
+
+.content {
+	.ui-widget-content a {
+		color: $link-color; 
+	}
+
+	li.ui-state-default,
+	.ui-widget-content li.ui-state-default {
+		background: $ui-state-default-bg; /* LIGHT-ORANGE */
+		border-color: $ui-state-default-bg; /* LIGHT-ORANGE */
+		color: $ui-state-default-color; /* WHITE */
+	}
+	li.ui-state-default a, 
+	.ui-widget-content li.ui-state-default a {
+		color: $ui-state-default-color; /* WHITE */
+	}
+	li.ui-state-hover,
+	.ui-widget-content li.ui-state-hover {
+		background: $ui-state-hover-bg; /* LIGHT-KHAKI */
+		border-color: $ui-state-hover-bg; /* LIGHT-KHAKI */
+		color: $ui-state-hover-color; 
+	}
+	li.ui-state-hover a,
+	.ui-widget-content li.ui-state-hover a {
+		color: $ui-state-hover-color; /* BLACK */
+	}
+}
+
+.InputfieldForm .ui-accordion-header, 
+.ui-accordion-header {
+	padding-left: 1.5em; 
+	background: $button-bg; 
+	border: none; 
+	color: $reverse-text-color;
+}
+	.InputfieldForm .ui-accordion-header a,
+	.ui-accordion-header a,
+	#debug .ui-accordion-header a, 
+	#footer .ui-accordion-header a {
+		color: $reverse-text-color;
+	}
+.ui-accordion-content,
+.content .InputfieldForm .ui-accordion-content,
+.content .InputfieldForm .InputfieldMarkup .ui-accordion-content {
+	margin-top: 0;
+	padding-top: 0;
+}
+
+/**
+ * Highlight and error states 
+ *
+ */
+
+.ui-state-highlight, 
+.ui-widget-content .ui-state-highlight, 
+.ui-widget-header .ui-state-highlight {
+	color: $highlight-color; 
+	background: $highlight-bg; /* HIGHLIGHT */
+	border: $highlight-border; 
+}
+	
+
+.ui-state-error,
+.ui-widget-content .ui-state-error {
+	background: $error-bg;	
+	color: $error-color; 
+	border: none; 
+	font-weight: $bold-weight; 
+}
+
+/*
+#notices .ui-state-highlight, 
+#notices .ui-state-error {
+	padding: 0.25em 0; 
+	border: none; 
+	border-bottom: $highlight-border; 
+	color: $highlight-color; 
+}
+	#notices .ui-state-error {
+		color: $error-color; 
+	}
+	#notices .ui-state-highlight a {
+		color: $highlight-color; 
+	}
+	#notices .ui-state-error a {
+		color: $error-color; 
+	}
+	#notices .ui-state-highlight .ui-icon,
+	#notices .ui-state-error .ui-icon {
+		position: relative;
+		top: 2px; 
+	}
+
+	#notices .notice-remove {
+		float: right; 
+		color: $highlight-color; 
+		text-decoration: none; 
+		padding: 0 0.5em 0 1em; 
+	}
+	
+
+	.ui-state-highlight a,
+	.ui-state-error a {
+		text-decoration: underline; 
+	}
+
+	p span.ui-state-error {
+		padding: 0.25em 0.5em;
+	}
+*/
+
+/**
+ * ui-dialog
+ *
+ */
+
+.ui-dialog {
+	@include border-radius(0); 
+	border: none; 
+	padding: 0;
+
+	.ui-dialog-titlebar {
+		margin: 0;
+		background: $masthead-bg;
+		border: none; 
+		color: $topnav-link-color; 
+		@include border-radius(0); 
+
+		.ui-button {
+			background: none; 
+			border: none; 		
+			outline: none;
+			padding: 0.6em 1.5em; 
+		}
+	}
+
+	.ui-dialog-buttonpane {
+		background: $subtle-bg; 
+		border: none; 
+		margin-top: -7px;
+		padding: 1px 8px 1px 8px; 
+	}
+
+	.ui-dialog-content {
+		padding: 0; 
+		max-width: 100%; /* prevents safari overflow */
+	}
+	
+}
+	
+.ui-widget-overlay {
+	background: $text-color; /* BLACK */
+}
+
+/**
+ * ui-button
+ *
+ */
+
+.ui-button, 
+button.ui-button.ui-state-default, 
+.ui-button.ui-state-default {
+	color: $button-color; /* WHITE */ 
+	background: $button-bg; /* LIGHT-GREEN */
+	border: 1px solid $button-border; /* LIGHT-GREEN */
+	font-weight: $bold-weight;
+	padding: 0.6em 1.1em; 
+	font-size: 1em !important; 
+	border-radius: $button-radius; 
+}
+	button.ui-button span {
+		&.ui-button-text {
+			padding: 0;
+		}
+	}
+
+	.ui-button:hover, 
+	button.ui-button.ui-state-hover, 
+	.ui-button.ui-state-hover,
+	button.ui-button.ui-state-active, 
+	.ui-button.ui-state-active {
+		box-shadow: none !important; 
+		color: $button-hover-color;
+		background: $button-hover-bg; /* CYAN */
+		border: 1px solid $button-hover-border; /* CYAN */
+		font-weight: $bold-weight;
+		font-size: 1em !important;
+		text-decoration: none; 
+	}
+
+	button.ui-button.ui-state-active, 
+	.ui-button.ui-state-active {
+		color: $button-active-color;
+		background: $button-active-bg; /* CYAN */
+		border: 1px solid $button-active-border; /* CYAN */
+	}
+
+	div + a > .ui-button {
+		margin-top: 1em;
+	}
+    
+	button.ui-button.pw-button-dropdown-main {
+		border-top-right-radius: 0;
+		border-bottom-right-radius: 0;
+		padding-right: 0.6em;
+		margin-right: 0 !important;
+	}
+    button.ui-button.pw-button-dropdown-toggle {
+		outline: none !important;
+	    margin-left: 0 !important;
+	    border-top-left-radius: 0;
+	    border-bottom-left-radius: 0;
+	    border-left: 1px solid rgba(255,255,255,0.5);
+	    padding-left: 8px;
+	    padding-right: 8px;
+	    &:hover {
+		    border-left-color: transparent;
+	    }
+    }
+
+/**
+ * ui-slider
+ * 
+ */
+
+.ui-slider .ui-slider-range, 
+.ui-widget .ui-slider .ui-slider-range,
+.ui-widget-content .ui-slider .ui-slider-range {
+	//background: transparentize($light-text-color, 0.2);
+	background: transparentize($button-hover-bg, 0.25);
+	/* remove padding added to Inputfields that was getting inherited here */
+	padding: 0;
+}
+
+.ui-slider .ui-slider-handle {
+	//background: darken($link-hover-color, 10%);
+	//border-radius: 50%;
+	border-width: 0;
+	outline: none;
+	border: none;
+}
+
+.ui-slider-horizontal {
+	height: 8px; 
+	background: transparentize($light-text-color, 0.65);
+	border: none;
+	.ui-slider-handle {
+		//top: -.22em;
+		top: -5px; 
+	}
+}
+.ui-slider-horizontal,
+.ui-slider-range {
+	border-radius: 4px;
+}
+
+.ui-slider .ui-slider-handle {
+	width: 17px; 
+	height: 21px;
+	background-color: transparent;
+	background: url(images/slider_handles.png) 0 0 no-repeat;
+}
+body.hidpi-device .ui-slider .ui-slider-handle {
+	background: url(images/slider_handles2x.png) 0 0 no-repeat;
+	background-size: 34px 21px;
+}
+
+/**
+ * ui-menu
+ *
+ */
+
+.ui-menu {
+	background: $masthead-bg;
+	border: none; 
+	padding: 0; 
+
+	.ui-menu-item {
+		
+		&.separator {
+			margin-top: 0.25em;
+		}
+		&:first-child {
+			// for when .separator is the first item in the list (no add button)
+			margin-top: 0;	
+		}
+		
+		&.separator:not(.highlight) {
+			border-top: 1px solid lighten($masthead-bg, 10%) !important;
+			padding-top: 0.25em;
+		}
+		&.add + .ui-menu-item.separator {
+			margin-top: 0;
+			border-top: none !important;
+		}
+
+		i.fa {
+			margin-right: 2px; 
+		}
+
+		a {
+			font-size: $base-font-size; 
+			color: $topnav-link-color; 
+			border: none;
+			margin: 0 !important; 
+			padding: 0.5em 0.75em 0.5em 0.75em; 
+			cursor: pointer; 
+			white-space: nowrap; 
+			
+			i.fa {
+				margin-left: -2px;
+			}
+
+			&.on {
+				background: $topnav-link-hover-bg; 
+				color: $topnav-link-color; 
+			}
+
+			&:hover,
+			&.ui-state-focus,
+			&.ui-state-active {
+				background: $topnav-link-hover-bg; 
+				color: $topnav-link-hover-color; 
+			}
+
+			.ui-menu-icon {
+				display: none; 
+			}
+			
+			small {
+				opacity: 0.5;
+			}
+		}
+		
+		.ui-menu {
+			border-left: 1px solid lighten($masthead-bg, 5%);
+			@include border-radius($menu-radius); 
+		}
+
+		.ui-menu.navJSON {
+			border-left: 1px solid lighten($masthead-bg, 5%); 
+			@include border-radius($menu-radius);
+
+			.ui-menu-item:not(.add):not(.highlight) {
+				line-height: 1.1em;
+				//font-size: 0.866666666666667em;
+				font-size: 0.933333333333333em;
+				
+				a {
+					padding-top: 0;
+					padding-bottom: 0;
+				}
+				
+				&:first-child {
+					padding-top: 0.5em;
+				}
+				
+				&:last-child {
+					padding-bottom: 0.5em;
+				}
+
+			}
+			
+			.ui-menu-item.add,
+			.ui-menu-item.highlight {
+				background: lighten($masthead-bg, 5%);
+				
+				&:hover {
+					background: $topnav-link-hover-bg;
+				}
+			}
+			
+			.ui-menu-item.highlight:not(.separator) {
+				margin-top: 0.25em; 
+			}
+			
+			.ui-menu-item.add + .ui-menu-item:not(.add):not(.separator),
+			.ui-menu-item.highlight + .ui-menu-item:not(.highlight) {
+				padding-top: 0.3em;
+			}
+			
+			&.length0 { // 0 items, no padding necessary at bottom
+				padding-bottom: 0;
+			}
+		}
+		
+		
+	}
+}
+
+.dropdown-menu {
+	/* dropdown menu for admin theme */ 
+	display: none;
+	border-radius: 0 !important;
+
+	.ui-menu-item {
+		min-width: 10em;
+		border: 0 !important;
+		a {
+			border-radius: 0 !important;
+		}
+	}
+	li {
+		min-width: 10em; 
+	}
+}
+
+
+/**
+ * ui-autocomplete
+ *
+ */
+
+.ui-autocomplete {
+
+	/*
+	box-shadow: 0 1px 3px 3px rgba(0,0,0,0.15);
+	*/
+	z-index: 200 !important; 
+	@include border-radius($menu-radius); 
+	background: none; 
+
+	li {
+		background: $masthead-bg !important; 
+		a {
+			cursor: pointer; 
+			@include border-radius($menu-radius); 
+			background: $masthead-bg; 
+
+		}
+	}
+	.ui-widget-header {
+		background: none; 
+		border: none; 
+		&:hover {
+			border: none; 
+			margin: 0;
+		}
+
+		a, a:hover {
+			font-weight: $bold-weight !important;
+			background: lighten($masthead-bg, 5%); 
+			color: $topnav-link-hover-color; 
+			border: none;
+			margin: 0;
+			text-shadow: none; 
+			pointer: arrow; 
+		}
+	}
+}
+
+#ProcessPageSearchAutocomplete li:first-child {
+	margin-top: 0.6em; 
+}
+
+
+
+/**
+ * ui-tooltip
+ *
+ */
+.ui-tooltip {
+	padding: 10px 20px;
+	color: $reverse-text-color;
+	border-radius: $button-radius;
+	font-weight: $bold-weight;
+	box-shadow: 0 0 7px $text-color;
+}
+	.ui-tooltip, .arrow:after {
+		background: $text-color; 
+		border: 2px solid $reverse-text-color; 
+	}
+	.arrow {
+		width: 70px;
+		height: 16px;
+		overflow: hidden;
+		position: absolute;
+		left: 50%;
+		margin-left: -35px;
+		bottom: -16px;
+	}
+	.arrow.top {
+		top: -16px;
+		bottom: auto;
+	}
+	.arrow.left {
+		left: 20%;
+	}
+	.arrow:after {
+		content: "";
+		position: absolute;
+		left: 20px;
+		top: -20px;
+		width: 25px;
+		height: 25px;
+		box-shadow: 6px 5px 9px -9px $text-color; 
+		-webkit-transform: rotate(45deg);
+		-moz-transform: rotate(45deg);
+		-ms-transform: rotate(45deg);
+		-o-transform: rotate(45deg);
+		tranform: rotate(45deg);
+	}
+	.arrow.top:after {
+		bottom: -20px;
+		top: auto;
+	}
+
+.ui-timepicker-div {
+	margin-top: 1em; 
+}
+
+.ui-progressbar,
+.Inputfields .InputfieldItemList .ui-progressbar {
+	@include border-radius(0); 
+	border: none; 
+	padding: 0; 
+	background: $progressbar-bg; 
+	margin-top: 1px; 
+
+	.ui-progressbar-value {
+		@include border-radius(0);
+		background: $progressbar-value-bg;
+		color: $progressbar-text-color; 
+		margin: 0;
+		border: none; 
+	}
+}
+
+a.tooltip:hover {
+	border: none;
+	background: inherit; 
+	cursor: help; 
+}
+

@@ -1,0 +1,18 @@
+{
+   "file":"wire\/modules\/Fieldtype\/FieldtypeComments\/CommentList.php",
+   "textdomain":"wire--modules--fieldtype--fieldtypecomments--commentlist-php",
+   "translations":{
+      "8413c683b4b27cc3f4dbd4c90329d8ba":{
+         "text":"Kommentare"
+      },
+      "5f3d086ce8bea5dbf6cc6335a5394c24":{
+         "text":"Geschrieben von {cite} am {created}"
+      },
+      "4f7ba099c8cd7a8301cf1a8e81cb5e3c":{
+         "text":"%e. %b %Y, %H:%M"
+      },
+      "6f207f8b5dfe1eebac63467930df5189":{
+         "text":"h3"
+      }
+   }
+}

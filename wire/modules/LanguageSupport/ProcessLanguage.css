@@ -1,0 +1,37 @@
+.InputfieldFile li.InputfieldFile .InputfieldFileLanguageInfo .actions,
+.InputfieldFile li.InputfieldFile .InputfieldFileLanguageInfo p {
+	margin: 0; 
+}
+
+.InputfieldFile .InputfieldFileLanguageInfo .notes,
+.InputfieldFile .InputfieldFileLanguageInfo .actions li.description {
+	text-transform: none; 
+}
+
+.Inputfields .InputfieldFile .InputfieldFileLanguageInfo {
+	position: relative; 
+	margin-top: 0; 
+	padding-top: 0;
+}
+
+.InputfieldFileList .InputfieldFileLanguageInfo {
+	margin-top: -1em; 
+}
+
+.InputfieldFileList .InputfieldFileLanguageInfo a i.hover-only {
+	display: none;
+}
+.InputfieldFileList .InputfieldFileLanguageInfo a:hover i.hover-only {
+	display: inline;
+}
+
+#wrap_Inputfield_language_files_site .InputfieldFileData.description,
+#wrap_Inputfield_language_files .InputfieldFileData.description {
+	padding: 1em 0 0 0;
+	border-bottom: none;
+}
+
+.download-button {
+	float: right;
+	margin-left: 0.5em;
+}

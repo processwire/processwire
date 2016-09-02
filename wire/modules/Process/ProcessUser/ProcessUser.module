@@ -1,0 +1,312 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire User Process
+ *
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ * @property int $maxAjaxQty
+ *
+ */
+
+class ProcessUser extends ProcessPageType {
+
+	static public function getModuleInfo() {
+		return array(
+			'title'      => __('Users', __FILE__), // getModuleInfo title
+			'version'    => 107,
+			'summary'    => __('Manage system users', __FILE__), // getModuleInfo summary
+			'permanent'  => true,
+			'permission' => 'user-admin',
+			'icon'       => 'group',
+			'useNavJSON' => true,
+		);
+	}
+
+	public function __construct() {
+		$this->set("maxAjaxQty", 25);
+		return parent::__construct();
+	}
+
+	public function init() {
+		$this->wire('pages')->addHookBefore('save', $this, 'hookPageSave');
+		parent::init();
+		if($this->lister) $this->lister->addHookBefore('execute', $this, 'hookListerExecute');
+
+		// make this field translatable
+		$roles = $this->wire('fields')->get('roles');
+		$roles->label = $this->_('Roles');
+		$roles->description = $this->_("User will inherit the permissions assigned to each role. You may assign multiple roles to a user. When accessing a page, the user will only inherit permissions from the roles that are also assigned to the page's template."); // Roles description
+	}
+	
+	protected function useLister() {
+		return true;
+	}
+
+	/**
+	 * Output JSON list of navigation items for this (intended to for ajax use)
+	 *
+	 */
+	public function ___executeNavJSON(array $options = array()) {
+
+		$max = $this->maxAjaxQty > 0 && $this->maxAjaxQty <= 100 ? (int) $this->maxAjaxQty : 50;
+
+		if(empty($options) && $this->pages->count("id>0") > $max) {
+			$user = $this->wire('user');
+			$userAdminAll = $user->isSuperuser() ? $this->wire('pages')->newNullPage() : $this->wire('permissions')->get('user-admin-all');
+			/** @var PagePermissions $pagePermissions */
+			$pagePermissions = $this->wire('modules')->get('PagePermissions');
+			$items = array();
+			foreach($this->wire('roles') as $role) {
+				if($userAdminAll->id && !$pagePermissions->userCanAssignRole($role)) continue;
+				$cnt = $this->pages->count("roles=$role");
+				$item = array(
+					'id'   => $role->id,
+					'name' => $role->name,
+					'cnt'  => sprintf($this->_n('%d user', '%d users', $cnt), $cnt)
+				);
+				$items[] = $item;
+			}
+			$options['itemLabel'] = 'name';
+			$options['itemLabel2'] = 'cnt';
+			$options['add'] = 'add/';
+			$options['items'] = $items;
+			$options['edit'] = "?roles={id}";
+		}
+
+		return parent::___executeNavJSON($options);
+	}
+
+	public function hookListerExecute($event) {
+		
+		$role = (int) $this->wire('session')->get($this, 'listerRole');
+		if(!$role) return;
+	
+		$lister = $event->object;
+		$defaultSelector = $lister->defaultSelector;
+		if(strpos($defaultSelector, 'roles=') !== false) {
+			$defaultSelector = preg_replace('/\broles=\d*/', "roles=$role", $defaultSelector);
+		} else {
+			$defaultSelector .= ", roles=$role";
+		}
+		$lister->defaultSelector = $defaultSelector;
+	}
+
+	protected function getListerSettings(ProcessPageLister $lister, $selector) {
+		
+		$settings = parent::getListerSettings($lister, $selector);
+		$selector = '';
+		$role = (int) $this->wire('input')->get('roles');
+		$user = $this->wire('user');
+		$session = $this->wire('session');
+		$ajax = $this->wire('config')->ajax;
+
+		if($role) {
+			$lister->resetLister();
+			$session->set($this, 'listerRole', $role);
+		} else if(!$ajax) {
+			if((int) $session->get($this, 'listerRole') > 0) {
+				$lister->resetLister();
+				$session->set($this, 'listerRole', 0);
+			}
+		} else {
+			$role = $session->get($this, 'listerRole');
+		}
+
+		if(!$role && !$user->isSuperuser()) {
+			$userAdminAll = $this->wire('permissions')->get('user-admin-all');
+			if($userAdminAll->id && !$user->hasPermission($userAdminAll)) {
+				// system has user-admin-all permission, and user doesn't have it
+				// so limit them only to the permission user-admin-[role] roles that they have assigned
+				$roles = '';
+				foreach($user->getPermissions() as $permission) {
+					if(strpos($permission->name, 'user-admin-') !== 0) continue;
+					$roleName = str_replace('user-admin-', '', $permission->name);
+					$rolePage = $this->wire('roles')->get($roleName);
+					if($rolePage->id) $roles[] = $rolePage->id;
+				}
+				// allow them to view users that only have guest role
+				$guestRoleID = $this->wire('config')->guestUserRolePageID;
+				$guestUserID = $this->wire('config')->guestUserPageID;
+				$selector .= ", id!=$guestUserID, roles=(roles.count=1, roles=$guestRoleID)";
+				if(count($roles)) {
+					$selector .= ", roles=(roles=" . implode('|', $roles) . ")"; // string of | separated role IDs
+				}
+			}
+		}
+
+		$settings['initSelector'] .= $selector;
+		$settings['defaultSelector'] = "name%=, roles=" . ($role ? $role : '');
+		$settings['delimiters'] = array('roles' => ', ');
+
+		return $settings;
+	}
+	
+	public function ___executeEdit() {
+	
+		$user = $this->wire('user');
+		
+		if(!$user->isSuperuser()) { 
+			// prevent showing superuser role at all
+			$this->addHookAfter('InputfieldPage::getSelectablePages', $this, 'hookGetSelectablePages'); 
+		}
+		
+		$this->addHookAfter('ProcessPageEdit::buildForm', $this, 'hookPageEditBuildForm'); 
+		
+		$out = parent::___executeEdit();
+
+		$editableRoles = array();
+		foreach($this->wire('roles') as $role) {
+			if($role->name == 'guest') continue;
+			$editableRoles[$role->id] = $role->name;
+		}
+		
+		if(!$user->isSuperuser()) {
+			$page = $this->getPage();
+			$userAdminAll = $this->wire('permissions')->get('user-admin-all');
+			if($userAdminAll->id && !$user->hasPermission($userAdminAll)) {
+				foreach($editableRoles as $roleID => $roleName) {
+					if(!$user->hasPermission("user-admin-$roleName")) {
+						unset($editableRoles[$roleID]);
+					}
+				}
+			}
+			/*
+			$numEditableRoles = 0;
+			foreach($page->roles as $role) {
+				if(isset($editableRoles[$role->id])) $numEditableRoles++;
+			}
+			if($numEditableRoles == 1 && count($editableRoles) == 2) {
+				// if there is only one editable role here, then removal of it would
+				// prevent this user from being able to make further edits, so we 
+				// count it as not-editable in that case
+				foreach($page->roles as $role) {
+					if($role->name == 'guest') continue;
+					unset($editableRoles[$role->id]);
+				}
+			}
+			*/
+		}
+		
+		$this->wire('config')->js('ProcessUser', array(
+			'editableRoles' => array_keys($editableRoles),
+			'notEditableAlert' => $this->_('You may not change this role'),
+		));
+
+		return $out; 
+	}
+	
+	public function hookGetSelectablePages($event) {
+		if($event->object->attr('name') != 'roles') return;
+		$suRoleID = $this->wire('config')->superUserRolePageID;
+		foreach($event->return as $role) {
+			if($role->id == $suRoleID) $event->return->remove($role);
+		}
+	}
+	
+	public function hookPageEditBuildForm(HookEvent $event) {
+		$form = $event->return;
+		$theme = $form->getChildByName('admin_theme');
+		if(!$theme) return;
+		if(!$theme->attr('value')) {
+			$theme->attr('value', $this->wire('config')->defaultAdminTheme); 
+		}
+	}
+	
+	/**
+	 * Perform a security check to make sure that a non-superuser isn't assigning superuser access to themselves or someone else. 
+	 *
+	 */
+	public function hookPageSave(HookEvent $event) {
+
+		$arguments = $event->arguments; 
+		$page = $arguments[0]; 
+		
+		if(!$page instanceof User && !in_array($page->template->id, $this->wire('config')->userTemplateIDs)) {
+			// don't handle anything other than User page saves
+			return;
+		}
+
+		$pages = $this->wire('pages');
+		$user = $this->wire('user');
+
+		// don't allow removal of the guest role
+		if(!$page->roles->has("name=guest")) {
+			$page->roles->add($this->wire('roles')->get('guest')); 	
+		}
+
+		// check if user is editing themself
+		if($user->id == $page->id) {
+			// if so, we have to get a fresh copy of their account to see what it had before they changed it
+			$copy = clone $page;		// keep a copy that doesn't go through the uncache process
+			$pages->uncache($page); 	// take it out of the cache
+			$user = $pages->get($page->id); // get a fresh copy of their account from the DB (pre-modified)
+			$pages->cache($copy); 		// put the modified version back into the cache
+			$arguments[0] = $copy;		// restore it to the arguments sent to $pages->save 
+			$event->arguments = $arguments;
+			$page = $copy;
+
+			// don't let superusers remove their superuser role
+			if($user->isSuperuser() && !$page->roles->has("name=superuser")) {
+				throw new WireException($this->_("You may not remove the superuser role from yourself")); 
+			}
+		} 
+
+		// if they are superuser, then all is good, no need to continue
+		if($user->isSuperuser()) return;
+
+		// if not then we need to do the check below:
+		$suRole = $this->wire('roles')->get($this->wire('config')->superUserRolePageID); 
+		if($page->roles->has("name=superuser") || $page->roles->has($suRole)) { // unnecessarily redundant, but might as well
+			throw new WireException($this->_("You may not assign the superuser role")); 
+		}
+	
+		$userAdminAll = $this->wire('permissions')->get('user-admin-all');
+		if($userAdminAll->id && !$user->hasPermission($userAdminAll)) {
+			
+			// user-admin-all permission is installed and user doesn't have it
+			// check that the role assignments are valid
+			$changedUser = $page;
+			$pages->uncache($page, array('shallow' => true));
+			$originalUser = $this->wire('users')->get($page->id); // get a fresh, unmodified copy
+			if($originalUser->id) {
+
+				/** @var PagePermissions $pagePermissions */
+				$pagePermissions = $this->wire('modules')->get('PagePermissions');
+				$removedRoles = array();
+
+				foreach($originalUser->roles as $role) {
+					if(!$changedUser->roles->has($role)) {
+						// role was removed
+						if(!$pagePermissions->userCanAssignRole($role)) {
+							$changedUser->roles->add($role);
+							$this->error(sprintf($this->_('You are not allowed to remove role: %s'), $role->name));
+						} else {
+							$removedRoles[] = $role;
+						}
+					}
+				}
+				foreach($changedUser->roles as $role) {
+					if(!$originalUser->roles->has($role)) {
+						// role was added
+						if(!$pagePermissions->userCanAssignRole($role)) {
+							$changedUser->roles->remove($role);
+							$this->error(sprintf($this->_('You are not allowed to add role: %s'), $role->name));
+						}
+					}
+				}
+				
+				if(count($removedRoles) && !$changedUser->editable()) {
+					$this->error($this->_('You removed role(s) that that will prevent your edit access to this user. Roles have been restored.'));
+					foreach($removedRoles as $role) $changedUser->roles->add($role);
+				}
+			}
+		}
+	}
+	
+}
+

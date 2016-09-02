@@ -1,0 +1,53 @@
+<?php namespace ProcessWire;
+
+/**
+ * An Inputfield for handling XHTML "hidden" form inputs
+ *
+ */
+class InputfieldHidden extends Inputfield {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Hidden', __FILE__), // Module Title
+			'version' => 101,
+			'summary' => __('Hidden value in a form', __FILE__), // Module Summary
+			'permanent' => true, 
+			);
+	}
+
+	public function __construct() {
+		parent::__construct();
+		$this->setAttribute('type', 'hidden'); 
+		$this->initValue = '';
+	}
+
+	public function ___render() {
+		return "\n<input " . $this->getAttributesString() . " />"; 
+	}
+
+	public function getAttributes() {
+		$attrs = parent::getAttributes();
+		if(!strlen($attrs['value']) && $this->initValue) $attrs['value'] = $this->initValue; 
+		return $attrs; 
+	}
+
+	public function ___getConfigInputfields() {
+
+		$inputfields = parent::___getConfigInputfields();
+
+		// remove config fields that don't need to be here
+		$f = $inputfields->getChildByName('collapsed');
+		$inputfields->remove($f); 
+		$f = $inputfields->getChildByName('columnWidth');
+		$inputfields->remove($f); 
+
+		$field = $this->modules->get('InputfieldText');
+		$field->setAttribute('name', 'initValue'); 
+		$field->label = $this->_('Value');
+		$field->description = $this->_('Value to be populated in this hidden field.'); 
+		$field->setAttribute('value', $this->initValue); 
+		$inputfields->append($field);
+		return $inputfields; 
+	}
+	
+}

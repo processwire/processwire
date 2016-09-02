@@ -1,0 +1,1128 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Add Process
+ *
+ * Provides the UI for adding a page
+ * 
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEditor {
+
+	protected $form; 
+	protected $parent = null; 
+	protected $parent_id = 0;
+	protected $page; 
+	protected $template = null; 
+	protected $allowedTemplates = null; //cache
+	protected $predefinedTemplates = array();
+	protected $predefinedParents = array(); 
+	protected $editor; // WirePageEditor
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Page Add', __FILE__),          
+			'summary' => __('Add a new page', __FILE__), 
+			'version' => 108, 
+			'permanent' => true, 
+			'permission' => 'page-edit',
+			'icon' => 'plus-circle',
+			'useNavJSON' => true, 
+			);
+	}
+	
+	public function __construct() {
+		$this->editor = $this; 
+		parent::__construct();
+		$this->set('noAutoPublish', false); 
+		$this->set('shortcutSort', array());
+	}
+
+	public function init() {
+		$this->page = null;
+		return parent::init();
+	}
+
+	public function set($key, $value) {
+		if($key == 'parent_id') $this->parent_id = (int) $value;
+			else if($key == 'template' &&  $value instanceof Template) $this->template = $value;
+			else return parent::set($key, $value); 	
+		return $this; 
+	}
+
+	/**
+	 * Return list of addable templates and links to add them
+	 * 
+	 * Returns JSON by default, specify $options['getArray'] = true; to return an array. 
+	 * 
+	 * @param array $options
+	 * @return array|string 
+	 * 
+	 */
+	public function ___executeNavJSON(array $options = array()) {
+
+		$page = $this->wire('page');
+		$user = $this->wire('user');
+		/** @var Session $session */
+		$session = $this->wire('session');
+		$data = $session->getFor($this, 'nav');
+		
+		if(!empty($data)) {
+			// check that session cache data is still current
+			foreach($this->wire('templates') as $template) {
+				if($template->modified > $data['modified']) {
+					$data = array();
+					$session->remove($this, 'nav');
+					$session->remove($this, 'numAddable');
+					$this->message("Clearing 'Add New' page cache", Notice::debug);
+					break;
+				}
+			}
+		}
+		
+		if(empty($data)) {
+
+			$data = array(
+				'url'   => $this->wire('config')->urls->admin . 'page/add/',
+				'label' => $this->_((string) $page->get('title|name')),
+				'icon'  => 'plus-circle',
+				'add'   => null,
+				'list'  => array(),
+				'modified' => time(),
+			);
+
+			$items = array();
+
+			if(!$user->isGuest() && $user->hasPermission('page-edit')) {
+
+				$items = array();
+
+				foreach($this->wire('templates') as $template) {
+					$parent = $template->getParentPage(true);
+					if(!$parent) continue;
+					if($parent->id) {
+						// one parent possible	
+						if(!$this->isAllowedParent($parent, false, $template)) continue; // double check
+						$qs = "?parent_id=$parent->id&template_id=$template->id";
+					} else {
+						// multiple parents possible
+						$qs = "?template_id=$template->id";
+					}
+					$icon = $template->getIcon();
+					if(!$icon) $icon = "plus-circle";
+					$label = $template->getLabel();
+					$key = strtolower($label);
+					$label = $this->wire('sanitizer')->entities1($label);
+					if(isset($items[$key])) $key .= $template->name;
+					$items[$key] = array(
+						'url'   => $qs,
+						'label' => $label,
+						'icon'  => $icon,
+						'parent_id' => $parent->id, // for internal use only
+						'template_id' => $template->id, // for internal use only
+					);
+				}
+				ksort($items);
+	
+				$configData = $this->wire('modules')->getModuleConfigData($this); // because admin theme calls with noInit option
+				$shortcutSort = isset($configData['shortcutSort']) ? $configData['shortcutSort'] : array(); 
+				if(!is_array($shortcutSort)) $shortcutSort = array();
+				if(!empty($shortcutSort)) {
+					$sorted = array();
+					foreach($shortcutSort as $templateID) {
+						foreach($items as $key => $item) {
+							if($item['template_id'] == $templateID) {
+								$sorted[$key] = $item;
+								break;
+							}
+						}
+					}
+					foreach($items as $key => $item) {
+						if(!isset($sorted[$key])) $sorted[$key] = $item;
+					}
+					$items = $sorted; 
+				} 
+			}
+			$data['list'] = array_values($items);
+			$session->setFor($this, 'nav', $data);
+		}
+			
+		unset($data['modified']);
+
+		// get additional from PageBookmarks
+		$bookmarks = $this->getPageBookmarks($this);
+		$options2 = $bookmarks->initNavJSON(array('add' => 'ignore-me'));	
+		$lastItem = null;
+		$listLength = count($data['list']);
+		$n = 0;
+		foreach(array_values($options2['items']) as $p) {
+			if($p->id == 'bookmark' && !$user->isSuperuser()) continue;
+			$item = array(
+				'url' => ($p->id == 'bookmark' ? 'bookmarks/?role=0' : "?parent_id=$p->id"),
+				'label' => $p->get('title|name') . ($p instanceof Page ? ' &hellip;' : ''),  
+				'icon' => $p->get('_icon') ? $p->get('_icon') : 'arrow-circle-right', 
+				'className' => $p->get('_class') . (!$n ? ' separator' : '')
+			);
+			if($p->id == 'bookmark') {
+				$lastItem = $item;
+			} else {
+				$n++;
+				$data['list'][] = $item;
+			}
+		}
+		if($lastItem) $data['list'][] = $lastItem;
+	
+		$session->setFor($this, 'numAddable', $listLength + $n);
+		if(!empty($options['getArray'])) return $data;
+
+		if($this->wire('config')->ajax) header("Content-Type: application/json");
+		
+		return json_encode($data);
+	}
+
+	public function ___executeTemplate() {
+
+		$templateID = (int) $this->input->get->template_id; 
+		if(!$templateID) throw new WireException("No template specified"); 
+		$template = $this->templates->get($templateID); 
+		if(!$template) throw new WireException("Unknown template"); 
+		$parentTemplates = $template->parentTemplates; 
+		$parentTemplate = $this->wire('templates')->get(reset($parentTemplates)); 
+		if(!$parentTemplate) throw new WireException("Unable to locate parent template " . reset($parentTemplates)); 
+		$parents = $this->wire('pages')->find("template=$parentTemplate, include=hidden, limit=500, sort=name"); 
+		if(!count($parents)) throw new WireException("No usable parents match this template"); 
+		if(count($parents) == 1) {
+			$url = "./?parent_id=" . $parents->first()->id; 
+			if($this->wire('input')->get('modal')) $url .= "&modal=1";
+			$this->wire('session')->redirect($url);
+		}
+
+		$templateLabel = $this->getTemplateLabel($template); 
+		$parentTemplateLabel = $this->getTemplateLabel($parentTemplate); 
+		$form = $this->wire('modules')->get('InputfieldForm'); 
+		$form->description = $this->getTemplateLabel($template); 
+		$form->method = 'get';
+		$form->action = './';
+		$form->attr('id', 'select_parent_form'); 
+	
+		if($this->wire('input')->get('modal')) {
+			$f = $this->wire('modules')->get('InputfieldHidden');
+			$f->attr('name', 'modal');
+			$f->attr('value', 1);
+			$form->add($f);
+		}
+		
+		$f = $this->wire('modules')->get('InputfieldSelect'); 
+		$f->attr('name', 'parent_id'); 
+		$f->attr('id', 'select_parent_id'); 
+		$f->label = sprintf($this->_('Where do you want to add the new %s?'), "\"$templateLabel\""); 
+		$f->description = sprintf($this->_('Please select a parent %s page below:'), "\"$parentTemplateLabel\""); 
+		
+		$options = array();
+		foreach($parents as $parent) {
+			if(!$parent->addable()) continue; 
+			$key = $parent->parent->title ? $parent->parent->title . " - " . $parent->parent->path : $parent->parent->path; 
+			if(!isset($options[$key])) $options[$key] = array();
+			$options[$key][$parent->id] = $parent->get('title|name'); 
+		}
+
+		ksort($options); 
+		foreach($options as $optgroupLabel => $optgroup) {
+			$f->addOption($optgroupLabel, $optgroup); 
+		}
+
+		$form->add($f);
+		$f = $this->wire('modules')->get('InputfieldSubmit');
+		$f->attr('id', 'select_parent_submit'); 
+		$form->add($f); 
+		return $form->render();
+	}
+	
+	public function renderChooseTemplate() {
+		$data = $this->executeNavJSON(array('getArray' => true)); 
+		$out = '';
+		$bookmarkItem = null;
+		foreach($data['list'] as $item) {
+			if(strpos($item['url'], '?role=0') !== false) {
+				$bookmarkItem = $item;
+				continue;
+			}
+			if(!empty($item['parent_id'])) {
+				$parents = $this->wire('pages')->find("id=$item[parent_id]");
+			} else if(!empty($item['template_id'])) {
+				$template = $this->wire('templates')->get($item['template_id']);
+				$parentTemplates = implode('|', $template->parentTemplates);
+				if(empty($parentTemplates)) continue;
+				$parents = $this->wire('pages')->find("template=$parentTemplates, include=unpublished, limit=100, sort=-modified");
+			} else {
+				$parents = array();
+			}
+			$out .= 
+				"<dt><a class='label' href='./$item[url]'>" . 
+				"<i class='fa fa-fw fa-$item[icon]'></i> $item[label]</a></dt><dd>";
+			
+			if(count($parents)) {
+				$out .= "<ul>";
+				foreach($parents as $parent) {
+					$url = $item['url'];
+					if(strpos($url, 'parent_id') === false) $url .= "&parent_id=$parent->id";
+					$out .= "<li><i class='fa fa-fw'></i> <a href='./$url'>";
+					foreach($parent->parents()->and($parent) as $p) {
+						if($p->id == 1) continue;
+						$out .= "$p->title<i class='ui-priority-secondary fa fa-fw fa-angle-right'></i>";
+					}
+					$out .= "</a></li>";
+				}
+				$out .= "</ul>";
+			}
+			$out .= "</dd>";
+		}
+		if($out) {
+			$out = "<dl class='nav'>$out</dl>";
+		} else {
+			$out = 
+				"<h2>" . 
+				$this->_('There are currently no templates with defined parent/child relationships needed to show "Add New" shortcuts here. To configure this, edit any template (Setup > Templates) and click on the "Family" tab.') . // Text shown when no templates use family settings
+				"</h2>";
+		}
+		if($bookmarkItem) {
+			$button = $this->wire('modules')->get('InputfieldButton');
+			$button->href = $bookmarkItem['url'];
+			$button->value = $bookmarkItem['label'];
+			$button->addClass('head_button_clone');
+			$button->icon = $bookmarkItem['icon'];
+			$out .= $button->render();
+		}
+		return $out; 
+	}
+	
+	public function executeExists() {
+		$parentID = (int) $this->wire('input')->get('parent_id'); 
+		if(!$parentID) return '';
+		$parent = $this->wire('pages')->get($parentID); 
+		if(!$parent->addable()) return '';
+		$name = $this->wire('sanitizer')->pageNameUTF8($this->wire('input')->get('name')); 
+		if(!strlen($name)) return '';
+		$parentID = count($this->predefinedParents) ? $this->predefinedParents : $parentID; 
+		$page = $this->wire('pages')->get("parent_id=$parentID, name=" . $this->wire('sanitizer')->selectorValue($name) . ", include=all"); 
+		if($page->id) {
+			$out = "<span class='taken ui-state-error-text'><i class='fa fa-exclamation-triangle'></i> " . $this->_('Already taken') . "</span>";
+		} else {
+			$out = "<span class='ui-priority-secondary'><i class='fa fa-check-square-o'></i> " . $this->_('Ok') . "</span>"; 
+		}
+		return $out; 
+	}
+
+	public function ___execute() {
+
+		$this->wire('processHeadline', $this->_('Add New')); // Headline
+
+		if(!$this->parent_id) {
+			if(isset($_POST['parent_id'])) {
+				$this->parent_id = (int) $_POST['parent_id']; 
+			} else {
+				$this->parent_id = isset($_GET['parent_id']) ? (int) $_GET['parent_id'] : 0; 
+			}
+		}
+		
+		if($this->wire('input')->get('template_id') && !$this->parent_id) {
+			return $this->executeTemplate();
+		}
+
+		$template_id = (int) $this->wire('input')->post('template'); // note POST uses 'template' and GET uses 'template_id'
+		if(!$template_id) $template_id = (int) $this->wire('input')->get('template_id');
+		if($template_id) $this->template = $this->wire('templates')->get($template_id);
+		
+		if(!$this->parent_id && count($this->predefinedParents)) {
+			$this->parent_id = $this->predefinedParents->first()->id;
+		}
+		
+		if(!$this->parent_id) return $this->renderChooseTemplate();
+
+		$this->parent = $this->pages->get((int) $this->parent_id); 
+		if(!$this->parent->id) throw new Wire404Exception("Unable to load parent page $this->parent_id"); 
+		if(!$this->isAllowedParent($this->parent, true, $this->template)) throw new WireException($this->errors('string')); 
+
+		if(count($this->parent->template->childTemplates) == 1) {
+			// only one type of template is allowed for the parent
+			$childTemplates = $this->parent->template->childTemplates;
+			$template = $this->templates->get(reset($childTemplates)); 	
+			if($this->template && $template->id != $this->template->id) {
+				throw new WireException("Template $template is required for parent {$this->parent->path}");
+			}
+			$this->template = $template;
+			if(!$this->isAllowedTemplate($this->template, $this->parent)) {
+				throw new WireException("You don't have access to the template required to add pages here");
+			}
+
+		} else if($this->template) {
+			// initial request specifying a template id
+			if(!$this->isAllowedTemplate($this->template, $this->parent)) {
+				throw new WireException("Template {$this->template->name} is not allowed here ({$this->parent->path})");
+			}
+		}
+	
+		if($this->template && $this->parent) {
+			// determine whether quick-add can be used
+			if(strlen($this->parent->template->childNameFormat) || $this->input->get('name_format')) {
+				$this->processQuickAdd($this->parent, $this->template);
+			}
+		}
+		
+		$this->form = $this->buildForm();
+		$this->form->setTrackChanges();
+
+		if($this->input->post->submit_save || $this->input->post->submit_publish) {
+			$this->processInput($this->form);
+		}
+
+		$this->setupBreadcrumbs();
+
+		return $this->form->render();
+	}	
+
+	/**
+	 * Returns an array of templates that are allowed to be used here
+	 *
+	 */
+	protected function ___getAllowedTemplates($parent = null) {
+
+		if(is_null($parent)) $parent = $this->parent; 
+		if(!$parent) return array();
+		if(is_array($this->allowedTemplates)) return $this->allowedTemplates;
+
+		$user = $this->wire('user');
+		$templates = array();
+		$allTemplates = count($this->predefinedTemplates) ? $this->predefinedTemplates : $this->wire('templates');
+		$allParents = $this->getAllowedParents();
+		$usersPageIDs = $this->wire('config')->usersPageIDs;
+		$userTemplateIDs = $this->wire('config')->userTemplateIDs; 
+
+		if($parent->hasStatus(Page::statusUnpublished)) {
+			$parentEditable = $parent->editable();
+		} else {
+			// temporarily put the parent in an unpublished status so that we can check it from 
+			// the proper context: when page-publish permission exists, a page not not editable
+			// if a user doesn't have page-publish permission to it, even though it may still
+			// be editable if it was unpublished. 
+			$parent->addStatus(Page::statusUnpublished); 
+			$parentEditable = $parent->editable(); 
+			$parent->removeStatus(Page::statusUnpublished); 
+		}
+		
+		foreach($allTemplates as $t) {
+			
+			if($t->noParents == -1) {
+				// only 1 of this type allowed
+				if($t->getNumPages() > 0) continue;
+			} else if($t->noParents) {
+				continue;
+			}
+			if($t->useRoles && !$user->hasPermission('page-create', $t)) continue;  
+			if(!$t->useRoles && !$parentEditable) continue; 
+			if(!$t->useRoles && !$user->hasPermission('page-create', $parent)) continue;
+
+			if(count($allParents) == 1) {
+				if(count($parent->template->childTemplates)) {
+					// check that this template is allowed by the defined parent
+					if(!in_array($t->id, $parent->template->childTemplates)) continue;
+				}
+			}
+
+			if(count($t->parentTemplates)) {
+				// this template is only allowed for certain parents
+				$allow = false;
+				foreach($allParents as $_parent) {
+					if(in_array($_parent->template->id, $t->parentTemplates)) {
+						$allow = true;
+						break;
+					}
+				}
+				if(!$allow) continue; 
+			}
+
+			if(in_array($t->id, $userTemplateIDs)) {
+				// this is a user template: allow any parents defined in $config->usersPageIDs
+				$allow = false;
+				foreach($allParents as $_parent) {
+					if(in_array($_parent->id, $usersPageIDs)) {
+						$allow = true;
+						break;
+					}
+				}
+				if(!$allow) continue;
+				
+			} else if($t->name == 'role' && $parent->id != $this->config->rolesPageID) {
+				// only allow role templates below rolesPageID
+				continue;
+				
+			} else if($t->name == 'permission' && $parent->id != $this->config->permissionsPageID) {
+				// only allow permission templates below permissionsPageID
+				continue;
+			}
+
+			$templates[$t->id] = $t;
+		}
+
+		if($this->template || count($this->predefinedTemplates)) {
+			$predefinedTemplates = count($this->predefinedTemplates) ? $this->predefinedTemplates : array($this->template); 
+			foreach($predefinedTemplates as $t) {
+				$isUserTemplate = in_array($t->id, $userTemplateIDs);
+				if($isUserTemplate && !isset($templates[$t->id]) && $user->hasPermission('user-admin')) {
+					// account for the unique situation of user-admin permission
+					// where all user-based templates are allowed 
+					$templates[$t->id] = $t;
+				}
+			}
+		}
+
+		$this->allowedTemplates = $templates;
+
+		return $templates; 
+	}
+
+	/**
+	 * Is the given template or template ID allowed here?
+	 * 
+	 * @param Template|int Template ID or object
+	 * @param Page $parent Optionally parent page to filter by
+	 * @return bool
+	 * @throws WireException of template argument can't be resolved
+	 *
+	 */
+	protected function isAllowedTemplate($template, Page $parent = null) {
+		if(!is_object($template)) $template = $this->wire('templates')->get($template);
+		if(!$template) throw new WireException('Unknown template');
+		$templates = $this->getAllowedTemplates($parent);
+		$allowed = isset($templates[$template->id]); 
+		if($allowed && $parent) {
+			if(count($parent->template->childTemplates) && !in_array($template->id, $parent->template->childTemplates)) {
+				$allowed = false;
+			} else if($parent->template->noChildren) {
+				$allowed = false;
+			} else if(count($template->parentTemplates) && !in_array($parent->template->id, $template->parentTemplates)) {
+				$allowed = false;
+			} else if($template->noParents == -1) {
+				$allowed = $template->getNumPages() == 0;
+			} else if($template->noParents) {
+				$allowed = false;
+			}
+		}
+		return $allowed;
+	}
+
+	/**
+	 * Is the given parent page allowed?
+	 * 
+	 * @param Page $parent
+	 * @param bool $showError
+	 * @param Template $template Optionally limit condition to a specific template
+	 * @return bool
+	 * 
+	 */
+	protected function isAllowedParent(Page $parent, $showError = false, Template $template = null) {
+
+		if($parent->template->noChildren) {
+			if($showError) $this->error("The parent template has specified that no children may be added here");
+			return false;
+		}
+		
+		if($template && count($template->parentTemplates)) {
+			if(!in_array($parent->template->id, $template->parentTemplates)) {
+				if($showError) $this->error("The template '$template' does not allow parents of type '$parent->template'"); 
+				return false;
+			}
+		}
+		
+		if($template && count($parent->template->childTemplates)) {
+			if(!in_array($template->id, $parent->template->childTemplates)) {
+				if($showError) $this->error("The parent of type '$parent->template' does not allow children of type '$template'");
+				return false;
+			}
+		}
+
+		if(!$parent->addable()) {
+			if($showError) $this->error("You don't have access to add pages to parent $parent->path");
+			return false;
+		}
+		
+		if(count($this->predefinedParents)) {
+			$allowed = false; 
+			foreach($this->predefinedParents as $p) {
+				if($p->id == $parent->id) {
+					$allowed = true; 
+				}
+			}
+			if(!$allowed) {
+				if($showError) $this->error("Specified parent is not allowed ($parent->path)");
+				return false;
+			}
+		}
+		
+		return true; 
+	}
+
+	/**
+	 * Get allowed parents
+	 * 
+	 * This will always be 1-parent, unless predefinedParents was populated.
+	 * 
+	 * @param Template $template Optionally specify a template to filter parents by 
+	 * @return PageArray
+	 * 
+	 */
+	protected function getAllowedParents(Template $template = null) {
+		if(count($this->predefinedParents)) {
+			$parents = $this->predefinedParents;
+		} else {
+			$parents = $this->wire('pages')->newPageArray();
+			if($this->parent) $parents->add($this->parent);
+		}
+		foreach($parents as $parent) {
+			if(!$parent->addable()) $parents->remove($parent); 
+			if($parent->template->noChildren) $parents->remove($parent); 
+			if($template && count($parent->template->childTemplates)) {
+				// parent only allows certain templates for children
+				// if a template was given in the arguments, check that it is allowed
+				if(!in_array($template->id, $parent->template->childTemplates)) {
+					$parents->remove($parent);
+				}
+			}
+		}
+		if($template && count($template->parentTemplates)) {
+			// given template only allows certain parents
+			foreach($parents as $parent) {
+				if(!in_array($parent->template->id, $template->parentTemplates)) {
+					$parents->remove($parent);
+				}
+			}
+		}
+		return $parents; 
+	}
+
+	/**
+	 * Build the form fields for adding a page
+	 *
+	 */
+	protected function ___buildForm() {
+
+		$form = $this->modules->get('InputfieldForm');
+
+		$form->attr('id', 'ProcessPageAdd'); 
+		$form->addClass('InputfieldFormFocusFirst');
+		$form->attr('action', './' . ($this->input->get->modal ? "?modal=1" : '')); 
+		$form->attr('data-ajax-url', $this->wire('config')->urls->admin . 'page/add/'); 
+		$form->attr('data-dup-note',  $this->_('The name entered is already in use. If you do not modify it, the name will be made unique automatically after you save.')); 
+		$form->attr('method', 'post');
+
+		$page = $this->wire('pages')->newNullPage(); // for getInputfield
+		if(is_null($this->template) || !$this->template->noGlobal) {
+			foreach($this->wire('fields') as $field) {
+				if($field->flags & Field::flagGlobal && ($field->type instanceof FieldtypePageTitle || $field->type instanceof FieldtypePageTitleLanguage)) {
+					if($this->template) {
+						$_field = $this->template->fieldgroup->getField($field->id, true); // get in context of fieldgroup
+						if($_field) $field = $_field;
+					}
+					if(in_array($field->collapsed, array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked))) continue;
+					$inputfield = $field->getInputfield($page);
+					if($inputfield) {
+						if($this->template && $this->template->noLang) $inputfield->useLanguages = false;
+						$form->append($inputfield);
+					}
+					break;
+				}
+			}
+		} else if($this->template) {
+			$field = $this->template->fieldgroup->getField('title', true);
+			if($field) {
+				if(in_array($field->collapsed, array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked))) {
+					// skip it
+				} else {
+					$inputfield = $field->getInputfield($page);
+					if($inputfield) $form->append($inputfield);
+				}
+			}
+		}
+
+		$field = $this->modules->get('InputfieldPageName');
+		$field->parentPage = $this->parent; 
+		$field->attr('name', '_pw_page_name'); 
+		$field->required = true; 
+		if($this->template) {
+			$field->slashUrls = $this->template->slashUrls;
+			$label = $this->template->getNameLabel(); 
+			if($label) $field->label = $label;
+			$languages = $this->template->getLanguages();
+		} else {
+			$languages = $this->wire('languages');
+		}
+		if($languages && $this->parent && $this->parent_id > 0) {
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				$field->checkboxChecked = $this->parent->get("status$language") ? true : false;
+			}
+			if($this->template) {
+				// dummy edit page for examination by InputfieldPageName
+				$editPage = $this->wire('pages')->newPage();
+				$editPage->parent = $this->parent;
+				$editPage->template = $this->template;
+				$field->editPage = $editPage;
+			}
+		}
+		$form->append($field); 
+
+		$defaultTemplateId = (int) $this->wire('input')->get('template_id'); 
+		if(!$defaultTemplateId && $this->parent->numChildren > 0) { 
+			$sibling = $this->parent->child('sort=-created, include=hidden');
+			if($sibling && $sibling->id) $defaultTemplateId = $sibling->template->id;
+		}
+		if(!$defaultTemplateId) $defaultTemplateId = $this->parent->template->id;
+		$allowedTemplates = $this->getAllowedTemplates(); 
+		if(!count($allowedTemplates)) throw new WireException($this->_('No templates allowed for adding new pages here.')); 
+		if($this->template && !isset($allowedTemplates[$this->template->id])) throw new WireException(sprintf($this->_('Template "%s" is not allowed here.'), $this->template->name)); 
+		if(!isset($allowedTemplates[$defaultTemplateId])) $defaultTemplateId = 0; 
+		$numPublishable = 0; 
+		
+		if(count($allowedTemplates) < 2) {
+
+			// only 1 template can be used here, so store it in a hidden field (no need for selection)
+			$template = $this->template ? $this->template : reset($allowedTemplates); 
+			$field = $this->modules->get('InputfieldHidden');
+			$field->attr('id+name', 'template'); 
+			$field->attr('value', $template->id); 
+			if(count($template->fieldgroup) == 1 && $template->fieldgroup->hasField('title')) $numPublishable++;
+			$field->attr('data-publish', $numPublishable);
+			
+		} else {
+			// multiple templates are possible so give them a select
+	
+			$field = $this->modules->get('InputfieldSelect');
+	
+			foreach($allowedTemplates as $template) {
+				if(!count($this->predefinedTemplates) && $this->template && $template->id != $this->template->id) continue; 
+				$numFields = count($template->fieldgroup); 	
+				if($numFields == 1 && $template->fieldgroup->hasField('title')) { 
+					$isPublishable = 1; 
+					$numPublishable++;
+				} else {
+					$isPublishable = 0;
+				}
+					
+				$field->addOption($template->id, $this->getTemplateLabel($template), array(
+					'data-publish' => $isPublishable,
+					'data-nolang' => (int) $template->noLang
+				)); 
+			}
+			
+			$field->attr('value', $defaultTemplateId); 
+		}
+		
+		$field->label = $this->_('Template'); // Template field label
+		$field->attr('id+name', 'template');
+		$field->icon = 'cubes';
+		$field->required = true; 
+		$field instanceof InputfieldHidden ? $form->append($field) : $form->prepend($field);
+
+		if(count($this->predefinedParents) > 1) {
+			$field = $this->modules->get('InputfieldSelect');
+			$field->attr('name', 'parent_id');
+			$field->label = $this->_('Parent');
+			$field->required = true; 
+			$field->icon = 'folder-open-o';
+			$value = 0;
+			foreach($this->predefinedParents as $parent) {
+				$field->addOption($parent->id, $parent->path);
+				if($parent->id == $this->parent_id) $value = $parent->id; 
+			}
+			if($value) $field->attr('value', $value);
+			$form->prepend($field);
+			
+		} else {
+			$field = $this->modules->get('InputfieldHidden');
+			$field->attr('name', 'parent_id');
+			$value = count($this->predefinedParents) == 1 ? $this->predefinedParents->first()->id : $this->parent_id; 
+			$field->attr('value', $value);
+			$form->append($field);
+		}
+	
+		$field = $this->modules->get('InputfieldSubmit');
+		$field->attr('name', 'submit_save'); 
+		$field->attr('value', $this->_('Save')); 
+		$field->addClass('head_button_clone'); 
+		$form->append($field);
+		
+		if($numPublishable && !$this->noAutoPublish) {
+			$allowPublish = true;
+			if(!$this->wire('user')->isSuperuser()) {
+				$publishPermission = $this->wire('permissions')->get('page-publish');
+				if($publishPermission->id && !$this->wire('user')->hasPermission('page-publish')) $allowPublish = false;
+			}
+			if($allowPublish) {
+				$field = $this->modules->get('InputfieldSubmit');
+				$field->attr('id+name', 'submit_publish');
+				$field->attr('value', $this->_('Save + Publish'));
+				$field->addClass('ui-priority-secondary');
+				$form->append($field);
+			}
+		}
+
+		// $allowedTemplates = $this->getAllowedTemplates();	
+		if(count($allowedTemplates) == 1) {
+			$t = reset($allowedTemplates);
+			$form->description = $this->getTemplateLabel($t); 
+		}
+
+		return $form; 
+	}
+
+	/**
+	 * Return the label for the given Template
+	 *
+	 */
+	protected function getTemplateLabel(Template $template) {
+		$label = '';
+		$user = $this->wire('user'); 
+		$language = $this->wire('languages') && $user->language->id && !$user->language->isDefault ? $user->language : null;
+		if($language) $label = $template->get('label' . $language->id);
+		if(!$label) $label = $template->label ? $template->label : $template->name; 
+		return $label;
+	}
+
+	/**
+	 * Delete old 'quick add' pages that were never saved
+	 *
+	 */
+	protected function deleteOldTempPages() {
+
+		$old = time() - 86400;
+		$selector = "include=all, modified<$old, limit=10, status&" . Page::statusTemp . ", status<" . Page::statusTrash;
+		$items = $this->wire('pages')->find($selector); 
+
+		foreach($items as $item) {
+			$this->message("Checking temporary item: $item->path", Notice::debug); 
+			if(!$item->hasStatus(Page::statusUnpublished)) continue; 
+			if(!$item->hasStatus(Page::statusTemp)) continue; 
+			if($item->modified > $old) continue; 
+			if($item->numChildren > 0) continue; 
+
+			$msg = "Automatically trashed unused page: $item->path";
+			$this->message($msg, Notice::debug); 
+			$this->wire('log')->message($msg); 
+
+			try { 
+				if(!$item->title) $item->title = $this->_('Unused temp page') . ' - ' . $item->name; 
+				$this->wire('pages')->trash($item); 
+			} catch(\Exception $e) {
+				$this->error($e->getMessage()); 
+			}
+		}
+
+	}
+
+	/**
+	 * Perform a 'quick add' of a page and redirect to edit the page
+	 *
+	 * @param Page $parent
+	 * @param Template $template
+	 * @return bool Returns false if not success. Redirects if success.
+	 *
+	 */
+	protected function ___processQuickAdd(Page $parent, Template $template) { 
+
+		$this->deleteOldTempPages();
+		// allow for nameFormat to come from a name_format GET variable
+		$nameFormat = $this->sanitizer->text($this->input->get('name_format')); 
+		$nameFormatTemplate = $parent->template->childNameFormat;
+		if(strlen($nameFormat)) {
+			// temporarily assign to the template->childNameFormat property
+			$parent->template->childNameFormat = $nameFormat;
+		} else {
+			// if not specified in get variable, next check parent template for setting
+			$nameFormat = $nameFormatTemplate;
+		}
+		$class = $template->pageClass ? $template->pageClass : 'Page';
+		$page = $this->wire('pages')->newPage(array(
+			'pageClass' => $class,
+			'template' => $template
+		)); 
+		$page->parent = $parent; 
+		$this->wire('pages')->setupNew($page); 
+		if(!strlen($page->name)) return false;
+		if(!$this->isAllowedTemplate($template)) return false; 
+		$page->addStatus(Page::statusUnpublished); 
+		$page->addStatus(Page::statusTemp); // ProcessPageEdit will remove this status the first time the page is saved
+		$page->setEditor($this->editor); 
+	
+		// if languages are in use, make the new page inherit the parent's language status (active vs. inactive)
+		$languages = $template->getLanguages();
+		if($languages) foreach($languages as $language) {
+			if($language->isDefault()) continue; 
+			$languageStatus = $parent->get("status$language"); 
+			if($languageStatus) $page->set("status$language", $languageStatus); 
+		}
+
+		try {
+			$this->wire('pages')->save($page); 
+
+		} catch(\Exception $e) {
+			$this->error($e->getMessage()); 
+			return false;
+		}
+
+		if(strlen($nameFormat) && $nameFormat != $nameFormatTemplate) {
+			$parent->template->childNameFormat = $nameFormatTemplate; // restore original name format
+		}
+
+		if($page->id) { 
+			$this->createdPageMessage($page); 
+			$this->session->redirect("../edit/?id=$page->id&new=1" . ($this->wire('input')->get('modal') ? '&modal=1' : '')); 
+		} else {
+			return false;
+		}
+
+	}
+
+	protected function createdPageMessage(Page $page) {
+		$this->session->message(sprintf($this->_('Created page %1$s using template: %2$s'), $page->parent->url . $page->name, $page->template->name)); 
+	}
+
+	/**
+	 * Save the submitted page add form
+	 *
+	 */
+	protected function ___processInput(Inputfield $form) {
+
+		$this->page = $this->wire('pages')->newPage(); // must exist before processInput for language hooks
+		$form->processInput($this->input->post);
+
+		$nameField = $form->children->get('_pw_page_name'); 	
+		$name = $nameField->value; 
+
+		if(!strlen($name)) {
+			$this->error($this->_("Missing required field: name")); 
+			return false; 
+		}
+
+		/*
+		if($this->parent->child("name=$name, include=all")->id) {
+			$nameField->error($this->_("The name you selected is already in use. Please select another."));
+			return false;
+		}
+		*/
+
+		$template = $this->template; 
+		if(is_null($template)) { 
+			$templatesId = (int) $form->children->get('template')->value; 
+			$template = $this->templates->get($templatesId); 
+		}
+
+		if(!$this->isAllowedTemplate($template, $this->parent)) {
+			throw new WireException("You don't have access to add pages with template '$template'");
+		} else {
+			// $this->message("Template $template is allowed for {$this->parent->template}"); 
+		}
+		if(!$this->isAllowedParent($this->parent, true, $template)) {
+			throw new WireException($this->errors('string'));
+		} else {
+			// $this->message("Parent {$this->parent->path} is allowed for $template");
+		}
+	
+		$this->page->template = $template;	
+		$this->page->parent = $this->parent; 
+		$this->page->name = $name; 
+		$this->page->sort = $this->parent->numChildren; 
+
+		$publishNow = $this->page->publishable() && $this->wire('input')->post('submit_publish');
+		$languages = $template->getLanguages();
+
+		foreach($this->page->fieldgroup as $field) {
+			if(!$this->page->hasField($field)) continue;
+			$f = $form->children->get($field->name); 
+			if($f) {
+				if($languages && $f->getSetting('useLanguages')) {
+					// account for language fields (most likely FieldtypePageTitleLanguage)
+					$value = $this->page->get($field->name); 
+					if(is_object($value)) $value->setFromInputfield($f);
+				} else {
+					$value = $f->attr('value'); 
+				}
+				$this->page->set($field->name, $value); 
+			} else {
+				$publishNow = false; // non-global fields means we won't publish yet
+			}
+		}
+		
+		if($publishNow && $this->noAutoPublish) $publishNow = false; 
+
+		// if more fields are going to be present in this page's template, then don't make this page available until the user has 
+		// had the opportunity to edit those fields in ProcessPageEdit. But if they've already seen all the fields that will be here (global),
+	 	// like just a title field, then go ahead and publish now. 
+
+		if(!$publishNow) $this->page->addStatus(Page::statusUnpublished); 
+
+		$pageName = $this->page->name; 
+		$this->page->setEditor($this->editor); 
+		try {
+			$this->pages->save($this->page, array('adjustName' => true)); 
+		} catch(\Exception $e) {
+			$this->error($e->getMessage()); 
+			return false;
+		}
+
+		$this->createdPageMessage($this->page); 
+		if($pageName != $this->page->name) $this->error(sprintf($this->_('Warning, the name you selected "%1$s" was already in use and has been changed to "%2$s".'), $pageName, $this->page->name));
+		$this->session->redirect("../edit/?id={$this->page->id}&new=1" . ($this->input->get->modal ? "&modal=1" : ''));
+	}
+
+	/**
+	 * Setup the UI breadcrumb trail
+	 *
+	 */
+	public function setupBreadcrumbs() {
+		if($this->wire('page')->process != $this->className()) return;
+		$breadcrumbs = $this->wire(new Breadcrumbs());
+		$breadcrumbs->add(new Breadcrumb($this->config->urls->admin . 'page/list/', "Pages"));
+		foreach($this->parent->parents()->append($this->parent) as $p) {
+			$breadcrumbs->add(new Breadcrumb($this->config->urls->admin . "page/list/?open=" . $p->id, $p->get("title|name"))); 
+		}
+		$this->wire('breadcrumbs', $breadcrumbs); 
+	}
+
+	/**
+	 * @return Page|null
+	 *
+	 */
+	public function getPage() {
+		return $this->page ? $this->page : $this->wire('pages')->newNullPage(); 
+	}
+	
+	public function setEditor(WirePageEditor $editor) {
+		$this->editor = $editor; 
+	}
+
+	/**
+	 * Predefine the allowed templates, separately from family/auto-detect
+	 * 
+	 * @param array|WireArray $templates array of Template objects
+	 * 
+	 */
+	public function setPredefinedTemplates($templates) {
+		$this->predefinedTemplates = $templates; 	
+	}
+
+	/**
+	 * Predefine the allowed parents, separately from family/auto-detect
+	 * 
+	 * @param PageArray $parents
+	 * 
+	 */
+	public function setPredefinedParents(PageArray $parents) {
+		$this->predefinedParents = $parents; 
+	}
+
+	/**
+	 * Get an instance of PageBookmarks
+	 *
+	 * @return PageBookmarks
+	 *
+	 */
+	protected function getPageBookmarks() {
+		require_once($this->wire('config')->paths->ProcessPageEdit . 'PageBookmarks.php');
+		return $this->wire(new PageBookmarks($this));
+	}
+
+	/**
+	 * Execute the Page Bookmarks
+	 *
+	 * @return string
+	 * @throws WireException
+	 * @throws WirePermissionException
+	 *
+	 */
+	public function ___executeBookmarks() {
+		
+		if(is_array($this->wire('input')->post('shortcutSort')) && $this->wire('user')->isSuperuser()) {
+			$data = $this->wire('modules')->getModuleConfigData($this);	
+			$data['shortcutSort'] = $this->wire('input')->post->intArray('shortcutSort'); 
+			$this->wire('modules')->saveModuleConfigData($this, $data);
+		}
+	
+		$bookmarks = $this->getPageBookmarks();
+		$form = $bookmarks->editBookmarksForm();
+
+		$roleID = $this->wire('input')->get('role');
+		
+		if(!is_null($roleID) && $roleID == 0 && $this->wire('user')->isSuperuser()) {
+			$f = $this->getShortcutSortField();
+			$form->insertBefore($f, $form->getChildByName('submit_save_bookmarks'));
+		}
+		
+		$f = $form->getChildByName('bookmarks');
+		if($f->notes) $f->notes .= "\n\n";
+		$f->notes .= $this->_('The pages you select above represent bookmarks to the parent pages where you want children added. Note that if a user does not have permission to add a page to a given parent page (whether due to access control or template family settings), the bookmark will not appear.'); // Notes for bookmarks
+		
+		$this->wire('session')->remove($this, 'numAddable');
+		
+		return $form->render();
+	}
+	
+	public function getShortcutSortField() {
+		
+		$this->wire('session')->remove($this, 'nav');
+		$data = $this->executeNavJSON(array('getArray' => true));
+		$name = 'shortcutSort';
+	
+		$f = $this->wire('modules')->get('InputfieldAsmSelect');
+		$f->label = $this->_('Template shortcut sort order');
+		$f->description = $this->_('To change the order of the "Add New" page-template shortcuts, drag and drop the options to the order you want them in.');
+		$f->notes = $this->_('To add or remove templates from these shortcuts, see the Template editor Family tab.');
+		$f->attr('name', $name);
+		$f->icon = 'sort';
+		$f->setAsmSelectOption('removeLabel', '');
+
+		$out = '';
+		$value = array();
+
+		foreach($data['list'] as $item) {
+			if(empty($item['template_id'])) continue;
+			$template = $this->wire('templates')->get($item['template_id']);
+			if(!$template) continue;
+			$f->addOption($template->id, $template->getLabel());
+			$value[] = $template->id;
+		}
+		
+		if(!count($f->getOptions())) {
+			$f = $this->wire('modules')->get('InputfieldHidden');
+			$f->attr('name', $name);
+			return $f;
+		}
+
+		$f->attr('value', $value);
+		$f->collapsed = Inputfield::collapsedBlank;	
+		
+		return $f;
+	}
+	
+	public function getModuleConfigInputfields(array $data) {
+		
+		$form = $this->wire(new InputfieldWrapper());
+		$form->add($this->getShortcutSortField());
+		
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->label = $this->_('Disable automatic publishing');
+		$f->description = $this->_('By default, pages with nothing but global fields (most commonly "title") will be published automatically when added, bypassing the usual unpublished state. Usually this is a desirable time saver. But you may cancel this behavior by checking the box below.'); // Description of automatic publishing
+		$f->attr('name', 'noAutoPublish');
+		$f->attr('value', 1);
+		if(!empty($data['noAutoPublish'])) $f->attr('checked', 'checked');
+		$form->add($f);
+
+		return $form; 
+	}
+}
+

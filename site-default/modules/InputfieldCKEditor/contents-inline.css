@@ -1,0 +1,121 @@
+/**
+ * contents-inline.css
+ * 
+ * CKEditor editor styles for inline mode editor
+ *
+ * See also: contents-inline.scss
+ * 
+ * PLEASE NOTE: 
+ * 
+ * It's possible this file may be out of date since it is in /site/ rather than /wire/,
+ * and the version of this file will reflect whatever version you had when you first
+ * installed this copy of ProcessWire. 
+ * 
+ * If you intend to use this, you may first want to get the newest copy out of: 
+ * /wire/modules/Inputfield/InputfieldCKEditor/contents-inline.css
+ *
+ * Original file copyright (as included with CKEditor):  
+ * Copyright (c) 2003-2013, CKSource - Frederico Knabben. All rights reserved.
+ * For licensing, see LICENSE.html or http://ckeditor.com/license
+ *
+ */
+
+.InputfieldForm .InputfieldCKEditorInline {
+	font-family: Arial, sans-serif;
+}
+.InputfieldForm .InputfieldCKEditorInline p, 
+.InputfieldForm .InputfieldCKEditorInline li, 
+.InputfieldForm .InputfieldCKEditorInline dl, 
+.InputfieldForm .InputfieldCKEditorInline td {
+	font-size: 1em;
+	color: #333333;
+	background: white;
+}
+.InputfieldForm .InputfieldCKEditorInline a {
+	color: #444444;
+	background: none;
+	text-decoration: underline;
+}
+.InputfieldForm .InputfieldCKEditorInline a:hover {
+	color: #222222;
+	background: #ffffdd;
+}
+.InputfieldForm .InputfieldCKEditorInline i, 
+.InputfieldForm .InputfieldCKEditorInline em {
+	font-style: italic;
+}
+.InputfieldForm .InputfieldCKEditorInline b, 
+.InputfieldForm .InputfieldCKEditorInline strong {
+	font-weight: bold;
+}
+.InputfieldForm .InputfieldCKEditorInline strong em,
+.InputfieldForm .InputfieldCKEditorInline em strong {
+	font-weight: bold;
+	font-style: italic;
+}
+.InputfieldForm .InputfieldCKEditorInline small {
+	font-size: 0.875em;
+}
+.InputfieldForm .InputfieldCKEditorInline pre,
+.InputfieldForm .InputfieldCKEditorInline code {
+	font-family: Menlo, Monaco, 'Andale Mono', 'Lucida Console', 'Courier New', monospace;
+}
+.InputfieldForm .InputfieldCKEditorInline code {
+	display: inline;
+	background: #fff2a8;
+}
+.InputfieldForm .InputfieldCKEditorInline ul li,
+.InputfieldForm .InputfieldCKEditorInline ol li {
+	list-style: disc;
+	display: list-item;
+	margin: 0 0 0 2em;
+}
+.InputfieldForm .InputfieldCKEditorInline ol li {
+	list-style: decimal;
+}
+.InputfieldForm .InputfieldCKEditorInline blockquote {
+	padding-left: 1em;
+	border-left: 3px solid #ccc;
+}
+.InputfieldForm .InputfieldCKEditorInline h1, 
+.InputfieldForm .InputfieldCKEditorInline h2, 
+.InputfieldForm .InputfieldCKEditorInline h3, 
+.InputfieldForm .InputfieldCKEditorInline h4, 
+.InputfieldForm .InputfieldCKEditorInline h5 {
+	color: #222222;
+	font-family: Arial, sans-serif;
+	font-weight: normal;
+	text-transform: none;
+}
+.InputfieldForm .InputfieldCKEditorInline h1 {
+	font-size: 2.0em;
+}
+.InputfieldForm .InputfieldCKEditorInline h2 {
+	font-size: 1.7em;
+}
+.InputfieldForm .InputfieldCKEditorInline h3 {
+	font-size: 1.5em;
+}
+.InputfieldForm .InputfieldCKEditorInline h4 {
+	font-size: 1.3em;
+}
+.InputfieldForm .InputfieldCKEditorInline h5 {
+	font-size: 1.2em;
+}
+.InputfieldForm .InputfieldCKEditorInline h6 {
+	font-size: 1.1em;
+}
+.InputfieldForm .InputfieldCKEditorInline table td,
+.InputfieldForm .InputfieldCKEditorInline table th {
+	padding: 3px;
+}
+.InputfieldForm .InputfieldCKEditorInline table th {
+	font-weight: bold;
+}
+.InputfieldForm .InputfieldCKEditorInline img {
+	max-width: 100%;
+}
+.InputfieldForm .InputfieldCKEditorInline img.cke_anchor {
+	display: inline;
+}
+

@@ -1,0 +1,15 @@
+{
+   "file":"wire\/modules\/Inputfield\/InputfieldSelectMultiple.module",
+   "textdomain":"wire--modules--inputfield--inputfieldselectmultiple-module",
+   "translations":{
+      "019fce53dcc7e7f5a3abea240de44d77":{
+         "text":"Gr\u00f6\u00dfe: Anzahl Zeilen, die in der Mehrfachauswahl auf einmal sichtbar sind"
+      },
+      "6faad70d6719b405a08c5121e31e258b":{
+         "text":"Mehrfachauswahl aus einer Liste"
+      },
+      "eefa4a712878aa9e7c3a4fdb9ab10adf":{
+         "text":"Multi-select"
+      }
+   }
+}

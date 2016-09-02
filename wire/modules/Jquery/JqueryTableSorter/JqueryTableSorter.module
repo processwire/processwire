@@ -1,0 +1,21 @@
+<?php namespace ProcessWire;
+
+class JqueryTableSorter extends ModuleJS { 
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'jQuery Table Sorter Plugin',
+			'version' => 221,
+			'summary' => 'Provides a jQuery plugin for sorting tables.',
+			'href' => 'http://mottie.github.io/tablesorter/', 
+		);
+	}
+
+	// note ModuleJS automatically loads any JS or CSS files with the same basename as this module
+
+	public function __construct() {
+		$this->addComponents(array(
+			'widgets' => 'widgets.min.js'
+		));
+	}
+}

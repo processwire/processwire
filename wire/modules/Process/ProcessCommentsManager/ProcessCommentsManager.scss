@@ -1,0 +1,290 @@
+#CommentListHeader {
+	padding-top: 0.5em;
+	padding-bottom: 0.5em;
+
+	& > p {
+		line-height: 2.25em;
+		padding-right: 1em;
+		margin-top: 0.25em;
+		margin-bottom: 0.25em;
+	}
+	.MarkupPagerNav {
+		margin-top: 0;
+		margin-bottom: 0.5em;
+	}
+
+	.CommentLimitSelect {
+		float: left;
+	}
+
+	.CommentCheckAll {
+		display: block;
+		float: left;
+		padding-left: 0.75em;
+	}
+
+	.CommentActions {
+		float: left;
+	}
+
+	.CommentSorts {
+		float: left;
+	}
+}
+
+.CommentItems {
+	clear: both;
+	border-bottom: 1px solid #000; 
+	
+	& + button {
+		margin-top: 1em;
+	}
+}
+
+.CommentItem {
+	clear: both;
+	border-top: 1px solid #000;
+	margin: 0;
+	width: 100%;
+	
+	&.CommentChecked {
+		background-color: #eee;
+		th {
+			color: #999;
+		}
+	}
+
+	table {
+		/*
+		margin-top: 0.7em;
+		margin-bottom: 0.7em;
+		*/
+		width: 45%;
+		float: left;
+		
+		th,
+		td {
+			padding: 4px 10px 4px 0;
+			border-bottom: 1px dotted #ccc;
+			vertical-align: top;
+		}
+		
+		th {
+			font-weight: bold;
+			white-space: nowrap;
+			text-align: left;
+			padding-left: 0.75em !important;
+			
+			&:first-child {
+				width: 80px;
+			}
+		}
+		
+		tr:last-child {
+			td, th {
+				border-bottom: none;
+			}
+		}
+		
+	}
+	
+	.CommentTitle th,
+	.CommentTitle td {
+		padding-top: 0;
+	}
+	
+	.CommentChangedIcon {
+		display: none;
+	}
+	
+	&.CommentItemChanged .CommentChangedIcon {
+		display: inline;
+		float: right;
+		opacity: 0.3;
+	}
+	
+	input[type=number] {
+		width: 4em;
+	}
+	
+	.CommentVotes {
+		label {
+			margin-right: 1em;
+		}
+		.CommentUpvotes span {
+			font-weight: bold;
+			color: green;
+		}
+		.CommentDownvotes span {
+			font-weight: bold;
+			color: red;
+		}
+	}
+	
+	.CommentStars {
+		& > span {
+			display: inline;
+			cursor: pointer;
+			padding-right: 3px;
+			i.fa {
+				font-size: 18px !important;
+			}
+		}
+	}
+
+	.CommentContent {
+		float: left;
+		width: 55%;
+		padding-left: 1em;
+		border: none;
+		
+		.CommentChildrenInfo {
+			margin-top: 0.5em;
+		}
+		.CommentReplyInfo {
+			margin-bottom: 0;
+		}
+		
+		.CommentText {
+			cursor: pointer;
+			padding-right: 1em;
+
+			textarea {
+				width: 100%;
+				min-height: 15em;
+				margin-top: 1em;
+				margin-bottom: 1em;
+			}
+			.CommentTextEdit {
+				white-space: nowrap;
+			}
+			.CommentTextEditable {
+				/*
+				p {
+					margin: 1em 0;
+				}
+				& > p:first-child {
+					margin-top: 0;
+				}
+				*/
+			}
+		}
+
+		.CommentTextOverflow {
+			overflow-y: scroll;
+			max-height: 15em;
+		}
+
+	}
+	
+	label.CommentStatus {
+		white-space: nowrap;
+	}
+
+	&.CommentItemStatus999 {
+		display: none;
+	}
+
+	/*
+	&.CommentItemStatus-2 .CommentText {
+		background: #ffffcc;
+	}
+
+	&.CommentItemStatus0 .CommentText {
+		background: #ffffdd;
+	}
+	*/
+}
+
+
+.CommentCheckAll label .detail, 
+.CommentItem .CommentTitle th label .detail {
+	font-weight: bold;
+	color: #444;
+}
+
+.content .MarkupPagerNav {
+	padding-top: 0.5em;
+	float: right; 
+	
+	& + button {
+		margin-top: 1em;
+	}
+}
+
+.AdminThemeReno .content {
+	.MarkupPagerNav {
+		// AdminThemeReno pagination looks incorrect here with the "on" item having extra borders
+		// so this bit of code corrects it. @todo resolve this within AdminThemeReno rather than here
+		li a,
+		li:first-child a,
+		li.MarkupPagerNavOn a {
+			border-color: #fff !important;
+			border: none !important;
+			border-left: 1px solid #fff !important;
+		}
+		li {
+			margin-bottom: 1px; 
+		}
+	}
+	#CommentListHeader {
+		border-top: 1px solid #eee;
+		.MarkupPagerNav {
+			margin-top: 0.5em;
+		}
+	}
+}
+
+@media only screen and (max-width: 960px) {
+	
+	.content .MarkupPagerNav {
+		float: none;
+	}
+	
+	#CommentListHeader {
+		padding-bottom: 1em;
+		padding-top: 1em;
+		.MarkupPagerNav {
+			float: none;
+		}
+		p {
+			margin-top: 0;
+			margin-bottom: 0;
+			padding-right: 1em;
+			padding-left: 0 !important;
+		}
+		.CommentCheckAll {
+			//clear: both;
+			width: auto;
+		}
+	}
+	
+}
+
+@media only screen and (max-width: 768px) {
+	.CommentItem {
+		table {
+			width: 100%;
+			float: none;
+			th {
+				padding-left: 0 !important;
+			}
+		}
+		.CommentContent {
+			width: 100%;
+			float: none;
+			padding-left: 0;
+			
+			.CommentText {
+				padding-right: 0;
+			}
+			
+			.CommentTextOverflow {
+				overflow-y: auto;
+				max-height: inherit;
+			}
+		}
+		
+	}
+
+}

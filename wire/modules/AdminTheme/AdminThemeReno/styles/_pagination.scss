@@ -1,0 +1,114 @@
+// When PW 2.5 support no longer needed, please replace this file with _pagination-2.6.scss
+
+body .content{
+	.MarkupPagerNav {
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		margin: 1.5em 0;
+
+		li {
+			padding: 0;
+			margin: 0;
+			list-style: none;
+			float: left;
+			background: none;
+
+			a {
+				padding: 0.3em 1em;
+				margin: 0;
+				text-decoration: none;
+			}
+		}
+
+		li.MarkupPagerNavSeparator {
+			border: none;
+		}
+	}
+
+	& > .MarkupPagerNav {
+		margin-top: 0; // no top margin if the pager is the first item.
+	}
+
+	.MarkupPagerNav:after,
+	.PageListPagination:after {
+		content: "";
+		display: table;
+		clear: both;
+	}
+
+	/* Pagination */
+	.PageListPagination {
+		padding-top: 0.5em;
+		 li {
+		 	float: left;
+		 	margin: 0;
+		 }
+	}
+
+	.PageListPagination,
+	.MarkupPagerNav {
+		color: text-color;
+		font-size: $pagination-font-size;
+	}
+	.PageListPagination a,
+	.MarkupPagerNav a {
+		background: $pagination-link-bg;
+		color: $pagination-link-color;
+		font-weight: normal;
+		border: 1px solid $border-color !important;
+		border-right: none !important;
+		border-radius: 0;
+		display: inline-block;
+		padding: 0 .8em;
+	}
+	.PageListPagination li:last-child a,
+	.MarkupPagerNav li:last-child a {
+		border-radius: 0 $pagination-link-border-radius $pagination-link-border-radius 0 !important;
+		border-right: 1px solid $border-color !important;
+	}
+
+	.PageListPagination li:first-child a,
+	.MarkupPagerNav li:first-child a {
+		border-radius: $pagination-link-border-radius 0 0 $pagination-link-border-radius !important;
+	}
+
+	.MarkupPagerNav .MarkupPagerNavFirstNum a{
+		border-right: 1px solid $border-color !important;
+	}
+
+	.MarkupPagerNav .MarkupPagerNavLastNum a{
+		border-left: 1px solid $border-color !important;
+	}
+
+	.PageListPaginationCurrent a,
+	.PageListPaginationCurrent a:hover,
+	.MarkupPagerNavOn a,
+	.MarkupPagerNavOn a:hover {
+		color: $pagination-link-current-color !important;
+		background: $pagination-link-current-bg !important;
+		border-color: $pagination-link-current-bg !important;
+	}
+
+	.MarkupPagerNav li:first-child.MarkupPagerNavOn a {
+		border-color: $pagination-link-current-bg transparent $pagination-link-current-bg $pagination-link-current-bg!important;
+	}
+
+	.MarkupPagerNav li:last-child.MarkupPagerNavOn a {
+		border-color: $pagination-link-current-bg $pagination-link-current-bg transparent !important;
+	}
+
+	.PageListPagination a:hover,
+	.MarkupPagerNav a:hover {
+		/* action links hovered */
+		color: $pagination-link-hover-color;
+		background: $pagination-link-hover-bg;
+	}
+
+	.PageListPagination a:active,
+	.MarkupPagerNav a:active {
+		color: $pagination-link-active-color;
+		background: $pagination-link-active-bg;
+		box-shadow: inset 0px 1px 3px 0px rgba(0,0,0,0.1);
+	}
+}

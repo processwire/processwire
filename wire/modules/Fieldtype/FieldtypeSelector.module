@@ -1,0 +1,106 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Selector Fieldtype
+ *
+ * Concept by Antti Peisa
+ * Code by Ryan Cramer
+ * Sponsored by Avoine
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class FieldtypeSelector extends Fieldtype {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Selector',
+			'version' => 13,
+			'summary' => 'Build a page finding selector visually.',
+			'author' => 'Avoine + ProcessWire',
+			);
+	}
+
+	public function init() {
+		parent::init();
+	}
+
+	public function getInputfield(Page $page, Field $field) {
+		$inputfield = $this->wire('modules')->get('InputfieldSelector'); 
+		$inputfield->initValue = $field->initValue; 
+		return $inputfield; 
+	}	
+
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = $this->wire(new Fieldtypes());
+		foreach($this->wire('fieldtypes') as $fieldtype) {
+			if($fieldtype instanceof FieldtypeText || $fieldtype instanceof FieldtypeSelector) {
+				$fieldtypes->add($fieldtype);
+			}
+		}
+		return $fieldtypes;
+	}
+
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		return $value;
+	}
+
+	public function ___formatValue(Page $page, Field $field, $value) {
+		return $value; 
+	}
+
+	public function ___sleepValue(Page $page, Field $field, $value) {
+		$initValue = trim($field->initValue);
+		if(strlen($initValue) && strpos($value, $initValue) === 0) {
+			$value = trim(substr($value, strlen($initValue)+1), ', '); 
+		}
+		return parent::___sleepValue($page, $field, $value); 
+	}
+
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+		$value = parent::___wakeupValue($page, $field, $value); 
+		$initValue = trim($field->initValue);
+		if(strlen($initValue) && strpos($value, $initValue) === false) {
+			$value = "$initValue, $value";
+		}
+		return $value; 
+	}
+	/**
+	* Return the database schema in specified format
+	*
+	*/
+	public function getDatabaseSchema(Field $field) {
+		$schema = parent::getDatabaseSchema($field);
+		$schema['data'] = 'text NOT NULL';
+		$schema['keys']['data_exact'] = 'KEY `data_exact` (`data`(250))';
+		$schema['keys']['data'] = 'FULLTEXT KEY `data` (`data`)';
+		return $schema;
+	}
+
+	/**
+	 * Update a query to match the text with a fulltext index
+	 *
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
+		$ft->match($table, $subfield, $operator, $value);
+		return $query;
+	}
+
+	public function ___getConfigInputfields(Field $field) {
+		$inputfields = parent::___getConfigInputfields($field);
+
+		$f = $this->wire('modules')->get('InputfieldText'); 
+		$f->attr('name', 'initValue'); 
+		$f->label = $this->_('Initial Selector Value'); 
+		$f->description = $this->_('Enter an initial selector string that will be used as the enforced starting point for any selectors generated from this field. Any pages matching the user selector will be bound within the selector you enter here.'); 
+		$f->notes = $this->_('Example: template=product'); 
+		$f->attr('value', $field->initValue ? $field->initValue : ''); 
+		$inputfields->add($f); 
+
+		return $inputfields; 	
+	}
+
+}

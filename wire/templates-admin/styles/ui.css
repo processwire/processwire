@@ -1,0 +1,258 @@
+/**********************************************************************************************
+ * ProcessWire Admin Control Panel - Skyscraper Theme - ui.css
+ *
+ * 1. jQuery UI overrides.
+ * 2. Theming of specific user interface elements (MarkupPagerNav and PageList)
+ *
+ * Copyright 2012 by Ryan Cramer
+ *
+ */
+
+
+/****************************************************************************************
+ * 1. Theme specific jQuery UI overrides and additions
+ *
+ */
+
+.ui-icon {
+	float: left; 
+	margin-right: 2px; 
+}
+
+label.ui-widget-header + div.ui-widget-content {
+	/* remove doubled border between header/content on ui-widgets */
+	border-top: none;
+}
+
+#notices .ui-state-highlight,
+#notices .ui-state-error {
+	padding: 0.5em; 
+}
+
+	#notices .ui-state-error pre {
+		font-size: 11px; 
+		margin: 1em 0;
+	}
+
+	#notices .ui-icon {
+		position: relative;
+		top: 2px; 
+	}
+
+	#notices a {
+		text-decoration: underline; 
+	}
+
+p span.ui-state-error {
+        padding: 0.25em 0.5em;
+}
+
+.ui-dialog .ui-dialog-titlebar {
+	margin: 0;
+}
+
+.ui-dialog .ui-dialog-titlebar .ui-button {
+	/*
+	background: none; 
+	border: none; 	
+	*/
+	outline: none; 
+}
+
+.ui-dialog .ui-dialog-titlebar .ui-button .ui-icon {
+	position: relative; 
+	top: 0;
+	left: 0; 
+	margin: 0; 
+}
+
+.ui-dialog .ui-dialog-content {
+	padding: 0; 
+}
+
+.ui-widget-overlay {
+	background: #000; 
+}
+
+.ui-button {
+	font-size: 1em; 
+	margin: 0 1em 0 0; 
+	padding: 3px 9px; 
+	cursor: pointer; 
+	box-shadow: 0 0 5px rgba(0, 0, 0, 0.1); 
+}
+
+	p > a > .ui-button {
+		font-size: 0.923076923076923em;
+	}
+
+	a .ui-button {
+		display: block;
+	}
+
+.ui-accordion-header-icon {
+	display: none; 
+}
+
+
+/**
+ * jQuery UI autocomplete
+ *
+ */
+.ui-autocomplete {
+    box-shadow: 0 1px 3px 3px rgba(0,0,0,0.15);
+}
+.ui-autocomplete li {
+    border-bottom: 1px solid #eee; 
+}
+.ui-autocomplete li small {
+    opacity: 0.5; 
+}
+.ui-autocomplete .ui-widget-header a {
+    font-size: 0.9em;
+    font-weight: bold;
+}
+
+/**
+ * jQuery UI tooltips 
+ *
+ */
+.ui-tooltip, .arrow:after {
+	background: black;
+	border: 2px solid white;
+}
+.ui-tooltip {
+	padding: 10px 20px;
+	color: white;
+	border-radius: 20px;
+	font: bold 12px "Helvetica Neue", Sans-Serif;
+	box-shadow: 0 0 7px black;
+}
+.arrow {
+	width: 70px;
+	height: 16px;
+	overflow: hidden;
+	position: absolute;
+	left: 50%;
+	margin-left: -35px;
+	bottom: -16px;
+}
+.arrow.top {
+	top: -16px;
+	bottom: auto;
+}
+.arrow.left {
+	left: 20%;
+}
+.arrow:after {
+	content: "";
+	position: absolute;
+	left: 20px;
+	top: -20px;
+	width: 25px;
+	height: 25px;
+	box-shadow: 6px 5px 9px -9px black;
+	-webkit-transform: rotate(45deg);
+	-moz-transform: rotate(45deg);
+	-ms-transform: rotate(45deg);
+	-o-transform: rotate(45deg);
+	tranform: rotate(45deg);
+}
+.arrow.top:after {
+	bottom: -20px;
+	top: auto;
+}
+
+/***********************************************************************************************
+ * 2a. Theme Specific Pagination Markup
+ *
+ */
+
+.MarkupPagerNav {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        margin: 1em 0;
+}
+        .MarkupPagerNav li {
+                padding: 0;
+                margin: 0;
+                list-style: none;
+                display: inline;
+                padding: 6px 0;
+                background: none;
+        }
+
+                .MarkupPagerNav li a {
+                        padding: 4px 9px;
+                        margin: 0;
+                        text-decoration: none;
+                        border: none;
+                        background: #2f4248;
+                        color: #fff;
+                        font-weight: bold;
+                        font-size: 11px;
+                        text-transform: uppercase;
+			opacity: 0.8; 
+                }
+
+                .MarkupPagerNav li a:hover {
+			opacity: 1.0; 
+		}
+
+                .MarkupPagerNav li.MarkupPagerNavOn a {
+			opacity: 1.0;
+                        color: #fff;
+                        background: #db1174;
+                }
+
+                .MarkupPagerNav li.MarkupPagerNavSeparator {
+                        border: none;
+                }
+
+
+/****************************************************************************************
+ * 2b. Theme specific PageList overrides
+ *
+ */
+
+.PageList {
+}
+	/**
+	 * Default color for page list items
+	 *
+	 */
+	.PageList a.PageListPage, 
+	.PageList a.PageListPage:hover {
+		color: #7a002b; 	
+	}
+		/**
+	 	 * Color when hovered
+		 *
+		 */
+		.PageList a.PageListPage:hover {
+			background: none; 
+			text-decoration: underline; 
+		}
+
+	.PageList a.PageListPage i {
+		margin-right: 0.25em; 
+	}
+
+	/**
+	 * Color of page when opened
+	 *
+	 */
+	.PageList .PageListItemOpen > a.PageListPage  {
+		color: #000; 
+		background-color: #ffffdd;
+	}
+
+	/**
+	 * Give the page a lighter/alternate color when it has a hidden status
+	 *
+	 */
+	.PageList .PageListStatusHidden a.PageListPage {
+		color: #ac6186; 
+	}
+

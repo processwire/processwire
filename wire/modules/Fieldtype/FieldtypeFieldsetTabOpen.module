@@ -1,0 +1,85 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Fieldset Tabs
+ *
+ * These are the same as FieldsetOpen except that they are displayed in tabs rather than normal fieldsets. 
+ *
+ * For documentation about the fields used in this class, please see:  
+ * /wire/core/Fieldtype.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+require_once(__DIR__ . "/FieldtypeFieldsetOpen.module"); 
+
+class InputfieldFieldsetTabOpen extends InputfieldFieldsetOpen { 
+	
+	public function __construct() {
+		$this->set('modal', false); // only applicable to ProcessPageEdit at present
+		parent::__construct();
+	}
+	
+	public function ___getConfigInputfields() {
+		$inputfields = parent::___getConfigInputfields();
+		$inputfields->remove($inputfields->getChildByName('columnWidth')); 
+		$in = $inputfields->getChildByName('collapsed'); 
+		//if($in->parent) $in->parent->set('collapsed', Inputfield::collapsedYes); 
+		foreach($in->getOptions() as $key => $value) {
+			// tabs may not be collapsed
+			if($key != Inputfield::collapsedNo && $key != Inputfield::collapsedYesAjax) $in->removeOption($key); 
+		}
+		// tabs don't support showIf
+		$in = $inputfields->getChildByName('showIf'); 
+		if($in) $in->getParent()->remove($in); 
+		
+		return $inputfields; 
+	}
+	
+} 
+
+class FieldtypeFieldsetTabOpen extends FieldtypeFieldsetOpen {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Fieldset in Tab (Open)',
+			'version' => 100,
+			'summary' => 'Open a fieldset to group fields. Same as Fieldset (Open) except that it displays in a tab instead.',
+			'permanent' => true, 
+			);
+	}
+	
+	public function getInputfield(Page $page, Field $field) {
+		$inputfield = $this->wire(new InputfieldFieldsetTabOpen());
+		$inputfield->class = $this->className();
+		if($field->modal) {
+			$inputfield->modal = true;
+		} else if($field->collapsed == Inputfield::collapsedYesAjax) {
+			$inputfield->collapsed = $field->collapsed;
+		}
+		return $inputfield; 
+	}
+	
+	public function ___getConfigInputfields(Field $field) {
+		$inputfields = parent::___getConfigInputfields($field); 
+		$in = $this->wire('modules')->get('InputfieldCheckbox');
+		$in->attr('name', 'modal');
+		$in->label = $this->_('Open in modal window?');
+		$in->description = $this->_('Check the box to make this tab open in its own modal window. This can improve performance with large forms.');
+		$in->notes = $this->_('To solve a similar need, you might instead consider the AJAX option, available at: Input (tab) > Visibility > Presentation.');
+		if($field->modal) $in->attr('checked', 'checked');
+		$inputfields->add($in);
+		return $inputfields;
+	}
+
+	public function ___getConfigAllowContext(Field $field) {
+		return array('modal');
+	}
+
+
+}
+
+

@@ -1,0 +1,432 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Login Process
+ *
+ * Provides Login capability for ProcessWire Admin 
+ * 
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ * @property bool $allowForgot Whether the ProcessForgotPassword module is installed. 
+ * 
+ * @method void beforeLogin() #pw-hooker
+ * @method void afterLogin() #pw-hooker
+ * @method void executeLogout() #pw-hooker
+ * @method void afterLoginRedirect() #pw-hooker
+ * @method string renderLoginForm() #pw-hooker
+ * @method InputfieldForm buildLoginForm() #pw-hooker
+ *
+ */
+
+class ProcessLogin extends Process {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Login',
+			'summary' => 'Login to ProcessWire',
+			'version' => 103,
+			'permanent' => true,
+			'permission' => 'page-view',
+		);
+	}
+
+	/**
+	 * @var Inputfield
+	 * 
+	 */
+	protected $nameField;
+	
+	/**
+	 * @var Inputfield
+	 *
+	 */
+	protected $passField;
+
+	/**
+	 * @var InputfieldSubmit
+	 * 
+	 */
+	protected $submitField;
+
+	/**
+	 * @var InputfieldForm
+	 * 
+	 */
+	protected $form;
+
+	/**
+	 * @var int
+	 * 
+	 */
+	protected $id; 
+
+	/**
+	 * Is this login form being used for admin login?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $isAdmin = false;
+
+	/**
+	 * URL to redirect to after login
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $loginURL = '';
+
+	/**
+	 * URL to redirect to after logout
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $logoutURL = '';
+
+	/**
+	 * Build the login form 
+	 *
+	 */
+	public function init() {
+
+		$this->id = isset($_GET['id']) ? (int) $_GET['id'] : ''; 
+		$this->allowForgot = $this->modules->isInstalled('ProcessForgotPassword'); 
+		$this->isAdmin = $this->wire('page')->template == 'admin';
+
+		return parent::init();
+	}
+
+	/**
+	 * Set URL to redirect to after login success
+	 * 
+	 * If not set, redirect will be back to the current page with a "login=1" GET variable. 
+	 * However, you should only check if the user is logged in with if($user->isLoggedin()).
+	 * 
+	 * @param $url
+	 * @return $this
+	 * @throws WireException if given invalid URL
+	 * 
+	 */
+	public function setLoginURL($url) {
+		$url = $this->wire('sanitizer')->url($url, array('throw' => true)); 
+		$this->loginURL = $url;
+		return $this; 
+	}
+	
+	/**
+	 * Set URL to redirect to after logout success
+	 *
+	 * If not set, redirect will be back to the current page with a "logout=2" GET variable. 
+	 *
+	 * @param $url
+	 * @return $this
+	 * @throws WireException if given invalid URL
+	 *
+	 */
+	public function setLogoutURL($url) {
+		$url = $this->wire('sanitizer')->url($url, array('throw' => true));
+		$this->logoutURL = $url;
+		return $this;
+	}
+	
+	/**
+	 * Check if login posted and attempt login, otherwise render the login form
+	 * 
+	 * @return string
+	 *
+	 */
+	public function ___execute() {
+		
+		if($this->user->isLoggedin()) {
+			if($this->loginURL) $this->wire('session')->redirect($this->loginURL); 
+			$this->message($this->_("You are logged in.")); 
+			if($this->isAdmin && $this->user->hasPermission('page-edit')) $this->afterLoginRedirect();
+			// fallback if nothing set
+			$url = $this->config->urls->root;
+			return "<p><a href='$url'>" . $this->_('Continue') . "</a></p>";
+		}
+
+		if($this->input->get('forgot') && $this->allowForgot) {
+			/** @var ProcessForgotPassword $process */
+			$process = $this->modules->get("ProcessForgotPassword"); 
+			return $process->execute();
+		}
+
+		$this->buildLoginForm();
+
+		if($this->wire('input')->post('login_submit')) {
+			$this->form->processInput($this->wire('input')->post);
+		} else if($this->isAdmin) {
+			$this->beforeLogin();
+		}
+
+		if(!$this->nameField->attr('value') || !$this->passField->attr('value')) {
+			return $this->renderLoginForm();
+		}
+
+		$name = $this->wire('sanitizer')->pageName($this->nameField->attr('value')); 
+		$pass = substr($this->passField->attr('value'), 0, 128); 
+	
+		if($this->wire('session')->login($name, $pass)) {
+			$this->session->message($name . ' - ' . $this->_("Successful login")); 
+			if($this->isAdmin) {
+				$this->session->set('hidpi', $this->wire('input')->post->login_hidpi ? true : false);
+				$this->session->set('touch', $this->wire('input')->post->login_touch ? true : false);
+				$this->session->remove('error');
+				$this->afterLogin();
+			}
+			$this->session->redirect("./?login=1" . ($this->id ? "&id={$this->id}" : ''));  
+		} else {
+			$this->error($name . " - " . $this->_("Login failed")); 
+		}
+
+		return $this->renderLoginForm();
+
+	}
+	
+	/**
+	 * Log the user out
+	 *
+	 */
+	public function ___executeLogout() {
+		if($this->logoutURL) {
+			$url = $this->logoutURL;
+		} else if($this->isAdmin) {
+			$url = $this->config->urls->admin;
+			$this->message($this->_("You have logged out"));
+		} else {
+			$url = "./?logout=2";
+		}
+		$this->session->logout();
+		$this->session->redirect($url);
+	}
+
+
+	/**
+	 * Check that sessions can be initiated and attempt to rectify situation if not
+	 * 
+	 * Happens only on the admin login form. 
+	 *
+	 */
+	protected function ___beforeLogin() {
+		
+		// if checks already completed don't run them again
+		if($this->wire('session')->get($this, 'beforeLoginChecks')) return;
+		
+		if(	ini_get('session.save_handler') == 'files' 
+			&& !$this->wire('modules')->isInstalled('SessionHandlerDB')
+			&& !$this->wire('input')->get('db')
+			) {
+			
+			$installSessionDB = false;
+			$path = $this->config->paths->sessions;
+			$error = '';
+			
+			if(!file_exists($path)) {
+				$this->wire('files')->mkdir($path);
+				clearstatcache();
+				if(file_exists($path)) {
+					$this->wire('log')->message("Created session path $path"); 
+				} else {
+					$installSessionDB = true;
+					$error = "Session path $path does not exist and we are unable to create it.";
+				}
+				
+			} 
+			
+			if(!is_writable($path)) {
+				$this->wire('files')->chmod($path);
+				clearstatcache();
+				if(is_writable($path)) {
+					$this->wire('log')->message("Updated session path to be writable $path"); 
+				} else {
+					$installSessionDB = true;
+					$error = "Unable to write to session path $path, and unable to fix the permissions.";
+				}
+			}
+			
+			// if we can't get file-based sessions going, switch to database sessions to ensure admin can login
+			if($installSessionDB) {
+				if($error) $this->wire('log')->error($error); 
+				if($this->wire('modules')->get('SessionHandlerDB')) {
+					$this->wire('log')->error("Installed SessionHandlerDB as an alternate session handler. If you wish to uninstall this, do so after correcting the session path error."); 
+					$this->wire('session')->redirect("./?db=1"); // db param to prevent potential infinite redirect
+				} else {
+					$this->wire('log')->error("Unable to install alternate session handler module SessionHandlerDB"); 	
+					$this->error("Session write error. Login may not be possible."); 
+				}
+			}
+		}
+		
+		$this->wire('session')->set($this, 'beforeLoginChecks', 1); 
+	}
+
+	/**
+	 * Hook called after login
+	 *
+	 * @todo: move the following elsewhere out of this class: 
+	 * Notify admin if there are any issues that need their attention.
+	 * Happens only on the admin login form after superuser login. 
+	 *
+	 */
+	protected function ___afterLogin() {
+		if(!$this->user->isSuperuser()) return;
+
+		$indexVersion = ProcessWire::indexVersion; 
+		$htaccessVersion = ProcessWire::htaccessVersion;
+		
+		if(PROCESSWIRE < $indexVersion) {
+			$this->warning(
+				"Not urgent, but note that your root index.php file is not up-to-date with this ProcessWire version - please update it when possible. " . 
+				"<br /><small>Required version: $indexVersion, Found version: " . PROCESSWIRE . "</small>", Notice::log | Notice::allowMarkup
+				); 
+		}
+
+		$htaccessFile = $this->wire('config')->paths->root . '.htaccess';
+		if(is_readable($htaccessFile)) {
+			$htaccessData = file_get_contents($htaccessFile); 
+			if(!preg_match('/@(?:index|htaccess)Version\s+(\d+)\b/', $htaccessData, $matches) || ((int) $matches[1]) < $htaccessVersion) {	
+				$this->warning(
+					"Not urgent, but note that your root .htaccess file is not up-to-date with this ProcessWire version - please update it when possible.<br />" .  
+					"<small>To ignore this warning, replace or add the following in the top of your existing .htaccess file:</small> " . 
+					"<span style='font-family: monospace;'># @indexVersion $htaccessVersion</span>", Notice::log | Notice::allowMarkup
+					); 
+			}
+		}
+
+		// if($this->config->showSecurityWarnings === false) return;
+		// if(is_writable($this->config->paths->root . "site/config.php")) $this->error("Security Warning: /site/config.php is writable and ideally should not be."); 
+		// if(is_writable($this->config->paths->root . "index.php")) $this->error("Security Warning: /index.php is writable and ideally should not be."); 
+		$warningText = $this->_("Security Warning: %s exists and should be deleted as soon as possible."); 
+		if(is_file($this->config->paths->root . "install.php")) $this->error(sprintf($warningText, '/install.php'), Notice::log); 
+
+		$file = $this->config->paths->assets . "active.php";
+		if(!is_file($file)) {
+			$data = "<?php // Do not delete this file. " . 
+				"The existence of this file indicates the site is confirmed active " . 
+				"and first-time use errors may be suppressed. Installed at: " . 
+				"[{$this->config->paths->root}]";
+			file_put_contents($file, $data); 
+		}
+	
+		// warnings about 0666/0777 file permissions
+		if($this->config->chmodWarn && ($this->config->chmodDir == '0777' || $this->config->chmodFile == '0666')) {
+			$warning = 
+				$this->_('Warning, your /site/config.php specifies file permissions that are too loose for many environments:') . '<br />' . 
+				"<span style='font-family:monospace'>" . 
+				"\$config->chmodFile = '{$this->config->chmodFile}';<br />" . 
+				"\$config->chmodDir = '{$this->config->chmodDir}';" . 
+				"</span><br /><i class='fa fa-angle-right'></i> " . 
+				"<a href='https://processwire.com/docs/security/file-permissions/' target='_blank'>" . 
+				$this->_('Read "Securing file permissions" for more details') . "</a><br />" . 
+				"<small class='ui-priority-secondary'>" . 
+				$this->_('To suppress this warning, set $config->chmodWarn = false; in your /site/config.php file.') . 
+				"</small>";
+			$warning = str_replace(array('0666', '0777'), array('<u>0666</u>', '<u>0777</u>'), $warning);
+			$this->warning($warning, Notice::allowMarkup | Notice::log);
+		}
+		
+		if($this->wire('fields')->get('published')) {
+			$this->error("Warning: you have a field named 'published' that conflicts with the page 'published' property. Please rename your field field to something else and update any templates referencing it.");
+		}
+
+	}
+
+	/**
+	 * Build the login form
+	 * 
+	 * @return InputfieldForm
+	 * 
+	 */
+	protected function ___buildLoginForm() {
+
+		$this->nameField = $this->modules->get('InputfieldText');
+		$this->nameField->set('label', $this->_('Username')); // Login form: username field label
+		$this->nameField->attr('id+name', 'login_name'); 
+		$this->nameField->attr('class', $this->className() . 'Name');
+		$this->nameField->collapsed = Inputfield::collapsedNever;
+
+		$this->passField = $this->modules->get('InputfieldText');
+		$this->passField->set('label', $this->_('Password')); // Login form: password field label
+		$this->passField->attr('id+name', 'login_pass'); 
+		$this->passField->attr('type', 'password'); 
+		$this->passField->attr('class', $this->className() . 'Pass');
+		$this->passField->collapsed = Inputfield::collapsedNever;
+
+		$this->submitField = $this->modules->get('InputfieldSubmit');
+		$this->submitField->attr('name', 'login_submit'); 
+		$this->submitField->attr('value', $this->_('Login')); // Login form: submit login button 
+		
+		$this->form = $this->modules->get('InputfieldForm');
+
+		// we'll retain an ID field in the GET url, if it was there
+		$this->form->attr('action', "./" . ($this->id ? "?id={$this->id}" : '')); 
+		$this->form->addClass('InputfieldFormFocusFirst');
+
+		$this->form->attr('id', $this->className() . 'Form'); 
+		$this->form->add($this->nameField); 
+		$this->form->add($this->passField); 
+		$this->form->add($this->submitField);
+
+		if($this->isAdmin) {
+			// detect hidpi at login (populated from js)
+			/** @var InputfieldHidden $f */
+			$f = $this->modules->get('InputfieldHidden');
+			$f->attr('id+name', 'login_hidpi');
+			$f->attr('value', 0);
+			$this->form->add($f);
+
+			// detect touch device login (populated from js)
+			$f = $this->modules->get('InputfieldHidden');
+			$f->attr('id+name', 'login_touch');
+			$f->attr('value', 0);
+			$this->form->add($f);
+		}
+
+		return $this->form; 
+	}
+
+	/**
+	 * Render the login form
+	 * 
+	 * @return string
+	 *
+	 */
+	protected function ___renderLoginForm() {
+		if($this->wire('input')->get('login')) {
+			$this->afterLoginRedirect();
+			return '';
+		} else {
+			// note the space after 'Login ' is intentional to separate it from the Login button for translation purposes
+			$this->headline($this->_('Login ')); // Headline for login form page
+			$this->passField->attr('value', '');
+			$out = $this->form->render();
+			$links = '';
+			if($this->allowForgot) {
+				$links .= "<div><a href='./?forgot=1'><i class='fa fa-question-circle'></i> " . $this->_("Forgot your password?") . "</a></div>"; // Forgot password link text
+			}
+			$home = $this->pages->get("/"); 
+			$links .= "<div><a href='{$home->url}'><i class='fa fa-home'></i> {$home->title}</a></div>";
+			if($links) $out .= "<p>$links</p>";
+			return $out; 
+		}
+	}
+
+	/**
+	 * Redirect to admin root after login
+	 *
+	 * Called only if the login request originated on the actual login page. 
+	 *
+	 */
+	protected function ___afterLoginRedirect() {
+		$this->session->redirect($this->pages->get($this->config->adminRootPageID)->url);
+	}
+
+
+}
+

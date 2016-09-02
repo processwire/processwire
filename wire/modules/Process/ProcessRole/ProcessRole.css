@@ -1,0 +1,60 @@
+label.level1,
+label.level2 {
+	padding-left: 1.25em;
+}
+label.level2 {
+	padding-left: 2.25em;
+}
+
+#wrap_Inputfield_permissions td i.fa {
+	opacity: 0.6;
+}
+#wrap_Inputfield_permissions table td {
+	width: 70%;
+}
+
+#wrap_Inputfield_permissions table > tbody > tr > td:first-child {
+	width: 30%; 
+}
+
+tr:not(.permission32):not(.permission0-page-add):not(.permission0-page-create).permission-checked .permission-added {
+	text-decoration: line-through;
+}
+tr.permission32 .detail {
+	display: none;
+}
+tr.permission32.permission-checked .detail {
+	display: inline;
+}
+tr.permission32 .permission-added {
+	text-decoration: line-through;
+}
+tr.permission32.permission-checked .permission-added {
+	text-decoration: none;
+}
+.permission-revoked {
+	text-decoration: line-through;
+}
+.permission-checked .permission-revoked {
+	text-decoration: none;
+}
+.permission-all-templates {
+	display: none;
+}
+.permission-checked .permission-all-templates {
+	display: inline;
+}
+
+.permissions-footer p {
+	margin: 0.5em 0;
+	
+}
+.permission-help {
+	float: right; 
+}
+
+.InputfieldCheckboxes + p.description,
+p.description + p.description {
+	margin: 0.5em 0;
+}
+

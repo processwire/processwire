@@ -1,0 +1,84 @@
+/**
+ * Pagination (for PW 2.6.7+)
+ *
+ * This file should replace _pagination.scss when 2.5 support is no longer needed
+ *
+ */
+
+.content {
+	
+	.PageListPagination,
+	.MarkupPagerNav {
+
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		color: text-color;
+		font-size: $pagination-font-size;
+
+		li {
+
+			list-style: none;
+			float: left;
+			display: block;
+			margin: 0;
+			padding: 0;
+			border-radius: 0;
+
+			a {
+				background: $pagination-link-bg;
+				color: $pagination-link-color;
+				font-weight: normal;
+				border: none;
+				margin-right: 1px;
+				border-radius: 0;
+				display: inline-block;
+				padding: 0 .7em;
+
+				&:active {
+					color: $pagination-link-active-color;
+					background: $pagination-link-active-bg;
+					box-shadow: inset 0px 1px 3px 0px rgba(0, 0, 0, 0.1);
+				}
+			}
+
+			a:hover,
+			&.PageListPaginationCurrent a,
+			&.MarkupPagerNavOn a {
+				color: $pagination-link-current-color;
+				background: $pagination-link-current-bg;
+			}
+
+			&:first-child a {
+				border-radius: $pagination-link-border-radius 0 0 $pagination-link-border-radius;
+			}
+
+			&:last-child a {
+				border-radius: 0 $pagination-link-border-radius $pagination-link-border-radius 0;
+			}
+
+		}
+
+		&:after {
+			content: "";
+			display: table;
+			clear: both;
+		}
+	}
+
+	.PageListPagination {
+		padding-top: 0.5em;
+	}
+
+	.MarkupPagerNav {
+		margin: 1.5em 0;
+
+		.MarkupPagerNavSeparator {
+			padding: 0 .3em;
+		}
+	}
+
+	& > .MarkupPagerNav {
+		margin-top: 0; // no top margin if the pager is the first item.
+	}
+}

@@ -1,0 +1,192 @@
+<?php namespace ProcessWire;
+
+class AdminThemeReno extends AdminTheme implements Module, ConfigurableModule {
+
+	/**
+	* Per the Module interface, return an array of information about the Module
+	*
+	*/
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Reno',
+			'version' => 17,
+			'summary' => __('Admin theme for ProcessWire 2.5+ by Tom Reno (Renobird)', __FILE__),
+			'autoload' => "template=admin",
+			'author' => "Tom Reno (Renobird)",
+			'requires' => 'AdminThemeDefault', 
+		); 
+	}
+
+	static $defaultIcons = array(
+		"home" => "fa-home",
+		"signout" => "fa-power-off",
+		"profile" => "fa-user",
+		"page" => "fa-file-text",
+		"setup" => "fa-wrench",
+		"module" => "fa-briefcase",
+		"access" => "fa-unlock",
+		"form-builder" => "fa-list-alt",
+		"notices" => "fa-bell",
+	);
+
+	public function __construct() {
+		foreach(self::$defaultIcons as $key => $value) {
+			$this->$key = $value;
+		}
+	}
+
+	public function getModuleConfigInputfields(array $data) {
+	
+		$this->init();
+		$inputfields = $this->wire(new InputfieldWrapper());
+
+		// colorscheme
+		$field = $this->wire('modules')->get('InputfieldRadios');
+		$field->attr('name', 'colors');
+		$field->label = $this->_('Color Set');
+		$field->icon = "fa-eyedropper";
+		
+		$field->addOption('', $this->_('Reno'));
+		$field->addOption('classic', $this->_('Classic'));
+		$field->addOption('blue', $this->_('Blue'));
+		
+		// Scan for custom colour schemes in /site/modules/AdminTheme/AdminTheme{Name}/styles/
+		// Thanks Pete @notanotherdev
+		$dirs = array(
+			dirname(__FILE__) . '/styles/', 
+			$this->wire('config')->paths->siteModules . 'AdminTheme/' . $this->className() . '/styles/',
+		);	
+		foreach($dirs as $customDir) {
+			if(is_dir($customDir)) {
+				foreach(glob($customDir . '*.css') as $file) {
+					$name = str_replace('main-', '', basename($file, '.css')); // Remove "main-" from default theme names
+					if($name == 'main' || $name == 'classic' || $name == 'blue') continue;
+					$formatName = ucwords(str_replace('-', ' ', $name));
+					$field->addOption($name, $formatName);
+				}
+			}
+		}
+
+		$field->attr('value', isset($data['colors']) ? $data['colors'] : ''); 
+		$field->optionColumns = 1; 
+		$inputfields->add($field);
+		
+		// User templates
+		// Processwire 2.5.14+ supports multiple user templates
+		// Revisit when droppping support for 2.5.3
+		$template_ids = array($this->wire('templates')->get("user")->id);
+		isset($this->wire('config')->userTemplateIDs) ? $template_ids = $this->wire('config')->userTemplateIDs : '';
+
+		$fieldset = $this->wire('modules')->get("InputfieldFieldset");
+		$fieldset->label = $this->_('User Images');
+		$fieldset->description = $this->_('To use this feature your user template(s) needs to have an image field. If your user template(s) do not have an image field, the avatar will default to an icon. To add an image field to the default user template to go Setup > Templates > Filters (Show System Templates). The "user" template will now show in the list. If you have created an additional/alternate user template, you can enable this feature by adding an image field to that template.');
+		$fieldset->icon = "fa-image";
+
+		foreach ($template_ids as $id){
+
+			$template = $this->wire('templates')->get($id);
+
+			// User Avatar fields
+			$field = $this->wire('modules')->get("InputfieldSelect"); 
+			$field->attr('name', "avatar_field_$template->name"); 
+			$field->label = sprintf($this->_('Image field for the %s template'), $template->name); 
+			$imageField = false;
+
+			foreach($template->fields as $f) {
+				if(($f->type == "FieldtypeImage") || ($f->type == "FieldtypeCropImage")){
+					if(isset($data["avatar_field_$template->name"]) && $data["avatar_field_$template->name"] == $f->name) {
+						$field->addOption($f->name, $f->name, array("selected"=>"selected"));
+						$imageField = $f->name;
+					} else {
+						$field->addOption($f->name, $f->name, array());
+						$imageField = true;
+					}
+				}
+			}
+			 
+			if(!$imageField) {
+				// no image fields found
+				$field->addOption('', $this->_('No image fields assigned to this template'));
+			} else {
+				// make the image field part of the profile fields the user may edit
+				$profileConfig = $this->wire('modules')->getModuleConfigData('ProcessProfile');
+				if(!in_array($imageField, $profileConfig['profileFields'])) {
+					$profileConfig['profileFields'][] = $imageField;
+					$this->wire('modules')->saveModuleConfigData('ProcessProfile', $profileConfig);
+					$this->message(sprintf($this->_('Added field "%s" to fields editable by user in their profile.'), $f->name)); 
+				}
+			}
+		
+			$fieldset->add($field);
+
+		}
+		
+		$inputfields->add($fieldset);
+
+		// Display Name
+		$fieldset = $this->wire('modules')->get("InputfieldFieldset");
+		$fieldset->label = $this->_('User Display Names');
+		$fieldset->icon = "fa-user";
+		$fieldset->description = $this->_("Comma separated list of fields to use as the display name in the admin. (example: first_name, last_name)");
+		$fieldset->notes = $this->_('These can only be text fields. Other field types will be ignored.');
+		foreach ($template_ids as $id){
+			$template = $this->wire('templates')->get($id);
+			$field = $this->wire('modules')->get("InputfieldText");
+	        $field->attr("name+id", "userFields_$template->name");
+	        $field->label = sprintf($this->_('Display name for the %s template'), $template->name);
+	        isset($data["userFields_$template->name"]) ? $user_info = $data["userFields_$template->name"] : $user_info = "name";
+	        $field->value = $user_info;
+	        $fieldset->add($field);
+	    }
+		$inputfields->add($fieldset);
+		
+		// Icons
+		$fieldset = $this->wire('modules')->get("InputfieldFieldset");
+		$fieldset->label = $this->_('Icons');
+		$fieldset->description = $this->_('Specify icons for navigation items');
+		$fieldset->icon = "fa-cog";
+		$fieldset->collapsed = true;
+
+		// notices
+		$field = $this->wire('modules')->get("InputfieldIcon");
+		$field->attr('name', "notices");
+		$field->label = $this->_("Top Navigation: Notices");
+		$field->columnWidth = 50;
+		$field->attr('value', array_key_exists('notices', self::$defaultIcons) ? self::$defaultIcons['notices'] : "fa-bell");
+		if (isset($data['notices'])) $field->attr('value', $data['notices']);
+		$fieldset->add($field);
+
+		// view homepage icon
+		$field = $this->wire('modules')->get("InputfieldIcon");
+		$field->attr('name', "home");
+		$field->label = $this->_("Top Navigation: View Home Page");
+		$field->columnWidth = 50;
+		$field->attr('value', array_key_exists('home', self::$defaultIcons) ? self::$defaultIcons['home'] : "fa-home");
+		if (isset($data['home'])) $field->attr('value', $data['home']);
+		$fieldset->add($field);
+
+		// signout
+		$field = $this->wire('modules')->get("InputfieldIcon");
+		$field->attr('name', "signout");
+		$field->label = $this->_("Sign out");
+		$field->columnWidth = 50;
+		$field->attr('value', array_key_exists('signout', self::$defaultIcons) ? self::$defaultIcons['signout'] : "fa-power-off");
+		if (isset($data['signout'])) $field->attr('value', $data['signout']);
+		$fieldset->add($field);
+
+		foreach($this->wire('pages')->find("parent=2, sort=sort") as $p){
+			if(!$p->viewable()) continue;
+			$field = $this->wire('modules')->get("InputfieldIcon");
+			$field->attr('name', $p->name);
+			$field->label = $this->_($p->title, '/wire/templates-admin/default.php');
+			$field->columnWidth = 50;
+			$field->attr('value', array_key_exists($p->name, self::$defaultIcons) ? self::$defaultIcons[$p->name] : "fa-file-text-o");
+			if (isset($data[$p->name])) $field->attr('value', $data[$p->name]);
+			$fieldset->add($field);
+		}
+
+		$inputfields->add($fieldset);
+
+		return $inputfields;
+	}
+}

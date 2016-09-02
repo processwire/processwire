@@ -1,0 +1,81 @@
+.content {
+
+	/** 
+	 * Pagination 
+	 * 
+	 */ 
+
+	.MarkupPagerNav {
+
+		list-style: none;
+		margin: 0;
+		padding: 0;
+		margin: 1em 0;
+
+		li {
+			margin: 0;
+			list-style: none;
+			display: inline-block;
+			background: none;
+			padding: 3px 0 0 0;
+
+			a {
+				padding: 4px 9px;
+				padding: 1px 7px; 
+				margin: 0;
+				text-decoration: none;
+			}
+
+			&.MarkupPagerNavSeparator {
+				border: none;
+			}
+		}
+
+	}
+
+	.PageListPagination,
+	.AdminDataTable .PageListPagination {
+		padding-top: 0.5em; 
+
+		li {
+			margin: 0 4px 0 0;
+
+			a {
+				padding: 0 6px; 
+			}
+		}
+	}
+
+	.PageListPagination,
+	.AdminDataTable .PageListPagination,
+	.MarkupPagerNav {
+		color: text-color;
+		font-size: $pagination-font-size; 
+
+		a {
+			background: $pagination-link-bg; 
+			color: $pagination-link-color; 
+			font-weight: $bold-weight;
+			@include border-radius($pagination-link-border-radius); 
+			border: none;
+			display: inline-block;
+
+			&:hover {
+				color: $pagination-link-hover-color; 
+				background: $pagination-link-hover-bg; 
+			}
+
+			&:active {
+				color: $pagination-link-active-color; 
+				background: $pagination-link-active-bg; 
+			}
+		}
+	}
+
+	.PageListPaginationCurrent a,
+	.AdminDataTable .PageListPaginationCurrent a, 
+	.MarkupPagerNavOn a {
+		color: $pagination-link-current-color; 
+		background: $pagination-link-current-bg; 
+	}
+}

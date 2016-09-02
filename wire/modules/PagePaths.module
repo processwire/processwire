@@ -1,0 +1,279 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Paths
+ *
+ * Keeps a cache of page paths to improve performance and 
+ * make paths more queryable by selectors.
+ *
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ *
+ */
+
+class PagePaths extends WireData implements Module {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Page Paths', 
+			'version' => 1, 
+			'summary' => "Enables page paths/urls to be queryable by selectors. Also offers potential for improved load performance. Builds an index at install (may take time on a large site). Currently supports only single languages sites.",
+			'singular' => true, 
+			'autoload' => true, 
+			);
+	}
+
+	/**
+	 * Table created by this module
+	 *
+	 */
+	const dbTableName = 'pages_paths';
+
+	/**
+	 * @var Languages|false
+	 *
+	 */
+	protected $languages = null;
+
+	/**
+	 * Initialize the hooks
+	 *
+	 */
+	public function init() {
+		$this->pages->addHook('moved', $this, 'hookPageMoved'); 
+		$this->pages->addHook('renamed', $this, 'hookPageMoved'); 
+		$this->pages->addHook('added', $this, 'hookPageMoved'); 
+		$this->pages->addHook('deleted', $this, 'hookPageDeleted');
+	}
+	
+	public function ready() {
+		$page = $this->wire('page');
+		if($page->template == 'admin' && $page->name == 'module') {
+			$this->wire('modules')->addHookAfter('refresh', $this, 'hookModulesRefresh');
+		}
+	}
+
+	/**
+	 * Returns Languages object or false if not available
+	 *
+	 * @return Languages|null
+	 *
+	 */
+	public function getLanguages() {
+		if(!is_null($this->languages)) return $this->languages;
+		$languages = $this->wire('languages');
+		if(!$languages) return null;
+		if(!$this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
+			$this->languages = false;
+		} else {
+			$this->languages = $this->wire('languages');
+		}
+		return $this->languages;
+	}
+
+	/**
+	 * Hook to ProcessModule::refresh
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookModulesRefresh(HookEvent $event) {
+		if($this->getLanguages()) {
+			$this->wire('session')->warning(
+				$this->_('Please uninstall the Core > PagePaths module (it is not compatible with LanguageSupportPageNames)')
+			);
+		}
+	}
+
+	/**
+	 * Hook called when a page is moved or renamed
+	 *
+	 */
+	public function hookPageMoved(HookEvent $event) {
+		$page = $event->arguments[0];
+		$this->updatePagePath($page->id, $page->path); 
+	}
+
+
+	/**
+	 * When a page is deleted
+	 *
+	 */
+	public function hookPageDeleted(HookEvent $event) {
+		$page = $event->arguments[0];
+		$database = $this->wire('database');
+		$query = $database->prepare("DELETE FROM " . self::dbTableName . " WHERE pages_id=:pages_id"); 
+		$query->bindValue(":pages_id", $page->id, \PDO::PARAM_INT);
+		$query->execute();
+	}
+
+	/**
+	 * Given a page ID, return the page path, NULL if not found, or boolean false if cannot be determined.
+	 *
+	 * @param int $id
+	 * @return string|null|false
+	 *
+	 */
+	public function getPath($id) {
+		if($this->getLanguages()) return false; // we do not support multi-language yet for this module
+		$table = self::dbTableName;
+		$database = $this->wire('database');
+		$query = $database->prepare("SELECT path FROM `$table` WHERE pages_id=:pages_id"); 
+		$query->bindValue(":pages_id", $id, \PDO::PARAM_INT);
+		$query->execute();
+		if(!$query->rowCount()) return null;
+		$path = $query->fetchColumn();
+		$path = strlen($path) ? $this->wire('sanitizer')->pagePathName("/$path/", Sanitizer::toUTF8) : "/";
+		return $path;
+	}
+
+	/**
+	 * Given a page path, return the page ID or NULL if not found.
+	 *
+	 * @param string $path
+	 * @return int|null
+	 *
+	 */
+	public function getID($path) {
+		$table = self::dbTableName;
+		$database = $this->wire('database');
+		$path = $this->wire('sanitizer')->pagePathName($path, Sanitizer::toAscii);
+		$path = trim($path, '/');
+		$query = $database->prepare("SELECT pages_id FROM $table WHERE path=:path");
+		$query->bindValue(":path", $path); 
+		$query->execute();
+		if(!$query->rowCount()) return null;
+		$id = $query->fetchColumn(); 
+		return (int) $id;
+	}
+
+	/**
+	 * Perform a path match for use by PageFinder
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @param Selector $selector
+	 * @throws PageFinderSyntaxException
+	 *
+	 */
+	public function getMatchQuery(DatabaseQuerySelect $query, Selector $selector) {
+
+		static $n = 0;
+		$n++;
+		$table = self::dbTableName;
+		$alias = "$table$n";
+		$value = $selector->value;
+		$joinType = $selector->not ? 'leftjoin' : 'join';
+
+		$query->join("$table AS $alias ON pages.id=$alias.pages_id"); 
+
+		if(in_array($selector->operator, array('=', '!=', '<>', '>', '<', '>=', '<='))) {
+			if(!is_array($value)) $value = array($value);
+			$where = '';
+			foreach($value as $path) {
+				if($where) $where .= $selector->not ? " AND " : " OR ";
+				$path = $this->wire('sanitizer')->pagePathName($path, Sanitizer::toAscii);
+				$path = $this->wire('database')->escapeStr(trim($path, '/')); 
+				$where .= ($selector->not ? "NOT " : "") . "$alias.path{$selector->operator}'$path'";
+			}
+			$query->where("($where)");
+
+		} else {
+			if(is_array($value)) {
+				$error = "Multi value using '|' is not supported with path/url and '$selector->operator' operator";
+				throw new PageFinderSyntaxException($error);
+			}
+			if($selector->not) {
+				$error = "NOT mode isn't yet supported with path/url and '$selector->operator' operator";
+				throw new PageFinderSyntaxException($error);
+			}
+			$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
+			$ft->match($alias, 'path', $selector->operator, trim($value, '/'));
+		}
+	}
+
+	/**
+	 * Updates path for $page and all children
+	 *
+	 * @param int $id 
+	 * @param string $path
+	 * @param bool $hasChildren Omit if true or unknown
+	 * @param int $level Recursion level, you should omit this param
+	 * @return int Number of paths updated
+	 *
+	 */
+	protected function updatePagePath($id, $path, $hasChildren = true, $level = 0) {
+
+		$table = self::dbTableName;
+		$id = (int) $id;
+		$database = $this->wire('database');
+		$path = $this->wire('sanitizer')->pagePathName($path, Sanitizer::toAscii);
+		$path = trim($path, '/');
+		$_path = $database->escapeStr($path);
+		$numUpdated = 1;
+
+		$sql = 	"INSERT INTO $table (pages_id, path) VALUES(:id, :path) " . 
+				"ON DUPLICATE KEY UPDATE pages_id=VALUES(pages_id), path=VALUES(path)"; 
+	
+		$query = $database->prepare($sql);
+		$query->bindValue(":id", $id, \PDO::PARAM_INT);	
+		$query->bindValue(":path", $_path); 
+		$query->execute();
+
+		if($hasChildren) {
+
+			$sql = 	"SELECT pages.id, pages.name, COUNT(children.id) FROM pages " . 
+					"LEFT JOIN pages AS children ON children.id=pages.parent_id " . 
+					"WHERE pages.parent_id=:id " . 
+					"GROUP BY pages.id ";
+		
+			$query = $database->prepare($sql);
+			$query->bindValue(":id", $id, \PDO::PARAM_INT);
+			$query->execute();	
+			
+			while($row = $query->fetch(\PDO::FETCH_NUM)) {
+				list($id, $name, $numChildren) = $row;
+				$numUpdated += $this->updatePagePath($id, "$path/$name", $numChildren > 0, $level+1);
+			}
+		}
+
+		if(!$level) $this->message(sprintf($this->_n('Updated %d path', 'Updated %d paths', $numUpdated), $numUpdated)); 
+
+		return $numUpdated;
+	}
+
+	/**
+	 * Install the module
+	 *
+	 */
+	public function ___install() {
+		
+		$table = self::dbTableName;
+		$database = $this->wire('database');
+		$engine = $this->wire('config')->dbEngine;
+		$charset = $this->wire('config')->dbCharset;
+
+		$database->query("DROP TABLE IF EXISTS $table"); 
+
+		$sql = 	"CREATE TABLE $table (" . 
+				"pages_id int(10) unsigned NOT NULL, " . 
+				"path text CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL, " . 
+				"PRIMARY KEY pages_id (pages_id), " .
+				"UNIQUE KEY path (path(500)), " . 
+				"FULLTEXT KEY path_fulltext (path)" . 
+				") ENGINE=$engine DEFAULT CHARSET=$charset";
+
+		$database->query($sql); 
+		$numUpdated = $this->updatePagePath(1, '/'); 
+	}
+
+	/**
+	 * Uninstall the module
+	 *
+	 */
+	public function ___uninstall() {
+		$this->wire('database')->query("DROP TABLE " . self::dbTableName); 
+	}
+
+}

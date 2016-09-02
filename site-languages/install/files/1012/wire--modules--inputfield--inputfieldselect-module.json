@@ -1,0 +1,39 @@
+{
+    "file": "wire\/modules\/Inputfield\/InputfieldSelect.module",
+    "textdomain": "wire--modules--inputfield--inputfieldselect-module",
+    "translations": {
+        "eed6fbc4de3755e7189b1461a4844bea": {
+            "text": "Auswahl eines einzelnen Wertes aus einer select-Box"
+        },
+        "e0626222614bdee31951d84c64e5e9ff": {
+            "text": "select-Auswahl"
+        },
+        "dae8ace18bdcbcc6ae5aece263e14fe8": {
+            "text": "Optionen"
+        },
+        "3a4accfa68ff7300f67ad7d89e07770e": {
+            "text": "Geben Sie die ausw\u00e4hlbaren Optionen ein (eine pro Zeile)."
+        },
+        "6cdf2b7c6a202509ddad22ed4e6d1c3d": {
+            "text": "Geben sie  als erste Option ein Gleichheitszeiten \"=\" an, um der Liste eine leere Option voranzustellen"
+        },
+        "378f6008c3dc6eb2be984683df372592": {
+            "text": "Stellen Sie einer Option ein Pluszeichen voran, um sie vorauszuw\u00e4hlen. Beispiel: +My Option"
+        },
+        "75d2fefda1196dd14f506b0273ebed38": {
+            "text": "Um Wert und Beschriftung zu unterscheiden, trennen Sie sie mit einem Gleichheitszeichen. Beispiel: value=My Option"
+        },
+        "663f303f44a9a25504e3c434fc37b34d": {
+            "text": "Um eine Optionen-Gruppe (optgroup) zu erzeugen, r\u00fccken Sie die Optionen in der Gruppe um 3 oder mehr Leerzeichen ein."
+        },
+        "6b66a61fa66288a9a7ad6474d2e686ec": {
+            "text": "Standard Wert"
+        },
+        "c37baf4e64db68f6887058399a37ad60": {
+            "text": "Um vorausgew\u00e4hlte Standardwerte zu erhalten, unten die optionalen Werte (einen pro Zeile) eintragen. Zur Auswahl einer Seite, w\u00e4re(n) dies die Seiten ID Nummer(n)."
+        },
+        "d48cd2cb0f5c1d209800b28e019eb574": {
+            "text": "Die Option f\u00fcr Standardwerte ist verf\u00fcgbar, weil Sie oben die Box \"Pflichtfeld\" markiert haben."
+        }
+    }
+}

@@ -1,0 +1,110 @@
+#status li {
+	display: inline; 
+	margin-right: 0.5em; 
+}
+
+#PageEditTabs {
+	margin: 0 0 1em 0; 
+}
+
+/**
+ * To assist in avoiding FOUC
+ *
+ * Note the 'js' class is removed after document.ready()
+ *
+#content.fouc_fix #ProcessPageEdit {
+	padding-top: 2.85em;
+}
+ */
+
+/**
+ * Hide the edit/view/move actions for first (current) page since they aren't applicable in this context
+ *
+ */
+#ProcessPageEditChildren .PageListRoot > .PageList > .PageListItemOpen .PageListActionEdit,
+#ProcessPageEditChildren .PageListRoot > .PageList > .PageListItemOpen .PageListActionView,
+#ProcessPageEditChildren .PageListRoot > .PageList > .PageListItemOpen .PageListActionMove {
+	display: none !important; 
+}
+
+#wrap_AddPageBtn,
+#wrap_AddPageBtn .InputfieldContent {
+	float: none; 
+}
+
+/**
+ * Provide an obvious left margin for the parent page selector list
+ *
+ */
+.InputfieldPageListSelect .PageListRoot > .PageList {
+	margin-left: 2em; 
+}
+
+
+/**
+ * Position the submit buttons horizontal to each other by making them inline
+ *
+ */
+
+.Inputfields .InputfieldSubmit,
+.Inputfields .InputfieldSubmit .ui-widget-content {
+        display: inline; 
+}
+
+/**
+ * Alternative to the above, float teh publish button left for side-by-side buttons
+ *
+ */
+#submit_publish {
+    float: left; 
+}
+
+/**
+ * Ensures submit button doesn't end up floated (related to GitHub issue #95)
+ *
+ */ 
+
+#ProcessPageEditContent + ul.Inputfields {
+	clear: both; 
+}
+
+
+/**
+ * Don't show the save buttons when on the delete tab
+ *
+ * This works because WireTabs adds class names equal to the ID of the selected tab to the tab target container
+ *
+ */
+.ProcessPageEditDelete .pw-button-dropdown-toggle,
+.ProcessPageEditDelete #submit_publish,
+.ProcessPageEditDelete #submit_save_unpublished,
+.ProcessPageEditDelete #submit_save,
+.ProcessPageEditDelete #submit_save_top {
+	display: none; 
+}
+
+#PageIDIndicator {
+	position: absolute; 
+	right: 0;
+	top: 0;
+	margin: 0;
+	padding: 2px 4px;
+	color: #999;
+	display: none; 
+}
+
+#submit_save_top {
+	position: absolute; 
+	right: 0;
+	margin: 0;
+	top: 0;
+}
+
+#_ProcessPageEditView {
+	padding-right: 0 !important;
+}
+
+#_ProcessPageEditViewDropdownToggle {
+	cursor: pointer;
+}
+

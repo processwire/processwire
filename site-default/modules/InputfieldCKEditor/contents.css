@@ -1,0 +1,169 @@
+/**
+ * contents.css
+ * 
+ * CKEditor editor styles for regular (non-inline) editor
+ * See contents-inline.css for inline editor styles.
+ *
+ * Note that this file is not in use unless you configure your editor settings to use it 
+ * in the "Custom Editor CSS File (regular mode)" option. As a result, this file is here
+ * primarily as a placeholder and for instructions, though you may certainly modify and 
+ * use it as-is. 
+ *
+ * PLEASE NOTE: 
+ * 
+ * It's possible this file may be out of date since it is in /site/ rather than /wire/,
+ * and the version of this file will reflect whatever version you had when you first
+ * installed this copy of ProcessWire. 
+ * 
+ * If you intend to use this, you may first want to get the newest copy out of: 
+ * /wire/modules/Inputfield/InputfieldCKEditor/contents.css
+ *
+ * Original file copyright (as included with CKEditor):  
+ * Copyright (c) 2003-2013, CKSource - Frederico Knabben. All rights reserved.
+ * For licensing, see LICENSE.html or http://ckeditor.com/license
+ *
+ */
+
+body {
+	/* Font */
+	font-family: sans-serif, Arial, Verdana, "Trebuchet MS";
+	font-size: 14px;
+
+	/* Text color */
+	color: #333;
+
+	/* Remove the background color to make it transparent */
+	background-color: #fff;
+
+	margin: 10px;
+}
+
+.cke_editable {
+	font-size: 14px;
+	line-height: 1.6em;
+}
+
+blockquote {
+	font-style: italic;
+	font-family: Georgia, Times, "Times New Roman", serif;
+	padding: 2px 0;
+	border-style: solid;
+	border-color: #ccc;
+	border-width: 0;
+}
+
+.cke_contents_ltr blockquote {
+	padding-left: 20px;
+	padding-right: 8px;
+	border-left-width: 5px;
+}
+
+.cke_contents_rtl blockquote {
+	padding-left: 8px;
+	padding-right: 20px;
+	border-right-width: 5px;
+}
+
+a {
+	color: #0782C1;
+}
+
+ol,ul,dl {
+	/* IE7: reset rtl list margin. (#7334) */
+	*margin-right: 0px;
+	/* preserved spaces for list items with text direction other than the list. (#6249,#8049)*/
+	padding: 0 40px;
+}
+
+h1,h2,h3,h4,h5,h6 {
+	font-weight: bold;
+	line-height: 1.2em;
+}
+
+hr {
+	border: 0px;
+	border-top: 1px solid #ccc;
+}
+
+img {
+	max-width: 100%;
+}
+
+img.right,
+img.align_right,
+img.align-right {
+	/* RCD */
+	border: 1px solid #ccc;
+	float: right;
+	margin-left: 15px;
+	padding: 5px;
+}
+
+img.left,
+img.align_left,
+img.align-left {
+	/* RCD */
+	border: 1px solid #ccc;
+	float: left;
+	margin-right: 15px;
+	padding: 5px;
+}
+
+img.align_center,
+img.align-center {
+	/* RCD */
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+img:hover {
+	opacity: .9;
+	filter: alpha(opacity = 90);
+}
+
+pre {
+	white-space: pre-wrap;
+	word-wrap: break-word;
+	-moz-tab-size: 4;
+	-o-tab-size: 4;
+	-webkit-tab-size: 4;
+	tab-size: 4;
+}
+
+.marker {
+	background-color: Yellow;
+}
+
+span[lang] {
+	font-style: italic;
+}
+
+figure {
+	text-align: center;
+	border: solid 1px #ccc;
+	border-radius: 2px;
+	background: rgba(0,0,0,0.05);
+	padding: 10px;
+	margin: 10px 20px;
+	display: inline-block;
+}
+
+figure > figcaption {
+	text-align: center;
+	display: block; /* For IE8 */
+}
+
+code {
+	/* RCD */
+	background: #fff2a8;
+}
+
+a > img {
+	padding: 1px;
+	margin: 1px;
+	border: none;
+	outline: 1px solid #0782C1;
+}
+
+

@@ -1,0 +1,27 @@
+{
+    "file": "wire\/modules\/Fieldtype\/FieldtypeURL.module",
+    "textdomain": "wire--modules--fieldtype--fieldtypeurl-module",
+    "translations": {
+        "b38bb5008cd8427aae4e9a8612183a6f": {
+            "text": "Die Textformatierung mit dem \"HTML Entity Encoder\" wird f\u00fcr URL Felder empfohlen."
+        },
+        "ab86e8efb5aa46bdab329fa44f7125fc": {
+            "text": "Erlaube relative\/lokale URLs ohne \"http:\/\/\" am Anfang?"
+        },
+        "d1280d091f34a15c77f4145110d7f94d": {
+            "text": "Lokale\/relative URLs sind jene ohne Schema und Domain."
+        },
+        "c4c54678f0d612f89caacaab99768f81": {
+            "text": "Root Pfad der Seite den lokalen\/relativen URLs voranstellen?"
+        },
+        "ae91f58b191e424e0eaf9022fd5407e9": {
+            "text": "Stellt sicher, dass URLs nicht unterbrochen werden beim verschieben der Seite von einem Unterverzeichnis zum Root (das h\u00e4ufigste Beispiel)."
+        },
+        "0ac82d10c1ddd050079962481c40f54f": {
+            "text": "Feld welches eine URL speichert"
+        },
+        "9d6ce819c098e5c4a7b3464cadbd028a": {
+            "text": "Diese Option stellt automatisch den Root Pfad der Seite vor jede URL welche mit einem Schr\u00e4gstrich beginnt, wie z.B. \/some\/path\/. Dies ist n\u00fctzlich wenn ihre Seite in einem Unterverzeichnis liegt. Dann m\u00fcssen Sie dieses Unterverzeichnis nicht in der einzugebenden URL ber\u00fccksichtigen. Sollten Sie sp\u00e4ter ihre Seite in das Rootverzeichnis der Domain (oder ein anderes Unterverzeichnis) verschieben, werden die URLs nicht unterbrochen. Nach aktivieren dieser Option, geben Sie bitte URLs immer so an als ob die Seite im Root ihrer Domain liegt, unabh\u00e4ngig davon ob sie in einem Unterverzeichnis l\u00e4uft oder nicht. Nat\u00fcrlich nur zutreffend, wenn Sie im oberen Feld lokale\/relative URLs erlaubt haben. Anmerkung f\u00fcr Entwickler: diese Option trifft nur zu, wenn outputFormatting f\u00fcr eine Seite aktiv ist."
+        }
+    }
+}

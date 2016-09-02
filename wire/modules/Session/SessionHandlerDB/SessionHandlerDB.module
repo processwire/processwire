@@ -1,0 +1,374 @@
+<?php namespace ProcessWire;
+
+/**
+ * Session handler for storing sessions to database
+ *
+ * @see /wire/core/SessionHandler.php
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class SessionHandlerDB extends WireSessionHandler implements Module, ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Session Handler Database', 
+			'version' => 5, 
+			'summary' => "Installing this module makes ProcessWire store sessions in the database rather than the file system. Note that this module will log you out after install or uninstall.",
+			'installs' => array('ProcessSessionDB')
+			);
+	}
+
+	/**
+	 * Table created by this module
+	 *
+	 */
+	const dbTableName = 'sessions';
+
+	/**
+	 * Quick reference to database
+	 *
+	 */
+	protected $database; 
+
+	/**
+	 * Construct
+	 *
+	 */
+	public function __construct() {
+		parent::__construct();
+		$this->database = $this->wire('database');
+		$this->set('useIP', 0); // track IP address?
+		$this->set('useUA', 0); // track query string?
+		$this->set('lockSeconds', 50); // max number of seconds to wait to obtain DB row lock
+	}
+	
+	public function init() {
+		parent::init();
+		// keeps session active
+		$this->wire('session')->set($this, 'ts', time()); 
+	}
+
+	/**
+	 * Read and return data for session indicated by $id
+	 *
+	 * @param string $id Session ID
+	 * @return string Serialized data or blank string if none
+	 *
+	 */
+	public function read($id) {
+		
+		$table = self::dbTableName; 
+		$database = $this->database;
+		$data = '';
+		
+		$query = $database->prepare("SELECT GET_LOCK(:id, :seconds)"); 
+		$query->bindValue(':id', $id);
+		$query->bindValue(':seconds', $this->lockSeconds, \PDO::PARAM_INT);
+		$database->execute($query);
+		
+		$query = $database->prepare("SELECT data FROM `$table` WHERE id=:id");
+		$query->bindValue(':id', $id);
+		$database->execute($query);
+		
+		if($query->rowCount()) {
+			$data = $query->fetchColumn();
+			if(empty($data)) $data = '';
+		}
+		$query->closeCursor();
+			
+		return $data; 
+	}
+
+	/**
+	 * Write the given $data for the given session ID
+	 *
+	 * @param string $id Session ID
+	 * @param string Serialized data to write
+	 * @return bool
+	 *
+	 */
+	public function write($id, $data) {
+		$table = self::dbTableName;
+		$database = $this->database;
+		$user = $this->wire('user');
+		$page = $this->wire('page');
+		$user_id = $user && $user->id ? (int) $user->id : 0; 
+		$pages_id = $page && $page->id ? (int) $page->id : 0;
+		$ua = ($this->useUA && isset($_SERVER['HTTP_USER_AGENT'])) ? substr(strip_tags($_SERVER['HTTP_USER_AGENT']), 0, 255) : '';
+		$ip = $this->useIP ? ((int) $this->wire('session')->getIP(true)) : '';
+	
+		$binds = array(
+			':id' => $id, 
+			':user_id' => $user_id, 
+			':pages_id' => $pages_id, 
+			':data' => $data,
+		);
+
+		$s = "user_id=:user_id, pages_id=:pages_id, data=:data";
+		
+		if($ip) {
+			$s .= ", ip=:ip";
+			$binds[':ip'] = $ip;
+		}
+		if($ua) {
+			$s .= ", ua=:ua";
+			$binds[':ua'] = $ua;
+		}
+		
+		$sql = "INSERT INTO $table SET id=:id, $s ON DUPLICATE KEY UPDATE $s, ts=NOW()";
+		$query = $database->prepare($sql); 
+		
+		foreach($binds as $key => $value) {
+			$type = is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR;
+			$query->bindValue($key, $value, $type);
+		}
+		
+		$result = $database->execute($query, false) ? true : false; 
+		$query->closeCursor();
+		
+		$query = $database->prepare("DO RELEASE_LOCK(:id)");
+		$query->bindValue(':id', $id, \PDO::PARAM_STR);
+		$database->execute($query, false);
+		$query->closeCursor();
+		
+		return $result; 
+	}
+
+	/**
+	 * Destroy the session indicated by the given session ID
+	 *
+	 * @param string $id Session ID
+	 * @return bool True on success, false on failure 
+	 *
+	 */
+	public function destroy($id) {
+		$table = self::dbTableName;
+		$database = $this->database;
+		$query = $database->prepare("DELETE FROM `$table` WHERE id=:id"); 
+		$query->execute(array(":id" => $id));
+		$secure = $this->wire('config')->sessionCookieSecure ? (bool) $this->config->https : false;
+		setcookie(session_name(), '', time()-42000, '/', null, $secure, true);
+		return true; 
+	}
+
+	/**
+	 * Garbage collection: remove stale sessions
+	 *
+	 * @param int $seconds Max lifetime of a session
+	 * @return bool True on success, false on failure
+	 *
+	 */
+	public function gc($seconds) {
+		$table = self::dbTableName; 
+		$seconds = (int) $seconds; 
+		$sql = "DELETE FROM `$table` WHERE ts < DATE_SUB(NOW(), INTERVAL $seconds SECOND)";
+		return $this->database->exec($sql);
+	}
+
+	/**
+	 * Install sessions table
+	 *
+	 */
+	public function ___install() {
+		
+		$table = self::dbTableName;
+
+		$sql = 	"CREATE TABLE `$table` (" . 
+				"id CHAR(32) NOT NULL, " . 
+				"user_id INT UNSIGNED NOT NULL, " . 
+				"pages_id INT UNSIGNED NOT NULL, " . 
+				"data MEDIUMTEXT NOT NULL, " . 
+				"ts TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " . 
+				"ip INT UNSIGNED NOT NULL DEFAULT 0, " . 
+				"ua VARCHAR(250) NOT NULL DEFAULT '', " . 
+				"PRIMARY KEY (id), " . 
+				"INDEX (pages_id), " . 
+				"INDEX (user_id), " . 
+				"INDEX (ts) " . 
+				") ENGINE=InnoDB DEFAULT CHARSET=utf8";
+
+		$this->database->query($sql); 
+	}
+
+	/**
+	 * Drop sessions table
+	 *
+	 */
+	public function ___uninstall() {
+		$this->database->query("DROP TABLE " . self::dbTableName); 
+	}
+
+	/**
+	 * Session configuration options
+	 *
+	 */
+	public function getModuleConfigInputfields(array $data) {
+
+		$form = $this->wire(new InputfieldWrapper());
+
+		// check if their DB table is the latest version
+		$query = $this->wire('database')->query("SHOW COLUMNS FROM " . self::dbTableName . " WHERE field='ip'"); 
+		if(!$query->rowCount()) {
+			$this->wire('modules')->error("DB format changed - You must uninstall this module and re-install before configuring."); 
+			return $form;
+		}
+
+		$description = $this->_('Checking this box will enable the data to be displayed in your admin sessions list.');
+
+		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$f->attr('name', 'useIP'); 
+		$f->attr('value', 1);
+		$f->attr('checked', empty($data['useIP']) ? '' : 'checked'); 
+		$f->label = $this->_('Track IP addresses in session data?');
+		$f->description = $description;
+		$form->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$f->attr('name', 'useUA'); 
+		$f->attr('value', 1);
+		$f->attr('checked', empty($data['useUA']) ? '' : 'checked'); 
+		$f->label = $this->_('Track user agent in session data?');
+		$f->notes = $this->_('The user agent typically contains information about the browser being used.');
+		$f->description = $description;
+		$form->add($f);
+
+		if(ini_get('session.gc_probability') == 0) {
+			$form->warning(
+				"Your PHP has a configuration error with regard to sessions. It is configured to never clean up old session files. " . 
+				"Please correct this by adding the following to your <u>/site/config.php</u> file: " . 
+				"<code>ini_set('session.gc_probability', 1);</code>", 
+				Notice::allowMarkup
+			);
+		}
+
+		return $form;
+	}
+
+	/**
+	 * Provides direct reference access to set values in the $data array
+	 *
+	 * For some reason PHP 5.4+ requires this, as it apparently doesn't see WireData
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 *
+	 */
+	public function __set($key, $value) {
+		$this->set($key, $value);
+	}
+
+
+	/**
+	 * Provides direct reference access to variables in the $data array
+	 *
+	 * For some reason PHP 5.4+ requires this, as it apparently doesn't see WireData
+	 *
+	 * Otherwise the same as get()
+	 *
+	 * @param string $key
+	 * @return mixed
+	 *
+	 */
+	public function __get($key) {
+		return $this->get($key);
+	}
+
+	/**
+	 * Return the number of active sessions in the last 5 mins (300 seconds)
+	 * 
+	 * @param int $seconds Optionally specify number of seconds (rather than 300, 5 minutes)
+	 * @return int
+	 * 
+	 */
+	public function getNumSessions($seconds = 300) {
+		$sql = "SELECT count(*) FROM " . self::dbTableName . " WHERE ts > :ts";
+		$query = $this->wire('database')->prepare($sql);
+		$query->bindValue(':ts', date('Y-m-d H:i:s', (time() - $seconds)));
+		$query->execute();
+		list($numSessions) = $query->fetch(\PDO::FETCH_NUM); 
+		return $numSessions; 
+	}
+
+	/**
+	 * Get the most recent sessions
+	 * 
+	 * Returns an array of array for each session, which includes all the 
+	 * session info except or the 'data' property. Use the getSessionData()
+	 * method to retrieve that. 
+	 * 
+	 * @param int $seconds Sessions up to this many seconds old
+	 * @param int $limit Max number of sessions to return
+	 * @return array Sessions newest to oldest
+	 * 
+	 */
+	public function getSessions($seconds = 300, $limit = 100) {
+		
+		$seconds = (int) $seconds; 
+		$limit = (int) $limit; 
+		
+		$sql = 	"SELECT id, user_id, pages_id, ts, UNIX_TIMESTAMP(ts) AS tsu, ip, ua " . 
+				"FROM " . self::dbTableName . " " . 
+				"WHERE ts > DATE_SUB(NOW(), INTERVAL $seconds SECOND) " . 
+				"ORDER BY ts DESC LIMIT $limit";
+		
+		$query = $this->wire('database')->prepare($sql); 
+		$query->execute();
+	
+		$sessions = array();
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$sessions[] = $row; 
+		}
+		
+		return $sessions; 
+	}
+
+	/**
+	 * Return all session data for the given session ID
+	 * 
+	 * Note that the 'data' property of the returned array contains the values
+	 * that the user has in their $session. 
+	 * 
+	 * @param $sessionID
+	 * @return array Blank array on fail, populated array on success. 
+	 * 
+	 */
+	public function getSessionData($sessionID) {
+		$sql = "SELECT * FROM " . self::dbTableName . " WHERE id=:id";
+		$query = $this->wire('database')->prepare($sql);
+		$query->bindValue(':id', $sessionID); 
+		$this->wire('database')->execute($query);
+		if(!$query->rowCount()) return array();
+		$row = $query->fetch(\PDO::FETCH_ASSOC) ;
+		$sess = $_SESSION; // save
+		session_decode($row['data']); 
+		$row['data'] = $_SESSION; 
+		$_SESSION = $sess; // restore
+		return $row; 
+	}
+
+	/**
+	 * Upgrade module version
+	 * 
+	 * @param int $fromVersion
+	 * @param int $toVersion
+	 * @throws WireException
+	 * 
+	 */
+	public function ___upgrade($fromVersion, $toVersion) {
+		// $this->message("Upgrade: $fromVersion => $toVersion");
+		// if(version_compare($fromVersion, "0.0.5", "<") && version_compare($toVersion, "0.0.4", ">")) {
+		if($fromVersion <= 4 && $toVersion >= 5) {	
+			$table = self::dbTableName;
+			$database = $this->wire('database');
+			$sql = "ALTER TABLE $table MODIFY data MEDIUMTEXT NOT NULL";
+			$query = $database->prepare($sql);
+			$success = false;
+			$query->execute();
+			$this->message("Updated sessions database for larger data storage", Notice::log);
+		}
+	}
+
+}

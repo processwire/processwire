@@ -1,0 +1,8 @@
+#bgtitle {
+	display: none; 
+}
+
+.Inputfields .InputfieldStateCollapsed {
+	filter: alpha(opacity = 60); 
+}
+

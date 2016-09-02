@@ -1,0 +1,9 @@
+{
+    "file": "wire\\core\\Sanitizer.php",
+    "textdomain": "wire--core--sanitizer-php",
+    "translations": {
+        "47ad5a71e6f7bf836f4626d67887707e": {
+            "text": "URL: Schema \"%s\" ist nicht erlaubt"
+        }
+    }
+}

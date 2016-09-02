@@ -1,0 +1,162 @@
+.Inputfields > li > .InputfieldContent > ul.InputfieldFileList > li {
+  margin: 0 0 1em 0;
+  position: relative;
+  cursor: move; }
+
+.content .InputfieldFile.InputfieldItemListCollapse ul.InputfieldFileList > li,
+.Inputfields > li.InputfieldHasFileList.InputfieldRenderValueMode > .InputfieldContent > ul.InputfieldFileList > li,
+.Inputfields > li.InputfieldFile.InputfieldItemListCollapse > .InputfieldContent > ul.InputfieldFileList > li {
+  margin-bottom: 0.25em; }
+
+.content .Inputfields > .InputfieldItemList > .InputfieldContent > ul.InputfieldFileList > li:last-child {
+  margin-bottom: 0; }
+
+.InputfieldItemList .InputfieldContent.ui-state-hover {
+  background: none; }
+
+ul.InputfieldFileList li .InputfieldFileInfo,
+.AjaxUpload .InputfieldFileInfo {
+  padding: 0.5em;
+  line-height: 1em;
+  margin-bottom: 0;
+  margin-top: 0; }
+  ul.InputfieldFileList li .InputfieldFileInfo > i.fa,
+  .AjaxUpload .InputfieldFileInfo > i.fa {
+    position: relative;
+    left: 2px; }
+  ul.InputfieldFileList li .InputfieldFileInfo .InputfieldFileName,
+  .AjaxUpload .InputfieldFileInfo .InputfieldFileName {
+    font-weight: bold;
+    cursor: pointer; }
+    ul.InputfieldFileList li .InputfieldFileInfo .InputfieldFileName:hover,
+    .AjaxUpload .InputfieldFileInfo .InputfieldFileName:hover {
+      text-decoration: underline;
+      background: none; }
+
+.InputfieldFileDrag {
+  opacity: 0.7; }
+
+.InputfieldFileInfo:hover .InputfieldFileDrag {
+  opacity: 1.0; }
+
+ul.InputfieldFileList li .InputfieldFileInfo .InputfieldFileStats,
+.AjaxUpload .InputfieldFileStats {
+  opacity: 0.65;
+  font-size: 0.9166666em; }
+
+ul.InputfieldFileList li .ui-state-error .InputfieldFileName {
+  text-decoration: line-through; }
+
+ul.InputfieldFileList li .InputfieldFileDelete {
+  float: right;
+  cursor: pointer; }
+  ul.InputfieldFileList li .InputfieldFileDelete, ul.InputfieldFileList li .InputfieldFileDelete input {
+    display: inline;
+    font-weight: normal; }
+  ul.InputfieldFileList li .InputfieldFileDelete input {
+    position: absolute;
+    top: 0;
+    right: 0;
+    display: none; }
+
+ul.InputfieldFileList li .ui-icon {
+  float: left; }
+
+.InputfieldFileEmpty .HideIfEmpty,
+.InputfieldFileSingle .HideIfSingle,
+.InputfieldFileMultiple .HideIfMultiple {
+  display: none !important; }
+
+ul.InputfieldFileList li .InputfieldFileData {
+  margin-top: 0;
+  margin-bottom: 0;
+  padding: 1em; }
+
+.InputfieldFile.InputfieldItemListCollapse ul.InputfieldFileList li .InputfieldFileData {
+  display: none; }
+
+ul.InputfieldFileList li .InputfieldFileLink {
+  font-weight: bold;
+  margin: 0.5em 0; }
+ul.InputfieldFileList li .InputfieldFileTags,
+ul.InputfieldFileList li .InputfieldFileDescription {
+  font-weight: normal;
+  margin: 0;
+  padding: 0; }
+  ul.InputfieldFileList li .InputfieldFileTags input,
+  ul.InputfieldFileList li .InputfieldFileDescription input {
+    width: 100%; }
+ul.InputfieldFileList li .InputfieldFileSort {
+  display: none; }
+
+.Inputfield .InputfieldFileTags input {
+  margin-bottom: 0.5em; }
+
+ul.InputfieldFileListBlank + p.description {
+  margin-top: 0; }
+
+.InputfieldFileValidExtensions {
+  margin-left: 1em; }
+
+.Inputfields .InputfieldFileUpload {
+  position: relative;
+  margin: 1em 0 0 0; }
+  .Inputfields .InputfieldFileUpload input[type=file] {
+    display: block;
+    margin: 0.25em 0; }
+  .Inputfields .InputfieldFileUpload img {
+    max-width: 100px; }
+  .Inputfields .InputfieldFileUpload .AjaxUploadDropHere {
+    display: none;
+    position: absolute;
+    top: 0;
+    right: 0;
+    opacity: 0.75; }
+
+.AjaxUpload .ui-progressbar-value {
+  padding: 0 !important; }
+  .AjaxUpload .ui-progressbar-value span {
+    float: right;
+    margin: 3px 5px; }
+
+.InputfieldHasFileList .InputMask {
+  position: relative;
+  overflow: hidden;
+  line-height: 1 !important;
+  cursor: pointer;
+  font-size: 14px;
+  border: none; }
+  .InputfieldHasFileList .InputMask i {
+    font-size: 14px;
+    margin: 0 3px 0 0; }
+  .InputfieldHasFileList .InputMask:hover {
+    cursor: pointer; }
+  .InputfieldHasFileList .InputMask:active {
+    box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2); }
+  .InputfieldHasFileList .InputMask > input[type=file] {
+    position: absolute;
+    top: 0;
+    left: 0;
+    height: 100%;
+    -ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";
+    filter: alpha(opacity=0);
+    opacity: 0;
+    cursor: inherit;
+    width: 100%; }
+
+#content ul.InputfieldFileList li .langTabs > ul {
+  padding-left: 0; }
+
+.Inputfields .InputfieldFileList .langTabsContainer + .InputfieldFileTags {
+  display: block;
+  margin-top: 0.5em; }
+
+.Inputfield ul.InputfieldFileList .hasLangTabs .InputfieldFileDescription,
+.Inputfield .hasLangTabs .InputfieldFileDescription {
+  padding-top: 0.5em; }
+.Inputfield .InputfieldFileDescription.LanguageSupport {
+  padding-left: 0;
+  padding-right: 0;
+  padding-top: 0.4em; }
+
+/*# sourceMappingURL=InputfieldFile.css.map */

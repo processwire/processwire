@@ -1,0 +1,49 @@
+.InputfieldCommentsAdmin .CommentsAdminItemHead {
+	margin-bottom: 0; 
+}
+
+.InputfieldCommentsAdmin p label,
+.InputfieldCommentsAdmin p input,
+.InputfieldCommentsAdmin p select {
+	display: block;
+}
+
+.InputfieldCommentsAdmin .CommentsAdminItemCite,
+.InputfieldCommentsAdmin .CommentsAdminItemEmail,
+.InputfieldCommentsAdmin .CommentsAdminItemWebsite,
+.InputfieldCommentsAdmin .CommentsAdminItemStatus,
+.InputfieldCommentsAdmin .CommentsAdminItemDelete {
+	float: left; 
+	width: 23%; 
+	margin-right: 2%; 
+}
+
+.InputfieldCommentsAdmin .CommentsAdminItemStatus {
+}
+
+.InputfieldCommentsAdmin .CommentsAdminItemCite input,
+.InputfieldCommentsAdmin .CommentsAdminItemWebsite input,
+.InputfieldCommentsAdmin .CommentsAdminItemEmail input {
+	width: 100%; 
+}
+
+.InputfieldCommentsAdmin .CommentsAdminItemText {
+	clear: both; 
+	margin-bottom: 0;
+}
+
+.InputfieldCommentsAdmin .CommentsAdminItemHeadLabel {
+	float: right; 
+	padding-right: 1em; 
+}
+
+.InputfieldCommentsAdminList > li > .ui-widget-content {
+	padding: 1em; 
+}
+.InputfieldCommentsAdminList > li > .ui-widget-content > p {
+	margin-top: 0;
+}
+
+.InputfieldCommentsAdminList > li > .ui-widget-content label {
+	font-weight: bold; 
+}

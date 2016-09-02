@@ -1,0 +1,16 @@
+table tbody tr td:first-child {
+	white-space: nowrap;
+}
+
+h2 .fa {
+	position: relative;
+	top: -3px; 
+	opacity: 0.5;
+}
+
+@media only screen and (min-width: 768px) {
+	.MarkupPagerNav {
+		float: right;
+		margin-top: 0 !important;
+	}
+}

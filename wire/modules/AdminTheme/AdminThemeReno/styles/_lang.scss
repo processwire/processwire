@@ -1,0 +1,60 @@
+/**
+ * Language tabs styling overrides
+ *
+ */
+
+#content .langTabs {
+	padding-bottom:0;
+	margin-bottom: 1em;
+	border-radius: 0; 
+	border: none;
+	
+	.ui-tabs-nav {
+		padding-top: 0.25em;
+		margin-bottom: 0.4em;
+		padding-left: 0;
+		background: transparent;
+		
+		li:first-child,
+		li {
+			margin-left: 0;
+		}
+		
+		li,
+		li a {
+			background-color: transparent;
+			border-color: transparent;
+			border-radius: 0 !important;
+			color: #6c8dae;
+			font-weight: normal;
+		}
+
+		li a.langTabEmpty {
+			color: #97aab4;
+		}
+
+		li.ui-state-hover.ui-state-default,
+		li.ui-state-hover.ui-state-default a {
+			background-color: #e2e9ef !important;
+			border-color: #e2e9ef !important;
+			color: #2c3e50;
+		}
+
+		.ui-state-active.ui-state-default,
+		.ui-state-active.ui-state-default a {
+			color: #2c3e50;
+			background-color: #d2dce6;
+			border-color: #d2dce6;
+		}
+		
+	}
+
+	.ui-tabs-panel {
+		padding-bottom: 0;
+		border: none;
+		padding: 0;
+		margin-bottom: 0;
+	}
+	
+}
+

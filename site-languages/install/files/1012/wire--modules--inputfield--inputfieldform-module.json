@@ -1,0 +1,12 @@
+{
+   "file":"wire\/modules\/Inputfield\/InputfieldForm.module",
+   "textdomain":"wire--modules--inputfield--inputfieldform-module",
+   "translations":{
+      "d359c6df99b25183d81f7d728b71de0e":{
+         "text":"Formular"
+      },
+      "d1e114b786b9fa971fbba24b8e584a43":{
+         "text":"Enth\u00e4lt ein oder mehrere Formularfeld(er)"
+      }
+   }
+}

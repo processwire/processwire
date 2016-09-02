@@ -1,0 +1,23 @@
+{
+  "name": "processwire/processwire",
+  "type": "library",
+  "description": "ProcessWire CMS/CMF",
+  "keywords": [ "cms","cmf", "content management system" ],
+  "homepage": "https://processwire.com",
+  "authors": [
+    {
+      "name": "Ryan Cramer",
+      "email": "ryan@processwire.com",
+      "homepage": "https://processwire.com",
+      "role": "Developer"
+    }
+  ],
+  "require": {
+    "php": ">=5.3.8",
+    "ext-gd": "*"
+  },
+  "autoload": {
+    "files": [ "wire/core/ProcessWire.php" ]
+  },
+  "minimum-stability": "dev"
+}

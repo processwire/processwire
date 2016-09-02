@@ -1,0 +1,35 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Home Process
+ *
+ * Placeholder Process for the admin root. May add version and update checks to this in the future, 
+ * or dashboard type functionality for those that want it. 
+ * 
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class ProcessHome extends Process {
+
+	static public function getModuleInfo() {
+		return array(
+			'title' => __('Admin Home', __FILE__), // getModuleInfo title 
+			'summary' => __('Acts as a placeholder Process for the admin root. Ensures proper flow control after login.', __FILE__), // getModuleInfo summary
+			'version' => 101, 
+			'permission' => 'page-view', 
+			'permanent' => true, 
+			);
+	}
+
+	public function ___execute() {
+		$this->session->redirect("page/"); 
+	}	
+
+}
+

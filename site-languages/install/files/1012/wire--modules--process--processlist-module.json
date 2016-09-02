@@ -1,0 +1,18 @@
+{
+    "file": "wire\/modules\/Process\/ProcessList.module",
+    "textdomain": "wire--modules--process--processlist-module",
+    "translations": {
+        "9040adb9c035d31a6f59c34259371121": {
+            "text": "Keine Beschreibung verf\u00fcgbar"
+        },
+        "11edaf952ae49a89083e2f6ed973c774": {
+            "text": "Listet den jeder Kindseite der aktuellen Seite zugewiesenen Prozess auf"
+        },
+        "4ee29ca12c7d126654bd0e5275de6135": {
+            "text": "Liste"
+        },
+        "5b4883d0e89e3d445d1cd1ccad668cf1": {
+            "text": "Das dieser Seite zugewiesene Prozess-Modul scheint nicht installiert zu sein."
+        }
+    }
+}

@@ -1,0 +1,352 @@
+
+#select_images a img {
+	border: 3px solid #fff; 
+	max-width: 100%; 
+}
+
+#select_images a:hover img {
+	border: 3px solid #000; 
+}
+
+#select_images.thumbs img {
+	display: block;
+	float: left;
+	margin: 0 0.5em 0.5em 0;
+	border: none;
+	/* checkerboard to help with viewability of transparent images */
+	background-color: #fefefe;
+	background-image: linear-gradient(45deg, #cbcbcb 25%, transparent 25%, transparent 75%, #cbcbcb 75%, #cbcbcb), linear-gradient(45deg, #cbcbcb 25%, transparent 25%, transparent 75%, #cbcbcb 75%, #cbcbcb);
+	background-size: 16px 16px;
+	background-position: 0 0, 8px 8px;
+}
+	#select_images.thumbs a:hover img {
+		border: none;
+		opacity: 0.9;
+	}
+
+
+#selected_image,
+#selected_image_container {
+	margin: 0; 
+}
+
+#selected_image {
+	position: static !important;
+}
+
+#content {
+	max-width: 100%; 
+	overflow: hidden;
+}
+
+#selected_image_container {
+	position: relative; 
+	overflow: visible; 
+}
+
+small.ui-helper-clearfix {
+	display: block;
+	padding-bottom: 1em;
+}
+
+#action_icons {
+	margin-right: 0.5em;
+}
+
+#action_icons span {
+	display: block;
+	float: left;
+	padding: 2px 4px 0 4px;
+	margin-right: 3px; 
+	margin-bottom: 0; 
+	margin-top: 3px; 
+	background-color: #000;
+	background-color: rgba(0,0,0,0.8);
+	color: #aaa;
+	
+	/* -webkit-touch-callout: none;*/
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+}
+.cropping_active .cropper-container {
+	position: static; 
+}
+.processing small.ui-helper-clearfix,
+.cropping_active small.ui-helper-clearfix {
+	padding-bottom: 0;
+	margin-bottom: -2px;
+}
+.processing small.ui-helper-clearfix {
+	padding-bottom: 0.5em;
+	margin-bottom: -2px;
+}
+.cropping_active #action_icons {
+	display: none !important;
+}
+
+#action_icons span:hover {
+	cursor: pointer;
+	color: #fff;
+}
+#action_icons span.on {
+	color: lightsalmon;
+}
+
+#resize_tips {
+	display: none;
+}
+#resize_action:hover {
+	display: block;
+	z-index: 999;
+}
+.resize_tip {
+	position: absolute;
+	padding: 0 4px;
+	opacity: 0.4;
+	z-index: -1;
+}
+#resize_tip_nw { top: -11px; left: -12px; }
+#resize_tip_n { top: -13px; left: 50%; margin-left: -11px; }
+#resize_tip_ne { top: -11px; right: -12px; }
+#resize_tip_e { top: 50%; right: -13px; margin-top: -11px; }
+#resize_tip_se { bottom: -11px; right: -12px; }
+#resize_tip_s { bottom: -13px; left: 50%; margin-left: -11px; }
+#resize_tip_sw { bottom: -11px; left: -12px; }
+#resize_tip_w { top: 50%; left: -13px; margin-top: -11px; }
+
+#selected_image_filename {
+	display: none; 
+}
+
+#action_icons, 
+#selected_image_pixels,
+#selected_image_checkboxes {
+	display: inline-block;
+	float: left; 
+}
+#selected_image_pixels,
+#selected_image_checkboxes {
+	margin-top: 3px; 
+}
+
+#selected_image_container {
+	clear: both; 
+}
+
+#selected_image_pixels, 
+#selected_image_checkboxes,
+#wrap_link_original,
+#wrap_caption,
+#wrap_hidpi {
+	margin-right: 1em; 
+	white-space: nowrap;
+}
+#selected_image_pixels {
+	margin-right: 0.5em;
+}
+#selected_image_pixels label {
+	white-space: nowrap;
+}
+#wrap_description {
+	position: relative; 
+	clear: both; 
+	display: none; 
+}
+	#wrap_description label {
+	}
+
+	#selected_image_description {
+		display: block;
+		width: 100%; 
+	}
+
+#ProcessPageEditImageSelect .Inputfields li {
+	margin-top: 0; 
+}
+
+#ProcessPageEditImageSelect .PageList .PageList .PageListStatusSystem {
+	display: none; 
+}
+
+.input_pixels {
+	width: 60px; 
+}
+
+.show_when_crop {
+	display: none; 
+}
+
+#selected_image_settings {
+	margin-top: 1em;
+	/* the following supposed to fix modal jumping issue */
+	-webkit-backface-visibility: hidden;
+}
+
+#selected_image_settings p {
+	margin: 1em 0;
+}
+#selected_image_settings p#wrap_info {
+	margin-bottom: 0.5em;
+}
+#selected_image_settings p#wrap_description {
+	margin-top: 0.5em;
+}
+
+#wrap_link_original {
+	display: inline;
+}
+
+#selected_image_link {
+	display: inline;
+}
+
+#instructions {
+	margin: 1em 0;
+	clear: both; 
+}
+
+#selected_image.align_left,
+#selected_image.align-left {
+	float: left;
+	margin: 0;
+}
+
+#selected_image_container.align-left,
+#selected_image_container.align_left {
+	float: left; 
+	margin: 0 1em 0.5em 0;
+}
+#selected_image_container.align-right,
+#selected_image_container.align_right {
+	float: right;
+	margin: 0 0 0.5em 1em;
+}
+#selected_image.align_right,
+#selected_image.align-right {
+	float: right;
+	margin: 0;
+}
+#selected_image_container.align-center,
+#selected_image_container.align_center {
+	margin: 0 auto;
+}
+#selected_image_container + #latin {
+	margin-top: 0;
+	position: relative; 
+	display: none; 
+	overflow: hidden; 
+	font-size: smaller;
+	opacity: 0.4;
+	line-height: 1.5em;
+}
+#latin-fade {
+	display: block;
+	padding-top: 50px; 
+	width: 100%; 
+	position: absolute; 
+	bottom: 0;
+	left: 0; 
+	background-image: linear-gradient(to bottom, rgba(255,255,255,0.1), #fff);
+}
+
+.cropping_active #latin {
+	display: none !important;
+	
+}
+
+.show_when_crop #crop_coordinates label {
+	white-space: nowrap;
+}
+
+.show_when_crop button {
+	margin-bottom: 0.5em;
+}
+
+#selected_image_class {
+	display: none; 
+}
+
+.fa-times {
+	opacity: 0.3;
+}
+
+.show_when_processing {
+	display: none !important; 
+}
+.processing .show_when_processing {
+	display: inline !important; 
+}
+
+.processing .hide_when_processing {
+	display: none !important; 
+}
+
+.not-rte .show_when_rte {
+	display: none !important; 
+}
+
+.rte .hide_when_rte {
+	display: none !important; 
+}
+
+.maxfiles1 .hide_when_maxfiles1 {
+	display: none; 
+}
+
+#selected_image_pixels, 
+label.checkbox {
+	white-space: nowrap; 
+}
+
+#selected_image_container figcaption {
+	margin-top: 0.5em;
+	font-size: smaller;
+	line-height: 1.5em;
+	opacity: 0.7;
+	display: none; 
+}
+
+#caption_preview {
+	height: 1.75em;
+	overflow: hidden; 
+}
+#selected_image_settings.cropping_active #caption_preview {
+	display: none !important; 
+}
+
+.rotate90 { -ms-transform: rotate(90deg); -webkit-transform: rotate(90deg); transform: rotate(90deg); }
+.rotate180 { -ms-transform: rotate(180deg); -webkit-transform: rotate(180deg); transform: rotate(180deg); }
+.rotate270 { -ms-transform: rotate(270deg); -webkit-transform: rotate(270deg); transform: rotate(270deg); }
+.rotate-90 { -ms-transform: rotate(-90deg); -webkit-transform: rotate(-90deg); transform: rotate(-90deg); }
+.rotate-180 { -ms-transform: rotate(-180deg); -webkit-transform: rotate(-180deg); transform: rotate(-180deg); }
+.rotate-270 { -ms-transform: rotate(-270deg); -webkit-transform: rotate(-270deg); transform: rotate(-270deg); }
+
+.flip_horizontal {
+	-moz-transform: scaleX(-1);
+	-o-transform: scaleX(-1);
+	-webkit-transform: scaleX(-1);
+	transform: scaleX(-1);
+	filter: FlipH;
+	-ms-filter: "FlipH";
+}
+.flip_vertical {
+	-moz-transform: scaleY(-1);
+	-o-transform: scaleY(-1);
+	-webkit-transform: scaleY(-1);
+	transform: scaleY(-1);
+	filter: FlipV;
+	-ms-filter: "FlipV";
+}
+
+#ProcessPageEditImageSelect button.upload {
+	display: block;
+	clear: both; 
+}
+
+#selected_image_resize {
+	position: relative;
+	top: 4px;
+}

@@ -1,0 +1,14 @@
+{
+	"title": "Lister",
+	"summary": "Admin tool for finding and listing pages by any property.", 
+	"version": 24, 
+	"author": "Ryan Cramer", 
+	"icon": "search", 
+	"singular": false, 
+	"permanent": true,
+	"permission": "page-lister",
+	"permissions": {
+		"page-lister": "Use Page Lister" 
+	},
+    "useNavJSON": true
+}

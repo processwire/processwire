@@ -1,0 +1,276 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Role Process
+ *
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class ProcessRole extends ProcessPageType {
+
+	static public function getModuleInfo() {
+		return array(
+			'title' => __('Roles', __FILE__), // getModuleInfo title
+			'version' => 103, 
+			'summary' => __('Manage user roles and what permissions are attached', __FILE__), // getModuleInfo summary 
+			'permanent' => true, 
+			'permission' => 'role-admin', // add this permission if you want this Process available for roles other than Superuser
+			'icon' => 'gears',
+			'useNavJSON' => true,
+			); 
+	}
+	
+	protected $icons = array();
+	
+	public function init() {
+		parent::init();
+		$this->addHookBefore('InputfieldForm::render', $this, 'hookFormRender'); 
+		$this->icons = array(
+			'edit' => wireIconMarkup('certificate', 'fw'),
+			'page' => wireIconMarkup('gear', 'fw'), 
+			'info' => wireIconMarkup('info-circle', 'fw'), 
+			'add' => wireIconMarkup('plus-circle', 'fw'),
+			'revoke' => wireIconMarkup('minus-circle', 'fw'),
+			'help' => wireIconMarkup('question-circle'),
+		);
+	}
+	
+	public function hookFormRender(HookEvent $event) {
+		$form = $event->object;
+		$f = $form->getChildByName('permissions');
+		if(!$f) return;
+		$f->entityEncodeText = false;
+		$f->label = $this->_('Permissions'); 
+		$f->description = $f->entityEncode(sprintf($this->_('For detailed descriptions of these permissions, please see the [permissions reference](%s).'), 'https://processwire.com/api/user-access/permissions/'), true); // Permissions documentation info
+		$strikethrough = '<s>' . $this->_('strikethrough') . '</s>';
+		$f->appendMarkup = 
+			"<div class='permissions-footer detail'>" . 
+				"<p>" . 
+					$this->icons['edit'] . 
+					$this->_('Checking the page-edit permission here does not grant edit access to any pages on its own. Instead, it enables you to configure edit access for this role in template access settings. The page-edit permission is also what enables users to see Pages in the admin. This permission is recommended for all administrative users.') . // Description of page-edit  
+				"</p>" . 
+				"<p>" . 
+					$this->icons['page'] . 
+					$this->_('Indicates permission may be optionally added or revoked from user roles in template access settings. Checking the permission enables it for all editable templates. If you only want a user role to have one of these permissions for pages using specific template(s), you should leave it unchecked here and instead select it in a template "Access" tab.') . // Description of permission that can be assigned by templates
+				"</p>" . 
+				"<p>" . 
+					$this->icons['info'] . 
+					$this->_('The page-add and page-create permissions can only be added from the template access settings and are shown here just for informational purposes.') . // Description of informational permissions
+				"</p>" .
+				"<p>" .
+					$this->icons['add'] . 
+					sprintf($this->_('Indicates a template that adds the permission. Click to open a window to the access settings for that template. If the template name has %s it indicates the permission is added at the template, but being overridden by your selection here.'), $strikethrough) . // Description of template added permission
+				"</p>" .
+				"<p>" .
+					$this->icons['revoke'] . 
+					$this->_('Same as the above except that the permission is being revoked by that template (rather than added).') . // Description of template revoked permission
+				"</p>" . 
+			"</div>";
+		
+		$f = $f->getInputfield();
+		
+		$f->table = true;
+		$f->thead = $this->_('name|description'); // Table head with each column title separated by a pipe "|"
+		$value = $f->attr('value');
+		$options = $f->getOptions();
+		$pageViewID = 0; 
+		
+		foreach($options as $name => $label) $f->removeOption($name);
+		$permissions = array();
+		
+		// establish root permission containers
+		foreach($this->wire('permissions') as $permission) {
+			if($permission->getParentPermission()->id) continue;
+			$permissions[$permission->name] = array();
+			if($permission->name == 'page-view') $pageViewID = $permission->id;
+			if($permission->name == 'page-edit') {
+				$permissions[$permission->name]['page-add'] = array();
+				$permissions[$permission->name]['page-create'] = array();
+			}
+		}
+		ksort($permissions);
+		
+		foreach($this->wire('permissions') as $permission) {
+			$parent = $permission->getParentPermission();
+			if(!$parent->id) continue;
+			if(isset($permissions[$parent->name])) {
+				$permissions[$parent->name][$permission->name] = array();
+			} else {
+				$grandparent = $parent->getParentPermission();
+				if($grandparent->id) {
+					if(!isset($permissions[$grandparent->name][$parent->name])) {
+						$permissions[$grandparent->name][$parent->name] = array();
+					}
+					$permissions[$grandparent->name][$parent->name][$permission->name] = array();
+				} else {
+					// this should not be able to occur, but here as a fallback just in case
+					$permissions[$parent->name][$permission->name] = array();
+				}
+			}
+		}
+		
+		if(!in_array($pageViewID, $value)) $value[] = $pageViewID;  // required
+		
+		$this->addPermissionOptions($permissions, $f, 0, $value);
+		
+		$f->attr('value', $value);
+	}
+	
+	protected function addPermissionOptions(array $permissions, Inputfield $f, $level = 0, &$inputfieldValue) {
+		
+		$role = $this->getPage();
+		
+		foreach($permissions as $name => $children) {
+			
+			$alert = '';
+			$confirm = '';
+			$addedTemplates = array();
+			$revokedTemplates = array();
+			$disabled = false;
+			$checked = false;
+
+			if($name == 'page-add' || $name == 'page-create') {
+				$parent = $this->wire('permissions')->get('page-edit');
+				$rootParent = $parent;
+				$permission = $this->wire('pages')->newNullPage();
+				if($name == 'page-add') $title = $this->_('Add children to pages using template');
+					else $title = $this->_('Create pages using template');
+				$alert = $this->_('This permission can only be assigned by template access settings.');
+			} else {
+				$permission = $this->wire('permissions')->get($name);
+				if(!$permission->id) continue;
+				$title = str_replace('|', ' ', $this->wire('sanitizer')->entities($permission->getUnformatted('title')));
+				$parent = $permission->getParentPermission();
+				$rootParent = $permission->getRootParentPermission();
+				$checked = in_array($permission->id, $inputfieldValue);
+			}
+			
+			if($name == 'page-view') {
+				$title .= " <span class='detail'>" . $this->_('(required)') . "</span>";
+				$alert = $this->_('This permission is required for all roles.');
+			} else if($name == 'page-edit') {
+				$title = $this->icons['edit'] . $title;
+			}
+			if(($parent->name == 'page-edit' || $rootParent->name == 'page-edit') && strpos($name, 'page-') === 0) {
+				if($name == 'page-add' || $name == 'page-create') {
+					$title = $this->icons['info'] . $title;
+				} else {
+					$title = $this->icons['page'] . $title . ' ' . 
+						"<span class='detail permission-all-templates'>(" . $this->_('applies to all editable templates') . ')</span>';
+				}
+			}
+		
+			foreach($this->wire('templates') as $template) {
+				if(!$template->useRoles) continue;
+				$templateEditURL = "../../../setup/template/edit?id=$template->id#tab_access";
+				$templateEditLink = 
+					"<a class='tooltip' title='{tooltip}' target='_blank' href='$templateEditURL'>" . 
+					$this->icons['add'] . "$template->name</a>";
+				
+				if($name == 'page-edit') {
+					if(in_array($role->id, $template->editRoles)) {
+						$addedTemplates[$template->name] = $templateEditLink;
+					}
+				} else if($name == 'page-create') {
+					if(in_array($role->id, $template->createRoles)) {
+						$checked = true;
+						$addedTemplates[$template->name] = $templateEditLink;
+					}
+				} else if($name == 'page-add') {
+					if(in_array($role->id, $template->addRoles)) {
+						$checked = true;
+						$addedTemplates[$template->name] = $templateEditLink;
+					}
+				} else {
+					$rolesPermissions = $template->rolesPermissions;
+					if(!isset($rolesPermissions[$role->id])) continue;
+					if(in_array($permission->id, $rolesPermissions[$role->id])) {
+						$addedTemplates[$template->name] = $templateEditLink;
+					} else if(in_array($permission->id * -1, $rolesPermissions[$role->id])) {
+						$revokedTemplates[$template->name] = str_replace($this->icons['add'], $this->icons['revoke'], $templateEditLink);
+					}
+				}
+			}
+			
+			if(count($addedTemplates) || count($revokedTemplates)) {
+				
+				foreach($addedTemplates as $templateName => $link) {
+					$tooltip = sprintf($this->_('%1$s added by template %2$s, click to edit'), $name, $templateName); 
+					$addedTemplates[$templateName] = str_replace('{tooltip}', $tooltip, $link);
+				}
+				foreach($revokedTemplates as $templateName => $link) {
+					$tooltip = sprintf($this->_('%1$s revoked by template %2$s, click to edit'), $name, $templateName); 
+					$addedTemplates[$templateName] = str_replace('{tooltip}', $tooltip, $link);
+				}
+				
+				if($name != 'page-edit' && $permission->id) {
+					if(!in_array($permission->id, $inputfieldValue)) {
+						$confirm = $this->_('Checking this box adds the permission for all editable templates, but this permission is already being applied separately by one or more templates. To keep things tidy, we suggest removing the permission from those templates before enabling it for all. Are you sure you want to enable it now?'); // Alert for enabling a permission for all templates
+					}
+				}
+
+				if(count($addedTemplates)) {
+					$label = implode(' ', $addedTemplates);
+					$title .= " <span class='detail permission-added'>$label</span> ";
+				}
+
+				if(count($revokedTemplates)) {
+					$label = implode(' ', $revokedTemplates);
+					$title .= " <span class='detail permission-revoked'>$label</span>";
+				}
+				
+			} else if($name == 'page-edit') {
+				$title .= " <span class='detail permission-added'>(" . $this->_('not currently applied to any templates') . ")</span>";
+			}
+			
+			$class = "permission level$level"; 
+			$p = $parent;
+			while($p->id) {
+				$class .= " parent-permission$p->id";
+				$p = $p->getParentPermission($p);
+			}
+			
+			if($permission->id) {
+				$value = $permission->id;
+				$id = "permission$permission->id";
+			} else {
+				$value = "0-$name";
+				$id = "permission0-$name";
+				$disabled = true; 
+			}
+			
+			$attributes = array(
+				"id" => $id, 
+				"class" => $class,
+				"data-parent" => "permission$parent->id",
+				"data-level" => $level
+			);
+			
+			if(!$permission->id && $checked) $inputfieldValue[] = $value;
+			if($disabled) {
+				$attributes['disabled'] = 'disabled';
+				$attributes['class'] .= ' checkbox-disabled';
+			}
+			if($alert) $attributes['data-alert'] = $alert;
+			if($confirm) $attributes['data-confirm'] = $confirm;
+		
+			/*
+			$title = 
+				"<a class='permission-help' target='_blank' href='https://processwire.com/api/user-access/permissions/#$name'>" . 
+				$this->icons['help'] . "</a>" . $title;
+			*/
+		
+			$f->addOption($value, "$name|$title", $attributes);
+			
+			if(count($children)) {
+				$this->addPermissionOptions($children, $f, $level+1, $inputfieldValue);
+			}
+		}
+	}
+}
+

@@ -1,0 +1,1479 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Comments Fieldtype
+ *
+ * A field that stores user posted comments for a single Page. 
+ *
+ * For documentation about the fields used in this class, please see:  
+ * /wire/core/Fieldtype.php
+ * /wire/core/FieldtypeMulti.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+$dirname = dirname(__FILE__); 
+
+require_once($dirname . "/Comment.php");
+require_once($dirname . "/CommentStars.php");
+require_once($dirname . "/CommentArray.php"); 
+require_once($dirname . "/CommentList.php"); 
+require_once($dirname . "/CommentForm.php"); 
+
+/**
+ * ProcessWire Comments Fieldtype
+ *
+ * A field that stores user posted comments for a single Page. 
+ *
+ */
+class FieldtypeComments extends FieldtypeMulti {
+
+	/**
+	 * Constant that designates comments are posted immediately with NO moderation
+	 *
+ 	 */
+	const moderateNone = 0;
+
+	/**
+	 * Constant that designates that ALL comments require moderation
+	 *
+	 */
+	const moderateAll = 1; 
+
+	/**
+	 * Constant that designates that all comments require moderation, except those posted by users that have an approved comment
+	 *
+	 */
+	const moderateNew = 2;
+
+	/**
+	 * Time period (in seconds) after which the same IP address may vote again on the same comment
+	 *
+	 */
+	const votesMaxAge = 3600; 
+	
+	const useVotesNo = 0;
+	const useVotesUp = 1; 
+	const useVotesAll = 2;
+
+	const useStarsNo = 0;
+	const useStarsYes = 1;
+	const useStarsRequired = 2;
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Comments', __FILE__),
+			'version' => 107,
+			'summary' => __('Field that stores user posted comments for a single Page', __FILE__),
+			'installs' => array('InputfieldCommentsAdmin'),
+			);
+	}
+	
+	public function __construct() {
+		if($this->wire('config')->ajax) {
+			$this->addHookBefore('Page::render', $this, 'checkVoteAction');
+		}
+	}
+	
+	public function getBlankValue(Page $page, Field $field) {
+		$commentArray = $this->wire(new CommentArray()); 
+		$commentArray->setPage($page); 
+		$commentArray->setField($field); 
+		$commentArray->setTrackChanges(true);
+		return $commentArray; 
+	}
+
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		if($value instanceof CommentArray) return $value; 
+		$commentArray = $this->wire('pages')->get($field->name); 
+		if(!$value) return $commentArray; 
+		if($value instanceof Comment) return $commentArray->add($value); 
+		if(!is_array($value)) $value = array($value);
+		foreach($value as $comment) $commentArray->add($comment); 
+		return $commentArray; 
+	}
+
+	public function getInputfield(Page $page, Field $field) {
+		$inputfield = $this->modules->get('InputfieldCommentsAdmin'); 
+		if(!$inputfield) return null; 
+		$inputfield->class = $this->className();
+		return $inputfield; 
+	}
+
+	/**
+	 * Update a query to match the text with a fulltext index
+	 *
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		if($subfield == 'text') $subfield = 'data';
+		if(empty($subfield) || $subfield === 'data') { 
+			$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
+			$ft->match($table, $subfield, $operator, $value);
+			return $query;
+		} 
+		return parent::getMatchQuery($query, $table, $subfield, $operator, $value); 
+	}
+
+
+	/**
+	 * Given a raw value (value as stored in DB), return the value as it would appear in a Page object
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array $value
+	 * @return string|int|array|object $value
+	 *
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+
+		if($value instanceof CommentArray) return $value; 
+		$commentArray = $this->getBlankValue($page, $field); 
+		if(empty($value)) return $commentArray; 
+		
+		$editable = $page->editable();
+		if(!is_array($value)) $value = array($value); 
+		
+		foreach($value as $sort => $item) {
+		
+			if(!is_array($item)) continue; 
+		
+			// don't load non-approved comments if the user can't edit them
+			if(!$editable && $item['status'] < Comment::statusApproved) continue; 
+		
+			$comment = $this->wire(new Comment());
+			$comment->setPage($page);
+			$comment->setField($field); 
+			foreach($item as $key => $val) {
+				if($key == 'data') $key = 'text';
+				$comment->set($key, $val); 
+			}
+			$comment->resetTrackChanges(true); 
+			$commentArray->add($comment);
+			$comment->setIsLoaded(true); 
+		}
+		
+		if($field->sortNewest) $commentArray->sort("-created"); 
+		$commentArray->resetTrackChanges(true); 
+		
+		return $commentArray;  
+	}
+
+	/**
+	 * Given an 'awake' value, as set by wakeupValue, convert the value back to a basic type for storage in DB. 
+	 *              
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array|object $value
+	 * @return string|int
+	 *
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+
+		$sleepValue = array();
+		if(!$value instanceof CommentArray) return $sleepValue; 
+		$schemaVersion = $field->schemaVersion;
+
+		foreach($value as $comment) {
+
+			if($comment->id) {
+				$this->checkExistingComment($page, $field, $comment);
+			} else {
+				$this->checkNewComment($page, $field, $comment);
+			}
+				
+			$a = array(
+				'id' => $comment->id, 
+				'status' => $comment->status, 
+				'data' => $comment->text, 
+				'cite' => $comment->cite, 
+				'email' => $comment->email, 
+				'created' => $comment->created, 
+				'created_users_id' => $comment->created_users_id, 
+				'ip' => $comment->ip, 
+				'user_agent' => $comment->user_agent, 
+				); 
+			
+
+			if($schemaVersion > 0) $a['website'] = $comment->website;
+			if($schemaVersion > 1) {
+				$a['parent_id'] = $comment->parent_id;
+				$a['flags'] = (int) $comment->flags;
+			}
+			if($schemaVersion > 2) {
+				$a['code'] = $comment->code; 
+			}
+			if($schemaVersion > 3) {
+				$a['subcode'] = $comment->subcode;
+			}
+			if($schemaVersion > 4) {
+				$a['upvotes'] = (int) $comment->upvotes;
+				$a['downvotes'] = (int) $comment->downvotes;
+			}
+			if($schemaVersion > 5) {
+				$a['stars'] = ($comment->stars >= 1 && $comment->stars <= 5 ? (int) $comment->stars : null);
+			}
+
+			$sleepValue[] = $a;
+
+		}
+			
+		return $sleepValue;
+	}
+
+	/**
+	 * Review an existing comment for changes to the status
+	 *
+	 * If the status was changed, check if Akismet made an error and send it to them if they did
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 *
+	 */
+	protected function checkExistingComment(Page $page, Field $field, Comment $comment) {
+
+		$submitSpam = false; 
+		$submitHam = false; 
+
+		if($comment->prevStatus === Comment::statusSpam && $comment->status === Comment::statusApproved) {
+			$submitHam = true; // identified a false positive
+			$this->commentApproved($page, $field, $comment, 'Existing comment changed from spam to approved'); 
+
+		} else if($comment->status === Comment::statusSpam && $comment->prevStatus === Comment::statusApproved) {
+			$submitSpam = true; // a missed spam
+			$this->commentUnapproved($page, $field, $comment); 
+			
+		} else if($comment->prevStatus === Comment::statusPending && $comment->status === Comment::statusApproved) {
+			$this->commentApproved($page, $field, $comment, 'Existing comment changed from pending to approved'); 
+			
+		} else if($comment->status === Comment::statusPending && $comment->prevStatus === Comment::statusApproved) {
+			$this->commentUnapproved($page, $field, $comment); 
+		}
+
+		if($field->useAkismet && $comment->ip && $comment->user_agent && ($submitHam || $submitSpam)) {
+			$akismet = $this->modules->get("CommentFilterAkismet"); 
+			$akismet->setComment($comment); 
+			if($submitHam) $akismet->submitHam();
+				else if($submitSpam) $akismet->submitSpam();
+		}
+		
+		$this->checkCommentCodes($comment);
+	}
+
+	/**
+	 * Assign comment code and subcode as needed
+	 * 
+	 * @param Comment $comment
+	 * 
+	 */
+	protected function checkCommentCodes(Comment $comment) {
+		// assign code and subcode
+		if(!$comment->code || !$comment->subcode) {
+			$pass = $this->wire(new Password());
+			if(!strlen($comment->code)) {
+				// code: visible to admin only
+				$code = $pass->randomBase64String(128, true);
+				$code = substr($this->wire('sanitizer')->fieldName($code), 0, 128);
+				$comment->code = $code;
+			}
+			if(!strlen($comment->subcode)) {
+				// subcode: may be visible to commenter
+				$subcode = $pass->randomBase64String(40, true);
+				$subcode = substr($this->wire('sanitizer')->fieldName($subcode), 0, 40);
+				$comment->subcode = $subcode;
+			}
+		}
+	}
+
+
+	/**
+	 * If comment is new, it sets the status based on whether it's spam, and notifies any people that need to be notified
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 *
+	 */ 
+	protected function checkNewComment(Page $page, Field $field, Comment $comment) {
+
+		if($comment->id) return;
+		
+		$this->checkCommentCodes($comment);
+		
+		if($field->useAkismet) {
+			$akismet = $this->modules->get('CommentFilterAkismet'); 
+			$akismet->setComment($comment); 
+			$akismet->checkSpam(); // automatically sets status if spam
+		} else {
+			$comment->status = Comment::statusPending; 
+		}
+
+		if($comment->status != Comment::statusSpam) {
+			if($field->moderate == self::moderateNone) {
+				$comment->status = Comment::statusApproved; 
+				$this->commentApproved($page, $field, $comment, 'New comment approved / moderation is off'); 
+
+			} else if($field->moderate == self::moderateNew && $comment->email) {
+				$database = $this->wire('database');
+				$table = $database->escapeTable($field->table); 
+				$query = $database->prepare("SELECT count(*) FROM `$table`  WHERE status=:status AND email=:email"); 
+				$query->bindValue(":status", Comment::statusApproved, \PDO::PARAM_INT);
+				$query->bindValue(":email", $comment->email); 
+				$query->execute();
+				$numApproved = (int) $query->fetchColumn();
+					
+				if($numApproved > 0) {
+					$comment->status = Comment::statusApproved;
+					$cite = $this->wire('sanitizer')->name($comment->cite); 
+					$this->commentApproved($page, $field, $comment, "New comment auto-approved because user '$cite' has other approved comments"); 
+				}
+			}
+		}
+
+		require_once(dirname(__FILE__) . '/CommentNotifications.php'); 
+		$no = $this->wire(new CommentNotifications($page, $field)); 
+		$no->sendAdminNotificationEmail($comment); 
+		$this->commentMaintenance($field);
+
+	}
+
+	/**
+	 * Delete spam that is older than $field->deleteSpamDays
+	 * 
+	 * @param Field $field
+	 *
+	 */
+	protected function commentMaintenance(Field $field) {
+		
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->table);
+		
+		// delete old spam
+		$expiredTime = time() - (86400 * $field->deleteSpamDays);
+		$query = $database->prepare("DELETE FROM `$table` WHERE status=:status AND created < :expiredTime");
+		$query->bindValue(":status", Comment::statusSpam, \PDO::PARAM_INT);
+		$query->bindValue(":expiredTime", $expiredTime); 
+		$query->execute();
+		
+		// delete upvote/downvote IP address records
+		$expiredTime = time() - self::votesMaxAge;
+		$query = $database->prepare("DELETE FROM `{$table}_votes` WHERE created < :expiredTime");
+		$query->bindValue(":expiredTime", $expiredTime);
+		try {
+			// we use a try/catch here in case the votes table doesn't yet exist
+			$query->execute();
+		} catch(\Exception $e) {
+			$this->error($e->getMessage(), Notice::log); 
+		}
+	}
+
+	/**
+	 * Schema for the Comments Fieldtype
+	 *
+	 */
+	public function getDatabaseSchema(Field $field) {
+
+		$websiteSchema = "varchar(250) NOT NULL default ''"; 
+		$parentSchema = "int unsigned NOT NULL default 0";
+		$flagSchema = "int unsigned NOT NULL default 0";
+		$codeSchema = "varchar(128) default NULL";
+		$codeIndexSchema = "INDEX `code` (`code`)";
+		$subcodeSchema = "varchar(40) default NULL";
+		$subcodeIndexSchema = "INDEX `subcode` (`subcode`)";
+		$upvoteSchema = "int unsigned NOT NULL default 0";
+		$downvoteSchema = "int unsigned NOT NULL default 0";
+		$starsSchema = "tinyint unsigned default NULL";
+		
+		$schemaVersion = (int) $field->schemaVersion;
+		$updateSchema = true;
+
+		if(!$schemaVersion) {
+			// add website field for PW 2.3+ 
+			$database = $this->wire('database');
+			$table = $database->escapeTable($field->getTable());
+			try { 
+				$database->query("ALTER TABLE `$table` ADD website $websiteSchema");
+				$schemaVersion = 1;
+			} catch(\Exception $e) {
+				$updateSchema = false;
+			}
+		}
+		
+		if($schemaVersion < 2) {
+			// add parent_id and flags columns
+			$database = $this->wire('database');
+			$table = $database->escapeTable($field->getTable());
+			try { 
+				$database->query("ALTER TABLE `$table` ADD parent_id $parentSchema");
+				$database->query("ALTER TABLE `$table` ADD flags $flagSchema");
+				$schemaVersion = 2;
+			} catch(\Exception $e) {
+				$updateSchema = false;
+			}
+		}
+		
+		if($schemaVersion < 3) {
+			// add code column (admin code)
+			$database = $this->wire('database');
+			$table = $database->escapeTable($field->getTable());
+			try {
+				$database->query("ALTER TABLE `$table` ADD `code` $codeSchema");
+				$database->query("ALTER TABLE `$table` ADD $codeIndexSchema"); 
+				$schemaVersion = 3;
+			} catch(\Exception $e) {
+				$updateSchema = false;
+			}
+		}
+		
+		if($schemaVersion < 4) {
+			// add subcode column (subscriber code)
+			$database = $this->wire('database');
+			$table = $database->escapeTable($field->getTable());
+			try {
+				$database->query("ALTER TABLE `$table` ADD `subcode` $subcodeSchema");
+				$database->query("ALTER TABLE `$table` ADD $subcodeIndexSchema");
+				$schemaVersion = 4;
+			} catch(\Exception $e) {
+				$updateSchema = false;
+			}
+		}
+		
+		if($schemaVersion < 5 && $updateSchema) {
+			// add upvote/downvote columns 
+			$database = $this->wire('database');
+			$table = $database->escapeTable($field->getTable());
+			$parentSchema = parent::getDatabaseSchema($field);
+			try {
+				$sql = "
+					CREATE TABLE `{$table}_votes` (
+					`comment_id` int unsigned NOT NULL,
+					`vote` tinyint NOT NULL, 
+					`created` TIMESTAMP NOT NULL, 
+					`ip` VARCHAR(15) NOT NULL default '', 
+					`user_id` int unsigned NOT NULL default 0, 
+					PRIMARY KEY (`comment_id`, `ip`, `vote`), 
+					INDEX `created` (`created`)
+					) " . $parentSchema['xtra']['append']; // engine and charset
+				$database->exec($sql);
+				$createdVotesTable = true;	
+			} catch(\Exception $e) {
+				$createdVotesTable = $e->getCode() == '42S01'; // 42S01=table already exists (which we consider success too)
+				if(!$createdVotesTable) {
+					$this->error($e->getMessage(), Notice::log);
+					$updateSchema = false;
+				}
+			}
+			if($createdVotesTable) try {
+				$isUpvotes = $database->prepare("SHOW columns FROM `$table` LIKE 'upvotes'");
+				$isUpvotes->execute();
+				if(!$isUpvotes->rowCount()) $database->query("ALTER TABLE `$table` ADD `upvotes` $upvoteSchema");
+				$isDownvotes = $database->prepare("SHOW columns FROM `$table` LIKE 'downvotes'");
+				$isDownvotes->execute();
+				if(!$isDownvotes->rowCount()) $database->query("ALTER TABLE `$table` ADD `downvotes` $downvoteSchema");
+				$schemaVersion = 5;
+			} catch(\Exception $e) { 
+				$this->error($e->getMessage(), Notice::log);
+				$updateSchema = false;
+			}
+		}
+
+		if($schemaVersion < 6 && $updateSchema) {
+			$database = $this->wire('database');
+			$table = $database->escapeTable($field->getTable());
+			try {
+				$database->query("ALTER TABLE `$table` ADD `stars` $starsSchema");
+				$schemaVersion = 6;
+			} catch(\Exception $e) {
+				if($e->getCode() == '42S21') {
+					// column already exists
+					$schemaVersion = 6;
+				} else {
+					$updateSchema = false;
+				}
+			}
+ 		}
+
+		if(((int) $field->schemaVersion) < $schemaVersion) {
+			$this->message("Updating schema version of '{$field->name}' from $field->schemaVersion to $schemaVersion", Notice::log);
+			$field->schemaVersion = $schemaVersion;
+			$field->save();
+		}
+
+		$schema = parent::getDatabaseSchema($field); 
+
+		$schema['id'] = "int unsigned NOT NULL auto_increment";
+		$schema['status'] = "tinyint(3) NOT NULL default '0'";
+		$schema['cite'] = "varchar(128) NOT NULL default ''"; 
+		$schema['email'] = "varchar(250) NOT NULL default ''";
+		$schema['data'] = "text NOT NULL"; 
+		$schema['sort'] = "int unsigned NOT NULL";
+		$schema['created'] = "int unsigned NOT NULL"; 	
+		$schema['created_users_id'] = "int unsigned NOT NULL";
+		$schema['ip'] = "varchar(15) NOT NULL default ''";
+		$schema['user_agent'] = "varchar(250) NOT NULL default ''";
+
+		$schemaVersion = $field->schemaVersion;
+		if($schemaVersion > 0) $schema['website'] = $websiteSchema;
+		if($schemaVersion > 1) {
+			$schema['parent_id'] = $parentSchema;
+			$schema['flags'] = $flagSchema;
+		}
+		if($schemaVersion > 2) {
+			$schema['code'] = $codeSchema;
+			$schema['keys']['code'] = $codeIndexSchema;
+		}
+		if($schemaVersion > 3) {
+			$schema['subcode'] = $subcodeSchema;
+			$schema['keys']['subcode'] = $subcodeIndexSchema;
+		}
+		if($schemaVersion > 4) {
+			$schema['upvotes'] = $upvoteSchema;
+			$schema['downvotes'] = $downvoteSchema;
+		}
+		if($schemaVersion > 5) {
+			$schema['stars'] = $starsSchema;
+		}
+
+		$schema['keys']['primary'] = "PRIMARY KEY (`id`)"; 
+		$schema['keys']['pages_id_sort'] = "KEY `pages_id_sort` (`pages_id`, `sort`)";
+		$schema['keys']['status'] = "KEY `status` (`status`, `email`)";
+		$schema['keys']['pages_id'] = "KEY `pages_id` (`pages_id`,`status`,`created`)"; 
+		$schema['keys']['created'] = "KEY `created` (`created`, `status`)";
+		$schema['keys']['data'] = "FULLTEXT KEY `data` (`data`)";
+
+		return $schema;
+	}
+
+	/**
+	 * Per the Fieldtype interface, Save the given Field from the given Page to the database
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool
+	 *
+	 */
+	public function ___savePageField(Page $page, Field $field) {
+
+		if(!$page->id || !$field->id) return false;
+
+		$allItems = $page->get($field->name);
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->table);
+
+		if(!$allItems) return false;
+		if(!$allItems->isChanged() && !$page->isChanged($field->name)) return true; 
+
+		$itemsRemoved = $allItems->getItemsRemoved();
+		if(count($itemsRemoved)) {
+			foreach($itemsRemoved as $item) {
+				if(!$item->id) continue; 
+				$this->deleteComment($page, $field, $item, 'deleted from savePageField()'); 
+				/*
+				$query = $database->prepare("DELETE FROM `$table` WHERE id=:item_id AND pages_id=:pages_id"); 
+				$query->bindValue(":item_id", $item->id, \PDO::PARAM_INT);
+				$query->bindValue(":pages_id", $page->id, \PDO::PARAM_INT);
+				$query->execute();
+				*/
+			}
+		}
+
+		$maxSort = 0; 
+		$items = $allItems->makeNew();
+		foreach($allItems as $item) {
+			if($item->isChanged() || !$item->id) $items->add($item); 
+			if($item->sort > $maxSort) $maxSort = $item->sort; 
+		}
+
+		if(!count($items)) return true; 
+
+		$values = $this->sleepValue($page, $field, $items); 
+		$value = reset($values); 
+		$keys = is_array($value) ? array_keys($value) : array('data'); 
+		
+		// cycle through the values, executing an update query for each
+		foreach($values as $commentKey => $value) {
+			
+			$binds = array();
+			$sql = $value['id'] ? "UPDATE " : "INSERT INTO ";
+			//$sql .= "`{$table}` SET pages_id=" . ((int) $page->id) . ", ";
+			$sql .= "`{$table}` SET pages_id=:pages_id, "; 
+			$binds['pages_id'] = (int) $page->id; 
+
+			// if the value is not an associative array, then force it to be one
+			if(!is_array($value)) $value = array('data' => $value); 
+
+			// cycle through the keys, which represent DB fields (i.e. data, description, etc.) and generate the update query
+			foreach($keys as $key) {
+				if($key == 'id') continue; 
+				if($key == 'sort' && !$value['id']) continue; 
+				$v = $value[$key];
+				$col = $database->escapeCol($key); 
+				if(is_null($v) && ($key == 'code' || $key == 'subcode')) {
+					// currently 'code' and 'subcode' are the only column that allows null
+					$sql .= "$col=NULL, ";
+				} else {
+					$sql .= "$col=:$col, ";
+					$binds[$col] = $v; 
+				}
+			}
+
+			if($value['id']) {
+				$sql = rtrim($sql, ', ') . " WHERE id=:id"; // . (int) $value['id'];
+				$binds['id'] = (int) $value['id'];
+			} else {
+				$sql .= "sort=:sort"; 
+				$binds['sort'] = ++$maxSort; 
+			}
+			$query = $database->prepare($sql); 
+			foreach($binds as $k => $v) $query->bindValue(":$k", $v); 
+			try {
+				$result = $query->execute();
+				if(!$value['id']) {
+					// populate newly added comment ID to Comment object
+					$value['id'] = $database->lastInsertId();
+					foreach($allItems as $item) {
+						if(!$item->id && $item->code === $value['code']) $item->id = $value['id'];
+					}
+				}
+			} catch(\Exception $e) {
+				$result = false; 
+			}
+			if(!$result) $this->error("Error saving item $value[id] in savePageField", Notice::log);
+		}	
+		
+		return true; 
+	}
+
+	/**
+	 * Configuration that appears with each Comments fieldtype
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+
+		$inputfields = parent::___getConfigInputfields($field);
+		$disabledLabel = $this->_('Disabled');
+
+		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+		$fieldset->label = $this->_('Behavior');
+		$fieldset->icon = 'comment-o';
+		$inputfields->add($fieldset); 
+
+		$name = 'moderate';
+		$f = $this->wire('modules')->get('InputfieldRadios'); 
+		$f->attr('name', $name); 
+		$f->addOption(self::moderateNone, $this->_('None - Comments posted immediately')); 
+		$f->addOption(self::moderateAll, $this->_('All - All comments must be approved by user with page edit access')); 
+		$f->addOption(self::moderateNew, $this->_('Only New - Only comments from users without prior approved comments require approval'));
+		$f->attr('value', (int) $field->$name); 
+		$f->label = $this->_('Comment moderation');
+		$f->description = $this->_('This determines when a newly posted comment will appear on your site.'); 
+		$fieldset->append($f);
+		
+		$name = 'redirectAfterPost';
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', $name);
+		$f->attr('value', 1);
+		$f->attr('checked', $field->$name ? 'checked' : '');
+		$f->label = $this->_('Redirect after comment post?');
+		$f->description = $this->_('When checked, ProcessWire will issue a redirect after the comment is posted in order to prevent double submissions. Recommended.');
+		$f->columnWidth = 50;
+		$fieldset->append($f);
+
+		$name = 'quietSave';
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', $name);
+		$f->attr('value', 1);
+		$f->attr('checked', $field->$name ? 'checked' : '');
+		$f->label = $this->_('Quiet save?');
+		$f->columnWidth = 50;
+		$f->description = $this->_('When checked, the page modification time and user will not be updated when a comment is added.');
+		$fieldset->append($f);
+
+		/*
+		$name = 'notificationType';
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', $name);
+		$f->label = $this->_('Notification Type');
+		$f->addOption(self::notificationNone, $this->_('Do not send notifications'));
+		$f->addOption(self::notificationEmail, $this->_('Send notifications to specific email address'));
+		$f->addOption(self::notificationCreated, $this->_('Send notifications to user that created the page'));
+		$f->addOption(self::notificationUser, $this->_('Send notifications to specific user')); 
+		$f->attr('value', $field->$name);
+		$inputfields->append($f);
+		*/
+		
+		// ----------------------------
+		
+		$fieldset = $this->wire('modules')->get('InputfieldFieldset'); 
+		$fieldset->label = $this->_('Notifications'); 
+		$fieldset->icon = 'bell-o';
+		$inputfields->add($fieldset); 
+
+		$name = 'notificationEmail';
+		$f = $this->wire('modules')->get('InputfieldText'); 
+		$f->attr('name', $name); 
+		$f->attr('value', $field->$name); 
+		$f->label = $this->_('Admin notification email');
+		$f->description = $this->_('E-mail address to be notified when a new comment is posted. Separate multiple email addresses with commas or spaces.') . ' '; 
+		$f->description .= $this->_('Users receiving this email will have the ability to approve or deny posts directly from links in the email.');
+		$f->notes = 
+			$this->_('In addition to (or instead of) email addresses, you may also use one or more of the following:') . "\n" .
+			$this->_('1. Enter **user:karen** to email a specific user, replacing "karen" with the name of the actual user.') . "\n" . 
+			$this->_('2. Enter **field:email** to pull the email from a field on the page, replacing "email" with name of field containing email address.') . "\n" . 
+			$this->_('3. Enter **123:email** to pull the email from an given page ID and field name, replacing "123" with the page ID and "email" with name of field containing email address.') . "\n" . 
+			$this->_('4. Enter **/path/to/page:email** to pull the email from an given page path and field name, replacing "/path/to/page" with the page path and "email" with name of field containing email address.');
+		$fieldset->append($f);
+		
+		$name = 'fromEmail';
+		$f = $this->wire('modules')->get('InputfieldEmail');
+		$f->attr('name', $name);
+		$f->attr('value', $field->$name);
+		$f->label = $this->_('Notifications from email');
+		$f->description = $this->_('Optional e-mail address that notifications will appear from. Leave blank to use the default server email.');
+		$f->columnWidth = 50; 
+		$fieldset->append($f);
+		
+		$name = 'notifySpam';
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', $name);
+		$f->attr('value', 1);
+		if($field->$name) $f->attr('checked', 'checked');
+		$f->label = $this->_('Send e-mail notification on spam?');
+		$f->description = $this->_('When checked, ProcessWire will still send you an e-mail notification even if the message is identified as spam.');
+		$f->columnWidth = 50;
+		$fieldset->append($f);
+
+		$name = 'useNotify';
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', $name);
+		$f->label = $this->_('Allow commenter e-mail notifications?');
+		$f->description = $this->_('This option enables anyone that posts a comment to receive email notifications of new comments.');
+		$f->addOption(0, $disabledLabel);
+		$f->addOption(Comment::flagNotifyReply, $this->_('Users can receive email notifications of replies to their comment only'));
+		$f->addOption(Comment::flagNotifyAll, $this->_('Users can receive email notifications for all new comments on the page'));
+		$f->attr('value', (int) $field->useNotify);
+		$fieldset->append($f);
+
+		// ---------------------------------------
+		
+		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+		$fieldset->label = $this->_('Spam'); 
+		$fieldset->icon = 'fire-extinguisher';
+		$inputfields->add($fieldset);
+		
+		$name = 'useAkismet';
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', $name);
+		$f->attr('value', 1);
+		$f->attr('checked', $field->$name ? 'checked' : '');
+		$f->label = $this->_('Use Akismet Spam Filter Service?');
+		$f->description = $this->_('This service will automatically identify most spam. Before using it, please ensure that you have entered an Akismet API key under Modules > Comment Filter: Akismet.');
+		$f->columnWidth = 50;
+		$fieldset->append($f);
+
+		$name = 'deleteSpamDays';
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->attr('name', $name);
+		$value = $field->$name;
+		if(is_null($value)) $value = 3; // default
+		$f->attr('value', $value);
+		$f->label = $this->_('Number of days after which to delete spam');
+		$f->description = $this->_('After the number of days indicated, spam will be automatically deleted.');
+		$f->columnWidth = 50; 
+		$fieldset->append($f);
+		
+		// ---------------------------------------
+
+		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+		$fieldset->label = $this->_('Output');
+		$fieldset->icon = 'comments-o';
+		$inputfields->add($fieldset);
+		
+		$name = 'depth';
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->attr('name', $name);
+		$f->attr('value', (int) $field->$name);
+		$f->label = $this->_('Reply depth');
+		$f->description = $this->_('Specify 0 for traditional flat chronological comments. For threaded comments (replies appear with comment being replied to) specify the maximum depth allowed for replies (0 to 4 recommended).');
+		$f->columnWidth = 50;
+		$fieldset->append($f);
+
+
+		$name = 'sortNewest'; 
+		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$f->attr('name', $name); 
+		$f->attr('value', 1); 
+		$f->attr('checked', $field->$name ? 'checked' : ''); 
+		$f->label = $this->_('Sort newest to oldest?');
+		$f->description = $this->_('By default, comments will sort chronologically (oldest to newest). To reverse that behavior check this box.');
+		$f->columnWidth = 50;
+		$fieldset->append($f);
+		
+		$name = 'useWebsite'; 
+		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$f->attr('name', $name); 
+		$f->attr('value', 1); 
+		$f->attr('checked', $field->$name ? 'checked' : ''); 
+		$f->label = $this->_('Use website field in comment form?');
+		$f->description = $this->_('When checked, the comment submission form will also include a website field.');
+		$f->columnWidth = 50;
+		$fieldset->append($f);
+		
+		$name = 'dateFormat';
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', $name);
+		$f->attr('value', $field->dateFormat ? $field->dateFormat : 'relative');
+		$f->label = $this->_('Date/time format (for comment list)');
+		$f->description = $this->_('Enter the date/time format you want the default comment list output to use. May be a PHP [date](http://php.net/manual/en/function.date.php) or [strftime](http://php.net/manual/en/function.strftime.php) format. May also be "relative" for relative date format.'); // dateFormat description
+		$f->columnWidth = 50; 
+		$fieldset->append($f);
+		
+		$name = 'useVotes';
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', $name);
+		$f->label = $this->_('Allow comment voting?');
+		$f->description = $this->_('Comment voting enables visitors to upvote and/or downvote comments. Vote counts are displayed alongside each comment. Only one upvote and/or downvote is allowed per comment, per IP address, per hour.'); 
+		$f->addOption(0, $this->_('Voting off')); 
+		$f->addOption(1, $this->_('Allow upvoting'));
+		$f->addOption(2, $this->_('Allow upvoting and downvoting'));
+		$f->attr('value', (int) $field->$name);
+		$f->columnWidth = 50;
+		$fieldset->append($f);
+
+		$name = 'useStars';
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', $name);
+		$f->label = $this->_('Use stars rating?');
+		$f->description = $this->_('Star ratings enable the commenter to rate the subject they are commenting on, using a scale of 1 to 5 stars.');
+		$f->notes = $this->_('To change default star used for output (HTML is okay too):') . "\nCommentStars::setDefault('star', '★');";
+		$f->addOption(0, $this->_x('Disabled', 'star-rating'));
+		$f->addOption(1, $this->_('Yes (star rating optional)'));
+		$f->addOption(2, $this->_('Yes (star rating required)'));
+		$f->attr('value', (int) $field->$name);
+		$f->columnWidth = 50;
+		$fieldset->append($f);
+
+		$name = 'useGravatar'; 
+		$f = $this->wire('modules')->get('InputfieldRadios'); 
+		$f->attr('name', $name); 
+		$f->addOption('', $disabledLabel); 
+		$f->addOption('g', $this->_('G: Suitable for display on all websites with any audience type.'));
+		$f->addOption('pg', $this->_('PG: May contain rude gestures, provocatively dressed individuals, the lesser swear words, or mild violence.'));
+		$f->addOption('r', $this->_('R: May contain such things as harsh profanity, intense violence, nudity, or hard drug use.'));
+		$f->addOption('x', $this->_('X: May contain hardcore sexual imagery or extremely disturbing violence.'));
+		$f->attr('value', $field->useGravatar); 
+		$f->label = $this->_('Use Gravatar?');
+		$f->description = $this->_('This service provides an avatar image with each comment (unique to the email address). To enable, select the maximum gravatar rating. These are the same as movie ratings, where G is the most family friendly and X is not.');
+		$f->notes = $this->_('Rating descriptions provided by [Gravatar](https://en.gravatar.com/site/implement/images/).');
+		$fieldset->append($f); 
+
+		// @todo 
+		/*
+		$textformatters = $this->wire('modules')->find("className^=Textformatter");
+		if(count($textformatters)) {
+			$f = $this->modules->get('InputfieldAsmSelect');
+			$f->attr('name', 'textformatters');
+			$f->label = $this->_('Text Formatters');
+			$f->description = $this->_('Optionally select one or more text formatters to be applied to the comment text, in the selected order. If you do not select any then the text will be entity encoded, have newlines converted to <br> tags, and be output in a <p> tag.');
+			$f->notes = $this->_('Warning: only select text formatters that are known to be safe with anonymous user input, like Entity Encoder (core) or Textile Restricted (3rd party). If you are not sure, then do not select anything here, as making the wrong choice can be a security problem.'); 
+			foreach($textformatters as $textformatter) {
+				$info = $this->wire('modules')->getModuleInfo($textformatter); 
+				$f->addOption($textformatter->className(), "$info[title]");
+			}
+			$f->attr('value', is_array($field->textformatters) ? $field->textformatters : array());
+			$inputfields->append($f);
+		}
+		*/
+		
+		// -----------------------------
+		
+		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+		$fieldset->label = $this->_('Implementation'); 
+		$fieldset->icon = 'file-code-o';
+		$fieldset->description = $this->_('This section is here to help you get started with outputting comments on the front-end of your site. Everything here is optional.'); 
+		$fieldset->notes = $this->_('If using a cache for output, configure it to bypass the cache when the GET variable "comment_success" is present.'); 
+		$inputfields->add($fieldset); 
+		
+		$f = $this->wire('modules')->get('InputfieldMarkup'); 
+		$f->label = $this->_('PHP code to output comments'); 
+		$f->value = 
+			"<p>Please copy and paste the following into your template file(s) where you would like the comments to be output:</p>" .
+			"<pre style='border-left: 4px solid #ccc; padding-left: 1em;'>&lt;?php echo \$page-&gt;{$field->name}-&gt;renderAll(); ?&gt;</pre>" . 
+			"<p>For more options please see the <a href='https://processwire.com/api/fieldtypes/comments/' target='_blank'>comments documentation page</a>.</p>";
+		$fieldset->add($f); 
+		
+		$f = $this->wire('modules')->get('InputfieldMarkup'); 
+		$f->label = $this->_('CSS for front-end comments output'); 
+		$f->value = 
+			"<p>Please copy and paste the following into the document <code>&lt;head&gt;</code> of your site:</p>" .
+			"<pre style='border-left: 4px solid #ccc; padding-left: 1em;'>&lt;link rel='stylesheet' type='text/css' href='&lt;?=\$config-&gt;urls-&gt;FieldtypeComments?&gt;comments.css' /&gt;</pre>" . 
+			"<p>Or if you prefer, copy the <a target='_blank' href='{$this->config->urls->FieldtypeComments}comments.css'>comments.css</a> file to your own location, " . 
+			"modify it as desired, and link to it in your document head as you do with your other css files.</p>";
+		$fieldset->add($f);
+		
+		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f->label = $this->_('JS for front-end comments output');
+		$f->value =
+			"<p>If you are using threaded comments (i.e. reply depth > 0), please also copy and paste the following into the document <code>&lt;head&gt;</code> " .
+			"or before the closing <code>&lt;/body&gt;</code> tag. In either case, jQuery is required to have been loaded first.</p>" .
+			"<pre style='border-left: 4px solid #ccc; padding-left: 1em;'>&lt;script type='text/javascript' src='&lt;?=\$config-&gt;urls-&gt;FieldtypeComments?&gt;comments.min.js'&gt;&lt;/script&gt;</pre>" .
+			"<p>Like with the comments.css file, feel free to copy and link to the <a target='_blank' href='{$this->config->urls->FieldtypeComments}comments.js'>comments.js</a> file from your own " .
+			"location if you prefer it.</p>";
+		$fieldset->add($f); 
+		
+		$name = 'schemaVersion'; 
+		$f = $this->wire('modules')->get('InputfieldHidden');
+		$f->attr('name', $name);
+		$value = (int) $field->$name; 
+		$f->attr('value', $value);
+		$f->label = 'Schema Version';
+		$inputfields->append($f);
+
+		return $inputfields;
+	}
+
+	/**
+	 * For FieldtypeMulti interface, return NULL to indicate that the field is not auto-joinable
+	 *
+	 */
+	public function getLoadQueryAutojoin(Field $field, DatabaseQuerySelect $query) {
+		return null; // make this field not auto-joinable
+	}
+
+	/**
+	 * Find comments, static version for backwards compatibility
+	 *
+	 * @param Field|string Field object or name of field
+	 * @param string $selectorString Selector string with query
+	 * @return CommentArray
+	 * @throws WireException
+	 * @deprecated Use $field->type->find($field, $selectorString) instead.
+	 *
+	 */
+	static public function findComments($field, $selectorString) {
+		if(is_string($field)) $field = wire('fields')->get($field);
+		if(!$field instanceof Field) throw new WireException('Arg 1 to findComments() must be a field');
+		return $field->type->find($field, $selectorString);
+	}
+
+	/**
+	 * Given a field and a selector, find all comments matching the selector (non-static version)
+	 *
+	 * Note that if you don't specify a limit=n, it will default to a limit of 10
+	 * If you don't specify a sort, it will default to sort=-created
+	 *
+	 * @param Field|string Field object or name of field
+	 * @param string $selectorString Selector string with query
+	 * @return CommentArray
+	 * @throws WireException
+	 *
+	 */
+	public function find($field, $selectorString) {
+		if(is_string($field)) $field = $this->wire('fields')->get($field);
+		if(!$field instanceof Field) throw new WireException('Arg 1 to find() must be a field');
+
+		$limit = 10;
+		$start = 0;
+		$desc = true;
+		$sort = 'created';
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->getTable());
+		$sql =  "SELECT * FROM `$table` WHERE id>0 ";
+		$sqlCount = "SELECT COUNT(*) FROM `$table` WHERE id>0 ";
+		$selectors = $this->wire(new Selectors($selectorString));
+
+		foreach($selectors as $selector) {
+
+			$f = $database->escapeCol($selector->field);
+			$operator = $selector->operator;
+			$value = $selector->value;
+			$_sql = '';
+
+			if(!$database->isOperator($operator)) continue;
+			if(is_array($f)) $f = reset($f);
+			if(is_array($value)) $value = reset($value);
+
+			if($f == 'page') $f = 'pages_id';
+			if($f == 'user') $f = 'created_users_id';
+
+			if(in_array($f, array('id', 'status', 'created', 'pages_id', 'parent_id', 'created_users_id', 'upvotes', 'downvotes', 'stars'))) {
+				$_sql .= "AND $f$operator" . ((int) $value)  . " ";
+
+			} else if($f == 'start') {
+				$start = (int) $value;
+
+			} else if($f == 'limit') {
+				$limit = (int) $value;
+
+			} else if($f == 'sort') {
+				$desc = substr($value, 0, 1) == '-';
+				$value = trim($value, '-');
+				if(in_array($value, array('sort', 'status', 'id', 'pages_id', 'created_users_id', 'created', 'upvotes', 'downvotes', 'stars'))) {
+					$sort = $database->escapeCol($value);
+				}
+
+			} else if($f == 'cite' || $f == 'email' || $f == 'ip') {
+				$value = $database->escapeStr($value);
+				$_sql .= "AND $f$operator'$value' ";
+			}
+
+			$sql .= $_sql;
+			$sqlCount .= $_sql;
+		}
+
+		$sql .= "ORDER BY $sort " . ($desc ? "DESC" : "ASC") . " ";
+		$sql .= "LIMIT $start, $limit";
+
+		$comments = $this->wire(new CommentArray());
+		$comments->setField($field);
+		$comments->setStart($start);
+		$comments->setLimit($limit);
+
+		$query = $database->prepare($sql);
+		$query->execute();
+		$commentPages = array();
+
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$comment = $this->wire(new Comment());
+			$comment->setField($field); 
+			foreach($row as $key => $value) {
+				if($key == 'data') $key = 'text';
+				$comment->set($key, $value);
+			}
+			$pageID = $row['pages_id'];
+			if(isset($commentPages[$pageID])) {
+				$page = $commentPages[$pageID];
+				$comment->setPage($commentPages[$pageID]); 
+			} else {
+				$page = $this->wire('pages')->get((int) $pageID);
+				$commentPages[$page->id] = $page; 
+			}
+			$comment->resetTrackChanges(true);
+			$comments->add($comment);
+			if($page->id) $comment->setPage($page);
+			$comment->setIsLoaded(true);
+		}
+		$query->closeCursor();
+		$query = $database->prepare($sqlCount);
+		$query->execute();
+		list($total) = $query->fetch(\PDO::FETCH_NUM);
+		$comments->resetTrackChanges();
+		$comments->setTotal($total);
+
+		return $comments; 
+	}
+
+	/**
+	 * Given a comment code or subcode, return the associated comment ID or 0 if it doesn't exist
+	 * 
+	 * @param $page
+	 * @param $field
+	 * @param $code
+	 * @return Comment|null
+	 * 
+	 */
+	public function getCommentByCode($page, $field, $code) {
+		if(!is_object($page)) $page = $this->wire('pages')->get((int) $page); 
+		if(!$page->id) return null;
+		if(!trim($code)) return null; 
+		if(!is_object($field)) $field = $this->wire('fields')->get($this->wire('sanitizer')->fieldName($field)); 
+		if(!$field || !$field->type instanceof FieldtypeComments) return null; 
+		$table = $field->getTable();
+		$col = strlen($code) > 100 ? 'code' : 'subcode';
+		$sql = "SELECT * FROM `$table` WHERE `$col`!='' AND `$col` IS NOT NULL AND `$col`=:code AND pages_id=:pageID";
+		$query = $this->wire('database')->prepare($sql);
+		$query->bindValue(':code', substr($code, 0, 128), \PDO::PARAM_STR); 
+		$query->bindValue(':pageID', $page->id, \PDO::PARAM_INT); 
+		if(!$query->execute()) return null; 
+		if(!$query->rowCount()) return null; 
+		$data = $query->fetch(\PDO::FETCH_ASSOC); 
+		return $this->makeComment($page, $field, $data); 
+	}
+
+	/**
+	 * Get a comment by ID or NULL if not found
+	 * 
+	 * @param $page
+	 * @param $field
+	 * @param $id
+	 * @return Comment|null
+	 * 
+	 */
+	public function getCommentByID($page, $field, $id) {
+		if(!is_object($page)) $page = $this->wire('pages')->get((int) $page);
+		if(!$page->id) return null;
+		if(empty($id)) return null;
+		if(!is_object($field)) $field = $this->wire('fields')->get($this->wire('sanitizer')->fieldName($field));
+		if(!$field || !$field->type instanceof FieldtypeComments) return null;
+		$table = $field->getTable();
+		$sql = "SELECT * FROM `$table` WHERE id=:id AND pages_id=:pageID";
+		$query = $this->wire('database')->prepare($sql);
+		$query->bindValue(':id', (int) $id, \PDO::PARAM_INT); 
+		$query->bindValue(':pageID', $page->id, \PDO::PARAM_INT);
+		if(!$query->execute()) return null;
+		if(!$query->rowCount()) return null;
+		$data = $query->fetch(\PDO::FETCH_ASSOC);
+		return $this->makeComment($page, $field, $data); 
+	}
+
+	/**
+	 * Given an array of data, convert it to a Comment object
+	 * 
+	 * @param $page
+	 * @param $field
+	 * @param array $data
+	 * @return Comment
+	 * 
+	 */
+	protected function makeComment($page, $field, array $data) {
+		$comment = $this->wire(new Comment());
+		$comment->setPage($page);
+		$comment->setField($field);
+		foreach($data as $key => $val) {
+			if($key == 'data') $key = 'text';
+			$comment->set($key, $val);
+		}
+		$comment->resetTrackChanges(true);
+		$comment->setIsLoaded(true); 
+		return $comment; 
+	}
+
+	/**
+	 * Update specific properties for a comment
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 * @param array $properties Associative array of properties to update
+	 * @return mixed
+	 * @throws WireException
+	 * 
+	 */
+	public function ___updateComment(Page $page, $field, Comment $comment, array $properties) {
+		if(!count($properties)) return false;
+		$commentID = $comment->id; 
+		if(!is_object($field)) $field = $this->wire('fields')->get($this->wire('sanitizer')->fieldName($field)); 
+		if(!$field instanceof Field) return false;
+		$table = $this->wire('database')->escapeTable($field->getTable());
+		$sql = "UPDATE `$table` SET ";
+		$values = array();
+		foreach($properties as $property => $value) {
+			$comment->set($property, $value); 
+			$property = $this->wire('sanitizer')->fieldName($property); 
+			$property = $this->wire('database')->escapeCol($property); 
+			if($property == 'text') $property = 'data';
+			if(is_null($value) && ($property == 'code' || $property == 'subcode')) {
+				$sql .= "`$property`=NULL, ";
+			} else {
+				$sql .= "`$property`=:$property, ";
+				$values[$property] = $value;
+			}
+		}
+		$sql = rtrim($sql, ', ') . " WHERE id=:commentID AND pages_id=:pageID";
+		$query = $this->wire('database')->prepare($sql); 
+		$query->bindValue(':commentID', $commentID, \PDO::PARAM_INT);
+		$query->bindValue(':pageID', $page->id, \PDO::PARAM_INT); 
+		foreach($values as $property => $value) {
+			$query->bindValue(":$property", $value); 
+		}
+		$this->wire('pages')->saveFieldReady($page, $field);
+		try {
+			$result = $query->execute();
+			$this->wire('pages')->savedField($page, $field); 
+		} catch(\Exception $e) {
+			$result = false;
+			if($this->wire('config')->debug) $this->error($e->getMessage(), Notice::log); 
+				else $this->wire('log')->error($e->getMessage()); 
+		}
+		if($result) { 
+			$this->checkExistingComment($page, $field, $comment); 
+		}
+		return $result;
+	}
+
+	/**
+	 * Delete a given comment
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 * @return mixed
+	 *
+	 */
+	public function deleteComment(Page $page, Field $field, Comment $comment, $notes = '') {
+		
+		if($field->depth > 0) {
+			foreach($comment->children() as $child) {
+				$this->deleteComment($page, $field, $child); 
+			}
+		}
+		
+		$table = $this->wire('database')->escapeTable($field->getTable());
+		$sql = "DELETE FROM `$table` WHERE id=:id AND pages_id=:pages_id";
+		$query = $this->wire('database')->prepare($sql); 
+		$query->bindValue(':id', $comment->id, \PDO::PARAM_INT);
+		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$comments = $page->get($field->name); 
+		
+		try {
+			$this->wire('pages')->saveFieldReady($page, $field); 
+			$result = $query->execute();
+			if($comments) $comments->remove($comment); 
+			$this->commentDeleted($page, $field, $comment, $notes); 
+			$this->wire('pages')->savedField($page, $field); 
+			
+		} catch(\Exception $e) {
+			$this->error($e->getMessage()); 
+			$result = false;
+		}
+		
+		return $result;
+	}
+
+	/**
+	 * Hook called after comment has been deleted
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 * @param string $notes
+	 *
+	 */
+	public function ___commentDeleted(Page $page, Field $field, Comment $comment, $notes = '') {
+	}
+
+	/**
+	 * Hook called when a comment goes from un-approved to approved
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 * @param string $notes
+	 * 
+	 */
+	public function ___commentApproved(Page $page, Field $field, Comment $comment, $notes = '') {
+		
+		$this->wire('log')->message("Approved comment $comment->id - $notes"); 
+		
+		if($field->useNotify) {
+			
+			$emails = array();
+			foreach($page->get($field->name) as $c) {
+				
+				if($c->status < Comment::statusApproved) continue; 
+				if($c->id == $comment->id) continue; 
+				if(strtolower($c->email) == strtolower($comment->email)) continue; 
+				
+				/*
+				 * @todo this should be ready to use, but needs more testing before enabling it
+				 * 
+				if($c->flags & Comment::flagNotifyConfirmed) {
+					// notifications have been confirmed by double opt-in
+				} else {
+					continue;
+				}
+				*/
+				if($c->flags & Comment::flagNotifyAll) {
+					if($c->subcode) $emails[strtolower($c->email)] = $c->subcode;
+				} else if(($c->flags & Comment::flagNotifyReply) && $comment->parent_id == $c->id) {
+					if($c->subcode) $emails[strtolower($c->email)] = $c->subcode;
+				}
+			}
+			
+			// emails array contains email address => subcode to send notifications to
+			if(count($emails)) {
+				require_once(dirname(__FILE__) . '/CommentNotifications.php'); 	
+				$no = $this->wire(new CommentNotifications($page, $field)); 
+				foreach($emails as $email => $subcode) {
+					$no->sendNotificationEmail($comment, $email, $subcode);
+				}
+			}
+		}
+	}
+	
+
+	/**
+	 * Hook called when a comment goes from approved to pending or spam
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 * @param string $notes
+	 *
+	 */
+	public function ___commentUnapproved(Page $page, Field $field, Comment $comment, $notes = '') {
+	}
+
+	/**
+	 * Add a vote to the current comment from the current user/IP
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 * @param bool $up Specify true for upvote, or false for downvote
+	 * @return bool Returns true on success, false on failure or duplicate
+	 * 
+	 */
+	public function voteComment(Page $page, Field $field, Comment $comment, $up = true) {
+		
+		$database = $this->wire('database'); 
+		$table = $database->escapeTable($field->getTable()) . '_votes';
+		
+		if(!$field->useVotes) return false;
+		if(!$up && $field->useVotes != self::useVotesAll) return false; // downvotes not allowed
+		
+		$sql = "INSERT INTO `$table` SET comment_id=:comment_id, vote=:vote, ip=:ip, user_id=:user_id";
+		$query = $database->prepare($sql);
+		$query->bindValue(':comment_id', $comment->id, \PDO::PARAM_INT); 
+		$query->bindValue(':vote', $up ? 1 : -1, \PDO::PARAM_INT); 
+		$query->bindValue(':ip', $this->wire('session')->getIP(), \PDO::PARAM_STR); 
+		$query->bindValue(':user_id', $this->wire('user')->id, \PDO::PARAM_INT); 
+		
+		$result = false;
+		
+		try {
+			if($query->execute()) {
+				if($up) {
+					$comment->upvotes++;
+					$result = $this->updateComment($page, $field, $comment, array('upvotes' => $comment->upvotes));
+				} else {
+					$comment->downvotes++;
+					$result = $this->updateComment($page, $field, $comment, array('downvotes' => $comment->downvotes));
+				}
+			}
+		} catch(\Exception $e) {
+			// duplicate or fail
+			$error = $e->getMessage();
+			if(stripos($error, 'duplicate entry')) {
+				$this->error($this->_('You have already voted for this comment')); 
+			} else {
+				if($this->wire('config')->debug && !$this->wire('user')->isLoggedin()) {
+					$this->error($e->getMessage());
+				} else {
+					$this->error($this->_('Error recording vote')); 
+				}
+			}
+		}
+		
+		return $result;
+	}
+
+	/**
+	 * Check the request for a vote action
+	 * 
+	 * @param Page|HookEvent $page
+	 * @return array
+	 * @throws WireException
+	 * 
+	 */
+	public function checkVoteAction($page) {
+		
+		$result = array(
+			'success' => false, 
+			'valid' => false, 
+			'message' => 'Invalid vote', 
+			'upvotes' => 0,
+			'downvotes' => 0, 
+			'pageID' => 0, 
+			'fieldName' => '', 
+			'commentID' => 0, 
+		);
+
+		$action = $this->wire('input')->get('comment_success');
+		if($action !== 'upvote' && $action !== 'downvote') return $result;
+
+		$commentID = (int) $this->wire('input')->get('comment_id');
+		$fieldID = (int) $this->wire('input')->get('field_id');
+		if(!$commentID || !$fieldID) return $result;
+
+		$field = $this->wire('fields')->get($fieldID);
+		if(!$field || !$field->type instanceof FieldtypeComments) return $result;
+		
+		if($page instanceof HookEvent) $page = $page->object; 
+		if(!$page || !$page->template->fieldgroup->hasField($field)) return $result;
+
+		$comment = $this->getCommentByID($page, $field, $commentID);
+		if(!$comment || $comment->getPage()->id != $page->id || $comment->getField()->id != $field->id) return $result;
+
+		$success = $this->voteComment($page, $field, $comment, $action == 'upvote');
+		$message = $success ? '' : $this->errors('clear string'); 
+		
+		$result = array(
+			'success' => $success,
+			'valid' => true, 
+			'message' => $message,
+			'upvotes' => $comment->upvotes,
+			'downvotes' => $comment->downvotes,
+			'pageID' => $page->id, 
+			'fieldName' => $field->name, 
+			'commentID' => $comment->id
+		);
+		
+		if($this->wire('config')->ajax) {
+			header("Content-type: application/json");
+			echo json_encode($result);
+			exit;
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Delete the given field, which implies: drop the table $field->table
+	 *
+	 * This should only be called by the Fields class since fieldgroups_fields lookup entries must be deleted before this method is called.
+	 *
+	 * @param Field $field Field object
+	 * @return bool True on success, false on DB delete failure.
+	 *
+	 */
+	public function ___deleteField(Field $field) {
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->table);
+		try {
+			$result = $database->exec("DROP TABLE `$table`"); // QA
+		} catch(\Exception $e) {
+			$result = false;
+			$this->error($e->getMessage());
+		}
+		if($result) try {
+			$database->exec("DROP TABLE `{$table}_votes`"); // QA
+		} catch(\Exception $e) {
+			// ok to ignore, as table may not exist
+		}
+		return $result;
+	}
+
+	/**
+	 * Hook called by Fields::save() after a field using this type has been renamed
+	 *
+	 * Note that PW already takes care of renaming the field_[name] table.
+	 * Most Fieldtypes don't need to do anything here, but this exists just in case.
+	 *
+	 * #pw-internal
+	 *
+	 * @param Field $field
+	 * @param string $prevName Previous name (current name can be found in $field->name)
+	 *
+	 */
+	public function ___renamedField(Field $field, $prevName) {
+	
+		$database = $this->wire('database');
+		$table = $database->escapeTable(Field::tablePrefix . $field->name . '_votes');
+		$prevTable = $database->escapeTable(Field::tablePrefix . $prevName . '_votes');
+		
+		try {
+			// double rename ensures MySQL doesn't skip case changes
+			$database->exec("RENAME TABLE `$prevTable` TO `tmp_$table`"); // QA
+			$database->exec("RENAME TABLE `tmp_$table` TO `$table`"); // QA
+		} catch(\Exception $e) {
+			// ok to ignore, as table may not exist
+		}
+		
+		parent::___renamedField($field, $prevName);
+	}
+
+}
+

@@ -1,0 +1,183 @@
+{
+    "file": "wire\/modules\/Inputfield\/InputfieldSelector\/InputfieldSelector.module",
+    "textdomain": "wire--modules--inputfield--inputfieldselector--inputfieldselector-module",
+    "translations": {
+        "6daa35fd97a645b8e37cae080eab3de9": {
+            "text": "Feld hinzuf\u00fcgen"
+        },
+        "0ccb67e7eaae09d9e4078d161eeca100": {
+            "text": "Gleich"
+        },
+        "fb83c9b66919b4a757a43a807b6af2cf": {
+            "text": "Ungleich"
+        },
+        "7288454fa442d48bc741c5cbadc2621b": {
+            "text": "Gr\u00f6\u00dfer als"
+        },
+        "45ed1ce04bcf6003d4702422e1221c85": {
+            "text": "Kleiner als"
+        },
+        "948f7ffb9d1e26622df83711e20e2fb2": {
+            "text": "Gr\u00f6\u00dfer oder gleich"
+        },
+        "189ce8ec24447eef9869d18043c9e303": {
+            "text": "Kleiner oder gleich"
+        },
+        "7842f2dabc6c53dca4319818c88ebeb9": {
+            "text": "Enth\u00e4lt Text"
+        },
+        "8354008c16032b35e36589957a3bd65f": {
+            "text": "Enth\u00e4lt Phrase"
+        },
+        "7df149c48f0508977c06be79341a40ed": {
+            "text": "Enth\u00e4lt Worte"
+        },
+        "062e49c0f9af31da4f7314124191d9ef": {
+            "text": "Beginnt mit"
+        },
+        "3ad33d3cec01f7125e3cd0575cada7ef": {
+            "text": "Endet mit"
+        },
+        "1bb628612045d3d012de22cb249f83fc": {
+            "text": "Aufsteigend nach"
+        },
+        "8ff3555e6aae7a100304c7b522bc350a": {
+            "text": "Absteigend nach"
+        },
+        "9f9913233699a4b67524eaac55a5f973": {
+            "text": "Hat"
+        },
+        "aaa93244710b294d585b015dbb9b0317": {
+            "text": "Hat nicht"
+        },
+        "a61bbf7ad0ed153cb6c84fe3c8a9f2bb": {
+            "text": "Trifft zu"
+        },
+        "9c52ccb297567646df342a0413de3b02": {
+            "text": "Trifft nicht zu"
+        },
+        "78c143802119a85c9774c0459240085d": {
+            "text": "Ist leer"
+        },
+        "cbe0970a192d6df9999f4469f0854984": {
+            "text": "Ist nicht leer"
+        },
+        "7acdf85c69cc3c5305456a293524386e": {
+            "text": "Versteckt"
+        },
+        "0774e163cd7df482edd2abd498189f8b": {
+            "text": "Nicht ver\u00f6ffentlicht"
+        },
+        "d0f2e5376298c880665077b565ffd7dd": {
+            "text": "Gesperrt"
+        },
+        "a7e253cd8dd95da3e20daf45519a8dc2": {
+            "text": "Papierkorb"
+        },
+        "d0e45878043844ffc41aac437e86b602": {
+            "text": "Eltern"
+        },
+        "765c9ab816a31bfd73ee87ce63960319": {
+            "text": "Versteckt + nicht ver\u00f6ffentlicht"
+        },
+        "b0db92ad2bbe61a11556a881e26ee82c": {
+            "text": "Versteckt + nicht ver\u00f6ffentlicht + Papierkorb"
+        },
+        "b1c94ca2fbc3e78fc30069c8d0f01680": {
+            "text": "Alle"
+        },
+        "1a110fbdc786fe3100367f14c911a2da": {
+            "text": "(%d ohne Limit)"
+        },
+        "a7dd12b1dab17d25467b0b0a4c8d4a92": {
+            "text": "zeige"
+        },
+        "f0c49f49661670cb88d2fd060c4d6a68": {
+            "text": "Nicht ausgew\u00e4hlt"
+        },
+        "6adf97f83acf6453d4a6a4b1070f3754": {
+            "text": "Nichts"
+        },
+        "ad666d19888133a3cebc428f7535f2af": {
+            "text": "Schreiben..."
+        },
+        "719cb425116d7d1c8b0c62c7064aaf9b": {
+            "text": "Markieren Sie diese Checkbox um die UND Bedingung in eine ODER Bedingung umzuwandeln."
+        },
+        "1d79542121869a6161bed167902ddc79": {
+            "text": "Jede Selektor-Zeile oben sagt: Feld muss Wert entsprechen. Dies nennt man eine UND Bedingung. In F\u00e4llen wo das selbe Feld oder der gleiche Wert in mehr als einer Zeile erscheint, ist eine ODER Bedingung m\u00f6glich. Die Anzeige einer Checkbox am Ende der Zeile weist daraufhin. Markieren Sie diese Checkbox um die UND Bedingung in eine ODER Bedingung umzuwandeln."
+        },
+        "b077806311238aeddd99b979570eb107": {
+            "text": "trifft auf %d Seite zu"
+        },
+        "ea4311c5f366d55a9a6e38450d3bad9f": {
+            "text": "trifft auf %d Seiten zu"
+        },
+        "1a2ecbf77cfe45069451c9954f74ea36": {
+            "text": "Seiten welche dem Selektor entsprechen"
+        },
+        "a4b7f1864cfdb47cd05b54eb10337506": {
+            "text": "\u00c4nderungsdatum"
+        },
+        "b3b60b7a5e7f9977461d42a94bf2c761": {
+            "text": "Erstellungsdatum"
+        },
+        "f5248dcc5755bb5124281da75c73b828": {
+            "text": "Ge\u00e4ndert von Nutzer"
+        },
+        "69d1da1f16cb2c86467b8ac7495acb25": {
+            "text": "Erstellt von Nutzer"
+        },
+        "631e36e8090edcdfea8b0b6dfa4f75cc": {
+            "text": "Anzahl der Kindseiten"
+        },
+        "e93f994f01c537c4e2f7d8528c3eb5e9": {
+            "text": "Z\u00e4hlen"
+        },
+        "72280ef3b155dee3c1a134b8184c08a5": {
+            "text": "Pfad\/URL"
+        },
+        "4b9c456267783c4e40e7da4a4a61e887": {
+            "text": "Hat Eltern\/Vorfahren"
+        },
+        "6b46ae48421828d9973deec5fa9aa0c3": {
+            "text": "Sortieren"
+        },
+        "f4d72a64acd8929c0cc9ed96a7a336cc": {
+            "text": "Enth\u00e4lt"
+        },
+        "befb04e123caaa28446ca8080a5fd836": {
+            "text": "Umschalten auf Feld-Label"
+        },
+        "e3e67251cebf159d3549a0a91729605d": {
+            "text": "Umschalten auf Feld-Namen"
+        },
+        "c7c76bcc877e95946d0158c1a0dd63a2": {
+            "text": "Trifft auf ID zu (Subselektor)"
+        },
+        "d1a7ff19fe990b9467a4a64f01a09f4e": {
+            "text": "Elternseite"
+        },
+        "8449d3ddcf7322067ea68d60a3098945": {
+            "text": "Elternseite"
+        },
+        "ea66a0a3f3311a155d84ef03a56850ca": {
+            "text": "System Felder"
+        },
+        "b12aae296eaa3d0cb3191edcf8764117": {
+            "text": "Felder"
+        },
+        "8a605787234086b5d0155715095a1c2a": {
+            "text": "Subfelder"
+        },
+        "997bf93bdd0a990a751b4b33749fb171": {
+            "text": "Felder treffen auf selbes (1) Element zu"
+        },
+        "c3bd2ae49552f0fe2dd5927024fea5db": {
+            "text": "Modifikator"
+        },
+        "700e1502327c4e2d38cef2f7c15b2f17": {
+            "text": "Einstellungen"
+        }
+    }
+}

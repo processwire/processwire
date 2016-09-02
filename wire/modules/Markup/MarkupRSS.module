@@ -1,0 +1,328 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Markup RSS Module
+ *
+ * Given a PageArray of pages, this module will render an RSS feed from them. 
+ * This is intended to be used directly from a template file. See usage below.
+ *
+ * USAGE
+ * -----
+ * $rss = $modules->get("MarkupRSS"); 
+ * $rss->title = "Latest updates";
+ * $rss->description = "The most recent pages updated on my site"; 
+ * $items = $pages->find("limit=10, sort=-modified"); // or any pages you want
+ * $rss->render($items); 
+ *
+ * See also the $defaultConfigData below (first thing in the class) to see what
+ * options you can change at runtime. 
+ *
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class MarkupRSS extends WireData implements Module, ConfigurableModule {
+
+	protected static $defaultConfigData = array(
+		'title' => 'Untitled RSS Feed',
+		'url' => '', 
+		'description' => '', 
+		'xsl' => '', 
+		'css' => '',
+		'copyright' => '',
+		'ttl' => 60,
+		'stripTags' => true, 
+		'itemTitleField' => 'title',
+		'itemDescriptionField' => 'summary',
+		'itemDescriptionLength' => 1024, 
+		'itemDateField' => 'created',
+		'itemAuthorField' => '', // i.e. createdUser.title or leave blank to not use
+		'itemAuthorElement' => 'dc:creator', // may be 'dc:creator' or 'author'
+		'header' => 'Content-Type: application/xml; charset=utf-8;',
+		'feedPages' => array(), 
+		); 
+
+	/**
+	 * Return general info about the module for ProcessWire
+	 *
+	 */
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Markup RSS Feed', 
+			'version' => 102, 
+			'summary' => 'Renders an RSS feed. Given a PageArray, renders an RSS feed of them.',
+			'permanent' => false, 
+			'singular' => false, 
+			'autoload' => false, 
+			);
+	}
+
+	/**
+	 * Set the default config data
+	 *
+	 */
+	public function __construct() {
+		foreach(self::$defaultConfigData as $key => $value) {
+			$this->set($key, $value); 
+		}
+	}
+
+	/**
+	 * Necessary to fulfill Module interface, even though not using it currently
+	 *
+	 */
+	public function init() { }
+
+	/**
+	 * Render RSS header
+	 *
+	 */
+	protected function renderHeader() {
+
+		$out = "<?xml version='1.0' encoding='utf-8' ?>\n";
+		
+		if($this->xsl) $out .= "<?xml-stylesheet type='text/xsl' href='{$this->xsl}' ?>\n";
+		if($this->css) $out .= "<?xml-stylesheet type='text/css' href='{$this->css}' ?>\n";
+		
+		if(!$this->url) $this->url = $this->page->httpUrl;
+
+				$out .= "<rss version='2.0' xmlns:dc='http://purl.org/dc/elements/1.1/'>\n" .
+						"<channel>\n" .
+						"\t<title>{$this->title}</title>\n" . 
+						"\t<link>{$this->url}</link>\n" . 
+						"\t<description>{$this->description}</description>\n" . 
+						"\t<pubDate>" . date(DATE_RSS) . "</pubDate>\n";
+
+                if($this->copyright) $out .= "\t<copyright>{$this->copyright}</copyright>\n";
+                if($this->ttl) $out .= "\t<ttl>{$this->ttl}</ttl>\n";
+
+		return $out; 
+	}
+
+	/**
+	 * Render individual RSS item
+	 *
+	 */
+	protected function renderItem(Page $page) {
+
+		$title = strip_tags($page->get($this->itemTitleField));
+		if(empty($title)) return '';
+		$title = html_entity_decode($title, ENT_QUOTES, 'UTF-8'); 
+		$title = htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); 
+		$title = str_replace('&#039;', '&apos;', $title); 
+
+		if($this->itemDateField && ($ts = $page->getUnformatted($this->itemDateField))) {
+			$pubDate = "\t\t<pubDate>" . date(DATE_RSS, $ts) . "</pubDate>\n";
+		} else {
+			$pubDate = '';
+		}
+	
+		$author = '';
+		if($this->itemAuthorField) {
+			$author = $page->getUnformatted($this->itemAuthorField); 
+			if(strlen($author)) {
+				$author = $this->wire('sanitizer')->entities($author); 
+				$author = "\t\t<$this->itemAuthorElement>$author</$this->itemAuthorElement>\n";	
+			} else $author = '';
+		}
+
+		$description = $page->get($this->itemDescriptionField); 
+		if(is_null($description)) $description = '';
+		$description = $this->truncateDescription(trim($description)); 
+
+		$out = 	"\t<item>\n" .
+				"\t\t<title>$title</title>\n" .
+				"\t\t<description><![CDATA[$description]]></description>\n" .
+				$pubDate . $author . 
+				"\t\t<link>{$page->httpUrl}</link>\n" .
+				"\n\t<guid>{$page->httpUrl}</guid>\n" . 
+				"\t</item>\n";
+
+		return $out; 
+	}
+
+	/**
+	 * Render the feed and return it
+	 *
+	 */
+	public function renderFeed(PageArray $feedPages = null) {
+
+		if(!is_null($feedPages)) $this->feedPages = $feedPages;
+
+		$out = $this->renderHeader();
+
+		foreach($this->feedPages as $page) {
+			if(!$page->viewable()) continue;
+			$out .= $this->renderItem($page);
+		}
+
+		$out .= "</channel>\n</rss>\n";
+
+		return $out; 
+	}
+
+	/**
+	 * Render the feed and echo it (with proper http header)
+	 *
+	 */
+	public function render(PageArray $feedPages = null) {
+		header($this->header); 
+		echo $this->renderFeed($feedPages);
+		return true; 
+	}
+
+	/**
+	 * Truncate the description to a specific length and then truncate to avoid splitting any words.
+	 *
+	 */
+	protected function truncateDescription($str) {
+
+		$maxlen = $this->itemDescriptionLength;
+		if(!$maxlen) return $str;
+
+		// note: tags are not stripped if itemDescriptionLength == 0 and stripTags == true
+		if($this->stripTags) $str = strip_tags($str); 
+
+		if(strlen($str) < $maxlen) return $str; 
+
+		$str = trim(substr($str, 0, $maxlen)); 
+
+		// boundaries that we can end the summary with
+		$boundaries = array('. ', '? ', '! ', ', ', '; ', '-');
+		$bestPos = 0;
+
+		foreach($boundaries as $boundary) {
+			if(($pos = strrpos($str, $boundary)) !== false) {
+				// find the boundary that is furthest in string
+				if($pos > $bestPos) $bestPos = $pos;
+			}
+		}
+
+		// determine if we should truncate to last punctuation or last space.
+		// if the last punctuation is further away then 1/4th the total length, then we'll 
+		// truncate to the last space. Otherwise, we'll truncate to the last punctuation.
+		$spacePos = strrpos($str, ' '); 
+		if($spacePos > $bestPos && (($spacePos - ($maxlen / 4)) > $bestPos)) $bestPos = $spacePos; 
+
+		if(!$bestPos) $bestPos = $maxlen;
+
+		return trim(substr($str, 0, $bestPos+1)); 
+	}
+
+	/**
+	 * Provide fields for configuring this module
+	 *
+	 */
+	public function getModuleConfigInputfields(array $data) {
+
+		$inputfields = $this->wire(new InputfieldWrapper());
+		$inputfields->description = 
+			"Select the default options for any given feed. Each of these may be overridden in the API, " . 
+			"so the options you select below should be considered defaults, unless you only have 1 feed. " . 
+			"If you only need to support 1 feed, then you will not need to override any of these in the API.";
+
+		foreach(self::$defaultConfigData as $key => $value) {
+			if(!isset($data[$key])) $data[$key] = $value; 
+		}
+
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', 'title');
+		$f->attr('value', $data['title']);
+		$f->label = "Default Feed Title";
+		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldURL');
+		$f->attr('name', 'url');
+		$f->attr('value', $data['url']);
+		$f->label = "Default Feed URL";
+		$f->description = "The URL on your site that serves as a feed index. May also be left blank.";
+		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', 'description');
+		$f->attr('value', $data['description']);
+		$f->label = "Default Feed Description";
+		$f->description = "The default description for a feed. May also be left blank.";
+		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldURL');
+		$f->attr('name', 'xsl');
+		$f->attr('value', $data['xsl']);
+		$f->label = "Default Link to XSL Stylesheet";
+		$f->description = "Optional URL/link to an XSL stylesheet. Default is none.";
+		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldURL');
+		$f->attr('name', 'css');
+		$f->attr('value', $data['css']);
+		$f->label = "Default Link to CSS Stylesheet";
+		$f->description = "Optional URL/link to a CSS stylesheet. Default is none.";
+		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', 'copyright');
+		$f->attr('value', $data['copyright']);
+		$f->label = "Default Feed Copyright";
+		$f->description = "The default copyright statement for a feed. Default is blank.";
+		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->attr('name', 'ttl');
+		$f->attr('value', (int) $data['ttl']);
+		$f->label = "Default Feed TTL";
+		$f->description = "TTL stands for \"time to live\" in minutes. It indicates how long a channel can be cached before refreshing from the source. Default is 60.";
+		$inputfields->add($f);
+
+		$f1 = $this->wire('modules')->get('InputfieldSelect');
+		$f1->attr('name', 'itemTitleField');
+		$f1->attr('value', $data['itemTitleField']);
+		$f1->label = "Default Feed Item Title Field";
+		$f1->description = "The default field to use as an individual feed item's title.";
+
+		$f2 = $this->wire('modules')->get('InputfieldSelect');
+		$f2->attr('name', 'itemDescriptionField');
+		$f2->attr('value', $data['itemDescriptionField']);
+		$f2->label = "Default Feed Item Description Field";
+		$f2->description = "The default field to use as an individual feed item's description (typically a summary or body field).";
+
+		$f2a = $this->wire('modules')->get('InputfieldInteger');
+		$f2a->attr('name', 'itemDescriptionLength');
+		$f2a->attr('value', (int) $data['itemDescriptionLength']);
+		$f2a->label = "Maxmum Characters for Item Description Field";
+		$f2a->description = "The item description will be truncated to be no longer than the max length provided. Specify '0' for no max length. When there is no max length, markup tags will not be stripped.";
+
+		$f3 = $this->wire('modules')->get('InputfieldSelect');
+		$f3->attr('name', 'itemDateField');
+		$f3->attr('value', $data['itemDateField']);
+		$f3->label = "Default Feed Item Date Field";
+		$f3->description = "The default field to use as an individual feed item's date.";
+		$f3->addOption('created'); 
+		$f3->addOption('modified');
+		$f3->addOption('published');
+
+		foreach($this->wire('fields') as $field) {
+
+			if($field->type instanceof FieldtypeText) {
+				$f1->addOption($field->name); 
+				$f2->addOption($field->name); 
+
+			} else if($field->type instanceof FieldtypeDate) {
+				$f3->addOption($field->name); 
+			}
+		}
+
+		$inputfields->add($f1);
+		$inputfields->add($f2);
+		$inputfields->add($f2a);
+		$inputfields->add($f3);
+
+		return $inputfields;
+
+	}
+
+}
+
+

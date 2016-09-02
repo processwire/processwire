@@ -1,0 +1,318 @@
+{
+    "file": "wire\/modules\/Process\/ProcessModule\/ProcessModule.module",
+    "textdomain": "wire--modules--process--processmodule--processmodule-module",
+    "translations": {
+        "b14c50cfbdf80ffa1e494282c306a467": {
+            "text": "Modul-Installation"
+        },
+        "addec426932e71323700afa1911f8f1c": {
+            "text": "mehr"
+        },
+        "b9c21fa0192c783c8c3d3c48cd251f6c": {
+            "text": "Neues Modul gefunden"
+        },
+        "4d90ec9a7117ef7ad9c02a90860d7122": {
+            "text": "Um ein Modul zu entfernen klicken Sie das Modul an (zum bearbeiten), dann w\u00e4hlen Sie  'Deinstallieren' und speichern es. Sobald es deinstalliert ist, k\u00f6nnen Sie die Modul-Datei(en) aus \/site\/modules\/ entfernen. Wenn es immer noch in der Liste oben erscheint, m\u00fcssen Sie eventuell den Button 'Nach neuen Modulen suchen' klicken, damit ProcessWire die \u00c4nderung erfasst."
+        },
+        "56f298ec43e271496dd37302c5f2d023": {
+            "text": "Keine neuen Module gefunden"
+        },
+        "4ca1ee2e55f304b56891e55fc0ff7844": {
+            "text": "Kein Modul angegeben"
+        },
+        "e45037779e7b459b4ea29944f1b2ef5c": {
+            "text": "Dieses Modul deinstallieren? Nach der Deinstallation k\u00f6nnen Sie die Modul-Dateien vom Server entfernen, falls nicht andere Module von ihm abh\u00e4ngen."
+        },
+        "a0ab914bff40f68598d99e99d39d859c": {
+            "text": "Dies wird weitere Module deinstallieren"
+        },
+        "1f698ebf835d58ef66a38c20e1496fa2": {
+            "text": "(Deaktiviert)"
+        },
+        "c19eca215de858fb52f1067064dc4bba": {
+            "text": "Modul kann nicht deinstalliert werden"
+        },
+        "7c4ba7a5c907fd803087ccd0da925c45": {
+            "text": "Sie m\u00fcssen zun\u00e4chst andere Module deinstallieren"
+        },
+        "c6ac99bad720428d69928c160e87c55e": {
+            "text": "Dieses Modul hat keine Felder, die konfiguriert werden m\u00fcssen"
+        },
+        "aadb23a524b84262538be0a416d5868f": {
+            "text": "Modul deinstalliert"
+        },
+        "9b60baa546e5c978341fd2907b1d5dc9": {
+            "text": "Modul gespeichert"
+        },
+        "bf17ac149e2e7a530c677e9bd51d3fd2": {
+            "text": "Module"
+        },
+        "b7e2c8a0dd9e5f4ac8848dc0ff32ba0f": {
+            "text": "Module auflisten, bearbeiten oder (de)installieren"
+        },
+        "397433048c1c0bf93e5c0b270e178cb5": {
+            "text": "Zusammenfassung"
+        },
+        "ab216fc1fc240e6ae4a8d9e632b75177": {
+            "text": "Erfordert"
+        },
+        "d79883f0aa4bbfa29cfade81d86f4914": {
+            "text": "Installiert auch"
+        },
+        "7dadd48b9d04ac2c725c773fb9b845e6": {
+            "text": "Installieren"
+        },
+        "6d1e927236b37ef520bf1e0c06162c61": {
+            "text": "Deinstallieren"
+        },
+        "1ac54e3228009efa1fcf80b8709e1288": {
+            "text": "Titel"
+        },
+        "6499bebe581347fb21854f07912f1f65": {
+            "text": "Klasse"
+        },
+        "f09023872796deae6f1373d8a9d31a1e": {
+            "text": "Autor"
+        },
+        "633ce9b9b1a0e5b2f37bcc433eda6073": {
+            "text": "Zusammenfassung"
+        },
+        "a954570dccb58d6a3edeb19736234655": {
+            "text": "Erfordert"
+        },
+        "c3beb2f9b875c79f76cf703ad3659d68": {
+            "text": "Wird ben\u00f6tigt von"
+        },
+        "4d9ea4616e8b425d256a718c7686ed2b": {
+            "text": "Erforderliche Berechtigung"
+        },
+        "3ffe0dd3025d49ed76beaaf53f4889ac": {
+            "text": "Mehr Informationen"
+        },
+        "da50401ad6d0a7e3ec13844538e10864": {
+            "text": "Modul-Informationen"
+        },
+        "70d2b9e888cc1816db79833873ff3a93": {
+            "text": "Modul"
+        },
+        "418cab01f270b56053a218c414840ec9": {
+            "text": "Herunterladen und aktualisieren"
+        },
+        "cc3acbc843dd28f892ae2c9c1211b4cb": {
+            "text": "Nach neuen Modulen suchen"
+        },
+        "9c67d775a708bbc2a042f878e78cfe2c": {
+            "text": "\/site\/modules\/ - Module speziell f\u00fcr Ihre Seite"
+        },
+        "401aeb1b99895a172d78edfa183114e7": {
+            "text": "\/wire\/modules\/ - Module welche im ProcessWire Core enthalten sind"
+        },
+        "03c2e7e41ffc181a4e84080b4710e81e": {
+            "text": "Neu"
+        },
+        "3b0798392299a74418470d3f13b5eec2": {
+            "text": "Das Modul Verzeichnis befindet sich unter [modules.processwire.com](http:\/\/modules.processwire.com)"
+        },
+        "5975f55a2bcd254c58d9fe16d7a21417": {
+            "text": "Falls Sie neue Module unter \/site\/modules\/ abgelegt haben, klicken sie diesen Button um sie zu finden."
+        },
+        "2b0c95ea68acdfcd4e4d995f89bf3b92": {
+            "text": "Dieses Modul scheint nicht kompatibel mit der verwendeten ProcessWire Version zu sein. Es kann trotzdem funktionieren, aber Sie sollten den Modul-Autor kontaktieren."
+        },
+        "5259630c836d951d40cd2771922dfb5e": {
+            "text": "Die installierte Version ist bereits aktuell"
+        },
+        "356025c686f0f84759d1762a071903ad": {
+            "text": "Ein Update f\u00fcr dieses Modul ist verf\u00fcgbar!"
+        },
+        "18206c5add24b8898426959c811b779b": {
+            "text": "Mehr Information"
+        },
+        "eac35422501988079c78c4da694468ff": {
+            "text": "Projekt Seite"
+        },
+        "49ec9b5c06ace9e448b8c7901304c036": {
+            "text": "Support Seite"
+        },
+        "baa2c21bbd137636014e8f357698761e": {
+            "text": "Bevor Sie fortfahren: vergewissern Sie sich, ob diese ZIP-Datei von einer vertrauensvollen Quelle stammt!"
+        },
+        "2d30ce478ce5e77c288d80f804617331": {
+            "text": "Dieses Modul hat keine festgelegte URL und muss manuell installiert werden:"
+        },
+        "ea4788705e6873b424c65e91c2846b19": {
+            "text": "Abbrechen"
+        },
+        "013ba726c842150ec33822c5a6fc6196": {
+            "text": "Herunterladen abgebrochen"
+        },
+        "321a272463ceb9661e0951f1e3b639d5": {
+            "text": "Heruntergeladen:"
+        },
+        "206fdb3626f498af4b830cbf6c2efc0a": {
+            "text": "%s ist bereit zum installieren"
+        },
+        "5edb0eb1006e6be6d4cd5609357b4bb3": {
+            "text": "Jetzt installieren"
+        },
+        "bfaf55307f89bbad2f781f3ea25fae91": {
+            "text": "Nicht installieren"
+        },
+        "bb8985c9a93d30135e0a662d77228e87": {
+            "text": "Aktualisiert:"
+        },
+        "5bee92e129673eefc19da149e2b58f15": {
+            "text": "%s wurde erfolgreich aktualisiert."
+        },
+        "292287e744d21b09f577b3228ef5ce77": {
+            "text": "Fortfahren mit den Modul-Einstellungen"
+        },
+        "9c098768612f6e24d58eae6fb38ae756": {
+            "text": "Nach Aktualisierung suchen"
+        },
+        "16cc8e66dedb68f1f49e919c348e3de5": {
+            "text": "noch nicht"
+        },
+        "874966d700b2e2cca2577a2eac1d28f0": {
+            "text": "Klasse"
+        },
+        "64e220482c5957a4bc72eb93fa23c97d": {
+            "text": "Installiert?"
+        },
+        "adface9f151f3625734957af4cc90bdc": {
+            "text": "Autor(en)"
+        },
+        "e5f2ca40c235fae5ac687e306de83787": {
+            "text": "Zusammenfassung"
+        },
+        "8cdfd203b4ed8d5355ee6f7e2819f1f7": {
+            "text": "Kompatibilit\u00e4t"
+        },
+        "48b843a3e9c0825de5170cc33048043f": {
+            "text": "ZIP Datei"
+        },
+        "89f479678076a540904291ac97e7b29c": {
+            "text": "Bitte beachten"
+        },
+        "db91f2b6a497a7f2f78f5ef53cc47fab": {
+            "text": "Datei"
+        },
+        "801ab24683a4a8c433c6eb40c48bcd9d": {
+            "text": "Herunterladen"
+        },
+        "8de5f3b8fe691cf6304176b9a5ed54da": {
+            "text": "Sie k\u00f6nnen das Modul Verzeichnis durchsuchen um das gew\u00fcnschte Modul zu finden. Tragen Sie den \"Klassen Name\" f\u00fcr das Modul ein, welches Sie installieren wollen. "
+        },
+        "a7d6475ec8993b7224d6facc8cb0ead6": {
+            "text": "Seite"
+        },
+        "0900a3f6adfa931e0130c02c436e7e7f": {
+            "text": "Modul Klassen Name"
+        },
+        "8395847485c9a34007295da6a4f9d4cf": {
+            "text": "Fehler bei Datenabfrage von Web Service URL"
+        },
+        "8d68afb831b95c0dc23e1457385a983c": {
+            "text": "Fehler ausgegeben von Web Service:"
+        },
+        "e6b6277ba8181bbd1527a9862aac46ec": {
+            "text": "Release Status"
+        },
+        "c83047e52e84102cde2e46c99f5f2fa5": {
+            "text": "Herunterladen und installieren"
+        },
+        "ea90a0c1864c51f82f862a6850c13951": {
+            "text": "Modul Dateien gel\u00f6scht"
+        },
+        "0d17be96c4c0a8f101dcaa0ce9c5ee7d": {
+            "text": "%s l\u00f6schen?"
+        },
+        "abc3baafc079141ff12cc709fd46f471": {
+            "text": "L\u00f6schen"
+        },
+        "5ef031b334adbb931cf113da0bd6dcea": {
+            "text": "Einstellungen"
+        },
+        "ea6cee49cbd5313f532c8f213e820e63": {
+            "text": "Modul Web Service URL"
+        },
+        "b815574829ed2efce1faef571bc8b22e": {
+            "text": "Modul Web Service API Schl\u00fcssel"
+        },
+        "76ff1156be021b9f8cc2597febd46133": {
+            "text": "Greift zu auf"
+        },
+        "cb4e8aca2c4d3f2f34a8019ac88458bd": {
+            "text": "Neu gefundene Module"
+        },
+        "844ced21eac449bca19cf378ae770720": {
+            "text": "Ung\u00fcltiger Modulname: %s"
+        },
+        "8cd0d0c99b062b3d22e8c7188ba33ab2": {
+            "text": "Alle anzeigen"
+        },
+        "9e5fd09ae1c89e20aa28deee64d7f631": {
+            "text": "Module des Typs \"%s\" k\u00f6nnen leider nicht im Admin-Interface installiert werden."
+        },
+        "94e84ea867143991751f06bad2b5da30": {
+            "text": "Innerhalb der letzten Stunde"
+        },
+        "a0d5ca48d2aafbe0c044daeedc4ca0e5": {
+            "text": "Innerhalb des letzten Tages"
+        },
+        "dc52e914c681bc112d4a36ed38e37299": {
+            "text": "Innerhalb der letzten Woche"
+        },
+        "12db5f4485378bd2b028b8f67a61533e": {
+            "text": "Innerhalb des letzten Monats"
+        },
+        "21f29ba58fe9059dae498577efb26435": {
+            "text": "Vor kurzem gefundene und installierte Module"
+        },
+        "230420a05edcb2323c858d6c410d93cf": {
+            "text": "Keine Module gefunden."
+        },
+        "98dd43dfae05b11befe1f140e0ec787a": {
+            "text": "Installiert"
+        },
+        "5d695cc28c6a7ea955162fbdd0ae42b9": {
+            "text": "Gefunden"
+        },
+        "fadeae979278b23b0c0245fe143813ca": {
+            "text": "Modul aus Verzeichnis hinzuf\u00fcgen"
+        },
+        "91412465ea9169dfd901dd5e7c96dd99": {
+            "text": "Hochladen"
+        },
+        "a97f194fe643428c6e0e5b1d3ea79dbd": {
+            "text": "Hochgeladenes Modul hinzuf\u00fcgen"
+        },
+        "5e3f8e6adc33178f32cc7beb6ad19072": {
+            "text": "Modul von URL hinzuf\u00fcgen"
+        },
+        "dc975a9e6b0112228c42a6abbe82ae93": {
+            "text": "Vergewissern Sie sich, ob diese ZIP-Datei von einer vertrauensvollen Quelle stammt."
+        },
+        "d5f38db4e3d76c9a7cda57c660ac0dad": {
+            "text": "Modul ZIP-Datei URL"
+        },
+        "29b21610722fa13430132a8d4e757d1f": {
+            "text": "Herunterladen einer ZIP-Datei welche ein Modul enth\u00e4lt. Falls Sie ein bereits installiertes Modul herunterladen, wird die installierte Version mit der neu heruntergeladenen \u00fcberschrieben."
+        },
+        "e7aef889dd1b168dc269e9ddff6a57a5": {
+            "text": "Modul ZIP-Datei"
+        },
+        "6010e3962902142283df28e6d1a1d897": {
+            "text": "Hochladen eine ZIP-Datei welche Modul Datei(en) enth\u00e4lt. Falls Sie ein bereits installiertes Modul hochladen, wird dies durch das hochgeladene \u00fcberschrieben."
+        },
+        "822213aa38da92d8819e5c3b4ebe4c71": {
+            "text": "\u00e4lter als das bereits installierte!"
+        },
+        "f629d0ec5b19860b76ae88da3ea10273": {
+            "text": "Fehler beim decodieren des JSON vom Web Service"
+        },
+        "19d1a8e075651f072ba0771e6cbc831b": {
+            "text": "Schauen Sie sich im Modul-Verzeichnis unter %s um"
+        }
+    }
+}

@@ -1,0 +1,186 @@
+/**
+ * Futura Color Theme for PW admin
+ *
+ */
+
+@import 'vars';
+@import 'mixins';
+
+$green: #70B340;
+$light-green: $green; 
+$red: #B81C22;
+
+$subtle-bg: #F0F0F0; 
+$subtle-border: darken($subtle-bg, 8%);
+
+$link-color: #DB1F2C;
+$link-color: #BD363F;
+$link-hover-color: $green;
+$link-hover-bg: none; 
+$link-current-color: $light-green;
+$link-current-bg: none; 
+$link-active-bg: none; 
+$link-active-color: $link-hover-color; 
+
+$alt-link-color: $link-color; 
+
+$button-bg: $link-color;
+$button-border: $link-color;
+$button-color: $white;
+$button-hover-color: $white;
+$button-hover-bg: $link-hover-color;
+$button-hover-border: $link-hover-color;
+$button-active-color:  $white;
+$button-active-bg: darken($link-hover-color, 10%); 
+$button-active-border: $button-active-bg; 
+
+$ui-state-default-bg: darken($subtle-bg, 37%);
+$ui-state-default-color: $reverse-text-color; 
+$ui-state-hover-bg: $black;
+$ui-state-hover-color: $reverse-text-color; 
+
+$ui-state-default-bg: $green;
+$ui-state-default-color: $white;
+$ui-state-hover-bg: $link-color;
+$ui-state-hover-color: $white; 
+
+$label-link-color: $black;
+$label-link-bg: #fff; 
+$label-link-hover-color: $link-hover-color;
+$label-link-collapsed-color: lighten($black, 50%); 
+$label-link-collapsed-bg: lighten($subtle-bg, 5%); 
+
+$table-th-color: #999; 
+$table-th-active-color: #444; 
+
+$masthead-bg: #444;
+
+$highlight-bg: $green; 
+$highlight-color: $white; 
+$highlight-border: 1px solid #fff; 
+
+$item-header-bg: $green;
+$item-header-color: $white; 
+$item-header-hover-color: $white;
+$item-header-hover-bg: $link-color;
+$item-border: 1px solid $subtle-border; 
+
+$breadcrumbs-bg: $subtle-bg;
+$breadcrumbs-color: lighten($text-color, 50%);
+$breadcrumbs-link-color: $link-color; 
+$breadcrumbs-link-hover-color: $link-hover-color; 
+$breadcrumbs-border: none; 
+$breadcrumbs-title-color: $text-color; 
+
+$topnav-link-color: $reverse-text-color;
+$topnav-link-bg: none; /*rgba(255,255,255,0.05); */
+$topnav-link-hover-color: $reverse-text-color; 
+$topnav-link-hover-bg: transparentize($reverse-text-color, 0.8); 
+$topnav-link-current-color: $text-color; 
+$topnav-link-current-bg: $breadcrumbs-bg; 
+
+$action-link-color: $white; 
+$action-link-font-size: 0.875em;
+$action-link-bg: $green; 
+$action-link-border: none; 
+$action-link-hover-color: $reverse-text-color;
+$action-link-hover-bg: $black;
+$action-link-hover-border: 1px solid $link-color;
+$action-link-active-color: $reverse-text-color; 
+$action-link-active-bg: $black;
+
+$pagelist-link-color: #222; 
+$pagelist-link-hover-color: $link-color;
+$pagelist-link-open-color: $link-color; 
+$pagelist-link-open-bg: none; 
+$pagelist-link-active-color: $link-hover-color; 
+$pagelist-link-icon-color: $link-color; 
+
+$pagination-font-size: 0.875em;
+$pagination-link-color: $text-color; 
+$pagination-link-bg: $subtle-bg;
+$pagination-link-current-color: $white;
+$pagination-link-current-bg: $link-color;
+$pagination-link-hover-color: $white;
+$pagination-link-hover-bg: $green;
+$pagination-link-active-color: $white; 
+$pagination-link-active-bg: $link-hover-color; 
+$pagination-link-border-radius: 3px; 
+
+$wiretab-link-bg: none; 
+$wiretab-link-border: 1px solid transparent; 
+$wiretab-link-color: $text-color;
+$wiretab-link-hover-bg: transparentize($white, 0.5);
+$wiretab-link-hover-border: 1px solid darken($subtle-bg, 8%); 
+$wiretab-link-hover-color: $link-hover-color;
+$wiretab-link-current-bg: $white;
+$wiretab-link-current-color: $text-color; 
+$wiretab-link-current-border: $wiretab-link-hover-border;
+$wiretab-link-active-bg: $subtle-bg;
+$wiretab-link-active-color: $text-color; 
+
+$footer-bg: lighten($masthead-bg, 10%);
+$footer-color: #999; 
+$footer-link-color: #fff; 
+
+$error-bg: $red; 
+$error-border: $red; 
+$error-color: #fff; 
+
+$notes-bg: #ffffdd; 
+$notes-font-size: 0.875em;
+
+$button-radius: 5px; 
+$tabs-radius: 5px; 
+
+$input-bg: lighten($subtle-bg, 2%);
+
+$progressbar-bg: lighten($masthead-bg, 10%); 
+$progressbar-value-bg: $masthead-bg; // $ui-state-hover-bg; 
+$progressbar-text-color: $reverse-text-color;
+
+
+/**
+ * Notifications (prefixed with "no")
+ *
+ */
+
+$no-border-color: #fff;
+
+$no-message-color: $highlight-color;
+$no-message-bg: $highlight-bg;
+$no-message-open-color: $no-message-color;
+$no-message-open-bg: darken($no-message-bg, 5%);
+$no-message-icon-color: $no-message-color;
+$no-message-link-color: transparentize($no-message-color, 0.2);
+$no-message-link-hover-color: $no-message-color;
+
+$no-warning-color: $white;
+$no-warning-bg: #C26631;
+$no-warning-open-color: $white;
+$no-warning-open-bg: darken($no-warning-bg, 5%); 
+$no-warning-icon-color: $white;
+$no-warning-link-color: transparentize($white, 0.2);
+$no-warning-link-hover-color: $white;
+
+$no-error-color: $error-color;
+$no-error-bg: $error-bg;
+$no-error-open-color: $no-error-color;
+$no-error-open-bg: darken($no-error-bg, 5%);
+$no-error-icon-color: $no-error-color;
+$no-error-link-color: transparentize($no-error-color, 0.2);
+$no-error-link-hover-color: $no-error-color;
+
+$no-ghost-message-color: #fff;
+$no-ghost-message-bg: #000;
+$no-ghost-message-icon-color: $no-ghost-message-color;
+
+$no-ghost-warning-color: $no-warning-color;
+$no-ghost-warning-bg: $no-warning-bg;
+$no-ghost-warning-icon-color: $no-ghost-warning-color;
+
+$no-ghost-error-color: $no-error-color;
+$no-ghost-error-bg: $no-error-bg;
+$no-ghost-error-icon-color: $no-ghost-error-color;
+
+@import 'main';

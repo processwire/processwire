@@ -1,0 +1,641 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire File Fieldtype
+ *
+ * Field that stores one or more files with optional description. 
+ *
+ * For documentation about the fields used in this class, please see:  
+ * /wire/core/Fieldtype.php
+ * /wire/core/FieldtypeMulti.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class FieldtypeFile extends FieldtypeMulti {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Files', __FILE__),
+			'version' => 104,
+			'summary' => __('Field that stores one or more files', __FILE__),
+			'permanent' => true,
+		);
+	}
+
+	const outputFormatAuto = 0;
+	const outputFormatArray = 1; 
+	const outputFormatSingle = 2; 
+	const outputFormatString = 30;
+
+	/**
+	 * File schema is configured to support tags (flag)
+	 *
+	 */
+	const fileSchemaTags = 1; 
+
+	/**
+	 * File schema is configured to support 'created' date (flag)
+	 *
+	 */
+	const fileSchemaDate = 2;
+	
+	protected $defaultInputfieldClass = '';
+
+	public function __construct() {
+		$this->defaultInputfieldClass = str_replace('Fieldtype', 'Inputfield', $this->className);
+	}
+
+	public function getInputfield(Page $page, Field $field) {
+
+		$inputfield = null;
+		if($field->inputfieldClass) $inputfield = $this->modules->get($field->inputfieldClass); 
+		if(!$inputfield) $inputfield = $this->modules->get($this->defaultInputfieldClass); 
+		$inputfield->class = $this->className();
+
+		$this->setupHooks($page, $field, $inputfield); 
+	
+		if(!$field->extensions) {
+			if($page->id && $page->template->fieldgroup->hasField($field)) {
+				// message that appears on page being edited with this field
+				$this->error(sprintf($this->_('Field "%s" is not yet ready to use and needs to be configured.'), $field->name)); 
+			} else if(!count($_POST)) {
+				// message that appears during configuration, but suppressed during post to prevent it from appearing after save
+				$this->message(
+					$this->_('Settings have not yet been committed.') . "<br /><small>" . 
+					$this->_('Please review the settings on this page and save once more (even if you do not change anything) to confirm you accept them.') . "</small>", 
+					Notice::allowMarkup); 
+			}
+		}
+
+		return $inputfield;
+	}
+
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = $this->wire(new Fieldtypes());
+		foreach($this->wire('fieldtypes') as $fieldtype) {
+			if($fieldtype instanceof FieldtypeFile) $fieldtypes->add($fieldtype); 
+		}
+		return $fieldtypes; 
+	}
+
+	/**
+	 * Setup any necessary hooks for this Inputfield, intended to be called from getInputfield() method
+	 *
+	 * We're going to hook into the inputfield to set the upload destination path.
+	 * This is because the destination path may be determined by events that occur
+	 * between the time this method is executed, and the time the upload is saved.
+	 * An example is the page files draft path vs. the published path.
+	 *
+	 * Make sure that any Fieldtype's descended from this one call the setupHooks method in their getInputfield() method. 
+	 *
+	 */
+	protected function setupHooks(Page $page, Field $field, Inputfield $inputfield) {
+
+		$options = array(
+			'page' => $page, 
+			'field' => $field, 
+			);
+
+		$inputfield->addHookBefore('processInput', $this, 'hookProcessInput', $options); 
+	}
+
+	/**
+	 * Hook into the InputfieldFile's processInput method to set the upload destination path
+	 *
+	 * This hook originates with the setupHooks method above. 
+	 *
+	 */
+	public function hookProcessInput($event) {
+		$inputfield = $event->object; 	
+		$page = $event->options['page']; 
+		$field = $event->options['field']; 
+		$pagefiles = $page->get($field->name); 
+		$inputfield->destinationPath = $pagefiles->path();
+	}
+
+	/**
+	 * Given a raw value (value as stored in DB), return the value as it would appear in a Page object
+ 	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array $value
+	 * @return string|int|array|object $value
+	 *
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+
+		if($value instanceof Pagefiles) return $value; 
+		$pagefiles = $this->getBlankValue($page, $field); 
+		if(empty($value)) return $pagefiles; 
+	
+		if(!is_array($value) || array_key_exists('data', $value)) $value = array($value); 
+		foreach($value as $v) {
+			if(empty($v['data'])) continue; 
+			$pagefile = $this->getBlankPagefile($pagefiles, $v['data']); 
+			$pagefile->description(true, $v['description']); 
+			if(isset($v['modified'])) $pagefile->modified = $v['modified'];
+			if(isset($v['created'])) $pagefile->created = $v['created'];
+			if(isset($v['tags'])) $pagefile->tags = $v['tags'];
+			$pagefile->setTrackChanges(true); 
+			$pagefiles->add($pagefile); 
+		}
+	
+		$pagefiles->resetTrackChanges(true); 
+		return $pagefiles;  
+	}
+
+	/**
+	 * Given an 'awake' value, as set by wakeupValue, convert the value back to a basic type for storage in DB. 
+	 *              
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array|object $value
+	 * @return string|int
+	 *
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+
+		$sleepValue = array();
+		if(!$value instanceof Pagefiles) return $sleepValue; 
+	
+		foreach($value as $pagefile) {
+			$item = array(
+				'data' => $pagefile->basename, 
+				'description' => $pagefile->description(true), 
+				); 
+	
+			if($field->fileSchema & self::fileSchemaDate) { 
+				$item['modified'] = date('Y-m-d H:i:s', $pagefile->modified);
+				$item['created'] = date('Y-m-d H:i:s', $pagefile->created);
+			}
+	
+			if($field->fileSchema & self::fileSchemaTags) {
+				$item['tags'] = $pagefile->tags;
+			}
+	
+			$sleepValue[] = $item;
+		}
+		return $sleepValue;
+	}
+
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		$pagefiles = $value; 
+		$value = $this->sleepValue($page, $field, $value); 
+		foreach($value as $k => $v) {
+			$pagefile = $pagefiles->get($v['data']); 
+			$a = array(
+				'name' => $v['data'], 
+				'url' => $pagefile->httpUrl(),
+				'filesize' => $pagefile->filesize()
+				); 
+			unset($v['data']); 
+			$value[$k] = array_merge($a, $v); 
+		}
+		return $value; 	
+	}
+
+	public function getBlankValue(Page $page, Field $field) {
+		$pagefiles = $this->wire(new Pagefiles($page));
+		$pagefiles->setField($field); 
+		$pagefiles->setTrackChanges(true); 
+		return $pagefiles; 
+	}
+
+	/**
+ 	 * Returns a blank Pagefile instance, which may be another type of Pagefile (i.e. a Pageimage)
+	 *
+	 * This method ensures that the correct type of items are populated by wakeupValue()
+	 *
+	 * @param Pagefiles $pagefiles
+	 * @param string $filename
+	 * @return Pagefile 
+	 *
+	 */
+	protected function getBlankPagefile(Pagefiles $pagefiles, $filename) {
+		return $this->wire(new Pagefile($pagefiles, $filename)); 
+	}
+
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		if($value instanceof Pagefiles) return $value; 
+		$pagefiles = $page->getUnformatted($field->name); 
+		if(!$value) return $pagefiles; 
+		if($value instanceof Pagefile) return $pagefiles->add($value); 
+		if(!is_array($value)) $value = array($value); 
+		foreach($value as $file) $pagefiles->add($file); 
+		return $pagefiles; 
+	}
+
+	/**
+	 * Perform output formatting on the value delivered to the API
+	 *
+	 * Entity encode the file's description field. 
+	 * 
+	 * If the maxFiles setting is 1, then we format the value to dereference as single Pagefile rather than a PagefilesArray
+	 *
+	 * This methos is only used when $page->outputFormatting is true. 
+	 *
+	 */
+	public function ___formatValue(Page $page, Field $field, $value) {
+
+		if(!$value instanceof Pagefiles) return $value; 
+	
+		foreach($value as $pagefile) {
+			if($pagefile->isTemp()) $value->removeQuietly($pagefile); 
+		}
+		
+		$textformatters = $field->textformatters; 
+		if(!is_array($textformatters)) $textformatters = array();
+		if($field->entityEncode && !count($textformatters)) $textformatters[] = 'TextformatterEntities';
+		$useTags = $field->useTags; 
+	
+		foreach($textformatters as $name) {
+			$textformatter = $this->wire('modules')->get($name); 
+			if(!$textformatter) continue;
+			foreach($value as $v) {
+				if($v->formatted()) continue; 
+				$description = $v->description;
+				$textformatter->formatValue($page, $field, $description);	
+				$v->description = $description; 
+				if($useTags) {
+					$tags = $v->tags; 
+					$textformatter->formatValue($page, $field, $tags); 
+					$v->tags = $tags; 
+				}
+			}
+		}
+		
+		foreach($value as $v) {
+			$v->formatted = true;
+		}
+
+		/*
+		if($field->entityEncode) { 
+			foreach($value as $k => $v) {
+				if($v->formatted()) continue; 
+				$v->description = htmlspecialchars($v->description, ENT_QUOTES, "UTF-8"); 
+				$v->tags = htmlspecialchars($v->tags, ENT_QUOTES, "UTF-8"); 
+				$v->formatted = true; 
+			}
+		}
+		*/
+	
+		$count = count($value); 
+		$isEmpty = $count == 0;
+		$maxFiles = (int) $field->maxFiles; 
+		if($maxFiles && $count > $maxFiles) $value = $value->slice(0, $maxFiles); 
+		
+		switch((int) $field->outputFormat) {
+			
+			case self::outputFormatArray:
+				// we are already in this format so don't need to do anything
+				break;
+			
+			case self::outputFormatSingle:
+				$value = $isEmpty ? null : $value->first();
+				break;
+			
+			case self::outputFormatString:
+				$value = $this->formatValueString($page, $field, $value); 
+				break;
+			
+			default: // outputFormatAuto
+				if($maxFiles == 1) { 
+					$value = $isEmpty ? null : $value->first();
+				}
+		}
+		
+		if($isEmpty && $field->defaultValuePage) {
+			$defaultPage = $this->wire('pages')->get((int) $field->defaultValuePage); 
+			if($defaultPage->id && $defaultPage->id != $page->id) {
+				$value = $defaultPage->get($field->name);	
+			}
+		}
+		
+		return $value; 
+	}
+	
+	protected function ___formatValueString(Page $page, Field $field, $value) {
+		$out = '';
+		$outputString = $field->outputString;
+		if(empty($outputString)) $outputString = '{url}';
+		preg_match_all('/\{([_a-zA-Z0-9]+)\}/', $outputString, $matches);
+		foreach($value as $item) {
+			$s = $outputString;
+			foreach($matches[1] as $key => $match) {
+				$v = $item->$match;
+				$s = str_replace($matches[0][$key], $v, $s);
+			}
+			$out .= $s;
+		}
+		return $out; 
+	}
+
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+
+		if(in_array($operator, array("*=", "~=", "%=", "^=", "$="))) {
+			// fulltext match filename or description
+			$ft = $this->wire(new DatabaseQuerySelectFulltext($query)); 
+			$ft->match($table, $subfield, $operator, $value); 
+
+		} else {
+			$query = parent::getMatchQuery($query, $table, $subfield, $operator, $value); 
+		}
+		return $query; 
+	}
+
+	public function ___getSelectorInfo(Field $field, array $data = array()) {
+		$info = parent::___getSelectorInfo($field, $data); 
+		$info['subfields']['data']['label'] = $this->_('filename'); 
+		return $info;
+	}
+
+	public function getDatabaseSchema(Field $field) {
+
+		$database = $this->wire('database');
+		$schema = parent::getDatabaseSchema($field);
+		$table = $database->escapeTable($field->table); 
+
+		$schema['data'] = 'varchar(250) NOT NULL';
+		$schema['description'] = "text NOT NULL";
+		$schema['modified'] = "datetime"; 
+		$schema['created'] = "datetime"; 
+		$schema['keys']['description'] = 'FULLTEXT KEY description (description)'; 
+		$schema['keys']['modified'] = 'index (modified)'; 
+		$schema['keys']['created'] = 'index (created)'; 
+
+		if($field->id && !($field->fileSchema & self::fileSchemaDate)) {
+			// permanently add new 'modified' and 'created' column to file schema
+			$addDates = false;
+
+			try {
+				$query = $database->prepare("SHOW COLUMNS FROM `$table` WHERE Field='modified'"); 
+				$query->execute();
+				$numRows = (int) $query->rowCount();
+				$query->closeCursor();
+				
+				if($numRows) {
+					$field->fileSchema = $field->fileSchema | self::fileSchemaDate; 
+					$field->save();
+				} else {
+					$addDates = true; 
+				}
+			} catch(\Exception $e) {
+				// intentionally blank
+			}
+
+			if($addDates) try {
+				$database->exec("ALTER TABLE `{$table}` ADD `modified` $schema[modified]");
+				$database->exec("ALTER TABLE `{$table}` ADD `created` $schema[created]");
+				$database->exec("ALTER TABLE `{$table}` ADD " . $schema['keys']['modified']); 
+				$database->exec("ALTER TABLE `{$table}` ADD " . $schema['keys']['created']); 
+				$field->fileSchema = $field->fileSchema | self::fileSchemaDate; 
+				$field->save();
+				$date = date('Y-m-d H:i:s'); 
+				$query = $database->prepare("UPDATE `$table` SET created=:created, modified=:modified"); 
+				$query->bindValue(":created", $date);
+				$query->bindValue(":modified", $date); 
+				$query->execute();
+				$this->message("Added created/modified to DB schema for '{$field->name}'", Notice::log); 
+				
+			} catch(\Exception $e) {
+				
+				$query = $database->prepare("SHOW COLUMNS FROM `$table` WHERE Field='modified'"); 
+				$query->execute();
+				$numRows = (int) $query->rowCount();
+				$query->closeCursor();
+				
+				if($numRows) {
+					$field->fileSchema = $field->fileSchema | self::fileSchemaDate; 
+					$field->save();
+				} else {
+					$this->error("Error adding created/modified to '{$field->name}' schema", Notice::log); 
+				}
+			
+			}
+		}
+
+		$tagsAction = null; // null=no change; 1=add tags, 0=remove tags
+		$schemaTags = 'varchar(250) NOT NULL'; 
+		$schemaTagsIndex = 'FULLTEXT KEY tags (tags)'; 
+
+		if($field->useTags && !($field->fileSchema & self::fileSchemaTags)) $tagsAction = 'add';
+			else if(!$field->useTags && ($field->fileSchema & self::fileSchemaTags)) $tagsAction = 'remove';
+
+		if($tagsAction === 'add') {
+			// add tags field
+			try {
+				$query = $database->prepare("SHOW COLUMNS FROM `$table` WHERE Field='tags'"); 
+				$query->execute();
+				$numRows = (int) $query->rowCount();
+				$query->closeCursor();
+			} catch(\Exception $e) {
+				// probably in a clone, we can ignore and skip over any further changes
+				$numRows = 1; 
+			}
+
+			if(!$numRows) try {
+				$database->exec("ALTER TABLE `{$table}` ADD tags $schemaTags");
+				$database->exec("ALTER TABLE `{$table}` ADD $schemaTagsIndex"); 
+				$field->fileSchema = $field->fileSchema | self::fileSchemaTags; 
+				$field->save();
+				$this->message("Added tags to DB schema for '{$field->name}'", Notice::log); 
+			} catch(\Exception $e) {
+				$this->error("Error adding tags to '{$field->name}' schema", Notice::log); 
+			}
+
+		} else if($tagsAction === 'remove') {
+			// remove tags field
+			try {
+				$database->exec("ALTER TABLE `{$table}` DROP INDEX tags"); 
+				$database->exec("ALTER TABLE `{$table}` DROP tags"); 
+				$field->fileSchema = $field->fileSchema & ~self::fileSchemaTags;
+				$field->save();
+				$this->message("Dropped tags from DB schema for '{$field->name}'", Notice::log); 
+			} catch(\Exception $e) {
+				$this->error("Error dropping tags from '{$field->name}' schema", Notice::log); 
+			}
+		}
+
+		if($field->fileSchema & self::fileSchemaTags) { 
+			$schema['tags'] = $schemaTags;
+			$schema['keys']['tags'] = $schemaTagsIndex;
+		}
+
+		return $schema;
+	}
+
+
+	public function ___deletePageField(Page $page, Field $field) {
+
+		// if($this->config->debug) $this->message("deletePageField, Page:$page, Field:$field"); 
+
+		if($pagefiles = $page->get($field->name)) {
+
+			if($pagefiles instanceof Pagefiles) {
+				$pagefiles->deleteAll(); 
+
+			} else if($pagefiles instanceof Pagefile) {
+				$pagefiles->unlink();
+
+			} else if($page->hasField($field) && $this->config->debug) {
+				$this->error("Not Pagefiles or Pagefile"); 
+			}
+
+		} else if($page->hasField($field) && $this->config->debug) {
+			$this->error("Unable to retreive $page.{$field->name}"); 			
+		}
+
+		parent::___deletePageField($page, $field); 
+
+		return true; 
+		
+	}
+
+	public function ___deleteField(Field $field) {
+		// delete files not necessary since deletePageField would have been called for all instances before this could be called
+		return parent::___deleteField($field); 
+	}
+
+	/**
+	 * Default list of file extensions supported by this field, and used as the default by getConfigInputfields() method. 
+	 *
+	 * Subclasses can override with their own string of file extensions
+	 *
+	 */
+	protected function getDefaultFileExtensions() {
+		return "pdf doc docx xls xlsx gif jpg jpeg png";
+	}
+
+	/**
+	 * Disable autojoin for files
+	 *
+	 */
+	public function getLoadQueryAutojoin(Field $field, DatabaseQuerySelect $query) {
+		return null;
+	}  
+
+
+	public function ___getConfigInputfields(Field $field) {
+
+		$inputfields = parent::___getConfigInputfields($field);
+
+		// extensions
+		$f = $this->modules->get('InputfieldTextarea');
+		$f->attr('name', 'extensions'); 
+		$f->attr('value', $field->extensions ? $field->extensions : $this->getDefaultFileExtensions()); 
+		$f->attr('rows', 3); 
+		$f->label = $this->_('Valid File Extensions');
+		$f->description = $this->_('Enter all file extensions allowed by this upload field. Separate each extension by a space. No periods or commas. This field is not case sensitive.'); // Valid file extensions description
+		$inputfields->append($f);
+
+		// max files
+		$f = $this->modules->get('InputfieldInteger');
+		$f->attr('name', 'maxFiles'); 
+		$f->attr('value', (int) $field->maxFiles); 
+		$f->attr('size', 4);
+		$f->label = $this->_('Maximum files allowed');
+		$f->description = $this->_('0=No limit'); 
+		$f->collapsed = Inputfield::collapsedBlank;
+		$inputfields->append($f); 
+	
+		// output format
+		$f = $this->modules->get('InputfieldRadios'); 
+		$f->attr('name', 'outputFormat'); 
+		$f->label = $this->_('Formatted value'); 
+		$f->description = $this->_('Select the type of value you want this field to provide when accessed from the API on the front-end of your site.'); 
+		$f->notes = $this->_('When output formatting is off, the value is always an array (WireArray).'); 
+		$f->addOption(self::outputFormatAuto, $this->_('Automatic (single item or null when max files set to 1, array of items otherwise)')); 
+		$f->addOption(self::outputFormatArray, $this->_('Array of items'));
+		$f->addOption(self::outputFormatSingle, $this->_('Single item (null if empty)')); 
+		$f->addOption(self::outputFormatString, $this->_('Rendered string of text (that you provide)')); 
+		$f->attr('value', (int) $field->outputFormat); 
+		$f->collapsed = Inputfield::collapsedBlank;
+		$inputfields->add($f);
+	
+		// output string
+		$f = $this->modules->get('InputfieldText');
+		$f->attr('name', 'outputString');
+		$f->label = $this->_('Rendered string of text');
+		$f->attr('placeholder', "i.e. <a href='{url}'>{description}</a>");
+		$f->attr('value', $field->outputString ? $field->outputString : '');
+		$f->description = $this->_('Provide the rendered string of text you want to output as the value of this field. If the field contains multiple items, this string will be rendered multiple times. If the field contains no items, a blank string will be used.');
+		$f->notes = $this->_('You may use any of the following tags:') . ' {url}, {description}, {tags}';
+		$f->showIf = "outputFormat=" . self::outputFormatString;
+		$inputfields->add($f);
+
+		// default value page
+		$f = $this->modules->get('InputfieldPageListSelect'); 
+		$f->attr('name', 'defaultValuePage'); 
+		$f->label = $this->_('Default value (when empty)'); 
+		$f->description = $this->_('Optionally select a page that will contain the default value (in this same field). You may wish to create a page specifically for this purpose.'); 
+		$f->attr('value', (int) $field->defaultValuePage); 
+		$f->collapsed = $field->defaultValuePage ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
+		$inputfields->add($f); 
+	
+		// textformatters
+		$f = $this->modules->get('InputfieldAsmSelect');
+		$f->setAttribute('name', 'textformatters');
+		$f->label = $this->_('Text formatters (for file descriptions)');
+		$f->description = $this->_('Select one or more text formatters (and their order) that will be applied to the file description when output formatting is active. The HTML Entity Encoder is recommended as a minimum.'); 
+
+		foreach($this->wire('modules') as $module) {
+			$className = $module->className();
+			if(strpos($className, 'Textformatter') !== 0) continue; 
+			$info = $this->wire('modules')->getModuleInfo($module); 
+			$f->addOption($className, "$info[title]");
+		}
+		
+		if(!is_array($field->textformatters)) {
+			$field->textformatters = $field->entityEncode ? array('TextformatterEntities') : array();
+		}
+		$f->attr('value', $field->textformatters); 
+		$inputfields->add($f); 
+
+		// entity encode (deprecated)
+		$f = $this->modules->get("InputfieldHidden");
+		$f->attr('name', 'entityEncode');
+		$f->attr('value', '');
+		if($field->entityEncode) $f->attr('checked', 'checked');
+		$inputfields->append($f);
+		$field->entityEncode = null;
+
+		// use tags
+		$f = $this->modules->get("InputfieldCheckbox"); 
+		$f->attr('name', 'useTags'); 
+		$f->attr('value', 1); 
+		if($field->useTags) $f->attr('checked', 'checked'); 
+			else $f->collapsed = Inputfield::collapsedYes; 
+		$f->label = $this->_('Use Tags?'); 
+		$f->description = $this->_('If checked, the field will also contain an option for tags in addition to the description.'); // Use tags description
+		
+		$inputfields->append($f); 
+
+		// inputfield class
+		$f = $this->modules->get('InputfieldSelect');
+		$f->attr('name', 'inputfieldClass');
+		$f->label = $this->_('Inputfield Type');
+		$f->description = $this->_('The type of field that will be used to collect input.');
+		$f->required = true;
+		$baseClass = $this->defaultInputfieldClass;
+		
+		foreach($this->wire('modules') as $fm) {
+			if(strpos($fm->className(), 'Inputfield') !== 0) continue;
+			if("$fm" == $baseClass || is_subclass_of($fm->className(true), __NAMESPACE__ . "\\$baseClass"))
+				$f->addOption("$fm", str_replace("Inputfield", '', "$fm"));
+		}
+		
+		$f->attr('value', $field->inputfieldClass ? $field->inputfieldClass : $this->defaultInputfieldClass);
+		$f->collapsed = $field->inputfieldClass && $field->inputfieldClass != $this->defaultInputfieldClass ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
+		
+		$inputfields->append($f);
+		
+		return $inputfields;
+	}
+
+
+
+}
+

@@ -1,0 +1,109 @@
+#changed_fields ul li {
+	padding: 0.25em; 
+}
+
+.InputfieldCheckboxes table.AdminDataTable td:first-child {
+	width: 40%; 
+	
+}
+
+#roles_editor table th,
+#roles_editor table td {
+	width: 20%; 
+}
+
+input[disabled=disabled] {
+	opacity: 0.5; 	
+}
+
+span.asmFieldsetIndent {
+	float: left; 
+	width: 15px; 
+	height: 5px; 
+}
+
+#content .asmFieldset {
+	font-weight: bold; 
+}
+
+
+#ProcessTemplateList td:first-child,
+#ProcessTemplateList td:nth-child(2) {
+	width: 30%; 
+}
+#ProcessTemplateList td:last-child {
+	white-space: nowrap;
+}
+
+#ProcessTemplateList table td a.templateFlag {
+        float: right;
+}
+
+#ProcessTemplateList a.templateFlag {
+	position: relative;
+	top: 2px; 
+}
+
+#ProcessTemplateList .InputfieldMarkup {
+	margin-bottom: 1em;
+}
+
+
+.asmListItemStatus i {
+	margin-right: 0.5em; 
+}
+
+/**
+ * Import/export 
+ *
+ */
+
+#ProcessTemplateList + a > button, 
+#export_button,
+#import_button {
+	margin-top: 0;
+}
+#export_button,
+#import_button {
+	float: right;
+	margin-left: 0.25em;
+}
+
+#export_templates,
+#export_data,
+#import_data {
+	width: 100%;
+	font-family: monospace;
+	padding: 5px;
+}
+
+#import_form table {
+	margin-top: 1em;
+	margin-bottom: 1em; 
+}
+
+#import_form table th,
+#import_form table td {
+	width: 33.33333%; 
+}
+
+#import_form .InputfieldFieldset {
+	margin-bottom: 1em;
+}
+
+#import_form ul.ui-state-error-text li {
+	margin: 0;
+}
+
+#import_form .import_toggle {
+	margin-bottom: 0;
+}
+
+#import_form .import_toggle label {
+	margin-right: 0.5em;
+	display: inline;
+}
+
+.pw-init #ProcessTemplateEdit {
+	display: none; 
+}

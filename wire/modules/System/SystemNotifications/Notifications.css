@@ -1,0 +1,177 @@
+.NotificationMenu {
+	overflow: visible;
+	z-index: 9999; 
+	position: relative; 
+	background-color: #fff;
+}
+
+.NotificationList li {
+	opacity: 0.95; 
+}
+.NotificationList li.open, 
+.NotificationList li:hover {
+	opacity: 1.0; 
+}
+
+.NotificationList li {
+	position: relative; 
+	display: block;
+	border-right: none !important;
+	border-left: none !important;
+	border-bottom: 1px dotted rgba(255,255,255,0.5); 
+	border-top: none; 
+	padding-top: 0.25em;
+	padding-bottom: 0.25em;
+}
+
+.NotificationTitle {
+	font-weight: bold; 
+	cursor: pointer; 
+}
+
+.NotificationList li.removed {
+	text-decoration: line-through; 
+}
+
+.NotificationTitle small.created {
+	font-weight: normal;
+	opacity: 0.8; 
+}
+
+.NotificationText {
+	display: none; 
+	padding-left: 22px;
+	margin-bottom: 0.5em;
+	font-weight: normal;
+}
+
+.NotificationRemove {
+	cursor: pointer;
+	position: absolute;
+	top: 6px;
+	right: 0.5em;
+}
+
+.NotificationProgress {
+	position: absolute;
+	top: 0;
+	left: 0;
+	text-align: right; 
+	width: 0%; 
+	height: 1.5em;
+	background: rgba(0,0,0,0.1); 
+}
+.NotificationProgress span {
+	display: none; 
+}
+
+.NotificationProgressPercent {
+	background: rgba(0, 0, 0, 0.6); 
+	color: #fff; 
+	border-radius: 3px; 
+	font-size: 12px; 
+	padding: 3px 5px; 
+}
+
+.NotificationBug {
+	position: absolute; 
+	top: 0;
+	left: 25%; 
+	background-color: rgba(255,255,255,0.3);
+	color: #fff; 
+	border-bottom-left-radius: 3px; 
+	border-bottom-right-radius: 3px; 
+	border-top: 1px solid rgba(0,0,0,0.1); 
+	display: block;
+	width: auto;
+	padding-right: 3px; 
+	padding-left: 3px; 
+	height: 19px; 
+	text-align: center;
+	min-width: 24px; 
+	font-size: 14px; 
+	font-weight: bold;
+	line-height: 16px;
+	cursor: pointer; 
+	/*
+	box-shadow: 0px 0px 3px rgba(0,0,0,0.3); 
+	*/
+	z-index: 9999;
+}
+.NotificationBug .qty {
+	font-family: Arial, sans-serif;
+	font-size: 14px; 
+}
+
+.NotificationBug.open,
+.NotificationBug:hover {
+	background-color: rgba(255,255,255,0.5); 
+}
+.NotificationBug.open:hover {
+	background-color: rgba(255,255,255,0.3); 
+}
+
+.NotificationBug.qty0,
+.NotificationBug i {
+	display: none; 
+}
+
+.NotificationBug.NoticeWarning {
+	/* there is at least one warning notification */
+}
+
+.NotificationBug.NoticeError {
+	/* there is at least 1 error notification */
+}
+
+#NotificationGhosts {
+	position: fixed;
+	top: 53px; 
+	left: 0; 
+	z-index: 9999; 
+	list-style: none;
+	margin: 0;
+	padding: 0;
+}
+
+.AdminThemeDefault #NotificationGhosts {
+	z-index: 199; /* makes them appear under drop down menus */
+}
+
+#NotificationGhosts.NotificationGhostsRight {
+	left: auto;
+	right: 0;
+	text-align: right;
+}
+
+#NotificationGhosts li .NotificationGhost {
+	display: inline-block;
+	list-style: none;
+	margin: 3px 1em;
+	padding: 0.5em 1em 0.5em 0.5em;
+	border-radius: 5px; 
+	white-space: nowrap;
+	width: auto;
+	box-shadow: 0px 0px 3px rgba(0,0,0,0.3); 
+	font-weight: normal;
+	line-height: 19px; 
+}
+
+.NotificationGhosts li .NoticeMessage {
+	background: #000;
+	color: #eee; 
+}
+
+.NotificationGhosts li .NoticeError {
+	background: crimson;
+	color: #fff;
+} 
+.NotificationGhosts li .NoticeWarning {
+	background: orange;
+	color: #fff;
+}
+
+.NotificationPlacement0 #notices {
+	display: none;
+}
+

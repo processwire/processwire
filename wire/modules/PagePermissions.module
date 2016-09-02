@@ -1,0 +1,939 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Permissions Module
+ *
+ * Adds convenience methods to all Page objects for checking permissions, i.e. 
+ * 
+ * if($page->editable()) { do something }
+ * if(!$page->viewable()) { echo "sorry you can't view this"; }
+ * ...and so on...
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ * Optional special permissions that are optional (by default, not installed):
+ * 
+ * 1. page-publish: when installed, editable() returns false, when it would otherwise return true, 
+ *    on published pages, if user doesn't have page-publish permission in their roles. 
+ * 
+ * 2. page-edit-created: when installed, editable() returns false, when it would otherwise 
+ *    return true, if user's role has this permission and they are not the $page->createdUser. 
+ *    This is a permission that reduces access rather than increasing it. Note that
+ *    page-edit-created does nothing if the user doesn't have page-edit permission. 
+ * 
+ * 3. page-rename: when installed, user must have this permission in their role before they
+ *    can change the name of a published page. They can still change the name of an unpublished
+ *    page. When not installed, this permission falls back to page-edit. 
+ * 
+ * 4. page-edit-lang-default: when installed on a multi-language site, user must have this 
+ *    permission in order edit multi-language fields in "default" language. This permission
+ *    is also required to create or delete pages (if user already has other permissions that enable
+ *    them to create or delete pages). 
+ * 
+ * 5. page-edit-lang-[language_name]: when installed on a multi-language site, user must have
+ *    this permission to edit multi-language fields in the [language_name] language.
+ * 
+ * 6. page-edit-lang-none: when installed on a multi-language site, user must have this 
+ *    permission to edit non-multi-language fields. They must also have it to create or delete
+ *    pages (if user already has other permissions that enable that). 
+ * 
+ * 7. user-admin-all: when installed, a user must have this permission in order to edit other
+ *    users of all roles (except superuser of course). When installed, the regular user-admin
+ *    permission only acts as a pre-requisite for editing users, and enables only listing users, 
+ *    and editing users that have only the 'guest' role. The user-admin-all essentially grants 
+ *    the same thing as user-admin permission does on a system that has no user-admin-all 
+ *    permission installed. That's what it does, but why is it here? The entire purpose is to 
+ *    support user-admin-[role] permissions, as described in the next item below: 
+ * 
+ * 8. user-admin-[role_name]: when installed on a site that also has user-admin-all permission
+ *    installed, a user must have this permission (along with user-admin permission) in order
+ *    to edit users in role [role_name], or to grant that role to other guest users, or to 
+ *    revoke it from them. Think of this permission as granting a user administrative privileges
+ *    to just a specific group of users. Note that there would be no reason to combine this
+ *    permission with the user-admin-all permission, as user-admin-all permission grants admin
+ *    privileges to all roles. 
+ * 
+ */
+
+class PagePermissions extends WireData implements Module {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Page Permissions', 
+			'version' => 105, 
+			'summary' => 'Adds various permission methods to Page objects that are used by Process modules.',
+			'permanent' => true, 
+			'singular' => true,
+			'autoload' => true, 
+			);
+	}
+
+	/**
+	 * Do we have page-publish permission in the system?
+	 * 
+	 * @var null|bool Null=unset state
+	 * 
+	 */
+	protected $hasPagePublish = null;
+	
+	/**
+	 * Do we have page-edit-created permission in the system?
+	 *
+	 * @var null|bool Null=unset state
+	 *
+	 */
+	protected $hasPageEditCreated = null;
+
+	/**
+	 * Array of optional permission name => boolean of whether the system has it
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $hasOptionalPermissions = array();
+
+	/**
+	 * Establish permission hooks
+	 *
+	 */
+	public function init() {
+		$this->addHook('Page::editable', $this, 'editable');
+		$this->addHook('Page::publishable', $this, 'publishable'); 
+		$this->addHook('Page::viewable', $this, 'viewable');
+		$this->addHook('Page::listable', $this, 'listable'); 
+		$this->addHook('Page::deleteable', $this, 'deleteable');
+		$this->addHook('Page::deletable', $this, 'deleteable');
+		$this->addHook('Page::trashable', $this, 'trashable'); 
+		$this->addHook('Page::addable', $this, 'addable'); 
+		$this->addHook('Page::moveable', $this, 'moveable'); 
+		$this->addHook('Page::sortable', $this, 'sortable'); 
+		// $this->addHook('Page::fieldViewable', $this, 'hookFieldViewable');
+		// $this->addHook('Page::fieldEditable', $this, 'hookFieldEditable');
+		// $this->addHook('Template::createable', $this, 'createable'); 
+	}
+
+	/**
+	 * Hook that adds a Page::editable([$field]) method to determine if $page is editable by current user
+	 * 
+	 * A field name may optionally be specified as the first argument, in which case the field on that page will also be checked for access. 
+	 * 
+	 * When using field, specify boolean false for second argument to bypass PageEditable check, as an optimization, if you have 
+	 * already determined that the page is editable.
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function editable($event) {
+
+		/** @var Page $page */
+		$page = $event->object; 
+		$field = $event->arguments(0);
+		$checkPageEditable = true; 
+		if($field && $event->arguments(1) === false) $checkPageEditable = false;
+		
+		if($checkPageEditable && !$this->pageEditable($page)) {
+			$event->return = false;
+
+		} else if($field) {
+			$event->return = $this->fieldEditable($page, $field, false); 
+
+		} else {
+			$event->return = true; 
+		}
+
+	}
+
+	/**
+	 * Is the given page editable?
+	 *
+	 * @param Page $page
+	 * @return bool
+	 *
+	 */
+	public function pageEditable(Page $page) {
+		if($this->wire('hooks')->isHooked('PagePermissions::pageEditable()')) {
+			return $this->__call('pageEditable', array($page));
+		} else {
+			return $this->___pageEditable($page);
+		}
+	}
+
+
+	/**
+	 * Hookable implmentation for: Is the given page editable?
+	 * 
+	 * @param Page $page
+	 * @return bool
+	 *
+	 */
+	protected function ___pageEditable(Page $page) {
+
+		$user = $this->wire('user');
+
+		// superuser can always do whatever they want
+		if($user->isSuperuser()) return true; 
+
+		// note there is an exception in the case of system pages, which require superuser to edit
+		if(($page->status & Page::statusSystem) && $page->template != 'language') return false;
+
+		// If page is locked and user doesn't have permission to unlock, don't let them edit
+		if($page->status & Page::statusLocked) {
+			if(!$user->hasPermission("page-lock", $page)) return false; 
+		}
+
+		// special conditions apply if the page is a Language
+		if($page->template == 'language' && $user->hasPermission('page-edit') && $user->hasPermission('lang-edit')) {
+			return $this->hasLangPermission("page-edit-lang-$page->name", $user);
+		}
+			
+		// special conditions apply if the page is a User
+		if($page instanceof User || in_array($page->template->id, $this->wire('config')->userTemplateIDs)) {
+			return $this->userEditable($page);
+		}
+
+		// if the user doesn't have page-edit permission, don't let them go further
+		if(!$user->hasPermission("page-edit", $page)) return false;
+
+		// check if the system has a page-edit-created permission installed
+		if(is_null($this->hasPageEditCreated)) {
+			$this->hasPageEditCreated = $this->wire('permissions')->has('page-edit-created');
+		}
+		
+		if($this->hasPageEditCreated && $user->hasPermission('page-edit-created', $page)) {
+			// page-edit-created permission is installed, so we have to account for it 
+			// if user is not the one that created this page, don't allow them to edit it
+			if($page->created_users_id != $user->id) return false;
+		}
+
+		// now check if there is a page-publish permission in the system, and use it if so
+		if(is_null($this->hasPagePublish)) {
+			$this->hasPagePublish = $this->wire('permissions')->get('page-publish')->id > 0;
+		}
+		
+		if($this->hasPagePublish) {
+
+			// if user has the page-publish permission here, then we're good
+			if($user->hasPermission('page-publish', $page)) return true;
+
+			// if the page is unpublished then we're fine too
+			if($page->hasStatus(Page::statusUnpublished)) return true;
+
+			// otherwise user cannot edit this page
+			return false;
+		}
+
+		return true; 
+	}
+
+	/**
+	 * Returns whether the given user ($page) is editable by the current user 
+	 * 
+	 * @param User|Page $page
+	 * @return bool
+	 * 
+	 */
+	public function userEditable(Page $page) {
+		
+		if($page->className() != 'User') $page = $this->wire('users')->get($page->id);
+		if(!$page || $page instanceof NullPage) return false;
+		
+		$user = $this->wire('user');
+
+		// if user is editing themselves in ProcessProfile, and they have permission to do so
+		if($user->id === $page->id && $this->wire('page')->process == 'ProcessProfile' && $user->hasPermission('profile-edit')) return true;
+
+		// if the current process is something other than ProcessUser, they don't have permission
+		$process = $this->wire('process');
+		if($process != 'ProcessUser' && (!$process instanceof ProcessPageList) && (!$process instanceof ProcessPageLister)) {
+			return false;
+		}
+	
+		// if user doesn't have user-admin permission, they have no edit access
+		if(!$user->hasPermission('user-admin')) return false;
+
+		// if the user page being edited has a superuser role, and the current user doesn't, never let them edit regardless of any other permissions
+		$superuserRole = $this->wire('roles')->get($this->wire('config')->superUserRolePageID);
+		if($page->roles->has($superuserRole) && !$user->roles->has($superuserRole)) return false;
+
+		// if we reach this point then check if there are more granular user-admin permissions available
+		// special permissions: user-admin-all, and user-admin-[role]
+		$userAdminAll = $this->wire('permissions')->get('user-admin-all');
+		
+		// if there are no special permissions, then let them through
+		if(!$userAdminAll->id) return true;
+		
+		// if user has user-admin-all permission, they are good to edit
+		if($user->hasPermission($userAdminAll)) return true;
+
+		// there are role-specific permissions in the system, and user must have appropriate one to edit
+		$userEditable = false;
+		$guestRoleID = $this->wire('config')->guestUserRolePageID;
+		$n = 0;
+		foreach($page->roles as $role) {
+			$n++;
+			if($role->id == $guestRoleID) continue;
+			if($user->hasPermission("user-admin-$role->name")) {
+				// found a matching permission for role, so it is editable
+				$userEditable = true;
+				break;
+			}
+		}
+		if($userEditable) return true;
+		// if there is only role (guest), then no specific permission needed for that
+		if($n == 0 || ($n == 1 && $page->roles->first()->id == $guestRoleID)) return true;
+		
+		return false;
+	}
+
+	/**
+	 * Can the current user add/remove the given role from other users?
+	 * 
+	 * @param string|Role|int $role
+	 * @return bool
+	 * 
+	 */
+	public function userCanAssignRole($role) {
+		
+		$user = $this->wire('user');
+	
+		// superuser can assign any role
+		if($user->isSuperuser()) return true; 
+		
+		// user-admin permission is a pre-requisite for any kind of role assignment
+		if(!$user->hasPermission('user-admin')) return false;
+		
+		// make sure we have a Role object
+		if(!$role instanceof Role) $role = $this->wire('roles')->get($role);
+		if(!$role->id) return false;
+		
+		// cannot assign superuser role
+		if($role->id == $this->wire('config')->superUserRolePageID) return false;
+	
+		// user with user-admin can always assign guest role
+		if($role->id == $this->wire('config')->guestUserRolePageID) return true;
+
+		// check for user-admin-all permission
+		$userAdminAll = $this->wire('permissions')->get('user-admin-all');
+		if(!$userAdminAll->id) {
+			// if there is no user-admin-all permission, then user-admin permission is
+			// all that is necessary to edit other users of any roles except superuser
+			return true;
+		}
+		
+		if($user->hasPermission($userAdminAll)) {
+			// if user has user-admin-all permission, then they can assign any roles except superuser
+			return true; 
+		}
+		
+		// return whether user has permission specific to role
+		return $user->hasPermission("user-admin-$role->name");
+	}
+
+	/**
+	 * Is the given Field or field name viewable?
+	 * 
+	 * This provides the implementation for the Page::fieldViewable($field) method. 
+	 *
+	 * @param Page $page
+	 * @param string|Field $name Field name
+	 * @param bool $checkPageViewable Check if the page is viewable? Default=true.
+	 * 	Specify false here as an optimization if you've already confirmed $page is viewable.
+	 * @return bool
+	 *
+	 */
+	public function fieldViewable(Page $page, $name, $checkPageViewable = true) {
+		if(empty($name)) return false;
+		if($checkPageViewable && !$page->viewable(false)) {
+			return false; 
+		}
+		if(is_object($name)) {
+			if($name instanceof Field) {
+				// Field object
+				$field = $name;
+				$name = $field->name;
+			} else {
+				// objects that aren't fields aren't viewable
+				return false;
+			}
+		} else {
+			$_name = $this->wire('sanitizer')->fieldName($name);
+			// if field name doesn't follow known format, return false
+			if($_name !== $name) return false;
+			$name = $_name;
+			$field = $this->wire('fields')->get($name);
+		}
+		if($field) {
+			// delegate to Field::viewable method
+			return $field->useRoles ? $field->viewable($page) : true;
+		} else if($this->wire($name)) {
+			// API vars are not viewable
+			return false;
+		}
+		
+		// something else that we don't consider access for
+		return true; 
+	}
+
+	/**
+	 * Is the given field name editable?
+	 * 
+	 * This provides the implementation for the Page::fieldEditable($field) method. 
+	 * 
+	 * @param Page $page
+	 * @param string|Field $name Field name
+	 * @param bool $checkPageEditable Check if the page is editable? Default=true. 
+	 * 	Specify false here as an optimization if you've already confirmed $page is editable.
+	 * @return bool
+	 *
+	 */
+	public function fieldEditable(Page $page, $name, $checkPageEditable = true) {
+	
+		if(empty($name)) return false;
+		if($checkPageEditable && !$this->pageEditable($page)) return false;
+		if(is_object($name) && $name instanceof Field) $name = $name->name;
+		if(!is_string($name)) return false; 
+		if(!strlen($name)) return true; 
+
+		if($name == 'id' && ($page->status & Page::statusSystemID)) return false; 
+
+		$user = $this->wire('user'); 
+
+		if($page->status & Page::statusSystem) {
+			if(in_array($name, array('id', 'name', 'template', 'templates_id', 'parent', 'parent_id'))) {
+				return false;
+			}
+		}
+		
+		if($name == 'template' || $name == 'templates_id') {
+			if($page->template->noChangeTemplate) return false;
+			if(!$user->hasPermission('page-template', $page)) return false; 
+		}
+		
+		if($name == 'name') {
+			// if page has no name (and not homepage), then it needs one, so it is allowed
+			if($page->id > 1 && !strlen($page->name)) return true; 
+			// if page is not yet published, user with page-edit can still change name
+			if($page->isUnpublished()) return true;
+			// otherwise verify page-rename permission
+			return $user->hasPermission('page-rename', $page);
+		}
+
+		if($name == 'parent' || $name == 'parent_id') {
+			if($page->template->noMove) return false; 
+			if(!$user->hasPermission('page-move', $page)) return false; 
+		}
+
+		if($name == 'sortfield') {
+			if(!$user->hasPermission('page-sort', $page)) return false; 
+		}
+
+		if($name == 'roles') {
+			if(!$user->hasPermission('user-admin')) return false; 
+		}
+		
+		if($user->id === $page->id && !$user->isSuperuser() && !$user->hasPermission('user-admin')) {
+			return $this->userFieldEditable($name, $user);
+		}
+		
+		// check per-field edit access
+		$field = $this->wire('fields')->get($name); 
+		if($field && $field->useRoles) {
+			return $field->editable($page);
+		}
+
+		return true; 
+	}
+
+	/**
+	 * Is the given field editable by the current user in their user profile?
+	 *
+	 * @param string $name Field name
+	 * @param User|null User to check (default=current user)
+	 * @return bool
+	 *
+	 */
+	public function userFieldEditable($name, User $user = null) {
+		if(is_null($user)) $user = $this->wire('user');
+		if(!$user->isLoggedin()) return false;
+		if(!$user->hasPermission('profile-edit')) return false;
+		$data = $this->wire('modules')->getModuleConfigData('ProcessProfile');
+		$profileFields = isset($data['profileFields']) ? $data['profileFields'] : array();
+		if(in_array($name, $profileFields)) return true;
+		return false;
+	}
+
+	/**
+	 * Hook for Page::viewable() or Page::viewable($user) method
+	 * 
+	 * Is the page viewable by the current user? (or specified user)
+	 * 
+	 * - Optionally specify User object to hook as first argument to check for a specific User.
+	 * - Optionally specify a field name (or Field object) as first argument to check for specific field.
+	 * - Optionally specify Language object or language name as first argument to check if viewable 
+	 *   in that language (requires LanguageSupportPageNames module).
+	 * - Optionally specify boolean false as first or second argument to bypass template filename check.
+	 *
+	 * @param HookEvent $event
+	 *
+	 */
+	public function viewable($event) {
+
+		/** @var Page $page */
+		$page = $event->object; 
+		$viewable = true; 
+		$user = $this->wire('user'); 
+		$arg0 = $event->arguments(0); 
+		$arg1 = $event->arguments(1);
+		$field = null; // field name or Field object, if specified as arg0
+		$checkFile = true; // return false if template filename doesn't exist
+
+		// allow specifying User instance as argument 0 
+		// this gives you a "viewable to user" capability
+		if($arg0) {
+			if($arg0 instanceof User) {
+				// user specified
+				$user = $arg0;
+			} else if($arg0 instanceof Field || is_string($arg0)) {
+				// field name, Field object or language name specified
+				// @todo: prevent possible collision of field name and language name
+				$field = $arg0;
+				$checkFile = false;
+			} 
+		} 
+		if($arg0 === false || $arg1 === false) {
+			// bypass template filename check
+			$checkFile = false;
+		}
+		
+		if($page->status >= Page::statusUnpublished) $viewable = false;
+			else if(!$page->template || ($checkFile && !$page->template->filenameExists())) $viewable = false; 
+			else if($user->isSuperuser()) $viewable = true; 
+			else if($page->process) $viewable = $this->processViewable($page);
+			else if(!$user->hasPermission("page-view", $page)) $viewable = false;
+			else if($page->isTrash()) $viewable = false; 
+
+		// if the page is editable by the current user, force it to be viewable
+		if(!$viewable && !$user->isGuest() && $page->hasStatus(Page::statusUnpublished)) {
+			if($page->editable() && (!$checkFile || $page->template->filenameExists())) $viewable = true; 
+		}
+		
+		if($field && $viewable) {
+			$viewable = $this->fieldViewable($page, $field, false);
+		}
+
+		$event->return = $viewable;
+	}
+
+	/**
+	 * Does the user have explicit permission to access the given process?
+	 *
+	 * Access to the process takes over 'page-view' access to the page so that the administrator
+	 * doesn't need to setup a separate role just for 'view' access in the admin. Instead, they just
+ 	 * give the existing roles access to the admin process and then 'view' access is assumed for that page.
+	 * 
+	 * @param Page $page
+	 * @return bool
+	 *
+	 */
+	protected function processViewable(Page $page) {
+
+		$user = $this->wire('user');
+		$process = $page->process; 
+
+		if($user->isGuest()) return false;
+		if($user->isSuperuser()) return true; 
+		
+		return $this->wire('modules')->hasPermission($process, $user, $page, true); 
+	}
+
+	/**
+	 * Is the page listable by the current user?
+	 *
+	 * A listable page may appear in a listing, but doesn't mean that the user can actually 
+	 * view the page or that the page is renderable. 
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function listable($event) {
+
+		$page = $event->object; 
+		$user = $this->wire('user'); 
+		$listable = true; 
+
+		if($user->isSuperuser()) $listable = true; 
+			else if($page instanceof User && $user->hasPermission('user-admin')) $listable = true; 
+			else if($page->hasStatus(Page::statusUnpublished) && !$page->editable()) $listable = false;
+			else if($page->process && !$this->processViewable($page)) $listable = false;
+			else if($page->isTrash()) $listable = false; 
+			else if(($accessTemplate = $page->getAccessTemplate()) && $accessTemplate->guestSearchable) $listable = true; 
+			else if(!$user->hasPermission("page-view", $page)) $listable = false;
+
+		$event->return = $listable; 
+	}
+
+	/**
+	 * Is the page deleteable by the current user?
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function deleteable($event) {
+		/** @var Page $page */
+		$page = $event->object;
+		/** @var User $user */
+		$user = $this->wire('user'); 
+		if($page->isLocked()) {
+			$deleteable = false;
+		} else if($page instanceof User && $user->hasPermission('user-admin')) {
+			/** @var User $page */
+			$deleteable = true;
+			if($page->id == $user->id) $deleteable = false; // can't delete self
+			if($page->hasRole('superuser') && !$user->hasRole('superuser')) $deleteable = false; // non-superuser can't delete superuser
+		} else { 
+			$deleteable = $this->pages->isDeleteable($page); 
+			if($deleteable && !$user->isSuperuser()) {
+				// make sure the page is editable and user has page-delete permission, if not dealing with superuser
+				$deleteable = $page->editable() && $user->hasPermission("page-delete", $page);
+			}
+			if($deleteable && $this->wire('languages')) {
+				// in multi-language environment, if user can't edit default language or can't edit non-multi-language fields,
+				// then deny access to delete the page
+				if(!$this->hasPageEditLangDefault($user, $page) || !$this->hasPageEditLangNone($user, $page)) {
+					$deleteable = false;
+				}
+			}
+		}
+		$event->return = $deleteable;
+	}
+
+	/**
+	 * Is the page trashable by the current user?
+	 * 
+	 * Optionally specify boolean true for first argument to make this method behave as: "Is page deleteable OR trashable?"
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function trashable($event) {
+		/** @var Page $page */
+		$page = $event->object;
+		$event->return = false;
+		
+		if($event->arguments(0) !== true) {
+			if($page->hasStatus(Page::statusTrash) || $page->template->noTrash) {
+				// if page is already in trash, or template doesn't allow placement in trash, we return false
+				return;
+			}
+		}
+		
+		if(!$page->isLocked()) {
+			$this->deleteable($event);
+			if(!$event->return && $this->wire('permissions')->has('page-edit-trash-created') && $page->editable()) {
+				// page can be trashable if user created it
+				$user = $this->wire('user');
+				$trashable = ($page->created_users_id === $user->id && $user->hasPermission('page-edit-trash-created', $page));
+				$event->return = $trashable;
+			}
+		}
+	}
+
+	/**
+	 * Can the current user add child pages to this page?
+	 *
+	 * Optionally specify the page to be added as the first argument for additional access checking.
+	 * i.e. if($page->addable($somePage))
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function addable($event) {
+
+		/** @var Page $page */
+		$page = $event->object; 
+		$user = $this->wire('user'); 
+		$addable = false; 
+		$_ADDABLE = false; // if we really mean it
+		$superuser = $user->isSuperuser();
+
+		if($page->template->noChildren) {
+			$addable = false; 
+
+		} else if($superuser) {
+			$addable = true; 
+			$_ADDABLE = true;
+
+		} else if(in_array($page->id, $this->wire('config')->usersPageIDs) && $user->hasPermission('user-admin')) {
+			// users with user-admin access adding a page to users: add access is assumed
+			// rather than us having a separate 'users' template where access is defined
+			$addable = true; 
+			$_ADDABLE = true;
+
+		} else if($user->hasPermission('page-add', $page)) {
+			// user has page-add permission, now we need to check that they have access
+			// on the templates in this context
+			$addable = $this->addableTemplate($page, $user);
+		}
+
+		// check if a $page is provided as the first argument for additional access checking
+		if($addable) {
+			$addPage = $event->arguments(0);
+			if($addPage && $addPage instanceof Page && $addPage->template && $page->template) {
+				if(count($page->template->childTemplates) && !in_array($addPage->template->id, $page->template->childTemplates)) {
+					$addable = false;
+				}
+			}
+		}
+	
+		// check additional permissions if in multi-language environment
+		if($addable && !$_ADDABLE && $this->wire('languages')) {
+			if(!$this->hasPageEditLangDefault($user, $page) || !$this->hasPageEditLangNone($user, $page)) {
+				// if user can't edit default language, or can't edit non-multi-language fields, then deny add access
+				$addable = false;
+			}
+		}
+
+		$event->return = $addable;
+	}
+
+	/**
+	 * Checks that a parent is addable within the context of it's template (i.e. has page-create for the template)
+	 *
+	 * When this function is called, it has already been determined that the user has page-add permission.
+	 * So this is just narrowing down to make sure they have access on a template. 
+	 * 
+	 * @param Page $page
+	 * @param User $user
+	 * @return bool
+	 *
+	 */
+	protected function addableTemplate(Page $page, User $user) {
+
+		$has = false; 
+
+		if(count($page->template->childTemplates)) {
+
+			// page's template defines specific templates for children
+			// see if the user has access to one of them 
+
+			foreach($page->template->childTemplates as $id) {
+				$template = $this->wire('templates')->get($id);
+				if(!$template->useRoles) $template = $page->getAccessTemplate('edit');
+				if($template && $user->hasPermission('page-create', $template)) $has = true;           
+				if($has) break;
+			}
+			
+		} else if(in_array($page->id, $this->wire('config')->usersPageIDs) && $user->hasPermission('user-admin')) {
+			// user-admin permission implies create access to the 'user' template
+			$has = true; 
+
+		} else {
+			// page's template does not specify templates for children
+			// so check to see if they have edit access to ANY template that can be used
+
+			foreach($this->wire('templates') as $template) { 
+				// if($template->noParents) continue; 
+				if($template->parentTemplates && !in_array($page->template->id, $template->parentTemplates)) continue; 
+				// if($template->flags & Template::flagSystem) continue;
+				//$has = $user->hasPermission('page-edit', $template); 
+				$has = $user->hasPermission('page-create', $template); 
+				if($has) break;
+			}
+		}
+
+		return $has; 
+	}
+
+	/**
+	 * Is the given page moveable (i.e. change parent)?
+	 *
+	 * Without arguments, it just checks that the user is allowed to move the page (not where they are allowed to)
+	 * Optionally specify a $parent page as the first argument to check if they are allowed to move to that parent.
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function moveable($event) {
+		/** @var Page $page */
+		$page = $event->object; 
+		$moveable = $page->editable('parent');
+		if($moveable && count($event->arguments) && $event->arguments[0] instanceof Page) {
+			/** @var Page $parent */
+			$parent = $event->arguments[0];
+			$moveable = $parent->addable($page);
+		}
+		if($page->id == 1) $moveable = false; 
+		$event->return = $moveable;
+	}
+
+	/**
+	 * Is the given page sortable by the current user?
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function sortable($event) {
+		/** @var Page $page */
+		$page = $event->object; 
+		$sortable = false; 
+		if($page->id > 1 && $page->editable() && $this->user->hasPermission('page-sort', $page->parent)) $sortable = true; 
+		$event->return = $sortable;
+	}
+
+	/**
+	 * Is the page publishable by the current user?
+	 *
+	 * A field name may optionally be specified as the first argument, in which case the field on that page will also be checked for access. 
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function publishable($event) {
+
+		/** @var User $user */
+		$user = $this->wire('user');
+		$event->return = true;
+
+		if($user->isSuperuser()) return;
+
+		/** @var Page $page */
+		$page = $event->object; 
+
+		// if page isn't editable, it certainly can't be publishable
+		if(!$page->editable()) {
+			$event->return = false;
+			return;
+		}
+
+		// if there is no page-publish permission, then it's publishable
+		$hasPublish = $this->wire('permissions')->has('page-publish'); 
+		if(!$hasPublish) return;
+	
+		// if Page is a user, and user has user-admin permission, they can also publish the user
+		if($page instanceof User && $user->hasPermission('user-admin')) return;
+
+		// check if user has the permission assigned
+		if($user->hasPermission('page-publish', $page)) return;
+
+		// if we made it here, then page is not publishable
+		$event->return = false; 
+	}
+	
+	/**
+	 * Returns true if given user has the optional language permission, or false if not
+	 *
+	 * In a non-multi-language system, this method will always return true.
+	 * In a multi-language system that doesn't have the permission installed, this always returns true.
+	 * In a multi-language system that DOES have it installed, methods returns true when user has it via one of their roles.
+	 * This method assumes the user is already known to have any pre-requisite permissions.
+	 *
+	 * @param string $name Permission name i.e. page-edit-lang-none, page-edit-lang-default, etc.
+	 * @param User $user
+	 * @param Page|Template $context Optional Page or Template context
+	 * @return bool
+	 *
+	 */
+	protected function hasLangPermission($name, User $user, $context = null) {
+		if($user->isSuperuser()) return true;
+		if(!array_key_exists($name, $this->hasOptionalPermissions)) {
+			if($this->wire('languages')) {
+				$this->hasOptionalPermissions[$name] = $this->wire('permissions')->get($name)->id > 0;
+			} else {
+				// not applicable since multi-language not installed
+				$this->hasOptionalPermissions[$name] = false;
+			}
+		}
+		if($this->hasOptionalPermissions[$name]) {
+			// now check if the user has this permission
+			return $user->hasPermission($name, $context);
+		} else {
+			// system doesn't need to consider this permission
+			return true;
+		}
+	}
+
+	/**
+	 * Returns true if given user is allowed to edit values in default language
+	 * 
+	 * @param User $user
+	 * @param Page|Template $context
+	 * @return bool
+	 * 
+	 */
+	protected function hasPageEditLangDefault(User $user, $context = null) {
+		return $this->hasLangPermission('page-edit-lang-default', $user, $context); 
+	}
+	
+	/**
+	 * Returns true if given user is allowed to edit non-multi-language values
+	 *
+	 * @param User $user
+	 * @param Page|Template $context
+	 * @return bool
+	 *
+	 */
+	protected function hasPageEditLangNone(User $user, $context = null) {
+		return $this->hasLangPermission('page-edit-lang-none', $user, $context);
+	}
+	
+
+	/**
+	 * Can the user create pages from this template?
+	 *
+	 * Optional argument 1 may be a parent page for context, i.e. can we create a page with this parent. 
+	 *
+	public function createable($event) {
+
+		$template = $event->object; 
+		$user = $this->fuel('user'); 
+		$createable = false; 
+
+		if($template->noParents) {
+			$createable = false; 
+
+		} else if($user->isSuperuser()) {
+			$createable = true; 
+
+		} else if($user->hasPermission('page-create', $template)) {
+			$createable = true; 
+		}
+
+		// check if a parent $page is provided as the first argument for additional access checking
+		if($createable && isset($event->arguments[0]) && $event->arguments[0] instanceof Page) {
+			$parent = $event->arguments[0]; 
+			if($parent->template->noChildren || (count($parent->template->childTemplates) && !in_array($template->id, $parent->template->childTemplates))) $createable = false; 
+			if($createable) $createable = $parent->addable(); 
+		}
+
+		$event->return = $createable;
+	}
+	 */
+
+	/**
+	 * Hook for Page::fieldViewable($field) method
+	 *
+	 * @param HookEvent $event
+	 * @return bool|null
+	 *
+	public function hookFieldViewable(HookEvent $event) {
+	$field = $event->arguments(0);
+	$page = $event->object; 
+	$event->return = $this->fieldViewable($page, $field);
+	}
+	 */
+
+	/**
+	 * Hook for Page::fieldEditable($field) method
+	 *
+	 * @param HookEvent $event
+	 *
+	public function hookFieldEditable(HookEvent $event) {
+	$field = $event->arguments(0);
+	$page = $event->object;
+	$event->return = $this->fieldEditable($page, $field);
+	}
+	 */
+
+
+}

@@ -1,0 +1,86 @@
+<?php namespace ProcessWire;
+
+/**
+ * Class AdminThemeDefault
+ * 
+ * @property string $colors
+ * 
+ */
+
+class AdminThemeDefault extends AdminTheme implements Module, ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Default',
+			'version' => 14,
+			'summary' => 'Minimal admin theme that supports all ProcessWire features.',
+			'autoload' => 'template=admin'
+			); 
+	}
+	
+	public function __construct() {
+		parent::__construct();
+		$this->set('colors', 'classic');
+	}
+
+	public function init() {
+		parent::init(); 
+		if($this->isCurrent()) {
+			// this is the current admin theme
+			$this->wire('pages')->addHookAfter('saved', $this, 'hookClearCaches');
+			$this->wire('modules')->addHookAfter('refresh', $this, 'hookClearCaches');
+		}
+	}
+
+	/**
+	 * Event called when a page is saved or modules refreshed to clear caches
+	 *
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookClearCaches(HookEvent $event) {
+		$page = $event->arguments(0);
+		if(is_null($page) || ($page instanceof Page && $page->template == 'admin')) {
+			$this->wire('session')->removeFor($this, 'topnav');
+			$this->wire('session')->message("Cleared the admin theme navigation cache (topnav)", Notice::debug);
+		}
+	}
+
+	public function ___install() {
+		parent::___install();
+	}
+	
+	public function getModuleConfigArray() {
+		return array(
+			'colors' => array(
+				'type' => 'radios',
+				'label' => $this->_('Color Set'), 
+				'options' => array(
+					'classic' => $this->_('Classic'),
+					'warm' => $this->_('Warm'),
+					'modern' => $this->_('Modern'),
+					'futura' => $this->_('Futura')
+				),
+				'value' => 'classic',
+				'optionColumns' => 1
+			)
+		);
+	}
+
+	/*
+	public function getModuleConfigInputfields($inputfields) {
+		$field = $this->wire('modules')->get('InputfieldRadios');
+		$field->attr('name', 'colors');
+		$field->label = $this->_('Color Set'); 
+		$field->addOption('classic', $this->_('Classic'));
+		$field->addOption('warm', $this->_('Warm'));
+		$field->addOption('modern', $this->_('Modern'));
+		$field->addOption('futura', $this->_('Futura'));
+		$field->attr('value', $this->colors); 
+		$field->optionColumns = 1; 
+		$inputfields->add($field); 		
+		return $inputfields;
+	}
+	*/
+}
+

@@ -1,0 +1,209 @@
+/*** COMMENT FORM ********************************************/
+
+.CommentFormCite input,
+.CommentFormEmail input,
+.CommentFormWebsite input,
+.CommentFormText textarea {
+	box-sizing: border-box; 
+	display: block;
+	width: 100%; 
+}
+
+.CommentFormCite,
+.CommentFormEmail,
+.CommentFormWebsite {
+	box-sizing: border-box; 
+	float: left;
+	width: 33%; 
+}
+
+.CommentFormCite,
+.CommentFormEmail {
+	padding-right: 1em;
+}
+
+.CommentFormWebsite {
+	width: 34%; 
+}
+
+.CommentFormNotify label {
+	padding-right: 0.5em;
+	white-space: nowrap;
+}
+
+.CommentFormText {
+	clear: both;
+}
+
+@media only screen and (max-width: 767px) {
+	.CommentFormCite,
+	.CommentFormEmail,
+	.CommentFormWebsite,
+	.CommentFormNotify {
+		float: none;
+		width: 100%;
+		padding-right: 0;
+	}
+}
+
+
+/*** COMMENT LIST ********************************************/
+
+.CommentList,
+.CommentListItem {
+	list-style: none;
+	margin: 1em 0;
+	padding: 0;
+}
+
+.CommentListItem {
+	position: relative; 
+}
+
+.CommentHeader {
+	font-weight: bold;
+}
+
+.CommentHeader .CommentCreated {
+	font-weight: normal;
+	padding-left: 0.5em;
+}
+
+.CommentListNormal .CommentListItem {
+	border-bottom: 1px solid #ddd;
+}
+
+.CommentFooter {
+	padding-bottom: 1em; 
+}
+
+
+/*** COMMENT LIST WITH GRAVATAR ******************************/
+
+.CommentGravatar {
+	display: block;
+	position: absolute;
+	top: 0;
+	left: 0;
+	float: left;
+	width: 40px; 
+	height: 40px; 
+	padding: 1px;
+	border: 1px solid #ddd; 
+}
+
+.CommentListHasGravatar .CommentHeader,
+.CommentListNormal.CommentListHasGravatar .CommentText {
+	margin-left: 55px; 
+}
+
+.CommentListHasGravatar .CommentText,
+.CommentListHasGravatar .CommentAction,
+.CommentListHasGravatar form {
+	clear: both; 
+	margin-left: 0;
+}
+
+@media only screen and (max-width: 767px) {
+	.CommentListHasGravatar .CommentHeader,
+	.CommentListNormal.CommentListHasGravatar .CommentText {
+		margin-left: 35px;
+	}
+
+	.CommentGravatar {
+		width: 25px;
+		height: 25px;
+	}
+}
+
+
+/*** COMMENT LIST WITH DEPTH (THREADED) ***********************/
+
+.CommentList .CommentList {
+	margin-bottom: 2em;
+}
+
+.CommentList .CommentList .CommentGravatar {
+	left: 1em; /* should match the padding-left in item below */
+}
+
+.CommentList .CommentList .CommentListItem {
+	padding-left: 1em;
+	border-left: 1px solid;
+	border-color: #ddd;
+}
+.CommentAction {
+	margin-bottom: 0;
+}
+
+.CommentList .CommentList .CommentListItem + .CommentListItem {
+	/* provides extra space between adjacent comments on same level */
+	margin-top: 2em;
+}
+
+
+/*** COMMENT VOTES ********************************************/
+
+.CommentList .CommentVotes {
+	float: right; 
+}
+
+.CommentList .CommentVotes a {
+	text-decoration: none;
+	padding: 3px 0.5em;
+	font-weight: bold;
+	border-bottom: none;
+}
+.CommentList .CommentVotes a:hover {
+	background-color: #eee; 
+}
+
+.CommentList .CommentVotes a.CommentVoted {
+	background-color: #eee; 
+}
+
+.CommentList .CommentActionUpvote {
+	color: green;
+}
+
+.CommentList .CommentActionDownvote {
+	border-left: 1px solid #ddd; 
+	color: red;
+}
+
+.CommentList .CommentVotes .CommentUpvoteCnt,
+.CommentList .CommentVotes .CommentDownvoteCnt {
+	padding-left: 2px; 
+}
+
+/*** COMMENT STARS **********************************************/
+
+.CommentStars > span,
+.CommentForm .CommentStars > span,
+.CommentList .CommentStars > span {
+	display: inline-block;
+	position: relative;
+	width: 1.1em;
+	color: #ccc;
+}
+span.CommentStarOn,
+.CommentForm .CommentStars > span.CommentStarOn,
+.CommentList .CommentStars > span.CommentStarOn {
+	color: #FAA002;
+}
+
+span.CommentStarPartial {
+	position: relative;
+}
+span.CommentStarPartial span.CommentStarOn {
+	display: block;
+	position: absolute;
+	top: 0;
+	left: 0;
+	overflow-x: hidden;
+	line-height: 0;
+}
+
+.CommentForm .CommentStarsInput > span:hover {
+	cursor: pointer;
+}

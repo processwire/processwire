@@ -1,0 +1,596 @@
+@import url(reset.css); 
+@import url(JqueryUI/JqueryUI.css);
+
+/**********************************************************************************************
+ * ProcessWire Admin Control Panel - Skyscraper Theme - main.css
+ *
+ * This file provides the initial layout and styling for most admin control panel elements. 
+ * See also ui.css, which provides the final styling and overrides. 
+ *
+ * Copyright 2012 by Ryan Cramer
+ *
+ */
+
+/***********************************************************************************************
+ * GENERAL
+ *
+ */
+
+body {
+	background-color: #e4ebee; 
+	font: 10px/20px "Helvetica Neue", Arial, sans-serif; 
+	color: #2f4248; 
+}
+	body.modal {
+		background-color: #fff; 
+	}
+
+#masthead,
+#content,
+#footer {
+	padding-right: 20px;
+	padding-left: 20px; 
+}
+
+.container {
+	position: relative; 
+	width: 85%; 
+	max-width: 1200px; 
+	margin: 0 auto; 
+}
+	body.modal .container {
+		margin: 0; 
+		width: 100%; 
+		min-width: 300px; 
+	}
+
+a {
+	font-family: "Helvetica Neue", Arial, sans-serif; 
+	color: #f10055;
+		
+}
+	a:hover {
+		color: #fff; 
+		background: #f10055;
+	}
+
+	a.on {
+		color: #7a002b; 	
+	}
+
+.WireFatalError {
+	background: #a30000; 
+	color: #fff; 
+	padding: 1em; 
+	position: relative;
+	z-index: 9999;
+}
+
+
+
+/***********************************************************************************************
+ * MASTHEAD
+ *
+ */
+
+#masthead {
+ 	background: url(images/bg.gif) top left repeat-x; 
+	height: 210px; 
+	font-size: 1.1em;
+}
+	body.modal #masthead {
+		display: none; 
+	}
+
+	#logo {
+		position: absolute; 
+		left: 0;
+		width: 179px; 
+		top: 43px; 
+	}
+		#logo:hover {
+			background: none; 
+		}
+
+	#topnav {
+                position: absolute;
+		right: -10px; 
+		top: 3px;
+	}
+
+		#topnav li {
+			padding: 0;
+			list-style: none;
+                        display: inline;
+			line-height: 1em; 
+		}
+
+			a.nav,
+			.nav a,
+			#sitelink {
+				font-family: "Helvetica Neue", Arial, sans-serif; 
+				font-weight: bold; 
+				text-transform: uppercase; 
+			}
+				a.nav:hover,
+				.nav a:hover {
+					color: #fff; 
+				}
+
+			#topnav a {
+				color: #a7e5f9; 
+				display: block;
+				float: left; 
+				margin: 0 0 0 1px;
+				padding: 48px 10px 20px 10px;
+			}
+
+			#topnav a:hover,
+			#topnav a.on {
+				color: #fff; 
+				background: url(images/topnav_a_bg.gif) top left repeat-x; 
+			}
+
+	#breadcrumb {
+		position: absolute; 
+		left: 0; 
+		top: 95px; 
+	}
+		#breadcrumb li {
+			color: #5197ae; 
+			font-size: 11px; 
+                        display: inline;
+                        padding: 0 2px 0 0;
+			line-height: 1em;
+
+		}
+			#breadcrumb a {
+				color: #005f7d; 
+				padding: 0 2px 0 0;
+			}
+			#breadcrumb a:hover {
+				color: #fff; 
+			}
+
+	#title {
+		font-size: 37px; 	
+		font-family: Georgia, "Times New Roman", Times, serif; 
+		color: #003051; 
+		margin: 0; 
+		position: absolute;
+		top: 165px; 
+        left: 0;
+		white-space: nowrap; 
+	}
+
+	#ProcessPageSearchQuery {
+		position: absolute; 
+		top: 95px;
+		right: 0; 
+		width: 180px; 
+		padding: 2px 5px;
+		height: 17px; 
+		border: none;
+	}
+    #ProcessPageSearchStatus {
+        position: absolute;
+        top: 96px;
+        right: 10px; 
+        color: #999;
+    }
+    
+	/**
+	 * The main/primary button for a listing screen, appears in the masthead
+	 *
+	 */
+	#head_button {
+		position: absolute; 
+		top: 163px;
+		right: 0; 
+		display: none; 
+	}
+		#head_button button {
+			margin-right: 0; 
+			margin-left: 10px; 
+			font-size: 1.1em; 
+		}
+
+#notices {
+	font-size: 1.3em; 
+}
+
+/***********************************************************************************************
+ * CONTENT
+ *
+ */
+
+#content {
+	position: relative; 
+	background: #fff;
+	padding-top: 1.5em; 
+	padding-bottom: 2em; 
+	font-family: Georgia, serif; 
+	font-size: 1.3em; 
+}
+	#content a.quantity {
+		font-family: Georgia, serif; 
+	}
+
+	#content .container {
+		min-height: 50px; 
+	}
+
+		.content img {
+			display: block;
+		}
+
+		.content .WireTabs a {
+			font-size: 0.84615em;
+		}
+		.content .nav a.label {
+			font-size: 1em; 
+		}
+
+	.content p,
+	.content ul
+	.content ol,
+	.content table {
+		margin: 1em 0;
+	}
+
+	#content table th.header,
+	.content h4 {
+		font-family: "Helvetica Neue", Arial, sans-serif;
+		color: #b0ced8; 
+	}
+		#content table th.headerSortUp,
+		#content table th.headerSortDown,
+		#content table th:hover {
+			color: #690033;
+		}
+
+	.content table.AdminDataList {
+		margin-top: 0; 
+	}
+
+	.content h2 {
+		margin: 1em 0;
+		font-size: 1.6em; 
+		line-height: 1.2em; 
+	}
+		.content h2,
+		.content h2 a {
+			font-family: Georgia, serif; 
+			color: #006fbb; 
+		}
+			.content h2 a {
+				text-decoration: underline;
+			}
+			.content h2 a:hover {
+				color: #fff; 
+				text-decoration: none;
+			}
+
+		body.modal .content h2,
+		.container > h2,
+		.container > form > h2 {
+			margin-top: 0;
+		}
+
+	.content h3 {
+		margin: 1em 0;
+		font-size: 1.5em; 
+	}
+
+	.content h4 {
+		margin: 1em 0 0.25em 0;
+		text-transform: uppercase;
+		font-weight: bold;
+		font-size: 0.916666666666667em;
+	}
+	.content ul, 
+	.content ol {
+	}
+
+		.content li {
+			margin: 1em 0; 
+			display: block;
+			list-style: disc; 
+		}
+
+		.content ol li {
+			display: list-item; 
+			list-style-type: decimal;
+			margin-left: 1em; 
+		}
+
+		/**
+		 * Actions: like the "|edit|view|new" in the PageList
+		 *
+		 */
+		.content ul.actions {
+		}
+			.content ul.actions li,
+			li.action {
+				display: inline; 
+				border-left: 1px solid #ccc; 
+				padding: 0 1px; 
+				text-transform: lowercase; 
+			}
+
+			.content ul.actions li a,
+			li.action a {
+				padding: 0 5px 0 3px; 
+				border-bottom: none; 
+			}
+
+		/**
+		 * Content navigation like when on the root page of "templates" or "access"
+		 *
+		 */
+		.content dl {
+			margin: 1em 0;
+			border-bottom: 1px dotted #ccc; 
+		}
+			.content dt,
+			.content dt {
+				display: block;
+				font-weight: bold; 
+				border-top: 1px dotted #ccc; 
+				padding-top: 0.75em; 
+			}
+			.content dt a {
+				font-size: 1em;
+				text-transform: none; 
+			}
+			.content dl dd {
+				padding-bottom: 0.75em; 
+			}
+
+	.content .description {
+		font-family: Georgia, serif; 
+		font-style: italic;
+		color: #777; 
+	}
+	.content .notes {
+		font-size: 0.9166666em;
+		color: #777; 
+		background: #feffd9; 
+	}
+		.content .description strong,
+		.content .notes strong {
+			color: #444; 
+			font-weight: bold; 
+		}
+
+	.content .error {
+		color: red;
+		text-transform: uppercase;
+		font-weight: bold; 
+		font-size: 0.9166666em;	
+	}
+
+	.content .detail {
+		color: #999; 
+		font-size: 0.9166666em;
+	}
+
+
+/***********************************************************************************************
+ * FOOTER
+ *
+ */
+
+#footer {
+	margin: 2em 0 2em 0; 
+	font-size: 1.1em; 
+	color: #85AABA;
+	font-family: Georgia, serif; 
+}
+	body.modal #footer {
+		display: none; 
+	}
+	#footer p {
+		margin-top: 0;
+	}
+	#footer #userinfo {
+		display: block; 
+		float: right; 
+	}
+	#footer #userinfo a {
+		font-weight: bold; 
+		text-transform: uppercase; 
+	}
+
+	#debug {
+		margin-top: 2em; 
+	}
+		#debug .container {
+			width: 100%; 
+		}
+		#debug p {
+			margin: 1em 0; 
+		}
+		#debug ol {
+			margin: 1em 0; 
+		}
+		#debug h4 {
+			font-weight: bold; 
+		}
+
+
+
+/***********************************************************************************************
+ * MISC
+ *
+ */
+
+#content .InputfieldForm .langTabsContainer {
+	padding-bottom: 1em;
+}
+
+.align_left,
+.align-left {
+	float: left;
+	margin: 0 1em 0.5em 0;
+}
+
+.align_right,
+.align-right {
+	float: right;
+	margin: 0 0 0.5em 1em; 
+}
+
+.align_center,
+.align-center {
+	display: block;
+	margin-left: auto;
+	margin-right: auto; 
+}
+
+.detail {
+	font-size: 0.9166em;
+	color: #999; 
+}
+
+#bgtitle {
+	font-family: Georgia, serif; 
+	margin: 0;
+	position: absolute; 
+	top: 144px; 
+	left: 0; 
+	font-size: 162px; 
+	color: #fff; 
+	color: rgba(255, 255, 255, 0.2);
+}
+	body.modal #bgtitle {
+		display: none;
+	}
+
+#sitelink {
+	display: block;
+	position: absolute;
+	top: 0;
+	right: 0; 
+	background-color: #000; 
+	opacity: 0.25; 
+	color: #fff; 
+	padding: 8px 12px 6px 12px;
+	font-size: 1.1em; 
+}
+	#sitelink:hover {
+		opacity: 1.0; 
+	}
+
+	body.modal #sitelink {
+		display: none; 
+	}
+
+#debug table {
+	width: 100%; 
+}
+
+	#debug table th {
+		font-weight: bold;
+	}
+
+	#debug table td,
+	#debug table th {
+		vertical-align: top; 
+		padding: 3px 5px; 	
+		border-bottom: 1px dotted #ccc; 
+		border-left: 1px dotted #ccc; 
+		font-size: 12px; 
+	}
+
+/***********************************************************************************************
+ * MOBILE
+ *
+ */
+
+/* Smaller than standard 960 (devices and browsers) */
+@media only screen and (max-width: 959px) {}
+
+/* Tablet Portrait size to standard 960 (devices and browsers) */
+@media only screen and (min-width: 768px) and (max-width: 959px) {}
+
+/* All Mobile Sizes (devices and browser) */
+@media only screen and (max-width: 767px) {
+
+	#logo {
+		top: 46px;
+	}
+		#logo img {
+			width: 75%; 
+		}
+
+	#topnav {
+		left: -10px;
+	}
+		#topnav a {
+			color: #a7e5f9; 
+			display: block;
+			float: left; 
+			margin: 0 0 0 1px;
+			padding: 9px 10px 11px 10px;
+		}
+			#topnav a.on:not(:hover) {
+				background: rgba(255, 255, 255, 0.07); 
+				background: rgba(0, 0, 0, 0.5); 
+				color: #a7e5f9; 
+			}
+			#topnav a:hover {
+				background-position: bottom left;
+			}
+
+	#ProcessPageSearchQuery {
+		top: 47px; 
+		width: 130px; 
+	}
+
+	#title {
+		font-size: 25px;
+	}
+	#content h2 {
+		font-size: 20px; 
+	}
+
+	#masthead,
+	#content,
+	#footer {
+		padding-right: 10px;
+		padding-left: 10px; 
+	}
+
+}
+
+/* Mobile Landscape Size to Tablet Portrait (devices and browsers) */
+@media only screen and (min-width: 480px) and (max-width: 767px) {
+	.container {
+		width: 95%; 
+	}
+}
+
+/* Mobile Portrait Size to Mobile Landscape Size (devices and browsers) */
+@media only screen and (max-width: 479px) {
+	/**
+	 * Disregard column width when at mobile size
+	 *
+	 */
+	.Inputfield {
+		clear: both !important;
+		width: 100% !important;
+		margin-left: 0 !important;
+		margin-bottom: 1em !important; 
+	}
+
+	.container {
+		width: 100%; 
+	}
+	#bgtitle {
+		display: none; 
+	}
+	#footer #userinfo {
+		float: none;
+	}
+}

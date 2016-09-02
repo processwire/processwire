@@ -1,0 +1,62 @@
+.content {
+
+	table th, 
+	table th.header,
+	table.AdminDataList th, 
+	h4 {
+		color: $table-th-color; 
+	}
+	
+	table.AdminDataList th.headerSortUp,
+	table.AdminDataList th.headerSortDown,
+	table th.headerSortUp,
+	table th.headerSortDown,
+	table th:hover {
+		color: $table-th-active-color; 
+	}
+
+	.AdminDataList {
+		margin-top: 0; 
+
+		.container > & {
+			margin-top: 1em; 
+		}
+
+		thead th,
+		thead th.header,
+		tfoot td, 
+		tbody td {
+			border-left: 1px dotted #ccc; 
+			padding-left: 8px; 
+			border-color: darken($subtle-border, 5%); 
+		}
+
+		thead th:first-child,
+		thead th.header:first-child,
+		tbody td:first-child,
+		tfoot td:first-child {
+			border-left: none;
+			padding-left: 0;
+		}
+
+		tr:hover td,
+		tr:hover th,
+		tr.open td {
+			background: $notes-bg; 
+		}
+
+		td a {
+			color: $alt-link-color; 
+		}
+
+		td a:hover {
+			color: $link-hover-color; 
+		}
+	
+		td .ui-state-hover a,
+		td .ui-state-active a, 
+		td .ui-state-default a {
+			color: $ui-state-default-color;
+		}
+	}
+}

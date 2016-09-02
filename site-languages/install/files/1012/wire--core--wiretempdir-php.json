@@ -1,0 +1,12 @@
+{
+    "file": "wire\/core\/WireTempDir.php",
+    "textdomain": "wire--core--wiretempdir-php",
+    "translations": {
+        "fcecae7cd3a639caff1a6a7c895c954d": {
+            "text": "Kann tempor\u00e4res Verzeichnis nicht erstellen"
+        },
+        "5d73c732a700aaa27e07ffd0f638ecc8": {
+            "text": "Kann tempor\u00e4res Verzeichnis nicht l\u00f6schen"
+        }
+    }
+}

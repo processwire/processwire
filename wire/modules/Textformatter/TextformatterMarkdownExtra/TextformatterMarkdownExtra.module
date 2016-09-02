@@ -1,0 +1,112 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Markdown Textformatter
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+
+ * https://processwire.com
+ *
+ * Parsedown copyright Emanuil Rusev.
+ * Markdown invented by John Gruber.
+ * 
+ * @property int $flavor Markdown flavor (see flavor constants)
+ *
+ */
+
+class TextformatterMarkdownExtra extends Textformatter implements ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title'   => 'Markdown/Parsedown Extra',
+			'version' => 130,
+			'summary' => "Markdown/Parsedown extra lightweight markup language by Emanuil Rusev. Based on Markdown by John Gruber.",
+		);
+	}
+
+	const flavorDefault = 2;
+	const flavorParsedownExtra = 2;
+	const flavorParsedown = 4;
+	const flavorMarkdownExtra = 2;
+	const flavorRCD = 16; // add RCD extensions to one of above, @see markdownExtensions() method
+	
+	public function __construct() {
+		$this->set('flavor', self::flavorDefault); 
+	}
+
+	public function format(&$str) {
+		$str = $this->markdown($str, $this->flavor); 
+	}
+	
+	public function formatValue(Page $page, Field $field, &$value) {
+		$value = $this->markdown($value, $this->flavor);
+	}
+
+	/**
+	 * Given a string, return a version processed with markdown
+	 * 
+	 * @param $str String to process
+	 * @param int $flavor Flavor of markdown (default=parsedown extra)
+	 * @return string Processed string
+	 * 
+	 */
+	public function markdown($str, $flavor = 0) {
+	
+		if(!class_exists("\\Parsedown")) {
+			require_once(dirname(__FILE__) . "/parsedown/Parsedown.php");
+		}
+		
+		if($flavor & self::flavorParsedown) {
+			// regular parsedown
+			$parsedown = new \Parsedown();
+			$str = $parsedown->text($str);
+			
+		} else {
+			// parsedown extra 
+			if(!class_exists("\\ParsedownExtra")) {
+				require_once(dirname(__FILE__) . "/parsedown-extra/ParsedownExtra.php");
+			}
+			$extra = new \ParsedownExtra();
+			$str = $extra->text($str);
+		}
+		
+		if($flavor & self::flavorRCD) $this->markdownExtensions($str);
+		
+		return $str; 
+	}
+
+	
+	/**
+	 * A few RCD extentions to MarkDown syntax, to be executed after Markdown has already had it's way with the text
+	 * 
+	 * @param string $str
+	 *
+	 */
+	public function markdownExtensions(&$str) {
+
+		// add id attribute to a tag, when followed by a #myid
+		if(strpos($str, '>#')) $str = preg_replace('/<([a-z][a-z0-9]*)([^>]*>.*?)(<\/\\1>)#([a-z][-_a-z0-9]*)\b/', '<$1 id="$4"$2$3', $str); 
+
+		// add class attribute to tag when followed by a .myclass
+		if(strpos($str, '>.')) $str = preg_replace('/<([a-z][a-z0-9]*)([^>]*>.*?)(<\/\\1>)\.([a-z][-_a-z0-9]*)\b/', '<$1 class="$4"$2$3', $str); 
+
+		// href links open in new window when followed by a plus sign, i.e. [google](http://google.com)+
+		if(strpos($str, '</a>+')) $str = preg_replace('/<a ([^>]+>.+?<\/a>)\+/', '<a target="_blank" $1', $str); 
+
+		// strip out comments
+		if(strpos($str, '/*') !== false) $str = preg_replace('{/\*.*?\*/}s', '', $str); 
+		if(strpos($str, '//') !== false) $str = preg_replace('{^//.*$}m', '', $str); 
+	}
+	
+	public function getModuleConfigInputfields(array $data) {
+		$inputfields = $this->wire(new InputfieldWrapper());
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'flavor');
+		$f->label = $this->_('Markdown flavor to use');
+		$f->addOption(self::flavorParsedownExtra, 'Parsedown Extra');
+		$f->addOption(self::flavorParsedown, 'Parsedown'); 
+		$f->attr('value', isset($data['flavor']) ? (int) $data['flavor'] : self::flavorDefault); 
+		$inputfields->add($f);
+		return $inputfields; 
+	}
+}

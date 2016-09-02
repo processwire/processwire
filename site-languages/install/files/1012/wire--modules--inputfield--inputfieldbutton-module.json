@@ -1,0 +1,9 @@
+{
+   "file":"wire\/modules\/Inputfield\/InputfieldButton.module",
+   "textdomain":"wire--modules--inputfield--inputfieldbutton-module",
+   "translations":{
+      "3691c9189afe50505955f4ef8181ae3c":{
+         "text":"Button als Formular-Element, dem Sie optional ein href-Attribut zuweisen k\u00f6nnen"
+      }
+   }
+}

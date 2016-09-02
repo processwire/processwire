@@ -1,0 +1,323 @@
+/**
+ * Reno color theme for PW admin
+ *
+ * TODO: change variable names to non color specific.
+ *
+ */
+
+$black: #2c3e50;
+$subtle-bg: lighten($black, 71%);
+$border-color: darken($subtle-bg, 7%); 
+$white: #FFF; 
+$link: #3C95CD;
+$orange: #C5591F;
+$dark-link: darken($link, 15%); 
+$red: #bc283d;
+$blue: #48678c;
+$dark-blue: #1C2836;
+$med-blue: #2d4158;
+$green: #3eb998;
+$yellow: #FFD15E;
+
+// body
+$body-bg: $white;
+
+// #main
+$main-bg: $body-bg;
+
+// Text
+$text-bg: $white;
+$text-color: $black;
+$medium-text-color: #8d939e;
+$light-text-color: lighten($medium-text-color, 10%); 
+$reverse-text-color: $white;
+
+// Masthead
+$masthead-bg: $dark-blue;
+$masthead-secondary-bg: #D2E4EA; 
+$masthead-secondary-border: none;
+
+// Links
+$link-color: $link;
+$secondary-link-color: lighten($blue, 5%);
+$link-hover-color: $dark-link;
+$link-hover-bg: none; 
+$link-current-color: $masthead-bg;
+$link-current-bg: none; 
+$link-active-color: $dark-link;
+$link-active-bg: none; 
+$alt-link-color: $link-color;
+
+// Headline
+$headline-bg: $white; 
+$headline-color: $masthead-bg;
+$headline-border: 1px solid $headline-bg;
+$headline-padding: 1.5em 1.5em 0 1.5em;
+
+// Breadcrumbs
+$breadcrumbs-bg: $white;
+$breadcrumbs-link-color: $medium-text-color;
+$breadcrumbs-link-hover-color: $link;
+$breadcrumbs-border-top: '';
+$breadcrumbs-border-bottom: 1px solid $border-color; 
+$breadcrumbs-color: $breadcrumbs-link-color;
+$breadcrumbs-title-color: $dark-blue;
+$breadcrumbs-padding: 0.75em 1.5em 0.75em 1.5em;
+
+$topnav-link-color: $medium-text-color;
+$topnav-link-hover-color: $white;
+$topnav-link-bg: none;
+$topnav-link-bg-hover: none;
+$topnav-sub-link-color: $light-text-color;
+$topnav-sub-link-hover-color: $link-color;
+$topnav-border: 1px solid lighten($masthead-bg, 7%);
+$topnav-item-border: none;
+
+// Sidebar navigation
+$mainnav-bg-color: $subtle-bg;
+$mainnav-border: 1px solid $border-color;
+$mainnav-open-bg-color: darken($mainnav-bg-color, 4%);
+$mainnav-link-color: $text-color;
+$mainnav-sub-link-color: $text-color;
+$mainnav-link-bg: darken($mainnav-bg-color, 2%); 
+$mainnav-link-hover-color: '';
+$mainnav-sub-link-hover-color: $mainnav-sub-link-color;
+$mainnav-sub-link-hover-bg: darken($mainnav-bg-color, 9%);
+$mainnav-link-hover-bg: darken($mainnav-bg-color, 9%);
+$mainnav-link-current-color: $white;
+$mainnav-link-current-bg: $link; 
+$mainnav-icon-color: #97aab4;
+$mainnav-toggle-bg: $masthead-bg;
+$mainnav-toggle-color: $topnav-link-color;
+$mainnav-toggle-closed-color: $topnav-link-color;
+$mainnav-toggle-border: 1px solid lighten($masthead-bg, 5%);
+$mainnav-toggle-hover-color: $white;
+$mainnav-toggle-hover-bg: '';
+
+//quicklinks
+$quicklinks-border: 1px solid $border-color;
+$quicklinks-bg: $mainnav-bg-color;
+$quicklinks-link-color: $mainnav-link-color;
+$quicklinks-addnew-color: $link;
+$quicklinks-hover-color: '';
+$quicklinks-hover-bg: darken($quicklinks-bg, 4%);
+$quicklinks-header-color: $text-color;
+$quicklinks-icon-color: $mainnav-icon-color;
+$quicklinks-icon-active: $link;
+$quicklinks-icon-current-color: darken($link, 20%);
+$quicklinks-icon-current-active: $white;
+
+// Top nav items and dropdowns
+$search-color: $medium-text-color;
+$search-bg: lighten($masthead-bg, 5%);
+$search-focus-bg: lighten($masthead-bg, 7%);
+$search-border: $masthead-bg;
+$search-dropdown-bg: $subtle-bg;
+$search-dropdown-link-color: $link;
+$search-dropdown-shadow: none;
+$search-dropdown-link-hover-color: $link;
+$search-dropdown-link-hover-bg: darken($subtle-bg, 4%);
+$search-dropdown-header-color: $text-color;
+$search-dropdown-border-width: 0 0 1px 1px;
+$search-dropdown-border-color: $border-color;
+$search-dropdown-border-style: solid;
+$search-label: $medium-text-color;
+$search-placeholder-color: darken($medium-text-color, 20%);
+$search-close-color: $link;
+
+$dropdown-bg: $white;
+$dropdown-link-color: $mainnav-link-color;
+$dropdown-icon-color: $mainnav-icon-color;
+$dropdown-link-hover-color: $text-color;
+$dropdown-link-hover-bg: darken($subtle-bg, 4%);
+$dropdown-current-color: $white;
+$dropdown-current-bg: $link;
+$dropdown-border: 1px solid $border-color;
+$dropdown-shadow: 0 4px 7px rgba(0,0,0,.175);
+
+$item-header-bg: $green;
+$item-header-hover-color: $white;
+$item-header-hover-bg: $green; 
+$item-bg: $white;
+$item-input-color: $white;
+$item-header-color: $white; 
+$item-border-color: $border-color; 
+
+$action-link-font-size: 0.923076923076923em;
+$action-link-bg: $breadcrumbs-bg;
+$action-link-bg: '';
+$action-link-color: $medium-text-color;
+$action-link-border: none; 
+$action-link-hover-color: $white;
+$action-link-hover-border: none;
+$action-link-hover-bg: $secondary-link-color;
+$action-link-active-color: $white; 
+$action-link-active-bg: $green;
+
+// Buttons
+$button-bg: $green; 
+$button-border: $green;
+$button-color: $reverse-text-color;
+$button-hover-bg: $link;
+$button-hover-color: $reverse-text-color;
+$button-hover-border: $button-hover-bg;
+$button-active-bg: $button-hover-bg;
+$button-active-border: $button-hover-bg;
+$button-radius: 3px;
+
+$button-secondary-bg: $medium-text-color; 
+$button-secondary-border: $medium-text-color;
+$button-secondary-color: $white;
+$button-secondary-hover-color: $button-hover-color;
+
+$ui-state-default-bg: $green;
+$ui-state-default-color: $reverse-text-color; 
+$ui-state-hover-bg: darken($ui-state-default-bg, 8%);
+$ui-state-hover-color: $reverse-text-color; 
+
+//action-group
+$action-group-link-color: $text-color;
+$action-group-icon-color: $medium-text-color;
+
+// .ui-priority-secondary
+$ui-priority-secondary-color: $medium-text-color;
+$ui-priority-secondary-hover: $link;
+
+// .ui-priority-disabled
+$ui-disabled-bg: #a1acb4;
+$ui-disabled-color: $reverse-text-color; 
+
+$label-link-bg: none; 
+$label-link-color: $text-color;
+$label-link-hover-color: darken($secondary-link-color, 10%);
+$label-link-collapsed-bg: $white;
+$label-link-collapsed-hover-bg: $subtle-bg; 
+$label-link-collapsed-color: $secondary-link-color;
+
+// Pages
+$pagelist-link-color: $link; 
+$pagelist-link-hover-color: $pagelist-link-color;
+$pagelist-link-open-color: $dark-link;
+$pagelist-link-open-bg: #ffffdd; 
+$pagelist-link-active-color: $dark-link; 
+$pagelist-link-icon-color: $mainnav-icon-color;
+
+$pagination-font-size: 0.8em; 
+$pagination-link-color: $text-color;
+$pagination-link-bg: darken($subtle-bg, 10%); 
+$pagination-link-current-color: $white; 
+$pagination-link-current-bg: $link;
+$pagination-link-hover-color: $white;
+$pagination-link-hover-bg: $link;
+$pagination-link-active-color: $white; 
+$pagination-link-active-bg: $dark-link; 
+$pagination-link-border-radius: 2px; 
+
+// Tabs
+$wiretab-link-bg: none; 
+//$wiretab-link-border: 1px solid transparent; 
+$wiretab-link-color: $link;
+// $wiretab-link-hover-bg: $link;
+$wiretab-link-hover-color: $dark-link; 
+$wiretab-link-hover-border: 1px solid $link;
+$wiretab-link-current-bg: #D2E4EA; 
+$wiretab-link-current-bg: $subtle-bg;
+$wiretab-link-current-bg: $white; 
+$wiretab-link-current-color: $label-link-color; 
+$wiretab-link-current-border: 1px solid #D2E4EA; 
+$wiretab-link-active-bg: $dark-link;
+$wiretab-link-active-color: $white; 
+
+// Nested Fields
+$nested-fields-bg: $subtle-bg;
+
+$footer-bg: $white;
+$footer-color: $breadcrumbs-link-color; 
+$footer-link-color: $link;
+$footer-font-size: 0.875em; 
+
+$description-color: $medium-text-color;
+
+$highlight-bg: #ffffdd;
+$highlight-color: $text-color; 
+$highlight-border: none; 
+
+$error-bg: $red; 
+$error-border: none; 
+$error-color: #fff; 
+
+$notes-bg: #ffffdd;
+$notes-font-size: 0.846153846153846em;
+
+$notices-border-top: '';
+$notices-border-bottom: 1px solid $border-color;
+
+$table-th-color: $secondary-link-color;
+$table-tr-hover: none;
+$table-th-hover: '';
+$table-th-active-color: $green;
+
+// Datepicker
+$datepicker-bg: $dark-blue;
+$datepicker-color: $light-text-color;
+$datepicker-title-color: $white;
+$datepicker-border: 1px solid lighten($datepicker-bg, 8%);
+
+$datepicker-th-color: $white;
+$datepicker-nav-arrow-color: lighten($datepicker-bg, 25%);
+$datepicker-nav-arrow-hover-color: $link;
+$datepicker-td-bg: none;
+$datepicker-td-hover-bg: lighten($datepicker-bg, 8%);
+$datepicker-td-hover-border: 1px solid lighten($datepicker-bg, 8%);
+$datepicker-td-color: $light-text-color;
+$datepicker-td-hover-color: $white;
+$datepicker-td-border: 1px solid $datepicker-bg;
+$datepicker-td-current-border: 1px solid lighten($datepicker-bg, 8%);
+
+// Notifications
+$no-border-color: transparent;
+
+$no-message-color: $black;
+$no-message-bg: lighten(#a0d468, 18%);
+$no-message-open-color: $no-message-color;
+$no-message-open-bg: darken($no-message-bg, 5%);
+$no-message-icon-color: $no-message-color;
+$no-message-link-color: $link-color;
+$no-message-link-hover-color: $link-hover-color;
+
+$no-warning-bg: $yellow;
+$no-warning-color: $black;
+$no-warning-open-color: $no-warning-color;
+$no-warning-open-bg: darken($no-warning-bg, 5%);
+$no-warning-icon-color: $no-warning-color;
+$no-warning-link-color: transparentize($no-warning-color, 0.2);
+$no-warning-link-hover-color: $no-warning-color;
+
+$no-error-color: $error-color;
+$no-error-bg: $error-bg;
+$no-error-open-color: $no-error-color;
+$no-error-open-bg: darken($error-bg, 5%) ;
+$no-error-icon-color: $no-error-color;
+$no-error-link-color: transparentize($no-error-color, 0.2);
+$no-error-link-hover-color: $no-error-color;
+
+$no-bug-color: $masthead-bg;
+$no-bug-bg: $topnav-link-color;
+$no-bug-open-color: '';
+$no-bug-open-bg: '';
+$no-bug-hover-color: '';
+$no-bug-hover-bg: '';
+$no-bug-open-hover-color: '';
+$no-bug-open-hover-bg: '';
+
+$no-ghost-message-color: $no-message-color;
+$no-ghost-message-bg: $no-message-bg;
+$no-ghost-message-icon-color: $no-ghost-message-color;
+
+$no-ghost-warning-color: $no-warning-color;
+$no-ghost-warning-bg: $no-warning-bg;
+$no-ghost-warning-icon-color: $no-ghost-warning-color;
+
+$no-ghost-error-color: $no-error-color;
+$no-ghost-error-bg: $no-error-bg;
+$no-ghost-error-icon-color: $no-ghost-error-color;

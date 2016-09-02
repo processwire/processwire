@@ -1,0 +1,320 @@
+<?php namespace ProcessWire;
+
+/**
+ * An Inputfield for handling ProcessWire "name" fields
+ * 
+ * @property Page|null $parentPage
+ * @property Page|null $editPage
+ * @property string $sanitizeMethod Default = 'pageName'
+ * @property string $languageSupportLabel
+ * @property bool|int $slashUrls whether a trailing slash should be shown in the URL preview (default=1)
+ * 
+ * optional checkbox associated with the input, for use with language support
+ * @property string $checkboxName Leave blank to disable 
+ * @property string $checkboxLabel
+ * @property string $checkboxValue
+ * @property bool $checkboxChecked 
+ *
+ */
+class InputfieldPageName extends InputfieldName implements ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Page Name',
+			'version' => 106,
+			'summary' => 'Text input validated as a ProcessWire Page name field',
+			'permanent' => true, 
+			);
+	}
+
+	public static $defaultReplacements = array(
+		'æ' => 'ae',
+		'å' => 'a', 
+		'ä' => 'a',
+		'ã' => 'a',
+		'ß' => 'ss', 
+		'ö' => 'o',  
+		'ü' => 'u',  
+		'đ' => 'dj',  
+		'ж' => 'zh',  
+		'х' => 'kh',  
+		'ц' => 'tc',  
+		'ч' => 'ch',  
+		'ш' => 'sh',  
+		'щ' => 'shch',    
+		'ю' => 'iu',  
+		'я' => 'ia',
+		':' => '-',
+		',' => '-',
+		'à' => 'a',
+		'á' => 'a',
+		'â' => 'a',
+		'è' => 'e',
+		'é' => 'e',
+		'ë' => 'e',
+		'ê' => 'e',
+		'ě' => 'e', 
+		'ì' => 'i',
+		'í' => 'i',
+		'ï' => 'i',
+		'î' => 'i',
+		'õ' => 'o', 
+		'ò' => 'o',
+		'ó' => 'o',
+		'ô' => 'o',
+		'ø' => 'o', 
+		'ù' => 'u',
+		'ú' => 'u',
+		'û' => 'u',
+		'ů' => 'u',
+		'ñ' => 'n',
+		'ç' => 'c',
+		'č' => 'c',
+		'ć' => 'c',
+		'ď' => 'd',
+		'ĺ' => 'l',
+		'ľ' => 'l',
+		'ń' => 'n',
+		'ň' => 'n',
+		'ŕ' => 'r',
+		'ř' => 'r',
+		'š' => 's',
+		'ť' => 't',
+		'ý' => 'y',
+		'ž' => 'z',
+		'а' => 'a',
+		'б' => 'b',
+		'в' => 'v',
+		'г' => 'g',
+		'д' => 'd',
+		'е' => 'e',
+		'ё' => 'e',
+		'з' => 'z',
+		'и' => 'i',
+		'й' => 'i',
+		'к' => 'k',
+		'л' => 'l',
+		'м' => 'm',
+		'н' => 'n',
+		'о' => 'o',
+		'п' => 'p',
+		'р' => 'r',
+		'с' => 's',
+		'т' => 't',
+		'у' => 'u',
+		'ф' => 'f',
+		'ы' => 'y',
+		'э' => 'e',
+		'ę' => 'e',
+		'ą' => 'a',
+		'ś' => 's',
+		'ł' => 'l',
+		'ż' => 'z',
+		'ź' => 'z',
+		);
+
+	/**
+	 * Whether or not the system has LanguageSupportPageNames module installed
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $hasLanguagePageNames = false;
+
+	public function init() {
+		parent::init();
+		$this->label = $this->_('Name'); // Field label for 'Name'
+		$this->icon = 'angle-double-right';
+		$this->set('editPage', null); // page being edited, when available
+		$this->set('parentPage', null); // parent of page being edited, when available
+		$this->set('languageSupportLabel', ''); 
+		$this->set('slashUrls', 1); // whether a trailing slash should be shown in the URL preview
+
+		// optional checkbox associated with the input, for use with language support
+		$this->set('checkboxName', ''); // leave blank to disable 
+		$this->set('checkboxLabel', ''); 
+		$this->set('checkboxValue', ''); 
+		$this->set('checkboxChecked', false); 
+		$this->set('checkboxSuffix', ''); 
+
+		if($this->wire('config')->pageNameCharset === 'UTF8') {
+			// no need to indicate input limitations
+			$this->set('sanitizeMethod', 'pageNameUTF8');
+			$this->description = '';
+		} else {
+			$this->description = $this->_("Any combination of letters (a-z), numbers (0-9), dashes or underscores (no spaces)."); // Field description describing what characters are allowed
+			$this->set('sanitizeMethod', 'pageName');
+		}
+		$this->hasLanguagePageNames = $this->wire('modules')->isInstalled('LanguageSupportPageNames'); 
+	}
+
+	public function ___render() {
+		
+		$url = '';
+		$out = '';
+		$box = '';
+		$user = $this->wire('user');
+		$languages = $this->wire('languages');
+		$sanitizer = $this->wire('sanitizer');
+		$editable = $this->attr('disabled') ? false : true; 
+	
+		if($this->editPage && $this->editPage->template->noLang) $languages = false;
+		if($editable && $languages && $this->hasLanguagePageNames && !$languages->editable($user->language)) $editable = false;
+		
+		if($this->parentPage) {
+			$url = $this->parentPage->path;
+			if($this->hasLanguagePageNames && $this->parentPage->id == $this->wire('config')->rootPageID) {
+				if($user->language->isDefault()) {
+					$parentName = $this->parentPage->name;
+					if(!trim($url, '/')) $url = ($parentName === Pages::defaultRootName ? "" : $parentName);
+				}
+			}
+		}
+
+		if($this->languageSupportLabel) {
+
+			if($this->checkboxName) {
+				$checked = $this->checkboxChecked ? " checked='checked'" : '';
+				$disabled = $editable ? '' : " disabled='disabled'";
+				$name = $sanitizer->entities($this->checkboxName); 
+				$value = $sanitizer->entities($this->checkboxValue); 
+				$label = $sanitizer->entities($this->checkboxLabel); 
+				$box = 
+					"<label class='checkbox detail'>" . 
+					"<input type='checkbox' name='$name{$this->checkboxSuffix}' value='$value'$checked$disabled /> $label" . 
+					"</label>";
+			}
+
+			$label = $sanitizer->entities($this->languageSupportLabel); 
+			if(!$editable) $label = "<s>$label</s>";
+			$id = $sanitizer->entities($this->attr('id')); 
+			$out .= "<div class='LanguageSupport'>" . 
+					"<label for='$id' class='LanguageSupportLabel detail'>$label</label>";
+		}
+
+		$value = $this->attr('value'); 
+		$link = '';
+		$slashUrls = (int) $this->slashUrls;
+
+		if(strlen($value) && $this->hasLanguagePageNames) {
+			$link = trim($url, '/') . "/$value" . ($slashUrls ? '/' : '');
+			$link = $this->wire('config')->urls->root . ltrim($link, '/');
+			$link = "<a href='$link'>";
+		}
+		
+		$p = "\n<p id='{$this->id}_path' data-slashUrls='$slashUrls' class='InputfieldPageNameURL'>";
+		if($link) $p .= $link;
+		$p .= rtrim($url, '/') . "/<strong></strong>";
+		if($link) $p .= "</a>";
+		$p .= "</p>";
+		$out .= $p;
+		$disabled = $this->attr('disabled');
+		if(!$editable) $this->attr('disabled', 'disabled');
+		$out .= parent::___render();
+		if(!$editable && !$disabled) $this->removeAttr('disabled'); // restore previous state
+		if($this->languageSupportLabel) $out .= $box . "</div>";
+
+		// make the replacements part of the JS config	
+		$charset = $this->wire('config')->pageNameCharset;
+		if($charset == 'UTF8') {
+			$replacements = array(':' => '-', ',' => '-');
+			$whitelist = $this->config->pageNameWhitelist;
+		} else {
+			$replacements = empty($this->replacements) ? self::$defaultReplacements : $this->replacements; 
+			$whitelist = '';
+		}
+		$this->config->js($this->className(), array(
+			'replacements' => $replacements,
+			'charset' => $charset, 
+			'whitelist' => $whitelist
+		)); 
+
+		return $out; 
+	}
+	
+	public function ___processInput(WireInputData $input) {
+		if($this->attr('disabled')) return $this;
+		$languages = $this->wire('languages');
+		if($this->editPage && $this->editPage->template->noLang) $languages = false;
+		if($languages && $this->hasLanguagePageNames) {
+			$user = $this->wire('user');
+			if(!$languages->editable($user->language)) return $this;
+			$return = parent::___processInput($input);
+			$process = $this->wire('process');
+			if($process instanceof WirePageEditor && $process->getPage()->id == $this->wire('config')->rootPageID) {
+				if(!strlen($this->attr('value'))) {
+					$this->attr('value', Pages::defaultRootName);
+				}
+			}
+		} else {
+			$return = parent::___processInput($input);
+		}
+		return $return;
+	}
+
+	static public function replacementStringToArray($str) {
+		$r = preg_split('/[\r\n]+/', $str); 
+		$a = array();
+		foreach($r as $key => $value) {
+			if(!strpos($value, '=')) continue; 
+			list($k, $v) = explode('=', $value);
+			$a[trim($k)] = trim($v); 	
+		}
+		return $a; 
+	}
+
+	static public function replacementArrayToString(array $a) {
+		$str = '';
+		foreach($a as $k => $v) $str .= "$k=$v\n";
+		return rtrim($str); 
+	}
+
+	public function getModuleConfigInputfields(array $data) {
+		
+		$fields = $this->wire(new InputfieldWrapper());
+		if($this->wire('config')->pageNameCharset === 'UTF8') {
+			$this->message($this->_('Character replacements configuration is disabled because $config->pageNameCharset is UTF8.'));
+			return $fields;
+		}
+
+		$modules = $this->wire('modules');
+		$modules->addHookBefore('saveModuleConfigData', null, 'InputfieldPageName_saveModuleConfigData'); 
+
+		$name = 'replacements';
+
+		if(empty($data[$name])) $data[$name] = self::$defaultReplacements; 
+
+		if(is_array($data[$name])) {
+			// data already in right save format, but need it to be a string for editing
+			if(empty($replacements)) $replacements = self::$defaultReplacements;
+			$replacements = self::replacementArrayToString($data[$name]);
+
+		} else {
+			// data is a string so they must have just saved, but we want to save the array version instead
+			$replacements = $data[$name];
+			$data[$name] = self::replacementStringToArray($replacements); 
+		}
+
+		$field = $modules->get("InputfieldTextarea");
+		$field->attr('name', $name);
+		$field->attr('value', $replacements);
+		$field->attr('rows', 15); 
+		$field->label = $this->_('Character replacements');
+		$field->description = $this->_('Enter the replacements that will occur when a user is entering characters into a page name field. Enter one replacement per line in key=value format. Meaning, on each new line, enter the character(s) you want to replace followed by an equals sign "=" and the ascii character(s) you want to replace with.'); // Character replacements description
+		$field->notes = $this->_('The replacement value for each must be one or more of: a-z, 0-9, dash, underscore or period.'); // Character replacements notes
+		$fields->append($field);
+
+		return $fields;
+	}
+}
+
+function InputfieldPageName_saveModuleConfigData(HookEvent $event) {
+	$arguments = $event->arguments; 
+	if($arguments[0] != 'InputfieldPageName') return; 
+	$data = $arguments[1];
+	$name = 'replacements';	
+	if(!is_array($data[$name])) $data[$name] = InputfieldPageName::replacementStringToArray($data[$name]); 
+	$arguments[1] = $data; 
+	$event->arguments = $arguments; 
+}
+

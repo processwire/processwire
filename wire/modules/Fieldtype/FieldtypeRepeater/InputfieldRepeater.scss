@@ -1,0 +1,120 @@
+
+.Inputfields .InputfieldRepeater {
+	
+	& > .InputfieldContent > ul.Inputfields { 
+		margin-bottom: 1em;
+	}
+	
+	.InputfieldRepeaterItem  > .InputfieldHeader {
+		line-height: 1em;
+		padding: 0.5em;
+		
+		.toggle-icon {
+			line-height: 1em;
+			margin-right: 0.5em;
+		}
+		
+		& > .InputfieldRepeaterToggle,
+		& > .InputfieldRepeaterTrash {
+			cursor: pointer;
+			float: right;
+		}
+		& > .InputfieldRepeaterTrash {
+			padding-right: 3px;
+		}
+		& > .InputfieldRepeaterToggle {
+			margin-right: 1em;
+		}
+	}
+		
+	.InputfieldRepeaterItem:not(.InputfieldRepeaterDeletePending) {
+		// repeater items not marked for deletion
+		
+		&.InputfieldStateCollapsed > .InputfieldHeader {
+			// collapsed items are faded out a bit 
+			opacity: 0.90;
+			&:hover {
+				opacity: 1.0;
+			}
+		}
+		&.InputfieldRepeaterUnpublished > .InputfieldHeader {
+			// unpublished items faded a bit more 
+			opacity: 0.7;
+		}
+		&.InputfieldRepeaterOff > .InputfieldHeader {
+			// off items faded yet even more 
+			opacity: 0.5;
+			&:not(:hover) {
+				text-decoration: line-through;
+			}
+		}
+	}
+	
+	.InputfieldRepeaterItem.InputfieldRepeaterItemLoading {
+		// override the margin-bottom 1.25em from admin theme stylesheet, so margin isn't showing while item is loading
+		margin-bottom: 1em;
+	}
+	
+	.InputfieldRepeaterItem.InputfieldStateCollapsed > .InputfieldContent {
+		// for some reason .InputfieldContent still shows on ajax-loaded items after closing them, this fixes that 
+		display: none !important;
+	}
+	
+	.InputfieldRepeaterNewItem {
+		// used by non-ajax add mode
+		display: none;
+	}
+}
+
+.InputfieldRepeater {
+	
+	.InputfieldWrapper,
+	.InputfieldWrapper > .Inputfields {
+		margin-top: 0 !important;
+	}
+
+	ul.ui-sortable > .InputfieldRepeaterItem > .InputfieldHeader {
+		//padding-left: 25px;
+		position: relative;
+	}
+	
+	.InputfieldRepeaterAddItem input {
+		// count of added items hidden
+		position: absolute;
+		left: -9999px;
+		top: 0;
+	}
+
+	ul.Inputfields + .InputfieldRepeaterAddItem {
+		// removes extra space at top when 'add item' is the only thing in the repeater field 
+		margin-top: 0;
+	}
+	
+	.InputfieldRepeaterDrag {
+		// draggable icon for repeater items
+		cursor: ns-resize;
+		opacity: 0.7;
+		line-height: 1em;
+		&:hover {
+			cursor: move;
+			opacity: 1.0;
+		}
+	}
+	
+	&.InputfieldRenderValueMode {
+		.InputfieldRepeaterDrag {
+			margin-right: 0.25em;
+			opacity: 0.5;
+			&:hover {
+				cursor: not-allowed;
+				opacity: 0.5;
+			}
+		}
+	}
+}
+
+.AdminThemeReno .InputfieldRepeaterItem > .InputfieldHeader .ui-priority-secondary {
+	// AdminThemeReno has wrong/reverse color here for ui-priority-secondary, not sure why
+	color: rgba(255,255,255,0.8) !important;
+}
+

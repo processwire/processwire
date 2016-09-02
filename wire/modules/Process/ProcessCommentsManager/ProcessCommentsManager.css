@@ -1,0 +1,185 @@
+#CommentListHeader {
+  padding-top: 0.5em;
+  padding-bottom: 0.5em; }
+  #CommentListHeader > p {
+    line-height: 2.25em;
+    padding-right: 1em;
+    margin-top: 0.25em;
+    margin-bottom: 0.25em; }
+  #CommentListHeader .MarkupPagerNav {
+    margin-top: 0;
+    margin-bottom: 0.5em; }
+  #CommentListHeader .CommentLimitSelect {
+    float: left; }
+  #CommentListHeader .CommentCheckAll {
+    display: block;
+    float: left;
+    padding-left: 0.75em; }
+  #CommentListHeader .CommentActions {
+    float: left; }
+  #CommentListHeader .CommentSorts {
+    float: left; }
+
+.CommentItems {
+  clear: both;
+  border-bottom: 1px solid #000; }
+  .CommentItems + button {
+    margin-top: 1em; }
+
+.CommentItem {
+  clear: both;
+  border-top: 1px solid #000;
+  margin: 0;
+  width: 100%;
+  	/*
+  	&.CommentItemStatus-2 .CommentText {
+  		background: #ffffcc;
+  	}
+  
+  	&.CommentItemStatus0 .CommentText {
+  		background: #ffffdd;
+  	}
+  	*/ }
+  .CommentItem.CommentChecked {
+    background-color: #eee; }
+    .CommentItem.CommentChecked th {
+      color: #999; }
+  .CommentItem table {
+    /*
+    margin-top: 0.7em;
+    margin-bottom: 0.7em;
+    */
+    width: 45%;
+    float: left; }
+    .CommentItem table th,
+    .CommentItem table td {
+      padding: 4px 10px 4px 0;
+      border-bottom: 1px dotted #ccc;
+      vertical-align: top; }
+    .CommentItem table th {
+      font-weight: bold;
+      white-space: nowrap;
+      text-align: left;
+      padding-left: 0.75em !important; }
+      .CommentItem table th:first-child {
+        width: 80px; }
+    .CommentItem table tr:last-child td, .CommentItem table tr:last-child th {
+      border-bottom: none; }
+  .CommentItem .CommentTitle th,
+  .CommentItem .CommentTitle td {
+    padding-top: 0; }
+  .CommentItem .CommentChangedIcon {
+    display: none; }
+  .CommentItem.CommentItemChanged .CommentChangedIcon {
+    display: inline;
+    float: right;
+    opacity: 0.3; }
+  .CommentItem input[type=number] {
+    width: 4em; }
+  .CommentItem .CommentVotes label {
+    margin-right: 1em; }
+  .CommentItem .CommentVotes .CommentUpvotes span {
+    font-weight: bold;
+    color: green; }
+  .CommentItem .CommentVotes .CommentDownvotes span {
+    font-weight: bold;
+    color: red; }
+  .CommentItem .CommentStars > span {
+    display: inline;
+    cursor: pointer;
+    padding-right: 3px; }
+    .CommentItem .CommentStars > span i.fa {
+      font-size: 18px !important; }
+  .CommentItem .CommentContent {
+    float: left;
+    width: 55%;
+    padding-left: 1em;
+    border: none; }
+    .CommentItem .CommentContent .CommentChildrenInfo {
+      margin-top: 0.5em; }
+    .CommentItem .CommentContent .CommentReplyInfo {
+      margin-bottom: 0; }
+    .CommentItem .CommentContent .CommentText {
+      cursor: pointer;
+      padding-right: 1em; }
+      .CommentItem .CommentContent .CommentText textarea {
+        width: 100%;
+        min-height: 15em;
+        margin-top: 1em;
+        margin-bottom: 1em; }
+      .CommentItem .CommentContent .CommentText .CommentTextEdit {
+        white-space: nowrap; }
+      .CommentItem .CommentContent .CommentText .CommentTextEditable {
+        /*
+        p {
+        	margin: 1em 0;
+        }
+        & > p:first-child {
+        	margin-top: 0;
+        }
+        */ }
+    .CommentItem .CommentContent .CommentTextOverflow {
+      overflow-y: scroll;
+      max-height: 15em; }
+  .CommentItem label.CommentStatus {
+    white-space: nowrap; }
+  .CommentItem.CommentItemStatus999 {
+    display: none; }
+
+.CommentCheckAll label .detail,
+.CommentItem .CommentTitle th label .detail {
+  font-weight: bold;
+  color: #444; }
+
+.content .MarkupPagerNav {
+  padding-top: 0.5em;
+  float: right; }
+  .content .MarkupPagerNav + button {
+    margin-top: 1em; }
+
+.AdminThemeReno .content .MarkupPagerNav li a,
+.AdminThemeReno .content .MarkupPagerNav li:first-child a,
+.AdminThemeReno .content .MarkupPagerNav li.MarkupPagerNavOn a {
+  border-color: #fff !important;
+  border: none !important;
+  border-left: 1px solid #fff !important; }
+.AdminThemeReno .content .MarkupPagerNav li {
+  margin-bottom: 1px; }
+.AdminThemeReno .content #CommentListHeader {
+  border-top: 1px solid #eee; }
+  .AdminThemeReno .content #CommentListHeader .MarkupPagerNav {
+    margin-top: 0.5em; }
+
+@media only screen and (max-width: 960px) {
+  .content .MarkupPagerNav {
+    float: none; }
+
+  #CommentListHeader {
+    padding-bottom: 1em;
+    padding-top: 1em; }
+    #CommentListHeader .MarkupPagerNav {
+      float: none; }
+    #CommentListHeader p {
+      margin-top: 0;
+      margin-bottom: 0;
+      padding-right: 1em;
+      padding-left: 0 !important; }
+    #CommentListHeader .CommentCheckAll {
+      width: auto; } }
+@media only screen and (max-width: 768px) {
+  .CommentItem table {
+    width: 100%;
+    float: none; }
+    .CommentItem table th {
+      padding-left: 0 !important; }
+  .CommentItem .CommentContent {
+    width: 100%;
+    float: none;
+    padding-left: 0; }
+    .CommentItem .CommentContent .CommentText {
+      padding-right: 0; }
+    .CommentItem .CommentContent .CommentTextOverflow {
+      overflow-y: auto;
+      max-height: inherit; } }
+
+/*# sourceMappingURL=ProcessCommentsManager.css.map */

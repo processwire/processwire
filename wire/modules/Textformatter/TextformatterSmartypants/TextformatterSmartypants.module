@@ -1,0 +1,28 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Smartypants Textformatter
+ *
+ * See: http://daringfireball.net/projects/smartypants/ 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class TextformatterSmartypants extends Textformatter {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'SmartyPants Typographer', 
+			'version' => 152, 
+			'summary' => "Smart typography for web sites, by Michel Fortin based on SmartyPants by John Gruber. If combined with Markdown, it should be applied AFTER Markdown.", 
+			'url' => 'http://michelf.com/projects/php-smartypants/typographer/', 
+		); 
+	}
+
+	public function format(&$str) {
+		require_once(dirname(__FILE__) . "/smartypants.php"); 
+		$str = \SmartyPants($str); 
+	}
+}

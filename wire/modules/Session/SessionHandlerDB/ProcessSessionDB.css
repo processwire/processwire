@@ -1,0 +1,8 @@
+table.AdminDataTable tr td {
+	white-space: nowrap;
+	padding-right: 1em;
+}
+table.AdminDataTable tr td:last-child {
+	/* user agent, if used */
+	white-space: normal;
+}

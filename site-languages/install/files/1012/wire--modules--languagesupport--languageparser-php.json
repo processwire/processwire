@@ -1,0 +1,24 @@
+{
+   "file":"wire\/modules\/LanguageSupport\/LanguageParser.php",
+   "textdomain":"wire--modules--languagesupport--languageparser-php",
+   "translations":{
+      "1cb251ec0d568de6a929b520c4aed8d1":{
+         "text":"Text"
+      },
+      "66ef52d19e012c9f6308ff584832f408":{
+         "text":"Text"
+      },
+      "6558000adbdbb1f87a94fe236eeae5e8":{
+         "text":"Singular"
+      },
+      "a6d538d13b6e5de7912a9eb02882889c":{
+         "text":"Plural"
+      },
+      "13a827b23bd3064a782e5e9589428db9":{
+         "text":"Text im Singular"
+      },
+      "193b25fbcad1c2bb7704cd3adb3007ce":{
+         "text":"Text im Plural"
+      }
+   }
+}

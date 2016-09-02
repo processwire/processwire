@@ -1,0 +1,54 @@
+{
+    "file": "wire\/modules\/Inputfield\/InputfieldFile\/InputfieldFile.module",
+    "textdomain": "wire--modules--inputfield--inputfieldfile--inputfieldfile-module",
+    "translations": {
+        "b5a7adde1af5c87d7fd797b6245c2a39": {
+            "text": "Beschreibung"
+        },
+        "5e176961ecb3a67e9c653e60de703fdb": {
+            "text": "Legen Sie Dateien hier ab"
+        },
+        "1a6d5576222d1a16320dda443f43b1fa": {
+            "text": "Datei hinzugef\u00fcgt:"
+        },
+        "a2c68b109a7c8855b92e56e64bdf4c01": {
+            "text": "Datei gel\u00f6scht:"
+        },
+        "b896cdc3267a288d8a0082126a91cb06": {
+            "text": "Die maximale Anzahl an Dateien wurde erreicht"
+        },
+        "cde86841445e53259c5beb7b61aaf389": {
+            "text": "Zielpfad ist leer oder existiert nicht"
+        },
+        "53fbb1f98e15224437792f2ea80847a2": {
+            "text": "Zielpfad ist nicht beschreibbar"
+        },
+        "bed8a5795ff53ecfd7b9dab0face84b6": {
+            "text": "ZIP-Dateien entpacken?"
+        },
+        "fab7f7d0de48baa58342b39e975c9aab": {
+            "text": "Falls ausgew\u00e4hlt, werden ZIP-Archive entpackt und alle g\u00fcltigen Dateien hochgeladen und hinzugef\u00fcgt (falls die Hosting-Umgebung dies unterst\u00fctzt). Die maximale Anzahl Dateien muss auf 0 (kein Maximum) gesetzt werden, damit das hochladen von ZIP-Dateien funktioniert."
+        },
+        "91015caeadb6afed86544257b5d796f5": {
+            "text": "Anzahl Zeilen im Beschreibungs-Feld?"
+        },
+        "27eebd9281cfaa6f4173d02986c9ad71": {
+            "text": "Geben Sie die Anzahl der verf\u00fcgbaren Zeilen f\u00fcr das Beschreibungs-Feld der Datei oder 0 an, um kein Beschreibungs-Feld auszugeben."
+        },
+        "91f3a2c0e4424c87689525da44c4db11": {
+            "text": "Dateien"
+        },
+        "fbf221ff984c277d7fea5d290e817767": {
+            "text": "Eine oder mehrere hochzuladende Dateien (sortierbar)"
+        },
+        "1aac69c83eb57d215a710401956430f1": {
+            "text": "Mehrsprachige Beschreibungen deaktivieren?"
+        },
+        "9c0e34e99b5acfb622d682dabefa5578": {
+            "text": "Als Standard sind Beschreibungen mehrsprachig wenn Sie die Unterst\u00fctzung f\u00fcr Sprachen installiert haben. Diese Box markieren, falls die mehrsprachigen Beschreibungen deaktiviert werden sollen."
+        },
+        "004a10c5de4a2eea5fc8f15e97a8030c": {
+            "text": "Keine Dateiendung f\u00fcr dieses Feld festgelegt."
+        }
+    }
+}

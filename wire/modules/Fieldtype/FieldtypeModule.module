@@ -1,0 +1,160 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Module Fieldtype
+ *
+ * Field that stores reference to another Module. 
+ *
+ * For documentation about the fields used in this class, please see:  
+ * /wire/core/Fieldtype.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class FieldtypeModule extends Fieldtype {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Module Reference',
+			'version' => 101,
+			'summary' => 'Field that stores a reference to another module',
+			'permanent' => true, 
+			);
+	}
+
+	public function getBlankValue(Page $page, Field $field) {
+		return null;
+	}
+
+	public function isAdvanced() {
+		return true; 
+	}
+
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		if(!$value) return null;
+		if($field->instantiateModule) return $value instanceof Module ? $value : $this->modules->get($value); 
+		if(ctype_digit("$value")) return $this->modules->getModuleClass((int) $value); 
+		return $this->modules->getModuleID($value) ? $value : null;
+	}
+
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+		if($field->instantiateModule) return $this->wire('modules')->get($value); 
+		return $this->wire('modules')->getModuleClass((int) $value); 
+	}
+
+	public function ___sleepValue(Page $page, Field $field, $value) {
+		return $this->modules->getModuleID($value); 
+	}
+
+	public function getInputfield(Page $page, Field $field) {
+
+		$inputfieldClass = $field->inputfieldClass ? $field->inputfieldClass : 'InputfieldSelect';
+		$inputfield = $this->modules->get($inputfieldClass); 
+		if(!$inputfield) $inputfield = $this->modules->get('InputfieldSelect'); 
+
+		$inputfield->attr('name', $field->name); 
+		$inputfield->class = $this->className(); 
+		if($inputfieldClass == 'InputfieldSelect') $inputfield->addOption(0, ''); 
+		$options = array();
+
+		foreach($this->modules as $module) {
+			$found = false; 
+			$parents = wireClassParents("$module"); 
+			if($field->moduleTypes) foreach($field->moduleTypes as $moduleType) {
+				if(in_array($moduleType, $parents)) { 
+				//if(strpos("$module", $moduleType) === 0) {
+					$found = true; 
+					break;
+				}
+			}
+			if(!$found) continue; 
+			if($field->labelField == 'title') {
+				$info = $this->wire('modules')->getModuleInfo($module); 
+				$label = !empty($info['title']) ? $info['title'] : (string) $module;
+			} else {
+				$label = (string) $module; 
+			}
+
+			$options[$label] = $module; 
+		}
+
+		ksort($options); 
+
+		foreach($options as $label => $module) {
+			$inputfield->addOption((string) $module, $label); 
+		}
+
+		return $inputfield; 
+	}
+
+	public function getDatabaseSchema(Field $field) {
+		$schema = parent::getDatabaseSchema($field); 
+		$schema['data'] = 'int NOT NULL';
+		return $schema;
+	}
+
+	public function ___getConfigInputfields(Field $field) {
+
+		$inputfields = parent::___getConfigInputfields($field); 
+		$moduleTypes = array();
+		$lastType = '';
+
+		$f = $this->modules->get("InputfieldCheckboxes"); 
+		$f->attr('name', 'moduleTypes'); 
+
+		foreach($this->modules as $module) {
+			if(strpos($module->className(), 'AdminTheme') === 0) {
+				$matches = array('', 'AdminTheme');
+			} else {
+				if(!preg_match('/^([A-Za-z][a-z0-9_]+)/', $module->className(), $matches)) continue;
+			}
+			$moduleType = $matches[1];
+			if($moduleType == $lastType) continue; 	
+			$f->addOption($moduleType); 
+			$lastType = $moduleType; 
+		}
+
+		$f->attr('value', is_array($field->moduleTypes) ? $field->moduleTypes : array()); 
+		$f->label = $this->_('Module Types');
+		$f->description = $this->_('Check all of the module types that may be selectable in this field.');
+		$inputfields->append($f); 
+
+		$f = $this->modules->get("InputfieldCheckbox"); 
+		$f->attr('name', 'instantiateModule'); 
+		$f->attr('value', (int) $field->instantiateModule);
+		$f->label = $this->_('Make this field an instance of the selected module?'); 
+		$f->description = $this->_('If checked, the field value will be an actual instance of the selected module. If not checked, the field value will be a string containing the class name of the module.'); // instantiate module description
+		$inputfields->add($f); 
+
+		$f = $this->modules->get('InputfieldRadios'); 
+		$f->label = $this->_('Options Label'); 
+		$f->attr('name', 'labelField'); 
+		$f->addOption('', $this->_('Module Class Name')); 
+		$f->addOption('title', $this->_('Module Title')); 
+		$f->attr('value', $field->labelField); 
+		$f->columnWidth = 50; 
+		$inputfields->add($f); 
+
+		$f = $this->modules->get('InputfieldRadios'); 
+		$f->label = $this->_('Input Type'); 
+		$f->attr('name', 'inputfieldClass'); 
+		$f->addOption('', $this->_('Select')); 
+		$f->addOption('InputfieldRadios', $this->_('Radios')); 
+		$f->columnWidth = 50;
+		$f->attr('value', $field->inputfieldClass);
+		$inputfields->add($f); 
+
+		return $inputfields; 			
+	}
+
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = $this->wire(new Fieldtypes());
+		foreach($this->wire('fieldtypes') as $fieldtype) {
+			if($fieldtype instanceof FieldtypeModule) $fieldtypes->add($fieldtype);
+		}
+		return $fieldtypes;
+	}
+}
+

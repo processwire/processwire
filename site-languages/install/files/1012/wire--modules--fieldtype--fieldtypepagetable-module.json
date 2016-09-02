@@ -1,0 +1,81 @@
+{
+    "file": "wire\/modules\/Fieldtype\/FieldtypePageTable.module",
+    "textdomain": "wire--modules--fieldtype--fieldtypepagetable-module",
+    "translations": {
+        "56d29e2358c489ca2ba085412d22b543": {
+            "text": "Ein oder mehrere Templates f\u00fcr Elemente w\u00e4hlen"
+        },
+        "23eb7651d596fbeec11e64a6c67925d9": {
+            "text": "Dies sind die Templates, welche von Seiten genutzt werden, die mit diesem Feld verwaltet werden. Sie k\u00f6nnen auch ein neues Template zur spezifischen Verwendung mit diesem Feld erstellen."
+        },
+        "cc338cc1f9035c657183288e8a8679c4": {
+            "text": "Bitte nach der Auswahl eines Templates auf Speichern dr\u00fccken. Die verbleibende Konfiguration im Eingabe-Tab wird dann mehr Kontext enthalten."
+        },
+        "280bdbf9e514764e2b558c5a45b03ba3": {
+            "text": "Elternseite f\u00fcr Elemente w\u00e4hlen"
+        },
+        "0aa782b2995bb478abdc16ebbb4a3e12": {
+            "text": "Alle Elemente, welche durch dieses Feld erstellt und verwaltet werden, bestehen unter der hier gew\u00e4hlten Elternseite."
+        },
+        "fcb2facea33821286bfd4cad3f7ac76d": {
+            "text": "Elemente verwerfen wenn Seite gel\u00f6scht wird?"
+        },
+        "08f53f44f5a22058682ec7c305c2f37b": {
+            "text": "Wenn markiert, werden Elemente welche von einer vorgegebenen Seite erstellt\/verwaltet wurden, automatisch verworfen, wenn diese Seite gel\u00f6scht wird. Wenn nicht markiert, bleiben die Elemente unter der oben gew\u00e4hlten Elternseite erhalten."
+        },
+        "276fe80c8306b8f1211c933c5b0789dd": {
+            "text": "Diese Option gilt nur wenn oben eine Elternseite gew\u00e4hlt wurde."
+        },
+        "5243227b5f4a58e7cc1be6b30f4bbce8": {
+            "text": "Falls keine Eltenseite gew\u00e4hlt ist werden die Elemente als Kinder der bearbeiteten Seite platziert."
+        },
+        "f80a4ad87fee7c9fdc19b7769495fdb5": {
+            "text": "Nichts"
+        },
+        "4cfd1fcdeecdd1e6acb46393d787316c": {
+            "text": "Entfernen"
+        },
+        "6ac9a034dc3a8b4cf5a3902d2b7755d4": {
+            "text": "L\u00f6sche sie"
+        },
+        "eb2f5e1930872f2aed78a2ffca4af260": {
+            "text": "Nicht ver\u00f6ffentlichen"
+        },
+        "8840e48a3c2b71738f5a52d5ae1e084f": {
+            "text": "Verstecke sie"
+        },
+        "f2a6c498fb90ee345d997f888fce3b18": {
+            "text": "L\u00f6schen"
+        },
+        "88ab1471027561ff02fc8cfbd073ebc2": {
+            "text": "Was soll mit \"%s\" Elementen geschehen wenn die enthaltende Seite permanent gel\u00f6scht ist?"
+        },
+        "a7e253cd8dd95da3e20daf45519a8dc2": {
+            "text": "Papierkorb"
+        },
+        "bdea0eb389c61e57930d661c74b21423": {
+            "text": "Was soll mit \"%s\" Elementen geschehen wenn die enthaltende Seite entfernt wurde?"
+        },
+        "181e9a13059454fb2212f1bf10f394ac": {
+            "text": "Nicht ver\u00f6ffentlichen"
+        },
+        "22b094a7d09fdb1839dbfe384a0f4fac": {
+            "text": "Was soll mit \"%s\" Elementen geschehen wenn die enthaltende Seite nicht ver\u00f6ffentlicht ist?"
+        },
+        "7a25f2fb1df8b415ae376a1bc744ddc1": {
+            "text": "Verhalten der Seiten"
+        },
+        "113931420c7a2560f63fcd9af198df3f": {
+            "text": "Felder sortieren"
+        },
+        "b72b1e7470d1bbec8cb9ae2eb8843131": {
+            "text": "Name des Feldes eintragen, nach welchem die Tabelle sortiert werden soll. F\u00fcr absteigende Sortierung dem Feldname einen f\u00fchrenden Bindestrich geben, z.B. \"-date\" statt \"date\"."
+        },
+        "bad3d943c1f7443d2205de6edd995d6e": {
+            "text": "Sie k\u00f6nnen mehrere Felder zur Sortierung festlegen, indem man sie mit einem Komma trennt, z.B. \"last_name, first_name, -birthday\"."
+        },
+        "8198f788c0d53d819605c0dcdfdfe413": {
+            "text": "Leer lassen f\u00fcr manuelle Sortierung per Drag-and-Drop (Standard)."
+        }
+    }
+}

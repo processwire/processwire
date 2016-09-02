@@ -1,0 +1,61 @@
+.Inputfields .InputfieldRepeater > .InputfieldContent > ul.Inputfields {
+  margin-bottom: 1em; }
+.Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader {
+  line-height: 1em;
+  padding: 0.5em; }
+  .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader .toggle-icon {
+    line-height: 1em;
+    margin-right: 0.5em; }
+  .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterToggle, .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterTrash {
+    cursor: pointer;
+    float: right; }
+  .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterTrash {
+    padding-right: 3px; }
+  .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterToggle {
+    margin-right: 1em; }
+.Inputfields .InputfieldRepeater .InputfieldRepeaterItem:not(.InputfieldRepeaterDeletePending).InputfieldStateCollapsed > .InputfieldHeader {
+  opacity: 0.90; }
+  .Inputfields .InputfieldRepeater .InputfieldRepeaterItem:not(.InputfieldRepeaterDeletePending).InputfieldStateCollapsed > .InputfieldHeader:hover {
+    opacity: 1.0; }
+.Inputfields .InputfieldRepeater .InputfieldRepeaterItem:not(.InputfieldRepeaterDeletePending).InputfieldRepeaterUnpublished > .InputfieldHeader {
+  opacity: 0.7; }
+.Inputfields .InputfieldRepeater .InputfieldRepeaterItem:not(.InputfieldRepeaterDeletePending).InputfieldRepeaterOff > .InputfieldHeader {
+  opacity: 0.5; }
+  .Inputfields .InputfieldRepeater .InputfieldRepeaterItem:not(.InputfieldRepeaterDeletePending).InputfieldRepeaterOff > .InputfieldHeader:not(:hover) {
+    text-decoration: line-through; }
+.Inputfields .InputfieldRepeater .InputfieldRepeaterItem.InputfieldRepeaterItemLoading {
+  margin-bottom: 1em; }
+.Inputfields .InputfieldRepeater .InputfieldRepeaterItem.InputfieldStateCollapsed > .InputfieldContent {
+  display: none !important; }
+.Inputfields .InputfieldRepeater .InputfieldRepeaterNewItem {
+  display: none; }
+
+.InputfieldRepeater .InputfieldWrapper,
+.InputfieldRepeater .InputfieldWrapper > .Inputfields {
+  margin-top: 0 !important; }
+.InputfieldRepeater ul.ui-sortable > .InputfieldRepeaterItem > .InputfieldHeader {
+  position: relative; }
+.InputfieldRepeater .InputfieldRepeaterAddItem input {
+  position: absolute;
+  left: -9999px;
+  top: 0; }
+.InputfieldRepeater ul.Inputfields + .InputfieldRepeaterAddItem {
+  margin-top: 0; }
+.InputfieldRepeater .InputfieldRepeaterDrag {
+  cursor: ns-resize;
+  opacity: 0.7;
+  line-height: 1em; }
+  .InputfieldRepeater .InputfieldRepeaterDrag:hover {
+    cursor: move;
+    opacity: 1.0; }
+.InputfieldRepeater.InputfieldRenderValueMode .InputfieldRepeaterDrag {
+  margin-right: 0.25em;
+  opacity: 0.5; }
+  .InputfieldRepeater.InputfieldRenderValueMode .InputfieldRepeaterDrag:hover {
+    cursor: not-allowed;
+    opacity: 0.5; }
+
+.AdminThemeReno .InputfieldRepeaterItem > .InputfieldHeader .ui-priority-secondary {
+  color: rgba(255, 255, 255, 0.8) !important; }
+
+/*# sourceMappingURL=InputfieldRepeater.css.map */

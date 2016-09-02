@@ -1,0 +1,18 @@
+{
+   "file":"wire\/modules\/Inputfield\/InputfieldCheckboxes\/InputfieldCheckboxes.module",
+   "textdomain":"wire--modules--inputfield--inputfieldcheckboxes--inputfieldcheckboxes-module",
+   "translations":{
+      "d3f3236393ce7a48198cde99acaed365":{
+         "text":"Checkboxen in Spalten"
+      },
+      "c425f296c6b905c91fb3f6da1a1702b6":{
+         "text":"Checkboxen"
+      },
+      "632ae34b804c1914c3a51af327a3379d":{
+         "text":"Auswahl zwischen mehreren Checkboxen"
+      },
+      "50bad9e0658dd79a35545ebcd18f92ac":{
+         "text":"Falls Sie die Checkboxen in Spalten (anstatt gestapelt) ausgeben m\u00f6chten, geben Sie die gew\u00fcnschte Anzahl Spalten (bis zu zehn) ein. Um Checkboxen nebeneinander (inline) anzuzeigen, geben Sie 1 ein."
+      }
+   }
+}

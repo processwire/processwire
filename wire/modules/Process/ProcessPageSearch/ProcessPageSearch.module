@@ -1,0 +1,1066 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Search Process
+ *
+ * Provides page searching within the ProcessWire admin
+ *
+ * For more details about how Process modules work, please see:
+ * /wire/core/Process.php
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class ProcessPageSearch extends Process implements ConfigurableModule {
+
+	static public function getModuleInfo() {
+		return array(
+			'title' => 'Page Search',
+			'summary' => 'Provides a page search engine for admin use.',
+			'version' => 106,
+			'permanent' => true,
+			'permission' => 'page-edit',
+			);
+	}
+
+	const defaultOperator = '%=';
+
+	protected $nativeSorts = array(
+		'relevance',
+		'name',
+		'title',
+		'id',
+		'status',
+		'templates_id',
+		'parent_id',
+		'created',
+		'modified',
+		'published',
+		'modified_users_id',
+		'created_users_id',
+		'createdUser',
+		'modifiedUser',
+		'sort',
+		'sortfield',
+		);
+
+	protected $fieldOptions = array();
+	protected $customSorts = array();
+	protected $operators = array();
+	protected $resultLimit = 25;
+	protected $maxLimit = 250;
+	protected $lister = null;
+	
+	/**
+	 * Mode indicating admin ajax search, set by GET var admin_search=1
+	 * 
+	 * This mode typically focuses on just searching the 'title' field. 
+	 * This mode also includes data specific to ajax requests. 
+	 * 
+	 */
+	protected $adminSearchMode = false;
+	
+	public function init() {
+
+		foreach($this->fields as $field) {
+			if($field->type instanceof FieldtypeFieldsetOpen) continue;
+			if($field->type instanceof FieldtypePassword) continue;
+			$this->fieldOptions[] = $field->name;
+		}
+
+		sort($this->fieldOptions);
+		parent::init();
+	}
+
+	static public function getOperators() {
+		$f = __FILE__; 
+		return array(
+			'=' => 	__('Equals', $f),
+			'!=' =>	__('Does not equal', $f),
+			'>' => 	__('Greater than', $f),
+			'>=' =>	__('Greater than or equal to', $f),
+			'<' => 	__('Less than', $f),
+			'<=' =>	__('Less than or equal to', $f),
+			'*=' =>	__('Contains phrase or partial word', $f),
+			'%=' =>	__('Contains phrase/word using LIKE', $f),
+			'~=' =>	__('Contains all the words', $f),
+			);
+	}
+
+	/**
+	 * Setup items needed for full execution, as opposed to the regular search input that appears on all pages
+	 * 
+	 */
+	protected function fullSetup() {
+		$headline = $this->_x('Search', 'headline'); // Headline for search page
+		if($this->input->get('processHeadline')) {
+			$headline = $this->sanitizer->entities($this->sanitizer->text($this->input->get('processHeadline'))); 
+			$this->input->whitelist('processHeadline', $headline); 
+		}
+		$this->wire('processHeadline', $headline); 
+		$this->operators = self::getOperators();
+	}
+
+
+	/**
+	 * Perform an interactive search and provide a search form (default)
+	 *
+	 */
+	public function ___execute() {
+		
+		if($this->wire('user')->hasPermission('page-lister')) {
+			if($this->wire('modules')->isInstalled('ProcessPageLister')) {
+				$this->lister = $this->wire('modules')->get('ProcessPageLister');
+			}
+		}
+		
+		$ajax = $this->wire('config')->ajax; 
+
+		if($this->lister && $ajax) {
+			// we will just let Lister do it's thing, since it remembers settings in session
+			return $this->lister->execute(); 
+		} else {
+			$this->fullSetup();
+			$this->processInput();
+			list($selector, $displaySelector, $initSelector, $defaultSelector) = $this->buildSelector();
+		}
+		
+		if($this->lister) {
+			$lister = $this->lister;
+			if(count($_GET)) $lister->sessionClear();
+			$lister->initSelector = $initSelector;
+			$lister->defaultSelector = $defaultSelector;
+			$lister->defaultSort = 'relevance';
+			$lister->limit = $this->resultLimit; 
+			$lister->preview = false; 
+			$lister->columns = $this->getDisplayFields();
+			return $lister->execute();
+		} else {
+			$matches = $this->pages->find($selector);
+			return $this->render($matches, $displaySelector);
+		}
+	}
+
+	/**
+	 * Perform a non-interactive search (based on URL GET vars)
+	 *
+	 * This is the preferred input method for links and ajax queries.
+	 *
+	 * Example /search/for?template=basic-page&body*=example
+	 *
+	 */
+	public function ___executeFor() {
+
+		$this->fullSetup();
+		$selector = '';
+		$displaySelector = '';
+		$limit = $this->resultLimit;
+		$start = 0;
+		$status = 0;
+		$names = array();
+		$adminSearchStr = '';
+		$languages = $this->wire('languages');
+		$userLanguage = null;
+		$user = $this->wire('user');
+		$superuser = $user->isSuperuser();
+		$checkEditAccess = false;
+		
+		foreach($this->input->get as $name => $value) {
+			
+			if($name == 'get' || $name == 'display' || $name == 'format_name') continue; 
+			if($name == 'lang_id') {
+				if($languages) {
+					// force results for specific language
+					$language = $languages->get((int) $value);
+					if(!$language->id) continue;
+					if($user->language->id != $language->id) {
+						$userLanguage = $user->language;
+						$user->language = $language;
+					}
+				}
+				continue;
+			}
+
+			// operator has no '=', so we'll get the value from the name
+			// so that you can do something like: bedrooms>5 rather than bedrooms>=5
+			if(!strlen($value) && preg_match('/([^<>]+)\s*([<>])\s*([^<>]+)/', $name, $matches)) {
+
+				$name = $matches[1];
+				$operator = $matches[2];
+				$value = $matches[3]; 
+
+			} else {
+
+				$operator = substr($name, -1) . '=';
+
+				if(isset($this->operators[$operator])) {
+					$name = substr($name, 0, -1); 
+				} else {
+					$operator = '=';
+				}
+			}
+
+			// replace '-' with '.' since '.' is not allowed in URL variable names
+			if(strpos($name, '-')) $name = str_replace('-', '.', $name); 
+
+			if(strpos($name, ',')) $name = $this->sanitizer->names($name, ',', array('_', '.')); 
+				else $name = $this->sanitizer->pageName($name); // note: switch to pageName over fieldName to support "." 
+
+			if(!$name) continue; 
+
+			if($name == 'limit') { 
+				$limit = (int) $value; 
+				$this->input->whitelist('limit', $value);
+				continue; 
+			}
+
+			if($name == 'start') { 
+				$start = (int) $value;
+				$this->input->whitelist('start', $value); 
+				continue; 
+			}
+
+			// if dealing with a user other than superuser, only allow include=hidden
+			if($name == 'include' && $value != 'hidden' && !$superuser) {
+				if($user->hasPermission('page-edit') && $this->input->get('admin_search')) {
+					$value = 'unpublished';
+					$checkEditAccess = true;
+				} else {
+					$value = 'hidden';
+				}
+			}
+		
+			// don't allow setting of check_access property, except for superuser
+			if($name == 'check_access' && !$superuser) continue; 
+			
+			// don't allow setting of the 'status' property, except for superuser
+			if($name == 'status') {
+				if(!$superuser) continue; 
+				$status = (int) $value;
+			}
+			
+			// check if adminSearchMode should be enabled (for ajax search)
+			if($name == 'admin_search') {
+				$adminSearchStr = $this->sanitizer->selectorValue($value); 
+				$this->adminSearchMode = true; 
+				continue; 
+			}
+
+			// replace URL-compatible comma separators with selector-compatible pipes
+			if(strpos($name, ',')) $name = str_replace(',', '|', $name); 
+
+			if(!$this->isSelectableFieldName($name)) continue; 
+			
+			if(strpos($value, ',')) {
+				// commas between words: split one key=value, into multiple key=value, key=value
+				$valuesAND = explode(',', $value); 
+			} else {
+				$valuesAND = array($value);
+			}
+
+			foreach($valuesAND as $key => $val) {
+				if(strpos($val, '|')) {
+					$valuesOR = explode('|', $val);
+					foreach($valuesOR as $k => $v) {
+						$valuesOR[$k] = $this->sanitizer->selectorValue($v);
+					}
+					$val = implode('|', $valuesOR);
+				} else {
+					$val = $this->sanitizer->selectorValue($val);
+				}
+				$valuesAND[$key] = $val;
+			}
+			$value = implode(',', $valuesAND); 
+
+			$this->input->whitelist($name . rtrim($operator, '='), trim($value, '"\'')); 	
+			foreach($valuesAND as $val) {
+				$selector .= "$name$operator$val, ";
+			}
+			$names[] = $name; 
+		}
+		
+		if(strlen($adminSearchStr)) {
+			// adminSearchMode active, auto populate a search, like title%=value
+			$fields = $this->searchFields2 ? explode(' ', $this->searchFields2) : array('title');
+			$operator = strlen($adminSearchStr) < 4 ? '%=' : '*=';
+			$selector .= implode('|', $fields) . $operator . $adminSearchStr . ", ";
+		}
+
+		if($start) $selector .= "start=$start, ";
+		$selector .= "limit=$limit, ";
+
+		$selector = rtrim($selector, ", "); 
+		$displaySelector = $selector; 
+		
+		if($this->adminSearchMode && !in_array('has_parent', $names)) {
+			// exclude repeaters from matching, when present
+			$admin = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+			$repeaters = $admin->children("name=repeaters, include=all"); 
+			if(count($repeaters)) $selector .= ", has_parent!=" . $repeaters->first()->id; 
+		}
+
+		if(!$status && !preg_match('/\binclude=/', $selector)) {
+			if($superuser) {
+				// superuser only
+				$selector .= ", include=all, status<" . Page::statusTrash;
+			} else if($this->adminSearchMode && $user->hasPermission('page-edit')) {
+				// admin search mode and user has some kind of page-edit permission
+				$selector .= ", include=unpublished, status<" . Page::statusTrash;
+				$checkEditAccess = true;
+			} 
+		}
+	
+		$items = $this->pages->find($selector);
+		
+		if(!$superuser && $checkEditAccess) {
+			// filter out non-editable pages, since some may be included via include=unpublished
+			foreach($items as $item) {
+				if(!$item->editable()) $items->remove($item);
+			}
+		}
+		
+		$out = $this->render($items, $displaySelector);
+		if($userLanguage) $user->language = $userLanguage;
+		
+		return $out; 
+	}
+
+	/**
+	 * Return array of fields to display in results
+	 *
+	 */
+	protected function getDisplayFields() {
+		
+		$display = $this->input->get('display');
+		
+		if(!strlen($display)) $display = $this->input->get('get'); // as required by ProcessPageSearch API 
+		if(!strlen($display)) $display = $this->displayField;
+		if(!strlen($display)) $display = 'title path';
+		
+		$display = str_replace(',', ' ', $display);
+		$display = explode(' ', $display); // convert to array
+
+		foreach($display as $key => $name) {
+			$name = $this->sanitizer->fieldName($name);
+			$display[$key] = $name;
+			if($this->isSelectableFieldName($name)) continue;
+			if(in_array($name, array('url', 'path', 'httpUrl'))) continue;
+			unset($display[$key]);
+		}
+		
+		return array_values($display);
+	}
+
+	/**
+	 * As an alternative to getting specific fields, return a format string
+	 * 
+	 * This format string must be pre-populated to session variable:
+	 * ProcessPageSearch.[format_name] = '{title} - {path}'; // format string
+	 * 
+	 * The name the session variable must be provided as a GET var: format_name=[name]
+	 * 
+	 * @return mixed|string
+	 * 
+	 */
+	protected function getDisplayFormat() {
+		$name = $this->input->get('format_name');
+		if(empty($name)) return '';
+		$data = $this->wire('session')->getFor($this, "format_" . $name);
+		if(empty($data)) return '';
+		return array(
+			'name' => $name,
+			'format' => $data['format'],
+			'textOnly' => $data['textOnly']
+		);
+	}
+
+	/**
+	 * Set a display format
+	 * 
+	 * @param string $name Session var name that will be used, output will be returned in JSON results indexed by $name as well.
+	 * @param string $format Format string to pass to $page->getMarkup(str)
+	 * @param bool $textOnly 
+	 * 
+	 */
+	public function setDisplayFormat($name, $format, $textOnly = false) {
+		$this->wire('session')->setFor($this, "format_" . $name, array(
+			'format' => $format,
+			'textOnly' => $textOnly
+		));
+	}
+
+	/**
+	 * Render the search results
+	 *
+	 */
+	protected function render(PageArray $matches, $displaySelector) {
+
+		$out = '';
+		if($displaySelector) $this->message(sprintf($this->_n('Found %1$d page using selector: %2$s', 'Found %1$d pages using selector: %2$s', $matches->getTotal()), $matches->getTotal(), $displaySelector));
+
+		// determine what fields will be displayed
+		$display = array();
+		if($this->config->ajax) $display = $this->getDisplayFormat();
+		if(empty($display)) {
+			$display = $this->getDisplayFields();
+			$this->input->whitelist('display', implode(',', $display));
+		}
+
+		if($this->config->ajax) {
+			// ajax json output
+			header("Content-type: application/json"); 
+			$out = $this->renderMatchesAjax($matches, $display, $displaySelector); 
+
+		} else {
+			// html output
+			$class = '';
+			if((int) $this->input->get->show_options !== 0 && $this->input->urlSegment1 != 'find') {
+				$out = "\n<div id='ProcessPageSearchOptions'>" . $this->renderFullSearchForm() . "</div>";
+				$class = 'show_options';
+			} 
+
+			$out .= "\n<div id='ProcessPageSearchResults' class='$class'>" . $this->renderMatchesTable($matches, $display) . "\n</div>";
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Build a selector based upon interactive choices from the search form 
+	 *
+	 */
+	protected function buildSelector() {
+		$selector = ''; // for regular ProcessPageSearch
+		$initSelector = ''; // for Lister, non-changable part of the selector
+		$defaultSelector = ''; // for Lister, changeable filters
+
+		// search query text
+		$q = $this->input->whitelist('q');
+		if(strlen($q)) { 
+			$searchFields = $this->searchFields;
+			if(is_string($searchFields)) $searchFields = explode(' ', $searchFields);
+
+			foreach($searchFields as $fieldName) {
+				$fieldName = $this->sanitizer->fieldName($fieldName);
+				$selector .= "$fieldName|";
+			}
+			$selector = rtrim($selector, '|') . $this->operator . $this->wire('sanitizer')->selectorValue($q);
+		} 
+
+		// determine if results are sorted by something other than relevance
+		$sort = $this->input->whitelist('sort');
+		if($sort && $sort != 'relevance') {
+			$reverse = $this->input->whitelist('reverse') ? "-" : '';
+			$selector .= ", sort=$reverse$sort";
+
+			// if a specific template isn't requested, then locate the templates that use this field and confine the search to them
+			if(!$this->input->whitelist('template') && !in_array($sort, $this->nativeSorts)) {
+				$templates = array();
+				foreach($this->templates as $template) {
+					if($template->fieldgroup->has($sort)) $templates[] = $template->name;
+				}
+				if(count($templates)) $selector .= ", template=" . implode("|", $templates);
+			}
+		}
+
+		// determine if search limited to a specific template
+		if($this->input->whitelist('template')) {
+			$selector .= ", template=" . $this->input->whitelist('template');
+		}
+
+		if(!$selector) {
+			$this->error($this->_("No search specified"));
+			return array('','','','');
+		}
+
+		$selector = trim($selector, ", ");
+
+		$displaySelector = $selector; // highlight the selector that was used for display purposes
+		$defaultSelector = $selector; // user changable selector in Lister
+		$initSelector = '' ; // non-user changable selector in Lister
+		$s = ''; // anything added to this will be populated to both $selector and $initSelector below
+
+		// limit results for pagination
+		$s = ", limit={$this->resultLimit}";
+		
+		$adminRootPage = $this->wire('pages')->get($this->wire('config')->adminRootPageID); 
+
+		// exclude admin repeater pages unless the admin template is chosen
+		if(!$this->input->whitelist('template')) {
+			// but only for superuser, as we're excluding all admin pages for non-superusers
+			if($this->user->isSuperuser()) {
+				$repeaters = $adminRootPage->child('name=repeaters, include=all');
+				if($repeaters->id) $s .= ", has_parent!={$repeaters->id}";
+			}
+		}
+
+		// include hidden pages
+		if($this->user->isSuperuser()) {
+			$s .= ", include=all";
+		} else {
+			// non superuser doesn't get any admin pages in their results
+			$s .= ", has_parent!=$adminRootPage"; 
+			// if user has any kind of edit access, allow unpublished pages to be included
+			if($this->user->hasPermission('page-edit')) $s .= ", include=unpublished";
+		}
+		
+		$selector .= $s; 
+		$initSelector .= $s; 
+		
+		return array($selector, $displaySelector, trim($initSelector, ', '), $defaultSelector); 
+	}
+
+	/**
+	 * Process input from the search form
+	 *
+	 */
+	protected function processInput() {
+
+		// search fields
+		if($this->input->get->field) {
+			$field = str_replace(',', ' ', $this->input->get->field);
+			$fieldArray = explode(' ', $field);
+			$field = '';
+			foreach($fieldArray as $f) {
+				$f = $this->sanitizer->fieldName($f);
+				if(!in_array($f, $this->fieldOptions) && !in_array($f, $this->nativeSorts)) continue;
+				$field .= $f . " ";
+			}
+			$field = rtrim($field, " ");
+			if($field) {
+				$this->searchFields = $field;
+				$this->input->whitelist('field', $field);
+			}
+		} else {
+			$this->input->whitelist('field', $this->searchFields);
+		}
+
+		// operator, search type
+		if(empty($this->operator)) $this->operator = self::defaultOperator; 
+		$operator = $this->input->get->operator; 
+		if(!is_null($operator)) {
+			if(array_key_exists($operator, $this->operators)) {
+				$this->operator = substr($this->input->get->operator, 0, 3);
+			} else if(ctype_digit("$operator")) { 
+				$operators = array_keys($this->operators); 
+				if(isset($operators[$operator])) $this->operator = $operators[$operator]; 
+			}
+			$this->input->whitelist('operator', $this->operator);
+		}
+
+		// search query
+		$q = $this->sanitizer->text(substr($this->input->get->q, 0, 128));
+		$this->input->whitelist('q', $q);
+
+		// sort
+		$this->input->whitelist('sort', 'relevance');
+		if($this->input->get->sort) {
+			$sort = $this->sanitizer->fieldName($this->input->get->sort);
+			if($sort && (in_array($sort, $this->nativeSorts) || in_array($sort, $this->fieldOptions))) $this->input->whitelist('sort', $sort);
+			if($this->input->get->reverse) $this->input->whitelist('reverse', 1);
+		}
+
+		// template
+		if($this->input->get->template) {
+			$template = $this->sanitizer->name($this->input->get->template);
+			if(!$this->templates->get($template)) $template = '';
+			if($template) $this->input->whitelist('template', $template);
+		}
+
+	}
+
+
+	/**
+	 * Is the given field name selectable?
+	 *
+	 */
+	protected function isSelectableFieldName($name, $level = 0) {
+		
+		$selectable = array(
+			'parent', 'template', 'template_label', 'has_parent', 'hasParent', 
+			'children', 'numChildren', 'num_children', 'count', 'path', 
+		);
+
+		$is = false;
+
+		if(!$level && strpos($name, '|')) {
+			$names = explode('|', $name); 
+			$cnt = 0;
+			foreach($names as $n) if(!$this->isSelectableFieldName($n, $level+1)) $cnt++;
+			return $cnt == 0; 
+
+		} else if(strpos($name, '.')) {
+			list($name, $subname) = explode('.', $name); 
+			if(!$this->isSelectableFieldName($subname, $level)) return false;	
+		}
+		
+		if($name == 'path' && (!$this->wire('modules')->isInstalled('PagePaths') || $this->wire('languages'))) {
+			$name = 'name';
+		}
+
+		if(in_array($name, $this->nativeSorts)) $is = true; 
+ 			else if(in_array($name, $selectable)) $is = true; 
+			else if(!$level && in_array($name, array('include', 'status', 'check_access'))) $is = true; 
+			else if(in_array($name, $this->fieldOptions)) $is = true; 
+
+		if($name == 'pass' || $name == 'config' || $name == 'it' || $name == 'display') $is = false;
+		
+		return $is; 
+	}
+
+	protected function renderFullSearchForm() {
+
+		// Search options
+
+		$out  = "\n\t<p id='wrap_search_query'>";
+
+		$out .= "\n\t<p id='wrap_search_field'>" .
+			"\n\t<label for='search_field'>" . $this->_('Search in field(s):') . "</label>" .
+			"\n\t<input type='text' name='field' value='" . htmlentities($this->searchFields, ENT_QUOTES) . "' />" .
+			"\n\t</p>";
+
+		$out .=	"\n\t<p id='wrap_search_operator'>" .
+			"\n\t<label for='search_operator'>" . $this->_('Type of search:') . "</label>" .
+			"\n\t<select id='search_operator' name='operator'>";
+
+		$n = 0;
+		foreach($this->operators as $operator => $desc) {
+			$attrs = $this->operator === $operator ? " selected='selected'" : '';
+			$out .= "\n\t\t<option$attrs value='$n'>$desc (a" . htmlentities($operator) . "b)</option>";
+			$n++;
+		}
+		$out .= "\n\t</select>" .
+			"\n\t</p>";
+
+		$out .= "\n\t<label class='ui-priority-primary' for='search_query'>" . $this->_('Search for:') . "</label>" .
+			"\n\t<input id='search_query' type='text' name='q' value='" . htmlentities($this->input->whitelist('q'), ENT_QUOTES, "UTF-8") . "' />" .
+			"\n\t<input type='hidden' name='show_options' value='1' />" . 
+			"\n\t</p>";
+
+
+		// Advanced
+
+		$advCollapsed = true; 
+
+		$out2 = "\n\t<p id='wrap_search_template'>" .
+			"\n\t<label for='search_template'>" . $this->_('Limit to template:') . "</label>" .
+			"\n\t<select id='search_template' name='template'>" .
+			"\n\t\t<option></option>";
+
+		$templateName = $this->input->whitelist('template');
+		if($templateName) $advCollapsed = false;
+		foreach($this->templates as $template) {
+			$attrs = $template->name === $templateName ? " selected='selected'" : '';
+			$out2 .= "\n\t<option$attrs>{$template->name}</option>";
+		}
+
+		$out2 .= "\n\t</select>" .
+			"\n\t</p>";
+
+
+		$out2.= "\n\t<p id='wrap_search_sort'>" .
+			"\n\t<label for='search_sort'>" . $this->_('Sort by:') . "</label>" .
+			"\n\t<select id='search_sort' name='sort'>";
+
+		$sorts = $this->nativeSorts + $this->fieldOptions;
+
+		$sort = $this->input->whitelist('sort');
+		if($sort && $sort != 'relevance') $advCollapsed = false;
+		foreach($sorts as $s) {
+			if(strpos($s, ' ')) continue; // skip over multi fields
+			$attrs = '';
+			if($s === $sort) $attrs = " selected='selected'";
+			$out2 .= "\n\t\t<option$attrs>$s</option>";
+		}
+
+		$out2 .= "\n\t</select>" .
+			"\n\t</p>";
+
+		if($sort != 'relevance') {
+			$reverse = $this->input->whitelist('reverse'); 
+			$out2 .= "\n\t<p id='wrap_search_options'>" .
+				"\n\t<label><input type='checkbox' name='reverse' value='1' " . ($reverse ? "checked='checked' " : '') . "/> " . $this->_('Reverse sort?') . "</label>" .
+				"\n\t</p>";
+			if($reverse) $advCollapsed = false;
+		}
+
+		$display = $this->input->whitelist('display'); 
+		$out2.= "\n\t<p id='wrap_search_display'>" .
+			"\n\t<label for='search_display'>" . $this->_('Display field(s):') . "</label>" .
+			"\n\t<input type='text' name='display' value='" . htmlentities($display, ENT_QUOTES) . "' />" .
+			"\n\t</p>";
+		if($display && $display != 'title,path') $advCollapsed = false;
+
+
+		$submit = $this->modules->get("InputfieldSubmit");
+		$submit->attr('name', 'submit');
+		$submit->attr('value', $this->_x('Search', 'submit')); // Search submit button for advanced search
+		$out .= "<p>" . $submit->render() . "</p>";
+
+		$form = $this->modules->get("InputfieldForm");
+		$form->attr('id', 'ProcessPageSearchOptionsForm');
+		$form->method = 'get';
+		$form->action = './';
+
+		$field = $this->modules->get("InputfieldMarkup");
+		$field->label = $this->_("Search Options");
+		$field->value = $out;
+
+		$form->add($field);
+
+		$field = $this->modules->get("InputfieldMarkup");
+		if($advCollapsed) $field->collapsed = Inputfield::collapsedYes; 
+		$field->label = $this->_("Advanced");
+		$field->value = $out2;
+
+		$form->add($field);
+
+		/* Remove temporarily
+		$field = $this->modules->get("InputfieldMarkup"); 
+		$field->id = 'ProcessPageSearchShortcuts'; 
+		$field->collapsed = true; 
+		$field->label = $this->_("Shortcuts");
+		$field->value = $this->renderShortcuts();
+		*/
+
+		$form->add($field); 
+
+		return $form->render();
+
+	}
+
+	protected function renderShortcuts() {
+
+		$out = '';
+		$links = array(
+			'Quick Links',
+			"All by creation date" => '?q=&submit=Search&display=title+path+created&sort=created&reverse=1' ,
+			"All by latest edit date" => '?q=&submit=Search&display=title+path+created&sort=modified&reverse=1',
+			"Users by creation date" => '?q=&template=user&submit=Search&operator=~%3D&display=name+email+created&sort=created&reverse=1',
+			'New pages by template',
+			);
+
+		foreach($this->templates as $template) {
+			// Quick links only for content with more than one page
+			// if($template->getNumPages() < 2) continue;
+
+			// Users get own quick link earlier, others are rather irrelevant
+			if($template->flags & Template::flagSystem) continue; 
+
+			$links[$template->name] = "?q=&template={$template->name}&submit=Search&operator=~%3D&display=title+path+created&sort=created&reverse=1";
+		}
+
+		foreach($links as $label => $value) {
+			if(is_int($label)) {
+				$out .= "<h4>$value</h4>";
+			} else {
+				$value .= "&show_options=1";
+				$value = htmlspecialchars($value); 
+				$out .= "<a href='$value'>$label</a>";
+			}
+		}
+
+		return $out;
+	}
+
+	protected function renderMatchesTable(PageArray $matches, array $display, $id = 'ProcessPageSearchResultsList') {
+
+		if(!count($display)) $display = array('path'); 
+		$out = '';
+
+		if(!count($matches)) return $out;
+		$table = $this->modules->get("MarkupAdminDataTable");
+		$table->setSortable(false); 
+		$table->setEncodeEntities(false);
+		$header = $display;
+		$header[] = "";
+		$table->headerRow($header);
+
+		foreach($matches as $match) {
+			$match->setOutputFormatting(true);
+			$editUrl = "{$this->config->urls->admin}page/edit/?id={$match->id}";
+			$viewUrl = $match->url();
+			$row = array();
+			foreach($display as $name) {
+				$value = $match->get($name);
+				if(is_object($value)) {
+					if($value instanceof Page) $value = $value->name;
+				}
+				$value = strip_tags($value);
+				if($name == 'created' || $name == 'modified' || $name == 'published') $value = date(DATE_ISO8601, $value);
+				$row[] = "<a href='$viewUrl'>$value</a>";
+			}
+			$row[] = $match->editable() ? "<a class='action' href='$editUrl'>" . $this->_('edit') . "</a>" : '&nbsp;';
+			$table->row($row);
+
+		}
+
+		if($matches->getTotal() > count($matches)) {	
+			$pager = $this->wire('modules')->get('MarkupPagerNav');
+			if($this->input->urlSegment1 == 'for') $pager->setBaseUrl($this->page->url . "for/"); 
+			$pager = $pager->render($matches); 
+		} else {
+			$pager = '';
+		}
+		
+		$out = $pager . $table->render() . $pager;
+
+		return $out;
+	}
+
+	/**
+	 * Find other types of ProcessWire assets that may be useful in search
+	 * 
+	 * Applicable to adminSearchMode only. 
+	 * 
+	 * @param $q Text to find
+	 * @return array Array of matches
+	 * 
+	 */
+	protected function findOtherTypes($q) {
+		
+		$language = $this->wire('user')->language;
+		$language = $language && $language->id && !$language->isDefault() ? $language->id : '';
+		$results = array();
+		
+		foreach($this->wire('fields') as $field) {
+			$name = $field->name;
+			$label = $field->{"label$language"};
+			if(stripos($name . $label, $q) !== false) $results[] = array(
+				'id' => $field->id, 
+				'template_label' => str_replace('Fieldtype', '', $field->type), 
+				'title' => $field->name, 
+				'editUrl' => $this->wire('config')->urls->admin . "setup/field/edit?id=$field->id",
+				'type' => $this->_x('Fields', 'match-type') 
+				); 
+		}
+		
+		foreach($this->wire('templates') as $template) {
+			$name = $template->name;
+			$label = $template->{"label$language"};
+			if(stripos($name . $label, $q) !== false) $results[] = array(
+				'id' => $template->id,
+				'template_label' => $template->name,
+				'title' => $label ? $label : $template->name,
+				'editUrl' => $this->wire('config')->urls->admin . "setup/template/edit?id=$template->id",
+				'type' => $this->_x('Templates', 'match-type')
+			);
+		}
+		
+		foreach($this->wire('modules') as $module) {
+			//if($module instanceof ModulePlaceholder) continue; 
+			$name = $module->className();
+			$info = $this->wire('modules')->getModuleInfo($module);
+			$title = $module instanceof ModulePlaceholder ? $name : $info['title'];
+			if(stripos($name . $title, $q) !== false) $results[] = array(
+				'id' => $module->id,
+				'template_label' => $name, 
+				'title' => $title, 
+				'editUrl' => $this->wire('config')->urls->admin . "module/edit?name=$name",
+				'type' => $this->_x('Modules', 'match-type')
+				);
+		}
+		
+		return $results; 
+	}
+
+	/**
+	 * Render the provided matches as a JSON string for AJAX use
+	 * 
+	 * @param PageArray $matches
+	 * @param array Array of fields to display, or display format associative array
+	 * @param string $selector
+	 *
+	 */
+	protected function renderMatchesAjax(PageArray $matches, $display, $selector) {
+
+		$a = array(
+			'selector' => $selector, 
+			'total' => $matches->getTotal(),
+			'limit' => $matches->getLimit(),
+			'start' => $matches->getStart(),
+			'matches' => array(),
+			);
+
+		// determine which template label we'll be asking for (for multi-language support)
+		$templateLabel = 'label';
+		if($this->wire('languages')) {
+			$language = $this->user->language; 
+			if($language && !$language->isDefault()) $templateLabel = "label$language";
+		}
+		
+		if($this->adminSearchMode && $this->user->isSuperuser()) {
+			// enable search to include users when adminSearchMode and superuser
+			$a['matches'] = $this->findOtherTypes($this->input->get('admin_search')); 	
+			$users = $this->wire('users')->find("name%=" . 
+				$this->wire('sanitizer')->pageName($this->input->get('admin_search'), Sanitizer::toAscii)); 
+			if(count($users)) $matches->prepend($users);
+		}
+
+		foreach($matches as $page) {
+			/** @var Page $page */
+
+			$p = array(
+				'id' => $page->id, 
+				'parent_id' => $page->parent_id, 
+				'template' => $page->template->name, 
+				'path' => $page->path, 
+				'name' => $page->name, 
+				);
+			
+			if($this->adminSearchMode) {
+				// don't include non-editable pages in admin search mode
+				if(!$page->editable()) {
+					$a['total']--;
+					continue; 
+				}
+				// include the type of match and URL to edit, when in adminSearchMode
+				$p['type'] = $this->_x('Pages', 'match-type');
+				$p['editUrl'] = $page->editable() ? $this->config->urls->admin . 'page/edit/?id=' . $page->id : '';
+			}
+			
+			if(isset($display['name']) && isset($display['format'])) {
+				// use display format, returning a 'value' property containing the formatted value
+				if($display['textOnly']) {
+					$value = $page->getText($display['format'], true, false);
+				} else {
+					$value = $page->getMarkup($display['format']);
+				}
+				$p[$display['name']] = $value; 
+				
+			} else {
+				// use display fields
+				foreach($display as $k => $key) {
+
+					if($key == 'template_label') {
+						$p['template_label'] = $page->template->$templateLabel ? $page->template->$templateLabel : $page->template->label;
+						if(empty($p['template_label'])) $p['template_label'] = $page->template->name;
+						continue;
+					}
+
+					$value = $page->get($key);
+					if(empty($value) && $this->adminSearchMode) {
+						if($key == 'title') $value = $page->name; // prevent empty title
+					}
+
+					if(is_object($value)) $value = $this->setupObjectMatch($value);
+					if(is_array($value)) $value = $this->setupArrayMatch($value);
+
+					$p[$key] = $value;
+				}
+			}
+
+			$a['matches'][] = $p;
+		}
+
+		return json_encode($a); 	
+	}
+
+	/**
+	 * Convert object to an array where possible, otherwise convert to a string
+	 *
+	 * For use by renderMatchesAjax
+	 *
+	 */
+	protected function setupObjectMatch($o) {
+		if($o instanceof Page) {
+			return array(
+				'id' => $o->id,
+				'parent_id' => $o->parent_id,
+				'template' => $o->template->name,
+				'name' => $o->name,
+				'path' => $o->path,
+				'title' => $o->title
+			); 
+		}
+		if($o instanceof WireData || $o instanceof WireArray) return $o->getArray();
+		return (string) $o;
+	}
+
+	/**
+	 * Filter an array converting any indexes containing objects to arrays or strings
+	 *
+	 * For use by renderMatchesAjax
+	 *
+	 */
+	protected function setupArrayMatch(array $a) {
+		foreach($a as $key => $value) {
+			if(is_object($value)) $a[$key] = $this->setupObjectMatch($value);
+				else if(is_array($value)) $a[$key] = $this->setupArrayMatch($value); 
+		}
+		return $a; 
+	}
+
+	public function renderSearchForm($placeholder = '') {
+
+		$q = substr($this->input->get->q, 0, 128);
+		$q = $this->wire('sanitizer')->entities($q); 
+		$adminURL = $this->wire('config')->urls->admin; 
+		
+		if($placeholder) {
+			$placeholder = $this->wire('sanitizer')->entities1($placeholder); 
+			$placeholder = " placeholder='$placeholder'";
+		} else {
+			$placeholder = '';
+		}
+
+		$out = 	"\n<form id='ProcessPageSearchForm' data-action='{$adminURL}page/search/' action='{$adminURL}page/search/' method='get'>" .
+			"\n\t<label for='ProcessPageSearchQuery'><i class='fa fa-search'></i></label>" . 
+			"\n\t<input type='text' id='ProcessPageSearchQuery' name='q' value='$q'$placeholder />" .
+			"\n\t<input type='submit' id='ProcessPageSearchSubmit' name='search' value='Search' />" . //" . $this->_x('Search', 'input') . "' />" . // Text that appears as the placeholder text in the top search submit input
+			"\n\t<input type='hidden' name='show_options' value='1' />" .
+			"\n\t<span id='ProcessPageSearchStatus'></span>" .
+			"\n</form>";
+
+		return $out;
+
+	}
+
+	public function getModuleConfigInputfields(array $data) {
+
+		$inputfields = $this->wire(new InputfieldWrapper());
+		$modules = $this->wire('modules');
+
+		$inputfield = $modules->get("InputfieldText");
+		$inputfield->attr('name', 'searchFields');
+		if(!isset($data['searchFields'])) $data['searchFields'] = 'title body';
+		if(is_array($data['searchFields'])) $data['searchFields'] = implode(' ', $data['searchFields']);
+		$inputfield->attr('value', $data['searchFields']);
+		$inputfield->label = $this->_("Default fields to search");
+		$description = $this->_("Enter the names for one or more text-based fields that you want to search, separating each by a space."); // Default fields description
+		$inputfield->description = $description; 
+		$inputfields->append($inputfield);
+		
+		$inputfield = $modules->get("InputfieldText");
+		$inputfield->attr('name', 'searchFields2');
+		if(!isset($data['searchFields2'])) $data['searchFields2'] = 'title';
+		if(is_array($data['searchFields2'])) $data['searchFields2'] = implode(' ', $data['searchFields2']);
+		$inputfield->attr('value', $data['searchFields2']);
+		$inputfield->label = $this->_("Field(s) to search in admin search (ajax) mode");
+		$inputfield->description = $description;
+		$inputfield->notes = $this->_("We recommend limiting this to 1 or 2 fields at the most since results populate a live autocomplete field. Typically you would just search the title."); // Fields to search description
+		$inputfields->append($inputfield);
+
+		$inputfield = $modules->get("InputfieldText");
+		$inputfield->attr('name', 'displayField');
+		$inputfield->attr('value', isset($data['displayField']) ? $data['displayField'] : 'name');
+		$inputfield->label = $this->_("Default field name(s) to display in search results");
+		$inputfield->description = $this->_("If specifying more than one field, separate each with a space.");
+		$inputfields->append($inputfield);
+
+		$inputfield = $modules->get("InputfieldSelect");
+		$inputfield->attr('name', 'operator');
+		$inputfield->attr('value', isset($data['operator']) ? $data['operator'] : self::defaultOperator);
+		$inputfield->label = $this->_("Default search operator");
+		foreach(self::getOperators() as $operator => $label) {
+			$inputfield->addOption($operator, "$operator $label"); 
+		}
+		$inputfields->append($inputfield);
+
+		return $inputfields;
+	}
+
+
+}

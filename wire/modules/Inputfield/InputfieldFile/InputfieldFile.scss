@@ -1,0 +1,224 @@
+.Inputfields > li > .InputfieldContent > ul.InputfieldFileList > li {
+	margin: 0 0 1em 0;
+	position: relative; 
+	cursor: move; 
+}
+
+.content .InputfieldFile.InputfieldItemListCollapse ul.InputfieldFileList > li,
+.Inputfields > li.InputfieldHasFileList.InputfieldRenderValueMode > .InputfieldContent > ul.InputfieldFileList > li,
+.Inputfields > li.InputfieldFile.InputfieldItemListCollapse > .InputfieldContent > ul.InputfieldFileList > li {
+	// items that have no text inputs or items that are in render value mode 
+	margin-bottom: 0.25em;
+}
+.content .Inputfields > .InputfieldItemList > .InputfieldContent > ul.InputfieldFileList > li:last-child {
+	// last item needs no margin 
+	margin-bottom: 0;
+}
+
+.InputfieldItemList .InputfieldContent.ui-state-hover {
+	// ajax upload drag over 
+	background: none;
+}
+
+ul.InputfieldFileList li .InputfieldFileInfo, 
+.AjaxUpload .InputfieldFileInfo {
+	padding: 0.5em;
+	line-height: 1em;
+	margin-bottom: 0; 
+	margin-top: 0;
+	
+	& > i.fa {
+		position: relative;
+		left: 2px;
+	}
+	
+	.InputfieldFileName {
+		font-weight: bold;
+		cursor: pointer;
+		
+		&:hover {
+			text-decoration: underline;
+			background: none; 
+		}
+	}
+}
+
+.InputfieldFileDrag {
+	opacity: 0.7;
+}
+.InputfieldFileInfo:hover .InputfieldFileDrag {
+	opacity: 1.0;
+}
+
+ul.InputfieldFileList li .InputfieldFileInfo .InputfieldFileStats, 
+.AjaxUpload .InputfieldFileStats {
+	opacity: 0.65; 
+	font-size: 0.9166666em; 
+}
+
+ul.InputfieldFileList li .ui-state-error .InputfieldFileName { 
+	text-decoration: line-through; 
+}
+
+ul.InputfieldFileList li .InputfieldFileDelete {
+	float: right;
+	cursor: pointer;
+	
+	&, input {
+		display: inline;
+		font-weight: normal; 
+	}
+	
+	input {
+		position: absolute;
+		top: 0;
+		right: 0;
+		display: none; 
+	}
+}
+
+ul.InputfieldFileList li .ui-icon {
+	float: left; 
+}
+
+.InputfieldFileEmpty .HideIfEmpty,
+.InputfieldFileSingle .HideIfSingle,
+.InputfieldFileMultiple .HideIfMultiple {
+	display: none !important; 
+}
+
+ul.InputfieldFileList li .InputfieldFileData {
+	margin-top: 0; 
+	margin-bottom: 0;
+	padding: 1em; 
+}
+
+.InputfieldFile.InputfieldItemListCollapse ul.InputfieldFileList li .InputfieldFileData {
+	display: none;
+}
+
+ul.InputfieldFileList li {
+	.InputfieldFileLink {
+		font-weight: bold;
+		margin: 0.5em 0;
+	}
+	.InputfieldFileTags,
+	.InputfieldFileDescription {
+		font-weight: normal;
+		margin: 0;
+		padding: 0;
+		
+		input {
+			width: 100%; 
+		}
+	}
+	.InputfieldFileSort {
+		display: none;
+	}
+}
+
+.Inputfield .InputfieldFileTags input {
+	margin-bottom: 0.5em;
+}
+
+ul.InputfieldFileListBlank + p.description {
+	margin-top: 0;
+}
+
+.InputfieldFileValidExtensions {
+	margin-left: 1em;
+}
+
+.Inputfields .InputfieldFileUpload {
+	position: relative;
+	margin: 1em 0 0 0;
+	
+	input[type=file] {
+		display: block;
+		margin: 0.25em 0;
+	}
+	img {
+		max-width: 100px;
+	}
+	.AjaxUploadDropHere {
+		display: none;
+		position: absolute;
+		top: 0;
+		right: 0;
+		opacity: 0.75;
+	}
+}
+
+.AjaxUpload {
+	.ui-progressbar-value {
+		padding: 0 !important;
+		span {
+			float: right;
+			margin: 3px 5px;
+		}
+	}
+}
+
+// element that surrounds the input[type=file] to make it appear as jQuery UI style button
+.InputfieldHasFileList .InputMask {
+	position: relative;
+	overflow: hidden;
+	line-height: 1 !important;
+	cursor: pointer;
+	font-size: 14px;
+	border: none;
+
+	i {
+		// in case the font-size above is different than an optimal FA size.
+		font-size: 14px;
+		margin: 0 3px 0 0;
+	}
+
+	&:hover {
+		cursor: pointer;
+	}
+
+	// this should be changed to whatever the active state styles are for a secondary button in the admin theme.
+	&:active {
+		box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2)
+	}
+
+	& > input[type=file] {
+		position: absolute;
+		top: 0;
+		left: 0;
+		height: 100%;
+		-ms-filter: "progid:DXImageTransform.Microsoft.Alpha(Opacity=0)";
+		filter: alpha(opacity=0);
+		opacity: 0;
+		// font-size: 1000px; // this prevents it from working
+		cursor: inherit;
+		width: 100%;
+	}
+}
+
+// multi-language -----------------------------------------------------------
+
+#content ul.InputfieldFileList li .langTabs > ul {
+	padding-left: 0;
+}
+
+.Inputfields .InputfieldFileList .langTabsContainer + .InputfieldFileTags {
+	display: block;
+	margin-top: 0.5em;
+}
+
+.Inputfield {
+	
+	ul.InputfieldFileList .hasLangTabs .InputfieldFileDescription,
+	.hasLangTabs .InputfieldFileDescription {
+		padding-top: 0.5em;
+	}
+	
+	.InputfieldFileDescription.LanguageSupport {
+		padding-left: 0;
+		padding-right: 0;
+		padding-top: 0.4em;
+	}
+}
+

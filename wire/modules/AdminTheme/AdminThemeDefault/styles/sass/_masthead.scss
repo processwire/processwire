@@ -1,0 +1,246 @@
+
+/***********************************************************************************************
+ * MASTHEAD
+ *
+ */
+
+#logo {
+	float: left; 
+	position: relative; 
+	left: -3px; 
+	margin-top: 0.75em; 
+	margin-bottom: 0.25em;
+
+	body.collapse-topnav & {
+		display: none; 
+	}
+}
+
+
+#masthead {
+	background: $masthead-bg; 
+	position: relative; 
+	min-height: 2.6em;
+
+	#topnav {
+		float: right; 
+		margin-top: 0.5em; 
+
+		> li {
+			padding: 0;
+			margin: 0;
+			list-style: none;
+			display: inline;
+
+			> a {
+				background: $topnav-link-bg; 
+				color: $topnav-link-color; 
+				display: block;
+				float: left; 
+				margin: 0 0 0 1px;
+				padding: 0.5em 1em; 
+				border-top-right-radius: $tabs-radius;
+				border-top-left-radius: $tabs-radius; 
+				font-weight: $tabs-font-weight;
+				height: $tabs-height; 
+
+				&.hover, &:hover {
+					background: $topnav-link-hover-bg;
+					color: $topnav-link-hover-color; 
+					text-decoration: none; 
+				}
+
+				&.on, &.on:hover {
+					color: $topnav-link-current-color;
+					background: $topnav-link-current-bg;
+					text-decoration: none; 
+				}	
+			}
+
+			&.collapse-topnav-menu {
+				/* menu that displays when the topnav is collapsed */
+				display: none; 
+			}
+
+			body.collapse-topnav & {
+				display: none; /* hide all menu items... */
+
+				&.collapse-topnav-menu { /* ...except for the ones with class .collapse-topnav-menu */
+					display: inline; 
+
+					> a {
+						@include border-radius(0); 
+
+						&.hover,
+						&:hover {
+							@include linear-gradient-vertical($masthead-bg, $topnav-link-hover-bg); 
+						}
+
+						> i {
+							/* move the hamburger up a bit */
+							position: relative;
+							top: -3px; 
+						}
+					}
+				}
+			}
+		}
+
+
+		ul.dropdown-menu {
+			display: none; 
+		}
+		
+	} /* #topnav */ 
+
+	#ProcessPageSearchForm {
+		float: right; 
+		margin: 0; 
+		margin-left: 1em;
+		margin-top: 0.62em; 
+		width: 15%; 
+		max-width: 200px; 
+		min-width: 90px; 
+
+		label {
+			opacity: 1.0;
+			color: lighten($masthead-bg, 20%); 
+		}
+
+		#ProcessPageSearchQuery {
+			margin: 0;
+			height: auto; 
+			width: 100%; 
+			background: transparent; 
+			border: 1px solid lighten($masthead-bg, 10%); 
+			color: lighten($masthead-bg, 15%); 
+			border-radius: $button-radius; 
+			outline: none; 
+
+			&:focus {
+				background: $text-bg; 
+				color: $text-color; 
+				text-transform: none; 
+				font-weight: $normal-weight;
+			}
+		}
+
+		#ProcessPageSearchStatus {
+			position: absolute;
+			top: 2px;
+			right: 10px; 
+			font-size: 0.875em; 
+			color: $light-text-color; 
+		}
+
+	} /* #ProcessPageSearchForm */
+
+} /* #masthead */
+
+#ProcessPageSearchAutocomplete.ui-autocomplete {
+	padding-right: 0;
+	max-height: 9999px;
+	height: auto; 
+	box-shadow: none; 
+
+}
+
+#breadcrumbs {
+	padding-top: 1em;
+	padding-bottom: 1em;
+	color: $breadcrumbs-color;
+	background: $breadcrumbs-bg; 
+	border-bottom: $breadcrumbs-border; 
+
+	ul {
+
+
+		li {
+			color: $breadcrumbs-color; 
+			display: inline-block;
+			padding: 0;
+			line-height: 1em;
+			white-space: nowrap;
+			padding-right: 0.5em;
+
+			&.title {
+				color: $breadcrumbs-title-color; 
+				font-weight: $bold-weight; 
+			}
+
+			a {
+				color: $breadcrumbs-link-color; 
+				margin-right: 0.5em; 
+
+				&:hover {
+					color: $breadcrumbs-link-hover-color; 
+					background: none; 
+					text-decoration: underline;
+				}
+
+				&.sitelink {
+					float: left; 	
+
+					.ui-icon {
+						float: left; 
+						position: relative;
+						top: -2px; 	
+					}
+				}
+			}
+		}
+	}
+
+	body.hasWireTabs & {
+		border-bottom: $tabs-height solid $breadcrumbs-bg; 
+	}
+}
+
+#head_button {
+	/* The main/primary button for a listing screen, appears in the masthead */
+	float: right; 
+	margin: 0;
+	position: relative;
+	top: -0.35em;
+
+	button {
+		font-size: 1.3em; 
+		margin-right: 0; 
+		margin-left: 10px; 
+		margin-top: 0;
+		float: right; 
+	}
+	button.pw-button-dropdown-toggle {
+		margin-left: 0;
+	}
+
+	body.modal & {
+		top: 0;
+	}
+}
+
+.pw-init #head_button {
+	display: none; 
+}
+
+.has-items-icon {
+	float: right;
+	position: relative;
+	top: 4px;
+}
+
+.pw-button-dropdown,
+.dropdown-menu-rounded, 
+.dropdown-menu-rounded ul,
+.dropdown-menu.shortcuts {
+	border-radius: 5px !important;
+	
+	li:first-child > a {
+		border-top-left-radius: 5px !important;
+		border-top-right-radius: 5px !important;
+	}
+	li:last-child > a {
+		border-bottom-left-radius: 5px !important;
+		border-bottom-right-radius: 5px !important; 
+	}
+}

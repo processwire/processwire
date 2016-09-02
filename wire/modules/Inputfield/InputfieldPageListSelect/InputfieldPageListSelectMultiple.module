@@ -1,0 +1,118 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page List Select Multiple Inputfield module
+ *
+ * A Page List Selector for selecting multiple pages
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class InputfieldPageListSelectMultiple extends Inputfield implements InputfieldHasArrayValue, InputfieldPageListSelection {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Page List Select Multiple', __FILE__), // Module Title
+			'summary' => __('Selection of multiple pages from a ProcessWire page tree list', __FILE__), // Module Summary
+			'version' => 102,
+			'permanent' => true, 
+			);
+	}
+
+	public function init() {
+		parent::init();
+		
+		$this->set('parent_id', 0); 
+		$this->set('labelFieldName', 'title');
+		$this->set('startLabel', $this->_('Add'));
+		$this->set('cancelLabel', $this->_('Cancel'));
+		$this->set('selectLabel', $this->_('Select'));
+		$this->set('unselectLabel', $this->_('Unselect'));
+		$this->set('moreLabel', $this->_('More'));
+		$this->set('removeLabel', $this->_('Remove'));
+	}
+
+	protected function renderListItem($label, $value, $class = '') {
+		if($class) $class = " $class";
+		$out = 	
+			"\n<li class='ui-state-default$class'>" . 
+			// "<span class='ui-icon ui-icon-arrowthick-2-n-s'></span>" . 
+			"<i class='itemSort fa fa-sort'></i> " . 
+			"<span class='itemValue'>$value</span>" .
+			"<span class='itemLabel'>$label</span> " . 
+			"<a class='itemRemove' title='$this->removeLabel' href='#'><i class='fa fa-trash'></i></a>" . 
+			"</li>";
+		return $out; 
+	}
+
+	public function ___render() {
+		static $process = null;
+		/** @var ProcessPageList $process */
+		if(is_null($process)) $process = $this->wire('modules')->get('ProcessPageList'); // prerequisite modules
+		$process->setPageLabelField($this->attr('name'), $this->labelFieldName);
+
+		if(!strlen($this->parent_id)) {
+			return "<p class='error'>" . $this->_('Unable to render this field due to missing parent page in field settings.') . '</p>';
+		}
+
+		$out = "\n<ol id='{$this->id}_items'>" . $this->renderListItem("Label", "1", "itemTemplate"); 
+
+		foreach($this->value as $page_id) {
+			$page = $this->pages->get((int) $page_id); 
+			if(!$page || !$page->id) continue; 
+			$label = $page->getText($this->labelFieldName, true, true);
+			if(!strlen($label)) $label = $page->name;
+			$out .= $this->renderListItem($label, $page->id); 
+		}
+		
+		$out .= "\n</ol>";
+
+		$this->addClass('InputfieldPageListSelectMultipleData');
+		$attrs = $this->getAttributes();
+		unset($attrs['value']);
+		
+		$attrs['data-root'] = $this->parent_id; // rootPageID
+		$attrs['data-href'] = "#wrap_{$this->id}"; // selectSelectHref
+		$attrs['data-start'] = $this->startLabel; // selectStartLabel
+		$attrs['data-cancel'] = $this->cancelLabel; // selectCancelLabel
+		$attrs['data-select'] = $this->selectLabel; // selectSelectLabel
+		$attrs['data-unselect'] = $this->unselectLabel; // selectUnselectLabel
+		$attrs['data-more'] = $this->moreLabel; // moreLabel
+		$attrs['data-labelName'] = $this->attr('name');
+	
+		$attrStr = $this->getAttributesString($attrs);
+		$attrStr = "value='" . implode(',', $this->value) . "' $attrStr";
+		$out .=	"\n<input type='text' $attrStr />";
+
+		return $out; 
+	}
+
+	/**
+	 * Convert the CSV string provide in the $input to an array of ints needed for this fieldtype
+	 *
+	 */
+	public function ___processInput(WireInputData $input) {
+
+		parent::___processInput($input); 
+
+		$value = $this->attr('value');	
+		if(is_array($value)) $value = reset($value); 
+		$value = trim($value); 
+
+		if(strpos($value, ",") !== false) $value = explode(",", $value); 
+			else if($value) $value = array($value);
+			else $value = array();
+
+		foreach($value as $k => $v) {
+			$value[$k] = (int) $v; 
+		}
+
+		$this->attr('value', $value); 
+
+		return $this; 
+	}
+	
+}

@@ -1,0 +1,31 @@
+{
+   "file":"wire\/modules\/Inputfield\/InputfieldEmail.module",
+   "textdomain":"wire--modules--inputfield--inputfieldemail-module",
+   "translations":{
+      "16f09bacbf690906417db0a60cda359c":{
+         "text":"Bitte geben Sie eine g\u00fcltige E-Mail-Adresse ein"
+      },
+      "3918809b01dd88b1c1c892aec102512b":{
+         "text":"E-Mail-Adresse in g\u00fcltigem Format"
+      },
+      "082e55a73f10496681c84231dc1c88f7":{
+         "text":"E-Mail-Adresse"
+      },
+      "ce8ae9da5b7cd6c3df2929543a9af92d":{
+         "text":"E-Mail"
+      },
+      "70d9be9b139893aa6c69b5e77e614311":{
+         "text":"Best\u00e4tigen"
+      },
+      "729be41e3a896b691a703fda562f4c98":{
+         "text":"Die eingegebene E-Mail ist nicht korrekt, bitte erneut eingeben"
+      },
+      "afce6fcb2d736e43b0bf509e385d477a":{
+         "text":"E-Mail-Adresse best\u00e4tigen?"
+      },
+      "f98e5e5fd93bc01f60e2a0a30c90618a":{
+         "text":"Wenn markiert, erscheinen zwei Eingabefelder. Der Nutzer muss dann die E-Mail-Adresse zur Best\u00e4tigung zwei Mal eingeben."
+      }
+   }
+}
+

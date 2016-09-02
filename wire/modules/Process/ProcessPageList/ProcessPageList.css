@@ -1,0 +1,329 @@
+
+/********************************************************************************************************
+ * PageList
+ *
+ ********************************************************************************************************/
+
+/**
+ * Disable any inherited borders
+ *
+ */
+.PageList a {
+	border: none !important; 
+}
+
+/**
+ * When in Select mode, set off the header from the list and anything above it with a margin
+ *
+ */
+.PageListSelectHeader {
+	margin: 0; 
+}
+
+.PageListSelectHeader .PageListSelectName {
+	display: inline; 
+	padding-right: 0.25em; 
+}
+.PageListSelectHeader .PageListSelectName:empty {
+	display: none; 
+}
+
+.PageListRoot > .PageList {
+	margin-top: 0.5em; 
+}
+
+/**
+ * Indentation for PageLists
+ *
+ */
+.PageList .PageList {
+	margin: 0 0 0 2em;
+}
+
+/**
+ * If the root PageList is hidden (like on the 'children' tab in PageEdit) then don't give it any indent
+ *
+ */
+.PageListRootHidden > .PageList {
+	margin-left: 0; 
+}
+
+/**
+ * An individual list item in the pageList
+ *
+ * We use padding rather than line height so that PageListPlaceholderItem instances can be inserted
+ * without changing the visual line height
+ *
+ */
+.PageListItem {
+	padding-top: 3px; 
+	padding-bottom: 3px; 
+	line-height: 1em; 
+}
+.PageListItem > a span + span:before {
+	content: ', ';
+}
+
+/**
+ * Style for the children label and notes
+ *
+ */
+.PageList .PageListNumChildren,
+.PageListItemOpen span.PageListNote,
+.PageListSorting .PageListSortItem span.PageListMoveNote {
+	font-size: 0.9166em; 
+	padding-left: 0.25em; 
+}
+
+.PageList i.icon,
+.PageList i.fa, 
+.PageList .PageListStatusIcon {
+	font-size: 14px; 
+}
+.PageList i.icon {
+	display: inline-block;
+	/*
+	width: 18px;
+	*/
+}
+.PageList .PageListStatusIcon {
+	margin-left: 4px; 
+}
+.PageList i.fa + span {
+	margin-left: 2px; 
+}
+
+
+
+.PageList .PageListID7 a.PageListPage,
+.PageList .PageListID7 a.PageListPage:hover,
+.PageList .PageListID7 + .PageList a.PageListPage,
+.PageList .PageListID7 + .PageList a.PageListPage:hover {
+	/* don't show icon on trash page to avoid confusion */
+	padding-right: 0;
+	background: none; 
+}
+
+.PageList .PageListStatusUnpublished a.PageListPage > span, 
+.PageList .PageListStatusUnpublished a.PageListPage {
+	text-decoration: line-through; 
+}
+
+.PageList .PageListStatusHidden a.PageListPage {
+	/* alternate color when page has a 'hidden' status? */
+}
+
+
+/**
+ * When a page is open, give it a slight yellow background color to highlight the fact
+ *
+.PageList .PageListItemOpen > a.PageListPage {
+	background-color: #ffffdd; 
+}
+ */
+
+/**
+ * If a page list note is present, it should be hidden until item is open
+ *
+ */
+.PageListItem span.PageListNote {
+	display: none; 
+}
+
+/**
+ * Display note when item is open
+ *
+ */
+.PageListItemOpen span.PageListNote {
+	display: inline; 
+}
+
+
+
+/********************************************************************************************************
+ * PageListActions
+ *
+ ********************************************************************************************************/
+
+/** 
+ * Default style for the UL actions list
+ *
+ */
+.PageList .PageListItem .PageListActions {
+	display: none; 
+	margin: 0;
+	padding-left: 0.25em; 
+}
+
+/**
+ * Default style for the items in the actions list
+ *
+ */
+.PageListActions li {
+	display: inline !important;
+	border-left: 1px solid #bbb;
+	padding: 0 1px;
+	/*text-transform: lowercase;*/
+}
+
+/**
+ * Default style for links in actions list
+ *
+ */
+.PageListActions li a {
+	padding: 1px 3px 1px 3px;
+}
+
+/**
+ * When an item is open, this style ensures that the PageListActions become visible
+ *
+ */
+.PageListRoot .PageList .PageListItemOpen > ul.PageListActions {
+	display: inline;
+}
+
+.PageListUseHoverActions .PageList .PageListItemOpen > ul.PageListActions {
+	display: none;
+}
+.PageListSelectHeader .PageListActions {
+	display: inline !important;
+}
+
+/**
+ * Specific to ul.actions for actions that appear at end of list, i.e. More action
+ *
+ */
+.PageListItem + .PageListActions {
+	margin: 0 !important; 
+}
+
+#PageListContainer.PageListContainerPage .PageListActionTrash {
+	/* trash not applicable when page list doesn't start from root */
+	display: none;
+}
+
+/********************************************************************************************************
+ * PageListPagination
+ *
+ ********************************************************************************************************/
+
+.PageListPagination {
+	font-size: 0.9166em; 
+	margin: 0.25em 0 !important;
+}
+
+.PageListPagination li {
+	display: inline;
+	margin: 0 0.25em; 
+}
+
+.PageListPagination li a {
+	padding: 0.1em 0.5em;
+}
+
+.PageListPagination li a:hover,
+.PageListPagination li.PageListPaginationCurrent a {
+}
+
+
+/********************************************************************************************************
+ * PageListSort
+ *
+ ********************************************************************************************************/
+
+/**
+ * When sorting/moving, highlight the page name in yellow
+ *
+ */
+.PageListSortItem > a.PageListPage {
+	background-color: #ffffaa; 
+	cursor: move; 
+}
+
+/**
+ * Don't display actions on any pages when sorting, and don't display numChildren on page being moved
+ *
+ */
+.PageListSorting .PageList .PageListItem ul.actions,
+.PageList .PageListSortItem span.PageListNumChildren {
+	display: none !important; 
+}
+
+/**
+ * Remove the text underline when sorting
+ *
+ */
+.PageListSorting .PageListItem a.PageListPage {
+	text-decoration: none;
+}
+
+/**
+ * An invisible placeholder that is automatically inserted above and below open items
+ * 
+ * This allows for child items where children don't already exist 
+ *
+ */
+.PageListPlaceholder .PageListPlaceholderItem {
+	/*background: #eee; */
+	height: 6px; /* see .PageListItem */ 
+	margin: 0; 
+	padding: 0; 
+}
+
+/** 
+ * Prevents a 6px gap from appearing below a open item 
+ *
+ */
+.PageListPlaceholder + .PageListItem,
+.PageListPlaceholder + .PageList {
+	margin-top: -6px !important; 
+}
+
+/**
+ * Last item in a list before it retreats to the parent list, prevents a visual margin below it. 
+ *
+ */
+.PageListPlaceholder:last-child {
+	margin-bottom: -6px; 
+}
+
+
+/** 
+ * The hover placeholder that appears in potential targets as you are sorting/moving a PageListItem
+ *
+ */
+.PageListSortPlaceholder {
+	background-color: #ffffcc; 
+	height: 1em; 
+	width: auto; 
+	border-left: 2px solid #999; 
+}
+
+.PageListActionExtras i.fa {
+	margin-left: 3px;
+	margin-right: 2px;
+}
+.PageListActionExtras i.fa-flip-horizontal {
+	margin-left: 2px;
+	margin-right: 3px;
+}
+
+
+/********************************************************************************************************
+ * PageListXHTML
+ * The following are for the non-javascript / XHTML version of PageList
+ *
+ ********************************************************************************************************/
+
+.PageListXHTML .PageList .PageListItem {
+	margin: 0; 
+	padding: 0;
+}
+
+.PageListXHTML .PageList .PageListItem ul.actions {
+	display: inline; 
+}
+
+.PageListXHTML .PageList .PageListItem ul.actions .PageListActionMove {
+	display: none; 
+}

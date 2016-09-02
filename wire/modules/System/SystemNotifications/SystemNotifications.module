@@ -1,0 +1,804 @@
+<?php namespace ProcessWire;
+
+/**
+ * System Notifications for ProcessWire
+ *
+ * By Avoine and Ryan Cramer
+ * 
+ * @property int $disabled Notification status (0=off, 1=on)
+ * @property int $reverse Notification order (0=newest to oldest, 1=oldest to newest)
+ * @property int $placement
+ * @property array $activeHooks Active automatic notification hooks (0=404s, 1=logins, 2=logouts)
+ * @property int|bool $trackEdits Whether or not to track page edits
+ * @property string $systemUserName Name of user that receives system notifications
+ * @property int $systemUserID ID of user that receives system notifications
+ * @property int $updateDelay Time between updates in ms (default=5000)
+ * @property string $iconMessage default icon for message notifications
+ * @property string $iconWarning default icon for warning notifications
+ * @property string $iconError default icon for error notifications
+ * @property string $iconProgress icon for any item that has an active progress bar
+ * @property string $iconDebug default icon for debug-mode notification
+ * @property int $ghostDelay how long a ghost appears on screen (in ms)
+ * @property int $ghostDelayError how long an error ghost appears on screen (in ms)
+ * @property int $ghostFadeSpeed speed at which ghosts fade in or out, or blank for no fade
+ * @property int $ghostOpacity full opacity of ghost (when fully faded in) 
+ * @property int $ghostPos ghost position: 1=left, 2=right
+ * @property int $ghostLimit only show 1 summary ghost if there are more than this number
+ * @property string $dateFormat date format to use in notifications (anything compatible with wireDate() function)
+ *
+ */
+class SystemNotifications extends WireData implements Module {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'System Notifications',
+			'version' => 12,
+			'summary' => 'Adds support for notifications in ProcessWire (currently in development)',
+			'autoload' => true, 
+			'installs' => 'FieldtypeNotifications', 
+			'icon' => 'bell', 
+			);
+	}
+	
+	const fieldName = 'notifications';
+
+
+	/**
+	 * System hooks that may be configured as active in this module
+	 *
+	 * Each consists of: before|after hookToClass::hooktoMethod myHookMethod
+	 *
+	 */
+	protected $systemHooks = array(
+		0 => 'after ProcessPageView::pageNotFound hook404', 
+		1 => 'after Session::login hookLogin', 
+		2 => 'after Session::logoutSuccess hookLogout', 
+		);
+
+	/**
+	 * Construction SystemNotifications
+	 * 
+	 */
+	public function __construct() {
+		$path = dirname(__FILE__) . '/';
+		require_once($path . "Notification.php"); 
+		require_once($path . "NotificationArray.php");
+		require_once($path . "SystemNotificationsConfig.php"); 
+	
+		// hook method to access notifications, in case field name ever needs to change for some reason
+		$this->addHook('User::notifications', $this, 'hookUserNotifications'); 
+	}
+
+	/**
+	 * API init: attach hooks
+	 * 
+	 */
+	public function init() {
+	
+		if($this->disabled) return;
+		if($this->activeHooks) foreach($this->activeHooks as $id) {
+			if(!isset($this->systemHooks[$id])) continue;
+			list($when, $hook, $method) = explode(' ', $this->systemHooks[$id]); 
+			if($when == 'before') {
+				$this->addHookBefore($hook, $this, $method); 
+			} else {
+				$this->addHookAfter($hook, $this, $method); 
+			}
+		}
+	}
+	
+	/**
+	 * API ready
+	 * 
+	 */
+	public function ready() {
+
+		if($this->disabled) return;
+		
+		$page = $this->wire('page'); 
+		$config = $this->wire('config'); 
+		$user = $this->wire('user');
+
+		if(!$user->isLoggedin()) return;
+		$this->testProgressNotification();
+
+		if($this->wire('config')->ajax) {
+			$adminPage = $this->wire('pages')->get($config->adminRootPageID); 
+			if($page->parents()->has($adminPage)) {
+				$ajaxAction = $this->wire('input')->get('Notifications'); 
+				if($ajaxAction) $this->ajaxAction($ajaxAction, $user->get(self::fieldName), $user); 
+			}
+		}
+
+		if($page->template == 'admin' && !$this->wire('input')->get('modal')) {
+			$this->addHookAfter('AdminTheme::getExtraMarkup', $this, 'hookAdminThemeGetExtraMarkup'); 
+		}
+		
+	}
+	
+	/**
+	 * Test out the progress bar notification
+	 * 
+	 */
+	protected function testProgressNotification() {
+		
+		$session = $this->wire('session');
+		$notifications = $this->wire('user')->notifications();
+
+		if($this->wire('input')->get('test_progress')) {
+			// start new progress bar notification
+			
+			$notification = $this->wire('user')->notifications()->message('Testing progress bar notification');
+			$notification->progress = 0; 
+			$notification->flag('annoy');
+			$value = $session->get($this, 'test_progress'); 
+			if(!is_array($value)) $value = array();
+			$id = $notification->getID();
+			$value[$id] = $id; 
+			$session->set($this, 'test_progress', $value);
+			$notifications->save();
+
+		} else if(($value = $session->get($this, 'test_progress')) && count($value)) {
+			// updating existing progress bar notification(s)
+			
+			foreach($value as $id) { 
+				$notification = $notifications->get($id);
+				if(!$notification) continue; 
+				
+				$notification->progress += 10;
+				if($notification->progress < 100) {
+					$notification->html = "<p>$notification->progress%</p>";
+					continue;
+				}
+				
+				unset($value[$id]); 
+				$notification->title = "Your download is now complete!";
+				$notification->flag('open'); 
+				$notification->flag('email'); 
+				$notification->html = 
+					"<p>This is just an example for demo purposes and the button below doesn't actually do anything.<br />" . 
+					"<button class='ui-button'><strong class='ui-button-text'>Download</strong></button></p>";
+			}
+		
+			$session->set($this, 'test_progress', $value);
+			$notifications->save();
+		}
+	}
+
+
+	/**
+	 * Convert Notification object to array
+	 * 
+	 * @param Notification $notification
+	 * @return array
+	 * 
+	 */
+	protected function notificationToArray(Notification $notification) {
+
+		$html = $notification->html;
+		if(!$html && $notification->text) $html = "<p>" . $this->sanitizer->entities($notification->text) . "</p>";
+
+		$a = array(
+			'id' => $notification->getID(), 
+			'title' => $notification->title, 
+			'from' => $notification->from, 
+			'created' => $notification->created, 
+			'modified' => $notification->modified, 
+			'when' => wireDate($this->dateFormat, $notification->modified),
+			'href' => $notification->href, 
+			'icon' => $notification->icon, 
+			'flags' => $notification->flags, 
+			'flagNames' => implode(' ', $notification->flagNames), 
+			'progress' => $notification->progress, 
+			'html' => $html, 
+			'qty' => $notification->qty, 
+			'expires' => $notification->expires, 
+			);
+		
+		if($a['progress'] > 0 && $a['progress'] < 100) {
+			$a['icon'] = $this->iconProgress; 
+		}
+
+		if(empty($a['icon'])) {
+			if($notification->is("error")) $a['icon'] = $this->iconError;
+				else if($notification->is("warning")) $a['icon'] = $this->iconWarning;
+				else $a['icon'] = $this->iconMessage;
+		}
+
+		return $a; 
+	}
+
+	/**
+	 * Process an ajax action request
+	 * 
+	 * @param $action
+	 * @param NotificationArray $notifications
+	 * @param Page $page
+	 * 
+	 */
+	protected function ajaxAction($action, NotificationArray $notifications, Page $page) {
+
+		$data = array();
+		$qty = 0;
+		$qtyNew = 0;
+		$qtyMessage = 0;
+		$qtyWarning = 0;
+		$qtyError = 0;
+		$time = (int) $this->wire('input')->get('time'); 
+		$rm = $this->wire('input')->get('rm'); 
+		$rm = $rm ? explode(',', $rm) : array();
+		
+		if($this->trackEdits) {
+			$processKey = $this->wire('input')->get('processKey');
+			$this->updateProcessKey($processKey);
+		}
+
+		foreach($notifications->sort('-modified') as $notification) {
+			/** @var Notification $notification */
+			$qty++;
+			$a = $this->notificationToArray($notification); 
+
+			if(in_array($a['id'], $rm)) {
+				$qty--;
+				$notifications->remove($notification); 
+				continue; 
+			}
+
+			if($time && $notification->modified < $time) {
+				continue;
+			}
+			
+			if($notification->is('shown')) {
+				continue;
+			} else {
+				$notification->setFlag('shown');
+				$qtyNew++;
+			}
+
+			if($notification->flags & Notification::flagError) $qtyError++;
+				else if($notification->flags & Notification::flagWarning) $qtyWarning++;
+				else $qtyMessage++;
+			
+			$data[] = $a; 
+		}
+
+		if(count($rm) || $qtyNew) {
+			$this->wire('pages')->saveField($page, 'notifications', array('quiet' => true));
+		}
+		
+		if($action == 'update') {
+			
+			$data = array(
+				'notifications' => $data, // new notifications only
+				'qty' => $qty, // total notifications (new or not)
+				'qtyNew' => $qtyNew, // quantity of new notifications, not yet shown
+				'qtyMessage' => $qtyMessage,
+				'qtyWarning' => $qtyWarning,
+				'qtyError' => $qtyError,
+				'time' => time(), // time this info was generated
+				); 
+		}
+
+		header("Content-type: application/json"); 
+		echo json_encode($data); 
+		exit; 
+	}
+
+	/**
+	 * Adds markup to admin theme output to initialize notifications
+	 * 
+	 * @param $event
+	 * 
+	 */
+	public function hookAdminThemeGetExtraMarkup($event) {
+
+		$config = $this->wire('config'); 
+		$url = $config->urls->SystemNotifications . 'Notifications'; 
+		$info = self::getModuleInfo();
+		$config->styles->add("$url.css?v=$info[version]"); 
+		$jsfile = $config->debug ? "$url.js" : "$url.min.js";
+		$config->scripts->add("$jsfile?v=$info[version]"); 
+		$qty = count($this->wire('user')->get(self::fieldName)); 
+		$ghostLimit = $this->ghostLimit ? $this->ghostLimit : 20; 
+
+		$properties = array(
+			// configured property names
+			'updateDelay',
+			'iconMessage',
+			'iconWarning',
+			'iconError', 
+			'ghostZindex',	
+			'ghostDelay',
+			'ghostDelayError',
+			'ghostFadeSpeed',
+			'ghostOpacity',
+			'reverse', 
+			);
+		
+		$options = array(
+			// runtime property names
+			'version' => $info['version'], 
+			'updateLast' => time(),
+			);
+
+		foreach($properties as $key) {
+			$options[$key] = $this->get($key); 
+		}
+		$options['reverse'] = (bool) ((int) $options['reverse']); 
+	
+		$textdomain = '/wire/core/Functions.php'; 
+		$options['i18n'] = array(
+			'sec' => __('sec', $textdomain),
+			'secs' => __('secs', $textdomain),
+			'min' => __('min', $textdomain),
+			'mins' => __('mins', $textdomain), 
+			'hour' => __('hour', $textdomain),
+			'hours' => __('hours', $textdomain), 
+			'day' => __('day', $textdomain),
+			'days' => __('days', $textdomain), 
+			'expires' => $this->_('expires'), 
+			'now' => __('now', $textdomain), 
+			'fromNow' => __('from now', $textdomain), 
+			'ago' => __('ago', $textdomain), 
+		);
+
+		if($this->trackEdits) {
+			$processKey = $this->makeProcessKey();
+			if(!empty($processKey)) $options['processKey'] = $processKey;
+		}
+		
+		$ghostClass = $this->ghostPos == 2 ? "NotificationGhostsRight" : "NotificationGhostsLeft";
+		
+		$out = 	
+			"<div id='NotificationMenu' class='NotificationMenu'>" . 
+			"<ul id='NotificationList' class='NotificationList'></ul>" . 
+			"</div>" . 
+			"<ul id='NotificationGhosts' class='NotificationGhosts $ghostClass'></ul>" . 
+			"<script>Notifications.init(" . json_encode($options) . "); ";
+		
+		$notices = $this->wire('notices'); 
+		$notifications = array();
+		$numSave = 0; // number of notifications that need to be saved after being shown
+
+		// convert runtime Notices to Notifications and bundle into array
+		if($this->placement == SystemNotificationsConfig::placementCombined) {
+			foreach($notices as $notice) {
+				$notification = $this->noticeToNotification($notice);
+				if(!$notification) continue;
+				$sort = time() + 2592000;
+				while(isset($notifications[$sort])) $sort++;
+				$notifications[$sort] = $notification;
+			}
+		}
+		
+		// bundle user notifications into the same array
+		foreach($this->wire('user')->notifications as $notification) {
+			if($notification->is('shown')) {
+				$notification->setFlag('no-ghost');
+			} else {
+				$notification->setFlag('shown');
+				$numSave++;
+			}
+			$sort = ((int) $notification->modified) + ((int) $notification->sort);
+			while(isset($notifications[$sort])) $sort++;
+			$notifications[$sort] = $notification;
+		}
+	
+		if($this->reverse) {
+			ksort($notifications);
+		} else {
+			krsort($notifications);
+		}
+		
+		$numMessages = 0;
+		$numWarnings = 0;
+		$numErrors = 0;
+		$noGhost = count($notifications) > $ghostLimit; 
+
+		foreach($notifications as $notification) {
+			if($noGhost) $notification->setFlag("no-ghost"); 
+			$notificationJS = json_encode($this->notificationToArray($notification)); 
+			$out .= "\nNotifications.add($notificationJS); ";
+			if($notification->is("message")) $numMessages++;
+				else if($notification->is("warning")) $numWarnings++;
+				else if($notification->is("error")) $numErrors++;
+			if($noGhost) $notification->removeFlag("no-ghost"); // restore in case saved to DB
+			$notification->setFlag('shown'); 
+		}
+		
+		if($noGhost) {
+			$ghostTypes = array(
+				"message" => $numMessages, 
+				"warning" => $numWarnings, 
+				"error" => $numErrors
+			);
+			foreach($ghostTypes as $type => $qty) {
+				if(!$qty) continue; 
+				if($type == 'message') $title = sprintf($this->_n('%d new message', '%d new messages', $qty), $qty);
+					else if($type == 'warning') $title = sprintf($this->_n('%d new warning', '%d new warnings', $qty), $qty);
+					else if($type == 'error') $title = sprintf($this->_n('%d new error', '%d new errors', $qty), $qty); 
+				$icon = $this->get("icon" . ucfirst($type)); 
+				$out .= 'Notifications._ghost({"id":"","title":"' . $title . '","icon":"' . $icon . '","flagNames":"' . $type . ' notice"});';
+			}
+		}
+		
+		if($numSave) {
+			// updates shown flag so notification doesn't pop up another ghost
+			$this->wire('user')->notifications->save();
+		}
+
+		if($this->placement == SystemNotificationsConfig::placementCombined) {
+			$out .= "$('#notices').remove(); "; // in case admin theme still has #notices
+		}
+		$out .= 
+			"$(document).ready(function() { Notifications.render(); });" . 
+			"</script>";
+
+		$extras = $event->return;
+		$extras['body'] .= $out;
+		$extras['masthead'] .= 
+			"<div id='NotificationBug' class='NotificationBug qty$qty' data-qty='$qty'>" . 
+			"<span class='qty fa fa-fw'>$qty</span>" . 
+			"<i class='NotificationSpinner fa fa-fw fa-spin fa-spinner'></i>" . 
+			"</div>";
+
+		
+		$adminTheme = $this->wire('adminTheme'); 
+		if($adminTheme) $adminTheme->addBodyClass('NotificationPlacement' . (int) $this->placement); 
+
+		$event->return = $extras; 
+	}
+	
+	/**
+	 * Convert ProcessWire runtime "Notice" objects to runtime Notification objects
+	 * 
+	 * @param Notice $notice
+	 * @return Notification|bool Returns Notification or boolean false on error
+	 *
+	 */
+	protected function noticeToNotification(Notice $notice) {
+
+		if($notice instanceof NoticeWarning || ($notice->flags & Notice::warning)) $type = 'warning';
+			else if($notice instanceof NoticeError) $type = 'error';
+			else $type = 'message';
+
+		$notifications = $this->wire('user')->notifications();
+		if(!$notifications) return false;
+		
+		$notification = $notifications->getNew($type, false);
+		if(!$notification) return false;
+		
+		$notification->setFlag('notice', true); 
+		
+		if($notice->flags & Notice::allowMarkup) $notification->setFlag('markup', true); 
+		if($notice->flags & Notice::log) $notification->setFlag('log', true);
+		if($notice->flags & Notice::logOnly) $notification->setFlag('log-only', true); 
+		if($notice->flags & Notice::debug) {
+			$notification->setFlag('debug', true); 
+			$notification->icon = $this->iconDebug; 
+		}
+		if($notice->class) $notification->from = $notice->class; 
+		if($notice->timestamp) $notification->created = $notice->timestamp;
+		
+		$title = strip_tags((string) $notice);
+
+		if(strlen($title) > 100) {
+
+			$title = substr($title, 0, 100); 
+			$title = substr($title, 0, strrpos($title, ' ')) . '...'; 
+			$notification->title = $title;
+
+			if($notice->flags & Notice::allowMarkup) {
+				$notification->html = (string) $notice; 
+			} else {
+				$notification->text = (string) $notice; 
+			}
+			
+		} else if($notice->flags & Notice::allowMarkup) {
+			$notification->title = $notice->text;
+			
+		} else {
+			$notification->title = $title; 
+		}
+
+		return $notification;
+	}
+
+	/**
+	 * Adds automatic notification for every 404
+	 *
+	 */
+	public function hook404(HookEvent $event) {
+
+		$page = $event->arguments(0);	
+		$url = $event->arguments(1); 
+		$user = $this->getSystemUser();
+		if(!$user->id) return;
+		
+		if(isset($_SERVER['HTTP_REFERER'])) {
+			$referer = $this->wire('sanitizer')->entities($this->wire('sanitizer')->text($_SERVER['HTTP_REFERER']));
+		} else {
+			$referer = '';
+		}
+		if(isset($_SERVER['HTTP_USER_AGENT'])) { 
+			$useragent = $this->wire('sanitizer')->entities($this->wire('sanitizer')->text($_SERVER['HTTP_USER_AGENT']));
+		} else {
+			$useragent = '';
+		}
+		if(empty($referer)) $referer = "unknown";
+		if(empty($useragent)) $useragent = "unknown";
+		
+		$notifications = $user->notifications();
+		$notification = $notifications->warning(sprintf($this->_('404 occurred: %s'), $url)); 
+		$notification->expires = 30; 
+		$notification->html = 
+			"<p>" . 
+			"<b>Referer:</b> $referer<br />" .
+			"<b>Useragent:</b> $useragent<br />" . 
+			"<b>IP:</b> " . $this->wire('session')->getIP() . "<br />" . 
+			"<b>Page:</b> " . ($page->id ? $page->url : 'Unknown') . "<br />" .
+			"<b>User:</b> " . $this->user->name . 
+			"</p>";	
+		
+		$notifications->save();
+	}
+
+	/**
+	 * Creates a notifications() method with the user
+	 *
+	 */
+	public function hookUserNotifications(HookEvent $event) {
+		$user = $event->object;
+		$notifications = $user->get(self::fieldName); 
+		if(!$notifications) {
+			$this->install();
+			$notifications = $user->get(self::fieldName); 
+		}
+		$event->return = $notifications;
+	}
+
+	/**
+	 * Automatic notification for logins
+	 *
+	 */
+	public function hookLogin(HookEvent $event) {
+		$user = $this->getSystemUser();
+		if(!$user->id) return;
+		$notifications = $user->notifications();
+
+		$loginUser = $event->return;
+		$loginName = $event->arguments(0); 
+
+		if($loginUser && $loginUser->id) {
+			$notification = $notifications->message(sprintf($this->_('User logged in: %s'), $loginName));
+		} else {
+			$notification = $notifications->error(sprintf($this->_('Login failure: %s'), $loginName));
+		}
+		
+		$useragent = $this->wire('sanitizer')->entities($this->wire('sanitizer')->text($_SERVER['HTTP_USER_AGENT']));
+		
+		$notification->html = 
+			"<p>" . 
+			"<b>Useragent:</b> $useragent<br />" . 
+			"<b>Time:</b> " . date('Y-m-d H:i:s') . "<br />" . 
+			"<b>IP:</b> " . $this->wire('session')->getIP() . 
+			"</p>";
+
+		$notifications->save();
+	}
+
+	/**
+	 * Automatic notification for logouts
+	 * 
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookLogout(HookEvent $event) {
+		$user = $this->getSystemUser();
+		if(!$user->id) return;
+		$logoutUser = $event->arguments(0);
+		$notifications = $user->notifications(); 
+		$notifications->message(sprintf($this->_('User logged out: %s'), $logoutUser->name));
+		$notifications->save();
+	}
+
+	/**
+	 * Return the user that receives system notifications
+	 * 
+	 * @return null
+	 * 
+	 */
+	public function getSystemUser() {
+		$user = null;
+		if($this->systemUserName) $user = $this->wire('users')->get($this->systemUserName); 
+		if(!$user || !$user->id) $user = $this->wire('users')->get($this->systemUserID); 
+		if(!$user->id) {
+			$role = $this->wire('roles')->get('superuser'); 
+			$user = $this->wire('users')->get("roles=$role, sort=-created, include=all");
+		}
+		return $user; 
+	}
+	
+	/**
+	 * Install notifications
+	 *
+	 */
+	public function ___install() {
+		$fieldtype = $this->modules->get('FieldtypeNotifications'); 
+		$field = $this->wire('fields')->get(self::fieldName); 	
+		if($field && !$field->type instanceof FieldtypeNotifications) {
+			throw new WireException("There is already a field named '" . self::fieldName . "'"); 
+		}
+		if(!$field) {
+			$field = $this->wire(new Field());
+			$field->name = self::fieldName;
+			$field->label = 'Notifications';
+			$field->type = $fieldtype; 
+			$field->collapsed = Inputfield::collapsedBlank;
+			$field->flags = Field::flagSystem | Field::flagPermanent;
+			$field->save();
+		}
+		$fieldgroup = $this->wire('fieldgroups')->get('user'); 
+		if(!$fieldgroup->hasField($field)) {
+			$fieldgroup->add($field); 
+			$fieldgroup->save();
+		}
+
+		// make this field one that the user is allowed to configure in their profile
+		// $data = $this->wire('modules')->getModuleConfigData('ProcessProfile'); 
+		// $data['profileFields'][] = 'notifications';
+		// $this->wire('modules')->saveModuleConfigData('ProcessProfile', $data); 
+
+		$notifications = $this->wire('user')->get(self::fieldName); 
+		if($notifications) {
+			$notifications->message('Hello World')->text('Thank you for installing the Notifications module. This is your first notification!');
+			$notifications->save();
+		}
+	}
+
+	/**
+	 * Uninstall notifications
+	 * 
+	 */
+	public function ___uninstall() {
+		$fieldgroup = $this->wire('fieldgroups')->get('user'); 
+		$field = $this->wire('fields')->get(self::fieldName); 
+
+		if($field) {
+			$field->flags = Field::flagSystemOverride;
+			$field->flags = 0; 
+			if($fieldgroup->hasField($field)) {
+				$fieldgroup->remove($field); 
+				$fieldgroup->save();
+			}
+			$this->wire('fields')->delete($field); 
+		}
+
+		if($this->wire('modules')->isInstalled('FieldtypeNotifications')) {
+			$this->wire('modules')->uninstall('FieldtypeNotifications'); 
+		}
+	}
+
+	/**
+	 * Update the current processKey and its time in the cache
+	 * 
+	 * This method is called only during ajax requests. 
+	 * 
+	 * @param string $processKey 
+	 * 
+	 */
+	protected function updateProcessKey($processKey) {
+		// NPK.ProcessPageEdit.pageID.userID.windowID
+		if(!preg_match('/^NPK\.[A-Za-z]+\.\d+\.\d+\.PW\d+$/', $processKey)) return;
+		$this->checkProcessKey($processKey); 
+		$times = $this->wire('cache')->get($processKey);
+		if($times) {
+			list($created, $modified) = explode(':', $times); 
+			$value = $created . ":" . time();
+		} else {
+			$value = time() . ":" . time();
+		}
+		$this->wire('cache')->save($processKey, $value, ($this->updateDelay / 1000) * 2);
+	}
+
+	/**
+	 * Create a new processKey for the current request
+	 * 
+	 * processKey example: NPK.ProcessPageEdit.pageID.userID
+	 * Note that it excludes the windowName, which is added at the end after the 
+	 * first ajax request. 
+	 * 
+	 * This method only runs during full requests, not during ajax requests. 
+	 * 
+	 * @return string
+	 * 
+	 */
+	protected function makeProcessKey() {
+		
+		$process = $this->wire('process');
+		
+		if($process && ($process instanceof ProcessPageEdit || $process instanceof ProcessPageType)) {
+			// good, we'll use it
+			$page = $process->getPage();
+			if(!$page || !$page->id) return '';
+		} else {
+			// we don't track this process
+			return '';
+		}
+	
+		// NPK = NotificationProcessKey
+		$processKey = "NPK." . 
+			$process->className() . 
+			"." . $page->id . 
+			"." . $this->wire('user')->id; 
+	
+		// reset because non-ajax request
+		$this->wire('session')->remove($this, 'notifiedProcessKeys');
+
+		return $processKey;
+	}
+
+	/**
+	 * Given a processKey, check for conflicts with other active processKeys
+	 * 
+	 * @param $processKey
+	 * 
+	 */
+	protected function checkProcessKey($processKey) {
+		
+		list($prefix, $className, $pageID, $userID, $windowName) = explode('.', $processKey);
+		
+		// locate all currently active processKeys editing $page
+		$processKeys = $this->wire('cache')->get("$prefix.$className.$pageID.*");
+		
+		$notified = $this->wire('session')->getFor($this, 'notifiedProcessKeys'); 
+		if(!is_array($notified)) $notified = array();
+		
+		foreach($processKeys as $_processKey => $times) {
+			
+			if(isset($notified[$processKey]) && in_array($_processKey, $notified[$processKey])) continue;
+			
+			list($created, $modified) = explode(":", $times); 	
+			list($_prefix, $_className, $_pageID, $_userID, $_windowName) = explode('.', $_processKey);
+			$recordNotify = false;
+			
+			if($_userID == $this->wire('user')->id) {
+				// same user
+				if($_windowName == $windowName) {
+					// this is the window we are already in and this is OK to skip
+				} else {
+					// editing in different window
+					$this->wire('user')->notifications()->error(
+						sprintf(
+							$this->_('Warning: you are editing this page in another window (editing started %s)'), 
+								wireDate('%X', (int) $created)), 
+							Notification::flagAnnoy | Notification::flagSession);
+					$recordNotify = true; 
+				}
+				
+			} else {
+				// different user
+				$editingUser = $this->wire('users')->get((int) $_userID);
+				if($editingUser->id) {
+					$this->wire('user')->notifications()->error(
+						sprintf($this->_('Warning: user "%s" is currently editing this page (editing started %s)'),
+							$editingUser->name, wireDate('%X', (int) $created)),
+								Notification::flagAnnoy | Notification::flagSession);
+					$recordNotify = true; 
+				}
+			}
+		
+			if($recordNotify) {
+				if(isset($notified[$processKey])) $notified[$processKey][] = $_processKey;
+					else $notified[$processKey] = array($_processKey);
+			}
+		}
+		
+		if(count($notified)) {
+			$this->wire('session')->setFor($this, 'notifiedProcessKeys', $notified); 
+		}
+	}
+
+
+}
+

@@ -1,0 +1,1 @@
+function toggleWriteability(a,b){document.getElementById(a).disabled=b};

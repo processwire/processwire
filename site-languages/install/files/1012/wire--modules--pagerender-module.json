@@ -1,0 +1,21 @@
+{
+    "file": "wire\/modules\/PageRender.module",
+    "textdomain": "wire--modules--pagerender-module",
+    "translations": {
+        "d2c5ea4202c4c692852b7e10fbceabd3": {
+            "text": "F\u00fcgt Seiten eine Rendering-Methode und Caching der Seitenausgabe hinzu"
+        },
+        "3a160df105e3d9d54575466354bdd312": {
+            "text": "Seiten-Rendering"
+        },
+        "0c22fad509c478c3442a310a7a2b2c52": {
+            "text": "Seiten Render Cache l\u00f6schen?"
+        },
+        "403c89515b16b3417cd2e426612b4a53": {
+            "text": "%d Cache Dateien gel\u00f6scht f\u00fcr %d Seiten"
+        },
+        "b4999a543edcfefc8c56ed6eafdcb98f": {
+            "text": "Zur Zeit sind %d Seiten gecached unter %s"
+        }
+    }
+}

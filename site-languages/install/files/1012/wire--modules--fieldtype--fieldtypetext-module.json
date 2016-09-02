@@ -1,0 +1,12 @@
+{
+   "file":"wire\/modules\/Fieldtype\/FieldtypeText.module",
+   "textdomain":"wire--modules--fieldtype--fieldtypetext-module",
+   "translations":{
+      "82829c5912f395b029a87c565359835c":{
+         "text":"Textformatierung"
+      },
+      "965a2e6ce23bd9e9ca5122fb9862be60":{
+         "text":"Wenn Sie w\u00e4hrend der Vorbereitung f\u00fcr die Ausgabe eine automatische Formatierung anwenden m\u00f6chten, w\u00e4hle, Sie eine oder mehrere Formatierungen von oben."
+      }
+   }
+}

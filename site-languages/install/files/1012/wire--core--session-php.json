@@ -1,0 +1,9 @@
+{
+   "file":"wire\/core\/Session.php",
+   "textdomain":"wire--core--session-php",
+   "translations":{
+      "28629e201ce8ba272cbf2f64462c0512":{
+         "text":"Session abgelaufen"
+      }
+   }
+}

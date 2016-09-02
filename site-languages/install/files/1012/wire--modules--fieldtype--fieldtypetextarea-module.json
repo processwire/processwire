@@ -1,0 +1,21 @@
+{
+    "file": "wire\/modules\/Fieldtype\/FieldtypeTextarea.module",
+    "textdomain": "wire--modules--fieldtype--fieldtypetextarea-module",
+    "translations": {
+        "00f6c76a7a83b1d7aab61a93e513e9d5": {
+            "text": "Eingabefeld Typ"
+        },
+        "88183b946cc5f0e8c96b2e66e1c74a7e": {
+            "text": "Unbekannt"
+        },
+        "127852afa67b41673ab8ea17b383847c": {
+            "text": "Dieser Feldtyp wird genutzt um Eingaben zu sammeln (Textarea ist Standard). Hinweis: falls Sie dies \u00e4ndern und best\u00e4tigen, k\u00f6nnen sich auch die m\u00f6glichen Optionen in den Einstellungen des Eingabefeldes \u00e4ndern."
+        },
+        "2effa58f13159d138a634233e246713d": {
+            "text": "Inhaltstyp"
+        },
+        "1991cfd60d0287cfb130420da34fcbef": {
+            "text": "Die Markup\/HTML Option wird empfohlen f\u00fcr Felder welche einen Rich Text Editor (TinyMCE, CKEditor, usw.) verwenden und HTML enthalten. Diese Option unterst\u00fctzt einen zus\u00e4ztzlichen Filter zur Laufzeit. "
+        }
+    }
+}

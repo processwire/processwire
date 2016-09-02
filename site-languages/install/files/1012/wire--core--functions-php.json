@@ -1,0 +1,72 @@
+{
+    "file": "wire\/core\/Functions.php",
+    "textdomain": "wire--core--functions-php",
+    "translations": {
+        "a9f0e61a137d86aa9db53465e0801612": {
+            "text": "Sekunde"
+        },
+        "0a7d55be9d12a369a6a8da0fb517fba4": {
+            "text": "Minute"
+        },
+        "896c55cc5e46fab38ce9f51ebf7bfcd3": {
+            "text": "Stunde"
+        },
+        "628b7db04235f228d40adc671413a8c8": {
+            "text": "Tag"
+        },
+        "172a8327fcd3685ab3c0f740d031da09": {
+            "text": "Woche"
+        },
+        "7436f942d5ea836cb84f1bb2527d8286": {
+            "text": "Monat"
+        },
+        "84cdc76cabf41bd7c961f6ab12f117d8": {
+            "text": "Jahr"
+        },
+        "2787910b1b16428d65412fca2718a92e": {
+            "text": "Dekade"
+        },
+        "783e8e29e6a8c3e22baa58a19420eb4f": {
+            "text": "Sekunden"
+        },
+        "640fd0cc0ffa0316ae087652871f4486": {
+            "text": "Minuten"
+        },
+        "73cdddd7730abfc13a55efb9f5685a3b": {
+            "text": "Stunden"
+        },
+        "44fdec47036f482b68b748f9d786801b": {
+            "text": "Tage"
+        },
+        "ae60f11ab51860bdb22794a943335a34": {
+            "text": "Wochen"
+        },
+        "da36cfaf48b9e19896e23e1207040d1e": {
+            "text": "Monate"
+        },
+        "75aeb98e5241592ad6a6c2c4c78a16ef": {
+            "text": "Jahre"
+        },
+        "a6e311dfab473630d03ac5323d5c36e9": {
+            "text": "Dekaden"
+        },
+        "6d0a578ca2f2c0e792fc923002fccbe3": {
+            "text": "vor"
+        },
+        "9aa587bfb76008ca6b764747b7e43aff": {
+            "text": "von jetzt an"
+        },
+        "6e7b34fa59e1bd229b207892956dc41c": {
+            "text": "Niemals"
+        },
+        "2654992d78afbd40bad349302a6f2b6a": {
+            "text": "jetzt"
+        },
+        "97bc592b27a9ada2d9a4bb418ed0ebed": {
+            "text": "jetzt"
+        },
+        "b7d838b2422049639db6fb2bb6ba04bf": {
+            "text": "T Q P"
+        }
+    }
+}

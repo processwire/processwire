@@ -1,0 +1,12 @@
+{
+   "file":"wire\/core\/Fieldtype.php",
+   "textdomain":"wire--core--fieldtype-php",
+   "translations":{
+      "ad1bc8634063998074151ecfaaf2e6a1":{
+         "text":"Falls ausgew\u00e4hlt, m\u00fcssen ALLE Seiten dieses Feld haben. Es wird automatisch allen Feldgruppen\/Templates hinzugef\u00fcgt, die es nicht bereits haben. Das bedeutet nicht, dass das Feld einen Wert haben muss, nur dass das bearbeitbare Feld in allen Seiten vorhanden ist."
+      },
+      "2af316156c9ea64d6d56bfe221486efd":{
+         "text":"Falls ausgew\u00e4hlt, werden die Daten dieses Feldes mit jeder Instanz der Seite geladen, unabh\u00e4ngig davon, ob es zur Zeit benutzt wird. Falls nicht ausgew\u00e4hlt, werden die Daten bei Bedarf geladen, und nur, wenn das auf Feld zugegriffen wird. Autojoin zu aktivieren erlaubt zudem die Verwendung des Feldes als Schl\u00fcssel beim sortieren von Seiten."
+      }
+   }
+}

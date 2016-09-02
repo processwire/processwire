@@ -1,0 +1,443 @@
+<?php namespace ProcessWire;
+
+/**
+ * ImageSizer Engine IMagick by Horst
+ * 
+ * @todo some class properties need phpdoc
+ *
+ */
+class ImageSizerEngineIMagick extends ImageSizerEngine {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'IMagick Image Sizer',
+			'version' => 1,
+			'summary' => "Upgrades image manipulations to use PHP's ImageMagick library when possible.",
+			'author' => 'Horst Nogajski',
+			'autoload' => false,
+			'singular' => false,
+		);
+	}
+
+	/**
+	 * @var \IMagick|null
+	 * 
+	 */
+	protected $im = null;
+
+	// @todo the following need phpdoc
+	protected $workspaceColorspace;
+	protected $imageFormat;
+	protected $imageColorspace;
+	protected $imageMetadata;
+	protected $imageDepth;
+	protected $imageGamma;
+
+	/**
+	 * @var bool
+	 * 
+	 */
+	protected $hasICC;
+	
+	/**
+	 * @var bool
+	 *
+	 */
+	protected $hasIPTC;
+	
+	/**
+	 * @var bool
+	 *
+	 */
+	protected $hasEXIF;
+	
+	/**
+	 * @var bool
+	 *
+	 */
+	protected $hasXMP;
+
+	/**
+	 * Class constructor
+	 * 
+	 */
+	public function __construct() {
+		// set a lower default quality of 80, which is more like 90 in GD
+		$this->setQuality(80);
+		parent::__construct();
+	}
+
+	/**
+	 * Class destructor
+	 * 
+	 */
+	public function __destruct() {
+		$this->release();
+	}
+
+	/**
+	 * Release resources used by IMagick
+	 * 
+	 */
+	protected function release() {
+		if(!is_object($this->im)) return;
+		$this->im->clear();
+		$this->im->destroy();
+	}
+
+	/**
+	 * Get valid image source formats
+	 * 
+	 * @return array
+	 * 
+	 */
+	protected function validSourceImageFormats() {
+		return array('JPG', 'JPEG', 'PNG24');
+		//return array(
+		//    'PNG', 'PNG8', 'PNG24',
+		//    'JPG', 'JPEG',
+		//    'GIF', 'GIF87'
+		//);
+	}
+
+	/**
+	 * Get valid target image formats
+	 * 
+	 * @return array
+	 * 
+	 */
+	protected function validTargetImageFormats() {
+		return $this->validSourceImageFormats();
+	}
+
+	/**
+	 * Is IMagick supported? Is the current image(sub)format supported?
+	 * 
+	 * @param string $action
+	 * @return bool
+	 * 
+	 */
+	/**
+	 * Is IMagick supported? Is the current image(sub)format supported?
+	 *
+	 * @param string $action
+	 * @return bool
+	 *
+	 */
+	public function supported($action = 'imageformat') {
+
+		// first we check parts that are mandatory for all $actions
+		if(!class_exists("\\IMagick")) return false;
+
+		// and if it passes the mandatory requirements, we check particularly aspects here
+		switch($action) {
+
+			case 'imageformat':
+				// compare current imagefile infos fetched from ImageInspector
+				$requested = $this->getImageInfo(false);
+				switch($requested) {
+					case 'jpg':
+						return true;
+					case 'png24':
+					case 'png24-trans':
+					case 'png24-alpha':
+						return true;
+					default:
+						return false;
+				}
+				break;
+
+			case 'install':
+				return true;
+
+			default:
+				return false;
+		}
+	}
+
+	/**
+	 * Process the image resize
+	 *
+	 * Processing is as follows:
+	 *    1. first do a check if the given image(type) can be processed, if not do an early return false
+	 *    2. than (try) to process all required steps, if one failes, return false
+	 *    3. if all is successful, finally return true
+	 *
+	 * @param string $srcFilename Source file
+	 * @param string $dstFilename Destination file
+	 * @param int $fullWidth Current width
+	 * @param int $fullHeight Current height
+	 * @param int $finalWidth Requested final width
+	 * @param int $finalHeight Requested final height
+	 * @return bool True if successful, false if not
+	 * @throws WireException
+	 *
+	 */
+	protected function processResize($srcFilename, $dstFilename, $fullWidth, $fullHeight, $finalWidth, $finalHeight) {
+		
+		$this->setTimeLimit(120);
+
+		// start image magick
+		$this->im = new \IMagick();
+
+		// set the working colorspace: COLORSPACE_RGB or COLORSPACE_SRGB    ( whats about COLORSPACE_GRAY ??)
+		$this->workspaceColorspace = \IMagick::COLORSPACE_SRGB;
+		$this->im->setColorspace($this->workspaceColorspace);
+
+		if(!$this->im->readImage($srcFilename)) {  // actually we get a filecopy from origFilename to destFilename from PageImage
+			$this->release();
+			return false;
+		}
+
+		// check validity against image magick
+		if(!$this->im->valid()) {
+			$this->release();
+			throw new WireException(sprintf($this->_("loaded file '%s' is not a valid image", basename($srcFilename))));
+		}
+
+		// get image format
+		$this->imageFormat = strtoupper($this->im->getImageFormat());
+
+		// only for JPEGs and 24bit PNGs
+		if(!in_array($this->imageFormat, array('JPG', 'JPEG', 'PNG24'))) {
+			$this->release();
+			return false;
+		}
+
+		// check validity against PW
+		if(!in_array($this->imageFormat, $this->validSourceImageFormats())) {
+			$this->release();
+			throw new WireException(sprintf($this->_("loaded file '%s' is not in the list of valid images", basename($dstFilename))));
+		}
+
+		// check and retrieve different image parts and information: ICC, Colorspace, Colordepth, Metadata, etc
+		$this->imageColorspace = $this->im->getImageColorspace();
+		$this->workspaceColorspace = \IMagick::COLORSPACE_GRAY == $this->imageColorspace ? \IMagick::COLORSPACE_GRAY : $this->workspaceColorspace;
+		$this->im->setColorspace($this->workspaceColorspace);
+		$this->imageMetadata = $this->im->getImageProfiles('*');
+		if(!is_array($this->imageMetadata)) $this->imageMetadata = array();
+		$this->hasICC = array_key_exists('icc', $this->imageMetadata);
+		$this->hasIPTC = array_key_exists('iptc', $this->imageMetadata);
+		$this->hasEXIF = array_key_exists('exif', $this->imageMetadata);
+		$this->hasXMP = array_key_exists('xmp', $this->imageMetadata);
+		$this->imageType = $this->im->getImageType();
+		$this->imageDepth = $this->im->getImageDepth();
+		$this->imageGamma = $this->im->getImageGamma();
+		
+		if(0 == $this->imageGamma) {
+			// we seem to running on a IMagick version that lacks some features,
+			// at least the 'getImageGamma()', therefor we asume a Gamma of 2.2 here
+			$this->imageGamma = 0.454545;
+		}
+
+		// remove not wanted / needed Metadata = this is the same behave as processed via GD-lib
+		foreach(array_keys($this->imageMetadata) as $k) {
+			#if('icc'==$k) continue;     // we keep embedded icc profiles
+			#if('iptc' == $k) continue;  // we keep embedded iptc data
+			#if('exif'==$k && $this->data['keepEXIF']) continue; // we have to keep exif data too
+			#if('xmp'==$k && $this->data['keepXMP']) continue; // we have to keep xmp data too
+			$this->im->profileImage("$k", null); // remove this one
+		}
+
+		$this->im->setImageDepth(16);
+
+		$resetGamma = false;
+		if($this->imageGamma && $this->imageGamma != 1) {
+			$resetGamma = $this->im->gammaImage($this->imageGamma);
+		}
+
+		$orientations = null;
+		if($this->autoRotation !== true) {
+			$needRotation = false;
+		} else if($this->checkOrientation($orientations) && (!empty($orientations[0]) || !empty($orientations[1]))) {
+			$needRotation = true;
+		} else {
+			$needRotation = false;
+		}
+
+		if($this->rotate || $needRotation) { // @horst
+			if($this->rotate) {
+				$degrees = $this->rotate;
+			} else if((is_float($orientations[0]) || is_int($orientations[0])) && $orientations[0] > -361 && $orientations[0] < 361) {
+				$degrees = $orientations[0];
+			} else {
+				$degrees = false;
+			}
+			if($degrees !== false && !in_array($degrees, array(-360, 0, 360))) {
+				$this->im->rotateImage(new \IMagickPixel('none'), $degrees);
+				if(abs($degrees) == 90 || abs($degrees) == 270) {
+					// we have to swap width & height now!
+					$tmp = array($this->getWidth(), $this->getHeight());
+					$this->setImageInfo($tmp[1], $tmp[0]);
+				}
+			}
+		}
+
+		if($this->flip || $needRotation) {
+			$vertical = null;
+			if($this->flip) {
+				$vertical = $this->flip == 'v';
+			} else if($orientations[1] > 0) {
+				$vertical = $orientations[1] == 2;
+			}
+			if(!is_null($vertical)) {
+				$res = $vertical ? $this->im->flipImage() : $this->im->flopImage();
+				if(!$res) {
+					$this->release();
+					return false;
+				}
+			}
+		}
+
+		if(is_array($this->cropExtra) && 4 == count($this->cropExtra)) { // crop before resize
+			list($cropX, $cropY, $cropWidth, $cropHeight) = $this->cropExtra;
+			#list($x, $y, $w, $h) = $this->cropExtra;
+			if(!$this->im->cropImage($cropWidth, $cropHeight, $cropX, $cropY)) {
+				$this->release();
+				return false;
+			}
+			$this->im->setImagePage(0, 0, 0, 0);  //remove the canvas
+			$this->setImageInfo($this->im->getImageWidth(), $this->im->getImageHeight());
+		}
+
+		$bgX = $bgY = 0;
+		$bgWidth = $fullWidth;
+		$bgHeight = $fullHeight;
+		$resizemethod = $this->getResizeMethod($bgWidth, $bgHeight, $finalWidth, $finalHeight, $bgX, $bgY);
+
+		if(0 == $resizemethod) {
+			$this->sharpening = 'none';  // no need for sharpening because we use original copy without scaling
+			// oh, do we need to save with more compression for JPEGs ??
+			#return true;
+			
+		} else if(2 == $resizemethod) { // 2 = resize with aspect ratio
+			if(!$this->im->resizeImage($finalWidth, $finalHeight, \IMagick::FILTER_LANCZOS, 1)) {
+				$this->release();
+				return false;
+			}
+			$this->setImageInfo($this->im->getImageWidth(), $this->im->getImageHeight());
+			
+		} else if(4 == $resizemethod) { // 4 = resize and crop from center with aspect ratio
+			if(!$this->im->resizeImage($bgWidth, $bgHeight, \IMagick::FILTER_LANCZOS, 1)) {
+				$this->release();
+				return false;
+			}
+			$this->setImageInfo($this->im->getImageWidth(), $this->im->getImageHeight());
+			if(!$this->im->cropImage($finalWidth, $finalHeight, $bgX, $bgY)) {
+				$this->release();
+				return false;
+			}
+			$this->im->setImagePage(0, 0, 0, 0);  //remove the canvas
+			$this->setImageInfo($this->im->getImageWidth(), $this->im->getImageHeight());
+		}
+
+		if($this->sharpening && $this->sharpening != 'none') {
+			$this->imSharpen($this->sharpening);
+		}
+
+		if(isset($resetGamma) && $this->imageGamma && $this->imageGamma != 1) {
+			$this->im->gammaImage(1 / $this->imageGamma);
+		}
+
+		$this->im->setImageDepth(($this->imageDepth > 8 ? 8 : $this->imageDepth));
+
+		// prepare to save file
+		$this->im->setImageFormat($this->imageFormat);
+		$this->im->setImageType($this->imageType);
+		if(in_array(strtoupper($this->imageFormat), array('JPG', 'JPEG'))) {
+			$this->im->setImageCompression(\IMagick::COMPRESSION_JPEG);
+			$this->im->setImageCompressionQuality($this->quality);
+		} else if(in_array(strtoupper($this->imageFormat), array('PNG', 'PNG8', 'PNG24'))) {
+			$this->im->setImageCompression(\IMagick::COMPRESSION_ZIP);
+			$this->im->setImageCompressionQuality($this->quality);
+		} else {
+			$this->im->setImageCompression(\IMagick::COMPRESSION_UNDEFINED);
+			$this->im->setImageCompressionQuality($this->quality);
+		}
+
+		// save to file
+		@unlink($dstFilename);
+		@clearstatcache(dirname($dstFilename));
+		##if(!$this->im->writeImage($this->destFilename)) {
+		// We use this approach for saving so that it behaves the same like core ImageSizer with images that
+		// have a wrong extension in their filename. When using writeImage() it automatically corrects the
+		// mimetype to match the fileextension, <- we want to avoid this!
+		if(!file_put_contents($dstFilename, $this->im)) {
+			$this->release();
+			return false;
+		}
+
+		// release and return to event-object
+		$this->release();
+		$this->modified = true;
+		return true;
+	}
+
+	/**
+	 * Sharpen the image
+	 * 
+	 * @param string $mode May be none|string|medium|soft
+	 * @return bool
+	 * 
+	 */
+	protected function imSharpen($mode) {
+		if('none' == $mode) return true;
+		$mp = intval($this->finalHeight * $this->finalWidth);
+		if($mp > 1440000) {
+			switch($mode) {
+				case 'strong':
+					$m = array(0, 0.5, 4.6, 0.03);
+					break;
+				case 'medium':
+					$m = array(0, 0.5, 3.0, 0.04);
+					break;
+				case 'soft':
+				default:
+					$m = array(0, 0.5, 2.3, 0.07);
+					break;
+			}
+		} else if($mp > 480000) {
+			switch($mode) {
+				case 'strong':
+					$m = array(0, 0.5, 3.0, 0.04);
+					break;
+				case 'medium':
+					$m = array(0, 0.5, 2.3, 0.06);
+					break;
+				case 'soft':
+				default:
+					$m = array(0, 0.5, 1.8, 0.08);
+					break;
+			}
+		} else {
+			switch($mode) {
+				case 'strong':
+					$m = array(0, 0.5, 2.0, 0.06);
+					break;
+				case 'medium':
+					$m = array(0, 0.5, 1.7, 0.08);
+					break;
+				case 'soft':
+				default:
+					$m = array(0, 0.5, 1.2, 0.1);
+					break;
+			}
+		}
+		$this->im->unsharpMaskImage($m[0], $m[1], $m[2], $m[3]);
+		$this->modified = true;
+		return true;
+	}
+
+	/**
+	 * Module install
+	 * 
+	 * @throws WireException
+	 * 
+	 */
+	public function ___install() {
+		if(!$this->supported('install')) {
+			throw new WireException("This module requires that you have PHP's IMagick (Image Magick) extension installed");
+		}
+	}
+
+}

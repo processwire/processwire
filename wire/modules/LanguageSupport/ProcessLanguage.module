@@ -1,0 +1,524 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Language Process, displays languages in Setup > Languages > 
+ * 
+ * It also contains the hooks for altering the output of the InputfieldFile to hold language info and links.
+ * This is the process assigned to processwire/setup/languages/.
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class ProcessLanguage extends ProcessPageType {
+
+	static public function getModuleInfo() {
+		return array(
+			'title' => __('Languages', __FILE__),
+			'version' => 103,
+			'summary' => __('Manage system languages', __FILE__),
+			'author' => 'Ryan Cramer',
+			'requires' => 'LanguageSupport',
+			'icon' => 'language', 
+			'useNavJSON' => true,
+			'permission' => 'lang-edit',
+			'permissions' => array(
+				'lang-edit' => 'Administer languages and static translation files'
+				)
+			);
+	}
+
+	/**
+	 * The URL to the language-translator page (typically admin/setup/language-translator/)
+	 *
+	 */
+	protected $translationUrl = '';
+
+	/**
+	 * Array of messages for language_files, indexed by file basename
+	 *
+	 */
+	protected $fileMessages = array();
+
+	/**
+	 * CSV file to process, if present
+	 * 
+	 * @var Pagefile|null
+	 * 
+	 */
+	protected $csvImportLabel = '';
+
+	/**
+	 * Populate the fields shown in the default language list output
+	 *
+	 */
+	public function __construct() {
+		parent::__construct();
+		
+		$showFields = array('name', 'title', 'language_files', 'language_files_site'); 
+		$this->set('showFields', $showFields); 
+		$this->set('jsonListLabel', 'title|name'); 
+		require_once(dirname(__FILE__) . '/LanguageParser.php'); 
+	
+		// make sure our files fields have CSV support
+		foreach(array('language_files', 'language_files_site') as $fieldName) {
+			$field = $this->wire('fields')->get($fieldName);
+			if(!$field) continue;
+			$extensions = $field->get('extensions'); 
+			if(strpos($extensions, 'csv') === false) {
+				$field->set('extensions', "$extensions csv");
+				$field->save();
+				$this->message("Added CSV support to field $fieldName", Notice::debug);
+			}
+		}
+		
+		$this->csvImportLabel = $this->_('CSV Import:') . ' ';
+	}
+
+	/**
+	 * Add InputfieldFile hooks 
+	 *
+	 */
+	public function init() {
+		$this->addHookBefore('InputfieldFile::render', $this, 'renderInputfieldFile');
+		$this->addHookAfter('InputfieldFile::renderItem', $this, 'renderInputfieldFileItem'); 
+		$this->addHookAfter('InputfieldFile::renderUpload', $this, 'renderInputfieldFileUpload');
+		$this->addHookBefore('InputfieldFile::processInput', $this, 'processInputfieldFileInput');
+	
+		if(!$this->wire('config')->ajax) {
+			$this->addHookBefore('InputfieldForm::render', $this, 'renderInputfieldForm');
+		}
+		parent::init();
+	}
+
+	protected function translationUrl() {
+		if(!$this->translationUrl) {
+			$support = $this->wire('modules')->get('LanguageSupport'); 
+			$this->translationUrl = $this->wire('pages')->get($support->languageTranslatorPageID)->url;
+		}
+		return $this->translationUrl; 
+	}
+	
+	public function processInputfieldFileInput(HookEvent $event) {
+		$event->object->overwrite = true; 
+	}
+	
+	/**
+	 * Hook for before InputfieldFile::render
+	 *
+	 * In this case we add an 'edit' link to the translator and some info about the translation file.
+	 *
+	 */
+	public function renderInputfieldFile(HookEvent $event) {
+
+		$language = $this->wire('process')->getPage();
+		$inputfield = $event->object;
+		
+		/** @var Pagefiles $pagefiles */
+		$pagefiles = $inputfield->attr('value');
+		
+		foreach($pagefiles as $pagefile) {
+			/** Pagefile $pagefile */
+			if($pagefile->ext() != 'csv') continue;
+			$pagefiles->remove($pagefile);
+			$this->processCSV($pagefile->filename(), $language);
+		}
+		
+		$inputfield->descriptionRows = 0;
+		$inputfield->overwrite = true;
+		$inputfield->noCollapseItem = true;
+		$inputfield->noShortName = true; 
+		
+	}
+	
+	public function renderInputfieldForm(HookEvent $event) {
+	
+		$form = $event->object;
+		$language = $this->getPage();
+		if(!$language->id) return;
+		$file = $language->filesManager()->path . '.phrase-index.txt';
+		$inputfield = $this->wire('modules')->get('InputfieldMarkup');
+		$inputfield->label = $this->_('Live Search');
+		$inputfield->icon = 'search';
+		$placeholder = $this->_('Text to search for');
+		
+		if(!is_file($file)) {
+			$inputfield->value = "<p><a href='../../language-translator/add/?language_id=$language->id&refresh=1'>" . 
+				$this->_('Click here to build search phrase index') . "</a></p>";
+			
+		} else {
+
+			$phrases = file_get_contents($file);
+			$phrases = str_replace(array('"', "\n"), array(' ', ' '), $phrases);
+
+			$inputfield->value =
+				"<script>" .
+				"var phraseIndex = \"$phrases\"; " .
+				"var phraseLanguageID = $language->id;" .
+				"</script>" .
+				"<p class='description' style='margin:0'>" .
+				$this->_('Search all translatable files for specific text/phrase.') . ' ' .
+				$this->_('Click found matches to edit translation or add file (if not already present).') .
+				"<p>" .
+				"<p>" .
+				"<input type='text' class='language-phrase-search' style='width:50%' name='_q' placeholder='$placeholder' /> " .
+				"<span class='detail language-phrase-search-cnt'></span>" .
+				"</p>";
+		}
+		
+		$field = $form->getChildByName('language_files_site');
+		if($field) $form->insertBefore($inputfield, $field);
+	}
+
+	/**
+	 * Hook for InputfieldFile::renderItem
+	 *
+	 * In this case we add an 'edit' link to the translator and some info about the translation file.
+	 *
+	 */
+	public function renderInputfieldFileItem(HookEvent $event) {
+
+		$translationUrl = $this->translationUrl(); 
+		/** @var Pagefile $pagefile */
+		$pagefile = $event->arguments[0]; 
+		$page = $pagefile->get('page'); 
+		
+		if($pagefile->ext() == 'csv') {
+			$event->return .=
+				"<div class='InputfieldFileData InputfieldFileLanguageInfo'>" .
+					"<span class='InputfieldFileLanguageFilename description'>" .
+						$this->_('CSV translation file to be imported after save') . 
+					"</span>" . 
+				"</div>";
+			return;
+		}
+		
+		$textdomain = basename($pagefile->basename, '.json');
+
+		$data = $page->translator->getTextdomain($textdomain);
+		$file = $data['file']; 
+		$pathname = $this->wire('config')->paths->root . $file;
+		$translations =& $data['translations'];
+		$total = count($translations); 
+		$parser = $this->wire(new LanguageParser($page->translator, $pathname));
+		$untranslated = $parser->getUntranslated();
+		$numPending = 0;
+		$numAbandoned = 0;
+
+		foreach($untranslated as $hash => $text) {
+			if(!isset($translations[$hash]) || !strlen($translations[$hash]['text'])) $numPending++;
+		}
+
+		foreach($translations as $hash => $translation) {
+			if(!isset($untranslated[$hash])) $numAbandoned++;
+		}
+
+		$total += $numAbandoned; 
+		$message = sprintf($this->_n("%d phrase", "%d phrases", $total), $total);
+
+		if($numAbandoned || $numPending) {
+			$message .= " <span class='ui-state-error-text'>(";
+			if($numAbandoned) $message .= sprintf($this->_('%d abandoned'), $numAbandoned); 
+			if($numPending) $message .= ($numAbandoned ? ', ' : '') . sprintf($this->_('%d blank'), $numPending); 
+			$message .= ")</span>";
+		}
+
+		$lastMod = date($this->config->dateFormat, filemtime($pagefile->filename)); 
+		$editLabel = $this->_x('Edit', 'edit-language-file'); 
+
+		$out = 	
+			"<div class='InputfieldFileData InputfieldFileLanguageInfo'>" . 
+			"<span class='InputfieldFileLanguageFilename description'>/$file &#8212;</span> <span class='notes'>$message</span> " .
+			"<a class='action' href='{$translationUrl}edit/?language_id={$page->id}&amp;textdomain=$textdomain'>&nbsp; " . 
+			"<i class='fa fa-edit'></i> $editLabel <i class='fa fa-angle-double-right hover-only'></i></a>" . 
+			"</div>";
+
+		$page->translator->unloadTextdomain($textdomain);
+
+		$event->return .= $out; 
+
+	}
+
+	/**
+	 * Hook for InputfieldFile::renderUpload
+	 *
+	 * This just adds a 'new' link to add a new translation file.
+	 *
+	 */
+	public function renderInputfieldFileUpload(HookEvent $event) {
+
+		$translationUrl = $this->translationUrl();
+		$page = $event->arguments[0]->get('page'); 
+		$inputfield = $event->object; 
+		$out = '';
+		
+		$btn1 = $this->wire('modules')->get('InputfieldButton'); 
+		$btn1->href = "{$translationUrl}add/?language_id={$page->id}";
+		$btn1->value = $this->_('Find Files to Translate'); 
+		$btn1->icon = 'plane';
+		if($inputfield->name == 'language_files') $btn1->addClass('head_button_clone');
+		$out .= $btn1->render();
+	
+		if(count($inputfield->attr('value'))) {
+			$btn2 = $this->wire('modules')->get('InputfieldButton');
+			$btn2->href = "../download/?language_id={$page->id}&field=" . $inputfield->attr('name');
+			$btn2->value = $this->_('Download ZIP');
+			$btn2->icon = 'file-zip-o';
+			$btn2->addClass('ui-priority-secondary download-button'); 
+			$out .= $btn2->render();
+			
+			$btn2->href .= '&csv=1';
+			$btn2->value = $this->_('Download CSV');
+			$btn2->icon = 'file-excel-o';
+			$out .= $btn2->render();
+		}
+		
+		$event->return .= "<p>$out</p>";
+	}
+
+	/**
+ 	 * Modify the output per-field in the PageType list (template-method)
+	 *
+	 * In this case we make it return a count for the language_files
+	 *
+	 */
+	protected function renderListFieldValue($name, $value) {
+		if($name == 'language_files' || $name == 'language_files_site') {
+			return count($value); 
+		} else if($name == 'title') { 
+			if(!$value) return '(blank)';
+			return (string) $value;
+		} else {
+			return parent::renderListFieldValue($name, $value); 
+		}
+	}
+
+	public function ___execute() { 
+		// check if 2.5 update needed to add new language_files_site field
+		if(!$this->wire('fields')->get('language_files_site')) {
+			require_once(dirname(__FILE__) . '/LanguageSupportInstall.php');
+			$installer = $this->wire(new LanguageSupportInstall());
+			$installer->addFilesFields($this->wire('fieldgroups')->get(LanguageSupport::languageTemplateName));
+		}
+		return parent::___execute();
+	}
+
+	/**
+	 * Create and send a ZIP of translation files or CSV of translations
+	 *
+	 */
+	public function ___executeDownload() {
+		
+		$id = (int) $this->input->get('language_id'); 
+		if(!$id) throw new WireException("No language specified"); 
+		
+		$language = $this->wire('languages')->get($id);
+		if(!$language->id) throw new WireException("Unknown language"); 
+		
+		$fieldName = $this->input->get('field') == 'language_files_site' ? 'language_files_site' : 'language_files';
+		$csv = (int) $this->wire('input')->get('csv');
+		$path = $language->$fieldName->path();
+		$files = array();
+		
+		foreach($language->$fieldName as $file) {
+			$files[] = $file->filename;
+		}
+		
+		if($csv) {
+			// CSV
+			$filename = $language->name . "-" . (strpos($fieldName, 'site') ? 'site' : 'wire') . ".csv";
+			header("Content-type: application/force-download");
+			header("Content-Transfer-Encoding: Binary");
+			header("Content-disposition: attachment; filename=$filename");
+
+			$fp = fopen('php://output', 'w');
+			$defaultCol = $language->name == 'en' ? 'default' : 'en';
+			$fields = array($defaultCol, $language->name, 'description', 'file', 'hash');
+			fputcsv($fp, $fields);
+			
+			foreach($files as $f) {
+				
+				$textdomain = basename($f, '.json');
+				$data = $language->translator->getTextdomain($textdomain);
+				$file = $data['file'];
+				$pathname = $this->wire('config')->paths->root . $file;
+				$translated =& $data['translations'];
+				$parser = $this->wire(new LanguageParser($language->translator, $pathname));
+				$untranslated = $parser->getUntranslated();
+				$comments = $parser->getComments();
+
+				foreach($untranslated as $hash => $text1) {
+					$text2 = isset($translated[$hash])  ? $translated[$hash]['text'] : '';
+					$comment = isset($comments[$hash]) ? $comments[$hash] : '';
+					if(strpos($comment, '//') !== false) list($ignore, $comment) = explode('//', $comment);
+					$fields = array($text1, $text2, trim($comment), $file, $hash);
+					fputcsv($fp, $fields);
+				}
+			}
+			
+			fclose($fp);
+
+		} else {
+			// ZIP
+			$zipname = $language->name . "-";
+			$zipname .= $fieldName == 'language_files' ? 'wire' : 'site';
+			$zipfile = "$path$zipname.zip";
+			$info = wireZipFile($zipfile, $files, array("overwrite" => true));
+			if(!count($info['files'])) {
+				$this->error("Error adding files to ZIP");
+				$this->session->redirect('../');
+			} else {
+				wireSendFile($zipfile);
+			}
+		}
+		
+		exit(0);
+	}
+
+	/**
+	 * Process a CSV file to import changes from it
+	 * 
+	 * Must be in the same format as the one provied by the executeDownload() method
+	 * 
+	 * @param string $csvFile
+	 * @param Language $language
+	 * @return bool
+	 * @throws WireException
+	 * 
+	 */
+	public function processCSV($csvFile, Language $language) {
+		
+		$fp = fopen($csvFile, "r");
+		
+		if($fp === false) {
+			$this->error($this->csvImportLabel . "Unable to open: $csvFile");
+			return false;
+		}
+
+		$keys = array(
+			'original',
+			'translated',
+			'file',
+			'hash',
+		);
+		
+		$n = 0;
+		$data = array();
+		$header = array();
+		$translator = new LanguageTranslator($language);
+		$lastTextdomain = '';
+		$lastFile = '';
+		$numChanges = 0;
+		$numTotal = 0;
+		$numGross = 0;
+		$translations = null;
+		$halt = false;
+		
+		while(($csvData = fgetcsv($fp, 8192, ",")) !== FALSE) {
+			
+			if(++$n === 1) {
+				// header row
+				$header = $csvData; 
+				foreach($header as $key => $value) {
+					$header[$key] = strtolower($value);
+				}
+				// make sure everything we need is present
+				foreach($keys as $k => $key) {
+					if($k > 1 && !in_array($key, $header)) {
+						$this->error($this->csvImportLabel . "CSV data missing required column '$key'");
+						$halt = true;
+					}
+				}
+				if($halt) break;
+				continue;
+				
+			} 
+			
+			$row = array();
+			foreach($header as $key => $name) {
+				if($key === 0) $name = 'original';
+				if($key === 1) $name = 'translated';
+				$row[$name] = $csvData[$key];
+			}
+			
+			if(empty($row['file']) || empty($row['original'])) continue;
+			
+			$file = $row['file'];
+			$hash = $row['hash'];
+			$textOriginal = $row['original'];
+			$textTranslated = $row['translated'];
+			$textdomain = $translator->filenameToTextdomain($file);
+			
+			if(!$translator->textdomainFileExists($textdomain)) {
+				$textdomain = $translator->addFileToTranslate($file, false, false);
+				//$translator->loadTextdomain($textdomain);
+			}
+			
+			if(is_null($translations)) $translations = $translator->getTranslations($textdomain);
+			
+			if(!$textdomain) {
+				$this->warning($this->csvImportLabel . sprintf(
+						$this->_('Unrecognized textdomain for file: %s'), 
+						$this->wire('sanitizer')->entities($file)
+					)
+				);
+				continue;
+			}
+			
+			if($textdomain != $lastTextdomain) {
+				if(!$lastFile) $lastFile = $file;
+				if(!$lastTextdomain) $lastTextdomain = $textdomain;
+				$this->processCSV_saveTextdomain($translator, $lastTextdomain, $lastFile, $numChanges);
+				$translations = $translator->getTranslations($textdomain);
+				$numChanges = 0;
+			}
+			
+			$translation = isset($translations[$hash]) ? $translations[$hash] : array('text' => '');
+			if($translation['text'] != $textTranslated) {
+				$translator->setTranslationFromHash($textdomain, $hash, $textTranslated);
+				$numChanges++;
+				$numTotal++;
+			}
+
+			$lastTextdomain = $textdomain;
+			$lastFile = $file;
+			$numGross++;
+		}
+		
+		if($numChanges) {
+			$this->processCSV_saveTextdomain($translator, $textdomain, $lastFile, $numChanges);
+		}
+		$language->save();
+		
+		fclose($fp);
+		$this->message($this->csvImportLabel . sprintf($this->_('%d total translations, %d total changes'), $numGross, $numTotal));
+		
+		return $halt ? false : true;
+	}
+
+	/**
+	 * Save a textdomain, helper for processCSV method
+	 * 
+	 * @param LanguageTranslator $translator
+	 * @param string $textdomain
+	 * @param int $numChanges
+	 * 
+	 */
+	protected function processCSV_saveTextdomain(LanguageTranslator $translator, $textdomain, $filename, $numChanges) {
+		$file = $translator->textdomainToFilename($textdomain);
+		if($numChanges) {
+			try {
+				$translator->saveTextdomain($textdomain);
+				$this->message($this->csvImportLabel . sprintf($this->_('Saved %d change(s) for file: %s'), $numChanges, $file));
+			} catch(Exception $e) {
+				$this->error($e->getMessage());
+			}
+		} else {
+			// no changes
+		}
+		$translator->unloadTextdomain($textdomain);
+	}
+}
+

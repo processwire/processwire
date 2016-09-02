@@ -1,0 +1,46 @@
+
+/**
+ * MarkupPagerNav default styles
+ *
+ * Copy and paste into your own stylesheet, because this file is not actually used by anything
+ * it is just here for reference. 
+ *
+ */
+
+.MarkupPagerNav {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        margin: 1em 0;
+}
+        .MarkupPagerNav li {
+                padding: 0;
+                margin: 0;
+                list-style: none;
+                display: inline;
+                padding: 10px 0;
+                background: none;
+        }
+
+                .MarkupPagerNav li a {
+                        padding: 6px 10px;
+                        margin: 0;
+                        text-decoration: none;
+                        border: none;
+                        background: #ef868a;
+                        color: #fff;
+                        font-weight: bold;
+                        font-size: 11px;
+                        text-transform: uppercase;
+                }
+
+                .MarkupPagerNav li.MarkupPagerNavOn a,
+                .MarkupPagerNav li a:hover {
+                        color: #fff;
+                        background: #a2393c; 
+                }
+
+                .MarkupPagerNav li.MarkupPagerNavSeparator {
+                        border: none;
+                }
+

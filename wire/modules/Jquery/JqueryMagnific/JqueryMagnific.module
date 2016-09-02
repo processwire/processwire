@@ -1,0 +1,15 @@
+<?php namespace ProcessWire;
+
+class JqueryMagnific extends ModuleJS { 
+
+        public static function getModuleInfo() {
+			return array(
+				'title' => 'jQuery Magnific Popup',
+				'version' => 1,
+				'summary' => 'Provides lightbox capability for image galleries. Replacement for FancyBox. Uses Magnific Popup by @dimsemenov.',
+				'href' => 'http://dimsemenov.com/plugins/magnific-popup/', 
+			);
+		}
+
+	// note ModuleJS automatically loads any JS or CSS files with the same basename as this module
+}

@@ -1,0 +1,18 @@
+{
+   "file":"wire\/modules\/Session\/SessionHandlerDB\/SessionHandlerDB.module",
+   "textdomain":"wire--modules--session--sessionhandlerdb--sessionhandlerdb-module",
+   "translations":{
+      "262f42ad28e2d01d7dc5afa698716099":{
+         "text":"IP Adressen in den Session Daten verfolgen?"
+      },
+      "ab5b4b2116f61fda9325e6deb591bb8f":{
+         "text":"User Agent in den Session Daten verfolgen?"
+      },
+      "703fdc8134134754f6630df73ee50572":{
+         "text":"Der User Agent enth\u00e4lt in der Regel Informationen \u00fcber den genutzten Browser."
+      },
+      "6514b2122a2e569491dccb69eebe383c":{
+         "text":"Die Auswahl dieser Box wird die Daten in ihrer Admin Session Liste anzeigen."
+      }
+   }
+}

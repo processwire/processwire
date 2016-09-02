@@ -1,0 +1,39 @@
+{
+   "file":"wire\/modules\/Process\/ProcessLogin\/ProcessLogin.module",
+   "textdomain":"wire--modules--process--processlogin--processlogin-module",
+   "translations":{
+      "5048eab3b6b17142d965cf9d43f6e460":{
+         "text":"Sie sind eingeloggt."
+      },
+      "a0bfb8e59e6c13fc8d990781f77694fe":{
+         "text":"Fortsetzen"
+      },
+      "847549ae30061a6767a4b17c6fb4f53c":{
+         "text":"Erfolgreich eingeloggt"
+      },
+      "48649d8c2d04aa439d10bc45eaba8f75":{
+         "text":"Login fehlgeschlagen"
+      },
+      "646d9e77201093e05380ead006df9975":{
+         "text":"Sicherheitswarnung: %s existiert und sollte so schnell wie m\u00f6glich gel\u00f6scht werden."
+      },
+      "f6039d44b29456b20f8f373155ae4973":{
+         "text":"Benutzername"
+      },
+      "dc647eb65e6711e155375218212b3964":{
+         "text":"Passwort"
+      },
+      "99dea78007133396a7b8ed70578ac6ae":{
+         "text":"Einloggen"
+      },
+      "01a569ddc6cf67ddec2a683f0a5f5956":{
+         "text":"Passwort vergessen?"
+      },
+      "0d5dfb1efbd4144f5e7c8d80df1d09f1":{
+         "text":"Sie haben sich ausgeloggt"
+      },
+      "d837cc5a72556c5e2abf4b9fe10ddef8":{
+         "text":"Login"
+      }
+   }
+}

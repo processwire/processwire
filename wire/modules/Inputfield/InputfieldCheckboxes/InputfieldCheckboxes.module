@@ -1,0 +1,127 @@
+<?php namespace ProcessWire;
+
+/**
+ * Class InputfieldCheckboxes
+ * 
+ * @property bool $table Whether or not to display as a table
+ * @property string $thead Pipe "|" separated list of table headings. Do the same for the addOption() labels. 
+ * @property int|bool $optionColumns Specify 1 for inline list of options, or qty of columns to list options in.
+ * 
+ */
+
+class InputfieldCheckboxes extends InputfieldSelectMultiple implements InputfieldHasArrayValue {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Checkboxes', __FILE__), // Module Title
+			'summary' => __('Multiple checkbox toggles', __FILE__), // Module Summary
+			'version' => 107,
+			'permanent' => true, 
+			);
+	}
+
+	public function init() {
+		$this->set('table', false); 
+		$this->set('thead', ''); 
+		$this->set('optionColumns', 0);
+		parent::init();
+		$this->set('size', null); // cancel 'size' attribute used by select multiple
+	}
+
+	public function ___render() {	
+
+		$this->checkDefaultValue();
+		$out = '';
+		$table = null;
+		$columns = (int) $this->optionColumns;
+		$inline = $columns === 1 || $columns > 10; 
+		$liAttr = '';
+		$ulClass = '';
+		$entityEncode = $this->getSetting('entityEncodeText') === false ? false : true;
+
+		if($this->table) {
+			$table = $this->modules->get("MarkupAdminDataTable"); 
+			$table->setEncodeEntities(false);
+			$table->addClass('pw-no-select');
+			if($this->thead) $table->headerRow(explode('|', htmlspecialchars($this->thead, ENT_QUOTES, 'UTF-8'))); 
+
+		} else if($columns) {
+
+			if($inline) {
+				$ulClass = 'InputfieldCheckboxesFloated';
+			} else {
+				$liWidth = round(100 / $columns)-1;  // 1% padding-right added from stylesheet
+				$liAttr = " style='width: {$liWidth}%;'";
+				$ulClass = 'InputfieldCheckboxesColumns';
+			}
+
+			$classes = InputfieldWrapper::getClasses();
+			$ulClass .= " " . $classes['list_clearfix'];
+
+		} else {
+			$ulClass = 'InputfieldCheckboxesStacked';
+		}
+
+		if(!$table) $out = "\n<ul class='$ulClass'>";
+
+		foreach($this->getOptions() as $key => $value) {
+			$checked = '';
+
+			if($this->isOptionSelected($key)) $checked = " checked='checked'";
+			$id = $this->id . "_" . $this->wire('sanitizer')->name($key); 
+
+			$attrs = $this->getOptionAttributes($key);
+			$disabled = empty($attrs['disabled']) ? '' : " disabled='disabled'";
+			unset($attrs['checked'], $attrs['selected'], $attrs['disabled']); 
+			$attrs = $this->getOptionAttributesString($attrs);
+			if($attrs) $attrs = ' ' . $attrs; 
+
+			if($entityEncode) $value = $this->entityEncode($value, true); 
+
+			$input = 
+				"<label$attrs>" . 
+				"<input$checked$disabled " . 
+				"type='checkbox' " . 
+				"name='{$this->name}[]' " . 
+				"id='$id' " . 
+				"value='" . htmlspecialchars($key, ENT_QUOTES, 'UTF-8') . "' />"; 
+
+			if($table) {
+				$value = explode("|", nl2br($value));
+				$value[0] = "$input<span class='pw-no-select'>$value[0]</span></label>";
+				$table->row($value); 
+			} else {
+				//$value = str_replace(' ', ' <wbr>', $value);
+				$out .= "\n\t<li$liAttr>$input<span class='pw-no-select'>$value</span></label></li>";
+			}
+			
+		}
+
+		if($table) $out .= $table->render();
+			else $out .= "\n</ul>";
+
+		return $out; 
+
+	}
+
+	public function set($key, $value) {
+		if($key == 'optionColumns') {
+			$value = (int) $value;
+			if($value < 0) $value = 0;
+			if($value > 10) $value = 10;
+		}
+		return parent::set($key, $value); 
+	}
+
+	public function ___getConfigInputfields() {
+		$inputfields = parent::___getConfigInputfields(); 
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->label = $this->_('Columns of Checkboxes');
+		$f->description = $this->_('If you want the checkboxes to display in columns (rather than stacked), enter the number of columns you want to use (up to 10). To display checkboxes side-by-side (inline) enter 1.'); 
+		$f->attr('name', 'optionColumns'); 
+		$f->attr('value', (int) $this->optionColumns); 
+		$inputfields->add($f);	
+		return $inputfields; 
+	}
+
+}

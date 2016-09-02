@@ -1,0 +1,9 @@
+{
+   "file":"wire\/core\/SessionCSRF.php",
+   "textdomain":"wire--core--sessioncsrf-php",
+   "translations":{
+      "f5456cee91779e33a9f38ddca5081710":{
+         "text":"Diese Anfrage war anscheinend gef\u00e4lscht und wurde daher abgebrochen."
+      }
+   }
+}

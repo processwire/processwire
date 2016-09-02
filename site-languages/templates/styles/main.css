@@ -1,0 +1,353 @@
+/** 
+ * main.css
+ * 
+ * 1. General HTML tags
+ * 2. Masthead area
+ * 3. Main content and sidebar
+ * 4. Footer
+ * 5. Media queries for responsive layout
+ * 
+ */
+
+/*********************************************************************
+ * 1. General HTML tags
+ *
+ */
+
+* {
+	box-sizing: border-box; 
+}
+
+body {
+	padding: 5%;
+	max-width: 1600px; 
+	margin: 0 auto; 
+}
+
+body, td, input[type=text], textarea {
+	font-family: 'Quattrocento', serif;
+	font-size: 105%; 
+	line-height: 1.8em;
+	color: #444; 
+}
+
+img {
+	max-width: 100%; 
+}
+
+h2 {
+	font-weight: normal;
+}
+
+h3 {
+	border-top: 1px solid #eee; 
+	padding-top: 1em;
+	color: #777; 
+}
+
+a {
+	color: #333;
+	text-decoration: none;
+	border-bottom: 1px solid #ccc; 
+}
+	a:hover,
+	.nav a:hover {
+		color: #000;
+		border-color: #aaa; 
+	}
+
+blockquote {
+	margin-left: 0;
+	padding-left: 1.5em;
+	padding-right: 2em; 
+	border-left: 4px solid #ddd; 
+	font-style: italic; 
+	color: #777; 
+}
+
+pre, code {
+	background: #eee; 
+	border: 1px solid #ddd; 
+}
+
+pre {
+	font-size: 14px; 
+	line-height: 1.4em;
+	padding: 1em;
+	border-left: 4px solid #ddd; 
+}
+
+/*********************************************************************
+ * 2. Masthead area
+ *
+ */
+
+.topnav, .topnav li {
+	list-style: none; 
+	padding: 0;
+	margin: 0;
+}
+	.topnav li {
+		float: left; 
+		margin-right: 1em;
+		margin-bottom: 1em;
+	}
+	.topnav a {
+		padding: 0.25em 0.5em;
+		text-decoration: none; 
+		display: block;
+		background: #eee; 
+		color: #333; 
+		border: 1px solid #eee; 
+	}
+	.topnav a:hover {
+		background: #ddd;
+		border-color: #ddd; 
+	}
+	.topnav li.current a {
+		background: #ddd; 
+		border-color: #ddd; 
+	}
+	.topnav li.edit a {
+		background: none; 
+	}
+
+.languages {
+	list-style: none; 
+	margin: 0;
+	padding: 0; 
+	float: right;
+	width: 30%; 
+	font-size: 80%; 
+}
+
+	.languages li {
+		list-style: none; 
+		display: inline-block;
+		margin: 0;
+		padding: 0;
+	}
+
+	.languages a {
+		padding: 0 0.5em;
+		border: none; 
+		display: inline;
+		border-left: 1px solid #ccc; 
+	}
+		.languages li.current a {
+			font-weight: bold; 
+		}
+		.languages li:first-child a {
+			border: none; 
+			padding-left: 0;
+		}
+
+
+
+form.search {
+	float: right; 
+	margin: 0;
+	width: 30%; 
+	padding-bottom: 1em;
+}
+	form.search input {
+		margin: 0;
+		padding: 0.25em 0.5em;
+		border: 1px solid #ccc; 
+		width: 100%; 
+	}
+	form.search button {
+		display: none; 
+	}
+
+.breadcrumbs {
+	font-size: 80%; 
+	width: 70%; 
+	float: left;
+	clear: both; 
+	padding-top: 1em; 
+}
+	.breadcrumbs span:after {
+		content: ">";
+		color: #999; 
+		padding-left: 0.5em;
+		padding-right: 0.25em; 
+	}
+
+/*********************************************************************
+ * 3. Main content and sidebar
+ *
+ */
+
+#main {
+	border-top: 1px solid #eee; 
+	padding-top: 1em; 
+	margin-top: 1em; 
+	clear: both; 
+}
+
+#content {
+	width: 85%; 
+}
+
+#content, #sidebar {
+	padding-bottom: 2em; 
+}
+
+body.has-sidebar #content {
+	width: 65%; 
+	float: left;
+}
+
+body.has-sidebar #sidebar {
+	width: 35%;
+	padding-left: 5%; 
+	float: left; 
+}
+
+.nav {
+	margin-left: 0;
+	padding-left: 0;
+	list-style: none; 
+}
+	.nav .nav {
+		padding-left: 1.5em;
+		list-style: disc;
+	}
+	.nav li {
+		margin: 1em 0;
+	}
+
+	.nav-tree li {
+		margin-top: 0;
+		margin-bottom: 0;
+	}
+
+	.nav a {
+		font-weight: bold;
+	}
+
+	.nav-tree li a {
+		color: #777; 
+	}
+
+	.nav .current > a {
+		color: #333; 
+	}
+
+#sidebar img + blockquote {
+	margin-top: 0; 
+}
+
+.align_left {
+	/* for images placed in rich text editor */ 
+	float: left;
+	margin: 0 1em 0.5em 0; 
+	position: relative;
+	top: 0.5em;
+	max-width: 50%; 
+}
+
+.align_right {
+	/* for images placed in rich text editor */ 
+	float: right;
+	margin: 0 0 0.5em 1em;
+	max-width: 50%; 
+}
+
+.align_center {
+	/* for images placed in rich text editor */ 
+	display: block;
+	margin: 1em auto; 
+	position: relative;
+	top: 0.5em;
+}
+
+figure {
+	display: table;
+	width: 1px;
+	margin: 1em 0;
+}
+
+figure img {
+	display: table-row;
+	margin-bottom: 0.5em;
+}
+
+figure figcaption {
+	display: table-row;
+	font-size: smaller;
+	color: #777;
+	line-height: 1.4em;
+}
+
+/*********************************************************************
+ * 4. Footer
+ *
+ */
+
+#footer {
+	clear: both; 
+	border-top: 1px solid #eee; 
+	font-size: 80%; 
+}
+
+/*********************************************************************
+ * 5. Media queries for responsive layout
+ *
+ */
+
+@media only screen and (max-width: 767px) {
+	/* mobile layout */ 
+
+	.languages {
+		width: 100%; 
+		margin-bottom: 1em;
+	}
+	.topnav {
+		float: none;
+		clear: both; 
+		width: 100%; 
+	}
+	.breadcrumbs {
+		margin-bottom: 1em;
+		margin-top: 0;
+	}
+
+	body, td, textarea {
+		font-size: 100%; 
+	}
+	body.has-sidebar #content, 
+	body.has-sidebar #sidebar {
+		float: none;
+		width: 100%; 
+		padding: 0; 
+	}
+	form.search {
+		float: none; 
+		width: 100%; 
+		padding-bottom: 0;
+	}
+	#content {
+		width: 100%; 
+	}
+	#sidebar {
+		border-top: 1px solid #eee;
+		padding-top: 1em; 
+	}
+	.align_left, .align_right, .align_center {
+		display: block;
+		float: none; 
+		margin: 1em auto;
+		max-width: 100%; 
+	}
+
+}
+
+@media only screen and (min-width: 1200px) {
+	/* extra-wide desktop layout */ 
+	
+	body, td, textarea {
+		font-size: 115%; 
+	}
+}

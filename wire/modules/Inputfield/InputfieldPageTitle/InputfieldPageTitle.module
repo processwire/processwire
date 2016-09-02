@@ -1,0 +1,16 @@
+<?php namespace ProcessWire;
+
+/**
+ * An Inputfield for handling Page Titles. Exists primarily for it's javascript. 
+ *
+ */
+class InputfieldPageTitle extends InputfieldText {
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Page Title', __FILE__), // Module Title
+			'summary' => __('Handles input of Page Title and auto-generation of Page Name (when name is blank)', __FILE__), // Module Summary
+			'version' => 102,
+			'permanent' => true, 
+			);
+	}
+}

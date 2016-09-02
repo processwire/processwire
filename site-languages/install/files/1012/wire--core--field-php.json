@@ -1,0 +1,18 @@
+{
+   "file":"wire\/core\/Field.php",
+   "textdomain":"wire--core--field-php",
+   "translations":{
+      "3ec365dd533ddb7ef3d1c111186ce872":{
+         "text":"Details"
+      },
+      "2d4fb1895f6c380c74480ec133a15230":{
+         "text":"Eingabefeld Einstellung"
+      },
+      "324118a6721dd6b8a9b9f4e327df2bf5":{
+         "text":"Eingabe"
+      },
+      "5264933a7701e0e7acd07de875087cca":{
+         "text":"Feldtyp Details"
+      }
+   }
+}

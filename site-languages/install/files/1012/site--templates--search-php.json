@@ -1,0 +1,18 @@
+{
+    "file": "site\/templates\/search.php",
+    "textdomain": "site--templates--search-php",
+    "translations": {
+        "fea9c2ab17ee33be57019f8c7f16a16a": {
+            "text": "Bitte geben Sie einen Begriff in das Suchfeld ein (oben rechts)"
+        },
+        "38744ee54a06f2c3fa3fe854e53d425e": {
+            "text": "%d Seite gefunden"
+        },
+        "57781a46e81b8ad48f477003b2a8982d": {
+            "text": "%d Seiten gefunden"
+        },
+        "ef74df873493bcbea0e68b49833cc933": {
+            "text": "Leider keine Ergebnisse gefunden."
+        }
+    }
+}

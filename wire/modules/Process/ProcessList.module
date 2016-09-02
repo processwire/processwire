@@ -1,0 +1,80 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire List Process
+ *
+ * Generates a <dl> definition list of Processes attached to each child page. 
+ * 
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class ProcessList extends Process {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('List', __FILE__), // getModuleInfo title          
+			'summary' => __('Lists the Process assigned to each child page of the current', __FILE__), // getModuleInfo summary
+			'version' => 101, 
+			'permanent' => true, 
+			'permission' => 'page-view',
+			);
+	}
+
+
+	public function ___execute() {
+		return $this->render();
+	}	
+
+	protected function render() {
+		$out = "\n<dl class='nav'>";
+		$cnt = 0; 
+		foreach($this->page->children("check_access=0") as $child) {
+			if(!$child->viewable()) continue;
+			$class = '';
+			
+			if($child->process) {
+				
+				$info = $this->modules->getModuleInfoVerbose($child->process, array('noCache' => true)); 	
+				$icon = $info['icon'] ? "<i style='float: right;' class='fa fa-3x fa-fw fa-$info[icon] ui-priority-secondary'></i> " : '';
+				$title = $child->title;
+				if(!strlen($title)) $title = $info['title'];
+				if(!strlen($title)) $title = $child->name;
+				$titleTranslated = __($title, '/wire/templates-admin/default.php'); 
+				if($titleTranslated && $titleTranslated != $title) $title = $titleTranslated; 
+				$title = $this->wire('sanitizer')->entities1($title); 
+				if($child->summary) $summary = $child->summary; 
+					else $summary = $info['summary'];
+					
+				$summary = $this->wire('sanitizer')->entities1($summary);
+				
+			} else {
+				
+				$title = $child->get("title|name"); 
+				if($child->template == 'admin') {
+					$summary = $this->_('The process module assigned to this page does not appear to be installed.'); 
+					$class = " class='ui-priority-secondary'";
+				} else if($child->summary) {
+					$summary = $this->wire('sanitizer')->entities($child->getUnformatted('summary')); 
+				} else {
+					$summary = '<!--' . $this->_('No description available') . '-->';
+				}
+				$icon = '';
+			}
+			
+			$out .= "\n\t<dt$class><a class='label' href='{$child->url}'>$icon$title</a></dt>";
+			if($summary) $out .= "\n\t<dd$class>$summary</dd>";
+			$cnt++;
+		}
+
+		$out .= "\n</dl>";
+		if(!$cnt) $out = '';
+		return $out; 
+	}
+}
+

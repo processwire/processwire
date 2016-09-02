@@ -1,0 +1,131 @@
+h3.ui-widget-header {
+	padding: 5px 10px; 
+	margin-bottom: 0 !important; 
+	font-size: 1.2em; 
+}
+/*
+#content h2 {
+	margin-bottom: 0.5em; 
+}
+*/
+
+table.AdminDataList {
+	clear: both; 
+	margin-top: 0.5em; 
+	margin-bottom: 2em; 
+}
+
+table.AdminDataList td,
+table.AdminDataList th {
+	padding-right: 10px !important; 
+}
+
+#modules_form table.AdminDataList td:nth-child(2),
+#modules_form table.AdminDataList th:nth-child(2) {
+	text-align: center;
+}
+
+table.AdminDataList td:first-child,
+table.AdminDataList th:first-child {
+	width: 30%; 
+	vertical-align: top; 
+}
+
+table.AdminDataList td p.module-summary {
+	margin: 0;
+}
+
+table.AdminDataList td .requires,
+table.AdminDataList td .date,
+table.AdminDataList td .installs {
+	display: block;
+}
+
+table.AdminDataList td:last-child {
+	width: 70%;
+}
+
+table.AdminDataList td span.ui-icon {
+	position: relative; 
+	bottom: -2px;
+	opacity: 0.4; 
+}
+
+#ModuleInfo table.AdminDataList td:first-child {
+	font-weight: bold; 
+	text-align: right; 
+	width: 12%; 
+	padding-right: 1em; 
+}
+
+#ModuleInfo table.AdminDataList tr:last-child td {
+	border-bottom: none; 
+}
+
+table.AdminDataList td .buttons {
+	display: block;
+	margin: 0.25em 0;
+}
+
+.ConfigurableModule .ui-icon-gear {
+	display: block;
+	float: right; 
+}
+
+button.install {
+	margin: 1px 0 0 1em;	
+	float: right; 
+}
+
+a span.not_installed {
+	text-decoration: line-through;
+}
+	a:hover span.not_installed {
+		text-decoration: none; 
+	}
+
+a span.PermanentModule {
+	font-weight: normal;
+}
+
+#wrap_reset {
+	margin: 0;
+	float: right; 
+}
+	#wrap_reset .ui-button {
+		margin-right: 0;
+	}
+
+#modules_form p.description {
+	margin-top: 0; 
+	/*
+	padding-top:1em;
+	*/
+}
+
+#godownload,
+#install_now,
+#no_install {
+    float: left; 
+}
+
+#modules_form select.modules_filter {
+	margin-top: 0.75em;
+}
+#modules_form #Inputfield_new_seconds {
+	margin-bottom: 1em;
+}
+
+#modules_form .InputfieldFileValidExtensions {
+	/* this becomes redundant in module upload */
+	display: none;
+	
+}
+
+.pw-init #modules_form, 
+.pw-init .WireTab,
+.pw-init .WireTabs li {
+	display: none; 
+}
+
+

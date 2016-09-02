@@ -1,0 +1,155 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Sort Process
+ *
+ * Saves moved or sorted pages for the PageList process. 
+ * Intended to be executed via an ajax call. 
+ * 
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class ProcessPageSort extends Process {
+
+	protected $ids = array(); 
+	protected $parent_id = 0; 
+	protected $move_id = 0; 
+	protected $user; 
+	protected $isMoved = false;
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Page Sort and Move', __FILE__), // getModuleInfo title
+			'summary' => __('Handles page sorting and moving for PageList', __FILE__), // getModuleInfo summary
+			'version' => 100, 
+			'permanent' => true, 
+			'permission' => 'page-edit',
+			); 
+	}
+
+	/**
+	 * Install a new permission in addition to the regular ProcessPageSort permission
+	 *
+	 * The "ProcessPageSortMove" permission refers to changing the page's parent,
+	 * whereas the "ProcessPageSort" permission refers to changing the sort within the same parent. 
+	 *
+	 */
+	public function ___install() {
+		parent::___install();
+	}
+
+	/**
+	 * Save a move/sort request
+	 *
+	 */
+	public function ___execute() {
+
+		if($this->config->demo) throw new WireException($this->_("Your change was not saved because this site is in demo mode")); 
+		if(!isset($_POST['sort'])) throw new WireException($this->_("This Process is only accessible via POST")); 
+		$this->session->CSRF->validate(); // throws exception if invalid
+		$input = $this->wire('input');
+		$this->user = $this->wire('user'); 
+		$this->ids = array();
+		$ids = explode(',', $input->post->sort); 
+		foreach($ids as $sort => $id) $this->ids[(int) $sort] = (int) $id; 
+		if(!count($this->ids)) return; 
+		unset($ids);
+
+		$this->parent_id = (int) $input->post->parent_id; 
+		$this->move_id = (int) $input->post->id;
+			
+		$parentPage = $this->wire('pages')->get($this->parent_id);
+		$movePage = $this->wire('pages')->get($this->move_id); 
+		if($movePage->id < 2 || !$parentPage->id) return;
+
+		$this->movePage($movePage, $parentPage); 
+		$this->sortPages($movePage, $parentPage); 
+	}	
+
+	/**
+	 * Saves a page that has had it's parent_id changed
+	 *
+	 */
+	protected function movePage(Page $page, Page $parent) {
+
+		if($page->parent_id == $parent->id) return;
+
+		if(!$page->moveable($parent)) 
+			throw new WirePermissionException($this->_("You do not have permission to move pages using this parent") . " - {$parent->path}"); 
+
+		$page->setOutputFormatting(false); 
+		$page->resetTrackChanges(true); 
+		$page->parent = $parent; 
+		$page->save();
+		$this->message("Moved page $page to parent $parent"); 
+		$this->isMoved = true;
+	}
+
+	/**
+	 * Updates the sortfield for all pages having the same parent
+	 *
+	 */
+	protected function sortPages(Page $page, Page $parent) {
+
+		if(!$page->sortable()) { 
+			if(!$this->isMoved) throw new WirePermissionException($this->_("You do not have permission to sort pages using this parent") . " - {$parent->path}"); 
+			return;
+		}
+
+		if($parent->sortfield && $parent->sortfield != 'sort') {
+			$msg = sprintf($this->_("Your sort was not saved because these pages are automatically sorted by %s."), $parent->sortfield);
+			if(!$this->isMoved) throw new WireException($msg); 
+				else $this->message($msg); 
+			return;
+		}
+
+		$changes = 0; 
+		$sortStart = 0;
+		$database = $this->wire('database');
+
+		// locate the 'sort' value of the current first sorted item, to use as our starting point (in case sorting in a pagination other than 1)
+		$sql = "SELECT sort FROM pages WHERE parent_id=:parent_id AND id IN("; 
+		foreach($this->ids as $id) $sql .= ((int) $id) . ",";
+		$sql = rtrim($sql, ",") . ") ";
+		if($this->isMoved) $sql .= "AND id!=:move_id ";
+		$sql .= "ORDER BY sort LIMIT 1";
+		$query = $database->prepare($sql);
+		$query->bindValue(":parent_id", $parent->id, \PDO::PARAM_INT);
+		if($this->isMoved) $query->bindValue(":move_id", $this->move_id, \PDO::PARAM_INT);
+		$query->execute();
+		$sortStart = (int) $query->fetchColumn();
+		
+		$query = $database->prepare("UPDATE pages SET sort=:sort1 WHERE id=:id AND parent_id=:parent_id AND sort!=:sort2");
+		$query->bindValue(":parent_id", $parent->id, \PDO::PARAM_INT);
+		$id = 0;
+		$pageSort = 0;
+		
+		foreach($this->ids as $sort => $id) {
+			$sort += $sortStart;
+			$query->bindValue(":sort1", $sort, \PDO::PARAM_INT);
+			$query->bindValue(":sort2", $sort, \PDO::PARAM_INT);
+			$query->bindValue(":id", $id, \PDO::PARAM_INT); 
+			$query->execute();
+			if($query->rowCount() > 0) $changes++;
+			if($page->id == $id) $pageSort = $sort; 
+		}
+	
+		// trigger hooks
+		$page->set('sort', $pageSort);
+		$page->trackChange('sort');
+		$page->save();
+		$parent->trackChange('children');
+		$parent->save();
+
+		if($changes) $this->message("Updated sort for $changes pages", Notice::log); 
+		
+	}
+	
+}
+

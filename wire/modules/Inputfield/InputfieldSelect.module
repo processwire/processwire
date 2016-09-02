@@ -1,0 +1,509 @@
+<?php namespace ProcessWire;
+
+/**
+ * Base for selection form inputs, which by default behaves as a regular <select>
+ *
+ * Serves as the base for Inputfields that provide selection of options (whether single or multi).
+ * As a result, this class includes functionality for, and checks for both single-and-multi selection values. 
+ * Sublcasses will want to override the render method, but it's not necessary to override processInput().
+ * Subclasses that select multiple values should implement the InputfieldHasArrayValue interface. 
+ * 
+ * @todo add support for 'required' attribute?
+ *
+ */
+class InputfieldSelect extends Inputfield {
+
+	/**
+	 * Options specific to this Select
+	 *
+	 */
+	protected $options = array();
+
+	/**
+	 * Attributes for options specific to this select (if applicable)
+	 *
+	 */
+	protected $optionAttributes = array();
+
+	/**
+	 * Return information about this module
+	 *
+	 */
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Select', __FILE__), // Module Title
+			'summary' => __('Selection of a single value from a select pulldown', __FILE__), // Module Summary
+			'version' => 102,
+			'permanent' => true, 
+			);
+	}
+
+	public function __construct() {
+		parent::__construct();
+		$this->set('defaultValue', ''); 
+	}
+
+	/**
+	 * Add an option that may be selected
+	 *
+	 * If you want to add an optgroup, use the $value param as the label, and the label param as an array of options. 
+	 * Note that optgroups may not be applicable to other Inputfields that descend from InputfieldSelect.
+	 *
+	 * @param string $value Value that the option submits
+	 * @param string $label|array Optional label associated with the value (if null, value will be used as the label)
+	 * @param array $attributes Optional attributes to be associated with this option (i.e. a 'selected' attribute for an <option> tag)
+	 * @return $this
+	 *
+	 */
+	public function addOption($value, $label = null, array $attributes = null) {
+		if(is_null($label) || (is_string($label) && !strlen($label))) $label = $value; 
+		$this->options[$value] = $label; 	
+		if(!is_null($attributes)) $this->optionAttributes[$value] = $attributes; 
+		return $this; 
+	}
+
+	/**
+	 * Add multiple options at once
+	 *
+ 	 * @param array $options May be associative or regular array. If associative, use $value => $label. If regular, use just array($value, ...)
+	 * @return this
+	 *
+	 */
+	public function addOptions(array $options) {
+		foreach($options as $k => $v) {
+			$this->addOption($k, $v); 
+		}
+		return $this; 
+	}
+
+	/**
+	 * Given a multi-line string, convert it to options, one per line
+	 *
+	 * Lines preceded with a plus "+" are assumed selected, i.e. +option
+	 * Lines with an equals sign are split into separate value and label, i.e. value=label
+	 *
+	 * @param string $value 
+	 * @return this
+	 *
+	 */
+	public function addOptionsString($value) {
+
+		$value = (string) $value; 
+		$options = explode("\n", $value);
+		$lastOption = '';
+		$optgroup = array();
+		$optgroupLabel = '';
+
+		foreach($options as $option) {
+
+			// in an optgroup when line starts with 3 or more spaces
+			if(strpos($option, '   ') === 0 && !empty($lastOption)) {
+				// if no optgroupLabel, we're starting a new option group
+				if(empty($optgroupLabel)) $optgroupLabel = $lastOption; 
+				$option = trim($option);
+			} else {
+				if($optgroupLabel) $this->addOption($optgroupLabel, $optgroup); 
+				$optgroup = array();
+				$optgroupLabel = '';
+			}
+
+			$option = trim($option); 
+			$attrs = array(); 
+			$label = null;
+
+			// if option starts with a plus then make it selected
+			if(substr($option, 0, 1) == '+') $attrs['selected'] = 'selected';
+
+			// option option has an equals "=", but not "==", then assume it's a: value=label
+			if(strpos($option, '=') !== false && strpos($option, '==') === false) list($option, $label) = explode('=', $option); 	
+
+			// convert double equals "==" to single equals "=", as a means of allowing escaped equals sign
+			if(strpos($option, '==') !== false) $option = str_replace('==', '=', $option);
+
+			$option = trim($option, '+ '); 
+	
+			if($optgroupLabel) {
+				// add option to optgroup
+				$optgroup[$option] = is_null($label) ? $option : $label;
+				if(count($attrs)) $this->optionAttributes[$option] = $attrs; 
+			} else {	
+				// add the option
+				$this->addOption($option, $label, $attrs);
+			}
+
+			$lastOption = $option;
+		}
+
+		if($optgroupLabel && count($optgroup)) $this->addOption($optgroupLabel, $optgroup);
+
+		return $this; 
+	}
+
+	/**
+	 * Remove the option with the given value
+	 *
+	 */
+	public function removeOption($value) {
+		unset($this->options[$value]); 
+		return $this; 
+	}
+		
+	/**
+	 * Get all options for this Select
+	 *
+	 * @return array
+	 *
+	 */
+	public function getOptions() {
+		return $this->options; 
+	}
+
+	/**
+	 * Returns whether the provided value is one of the available options
+	 *
+	 * @param string|int $value
+	 * @param array $options Array of options to check, or omit if using this classes options. 
+	 * @return bool
+	 *
+	 */
+	public function isOption($value, array $options = null) {
+
+		if(is_null($options)) $options = $this->options; 
+		$is = false;
+		
+		foreach($options as $key => $option) {
+			if(is_array($option)) {
+				// fieldgroup
+				if($this->isOption($value, $option)) {
+					$is = true;
+					break;
+				}
+			} else {
+				if("$value" === "$key") {
+					$is = true;
+					break;
+				}
+			}
+		}
+		
+		return $is; 
+	}
+
+	/**
+	 * Returns whether the provided value is selected
+	 *
+	 */
+	public function isOptionSelected($value) {
+
+		$valueAttr = $this->attr('value'); 
+		if(empty($valueAttr)) {
+			// no value set yet, check if it's set in any of the option attributes
+			$selected = false;
+			if(isset($this->optionAttributes[$value])) {
+				$attrs = $this->optionAttributes[$value]; 
+				if(!empty($attrs['selected']) || !empty($attrs['checked'])) $selected = true; 
+				
+			}
+			if($selected) return true; 
+		}
+
+		if($this instanceof InputfieldHasArrayValue) { 
+			// if(is_array($this->attr('value'))) {
+			// multiple selection
+			return in_array($value, $this->attr('value')); 
+		}
+
+		return "$value" == (string) $this->value; 
+	}
+	
+	public function isOptionDisabled($value) {
+		$disabled = false;
+		if(isset($this->optionAttributes[$value])) {
+			$attrs = $this->optionAttributes[$value];
+			if(!empty($attrs['disabled'])) $disabled = true; 
+		}
+		return $disabled;
+	}
+
+	protected function renderOptions($options, $allowBlank = true) {
+
+		$out = '';
+		reset($options); 
+		$key = key($options); 
+		$hasBlankOption = empty($key); 
+		if($allowBlank && !$this->required && !$this->attr('multiple') && !$hasBlankOption) $out .= "<option value=''>&nbsp;</option>"; 
+
+		foreach($options as $value => $label) {
+
+			if(is_array($label)) {
+				$out .= "\n\t<optgroup label='" . htmlspecialchars($value, ENT_QUOTES, 'UTF-8') . "'>" . 
+					$this->renderOptions($label, false) . 
+					"\n\t</optgroup>";
+				continue; 
+			}
+
+			$selected = $this->isOptionSelected($value) ? " selected='selected'" : '';
+			$attrs = $this->getOptionAttributesString($value);
+			$out .= "\n\t<option$selected $attrs value='" . htmlspecialchars($value, ENT_QUOTES, "UTF-8") . "'>" . $this->entityEncode($label) . "</option>";
+		}
+
+		return $out; 
+	}
+
+	/**
+	 * Check for default value and populate when appropriate
+	 *
+	 * This should be called at the beginning of render() and at the end of processInput()
+	 *
+	 */
+	protected function checkDefaultValue() {
+
+		if(!$this->required || !$this->defaultValue || !$this->isEmpty()) return;
+
+		// when a value is required and the value is empty and a default value is specified, we use it.
+		if($this instanceof InputfieldHasArrayValue) {
+			$value = explode("\n", $this->defaultValue); 
+			foreach($value as $k => $v) {
+				$value[$k] = trim($v); // remove possible extra LF
+			}
+		} else {
+			$value = $this->defaultValue; 
+			$pos = strpos($value, "\n"); 
+			if($pos) $value = substr($value, 0, $pos); 
+			$value = trim($value); 
+		}
+		$this->attr('value', $value); 
+	}
+
+	/**
+	 * Render and return the output for this Select
+	 *
+	 */
+	public function ___render() {
+		$this->checkDefaultValue();
+		$attrs = $this->getAttributes();
+		unset($attrs['value']); 
+
+		$out =	
+			"\n<select " . $this->getAttributesString($attrs) . ">" . 
+			$this->renderOptions($this->options) . 
+			"\n</select>";
+
+		return $out; 
+	}
+
+	public function ___renderValue() {
+		
+		$out = '';
+		
+		foreach($this->options as $value => $label) {
+			
+			$o = '';
+			
+			if(is_array($label)) {
+				foreach($label as $k => $v) {
+					if($this->isOptionSelected($k)) {
+						$o = trim($value, ' :') . ": $v";
+					}
+				}
+			} else {
+				if($this->isOptionSelected($value)) $o = $label;
+			}
+			
+			if(strlen($o)) {
+				$out .= "<li>" . $this->wire('sanitizer')->entities($o) . "</li>";
+			}
+		}
+	
+		if(strlen($out)) $out = "<ul>$out</ul>";
+		
+		return $out; 
+	}
+
+	/**
+	 * Get an attributes array intended for the <option> element
+	 *
+	 * @param string $key
+	 * @return array
+	 *
+	 */
+	protected function getOptionAttributes($key) {
+		if(!isset($this->optionAttributes[$key])) return array();
+		return $this->optionAttributes[$key]; 
+	}
+
+	/**
+	 * Get an attributes string intended for the <option> element
+	 *
+	 * @param string|array $key If an array, it will be assumed to the attributes you want rendered. If a key for an existing option, then 
+	 * 	the attributes for that option will be rendered. 
+	 * @return string
+	 *
+	 */
+	protected function getOptionAttributesString($key) {
+
+		if(is_array($key)) $attrs = $key; 
+			else if(!isset($this->optionAttributes[$key])) return '';
+			else $attrs = $this->optionAttributes[$key]; 
+
+		return $this->getAttributesString($attrs); 
+	}
+
+	/**
+	 * Process input from the provided array
+	 *
+	 * In this case we're having the Inputfield base process the input and we're going back and validating the value.
+	 * If the value(s) that were set aren't in our specific list of options, we remove them. This is a security measure.
+	 *
+	 * @param WireInputData $input
+	 * @return $this
+	 *
+	 */
+	public function ___processInput(WireInputData $input) {
+
+		parent::___processInput($input); 	
+
+		$name = $this->attr('name');
+		if(!isset($input[$name])) {
+			$value = $this instanceof InputfieldHasArrayValue ? array() : null;
+			$this->setAttribute('value', $value); 
+			return $this;
+		}
+
+		// validate that the selected posted option(s) are those from our options list 
+		// removing any that aren't
+
+		$value = $this->attr('value'); 
+
+		if($this instanceof InputfieldHasArrayValue) {
+			foreach($value as $k => $v) {
+				if(!$this->isOption($v)) {
+					// $this->message("Removing invalid option: " . wire('sanitizer')->entities($value[$k]), Notice::debug); 
+					unset($value[$k]); 
+				}
+			}
+
+		} else if($value && !$this->isOption($value)) {
+			$value = null;
+		}
+
+		$this->setAttribute('value', $value); 
+		$this->checkDefaultValue();
+
+		return $this; 
+	}
+
+	public function get($key) {
+		if($key == 'options') return $this->options; 
+		return parent::get($key); 
+	}
+
+	public function set($key, $value) {
+
+		if($key == 'options') {
+			if(is_string($value)) return $this->addOptionsString($value); 
+			if(is_array($value)) $this->options = $value; 	
+			return $this;
+		} 
+
+
+		return parent::set($key, $value); 
+	}
+
+	public function setAttribute($key, $value) {
+		if($key == 'value') {
+			if(is_object($value) || (is_string($value) && strpos($value, '|'))) {
+				$value = (string) $value;
+				if($this instanceof InputfieldHasArrayValue) {
+					$value = explode('|', $value);
+				}
+			} else if(is_array($value)) {
+				if($this instanceof InputfieldHasArrayValue) {
+					// ok
+				} else {
+					$value = reset($value); 
+				}
+			}
+		}
+		return parent::setAttribute($key, $value);
+	}
+
+	public function isEmpty() {
+		$value = $this->attr('value');
+
+		if(is_array($value)) {
+			$cnt = count($value);
+			if(!$cnt) return true; 
+			if($cnt === 1) return strlen(reset($value)) === 0; 
+			return false; // $cnt > 1
+
+		} else if($value === null || $value === false) {
+			return true; 
+
+		} else if($value == "0") {
+			if(!array_key_exists("$value", $this->options)) return true; 
+
+		} else {
+			return strlen($value) === 0; 
+		}
+	}
+
+
+	public function ___getConfigInputfields() {
+
+		$inputfields = parent::___getConfigInputfields();
+
+		$f = $this->wire('modules')->get('InputfieldTextarea'); 
+		$f->attr('name', 'defaultValue'); 
+		$f->attr('value', $this->defaultValue); 
+		$f->label = $this->_('Default Value'); 
+		$f->description = $this->_('To have pre-selected default value(s), enter the option values (one per line) below. For page selections, this would be the page ID number(s).'); 
+		$f->notes = $this->_('This default value(s) option is available because you checked the "required" box above.'); 
+		$f->showIf = 'required>0';
+		$f->collapsed = Inputfield::collapsedBlank;
+		
+		$inputfields->add($f); 
+
+		// if dealing with an inputfield that has an associated fieldtype, 
+		// we don't need to perform the remaining configuration
+		if($this->hasFieldtype === false) {
+
+			$isInputfieldSelect = $this->className() == 'InputfieldSelect';
+
+			$f = $this->wire('modules')->get('InputfieldTextarea'); 
+			$f->attr('name', 'options'); 
+			$value = '';
+			$options = array();
+			foreach($this->options as $key => $option) {
+				if(is_array($option)) {
+					$value .= "$key\n";
+					foreach($option as $o) {
+						$value .= "   $o\n";
+					}
+				} else {
+					$value .= "$option\n";
+				}
+			}
+			$value = trim($value);
+			if(empty($value)) {
+				$value = "=\nOption 1\nOption 2\nOption 3";
+				if(!$isInputfieldSelect) $value = ltrim($value, '='); 
+			}
+			$f->attr('value', $value); 
+			$f->attr('rows', 10); 
+			$f->label = $this->_('Options');
+			$f->description = $this->_('Enter the options that may be selected, one per line.');
+			$f->notes = 
+				($isInputfieldSelect ? $this->_('To precede your list with a blank option, enter just a equals sign "=" as the first option.') . "\n" : '') . 
+				$this->_('To make an option selected, precede it with a plus sign. Example: +My Option') . "\n" . 
+				$this->_('To keep a separate value and label, separate them with an equals sign. Example: value=My Option') . "\n" . 
+				($isInputfieldSelect ? $this->_('To create an optgroup (option group) indent the options in the group with 3 or more spaces.') : ''); 
+				
+			$inputfields->add($f); 
+		}
+
+		return $inputfields; 
+	}
+
+	
+}

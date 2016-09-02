@@ -1,0 +1,609 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Table Fieldtype
+ *
+ * Concept by Antti Peisa
+ * Code by Ryan Cramer
+ * Sponsored by Avoine
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class FieldtypePageTable extends FieldtypeMulti implements Module {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'ProFields: Page Table',
+			'version' => 8,
+			'summary' => 'A fieldtype containing a group of editable pages.',
+			'installs' => 'InputfieldPageTable',
+			'autoload' => true, 
+			);
+	}
+
+	/**
+	 * Initialize the PageTable hooks
+	 * 
+	 */
+	public function init() {
+		$pages = $this->wire('pages'); 
+		$pages->addHookAfter('delete', $this, 'hookPagesDelete');
+		$pages->addHookAfter('deleteReady', $this, 'hookPagesDeleteReady');
+		$pages->addHookAfter('trashed', $this, 'hookPagesTrashed');
+		$pages->addHookAfter('unpublished', $this, 'hookPagesUnpublished');
+		$pages->addHookAfter('published', $this, 'hookPagesPublished'); 
+		$pages->addHookAfter('cloned', $this, 'hookPagesCloned'); 
+	}
+
+	/**
+	 * Hook called when a page is deleted
+	 * 
+	 * Used to delete references to the page in any PageTable tables
+	 *
+	 */
+	public function hookPagesDelete(HookEvent $event) {
+		$page = $event->arguments(0); 
+		foreach($this->wire('fields') as $field) {
+			if(!$field->type instanceof FieldtypePageTable) continue; 
+			$table = $this->wire('database')->escapeTable($field->table); 
+			$sql = "DELETE FROM `$table` WHERE pages_id=:pages_id OR data=:data";
+			$query = $this->wire('database')->prepare($sql); 
+			$query->bindValue(':pages_id', (int) $page->id); 
+			$query->bindValue(':data', (int) $page->id); 
+			$query->execute();
+		}
+	}
+
+	/**
+	 * Hook called when a page is about to be deleted
+	 * 
+	 * This automatically trashes the PageTable pages that a deleted page owns, if the unpubOnDelete option is true. 
+	 * This is really only applicable when PageTable pages are stored somewhere other than as children of the 
+	 * deleted page. 
+	 *
+	 */
+	public function hookPagesDeleteReady(HookEvent $event) {
+		$page = $event->arguments(0); 
+		foreach($page->template->fieldgroup as $field) {
+			if(!$field->type instanceof FieldtypePageTable) continue; 
+			if(is_null($field->trashOnDelete) && !is_null($field->autoTrash)) $field->trashOnDelete = $field->autoTrash;
+			if(!$field->parent_id || !$field->trashOnDelete) continue; 
+			$value = $page->getUnformatted($field->name); 
+			if(!count($value)) continue; 
+			foreach($value as $item) {	
+				$deleted = false; 
+				if($field->trashOnDelete == 2) {
+					$this->wire('pages')->message("Auto Delete PageTable Item: $item->url", Notice::debug); 
+					try {
+						$this->wire('pages')->delete($item); 
+						$deleted = true; 
+					} catch(\Exception $e) {
+						$this->wire('pages')->error($e->getMessage(), Notice::debug); 
+					}
+				}
+				if(!$deleted) {
+					if($item->isTrash()) continue; 
+					$this->wire('pages')->message("Auto Trash PageTable Item: $item->url", Notice::debug);
+					$this->wire('pages')->trash($item);
+				}
+			}
+		}
+	}
+
+	/**
+	 * Hook called when a page has been trashed
+	 *
+	 */
+	public function hookPagesTrashed(HookEvent $event) {
+		$page = $event->arguments(0);
+		foreach($page->template->fieldgroup as $field) {
+			if(!$field->type instanceof FieldtypePageTable) continue;
+			if(!$field->parent_id || !$field->unpubOnTrash) continue;
+			$value = $page->getUnformatted($field->name);
+			if(!count($value)) continue;
+			foreach($value as $item) {
+				$this->wire('pages')->message("Auto Unpublish PageTable Item: $item->url", Notice::debug);
+				$of = $item->of();
+				$item->of(false);
+				$item->addStatus(Page::statusUnpublished); 
+				$item->save();
+				$item->of($of);
+			}
+		}
+	}
+	
+	/**
+	 * Hook called when a page has been unpublished
+	 *
+	 */
+	public function hookPagesUnpublished(HookEvent $event) {
+		$page = $event->arguments(0);
+		foreach($page->template->fieldgroup as $field) {
+			if(!$field->type instanceof FieldtypePageTable) continue;
+			if(!$field->parent_id || !$field->unpubOnUnpub) continue;
+			$value = $page->getUnformatted($field->name);
+			if(!count($value)) continue;
+			foreach($value as $item) {
+				$of = $item->of();
+				$item->of(false);
+				if($field->unpubOnUnpub == 2) {
+					$this->wire('pages')->message("Auto Hide PageTable Item: $item->url", Notice::debug);
+					$item->addStatus(Page::statusHidden);
+				} else {
+					$this->wire('pages')->message("Auto Unpublish PageTable Item: $item->url", Notice::debug);
+					$item->addStatus(Page::statusUnpublished);
+				}
+				$item->save();
+				$item->of($of);
+			}
+		}
+	}
+	
+	/**
+	 * Hook called when a page has been published
+	 *
+	 */
+	public function hookPagesPublished(HookEvent $event) {
+		$page = $event->arguments(0);
+		foreach($page->template->fieldgroup as $field) {
+			if(!$field->type instanceof FieldtypePageTable) continue;
+			if(!$field->parent_id || $field->unpubOnUnpub != 2) continue;
+			$value = $page->getUnformatted($field->name);
+			if(!count($value)) continue;
+			foreach($value as $item) {
+				if(!$item->hasStatus(Page::statusHidden)) continue; 
+				$of = $item->of();
+				$item->of(false);
+				$this->wire('pages')->message("Auto Un-hide PageTable Item: $item->url", Notice::debug);
+				$item->removeStatus(Page::statusHidden);
+				$item->save();
+				$item->of($of);
+			}
+		}
+	}
+
+	/**
+	 * Hook called when a page is cloned
+	 * 
+	 * We use this to clone and save any PageTable fields owned by the cloned page. 
+	 * This ensures we don't get two pages referring to the same PageTable fields. 
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookPagesCloned(HookEvent $event) {
+
+		static $clonedIDs = array();
+
+		$page = $event->arguments(0); 
+		$copy = $event->arguments(1); 
+
+		if(in_array($copy->id, $clonedIDs)) return;
+		$clonedIDs[] = $copy->id; 
+	
+		foreach($copy->template->fieldgroup as $field) {
+			if(!$field->type instanceof FieldtypePageTable) continue; 
+			//if(!$field->parent_id) continue; // let that be handled manually since recursive clones are already an option
+			$parent = $field->parent_id ? $this->wire('pages')->get($field->parent_id) : $copy; 
+			$value = $copy->getUnformatted($field->name); 
+			if(!count($value)) continue; 
+			$newValue = $this->wire('pages')->newPageArray();
+			foreach($value as $item) {
+				try { 
+					$newItem = null;
+					if(!$field->parent_id && $copy->numChildren) {
+						// value was already cloned by API with recursive option?
+						$newItem = $this->wire('pages')->get("parent=$copy, name=$item->name, include=all"); 
+						if(!$newItem->id) $newItem = null; 
+					}
+					if(!$newItem) $newItem = $this->wire('pages')->clone($item, $parent); 
+					if($newItem->id) {
+						$newValue->add($newItem); 
+						$this->wire('pages')->message("Cloned item $item->path", Notice::debug); 
+					}
+				} catch(\Exception $e) {
+					$this->wire('pages')->error("Error cloning $item->path"); 
+					$this->wire('pages')->error($e->getMessage(), Notice::debug); 
+				}
+			}
+			$copy->set($field->name, $newValue); 
+			$copy->save($field->name); 
+		}
+	}
+
+	/**
+	 * Install our ajax lister at ready() time, if the conditions are right
+	 * 
+	 * Note that additional conditions are required and checked for by InputfieldPageTableAjax class. 
+	 * 
+	 */
+	public function ready() {
+		if(	$this->wire('config')->ajax && 
+			$this->wire('input')->get('InputfieldPageTableField') && 
+			$this->wire('user')->isLoggedin() && 
+			$this->wire('page')->template == 'admin') {
+			// handle ajax request to render table
+			require_once($this->wire('config')->paths->InputfieldPageTable . 'InputfieldPageTableAjax.php'); 
+			new InputfieldPageTableAjax();
+		}
+	}
+
+	/**
+	 * Return the database schema used by this Fieldtype
+	 * 
+	 * @param Field $field
+	 * @return array
+	 * 
+	 */
+	public function getDatabaseSchema(Field $field) {
+		$schema = parent::getDatabaseSchema($field);
+		$schema['data'] = 'int NOT NULL';
+		$schema['keys']['data'] = 'KEY data (data, pages_id, sort)';
+		$schema['xtra']['all'] = false; // indicate that this schema doesn't hold all data managed by this fieldtype
+		return $schema;
+	}
+
+	/**
+	 * Get the match query for page selection, delegated to FieldtypePage
+	 * 
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param mixed $value
+	 * @return DatabaseQuery
+	 * 
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		return $this->wire('modules')->get('FieldtypePage')->getMatchQuery($query, $table, $subfield, $operator, $value); 	
+	}
+
+	/**
+	 * Get the Inputfield used for input by PageTable
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Inputfield
+	 * 
+	 */
+	public function getInputfield(Page $page, Field $field) {
+		$inputfield = $this->modules->get('InputfieldPageTable');
+		$value = $page->getUnformatted($field->name); 
+		$inputfield->attr('value', $value);
+		$templateID = $field->template_id;
+		
+		if(!$field->parent_id && !empty($templateID) && $page->numChildren > count($value)) {
+			$orphans = $this->findOrphans($page, $field); 
+			if(count($orphans)) $inputfield->setOrphans($orphans); 
+		}
+		
+		return $inputfield; 
+	}
+
+	/**
+	 * Sanitize a PageTable value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int|object|string|WireArray $value
+	 * @return int|object|PageArray|string|WireArray
+	 * 
+	 */
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		if(is_array($value) && count($value)) $value = $this->wakeupValue($page, $field, $value); 
+		if(!$value instanceof PageArray) return $this->wire('pages')->newPageArray();	
+		foreach($value as $item) {
+			if($this->isValidItem($page, $field, $item)) continue; 
+			$value->remove($item); 
+		}
+		return $value; 
+	}
+
+	/**
+	 * Return true or false as to whether the item is valid for this PageTable
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Page $item
+	 * @return bool
+	 * 
+	 */
+	protected function isValidItem(Page $page, Field $field, Page $item) {
+		$template_id = $field->template_id; 
+		if(is_array($template_id)) {
+			if(in_array($item->template->id, $template_id)) return true; 
+		} else {
+			// old style for backwards compatibility
+			if($template_id == $item->template->id) return true; 
+		}
+		return false; 
+	}
+
+	/**
+	 * Return a blank value used by a PageTable
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return PageArray
+	 * 
+	 */
+	public function getBlankValue(Page $page, Field $field) {
+		return $this->wire('pages')->newPageArray();
+	}
+
+	/**
+	 * Return a formatted PageTable value, which is essentially a new PageArray with hidden items removed
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param PageArray $value
+	 * @return PageArray
+	 *
+	 */
+	public function ___formatValue(Page $page, Field $field, $value) {
+		$formatted = $this->wire('pages')->newPageArray();
+		if(!$value instanceof PageArray) return $formatted; 
+		foreach($value as $item) {
+			if($item->status >= Page::statusHidden) continue; 
+			$formatted->add($item); 
+		}
+		$formatted->data('notSaveable', true); 
+		return $formatted; 
+	}
+
+	/**
+	 * Prep a value for storage
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param PageArray $value
+	 * @throws WireException
+	 * @return array
+	 * 
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+		$sleepValue = array();
+		if(!$value instanceof PageArray) return $sleepValue; 
+		if($field->sortfields) $value->sort($field->sortfields); 
+		if($value->data('notSaveable')) throw new WireException("Field '$field->name' from page $page->id is not saveable because it is a formatted value."); 
+		foreach($value as $item) {
+			if(!$item->id) continue; 
+			if(!$this->isValidItem($page, $field, $item)) continue; 
+			$sleepValue[] = $item->id; 
+		}
+		return $sleepValue; 
+	}
+
+	/**
+	 * Wake up a stored value
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array $value
+	 * @return PageArray
+	 *
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+		
+		if(!is_array($value) || !count($value) || empty($field->template_id)) return $this->getBlankValue($page, $field);
+		
+		$template_id = $field->template_id; 
+		
+		if(!is_array($template_id)) { 
+			$template_id = $template_id ? array($template_id) : array();
+		}
+		
+		if(count($template_id) == 1) {
+			$template = $this->wire('templates')->get(reset($template_id));
+		} else {
+			$template = null;
+		}
+		
+		if($field->sortfields) {
+			$selector = $template ? "template=$template, " : ""; 
+			$selector .= "include=unpublished, id=" . implode('|', $value);
+			foreach(explode(',', $field->sortfields) as $sortfield) {
+				$selector .= ", sort=" . $this->wire('sanitizer')->name(trim($sortfield));
+			}
+			$items = $this->wire('pages')->find($selector); 
+			
+		} else {
+			$items = $this->wire('pages')->getById($value, $template); 
+		}
+			
+		return $items; 
+	}
+
+	/**
+	 * Get information used by selectors for querying this field
+	 * 
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 * 
+	 */
+	public function ___getSelectorInfo(Field $field, array $data = array()) {
+		$info = $this->wire('modules')->get('FieldtypePage')->getSelectorInfo($field, $data); 
+		$info['operators'] = array(); // force it to be non selectable, subfields only
+		return $info; 
+	}
+
+	/**
+	 * Export configuration values for external consumption
+	 *
+	 * Use this method to externalize any config values when necessary.
+	 * For example, internal IDs should be converted to GUIDs where possible.
+	 *
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 *
+	 */
+	public function ___exportConfigData(Field $field, array $data) {
+		$data = $this->wire('fieldtypes')->get('FieldtypePage')->exportConfigData($field, $data); 
+		return $data;
+	}
+	
+	/**
+	 * Convert an array of exported data to a format that will be understood internally (opposite of exportConfigData)
+	 *
+	 * @param Field $field
+	 * @param array $data
+	 * @return array Data as given and modified as needed. Also included is $data[errors], an associative array
+	 *	indexed by property name containing errors that occurred during import of config data.
+	 *
+	 */
+	public function ___importConfigData(Field $field, array $data) {
+		$data = $this->wire('fieldtypes')->get('FieldtypePage')->importConfigData($field, $data);
+		return $data;
+	}
+
+	/**
+	 * Return orphan pages that match the PageTable settings
+	 * 
+	 * Applicable only to PageTable fields utilizing the editable page's children as PageTable items.
+	 * (i.e. no parent_id is set)
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return PageArray Found orphans
+	 *
+	 */
+	public function findOrphans(Page $page, Field $field) { 
+		$orphans = $this->wire('pages')->newPageArray();
+		if($field->parent_id) return $orphans;
+		$templateID = $field->template_id; 
+		if(!$templateID) return $orphans; // we need at least a template to do this
+		if(!is_array($templateID)) $templateID = array($templateID); 
+		$value = $page->getUnformatted($field->name); 
+		if(!$value instanceof PageArray) $value = $this->wire('pages')->newPageArray();
+		if($page->numChildren <= $value->count()) return $orphans; // nothing new
+		$templateNames = array();
+		foreach($templateID as $id) {
+			$template = $this->wire('templates')->get($id);
+			if($template) $templateNames[] = $template->name; 
+		}
+		$selector = "include=unpublished, template=" . implode('|', $templateNames); 
+		if($value->count()) $selector .= ", id!=$value";
+		foreach($page->children($selector) as $item) $orphans->add($item); 
+		return $orphans;	
+	}
+
+	/**
+	 * Return configuration fields definable for each FieldtypePage
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+		
+		if($field->autoTrash !== null) { // autoTrash was renamed to trashOnDelete
+			if($field->trashOnDelete === null) {	
+				$field->trashOnDelete = $field->autoTrash; 
+			}
+			unset($field->autoTrash); 
+		}
+
+		$inputfields = parent::___getConfigInputfields($field);
+
+		$f = $this->wire('modules')->get('InputfieldAsmSelect');
+		$f->attr('name', 'template_id');
+		$f->label = $this->_('Select one or more templates for items');
+		foreach($this->wire('templates') as $template) {
+			if($template->flags & Template::flagSystem) continue; 
+			$f->addOption($template->id, $template->name); 
+		}
+		$value = $field->template_id; 
+		if(!is_array($value)) $value = $value ? array($value) : array();
+		$f->attr('value', $value); 
+		$f->required = true; 
+		$f->description = $this->_('These are the templates that will be used by pages managed from this field. You may wish to create a new template specific to the needs of this field.'); // Templates selection description
+		$f->notes = $this->_('Please hit Save after selecting a template and the remaining configuration on the Input tab will contain more context.'); // Templates selection notes 
+		$inputfields->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldPageListSelect'); 
+		$f->attr('name', 'parent_id'); 
+		$f->label = $this->_('Select a parent for items'); 
+		$f->description = $this->_('All items created and managed from this field will live under the parent you select here.');
+		$f->notes = $this->_('If no parent is selected, then items will be placed as children of the page being edited.'); 
+		$f->collapsed = $field->parent_id ? Inputfield::collapsedNo : Inputfield::collapsedYes;
+		$f->attr('value', (int) $field->parent_id); 
+		$inputfields->add($f);
+		
+		/*
+		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$f->attr('name', 'autoTrash'); 
+		$f->attr('value', 1); 
+		if($field->autoTrash) $f->attr('checked', 'checked'); 
+		$f->label = $this->_('Trash items when page is deleted?'); 
+		$f->description = $this->_('When checked, items created/managed by a given page will be automatically trashed when that page is deleted. If not checked, the items will remain under the parent you selected above.'); // autoTrash option description
+		$f->notes = $this->_('This option applies only if you have selected a parent above.'); 
+		$f->collapsed = Inputfield::collapsedBlank;
+		$inputfields->add($f);
+		*/
+		
+		$fieldset = $this->wire('modules')->get('InputfieldFieldset'); 
+		$fieldset->label = $this->_('Page behaviors');
+		$fieldset->showIf = 'parent_id!=""';
+		$inputfields->add($fieldset);
+		
+		$labels = array(
+			'nothing' => $this->_('Nothing'), 
+			'trash' => $this->_('Trash them'),
+			'delete' => $this->_('Delete them'),
+			'unpub' => $this->_('Unpublish them'), 
+			'hide' => $this->_('Hide them'), 
+			);
+		
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'trashOnDelete');
+		$f->label = $this->_('Delete');
+		$f->description = sprintf($this->_('What should happen to "%s" items when the containing page is permanently deleted?'), $field->name); 
+		$f->addOption(0, $labels['nothing']); 
+		$f->addOption(1, $labels['trash']);
+		$f->addOption(2, $labels['delete']); 
+		$f->attr('value', (int) $field->trashOnDelete); // aka autoTrash
+		$f->columnWidth = 33; 
+		$fieldset->add($f); 
+
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'unpubOnTrash');
+		$f->label = $this->_('Trash');
+		$f->description = sprintf($this->_('What should happen to "%s" items when the containing page is trashed?'), $field->name); 
+		$f->addOption(0, $labels['nothing']);
+		$f->addOption(1, $labels['unpub']);
+		$f->attr('value', (int) $field->unpubOnTrash);
+		$f->columnWidth = 33; 
+		$fieldset->add($f); 
+		
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'unpubOnUnpub');
+		$f->label = $this->_('Unpublish');
+		$f->description = sprintf($this->_('What should happen to "%s" items when the containing page is unpublished?'), $field->name); 
+		$f->addOption(0, $labels['nothing']);
+		$f->addOption(1, $labels['unpub']);
+		$f->addOption(2, $labels['hide']);
+		$f->attr('value', (int) $field->unpubOnUnpub);
+		$f->columnWidth = 33; 
+		$fieldset->add($f); 
+		
+		$f = $this->wire('modules')->get('InputfieldText'); 
+		$f->attr('name', 'sortfields'); 
+		$f->label = $this->_('Sort fields'); 
+		$f->description = $this->_('Enter the field name that you want your table to sort by. For a descending sort, precede the field name with a hyphen, i.e. "-date" rather than "date".'); // sort description 1 
+		$f->description .= ' ' . $this->_('You may specify multiple sort fields by separating each with a comma, i.e. "last_name, first_name, -birthday".'); // sort description 2
+		$f->notes = $this->_('Leave this blank for manual drag-and-drop sorting (default).'); 
+		$f->collapsed = Inputfield::collapsedBlank;
+		$f->attr('value', $field->sortfields); 
+		$inputfields->add($f); 
+		
+		return $inputfields;
+	}
+
+
+}
+

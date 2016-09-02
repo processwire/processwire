@@ -1,0 +1,283 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Datetime Fieldtype
+ *
+ * Holds date and optionally time values. 
+ *
+ * For documentation about the fields used in this class, please see:  
+ * /wire/core/Fieldtype.php
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class FieldtypeDatetime extends FieldtypeText {
+
+	const defaultDateOutputFormat = 'Y-m-d'; 
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Datetime',
+			'version' => 104,
+			'summary' => 'Field that stores a date and optionally time',
+			);
+	}
+
+	/**
+	 * Return all predefined PHP date() formats for use as dates
+	 * 
+	 * Note: this method moved to the WireDateTime class and is kept here for backwards compatibility.
+	 * 
+	 * @deprecated Use WireDateTime class instead
+	 * @return array
+	 *
+	 */
+	static public function getDateFormats() {
+		return WireDateTime::_getDateFormats();
+	}
+
+	/**
+	 * Return all predefined PHP date() formats for use as times
+	 *
+	 * Note: this method moved to the WireDateTime class and is kept here for backwards compatibility.
+	 *
+	 * @deprecated Use WireDateTime class instead
+	 * @return array
+	 * 
+	 */
+	static public function getTimeFormats() {
+		return WireDateTime::_getTimeFormats();
+	}
+
+	/**
+	 * Given a date/time string and expected format, convert it to a unix timestamp
+	 *
+	 * Note: this method moved to the WireDateTime class and is kept here for backwards compatibility.
+	 * 
+	 * @param string $str Date/time string
+	 * @param string $format Format of the date/time string in PHP date syntax
+	 * @return int
+	 * @deprecated Use WireDateTime class instead
+	 *
+	 */
+	static public function stringToTimestamp($str, $format) {
+		$wdt = new WireDateTime();
+		return $wdt->stringToTimestamp($str, $format);
+	}
+
+	/**
+	 * Format a date with the given PHP date() or PHP strftime() format
+	 * 
+	 * Note: this method moved to the WireDateTime class and is kept here for backwards compatibility.
+	 *
+ 	 * @param int $value Unix timestamp of date
+	 * @param string $format date() or strftime() format string to use for formatting
+	 * @return string Formatted date string
+	 * @deprecated Use WireDateTime class instead
+	 *
+	 */
+	static public function formatDate($value, $format) {
+		$wdt = new WireDateTime();
+		return $wdt->formatDate($value, $format);
+	}
+
+	/**
+	 * Given a date() format, convert it to either 'js', 'strftime' or 'regex' format
+	 * 
+	 * Note: this method moved to the WireDateTime class and is kept here for backwards compatibility.
+	 *
+	 * @param string $format PHP date() format
+	 * @param string $type New format to convert to: either 'js', 'strftime', or 'regex' 
+	 * @return string
+	 * @deprecated Use WireDateTime class instead
+	 *
+	 */
+	static public function convertDateFormat($format, $type) {
+		$wdt = new WireDateTime();
+		return $wdt->convertDateFormat($format, $type);
+	}
+
+	/*********************************************************************************************************************************
+	 *********************************************************************************************************************************/
+
+	/**
+	 * Initlialize this module
+	 *
+	 */
+	public function init() {
+		parent::init();
+		$this->allowTextFormatters(false);
+	}
+
+	/**
+	 * Return the Inputfield used for date/time (InputfieldDatetime)
+	 *
+	 */
+	public function getInputfield(Page $page, Field $field) {
+		$inputfield = $this->modules->get('InputfieldDatetime'); 
+		$inputfield->class = $this->className();
+		return $inputfield; 
+	}
+
+	/**
+	 * Sanitize value, per Fieldtype interface
+	 *	
+ 	 */
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		return $this->_sanitizeValue($value); 
+	}
+
+	/**
+	 * Sanitize a value assumed to be either a timestamp or in strtotime() compatible format
+	 *
+	 */
+	protected function _sanitizeValue($value) {
+		if(empty($value)) return ''; 
+		// already a timestamp
+		if(ctype_digit(ltrim($value, '-'))) return (int) $value; 
+		return strtotime($value); 
+	}
+
+	/**
+	 * Format the value for output, according to selected format and language
+	 *
+	 */
+	public function ___formatValue(Page $page, Field $field, $value) {
+		$format = '';
+		if($this->languages && !$this->user->language->isDefault()) $format = $field->get("dateOutputFormat{$this->user->language}"); 
+		if(!$format) $format = $field->dateOutputFormat; 
+		return $this->formatDate($value, $format); 
+	}
+
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		if(!$value) return '';
+		return date('Y-m-d H:i:s', $value); 
+	}
+
+	/**
+	 * Match a date/time value in the database, as used by PageFinder
+	 *
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		$value = (int) $this->_sanitizeValue($value); 
+		if($value) $value = date('Y-m-d H:i:s', $value); 
+			else $value = '';
+		$database = $this->wire('database');
+		if($database->isOperator($operator)) {
+			$table = $database->escapeTable($table);
+			$subfield = $database->escapeCol($subfield);
+			$value = $database->escapeStr($value);
+			$query->where("$table.{$subfield}{$operator}'$value'");
+		}
+
+		return $query; 
+	}
+
+	/**
+	 * Return database schema used by this field
+	 *
+	 */
+	public function getDatabaseSchema(Field $field) {
+		$schema = parent::getDatabaseSchema($field); 
+		$schema['data'] = 'datetime NOT NULL';
+		unset($schema['keys']['data_exact']); 
+		$schema['keys']['data'] = 'KEY data (data)'; // wipe out keys from parent
+		return $schema;
+	}
+
+	/**
+	 * Convert value from timestamp to Y-m-d H:i:s date string
+	 *
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+		$value = $this->_sanitizeValue($value); 
+		return is_int($value) ? date('Y-m-d H:i:s', $value) : '';
+	}
+
+	/**
+	 * Convert value from Y-m-d H:i:s string to timestamp
+	 *
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+		if(empty($value)) return '';
+		$value = strtotime($value); 
+		if($value === false) $value = '';
+		return $value; 
+	}
+
+	/**
+	 * Field configuration screen
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+
+		$inputfields = parent::___getConfigInputfields($field);
+		$wdt = new WireDateTime();
+
+		$f = $this->modules->get('InputfieldSelect'); 
+		$f->attr('name', '_dateOutputFormat'); 
+		$f->label = $this->_('Date Output Format'); 
+		$f->description = $this->_('Select the format to be used when outputting dates with this field.') . ' ';
+		$f->description .= $this->_('For relative date/time formats, see the Time Output Format.'); 
+		$f->icon = 'calendar';
+		$f->addOption('', $this->_('None'));
+		$f->columnWidth = 50;
+		$date = strtotime('2016-04-08 5:10:02 PM');
+		$found = false;
+		foreach($wdt->getDateFormats() as $format) {
+			$dateFormatted = $wdt->formatDate($date, $format); 	
+			if($format == 'U') $dateFormatted .= " " . $this->_('(unix timestamp)');
+			$f->addOption($format, $dateFormatted); 
+			if(!$found && strpos($field->dateOutputFormat, $format) !== false) {
+				$f->attr('value', $format); 
+				$found = true; 
+			}
+		}
+		$f->attr('onchange', "$('#Inputfield_dateOutputFormat').val($(this).val() + ' ' + $('#Inputfield__timeOutputFormat').val());"); 
+		$inputfields->add($f); 
+
+		$f = $this->modules->get('InputfieldSelect'); 
+		$f->attr('name', '_timeOutputFormat'); 
+		$f->label = $this->_('Time Output Format'); 
+		$f->description = $this->_('If you want to output time in addition to the date, select the format to be used when outputting time with this field. This will be combined with the date format.'); 
+		$f->icon = 'clock-o';
+		$f->addOption('', $this->_('None'));
+		$f->columnWidth = 50;
+		$date = strtotime('5:10:02 PM');
+		$found = false;
+		foreach($wdt->getTimeFormats() as $format) {
+			$timeFormatted = $wdt->formatDate($date, $format); 	
+			$f->addOption($format, $timeFormatted); 
+			if(!$found && strpos($field->dateOutputFormat, $format) !== false) {
+				$f->attr('value', $format); 
+				$found = true; 
+			}
+		}
+		$f->attr('onchange', "$('#Inputfield_dateOutputFormat').val($('#Inputfield__dateOutputFormat').val() + ' ' + $(this).val());"); 
+		//$f->collapsed = Inputfield::collapsedBlank;
+		$inputfields->add($f); 
+
+		$f = $this->modules->get("InputfieldText"); 
+		$f->attr('name', 'dateOutputFormat'); 
+		$f->attr('value', $field->dateOutputFormat); 
+		$f->attr('size', 20); 
+		$f->label = $this->_('Date/Time Output Format Code');
+		$f->description = $this->_('The date/time will be output according to the format below. This is automatically built from the date/time selections above, but you may change it as needed to suit your needs.') . ' ';
+		$f->description .= $this->_('See the [PHP date](http://www.php.net/manual/en/function.date.php) function reference for more information on how to customize this format. Alternatively, you may use a [PHP strftime](http://www.php.net/manual/en/function.strftime.php) format if desired for localization.'); 
+		$f->icon = 'code';
+		$f->collapsed = Inputfield::collapsedYes; 
+		if($this->languages) {
+			$f->useLanguages = true; 
+			foreach($this->languages as $language) {
+				if($language->isDefault()) continue; 
+				$f->set("value$language", (string) $field->get('dateOutputFormat' . $language)); 
+			}
+		}
+		$inputfields->add($f); 
+
+		return $inputfields; 
+	}
+}
+

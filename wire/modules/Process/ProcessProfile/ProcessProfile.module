@@ -1,0 +1,216 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Self Profile
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ * 
+ * @property array $profileFields Names of fields user is allowed to edit in their profile
+ *
+ */
+
+class ProcessProfile extends Process implements ConfigurableModule, WirePageEditor {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('User Profile', __FILE__), // getModuleInfo title          
+			'summary' => __('Enables user to change their password, email address and other settings that you define.', __FILE__), // getModuleInfo summary 
+			'version' => 102, 
+			'permanent' => true, 
+			'permission' => 'profile-edit',
+			);
+	}
+
+	/**
+	 * @var User
+	 * 
+	 */
+	protected $user; 
+
+	public function __construct() {
+		$this->set('profileFields', array()); 
+	}
+
+	public function init() {
+		parent::init();
+	}
+
+	public function ___execute() {
+		
+		$fieldName = '';
+		if(isset($_SERVER['HTTP_X_FIELDNAME'])) {
+			$fieldName = $this->sanitizer->fieldName($_SERVER['HTTP_X_FIELDNAME']);
+		}
+
+		$this->user = $this->wire('user'); 
+		$this->headline($this->_("Profile:") . ' ' . $this->user->name); // Primary Headline (precedes the username)
+		$form = $this->buildForm($fieldName);
+		
+		if($this->input->post('submit_save_profile') || $fieldName) {
+			$this->processInput($form, $fieldName); 
+			if($fieldName) {
+				// no need to redirect
+			} else {
+				$this->session->redirect("./");
+			}
+				
+		} else { 
+			return $form->render();
+		}
+		return '';
+	}	
+
+	/**
+	 * Build the form fields for adding a page
+	 * 
+	 * @param string $fieldName
+	 * @return InputfieldForm
+	 *
+	 */
+	protected function buildForm($fieldName = '') {
+
+		/** @var InputfieldForm $form */
+		$form = $this->modules->get('InputfieldForm');
+
+		$form->attr('id', 'ProcessProfile'); 
+		$form->attr('action', './'); 
+		$form->attr('method', 'post'); 
+		$form->attr('enctype', 'multipart/form-data');
+		$form->attr('autocomplete', 'off'); 
+		$form->addClass('InputfieldFormConfirm');
+
+		foreach($this->user->fields as $field) {
+			if($field->name == 'roles' || !in_array($field->name, $this->profileFields)) continue;
+			if($fieldName && $field->name !== $fieldName) continue;
+			/** @var Field $field */
+			$field = $this->user->fields->getFieldContext($field);
+			/** @var Inputfield $inputfield */
+			$inputfield = $field->getInputfield($this->user);
+			if(!$inputfield) continue;
+			$inputfield->value = $this->user->get($field->name);
+			if($field->name == 'admin_theme' && !$inputfield->value) $inputfield->value = 'AdminThemeDefault';
+			if($field->type instanceof FieldtypeImage && !$this->user->hasPermission('page-edit-images', $this->user)) {
+				$inputfield->set('useImageEditor', false);
+			}
+			if($field->type instanceof FieldtypePassword && $field->name == 'pass') $inputfield->attr('autocomplete', 'off');
+			$form->add($inputfield); 
+		}
+	
+		/** @var InputfieldHidden $f */
+		$f = $this->modules->get('InputfieldHidden');
+		$f->attr('id', 'Inputfield_id');
+		$f->attr('name', 'id'); 
+		$f->attr('value', $this->user->id);
+		$f->addClass('InputfieldAllowAjaxUpload');
+		$form->add($f);
+
+		/** @var InputfieldSubmit $field */
+		$field = $this->modules->get('InputfieldSubmit');
+		$field->attr('id+name', 'submit_save_profile'); 
+		$field->addClass('head_button_clone'); 
+		$form->add($field); 
+	
+		return $form; 
+	}
+
+	/**
+	 * Save the submitted page add form
+	 * 
+	 * @param Inputfield $form
+	 * @param string $fieldName
+	 *
+	 */
+	protected function processInput(Inputfield $form, $fieldName = '') {
+
+		$user = $this->user; 
+		$form->processInput($this->input->post);
+
+		if(count($form->getErrors())) {
+			$this->error($this->_("Profile not saved")); 
+			return;
+		}
+
+		$user->of(false);
+		$user->setTrackChanges(true);
+
+		foreach($user->fields as $field) {
+
+			if($field->name == 'roles' || !in_array($field->name, $this->profileFields)) continue;
+			if($fieldName && $field->name !== $fieldName) continue; 
+			
+			$field = $this->user->fields->getFieldContext($field);
+			$inputfield = $form->get($field->name); 	
+			$value = $inputfield->attr('value'); 
+			
+			if($field->name == 'email' && strlen($value)) {
+				if(count($this->users->find("id!={$user->id}, email=" . $this->sanitizer->selectorValue($value)))) {
+					$this->error(sprintf($this->_('Email address "%s" already in use by another user.'), $value));
+					continue; 
+				}
+			}
+
+			if($field->name == 'pass' && empty($value)) continue; 
+	
+			if($user->get($field->name) !== $value) {	
+				$user->set($field->name, $value); 
+			}
+			
+		}
+
+		if($user->isChanged()) {
+			$changes = implode(', ', array_unique($user->getChanges())); 
+			$message = $this->_('Profile saved') . ' - ' . $changes; 
+			$this->message($message);
+			$this->wire('log')->message($message); 
+			$this->wire('users')->save($user);
+		}
+
+		$user->of(true); 
+
+	}
+
+	public function getModuleConfigInputfields(array $data) {
+
+		$profileFields = isset($data['profileFields']) ? $data['profileFields'] : array();
+		$fieldOptions = array();
+		
+		foreach($this->wire('users')->getTemplates() as $template) {
+			foreach($template->fieldgroup as $field) {
+				$fieldOptions[$field->name] = $field->name;
+			}
+		}
+		
+		sort($fieldOptions);
+
+		$inputfields = $this->wire(new InputfieldWrapper());
+		$f = $this->wire('modules')->get('InputfieldCheckboxes');
+		$f->label = $this->_("What fields can a user edit in their own profile?");
+		$f->attr('id+name', 'profileFields');
+		
+		foreach($fieldOptions as $name) {
+			if($name == 'roles') continue;
+			$f->addOption($name); 
+		}
+		
+		$f->attr('value', $profileFields);
+		$inputfields->add($f);
+
+		return $inputfields;
+	}
+
+	/**
+	 * For WirePageEditor interface
+	 * 
+	 * @return Page
+	 * 
+	 */
+	public function getPage() {
+		return $this->wire('user');
+	}
+
+
+
+}
+

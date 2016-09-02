@@ -1,0 +1,205 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Session Viewer
+ *
+ * This module accompanies installation of the SessionHandlerDB module
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class ProcessSessionDB extends Process {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Sessions', __FILE__), // getModuleInfo title          
+			'summary' => __('Enables you to browse active database sessions.', __FILE__), // getModuleInfo summary 
+			'version' => 3, 
+			'permanent' => false, 
+			'icon' => 'dashboard', 
+			'requires' => array('SessionHandlerDB'),
+			);
+	}
+
+	const pageName = 'sessions-db';
+
+	public function init() {
+		return parent::init();
+	}
+
+	public function ___execute() {
+
+		// clean out any stray sessions that may have not yet hit the gc probability
+		// because we don't want them in the list that we display
+		$sessionHandlerDB = $this->modules->get('SessionHandlerDB'); 
+		$sessionHandlerDB->gc($this->wire('config')->sessionExpireSeconds); 
+		$useIP = $sessionHandlerDB->useIP; 
+		$useUA = $sessionHandlerDB->useUA; 
+
+		$mins = $this->input->post->mins;
+		if(!$mins) $mins = (int) $this->session->ProcessSessionDB_mins; 
+		if(!$mins) $mins = 5; 
+		$this->session->ProcessSessionDB_mins = $mins;
+
+		$form = $this->wire('modules')->get('InputfieldForm');
+		
+		$field = $this->wire('modules')->get('InputfieldInteger');
+		$field->attr('name', 'mins'); 
+		$field->attr('value', $mins);
+		$field->label = sprintf($this->_n('Sessions active in last minute', 'Sessions active in last %d minutes', $mins), $mins); 
+		$field->description = $this->_('Number of minutes'); 
+		$field->collapsed = Inputfield::collapsedYes; 
+		$form->add($field);
+
+		$pagePaths = array();
+		$userNames = array();
+		$table = SessionHandlerDB::dbTableName;
+		$database = $this->wire('database');
+		$limit = 500; 
+		$seconds = $mins * 60;
+		
+		$sql = 	"SELECT user_id, pages_id, ip, ua, UNIX_TIMESTAMP(ts) " . 
+				"FROM `$table` " . 
+				"WHERE ts > DATE_SUB(NOW(), INTERVAL $seconds SECOND) " .
+				"ORDER BY ts DESC LIMIT $limit";
+	
+		$query = $database->prepare($sql);	
+		$query->execute();
+		$numRows = $query->rowCount();
+
+		if($numRows) {
+			if($numRows == $limit) {
+				// if more than 500, get an accurate count
+				$numRows = $sessionHandlerDB->getNumSessions($mins * 60); 		
+			}
+
+			$table = $this->wire('modules')->get('MarkupAdminDataTable');
+			$header = array(
+				$this->_('Time'), 
+				$this->_('User'), 
+				$this->_('Page'),
+				); 
+			if($useIP) $header[] = $this->_('IP Addr');
+			if($useUA) $header[] = $this->_('User Agent');
+			$table->headerRow($header);
+
+			// for first iteration
+			$row = $query->fetch(\PDO::FETCH_NUM);
+			
+			while($row) {
+				
+				list($user_id, $pages_id, $ip, $ua, $ts) = $row; 
+
+				if(isset($userNames[$user_id])) {
+					$userName = $userNames[$user_id]; 
+
+				} else {
+					$user = $this->wire('users')->get($user_id);
+					$userName = $user && $user->id ? $user->name : '.';
+					$userNames[$user_id] = $userName;
+				}
+
+				if(isset($pagePaths[$pages_id])) {
+					$pagePath = $pagePaths[$pages_id]; 
+
+				} else {
+					$page = $this->wire('pages')->get($pages_id);
+					$pagePath = $page->id ? $page->path : '.';
+					$pagePaths[$pages_id] = $pagePath;
+				}
+
+				$tr = array(wireRelativeTimeStr($ts), $userName, $pagePath);
+				if($useIP) $tr[] = long2ip($ip);
+				if($useUA) $tr[] = strip_tags($ua); // note MarkupAdminDataTable already entity encodes all output
+				
+				$table->row($tr);
+			
+				// for next iteration
+				$row = $query->fetch(\PDO::FETCH_NUM);
+			}
+			
+			$tableOut = $table->render();
+
+		} else {
+			$tableOut = "<p class='description'>" . $this->_('No active sessions') . "</p>";
+		}
+		
+		$query->closeCursor();
+		
+		$out =
+			"<h2>" .
+			"<i id='SessionListIcon' class='fa fa-2x fa-fw fa-dashboard ui-priority-secondary'></i> " .
+			sprintf($this->_n('%d active session', '%d active sessions', $numRows), $numRows) .
+			"</h2>" .
+			$tableOut; 
+		
+		if($this->wire('config')->ajax) return $out;
+
+		$markup = $this->wire('modules')->get('InputfieldMarkup');
+		$markup->value = "<div id='SessionList'>$out</div>";
+		$form->add($markup);
+
+		$submit = $this->wire('modules')->get('InputfieldSubmit');
+		$submit->attr('value', $this->_('Refresh'));
+		$submit->icon = 'refresh';
+		$submit->attr('id+name', 'submit_session');
+		$submit->attr('class', $submit->attr('class') . ' head_button_clone'); 
+		$form->add($submit);
+		
+		return $form->render();
+	}	
+
+	/**
+	 * Called only when your module is installed
+	 *
+	 * This version creates a new page with this Process module assigned. 
+	 *
+	 */
+	public function ___install() {
+
+		// create the page our module will be assigned to
+		$page = $this->wire('pages')->newPage();
+		$page->template = 'admin';
+		$page->name = self::pageName;
+
+		// installs to the admin "Setup" menu ... change as you see fit
+		$page->parent = $this->pages->get($this->config->adminRootPageID)->child('name=setup');
+		$page->process = $this;
+
+		// we will make the page title the same as our module title
+		// but you can make it whatever you want
+		$info = self::getModuleInfo();
+		$page->title = $info['title'];
+
+		// save the page
+		$page->save();
+
+		// tell the user we created this page
+		$this->message("Created Page: {$page->path}");
+	}
+
+	/**
+	 * Called only when your module is uninstalled
+	 *
+	 * This should return the site to the same state it was in before the module was installed. 
+	 *
+	 */
+	public function ___uninstall() {
+
+		// find the page we installed, locating it by the process field (which has the module ID)
+		// it would probably be sufficient just to locate by name, but this is just to be extra sure.
+		$moduleID = $this->modules->getModuleID($this);
+		$page = $this->pages->get("template=admin, process=$moduleID, name=" . self::pageName);
+
+		if($page->id) {
+			// if we found the page, let the user know and delete it
+			$this->message("Deleting Page: {$page->path}");
+			$page->delete();
+		}
+	}
+
+
+}
+

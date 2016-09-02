@@ -1,0 +1,212 @@
+/**
+ * Classic/original color theme for PW admin
+ *
+ */
+
+@import 'vars';
+@import 'mixins';
+
+$white: #FFF; 
+$black: #222; 
+$pink: #DB1174; 
+$dark-pink: darken($pink, 8%); 
+$blue: #1490B8;
+$light-blue: #D2E4EA; 
+$dark-blue: #2F4248;
+$light-green: #93BF0D;
+$green: #93BF0D;
+$red: #C00C19;
+
+$subtle-bg: #E4EBEE;
+$subtle-border: darken($subtle-bg, 4%);
+
+$masthead-bg: $dark-blue;
+
+$breadcrumbs-bg: lighten($subtle-bg, 2%);
+$breadcrumbs-link-color: $pink;
+$breadcrumbs-link-hover-color: $pink;
+$breadcrumbs-border: 1px solid $breadcrumbs-bg; 
+$breadcrumbs-color: transparentize($breadcrumbs-link-color, 0.7); 
+$breadcrumbs-title-color: $dark-blue; 
+
+$topnav-link-color: #A7E5F9; 
+$topnav-link-bg: none; 
+$topnav-link-hover-color: $white;
+$topnav-link-hover-bg: lighten($dark-blue, 10%); 
+$topnav-link-current-color: $dark-blue;
+$topnav-link-current-bg: $breadcrumbs-bg; 
+
+$item-header-hover-color: $white;
+$item-header-hover-bg: $pink; 
+$item-header-bg: #d2e4ea;
+$item-header-bg: lighten($masthead-bg, 5%);
+$item-header-color: $dark-blue; 
+$item-header-color: $white; 
+$item-border: 1px solid $subtle-border; 
+
+$action-link-font-size: 0.923076923076923em;
+$action-link-bg: lighten($green, 2%); 
+$action-link-color: $white; 
+$action-link-border: none; 
+$action-link-hover-color: $white;
+$action-link-hover-border: 1px solid $pink;
+$action-link-hover-bg: $pink;
+$action-link-active-color: $white; 
+$action-link-active-bg: $green;
+
+$link-color: $pink;
+$link-hover-color: $dark-pink;
+$link-hover-bg: none; 
+$link-current-color: $action-link-color;
+$link-current-bg: $action-link-bg; 
+$link-active-color: $dark-pink; 
+$link-active-bg: none; 
+
+$alt-link-color: $link-color; 
+
+$button-bg: $light-green; 
+$button-border: $light-green;
+$button-color: $white;
+$button-hover-color: $white;
+$button-hover-bg: $pink;
+$button-hover-border: $pink;
+$button-radius: 5px; 
+$button-active-color:  $white;
+$button-active-bg: darken($link-hover-color, 10%); 
+$button-active-border: $button-active-bg; 
+
+$ui-state-default-bg: darken($green, 5%);
+$ui-state-default-color: $reverse-text-color; 
+$ui-state-hover-bg: $pink;
+$ui-state-hover-color: $reverse-text-color; 
+
+$label-link-bg: none; 
+$label-link-color: $dark-blue;
+$label-link-hover-color: $blue; 
+$label-link-collapsed-bg: none; 
+$label-link-collapsed-color: transparentize($label-link-color, 0.5); 
+
+$table-th-color: darken($light-blue, 15%); 
+$table-th-active-color: darken($light-blue, 30%); 
+
+$pagelist-link-color: #7a002b; 
+$pagelist-link-hover-color: $pagelist-link-color;
+$pagelist-link-open-color: $black;
+$pagelist-link-open-bg: #ffffdd; 
+$pagelist-link-active-color: $black; 
+$pagelist-link-icon-color: lighten($pagelist-link-color, 15%); /*#CC0048; */
+
+$pagination-font-size: 0.769230769230769em; 
+$pagination-link-color: $text-color;
+$pagination-link-bg: $subtle-bg; 
+$pagination-link-current-color: $white; 
+$pagination-link-current-bg: $pink;
+$pagination-link-hover-color: $white; 
+$pagination-link-hover-bg: $pink;
+$pagination-link-active-color: $white; 
+$pagination-link-active-bg: $dark-pink; 
+$pagination-link-border-radius: 2px; 
+
+$wiretab-link-bg: none; 
+$wiretab-link-border: 1px solid transparent; 
+$wiretab-link-color: lighten($label-link-color, 5%);
+$wiretab-link-hover-bg: $pink;
+$wiretab-link-hover-color: $white; 
+$wiretab-link-hover-border: 1px solid $pink;
+$wiretab-link-current-bg: #D2E4EA; 
+$wiretab-link-current-bg: $subtle-bg;
+$wiretab-link-current-bg: $white; 
+$wiretab-link-current-color: $label-link-color; 
+$wiretab-link-current-border: 1px solid #D2E4EA; 
+$wiretab-link-active-bg: $dark-pink;
+$wiretab-link-active-color: $white; 
+
+$footer-font-size: 0.875em; 
+$footer-bg: $subtle-bg; /* transparentize($subtle-bg, 0.5); */
+$footer-color: $light-text-color; 
+$footer-link-color: $pink;
+
+$highlight-bg: #D1F486;
+$highlight-color: darken($highlight-bg, 60%); 
+$highlight-border: 1px solid #fff; 
+
+$error-bg: #E92003;
+$error-border: $dark-pink; 
+$error-color: #fff; 
+
+$notes-bg: #ffffdd; 
+$notes-font-size: 0.846153846153846em;
+
+$tabs-font-weight: normal;
+$input-bg: lighten($subtle-bg, 6%);
+
+$progressbar-bg: $ui-state-hover-bg;
+$progressbar-value-bg: darken($ui-state-hover-bg, 13%); 
+$progressbar-text-color: $reverse-text-color;
+
+/**
+ * Notifications (prefixed with "no")
+ *
+ */
+
+$no-border-color: #fff;
+
+$no-message-color: $highlight-color; 
+$no-message-bg: $highlight-bg;
+$no-message-open-color: $no-message-color;
+$no-message-open-bg: darken($no-message-bg, 5%);
+$no-message-icon-color: $no-message-color;
+$no-message-link-color: transparentize($no-message-color, 0.2);
+$no-message-link-hover-color: $no-message-color;
+
+$no-warning-color: $white;
+$no-warning-bg: #E16151;
+$no-warning-open-color: $white;
+$no-warning-open-bg: darken($no-warning-bg, 5%);
+$no-warning-icon-color: $white;
+$no-warning-link-color: transparentize($white, 0.2);
+$no-warning-link-hover-color: $no-warning-color;
+
+$no-error-color: $error-color;
+$no-error-bg: $error-bg;
+$no-error-open-color: $no-error-color;
+$no-error-open-bg: darken($no-error-bg, 5%);
+$no-error-icon-color: $no-error-color;
+$no-error-link-color: transparentize($no-error-color, 0.2);
+$no-error-link-hover-color: $no-error-color;
+
+$no-ghost-message-color: #fff;
+$no-ghost-message-bg: #000;
+$no-ghost-message-icon-color: $no-ghost-message-color;
+
+$no-ghost-warning-color: $no-warning-color;
+$no-ghost-warning-bg: $no-warning-bg;
+$no-ghost-warning-icon-color: $no-ghost-warning-color;
+
+$no-ghost-error-color: $no-error-color;
+$no-ghost-error-bg: $no-error-bg;
+$no-ghost-error-icon-color: $no-ghost-error-color;
+
+/**
+ * Modification styles 
+ *
+ */
+
+.dropdown-menu a.on {
+	color: $text-color; 
+}
+
+#topnav li a,
+#content .WireTabs a {
+	font-weight: $bold-weight; 
+}
+
+body #content .WireTabs li a {
+	margin-right: 1px; 
+}
+
+#breadcrumbs a i {
+	font-size: 14px; 
+}
+
+@import 'main';

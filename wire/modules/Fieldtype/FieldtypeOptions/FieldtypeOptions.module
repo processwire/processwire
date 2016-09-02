@@ -1,0 +1,518 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Select Options Fieldtype
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ */
+
+class FieldtypeOptions extends FieldtypeMulti implements Module {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Select Options', __FILE__),
+			'summary' => __('Field that stores single and multi select options.', __FILE__),
+			'version' => 1,
+		);
+	}
+
+	/**
+	 * @var SelectableOptionManager
+	 * 
+	 */
+	protected $manager;
+
+	/**
+	 * Construct
+	 * 
+	 */
+	public function __construct() {
+		$path = dirname(__FILE__) . '/'; 
+		// TBA for planned LanguagesValueInterface support
+		// require_once($this->wire('config')->paths->modules . 'LanguageSupport/LanguagesValueInterface.php');
+		require_once($path . 'SelectableOption.php');
+		require_once($path . 'SelectableOptionArray.php');
+		require_once($path . 'SelectableOptionManager.php');	
+		$this->manager = $this->wire(new SelectableOptionManager());
+		parent::__construct();
+	}
+
+	/**
+	 * Get a property from the Fieldtype
+	 * 
+	 * @param string $key
+	 * @return mixed|SelectableOptionManager
+	 * 
+	 */
+	public function get($key) {
+		if($key == 'manager') return $this->manager;
+		return parent::get($key); 
+	}
+
+	/**
+	 * Get a blank SelectableOptionArray
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return SelectableOptionArray
+	 * 
+	 */
+	public function getBlankValue(Page $page, Field $field) {
+		$a = $this->wire(new SelectableOptionArray());
+		$a->setPage($page);
+		$a->setField($field);
+		return $a; 
+	}
+
+	/**
+	 * Get schema for the Fieldtype's database table
+	 * 
+	 * @param Field $field
+	 * @return array
+	 * 
+	 */
+	public function getDatabaseSchema(Field $field) {
+		$schema = parent::getDatabaseSchema($field);
+		$schema['data'] = 'int unsigned NOT NULL';
+		$schema['sort'] = 'int unsigned NOT NULL';
+		$schema['keys']['primary'] = 'PRIMARY KEY (pages_id, sort)';
+		return $schema;
+	}
+
+	/**
+	 * Get the Inputfield that provides input for this Fieldtype
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Inputfield
+	 * 
+	 */
+	public function getInputfield(Page $page, Field $field) {
+		
+		$inputfieldClass = $field->get('inputfieldClass'); 
+		if(!$inputfieldClass) $inputfieldClass = 'InputfieldSelect';
+		$inputfield = $this->wire('modules')->get($inputfieldClass);
+		if(!$inputfield) $inputfield = $this->wire('modules')->get('InputfieldSelect'); 
+		
+		foreach($this->manager->getOptions($field) as $option) {
+			$inputfield->addOption((int) $option->id, $option->getTitle()); 
+		}
+	
+		if($field->initValue) {
+			$value = $page->getUnformatted($field->name); 
+			if($field->required && !$field->requiredIf) {
+				if(empty($value) || !count($value)) {
+					$page->set($field->name, $field->initValue);
+				}
+			} else if($this->wire('process') != 'ProcessField' && !count($value)) {
+				$this->warning(
+					$field->getLabel() . " ($field->name): " . 
+					$this->_('Configured pre-selection not populated since value is not always required. Please correct this field configuration.') 
+				);
+			}
+		}
+	
+		return $inputfield;
+	}
+
+	/**
+	 * Get Fieldtypes that are known compatible with this one 
+	 * 
+	 * @param Field $field
+	 * @return Fieldtypes
+	 * @throws WireException
+	 * 
+	 */
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = $this->wire(new Fieldtypes());
+		foreach($this->wire('fieldtypes') as $fieldtype) {
+			if($fieldtype instanceof FieldtypeOptions) $fieldtypes->add($fieldtype);
+		}
+		return $fieldtypes;
+	}
+
+	/**
+	 * Sanitize value for storage in a page
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param mixed $value
+	 * @return SelectableOptionArray
+	 *
+	 */
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		
+		if(is_string($value)) {
+			// convert delimited string to array
+			if(strpos($value, '|') !== false) {
+				$value = explode("|", $value); 
+			} else if(strpos($value, "\n") !== false) {
+				$value = explode("\n", $value); 
+			}
+		}
+		
+		if(empty($value)) return $this->getBlankValue($page, $field); 
+	
+		if($value instanceof SelectableOptionArray) {
+			// fantastic, this is our target
+			
+		} else if($value instanceof SelectableOption) {
+			// one option: convert to SelectableOptionArray
+			$a = $this->getBlankValue($page, $field); 
+			$a->add($value); 
+			$value = $a; 
+			
+		} else if(is_int($value) || (is_string($value) && ctype_digit("$value"))) {
+			// assumed to be an option ID
+			$value = $this->manager->getOptionsByID($field, array((int) $value)); 
+			
+		} else if(is_string($value)) {
+			// may be option 'title' (first) or option 'value' (second)
+			$_value = $value; // save for second check
+			$value = $this->manager->getOptions($field, array('title' => $value)); 
+			if(!$value->count()) $value = $this->manager->getOptions($field, array('value' => $_value));
+			unset($_value);
+			
+		} else if(is_array($value) && count($value)) {
+			// populated array of id, title or value
+			if(ctype_digit(implode('0', $value))) {
+				// array of IDs
+				$value = $this->manager->getOptions($field, array('id' => $value));
+			} else {
+				// array of titles or values
+				$_value = $value; // save for second check
+				$value = $this->manager->getOptions($field, array('title' => $value)); 
+				if(!$value->count()) $value = $this->manager->getOptions($field, array('value' => $_value)); 
+				unset($_value);
+			}
+			
+		} else if(is_array($value)) {
+			// blank array
+			$value = $this->getBlankValue($page, $field); 
+		}
+		
+		return $value;
+	}
+
+	/**
+	 * Render a markup string of the value
+	 *
+	 * @param Page $page Page that $value comes from
+	 * @param Field $field Field that $value comes from
+	 * @param mixed $value Optionally specify the $page->field value. If null or not specified, it will be retrieved.
+	 * @param string $property Optionally specify the property or index to render. If omitted, entire value is rendered.
+	 * @return string
+	 *
+	 */
+	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
+		if(empty($property)) $property = 'title';
+		return parent::___markupValue($page, $field, $value, $property); 
+	}
+
+	/**
+	 * Prep value for DB storage
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param SelectableOptionArray $value
+	 * @return array
+	 * @throws WireException if given invalid value
+	 * 
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+		$sleepValue = array();
+		if(empty($value) || !count($value)) {
+			// value is empty
+			if($field->required && $field->initValue) {
+				// value is required, and an initial value is supplied
+				// so populate the initial value
+				$initValue = $field->initValue;	
+				if(!is_array($initValue)) $initValue = array($initValue);
+				foreach($initValue as $v) {
+					$sleepValue[] = (int) $v;
+				}
+			}
+			return $sleepValue;
+		}
+		if(!$value instanceof SelectableOptionArray) throw new WireException("sleepValue requires SelectableOptionArray"); 
+		
+		foreach($value as $option) {
+			$sleepValue[] = (int) $option->id;
+		}
+		return $sleepValue; 
+	}
+
+	/**
+	 * Prep value from DB for storage in Page
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array $value
+	 * @return SelectableOptionArray
+	 * 
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+		if($value) {
+			$wakeupValue = $this->manager->getOptions($field, array('id' => $value));
+		} else {
+			$wakeupValue = $this->getBlankValue($page, $field); 
+		}
+		return $wakeupValue; 
+	}
+
+	/**
+	 * Prep a value for front-end output
+	 * 
+	 * This returns a cloned copy of $value with output formatting enabled. 
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param SelectableOptionArray $value
+	 * @return SelectableOptionArray
+	 * 
+	 */
+	public function ___formatValue(Page $page, Field $field, $value) {
+		$_value = $this->getBlankValue($page, $field); 
+		foreach($value as $option) {
+			$_option = clone $option; 
+			$_value->add($_option); 
+		}
+		$_value->of(true);
+		return $_value; 
+	}
+
+	/**
+	 * Update a database query for finding values from this Fieldtype
+	 * 
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param mixed $value
+	 * @return DatabaseQuery
+	 * @throws WireException
+	 * 
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+	
+		if($subfield == 'count') return parent::getMatchQuery($query, $table, $subfield, $operator, $value); 
+		if($subfield == 'data' && (ctype_digit("$value") || empty($value))) {
+			// this is fine (presumed to be an option_id)
+		} else {
+			// some other subfield
+			
+			if(!$subfield || !SelectableOption::isProperty($subfield)) {
+				// if empty subfield or not a subfield we recognize, just assume title
+				$subfield = 'title';
+			}
+			$options = $this->manager->findOptionsByProperty($query->field, $subfield, $operator, $value);
+			$option = $options->first();
+			if($operator != '=' && $operator != '!=') {
+				// for fulltext operations...
+				// since we are now just matching IDs of already found options
+				$operator = '='; 
+			}
+			$subfield = 'data';
+			$value = $option ? $option->id : null;
+		}
+		
+		if($operator == '!=') {
+			// force a != for one value to prevent matching, even if more than one value
+			$database = $this->wire('database'); 
+			$t = $database->escapeTable($query->field->getTable());
+			$s = $database->escapeCol($subfield); 
+			$v = $database->escapeStr($value); 
+			$query->where("(SELECT COUNT(*) FROM $t WHERE $t.pages_id=pages.id AND $t.$s='$v')=0");
+		}
+		
+		return parent::getMatchQuery($query, $table, $subfield, $operator, $value); 
+	}
+
+	/**
+	 * Get information used for InputfieldSelector interactive selector builder
+	 * 
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 * 
+	 */
+	public function ___getSelectorInfo(Field $field, array $data = array()) {
+		$info = parent::___getSelectorInfo($field, $data);
+		$info['input'] = 'select';
+		$info['options'] = array();
+		$info['operators'] = array('=', '!=', '@=', '@!=', '=""', '!=""'); 
+		foreach($this->manager->getOptions($field) as $option) {
+			$info['options'][$option->id] = $option->title;
+		}
+		$subfields = array(
+			'title' => array(
+				'name' => 'title', 
+				'input' => 'text',
+				'operators' => array('%=', '=', '!=', '^=', '$=', '*=', '~='), 
+			),
+			'value' => array(
+				'name' => 'value',
+				'input' => 'text',
+				'operators' => array('%=', '=', '!=', '^=', '$=', '*=', '~='),
+			),
+			'id' => array(
+				'name' => 'id',
+				'input' => 'integer',
+				'operators' => array('=', '!=', '>', '>=' ,'<', '<='), 
+			), 
+		);
+		
+		$info['subfields'] = array_merge($info['subfields'], $subfields); 
+		
+		return $info; 
+	}
+	
+	/**
+	 * Export configuration values for external consumption
+	 *
+	 * Use this method to externalize any config values when necessary.
+	 * For example, internal IDs should be converted to GUIDs where possible.
+	 * 
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 *
+	 */
+	public function ___exportConfigData(Field $field, array $data) {
+		$data = parent::___exportConfigData($field, $data); 
+		if(isset($data['_options'])) {
+			$data['export_options'] = array('default' => $data['_options']); 
+			unset($data['_options']); 
+		}
+		if($this->manager->useLanguages()) foreach($this->wire('languages') as $language) {
+			if($language->isDefault()) continue; 
+			$key = "_options__$language";
+			if(isset($data[$key])) {
+				// use language name rather than id for more portability
+				$data['export_options'][$language->name] = $data[$key]; 
+				unset($data[$key]); 
+			}
+		}
+		return $data;
+	}
+
+	/**
+	 * Convert an array of exported data to a format that will be understood internally (opposite of exportConfigData)
+	 *
+	 * @param Field $field
+	 * @param array $data
+	 * @return array Data as given and modified as needed. Also included is $data[errors], an associative array
+	 *	indexed by property name containing errors that occurred during import of config data.
+	 *
+	 */
+	public function ___importConfigData(Field $field, array $data) {
+		$data = parent::___importConfigData($field, $data); 
+		$data['errors']['export_options'] = $this->_('Import of options is not yet implemented. Though they can easily be imported from one site to another by copy/paste directly from the field edit screen.'); 
+		return $data;
+	}
+	
+	/**
+	 * Get Inputfields needed to configure this Fieldtype
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 * 
+	 */
+	public function ___getConfigInputfields(Field $field) {
+		$inputfields = parent::___getConfigInputfields($field); 
+		include_once(dirname(__FILE__) . '/SelectableOptionConfig.php'); 
+		$cfg = $this->wire(new SelectableOptionConfig($field, $inputfields)); 
+		$inputfields = $cfg->getConfigInputfields();
+		return $inputfields; 
+	}
+	
+	/**
+	 * Given a FieldtypeOptions field id, name or object, return the object
+	 * @param $field
+	 * @return Field
+	 * @throws WireException
+	 *
+	 */
+	protected function _getField($field) {
+		if(!$field instanceof Field) {
+			$_field = $field;
+			$field = $this->wire('fields')->get($field);
+			if(!$field) throw new WireException("Unknown field: $_field");
+		}
+		if(!$field->type instanceof FieldtypeOptions) {
+			throw new WireException("Field $field->name is not of type FieldtypeOptions");
+		}
+		return $field; 
+	}
+
+	public function ___install() {
+		$this->manager->install();
+	}
+
+	public function ___uninstall() {
+		$this->manager->uninstall();
+	}
+
+	/**************************************************************************************
+	 * Public API methods
+	 * 
+	 * These provide a simpler interface to the internally-used SelectableOptionManager.
+	 * 
+	 * Accessible from $field->type->[get|add|delete|update]Options($field, $options); 
+	 * 
+	 */
+
+	/**
+	 * Get all options available for the given field
+	 * 
+	 * @param id|string|Field $field Field name, id or object
+	 * @return SelectableOptionArray
+	 * @throws WireException
+	 * 
+	 */
+	public function getOptions($field) {
+		return $this->manager->getOptions($field = $this->_getField($field)); 
+	}
+
+	/**
+	 * Update, add, delete as needed to match the given $options
+	 *
+	 * @param id|string|Field $field Field name, id or object
+	 * @param SelectableOptionArray $options Options to save
+	 * @return array Summary of what occurred
+	 * @throws WireException
+	 *
+	 */
+	public function setOptions($field, SelectableOptionArray $options) {
+		return $this->manager->setOptions($field = $this->_getField($field), $options, true); 
+	}
+
+	/**
+	 * Add the given new options
+	 * 
+	 * @param $field
+	 * @param SelectableOptionArray $options
+	 * @return int Number of options added
+	 * @throws WireException
+	 * 
+	 */
+	public function addOptions($field, SelectableOptionArray $options) {
+		return $this->manager->addOptions($this->_getField($field), $options); 
+	}
+
+	/**
+	 * Delete the given options
+	 *
+	 * @param $field
+	 * @param SelectableOptionArray $options
+	 * @return int Number of options added
+	 * @throws WireException
+	 *
+	 */
+	public function deleteOptions($field, SelectableOptionArray $options) {
+		return $this->manager->deleteOptions($this->_getField($field), $options);
+	}
+
+}

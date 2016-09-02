@@ -1,0 +1,253 @@
+<?php namespace ProcessWire;
+
+/**
+ * Class MarkupAdminDataTable
+ * 
+ * @method string render()
+ * 
+ */
+
+class MarkupAdminDataTable extends ModuleJS {
+
+	const responsiveNo = 0;
+	const responsiveYes = 1; // each td becomes 1-row, each 2 columns with th + td side-by-side
+	const responsiveAlt = 2; // each td becomes 1-row, with th + td stacked on top of each other
+	
+	static protected $instanceCnt = 0;
+
+	protected $headerRow = array(); 
+	protected $footerRow = array();
+	protected $rows = array();
+	protected $rowClasses = array();
+	protected $rowAttrs = array();
+	protected $actions = array();
+	protected $encodeEntities = true; 
+	protected $sortable = true; 
+	protected $resizable = false;
+	protected $class = '';
+	protected $caption = '';
+	protected $responsive = self::responsiveYes; 
+	protected $id = '';
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Admin Data Table', 
+			'summary' => 'Generates markup for data tables used by ProcessWire admin', 
+			'version' => 107, 
+			'permanent' => true, 
+			);
+	}
+
+	public function init() {
+		parent::init();
+		$this->modules->get("JqueryTableSorter"); 
+	}
+
+	public function headerRow(array $a) {
+		$this->headerRow = $a; 
+		return $this; 
+	}
+
+	public function footerRow(array $a) {
+		$this->footerRow = $this->setupRow($a);
+		return $this;
+	}
+
+	/**
+	 * @param array $a Array of columns that will each be a <td>, where each element may be one of the following:
+	 *   - string: converts to <td>string</td>
+	 *   - string => url: converts to <td><a href='url'>string</a></td>
+	 *   - array(string, class): converts to <td class='class'>string</td>
+	 * @param array $options Optionally specify any one of the following:
+	 *   - separator (bool): specify true to show a stronger visual separator above the column
+	 *   - class (string): specify one or more class names to apply to the <tr>
+	 *   - attrs (array): array of attr => value for attributes to add to the <tr>
+	 * @return $this
+	 * 
+	 */
+	public function row(array $a, array $options = array()) {
+		$defaults = array(
+			'separator' => false,
+			'class' => '', 
+			'attrs' => array(),
+		);
+		$options = array_merge($defaults, $options);
+		$n = count($this->rows);
+		if($options['separator']) {
+			$options['class'] .= ($options['class'] ? ' ' : '') . 'AdminDataListSeparator';
+		}
+		$this->rows[$n] = $this->setupRow($a);
+		if(!empty($options['class'])) $this->rowClasses[$n] = $options['class'];
+		if(!empty($options['attrs'])) $this->rowAttrs[$n] = $options['attrs'];
+		return $this; 
+	}
+
+	protected function setupRow(array $a) {
+		$row = array();
+
+		foreach($a as $k => $v) {
+			if(is_string($k)) {
+				// Associative arrays get converted to: 
+				// Anchor Text => URL
+				$v = "<a href='$v'>" . $this->encode($k) . "</a>";
+			} else if(is_array($v)) {
+				// class name is specified in $v[1]
+				foreach($v as $kk => $vv) {
+					$v[$kk] = $this->encode($vv);
+				}
+			} else {
+				$v = $this->encode($v); 
+			}
+			$row[] = $v; 
+		}
+		return $row;
+	}
+
+	public function action(array $action) {
+		foreach($action as $label => $url) { 
+			$this->actions[$label] = $url;
+		}
+		return $this;
+	}
+
+	public function ___render() {
+
+		$tableClass = trim("AdminDataTable AdminDataList {$this->class}"); 
+		if($this->responsive == self::responsiveYes) {
+			$tableClass .= " AdminDataTableResponsive";
+		} else if($this->responsive == self::responsiveAlt) {
+			$tableClass .= " AdminDataTableResponsive AdminDataTableResponsiveAlt";
+		}
+		if($this->sortable) $tableClass .= " AdminDataTableSortable";
+		if($this->resizable) {
+			$tableClass .= " AdminDataTableResizable";
+			$this->modules->get("JqueryTableSorter")->use('widgets');
+		}
+		$out = '';
+		$maxCols = 0;
+		$id = $this->id ? $this->id : "AdminDataTable" . (++self::$instanceCnt);
+
+		if(count($this->rows)) { 
+			$out = "\n<table id='$id' class='$tableClass'>";
+
+			if($this->caption) $out .= "\n\t<caption>{$this->caption}</caption>";
+
+			if(count($this->headerRow)) {
+				$out .= "\n\t<thead>\n\t<tr>";
+				foreach($this->headerRow as $th) {
+					$th = $this->encode($th); 
+					$out .= "\n\t\t<th>$th</th>"; 
+					$maxCols++;
+				}
+				$out .= "\n\t</tr>\n\t</thead>";
+			}
+
+			if(count($this->footerRow)) {
+				$out .= "\n\t<tfoot>\n\t<tr>";
+				foreach($this->footerRow as $td) {
+					$out .= "\n\t\t\t<td>$td</td>"; 
+				}
+				$out .= "\n\t</tr>\n\t</tfoot>";
+			}
+
+			$out .= "\n\t<tbody>";
+			foreach($this->rows as $n => $row) {
+				$cols = count($row);
+				if($cols > $maxCols) $maxCols = $cols; 
+				if($cols < $maxCols) for(; $cols < $maxCols; $cols++) $row[] = '&nbsp;';
+				$attrs = isset($this->rowAttrs[$n]) ? $this->rowAttrs[$n] : array();
+				if(isset($this->rowClasses[$n])) $attrs['class'] = $this->rowClasses[$n];
+				$attrStr = '';
+				foreach($attrs as $attrName => $attrVal) {
+					$attrStr .= " $attrName='" . $this->wire('sanitizer')->entities($attrVal) . "'";
+				}
+				$out .= "\n\t\t<tr$attrStr>";
+				foreach($row as $td) {
+					$class = '';
+					if(is_array($td)) list($td, $class) = $td;
+					if(strlen($td) == 0 || $td === '&nbsp;') $class .= ($class ? ' ' : '') . 'blank';
+					if($class) $class = " class='$class'";
+					$out .= "\n\t\t\t<td$class>$td</td>"; 
+				}
+				$out .= "\n\t\t</tr>";
+			}
+			$out .= "\n\t</tbody>";
+			$out .= "\n</table>";
+			
+			if($this->responsive) {
+				$out .= "\n<script>if(typeof AdminDataTable != 'undefined') AdminDataTable.initTable($('#$id'));</script>";
+			}
+		}
+
+		if(count($this->actions)) {
+			$out .= "\n<p>";
+			foreach($this->actions as $label => $url) {
+				$button = $this->modules->get("InputfieldButton"); 
+				$button->href = $url;
+				$button->value = $label;
+				$out .= $button->render();
+			}
+			$out .= "\n</p>";
+		}
+		
+		return $out; 
+	}
+
+	protected function encode($str) {
+		if(!$this->encodeEntities) return $str; 
+		return htmlspecialchars($str, ENT_QUOTES, 'UTF-8'); 
+	}	
+
+	public function setEncodeEntities($encodeEntities = true) {
+		$this->encodeEntities = $encodeEntities ? true : false; 
+	}
+
+	public function setClass($class) {
+		$this->class = $this->encode($class); 
+	}
+	
+	public function addClass($class) {
+		$this->class = trim($this->class . " " . $this->encode($class)); 
+	}
+
+	public function setSortable($sortable) {
+		$this->sortable = $sortable ? true : false;
+	}
+	
+	public function setResizable($resizable) {
+		$this->resizable = $resizable ? true : false;
+	}
+
+	public function setCaption($caption) {
+		$this->caption = $this->encode($caption); 
+	}
+	
+	public function setID($id) {
+		$this->id = $id; 
+	}
+
+	/**
+	 * Set the responsive mode of this table
+	 * 
+	 * Default behavior is responsiveYes. Specify false or 0 to disable responsive.
+	 * Or specify MarkupAdminDataTable::responsiveAlt for stacked th + td. 
+	 * 
+	 * @param int|bool $responsive
+	 * 
+	 */
+	public function setResponsive($responsive = true) {
+		$this->responsive = (int) $responsive; 
+	}
+	
+
+	/** the following are specific to the Module interface **/
+
+	public function isSingular() {
+		return false; 
+	}
+
+	public function isAutoload() {
+		return false; 
+	}
+
+}

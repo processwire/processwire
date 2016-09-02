@@ -1,0 +1,51 @@
+{
+    "file": "wire\/modules\/Process\/ProcessPageEditLink\/ProcessPageEditLink.module",
+    "textdomain": "wire--modules--process--processpageeditlink--processpageeditlink-module",
+    "translations": {
+        "0f1d07df1a82d22e187c72bacabc1117": {
+            "text": "Seite ausw\u00e4hlen"
+        },
+        "ddb0ec6745aefbc02b9c9eb0dfb2e796": {
+            "text": "Geben Sie eine URL ein oder w\u00e4hlen Sie eine Seite oder Datei zum verlinken aus:"
+        },
+        "f6f7f0f8aa1ef94fdf01a81f1cb24e7a": {
+            "text": "Link zu einer URL"
+        },
+        "d0371b1908138f8cd5be5356ef5a46ab": {
+            "text": "Link zu einer Seite"
+        },
+        "629ea6ac7fee06a764a49cb39bd356d9": {
+            "text": "In einem neuen Fenster \u00f6ffnen?"
+        },
+        "1f3e9bfe3126acfe0af746ec6ed2db68": {
+            "text": "Wenn dieses Feld aktiviert ist, wird sich der Link in einem neuen Fenster \u00f6ffnen und das aktuelle Fenster bestehen lassen."
+        },
+        "149a978aed458d66e08de0460cdbf65e": {
+            "text": "Link zu einer Datei"
+        },
+        "27c6c65717076df3e127c24bee401fa7": {
+            "text": "Um eine Datei einer anderen Seite zu nutzen, klicken Sie oben auf \"Link zu einer Seite\" und w\u00e4hlen die entsprechende Seite. W\u00e4hlen Sie anschlie\u00dfend hier die Datei aus."
+        },
+        "7ac547b42cb510a9564daab982ac839a": {
+            "text": "Link zu einer Unterseite"
+        },
+        "d6610e6929ce3f2c5d432efd8cb96097": {
+            "text": "Dies entspricht dem oberen \"Link zu einer Seite\", ist aber schneller nutzbar wenn man auf Kinder der aktuellen Seite verlinkt."
+        },
+        "eb629addbfc0dd4a0353d6defff81923": {
+            "text": "URL Typ f\u00fcr Seiten Links"
+        },
+        "6b02648ef824ca0a58b9a40518ff1152": {
+            "text": "Absolut (Standard)"
+        },
+        "2c8a0fad581fd58be051633bfdaa53d0": {
+            "text": "Relative URLs nur im selben Zweig"
+        },
+        "4750338c560d44be6d53bd75e386a966": {
+            "text": "Immer relative URLs"
+        },
+        "2453cc3c047929e3210a51607202b8bb": {
+            "text": "*zur Zeit experimentell"
+        }
+    }
+}

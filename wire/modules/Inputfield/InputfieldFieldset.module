@@ -1,0 +1,22 @@
+<?php namespace ProcessWire;
+
+class InputfieldFieldset extends InputfieldWrapper {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Fieldset', __FILE__), // Module Title
+			'summary' => __('Groups one or more fields together in a container', __FILE__), // Module Summary
+			'version' => 101,
+			'permanent' => true, 
+			);
+	}
+
+	public function ___render() {
+		// Note the extra "\n" is required in order to prevent InputfieldWrapper from 
+		// skipping over an empty fieldset. Empty fieldsets are used by InputfieldRepeater
+		// for thier description/label, and possibly others use it the same way. 
+		return parent::___render() . "\n";
+	}
+	
+}
+

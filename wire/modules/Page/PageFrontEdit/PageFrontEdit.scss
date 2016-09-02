@@ -1,0 +1,518 @@
+$green: #93BF0D;
+$red: #C00C19;
+$dark-blue: #2F4248;
+$light-green: #93BF0D;
+$white: #fff;
+$pink: #DB1174;
+
+
+$subtle-bg: #E4EBEE;
+$subtle-border: darken($subtle-bg, 4%);
+$button-bg: $light-green;
+$button-border: $light-green;
+$button-color: $white;
+$button-hover-color: $white;
+$button-hover-bg: $pink;
+$button-hover-border: $pink;
+$button-radius: 5px;
+$button-active-color:  $white;
+
+$reno-black: #2C3E50;
+$reno-subtle-bg: lighten($reno-black, 71%);
+$reno-border-color: darken($reno-subtle-bg, 7%);
+$reno-white: #FFF;
+$reno-link: #e83561;
+$reno-dark-link: darken($reno-link, 15%);
+$reno-red: #bc283d;
+$reno-blue: #48678c;
+$reno-orange: #DF533C;
+$reno-dark-blue: #1C2836;
+$reno-med-blue: #2d4158;
+$reno-green: #3eb998;
+$reno-yellow: #FFD15E;
+
+$reno-button-bg: $reno-green;
+$reno-button-border: $reno-green;
+$reno-button-color: $white;
+$reno-button-hover-bg: $reno-link;
+$reno-button-hover-color: $white;
+$reno-button-hover-border: $reno-button-hover-bg;
+$reno-button-active-bg: $reno-button-hover-bg;
+$reno-button-active-border: $reno-button-hover-bg;
+$reno-button-radius: 3px;
+
+$reno-button-secondary-bg: lighten($dark-blue,15);
+$reno-button-secondary-border: lighten($dark-blue,15);
+$reno-button-secondary-color: $white;
+$reno-button-secondary-hover-color: $reno-button-hover-color;
+
+//$button-active-bg: darken($link-hover-color, 10%);
+//$button-active-border: $button-active-bg;
+
+/*** Jquery UI **************************************************/
+
+.ui-helper-hidden {
+	display: none;
+}
+.ui-helper-hidden-accessible {
+	border: 0;
+	clip: rect(0 0 0 0);
+	height: 1px;
+	margin: -1px;
+	overflow: hidden;
+	padding: 0;
+	position: absolute;
+	width: 1px;
+}
+.ui-helper-reset {
+	margin: 0;
+	padding: 0;
+	border: 0;
+	outline: 0;
+	line-height: 1.3;
+	text-decoration: none;
+	font-size: 100%;
+	list-style: none;
+}
+
+.ui-button {
+	display: inline-block;
+	position: relative;
+	padding: 0;
+	line-height: 1em;
+	margin-right: .1em;
+	cursor: pointer;
+	vertical-align: middle;
+	text-align: center;
+	overflow: visible; // removes extra width in IE 
+}
+
+/* reset extra padding in Firefox, see h5bp.com/l */
+input.ui-button::-moz-focus-inner,
+button.ui-button::-moz-focus-inner {
+	border: 0;
+	padding: 0;
+}
+
+/**
+ * ui-button
+ *
+ */
+
+.ui-button,
+button.ui-button.ui-state-default,
+.ui-button.ui-state-default {
+	color: $button-color;
+	background: $button-bg;
+	border: 1px solid $button-border;
+	font-weight: bold;
+	padding: 0.6em 1.1em;
+	font-size: 1em !important;
+	border-radius: $button-radius;
+}
+button.ui-button span {
+	&.ui-button-text {
+		padding: 0;
+	}
+}
+
+.ui-button:hover,
+button.ui-button.ui-state-hover,
+.ui-button.ui-state-hover,
+button.ui-button.ui-state-active,
+.ui-button.ui-state-active {
+	box-shadow: none !important;
+	color: $button-hover-color;
+	background: $button-hover-bg;
+	border: 1px solid $button-hover-border;
+	font-weight: bold;
+	font-size: 1em !important;
+	text-decoration: none;
+}
+
+button.ui-button.ui-state-active,
+.ui-button.ui-state-active {
+	color: $button-active-color;
+}
+
+.ui-button-icon-only {
+	/* modal window close button */
+	.ui-button-text {
+		display: none;
+	}
+	i {
+		margin-top: 3px;
+	}
+}
+
+.ui-priority-secondary,
+.ui-widget-content .ui-priority-secondary,
+.ui-widget-header .ui-priority-secondary {
+	opacity: .7;
+	filter:Alpha(Opacity=70);
+	font-weight: normal;
+}
+
+.ui-resizable {
+	position: relative;
+}
+.ui-resizable-handle {
+	position: absolute;
+	font-size: 0.1px;
+	display: block;
+}
+.ui-resizable-disabled .ui-resizable-handle,
+.ui-resizable-autohide .ui-resizable-handle {
+	display: none;
+}
+.ui-resizable-n {
+	cursor: n-resize;
+	height: 7px;
+	width: 100%;
+	top: -5px;
+	left: 0;
+}
+.ui-resizable-s {
+	cursor: s-resize;
+	height: 7px;
+	width: 100%;
+	bottom: -5px;
+	left: 0;
+}
+.ui-resizable-e {
+	cursor: e-resize;
+	width: 7px;
+	right: -5px;
+	top: 0;
+	height: 100%;
+}
+.ui-resizable-w {
+	cursor: w-resize;
+	width: 7px;
+	left: -5px;
+	top: 0;
+	height: 100%;
+}
+.ui-resizable-se {
+	cursor: se-resize;
+	width: 12px;
+	height: 12px;
+	right: 1px;
+	bottom: 1px;
+}
+.ui-resizable-sw {
+	cursor: sw-resize;
+	width: 9px;
+	height: 9px;
+	left: -5px;
+	bottom: -5px;
+}
+.ui-resizable-nw {
+	cursor: nw-resize;
+	width: 9px;
+	height: 9px;
+	left: -5px;
+	top: -5px;
+}
+.ui-resizable-ne {
+	cursor: ne-resize;
+	width: 9px;
+	height: 9px;
+	right: -5px;
+	top: -5px;
+}
+
+.ui-front {
+	z-index: 100;
+}
+
+.ui-dialog {
+	position: absolute;
+	top: 0;
+	left: 0;
+	outline: 0;
+	border: none;
+	padding: 0;
+
+	.ui-dialog-titlebar {
+		padding: .4em 1em;
+		position: relative;
+		margin: 0;
+		background: $dark-blue;
+		border: none;
+		color: $white;
+		font-weight: bold;
+
+		.ui-button {
+			background: none;
+			border: none;
+			outline: none;
+			padding: 0.6em 1.5em;
+		}
+	}
+	.ui-dialog-title {
+		float: left;
+		margin: .1em 0;
+		white-space: nowrap;
+		width: 90%;
+		overflow: hidden;
+		text-overflow: ellipsis;
+	}
+	.ui-dialog-titlebar-close {
+		position: absolute;
+		right: .3em;
+		top: 50%;
+		width: 21px;
+		margin: -10px 0 0 0;
+		padding: 1px;
+		height: 20px;
+	}
+	.ui-dialog-content {
+		position: relative;
+		border: 0;
+		background: none;
+		overflow: auto;
+		padding: 0;
+		max-width: 100%; /* prevents safari overflow */
+	}
+	.ui-dialog-buttonpane {
+		text-align: left;
+		border-width: 1px 0 0 0;
+		background: $subtle-bg;
+		border: none;
+		margin-top: -8px;
+		padding: 1px 8px 1px 8px;
+		.ui-dialog-buttonset {
+			float: right;
+		}
+	}
+	.ui-dialog-buttonpane button {
+		margin: .5em .4em .5em 0;
+		cursor: pointer;
+	}
+	.ui-resizable-se {
+		width: 12px;
+		height: 12px;
+		right: -5px;
+		bottom: -5px;
+		background-position: 16px 16px;
+	}
+}
+.ui-draggable .ui-dialog-titlebar {
+	cursor: move;
+}
+
+// Component containers
+.ui-widget {
+	font-size: 16px;
+	font-family: Arial, sans-serif;
+}
+
+.ui-widget-content {
+	background: #fff;
+}
+
+.ui-widget-overlay {
+	position: fixed;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: #000;
+	opacity: .7;
+	filter: Alpha(Opacity=70);
+}
+
+.ui-helper-clearfix:before,
+.ui-helper-clearfix:after {
+	content: "";
+	display: table;
+	border-collapse: collapse;
+}
+.ui-helper-clearfix:after {
+	clear: both;
+}
+.ui-helper-clearfix {
+	min-height: 0; // support: IE7 
+}
+.ui-helper-zfix {
+	width: 100%;
+	height: 100%;
+	top: 0;
+	left: 0;
+	position: absolute;
+	opacity: 0;
+	filter:Alpha(Opacity=0);
+}
+
+/*** AdminThemeReno jQuery UI ************************************************/
+
+.pw-AdminThemeReno {
+	.ui-dialog {
+		.ui-dialog-titlebar {
+			background: lighten($reno-dark-blue, 8%);
+			.ui-button {
+				background: none;
+				border: none;
+			}
+		}
+
+		.ui-dialog-buttonpane {
+			margin-top: -5px;
+		}
+
+		.ui-dialog-title {
+			padding: 5px 10px;
+			font-weight: normal;
+			color: $reno-white;
+			font-size: 1.2em;
+		}
+
+		.ui-dialog-titlebar-close {
+			right: 15px;
+			background: none;
+			border: none;
+			color: $reno-white;
+		}
+	}
+	.ui-widget-overlay {
+		background: $reno-dark-blue;
+	}
+
+	.ui-button,
+	button.ui-button.ui-state-default,
+	.ui-button.ui-state-default {
+		line-height: 1.2em;
+		text-shadow: none !important;
+		color: $reno-button-color; 
+		background: $reno-button-bg;
+		border: 1px solid $reno-button-border;
+		border-radius: $reno-button-radius;
+		transition: all 120ms ease-in;
+	}
+
+	.ui-button-text, .ui-button-text-only .ui-button-text {
+		padding: 0.6em 1.1em;
+		font-size: 1em;
+	}
+	button.ui-button.ui-priority-secondary,
+	.ui-button.ui-priority-secondary {
+		background: $reno-button-secondary-bg;
+		border: 1px solid $reno-button-secondary-border;
+		color: $reno-button-secondary-color;
+
+		&:hover {
+			color: $reno-button-secondary-hover-color;
+			border: 1px solid $reno-button-border;
+			background: $reno-button-bg;
+			cursor: pointer;
+		}
+	}
+
+	.ui-button:hover,
+	button.ui-button.ui-state-hover,
+	.ui-button.ui-state-hover {
+		color: $reno-button-hover-color;
+		background: $reno-button-hover-bg;
+		border: 1px solid $reno-button-hover-border;
+		text-decoration: none;
+	}
+
+	.ui-button.ui-state-hover.ui-state-active,
+	.ui-button.ui-state-hover.ui-priority-secondary.ui-state-active {
+		background: $reno-button-active-bg;
+		border-color: $reno-button-active-bg;
+	}
+}
+
+
+/*** PageFrontEdit ************************************************/
+
+.pw-edit, .pw-edit-modal {
+	cursor: context-menu;
+}
+.pw-editing {
+	cursor: text;
+}
+
+body.pw-busy,
+body.pw-busy .pw-edit {
+	cursor: wait !important;
+}
+
+.pw-edit-buttons {
+	position: fixed;
+	padding: 10px;
+	background: rgba(255,255,255,0.8);
+	
+	button {
+		font-weight: bold;
+	}
+
+	.pw-edit-save:hover {
+		/*
+		background-color: lighten($green, 5%);
+		border-color: lighten($green, 5%);
+		*/
+	}
+
+	.pw-edit-cancel {
+		margin-left: 5px;
+	}
+
+	&.pw-edit-buttons-location-auto {
+		bottom: 0;
+		left: 0;
+	}
+
+	&.pw-edit-buttons-location-nw {
+		top: 0;
+		left: 0;
+	}
+	&.pw-edit-buttons-location-ne {
+		top: 0;
+		right: 0;
+	}
+	&.pw-edit-buttons-location-sw {
+		bottom: 0;
+		left: 0;
+	}
+	&.pw-edit-buttons-location-se {
+		bottom: 0;
+		right: 0;
+	}
+
+	&.pw-edit-buttons-type-icon {
+		button span {
+			display: none;
+		}
+	}
+
+	&.pw-edit-buttons-type-text {
+		i.fa {
+			display: none;
+
+		}
+	}
+
+	&.pw-edit-buttons-touch {
+		&.pw-edit-buttons-type-auto {
+			button span {
+				display: none;
+			}
+		}
+	}
+}
+
+body.pw-AdminThemeDefault {
+
+	.pw-edit-cancel {
+		background-color: $red;
+		border-color: $red;
+		&:hover {
+			background-color: lighten($red, 5%);
+			border-color: lighten($red, 5%);
+		}
+	}
+}
+

@@ -1,0 +1,445 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page List Process
+ *
+ * Generates the ajax/js hierarchal page lists used throughout ProcessWire
+ * 
+ * For more details about how Process modules work, please see: 
+ * /wire/core/Process.php 
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ * @property bool $showRootPage Whether root page (like home) should be shown.
+ * @property string $pageLabelField Field name or field names (space separated) that should be used for page label.
+ * @property int $limit Items to show per pagination. 
+ * @property int $speed Animation speed (in ms)
+ * @property bool|int $useHoverActions Whether or not to use hover mode for action links.
+ * @property int $hoverActionDelay Milliseconds delay between hover and showing of actions. 
+ * @property int $hoverActionFade Milliseconds to spend fading in or out actions. 
+ * @property bool|int $useBookmarks Allow use of PageList bookmarks?
+ *
+ */
+
+class ProcessPageList extends Process implements ConfigurableModule {
+
+	protected $page; 
+	protected $id; 
+	protected $openPage; 
+	protected $start;
+	protected $trashLabel;
+	protected $render; 
+	protected $allowRenderTypes = array('JSON' => 'ProcessPageListRenderJSON');
+	
+	/**
+	 * Default max pages to show before pagination (configurable in the module editor)
+	 *
+	 */
+	const defaultLimit = 50; 
+
+	/**
+	 * Default animation speed (in ms) for the PageList
+	 *
+	 */
+	const defaultSpeed = 200; 
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Page List',          
+			'summary' => 'List pages in a hierarchal tree structure', 
+			'version' => 118, 
+			'permanent' => true, 
+			'permission' => 'page-edit',
+			'icon' => 'sitemap',
+			'useNavJSON' => true,
+			);
+	}
+
+	public function __construct() {
+		
+		$this->showRootPage = true; 
+		$this->pageLabelField = 'title';
+		$this->limit = self::defaultLimit;
+		$this->set('useHoverActions', false);
+		$this->set('useBookmarks', false);
+		$this->set('bookmarks', array());
+		
+		parent::__construct();
+	}
+
+	/**
+	 * Initialize the Page List
+	 *
+	 */
+	public function init() {
+		parent::init();
+		$isAjax = $this->wire('config')->ajax;
+		$this->start = isset($_GET['start']) ? (int) $_GET['start'] : 0;
+		$this->limit = (isset($_GET['limit']) && $_GET['limit'] < $this->limit) ? (int) $_GET['limit'] : $this->limit;
+		$this->render = isset($_GET['render']) ? strtoupper($this->sanitizer->name($_GET['render'])) : '';
+		if($isAjax && !$this->render && !$this->wire('input')->get('renderInputfieldAjax')) $this->render = 'JSON';
+		if($this->render && !isset($this->allowRenderTypes[$this->render])) $this->render = null;
+
+		$settings = $this->wire('config')->pageList;
+		if(is_array($settings)) {
+			if(!empty($settings['useHoverActions'])) $this->set('useHoverActions', true);
+			$this->set('hoverActionDelay', isset($settings['hoverActionDelay']) ? (int) $settings['hoverActionDelay'] : 100);
+			$this->set('hoverActionFade', isset($settings['hoverActionFade']) ? (int) $settings['hoverActionFade'] : 100);
+			if($this->speed == self::defaultSpeed) $this->set('speed', isset($settings['speed']) ? (int) $settings['speed'] : self::defaultSpeed);
+			if($this->limit == self::defaultLimit) $this->set('limit', isset($settings['limit']) ? (int) $settings['limit'] : self::defaultLimit);
+		}
+		
+		if(!$isAjax) {
+			$this->wire('modules')->get('JqueryCore')->use('cookie');
+			$this->wire('modules')->get('JqueryCore')->use('longclick');
+			$this->wire('modules')->get('JqueryUI')->use('modal');	
+		}
+	}
+
+	/**
+	 * Execute the Page List
+	 *	
+	 */
+	public function ___execute() {
+
+		$langID = (int) $this->wire('input')->get->lang; 
+		if($langID) $this->wire('user')->language = $this->languages->get($langID);
+		
+		$this->trashLabel = $this->_('Trash'); // Label for 'Trash' page in PageList // Overrides page title if used
+
+		if(isset($_GET['id']) && $_GET['id'] == 'bookmark') $this->wire('session')->redirect('./bookmarks/');
+		if(!$this->id) $this->id = isset($_GET['id']) ? (int) $_GET['id'] : 0; 
+		$this->openPage = $this->input->get->open ? $this->pages->get((int) $this->input->get->open) : $this->wire('pages')->newNullPage();
+		if($this->openPage->id && $this->speed > 50) $this->speed = floor($this->speed / 2);
+		$this->page = $this->pages->get("id=" . ($this->id ? $this->id : 1) . ", status<" . Page::statusMax); 
+
+		if(!$this->page) throw new Wire404Exception("Unable to load page {$this->id}"); 
+		if(!$this->page->listable()) throw new WirePermissionException("You don't have access to list page {$this->page->url}"); 
+		$this->page->setOutputFormatting(false); 
+	
+		if($this->wire('config')->ajax && !empty($_POST['action'])) {
+			$action = $this->wire('input')->post('action');
+			if($action) return $this->ajaxAction($this->wire('sanitizer')->name($action));
+		}
+
+		$p = $this->wire('page'); 
+		
+		if($p->name == 'list' && $p->process == $this) {
+			// ensure that we use the page's title is always consistent in the admin (i.e. 'Pages' not 'Page List')
+			$p->title = $p->parent->title; 
+		}
+	
+		/*
+		if($p->process == $this && $this->wire('input')->get('mode') != 'select') {
+			// store information about the last page list so that it can later be linked to again by ProcessPageEdit
+			$n = 1; 
+			if($this->start >= $this->limit) $n = ($this->start / $this->limit)+1; 	
+			$lastPageList = $this->session->get('lastPageList'); 
+			if(!is_array($lastPageList)) $lastPageList = array();
+				else $lastPageList = array_slice($lastPageList, 0, 10, true); 
+			$lastPageList[$this->page->id] = array(
+				'title' => (string) $this->page->get('title|name'), 
+				'url' => (string) $this->wire('page')->url,
+				'n' => $n
+				);
+			$this->session->set('lastPageList', $lastPageList); 
+		}
+		*/
+		
+		return $this->render();
+	}	
+
+	/**
+	 * Render the Page List
+	 *
+	 */
+	protected function render() {
+
+		$this->setupBreadcrumbs();
+		if($this->render) return $this->getPageListRender($this->page)->render();
+
+		$isAjax = $this->wire('config')->ajax;
+		$openPageIDs = array();
+		$openPageData = array();
+		$script = '';
+		
+		if($this->openPage->id > 1) {
+			$openPageIDs[] = $this->openPage->id; 
+			foreach($this->openPage->parents() as $parent) {
+				if($parent->id > 1 && $parent->id != $this->id) $openPageIDs[] = $parent->id;
+			}
+		} else if(!$isAjax && $this->wire('page')->process == $this) {
+			if($this->id) {
+				// leave openPageIDs as empty array
+			} else {
+				$openPageIDs = $this->wire('input')->cookie->array('pagelist_open');
+			}
+		}
+		
+		if($isAjax) {
+			if($this->wire('input')->get('renderInputfieldAjax')) {
+				$script = "<script>ProcessPageListInit();</script>";
+			}
+		} else if(count($openPageIDs)) {
+			$render = $this->render;
+			$this->render = 'JSON';
+			foreach($openPageIDs as $key => $openPageID) {
+				if(strpos($openPageID, '-')) {
+					list($openPageID, $openPageStart) = explode('-', $openPageID);
+					$openPageStart = (int) $openPageStart;
+				} else {
+					$openPageStart = 0;
+				}
+				$openPageID = (int) $openPageID;
+				$openPageIDs[$key] = "$openPageID-$openPageStart";
+				$p = $this->wire('pages')->get($openPageID);
+				if(!$p->id || !$p->listable()) continue;
+				$renderer = $this->getPageListRender($p, $this->limit, $openPageStart);
+				$openPageData["$openPageID-$openPageStart"] = $renderer->setOption('getArray', true)->render();
+			}
+			$this->render = $render;
+		}
+
+		$this->wire('config')->js('ProcessPageList', array(
+			'containerID' => 'PageListContainer', 
+			'ajaxURL' => $this->config->urls->admin . "page/list/", 
+			'ajaxMoveURL' => $this->config->urls->admin . "page/sort/",
+			'rootPageID' => $this->id, 
+			'openPageIDs' => $openPageIDs, 
+			'openPageData' => $openPageData,
+			'openPagination' => (int) $this->input->get->n, // @todo: make it openPaginations and correspond to openPageIDs
+			'showRootPage' => $this->showRootPage ? true : false, 
+			'limit' => $this->limit, 
+			'start' => $this->start, 
+			'speed' => ($this->speed !== null ? (int) $this->speed : self::defaultSpeed),
+			'useHoverActions' => $this->useHoverActions ? true : false, 
+			'hoverActionDelay' => (int) $this->hoverActionDelay,
+			'hoverActionFade' => (int) $this->hoverActionFade, 
+			'selectStartLabel' => $this->_('Change'), // Change a page selection
+			'selectCancelLabel' => $this->_('Cancel'), // Cancel a page selection
+			'selectSelectLabel' => $this->_('Select'), // Select a page
+			'selectUnselectLabel' => $this->_('Unselect'), // Unselect a page
+			'moreLabel' => $this->_('More'), // Show more pages
+			'moveInstructionLabel' => $this->_('Click and drag to move'), // Instruction on how to move a page
+			'trashLabel' => $this->trashLabel,
+			'ajaxNetworkError' => $this->_('Network error, please try again later'), // Network error during AJAX request
+			'ajaxUnknownError' => $this->_('Unknown error, please try again later'), // Unknown error during AJAX request
+			)); 
+		
+		$tokenName = $this->session->CSRF->getTokenName();
+		$tokenValue = $this->session->CSRF->getTokenValue();
+		$class = $this->id ? "PageListContainerPage" : "PageListContainerRoot";
+	
+		return "\n" . 
+			"<div id='PageListContainer' " .
+				"class='$class' " . 
+				"data-token-name='$tokenName' " . // CSRF tokens
+				"data-token-value='$tokenValue'>" . 
+			"</div>$script"; 
+	}
+	
+	protected function getPageListRender(Page $page, $limit = null, $start = null) {
+		
+		require_once(dirname(__FILE__) . '/ProcessPageListRender.php');
+		$class = "ProcessPageListRender" . $this->render;
+		$className = wireClassName($class, true);
+		
+		if(!class_exists($className, false)) require_once(dirname(__FILE__) . "/$class.php");
+		
+		if(is_null($limit)) $limit = $this->limit;
+		if(is_null($start)) $start = $this->start;
+		
+		if($limit) {
+			$children = $this->find("start=$start, limit=$limit, status<" . Page::statusMax, $page);
+		} else {
+			$children = $this->wire('pages')->newPageArray();
+		}
+
+		$renderer = $this->wire(new $className($page, $children));
+		$renderer->setStart($start);
+		$renderer->setLimit($limit);
+		$renderer->setPageLabelField($this->getPageLabelField());
+		$renderer->setLabel('trash', $this->trashLabel);
+		
+		return $renderer;
+	}
+	
+	public function setPageLabelField($name, $pageLabelField) {
+		$this->wire('session')->setFor($this, $name, $pageLabelField);	
+	}
+	
+	protected function getPageLabelField() {
+		$pageLabelField = '';
+		if(isset($_GET['labelName'])) {
+			$name = $this->wire('sanitizer')->fieldName($_GET['labelName']);
+			if($name) $pageLabelField = $this->wire('session')->getFor($this, $name);
+			if($pageLabelField) $pageLabelField = '!' . $pageLabelField; // "!" means it may not be overridden by template
+		}
+		if(empty($pageLabelField)) $pageLabelField = $this->pageLabelField;
+		return $pageLabelField;
+	}
+	
+	public function ___ajaxAction($action) {
+		if(!$this->page->editable()) throw new WireException("Page not editable");
+		if($this->page->id != $this->wire('input')->post('id')) throw new WireException("GET id does not match POST id");
+		
+		$tokenName = $this->session->CSRF->getTokenName();
+		$tokenValue = $this->session->CSRF->getTokenValue();
+		$postTokenValue = $this->wire('input')->post($tokenName);
+		if($postTokenValue === null || $postTokenValue !== $tokenValue) throw new WireException("CSRF token does not match");
+		$renderer = $this->getPageListRender($this->page, 0);	
+		$result = $renderer->actions()->processAction($this->page, $action);
+		if(!empty($result['updateItem'])) {
+			$result['child'] = $renderer->renderChild($this->page);	
+			unset($result['updateItem']);
+		}
+		if(!empty($result['appendItem'])) {
+			$newChild = $this->wire('pages')->get((int) $result['appendItem']);
+			$result['newChild'] = $renderer->renderChild($newChild);
+			unset($result['appendItem']);
+		}
+		header("Content-type: application/json");
+		return json_encode($result);
+	}
+	
+	public function ___find($selectorString, Page $page) {
+		return $page->children($selectorString); 
+	}
+
+	/**
+	 * Set a value to this Page List (see WireData)
+	 *
+	 */
+	public function set($key, $value) {
+		if($key == 'id') { // allow setting by other modules, overrides $_GET value of ID
+			$this->id = (int) $value; 
+			return $this; 
+		}
+		return parent::set($key, $value); 
+	}
+
+	/**
+	 * Setup the Breadcrumbs for the UI
+	 *
+	 */
+	public function setupBreadcrumbs() {
+		if($this->wire('process') != $this || !$this->wire('breadcrumbs')) return; 
+		if($this->wire('input')->urlSegment1) return;
+		$url = $this->wire('config')->urls->admin . 'page/list/?id=';
+		foreach($this->page->parents() as $p) {
+			$this->breadcrumb($url . $p->id, $p->get('title|name'));
+		}
+	}
+
+	/**
+	 * Get an instance of PageBookmarks
+	 * 
+	 * @return PageBookmarks
+	 * 
+	 */
+	protected function getPageBookmarks() {
+		static $bookmarks = null;
+		if(is_null($bookmarks)) {
+			require_once($this->wire('config')->paths->ProcessPageEdit . 'PageBookmarks.php');
+			$bookmarks = $this->wire(new PageBookmarks($this));
+		}
+		return $bookmarks;
+	}
+
+	/**
+	 * Output JSON list of navigation items for this module's bookmarks
+	 *
+	 */
+	public function ___executeNavJSON(array $options = array()) {
+		$bookmarks = $this->getPageBookmarks();
+		$options['edit'] = $this->wire('config')->urls->admin . 'page/?id={id}';
+		$options = $bookmarks->initNavJSON($options);
+		return parent::___executeNavJSON($options);
+	}
+	
+	public function ___executeOpen() {
+		$id = (int) $this->wire('input')->urlSegment2;
+		$this->wire('input')->get->open = $id;	
+		$this->wire('breadcrumbs')->removeAll();
+		return $this->execute();
+	}
+	
+	public function ___executeId() {
+		$id = (int) $this->wire('input')->urlSegment2;
+		$this->wire('input')->get->id = $id;
+		return $this->execute();
+	}
+
+	/**
+	 * Execute the Page Bookmarks 
+	 * 
+	 * @return string
+	 * @throws WireException
+	 * @throws WirePermissionException
+	 * 
+	 */
+	public function ___executeBookmarks() {
+		$bookmarks = $this->getPageBookmarks();
+		return $bookmarks->editBookmarks();
+	}
+
+	/**
+	 * Build a form allowing configuration of this Module
+	 *
+	 */
+	public function getModuleConfigInputfields(array $data) {
+
+		$fields = $this->wire(new InputfieldWrapper());
+		$modules = $this->wire('modules');
+
+		$field = $modules->get("InputfieldText");
+		$field->attr('name', 'pageLabelField');
+		$field->attr('value', !empty($data['pageLabelField']) ? $data['pageLabelField'] : 'title');
+		$field->label = $this->_("Name of page field to display");
+		$field->description = $this->_('Every page in a PageList is identified by a label, typically a title or headline field. You may specify which field it should use here. To specify multiple fields, separate each field name with a space, or use your own format string with field names surrounded in {brackets}. If the field resolves to an object (like another page), then specify the property with a dot, i.e. {anotherpage.title}. Note that if the format you specify resolves to a blank value then ProcessWire will use the page "name" field.'); // pageLabelField description
+		$field->notes = $this->_('You may optionally override this setting on a per-template basis in each template "advanced" settings.'); // pageLabelField notes
+		$fields->append($field);
+	
+		$bookmarks = $this->getPageBookmarks();
+		$bookmarks->addConfigInputfields($fields);
+		$admin = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+		$page = $this->wire('pages')->get($admin->path . 'page/list/');
+		$bookmarks->checkprocessPage($page);
+	
+		$settings = $this->wire('config')->pageList;
+		/*
+		if(empty($settings['useHoverActions'])) {
+			$field = $modules->get('InputfieldCheckbox');
+			$field->attr('name', 'useHoverActions');
+			$field->label = __('Show page actions on hover?');
+			$field->description = __('By default, actions for a page appear after a click (at least in the default admin theme). To make them appear on hover instead, check this box.'); // useHoverActions description
+			$field->notes = __('For more options here, see the $config->pageList setting in /wire/config.php. You may copy those settings to /site/config.php and override them.'); // useHoverActions notes
+			if(!empty($data['useHoverActions'])) $field->attr('checked', 'checked');
+			$fields->append($field);
+		}
+		*/
+
+		$defaultNote1 = $this->_('Default value is %d.');
+		$defaultNote2 = $this->_('If left at the default value, this setting can also be specified in the $config->pageList array.');
+		
+		$field = $modules->get("InputfieldInteger");
+		$field->attr('name', 'limit');
+		$field->attr('value', !empty($data['limit']) ? (int) $data['limit'] : self::defaultLimit);
+		$field->label = $this->_('Number of pages to display before pagination');
+		$field->notes = sprintf($defaultNote1, self::defaultLimit) . ' ' . $defaultNote2;
+		$fields->append($field);
+
+		$field = $modules->get("InputfieldInteger");
+		$field->attr('name', 'speed');
+		$field->attr('value', array_key_exists('speed', $data) ? (int) $data['speed'] : self::defaultSpeed);
+		$field->label = $this->_('Animation Speed (in ms)');
+		$field->description = $this->_('This is the speed at which each branch in the page tree animates up or down. Lower numbers are faster but less visible. For no animation specify 0.'); // Animation speed description 
+		$field->notes = sprintf($defaultNote1, self::defaultSpeed) . ' ' . $defaultNote2;
+		$fields->append($field);
+
+		return $fields; 
+	}
+
+}
+

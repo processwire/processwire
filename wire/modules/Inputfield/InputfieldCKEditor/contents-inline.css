@@ -1,0 +1,111 @@
+/**
+ * General editor styles (inline only)
+ *
+ * See contents.css for regular mode styles. 
+ *
+ */
+.InputfieldForm .InputfieldCKEditorInline {
+  font-family: Arial, sans-serif; }
+  .InputfieldForm .InputfieldCKEditorInline p, .InputfieldForm .InputfieldCKEditorInline li, .InputfieldForm .InputfieldCKEditorInline dl, .InputfieldForm .InputfieldCKEditorInline td {
+    font-size: 1em;
+    color: #333;
+    background: #fff; }
+  .InputfieldForm .InputfieldCKEditorInline a {
+    color: #444;
+    background: none;
+    text-decoration: underline; }
+    .InputfieldForm .InputfieldCKEditorInline a:hover {
+      color: #222;
+      background: #ffffdd; }
+  .InputfieldForm .InputfieldCKEditorInline i, .InputfieldForm .InputfieldCKEditorInline em {
+    font-style: italic; }
+  .InputfieldForm .InputfieldCKEditorInline b, .InputfieldForm .InputfieldCKEditorInline strong {
+    font-weight: bold; }
+  .InputfieldForm .InputfieldCKEditorInline strong em,
+  .InputfieldForm .InputfieldCKEditorInline em strong {
+    font-weight: bold;
+    font-style: italic; }
+  .InputfieldForm .InputfieldCKEditorInline small {
+    font-size: 0.875em; }
+  .InputfieldForm .InputfieldCKEditorInline ul li,
+  .InputfieldForm .InputfieldCKEditorInline ol li {
+    list-style: disc;
+    display: list-item;
+    margin: 0 0 0 2em; }
+  .InputfieldForm .InputfieldCKEditorInline ol li {
+    list-style: decimal; }
+  .InputfieldForm .InputfieldCKEditorInline blockquote {
+    padding-left: 1em;
+    border-left: 3px solid #ccc; }
+  .InputfieldForm .InputfieldCKEditorInline h1, .InputfieldForm .InputfieldCKEditorInline h2, .InputfieldForm .InputfieldCKEditorInline h3, .InputfieldForm .InputfieldCKEditorInline h4, .InputfieldForm .InputfieldCKEditorInline h5 {
+    color: #222;
+    font-family: Arial, sans-serif;
+    font-weight: normal;
+    text-transform: none; }
+  .InputfieldForm .InputfieldCKEditorInline h1 {
+    font-size: 2.0em; }
+  .InputfieldForm .InputfieldCKEditorInline h2 {
+    font-size: 1.7em; }
+  .InputfieldForm .InputfieldCKEditorInline h3 {
+    font-size: 1.5em; }
+  .InputfieldForm .InputfieldCKEditorInline h4 {
+    font-size: 1.3em; }
+  .InputfieldForm .InputfieldCKEditorInline h5 {
+    font-size: 1.2em; }
+  .InputfieldForm .InputfieldCKEditorInline h6 {
+    font-size: 1.1em; }
+  .InputfieldForm .InputfieldCKEditorInline table td,
+  .InputfieldForm .InputfieldCKEditorInline table th {
+    padding: 3px; }
+  .InputfieldForm .InputfieldCKEditorInline table th {
+    font-weight: bold; }
+  .InputfieldForm .InputfieldCKEditorInline img .cke_anchor {
+    display: inline; }
+  .InputfieldForm .InputfieldCKEditorInline figure {
+    margin: 1em 0 1em 0;
+    display: inline-block; }
+    .InputfieldForm .InputfieldCKEditorInline figure figcaption {
+      margin-top: 0.5em;
+      display: block;
+      line-height: 1.3em;
+      color: #777;
+      font-size: 13px; }
+  .InputfieldForm .InputfieldCKEditorInline figure {
+    display: table;
+    width: 1px;
+    margin: 1em 0; }
+    .InputfieldForm .InputfieldCKEditorInline figure img {
+      display: table-row;
+      margin-bottom: 0.5em; }
+    .InputfieldForm .InputfieldCKEditorInline figure figcaption {
+      display: table-row;
+      line-height: 1.3em;
+      color: #777;
+      font-size: 13px; }
+  .InputfieldForm .InputfieldCKEditorInline img.right, .InputfieldForm .InputfieldCKEditorInline img.align_right, .InputfieldForm .InputfieldCKEditorInline img.align-right,
+  .InputfieldForm .InputfieldCKEditorInline figure.right,
+  .InputfieldForm .InputfieldCKEditorInline figure.align_right,
+  .InputfieldForm .InputfieldCKEditorInline figure.align-right {
+    /* RCD */
+    float: right;
+    margin-left: 15px;
+    margin-right: 0;
+    margin-top: 0; }
+  .InputfieldForm .InputfieldCKEditorInline img.left, .InputfieldForm .InputfieldCKEditorInline img.align_left, .InputfieldForm .InputfieldCKEditorInline img.align-left,
+  .InputfieldForm .InputfieldCKEditorInline figure.left,
+  .InputfieldForm .InputfieldCKEditorInline figure.align_left,
+  .InputfieldForm .InputfieldCKEditorInline figure.align-left {
+    /* RCD */
+    float: left;
+    margin-top: 0;
+    margin-left: 0;
+    margin-right: 15px; }
+  .InputfieldForm .InputfieldCKEditorInline img.align_center, .InputfieldForm .InputfieldCKEditorInline img.align-center,
+  .InputfieldForm .InputfieldCKEditorInline figure.align_center,
+  .InputfieldForm .InputfieldCKEditorInline figure.align-center {
+    /* RCD */
+    display: block;
+    margin-left: auto;
+    margin-right: auto; }
+
+/*# sourceMappingURL=contents-inline.css.map */

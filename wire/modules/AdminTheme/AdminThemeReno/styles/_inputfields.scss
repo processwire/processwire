@@ -1,0 +1,661 @@
+*:focus {
+    outline: 0;
+}
+
+.InputfieldForm {
+
+	margin-bottom: 1em;
+
+	.Inputfields > .Inputfield {
+		list-style: none;
+		padding: 0;
+	}
+
+	.Inputfields > .InputfieldWrapper {
+		/* nested .Inputfields list needs no bottom margin since it'll already be offset from the parent's padding */
+		margin-bottom: 0; 
+		list-style: none;
+	
+	}
+
+	.InputfieldContent > .Inputfields {
+		padding: 0;
+	}
+
+	.Inputfields > .InputfieldColumnWidth {
+		/* an Inputfield that has a percentage width assigned to it */
+		float: left; 
+		clear: none; 
+		margin-top: 0; 
+	}
+
+	.Inputfields {
+
+		.InputfieldColumnWidthFirst,
+		.InputfieldColumnWidth + .InputfieldSubmit {
+			/* first Inputfield with a percent width... */
+			/* ...or the last percentage-width Inputifeld before the submit button */
+			clear: both; 
+			margin-left: 0; 
+		}
+	    
+		.InputfieldColumnWidthFirstTmp, 
+		.InputfieldColumnWidthFirst.InputfieldStateHidden + .Inputfield {
+			/* for support of inputfield dependencies */
+			clear: both;
+			margin-left: 0; 
+		}
+
+		.InputfieldColumnWidth:not(.InputfieldColumnWidthFirst) .InputfieldHeader,
+		.InputfieldColumnWidth:not(.InputfieldColumnWidthFirst) .InputfieldContent {
+			margin-left: -1px; 
+		}
+	}
+    
+	/**
+	 * Margin and padding tweaks to prevent doubled visual whitespace
+	 *
+	 */
+
+	.Inputfields > .Inputfield:not(.InputfieldSubmit) > .InputfieldContent > *:first-child,
+	.Inputfields > .Inputfield > .InputfieldContent > div > *:first-child,
+	.Inputfields > .Inputfield:first-child {
+		/* first child element of an Inputfield or it's content needs no top margin since it is already padded */
+		margin-top: 0;
+	}
+
+	.Inputfields .Inputfields > .Inputfield:last-child,
+	.Inputfields > .Inputfield > .InputfieldContent > *:last-child {
+		/* last child element in an Inputfield content needs no margin since it is already padded */
+		margin-bottom: 0;
+	}
+
+}
+
+/**
+* FieldsetTab Descriptions
+*
+*/
+
+.InputfieldFieldsetTabOpen > .Inputfields > h2 {
+
+	padding: 1em;
+	border-width: 1px 1px 0 1px;
+	border-color: $border-color;
+	border-style: solid;
+	margin: 0 0 -1px 0;
+	color: $medium-text-color; 
+	
+}
+
+fieldset, 
+input, 
+select,
+textarea,
+label {
+	margin: 0;
+	padding: 0;
+}
+
+input,
+select,
+textarea {
+	font-size: 1em; 
+	max-width: 100%; 
+}
+
+input:not([type=submit]):not([type=file]):not([type=checkbox]):not([type=radio]),
+textarea {
+	line-height: 1.3em; 
+	color: $text-color; 
+	border-style: solid;
+	border-width: 1px;
+	border-color: darken($border-color, 12%) darken($border-color, 4%) darken($border-color, 4%) darken($border-color, 4%);
+	padding: 0.45em 0.5em;
+	background: $subtle-bg;
+	-webkit-appearance:none;  /* Remove default shadow */
+}
+
+textarea {
+	line-height: 1.4em; 
+	padding: 0.6em;
+	display: block;
+}
+
+textarea,
+input.InputfieldMaxWidth {
+	width: 100%; 
+}
+
+label,
+input,
+select,
+textarea,
+table {
+	height: auto;
+}
+
+.Inputfields {
+
+	height: auto;
+
+	label {
+		display: block;
+	}
+
+	.Inputfield {
+		margin-bottom: -1px; /* non doubled border */
+		margin-top: 0;
+		background: $text-bg; 
+
+		p.notes {
+			margin-bottom: 0; 
+		}
+
+		.asmList {
+			margin-top: 0.5em;
+		}
+
+	}
+
+	.Inputfield.ui-state-error {
+		border: none; 
+	}
+
+	/**
+	 * file and image input field containers
+	 */
+	.InputfieldImageGrid {
+		
+		.InputfieldFileList{
+			margin-top: 1em;
+		}
+
+		.InputfieldFileItem {
+			background: $white !important;
+			padding: 0.4em !important;
+			margin: 0 0.6em 0.6em 0 !important;
+			//border: 1px solid $border-color !important;
+			box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+		}
+
+		.InputfieldFileData {
+			border: none !important;
+			margin-bottom: 0 !important;
+		}
+		a.InputfieldFileLink {
+			display: block !important;
+			margin: 0 !important;
+			padding: 0 !important;
+		}
+		&.ui-sortable-helper{
+			background: $link-color !important;
+			border-color: $link-color !important;
+		}
+	}
+
+	.Inputfield.InputfieldImage .InputfieldHeader,
+	.Inputfield.InputfieldFile .InputfieldHeader,
+	.Inputfield.InputfieldImage .InputfieldContent,
+	.Inputfield.InputfieldFile .InputfieldContent {
+		background: $nested-fields-bg;
+	}
+
+	// empty
+	.Inputfield.InputfieldImage.InputfieldFileEmpty .InputfieldHeader,
+	.Inputfield.InputfieldFile.InputfieldFileEmpty .InputfieldHeader,
+	.Inputfield.InputfieldImage.InputfieldFileEmpty .InputfieldContent,
+	.Inputfield.InputfieldFile.InputfieldFileEmpty .InputfieldContent {
+		background: $white !important;
+	}
+
+	.Inputfield.InputfieldImage.InputfieldFileEmpty .InputfieldContent.ui-state-hover,
+	.Inputfield.InputfieldFile.InputfieldFileEmpty .InputfieldContent.ui-state-hover {
+		background: $highlight-bg !important;
+	}
+
+	.InputfieldStateToggle {
+		cursor: pointer;
+
+		span.ui-icon:first-child,
+		i.toggle-icon {
+			/* the open/close icon that goes with most Inputfields */
+			float: right; 
+			padding-right: 0.25em; 
+		}
+		i.toggle-icon {
+			padding-right: 0.5em; 
+			color: $secondary-link-color;
+			line-height: 1.7em; 
+		}
+
+		.ui-icon + .ui-icon,
+		i + i {
+			margin-right: 0.3em; 
+			margin-left: none; 
+		}
+	}
+
+	.InputfieldStateCollapsed {
+		.InputfieldHeader {
+			/* different style for collapsed header */
+			padding-bottom: 0.75em;
+			background: $label-link-collapsed-bg ; 
+			border: 1px solid $border-color; 
+			color: $label-link-collapsed-color; 
+		
+			&:hover {
+				/* style for collapsed header when hovered */
+				color: $label-link-hover-color; 
+				border-color: $border-color; 
+				background: $label-link-collapsed-hover-bg; 
+			}
+			&:after{
+				content: " \2026";
+			}
+		}
+		.InputfieldContent {
+			/* collapsed Inputfields don't show their content (only header) */
+			display: none;
+		}
+	}
+
+	.InputfieldContent {
+		.InputfieldStateCollapsed {
+			.InputfieldHeader {
+				&:hover {
+					/* style for nested collapsed header when hovered */
+					background: $label-link-bg; 
+				}
+			}
+		}
+	}
+
+	.InputfieldHeader,
+	.InputfieldWrapper > .description {
+		background: $label-link-bg; 
+		border: 1px solid $border-color; 
+		border-bottom: none;
+		color: $label-link-color; 
+	}
+		.InputfieldHeader:hover {
+			color: $label-link-hover-color; 
+		}
+		.InputfieldWrapper > .description {
+			margin: 0 !important;
+			padding-bottom: 1em; 
+			margin-bottom: -1em;
+		}
+
+	.InputfieldHeader + .InputfieldContent {
+		padding: 0.25em 1em 1.25em 1em;
+		border: 1px solid $border-color; 
+		border-top: none; 
+		background: $text-bg; 
+	}
+
+
+
+	/**
+	 * InputfieldMarkup
+	 *
+	 */
+
+	.InputfieldMarkup .InputfieldContent {
+		border: 1px solid $border-color;
+		padding: 1em;
+	}
+		.InputfieldMarkup .InputfieldHeader + .InputfieldContent {
+			border-top: none; 
+			margin-top: 0;
+			padding-top: 0;
+		}
+
+	/**
+	 * InputfieldFileUpload
+	 *
+	 */
+	
+	.InputfieldFileUpload .AjaxUploadDropHere {
+		opacity: 1;
+		color: $link;
+	}
+
+	.InputfieldFileUpload input[type=file] {
+		margin: 0.8em 0 0.5em 0;
+	}
+
+	/**
+	 * Repeaters
+	 *
+	 */
+	
+	.InputfieldRepeater, .InputfieldRepeater > .InputfieldContent {
+		background: $nested-fields-bg;
+
+	}
+
+	.InputfieldRepeater > .InputfieldContent {
+
+		.InputfieldRepeaterItem > .InputfieldHeader {
+			border: none;
+			background: $item-header-bg; 
+			color: $item-header-color;
+
+			a {
+				color: $item-header-color; 
+				cursor: pointer; 
+			}
+
+			&:hover {
+				background: $item-header-hover-bg; 
+				color: $item-header-hover-color; 
+				border: none; 
+			}
+
+		}
+
+		.InputfieldRepeaterItem > .InputfieldContent {
+			padding: 0;
+			border: none; 
+		}
+
+		.InputfieldRepeaterItem {
+			margin-bottom: 1.25em;
+		}
+
+		.InputfieldRepeaterItem.InputfieldStateCollapsed {
+			margin-bottom: 1em; 
+		}
+
+		.InputfieldRepeaterItem > .InputfieldHeader.ui-state-error {
+			text-decoration: line-through; 
+			background: $error-bg; 
+			border: none; 
+		}
+		.InputfieldRepeaterItem > .InputfieldHeader .toggle-icon {
+			color: $item-header-color;
+		}
+	}
+
+	/**
+	 * Item and file lists
+	 *
+	 */
+	
+	.InputfieldFileList {
+		margin-top: 0;
+	}
+
+	.InputfieldFileList > li {
+		margin-top: 0;
+		margin-bottom: 0.5em !important;
+		box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+	}
+	.InputfieldFileList .InputfieldFileItem {
+		border: none;
+	}
+
+	.InputfieldFileList .InputfieldFileItem .ui-widget-content, .InputfieldFileData {
+		//border-width: 0 1px 1px 1px;
+		//border-style: solid;
+		//border-color: darken($item-border-color, 4%);
+		background: $item-bg;
+		border: none;
+		margin-bottom: 1em;
+	}
+
+	.InputfieldItemList .InputfieldItemHeader {
+		/* file or repeater item header */
+		border: none;
+		background: $item-header-bg; 
+		color: $item-header-color; 
+		padding: 0.5em;
+		cursor: move; 
+		font-weight: $normal-weight;
+
+		a {
+			/* link in file or repeater item header */
+			color: $item-header-color;
+		}
+
+		&:hover {
+			/* file or repeater item header in hover state */
+			background: $item-header-hover-bg; 
+			color: $item-header-hover-color; 
+			border: none; 
+			a {
+				color: $item-header-hover-color; 
+			}
+		}
+
+		&.InputfieldFileInfo > i.fa{
+			left: 0;
+		}
+	}
+
+	.InputfieldItemList .InputfieldItemList .InputfieldItemHeader:not(:hover) {
+		/* lighten up nested item list headers use a different color */
+		background: $ui-state-default-bg; 
+		color: $ui-state-default-color; 
+	}
+
+	.InputfieldItemList .InputfieldItemHeader.ui-state-error {
+		/* deleted item state */
+		text-decoration: line-through; 
+		background: $error-bg; 
+		border: none; 
+	}
+
+	.InputfieldItemList:not(.InputfieldStateCollapsed) > .InputfieldHeader,
+	.InputfieldFieldset:not(.InputfieldStateCollapsed) > .InputfieldHeader,
+	.InputfieldFieldsetOpen:not(.InputfieldStateCollapsed) > .InputfieldHeader,
+	.InputfieldItemList > .InputfieldHeader + .InputfieldContent,
+	.InputfieldFieldset > .InputfieldHeader + .InputfieldContent,
+	.InputfieldFieldsetOpen > .InputfieldHeader + .InputfieldContent {
+		/* Inputfields containing other items get a different background color */
+		background: $nested-fields-bg;
+	
+	}
+	.InputfieldItemList .InputfieldItemList:not(.InputfieldStateCollapsed) > .InputfieldHeader,
+	.InputfieldItemList .InputfieldItemList > .InputfieldHeader + .InputfieldContent {
+		/* unless the item is already a nested item list, then we are a little mroe subtle with it */ 
+		background: transparentize($subtle-bg, 0.6); 
+	}
+
+	.InputfieldPageNameURL {
+		/* page name */
+		font-size: 0.875em; 
+	}
+
+}
+
+.Inputfields > .Inputfield {
+	display: block;
+	clear: both; 
+}
+
+.Inputfields > .Inputfield > .InputfieldContent:before,
+.Inputfields > .Inputfield > .InputfieldContent:after,
+.InputfieldForm:after {
+    /* @soma clearfix */
+    content: " ";
+    display: table;
+}
+.Inputfields > .Inputfield > .InputfieldContent:after,
+.InputfieldForm:after {
+    /* @soma clearfix  */
+    clear: both;
+}
+
+/**
+ * Inputfield containers (InputfieldHeader, InputfieldContent) 
+ *
+ */
+
+.Inputfields .InputfieldHeader, 
+.InputfieldForm .InputfieldHeader, 
+.InputfieldForm label.InputfieldHeader,
+.InputfieldWrapper > .description {
+	/* typically the Inputfield's <label> */
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-o-user-select: none;
+	user-select: none; /* prevent selection of this element */
+
+	display: block;
+	padding: 0.75em 0.25em 0.25em 1em;
+	font-weight: $bold-weight; 
+}
+
+.InputfieldStateRequired > .InputfieldHeader:first-child:after {
+	/* Add asterisk to indicate field is required */
+	content: ' *';
+	color: $red; 
+}
+
+/****************************************************************************
+ * Specific Inputfield types
+ *
+ * Defined here rather than as separate CSS files because their styles are 
+ * shared or there may be relationships with other Inputfields
+ *
+ */
+
+.Inputfields .InputfieldHidden {
+	display: none; 
+}
+
+/**
+ * Buttons
+ *
+ */
+
+.InputfieldForm .Inputfields .InputfieldSubmit,
+.InputfieldForm .Inputfields .InputfieldButton {
+	/* enable horizontal stack of buttons */
+	margin-top: 0;
+	padding-top: 0;
+	clear: none; 
+	background: none; 
+
+	.InputfieldHeader {
+		/* no need for a header with buttons */
+		display: none; 
+	}
+
+	.InputfieldContent {
+		/* we don't need our visual furniture for buttons */
+		padding: 0; 
+		margin: 0;
+		margin-top: 1em; 
+		background: none; 
+		border: none; 
+	}
+}
+
+
+.Inputfields > .InputfieldSubmit {
+	float: left; 
+	margin-bottom: 0.5em;
+	margin-top: 0;
+}
+	.Inputfields .InputfieldSubmit + .InputfieldSubmit,
+	.Inputfields .InputfieldSubmit + .InputfieldButton {
+		/* two buttons next to each other */
+		float: left; 
+		margin-left: 0.5em; 
+		margin-top: 0;
+	}
+
+	.Inputfields .Inputfield:not(.InputfieldSubmit) + .InputfieldSubmit {
+		clear: left; 
+	}
+
+.Inputfields .InputfieldRadiosColumns li {
+	padding-bottom: 0.1em !important; 
+}
+
+
+.Inputfield .LanguageSupport {
+	margin-bottom: 1em; 
+}
+
+.Inputfields .Inputfield:not(.InputfieldStateCollapsed) > .InputfieldHeaderHidden > span {
+	/* hide header for inputfield */
+	display: none;
+}
+
+#content .InputfieldHeader + .InputfieldContent.langTabsContainer {
+	padding-bottom: 0.25em;
+}
+
+#content .InputfieldHeader + .InputfieldContent.langTabsContainer p.notes {
+	margin: 0 0 1em 0;
+}
+
+/****************************************************************************
+ * Render Value Mode 
+ *
+ * Used when only values are being rendered in the form (no inputs)
+ *
+ */
+
+.InputfieldRenderValueMode {
+
+	.InputfieldSelect li,
+	.InputfieldRadios li,
+	.InputfieldCheckboxes li {
+        	margin: 0 ;
+	}
+
+	.InputfieldSubmit,
+	.InputfieldButton {
+		display: none; 
+	}
+}
+
+/****************************************************************************
+ * login 
+ *
+ * override default login
+ *
+ */
+
+ul.Inputfields #wrap_login_name,
+ul.Inputfields #wrap_login_pass {
+	width: auto !important;
+}
+
+
+/****************************************************************************
+ * The following is only for AdminThemeReno support of PW 2.5.x
+ * 
+ * This can eventually be dropped
+ * 
+ */
+body:not(.AdminThemeReno) .Inputfields {
+	
+	.InputfieldRepeater > .InputfieldContent .InputfieldRepeaterItem > .InputfieldHeader {
+		padding: 0.25em 0.25em 0.25em 1.7em;
+
+		.InputfieldRepeaterTrash {
+			right: 1.8em;
+		}
+
+		.ui-icon {
+			margin-top: 3px;
+		}
+	}
+
+	.InputfieldItemList .InputfieldItemHeader {
+		/* file or repeater item header */
+		padding-left: 0.25em;
+		padding-right: 0.5em;
+
+		.ui-icon {
+			margin-top: 3px;
+		}
+	}
+}

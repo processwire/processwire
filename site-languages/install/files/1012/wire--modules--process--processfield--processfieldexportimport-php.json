@@ -1,0 +1,147 @@
+{
+    "file": "wire\/modules\/Process\/ProcessField\/ProcessFieldExportImport.php",
+    "textdomain": "wire--modules--process--processfield--processfieldexportimport-php",
+    "translations": {
+        "71eaa2b13692809e39c2f0c36e7f1d7f": {
+            "text": "W\u00e4hlen Sie die zu exportierenden Felder aus"
+        },
+        "2f1fb3d9f25082e7fdb0befdad16da5f": {
+            "text": "Daten exportieren"
+        },
+        "6af8cf07d769a110f0b2483692ef424c": {
+            "text": "Diese Daten per Copy + Paste in das \"Import\" Feld einer anderen Installation einf\u00fcgen."
+        },
+        "31fde7b05ac8952dacf4af8a704074ec": {
+            "text": "Vorschau"
+        },
+        "22af645d1859cb5ca6da0c484f1f37ea": {
+            "text": "neu"
+        },
+        "c112bb3542e98308d12d5ecb10a67abc": {
+            "text": "\u00c4nderungen"
+        },
+        "5ad234cb2cde4266195252a23ca7d84e": {
+            "text": "Eigenschaft"
+        },
+        "56f05ff480907494bd933f4ad4faf9e2": {
+            "text": "Alter Wert"
+        },
+        "943f335b83ec6549ef45388ececff4e1": {
+            "text": "Neuer Wert"
+        },
+        "34eb90456e45e06048e287f649c4fba0": {
+            "text": "Keine offenen \u00c4nderungen."
+        },
+        "c4fd77379e1e463339786fbbc671068c": {
+            "text": "Dieses Feld \u00e4ndern?"
+        },
+        "2f4ddf245d305802ffed479ba3b88451": {
+            "text": "Dieses Feld erstellen?"
+        },
+        "83e14aace19687fe9e1fbb8f913bf569": {
+            "text": "Zum \u00c4nderungen anzeigen auf Ja klicken"
+        },
+        "b604e6f64e19eea098f6d87c63552c53": {
+            "text": "\u00c4nderungen \u00fcbernehmen"
+        },
+        "16babeb0401a3e00da9891b97e94d6fe": {
+            "text": "Ihre \u00c4nderungen wurden durchgef\u00fchrt!"
+        },
+        "15055fb4c054396bf293c21c12c578be": {
+            "text": "Keine \u00c4nderungen vorhanden"
+        },
+        "426de2596501a3cff8977e60c271889c": {
+            "text": "Gespeichert:"
+        },
+        "22e3e6ff427708ffbb7a54e2e91bc99e": {
+            "text": "Feld hinzugef\u00fcgt"
+        },
+        "9de8e0c21384ddfd634fd87a48f6b3b2": {
+            "text": "Feld ge\u00e4ndert"
+        },
+        "a7820bfdb5b31eb4ee4165f2c8bef779": {
+            "text": "Ja"
+        },
+        "1354eb301e2c7c55f79a7f13adb363e3": {
+            "text": "Nein"
+        },
+        "c3005b0d579421afe9654e94b7f60c41": {
+            "text": "%d Fehler"
+        },
+        "2169b4627df97333ed94d1e30a9b8148": {
+            "text": "%d Fehler"
+        },
+        "8ba486983cfbf272f154102c788863e6": {
+            "text": "%d Eigenschaft zum anlegen gefunden."
+        },
+        "dbda450b59595e4fd37fd581d205334f": {
+            "text": "%d Eigenschaften zum anlegen gefunden."
+        },
+        "9e06b5dbfb31f1828888bca905c2e88e": {
+            "text": "Fehler in %d Feld gefunden"
+        },
+        "68949530f08adb8c1a98b2a452c25604": {
+            "text": "Fehler in %d Felder gefunden"
+        },
+        "98e916ede6d185f77336fd8e0c08bfe0": {
+            "text": "%d Feld gefunden zum hinzuf\u00fcgen"
+        },
+        "9bdf5048d07cd31f11ccd839cc2d077a": {
+            "text": "%d Felder gefunden zum hinzuf\u00fcgen"
+        },
+        "927d189873b1f34075deb20406d33644": {
+            "text": "%d vorhandene Feld zum aktualisieren gefunden"
+        },
+        "5cc06b731a19a2b34a1e3a0e79e35690": {
+            "text": "%d vorhandene Felder zum aktualisieren gefunden"
+        },
+        "99dc52a2961a9de2d42d6dbd498b0103": {
+            "text": "%d Feld hinzugef\u00fcgt"
+        },
+        "46b6c6eede6b98b8ac580770f6215f35": {
+            "text": "%d Felder hinzugef\u00fcgt"
+        },
+        "0ecf1cc5ca067272faabd8c0900efe68": {
+            "text": "%d Feld ge\u00e4ndert"
+        },
+        "18e7924633aa136c8b5ba3827b3f7058": {
+            "text": "%d Felder ge\u00e4ndert"
+        },
+        "c9185726324b2953e521ff596b287f25": {
+            "text": "%d Feld verworfen"
+        },
+        "0cf5f939a615a083962e96f06b8ed6ea": {
+            "text": "%d Felder verworfen"
+        },
+        "e5d07991c975607a12edce23c0da9824": {
+            "text": "Mit Umschalt+Klick w\u00e4hlt man mehrere Sequenzen in Folge. Mit Strg+Klick (oder Cmd+Klick) w\u00e4hlt man mehrere individuell aus. Mit Strg+A alle ausw\u00e4hlen."
+        },
+        "9d823cda278191490c2a99bbb912cc9d": {
+            "text": "Beliebig in die Box klicken um alle exportierten Daten auszuw\u00e4hlen. Danach die Daten mit Strg-C (oder Cmd-C) kopieren."
+        },
+        "dce8c8fe6bdf804f2a98384dedea1360": {
+            "text": "Hier die Daten von einem Exportvorgang einf\u00fcgen."
+        },
+        "139ef19d3b2f902827257b2ebc33d708": {
+            "text": "Die exportierten Daten einer anderen Installation kopieren und dann in die obere Box mit Strg-V (oder Cmd-V) einf\u00fcgen."
+        },
+        "939704657d1c6c48005bdb67bc14ee75": {
+            "text": "Wir empfehlen, den Typ dieses Feldes manuell auf \"%s\" zu \u00e4ndern, um dann danach weitere \u00c4nderungen durch zu f\u00fchren."
+        },
+        "47a35a358887cc2c9994fb517d6a2b0b": {
+            "text": "Manchmal k\u00f6nnen zwei Durchg\u00e4nge notwendig sein bevor alle \u00c4nderungen umgesetzt wurden. Bitte beachten Sie unten die noch offenen \u00c4nderungen und f\u00fchren diese nach Bedarf durch."
+        },
+        "b2ba5835eaaa55607da59f696dcd4a87": {
+            "text": "Bitte \u00fcberpr\u00fcfen und best\u00e4tigen Sie danach die \u00c4nderungen unten. Falls einige \u00c4nderungen nicht gew\u00fcnscht werden, die entsprechende Checkbox nicht markieren."
+        },
+        "19b7fb53a85de3c8ba85672a91a7398b": {
+            "text": "Exportieren"
+        },
+        "e37dfad06455f0c5d79778a5020d946d": {
+            "text": "Importieren"
+        },
+        "948495146facadfe8859789036313d79": {
+            "text": "TYP"
+        }
+    }
+}

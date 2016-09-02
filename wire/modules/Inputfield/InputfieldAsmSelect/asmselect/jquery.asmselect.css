@@ -1,0 +1,132 @@
+.asmContainer {
+	/* container that surrounds entire asmSelect widget */
+}
+
+.asmSelect {
+	/* the newly created regular 'select' */
+	display: inline; 
+}
+
+.asmOptionDisabled {
+	/* disabled options in new select */
+	color: #999; 
+}
+
+.asmHighlight {
+	/* the highlight span */
+	padding: 0;
+	margin: 0 0 0 1em;
+	display: inline;
+}
+
+.asmList {
+	/* html list that contains selected items */
+	margin: 0.25em 0 1em 0; 
+	position: relative;
+	display: block;
+	padding-left: 0; 
+	list-style: none; 
+}
+
+.asmListItem {
+	/* li item from the html list above */
+	position: relative; 
+	margin-left: 0;
+	margin-bottom: 1px !important; 
+	list-style: none !important;
+	width: 100%; 
+	line-height: 1.3em;
+	padding-left: 0;
+}
+
+.asmListItem .asmIconSort, 
+.asmListItem .ui-icon-arrowthick-2-n-s {
+	float: left; 
+	margin-top: 1px; 
+}
+
+.asmListItem .asmIconSort {
+	/* asmIconSort used only for UTF-8 sort icon */
+	padding-left: 8px;
+	padding-right: 7px; 
+	margin-top: 2px; 
+}
+
+.asmListItemLabel,
+.asmListItemStatus {
+	/* this is a span that surrounds the text in the item, except for the remove link */
+	display: block;
+	padding: 3px 0 3px 5px; 
+}
+
+.asmListItemLabel .ui-icon,
+.asmListItemStatus .ui-icon,
+.asmListItemDesc .ui-icon {
+    position: relative;
+    top: -2px; 
+}
+
+
+.asmListSortable .asmListItemLabel,
+.asmListSortable .asmListItemHandle,
+.asmListSortable .asmListItemDesc,
+.asmListSortable .asmListItemStatus {
+	cursor: move; 
+}
+
+.asmListItemRemove {
+	/* the remove link in each list item */
+	position: absolute;
+	right: 3px; 
+	top: 0;
+	line-height: 1.3em;
+}
+
+.asmIconRemove {
+	/* asmIconRemove used only for UTF-8 remove icon */
+	font-size: 1.6em; 
+	padding-right: 2px;
+	padding-top: 3px; 
+	font-family: Arial, sans-serif;
+	display: inline-block;
+}
+
+.asmListItemEdit .ui-icon {
+	/* hide the icon */
+	float: none; 
+	display: none; 
+}
+	.asmListItemEdit a:hover .ui-icon {
+		/* display the icon when hovered on the edit label */
+		display: inline; 
+		padding: 0 10px;
+		position: relative;
+		top: -2px; 
+	}
+
+.asmListItemEdit a:hover {
+	/* underline the label when hovered */
+	text-decoration: underline; 
+}
+
+span.asmListItemStatus {
+	/* position status text to the right side */
+	position: absolute;
+	top: 0;
+	right: 30px; 
+	font-size: 0.916666666666667em;
+	opacity: 0.9;
+}
+
+span.asmListItemDesc {
+	/* position status text to the right side */
+	position: absolute;
+	top: 0;
+	left: 40%; 
+	padding-top: 3px; 
+}
+
+.asmListItemDeleted,
+.asmListItemDeleted span {
+	text-decoration: line-through; 
+}

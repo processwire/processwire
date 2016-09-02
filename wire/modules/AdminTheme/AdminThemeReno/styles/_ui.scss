@@ -1,0 +1,836 @@
+/****************************************************************************************
+ * Theme specific jQuery UI overrides and additions
+ *
+ */
+
+.ui-icon {
+	float: left; 
+	margin-right: 2px;
+	margin-top: 4px;
+}
+
+.ui-widget {
+	font-size: 1em; 
+}
+
+.ui-widget-content {
+	border-color: $border-color !important;
+}
+
+.Inputfields li:not(.Inputfield) .ui-widget-header .ui-icon,
+.ui-state-default .ui-icon,
+.ui-state-hover .ui-icon, 
+.ui-state-highlight .ui-icon,
+.ui-state-error .ui-icon {
+	/* use white icons */
+	background-image: url(images/ui-icons_ffffff_256x240.png) !important;
+}
+
+/**
+ * InputFieldContent (images and files)
+ *
+ */
+
+.InputfieldContent {
+	&.ui-state-hover{
+		background: darken($subtle-bg, 5%) !important;
+		// color: $black !important;
+	}
+}
+
+/**
+ * asmSelect and similar
+ *
+ */
+
+.content {
+
+	.ui-widget-content a {
+		color: $link-color;
+	}
+
+	li.ui-state-default,
+	.ui-widget-content li.ui-state-default {
+		background: $ui-state-default-bg; 
+		border-color: $ui-state-default-bg; 
+		color: $ui-state-default-color; 
+	}
+	li.ui-state-default a, 
+	.ui-widget-content li.ui-state-default a {
+		color: $ui-state-default-color; 
+	}
+	li.ui-state-hover,
+	.ui-widget-content li.ui-state-hover {
+		background: none !important;
+		background-color: $ui-state-hover-bg !important; 
+		border-color: $ui-state-hover-bg; 
+		color: $ui-state-hover-color; 
+	}
+	li.ui-state-hover a,
+	.ui-widget-content li.ui-state-hover a {
+		color: $ui-state-hover-color; 
+	}
+}
+
+.InputfieldForm .ui-accordion-header, 
+.ui-accordion-header {
+	padding-left: 1.5em; 
+	background: $button-bg; 
+	border: none; 
+	color: $reverse-text-color;
+}
+	.InputfieldForm .ui-accordion-header a,
+	.ui-accordion-header a,
+	#debug .ui-accordion-header a {
+		color: $reverse-text-color;
+		.ui-priority-secondary {
+			color: transparentize($reverse-text-color, 0.3) !important;
+		}
+	}
+.ui-accordion-content,
+.content .InputfieldForm .ui-accordion-content,
+.content .InputfieldForm .InputfieldMarkup .ui-accordion-content {
+	margin-top: 0;
+	padding-top: 0;
+}
+
+/**
+ * Highlight and error states 
+ *
+ */
+
+.ui-state-highlight,  
+.ui-widget-content .ui-state-highlight, 
+.ui-widget-header .ui-state-highlight,{
+	color: $highlight-color; 
+	background: $highlight-bg;
+	border: none;
+	border-bottom: $highlight-border; 
+}
+	
+.ui-state-error,
+.ui-widget-content .ui-state-error {
+	background: $error-bg;	
+	color: $error-color; 
+	border: none; 
+	font-weight: normal;
+	border: none;
+	border-bottom: $error-border; 
+}
+
+p span.ui-state-error {
+	padding: 0.25em 0.5em;
+}
+
+/**
+ * ui-dialog
+ *
+ */
+
+.ui-dialog {
+  -webkit-border-radius: 0;
+  -moz-border-radius: 0;
+  -ms-border-radius: 0;
+  -o-border-radius: 0;
+  border-radius: 0;
+  border: none;
+  padding: 0;
+  z-index: 9999;
+
+  .ui-dialog-titlebar {
+	    margin: 0;
+	    background: $masthead-secondary-bg !important;
+	    border: none;
+	    -webkit-border-radius: 0;
+	    -moz-border-radius: 0;
+	    -ms-border-radius: 0;
+	    -o-border-radius: 0;
+	    border-radius: 0;
+
+	    .ui-button {
+      	background: none;
+      	border: none;
+      	outline: none; 
+		}
+	}
+
+	.ui-dialog-buttonpane {
+    	background: none;
+    	border: none;
+    	margin-top: -5px;
+
+    	button {
+    		font-weight: bold !important;
+    	}
+	}
+
+	.ui-dialog-title {
+	  float: left;
+	  margin: .1em 0;
+	  white-space: nowrap;
+	  width: 90%;
+	  overflow: hidden;
+	  text-overflow: ellipsis;
+	  padding: 5px 10px;
+	  font-weight: normal;
+	  color: $white;
+	  font-size: 1.2em !important;
+	}
+
+	.ui-dialog-content {
+    	padding: 0;
+    	max-width: 100%;
+	}
+
+	.ui-dialog-titlebar-close {
+		top: 50%;
+		right: 15px;
+		background-color: none;
+		color: $white;
+	}
+}
+ 
+.ui-widget-overlay {
+	background: $dark-blue; /* BLACK */
+	z-index: 9998;
+}
+
+/**
+ * ui-button
+ *
+ */
+
+.ui-button, 
+button.ui-button.ui-state-default, 
+.ui-button.ui-state-default {
+	box-shadow: none !important; 
+	text-shadow: none !important; 
+	color: $button-color; /* WHITE */ 
+	background: $button-bg; /* green */
+	border: 1px solid $button-border; /* green */
+	font-weight: normal; 
+	font-size: 1em !important; 
+	border-radius: $button-radius;
+	transition: all 120ms ease-in;
+}
+
+.ui-button-text, .ui-button-text-only .ui-button-text {
+	padding: 0.6em 1.1em;
+	font-size: 1em !important; 
+}
+
+.ui-button .ui-button-text > .ui-button-text {
+	// if ui-button-text class is doubled, don't let it double padding
+	padding: 0;
+}
+
+button.ui-button span {
+	text-shadow: none !important;
+}
+
+button.ui-button.ui-priority-secondary, 
+.ui-button.ui-priority-secondary {
+	background: $button-secondary-bg !important; 
+	border: 1px solid $button-secondary-border; 
+	color: $button-secondary-color !important; 
+
+	&:hover {
+		color: $button-secondary-hover-color !important;
+		border: 1px solid $button-border;
+		background: $button-bg !important;
+		cursor: pointer !important;
+	}
+}
+
+button.ui-button .ui-priority-secondary,
+.ui-button .ui-priority-secondary {
+	color: rgba($button-color, 0.5) !important; 
+}
+
+.ui-button:hover, 
+button.ui-button.ui-state-hover, 
+.ui-button.ui-state-hover {
+	color: $button-hover-color; 
+	background: $button-hover-bg; 
+	border: 1px solid $button-hover-border; 
+	text-decoration: none; 
+}
+
+.ui-button.ui-state-hover.ui-state-active, 
+.ui-button.ui-state-hover.ui-priority-secondary.ui-state-active {
+	background: $button-active-bg !important;
+	border-color: $button-active-bg !important; 
+}
+
+div + a > .ui-button {
+	margin-top: 1em;
+}
+
+button.ui-button.pw-button-dropdown-main {
+	border-top-right-radius: 0;
+	border-bottom-right-radius: 0;
+	margin-right: 0 !important;
+	.ui-button-text {
+		padding-right: 0.9em;
+	}
+	
+}
+button.ui-button.pw-button-dropdown-toggle {
+	outline: none !important;
+	margin-left: 0 !important;
+	border-top-left-radius: 0;
+	border-bottom-left-radius: 0;
+	border-left: 1px solid !important;
+	border-left-color: rgba(255,255,255,0.2) !important;
+	&:hover {
+		border-left-color: transparent !important;
+	}
+	.ui-button-text {
+		padding-left: 8px;
+		padding-right: 8px;
+	}
+}
+
+.ui-priority-secondary,
+.ui-widget-content .ui-priority-secondary,
+.ui-widget-header .ui-priority-secondary {
+    opacity: 1;
+    color: $ui-priority-secondary-color !important;
+
+    &:hover {
+    	color: $ui-priority-secondary-hover !important;
+    }
+}
+
+.ui-widget-header .ui-priority-secondary{
+	padding: 0.2em 0.4em;
+    border-radius: $button-radius;
+    color: $item-header-color !important;
+    background: darken($item-header-bg, 5%);
+
+    &:hover {
+    	color: $item-header-color !important;
+    	background: darken($item-header-bg, 10%);
+    }
+}
+
+.ui-button.ui-state-disabled,
+button.ui-state-disabled{
+    opacity: 1;
+    background: $ui-disabled-bg !important;
+    color: $ui-disabled-color !important;
+    border-color: $ui-disabled-bg !important;
+
+    &.ui-state-hover{
+    	color: $ui-disabled-color !important;
+    	background: $ui-disabled-bg !important;
+    	border-color: $ui-disabled-bg !important;
+    	cursor: hand;	
+    }
+
+     &.ui-state-active{
+    	color: $ui-disabled-color !important;
+    	background: $ui-disabled-bg !important;
+    	border-color: $ui-disabled-bg !important;
+    	cursor: hand;	
+    }
+}
+
+/**
+ * ui-slider
+ * 
+ */
+
+.ui-slider .ui-slider-range, 
+.ui-widget .ui-slider .ui-slider-range,
+.ui-widget-content .ui-slider .ui-slider-range {
+	background: $link; 
+	/* remove padding added to Inputfields that was getting inherited here */
+	padding: 0;
+}
+
+.ui-slider .ui-slider-handle{
+	//background: darken($link, 30%);
+	//border-radius: 3px;
+	// border-radius: 50%; 
+}
+.ui-slider .ui-slider-handle {
+	width: 17px;
+	height: 21px;
+	border-width: 0;
+	outline: none;
+	border: none;
+	background-color: transparent;
+	background: url(images/slider_handles.png) 0 0 no-repeat;
+}
+
+body.hidpi-device .ui-slider .ui-slider-handle {
+	background: url(images/slider_handles2x.png) 0 0 no-repeat;
+	background-size: 34px 21px;
+}
+
+.ui-slider-horizontal {
+	background: $light-text-color;
+	border: none;
+	height: 8px; 
+	.ui-slider-handle {
+		top: -5px; 
+	}
+}
+.ui-slider-horizontal, 
+.ui-slider-range {
+	border-radius: 4px; 
+}
+
+/**
+ * ui-autocomplete
+ *
+ */
+
+.InputfieldPageAutocomplete{
+
+	ol {
+		margin: 0 !important;
+	}
+
+	& input[type=text]{
+		width: 100% !important;
+		padding-left: 1.6em !important;
+	}
+
+	& .InputfieldPageAutocompleteStatus{
+
+		top: 0.6em !important;
+		left: 0.4em !important;
+	}
+
+}
+.ui-autocomplete {
+	box-shadow: $box-shadow !important;
+	z-index: 9999 !important; 
+	border-radius: 0 0 3px 3px !important;
+	background: $subtle-bg;
+	border: none !important;
+	padding: 0 !important;
+	max-height: none;
+	overflow: hidden;
+	min-width: 200px;
+	max-width: 960px;
+
+
+
+	a {
+		-webkit-border-radius: 0;
+		-moz-border-radius: 0; 
+		border-radius: 0;
+	}
+
+	li a:hover {
+		cursor: pointer;
+	}
+
+	.ui-widget-header{
+		border: none; 
+		margin: 0;
+		&:hover {
+			border: none; 
+			margin: 0;
+		}
+
+		& a {
+			background: none; 
+			border: none !important;
+			margin: 0 !important;
+			text-shadow: none;
+		}
+	}
+
+	& .ui-menu-item {
+
+		a {
+			//padding: 0.15em 0.75em 0.15em 0.6em !important; 
+			color: $text-color;
+			word-wrap:break-word;
+
+			&:before {
+				content: "\f096";
+				font-family: fontAwesome;
+				display: inline-block;
+				margin: 0 8px 0 0;
+				color: darken($subtle-bg, 15%);
+				width: 12px !important;
+			}
+
+			&:hover {
+				background: $item-header-bg !important;
+
+				&:before {
+					color: darken($item-header-bg, 12%);
+					content: "\f0fe";
+				}
+
+			}
+		}
+	}
+
+}
+
+.ui-menu {
+	padding: 0;
+}
+
+.ui-menu a{
+	border-width: 0;
+	
+	small {
+		opacity: 0.7;
+	}
+} 
+
+.ui-menu a.ui-state-focus {
+	border-color: transparent;
+	background: none !important;
+}
+
+.ui-menu li .ui-menu {
+	padding: 0.4em 0;
+}
+
+.ui-menu li .ui-menu li {
+	padding: 2px 0;
+}
+
+.ui-menu li .ui-menu li a {
+	font-size: 0.9em;
+	padding: 0.3em 1.2em;
+	line-height: 1em;
+	
+}
+
+.ui-menu
+.ui-menu .ui-menu-item a{
+	cursor: pointer;
+}
+.ui-menu .ui-menu-item a {
+	padding: 0.5em 0.75em 0.5em 0.75em; 
+	color: $black
+}
+.ui-menu .ui-menu-item .ui-menu .ui-menu-item a {
+	// padding: 0.25em 0.8em;
+}
+
+.ui-menu .ui-menu-item a:hover {
+	color: $white;
+	background: $link; 
+}
+
+#content .InputfieldForm .ui-tabs-nav {
+	background: transparentize($subtle-bg, 0.5);
+	//background: -webkit-linear-gradient(top, transparentize($subtle-bg, 0.4) 0%, $subtle-bg 100%); 
+	border: none; 
+	padding-bottom: 0; 
+	padding-left: 0; 
+}
+#content .InputfieldForm .ui-tabs-nav li:first-child {
+	margin-left: 0.5em; 
+}
+#content .InputfieldForm .ui-tabs-nav li {
+	margin-top: 0.15em; 
+}
+#content .InputfieldForm .ui-tabs-nav a {
+	text-shadow: none; 
+}
+#content .InputfieldForm .ui-tabs-nav .ui-state-active {
+}
+#content .InputfieldForm .ui-tabs-nav .ui-state-active,
+#content .InputfieldForm .ui-tabs-nav .ui-state-active a {
+	color: #000;
+	background: #fff; 
+}
+
+/**
+ * ui-tooltip
+ *
+ */
+.ui-tooltip {
+	padding: 6px 12px;
+	color: $reverse-text-color;
+	border-radius: $button-radius;
+	border: none;
+	box-shadow: none;
+	text-transform: uppercase;
+	font-size: 0.8em;
+	letter-spacing: 1px;
+	max-width: 400px;
+}
+	.ui-tooltip, .arrow:after {
+		background: $med-blue; 
+		// border: 2px solid $reverse-text-color; 
+	}
+	.arrow {
+		width: 70px;
+		height: 16px;
+		overflow: hidden;
+		position: absolute;
+		left: 50%;
+		margin-left: -35px;
+		bottom: -16px;
+	}
+	.arrow.top {
+		top: -16px;
+		bottom: auto;
+	}
+	.arrow.left {
+		left: 20%;
+	}
+	.arrow:after {
+		content: "";
+		position: absolute;
+		left: 25px;
+		top: -18px;
+		width: 20px;
+		height: 20px;
+		//box-shadow: 6px 5px 9px -9px $text-color; 
+		-webkit-transform: rotate(45deg);
+		-moz-transform: rotate(45deg);
+		-ms-transform: rotate(45deg);
+		-o-transform: rotate(45deg);
+		tranform: rotate(45deg);
+	}
+	.arrow.top:after {
+		bottom: -20px;
+		top: auto;
+	}
+
+/**
+ * ui-progress-bar
+ *
+ */
+
+.ui-progressbar {
+	background: $subtle-bg !important;
+	height: 20px !important;
+	border: none !important;
+	border-top: 1px solid $white;
+	border-radius: 0 !important;
+	padding: 0 !important;
+}
+
+.ui-progressbar .ui-progressbar-value {
+	background: $link !important;
+	padding: 2px !important;
+	color: $white !important;
+	font-size: 0.8em !important;
+	line-height: 0.8em !important;
+	margin: 0 !important;
+	border: none !important;
+	border-radius: 0 !important;
+	
+}
+
+/**
+ * ui-datepicker
+ *
+ */
+
+.ui-datepicker table {
+	table-layout: fixed;
+}
+
+.ui-datepicker {
+	font-size: 0.9em !important;
+	z-index: 100 !important;
+	min-width: 260px !important;
+	padding: 10px !important;
+	border: none !important;
+	border-radius: 3px !important;
+	box-shadow: $box-shadow;
+	background: $datepicker-bg;
+	color: $datepicker-color;
+}
+
+.ui-datepicker .ui-datepicker-title {
+	color: $datepicker-title-color;
+}
+
+.ui-datepicker .ui-widget-content { 
+  	border: none !important;
+}
+
+.ui-datepicker-header {
+	background: none !important;
+	border-radius: 0 !important;
+	border-width: 0 0 1px 0 !important;
+	border-bottom: $datepicker-border;
+	padding: 0 0 0.8em 0 !important;
+	margin: 0 0 0.5em 0 !important;
+	line-height: 1;
+} 
+
+.ui-datepicker th {
+	color: $datepicker-th-color;
+	font-weight: normal; 
+} 
+
+.ui-datepicker td {
+	padding: 0 !important;
+	width: 14.25%
+} 
+
+.ui-datepicker-next {
+	right: 0 !important;
+	background: none !important;
+	font-weight: normal !important;
+	color: $datepicker-nav-arrow-color !important;
+	& .ui-icon { display: none !important;}
+	&:before {
+		position: absolute;
+		top: 2px !important;
+		right: 0 !important;
+		font-size: 1.4em;
+		content: "\f138";
+		font-family: fontAwesome;
+		margin: 0 5px 0 0;
+	}
+	&.ui-datepicker-next-hover {
+		border: none !important;
+		top: 2px !important;
+		right: 0 !important;
+		color: $link !important;
+		cursor: pointer;
+	}
+} 
+
+.ui-datepicker-prev {
+	left: 0 !important;
+	background: none !important;
+	font-weight: normal !important;
+	color: $datepicker-nav-arrow-color !important;
+	& .ui-icon { display: none !important;}
+	&:before {
+		position: absolute;
+		top: 2px !important;
+		left: 0 !important;
+		font-size: 1.4em;
+		content: "\f137";
+		font-family: fontAwesome;
+		margin: 0 5px 0 0;
+	}
+	&.ui-datepicker-prev-hover {
+		border: none !important;
+		top: 2px !important;
+		left: 0 !important;
+		color: $datepicker-nav-arrow-hover-color !important;
+		cursor: pointer;
+	}
+} 
+
+.ui-datepicker td a {
+	padding: 0.6em 0 !important;
+} 
+
+.ui-datepicker td .ui-state-default {
+	background: $datepicker-td-bg !important;
+	text-align: center !important;
+	border: $datepicker-td-border !important;
+	border-radius: 3px !important;
+	line-height: 1.2em;
+	color: $datepicker-td-color;
+
+	&:hover{
+		background: $datepicker-td-hover-bg !important;
+		border: $datepicker-td-hover-border !important;
+		color: $datepicker-td-hover-color !important;
+	}
+}
+
+.ui-datepicker td .ui-state-highlight,
+.ui-datepicker td .ui-state-highlight:hover {
+	border: $datepicker-td-hover-border !important;
+	background: $datepicker-td-hover-bg !important;
+	color: $datepicker-td-hover-color !important;
+}
+
+.ui-datepicker td .ui-state-active,
+.ui-datepicker td .ui-state-active:hover {
+	background: $link !important;
+	border-color: $link !important;
+	color: $white !important;
+} 
+
+.ui-datepicker button.ui-datepicker-current {
+	background: lighten($datepicker-bg, 20%) !important;
+	border-color: lighten($datepicker-bg, 20%) !important;
+	font-size: 1em;
+	&:before {
+		content: "\f017";
+		font-family: fontAwesome;
+		margin: 0 5px 0 0;
+	}
+}
+
+.ui-datepicker button.ui-datepicker-close {
+	background: $green !important;
+	border-color: $green !important;
+	color: $white !important;
+	font-weight: normal !important;
+	transition: all 150ms ease-in;
+	font-size: 1em;
+	&:hover{
+		background: $link !important;
+		border-color: $link !important;
+	}
+	&:before {
+		content: "\f058";
+		font-family: fontAwesome;
+		margin: 0 5px 0 0;
+	}
+}
+
+.ui-datepicker .ui-slider-handle {
+	background: $link;
+	border: none !important;
+} 
+
+.ui-datepicker .ui-slider-horizontal { 
+	background: lighten($datepicker-bg, 15%) !important;
+	height: 0.6em !important;
+} 
+
+.ui-datepicker table {
+	margin: 0 0 15px 0 !important; 
+} 
+
+.ui-timepicker-div {
+	padding: 15px 0 15px 0 !important;
+	border-top: 1px solid lighten($datepicker-bg, 6%);
+	border-bottom: 1px solid lighten($datepicker-bg, 6%);
+}
+
+.ui-timepicker-div #ui_tpicker_time_Inputfield_date {
+	color: $white !important;
+}
+	 
+.ui-timepicker-div .ui-widget-header { margin-bottom: 8px; }
+.ui-timepicker-div dl { text-align: left; }
+.ui-timepicker-div dl dt { height: 25px; margin-bottom: -25px; }
+.ui-timepicker-div dl dd { margin: 0 10px 10px 65px; }
+.ui-timepicker-div td { font-size: 90%; }
+.ui-tpicker-grid-label { background: none; border: none; margin: 0; padding: 0; }
+
+.ui-timepicker-rtl{ direction: rtl; }
+.ui-timepicker-rtl dl { text-align: right; }
+.ui-timepicker-rtl dl dd { margin: 0 65px 10px 10px; }
+
+/*
+Full screen TinyMCE
+ */
+#mce_fullscreen_container {
+	top: $masthead-height !important;
+}
+
+a.tooltip:hover {
+	border: none;
+	background: inherit;
+	cursor: help;
+}

@@ -1,0 +1,424 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Logger (Logs Viewer)
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ *
+ */
+
+class ProcessLogger extends Process {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Logs', __FILE__), 
+			'summary' => __('View and manage system logs.', __FILE__), 
+			'version' => 1, 
+			'author' => 'Ryan Cramer', 
+			'icon' => 'tree',
+			'permission' => 'logs-view', 
+			'permissions' => array(
+				'logs-view' => 'Can view system logs',
+				'logs-edit' => 'Can manage system logs',
+				),
+			'page' => array(
+				'name' => 'logs', 
+				'parent' => 'setup',
+				'title' => 'Logs', 
+				),
+			'useNavJSON' => true, 
+		);
+	}
+	
+	public function __construct() {
+		require_once(dirname(__FILE__) . '/LogEntriesArray.php'); 
+		parent::__construct();
+	}
+
+	/**
+	 * Provides output navigation logs list
+	 * 
+	 * @param array $options
+	 * @return string
+	 * 
+	 */
+	public function ___executeNavJSON(array $options = array()) {
+
+		$options['itemLabel'] = 'name';
+		$options['itemLabel2'] = 'when';
+		$options['add'] = false;
+		$options['edit'] = 'view/{name}/';
+		$options['items'] = $this->wire('log')->getLogs(); 
+		
+		foreach($options['items'] as $key => $item) {
+			$item['when'] = wireRelativeTimeStr($item['modified'], true, false); 
+			if(time() - $item['modified'] > 86400) $item['icon'] = 'file-text-o';
+				else $item['icon'] = 'file-text';
+			$options['items'][$key] = $item;
+		}
+
+		return parent::___executeNavJSON($options); 
+	}
+
+	public function ___execute() {
+		$table = $this->wire('modules')->get('MarkupAdminDataTable'); 
+		$table->setEncodeEntities(false);
+		$table->headerRow(array(
+			$this->_x('Name', 'th'),
+			$this->_x('Modified', 'th'), 
+			$this->_x('Entries', 'th'), 
+			$this->_x('Size', 'th'),
+		));
+		$logs = $this->wire('log')->getLogs();
+		foreach($logs as $log) {
+			$table->row(array(
+				$log['name'] => "./view/$log[name]/", 
+				"<span style='font-size: 0;'>$log[modified] </span>" . wireRelativeTimeStr($log['modified']),
+				$this->wire('log')->getTotalEntries($log['name']),
+				"<span style='font-size: 0;'>$log[size] </span>" . wireBytesStr($log['size'])
+			));
+		}
+		$cnt = count($logs); 
+		$out = 
+			"<h2><i class='fa fa-lg fa-fw fa-tree'></i> " . sprintf($this->_n('%d log', '%d logs', $cnt), $cnt) . "</h2>" . 
+			$table->render() . 
+			"<p>" . 
+			"<span class='detail'>" . $this->_('Create or add to log file from the API:') . "</span><br />" . 
+			"<code class='notes'>wire('log')->save('name', 'entry text');</code>" . 
+			"</p>";
+				
+		return $out; 
+	}
+	
+	protected function processAction($action, $name) {
+		
+		if(!$this->wire('input')->post("submit_$action")) {
+			throw new WireException("Action missing submit"); 
+		}
+	
+		if($action != 'download' && !$this->wire('user')->hasPermission('logs-edit')) {
+			throw new WirePermissionException("You don't have permission to execute that action"); 
+		}
+			
+		switch($action) {
+			
+			case 'delete':
+				if($this->wire('log')->delete($name)) $this->message(sprintf($this->_('Deleted log: %s'), $name)); 
+				$this->wire('session')->redirect($this->wire('page')->url); 	
+				break;
+			
+			case 'prune':
+				$days = (int) $this->wire('input')->post('prune_days'); 
+				$qty = $this->wire('log')->prune($name, $days); 
+				$this->message(sprintf($this->_('Pruned "%s" log file (now contains %d entries)'), $name, $qty));
+				$this->wire('session')->redirect('./'); 
+				break;
+			
+			case 'download':
+				$filename = $this->wire('log')->getFilename($name);
+				if(file_exists($filename)) wireSendFile($filename, array('forceDownload' => true));
+				break;
+			
+			case 'add':
+				$text = $this->wire('sanitizer')->text($this->wire('input')->post('add_text')); 
+				if(strlen($text)) {
+					$this->wire('log')->save($name, $text); 
+					$this->message(sprintf($this->_('Saved new log entry to "%s"'), $name)); 
+				} else {
+					$this->error($this->_('Log entry text was blank')); 
+				}
+				$this->wire('session')->redirect('./'); 
+				break;
+		}
+	}
+	
+	public function ___executeView() {
+		
+		$name = $this->wire('input')->urlSegment2;
+		if(!$name) $this->wire('session')->redirect('../');
+		$logs = $this->wire('log')->getLogs();
+		if(!isset($logs[$name])) {
+			$this->error(sprintf('Unknown log: %s', $name));
+			$this->wire('session')->redirect('../');
+		}
+		$action = $this->wire('input')->post('action'); 
+		if($action) $this->processAction($action, $name);
+		$limit = 100;
+		$options = array('limit' => $limit); 
+		
+		$q = $this->wire('input')->get('q');
+		if(strlen($q)) {
+			$options['text'] = $this->wire('sanitizer')->text($q);
+			$this->wire('input')->whitelist('q', $options['text']); 
+		}
+		
+		$dateFrom = $this->wire('input')->get('date_from');
+		if(strlen($dateFrom)) {
+			$options['dateFrom'] = ctype_digit("$dateFrom") ? (int) $dateFrom : strtotime("$dateFrom 00:00:00");
+			$this->wire('input')->whitelist('date_from', $options['dateFrom']); 
+		}
+		
+		$dateTo = $this->wire('input')->get('date_to');
+		if(strlen($dateTo)) {
+			$options['dateTo'] = ctype_digit("$dateTo") ? (int) $dateTo : strtotime("$dateTo 23:59:59");
+			$this->wire('input')->whitelist('date_to', $options['dateTo']); 
+		}
+
+		$options['pageNum'] = $this->wire('input')->pageNum; 
+		
+		do {
+			// since the total count the pagination is based on may not always be accurate (dups, etc.)
+			// we migrate to the last populated pagination when items turn up empty
+			$items = $this->wire('log')->getEntries($name, $options);
+			if(count($items)) break;
+			if($options['pageNum'] < 2) break;
+			$options['pageNum']--;
+		} while(1);
+		
+		if($this->wire('config')->ajax) return $this->renderLogAjax($items, $name); 
+		
+		$form = $this->wire('modules')->get('InputfieldForm');
+		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+		$fieldset->attr('id', 'FieldsetTools'); 
+		$fieldset->label = $this->_('Helpers');
+		$fieldset->collapsed = Inputfield::collapsedYes; 
+		$fieldset->icon = 'sun-o';
+		$form->add($fieldset);
+		
+		$f = $this->wire('modules')->get('InputfieldText'); 
+		$f->attr('name', 'q');
+		$f->label = $this->_('Text Search');
+		$f->icon = 'search';
+		$f->columnWidth = 50; 
+		$fieldset->add($f); 
+		
+		$f = $this->wire('modules')->get('InputfieldDatetime');
+		$f->attr('name', 'date_from');
+		$f->label = $this->_('Date From'); 
+		$f->icon = 'calendar';
+		$f->columnWidth = 25; 
+		$f->datepicker = InputfieldDatetime::datepickerFocus; 
+		$f->attr('placeholder', 'yyyy-mm-dd'); 
+		$fieldset->add($f);
+		
+		$f = $this->wire('modules')->get('InputfieldDatetime');
+		$f->attr('name', 'date_to');
+		$f->icon = 'calendar';
+		$f->label = $this->_('Date To'); 
+		$f->columnWidth = 25;
+		$f->attr('placeholder', 'yyyy-mm-dd'); 
+		$f->datepicker = InputfieldDatetime::datepickerFocus; 
+		$fieldset->add($f);
+		
+		$f = $this->modules->get('InputfieldSelect');
+		$f->attr('name', 'action');
+		$f->label = $this->_('Actions');
+		$f->description = $this->_('Select an action below. You will be asked to click a button before the action is executed.'); 
+		$f->icon = 'fire';
+		$f->collapsed = Inputfield::collapsedYes; 
+		$f->addOption('download', $this->_('Download'));
+		$fieldset->add($f);
+		
+		if($this->wire('user')->hasPermission('logs-edit')) {
+			
+			$f->addOption('add', $this->_('Grow (Add Entry)'));
+			$f->addOption('prune', $this->_('Chop (Prune)'));
+			$f->addOption('delete', $this->_('Burn (Delete)'));
+			
+			$f = $this->wire('modules')->get('InputfieldInteger');
+			$f->attr('name', 'prune_days');
+			$f->label = $this->_('Chop To # Days');
+			$f->icon = 'cut';
+			$f->description = $this->_('Reduce the size of the log file to contain only entries from the last [n] days.');
+			$f->value = 30;
+			$f->showIf = "action=prune";
+			$fieldset->add($f);
+
+			$f = $this->wire('modules')->get('InputfieldText');
+			$f->attr('name', 'add_text');
+			$f->label = $this->_('New Log Entry');
+			$f->icon = 'leaf';
+			$f->showIf = "action=add";
+			$fieldset->add($f);
+
+			$f = $this->wire('modules')->get('InputfieldSubmit');
+			$f->value = $this->_('Chop this log file now');
+			$f->icon = 'cut';
+			$f->attr('name', 'submit_prune');
+			$f->showIf = 'action=prune';
+			$fieldset->add($f);
+
+			$f = $this->wire('modules')->get('InputfieldSubmit');
+			$f->value = $this->_('Burn this log now (permanently delete)');
+			$f->icon = 'fire';
+			$f->attr('name', 'submit_delete');
+			$f->showIf = 'action=delete';
+			$fieldset->add($f);
+
+			$f = $this->wire('modules')->get('InputfieldSubmit');
+			$f->value = $this->_('Add this log entry');
+			$f->icon = 'leaf';
+			$f->attr('name', 'submit_add');
+			$f->showIf = 'action=add';
+			$fieldset->add($f);
+		}
+		
+		$f = $this->wire('modules')->get('InputfieldSubmit');
+		$f->value = $this->_('Download this log file now');
+		$f->icon = 'download';
+		$f->attr('name', 'submit_download');
+		$f->showIf = 'action=download';
+		$fieldset->add($f);
+
+		$this->headline(ucfirst($name)); 
+		$this->breadcrumb('../../', $this->wire('page')->title); 
+	
+		$out = $form->render() . 
+			"<div id='ProcessLogEntries'>" . 
+			$this->renderLog($items, $name) . 
+			"</div>";
+		return $out; 
+	}
+	
+	protected function renderLogAjax(array $items, $name) {
+		$time = (int) $this->wire('input')->get('time');
+		$render = true;
+		$qtyNew = 0;
+		$note = '';
+		if($time) {
+			foreach($items as $entry) {
+				$entryTime = strtotime($entry['date']);
+				if($entryTime > $time) $qtyNew++;
+			}
+			if(!$qtyNew) $render = false;
+		}
+		if($qtyNew) {
+			$note = sprintf($this->_n('One new log entry on page 1', 'Multiple new log entries on page 1', $qtyNew), $qtyNew);
+			$note .= " (" . date('H:i:s') . ")";
+		}
+		$data = array(
+			'qty' => -1,
+			'qtyNew' => 0,
+			'out' => '',
+			'note' => $note,
+			'time' => time(),
+			'url' => $this->wire('input')->url() . '?' . $this->wire('input')->queryString()
+		);
+		if($render) {
+			$data = array_merge($data, array(
+				'qty' => count($items),
+				'qtyNew' => $qtyNew, 
+				'out' => $this->renderLog($items, $name, $time),
+			));
+		} else {
+			// leave default data, which tells it not to render anything
+		}
+		header("Content-type: application/json;");
+		return json_encode($data);
+	}
+	
+	protected function renderLog(array $items, $name, $time = 0) {
+		
+		$sanitizer = $this->wire('sanitizer');
+		
+		$table = $this->wire('modules')->get('MarkupAdminDataTable');
+		$table->setSortable(false);
+		$table->setEncodeEntities(false);
+		$templateItem = reset($items);
+		$headers = array(
+			'date' => $this->_x('Date/Time', 'th'),
+			'user' => $this->_x('User', 'th'),
+			'url' => $this->_x('URL', 'th'),
+			'text' => $this->_x('Text', 'th'),
+		);
+		
+		if(empty($templateItem['user']) && empty($templateItem['url'])) {
+			unset($templateItem['user'], $templateItem['url']); 
+			$table->headerRow(array(
+				$headers['date'], 
+				$headers['text'],
+			));
+		} else {
+			$table->headerRow($headers);
+		}
+
+		foreach($items as $entry) {
+			
+			$ts = strtotime($entry['date']); 
+			$date = wireRelativeTimeStr($entry['date']);
+			
+			if($time && $ts > $time) {
+				// highlight new items
+				$date = "<i class='fa fa-leaf ProcessLogNew'></i> $date";
+			}
+			
+			foreach($entry as $key => $value) {
+				$entry[$key] = $sanitizer->entities($value);
+			}
+			
+			$row = array("$date<br /><span class='detail'>$entry[date]</span>");
+			
+			if(count($templateItem) >= 4) {
+				
+				$url = preg_replace('{^https?://[^/]+}', '', $entry['url']);
+				if($url == '/?/') {
+					$url = 2; // array key
+					$entry['url'] = '?';
+				}
+				
+				if(strlen($url) > 50) $url = substr($url, 0, 50) . '&hellip;';
+				$row[] = $entry['user'];
+				$row[$url] = $entry['url'];
+			}
+		
+			$row[] = $entry['text'];
+			
+			$table->row($row);
+		}
+
+		$entries = $this->wire(new LogEntriesArray());
+		
+		if(count($items)) {
+			reset($items);
+			$key = key($items);
+			list($n, $total, $start, $end, $limit) = explode('/', $key);
+			$entries->import($items);
+			$entries->setLimit($limit);
+			$entries->setStart($start);
+			$entries->setTotal($total);
+			$pager = $this->wire('modules')->get('MarkupPagerNav');
+			$options = array('baseUrl' => "../$name/");
+			$pagerOut = $pager->render($entries, $options);
+			$pagerHeadline = $entries->getPaginationString();
+			$pagerHeadline .= " " . 
+				"<small class='ui-priority-secondary'>(" . 
+				($pager->isLastPage() ? $this->_('actual') : $this->_('estimate')) . 
+				")</small>";
+			$iconClass = '';
+		} else {
+			$pagerHeadline = $this->_('No matching log entries');
+			$iconClass = 'fa-rotate-270';
+			$pagerOut = '';
+		}
+		
+		$pageNum = $this->wire('input')->pageNum();
+		$time = time();
+		
+		$out = 
+			"<div id='ProcessLogPage' data-page='$pageNum' data-time='$time'>" .
+			$pagerOut .
+			"<h2 id='ProcessLogHeadline'>" . 
+			"<i id='ProcessLogSpinner' class='fa fa-fw fa-lg fa-tree $iconClass'></i> $pagerHeadline " . 
+			"<small class='notes'></small></h2>" .
+			$table->render() .
+			"<div class='ui-helper-clearfix'>$pagerOut</div>" . 
+			"</div>";
+		
+		return $out; 
+
+	}
+
+}
+

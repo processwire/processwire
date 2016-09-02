@@ -1,0 +1,57 @@
+{
+   "file":"wire\/modules\/Inputfield\/InputfieldPageAutocomplete\/InputfieldPageAutocomplete.module",
+   "textdomain":"wire--modules--inputfield--inputfieldpageautocomplete--inputfieldpageautocomplete-module",
+   "translations":{
+      "0f6969d7052da9261e31ddb6e88c136e":{
+         "text":"entfernen"
+      },
+      "a2324d16f834e2138b021bb90f1823dc":{
+         "text":"Erweiterte Optionen f\u00fcr Autocomplete"
+      },
+      "5bd9a3b9fd04ef31e99e96b10ce5ac5f":{
+         "text":"Suchoperator f\u00fcr Autocomplete"
+      },
+      "a711451766d79a07ee817f88cb63ca56":{
+         "text":"Der Suchoperator, der in der API verwendet wird, um nach Autocomplete-Treffern zu suchen"
+      },
+      "ddc1a98a2c8309eab3292b5fda7e0506":{
+         "text":"Falls Sie unsicher sind, was Sie hier verwenden sollen, behalten Sie den Standardwert bei: *="
+      },
+      "6774b148e1f242760726e4c88d08931a":{
+         "text":"Enth\u00e4lt eine Phrase oder einen Wortteil (benutzt den Volltext-Index) - empfohlen"
+      },
+      "10723caf0a8012a762b741f821060ea9":{
+         "text":"Enth\u00e4lt eine Phrase oder einen Wortteil (benutzt LIKE)"
+      },
+      "5aebeca1891bcef0142167dda686b4a7":{
+         "text":"Enth\u00e4lt alle (vollst\u00e4ndigen) W\u00f6rter in beliebiger Reihenfolge"
+      },
+      "0626526d691a7bf48a099a2330fde59f":{
+         "text":"Beginn mit Wort\/Phrase"
+      },
+      "a606a68c3a2a799b75998b7be8d48aea":{
+         "text":"Endet mit Wort\/Phrase"
+      },
+      "0a06fd6fea29497256d43910fde22cd3":{
+         "text":"Entspricht [exakt]"
+      },
+      "b956d301c10771357a356a80d9f0d3a5":{
+         "text":"Felder, die f\u00fcr Autocomplete abgefragt werden"
+      },
+      "0c458f5b668cdb153d43ffa89c2f2393":{
+         "text":"Geben sie die Namen der Felder ein, deren Text nach Autocomplete-Treffern durchsucht werden soll. Typischerweise ist dies das title-Feld, aber Sie k\u00f6nnen weitere durch Leerzeichen getrennt hinzuf\u00fcgen. Hinweis: Dies ist unterschiedlich zum \"Label-Feld\" (oben). Hier geben sie an, welche Felder durchsucht werden statt welche Felder angezeigt werden."
+      },
+      "8fdfe6e949b4c07d26317e3e2f99a14d":{
+         "text":"Indizierte Text-Felder enthalten:"
+      },
+      "0e942985459c2961ee2ddd03061475e4":{
+         "text":"Seiten-Autovervollst\u00e4ndigung"
+      },
+      "111ce57a33643818f896c8ef5b78f923":{
+         "text":"Mit 'Enter' als neues Element hinzuf\u00fcgen"
+      },
+      "f2f3cd9d4e91a577333b66f5818b9d3b":{
+         "text":"Mehrfach-Seitenauswahl mit Autovervollst\u00e4ndigung und Sortierbarkeit. Vorgesehen als Eingabefeld f\u00fcr Page reference-Felder."
+      }
+   }
+}

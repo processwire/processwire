@@ -1,0 +1,667 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Table Inputfield
+ *
+ * Concept by Antti Peisa
+ * Code by Ryan Cramer
+ * Sponsored by Avoine
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ * @todo add renderValue support (perhaps delegating to Fieldtype::markupValue), likewise for repeaters. 
+ * 
+ * @property int $parent_id
+ * @property int $template_id
+ * @property string $columns
+ * @property string $nameFormat
+ * @property int|bool $noclose
+ * @property string $blankLabel
+ *
+ * @method string renderTable(array $columns)
+ * 
+ */
+
+class InputfieldPageTable extends Inputfield {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('ProFields: Page Table', __FILE__), // Module Title
+			'summary' => __('Inputfield to accompany FieldtypePageTable', __FILE__), // Module Summary
+			'version' => 13,
+			'requires' => 'FieldtypePageTable'
+			);
+	}
+
+	/**
+	 * Labels for native fields, indexed by native field name
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $nativeLabels = array();
+
+	/**
+	 * Array of Template objects used for each row
+	 *
+	 * @var array
+	 *
+	 */
+	protected $rowTemplates = array();
+
+	/**
+	 * Possible orphan pages that may be added (set by the Fieldtype)
+	 * 
+	 * @var PageArray|null
+	 * 
+	 */
+	protected $orphans = null;
+
+	/**
+	 * Whether or not a separate "edit" column is needed
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $needsEditColumn = false;
+
+	/**
+	 * Initialize and establish default values
+	 * 
+	 */
+	public function init() {
+
+		// fieldtype and inputfield config settings
+		$this->set('parent_id', 0); 
+		$this->set('template_id', 0); // placeholder only 
+		$this->set('columns', ''); 
+		$this->set('nameFormat', '');
+		$this->set('noclose', 0);
+		$this->set('blankLabel', $this->_('[blank]'));
+
+		// local settings
+		$this->nativeLabels = array(
+			'id' => $this->_x('ID', 'th'), 
+			'name' => $this->_x('Name', 'th'), 
+			'created' => $this->_x('Created', 'th'), 
+			'modified' => $this->_x('Modified', 'th'),
+			'published' => $this->_x('Published', 'th'), 
+			'modifiedUser' => $this->_x('Modified By', 'th'), 
+			'createdUser' => $this->_x('Created By', 'th'), 
+			'url' => $this->_x('URL', 'th'), 
+			'path' => $this->_x('Path', 'th'), 
+			'template' => $this->_x('Template', 'th'), 
+			'parent' => $this->_x('Parent', 'th'), 
+			'numChildren' => $this->_x('Children', 'th'), 
+			'status' => $this->_x('Status', 'th'), 
+			);
+
+		parent::init();
+	}
+	
+	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+		$this->addClass('InputfieldNoFocus', 'wrapClass');
+		$this->wire('modules')->get('JqueryUI')->use('modal'); 
+		return parent::renderReady($parent, $renderValueMode);
+	}
+
+	/**
+	 * Render the PageTable Inputfield
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function ___render() {
+
+		// make sure we've got enough info to generate a table
+		$errors = array();
+		if(!count($this->rowTemplates)) $errors[] = $this->_('Please configure this field with a template selection before using it.');
+		if(!$this->columns) $errors[] = $this->_('Please enter one or more columns in your field settings before using this field.'); 
+		if(count($errors)) return "<p class='ui-state-error'>" . implode('<br />', $errors) . "</p>";
+
+		// determine what columns we'll show in the table
+		$columnsString = $this->columns ? $this->columns : $this->getConfigDefaultColumns();
+		$columns = array();	
+		foreach(explode("\n", $columnsString) as $column) {
+			$width = 0; 
+			if(strpos($column, '=') !== false) list($column, $width) = explode('=', $column); 
+			$column = trim($column); 
+			$width = (int) $width; 
+			$columns[$column] = $width; 
+		}
+
+		// render the table
+		$out = $this->renderTable($columns);
+
+		$editID = (int) $this->wire('input')->get('id');
+		if(!$editID && $this->wire('process') instanceof WirePageEditor) $editID = $this->wire('process')->getPage()->id;
+		$parentID = $this->parent_id ? $this->parent_id : $editID;
+
+		// render the 'Add New' buttons for each template
+		$btn = '';
+		foreach($this->rowTemplates as $template) {
+			/** @var Template $template */
+			$button = $this->wire('modules')->get('InputfieldButton'); 
+			$button->icon = 'plus-circle';
+			$button->value = count($this->rowTemplates) == 1 ? $this->_x('Add New', 'button') : $template->getLabel(); 
+	
+			$url = $this->wire('config')->urls->admin . "page/add/?modal=1&template_id=$template->id&parent_id=$parentID&context=PageTable";
+			if($this->nameFormat) $url .= "&name_format=" . $this->wire('sanitizer')->entities($this->nameFormat);
+			$btn .= "<span class='InputfieldPageTableAdd' data-url='$url'>" . $button->render() . "</span>";
+		}
+		$out .= "<div class='InputfieldPageTableButtons ui-helper-clearfix'>$btn</div>";
+
+		if(!$this->wire('input')->get('InputfieldPageTableField')) {
+			$url = "./?id=$editID&InputfieldPageTableField=$this->name"; 
+			$out = "<div class='InputfieldPageTableContainer' data-url='$url' data-noclose='$this->noclose'>$out</div>";
+			// input for sorting purposes
+			$value = $this->wire('sanitizer')->entities($this->attr('value')); 
+			$name = $this->wire('sanitizer')->entities($this->attr('name')); 
+			$out .= "<input type='hidden' name='$name' class='InputfieldPageTableSort' value='$value' />";
+			$out .= "<input type='hidden' name='{$name}__delete' class='InputfieldPageTableDelete' value='' />";
+			
+			if($this->orphans && count($this->orphans)) {
+				$out .= "<p class='InputfieldPageTableOrphans'>";
+				$out .= "<span>" . $this->_('Children were found that may be added to this table. Check the box next to any you would like to add.') . "</span> ";
+				if(count($this->orphans) > 1) $out .= "<br /><a class='InputfieldPageTableOrphansAll' href='#'>" . $this->_('Select all') . "</a> ";
+				foreach($this->orphans as $item) {
+					$label = $item->title;
+					if(!strlen($label)) $label = $item->name; 
+					$out .= "<label><input type='checkbox' name='{$this->name}__add_orphan[]' value='$item->id' /> <span class='detail'>$label</span></label>";
+				}
+				$out .= "</p>";
+			}
+		}
+
+		return $out; 
+	}
+
+	/**
+	 * Render the outputted PageTable <table> 
+	 * 
+	 * @param array $columns Array of column name => width percent
+	 * @return string
+	 * 
+	 */
+	protected function ___renderTable(array $columns) {
+
+		$this->needsEditColumn = false;
+		/** @var PageArray $value */
+		$value = $this->attr('value'); 
+		$this->wire('modules')->get('MarkupAdminDataTable'); // for styles
+		if(!count($value)) return ''; // if nothing in the value, just return blank
+		// $template = $this->template_id ? $this->wire('templates')->get((int) $this->template_id) : null;
+		$template = count($this->rowTemplates) > 0 ? reset($this->rowTemplates) : null;
+		$fields = array();
+		$labels = array();
+
+		// populate $fields and $labels
+		foreach($columns as $column => $width) {
+
+			$field = null;
+			$fieldName = $column; 
+			$label = '';
+
+			// check if field contains field.subfield
+			if(strpos($column, '.') !== false) {
+				$parentField = null;
+				list($parentFieldName, $fieldName) = explode('.', $column); 
+
+				if($template) $parentField = $template->fieldgroup->getFieldContext($parentFieldName); 
+				if(!$parentField) $parentField = $this->wire('fields')->get($parentFieldName); 
+
+				if($parentField) {
+					$label = $parentField->getLabel(); 
+
+				} else if(isset($this->nativeLabels[$parentFieldName])) {
+					$label = $this->nativeLabels[$parentFieldName]; 
+
+				} else {
+					$label = $parentFieldName; 
+				}
+
+				$label .= " > ";
+			}
+
+			if($template) $field = $template->fieldgroup->getFieldContext($fieldName); 
+			if(!$field) $field = $this->wire('fields')->get($fieldName); 	
+
+			if($field) {
+				$label .= $field->getLabel(); 
+				$fields[$column] = $field; 
+
+			} else if(isset($this->nativeLabels[$fieldName])) { 
+				$label .= $this->nativeLabels[$fieldName]; 
+
+			} else {
+				$label .= $column; 
+			}
+
+			$labels[$column] = $label;
+		}
+
+		$out = $this->renderTableBody($value, $columns, $fields); // render order intentional
+		$out = $this->renderTableHead($columns, $labels) . $out;
+
+		return $out; 		
+	}
+
+	/**
+	 * Render the table head, from <table> to </thead>
+	 * 
+	 * @param array $columns
+	 * @param array $labels
+	 * @return string
+	 * 
+	 */
+	protected function renderTableHead(array $columns, array $labels) {
+
+		$out = "<table class='AdminDataTable AdminDataList AdminDataTableResponsive AdminDataTableResponsiveAlt'><thead><tr>";
+
+		if($this->needsEditColumn) $out .= "<th>&nbsp;</th>";
+
+		foreach($columns as $column => $width) {
+			$attr = $width ? " style='width: $width%'" : '';
+			$label = $labels[$column];
+			$out .= "<th$attr>" . $this->wire('sanitizer')->entities($label) . "</th>";
+		}
+
+		$out .= "<th>&nbsp;</th></tr></thead>";
+
+		return $out; 
+	}
+
+	/**
+	 * Render the table body, from <tbody> to </table>
+	 * 
+	 * @param PageArray $items
+	 * @param array $columns
+	 * @param array $fields
+	 * @return string
+	 * 
+	 */
+	protected function renderTableBody(PageArray $items, array $columns, array $fields) {
+		$rows = array();
+
+		foreach($items as $key => $item) {
+			/** @var Page $item */
+			$of = $item->of();
+			$item->of(true); 
+			$rows[$key] = $this->renderTableRow($item, $columns, $fields);
+			$item->of($of); 
+		}
+
+		if($this->needsEditColumn) {
+			foreach($rows as $key => $row) {
+				list($s1, $s2) = explode('>', $row, 2);
+				$item = $items[$key];
+				$rows[$key] = "$s1><td>" . $this->renderItemLink($item, "<i class='fa fa-edit'></i>") . "</td>$s2";
+			}
+		}
+		
+		return "<tbody>" . implode("", $rows) . "</tbody></table>";
+	}
+
+	/**
+	 * Render an individual table row <tr> for a given PageTable item
+	 * 
+	 * @param Page $item
+	 * @param array $columns
+	 * @param array $fields
+	 * @return string
+	 * 
+	 */
+	protected function renderTableRow(Page $item, array $columns, array $fields) {
+
+		$out = '';
+		$n = 0;
+
+		foreach($columns as $column => $width) {
+			$linkURL = $n++ ? '' : $this->getItemEditURL($item);
+			$out .= $this->renderTableCol($item, $fields, $column, $width, $linkURL);
+		}
+
+		// append a delete column/link
+		$out .= "<td><a class='InputfieldPageTableDelete' href='#'><i class='fa fa-trash-o'></i></a></td>";
+
+		// wrap the row in a <tr>
+		$class = '';
+		if($item->hasStatus(Page::statusUnpublished)) $class .= 'PageListStatusUnpublished ';
+		if($item->hasStatus(Page::statusHidden)) $class .= 'PageListStatusHidden ';
+		if($item->isTrash()) $class .= 'PageListStatusTrash';
+		if($class) $class = " class='" . trim($class) . "'";
+
+		return "<tr data-id='$item->id'$class>$out</tr>";	
+	}
+
+	/**
+	 * Render an individual <td> for a table row 
+	 * 
+	 * @param Page $item
+	 * @param array $fields
+	 * @param $column
+	 * @param $width
+	 * @param string $linkURL
+	 * @return string
+	 * 
+	 */
+	protected function renderTableCol(Page $item, array $fields, $column, $width, $linkURL = '') {
+		$out = $this->getItemValue($item, $fields, $column); 
+		if($linkURL) {
+			if(stripos($out, '<a ') !== false || stripos($out, '<li') !== false || !strlen($out)) {
+				// table will need a separate edit column since this item doesn't work as a link
+				$this->needsEditColumn = true;
+				if(!strlen($out)) $out =  "<span class='detail'>$this->blankLabel</span>";
+			} else {
+				$out = $this->renderItemLink($item, $out, $linkURL);
+			}
+		}
+		$attr = $width ? " style='width: $width%'" : '';
+		return "<td$attr>$out</td>";
+	}
+
+	/**
+	 * Get the value for the given Page field identified by $column
+	 * 
+	 * @param Page $item
+	 * @param array $fields
+	 * @param $column
+	 * @return mixed|object|string
+	 * 
+	 */
+	protected function getItemValue(Page $item, array $fields, $column) {
+
+		$fieldName = $column;
+		$subfieldName = '';
+		if(strpos($column, '.') !== false) list($fieldName, $subfieldName) = explode('.', $column); 
+
+		if(isset($fields[$column])) {
+			// custom
+			$field = $fields[$column]; 
+			$v = $item->getFormatted($fieldName);
+			if($field->type instanceof FieldtypeImage) {
+				$field->inputfieldSetting('renderValueFlags', Inputfield::renderValueMinimal | Inputfield::renderValueNoWrap);
+				$value = (string) $field->type->markupValue($item, $field, $v, $subfieldName);
+				$value = "<div class='Inputfield InputfieldImage InputfieldRenderValueMode'>$value</div>";
+				$field->inputfieldSetting('renderValueFlags', 'clear');
+			} else {
+				$value = $field->type->markupValue($item, $field, $v, $subfieldName);
+			}
+
+		} else {
+			// native
+			$value = $item->get($fieldName); 
+			if(is_object($value) && $subfieldName) {
+				$value = $this->objectToString($value, $subfieldName); 
+				$fieldName = $subfieldName; 
+			}
+			if($fieldName == 'modified' || $fieldName == 'created' || $fieldName == 'published') {
+				$value = wireDate($this->_('Y-m-d H:i'), (int) $value); // Date format for created/modified/published
+			}
+		}
+		
+		return $value; 
+	}
+
+	/**
+	 * Render an item edit link surrounded by the given output
+	 * 
+	 * @param Page $item
+	 * @param string $out
+	 * @param string $url Optional
+	 * @return string
+	 * 
+	 */
+	protected function renderItemLink(Page $item, $out, $url = '') {
+		if(!$url) $url = $this->getItemEditURL($item);
+		return "<a class='InputfieldPageTableEdit' data-url='$url' href='#'>$out</a>";
+	}
+
+	/**
+	 * Get an item edit URL
+	 * 
+	 * @param Page $item
+	 * @return string
+	 * 
+	 */
+	protected function getItemEditURL(Page $item) {
+		return $this->wire('config')->urls->admin . "page/edit/?id=$item->id&modal=1&context=PageTable";
+	}
+
+	/**
+	 * Convert an object to a string for rendering in a table
+	 * 
+	 * @param $object
+	 * @param string $property Property to display from the object (default=title|name)
+	 * @return string
+	 * 
+	 */
+	protected function objectToString($object, $property = '') {
+
+		if($object instanceof WireArray) {
+			if(!$property) $property = 'title|name';
+			if($property == 'count') {
+				$value = $object->count();
+			} else {
+				$value = $object->implode("\n", $property);
+			}
+
+		} else if($property) {
+			$value = $object->$property; 
+			if(is_object($value)) $value = $this->objectToString($value); 
+		} else {
+			$value = (string) $object;
+		}
+
+		$value = $this->wire('sanitizer')->entities(strip_tags($value)); 
+		$value = nl2br($value); 
+		return $value; 
+	}
+
+	/**
+	 * Process input submitted to a PageTable Inputfield
+	 * 
+	 * @param WireInputData $input
+	 * @return $this
+	 * 
+	 */
+	public function ___processInput(WireInputData $input) {
+
+		$name = $this->attr('name'); 
+		$deleteName = $name . '__delete';
+
+		$deleteIDs = explode('|', $input->$deleteName); 
+		$ids = explode('|', $input->$name);
+		/** @var PageArray $value */
+		$value = $this->attr('value'); 
+		$sorted = $this->wire('pages')->newPageArray();	
+		$changed = false; 
+
+		// trash items that have been deleted
+		foreach($deleteIDs as $id) {
+			foreach($value as $item) {
+				/** @var Page $item */
+				if($id != $item->id) continue; 
+				if(!$item->deleteable()) continue;
+				$value->remove($item); 
+				$this->wire('pages')->trash($item); 	
+				$changed = true; 
+			}
+		}
+
+		foreach($ids as $id) {
+			if(in_array($id, $deleteIDs)) continue; 
+			foreach($value as $item) {
+				if($id == $item->id) $sorted->add($item); 
+			}
+		}
+
+		// add in new items that may have been added after a sort
+		foreach($value as $item) { 
+			if(!in_array($item->id, $ids)) $sorted->add($item); 
+		}
+		
+		// check for orphans that may have been added
+		$orphanInputName = $name . '__add_orphan';
+		$orphanIDs = $input->$orphanInputName;
+		if($orphanIDs && count($orphanIDs) && $this->orphans) {
+			$numOrphansAdded = 0;
+			foreach($orphanIDs as $orphanID) {
+				foreach($this->orphans as $orphan) {
+					if($orphan->id == $orphanID) {
+						$sorted->add($orphan); 
+						$numOrphansAdded++;
+					}
+				}
+			}
+			if($numOrphansAdded) {
+				$this->message(sprintf($this->_('Added %d existing page(s) to table'), $numOrphansAdded) . " ($this->name)"); 
+			}
+		}
+		
+		if("$value" != "$sorted") $changed = true; 
+		
+		if($changed) {
+			$this->setAttribute('value', $sorted); 
+			$this->trackChange('value'); 
+		}
+
+		// check if we need to setup a name format for any pages
+		foreach($value as $n => $item) {
+			$name = $this->wire('pages')->setupPageName($item, array('format' => $this->nameFormat)); 
+			if($name) {
+				$this->message("Auto assigned name '$name' to item #" . ($n+1), Notice::debug); 
+				$item->save();
+			}
+		}
+
+		return $this; 
+	}
+
+	/**
+	 * Set a property to this Inputfield
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return $this
+	 *
+	 */
+	public function set($key, $value) {
+		if($key == 'template_id' && $value) {
+			// convert template_id to $this->rowTemplates array
+			if(!is_array($value)) $value = array($value);	
+			foreach($value as $id) {
+				$template = $this->wire('templates')->get($id); 
+				if($template) $this->rowTemplates[$id] = $template;
+			}
+			return $this; 
+		} else {
+			return parent::set($key, $value);
+		}
+	}
+
+	/**
+	 * Set an attribute to the Inputfield
+	 *
+	 * In this case we capture set to the 'value' attribute to make sure it can only be a PageArray
+	 * 
+	 * @param array|string $key
+	 * @param int|string $value
+	 * @return $this
+	 * @throws WireException
+	 * 
+	 */
+	public function setAttribute($key, $value) {
+		if($key == 'value') {
+			if($value === null) $value = $this->wire('pages')->newPageArray();
+			if(!$value instanceof PageArray) throw new WireException('This Inputfield only accepts a PageArray for its value attribute.'); 
+		}
+		return parent::setAttribute($key, $value); 
+	}
+	
+	public function setOrphans(PageArray $orphans) {
+		$this->orphans = $orphans;
+	}
+
+	/**
+	 * Determine a default set of columns for the PageTable based on the fields defined in the defined template
+	 * 
+	 * @return string of newline separated field names
+	 * 
+	 */
+	protected function getConfigDefaultColumns() {
+		$out = '';
+		if(!count($this->rowTemplates)) return $out;
+	
+		$fieldCounts = array();
+		foreach($this->rowTemplates as $template) {
+			foreach($template->fieldgroup as $field) {
+				if(!isset($fieldCounts[$field->name])) $fieldCounts[$field->name] = 1; 
+					else $fieldCounts[$field->name]++; 
+			}
+		}
+	
+		// sort most used to least used
+		if(count($this->rowTemplates) > 1) arsort($fieldCounts); 
+		
+		$n = 0;
+		foreach(array_keys($fieldCounts) as $fieldName) {
+			$out .= $fieldName . "\n";	
+			if(++$n >= 5) break;
+		}
+		return trim($out); 
+	}
+	
+	/**
+	 * Get field configuration for input tab
+	 * 
+	 * @return InputfieldWrapper
+	 * 
+	 */
+	public function ___getConfigInputfields() {
+		$inputfields = parent::___getConfigInputfields(); 
+
+		$f = $this->wire('modules')->get('InputfieldTextarea'); 
+		$f->attr('name', 'columns'); 
+		$f->label = $this->_('Table fields to display in admin'); 
+		$f->description = $this->_('Enter the names of the fields (1 per line) that you want to display as columns in the table. To specify a column width for the field, specify "field_name=30" where "30" is the width (in percent) of the column. When specifying widths, make the total of all columns add up to 100.');  // Columns description
+		$f->notes = $this->_('You may specify any native or custom field. You may also use subfields (field.subfield) with fields that contain multiple properties, like page references.') . ' '; // Columns notes
+		$columns = $this->columns ? $this->columns : $this->getConfigDefaultColumns();
+		$f->attr('value', $columns); 
+
+		if(count($this->rowTemplates)) {
+			$options = array();
+			foreach($this->rowTemplates as $template) { 
+				foreach($template->fieldgroup as $item) $options[$item->name] = $item->name; 
+			}
+			$f->notes .= $this->_('Custom fields assigned to your selected templates include the following:') . ' **';
+			$f->notes .= implode(', ', $options) . '**';
+		} else {
+			$f->notes .= $this->_('To see a list of possible custom fields here, select a template on the Details tab, Save, and come back here.'); 
+		}
+
+		$inputfields->add($f); 
+
+		$f = $this->wire('modules')->get('InputfieldText');
+		$f->attr('name', 'nameFormat');
+		$f->attr('value', $this->nameFormat);
+		$f->label = $this->_('Automatic Page Name Format');
+		$f->description = $this->_('When populated, pages will be created automatically using this name format whenever a user clicks the "Add New" button. If left blank, the user will be asked to enter a name for the page before it is created.'); // page name format description
+		$f->notes = $this->_('If the name format contains any non-alphanumeric characters, it is considered to be a [PHP date](http://www.php.net/manual/en/function.date.php) format. If it contains only alphanumeric characters then it will be used directly, with a number appended to the end (when necessary) to ensure uniqueness.'); // page name format notes
+		$f->notes .= ' ' . $this->_('Example: **Ymd:His** is a good name format for date/time based page names.'); 
+		$f->collapsed = Inputfield::collapsedBlank;
+		$inputfields->add($f);
+		
+		$f = $this->wire('modules')->get('InputfieldRadios'); 
+		$f->attr('name', 'noclose'); 
+		$f->label = $this->_('Modal edit window behavior'); 
+		$f->addOption(0, $this->_('Automatically close on save (default)')); 
+		$f->addOption(1, $this->_('Keep window open, close manually'));
+		$f->attr('value', (int) $this->noclose); 
+		if(!$this->noclose) $f->collapsed = Inputfield::collapsedYes; 
+		$inputfields->add($f); 
+
+		return $inputfields; 
+	}
+}

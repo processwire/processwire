@@ -1,0 +1,9 @@
+{
+    "file": "wire\/modules\/LanguageSupport\/LanguageTabs.module",
+    "textdomain": "wire--modules--languagesupport--languagetabs-module",
+    "translations": {
+        "4ee6b922de4a3b1d79036b200520ee37": {
+            "text": "Sprachen in Tabs erweitern"
+        }
+    }
+}

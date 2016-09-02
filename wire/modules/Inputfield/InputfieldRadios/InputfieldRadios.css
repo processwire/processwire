@@ -1,0 +1,41 @@
+.InputfieldRadios ul {
+	list-style: none; 
+	margin-left: 0;
+	padding-left: 0;
+}
+
+.InputfieldRadios ul li {
+	/* we don't need checkboxes/radios to have bullets, etc. */
+	list-style: none !important;
+	/* no need for top/bottom margins in a group of checkboxes or radios */
+	margin: 0 !important;
+}
+
+.InputfieldRadios ul li label {
+	display: inline-block;
+	white-space: nowrap;
+}
+
+.InputfieldRadios input {
+	margin-right: 0.5em;
+}
+
+.InputfieldRadiosColumns,
+.InputfieldRadiosFloated {
+	width: 100%; 
+}
+
+.Inputfields .InputfieldRadiosColumns li,
+.Inputfields .InputfieldRadiosFloated li {
+	display: block;
+	float: left; 
+}
+.Inputfields .InputfieldRadiosFloated li {
+	padding-right: 1em;
+}
+
+.Inputfields .InputfieldRadiosColumns li {
+	padding-right: 1%; 
+	padding-bottom: 1%; 
+}
+

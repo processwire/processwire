@@ -1,0 +1,76 @@
+<?php namespace ProcessWire;
+
+/**
+ * jQuery Tabs for ProcessWire
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ */
+
+class JqueryWireTabs extends ModuleJS implements ConfigurableModule { 
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('jQuery Wire Tabs Plugin', __FILE__),
+			'summary' => __('Provides a jQuery plugin for generating tabs in ProcessWire.', __FILE__),
+			'version' => 107,
+			'permanent' => true, 
+		);
+	}
+
+	const rememberTabsNever = -1;
+	const rememberTabsSubmit = 0; 
+	const rememberTabsAlways = 1; 
+
+	// extending this class causes the class named JS and CSS files to automatically be loaded
+
+	public function init() {
+		parent::init();
+		wire('config')->js('JqueryWireTabs', array(
+			'rememberTabs' => (int) $this->rememberTabs,
+			)); 
+	}
+
+	public function getModuleConfigInputfields(array $data) {
+		$inputfields = $this->wire(new InputfieldWrapper());
+		$f = $this->wire('modules')->get('InputfieldRadios'); 
+		$f->attr('name', 'rememberTabs'); 
+		$f->label = $this->_('Remember tab positions between requests?');
+		$f->addOption(self::rememberTabsNever, $this->_('Never'));
+		$f->addOption(self::rememberTabsSubmit, $this->_('Only after form submit'));
+		$f->addOption(self::rememberTabsAlways, $this->_('Always'));
+		$f->attr('value', (isset($data['rememberTabs']) ? (int) $data['rememberTabs'] : self::rememberTabsSubmit)); 
+		$inputfields->add($f);
+		return $inputfields; 
+	}
+
+	/**
+	 * Pre-render a tab list (optional, as this is JS generated if not pre-rendered)
+	 * 
+	 * @param array $tabs array of (tabID => title)
+	 * @param array $options to modify behavior
+	 * @return string
+	 * 
+	 */
+	public function renderTabList(array $tabs, array $options = array()) {
+		$defaults = array(
+			'class' => 'WireTabs nav',
+			'id' => '', 
+		);
+		$options = array_merge($defaults, $options); 
+		$out = "<ul class='$options[class]'" . ($options['id'] ? " id='$options[id]'" : "") . ">";
+		
+		foreach($tabs as $tabID => $title) {
+			//$title = $this->wire('sanitizer')->entities1($title);
+			if(strpos($title, '<a ') !== false) {
+				$out .= "<li>$title</li>";
+			} else {
+				$out .= "<li><a href='#$tabID' id='_$tabID'>$title</a></li>";
+			}
+		}
+		
+		$out .= "</ul>";
+		return $out; 
+	}
+}

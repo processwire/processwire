@@ -1,0 +1,167 @@
+#search {
+	display: block;
+	position: absolute;
+	top: -$masthead-height;
+	left: 0;
+	width: 100%;
+	transition: all $speed ease-in-out;
+	z-index: 11;
+	text-align: center;
+	line-height: 0;
+	vertical-align: middle;
+	padding: 0 0.5em;
+
+	&:before{
+		position: absolute;
+		top: 0;
+		left: 0;
+		content: '';
+		display: block;
+		width: 100%;
+		height: 100%;
+		background: $masthead-bg;
+		opacity: 0.93;
+	}
+
+	& .search-close{
+		display: inline-block;
+		position: relative;
+		z-index: 11;
+		padding: 1em;
+		vertical-align: middle;
+		color: $search-close-color;
+	}
+}
+
+#search.open{
+	top: 0 !important;
+}
+
+#ProcessPageSearchForm {
+	opacity: 1;
+	z-index: 11; // position: relative is defined ProcessPageSearch.css
+	text-align: left;
+	display: inline-block;
+	width: 85%;
+	max-width: 500px;
+	margin:	0 auto;
+	padding: 0 0 0 0;
+	height: $masthead-height;
+	line-height: 1;
+	overflow: hidden;
+	vertical-align: middle;
+
+	label {
+		opacity: 1 !important;
+		top: 1.15em !important;
+		left: 0.9em !important;
+		color: $search-label !important;
+	}
+
+	#ProcessPageSearchQuery {
+		margin: 0.5em 0 0 0;
+		width: 100%;
+		background: $search-bg;
+		border: none;
+		color: $search-color;
+		border-radius: $button-radius;
+		outline: none;
+		padding: 0.6em 1.5em 0.6em 2.3em;
+		border: $search-border;
+
+		&::-webkit-input-placeholder {color: $search-placeholder-color;}
+		&:-moz-placeholder { /* Firefox 18- */ color: $search-placeholder-color; }
+		&::-moz-placeholder {  /* Firefox 19+ */ color: $search-placeholder-color; }
+		&:-ms-input-placeholder {color: $search-placeholder-color; }
+	}
+
+	#ProcessPageSearchQuery:focus {
+		background: $search-focus-bg;
+		text-transform: none;
+		font-weight: $normal-weight;
+
+		&::-webkit-input-placeholder {color: transparent;}
+		&:-moz-placeholder { /* Firefox 18- */ color: transparent; }
+		&::-moz-placeholder {  /* Firefox 19+ */ color: transparent; }
+		&:-ms-input-placeholder {color: transparent; }
+
+	}
+
+	#ProcessPageSearchStatus {
+		position: absolute;
+		z-index: 9;
+		top: 1.5em;
+		right: 2em;
+		font-size: 0.875em;
+		color: $search-color;
+		background: transparent;
+		border: none;
+	}
+}
+
+#ProcessPageSearchAutocomplete.ui-autocomplete{
+	position: absolute;
+	background: $search-dropdown-bg;
+	border-width: $search-dropdown-border-width !important;
+	border-color: $search-dropdown-border-color !important;
+	border-style: $search-dropdown-border-style !important;
+	padding: 0 0 0.5em 0 !important;
+	box-shadow: $search-dropdown-shadow !important;
+	border-radius: 0 !important;
+	max-height: 100%;
+	overflow-y: auto;
+	width: 85%;
+	max-width: 500px;
+	top: 0 !important;
+	z-index: 11 !important;
+	margin-top: $masthead-height - 5px;
+
+	& .ui-menu-item {
+		a {
+			padding: 0.3em 1em !important;
+			color: $search-dropdown-link-color;
+			font-size: 0.95em;
+
+			&:before {
+				content: ""; // clear anything set by the .ui-autocomplete
+				margin: 0;
+				width: 0 !important;
+			}
+
+			&:hover {
+				background: $search-dropdown-link-hover-bg !important;
+				color: $search-dropdown-link-hover-color !important;
+
+				&:before {
+					content: "";
+				}
+
+			}
+		}
+
+	}
+
+	.ui-widget-header {
+		padding: 0.5em 0 0 0;
+		background: $search-dropdown-bg !important;
+		border-bottom: 1px dotted $border-color;
+		margin-bottom: 5px;
+
+		&:hover {
+			background: $search-dropdown-bg !important;
+		}
+
+		a {
+			background: $search-dropdown-bg;
+			font-weight: normal !important;
+			text-transform: uppercase;
+			letter-spacing: 1px;
+			color: $search-dropdown-header-color;
+
+			&:hover {
+				background: $search-dropdown-bg !important;
+				color: $search-dropdown-header-color !important;
+			}
+		}
+	}
+}

@@ -1,0 +1,18 @@
+{
+    "file": "wire\/modules\/Inputfield\/InputfieldPageName\/InputfieldPageName.module",
+    "textdomain": "wire--modules--inputfield--inputfieldpagename--inputfieldpagename-module",
+    "translations": {
+        "152cfcb2150e04c8533d86e9d7642b11": {
+            "text": "Jede Kombination aus Buchstaben (a-z), Zahlen (0-9), Binde- und Unterstrichen (keine Leerzeichen)."
+        },
+        "f48a4577939e2ab65867848e6b439a81": {
+            "text": "Zeichen ersetzen"
+        },
+        "9bc6bf958fcb86296c17a2b2db2a00a6": {
+            "text": "Jeder Ersatzwert muss ein oder mehrere dieser Zeichen enthalten: a-z, 0-9, Binde-, Unterstrich oder Punkt."
+        },
+        "9d250aded0473671ec3f113407f9809c": {
+            "text": "Geben Sie den Ersatzwert ein, welcher angewendet wird wenn ein Benutzer in einem Seiten-Name Feld Zeichen eingibt. Einen Ersatz pro Zeile im key=value Format eingeben. Dies bedeutet, Sie geben auf jeder neuen Zeile das zu ersetzende Zeichen ein, gefolgt von einem Gleichheitszeichen '=' und den gew\u00fcnschten ASCII Zeichen."
+        }
+    }
+}

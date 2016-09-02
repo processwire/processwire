@@ -1,0 +1,273 @@
+<?php namespace ProcessWire;
+
+/**
+ * A field that stores notifications 
+ *
+ */
+
+class FieldtypeNotifications extends FieldtypeMulti {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Notifications',
+			'version' => 4,
+			'summary' => 'Field that stores user notifications.',
+			'requires' => 'SystemNotifications',
+			);
+	}
+
+	public function init() {
+		parent::init(); 
+	}
+
+	/**
+	 * Return the required Inputfield used to populate a field of this type
+	 *
+	 */
+	public function getInputfield(Page $page, Field $field) {
+		return $this->wire(new InputfieldWrapper());
+	}
+
+	/**
+	 * Return a blank ready-to-populate version of a field of this type
+	 *
+	 */
+	public function getBlankValue(Page $page, Field $field) {
+		$notifications = $this->wire(new NotificationArray($page));
+		$notifications->setTrackChanges(true); 
+		return $notifications; 
+	}
+
+	/**
+	 * Given a raw value (value as stored in DB), return the value as it would appear in a Page object
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array $value
+	 * @return string|int|array|object $value
+	 *
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+	
+		// if for some reason we already get a valid value, then just return it
+		if($value instanceof NotificationArray) return $value; 
+	
+		// start a blank value to be populated
+		$notifications = $this->getBlankValue($page, $field); 
+	
+		// if we were given a blank value, then we've got nothing to do: just return a blank NotificationArray
+		if(empty($value) || !is_array($value)) return $notifications; 
+	
+		// create new Notification objects from each item in the array
+		foreach($value as $v) {
+			$notification = $this->wire(new Notification());
+			$notification->title = $v['title'];
+			$notification->flags = $v['flags']; 
+			$notification->created = $v['created']; 
+			$notification->modified = $v['modified']; 
+			$notification->src_id = $v['src_id']; 
+			$notification->qty = $v['qty'];
+	
+			$data = json_decode($v['data'], true); 
+			if(is_array($data)) $notification->setArray($data); 
+	
+			$notification->resetTrackChanges(); 
+			if(!$notification->isExpired()) $notifications->add($notification); 
+		}
+	
+		$notifications->resetTrackChanges(); 
+		return $notifications;  
+	}
+
+	/**
+	 * Email the given notifications to the pages (users) they are associated with
+	 * 
+	 * Removes email flag after mail has been successfully sent. 
+	 * 
+	 * @param array $notifications
+	 * 
+	 */
+	protected function emailNotifications(array $notifications) {
+		foreach($notifications as $notification) {
+			if(!$notification->is("email")) continue;
+			$page = $notification->page; 
+			if(!$page || !$page->email) continue; 
+			$of = $page->of();
+			$page->of(false);
+			$mail = $this->wire('mail')->new();
+			$mail->to($page->email); 
+			if($notification->emailFrom) $mail->from($notification->emailFrom); 
+			$mail->subject($notification->title . " (" . $this->wire('config')->httpHost . ")");
+			$mail->body((string) $notification->text);
+			if((string) $notification->html) $mail->bodyHTML((string) $notification->html); 
+			if($mail->send()) {
+				$notification->removeFlag("email"); 
+				$this->wire('log')->message("Sent notification email to: $page->email, Subject: $notification->title"); 
+			} else {
+				$this->wire('log')->error("Error sending notification email to: $page->email, Subject: $notification->title");
+			}
+			$page->of($of);
+		}
+	}
+
+	/**
+	 * Given an 'awake' value, as set by wakeupValue, convert the value back to a basic type for storage in DB. 
+	 *              
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array|object $value
+	 * @return string|int
+	 *
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+
+		$sleepValue = array();
+		$notifications = array();
+		$emails = array();
+	
+		// if we are given something other than an NotificationArray, 
+		// then just return a blank array
+		if(!$value instanceof NotificationArray) return $sleepValue; 
+	
+		// make the notifications sort by created date ascending
+		$value->sort('created'); 
+	
+		// filter out notifications that don't need to be stored in the DB
+		foreach($value as $notification) {
+			
+			if(!$notification->created) $notification->created = time();
+			if(!$notification->src_id) $notification->src_id = (int) $this->wire('page')->id;
+			if(!$notification->title) $notification->title = 'Untitled';
+			if(!$notification->is('message') && !$notification->is('error') && !$notification->is('warning')) {
+				$notification->setFlag('message', true);
+			}
+
+			$hash = $notification->getHash();
+
+			if($notification->is("debug") && !$this->wire('config')->debug) continue;
+			//if($notification->isExpired()) continue;
+			if($notification->is("email")) $emails[$hash] = $notification; // an email for this notification is pending
+			if($notification->is("notice")) continue; // don't save runtime Notices
+			if($notification->is("session")) continue; // don't save session notifications
+			if($notification->isChanged()) $notification->modified = time();
+		
+			// check for duplicates
+			if(isset($notifications[$hash])) {
+				// found a duplicate notification
+				$no = $notifications[$hash];
+				// check which one we should keep
+				if($no->modified > $notification->modified || $no->created > $notification->created) {
+					// existing notification is newer than the one we have, so use the existing
+					unset($notifications[$hash]); // remove
+					// keep created date from whichever is older
+					// $no->created = $notification->created > 0 && $notification->created < $no->created ? $notification->created : $no->created;
+					$notification = $no; // then it'll be added back, appended to array
+				} 
+				// qty indicates how many times the same notification was repeated
+				$notification->qty = $no->qty + 1; 
+			}
+			// add the notification
+			$notifications[$hash] = $notification;
+		}
+		
+		if(count($emails)) $this->emailNotifications($emails); 
+
+		// convert each Notification to an array within sleepValue
+		foreach($notifications as $notification) {
+			
+			$data = array(
+				'id' => $notification->getID(), 
+				'text' => $notification->text, 
+				'html' => $notification->html,
+				'from' => $notification->from, 
+				'icon' => $notification->icon,
+				'href' => $notification->href,
+				'progress' => $notification->progress, 
+				'expires' => $notification->expires, 
+				); 
+	
+			$json = wireEncodeJSON($data); 
+	
+			if(!$notification->modified || $notification->isChanged()) $notification->modified = time();
+	
+			$sleep = array(
+				'title' => $notification->title, 
+				'flags' => $notification->flags, 
+				'created' => date('Y-m-d H:i:s', $notification->created),
+				'modified' => date('Y-m-d H:i:s', $notification->modified), 
+				'src_id' => $notification->src_id, 
+				'data' => $json,
+				'qty' => $notification->qty, 
+				); 
+	
+			$sleepValue[] = $sleep; 
+		}
+		
+		return $sleepValue;
+	}
+
+	/**
+	 * Given a value, make it clean for storage within a Page
+	 *
+	 */
+	public function sanitizeValue(Page $page, Field $field, $value) {
+
+		// if given a blank value, return a valid blank value
+		if(empty($value)) return $this->getBlankValue($page, $field, $value); 
+
+		// if given something other than an NotificationArray, throw an error
+		if(!$value instanceof NotificationArray) {
+			throw new WireException("Value set to field '$field->name' must be a NotificationArray"); 
+		}
+
+		// note that sanitization of individual fields within a given Notification is already 
+		// performed by the Notification::set() method, so we don't need to do anything else here.
+
+		return $value; 	
+	}
+
+	/**
+	 * Format a value for output, called when a Page's outputFormatting is on
+	 *
+	 */
+	public function formatValue(Page $page, Field $field, $value) {
+		// we actually don't need to do anything in here since each Notification object
+		// is doing this work in the Notification::get() method. But I've included this
+		// comment here just to explain where that is taking place. 
+		return $value; 
+	}
+
+	/**
+	 * Return the database schema that defines an Notification
+	 *
+	 */
+	public function getDatabaseSchema(Field $field) {
+		$schema = parent::getDatabaseSchema($field); 
+
+		$schema['title'] = 'TINYTEXT NOT NULL'; 
+		$schema['src_id'] = 'INT UNSIGNED NOT NULL'; 
+		$schema['flags'] = 'INT UNSIGNED NOT NULL';
+		$schema['created'] = 'DATETIME NOT NULL';
+		$schema['modified'] = 'DATETIME NOT NULL';
+		$schema['data'] = 'TEXT NOT NULL'; 
+		$schema['qty'] = 'INT UNSIGNED NOT NULL DEFAULT 1';
+
+		$schema['keys']['data'] = 'FULLTEXT data(data)'; 
+		$schema['keys']['src_id'] = 'KEY src_id(src_id)'; 
+		$schema['keys']['flags'] = 'KEY flags(flags)'; 
+		$schema['keys']['created'] = 'KEY created(created)'; 
+
+		return $schema; 
+	}
+
+	/**
+	 * Method called when the field is database-queried from a selector 
+	 *
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		return parent::getMatchQuery($query, $table, $subfield, $operator, $value); 
+	}
+
+
+}
+

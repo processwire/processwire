@@ -1,0 +1,119 @@
+
+.content .InputfieldPageAutocomplete p {
+	margin: 0;
+}
+
+.content .InputfieldPageAutocomplete ol {
+	margin: 0; 
+	list-style: none;
+}
+
+	.content .InputfieldPageAutocomplete ol li {
+		/* li item from the html list above */
+		position: relative;
+		margin: 0 0 1px 0;
+		padding-left: 0;
+		list-style: none;
+		width: 100%;
+		line-height: 1em;
+		display: block;
+		cursor: move;
+	}
+		.InputfieldPageAutocomplete ol li i.fa-sort {
+			display: inline;
+			float: left;
+			margin-right: 7px; 
+			position: relative; 
+			top: 3px; 
+			left: 3px; 
+			opacity: 0.7; 
+		}
+		.content .InputfieldPageAutocomplete ol li:last-child {
+			margin-bottom: 0.5em;
+		}
+
+		.InputfieldPageAutocomplete ol li .ui-icon-arrowthick-2-n-s {
+			float: left;
+			margin-top: 1px;
+		}
+
+		.InputfieldPageAutocomplete ol li .itemLabel {
+			/* this is a span that surrounds the text in the item, except for the remove link */
+			display: block;
+			padding: 3px 0 3px 5px;
+			cursor: move;
+		}
+
+		.InputfieldPageAutocomplete ol li .itemRemove {
+			/* the remove link in each list item */
+			position: absolute;
+			right: 3px;
+			top: 0;
+		}
+		.InputfieldPageAutocomplete ol li i.fa-trash {
+			position: relative;
+			top: 2px;
+			right: 3px; 
+		}
+
+		.InputfieldPageAutocomplete ol li .itemValue {
+			display: none; 
+		}
+
+		.InputfieldPageAutocomplete ol li.itemTemplate {
+			display: none !important;
+		}
+
+.InputfieldPageAutocomplete input[type=text] {
+	/* some left padding for icon placement */
+	width: 100%; 
+	padding-left: 18px; 
+}
+
+.InputfieldPageAutocomplete input.no_list {
+	/* some right padding for remove icon placement */
+	padding-right: 22px;
+}
+
+.InputfieldPageAutocomplete p {
+	position: relative; 
+	margin-bottom: 0;
+}
+
+	.InputfieldPageAutocomplete p i.fa {
+		
+		/* icon placement */
+		position: absolute;
+		top: 0.5em;
+		left: 1px;
+		opacity: 0.5; 
+	}
+	.InputfieldPageAutocomplete p i.fa.InputfieldPageAutocompleteRemove {
+		/* remove icon, for no_list mode */
+		left: auto;
+		right: 3px;
+		cursor: pointer;
+	}
+	.InputfieldPageAutocomplete p i.fa.InputfieldPageAutocompleteRemove:hover {
+		opacity: 1.0;
+	}
+
+.ui-autocomplete {
+	/* enforce scrolling, plus add a little shadow for better distinction from background */
+	max-height: 230px; 
+	overflow-y: auto;
+	overflow-x: hidden; 
+	box-shadow: 0 1px 3px 3px rgba(0,0,0,0.3); 
+}
+
+
+.InputfieldPageAutocomplete .InputfieldPageAdd {
+	/* hide .InputfieldPageAdd since autocomplete uses it's own input for this */
+	display: none; 
+}
+
+.InputfieldPageAutocompleteNote {
+	/* Optional note with contextual helper tips */
+	display: none; 
+}
+

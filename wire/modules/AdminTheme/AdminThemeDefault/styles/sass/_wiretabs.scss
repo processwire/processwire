@@ -1,0 +1,106 @@
+
+/**
+ * WireTabs
+ *
+ */
+
+#content .WireTabs {
+	position: relative;
+	top: (-1 * $tabs-height); 
+	margin-bottom: (-1 * $tabs-height);
+	left: 0;
+	width: 100%; 
+	z-index: 102; 
+	overflow: visible; 
+
+	body.collapse-wiretabs & {
+		top: 0;
+		margin: 5px 0 1px 0;
+	}
+
+	li {
+		background: none; 
+		margin: 0;
+		padding: 0;
+	}
+
+	a {
+		font-weight: $tabs-font-weight;
+		padding: 0.5em 1em 0.5em 1em;
+		display: inline-block;
+		border-top-left-radius: $tabs-radius;
+		border-top-right-radius: $tabs-radius; 
+		border: $wiretab-link-border; 
+		border-bottom: none; 
+		margin-right: -1px; 
+		color: $wiretab-link-color;
+		height: $tabs-height;
+		background: $wiretab-link-bg; 
+		position: relative;
+		top: 1px; 
+
+		body.collapse-wiretabs & {
+			border: $wiretab-link-current-border; 
+			@include border-radius($tabs-radius);
+			margin-bottom: 5px; 
+			margin-right: 5px;
+			padding-top: 0.4em; 
+		}
+
+		em {
+			border-bottom: 1px solid transparentize($wiretab-link-color, 0.8);
+			font-weight: $tabs-font-weight;
+			font-style: normal;
+		}
+
+		&.on {
+			color: $wiretab-link-current-color; 
+			border: $wiretab-link-current-border; 
+			border-bottom: 1px solid $wiretab-link-current-bg;
+			background: $wiretab-link-current-bg; 
+			position: relative;
+			z-index: 100; 
+
+			em {
+				border-color: transparent; 
+			}
+
+			body.collapse-wiretabs & {
+				background: $wiretab-link-active-bg;
+				color: $wiretab-link-active-color; 
+			}
+		}
+
+		&:hover {
+			border: $wiretab-link-hover-border; 
+			border-bottom: none; 
+			color: $wiretab-link-hover-color; 
+			background: $wiretab-link-hover-bg; 
+
+			em {
+				border: none; 
+			}
+		}
+
+		&:active {
+			background: $wiretab-link-active-bg; 
+			color: $wiretab-link-active-color; 
+		}
+
+	}
+
+	#_ProcessPageEditView {
+		color: $link-color; 
+		font-weight: normal;
+
+		&:hover {
+			background: none; 
+			text-decoration: underline; 
+			border-color: transparent; 
+		}
+	}
+}
+
+body.collapse-wiretabs #breadcrumbs {
+	border: none; 
+}

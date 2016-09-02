@@ -1,0 +1,16 @@
+.InputfieldCheckbox input {
+	margin-right: 0.5em; 
+}
+
+.InputfieldCheckbox .InputfieldContent label {
+	display: inline-block;
+}
+
+.InputfieldCheckbox.InputfieldStateRequired > .InputfieldHeaderHidden:after {
+	display: none;
+}
+.InputfieldCheckbox.InputfieldStateRequired > .InputfieldContent > label > span.pw-no-select:after {
+	content: '*';	
+	margin-left: 0.25em;
+	color: red;
+}

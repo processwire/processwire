@@ -1,0 +1,12 @@
+.InputfieldPageAddButton {
+	margin-bottom: 0 !important;
+}
+
+.InputfieldPageAddItems {
+	display: none; 
+	margin-top: 0 !important; 
+}
+
+.InputfieldPageAddItems input {
+	width: 99%; 
+}

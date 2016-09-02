@@ -1,0 +1,93 @@
+{
+    "file": "wire\/modules\/Inputfield\/InputfieldDatetime\/InputfieldDatetime.module",
+    "textdomain": "wire--modules--inputfield--inputfielddatetime--inputfielddatetime-module",
+    "translations": {
+        "6f6cb72d544962fa333e2e34ce64f719": {
+            "text": "Gr\u00f6\u00dfe"
+        },
+        "49e0e66405106d4f9cf741207255476f": {
+            "text": "Angezeigte Breite dieses Feldes (in Zeichen)"
+        },
+        "566235c7913fdded5a84d4578758515f": {
+            "text": "Datum-Picker"
+        },
+        "7962180f3333f0ccaa9e208cccaac049": {
+            "text": "Kein Datum\/Uhrzeit-Picker"
+        },
+        "edcc19a354ad1b61e258b993a1ff09c4": {
+            "text": "Datum\/Uhrzeit-Picker nach Klick auf Button"
+        },
+        "aa547f01eea89a5b845b6db3870ba757": {
+            "text": "Datum\/Uhrzeit-Picker, wenn das Feld fokussiert wird"
+        },
+        "c3119c40400e0c55178bba8a9b8e36d8": {
+            "text": "Stets inline sichtbarer Datum-Picker (ohne Uhrzeit-Picker)"
+        },
+        "53e628836cd60f6dbb5fe56320f776ef": {
+            "text": "Eingabeformate f\u00fcr Datum\/Uhrzeit"
+        },
+        "38322714c2bfe9eba81ea980714fd0a6": {
+            "text": "Eingabeformat Datum"
+        },
+        "7656e28d6e435ffecc453794149e6a0d": {
+            "text": "W\u00e4hlen die das f\u00fcr die Benutzereingabe des Datums in dieses Feld verwendete Format. Das unten stehende Feld wird nach Ihrer Auswahl vorbelegt, sie k\u00f6nnen diese bei Bedarf weiter anpassen."
+        },
+        "6adf97f83acf6453d4a6a4b1070f3754": {
+            "text": "Keines"
+        },
+        "91c0a51785efc109b0fdb5d710a2656e": {
+            "text": "Eingabeformat Uhrzeit"
+        },
+        "44d9d932f51a771c8c76c2dc6ff57e1f": {
+            "text": "W\u00e4hlen Sie optional ein Uhrzeitformat f\u00fcr die Eingabe. Falls verwendet, wird die Kalender-Option einen Uhrzeit-Picker enthalten."
+        },
+        "20f706119fa58d0787ea397d413bf1e0": {
+            "text": "Wird automatisch aus dem oben gew\u00e4hlten Datum erstellt, sofern Sie dieses nicht modifizieren."
+        },
+        "e87ce06927649f8cdfff9e27c4ac8e3d": {
+            "text": "In der Funktionsreferenz zu [PHP date](http:\/\/www.php.net\/manual\/de\/function.date.php) finden Sie weitere Informationen, wie diese Formate angepasst werden k\u00f6nnen."
+        },
+        "3668c3ec43f4b401c6de009e3abb73f9": {
+            "text": "Sie k\u00f6nnen hier optional auch Formate f\u00fcr andere Sprachen angeben. Jede Sprache, die nicht ausgef\u00fcllt wird, erh\u00e4lt die Standardeinstellung."
+        },
+        "3dd984b18a5880f9279e17ff2e53a5de": {
+            "text": "Wird automatisch aus der oben gew\u00e4hlten Uhrzeit erstellt, sofern Sie diese nicht modifizieren."
+        },
+        "be7e95b42b8aff2713adf794a2eb666b": {
+            "text": "Als Standard das heutige Datum verwenden?"
+        },
+        "1feebee2f4ca4af215e8b47f37695f99": {
+            "text": "Falls gew\u00e4hlt, wird diesem Feld das heutige Datum zugewiesen, wenn kein Wert eingegeben wird."
+        },
+        "d27357121209bd712604d8af46cd2460": {
+            "text": "Eingabefeld f\u00fcr Datum und optional Uhrzeit."
+        },
+        "a1af5f0718bfae275ce162362d0e43c5": {
+            "text": "Datum\/Uhrzeit"
+        },
+        "6485c7641245873388f0170f472183c6": {
+            "text": "Platzhalter-Text"
+        },
+        "70bf9b371944c2d5b1adf809a356f607": {
+            "text": "Optionaler Platzhalter-Text, der angezeigt wird, wenn das Feld leer ist."
+        },
+        "c1a4d7df2061b105045dc92d2dff78f2": {
+            "text": "Zeitspanne in Jahren im Date-Picker"
+        },
+        "062e5153dad257d2a6a1560033719e9b": {
+            "text": "Falls der Date-Picker verwendet wird, bietet er eine ausw\u00e4hlbare Zeitspanne in Jahren plus\/minus zehn Jahre ausgehend vom aktuellen Jahr. Geben Sie die Anzahl Jahre vor und nach dem aktuellen, um die sie diese Auswahl erweitern oder reduzieren m\u00f6chten, an. Das Format ist \"-30:+20\", was zum Beispiel 30 Jahre vor und 20 Jahre nach diesem Jahr bedeuten w\u00fcrde."
+        },
+        "26fe23eafa82406bc0d0cd216a734d73": {
+            "text": "Falls kein Wert angegeben wird, ist der Standardwert \"-10:+10\", es w\u00e4ren also im Date-Picker zehn Jahre vor und nach dem aktuellen Jahr eingestellt."
+        },
+        "4dc865ad9218b271e212f2656a4415e4": {
+            "text": "Format f\u00fcr Datum"
+        },
+        "b3641a0b694cd7a82856611ce58d4979": {
+            "text": "Format f\u00fcr Zeit"
+        },
+        "b69f42ea4444ae5aa888b53cf6045710": {
+            "text": "/wire/modules/Jquery/JqueryUI/i18n/jquery.ui.datepicker-de.js"
+        }
+    }
+}

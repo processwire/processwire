@@ -1,0 +1,126 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire PageRenderFields Module
+ *
+ * Adds $page->renderFields() and $page->images->render() methods 
+ * that return basic markup for output during development and debugging.
+ * It hooks into all instances of the the Page and Pageimages classes.
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ *
+ *
+ */
+
+class MarkupPageFields extends WireData implements Module {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Markup Page Fields', 
+			'version' => 100, 
+			'summary' => 
+				'Adds $page->renderFields() and $page->images->render() methods ' . 
+				'that return basic markup for output during development and debugging.',
+			'permanent' => true, 
+			'singular' => true, 
+			'autoload' => true, 
+			);
+	}
+
+	/**
+	 * Initialize the hooks
+	 *
+	 */
+	public function init() {
+		$this->addHook('Page::renderFields', $this, 'renderPageFields'); 
+		$this->addHook('Pageimages::render', $this, 'renderPageImages'); 
+	}
+
+	/**
+	 * Return a string with the rendered output of a FieldtypeImages field
+	 *
+	 * Example, assuming you have a FieldtypeImage field called 'images' on your page: 
+	 * echo $page->images->render(); 
+	 * Renders a unordered list of the images. 
+	 *
+	 * This is intended primarily as a handy tool when debugging or during development. 
+	 *
+	 * @return string rendered markup
+	 *
+	 */
+	public function renderPageImages($event) {
+		$images = $event->object; 
+		$out = "\n<ul class='PageImages'>";
+		foreach($images as $image) {
+			$out .= "\n\t<li><img src='{$image->url}' alt='{$image->description}' /></li>";	
+		}
+		$out .= "\n</ul>";
+		$event->return = $out; 
+	}
+
+	/**
+	 * Return a string with the rendered output of this Page's Fields as markup in a definition list.
+	 *
+	 * This is intended primarily as a handy tool when debugging or during development. 
+	 *
+	 * @return string rendered markup
+	 *
+	 */
+	public function renderPageFields($event) {
+
+		$options = array(
+			'exclude' => array(), // array of field names to exclude
+			'labels' => array(), // optional labels to replace field labels, indexed by field name
+			);
+	
+		$page = $event->object; 	
+		if(!count($page->fields)) return ''; 
+		$cnt = 0; 
+		if(isset($event->arguments[0]) && is_array($event->arguments[0])) {
+			$options = array_merge($options, $event->arguments[0]); 
+		}
+
+		$yes = $this->_('Yes'); 
+		$no = $this->_('No'); 
+
+		foreach($page->fields as $field) {
+
+			if(in_array($field->name, $options['exclude'])) continue; 
+			if($field->type instanceof FieldtypeFieldsetClose) continue; 
+
+			$label = $field->label;
+			if(isset($options['labels'][$field->name])) $label = $options['labels'][$field->name];
+
+			if($field->type instanceof FieldtypeFieldsetOpen) {
+				$out .= "\n<h2>{$label}</h2>"; 
+				continue; 
+
+			} else if(!$cnt) {
+				$out = "\n<dl class='PageFields'>";
+			}
+
+			$value = $page->get($field->name); 
+
+			if($field->type instanceof FieldtypeCheckbox) $value = $value ? $yes : $no;
+				else if($value instanceof Pageimages) $value = $value->render();
+		
+			if(is_object($value)) { 	
+				if($value instanceof PageArray) {
+					$value = $value->render();
+				} else if($value instanceof Page) {
+					if($value->viewable()) $value = "<a href='{$value->url}'>{$value->title}</a>";
+						else $value = $value->title; 
+				}
+			}
+
+			$out .= "\n\n\t<dt>{$label}</dt>" . 
+				"\n\t<dd>$value</dd>";
+
+			$cnt++; 
+		}
+
+		$out .= "\n</dl><!--/.renderPageFields-->";
+		$event->return = $out; 
+	}
+}

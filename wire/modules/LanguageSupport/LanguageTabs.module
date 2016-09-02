@@ -1,0 +1,165 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Language Field Tabs
+ *
+ * Organizes Language Fields into tabs for a cleaner easier to use interface
+ *
+ * By Adamspruijt and Ryan Cramer, Copyright 2013/2014
+ * 
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * https://processwire.com
+ * 
+ * @property string $tabField Name of field/property to use for tab labels.
+ * 
+ *
+ */
+
+class LanguageTabs extends WireData implements Module, ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Languages Support - Tabs',
+			'version' => 114,
+			'summary' => 'Organizes multi-language fields into tabs for a cleaner easier to use interface.',
+			'author' => 'adamspruijt, ryan', 
+			'singular' => true,
+			'autoload' => "template=admin",
+			'requires' => 'LanguageSupport'
+		);
+	}
+
+	/**
+	 * Temporary storage of tabs created from addTab() method
+	 * 
+	 * @var array of strings
+	 * 
+	 */
+	protected $tabs = array();
+	
+	public function __construct() {
+		$this->set('tabField', 'title');
+	}
+
+	/**
+	 * Add hooks, setup JS config, and determine active tab
+	 * 
+	 */
+	public function ready() {
+		if($this->wire('page')->template != 'admin') return;
+		$this->addHookAfter('InputfieldForm::render', $this, 'hookRenderInputfieldForm'); 
+
+		$language = null;
+		// allow for specifying language in your "edit" page link, from front-end
+		// so if you want to focus on the Spanish tabs when the user clicks "edit"
+		// from /es/path/to/page/, then you can by using a page edit link like:
+		// <a href='{$config->urls->admin}page/edit/?id=$page->id&language=$user->language'>Edit</a>
+		$id = (int) $this->input->get->language;
+		if($id) $language = $this->languages->get($id); 
+
+		// if language is not specified as a GET variable, then use the user's language
+		if(!$language || !$language->id) $language = $this->user->language; 
+
+		// determine the index of the tab for the user's language	
+		$activeTab = 0; 	
+		foreach($this->languages as $index => $lang) {
+			if($lang->id == $language->id) $activeTab = $index; 
+		}
+
+		$settings = array(
+			'labelOpen' => $this->_('Expand Language Tabs'),
+			'labelClose' => $this->_('Collapse/Convert Back to Tabs'), 
+			'activeTab' => $activeTab, 
+			); 
+
+		$this->wire('config')->js('LanguageTabs', $settings);
+	}
+
+	/**
+	 * Init language tabs in form immediately after form render
+	 * 
+	 * @param HookEvent $e
+	 * 
+	 */
+	public function hookRenderInputfieldForm(HookEvent $e) {
+		$this->wire('modules')->loadModuleFileAssets($this); 
+		$this->wire('modules')->get('JqueryCore')->use('longclick');
+		if(strpos($e->return, 'LanguageSupport') === false) return;
+		$id = $e->object->attr('id'); 
+		$e->return .= "<script>setupLanguageTabs($('#$id'));</script>";
+	}
+
+	/**
+	 * Clear any stored tabs
+	 * 
+	 */
+	public function resetTabs() {
+		$this->tabs = array();
+	}
+
+	/**
+	 * Add a new tab, to be later retrieved by renderTabs()
+	 * 
+	 * @param Inputfield $inputfield
+	 * @param Language $language
+	 * 
+	 */
+	public function addTab(Inputfield $inputfield, Language $language) {
+		$liClass = '';
+		$class = 'langTab' . $language->id;
+		if($inputfield->isEmpty()) $liClass .= 'langTabEmpty ';
+		$title = $language->get($this->tabField);
+		if(empty($title)) $title = $language->get('name');
+		$title = $this->wire('sanitizer')->entities1($title);
+		if(!$this->wire('languages')->editable($language)) {
+			$title = "<s>$title</s>";
+			$liClass .= 'LanguageNotEditable ';
+		}
+		$id = $inputfield->attr('id'); 
+		$liClass = trim($liClass);
+		$this->tabs[] = "<li class='$liClass'><a data-lang='$language->id' class='$class' href='#langTab_$id'>$title</a></li>";
+	}
+
+	/**
+	 * Render output for all added tabs
+	 * 
+	 * Note that if only 1 tab has been added, tabs won't be displayed (no point in it).
+	 * This method automatically calls resetTabs() after rendering. 
+	 * 
+	 * @param Inputfield $inputfield
+	 * @param $content Content that will have the tabs 
+	 * @return string Modified $content with tabs
+	 * 
+	 */
+	public function renderTabs(Inputfield $inputfield, $content) {
+		if(count($this->tabs) > 1) { 
+			$inputfield->wrapClass .= " hasLangTabs";
+			$inputfield->contentClass .= " langTabsContainer";
+			$tabs = implode('', $this->tabs);
+			$id = $inputfield->attr('id');
+			$note = "<small class='langTabsNote detail'><i class='fa fa-fw fa-angle-double-left'></i>" . 
+				$this->_('click+hold to change all tabs') . "</small>";
+			$content = "<div class='langTabs' id='langTabs_$id'>$note<ul>$tabs</ul>$content</div>";
+		} else {
+			// do nothing, just return content because there was only 1 tab (no render necessary)
+		}
+		$this->resetTabs();
+		return $content; 
+	}
+	
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		$f = $this->wire('modules')->get('InputfieldSelect'); 
+		$f->attr('name', 'tabField');
+		$f->label = $this->_('Field to use for tab labels');
+		$f->addOption('name');
+		foreach($this->wire('templates')->get('language')->fieldgroup as $field) {
+			if($field->type instanceof FieldtypeMulti) continue;
+			$f->addOption($field->name);
+		}
+		$f->attr('value', $this->tabField);
+		$f->required = true;
+		$inputfields->add($f);
+		return $inputfields;
+	}
+
+}

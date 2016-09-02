@@ -1,0 +1,21 @@
+{
+   "file":"wire\/modules\/LanguageSupport\/LanguageSupportFields.module",
+   "textdomain":"wire--modules--languagesupport--languagesupportfields-module",
+   "translations":{
+      "d5984c66ace0dae1773e991655e79484":{
+         "text":"Was passiert, wenn dieses Feld leer ist?"
+      },
+      "16d43921f6466356a5420de1d357ffb6":{
+         "text":"Sprachen Unterst\u00fctzung \/ Leere Felder"
+      },
+      "b22ada5d7a2fc27462f6c477fc5c4dbd":{
+         "text":"\u00dcbernimmt Eintrag der Standard Sprache"
+      },
+      "58d2e94541b468a4154422bbbc8a6ba5":{
+         "text":"Bleibt leer"
+      },
+      "2890518e61caa93e64ca13dbc48fd26a":{
+         "text":"Wird nur auf Eintr\u00e4ge der Nicht-Standard-Sprachen im Frontend der Webseite angewendet."
+      }
+   }
+}
