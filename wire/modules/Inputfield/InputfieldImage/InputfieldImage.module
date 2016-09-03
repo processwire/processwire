@@ -14,6 +14,7 @@
  * @property bool|int $maxReject Reject images that exceed max allowed size? (default=false)
  * @property int|string $minWidth Min width for uploaded images, smaller will be refused (default='')
  * @property int|string $minHeight Min height for uploaded images, smaller will be refused (default='')
+ * @property bool|int $dimensionsByAspectRatio Switch min-/maxWidth and min-/maxHeight restriction for portrait images
  * @property string $itemClass Space separated CSS classes for items rendered by this Inputfield. Generally you should append rather than replace.
  * @property int|bool $useImageEditor Whether or not the modal image editor is allowed for this field (default=true)
  * @property int $adminThumbScale for backwards compatibility only
@@ -88,6 +89,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList {
 		$this->set('maxReject', 0);
 		$this->set('minWidth', '');
 		$this->set('minHeight', '');
+		$this->set('dimensionsByAspectRatio', 0);
 
 		$this->set('itemClass', 'gridImage ui-widget');
 
@@ -345,23 +347,45 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList {
 			throw new WireException($this->_('Invalid image'));
 		}
 
-		if(($this->minWidth && $pagefile->width < $this->minWidth) || ($this->minHeight && $pagefile->height < $this->minHeight)) {
+		$minWidth = $this->minWidth;
+		$minHeight = $this->minHeight;
+
+		if($this->dimensionsByAspectRatio && $pagefile->width < $pagefile->height){
+			$minWidth = $this->minHeight;
+			$minHeight = $this->minWidth;
+		}
+
+		if(
+			($minWidth && $pagefile->width < $minWidth) ||
+			($minHeight && $pagefile->height < $minHeight)
+		) {
 			$actualDimensions = $pagefile->width . 'x' . $pagefile->height;
-			$requiredDimensions = $this->minWidth . 'x' . $this->minHeight;
+			$requiredDimensions = $minWidth . 'x' . $minHeight;
 			throw new WireException(
 				sprintf($this->_('Image of %s does not meet minimum size requirements'), $actualDimensions) . " ($requiredDimensions)"
 			);
 		}
 
-		if(($this->maxWidth && $pagefile->width > $this->maxWidth) || ($this->maxHeight && $pagefile->height > $this->maxHeight)) {
+		$maxWidth = $this->maxWidth;
+		$maxHeight = $this->maxHeight;
+
+		if($this->dimensionsByAspectRatio && $pagefile->width < $pagefile->height){
+			$maxWidth = $this->maxHeight;
+			$maxHeight = $this->maxWidth;
+		}
+
+		if(
+			($maxWidth && $pagefile->width > $maxWidth) ||
+			($maxHeight && $pagefile->height > $maxHeight)
+		) {
 			if($this->maxReject) {
 				$actualDimensions = $pagefile->width . '×' . $pagefile->height;
-				$requiredDimensions = $this->maxWidth . '×' . $this->maxHeight;
+				$requiredDimensions = $maxWidth . '×' . $maxHeight;
 				throw new WireException(
 					sprintf($this->_('Image of %s exceeds maximum allowed size'), $actualDimensions) . " ($requiredDimensions)"
 				);
 			}
-			$pagefile2 = $pagefile->size($this->maxWidth, $this->maxHeight, array('cropping' => false));
+			$pagefile2 = $pagefile->size($maxWidth, $maxHeight, array('cropping' => false));
 			if($pagefile->filename != $pagefile2->filename) {
 				unlink($pagefile->filename);
 				rename($pagefile2->filename, $pagefile->filename);
@@ -370,7 +394,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList {
 		}
 
 		if($pagefile2) {
-			$this->message($this->_("Image resized to fit maximum allowed dimensions") . " ({$this->maxWidth}x{$this->maxHeight}");
+			$this->message($this->_("Image resized to fit maximum allowed dimensions") . " ({$maxWidth}x{$maxHeight}");
 		}
 
 		parent::___fileAdded($pagefile);
@@ -816,6 +840,15 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList {
 		$fieldset->add($field);
 
 		$inputfields->add($fieldset);
+
+		$field = $this->modules->get("InputfieldCheckbox");
+		$field->attr('name', 'dimensionsByAspectRatio');
+		$field->attr('value', (int) $this->dimensionsByAspectRatio);
+		$field->attr('checked', ((int) $this->dimensionsByAspectRatio) ? 'checked' : '');
+		$field->label = $this->_("Swap min/max dimensions for portrait images?");
+		$field->showIf = 'minWidth|minHeight|maxWidth|maxHeight>0';
+		$field->description = $this->_('If checked, minimum width/height and maximum width/height dimensions will be swapped for portrait images to accommodate for the different aspect ratio.');
+		$inputfields->add($field);
 
 		return $inputfields;
 	}
