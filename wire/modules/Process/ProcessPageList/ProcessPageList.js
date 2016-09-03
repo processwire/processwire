@@ -203,7 +203,15 @@ $(document).ready(function() {
 						});
 					}
 				}
-				
+
+				$(document).on('keydown', '.PageListItem', function (e) {
+					e = e || window.event;
+
+					if (e.keyCode == 0 || e.keyCode == 32) {
+						$(this).find('.PageListActions').css('display', 'inline-block');
+					}
+				});
+
 				$(document).on('mouseover', '.PageListItem', function(e) {
 
 					if($root.is(".PageListSorting") || $root.is(".PageListSortSaving")) return;
