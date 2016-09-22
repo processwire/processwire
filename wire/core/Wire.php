@@ -368,8 +368,13 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *
 	 */ 
 	public function __call($method, $arguments) {
-		$result = $this->wire('hooks')->runHooks($this, $method, $arguments); 
-		if(!$result['methodExists'] && !$result['numHooksRun']) return $this->callUnknown($method, $arguments);
+		$hooks = $this->wire('hooks');
+		if($hooks) {
+			$result = $hooks->runHooks($this, $method, $arguments);
+			if(!$result['methodExists'] && !$result['numHooksRun']) return $this->callUnknown($method, $arguments);
+		} else {
+			return $this->___callUnknown($method, $arguments);
+		}
 		return $result['return'];
 	}
 
@@ -406,7 +411,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	protected function ___callUnknown($method, $arguments) {
 		if($arguments) {} // intentional to avoid unused argument notice
-		if($this->wire('config')->disableUnknownMethodException) return null;
+		$config = $this->wire('config');
+		if($config && $config->disableUnknownMethodException) return null;
 		throw new WireException("Method " . $this->className() . "::$method does not exist or is not callable in this context"); 
 	}
 
@@ -1540,6 +1546,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 			// this object has not yet been wired! use last known current instance as fallback
 			// note this condition is unsafe in multi-instance mode
 			$wire = ProcessWire::getCurrentInstance();
+			if(!$wire) return null;
 			
 			// For live hunting objects that are using the fallback, uncomment the following:
 			// echo "<hr /><p>Non-wired object: '$name' in " . get_class($this) . ($value ? " (value=$value)" : "") . "</p>";

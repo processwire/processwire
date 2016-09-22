@@ -870,7 +870,12 @@ class Installer {
 		if($options['dbCharset'] != 'utf8') {
 			$replace['CHARSET=utf8'] = "CHARSET=$options[dbCharset]";
 			if(strtolower($options['dbCharset']) === 'utf8mb4') {
-				$replace['(255)'] = '(250)'; // max ley length in utf8mb4 is 1000 (250 * 4)
+				if(strtolower($options['dbEngine']) === 'innodb') {
+					$replace['(255)'] = '(191)'; 
+					$replace['(250)'] = '(191)'; 
+				} else {
+					$replace['(255)'] = '(250)'; // max ley length in utf8mb4 is 1000 (250 * 4)
+				}
 			}
 			$this->warn("Character set has been changed to '$options[dbCharset]', please keep an eye out for issues."); 
 		}

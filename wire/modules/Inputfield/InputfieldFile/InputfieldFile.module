@@ -120,6 +120,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 		// get the max filesize
 		$filesize = trim(ini_get('post_max_size'));
 		$last = strtolower(substr($filesize, -1));
+		if(ctype_alpha($last)) $filesize = rtrim($filesize, $last);
+		$filesize = (int) $filesize;
 		if($last == 'g') $this->maxFilesize = (($filesize*1024)*1024)*1024;
 			else if($last == 'm') $this->maxFilesize = ($filesize*1024)*1024;
 			else if($last == 'k') $this->maxFilesize = $filesize*1024;

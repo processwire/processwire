@@ -182,7 +182,8 @@ class Password extends Wire {
 			$rawLength = (int) ($requiredLength * 3 / 4 + 1);
 			
 			if(function_exists('mcrypt_create_iv')) {
-				$buffer = mcrypt_create_iv($rawLength, MCRYPT_DEV_URANDOM);
+				// @operator added for PHP 7.1 which throws deprecated notice on this function call
+				$buffer = @mcrypt_create_iv($rawLength, MCRYPT_DEV_URANDOM);
 				if($buffer) $valid = true;
 			}
 

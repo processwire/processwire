@@ -1399,7 +1399,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		}
 
 		$submitAction = $this->wire('input')->post('_after_submit_action');
-		if($submitAction == 'exit') {
+		if($this->redirectUrl) {
+			// non-default redirectUrl overrides after_submit_action
+		} else if($submitAction == 'exit') {
 			$this->redirectUrl = '../';
 		} else if($submitAction == 'view') {
 			$this->redirectUrl = $this->page->httpUrl();
@@ -1791,9 +1793,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	public function ___executeTemplate() {
-
-		if(!$this->useSettings || !$this->user->hasPermission('page-template', $this->page))
-			throw new WireException("You don't have permission to change the template on this page."); 
+		
+		if(!$this->useSettings || !$this->user->hasPermission('page-template', $this->page)) {
+			throw new WireException("You don't have permission to change the template on this page.");
+		}
 
 		if(!isset($_GET['template'])) throw new WireException("This method requires a 'template' get var"); 
 		$template = $this->templates->get((int) $_GET['template']); 
@@ -1802,25 +1805,32 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if(!$this->isAllowedTemplate($template->id)) {
 			throw new WireException("That template is not allowed");
 		}
+		
+		$labelConfirm = $this->_('Confirm template change'); // Change template confirmation subhead
+		$labelAction = sprintf($this->_('Change template from "%1$s" to "%2$s"'), $this->page->template, $template); // Change template A to B headline
+		
+		$this->headline($labelConfirm);
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm"); 
 		$form->attr('action', 'saveTemplate'); 
 		$form->attr('method', 'post'); 
-		$form->description = sprintf($this->_('Change template from "%1$s" to "%2$s"'), $this->page->template, $template); // Change template A to B headline
+		$form->description = $labelAction;
 
 		/** @var InputfieldMarkup $f */
 		$f = $this->modules->get("InputfieldMarkup"); 	
 		$f->icon = 'cubes';
-		$f->label = $this->_('Confirm template change'); // Change template confirmation subhead
-		$list = '';
+		$f->label = $labelConfirm;
+		$list = array();
 		foreach($this->page->template->fieldgroup as $field) {
-			if(!$template->fieldgroup->has($field)) 
-				$list .= "<li class='ui-state-error-text'> <i class='icon-times-circle'></i> $field</li>";
+			if(!$template->fieldgroup->has($field)) {
+				$list[] = $this->wire('sanitizer')->entities($field->getLabel()) . " ($field->name)";
+			}
 		}
 		if(!$list) $this->executeSaveTemplate($template); 
 		$f->description = $this->_('Warning, changing the template will delete the following fields:'); // Headline that precedes list of fields that will be deleted as a result of template change
-		$f->attr('value', "<ul>$list</ul>"); 
+		$icon = "<i class='fa fa-times-circle'></i> ";
+		$f->attr('value', "<p class='ui-state-error-text'>$icon" . implode("<br />$icon", $list) . '</p>');
 		$form->append($f); 
 
 		/** @var InputfieldCheckbox $f */
@@ -1828,6 +1838,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$f->attr('name', 'template'); 
 		$f->attr('value', $template->id); 
 		$f->label = $this->_('Are you sure?'); // Checkbox label to confirm they want to change template
+		$f->label2 = $labelAction;
+		$f->icon = 'warning';
 		$f->description = $this->_('Please confirm that you understand the above by clicking the checkbox below.'); // Checkbox description to confirm they want to change template
 		$form->append($f); 
 

@@ -14,7 +14,7 @@
 class FileCompiler extends Wire {
 
 	/**
-	 * Compilation options
+	 * Compilation options for this FileCompiler instance
 	 * 
 	 * @var array
 	 * 
@@ -24,6 +24,25 @@ class FileCompiler extends Wire {
 		'namespace' => true, // compile to make compatible with PW namespace when necessary?
 		'modules' => false, // compile using installed FileCompiler modules
 		'skipIfNamespace' => false, // skip compiled file if original declares a namespace? (note: file still compiled, but not used)
+	);
+
+	/**
+	 * Options for ALL FileCompiler instances
+	 * 
+	 * Values shown below are for reference only as the get overwritten by $config->fileCompilerOptions at runtime.
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $globalOptions = array(
+		'siteOnly' => false,  // only allow compilation of files in /site/ directory
+		'showNotices' => true, // show notices about compiled files to superuser
+		'logNotices' => true, // log notices about compiled files and maintenance to file-compiler.txt log. 
+		'chmodFile' => '', // mode to use for created files, i.e. "0644"
+		'chmodDir' => '',  // mode to use for created directories, i.e. "0755"
+		'exclusions' => array(), // exclude files or paths that start with any of these (gets moved to $this->exclusions array)
+		'extensions' => array('php', 'module', 'inc'), // file extensions we compile (gets moved to $this->extensions array)
+		'cachePath' => '', // path where compiled files are stored (default is /site/assets/cache/FileCompiler/, moved to $this->cachePath)
 	);
 	
 	/**
@@ -41,6 +60,16 @@ class FileCompiler extends Wire {
 	 * 
 	 */
 	protected $targetPath = null;
+
+	/**
+	 * Path to root of compiled files directory (upon which targetPath is based)
+	 * 
+	 * Set via the $config->fileCompilerOptions['cachePath'] setting. 
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $cachePath;
 
 	/**
 	 * Files or directories that should be excluded from compilation
@@ -78,12 +107,30 @@ class FileCompiler extends Wire {
 	 * 
 	 */
 	public function __construct($sourcePath, array $options = array()) {
+		
 		$this->options = array_merge($this->options, $options);
+		$globalOptions = $this->wire('config')->fileCompilerOptions; 
+		
+		if(is_array($globalOptions)) {
+			$this->globalOptions = array_merge($this->globalOptions, $globalOptions);
+		}
+		
+		if(!empty($this->globalOptions['extensions'])) {
+			$this->extensions = $this->globalOptions['extensions'];
+		}
+		
+		if(empty($this->globalOptions['cachePath'])) {
+			$this->cachePath = $this->wire('config')->paths->cache . $this->className() . '/';
+		} else {
+			$this->cachePath = rtrim($this->globalOptions['cachePath'], '/') . '/';
+		}
+		
 		if(!strlen(__NAMESPACE__)) {
 			// when PW compiled without namespace support
 			$this->options['skipIfNamespace'] = false;
 			$this->options['namespace'] = true;
 		}
+		
 		if(strpos($sourcePath, '..') !== false) $sourcePath = realpath($sourcePath);
 		if(DIRECTORY_SEPARATOR != '/') $sourcePath = str_replace(DIRECTORY_SEPARATOR, '/', $sourcePath);
 		$this->sourcePath = rtrim($sourcePath, '/') . '/';
@@ -98,29 +145,59 @@ class FileCompiler extends Wire {
 	protected function init() {
 		
 		static $preloaded = false;
+		$config = $this->wire('config');
 		
 		if(!$preloaded) {
 			$this->wire('cache')->preloadFor($this);
 			$preloaded = true;
 		}
 		
-		$targetPath = $this->wire('config')->paths->cache . $this->className() . '/';
+		if(!empty($this->globalOptions['exclusions'])) {
+			$this->exclusions = $this->globalOptions['exclusions'];
+		}
+		
+		$this->addExclusion($config->paths->wire);
+
+		$rootPath = $config->paths->root;
+		$targetPath = $this->cachePath; 
 		
 		if(strpos($this->sourcePath, $targetPath) === 0) {
 			// sourcePath is inside the targetPath, correct this 
 			$this->sourcePath = str_replace($targetPath, '', $this->sourcePath);
-			$this->sourcePath = $this->wire('config')->paths->root . $this->sourcePath;
+			$this->sourcePath = $rootPath . $this->sourcePath;
 		}
-		
-		$t = str_replace($this->wire('config')->paths->root, '', $this->sourcePath);
+
+		$t = str_replace($rootPath, '', $this->sourcePath);
+		if(DIRECTORY_SEPARATOR != '/' && strpos($t, ':')) $t = str_replace(':', '', $t);
 		$this->targetPath = $targetPath . trim($t, '/') . '/';
-	
-		// @todo move this somewhere outside of this class
-		$this->addExclusion($this->wire('config')->paths->wire);
-		// $this->addExclusion($this->wire('config')->paths->templates . 'admin.php');
-		
 		$this->ns = '';
-		
+	}
+
+	/**
+	 * Make a directory with proper permissions
+	 * 
+	 * @param string $path Path of directory to create
+	 * @param bool $recursive Default is true
+	 * @return bool
+	 * 
+	 */
+	protected function mkdir($path, $recursive = true) {
+		$chmod = $this->globalOptions['chmodDir'];
+		if(empty($chmod) || !is_string($chmod) || strlen($chmod) < 2) $chmod = null;
+		return $this->wire('files')->mkdir($path, $recursive, $chmod);
+	}
+
+	/**
+	 * Change file to correct mode for FileCompiler
+	 * 
+	 * @param string $filename
+	 * @return bool
+	 * 
+	 */
+	protected function chmod($filename) {
+		$chmod = $this->globalOptions['chmodFile'];
+		if(empty($chmod) || !is_string($chmod) || strlen($chmod) < 2) $chmod = null;
+		return $this->wire('files')->chmod($filename, false, $chmod);
 	}
 
 	/**
@@ -131,7 +208,7 @@ class FileCompiler extends Wire {
 	 */
 	protected function initTargetPath() {
 		if(!is_dir($this->targetPath)) {
-			if(!$this->wire('files')->mkdir($this->targetPath, true)) {
+			if(!$this->mkdir($this->targetPath)) {
 				throw new WireException("Unable to create directory $this->targetPath");
 			}
 		}
@@ -140,13 +217,21 @@ class FileCompiler extends Wire {
 	/**
 	 * Allow the given filename to be compiled?
 	 * 
-	 * @param string $filename This property can be modified by the function
-	 * @param string $basename This property can be modified by the function
+	 * @param string $filename Full path and filename to compile (this property can be modified by the function).
+	 * @param string $basename Just the basename (this property can be modified by the function). 
 	 * @return bool 
 	 * 
 	 */
 	protected function allowCompile(&$filename, &$basename) {
 		
+		if($this->globalOptions['siteOnly']) {
+			// only files in /site/ are allowed for compilation
+			if(strpos($filename, $this->wire('config')->paths->site) !== 0) {
+				// sourcePath is somewhere outside of the PW /site/, and not allowed
+				return false;
+			}
+		}
+
 		$ext = pathinfo($filename, PATHINFO_EXTENSION);
 		if(!in_array(strtolower($ext), $this->extensions)) {
 			if(!strlen($ext) && !is_file($filename)) { 
@@ -237,10 +322,10 @@ class FileCompiler extends Wire {
 			set_time_limit(120);
 			$this->copyAllNewerFiles($sourcePath, $targetPath); 
 			$targetDirname = dirname($targetPathname) . '/';
-			if(!is_dir($targetDirname)) $this->wire('files')->mkdir($targetDirname, true);
+			if(!is_dir($targetDirname)) $this->mkdir($targetDirname);
 			$targetData = $this->compileData($targetData, $sourcePathname);
 			if(false !== file_put_contents($targetPathname, $targetData, LOCK_EX)) {
-				$this->wire('files')->chmod($targetPathname);
+				$this->chmod($targetPathname); 
 				touch($targetPathname, filemtime($sourcePathname));
 				$targetHash = md5_file($targetPathname);
 				$cacheData = array(
@@ -260,14 +345,24 @@ class FileCompiler extends Wire {
 				);
 				$this->wire('cache')->saveFor($this, $cacheName, $cacheData, WireCache::expireNever);
 			}
-			$u = $this->wire('user');
-			if($this->wire('config')->debug || ($u && $u->isSuperuser())) {
-				$this->message($this->_('Compiled file:') . ' ' . str_replace($this->wire('config')->paths->root, '/', $sourcePathname));
-			}
 		}
 	
 		// if source and target are identical, use the source file
-		if($targetHash && $sourceHash === $targetHash) return $sourcePathname;
+		if($targetHash && $sourceHash === $targetHash) {
+			return $sourcePathname;
+		}
+	
+		// show notices about compiled files, when applicable
+		if($compileNow) {
+			$message = $this->_('Compiled file:') . ' ' . str_replace($this->wire('config')->paths->root, '/', $sourcePathname);
+			if($this->globalOptions['showNotices']) {
+				$u = $this->wire('user');
+				if($u && $u->isSuperuser()) $this->message($message);
+			}
+			if($this->globalOptions['logNotices']) {
+				$this->log($message);
+			}
+		}
 
 		// if source file declares a namespace and skipIfNamespace option in use, use source file
 		if($this->options['skipIfNamespace'] && $this->ns && $this->ns != "\\") return $sourcePathname;
@@ -747,7 +842,7 @@ class FileCompiler extends Wire {
 			}
 			
 			copy($sourceFile, $targetFile);
-			$this->wire('files')->chmod($targetFile);
+			$this->chmod($targetFile);
 			touch($targetFile, filemtime($sourceFile));
 			$numCopied++;
 		}
@@ -772,7 +867,7 @@ class FileCompiler extends Wire {
 		if(!is_null($targetPath)) {
 			// use it
 		} else if($all) {
-			$targetPath = $this->wire('config')->paths->cache . $this->className() . '/';
+			$targetPath = $this->cachePath; 
 		} else {
 			$this->init();
 			$targetPath = $this->targetPath;
@@ -803,7 +898,7 @@ class FileCompiler extends Wire {
 	 */
 	public function clearCache($all = false) {
 		if($all) {
-			$targetPath = $this->wire('config')->paths->cache . $this->className() . '/';
+			$targetPath = $this->cachePath; 
 			$this->wire('cache')->deleteFor($this);
 		} else {
 			$this->init();
@@ -832,7 +927,7 @@ class FileCompiler extends Wire {
 			return false;
 		}
 		touch($lastRunFile);
-		$this->wire('files')->chmod($lastRunFile);
+		$this->chmod($lastRunFile);
 		clearstatcache();
 
 		return $this->_maintenance($this->sourcePath, $this->targetPath);
@@ -854,6 +949,7 @@ class FileCompiler extends Wire {
 		$targetPath = rtrim($targetPath, '/') . '/';
 		$sourceURL = str_replace($this->wire('config')->paths->root, '/', $sourcePath);
 		$targetURL = str_replace($this->wire('config')->paths->root, '/', $targetPath);
+		$useLog = $this->globalOptions['logNotices'];
 		
 		//$this->log("Running maintenance for $targetURL (source: $sourceURL)");
 	
@@ -871,7 +967,7 @@ class FileCompiler extends Wire {
 			if($file->isDir()) {
 				if(!is_dir($sourceFile)) {
 					$this->wire('files')->rmdir($targetFile, true);
-					$this->log("Remove directory: $targetURL$basename");
+					if($useLog) $this->log("Maintenance/Remove directory: $targetURL$basename");
 				} else {
 					$this->_maintenance($sourceFile, $targetFile);
 				}
@@ -881,14 +977,14 @@ class FileCompiler extends Wire {
 			if(!file_exists($sourceFile)) {
 				// source file has been deleted
 				unlink($targetFile);
-				$this->log("Remove target file: $targetURL$basename");
+				if($useLog) $this->log("Maintenance/Remove target file: $targetURL$basename");
 				
 			} else if(filemtime($sourceFile) != filemtime($targetFile)) {
 				// source file has changed
 				copy($sourceFile, $targetFile);
-				$this->wire('files')->chmod($targetFile);
+				$this->chmod($targetFile);
 				touch($targetFile, filemtime($sourceFile));
-				$this->log("Copy new version of source file to target file: $sourceURL$basename => $targetURL$basename");
+				if($useLog) $this->log("Maintenance/Copy new version of source file to target file: $sourceURL$basename => $targetURL$basename");
 			}
 		}
 	

@@ -2,7 +2,7 @@
 
 DROP TABLE IF EXISTS `caches`;
 CREATE TABLE `caches` (
-  `name` varchar(255) NOT NULL,
+  `name` varchar(250) NOT NULL,
   `data` mediumtext NOT NULL,
   `expires` datetime NOT NULL,
   PRIMARY KEY (`name`),
@@ -12,7 +12,7 @@ CREATE TABLE `caches` (
 DROP TABLE IF EXISTS `field_email`;
 CREATE TABLE `field_email` (
   `pages_id` int(10) unsigned NOT NULL,
-  `data` varchar(255) NOT NULL DEFAULT '',
+  `data` varchar(250) NOT NULL DEFAULT '',
   PRIMARY KEY (`pages_id`),
   KEY `data_exact` (`data`),
   FULLTEXT KEY `data` (`data`)
@@ -122,7 +122,7 @@ INSERT INTO `field_title` (`pages_id`, `data`) VALUES('1007', 'Find');
 DROP TABLE IF EXISTS `fieldgroups`;
 CREATE TABLE `fieldgroups` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) CHARACTER SET ascii NOT NULL,
+  `name` varchar(250) CHARACTER SET ascii NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
 ) ENGINE=MyISAM AUTO_INCREMENT=97 DEFAULT CHARSET=utf8;
@@ -157,9 +157,9 @@ DROP TABLE IF EXISTS `fields`;
 CREATE TABLE `fields` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `type` varchar(128) CHARACTER SET ascii NOT NULL,
-  `name` varchar(255) CHARACTER SET ascii NOT NULL,
+  `name` varchar(250) CHARACTER SET ascii NOT NULL,
   `flags` int(11) NOT NULL DEFAULT '0',
-  `label` varchar(255) NOT NULL DEFAULT '',
+  `label` varchar(250) NOT NULL DEFAULT '',
   `data` text NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`),
@@ -396,7 +396,7 @@ CREATE TABLE `session_login_throttle` (
 DROP TABLE IF EXISTS `templates`;
 CREATE TABLE `templates` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) CHARACTER SET ascii NOT NULL,
+  `name` varchar(250) CHARACTER SET ascii NOT NULL,
   `fieldgroups_id` int(10) unsigned NOT NULL DEFAULT '0',
   `flags` int(11) NOT NULL DEFAULT '0',
   `cache_time` mediumint(9) NOT NULL DEFAULT '0',

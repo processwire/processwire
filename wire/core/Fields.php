@@ -480,7 +480,7 @@ class Fields extends WireSaveableItems {
 			
 		foreach($schema1 as $key => $value) {
 			if(!in_array($value, $schema2)) {
-				if($this->config->debug) $this->message("changeFieldType loses table field '$value'"); 
+				if($this->wire('config')->debug) $this->message("changeFieldType loses table field '$value'"); 
 				unset($schema1[$key]); 
 			}
 		}

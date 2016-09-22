@@ -32,6 +32,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	
 	protected $maxImageWidth = 835; 
 	protected $page = null;
+	protected $masterPage = null;
 	protected $editorPage = null;
 	protected $defaultClass = 'Pageimage';
 	protected $file = '';
@@ -167,7 +168,18 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		if(!$this->page) $this->page = $this->pages->get($id); 
 		if(!$this->page) throw new WireException("No page specified"); 
 		if(!$this->page->id) throw new WireException("Unknown page"); 
-		if(!$this->editorPage) $this->editorPage = $this->page; 
+		if(!$this->editorPage) $this->editorPage = $this->page;
+		
+		// if $this->page is a repeater item (for example), $this->masterPage is page it lives on
+		$p = null;
+		if(strpos($this->page->className(), 'Repeater') !== false) {
+			/** @var RepeaterPage $p */
+			$p = $this->page;
+			while(strpos($p->className(), 'Repeater') !== false) {
+				$p = $p->getForPage();
+			}
+		}
+		$this->masterPage = $p && $p->id ? $p : $this->page; 
 		
 		// note we use hasPermission('page-view') rather than viewable() here because
 		// we want to allow pages without template files
@@ -177,14 +189,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				&& $this->wire('modules')->get('PagePermissions')->userFieldEditable($fieldName)) {
 				// user editing allowed images field in their profile
 			} else if(strpos($this->page->className(), 'Repeater') !== false) {
-				/** @var RepeaterPage $p */
-				$p = $this->page; 
-				while(strpos($p->className(), 'Repeater') !== false) {
-					$p = $p->getForPage();
-				}
-				if($p && $p->id && $p->editable()) {
-					// okay
-				} else {
+				if(!$this->masterPage->editable()) {
 					throw new WireException($this->labels['noAccess']);
 				}
 			} else {
@@ -554,7 +559,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function checkImageEditPermission($throw = true) {
-		if(!$this->rte && !$this->wire('user')->hasPermission('page-edit-images', $this->page)) {
+		if(!$this->rte && !$this->wire('user')->hasPermission('page-edit-images', $this->masterPage)) {
 			if($throw) {
 				throw new WirePermissionException($this->labels['noAccess']);
 			} else {

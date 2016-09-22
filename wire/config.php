@@ -556,6 +556,35 @@ $config->adminThumbOptions = array(
 	);
 
 /**
+ * File compiler options (as used by FileCompiler class)
+ *
+ * Enables modification of file compiler behaviors. See also $config->moduleCompile
+ * and $config->templateCompile settings. 
+ *
+ * #property bool siteOnly Specify true to prevent compiler from attempting compilation outside files in /site/ (default=false).
+ * #property bool showNotices Show notices in admin about compiled files to superuser when logged in (default=true).
+ * #property bool logNotices Log notices about compiled files and maintenance to file-compiler.txt log (default=true). 
+ * #property string chmodFile Mode to use for created files, i.e. "0644" (uses $config->chmodFile setting by default).
+ * #property string chmodDir Mode to use for created dirs, i.e. "0755" (uses $config->chmodDir setting by default). 
+ * #property array exclusions Exclude paths that exist within any of these paths (default includes $config->paths->wire).
+ * #property array extensions File extensions that we compile (default=php, module, inc).
+ * #property string cachePath Path where compiled files are stored (default is $config->paths->cache . 'FileCompiler/')
+ *
+ * @var array
+ *
+ */
+$config->fileCompilerOptions = array(
+	'siteOnly' => false,  // only allow compilation of files in /site/ directory
+	'showNotices' => true, // show notices about compiled files to superuser when logged in
+	'logNotices' => true, // log notices about compiled files and maintenance to file-compiler.txt log.
+	'chmodFile' => $config->chmodFile, // mode to use for created files, i.e. "0644"
+	'chmodDir' => $config->chmodDir,  // mode to use for created directories, i.e. "0755"
+	'exclusions' => array(), // exclude filenames or paths that start with any of these
+	'extensions' => array('php', 'module', 'inc'), // file extensions we compile
+	'cachePath' => $config->paths->cache . 'FileCompiler/', // path where compiled files are stored
+	);
+
+/**
  * Temporary directory for uploads
  * 
  * Optionally override PHP's upload_tmp_dir with your own.
@@ -1023,9 +1052,13 @@ $config->preloadCacheNames = array(
 $config->allowExceptions = false;
 
 /**
- * Use the X-Powered-By header?
+ * X-Powered-By header behavior
+ *
+ * - true: Sends the generic PW header, replacing any other powered-by headers (recommended). 
+ * - false: Sends blank powered-by, replacing any other powered-by headers.
+ * - null: Sends no powered-by, existing server powered-by headers will pass through.
  * 
- * @var bool
+ * @var bool|null
  * 
  */
 $config->usePoweredBy = true;

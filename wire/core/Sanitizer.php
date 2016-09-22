@@ -2321,6 +2321,7 @@ class Sanitizer extends Wire {
 			'templateName',
 			'pageName',
 			'pageNameTranslate',
+			'pageNameUTF8',
 			'filename',
 			'path', 
 			'pagePathName',

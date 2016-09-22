@@ -357,8 +357,9 @@ class FieldtypeFile extends FieldtypeMulti {
 		$database = $this->wire('database');
 		$schema = parent::getDatabaseSchema($field);
 		$table = $database->escapeTable($field->table); 
+		$maxLen = $database->getMaxIndexLength();
 
-		$schema['data'] = 'varchar(250) NOT NULL';
+		$schema['data'] = "varchar($maxLen) NOT NULL";
 		$schema['description'] = "text NOT NULL";
 		$schema['modified'] = "datetime"; 
 		$schema['created'] = "datetime"; 

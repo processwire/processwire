@@ -702,6 +702,7 @@ class SelectableOptionManager extends Wire {
 		$database = $this->wire('database'); 
 		$table = self::optionsTable;
 		$languages = $this->wire('languages');
+		$maxLen = $database->getMaxIndexLength();
 	
 		// check for added languages
 		foreach($languages as $language) {
@@ -715,13 +716,13 @@ class SelectableOptionManager extends Wire {
 
 			try {
 				$database->exec("ALTER TABLE $table ADD $titleCol TEXT");
-				$database->exec("ALTER TABLE $table ADD UNIQUE $titleCol ($titleCol(250), fields_id)");
+				$database->exec("ALTER TABLE $table ADD UNIQUE $titleCol ($titleCol($maxLen), fields_id)");
 			} catch(\Exception $e) {
 				$this->error($e->getMessage());
 			}
 			try {
-				$database->exec("ALTER TABLE $table ADD $valueCol VARCHAR(250)");
-				$database->exec("ALTER TABLE $table ADD INDEX $valueCol ($valueCol(250), fields_id)");
+				$database->exec("ALTER TABLE $table ADD $valueCol VARCHAR($maxLen)");
+				$database->exec("ALTER TABLE $table ADD INDEX $valueCol ($valueCol($maxLen), fields_id)");
 				$database->exec("ALTER TABLE $table ADD FULLTEXT {$titleCol}_$valueCol ($titleCol, $valueCol)");
 			} catch(\Exception $e) {
 				$this->error($e->getMessage());
@@ -755,6 +756,7 @@ class SelectableOptionManager extends Wire {
 	public function install() {
 
 		$database = $this->wire('database'); 
+		$maxLen = $database->getMaxIndexLength();
 		$query = $database->prepare("SHOW TABLES LIKE '" . self::optionsTable . "'"); 
 		$query->execute();
 		
@@ -766,11 +768,11 @@ class SelectableOptionManager extends Wire {
 				"fields_id INT UNSIGNED NOT NULL, " .
 				"option_id INT UNSIGNED NOT NULL, " .
 				"`title` TEXT, " .
-				"`value` VARCHAR(250), " .
+				"`value` VARCHAR($maxLen), " .
 				"sort INT UNSIGNED NOT NULL, " .
 				"PRIMARY KEY (fields_id, option_id), " .
-				"UNIQUE title (title(250), fields_id), " .
-				"INDEX `value` (`value`(250), fields_id), " .
+				"UNIQUE title (title($maxLen), fields_id), " .
+				"INDEX `value` (`value`($maxLen), fields_id), " .
 				"INDEX sort (sort, fields_id), " .
 				"FULLTEXT title_value (`title`, `value`)" .
 				") ENGINE=$engine DEFAULT CHARSET=$charset";

@@ -305,7 +305,7 @@
 
 		.InputfieldItemList {
 			/* nested item list */ 
-			.InputfieldItemHeader:not(:hover) {
+			.InputfieldItemHeader:not(:hover):not(.ui-state-error) {
 				/* lighten up nested item list headers use a different color */
 				background: $ui-state-default-bg; 
 				color: $ui-state-default-color; 

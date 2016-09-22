@@ -1,7 +1,7 @@
 DROP TABLE IF EXISTS `field_email`;
 CREATE TABLE `field_email` (
   `pages_id` int(10) unsigned NOT NULL,
-  `data` varchar(255) NOT NULL default '',
+  `data` varchar(250) NOT NULL default '',
   PRIMARY KEY  (`pages_id`),
   KEY `data_exact` (`data`),
   FULLTEXT KEY `data` (`data`)
@@ -122,7 +122,7 @@ INSERT INTO `field_title` (`pages_id`, `data`) VALUES (54,'Lock or unlock a page
 DROP TABLE IF EXISTS `templates`;
 CREATE TABLE `templates` (
   `id` int(10) unsigned NOT NULL auto_increment,
-  `name` varchar(255) character set ascii NOT NULL,
+  `name` varchar(250) character set ascii NOT NULL,
   `fieldgroups_id` int(10) unsigned NOT NULL default '0',
   `flags` int(11) NOT NULL default '0',
   `cache_time` mediumint(9) NOT NULL default '0',
@@ -141,7 +141,7 @@ DROP TABLE IF EXISTS `fieldgroups`;
 
 CREATE TABLE `fieldgroups` (
   `id` int(10) unsigned NOT NULL auto_increment,
-  `name` varchar(255) character set ascii NOT NULL,
+  `name` varchar(250) character set ascii NOT NULL,
   PRIMARY KEY  (`id`),
   UNIQUE KEY `name` (`name`)
 ) ENGINE=MyISAM AUTO_INCREMENT=97 DEFAULT CHARSET=utf8;
@@ -173,9 +173,9 @@ DROP TABLE IF EXISTS `fields`;
 CREATE TABLE `fields` (
   `id` int(10) unsigned NOT NULL auto_increment,
   `type` varchar(128) character set ascii NOT NULL,
-  `name` varchar(255) character set ascii NOT NULL,
+  `name` varchar(250) character set ascii NOT NULL,
   `flags` int(11) NOT NULL default '0',
-  `label` varchar(255) NOT NULL default '',
+  `label` varchar(250) NOT NULL default '',
   `data` text NOT NULL,
   PRIMARY KEY  (`id`),
   UNIQUE KEY `name` (`name`),

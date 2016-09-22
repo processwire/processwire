@@ -710,4 +710,25 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		return $backups; 
 	}
 
+	/**
+	 * Get max length allowed for a fully indexed varchar column in ProcessWire
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return int
+	 * 
+	 */
+	public function getMaxIndexLength() {
+		$config = $this->wire('config');
+		$engine = strtolower($config->dbEngine);
+		$charset = strtolower($config->dbCharset);
+		$max = 250; 
+		if($charset == 'utf8mb4') {
+			if($engine == 'innodb') {
+				$max = 191; 
+			}
+		}
+		return $max;
+	}
+
 }

@@ -402,7 +402,7 @@ table {
 		//border-color: darken($item-border-color, 4%);
 		background: $item-bg;
 		border: none;
-		margin-bottom: 1em;
+		//margin-bottom: 1em;
 	}
 
 	.InputfieldItemList .InputfieldItemHeader {
@@ -440,7 +440,8 @@ table {
 		color: $ui-state-default-color; 
 	}
 
-	.InputfieldItemList .InputfieldItemHeader.ui-state-error {
+	.InputfieldItemList .InputfieldItemHeader.ui-state-error,
+	.InputfieldItemList .InputfieldItemList .InputfieldItemHeader.ui-state-error {
 		/* deleted item state */
 		text-decoration: line-through; 
 		background: $error-bg; 

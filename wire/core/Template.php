@@ -388,7 +388,7 @@ class Template extends WireData implements Saveable, Exportable {
 			$has = in_array($rolePage->id, $this->editRoles);
 		} else if($type === 'create') {
 			$has = in_array($rolePage->id, $this->createRoles);
-		} else if($tye == 'add') {
+		} else if($type == 'add') {
 			$has = in_array($rolePage->id, $this->addRoles);
 		}
 		return $has;

@@ -113,6 +113,7 @@ var ProcessWireAdminTheme = {
 				// double click occurred
 				clearTimeout(clickTimer);
 				numClicks = 0;
+				window.location.href = $a.attr('href');
 				return true; 
 			}
 			return false;

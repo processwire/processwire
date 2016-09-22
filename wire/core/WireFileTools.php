@@ -21,6 +21,8 @@ class WireFileTools extends Wire {
 	 * setting `$config->chmodDir`, and it can create directories recursively. Meaning, if you want to create directory /a/b/c/ 
 	 * and directory /a/ doesn't yet exist, this method will take care of creating /a/, /a/b/, and /a/b/c/. 
 	 * 
+	 * The `$recursive` and `$chmod` arguments may optionally be swapped (since 3.0.34).
+	 * 
 	 * ~~~~~
 	 * // Create a new directory in ProcessWire's cache dir
 	 * if($files->mkdir($config->paths->cache . 'foo-bar/')) {
@@ -29,14 +31,22 @@ class WireFileTools extends Wire {
 	 * ~~~~~
 	 *
 	 * @param string $path Directory you want to create
-	 * @param bool $recursive If set to true, all directories will be created as needed to reach the end.
-	 * @param string $chmod Optional mode to set directory to (default: $config->chmodDir), format must be a string i.e. "0755"
+	 * @param bool|string $recursive If set to true, all directories will be created as needed to reach the end.
+	 * @param string|null|bool $chmod Optional mode to set directory to (default: $config->chmodDir), format must be a string i.e. "0755"
 	 *   If omitted, then ProcessWire's `$config->chmodDir` setting is used instead.
 	 * @return bool True on success, false on failure
 	 *
 	 */
 	public function mkdir($path, $recursive = false, $chmod = null) {
 		if(!strlen($path)) return false;
+		
+		if(is_string($recursive) && strlen($recursive) > 2) {
+			// chmod argument specified as $recursive argument or arguments swapped
+			$_chmod = $recursive;
+			$recursive = is_bool($chmod) ? $chmod : false;
+			$chmod = $_chmod;
+		}
+		
 		if(!is_dir($path)) {
 			if($recursive) {
 				$parentPath = substr($path, 0, strrpos(rtrim($path, '/'), '/'));
@@ -93,20 +103,29 @@ class WireFileTools extends Wire {
 	 * This method also provides the option of going recursive, adjusting the read/write mode for an entire
 	 * file/directory tree at once. 
 	 * 
+	 * The `$recursive` or `$chmod` arguments may be optionally swapped in order (since 3.0.34).
+	 * 
 	 * ~~~~~
 	 * // Update the mode of /site/assets/cache/foo-bar/ recursively
 	 * $files->chmod($config->paths->cache . 'foo-bar/', true); 
 	 * ~~~~~
 	 *
 	 * @param string $path Path or file that you want to adjust mode for (may be a path/directory or a filename).
-	 * @param bool $recursive If set to true, all files and directories in $path will be recursively set as well (default=false). 
-	 * @param string If you want to set the mode to something other than ProcessWire's chmodFile/chmodDir settings,
+	 * @param bool|string $recursive If set to true, all files and directories in $path will be recursively set as well (default=false). 
+	 * @param string|null|bool $chmod If you want to set the mode to something other than ProcessWire's chmodFile/chmodDir settings,
 	 * you may override it by specifying it here. Ignored otherwise. Format should be a string, like "0755".
 	 * @return bool Returns true if all changes were successful, or false if at least one chmod failed.
 	 * @throws WireException when it receives incorrect chmod format
 	 *
 	 */
 	public function chmod($path, $recursive = false, $chmod = null) {
+		
+		if(is_string($recursive) && strlen($recursive) > 2) {
+			// chmod argument specified as $recursive argument or arguments swapped
+			$_chmod = $recursive;
+			$recursive = is_bool($chmod) ? $chmod : false;
+			$chmod = $_chmod; 
+		}
 
 		if(is_null($chmod)) {
 			// default: pull values from PW config

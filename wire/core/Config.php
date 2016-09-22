@@ -40,6 +40,7 @@
  * 
  * @property array $contentTypes Array of extensions and the associated MIME type for each (for template file output). #pw-group-template-files
  * @property array $fileContentTypes Array of extensions and the associated MIME type for each (for file output). See /wire/config.php for details and defaults. #pw-group-files
+ * @property array $fileCompilerOptions Array of options for FileCompiler class. See /wire/config.php for details and defaults. #pw-group-files
  * 
  * @property string $chmodDir Octal string permissions assigned to directories created by ProcessWire #pw-group-files
  * @property string $chmodFile Octal string permissions assigned to files created by ProcessWire #pw-group-files
@@ -300,6 +301,72 @@ class Config extends WireData {
 
 		$this->jsFields[] = $key; 
 		return parent::set($key, $value); 
+	}
+	
+	/**
+	 * Allow for getting/setting config properties via method call
+	 * 
+	 * This is primarily useful for getting or setting config properties that consist of associative arrays. 
+	 * 
+	 * ~~~~~
+	 * 
+	 * // Enable debug mode, same as $config->debug = true; 
+	 * $config->debug(true);
+	 * 
+	 * // Set a specific property in options array
+	 * $config->fileCompilerOptions('siteOnly', true);
+	 * 
+	 * // Get a specific property in options array
+	 * $value = $config->fileCompilerOptions('siteOnly');
+	 * 
+	 * // Set multiple properties in options array (leaving other existing properties alone)
+	 * $config->fileCompilerOptions([
+	 *   'siteOnly' => true, 
+	 *   'cachePath' => $config->paths->root . '.my-cache/'
+	 * ]);
+	 * ~~~~~
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $method Requested method name
+	 * @param array $arguments Arguments provided
+	 * @return null|mixed Return value of method (if applicable)
+	 * @throws WireException
+	 *
+	 */
+	protected function ___callUnknown($method, $arguments) {
+		//$this->message("callUnknown($method)");
+		$value = parent::get($method);
+		if($value === null) return parent::___callUnknown($method, $arguments);
+		$numArgs = count($arguments);
+		if($numArgs === 0) return $value; // no arguments? just return value
+	
+		if(is_array($value)) {
+			// existing value is an array
+			$property = $arguments[0];
+			if($numArgs === 1) {
+				// just a property name (get) or array (set) provided
+				if(is_string($property)) {
+					// just return property value from array
+					return isset($value[$property]) ? $value[$property] : null;
+				} else if(is_array($property)) {
+					// set multiple named properties
+					$value = array_merge($value, $property);
+					parent::set($method, $value);
+				} else {
+					throw new WireException("Invalid argument, array or string expected");
+				}
+			} else {
+				// property and value provided
+				$value[$property] = $arguments[1];
+				parent::set($method, $value);
+			}
+		} else if($numArgs === 1) {
+			// just set a value
+			parent::set($method, $arguments[0]);
+		}
+		
+		return $this;
 	}
 }
 

@@ -196,6 +196,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 */
 	protected function preloadInputfieldAssets($fieldIDs = array()) {
 		if(empty($fieldIDs)) $fieldIDs = $this->field->get('repeaterFields');
+		if(!is_array($fieldIDs)) return;
 		foreach($fieldIDs as $fieldID) {
 			$field = $this->wire('fields')->get($fieldID);
 			try {

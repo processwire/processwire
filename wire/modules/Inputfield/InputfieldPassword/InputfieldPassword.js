@@ -1,6 +1,8 @@
 jQuery(document).ready(function($) {
 	
-	$("input.InputfieldPasswordComplexify").each(function() {
+	var $inputs = $("input.InputfieldPasswordComplexify");
+	
+	$inputs.each(function() {
 		
 		var $input = $(this);
 		var $inputfield = $input.closest('.Inputfield');
@@ -146,4 +148,16 @@ jQuery(document).ready(function($) {
 			if($on) $on.addClass('on').siblings('.on').removeClass('on');
 		});
 	});
+
+	// accommodate issue where Firefox auto-populates remembered password when it shouldn't
+	var $ffinputs = $inputs.filter("[autocomplete='off']");
+	if($ffinputs.length) {
+		setTimeout(function() {
+			$ffinputs.each(function() {
+				if($(this).val().length < 1) return;
+				$(this).val('').trigger('keyup').change()
+					.closest('.Inputfield').removeClass('InputfieldStateChanged');
+			});
+		}, 1000);
+	}
 }); 

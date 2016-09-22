@@ -1040,7 +1040,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			//$form->head = $this->_('Basic field settings');
 			$field = $this->modules->get('InputfieldName');
 			$field->attr('value', $this->field->name); 
-			$field->description = $this->_("Any combination of ASCII letters [a-z], numbers [0-9], or underscores (no dashes or spaces).");
+			$field->description = $this->_("Use only ASCII letters (a-z A-Z), numbers (0-9) or underscores.");
 			$form->add($field); 
 
 			$field = $this->modules->get('InputfieldSelect');

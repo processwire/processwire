@@ -2,7 +2,7 @@
 
 DROP TABLE IF EXISTS `caches`;
 CREATE TABLE `caches` (
-  `name` varchar(255) NOT NULL,
+  `name` varchar(250) NOT NULL,
   `data` mediumtext NOT NULL,
   `expires` datetime NOT NULL,
   PRIMARY KEY (`name`),
@@ -31,7 +31,7 @@ INSERT INTO `field_body` (`pages_id`, `data`, `data1012`, `data1013`) VALUES('10
 DROP TABLE IF EXISTS `field_email`;
 CREATE TABLE `field_email` (
   `pages_id` int(10) unsigned NOT NULL,
-  `data` varchar(255) NOT NULL DEFAULT '',
+  `data` varchar(250) NOT NULL DEFAULT '',
   PRIMARY KEY (`pages_id`),
   KEY `data_exact` (`data`),
   FULLTEXT KEY `data` (`data`)
@@ -57,7 +57,7 @@ INSERT INTO `field_headline` (`pages_id`, `data`, `data1012`, `data1013`) VALUES
 DROP TABLE IF EXISTS `field_images`;
 CREATE TABLE `field_images` (
   `pages_id` int(10) unsigned NOT NULL,
-  `data` varchar(255) NOT NULL,
+  `data` varchar(250) NOT NULL,
   `sort` int(10) unsigned NOT NULL,
   `description` text NOT NULL,
   `modified` datetime DEFAULT NULL,
@@ -87,7 +87,7 @@ INSERT INTO `field_language` (`pages_id`, `data`, `sort`) VALUES('41', '1010', '
 DROP TABLE IF EXISTS `field_language_files`;
 CREATE TABLE `field_language_files` (
   `pages_id` int(10) unsigned NOT NULL,
-  `data` varchar(255) NOT NULL,
+  `data` varchar(250) NOT NULL,
   `sort` int(10) unsigned NOT NULL,
   `description` text NOT NULL,
   `modified` datetime DEFAULT NULL,
@@ -222,7 +222,7 @@ INSERT INTO `field_language_files` (`pages_id`, `data`, `sort`, `description`, `
 DROP TABLE IF EXISTS `field_language_files_site`;
 CREATE TABLE `field_language_files_site` (
   `pages_id` int(10) unsigned NOT NULL,
-  `data` varchar(255) NOT NULL,
+  `data` varchar(250) NOT NULL,
   `sort` int(10) unsigned NOT NULL,
   `description` text NOT NULL,
   `modified` datetime DEFAULT NULL,
@@ -396,7 +396,7 @@ INSERT INTO `field_title` (`pages_id`, `data`, `data1012`, `data1013`) VALUES('1
 DROP TABLE IF EXISTS `fieldgroups`;
 CREATE TABLE `fieldgroups` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) CHARACTER SET ascii NOT NULL,
+  `name` varchar(250) CHARACTER SET ascii NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
 ) ENGINE=MyISAM AUTO_INCREMENT=98 DEFAULT CHARSET=utf8;
@@ -450,9 +450,9 @@ DROP TABLE IF EXISTS `fields`;
 CREATE TABLE `fields` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
   `type` varchar(128) CHARACTER SET ascii NOT NULL,
-  `name` varchar(255) CHARACTER SET ascii NOT NULL,
+  `name` varchar(250) CHARACTER SET ascii NOT NULL,
   `flags` int(11) NOT NULL DEFAULT '0',
-  `label` varchar(255) NOT NULL DEFAULT '',
+  `label` varchar(250) NOT NULL DEFAULT '',
   `data` text NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`),
@@ -584,7 +584,7 @@ INSERT INTO `modules` (`id`, `class`, `flags`, `data`, `created`) VALUES('166', 
 
 DROP TABLE IF EXISTS `page_path_history`;
 CREATE TABLE `page_path_history` (
-  `path` varchar(255) NOT NULL,
+  `path` varchar(250) NOT NULL,
   `pages_id` int(10) unsigned NOT NULL,
   `created` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`path`),
@@ -746,7 +746,7 @@ CREATE TABLE `session_login_throttle` (
 DROP TABLE IF EXISTS `templates`;
 CREATE TABLE `templates` (
   `id` int(10) unsigned NOT NULL AUTO_INCREMENT,
-  `name` varchar(255) CHARACTER SET ascii NOT NULL,
+  `name` varchar(250) CHARACTER SET ascii NOT NULL,
   `fieldgroups_id` int(10) unsigned NOT NULL DEFAULT '0',
   `flags` int(11) NOT NULL DEFAULT '0',
   `cache_time` mediumint(9) NOT NULL DEFAULT '0',

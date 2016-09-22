@@ -38,8 +38,9 @@ class FieldtypeEmail extends FieldtypeText {
 	}
 
 	public function getDatabaseSchema(Field $field) {
+		$len = $this->wire('database')->getMaxIndexLength();
 		$schema = parent::getDatabaseSchema($field); 
-		$schema['data'] = "varchar(250) NOT NULL default ''";
+		$schema['data'] = "varchar($len) NOT NULL default ''";
 		return $schema;
 	}
 

@@ -17,7 +17,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		return array(
 			'title' => __('User Profile', __FILE__), // getModuleInfo title          
 			'summary' => __('Enables user to change their password, email address and other settings that you define.', __FILE__), // getModuleInfo summary 
-			'version' => 102, 
+			'version' => 103, 
 			'permanent' => true, 
 			'permission' => 'profile-edit',
 			);
@@ -27,16 +27,23 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	 * @var User
 	 * 
 	 */
-	protected $user; 
+	protected $user;
 
+	/**
+	 * Construct/establish initial module configuration
+	 * 
+	 */
 	public function __construct() {
 		$this->set('profileFields', array()); 
 	}
 
-	public function init() {
-		parent::init();
-	}
-
+	/**
+	 * Execute/render profile edit form
+	 * 
+	 * @return string
+	 * @throws WireException
+	 * 
+	 */
 	public function ___execute() {
 		
 		$fieldName = '';
@@ -123,8 +130,11 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	 *
 	 */
 	protected function processInput(Inputfield $form, $fieldName = '') {
+		
+		/** @var InputfieldForm $form */
 
 		$user = $this->user; 
+		$languages = $this->wire('languages');
 		$form->processInput($this->input->post);
 
 		if(count($form->getErrors())) {
@@ -141,7 +151,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			if($fieldName && $field->name !== $fieldName) continue; 
 			
 			$field = $this->user->fields->getFieldContext($field);
-			$inputfield = $form->get($field->name); 	
+			$inputfield = $form->getChildByName($field->name); 	
 			$value = $inputfield->attr('value'); 
 			
 			if($field->name == 'email' && strlen($value)) {
@@ -152,9 +162,20 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			}
 
 			if($field->name == 'pass' && empty($value)) continue; 
-	
-			if($user->get($field->name) !== $value) {	
-				$user->set($field->name, $value); 
+
+			if($inputfield->isChanged()) {
+				$v = $user->get($field->name);
+				if($languages && $inputfield->getSetting('useLanguages')) {
+					if(is_object($v)) {
+						$v->setFromInputfield($inputfield);
+						$user->set($field->name, $v);
+						$user->trackChange($field->name);
+					} else {
+						$user->set($field->name, $value);
+					}
+				} else {
+					$user->set($field->name, $value);
+				}
 			}
 			
 		}
@@ -171,6 +192,14 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 
 	}
 
+	/**
+	 * Module configuration
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
+	 * @throws WireException
+	 * 
+	 */
 	public function getModuleConfigInputfields(array $data) {
 
 		$profileFields = isset($data['profileFields']) ? $data['profileFields'] : array();
