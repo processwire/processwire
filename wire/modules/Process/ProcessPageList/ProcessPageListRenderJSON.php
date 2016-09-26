@@ -99,11 +99,15 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		$children = array();
 
 		$extraPages = array(); // pages forced to bottom of list
+		$id404 = $this->wire('config')->http404PageID;
 
 		foreach($this->children as $page) {
 			if(!$this->superuser && !$page->listable()) continue;
 
-			if(in_array($page->id, $this->systemIDs)) {
+			if($page->id == $id404 && !$this->superuser) {
+				// allow showing 404 page, only if it's editable
+				if(!$page->editable()) continue;
+			} else if(in_array($page->id, $this->systemIDs)) {
 				$extraPages[] = $page;
 				continue;
 			}
