@@ -597,7 +597,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 * 	- crop_h (int): Predefined crop height
 	 * 
 	 * @return string
-	 * @throws Exception|WireException
+	 * @throws \Exception|WireException
 	 * 
 	 */
 	public function ___executeEdit() {
@@ -1202,8 +1202,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$pageimage = $this->getPageimage();
 		
 		if(!$this->page || !$pageimage) throw new WireException("No file provided"); 
-		if(!$this->page->editable()) throw new WireException("Page is not editable");
-		$hasEditPermission = $this->wire('user')->hasPermission('page-edit-images', $this->page);
+		if(!$this->masterPage->editable()) throw new WireException($this->labels['noAccess']);
+		$hasEditPermission = $this->wire('user')->hasPermission('page-edit-images', $this->masterPage);
 		
 		$variations = $pageimage->getVariations(array('info' => true));
 		$cnt = count($variations);
