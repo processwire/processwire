@@ -706,8 +706,8 @@ class PageFinder extends Wire {
 			$selector->value = count($ids) > 1 ? $ids : reset($ids);
 			
 		} else {
-			$field = $this->isPageField($fieldName);
-			if(is_object($field) && $field instanceof FieldtypePage) {
+			$isPageField = $this->isPageField($fieldName, true);
+			if($isPageField) {
 				// FieldtypePage fields can use the "," separation syntax for speed optimization
 				$selector->value = count($ids) > 1 ? implode(',', $ids) : reset($ids);
 			} else {
@@ -1963,29 +1963,54 @@ class PageFinder extends Wire {
 	 * Does the given field or fieldName resolve to a field that uses Page or PageArray values?
 	 * 
 	 * @param string|Field $fieldName Field name or object
+	 * @param bool $literal Specify true to only allow types that literally use FieldtypePage::getMatchQuery() 
 	 * @return Field|bool|string Returns Field object or boolean true (children|parent) if valid Page field, or boolean false if not
 	 * 
 	 */
-	protected function isPageField($fieldName) {
+	protected function isPageField($fieldName, $literal = false) {
+		
 		$is = false;
 		$field = null;
+		
 		if($fieldName === 'parent' || $fieldName === 'children') {
 			return $fieldName; // early exit
+			
 		} else if(is_object($fieldName) && $fieldName instanceof Field) {
 			$field = $fieldName;
+			
+		} else if(is_string($fieldName) && strpos($fieldName, '.')) {
+			// check if this is a multi-part field name
+			list($fieldName, $subfieldName) = explode('.', $fieldName, 2);
+			if($subfieldName === 'id') {
+				// id property is fine and can be ignored
+			} else {
+				// some other property, see if it resolves to a literal Page field
+				$f = $this->isPageField($subfieldName, true);
+				if($f) {
+					// subfield resolves to literal Page field, so we can pass this one through
+				} else {
+					// some other property, that doesn't resolve to a Page field, we can early-exit now
+					return false;
+				}
+			}
+			$field = $this->wire('fields')->get($fieldName);
+			
 		} else {
 			$field = $this->wire('fields')->get($fieldName);
 		}
+		
 		if($field) {
 			$className = $field->type->className();
 			if($field->type instanceof FieldtypePage) {
 				$is = true;
-			} else if(strpos($className, 'FieldtypeRepeater') !== false || strpos($className, 'FieldtypePageTable') !== false) {
+			} else if(strpos($field->type->className(), 'FieldtypePageTable') !== false) {
 				$is = true;
+			} else if(strpos($className, 'FieldtypeRepeater') !== false) {
+				$is = $literal ? false : true;
 			} else {
 				$test = $field->type->getBlankValue(new NullPage(), $field); 
 				if(is_object($test) && ($test instanceof Page || $test instanceof PageArray)) {
-					$is = true;
+					$is = $literal ? false : true;
 				}
 			}
 		}
