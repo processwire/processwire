@@ -92,7 +92,7 @@ class WireShutdown extends Wire {
 			$debug = $config->debug;
 			$sendOutput = $config->allowExceptions !== true;
 			if($config->ajax) $http = false;
-			if(function_exists("wireMail") && $config->adminEmail && $sendOutput) {
+			if((function_exists("\\ProcessWire\\wireMail") || function_exists("wireMail")) && $config->adminEmail && $sendOutput) {
 				$logMessage = "Page: $path\nUser: $userName\n\n" . str_replace("\t", "\n", $message);
 				wireMail($config->adminEmail, $config->adminEmail, $this->labels['email-subject'], $logMessage);
 			}
