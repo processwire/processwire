@@ -37,10 +37,10 @@ function TemplateFieldAddDialog() {
             $button.hide();
         });
 
-        // if field has been saved once, now offer a Save, Close & Add button
+        // if field has been saved once, now offer a Save & Add button
         if(fieldReady) {
             buttons[n] = {
-                'text': 'Save, Close & Add',
+                'text': 'Save & Add',
                 'class': ($button.is('.ui-priority-secondary') ? 'ui-priority-secondary' : ''),
                 'click': function() {
                     setTimeout(function() {
