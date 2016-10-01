@@ -2,7 +2,7 @@
 function TemplateFieldAddDialog() {
 
     var $a = $(this);
-    var closeOnSave = false;
+    var fieldReady = false;
     var $iframe = pwModalWindow($a.attr('href'), {}, 'large');
 
     $iframe.load(function() {
@@ -29,34 +29,44 @@ function TemplateFieldAddDialog() {
                     'class': ($button.is('.ui-priority-secondary') ? 'ui-priority-secondary' : ''),
                     'click': function() {
                         $button.click();
-                        if(closeOnSave) setTimeout(function() {
-                            var newFieldId = $icontents.find("#Inputfield_id:last").val();
-                            $iframe.dialog('close');
-                            var numOptions = $('#fieldgroup_fields option').size();
-
-                            $("#fieldgroup_fields option").eq(1).before($("<option></option>").val(newFieldId).text($icontents.find("#Inputfield_name").val()));
-                            $('#fieldgroup_fields option[value="'+newFieldId+'"]')
-                                .attr('id', 'asm0option'+numOptions)
-                                .attr('data-desc', ($icontents.find("#field_label").val()))
-                                .attr('data-status', ($icontents.find("#Inputfield_type option:selected").text()));
-
-                            $("#asmSelect0 option").eq(1).before($("<option></option>").val(newFieldId).text($icontents.find("#Inputfield_name").val()));
-                            $("#asmSelect0").find('option:selected').removeAttr("selected");
-                            $('#asmSelect0 option[value="'+newFieldId+'"]')
-                                .attr('rel', 'asm0option'+numOptions)
-                                .attr('selected', 'selected')
-                                .addClass('asmOptionDisabled')
-                                .attr('disabled', 'disabled')
-                                .trigger('change')
-                                .removeAttr("selected");
-                        }, 500);
-                        closeOnSave = true;
+                        fieldReady = true;
                     }
                 };
                 n++;
             };
             $button.hide();
         });
+
+        // if field has been saved once, now offer a Save, Close & Add button
+        if(fieldReady) {
+            buttons[n] = {
+                'text': 'Save, Close & Add',
+                'class': ($button.is('.ui-priority-secondary') ? 'ui-priority-secondary' : ''),
+                'click': function() {
+                    setTimeout(function() {
+                        var newFieldId = $icontents.find("#Inputfield_id:last").val();
+                        $iframe.dialog('close');
+                        var numOptions = $('#fieldgroup_fields option').size();
+
+                        $("#fieldgroup_fields option").eq(1).before($("<option></option>").val(newFieldId).text($icontents.find("#Inputfield_name").val()));
+                        $('#fieldgroup_fields option[value="'+newFieldId+'"]')
+                            .attr('id', 'asm0option'+numOptions)
+                            .attr('data-desc', ($icontents.find("#field_label").val()))
+                            .attr('data-status', ($icontents.find("#Inputfield_type option:selected").text()));
+
+                        $("#asmSelect0 option").eq(1).before($("<option></option>").val(newFieldId).text($icontents.find("#Inputfield_name").val()));
+                        $("#asmSelect0").find('option:selected').removeAttr("selected");
+                        $('#asmSelect0 option[value="'+newFieldId+'"]')
+                            .attr('rel', 'asm0option'+numOptions)
+                            .attr('selected', 'selected')
+                            .addClass('asmOptionDisabled')
+                            .attr('disabled', 'disabled')
+                            .trigger('change')
+                            .removeAttr("selected");
+                    }, 500);
+                }
+            };
+        }
 
         $iframe.setButtons(buttons);
     });
