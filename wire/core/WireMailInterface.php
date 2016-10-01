@@ -94,9 +94,10 @@ interface WireMailInterface {
 	 *
 	 *
 	 * @param string $value
+	 * @param string $filename
 	 * @return this 
 	 *
-	public function attachment($value); 
+	public function attachment($value, $filename = ''); 
 	 */
 
 	/**

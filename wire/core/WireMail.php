@@ -328,11 +328,12 @@ class WireMail extends WireData implements WireMailInterface {
 	 * @return this 
 	 *
 	 */
-	public function attachment($value) {
+	public function attachment($value, $filename = '') {
 		if(is_null($value)) {
 			$this->mail['attachments'] = array();
 		} else if(is_file($value)) { 
-			$this->mail['attachments'][] = $value; 
+			$filename = $filename ?: basename($value);
+			$this->mail['attachments'][$filename] = $value; 
 		}
 		return $this; 
 	}
@@ -389,10 +390,9 @@ class WireMail extends WireData implements WireMailInterface {
 			}
 
 			// Attachments
-			foreach ($this->attachments as $file) {
+			foreach ($this->attachments as $filename => $file) {
 				$content = file_get_contents($file);
 				$content = chunk_split(base64_encode($content));
-				$filename = basename($file);
 
 				$body .= "--$boundary\r\n" .
 					"Content-Type: application/octet-stream; name=\"$filename\"\r\n" . 
