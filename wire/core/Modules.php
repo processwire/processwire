@@ -4620,6 +4620,12 @@ class Modules extends WireArray {
 		
 		// if not given a file, track it down
 		if(empty($file)) $file = $this->getModuleFile($moduleName);
+
+		// don't compile when module compilation is disabled
+		if(!$this->wire('config')->moduleCompile) return $file;
+	
+		// don't compile core modules
+		if(strpos($file, $this->coreModulesDir) !== false) return $file;
 		
 		// check if a module doesn't want something (directory/file) compiled
 		$moduleInfo = $this->wire('modules')->getModuleInfoVerbose($moduleName);
@@ -4634,12 +4640,6 @@ class Modules extends WireArray {
 				}
 			}
 		}
-
-		// don't compile when module compilation is disabled
-		if(!$this->wire('config')->moduleCompile) return $file;
-	
-		// don't compile core modules
-		if(strpos($file, $this->coreModulesDir) !== false) return $file;
 	
 		// if namespace not provided, get it
 		if(is_null($namespace)) {
