@@ -4620,6 +4620,20 @@ class Modules extends WireArray {
 		
 		// if not given a file, track it down
 		if(empty($file)) $file = $this->getModuleFile($moduleName);
+		
+		// check if a module doesn't want something (directory/file) compiled
+		$moduleInfo = $this->wire('modules')->getModuleInfoVerbose($moduleName);
+		$exclusionsKey = 'fileCompilerExclusions';
+		if(isset($moduleInfo[$exclusionsKey]) && is_array($moduleInfo[$exclusionsKey])) {
+			foreach($moduleInfo[$exclusionsKey] as $exclusion) {
+				$exclusion = pathinfo($file, PATHINFO_DIRNAME) . '/' . $exclusion;
+				if(!in_array($exclusion, $this->wire('config')->fileCompilerOptions['exclusions'])) {
+					$this->wire('config')->fileCompilerOptions('exclusions', array_merge(
+						$this->wire('config')->fileCompilerOptions['exclusions'], [$exclusion]
+					));
+				}
+			}
+		}
 
 		// don't compile when module compilation is disabled
 		if(!$this->wire('config')->moduleCompile) return $file;
