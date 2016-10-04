@@ -488,6 +488,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			if($key == 'required' && empty($this->data['defaultValue'])) continue; // for default value support with InputfieldSelect
 			$inputfield->set($key, $value); 
 		}
+		
+		$inputfield->set('allowUnpub', $this->getSetting('allowUnpub'));
 
 		$this->inputfieldWidget = $inputfield;
 		
@@ -692,7 +694,15 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 				if($id > 0) {	
 					// existing page
 					$page = $this->wire('pages')->get($id); 
-					if($page->hasStatus(Page::statusUnpublished) && !$this->getSetting('allowUnpub')) continue; // disallow unpublished
+					if($page->hasStatus(Page::statusUnpublished) && !$this->getSetting('allowUnpub')) {
+						// disallow unpublished
+						$warning = sprintf($this->_('Unpublished page %1$s is not allowed in field "%2$s"'), $page->path, $this->label);
+						if($this->wire('user')->isSuperuser()) {
+							$warning .= ' ' . sprintf($this->_('To allow unpublished pages, edit the "%s" field and see the setting on the "Advanced" tab.'), $this->name);
+						}
+						$this->warning($warning);
+						continue; 
+					}
 				} else {
 					// placeholder for new page, to be sorted later
 					$page = $this->wire('pages')->newNullPage(); 

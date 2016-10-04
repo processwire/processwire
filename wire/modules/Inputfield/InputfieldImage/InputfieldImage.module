@@ -674,12 +674,12 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList {
 		if($n) {}
 
 		$out = "
-			<button data-href='$editUrl' class='InputfieldImageButtonCrop $buttonClass' $modalAttrs>
+			<button type='button' data-href='$editUrl' class='InputfieldImageButtonCrop $buttonClass' $modalAttrs>
 				<span class='ui-button-text'>
 					<span class='fa fa-crop'></span> $labels[crop]
 				</span>
 			</button>
-			<button data-href='$variationUrl' class='$buttonClass' data-buttons='button'>
+			<button type='button' data-href='$variationUrl' class='$buttonClass' data-buttons='button'>
 				<span class='ui-button-text'>
 					<span class='fa fa-files-o'></span> 
 					$labels[variations]

@@ -163,8 +163,8 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 
 			if($field->name == 'pass' && empty($value)) continue; 
 
-			if($inputfield->isChanged()) {
-				$v = $user->get($field->name);
+			$v = $user->get($field->name);
+			if($inputfield->isChanged() || $v !== $value) {
 				if($languages && $inputfield->getSetting('useLanguages')) {
 					if(is_object($v)) {
 						$v->setFromInputfield($inputfield);

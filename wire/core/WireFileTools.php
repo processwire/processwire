@@ -169,6 +169,9 @@ class WireFileTools extends Wire {
 	 * ensuring that all files and directories in the source ($src) directory are duplicated
 	 * in the destination ($dst) directory. 
 	 * 
+	 * This method can also be used to copy single files. If a file is specified for $src, and
+	 * only a path is specified for $dst, then the original filename will be retained in $dst.
+	 * 
 	 * ~~~~~
 	 * // Copy everything from /site/assets/cache/foo/ to /site/assets/cache/bar/
 	 * $copyFrom = $config->paths->cache . "foo/";
@@ -176,8 +179,8 @@ class WireFileTools extends Wire {
 	 * copy($copyFrom, $copyTo); 
 	 * ~~~~~
 	 *
-	 * @param string $src Path to copy files from.
-	 * @param string $dst Path to copy files to. Directory is created if it doesn't already exist.
+	 * @param string $src Path to copy files from, or filename to copy. 
+	 * @param string $dst Path (or filename) to copy file(s) to. Directory is created if it doesn't already exist.
 	 * @param bool|array $options Array of options: 
 	 *  - `recursive` (boolean): Whether to copy directories within recursively. (default=true)
 	 *  - `allowEmptyDirs` (boolean): Copy directories even if they are empty? (default=true)
@@ -194,6 +197,22 @@ class WireFileTools extends Wire {
 
 		if(is_bool($options)) $options = array('recursive' => $options);
 		$options = array_merge($defaults, $options);
+		
+		if(!is_dir($src)) {
+			// just copy a file
+			if(!file_exists($src)) return false;
+			if(is_dir($dst)) {
+				// if only a directory was specified for $dst, then keep same filename but in new dir
+				$dir = rtrim($dst, '/');
+				$dst .= '/' . basename($src);
+			} else {
+				$dir = dirname($dst);
+			}
+			if(!is_dir($dir)) $this->mkdir($dir);
+			if(!copy($src, $dst)) return false;
+			$this->chmod($dst);
+			return true;
+		}
 
 		if(substr($src, -1) != '/') $src .= '/';
 		if(substr($dst, -1) != '/') $dst .= '/';
@@ -222,8 +241,7 @@ class WireFileTools extends Wire {
 				// skip it, because not recursive
 			} else {
 				copy($src . $file, $dst . $file);
-				$chmodFile = $this->wire('config')->chmodFile;
-				if($chmodFile) @chmod($dst . $file, octdec($chmodFile));
+				$this->chmod($dst . $file);
 			}
 		}
 
@@ -342,7 +360,7 @@ class WireFileTools extends Wire {
 	 *  - `overwrite` (boolean): Replaces ZIP file if already present (rather than adding to it) (default=false)
 	 *  - `exclude` (array): Files or directories to exclude
 	 *  - `dir` (string): Directory name to prepend to added files in the ZIP
-	 * @return Returns associative array of:
+	 * @return array Returns associative array of:
 	 *  - `files` (array): all files that were added
 	 *  - `errors` (array): files that failed to add, if any
 	 * @throws WireException Original ZIP file creation error conditions result in WireException being thrown.
@@ -554,7 +572,7 @@ class WireFileTools extends Wire {
 	 * Note this function produces direct output. To retrieve output as a return value, use the
 	 * `$files->render()` function instead.
 	 *
-	 * @param $filename Filename to include
+	 * @param string $filename Filename to include
 	 * @param array $vars Optional variables you want to hand to the include (associative array)
 	 * @param array $options Array of options to modify behavior:
 	 *  - `func` (string): Function to use: include, include_once, require or require_once (default=include)

@@ -2,6 +2,9 @@
 
 /**
  * Base class for Page List rendering
+ * 
+ * @method array getPageActions(Page $page)
+ * @method string getPageLabel(Page $page)
  *
  */
 abstract class ProcessPageListRender extends Wire {

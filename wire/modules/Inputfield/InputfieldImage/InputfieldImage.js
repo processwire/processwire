@@ -7,7 +7,7 @@ function InputfieldImage($) {
 	var uploadReplace = {
 		file: '',	// basename of file being replaced
 		item: null, // the .gridImage item that is being replaced
-		edit: null, // the .InputfieldImageEdit.gridImage item (edit panel) that is being replaced
+		edit: null // the .InputfieldImageEdit.gridImage item (edit panel) that is being replaced
 	};
 	
 	// Base options for MagnificPopup
@@ -107,7 +107,7 @@ function InputfieldImage($) {
 				$el.addClass('InputfieldImageSorting');
 			},
 			stop: function(e, ui) {
-				$this = $(this);
+				var $this = $(this);
 				if(timer !== null) {
 					ui.item.find(".InputfieldImageEdit__edit").click();
 					clearTimeout(timer);

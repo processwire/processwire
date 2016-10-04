@@ -2,7 +2,8 @@
   "name": "processwire/processwire",
   "type": "library",
   "description": "ProcessWire CMS/CMF",
-  "keywords": [ "cms","cmf", "content management system" ],
+  "keywords": [ "processwire", "cms","cmf", "content management system" ],
+  "license": "MPL-2.0",
   "homepage": "https://processwire.com",
   "authors": [
     {

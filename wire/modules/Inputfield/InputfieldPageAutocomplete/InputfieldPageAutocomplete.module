@@ -21,6 +21,9 @@
  * @property string $disableChars Autocomplete won't be triggered if input contains any of the characters in this string. (default=blank)
  * @property bool $useAndWords When true, each word will be isolated to a separate searchFields=searchValue, which enables it to duplicate ~= operator behavior while using a %= operator (default=false).
  * @property int $lang_id Force use of this language for results
+ * 
+ * @method string renderList()
+ * @method string renderListItem($label, $value, $class = '')
  *
  */
 class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArrayValue {
@@ -29,7 +32,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		return array(
 			'title' => __('Page Auto Complete', __FILE__), // Module Title
 			'summary' => __('Multiple Page selection using auto completion and sorting capability. Intended for use as an input field for Page reference fields.', __FILE__), // Module Summary
-			'version' => 111,
+			'version' => 112,
 			);
 	}
 
@@ -83,10 +86,18 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	
 		// Force Language when applicable
 		$this->set('lang_id', 0);
+	
+		// Whether to allow unpublished pages (null=not set, 0|false=no, 1|true=yes)
+		$this->set('allowUnpub', null);
 	}
 
 	/**
 	 * Render a selected list item 
+	 * 
+	 * @param string $label
+	 * @param string $value
+	 * @param string $class
+	 * @return string
 	 *
 	 */
 	protected function ___renderListItem($label, $value, $class = '') {
@@ -105,6 +116,8 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 
 	/**
 	 * Render the selected items list
+	 * 
+	 * @return string
 	 *
 	 */
 	protected function ___renderList() { 
@@ -228,6 +241,9 @@ _OUT;
 
 	/**
 	 * Convert the CSV string provided in the $input to an array of ints needed for this fieldtype
+	 * 
+	 * @param WireInputData $input
+	 * @return $this
 	 *
 	 */
 	public function ___processInput(WireInputData $input) {
@@ -277,6 +293,11 @@ _OUT;
 		
 		if($this->lang_id) {
 			$selector .= ",lang_id=" . (int) $this->lang_id;
+		}
+		
+		$allowUnpub = $this->getSetting('allowUnpub');
+		if(!is_null($allowUnpub) && !$allowUnpub) {
+			$selector .= ",status<" . Page::statusUnpublished;
 		}
 
 		// allow for full site matches
@@ -341,6 +362,7 @@ _OUT;
 		$fieldset->collapsed = Inputfield::collapsedYes; 
 
 		$recommended = $this->_('Recommended');
+		/** @var InputfieldRadios $field */
 		$field = $this->modules->get('InputfieldRadios');
 		$field->setAttribute('name', 'operator');
 		$field->label = $this->_('Autocomplete search operator');
@@ -357,6 +379,7 @@ _OUT;
 		$field->collapsed = Inputfield::collapsedNo; 
 		$fieldset->add($field);
 
+		/** @var InputfieldText $field */
 		$field = $this->modules->get('InputfieldText'); 
 		$field->attr('name', 'searchFields'); 
 		$field->label = $this->_('Fields to query for autocomplete');

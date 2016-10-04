@@ -597,7 +597,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 * 	- crop_h (int): Predefined crop height
 	 * 
 	 * @return string
-	 * @throws Exception|WireException
+	 * @throws \Exception|WireException
 	 * 
 	 */
 	public function ___executeEdit() {
@@ -980,9 +980,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		if(!$width) throw new WireException("Width not specified"); 
 
 		$rebuildVariations = preg_match('/-cropx\d+y\d+/', $image->name); 
+		$useResize = ((int) $this->wire('input')->post('use_resize')) == 1;
 		
 		// image2 = resized version
-		if(((int) $this->wire('input')->post('use_resize')) == 1) {
+		if($useResize) {
 			$image2 = $image->width($width);
 			if(!$image2 || !$image2->width) throw new WireException('Unable to complete resize');
 		} else {
@@ -1059,7 +1060,11 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				$pathname = $path . $basename;
 			} while(is_file($pathname));
 			
-			rename($image2->filename(), $pathname); 
+			if(!$useResize && !$rebuildVariations) {
+				$this->wire('files')->copy($image2->filename(), $pathname);
+			} else {
+				rename($image2->filename(), $pathname);
+			}
 			$pageimages->add($pathname);
 			$pageimage = $pageimages->last();
 			$pageimage->isTemp(true);
@@ -1202,8 +1207,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$pageimage = $this->getPageimage();
 		
 		if(!$this->page || !$pageimage) throw new WireException("No file provided"); 
-		if(!$this->page->editable()) throw new WireException("Page is not editable");
-		$hasEditPermission = $this->wire('user')->hasPermission('page-edit-images', $this->page);
+		if(!$this->masterPage->editable()) throw new WireException($this->labels['noAccess']);
+		$hasEditPermission = $this->wire('user')->hasPermission('page-edit-images', $this->masterPage);
 		
 		$variations = $pageimage->getVariations(array('info' => true));
 		$cnt = count($variations);
