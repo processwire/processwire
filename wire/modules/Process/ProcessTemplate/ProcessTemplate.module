@@ -826,6 +826,7 @@ class ProcessTemplate extends Process {
 		$select->attr('name', 'fieldgroup_fields'); 
 		$select->attr('id', 'fieldgroup_fields'); 
 		$select->attr('title', $this->_('Add Field')); 
+		$select->attr('data-closeAddLabel', $this->_('Close and Add'));
 		$select->setAsmSelectOption('sortable', true); 
 		$select->setAsmSelectOption('editLink', $this->wire('config')->urls->admin . "setup/field/edit?id={value}&fieldgroup_id={$template->fieldgroup->id}&modal=1&process_template=1"); 
 		$select->setAsmSelectOption('hideDeleted', false);

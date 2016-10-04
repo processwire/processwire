@@ -703,6 +703,7 @@ class SelectableOptionManager extends Wire {
 		$table = self::optionsTable;
 		$languages = $this->wire('languages');
 		$maxLen = $database->getMaxIndexLength();
+		if(strtolower($this->wire('config')->dbCharset) == 'utf8mb4') $maxLen -= 20;
 	
 		// check for added languages
 		foreach($languages as $language) {
@@ -763,6 +764,7 @@ class SelectableOptionManager extends Wire {
 		if($query->rowCount() == 0) {
 			$engine = $this->wire('config')->dbEngine;
 			$charset = $this->wire('config')->dbCharset;
+			if(strtolower($charset) == 'utf8mb4') $maxLen -= 20;
 			$sql =
 				"CREATE TABLE " . self::optionsTable . " (" .
 				"fields_id INT UNSIGNED NOT NULL, " .
@@ -783,6 +785,10 @@ class SelectableOptionManager extends Wire {
 	}
 
 	public function uninstall() {
-		$this->wire('database')->exec("DROP TABLE " . self::optionsTable);
+		try {
+			$this->wire('database')->exec("DROP TABLE " . self::optionsTable);
+		} catch(\Exception $e) {
+			$this->warning($e->getMessage());
+		}
 	}
 }
