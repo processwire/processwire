@@ -31,13 +31,13 @@ class Helloworld extends WireData implements Module {
 			'title' => 'Hello World', 
 
 			// version number 
-			'version' => 2, 
+			'version' => 3, 
 
 			// summary is brief description of what this module is
-			'summary' => 'An example module used for demonstration purposes. See the /site/modules/Helloworld.module file for details.',
+			'summary' => 'An example module used for demonstration purposes.',
 			
 			// Optional URL to more information about the module
-			'href' => 'http://processwire.com',
+			'href' => 'https://processwire.com',
 
 			// singular=true: indicates that only one instance of the module is allowed.
 			// This is usually what you want for modules that attach hooks. 
@@ -80,9 +80,12 @@ class Helloworld extends WireData implements Module {
 
 	/**
 	 * Example1 hooks into the pages->save method and displays a notice every time a page is saved
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function example1($event) {
+		/** @var Page $page */
 		$page = $event->arguments[0]; 
 		$this->message("Hello World! You saved {$page->path}."); 
 	}
@@ -90,10 +93,13 @@ class Helloworld extends WireData implements Module {
 
 	/**
 	 * Example2 hooks into every page after it's rendered and adds "Hello World" text at the bottom
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function example2($event) {
 
+		/** @var Page $page */
 		$page = $event->object; 
 
 		// don't add this to the admin pages
@@ -105,6 +111,8 @@ class Helloworld extends WireData implements Module {
 
 	/**
 	 * Example3 adds a 'hello' method (not property) to every page that simply returns "Hello World"
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function example3($event) {
@@ -113,6 +121,8 @@ class Helloworld extends WireData implements Module {
 
 	/**
 	 * Example 4 adds a 'hello_world' property (not method) to every page that returns "Hello [user]"
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function example4($event) {
