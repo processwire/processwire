@@ -2333,15 +2333,18 @@ class ProcessTemplate extends Process {
 		if($fieldgroup->name != $this->template->name) return;
 		
 		$ids = $this->wire('input')->post('fieldgroup_fields'); 
-
 		$saveFieldgroup = false; 
+		
 		if(is_array($ids) && $this->wire('input')->post('_fieldgroup_fields_changed') == 'changed') {
-			$saveFieldgroup = true; 
+			$saveFieldgroup = true;
+			$badFieldsets = array();
+			
 			foreach($ids as $id) {
 				if(!($id = (int) $id)) continue;
 				$isDeleted = $id < 0;
 				$id = abs($id);
 				if(!$field = $this->fields->get($id)) continue;
+				
 				if(!$fieldgroup->has($field)) {
 					$fieldgroup->append($field);
 					$this->fieldAdded($field, $this->template);
@@ -2349,6 +2352,7 @@ class ProcessTemplate extends Process {
 					$field = $fieldgroup->getField($field->id, true); // get in context
 					$fieldgroup->append($field);
 				}
+
 				if($isDeleted) {
 					if(($field->flags & Field::flagGlobal) && !$this->template->noGlobal) {
 						$this->error(sprintf($this->_('Field "%s" may not be removed because it is globally required by all fieldgroups'), $field));
@@ -2356,6 +2360,23 @@ class ProcessTemplate extends Process {
 						$removedFields->add($field);
 					}
 				}
+				
+				if($field->type instanceof FieldtypeFieldsetClose) {
+					if(isset($badFieldsets[$field->name])) {
+						// matches an open fieldset, so can be removed from badFieldsets
+						unset($badFieldsets[$field->name]);
+					} else {
+						// does not match an open fieldset and should not be here
+						$badFieldsets[$field->name] = $field;
+					}
+				} else if($field->type instanceof FieldtypeFieldsetOpen) {
+					// queue it for checking that there is a matching fieldset_END 
+					$badFieldsets[$field->name . '_END'] = $field;
+				}
+			}
+			
+			foreach($badFieldsets as $field) {
+				$this->error(sprintf($this->_('Error with placement of fieldset/tab "%s" - please fix and save again'), $field->name));
 			}
 		}
 
