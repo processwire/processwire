@@ -15,3 +15,12 @@
 	background: linear-gradient(top, $top 0%, $bottom 100%); /* W3C */
 }
 
+@mixin word-wrap() {
+	overflow-wrap: break-word;
+	word-break: break-word;
+	word-wrap: break-word;
+	-webkit-hyphens: auto;
+	-moz-hyphens: auto;
+	hyphens: auto;
+}
+

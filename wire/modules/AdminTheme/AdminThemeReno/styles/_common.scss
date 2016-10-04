@@ -22,6 +22,15 @@ $mainnav-width: 210px;
 $mainnav-width-wide: 230px; // bigger sidebar for wide screen?
 $masthead-height: 52px;
 
+@mixin word-wrap() {
+	overflow-wrap: break-word;
+	word-break: break-word;
+	word-wrap: break-word;
+	-webkit-hyphens: auto;
+	-moz-hyphens: auto;
+	hyphens: auto;
+}
+
 @import 'reset';
 @import 'jquery-ui';
 @import 'ui';
@@ -831,6 +840,10 @@ ul.action-group{
 }
 .notes {
 	background: $notes-bg;
+}
+.description,
+.notes {
+	@include word-wrap();
 }
 
 .description strong,

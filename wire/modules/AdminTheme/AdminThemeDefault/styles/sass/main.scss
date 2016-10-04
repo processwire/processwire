@@ -97,6 +97,8 @@ code {
 .description {
 	color: $medium-text-color; 
 	margin: 0.5em 0;
+	@include word-wrap();
+	
 }
 
 .notes, 
@@ -107,6 +109,7 @@ code {
 }
 .notes {
 	background: $notes-bg; 
+	@include word-wrap();
 }
 
 .description strong,
