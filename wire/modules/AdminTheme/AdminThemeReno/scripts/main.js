@@ -28,8 +28,11 @@ var ProcessWireAdminTheme = {
 		$body.removeClass('pw-init').addClass('pw-ready'); 
 		$html.removeClass('pw-init').addClass('pw-ready'); 
 		// this.browserCheck();
-		$("#notices a.notice-remove").click(function() {
-			$("#notices").slideUp('fast', function() { $(this).remove(); }); 
+		$('a.notice-remove', '#notices').click(function() {
+			$('#notices').slideUp('fast', function() { 
+				$(this).remove(); 
+				return false;
+			}); 
 		});
 	},
 
@@ -39,7 +42,7 @@ var ProcessWireAdminTheme = {
 	 */
 	setupSidebarNav: function() {
 		
-		var url = window.location.toString()
+		var url = window.location.toString();
 
 		$(document).mouseup(function (e){
 		    var quicklinks = $("ul.quicklinks");
@@ -53,6 +56,7 @@ var ProcessWireAdminTheme = {
 		$(document).keydown(function(e) {
 			var type = e.target.tagName.toLowerCase();
 			var firstClass = e.target.className.split(" ")[0];
+			var state;
 
 			// input, textarea, CKEditor (Inline mode) focused, so do nothing.
 			if (type == 'input' || type == 'textarea' || firstClass == 'InputfieldCKEditorInline') return; 
@@ -263,6 +267,7 @@ var ProcessWireAdminTheme = {
 		$buttons.each(function() {
 			var $t = $(this);
 			var $a = $t.parent('a'); 
+			var $button;
 			if($a.length) { 
 				$button = $t.parent('a').clone();
 				//$head.prepend($button);

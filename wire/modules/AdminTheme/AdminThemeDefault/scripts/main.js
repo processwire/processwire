@@ -52,6 +52,7 @@ var ProcessWireAdminTheme = {
 		$buttons.each(function() {
 			var $t = $(this);
 			var $a = $t.parent('a'); 
+			var $button;
 			if($a.length > 0) { 
 				$button = $t.parent('a').clone(true);
 				$head.prepend($button);
@@ -66,10 +67,7 @@ var ProcessWireAdminTheme = {
 				//$head.prepend($a.append($button));
 				$head.prepend($button);	
 			}
-			if($button.hasClass('dropdown-toggle') && $button.attr('data-dropdown')) {
-				
-				
-			}
+			// if($button.hasClass('dropdown-toggle') && $button.attr('data-dropdown')) { }
 		}); 
 		$head.show();
 	},
@@ -207,14 +205,17 @@ var ProcessWireAdminTheme = {
 		windowResize();
 		$(window).resize(windowResize);
 
-	}, 
+	}
 
 };
 
 $(document).ready(function() {
 	ProcessWireAdminTheme.init();
 
-	$("#notices a.notice-remove").click(function() {
-		$("#notices").slideUp('fast', function() { $(this).remove(); }); 
-	}); 
+	$('a.notice-remove', '#notices').click(function() {
+		$('#notices').slideUp('fast', function() {
+			$(this).remove();
+		});
+		return false;
+	});
 }); 
