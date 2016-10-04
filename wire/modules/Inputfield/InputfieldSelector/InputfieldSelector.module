@@ -795,6 +795,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		
 		// build custom fields optgroup
 		foreach($settings['customFields'] as $field) {
+			/** @var Field $field */
 			$fieldName = $field->name; 
 			if(in_array($fieldName, $settings['exclude'])) continue;
 			if(count($settings['limitFields']) && !in_array($fieldName, $settings['limitFields'])) continue;
@@ -934,7 +935,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				$out['all']["$field->name 2"] = $option;
 			}
 
-			if(!empty($settings['showSubfieldGroups']) && $isPageField && !$field->derefAsPage) {
+			if(!empty($settings['showSubfieldGroups']) && $isPageField && !$field->get('derefAsPage')) {
 				$name = $field->name . ' ' . $this->groupIdentifier . $this->subfieldIdentifier;
 				$label .= ' ' . $this->groupIdentifier . $this->subfieldIdentifier;
 				$text .= ' ' . $this->groupIdentifier . $this->subfieldIdentifier;
@@ -1020,7 +1021,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * @return string
 	 * 
 	 */
-	protected function renderOpval($fieldName, $type = '', $selectedOperator = '', $selectedValue = '', $orChecked = false, Selector $selector = null) { 
+	protected function renderOpval($fieldName, $type = '', $selectedOperator = '', $selectedValue = '', 
+		$orChecked = false, Selector $selector = null) { 
 
 		/*
 		$this->message("fieldName: $fieldName"); 
@@ -1029,7 +1031,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$this->message("selectedValue: $selectedValue"); 
 		$this->message("orChecked: $orChecked"); 
 		*/
-
+		if($selector) {}
+		$field = null;
 		$inputName = $this->attr('name') . "__value[]"; 
 		$options = array();
 		$out = '';
@@ -1078,6 +1081,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			// selector field: do nothing here but skip it, and respond to it further down
 
 		} else if($field = $this->wire('fields')->get($fieldName)) { 
+			/** @var Field $field */
 			// custom field
 			$selectorInfo = $this->getSelectorInfo($field); 
 			
@@ -1207,9 +1211,10 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				$selectedValuePage = $this->wire('pages')->get((int) $selectedValueEntities);
 				if($selectedValuePage->id) {
 					$selectedValueTitle = $selectedValuePage->get('title|name');
-					if($_type == 'page') {
+					if($_type == 'page' && $field) {
 						$inputfield = $field->getInputfield($this->wire('pages')->newNullPage(), $field);
 						if($inputfield instanceof InputfieldPage) {
+							/** @var InputfieldPage $inputfield */
 							$selectedValueTitle = $this->wire('sanitizer')->entities1($inputfield->getPageLabel($selectedValuePage));
 						}
 					}
@@ -1391,6 +1396,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		if(!$field->type instanceof FieldtypePage) return ''; 
 
 		$selector = '';
+		$hasPageListSelect = strpos($field->get('inputfield'), 'PageListSelect') !== false;
 
 		// determine autocomplete state based on field settings and quantity of pages involved
 		if($field->findPagesSelector) {
@@ -1402,8 +1408,12 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				//$selector = preg_replace('/(^|,)\s*page\.[_a-zA-Z0-9][=<>!]+[^,]*/', '', $selector);
 			}
 			if($field->parent_id) $selector .= ",has_parent=" . (int) $field->parent_id; 
-		} else {
-			if($field->parent_id) $selector = "parent_id=" . (int) $field->parent_id; 
+		} else if($field->parent_id) {
+			if($hasPageListSelect) {
+				$selector = "has_parent=" . (int) $field->parent_id;
+			} else {
+				$selector = "parent_id=" . (int) $field->parent_id;
+			}
 		}
 
 		if($field->template_id) {
@@ -1423,6 +1433,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		}
 
 		if(!$checkQuantity) return $selector; 
+		if($hasPageListSelect) return $selector; 
 
 		$quantity = $this->wire('pages')->count($selector); 
 
@@ -1496,6 +1507,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$template = $template_id ? $this->wire('templates')->get($template_id) : null;
 		
 		if($labelFieldFormat) {
+			/** @var InputfieldPage $inputfield */
 			$inputfield = $field->getInputfield(new NullPage(), $field);
 		} else {
 			$inputfield = null;
