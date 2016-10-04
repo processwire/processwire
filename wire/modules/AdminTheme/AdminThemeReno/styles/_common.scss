@@ -578,7 +578,8 @@ ul.action-group{
 			background-color: $pagelist-link-open-bg;
 		}
 
-		.PageListStatusHidden:not(.PageListItemOpen) > a.PageListPage {
+		//.PageListStatusHidden:not(.PageListItemOpen) > a.PageListPage {
+		.PageListStatusHidden > a.PageListPage {
 			opacity: 0.6;
 		}
 

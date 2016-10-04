@@ -140,7 +140,7 @@
 			}
 		}
 
-		.PageListStatusHidden:not(.PageListItemOpen) {
+		.PageListStatusHidden { //:not(.PageListItemOpen) {
 			> a.PageListPage {
 				opacity: 0.6;
 			}
