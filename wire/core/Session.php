@@ -651,7 +651,11 @@ class Session extends Wire implements \IteratorAggregate {
 	 */
 	public function getIP($int = false, $useClient = false) {
 
-		if($useClient) { 
+		if(empty($_SERVER['REMOTE_ADDR'])) {
+			// when accessing via CLI Interface, $_SERVER['REMOTE_ADDR'] isn't set and trying to get it, throws a php-notice
+			$ip = '127.0.0.1';
+			
+		} else if($useClient) { 
 			if(!empty($_SERVER['HTTP_CLIENT_IP'])) $ip = $_SERVER['HTTP_CLIENT_IP']; 
 				else if(!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
 				else if(!empty($_SERVER['REMOTE_ADDR'])) $ip = $_SERVER['REMOTE_ADDR']; 
