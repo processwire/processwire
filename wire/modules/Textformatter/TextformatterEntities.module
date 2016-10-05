@@ -16,7 +16,7 @@ class TextformatterEntities extends Textformatter {
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('HTML Entity Encoder (htmlspecialchars)', __FILE__), // Module Title
-			'summary' => __("Entity encode ampersands, quotes (single and double) and greater-than/less-than signs using htmlspecialchars(str, ENT_QUOTES). It is recommended that you use this on all text/textarea fields except those using a rich text editor like TinyMCE or a markup language like Markdown.", __FILE__), // Module Summary
+			'summary' => __("Entity encode ampersands, quotes (single and double) and greater-than/less-than signs using htmlspecialchars(str, ENT_QUOTES). It is recommended that you use this on all text/textarea fields except those using a rich text editor or a markup language like Markdown.", __FILE__), // Module Summary
 			'version' => 100, 
 		); 
 	}
