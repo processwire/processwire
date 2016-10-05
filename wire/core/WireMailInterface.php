@@ -90,6 +90,17 @@ interface WireMailInterface {
 	public function param($value); 
 
 	/**
+	 * Add a file to be attached to the email
+	 *
+	 *
+	 * @param string $value
+	 * @param string $filename
+	 * @return this 
+	 *
+	public function attachment($value, $filename = ''); 
+	 */
+
+	/**
 	 * Send the email
 	 *
 	 * @return int Returns number of messages sent or 0 on failure

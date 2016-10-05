@@ -53,6 +53,7 @@ class WireMail extends WireData implements WireMailInterface {
 		'bodyHTML' => '',
 		'header' => array(),
 		'param' => array(), 
+		'attachments' => array(), 
 		);
 
 	public function __construct() {
@@ -313,6 +314,27 @@ class WireMail extends WireData implements WireMailInterface {
 		} else { 
 			$this->mail['param'][] = $value; 
 		}
+		return $this;
+	}
+
+	/**
+	 * Add a file to be attached to the email
+	 *
+	 * Note: multiple calls will append attachments. 
+	 * To remove the supplied attachments, specify NULL as the value. 
+	 * This function may only be applicable to PHP mail().
+	 *
+	 * @param string $value
+	 * @return this 
+	 *
+	 */
+	public function attachment($value, $filename = '') {
+		if(is_null($value)) {
+			$this->mail['attachments'] = array();
+		} else if(is_file($value)) { 
+			$filename = $filename ?: basename($value);
+			$this->mail['attachments'][$filename] = $value; 
+		}
 		return $this; 
 	}
 
@@ -345,21 +367,42 @@ class WireMail extends WireData implements WireMailInterface {
 		$text = $this->body; 
 		$html = $this->bodyHTML;
 
-		if($this->bodyHTML) {
+		if($this->bodyHTML || count($this->attachments)) {
 			if(!strlen($text)) $text = strip_tags($html); 
+			$contentType = count($this->attachments) ? 'multipart/mixed' : 'multipart/alternative';
 			$boundary = "==Multipart_Boundary_x" . md5(time()) . "x";
 			$header .= "\r\nMIME-Version: 1.0";
-			$header .= "\r\nContent-Type: multipart/alternative;\r\n  boundary=\"$boundary\"";
+			$header .= "\r\nContent-Type: $contentType;\r\n  boundary=\"$boundary\"";
+
+			// Plain Text
 			$body = "This is a multi-part message in MIME format.\r\n\r\n" . 
 				"--$boundary\r\n" . 
 				"Content-Type: text/plain; charset=\"utf-8\"\r\n" . 
 				"Content-Transfer-Encoding: 7bit\r\n\r\n" . 
-				"$text\r\n\r\n" . 
-				"--$boundary\r\n" . 
-				"Content-Type: text/html; charset=\"utf-8\"\r\n" . 
-				"Content-Transfer-Encoding: 7bit\r\n\r\n" . 
-				"$html\r\n\r\n" . 
-				"--$boundary--\r\n";
+				"$text\r\n\r\n";
+
+			// HTML
+			if($this->bodyHTML){
+				$body .= "--$boundary\r\n" .
+					"Content-Type: text/html; charset=\"utf-8\"\r\n" . 
+					"Content-Transfer-Encoding: 7bit\r\n\r\n" . 
+					"$html\r\n\r\n";
+			}
+
+			// Attachments
+			foreach ($this->attachments as $filename => $file) {
+				$content = file_get_contents($file);
+				$content = chunk_split(base64_encode($content));
+
+				$body .= "--$boundary\r\n" .
+					"Content-Type: application/octet-stream; name=\"$filename\"\r\n" . 
+					"Content-Transfer-Encoding: base64\r\n" . 
+					"Content-Disposition: attachment; filename=\"$filename\"\r\n\r\n" .
+					"$content\r\n\r\n";
+			}
+
+			$body .= "--$boundary--\r\n";
+
 		} else {
 			$header .= "\r\nContent-Type: text/plain; charset=\"utf-8\""; 
 			$body = $text; 
