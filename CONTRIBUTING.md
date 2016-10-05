@@ -48,7 +48,7 @@ of contributions in different repositories. Please review the instructions for e
 ## Pull Requests (PRs)
 
 - Pull requests should be submitted to the [processwire](https://github.com/processwire/processwire/pulls)
-  repository.
+  repository, and based on the [dev branch](https://github.com/processwire/processwire/tree/dev). 
 
 - Before submitting a PR, read the Contributor License Agreement (CLA) at
   <https://processwire.com/about/license/cla/> and indicate your agreement (electronic signature) 
@@ -63,8 +63,6 @@ of contributions in different repositories. Please review the instructions for e
   before submitting a PR. While it's not required that you adhere to the style guide, it does increase
   the odds that we may be able to directly merge your PR. 
   
-- Please base pull requests off of the latest ProcessWire 3.x development (dev) branch.   
-
 - Please only submit code that you feel confident is stable and you have thoroughly tested. 
   Verbose code comments are also appreciated when possible. 
   

@@ -203,6 +203,21 @@ $(document).ready(function() {
 						});
 					}
 				}
+
+				$(document).on('keydown', '.PageListItem', function(e) { 
+					// PR#1 makes page-list keyboard accessible
+					e = e || window.event;
+					if(e.keyCode == 0 || e.keyCode == 32) {
+						// spacebar
+						var $actions = $(this).find('.PageListActions');
+						if($actions.is(":visible")) {
+							$actions.css('display', 'none');
+						} else {
+							$actions.css('display', 'inline-block');
+						}
+						return false;
+					}
+				});
 				
 				$(document).on('mouseover', '.PageListItem', function(e) {
 
