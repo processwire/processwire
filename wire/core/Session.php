@@ -651,7 +651,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 */
 	public function getIP($int = false, $useClient = false) {
 
-		if('cli' == php_sapi_name()) {
+		if(empty($_SERVER['REMOTE_ADDR'])) {
 			// when accessing via CLI Interface, $_SERVER['REMOTE_ADDR'] isn't set and trying to get it, throws a php-notice
 			$ip = '127.0.0.1';
 			
