@@ -15,6 +15,7 @@ var ProcessWireAdmin = {
 		this.setupButtonStates();
 		this.setupTooltips();
 		this.setupDropdowns();
+		this.registerEscKeyForModals();
 	},
 	
 	/**
@@ -31,6 +32,22 @@ var ProcessWireAdmin = {
 			$(this).addClass('ui-state-hover');
 		}, function() {
 			$(this).removeClass('ui-state-hover');
+		});
+	},
+
+	/**
+	 * Let ESC key close modal windows
+	 *
+	 */
+	registerEscKeyForModals: function () {
+		$(document).on('keydown', function (e) {
+
+			e = e || window.event;
+			var closeBtn = $('.ui-dialog-titlebar-close');
+
+			if (e.keyCode === 27 && closeBtn.length) {
+				closeBtn.trigger('click');
+			}
 		});
 	},
 	
