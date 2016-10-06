@@ -225,8 +225,15 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			$selector = $findPagesSelector; 
 			if($editPage) $selector = self::getFindPagesSelector($editPage, $selector); 
 			if(!$page->matches($selector)) {
-				if($editPage) $editPage->set('_isValidPage', "Page $page does not match findPagesSelector: $selector"); 
-				$valid = false;
+				// failed in-memory check, attempt $page->count() check...
+				$selector .= ", id=$page->id";
+				if($page->wire('pages')->count($selector)) {
+					// looks like its okay
+				} else {
+					// also fails $pages->cont() check, so definitely not valid
+					if($editPage) $editPage->set('_isValidPage', "Page $page does not match findPagesSelector: $selector");
+					$valid = false;
+				}
 			}
 		} 
 	
