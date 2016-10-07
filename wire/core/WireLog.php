@@ -302,17 +302,17 @@ class WireLog extends Wire {
 		
 		if(count($parts) == 2) {
 			$entry = array(
-				'date' => $parts[0], 
-				'user' => '',
-				'url'  => '',
-				'text' => $parts[1]
+				'date' => $parts[0],
+				'user' => $usr = $this->wire('sanitizer')->pageNameUTF8($parts[1]) === $parts[1] ? $parts[1] : '',
+				'url'  => $url = strpos($parts[1], '://') !== false ? $parts[1] : '',
+				'text' => $url === '' && $usr === '' && strpos($parts[1], '://') === false ? $parts[1] : ''
 			);
 		} else if(count($parts) == 3) {
 			$entry = array(
-				'date' => $parts[0], 
-				'user' => strpos($parts[1], '/') === false ? $parts[1] : '',
-				'url'  => strpos($parts[1], '/') !== false ? $parts[1] : '',
-				'text' => $parts[2]
+				'date' => $parts[0],
+				'user' => $usr = $this->wire('sanitizer')->pageNameUTF8($parts[1]) === $parts[1] ? $parts[1] : '',
+				'url'  => $url = (strpos($parts[2], '://') !== false ? $parts[2] : (strpos($parts[1], '://') !== false ? $parts[1] : '')),
+				'text' => $url === '' || $usr === '' ? $parts[2] : ''
 			);
 		} else {
 			$entry = array(
