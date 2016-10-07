@@ -286,8 +286,8 @@ var InputfieldPageAutocomplete = {
 	pageSelected: function($ol, page) {
 
 		var dup = false;
-		
-		$ol.children('li').each(function() {
+	
+		$ol.children('li:not(.itemTemplate)').each(function() {
 			var v = parseInt($(this).children('.itemValue').text());	
 			if(v == page.page_id) dup = $(this);
 		});
