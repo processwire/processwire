@@ -5,6 +5,11 @@
  * 
  * Similar to a PSR-4 autoloader but with knowledge of modules. 
  * 
+ * #pw-summary The ProcessWire $classLoader API variable handles autoloading of classes and modules.
+ * #pw-body = 
+ * This class loader is similar to a PSR-4 autoloader but with knowledge of modules.
+ * #pw-body
+ * 
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
@@ -73,6 +78,8 @@ class WireClassLoader {
 	 * 
 	 * Note: ".php" is already assumed, so does not need to be added.
 	 * 
+	 * #pw-advanced
+	 * 
 	 * @param string $ext
 	 * 
 	 */
@@ -86,6 +93,10 @@ class WireClassLoader {
 	 * 
 	 * Multiple root paths may be specified for a single namespace by calling this method more than once.
 	 * 
+	 * ~~~~~
+	 * $classLoader->addNamespace('HelloWorld', '/path/to/that/');
+	 * ~~~~~
+	 * 
 	 * @param string $namespace
 	 * @param string $path Full system path
 	 * 
@@ -98,7 +109,47 @@ class WireClassLoader {
 	}
 
 	/**
+	 * Return array of paths for the given namespace, or empty array if none found
+	 * 
+	 * @param string $namespace
+	 * @return array of paths or empty array if none found
+	 * 
+	 */
+	public function getNamespace($namespace) {
+		return isset(self::$namespaces[$namespace]) ? self::$namespaces[$namespace] : array();
+	}
+
+	/**
+	 * Return true if namespace is defined with paths or false if not
+	 * 
+	 * @param string $namespace
+	 * @return bool
+	 * 
+	 */
+	public function hasNamespace($namespace) {
+		return isset(self::$namespaces[$namespace]);
+	}
+
+	/**
+	 * Remove defined paths (or single path) for given namespace
+	 * 
+	 * @param string $namespace
+	 * @param string $path Optionally specify path to remove (default=remove all)
+	 * 
+	 */
+	public function removeNamespace($namespace, $path = '') {
+		if(strlen($path)) {
+			$key = array_search($path, self::$namespaces[$namespace]);
+			if($key !== false) unset(self::$namespaces[$namespace][$key]);
+		} else {
+			unset(self::$namespaces[$namespace]);
+		}
+	}
+
+	/**
 	 * Load the file for the given class
+	 * 
+	 * #pw-advanced
 	 * 
 	 * @param string $className
 	 * 
@@ -213,6 +264,8 @@ class WireClassLoader {
 	/**
 	 * Enable or disable debug mode
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param bool $debug
 	 * 
 	 */
@@ -222,6 +275,8 @@ class WireClassLoader {
 
 	/**
 	 * Get log of debug events
+	 * 
+	 * #pw-internal
 	 * 
 	 * @return array of strings
 	 * 

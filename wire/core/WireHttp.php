@@ -242,7 +242,7 @@ class WireHttp extends Wire {
 	 * ~~~~~
 	 * $http = new WireHttp();
 	 * $response = $http->get("http://domain.com/path/", [
-	 *   'foo' => bar',
+	 *   'foo' => 'bar',
 	 * ]);
 	 * if($response) {
 	 *   echo "Successful response: " . $sanitizer->entities($response);

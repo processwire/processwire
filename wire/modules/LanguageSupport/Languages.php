@@ -3,15 +3,32 @@
 /**
  * ProcessWire Languages (plural) Class
  * 
- * Class for managing Language-type pages.
- * Acts as the $wire->languages API variable. 
+ * #pw-summary API variable $languages enables access to all Language pages and various helper methods. 
+ * #pw-body =
+ * The $languages API variable is most commonly used for iteration of all installed languages.
+ * ~~~~~
+ * foreach($languages as $language) {
+ *   echo "<li>$language->title ($language->name) ";
+ *   if($language->id == $user->language->id) {
+ *     echo "current"; // the user's current language
+ *   }
+ *   echo "</li>";
+ * }
+ * ~~~~~
+ * 
+ * #pw-body
  *
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  * 
- * @property LanguageTabs|null $tabs Current LanguageTabs module instance, if installed
- * @property Language $default Get default language 
- * @property LanguageSupport $support Instance of LanguageSupport module
+ * @property LanguageTabs|null $tabs Current LanguageTabs module instance, if installed #pw-internal
+ * @property Language $default Get default language
+ * @property Language $getDefault Get default language (alias of $default)
+ * @property LanguageSupport $support Instance of LanguageSupport module #pw-internal
+ * 
+ * @method added(Page $language) Hook called when Language is added #pw-hooker
+ * @method deleted(Page $language) Hook called when Language is deleted #pw-hooker
+ * @method updated(Page $language, $what) Hook called when Language is added or deleted #pw-hooker
  *
  */
 
@@ -94,25 +111,54 @@ class Languages extends PagesType {
 			else $this->translator->setCurrentLanguage($language);
 		return $this->translator; 
 	}
-	
+
+	/**
+	 * Return the Page class used by Language pages
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function getPageClass() {
 		return 'Language';
 	}
-	
+
+	/**
+	 * Get options for PagesType loadOptions (override from PagesType)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param array $loadOptions
+	 * @return array
+	 * 
+	 */
 	public function getLoadOptions(array $loadOptions = array()) {
 		$loadOptions = parent::getLoadOptions($loadOptions);
 		$loadOptions['autojoin'] = false;
 		return $loadOptions; 
 	}
-	
+
+	/**
+	 * Get join field names (override from PagesType)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return array
+	 * 
+	 */
 	public function getJoinFieldNames() {
 		return array();
 	}
 
 	/**
-	 * Returns ALL languages, including those in the trash or unpublished, etc. (inactive)
+	 * Returns ALL languages (including inactive)
 	 *
-	 * Note: to get all active languages, just iterate the $languages API var. 
+	 * Note: to get all active languages, just iterate the $languages API variable instead. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return PageArray
 	 *
 	 */
 	public function getAll() {
@@ -129,7 +175,49 @@ class Languages extends PagesType {
 	}
 
 	/**
+	 * Find and return all languages except current user language
+	 * 
+	 * @param string|Language $selector Optionally filter by a selector string
+	 * @param Language|null $excludeLanguage optionally specify language to exclude, if not user language (can also be 1st arg)
+	 * @return PageArray
+	 * 
+	 */
+	public function findOther($selector = '', $excludeLanguage = null) {
+		if(is_null($excludeLanguage)) {
+			if(is_object($selector) && $selector instanceof Language) {
+				$excludeLanguage = $selector;
+				$selector = '';
+			} else {
+				$excludeLanguage = $this->wire('user')->language;
+			}
+		}
+		$languages = $this->wire('pages')->newPageArray();
+		foreach($this as $language) {
+			if($language->id == $excludeLanguage->id) continue;
+			if($selector && !$language->matches($selector)) continue;
+			$languages->add($language);
+		}
+		return $languages;
+	}
+
+	/**
+	 * Find and return all languages except default language
+	 * 
+	 * @param string $selector Optionally filter by a selector string
+	 * @return PageArray
+	 * 
+	 */
+	public function findNonDefault($selector = '') {
+		$defaultLanguage = $this->getDefault();
+		return $this->findOther($selector, $defaultLanguage);
+	}
+
+	/**
 	 * Enable iteration of this class
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return PageArray
 	 *
 	 */
 	public function getIterator() {
@@ -146,8 +234,16 @@ class Languages extends PagesType {
 	/**
 	 * Get the default language
 	 * 
+	 * The default language can also be accessed from property `$languages->default`. 
+	 * 
+	 * ~~~~~
+	 * if($user->language->id == $languages->getDefault()->id) {
+	 *   // user has the default language
+	 * }
+	 * ~~~~~
+	 * 
 	 * @return Language
-	 * @throws WireException when default language hasn't been set
+	 * @throws WireException when default language hasn't yet been set
 	 * 
 	 */
 	public function getDefault() {
@@ -156,11 +252,26 @@ class Languages extends PagesType {
 	}
 
 	/**
-	 * Set default language (if given a $language) OR set current user to have default language if no arguments given
+	 * Set current user to have default language temporarily
 	 * 
-	 * If called with no arguments, it should later be followed up with an unsetDefault() call to restore language setting.
+	 * If given no arguments, it sets the current `$user` to have the default language temporarily. It is
+	 * expected you will follow it up with a later call to `$languages->unsetDefault()` to restore the 
+	 * previous language the user had. 
+	 * 
+	 * If given a Language object, it sets that as the default language (for internal use only). 
+	 * 
+	 * ~~~~~
+	 * // set current user to have default language
+	 * $languages->setDefault();
+	 * // perform some operation that has a default language dependency ...
+	 * // then restore the user's previous language with unsetDefault()
+	 * $languages->unsetDefault();
+	 * ~~~~~
 	 * 
 	 * @param Language $language
+	 * @return void
+	 * 
+	 * @see Languages::unsetDefault(), Languages::setLanguage()
 	 * 
 	 */
 	public function setDefault(Language $language = null) {
@@ -178,9 +289,10 @@ class Languages extends PagesType {
 	}
 
 	/**
-	 * Switch back to previous language
+	 * Restores whatever previous language a user had prior to a setDefault() call
 	 * 
-	 * Should only be called after a previous setDefault(null) call. 
+	 * @return void
+	 * @see Languages::setDefault()
 	 * 
 	 */
 	public function unsetDefault() { 
@@ -189,11 +301,19 @@ class Languages extends PagesType {
 	}
 
 	/**
-	 * Set the current user language, remembering the previous setting for a later unsetLanguage() call
+	 * Set the current user language for the current request
+	 * 
+	 * This also remembers the previous Language setting which can be restored with
+	 * a `$languages->unsetLanguage()` call.
+	 * 
+	 * ~~~~~
+	 * $languages->setLanguage('de');
+	 * ~~~~~
 	 * 
 	 * @param int|string|Language $language Language id, name or Language object
 	 * @return bool Returns false if no change necessary, true if language was changed
 	 * @throws WireException if given $language argument doesn't resolve
+	 * @see Languages::unsetLanguage()
 	 * 
 	 */
 	public function setLanguage($language) {
@@ -217,6 +337,7 @@ class Languages extends PagesType {
 	 * Undo a previous setLanguage() call, restoring the previous user language
 	 * 
 	 * @return bool Returns true if language restored, false if no restore necessary
+	 * @see Languages::setLanguage()
 	 * 
 	 */
 	public function unsetLanguage() {
@@ -230,6 +351,8 @@ class Languages extends PagesType {
 	/**
 	 * Hook called when a language is deleted
 	 * 
+	 * #pw-hooker
+	 * 
 	 * @param Page $language
 	 *
 	 */
@@ -240,6 +363,8 @@ class Languages extends PagesType {
 	/**
 	 * Hook called when a language is added
 	 * 
+	 * #pw-hooker
+	 * 
 	 * @param Page $language
 	 *
 	 */
@@ -249,6 +374,8 @@ class Languages extends PagesType {
 
 	/**
 	 * Hook called when a language is added or deleted
+	 * 
+	 * #pw-hooker
 	 *
 	 * @param Page $language
 	 * @param string $what What occurred? ('added' or 'deleted')
@@ -261,6 +388,8 @@ class Languages extends PagesType {
 
 	/**
 	 * Reload all languages
+	 * 
+	 * #pw-internal
 	 *
 	 */
 	public function reloadLanguages() {
@@ -268,10 +397,26 @@ class Languages extends PagesType {
 		$this->languagesAll = null;
 	}
 
+	/**
+	 * Override getParent() from PagesType
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return Page
+	 * 
+	 */
 	public function getParent() {
 		return $this->wire('pages')->get($this->parent_id, array('loadOptions' => array('autojoin' => false)));
 	}
 
+	/**
+	 * Override getParents() from PagesType
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return PageArray
+	 * 
+	 */
 	public function getParents() {
 		if(count($this->parents)) {
 			return $this->wire('pages')->getById($this->parents, array('autojoin' => false));
@@ -281,10 +426,12 @@ class Languages extends PagesType {
 	}
 
 	/**
-	 * Get all language-specific page-edit permissions, or individually one of htem
+	 * Get all language specific page-edit permissions, or individually one of them
+	 * 
+	 * #pw-internal
 	 *
 	 * @param string $name Optionally specify a permission or language name to change return value.
-	 * @return array|string|bool of Permission names indexed by language name, or:
+	 * @return array|string|bool Array of Permission names indexed by language name, or:
 	 *  - If given a language name, it will return permission name (if exists) or false if not. 
 	 *  - If given a permission name, it will return the language name (if exists) or false if not. 
 	 *
@@ -334,6 +481,8 @@ class Languages extends PagesType {
 	 * 
 	 * A blank string is returned if there is no applicable permission
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param int|string|Language $language
 	 * @return string
 	 * 
@@ -351,8 +500,8 @@ class Languages extends PagesType {
 	/**
 	 * Does current user have edit access for page fields in given language?
 	 * 
-	 * @param Language|int|string $language
-	 * @return bool
+	 * @param Language|int|string $language Language id, name or object, or string "none" to refer to non-multi-language fields
+	 * @return bool True if editable, false if not
 	 * 
 	 */
 	public function editable($language) {
@@ -408,7 +557,16 @@ class Languages extends PagesType {
 		
 		return $has; 
 	}
-	
+
+	/**
+	 * Direct access to certain properties
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $key
+	 * @return mixed|Language
+	 * 
+	 */
 	public function __get($key) {
 		if($key == 'tabs') return $this->wire('modules')->get('LanguageSupport')->getLanguageTabs();
 		if($key == 'default') return $this->getDefault();
@@ -424,8 +582,11 @@ class Languages extends PagesType {
 	 *
 	 * This is only here to repair existing installs that were missing a field for one reason or another.
 	 * This method (and the call to it in Pages) can eventually be removed (?)
+	 * 
+	 * #pw-internal
 	 *
-	 * @param $column
+	 * @param HookEvent $event
+	 * #param string $column Argument 0 in HookEvent is unknown column name
 	 *
 	 */
 	public function hookUnknownColumnError(HookEvent $event) {
