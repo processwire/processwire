@@ -34,6 +34,16 @@
  * $numSent = $mail->send();
  * 
  * @method int send()
+ * @property array $to
+ * @property array $toName
+ * @property string $from
+ * @property string $fromName
+ * @property string $subject
+ * @property string $body
+ * @property string $bodyHTML
+ * @property array $header
+ * @property array $param
+ * @property array $attachments
  *
  */
 
@@ -141,7 +151,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 *	5. NULL (default value, to clear out any previously set values)
 	 * @param string $name Optionally provide a TO name, applicable
 	 *	only when specifying #1 (single email) for the first argument. 
-	 * @return this 
+	 * @return $this 
 	 * @throws WireException if any provided emails were invalid
 	 *
 	 */
@@ -192,7 +202,7 @@ class WireMail extends WireData implements WireMailInterface {
  	 * This sets the 'to name' for whatever the last added 'to' email address was.
 	 *
 	 * @param string 
-	 * @return this 
+	 * @return $this 
 	 * @throws WireException if you attempt to set a toName before a to email. 
 	 *
 	 */
@@ -207,9 +217,9 @@ class WireMail extends WireData implements WireMailInterface {
 	/**
 	 * Set the email from address
 	 *
-	 * @param string Must be a single email address or "User Name <user@example.com>" string.
+	 * @param string $email Must be a single email address or "User Name <user@example.com>" string.
 	 * @param string|null An optional FROM name (same as setting/calling fromName)
-	 * @return this 
+	 * @return $this 
 	 * @throws WireException if provided email was invalid
 	 *
 	 */
@@ -227,7 +237,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * all properties can be set with direct access, i.e. $mailer->fromName = 'User Name';
 	 *
 	 * @param string 
-	 * @return this 
+	 * @return $this 
 	 *
 	 */
 	public function fromName($name) {
@@ -239,7 +249,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * Set the email subject
 	 *
 	 * @param string $subject 
-	 * @return this 
+	 * @return $this 
 	 *
 	 */
 	public function subject($subject) {
@@ -251,7 +261,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * Set the email message body (text only)
 	 *
 	 * @param string $body in text only
-	 * @return this 
+	 * @return $this 
 	 *
 	 */
 	public function body($body) {
@@ -263,7 +273,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * Set the email message body (HTML only)
 	 *
 	 * @param string $body in HTML
-	 * @return this 
+	 * @return $this 
 	 *
 	 */
 	public function bodyHTML($body) {
@@ -279,7 +289,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 *
 	 * @param string $key
 	 * @param string $value
-	 * @return this 
+	 * @return $this 
 	 *
 	 */
 	public function header($key, $value) {
@@ -305,7 +315,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * This function may only be applicable to PHP mail().
 	 *
 	 * @param string $value
-	 * @return this 
+	 * @return $this 
 	 *
 	 */
 	public function param($value) {
@@ -319,13 +329,23 @@ class WireMail extends WireData implements WireMailInterface {
 
 	/**
 	 * Add a file to be attached to the email
+	 * 
+	 * ~~~~~~
+	 * $mail = new WireMail();
+	 * $mail->to('user@domain.com')->from('hello@world.com');
+	 * $mail->subject('Test attachment');
+	 * $mail->body('This is just a test of a file attachment');
+	 * $mail->attachment('/path/to/file.jpg'); 
+	 * $mail->send();
+	 * ~~~~~~
 	 *
-	 * Note: multiple calls will append attachments. 
+	 * Multiple calls will append attachments. 
 	 * To remove the supplied attachments, specify NULL as the value. 
-	 * This function may only be applicable to PHP mail().
+	 * This function may not be supported by 3rd party WireMail modules. 
 	 *
-	 * @param string $value
-	 * @return this 
+	 * @param string $value Full path and filename of file attachment
+	 * @param string $filename Optional different basename for file as it appears in the mail
+	 * @return $this 
 	 *
 	 */
 	public function attachment($value, $filename = '') {
@@ -348,7 +368,6 @@ class WireMail extends WireData implements WireMailInterface {
 	 */
 	public function ___send() {
 
-		$header = '';
 		$from = $this->from;
 		if(!strlen($from)) $from = $this->wire('config')->adminEmail;
 		if(!strlen($from)) $from = 'processwire@' . $this->wire('config')->httpHost; 
@@ -363,7 +382,6 @@ class WireMail extends WireData implements WireMailInterface {
 
 		$header = trim($header); 
 		$param = trim($param); 
-		$body = '';
 		$text = $this->body; 
 		$html = $this->bodyHTML;
 
