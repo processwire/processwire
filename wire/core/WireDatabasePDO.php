@@ -56,6 +56,14 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	protected $pdo = null;
 
 	/**
+	 * Whether or not our _init() has been called for the current $pdo connection
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $init = false;
+
+	/**
 	 * PDO connection settings
 	 * 
 	 */
@@ -99,6 +107,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$name = $config->dbName;
 		$socket = $config->dbSocket; 
 		$charset = $config->dbCharset;
+		$initCommand = str_replace('{charset}', $charset, $config->dbInitCommand);
+		
 		if($socket) {
 			// if socket is provided ignore $host and $port and use $socket instead:
 			$dsn = "mysql:unix_socket=$socket;dbname=$name;";
@@ -107,13 +117,18 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			$port = $config->dbPort;
 			if($port) $dsn .= ";port=$port";
 		}
+		
 		$driver_options = array(
-			\PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES '$charset'",
 			\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION
-			);
+		);
+		
+		if($initCommand) $driver_options[\PDO::MYSQL_ATTR_INIT_COMMAND] = $initCommand;
+		
 		$database = new WireDatabasePDO($dsn, $username, $password, $driver_options); 
 		$database->setDebugMode($config->debug);
 		$config->wire($database);
+		$database->_init();
+	
 		return $database;
 	}
 
@@ -134,7 +149,37 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$this->pdoConfig['pass'] = $password; 
 		$this->pdoConfig['options'] = $driver_options; 
 		$this->pdo();
-		$this->queryLogMax = (int) $this->wire('config')->dbQueryLogMax;
+	}
+
+	/**
+	 * Additional initialization after DB connection established and Wire instance populated
+	 * 
+	 * #pw-internal
+	 * 
+	 */
+	public function _init() {
+		if($this->init || !$this->isWired()) return;
+		$this->init = true; 
+		$config = $this->wire('config');
+		$this->queryLogMax = (int) $config->dbQueryLogMax;
+		$sqlModes = $config->dbSqlModes;
+		if(is_array($sqlModes)) {
+			// ["5.7.0" => "remove:mode1,mode2/add:mode3"]
+			foreach($sqlModes as $minVersion => $commands) {
+				if(strpos($commands, '/') !== false) {
+					$commands = explode('/', $commands);
+				} else {
+					$commands = array($commands);
+				}
+				foreach($commands as $modes) {
+					$modes = trim($modes);
+					if(empty($modes)) continue;
+					$action = 'set';
+					if(strpos($modes, ':')) list($action, $modes) = explode(':', $modes);
+					$this->sqlMode(trim($action), trim($modes), $minVersion);
+				}
+			}
+		}
 	}
 
 	/**
@@ -148,12 +193,16 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 */
 	public function pdo() {
-		if(!$this->pdo) $this->pdo = new \PDO(
-			$this->pdoConfig['dsn'], 
-			$this->pdoConfig['user'], 
-			$this->pdoConfig['pass'], 
-			$this->pdoConfig['options']
-			); 	
+		if(!$this->pdo) {
+			$this->init = false;
+			$this->pdo = new \PDO(
+				$this->pdoConfig['dsn'],
+				$this->pdoConfig['user'],
+				$this->pdoConfig['pass'],
+				$this->pdoConfig['options']
+			);
+		}
+		if(!$this->init) $this->_init();
 		return $this->pdo;
 	}
 
@@ -731,4 +780,73 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		return $max;
 	}
 
+	/**
+	 * Get SQL mode, set SQL mode, add to existing SQL mode, or remove from existing SQL mode
+	 * 
+	 * #pw-group-custom
+	 * 
+	 * ~~~~~
+	 * // Get SQL mode
+	 * $mode = $database->sqlMode();
+	 * 
+	 * // Add an SQL mode
+	 * $database->sqlMode('add', 'STRICT_TRANS_TABLES');
+	 * 
+	 * // Remove SQL mode if version at least 5.7.0
+	 * $database->sqlMode('remove', 'ONLY_FULL_GROUP_BY', '5.7.0');
+	 * ~~~~~
+	 * 
+	 * @param string $action Specify "get", "set", "add" or "remove". (default="get")
+	 * @param string $mode Mode string or CSV string with SQL mode(s), i.e. "STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY".
+	 *   This argument should be omitted when using the "get" action. 
+	 * @param string $minVersion Make the given action only apply if MySQL version is at least $minVersion, i.e. "5.7.0".
+	 * @return string|bool Returns string in "get" action, boolean false if required version not present, or true otherwise.
+	 * @throws WireException If given an invalid $action
+	 * 
+	 */
+	public function sqlMode($action = 'get', $mode = '', $minVersion = '') {
+
+		$result = true;
+		$modes = array();
+		
+		if(empty($action)) $action = 'get';
+		
+		if($action !== 'get' && $minVersion) {
+			$serverVersion = $this->getAttribute(\PDO::ATTR_SERVER_VERSION);
+			if(version_compare($serverVersion, $minVersion, '<')) return false;
+		}
+	
+		if($mode) {
+			foreach(explode(',', $mode) as $m) {
+				$modes[] = $this->escapeStr(strtoupper($this->wire('sanitizer')->fieldName($m)));
+			}
+		}
+		
+		switch($action) {
+			case 'get':
+				$query = $this->pdo()->query("SELECT @@sql_mode");
+				$result = $query->fetchColumn();
+				$query->closeCursor();
+				break;
+			case 'set':
+				$modes = implode(',', $modes);
+				$result = $modes;
+				$this->pdo()->exec("SET sql_mode='$modes'");
+				break;
+			case 'add':
+				foreach($modes as $m) {
+					$this->pdo()->exec("SET sql_mode=(SELECT CONCAT(@@sql_mode,',$m'))");
+				}
+				break;
+			case 'remove':
+				foreach($modes as $m) {
+					$this->pdo()->exec("SET sql_mode=(SELECT REPLACE(@@sql_mode,'$m',''))");
+				}
+				break;
+			default:
+				throw new WireException("Unknown action '$action'");
+		}
+		
+		return $result;
+	}
 }

@@ -99,6 +99,8 @@
  * @property string $dbEngine Database engine (MyISAM or InnoDB) #pw-group-database
  * @property string $dbPath MySQL database exec path (Path to mysqldump) #pw-group-database
  * @property int $dbQueryLogMax Maximum number of queries WireDatabasePDO will log in memory, when debug mode is enabled (default=1000). #pw-group-database
+ * @property string $dbInitCommand Database init command, for PDO::MYSQL_ATTR_INIT_COMMAND. Note placeholder {charset} gets replaced with $config->dbCharset. #pw-group-database
+ * $property array $dbSqlModes Set, add or remove SQL mode based on MySQL version. See default in /wire/config.php for details. #pw-group-database
  * 
  * @property array $pageList Settings specific to Page lists. #pw-group-modules
  * @property array $pageEdit Settings specific to Page editors. #pw-group-modules

@@ -821,6 +821,37 @@ $config->dbHost = '';
 $config->dbPort = 3306;
 
 /**
+ * Database init command (PDO::MYSQL_ATTR_INIT_COMMAND)
+ *
+ * Note: Placeholder "{charset}" gets automatically replaced with $config->dbCharset.
+ * 
+ * @var string
+ *
+ */
+$config->dbInitCommand = "SET NAMES '{charset}'";
+
+/**
+ * Set or adjust SQL mode per MySQL version
+ * 
+ * Array indexes are minimum MySQL version mode applies to. Array values are 
+ * the names of the mode(s) to apply. If value is preceded with "remove:" the mode will 
+ * be removed, or if preceded with "add:" the mode will be added. If neither is present 
+ * then the mode will be set exactly as given. To specify more than one SQL mode for the
+ * value, separate them by commas (CSV). To specify multiple statements for the same 
+ * version, separate them with a slash "/".
+ * 
+ * ~~~~~
+ * array("5.7.0" => "remove:STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY/add:NO_ZERO_DATE")
+ * ~~~~~
+ * 
+ * @var array
+ * 
+ */
+$config->dbSqlModes = array(
+	"5.7.0" => "remove:STRICT_TRANS_TABLES,ONLY_FULL_GROUP_BY"
+);
+
+/**
  * Optional DB socket config for sites that need it (for most you should exclude this)
  *
  */
