@@ -92,6 +92,7 @@ class PageComparison {
 			$property = $selector->field;
 			$subproperty = '';
 			
+			if(is_array($property)) $property = reset($property);
 			if(strpos($property, '.')) list($property, $subproperty) = explode('.', $property, 2);
 			if(in_array($property, $ignores)) continue;
 			
