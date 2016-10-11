@@ -18,6 +18,7 @@
  * @property bool|int $uploadOnlyMode Set to true or 1 to disable existing file list display
  * @property bool|int $noCollapseItem Set to true to disable collapsed items (like for LanguageTranslator tool or other things that add tools to files)
  * @property bool|int $noShortName Set to true to disable shortened filenames in output
+ * @property bool|int $noCustomButton Set to true to disable use of the styled <input type='file'>
  *
  */
 class InputfieldFile extends Inputfield implements InputfieldItemList {
@@ -102,6 +103,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 		$this->set('noAjax', 0); // disable ajax uploading
 		$this->set('noCollapseItem', 0);
 		$this->set('noShortName', 0);
+		$this->set('noCustomButton', false);
 		$this->attr('type', 'file'); 
 		
 		$this->labels = array(
@@ -406,14 +408,23 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 				"data-extensions='$extensions' " .
 				"data-fieldname='$attrs[name]' " .
 				"class='InputfieldFileUpload'>
-				
-				<div class='InputMask ui-button ui-state-default'>
-					<span class='ui-button-text'>
-						<i class='fa fa-fw fa-folder-open-o'></i>$chooseLabel
-					</span>
-					<input $attrStr>
-				</div>
-				
+				";
+	
+		if($this->getSetting('noCustomButton')) {
+			$out .= "<input $attrStr>";
+			
+		} else {
+			$out .= "
+					<div class='InputMask ui-button ui-state-default'>
+						<span class='ui-button-text'>
+							<i class='fa fa-fw fa-folder-open-o'></i>$chooseLabel
+						</span>
+						<input $attrStr>
+					</div>
+					";
+		}
+		
+		$out .= "  		
 				<span class='InputfieldFileValidExtensions detail'>$formatExtensions</span>
 				<input type='hidden' class='InputfieldFileMaxFiles' value='$this->maxFiles' />
 			";

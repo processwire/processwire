@@ -532,6 +532,7 @@ class ProcessModule extends Process {
 		$f->description = $this->_('Upload a ZIP file containing module file(s). If you upload a module that is already installed, it will be overwritten with the one you upload.'); 
 		$f->notes = $trustNote; 
 		$f->required = false;
+		$f->noCustomButton = true;
 		$fieldset->add($f);
 		$f = $this->modules->get('InputfieldSubmit');
 		$f->attr('id+name', 'upload');
