@@ -291,7 +291,7 @@ class InputfieldDatetime extends Inputfield {
 		$f->label = $this->_('Date Input Format');
 		$f->description = $this->_('Select the format to be used for user input to this field. Your selection will populate the field below this, which you may customize further if needed.');
 		$f->icon = 'calendar';
-		$f->addOption('', $this->_('None'));
+		//$f->addOption('', $this->_('None'));
 		$date = strtotime('2016-04-08 5:10:02 PM');
 		foreach($datetime->getDateFormats() as $format) {
 			$dateFormatted = $datetime->formatDate($date, $format);
