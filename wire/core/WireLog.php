@@ -299,20 +299,23 @@ class WireLog extends Wire {
 	public function lineToEntry($line) {
 		
 		$parts = explode("\t", $line, 4);
-		
+	
 		if(count($parts) == 2) {
 			$entry = array(
 				'date' => $parts[0],
-				'user' => $usr = $this->wire('sanitizer')->pageNameUTF8($parts[1]) === $parts[1] ? $parts[1] : '',
-				'url'  => $url = strpos($parts[1], '://') !== false ? $parts[1] : '',
-				'text' => $url === '' && $usr === '' && strpos($parts[1], '://') === false ? $parts[1] : ''
+				'user' => '',
+				'url'  => '',
+				'text' => $parts[1]
 			);
 		} else if(count($parts) == 3) {
+			$user = strpos($parts[1], '/') === false ? $parts[1] : '';
+			$url = strpos($parts[2], '://') ? $parts[2] : '';
+			$text = empty($url) ? $parts[2] : '';
 			$entry = array(
 				'date' => $parts[0],
-				'user' => $usr = $this->wire('sanitizer')->pageNameUTF8($parts[1]) === $parts[1] ? $parts[1] : '',
-				'url'  => $url = (strpos($parts[2], '://') !== false ? $parts[2] : (strpos($parts[1], '://') !== false ? $parts[1] : '')),
-				'text' => $url === '' || $usr === '' ? $parts[2] : ''
+				'user' => $user,
+				'url'  => $url,
+				'text' => $text
 			);
 		} else {
 			$entry = array(
