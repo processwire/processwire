@@ -504,7 +504,12 @@ class PagesEditor extends Wire {
 		$systemVersion = $config->systemVersion;
 		if(!$page->created_users_id) $page->created_users_id = $userID;
 		if($page->isChanged('status') && empty($options['noHooks'])) $this->pages->statusChangeReady($page);
-		$extraData = empty($options['noHooks']) ? $this->pages->saveReady($page) : array();
+		if(empty($options['noHooks'])) {
+			$extraData = $this->pages->saveReady($page); 
+			$this->pages->savePageOrFieldReady($page);
+		} else {
+			$extraData = array();
+		}
 		$sql = '';
 
 		if(strpos($page->name, $this->untitledPageName) === 0) $this->pages->setupPageName($page);
@@ -659,7 +664,10 @@ class PagesEditor extends Wire {
 		// if page hasn't changed, don't continue further
 		if(!$page->isChanged() && !$isNew) {
 			$this->pages->debugLog('save', '[not-changed]', true);
-			if(empty($options['noHooks'])) $this->pages->saved($page, array());
+			if(empty($options['noHooks'])) {
+				$this->pages->saved($page, array());
+				$this->pages->savedPageOrField($page, array());
+			}
 			return true;
 		}
 
@@ -744,6 +752,7 @@ class PagesEditor extends Wire {
 		// trigger hooks
 		if(empty($options['noHooks'])) {
 			$this->pages->saved($page, $changes, $changesValues);
+			$this->pages->savedPageOrField($page, $changes);
 			if($triggerAddedPage) $this->pages->added($triggerAddedPage);
 			if($page->namePrevious && $page->namePrevious != $page->name) $this->pages->renamed($page);
 			if($page->parentPrevious) $this->pages->moved($page);
@@ -799,7 +808,10 @@ class PagesEditor extends Wire {
 		if($value instanceof Pagefiles || $value instanceof Pagefile) $page->filesManager()->save();
 		$page->trackChange($field->name);
 
-		if(empty($options['noHooks'])) $this->pages->saveFieldReady($page, $field);
+		if(empty($options['noHooks'])) {
+			$this->pages->saveFieldReady($page, $field);
+			$this->pages->savePageOrFieldReady($page, $field->name);
+		}
 		
 		if($field->type->savePageField($page, $field)) {
 			$page->untrackChange($field->name);
@@ -813,7 +825,10 @@ class PagesEditor extends Wire {
 				$database->execute($query);
 			}
 			$return = true;
-			if(empty($options['noHooks'])) $this->pages->savedField($page, $field);
+			if(empty($options['noHooks'])) {
+				$this->pages->savedField($page, $field);
+				$this->pages->savedPageOrField($page, array($field->name));
+			}
 		} else {
 			$return = false;
 		}

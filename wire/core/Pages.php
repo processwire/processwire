@@ -61,6 +61,8 @@
  * @method unpublished(Page $page) Hook called after a published page has just been unpublished. 
  * @method saveFieldReady(Page $page, Field $field) Hook called just before a saveField() method saves a page fied. 
  * @method savedField(Page $page, Field $field) Hook called after saveField() method successfully executes. 
+ * @method saveEitherReady(Page $page, $fieldName = '') Hook inclusive of both saveReady() and saveFieldReady().
+ * @method savedEither(Page $page, array $changes) Hook inclusive of both saved() and savedField().
  * @method found(PageArray $pages, array $details) Hook called at the end of a $pages->find().
  *
  * TO-DO
@@ -1584,6 +1586,28 @@ class Pages extends Wire {
 	public function ___savedField(Page $page, Field $field) { 
 		$this->log("Saved page field '$field->name'", $page); 
 	}
+
+	/**
+	 * Hook called when either of Pages::save or Pages::saveField is ready to execute
+	 * 
+	 * #pw-hooker
+	 *
+	 * @param Page $page
+	 * @param string $fieldName Populated only if call originates from saveField
+	 *
+	 */
+	public function ___savePageOrFieldReady(Page $page, $fieldName = '') { }
+
+	/**
+	 * Hook called after either of Pages::save or Pages::saveField successfully executes
+	 *
+	 * #pw-hooker
+	 *
+	 * @param Page $page
+	 * @param array $changes Names of fields
+	 *
+	 */
+	public function ___savedPageOrField(Page $page, array $changes = array()) { }
 
 }
 
