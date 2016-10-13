@@ -134,7 +134,8 @@ class WireMail extends WireData implements WireMailInterface {
 			$name = str_replace('"', '', $name); // remove existing quotes
 			$name = '"' . $name . '"'; // surround w/quotes
 		}
-		return "$name <$email>";
+		// Encode the name part as quoted printable according to rfc2047
+		return $this->quotedPrintableString($name) . " <$email>";
 	}
 
 	/**
@@ -396,15 +397,15 @@ class WireMail extends WireData implements WireMailInterface {
 			$body = "This is a multi-part message in MIME format.\r\n\r\n" . 
 				"--$boundary\r\n" . 
 				"Content-Type: text/plain; charset=\"utf-8\"\r\n" . 
-				"Content-Transfer-Encoding: 7bit\r\n\r\n" . 
-				"$text\r\n\r\n";
+				"Content-Transfer-Encoding: quoted-printable\r\n\r\n" . 
+				quoted_printable_encode($text) . "\r\n\r\n";
 
 			// HTML
 			if($this->bodyHTML){
 				$body .= "--$boundary\r\n" .
 					"Content-Type: text/html; charset=\"utf-8\"\r\n" . 
-					"Content-Transfer-Encoding: 7bit\r\n\r\n" . 
-					"$html\r\n\r\n";
+					"Content-Transfer-Encoding: quoted-printable\r\n\r\n" . 
+					quoted_printable_encode($html) . "\r\n\r\n";
 			}
 
 			// Attachments
@@ -422,17 +423,28 @@ class WireMail extends WireData implements WireMailInterface {
 			$body .= "--$boundary--\r\n";
 
 		} else {
-			$header .= "\r\nContent-Type: text/plain; charset=\"utf-8\""; 
-			$body = $text; 
+			$header .= "\r\nContent-Type: text/plain; charset=UTF-8\r\n" .
+				"Content-Transfer-Encoding: quoted-printable"; 
+			$body = quoted_printable_encode($text); 
 		}
 
 		$numSent = 0;
 		foreach($this->to as $to) {
 			$toName = $this->mail['toName'][$to]; 
 			if($toName) $to = $this->bundleEmailAndName($to, $toName); // bundle to "User Name <user@example.com"
-			if(@mail($to, $this->subject, $body, $header, $param)) $numSent++;
+			if(@mail($to, $this->quotedPrintableString($this->subject), $body, $header, $param)) $numSent++;
 		}
 
 		return $numSent; 
+	}
+	
+	/**
+	 * Return the text quoted-printable encoded
+	 *
+	 * Uses short notation for charset and encoding suitable for email headers
+	 * as laid out in rfc2047.
+	 */
+	public function quotedPrintableString($text) {
+		return '=?utf-8?Q?' . quoted_printable_encode($text) . '?=';
 	}
 }
