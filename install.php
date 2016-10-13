@@ -1039,7 +1039,9 @@ class Installer {
 		$superuserRole = $wire->roles->get("name=superuser");
 		$user = $wire->users->get($wire->config->superUserPageID); 
 
-		if(!$user->id) {
+		if($user->id) {
+			$user->of(false);
+		} else {
 			$user = new User(); 
 			$user->id = $wire->config->superUserPageID; 
 		}
