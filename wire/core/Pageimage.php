@@ -667,22 +667,35 @@ class Pageimage extends Pagefile {
 	 * @param int|float $width Specify int to return resized image for hidpi, or float (or omit) to return current width at hidpi.
 	 * @param array $options Optional options for use when resizing, see size() method for details.
 	 * 	Or you may specify an int as if you want to return a hidpi width and want to calculate with that width rather than current image width.
-	 * @return int|Pageimage
+	 * @return int|Pageimage|string
 	 * 
 	 */	
 	public function hidpiWidth($width = 0, $options = array()) {
+		
+		if(is_string($width)) {
+			if(ctype_digit("$width")) {
+				$width = (int) $width;
+			} else if($width === "100%") {
+				return $this;
+			} else if(ctype_digit(str_replace(".", "", $width))) {
+				$width = (float) $width;
+			}
+		}
+		
 		if(is_float($width) || $width < 1) {
 			// return hidpi width intended: scale omitted or provided in $width argument
 			$scale = $width;
 			if(!$scale || $scale < 0 || $scale > 1) $scale = 0.5;
 			$width = is_array($options) ? 0 : (int) $options;
 			if($width < 1) $width = $this->width();
+			if($width === "100%") return $width;
 			return ceil($width * $scale); 
-		} else if($width) {
+		} else if($width && is_int($width) && $width > 0) {
 			// resize intended
 			if(!is_array($options)) $options = array();
 			return $this->hidpiSize((int) $width, 0, $options);
 		}
+		
 		return 0; // not possible to reach, but pleases the inspection
 	}
 
