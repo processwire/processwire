@@ -686,6 +686,7 @@ class Pageimage extends Pagefile {
 			// return hidpi width intended: scale omitted or provided in $width argument
 			$scale = $width;
 			if(!$scale || $scale < 0 || $scale > 1) $scale = 0.5;
+			if(is_string($options) && $options === "100%") return $options;
 			$width = is_array($options) ? 0 : (int) $options;
 			if($width < 1) $width = $this->width();
 			if($width === "100%") return $width;
@@ -1119,8 +1120,8 @@ class Pageimage extends Pagefile {
 			return false; 
 		}
 		
-		$info['hidpiWidth'] = $this->hidpiWidth(null, $info['width']);
-		$info['hidpiHeight'] = $this->hidpiWidth(null, $info['height']); 
+		$info['hidpiWidth'] = $this->hidpiWidth(0, $info['width']);
+		$info['hidpiHeight'] = $this->hidpiWidth(0, $info['height']); 
 	
 		if(empty($info['crop'])) {
 			// attempt to extract crop info from suffix

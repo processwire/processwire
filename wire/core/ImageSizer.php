@@ -13,6 +13,8 @@
  *
  * Copyright (C) 2016 by Horst Nogajski and Ryan Cramer
  * This file licensed under Mozilla Public License v2.0 http://mozilla.org/MPL/2.0/
+ * 
+ * @method bool resize($targetWidth, $targetHeight = 0)
  *
  */
 class ImageSizer extends Wire {
