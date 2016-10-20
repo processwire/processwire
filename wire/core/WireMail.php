@@ -129,13 +129,14 @@ class WireMail extends WireData implements WireMailInterface {
 		$email = $this->sanitizeEmail($email); 
 		if(!strlen($name)) return $email;
 		$name = $this->sanitizeHeader($name); 
+		$delim = '';
 		if(strpos($name, ',') !== false) {
 			// name contains a comma, so quote the value
 			$name = str_replace('"', '', $name); // remove existing quotes
-			$name = '"' . $name . '"'; // surround w/quotes
+			$delim = '"';  // add quotes
 		}
 		// Encode the name part as quoted printable according to rfc2047
-		return $this->quotedPrintableString($name) . " <$email>";
+		return $delim . $this->quotedPrintableString($name) . $delim . " <$email>";
 	}
 
 	/**
@@ -395,17 +396,34 @@ class WireMail extends WireData implements WireMailInterface {
 
 			// Plain Text
 			$body = "This is a multi-part message in MIME format.\r\n\r\n" . 
-				"--$boundary\r\n" . 
-				"Content-Type: text/plain; charset=\"utf-8\"\r\n" . 
+				"--$boundary\r\n";
+				
+			$textbody = "Content-Type: text/plain; charset=\"utf-8\"\r\n" . 
 				"Content-Transfer-Encoding: quoted-printable\r\n\r\n" . 
 				quoted_printable_encode($text) . "\r\n\r\n";
 
 			// HTML
 			if($this->bodyHTML){
-				$body .= "--$boundary\r\n" .
-					"Content-Type: text/html; charset=\"utf-8\"\r\n" . 
+				$htmlbody = "Content-Type: text/html; charset=\"utf-8\"\r\n" . 
 					"Content-Transfer-Encoding: quoted-printable\r\n\r\n" . 
 					quoted_printable_encode($html) . "\r\n\r\n";
+				
+				if(count($this->attachments)) {
+					$subboundary = "==Multipart_Boundary_alt_x" . md5(time()) . "x";
+					
+					$body .= "Content-Type: multipart/alternative;\r\n	boundary=\"$subboundary\"\r\n\r\n" .
+						"--$subboundary\r\n" .
+						$textbody .
+						"--$subboundary\r\n" .
+						$htmlbody .
+						"--$subboundary--\r\n\r\n";
+				} else {
+					$body .= $textbody .
+						"--$boundary\r\n" .
+						$htmlbody;
+				}
+			} else {
+				$body .= $textbody;
 			}
 
 			// Attachments
@@ -432,10 +450,73 @@ class WireMail extends WireData implements WireMailInterface {
 		foreach($this->to as $to) {
 			$toName = $this->mail['toName'][$to]; 
 			if($toName) $to = $this->bundleEmailAndName($to, $toName); // bundle to "User Name <user@example.com"
-			if(@mail($to, $this->quotedPrintableString($this->subject), $body, $header, $param)) $numSent++;
+			if(@mail($to, $this->encodeSubject($this->subject), $body, $header, $param)) $numSent++;
 		}
 
 		return $numSent; 
+	}
+	
+	/**
+	 * Encode the subject, use mbstring if available
+	 */
+	public function encodeSubject($subject) {
+		
+		if(extension_loaded("mbstring") && false == true) {
+			// Need to pass in the header name and subtract it afterwards,
+			// otherwise the first line would grow too long
+			return substr(mb_encode_mimeheader("Subject: $subject", 'UTF-8', 'Q', "\r\n"), 9);
+		}
+
+		$out = array();
+		$isFirst = true;
+		while(strlen($subject) > 0) {
+			$part = $this->findBestEncodePart($subject, 63, $isFirst);
+			$out[] = $this->quotedPrintableString($part);
+			$subject = substr($subject, strlen($part));
+			$isFirst = false;
+		}
+		
+		return implode("\r\n ", $out);
+	}
+	
+	/**
+	 * Tries to split the passed subject at a whitespace at or before $maxlen,
+	 * falling back to a hard substr if none was found, and returns the
+	 * left part.
+	 *
+	 * Makes sure that the quoted-printable encoded part is inside the 76 characters
+	 * header limit (66 for first line that has the header name, minus a buffer
+	 * of 2 characters for whitespace) given in rfc2047.
+	 *
+	 * @param string $input The subject to encode
+	 * @param int $maxlen Maximum length of unencoded string, defaults to 63
+	 * @param bool $isFirst Set to true for first line to account for the header name
+	 * @return string
+	 *
+	 */
+	private function findBestEncodePart($input, $maxlen = 63, $isFirst = false) {
+		$maxEffLen = $maxlen - ($isFirst ? 10 : 0);
+
+		if(strlen($input) <= $maxEffLen) {
+			$part = $input;
+		} elseif(
+			strpos($input, " ") === FALSE
+			|| strrpos($input, " ") === FALSE
+			|| strpos($input, " ") > $maxEffLen
+		) {
+			// Force cutting of subject since there is no whitespace to break on
+			$part = substr($input, $maxlen - $offsetHdr);
+		} else {
+			$searchstring = substr($input, 0, $maxEffLen);
+			$lastpos = strrpos($searchstring, " ");
+			$part = substr($input, 0, $lastpos);
+		}
+
+		if(strlen($this->quotedPrintableString($part)) > 74 - ($isFirst ? 10 : 0)) {
+			return $this->findBestEncodePart($input, $maxlen - 1, $isFirst);
+		}
+
+		return $part;
 	}
 	
 	/**
