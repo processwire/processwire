@@ -435,7 +435,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		if(count($imageFields)) {
 			$imageFieldNames = implode(',', array_keys($imageFields)); 
 			$btn = $this->modules->get('InputfieldButton');
-			$btn->href = "../edit/?modal=1&id={$this->page->id}&fields=$imageFieldNames&uploadOnlyMode=1";
+			$uploadOnlyMode = "$this->page" === "$this->editorPage" ? 1 : 2;
+			$btn->href = "../edit/?modal=1&id={$this->page->id}&fields=$imageFieldNames&uploadOnlyMode=$uploadOnlyMode";
 			$btn->value = $this->_('Upload Image');
 			$btn->addClass('upload pw-modal-button pw-modal-button-visible'); 
 			$btn->icon = 'upload';

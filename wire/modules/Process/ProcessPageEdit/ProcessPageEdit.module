@@ -616,8 +616,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		}
 
 		// for ProcessPageEditImageSelect support
-		if($this->wire('input')->get('uploadOnlyMode') && !$this->wire('config')->ajax) {
-			$action .= "&uploadOnlyMode=1";
+		$uploadOnlyMode = (int) $this->wire('input')->get('uploadOnlyMode');
+		if($uploadOnlyMode && !$this->wire('config')->ajax) {
+			$action .= "&uploadOnlyMode=" . $uploadOnlyMode;
 			$form->attr('action', $action);
 			// for modal uploading with InputfieldFile or InputfieldImage
 			if(count($this->fields) && $this->field->type instanceof FieldtypeImage) {
