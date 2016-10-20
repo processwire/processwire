@@ -36,6 +36,7 @@
  * @property Languages $languages If LanguageSupport installed
  * @property Config $config
  * @property Fuel $fuel
+ * @property WireProfilerInterface $profiler 
  *
  */
 class Fuel implements \IteratorAggregate {
@@ -57,6 +58,16 @@ class Fuel implements \IteratorAggregate {
 	protected $lock = array();
 
 	/**
+	 * API vars that require specific interfaces
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $requiredInterfaces = array(
+		'profiler' => 'WireProfilerInterface'
+	);
+	
+	/**
 	 * @param string $key API variable name to set - should be valid PHP variable name.
 	 * @param object|mixed $value Value for the API variable.
 	 * @param bool $lock Whether to prevent this API variable from being overwritten in the future.
@@ -67,6 +78,13 @@ class Fuel implements \IteratorAggregate {
 	public function set($key, $value, $lock = false) {
 		if(isset($this->lock[$key]) && $value !== $this->data[$key]) {
 			throw new WireException("API variable '$key' is locked and may not be set again"); 
+		}
+		if(isset($this->requiredInterfaces[$key])) {
+			$requiredInterface = $this->requiredInterfaces[$key];
+			$hasInterfaces = wireClassImplements($value, false);
+			if(!isset($hasInterfaces[$requiredInterface]) && !in_array($requiredInterface, $hasInterfaces)) {
+				throw new WireException("API variable '$key' must implement interface: $requiredInterface"); 
+			}
 		}
 		$this->data[$key] = $value; 
 		if($lock) $this->lock[$key] = true;

@@ -954,6 +954,7 @@ class Session extends Wire implements \IteratorAggregate {
 				if(!strpos($url, 'modal=')) $url .= (strpos($url, '?') !== false ? '&' : '?') . 'modal=1'; 
 			}
 		}
+		$this->wire()->setStatus(ProcessWire::statusFinished);
 		if($http301) header("HTTP/1.1 301 Moved Permanently");
 		header("Location: $url");
 		exit(0);

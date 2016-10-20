@@ -152,7 +152,7 @@ $(document).ready(function() {
 
         // instantiate the WireTabs
 	var $templateEdit = $("#ProcessTemplateEdit"); 
-	if($templateEdit.size() > 0) {
+	if($templateEdit.length > 0) {
 		$templateEdit.find('script').remove();
 		$templateEdit.WireTabs({
 			items: $(".Inputfields li.WireTab"),

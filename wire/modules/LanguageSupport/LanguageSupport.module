@@ -32,7 +32,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 			'installs' => array(
 				'ProcessLanguage', 
 				'ProcessLanguageTranslator', 
-				)
+			),
+			'addFlag' => Modules::flagsNoUserConfig
 			);
 	}
 

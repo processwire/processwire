@@ -10,5 +10,6 @@
 	"permissions": {
 		"page-lister": "Use Page Lister" 
 	},
-    "useNavJSON": true
+    "useNavJSON": true,
+    "addFlag": 32
 }

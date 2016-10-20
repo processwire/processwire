@@ -21,10 +21,10 @@ $(document).ready(function() {
 
 	$("button.ProcessModuleSettings").click(function() {
 		var $a = $(this).parents('tr').find('.ConfigurableModule').parent('a');
-		window.location.href = $a.attr('href'); 
+		window.location.href = $a.attr('href') + '&collapse_info=1'; 
 	}); 
 
-    if($('#modules_form').size() > 0) {
+    if($('#modules_form').length > 0) {
         $('#modules_form').WireTabs({
             items: $(".Inputfields li.WireTab"),
 			rememberTabs: true

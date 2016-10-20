@@ -38,13 +38,59 @@
  */
 class WireInput extends Wire {
 
+	/**
+	 * @var WireInputVars|null
+	 * 
+	 */
 	protected $getVars = null;
-	protected $postVars = null;
-	protected $cookieVars = null;
-	protected $whitelist = null;
-	protected $urlSegments = array();
-	protected $pageNum = 1; 
 	
+	/**
+	 * @var WireInputVars|null
+	 *
+	 */
+	protected $postVars = null;
+	
+	/**
+	 * @var WireInputVars|null
+	 *
+	 */
+	protected $cookieVars = null;
+	
+	/**
+	 * @var WireInputVars|null
+	 *
+	 */
+	protected $whitelist = null;
+
+	/**
+	 * @var array
+	 * 
+	 */
+	protected $urlSegments = array();
+
+	/**
+	 * @var int
+	 * 
+	 */
+	protected $pageNum = 1;
+
+	/**
+	 * @var array
+	 * 
+	 */
+	protected $requestMethods = array(
+		'GET' => 'GET',
+		'POST' => 'POST',
+		'HEAD' => 'HEAD',
+		'PUT' => 'PUT',
+		'DELETE' => 'DELETE',
+		'OPTIONS' => 'OPTIONS',
+	);
+
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		$this->useFuel(false);
 		$this->unregisterGLOBALS();
@@ -535,6 +581,22 @@ class WireInput extends Wire {
 	 */
 	public function scheme() {
 		return $this->wire('config')->https ? 'https' : 'http'; 
+	}
+
+	/**
+	 * Return the current request method (i.e. GET, POST) or blank if not known
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function requestMethod() {
+		if(isset($_SERVER['REQUEST_METHOD'])) {
+			$m = strtoupper($_SERVER['REQUEST_METHOD']);
+			$requestMethod = isset($this->requestMethods[$m]) ? $this->requestMethods[$m] : '';
+		} else {
+			$requestMethod = '';
+		}
+		return $requestMethod; 
 	}
 
 	/**

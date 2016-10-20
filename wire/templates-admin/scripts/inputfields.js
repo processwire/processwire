@@ -1253,7 +1253,7 @@ jQuery(document).ready(function($) {
 	$(window).resize(windowResized); 
 	$("ul.WireTabs > li > a").click(tabClicked);
 
-	$(document).on('reload', '.Inputfield', function(event) {
+	$(document).on('reload', '.Inputfield', function(event, extraData) {
 		var $t = $(this);
 		var $form = $t.closest('form');
 		var fieldName = $t.attr('id').replace('wrap_Inputfield_', ''); 
@@ -1265,6 +1265,11 @@ jQuery(document).ready(function($) {
 		}
 		url += url.indexOf('?') > -1 ? '&' : '?';
 		url += 'field=' + fieldName + '&reloadInputfieldAjax=' + fieldName;
+		if(typeof extraData != "undefined") {
+			if(typeof extraData['queryString'] != "undefined") {
+				url += '&' + extraData['queryString'];
+			}
+		}
 		consoleLog('Inputfield reload: ' + fieldName); 
 		$.get(url, function(data) {
 			var id = $t.attr('id');

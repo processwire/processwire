@@ -188,10 +188,18 @@ class ProcessModule extends Process {
 		sort($moduleNames); 
 
 		foreach($moduleNames as $moduleName) {
+			
 			$info = $this->wire('modules')->getModuleInfoVerbose($moduleName); 
+			
 			if($site && $info['core']) continue; 
 			if($core && !$info['core']) continue; 
-			if($configurable && (!$info['configurable'] || !$info['installed'])) continue; 
+			
+			if($configurable) { 
+				if(!$info['configurable'] || !$info['installed']) continue;
+				$flags = $this->wire('modules')->getFlags($moduleName);
+				if($flags & Modules::flagsNoUserConfig) continue;
+			}
+			
 			if($install) {
 				// exclude already installed modules
 				if($info['installed']) continue; 
@@ -206,6 +214,7 @@ class ProcessModule extends Process {
 			
 			$url = $install ? "installConfirm" : "edit"; 
 			$url .= "?name=$info[name]";
+			if($configurable) $url .= "&collapse_info=1";
 			
 			$data['list'][$_label] = array(
 				'url' => $url,
@@ -366,7 +375,12 @@ class ProcessModule extends Process {
 				$siteModulesArray[$name] = $installed;
 			}
 			
-			if($info['configurable'] && $info['installed']) $configurableArray[$name] = $installed;
+			if($info['configurable'] && $info['installed']) {
+				$flags = $this->modules->getFlags($name);
+				if(!($flags & Modules::flagsNoUserConfig)) {
+					$configurableArray[$name] = $installed;
+				}
+			}
 		}
 
 		$form = $this->modules->get('InputfieldForm');
@@ -713,10 +727,12 @@ class ProcessModule extends Process {
 				$editUrl = '#';
 
 			} else if($configurable) {
-
-				$buttons .= 
-					"<button type='button' class='ProcessModuleSettings ui-state-default ui-button'>" . 
-					"<span class='ui-button-text'><i class='fa fa-cog'></i> " . $this->_x('Settings', 'button') . "</span></button>"; // Text for 'Settings' button
+				$flags = $this->modules->getFlags($name);
+				if(!($flags & Modules::flagsNoUserConfig)) {
+					$buttons .=
+						"<button type='button' class='ProcessModuleSettings ui-state-default ui-button'>" .
+						"<span class='ui-button-text'><i class='fa fa-cog'></i> " . $this->_x('Settings', 'button') . "</span></button>"; // Text for 'Settings' button
+				}
 			}
 
 			if($buttons) $buttons = "<small class='buttons'>$buttons</small>";
@@ -1132,7 +1148,11 @@ class ProcessModule extends Process {
 		$out = ''; 
 		$moduleId = $this->modules->getModuleID($moduleName); 
 		$languages = $this->wire('languages');
-		$collapseInfo = $this->wire('input')->get('collapse_info') || $this->wire('input')->get('modal') ? '&collapse_info=1': '';
+		$submitSave = $this->input->post('submit_save_module');
+		$collapseInfo = '';
+		if($submitSave || $this->wire('input')->get('collapse_info') || $this->wire('input')->get('modal')) {
+			$collapseInfo = '&collapse_info=1';
+		}
 		if(!$moduleId) {
 			$this->error("Unknown module"); 
 			return $this->session->redirect('./'); 
@@ -1254,7 +1274,6 @@ class ProcessModule extends Process {
 		}
 
 		// check for submitted form
-		$submitSave = $this->input->post('submit_save_module');
 		if($submitSave) {
 
 			if(is_null($data)) $data = $this->modules->getModuleConfigData($moduleName);

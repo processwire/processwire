@@ -22,6 +22,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			'summary' => __('List, Edit and Add pages of a specific type', __FILE__), // getModuleInfo summary
 			'permanent' => true, 
 			'useNavJSON' => true, 
+			'addFlag' => Modules::flagsNoUserConfig
 			); 
 	}
 

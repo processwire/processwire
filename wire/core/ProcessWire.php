@@ -430,9 +430,11 @@ class ProcessWire extends Wire {
 		$config = $this->wire('config');
 		$session = $this->wire('session');
 		$cache = $this->wire('cache'); 
+		$profiler = $this->wire('profiler');
 		
 		if($session) $session->maintenance();
 		if($cache) $cache->maintenance();
+		if($profiler) $profiler->maintenance();
 
 		if($config->templateCompile) {
 			$compiler = new FileCompiler($this->wire('config')->paths->templates);
@@ -443,6 +445,7 @@ class ProcessWire extends Wire {
 			$compiler = new FileCompiler($this->wire('config')->paths->siteModules);
 			$compiler->maintenance();
 		}
+		
 	}
 
 	/**

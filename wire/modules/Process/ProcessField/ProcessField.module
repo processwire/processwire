@@ -26,6 +26,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			'permission' => 'field-admin', // add this permission if you want this Process available for roles other than Superuser
 			'icon' => 'cube', 
 			'useNavJSON' => true,
+			'addFlag' => Modules::flagsNoUserConfig
 			);
 	}
 
