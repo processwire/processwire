@@ -201,13 +201,14 @@ class ProcessPageListActions extends Wire {
 		}
 
 		$actions = $this->getExtraActions($page);
+		$success = false;
+		$message = '';
+		$remove = false;
+		$refreshChildren = 0;
 
 		if(isset($actions[$action]) && $page->editable()) {
 			$success = true;
 			$needSave = true; 
-			$message = '';
-			$remove = false;
-			$refreshChildren = 0;
 
 			switch($action) {
 				case 'pub':
