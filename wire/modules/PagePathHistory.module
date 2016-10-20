@@ -15,12 +15,12 @@
  *
  */
 
-class PagePathHistory extends WireData implements Module {
+class PagePathHistory extends WireData implements Module, ConfigurableModule {
 
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Path History', 
-			'version' => 2, 
+			'version' => 3, 
 			'summary' => "Keeps track of past URLs where pages have lived and automatically redirects (301 permament) to the new location whenever the past URL is accessed.",
 			'singular' => true, 
 			'autoload' => true, 
@@ -385,10 +385,62 @@ class PagePathHistory extends WireData implements Module {
 	 */
 	public function hookPageDeleted(HookEvent $event) {
 		$page = $event->arguments[0];
-		$database = $this->wire('database');
-		$query = $database->prepare("DELETE FROM " . self::dbTableName . " WHERE pages_id=:pages_id"); 
-		$query->bindValue(":pages_id", $page->id, \PDO::PARAM_INT);
-		$query->execute();
+		$this->clearPathHistory($page);
+	}
+
+	/**
+	 * Clear history paths, either all of them or just those connected to a specific Page
+	 * 
+	 * @param null|Page $page If value of this param is null, all paths are cleared
+	 * @throws WireException if param $page is not of expected type (null or Page)
+	 *
+	 */
+	public function clearPathHistory($page = null) {
+		if(is_null($page)) {
+			$this->wire('database')->exec("DELETE FROM " . self::dbTableName); 
+		} else {
+			if($page instanceof Page && $page->id) {
+				$query = $this->wire('database')->prepare("DELETE FROM " . self::dbTableName . " WHERE pages_id=:pages_id"); 
+				$query->bindValue(":pages_id", $page->id, \PDO::PARAM_INT);
+				$query->execute();
+			} else {
+				throw new WireException("Invalid param: null or an instance of Page expected");
+			}
+		}
+	}
+
+	/**
+	 * Provide a history path clearing capability within the module's configuration screen
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function getModuleConfigInputfields(array $data) {
+
+		$inputfields = $this->wire(new InputfieldWrapper());
+		$clearNow = $this->wire('input')->post->clearCache ? true : false; 
+
+		$result = $this->wire('database')->query("SELECT count(*) from " . self::dbTableName);
+		$numPaths = (int) $result->fetchColumn();
+
+		if($clearNow) {
+			$this->clearPathHistory();
+			$inputfields->message(sprintf($this->_('Cleared %d cached page paths'), $numPaths)); 
+			$numPaths = 0;
+		}
+
+		$name = "clearCache";
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', $name);
+		$f->attr('value', 1);
+		$f->label = $this->_('Clear the Page Path History Cache?'); 
+		$f->description = sprintf($this->_('There are currently %d page paths cached'), $numPaths);
+
+		$inputfields->append($f);
+
+		return $inputfields;
+
 	}
 
 	/**
