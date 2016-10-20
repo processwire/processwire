@@ -500,7 +500,10 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			// own additional variables in it if they want to
 			$output->set('options', $options);
 
+			$profiler = $this->wire('profiler');
+			$profilerEvent = $profiler ? $profiler->start($page->path, $this, array('page' => $page)) : null;
 			$data = $output->render();
+			if($profilerEvent) $profiler->stop($profilerEvent);
 		}
 
 		if($data && $cacheAllowed && $cacheFile) $cacheFile->save($data);
