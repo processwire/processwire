@@ -229,7 +229,7 @@ class ImageInspector extends WireData {
 		$i['gifversion']	= $gfh->m_lpVer;
 		$i['animated']		= $gfh->m_bAnimated;
 		$i['delay']         = isset($gi->m_nDelay) ? $gi->m_nDelay : '';
-		$i['trans']         = isset($gi->m_bTrans) ? $gi->m_bTrans : '';
+		$i['trans']         = isset($gi->m_bTrans) ? $gi->m_bTrans : false;
 		$i['transcolor']    = isset($gi->m_nTrans) ? $gi->m_nTrans : '';
 		$i['bgcolor']		= $gfh->m_nBgColor;
 		$i['numcolors']		= $gfh->m_colorTable->m_nColors;
