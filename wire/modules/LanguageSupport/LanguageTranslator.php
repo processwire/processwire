@@ -12,26 +12,34 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Language (Page) instance of the current language
+	 * 
+	 * @var Language
 	 *
 	 */
-	protected $currentLanguage = null;
+	protected $currentLanguage;
 
 	/**
 	 * Path where language files are stored
 	 *
 	 * i.e. language_files path for current $language
+	 * 
+	 * @var string
  	 *
 	 */
 	protected $path;
 
 	/**
 	 * Root path of installation, same as wire('config')->paths->root
+	 * 
+	 * @var string
 	 *
 	 */
 	protected $rootPath; 
 
 	/**
 	 * Alternate root path for systems where there might be symlinks
+	 * 
+	 * @var string
 	 *
 	 */
 	protected $rootPath2; 
@@ -49,26 +57,42 @@ class LanguageTranslator extends Wire {
 	 *			)
 	 * 		)
 	 *	); 
+	 * 
+	 * @var array
 	 *
 	 */
 	protected $textdomains = array();
 
 	/**
 	 * Cache of class names and the resulting textdomains
+	 * 
+	 * @var array
 	 *
 	 */
 	protected $classNamesToTextdomains = array();
 
 	/**
 	 * Textdomains of parent classes that can be checked where applicable
+	 * 
+	 * @var array
 	 *
 	 */
 	protected $parentTextdomains = array(
-		// 'className' => array('parent textdomain 1', 'parent textdomain 2', 'etc.') 
-		);
+	// 'className' => array('parent textdomain 1', 'parent textdomain 2', 'etc.') 
+	);
+
+	/**
+	 * Is current language the default language?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $isDefaultLanguage = false;
 
 	/**
 	 * Construct the translator and set the current language
+	 * 
+	 * @param Language $currentLanguage
 	 *
 	 */
 	public function __construct(Language $currentLanguage) {
@@ -82,6 +106,9 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Set the current language and reset current stored textdomains
+	 * 
+	 * @param Language $language
+	 * @return $this
 	 *
 	 */
 	public function setCurrentLanguage(Language $language) {
@@ -93,12 +120,18 @@ class LanguageTranslator extends Wire {
 		// so if the language is changing, we clear out what's already in memory.
 		if($this->currentLanguage && $language->id != $this->currentLanguage->id) $this->textdomains = array();
 		$this->currentLanguage = $language; 
+		$this->isDefaultLanguage = $language->isDefault();
 
 		return $this;
 	}
 
 	/**
 	 * Return the array template for a textdomain, optionally populating it with data
+	 * 
+	 * @param string $file
+	 * @param string $textdomain
+	 * @param array $translations
+	 * @return array
 	 *
 	 */
 	protected function textdomainTemplate($file = '', $textdomain = '', array $translations = array()) {
@@ -118,6 +151,9 @@ class LanguageTranslator extends Wire {
  	 * This is accomplished with PHP's ReflectionClass to determine the file where the class lives	
 	 * and then convert that to a textdomain string. Once determined, we cache it so that we 
 	 * don't have to do this again. 
+	 * 
+	 * @param Wire|object $o
+	 * @return string
 	 *
 	 */
 	protected function objectToTextdomain($o) {
@@ -150,8 +186,9 @@ class LanguageTranslator extends Wire {
 				}
 			}
 
+			/** @var \ReflectionClass $parentClass */
 			while($parentClass = $reflection->getParentClass()) { 
-				if(in_array($parentClass->getName(), $stopClasses)) break;
+				if(in_array($parentClass->getShortName(), $stopClasses)) break;
 				$parentTextdomains[] = $this->filenameToTextdomain($parentClass->getFileName()); 
 				$reflection = $parentClass; 
 			}
@@ -201,6 +238,9 @@ class LanguageTranslator extends Wire {
 	 * Given a textdomain string, convert it to a filename (relative to site root)
 	 *
 	 * This is determined by loading the textdomain and then grabbing the filename stored in the JSON properties
+	 * 
+	 * @param string $textdomain
+	 * @return string
 	 *
 	 */
 	public function textdomainToFilename($textdomain) {
@@ -259,6 +299,7 @@ class LanguageTranslator extends Wire {
 
 		// normalize textdomain to be a string, converting from filename or object if necessary
 		$textdomain = $this->textdomainString($textdomain); 
+		$_text = $text;
 
 		// if the text is already provided in the proper language then no reason to go further
 		// if($this->currentLanguage->id == $this->defaultLanguagePageID) return $text; 
@@ -285,7 +326,12 @@ class LanguageTranslator extends Wire {
 					break;
 				}
 			}
-
+		}
+	
+		// see if text is available as a common translation
+		if($text === $_text && !$this->isDefaultLanguage) {
+			$_text = $this->commonTranslation($text);
+			if(!empty($_text)) $text = $_text;
 		}
 
 		// if text hasn't changed at this point, we'll be returning it in the provided language since we have no translation
@@ -296,6 +342,9 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Return ALL translations for the given textdomain
+	 * 
+	 * @param string $textdomain
+	 * @return array
 	 *
 	 */
 	public function getTranslations($textdomain) {
@@ -313,6 +362,12 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Set a translation
+	 * 
+	 * @param string $textdomain
+	 * @param string $text
+	 * @param string $translation
+	 * @param string $context
+	 * @return string
 	 *
 	 */
 	public function setTranslation($textdomain, $text, $translation, $context = '') {
@@ -325,6 +380,11 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Set a translation using an already known hash
+	 * 
+	 * @param string $textdomain
+	 * @param string $hash
+	 * @param string $translation
+	 * @return string
 	 *
 	 */
 	public function setTranslationFromHash($textdomain, $hash, $translation) {
@@ -347,7 +407,7 @@ class LanguageTranslator extends Wire {
 	 *
 	 * @param string $textdomain
 	 * @param string $hash May be the translation hash or the translated text. 
- 	 * @return this
+ 	 * @return $this
 	 *
 	 */
 	public function removeTranslation($textdomain, $hash) {
@@ -374,6 +434,9 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Given original $text, issue a unique MD5 key used to reference it
+	 * 
+	 * @param string $text
+	 * @return string
 	 *
 	 */
 	protected function getTextHash($text) {
@@ -382,6 +445,9 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Get the JSON filename where the current languages class translations are
+	 * 
+	 * @param string $textdomain
+	 * @return string
 	 *
 	 */
 	protected function getTextdomainTranslationFile($textdomain) {
@@ -403,6 +469,9 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Load translation group $textdomain into the current language translations
+	 * 
+	 * @param string $textdomain
+	 * @return $this
 	 *
 	 */
 	public function loadTextdomain($textdomain) {
@@ -478,6 +547,8 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Unload the given textdomain string from memory
+	 * 
+	 * @param string $textdomain
 	 *
 	 */
 	public function unloadTextdomain($textdomain) {
@@ -486,6 +557,9 @@ class LanguageTranslator extends Wire {
 
 	/**
 	 * Return the data available for the given $textdomain string
+	 * 
+	 * @param string $textdomain
+	 * @return array
 	 *
 	 */
 	public function getTextdomain($textdomain) { 
@@ -506,6 +580,69 @@ class LanguageTranslator extends Wire {
 		} else {
 			return json_encode($str); 
 		}
+	}
+
+	/**
+	 * Get a common translation
+	 * 
+	 * These are commonly used translations that can be used as fallbacks.
+	 * 
+	 * Returns blank string if given string is not a common phrase. 
+	 * Returns given $str if given string is common, but not translated here. 
+	 * Returns translated $str if common and translated. 
+	 * 
+	 * @param string $str
+	 * @return string
+	 * 
+	 */
+	public function commonTranslation($str) {
+		
+		static $level = 0;
+		if(strlen($str) >= 15 || $level) return ''; // 15=max length of our common phrases
+		$level++;
+		$v = '';
+
+		switch(strtolower($str)) {
+			case 'edit': $v = $this->_('Edit'); break;
+			case 'delete': $v = $this->_('Delete'); break;
+			case 'save': $v = $this->_('Save'); break;
+			case 'save & exit':
+			case 'save and exit':
+			case 'save + exit': $v = $this->_('Save + Exit'); break;
+			case 'cancel': $v = $this->_('Cancel'); break;
+			case 'new': $v = $this->_('New'); break;
+			case 'add': $v = $this->_('Add'); break;
+			case 'add new': $v = $this->_('Add New'); break;
+			case 'are you sure?': $v = $this->_('Are you sure?'); break;
+			case 'confirm': $v = $this->_('Confirm'); break;
+			case 'import': $v = $this->_('Import'); break;
+			case 'export': $v = $this->_('Export'); break;
+			case 'yes': $v = $this->_('Yes'); break;
+			case 'no': $v = $this->_('No'); break;
+			case 'on': $v = $this->_('On'); break;
+			case 'off': $v = $this->_('Off'); break;
+			case 'enabled': $v = $this->_('Enabled'); break;
+			case 'disabled': $v = $this->_('Disabled'); break;
+			case 'example': $v = $this->_('Example'); break;
+			case 'please note': $v = $this->_('Please note:'); break;
+			case 'note': $v = $this->_('Note'); break;
+			case 'notes': $v = $this->_('Notes'); break;
+			case 'settings': $v = $this->_('Settings'); break;
+			case 'type': $v = $this->_('Type'); break;
+			case 'label': $v = $this->_('Label'); break;
+			case 'name': $v = $this->_('Name'); break;
+			case 'description': $v = $this->_('Description'); break;
+			case 'details': $v = $this->_('Details'); break;
+			case 'access': $v = $this->_('Access'); break;
+			case 'advanced': $v = $this->_('Advanced'); break;
+			case 'icon': $v = $this->_('Icon'); break;
+			case 'system': $v = $this->_('System'); break;
+			case 'modified': $v = $this->_('Modified'); break;
+			case 'error': $v = $this->_('Error'); break;
+		}
+		
+		$level--;
+		return $v;
 	}
 
 }

@@ -363,6 +363,8 @@ class ProcessLanguageTranslator extends Process {
 			$field = $this->modules->get("InputfieldTextarea");
 			$field->attr('rows', 3);
 		}
+		
+		/** @var InputfieldText $field */
 
 		$field->attr('id+name', $hash);
 		$field->set('textFormat', Inputfield::textFormatNone);
@@ -383,6 +385,22 @@ class ProcessLanguageTranslator extends Process {
 			} else if(trim($comment) != trim($untranslated)) {
 				$field->notes = $comment;
 			}
+		}
+
+		if((empty($translated) || $translated === '+') && !$field instanceof InputfieldTextarea) {
+			$languages = $this->wire('languages');
+			$languages->setLanguage($this->language);
+			$this->wire('user')->language = $this->language;
+			$test = $this->translator->commonTranslation($untranslated);
+			$field->textFormat = Inputfield::textFormatBasic;
+			if(strlen($test) && $test !== $untranslated) {
+				$field->notes = trim($field->notes . "\n" .
+					sprintf($this->_('If no text is provided, the common translation “**%s**” will be used.'), $test)) . " " . 
+					$this->_('Enter a single plus sign “**+**” above to also mark this field as translated.');
+				
+				$field->attr('placeholder', $test);
+			}
+			$languages->unsetLanguage();
 		}
 
 		$field->skipLabel = Inputfield::skipLabelHeader;

@@ -38,7 +38,12 @@ function __($text, $textdomain = null, $context = '') {
 		if(is_null($textdomain)) $textdomain = 'site';
 	}
 	$value = htmlspecialchars($language->translator()->getTranslation($textdomain, $text, $context), ENT_QUOTES, 'UTF-8');
-	if($value === "=") $value = $text;
+	if($value === "=") {
+		$value = $text;
+	} else if($value === "+") {
+		$v = $language->translator()->commonTranslation($text);
+		$value = empty($v) ? $text : $v;
+	}
 	return $value;
 }
 
