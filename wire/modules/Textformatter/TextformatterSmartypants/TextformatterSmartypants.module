@@ -23,7 +23,7 @@ class TextformatterSmartypants extends Textformatter implements ConfigurableModu
 			'url' => 'https://github.com/michelf/php-smartypants'
 		); 
 	}
-
+	
 	/**
 	 * Replacements when useUTF8 aggressive mode is active
 	 * 
@@ -53,7 +53,7 @@ class TextformatterSmartypants extends Textformatter implements ConfigurableModu
 	 * 
 	 */
 	public function format(&$str) {
-		$str = self::typographer($str, ((int) $this->useUTF8) ? true : false);
+		$str = self::typographer($str, (int) $this->useUTF8);
 	}
 
 	/**
@@ -64,16 +64,18 @@ class TextformatterSmartypants extends Textformatter implements ConfigurableModu
 	 * request even if lots of format() calls are made. 
 	 * 
 	 * @param string $str
-	 * @param bool $useUTF8 Specify true to use UTF-8 replacements rather than HTML entity replacements
+	 * @param int|bool $useUTF8 Specify 1 to use some UTF-8 replacements, 2 for all UTF-8 replacements, or 0 for none.
 	 * @return string
 	 * 
 	 */
-	static public function typographer($str, $useUTF8 = false) {
+	static public function typographer($str, $useUTF8 = 0) {
 		
 		static $parser = null;
-		static $parserUseUTF8 = false;
+		static $parserUseUTF8 = 0;
 		
-		if(is_null($parser) || $parserUseUTF8 != $useUTF8) {
+		$useUTF8 = (int) $useUTF8;
+		
+		if(is_null($parser) || $parserUseUTF8 !== $useUTF8) {
 			require_once(dirname(__FILE__) . "/Michelf/SmartyPantsTypographer.inc.php");
 			$parser = new \Michelf\SmartyPantsTypographer(\Michelf\SmartyPants::ATTR_LONG_EM_DASH_SHORT_EN);
 			if($useUTF8) $parser->decodeEntitiesInConfiguration();
@@ -81,9 +83,10 @@ class TextformatterSmartypants extends Textformatter implements ConfigurableModu
 		}
 		
 		$str = $parser->transform($str);
-	
-		// uncomment this for aggressive UTF8 replacement
-		// if($useUTF8) $str = str_replace(array_keys(self::$replacementsUTF8), array_values(self::$replacementsUTF8), $str);
+
+		if($useUTF8 === 2) {
+			$str = str_replace(array_keys(self::$replacementsUTF8), array_values(self::$replacementsUTF8), $str);
+		}
 		
 		return $str; 
 	}
@@ -95,10 +98,17 @@ class TextformatterSmartypants extends Textformatter implements ConfigurableModu
 	 * 
 	 */
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f = $this->wire('modules')->get('InputfieldRadios');
 		$f->attr('name', 'useUTF8');
 		$f->label = $this->_('Use UTF-8 characters for replacements rather than HTML entities?');
-		$f->attr('checked', $this->useUTF8 ? true : false);
+		$f->description = $this->_('The default behavior for SmartyPants is to add/update characters using HTML entities.') . ' ';
+		$f->description .= $this->_('If you observe double-encoding issues, you may want to have it use UTF-8 replacements instead.');
+		$f->addOption(0, $this->_('No (default)'));
+		$f->addOption(1, $this->_('Yes (some)'));
+		$f->addOption(2, $this->_('Yes (all)') . '*');
+		$f->attr('value', (int) $this->useUTF8);
+		$f->notes = '*' . $this->_('Note that the “all” option will cause decode the following characters (when entity encoded) even if they were not inserted by SmartyPants:');
+		$f->notes .= " " . implode(' ', array_keys(self::$replacementsUTF8));
 		$inputfields->add($f);
 	}
 }
