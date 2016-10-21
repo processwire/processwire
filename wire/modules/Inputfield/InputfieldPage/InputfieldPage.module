@@ -262,22 +262,22 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		}
 		
 		if($template_id) {
-      if(!is_array($template_id) && $page->template->id != $template_id) {
-        $valid = false;
-        if($editPage) $editPage->set('_isValidPage', "Page $page does not have required template $template_id"); 
-      } elseif (is_array($template_id)) {
-        $valid = false;
-        foreach($template_id as $tpl_id){
-          if ($tpl_id == $page->template->id) {
-            $valid = true;
-            break;
-          }
-        }
-        if(!$valid && $editPage)
-          $editPage->set('_isValidPage', "Page $page does not have required template $template_id"); 
-      }
+			if(!is_array($template_id) && $page->template->id != $template_id) {
+				$valid = false;
+				if($editPage)
+					$editPage->set('_isValidPage', "Page $page does not have required template $template_id");
+			} elseif(is_array($template_id)) {
+				$valid = false;
+				foreach($template_id as $tpl_id) {
+					if($tpl_id == $page->template->id) {
+						$valid = true;
+						break;
+					}
+				}
+				if(!$valid && $editPage)
+					$editPage->set('_isValidPage', "Page $page does not have required template $template_id");
+			}
 		}
-		
 		return $valid;
 	}
 
@@ -311,12 +311,12 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		$statusUnder = $this->allowUnpub ? Page::statusTrash : Page::statusUnpublished; 
 		$children = null;
-    $templates_id_selector = '';
-    if(is_array($this->template_id)) {
-      $templates_id_selector = implode('|', $this->template_id);
-    } else {
-      $templates_id_selector = $this->template_id;
-    }
+		$templates_id_selector = '';
+		if(is_array($this->template_id)) {
+			$templates_id_selector = implode('|', $this->template_id);
+		} else {
+			$templates_id_selector = $this->template_id;
+		}
 
 		if($this->configMode) {
 			$children = $this->wire('pages')->newPageArray();
@@ -902,12 +902,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$field = $this->modules->get('InputfieldAsmSelect');
 		$field->setAttribute('name', 'template_id'); 
 		$field->label = $this->_('Template of selectable page(s)');
-    if ( is_array( $this->template_id ) ) {
-      foreach ( $this->template_id as $value )
-        $field->attr('value', (int) $value); 
-    } else {
-      $field->attr('value', (int) $this->template_id); 
-    }
+		if(is_array($this->template_id)) {
+			foreach($this->template_id as $value) {
+				$field->attr('value', (int) $value);
+			}
+		} else {
+			$field->attr('value', (int) $this->template_id);
+		}
 		$field->description = $this->_('Select the template of the pages that are selectable. May be used instead of, or in addition to, the parent above. NOTE: Not compatible with PageListSelect input field types.'); // Description for Template of selectable pages
 		foreach($this->templates as $template) $field->addOption($template->id, $template->name); 
 		$field->collapsed = Inputfield::collapsedBlank;
