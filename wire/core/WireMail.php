@@ -461,7 +461,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 */
 	public function encodeSubject($subject) {
 		
-		if(extension_loaded("mbstring") && false == true) {
+		if(extension_loaded("mbstring")) {
 			// Need to pass in the header name and subtract it afterwards,
 			// otherwise the first line would grow too long
 			return substr(mb_encode_mimeheader("Subject: $subject", 'UTF-8', 'Q', "\r\n"), 9);
