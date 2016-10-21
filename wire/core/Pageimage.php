@@ -748,7 +748,7 @@ class Pageimage extends Pagefile {
 	 */
 	public function maxWidth($n, array $options = array()) {
 		$options['upscaling'] = false;
-		if($this->width() > $n) return $this->width($n); 
+		if($this->width() > $n) return $this->width($n, $options); 
 		return $this;
 	}
 
@@ -770,7 +770,7 @@ class Pageimage extends Pagefile {
 	 */
 	public function maxHeight($n, array $options = array()) {
 		$options['upscaling'] = false;
-		if($this->height() > $n) return $this->height($n); 
+		if($this->height() > $n) return $this->height($n, $options); 
 		return $this;
 	}
 
@@ -789,17 +789,9 @@ class Pageimage extends Pagefile {
 		$w = $this->width();
 		$h = $this->height();
 		if($w >= $h) {
-			if($w > $width && $h > $height) {
-				return $this->size($width, $height, $options);
-			} else {
-				return $this->maxWidth($width, $options);
-			}
+			return $this->maxWidth($width, $options);
 		} else {
-			if($w > $width && $h > $height) {
-				return $this->size($width, $height, $options);
-			} else {
-				return $this->maxHeight($height, $options);
-			}
+			return $this->maxHeight($height, $options);
 		}
 	}
 
