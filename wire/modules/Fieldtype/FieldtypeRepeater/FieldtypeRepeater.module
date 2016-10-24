@@ -692,6 +692,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
 		$a = array();
+		if(!WireArray::iterable($value)) return $a;
 		foreach($value as $k => $p) {
 			/** @var Page $p */
 			if($p->isUnpublished()) continue; 

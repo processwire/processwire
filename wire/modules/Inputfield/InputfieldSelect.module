@@ -327,7 +327,7 @@ class InputfieldSelect extends Inputfield {
 	 * @return array
 	 *
 	 */
-	protected function getOptionAttributes($key) {
+	public function getOptionAttributes($key) {
 		if(!isset($this->optionAttributes[$key])) return array();
 		return $this->optionAttributes[$key]; 
 	}
@@ -395,6 +395,7 @@ class InputfieldSelect extends Inputfield {
 
 	public function get($key) {
 		if($key == 'options') return $this->options; 
+		if($key == 'optionAttributes') return $this->optionAttributes;
 		return parent::get($key); 
 	}
 
