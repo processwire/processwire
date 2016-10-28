@@ -14,7 +14,7 @@
  * modifying arguments or return values. Several other hook methods are also provided for Wire derived 
  * classes that are hooking into others. 
  * #pw-body
- * #pw-order-groups common,identification,hooks,notices,changes,hooker
+ * #pw-order-groups common,identification,hooks,notices,changes,hooker,api-helpers
  * 
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
@@ -54,6 +54,32 @@
  * @method log($str = '', array $options = array()) See Wire::___log()
  * @method callUnknown($method, $arguments) See Wire::___callUnknown()
  * @method Wire trackException(\Exception $e, $severe = true, $text = null)
+ * 
+ * The following map API variables to function names and apply only if another function in the class does not 
+ * already have the same name, which would override. All defined API variables can be accessed as functions 
+ * that return the API variable, whether documented below or not. 
+ * 
+ * @method Pages|PageArray|Page|NullPage pages($selector = '') Access the $pages API variable as a function. #pw-group-api-helpers
+ * @method Page|Mixed page($key = '', $value = null) Access the $page API variable as a function. #pw-group-api-helpers
+ * @method Config|mixed config($key = '', $value = null) Access the $config API variable as a function. #pw-group-api-helpers
+ * @method Modules|Module|ConfigurableModule|null modules($name = '') Access the $modules API variable as a function. #pw-group-api-helpers
+ * @method User|mixed user($key = '', $value = null) Access the $user API variable as a function. #pw-group-api-helpers
+ * @method Users|PageArray|User|mixed users($selector = '') Access the $users API variable as a function. #pw-group-api-helpers
+ * @method Session|mixed session($key = '', $value = null) Access the $session API variable as a function.  #pw-group-api-helpers
+ * @method Field|Fields|null fields($name = '') Access the $fields API variable as a function.  #pw-group-api-helpers
+ * @method Templates|Template|null templates($name = '') Access the $templates API variable as a function. #pw-group-api-helpers
+ * @method WireDatabasePDO database() Access the $database API variable as a function.  #pw-group-api-helpers
+ * @method Permissions|Permission|PageArray|null|NullPage permissions($selector = '') Access the $permissions API variable as a function.  #pw-group-api-helpers
+ * @method Roles|Role|PageArray|null|NullPage roles($selector = '') Access the $roles API variable as a function.  #pw-group-api-helpers
+ * @method Sanitizer|string|int|array|null|mixed sanitizer($name = '', $value = '') Access the $sanitizer API variable as a function.  #pw-group-api-helpers
+ * @method WireDateTime|string|int datetime($format = '', $value = '') Access the $datetime API variable as a function.  #pw-group-api-helpers
+ * @method WireFileTools files() Access the $files API variable as a function.  #pw-group-api-helpers
+ * @method WireCache|string|array|PageArray|null cache($name = '', $expire = null, $func = null) Access the $cache API variable as a function.  #pw-group-api-helpers
+ * @method Languages|Language|NullPage|null languages($name = '') Access the $languages API variable as a function.  #pw-group-api-helpers
+ * @method WireInput|WireInputData array|string|int|null input($type = '', $key = '', $sanitizer = '') Access the $input API variable as a function.  #pw-group-api-helpers
+ * @method WireInputData|string|int|array|null inputGet($key = '', $sanitizer = '') Access the $input->get() API variable as a function.  #pw-group-api-helpers
+ * @method WireInputData|string|int|array|null inputPost($key = '', $sanitizer = '') Access the $input->post() API variable as a function.  #pw-group-api-helpers
+ * @method WireInputData|string|int|array|null inputCookie($key = '', $sanitizer = '') Access the $input->cookie() API variable as a function.  #pw-group-api-helpers
  * 
  */
 
@@ -371,11 +397,45 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 		$hooks = $this->wire('hooks');
 		if($hooks) {
 			$result = $hooks->runHooks($this, $method, $arguments);
-			if(!$result['methodExists'] && !$result['numHooksRun']) return $this->callUnknown($method, $arguments);
+			if(!$result['methodExists'] && !$result['numHooksRun']) {
+				$result = $this->_callWireAPI($method, $arguments);
+				if(!$result) return $this->callUnknown($method, $arguments);
+			}
 		} else {
-			return $this->___callUnknown($method, $arguments);
+			$result = $this->_callWireAPI($method, $arguments);
+			if(!$result) return $this->___callUnknown($method, $arguments);
 		}
 		return $result['return'];
+	}
+
+	/**
+	 * Helper to __call() method that maps a call to an API variable when appropriate
+	 * 
+	 * @param string $method
+	 * @param array $arguments
+	 * @return array|bool
+	 * @internal
+	 * 
+	 */
+	protected function _callWireAPI($method, $arguments) {
+		$var = $this->_wire ? $this->_wire->fuel()->$method : null;
+		if(!$var) return false;
+		// requested method maps to an API variable
+		$result = array('return' => null);
+		$funcName = 'wire' . ucfirst($method);
+		if(__NAMESPACE__) $funcName = __NAMESPACE__ . "\\$funcName";
+		if(count($arguments) && function_exists($funcName)) {
+			// a function exists with this API var name
+			$wire = ProcessWire::getCurrentInstance();
+			// ensure function call maps to this PW instance
+			if($wire !== $this->_wire) ProcessWire::setCurrentInstance($this->_wire);
+			$result['return'] = call_user_func_array($funcName, $arguments);
+			if($wire !== $this->_wire) ProcessWire::setCurrentInstance($wire);
+		} else {
+			// if no arguments provided, just return API var
+			$result['return'] = $var;
+		}
+		return $result;
 	}
 
 	/**

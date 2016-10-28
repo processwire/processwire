@@ -181,9 +181,15 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	public function count() {
 		return count($this->data);
 	}
+	
+	public function remove($key) {
+		unset($this->data[$key]);
+		return $this;
+	}
 
 	public function removeAll() {
 		$this->data = array();
+		return $this;
 	}
 
 	public function __isset($key) {

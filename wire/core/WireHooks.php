@@ -540,6 +540,7 @@ class WireHooks {
 
 		$hooks = $this->getHooks($object, $method);
 		$cancelHooks = false;
+		$profiler = $this->wire->wire('profiler');
 
 		foreach(array('before', 'after') as $when) {
 
@@ -605,6 +606,15 @@ class WireHooks {
 
 				$toObject = $hook['toObject'];
 				$toMethod = $hook['toMethod'];
+			
+				if($profiler) {
+					$profilerEvent = $profiler->start($hook['id'], $this, array(
+						'event' => $event, 
+						'hook' => $hook,
+					));
+				} else {
+					$profilerEvent = false;
+				}
 
 				if(is_null($toObject)) {
 					if(!is_callable($toMethod) && strpos($toMethod, "\\") === false && __NAMESPACE__) {
@@ -623,6 +633,8 @@ class WireHooks {
 					}
 					// @todo allow for use of $returnValue as alternative to $event->return
 				}
+				
+				if($profilerEvent) $profiler->stop($profilerEvent);
 
 				$result['numHooksRun']++;
 				

@@ -770,3 +770,76 @@ function wireIsCallable($var, $syntaxOnly = false, &$callableName = '') {
 	if(is_string($var)) $var = wireClassName($var, true);
 	return is_callable($var, $syntaxOnly, $callableName);
 }
+
+/**
+ * Get or set an output region (primarily for front-end output usage)
+ *
+ * ~~~~~
+ * // define a region
+ * region('content', '<p>this is some content</p>');
+ *
+ * // prepend some text to region
+ * region('+content', '<h2>Good morning</h2>');
+ *
+ * // append some text to region
+ * region('content+', '<p><small>Good night</small></p>');
+ *
+ * // output a region
+ * echo region('content');
+ *
+ * // get all regions in an array
+ * $regions = region('*');
+ *
+ * // clear the 'content' region
+ * region('content', '');
+ *
+ * // clear all regions
+ * region('*', '');
+ * ~~~~~
+ *
+ * @param string $key Name of region to get or set.
+ *  - Specify "*" to retrieve all defined regions in an array.
+ *  - Prepend a "+" to the region name to have it prepend your given value to any existing value.
+ *  - Append a "+" to the region name to have it append your given value to any existing value.
+ * @param null|string $value If setting a region, the text that you want to set.
+ * @return string|null|bool|array Returns string of text when getting a region, NULL if region not set, or TRUE if setting region.
+ *
+ */
+function wireRegion($key, $value = null) {
+
+	static $regions = array();
+
+	if(empty($key) || $key === '*') {
+		// all regions
+		if($value === '') $regions = array(); // clear
+		return $regions;
+	}
+
+	if(is_null($value)) {
+		// get region
+		$result = isset($regions[$key]) ? $regions[$key] : null;
+
+	} else {
+		// set region
+		$pos = strpos($key, '+');
+		if($pos !== false) $key = trim($key, '+');
+		if(!isset($regions[$key])) $regions[$key] = '';
+		if($pos === 0) {
+			// prepend
+			$regions[$key] = $value . $regions[$key];
+		} else if($pos) {
+			// append
+			$regions[$key] .= $value;
+		} else if($value === '') {
+			// clear region
+			unset($regions[$key]);
+		} else {
+			// insert/replace
+			$regions[$key] = $value;
+		}
+		$result = true;
+	}
+
+	return $result;
+}
+

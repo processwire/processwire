@@ -151,7 +151,9 @@ class ProcessController extends Wire {
 		if(!empty($info['permission'])) $permissionName = $info['permission']; 
 
 		$this->hasPermission($permissionName, true); // throws exception if no permission
-		if(!$this->process) $this->process = $this->modules->get($processName); 
+		if(!$this->process) {
+			$this->process = $this->modules->getModule($processName);
+		}
 
 		// set a proces fuel, primarily so that certain Processes can determine if they are the root Process 
 		// example: PageList when in PageEdit
