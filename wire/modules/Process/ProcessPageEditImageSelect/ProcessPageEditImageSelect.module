@@ -95,6 +95,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			'flipHorizontal' => $this->_('Flip horizontal'),
 			'flipVertical' => $this->_('Flip vertical'),
 			'noAccess' => $this->_('You do not have access to edit images on this page.'),
+			'demoMode' => "Image editing functions are disabled in demo mode",
 		);
 	}
 
@@ -106,7 +107,12 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 */
 	public function init() {
 
-		if($this->config->demo) throw new WireException("Sorry, image editing functions are disabled in demo mode"); 
+		// throw new WireException($this->labels['demoMode']);
+		if($this->config->demo) {
+			if($this->wire('input')->urlSegmentStr != 'variations') {
+				throw new WireException($this->labels['demoMode']);
+			}
+		}
 		
 		$this->modules->get("ProcessPageList");
 	
@@ -1323,7 +1329,16 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		$this->wire('modules')->get('JqueryMagnific'); 
 		
-		return "<br />" . $form->render(); 
+		$out = $form->render(); 
+		
+		if($this->wire('config')->demo) {
+			$out = "<p class='detail'>Note: " . $this->labels['demoMode'] . "</p>" . $out;
+		} else {
+			$out = "<br />" . $out;
+		}
+		
+		return $out; 
+		
 	}
 
 	/**

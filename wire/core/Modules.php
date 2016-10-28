@@ -653,8 +653,11 @@ class Modules extends WireArray {
 				$module = $this->newModule($className);
 				if($module) {
 					$this->set($className, $module);
-					$this->initModule($module);
-					if($this->debug) $this->message("Conditional autoload: $className LOADED");
+					if($this->initModule($module)) {
+						if($this->debug) $this->message("Conditional autoload: $className LOADED");
+					} else {
+						if($this->debug) $this->warning("Failed conditional autoload: $className");
+					}
 				}
 
 			} else {
@@ -1211,7 +1214,9 @@ class Modules extends WireArray {
 		if($module && $needsInit) {
 			// if the module is configurable, then load it's config data
 			// and set values for each before initializing the module
-			if(empty($options['noInit'])) $this->initModule($module, false);
+			if(empty($options['noInit'])) {
+				if(!$this->initModule($module, false)) $module = null;
+			}
 		}
 	
 		return $module; 
@@ -2910,34 +2915,38 @@ class Modules extends WireArray {
 	 * #pw-changelog 3.0.16 Changed from more verbose name `getModuleConfigData()`, which can still be used. 
 	 * 
 	 * @param string|Module $class
+	 * @param string $property Optionally just get value for a specific property (omit to get all config)
 	 * @return array Module configuration data
 	 * @see Modules::saveConfig()
 	 * @since 3.0.16 Use method getModuleConfigData() with same arguments for prior versions (can also be used on any version).
 	 *
 	 */
-	public function getConfig($class) {
+	public function getConfig($class, $property = '') {
 
+		$emptyReturn = $property ? null : array();
 		$className = $class;
 		if(is_object($className)) $className = wireClassName($className->className(), false);
-		if(!$id = $this->moduleIDs[$className]) return array();
-		if(!isset($this->configData[$id])) return array(); // module has no config data
-		if(is_array($this->configData[$id])) return $this->configData[$id]; 
-
-		// first verify that module doesn't have a config file
-		$configurable = $this->isConfigurable($className); 
-		if(!$configurable) return array();
+		if(!$id = $this->moduleIDs[$className]) return $emptyReturn;
+		if(!isset($this->configData[$id])) return $emptyReturn; // module has no config data
 		
-		$database = $this->wire('database'); 
-		$query = $database->prepare("SELECT data FROM modules WHERE id=:id", "modules.getConfig($className)"); // QA
-		$query->bindValue(":id", (int) $id, \PDO::PARAM_INT); 
-		$query->execute();
-		$data = $query->fetchColumn(); 
-		$query->closeCursor();
+		if(is_array($this->configData[$id])) {
+			$data = $this->configData[$id];
+		} else {
+			// first verify that module doesn't have a config file
+			$configurable = $this->isConfigurable($className);
+			if(!$configurable) return $emptyReturn;
+			$database = $this->wire('database');
+			$query = $database->prepare("SELECT data FROM modules WHERE id=:id", "modules.getConfig($className)"); // QA
+			$query->bindValue(":id", (int) $id, \PDO::PARAM_INT);
+			$query->execute();
+			$data = $query->fetchColumn();
+			$query->closeCursor();
+			if(strlen($data)) $data = wireDecodeJSON($data);
+			if(empty($data)) $data = array();
+			$this->configData[$id] = $data;
+		}
 		
-		if(empty($data)) $data = array();
-			else $data = wireDecodeJSON($data); 
-		if(empty($data)) $data = array();
-		$this->configData[$id] = $data; 
+		if($property) return isset($data[$property]) ? $data[$property] : null;
 
 		return $data; 	
 	}
@@ -3427,18 +3436,35 @@ class Modules extends WireArray {
 	 * #pw-changelog 3.0.16 Changed name from the more verbose saveModuleConfigData(), which will still work.
 	 *
 	 * @param string|Module $class Module or module name
-	 * @param array $data Associative array of configuration data
+	 * @param array|string $data Associative array of configuration data, or name of property you want to save.
+	 * @param mixed|null $value If you specified a property in previous arg, the value for the property.
 	 * @return bool True on success, false on failure
 	 * @throws WireException
 	 * @see Modules::getConfig()
 	 * @since 3.0.16 Use method saveModuleConfigData() with same arguments for prior versions (can also be used on any version).
 	 *
 	 */
-	public function ___saveConfig($class, array $data) {
+	public function ___saveConfig($class, $data, $value = null) {
 		$className = $class;
 		if(is_object($className)) $className = $className->className();
 		$moduleName = wireClassName($className, false);
 		if(!$id = $this->moduleIDs[$moduleName]) throw new WireException("Unable to find ID for Module '$moduleName'");
+		
+		if(is_string($data)) {
+			// a property and value have been provided
+			$property = $data;	
+			$data = $this->getConfig($class);
+			if(is_null($value)) {
+				// remove the property
+				unset($data[$property]);
+			} else {
+				// populate the value for the property
+				$data[$property] = $value;
+			}
+		} else {
+			// data must be an associative array of configuration data
+			if(!is_array($data)) return false;
+		}
 
 		// ensure original duplicates info is retained and validate that it is still current
 		$data = $this->duplicates()->getDuplicatesConfigData($moduleName, $data); 
@@ -3451,6 +3477,7 @@ class Modules extends WireArray {
 		$query->bindValue(":id", (int) $id, \PDO::PARAM_INT); 
 		$result = $query->execute();
 		$this->log("Saved module '$moduleName' config data");
+		
 		return $result;
 	}
 

@@ -72,6 +72,20 @@ class TemplateFile extends WireData {
 	protected $halt = false;
 
 	/**
+	 * Last tracked profile event
+	 * 
+	 * @var mixed
+	 * 
+	 */
+	protected $profilerEvent = null;
+
+	/**
+	 * @var WireProfilerInterface|null
+	 * 
+	 */
+	protected $profiler = null;
+
+	/**
 	 * Variables that will be applied globally to this and all other TemplateFile instances
 	 *
 	 */
@@ -181,6 +195,27 @@ class TemplateFile extends WireData {
 	}
 
 	/**
+	 * Start profiling a render
+	 * 
+	 * @param string $filename
+	 * 
+	 */
+	protected function start($filename) {
+		if($this->profiler) {
+			$f = str_replace($this->wire('config')->paths->root, '/', $filename);
+			$this->profilerEvent = $this->profiler->start($f, $this);
+		}
+	}
+
+	/**
+	 * Stop profiling a render
+	 * 
+	 */
+	protected function stop() {
+		if($this->profilerEvent) $this->profiler->stop($this->profilerEvent);
+	}
+	
+	/**
 	 * Render the template -- execute it and return it's output
 	 *
 	 * @return string The output of the Template File
@@ -200,7 +235,8 @@ class TemplateFile extends WireData {
 		// ensure that wire() functions in template file map to correct ProcessWire instance
 		$this->savedInstance = ProcessWire::getCurrentInstance();
 		ProcessWire::setCurrentInstance($this->wire());
-		
+
+		$this->profiler = $this->wire('profiler');
 		$this->savedDir = getcwd();	
 
 		if($this->chdir) {
@@ -208,19 +244,29 @@ class TemplateFile extends WireData {
 		} else {
 			chdir(dirname($this->filename));
 		}
+		
 		$fuel = array_merge($this->getArray(), self::$globals); // so that script can foreach all vars to see what's there
-
 		extract($fuel); 
 		ob_start();
+		
 		foreach($this->prependFilename as $_filename) {
 			if($this->halt) break;
+			if($this->profiler) $this->start($_filename);
 			require($_filename);
+			if($this->profiler) $this->stop();
 		}
-		if(!$this->halt) $returnValue = require($this->filename); 
+		
+		if($this->profiler) $this->start($this->filename);
+		if(!$this->halt) $returnValue = require($this->filename);
+		if($this->profiler) $this->stop();
+		
 		foreach($this->appendFilename as $_filename) {
 			if($this->halt) break;
+			if($this->profiler) $this->start($_filename);
 			require($_filename);
+			if($this->profiler) $this->stop();
 		}
+		
 		$out = "\n" . ob_get_contents() . "\n";
 		ob_end_clean();
 
@@ -229,6 +275,7 @@ class TemplateFile extends WireData {
 		
 		$out = trim($out); 
 		if(!strlen($out) && !$this->halt && $returnValue && $returnValue !== 1) return $returnValue;
+		
 		return $out;
 	}
 

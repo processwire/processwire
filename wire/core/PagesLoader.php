@@ -204,8 +204,10 @@ class PagesLoader extends Wire {
 		$pageFinder = $this->pages->getPageFinder();
 		$pagesInfo = array();
 		$pagesIDs = array();
-		
+	
 		if($debug) Debug::timer("$caller($selectorString)", true);
+		$profiler = $this->wire('profiler');
+		$profilerEvent = $profiler ? $profiler->start("$caller($selectorString)", "Pages") : null;
 		
 		if($lazy) {
 			if(strpos($selectorString, 'limit=') === false) $options['getTotal'] = false;
@@ -307,6 +309,8 @@ class PagesLoader extends Wire {
 				$item->setQuietly('_debug_loader', "$caller($selectorString)");
 			}
 		}
+		
+		if($profilerEvent) $profiler->stop($profilerEvent);
 
 		if($this->pages->hasHook('found()')) $this->pages->found($pages, array(
 			'pageFinder' => $pageFinder,

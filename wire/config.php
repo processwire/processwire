@@ -111,8 +111,21 @@ $config->advanced = false;
  * 
  * If true, disables save functions in Process modules (admin).
  * 
+ * @var bool
+ * 
  */
 $config->demo = false;
+
+/**
+ * Enable core API variables to be accessed as function calls?
+ * 
+ * Benefits are better type hinting, always in scope, and potentially shorter API calls.
+ * See the file /wire/core/FunctionsAPI.php for details on these functions.
+ * 
+ * @var bool
+ * 
+ */
+$config->useFunctionsAPI = false;
 
 
 /*** 2. DATES & TIMES *************************************************************************/

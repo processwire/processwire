@@ -1001,6 +1001,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 				// check if it's a field.subfield property
 				if(strpos($key, '.') && ($value = $this->getFieldSubfieldValue($key)) !== null) return $value; 
 				
+				if(strpos($key, '_OR_')) {
+					// convert '_OR_' to '|'
+					$value = $this->getFieldFirstValue(str_replace('_OR_', '|', $key)); 
+					if($value !== null) return $value; 
+				}
+
 				// optionally let a hook look at it
 				if($this->wire('hooks')->isHooked('Page::getUnknown()')) $value = $this->getUnknown($key);
 		}

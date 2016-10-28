@@ -10,6 +10,8 @@
  *
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @method bool save($name, $text, $options = array())
  *
  */
 
