@@ -306,6 +306,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 				));
 			}
 		
+			$items = array();
 			if(count($pageIDs)) {
 				$items = $this->wire('pages')->getById($pageIDs, array(
 					'cache'          => false,
@@ -314,8 +315,14 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 					'findTemplates'  => false,
 					'joinSortfield'  => false
 				));
+				if(!$items->has($page)) $items->add($page);
+			} else {
+				$items = new PageArray();
+				$items->add($page);
+			}
+			if(count($items)) {
 				$this->clearCacheFilePages($items, $page);
-				$this->message(sprintf($this->_('Cleared cache file for %d page(s)'), count($pageIDs)), Notice::debug);
+				$this->message(sprintf($this->_('Cleared cache file for %d page(s)'), count($items)), Notice::debug);
 			}
 		}
 	}
