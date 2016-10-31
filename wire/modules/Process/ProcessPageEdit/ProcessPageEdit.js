@@ -55,4 +55,14 @@ function initPageEditForm() {
 		$viewMenu.find(".page-view-action-" + action + " > a").click();
 		return false;
 	}); 
+
+	var $template = $('#template');
+	var templateID = $template.val();
+	$template.on('change', function() {
+		if($(this).val() == templateID) {
+			$('.pw-button-dropdown-toggle').trigger('pw-button-dropdown-on');
+		} else {
+			$('.pw-button-dropdown-toggle').trigger('pw-button-dropdown-off');
+		}
+	});
 }

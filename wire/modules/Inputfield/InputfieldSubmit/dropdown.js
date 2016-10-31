@@ -107,7 +107,7 @@ var InputfieldSubmitDropdown = {
 			}
 			$a.click(InputfieldSubmitDropdown.click);
 		});
-
+		
 		/*
 		 // add first item to be same as default button action
 		 var $li = $('<li></li>');
@@ -133,6 +133,16 @@ var InputfieldSubmitDropdown = {
 
 		$toggleButton.click(function() {
 			return false;
+		}).on('pw-button-dropdown-off', function() {
+			$(this).siblings('.pw-button-dropdown-main')
+				.removeClass('pw-button-dropdown-main')
+				.addClass('pw-button-dropdown-disabled');
+			$(this).hide();
+		}).on('pw-button-dropdown-on', function() {
+			$(this).siblings('.pw-button-dropdown-disabled')
+				.addClass('pw-button-dropdown-main')
+				.removeClass('pw-button-dropdown-disabled')
+			$(this).show();
 		});
 		
 	},
