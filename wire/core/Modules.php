@@ -503,6 +503,22 @@ class Modules extends WireArray {
 			// attempt 2.x module in dedicated namespace or root namespace
 			$className = $this->getModuleNamespace($moduleName) . $moduleName;
 		}
+
+		if(ProcessWire::getNumInstances() > 1) {
+			// in a multi-instance environment, ensures that anything happening during
+			// the module __construct is using the right instance. necessary because the
+			// construct method runs before the wire instance is set to the module
+			$wire1 = ProcessWire::getCurrentInstance();
+			$wire2 = $this->wire();
+			if($wire1 !== $wire2) {
+				ProcessWire::setCurrentInstance($wire2);
+			} else {
+				$wire1 = null;
+			}
+		} else {
+			$wire1 = null;
+			$wire2 = null;
+		}
 		
 		try {
 			$module = $this->wire(new $className());
@@ -511,6 +527,7 @@ class Modules extends WireArray {
 			$module = null;
 		}
 		if($this->debug) $this->debugTimerStop($debugKey);
+		if($wire1) ProcessWire::setCurrentInstance($wire1);
 		return $module; 
 	}
 

@@ -561,6 +561,16 @@ class ProcessWire extends Wire {
 	}
 
 	/**
+	 * Return number of instances
+	 * 
+	 * @return int
+	 * 
+	 */
+	public static function getNumInstances() {
+		return count(self::$instances);
+	}
+
+	/**
 	 * Get a ProcessWire instance by ID
 	 * 
 	 * @param int|null $instanceID Omit this argument to return the current instance

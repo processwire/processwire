@@ -765,8 +765,20 @@ class WireFileTools extends Wire {
 	 * 
 	 */
 	public function compile($file, array $options = array()) {
+		static $compiled = array();
+		if(strpos($file, '/modules/')) {
+			// for multi-instance support, use the same compiled version
+			// otherwise, require_once() statements in a file may not work as intended
+			// applied just to site/modules for the moment, but may need to do site/templates too
+			$f = str_replace($this->wire('config')->paths->root, '', $file);
+			if(isset($compiled[$f])) return $compiled[$f];
+		} else {
+			$f = '';
+		}
 		$compiler = new FileCompiler(dirname($file), $options);
-		return $compiler->compile(basename($file));
+		$compiledFile = $compiler->compile(basename($file));
+		if($f) $compiled[$f] = $compiledFile;
+		return $compiledFile;
 	}
 
 	/**
