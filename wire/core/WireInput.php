@@ -587,6 +587,7 @@ class WireInput extends Wire {
 	 * Return the current request method (i.e. GET, POST) or blank if not known
 	 * 
 	 * @return string
+	 * @since 3.0.39
 	 * 
 	 */
 	public function requestMethod() {
