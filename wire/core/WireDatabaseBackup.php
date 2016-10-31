@@ -220,6 +220,22 @@ class WireDatabaseBackup {
 	protected $path = null;
 
 	/**
+	 * Cache for getAllTables()
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $tables = array();
+	
+	/**
+	 * Cache for getAllTables()
+	 *
+	 * @var array
+	 *
+	 */
+	protected $counts = array();
+
+	/**
 	 * Construct
 	 * 
 	 * You should follow-up the construct call with one or both of the following:
@@ -498,35 +514,32 @@ class WireDatabaseBackup {
 	 */
 	public function getAllTables($count = false, $cache = true) {
 
-		static $tables = array();
-		static $counts = array();
-
 		if($cache) {
-			if($count && count($counts)) return $counts;
-			if(count($tables)) return $tables;
+			if($count && count($this->counts)) return $this->counts;
+			if(count($this->tables)) return $this->tables;
 		} else {
-			$tables = array();
-			$counts = array();
+			$this->tables = array();
+			$this->counts = array();
 		}
 
 		$query = $this->database->prepare('SHOW TABLES');
 		$query->execute();
 		/** @noinspection PhpAssignmentInConditionInspection */
-		while($row = $query->fetch(\PDO::FETCH_NUM)) $tables[$row[0]] = $row[0];
+		while($row = $query->fetch(\PDO::FETCH_NUM)) $this->tables[$row[0]] = $row[0];
 		$query->closeCursor();
 
 		if($count) {
-			foreach($tables as $table) {
+			foreach($this->tables as $table) {
 				$query = $this->database->prepare("SELECT COUNT(*) FROM `$table`");
 				$query->execute();
 				$row = $query->fetch(\PDO::FETCH_NUM);
-				$counts[$table] = (int) $row[0];
+				$this->counts[$table] = (int) $row[0];
 			}
 			$query->closeCursor();
-			return $counts;
+			return $this->counts;
 			
 		} else {
-			return $tables;
+			return $this->tables;
 		}
 	}
 
