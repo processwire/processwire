@@ -147,10 +147,21 @@ class ProcessWire extends Wire {
 		$this->shutdown = $this->wire(new WireShutdown());
 		$this->config($config);
 		$this->load($config);
+		
+		if($this->getNumInstances() > 1) {
+			// this instance is not handling the request and needs a mock $page API var and pageview
+			/** @var ProcessPageView $view */
+			$view = $this->wire('modules')->get('ProcessPageView');
+			$view->execute(false);
+		}
 	}
 
 	public function __toString() {
-		return $this->className() . " " . self::versionMajor . "." . self::versionMinor . "." . self::versionRevision; 
+		$str = $this->className() . " ";
+		$str .= self::versionMajor . "." . self::versionMinor . "." . self::versionRevision; 
+		if(self::versionSuffix) $str .= " " . self::versionSuffix;
+		if($this->getNumInstances() > 1) $str .= " #$this->instanceID";
+		return $str;
 	}
 
 	/**
