@@ -86,7 +86,7 @@ class TemplateFile extends WireData {
 	protected $profiler = null;
 
 	/**
-	 * Variables that will be applied globally to this and all other TemplateFile instances
+	 * DEPRECATED: Variables that will be applied globally to this and all other TemplateFile instances
 	 *
 	 */
 	static protected $globals = array(); 
@@ -179,13 +179,16 @@ class TemplateFile extends WireData {
 	}
 
 	/**
-	 * Sets a variable to be globally accessable to all other TemplateFile instances
+	 * Sets a variable to be globally accessable to all other TemplateFile instances (deprecated)
 	 *
 	 * Note, to set a variable for just this instance, use the set() as inherted from WireData. 
+	 * 
+	 * #pw-internal
 	 *
 	 * @param string $name
 	 * @param mixed $value
 	 * @param bool $overwrite Should the value be overwritten if it already exists? (default true)
+	 * @deprecated
 	 *
 	 */
 	public function setGlobal($name, $value, $overwrite = true) {
@@ -252,17 +255,24 @@ class TemplateFile extends WireData {
 		foreach($this->prependFilename as $_filename) {
 			if($this->halt) break;
 			if($this->profiler) $this->start($_filename);
+			/** @noinspection PhpIncludeInspection */
 			require($_filename);
 			if($this->profiler) $this->stop();
 		}
 		
 		if($this->profiler) $this->start($this->filename);
-		if(!$this->halt) $returnValue = require($this->filename);
+		if($this->halt) {
+			$returnValue = 0;
+		} else {
+			/** @noinspection PhpIncludeInspection */
+			$returnValue = require($this->filename);
+		}
 		if($this->profiler) $this->stop();
 		
 		foreach($this->appendFilename as $_filename) {
 			if($this->halt) break;
 			if($this->profiler) $this->start($_filename);
+			/** @noinspection PhpIncludeInspection */
 			require($_filename);
 			if($this->profiler) $this->stop();
 		}
@@ -344,6 +354,7 @@ class TemplateFile extends WireData {
 	 * USAGE from template file is: return $this->halt();
 	 * 
 	 * @param bool $halt
+	 * @return $this
 	 * 
 	 */
 	protected function halt($halt = true) {
