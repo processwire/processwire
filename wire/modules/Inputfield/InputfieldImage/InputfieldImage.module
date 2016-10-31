@@ -16,6 +16,7 @@
  * @property int|string $minHeight Min height for uploaded images, smaller will be refused (default='')
  * @property string $itemClass Space separated CSS classes for items rendered by this Inputfield. Generally you should append rather than replace.
  * @property int|bool $useImageEditor Whether or not the modal image editor is allowed for this field (default=true)
+ * @property int $adminThumbScale for backwards compatibility only
  *
  * The following properties default values are pulled from $config->adminThumbOptions and can be overridden
  * by setting directly to an instance of this Inputfield:
@@ -969,6 +970,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList {
 	 * Return whether or not admin thumbs should be scaled
 	 * 
 	 * @return bool
+	 * @deprecated
 	 * 
 	 */
 	protected function getAdminThumbScale() {

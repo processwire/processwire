@@ -1654,8 +1654,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	protected function setTemplate($tpl) {
 		if(!is_object($tpl)) $tpl = $this->wire('templates')->get($tpl); 
 		if(!$tpl instanceof Template) throw new WireException("Invalid value sent to Page::setTemplate"); 
-		if($this->template && $this->template->id != $tpl->id) {
-			if($this->settings['status'] & Page::statusSystem) throw new WireException("Template changes are disallowed on this page"); 
+		if($this->template && $this->template->id != $tpl->id && $this->isLoaded) {
+			if($this->settings['status'] & Page::statusSystem) {
+				throw new WireException("Template changes are disallowed on this page");
+			}
 			if(is_null($this->templatePrevious)) $this->templatePrevious = $this->template; 
 			$this->trackChange('template', $this->template, $tpl); 
 		}
@@ -1680,10 +1682,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if($parent->id && $this->id == $parent->id || $parent->parents->has($this)) {
 			throw new WireException("Page cannot be its own parent");
 		}
-		$this->trackChange('parent', $this->parent, $parent);
-		if(($this->parent && $this->parent->id) && $this->parent->id != $parent->id) {
-			if($this->settings['status'] & Page::statusSystem) throw new WireException("Parent changes are disallowed on this page"); 
-			$this->parentPrevious = $this->parent; 
+		if($this->isLoaded) {
+			$this->trackChange('parent', $this->parent, $parent);
+			if(($this->parent && $this->parent->id) && $this->parent->id != $parent->id) {
+				if($this->settings['status'] & Page::statusSystem) {
+					throw new WireException("Parent changes are disallowed on this page");
+				}
+				if(is_null($this->parentPrevious)) $this->parentPrevious = $this->parent;
+			}
 		}
 		$this->parent = $parent; 
 		return $this; 

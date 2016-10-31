@@ -879,7 +879,10 @@ class PagesEditor extends Wire {
 		} while(1);
 
 		if($insertSql) {
-			$sql = "INSERT INTO pages_parents (pages_id, parents_id) VALUES" . rtrim($insertSql, ",");
+			$sql = 
+				'INSERT INTO pages_parents (pages_id, parents_id) ' . 
+				'VALUES' . rtrim($insertSql, ',') . ' ' . 
+				'ON DUPLICATE KEY UPDATE parents_id=VALUES(parents_id)';
 			$database->exec($sql);
 		}
 

@@ -245,6 +245,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function ___clearCacheFilePages(PageArray $items, Page $page) {
+		if($page) {}
 		foreach($items as $p) {
 			if(((int) $p->template->cache_time) < 1) continue;
 			$cf = $this->getCacheFile($p);
@@ -306,7 +307,6 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 				));
 			}
 		
-			$items = array();
 			if(count($pageIDs)) {
 				$items = $this->wire('pages')->getById($pageIDs, array(
 					'cache'          => false,
@@ -343,7 +343,9 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			if(!is_string($file)) $file = null;
 			$event->cancelHooks = true;
 			$event->replace = true;
-			$event->return = $event->object->renderField($fieldName, $file);
+			/** @var Page $page */
+			$page = $event->object; 
+			$event->return = $page->renderField($fieldName, $file);
 		}
 	}
 
@@ -390,6 +392,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		$_page = $this->wire('page'); // just in case one page is rendering another, save the previous
 		$config = $this->wire('config');
 		$compiler = null;
+		$compilerOptions = array();
 		if($config->templateCompile && $template->compile) {
 			$compilerOptions = array(
 				'namespace' => strlen(__NAMESPACE__) > 0, 
@@ -664,10 +667,14 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Provide a disk cache clearing capability within the module's configuration screen
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
 	 *
 	 */
 	public function getModuleConfigInputfields(array $data) {
 
+		if($data) {}
 		$path = $this->wire('config')->paths->cache . self::cacheDirName . '/';
 		$numPages = 0;
 		$numFiles = 0;
