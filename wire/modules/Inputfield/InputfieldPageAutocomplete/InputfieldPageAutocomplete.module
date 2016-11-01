@@ -288,7 +288,11 @@ _OUT;
 		}
 
 		if($this->template_id) {
-			$selector .= ",templates_id={$this->template_id}";
+			$template_selector = $this->template_id;
+			if(is_array($this->template_id)) {
+				$template_selector = implode('|', $this->template_id);
+			}
+			$selector .= ",templates_id={$template_selector}";
 		}
 		
 		if($this->lang_id) {
