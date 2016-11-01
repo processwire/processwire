@@ -399,15 +399,16 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * 
 	 * #pw-group-retrieval
 	 *
-	 * @param WireArray|WireData|string $items May be any of the following: 
+	 * @param WireArray|WireData|string|null $items May be any of the following: 
 	 *   - `WireData` object (or derivative)
 	 *   - `WireArray` object (or derivative)
 	 *   - Name of any property from this object that returns one of the above. 
+	 *   - Omit argument to simply return this object in a WireArray
 	 * @return WireArray Returns a WireArray of this object *and* the one(s) given. 
 	 * @throws WireException If invalid argument supplied.
 	 *
 	 */
-	public function ___and($items) {
+	public function ___and($items = null) {
 
 		if(is_string($items)) $items = $this->get($items); 
 
@@ -415,13 +416,13 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 			// great, that's what we want
 			$a = clone $items; 
 			$a->prepend($this);
-		} else if($items instanceof WireData) {
+		} else if($items instanceof WireData || is_null($items)) {
 			// single item
 			$className = $this->className(true) . 'Array';
-			if(!class_exists($className)) $className = wireClassName('WireArray', true);		
-			$a = $this->wire(new $className()); 
+			if(!class_exists($className)) $className = wireClassName('WireArray', true);
+			$a = $this->wire(new $className());
 			$a->add($this);
-			$a->add($items); 
+			if($items) $a->add($items);
 		} else {
 			// unknown
 			throw new WireException('Invalid argument provided to WireData::and(...)'); 

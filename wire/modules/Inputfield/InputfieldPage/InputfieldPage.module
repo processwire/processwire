@@ -5,7 +5,7 @@
  *
  * Delegates the actual input control to a user-defined Inputfield derived from InputfieldSelect
  * 
- * @method PageArray getSelectablePages(Page $page)
+ * @method PageArray|null getSelectablePages(Page $page)
  * @method PageArray findPagesCode(Page $page)
  * 
  * Can be accessed from $this or from $field:
@@ -91,6 +91,14 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	protected $processInputMode = false;
+
+	/**
+	 * True when in renderValue mode
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $renderValueMode = false;
 
 	/**
 	 * PageArray of pages that were added in the request
@@ -292,17 +300,27 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * Return PageArray of selectable pages for this input
 	 * 
 	 * @param Page $page The Page being edited
-	 * @return PageArray
+	 * @return PageArray|null
 	 * 
 	 */
 	public function ___getSelectablePages(Page $page) {
-
+		
+		$lockedModes = array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked);
 		$statusUnder = $this->allowUnpub ? Page::statusTrash : Page::statusUnpublished; 
 		$children = null;
 
 		if($this->configMode) {
 			$children = $this->wire('pages')->newPageArray();
 
+		} else if($this->renderValueMode || in_array($this->getSetting('collapsed'), $lockedModes)) {
+			$children = $this->attr('value');
+			// convert to PageArray if not already
+			if($children instanceof Page) {
+				$children = $children->and(); 
+			} else if(!$children instanceof PageArray) {
+				$children = $this->wire('pages')->newPageArray();
+			}
+			
 		} else if($this->findPagesSelector) { 
 			// a find() selector
 			$instance = $this->processInputMode ? $this : null;
@@ -316,7 +334,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		} else if($this->parent_id) {
 			$parent = $this->wire('pages')->get($this->parent_id); 
-			if($parent) $children = $this->template_id ? $parent->children("templates_id={$this->template_id}, check_access=0, status<$statusUnder") : $parent->children("check_access=0, status<$statusUnder");
+			if($parent) {
+				if($this->template_id) {
+					$children = $parent->children("templates_id={$this->template_id}, check_access=0, status<$statusUnder"); 
+				} else {
+					$children = $parent->children("check_access=0, status<$statusUnder");
+				}
+			}
 
 		} else if($this->template_id) {
 			$children = $this->pages->find("templates_id={$this->template_id}, check_access=0, status<$statusUnder"); 
@@ -515,11 +539,10 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * @return bool
 	 * 
 	 */
-	
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
-		
+	
+		$this->renderValueMode = $renderValueMode;
 		parent::renderReady($parent, $renderValueMode);
-		
 		$inputfield = $this->getInputfield();
 		
 		if(!$inputfield) {
@@ -660,7 +683,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$value = $this->attr('value');
 
 		if(is_array($value) || $value instanceof PageArray) { 
-			$out = '<ul class="PageArray">';
+			$out = '<ul class="PageArray pw-bullets">';
 			foreach($value as $p) {
 				$of = $p->of();
 				$p->of(true);
