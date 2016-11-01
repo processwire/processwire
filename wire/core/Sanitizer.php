@@ -1510,7 +1510,7 @@ class Sanitizer extends Wire {
 			// value needs more filtering, replace all non-alphanumeric, non-single-quote and space chars
 			// See: http://php.net/manual/en/regexp.reference.unicode.php
 			// See: http://www.regular-expressions.info/unicode.html
-			$value = preg_replace('/[^[:alnum:]\pL\pN\pP\pM\p{Sm}\p{Sc}\p{Sk} \'\/]/u', ' ', $value); 
+			$value = preg_replace('/[^[:alnum:]\pL\pN\pP\pM\p{S} \'\/]/u', ' ', $value); 
 
 			// replace multiple space characters in sequence with just 1
 			$value = preg_replace('/\s\s+/u', ' ', $value); 
