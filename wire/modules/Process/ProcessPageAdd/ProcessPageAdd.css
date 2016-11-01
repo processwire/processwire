@@ -22,3 +22,7 @@
 .content dl.nav dd ul li {
 	margin: 0;
 }
+
+#ProcessPageAddStatus {
+  display: inline !important;
+}
