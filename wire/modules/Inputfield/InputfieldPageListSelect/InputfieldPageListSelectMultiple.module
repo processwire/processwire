@@ -7,7 +7,16 @@
  *
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
- *
+ * 
+ * @property string $removeLabel
+ * @property string $moreLabel
+ * @property string $unselectLabel
+ * @property string $selectLabel
+ * @property string $cancelLabel
+ * @property string $startLabel
+ * @property string $labelFieldName
+ * @property int $parent_id
+ * 
  *
  */
 
@@ -47,12 +56,18 @@ class InputfieldPageListSelectMultiple extends Inputfield implements InputfieldH
 			"</li>";
 		return $out; 
 	}
+	
+	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+		static $process = null;
+		if(is_null($process)) {
+			/** @var ProcessPageList $process */
+			$process = $this->wire('modules')->get('ProcessPageList'); // prerequisite module
+			$process->setPageLabelField($this->attr('name'), $this->labelFieldName);
+		}
+		return parent::renderReady($parent, $renderValueMode);
+	}
 
 	public function ___render() {
-		static $process = null;
-		/** @var ProcessPageList $process */
-		if(is_null($process)) $process = $this->wire('modules')->get('ProcessPageList'); // prerequisite modules
-		$process->setPageLabelField($this->attr('name'), $this->labelFieldName);
 
 		if(!strlen($this->parent_id)) {
 			return "<p class='error'>" . $this->_('Unable to render this field due to missing parent page in field settings.') . '</p>';
@@ -92,6 +107,9 @@ class InputfieldPageListSelectMultiple extends Inputfield implements InputfieldH
 
 	/**
 	 * Convert the CSV string provide in the $input to an array of ints needed for this fieldtype
+	 * 
+	 * @param WireInputData $input
+	 * @return $this
 	 *
 	 */
 	public function ___processInput(WireInputData $input) {
