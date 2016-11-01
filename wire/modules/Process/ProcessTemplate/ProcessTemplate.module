@@ -181,11 +181,13 @@ class ProcessTemplate extends Process {
 
 		$out .= "\n</div><!--/#ProcessTemplateList-->";
 
+		/** @var InputfieldButton $button */
 		$button = $this->modules->get('InputfieldButton');
 		$button->href = "./add";
 		$button->value = $this->labels['Add New']; 
 		$button->icon = 'plus-circle';
-		$button->addClass('add_template_button head_button_clone'); 
+		$button->addClass('add_template_button'); 
+		$button->showInHeader();
 		$out .= $button->render();
 
 		$button = $this->modules->get('InputfieldButton');
@@ -193,7 +195,7 @@ class ProcessTemplate extends Process {
 		$button->href = "./import/";
 		$button->value = $this->labels['Import'];
 		$button->icon = 'paste';
-		$button->addClass('ui-priority-secondary');
+		$button->setSecondary();
 		$out .= $button->render();
 
 		$button = $this->modules->get('InputfieldButton');
@@ -201,7 +203,7 @@ class ProcessTemplate extends Process {
 		$button->href = "./export/";
 		$button->value = $this->labels['Export']; 
 		$button->icon = 'copy';
-		$button->addClass('ui-priority-secondary');
+		$button->setSecondary();
 		$out .= $button->render();
 
 		if($this->input->nosave) {
@@ -656,9 +658,10 @@ class ProcessTemplate extends Process {
 		$field->attr('value', $template->id); 
 		$form->append($field); 
 
+		/** @var InputfieldSubmit $field */
 		$field = $this->modules->get('InputfieldSubmit');
 		$field->attr('value', $this->_x('Save', 'button')); 
-		$field->class .= ' head_button_clone';
+		$field->showInHeader();
 		$form->append($field); 
 
 		return $form; 

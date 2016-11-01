@@ -258,7 +258,7 @@ class ProcessLanguage extends ProcessPageType {
 		$btn1->href = "{$translationUrl}add/?language_id={$page->id}";
 		$btn1->value = $this->_('Find Files to Translate'); 
 		$btn1->icon = 'plane';
-		if($inputfield->name == 'language_files') $btn1->addClass('head_button_clone');
+		if($inputfield->name == 'language_files') $btn1->showInHeader();
 		$out .= $btn1->render();
 	
 		if(count($inputfield->attr('value'))) {
@@ -266,7 +266,8 @@ class ProcessLanguage extends ProcessPageType {
 			$btn2->href = "../download/?language_id={$page->id}&field=" . $inputfield->attr('name');
 			$btn2->value = $this->_('Download ZIP');
 			$btn2->icon = 'file-zip-o';
-			$btn2->addClass('ui-priority-secondary download-button'); 
+			$btn2->setSecondary();
+			$btn2->addClass('download-button'); 
 			$out .= $btn2->render();
 			
 			$btn2->href .= '&csv=1';

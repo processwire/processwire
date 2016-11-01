@@ -319,7 +319,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->href = "./add"; 
 		$button->value = $this->_x('Add New Field', 'list button'); 
 		$button->icon = 'plus-circle';
-		$button->addClass('head_button_clone');
+		$button->showInHeader();
 		$out .= $button->render();
 	
 		$button = $this->modules->get('InputfieldButton');
@@ -327,7 +327,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->href = "./import/";
 		$button->value = $this->labels['import'];
 		$button->icon = 'paste';
-		$button->addClass('ui-priority-secondary');
+		$button->setSecondary();
 		$out .= $button->render();
 		
 		$button = $this->modules->get('InputfieldButton');
@@ -335,7 +335,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->href = "./export/";
 		$button->value = $this->labels['export'];
 		$button->icon = 'copy';
-		$button->addClass('ui-priority-secondary');
+		$button->setSecondary();
 		$out .= $button->render();
 
 		if($this->input->nosave) {
@@ -807,7 +807,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field = $this->modules->get('InputfieldSubmit');
 		$field->attr('value', $this->labels['save']); 
 		$field->attr('name', 'submit_save_field'); 
-		$field->class .= ' head_button_clone';
+		$field->showInHeader();
 		$form->add($field); 
 
 		if($this->wire('input')->get('process_template')) {
@@ -816,7 +816,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			$field = $this->modules->get('InputfieldButton');
 			$field->attr('id+name', 'modal_cancel_button'); 
 			$field->attr('value', $this->_x('Cancel', 'button'));
-			$field->attr('class', $field->attr('class') . ' ui-priority-secondary');
+			$field->setSecondary();
 			$form->append($field);
 		
 			// contains the asm list item status, populated by JS

@@ -116,7 +116,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		/** @var InputfieldSubmit $field */
 		$field = $this->modules->get('InputfieldSubmit');
 		$field->attr('id+name', 'submit_save_profile'); 
-		$field->addClass('head_button_clone'); 
+		$field->showInHeader();
 		$form->add($field); 
 	
 		return $form; 

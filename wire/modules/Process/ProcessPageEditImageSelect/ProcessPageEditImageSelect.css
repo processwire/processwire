@@ -34,6 +34,7 @@
 	position: static !important;
 }
 
+.pw-content, 
 #content {
 	max-width: 100%; 
 	overflow: hidden;

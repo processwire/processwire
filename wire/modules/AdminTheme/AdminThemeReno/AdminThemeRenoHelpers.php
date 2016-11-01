@@ -124,11 +124,11 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 				"class" => "superuser",
 				"label" => "<i class='fa fa-bolt'></i>",
 				"children" => array(
-					"<i class='fa fa-life-ring'></i> " . $this->_('Support Forums')  => array('http://processwire.com/talk/', 'target="_blank"'),
+					"<i class='fa fa-life-ring'></i> " . $this->_('Support Forums')  => array('https://processwire.com/talk/', 'target="_blank"'),
 					"<i class='fa fa-book'></i> " . $this->_('Documentation') => array('https://processwire.com/docs/', 'target="_blank"'),
-					"<i class='fa fa-github'></i> " . $this->_('Github Repo') => array('https://github.com/ryancramerdesign/ProcessWire/', 'target="_blank"'),
+					"<i class='fa fa-github'></i> " . $this->_('Github Repo') => array('https://github.com/processwire/processwire/', 'target="_blank"'),
 					"<i class='fa fa-code'></i> " . $this->_('Cheatsheet')  => array('http://cheatsheet.processwire.com', 'target="_blank"'),
-					"<i class='fa fa-anchor'></i> " . $this->_('Captain Hook')  => array('http://processwire.com/api/hooks/captain-hook/', 'target="_blank"'),
+					"<i class='fa fa-anchor'></i> " . $this->_('Hooks')  => array('https://processwire.com/api/hooks/', 'target="_blank"'),
 				)
 			);
 		}
@@ -181,7 +181,7 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 			}
 
 			// Add dropdown class if there are children
-			if($children) $class .= " dropdown";
+			if($children) $class .= " pw-dropdown";
 
 			$out .= "<li class='$class'><a href='$link' $attrs>$label</a>";
 				if (is_array($children)){

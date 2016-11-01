@@ -8,16 +8,6 @@
 }
 
 /**
- * To assist in avoiding FOUC
- *
- * Note the 'js' class is removed after document.ready()
- *
-#content.fouc_fix #ProcessPageEdit {
-	padding-top: 2.85em;
-}
- */
-
-/**
  * Hide the edit/view/move actions for first (current) page since they aren't applicable in this context
  *
  */

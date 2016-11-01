@@ -3,12 +3,12 @@
   position: relative;
   cursor: move; }
 
-.content .InputfieldFile.InputfieldItemListCollapse ul.InputfieldFileList > li,
+.pw-content .InputfieldFile.InputfieldItemListCollapse ul.InputfieldFileList > li,
 .Inputfields > li.InputfieldHasFileList.InputfieldRenderValueMode > .InputfieldContent > ul.InputfieldFileList > li,
 .Inputfields > li.InputfieldFile.InputfieldItemListCollapse > .InputfieldContent > ul.InputfieldFileList > li {
   margin-bottom: 0.25em; }
 
-.content .Inputfields > .InputfieldItemList > .InputfieldContent > ul.InputfieldFileList > li:last-child {
+.pw-content .Inputfields > .InputfieldItemList > .InputfieldContent > ul.InputfieldFileList > li:last-child {
   margin-bottom: 0; }
 
 .InputfieldItemList .InputfieldContent.ui-state-hover {
@@ -144,6 +144,7 @@ ul.InputfieldFileListBlank + p.description {
     cursor: inherit;
     width: 100%; }
 
+.pw-content ul.InputfieldFileList li .langTabs > ul,
 #content ul.InputfieldFileList li .langTabs > ul {
   padding-left: 0; }
 

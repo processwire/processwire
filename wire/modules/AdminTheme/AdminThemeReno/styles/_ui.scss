@@ -43,7 +43,8 @@
  *
  */
 
-.content {
+.content, 
+.pw-content {
 
 	.ui-widget-content a {
 		color: $link-color;
@@ -88,8 +89,10 @@
 		}
 	}
 .ui-accordion-content,
-.content .InputfieldForm .ui-accordion-content,
-.content .InputfieldForm .InputfieldMarkup .ui-accordion-content {
+.pw-content .InputfieldForm .ui-accordion-content, 
+.pw-content .InputfieldForm .InputfieldMarkup .ui-accordion-content,
+.content .InputfieldForm .ui-accordion-content, // TBD
+.content .InputfieldForm .InputfieldMarkup .ui-accordion-content { // TBD
 	margin-top: 0;
 	padding-top: 0;
 }

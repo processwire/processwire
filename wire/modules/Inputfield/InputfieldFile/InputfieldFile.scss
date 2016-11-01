@@ -4,13 +4,13 @@
 	cursor: move; 
 }
 
-.content .InputfieldFile.InputfieldItemListCollapse ul.InputfieldFileList > li,
+.pw-content .InputfieldFile.InputfieldItemListCollapse ul.InputfieldFileList > li,
 .Inputfields > li.InputfieldHasFileList.InputfieldRenderValueMode > .InputfieldContent > ul.InputfieldFileList > li,
 .Inputfields > li.InputfieldFile.InputfieldItemListCollapse > .InputfieldContent > ul.InputfieldFileList > li {
 	// items that have no text inputs or items that are in render value mode 
 	margin-bottom: 0.25em;
 }
-.content .Inputfields > .InputfieldItemList > .InputfieldContent > ul.InputfieldFileList > li:last-child {
+.pw-content .Inputfields > .InputfieldItemList > .InputfieldContent > ul.InputfieldFileList > li:last-child {
 	// last item needs no margin 
 	margin-bottom: 0;
 }
@@ -199,6 +199,7 @@ ul.InputfieldFileListBlank + p.description {
 
 // multi-language -----------------------------------------------------------
 
+.pw-content ul.InputfieldFileList li .langTabs > ul,
 #content ul.InputfieldFileList li .langTabs > ul {
 	padding-left: 0;
 }

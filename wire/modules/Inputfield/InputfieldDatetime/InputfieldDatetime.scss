@@ -1,0 +1,67 @@
+/**
+ * Note that #content precedes inline (permanent calendars), not the ones displayed on focus or click
+ *
+ */
+
+.pw-content, #content {
+	.ui-datepicker {
+		font-size: 1.1em;
+	}
+	.ui-datepicker-calendar {
+		margin-top: 0;
+	}
+	.ui-datepicker-inline {
+		padding-bottom: 0.5em;
+	}
+}
+
+.ui-timepicker-div,
+#content .ui-timepicker-div {
+	.ui-widget-header {
+		margin-bottom: 8px;
+	}
+	dl {
+		text-align: left;
+		border: none;
+		margin: 0;
+		padding: 0 0 0 5px;
+		dt {
+			height: 25px;
+			margin-bottom: -25px;
+			padding-top: 0;
+			border: none;
+			font-weight: normal;
+		}
+		dd {
+			margin: 0 10px 10px 65px;
+			padding: 0;
+		}
+	}
+	td {
+		font-size: 90%;
+	}
+}
+
+.ui-tpicker-grid-label,
+#content .ui-tpicker-grid-label {
+	background: none;
+	border: none;
+	margin: 0;
+	padding: 0;
+}
+
+#ui-datepicker-div {
+	/* hide the datepicker div, which shows up at the bottom of the form if not hidden */
+	/* also set default type sizes, since it displays too large otherwise */
+	font-size: 12px;
+	line-height: 14px;
+	display: none;
+}
+
+button.ui-datepicker-trigger {
+	/* tweak to datepicker trigger */
+	margin: 0 0 0 0.5em;
+}
+
+
+

@@ -583,7 +583,7 @@ class ProcessCommentsManager extends Process {
 		if($cnt) { 
 			$button = $this->modules->get('InputfieldSubmit');
 			$button->attr('name', 'processComments');
-			$button->attr('class', $button->attr('class') . ' head_button_clone'); 
+			$buton->showInHeader();
 			$button = $button->render();
 		} else $button = '';
 

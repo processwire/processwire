@@ -35,7 +35,7 @@
 	display: inline;
 }
 
-.fouc_fix .InputfieldAsmSelect select[multiple] {
+.pw-fouc-fix .InputfieldAsmSelect select[multiple] {
 	display: none; 
 }
 

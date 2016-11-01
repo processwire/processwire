@@ -1,0 +1,32 @@
+.pw-bullets li {
+  display: list-item;
+  list-style: disc;
+  margin: 0 0 0 1.25em; }
+
+.pw-numbers li {
+  display: list-item;
+  list-style: decimal;
+  margin: 0 0 0 1.25em; }
+
+.pw-align-left, .align_left, .align-left {
+  float: left;
+  margin: 0 1em 0.5em 0; }
+
+.pw-align-right, .align_right, .align-right {
+  float: right;
+  margin: 0 0 0.5em 1em; }
+
+.pw-align-center, .align_center, .align-center {
+  display: block;
+  margin-left: auto;
+  margin-right: auto; }
+
+.pw-no-select {
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  user-select: none;
+  /* prevent selection of this element */ }
+
+/*# sourceMappingURL=AdminTheme.css.map */

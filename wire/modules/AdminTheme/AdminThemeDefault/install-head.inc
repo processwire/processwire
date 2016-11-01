@@ -3,7 +3,7 @@ if(!defined("PROCESSWIRE_INSTALL")) die();
 if(!isset($title)) $title = 'Title';
 if(!isset($formAction)) $formAction = './install.php';
 ?><!DOCTYPE html>
-<html lang="en"> 
+<html class="pw" lang="en"> 
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
 	<meta name="robots" content="noindex, nofollow" />
@@ -23,27 +23,23 @@ if(!isset($formAction)) $formAction = './install.php';
 </head>
 <body>
 
-	<div id="masthead" class="masthead ui-helper-clearfix">
-		<div class="container">
-
+	<div id="masthead" class="pw-masthead ui-helper-clearfix">
+		<div class="pw-container">
 			<a id='logo' target='_blank' href='http://processwire.com'><img width='130' src="wire/modules/AdminTheme/AdminThemeDefault/styles/images/logo.png" alt="ProcessWire" /></a>
-
 		</div>
 	</div><!--/#masthead-->
 
 	<div id='breadcrumbs'>
-		<div class='container'>
-
+		<div class='pw-container'>
 			<ul class='nav'>
 				<li class='title'><?php echo htmlentities($title, ENT_QUOTES, "UTF-8"); ?></li>
 				<li class='support'><a target='_blank' href='https://processwire.com/talk/'><i class='fa fa-comments'></i> Need help?</a></li>
 			</ul>
-
 		</div>
 	</div><!--/#breadcrumbs-->
 
-	<div id="content" class="content">
-		<div class="container">
+	<div id="content" class="pw-content">
+		<div class="pw-container">
 			<?php if($formAction): ?>
 			<form action='<?php echo htmlentities($formAction, ENT_QUOTES, "UTF-8"); ?>' method='post'>
 			<?php endif; ?>

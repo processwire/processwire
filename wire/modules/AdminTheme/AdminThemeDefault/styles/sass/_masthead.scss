@@ -87,7 +87,7 @@
 		}
 
 
-		ul.dropdown-menu {
+		ul.pw-dropdown-menu {
 			display: none; 
 		}
 		
@@ -223,16 +223,16 @@
 	display: none; 
 }
 
-.has-items-icon {
+.pw-has-items-icon {
 	float: right;
 	position: relative;
 	top: 4px;
 }
 
 .pw-button-dropdown,
-.dropdown-menu-rounded, 
-.dropdown-menu-rounded ul,
-.dropdown-menu.shortcuts {
+.pw-dropdown-menu-rounded, 
+.pw-dropdown-menu-rounded ul,
+.pw-dropdown-menu.pw-dropdown-shortcuts {
 	border-radius: 5px !important;
 	
 	li:first-child > a {

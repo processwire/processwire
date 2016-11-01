@@ -24,7 +24,7 @@ var ProcessWireAdminTheme = {
 		var $body = $("body"); 
 		var $html = $("html"); 
 		if($body.hasClass('hasWireTabs') && $("ul.WireTabs").length == 0) $body.removeClass('hasWireTabs'); 
-		$('#content').removeClass('fouc_fix'); // FOUC fix, deprecated
+		$('#content').removeClass('pw-fouc-fix'); // FOUC fix, deprecated
 		$body.removeClass('pw-init').addClass('pw-ready'); 
 		$html.removeClass('pw-init').addClass('pw-ready'); 
 		// this.browserCheck();
@@ -258,7 +258,7 @@ var ProcessWireAdminTheme = {
 		// if there are buttons in the format "a button" without ID attributes, copy them into the masthead
 		// or buttons in the format button.head_button_clone with an ID attribute.
 		// var $buttons = $("#content a[id=''] button[id=''], #content button.head_button_clone[id!='']");
-		var $buttons = $("button.head_button_clone, button.head_button, button.head-button");
+		var $buttons = $("button.pw-head-button, button.head_button_clone");
 
 		// don't continue if no buttons here or if we're in IE
 		if($buttons.length == 0 || $.browser.msie) return;
@@ -273,7 +273,7 @@ var ProcessWireAdminTheme = {
 				//$head.prepend($button);
 				$head.append($button);
 			// } else if($t.is('.head_button_clone')) {
-			} else if($t.hasClass('head_button_clone') || $t.hasClass('head-button')) {
+			} else if($t.hasClass('head_button_clone') || $t.hasClass('pw-head-button')) {
 				$button = $t.clone();
 				$button.attr('data-from_id', $t.attr('id')).attr('id', $t.attr('id') + '_copy');
 				//$a = $("<a></a>").attr('href', '#');
@@ -425,83 +425,20 @@ var ProcessWireAdminTheme = {
 
 	setupDropdowns: function() {
 
-		$('#masthead li.dropdown > a').on('click', function(e){
+		$('#masthead li.pw-dropdown > a').on('click', function(e){
 			$(this).next("ul").toggleClass('open');
 			$(this).parent().siblings().find('ul.open').removeClass('open');
 			return false;
 		});
 
-		$('#masthead li.dropdown > ul li a').on('click', function(e){
+		$('#masthead li.pw-dropdown > ul li a').on('click', function(e){
 			e.stopPropagation();
 		});
 
 		$(document).on('click', function(){
-			$('#masthead li.dropdown ul').removeClass('open');
+			$('#masthead li.pw-dropdown ul').removeClass('open');
 		});
 
-		/*
-		$("ul.dropdown-menu").each(function() {
-			var $ul = $(this).hide();
-			var $a = $ul.siblings(".dropdown-toggle"); 
-
-			if($a.is("button")) {
-				$a.button();
-			} else {
-				$ul.css({ 'border-top-right-radius': 0 }); 
-			}
-
-			// hide nav when an item is selected to avoid the whole nav getting selected
-			$ul.find('a').click(function() {
-				$ul.hide();
-				return true; 
-			});
-
-			$ul.find(".has-items").each(function() {
-				var $icon = $("<i class='has-items-icon fa fa-angle-right ui-priority-secondary'></i>");
-				$(this).prepend($icon);
-			}); 
-
-			var lastOffset = null; 
-
-			$a.mouseenter(function() {
-				var offset = $a.offset();	
-				if(lastOffset != null) {
-					if(offset.top != lastOffset.top || offset.left != lastOffset.left) {
-						// dropdown-toggle has moved, destroy and re-create
-						$ul.menu('destroy').removeClass('dropdown-ready');
-					}
-				}	
-				if(!$ul.hasClass('dropdown-ready')) {
-					$ul.css('position', 'absolute'); 
-					$ul.prependTo($('body')).addClass('dropdown-ready').menu();
-					var position = { my: 'right top', at: 'right bottom', of: $a };
-					var my = $ul.attr('data-my'); 
-					var at = $ul.attr('data-at'); 
-					if(my) position.my = my; 
-					if(at) position.at = at; 
-					$ul.position(position).css('z-index', 200);
-				}
-				$a.addClass('hover'); 
-				$ul.show();
-				lastOffset = offset; 
-
-			}).mouseleave(function() {
-				setTimeout(function() {
-					if($ul.is(":hover")) return;
-					$ul.find('ul').hide();
-					$ul.hide();
-					$a.removeClass('hover');
-				}, 50); 
-			}); 
-
-			$ul.mouseleave(function() {
-				if($a.is(":hover")) return;
-				$ul.hide();
-				$a.removeClass('hover'); 
-			}); 
-
-		});
-		*/
 	}, 
 
 	setupSideBarToggle: function() {
@@ -569,7 +506,7 @@ var ProcessWireAdminTheme = {
 	 */
 	browserCheck: function() {
 		if($.browser.msie && $.browser.version < 8) 
-			$("#content .container").html("<h2>ProcessWire does not support IE7 and below at this time. Please try again with a newer browser.</h2>").show();
+			$("#content .pw-container").html("<h2>ProcessWire does not support IE7 and below at this time. Please try again with a newer browser.</h2>").show();
 	}
 };
 

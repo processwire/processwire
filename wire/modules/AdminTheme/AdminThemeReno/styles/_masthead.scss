@@ -94,7 +94,7 @@
 		padding-left: 0;
 	}
 
-	.container {
+	.pw-container {
 		line-height: 1;
 	}
 
@@ -165,7 +165,7 @@
 
 		}
 
-		& li.dropdown{
+		& li.pw-dropdown{
 			position: relative;
 
 			&:not(.superuser) > a:after{
@@ -287,7 +287,7 @@
  *
  */
 
-.dropdown-menu {
+.pw-dropdown-menu {
 	display: none;
 	position: relative;
 	z-index: 100;
@@ -303,7 +303,7 @@
 		display: none;
 	}
 
-	.has-items-icon {
+	.pw-has-items-icon {
 		float: right;
 		position: relative;
 		right: 0.5em;
@@ -311,8 +311,8 @@
 	}
 
 	// add-new dropdown
-	&.dropdown-menu-rounded,
-	&.shortcuts {
+	&.pw-dropdown-menu-rounded,
+	&.pw-dropdown-shortcuts {
 		min-width: 200px;
 		padding: 0.3em 0 0.3em 0;
 		background: $dropdown-bg;

@@ -158,10 +158,11 @@ class ProcessLanguageTranslator extends Process {
 			$out .= $table->render();
 		}
 
+		/** @var InputfieldButton $btn */
 		$btn = $this->modules->get('InputfieldButton');
 		$btn->href = $url . 'add/';
 		$btn->icon = 'plane';
-		$btn->addClass('head_button_clone');
+		$btn->showInHeader();
 		$out .= $btn->render();
 
 		return $out;
@@ -271,13 +272,13 @@ class ProcessLanguageTranslator extends Process {
 		$submit = $this->modules->get("InputfieldSubmit");
 		$submit->attr('id+name', 'submit_add');
 		$submit->icon = 'plane';
-		$submit->addClass('head_button_clone');
+		$submit->showInHeader();
 		$form->add($submit);
 
 		$submit = $this->modules->get("InputfieldSubmit");
 		$submit->attr('name', 'submit_refresh');
 		$submit->attr('value', $this->_('Refresh File List'));
-		$submit->addClass('ui-priority-secondary');
+		$submit->setSecondary();
 		$submit->icon = 'refresh';
 		$form->add($submit);
 
@@ -510,7 +511,7 @@ class ProcessLanguageTranslator extends Process {
 		$submit = $this->modules->get("InputfieldSubmit");
 		$submit->attr('id+name', 'save_translations');
 		$submit->value = $this->_x('Save', 'button');
-		$submit->attr('class', $submit->attr('class') . ' head_button_clone');
+		$submit->showInHeader();
 		$submit->addActionValue('exit', $this->_('Save + Exit'), 'times');
 		$submit->addActionValue('next', $this->_('Save + Next'), 'edit');
 		$form->add($submit);

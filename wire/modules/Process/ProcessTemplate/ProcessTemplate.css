@@ -22,6 +22,7 @@ span.asmFieldsetIndent {
 	height: 5px; 
 }
 
+.pw-content .asmFieldset,
 #content .asmFieldset {
 	font-weight: bold; 
 }

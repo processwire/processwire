@@ -504,6 +504,7 @@
 
 $ui-tabs-container-bg: transparentize($subtle-bg, 0.3); /* note same as item nested item list header */
 
+.Inputfields .langTabsContainer,
 #content .Inputfields .langTabsContainer {
 	padding-top: 0;
 	padding-left: 0;
@@ -595,7 +596,8 @@ $ui-tabs-container-bg: transparentize($subtle-bg, 0.3); /* note same as item nes
 	margin-bottom: 0;
 }
 
-#content.fouc_fix .Inputfields .InputfieldHeader {
+.pw-fouc-fix .Inputfields .InputfieldHeader, 
+#content.pw-fouc-fix .Inputfields .InputfieldHeader {
 	// don't show right-aligned header icons when page is rendering 
 	.toggle-icon, 
 	.langTabsToggle {

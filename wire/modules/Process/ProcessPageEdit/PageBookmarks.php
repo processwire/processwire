@@ -156,7 +156,7 @@ class PageBookmarks extends Wire {
 			$button->href = "./?role=0";
 			$button->value = $this->labels['edit-bookmarks'];
 			$button->icon = 'edit';
-			$button->addClass('head_button_clone');
+			$button->showInHeader();
 			$out .= $button->render();
 		}
 		
@@ -227,7 +227,7 @@ class PageBookmarks extends Wire {
 
 		$submit = $modules->get('InputfieldSubmit');
 		$submit->attr('name', 'submit_save_bookmarks');
-		$submit->addClass('head_button_clone');
+		$submit->showInHeader();
 		$form->add($submit);
 
 		if($this->wire('input')->post('submit_save_bookmarks')) {

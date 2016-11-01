@@ -1736,7 +1736,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			}
 			$btn->attr('value', $this->_('Add New'));
 			$btn->href = $this->addURL . $action;
-			$btn->addClass('head_button_clone');
+			$btn->showInHeader();
 			$btn->icon = 'plus-circle';
 			$out = str_replace("<a ", "<a class='$btnClass' ", $btn->render());
 			if($this->editMode == self::windowModeBlank) $out = str_replace("<a " ,"<a target='_blank' ", $out);

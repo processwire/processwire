@@ -84,27 +84,27 @@ var ProcessWireAdmin = {
 			var $a = $(this);
 			var $ul;
 		
-			if($a.attr('data-dropdown')) {
+			if($a.attr('data-pw-dropdown')) {
 				// see if it is specifying a certain <ul>
 				// first check if the selector matches a sibling
-				$ul = $a.siblings($a.attr('data-dropdown'));
+				$ul = $a.siblings($a.attr('data-pw-dropdown'));
 				// if no match for sibling, check entire document
-				if(!$ul.length) $ul = $($a.attr('data-dropdown'));
+				if(!$ul.length) $ul = $($a.attr('data-pw-dropdown'));
 			} else {
 				// otherwise use the <ul> that is the sibling
-				$ul = $a.siblings('.dropdown-menu');
+				$ul = $a.siblings('.pw-dropdown-menu');
 			}
 
 			$ul.hide();
-			$a.data('dropdown-ul', $ul);
+			$a.data('pw-dropdown-ul', $ul);
 
 			if($a.is('button')) {
 				if($a.find('.ui-button-text').length == 0) $a.button();
 				if($a.attr('type') == 'submit') {
 					$a.click(function() {
-						$a.addClass('dropdown-disabled');
+						$a.addClass('pw-dropdown-disabled');
 						setTimeout(function() {
-							$a.removeClass('dropdown-disabled');
+							$a.removeClass('pw-dropdown-disabled');
 						}, 2000);
 					});
 				}
@@ -119,8 +119,8 @@ var ProcessWireAdmin = {
 			});
 
 			// prepend icon to dropdown items that themselves have more items
-			$ul.find(".has-items").each(function() {
-				var $icon = $("<i class='has-items-icon fa fa-angle-right ui-priority-secondary'></i>");
+			$ul.find(".pw-has-items").each(function() {
+				var $icon = $("<i class='pw-has-items-icon fa fa-angle-right ui-priority-secondary'></i>");
 				$(this).prepend($icon);
 			});
 
@@ -136,30 +136,30 @@ var ProcessWireAdmin = {
 		function mouseenterDropdownToggle(e) {
 			
 			var $a = $(this);
-			var $ul = $a.data('dropdown-ul');
-			var delay = $a.hasClass('dropdown-toggle-delay') ? 700 : 0;
-			var lastOffset = $ul.data('dropdown-last-offset');
-			var timeout = $a.data('dropdown-timeout');
+			var $ul = $a.data('pw-dropdown-ul');
+			var delay = $a.hasClass('pw-dropdown-toggle-delay') ? 700 : 0;
+			var lastOffset = $ul.data('pw-dropdown-last-offset');
+			var timeout = $a.data('pw-dropdown-timeout');
 			
-			if($a.hasClass('dropdown-toggle-click')) {
+			if($a.hasClass('pw-dropdown-toggle-click')) {
 				if(e.type != 'mousedown') return;
 				$a.removeClass('ui-state-focus');
 			}
-			if($a.hasClass('dropdown-disabled')) return;
+			if($a.hasClass('pw-dropdown-disabled')) return;
 
 			timeout = setTimeout(function() {
-				if($a.hasClass('dropdown-disabled')) return;
+				if($a.hasClass('pw-dropdown-disabled')) return;
 				var offset = $a.offset();
 				if(lastOffset != null) {
 					if(offset.top != lastOffset.top || offset.left != lastOffset.left) {
 						// dropdown-toggle has moved, destroy and re-create
-						$ul.menu('destroy').removeClass('dropdown-ready');
+						$ul.menu('destroy').removeClass('pw-dropdown-ready');
 					}
 				}
 
-				if(!$ul.hasClass('dropdown-ready')) {
+				if(!$ul.hasClass('pw-dropdown-ready')) {
 					$ul.css('position', 'absolute');
-					$ul.prependTo($('body')).addClass('dropdown-ready').menu();
+					$ul.prependTo($('body')).addClass('pw-dropdown-ready').menu();
 					var position = {my: 'right top', at: 'right bottom', of: $a};
 					var my = $ul.attr('data-my');
 					var at = $ul.attr('data-at');
@@ -170,18 +170,18 @@ var ProcessWireAdmin = {
 
 				$a.addClass('hover');
 				$ul.show();
-				$ul.data('dropdown-last-offset', offset);
+				$ul.data('pw-dropdown-last-offset', offset);
 
 			}, delay);
 
-			$a.data('dropdown-timeout', timeout);
+			$a.data('pw-dropdown-timeout', timeout);
 		}
 
 		function mouseleaveDropdownToggle() {
 
 			var $a = $(this);
-			var $ul = $a.data('dropdown-ul');
-			var timeout = $a.data('dropdown-timeout');
+			var $ul = $a.data('pw-dropdown-ul');
+			var timeout = $a.data('pw-dropdown-timeout');
 
 			if(timeout) clearTimeout(timeout);
 			setTimeout(function() {
@@ -220,12 +220,12 @@ var ProcessWireAdmin = {
 				if(!hoveredDropdownAjaxItem) return;
 				if(hoveredDropdownAjaxItem != $a) return;
 
-				$a.addClass('ajax-items-loaded');
+				$a.addClass('pw-ajax-items-loaded');
 				// var url = $a.attr('href');
 				var url = $a.attr('data-json');
 				var $ul = $a.siblings('ul');
 				var setupDropdownHover = false;
-				var $itemsIcon = $a.children('.has-items-icon');
+				var $itemsIcon = $a.children('.pw-has-items-icon');
 				$itemsIcon.removeClass('fa-angle-right').addClass('fa-spinner fa-spin');
 
 				$.getJSON(url, function(data) {
@@ -235,7 +235,7 @@ var ProcessWireAdmin = {
 					if(!dropdownPositionsMonitored && data.list.length > 10) {
 						dropdownPositionsMonitored = true;
 						setupDropdownHover = true;
-						$(document).on('hover', 'ul.dropdown-menu a', function() {
+						$(document).on('hover', 'ul.pw-dropdown-menu a', function() {
 							hoverDropdownAjaxItem($(this));
 						});
 					}
@@ -290,21 +290,21 @@ var ProcessWireAdmin = {
 		function init() {
 
 			if($("body").hasClass('touch-device')) {
-				$('#topnav').on("click", "a.dropdown-toggle, a.has-items", touchClick);
+				$('#topnav').on("click", "a.pw-dropdown-toggle, a.pw-has-items", touchClick);
 			}
 
-			$(".dropdown-menu").on("click", "a:not(.pw-modal)", function(e) {
+			$(".pw-dropdown-menu").on("click", "a:not(.pw-modal)", function(e) {
 				e.stopPropagation();
 			});
 
-			$(".dropdown-toggle").each(setupDropdown);
+			$(".pw-dropdown-toggle").each(setupDropdown);
 
 			$(document)
-				.on('mousedown', '.dropdown-toggle-click', mouseenterDropdownToggle)
-				.on('mouseenter', '.dropdown-toggle:not(.dropdown-toggle-click)', mouseenterDropdownToggle)
-				.on('mouseleave', '.dropdown-toggle', mouseleaveDropdownToggle)
-				.on('mouseenter', '.dropdown-menu a.has-ajax-items:not(.ajax-items-loaded)', mouseenterDropdownAjaxItem) // navJSON
-				.on('mouseleave', '.dropdown-menu a.has-ajax-items', function() { // navJSON
+				.on('mousedown', '.pw-dropdown-toggle-click', mouseenterDropdownToggle)
+				.on('mouseenter', '.pw-dropdown-toggle:not(.pw-dropdown-toggle-click)', mouseenterDropdownToggle)
+				.on('mouseleave', '.pw-dropdown-toggle', mouseleaveDropdownToggle)
+				.on('mouseenter', '.pw-dropdown-menu a.pw-has-ajax-items:not(.pw-ajax-items-loaded)', mouseenterDropdownAjaxItem) // navJSON
+				.on('mouseleave', '.pw-dropdown-menu a.pw-has-ajax-items', function() { // navJSON
 					hoveredDropdownAjaxItem = null;
 				});
 		}
