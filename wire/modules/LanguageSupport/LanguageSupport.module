@@ -419,7 +419,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$id = $inputfield->attr('id');
 		$value = $inputfield->attr('value');
 		$required = $inputfield->required; 
-
+		$collapsed = $inputfield->collapsed;
 		$trackChanges = $inputfield->trackChanges(); 
 		$inputfield->setTrackChanges(false); 
 		if($this->languageTabs) $this->languageTabs->resetTabs();
@@ -443,6 +443,10 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 				$inputfield->required = false;
 				$inputfield->setAttribute('value', $inputfield->$valueAttr); 
 				$o = $renderValueMode ? $inputfield->___renderValue() : $inputfield->___render(); 
+			}
+			
+			if($collapsed == Inputfield::collapsedBlank && !$inputfield->isEmpty()) {
+				$inputfield->collapsed = Inputfield::collapsedNo;
 			}
 			
 			$out .= $this->wrapInputfieldOutput($o, $newID, $language);
