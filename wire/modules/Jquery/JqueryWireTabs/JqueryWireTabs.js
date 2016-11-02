@@ -61,16 +61,31 @@
 					}); 
 				}
 
-				var hash = document.location.hash.replace("#",""); // thanks to @da-fecto
-				if(hash.length) {
-					$rememberTab = $tabList.find("a#_" + hash); 
-					if($rememberTab.length == 0) {
-						$rememberTab = null;
-					} else {
-						document.location.hash = '';
+				var href = window.location.href;
+				var hrefMatch = '';
+				if(href.indexOf('WireTab')) {
+					var regex = new RegExp('[&;?]WireTab=([-_a-z0-9]+)', 'i');
+					hrefMatch = href.match(regex);
+					hrefMatch = hrefMatch ? hrefMatch[1] : '';
+					if(hrefMatch.length) {
+						$rememberTab = $tabList.find("a#_" + hrefMatch);
 					}
 				}
-				if($rememberTab == null && cookieTab.length > 0 && options.rememberTabs > -1) $rememberTab = $tabList.find("a#_" + cookieTab);
+				
+				if($rememberTab == null) {
+					var hash = document.location.hash.replace("#", ""); // thanks to @da-fecto
+					if(hash.length) {
+						$rememberTab = $tabList.find("a#_" + hash);
+						if($rememberTab.length == 0) {
+							$rememberTab = null;
+						} else {
+							document.location.hash = '';
+						}
+					}
+				}
+				if($rememberTab == null && cookieTab.length > 0 && options.rememberTabs > -1) {
+					$rememberTab = $tabList.find("a#_" + cookieTab);
+				}
 				if($rememberTab && $rememberTab.length > 0) {
 					$rememberTab.click();
 					if (options.rememberTabs == 0) setTabCookie(''); // don't clear cookie when rememberTabs=1, so it continues

@@ -1480,7 +1480,7 @@ class ProcessTemplate extends Process {
 		if($hasSuccess) $notes[] = sprintf($this->_('Templates indicated with a %s are already configured to allow this template as a parent.'), $successIndicator); 
 		$field->notes = implode("\n", $notes);
 		$field->showIf = 'noChildren!=1';
-		$field->setAsmSelectOption('editLink', "./edit?id={value}&modal=1#tab_family");
+		$field->setAsmSelectOption('editLink', "./edit?id={value}&modal=1&WireTab=tab_family");
 		$field->setAsmSelectOption('editLinkOnlySelected', false);
 		$form->add($field); 
 
@@ -1519,7 +1519,7 @@ class ProcessTemplate extends Process {
 		if($hasSuccess) $notes[] = sprintf($this->_('Templates indicated with a %s are already configured to allow this template as a child.'), $successIndicator); 
 		$field->notes = implode("\n", $notes);
 		$field->showIf = 'noParents!=1';
-		$field->setAsmSelectOption('editLink', "./edit?id={value}&modal=1#tab_family"); 
+		$field->setAsmSelectOption('editLink', "./edit?id={value}&modal=1&WireTab=tab_family"); 
 		$field->setAsmSelectOption('editLinkOnlySelected', false);
 		$form->add($field); 
 
