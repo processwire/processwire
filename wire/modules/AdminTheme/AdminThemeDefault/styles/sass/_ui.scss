@@ -26,7 +26,8 @@
  *
  */
 
-.content {
+.content,
+.pw-content {
 	.ui-widget-content a {
 		color: $link-color; 
 	}
@@ -67,8 +68,8 @@
 		color: $reverse-text-color;
 	}
 .ui-accordion-content,
-.content .InputfieldForm .ui-accordion-content,
-.content .InputfieldForm .InputfieldMarkup .ui-accordion-content {
+.pw-content .InputfieldForm .ui-accordion-content,
+.pw-content .InputfieldForm .InputfieldMarkup .ui-accordion-content {
 	margin-top: 0;
 	padding-top: 0;
 }
@@ -415,7 +416,7 @@ body.hidpi-device .ui-slider .ui-slider-handle {
 	}
 }
 
-.dropdown-menu {
+.pw-dropdown-menu {
 	/* dropdown menu for admin theme */ 
 	display: none;
 	border-radius: 0 !important;

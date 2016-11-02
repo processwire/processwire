@@ -291,7 +291,7 @@ class ProcessFieldExportImport extends Wire {
 			$f = $this->modules->get('InputfieldSubmit');
 			$f->attr('name', 'submit_commit');
 			$f->attr('value', $this->_('Commit Changes'));
-			$f->addClass('head_button_clone');
+			$f->showInHeader();
 			$form->add($f);
 			
 		} else { 

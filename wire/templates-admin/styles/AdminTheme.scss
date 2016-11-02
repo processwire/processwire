@@ -1,0 +1,70 @@
+// Common styles for AdminTheme modules
+
+// element containing generated PW content (also may have id=content)
+.pw-content {}
+
+// wrapping element for an an area that may contain .pw-content
+.pw-container {}
+
+// bulleted list
+.pw-bullets li {
+	display: list-item;
+	list-style: disc;
+	margin: 0 0 0 1.25em;
+}
+
+// decimal numbered list
+.pw-numbers li {
+	display: list-item;
+	list-style: decimal;
+	margin: 0 0 0 1.25em;
+}
+
+// dropdown menu 
+.pw-dropdown-menu {
+	// rounded dropdown menu
+	&.pw-dropdown-menu-rounded { }
+}
+
+// dropdown menu connected to a <button> element with actions
+.pw-button-dropdown { }
+
+// class applied to <button> elements that should automatically repeat in the header
+.pw-head-button { }
+
+// alignment: left
+.pw-align-left, .align_left, .align-left {
+	float: left;
+	margin: 0 1em 0.5em 0;
+}
+
+// alignment: right
+.pw-align-right, .align_right, .align-right {
+	float: right;
+	margin: 0 0 0.5em 1em;
+}
+
+// alignment: center
+.pw-align-center, .align_center, .align-center {
+	display: block;
+	margin-left: auto;
+	margin-right: auto;
+}
+
+// added to elements that should not be selectable via highlight
+.pw-no-select {
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-o-user-select: none;
+	user-select: none; /* prevent selection of this element */
+}
+
+// Smaller notes text as used under input elements in Inputfields and elsewhere
+.pw-notes {}
+
+// Description text as used above input elements in Inputfields and elsewhere
+.pw-description {}
+
+// Small muted text
+.pw-detail {}

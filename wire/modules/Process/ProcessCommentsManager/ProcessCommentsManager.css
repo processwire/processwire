@@ -131,27 +131,27 @@
   font-weight: bold;
   color: #444; }
 
-.content .MarkupPagerNav {
+.pw-content .MarkupPagerNav {
   padding-top: 0.5em;
   float: right; }
-  .content .MarkupPagerNav + button {
+  .pw-content .MarkupPagerNav + button {
     margin-top: 1em; }
 
-.AdminThemeReno .content .MarkupPagerNav li a,
-.AdminThemeReno .content .MarkupPagerNav li:first-child a,
-.AdminThemeReno .content .MarkupPagerNav li.MarkupPagerNavOn a {
+.AdminThemeReno .pw-content .MarkupPagerNav li a,
+.AdminThemeReno .pw-content .MarkupPagerNav li:first-child a,
+.AdminThemeReno .pw-content .MarkupPagerNav li.MarkupPagerNavOn a {
   border-color: #fff !important;
   border: none !important;
   border-left: 1px solid #fff !important; }
-.AdminThemeReno .content .MarkupPagerNav li {
+.AdminThemeReno .pw-content .MarkupPagerNav li {
   margin-bottom: 1px; }
-.AdminThemeReno .content #CommentListHeader {
+.AdminThemeReno .pw-content #CommentListHeader {
   border-top: 1px solid #eee; }
-  .AdminThemeReno .content #CommentListHeader .MarkupPagerNav {
+  .AdminThemeReno .pw-content #CommentListHeader .MarkupPagerNav {
     margin-top: 0.5em; }
 
 @media only screen and (max-width: 960px) {
-  .content .MarkupPagerNav {
+  .pw-content .MarkupPagerNav {
     float: none; }
 
   #CommentListHeader {

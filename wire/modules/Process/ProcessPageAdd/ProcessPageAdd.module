@@ -295,7 +295,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			$button = $this->wire('modules')->get('InputfieldButton');
 			$button->href = $bookmarkItem['url'];
 			$button->value = $bookmarkItem['label'];
-			$button->addClass('head_button_clone');
+			$button->showInHeader();
 			$button->icon = $bookmarkItem['icon'];
 			$out .= $button->render();
 		}
@@ -754,7 +754,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$field = $this->modules->get('InputfieldSubmit');
 		$field->attr('name', 'submit_save'); 
 		$field->attr('value', $this->_('Save')); 
-		$field->addClass('head_button_clone'); 
+		$field->showInHeader();
 		$form->append($field);
 		
 		if($numPublishable && !$this->noAutoPublish) {
@@ -767,7 +767,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 				$field = $this->modules->get('InputfieldSubmit');
 				$field->attr('id+name', 'submit_publish');
 				$field->attr('value', $this->_('Save + Publish'));
-				$field->addClass('ui-priority-secondary');
+				$field->setSecondary();
 				$form->append($field);
 			}
 		}

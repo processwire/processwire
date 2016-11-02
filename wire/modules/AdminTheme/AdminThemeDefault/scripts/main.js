@@ -13,7 +13,7 @@ var ProcessWireAdminTheme = {
 	 */
 	init: function() {
 		// fix annoying fouc with this particular button
-		var $button = $("#head_button > button.dropdown-toggle").hide();
+		var $button = $("#head_button > button.pw-dropdown-toggle").hide();
 
 		this.setupCloneButton();
 		ProcessWireAdmin.init();
@@ -22,7 +22,7 @@ var ProcessWireAdminTheme = {
 		
 		var $body = $("body");
 		if($body.hasClass('hasWireTabs') && $("ul.WireTabs").length == 0) $body.removeClass('hasWireTabs'); 
-		$('#content').removeClass('fouc_fix'); // FOUC fix, deprecated
+		$('#content').removeClass('pw-fouc-fix'); // FOUC fix, deprecated
 		$body.removeClass("pw-init").addClass("pw-ready"); 
 		
 		if($button.length > 0) $button.show();
@@ -41,13 +41,13 @@ var ProcessWireAdminTheme = {
 		// or buttons in the format button.head_button_clone with an ID attribute.
 		// var $buttons = $("#content a[id=''] button[id=''], #content button.head_button_clone[id!='']");
 		// var $buttons = $("#content a:not([id]) button:not([id]), #content button.head_button_clone[id!=]"); 
-		var $buttons = $("button.head_button_clone, button.head-button"); 
+		var $buttons = $("button.pw-head-button, button.head_button_clone");  // head_button_clone is legacy
 
 		// don't continue if no buttons here or if we're in IE
 		if($buttons.length == 0) return; // || $.browser.msie) return;
 
 		var $head = $("#head_button"); 
-		if($head.length == 0) $head = $("<div id='head_button'></div>").prependTo("#breadcrumbs .container");
+		if($head.length == 0) $head = $("<div id='head_button'></div>").prependTo("#breadcrumbs .pw-container");
 		
 		$buttons.each(function() {
 			var $t = $(this);
@@ -56,7 +56,7 @@ var ProcessWireAdminTheme = {
 			if($a.length > 0) { 
 				$button = $t.parent('a').clone(true);
 				$head.prepend($button);
-			} else if($t.hasClass('head_button_clone') || $t.hasClass('head-button')) {
+			} else if($t.hasClass('pw-head-button') || $t.hasClass('head_button_clone')) {
 				$button = $t.clone(true);
 				$button.attr('data-from_id', $t.attr('id')).attr('id', $t.attr('id') + '_copy');
 				//$a = $("<a></a>").attr('href', '#');
@@ -67,7 +67,6 @@ var ProcessWireAdminTheme = {
 				//$head.prepend($a.append($button));
 				$head.prepend($button);	
 			}
-			// if($button.hasClass('dropdown-toggle') && $button.attr('data-dropdown')) { }
 		}); 
 		$head.show();
 	},

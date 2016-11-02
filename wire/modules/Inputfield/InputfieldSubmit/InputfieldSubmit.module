@@ -6,6 +6,9 @@
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  * License: MPL 2.0
+ * 
+ * @property bool $header Whether or not button will also appear in header. 
+ * @property bool $secondary Whether or not button is secondary.
  *
  */
 class InputfieldSubmit extends Inputfield {
@@ -41,6 +44,72 @@ class InputfieldSubmit extends Inputfield {
 		
 		// name of 'hidden' input that will receive the clicked dropdown item value
 		$this->set('dropdownInputName', '_action_value');
+	}
+	
+	public function set($key, $value) {
+		if($key == 'header') {
+			$this->showInHeader($value);
+		} else if($key == 'secondary') {
+			$this->setSecondary($value);
+		}
+		return parent::set($key, $value);
+	}
+	
+	public function get($key) {
+		if($key == 'header') return $this->hasClass('pw-head-button');
+		if($key == 'secondary') return $this->hasClass('ui-priority-secondary');
+		return parent::get($key);
+	}
+
+	/**
+	 * Show another copy of this button in the header? 
+	 * 
+	 * @param bool $show True=yes, false=no (default=true)
+	 * @return $this
+	 * 
+	 */
+	public function showInHeader($show = true) {
+		if($show) {
+			$this->addClass('pw-head-button');
+		} else {
+			$this->removeClass('pw-head-button');
+		}
+		return $this;
+	}
+
+	/**
+	 * Make this button secondary? (slightly faded)
+	 * 
+	 * Note: by default, buttons are not secondary
+	 * 
+	 * @param bool $secondary Default=true
+	 * @return $this
+	 * 
+	 */
+	public function setSecondary($secondary = true) {
+		if($secondary) {
+			$this->addClass('ui-priority-secondary');
+		} else {
+			$this->removeClass('ui-priority-secondary');
+		}
+	}
+
+	/**
+	 * Render ready
+	 * 
+	 * @param Inputfield|InputfieldWrapper|null The parent InputfieldWrapper that is rendering it, or null if no parent.
+	 * @param bool $renderValueMode Specify true only if this is for `Inputfield::renderValue()` rather than `Inputfield::render()`.
+	 * @return bool True if assets were just added, false if already added.
+	 *
+	 */
+	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+		$class = $this->attr('class');	
+		if(strpos($class, 'head_button_clone') !== false) {
+			// if legacy class name used, convert to updated pw- class name to accomodate 3rd party usages
+			$class = str_replace('head_button_clone', 'pw-head-button', $class);
+			$this->attr('class', $class);
+		}
+		return parent::renderReady($parent, $renderValueMode);
 	}
 
 	/**
@@ -90,7 +159,7 @@ class InputfieldSubmit extends Inputfield {
 				$out .= "<li><a href='$item[value]'>";
 			} else {
 				// populate hidden input with value before submit
-				$out .= "<li><a data-dropdown-value='$item[value]' href='#'>";
+				$out .= "<li><a data-pw-dropdown-value='$item[value]' href='#'>";
 				$numValues++;
 			}
 			// icon to accompany label
@@ -106,7 +175,7 @@ class InputfieldSubmit extends Inputfield {
 			// there are values that can be populated to a hidden input
 			$inputID = $dropdownID . '_value';
 			$out = "<input type='hidden' name='{$this->dropdownInputName}' id='$inputID' value='' />" .
-				str_replace("<ul ", "<ul data-dropdown-input='#$inputID' ", $out);
+				str_replace("<ul ", "<ul data-pw-dropdown-input='#$inputID' ", $out);
 		}
 	
 		// script to initialize this dropdown immediately

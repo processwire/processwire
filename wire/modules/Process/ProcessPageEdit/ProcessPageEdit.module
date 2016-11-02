@@ -462,13 +462,13 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$out = str_replace('</form>', "$input</form>", $out);
 			
 			$out .= 
-				"<ul class='pw-button-dropdown' data-dropdown-input='#after-submit-action' data-my='right top' data-at='right bottom+1'>" .
-				"<li><a data-dropdown-value='exit' href='#'><i class='fa fa-fw fa-close'></i> " . 
+				"<ul class='pw-button-dropdown' data-pw-dropdown-input='#after-submit-action' data-my='right top' data-at='right bottom+1'>" .
+				"<li><a data-pw-dropdown-value='exit' href='#'><i class='fa fa-fw fa-close'></i> " . 
 				$this->_('%s + Exit') . "</a></li>";
 			
 			if($viewable) {
 				$out .= 
-					"<li><a data-dropdown-value='view' href='#'><i class='fa fa-fw fa-eye'></i> " . 
+					"<li><a data-pw-dropdown-value='view' href='#'><i class='fa fa-fw fa-eye'></i> " . 
 					$this->_('%s + View') . "</a></li>";
 			}
 			
@@ -476,12 +476,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$parent = $this->page->parent();
 				if($parent->addable()) {
 					$out .=
-						"<li><a data-dropdown-value='add' href='#'><i class='fa fa-fw fa-plus-circle'></i> " .
+						"<li><a data-pw-dropdown-value='add' href='#'><i class='fa fa-fw fa-plus-circle'></i> " .
 						$this->_('%s + Add New') . "</a></li>";
 				}
 				if($parent->numChildren > 1) {
 					$out .=
-						"<li><a data-dropdown-value='next' href='#'><i class='fa fa-fw fa-edit'></i> " .
+						"<li><a data-pw-dropdown-value='next' href='#'><i class='fa fa-fw fa-edit'></i> " .
 						$this->_('%s + Next') . "</a></li>";
 				}
 				
@@ -492,7 +492,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		if($viewable) {
 			// this supports code in the buildFormView() method
-			$out .= "<ul id='_ProcessPageEditViewDropdown' class='dropdown-menu dropdown-menu-rounded' data-my='left top' data-at='left top-9'>";
+			$out .= "<ul id='_ProcessPageEditViewDropdown' class='pw-dropdown-menu pw-dropdown-menu-rounded' data-my='left top' data-at='left top-9'>";
 			foreach($this->getViewActions() as $name => $action) {
 				$out .= "<li class='page-view-action-$name'>$action</li>";
 			}
@@ -546,7 +546,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$languageUrls = array();
 		if($languages) {
 			$userLanguage = $this->wire('user')->language;
-			$class .= ' has-items';
+			$class .= ' pw-has-items';
 			foreach($languages as $language) {
 				if(!$this->page->viewable($language)) continue;
 				$localUrl = $language->id == $userLanguage->id ? $url : $this->page->localHttpUrl($language);
@@ -569,7 +569,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					if(!isset($languageUrls[$language->id])) continue;
 					$localUrl = $languageUrls[$language->id];
 					$label = $language->get('title|name');
-					$_action = str_replace(' has-items', '', $action);
+					$_action = str_replace(' pw-has-items', '', $action);
 					$_action = str_replace("'$url'", "'$localUrl'", $_action);
 					$_action = str_replace(">" . $labels[$name] . "<", ">$label<", $_action);
 					$_action = str_replace("='$labels[view]'", "='$label'", $_action); // panel language
@@ -578,7 +578,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$ul .= "</ul>";
 				$actions[$name] = str_replace('</a>', ' &nbsp;</a>', $actions[$name]) . $ul;
 			} else {
-				$actions[$name] = str_replace(' has-items', '', $action);
+				$actions[$name] = str_replace(' pw-has-items', '', $action);
 			}
 		}
 		
@@ -729,7 +729,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$submit2 = $this->modules->get('InputfieldSubmit');
 					$submit2->attr('name', 'submit_save');
 					$submit2->attr('id', 'submit_save_unpublished');
-					$submit2->class .= ' ui-priority-secondary head_button_clone';
+					$submit2->showInHeader();
+					$submit2->setSecondary();
 					$submit2->attr('value', $this->_('Save + Keep Unpublished')); // Button: save unpublished
 				}
 	
@@ -749,7 +750,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$submit = $this->modules->get('InputfieldSubmit');
 			$submit->attr('id+name', $saveName);
 			$submit->attr('value', $saveLabel);
-			$submit->addClass('head_button_clone');
+			$submit->showInHeader();
 			$form->append($submit);
 		}
 
@@ -1200,7 +1201,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$a = 
 			"<a id='_ProcessPageEditView' $target href='$url' data-action='$this->viewAction'>$label</a>&nbsp;" . 
-			"<span id='_ProcessPageEditViewDropdownToggle' class='dropdown-toggle' data-dropdown='#_ProcessPageEditViewDropdown'>&nbsp;" . 
+			"<span id='_ProcessPageEditViewDropdownToggle' class='pw-dropdown-toggle' data-pw-dropdown='#_ProcessPageEditViewDropdown'>&nbsp;" . 
 			"<i class='fa fa-angle-down'></i>&nbsp;</span>";
 		
 		$this->addTab($id, $a);

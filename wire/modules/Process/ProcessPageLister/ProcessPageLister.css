@@ -95,9 +95,11 @@
     top: -15px;
     left: 0; }
 
+.pw-content .lister_headline,
 #content .lister_headline {
   float: left; }
   @media only screen and (max-width: 767px) {
+    .pw-content .lister_headline,
     #content .lister_headline {
       float: none;
       clear: both; } }

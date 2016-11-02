@@ -1,7 +1,9 @@
+.pw-content .langTabsContainer, 
 #content .langTabsContainer {
 	padding-bottom: 0;
 }
 
+.pw-content .langTabsContainer .InputfieldError,
 #content .langTabsContainer .InputfieldError {
 	margin-bottom: 0;
 }

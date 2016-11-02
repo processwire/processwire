@@ -48,12 +48,14 @@ body {
 		font-family: $regular-font; 
 	}
 
-.container, 
+.pw-container, 
+.container,
 .ui-dialog {
 	line-height: $base-line-height; 
 	font-size: $base-font-size; 
 }
 
+.pw-container,
 .container {
 	position: relative; 
 	width: 95%; 
@@ -94,51 +96,30 @@ code {
 	font-size: 14px; 
 }
 
-.description {
+.pw-description, .description {
 	color: $medium-text-color; 
 	margin: 0.5em 0;
 	@include word-wrap();
-	
 }
 
-.notes, 
-.detail {
+.pw-notes, .notes, 
+.pw-detail, .detail {
 	color: $medium-text-color; 
 	font-size: 0.875em;
 	line-height: 1.5em; 
 }
-.notes {
+.pw-notes, .notes {
 	background: $notes-bg; 
 	@include word-wrap();
 }
 
-.description strong,
-.notes strong {
+.pw-description strong, .description strong,
+.pw-notes strong .notes strong {
 	color: $medium-text-color; 
 	font-weight: $bold-weight; 
 }
 
-.align_left,
-.align-left {
-	float: left;
-	margin: 0 1em 0.5em 0;
-}
-
-.align_right,
-.align-right {
-	float: right;
-	margin: 0 0 0.5em 1em; 
-}
-
-.align_center,
-.align-center {
-	display: block;
-	margin-left: auto;
-	margin-right: auto; 
-}
-
-
-.error {
+.pw-error, .error {
 	background: $error-bg; 
 	color: $error-color; 
 	font-weight: $bold-weight; 
@@ -153,15 +134,6 @@ code {
 	z-index: 9999;
 }
 
-.pw-no-select {
-	-webkit-user-select: none;
-	-khtml-user-select: none;
-	-moz-user-select: none;
-	-o-user-select: none;
-	user-select: none; /* prevent selection of this element */
-}
-
-
 /***********************************************************************************************
  * CONTENT
  *
@@ -175,7 +147,7 @@ code {
 	z-index: 0; 
 	background: $text-bg; 
 
-	.container {
+	.pw-container, .container {
 		min-height: 50px; 
 
 		> form,
@@ -186,7 +158,7 @@ code {
 	}
 }
 
-.content {
+.pw-content, .content {
 	/* any content area that you want to inherit these general use styles */
 
 	img {
@@ -254,7 +226,7 @@ code {
 	dl {
 		margin: 1em 0;
 	}
-		.container > dl:first-child {
+		.pw-container > dl:first-child {
 			margin-top: 0;
 		}
 		dt,
@@ -309,7 +281,7 @@ code {
 #debug {
 	// margin-top: 2em; 
 
-	.container {
+	.pw-container {
 		width: 100%; 
 	}
 
@@ -359,7 +331,7 @@ code {
 
 body.modal {
 
-	.container {
+	.pw-container, .container {
 		margin: 0; 
 		width: 100%; 
 		min-width: 300px; 
@@ -377,7 +349,7 @@ body.modal {
 		}
 	}
 
-	.content h2 {
+	.pw-content h2 {
 		margin: 1em 0 0.5em 0;
 		font-size: 1.3em; 
 	}
@@ -412,7 +384,7 @@ body.modal-inline {
 	#content {
 		padding-bottom: 0;
 	}
-	.container {
+	.pw-container, .container {
 		padding-left: 0;
 		padding-right: 0;
 	}
@@ -435,21 +407,21 @@ body.id-23 #content form {
 	margin-top: 1em; 
 }
 
-#content .container > form,
-#content .container > .ui-helper-clearfix > form {
+#content .pw-container > form,
+#content .pw-container > .ui-helper-clearfix > form {
 	/* for wiretabs and/or forms to line up with headline area */
 	top: $form-top-margin-adjustment; 
 }
 
-body:not(.hasWireTabs) #headline .container {
+body:not(.hasWireTabs) #headline .pw-container {
 	min-height: 40px; 
 }
 
-.content > .container > #PageListContainer {
+.pw-content > .pw-container > #PageListContainer {
 	margin-top: 0; 
 }
 
-.hasWireTabs .content #fieldgroupContext {
+.hasWireTabs .pw-content #fieldgroupContext {
 	/* context selection in field editor */
 	top: -2.25em;
 	right: 0; 
@@ -558,7 +530,7 @@ body:not(.hasWireTabs) #headline .container {
 		display: block;
 	}
 
-	.container {
+	.pw-container, .container {
 		width: 100%; 
 	}
 	#footer #userinfo {

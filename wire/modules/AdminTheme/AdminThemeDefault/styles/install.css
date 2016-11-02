@@ -23,6 +23,7 @@
 	float: left; 
 }
 
+#content label .pw-detail,
 #content label .detail {
 	font-weight: normal;
 }
@@ -47,7 +48,8 @@
 	margin-top: 1em; 
 }
 
-.container {
+.container,
+.pw-container {
  	max-width: 1024px; 
 }
 

@@ -4,8 +4,8 @@
 		</div>
 	</div><!--/#content-->
 
-	<div id="footer" class="footer">
-		<div class="container">
+	<div id="footer" class="pw-footer">
+		<div class="pw-container">
 			<p>ProcessWire <?php echo PROCESSWIRE_INSTALL; ?> &copy; 2016</p>
 		</div>
 	</div><!--/#footer-->

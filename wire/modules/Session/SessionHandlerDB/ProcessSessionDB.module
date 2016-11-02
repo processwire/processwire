@@ -141,11 +141,12 @@ class ProcessSessionDB extends Process {
 		$markup->value = "<div id='SessionList'>$out</div>";
 		$form->add($markup);
 
+		/** @var InputfieldSubmit $submit */
 		$submit = $this->wire('modules')->get('InputfieldSubmit');
 		$submit->attr('value', $this->_('Refresh'));
 		$submit->icon = 'refresh';
 		$submit->attr('id+name', 'submit_session');
-		$submit->attr('class', $submit->attr('class') . ' head_button_clone'); 
+		$submit->showInHeader();
 		$form->add($submit);
 		
 		return $form->render();

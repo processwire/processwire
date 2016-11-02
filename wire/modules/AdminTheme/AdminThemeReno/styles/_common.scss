@@ -97,7 +97,7 @@ body,
 	font-size: $base-font-size;
 }
 
-.container {
+.pw-container {
 	position: relative;
 	width: 100%;
 	max-width: $container-max-width;
@@ -278,11 +278,11 @@ body.id-23 {
 	padding: 1.8em 1.5em 3.5em 1.5em;
 	width: 100%;
 }
-#content .container {
+#content .pw-container {
 	min-height: 50px;
 }
-#content .container > form,
-#content .container > .ui-helper-clearfix > form {
+#content .pw-container > form,
+#content .pw-container > .ui-helper-clearfix > form {
 	position: relative;
 	top: -1px;
 }
@@ -343,7 +343,7 @@ ul.action-group{
 	}
 }
 
-.content {
+.pw-content {
 
 	img {
 		display: block;
@@ -371,7 +371,7 @@ ul.action-group{
 		font-size: 0.8em;
 	}
 
-	.container > table.AdminDataList {
+	.pw-container > table.AdminDataList {
 		margin-top: 1em;
 	}
 
@@ -513,7 +513,7 @@ ul.action-group{
 	dl {
 		margin: 1em 0;
 	}
-	.container > dl:first-child {
+	.pw-container > dl:first-child {
 		margin-top: 0;
 	}
 	dt,
@@ -951,7 +951,7 @@ body.modal-inline #ProcessListerResults {
 
 #debug {
 
-	.container {
+	.pw-container {
 		width: 100%;
 	}
 
@@ -1000,7 +1000,7 @@ html.modal, body.modal {
 
 body.modal {
 
-	.container {
+	.pw-container {
 		margin: 0;
 		width: 100%;
 		min-width: 300px;
@@ -1017,7 +1017,7 @@ body.modal {
 		padding: 0 20px 20px 20px;
 	}
 
-	.content h2 {
+	.pw-content h2 {
 		margin: 1em 0;
 		font-size: 1.2em;
 		color: $medium-text-color;
@@ -1042,7 +1042,7 @@ body.modal {
 		display: none;
 	}
 
-	& .content #fieldgroupContext {
+	& .pw-content #fieldgroupContext {
 		/* context selection in field editor */
 		top: 0 ;
 		right: 1.5em;
@@ -1055,7 +1055,7 @@ body.modal-inline {
 	#content {
 		padding: 0; 
 	}
-	.container {
+	.pw-container {
 		padding-left: 0;
 		padding-right: 0;
 	}
@@ -1074,21 +1074,21 @@ body.id-8:not(.hasUrlSegments) #breadcrumbs ul li:not(:first-child):not(:last-ch
 	display: none;
 }
 
-#content .container > form,
-#content .container > .ui-helper-clearfix > form {
+#content .pw-container > form,
+#content .pw-container > .ui-helper-clearfix > form {
 	/* for wiretabs and/or forms to line up with headline area */
 	top: $form-top-margin-adjustment;
 }
 
-body:not(.hasWireTabs) #headline .container {
+body:not(.hasWireTabs) #headline .pw-container {
 	min-height: 40px;
 }
 
-.content > .container > #PageListContainer {
+.pw-content > .pw-container > #PageListContainer {
 	margin-top: 0;
 }
 
-.content #fieldgroupContext {
+.pw-content #fieldgroupContext {
 	/* context selection in field editor */
 	top: 1.5em;
 	right: 1.5em;
@@ -1195,7 +1195,7 @@ body.pw-init .toggle-icon {
 		display: inline-block;
 	}
 
-	#masthead #topnav li.dropdown:not(.superuser) > a:after{
+	#masthead #topnav li.pw-dropdown:not(.superuser) > a:after{
 		margin-left: 3px;
 	}
 
@@ -1220,7 +1220,7 @@ body.pw-init .toggle-icon {
 		margin-left: 0 !important;
 	}
 
-	.container {
+	.pw-container {
 		width: 100%;
 	}
 	#footer #userinfo {

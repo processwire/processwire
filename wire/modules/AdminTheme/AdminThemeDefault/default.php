@@ -17,6 +17,7 @@ if(!isset($content)) $content = '';
 $searchForm = $user->hasPermission('page-edit') ? $modules->get('ProcessPageSearch')->renderSearchForm() : '';
 $version = $adminTheme->version . 'h';
 
+$config->styles->prepend($config->urls->root . "wire/templates-admin/styles/AdminTheme.css?v=$version"); 
 $config->styles->prepend($config->urls->adminTemplates . "styles/" . ($adminTheme->colors ? "main-$adminTheme->colors" : "main-classic") . ".css?v=$version"); 
 $config->styles->append($config->urls->root . "wire/templates-admin/styles/font-awesome/css/font-awesome.min.css?v=$version"); 
 	
@@ -30,7 +31,7 @@ $helpers = $this->wire(new AdminThemeDefaultHelpers());
 $extras = $adminTheme->getExtraMarkup();
 
 ?><!DOCTYPE html>
-<html lang="<?php echo $helpers->_('en'); 
+<html class="pw" lang="<?php echo $helpers->_('en'); 
 	/* this intentionally on a separate line */ ?>">
 <head>
 	<meta http-equiv="content-type" content="text/html; charset=utf-8" />
@@ -57,10 +58,12 @@ $extras = $adminTheme->getExtraMarkup();
 	echo $extras['notices']; 
 	?>
 
-	<div id="masthead" class="masthead ui-helper-clearfix">
-		<div class="container">
+	<div id="masthead" class="pw-masthead ui-helper-clearfix">
+		<div class="pw-container container">
 
-			<a id='logo' href='<?php echo $config->urls->admin?>'><img width='130' src="<?php echo $config->urls->adminTemplates?>styles/images/logo.png" alt="ProcessWire" /></a>
+			<a id='logo' href='<?php echo $config->urls->admin?>'>
+				<img width='130' src="<?php echo $config->urls->adminTemplates?>styles/images/logo.png" alt="ProcessWire" />
+			</a>
 
 			<?php 
 			if($user->isLoggedin()) {
@@ -74,7 +77,7 @@ $extras = $adminTheme->getExtraMarkup();
 	</div><!--/#masthead-->
 
 	<div id='breadcrumbs'>
-		<div class='container'>
+		<div class='pw-container container'>
 
 			<?php 
 			if($page->process == 'ProcessPageList' || ($page->name == 'lister' && $page->parent->name == 'page')) {
@@ -87,8 +90,8 @@ $extras = $adminTheme->getExtraMarkup();
 		</div>
 	</div><!--/#breadcrumbs-->
 
-	<div id="content" class="content fouc_fix">
-		<div class="container">
+	<div id="content" class="pw-content content pw-fouc-fix">
+		<div class="pw-container container">
 
 			<?php 
 			if($page->body) echo $page->body; 
@@ -99,8 +102,8 @@ $extras = $adminTheme->getExtraMarkup();
 		</div>
 	</div><!--/#content-->
 
-	<div id="footer" class="footer">
-		<div class="container">
+	<div id="footer" class="pw-footer footer">
+		<div class="pw-container container">
 			<p>
 			<?php if($user->isLoggedin()): ?>
 			<span id='userinfo'>

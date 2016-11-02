@@ -203,7 +203,7 @@
 	color: #444;
 }
 
-.content .MarkupPagerNav {
+.pw-content .MarkupPagerNav {
 	padding-top: 0.5em;
 	float: right; 
 	
@@ -212,7 +212,7 @@
 	}
 }
 
-.AdminThemeReno .content {
+.AdminThemeReno .pw-content {
 	.MarkupPagerNav {
 		// AdminThemeReno pagination looks incorrect here with the "on" item having extra borders
 		// so this bit of code corrects it. @todo resolve this within AdminThemeReno rather than here
@@ -237,7 +237,7 @@
 
 @media only screen and (max-width: 960px) {
 	
-	.content .MarkupPagerNav {
+	.pw-content .MarkupPagerNav {
 		float: none;
 	}
 	

@@ -319,11 +319,12 @@ class ProcessTemplateExportImport extends Wire {
 			} else {
 				$form->description = $this->_('Please review the changes below and commit them when ready. If there are any changes that you do not want applied, uncheck the boxes where appropriate.');
 			}
-			
+		
+			/** @var InputfieldSubmit $f */
 			$f = $this->modules->get('InputfieldSubmit');
 			$f->attr('name', 'submit_commit');
 			$f->attr('value', $this->_('Commit Changes'));
-			$f->addClass('head_button_clone');
+			$f->showInHeader();
 			$form->add($f);
 			
 		} else { 

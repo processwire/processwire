@@ -31,7 +31,7 @@ function hookMarkupPagerNavRender(HookEvent $event) {
 	if(!isset($options['nextItemLabel'])) {
 		$options['nextItemLabel'] = "<i class='fa fa-angle-right'></i>";
 		$options['previousItemLabel'] = "<i class='fa fa-angle-left'></i>";
-		$options['separatorItemLabel'] = "<span class='detail'>&hellip;</span>";
+		$options['separatorItemLabel'] = "<span class='pw-detail'>&hellip;</span>";
 		$event->arguments(1, $options); 
 	}
 }
