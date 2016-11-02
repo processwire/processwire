@@ -9,16 +9,27 @@
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  * 
- * @method WireArray load(WireArray $items, $selectors = null);
- * @method bool save(Saveable $item);
- * @method bool delete(Saveable $item);
+ * @method WireArray load(WireArray $items, $selectors = null)
+ * @method bool save(Saveable $item)
+ * @method bool delete(Saveable $item)
+ * @method WireArray find($selectors)
+ * @method void saveReady(Saveable $item) #pw-hooker
+ * @method void deleteReady(Saveable $item) #pw-hooker
+ * @method void cloneReady(Saveable $item, Saveable $copy) #pw-hooker
+ * @method array saved(Saveable $item, array $changes = array()) #pw-hooker
+ * @method void added(Saveable $item) #pw-hooker
+ * @method void deleted(Saveable $item) #pw-hooker
+ * @method void cloned(Saveable $item, Saveable $copy) #pw-hooker
  *
+ * 
  */
 
 abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 
 	/**
 	 * Return the WireArray that this DAO stores it's items in
+	 * 
+	 * @return WireArray
 	 *
 	 */
 	abstract public function getAll();
@@ -31,6 +42,8 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 
 	/**
 	 * Return the name of the table that this DAO stores item records in
+	 * 
+	 * @return string
 	 *
 	 */
 	abstract public function getTable();
@@ -40,6 +53,8 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 * Return the default name of the field that load() should sort by (default is none)
 	 *
 	 * This is overridden by selectors if applied during the load method
+	 * 
+	 * @return string
 	 *
 	 */
 	public function getSort() { return ''; }

@@ -29,6 +29,12 @@
  * @property array $viewRoles Role IDs with view access, applicable only if access control is enabled. #pw-group-access
  * @property array|null $orderByCols Columns that WireArray values are sorted by (default=null), Example: "sort" or "-created". #pw-internal
  * @property int|null $paginationLimit Used by paginated WireArray values to indicate limit to use during load. #pw-internal
+ *
+ * Common Inputfield properties that Field objects store:  
+ * @property int|bool|null $required
+ * @property string|null $requiredIf
+ * @property string|null $showIf
+ * @property int|null $columnWidth
  * 
  * @method bool viewable(Page $page = null, User $user = null) Is the field viewable on the given $page by the given $user? #pw-group-access
  * @method bool editable(Page $page = null, User $user = null) Is the field editable on the given $page by the given $user? #pw-group-access

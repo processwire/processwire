@@ -10,6 +10,8 @@
  * @property int $columnWidthSpacing Optionally set the column width spacing (pixels)
  * @property string $description Optionally set a description headline for the form
  * @property string $confirmText Confirmation text that precedes list of changes (when class InputfieldFormConfirm is active)
+ * @property string $method Form method attribute (default="post")
+ * @property string $action Form action attribute (default="./")
  * 
  * Optional classes: 
  * =================

@@ -2,6 +2,10 @@
 
 /**
  * Intended just for outputting markup as help or commentary among other Inputfields
+ * 
+ * @property callable|string|null $markupFunction
+ * @property array $textformatters
+ * @property string $markupText
  *
  */ 
 

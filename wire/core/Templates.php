@@ -13,6 +13,7 @@
  * @method TemplatesArray find($selector) Return the templates matching the the given selector query. #pw-internal
  * @method bool save(Template $template) Save the given Template.
  * @method bool delete() delete(Template $template) Delete the given Template. Note that this will throw a fatal error if the template is in use by any pages.
+ * @method bool|Saveable|Template clone(Saveable $item, $name = '')
  *
  */
 class Templates extends WireSaveableItems {

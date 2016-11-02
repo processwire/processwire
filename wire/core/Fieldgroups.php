@@ -19,6 +19,8 @@ class Fieldgroups extends WireSaveableItemsLookup {
 
 	/**
 	 * Instances of FieldgroupsArray
+	 * 
+	 * @var FieldgroupsArray
 	 *
 	 */
 	protected $fieldgroupsArray; 
@@ -60,6 +62,8 @@ class Fieldgroups extends WireSaveableItemsLookup {
 
 	/**
 	 * Per WireSaveableItems interface, return all available Fieldgroup instances
+	 * 
+	 * @return FieldgroupsArray
 	 *
 	 */
 	public function getAll() {
@@ -68,6 +72,8 @@ class Fieldgroups extends WireSaveableItemsLookup {
 
 	/**
 	 * Per WireSaveableItems interface, create a blank instance of a Fieldgroup
+	 * 
+	 * @return Fieldgroup
 	 *
 	 */
 	public function makeBlankItem() {
@@ -76,6 +82,8 @@ class Fieldgroups extends WireSaveableItemsLookup {
 
 	/**
 	 * Per WireSaveableItems interface, return the name of the table that Fieldgroup instances are stored in
+	 * 
+	 * @return string
 	 *
 	 */
 	public function getTable() {
@@ -84,6 +92,8 @@ class Fieldgroups extends WireSaveableItemsLookup {
 
 	/**
 	 * Per WireSaveableItemsLookup interface, return the name of the table that Fields are linked to Fieldgroups 
+	 * 
+	 * @return string
 	 *
 	 */
 	public function getLookupTable() {

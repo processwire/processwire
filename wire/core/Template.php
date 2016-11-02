@@ -20,6 +20,7 @@
  * @property int $flags Flags (bitmask) assigned to this template. See the flag constants.  #pw-group-identification
  * @property string $ns Namespace found in the template file, or blank if not determined.   #pw-group-identification
  * @property string $pageClass Class for instantiated page objects. Page assumed if blank, or specify class name.  #pw-group-identification
+ * @property int $modified Last modified time for template or template file
  * 
  * Fieldgroup/Fields 
  * 
