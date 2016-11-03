@@ -22,7 +22,7 @@ class InputfieldHidden extends Inputfield {
 	}
 
 	public function ___render() {
-		return "\n<input " . $this->getAttributesString() . " />"; 
+		return "<input " . $this->getAttributesString() . " />"; 
 	}
 
 	public function getAttributes() {
@@ -41,6 +41,7 @@ class InputfieldHidden extends Inputfield {
 		$f = $inputfields->getChildByName('columnWidth');
 		$inputfields->remove($f); 
 
+		/** @var InputfieldText $field */
 		$field = $this->modules->get('InputfieldText');
 		$field->setAttribute('name', 'initValue'); 
 		$field->label = $this->_('Value');

@@ -498,6 +498,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$forIDs = null; 
 		if($loading == FieldtypeRepeater::loadingAll && $collapse != FieldtypeRepeater::collapseNone) $forIDs = array();
 		list($editorUrl, $queryString) = explode('?', $this->page->editUrl());
+		if($queryString) {}
 		
 		$this->wire('config')->js('InputfieldRepeater', array(
 			'editorUrl' => $editorUrl, 

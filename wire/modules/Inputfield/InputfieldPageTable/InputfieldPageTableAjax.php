@@ -9,6 +9,8 @@
  *
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @method void checkAjax()
  *
  */
 
@@ -123,7 +125,7 @@ class InputfieldPageTableAjax extends Wire {
 	protected function sortItems(Page $page, Field $field, $sort) {
 	
 		// if this field has it's own sort settings, then we have nothing to do here.
-		if($field->sortfields && $field->sortfields != 'sort') return;
+		if($field->get('sortfields') && $field->get('sortfields') != 'sort') return;
 		
 		$value = $page->getUnformatted($field->name); 
 		if(!$value instanceof PageArray || !$value->count()) return;

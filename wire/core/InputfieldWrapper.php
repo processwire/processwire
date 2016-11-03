@@ -42,15 +42,15 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 *
 	 */
 	static protected $defaultMarkup = array(
-		'list' => "\n<ul {attrs}>\n{out}\n</ul>\n",
-		'item' => "\n\t<li {attrs}>\n{out}\n\t</li>", 
-		'item_label' => "\n\t\t<label class='InputfieldHeader ui-widget-header{class}' for='{for}'>{out}</label>",
-		'item_label_hidden' => "\n\t\t<label class='InputfieldHeader InputfieldHeaderHidden ui-widget-header{class}'><span>{out}</span></label>",
-		'item_content' => "\n\t\t<div class='InputfieldContent ui-widget-content{class}'>\n{out}\n\t\t</div>", 
-		'item_error' => "\n<p class='InputfieldError ui-state-error'><i class='fa fa-fw fa-flash'></i><span>{out}</span></p>",
-		'item_description' => "\n<p class='description'>{out}</p>", 
-		'item_head' => "\n<h2>{out}</h2>", 
-		'item_notes' => "\n<p class='notes'>{out}</p>",
+		'list' => "<ul {attrs}>{out}</ul>",
+		'item' => "<li {attrs}>{out}</li>", 
+		'item_label' => "<label class='InputfieldHeader ui-widget-header{class}' for='{for}'>{out}</label>",
+		'item_label_hidden' => "<label class='InputfieldHeader InputfieldHeaderHidden ui-widget-header{class}'><span>{out}</span></label>",
+		'item_content' => "<div class='InputfieldContent ui-widget-content{class}'>{out}</div>", 
+		'item_error' => "<p class='InputfieldError ui-state-error'><i class='fa fa-fw fa-flash'></i><span>{out}</span></p>",
+		'item_description' => "<p class='description'>{out}</p>", 
+		'item_head' => "<h2>{out}</h2>", 
+		'item_notes' => "<p class='notes'>{out}</p>",
 		'item_icon' => "<i class='fa fa-fw fa-{name}'></i> ",
 		'item_toggle' => "<i class='toggle-icon fa fa-fw fa-angle-down' data-to='fa-angle-down fa-angle-right'></i>", 
 		// ALSO: 
@@ -900,7 +900,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * #pw-internal
 	 *
 	 * @param bool $clear Set to true in order to clear the delayed children list.
-	 * @return array
+	 * @return array|Inputfield[]
 	 *
 	 */
 	public function _getDelayedChildren($clear = false) {

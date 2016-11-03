@@ -106,7 +106,7 @@ class InputfieldCheckbox extends Inputfield {
 				$this->checkedValueIsLabel = false;
 			}
 			// autocheck mode: when non-zero 'value' set, then 'checked=checked' is assumed
-			if($this->autocheck || $this->formBuilder) $this->attr('checked', 'checked');
+			if($this->autocheck || $this->getSetting('formBuilder')) $this->attr('checked', 'checked');
 		}
 
 

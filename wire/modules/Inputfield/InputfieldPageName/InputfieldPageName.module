@@ -13,6 +13,7 @@
  * @property string $checkboxName Leave blank to disable 
  * @property string $checkboxLabel
  * @property string $checkboxValue
+ * @property string $checkboxSuffix
  * @property bool $checkboxChecked 
  *
  */
@@ -286,7 +287,6 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 
 		if(is_array($data[$name])) {
 			// data already in right save format, but need it to be a string for editing
-			if(empty($replacements)) $replacements = self::$defaultReplacements;
 			$replacements = self::replacementArrayToString($data[$name]);
 
 		} else {

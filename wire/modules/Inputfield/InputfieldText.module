@@ -110,7 +110,7 @@ class InputfieldText extends Inputfield {
 	 */
 	public function ___render() {
 		$attrStr = $this->getAttributesString();
-		$out = "\n<input $attrStr />"; 
+		$out = "<input $attrStr />"; 
 		return $out; 
 	}
 

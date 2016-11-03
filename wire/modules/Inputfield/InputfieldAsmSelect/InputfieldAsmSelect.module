@@ -2,6 +2,8 @@
 
 /**
  * A Page List Selector for selecting a single page
+ * 
+ * @property int|bool $usePageEdit
  *
  */
 class InputfieldAsmSelect extends InputfieldSelectMultiple implements InputfieldHasArrayValue {
@@ -69,7 +71,7 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 			$this->wire('modules')->get('JqueryUI')->use('modal');
 		}
 
-		if($this->hasFieldtype == 'FieldtypePage' && $this->usePageEdit && !$this->editLink) {
+		if($this->hasFieldtype == 'FieldtypePage' && $this->usePageEdit && empty($this->asmOptions['editLink'])) {
 			$this->setAsmSelectOption('editLink', $this->wire('config')->urls->admin . 'page/edit/?id={value}');
 			$this->setAsmSelectOption('editLinkOnlySelected', false);
 			$this->setAsmSelectOption('editLinkButtonSelector', ".InputfieldSubmit button.ui-button:visible");

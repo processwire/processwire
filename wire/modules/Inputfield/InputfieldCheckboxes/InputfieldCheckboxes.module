@@ -40,6 +40,7 @@ class InputfieldCheckboxes extends InputfieldSelectMultiple implements Inputfiel
 		$entityEncode = $this->getSetting('entityEncodeText') === false ? false : true;
 
 		if($this->table) {
+			/** @var MarkupAdminDataTable $table */
 			$table = $this->modules->get("MarkupAdminDataTable"); 
 			$table->setEncodeEntities(false);
 			$table->addClass('pw-no-select');
@@ -62,7 +63,7 @@ class InputfieldCheckboxes extends InputfieldSelectMultiple implements Inputfiel
 			$ulClass = 'InputfieldCheckboxesStacked';
 		}
 
-		if(!$table) $out = "\n<ul class='$ulClass'>";
+		if(!$table) $out = "<ul class='$ulClass'>";
 
 		foreach($this->getOptions() as $key => $value) {
 			$checked = '';
@@ -92,13 +93,13 @@ class InputfieldCheckboxes extends InputfieldSelectMultiple implements Inputfiel
 				$table->row($value); 
 			} else {
 				//$value = str_replace(' ', ' <wbr>', $value);
-				$out .= "\n\t<li$liAttr>$input<span class='pw-no-select'>$value</span></label></li>";
+				$out .= "<li$liAttr>$input<span class='pw-no-select'>$value</span></label></li>";
 			}
 			
 		}
 
 		if($table) $out .= $table->render();
-			else $out .= "\n</ul>";
+			else $out .= "</ul>";
 
 		return $out; 
 
@@ -115,6 +116,7 @@ class InputfieldCheckboxes extends InputfieldSelectMultiple implements Inputfiel
 
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields(); 
+		/** @var InputfieldInteger $f */
 		$f = $this->wire('modules')->get('InputfieldInteger');
 		$f->label = $this->_('Columns of Checkboxes');
 		$f->description = $this->_('If you want the checkboxes to display in columns (rather than stacked), enter the number of columns you want to use (up to 10). To display checkboxes side-by-side (inline) enter 1.'); 

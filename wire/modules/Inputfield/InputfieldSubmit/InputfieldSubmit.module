@@ -9,6 +9,7 @@
  * 
  * @property bool $header Whether or not button will also appear in header. 
  * @property bool $secondary Whether or not button is secondary.
+ * @property string $dropdownInputName #pw-internal
  *
  */
 class InputfieldSubmit extends Inputfield {
@@ -143,7 +144,6 @@ class InputfieldSubmit extends Inputfield {
 		$config->scripts->add($config->urls->InputfieldSubmit . $file);
 		$numValues = 0;
 		$dropdownID = $this->attr('id') . '_dropdown';
-		$out = '';
 		$out  = "<ul id='$dropdownID' class='pw-button-dropdown' data-my='left top' data-at='left bottom+1'>";
 
 		foreach($this->dropdownItems as $item) {
@@ -179,7 +179,7 @@ class InputfieldSubmit extends Inputfield {
 		}
 	
 		// script to initialize this dropdown immediately
-		$out .= "<script>InputfieldSubmitDropdown.init('#{$this->id}')</script>";
+		$out .= "<script" . ">InputfieldSubmitDropdown.init('#{$this->id}')</script>";
 		
 		return $out; 
 	}
@@ -199,7 +199,7 @@ class InputfieldSubmit extends Inputfield {
 	/**
 	 * Add a dropdown item to this button
 	 * 
-	 * @param string string $type Either 'link' or 'value'
+	 * @param string $type Either 'link' or 'value'
 	 * @param string|int $value
 	 * @param string $label
 	 * @param string $icon

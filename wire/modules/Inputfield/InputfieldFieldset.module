@@ -14,7 +14,7 @@ class InputfieldFieldset extends InputfieldWrapper {
 	public function ___render() {
 		// Note the extra "\n" is required in order to prevent InputfieldWrapper from 
 		// skipping over an empty fieldset. Empty fieldsets are used by InputfieldRepeater
-		// for thier description/label, and possibly others use it the same way. 
+		// for their description/label, and possibly others use it the same way. 
 		return parent::___render() . "\n";
 	}
 	

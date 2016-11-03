@@ -378,6 +378,7 @@ class InputfieldPageTable extends Inputfield {
 
 		if(isset($fields[$column])) {
 			// custom
+			/** @var Field $field */
 			$field = $fields[$column]; 
 			$v = $item->getFormatted($fieldName);
 			if($field->type instanceof FieldtypeImage) {

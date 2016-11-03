@@ -575,7 +575,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			$inputfield->addClass($addClass);
 		}
 
-		$out = 	"\n<div class='$class'>";
+		$out = 	"<div class='$class'>";
 		$out .= $inputfield->render();
 		$out .= $this->renderAddable();
 		
@@ -606,7 +606,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 				"value='$selector' />";
 		}
 		
-		$out .= "\n</div>";
+		$out .= "</div>";
 
 		return $out; 
 	}
@@ -657,14 +657,14 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$label ="<i class='fa fa-plus-circle'></i> " . $this->_('Create New'); 
 
 		$out = 	
-			"\n<div class='InputfieldPageAdd'>" . 	
-			"\n\t<p class='InputfieldPageAddButton'><a href='#'>$label</a></p>" . 
-			"\n\t<p class='InputfieldPageAddItems'>" . 
-			"\n\t\t<label class='description' for='$key'>$description</label>" . 
-			"\n\t\t$input" . 
-			"\n\t\t<span class='detail'>$notes</span>" . 
-			"\n\t</p>" . 
-			"\n</div>";
+			"<div class='InputfieldPageAdd'>" . 	
+			"<p class='InputfieldPageAddButton'><a href='#'>$label</a></p>" . 
+			"<p class='InputfieldPageAddItems'>" . 
+			"<label class='description' for='$key'>$description</label>" . 
+			"$input" . 
+			"<span class='detail'>$notes</span>" . 
+			"</p>" . 
+			"</div>";
 
 		return $out; 
 	}

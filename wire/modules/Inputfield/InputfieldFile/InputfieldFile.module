@@ -19,6 +19,15 @@
  * @property bool|int $noCollapseItem Set to true to disable collapsed items (like for LanguageTranslator tool or other things that add tools to files)
  * @property bool|int $noShortName Set to true to disable shortened filenames in output
  * @property bool|int $noCustomButton Set to true to disable use of the styled <input type='file'>
+ * 
+ * @method string renderItem($pagefile, $id, $n)
+ * @method string renderList($value)
+ * @method string renderUpload($value)
+ * @method void fileAdded(Pagefile $pagefile)
+ * @method array extractMetadata(Pagefile $pagefile, array $metadata = array())
+ * @method void processInputAddFile($filename)
+ * @method void processInputDeleteFile(Pagefile $pagefile)
+ * @method bool processInputFile(WireInputData $input, Pagefile $pagefile, $n)
  *
  */
 class InputfieldFile extends Inputfield implements InputfieldItemList {
@@ -181,7 +190,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 	 * Set the parent of this Inputfield
 	 *
 	 * @param InputfieldWrapper $parent
-	 * @return this
+	 * @return $this
 	 *
 	 */
 	public function setParent(InputfieldWrapper $parent) {
@@ -195,7 +204,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 	}
 
 	protected function renderItemDescriptionField(Pagefile $pagefile, $id, $n) {
-		
+	
+		if($n) {}
 		$out = '';
 		$tabs = '';
 		static $hasLangTabs = null;
@@ -317,26 +327,26 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 		$deleteLabel = $this->labels['delete'];
 	
 		$out = 
-			"\n\t\t<p class='InputfieldFileInfo InputfieldItemHeader ui-state-default ui-widget-header'>" . 
-			"\n\t\t\t" . wireIconMarkupFile($pagefile->basename, "fa-fw HideIfEmpty") . 
-			"\n\t\t\t<a class='InputfieldFileName' title='$pagefile->basename' target='_blank' href='{$pagefile->url}'>$displayName</a> " . 
-			"\n\t\t\t<span class='InputfieldFileStats'>" . str_replace(' ', '&nbsp;', $pagefile->filesizeStr) . "</span> ";
+			"<p class='InputfieldFileInfo InputfieldItemHeader ui-state-default ui-widget-header'>" . 
+			wireIconMarkupFile($pagefile->basename, "fa-fw HideIfEmpty") . 
+			"<a class='InputfieldFileName' title='$pagefile->basename' target='_blank' href='{$pagefile->url}'>$displayName</a> " . 
+			"<span class='InputfieldFileStats'>" . str_replace(' ', '&nbsp;', $pagefile->filesizeStr) . "</span> ";
 		
 		if(!$this->renderValueMode) $out .=
-			"\n\t\t\t<label class='InputfieldFileDelete'>" . 
+			"<label class='InputfieldFileDelete'>" . 
 				"<input type='checkbox' name='delete_$id' value='1' title='$deleteLabel' />" . 
 				"<i class='fa fa-fw fa-trash'></i></label>";
 		
 		$out .= 
-			"\n\t\t</p>" . 
-			"\n\t\t<div class='InputfieldFileData description ui-widget-content'>" . 
-			"\n\t\t\t" . $this->renderItemDescriptionField($pagefile, $id, $n);
+			"</p>" . 
+			"<div class='InputfieldFileData description ui-widget-content'>" . 
+			$this->renderItemDescriptionField($pagefile, $id, $n);
 		
 		if(!$this->renderValueMode) $out .= 
-			"\n\t\t\t<input class='InputfieldFileSort' type='text' name='sort_$id' value='$n' />";
+			"<input class='InputfieldFileSort' type='text' name='sort_$id' value='$n' />";
 		
 		$out .= 
-			"\n\t\t</div>";
+			"</div>";
 
 		return $out; 
 	}
@@ -347,7 +357,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 		// they will get strict notices from php if we add a new argument here. 
 		$item = $this->currentItem; 
 		$id = $item && !$this->renderValueMode ? " id='file_$item->hash'" : "";
-		return 	"\n\t<li$id class='{$this->itemClass}'>$out\n\t</li>";
+		return "<li$id class='{$this->itemClass}'>$out</li>";
 	}
 	
 	protected function renderListReady($value) {
@@ -380,12 +390,13 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 
 		$class = 'InputfieldFileList ui-helper-clearfix';
 		if($this->overwrite && !$this->renderValueMode) $class .= " InputfieldFileOverwrite";
-		if($out) $out = "\n<ul class='$class'>$out\n</ul>";
+		if($out) $out = "<ul class='$class'>$out</ul>";
 		
 		return $out; 
 	}
 
 	protected function ___renderUpload($value) {
+		if($value) {}
 		if($this->noUpload || $this->renderValueMode) return '';
 
 		// enables user to choose more than one file
@@ -570,6 +581,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 		}
 
 		$this->value->add($filename); 
+		/** @var Pagefile $item */
 		$item = $this->value->last();
 		
 		try {
@@ -610,6 +622,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 		if($replace) {
 			if(strpos($replace, '?') !== false) {
 				list($replace, $unused) = explode('?', $replace);
+				if($unused) {}
 			}
 			$replaceFile = $this->value->getFile($replace);
 			if($replaceFile && $replaceFile instanceof Pagefile) {
@@ -766,9 +779,11 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 	/**
 	 * Send an ajax response
 	 *
-	 * $error bool Whether it was successful
-	 * $message string Message you want to return
-	 * $file string Full path and filename or blank if not applicable
+	 * @param bool $error Whether it was successful
+	 * @param string $message Message you want to return
+	 * @param string $file Full path and filename or blank if not applicable
+	 * @param string $size 
+	 * @param string $markup
 	 *
 	 */
 	protected function ajaxResponse($error, $message, $file = '', $size = '', $markup = '') {
@@ -825,7 +840,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 	 */
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();
-		
+	
+		/** @var InputfieldCheckbox $f */
 		$f = $this->modules->get("InputfieldCheckbox"); 
 		$f->attr('name', 'unzip'); 
 		$f->attr('value', 1); 
@@ -863,8 +879,6 @@ class InputfieldFile extends Inputfield implements InputfieldItemList {
 			$inputfields->append($f); 
 		}
 		
-		// @todo make noAjax option configurable
-
 		return $inputfields; 	
 	}
 

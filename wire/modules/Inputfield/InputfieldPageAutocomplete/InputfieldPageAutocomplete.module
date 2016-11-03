@@ -105,7 +105,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		if(strpos($label, '&') !== false) $label = $this->wire('sanitizer')->unentities($label);
 		$label = $this->wire('sanitizer')->entities($label);
 		$out = 	
-			"\n<li class='ui-state-default$class'>" . 
+			"<li class='ui-state-default$class'>" . 
 			"<i class='fa fa-sort fa-fw'></i> " . 
 			"<span class='itemValue'>$value</span>" . 
 			"<span class='itemLabel'>$label</span> " . 
@@ -122,7 +122,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	 */
 	protected function ___renderList() { 
 
-		$out = "\n<ol id='{$this->id}_items' data-id='{$this->id}' data-name='{$this->name}'>" . 
+		$out = "<ol id='{$this->id}_items' data-id='{$this->id}' data-name='{$this->name}'>" . 
 			$this->renderListItem("Label", "1", "itemTemplate"); 
 		
 		foreach($this->value as $page_id) {
@@ -135,7 +135,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 			$out .= $this->renderListItem($value, $page->id); 
 		}
 
-		$out .= "\n</ol>";
+		$out .= "</ol>";
 		return $out; 
 	}
 

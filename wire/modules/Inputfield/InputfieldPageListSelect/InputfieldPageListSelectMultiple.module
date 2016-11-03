@@ -47,7 +47,7 @@ class InputfieldPageListSelectMultiple extends Inputfield implements InputfieldH
 	protected function renderListItem($label, $value, $class = '') {
 		if($class) $class = " $class";
 		$out = 	
-			"\n<li class='ui-state-default$class'>" . 
+			"<li class='ui-state-default$class'>" . 
 			// "<span class='ui-icon ui-icon-arrowthick-2-n-s'></span>" . 
 			"<i class='itemSort fa fa-sort'></i> " . 
 			"<span class='itemValue'>$value</span>" .
@@ -73,7 +73,7 @@ class InputfieldPageListSelectMultiple extends Inputfield implements InputfieldH
 			return "<p class='error'>" . $this->_('Unable to render this field due to missing parent page in field settings.') . '</p>';
 		}
 
-		$out = "\n<ol id='{$this->id}_items'>" . $this->renderListItem("Label", "1", "itemTemplate"); 
+		$out = "<ol id='{$this->id}_items'>" . $this->renderListItem("Label", "1", "itemTemplate"); 
 
 		foreach($this->value as $page_id) {
 			$page = $this->pages->get((int) $page_id); 
@@ -83,7 +83,7 @@ class InputfieldPageListSelectMultiple extends Inputfield implements InputfieldH
 			$out .= $this->renderListItem($label, $page->id); 
 		}
 		
-		$out .= "\n</ol>";
+		$out .= "</ol>";
 
 		$this->addClass('InputfieldPageListSelectMultipleData');
 		$attrs = $this->getAttributes();
@@ -100,7 +100,7 @@ class InputfieldPageListSelectMultiple extends Inputfield implements InputfieldH
 	
 		$attrStr = $this->getAttributesString($attrs);
 		$attrStr = "value='" . implode(',', $this->value) . "' $attrStr";
-		$out .=	"\n<input type='text' $attrStr />";
+		$out .=	"<input type='text' $attrStr />";
 
 		return $out; 
 	}

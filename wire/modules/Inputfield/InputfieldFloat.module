@@ -1,5 +1,12 @@
 <?php namespace ProcessWire;
 
+/**
+ * Inputfield for floating point numbers
+ *
+ * @property int $precision
+ * 
+ */
+
 class InputfieldFloat extends InputfieldInteger {
 	
 	public static function getModuleInfo() {
@@ -34,6 +41,9 @@ class InputfieldFloat extends InputfieldInteger {
 	 * Returns true if number is in valid range, false if not
 	 *
 	 * Overriding the function from InputfieldInteger to ensure float types (rather than int types) are used
+	 * 
+	 * @param float $value
+	 * @return bool
 	 *
 	 */
 	protected function isInRange($value) {

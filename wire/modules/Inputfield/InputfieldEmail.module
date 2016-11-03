@@ -33,14 +33,14 @@ class InputfieldEmail extends InputfieldText {
 		if(!$this->label || $this->label == $this->name) $this->label = $this->_('E-Mail'); // label headline when no default specified
 		if($this->confirm && count($this->getErrors())) $this->attr('value', '');
 		$attrs = $this->getAttributes();
-		$out = "\n<input " . $this->getAttributesString($attrs) . " />"; 
+		$out = "<input " . $this->getAttributesString($attrs) . " />"; 
 		if($this->confirm) {
 			foreach(array('id', 'name') as $key) {
 				if(isset($attrs[$key])) $attrs[$key] = '_' . $attrs[$key] . '_confirm';
 			}
 			$attrs['aria-label'] = $this->confirmLabel;
 			$attrs['placeholder'] = $this->confirmLabel;
-			$out .= "\n<div style='margin-top: 0.5em;'><input " . $this->getAttributesString($attrs) . " /></div>";
+			$out .= "<div style='margin-top: 0.5em;'><input " . $this->getAttributesString($attrs) . " /></div>";
 		}
 		return $out; 
 	}
@@ -75,6 +75,7 @@ class InputfieldEmail extends InputfieldText {
 			if($f) $inputfields->remove($f);
 		}
 
+		/** @var InputfieldCheckbox $f */
 		$f = $this->wire('modules')->get('InputfieldCheckbox');
 		$f->attr('name', 'confirm');
 		$f->label = $this->_('Confirm email address?');

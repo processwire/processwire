@@ -167,6 +167,9 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 * Toolbar items split by commas
 	 * Groups of toolbar items split by lines
 	 * Toolbar lines that starts with '#' are ignored
+	 * 
+	 * @param string $str
+	 * @return array
 	 *
 	 */
 	protected function toolbarStringToArray($str) {
@@ -299,7 +302,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			if($this->contentsInlineCss) {
 				$this->config->styles->add($this->pathFromRoot($this->contentsInlineCss, true));
 			} else {
-				$this->config->styles->add($this->config->urls->InputfieldCKEditor . "contents-inline.css");
+				$this->config->styles->add($this->config->urls('InputfieldCKEditor') . "contents-inline.css");
 			}
 		}
 
@@ -403,7 +406,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 					if($this->wire('files')->mkdir($path, true)) {
 						$this->message("Created new CKEditor external plugins directory: $url"); 	
 					} else {
-						$this->error("The CKEditor external plugins directory does not exist: $url - Please create it when/if you want to install external plugins.", Notice::warning);
+						$this->warning("The CKEditor external plugins directory does not exist: $url - Please create it when/if you want to install external plugins.");
 					}
 				}
 				continue;
@@ -463,6 +466,9 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 * Clean up a value that will be sent to/from the editor
 	 *
 	 * This is primarily for HTML Purifier 
+	 * 
+	 * @param string $value
+	 * @return string
 	 *
 	 */
 	protected function purifyValue($value) {
@@ -517,6 +523,9 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 * Process data submitted to a CKEditor field
 	 *
 	 * When inline mode is used, the content is run through HTML Purifier
+	 * 
+	 * @param WireInputData $input
+	 * @return $this
 	 *
 	 */
 	public function ___processInput(WireInputData $input) {
@@ -637,9 +646,11 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			if($f) $inputfields->remove($f);
 		}
 
+		/** @var InputfieldFieldset $wrapper */
 		$wrapper = $this->wire('modules')->get('InputfieldFieldset'); 
 		$wrapper->label = $this->_('CKEditor Settings'); 
 
+		/** @var InputfieldTextarea $f */
 		$f = $this->wire('modules')->get('InputfieldTextarea'); 
 		$f->attr('name', 'toolbar'); 
 		$f->attr('value', $this->toolbar);
@@ -650,6 +661,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 
 		$purifierInstalled = $this->wire('modules')->isInstalled('MarkupHTMLPurifier'); 
 
+		/** @var InputfieldRadios $f */
 		$f = $this->wire('modules')->get('InputfieldRadios'); 
 		$f->attr('name', 'inlineMode'); 
 		$f->label = $this->_('Editor Mode');
@@ -782,11 +794,13 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			$this->_('only for this CKEditor field');
 		$wrapper->add($f);
 
+		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->modules->get('InputfieldFieldset');
 		$fieldset->attr('name', '_plugins_fieldset'); 
 		$fieldset->label = $this->_('Plugins'); 
 		$wrapper->add($fieldset); 
-		
+	
+		/** @var InputfieldCheckboxes $f */
 		$f = $this->modules->get('InputfieldCheckboxes'); 
 		$f->attr('name', 'extraPlugins');
 		$f->label = $this->_('Extra Plugins');

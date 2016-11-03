@@ -65,12 +65,12 @@ class InputfieldMarkup extends InputfieldWrapper {
 			if($this->getSetting('entityEncodeText') !== false && $textFormat != Inputfield::textFormatNone) {
 				if($textFormat == Inputfield::textFormatBasic) {
 					$description = $this->entityEncode($description, Inputfield::textFormatBasic);
-					$out = "\n<p class='description'>{$description}</p>$out";
+					$out = "<p class='description'>{$description}</p>$out";
 				} else if($textFormat == Inputfield::textFormatMarkdown) {
-					$out = "\n<div class='description'>" . $this->entityEncode($description, Inputfield::textFormatMarkdown) . "</div>$out";
+					$out = "<div class='description'>" . $this->entityEncode($description, Inputfield::textFormatMarkdown) . "</div>$out";
 				}
 			} else {
-				$out = "\n<div class='description'>$description</div>$out"; 
+				$out = "<div class='description'>$description</div>$out"; 
 			}
 			$this->description = ''; // prevents it from appearing again at the bottom
 		}

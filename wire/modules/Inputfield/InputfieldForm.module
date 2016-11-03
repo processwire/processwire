@@ -9,7 +9,8 @@
  * @property bool $protectCSRF Set to false to disable automatic CSRF protection
  * @property int $columnWidthSpacing Optionally set the column width spacing (pixels)
  * @property string $description Optionally set a description headline for the form
- * @property string $confirmText Confirmation text that precedes list of changes (when class InputfieldFormConfirm is active)
+ * @property string $confirmText Confirmation text that precedes list of changes (when class InputfieldFormConfirm is
+ *     active)
  * @property string $method Form method attribute (default="post")
  * @property string $action Form action attribute (default="./")
  * 
@@ -127,12 +128,13 @@ class InputfieldForm extends InputfieldWrapper {
 			$tokenField = '';
 		}
 		
-		$out = 	"\n<form $attrStr>" . 
+		$out = 	
+			"<form $attrStr>" . 
 			$description . $this->getSetting('prependMarkup') . 
 			parent::___render() .
 			$tokenField . 
 			$this->getSetting('appendMarkup') . 
-			"\n</form>";
+			"</form>";
 
 		return $out; 
 	}
@@ -167,7 +169,8 @@ class InputfieldForm extends InputfieldWrapper {
 		$delayedN = count($delayedChildren);
 		$processedN = 0;
 		$unprocessedN = 0;
-		
+	
+		/** @var Inputfield[] $savedChildren */
 		$savedChildren = $delayedChildren;
 
 		while(count($delayedChildren)) {
@@ -191,6 +194,7 @@ class InputfieldForm extends InputfieldWrapper {
 			
 			// whether we should process $child now or not
 			$processNow = true; 
+			$selector = null;
 
 			foreach($selectors as $selector) {
 
@@ -204,8 +208,8 @@ class InputfieldForm extends InputfieldWrapper {
 						
 						// if field had already been through the loop, but was not processed, add it back in for processing
 						if(!isset($delayedChildren[$name]) 
-							&& !$savedChildren[$name]->showIfProcessed
-							&& !$savedChildren[$name]->showIfSkipped) {
+							&& !$savedChildren[$name]->getSetting('showIfProcessed')
+							&& !$savedChildren[$name]->getSetting('showIfSkipped')) {
 								$delayedChildren[$name] = $savedChildren[$name];
 							}
 						
@@ -214,13 +218,13 @@ class InputfieldForm extends InputfieldWrapper {
 							$savedChildren[$name]->showIf = '1>0'; // forced match
 						}
 						
-						if($savedChildren[$name]->showIfSkipped) {
+						if($savedChildren[$name]->getSetting('showIfSkipped')) {
 							// dependency $field does not need to be processed, so neither does this field
 							unset($delayedChildren[$child->name]);
 							$processNow = false;
 							if(self::debug) $this->debugNote("Removing field '$child->name' because '$name' it not shown."); 
 							
-						} else if(!$savedChildren[$name]->showIfProcessed) {
+						} else if(!$savedChildren[$name]->getSetting('showIfProcessed')) {
 							// dependency $field is another one in $delayedChildren, send it back to the end
 							unset($delayedChildren[$child->name]);
 							// put it back on the end
@@ -305,7 +309,7 @@ class InputfieldForm extends InputfieldWrapper {
 	 * Process input for fields with a required-if dependency
 	 * 
 	 * @param WireInputData $input
-	 * @param array $delayedChildren
+	 * @param array|Inputfield[] $delayedChildren
 	 * @return bool
 	 * 
 	 */
@@ -313,7 +317,7 @@ class InputfieldForm extends InputfieldWrapper {
 		
 		// process input for any remaining delayedChildren not already processed by processInputShowIf
 		foreach($delayedChildren as $child) {
-			if($child->showIfSkipped || $child->showIfProcessed) continue;
+			if($child->getSetting('showIfSkipped') || $child->getSetting('showIfProcessed')) continue;
 			if(self::debug) $this->debugNote("Now Processing requiredIf delayed child: $child->name");
 			$child->processInput($input); 
 		}
@@ -326,7 +330,7 @@ class InputfieldForm extends InputfieldWrapper {
 			
 		
 			// if field was not shown, then it can't be required
-			if($child->showIfSkipped) continue;
+			if($child->getSetting('showIfSkipped')) continue;
 
 			$required = true; 
 			$selectorString = $child->getSetting('requiredIf');
@@ -374,7 +378,7 @@ class InputfieldForm extends InputfieldWrapper {
 	 * Does the selector match the given Inputfield name?
 	 *
 	 * @param Selector $selector
-	 * @param $name Name of Inputfield
+	 * @param string $name Name of Inputfield
 	 * @param string $debugNote Optional qualifier note for debugging
 	 * @return bool|null Returns true|false if match determined, or NULL if $name is not present in form
 	 *

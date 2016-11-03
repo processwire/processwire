@@ -64,7 +64,7 @@ class InputfieldPageListSelect extends Inputfield implements InputfieldPageListS
 		$attrs['data-cancel'] = $this->cancelLabel;
 		$attrs['data-labelName'] = $this->attr('name');
 
-		$out = "\n<input type='text' " . $this->getAttributesString($attrs) . " />";
+		$out = "<input type='text' " . $this->getAttributesString($attrs) . " />";
 
 		return $out; 
 	}

@@ -5,6 +5,7 @@
  * 
  * @property string $href URL to link to
  * @property string $aclass Optional class name(s) for <a> element (if href is used). 
+ * @property string $target Link target
  *
  */
 class InputfieldButton extends InputfieldSubmit {

@@ -1,5 +1,11 @@
 <?php namespace ProcessWire;
 
+/**
+ * Inputfield for icon selection
+ *
+ * @property bool $prefixValue Should value attribute always start with prefix? (externally)
+ * 
+ */
 class InputfieldIcon extends Inputfield {
 	
 	public static function getModuleInfo() {
@@ -68,7 +74,7 @@ class InputfieldIcon extends Inputfield {
 		if($key == 'value') {
 			$value = parent::getAttribute($key);
 			if(empty($value)) return $value;
-			if($this->prefixValue) {
+			if($this->getSetting('prefixValue')) {
 				if(strpos($value, self::prefix) !== 0) {
 					// add prefix 
 					$value = self::prefix . $value;

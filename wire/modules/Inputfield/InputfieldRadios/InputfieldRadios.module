@@ -44,10 +44,10 @@ class InputfieldRadios extends InputfieldSelect {
 				// don't bother setting a width, we will let them float where they want instead
 				$ulClass = 'InputfieldRadiosFloated';
 			}
-			$out = "\n\t<ul class='$ulClass pw-clearfix ui-helper-clearfix'>";
+			$out = "<ul class='$ulClass pw-clearfix ui-helper-clearfix'>";
 
 		} else {
-			$out = "\n\t<ul class='InputfieldRadiosStacked'>"; 
+			$out = "<ul class='InputfieldRadiosStacked'>"; 
 		}
 
 		foreach($options as $key => $value) {
@@ -69,7 +69,7 @@ class InputfieldRadios extends InputfieldSelect {
 			$label = "<span class='$textClass'>$label</span>";
 
 			$out .= 
-				"\n\t\t<li$liAttr><label$attrs>" . 
+				"<li$liAttr><label$attrs>" . 
 				"<input$checked$disabled " . 
 				"type='radio' " . 
 				"name='{$this->name}' " . 
@@ -79,7 +79,7 @@ class InputfieldRadios extends InputfieldSelect {
 				"</label></li>";
 		}
 
-		$out .=	"\n\t</ul>";
+		$out .=	"</ul>";
 
 		return $out; 
 	}
@@ -95,6 +95,7 @@ class InputfieldRadios extends InputfieldSelect {
 
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields(); 
+		/** @var InputfieldInteger $f */
 		$f = $this->wire('modules')->get('InputfieldInteger');
 		$f->label = $this->_('Columns of Radio Buttons');
 		$f->description = $this->_('If you want the radio buttons to display in columns (rather than stacked), enter the number of columns you want to use (up to 10). To display buttons side-by-side (inline) enter 1.'); 

@@ -173,7 +173,7 @@ class InputfieldDatetime extends Inputfield {
 		if(empty($value)) $value = '';
 		$yearRange = $sanitizer->entities($this->yearRange);
 
-		$out = 	"\n" .
+		$out = 	
 			"<input " . $this->getAttributesString($attrs) . " " .
 			"value='$value' " .
 			"data-dateformat='$dateFormatJS' " .
@@ -400,7 +400,7 @@ class InputfieldDatetime extends Inputfield {
 		$f->columnWidth = 50;
 		$inputfields->append($f);
 		
-		/** @var InputfieldText $f */
+		/** @var InputfieldText $field */
 		$field = $this->modules->get('InputfieldText');
 		$field->setAttribute('name', 'placeholder');
 		$field->label = $this->_('Placeholder Text');
