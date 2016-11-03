@@ -52,7 +52,7 @@ $(document).ready(function() {
 		if(parent_id && name.length > 0) {
 			existsName = name;
 			$.get(ajaxURL + "exists?parent_id=" + parent_id + "&name=" + name, function(data) {
-				$status.html(' ' + data).show();
+				$status.html(' ' + data).css('display','inline');
 				if($(data).hasClass('taken')) {
 					$nameInput.addClass('ui-state-error-text'); 
 					$dupNote.fadeIn('fast');
