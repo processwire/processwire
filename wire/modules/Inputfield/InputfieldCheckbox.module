@@ -58,7 +58,7 @@ class InputfieldCheckbox extends Inputfield {
 		if($this->checkedValueIsLabel) $label = $this->checkedValue;
 			else if($this->label2) $label = $this->label2; 
 		$out = 	
-			"\n<label><input type='checkbox' " . $this->getAttributesString($attrs) . " />" . 
+			"<label><input type='checkbox' " . $this->getAttributesString($attrs) . " />" . 
 			"<span class='pw-no-select'>" . $this->entityEncode($label) . "</span></label>"; 
 		return $out; 
 	}

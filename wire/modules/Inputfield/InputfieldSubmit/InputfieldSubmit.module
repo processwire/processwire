@@ -123,7 +123,7 @@ class InputfieldSubmit extends Inputfield {
 		$icon = $this->icon ? $this->sanitizer->name($this->icon) : '';
 		$icon = $icon ? "<i class='fa fa-$icon'></i> " : '';
 		$value = $this->entityEncode($this->attr('value'));
-		$out = "\n<button $attrs><span class='ui-button-text'>$icon$value</span></button>";
+		$out = "<button $attrs><span class='ui-button-text'>$icon$value</span></button>";
 		if(count($this->dropdownItems)) $out .= $this->renderDropdown();
 		return $out; 
 	}

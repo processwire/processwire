@@ -144,6 +144,9 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 		$this->configData['coreVersion'] = $toVersion;
 		$this->wire('modules')->saveModuleConfigData($this, $this->configData);
 		
+		/** @var AdminTheme $adminTheme */
+		$adminTheme = $this->wire('adminTheme');
+		if($adminTheme) $adminTheme->coreUpdate($fromVersion, $toVersion);
 	}
 
 	/**

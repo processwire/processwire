@@ -368,7 +368,7 @@ function pwModalOpenEvent(e) {
 						'html': text,
 						'class': ($button.is('.ui-priority-secondary') ? 'ui-priority-secondary' : ''),
 						'click': function(e) {
-							jQuery(e.currentTarget).fadeOut('fast');
+							// jQuery(e.currentTarget).fadeOut('fast');
 							$button.click();
 							if(closeSelector.length > 0 && $button.is(closeSelector)) {
 								// immediately close if matches closeSelector
