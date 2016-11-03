@@ -291,7 +291,7 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		$f2a = $this->wire('modules')->get('InputfieldInteger');
 		$f2a->attr('name', 'itemDescriptionLength');
 		$f2a->attr('value', (int) $data['itemDescriptionLength']);
-		$f2a->label = "Maxmum Characters for Item Description Field";
+		$f2a->label = "Maximum Characters for Item Description Field";
 		$f2a->description = "The item description will be truncated to be no longer than the max length provided. Specify '0' for no max length. When there is no max length, markup tags will not be stripped.";
 
 		$f3 = $this->wire('modules')->get('InputfieldSelect');
