@@ -535,7 +535,10 @@ class WireFileTools extends Wire {
 			// filename is absolute, make sure it's in a location we consider safe
 			$allowed = false;
 			foreach($options['allowedPaths'] as $path) {
-				if(strpos($filename, $path) === 0) $allowed = true;
+				if(strpos($filename, $path) === 0) {
+					$allowed = true;
+					break;
+				}
 			}
 			if(!$allowed) {
 				$error = "Filename $filename is not in an allowed path." ;
