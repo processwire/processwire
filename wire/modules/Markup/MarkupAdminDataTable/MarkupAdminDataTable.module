@@ -135,8 +135,11 @@ class MarkupAdminDataTable extends ModuleJS {
 			if(count($this->headerRow)) {
 				$out .= "\n\t<thead>\n\t<tr>";
 				foreach($this->headerRow as $th) {
-					$th = $this->encode($th); 
-					$out .= "\n\t\t<th>$th</th>"; 
+					$class = '';
+					if(is_array($th)) list($th, $class) = $th;
+					$th = $this->encode($th);
+					if($class) $class = " class='" . $this->encode($class) .  "'";
+					$out .= "\n\t\t<th$class>$th</th>";
 					$maxCols++;
 				}
 				$out .= "\n\t</tr>\n\t</thead>";
