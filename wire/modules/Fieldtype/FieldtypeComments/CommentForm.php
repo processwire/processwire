@@ -108,7 +108,11 @@ class CommentForm extends Wire implements CommentFormInterface {
 
 		// the name of a field that must be set (and have any non-blank value), typically set in Javascript to keep out spammers
 		// to use it, YOU must set this with a <input hidden> field from your own javascript, somewhere in the form
-		'requireSecurityField' => '', 
+		'requireSecurityField' => '',
+
+		// the name of a field that must NOT be set 
+		// creates an input field that a (human) visitor should ignore, maybe hiding it with css is a good idea
+		'requireHoneypotField' => '',
 
 		// should a redirect be performed immediately after a comment is successfully posted?
 		'redirectAfterPost' => null, // null=unset (must be set to true to enable)
@@ -254,7 +258,10 @@ class CommentForm extends Wire implements CommentFormInterface {
 		$attrs = $options['attrs'];
 		$id = $attrs['id'];
 		$submitKey = $id . "_submit";
+		$honeypot = $options['requireHoneypotField'];
 		$inputValues = array('cite' => '', 'email' => '', 'website' => '', 'stars' => '', 'text' => '', 'notify' => '');
+		if($honeypot) $inputValues[$honeypot] = '';
+		
 		$user = $this->wire('user'); 
 
 		if($user->isLoggedin()) {
@@ -366,6 +373,18 @@ class CommentForm extends Wire implements CommentFormInterface {
 				"\n\t</p>";
 		}
 
+		// do we need to show the honeypot field?
+		$honeypot = $this->options['requireHoneypotField'];
+		if($honeypot) {
+			$honeypotLabel = isset($labels[$honeypot]) ? $labels[$honeypot] : '';
+			$honeypotValue = isset($inputValues[$honeypot]) ? $inputValues[$honeypot] : '';
+			$form .=
+				"\n\t<p class='CommentFormHP {$id}_hp'>" .
+				"\n\t\t<label for='{$id}_$honeypot'>$honeypotLabel</label>" .
+				"\n\t\t<input type='text' id='{$id}_$honeypot' name='$honeypot' value='$honeypotValue' size='3' />" .
+				"\n\t</p>";
+		}
+
 		$form .=
 			"\n\t<p class='CommentFormText {$id}_text'>" .
 			"\n\t\t<label for='{$id}_text'>$labels[text]</label>" .
@@ -423,6 +442,19 @@ class CommentForm extends Wire implements CommentFormInterface {
 				"\n\t\t\t<span>$labels[stars]</span>" .
 				"\n\t\t\t<input type='number' name='stars' id='{$id}_stars' value='$inputValues[stars]' min='0' max='5' />" .
 				"\n\t\t\t" . $commentStars->render(0, true) .
+				"\n\t\t</label>" .
+				"\n\t</p>";
+		}
+
+		// do we need to show the honeypot field?
+		$honeypot = $this->options['requireHoneypotField'];
+		if($honeypot) {
+			$honeypotLabel = isset($labels[$honeypot]) ? $labels[$honeypot] : '';
+			$honeypotValue = isset($inputValues[$honeypot]) ? $inputValues[$honeypot] : '';
+			$form .=
+				"\n\t<p class='CommentFormHP {$id}_hp'>" .
+				"\n\t\t<label><span>$honeypotLabel</span>" .
+				"\n\t\t<input type='text' name='$honeypot' value='$honeypotValue' size='3' />" .
 				"\n\t\t</label>" .
 				"\n\t</p>";
 		}
@@ -489,6 +521,10 @@ class CommentForm extends Wire implements CommentFormInterface {
 
 		if($key = $this->options['requireSecurityField']) {
 			if(empty($data[$key])) return false; 
+		}
+
+		if($key = $this->options['requireHoneypotField']) {
+			if(!empty($data[$key])) return false;
 		}
 
 		$comment = $this->wire(new Comment()); 
