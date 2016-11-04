@@ -1282,7 +1282,7 @@ jQuery(document).ready(function($) {
 				}
 			}
 			$t.children(".InputfieldContent").html($content.html());
-			if(typeof jQuery.ui != 'undefined') $t.effect("highlight", 1000); 
+			// if(typeof jQuery.ui != 'undefined') $t.effect("highlight", 1000); 
 			$t.trigger('reloaded', [ 'reload' ]); 
 		});
 		event.stopPropagation();
