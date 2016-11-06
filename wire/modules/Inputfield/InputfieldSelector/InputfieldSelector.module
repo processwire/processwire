@@ -492,8 +492,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				'label' => $this->_('Custom (field=value)'),
 				'operators' => array(),
 				'placeholder' => $this->_('field=value'),
-				),
-	
+			),
 			//'parent' => $this->_('parent'), 
 			); 
 		
@@ -1125,12 +1124,12 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 								$options[$item->id] = $inputfield->getPageLabel($item); // $item->get('title|name'); 
 							}
 							if(count($options) < 2
-								&& ($field->parent_id || $field->template_id) 
-								&& ($field->findPagesCode || $field->findPagesSelector)) {
+								&& ($field->get('parent_id') || $field->get('template_id')) 
+								&& ($field->get('findPagesCode') || $field->get('findPagesSelector'))) {
 								// see if we can locate options purely with the parent or template
 								$findSelector = array("include=unpublished, limit=500, sort=title, sort=name, ");
-								if($field->parent_id) $findSelector[] = "parent_id=" . (int) $field->parent_id; 
-								if($field->template_id) $findSelector[] = "templates_id=" . (int) $field->template_id; 
+								if($field->get('parent_id')) $findSelector[] = "parent_id=" . (int) $field->get('parent_id'); 
+								if($field->get('template_id')) $findSelector[] = "templates_id=" . (int) $field->get('template_id'); 
 								foreach($this->wire('pages')->find(implode(', ', $findSelector)) as $item) {
 									$options[$item->id] = $inputfield->getPageLabel($item); // $item->get('title|name');
 								}
@@ -1400,35 +1399,35 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$hasPageListSelect = strpos($field->get('inputfield'), 'PageListSelect') !== false;
 
 		// determine autocomplete state based on field settings and quantity of pages involved
-		if($field->findPagesSelector) {
+		if($field->get('findPagesSelector')) {
 			// user-specified selector determines which pages match
-			$selector = trim($field->findPagesSelector, ', ');
+			$selector = trim($field->get('findPagesSelector'), ', ');
 			if(strpos($selector, 'page.') !== false) {
 				// remove page.something impossible reference, if present
 				$selector = preg_replace('/[_a-zA-Z0-9]+[=<>!]+page\.[_a-zA-Z0-9]+[\s,]*/', '', $selector);
 				//$selector = preg_replace('/(^|,)\s*page\.[_a-zA-Z0-9][=<>!]+[^,]*/', '', $selector);
 			}
-			if($field->parent_id) $selector .= ",has_parent=" . (int) $field->parent_id; 
-		} else if($field->parent_id) {
+			if($field->get('parent_id')) $selector .= ",has_parent=" . (int) $field->get('parent_id'); 
+		} else if($field->get('parent_id')) {
 			if($hasPageListSelect) {
-				$selector = "has_parent=" . (int) $field->parent_id;
+				$selector = "has_parent=" . (int) $field->get('parent_id');
 			} else {
-				$selector = "parent_id=" . (int) $field->parent_id;
+				$selector = "parent_id=" . (int) $field->get('parent_id');
 			}
 		}
 
-		if($field->template_id) {
+		if($field->get('template_id')) {
 			$selector .= ",templates_id=";
-			if(is_array($field->template_id)) {
-				if(count($field->template_id)) $selector .= implode('|', $field->template_id); 
+			if(is_array($field->get('template_id'))) {
+				if(count($field->get('template_id'))) $selector .= implode('|', $field->get('template_id')); 
 			} else {
-				$selector .= (int) $field->template_id; 
+				$selector .= (int) $field->get('template_id'); 
 			}
 		}
 
 		if(empty($selector)) {
 			// if it's using a runtime code to determine, then we can't use autocomplete
-			if($field->findPagesCode) return ''; 
+			if($field->get('findPagesCode')) return ''; 
 			// otherwise just populate a selector that can match anything
 			$selector = "id>0";
 		}
@@ -1717,8 +1716,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 
 				// render a row for each value in the selector (usually 1)
 				foreach($values as $valueNum => $value) { 
-					if($valueNum > 0) $rowClass .= " has-or-value";
-					if($fieldNum > 0 || $valueNum > 0) $orChecked = true; 
+					if($valueNum > 0 || $quote == '(') $rowClass .= " has-or-value";
+					if($fieldNum > 0 || $valueNum > 0 || $quote == '(') $orChecked = true; 
 					if(!strlen($value) && $quote) $value = "$quote{$value}$quote";
 					$operator = $selector->operator;
 					// convert to not operator when finding a not selector

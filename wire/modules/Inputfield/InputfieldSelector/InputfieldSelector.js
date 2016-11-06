@@ -480,7 +480,8 @@ var InputfieldSelector = {
 			var $orCheckbox = $row.find(".input-or"); 
 			var useOrValue = mayOrValue && $orCheckbox.is(":checked"); 
 			var useOrField = mayOrField && $orCheckbox.is(":checked"); 
-
+			var isOrGroup = (useOrField || useOrValue) && fieldName == '_custom';
+			
 			if(useOrValue) { //  && !$row.is('.has-or-value')) {
 				$row.addClass('has-or-value'); 
 				$row.find(".select-field, .select-operator, .select-subfield").attr('disabled', 'disabled'); 
@@ -505,6 +506,7 @@ var InputfieldSelector = {
 				mayOrField: mayOrField,
 				useOrValue: useOrValue, 
 				useOrField: useOrField,
+				isOrGroup: isOrGroup,
 				checkbox: $orCheckbox
 				};
 
@@ -560,7 +562,9 @@ var InputfieldSelector = {
 				if(i === n) continue; 
 				var si = selectors[i]; 
 				if(si === null || typeof si == "undefined" || typeof si.value == "undefined") continue; 
-				if(si.mayOrField && si.value == s.value) {
+				if(si.field == '_custom' && si.isOrGroup) {
+					s.isOrGroup = true;
+				} else if(si.mayOrField && si.value == s.value) {
 					si.checkbox.show();
 					if(si.useOrField) {
 						s.field += '|' + si.field; 
@@ -582,7 +586,12 @@ var InputfieldSelector = {
 			}
 
 			if(s.field == '_custom') {
-				selector += s.value; 
+				if(s.isOrGroup) {
+					s.value = s.value.replace('(', '').replace(')', '');
+					selector += s.field + '=' + '(' + s.value + ')';
+				} else {
+					selector += s.value;
+				}
 			} else {
 				selector += s.field + s.operator + $.trim(s.value); 
 			}
