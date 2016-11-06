@@ -609,7 +609,50 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		if($info['input'] == 'page') {
 			$info['subfields'] = array_merge($info['subfields'], $this->systemPageFields);
 		}
-		if(!empty($info['subfields'])) ksort($info['subfields']);
+		
+		if(!empty($info['subfields'])) {
+			$subfields = array();
+			foreach($info['subfields'] as $name => $subfield) {
+				
+				// consider multi-language
+				if(strpos($name, 'data') === 0 && $this->wire('languages')) {
+					list($unused, $languageID) = explode('data', "x$name");
+					if(ctype_digit($languageID)) {
+						$language = $this->wire('languages')->get((int) $languageID);
+						if($language && $language->id) {
+							$subfield['label'] = $field->getLabel() . " (" . $language->get('title|name') . ")";
+						}
+					}
+				}
+				
+				if(isset($this->systemFields[$name])) {
+					$label = isset($this->systemFields[$name]['label']) ? $this->systemFields[$name]['label'] : $name;
+				} else if(!empty($subfield['label'])) {
+					$label = $subfield['label'];
+				} else if(strpos($name, 'data') === 0 && ctype_digit(substr($name, 4)) && $this->wire('languages')) {
+					
+				} else {
+					$f = $this->wire('fields')->get($name);
+					$label = $f ? $f->getLabel() : $name;
+				}
+				$subfield['label'] = $label;
+				$key = $this->showFieldLabels ? "$label\t$name" : $name;
+				while(isset($subfields[$key])) $key .= " ";
+				$subfields[$key] = $subfield;
+			}
+			ksort($subfields);
+			if($this->showFieldLabels) {
+				// convert back to name-based keys
+				$_subfields = array();
+				foreach($subfields as $key => $subfield) {
+					list($label, $name) = explode("\t", $key);	
+					$_subfields[$name] = $subfield;
+				}
+				$subfields = $_subfields;	
+			}
+			$info['subfields'] = $subfields;
+		}
+		
 		return $info;
 	}
 
@@ -793,8 +836,20 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			unset($out);
 		}
 		
+		if($settings['showFieldLabels']) {
+			$customFields = array();
+			foreach($settings['customFields'] as $field) {
+				$label = $field->getLabel();
+				while(isset($customFields[$label])) $label .= ' ';
+				$customFields[$label] = $field;
+			}
+			ksort($customFields);
+		} else {
+			$customFields = $settings['customFields'];
+		}
+		
 		// build custom fields optgroup
-		foreach($settings['customFields'] as $field) {
+		foreach($customFields as $field) {
 			/** @var Field $field */
 			$fieldName = $field->name; 
 			if(in_array($fieldName, $settings['exclude'])) continue;
@@ -1330,22 +1385,12 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			list($limitField, $limitSubfield) = explode('.', $limitField);
 			if($limitSubfield) $limitSubfields[$limitSubfield] = $limitSubfield;
 		}
-	
 		// render all the subfield options
 		foreach($selectorInfo['subfields'] as $name => $info) {
 			
 			if(count($limitSubfields) && !isset($limitSubfields[$name])) continue;
-			
-			if(isset($this->systemFields[$name])) {
-				$label = isset($this->systemFields[$name]['label']) ? $this->systemFields[$name]['label'] : $name;
-			} else if(!empty($info['label'])) {
-				$label = $info['label'];
-			} else {
-				$f = $this->wire('fields')->get($name); 
-				$label = $f ? $f->getLabel() : $name; 
-			}
-				
-			$label = $this->wire('sanitizer')->entities($label); 
+		
+			$label = $this->wire('sanitizer')->entities($info['label']); 
 			// render primary subfield selection (unless selector info says not to)
 			if(isset($info['input']) && $info['input'] != 'none') {
 				$selected = $selectedValue == $name && (!$valueHasSelectorString || empty($info['subfields'])) ? ' selected' : '';
