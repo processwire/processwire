@@ -2359,7 +2359,6 @@ class ProcessTemplate extends Process {
 		$template->noPrependTemplateFile = (int) $input->post('noPrependTemplateFile'); // field may not be present on all submissions
 		$template->noAppendTemplateFile = (int) $input->post('noAppendTemplateFile'); // field may not be present on all submissions
 		$template->compile = (int) $input->post('compile');
-		$template->tags = $sanitizer->text($form->get('tags')->attr('value'));
 		$template->contentType = $form->get('contentType')->attr('value');
 
 		if($this->wire('languages')) {
