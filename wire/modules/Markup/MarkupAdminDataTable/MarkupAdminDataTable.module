@@ -58,6 +58,7 @@ class MarkupAdminDataTable extends ModuleJS {
 	 *   - string: converts to <td>string</td>
 	 *   - string => url: converts to <td><a href='url'>string</a></td>
 	 *   - array(string, class): converts to <td class='class'>string</td>
+	 *   - array(string, class, array('attribute' => 'value')): converts to <td class='class' attribute='value'>string</td>
 	 * @param array $options Optionally specify any one of the following:
 	 *   - separator (bool): specify true to show a stronger visual separator above the column
 	 *   - class (string): specify one or more class names to apply to the <tr>
@@ -91,12 +92,11 @@ class MarkupAdminDataTable extends ModuleJS {
 				// Anchor Text => URL
 				$v = "<a href='$v'>" . $this->encode($k) . "</a>";
 			} else if(is_array($v)) {
-				// class name is specified in $v[1]
-				foreach($v as $kk => $vv) {
-					$v[$kk] = $this->encode($vv);
-				}
+				$v[0] = $this->encode($v[0]); // cell value
+				$v[1] = $v[1]; // cell class
+				if(count($v) > 2) $v[2] = $v[2]; // cell attributes
 			} else {
-				$v = $this->encode($v); 
+				$v = $this->encode($v);
 			}
 			$row[] = $v; 
 		}
@@ -164,10 +164,19 @@ class MarkupAdminDataTable extends ModuleJS {
 				$out .= "\n\t\t<tr$attrStr>";
 				foreach($row as $td) {
 					$class = '';
-					if(is_array($td)) list($td, $class) = $td;
+					$attrs = array();
+					if(is_array($td)) {
+						if(count($td) === 2) list($td, $class) = $td;
+						if(count($td) === 3) list($td, $class, $attrs) = $td;
+					}
 					if(strlen($td) == 0 || $td === '&nbsp;') $class .= ($class ? ' ' : '') . 'blank';
 					if($class) $class = " class='$class'";
-					$out .= "\n\t\t\t<td$class>$td</td>"; 
+
+					// setup attributes
+					$attrStr = '';
+					foreach($attrs as $k => $v) $attrStr .= " $k='$v'";
+
+					$out .= "\n\t\t\t<td{$class}{$attrStr}>$td</td>"; 
 				}
 				$out .= "\n\t\t</tr>";
 			}
