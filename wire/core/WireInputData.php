@@ -200,8 +200,8 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 		$this->offsetUnset($key);
 	}
 
-	public function queryString() {
-		return http_build_query($this->getArray());
+	public function queryString($overrides = array()) {
+		return http_build_query(array_merge($this->getArray(), $overrides)); 
 	}
 
 	/**
