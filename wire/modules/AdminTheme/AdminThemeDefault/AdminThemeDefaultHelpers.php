@@ -110,6 +110,7 @@ class AdminThemeDefaultHelpers extends WireData {
 		if($page->name != 'page' || $this->wire('input')->urlSegment1) return '';
 		$user = $this->wire('user');
 		if($this->wire('user')->isGuest() || !$user->hasPermission('page-edit')) return '';
+		/** @var ProcessPageAdd $module */
 		$module = $this->wire('modules')->getModule('ProcessPageAdd', array('noInit' => true));
 		$data = $module->executeNavJSON(array('getArray' => true));
 		$items = array();
@@ -143,7 +144,7 @@ class AdminThemeDefaultHelpers extends WireData {
 
 		if($this->wire('user')->isLoggedin() && $this->wire('modules')->isInstalled('SystemNotifications')) {
 			$systemNotifications = $this->wire('modules')->get('SystemNotifications');
-			if(!$systemNotifications->placement) return;
+			if(!$systemNotifications->placement) return '';
 		}
 		
 		$defaults = array(
@@ -232,7 +233,9 @@ class AdminThemeDefaultHelpers extends WireData {
 			$info = $this->wire('modules')->getModuleInfo($p->process); 
 			if(!empty($info['icon'])) $icon = $info['icon'];
 		}
-		if($p->page_icon) $icon = $p->page_icon; // allow for option of an admin field overriding the module icon
+		// allow for option of an admin field overriding the module icon
+		$pageIcon = $p->get('page_icon');
+		if($pageIcon) $icon = $pageIcon;
 		if(!$icon) switch($p->id) {
 			case 22: $icon = 'gears'; break; // Setup
 			case 21: $icon = 'plug'; break; // Modules
@@ -360,6 +363,7 @@ class AdminThemeDefaultHelpers extends WireData {
 			// ProcessPageAdd: avoid showing this menu item if there are no predefined family settings to use
 			$numAddable = $this->wire('session')->getFor('ProcessPageAdd', 'numAddable');
 			if($numAddable === null) {
+				/** @var ProcessPageAdd $processPageAdd */
 				$processPageAdd = $this->wire('modules')->getModule('ProcessPageAdd', array('noInit' => true));
 				if($processPageAdd) {
 					$addData = $processPageAdd->executeNavJSON(array("getArray" => true));
@@ -529,9 +533,11 @@ class AdminThemeDefaultHelpers extends WireData {
 	 *
 	 */
 	public function renderJSConfig() {
-	
+
+		/** @var Config $config */
 		$config = $this->wire('config'); 
-	
+
+		/** @var array $jsConfig */
 		$jsConfig = $config->js();
 		$jsConfig['debug'] = $config->debug;
 	

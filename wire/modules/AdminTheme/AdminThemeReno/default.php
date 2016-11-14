@@ -12,10 +12,15 @@
  * 
  */
 
+/** @var Config $config */
+/** @var AdminThemeReno $adminTheme */
+/** @var User $user */
+/** @var Modules $modules */
+
 if(!defined("PROCESSWIRE")) die();
 
 if(!isset($content)) $content = '';
-$version = $adminTheme->version . 'j';
+$version = $adminTheme->version . 'k';
 $ext = $config->debug ? "js" : "min.js";
 
 // Search form

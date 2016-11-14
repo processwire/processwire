@@ -10,12 +10,26 @@
  * 
  */
 
+/** @var Config $config */
+/** @var AdminThemeDefault $adminTheme */
+/** @var User $user */
+/** @var Modules $modules */
+/** @var Notices $notices */
+/** @var Page $page */
+
 if(!defined("PROCESSWIRE")) die();
 
 if(!isset($content)) $content = '';
-	
-$searchForm = $user->hasPermission('page-edit') ? $modules->get('ProcessPageSearch')->renderSearchForm() : '';
-$version = $adminTheme->version . 'h';
+
+if($user->hasPermission('page-edit')) {
+	/** @var ProcessPageSearch $searchForm */
+	$searchForm = $modules->get('ProcessPageSearch');
+	$searchForm = $searchForm->renderSearchForm();
+} else {
+	$searchForm = '';
+}
+
+$version = $adminTheme->version . 'i';
 
 $config->styles->prepend($config->urls->root . "wire/templates-admin/styles/AdminTheme.css?v=$version"); 
 $config->styles->prepend($config->urls->adminTemplates . "styles/" . ($adminTheme->colors ? "main-$adminTheme->colors" : "main-classic") . ".css?v=$version"); 
@@ -27,6 +41,7 @@ $config->scripts->append($config->urls->root . "wire/templates-admin/scripts/mai
 $config->scripts->append($config->urls->adminTemplates . "scripts/main.$ext?v=$version");
 	
 require_once(dirname(__FILE__) . "/AdminThemeDefaultHelpers.php");
+/** @var AdminThemeDefaultHelpers $helpers */
 $helpers = $this->wire(new AdminThemeDefaultHelpers());
 $extras = $adminTheme->getExtraMarkup();
 
@@ -94,7 +109,9 @@ $extras = $adminTheme->getExtraMarkup();
 		<div class="pw-container container">
 
 			<?php 
-			if($page->body) echo $page->body; 
+			$body = $page->get('body');
+			if($body) echo $body;
+			unset($body);
 			echo $content; 
 			echo $extras['content'];
 			?>
@@ -120,7 +137,9 @@ $extras = $adminTheme->getExtraMarkup();
 
 			<?php 
 			echo $extras['footer'];
-			if($config->debug && $user->isSuperuser()) include($config->paths->root . '/wire/templates-admin/debug.inc');
+			if($config->debug && $user->isSuperuser()) {
+				include($config->paths->root . '/wire/templates-admin/debug.inc');
+			}
 			?>
 		</div>
 	</div><!--/#footer-->

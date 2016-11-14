@@ -17,6 +17,7 @@
  * 
  * @method void install()
  * @method void uninstall()
+ * @method array getExtraMarkup()
  *
  */
 

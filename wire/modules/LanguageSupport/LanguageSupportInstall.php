@@ -8,6 +8,9 @@
  *
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @method void install()
+ * @method void uninstall()
  *
  *
  */

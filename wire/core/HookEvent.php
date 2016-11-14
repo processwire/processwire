@@ -23,7 +23,7 @@
  *
  * @property-read Wire|WireData|WireArray|Module $object Instance of the object where the Hook event originated. 
  * @property-read string $method The name of the method that was called to generate the Hook event. 
- * @property-read array $arguments A numerically indexed array of the arguments sent to the above mentioned method. 
+ * @property array $arguments A numerically indexed array of the arguments sent to the above mentioned method. 
  * @property mixed $return Applicable only for 'after' or ('replace' + 'before' hooks), contains the value returned by the above mentioned method. The hook handling method may modify this return value. 
  * @property bool $replace Set to boolean true in a 'before' hook if you want to prevent execution of the original hooked function. In such a case, your hook is replacing the function entirely. Not recommended, so be careful with this.
  * @property array $options An optional array of user-specified data that gets sent to the hooked function. The hook handling method may access it from $event->data. Also includes all the default hook properties. 

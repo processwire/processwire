@@ -379,6 +379,19 @@ function paths($key = '') {
 }
 
 /**
+ * Start or stop a profiler event or return WireProfilerInterface instance
+ *
+ * @param string|array|object|null $name Name of event to start or event to stop
+ * @param null|object|string $source If starting an event, optional source of event (object)
+ * @param array $data Optional extra data as associative array
+ * @return null|array|object
+ *
+ */
+function profiler($name = null, $source = null, $data = array()) {
+	return wireProfiler($name, $source, $data);
+}
+
+/**
  * Get or set a region for front-end output
  *
  * ~~~~~

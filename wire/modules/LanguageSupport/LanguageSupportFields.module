@@ -5,6 +5,11 @@
  *
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @method void languageAdded(Page $language) #pw-hooker
+ * @method void languageDeleted(Page $language) #pw-hooker
+ * @method void fieldLanguageAdded(Field $field, Page $language) #pw-hooker
+ * @method void fieldLanguageRemoved(Field $field, Page $language) #pw-hooker
  *
  */
 
@@ -118,6 +123,8 @@ class LanguageSupportFields extends WireData implements Module {
 	 *
 	 * Replace a value of one field with the value from another field that has the same name, but with the language name appended to it. 
 	 * Example: title and title_es
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookFieldtypeFormatValue(HookEvent $event) {
@@ -131,6 +138,7 @@ class LanguageSupportFields extends WireData implements Module {
 		// exit quickly if we can determine now we don't need to continue
 		if(!isset($this->multilangAlternateFields[$field->name])) return; 
 
+		/** @var Page $page */
 		$page = $event->arguments[0]; 
 
 		// determine name of language field, if present.
@@ -160,6 +168,8 @@ class LanguageSupportFields extends WireData implements Module {
 
 	/**
 	 * Hook called when new language added
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookLanguageAdded(HookEvent $event) {
@@ -178,14 +188,18 @@ class LanguageSupportFields extends WireData implements Module {
 
 	/**
 	 * Hookable function called when a new language is added 
-	 *
+	 * 
+	 * @param Page|Language $language
+	 e*
 	 */
 	public function ___languageAdded(Page $language) {
 		// hookable, intentionally blank
 	}
 
 	/**
-	 * Hook called when language is deleted
+	 * Hook called when languag is deleted
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookLanguageDeleted(HookEvent $event) {
@@ -203,6 +217,8 @@ class LanguageSupportFields extends WireData implements Module {
 
 	/**
 	 * Hookable function called when a language is deleted
+	 * 
+	 * @param Page|Language $language
 	 *
 	 */
 	public function ___languageDeleted(Page $language) {
@@ -212,6 +228,9 @@ class LanguageSupportFields extends WireData implements Module {
 
 	/**
 	 * Called when a new language is added to the system for each field that implements FieldtypeLanguageInterface
+	 * 
+	 * @param Field $field
+	 * @param Page|Language $language
 	 *
 	 */
 	public function ___fieldLanguageAdded(Field $field, Page $language) {
@@ -248,6 +267,9 @@ class LanguageSupportFields extends WireData implements Module {
 	
 	/**
 	 * Called when a language is removed from the system for each field that implements FieldtypeLanguageInterface
+	 * 
+	 * @param Field $field
+	 * @param Page|Language $language
 	 *
 	 */
 	protected function ___fieldLanguageRemoved(Field $field, Page $language) {
@@ -276,6 +298,8 @@ class LanguageSupportFields extends WireData implements Module {
 	 * Adjusts the selectors passed to the query so that find operations search in user's native language version, as well as the default version.
 	 *
 	 * We may make this behavior configurable later on, as one may want to limit the search to 1 language only.
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function pageFinderGetQuery(HookEvent $event) {
@@ -289,7 +313,7 @@ class LanguageSupportFields extends WireData implements Module {
 		$arguments = $event->arguments; 
 		$selectors = $arguments[0]; 
 
-		foreach($selectors as $key => $selector) {
+		foreach($selectors as $selector) {
 
 			$changed = false; 
 			$fields = $selector->field;
@@ -334,6 +358,8 @@ class LanguageSupportFields extends WireData implements Module {
 	 * Hook into FieldtypeLanguageInterface::loadPageField
 	 *
 	 * Converts the value to a LanguagesPageFieldValue
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function fieldtypeLoadPageField(HookEvent $event) {
@@ -349,6 +375,8 @@ class LanguageSupportFields extends WireData implements Module {
 	 * Hook into FieldtypeLanguageInterface::wakeupValue
 	 *
 	 * Converts the value to a LanguagesPageFieldValue
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function fieldtypeWakeupValue(HookEvent $event) {
@@ -374,12 +402,14 @@ class LanguageSupportFields extends WireData implements Module {
 	 * Hook into FieldtypeLanguageInterface::sleepValue
 	 *
 	 * Converts a LanguagesPageFieldValue to an array
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function fieldtypeSleepValue(HookEvent $event) {
 
-		$page = $event->arguments[0];
-		$field = $event->arguments[1];
+		// $page = $event->arguments[0];
+		// $field = $event->arguments[1];
 		$value = $event->arguments[2]; 
 		//$value = $event->return;
 		$values = array();

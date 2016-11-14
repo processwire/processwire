@@ -54,7 +54,7 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		// so if you want to focus on the Spanish tabs when the user clicks "edit"
 		// from /es/path/to/page/, then you can by using a page edit link like:
 		// <a href='{$config->urls->admin}page/edit/?id=$page->id&language=$user->language'>Edit</a>
-		$id = (int) $this->input->get->language;
+		$id = (int) $this->input->get('language');
 		if($id) $language = $this->languages->get($id); 
 
 		// if language is not specified as a GET variable, then use the user's language
@@ -85,7 +85,9 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		$this->wire('modules')->loadModuleFileAssets($this); 
 		$this->wire('modules')->get('JqueryCore')->use('longclick');
 		if(strpos($e->return, 'LanguageSupport') === false) return;
-		$id = $e->object->attr('id'); 
+		/** @var InputfieldForm $form */
+		$form = $e->object;
+		$id = $form->attr('id'); 
 		$e->return .= "<script>setupLanguageTabs($('#$id'));</script>";
 	}
 
@@ -117,6 +119,7 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		}
 		$id = $inputfield->attr('id'); 
 		$liClass = trim($liClass);
+		/** @noinspection HtmlUnknownAnchorTarget */
 		$this->tabs[] = "<li class='$liClass'><a data-lang='$language->id' class='$class' href='#langTab_$id'>$title</a></li>";
 	}
 
@@ -127,7 +130,7 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 	 * This method automatically calls resetTabs() after rendering. 
 	 * 
 	 * @param Inputfield $inputfield
-	 * @param $content Content that will have the tabs 
+	 * @param string $content Content that will have the tabs 
 	 * @return string Modified $content with tabs
 	 * 
 	 */

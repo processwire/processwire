@@ -20,6 +20,7 @@
  * @property string $httpHost Current HTTP host name. #pw-group-HTTP-and-input
  * @property bool $https If the current request is an HTTPS request, this is set to true. #pw-group-runtime
  * @property string $version Current ProcessWire version string (i.e. "2.2.3") #pw-group-system #pw-group-runtime
+ * @property int $systemVersion System version, used by SystemUpdater to determine when updates must be applied. #pw-group-system #pw-group-runtime
  * 
  * @property FilenameArray $styles Array used by ProcessWire admin to keep track of what stylesheet files its template should load. It will be blank otherwise. Feel free to use it for the same purpose in your own sites. #pw-group-runtime
  * @property FilenameArray $scripts Array used by ProcessWire admin to keep track of what javascript files its template should load. It will be blank otherwise. Feel free to use it for the same purpose in your own sites. #pw-group-runtime

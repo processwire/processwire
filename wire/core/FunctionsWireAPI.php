@@ -461,6 +461,26 @@ function wireLog($logName = '', $message = '') {
 }
 
 /**
+ * Start or stop a profiler event or return WireProfilerInterface instance
+ *
+ * @param string|array|object|null $name Name of event to start or event to stop
+ * @param null|object|string $source If starting an event, optional source of event (object)
+ * @param array $data Optional extra data as associative array
+ * @return null|array|object
+ *
+ */
+function wireProfiler($name = null, $source = null, $data = array()) {
+	$profiler = wire('profiler');
+	if(is_null($name)) return $profiler;
+	if(!$profiler) return null;
+	if(is_string($name)) {
+		return $profiler->start($name, $source, $data);
+	} else {
+		return $profiler->stop($name);
+	}
+}
+
+/**
  * Function that returns a $config->urls->[name] value o
  * 
  * @param string $key

@@ -175,7 +175,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 
 		// identify the current language from the user, or set one if it's not already
 		if($this->user->language && $this->user->language->id) {
-			$language = $this->user->language; 
+			// $language = $this->user->language; 
 		} else {
 			$language = $this->defaultLanguagePage; 
 			$this->user->language = $language; 
@@ -222,7 +222,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	public function ready() {
 		// styles used by our Inputfield hooks
 		if($this->wire('page')->template == 'admin') { 
-			$this->config->styles->add($this->config->urls->LanguageSupport . "LanguageSupport.css"); 
+			$this->config->styles->add($this->config->urls('LanguageSupport') . "LanguageSupport.css"); 
 			$language = $this->wire('user')->language;
 			if($language) $this->config->js('LanguageSupport', array(
 				'language' => array(
@@ -306,6 +306,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	 * Hook before Inputfield::render to set proper default language value
 	 *
 	 * Only applies to Inputfields that have: useLanguages == true
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookInputfieldBeforeRender(HookEvent $event) {
@@ -330,6 +332,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	 *
 	 * Only applies to Inputfields that have: useLanguages == false.
 	 * Applies only if page-edit-lang-none permission is installed.
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookInputfieldWrapperBeforeRenderInputfield(HookEvent $event) {
@@ -372,9 +376,9 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 				$out;
 		}
 		
-		$out  = "\n<div class='$class' id='langTab_$id' data-language='$language->id'>" . 
-				"\n<label for='$id' class='$labelClass'>$label</label>" . $out . 
-				"\n</div>";
+		$out  = "<div class='$class' id='langTab_$id' data-language='$language->id'>" . 
+				"<label for='$id' class='$labelClass'>$label</label>" . $out . 
+				"</div>";
 		return $out; 
 	}
 
@@ -382,6 +386,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	 * Hook into Inputfield::render to duplicate inputs for other languages
 	 *
 	 * Only applies to Inputfields that have: useLanguages == true
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookInputfieldAfterRender(HookEvent $event) {
@@ -468,6 +474,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Hook before Inputfield::processInput to process input for other languages (or prevent it)
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookInputfieldBeforeProcessInput(HookEvent $event) {
@@ -502,6 +510,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	 * Hook into Inputfield::processInput to process input for other languages
 	 *
 	 * Only applies to Inputfields that have: useLanguages == true
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookInputfieldAfterProcessInput(HookEvent $event) {
@@ -555,6 +565,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Hook into Field::getInputfield to change label/description to proper language
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookFieldGetInputfield(HookEvent $event) {
@@ -564,7 +576,9 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 
 		/** @var Field $field */
 		$field = $event->object;
+		/** @var Page $page */
 		$page = $event->arguments[0];
+		/** @var Template $template */
 		$template = $page ? $page->template : null;
 		$inputfield = $event->return; 
 		if(!$inputfield) return;
@@ -607,6 +621,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Hook called when new language added
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageAdded(HookEvent $event) {
@@ -630,6 +646,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Hook called when language is deleted
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageDeleteReady(HookEvent $event) {
@@ -684,6 +702,9 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	 * This method exists in this class rather than one of the field-specific classes
 	 * because it deals with both language fields and page names, and potentially
 	 * other types of unknown types that implement LanguagesValueInterface. 
+	 * 
+	 * @param HookEvent $event
+	 * @throws WireException
 	 *
 	 */
 	public function hookPageSetLanguageValue(HookEvent $event) {
@@ -747,12 +768,18 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	 * This method exists in this class rather than one of the field-specific classes
 	 * because it deals with both language fields and page names, and potentially
 	 * other types of unknown types that implement LanguagesValueInterface.
+	 * 
+	 * @param HookEvent $event
+	 * @throws WireException
 	 *
 	 */
 	public function hookPageGetLanguageValue(HookEvent $event) {
-		
+	
+		/** @var Page $page */
 		$page = $event->object; 
+		/** @var Language $language */
 		$language = $event->arguments(0); 
+		/** @var Field $field */
 		$field = $event->arguments(1);
 		$value = null;
 		
@@ -794,9 +821,13 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Module configuration screen
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
 	 *
 	 */
 	public static function getModuleConfigInputfields(array $data) {
+		if($data) {}
 		$form = new InputfieldWrapper();
 		// TBA
 		return $form; 
@@ -827,10 +858,13 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Install or uninstall by loading the LanguageSupportInstall script
+	 * 
+	 * @param bool $install
 	 *
 	 */
 	protected function installer($install = true) {
-		require_once($this->config->paths->LanguageSupport . 'LanguageSupportInstall.php'); 
+		require_once(dirname(__FILE__) . '/LanguageSupportInstall.php'); 
+		/** @var LanguageSupportInstall $installer */
 		$installer = $this->wire(new LanguageSupportInstall());
 		if($install) $installer->install();
 			else $installer->uninstall();
