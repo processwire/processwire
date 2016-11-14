@@ -196,6 +196,7 @@ class PagePathHistory extends WireData implements Module {
 		/** @var Page $page */
 		$page = $event->arguments[0];
 		if($page->template == 'admin') return;
+		if($this->wire('pages')->cloning) return;
 		$age = time() - $page->created; 
 		if($age < self::minimumAge) return;
 		$languages = $this->getLanguages();
