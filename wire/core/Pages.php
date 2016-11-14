@@ -61,8 +61,8 @@
  * @method unpublished(Page $page) Hook called after a published page has just been unpublished. 
  * @method saveFieldReady(Page $page, Field $field) Hook called just before a saveField() method saves a page fied. 
  * @method savedField(Page $page, Field $field) Hook called after saveField() method successfully executes. 
- * @method saveEitherReady(Page $page, $fieldName = '') Hook inclusive of both saveReady() and saveFieldReady().
- * @method savedEither(Page $page, array $changes) Hook inclusive of both saved() and savedField().
+ * @method savePageOrFieldReady(Page $page, $fieldName = '') Hook inclusive of both saveReady() and saveFieldReady().
+ * @method savedPageOrField(Page $page, array $changes) Hook inclusive of both saved() and savedField().
  * @method found(PageArray $pages, array $details) Hook called at the end of a $pages->find().
  *
  * TO-DO
