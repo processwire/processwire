@@ -476,8 +476,11 @@ class Pages extends Wire {
 	 * #pw-group-manipulation
 	 *
 	 * @param Page $page Page to delete
-	 * @param bool $recursive If set to true, then this will attempt to delete all children too.
-	 * @param array $options Optional settings to change behavior (for the future, none currently in use).
+	 * @param bool|array $recursive If set to true, then this will attempt to delete all children too.
+	 *   If you don't need this argument, optionally provide $options array instead.
+	 * @param array $options Optional settings to change behavior:
+	 *   - uncacheAll (bool): Whether to clear memory cache after delete (default=false)
+	 *   - recursive (bool): Same as $recursive argument, may be specified in $options array if preferred.
 	 * @return bool|int Returns true (success), or integer of quantity deleted if recursive mode requested.
 	 * @throws WireException on fatal error
 	 * @see Pages::trash()

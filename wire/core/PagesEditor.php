@@ -969,24 +969,34 @@ class PagesEditor extends Wire {
 	 * this method will throw an exception. If a recursive delete fails for any reason, an exception will be thrown.
 	 *
 	 * @param Page $page
-	 * @param bool $recursive If set to true, then this will attempt to delete all children too.
-	 * @param array $options Optional settings to change behavior (for the future)
+	 * @param bool|array $recursive If set to true, then this will attempt to delete all children too.
+	 *   If you don't need this argument, optionally provide $options array instead. 
+	 * @param array $options Optional settings to change behavior:
+	 *   - uncacheAll (bool): Whether to clear memory cache after delete (default=false)
+	 *   - recursive (bool): Same as $recursive argument, may be specified in $options array if preferred.
 	 * @return bool|int Returns true (success), or integer of quantity deleted if recursive mode requested.
 	 * @throws WireException on fatal error
 	 *
 	 */
 	public function delete(Page $page, $recursive = false, array $options = array()) {
+		
+		$defaults = array(
+			'uncacheAll' => false, 
+			'recursive' => is_bool($recursive) ? $recursive : false,
+		);
+	
+		if(is_array($recursive)) $options = $recursive; 	
+		$options = array_merge($defaults, $options);
 
-		if($options) {} // to ignore unused parameter inspection
 		if(!$this->isDeleteable($page)) throw new WireException("This page may not be deleted");
 		$numDeleted = 0;
 
 		if($page->numChildren) {
-			if(!$recursive) {
+			if(!$options['recursive']) {
 				throw new WireException("Can't delete Page $page because it has one or more children.");
 			} else foreach($page->children("include=all") as $child) {
 				/** @var Page $child */
-				if($this->pages->delete($child, true)) {
+				if($this->pages->delete($child, true, $options)) {
 					$numDeleted++;
 				} else {
 					throw new WireException("Error doing recursive page delete, stopped by page $child");
@@ -1008,6 +1018,7 @@ class PagesEditor extends Wire {
 		} catch(\Exception $e) {
 		}
 
+		/** @var PagesAccess $access */
 		$access = $this->wire(new PagesAccess());
 		$access->deletePage($page);
 
@@ -1026,10 +1037,10 @@ class PagesEditor extends Wire {
 		$page->status = Page::statusDeleted; // no need for bitwise addition here, as this page is no longer relevant
 		$this->pages->deleted($page);
 		$numDeleted++;
-		$this->pages->uncacheAll($page);
+		if($options['uncacheAll']) $this->pages->uncacheAll($page);
 		$this->pages->debugLog('delete', $page, true);
 
-		return $recursive ? $numDeleted : true;
+		return $options['recursive'] ? $numDeleted : true;
 	}
 	
 	/**
