@@ -1228,7 +1228,10 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		} else if($type == 'checkbox') {
 			// populate operators and options for the checkbox type
 			$operators = $this->operatorsByType['checkbox']; 
-			$options = array(0 => $this->_('Not Checked'), 1 => $this->_('Checked')); 
+			$options = array(
+				0 => $this->_('Not Checked'), 
+				1 => $this->_('Checked')
+			); 
 			
 		} else if($_type == 'page') {
 			$operators = $this->operatorsByType['page']; 
