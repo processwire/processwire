@@ -2352,7 +2352,6 @@ class ProcessTemplate extends Process {
 		$template->noCacheGetVars = $sanitizer->names($form->get('noCacheGetVars')->attr('value'), ' ', array('-', '_', '.', '*'));
 		$template->noCachePostVars = $sanitizer->names($form->get('noCachePostVars')->attr('value'), ' ', array('-', '_', '.', '*'));
 		$template->cacheExpire = (int) $form->get('cacheExpire')->attr('value');
-		$template->tags = $sanitizer->text($form->get('tags')->attr('value'));
 		$template->noUnpublish = (int) $form->get('noUnpublish')->attr('value');
 		$template->noChangeTemplate = (int) $form->get('noChangeTemplate')->attr('value');
 		$template->allowChangeUser = (int) $form->get('allowChangeUser')->attr('value');
