@@ -371,7 +371,6 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 *	variables of your own names to $options as needed for communication with the template, if it suits your need. 
 	 *
 	 * @param HookEvent $event
-	 * @return string rendered data
 	 * @throws WirePermissionException|WireException
 	 *
 	 */
@@ -514,6 +513,9 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			$profilerEvent = $profiler ? $profiler->start($page->path, $this, array('page' => $page)) : null;
 			$data = $output->render();
 			if($profilerEvent) $profiler->stop($profilerEvent);
+			if(!strlen($data) && $page->template->name === 'admin' && !is_readable($options['filename'])) {
+				throw new WireException('Missing or non-readable template file: ' . basename($options['filename']));
+			}
 		}
 
 		if($data && $cacheAllowed && $cacheFile) $cacheFile->save($data);
