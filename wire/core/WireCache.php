@@ -337,13 +337,13 @@ class WireCache extends Wire {
 	 * 
 	 * @param string $name Name of cache, can be any string up to 255 chars
 	 * @param string|array|PageArray $data Data that you want to cache 
-	 * @param int|Page $expire Lifetime of this cache, in seconds
-	 * 		...or specify: WireCache::expireHourly, WireCache::expireDaily, WireCache::expireWeekly, WireCache::expireMonthly
-	 * 		...or specify the future date you want it to expire (as unix timestamp or any strtotime compatible date format)
-	 * 		...or provide a Page object to expire when any page using that template is saved.
-	 * 		...or specify: WireCache::expireNever to prevent expiration.
-	 * 		...or specify: WireCache::expireSave to expire when any page or template is saved.
-	 * 		...or specify: Selector string matching pages that, when saved, expire the cache. 
+	 * @param int|Page $expire Lifetime of this cache, in seconds, OR one of the following:
+	 *  - Specify one of the `WireCache::expire*` constants. 
+	 *  - Specify the future date you want it to expire (as unix timestamp or any strtotime compatible date format)  
+	 *  - Provide a Page object to expire when any page using that template is saved.  
+	 *  - Specify `WireCache::expireNever` to prevent expiration.  
+	 *  - Specify `WireCache::expireSave` to expire when any page or template is saved.   
+	 *  - Specify selector string matching pages that, when saved, expire the cache.   
 	 * @return bool Returns true if cache was successful, false if not
 	 * @throws WireException if given uncachable data
 	 * 
@@ -401,11 +401,17 @@ class WireCache extends Wire {
 	/**
 	 * Same as save() except with namespace
 	 * 
-	 * @param string|object $ns Namespace
-	 * @param $name
-	 * @param $data
-	 * @param int $expire
-	 * @return bool 
+	 * @param string|object $ns Namespace for cache
+	 * @param string $name Name of cache, can be any string up to 255 chars
+	 * @param string|array|PageArray $data Data that you want to cache
+	 * @param int|Page $expire Lifetime of this cache, in seconds, OR one of the following:
+	 *  - Specify one of the `WireCache::expire*` constants.
+	 *  - Specify the future date you want it to expire (as unix timestamp or any strtotime compatible date format)
+	 *  - Provide a Page object to expire when any page using that template is saved.
+	 *  - Specify `WireCache::expireNever` to prevent expiration.
+	 *  - Specify `WireCache::expireSave` to expire when any page or template is saved.
+	 *  - Specify selector string matching pages that, when saved, expire the cache.
+	 * @return bool Returns true if cache was successful, false if not
 	 * 
 	 */
 	public function saveFor($ns, $name, $data, $expire = self::expireDaily) {
@@ -521,7 +527,7 @@ class WireCache extends Wire {
 	/**
 	 * Delete the cache identified by $name within given namespace ($ns)
 	 *
-	 * @param string $ns 
+	 * @param string $ns Namespace of cache
 	 * @param string $name If none specified, all for $ns are deleted
 	 * @return bool True on success, false on failure
 	 *

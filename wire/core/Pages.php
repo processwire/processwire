@@ -278,8 +278,8 @@ class Pages extends Wire {
 	 * 
 	 * #pw-group-retrieval
 	 *
-	 * @param $selector
-	 * @param array $options
+	 * @param string|array|Selectors $selector Selector to find pages
+	 * @param array $options Options to modify behavior. See `Pages::find()` $options argument for details. 
 	 * @return PageArray
 	 * @since 3.0.19
 	 * @see Pages::find(), Pages::findOne()

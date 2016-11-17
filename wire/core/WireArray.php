@@ -1900,6 +1900,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *  - `append` (string): String to append to result. Ignored if result is blank. 
 	 *  - Please note that if delimiter is omitted, $options becomes the second argument. 
 	 * @return string
+	 * @see WireArray::each(), WireArray::explode()
 	 *
 	 */
 	public function implode($delimiter, $property = '', array $options = array()) {
@@ -1966,6 +1967,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *  - `getMethod` (string): Method to call on each item to retrieve $property (default = "get")
 	 *  - `key` (string|null): Property of Wire objects to use for key of array, or omit (null) for non-associative array (default).
 	 * @return array
+	 * @see WireArray::each(), WireArray::implode()
 	 *
 	 */
 	public function explode($property, array $options = array()) {
@@ -2046,11 +2048,10 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * @param string|null $key Name of data property you want to get or set. Omit to get all data properties. 
 	 * @param mixed|null $value Value of data property you want to set. Omit when getting properties. 
 	 * @return $this|mixed|null Returns one of the following, depending on specified arguments: 
-	 *   - `mixed` when getting a single property: whatever you set is what you will get back.
-	 *   - `null` if the property you are trying to get does not exist in the data.
-	 *   - `$this` reference to this WireArray if you were setting a value. 
-	 *   - `array` of all data if you specified no arguments. 
-	 * 
+	 *  - `mixed` when getting a single property: whatever you set is what you will get back.
+	 *  - `null` if the property you are trying to get does not exist in the data.
+	 *  - `$this` reference to this WireArray if you were setting a value. 
+	 *  - `array` of all data if you specified no arguments.
 	 *
 	 */
 	public function data($key = null, $value = null) {
@@ -2202,6 +2203,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *     (if using option #3 in arguments). 
 	 *   - `array` (4): Returns an array of associative arrays containing the property values for each item
 	 *     you requested (if using option #4 in arguments). 
+	 * @see WireArray::implode(), WireArray::explode()
 	 * 
 	 */
 	public function each($func = null) {

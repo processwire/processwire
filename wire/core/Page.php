@@ -2271,7 +2271,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * ~~~~~
 	 * 
 	 * #pw-group-manipulation
-	 * #pw-links [Blog post about setAndSave](https://processwire.com/blog/posts/processwire-2.6.9-core-updates-and-new-procache-version/#new-page-gt-setandsave-method)
+	 * #pw-links [Blog post about setAndSave](https://processwire.com/blog/posts/processwire-2.6.9-core-updates-and-new-procache-version/)
 	 *
 	 * @param array|string $key Field or property name to set, or array of one or more ['property' => $value].
 	 * @param string|int|bool|object $value Value to set, or omit if you provided an array in first argument.

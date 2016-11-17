@@ -365,7 +365,7 @@ class WireDateTime extends Wire {
 	 * 
 	 * ~~~~~~
 	 * // Output the current date/time in relative format
-	 * echo $date->formatDate('relative');
+	 * echo $datetime->date('relative');
 	 * ~~~~~~
 	 *
 	 * @param string|int $format Use one of the following:

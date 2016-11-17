@@ -914,15 +914,15 @@ class Sanitizer extends Wire {
 	 * #pw-group-strings
 	 *
 	 * @param string $value String value to sanitize
-	 * @param array $options Options to modify default behavior: 
-	 *  - `maxLength` (int): maximum characters allowed, or 0=no max (default=255).
-	 *  - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*4).
-	 *  - `stripTags` (bool): strip markup tags? (default=true).
-	 *  - `allowableTags` (string): markup tags that are allowed, if stripTags is true (use same format as for PHP's `strip_tags()` function.
-	 *  - `multiLine` (bool): allow multiple lines? if false, then $newlineReplacement below is applicable (default=false).
-	 *  - `newlineReplacement` (string): character to replace newlines with, OR specify boolean TRUE to remove extra lines (default=" ").
-	 *  - `inCharset` (string): input character set (default="UTF-8").
-	 *  - `outCharset` (string): output character set (default="UTF-8").
+	 * @param array $options Options to modify default behavior:
+	 * - `maxLength` (int): maximum characters allowed, or 0=no max (default=255).
+	 * - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*4).
+	 * - `stripTags` (bool): strip markup tags? (default=true).
+	 * - `allowableTags` (string): markup tags that are allowed, if stripTags is true (use same format as for PHP's `strip_tags()` function.
+	 * - `multiLine` (bool): allow multiple lines? if false, then $newlineReplacement below is applicable (default=false).
+	 * - `newlineReplacement` (string): character to replace newlines with, OR specify boolean TRUE to remove extra lines (default=" ").
+	 * - `inCharset` (string): input character set (default="UTF-8").
+	 * - `outCharset` (string): output character set (default="UTF-8").
 	 * @return string
 	 * @see Sanitizer::textarea()
 	 *
@@ -1007,7 +1007,7 @@ class Sanitizer extends Wire {
 	 *
 	 * @param string $value String value to sanitize
 	 * @param array $options Options to modify default behavior
-	 * 	- `maxLength` (int): maximum characters allowed, or 0=no max (default=16384 or 16kb).
+	 *  - `maxLength` (int): maximum characters allowed, or 0=no max (default=16384 or 16kb).
 	 *  - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*3 or 48kb).
 	 *  - `stripTags` (bool): strip markup tags? (default=true).
 	 *  - `allowableTags` (string): markup tags that are allowed, if stripTags is true (use same format as for PHP's `strip_tags()` function.

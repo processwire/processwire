@@ -215,7 +215,7 @@ class Config extends WireData {
 	 * @return null|string
 	 *
 	 */
-	public function paths($for) { return $this->paths($for); }
+	public function paths($for) { return $this->path($for); }
 
 	/**
 	 * List of config keys that are also exported in javascript
