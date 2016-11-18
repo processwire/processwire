@@ -738,7 +738,7 @@ class Session extends Wire implements \IteratorAggregate {
 				$this->set('_user', 'challenge', $challenge); 
 				$secure = $this->config->sessionCookieSecure ? (bool) $this->config->https : false;
 				// set challenge cookie to last 30 days (should be longer than any session would feasibly last)
-				setcookie(session_name() . '_challenge', $challenge, time()+60*60*24*30, '/', null, $secure, true); // PR #1264
+				setcookie(session_name() . '_challenge', $challenge, time()+60*60*24*30, '/', $this->config->sessionCookieDomain, $secure, true); // PR #1264
 			}
 
 			if($this->config->sessionFingerprint) { 
@@ -892,10 +892,10 @@ class Session extends Wire implements \IteratorAggregate {
 		$time = time() - 42000;
 		$secure = $this->config->sessionCookieSecure ? (bool) $this->config->https : false;
 		if(isset($_COOKIE[$sessionName])) {
-			setcookie($sessionName, '', $time, '/', null, $secure, true);
+			setcookie($sessionName, '', $time, '/', $this->config->sessionCookieDomain, $secure, true);
 		}
 		if(isset($_COOKIE[$sessionName . "_challenge"])) {
-			setcookie($sessionName . "_challenge", '', $time, '/', null, $secure, true);
+			setcookie($sessionName . "_challenge", '', $time, '/', $this->config->sessionCookieDomain, $secure, true);
 		}
 	}
 
