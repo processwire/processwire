@@ -275,6 +275,12 @@ $config->sessionFingerprint = 1;
 $config->sessionCookieSecure = 1; 
 
 /**
+ * Cookie domain
+ *
+ */
+$config->sessionCookieDomain = null;
+
+/**
  * Number of session history entries to record.
  *
  * When enabled (with a value > 0) a history of pageviews will be recorded in the

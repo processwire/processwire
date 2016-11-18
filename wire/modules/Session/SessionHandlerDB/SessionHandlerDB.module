@@ -150,7 +150,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$query = $database->prepare("DELETE FROM `$table` WHERE id=:id"); 
 		$query->execute(array(":id" => $id));
 		$secure = $this->wire('config')->sessionCookieSecure ? (bool) $this->config->https : false;
-		setcookie(session_name(), '', time()-42000, '/', null, $secure, true);
+		setcookie(session_name(), '', time()-42000, '/', $this->config->sessionCookieDomain, $secure, true);
 		return true; 
 	}
 
