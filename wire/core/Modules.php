@@ -2456,7 +2456,8 @@ class Modules extends WireArray {
 	 * $moduleInfo = $modules->getModuleInfoVerbose('MarkupAdminDataTable');
 	 * ~~~~~
 	 * 
-	 * @param string|Module|int $class May be class name, module instance, or module ID
+	 * @param string|Module|int $class May be class name, module instance, or module ID. 
+	 *   Specify "*" or "all" to retrieve module info for all modules. 
 	 * @param array $options Optional options to modify behavior of what gets returned
 	 *  - `verbose` (bool): Makes the info also include additional properties (they will be usually blank without this option specified).
 	 *  - `noCache` (bool): prevents use of cache to retrieve the module info.
@@ -2544,10 +2545,21 @@ class Modules extends WireArray {
 				if(!count($info)) $info = $this->getModuleInfoInternal($module); 
 			}
 			
-		} else if($module == 'PHP' || $module == 'ProcessWire') { 
+		} else if($module == 'PHP' || $module == 'ProcessWire') {
 			// module is a system 
-			$info = $this->getModuleInfoSystem($module); 
+			$info = $this->getModuleInfoSystem($module);
 			return array_merge($infoTemplate, $info);
+			
+		} else if($module === '*' || $module === 'all') {
+			if(empty($this->moduleInfoCache)) $this->loadModuleInfoCache();
+			$modulesInfo = $this->moduleInfoCache;
+			if($options['verbose']) {
+				if(empty($this->moduleInfoCacheVerbose)) $this->loadModuleInfoCacheVerbose();
+				foreach($this->moduleInfoCacheVerbose as $moduleID => $moduleInfoVerbose) {
+					$modulesInfo[$moduleID] = array_merge($modulesInfo[$moduleID], $moduleInfoVerbose);
+				}
+			}
+			return $modulesInfo;
 			
 		} else {
 			

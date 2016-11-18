@@ -396,13 +396,11 @@ abstract class Fieldtype extends WireData implements Module {
 	 * need to have some text formatting applied to them, like Markdown, SmartyPants, Textile, etc. As a result, 
 	 * Fieldtype modules don't need to implement this unless it's applicable. 
 	 *
-	 * Fieldtype modules that implement this do not need to call this parent method, as it doesn't do anything.
-	 * 
 	 * #pw-group-formatting
 	 * 
-	 * @param Page $page
-	 * @param Field $field
-	 * @param string|int|object $value
+	 * @param Page $page Page that the value lives on
+	 * @param Field $field Field that represents the value
+	 * @param string|int|object $value The value to format
 	 * @return mixed
 	 *
 	 */

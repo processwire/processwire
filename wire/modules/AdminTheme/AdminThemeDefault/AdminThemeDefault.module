@@ -3,7 +3,7 @@
 /**
  * Class AdminThemeDefault
  * 
- * @property string $colors
+ * @property string $colors Color set being used: "classic", "warm", "modern" or "futura" 
  * 
  */
 

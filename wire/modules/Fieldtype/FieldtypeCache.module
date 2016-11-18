@@ -15,6 +15,12 @@
 
 class FieldtypeCache extends Fieldtype {
 
+	/**
+	 * Get module information
+	 * 
+	 * @return array
+	 * 
+	 */
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Cache',
@@ -99,6 +105,13 @@ class FieldtypeCache extends Fieldtype {
 		return parent::___savePageField($page, $field); 
 	}
 
+	/**
+	 * Get number of pages in the cache
+	 * 
+	 * @param Field $field FieldtypeCache field to check
+	 * @return int Number of cached pages
+	 * 
+	 */
 	public function getNumPagesCached(Field $field) {
 		$database = $this->wire('database');
 		$table = $database->escapeTable($field->getTable()); 
@@ -113,6 +126,13 @@ class FieldtypeCache extends Fieldtype {
 		return $num; 
 	}
 
+	/**
+	 * Regenerate the cache for the given Field
+	 * 
+	 * @param Field $field Field of type FieldtypeCache
+	 * @return int Number of pages that were cached
+	 * 
+	 */
 	protected function regenerateCache(Field $field) {
 
 		$numPages = 0;
