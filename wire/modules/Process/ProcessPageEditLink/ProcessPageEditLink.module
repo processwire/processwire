@@ -14,12 +14,11 @@
  * @property int $urlType
  * @property int $extLinkRel
  * @property string $extLinkTarget
+ * @property string $extLinkClass
  *
  */
 
 class ProcessPageEditLink extends Process implements ConfigurableModule {
-
-	protected $page = null;
 
 	public static function getModuleInfo() {
 		return array(
@@ -31,11 +30,23 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			'icon' => 'link', 
 			);
 	}
-
+	
 	const urlTypeAbsolute = 0;
 	const urlTypeRelativeBranch = 1; 
-	const urlTypeRelativeAll = 2; 
+	const urlTypeRelativeAll = 2;
 	
+	/**
+	 * @var Page|null
+	 *
+	 */
+	protected $page = null;
+
+	/**
+	 * The "choose page" start label
+	 * 
+	 * @var string
+	 * 
+	 */
 	protected $startLabel = '';
 
 	/**
@@ -45,7 +56,13 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected $langID = 0;
-	
+
+	/**
+	 * Get default configuration settings
+	 * 
+	 * @return array
+	 * 
+	 */
 	public static function getDefaultSettings() {
 		return array(
 			'classOptions' => "",
@@ -58,6 +75,10 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		);
 	}
 
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		parent::__construct();
 		foreach(self::getDefaultSettings() as $key => $value) {
@@ -65,18 +86,23 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		}
 	}
 
+	/**
+	 * Init
+	 * 
+	 * @throws WireException
+	 * 
+	 */
 	public function init() {
 		
 		$this->startLabel = $this->_('Choose page'); 
 		$this->modules->get("ProcessPageList"); 	
-		$id = (int) $this->input->get->id; 
-		$this->langID = (int) $this->input->get->lang;
+		$id = (int) $this->input->get('id'); 
+		$this->langID = (int) $this->input->get('lang');
 		if($id) $this->page = $this->pages->get($id); 
-		if($this->page && $this->page->id && !$this->user->hasPermission("page-view", $this->page)) throw new WireException("You don't have access to this page"); 
+		if($this->page && $this->page->id && !$this->user->hasPermission("page-view", $this->page)) {
+			throw new WireException("You don't have access to this page");
+		}
 		if(!$this->page) $this->page = $this->wire('pages')->newNullPage();
-
-		//$target = $this->sanitizer->name($this->input->get->target); 
-		//$this->config->js('ProcessPageEditLinkTarget', $target); 
 
 		$this->config->js('ProcessPageEditLink', array(
 			'selectStartLabel' => $this->startLabel, 
@@ -95,6 +121,12 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		parent::init();
 	}
 
+	/**
+	 * Primary execute
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___execute() {
 	
 		if($this->wire('input')->get('href')) {
@@ -106,17 +138,20 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			$currentValue = '';
 		}
 
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm"); 
 		$form->attr('id', 'ProcessPageEditLinkForm');
 		//$form->description = $this->_("Enter a URL, select a page, or select a file to link:"); // Headline
 		
 		$this->wire('modules')->get('JqueryWireTabs'); 
-		
+	
+		/** @var InputfieldWrapper $fieldset */
 		$fieldset = $this->wire(new InputfieldWrapper());
 		$fieldset->attr('title', $this->_('Link')); 
 		$fieldset->addClass('WireTab');
 		$form->add($fieldset); 
 
+		/** @var InputfieldPageAutocomplete $field */
 		$field = $this->modules->get("InputfieldPageAutocomplete"); 
 		$field->label = $this->_('Link to URL'); 
 		$field->attr('id+name', 'link_page_url'); 
@@ -142,6 +177,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		
 		if(is_array($this->wire('input')->get('anchors'))) {
 			$field->columnWidth = 60; 
+			/** @var InputfieldSelect $field */
 			$field = $this->modules->get('InputfieldSelect'); 
 			$field->columnWidth = 40; 
 			$field->attr('id+name', 'link_page_anchor');
@@ -155,11 +191,12 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			}
 			$fieldset->add($field); 
 		}
-		
+	
+		/** @var InputfieldInteger $field */
 		$field = $this->modules->get('InputfieldInteger'); 
 		$field->attr('id+name', 'link_page_id');
 		$field->label = $this->_("Select Page");
-		$field->startLabel = $this->startLabel;
+		$field->set('startLabel', $this->startLabel);
 		$field->collapsed = Inputfield::collapsedYes; 
 		$field->icon = 'sitemap';
 		$fieldset->add($field); 
@@ -169,7 +206,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			$field->attr('id+name', 'child_page_id');
 			$field->label = $this->_("Select Child Page");
 			$field->description = $this->_('This is the same as "Select Page" above, but may quicker to use if linking to children of the current page.'); 
-			$field->startLabel = $this->startLabel;
+			$field->set('startLabel', $this->startLabel);
 			$field->collapsed = Inputfield::collapsedYes; 
 			$field->icon = 'sitemap';
 			$fieldset->append($field); 
@@ -193,6 +230,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$fieldset->add($field);
 		
 		if($this->targetOptions) {
+			/** @var InputfieldSelect $field */
 			$field = $this->modules->get('InputfieldSelect');
 			$field->attr('id+name', 'link_target');
 			$field->label = $this->_('Target'); 
@@ -200,16 +238,6 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			$this->addSelectOptions($field, 'target', $this->targetOptions); 
 			if($this->relOptions) $field->columnWidth = 50;
 			$fieldset->add($field); 
-			/*
-		} else {
-			$field = $this->modules->get("InputfieldCheckbox");
-			$field->label = $this->_("Launch In New Window?");
-			$field->description = $this->_("If checked, the link will open in a new window leaving the current window in place."); // Details for 'launch in new window' checkbox
-			$field->attr('name', 'link_target');
-			$field->attr('id', 'link_target_blank'); 
-			$field->attr('value', '_blank');
-			$fieldset->add($field);
-			*/
 		}
 		
 		if($this->relOptions) {
@@ -223,6 +251,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		}
 		
 		if($this->classOptions) {
+			/** @var InputfieldCheckboxes $field */
 			$field = $this->modules->get('InputfieldCheckboxes');
 			$field->attr('id+name', 'link_class');
 			$field->label = $this->_('Class');
@@ -240,7 +269,13 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		
 		return $form->render() . "<p class='detail ui-priority-secondary'><code id='link_markup'></code></p>";
 	}
-	
+
+	/**
+	 * @param InputfieldSelect $field
+	 * @param $attrName
+	 * @param $optionsText
+	 * 
+	 */
 	protected function addSelectOptions(InputfieldSelect $field, $attrName, $optionsText) {
 		
 		$isExisting = $this->wire('input')->get('href') != ''; 
@@ -283,6 +318,13 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		}
 	}
 
+	/**
+	 * Return JSON containing files list for ajax use
+	 * 
+	 * @return string
+	 * @throws WireException
+	 * 
+	 */
 	public function ___executeFiles() {
 		if(!$this->page->id) throw new WireException("A page id must be specified"); 	
 		$files = $this->getFiles();	
@@ -292,7 +334,6 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	/**
 	 * Get array of info about files attached to given Page
 	 *
-	 * @param Page $page
 	 * @return array Associative array of "/url/to/file.pdf" => "Field label: basename"
 	 *
 	 */
@@ -302,6 +343,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		// As the link generator might be called in a repeater, we need to find the containing page		
 		$n = 0;
 		while(strpos($page->className(), 'Repeater') !== false && ++$n < 10) {
+			/** @var RepeaterPage $page */
 			$page = $page->getForPage();
 		}
 		if($page->id) {
@@ -315,6 +357,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 	 * Get array of info about files attached to given Page, including any repeater items
 	 * 
 	 * @param Page $page
+	 * @param string $prefix
 	 * @return array Associative array of "/url/to/file.pdf" => "Field label: basename"
 	 * 
 	 */
@@ -324,11 +367,13 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			/** @var Fieldtype $type */
 			$type = $field->type;
 			if($type instanceof FieldtypeFile) {
-				foreach($page->get($field->name) as $file) {
+				$value = $page->get($field->name);
+				if($value) foreach($page->get($field->name) as $file) {
 					$files[$file->url] = $prefix . $field->getLabel() . ': ' . $file->basename;
 				}
 			} else if(strpos($type->className(), 'FieldtypeRepeater') !== false) {
-				foreach($page->get($field->name) as $repeaterPage){
+				$value = $page->get($field->name);
+				if($value) foreach($page->get($field->name) as $repeaterPage){
 					$files = array_merge($this->getFilesPage($repeaterPage, $field->getLabel() . ': '), $files);
 				}
 			} 
@@ -336,7 +381,12 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		return $files;
 	}
 
+	/**
+	 * @return InputfieldSelect
+	 * 
+	 */
 	protected function getFilesField() {
+		/** @var InputfieldSelect $field */
 		$field = $this->modules->get("InputfieldSelect"); 
 		$field->label = $this->_("Select File");
 		$field->attr('id+name', 'link_page_file'); 
