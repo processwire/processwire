@@ -7,6 +7,7 @@
  * #pw-summary-traversal For the most part you’ll want to traverse from the parent `Pagefiles` object than these methods.
  * #pw-summary-manipulation Remember to follow up any manipulations with a `$pages->save()` call. 
  * #pw-summary-tags Be sure to see the `Pagefiles::getTag()` and `Pagesfiles::findTag()` methods, which enable you retrieve files by tag.
+ * #pw-use-constructor
  * #pw-body =
  * Pagefile objects are contained by a `Pagefiles` object. 
  * #pw-body
@@ -49,6 +50,8 @@ class Pagefile extends WireData {
 
 	/**
 	 * Reference to the owning collection of Pagefiles
+	 * 
+	 * @var Pagefiles
 	 *
 	 */
 	protected $pagefiles; 

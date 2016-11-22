@@ -28,7 +28,7 @@
  * @method void loginFailure($name, $reason) #pw-hooker
  * @method void logoutSuccess(User $user) #pw-hooker
  * 
- * @property SessionCSRF $CSRF
+ * @property SessionCSRF $CSRF 
  *
  * Expected $config variables include: 
  * ===================================
@@ -395,9 +395,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 */
 	public function get($key, $_key = null) {
 		if($key == 'CSRF') {
-			if(!$this->sessionInit) $this->init(); // init required for CSRF
-			if(is_null($this->CSRF)) $this->CSRF = $this->wire(new SessionCSRF());
-			return $this->CSRF; 
+			return $this->CSRF();
 		} else if(!is_null($_key)) {
 			// namespace
 			return $this->getFor($key, $_key);
@@ -1131,6 +1129,34 @@ class Session extends Wire implements \IteratorAggregate {
 		foreach(array('message', 'error', 'warning') as $type) {
 			$this->remove($type);
 		}
+	}
+
+	/**
+	 * Return an instance of ProcessWire’s CSRF object, which provides an API for cross site request forgery protection.
+	 * 
+	 * ~~~~
+	 * // output somewhere in <form> markup when rendering a form
+	 * echo $session->CSRF->renderInput();
+	 * ~~~~
+	 * ~~~~ 
+	 * // when processing form (POST request), check to see if token is present
+	 * if($session->CSRF->hasValidToken()) {
+	 *   // form submission is valid
+	 *   // okay to process
+	 * } else {
+	 *   // form submission is NOT valid
+	 *   throw new WireException('CSRF check failed!');
+	 * }
+	 * ~~~~
+	 * 
+	 * @return SessionCSRF
+	 * @see SessionCSRF::renderInput(), SessionCSRF::validate(), SessionCSRF::hasValidToken()
+	 * 
+	 */
+	public function CSRF() {
+		if(!$this->sessionInit) $this->init(); // init required for CSRF
+		if(is_null($this->CSRF)) $this->CSRF = $this->wire(new SessionCSRF());
+		return $this->CSRF; 
 	}
 
 }

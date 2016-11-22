@@ -11,33 +11,62 @@
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  *
- */
-
-/**
- * Selector maintains a single selector consisting of field name, operator, and value.
- * 
- * Field and value may optionally be arrays, where are assumed to be OR values. 
+ * #pw-summary Selector maintains a single selector consisting of field name, operator, and value.
  *
- * Serves as the base class for the different Selector types (seen below this class). 
+ * #pw-body =
+ * - Serves as the base class for the different Selector types (`SelectorEqual`, `SelectorNotEqual`, `SelectorLessThan`, etc.)
+ * - The constructor requires `$field` and `$value` properties which may either be an array or string. 
+ *   An array indicates multiple items in an OR condition. Multiple items may also be specified by
+ *   pipe “|” separated strings.  
+ * - Operator is determined by the Selector class name, and thus may not be changed without replacing
+ *   the entire Selector. 
  * 
- * @property string|array $field Field or fields present in the selector (can be string or array) [1]
- * @property array $fields Fields that were present in selector (same as $field, but always array)
- * @property string $operator Operator used by the selector [2]
- * @property string|array $value Value or values present in the selector (can be string or array) [1]
- * @property array $values Values that were present in selector (same as $value, but always array)
- * @property bool $not Is this a NOT selector? (i.e. returns the opposite if what it would otherwise)
- * @property string|null $group Group name for this selector (if field was prepended with a "group_name@")
- * @property string $quote Type of quotes value was in, or blank if it was not quoted. One of: '"[{(
- * @property string $str String value of selector
- * @property null|bool $forceMatch When boolean, it forces match (true) or non-match (false). 
+ * ~~~~~
+ * // very basic usage example
+ * // constructor takes ($field, $value) which can be strings or arrays
+ * $s = new SelectorEqual('title', 'About Us');
+ * // $page can be any kind of Wire-derived object
+ * if($s->matches($page)) {
+ *   // $page has title "About Us"
+ * }
+ * ~~~~~
+ * ~~~~~
+ * // another usage example
+ * $s = new SelectorContains('title|body|summary', 'foo|bar'); 
+ * if($s->matches($page)) {
+ *   // the title, body or summary properties of $page contain either the text "foo" or "bar" 
+ * }
+ * ~~~~~
  * 
- * [1] The $field and $value properties may either be an array or string. As a result, we recommend
- * accessing the $fields or $values properties (instead of $field or $value), because they are always
- * return an array. 
+ * ### List of core selector-derived classes
  * 
- * [2] Operator is determined by the Selector class name, and thus may not be changed without replacing
- * the entire Selector. 
+ * - `SelectorEqual`
+ * - `SelectorNotEqual`
+ * - `SelectorGreaterThan`
+ * - `SelectorLessThan`
+ * - `SelectorGreaterThanEqual`
+ * - `SelectorLessThanEqual`
+ * - `SelectorContains`
+ * - `SelectorContainsLike`
+ * - `SelectorContainsWords`
+ * - `SelectorStarts`
+ * - `SelectorStartsLike`
+ * - `SelectorEnds`
+ * - `SelectorEndsLike`
+ * - `SelectorBitwiseAnd`
  * 
+ * #pw-body
+ * 
+ * @property array $fields Fields that were present in selector (same as $field, but always an array).
+ * @property string|array $field Field or fields present in the selector (string if single, or array of strings if multiple). Preferable to use $fields property instead.
+ * @property-read string $operator Operator used by the selector.
+ * @property array $values Values that were present in selector (same as $value, but always array).
+ * @property string|array $value Value or values present in the selector (string if single, or array of strings if multiple). Preferable to use $values property instead.
+ * @property bool $not Is this a NOT selector? Indicates the selector returns the opposite if what it would otherwise. #pw-group-properties
+ * @property string|null $group Group name for this selector (if field was prepended with a "group_name@"). #pw-group-properties
+ * @property string $quote Type of quotes value was in, or blank if it was not quoted. One of: '"[{( #pw-group-properties
+ * @property-read string $str String value of selector, i.e. “a=b”. #pw-group-properties
+ * @property null|bool $forceMatch When boolean, it forces match (true) or non-match (false). (default=null) #pw-group-properties
  * 
  */
 abstract class Selector extends WireData {
@@ -71,26 +100,111 @@ abstract class Selector extends WireData {
 		$this->set('forceMatch', null); // boolean true to force match, false to force non-match
 	}
 
+	/**
+	 * Return the operator used by this Selector
+	 * 
+	 * @return string
+	 * @since 3.0.42 Prior versions just supported the 'operator' property.
+	 * 
+	 */
+	public function operator() {
+		return self::getOperator();
+	}
+
+	/**
+	 * Get the field(s) of this Selector
+	 * 
+	 * Note that if calling this as a property (rather than a method) it can return either a string or an array.
+	 * 
+	 * @param bool|int $forceString Specify one of the following:
+	 *  - `true` (bool): to only return a string, where multiple-fields will be split by pipe "|". (default)
+	 *  - `false` (bool): to return string if 1 field, or array of multiple fields (same behavior as field property).
+	 *  - `1` (int): to return only the first value (string).
+	 * @return string|array|null
+	 * @since 3.0.42 Prior versions only supported the 'field' property. 
+	 * @see Selector::fields()
+	 * 
+	 */
+	public function field($forceString = true) {
+		$field = parent::get('field');
+		if($forceString && is_array($field)) {
+			if($forceString === 1) {
+				$field = reset($field);
+			} else {
+				$field = implode('|', $field);
+			}
+		} 
+		return $field;
+	}
+
+	/**
+	 * Return array of field(s) for this Selector
+	 * 
+	 * @return array
+	 * @see Selector::field()
+	 * @since 3.0.42 Prior versions just supported the 'fields' property. 
+	 * 
+	 */
+	public function fields() {
+		$field = parent::get('field');
+		if(is_array($field)) return $field;
+		if(!strlen($field)) return array();
+		return array($field); 
+	}
+
+	/**
+	 * Get the value(s) of this Selector
+	 *
+	 * Note that if calling this as a property (rather than a method) it can return either a string or an array.
+	 *
+	 * @param bool|int $forceString Specify one of the following:
+	 *  - `true` (bool): to only return a string, where multiple-values will be split by pipe "|". (default)
+	 *  - `false` (bool): to return string if 1 value, or array of multiple values (same behavior as value property).
+	 *  - `1` (int): to return only the first value (string).
+	 * @return string|array|null
+	 * @since 3.0.42 Prior versions only supported the 'value' property.
+	 * @see Selector::values()
+	 *
+	 */
+	public function value($forceString = true) {
+		$value = parent::get('value');
+		if($forceString && is_array($value)) {
+			if($forceString === 1) {
+				$value = reset($value);
+			} else {
+				$value = implode('|', $value);
+			}
+		}
+		return $value;
+	}
+
+	/**
+	 * Return array of value(s) for this Selector
+	 *
+	 * @return array
+	 * @see Selector::value()
+	 * @since 3.0.42 Prior versions just supported the 'values' property. 
+	 *
+	 */
+	public function values() {
+		$values = parent::get('value');
+		if(is_array($values)) return $values;
+		if(!is_object($values) && !strlen($values)) return array();
+		return array($values);
+	}
+
 	public function get($key) {
 		if($key == 'operator') return $this->getOperator();
 		if($key == 'str') return $this->__toString();
-		if($key == 'values') {
-			$value = $this->value; 
-			if(is_array($value)) return $value; 
-			if(!is_object($value) && !strlen($value)) return array();
-			return array($value);
-		}
-		if($key == 'fields') {
-			$field = $this->field; 
-			if(is_array($field)) return $field;
-			if(!strlen($field)) return array();
-			return array($field); 
-		}
+		if($key == 'values') return $this->values();
+		if($key == 'fields') return $this->fields();
 		return parent::get($key); 
 	}
 
 	/**
 	 * Returns the selector field(s), optionally forcing as string or array
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param string $type Omit for automatic, or specify 'string' or 'array' to force return in that type
 	 * @return string|array
@@ -114,6 +228,8 @@ abstract class Selector extends WireData {
 	 * 
 	 * When the $type argument is not specified, this method may return a string, array or Selectors object. 
 	 * A Selectors object is only returned if the value happens to contain an embedded selector. 
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param string $type Omit for automatic, or specify 'string' or 'array' to force return in that type
 	 * @return string|array|Selectors
@@ -160,6 +276,8 @@ abstract class Selector extends WireData {
 	 * Return the operator used by this Selector
 	 *
 	 * Strict standards don't let us make static abstract methods, so this one throws an exception if it's not reimplemented.
+	 * 
+	 * #pw-internal
 	 *
 	 * @return string
 	 * @throws WireException
@@ -291,6 +409,8 @@ abstract class Selector extends WireData {
 
 	/**
 	 * Add all individual selector types to the runtime Selectors
+	 * 
+	 * #pw-internal
 	 *
 	 */
 	static public function loadSelectorTypes() { 

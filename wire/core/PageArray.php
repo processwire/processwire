@@ -14,6 +14,11 @@
  * 
  * PageArray is returned by all API methods in ProcessWire that can return more than one page at once. 
  * `$pages->find()` and `$page->children()` are common examples. 
+ * 
+ * The recommended way to create a new PageArray is to use the `$pages->newPageArray()` method: 
+ * ~~~~~
+ * $pageArray = $pages->newPageArray();
+ * ~~~~~
  * #pw-body
  * 
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer

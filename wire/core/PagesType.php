@@ -3,8 +3,15 @@
 /**
  * ProcessWire PagesType
  *
- * Provides an interface to the Pages class but specific to 
- * a given page class/type, with predefined parent and template. 
+ * #pw-summary Provides an interface to the Pages class but specific to a given page class/type, with predefined parent and template. 
+ * #pw-body = 
+ * This class is primarily used by the core as an alternative to `$pages`, providing an API for other Page types like 
+ * `User`, `Role`, `Permission`, and `Language`. The `$users`, `$roles`, `$permissions` and `$languages` API variables 
+ * are all instances of `PagesType`. This class is typically not instantiated on its own and instead acts as a base class
+ * which is extended. 
+ * 
+ * #pw-body
+ * #pw-use-constructor
  *
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
@@ -83,6 +90,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	/**
 	 * Add one or more templates that this PagesType represents
 	 * 
+	 * #pw-group-family
+	 * 
 	 * @param array|int|string $templates Single or array of Template objects, IDs, or names
 	 * 
 	 */
@@ -109,6 +118,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 
 	/**
 	 * Add one or more of parents that this PagesType represents
+	 * 
+	 * #pw-group-family
 	 * 
 	 * @param array|int|string|Page $parents Single or array of Page objects, IDs, or paths
 	 * 
@@ -170,6 +181,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 
 	/**
 	 * Is the given page a valid type for this class?
+	 * 
+	 * #pw-internal
 	 *
 	 * @param Page $page
 	 * @return bool
@@ -233,9 +246,10 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 * Given a Selector string, return the Page objects that match in a PageArray. 
 	 *
 	 * @param string $selectorString
-	 * @param array $options 
-		- findOne: apply optimizations for finding a single page and include pages with 'hidden' status
+	 * @param array $options Options to modify default behavior:
+	 *  - `findOne` (bool): apply optimizations for finding a single page and include pages with 'hidden' status
 	 * @return PageArray
+	 * @see Pages::find()
 	 *
 	 */
 	public function find($selectorString, $options = array()) {
@@ -301,13 +315,11 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	}
 
 	/**
-	 * Save a page object and it's fields to database. 
+	 * Save a page object and its fields to database. 
 	 *
-	 * If the page is new, it will be inserted. If existing, it will be updated. 
-	 *
-	 * This is the same as calling $page->save()
-	 *
-	 * If you want to just save a particular field in a Page, use $page->save($fieldName) instead. 
+	 * - This is the same as calling $page->save()
+	 * - If the page is new, it will be inserted. If existing, it will be updated. 
+	 * - If you want to just save a particular field in a Page, use `$page->save($fieldName)` instead. 
 	 *
 	 * @param Page $page
 	 * @return bool True on success
@@ -320,11 +332,11 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	}
 	
 	/**
-	 * Permanently delete a page and it's fields. 
+	 * Permanently delete a page and its fields. 
 	 *
-	 * Unlike trash(), pages deleted here are not restorable. 
+	 * Unlike `$pages->trash()`, pages deleted here are not restorable. 
 	 *
-	 * If you attempt to delete a page with children, and don't specifically set the $recursive param to True, then 
+	 * If you attempt to delete a page with children, and don’t specifically set the `$recursive` argument to `true`, then 
 	 * this method will throw an exception. If a recursive delete fails for any reason, an exception will be thrown.
 	 *
 	 * @param Page $page
@@ -339,12 +351,12 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	}
 
 	/**
-	 * Adds a new page with the given $name and returns the Page
+	 * Adds a new page with the given $name and returns it
 	 *
-	 * If they page has any other fields, they will not be populated, only the name will.
-	 * Returns a NullPage if error, such as a page of this type already existing with the same name.
+	 * - If the page has any other fields, they will not be populated, only the name will.
+	 * - Returns a `NullPage` on error, such as when a page of this type already exists with the same name/parent.
 	 *
-	 * @param string $name
+	 * @param string $name Name to use for the new page
 	 * @return Page|NullPage
 	 *
 	 */
@@ -375,32 +387,82 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 * Make it possible to iterate all pages of this type per the \IteratorAggregate interface.
 	 *
 	 * Only recommended for page types that don't contain a lot of pages. 
+	 * 
+	 * #pw-internal
 	 *
 	 */
 	public function getIterator() {
 		return $this->find("id>0, sort=name"); 
-	}	
+	}
 
+	/**
+	 * Get the template used by this type (or first template if there are multiple)
+	 * 
+	 * #pw-group-family
+	 * 
+	 * @return Template
+	 * 
+	 */
 	public function getTemplate() {
 		return $this->template; 
 	}
-	
+
+	/**
+	 * Get the templates (plural) used by this type
+	 * 
+	 * #pw-group-family
+	 * 
+	 * @return array|Template[] Array of Template objects indexed by template ID. 
+	 * 
+	 */
 	public function getTemplates() {
 		return count($this->templates) ? $this->templates : array($this->template);
 	}
 
+	/**
+	 * Get the parent page ID used by this type (or first parent ID if there are multiple)
+	 * 
+	 * #pw-group-family
+	 * 
+	 * @return int
+	 * 
+	 */
 	public function getParentID() {
 		return $this->parent_id; 
 	}
-	
+
+	/**
+	 * Get the parent page IDs used by this type
+	 * 
+	 * #pw-group-family
+	 * 
+	 * @return array Array of parent page IDs (integers)
+	 * 
+	 */
 	public function getParentIDs() {
 		return count($this->parents) ? $this->parents : array($this->parent_id); 
 	}
 
+	/**
+	 * Get the parent Page object (or first parent Page object if there are multiple)
+	 * 
+	 * #pw-group-family
+	 * 
+	 * @return Page|NullPage
+	 * 
+	 */
 	public function getParent() {
 		return $this->wire('pages')->get($this->parent_id);
 	}
-	
+
+	/**
+	 * Get the parent Page objects in a PageArray
+	 * 
+	 * #pw-group-family
+	 * 
+	 * @return PageArray
+	 * 
+	 */
 	public function getParents() {
 		if(count($this->parents)) {
 			return $this->wire('pages')->getById($this->parents);
@@ -411,17 +473,42 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 			return $parents; 
 		}
 	}
-	
+
+	/**
+	 * Set the PHP class name to use for Page objects of this type
+	 * 
+	 * #pw-group-family
+	 * 
+	 * @param string $class
+	 * 
+	 */
 	public function setPageClass($class) {
 		$this->pageClass = $class;
 	}
-	
+
+	/**
+	 * Get the PHP class name used by Page objects of this type
+	 * 
+	 * #pw-group-family
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function getPageClass() {
 		if($this->pageClass) return $this->pageClass;
 		if($this->template && $this->template->pageClass) return $this->template->pageClass;
 		return 'Page';
 	}
-	
+
+	/**
+	 * Return the number of pages in this type matching the given selector string
+	 * 
+	 * @param string $selectorString Optional, if omitted then returns count of all pages of this type
+	 * @param array $options Options to modify default behavior (see $pages->count method for details)
+	 * @return int
+	 * @see Pages::count()
+	 * 
+	 */
 	public function count($selectorString = '', array $options = array()) {
 		if(empty($selectorString) && empty($options) && count($this->parents) == 1) {
 			return $this->getParent()->numChildren();
@@ -449,6 +536,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 
 	/**
 	 * Hook called just before a page is saved
+	 * 
+	 * #pw-hooker
 	 *
 	 * @param Page $page The page about to be saved
 	 * @return array Optional extra data to add to pages save query.
@@ -464,6 +553,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 *
 	 * This is the same as Pages::save, except that it occurs before other save-related hooks (below),
 	 * Whereas Pages::save occurs after. In most cases, the distinction does not matter.
+	 * 
+	 * #pw-hooker
 	 *
 	 * @param Page $page The page that was saved
 	 * @param array $changes Array of field names that changed
@@ -474,6 +565,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 
 	/**
 	 * Hook called when a new page has been added
+	 * 
+	 * #pw-hooker
 	 *
 	 * @param Page $page
 	 *
@@ -482,6 +575,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 
 	/**
 	 * Hook called when a page is about to be deleted, but before data has been touched
+	 * 
+	 * #pw-hooker
 	 *
 	 * @param Page $page
 	 *
@@ -490,6 +585,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 
 	/**
 	 * Hook called when a page and it's data have been deleted
+	 * 
+	 * #pw-hooker
 	 *
 	 * @param Page $page
 	 *

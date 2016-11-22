@@ -3,6 +3,10 @@
 /**
  * ProcessWire Notices
  * 
+ * #pw-summary Manages notifications in the ProcessWire admin, primarily for internal use.
+ * #pw-use-constants
+ * #pw-use-constructor
+ * 
  * Base class that holds a message, source class, and timestamp.
  * Contains notices/messages used by the application to the user. 
  * 
@@ -28,6 +32,8 @@ abstract class Notice extends WireData {
 	/**
 	 * Flag indicates the notice is a warning
 	 * 
+	 * #pw-internal
+	 * 
 	 * @deprecated use NoticeWarning instead. 
 	 *
 	 */
@@ -46,7 +52,7 @@ abstract class Notice extends WireData {
 	const logOnly = 16;
 
 	/**
-	 * Flag indicates the notice is allowed to contain markup and won't be automatically entity encoded
+	 * Flag indicates the notice is allowed to contain markup and won’t be automatically entity encoded
 	 *
 	 * Note: entity encoding is done by the admin theme at output time, which should detect this flag. 
 	 *
@@ -56,8 +62,8 @@ abstract class Notice extends WireData {
 	/**
 	 * Create the Notice
 	 *
-	 * @param string $text
-	 * @param int $flags
+	 * @param string $text Notification text
+	 * @param int $flags Flags
 	 *
 	 */
 	public function __construct($text, $flags = 0) {
@@ -69,6 +75,8 @@ abstract class Notice extends WireData {
 	}
 
 	/**
+	 * Get the notice log
+	 * 
 	 * @return string Name of log (basename)
 	 * 
 	 */
@@ -111,21 +119,88 @@ class NoticeWarning extends Notice {
 
 
 /**
- * A class to contain multiple Notice instances, whether messages or errors
+ * ProcessWire Notices
+ * 
+ * #pw-summary A class to contain multiple Notice instances, whether messages, warnings or errors
+ * #pw-body =
+ * This class manages notices that have been sent by `Wire::message()`, `Wire::warning()` and `Wire::error()` calls. 
+ * The message(), warning() and error() methods are available on every `Wire` derived object. This class is primarily
+ * for internal use in the admin. However, it may also be useful in some front-end contexts. 
+ * ~~~~~
+ * // Adding a NoticeMessage using object syntax
+ * $notices->add(new NoticeMessage("Hello World"));
+ * 
+ * // Adding a NoticeMessage using regular syntax
+ * $notices->message("Hello World"); 
+ * 
+ * // Adding a NoticeWarning, and allow markup in it
+ * $notices->message("Hello <strong>World</strong>", Notice::allowMarkup); 
+ * 
+ * // Adding a NoticeError that only appears if debug mode is on
+ * $notices->error("Hello World", Notice::debug); 
+ * ~~~~~
+ * Iterating and outputting Notices:
+ * ~~~~~
+ * foreach($notices as $notice) {
+ *   // skip over debug notices, if debug mode isn't active
+ *   if($notice->flags & Notice::debug && !$config->debug) continue;
+ *   // entity encode notices unless the allowMarkup flag is set
+ *   if($notice->flags & Notice::allowMarkup) {
+ *     $text = $notice->text; 
+ *   } else {
+ *     $text = $sanitizer->entities($notice->text);
+ *   }
+ *   // output either an error, warning or message notice
+ *   if($notice instanceof NoticeError) {
+ *     echo "<p class='error'>$text</p>";
+ *   } else if($notice instanceof NoticeWarning) {
+ *     echo "<p class='warning'>$text</p>";
+ *   } else {
+ *     echo "<p class='message'>$text</p>";
+ *   }
+ * }
+ * ~~~~~
+ *
+ * #pw-body
+ * 
  *
  */
 class Notices extends WireArray {
 	
 	const logAllNotices = false;  // for debugging/dev purposes
-	
+
+	/**
+	 * #pw-internal
+	 * 
+	 * @param mixed $item
+	 * @return bool
+	 * 
+	 */
 	public function isValidItem($item) {
 		return $item instanceof Notice; 
-	}	
+	}
 
+	/**
+	 * #pw-internal
+	 *
+	 * @return Notice
+	 *
+	 */
 	public function makeBlankItem() {
 		return $this->wire(new NoticeMessage('')); 
 	}
 
+	/**
+	 * Add a Notice object
+	 * 
+	 * ~~~~
+	 * $notices->add(new NoticeError("An error occurred!"));
+	 * ~~~~
+	 * 
+	 * @param Notice $item
+	 * @return $this
+	 * 
+	 */
 	public function add($item) {
 
 		if($item->flags & Notice::debug) {
@@ -178,6 +253,12 @@ class Notices extends WireArray {
 		$this->wire('log')->save($item->getName(), $text); 
 	}
 
+	/**
+	 * Are there NoticeError items present?
+	 * 
+	 * @return bool
+	 * 
+	 */
 	public function hasErrors() {
 		$numErrors = 0;
 		foreach($this as $notice) {
@@ -185,7 +266,13 @@ class Notices extends WireArray {
 		}
 		return $numErrors > 0;
 	}
-	
+
+	/**
+	 * Are there NoticeWarning items present?
+	 * 
+	 * @return bool
+	 * 
+	 */
 	public function hasWarnings() {
 		$numWarnings = 0;
 		foreach($this as $notice) {
@@ -198,6 +285,8 @@ class Notices extends WireArray {
 	 * Recursively entity encoded values in arrays and convert objects to string
 	 * 
 	 * This enables us to safely print_r the string for debugging purposes 
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param array $a
 	 * @return array

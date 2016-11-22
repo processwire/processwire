@@ -1,45 +1,105 @@
 <?php namespace ProcessWire;
 
+require_once(__DIR__ . '/boot.php');
+
 /**
  * ProcessWire API Bootstrap
  *
- * Initializes all the ProcessWire classes and prepares them for API use
+ * #pw-summary Represents an instance of ProcessWire connected with a set of API variables. 
+ * #pw-summary-instances Methods for managing ProcessWire instances. Note that most of these methods are static. 
+ * #pw-use-constants
+ * #pw-use-constructor
+ * #pw-body = 
+ * This class boots a ProcessWire instance. The current ProcessWire instance is represented by the `$wire` API variable. 
+ * ~~~~~
+ * // To create a new ProcessWire instance
+ * $wire = new ProcessWire('/server/path/', 'https://hostname/url/');
+ * ~~~~~
+ * #pw-body
  * 
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  * 
- * @todo: get language permissions to work with extra actions
- * 
- */
-
-require_once(__DIR__ . '/boot.php');
-
-/**
- * ProcessWire API bootstrap class
- *
- * Gets ProcessWire's API ready for use
- * 
  * @method init()
  * @method ready()
  * @method finished()
- *
- */ 
+ * 
+ * 
+ */
+
 class ProcessWire extends Wire {
 
-	const versionMajor = 3; 
-	const versionMinor = 0; 
-	const versionRevision = 41; 
+	/**
+	 * Major version number
+	 * 
+	 */
+	const versionMajor = 3;
+	
+	/**
+	 * Minor version number
+	 * 
+	 */
+	const versionMinor = 0;
+	
+	/**
+	 * Reversion revision number
+	 * 
+	 */
+	const versionRevision = 41;
+
+	/**
+	 * Version suffix string (when applicable)
+	 * 
+	 */
 	const versionSuffix = '';
-	
-	const indexVersion = 300; // required version for index.php file (represented by PROCESSWIRE define)
+
+	/**
+	 * Minimum required index.php version, represented by the PROCESSWIRE define
+	 * 
+	 */
+	const indexVersion = 300;
+
+	/**
+	 * Minimum required .htaccess file version
+	 * 
+	 */
 	const htaccessVersion = 300;
-	
-	const statusBoot = 0; // system is booting
-	const statusInit = 2; // system and modules are initializing
-	const statusReady = 4; // system and $page are ready
-	const statusRender = 8; // $page's template is being rendered
-	const statusFinished = 16; // request has been delivered
-	const statusFailed = 1024; // request failed due to exception or 404
+
+	/**
+	 * Status when system is booting
+	 * 
+	 */
+	const statusBoot = 0;
+
+	/**
+	 * Status when system and modules are initializing
+	 * 
+	 */
+	const statusInit = 2;
+
+	/**
+	 * Systus when system, $page and API variables are ready
+	 * 
+	 */
+	const statusReady = 4;
+
+	/**
+	 * Status when the current $page’s template file is being rendered
+	 * 
+	 */
+	const statusRender = 8;
+
+	/**
+	 * Status when the request has been fully delivered
+	 * 
+	 */
+	const statusFinished = 16;
+
+	/**
+	 * Status when the request failed due to an Exception or 404
+	 * 
+	 */
+	const statusFailed = 1024; 
 
 	/**
 	 * Whether debug mode is on or off
@@ -126,7 +186,7 @@ class ProcessWire extends Wire {
 		if(is_string($config)) $config = self::buildConfig($config, $rootURL);
 		if(!$config instanceof Config) throw new WireException("No configuration information available");
 		
-		// this is reset in the $this->config() method based on current debug mode
+		// this is reset in the $this->setConfig() method based on current debug mode
 		ini_set('display_errors', true);
 		error_reporting(E_ALL | E_STRICT);
 
@@ -145,7 +205,7 @@ class ProcessWire extends Wire {
 		$this->wire('hooks', new WireHooks($this, $config), true);
 
 		$this->shutdown = $this->wire(new WireShutdown());
-		$this->config($config);
+		$this->setConfig($config);
 		$this->load($config);
 		
 		if($this->getNumInstances() > 1) {
@@ -170,7 +230,7 @@ class ProcessWire extends Wire {
 	 * @param Config $config
  	 *
 	 */
-	protected function config(Config $config) {
+	protected function setConfig(Config $config) {
 
 		$this->wire('config', $config, true); 
 		$this->wire($config->paths);
@@ -277,7 +337,9 @@ class ProcessWire extends Wire {
 	}
 
 	/**
-	 * Load's ProcessWire using the supplied Config and populates all API fuel
+	 * Load’s ProcessWire using the supplied Config and populates all API fuel
+	 * 
+	 * #pw-internal
  	 *
 	 * @param Config $config
 	 * @throws WireDatabaseException|WireException on fatal error
@@ -417,6 +479,8 @@ class ProcessWire extends Wire {
 	/**
 	 * Hookable init for anyone that wants to hook immediately before any autoload modules initialized or after all modules initialized
 	 * 
+	 * #pw-hooker
+	 * 
 	 */
 	protected function ___init() {
 		if($this->debug) Debug::timer('boot.modules.autoload.init'); 
@@ -426,6 +490,8 @@ class ProcessWire extends Wire {
 
 	/**
 	 * Hookable ready for anyone that wants to hook immediately before any autoload modules ready or after all modules ready
+	 * 
+	 * #pw-hooker
 	 *
 	 */
 	protected function ___ready() {
@@ -438,6 +504,8 @@ class ProcessWire extends Wire {
 
 	/**
 	 * Hookable ready for anyone that wants to hook when the request is finished
+	 * 
+	 * #pw-hooker
 	 *
 	 */
 	protected function ___finished() {
@@ -513,7 +581,16 @@ class ProcessWire extends Wire {
 		if(is_object($value)) return call_user_func_array(array($value, '__invoke'), $arguments); 
 		return parent::__call($method, $arguments);
 	}
-	
+
+	/**
+	 * Get an API variable
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $name Optional API variable name
+	 * @return mixed|null|Fuel
+	 * 
+	 */
 	public function fuel($name = '') {
 		if(empty($name)) return $this->fuel;
 		return $this->fuel->$name;
@@ -540,6 +617,8 @@ class ProcessWire extends Wire {
 	/**
 	 * Instance ID of this ProcessWire instance
 	 * 
+	 * #pw-group-instances
+	 * 
 	 * @return int
 	 * 
 	 */
@@ -549,6 +628,8 @@ class ProcessWire extends Wire {
 
 	/**
 	 * Add a ProcessWire instance and return the instance ID
+	 * 
+	 * #pw-group-instances
 	 * 
 	 * @param ProcessWire $wire
 	 * @return int
@@ -564,6 +645,8 @@ class ProcessWire extends Wire {
 	/**
 	 * Get all ProcessWire instances
 	 * 
+	 * #pw-group-instances
+	 * 
 	 * @return array
 	 * 
 	 */
@@ -574,6 +657,8 @@ class ProcessWire extends Wire {
 	/**
 	 * Return number of instances
 	 * 
+	 * #pw-group-instances
+	 * 
 	 * @return int
 	 * 
 	 */
@@ -583,6 +668,8 @@ class ProcessWire extends Wire {
 
 	/**
 	 * Get a ProcessWire instance by ID
+	 * 
+	 * #pw-group-instances
 	 * 
 	 * @param int|null $instanceID Omit this argument to return the current instance
 	 * @return null|ProcessWire
@@ -595,6 +682,8 @@ class ProcessWire extends Wire {
 	
 	/**
 	 * Get the current ProcessWire instance
+	 * 
+	 * #pw-group-instances
 	 * 
 	 * @return ProcessWire|null
 	 * 
@@ -610,6 +699,8 @@ class ProcessWire extends Wire {
 	/**
 	 * Set the current ProcessWire instance
 	 * 
+	 * #pw-group-instances
+	 * 
 	 * @param ProcessWire $wire
 	 * 
 	 */
@@ -619,6 +710,8 @@ class ProcessWire extends Wire {
 
 	/**
 	 * Remove a ProcessWire instance
+	 * 
+	 * #pw-group-instances
 	 * 
 	 * @param ProcessWire $wire
 	 * 
@@ -634,7 +727,7 @@ class ProcessWire extends Wire {
 	}
 
 	/**
-	 * Build a Config object for booting ProcessWire
+	 * Static method to build a Config object for booting ProcessWire
 	 * 
 	 * @param string $rootPath Path to root of installation where ProcessWire's index.php file is located.
 	 * @param string $rootURL Should be specified only for secondary ProcessWire instances. 

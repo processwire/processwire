@@ -1,35 +1,63 @@
 <?php namespace ProcessWire;
 
 /**
- * ProcessWire Database Backup and Restore
- * 
+ * #pw-summary ProcessWire Database Backup and Restore
+ * #pw-body = 
  * This class intentionally does not have any external dependencies (other than PDO)
  * so that it can be included by outside tools for restoring/exporting, with the main
  * example of that being the ProcessWire installer. 
+ * 
+ * The recommended way to access these backup methods is via the `$database` API variable
+ * method `$database->backups()`, which returns a `WireDatabaseBackup` instance.
+ * 
+ * ### Easy Initialization (recommended) 
+ * ~~~~~
+ * $backup = $database->backups();
+ * ~~~~~
+ * 
+ * ### Manual Initialization (if you need it)
+ * ~~~~~
+ * // determine where backups will go (should NOT be web accessible)
+ * $backupPath = $config->paths->assets . 'backups/';
+ * 
+ * // create a new WireDatabaseBackup instance
+ * $backup = new WireDatabaseBackup($backupPath);
+ * 
+ * // Option 1: set the already-connected DB connection
+ * $backup->setDatabase($this->database); 
+ * 
+ * // Option 2: OR provide a Config object that contains the DB connection info
+ * $backup->setDatabaseConfig($this->config); 
+ * 
+ * ~~~~~
+ * ### Backup the database
+ * ~~~~~
+ * $options = array(); // optional
+ * $file = $backup->backup($options);
+ * if($file) {
+ *   print_r($backup->notes());
+ * } else {
+ *   print_r($backup->errors());
+ * }
+ * ~~~~~
+ * Note: the `print_r()` function calls are just for demonstration and testing purposes. We are not suggesting
+ * you actually do that except when testing.
+ * 
+ * ### Restore a database
+ * ~~~~~
+ * $options = array(); // optional
+ * $success = $backup->restore($file, $options);
+ * if($success) {
+ *   print_r($backup->notes());
+ * } else {
+ *   print_r($backup->errors()); 
+ * }
+ * ~~~~~
+ * #pw-body
  *
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  * 
- * USAGE
- * 
- * Initialization
- * ==============
- * $backup = new WireDatabaseBackup('/path/to/backups/');
- * $backup->setDatabase($this->database); // optional, if omitted it will attempt it's own connection
- * $backup->setDatabaseConfig($this->config); // optional, only if setDatabase() was called
- * 
- * Backup
- * ======
- * $file = $backup->backup([$options]);
- * if($file) print_r($backup->notes()); 
- *   else print_r($backup->errors()); 
- * 
- * 
- * Restore
- * =======
- * $success = $backup->restore($file, [$options]); 
- * if($success) print_r($backup->notes()); 
- *   else print_r($backup->errors()); 
  *
  */
 
@@ -548,9 +576,26 @@ class WireDatabaseBackup {
 	/**
 	 * Perform a database export/dump
 	 * 
-	 * @param array $options See $backupOptions
-	 * @return string Full path and filename of database export file, or false on failure. 
+	 * @param array $options Options to modify default behavior:
+	 * - `filename` (string): filename for backup: default is to make a dated filename, but this can also be used (basename only, no path)
+	 * - `description` (string): optional description of this backup
+	 * - `tables` (array): if specified, export will only include these tables
+	 * - `user` (string): username to associate with the backup file (string), optional
+	 * - `excludeTables` (array): exclude creating or inserting into these tables
+	 * - `excludeCreateTables` (array): exclude creating these tables, but still export data
+	 * - `excludeExportTables` (array): exclude exporting data, but still create tables
+	 * - `whereSQL` (array): SQL conditions for export of individual tables [table => [SQL conditions]]. The `table` portion (index) may also be a full PCRE regexp, must start with `/` to be recognized as regex.
+	 * - `maxSeconds` (int): max number of seconds allowed for execution (default=1200)
+	 * - `allowDrop` (bool): use DROP TABLES statements before CREATE TABLE statements? (default=true)
+	 * - `allowUpdate` (bool): use UPDATE ON DUPLICATE KEY so that INSERT statements can UPDATE when rows already present (all tables). (default=false)
+	 * - `allowUpdateTables` (array): table names that will use UPDATE ON DUPLICATE KEY (does NOT require allowUpdate=true)
+	 * - `findReplace` (array): find and replace in row data during backup. Example: ['databass' => 'database']
+	 * - `findReplaceCreateTable` (array): find and replace in create table statements
+	 *    Example: ['DEFAULT CHARSET=latin1;' => 'DEFAULT CHARSET=utf8;']
+	 * - `extraSQL` (array): additional SQL queries to append at the bottom. Example: ['UPDATE pages SET created=NOW()']
+	 * @return string Full path and filename of database export file, or false on failure.
 	 * @throws \Exception on fatal error
+	 * @see WireDatabaseBackup::restore()
 	 * 
 	 */
 	public function backup(array $options = array()) {
@@ -827,9 +872,17 @@ class WireDatabaseBackup {
 	 * Import a database SQL file that was created by this class
 	 * 
 	 * @param string $filename Filename to restore, optionally including path (if no path, then path set to construct is assumed)
-	 * @param array $options See WireDatabaseBackup::$restoreOptions
+	 * @param array $options Options to modify default behavior: 
+	 * - `tables` (array): table names to restore (empty=all)
+	 * - `allowDrop` (bool): allow DROP TABLE statements (default=true)
+	 * - `haltOnError` (bool): halt execution when an error occurs? (default=false)
+	 * - `maxSeconds` (int): max number of seconds allowed for execution (default=1200)
+	 * - `findReplace` (array): find and replace in row data. Example: ['databass' => 'database']
+	 * - `findReplaceCreateTable` (array): find and replace in create table statements.   
+	 *    Example: ['DEFAULT CHARSET=utf8;' => 'DEFAULT CHARSET=utf8mb4;'] 
 	 * @return true on success, false on failure. Call the errors() method to retrieve errors.
 	 * @throws \Exception on fatal error
+	 * @see WireDatabaseBackup::backup()
 	 *
 	 */
 	public function restore($filename, array $options = array()) {

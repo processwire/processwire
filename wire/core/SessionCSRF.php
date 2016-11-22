@@ -2,26 +2,52 @@
 
 /**
  * ProcessWire CSRF Protection
- *
+ * 
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  *
  */
 
 /**
- * Triggered when CSRF detected
+ * Exception triggered by SessionCSRF::validate() when CSRF detected
  *
  */
 class WireCSRFException extends WireException {}
 
 /**
- * ProcessWire CSRF Protection class
+ * ProcessWire CSRF Protection
+ *
+ * #pw-summary Provides an API for cross site request forgery protection.
+ * #pw-body = 
+ * ~~~~
+ * // output somewhere in form markup when rendering a form
+ * echo $session->CSRF->renderInput();
+ * ~~~~
+ * ~~~~
+ * // when processing form (POST request), check to see if token is present
+ * if($session->CSRF->hasValidToken()) {
+ *   // form submission is valid
+ *   // okay to process
+ * } else {
+ *   // form submission is NOT valid
+ *   throw new WireException('CSRF check failed!');
+ * }
+ * ~~~~
+ * ~~~~
+ * // this alternative to hasValidToken() throws WireCSRFException when invalid
+ * $session->CSRF->validate(); 
+ * ~~~~
+ * 
+ * #pw-body
+ *
  *
  */
 class SessionCSRF extends Wire {
 	
 	/**
 	 * Get a CSRF Token name, or create one if it doesn't yet exist
+	 * 
+	 * #pw-group-initiating
 	 *
 	 * @param int|string|null $id Optional unique ID for this token
 	 * @return string
@@ -38,6 +64,8 @@ class SessionCSRF extends Wire {
 
 	/**
 	 * Get a CSRF Token value as stored in the session, or create one if it doesn't yet exist
+	 * 
+	 * #pw-group-initiating
 	 *
 	 * @param int|string|null $id Optional unique ID for this token
 	 * @return string
@@ -57,6 +85,8 @@ class SessionCSRF extends Wire {
 
 	/**
 	 * Get a CSRF Token timestamp
+	 * 
+	 * #pw-group-initiating
 	 *
 	 * @param int|string|null $id Optional unique ID for this token
 	 * @return string
@@ -70,6 +100,8 @@ class SessionCSRF extends Wire {
 
 	/**
 	 * Get a CSRF Token name and value
+	 * 
+	 * #pw-group-initiating
 	 *
 	 * @param int|string|null $id Optional unique ID for this token
 	 * @return array ("name" => "token name", "value" => "token value", "time" => created timestamp)
@@ -87,7 +119,9 @@ class SessionCSRF extends Wire {
 	 * Get a CSRF Token name and value that can only be used once
 	 * 
 	 * Note that a single call to hasValidToken($id) or validate($id) will invalidate the single use token.
-	 * So call them once and store your result if you need the result multiple times. 
+	 * So call them once and store your result if you need the result multiple times.
+	 * 
+	 * #pw-group-initiating
 	 *
 	 * @param int|string $id Optional unique ID/name for this token (of omitted one is generated automatically)
 	 * @return array ("id' => "token ID", "name" => "token name", "value" => "token value", "time" => created timestamp)
@@ -111,6 +145,8 @@ class SessionCSRF extends Wire {
 
 	/**
 	 * Returns true if the current POST request contains a valid CSRF token, false if not
+	 * 
+	 * #pw-group-validating
 	 *
 	 * @param int|string|null $id Optional unique ID for this token, but required if checking a single use token.
 	 * @return bool
@@ -139,6 +175,8 @@ class SessionCSRF extends Wire {
 
 	/**
 	 * Throws an exception if the token is invalid
+	 * 
+	 * #pw-group-validating
 	 *
 	 * @param int|string|null $id Optional unique ID for this token
 	 * @throws WireCSRFException if token not valid
@@ -154,6 +192,8 @@ class SessionCSRF extends Wire {
 
 	/**
 	 * Clear out token value
+	 * 
+	 * #pw-group-resetting
 	 *
 	 * @param int|string|null $id Optional unique ID for this token
 	 * 
@@ -166,6 +206,8 @@ class SessionCSRF extends Wire {
 
 	/**
 	 * Clear out all saved token values
+	 * 
+	 * #pw-group-resetting
 	 *
 	 */
 	public function resetAll() {
@@ -174,6 +216,15 @@ class SessionCSRF extends Wire {
 	
 	/**
 	 * Render a form input[hidden] containing the token name and value, as looked for by hasValidToken()
+	 * 
+	 * ~~~~~
+	 * <form method='post'>
+	 *   <input type='submit'>
+	 *   <?php echo $session->CSRF->renderInput(); ?> 
+	 * </form>
+	 * ~~~~~
+	 * 
+	 * #pw-group-initiating
 	 *
 	 * @param int|string|null $id Optional unique ID for this token
 	 * @return string

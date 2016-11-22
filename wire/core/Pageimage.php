@@ -6,6 +6,7 @@
  * #pw-summary Represents an image item attached to a page, typically via an Image Fieldtype. 
  * #pw-summary-variations A variation refers to an image that is based upon another (like a resized or cropped version for example). 
  * #pw-order-groups common,resize-and-crop,variations,other
+ * #pw-use-constructor
  * #pw-body = 
  * Pageimage objects are usually contained by a `Pageimages` object, which is a type of `Pagefiles` and `WireArray`. 
  * In addition to the methods and properties below, you'll also want to look at `Pagefile` which this class inherits
@@ -93,9 +94,14 @@ class Pageimage extends Pagefile {
 	protected $error = '';
 
 	/**
-	 * Construct a new Pagefile
+	 * Construct a new Pageimage
+	 * 
+	 * ~~~~~
+	 * // Construct a new Pageimage, assumes that $page->images is a FieldtypeImage Field
+	 * $pageimage = new Pageimage($page->images, '/path/to/file.png');
+	 * ~~~~~
 	 *
-	 * @param Pagefiles $pagefiles 
+	 * @param Pageimages|Pagefiles $pagefiles 
 	 * @param string $filename Full path and filename to this pagefile
 	 * @throws WireException
 	 *

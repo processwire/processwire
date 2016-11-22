@@ -5,7 +5,18 @@
  *
  * Provides capability for sending POST/GET requests to URLs
  * 
- * #pw-summary WireHttp enables you to send HTTP requests to URLs, download files, and more. 
+ * #pw-summary WireHttp enables you to send HTTP requests to URLs, download files, and more.
+ * #pw-body = 
+ * ~~~~~
+ * $http = new WireHttp();
+ * $response = $http->get("http://domain.com/path/");
+ * if($response !== false) {
+ *   echo "Successful response: " . $sanitizer->entities($response);
+ * } else {
+ *   echo "HTTP request failed: " . $http->getError();
+ * }
+ * ~~~~~
+ * #pw-body
  * 
  * Thanks to @horst for his assistance with several methods in this class.
  * 
@@ -219,7 +230,7 @@ class WireHttp extends Wire {
 	 * $response = $http->post("http://domain.com/path/", [
 	 *   'foo' => bar',
 	 * ]); 
-	 * if($response) {
+	 * if($response !== false) {
 	 *   echo "Successful response: " . $sanitizer->entities($response); 
 	 * } else {
 	 *   echo "HTTP request failed: " . $http->getError();
@@ -244,7 +255,7 @@ class WireHttp extends Wire {
 	 * $response = $http->get("http://domain.com/path/", [
 	 *   'foo' => 'bar',
 	 * ]);
-	 * if($response) {
+	 * if($response !== false) {
 	 *   echo "Successful response: " . $sanitizer->entities($response);
 	 * } else {
 	 *   echo "HTTP request failed: " . $http->getError();

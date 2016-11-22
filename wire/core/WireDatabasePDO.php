@@ -733,13 +733,13 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	/**
 	 * Retrieve new instance of WireDatabaseBackups ready to use with this connection
 	 * 
-	 * See WireDatabaseBackup class for usage. 
+	 * See `WireDatabaseBackup` class for usage. 
 	 * 
 	 * #pw-group-custom
 	 * 
 	 * @return WireDatabaseBackup
 	 * @throws WireException|\Exception on fatal error
-	 * @see WireDatabaseBackup
+	 * @see WireDatabaseBackup::backup(), WireDatabaseBackup::restore()
 	 * 
 	 */
 	public function backups() {
