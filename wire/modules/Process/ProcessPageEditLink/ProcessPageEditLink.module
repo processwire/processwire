@@ -137,6 +137,12 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		} else {
 			$currentValue = '';
 		}
+	
+		if($this->wire('input')->get('text')) {
+			$currentValueText = $this->wire('sanitizer')->text($this->wire('input')->get('text'));
+		} else {
+			$currentValueText = '';
+		}
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm"); 
@@ -152,6 +158,19 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$form->add($fieldset); 
 
 		/** @var InputfieldPageAutocomplete $field */
+
+		if($this->wire('input')->get('text')) {
+			$field = $this->modules->get("InputfieldText"); 
+			$field->label = $this->_('Link text'); 
+			$field->attr('id+name', 'link_text'); 
+			//$field->icon = 'external-link-square';
+			//$field->description = $this->_('Enter a URL, email address, anchor, or enter word(s) to find a page.'); 
+			$field->labelFieldName = 'text';
+			if($this->langID) $field->lang_id = $this->langID;
+			if($currentValueText) $field->attr('value', $currentValueText);
+			$fieldset->add($field);
+		}
+
 		$field = $this->modules->get("InputfieldPageAutocomplete"); 
 		$field->label = $this->_('Link to URL'); 
 		$field->attr('id+name', 'link_page_url'); 
