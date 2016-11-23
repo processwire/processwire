@@ -1070,9 +1070,10 @@ class Sanitizer extends Wire {
 		if(strpos($value, '<') !== false) {
 			// tag replacements before strip_tags()
 			$regex =
-				'!(?:<' .
-				'/?(?:ul|ol|p|h\d|div)(?:>|\s[^><]*)' .
-				'|br[\s/]*' .
+				'!<(?:' .
+					'/?(?:ul|ol|p|h\d|div)(?:>|\s[^><]*)' .
+					'|' . 
+					'(?:br[\s/]*)' .
 				')>!is';
 			$value = preg_replace($regex, $newline, $value);
 			if(stripos($value, '</li>')) {
