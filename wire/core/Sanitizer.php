@@ -1589,14 +1589,13 @@ class Sanitizer extends Wire {
 	 * for text coming from user input since it doesn't allow any other HTML. But if you just
 	 * want full markdown, then specify TRUE for the `$options` argument. 
 	 * 
-	 * ~~~~~
 	 * Basic allowed markdown currently includes: 
-	 * **strong**
-	 * *emphasis*
-	 * [anchor-text](url)
-	 * ~~strikethrough~~
-	 * `code`
-	 * ~~~~~
+	 * - `**strong**`
+	 * - `*emphasis*`
+	 * - `[anchor-text](url)`
+	 * - `~~strikethrough~~`
+	 * - code surrounded by backticks
+	 * 
 	 * ~~~~~
 	 * // basic markdown
 	 * echo $sanitizer->entitiesMarkdown($str); 
@@ -2317,42 +2316,50 @@ class Sanitizer extends Wire {
 	 */
 	public function testAll($value) {
 		$sanitizers = array(
+			'alpha', 
+			'alphanumeric',
+			'array',
+			'bool',
+			'date',
+			'digits', 
+			'email',
+			'emailHeader',
+			'entities',
+			'entities1',
+			'entitiesMarkdown',
+			'fieldName',
+			'filename',
+			'float',
+			'int',
+			'intArray',
+			'intSigned',
+			'intUnsigned',
+			'markupToLine',
+			'markupToText',
+			'minArray',
 			'name',
 			'names',
-			'varName',
-			'fieldName',
-			'templateName',
 			'pageName',
 			'pageNameTranslate',
 			'pageNameUTF8',
-			'filename',
-			'path', 
 			'pagePathName',
-			'email',
-			'emailHeader',
-			'text',
-			'textarea',
-			'url',
+			'pagePathNameUTF8',
+			'path',
+			'purify',
+			'removeNewlines',
 			'selectorField',
 			'selectorValue',
-			'entities',
-			'entities1',
-			'unentities',
-			'entitiesMarkdown',
-			'purify',
 			'string',
-			'date',
-			'int',
-			'intUnsigned',
-			'intSigned',
-			'float',
-			'array',
-			'intArray',
-			'bool',
+			'templateName',
+			'text',
+			'textarea',
+			'unentities',
+			'url',
+			'varName',
 		);
 		$results = array();
 		foreach($sanitizers as $method) {
-			$results[$method] = $this->$method($value);	
+			$results[$method] = $this->$method($value);
 		}
 		return $results;
 	}
