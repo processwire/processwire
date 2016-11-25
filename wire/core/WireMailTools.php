@@ -7,6 +7,21 @@
  * https://processwire.com
  * 
  * #pw-summary Provides an API interface to email and WireMail. 
+ * #pw-body = 
+ * ~~~~~
+ * // Simple usage example
+ * $message = $mail->new();
+ * $message->subject('Hello world')
+ *   ->to('user@domain.com')
+ *   ->from('you@company.com');
+ *   ->body('Hello there big world')
+ *   ->bodyHTML('<h2>Hello there big world</h2>');
+ * $numSent = $message->send();
+ * ~~~~~
+ * #pw-body
+ * 
+ * @method WireMail new() Create a new WireMail() instance
+ * @property WireMail new Get a new WireMail() instance (same as method version)
  *
  *
  */
@@ -17,10 +32,10 @@ class WireMailTools extends Wire {
 	 * Get a new WireMail instance for sending email
 	 * 
 	 * ~~~~~
-	 * $mailer = $mail->new();
-	 * $mailer->to('user@domain.com')->from('you@company.com');
-	 * $mailer->subject('Mail Subject')->body('Mail Body Text')->bodyHTML('Body HTML');
-	 * $numSent = $mailer->send();
+	 * $message = $mail->new();
+	 * $message->to('user@domain.com')->from('you@company.com');
+	 * $message->subject('Mail Subject')->body('Mail Body Text')->bodyHTML('Body HTML');
+	 * $numSent = $message->send();
 	 * ~~~~~
 	 *
 	 * @return WireMail
@@ -41,6 +56,7 @@ class WireMailTools extends Wire {
 		}
 		// if no module found, default to WireMail
 		if(is_null($mail)) $mail = $this->wire(new WireMail());
+		/** @var WireMail $mail */
 
 		// reset just in case module was not singular
 		$mail->to();
@@ -136,6 +152,11 @@ class WireMailTools extends Wire {
 		}
 
 		return $numSent;
+	}
+
+	public function __get($key) {
+		if($key === 'new') return $this->new();
+		return parent::__get($key);
 	}
 
 }

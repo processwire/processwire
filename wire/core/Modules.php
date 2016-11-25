@@ -14,6 +14,17 @@
  * https://processwire.com
  * 
  * #pw-summary Loads and manages all modules in ProcessWire. 
+ * #pw-body = 
+ * The `$modules` API variable is most commonly used for getting individual modules to use their API. 
+ * ~~~~~
+ * // Getting a module by name
+ * $m = $modules->get('MarkupPagerNav');
+ * 
+ * // Getting a module by name (alternate)
+ * $m = $modules->MarkupPagerNav;
+ * ~~~~~
+ * 
+ * #pw-body
  * 
  * @todo Move all module information methods to a ModulesInfo class
  * @todo Move all module loading methods to a ModulesLoad class
@@ -1156,7 +1167,7 @@ class Modules extends WireArray {
 	 * Get the requested Module (with options)
 	 * 
 	 * This is the same as `$modules->get()` except that you can specify additional options to modify default behavior.
-	 * These are the options you can speicfy in the `$options` array argument:
+	 * These are the options you can specify in the `$options` array argument:
 	 * 
 	 *  - `noPermissionCheck` (bool): Specify true to disable module permission checks (and resulting exception).
 	 *  - `noInstall` (bool): Specify true to prevent a non-installed module from installing from this request.
@@ -4716,6 +4727,8 @@ class Modules extends WireArray {
 
 	/**
 	 * Compile and return the given file for module, if allowed to do so
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param Module|string $moduleName
 	 * @param string $file Optionally specify the module filename as an optimization

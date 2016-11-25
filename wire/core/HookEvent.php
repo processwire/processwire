@@ -9,6 +9,7 @@
  * Instances of HookEvent are passed to Hook handlers when their requested method has been called.
  * 
  * #pw-summary HookEvent is a type provided to hook functions with information about the event.
+ * #pw-var $event
  * #pw-body =
  * ~~~~~~
  * // Example

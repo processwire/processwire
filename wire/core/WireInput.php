@@ -586,7 +586,16 @@ class WireInput extends Wire {
 	}
 
 	/**
-	 * Return the current request method (i.e. GET, POST) or blank if not known
+	 * Return the current request method (i.e. GET, POST, etc.) or blank if not known
+	 * 
+	 * Possible return values are:
+	 * - GET
+	 * - POST
+	 * - HEAD
+	 * - PUT
+	 * - DELETE
+	 * - OPTIONS
+	 * - or blank if not known
 	 * 
 	 * @return string
 	 * @since 3.0.39

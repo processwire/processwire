@@ -1,37 +1,54 @@
 <?php namespace ProcessWire;
 
 /**
- * ProcessWire WireMail 
- *
+ * ProcessWire WireMail
+ * 
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
- *
- * USAGE:
- *
- * $mail = new WireMail(); 
  * 
- * // chained method call usage
- * $mail->to('user@domain.com')->from('you@company.com')->subject('Message Subject')->body('Message Body')->send();
+ * #pw-summary A module type that handles sending of email in ProcessWire
+ * #pw-var $m
+ * #pw-body = 
+ *
+ * Below are 3 different ways you can get a new instance of WireMail. 
+ * When possible we recommend using option A or B below.  
+ * ~~~~~
+ * $m = $mail->new(); // option A
+ * $m = wireMail(); // option B
+ * $m = new WireMail(); // option C
+ * ~~~~~
+ * Once you have an instance of WireMail (`$m`), you can use it to send email like in these examples below. 
+ * ~~~~~
+ * // chained (fluent) method call usage
+ * $m->to('user@domain.com')
+ *   ->from('you@company.com')
+ *   ->subject('Message Subject')
+ *   ->body('Message Body')
+ *   ->send();
  *
  * // separate method call usage
- * $mail->to('user@domain.com'); // specify CSV string or array for multiple addresses
- * $mail->from('you@company.com'); 
- * $mail->subject('Message Subject'); 
- * $mail->body('Message Body'); 
- * $mail->send();
+ * $m->to('user@domain.com'); // specify CSV string or array for multiple addresses
+ * $m->from('you@company.com'); 
+ * $m->subject('Message Subject'); 
+ * $m->body('Message Body'); 
+ * $m->send();
  *
- * // you can also set values without function calls:
- * $mail->to = 'user@domain.com';
- * $mail->from = 'you@company.com';
- * ...and so on.
+ * // optionally specify “from” or “to” names as 2nd argument 
+ * $m->to('user@domain.com', 'John Smith');
+ * $m->from('you@company.com', 'Mary Jane'); 
  *
  * // other methods or properties you might set (or get)
- * $mail->bodyHTML('<html><body><h1>Message Body</h1></body></html>'); 
- * $mail->header('X-Mailer', 'ProcessWire'); 
- * $mail->param('-f you@company.com'); // PHP mail() param (envelope from example)
+ * $m->bodyHTML('<html><body><h1>Message Body</h1></body></html>'); 
+ * $m->attachment('/path/to/file.ext'); 
+ * $m->fromName('Mary Jane');
+ * $m->toName('John Smith');
+ * $m->header('X-Mailer', 'ProcessWire'); 
+ * $m->param('-f you@company.com'); // PHP mail() param (envelope from example)
  *
  * // note that the send() function always returns the quantity of messages sent
- * $numSent = $mail->send();
+ * $numSent = $m->send();
+ * ~~~~~
+ * #pw-body
  * 
  * @method int send()
  * @property array $to
@@ -43,7 +60,7 @@
  * @property string $bodyHTML
  * @property array $header
  * @property array $param
- * @property array $attachments
+ * @property array $attachments Array of file attachments (if populated) #pw-advanced
  *
  */
 
@@ -69,7 +86,6 @@ class WireMail extends WireData implements WireMailInterface {
 	public function __construct() {
 		$this->mail['header']['X-Mailer'] = "ProcessWire/" . $this->className();
 	}
-
 
 	public function __get($key) {
 		if(array_key_exists($key, $this->mail)) return $this->mail[$key]; 
@@ -146,11 +162,11 @@ class WireMail extends WireData implements WireMailInterface {
 	 * you specify NULL as the email address, in which case it clears them all.
 	 *
 	 * @param string|array|null $email Specify any ONE of the following: 
-	 *	1. Single email address or "User Name <user@example.com>" string.
-	 * 	2. CSV string of #1. 
-	 * 	3. Non-associative array of #1. 
-	 * 	4. Associative array of (email => name)
-	 *	5. NULL (default value, to clear out any previously set values)
+	 * - Single email address or "User Name <user@example.com>" string.
+	 * - CSV string of #1. 
+	 * - Non-associative array of #1. 
+	 * - Associative array of (email => name)
+	 * - NULL (default value, to clear out any previously set values)
 	 * @param string $name Optionally provide a TO name, applicable
 	 *	only when specifying #1 (single email) for the first argument. 
 	 * @return $this 
@@ -203,7 +219,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 *
  	 * This sets the 'to name' for whatever the last added 'to' email address was.
 	 *
-	 * @param string 
+	 * @param string The 'to' name
 	 * @return $this 
 	 * @throws WireException if you attempt to set a toName before a to email. 
 	 *
@@ -238,7 +254,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * It is preferable to do this with the from() method, but this is provided to ensure that 
 	 * all properties can be set with direct access, i.e. $mailer->fromName = 'User Name';
 	 *
-	 * @param string 
+	 * @param string The 'from' name
 	 * @return $this 
 	 *
 	 */
@@ -250,7 +266,7 @@ class WireMail extends WireData implements WireMailInterface {
 	/**
 	 * Set the email subject
 	 *
-	 * @param string $subject 
+	 * @param string $subject Email subject text
 	 * @return $this 
 	 *
 	 */
@@ -261,8 +277,13 @@ class WireMail extends WireData implements WireMailInterface {
 
 	/**
 	 * Set the email message body (text only)
+	 * 
+	 * ~~~~~
+	 * $m = wireMail();
+	 * $m->body('Hello world');
+	 * ~~~~~
 	 *
-	 * @param string $body in text only
+	 * @param string $body Email body in text only
 	 * @return $this 
 	 *
 	 */
@@ -273,8 +294,15 @@ class WireMail extends WireData implements WireMailInterface {
 
 	/**
 	 * Set the email message body (HTML only)
+	 * 
+	 * This should be the text from an entire HTML document, not just an element.
+	 * 
+	 * ~~~~~
+	 * $m = wireMail();
+	 * $m->bodyHTML('<html><body><h1>Hello world</h1></body></html>');
+	 * ~~~~~
 	 *
-	 * @param string $body in HTML
+	 * @param string $body Email body in HTML
 	 * @return $this 
 	 *
 	 */
@@ -286,11 +314,13 @@ class WireMail extends WireData implements WireMailInterface {
 	/**
 	 * Set any email header
 	 *
-	 * Note: multiple calls will append existing headers. 
-	 * To remove an existing header, specify NULL as the value. 
+	 * - Multiple calls will append existing headers. 
+	 * - To remove an existing header, specify NULL as the value. 
+	 * 
+	 * #pw-advanced
 	 *
-	 * @param string $key
-	 * @param string $value
+	 * @param string $key Header name
+	 * @param string $value Header value
 	 * @return $this 
 	 *
 	 */
@@ -311,10 +341,15 @@ class WireMail extends WireData implements WireMailInterface {
 	/**
 	 * Set any email param 
 	 *
-	 * See $additional_parameters at: http://www.php.net/manual/en/function.mail.php
-	 * Note: multiple calls will append existing params. 
-	 * To remove an existing param, specify NULL as the value. 
-	 * This function may only be applicable to PHP mail().
+	 * See `$additional_parameters` at <http://www.php.net/manual/en/function.mail.php>
+	 * 
+	 * - Multiple calls will append existing params. 
+	 * - To remove an existing param, specify NULL as the value. 
+	 * 
+	 * This function may only be applicable if you don't have other WireMail modules
+	 * installed as email params are only used by PHP's `mail()` function. 
+	 * 
+	 * #pw-advanced
 	 *
 	 * @param string $value
 	 * @return $this 
@@ -333,17 +368,19 @@ class WireMail extends WireData implements WireMailInterface {
 	 * Add a file to be attached to the email
 	 * 
 	 * ~~~~~~
-	 * $mail = new WireMail();
-	 * $mail->to('user@domain.com')->from('hello@world.com');
-	 * $mail->subject('Test attachment');
-	 * $mail->body('This is just a test of a file attachment');
-	 * $mail->attachment('/path/to/file.jpg'); 
-	 * $mail->send();
+	 * $m = wireMail();
+	 * $m->to('user@domain.com')->from('hello@world.com');
+	 * $m->subject('Test attachment');
+	 * $m->body('This is just a test of a file attachment');
+	 * $m->attachment('/path/to/file.jpg'); 
+	 * $m->send();
 	 * ~~~~~~
+	 * 
+	 * #pw-advanced
 	 *
-	 * Multiple calls will append attachments. 
-	 * To remove the supplied attachments, specify NULL as the value. 
-	 * This function may not be supported by 3rd party WireMail modules. 
+	 * - Multiple calls will append attachments. 
+	 * - To remove the supplied attachments, specify NULL as the value. 
+	 * - Attachments may or may not be supported by 3rd party WireMail modules. 
 	 *
 	 * @param string $value Full path and filename of file attachment
 	 * @param string $filename Optional different basename for file as it appears in the mail
@@ -363,7 +400,9 @@ class WireMail extends WireData implements WireMailInterface {
 	/**
 	 * Send the email
 	 *
-	 * This is the primary method that modules extending this class would want to replace.
+	 * Call this method only after you have specified at least the `subject`, `to` and `body`.
+	 * 
+	 * #pw-notes This is the primary method that modules extending this class would want to replace.
 	 *
 	 * @return int Returns a positive number (indicating number of addresses emailed) or 0 on failure. 
 	 *
@@ -462,7 +501,9 @@ class WireMail extends WireData implements WireMailInterface {
 	}
 	
 	/**
-	 * Encode the subject, use mbstring if available
+	 * Encode a subject, use mbstring if available
+	 * 
+	 * #pw-advanced
 	 *
 	 * @param string $subject
 	 * @return string
@@ -531,6 +572,8 @@ class WireMail extends WireData implements WireMailInterface {
 	 *
 	 * Uses short notation for charset and encoding suitable for email headers
 	 * as laid out in rfc2047.
+	 * 
+	 * #pw-advanced
 	 *
 	 * @param string $text
 	 * @return string

@@ -6,9 +6,11 @@
  * Provides capability for sending POST/GET requests to URLs
  * 
  * #pw-summary WireHttp enables you to send HTTP requests to URLs, download files, and more.
+ * #pw-var $http
+ * #pw-instantiate $http = new WireHttp();
  * #pw-body = 
  * ~~~~~
- * $http = new WireHttp();
+ * // Get the contents of a URL
  * $response = $http->get("http://domain.com/path/");
  * if($response !== false) {
  *   echo "Successful response: " . $sanitizer->entities($response);
@@ -899,7 +901,7 @@ class WireHttp extends Wire {
 	 *   - `content-type`: {content-type} (replaced with actual content type)
 	 *   - `content-transfer-encoding`: binary
 	 *   - `content-length`: {filesize} (replaced with actual filesize)
-	 *	 - To remove a header completely, make its value NULL and it won't be sent.
+	 *   - To remove a header completely, make its value NULL and it won't be sent.
 	 * @throws WireException
 	 *
 	 */

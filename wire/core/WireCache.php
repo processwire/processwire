@@ -375,6 +375,8 @@ class WireCache extends Wire {
 			$data = json_encode($data);
 			if($data === false) throw new WireException("Unable to encode array data for cache: $name"); 
 		}
+		
+		if(is_null($data)) $data = '';
 
 		$sql = 
 			'INSERT INTO caches (`name`, `data`, `expires`) VALUES(:name, :data, :expires) ' . 

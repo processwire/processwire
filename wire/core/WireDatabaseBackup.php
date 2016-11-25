@@ -2,20 +2,18 @@
 
 /**
  * #pw-summary ProcessWire Database Backup and Restore
+ * #pw-summary-initialization It’s not typically necessary to call these initialization methods unless doing manual initialization.
+ * #pw-var $backup
+ * #pw-instantiate $backup = $database->backup();
+ * #pw-order-groups actions,reporting,initialization,advanced
  * #pw-body = 
  * This class intentionally does not have any external dependencies (other than PDO)
  * so that it can be included by outside tools for restoring/exporting, with the main
  * example of that being the ProcessWire installer. 
  * 
  * The recommended way to access these backup methods is via the `$database` API variable
- * method `$database->backups()`, which returns a `WireDatabaseBackup` instance.
- * 
- * ### Easy Initialization (recommended) 
- * ~~~~~
- * $backup = $database->backups();
- * ~~~~~
- * 
- * ### Manual Initialization (if you need it)
+ * method `$database->backups()`, which returns a `WireDatabaseBackup` instance, however
+ * you can also initialize the class manually if you prefer, like this:
  * ~~~~~
  * // determine where backups will go (should NOT be web accessible)
  * $backupPath = $config->paths->assets . 'backups/';
@@ -32,25 +30,21 @@
  * ~~~~~
  * ### Backup the database
  * ~~~~~
- * $options = array(); // optional
- * $file = $backup->backup($options);
+ * $file = $backup->backup();
  * if($file) {
- *   print_r($backup->notes());
+ *   echo "Backed up to: $file";
  * } else {
- *   print_r($backup->errors());
+ *   echo "Backup failed: " . implode("<br>", $backup->errors());
  * }
  * ~~~~~
- * Note: the `print_r()` function calls are just for demonstration and testing purposes. We are not suggesting
- * you actually do that except when testing.
  * 
  * ### Restore a database
  * ~~~~~
- * $options = array(); // optional
- * $success = $backup->restore($file, $options);
+ * $success = $backup->restore($file);
  * if($success) {
- *   print_r($backup->notes());
+ *   echo "Restored database from file: $file";
  * } else {
- *   print_r($backup->errors()); 
+ *   echo "Restore failed: " . implode("<br>", $backup->errors());
  * }
  * ~~~~~
  * #pw-body
@@ -269,7 +263,9 @@ class WireDatabaseBackup {
 	 * You should follow-up the construct call with one or both of the following:
 	 * 
 	 * 	- $backups->setDatabase(PDO|WireDatabasePDO);
-	 * 	- $backups->setDatabaseConfig(array|object); 
+	 * 	- $backups->setDatabaseConfig(array|object);
+	 * 
+	 * #pw-group-initialization
 	 * 
 	 * @param string $path Path where database files are stored
 	 * @throws \Exception
@@ -282,6 +278,8 @@ class WireDatabaseBackup {
 	/**
 	 * Set the current ProcessWire instance
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param ProcessWire $wire
 	 * 
 	 */
@@ -292,8 +290,16 @@ class WireDatabaseBackup {
 	/**
 	 * Set the database configuration information
 	 * 
-	 * @param array|object $config Containing these properties: dbUser, dbHost, dbPort, dbName,
-	 * 	and optionally: dbPass, dbPath, dbCharset
+	 * #pw-group-initialization
+	 * 
+	 * @param array|Config|object $config Containing these properties: 
+	 *  - dbUser
+	 *  - dbHost
+	 *  - dbPort
+	 *  - dbName
+	 * 	- dbPass
+	 *  - dbPath (optional)
+	 *  - dbCharset (optional)
 	 * @return $this
 	 * @throws \Exception if missing required config settings
 	 * 
@@ -329,7 +335,9 @@ class WireDatabaseBackup {
 	}
 
 	/**
-	 * Set the database connection
+	 * Set the PDO database connection
+	 * 
+	 * #pw-group-initialization
 	 * 
 	 * @param \PDO|WireDatabasePDO $database
 	 * @throws \PDOException on invalid connection
@@ -345,6 +353,8 @@ class WireDatabaseBackup {
 
 	/**
 	 * Get current database connection, initiating the connection if not yet active
+	 * 
+	 * #pw-advanced
 	 * 
 	 * @return null|\PDO|WireDatabasePDO
 	 * @throws \Exception
@@ -377,6 +387,8 @@ class WireDatabaseBackup {
 	/**
 	 * Add an error and return last error
 	 * 
+	 * #pw-group-reporting
+	 * 
 	 * @param string $str If omitted, no error is added
 	 * @return string
 	 * 
@@ -388,6 +400,8 @@ class WireDatabaseBackup {
 
 	/**
 	 * Return all error messages that occurred
+	 * 
+	 * #pw-group-reporting
 	 * 
 	 * @param bool $reset Specify true to clear out existing errors or omit just to return error messages
 	 * @return array
@@ -401,6 +415,8 @@ class WireDatabaseBackup {
 	
 	/**
 	 * Record a note
+	 * 
+	 * #pw-group-reporting
 	 *
 	 * @param $key
 	 * @param $value
@@ -413,6 +429,8 @@ class WireDatabaseBackup {
 
 	/**
 	 * Get all notes
+	 * 
+	 * #pw-group-reporting
 	 *
 	 * @param bool $reset
 	 * @return array
@@ -427,6 +445,8 @@ class WireDatabaseBackup {
 	/**
 	 * Set path where database files are stored
 	 * 
+	 * #pw-group-initialization
+	 * 
 	 * @param string $path
 	 * @return $this
 	 * @throws \Exception if path has a problem
@@ -439,7 +459,15 @@ class WireDatabaseBackup {
 		$this->path = $path;
 		return $this;
 	}
-	
+
+	/**
+	 * Get path where database files are stored
+	 *
+	 * #pw-group-reporting
+	 *
+	 * @return string
+	 *
+	 */
 	public function getPath() {
 		return $this->path; 
 	}
@@ -448,6 +476,8 @@ class WireDatabaseBackup {
 	 * Return array of all backup files
 	 *
 	 * To get additional info on any of them, call getFileInfo($basename) method
+	 * 
+	 * #pw-group-reporting
 	 *
 	 * @return array of strings (basenames)
 	 *
@@ -467,8 +497,10 @@ class WireDatabaseBackup {
 	
 	/**
 	 * Get information about a backup file
+	 * 
+	 * #pw-group-reporting
 	 *
-	 * @param $filename
+	 * @param string $filename
 	 * @return array Returns associative array of information on success, empty array on failure
 	 *
 	 */
@@ -534,6 +566,8 @@ class WireDatabaseBackup {
 
 	/**
 	 * Get array of all table names
+	 * 
+	 * #pw-group-reporting
 	 *
 	 * @param bool $count If true, returns array will be indexed by name and include count of records as value
 	 * @param bool $cache Allow use of cache?
@@ -575,6 +609,8 @@ class WireDatabaseBackup {
 
 	/**
 	 * Perform a database export/dump
+	 * 
+	 * #pw-group-actions
 	 * 
 	 * @param array $options Options to modify default behavior:
 	 * - `filename` (string): filename for backup: default is to make a dated filename, but this can also be used (basename only, no path)
@@ -640,7 +676,16 @@ class WireDatabaseBackup {
 	
 		return $success ? $file : false;
 	}
-	
+
+	/**
+	 * Set backup options
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param array $options
+	 * @return $this
+	 * 
+	 */
 	public function setBackupOptions(array $options) {
 		$this->backupOptions = array_merge($this->backupOptions, $options); 
 		return $this;
@@ -869,7 +914,13 @@ class WireDatabaseBackup {
 	
 	
 	/**
-	 * Import a database SQL file that was created by this class
+	 * Restore/import a MySQL database dump file 
+	 * 
+	 * This method is designed to restore dump files created by the backup() method of this
+	 * class, however it *may* also work with dump files created from other sources like 
+	 * mysqldump or PhpMyAdmin.
+	 * 
+	 * #pw-group-actions
 	 * 
 	 * @param string $filename Filename to restore, optionally including path (if no path, then path set to construct is assumed)
 	 * @param array $options Options to modify default behavior: 
@@ -909,7 +960,16 @@ class WireDatabaseBackup {
 
 		return $success;
 	}
-	
+
+	/**
+	 * Set restore options
+	 * 
+	 * #pw-internal 
+	 * 
+	 * @param array $options
+	 * @return $this
+	 * 
+	 */
 	public function setRestoreOptions(array $options) {
 		$this->restoreOptions = array_merge($this->restoreOptions, $options);
 		return $this;
@@ -1049,6 +1109,8 @@ class WireDatabaseBackup {
 	 * 
 	 * This method assumes both files follow the SQL dump format created by this class. 
 	 * 
+	 * #pw-advanced
+	 * 
 	 * @param string $filename1 Original filename
 	 * @param string $filename2 Filename that may have statements that will update/override those in filename1
 	 * @param array $options
@@ -1143,6 +1205,8 @@ class WireDatabaseBackup {
 	/**
 	 * Returns array of all create table statements, indexed by table name
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param string $filename to extract all CREATE TABLE statements from
 	 * @param array $options
 	 * @return bool|array of CREATE TABLE statements, associative: indexed by table name
@@ -1165,7 +1229,9 @@ class WireDatabaseBackup {
 	}
 
 	/**
-	 * Returns array of all INSERT statements, indexed by table name
+	 * Returns array of all INSERT statements in given filename, indexed by table name
+	 * 
+	 * #pw-internal
 	 *
 	 * @param string $filename to extract all CREATE TABLE statements from
 	 * @return array of arrays of INSERT statements. Base array is associative indexed by table name. 
