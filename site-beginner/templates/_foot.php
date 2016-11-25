@@ -1,9 +1,9 @@
 
 
-	</div><!--/#main-->
+	</main>
 
 	<!-- footer -->
-	<footer id='footer'>
+	<footer id='footer' role="contentinfo">
 		<p>
 		Powered by <a href='http://processwire.com'>ProcessWire CMS</a>  &nbsp; / &nbsp; 
 		<?php 

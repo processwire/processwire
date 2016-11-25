@@ -23,7 +23,7 @@ include('./_head.php'); // include header markup ?>
 	
 	?></div><!-- end content -->
 
-	<div id='sidebar'><?php
+	<aside id='sidebar'><?php
 	
 		// rootParent is the parent page closest to the homepage
 		// you can think of this as the "section" that the user is in
@@ -40,6 +40,6 @@ include('./_head.php'); // include header markup ?>
 		// output sidebar text if the page has it
 		echo $page->sidebar; 
 	
-	?></div><!-- end sidebar -->
+	?></aside><!-- end sidebar -->
 
 <?php include('./_foot.php'); // include footer markup ?>
