@@ -6,6 +6,7 @@
  * 3. Main content and sidebar
  * 4. Footer
  * 5. Media queries for responsive layout
+ * 6. Accessibility helpers
  * 
  */
 
@@ -123,9 +124,6 @@ form.search {
 		padding: 0.25em 0.5em;
 		border: 1px solid #ccc; 
 		width: 100%; 
-	}
-	form.search button {
-		display: none; 
 	}
 
 .breadcrumbs {
@@ -290,4 +288,44 @@ figure figcaption {
 	body, td, textarea {
 		font-size: 115%; 
 	}
+}
+
+/*********************************************************************
+ * 6. Accessibility helpers
+ *
+ */
+
+/* Hide visually, but remain approachable for screenreader */
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	white-space: nowrap;
+	overflow: hidden;
+	clip: rect(1px, 1px, 1px, 1px);
+	border: 0;
+}
+
+/* Show bypass link on hover */
+
+.element-focusable:focus {
+	clip: auto;
+	overflow: visible;
+	height: auto;
+}
+
+/* Sample styling for bypass link */
+
+.bypass-to-main:focus {
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 40px;
+	line-height: 40px;
+	text-align: center;
+	background: #333;
+	color: #fff;
 }
