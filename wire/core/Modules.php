@@ -4746,6 +4746,20 @@ class Modules extends WireArray {
 	
 		// don't compile core modules
 		if(strpos($file, $this->coreModulesDir) !== false) return $file;
+		
+		// check if a module doesn't want something (directory/file) compiled
+		$moduleInfo = $this->wire('modules')->getModuleInfoVerbose($moduleName);
+		$exclusionsKey = 'fileCompilerExclusions';
+		if(isset($moduleInfo[$exclusionsKey]) && is_array($moduleInfo[$exclusionsKey])) {
+			foreach($moduleInfo[$exclusionsKey] as $exclusion) {
+				$exclusion = pathinfo($file, PATHINFO_DIRNAME) . '/' . $exclusion;
+				if(!in_array($exclusion, $this->wire('config')->fileCompilerOptions['exclusions'])) {
+					$this->wire('config')->fileCompilerOptions('exclusions', array_merge(
+						$this->wire('config')->fileCompilerOptions['exclusions'], [$exclusion]
+					));
+				}
+			}
+		}
 	
 		// if namespace not provided, get it
 		if(is_null($namespace)) {
