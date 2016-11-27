@@ -48,7 +48,7 @@
 		// top navigation consists of homepage and its visible children
 		foreach($homepage->and($homepage->children) as $item) {
 			if($item->id == $page->rootParent->id) {
-				echo "<li class='current'><span class='visually-hidden'>Current page: </span>";
+				echo "<li class='current' aria-current='true'><span class='visually-hidden'>Current page: </span>";
 			} else {
 				echo "<li>";
 			}

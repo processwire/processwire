@@ -64,9 +64,10 @@
 					if ($child === $page->rootParent) {
 						$class = " class='on'";
 						$indicator = "<span class='visually-hidden'>Current page: </span>";
+						$ariaState = " aria-current='true' ";
 					}
 					$class = $child === $page->rootParent ? " class='on'" : '';
-					echo "<li><a$class href='{$child->url}'>$indicator{$child->title}</a></li>";
+					echo "<li><a$class$ariaState href='{$child->url}'>$indicator{$child->title}</a></li>";
 				}
 
 			?></ul>
@@ -140,7 +141,8 @@
 
 					foreach($page->rootParent->children as $child) {
 						$class = $page === $child ? " class='on'" : '';
-						echo "<li><a$class href='{$child->url}'>{$child->title}</a></li>";	
+						$ariaState = $page === $child ? " aria-current='true' " : '';
+						echo "<li><a$class$ariaState href='{$child->url}'>{$child->title}</a></li>";
 					}
 
 					echo "</ul>";
