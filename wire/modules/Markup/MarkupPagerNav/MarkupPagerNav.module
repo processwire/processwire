@@ -106,7 +106,7 @@ class MarkupPagerNav extends Wire implements Module {
 		'page' => null, 	
 
 		// List container markup. Place {out} where you want the individual items rendered. 
-		'listMarkup' => "\n<nav role='navigation' aria-label='{pager-aria-label}'><ul class='MarkupPagerNav'>{out}\n</ul></nav>",
+		'listMarkup' => "\n<ul class='MarkupPagerNav' role='navigation' aria-label='{pager-aria-label}'>{out}\n</ul>",
 
 		// List item markup. Place {class} for item class (required), and {out} for item content. 
 		'itemMarkup' => "\n\t<li aria-label='{item-aria-label}' {item-current-aria-marker} class='{class}'>{out}</li>",
