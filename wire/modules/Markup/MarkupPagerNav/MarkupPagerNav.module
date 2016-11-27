@@ -59,6 +59,9 @@ require_once(dirname(__FILE__) . '/PagerNav.php');
  * @property string $lastItemClass Class for last item (default='MarkupPagerNavLast')
  * @property string $lastNumberItemClass Class for last numbered item (default='MarkupPagerNavLastNum')
  * @property string $currentItemClass Class for current item (default='MarkupPagerNavOn')
+ * @property string $pagerAriaLabel label announcing pagination to screen readers (default='Pager Navigation')
+ * @property string $itemAriaLabel label announcing page number to screen readers (default='Page ')
+ * @property string $itemCurrentAriaLabel label announcing current page to screen readers (default=', current page')
  * @property bool $arrayToCSV when arrays are present in getVars, they will be translated to CSV strings in the queryString: ?var=a,b,c. if set to false, then arrays will be kept in traditional format: ?var[]=a&var[]=b&var=c (default=true)
  * @property int $totalItems Get total number of items to paginate (set automatically)
  * @property int $itemsPerPage Get number of items to display per page (set automatically)
@@ -75,7 +78,7 @@ class MarkupPagerNav extends Wire implements Module {
 		return array(
 			'title' => 'Pager (Pagination) Navigation', 
 			'summary' => 'Generates markup for pagination navigation', 
-			'version' => 104, 
+			'version' => 105,
 			'permanent' => false, 
 			'singular' => false, 
 			'autoload' => false, 
@@ -103,10 +106,10 @@ class MarkupPagerNav extends Wire implements Module {
 		'page' => null, 	
 
 		// List container markup. Place {out} where you want the individual items rendered. 
-		'listMarkup' => "\n<ul class='MarkupPagerNav'>{out}\n</ul>",
+		'listMarkup' => "\n<nav role='navigation' aria-label='{pager-aria-label}'><ul class='MarkupPagerNav'>{out}\n</ul></nav>",
 
 		// List item markup. Place {class} for item class (required), and {out} for item content. 
-		'itemMarkup' => "\n\t<li class='{class}'>{out}</li>",
+		'itemMarkup' => "\n\t<li aria-label='{item-aria-label}' {item-current-aria-marker} class='{class}'>{out}</li>",
 
 		// Link markup. Place {url} for href attribute, and {out} for label content. 
 		'linkMarkup' => "<a href='{url}'><span>{out}</span></a>", 
@@ -132,6 +135,9 @@ class MarkupPagerNav extends Wire implements Module {
 		'lastItemClass' => 'MarkupPagerNavLast', 
 		'lastNumberItemClass' => 'MarkupPagerNavLastNum',
 		'currentItemClass' => 'MarkupPagerNavOn', 
+		'pagerAriaLabel' => 'Pager Navigation',
+		'itemAriaLabel' => 'Page ',
+		'itemCurrentAriaLabel' => ', current page',
 
 		/*
 		 * NOTE: The following options are set automatically and should not be provided in your $options,
@@ -260,10 +266,13 @@ class MarkupPagerNav extends Wire implements Module {
 				$class .= ' ' . $this->options['lastNumberItemClass'];
 				if($item->type == 'current') $this->isLastPage = true; 
 			}
-			
+
+            $itemCurrentAriaLabel = $item->type == 'current' ? $this->options['itemCurrentAriaLabel'] : "";
+            $itemCurrentAriaMarker = $item->type == 'current' ? 'aria-current="true"' : "";
+
 			$linkMarkup = isset($this->options[$item->type . 'LinkMarkup']) ? $this->options[$item->type . 'LinkMarkup'] : $this->options['linkMarkup'];
-			$link = str_replace(array('{url}', '{out}'), array($url, $item->label), $linkMarkup); 
-			$out .= str_replace(array('{class}', '{out}'), array(trim($class), $link), $this->options['itemMarkup']); 
+			$link = str_replace(array('{url}', '{out}'), array($url, $item->label), $linkMarkup);
+			$out .= str_replace(array('{class}', '{out}', '{item-aria-label}', '{item-current-aria-marker}'), array(trim($class), $link , $this->options['itemAriaLabel'] . $item->pageNum . $itemCurrentAriaLabel, $itemCurrentAriaMarker), $this->options['itemMarkup']);
 			
 			if($item->type == 'current') {
 				$prevURL = $_url;
@@ -279,7 +288,8 @@ class MarkupPagerNav extends Wire implements Module {
 		if($out) {
 			$out = str_replace(array(" class=''", ' class=""'), '', $out);
 			$out = str_replace('{out}', $out, $this->options['listMarkup']); 
-			
+			$out = str_replace('{pager-aria-label}', $this->options['pagerAriaLabel'], $out );
+
 			if($nextURL) $config->urls->next = $nextURL;
 			if($prevURL) $config->urls->prev = $prevURL;
 		}
