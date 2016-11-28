@@ -51,6 +51,7 @@
  * @property bool $_exportMode True when Fieldtype is exporting config data, false otherwise.  #pw-internal
  * @property string $name Name of Fieldtype module. #pw-group-other
  * @property string $shortName Short name of Fieldtype, which excludes the "Fieldtype" prefix. #pw-group-other
+ * @property string $longName Long name of Fieldtype, which is typically the module title. #pw-group-other
  * 
  */
 abstract class Fieldtype extends WireData implements Module {
@@ -1257,7 +1258,12 @@ abstract class Fieldtype extends WireData implements Module {
 	 */
 	public function get($key) {
 		if($key == 'name') return $this->className();
-		if($key == 'shortName') return str_replace('Fieldtype', '', $this->className()); 
+		if($key == 'shortName') {
+			return str_replace('Fieldtype', '', $this->className());
+		} else if($key == 'longName') {
+			$info = $this->getModuleInfo($this);
+			return $info['title'];
+		}
 		return parent::get($key); 
 	}
 
