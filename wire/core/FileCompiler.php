@@ -429,6 +429,11 @@ class FileCompiler extends Wire {
 			}
 		}
 		
+		if(stripos($data, "FileCompiler=?") !== false) {
+			// Allow for a token that gets replaced so a file can detect if it's compiled
+			$data = str_replace("FileCompiler=?", "FileCompiler=Yes", $data);
+		}
+		
 		return $data;
 	}
 
@@ -538,6 +543,11 @@ class FileCompiler extends Wire {
 		if(!preg_match_all($re, $data, $matches)) return;
 		
 		foreach($matches[0] as $key => $fullMatch) {
+	
+			// if the include statement looks like one of these below then skip compilation for included file
+			// include(/*NoCompile*/__DIR__ . '/file.php');
+			// include(__DIR__ . '/file.php'/*NoCompile*/); 
+			if(strpos($fullMatch, 'NoCompile') !== false) continue;
 		
 			$open = $matches[1][$key];
 			$funcMatch = $matches[2][$key];
