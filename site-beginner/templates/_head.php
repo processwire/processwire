@@ -25,7 +25,7 @@
 			if($child->id == $page->rootParent->id) {
 				// this $child page is currently being viewed (or one of it's children/descendents)
 				// so we highlight it as the current page in the navigation
-				echo "<li class='current'><span class='visually-hidden'>Current page: </span><a href='$child->url'>$child->title</a></li>";
+				echo "<li class='current' aria-current='true'><span class='visually-hidden'>Current page: </span><a href='$child->url'>$child->title</a></li>";
 			} else {
 				echo "<li><a href='$child->url'>$child->title</a></li>";
 			}
