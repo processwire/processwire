@@ -452,7 +452,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$out .= $this->form->render();
 	
 		// buttons with dropdowns
-		if(!$this->wire('input')->get('modal') && !$this->wire('session')->get('touch') && !count($this->fields)) {
+		if(!$this->wire('input')->get('modal') && !count($this->fields)) {
 			
 			$config = $this->wire('config');
 			$file = $config->debug ? 'dropdown.js' : 'dropdown.min.js';

@@ -107,6 +107,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$name = $config->dbName;
 		$socket = $config->dbSocket; 
 		$charset = $config->dbCharset;
+		$options = $config->dbOptions;
+		
 		$initCommand = str_replace('{charset}', $charset, $config->dbInitCommand);
 		
 		if($socket) {
@@ -118,13 +120,17 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			if($port) $dsn .= ";port=$port";
 		}
 		
-		$driver_options = array(
-			\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION
-		);
+		if(!is_array($options)) $options = array();
+	
+		if(!isset($options[\PDO::ATTR_ERRMODE])) {
+			$options[\PDO::ATTR_ERRMODE] = \PDO::ERRMODE_EXCEPTION;
+		}
 		
-		if($initCommand) $driver_options[\PDO::MYSQL_ATTR_INIT_COMMAND] = $initCommand;
+		if($initCommand && !isset($options[\PDO::MYSQL_ATTR_INIT_COMMAND])) {
+			$options[\PDO::MYSQL_ATTR_INIT_COMMAND] = $initCommand;
+		}
 		
-		$database = new WireDatabasePDO($dsn, $username, $password, $driver_options); 
+		$database = new WireDatabasePDO($dsn, $username, $password, $options); 
 		$database->setDebugMode($config->debug);
 		$config->wire($database);
 		$database->_init();

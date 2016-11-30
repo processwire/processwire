@@ -275,7 +275,12 @@ $config->sessionFingerprint = 1;
 $config->sessionCookieSecure = 1; 
 
 /**
- * Cookie domain
+ * Cookie domain for sessions
+ * 
+ * Enables a session to traverse multiple subdomains.
+ * Specify a string with domain or NULL to disable (default/recommended). 
+ * 
+ * @var string|null
  *
  */
 $config->sessionCookieDomain = null;
@@ -773,9 +778,7 @@ $config->dbCharset = 'utf8';
 /**
  * Database engine
  * 
- * MyISAM is the recommended value, but you may also use InnoDB (experimental). 
- *
- * Note that use of 'InnoDB' is currently experimental. Avoid changing this after install.
+ * May be 'InnoDB' or 'MyISAM'. Avoid changing this after install.
  * 
  */
 $config->dbEngine = 'MyISAM';
@@ -871,7 +874,19 @@ $config->dbSqlModes = array(
 );
 
 /**
+ * A key=>value array of any additional driver-specific connection options.
+ * 
+ * This is the 
+ * 
+ * @var array
+ * 
+ */
+$config->dbOptions = array();
+
+/**
  * Optional DB socket config for sites that need it (for most you should exclude this)
+ * 
+ * @var string
  *
  */
 $config->dbSocket = '';

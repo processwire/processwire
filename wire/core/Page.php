@@ -76,13 +76,13 @@
  * 
  * Methods added by PagePermissions.module: 
  * ----------------------------------------
- * @method bool viewable($field = '') Returns true if the page (and optionally field) is viewable by the current user, false if not. #pw-group-access
- * @method bool editable($field = '') Returns true if the page (and optionally field) is editable by the current user, false if not. #pw-group-access
+ * @method bool viewable($field = '', $checkTemplateFile = true) Returns true if the page (and optionally field) is viewable by the current user, false if not. #pw-group-access
+ * @method bool editable($field = '', $checkPageEditable = true) Returns true if the page (and optionally field) is editable by the current user, false if not. #pw-group-access
  * @method bool publishable() Returns true if the page is publishable by the current user, false if not. #pw-group-access
  * @method bool listable() Returns true if the page is listable by the current user, false if not. #pw-group-access
  * @method bool deleteable() Returns true if the page is deleteable by the current user, false if not. #pw-group-access
  * @method bool deletable() Alias of deleteable(). #pw-group-access
- * @method bool trashable() Returns true if the page is trashable by the current user, false if not. #pw-group-access
+ * @method bool trashable($orDeleteable = false) Returns true if the page is trashable by the current user, false if not. #pw-group-access
  * @method bool addable($pageToAdd = null) Returns true if the current user can add children to the page, false if not. Optionally specify the page to be added for additional access checking. #pw-group-access
  * @method bool moveable($newParent = null) Returns true if the current user can move this page. Optionally specify the new parent to check if the page is moveable to that parent. #pw-group-access
  * @method bool sortable() Returns true if the current user can change the sort order of the current page (within the same parent). #pw-group-access

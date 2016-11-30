@@ -66,10 +66,9 @@ class AdminThemeDefaultHelpers extends WireData {
 		
 		$out = '';
 		$loggedin = $this->wire('user')->isLoggedin();
-		$touch = $this->wire('session')->get('touch');
 		$separator = "<i class='fa fa-angle-right'></i>";
 	
-		if(!$touch && $loggedin && $this->className() == 'AdminThemeDefaultHelpers') {
+		if($loggedin && $this->className() == 'AdminThemeDefaultHelpers') {
 			
 			if($this->wire('config')->debug && $this->wire('user')->isSuperuser()) {
 				$label = __('Debug Mode Tools', '/wire/templates-admin/debug.inc');

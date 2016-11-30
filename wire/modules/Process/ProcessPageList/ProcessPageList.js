@@ -129,7 +129,6 @@ $(document).ready(function() {
 		var ignoreClicks = false;
 		
 		var isModal = $("body").hasClass("modal");
-		var isTouch = $("body").hasClass("touch");
 	
 		$.extend(options, customOptions);
 
@@ -167,7 +166,7 @@ $(document).ready(function() {
 					*/
 				}
 				
-				if(options.useHoverActions && !$("body").hasClass('touch-device')) {
+				if(options.useHoverActions) { 
 					$root.addClass('PageListUseHoverActions');
 					setupHoverActions();
 				}
@@ -668,7 +667,7 @@ $(document).ready(function() {
 						else actionName = action.cn; // cn = className
 
 					var $a = $("<a></a>").html(action.name).attr('href', action.url);
-					if(!isModal && !isTouch) {
+					if(!isModal) {
 						if(action.cn == 'Edit') {
 							$a.addClass('pw-modal pw-modal-large pw-modal-longclick');
 							$a.attr('data-buttons', '#ProcessPageEdit > .Inputfields > .InputfieldSubmit .ui-button');

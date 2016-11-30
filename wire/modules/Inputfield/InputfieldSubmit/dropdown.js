@@ -157,8 +157,8 @@ var InputfieldSubmitDropdown = {
 	 */
 	init: function(buttonSelector, $dropdownTemplate) {
 	
-		// don't use dropdowns when on touch device or in modal window
-		if($('body').hasClass('touch-device') || $('body').hasClass('modal')) {
+		// don't use dropdowns when in modal window
+		if($('body').hasClass('modal')) {
 			$("ul.pw-button-dropdown").hide();
 			return false;
 		}

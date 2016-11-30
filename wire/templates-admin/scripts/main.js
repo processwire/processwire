@@ -274,15 +274,35 @@ var ProcessWireAdmin = {
 
 		}
 
-		function touchClick() {
-			var touchCnt = $(this).attr('data-touchCnt');
+		var $lastTouchClickItem = null;
+
+		function touchClick(e) {
+			var $item = $(this);
+			var touchCnt = $item.attr('data-touchCnt');
+			if($lastTouchClickItem && $item.attr('id') != $lastTouchClickItem.attr('id')) {
+				$lastTouchClickItem.attr('data-touchCnt', 0);
+			}
+			$lastTouchClickItem = $item;
 			if(!touchCnt) touchCnt = 0;
 			touchCnt++;
-			$(this).attr('data-touchCnt', touchCnt);
-			if(touchCnt == 2) {
-				$(this).mouseleave();
+			$item.attr('data-touchCnt', touchCnt);
+			
+			if(touchCnt == 2 || ($item.hasClass('pw-has-ajax-items') && !$item.closest('ul').hasClass('topnav'))) {
+				var href = $item.attr('href');
+				$item.attr('data-touchCnt', 0);
+				if(typeof href != "undefined" && href.length > 1) {
+					return true;
+				} else {
+					$item.mouseleave();
+				}
 			} else {
-				$(this).mouseenter();
+				var datafrom = $item.attr('data-from');	
+				if(typeof datafrom == "undefined") var datafrom = '';
+				if(datafrom.indexOf('topnav') > -1) {
+					var from = datafrom.replace('topnav-', '') + '-';
+					$("a.pw-dropdown-toggle.hover:not('." + from + "')").attr('data-touchCnt', 0).mouseleave();
+				}
+				$item.mouseenter();
 			}
 			return false;
 		}
@@ -290,7 +310,7 @@ var ProcessWireAdmin = {
 		function init() {
 
 			if($("body").hasClass('touch-device')) {
-				$('#topnav').on("click", "a.pw-dropdown-toggle, a.pw-has-items", touchClick);
+				$(document).on("touchstart", "a.pw-dropdown-toggle, a.pw-has-items", touchClick);
 			}
 
 			$(".pw-dropdown-menu").on("click", "a:not(.pw-modal)", function(e) {

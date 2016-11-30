@@ -93,6 +93,7 @@ class InputfieldSubmit extends Inputfield {
 		} else {
 			$this->removeClass('ui-priority-secondary');
 		}
+		return $this;
 	}
 
 	/**
@@ -137,7 +138,7 @@ class InputfieldSubmit extends Inputfield {
 	 */
 	protected function renderDropdown() {
 
-		if($this->wire('input')->get('modal') || $this->wire('session')->get('touch')) return '';
+		if($this->wire('input')->get('modal')) return '';
 		
 		$config = $this->wire('config');
 		$file = $config->debug ? 'dropdown.js' : 'dropdown.min.js';
