@@ -26,7 +26,7 @@
  * ================
  * @method PageArray find() find($selectorString, array $options = array()) Find and return all pages matching the given selector string. Returns a PageArray. #pw-group-retrieval
  * @method bool save() save(Page $page) Save any changes made to the given $page. Same as : $page->save() Returns true on success. #pw-group-manipulation
- * @method bool saveField() saveField(Page $page, $field) Save just the named field from $page. Same as: $page->save('field') #pw-group-manipulation
+ * @method bool saveField() saveField(Page $page, $field, array $options = array()) Save just the named field from $page. Same as: $page->save('field') #pw-group-manipulation
  * @method bool trash() trash(Page $page, $save = true) Move a page to the trash. If you have already set the parent to somewhere in the trash, then this method won't attempt to set it again. #pw-group-manipulation
  * @method bool restore(Page $page, $save = true) Restore a trashed page to its original location. #pw-group-manipulation
  * @method int emptyTrash() Empty the trash and return number of pages deleted. #pw-group-manipulation
@@ -843,10 +843,11 @@ class Pages extends Wire {
 	 * #pw-internal
 	 *
 	 * @param Page $page
+	 * @return void
 	 *
 	 */
 	public function cache(Page $page) {
-		return $this->cacher->cache($page);
+		$this->cacher->cache($page);
 	}
 
 	/**
@@ -1141,7 +1142,7 @@ class Pages extends Wire {
 	 *
 	 */
 	public function executeQuery(\PDOStatement $query, $throw = true, $maxTries = 3) {
-		$this->wire('database')->execute($query, $throw, $maxTries);
+		return $this->wire('database')->execute($query, $throw, $maxTries);
 	}
 
 	/**
@@ -1152,7 +1153,7 @@ class Pages extends Wire {
 	 * When given an array, it calls $pages->getById($key);
 	 * 
 	 * @param string|int|array $key
-	 * @return Page|PageArray
+	 * @return Page|Pages|PageArray
 	 *
 	 */
 	public function __invoke($key) {
@@ -1262,7 +1263,9 @@ class Pages extends Wire {
 		$str = "Saved page";
 		if(count($changes)) $str .= " (Changes: " . implode(', ', $changes) . ")";
 		$this->log($str, $page);
-		$this->wire('cache')->maintenance($page);
+		/** @var WireCache $cache */
+		$cache = $this->wire('cache');
+		$cache->maintenance($page);
 		if($page->className() != 'Page') {
 			$manager = $page->getPagesManager();
 			if($manager instanceof PagesType) $manager->saved($page, $changes, $values);
@@ -1395,7 +1398,9 @@ class Pages extends Wire {
 	 */
 	public function ___deleted(Page $page) { 
 		$this->log("Deleted page", $page); 
-		$this->wire('cache')->maintenance($page);
+		/** @var WireCache $cache */
+		$cache = $this->wire('cache');
+		$cache->maintenance($page);
 		if($page->className() != 'Page') {
 			$manager = $page->getPagesManager();
 			if($manager instanceof PagesType) $manager->deleted($page);

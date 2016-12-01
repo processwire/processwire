@@ -630,8 +630,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$value2 = clone $value; 
 			$this->set($name, $value2); // commit cloned value
 			// if value is Pagefiles, then tell it the new page
-			if($value2 instanceof Pagefiles) $value2->setPage($this); 
-
+			if($value2 instanceof PageFieldValueInterface) $value2->setPage($this);
 		}
 		$this->instanceID .= ".clone";
 		if($track) $this->setTrackChanges(true); 
@@ -656,7 +655,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param string $key Name of property to set
 	 * @param mixed $value Value to set
-	 * @return Page Reference to this Page
+	 * @return Page|WireData Reference to this Page
 	 * @see __set
 	 * @throws WireException
 	 *
@@ -783,9 +782,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param string $key
-	 * @param mixed $value
-	 * @return $this
+	 * @param string $key Name of field/property to set
+	 * @param mixed $value Value to set
+	 * @return Page|WireData Returns reference to this page
 	 * 
 	 */
 	public function setForced($key, $value) {
@@ -804,7 +803,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param string $key
 	 * @param mixed $value
 	 * @param bool $load Should the existing value be loaded for change comparisons? (applicable only to non-autoload fields)
-	 * @return $this
+	 * @return Page|WireData Returns reference to this Page
 	 * @throws WireException
 	 *
 	 */
@@ -855,15 +854,24 @@ class Page extends WireData implements \Countable, WireMatchable {
 			// retrieve old value first in case it's not autojoined so that change comparisons and save's work 
 			if($load && $this->isLoaded) $this->get($key); 
 
-		} else if($this->outputFormatting && $field->type->formatValue($this, $field, $value) != $value) { 
-			// The field has been loaded or dereferenced from the API, and this field changes when formatters are applied to it. 
-			// There is a good chance they are trying to set a formatted value, and we don't allow this situation because the 
-			// possibility of data corruption is high. We set the Page::statusCorrupted status so that Pages::save() can abort.
-			$this->set('status', $this->status | self::statusCorrupted); 
-			$corruptedFields = $this->get('_statusCorruptedFields');
-			if(!is_array($corruptedFields)) $corruptedFields = array();
-			$corruptedFields[$field->name] = $field->name;
-			$this->set('_statusCorruptedFields', $corruptedFields); 
+		} else {
+			// check if the field is corrupted
+			$isCorrupted = false;
+			if(is_object($value) && $value instanceof PageFieldValueInterface) {
+				if($value->formatted()) $isCorrupted = true;
+			} else if($this->outputFormatting && $field->type->formatValue($this, $field, $value) != $value) {
+				$isCorrupted = true;
+			}
+			if($isCorrupted) {
+				// The field has been loaded or dereferenced from the API, and this field changes when formatters are applied to it. 
+				// There is a good chance they are trying to set a formatted value, and we don't allow this situation because the 
+				// possibility of data corruption is high. We set the Page::statusCorrupted status so that Pages::save() can abort.
+				$this->set('status', $this->status | self::statusCorrupted);
+				$corruptedFields = $this->get('_statusCorruptedFields');
+				if(!is_array($corruptedFields)) $corruptedFields = array();
+				$corruptedFields[$field->name] = $field->name;
+				$this->set('_statusCorruptedFields', $corruptedFields);
+			}
 		}
 
 		// isLoaded so sanitizeValue can determine if it can perform a typecast rather than a full sanitization (when helpful)
@@ -1223,13 +1231,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 				// note: we do not store this blank value in the Page, so that
 				// the real value can potentially be loaded later without output formatting
 				$value = $field->type->getBlankValue($this, $field); 
-				return $field->type->formatValue($this, $field, $value);
+				return $this->formatFieldValue($field, $value);
 			}
 		}
 
 		if(!is_null($value) && empty($selector)) {
 			// if the non-filtered value is already loaded, return it 
-			return $this->outputFormatting ? $field->type->formatValue($this, $field, $value) : $value;
+			return $this->formatFieldValue($field, $value);
 		}
 		
 		$track = $this->trackChanges();
@@ -1261,8 +1269,40 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(is_object($value) && $value instanceof Wire) $value->resetTrackChanges(true);
 		if($track) $this->setTrackChanges(true); 
 	
+		return $this->formatFieldValue($field, $value);
+	}
+
+	/**
+	 * Return a value consistent with the page’s output formatting state
+	 * 
+	 * This is primarily for use as a helper to the getFieldValue() method. 
+	 * 
+	 * @param Field $field
+	 * @param mixed $value
+	 * @return mixed
+	 * 
+	 */
+	protected function formatFieldValue(Field $field, $value) {
+	
+		$hasInterface = is_object($value) && $value instanceof PageFieldValueInterface;
 		
-		return $this->outputFormatting ? $field->type->formatValue($this, $field, $value) : $value; 
+		if($hasInterface) {
+			$value->setPage($this);
+			$value->setField($field);
+		}
+
+		if($this->outputFormatting) {
+			// output formatting is enabled so return a formatted value
+			$value = $field->type->formatValue($this, $field, $value);
+			if($hasInterface) $value->formatted(true);
+			
+		} else if($hasInterface && $value->formatted()) {
+			// unformatted requested, and value is already formatted so load a fresh copy
+			$this->__unset($field->name);
+			$value = $this->getFieldValue($field->name);
+		}
+		
+		return $value;
 	}
 	
 	/**
@@ -2570,6 +2610,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * @return string Returns page URL, for example: `/my-site/about/contact/`
 	 * @see Page::path(), Page::httpUrl(), Page::editUrl(), Page::localUrl()
+	 * @todo add $options support
 	 *
 	 */
 	public function url() {
@@ -3099,7 +3140,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *  - `true` (boolean): To return an array of status names (indexed by status number).
 	 *  - `integer|string|array`: Status number(s) or status name(s) to set the current page status (same as $page->status = $value)
 	 * @param int|null $status If you specified `true` for first argument, optionally specify status value you want to use (if not the current).
-	 * @return int|array|$this If setting status, `$this` is returned. If getting status: current status or array of status names is returned.
+	 * @return int|array|Page If setting status, `$this` is returned. If getting status: current status or array of status names is returned.
 	 * @see Page::addStauts(), Page::removeStatus(), Page::hasStatus()
 	 * 
 	 */

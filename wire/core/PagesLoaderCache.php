@@ -66,6 +66,7 @@ class PagesLoaderCache extends Wire {
 	 * Cache the given page.
 	 *
 	 * @param Page $page
+	 * @return void
 	 *
 	 */
 	public function cache(Page $page) {

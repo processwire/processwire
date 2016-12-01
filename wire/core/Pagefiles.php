@@ -50,7 +50,7 @@
  *
  */
 
-class Pagefiles extends WireArray {
+class Pagefiles extends WireArray implements PageFieldValueInterface {
 
 	/**
 	 * The Page object associated with these Pagefiles
@@ -83,6 +83,14 @@ class Pagefiles extends WireArray {
 	 *
 	 */
 	protected $hookIDs = array();
+
+	/**
+	 * Whether or not this is a formatted value
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $formatted = false;
 	
 	/**
 	 * Construct a Pagefiles object
@@ -161,7 +169,7 @@ class Pagefiles extends WireArray {
 	 * 
 	 * #pw-internal
 	 *
-	 * @return WireArray
+	 * @return Pagefiles|WireArray
 	 * 
 	 */
 	public function makeNew() {
@@ -310,10 +318,13 @@ class Pagefiles extends WireArray {
 	public function add($item) {
 
 		if(is_string($item)) {
+			/** @var Pagefile $item */
 			$item = $this->wire(new Pagefile($this, $item)); 
 		}
 
-		return parent::add($item); 
+		/** @var Pagefiles $result */
+		$result = parent::add($item); 
+		return $result;
 	}
 
 	/**
@@ -522,10 +533,11 @@ class Pagefiles extends WireArray {
 	 * @return $this
 	 * 
 	 */
-
 	public function trackChange($what, $old = null, $new = null) {
 		if($this->field && $this->page) $this->page->trackChange($this->field->name); 
-		return parent::trackChange($what, $old, $new); 
+		/** @var Pagefiles $result */
+		$result = parent::trackChange($what, $old, $new); 
+		return $result;
 	}
 
 	/**
@@ -677,13 +689,14 @@ class Pagefiles extends WireArray {
 	 * @return $this
 	 * 
 	 */
-	
 	public function resetTrackChanges($trackChanges = true) {
 		$this->unlinkQueue = array();
 		if($this->page && $this->page->id && $this->field) {
 			$this->page->untrackChange($this->field->name);	
 		}
-		return parent::resetTrackChanges($trackChanges);
+		/** @var Pagefiles $result */
+		$result = parent::resetTrackChanges($trackChanges);
+		return $result;
 	}
 
 	/**
@@ -696,6 +709,17 @@ class Pagefiles extends WireArray {
 		//$this->page = null;		
 	}
 
+	/**
+	 * Get or set formatted state
+	 * 
+	 * @param bool|null $set
+	 * @return bool
+	 * 
+	 */
+	public function formatted($set = null) {
+		if(is_bool($set)) $this->formatted = $set;
+		return $this->formatted;
+	}
 
 
 }
