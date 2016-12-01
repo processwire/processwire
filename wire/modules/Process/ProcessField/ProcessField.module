@@ -460,7 +460,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		return array(
 			$field->name => "edit?id={$field->id}",
 			$icon . $this->sanitizer->entities($field->getLabel()), 
-			$this->sanitizer->entities($field->type->longName),
+			$this->sanitizer->entities($field->type->shortName),
 			"$flagsOut<a href='$numTemplatesLink'>$numTemplates</a>"
 			);
 	}
