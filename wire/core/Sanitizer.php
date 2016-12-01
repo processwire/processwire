@@ -68,7 +68,7 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function __construct() {
-		$this->multibyteSupport = function_exists("mb_strlen"); 
+		$this->multibyteSupport = function_exists("mb_internal_encoding"); 
 		if($this->multibyteSupport) mb_internal_encoding("UTF-8");
 		$this->allowedASCII = str_split('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789');
 	}
