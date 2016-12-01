@@ -369,7 +369,8 @@ class ProcessWire extends Wire {
 			$this->trackException($e, true, 'Unable to load WireDatabasePDO');
 			throw new WireDatabaseException($e->getMessage()); 
 		}
-		
+	
+		/** @var WireCache $cache */
 		$cache = $this->wire('cache', new WireCache(), true); 
 		$cache->preload($config->preloadCacheNames); 
 		
@@ -739,7 +740,6 @@ class ProcessWire extends Wire {
 	 */
 	public static function buildConfig($rootPath, $rootURL = null, array $options = array()) {
 		
-		
 		if(DIRECTORY_SEPARATOR != '/') {
 			$rootPath = str_replace(DIRECTORY_SEPARATOR, '/', $rootPath);
 		}
@@ -755,7 +755,7 @@ class ProcessWire extends Wire {
 			list($scheme, $httpHost) = explode('://', $rootURL);
 			if(strpos($httpHost, '/')) {
 				list($httpHost, $rootURL) = explode('/', $httpHost, 2);	
-				if(empty($rootURL)) $rootURL = '/';
+				$rootURL = "/$rootURL";
 			} else {
 				$rootURL = '/';
 			}
