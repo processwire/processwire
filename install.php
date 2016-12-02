@@ -104,7 +104,8 @@ class Installer {
 
 			case 4: $this->dbSaveConfig();  break;
 
-			case 5: require("./index.php"); 
+			case 5: require("./index.php");
+				/** @var ProcessWire $wire */
 				$this->adminAccountSave($wire); 
 				break;
 
