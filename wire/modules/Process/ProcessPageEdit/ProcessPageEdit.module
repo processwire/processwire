@@ -731,7 +731,11 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$submit2->attr('id', 'submit_save_unpublished');
 					$submit2->showInHeader();
 					$submit2->setSecondary();
-					$submit2->attr('value', $this->_('Save + Keep Unpublished')); // Button: save unpublished
+					if($this->wire('session')->clientWidth > 900) {
+						$submit2->attr('value', $this->_('Save + Keep Unpublished')); // Button: save unpublished
+					} else {
+						$submit2->attr('value', $saveLabel); // Button: save unpublished
+					}
 				}
 	
 				if($this->page->publishable()) {

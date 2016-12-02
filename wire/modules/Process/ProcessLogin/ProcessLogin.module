@@ -177,6 +177,7 @@ class ProcessLogin extends Process {
 			if($this->isAdmin) {
 				$this->session->set('hidpi', $this->wire('input')->post->login_hidpi ? true : false);
 				$this->session->set('touch', $this->wire('input')->post->login_touch ? true : false);
+				$this->session->set('clientWidth', (int) $this->wire('input')->post('login_width'));
 				$this->session->remove('error');
 				$this->afterLogin();
 			}
@@ -384,6 +385,12 @@ class ProcessLogin extends Process {
 			// detect touch device login (populated from js)
 			$f = $this->modules->get('InputfieldHidden');
 			$f->attr('id+name', 'login_touch');
+			$f->attr('value', 0);
+			$this->form->add($f);
+			
+			// detect touch device login (populated from js)
+			$f = $this->modules->get('InputfieldHidden');
+			$f->attr('id+name', 'login_width');
 			$f->attr('value', 0);
 			$this->form->add($f);
 		}
