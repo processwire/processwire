@@ -1300,8 +1300,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if($this->outputFormatting) {
 			// output formatting is enabled so return a formatted value
 			$value = $field->type->formatValue($this, $field, $value);
+			// check again for interface since value may now be different
+			if($hasInterface) $hasInterface = is_object($value) && $value instanceof PageFieldValueInterface;
 			if($hasInterface) $value->formatted(true);
-			
 		} else if($hasInterface && $value->formatted()) {
 			// unformatted requested, and value is already formatted so load a fresh copy
 			$this->__unset($field->name);

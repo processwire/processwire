@@ -876,8 +876,6 @@ $config->dbSqlModes = array(
 /**
  * A key=>value array of any additional driver-specific connection options.
  * 
- * This is the 
- * 
  * @var array
  * 
  */
