@@ -79,7 +79,7 @@ $(document).ready(function() {
 			});
 			$checkedItems.effect('highlight', 500);
 		} else {
-			alert($(this).attr('data-nochecked'));
+			ProcessWire.alert($(this).attr('data-nochecked'));
 		}
 		$(this).val('');
 	});

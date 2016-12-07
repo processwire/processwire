@@ -1062,23 +1062,27 @@ class PagesEditor extends Wire {
 		if(is_string($options)) $options = Selectors::keyValueStringToArray($options);
 		if(!isset($options['recursionLevel'])) $options['recursionLevel'] = 0; // recursion level
 
-		// if parent is not changing, we have to modify name now
-		if(is_null($parent)) {
-			$parent = $page->parent;
-			$n = 1;
-			$name = $page->name . '-' . $n;
+		if(isset($options['set']) && isset($options['set']['name'])) {
+			$name = $options['set']['name'];
+			
 		} else {
-			$name = $page->name;
-			$n = 0;
-		}
+			// if parent is not changing, we have to modify name now
+			if(is_null($parent) || $parent->id == $page->parent->id) {
+				$parent = $page->parent;
+				$n = 1;
+				$name = $page->name . '-' . $n;
+			} else {
+				$name = $page->name;
+				$n = 0;
+			}
 
-		// make sure that we have a unique name
-
-		while(count($parent->children("name=$name, include=all"))) {
-			$name = $page->name;
-			$nStr = "-" . (++$n);
-			if(strlen($name) + strlen($nStr) > Pages::nameMaxLength) $name = substr($name, 0, Pages::nameMaxLength - strlen($nStr));
-			$name .= $nStr;
+			// make sure that we have a unique name
+			while(count($parent->children("name=$name, include=all"))) {
+				$name = $page->name;
+				$nStr = "-" . (++$n);
+				if(strlen($name) + strlen($nStr) > Pages::nameMaxLength) $name = substr($name, 0, Pages::nameMaxLength - strlen($nStr));
+				$name .= $nStr;
+			}
 		}
 
 		// Ensure all data is loaded for the page
@@ -1144,7 +1148,7 @@ class PagesEditor extends Wire {
 			$page->filesManager->copyFiles($copy->filesManager->path());
 		}
 
-		// if there are children, then recurisvely clone them too
+		// if there are children, then recursively clone them too
 		if($page->numChildren && $recursive) {
 			$start = 0;
 			$limit = 200;

@@ -36,6 +36,9 @@ function __($text, $textdomain = null, $context = '') {
 			$textdomain = $traces[1]['file'];
 		}
 		if(is_null($textdomain)) $textdomain = 'site';
+	} else if($textdomain === 'common') {
+		// common translation
+		$textdomain = 'wire/modules/LanguageSupport/LanguageTranslator.php';
 	}
 	$value = htmlspecialchars($language->translator()->getTranslation($textdomain, $text, $context), ENT_QUOTES, 'UTF-8');
 	if($value === "=") {

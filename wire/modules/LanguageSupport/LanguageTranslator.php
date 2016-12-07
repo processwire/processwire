@@ -610,6 +610,7 @@ class LanguageTranslator extends Wire {
 			case 'save and exit':
 			case 'save + exit': $v = $this->_('Save + Exit'); break;
 			case 'cancel': $v = $this->_('Cancel'); break;
+			case 'ok': $v = $this->_('Ok'); break;
 			case 'new': $v = $this->_('New'); break;
 			case 'add': $v = $this->_('Add'); break;
 			case 'add new': $v = $this->_('Add New'); break;

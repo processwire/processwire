@@ -60,7 +60,7 @@ $(document).ready(function() {
 		var confirmText = $label.attr('data-confirm');
 		
 		if(typeof alertText != "undefined" && alertText.length) {
-			alert(alertText);
+			ProcessWire.alert(alertText);
 			return false;
 		} else if(typeof confirmText != "undefined" && confirmText.length) {
 			if($checkbox.is(":checked")) {

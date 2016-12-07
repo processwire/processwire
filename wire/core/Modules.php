@@ -34,7 +34,7 @@
  * @method bool|int delete($class)
  * @method bool uninstall($class)
  * @method bool saveModuleConfigData($className, array $configData) Alias of saveConfig() method #pw-internal
- * @method bool saveConfig($class, array $data) 
+ * @method bool saveConfig($class, $data, $value = null)
  * @method InputfieldWrapper|null getModuleConfigInputfields($moduleName, InputfieldWrapper $form = null)  #pw-internal
  * @method void moduleVersionChanged(Module $module, $fromVersion, $toVersion) #pw-internal
  *

@@ -29,7 +29,26 @@ class JqueryUI extends ModuleJS {
 	public function ___use($name) {
 		if($name == 'panel') {
 			// also add stylesheet when panel component requested
-			$this->config->styles->add($this->config->urls->JqueryUI . "panel.css");
+			$this->config->styles->add($this->config->urls('JqueryUI') . "panel.css");
+		} else if($name == 'vex') {
+			// custom loader for vex
+			static $vexLoaded = false;
+			if(!$vexLoaded) {
+				$vexLoaded = true;
+				$url = $this->config->urls('JqueryUI') . 'vex/';
+				$this->config->styles->add($url . 'css/vex.css');
+				$this->config->styles->add($url . 'styles/vex-theme-default.css');
+				$this->config->scripts->add($url . 'scripts/vex.combined.min.js');
+				$adminTheme = $this->wire('adminTheme');
+				if($adminTheme) $adminTheme->addExtraMarkup('head',
+					"<script>" .
+					"vex.defaultOptions.className='vex-theme-default';" .
+					"vex.dialog.buttons.YES.text='" . __('Ok', 'common') . "';" . // Yes/Ok button text for Confirm dialog
+					"vex.dialog.buttons.NO.text='" . __('Cancel', 'common') . "';" . // No/Cancel button text for Confirm dialog
+					"</script>"
+				);
+			}
+			return $this;
 		}
 		return parent::___use($name);
 	}

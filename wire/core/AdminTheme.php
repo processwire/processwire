@@ -63,6 +63,22 @@ abstract class AdminTheme extends WireData implements Module {
 	protected $bodyClasses = array();
 
 	/**
+	 * Extra markup regions
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $extraMarkup = array(
+		'head' => '',
+		'notices' => '',
+		'body' => '',
+		'masthead' => '',
+		'content' => '',
+		'footer' => '',
+		'sidebar' => '', // sidebar not used in all admin themes
+	);
+	
+	/**
 	 * URLs to place in link prerender tags
 	 * 
 	 * @var array
@@ -161,15 +177,7 @@ abstract class AdminTheme extends WireData implements Module {
 	 * 
 	 */
 	public function ___getExtraMarkup() {
-		$parts = array(
-			'head' => '',
-			'notices' => '', 
-			'body' => '',
-			'masthead' => '',
-			'content' => '',
-			'footer' => '',
-			'sidebar' => '', // sidebar not used in all admin themes
-		);
+		$parts = $this->extraMarkup;
 		$isLoggedin = $this->wire('user')->isLoggedin();
 		if($isLoggedin && $this->wire('modules')->isInstalled('InputfieldCKEditor') 
 			&& $this->wire('process') instanceof WirePageEditor) {
@@ -186,11 +194,38 @@ abstract class AdminTheme extends WireData implements Module {
 		}
 		return $parts; 
 	}
-	
+
+	/**
+	 * Add extra markup to a region in the admin theme
+	 * 
+	 * @param string $name
+	 * @param string $value
+	 * 
+	 */
+	public function addExtraMarkup($name, $value) {
+		if(!empty($this->extraMarkup[$name])) {
+			$this->extraMarkup[$name] .= "\n$value";
+		} else {
+			$this->extraMarkup[$name] = $value;
+		}
+	}
+
+	/**
+	 * Add a <body> class to the admin theme
+	 * 
+	 * @param string $className
+	 * 
+	 */
 	public function addBodyClass($className) {
 		$this->bodyClasses[$className] = $className; 
 	}
-	
+
+	/**
+	 * Get the body[class] attribute string
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function getBodyClass() {
 		return trim(implode(' ', $this->bodyClasses)); 
 	}
@@ -243,6 +278,8 @@ abstract class AdminTheme extends WireData implements Module {
 
 	/**
 	 * Set a pre-render URL or get currently pre-render URL(s)
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param string $url
 	 * @return array

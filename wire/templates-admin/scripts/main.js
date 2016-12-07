@@ -335,4 +335,42 @@ var ProcessWireAdmin = {
 	
 };
 
+if(typeof ProcessWire != "undefined") {
+	ProcessWire.confirm = function(message, func) {
+		if(typeof vex != "undefined") {
+			vex.dialog.confirm({
+				message: message,
+				callback: function(v) {
+					if(v) func();
+				}
+			});
+		} else {
+			if(confirm(message)) func();
+		}
+	};
 
+	ProcessWire.alert = function(message, allowMarkup) {
+		if(typeof allowMarkup == "undefined") var allowMarkup = false;
+		if(typeof vex != "undefined") {
+			if(allowMarkup) {
+				vex.dialog.alert({unsafeMessage: message});
+			} else {
+				vex.dialog.alert(message);
+			}
+		} else {
+			alert(message);
+		}
+	};
+
+	ProcessWire.prompt = function(message, placeholder, func) {
+		if(typeof vex == "undefined") {
+			alert("prompt function requires vex");
+			return;
+		}
+		vex.dialog.prompt({
+			message: message,
+			placeholder: placeholder,
+			callback: func
+		})
+	};
+}

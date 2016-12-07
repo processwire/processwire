@@ -471,7 +471,7 @@ $(document).ready(function() {
 				var processChildren = function(data) {
 
 					if(data && data.error) {
-						alert(data.message); 
+						ProcessWire.alert(data.message); 
 						$loading.hide();
 						ignoreClicks = false;
 						return; 
@@ -839,7 +839,7 @@ $(document).ready(function() {
 								} else {
 									// data.success === false, so display error
 									$spinner.remove();
-									alert(data.message);
+									ProcessWire.alert(data.message);
 								}
 							});
 							return false;
@@ -1160,7 +1160,7 @@ $(document).ready(function() {
 					}); 
 
 					if(data && data.error) {
-						alert(data.message); 
+						ProcessWire.alert(data.message); 
 					}
 
 					// if item moved from one list to another, then update the numChildren counts

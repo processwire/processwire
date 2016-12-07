@@ -546,7 +546,7 @@ function InputfieldImage($) {
 			var $button = $(this);
 			var $list = $button.closest('.gridImages');
 			if(!$list.hasClass('gridImagesAlerted')) {
-				alert(ProcessWire.config.InputfieldImage.labels.changes);
+				ProcessWire.alert(ProcessWire.config.InputfieldImage.labels.changes);
 				$list.addClass('gridImagesAlerted');
 			}
 			setTimeout(function() {

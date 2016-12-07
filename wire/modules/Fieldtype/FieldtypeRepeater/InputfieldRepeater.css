@@ -6,12 +6,14 @@
   .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader .toggle-icon {
     line-height: 1em;
     margin-right: 0.5em; }
-  .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterToggle, .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterTrash {
+  .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterClone, .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterToggle, .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterTrash {
     cursor: pointer;
     float: right; }
   .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterTrash {
     padding-right: 3px; }
   .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterToggle {
+    margin-right: 1em; }
+  .Inputfields .InputfieldRepeater .InputfieldRepeaterItem > .InputfieldHeader > .InputfieldRepeaterClone {
     margin-right: 1em; }
 .Inputfields .InputfieldRepeater .InputfieldRepeaterItem:not(.InputfieldRepeaterDeletePending).InputfieldStateCollapsed > .InputfieldHeader {
   opacity: 0.90; }

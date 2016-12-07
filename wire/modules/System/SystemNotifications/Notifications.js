@@ -239,7 +239,7 @@ var Notifications = {
 		
 		if(alerts.length) {
 			for (var n = 0; n < alerts.length; n++) {
-				alert(alerts[n].title);
+				ProcessWire.alert(alerts[n].title);
 			}
 		}
 	},
