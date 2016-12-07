@@ -386,7 +386,7 @@ function InputfieldRepeaterInit($this) {
 			if(!lastLeft) lastLeft = 0;
 			var left = lastLeft + ui.position.left;
 			left -= InputfieldRepeaterDepthSize / 2;
-			if(left > 10 && left < InputfieldRepeaterDepthSize) left = InputfieldRepeaterDepthSize;
+			if(left > 25 && left < InputfieldRepeaterDepthSize) left = InputfieldRepeaterDepthSize;
 			var depth = Math.round(left / InputfieldRepeaterDepthSize);
 			if(depth < 1) depth = 0;
 			if(depth > maxDepth) depth = maxDepth;
@@ -437,14 +437,6 @@ function InputfieldRepeaterInit($this) {
 			$addItem.css('display', 'block');
 			//$addItem.find('.InputfieldRepeaterTrash').click(InputfieldRepeaterDeleteClick);
 			InputfieldRepeaterAdjustLabel($addItem, true);
-			/*
-			$nestedItems = $addItem.find('.InputfieldRepeater').find('.InputfieldRepeaterItem');
-			if($nestedItems.length) {
-				$nestedItems.each(function() {
-					InputfieldRepeaterAdjustLabel($(this));
-				});
-			}
-			*/
 			$addLink.trigger('repeateradd', [ $addItem ]);
 		}
 
