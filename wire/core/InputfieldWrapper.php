@@ -504,7 +504,13 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				if($label || $quietMode) {
 					$for = $inputfield->getSetting('skipLabel') || $quietMode ? '' : $inputfield->attr('id');
 					// if $inputfield has a property of entityEncodeLabel with a value of boolean FALSE, we don't entity encode
-					if($inputfield->getSetting('entityEncodeLabel') !== false) $label = $inputfield->entityEncode($label);
+					$entityEncodeLabel = $inputfield->getSetting('entityEncodeLabel');
+					if(is_int($entityEncodeLabel) && $entityEncodeLabel >= Inputfield::textFormatBasic) {
+						// uses an Inputfield::textFormat constant
+						$label = $inputfield->entityEncode($label, $entityEncodeLabel);
+					} else if($entityEncodeLabel !== false) {
+						$label = $inputfield->entityEncode($label);
+					}
 					$icon = $inputfield->getSetting('icon');
 					$icon = $icon ? str_replace('{name}', $this->wire('sanitizer')->name(str_replace(array('icon-', 'fa-'), '', $icon)), $markup['item_icon']) : ''; 
 					$toggle = $collapsed == Inputfield::collapsedNever ? '' : $markup['item_toggle']; 

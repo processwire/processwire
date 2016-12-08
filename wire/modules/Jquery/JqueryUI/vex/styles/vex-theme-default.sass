@@ -7,6 +7,7 @@
 
 $blue: #3288e6
 $green: #93BF0D // RJC
+$reno-green: #3eb998 // RJC
 
 .vex.vex-theme-default
 	padding-top: 160px
@@ -128,3 +129,16 @@ $green: #93BF0D // RJC
 	border-top-color: #bbb
 	top: -1.1em
 	bottom: auto
+	
+.AdminThemeReno
+	.vex.vex-theme-default
+		.vex-dialog-form
+			.vex-dialog-input
+				textarea, input[type="date"], input[type="datetime"], input[type="datetime-local"], input[type="email"], input[type="month"], input[type="number"], input[type="password"], input[type="search"], input[type="tel"], input[type="text"], input[type="time"], input[type="url"], input[type="week"]
+					&:focus
+						+box-shadow(inset 0 0 0 2px lighten($reno-green, 20%)) // RJC
+		
+		.vex-dialog-button
+			&.vex-dialog-button-primary
+				background: $reno-green // RJC
+				

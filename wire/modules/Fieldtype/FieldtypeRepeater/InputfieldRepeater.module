@@ -335,8 +335,12 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$loaded->attr('value', $isLoaded ? 1 : 0); 
 
 			$wrap = $this->wire('modules')->get('InputfieldFieldset'); 
-			$wrap->addClass('InputfieldRepeaterItem');
-			$wrap->label = $this->renderRepeaterLabel($label, ++$cnt, $page);
+			$wrap->addClass('InputfieldRepeaterItem InputfieldNoFocus');
+			$wrap->entityEncodeLabel = false;
+			$wrap->label = 
+				"<span class='InputfieldRepeaterItemLabel'>" . 
+				$this->entityEncode($this->renderRepeaterLabel($label, ++$cnt, $page)) . 
+				"</span>";
 			$wrap->name = "repeater_item_{$page->id}";
 			$wrap->wrapAttr('data-page', $page->id);
 			$wrap->wrapAttr('data-type', $this->getRepeaterItemType($page));
@@ -400,6 +404,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 
 		// create a new/blank item to be used as a template for any new items added
 		if(!$itemID) {
+			/** @var InputfieldWrapper $wrap */
 			$wrap = $this->wire('modules')->get('InputfieldFieldset');
 			$wrap->label = $this->renderRepeaterLabel($label, ++$cnt, new NullPage());
 			$wrap->class = 'InputfieldRepeaterItem InputfieldRepeaterNewItem';
@@ -540,10 +545,12 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$this->wire('config')->js('InputfieldRepeater', array(
 			'editorUrl' => $editorUrl,
 			'labels' => array(
-				'remove' => $this->_x('Delete this item', 'repeater-item-action'),
+				'remove' => $this->_x('Click to delete this item, or double-click to delete all', 'repeater-item-action'),
 				'removeAll' => $this->_x('Delete all items?', 'repeater-item-action'),
-				'toggle' => $this->_x('Toggle published/unpublished', 'repeater-item-action'),
-				'clone' => $this->_x('Clone this item?', 'repeater-item-action')
+				'toggle' => $this->_x('Click to turn item on/off, or double-click to open/collapse all items', 'repeater-item-action'),
+				'clone' => $this->_x('Clone this item?', 'repeater-item-action'),
+				'openAll' => $this->_x('Open all items?', 'repeater-item-action'), 
+				'collapseAll' => $this->_x('Collapse all items?', 'repeater-item-action')
 			)
 		));
 

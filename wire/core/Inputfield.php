@@ -69,7 +69,7 @@
  * @property InputfieldWrapper|null $parent The parent InputfieldWrapper for this Inputfield or null if not set. #pw-internal
  * @property null|bool|Fieldtype $hasFieldtype The Fieldtype using this Inputfield, or boolean false when known not to have a Fieldtype, or null when not known. #pw-group-other
  * @property bool|null $useLanguages When multi-language support active, can be set to true to make it provide inputs for each language, where supported (default=false). #pw-group-behavior
- * @property null|bool $entityEncodeLabel Set to boolean false to specifically disable entity encoding of field header/label (default=true). #pw-group-output
+ * @property null|bool|int $entityEncodeLabel Set to boolean false to specifically disable entity encoding of field header/label, or set to a Inputfield::textFormat constant. (default=true). #pw-group-output
  * @property null|bool $entityEncodeText Set to boolean false to specifically disable entity encoding for other text: description, notes, etc. (default=true). #pw-group-output
  * @property int $renderValueFlags Options that can be applied to renderValue mode, see "renderValue" constants (default=0). #pw-group-output
  * @property string $wrapClass Optional class name (CSS) to apply to the HTML element wrapping the Inputfield. #pw-group-other
