@@ -26,6 +26,13 @@ function InputfieldRepeater($) {
 	 * 
 	 */
 	var isReno = $('body').hasClass('AdminThemeReno');
+
+	/**
+	 * Event timer for double clicks
+	 * 
+	 */
+	var doubleClickTimer = null;
+
 	
 	/*** EVENTS ********************************************************************************************/
 
@@ -55,14 +62,17 @@ function InputfieldRepeater($) {
 	 * 
 	 */
 	var eventDeleteClick = function(e) {
-	
-		var $header = $(this).closest('.InputfieldHeader');
+
+		var $this = $(this);
+		var $header = $this.closest('.InputfieldHeader');
 		var $item = $header.parent();
+
+		if(isActionDisabled($this)) return false;
 
 		if($item.hasClass('InputfieldRepeaterNewItem')) {
 			// delete new item (noAjaxAdd mode)
 			var $numAddInput = $item.children('.InputfieldContent').children('.InputfieldRepeaterAddItem').children('input');
-			$numAddInput.attr('value', parseInt($numAddInput.attr('value')-1)); // total number of new items to add, minus 1
+			$numAddInput.attr('value', parseInt($numAddInput.attr('value') - 1)); // total number of new items to add, minus 1
 			$item.remove();
 
 		} else {
@@ -87,19 +97,21 @@ function InputfieldRepeater($) {
 			$header.find('.InputfieldRepeaterItemControls').css('background-color', $header.css('background-color'));
 		}
 
-		checkMax($item.closest('.InputfieldRepeater'));
+		checkMinMax($item.closest('.InputfieldRepeater'));
 		e.stopPropagation();
 	};
 
 	/**
 	 * Event handler for when the "delete" link is double clicked
 	 * 
-	 * @param e
-	 * 
 	 */
-	var eventDeleteDblClick = function(e) {
+	var eventDeleteDblClick = function() {
+	
+		var $this = $(this);
 		var $li = $(this).closest('li');
 		var undelete = $li.hasClass('InputfieldRepeaterDeletePending');
+
+		if(isActionDisabled($this)) return false;
 
 		function selectAll() {
 			$li.parent().children('li').each(function() {
@@ -123,12 +135,13 @@ function InputfieldRepeater($) {
 	/**
 	 * Event handler for when the "clone" repeater item action is clicked
 	 * 
-	 * @param e
 	 * @returns {boolean}
 	 * 
 	 */
-	var eventCloneClick = function(e) {
-		var $item = $(this).closest('.InputfieldRepeaterItem');
+	var eventCloneClick = function() {
+		var $this = $(this);
+		if(isActionDisabled($this)) return false;
+		var $item = $this.closest('.InputfieldRepeaterItem');
 		ProcessWire.confirm(ProcessWire.config.InputfieldRepeater.labels.clone, function() {
 			var itemID = $item.attr('data-page');
 			var $addLink = $item.closest('.InputfieldRepeater').children('.InputfieldContent')
@@ -152,26 +165,29 @@ function InputfieldRepeater($) {
 		var $item = $this.closest('.InputfieldRepeaterItem');
 		var $input = $item.find('.InputfieldRepeaterPublish');
 		
-		if($this.hasClass(toggleOn)) {
-			$this.removeClass(toggleOn).addClass(toggleOff);
-			$item.addClass('InputfieldRepeaterUnpublished InputfieldRepeaterOff');
-			$input.val('-1');
-		} else {
-			$this.removeClass(toggleOff).addClass(toggleOn);
-			$item.removeClass('InputfieldRepeaterUnpublished InputfieldRepeaterOff');
-			$input.val('1');
-		}
-		
+		if(doubleClickTimer) clearTimeout(doubleClickTimer);
+		doubleClickTimer = setTimeout(function() {
+			if(isActionDisabled($this)) return false;
+			if($this.hasClass(toggleOn)) {
+				$this.removeClass(toggleOn).addClass(toggleOff);
+				$item.addClass('InputfieldRepeaterUnpublished InputfieldRepeaterOff');
+				$input.val('-1');
+			} else {
+				$this.removeClass(toggleOff).addClass(toggleOn);
+				$item.removeClass('InputfieldRepeaterUnpublished InputfieldRepeaterOff');
+				$input.val('1');
+			}
+			checkMinMax($item.closest('.InputfieldRepeater'));
+		}, 250); 
+			
 		e.stopPropagation();
 	};
 
 	/**
 	 * Event handler for when a repeater item is about to be opened
 	 * 
-	 * @param e
-	 * 
 	 */
-	var eventItemOpenReady = function(e) {
+	var eventItemOpenReady = function() {
 		var $item = $(this);
 		var $loaded = $item.find(".InputfieldRepeaterLoaded");
 		if(parseInt($loaded.val()) > 0) return; // item already loaded
@@ -181,16 +197,18 @@ function InputfieldRepeater($) {
 	/**
 	 * Event handler for when a repeater item is opened (primarily focused on ajax loaded items)
 	 * 
-	 * @param e
-	 * 
 	 */
-	var eventItemOpened = function(e) {
+	var eventItemOpened = function() {
+		
 		var $item = $(this);
 		var $loaded = $item.find(".InputfieldRepeaterLoaded");
-
+		
 		updateState($item);
 
-		if(parseInt($loaded.val()) > 0) return; // item already loaded
+		if(parseInt($loaded.val()) > 0) {
+			updateAccordion($item);
+			return; // item already loaded
+		}
 
 		$loaded.val('1');
 
@@ -221,8 +239,10 @@ function InputfieldRepeater($) {
 				initRepeater($(this));
 			});
 
+			
 			$content.slideDown('fast', function() {
 				$spinner.removeClass('fa-spin fa-spinner').addClass('fa-arrows');
+				updateAccordion($item);
 			});
 			setTimeout(function() {
 				$inputfields.find('.Inputfield').trigger('reloaded', ['InputfieldRepeaterItemEdit']);
@@ -234,10 +254,8 @@ function InputfieldRepeater($) {
 	/**
 	 * Event handler for when a repeater item is closed
 	 * 
-	 * @param e
-	 * 
 	 */
-	var eventItemClosed = function(e) {
+	var eventItemClosed = function() {
 		updateState($(this));
 	};
 
@@ -246,11 +264,10 @@ function InputfieldRepeater($) {
 	 * 
 	 * Handles adding repeater items and initializing them
 	 * 
-	 * @param e
 	 * @returns {boolean}
 	 * 
 	 */
-	var eventAddLinkClick = function(e) {
+	var eventAddLinkClick = function() {
 		var $addLink = $(this);
 		var $inputfields = $addLink.parent('p').prev('ul.Inputfields');
 		var $inputfieldRepeater = $addLink.closest('.InputfieldRepeater');
@@ -278,10 +295,10 @@ function InputfieldRepeater($) {
 			newItemTotal = $newItem.length;
 			if(newItemTotal > 0) {
 				if(newItemTotal > 1) $newItem = $newItem.slice(0, 1);
-				var $addItem = $newItem.clone(true)
+				var $addItem = $newItem.clone(true);
 				addRepeaterItem($addItem);
 				$numAddInput.attr('value', newItemTotal);
-				checkMax($inputfieldRepeater);
+				checkMinMax($inputfieldRepeater);
 			}
 			return false;
 		}
@@ -301,7 +318,7 @@ function InputfieldRepeater($) {
 		}
 
 		// determine which page IDs we don't accept for new items (because we already have them rendered)
-		var $unpublishedItems = $inputfields.find('.InputfieldRepeaterUnpublished');
+		var $unpublishedItems = $inputfields.find('.InputfieldRepeaterUnpublished:not(.InputfieldRepeaterMinItem)');
 		if($unpublishedItems.length) {
 			ajaxURL += '&repeater_not=';
 			$unpublishedItems.each(function() {
@@ -328,8 +345,9 @@ function InputfieldRepeater($) {
 				scrollTop: $addItem.offset().top
 			}, 500, 'swing');
 			updateState($addItem);
-			checkMax($inputfieldRepeater);
-			$nestedRepeaters = $addItem.find('.InputfieldRepeater');
+			checkMinMax($inputfieldRepeater);
+			updateAccordion($addItem);
+			var $nestedRepeaters = $addItem.find('.InputfieldRepeater');
 			if($nestedRepeaters.length) {
 				$nestedRepeaters.each(function() {
 					initRepeater($(this));
@@ -348,8 +366,13 @@ function InputfieldRepeater($) {
 	 * 
 	 */
 	var eventOpenAllClick = function(e) {
+		
 		e.stopPropagation();
 		e.preventDefault();
+		
+		if(doubleClickTimer) clearTimeout(doubleClickTimer);
+		
+		if($(this).closest('.InputfieldRepeater').hasClass('InputfieldRepeaterAccordion')) return false;
 		
 		var $repeater = $(this).closest('.InputfieldRepeater');
 		var $items = $repeater.children('.InputfieldContent').children('.Inputfields').children('.InputfieldRepeaterItem');
@@ -372,6 +395,51 @@ function InputfieldRepeater($) {
 	};
 	
 	/*** GENERAL FUNCTIONS **********************************************************************************/
+	
+	/**
+	 * Returns whether or not the given icon action is disabled
+	 * 
+	 * @param $this The '.fa-' icon that represents the action
+	 * @returns {boolean}
+	 * 
+	 */
+	function isActionDisabled($this) {
+		if($this.hasClass('pw-icon-disabled')) {
+			ProcessWire.alert(ProcessWire.config.InputfieldRepeater.labels.disabledMinMax);
+			return true;
+		}
+		return false;
+	}
+	
+	function updateAccordion($item) {
+		
+		if(!$item.closest('.InputfieldRepeater').hasClass('InputfieldRepeaterAccordion')) return false;
+	
+		var itemID = $item.attr('id');
+		var useScroll = false;
+		var $siblings = $item.parent().children('.InputfieldRepeaterItem');
+		var itemHasPassed = false;
+		var hasOpen = false;
+		
+		$siblings.each(function() {
+			var $sibling = $(this);
+			if($sibling.attr('id') == itemID) {
+				itemHasPassed = true;
+				return;
+			}
+			if($sibling.hasClass('InputfieldStateCollapsed')) return;
+			if(!$sibling.is(':visible')) return;
+			if(!itemHasPassed) useScroll = true;
+			$sibling.children('.InputfieldHeader').find('.toggle-icon').trigger('click', [ { duration: 0 }]);
+			hasOpen = true;
+		});
+		
+		if(useScroll && hasOpen) {
+			$('html, body').animate({scrollTop: $item.offset().top - 10}, 0);
+		}
+		
+		return true;
+	}
 
 	/**
 	 * Given an InputfieldRepeaterItem update the label consistent with any present formatting sting
@@ -379,28 +447,32 @@ function InputfieldRepeater($) {
 	 * Primarily adjusts item count(s) and allowed for {secondary} text appearance
 	 * 
 	 * @param $item An .InputfieldRepeaterItem
-	 * @param bool doIncrement Specify true to increment the item count value (like for new items)
+	 * @param {boolean} doIncrement Specify true to increment the item count value (like for new items)
 	 * 
 	 */
 	function adjustItemLabel($item, doIncrement) {
 
-		var $label = $item.children('label');
+		var $label;
+		$label = $item.children('.InputfieldHeader').find('.InputfieldRepeaterItemLabel');
+		if(typeof $label == "undefined") $label = $item.children('label');
 		var labelHTML = $label.html();
 		var _labelHTML = labelHTML;
 
-		if(doIncrement && labelHTML.indexOf('#') > -1) {
-			num = $item.siblings('.InputfieldRepeaterItem:visible').length + 1;
-			labelHTML = labelHTML.replace(/#[0-9]+/, '#' + num);
-		}
+		if(typeof labelHTML != "undefined") {
+			if(doIncrement && labelHTML.indexOf('#') > -1) {
+				var num = $item.siblings('.InputfieldRepeaterItem:visible').length + 1;
+				labelHTML = labelHTML.replace(/#[0-9]+/, '#' + num);
+			}
 
-		if(labelHTML.indexOf('{') > -1) {
-			// parts of the label wrapped in {brackets} get different appearance
-			labelHTML = labelHTML.replace(/\{/, '<span class="ui-priority-secondary" style="font-weight:normal">');
-			labelHTML = labelHTML.replace(/}/, '</span>');
-		}
+			while(labelHTML.indexOf('}') > -1) {
+				// parts of the label wrapped in {brackets} get different appearance
+				labelHTML = labelHTML.replace(/\{/, '<span class="ui-priority-secondary" style="font-weight:normal">');
+				labelHTML = labelHTML.replace(/}/, '</span>');
+			}
 
-		if(labelHTML != _labelHTML) {
-			$label.html(labelHTML);
+			if(labelHTML != _labelHTML) {
+				$label.html(labelHTML);
+			}
 		}
 	}
 
@@ -558,6 +630,56 @@ function InputfieldRepeater($) {
 	}
 
 	/**
+	 * Initialize the .InputfieldHeader for .InputfieldRepeaterItem elements
+	 * 
+	 * @param $headers The .InputfieldHeader elements
+	 * @param $inputfieldRepeater The parent .InputfieldRepeater
+	 * @param {boolean} renderValueMode Whether or not this is value-only rendering mode
+	 * 
+	 */
+	function initHeaders($headers, $inputfieldRepeater, renderValueMode) {
+		
+		var $clone = $("<i class='fa fa-copy InputfieldRepeaterClone'></i>").css('display', 'block');
+		var $delete = $("<i class='fa fa-trash InputfieldRepeaterTrash'></i>");
+		var $toggle = $("<i class='fa InputfieldRepeaterToggle' data-on='fa-toggle-on' data-off='fa-toggle-off'></i>");
+		var cfg = ProcessWire.config.InputfieldRepeater;
+		var allowClone = !$inputfieldRepeater.hasClass('InputfieldRepeaterNoAjaxAdd');
+
+		if(cfg) {
+			$toggle.attr('title', cfg.labels.toggle);
+			$delete.attr('title', cfg.labels.remove);
+			$clone.attr('title', cfg.labels.clone);
+		}
+
+		$headers.each(function() {
+			var $t = $(this);
+			if($t.hasClass('InputfieldRepeaterHeaderInit')) return;
+			var icon = 'fa-arrows';
+			var $item = $t.parent();
+			if($item.hasClass('InputfieldRepeaterNewItem')) {
+				// noAjaxAdd mode
+				icon = 'fa-plus';
+				$t.addClass('ui-priority-secondary');
+			}
+			$t.addClass('ui-state-default InputfieldRepeaterHeaderInit');
+			$t.prepend("<i class='fa fa-fw " + icon + " InputfieldRepeaterDrag'></i>");
+			if(!renderValueMode) {
+				var $controls = $("<span class='InputfieldRepeaterItemControls'></span>");
+				var $toggleControl = $toggle.clone(true)
+					.addClass($t.parent().hasClass('InputfieldRepeaterOff') ? 'fa-toggle-off' : 'fa-toggle-on');
+				var $deleteControl = $delete.clone(true);
+				var $collapseControl = $t.find('.toggle-icon');
+				$controls.prepend($collapseControl);
+				if(allowClone) $controls.prepend($clone.clone(true));
+				$controls.prepend($toggleControl).prepend($deleteControl);
+				$t.prepend($controls);
+				$controls.css('background-color', $t.css('background-color'));
+			}
+			adjustItemLabel($item, false);
+		});
+	}
+
+	/**
 	 * Initialize a repeater
 	 * 
 	 * @param $this Can be an .InputfieldRepeater or an .InputfieldRepeaterItem
@@ -578,58 +700,17 @@ function InputfieldRepeater($) {
 		}
 
 		if($inputfields.hasClass('InputfieldRepeaterInit')) return;
+		
+		var renderValueMode = $inputfields.closest('.InputfieldRenderValueMode').length > 0;
 
 		$inputfields.addClass('InputfieldRepeaterInit');
-
-		var renderValueMode = $inputfields.closest('.InputfieldRenderValueMode').length > 0;
-		var $clone = $("<i class='fa fa-copy InputfieldRepeaterClone'></i>").css('display', 'block');
-		var $delete = $("<i class='fa fa-trash InputfieldRepeaterTrash'></i>");
-		var $toggle = $("<i class='fa InputfieldRepeaterToggle' data-on='fa-toggle-on' data-off='fa-toggle-off'></i>");
-		var cfg = ProcessWire.config.InputfieldRepeater;
-		var allowClone = !$inputfieldRepeater.hasClass('InputfieldRepeaterNoAjaxAdd');
-
-		if(cfg) {
-			$toggle.attr('title', cfg.labels.toggle);
-			$delete.attr('title', cfg.labels.remove);
-			$clone.attr('title', cfg.labels.clone);
-		}
-
+		
 		$("input.InputfieldRepeaterDelete", $this).parents('.InputfieldCheckbox').hide();
 
-		function initHeaders($headers) {
-			$headers.each(function() {
-				var $t = $(this);
-				if($t.hasClass('InputfieldRepeaterHeaderInit')) return;
-				var icon = 'fa-arrows';
-				var $item = $t.parent();
-				if($item.hasClass('InputfieldRepeaterNewItem')) {
-					// noAjaxAdd mode
-					icon = 'fa-plus';
-					$t.addClass('ui-priority-secondary');
-				}
-				$t.addClass('ui-state-default InputfieldRepeaterHeaderInit');
-				$t.prepend("<i class='fa fa-fw " + icon + " InputfieldRepeaterDrag'></i>")
-				if(!renderValueMode) {
-					//if(allowClone) $t.prepend($clone.clone(true));
-					var $controls = $("<span class='InputfieldRepeaterItemControls'></span>");
-					var $toggleControl = $toggle.clone(true).addClass($t.parent().hasClass('InputfieldRepeaterOff') ? 'fa-toggle-off' : 'fa-toggle-on');
-					var $deleteControl = $delete.clone(true);
-					var $collapseControl = $t.find('.toggle-icon');
-					//$collapseControl.addClass('InputfieldRepeaterCollapse').removeClass('toggle-icon');
-					$controls.prepend($collapseControl);
-					if(allowClone) $controls.prepend($clone.clone(true));
-					$controls.prepend($toggleControl).prepend($deleteControl);
-					$t.prepend($controls);
-					$controls.css('background-color', $t.css('background-color'));
-				}
-				adjustItemLabel($item, false);
-			});
-		}
-
 		if(isItem) {
-			initHeaders($this.children('.InputfieldHeader'));
+			initHeaders($this.children('.InputfieldHeader'), $inputfieldRepeater, renderValueMode);
 		} else {
-			initHeaders($(".InputfieldRepeaterItem > .InputfieldHeader", $this));
+			initHeaders($(".InputfieldRepeaterItem > .InputfieldHeader", $this), $inputfieldRepeater, renderValueMode);
 		}
 
 		if(renderValueMode) {
@@ -662,28 +743,87 @@ function InputfieldRepeater($) {
 
 		// check for maximum items
 		if($inputfieldRepeater.hasClass('InputfieldRepeaterMax')) {
-			checkMax($inputfieldRepeater);
+			checkMinMax($inputfieldRepeater);
 		}
 	}
 
 	/**
 	 * When "max items" setting is used, this toggles whether or not "add" links are visible 
 	 * 
-	 * @todo Make this toggle the clone links as well
 	 * @param $inputfieldRepeater .InputfieldRepeater
 	 * 
 	 */
-	function checkMax($inputfieldRepeater) {
-		if(!$inputfieldRepeater.hasClass('InputfieldRepeaterMax')) return;
+	function checkMinMax($inputfieldRepeater) {
+
+		if(!$inputfieldRepeater.hasClass('InputfieldRepeaterMax') 
+			&& !$inputfieldRepeater.hasClass('InputfieldRepeaterMin')) return;
+		
 		var max = parseInt($inputfieldRepeater.attr('data-max'));
-		if(max <= 0) return;
+		var min = parseInt($inputfieldRepeater.attr('data-min'));
+		
+		if(max <= 0 && min <= 0) return;
+		
 		var $content = $inputfieldRepeater.children('.InputfieldContent');
-		var num = $content.children('.Inputfields').children('li:not(.InputfieldRepeaterDeletePending)').length;
+		var num = $content.children('.Inputfields')
+			.children('li:not(.InputfieldRepeaterDeletePending):not(.InputfieldRepeaterOff):visible').length;
 		var $addItem = $content.children('.InputfieldRepeaterAddItem');
-		if(num > max) {
-			$addItem.hide();
-		} else if(!$addItem.is(":visible")) {
-			$addItem.show();
+		var cloneChange = '';
+		var trashChange = '';
+	
+		if(max > 0) {
+			if(num >= max) {
+				$addItem.hide();
+				cloneChange = 'hide';
+			} else if(!$addItem.is(":visible")) {
+				$addItem.show();
+				cloneChange = 'show';
+			}
+		}
+		
+		if(min > 0) {
+			if(num <= min) {
+				trashChange = 'hide';	
+				$content.addClass('InputfieldRepeaterTrashHidden');
+			} else if($content.hasClass('InputfieldRepeaterTrashHidden')) {
+				$content.removeClass('InputfieldRepeaterTrashHidden');
+				trashChange = 'show';
+			}
+		}
+
+		if(cloneChange.length || trashChange.length) {
+			var $items = $content.children('.Inputfields').children('.InputfieldRepeaterItem');
+			if(cloneChange.length) {
+				// update the visibility of clone actions 
+				$items.each(function() {
+					var $clone = $(this).children('.InputfieldHeader').find('.InputfieldRepeaterClone');
+					if(cloneChange === 'show') {
+						$clone.removeClass('pw-icon-disabled');
+					} else {
+						$clone.addClass('pw-icon-disabled');
+					}
+				});
+			}
+			if(trashChange.length) {
+				// update visibility of trash actions
+				$items.each(function() {
+					var $header = $(this).children('.InputfieldHeader');
+					var $trash = $header.find('.InputfieldRepeaterTrash');
+					var $toggle = $header.find('.InputfieldRepeaterToggle.fa-toggle-on');
+					if(trashChange === 'show') {
+						$trash.removeClass('pw-icon-disabled');
+						$toggle.removeClass('pw-icon-disabled');
+					} else {
+						$trash.addClass('pw-icon-disabled');
+						$toggle.addClass('pw-icon-disabled');
+					}
+				});
+				if(trashChange == 'hide') {
+					$content.children('.Inputfields').children('li.InputfieldRepeaterDeletePending').each(function() {
+						var $trash = $(this).children('.InputfieldHeader').find('.InputfieldRepeaterTrash');
+						$trash.removeClass('pw-icon-disabled');
+					});
+				}
+			}
 		}
 	}
 

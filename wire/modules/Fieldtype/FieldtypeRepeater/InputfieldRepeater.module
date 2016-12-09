@@ -9,7 +9,9 @@
  * https://processwire.com
  * 
  * @property int $repeaterMaxItems
+ * @property int $repeaterMinItems
  * @property int $repeaterDepth
+ * @property bool $accordionMode
  * 
  * @method string renderRepeaterLabel($label, $cnt, Page $page)
  * 
@@ -22,7 +24,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Repeats fields from another template. Provides the input for FieldtypeRepeater.', __FILE__), // Module Summary
-			'version' => 105,
+			'version' => 106,
 			'requires' => 'FieldtypeRepeater',
 			);
 	}
@@ -86,8 +88,10 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	public function __construct() {
 		parent::__construct();
 		// these are part of the Fieldtype's config, and automatically set from it
-		$this->set('repeaterMaxItems', 0); 
+		$this->set('repeaterMaxItems', 0);
+		$this->set('repeaterMinItems', 0); 
 		$this->set('repeaterDepth', 0);
+		$this->set('accordionMode', false);
 	}
 
 	/**
@@ -278,9 +282,22 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$openIDs = array();
 		}
 		
+		$minItems = $this->repeaterMinItems;
+	
+		// if there are a minimum required number of items, set them up now
+		if(!$itemID && $minItems > 0) {
+			$notIDs = $value->explode('id');
+			while($value->count() < $this->repeaterMinItems) {
+				$item = $this->getNextReadyPage($notIDs);
+				$value->add($item);
+				$notIDs[] = $item->id;
+			}
+		}
+		
 		$repeaterCollapse = (int) $this->field->get('repeaterCollapse');
 		$cnt = 0;
 		$numVisible = 0;
+		$numOpen = 0;
 		
 		// create field for each repeater iteration	
 		foreach($value as $key => $page) {
@@ -293,6 +310,9 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$isReadyItem = $isHidden && $isUnpublished;
 			$isClone = $page->get('_repeater_clone'); 
 			$isOpen = in_array($page->id, $openIDs) || $isClone;
+			$isMinItem = $isReadyItem && $minItems && $cnt < $minItems;
+			
+			if($isOpen && $numOpen > 0 && $this->accordionMode) $isOpen = false;
 
 			// get the inputfields for the repeater page
 			if(is_null($loadInputsForIDs) || in_array($page->id, $loadInputsForIDs) || $isOpen) {
@@ -354,7 +374,10 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			
 			if($isOpen) {
 				$wrap->collapsed = Inputfield::collapsedNo;
+				$numOpen++;
 			} else if($repeaterCollapse == FieldtypeRepeater::collapseExisting && !$page->get('_repeater_new') && !$isHidden) {
+				$wrap->collapsed = Inputfield::collapsedYes;
+			} else if($repeaterCollapse == FieldtypeRepeater::collapseExisting && $isMinItem) {
 				$wrap->collapsed = Inputfield::collapsedYes;
 			} else if($repeaterCollapse == FieldtypeRepeater::collapseAll) {
 				$wrap->collapsed = Inputfield::collapsedYes;
@@ -392,6 +415,12 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$wrap->prepend($sort);
 			if($depth) $wrap->prepend($depth);
 			$wrap->prepend($loaded);
+			
+			if($isMinItem) {
+				// allow this ready item to be added so that minimum is met
+				$wrap->addClass('InputfieldRepeaterMinItem');
+				$isReadyItem = false;
+			}
 			
 			if(!$isReadyItem) {
 				$form->add($wrap);
@@ -532,11 +561,18 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		if($this->repeaterMaxItems > 0) {
 			$this->addClass('InputfieldRepeaterMax', 'wrapClass');
 		}
+		if($this->repeaterMinItems > 0) {
+			$this->addClass('InputfieldRepeaterMin', 'wrapClass');
+		}
 		if($this->repeaterDepth > 0) {
 			$this->addClass('InputfieldRepeaterDepth', 'wrapClass');
 		}
+		if($this->accordionMode) {
+			$this->addClass('InputfieldRepeaterAccordion', 'wrapClass');
+		}
 		$this->wrapAttr('data-page', $this->page->id);
 		$this->wrapAttr('data-max', (int) $this->repeaterMaxItems);
+		$this->wrapAttr('data-min', (int) $this->repeaterMinItems);
 		$this->wrapAttr('data-depth', (int) $this->repeaterDepth);
 
 		list($editorUrl, $queryString) = explode('?', $this->page->editUrl());
@@ -550,7 +586,8 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				'toggle' => $this->_x('Click to turn item on/off, or double-click to open/collapse all items', 'repeater-item-action'),
 				'clone' => $this->_x('Clone this item?', 'repeater-item-action'),
 				'openAll' => $this->_x('Open all items?', 'repeater-item-action'), 
-				'collapseAll' => $this->_x('Collapse all items?', 'repeater-item-action')
+				'collapseAll' => $this->_x('Collapse all items?', 'repeater-item-action'),
+				'disabledMinMax' => $this->_('This action is disabled per min and/or max item settings.')
 			)
 		));
 

@@ -186,13 +186,21 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$f->label = $this->_('Remember which repeater items are open?');
 		$f->description = $this->_('When checked, opened repeater items remain open after saving or reloading from the page editor (unless the user closes them).');
 		$f->icon = 'lightbulb-o';
-		if((int) $field->get('rememberOpen')) {
-			$f->attr('checked', 'checked');
-		} else {
-			$f->collapsed = Inputfield::collapsedYes;	
-		}
+		if((int) $field->get('rememberOpen')) $f->attr('checked', 'checked');
+		$f->columnWidth = 50;
 		$inputfields->add($f);
 		
+		// -------------------------------------------------
+		
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', 'accordionMode');
+		$f->label = $this->_('Use accordion mode?');
+		$f->description = $this->_('When checked, only one repeater item will be open at a time.');
+		$f->icon = 'map-o';
+		if((int) $field->get('accordionMode')) $f->attr('checked', 'checked');
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+
 		// -------------------------------------------------
 	
 		$value = (int) $field->get('repeaterMaxItems');
@@ -200,9 +208,21 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$f->attr('name', 'repeaterMaxItems');
 		$f->attr('value', $value > 0 ? $value : '');
 		$f->label = $this->_('Maximum number of items');
-		$f->collapsed = Inputfield::collapsedBlank;
 		$f->description = $this->_('If you need to limit the number of items allowed, enter the limit here (0=no limit).');
 		$f->icon = 'hand-stop-o';
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+		
+		// -------------------------------------------------
+		
+		$value = (int) $field->get('repeaterMinItems');
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->attr('name', 'repeaterMinItems');
+		$f->attr('value', $value > 0 ? $value : '');
+		$f->label = $this->_('Minimum number of items');
+		$f->description = $this->_('This many items will always be open and ready-to-edit (0=no minimum).');
+		$f->icon = 'hand-peace-o';
+		$f->columnWidth = 50;
 		$inputfields->add($f);
 		
 		// -------------------------------------------------

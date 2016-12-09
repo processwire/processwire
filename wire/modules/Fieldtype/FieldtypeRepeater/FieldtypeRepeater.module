@@ -33,7 +33,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Maintains a collection of fields that are repeated for any number of times.', __FILE__), // Module Summary
-			'version' => 105,
+			'version' => 106,
 			'autoload' => true,
 			'installs' => 'InputfieldRepeater'
 			);
@@ -496,7 +496,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$inputfield = $this->wire('modules')->get($this->getInputfieldClass()); 
 		$inputfield->set('page', $page); 
 		$inputfield->set('field', $field);
-		$inputfield->set('repeaterMaxItems', (int) $field->get('repeaterMaxItems')); 
+		$inputfield->set('repeaterMaxItems', (int) $field->get('repeaterMaxItems'));
+		$inputfield->set('repeaterMinItems', (int) $field->get('repeaterMinItems')); 
 		$inputfield->set('repeaterDepth', (int) $field->get('repeaterDepth'));
 		$inputfield->set('repeaterReadyItems', 0);  // ready items deprecated
 

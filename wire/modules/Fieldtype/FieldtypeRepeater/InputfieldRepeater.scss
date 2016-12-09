@@ -12,45 +12,56 @@
 		overflow: hidden;
 		position: relative;
 		
-		.InputfieldRepeaterItemLabel {
-			display: inline-block;
-			padding-left: 0.25em;
-		}
+		.InputfieldRepeaterItemLabel,
 		.InputfieldRepeaterItemControls {
-			padding-right: 0.5em;
-			padding-left: 0.5em;
-			margin-top: 0.5em;
-			position: absolute;
-			top: 0;
-			right: 0;
-			z-index: 1;
-			display: block;
-			white-space: nowrap;
-			height: 100%;
-			
-			.InputfieldRepeaterClone,
-			.InputfieldRepeaterToggle,
-			.InputfieldRepeaterTrash,
+			display: none;
+		}
+		
+		&.InputfieldRepeaterHeaderInit {
+			.InputfieldRepeaterItemLabel {
+				display: inline-block;
+				padding-left: 0.25em;
+			}
+			.InputfieldRepeaterItemControls {
+				display: block;
+				padding-right: 0.5em;
+				padding-left: 0.5em;
+				margin-top: 0.5em;
+				position: absolute;
+				top: 0;
+				right: 0;
+				z-index: 1;
+				display: block;
+				white-space: nowrap;
+				height: 100%;
+
+				.InputfieldRepeaterClone,
+				.InputfieldRepeaterToggle,
+				.InputfieldRepeaterTrash,
+				.toggle-icon {
+					cursor: pointer;
+					float: right;
+				}
+				.InputfieldRepeaterTrash {
+					padding-right: 3px;
+				}
+				.InputfieldRepeaterToggle {
+					margin-right: 1em;
+				}
+				.InputfieldRepeaterClone {
+					margin-right: 1em;
+				}
+				.pw-icon-disabled {
+					opacity: 0.3;	
+				}
+			}
+
 			.toggle-icon {
-				cursor: pointer;
-				float: right;
-			}
-			.InputfieldRepeaterTrash {
-				padding-right: 3px;
-			}
-			.InputfieldRepeaterToggle {
-				margin-right: 1em;
-			}
-			.InputfieldRepeaterClone {
-				margin-right: 1em;
+				line-height: 1em;
+				margin-right: 0.5em;
 			}
 		}
 		
-		.toggle-icon {
-			line-height: 1em;
-			margin-right: 0.5em;
-		}
-
 	}
 		
 	.InputfieldRepeaterItem:not(.InputfieldRepeaterDeletePending) {

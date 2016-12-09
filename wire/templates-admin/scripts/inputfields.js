@@ -1035,7 +1035,7 @@ function InputfieldStates($target) {
 		if($newTab.hasClass('collapsed10')) InputfieldStateAjaxClick($newTab);
 	});
 	
-	$(document).on('click', '.InputfieldStateToggle, .toggle-icon', function() {
+	$(document).on('click', '.InputfieldStateToggle, .toggle-icon', function(event, data) {
 		
 		var $t = $(this);
 		var $li = $t.closest('.Inputfield');
@@ -1043,7 +1043,13 @@ function InputfieldStates($target) {
 		var $icon = isIcon ? $t : $li.children('.InputfieldHeader, .ui-widget-header').find('.toggle-icon'); 
 		var isCollapsed = $li.hasClass("InputfieldStateCollapsed"); 
 		var wasCollapsed = $li.hasClass("InputfieldStateWasCollapsed");
+		var duration = 100;
+		
 		if($li.hasClass('InputfieldAjaxLoading')) return false;
+		
+		if(typeof data != "undefined") {
+			if(typeof data.duration != "undefined") duration = data.duration;
+		}
 
 		if(isCollapsed && ($li.hasClass('collapsed10') || $li.hasClass('collapsed11'))) {
 			if(InputfieldStateAjaxClick($li)) return false;
@@ -1052,7 +1058,7 @@ function InputfieldStates($target) {
 		if(isCollapsed || wasCollapsed || isIcon) {
 			$li.addClass('InputfieldStateWasCollapsed'); // this class only used here
 			$li.trigger(isCollapsed ? 'openReady' : 'closeReady');
-			$li.toggleClass('InputfieldStateCollapsed', 100, function() {
+			$li.toggleClass('InputfieldStateCollapsed', duration, function() {
 				if(isCollapsed) {
 					$li.trigger('opened');
 					if($li.hasClass('InputfieldColumnWidth')) $li.children('.InputfieldContent').show();
