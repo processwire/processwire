@@ -10,6 +10,7 @@
  * 
  * @property int $parent_id Limit results to this parent, or if combined with findPagesSelector, the search is performed as $pages->get($parent_id)->find() rather than $pages->find().
  * @property int $template_id Limit results to pages using this template.
+ * @property array $template_ids Limit results to pages using this templates (alternate to the single template_id). 
  * @property string $labelFieldName Field to display in the results. (default=title)
  * @property string $labelFieldFormat Format string to display in the results, overrides labelFieldName when used (default=blank).
  * @property string $searchFields Field(s) to search for text. Separate multiple by a space. (default=title)
@@ -48,7 +49,8 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		$this->set('parent_id', 0); 
 
 		// limit results to pages using this template
-		$this->set('template_id', 0); 
+		$this->set('template_id', 0);
+		$this->set('template_ids', array()); 
 
 		// field to display in the results
 		$this->set('labelFieldName', 'title'); 
@@ -259,7 +261,11 @@ _OUT;
 			else $value = array();
 		
 		foreach($value as $k => $v) {
-			$value[$k] = (int) $v;
+			if(empty($v)) {
+				unset($value[$k]);
+			} else {
+				$value[$k] = (int) $v;
+			}
 		}
 		
 		$this->attr('value', $value);
@@ -287,7 +293,9 @@ _OUT;
 			}
 		}
 
-		if($this->template_id) {
+		if(count($this->template_ids)) {
+			$selector .= ",templates_id=" . implode('|', $this->template_ids);
+		} else if($this->template_id) {
 			$selector .= ",templates_id={$this->template_id}";
 		}
 		

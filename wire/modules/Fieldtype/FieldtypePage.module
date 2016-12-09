@@ -133,10 +133,14 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		$template = null;
 		$template_id = $field->get('template_id');
+		$template_ids = $field->get('template_ids');
 		$derefAsPage = $field->get('derefAsPage');
 		$allowUnpub = $field->get('allowUnpub');
-		
-		if($template_id) $template = $this->wire('templates')->get($template_id); 
+	
+		if(empty($template_ids) || count($template_ids) <= 1) {
+			// we only use $template optimization if only one template selected
+			if($template_id) $template = $this->wire('templates')->get($template_id);
+		}
 		
 		// handle $value if it's blank, Page, or PageArray
 		if($derefAsPage > 0) {
@@ -385,7 +389,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		$result = false;
 		$parent_id = $field->get('parent_id');
-		$template_id = $field->get('template_id');
+		$template_id = $field->get('template_ids');
+		if(empty($template_id)) $template_id = $field->get('template_id');
 
 		if(Selectors::stringHasOperator($value)) {
 			// selector string
@@ -434,7 +439,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			if(!$result->id) $result = $this->wire('pages')->get("parent_id=$parentIDs, name=" . 
 				$this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($value))); 
 			
-		} else if($template_id) {
+		} else if(!empty($template_id)) {
 			// set by title 
 			$templateIDs = is_array($template_id) ? implode('|', $template_id) : $template_id;
 			$result = $this->wire('pages')->get("templates_id=$templateIDs, title=" . $this->wire('sanitizer')->selectorValue($value));
@@ -787,7 +792,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$value = $this->wire('sanitizer')->selectorValue($value);
 		$findPagesSelector = $field->get('findPagesSelector');
 		$parent_id = $field->get('parent_id');
-		$template_id = $field->get('template_id');
+		$template_id = $field->get('template_ids');
+		if(empty($template_id)) $template_id = $field->get('template_id');
 
 		if(in_array($subfield, $this->nativeNames)) {
 			// fine then, we can handle that here when needed (like !=)
@@ -902,7 +908,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		$subfields = array();
 		$fieldgroups = array();
-		$template_id = $field->get('template_id');
+		$template_id = $field->get('template_ids');
+		if(empty($template_id)) $template_id = $field->get('template_id');
 		$parent_id = $field->get('parent_id');
 
 		if($template_id) {
@@ -1028,18 +1035,19 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			// convert parent ID to parent path
 			$data['parent_id'] = $this->wire('pages')->get((int) $data['parent_id'])->path;
 		}
-		if(!empty($data['template_id'])) { 
-			if(is_array($data['template_id'])) {
+		foreach(array('template_id', 'template_ids') as $key) {
+			if(empty($data[$key])) continue;
+			if(is_array($data[$key])) {
 				// convert array of template ids to template names
-				foreach($data['template_id'] as $key => $id) {
+				foreach($data[$key] as $k => $id) {
 					if(ctype_digit("$id")) continue;
 					$template = $this->wire('templates')->get((int) $id);
-					if($template) $data['template_id'][$key] = $template->name;
+					if($template) $data[$key][$k] = $template->name;
 				}
-			} else if(ctype_digit("$data[template_id]")) {
+			} else if(ctype_digit((string) $data[$key])) {
 				// convert template id to template name
-				$template = $this->wire('templates')->get((int) $data['template_id']);
-				if($template) $data['template_id'] = $template->name;
+				$template = $this->wire('templates')->get((int) $data[$key]);
+				if($template) $data[$key] = $template->name;
 			}
 		}
 		return $data;
@@ -1071,23 +1079,24 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			$data['parent_id'] = $id;
 		}
 		// template
-		if(!empty($data['template_id'])) {
+		foreach(array('template_id', 'template_ids') as $property) {
+			if(empty($data[$property])) continue;
 			// template_id can be an id or array of IDs, but we will be importing a template name or array of them
 			$errors = array();
-			$isArray = is_array($data['template_id']); 
-			if(!$isArray) $data['template_id'] = array($data['template_id']); 
-			foreach($data['template_id'] as $key => $name) { 
-				if(ctype_digit("$name")) continue; 
+			$isArray = is_array($data[$property]);
+			if(!$isArray) $data[$property] = array($data[$property]);
+			foreach($data[$property] as $key => $name) {
+				if(ctype_digit("$name")) continue;
 				// we have a template name rather than id
 				$template = $this->wire('templates')->get($this->wire('sanitizer')->name($name));
 				if($template) {
-					$data['template_id'][$key] = $template->id;
+					$data[$property][$key] = $template->id;
 				} else {
 					$errors[] = $this->_('Unable to find template') . " - $name.";
 				}
 			}
-			if(!$isArray) $data['template_id'] = reset($data['template_id']);
-			if(count($errors)) $data['errors']['template_id'] = implode(" \n", $errors); 
+			if(!$isArray) $data[$property] = reset($data[$property]);
+			if(count($errors)) $data['errors'][$property] = implode(" \n", $errors);
 		}
 		return $data;
 	}

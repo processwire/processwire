@@ -11,6 +11,7 @@
  * Can be accessed from $this or from $field:
  * 
  * @property int $template_id
+ * @property array $template_ids
  * @property int $parent_id
  * @property string $inputfield
  * @property string $labelFieldName Field name to use for label (note: this will be "." if $labelFieldFormat is in use).
@@ -70,6 +71,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	protected static $defaultConfig = array(
 		'parent_id' => 0,
 		'template_id' => 0,
+		'template_ids' => array(), 
 		'inputfield' => '', 
 		'labelFieldName' => '',
 		'labelFieldFormat' => '',
@@ -142,7 +144,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * 
 	 * @param array|string $class
 	 * @param string $property
-	 * @return $this
+	 * @return InputfieldPage|Inputfield
 	 * 
 	 */
 	public function addClass($class, $property = 'class') {
@@ -159,7 +161,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * 
 	 * @param array|string $key
 	 * @param array|int|string $value
-	 * @return $this
+	 * @return InputfieldPage|Inputfield
 	 * 
 	 */
 	public function setAttribute($key, $value) {
@@ -211,7 +213,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	public static function isValidPage(Page $page, $field, Page $editPage = null) {
-		
+	
 		if(!$field instanceof Field) $field = $page->wire('fields')->get($field);
 		if(!$field instanceof Field) throw new WireException('isValidPage requires a valid Field or field name');
 		
@@ -228,6 +230,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$findPagesSelector = $field->get('findPagesSelector');
 		$parent_id = $field->get('parent_id');
 		$template_id = $field->get('template_id');
+		$template_ids = $field->get('template_ids');
+		if(!is_array($template_ids)) $template_ids = array();
 		
 		if($findPagesSelector) { 
 			$selector = $findPagesSelector; 
@@ -268,10 +272,22 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 				$valid = $reflector->implementsInterface('InputfieldPageListSelection'); 
 			}
 		}
-		
-		if($template_id && $page->template->id != $template_id) {
+	
+		$hasRequiredTemplate = true;
+		if(!empty($template_ids)) {
+			if($template_id && !in_array($template_id, $template_ids)) {
+				array_unshift($template_ids, $template_id);
+			}
+			$hasRequiredTemplate = in_array($page->template->id, $template_ids);
+		} else if($template_id) {
+			$hasRequiredTemplate = $page->template->id == $template_id;
+		}
+		if(!$hasRequiredTemplate) { 
 			$valid = false;
-			if($editPage) $editPage->set('_isValidPage', "Page $page does not have required template $template_id"); 
+			$requiredTemplate = empty($template_ids) ? $template_id : implode(',', $template_ids);
+			if($editPage) {
+				$editPage->set('_isValidPage', "Page $page does not have required template(s): $requiredTemplate");
+			}
 		}
 		
 		return $valid;
@@ -295,6 +311,15 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		// ensures it accepts any config value (like those for delegate inputfields)
 		return true; 
 	}
+	
+	public function getSetting($key) {
+		$value = parent::getSetting($key);
+		if(empty($value) && $key == 'template_id') {
+			$templateIDs = parent::getSetting('template_ids');
+			if(!empty($templateIDs)) $value = reset($templateIDs);
+		}
+		return $value;
+	}
 
 	/**
 	 * Return PageArray of selectable pages for this input
@@ -308,6 +333,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$lockedModes = array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked);
 		$statusUnder = $this->allowUnpub ? Page::statusTrash : Page::statusUnpublished; 
 		$children = null;
+		$templateIDs = $this->getTemplateIDs(true);
 
 		if($this->configMode) {
 			$children = $this->wire('pages')->newPageArray();
@@ -335,15 +361,15 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		} else if($this->parent_id) {
 			$parent = $this->wire('pages')->get($this->parent_id); 
 			if($parent) {
-				if($this->template_id) {
-					$children = $parent->children("templates_id={$this->template_id}, check_access=0, status<$statusUnder"); 
+				if($templateIDs) {
+					$children = $parent->children("templates_id=$templateIDs, check_access=0, status<$statusUnder"); 
 				} else {
 					$children = $parent->children("check_access=0, status<$statusUnder");
 				}
 			}
 
-		} else if($this->template_id) {
-			$children = $this->pages->find("templates_id={$this->template_id}, check_access=0, status<$statusUnder"); 
+		} else if($templateIDs) {
+			$children = $this->pages->find("templates_id=$templateIDs, check_access=0, status<$statusUnder"); 
 
 		} else {
 			$children = $this->wire('pages')->newPageArray();
@@ -354,7 +380,26 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		}
 
 		return $children; 
-	} 
+	}
+
+	/**
+	 * Return array or string of configured template IDs
+	 * 
+	 * @param bool $getString Specify true to return a 1|2|3 style string rather than an array
+	 * @return array|string
+	 * 
+	 */
+	public function getTemplateIDs($getString = false) {
+		$templateIDs = $this->getSetting('template_ids');
+		$templateID = $this->getSetting('template_id');
+		if(empty($templateIDs)) {
+			if(empty($templateID)) return $getString ? '' : array();
+			$templateIDs = array($templateID);
+		} else {
+			if(!in_array($templateID, $templateIDs)) array_unshift($templateIDs, $templateID);
+		}
+		return $getString ? implode('|', $templateIDs) : $templateIDs;
+	}
 
 	/**
 	 * Populate any variables in findPagesSelector
@@ -369,6 +414,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	
 		// if an $inputfield is passed in, then we want to retrieve dependent values directly
 		// from the form, rather than from the $page
+		/** @var InputfieldWrapper $form */
 		if($inputfield) {
 			// locate the $form
 			$n = 0;
@@ -480,6 +526,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			
 			$parent_id = $this->getSetting('parent_id');
 			$template_id = $this->getSetting('template_id');
+			$template_ids = $this->getTemplateIDs();
 			$findPagesCode = $this->getSetting('findPagesCode');
 			$findPagesSelector = $this->getSetting('findPagesSelector');
 			$labelFieldName = $this->getSetting('labelFieldName');
@@ -494,6 +541,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			}
 			
 			if($template_id) $inputfield->template_id = $template_id; 
+			if(!empty($template_ids)) $inputfield->template_ids = $template_ids;
 			
 			if($findPagesSelector) {
 				$inputfield->findPagesSelector = self::getFindPagesSelector($page, $findPagesSelector); 
@@ -801,7 +849,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		foreach($titles as $title) {
 
 			// check if there is an existing page using this title
-			$selector = "include=all, templates_id={$this->template_id}, title=" . $this->wire('sanitizer')->selectorValue($title); 
+			$selector = "include=all, templates_id=$template_id, title=" . $this->wire('sanitizer')->selectorValue($title); 
 			$existingPage = $parent->child($selector);
 			if($existingPage->id) {
 				// use existing page
@@ -865,6 +913,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		} else if($value instanceof PageArray) {
 			// derefAsPageArray
+			/** @var PageArray $value */
 			if(!count($value)) return true; 
 
 		} else {
@@ -901,17 +950,37 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$field->attr('value', (int) $this->parent_id); 
 		$field->description = $this->_('Select the parent of the pages that are selectable.');
 		$field->required = false;
-		$fieldset->append($field); 
+		$fieldset->append($field);
 
 		/** @var InputfieldSelect $field */
 		$field = $this->modules->get('InputfieldSelect');
-		$field->setAttribute('name', 'template_id'); 
+		$field->setAttribute('name', 'template_id');
 		$field->label = $this->_('Template of selectable page(s)');
-		$field->attr('value', (int) $this->template_id); 
 		$field->description = $this->_('Select the template of the pages that are selectable. May be used instead of, or in addition to, the parent above. NOTE: Not compatible with PageListSelect input field types.'); // Description for Template of selectable pages
-		foreach($this->templates as $template) $field->addOption($template->id, $template->name); 
+		foreach($this->templates as $template) {
+			$field->addOption($template->id, $template->name);
+		}
+		$field->attr('value', $this->getSetting('template_id'));
 		$field->collapsed = Inputfield::collapsedBlank;
-		$fieldset->append($field); 
+		$fieldset->append($field);
+
+		$templateIDs = $this->getTemplateIDs();
+		/** @var InputfieldAsmSelect $field */
+		$field = $this->modules->get('InputfieldAsmSelect');
+		$field->attr('name', 'template_ids');
+		$field->label = $this->_('Need more templates? Select them here');
+		$field->description = $this->_('Optionally select multiple templates to use for page selections.');
+		$field->description .= ' ' . $this->_('This may not be supported by all input types.');
+		foreach($this->templates as $template) {
+			$field->addOption($template->id, $template->name);
+		}
+		$field->attr('value', $templateIDs);
+		$field->collapsed = Inputfield::collapsedBlank;
+		$field->showIf = 'template_id!=0';
+		if(count($templateIDs) == 1 && reset($templateIDs) == $this->getSetting('template_id')) {
+			$field->collapsed = Inputfield::collapsedYes;
+		}
+		$fieldset->append($field);
 
 		/** @var InputfieldText $field */
 		$field = $this->modules->get('InputfieldText'); 
