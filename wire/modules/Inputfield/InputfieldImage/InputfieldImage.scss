@@ -644,7 +644,7 @@ $itemPadding: 0.4em;
 			top: 0;
 			left: 0;
 			float: left;
-			background: initial;
+			background-clip: content-box;
 			display: block;
 			height: auto !important;
 			width: 23%; 
@@ -656,13 +656,15 @@ $itemPadding: 0.4em;
 
 			& > img {
 				display: block;
-				position: static !important;
+				position: static;
 				transition: none;
 				-ms-transform: none;
 				transform: none;
-				width: 100%;
-				max-width: 100% important;
-				height: initial !important;
+				margin: 0 auto;
+				width: auto;
+				height: auto;
+				max-width: 100%;
+				max-height: 320px;
 				cursor: move;
 			}
 		}
@@ -810,7 +812,7 @@ $itemPadding: 0.4em;
 				padding: 0;
 
 				img {
-					width: 100% important;
+					width: 100% !important;
 					height: auto !important;
 				}
 				
