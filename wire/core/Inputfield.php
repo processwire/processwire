@@ -69,7 +69,7 @@
  * @property InputfieldWrapper|null $parent The parent InputfieldWrapper for this Inputfield or null if not set. #pw-internal
  * @property null|bool|Fieldtype $hasFieldtype The Fieldtype using this Inputfield, or boolean false when known not to have a Fieldtype, or null when not known. #pw-group-other
  * @property bool|null $useLanguages When multi-language support active, can be set to true to make it provide inputs for each language, where supported (default=false). #pw-group-behavior
- * @property null|bool|int $entityEncodeLabel Set to boolean false to specifically disable entity encoding of field header/label, or set to a Inputfield::textFormat constant. (default=true). #pw-group-output
+ * @property null|bool|int $entityEncodeLabel Set to boolean false to specifically disable entity encoding of field header/label (default=true). #pw-group-output
  * @property null|bool $entityEncodeText Set to boolean false to specifically disable entity encoding for other text: description, notes, etc. (default=true). #pw-group-output
  * @property int $renderValueFlags Options that can be applied to renderValue mode, see "renderValue" constants (default=0). #pw-group-output
  * @property string $wrapClass Optional class name (CSS) to apply to the HTML element wrapping the Inputfield. #pw-group-other
@@ -80,6 +80,7 @@
  * ================
  * @method string render()
  * @method string renderValue()
+ * @method void renderReadyHook(Inputfield $parent, $renderValueMode)
  * @method Inputfield processInput(WireInputData $input)
  * @method InputfieldWrapper getConfigInputfields()
  * @method array getConfigArray()
@@ -385,7 +386,7 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 * @param string $key Name of property to set
 	 * @param mixed $value Value of property
-	 * @return $this
+	 * @return Inputfield|WireData
 	 *
 	 */
 	public function set($key, $value) {
@@ -642,7 +643,7 @@ abstract class Inputfield extends WireData implements Module {
 	 *   - String with attributes split by "+" or "|" to set them all to have the same value. 
 	 *   - Specify boolean true to get all attributes in an associative array.
 	 * @param string|int|null $value Value to set (if setting), omit otherwise. 
-	 * @return mixed|$this If setting an attribute, it returns this instance. If getting an attribute, the attribute is returned. 
+	 * @return Inputfield|array|string|int|object|float If setting an attribute, it returns this instance. If getting an attribute, the attribute is returned. 
 	 * @see Inputfield::removeAttr(), Inputfield::addClass(), Inputfield::removeClass()
 	 *
 	 */
@@ -702,7 +703,7 @@ abstract class Inputfield extends WireData implements Module {
 	 *   - Omit if getting an attribute. 
 	 *   - Value to set for $key of setting. 
 	 *   - Boolean false to remove the attribute specified for $key. 
-	 * @return string|array|$this Returns one of the following: 
+	 * @return Inputfield|string|array|null Returns one of the following: 
 	 *   - If getting, returns attribute value of NULL if not present. 
 	 *   - If setting, returns $this.
 	 * @see Inputfield::attr(), Inputfield::addClass()
@@ -1030,8 +1031,23 @@ abstract class Inputfield extends WireData implements Module {
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 		if($parent) {}
 		if($renderValueMode) {}
-		return $this->wire('modules')->loadModuleFileAssets($this) > 0;
+		$result = $this->wire('modules')->loadModuleFileAssets($this) > 0;
+		if($this->wire('hooks')->isMethodHooked($this, 'renderReadyHook')) {
+			$this->renderReadyHook($parent, $renderValueMode);
+		}
+		return $result;
 	}
+
+	/**
+	 * Hookable version of renderReady(), not called unless 'renderReadyHook' is hooked
+	 * 
+	 * Hook this method instead if you want to hook renderReady().
+	 * 
+	 * @param Inputfield $parent
+	 * @param bool $renderValueMode
+	 * 
+	 */
+	public function ___renderReadyHook(Inputfield $parent = null, $renderValueMode) { }
 
 	/**
 	 * This hook was replaced by renderReady
@@ -1502,7 +1518,7 @@ abstract class Inputfield extends WireData implements Module {
 	 * @param string $what Name of property that changed
 	 * @param mixed $old Previous value before change
 	 * @param mixed $new New value
-	 * @return $this
+	 * @return Inputfield|WireData $this
 	 *
 	 */
 	public function trackChange($what, $old = null, $new = null) {

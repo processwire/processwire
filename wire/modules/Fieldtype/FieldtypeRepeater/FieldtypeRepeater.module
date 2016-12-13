@@ -640,7 +640,17 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		*/
 
 		// load the repeater pages
-		$a = $this->wire('pages')->find($selector);
+		$options = array(
+			'cache' => false, 
+			'caller' => $this->className() . '::wakeupValue',
+			'loadOptions' => array(
+				'cache' => false, 
+				'parent_id' => $parent_id, 
+				'template' => $this->wire('templates')->get($template_id)
+			)
+		);
+		
+		$a = $this->wire('pages')->find($selector, $options);
 		$class = $this->getPageArrayClass();
 		$pageArray = $this->wire(new $class($page, $field)); 
 		$pageArray->import($a);

@@ -588,9 +588,10 @@ var InputfieldSelector = {
 			if(s.field == '_custom') {
 				if(s.isOrGroup) {
 					s.value = s.value.replace('(', '').replace(')', '');
-					selector += s.field + '=' + '(' + s.value + ')';
+					selector += s.field + '=' + '(' + $.trim(s.value) + ')';
 				} else {
-					selector += s.value;
+					//selector += s.value;
+					selector += s.field + '="' + $.trim(s.value) + '"';
 				}
 			} else {
 				selector += s.field + s.operator + $.trim(s.value); 

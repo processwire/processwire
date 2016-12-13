@@ -154,6 +154,8 @@ class PagesLoader extends Wire {
 	 *	- findOne: boolean - apply optimizations for finding a single page
 	 *  - findAll: boolean - find all pages with no exculsions (same as include=all option)
 	 *	- getTotal: boolean - whether to set returning PageArray's "total" property (default: true except when findOne=true)
+	 *  - cache: boolean - Allow caching of selectors and pages loaded (default=true). Also sets loadOptions[cache]. 
+	 *  - allowCustom: boolean - Whether to allow use of "_custom=new selector" in selectors (default=false). 
 	 *  - lazy: boolean - makes find() return Page objects that don't have any data populated to them (other than id and template). 
 	 *	- loadPages: boolean - whether to populate the returned PageArray with found pages (default: true).
 	 *		The only reason why you'd want to change this to false would be if you only needed the count details from
@@ -177,6 +179,8 @@ class PagesLoader extends Wire {
 		$caller = isset($options['caller']) ? $options['caller'] : 'pages.find';
 		$lazy = empty($options['lazy']) ? false : true;
 		$debug = $this->debug && !$lazy;
+		$cachePages = isset($options['cache']) ? (bool) $options['cache'] : true;
+		if(!$cachePages && !isset($loadOptions['cache'])) $loadOptions['cache'] = false;
 		$pages = $this->findShortcut($selector, $options, $loadOptions);
 		
 		if($pages) return $pages;
@@ -293,7 +297,9 @@ class PagesLoader extends Wire {
 		$pages->setSelectors($selectors);
 		$pages->setTrackChanges(true);
 
-		if($loadPages) $this->pages->cacher()->selectorCache($selectorString, $options, $pages);
+		if($loadPages && $cachePages) {
+			$this->pages->cacher()->selectorCache($selectorString, $options, $pages);
+		}
 
 		if($debug) {
 			$this->pages->debugLog('find', $selectorString, $pages);

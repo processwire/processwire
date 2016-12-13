@@ -390,7 +390,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		
 		if(!is_array($value) || !count($value) || empty($field->template_id)) return $this->getBlankValue($page, $field);
 		
-		$template_id = $field->template_id; 
+		$template_id = $field->get('template_id'); 
 		
 		if(!is_array($template_id)) { 
 			$template_id = $template_id ? array($template_id) : array();
@@ -402,16 +402,26 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 			$template = null;
 		}
 		
-		if($field->sortfields) {
+		$loadOptions = array('cache' => false);
+		if($template) $loadOptions['template'] = $template;
+		
+		$sortfields = $field->get('sortfields');
+		
+		if($sortfields) {
 			$selector = $template ? "template=$template, " : ""; 
 			$selector .= "include=unpublished, id=" . implode('|', $value);
-			foreach(explode(',', $field->sortfields) as $sortfield) {
+			foreach(explode(',', $sortfields) as $sortfield) {
 				$selector .= ", sort=" . $this->wire('sanitizer')->name(trim($sortfield));
 			}
-			$items = $this->wire('pages')->find($selector); 
+			$options = array(
+				'cache' => false,
+				'caller' => $this->className() . '::wakeupValue',
+				'loadOptions' => $loadOptions
+			);
+			$items = $this->wire('pages')->find($selector, $options); 
 			
 		} else {
-			$items = $this->wire('pages')->getById($value, $template); 
+			$items = $this->wire('pages')->getById($value, $loadOptions); 
 		}
 			
 		return $items; 

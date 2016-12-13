@@ -273,7 +273,10 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 
 		} else if($action == 'subfield' && ($fieldName = $input->get->field)) {
 			$fieldName = $sanitizer->name($fieldName); 
-			if(strpos($fieldName, '.'))  list($fieldName, $subfieldName) = explode('.', $fieldName); 
+			if(strpos($fieldName, '.')) {
+				list($fieldName, $subfieldName) = explode('.', $fieldName);
+				if($subfieldName) {} // ignore
+			}
 			$out = $this->renderSelectSubfield($fieldName); 
 
 		} else if($action == 'opval' && ($fieldName = $input->get->field)) {
@@ -617,6 +620,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				// consider multi-language
 				if(strpos($name, 'data') === 0 && $this->wire('languages')) {
 					list($unused, $languageID) = explode('data', "x$name");
+					if($unused) {}
 					if(ctype_digit($languageID)) {
 						$language = $this->wire('languages')->get((int) $languageID);
 						if($language && $language->id) {
@@ -630,7 +634,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				} else if(!empty($subfield['label'])) {
 					$label = $subfield['label'];
 				} else if(strpos($name, 'data') === 0 && ctype_digit(substr($name, 4)) && $this->wire('languages')) {
-					
+					$label = $this->wire('languages')->get((int) substr($name, 4))->get('title|name');
 				} else {
 					$f = $this->wire('fields')->get($name);
 					$label = $f ? $f->getLabel() : $name;
@@ -646,6 +650,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				$_subfields = array();
 				foreach($subfields as $key => $subfield) {
 					list($label, $name) = explode("\t", $key);	
+					if($label) {}
 					$_subfields[$name] = $subfield;
 				}
 				$subfields = $_subfields;	
@@ -839,6 +844,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		if($settings['showFieldLabels']) {
 			$customFields = array();
 			foreach($settings['customFields'] as $field) {
+				/** @var Field $field */
 				$label = $field->getLabel();
 				while(isset($customFields[$label])) $label .= ' ';
 				$customFields[$label] = $field;
@@ -1183,8 +1189,18 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 								&& ($field->get('findPagesCode') || $field->get('findPagesSelector'))) {
 								// see if we can locate options purely with the parent or template
 								$findSelector = array("include=unpublished, limit=500, sort=title, sort=name, ");
-								if($field->get('parent_id')) $findSelector[] = "parent_id=" . (int) $field->get('parent_id'); 
-								if($field->get('template_id')) $findSelector[] = "templates_id=" . (int) $field->get('template_id'); 
+								$parent_ids = $field->get('parent_ids');
+								$template_ids = $field->get('template_ids');
+								if($parent_ids && count($parent_ids)) {
+									$findSelector[] = "parent_id=" . implode('|', $parent_ids);
+								} else if($field->get('parent_id')) {
+									$findSelector[] = "parent_id=" . (int) $field->get('parent_id');
+								}
+								if($template_ids && count($template_ids)) {
+									$findSelector[] = "templates_id=" . implode('|', $template_ids);
+								} else if($field->get('template_id')) {
+									$findSelector[] = "templates_id=" . (int) $field->get('template_id'); 
+								}
 								foreach($this->wire('pages')->find(implode(', ', $findSelector)) as $item) {
 									$options[$item->id] = $inputfield->getPageLabel($item); // $item->get('title|name');
 								}
@@ -1386,6 +1402,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			if(strpos($limitField, '.') === false) continue;
 			if(strpos($limitField, $fieldName) !== 0) continue; 
 			list($limitField, $limitSubfield) = explode('.', $limitField);
+			if($limitField) {} // ignore
 			if($limitSubfield) $limitSubfields[$limitSubfield] = $limitSubfield;
 		}
 		// render all the subfield options
@@ -1625,7 +1642,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * 
 	 * @param array|string $key
 	 * @param int|string $value
-	 * @return $this
+	 * @return InputfieldSelector|WireData
 	 * 
 	 */
 	public function setAttribute($key, $value) {
@@ -1913,6 +1930,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	public function getModuleConfigInputfields(array $data) {
+		if($data) {} // ignore
 		$form = $this->wire(new InputfieldWrapper());
 		$f = $this->wire('modules')->get('InputfieldSelector'); 
 		$f->name = 'test';

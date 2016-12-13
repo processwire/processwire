@@ -199,20 +199,22 @@ class Pages extends Wire {
 	 * 
 	 * @param string|int|array|Selectors $selector Specify selector (standard usage), but can also accept page ID or array of page IDs.
 	 * @param array|string $options One or more options that can modify certain behaviors. May be associative array or "key=value" selector string.
-	 *  - `findOne` (boolean): Apply optimizations for finding a single page.
-	 *  - `findAll` (boolean): Find all pages with no exculsions (same as include=all option).
-	 *  - `getTotal` (boolean): Whether to set returning PageArray's "total" property (default: true except when findOne=true).
-	 *  - `loadPages` (boolean): Whether to populate the returned PageArray with found pages (default: true). 
+	 *  - `findOne` (boolean): Apply optimizations for finding a single page (default=false).
+	 *  - `findAll` (boolean): Find all pages with no exclusions, same as "include=all" option (default=false). 
+	 *  - `getTotal` (boolean): Whether to set returning PageArray's "total" property (default=true, except when findOne=true).
+	 *  - `loadPages` (boolean): Whether to populate the returned PageArray with found pages (default=true). 
 	 *	   The only reason why you'd want to change this to false would be if you only needed the count details from 
 	 *	   the PageArray: getTotal(), getStart(), getLimit, etc. This is intended as an optimization for $pages->count().
 	 * 	   Does not apply if $selector argument is an array. 
-	 *  - `caller` (string): Optional name of calling function, for debugging purposes, i.e. pages.count
-	 *  - `include` (string): Optional inclusion mode of 'hidden', 'unpublished' or 'all'. Default=none. Typically you would specify this 
+	 *  - `cache` (boolean): Allow caching of selectors and loaded pages? (default=true). Also sets loadOptions[cache].
+	 *  - `allowCustom` (boolean): Allow use of _custom="another selector" in given $selector? For specific uses. (default=false)
+	 *  - `caller` (string): Optional name of calling function, for debugging purposes, i.e. "pages.count" (default=blank).
+	 *  - `include` (string): Optional inclusion mode of 'hidden', 'unpublished' or 'all'. (default=none). Typically you would specify this 
 	 *     directly in the selector string, so the option is mainly useful if your first argument is not a string. 
 	 *  - `stopBeforeID` (int): Stop loading pages once page matching this ID is found (default=0).
 	 *  - `startAfterID` (int): Start loading pages once page matching this ID is found (default=0). 
 	 *  - `lazy` (bool): Specify true to force lazy loading. This is the same as using the Pages::findMany() method (default=false).
-	 *  - `loadOptions` (array): Optional assoc array of options to pass to getById() load options.
+	 *  - `loadOptions` (array): Optional associative array of options to pass to getById() load options.
 	 * @return PageArray Pages that matched the given selector.
 	 * 
 	 * Non-visible pages are excluded unless an "include=x" mode is specified in the selector
@@ -289,6 +291,7 @@ class Pages extends Wire {
 		$debug = $this->debug;
 		if($debug) $this->debug(false);
 		$options['lazy'] = true;
+		if(!isset($options['cache'])) $options['cache'] = false;
 		$matches = $this->loader->find($selector, $options);
 		if($debug) $this->debug($debug);
 		return $matches;

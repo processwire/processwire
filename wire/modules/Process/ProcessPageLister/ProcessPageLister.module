@@ -1504,7 +1504,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$this->finalSelector = $selector; 
 
 		try {
-			$results = $selector ? $this->wire('pages')->find($selector) : $this->wire('pages')->newPageArray();
+			$options = array('allowCustom' => true);
+			$results = $selector ? $this->wire('pages')->find($selector, $options) : $this->wire('pages')->newPageArray();
 			
 		} catch(\Exception $e) {
 			$this->error($e->getMessage());

@@ -29,6 +29,7 @@ require_once(PROCESSWIRE_CORE_PATH . "Selector.php");
  * #pw-body
  * 
  * @link https://processwire.com/api/selectors/ Official Selectors Documentation
+ * @method Selector[] getIterator()
  * 
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
@@ -365,10 +366,9 @@ class Selectors extends WireArray {
 
 
 	/**
-	 * Given a selector string, return an array of (field, value, operator) for each selector in the strong. 
+	 * Given a selector string, populate to Selector objects in this Selectors instance
 	 *
 	 * @param string $str The string containing a selector (or multiple selectors, separated by commas)
-	 * @return array 
 	 *
 	 */
 	protected function extractString($str) {
@@ -739,6 +739,47 @@ class Selectors extends WireArray {
 		if(!in_array($name, $this->allowedParseVars)) return false;
 		if(strlen($subname) && $this->wire('sanitizer')->fieldName($subname) !== $subname) return false;
 		return true; 
+	}
+
+	/**
+	 * Return array of all field names referenced in all of the Selector objects here
+	 * 
+	 * @param bool $subfields Default is to allow "field.subfield" fields, or specify false to convert them to just "field".
+	 * @return array Returned array has both keys and values as field names (same)
+	 * 
+	 */
+	public function getAllFields($subfields = true) {
+		$fields = array();
+		foreach($this as $selector) {
+			$field = $selector->field;
+			if(!is_array($field)) $field = array($field);
+			foreach($field as $f) {
+				if(!$subfields && strpos($f, '.')) {
+					list($f, $subfield) = explode('.', $f, 2);
+					if($subfield) {} // ignore
+				}
+				$fields[$f] = $f;
+			}
+		}
+		return $fields;
+	}
+
+	/**
+	 * Return array of all values referenced in all Selector objects here
+	 * 
+	 * @return array Returned array has both keys and values as field values (same)
+	 * 
+	 */
+	public function getAllValues() {
+		$values = array();
+		foreach($this as $selector) {
+			$value = $selector->value;
+			if(!is_array($value)) $value = array($value);
+			foreach($value as $v) {
+				$values[$v] = $v;
+			}
+		}
+		return $values;
 	}
 
 	/**
