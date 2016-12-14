@@ -61,6 +61,12 @@
  * @property int $editOption Edit option setting, used only by ListerPro
  * @property bool $responsiveTable Whether or not Lister table should be responsive rather than horiz scroll
  * 
+ * @method string buildListerTableColActions(Page $p, $value)
+ * @method string renderResults($selector = null)
+ * @method string getSelector($limit = null)
+ * @method PageArray findResults($selector)
+ * @method string executeReset()
+ * 
  * 
  * @todo make system fields hookable for output like markupValue is for custom fields
  * @todo show bookmark title somewhere on page so users know what they are looking at (+ browser title?)
@@ -484,7 +490,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 *
 	 * @param string $key
 	 * @param mixed $value
-	 * @return this
+	 * @return ProcessPageLister|Process
 	 *
 	 */
 	public function set($key, $value) {
@@ -568,7 +574,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		if(!is_null($sort)) {
 			$sort = $this->sanitizer->name($sort); 
 			$this->sessionSet("sort", $sort); 
-			$this->sort = $sort; 
+			$this->set('sort', $sort); 
 		}
 	}
 
@@ -581,6 +587,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$fields = $this->template ? $this->template->fieldgroup : $this->wire('fields'); 
 		$options = $this->getSystemColumns();
 
+		/** @var InputfieldAsmSelect $f */
 		$f = $this->modules->get('InputfieldAsmSelect'); 
 		$f->attr('name', 'columns'); 
 		$f->label = $this->_('Default columns'); 
@@ -655,6 +662,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 
 	/**
 	 * Whether or not to allow the given $field as a column, for buildColumnsField
+	 * 
+	 * @param Field $field
+	 * @return bool
 	 *
 	 */
 	protected function allowColumnField(Field $field) {
@@ -696,6 +706,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	protected function buildColumnsForm() {
 
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm'); 
 		$form->attr('id', 'ProcessListerColumnsForm');
 		$form->method = 'get';
@@ -721,6 +732,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	protected function buildFiltersForm() {
 
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm'); 
 		$form->attr('id', 'ProcessListerFiltersForm');
 		$form->method = 'get';
@@ -734,6 +746,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		if(in_array('noNewFilters', $this->toggles)) $f->allowAddRemove = false;
 		$form->add($f);
 
+		/** @var InputfieldHidden $f */
 		$f = $this->modules->get('InputfieldHidden'); 
 		$f->attr('name', 'sort'); 
 		$f->attr('id', 'lister_sort'); 
@@ -1033,6 +1046,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	protected function buildListerTable(PageArray $results) {
 
+		/** @var MarkupAdminDataTable $table */
 		$table = $this->modules->get('MarkupAdminDataTable');
 		$table->setSortable(false);
 		$table->setResizable(true);
@@ -1141,8 +1155,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$delimiter = isset($this->delimiters[$fullname]) ? $this->delimiters[$fullname] : "<br />";
 		
 		if(!$subname && ($value instanceof Page || $value instanceof PageArray)) {
-			if($field && $field->labelFieldName) {
-				$subname = $field->labelFieldName;
+			if($field && $field->get('labelFieldName')) {
+				$subname = $field->get('labelFieldName');
 				if($this->wire('sanitizer')->fieldName($subname) == $subname) $subname .= "|name"; // fallback
 			} else {
 				$subname = 'title|name';
@@ -1219,6 +1233,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				if($subname == 'data') $v = (string) $v; 
 				if($subname && is_object($v)) $v = $v->$subname; 
 				if($v instanceof Pageimage) {
+					/** @var Pageimage $v */
 					$vfull = $v;
 					if($this->imageWidth || $this->imageHeight) $v = $v->size($this->imageWidth, $this->imageHeight);
 					$alt = $vfull->basename . ($vfull->description ? ' - ' . $this->sanitizer->entities1($vfull->description) : "");
@@ -1226,6 +1241,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 					$isImage = true;
 					
 				} else if($v instanceof Pagefile) {
+					/** @var Pageimage $v */
 					$v = "<a target='_blank' href='$v->url'>$v->basename</a>";
 				} else {
 					$v = $this->wire('sanitizer')->entities($v); 
@@ -1291,7 +1307,6 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	protected function ___buildListerTableColActions(Page $p, $value) {
 		$class = '';
-		$icon = '';
 		$statusIcon = '';
 		$isTrash = false; 
 		if(!strlen($value)) $value = $this->blankLabel;
@@ -1548,13 +1563,13 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$total = $results->getTotal();
 		$end = $start+$count; 
 		$pagerOut = '';
-		$errorOut = '';
 		
 		if(count($results)) {
 			$table = $this->buildListerTable($results);
 			$tableOut = $table->render();
 			$headline = sprintf($this->_('%1$d to %2$d of %3$d'), $start+1, $end, $total); 
 			if($total > $limit) {
+				/** @var MarkupPagerNav $pager */
 				$pager = $this->modules->get('MarkupPagerNav'); 
 				$pagerOut = $pager->render($results);
 				$pageURL = $this->wire('page')->url; 
@@ -1650,7 +1665,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
  	 *
 	 */
 	public function ___execute() {
-		if(!$this->wire('page')) return;
+		if(!$this->wire('page')) return '';
 		$modules = $this->wire('modules');
 	
 		$this->setupOpenPageIDs();
@@ -1803,7 +1818,6 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$loadedFilesAdd = array();
 		$loadedJSConfig = $this->sessionGet('loadedJSConfig');
 		$config = $this->wire('config');
-		$out = '';
 
 		foreach($config->scripts as $file) {
 			if(strpos($file, 'ProcessPageLister')) continue;
@@ -1875,7 +1889,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 * Implementation for ./edit-bookmark/ URL segment
 	 * 
 	 * @return string
-	 * @throws WirePermissionException
+	 * @throws WirePermissionException|WireException
 	 * 
 	 */
 	public function ___executeEditBookmark() {
@@ -1886,6 +1900,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	/**
 	 * Output JSON list of navigation items for this module's bookmarks
 	 *
+	 * @param array $options
+	 * @return string|array
+	 * 
 	 */
 	public function ___executeNavJSON(array $options = array()) {
 
@@ -1956,6 +1973,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	}
 	
 	public static function getModuleConfigInputfields(array $data) {
+		if($data) {} // ignore
 		$inputfields = new InputfieldWrapper();
 		return $inputfields;
 	}

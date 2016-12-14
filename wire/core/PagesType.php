@@ -256,6 +256,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		if(!isset($options['findAll'])) $options['findAll'] = true;
 		if(!isset($options['loadOptions'])) $options['loadOptions'] = array();
 		$options['loadOptions'] = $this->getLoadOptions($options['loadOptions']); 
+		if(empty($options['caller'])) $options['caller'] = $this->className() . ".find($selectorString)";
 		$pages = $this->wire('pages')->find($this->selectorString($selectorString), $options);
 		/** @var PageArray $pages */
 		foreach($pages as $page) {
@@ -271,14 +272,18 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	/**
 	 * Get the first match of your selector string
 	 * 
-	 * @param string $selectorString
-	 * @return Page|null
+	 * @param string|int $selectorString
+	 * @return Page|NullPage|null
 	 * 
 	 */
 	public function get($selectorString) {
 		
 		$options = $this->getLoadOptions(array('getOne' => true));
-		
+		if(empty($options['caller'])) {
+			$caller = $this->className() . ".get($selectorString)";
+			$options['caller'] = $caller;
+		}
+
 		if(ctype_digit("$selectorString")) {
 			// selector string contains a page ID
 			if(count($this->templates) == 1 && count($this->parents) == 1) {
@@ -306,8 +311,11 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		} else {
 			// selector string with operators, can pass through
 		}
-
-		$page = $this->pages->get($this->selectorString($selectorString), array('loadOptions' => $options)); 
+		
+		$page = $this->pages->get($this->selectorString($selectorString), array(
+			'caller' => $caller, 
+			'loadOptions' => $options
+		)); 
 		if($page->id && !$this->isValid($page)) $page = $this->wire('pages')->newNullPage();
 		if($page->id) $this->loaded($page);
 		
@@ -392,7 +400,9 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 *
 	 */
 	public function getIterator() {
-		return $this->find("id>0, sort=name"); 
+		return $this->find("id>0, sort=name", array(
+			'caller' => $this->className() . '.getIterator()'
+		)); 
 	}
 
 	/**

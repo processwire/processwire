@@ -79,7 +79,7 @@
  * 
  * @property bool $advanced Special mode for ProcessWire system development. Not recommended for regular site development or production use. #pw-group-system
  * @property bool $demo Special mode for demonstration use that causes POST requests to be disabled. Applies to core, but may not be safe with 3rd party modules. #pw-group-system
- * @property bool $debug Special mode for use when debugging or developing a site. Recommended TRUE when site is in development and FALSE when not. #pw-group-system
+ * @property bool|int $debug Special mode for use when debugging or developing a site. Recommended TRUE when site is in development and FALSE when not. Or set to Config::debugVerbose for verbose debug mode. #pw-group-system
  * @property string $debugIf Enable debug mode if condition is met #pw-group-system
  * @property array $debugTools Tools, and their order, to show in debug mode (admin) #pw-group-system
  * 
@@ -155,6 +155,12 @@
  *
  */
 class Config extends WireData {
+
+	/**
+	 * Constant for verbose debug mode (uses more memory)
+	 * 
+	 */
+	const debugVerbose = 2;
 
 	/**
 	 * Get URL for requested resource or module

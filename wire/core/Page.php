@@ -72,6 +72,7 @@
  * @property string $editUrl URL that this page can be edited at. #pw-group-advanced
  * @property string $editURL Alias of $editUrl. #pw-internal
  * @property PageRender $render May be used for field markup rendering like $page->render->title. #pw-advanced
+ * @property bool $loaderCache Whether or not pages loaded as a result of this one may be cached by PagesLoaderCache. #pw-internal
  * 
  * @property bool|null $_hasAutogenName Internal runtime use, set by Pages class when page as auto-generated name. #pw-internal
  * @property bool|null $_forceSaveParents Internal runtime/debugging use, force a page to refresh its pages_parents DB entries on save(). #pw-internal
@@ -278,7 +279,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @var Page|null
 	 *
 	 */
-	protected $parent = null;
+	protected $_parent = null;
+
+	/**
+	 * Parent ID for lazy loading purposes
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $_parent_id = 0;
 
 	/**
 	 * The previous parent used by the page, if it was changed during runtime. 	
@@ -367,6 +376,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	protected $lazyLoad = false;
+
+	/**
+	 * Whether or not pages loaded by this one are allowed to be cached by PagesLoaderCache class
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $loaderCache = true;
 
 	/**
 	 * Is this page allowing it's output to be formatted?
@@ -698,9 +715,18 @@ class Page extends WireData implements \Countable, WireMatchable {
 				break;
 			case 'parent': 
 			case 'parent_id':
-				if(($key == 'parent_id' || is_int($value)) && $value) $value = $this->wire('pages')->get((int)$value); 
-					else if(is_string($value)) $value = $this->wire('pages')->get($value); 
-				if($value) $this->setParent($value);
+				if(is_object($value) && $value instanceof Page) {
+					// ok
+					$this->setParent($value);
+				} else if($value && !$this->_parent && 
+					($key == 'parent_id' || is_int($value) || (is_string($value) && ctype_digit("$value")))) {
+					// store only parent ID so that parent is lazy loaded,
+					// but only if parent hasn't already been previously loaded
+					$this->_parent_id = (int) $value;	
+				} else if($value && (is_string($value) || is_int($value))) {
+					$value = $this->_pages('get', $value);
+					$this->setParent($value);
+				}
 				break;
 			case 'parentPrevious':
 				if(is_null($value) || $value instanceof Page) $this->parentPrevious = $value; 
@@ -747,6 +773,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 			case 'instanceID': 
 				$this->instanceID = $value; 
 				self::$instanceIDs[$value] = $this->settings['id']; 
+				break;
+			case 'loaderCache':
+				$this->loaderCache = (bool) $value;	
 				break;
 			default:
 				if(strpos($key, 'name') === 0 && ctype_digit(substr($key, 5)) && $this->wire('languages')) {
@@ -953,8 +982,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 		}
 		
 		switch($key) {
+			case 'parent':
+				$value = $this->_parent ? $this->_parent : $this->parent();
+				break;
 			case 'parent_id':
-				$value = $this->parent ? $this->parent->id : 0; 
+				$value = $this->_parent ? $this->_parent->id : 0; 
+				if(!$value) $value = $this->_parent_id;
 				break;
 			case 'templates_id':
 				$value = $this->template ? $this->template->id : 0;
@@ -993,6 +1026,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 			case 'render':
 				$value = $this->wire('modules')->get('PageRender');	
 				$value->setPropertyPage($this);
+				break;
+			case 'loaderCache':
+				$value = $this->loaderCache;
 				break;
 			
 			default:
@@ -1725,20 +1761,21 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function setParent(Page $parent) {
-		if($this->parent && $this->parent->id == $parent->id) return $this; 
+		if($this->_parent && $this->_parent->id == $parent->id) return $this; 
 		if($parent->id && $this->id == $parent->id || $parent->parents->has($this)) {
 			throw new WireException("Page cannot be its own parent");
 		}
 		if($this->isLoaded) {
-			$this->trackChange('parent', $this->parent, $parent);
-			if(($this->parent && $this->parent->id) && $this->parent->id != $parent->id) {
+			$this->trackChange('parent', $this->_parent, $parent);
+			if(($this->_parent && $this->_parent->id) && $this->_parent->id != $parent->id) {
 				if($this->settings['status'] & Page::statusSystem) {
 					throw new WireException("Parent changes are disallowed on this page");
 				}
-				if(is_null($this->parentPrevious)) $this->parentPrevious = $this->parent;
+				if(is_null($this->parentPrevious)) $this->parentPrevious = $this->_parent;
 			}
 		}
-		$this->parent = $parent; 
+		$this->_parent = $parent; 
+		$this->_parent_id = $parent->id;
 		return $this; 
 	}
 
@@ -1809,7 +1846,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		} else if(is_array($selector)) {
 			$selector["has_parent"] = $this->id;	
 		}
-		return $this->wire('pages')->find($selector, $options); 
+		return $this->_pages('find', $selector, $options); 
 	}
 
 	/**
@@ -1950,10 +1987,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function parent($selector = '') {
-		if(!$this->parent) return $this->wire('pages')->newNullPage();
-		if(empty($selector)) return $this->parent; 
-		if($this->parent->matches($selector)) return $this->parent; 
-		if($this->parent->parent_id) return $this->parent->parent($selector); // recursive, in a way
+		if(!$this->_parent) {
+			if($this->_parent_id) {
+				$this->_parent = $this->_pages('get', (int) $this->_parent_id);
+			} else {
+				return $this->wire('pages')->newNullPage();
+			}
+		}
+		if(empty($selector)) return $this->_parent; 
+		if($this->_parent->matches($selector)) return $this->_parent; 
+		if($this->_parent->parent_id) return $this->_parent->parent($selector); // recursive, in a way
 		return $this->wire('pages')->newNullPage();
 	}
 
@@ -3708,6 +3751,26 @@ class Page extends WireData implements \Countable, WireMatchable {
 		} else {
 			throw new WireException("Invalid arguments to Page::lazy()");
 		}
+	}
+
+	/**
+	 * Handles get/find loads specific to this Page from the $pages API variable
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $method The $pages API method to call (get, find, findOne, or count)
+	 * @param string|int $selector The selector argument of the $pages call
+	 * @param array $options Any additional options (see Pages::find for options). 
+	 * @return Pages|Page|PageArray|NullPage
+	 * @throws WireException
+	 * 
+	 */
+	public function _pages($method = '', $selector = '', $options = array()) {
+		if(empty($method)) return $this->wire('pages');
+		if(!isset($options['cache'])) $options['cache'] = $this->loaderCache;
+		if(!isset($options['caller'])) $options['caller'] = "page._pages.$method";
+		$result = $this->wire('pages')->$method($selector, $options);
+		return $result;
 	}
 }
 

@@ -138,12 +138,12 @@ class Pages extends Wire {
 	 */
 	public function __construct(ProcessWire $wire) {
 		$this->setWire($wire);
+		$this->debug = $wire->config->debug === Config::debugVerbose ? true : false;
 		$this->sortfields = $this->wire(new PagesSortfields());
 		$this->loader = $this->wire(new PagesLoader($this));
 		$this->cacher = $this->wire(new PagesLoaderCache($this));
 		$this->trasher = null;
 		$this->editor = null;
-		$this->debug = $wire->config->debug;
 	}
 	
 	/**
@@ -316,12 +316,13 @@ class Pages extends Wire {
 	 * #pw-group-retrieval
 	 *
 	 * @param string|array|Selectors|int $selector Selector string, array or Selectors object. May also be page path or ID. 
+	 * @param array $options See `Pages::find()` for extra options that may be specified. 
 	 * @return Page|NullPage Always returns a Page object, but will return NullPage (with id=0) when no match found.
 	 * @see Pages::findOne(), Pages::find()
 	 * 
 	 */
-	public function get($selector) {
-		return $this->loader->get($selector); 
+	public function get($selector, $options = array()) {
+		return $this->loader->get($selector, $options); 
 	}
 	
 	/**

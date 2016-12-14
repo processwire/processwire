@@ -46,6 +46,9 @@ if(!defined("PROCESSWIRE")) die();
  * always have this disabled for live/production sites since it reveals more information
  * than is advisible for security. 
  * 
+ * You may also set this to the constant `Config::debugVerbose` to enable verbose debug mode,
+ * which uses more memory and time. 
+ * 
  * #notes This enables debug mode for ALL requests. See the debugIf option for an alternative.
  * 
  * @var bool

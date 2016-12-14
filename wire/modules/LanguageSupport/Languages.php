@@ -168,6 +168,7 @@ class Languages extends PagesType {
 		$selector = "parent_id=$parent_id, template=$template, include=all, sort=sort";
 		$languagesAll = $this->wire('pages')->find($selector, array(
 				'loadOptions' => $this->getLoadOptions(), 
+				'caller' => $this->className() . '.getAll()'
 			)
 		); 
 		if(count($languagesAll)) $this->languagesAll = $languagesAll;
