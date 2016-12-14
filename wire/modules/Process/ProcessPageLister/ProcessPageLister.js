@@ -270,6 +270,15 @@ var ProcessLister = {
 			}
 		}
 
+		if(data.indexOf('</script>') > -1) {
+			var d = document.createElement('div');
+			d.innerHTML = data;
+			var scripts = d.querySelectorAll('.Inputfield script');
+			$(scripts).each(function() {
+				$.globalEval(this.text || this.textContent || this.innerHTML || '');
+			});
+		}
+
 		// ProcessLister.results.find(".InputfieldForm").trigger('reloaded');
 		
 	},
