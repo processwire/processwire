@@ -244,11 +244,13 @@ class PagesLoader extends Wire {
 			$pages->finderOptions($options);
 			$pages->setDuplicateChecking(false);
 			$loadPages = false;
+			$cachePages = false;
 			$template = null;
 			
 			foreach($pagesIDs as $id) {
 				$page = $this->pages->newPage();
 				$page->_lazy($id);
+				$page->loaderCache = false;
 				$pages->add($page);
 			}
 
@@ -661,6 +663,7 @@ class PagesLoader extends Wire {
 					}
 					unset($row['templates_id']);
 					foreach($row as $key => $value) $page->set($key, $value);
+					if($options['cache'] === false) $page->loaderCache = false;
 					$page->instanceID = ++$instanceID;
 					$page->setIsLoaded(true);
 					$page->setIsNew(false);

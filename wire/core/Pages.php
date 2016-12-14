@@ -291,8 +291,9 @@ class Pages extends Wire {
 		$debug = $this->debug;
 		if($debug) $this->debug(false);
 		$options['lazy'] = true;
+		$options['caller'] = 'pages.findMany';
 		if(!isset($options['cache'])) $options['cache'] = false;
-		$matches = $this->loader->find($selector, $options);
+		$matches = $this->find($selector, $options);
 		if($debug) $this->debug($debug);
 		return $matches;
 	}
