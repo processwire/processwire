@@ -230,6 +230,7 @@ function InputfieldRepeater($) {
 				'.InputfieldContent > .Inputfields > ' +
 				'.InputfieldRepeaterItem > .InputfieldContent > .Inputfields > .InputfieldWrapper > ' +
 				'.Inputfields > .Inputfield');
+
 			$inputfields.append($inputs);
 			$item.removeClass('InputfieldRepeaterItemLoading');
 			InputfieldsInit($inputfields);
@@ -239,14 +240,16 @@ function InputfieldRepeater($) {
 				initRepeater($(this));
 			});
 
-			
 			$content.slideDown('fast', function() {
 				$spinner.removeClass('fa-spin fa-spinner').addClass('fa-arrows');
 				updateAccordion($item);
 			});
+			
 			setTimeout(function() {
 				$inputfields.find('.Inputfield').trigger('reloaded', ['InputfieldRepeaterItemEdit']);
 			}, 50);
+			
+			runScripts(data);	
 
 		});
 	};
@@ -327,7 +330,6 @@ function InputfieldRepeater($) {
 		}
 
 		$.get(ajaxURL, function(data) {
-			//console.log(data);
 			$spinner.removeClass($spinner.attr('data-on')).addClass($spinner.attr('data-off'));
 			var $addItem = $(data).find(".InputfieldRepeaterItemRequested");
 			if(!$addItem.length) {
@@ -353,6 +355,7 @@ function InputfieldRepeater($) {
 					initRepeater($(this));
 				});
 			}
+			runScripts(data);
 		});
 
 		return false;
@@ -825,6 +828,23 @@ function InputfieldRepeater($) {
 				}
 			}
 		}
+	}
+
+	/**
+	 * Run any scripts in the given HTML ajax data since jQuery will strip them
+	 * 
+	 * @param data
+	 * 
+	 */
+	function runScripts(data) {
+		// via owzim and Toutouwai 
+		if(data.indexOf('</script>') == -1) return;
+		var d = document.createElement('div');
+		d.innerHTML = data;
+		var scripts = d.querySelectorAll('.Inputfield script');
+		$(scripts).each(function() {
+			$.globalEval(this.text || this.textContent || this.innerHTML || '');
+		});
 	}
 
 	/**
