@@ -73,7 +73,7 @@ class PageArrayIterator extends Wire implements \Iterator {
 	 * @var int
 	 * 
 	 */ 
-	protected $chunkSize = 1000;
+	protected $chunkSize = 250;
 	
 	/**
 	 * Construct
@@ -92,7 +92,7 @@ class PageArrayIterator extends Wire implements \Iterator {
 	 * 
 	 */
 	protected function loadChunk() {
-		
+		$this->chunkSize = (int) $this->wire('config')->lazyPageChunkSize;
 		$this->pagesPosition = 0;
 		$start = $this->currentChunk++ * $this->chunkSize;
 

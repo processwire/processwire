@@ -1130,6 +1130,14 @@ $config->allowExceptions = false;
 $config->usePoweredBy = true;
 
 /**
+ * Chunk size for lazy-loaded pages used by $pages->findMany()
+ * 
+ * @var int
+ * 
+ */
+$config->lazyPageChunkSize = 250;
+
+/**
  * Settings specific to InputfieldWrapper class
  *
  * Setting useDependencies to false may enable to use depencencies in some places where
