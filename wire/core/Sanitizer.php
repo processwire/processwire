@@ -2180,10 +2180,11 @@ class Sanitizer extends Wire {
 	 * #pw-group-arrays
 	 *
 	 * @param array $data Array to reduce
-	 * @param bool|array $allowEmpty Should empty values be allowed in the encoded data?
+	 * @param bool|array $allowEmpty Should empty values be allowed in the encoded data? Specify any of the following:
 	 *  - `false` (bool): to exclude all empty values (this is the default if not specified).
 	 *  - `true` (bool): to allow all empty values to be retained (thus no point in calling this function).
 	 *  - Specify array of keys (from data) that should be retained if you want some retained and not others.
+	 *  - Specify array of literal empty value types to retain, i.e. [ 0, '0', array(), false, null ]
 	 *  - Specify the digit `0` to retain values that are 0, but not other types of empty values.
 	 * @param bool $convert Perform type conversions where appropriate? i.e. convert digit-only string to integer (default=false). 
 	 * @return array
@@ -2193,6 +2194,14 @@ class Sanitizer extends Wire {
 		
 		if(!is_array($data)) {
 			$data = $this->___array($data, null);
+		}
+	
+		$allowEmptyTypes = array();
+		if(is_array($allowEmpty)) {
+			foreach($allowEmpty as $emptyType) {
+				if(!empty($emptyType)) continue;
+				$allowEmptyTypes[] = $emptyType;
+			}
 		}
 
 		foreach($data as $key => $value) {
@@ -2210,20 +2219,32 @@ class Sanitizer extends Wire {
 
 			$data[$key] = $value;
 
-			// skip empty values whether blank, 0, empty array, etc. 
-			if(empty($value)) {
-
-				if($allowEmpty === 0 && $value === 0) {
-					// keep it because $allowEmpty === 0 means to keep 0 values only
-
-				} else if(is_array($allowEmpty) && !in_array($key, $allowEmpty)) {
-					// remove it because it's not specifically allowed in allowEmpty
-					unset($data[$key]);
-
-				} else if(!$allowEmpty) {
-					// remove the empty value
-					unset($data[$key]);
+			// if value is not empty, no need to continue further checks
+			if(!empty($value)) continue;
+			
+			$typeMatched = false;
+			if(count($allowEmptyTypes)) {
+				foreach($allowEmptyTypes as $emptyType) {
+					if($value === $emptyType) {
+						$typeMatched = true;
+						break;
+					}
 				}
+			}
+			
+			if($typeMatched) {
+				// keep it because type matched an allowEmptyTypes
+
+			} else if($allowEmpty === 0 && $value === 0) {
+				// keep it because $allowEmpty === 0 means to keep 0 values only
+				
+			} else if(is_array($allowEmpty) && !in_array($key, $allowEmpty)) {
+				// remove it because it's not specifically allowed in allowEmpty
+				unset($data[$key]);
+
+			} else if(!$allowEmpty) {
+				// remove the empty value
+				unset($data[$key]);
 			}
 		}
 

@@ -41,7 +41,7 @@
  *
  */
 
-class InputfieldImage extends InputfieldFile implements InputfieldItemList {
+class InputfieldImage extends InputfieldFile implements InputfieldItemList, InputfieldHasSortableValue {
 
 	public static function getModuleInfo() {
 		return array(

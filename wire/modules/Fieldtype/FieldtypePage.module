@@ -19,7 +19,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Reference',
-			'version' => 103,
+			'version' => 104,
 			'summary' => 'Field that stores one or more references to ProcessWire pages',
 			'permanent' => true, 
 			);
@@ -180,6 +180,14 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if(!is_array($value)) $value = array($value); 
 		// $value = $this->validatePageIDs($page, $value); 
 		
+		if(isset($value['_filters'])) {
+			$filters = $value['_filters'];
+			unset($value['_filters']);
+			if(!count($filters)) $filters = null;
+		} else {
+			$filters = null;
+		}
+		
 		if($derefAsPage > 0) {
 			// we're going to return a single page, NullPage or false
 			$pg = false;
@@ -197,6 +205,11 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		} else {
 			// we're going to return a PageArray
 			if(!count($value)) return $this->getBlankValue($page, $field); 
+			if($filters) {
+				$filters->add(new SelectorEqual('id', $value));
+				$finder = $this->pages->getPageFinder();
+				$value = $finder->findIDs($filters);
+			}
 			$pageArray = $this->wire('pages')->getById($value, $template); 
 			foreach($pageArray as $pg) {
 				// remove any pages that have an unpublished status
@@ -495,6 +508,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		} else if(is_string($value) || is_int($value)) {
 			$value = $this->sanitizeValueString($page, $field, $value); 
 			if($value instanceof PageArray) $value = $value->first();
+			/** @var Page $value */
 			if(is_object($value) && $value->get('_FieldtypePage_remove') === $value->id) {
 				$value->__unset('_FieldtypePage_remove'); 
 				$value = null; // remove item 
@@ -606,6 +620,23 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		}
 
 		return $pageArray; 
+	}
+
+	/**
+	 * Apply a where condition to a load query (used by getLoadQuery method)
+	 *
+	 * @param Field $field
+	 * @param DatabaseQuerySelect $query
+	 * @param string $col The column name
+	 * @param string $operator The comparison operator
+	 * @param mixed $value The value to find
+	 * @return DatabaseQuery $query
+	 * @throws WireException if given invalid or unrecognized arguments
+	 *
+	 */
+	protected function getLoadQueryWhere(Field $field, DatabaseQuerySelect $query, $col, $operator, $value) {
+		// cancel the default behavior since Page fields filter from the wakeupValue method instead
+		return $query;
 	}
 
 	/**
@@ -791,6 +822,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$pageFinderOptions = array('getTotal' => false);
 		$value = $this->wire('sanitizer')->selectorValue($value);
 		$findPagesSelector = $field->get('findPagesSelector');
+		if(empty($findPagesSelector)) $findPagesSelector = $field->get('findPagesSelect');
 		$parent_id = $field->get('parent_id');
 		$template_id = $field->get('template_ids');
 		if(empty($template_id)) $template_id = $field->get('template_id');
@@ -974,42 +1006,142 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	public function ___getConfigInputfields(Field $field) {
 
 		$inputfields = parent::___getConfigInputfields($field);
-	
+		
+		$labels = array(
+			'PageArray' => $this->_('Multiple pages (PageArray)'),
+			'PageOrFalse' => $this->_('Single page (Page) or boolean false when none selected'),
+			'PageOrNullPage' => $this->_('Single page (Page) or empty page (NullPage) when none selected'),
+		);
+		
+		$_labels = $labels;
+		$url = "https://processwire.com/api/ref";
+		$aPageArray = "[PageArray]($url/page-array/)";
+		$aPage = "[Page]($url/page/)";
+		$aNullPage = "[NullPage]($url/null-page/)";
+
+		foreach($labels as $key => $value) {
+			$labels[$key] = str_replace(
+				array('(PageArray)', '(Page)', '(NullPage)'), 
+				array("$aPageArray", "$aPage", "$aNullPage"), 
+				$value
+			);
+		}
+		
 		/** @var InputfieldRadios $select */
 		$select = $this->modules->get("InputfieldRadios"); 
 		$select->attr('name', 'derefAsPage'); 
-		$select->label = $this->_('Dereference in API as');
+		$select->label = $this->_('Page field value type');
 		$select->description = $this->_('If your field will contain multiple pages, then you should select the first option (PageArray). If your field only needs to contain a single page, then select one of the single Page options (if you are not sure which, select the last option).'); // Long description for: dereference in API
-		$select->addOption(FieldtypePage::derefAsPageArray, $this->_('Multiple pages (PageArray)')); 
-		$select->addOption(FieldtypePage::derefAsPageOrFalse, $this->_('Single page (Page) or boolean false when none selected')); 
-		$select->addOption(FieldtypePage::derefAsPageOrNullPage, $this->_('Single page (Page) or empty page (NullPage) when none selected')); 
-
+		$select->addOption(FieldtypePage::derefAsPageArray, $labels['PageArray']); 
+		$select->addOption(FieldtypePage::derefAsPageOrFalse, $labels['PageOrFalse']); 
+		$select->addOption(FieldtypePage::derefAsPageOrNullPage, $labels['PageOrNullPage']); 
 		$select->attr('value', (int) $field->get('derefAsPage'));  
+		$select->icon = 'tasks';
 		$inputfields->append($select);
+	
+		/** @var InputfieldMarkup $f */
+		$exampleFieldset = $this->wire('modules')->get('InputfieldFieldset');
+		$exampleFieldset->attr('name', '_examplesFieldset');
+		$exampleFieldset->label = $this->_('API usage examples');
+		$exampleFieldset->icon = 'code';
+		$inputfields->add($exampleFieldset);
+		
+		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f->attr('name', '_examplePageArray');
+		$f->label = $_labels['PageArray'];
+		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageArray;
+		$f->icon = 'scissors';
+		$f->value =
+			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"foreach(\$page->{$field->name} as \$item) {" .
+			"\n  echo \"<li><a href='\$item->url'>\$item->title</a></li>\";".
+			"\n}" 
+			) . "</code></pre>";
+		$exampleFieldset->add($f);
+		
+		$alternateLabel = $this->_('Same as above with alternate syntax');
+		
+		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f->attr('name', '_examplePageArray2');
+		$f->label = $alternateLabel;
+		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageArray;
+		$f->icon = 'scissors';
+		$f->value =
+			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"echo \$page->{$field->name}->each(\n  \"<li><a href='{url}'>{title}</a></li>\"\n);"	
+			) . "</code></pre>";
+		$f->notes = sprintf($this->_('More about the %s method.'), "[each()]($url/page-array/each/)");
+		$exampleFieldset->add($f);
+		
+		/** @var InputfieldMarkup $f */
+		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f->attr('name', '_examplePageOrFalse');
+		$f->label = $_labels['PageOrFalse'];
+		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageOrFalse;
+		$f->icon = 'scissors';
+		$f->value =
+			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"if(\$page->{$field->name}) {" .
+			"\n  echo \"<a href='{\$page->{$field->name}->url}'>{\$page->{$field->name}->title}</a>\";" .
+			"\n}" 
+			) . "</code></pre>";
+		$exampleFieldset->add($f);
+		
+		/** @var InputfieldMarkup $f */
+		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f->attr('name', '_examplePageOrFalse2');
+		$f->label = $alternateLabel;
+		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageOrFalse;
+		$f->icon = 'scissors';
+		$f->value =
+			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"if(\$page->{$field->name}) {" .
+			"\n  echo \$page->{$field->name}(\"<a href='{url}'>{title}</a>\");" .
+			"\n}"
+			) . "</code></pre>";
+		$exampleFieldset->add($f);
+		
+		/** @var InputfieldMarkup $f */
+		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f->attr('name', '_examplePageOrNullPage');
+		$f->label = $_labels['PageOrNullPage'];
+		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageOrNullPage;
+		$f->icon = 'scissors';
+		$f->value =
+			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+			"if(\$page->{$field->name}->id) {" .
+			"\n  echo \"<a href='{\$page->{$field->name}->url}'>{\$page->{$field->name}->title}</a>\";" .
+			"\n}" 
+			) . "</code></pre>";
+		$exampleFieldset->add($f);
+		
+		/** @var InputfieldMarkup $f */
+		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f->attr('name', '_examplePageOrNullPage2');
+		$f->label = $alternateLabel;
+		$f->showIf = 'derefAsPage=' . FieldtypePage::derefAsPageOrNullPage;
+		$f->icon = 'scissors';
+		$f->value =
+			"<pre class='language-php'><code>" . $this->wire('sanitizer')->entities(
+				"if(\$page->{$field->name}->id) {" .
+				"\n  echo \$page->{$field->name}(\"<a href='{url}'>{title}</a>\");" .
+				"\n}"
+			) . "</code></pre>";
+		$exampleFieldset->add($f);
+		
+		/** @var InputfieldCheckbox $checkbox */
+		$value = (int) $field->get('allowUnpub');
+		$checkbox = $this->modules->get('InputfieldCheckbox');
+		$checkbox->attr('name', 'allowUnpub');
+		$checkbox->label = $this->_('Allow unpublished pages?');
+		$checkbox->description = $this->_('When checked, unpublished pages are allowed in the field value. Unpublished pages will not appear on the front-end, except to those with edit access.'); // Description for allowUnpub option
+		$checkbox->attr('value', 1);
+		$checkbox->attr('checked', $value ? 'checked' : '');
+		$checkbox->icon = 'eye-slash';
+		if(!$value) $checkbox->collapsed = Inputfield::collapsedYes;
+		$inputfields->append($checkbox);
 
 		return $inputfields; 
-	}
-
-	/**
-	 * Return advanced configuration fields definable for each FieldtypePage
-	 * 
-	 * @param Field $field
-	 * @return InputfieldWrapper
-	 *
-	 */
-	public function ___getConfigAdvancedInputfields(Field $field) {
-		$inputfields = parent::___getConfigAdvancedInputfields($field);
-
-		/** @var InputfieldCheckbox $checkbox */
-		$checkbox = $this->modules->get('InputfieldCheckbox'); 
-		$checkbox->attr('name', 'allowUnpub'); 
-		$checkbox->label = $this->_('Allow unpublished pages?'); 
-		$checkbox->description = $this->_('When checked, unpublished pages are allowed in the field value. Unpublished pages will not appear on the front-end, except to those with edit access.'); // Description for allowUnpub option
-		$checkbox->attr('value', 1); 
-		$checkbox->attr('checked', $field->get('allowUnpub') ? 'checked' : ''); 
-		$inputfields->prepend($checkbox); 
-
-		return $inputfields;
 	}
 
 	/**

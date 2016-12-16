@@ -27,7 +27,7 @@
  * @method string renderListItem($label, $value, $class = '')
  *
  */
-class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArrayValue {
+class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArrayValue, InputfieldHasSortableValue {
 
 	public static function getModuleInfo() {
 		return array(
@@ -365,9 +365,6 @@ _OUT;
 	 */
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();
-		$fieldset = $this->wire('modules')->get('InputfieldFieldset'); 
-		$fieldset->label = $this->_('Autocomplete Advanced Options');
-		$fieldset->collapsed = Inputfield::collapsedYes; 
 
 		$recommended = $this->_('Recommended');
 		/** @var InputfieldRadios $field */
@@ -377,21 +374,23 @@ _OUT;
 		$field->description = $this->_("The search operator that is used in the API when performing autocomplete matches.");
 		$field->notes = $this->_("If you aren't sure what you want here, leave it set at the default: *="); 
 		$field->required = false;
-		$field->addOption('*=', '*= ' . $this->_("Contains phrase or partial word (using fulltext index) - Recommended")); 
-		$field->addOption('%=', '%= ' . $this->_("Contains phrase or partial word (using LIKE)") . " - $recommended");
-		$field->addOption('~=', '~= ' . $this->_("Contains all the [full] words, in any order")); 
-		$field->addOption('^=', '^= ' . $this->_("Starts with word/phrase")); 
-		$field->addOption('$=', '$= ' . $this->_("Ends with word/phrase")); 
-		$field->addOption('=', '= ' . $this->_("Equals [exact]")); 
+		$field->addOption('*=', '`*= ` ' . $this->_("Contains phrase or partial word (using fulltext index) - Recommended")); 
+		$field->addOption('%=', '`%= ` ' . $this->_("Contains phrase or partial word (using LIKE)") . " - $recommended");
+		$field->addOption('~=', '`~= ` ' . $this->_("Contains all the [full] words, in any order")); 
+		$field->addOption('^=', '`^= ` ' . $this->_("Starts with word/phrase")); 
+		$field->addOption('$=', '`$= ` ' . $this->_("Ends with word/phrase")); 
+		$field->addOption('=', '` = ` ' . $this->_("Equals [exact]")); 
 		$field->attr('value', $this->operator);
 		$field->collapsed = Inputfield::collapsedNo; 
-		$fieldset->add($field);
+		$inputfields->add($field);
 
 		/** @var InputfieldText $field */
 		$field = $this->modules->get('InputfieldText'); 
 		$field->attr('name', 'searchFields'); 
 		$field->label = $this->_('Fields to query for autocomplete');
-		$field->description = $this->_('Enter the names of the fields that should have their text queried for autocomplete matches. Typically this would just be the title field, but you may add others by separating each with a space. Note that this is different from the "Label Field" (above). Here you are specifying what fields will be searched, not what fields will be shown.');
+		$field->description = $this->_('Enter the names of the fields that should have their text queried for autocomplete matches.');
+		$field->description .= ' ' . $this->_('Typically this would just be the title field, but you may add others by separating each with a space.'); 
+		$field->description .= ' ' . $this->_('Note that this is different from the “label field” because you are specifying what fields will be searched, not what fields will be shown.');
 		$field->collapsed = Inputfield::collapsedNo; 
 		$field->attr('value', $this->searchFields);
 		$notes = $this->_('Indexed text fields include:');
@@ -400,9 +399,7 @@ _OUT;
 			$notes .= ' ' . $f->name . ','; 
 		}
 		$field->notes = rtrim($notes, ','); 
-		$fieldset->add($field); 
-
-		$inputfields->add($fieldset); 
+		$inputfields->add($field); 
 
 		return $inputfields; 
 	}

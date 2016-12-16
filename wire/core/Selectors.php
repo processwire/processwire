@@ -292,39 +292,68 @@ class Selectors extends WireArray {
 	}
 
 	/**
-	 * Does the given string start with a selector? 
+	 * Is the give string a Selector string?
 	 *
-	 * Meaning string starts with [field][operator] like "field="
-	 * 
 	 * #pw-group-static-helpers
 	 *
-	 * @param string $str
+	 * @param string $str String to check for selector(s)
 	 * @return bool
 	 *
 	 */
 	static public function stringHasSelector($str) {
 		
+		if(!self::stringHasOperator($str)) return false;
+		
 		$has = false;
-
-		if(!self::stringHasOperator($str)) {
-			
-			// default: has=false
-			
-		} else if(preg_match('/^!?([-._a-zA-Z0-9|]+)([' . implode('', self::getOperatorChars()) . ']+)/', $str, $matches)) {
-
-			$field = $matches[1]; 
-			$operator = $matches[2]; 
-
-			if(in_array($field[0], array('-', '.', '|'))) {
-				// fields can't start with a dash or a period or a pipe
-				$has = false; 
-			} else if(!isset(self::$selectorTypes[$operator])) {
-				// if it's not an operator we recognize then abort
-				$has = false; 
-			} else {
-				// if we made it here, then we've found a selector
-				$has = true; 
+		$alphabet = 'abcdefghijklmnopqrstuvwxyz';
+	
+		// replace characters that are allowed but aren't useful here
+		$str = str_replace(array('!', '(', ')', '@', '.', '|', '_'), '', trim(strtolower($str)));
+		
+		// first character must match alphabet
+		if(strpos($alphabet, substr($str, 0, 1)) === false) return false;
+		
+		$operatorChars = implode('', self::getOperatorChars());
+		
+		if(strpos($str, ',')) {
+			// split the string into all key=value components and check each individually
+			$inQuote = '';
+			$cLast = '';
+			// replace comments in quoted values so that they aren't considered selector boundaries
+			for($n = 0; $n < strlen($str); $n++) {
+				$c = $str[$n];
+				if($c === ',') {
+					// commas in quoted values are replaced with semicolons
+					if($inQuote) $str[$n] = ';';
+				} else if(($c === '"' || $c === "'") && $cLast != "\\") {
+					if($inQuote && $inQuote === $c) {
+						$inQuote = ''; // end quote
+					} else if(!$inQuote) {
+						$inQuote = $c; // start quote
+					}
+				}
+				$cLast = $c;
 			}
+			$parts = explode(',', $str);
+		} else {
+			// outside of verbose mode, only the first apparent selector is checked
+			$parts = array($str);
+		}
+		
+		// check each key=value component
+		foreach($parts as $part) {
+			$has = preg_match('/^[a-z][a-z0-9]*([' . $operatorChars . ']+)(.*)$/', trim($part), $matches);
+			if($has) {
+				$operator = $matches[1];
+				$value = $matches[2];
+				if(!isset(self::$selectorTypes[$operator])) {
+					$has = false;
+				} else if(self::stringHasOperator($value) && $value[0] != '"' && $value[0] != "'") {
+					// operators not allowed in values unless quoted
+					$has = false;
+				}
+			}
+			if(!$has) break;
 		}
 		
 		return $has;

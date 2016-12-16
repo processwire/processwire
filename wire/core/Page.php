@@ -1250,7 +1250,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * Get the value for a non-native page field, and call upon Fieldtype to join it if not autojoined
 	 *
 	 * @param string $key Name of field to get
-	 * @param string $selector Optional selector to filter load by
+	 * @param string $selector Optional selector to filter load by...
+	 *   ...or, if not in selector format, it becomes an __invoke() argument for object values .
 	 * @return null|mixed
 	 *
 	 */
@@ -1260,6 +1261,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$field = $this->getField($key);
 		$value = parent::get($key); 
 		if(!$field) return $value;  // likely a runtime field, not part of our data
+		$invokeArgument = '';
 		
 		if($field->useRoles && $this->outputFormatting) {
 			// API access may be limited when output formatting is ON
@@ -1285,6 +1287,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$track = $this->trackChanges();
 		$this->setTrackChanges(false); 
 		if(!$field->type) return null;
+		
+		if($selector && !Selectors::stringHasSelector($selector)) {
+			// if selector argument provdied, but isn't valid, we assume it 
+			// to instead be an argument for the value's __invoke() method
+			$invokeArgument = $selector;
+			$selector = '';
+		}
 	
 		if($selector) {
 			$value = $field->type->loadPageFieldFilter($this, $field, $selector);	
@@ -1311,7 +1320,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(is_object($value) && $value instanceof Wire) $value->resetTrackChanges(true);
 		if($track) $this->setTrackChanges(true); 
 	
-		return $this->formatFieldValue($field, $value);
+		$value = $this->formatFieldValue($field, $value);
+		
+		if($invokeArgument && is_object($value) && method_exists($value, '__invoke')) {
+			$value = $value->__invoke($invokeArgument);
+		}
+		
+		return $value;
 	}
 
 	/**

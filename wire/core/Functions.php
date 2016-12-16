@@ -77,6 +77,7 @@ endif;
  *	- Specify false to exclude all empty values (this is the default if not specified). 
  * 	- Specify true to allow all empty values to be retained.
  * 	- Specify an array of keys (from data) that should be retained if you want some retained and not others.
+ *  - Specify array of literal empty value types to retain, i.e. [ 0, '0', array(), false, null ].
  * 	- Specify the digit 0 to retain values that are 0, but not other types of empty values.
  * @param bool $beautify Beautify the encoded data when possible for better human readability? (requires PHP 5.4+)
  * @return string String of JSON data

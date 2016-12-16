@@ -537,7 +537,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if(isset($this->data[$key])) return $this->data[$key]; 
 
 		// check if key contains a selector
-		if(Selectors::stringHasOperator($key)) {
+		if(Selectors::stringHasSelector($key)) {
 			$item = $this->findOne($key);
 			if($item === false) $item = null;
 			return $item;
@@ -2101,6 +2101,8 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 				// if keys are not numeric, we delegete numbers to eq(n)
 				return $this->eq((int) $key);
 			}
+		} else if(is_callable($key) || (is_string($key) && strpos($key, '{') !== false && strpos($key, '}'))) {
+			return $this->each($key);
 		}
 		return $this->get($key);
 	}
