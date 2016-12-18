@@ -250,7 +250,7 @@ class Pages extends Wire {
 	}
 
 	/**
-	 * Like find(), but with “lazy loading” to support giant result sets without running of memory.
+	 * Like find(), but with “lazy loading” to support giant result sets without running out of memory.
 	 * 
 	 * When using this method, you can retrieve tens of thousands, or hundreds of thousands of pages 
 	 * or more, without needing a pagination "limit" in your selector. Individual pages are loaded
