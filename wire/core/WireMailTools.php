@@ -13,7 +13,7 @@
  * $message = $mail->new();
  * $message->subject('Hello world')
  *   ->to('user@domain.com')
- *   ->from('you@company.com');
+ *   ->from('you@company.com')
  *   ->body('Hello there big world')
  *   ->bodyHTML('<h2>Hello there big world</h2>');
  * $numSent = $message->send();
