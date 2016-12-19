@@ -276,13 +276,27 @@ class WireHooks {
 	protected function isHookedOrParents($class, $method, $type = 'either') {
 		
 		$property = '';
-		$className = is_object($class) ? wireClassName($class) : $class;
+		if(is_object($class)) {
+			$className = wireClassName($class);
+			$object = $class;
+		} else {
+			$className = $class;
+			$object = null;
+		}
 		
+		if($object) {
+			// first check local hooks attached to this instance
+			$localHooks = $object->getLocalHooks();
+			if(!empty($localHooks[rtrim($method, '()')])) {
+				return true;
+			}
+		}
+
 		if($type == 'method' || $type == 'either') {
 			if(strpos($method, '(') === false) $method .= '()';
 			if($type == 'either') $property = rtrim($method, '()');
 		}
-		
+
 		if($type == 'method') {
 			if(!isset($this->hookMethodCache[$method])) return false; // not hooked for any class
 			$hooked = isset($this->hookClassMethodCache["$className::$method"]);
