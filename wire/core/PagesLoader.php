@@ -114,15 +114,20 @@ class PagesLoader extends Wire {
 		if(empty($selector)) return $this->pages->newPageArray($loadOptions);
 		if(!empty($options['lazy'])) return false;
 		
-		if(is_array($selector)) { 
-			
+		$value = false;
+		$filter = empty($options['findOne']);
+		
+		if(is_array($selector)) {
+
 			if(ctype_digit(implode('', array_keys($selector))) && !is_array(reset($selector)) && ctype_digit(implode('', $selector))) {
 				// if given a regular array of page IDs, we delegate that to getById() method, but with access/visibility control
-				return $this->filterListable(
-					$this->getById($selector),
-					(isset($options['include']) ? $options['include'] : ''),
-					$loadOptions);
+				$value = $this->getById($selector, $loadOptions);
+				$filter = true;
 			}
+
+		} else if(is_int($selector)) {
+			
+			$value = $this->getById(array($selector), $loadOptions);
 			
 		} else if(is_string($selector) || is_int($selector)) {
 			
@@ -137,20 +142,28 @@ class PagesLoader extends Wire {
 				if(ctype_digit("$selector") || strpos($selector, "id=") === 0) {
 					// if selector is just a number, or a string like "id=123" then we're going to do a shortcut
 					$s = str_replace("id=", '', $selector);
-					if(ctype_digit("$s")) {
-						$value = $this->getById(array((int) $s), $loadOptions);
-						if(empty($options['findOne'])) $value = $this->filterListable(
-							$value, (isset($options['include']) ? $options['include'] : ''), $loadOptions);
-						if($this->debug) $this->pages->debugLog('find', $selector . " [optimized]", $value);
-						return $value;
+					if(ctype_digit(str_replace('|', '', "$s"))) {
+						$a = explode('|', $s);
+						foreach($a as $k => $v) $a[$k] = (int) $v;
+						$value = $this->getById($a, $loadOptions);
 					}
 				}
 			}
 		}
-		
-		return false;
-	}
 	
+		if($value) {
+			if($filter) {
+				$includeMode = isset($options['include']) ? $options['include'] : '';
+				$value = $this->filterListable($value, $includeMode, $loadOptions);
+			}
+			if($this->debug) {
+				$this->pages->debugLog('find', $selector . " [optimized]", $value);
+			}
+		}
+
+		return $value;
+	}
+
 	/**
 	 * Given a Selector string, return the Page objects that match in a PageArray.
 	 *
@@ -189,9 +202,11 @@ class PagesLoader extends Wire {
 		$debug = $this->debug && !$lazy;
 		$cachePages = isset($options['cache']) ? (bool) $options['cache'] : true;
 		if(!$cachePages && !isset($loadOptions['cache'])) $loadOptions['cache'] = false;
-		$pages = $this->findShortcut($selector, $options, $loadOptions);
 		
-		if($pages) return $pages;
+		if($loadPages) {
+			$pages = $this->findShortcut($selector, $options, $loadOptions);
+			if($pages) return $pages;
+		}
 		
 		if($selector instanceof Selectors) {
 			$selectors = $selector;
@@ -228,7 +243,7 @@ class PagesLoader extends Wire {
 			$pagesInfo = $pageFinder->find($selectors, $options);
 		}
 		
-		if($this->debug && empty($loadOptions['caller'])) {
+		if($debug && empty($loadOptions['caller'])) {
 			$loadOptions['caller'] = "$caller($selectorString)";
 		}
 
