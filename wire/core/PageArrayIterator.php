@@ -121,10 +121,11 @@ class PageArrayIterator extends Wire implements \Iterator {
 				$ids[] = $page->id;
 			}
 
-			$debug = $this->wire('pages');
-			if($debug) $this->wire('pages')->debug(false);
-			$this->pages = $this->wire('pages')->getById($ids, $options);
-			if($debug) $this->wire('pages')->debug(true);
+			$pages = $this->wire('pages');
+			$debug = $pages->debug();
+			if($debug) $pages->debug(false);
+			$this->pages = $pages->getById($ids, $options);
+			if($debug) $pages->debug(true);
 		}
 
 		$this->pagesCount = count($this->pages);

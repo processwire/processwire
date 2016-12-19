@@ -405,25 +405,17 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		$loadOptions = array('cache' => false);
 		if($template) $loadOptions['template'] = $template;
 		
-		$sortfields = $field->get('sortfields');
+		$items = $this->wire('pages')->getById($value, $loadOptions);
 		
+		$sortfields = $field->get('sortfields');
 		if($sortfields) {
-			$selector = $template ? "template=$template, " : ""; 
-			$selector .= "include=unpublished, id=" . implode('|', $value);
+			$sorts = array();
 			foreach(explode(',', $sortfields) as $sortfield) {
-				$selector .= ", sort=" . $this->wire('sanitizer')->name(trim($sortfield));
+				$sorts[] = $this->wire('sanitizer')->name(trim($sortfield));
 			}
-			$options = array(
-				'cache' => false,
-				'caller' => $this->className() . '::wakeupValue',
-				'loadOptions' => $loadOptions
-			);
-			$items = $this->wire('pages')->find($selector, $options); 
-			
-		} else {
-			$items = $this->wire('pages')->getById($value, $loadOptions); 
+			if(count($sorts)) $items->sort($sorts);
 		}
-			
+		
 		return $items; 
 	}
 
