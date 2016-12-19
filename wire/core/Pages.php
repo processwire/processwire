@@ -299,6 +299,34 @@ class Pages extends Wire {
 	}
 
 	/**
+	 * Like $pages->find() except returns array of IDs rather than Page objects.
+	 * 
+	 * This is a faster method to use when you only need to know the matching page IDs. 
+	 * 
+	 * #pw-group-retrieval
+	 * 
+	 * @param string|array|Selectors $selector Selector to find page IDs. 
+	 * @param array|bool $options Options to modify behavior. 
+	 *  - `verbose` (bool): Specify true to make return value array of arrays with [ id, parent_id, templates_id ] for each page. 
+	 *  - The verbose option above can also be specified by providing boolean true as the $options argument.
+	 *  - See `Pages::find()` $options argument for additional options. 
+	 * @return array Array of page IDs, or in verbose mode: array of arrays with id, parent_id and templates_id. 
+	 * @since 3.0.46
+	 * 
+	 */
+	public function findIDs($selector, $options = array()) {
+		$verbose = false;
+		if($options === true) $verbose = true;
+		if(!is_array($options)) $options = array();
+		if(isset($options['verbose'])) {
+			$verbose = $options['verbose'];
+			unset($options['verbose']);
+		}
+		$options['findIDs'] = $verbose ? true : 1;
+		return $this->find($selector, $options);
+	}
+
+	/**
 	 * Returns the first page matching the given selector with no exclusions
 	 * 
 	 * Use this method when you need to retrieve a specific page without exclusions for access control or page status.

@@ -130,6 +130,18 @@ class PageFinder extends Wire {
 		 */
 		'allowCustom' => false,
 
+		/**
+		 * Use sortsAfter feature where PageFinder lets you perform the sorting manually after the find()
+		 * 
+		 * When in use, you can access the PageFinder::getSortsAfter() method to retrieve an array of sort
+		 * fields that should be sent to PageArray::sort()
+		 * 
+		 * So far this option seems to add more overhead in most cases (rather than save it) so recommend not
+		 * using it. Kept for further experimenting. 
+		 * 
+		 */
+		'useSortsAfter' => false, 
+
 		); 
 
 	protected $fieldgroups; 
@@ -144,6 +156,7 @@ class PageFinder extends Wire {
 	protected $getQueryNumChildren = 0; // number of times the function has been called
 	protected $lastOptions = array(); 
 	protected $extraOrSelectors = array(); // one from each field must match
+	protected $sortsAfter = array(); // apply these sorts after pages loaded 
 	
 	// protected $extraSubSelectors = array(); // subselectors that are added in after getQuery()
 	// protected $extraJoins = array();
@@ -342,6 +355,7 @@ class PageFinder extends Wire {
 	 *     template ID and score. When false, returns only an array of page IDs. True is required by most usage from
 	 *     Pages class. False is only for specific cases. 
 	 *  - `allowCustom` (bool): Whether or not to allow _custom='selector string' type values (default=false). 
+	 *  - `useSortsAfter` (bool): When true, PageFinder may ask caller to perform sort manually in some cases (default=false). 
 	 * @return array|DatabaseQuerySelect
 	 * @throws PageFinderException
 	 *
@@ -357,8 +371,6 @@ class PageFinder extends Wire {
 		$this->fieldgroups = $this->wire('fieldgroups'); 
 		$options = array_merge($this->defaultOptions, $options); 
 
-		$this->start = 0; // reset for new find operation
-		$this->limit = 0; 
 		$this->parent_id = null;
 		$this->templates_id = null;
 		$this->checkAccess = true; 
@@ -490,16 +502,62 @@ class PageFinder extends Wire {
 	 * 
 	 */
 	protected function preProcessSelectors(Selectors $selectors, $options = array()) {
-		if(!empty($options['allowCustom'])) {
-			foreach($selectors as $selector) {
-				$field = $selector->field;
-				if(!is_string($field) || $field !== '_custom') continue;
+		
+		$sortSelectors = array();
+		$start = null;
+		$limit = null;
+		
+		foreach($selectors as $selector) {
+			$field = $selector->field;
+			
+			if($field === '_custom') {
 				$selectors->remove($selector);
-				$_selectors = $this->wire(new Selectors($selector->value()));
-				/** @var Selectors $_selectors */
-				foreach($_selectors as $s) $selectors->add($s);
+				if(!empty($options['allowCustom'])) {
+					$_selectors = $this->wire(new Selectors($selector->value()));
+					/** @var Selectors $_selectors */
+					foreach($_selectors as $s) $selectors->add($s);
+				}
+				
+			} else if($field === 'sort') {
+				if(!empty($options['useSortsAfter']) && $selector->operator == '=' && strpos($selector->value, '.') === false) {
+					$sortSelectors[] = $selector;
+				}
+				
+			} else if($field === 'limit') {
+				$limit = (int) $selector->value;
+				
+			} else if($field === 'start') {
+				$start = (int) $selector->value; 
 			}
 		}
+		
+		if(!$limit && !$start && count($sortSelectors) 
+			&& $options['returnVerbose'] && !empty($options['useSortsAfter']) 
+			&& empty($options['startAfterID']) && empty($options['stopBeforeID'])) {
+			// the `useSortsAfter` option is enabled and potentially applicable
+			$sortsAfter = array(); 
+			foreach($sortSelectors as $n => $selector) {
+				if(!$n && $this->wire('pages')->loader()->isNativeColumn($selector->value)) {
+					// first iteration only, see if it's a native column and prevent sortsAfter if so
+					break;
+				}
+				if(strpos($selector->value, '.') !== false) {
+					// we don't supports sortsAfter for subfields, so abandon entirely
+					$sortsAfter = array();
+					break;
+				}
+				if($selector->operator != '=') {
+					// sort property being used for something else that we don't recognize
+					continue;
+				}
+				$sortsAfter[] = $selector->value;
+				$selectors->remove($selector);
+			}
+			$this->sortsAfter = $sortsAfter;
+		}
+		
+		$this->limit = $limit;
+		$this->start = $start;
 	}
 
 
@@ -802,8 +860,8 @@ class PageFinder extends Wire {
 			if(count($fields) > 1) $fields = $this->arrangeFields($fields); 
 			$fieldsStr = ':' . implode(':', $fields) . ':'; // for strpos
 			$field = reset($fields); // first field
+			$subfield = '';
 			if(strpos($field, '.')) list($field, $subfield) = explode('.', $field); 
-				else $subfield = '';
 
 			// TODO Make native fields and path/url multi-field and multi-value aware
 			if($field == 'sort' && $selector->operator === '=' && !$subfield) {
@@ -811,7 +869,7 @@ class PageFinder extends Wire {
 				continue; 
 
 			} else if($field == 'limit' || $field == 'start') {
-				if(!$startLimit) $this->getQueryStartLimit($query, $selectors); 
+				if(!$startLimit) $this->getQueryStartLimit($query); 
 				$startLimit = true; 
 				continue; 
 
@@ -1488,20 +1546,13 @@ class PageFinder extends Wire {
 		}
 	}
 
-	protected function getQueryStartLimit(DatabaseQuerySelect $query, $selectors) {
+	protected function getQueryStartLimit(DatabaseQuerySelect $query) {
 
-		$start = null; 
-		$limit = null;
-		$sql = '';
-
-		foreach($selectors as $selector) {
-			if($selector->field == 'start') $start = (int) $selector->value; 	
-				else if($selector->field == 'limit') $limit = (int) $selector->value; 
-		}
+		$start = $this->start; 
+		$limit = $this->limit;
 
 		if($limit) {
-
-			$this->limit = $limit; 
+			$sql = '';
 
 			if(is_null($start) && ($input = $this->wire('input'))) {
 				// if not specified in the selector, assume the 'start' property from the default page's pageNum
@@ -1511,15 +1562,13 @@ class PageFinder extends Wire {
 
 			if(!is_null($start)) {
 				$sql .= "$start,";
-				$this->start = $start; 
 			}
 
 			$sql .= "$limit";
 			
-			if($this->getTotal && $this->getTotalType != 'count') $query->select("SQL_CALC_FOUND_ROWS"); 
+			if($this->getTotal && $this->getTotalType != 'count') $query->select("SQL_CALC_FOUND_ROWS");
+			if($sql) $query->limit($sql); 
 		}
-
-		if($sql) $query->limit($sql); 
 	}
 
 
@@ -1951,7 +2000,7 @@ class PageFinder extends Wire {
 	 *
 	 */
 	public function getLimit() {
-		return $this->limit; 
+		return $this->limit === null ? 0 : $this->limit; 
 	}
 
 	/**
@@ -1961,7 +2010,7 @@ class PageFinder extends Wire {
 	 *
 	 */
 	public function getStart() {
-		return $this->start; 
+		return $this->start === null ? 0 : $this->start; 
 	}
 
 	/**
@@ -1992,6 +2041,20 @@ class PageFinder extends Wire {
 	 */
 	public function getOptions() {
 		return $this->lastOptions; 
+	}
+
+	/**
+	 * Returns array of sortfields that should be applied to resulting PageArray after loaded
+	 * 
+	 * See the `useSortsAfter` option which must be enabled to use this. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return array
+	 * 
+	 */
+	public function getSortsAfter() {
+		return $this->sortsAfter;
 	}
 
 	/**
