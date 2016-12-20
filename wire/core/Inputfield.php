@@ -1253,7 +1253,7 @@ abstract class Inputfield extends WireData implements Module {
 		$field = $this->modules->get('InputfieldInteger'); 
 		$value = (int) $this->getSetting('columnWidth'); 
 		if($value < 10 || $value >= 100) $value = 100;
-		$field->label = sprintf($this->_("Column Width (%d%%)"), $value);
+		$field->label = sprintf($this->_('Column width (%d%%)'), $value);
 		$field->icon = 'arrows-h';
 		$field->attr('id+name', 'columnWidth'); 
 		$field->attr('type', 'text');

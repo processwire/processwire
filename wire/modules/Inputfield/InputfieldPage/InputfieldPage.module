@@ -1082,6 +1082,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		}
 		$field->label = $this->_('Custom PHP code');
 		$field->icon = 'code';
+		$field->showIf = 'inputfield!=InputfieldPageAutocomplete|InputfieldPageListSelect|InputfieldPageListSelectMultiple';
 		$fieldset->append($field);
 
 		$inputfields->append($fieldset); 
