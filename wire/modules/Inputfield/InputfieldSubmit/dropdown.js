@@ -76,7 +76,7 @@ var InputfieldSubmitDropdown = {
 	 */
 	initDropdown: function($dropdown, $mainButton) {
 		
-		var $toggleButton = $("<button><i class='fa fa-angle-down'></i></button>")
+		var $toggleButton = $("<button type='button'><i class='fa fa-angle-down'></i></button>")
 			.attr('id', 'pw-dropdown-toggle-' + $mainButton.attr('id'));
 		
 		$mainButton.after($toggleButton);

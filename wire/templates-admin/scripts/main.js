@@ -28,9 +28,21 @@ var ProcessWireAdmin = {
 				at: "center top"
 			}
 		}).hover(function() {
-			$(this).addClass('ui-state-hover');
+			var $a = $(this);
+			if($a.is('a')) {
+				$a.addClass('ui-state-hover');
+			} else {
+				$a.data('pw-tooltip-cursor', $a.css('cursor'));
+				$a.css('cursor', 'pointer');	
+			}
+			$a.addClass('pw-tooltip-hover');
+			$a.css('cursor', 'pointer');
 		}, function() {
-			$(this).removeClass('ui-state-hover');
+			var $a = $(this);
+			$a.removeClass('pw-tooltip-hover ui-state-hover');
+			if(!$a.is('a')) {
+				$a.css('cursor', $a.data('pw-tooltip-cursor'));
+			}
 		});
 	},
 	
@@ -125,12 +137,28 @@ var ProcessWireAdmin = {
 			});
 
 			// when the mouse leaves the dropdown menu, hide it
-			$ul.mouseleave(function() {
-				//if($a.is(":hover")) return;
-				//if($a.filter(":hover").length) return;
-				$ul.hide();
-				$a.removeClass('hover');
-			});
+			if($a.hasClass('pw-dropdown-toggle-click')) {
+				var timer = null;
+				function mouseleaver() {
+					if(timer) clearTimeout(timer);
+					timer = setTimeout(function() {
+						if($ul.filter(":hover").length || $a.filter(":hover").length) {
+							return;
+						}
+						$ul.fadeOut('fast');
+						$a.removeClass('hover pw-dropdown-toggle-open');
+					}, 1000);
+				}
+				$ul.mouseleave(mouseleaver);
+				$a.mouseleave(mouseleaver);
+			} else {
+				$ul.mouseleave(function() {
+					//if($a.is(":hover")) return;
+					//if($a.filter(":hover").length) return;
+					$ul.hide();
+					$a.removeClass('hover');
+				});
+			}
 		}
 
 		function mouseenterDropdownToggle(e) {
@@ -142,9 +170,28 @@ var ProcessWireAdmin = {
 			var timeout = $a.data('pw-dropdown-timeout');
 			
 			if($a.hasClass('pw-dropdown-toggle-click')) {
-				if(e.type != 'mousedown') return;
+				if(e.type != 'mousedown') return false;
 				$a.removeClass('ui-state-focus');
-			}
+				if($a.hasClass('pw-dropdown-toggle-open')) {
+					$a.removeClass('pw-dropdown-toggle-open hover');
+					$ul.hide();
+					return;
+				} else {
+					$('.pw-dropdown-toggle-open').each(function() {
+						var $a = $(this);
+						var $ul = $a.data('pw-dropdown-ul');
+						$ul.mouseleave();
+					});
+					$a.addClass('pw-dropdown-toggle-open');
+					/*
+					$('body').one('click', function() {
+						$a.removeClass('pw-dropdown-toggle-open hover');
+						$ul.hide();
+					});
+					*/
+				}
+			} 
+				
 			if($a.hasClass('pw-dropdown-disabled')) return;
 
 			timeout = setTimeout(function() {
@@ -322,7 +369,7 @@ var ProcessWireAdmin = {
 			$(document)
 				.on('mousedown', '.pw-dropdown-toggle-click', mouseenterDropdownToggle)
 				.on('mouseenter', '.pw-dropdown-toggle:not(.pw-dropdown-toggle-click)', mouseenterDropdownToggle)
-				.on('mouseleave', '.pw-dropdown-toggle', mouseleaveDropdownToggle)
+				.on('mouseleave', '.pw-dropdown-toggle:not(.pw-dropdown-toggle-click)', mouseleaveDropdownToggle)
 				.on('mouseenter', '.pw-dropdown-menu a.pw-has-ajax-items:not(.pw-ajax-items-loaded)', mouseenterDropdownAjaxItem) // navJSON
 				.on('mouseleave', '.pw-dropdown-menu a.pw-has-ajax-items', function() { // navJSON
 					hoveredDropdownAjaxItem = null;
