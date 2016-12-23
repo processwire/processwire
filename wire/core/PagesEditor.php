@@ -1170,6 +1170,12 @@ class PagesEditor extends Wire {
 		if($recursive && $options['recursionLevel'] === 0) {
 			$this->saveParents($copy->id, $copy->numChildren);
 		}
+		
+		if($options['recursionLevel'] === 0) {
+			if($copy->parent()->sortfield() == 'sort') {
+				$this->sortPage($copy, $copy->sort, true);
+			}
+		}
 
 		$copy->resetTrackChanges();
 		$this->pages->cloned($page, $copy);
@@ -1224,5 +1230,158 @@ class PagesEditor extends Wire {
 		if(strpos($sql, ':modified')) $query->bindValue(':modified', date('Y-m-d H:i:s', $modified));
 		
 		return $this->wire('database')->execute($query);
+	}
+
+	/**
+	 * Set page $sort value and increment siblings having same or greater sort value 
+	 * 
+	 * - This method is primarily applicable if configured sortfield is manual “sort” (or “none”).
+	 * - This is typically used after a move, sort, clone or delete operation. 
+	 * 
+	 * @param Page $page Page that you want to set the sort value for
+	 * @param int|null $sort New sort value for page or null to pull from $page->sort
+	 * @param bool $after If another page already has the sort, make $page go after it rather than before it? (default=false)
+	 * @throws WireException if given invalid arguments
+	 * @return int Number of sibling pages that had to have sort adjusted
+	 * 
+	 */
+	public function sortPage(Page $page, $sort = null, $after = false) {
+	
+		$database = $this->wire('database');
+
+		// reorder siblings having same or greater sort value, when necessary
+		if($page->id <= 1) return 0;
+		if(is_null($sort)) $sort = $page->sort;
+		
+		// determine if any other siblings have same sort value
+		$sql = 'SELECT id FROM pages WHERE parent_id=:parent_id AND sort=:sort AND id!=:id';
+		$query = $database->prepare($sql);
+		$query->bindValue(':parent_id', $page->parent_id, \PDO::PARAM_INT);
+		$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
+		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+		$rowCount = $query->rowCount();
+		$query->closeCursor();
+	
+		// move sort to after if requested
+		if($after && $rowCount) $sort += $rowCount;
+		
+		// update $page->sort property if needed
+		if($page->sort != $sort) $page->sort = $sort;
+		
+		// make sure that $page has the sort value indicated
+		$sql = 'UPDATE pages SET sort=:sort WHERE id=:id';
+		$query = $database->prepare($sql);
+		$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
+		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+		$sortCnt = $query->rowCount();
+		
+		// no need for $page to have 'sort' indicated as a change, since we just updated it above
+		$page->untrackChange('sort');
+
+		if($rowCount) {
+			// update order of all siblings 
+			$sql = 'UPDATE pages SET sort=sort+1 WHERE parent_id=:parent_id AND sort>=:sort AND id!=:id';
+			$query = $database->prepare($sql);
+			$query->bindValue(':parent_id', $page->parent_id, \PDO::PARAM_INT);
+			$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
+			$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
+			$query->execute();
+			$sortCnt += $query->rowCount();
+		}
+	
+		// call the sorted hook
+		$this->pages->sorted($page, false, $sortCnt);
+	
+		return $sortCnt;
+	}
+
+	/**
+	 * Sort one page before another (for pages using manual sort)
+	 * 
+	 * Note that if given $sibling parent is different from `$page` parent, then the `$pages->save()`
+	 * method will also be called to perform that movement. 
+	 * 
+	 * @param Page $page Page to move/sort
+	 * @param Page $sibling Sibling that page will be moved/sorted before 
+	 * @param bool $after Specify true to make $page move after $sibling instead of before (default=false)
+	 * @throws WireException When conditions don't allow page insertions
+	 * 
+	 */
+	public function insertBefore(Page $page, Page $sibling, $after = false) {
+		$sortfield = $sibling->parent()->sortfield();
+		if($sortfield != 'sort') {
+			throw new WireException('Insert before/after operations can only be used with manually sorted pages');
+		}
+		if(!$sibling->id || !$page->id) {
+			throw new WireException('New pages must be saved before using insert before/after operations');
+		}
+		if($sibling->id == 1 || $page->id == 1) {
+			throw new WireException('Insert before/after operations cannot involve homepage');
+		}
+		$page->sort = $sibling->sort;
+		if($page->parent_id != $sibling->parent_id) {
+			// page needs to be moved first
+			$page->parent = $sibling->parent;
+			$page->save();
+		}
+		$this->sortPage($page, $page->sort, $after); 
+	}
+
+	/**
+	 * Rebuild the “sort” values for all children of the given $parent page, fixing duplicates and gaps
+	 * 
+	 * If used on a $parent not currently sorted by by “sort” then it will update the “sort” index to be
+	 * consistent with whatever the pages are sorted by. 
+	 * 
+	 * @param Page $parent
+	 * @return int
+	 * 
+	 */
+	public function sortRebuild(Page $parent) {
+		
+		if(!$parent->id || !$parent->numChildren) return 0;
+		$database = $this->wire('database');
+		$sorts = array();
+		$sort = 0;
+		
+		if($parent->sortfield() == 'sort') {
+			// pages are manually sorted, so we can find IDs directly from the database
+			$sql = 'SELECT id FROM pages WHERE parent_id=:parent_id ORDER BY sort, created';
+			$query = $database->prepare($sql);
+			$query->bindValue(':parent_id', $parent->id, \PDO::PARAM_INT);
+			$query->execute();
+
+			// establish new sort values
+			do {
+				$id = (int) $query->fetch(\PDO::FETCH_COLUMN);
+				if(!$id) break;
+				$sorts[] = "($id,$sort)";
+			} while(++$sort);
+
+			$query->closeCursor();
+			
+		} else {
+			// children of $parent don't currently use "sort" as sort property
+			// so we will update the "sort" of children to be consistent with that
+			// of whatever sort property is in use. 
+			$o = array('findIDs' => 1, 'cache' => false);
+			foreach($parent->children('include=all', $o) as $id) {
+				$id = (int) $id;
+				$sorts[] = "($id,$sort)";	
+				$sort++;
+			}
+		}
+
+		// update sort values
+		$query = $database->prepare(
+			'INSERT INTO pages (id,sort) VALUES ' . implode(',', $sorts) . ' ' .
+			'ON DUPLICATE KEY UPDATE sort=VALUES(sort)'
+		);
+
+		$query->execute();
+		
+		return count($sorts);
 	}
 }

@@ -65,7 +65,7 @@ class PageTraversal {
 	 * @param Page $page
 	 * @param string|array $selector Selector to use, or blank to return all children
 	 * @param array $options
-	 * @return PageArray
+	 * @return PageArray|array
 	 *
 	 */
 	public function children(Page $page, $selector = '', $options = array()) {

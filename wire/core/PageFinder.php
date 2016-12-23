@@ -157,6 +157,7 @@ class PageFinder extends Wire {
 	protected $lastOptions = array(); 
 	protected $extraOrSelectors = array(); // one from each field must match
 	protected $sortsAfter = array(); // apply these sorts after pages loaded 
+	protected $reverseAfter = false; // reverse order after load?
 	
 	// protected $extraSubSelectors = array(); // subselectors that are added in after getQuery()
 	// protected $extraJoins = array();
@@ -477,6 +478,8 @@ class PageFinder extends Wire {
 		}
 
 		$this->lastOptions = $options; 
+		
+		if($this->reverseAfter) $matches = array_reverse($matches);
 
 		return $matches; 
 	}
@@ -503,9 +506,11 @@ class PageFinder extends Wire {
 	 */
 	protected function preProcessSelectors(Selectors $selectors, $options = array()) {
 		
+		$sortAfterSelectors = array();
 		$sortSelectors = array();
 		$start = null;
 		$limit = null;
+		$eq = null;
 		
 		foreach($selectors as $selector) {
 			$field = $selector->field;
@@ -519,8 +524,9 @@ class PageFinder extends Wire {
 				}
 				
 			} else if($field === 'sort') {
+				$sortSelectors[] = $selector;
 				if(!empty($options['useSortsAfter']) && $selector->operator == '=' && strpos($selector->value, '.') === false) {
-					$sortSelectors[] = $selector;
+					$sortAfterSelectors[] = $selector;
 				}
 				
 			} else if($field === 'limit') {
@@ -528,15 +534,40 @@ class PageFinder extends Wire {
 				
 			} else if($field === 'start') {
 				$start = (int) $selector->value; 
+				
+			} else if($field == 'eq' || $field == 'index') { 
+				if($this->wire('fields')->get($field)) continue;
+				$value = $selector->value; 
+				if($value === 'first') {
+					$eq = 0;
+				} else if($value === 'last') {
+					$eq = -1;
+				} else {
+					$eq = (int) $value;
+				}
+				$selectors->remove($selector);
 			}
 		}
 		
-		if(!$limit && !$start && count($sortSelectors) 
+		if(!is_null($eq)) {
+			if($eq === -1) {
+				$limit = -1;
+				$start = null;
+			} else if($eq === 0) {
+				$start = 0;
+				$limit = 1;
+			} else {
+				$start = $eq;
+				$limit = 1;
+			}
+		}
+		
+		if(!$limit && !$start && count($sortAfterSelectors) 
 			&& $options['returnVerbose'] && !empty($options['useSortsAfter']) 
 			&& empty($options['startAfterID']) && empty($options['stopBeforeID'])) {
 			// the `useSortsAfter` option is enabled and potentially applicable
 			$sortsAfter = array(); 
-			foreach($sortSelectors as $n => $selector) {
+			foreach($sortAfterSelectors as $n => $selector) {
 				if(!$n && $this->wire('pages')->loader()->isNativeColumn($selector->value)) {
 					// first iteration only, see if it's a native column and prevent sortsAfter if so
 					break;
@@ -554,6 +585,61 @@ class PageFinder extends Wire {
 				$selectors->remove($selector);
 			}
 			$this->sortsAfter = $sortsAfter;
+		}
+		
+		if($limit !== null && $limit < 0) {
+			// negative limit value means we pull results from end rather than start
+			if($start !== null && $start < 0) {
+				// we don't support a double negative, so double negative makes a positive
+				$start = abs($start);
+				$limit = abs($limit);
+			} else if($start > 0) {
+				$start = $start - abs($limit);
+				$limit = abs($limit);
+			} else {
+				$this->reverseAfter = true;
+				$limit = abs($limit);
+			}	
+		}
+		
+		if($start !== null && $start < 0) {
+			// negative start value means we start from a value from the end rather than the start
+			if($limit) {
+				// determine how many pages total and subtract from that to get start
+				$o = $options;
+				$o['getTotal'] = true;
+				$o['loadPages'] = false;
+				$o['returnVerbose'] = false;
+				$sel = clone $selectors;
+				foreach($sel as $s) {
+					if($s->field == 'limit' || $s->field == 'start') $sel->remove($s);
+				}
+				$sel->add(new SelectorEqual('limit', 1));
+				$finder = new PageFinder();
+				$this->wire($finder);
+				$finder->find($sel);
+				$total = $finder->getTotal();
+				$start = abs($start);
+				$start = $total - $start;
+				if($start < 0) $start = 0;
+			} else {
+				// same as negative limit
+				$this->reverseAfter = true;
+				$limit = abs($start);
+				$start = null;
+			}
+		}
+		
+		if($this->reverseAfter) {
+			// reverse the sorts
+			foreach($sortSelectors as $s) {
+				if($s->operator != '=' || ctype_digit($s->value)) continue;
+				if(strpos($s->value, '-') === 0) {
+					$s->value = ltrim($s->value, '-');
+				} else {
+					$s->value = '-' . $s->value;
+				}
+			}	
 		}
 		
 		$this->limit = $limit;
@@ -832,7 +918,6 @@ class PageFinder extends Wire {
 		$sortSelectors = array(); // selector containing 'sort=', which gets added last
 		$joins = array();
 		// $this->extraJoins = array();
-		$startLimit = false; // true when the start/limit part of the query generation is done
 		$database = $this->wire('database');
 		$this->preProcessSelectors($selectors, $options);
 
@@ -840,7 +925,9 @@ class PageFinder extends Wire {
 		$query = $this->wire(new DatabaseQuerySelect());
 		$query->select($options['returnVerbose'] ? array('pages.id', 'pages.parent_id', 'pages.templates_id') : array('pages.id')); 
 		$query->from("pages"); 
-		$query->groupby("pages.id"); 
+		$query->groupby("pages.id");
+	
+		if(!is_null($this->limit) || !is_null($this->start)) $this->getQueryStartLimit($query);
 
 		foreach($selectors as $selector) {
 			
@@ -869,9 +956,7 @@ class PageFinder extends Wire {
 				continue; 
 
 			} else if($field == 'limit' || $field == 'start') {
-				if(!$startLimit) $this->getQueryStartLimit($query); 
-				$startLimit = true; 
-				continue; 
+				continue;
 
 			} else if($field == 'path' || $field == 'url') {
 				$this->getQueryJoinPath($query, $selector); 

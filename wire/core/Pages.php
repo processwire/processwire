@@ -24,17 +24,20 @@
  * 
  * HOOKABLE METHODS
  * ================
- * @method PageArray find() find($selectorString, array $options = array()) Find and return all pages matching the given selector string. Returns a PageArray. #pw-group-retrieval
- * @method bool save() save(Page $page) Save any changes made to the given $page. Same as : $page->save() Returns true on success. #pw-group-manipulation
- * @method bool saveField() saveField(Page $page, $field, array $options = array()) Save just the named field from $page. Same as: $page->save('field') #pw-group-manipulation
- * @method bool trash() trash(Page $page, $save = true) Move a page to the trash. If you have already set the parent to somewhere in the trash, then this method won't attempt to set it again. #pw-group-manipulation
+ * @method PageArray find($selectorString, array $options = array()) Find and return all pages matching the given selector string. Returns a PageArray. #pw-group-retrieval
+ * @method bool save(Page $page, $options = array()) Save any changes made to the given $page. Same as : $page->save() Returns true on success. #pw-group-manipulation
+ * @method bool saveField(Page $page, $field, array $options = array()) Save just the named field from $page. Same as: $page->save('field') #pw-group-manipulation
+ * @method bool trash(Page $page, $save = true) Move a page to the trash. If you have already set the parent to somewhere in the trash, then this method won't attempt to set it again. #pw-group-manipulation
  * @method bool restore(Page $page, $save = true) Restore a trashed page to its original location. #pw-group-manipulation
  * @method int emptyTrash() Empty the trash and return number of pages deleted. #pw-group-manipulation
- * @method bool delete() delete(Page $page, $recursive = false) Permanently delete a page and it's fields. Unlike trash(), pages deleted here are not restorable. If you attempt to delete a page with children, and don't specifically set the $recursive param to True, then this method will throw an exception. If a recursive delete fails for any reason, an exception will be thrown. #pw-group-manipulation
+ * @method bool delete(Page $page, $recursive = false, array $options = array()) Permanently delete a page and it's fields. Unlike trash(), pages deleted here are not restorable. If you attempt to delete a page with children, and don't specifically set the $recursive param to True, then this method will throw an exception. If a recursive delete fails for any reason, an exception will be thrown. #pw-group-manipulation
  * @method Page|NullPage clone(Page $page, Page $parent = null, $recursive = true, $options = array()) Clone an entire page, it's assets and children and return it. #pw-group-manipulation
  * @method Page|NullPage add($template, $parent, $name = '', array $values = array()) #pw-group-manipulation
+ * @method int sort(Page $page, $value = false) Set the “sort” value for given $page while adjusting siblings, or re-build sort for its children. #pw-group-manipulation
  * @method setupNew(Page $page) Setup new page that does not yet exist by populating some fields to it. #pw-internal
  * @method string setupPageName(Page $page, array $options = []) Determine and populate a name for the given page. #pw-internal
+ * @method void insertBefore(Page $page, Page $beforePage) Insert one page as a sibling before another. #pw-advanced
+ * @method void insertAfter(Page $page, Page $afterPage) Insert one page as a sibling after another. #pw-advanced
  * 
  * METHODS PURELY FOR HOOKS
  * ========================
@@ -53,6 +56,7 @@
  * @method cloneReady(Page $page, Page $copy) Hook called just before a page is cloned. 
  * @method cloned(Page $page, Page $copy) Hook called after a page has been successfully cloned. 
  * @method renamed(Page $page) Hook called after a page has been successfully renamed. 
+ * @method sorted(Page $page, $children = false, $total = 0) Hook called after $page has been sorted.
  * @method statusChangeReady(Page $page) Hook called when a page's status has changed and is about to be saved.
  * @method statusChanged(Page $page) Hook called after a page status has been changed and saved. 
  * @method publishReady(Page $page) Hook called just before an unpublished page is published. 
@@ -201,6 +205,7 @@ class Pages extends Wire {
 	 * @param array|string $options One or more options that can modify certain behaviors. May be associative array or "key=value" selector string.
 	 *  - `findOne` (boolean): Apply optimizations for finding a single page (default=false).
 	 *  - `findAll` (boolean): Find all pages with no exclusions, same as "include=all" option (default=false). 
+	 *  - `findIDs` (boolean|int): Specify 1 to return array of only page IDs, or true to return verbose array (default=false).
 	 *  - `getTotal` (boolean): Whether to set returning PageArray's "total" property (default=true, except when findOne=true).
 	 *  - `loadPages` (boolean): Whether to populate the returned PageArray with found pages (default=true). 
 	 *	   The only reason why you'd want to change this to false would be if you only needed the count details from 
@@ -215,7 +220,7 @@ class Pages extends Wire {
 	 *  - `startAfterID` (int): Start loading pages once page matching this ID is found (default=0). 
 	 *  - `lazy` (bool): Specify true to force lazy loading. This is the same as using the Pages::findMany() method (default=false).
 	 *  - `loadOptions` (array): Optional associative array of options to pass to getById() load options.
-	 * @return PageArray Pages that matched the given selector.
+	 * @return PageArray|array PageArray of that matched the given selector, or array of page IDs (if using findIDs option).
 	 * 
 	 * Non-visible pages are excluded unless an "include=x" mode is specified in the selector
 	 * (where "x" is "hidden", "unpublished" or "all"). If "all" is specified, then non-accessible
@@ -301,16 +306,31 @@ class Pages extends Wire {
 	/**
 	 * Like $pages->find() except returns array of IDs rather than Page objects.
 	 * 
-	 * This is a faster method to use when you only need to know the matching page IDs. 
+	 * - This is a faster method to use when you only need to know the matching page IDs. 
+	 * - The default behavior is to simply return a regular PHP array of matching page IDs in order. 
+	 * - The alternate behavior (verbose) returns more information for each match, as outlined below. 
+	 * 
+	 * **Verbose option:**  
+	 * When specifying boolean true for the `$options` argument (or using the `verbose` option), 
+	 * the return value is an array of associative arrays, with each of those associative arrays
+	 * containing `id`, `parent_id` and `templates_id` keys for each page. 
+	 * 
+	 * ~~~~~
+	 * // returns array of page IDs (integers) like [ 1234, 1235, 1236 ]
+	 * $a = $pages->findIDs("foo=bar");
+	 * 
+	 * // verbose option: returns array of associative arrays, each with id, parent_id and templates_id 
+	 * $a = $pages->findIDs("foo=bar", true);
+	 * ~~~~~
 	 * 
 	 * #pw-group-retrieval
 	 * 
 	 * @param string|array|Selectors $selector Selector to find page IDs. 
 	 * @param array|bool $options Options to modify behavior. 
-	 *  - `verbose` (bool): Specify true to make return value array of arrays with [ id, parent_id, templates_id ] for each page. 
+	 *  - `verbose` (bool): Specify true to make return value array of associative arrays, each with verbose info. 
 	 *  - The verbose option above can also be specified by providing boolean true as the $options argument.
 	 *  - See `Pages::find()` $options argument for additional options. 
-	 * @return array Array of page IDs, or in verbose mode: array of arrays with id, parent_id and templates_id. 
+	 * @return array Array of page IDs, or in verbose mode: array of arrays, each with id, parent_id and templates_id keys.
 	 * @since 3.0.46
 	 * 
 	 */
@@ -816,6 +836,83 @@ class Pages extends Wire {
 	 */
 	public function ___touch($pages, $modified = null) {
 		return $this->editor()->touch($pages, $modified);
+	}
+	
+	/**
+	 * Set the “sort” value for given $page while adjusting siblings, or re-build sort for its children
+	 * 
+	 * *This method is primarily applicable to manually sorted pages. If pages are automatically
+	 * sorted by some other field, this method isn’t useful unless using the “re-build children” option, 
+	 * which may be helpful if converting a page’s children from auto-sort to manual sort.*
+	 *
+	 * The default behavior of this method is to set the “sort” value for the given $page, and adjust the 
+	 * sort value of sibling pages having the same or greater sort value, to ensure all are unique and in
+	 * order without gaps. 
+	 * 
+	 * The alternate behavior of this method is to re-build the sort values of all children of the given $page. 
+	 * This is done by specifying boolean true for the $value argument. When used, duplicate sort values and
+	 * gaps are removed from all children. 
+	 * 
+	 * **Do you need this method?**  
+	 * If you are wondering whether you need to use this method for something, chances are that you do not.
+	 * This method is mostly applicable for internal core use, as ProcessWire manages Page sort values on its own
+	 * internally for the most part. 
+	 * 
+	 * ~~~~~
+	 * // set $page to have sort=5, moving any 5+ sort pages ahead
+	 * $pages->sort($page, 5);
+	 * 
+	 * // same as above using alternate syntax
+	 * $page->sort = 5;
+	 * $pages->sort($page);
+	 * 
+	 * // re-build sort values for children of $page, removing duplicates and gaps
+	 * $pages->sort($page, true);
+	 * ~~~~~
+	 * 
+	 * #pw-advanced
+	 *
+	 * @param Page $page Page to sort (or parent of pages to sort, if using $value=true option)
+	 * @param int|bool $value Specify one of the following:
+	 *  - Omit to set and use sort value from given $page.
+	 *  - Specify sort value (integer) to save that value.
+	 *  - Specify boolean true to instead rebuild sort for all of $page children.
+	 * @return int Number of pages that had sort values adjusted
+	 * @throws WireException 
+	 *
+	 */
+	public function ___sort(Page $page, $value = false) {
+		if($value === false) $value = $page->sort;
+		if($value === true) return $this->editor()->sortRebuild($page);
+		return $this->editor()->sortPage($page, $value);
+	}
+
+	/**
+	 * Sort/move one page above another (for manually sorted pages)
+	 * 
+	 * #pw-advanced
+	 *
+	 * @param Page $page Page you want to move/sort 
+	 * @param Page $beforePage Page you want to insert before
+	 * @throws WireException
+	 *
+	 */
+	public function ___insertBefore(Page $page, Page $beforePage) {
+		$this->editor()->insertBefore($page, $beforePage);
+	}
+
+	/**
+	 * Sort/move one page after another (for manually sorted pages)
+	 * 
+	 * #pw-advanced
+	 *
+	 * @param Page $page Page you want to move/sort
+	 * @param Page $afterPage Page you want to insert after
+	 * @throws WireException
+	 *
+	 */
+	public function ___insertAfter(Page $page, Page $afterPage) {
+		$this->editor()->insertBefore($page, $afterPage, true);
 	}
 	
 	/**
@@ -1465,7 +1562,7 @@ class Pages extends Wire {
 	}
 
 	/**
-	 * Hook called when a page has been renamed (i.e. had it's name field change)
+	 * Hook called when a page has been renamed (i.e. had its name field change)
 	 *
 	 * The previous name can be accessed at `$page->namePrevious`. 
 	 * The new name can be accessed at `$page->name`. 
@@ -1487,6 +1584,18 @@ class Pages extends Wire {
 		if($page->namePrevious && $page->namePrevious != $page->name) {
 			$this->log("Renamed page from '$page->namePrevious' to '$page->name'", $page);
 		}
+	}
+
+	/**
+	 * Hook called after a page has been sorted, or had its children re-sorted
+	 * 
+	 * @param Page $page Page given to have sort adjusted
+	 * @param bool $children If true, children of $page have been all been re-sorted
+	 * @param int $total Total number of pages that had sort adjusted as a result
+	 * 
+	 */
+	public function ___sorted(Page $page, $children = false, $total = 0) {
+		if($page && $children && $total) {}
 	}
 
 	/**

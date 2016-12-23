@@ -134,6 +134,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * never exceeds 1024, otherwise issues in Pages::find() will need to be considered. 
 	 *
 	 * The status levels 16384 and above can safely be changed as needed as they are runtime only. 
+	 * 
+	 * Please note that statuses 2, 32, 256, and 4096 are reserved for future use.
 	 *
 	 */
 
@@ -1886,7 +1888,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param string $selector Selector to use, or omit to return all children.
 	 * @param array $options Optional options to modify behavior, the same as those provided to Pages::find.
-	 * @return PageArray Children that matched the selector, or all children (if no selector given)
+	 * @return PageArray|array Returns PageArray for most cases. Returns regular PHP array if using the findIDs option.
 	 * @see Page::child(), Page::find(), Page::numChildren(), Page::hasChildren()
 	 *
 	 */
@@ -1969,7 +1971,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-common
 	 * #pw-group-traversal
 	 *
-	 * @param string|array $selector Selector to use, or blank to return the first child. 
+	 * @param string|array|int $selector Selector to use, or blank to return the first child. 
 	 * @param array $options Optional options per Pages::find
 	 * @return Page|NullPage
 	 * @see Page::children()
@@ -2785,9 +2787,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
-	 * Return the URL necessary to edit this page
+	 * Return the URL necessary to edit this page 
 	 * 
 	 * - We recommend checking that the page is editable before outputting the editUrl(). 
+	 * - If user opens URL in their browser and is not logged in, they must login to account with edit permission.
 	 * - This method can also be accessed by property at `$page->editUrl` (without parenthesis). 
 	 * 
 	 * ~~~~~~
@@ -2798,14 +2801,21 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-group-advanced
 	 * 
+	 * @param array|bool $options Specify boolean true to force URL to include scheme and hostname, or use $options array:
+	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
 	 * @return string URL for editing this page
 	 * 
 	 */
-	public function editUrl() {
+	public function editUrl($options = array()) {
 		$adminTemplate = $this->wire('templates')->get('admin');
 		$https = $adminTemplate && ($adminTemplate->https > 0);
 		$url = ($https && !$this->wire('config')->https) ? 'https://' . $this->wire('config')->httpHost : '';
 		$url .= $this->wire('config')->urls->admin . "page/edit/?id=$this->id";
+		if($options === true || (is_array($options) && !empty($options['http']))) {
+			if(strpos($url, '://') === false) {
+				$url = ($https ? 'https://' : 'http://') . $this->wire('config')->httpHost . $url;
+			}
+		}
 		return $url;
 	}
 

@@ -1406,22 +1406,32 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		$sort = array();
 		$start = 0;
 		$limit = null;
+		$eq = null;
 
 		// leave sort, limit and start away from filtering selectors
 		foreach($selectors as $selector) {
 			$remove = true; 
+			$field = $selector->field;
 
-			if($selector->field === 'sort') {
+			if($field === 'sort') {
 				// use all sort selectors
 				$sort[] = $selector->value; 
 
-			} else if($selector->field === 'start') { 
+			} else if($field === 'start') { 
 				// use only the last start selector
 				$start = (int) $selector->value;
 
-			} else if($selector->field === 'limit') {
+			} else if($field === 'limit') {
 				// use only the last limit selector
-				$limit = (int) $selector->value; 
+				$limit = (int) $selector->value;
+
+			} else if(($field === 'index' || $field == 'eq') && !$this->wire('fields')->get($field)) {
+				// eq or index properties
+				switch($selector->value) {
+					case 'first': $eq = 0; break;
+					case 'last': $eq = -1; break;
+					default: $eq = (int) $selector->value;
+				}
 
 			} else {
 				// everything else is to be saved for filtering
@@ -1444,6 +1454,38 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 					$this->trackRemove($this->data[$key], $key);
 					unset($this->data[$key]);
 				}
+			}
+		}
+
+		if(!is_null($eq)) {
+			if($eq === -1) {
+				$limit = -1;
+				$start = null;
+			} else if($eq === 0) {
+				$start = 0;
+				$limit = 1;
+			} else {
+				$start = $eq;
+				$limit = 1;
+			}
+		}
+		
+		if($limit < 0 && $start < 0) {
+			// we don't support double negative, so double negative makes a positive 
+			$start = abs($start);
+			$limit = abs($limit);
+		} else {
+			if($limit < 0) {
+				if($start) {
+					$start = $start - abs($limit);
+					$limit = abs($limit);
+				} else {
+					$start = count($this->data) - abs($limit);
+					$limit = count($this->data);
+				}
+			}
+			if($start < 0) {
+				$start = count($this->data) - abs($start);
 			}
 		}
 
