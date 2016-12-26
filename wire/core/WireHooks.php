@@ -295,6 +295,8 @@ class WireHooks {
 		if($type == 'method' || $type == 'either') {
 			if(strpos($method, '(') === false) $method .= '()';
 			if($type == 'either') $property = rtrim($method, '()');
+		} else {
+			$property = rtrim($method, '()');
 		}
 
 		if($type == 'method') {
