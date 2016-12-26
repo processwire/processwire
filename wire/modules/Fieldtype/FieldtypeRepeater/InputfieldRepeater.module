@@ -431,8 +431,18 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			if($itemID) break;
 		}	
 
-		// create a new/blank item to be used as a template for any new items added
-		if(!$itemID) {
+		if($itemID) {
+			// only rendering a single item, ajax mode
+			foreach($form->getAll() as $inputfield) {
+				$idAttr = $inputfield->attr('id');
+				$inputfield->renderReady($form, $this->renderValueMode);
+				$jsValue = $this->wire('config')->js($idAttr);
+				if(!empty($jsValue)) {
+					$inputfield->appendMarkup .= "<script>ProcessWire.config['$idAttr'] = " . json_encode($jsValue) . ';</script>';
+				}
+			}
+		} else {
+			// create a new/blank item to be used as a template for any new items added
 			/** @var InputfieldWrapper $wrap */
 			$wrap = $this->wire('modules')->get('InputfieldFieldset');
 			$wrap->label = $this->renderRepeaterLabel($label, ++$cnt, new NullPage());
