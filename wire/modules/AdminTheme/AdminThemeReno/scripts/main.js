@@ -317,12 +317,12 @@ var ProcessWireAdminTheme = {
 				$.each(items, function(index, item) {
 					// Menu categories don't get linked so that they don't receive
 					// keyboard focus.
-					$("<li>" + item.type + "</li>")
-						.addClass("ui-widget-header")
-						.data("ui-autocomplete-item", item)
-						.appendTo( ul );
-					currentType = item.type;
-				}
+					if (item.type != currentType) {
+						$("<li>" + item.type + "</li>")
+							.addClass("ui-widget-header")
+							.appendTo( ul );
+						currentType = item.type;
+					}
 					that._renderItemData(ul, item);
 				});
 			},
