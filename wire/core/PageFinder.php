@@ -927,7 +927,7 @@ class PageFinder extends Wire {
 		$query->from("pages"); 
 		$query->groupby("pages.id");
 	
-		if(!is_null($this->limit) || !is_null($this->start)) $this->getQueryStartLimit($query);
+		$this->getQueryStartLimit($query);
 
 		foreach($selectors as $selector) {
 			
@@ -1637,15 +1637,19 @@ class PageFinder extends Wire {
 		$limit = $this->limit;
 
 		if($limit) {
+			$limit = (int) $limit;
+			$input = $this->wire('input');
 			$sql = '';
 
-			if(is_null($start) && ($input = $this->wire('input'))) {
+			if(is_null($start) && $input) {
 				// if not specified in the selector, assume the 'start' property from the default page's pageNum
 				$pageNum = $input->pageNum - 1; // make it zero based for calculation
 				$start = $pageNum * $limit; 
 			}
 
 			if(!is_null($start)) {
+				$start = (int) $start;
+				$this->start = $start;
 				$sql .= "$start,";
 			}
 
