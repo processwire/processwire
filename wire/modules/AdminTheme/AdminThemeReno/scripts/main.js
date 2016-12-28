@@ -311,18 +311,26 @@ var ProcessWireAdminTheme = {
 			_renderMenu: function(ul, items) {
 				var that = this;
 				var currentType = "";
+				// add an id to the menu for css styling
+				ul.attr('id', 'ProcessPageSearchAutocomplete');
+				// Loop over each menu item and customize the list item's html.
 				$.each(items, function(index, item) {
-					if (item.type != currentType) {
-						ul.append("<li class='ui-widget-header'><a>" + item.type + "</a></li>" );
-						currentType = item.type;
-					}
-					ul.attr('id', 'ProcessPageSearchAutocomplete'); 
+					// Menu categories don't get linked so that they don't receive
+					// keyboard focus.
+					$("<li>" + item.type + "</li>")
+						.addClass("ui-widget-header")
+						.data("ui-autocomplete-item", item)
+						.appendTo( ul );
+					currentType = item.type;
+				}
 					that._renderItemData(ul, item);
 				});
 			},
-			_renderItemData: function(ul, item) {
+			_renderItem: function( ul, item ) {
 				if(item.label == item.template) item.template = '';
-				ul.append("<li><a href='" + item.edit_url + "'>" + item.label + " <small>" + item.template + "</small></a></li>"); 
+				return $( "<li>" )
+					.append("<a href='" + item.edit_url + "'>" + item.label + " <small>" + item.template + "</small></a></li>")
+					.appendTo( ul );
 			}
 		});
 		
@@ -353,7 +361,11 @@ var ProcessWireAdminTheme = {
 					}));
 				});
 			},
-			select: function(event, ui) { }
+			select: function(event, ui) {
+				// follow the link if the Enter/Return key is tapped
+				event.preventDefault();
+				window.location = ui.item.edit_url;
+			}
 		}).blur(function() {
 			$status.text('');	
 		});
