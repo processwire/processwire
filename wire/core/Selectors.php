@@ -309,6 +309,13 @@ class Selectors extends WireArray {
 	
 		// replace characters that are allowed but aren't useful here
 		$str = str_replace(array('!', '(', ')', '@', '.', '|', '_'), '', trim(strtolower($str)));
+	
+		// flatten sub-selectors
+		$pos = strpos($str, '[');
+		if($pos && strrpos($str, ']') > $pos) {
+			$str = str_replace(array(']', '=[', '<[', '>['), array('', '=1,', '<2,', '>3,'), $str);
+		}
+		$str = rtrim($str, ", ");
 		
 		// first character must match alphabet
 		if(strpos($alphabet, substr($str, 0, 1)) === false) return false;
