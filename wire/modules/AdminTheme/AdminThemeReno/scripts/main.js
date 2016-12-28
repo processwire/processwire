@@ -357,7 +357,7 @@ var ProcessWireAdminTheme = {
 							template: item.template_label ? item.template_label : '',
 							edit_url: item.editUrl,
 							type: item.type
-						}
+						};
 					}));
 				});
 			},
