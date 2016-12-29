@@ -143,6 +143,17 @@
 	height: auto; 
 	box-shadow: none; 
 
+/* Autocomplete search results headers */
+#ProcessPageSearchAutocomplete.ui-autocomplete .ui-widget-header {
+	background: lighten($masthead-bg, 5%) !important;
+	color: $reverse-text-color;
+	border: none;
+	margin: 0;
+	text-shadow: none;
+	font-size: $base-font-size;
+	font-weight: normal;
+	pointer: arrow;
+	padding: 0.5em 0.75em 0.5em 0.75em;
 }
 
 #breadcrumbs {
