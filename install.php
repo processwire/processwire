@@ -124,7 +124,7 @@ class Installer {
 	 */
 	protected function welcome() {
 		$this->h("Welcome. This tool will guide you through the installation process."); 
-		$this->p("Thanks for choosing ProcessWire! If you downloaded this copy of ProcessWire from somewhere other than <a href='http://processwire.com/'>processwire.com</a> or <a href='https://github.com/ryancramerdesign/ProcessWire' target='_blank'>our GitHub page</a>, please download a fresh copy before installing. If you need help or have questions during installation, please stop by our <a href='http://processwire.com/talk/' target='_blank'>support board</a> and we'll be glad to help.");
+		$this->p("Thanks for choosing ProcessWire! If you downloaded this copy of ProcessWire from somewhere other than <a href='https://processwire.com/'>processwire.com</a> or <a href='https://github.com/processwire/processwire' target='_blank'>our GitHub page</a>, please download a fresh copy before installing. If you need help or have questions during installation, please stop by our <a href='https://processwire.com/talk/' target='_blank'>support board</a> and we'll be glad to help.");
 		$this->btn("Get Started", 0, 'sign-in'); 
 	}
 
