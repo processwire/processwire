@@ -252,6 +252,7 @@ $(document).ready(function() {
 				
 				// File uploaded: called for each file
 				xhr.addEventListener("load", function() {
+					xhr.getAllResponseHeaders();
 
 					var response = $.parseJSON(xhr.responseText); 
 					if(response.error !== undefined) response = [response];

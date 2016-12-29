@@ -1400,6 +1400,7 @@ function InputfieldImage($) {
 
 				// File uploaded: called for each file
 				xhr.addEventListener("load", function() {
+					xhr.getAllResponseHeaders();
 					var response = $.parseJSON(xhr.responseText),
 						wasZipFile = response.length > 1;
 					if(response.error !== undefined) response = [response];
