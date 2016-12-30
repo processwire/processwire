@@ -328,7 +328,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			// also add a delete checkbox to the repeater page fields
 			$delete = $this->wire('modules')->get('InputfieldCheckbox'); 
 			$delete->attr('id+name', "delete_repeater{$page->id}"); 
-			$delete->class = 'InputfieldRepeaterDelete';
+			$delete->addClass('InputfieldRepeaterDelete', 'wrapClass');
 			$delete->label = $this->_('Delete'); 
 			$delete->attr('value', $page->id); 
 
@@ -371,6 +371,13 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			
 			if($isClone) $wrap->addClass('InputfieldRepeaterItemClone');
 			if($itemID) $wrap->addClass('InputfieldRepeaterItemRequested');
+			
+			if($page->get('_repeater_delete')) {
+				// something indicates it should already show delete state in editor
+				$delete->attr('checked', 'checked');
+				$wrap->addClass('InputfieldRepeaterDeletePending');
+				$wrap->addClass('ui-state-error', 'headerClass');
+			}
 			
 			if($isOpen) {
 				$wrap->collapsed = Inputfield::collapsedNo;
@@ -660,8 +667,11 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$collapse = $this->field->get('repeaterCollapse');
 		$forIDs = null; 
 		if($loading == FieldtypeRepeater::loadingAll && $collapse != FieldtypeRepeater::collapseNone) $forIDs = array();
-	
-		return $this->buildForm(0, $forIDs)->render() . $out; 
+		
+		$form = $this->buildForm(0, $forIDs);
+		$out = ($this->renderValueMode ? $form->renderValue() : $form->render()) . $out;
+		
+		return $out;
 	}
 
 	/**

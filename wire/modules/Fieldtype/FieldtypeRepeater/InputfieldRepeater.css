@@ -59,6 +59,8 @@
   display: none !important; }
 .Inputfields .InputfieldRepeater .InputfieldRepeaterNewItem {
   display: none; }
+.Inputfields .InputfieldRepeater .InputfieldRepeaterDelete {
+  display: none; }
 
 .InputfieldRepeater .InputfieldWrapper,
 .InputfieldRepeater .InputfieldWrapper > .Inputfields {

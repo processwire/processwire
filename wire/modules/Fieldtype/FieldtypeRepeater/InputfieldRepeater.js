@@ -708,7 +708,7 @@ function InputfieldRepeater($) {
 
 		$inputfields.addClass('InputfieldRepeaterInit');
 		
-		$("input.InputfieldRepeaterDelete", $this).parents('.InputfieldCheckbox').hide();
+		//$("input.InputfieldRepeaterDelete", $this).parents('.InputfieldCheckbox').hide();
 
 		if(isItem) {
 			initHeaders($this.children('.InputfieldHeader'), $inputfieldRepeater, renderValueMode);

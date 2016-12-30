@@ -241,6 +241,40 @@ class WireUpload extends Wire {
 	}
 
 	/**
+	 * Get the directory where files should upload to 
+	 * 
+	 * @return string 
+	 * @throws WireException If no suitable upload directory can be found
+	 * 
+	 */
+	protected function getUploadDir() {
+		
+		$config = $this->wire('config');
+		$dir = $config->uploadTmpDir;
+		
+		if(!$dir && stripos(PHP_OS, 'WIN') === 0) {
+			$dir = $config->paths->cache . 'uploads/';
+			if(!is_dir($dir)) wireMkdir($dir);
+		}
+		
+		if(!$dir || !is_writable($dir)) {
+			$dir = ini_get('upload_tmp_dir');
+		}
+		
+		if(!$dir || !is_writable($dir)) {
+			$dir = sys_get_temp_dir();
+		}
+		
+		if(!$dir || !is_writable($dir)) {
+			throw new WireException(
+				"Error writing to $dir. Please define \$config->uploadTmpDir and ensure it exists and is writable."
+			);
+		}
+		
+		return $dir;
+	}
+
+	/**
 	 * Handles an ajax file upload and constructs a resulting $_FILES 
 	 * 
 	 * @return array|bool
@@ -251,13 +285,7 @@ class WireUpload extends Wire {
 
 		if(!$filename = $_SERVER['HTTP_X_FILENAME']) return false; 
 		$filename = rawurldecode($filename); // per #1487
-
-		$dir = $this->wire('config')->uploadTmpDir;
-		if(!$dir || !is_writable($dir)) $dir = ini_get('upload_tmp_dir');
-		if(!$dir || !is_writable($dir)) $dir = sys_get_temp_dir();
-		if(!$dir || !is_writable($dir)) {
-			throw new WireException("Error writing to $dir. Please define \$config->uploadTmpDir and ensure it is writable.");
-		}
+		$dir = $this->getUploadDir();
 		$tmpName = tempnam($dir, wireClassName($this, false));
 		file_put_contents($tmpName, file_get_contents('php://input')); 
 		$filesize = is_file($tmpName) ? filesize($tmpName) : 0;

@@ -45,7 +45,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 46;
+	const versionRevision = 47;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -275,13 +275,15 @@ class ProcessWire extends Wire {
 		// If script is being called externally, add an extra shutdown function 
 		if(!$config->internal) register_shutdown_function(function() {
 			if(error_get_last()) return;
-			$process = $this->wire('process');
+			$process = isset($this) ? $this->wire('process') : wire('process');
 			if($process == 'ProcessPageView') $process->finished();
 		});
 		
 		if($config->useFunctionsAPI) {
 			include($config->paths->core . 'FunctionsAPI.php');
 		}
+		
+
 
 		$this->setStatus(self::statusBoot);
 	}

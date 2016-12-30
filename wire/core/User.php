@@ -435,16 +435,6 @@ class User extends Page {
 	}
 
 	/**
-	 * Returns the URL where this user can be edited 
-	 * 
-	 * 
-	 * #pw-internal
-	 * 
-	 * @return string
-	 * 
-	 */
-
-	/**
 	 * Return the URL necessary to edit this user
 	 * 
 	 * In this case we adjust the default page editor URL to ensure users are edited

@@ -105,6 +105,12 @@
 		// used by non-ajax add mode
 		display: none;
 	}
+	
+	.InputfieldRepeaterDelete {
+		// delete checkbox
+		display: none;
+	}
+
 }
 
 .InputfieldRepeater {
@@ -118,8 +124,7 @@
 		//padding-left: 25px;
 		position: relative;
 	}
-	
-	
+
 	.InputfieldRepeaterAddItem input {
 		// count of added items hidden
 		position: absolute;
