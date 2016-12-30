@@ -231,10 +231,6 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$valid = true;
 		$findPagesSelector = $field->get('findPagesSelector');
 		if(empty($findPagesSelector)) $findPagesSelector = $field->get('findPagesSelect');
-		$parent_id = $field->get('parent_id');
-		$template_id = $field->get('template_id');
-		$template_ids = $field->get('template_ids');
-		if(!is_array($template_ids)) $template_ids = array();
 		
 		if($findPagesSelector) { 
 			$selector = $findPagesSelector; 
@@ -254,6 +250,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	
 		// if($field->findPagesCode) { } // we don't currently validate these
 
+		$parent_id = $field->get('parent_id');
 		if($parent_id && $parent_id != $page->parent_id) {
 			$inputfieldClass = ltrim($field->get('inputfield'), '_');
 			if(empty($inputfieldClass)) $inputfieldClass = 'InputfieldSelect';
@@ -279,19 +276,14 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		}
 	
 		$hasRequiredTemplate = true;
+		$template_ids = FieldtypePage::getTemplateIDs($field);
 		if(!empty($template_ids)) {
-			if($template_id && !in_array($template_id, $template_ids)) {
-				array_unshift($template_ids, $template_id);
-			}
 			$hasRequiredTemplate = in_array($page->template->id, $template_ids);
-		} else if($template_id) {
-			$hasRequiredTemplate = $page->template->id == $template_id;
 		}
 		if(!$hasRequiredTemplate) { 
 			$valid = false;
-			$requiredTemplate = empty($template_ids) ? $template_id : implode(',', $template_ids);
 			if($editPage) {
-				$editPage->set('_isValidPage', "Page $page does not have required template(s): $requiredTemplate");
+				$editPage->set('_isValidPage', "Page $page does not have required template(s): " . implode(',', $template_ids));
 			}
 		}
 		
@@ -401,13 +393,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	public function getTemplateIDs($getString = false) {
 		$templateIDs = parent::getSetting('template_ids');
 		$templateID = parent::getSetting('template_id');
-		if(empty($templateID)) return $getString ? '' : array();
-		if(empty($templateIDs)) {
-			$templateIDs = array($templateID);
-		} else if($templateID && !in_array($templateID, $templateIDs)) {
-			array_unshift($templateIDs, $templateID);
-		}
-		return $getString ? implode('|', $templateIDs) : $templateIDs;
+		return FieldtypePage::getTemplateIDs(array($templateIDs, $templateID), $getString);
 	}
 
 	/**
@@ -990,7 +976,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		foreach($this->templates as $template) {
 			$field->addOption($template->id, $template->name);
 		}
-		$template_id = parent::getSetting('template_id');
+		$template_id = $this->getSetting('template_id');
 		$field->attr('value', $template_id);
 		$field->collapsed = Inputfield::collapsedBlank;
 		$field->icon = 'cube';

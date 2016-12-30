@@ -132,14 +132,13 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 
 		$template = null;
-		$template_id = $field->get('template_id');
-		$template_ids = $field->get('template_ids');
+		$template_ids = self::getTemplateIDs($field);
 		$derefAsPage = $field->get('derefAsPage');
 		$allowUnpub = $field->get('allowUnpub');
 	
-		if(empty($template_ids) || count($template_ids) <= 1) {
+		if(count($template_ids) == 1) {
 			// we only use $template optimization if only one template selected
-			if($template_id) $template = $this->wire('templates')->get($template_id);
+			$template = $this->wire('templates')->get(reset($template_ids));
 		}
 		
 		// handle $value if it's blank, Page, or PageArray
@@ -402,8 +401,6 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		$result = false;
 		$parent_id = $field->get('parent_id');
-		$template_id = $field->get('template_ids');
-		if(empty($template_id)) $template_id = $field->get('template_id');
 
 		if(Selectors::stringHasOperator($value)) {
 			// selector string
@@ -452,13 +449,15 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			if(!$result->id) $result = $this->wire('pages')->get("parent_id=$parentIDs, name=" . 
 				$this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($value))); 
 			
-		} else if(!empty($template_id)) {
-			// set by title 
-			$templateIDs = is_array($template_id) ? implode('|', $template_id) : $template_id;
-			$result = $this->wire('pages')->get("templates_id=$templateIDs, title=" . $this->wire('sanitizer')->selectorValue($value));
-			// set by name
-			if(!$result->id) $result = $this->wire('pages')->get("templates_id=$templateIDs, name=" . 
-				$this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($value))); 
+		} else {
+			$template_ids = self::getTemplateIDs($field, true);
+			if(!empty($template_ids)) {
+				// set by title 
+				$result = $this->wire('pages')->get("templates_id=$template_ids, title=" . $this->wire('sanitizer')->selectorValue($value));
+				// set by name
+				if(!$result->id) $result = $this->wire('pages')->get("templates_id=$template_ids, name=" .
+					$this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($value)));
+			}
 		}
 		
 		if(!$result && $this->wire('config')->debug) {
@@ -824,8 +823,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$findPagesSelector = $field->get('findPagesSelector');
 		if(empty($findPagesSelector)) $findPagesSelector = $field->get('findPagesSelect');
 		$parent_id = $field->get('parent_id');
-		$template_id = $field->get('template_ids');
-		if(empty($template_id)) $template_id = $field->get('template_id');
+		$template_ids = self::getTemplateIDs($field, true);
 
 		if(in_array($subfield, $this->nativeNames)) {
 			// fine then, we can handle that here when needed (like !=)
@@ -847,12 +845,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		}
 		
 		if($parent_id) $selector .= "parent_id=$parent_id, ";
-		
-		if(is_array($template_id)) {
-			if(count($template_id)) $selector .= "templates_id=" . implode('|', $template_id) . ", ";
-		} else if($template_id) { 
-			$selector .= "templates_id=$template_id, ";
-		}
+		if($template_ids) $selector .= "templates_id=$template_ids, ";
 
 		if(!is_null($group)) {
 			// combine with other selectors sharing the same group so that both must match in our subquery below
@@ -940,15 +933,13 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		$subfields = array();
 		$fieldgroups = array();
-		$template_id = $field->get('template_ids');
-		if(empty($template_id)) $template_id = $field->get('template_id');
+		$template_ids = self::getTemplateIDs($field);
 		$parent_id = $field->get('parent_id');
 
-		if($template_id) {
+		if($template_ids) {
 			// determine fieldgroup(s) from template setting
 			// template_id can be int or array of ints
-			if(!is_array($template_id)) $template_id = array($template_id); 
-			foreach($template_id as $tid) {
+			foreach($template_ids as $tid) {
 				$template = $this->wire('templates')->get((int) $tid);
 				if($template) $fieldgroups[] = $template->fieldgroup; 
 			}
@@ -1295,9 +1286,10 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 * 	Or specify boolean TRUE to get a count. 
 	 * @param bool|Field|null $field Optionally specify Field to limit results to (default includes all fields of this type),
 	 * 	Or boolean TRUE to return array indexed by field name.
-	 * @return PageArray|array Returns one of the following, according to the provided arguments:
+	 * @return PageArray|array|int Returns one of the following, according to the provided arguments:
 	 * 	- returns PageArray as default behavior, including when given a $selector string and/or Field object.
 	 * 	- returns array of PageArray objects if $field argument is TRUE ($selector may be populated string or blank string).
+	 *  - returns int if the count option (boolean true) specified for $selector.
 	 *
 	 */
 	private function findReferences(Page $page, $selector = '', $field = false) {
@@ -1370,6 +1362,42 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		}
 
 		return $result;
+	}
+
+	/**
+	 * Return array or string of configured template IDs
+	 * 
+	 * Accounts for both template_id and template_ids settings, making sure both are included.
+	 * 
+	 * #pw-internal
+	 *
+	 * @param Field|array $field Field object or array with all possible template IDs
+	 * @param bool $getString Specify true to return a 1|2|3 style string rather than an array
+	 * @return array|string
+	 * @throws WireException
+	 *
+	 */
+	static public function getTemplateIDs($field, $getString = false) {
+		
+		$ids = array();
+		$values = array();
+		
+		if($field instanceof Field) {
+			$values = array($field->get('template_id'), $field->get('template_ids'));
+		} else if(is_array($field)) {
+			$values = $field;
+		}
+		
+		foreach($values as $value) {
+			if(empty($value)) continue;
+			if(!is_array($value)) $value = array($value);
+			foreach($value as $id) {
+				$id = (int) $id;
+				if($id) $ids[$id] = $id;
+			}
+		}
+
+		return $getString ? implode('|', $ids) : array_values($ids);
 	}
 
 	/**
