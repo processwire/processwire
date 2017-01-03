@@ -489,12 +489,13 @@ class WireInput extends Wire {
 			
 		} else if(isset($_SERVER['REQUEST_URI'])) {
 			// page not yet available, attempt to pull URL from request uri
-			$parts = explode('/', $_SERVER['REQUEST_URI']); 
-			$charset = $config->pageNameCharset;
-			foreach($parts as $part) {
-				$url .= "/" . ($charset === 'UTF8' ? $sanitizer->pageNameUTF8($part) : $sanitizer->pageName($part, false));
-			}
 			$info = parse_url($_SERVER['REQUEST_URI']);
+			$parts = explode('/', $info['path']);
+			$charset = $config->pageNameCharset;
+			foreach($parts as $i => $part) {
+				if($i > 0) $url .= "/";
+				$url .= ($charset === 'UTF8' ? $sanitizer->pageNameUTF8($part) : $sanitizer->pageName($part, false));
+			}
 			if(!empty($info['path']) && substr($info['path'], -1) == '/') {
 				$url = rtrim($url, '/') . '/'; // trailing slash
 			}
