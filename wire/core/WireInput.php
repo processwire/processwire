@@ -492,11 +492,9 @@ class WireInput extends Wire {
 			$info = parse_url($_SERVER['REQUEST_URI']);
 			$parts = explode('/', $info['path']);
 			$charset = $config->pageNameCharset;
-			$i = 0;
-			foreach($parts as $part) {
+			foreach($parts as $i => $part) {
 				if($i > 0) $url .= "/";
 				$url .= ($charset === 'UTF8' ? $sanitizer->pageNameUTF8($part) : $sanitizer->pageName($part, false));
-				$i++;
 			}
 			if(!empty($info['path']) && substr($info['path'], -1) == '/') {
 				$url = rtrim($url, '/') . '/'; // trailing slash
