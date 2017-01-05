@@ -437,6 +437,7 @@ function InputfieldDependencies($target) {
 			if($fieldToShow.is('.InputfieldStateHidden')) {
 				// field is hidden so show/fade in
 				$fieldToShow.removeClass('InputfieldStateHidden').fadeIn();
+				$(document).trigger('showInputfield');
 				numVisibilityChanges++;
 				consoleLog('Field is now visible.');
 			} else {
@@ -447,6 +448,7 @@ function InputfieldDependencies($target) {
 			// hide it
 			if(!$fieldToShow.is('.InputfieldStateHidden')) {
 				$fieldToShow.addClass('InputfieldStateHidden').hide();
+				$(document).trigger('hideInputfield', $fieldToShow);
 				consoleLog('Field is now hidden.');
 				numVisibilityChanges++;
 			} else {
