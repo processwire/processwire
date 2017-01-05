@@ -366,19 +366,12 @@ var ProcessWireAdminTheme = {
        			event.preventDefault(); // Don't submit to the search page on Enter Key
        		}
 
-       		if(event.keyCode == 38) {
-       			$search.removeClass("open");
-	    		$(this).val(); // close search on arrow up
-	    		$input.blur();
-	    		$('#ProcessPageSearchAutocomplete').hide().html('');
-       		}
-
        		if(event.keyCode == 8) {
        			if ($.trim($(this).val()) == ''){
        				$status.text(''); // remove status if nothing in the input.
        			}
        		}
-       		
+
     	});
 
 		$(".search-toggle").on("click", function() {
