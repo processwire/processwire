@@ -439,7 +439,9 @@ class FileCompiler extends Wire {
 		$this->initRawPHP($data);
 			
 		if($this->options['includes']) {
+			$dataHash = md5($data);
 			$this->compileIncludes($data, $sourceFile);
+			if(md5($data) != $dataHash) $this->initRawPHP($data);
 		}
 		
 		if($this->options['namespace']) {
@@ -758,7 +760,7 @@ class FileCompiler extends Wire {
 		}
 
 		if($testFile) {
-			if(strpos($testFile, '.')) {
+			if(strrpos($testFile, '.')) {
 				// test contains a filename that needs extension validated
 				$parts = explode('.', $testFile);
 				$testExt = array_pop($parts);

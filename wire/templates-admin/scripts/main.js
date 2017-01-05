@@ -414,7 +414,7 @@ if(typeof ProcessWire != "undefined") {
 			alert("prompt function requires vex");
 			return;
 		}
-		vex.dialog.prompt({
+		return vex.dialog.prompt({
 			message: message,
 			placeholder: placeholder,
 			callback: func
