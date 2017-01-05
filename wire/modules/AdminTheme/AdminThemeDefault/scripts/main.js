@@ -2,11 +2,11 @@
  * ProcessWire Admin Theme jQuery/Javascript
  *
  * Copyright 2016 by Ryan Cramer
- * 
+ *
  */
 
 var ProcessWireAdminTheme = {
-	
+
 	/**
 	 * Initialize the default ProcessWire admin theme
 	 *
@@ -19,18 +19,18 @@ var ProcessWireAdminTheme = {
 		ProcessWireAdmin.init();
 		this.setupSearch();
 		this.setupMobile();
-		
+
 		var $body = $("body");
-		if($body.hasClass('hasWireTabs') && $("ul.WireTabs").length == 0) $body.removeClass('hasWireTabs'); 
+		if($body.hasClass('hasWireTabs') && $("ul.WireTabs").length == 0) $body.removeClass('hasWireTabs');
 		$('#content').removeClass('pw-fouc-fix'); // FOUC fix, deprecated
-		$body.removeClass("pw-init").addClass("pw-ready"); 
-		
+		$body.removeClass("pw-init").addClass("pw-ready");
+
 		if($button.length > 0) $button.show();
 	},
 
 
 	/**
-	 * Clone a button at the bottom to the top 
+	 * Clone a button at the bottom to the top
 	 *
 	 */
 	setupCloneButton: function() {
@@ -40,20 +40,20 @@ var ProcessWireAdminTheme = {
 		// if there are buttons in the format "a button" without ID attributes, copy them into the masthead
 		// or buttons in the format button.head_button_clone with an ID attribute.
 		// var $buttons = $("#content a[id=''] button[id=''], #content button.head_button_clone[id!='']");
-		// var $buttons = $("#content a:not([id]) button:not([id]), #content button.head_button_clone[id!=]"); 
+		// var $buttons = $("#content a:not([id]) button:not([id]), #content button.head_button_clone[id!=]");
 		var $buttons = $("button.pw-head-button, button.head_button_clone");  // head_button_clone is legacy
 
 		// don't continue if no buttons here or if we're in IE
 		if($buttons.length == 0) return; // || $.browser.msie) return;
 
-		var $head = $("#head_button"); 
+		var $head = $("#head_button");
 		if($head.length == 0) $head = $("<div id='head_button'></div>").prependTo("#breadcrumbs .pw-container");
-		
+
 		$buttons.each(function() {
 			var $t = $(this);
-			var $a = $t.parent('a'); 
+			var $a = $t.parent('a');
 			var $button;
-			if($a.length > 0) { 
+			if($a.length > 0) {
 				$button = $t.parent('a').clone(true);
 				$head.prepend($button);
 			} else if($t.hasClass('pw-head-button') || $t.hasClass('head_button_clone')) {
@@ -65,15 +65,15 @@ var ProcessWireAdminTheme = {
 					return false;
 				});
 				//$head.prepend($a.append($button));
-				$head.prepend($button);	
+				$head.prepend($button);
 			}
-		}); 
+		});
 		$head.show();
 	},
-	
+
 	/**
 	 * Make the site search use autocomplete
-	 * 
+	 *
 	 */
 	setupSearch: function() {
 
@@ -81,24 +81,32 @@ var ProcessWireAdminTheme = {
 			_renderMenu: function(ul, items) {
 				var that = this;
 				var currentType = "";
+				// add an id to the menu for css styling
+				ul.attr('id', 'ProcessPageSearchAutocomplete');
+				// Loop over each menu item and customize the list item's html.
 				$.each(items, function(index, item) {
+					// Menu categories don't get linked so that they don't receive
+					// keyboard focus.
 					if (item.type != currentType) {
-						ul.append("<li class='ui-widget-header'><a>" + item.type + "</a></li>" );
+						$("<li>" + item.type + "</li>")
+							.addClass("ui-widget-header")
+							.appendTo( ul );
 						currentType = item.type;
 					}
-					ul.attr('id', 'ProcessPageSearchAutocomplete'); 
 					that._renderItemData(ul, item);
 				});
 			},
-			_renderItemData: function(ul, item) {
+			_renderItem: function( ul, item ) {
 				if(item.label == item.template) item.template = '';
-				ul.append("<li><a href='" + item.edit_url + "'>" + item.label + " <small>" + item.template + "</small></a></li>"); 
+				return $( "<li>" )
+					.append("<a href='" + item.edit_url + "'>" + item.label + " <small>" + item.template + "</small></a></li>")
+					.appendTo( ul );
 			}
 		});
-		
-		var $input = $("#ProcessPageSearchQuery"); 
-		var $status = $("#ProcessPageSearchStatus"); 
-		
+
+		var $input = $("#ProcessPageSearchQuery");
+		var $status = $("#ProcessPageSearchStatus");
+
 		$input.adminsearchautocomplete({
 			minLength: 2,
 			position: { my : "right top", at: "right bottom" },
@@ -114,9 +122,9 @@ var ProcessWireAdminTheme = {
 			source: function(request, response) {
 				var url = $input.parents('form').attr('data-action') + 'for?get=template_label,title&include=all&admin_search=' + request.term;
 				$.getJSON(url, function(data) {
-					var len = data.matches.length; 
-					if(len < data.total) $status.text(data.matches.length + '/' + data.total); 
-						else $status.text(len); 
+					var len = data.matches.length;
+					if(len < data.total) $status.text(data.matches.length + '/' + data.total);
+						else $status.text(len);
 					response($.map(data.matches, function(item) {
 						return {
 							label: item.title,
@@ -125,18 +133,22 @@ var ProcessWireAdminTheme = {
 							template: item.template_label ? item.template_label : '',
 							edit_url: item.editUrl,
 							type: item.type
-						}
+						};
 					}));
 				});
 			},
-			select: function(event, ui) { }
+			select: function(event, ui) {
+				// follow the link if the Enter/Return key is tapped
+				event.preventDefault();
+				window.location = ui.item.edit_url;
+			}
 		}).focus(function() {
 			$(this).siblings('label').find('i').hide(); // hide icon
 		}).blur(function() {
-			$status.text('');	
+			$status.text('');
 			$(this).siblings('label').find('i').show(); // show icon
 		});
-		
+
 	},
 
 	setupMobile: function() {
@@ -147,38 +159,38 @@ var ProcessWireAdminTheme = {
 		var windowResize = function() {
 
 			// top navigation
-			var $topnav = $("#topnav"); 
-			var $body = $("body"); 
+			var $topnav = $("#topnav");
+			var $body = $("body");
 			var height = $topnav.height();
 
 			if(height > 50) {
 				// topnav has wordwrapped
 				if(!$body.hasClass('collapse-topnav')) {
-					$body.addClass('collapse-topnav'); 
+					$body.addClass('collapse-topnav');
 					collapsedTopnavAtBodyWidth = $body.width();
 				}
 			} else if(collapsedTopnavAtBodyWidth > 0) {
 				// topnav is on 1 line
 				var width = $body.width();
 				if($body.hasClass('collapse-topnav') && width > collapsedTopnavAtBodyWidth) {
-					$body.removeClass('collapse-topnav'); 
+					$body.removeClass('collapse-topnav');
 					collapsedTopnavAtBodyWidth = 0;
 				}
 			}
 
 			$topnav.children('.collapse-topnav-menu').children('a').click(function() {
 				if($(this).is(".hover")) {
-					// already open? close it. 
+					// already open? close it.
 					$(this).mouseleave();
 				} else {
 					// open it again
 					$(this).mouseenter();
 				}
 				return false;
-			}); 
+			});
 
 			// wiretabs
-			var $wiretabs = $(".WireTabs"); 
+			var $wiretabs = $(".WireTabs");
 			if($wiretabs.length < 1) return;
 
 			$wiretabs.each(function() {
@@ -186,19 +198,19 @@ var ProcessWireAdminTheme = {
 				var height = $tabs.height();
 				if(height > 65) {
 					if(!$body.hasClass('collapse-wiretabs')) {
-						$body.addClass('collapse-wiretabs'); 
+						$body.addClass('collapse-wiretabs');
 						collapsedTabsAtBodyWidth = $body.width();
-						// console.log('collapse wiretabs'); 
+						// console.log('collapse wiretabs');
 					}
 				} else if(collapsedTabsAtBodyWidth > 0) {
 					var width = $body.width();
 					if($body.hasClass('collapse-wiretabs') && width > collapsedTabsAtBodyWidth) {
-						$body.removeClass('collapse-wiretabs'); 
+						$body.removeClass('collapse-wiretabs');
 						collapsedTabsAtBodyWidth = 0;
-						// console.log('un-collapse wiretabs'); 
+						// console.log('un-collapse wiretabs');
 					}
 				}
-			}); 
+			});
 		};
 
 		windowResize();
@@ -217,4 +229,4 @@ $(document).ready(function() {
 		});
 		return false;
 	});
-}); 
+});
