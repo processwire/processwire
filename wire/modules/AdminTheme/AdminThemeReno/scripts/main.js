@@ -310,19 +310,25 @@ var ProcessWireAdminTheme = {
 		$.widget( "custom.adminsearchautocomplete", $.ui.autocomplete, {
 			_renderMenu: function(ul, items) {
 				var that = this;
-				var currentType = "";
+				var currentType = "";// add an id to the menu for css styling
+				ul.attr('id', 'ProcessPageSearchAutocomplete');
+				// Loop over each menu item and customize the list item's html.
 				$.each(items, function(index, item) {
+					// Menu categories don't get linked so that they don't receive
+					// keyboard focus.
 					if (item.type != currentType) {
-						ul.append("<li class='ui-widget-header'><a>" + item.type + "</a></li>" );
+						// ul.append("<li class='ui-widget-header'><a>" + item.type + "</a></li>" );
+						$("<li>" + item.type + "</li>").addClass("ui-widget-header").appendTo(ul);
 						currentType = item.type;
 					}
-					ul.attr('id', 'ProcessPageSearchAutocomplete'); 
 					that._renderItemData(ul, item);
 				});
 			},
-			_renderItemData: function(ul, item) {
+			_renderItem: function(ul, item) {
 				if(item.label == item.template) item.template = '';
-				ul.append("<li><a href='" + item.edit_url + "'>" + item.label + " <small>" + item.template + "</small></a></li>"); 
+				return $("<li>")
+					.append("<a href='" + item.edit_url + "'>" + item.label + " <small>" + item.template + "</small></a></li>")
+					.appendTo(ul);
 			}
 		});
 		
@@ -353,7 +359,11 @@ var ProcessWireAdminTheme = {
 					}));
 				});
 			},
-			select: function(event, ui) { }
+			select: function(event, ui) {
+				// follow the link if the Enter/Return key is tapped
+				event.preventDefault();
+				window.location = ui.item.edit_url;
+			}
 		}).blur(function() {
 			$status.text('');	
 		});
@@ -365,8 +375,14 @@ var ProcessWireAdminTheme = {
        		if(event.keyCode == 13) {
        			event.preventDefault(); // Don't submit to the search page on Enter Key
        		}
+       		
+       		if(event.keyCode == 40) {
+				// down arrow
+				$input.data('no-close', true);
+			}
 
-       		if(event.keyCode == 38) {
+       		if(event.keyCode == 38 && !$input.data('no-close')) {
+				// up arrow
        			$search.removeClass("open");
 	    		$(this).val(); // close search on arrow up
 	    		$input.blur();

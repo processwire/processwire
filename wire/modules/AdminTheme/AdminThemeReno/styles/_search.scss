@@ -128,7 +128,9 @@
 				width: 0 !important;
 			}
 
-			&:hover {
+			&:hover,
+			&.ui-state-focus,
+			&.ui-state-active {
 				background: $search-dropdown-link-hover-bg !important;
 				color: $search-dropdown-link-hover-color !important;
 
@@ -142,7 +144,8 @@
 	}
 
 	.ui-widget-header {
-		padding: 0.5em 0 0 0;
+		// padding: 0.5em 0 0 0;
+		padding: 0.5em 0.75em 0.5em 0.75em;
 		background: $search-dropdown-bg !important;
 		border-bottom: 1px dotted $border-color;
 		margin-bottom: 5px;
