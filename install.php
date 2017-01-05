@@ -3,7 +3,7 @@
 /**
  * ProcessWire Installer
  *
- * Because this installer runs before PW2 is installed, it is largely self contained.
+ * Because this installer runs before PW is installed, it is largely self contained.
  * It's a quick-n-simple single purpose script that's designed to run once, and it should be deleted after installation.
  * This file self-executes using code found at the bottom of the file, under the Installer class. 
  *
@@ -21,7 +21,7 @@ define("PROCESSWIRE_INSTALL", "3.x");
 /**
  * class Installer
  *
- * Self contained class to install ProcessWire 2.x
+ * Self contained class to install ProcessWire 3.x
  *
  */
 class Installer {

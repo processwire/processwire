@@ -27,7 +27,7 @@ class Helloworld extends WireData implements Module {
 
 		return array(
 
-			// The module'ss title, typically a little more descriptive than the class name
+			// The module's title, typically a little more descriptive than the class name
 			'title' => 'Hello World', 
 
 			// version number 
