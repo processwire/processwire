@@ -247,7 +247,18 @@ class FileCompiler extends Wire {
 		
 		foreach($phpBlocks as $key => $phpBlock) {
 			$pos = strpos($phpBlock, $phpClose);
-			if($pos !== false) $phpBlock = substr($phpBlock, 0, $pos);
+			if($pos !== false) {
+				$closeBlock = substr($phpBlock, $phpClose + 2);
+				if(strrpos($closeBlock, '{') && strrpos($closeBlock, '}') && strrpos($closeBlock, '=')
+					&& strrpos($closeBlock, '(') && strrpos($closeBlock, ')')
+					&& preg_match('/\sif\s*\(/', $closeBlock) 
+					&& preg_match('/\$[_a-zA-Z][_a-zA-Z0-9]+/', $closeBlock)) {
+					// closeBlock still looks a lot like PHP, leave $phpBlock as-is
+					// happens when for example a phpClose is within a PHP string
+				} else {
+					$phpBlock = substr($phpBlock, 0, $pos);
+				}
+			}
 			$this->rawPHP .= $phpOpen . $phpBlock . $phpClose . "\n";
 		}
 	
