@@ -83,5 +83,38 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 		return parent::formatValue($page, $field, (string) $value); 
 	}
 
+	/**
+	 * Given a value, return an portable version of it as array
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|float|array|object|null $value
+	 * @param array $options Optional settings to shape the exported value, if needed.
+	 * @return string|float|int|array
+	 *
+	 */
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		if(isset($options['sleepValue'])) {
+			// allow a sleepValue option, for use by other language Fieldtypes that delegate
+			// their exportValue to this one, like FieldtypeTextareaLanguage
+			$sleepValue = $options['sleepValue'];
+		} else {
+			$sleepValue = $this->sleepValue($page, $field, $value);
+		}
+		$exportValue = array();
+		foreach($sleepValue as $k => $v) {
+			if($k === 'data') {
+				$exportValue['default'] = $v;
+			} else if(strpos($k, 'data') === 0) {
+				$languageID = substr($k, 4);
+				$language = $this->wire('languages')->get((int) $languageID);
+				$exportValue[$language->name] = $v;
+			} else {
+				$exportValue[$k] = $v;
+			}
+		}
+		return $exportValue;
+	}
+
 }
 

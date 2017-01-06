@@ -64,4 +64,21 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 	public function formatValue(Page $page, Field $field, $value) {
 		return parent::formatValue($page, $field, (string) $value); 
 	}
+
+	/**
+	 * Given a value, return an portable version of it as array
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|float|array|object|null $value
+	 * @param array $options Optional settings to shape the exported value, if needed.
+	 * @return string|float|int|array
+	 *
+	 */
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		// in this method we are delegating the exportValue() to FieldtypeTextLanguage::exportValue
+		// but we want to make sure it has textarea sleepValue, so we pass sleepValue in the $options
+		if(!isset($options['sleepValue'])) $options['sleepValue'] = $this->sleepValue($page, $field, $value);
+		return $this->wire('fieldtypes')->get('FieldtypeTextLanguage')->___exportValue($page, $field, $value, $options);
+	}
 }

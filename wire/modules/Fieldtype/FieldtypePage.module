@@ -294,15 +294,23 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if($field) {}
 		if(!$value->id) return array();
 		// in human mode, just return the title or name
-		if(!empty($options['human'])) return $value->get('title|name'); 
+		if(!empty($options['human'])) {
+			return (string) $value->get('title|name');
+		}
 		// otherwise return an array of info
 		$a = array(); 
-		if($value->template && $value->template->fieldgroup->has('title')) $a['title'] = $value->getUnformatted('title'); 
-		$a['id'] = $value->id; 
-		$a['name'] = $value->name; 
-		$a['path'] = $value->path; 
-		$a['template'] = (string) $value->template;
-		$a['parent_id'] = $value->parent_id; 
+		if(!empty($options['system'])) {
+			$a = $value->path;	
+		} else {
+			if($value->template && $value->template->fieldgroup->has('title')) {
+				$a['title'] = (string) $value->getUnformatted('title');
+			}
+			$a['id'] = $value->id;
+			$a['name'] = $value->name;
+			$a['path'] = $value->path;
+			$a['template'] = (string) $value->template;
+			$a['parent_id'] = $value->parent_id;
+		}
 		return $a; 
 	}
 
