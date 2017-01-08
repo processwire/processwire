@@ -248,7 +248,7 @@ class FileCompiler extends Wire {
 		foreach($phpBlocks as $key => $phpBlock) {
 			$pos = strpos($phpBlock, $phpClose);
 			if($pos !== false) {
-				$closeBlock = substr($phpBlock, $phpClose + 2);
+				$closeBlock = substr($phpBlock, strlen($phpClose) + 2);
 				if(strrpos($closeBlock, '{') && strrpos($closeBlock, '}') && strrpos($closeBlock, '=')
 					&& strrpos($closeBlock, '(') && strrpos($closeBlock, ')')
 					&& preg_match('/\sif\s*\(/', $closeBlock) 
@@ -870,6 +870,7 @@ class FileCompiler extends Wire {
 					$className = __NAMESPACE__ ? '\\' . __NAMESPACE__ . '\\' . $class : '\\' . $class;
 					$repl = $open . $className . $close;
 					$data = str_replace($fullMatch, $repl, $data);
+					$rawPHP = str_replace($fullMatch, $repl, $rawPHP);
 					$rawDequotedPHP = str_replace($fullMatch, $repl, $rawDequotedPHP);
 				}
 			}
