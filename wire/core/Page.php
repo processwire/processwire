@@ -2561,17 +2561,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(parent::isChanged($what)) return true; 
 		$changed = false;
 		if($what) {
-			$value = $this->get($what); 
-			if(is_object($value) && $value instanceof Wire) 
-				$changed = $value->isChanged(); 
+			$data = array_key_exists($what, $this->data) ? array($this->data[$what]) : array();
 		} else {
-			foreach($this->data as $key => $value) {
-				if(is_object($value) && $value instanceof Wire)
-					$changed = $value->isChanged();
-				if($changed) break;
-			}
+			$data = &$this->data;
 		}
-
+		foreach($data as $key => $value) {
+			if(is_object($value) && $value instanceof Wire) {
+				$changed = $value->isChanged();
+			}
+			if($changed) break;
+		}
 		return $changed; 	
 	}
 
