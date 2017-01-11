@@ -261,12 +261,13 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		if(!$this->wire('user')->isLoggedin()) return;
 
 		$this->set('initValue', $this->sessionGet('initValue')); 
-		$this->setup();
 		$sanitizer = $this->wire('sanitizer'); 
 		
 		foreach($this->sessionVarNames as $key) {
 			$this->set($key, $this->sessionGet($key));
 		}
+
+		$this->setup();		
 
 		if($action == 'field') { 
 			$out = $this->renderSelectField(); 
