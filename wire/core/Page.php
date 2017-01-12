@@ -43,7 +43,8 @@
  * @property Template|null $templatePrevious Previous template, if template was changed. #pw-advanced
  * @property Fieldgroup $fields All the Fields assigned to this page (via its template). Returns a Fieldgroup. #pw-advanced
  * @property int $numChildren The number of children (subpages) this page has, with no exclusions (fast). #pw-group-traversal
- * @property int $numVisibleChildren The number of visible children this page has. Excludes unpublished, no-access, hidden, etc. #pw-group-traversal
+ * @property int $hasChildren The number of visible children this page has. Excludes unpublished, no-access, hidden, etc. #pw-group-traversal
+ * @property int $numVisibleChildren Verbose alias of $hasChildren #pw-internal
  * @property PageArray $children All the children of this page. Returns a PageArray. See also $page->children($selector). #pw-group-traversal
  * @property Page|NullPage $child The first child of this page. Returns a Page. See also $page->child($selector). #pw-group-traversal
  * @property PageArray $siblings All the sibling pages of this page. Returns a PageArray. See also $page->siblings($selector). #pw-group-traversal

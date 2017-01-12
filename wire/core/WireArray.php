@@ -16,6 +16,11 @@
  * https://processwire.com
  * 
  * @method WireArray and($item)
+ * @property int $count Number of items
+ * @property Wire|null $first First item
+ * @property Wire|null $last Last item
+ * @property array $keys All keys used in this WireArray
+ * @property array $values All values used in this WireArray
  *
  * #pw-order-groups traversal,retrieval,manipulation,info,output-rendering,other-data-storage,changes,fun-tools,hooker
  * #pw-summary WireArray is the base iterable array type used throughout the ProcessWire framework.
