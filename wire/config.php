@@ -130,6 +130,18 @@ $config->demo = false;
  */
 $config->useFunctionsAPI = false;
 
+/**
+ * Enable use of front-end markup regions?
+ *
+ * When enabled, HTML elements with an "id" attribute that are output before the opening 
+ * `<!doctype>` or `<html>` tag can replace elements in the document that have the same id. 
+ * Also supports append, prepend, replace, remove, before and after options. 
+ *
+ * @var bool
+ *
+ */
+$config->useMarkupRegions = false;
+
 
 /*** 2. DATES & TIMES *************************************************************************/
 

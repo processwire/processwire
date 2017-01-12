@@ -517,6 +517,10 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 				throw new WireException('Missing or non-readable template file: ' . basename($options['filename']));
 			}
 		}
+	
+		if($this->wire('config')->useMarkupRegions) {
+			$this->populateMarkupRegions($data);
+		}
 
 		if($data && $cacheAllowed && $cacheFile) $cacheFile->save($data);
 		$event->return = $data; 
@@ -665,6 +669,217 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		$tpl->set('field', $field);
 		
 		return $tpl->render();
+	}
+
+	/**
+	 * Identify and populate markup regions in given HTML 
+	 * 
+	 * To use this, you must set `$config->useMarkupRegions = true;` in your /site/config.php file. 
+	 * In the future it may be enabled by default for any templates with text/html content-type.
+	 * 
+	 * This takes anything output before the opening `<!DOCTYPE` and connects it to the right places
+	 * within the `<html>` that comes after it. For instance, if there's a `<div id='content'>` in the 
+	 * document, then a #content element output prior to the doctype will replace it during page render.
+	 * This enables one to use delayed output as if it’s direct output. It also makes every HTML element
+	 * in the output with an “id” attribute a region that can be populated from any template file. It’s
+	 * a good pairing with a `$config->appendTemplateFile` that contains the main markup and region
+	 * definitions, though can be used with or without it. 
+	 * 
+	 * Beyond replacement of elements, append, prepend, insert before, insert after, and remove are also
+	 * supported via “pw-” prefix classes that you can add. The classes do not appear in the final output
+	 * markup. When performing replacements or modifications to elements, PW will merge the attributes 
+	 * so that attributes present in the final output are present, plus any that were added by the markup
+	 * regions. See the examples for more details. 
+	 *
+	 * Below are some examples. Note that “main” is used as an example “id” attribute of an element that
+	 * appears in the main document markup, and the examples below focus on manipulating it. The examples
+	 * assume there is a `<div id=main>` in the _main.php file (appendTemplateFile), and the lines in the
+	 * examples would be output from a template file, which manipulates what would ultimately be output
+	 * when the page is rendered. 
+	 * ~~~~~~
+	 * Replacing and removing elements 
+	 *   <div id='main'>This replaces the #main div and merges any attributes</div>
+	 *   <div id='main' class='pw-replace'>This does the same as above</div>
+	 *   <div id='main' class='pw-remove'>This removes #main completely</div>
+	 * 
+	 * Prepending and appending elements
+	 *   <div id='main' class='pw-prepend'><p>This prepends #main with this p tag</p></div>
+	 *   <div id='main' class='pw-prepend bar'><p>This prepends #main and adds "bar" class to main</p></div>
+	 *   <div id='main' class='pw-append'><p>This appends #main with this p tag</p></div>
+	 *   <div id='main' class='pw-append foo'><p>This appends #main and adds a "foo" class to #main</p></div>
+	 *   <div id='main' class='pw-append' title='hello'>Appends #main with this text + adds title attribute to #main</div>
+	 *   <div id='main' class='pw-append -baz'>Appends #main with this text + removes class “baz” from #main</div>
+	 * 
+	 * Inserting new elements
+	 *   <h2 class='pw-before-main'>This adds an h2 headline with this text before #main</h2>
+	 *   <footer class='pw-after-main'><p>This adds a footer element with this text after #main</p></footer>
+	 *   <div class='pw-append-main foo'>This appends a div.foo to #main with this text</div>
+	 *   <div class='pw-prepend-main bar'>This prepends a div.bar to #main with this text</div>
+	 * ~~~~~~
+	 * 
+	 * @param $out
+	 * 
+	 */
+	protected function populateMarkupRegions(&$out) {
+		
+		$pos = stripos($out, '<!DOCTYPE'); // split before doctype, if present
+		if($pos === false) $pos = stripos($out, '<html'); // if no doctype, split before <html> tag
+		if(!$pos) return;
+
+		$htmlBefore = substr($out, 0, $pos);
+		if(!strlen(trim($htmlBefore)) || (strpos($htmlBefore, ' id=') === false && strpos($htmlBefore, 'pw-') === false)) return;
+		$html = substr($out, $pos);
+		if(strpos($html, ' id=') === false) return;
+		
+		$markupFinder = new WireMarkupRegions();
+		$regions = $markupFinder->find(".pw-*, id=", $htmlBefore, array(
+			'verbose' => true, 
+			'leftover' => true
+		));
+		
+		$leftoverMarkup = trim($regions["leftover"]);
+		unset($regions["leftover"]);
+		if(!count($regions)) return;
+
+		$xregions = array(); // regions that weren't populated
+		$populatedIDs = array();
+		$numUpdates = 0;
+		$debug = $this->wire('config')->debug && $this->wire('user')->isSuperuser();
+
+		foreach($regions as $regionKey => $region) {
+
+			$this->populateMarkupRegionMode($region);
+			$mode = $region['mode'];
+			$id = $region['attrs']['id'];
+			$regionHTML = $region['region'];
+			$mergeAttr = $region['attrs'];
+			unset($mergeAttr['id']);
+			
+			if($region['new']) {
+				// element is newly added element not already present
+				$mergeAttr = array();
+				$regionHTML = $region['html'];
+				$attrs = $region['attrs'];
+				unset($attrs['id']);
+				if(isset($attrs['data-id'])) {
+					$attrs['id'] = $attrs['data-id'];
+					unset($attrs['data-id']);
+				}
+				$attrStr = count($attrs) ? ' ' . $markupFinder->renderAttributes($attrs, false) : '';
+				if(!strlen(trim($attrStr))) $attrStr = '';
+				$regionHTML = str_replace($region['open'], "<$region[name]$attrStr>", $regionHTML);
+			}
+		
+			// if the id attribute doesn't appear in the html, skip it
+			if(!$markupFinder->hasAttribute('id', $id, $html)) {
+				$xregions[$regionKey] = $region;
+				unset($regions[$regionKey]); 
+				continue;
+			}
+
+			// update the markup
+			$html = $markupFinder->update("#$id", $regionHTML, $html, array(
+				'mode' => $mode,
+				'mergeAttr' => $mergeAttr,
+			));
+			
+			if($debug) {
+				$populatedIDs[] = ltrim($regionKey, '#') . " => #$id ($mode)";
+			}
+			
+			$numUpdates++;
+		}
+		
+		if($debug) {
+			$bull = "\n  • ";
+			$none = "None";
+			$html .= "<!-- " . 
+				"\nPW markup regions (debug mode info)" . 
+				"\n===================================" . 
+				"\nPopulated: " . (count($regions) ? $bull . implode($bull, array_values($populatedIDs)) : $none) . 
+				"\nUnused: " . (count($xregions) ? $bull . implode($bull, array_keys($xregions)) : $none) . 
+				"\nLeftover: " . strlen($leftoverMarkup) . " bytes" . 
+				"\n-->";
+		}
+	
+		// if there is any leftover markup, output it above the HTML where it would usually go
+		if(strlen($leftoverMarkup)) {
+			$html = $leftoverMarkup . $html;
+			$numUpdates++;
+		}
+		
+		if($numUpdates) $out = $html;
+	}
+
+	/**
+	 * Determine the and populate 'mode' for the given region 
+	 * 
+	 * Note that this may modify the 'id' and/or 'class' attributes of $region
+	 * and it also adds a 'new' property to indicate whether the region is a new
+	 * element that should be added. 
+	 * 
+	 * @param array $region
+	 * @return string
+	 * 
+	 */
+	protected function populateMarkupRegionMode(&$region) {
+		
+		$modes = array('before', 'after', 'prepend', 'append', 'replace', 'remove');
+		$mode = '';
+		$isNewElement = false;
+		$id = isset($region['attrs']['id']) ? $region['attrs']['id'] : '';
+		$_id = $id;
+		$prefix = 'pw-';
+		
+		if(strpos($id, $prefix) === 0) {
+			// i.e. pw-before-something
+			foreach($modes as $m) {
+				if(strpos($id, "$prefix$m-") === 0) {
+					list($pw, $mode, $id) = explode('-', $id, 3);
+					if($pw) {} // ignore
+					break;
+				}
+			}
+		}
+		
+		if(!$mode) {
+			// attempt to get mode from class attribute
+			$replaceID = '';
+			foreach($region['classes'] as $key => $class) {
+				$replaceID = '';
+				if(strpos($class, $prefix) !== 0) continue;
+				list($pw, $m) = explode('-', $class, 2); 
+				if($pw) {} // ignore
+				if(strpos($m, '-')) {
+					// i.e. pw-append-content
+					$replaceID = $id;
+					list($m, $id) = explode('-', $m, 2); 
+					$isNewElement = true;
+				}
+				if(in_array($m, $modes)) {
+					$mode = $m;
+					// remove the class so it doesn't appear in original markup
+					unset($region['classes'][$key]); 
+					$region['attrs']['class'] = implode(' ', $region['classes']); 
+					break;
+				}
+			}
+			if($replaceID && ($isNewElement || $mode == 'before' || $mode == 'after')) {
+				$region['attrs']['data-id'] = $replaceID;
+			}
+		}
+		
+		if(!$mode || !in_array($mode, $modes)) $mode = 'auto';
+		
+		if(!$isNewElement) {
+			$isNewElement = empty($_id) || $mode == 'before' || $mode == 'after';
+		}
+		
+		$region['new'] = $isNewElement;
+		$region['mode'] = $mode;
+		$region['attrs']['id'] = $id; 
+
+		return $mode;
 	}
 
 	/**
