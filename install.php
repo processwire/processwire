@@ -14,6 +14,8 @@
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  * 
+ * @todo have installer set session name
+ * 
  */
 
 define("PROCESSWIRE_INSTALL", "3.x"); 
@@ -91,6 +93,7 @@ class Installer {
 		// these two vars used by install-head.inc
 		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installation";
 		$formAction = "./install.php";
+		if($title && $formAction) {} // ignore
 		
 		require("./wire/modules/AdminTheme/AdminThemeDefault/install-head.inc"); 
 
@@ -131,6 +134,9 @@ class Installer {
 
 	/**
 	 * Check if the given function $name exists and report OK or fail with $label
+	 * 
+	 * @param string $name
+	 * @param string $label
 	 *
 	 */
 	protected function checkFunction($name, $label) {
@@ -173,6 +179,7 @@ class Installer {
 			$profile = array('name' => str_replace('site-', '', $name));
 			$infoFile = $path . 'install/info.php';
 			if(file_exists($infoFile)) {
+				/** @noinspection PhpIncludeInspection */
 				include($infoFile);
 				if(isset($info) && is_array($info)) {
 					$profile = array_merge($profile, $info); 
@@ -375,6 +382,8 @@ class Installer {
 
 	/**
 	 * Step 2: Configure the database and file permission settings
+	 * 
+	 * @param array $values
 	 *
 	 */
 	protected function dbConfig($values = array()) {
@@ -480,9 +489,9 @@ class Installer {
 		foreach($this->timezones() as $key => $timezone) {
 			$label = $timezone; 
 			if(strpos($label, '|')) list($label, $timezone) = explode('|', $label); 
-			$selected = $timezone == $values['timezone'] ? " selected='selected'" : '';
+			$selected = $timezone == $values['timezone'] ? "selected='selected'" : '';
 			$label = str_replace('_', ' ', $label); 
-			echo "<option value=\"$key\"$selected>$label</option>";
+			echo "<option value=\"$key\" $selected>$label</option>";
 		}
 		echo "</select></p>";
 
@@ -524,6 +533,7 @@ class Installer {
 	protected function dbSaveConfig() {
 
 		$values = array();
+		$database = null;
 		
 		// file permissions
 		$fields = array('chmodDir', 'chmodFile');
@@ -538,7 +548,10 @@ class Installer {
 		$timezones = $this->timezones();
 		if(isset($timezones[$timezone])) {
 			$value = $timezones[$timezone]; 
-			if(strpos($value, '|')) list($label, $value) = explode('|', $value); 
+			if(strpos($value, '|')) {
+				list($label, $value) = explode('|', $value);
+				if($label) {} // ignore
+			}
 			$values['timezone'] = $value; 
 		} else {
 			$values['timezone'] = 'America/New_York';
@@ -640,7 +653,7 @@ class Installer {
 	 * @param string $dsn
 	 * @param array $values
 	 * @param array $driver_options
-	 * @return PDO|null
+	 * @return \PDO|null
 	 * 
 	 */
 	protected function dbCreateDatabase($dsn, $values, $driver_options) {
@@ -678,6 +691,9 @@ class Installer {
 
 	/**
 	 * Save configuration to /site/config.php
+	 * 
+	 * @param array $values
+	 * @return bool
 	 *
 	 */
 	protected function dbSaveConfigFile(array $values) {
@@ -755,6 +771,9 @@ class Installer {
 
 	/**
 	 * Step 3b: Import profile
+	 * 
+	 * @param \PDO $database
+	 * @param array $options
 	 *
 	 */
 	protected function profileImport($database, array $options) {
@@ -774,6 +793,7 @@ class Installer {
 			$result = $query->execute();
 		} catch(\Exception $e) {
 			$result = false;
+			$query = null;
 		}
 
 		if(self::REPLACE_DB || !$result || $query->rowCount() == 0) {
@@ -817,6 +837,8 @@ class Installer {
 
 	/**
 	 * Import files to profile
+	 * 
+	 * @param string $fromPath
 	 *
 	 */
 	protected function profileImportFiles($fromPath) {
@@ -853,6 +875,11 @@ class Installer {
 	
 	/**
 	 * Import profile SQL dump
+	 * 
+	 * @param \PDO $database
+	 * @param string $file1
+	 * @param string $file2
+	 * @param array $options
 	 *
 	 */
 	protected function profileImportSQL($database, $file1, $file2, array $options = array()) {
@@ -894,6 +921,8 @@ class Installer {
 
 	/**
 	 * Present form to create admin account
+	 * 
+	 * @param null|ProcessWire $wire
 	 *
 	 */
 	protected function adminAccount($wire = null) {
@@ -1012,6 +1041,8 @@ class Installer {
 
 	/**
 	 * Save submitted admin account form
+	 * 
+	 * @param ProcessWire $wire
 	 *
 	 */
 	protected function adminAccountSave($wire) {
@@ -1019,23 +1050,26 @@ class Installer {
 		$input = $wire->input;
 		$sanitizer = $wire->sanitizer; 
 
-		if(!$input->post->username || !$input->post->userpass) $this->err("Missing account information"); 
-		if($input->post->userpass !== $input->post->userpass_confirm) $this->err("Passwords do not match");
-		if(strlen($input->post->userpass) < 6) $this->err("Password must be at least 6 characters long"); 
+		if(!$input->post('username') || !$input->post('userpass')) $this->err("Missing account information"); 
+		if($input->post('userpass') !== $input->post('userpass_confirm')) $this->err("Passwords do not match");
+		if(strlen($input->post('userpass')) < 6) $this->err("Password must be at least 6 characters long"); 
 
-		$username = $sanitizer->pageName($input->post->username); 
-		if($username != $input->post->username) $this->err("Username must be only a-z 0-9");
+		$username = $sanitizer->pageName($input->post('username')); 
+		if($username != $input->post('username')) $this->err("Username must be only a-z 0-9");
 		if(strlen($username) < 2) $this->err("Username must be at least 2 characters long"); 
 
-		$adminName = $sanitizer->pageName($input->post->admin_name);
-		if($adminName != $input->post->admin_name) $this->err("Admin login URL must be only a-z 0-9");
+		$adminName = $sanitizer->pageName($input->post('admin_name'));
+		if($adminName != $input->post('admin_name')) $this->err("Admin login URL must be only a-z 0-9");
 		if($adminName == 'wire' || $adminName == 'site') $this->err("Admin name may not be 'wire' or 'site'"); 
 		if(strlen($adminName) < 2) $this->err("Admin login URL must be at least 2 characters long"); 
 
-		$email = strtolower($sanitizer->email($input->post->useremail)); 
-		if($email != strtolower($input->post->useremail)) $this->err("Email address did not validate");
+		$email = strtolower($sanitizer->email($input->post('useremail'))); 
+		if($email != strtolower($input->post('useremail'))) $this->err("Email address did not validate");
 
-		if($this->numErrors) return $this->adminAccount($wire);
+		if($this->numErrors) {
+			$this->adminAccount($wire);
+			return;
+		}
 	
 		$superuserRole = $wire->roles->get("name=superuser");
 		$user = $wire->users->get($wire->config->superUserPageID); 
@@ -1048,7 +1082,7 @@ class Installer {
 		}
 
 		$user->name = $username;
-		$user->pass = $input->post->userpass; 
+		$user->pass = $input->post('userpass'); 
 		$user->email = $email;
 
 		if(!$user->roles->has("superuser")) $user->roles->add($superuserRole); 
@@ -1067,7 +1101,8 @@ class Installer {
 
 		} catch(\Exception $e) {
 			$this->err($e->getMessage()); 
-			return $this->adminAccount($wire); 
+			$this->adminAccount($wire); 
+			return;
 		}
 
 		$adminName = htmlentities($adminName, ENT_QUOTES, "UTF-8");
@@ -1075,9 +1110,10 @@ class Installer {
 		$this->h("Admin Account Saved");
 		$this->ok("User account saved: <b>{$user->name}</b>"); 
 
-		$colors = $wire->sanitizer->pageName($input->post->colors); 
+		$colors = $wire->sanitizer->pageName($input->post('colors')); 
 		if(!in_array($colors, $this->colors)) $colors = reset($this->colors); 
 		$theme = $wire->modules->getInstall('AdminThemeDefault'); 
+		if($theme) {} // ignore
 		$configData = $wire->modules->getModuleConfigData('AdminThemeDefault'); 
 		$configData['colors'] = $colors;
 		$wire->modules->saveModuleConfigData('AdminThemeDefault', $configData); 
@@ -1113,6 +1149,9 @@ class Installer {
 	
 	/**
 	 * Report and log an error
+	 * 
+	 * @param string $str
+	 * @return bool
 	 *
 	 */
 	protected function err($str) {
@@ -1123,6 +1162,9 @@ class Installer {
 
 	/**
 	 * Action/warning
+	 * 
+	 * @param string $str
+	 * @return bool
 	 *
 	 */
 	protected function warn($str) {
@@ -1130,8 +1172,12 @@ class Installer {
 		echo "\n<li class='ui-state-error ui-priority-secondary'><i class='fa fa-asterisk'></i> $str</li>";
 		return false;
 	}
+	
 	/**
 	 * Report success
+	 * 
+	 * @param string $str
+	 * @return bool
 	 *
 	 */
 	protected function ok($str) {
@@ -1141,9 +1187,16 @@ class Installer {
 
 	/**
 	 * Output a button 
+	 * 
+	 * @param string $label
+	 * @param string $value
+	 * @param string $icon
+	 * @param bool $secondary
+	 * @param bool $float
+	 * @param string $href
 	 *
 	 */
-	protected function btn($label, $value, $icon = 'angle-right', $secondary = false, $float = false, $href ='') {
+	protected function btn($label, $value, $icon = 'angle-right', $secondary = false, $float = false, $href = '') {
 		$class = $secondary ? 'ui-priority-secondary' : '';
 		if($float) $class .= " floated";
 		$type = 'submit';
@@ -1153,10 +1206,13 @@ class Installer {
 		echo "<span class='ui-button-text'><i class='fa fa-$icon'></i> $label</span>";
 		echo "</button></p>";
 		if($href) echo "</a>";
+		echo " ";
 	}
 
 	/**
 	 * Output a headline
+	 * 
+	 * @param string $label
 	 *
 	 */
 	protected function h($label) {
@@ -1165,6 +1221,9 @@ class Installer {
 
 	/**
 	 * Output a paragraph 
+	 * 
+	 * @param string $text
+	 * @param string $class
 	 *
 	 */
 	protected function p($text, $class = '') {
@@ -1174,6 +1233,13 @@ class Installer {
 
 	/**
 	 * Output an <input type='text'>
+	 * 
+	 * @param string $name
+	 * @param string $label
+	 * @param string $value
+	 * @param bool $clear
+	 * @param string $type
+	 * @param bool $required
 	 *
 	 */
 	protected function input($name, $label, $value, $clear = false, $type = "text", $required = true) {
@@ -1204,10 +1270,14 @@ class Installer {
 
 	/**
 	 * Create a directory and assign permission
+	 * 
+	 * @param string $path
+	 * @param bool $showNote
+	 * @return bool
 	 *
 	 */
 	protected function mkdir($path, $showNote = true) {
-		if(self::TEST_MODE) return;
+		if(self::TEST_MODE) return true;
 		if(is_dir($path) || mkdir($path)) {
 			chmod($path, octdec($this->chmodDir));
 			if($showNote) $this->ok("Created directory: $path"); 
@@ -1220,11 +1290,16 @@ class Installer {
 
 	/**
 	 * Copy directories recursively
+	 * 
+	 * @param string $src
+	 * @param string $dst
+	 * @param bool $overwrite
+	 * @return bool
 	 *
 	 */
 	protected function copyRecursive($src, $dst, $overwrite = true) {
 
-		if(self::TEST_MODE) return;
+		if(self::TEST_MODE) return true;
 
 		if(substr($src, -1) != '/') $src .= '/';
 		if(substr($dst, -1) != '/') $dst .= '/';
