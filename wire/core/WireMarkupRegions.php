@@ -963,7 +963,8 @@ class WireMarkupRegions extends Wire {
 		$populatedNotes = array();
 		$rejectedNotes = array();
 		$numUpdates = 0;
-		$debug = $this->wire('config')->debug && $this->wire('user')->isSuperuser();
+		$debugLandmark = "<!--PW-REGION-DEBUG-->";
+		$debug = ($this->wire('config')->debug || strpos($htmlDocument, $debugLandmark)) && $this->wire('user')->isSuperuser();
 
 		foreach($regions as $regionKey => $region) {
 
@@ -1016,10 +1017,9 @@ class WireMarkupRegions extends Wire {
 			if(count($populatedNotes)) $debugNotes .= "\n  Populated: $bull" . implode($bull, $populatedNotes);
 			if(count($rejectedNotes)) $debugNotes .= "\n  Skipped: $bull" . implode($bull, $rejectedNotes);
 			if($leftoverBytes) $debugNotes .= "\n  $leftoverBytes non-region bytes skipped";
-			$landmark = "<!--PW-REGION-DEBUG-->";
-			if(strpos($htmlDocument, $landmark) !== false) {
-				$debugNotes = "<pre>" . $this->wire('sanitizer')->entities($debugNotes) . "</pre>" . $landmark;
-				$htmlDocument = str_replace($landmark, $debugNotes, $htmlDocument); 
+			if(strpos($htmlDocument, $debugLandmark) !== false) {
+				$debugNotes = "<pre>" . $this->wire('sanitizer')->entities($debugNotes) . "</pre>" . $debugLandmark;
+				$htmlDocument = str_replace($debugLandmark, $debugNotes, $htmlDocument); 
 			} else {
 				$htmlDocument .= "<!--" . $debugNotes . "\n-->";
 			}
