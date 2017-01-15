@@ -135,6 +135,8 @@ class FieldtypeDatetime extends FieldtypeText {
 	 */
 	protected function _sanitizeValue($value) {
 		if(empty($value)) return ''; 
+		
+		if($value instanceof \DateTime) return $value->getTimestamp();
 		// already a timestamp
 		if(ctype_digit(ltrim($value, '-'))) return (int) $value; 
 		return strtotime($value); 
