@@ -517,7 +517,12 @@ class FieldtypeFile extends FieldtypeMulti {
 
 		if($pagefiles = $page->get($field->name)) {
 
-			if($pagefiles instanceof Pagefiles) {
+			$dvpID = $field->get('defaultValuePage'); 
+			
+			if($dvpID && $dvpID != $page->id && $pagefiles->page->id != $page->id) {
+				// pagefiles is a default/fallback value from another page and should not be deleted
+				
+			} else if($pagefiles instanceof Pagefiles) {
 				$pagefiles->deleteAll(); 
 
 			} else if($pagefiles instanceof Pagefile) {
