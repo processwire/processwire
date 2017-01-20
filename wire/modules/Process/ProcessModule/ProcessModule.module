@@ -617,7 +617,7 @@ class ProcessModule extends Process {
 
 		foreach($modulesArray as $name => $installed) {
 
-			if(strpos($name, $section) !== 0 || preg_match('/' . $section . '[^A-Z]/', $name)) {
+			if(strpos($name, $section) !== 0 || preg_match('/' . $section . '[^A-Z0-9]/', $name)) {
 				if(!preg_match('/^([A-Za-z][a-z]+)/', $name, $matches)) $this->error(sprintf($this->_('Invalid module name: %s'), $name));
 				if($allowSections || is_null($table)) { 
 					$section = $matches[1];
