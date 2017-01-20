@@ -410,12 +410,13 @@ class WireMarkupRegions extends Wire {
 			// multiple close tags present, must figure out which is the right one
 			$testStart = 0;
 			$doCnt = 0;
-			$openTag = "<$tagInfo[name] ";
+			$openTag1 = "<$tagInfo[name]>";
+			$openTag2 = "<$tagInfo[name] ";
 			do {
 				$doCnt++;
 				$testPos = stripos($region, $tagInfo['close'], $testStart);
 				$test = substr($region, 0, $testPos);
-				$openCnt = substr_count($test, $openTag);
+				$openCnt = substr_count($test, $openTag1) + substr_count($test, $openTag2);
 				$closeCnt = substr_count($test, $tagInfo['close']);
 				if($openCnt == $closeCnt) {
 					// open and close tags balance, meaning we've found our region
