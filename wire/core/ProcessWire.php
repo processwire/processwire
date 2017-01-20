@@ -354,6 +354,7 @@ class ProcessWire extends Wire {
 			Debug::timer('boot.load'); 
 		}
 
+		$this->wire('urls', $config->urls); // shortcut API var
 		$this->wire('log', new WireLog(), true); 
 		$this->wire('notices', new Notices(), true); 
 		$this->wire('sanitizer', new Sanitizer()); 

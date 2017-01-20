@@ -42,7 +42,6 @@
  * @property bool $allowSubfieldGroups [true] Allow @grouping of subfields (like for page references)?
  * @property bool $allowModifiers [true] Allow use of modifiers like include, limit?
  * @property bool $allowBlankValues [false] When no value is present, should it contribute to the selector?
- * @property bool $showInitValue [false] Show non-modifiable inputs for the initValue?
  * @property bool|int $showFieldLabels [false] Show field labels rather than names? Or specify integer 2 to show both.
  * @property bool $showOptgroups [true] Whether or not to separate sytem, field, subfields, etc. into their own optgroups. If turned off, all types of fields will be shown together A-Z.
  * @property array $limitFields [empty] Selectable fields whitelist (field names). Leave empty to allow any.
@@ -192,7 +191,6 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$this->setting('allowSubfieldGroups', true); 
 		$this->setting('allowModifiers', true);
 		$this->setting('allowBlankValues', false); // blank values are allowed in selector or if not present, blank values allowed and represented by =""
-		$this->setting('showInitValue', false); // whether or not inputs for the initValue should be shown (they won't be modifyable if shown)
 		$this->setting('showFieldLabels', false); // makes it use field labels, rather than names (when true)
 		$this->setting('showOptgroups', true); // show option groups to separate system, field, subfield, etc. 
 		$this->setting('optgroupsOrder', 'system,field,subfield,group,modifier,adjust'); // field selection option groups and order to render them in (applicable only if showOptgroups=true)

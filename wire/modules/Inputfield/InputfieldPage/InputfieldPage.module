@@ -1167,20 +1167,21 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$field->addOption($multiLabel, $multiples);
 		$field->addOption($multiLabel . ' (' . $this->_('sortable') . ')', $sortables); 
 		$inputfields->insertBefore($field, $selectablePagesFieldset); 	
-		
-		$f = $this->modules->get('InputfieldMarkup');
-		$f->label = $this->_('Regarding “Page List” input types');
-		$f->icon = 'warning';
-		$f->showIf = 'inputfield=' . implode('|', $pageListTypes);
-		$f->value = '<p>' . 
-			$this->_('You have selected an input type that has specific requirements.') . ' ' . 
-			$this->_('Specify only the “Parent” option below when configuring “Selectable pages”.') . ' ' . 
-			$this->_('Note that the parent you specify implies the root of the tree of selectable pages.') .
-			$this->_('If you want to make everything selectable, then specify nothing.') . 
-			'</p>';
-		$inputfields->insertAfter($f, $field);
-		
+	
 		if($this->hasFieldtype !== false) {
+			
+			$f = $this->modules->get('InputfieldMarkup');
+			$f->label = $this->_('Regarding “Page List” input types');
+			$f->icon = 'warning';
+			$f->showIf = 'inputfield=' . implode('|', $pageListTypes);
+			$f->value = '<p>' .
+				$this->_('You have selected an input type that has specific requirements.') . ' ' .
+				$this->_('Specify only the “Parent” option below when configuring “Selectable pages”.') . ' ' .
+				$this->_('Note that the parent you specify implies the root of the tree of selectable pages.') .
+				$this->_('If you want to make everything selectable, then specify nothing.') .
+				'</p>';
+			$inputfields->insertAfter($f, $field);
+			
 			$field = $this->modules->get('InputfieldCheckbox');
 			$field->attr('name', 'addable');
 			$field->attr('value', 1);

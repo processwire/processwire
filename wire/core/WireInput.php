@@ -39,25 +39,25 @@
 class WireInput extends Wire {
 
 	/**
-	 * @var WireInputVars|null
+	 * @var WireInputData|null
 	 * 
 	 */
 	protected $getVars = null;
 	
 	/**
-	 * @var WireInputVars|null
+	 * @var WireInputData|null
 	 *
 	 */
 	protected $postVars = null;
 	
 	/**
-	 * @var WireInputVars|null
+	 * @var WireInputData|null
 	 *
 	 */
 	protected $cookieVars = null;
 	
 	/**
-	 * @var WireInputVars|null
+	 * @var WireInputData|null
 	 *
 	 */
 	protected $whitelist = null;
@@ -598,17 +598,19 @@ class WireInput extends Wire {
 	 * - OPTIONS
 	 * - or blank if not known
 	 * 
-	 * @return string
+	 * @param string $method Optionally enter the request method to return bool if current method matches
+	 * @return string|bool
 	 * @since 3.0.39
 	 * 
 	 */
-	public function requestMethod() {
+	public function requestMethod($method = '') {
 		if(isset($_SERVER['REQUEST_METHOD'])) {
 			$m = strtoupper($_SERVER['REQUEST_METHOD']);
 			$requestMethod = isset($this->requestMethods[$m]) ? $this->requestMethods[$m] : '';
 		} else {
 			$requestMethod = '';
 		}
+		if($method) return strtoupper($method) === $requestMethod;
 		return $requestMethod; 
 	}
 

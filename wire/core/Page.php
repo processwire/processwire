@@ -94,6 +94,16 @@
  * @method bool addable($pageToAdd = null) Returns true if the current user can add children to the page, false if not. Optionally specify the page to be added for additional access checking. #pw-group-access
  * @method bool moveable($newParent = null) Returns true if the current user can move this page. Optionally specify the new parent to check if the page is moveable to that parent. #pw-group-access
  * @method bool sortable() Returns true if the current user can change the sort order of the current page (within the same parent). #pw-group-access
+ * @property bool $viewable #pw-group-access
+ * @property bool $editable #pw-group-access
+ * @property bool $publishable #pw-group-access
+ * @property bool $deleteable #pw-group-access
+ * @property bool $deletable #pw-group-access
+ * @property bool $trashable #pw-group-access
+ * @property bool $addable #pw-group-access
+ * @property bool $moveable #pw-group-access
+ * @property bool $sortable #pw-group-access
+ * @property bool $listable #pw-group-access
  *
  * Methods added by LanguageSupport.module (not installed by default) 
  * -----------------------------------------------------------------
@@ -521,12 +531,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	static $baseProperties = array(
 		'accessTemplate' => 'getAccessTemplate',
+		'addable' => 'm',
 		'child' => 'm',
 		'children' => 'm',
 		'created' => 's', 
 		'createdStr' => '',
 		'createdUser' => '',
 		'created_users_id' => 's', 
+		'deletable' => 'm',
+		'deleteable' => 'm',
+		'editable' => 'm',
 		'editUrl' => 'm',
 		'fieldgroup' => '',
 		'filesManager' => 'm',
@@ -543,10 +557,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'isPublic' => 'm',
 		'isTrash' => 'm',
 		'isUnpublished' => 'm',
+		'listable' => 'm',
 		'modified' => 's',
 		'modifiedStr' => '',
 		'modifiedUser' => '',
 		'modified_users_id' => 's',
+		'moveable' => 'm',
 		'name' => 's',
 		'namePrevious' => 'p',
 		'next' => 'm',
@@ -559,12 +575,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'parents' => 'm',
 		'path' => 'm',
 		'prev' => 'm',
+		'publishable' => 'm',
 		'published' => 's',
 		'publishedStr' => '',
 		'render' => '',
 		'rootParent' => 'm',
 		'siblings' => 'm',
 		'sort' => 's',
+		'sortable' => 'm',
 		'sortfield' => 's',
 		'status' => 's',
 		'statusPrevious' => 'p',
@@ -572,7 +590,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'template' => 'p',
 		'templates_id' => '',
 		'templatePrevious' => 'p',
+		'trashable' => 'm',
 		'url' => 'm',
+		'viewable' => 'm'
 	);
 
 	/**
