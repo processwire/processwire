@@ -1178,10 +1178,13 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 						
 						if($inputfield instanceof InputfieldPage) { 
 							// get selectable options from InputfieldPage
+							$collapsed = $inputfield->getSetting('collapsed');
+							$inputfield->collapsed = Inputfield::collapsedNo;
 							
 							foreach($inputfield->getSelectablePages($page) as $item) {
 								$options[$item->id] = $inputfield->getPageLabel($item); // $item->get('title|name'); 
 							}
+							$inputfield->collapsed = $collapsed;
 							if(count($options) < 2
 								&& ($field->get('parent_id') || $field->get('template_id')) 
 								&& ($field->get('findPagesCode') || $field->get('findPagesSelector'))) {
