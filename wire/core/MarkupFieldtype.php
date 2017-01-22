@@ -117,6 +117,20 @@ class MarkupFieldtype extends WireData implements Module {
 					$field = $this->wire('fields')->get($property);
 					if($field && $field->type) return $field->type->markupValue($page, $field, $value);
 					$valid = true;
+				} else if($value instanceof LanguagesValueInterface) {
+					/** @var LanguaagesValueInterface $value */
+					/** @var Languages $languages */
+					$languages = $this->wire('languages');
+					if($property) {
+						if($property === 'data') {
+							$languageID = $languages->getDefault()->id;	
+						} else if(is_string($property) && preg_match('/^data(\d+)$/', $property, $matches)) {
+							$languageID = (int) $matches[1];
+						}
+						$value = $value->getLanguageValue($languageID); 
+					} else {
+						$value = (string) $value;
+					}
 					
 				} else if($value instanceof WireData) {
 					// WireData object
