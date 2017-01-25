@@ -21,6 +21,8 @@
 class ProcessModule extends Process {
 
 	public static function getModuleInfo() {
+		$languages = wire('languages');
+
 		return array(
 			'title' => __('Modules', __FILE__), // getModuleInfo title          
 			'summary' => __('List, edit or install/uninstall modules', __FILE__), // getModuleInfo summary
@@ -28,7 +30,7 @@ class ProcessModule extends Process {
 			'permanent' => true, 
 			'permission' => 'module-admin', 
 			'useNavJSON' => true,
-			'nav' => array(
+			'nav' => array_filter(array(
 				array(
 					'url' => '?site#tab_site_modules',
 					'label' => 'Site', 
@@ -53,12 +55,18 @@ class ProcessModule extends Process {
 					'icon' => 'sign-in',
 					'navJSON' => 'navJSON/?install=1',
 				),
+				$languages ? array(
+					'url' => '/',
+					'label' => 'Translated',
+					'icon' => 'language',
+					'navJSON' => 'navJSON/?translated=1',
+				) : null,
 				array(
 					'url' => '?reset=1',
 					'label' => 'Refresh',
 					'icon' => 'refresh',
 				)
-			)
+			))
 		);
 	}
 	
@@ -171,6 +179,7 @@ class ProcessModule extends Process {
 		$core = $this->wire('input')->get('core');
 		$configurable = $this->wire('input')->get('configurable');
 		$install = $this->wire('input')->get('install'); 
+		$translated = $this->wire('input')->get('translated');
 	
 		if($site || $install) $data['add'] = array(
 			'url' => "?new#tab_new_modules",
@@ -205,6 +214,11 @@ class ProcessModule extends Process {
 				if($info['installed']) continue; 
 				// check that it can be installed NOW (i.e. all dependencies met)
 				if(!$this->wire('modules')->isInstallable($moduleName, true)) continue; 
+			}
+
+			if($translated) {
+				// exclude modules without translations present
+				if(empty($info['languages']) || !is_array($info['languages'])) continue;
 			}
 			
 			$label = $info['name'];
@@ -1376,6 +1390,11 @@ class ProcessModule extends Process {
 		if($dependentsStr) $table->row(array($this->_x('Required By', 'edit'), $dependentsStr)); 
 		if(!empty($moduleInfo['permission'])) $table->row(array($this->_x('Required Permission', 'edit'), $moduleInfo['permission']));
 		if($hooksStr) $table->row(array($this->_x('Hooks To', 'edit'), $hooksStr)); 
+		if($languages && !empty($moduleInfo['languages']) && is_array($moduleInfo['languages'])) {
+			$languages = implode(', ', array_keys($moduleInfo['languages']));
+			$languages .= " - <a href='./translation?name=$moduleName'>" . $this->_('install translation') . "</a>";
+			$table->row(array($this->_x('Languages', 'edit'), $languages));
+		}
 		if(!empty($moduleInfo['href'])) $table->row(array($this->_x('More Information', 'edit'), "<a class='label' href='$moduleInfo[href]'>$moduleInfo[href]</a>"));
 		
 		if($allowDisabledFlag) {
@@ -1436,6 +1455,64 @@ class ProcessModule extends Process {
 		$markup->value = $this->renderListTable($modulesArray, false, false, false, true, true);
 		$form->add($markup);
 		
+		return $form->render();
+	}
+
+	public function ___executeTranslation ()
+	{
+		$name = $this->wire('input')->get('name');
+		if(!$name) throw new WireException("No module name specified");
+		$name = $this->wire('sanitizer')->fieldName($name);
+
+		if(!$name || !$moduleInfo = $this->modules->getModuleInfoVerbose($name)) {
+			$this->session->message($this->_("No module specified"));
+			$this->session->redirect("./");
+		}
+
+		if(!count($moduleInfo['languages'])){
+			$this->session->message($this->_("No module translations available"));
+			$this->session->redirect("./", false);
+		}
+
+		$form = $this->modules->get('InputfieldForm');
+		$form->attr('id', 'ModuleImportTranslationForm');
+		$form->attr('action', "translation?name=$name");
+		$form->attr('method', 'post');
+		$form->description = sprintf($this->_('Import translations for %s?'), $name);
+
+		foreach ($this->languages as $language) {
+			$lang = $this->modules->get('InputfieldSelect');
+			$lang->attr('id+name', $language->name);
+			$lang->label = sprintf($this->_('Import into %s'), $language->get('title|name'));
+
+			foreach ($moduleInfo['languages'] as $identifier => $path) {
+					$lang->addOption($identifier);
+			}
+
+			$form->append($lang);
+		}
+
+		if($this->input->post('submit_import_translations')) {
+			$processLanguage = $this->modules->get('ProcessLanguage');
+
+			foreach ($this->languages as $language) {
+				if(!$identifier = $this->input->post($language->name)) continue;
+				if(empty($moduleInfo['languages'][$identifier])) continue;
+
+				$fullPath = dirname($moduleInfo['file']) . '/' . ltrim($moduleInfo['languages'][$identifier], '/');
+				$processLanguage->processCSV($fullPath, $language);
+
+				$this->message($this->_("Installed $identifier translation"));
+			}
+
+			$this->session->redirect('./');
+		}
+
+		$field = $this->modules->get("InputfieldSubmit");
+		$field->attr('name', 'submit_import_translations');
+		$field->showInHeader();
+		$form->append($field);
+
 		return $form->render();
 	}
 }

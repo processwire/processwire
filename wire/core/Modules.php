@@ -2534,7 +2534,9 @@ class Modules extends WireArray {
 			// verbose mode only: this is set to the module filename (from PW installation root), false when it can't be found, null when it hasn't been determined
 			'file' => null, 
 			// verbose mode only: this is set to true when the module is a core module, false when it's not, and null when it's not determined
-			'core' => null, 
+			'core' => null,
+			// Any translations supplied with the module
+			'languages' => null,
 			
 			// other properties that may be present, but are optional, for Process modules:
 			// 'nav' => array(), // navigation definition: see Process.php
