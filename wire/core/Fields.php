@@ -74,6 +74,8 @@ class Fields extends WireSaveableItems {
 		'description',
 		'data',
 		'isNew',
+		'limit',
+		'start',
 		);
 
 	/**
