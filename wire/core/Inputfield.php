@@ -659,6 +659,25 @@ abstract class Inputfield extends WireData implements Module {
 		}
 		return $this->setAttribute($key, $value); 
 	}
+
+	/**
+	 * Shortcut for getting or setting “value” attribute 
+	 * 
+	 * When setting a value, it returns $this (for fluent interface).
+	 * 
+	 * ~~~~~
+	 * $value = $inputfield->val(); * // Getting
+	 * $inputfield->val('foo'); * // Setting
+	 * ~~~~~
+	 * 
+	 * @param string|null $value
+	 * @return string|int|float|array|object|Wire|WireData|WireArray|Inputfield
+	 * 
+	 */
+	public function val($value = null) {
+		if($value === null) return $this->getAttribute('value');
+		return $this->setAttribute('value', $value);
+	}
 	
 	/**
 	 * Get all attributes specified for this Inputfield
