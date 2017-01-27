@@ -13,6 +13,12 @@
 class WireMarkupRegions extends Wire {
 
 	/**
+	 * Debug during development of this class
+	 * 
+	 */
+	const debug = false;
+	
+	/**
 	 * HTML tag names that require no closing tag
 	 * 
 	 * @var array
@@ -147,11 +153,30 @@ class WireMarkupRegions extends Wire {
 				$removeMarkups[] = $region['html'];
 			}
 			
+			
 		} while(++$whileCnt < $options['max']);
 	
 		if(count($removeMarkups)) {
 			$markup = str_replace($removeMarkups, '', $markup);
 		}
+
+		/*
+		foreach($regions as $regionKey => $region) {
+			foreach($regions as $rk => $r) {
+				if($rk === $regionKey) continue;
+				if(strpos($region['html'], $r['html']) !== false) {
+					$regions[$regionKey]['region'] = str_replace($r['html'], '', $region['region']); 
+					//$k = 'html';
+					//echo "<pre>" . 
+					//	"\nREPLACE “" . htmlentities($r[$k]) . "”". 
+					//	"\nIN      “" . htmlentities($region[$k]) . "”" . 
+					//	"\nRESULT  “" . htmlentities($regions[$regionKey][$k]) . "”" . 
+					//	"\n</pre>";
+				}
+			}
+		}
+		*/
+		
 		if($options['leftover']) $regions["leftover"] = $markup;
 
 		return $regions;
@@ -1116,8 +1141,9 @@ class WireMarkupRegions extends Wire {
 		$recursionLevel++;
 		$leftoverMarkup = '';
 		$debugLandmark = "<!--PW-REGION-DEBUG-->";
-		$debug = ($this->wire('config')->debug || strpos($htmlDocument, $debugLandmark)) && $this->wire('user')->isSuperuser();
-
+		$debug = $this->wire('config')->debug || strpos($htmlDocument, $debugLandmark) !== false;
+		$debugTimer = $debug ? Debug::timer() : 0;
+		
 		if(is_array($htmlRegions)) {
 			$regions = $htmlRegions;
 			$leftoverMarkup = '';
@@ -1142,6 +1168,7 @@ class WireMarkupRegions extends Wire {
 		$xregions = array(); // regions that weren't populated
 		$populatedNotes = array();
 		$rejectedNotes = array();
+		$updates = array();
 		$numUpdates = 0;
 
 		foreach($regions as $regionKey => $region) {
@@ -1149,13 +1176,12 @@ class WireMarkupRegions extends Wire {
 			if(empty($region['action'])) $region['action'] = 'auto'; // replace
 			if(empty($region['actionTarget'])) $region['actionTarget'] = $region['pwid']; // replace
 			
-			$region['note'] = "id=$region[pwid], action=$region[action], target=$region[actionTarget]: $region[open]";
 			$xregion = $region;
 			$action = $region['action'];
 			$actionTarget = $region['actionTarget'];
 			$regionHTML = $region['region'];
 			$mergeAttr = $region['attrs'];
-			$regionNote = "$regionKey. $region[note]";
+			
 			unset($mergeAttr['id']);
 			$documentHasTarget = $this->hasAttribute('id', $actionTarget, $htmlDocument); 
 			$isNew = ($region['actionType'] == 'attr' && $region['action'] != 'replace'); 
@@ -1170,34 +1196,69 @@ class WireMarkupRegions extends Wire {
 				if(!strlen(trim($attrStr))) $attrStr = '';
 				$regionHTML = str_replace($region['open'], "<$region[name]$attrStr>", $regionHTML);
 			}
+			
+			if($debug) {
+				$debugAction = $region['action'];
+				if($debugAction == 'auto') $debugAction = $isNew ? 'insert' : 'replace';
+				if($debugAction == 'replace' && empty($region['close'])) $debugAction = 'attr-update';
+				$debugBytes = strlen($region['region']); 
+				$pwid = empty($region['pwid']) ? $region['actionTarget'] : $region['pwid']; 
+				$open = $region['open'];
+				$openLen = strlen($open);
+				if($openLen > 50) $open = substr($open, 0, 50) . '[small]... +' . ($openLen-50) . ' bytes[/small]>';
+				
+				$region['note'] = "$debugAction => #$pwid " .
+					($region['actionTarget'] != $pwid ? "(target=$region[actionTarget])" : "") . 
+					"... $open" . ($region['close'] ? "[small]$debugBytes bytes[/small]$region[close]" : "");
+				$regionNote = "$regionKey. $region[note]";
+			}
 
-			// if the id attribute doesn't appear in the html, skip it
 			if(!$documentHasTarget) {
-				$xregions[$regionKey] = $xregion;
-				$rejectedNotes[] = $regionNote;
+				// if the id attribute doesn't appear in the html, skip it
+				// $xregions[$regionKey] = $xregion;
+				if(self::debug) $rejectedNotes[] = $regionNote;
 				
 			} else {
 				// update the markup
+				//echo "<pre>UPDATE('#$actionTarget', " . htmlentities($regionHTML) . ", mergeAttr=" . print_r($mergeAttr, true) . "</pre>";
+				$updates[] = array(
+					'actionTarget' => "#$actionTarget", 
+					'regionHTML' => $regionHTML, 
+					'action' => $action, 
+					'mergeAttr' => $mergeAttr,
+				);
+				/*
 				$htmlDocument = $this->update("#$actionTarget", $regionHTML, $htmlDocument, array(
 					'action' => $action,
 					'mergeAttr' => $mergeAttr,
 				));
-
+				*/
 				$populatedNotes[] = $regionNote;
 				$numUpdates++;
 			}
 		}
+
+		foreach($updates as $u) {
+			$htmlDocument = $this->update($u['actionTarget'], $u['regionHTML'], $htmlDocument, array(
+				'action' => $u['action'],
+				'mergeAttr' => $u['mergeAttr'],
+			));
+		}
+
 			
 		if($debug) {
-			$bull = "\n    ";
+			$bull = "\n";
 			$n = $recursionLevel;
 			$leftoverBytes = strlen($leftoverMarkup);
-			$debugNotes = "\nPW markup regions run #$n";
-			if(count($populatedNotes)) $debugNotes .= "\n  Populated: $bull" . implode($bull, $populatedNotes);
-			if(count($rejectedNotes)) $debugNotes .= "\n  Skipped: $bull" . implode($bull, $rejectedNotes);
-			if($leftoverBytes) $debugNotes .= "\n  $leftoverBytes non-region bytes skipped";
+			$debugNotes = ""; // "\nProcessWire markup regions debug #$n ";
+			if(count($populatedNotes)) $debugNotes .= $bull . implode($bull, $populatedNotes);
+			if(count($rejectedNotes)) $debugNotes .= "\nSKIPPED: $bull" . implode($bull, $rejectedNotes);
+			if($leftoverBytes) $debugNotes .= "\n  $leftoverBytes non-region bytes skipped: $leftoverMarkup";
+			$debugNotes .= "\n[small]" . Debug::timer($debugTimer) . " seconds[/small]";
 			if(strpos($htmlDocument, $debugLandmark) !== false) {
-				$debugNotes = "<pre>" . $this->wire('sanitizer')->entities($debugNotes) . "</pre>" . $debugLandmark;
+				$debugNotes = $this->wire('sanitizer')->entities($debugNotes);
+				$debugNotes = str_replace(array('[small]', '[/small]'), array('<small style="opacity:0.7">', '</small>'), $debugNotes);
+				$debugNotes = "<pre class='pw-debug'>$debugNotes</pre>$debugLandmark";
 				$htmlDocument = str_replace($debugLandmark, $debugNotes, $htmlDocument); 
 			} else {
 				$htmlDocument .= "<!--" . $debugNotes . "\n-->";
