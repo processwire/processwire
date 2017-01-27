@@ -17,7 +17,7 @@ require_once(__DIR__ . '/boot.php');
  * ~~~~~
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
  * 
  * @method init()
@@ -45,7 +45,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 50;
+	const versionRevision = 51;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -280,7 +280,9 @@ class ProcessWire extends Wire {
 		});
 		
 		if($config->useFunctionsAPI) {
-			include($config->paths->core . 'FunctionsAPI.php');
+			$file = $config->paths->core . 'FunctionsAPI.php';
+			/** @noinspection PhpIncludeInspection */
+			include($file);
 		}
 		
 
