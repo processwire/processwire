@@ -1140,8 +1140,10 @@ class WireMarkupRegions extends Wire {
 		static $recursionLevel = 0;
 		$recursionLevel++;
 		$leftoverMarkup = '';
+		
 		$debugLandmark = "<!--PW-REGION-DEBUG-->";
-		$debug = $this->wire('config')->debug || strpos($htmlDocument, $debugLandmark) !== false;
+		$hasDebugLandmark = strpos($htmlDocument, $debugLandmark) !== false;
+		$debug = $hasDebugLandmark && $this->wire('config')->debug;
 		$debugTimer = $debug ? Debug::timer() : 0;
 		
 		if(is_array($htmlRegions)) {
@@ -1211,7 +1213,9 @@ class WireMarkupRegions extends Wire {
 					($region['actionTarget'] != $pwid ? "(target=$region[actionTarget])" : "") . 
 					"... $open" . ($region['close'] ? "[small]$debugBytes bytes[/small]$region[close]" : "");
 				$regionNote = "$regionKey. $region[note]";
-			}
+			} else {
+				$regionNote = '';
+			}	
 
 			if(!$documentHasTarget) {
 				// if the id attribute doesn't appear in the html, skip it
@@ -1263,6 +1267,8 @@ class WireMarkupRegions extends Wire {
 			} else {
 				$htmlDocument .= "<!--" . $debugNotes . "\n-->";
 			}
+		} else if($hasDebugLandmark) {
+			$htmlDocument = str_replace($debugLandmark, '', $htmlDocument); 
 		}
 		
 		if(count($xregions) && $recursionLevel < 3) {
