@@ -523,6 +523,9 @@ class PageFrontEdit extends WireData implements Module {
 					$field = $this->wire('fields')->get($name);
 					if($editable && $p->editable($name)) {
 						$fields[$name] = $field;
+						if(!$field instanceof Field) {
+							throw new \UnexpectedValueException("the field '{$name}' is not of type 'Field', most likely it doesn't exist in the template");
+						}
 						if($this->inlineSupported($field)) $inlineSupported = true;
 					}
 				}
