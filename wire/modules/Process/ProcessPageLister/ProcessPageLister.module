@@ -1309,7 +1309,23 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$class = '';
 		$statusIcon = '';
 		$isTrash = false; 
-		if(!strlen($value)) $value = $this->blankLabel;
+		
+		if(!strlen($value)) {
+			// column is blank
+			$name = $p->name;
+			$maxNameLen = 20;
+			if(strlen($name) > $maxNameLen) {
+				$parts = explode('-', $name); 
+				while(strlen($name) > $maxNameLen) {
+					array_pop($parts); 
+					$name = implode('-', $parts);
+				}
+				if(!$name) $name = substr($p->name, 0, $maxNameLen);
+				$name .= '&hellip;';
+			}
+			$value = "$this->blankLabel <small class='ui-priority-secondary'>($name)</small>";
+		}
+		
 		if($p->hasStatus(Page::statusHidden)) $class .= " PageListStatusHidden";
 		if($p->hasStatus(Page::statusUnpublished)) $class .= " PageListStatusUnpublished";
 		if($p->hasStatus(Page::statusLocked)) {
