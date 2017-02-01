@@ -17,6 +17,12 @@ class WireMarkupRegions extends Wire {
 	 * 
 	 */
 	const debug = false;
+
+	/**
+	 * @var array
+	 * 
+	 */
+	protected $debugNotes = array();
 	
 	/**
 	 * HTML tag names that require no closing tag
@@ -87,7 +93,11 @@ class WireMarkupRegions extends Wire {
 		$findTag = $selectorInfo['findTag'];
 		$hasClass = $selectorInfo['hasClass'];
 		$regions = array();
-		$removeMarkups = array();
+		$_markup = self::debug ? $markup : '';
+		
+		if(self::debug) {
+			$options['debugNote'] = (empty($options['debugNote']) ? "" : "$options[debugNote] => ") . "find($selector)";
+		}
 		
 		// strip out comments if markup isn't required to stay the same
 		if(!$options['exact']) $markup = $this->stripRegions('<!--', $markup);
@@ -97,8 +107,11 @@ class WireMarkupRegions extends Wire {
 
 		$startPos = 0;
 		$whileCnt = 0;
+		$iterations = 0;
 
 		do {
+			$iterations++;
+			
 			// find all the positions where each test appears
 			$positions = array();
 			foreach($tests as $str) {
@@ -120,7 +133,7 @@ class WireMarkupRegions extends Wire {
 			$markupAfter = substr($markup, $pos);
 			$openTagPos = strrpos($markupBefore, '<');
 			$closeOpenTagPos = strpos($markupAfter, '>');
-			$startPos += $closeOpenTagPos; // for next iteration
+			$startPos += $closeOpenTagPos; // for next iteration, if a continue occurs
 		
 			// if the orders of "<" and ">" aren't what's expected in our markupBefore and markupAfter, then abort
 			$testPos = strpos($markupAfter, '<');
@@ -136,8 +149,8 @@ class WireMarkupRegions extends Wire {
 			if(!$tagInfo['action'] && $hasClass && !$this->hasClass($hasClass, $tagInfo['classes'])) continue;
 
 			// build the region (everything in $markupAfter that starts after the ">")
-			$region = empty($tagInfo['close']) ? '' : substr($markupAfter, $closeOpenTagPos + 1);
-			$region = $this->getTagRegion($region, $tagInfo, $options);
+			$regionMarkup = empty($tagInfo['close']) ? '' : substr($markupAfter, $closeOpenTagPos + 1);
+			$region = $this->getTagRegion($regionMarkup, $tagInfo, $options);
 
 			if($options['single']) {
 				// single mode means we just return the markup
@@ -148,17 +161,12 @@ class WireMarkupRegions extends Wire {
 				while(isset($regions[$pos])) $pos++;
 				$regions[$pos] = $region;
 			}
-			
-			if($options['leftover']) {
-				$removeMarkups[] = $region['html'];
-			}
-			
+
+			$markup = trim(str_replace($region['html'], '', $markup));
+			if(empty($markup)) break;
+			$startPos = 0;
 			
 		} while(++$whileCnt < $options['max']);
-	
-		if(count($removeMarkups)) {
-			$markup = str_replace($removeMarkups, '', $markup);
-		}
 
 		/*
 		foreach($regions as $regionKey => $region) {
@@ -167,17 +175,28 @@ class WireMarkupRegions extends Wire {
 				if(strpos($region['html'], $r['html']) !== false) {
 					$regions[$regionKey]['region'] = str_replace($r['html'], '', $region['region']); 
 					//$k = 'html';
-					//echo "<pre>" . 
+					//$this->debugNotes[] = 
 					//	"\nREPLACE “" . htmlentities($r[$k]) . "”". 
 					//	"\nIN      “" . htmlentities($region[$k]) . "”" . 
-					//	"\nRESULT  “" . htmlentities($regions[$regionKey][$k]) . "”" . 
-					//	"\n</pre>";
+					//	"\nRESULT  “" . htmlentities($regions[$regionKey][$k]) . "”";
 				}
 			}
 		}
 		*/
 		
-		if($options['leftover']) $regions["leftover"] = $markup;
+		if($options['leftover']) $regions["leftover"] = trim($markup);
+		
+		if(self::debug) {
+			$debugNote = "$options[debugNote] in [sm]" . $this->debugNoteStr($_markup, 50) . " …[/sm] => ";
+			$numRegions = 0;
+			foreach($regions as $key => $region) {
+				if($key == 'leftover') continue;
+				$debugNote .= "$region[name]#$region[pwid], ";
+				$numRegions++;
+			}
+			if(!$numRegions) $debugNote .= 'NONE';
+			$this->debugNotes[] = rtrim($debugNote, ", ") . " [sm](iterations=$iterations)[/sm]";
+		}
 
 		return $regions;
 	}
@@ -462,6 +481,14 @@ class WireMarkupRegions extends Wire {
 		if($verbose) {
 			$verboseRegion['region'] = $region;
 			$verboseRegion['html'] = $wrapRegion;
+			/*
+			if(self::debug) {
+				$debugNote = (isset($options['debugNote']) ? "$options[debugNote] => " : "") . 
+					"getTagRegion() => $verboseRegion[name]#$verboseRegion[pwid] " . 
+					"[sm]$verboseRegion[details][/sm]";
+				$this->debugNotes[] = $debugNote;
+			}
+			*/
 			return $verboseRegion;
 		}
 		
@@ -927,6 +954,10 @@ class WireMarkupRegions extends Wire {
 			'exact' => true, 
 		);
 		
+		if(self::debug) {
+			$findOptions['debugNote'] = "update.$options[action]($selector)";
+		}
+		
 		$findRegions = $this->find($selector, $markup, $findOptions);
 		
 		foreach($findRegions as $region) {
@@ -1132,13 +1163,18 @@ class WireMarkupRegions extends Wire {
 	 *
 	 * @param string $htmlDocument Document to populate regions to
 	 * @param string|array $htmlRegions Markup containing regions (or regions array from a find call)
+	 * @param array $options
 	 * @return int Number of updates made to $htmlDocument
 	 *
 	 */
-	public function populate(&$htmlDocument, $htmlRegions) {
+	public function populate(&$htmlDocument, $htmlRegions, array $options = array()) {
 		
 		static $recursionLevel = 0;
+		static $callQty = 0;
+		
 		$recursionLevel++;
+		$callQty++;
+		
 		$leftoverMarkup = '';
 		
 		$debugLandmark = "<!--PW-REGION-DEBUG-->";
@@ -1153,7 +1189,8 @@ class WireMarkupRegions extends Wire {
 		} else if($this->hasRegions($htmlRegions)) {
 			$regions = $this->find(".pw-*, id=", $htmlRegions, array(
 				'verbose' => true,
-				'leftover' => true
+				'leftover' => true,
+				'debugNote' => (isset($options['debugNote']) ? "$options[debugNote] => " : "") . "populate($callQty)", 
 			));
 			$leftoverMarkup = trim($regions["leftover"]);
 			unset($regions["leftover"]);
@@ -1178,7 +1215,7 @@ class WireMarkupRegions extends Wire {
 			if(empty($region['action'])) $region['action'] = 'auto'; // replace
 			if(empty($region['actionTarget'])) $region['actionTarget'] = $region['pwid']; // replace
 			
-			$xregion = $region;
+			// $xregion = $region;
 			$action = $region['action'];
 			$actionTarget = $region['actionTarget'];
 			$regionHTML = $region['region'];
@@ -1203,15 +1240,20 @@ class WireMarkupRegions extends Wire {
 				$debugAction = $region['action'];
 				if($debugAction == 'auto') $debugAction = $isNew ? 'insert' : 'replace';
 				if($debugAction == 'replace' && empty($region['close'])) $debugAction = 'attr-update';
-				$debugBytes = strlen($region['region']); 
 				$pwid = empty($region['pwid']) ? $region['actionTarget'] : $region['pwid']; 
 				$open = $region['open'];
 				$openLen = strlen($open);
-				if($openLen > 50) $open = substr($open, 0, 50) . '[small]... +' . ($openLen-50) . ' bytes[/small]>';
-				
+				if($openLen > 50) $open = substr($open, 0, 30) . '[sm]... +' . ($openLen - 30) . ' bytes[/sm]>';
+				$debugRegionStart = substr($region['region'], 0, 50);  
+				$pos = strrpos($debugRegionStart, '>');
+				if($pos) $debugRegionStart = substr($debugRegionStart, 0, $pos+1);
+				$debugRegionEnd = substr($region['region'], -30); 
+				$pos = strpos($debugRegionEnd, '</'); 
+				if($pos !== false) $debugRegionEnd = substr($debugRegionEnd, $pos);
+				$debugRegion = $this->debugNoteStr("$debugRegionStart ... $debugRegionEnd");
 				$region['note'] = "$debugAction => #$pwid " .
 					($region['actionTarget'] != $pwid ? "(target=$region[actionTarget])" : "") . 
-					"... $open" . ($region['close'] ? "[small]$debugBytes bytes[/small]$region[close]" : "");
+					"... $open" . ($region['close'] ? "[sm]{$debugRegion}[/sm]$region[close]" : "");
 				$regionNote = "$regionKey. $region[note]";
 			} else {
 				$regionNote = '';
@@ -1224,7 +1266,6 @@ class WireMarkupRegions extends Wire {
 				
 			} else {
 				// update the markup
-				//echo "<pre>UPDATE('#$actionTarget', " . htmlentities($regionHTML) . ", mergeAttr=" . print_r($mergeAttr, true) . "</pre>";
 				$updates[] = array(
 					'actionTarget' => "#$actionTarget", 
 					'regionHTML' => $regionHTML, 
@@ -1252,21 +1293,22 @@ class WireMarkupRegions extends Wire {
 			
 		if($debug) {
 			$bull = "\n";
-			$n = $recursionLevel;
 			$leftoverBytes = strlen($leftoverMarkup);
 			$debugNotes = ""; // "\nProcessWire markup regions debug #$n ";
 			if(count($populatedNotes)) $debugNotes .= $bull . implode($bull, $populatedNotes);
 			if(count($rejectedNotes)) $debugNotes .= "\nSKIPPED: $bull" . implode($bull, $rejectedNotes);
-			if($leftoverBytes) $debugNotes .= "\n  $leftoverBytes non-region bytes skipped: $leftoverMarkup";
-			$debugNotes .= "\n[small]" . Debug::timer($debugTimer) . " seconds[/small]";
-			if(strpos($htmlDocument, $debugLandmark) !== false) {
-				$debugNotes = $this->wire('sanitizer')->entities($debugNotes);
-				$debugNotes = str_replace(array('[small]', '[/small]'), array('<small style="opacity:0.7">', '</small>'), $debugNotes);
-				$debugNotes = "<pre class='pw-debug'>$debugNotes</pre>$debugLandmark";
-				$htmlDocument = str_replace($debugLandmark, $debugNotes, $htmlDocument); 
-			} else {
-				$htmlDocument .= "<!--" . $debugNotes . "\n-->";
+			if($leftoverBytes) $debugNotes .= "\n  $leftoverBytes non-region bytes skipped: [sm]{$leftoverMarkup}[/sm]";
+			if(count($this->debugNotes)) {
+				$debugNotes .= "\n---------------";
+				foreach($this->debugNotes as $n => $s) {
+					$debugNotes .= "\n$n. " . $this->debugNoteStr($s);
+				}
 			}
+			$debugNotes = $this->wire('sanitizer')->entities($debugNotes);
+			$debugNotes .= "\n[sm]" . Debug::timer($debugTimer) . " seconds[/sm]";
+			$debugNotes = str_replace(array('[sm]', '[/sm]'), array('<small style="opacity:0.7">', '</small>'), $debugNotes);
+			$debugNotes = "<pre class='pw-debug pw-region-debug'>$debugNotes</pre>$debugLandmark";
+			$htmlDocument = str_replace($debugLandmark, $debugNotes, $htmlDocument); 
 		} else if($hasDebugLandmark) {
 			$htmlDocument = str_replace($debugLandmark, '', $htmlDocument); 
 		}
@@ -1296,6 +1338,12 @@ class WireMarkupRegions extends Wire {
 		if(strpos($html, ' id=') === false && strpos($html, 'pw-') === false) return false;
 		return true;
 	}
-
+	
+	protected function debugNoteStr($str, $maxLength = 0) {
+		$str = str_replace(array("\r", "\n", "\t"), ' ', $str);
+		while(strpos($str, '  ') !== false) $str= str_replace('  ', ' ', $str);
+		if($maxLength) $str  = substr($str, 0, $maxLength);
+		return trim($str);
+	}
 
 }

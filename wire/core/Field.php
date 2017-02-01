@@ -218,7 +218,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 * @param string $key Property name to set
 	 * @param mixed $value
-	 * @return $this
+	 * @return Field|WireData
 	 *
 	 */
 	public function set($key, $value) {
@@ -810,8 +810,9 @@ class Field extends WireData implements Saveable, Exportable {
 		$inputfield->attr('name', $this->name . $contextStr); 
 		$inputfield->set('label', $this->label);
 
-		// just in case an Inputfield needs to know it's Fieldtype context, or lack of it
-		$inputfield->set('hasFieldtype', $this->type); 
+		// just in case an Inputfield needs to know its Fieldtype/Field context, or lack of it
+		$inputfield->set('hasFieldtype', $this->type);
+		$inputfield->set('hasField', $this); 
 		
 		// custom field settings
 		foreach($this->data as $key => $value) {
