@@ -308,6 +308,7 @@ class Selectors extends WireArray {
 		$alphabet = 'abcdefghijklmnopqrstuvwxyz';
 	
 		// replace characters that are allowed but aren't useful here
+		if(strpos($str, '=(') !== false) $str = str_replace('=(', '=1,', $str);
 		$str = str_replace(array('!', '(', ')', '@', '.', '|', '_'), '', trim(strtolower($str)));
 	
 		// flatten sub-selectors
