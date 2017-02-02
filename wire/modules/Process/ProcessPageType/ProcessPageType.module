@@ -139,7 +139,10 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	}
 
 	public function ___executeList() {
-		return $this->renderList("limit=25, status<" . Page::statusMax);
+		$templateID = (int) $this->wire('input')->get('templates_id');
+		if(!$templateID) $templateID = (int) $this->wire('session')->get($this->className() . 'TemplatesID');
+		$selector = $templateID ? "templates_id=$templateID, " : "";
+		return $this->renderList($selector . "limit=25, status<" . Page::statusMax);
 	}
 
 	/**
@@ -398,15 +401,19 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		$field->attr('id+name', 'templates_id'); 
 		$field->label = $this->_('Filter by Template'); 
 		$field->addOption('', $this->_('Show All')); 
+		$field->icon = 'filter';
 		$field->collapsed = Inputfield::collapsedBlank;
+		
+		$templates = $this->pages instanceof PagesType ? $this->pages->getTemplates() : array();
+		if(!count($templates)) $templates = $this->wire('templates');
 
-		foreach($this->templates as $template) {
+		foreach($templates as $template) {
 			$field->addOption($template->id, $template->name); 
 		}
 
 		$filterName = $this->className . 'TemplatesID';
-		if(isset($this->input->get->templates_id)) {
-			$this->session->set($filterName, (int) $this->input->get->templates_id); 
+		if(isset($_GET['templates_id'])) {
+			$this->session->set($filterName, (int) $this->input->get('templates_id')); 
 		}
 
 		$filterValue = (int) $this->session->$filterName; 
