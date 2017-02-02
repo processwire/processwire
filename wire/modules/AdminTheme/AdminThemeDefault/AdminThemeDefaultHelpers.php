@@ -315,7 +315,7 @@ class AdminThemeDefaultHelpers extends WireData {
 					$title = $this->_($c->title); 
 					if(!$title) $title = $c->name; 
 					$out .= 
-						"<li><a class='pw-has-items' data-from='topnav-page-$p' href='$c->url'>$icon$title</a>" . 
+						"<li><a class='pw-has-items page-$c-' data-from='topnav-page-$p' href='$c->url'>$icon$title</a>" . 
 						"<ul>" . $this->renderTopNavItemArray($c, $moduleInfo['nav']) . "</ul></li>";
 					
 				} else if(!empty($moduleInfo['useNavJSON'])) {
@@ -324,7 +324,8 @@ class AdminThemeDefaultHelpers extends WireData {
 					if(!strlen($title)) continue;
 					$icon = $this->getPageIcon($c);
 					$out .=
-						"<li><a class='pw-has-items pw-has-ajax-items' data-from='topnav-page-$p' data-json='{$c->url}navJSON/' " .
+						"<li><a class='pw-has-items pw-has-ajax-items page-$c-' " . 
+						"data-from='topnav-page-$p' data-json='{$c->url}navJSON/' " .
 						"href='$c->url'>$icon$title</a><ul></ul></li>";
 
 				} else {
@@ -347,7 +348,7 @@ class AdminThemeDefaultHelpers extends WireData {
 			// The /page/ and /page/list/ are the same process, so just keep them on /page/ instead. 
 			if(strpos($url, '/page/list/') !== false) $url = str_replace('/page/list/', '/page/', $url); 
 			
-			$out .= "<a class='page-id-$p-' href='$url'>$icon$title</a>"; 
+			$out .= "<a class='page-$p-' href='$url'>$icon$title</a>"; 
 		}
 	
 		$out .= "</li>";
