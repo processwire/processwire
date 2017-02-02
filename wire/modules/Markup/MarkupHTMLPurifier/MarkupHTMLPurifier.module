@@ -65,7 +65,17 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	 */
 	public function init() {
 		$this->settings->set('Cache.SerializerPath', $this->getCachePath());
-		$this->settings->set('Attr.AllowedRel', array('nofollow'));
+		
+		// load allowed attribute values for rel-attributes from ProcessPageEditLink
+		// where they can be configured by the user
+		$processPageEdit = wire('modules')->getModule('ProcessPageEditLink');
+		if($processPageEdit) {
+                    $relAttributeValues = explode("\n", $processPageEdit->get('relOptions');
+                } else {
+                    $relAttributeValues  = array('nofollow');
+                }
+		$this->settings->set('Attr.AllowedRel', $relAttributeValues);
+		
 		$this->settings->set('HTML.DefinitionID', 'html5-definitions');
 		$this->settings->set('HTML.DefinitionRev', 1);
 		if($def = $this->settings->maybeGetRawHTMLDefinition()) {
