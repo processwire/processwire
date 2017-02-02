@@ -1567,7 +1567,7 @@ abstract class Inputfield extends WireData implements Module {
 	public function entityEncode($str, $markdown = false) {
 		
 		// if already encoded, then un-encode it
-		if(strpos($str, '&') !== false && preg_match('/&(#\d+|[a-z]+);/', $str)) {
+		if(strpos($str, '&') !== false && preg_match('/&(#\d+|[a-zA-Z]+);/', $str)) {
 			$str = html_entity_decode($str, ENT_QUOTES, "UTF-8");
 		}
 		
