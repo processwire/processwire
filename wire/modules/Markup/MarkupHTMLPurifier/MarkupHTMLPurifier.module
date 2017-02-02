@@ -70,7 +70,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 		// where they can be configured by the user
 		$processPageEdit = wire('modules')->getModule('ProcessPageEditLink');
 		if($processPageEdit) {
-                    $relAttributeValues = explode("\n", $processPageEdit->get('relOptions');
+                    $relAttributeValues = explode("\n", $processPageEdit->get('relOptions'));
                 } else {
                     $relAttributeValues  = array('nofollow');
                 }
