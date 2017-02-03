@@ -1962,7 +1962,7 @@ class PageFinder extends Wire {
 		}
 		
 		$andor = $selector->operator == '!=' ? ' AND ' : ' OR ';
-		$query->where(implode($andor, $wheres)); 
+		$query->where('(' . implode($andor, $wheres) . ')'); 
 
 		/*
 		// OLD method kept for reference
