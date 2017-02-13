@@ -84,7 +84,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 * Version number for CKEditor directory
 	 *
 	 */
-	const CKEDITOR_VERSION = '4.5.10';
+	const CKEDITOR_VERSION = '4.6.2';
 
 	/**
 	 * Instance of MarkupHTMLPurifier module
