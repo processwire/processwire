@@ -414,27 +414,29 @@ class PageFrontEdit extends WireData implements Module {
 	 */
 	public function hookPageRenderNoEdit(HookEvent $event) {
 		
-		$out = $event->return;
-		$tag = $this->editRegionTag;
-		$attr = $this->editRegionAttr;
-		
-		$hasEditTags = strpos($out, "<$tag") !== false;
-		$hasEditAttr = strpos($out, "$attr=") !== false;
-		
-		if($hasEditTags) {
-			// remove modal edit tags
-			$out = preg_replace('!</?' . $tag . '\s[^>]*>\s*!is', '', $out);
+		$dom = new \DOMDocument();
+		$dom->preserveWhiteSpace = false;
+		$dom->formatOutput = false;
+
+		libxml_use_internal_errors(true); //unfortunatly PHP 7 has a bug that won't suppress warnings even if you set so
+		$dom->loadHTML($event->return, LIBXML_NOWARNING | LIBXML_NOERROR);
+		libxml_clear_errors(); //unfortunatly PHP 7 has a bug that won't suppress warnings even if you set so
+
+		$xpathFindEditRegions = new \DOMXPath($dom);
+		foreach ($xpathFindEditRegions->query('//'.$this->editRegionTag) as $element) {
+		  while($element->hasChildNodes()) {
+		    $child = $element->removeChild($element->firstChild);
+		    $element->parentNode->insertBefore($child, $element);
+		  }
+		  $element->parentNode->removeChild($element);
 		}
-		
-		if($hasEditAttr) {
-			// remove modal edit attributes
-			$out = preg_replace('!(<[^>]+?)\s' . $attr . '=["\']?[^"\'\s>]*["\']?!is', '$1', $out);
+
+		$xpathFindEditAttr = new \DOMXPath($dom);
+		foreach ($xpathFindEditAttr->query('//*[@'.$this->editRegionAttr.']') as $element) {
+		  $element->removeAttribute($attr);
 		}
-	
-		if($hasEditTags || $hasEditAttr) {
-			// update markup
-			$event->return = $out;
-		}
+
+		$event->return = $dom->saveHTML();		
 	}
 
 	/**
