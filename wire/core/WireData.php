@@ -202,16 +202,24 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * $value = $item->data('some_property'); 
 	 * ~~~~~
 	 * 
-	 * @param string $key Property you want to get or set.
-	 * @param mixed $value Optionally specify a value if you want to set rather than get.
-	 * @return mixed|null|$this Returns one of the following: 
+	 * @param string|array $key Property you want to get or set, or associative array of properties you want to set.
+	 * @param mixed $value Optionally specify a value if you want to set rather than get. 
+	 *  Or Specify boolean TRUE if setting an array via $key and you want to overwrite any existing values (rather than merge).
+	 * @return array|WireData|null Returns one of the following: 
 	 *   - `mixed` - Actual value if getting a previously set value. 
 	 *   - `null` - If you are attempting to get a value that has not been set. 
 	 *   - `$this` - If you are setting a value.
 	 */
 	public function data($key = null, $value = null) {
 		if(is_null($key)) return $this->data;
-		if(is_null($value)) {
+		if(is_array($key)) {
+			if($value === true) {
+				$this->data = $key;
+			} else {
+				$this->data = array_merge($this->data, $key);
+			}
+			return $this;
+		} else if(is_null($value)) {
 			return isset($this->data[$key]) ? $this->data[$key] : null;
 		} else {
 			$this->data[$key] = $value; 

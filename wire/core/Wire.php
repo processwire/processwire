@@ -364,16 +364,53 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param $method
-	 * @param $arguments
+	 * @param string $method
+	 * @param array $arguments
 	 * @return mixed
 	 * 
 	 */
 	public function _callMethod($method, $arguments) {
-		if(empty($arguments)) {
-			return $this->$method();
+		$qty = $arguments ? count($arguments) : 0;
+		$result = null;
+		switch($qty) {
+			case 0:
+				$result = $this->$method();
+				break;
+			case 1:
+				$result = $this->$method($arguments[0]);
+				break;
+			case 2:
+				$result = $this->$method($arguments[0], $arguments[1]);
+				break;
+			case 3:
+				$result = $this->$method($arguments[0], $arguments[1], $arguments[2]);
+				break;
+			default:
+				$result = call_user_func_array(array($this, $method), $arguments);
+		}
+		return $result;
+	}
+
+	/**
+	 * Call a hook method (optimization when it's known for certain the method exists)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $method Method name, without leading "___"
+	 * @param array $arguments
+	 * @return mixed
+	 * 
+	 */
+	public function _callHookMethod($method, array $arguments = array()) {
+		if(method_exists($this, $method)) {
+			return $this->_callMethod($method, $arguments);
+		}
+		$hooks = $this->wire('hooks');
+		if($hooks->isMethodHooked($this, $method)) {
+			$result = $hooks->runHooks($this, $method, $arguments);
+			return $result['return'];
 		} else {
-			return call_user_func_array(array($this, $method), $arguments);
+			return $this->_callMethod("___$method", $arguments);
 		}
 	}
 

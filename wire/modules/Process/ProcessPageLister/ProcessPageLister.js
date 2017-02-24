@@ -34,7 +34,7 @@ var ProcessLister = {
 		ProcessLister.lister = $("#ProcessLister"); 
 
 		ProcessLister.filters.change(function() { ProcessLister.submit(); }); 
-		ProcessLister.results.on('click', '#ProcessListerTable > table > thead th', ProcessLister.columnSort)
+		ProcessLister.results.on('click', '.ProcessListerTable > thead th', ProcessLister.columnSort)
 
 		$(document).on('click', 'a.actions_toggle', ProcessLister.pageClick); 
 		$(document).on('click', '.actions a.ajax', ProcessLister.actionClickAjax);

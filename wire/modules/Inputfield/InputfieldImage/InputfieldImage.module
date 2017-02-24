@@ -79,6 +79,8 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 *
 	 */
 	protected $modalClass = 'pw-modal-large';
+	
+	protected $themeSettings = array();
 
 	public function init() {
 		parent::init();
@@ -90,7 +92,6 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$this->set('minWidth', '');
 		$this->set('minHeight', '');
 		$this->set('dimensionsByAspectRatio', 0);
-
 		$this->set('itemClass', 'gridImage ui-widget');
 
 		$options = $this->wire('config')->adminThumbOptions;
@@ -125,6 +126,14 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			'na' => $this->_('N/A'), // for JS
 			'changes' => $this->_('This images field may have unsaved changes that could be lost after this action. Please save before cropping, or double-click the button proceed anyway.'),
 		));
+	
+		$themeDefaults = array(
+			'error' => "<span class='ui-state-error-text'>{out}</span>",
+			'buttonClass' => "ui-button ui-corner-all ui-state-default",
+			'buttonText' => "<span class='ui-button-text'>{out}</span>", 
+		);
+		$themeSettings = $this->wire('config')->InputfieldImage;
+		$this->themeSettings = is_array($themeSettings) ? array_merge($themeDefaults, $themeSettings) : $themeDefaults;
 		
 	}
 
@@ -299,7 +308,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			$out .= "
 				<span class='AjaxUploadDropHere description'>
 					<span>
-						<i class='fa fa-upload'></i>&nbsp;$dropLabel
+						<i class='fa fa-cloud-upload'></i>&nbsp;$dropLabel
 					</span>
 				</span>";
 		}
@@ -435,8 +444,10 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$attr = array();
 		$is2x = false;
 
-		$thumbHeight = $thumb->height;
-		$thumbWidth = $thumb->width;
+		$_thumbHeight = $thumb->height;
+		$thumbHeight = $_thumbHeight;
+		$_thumbWidth = $thumb->width;
+		$thumbWidth = $_thumbWidth;
 		$useResize = ($img->ext == 'svg' && $thumbHeight == '100%')
 			|| ($this->gridSize && $thumbHeight > $this->gridSize)
 			|| ($this->gridSize && $thumbWidth > $this->gridSize);
@@ -511,8 +522,8 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 
 		$attr['src'] = $thumb->URL;
 		$attr['alt'] = $this->wire('sanitizer')->entities1($img->description);
-		//$attr['data-w'] = $is2x ? floor($thumb->width() / 2) : $thumb->width();
-		//$attr['data-h'] = $is2x ? floor($thumb->height() / 2) : $thumb->height();
+		$attr['data-w'] = $_thumbWidth;
+		$attr['data-h'] = $_thumbHeight;
 		$attr["data-original"] = $img->URL;
 		$markup = "<img ";
 		foreach($attr as $key => $value) $markup .= "$key=\"$value\" ";
@@ -570,7 +581,10 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			$buttons = $pagefile->ext() == 'svg' ? '' : $this->renderButtons($pagefile, $id, $n);
 			$description = $this->renderItemDescriptionField($pagefile, $id, $n);
 			$additional = $this->renderAdditionalFields($pagefile, $id, $n);
-			$error = $thumb['error'] ? "<span class='ui-state-error-text'>" . $sanitizer->entities($thumb['error']) . "</span>" : "";
+			$error = '';
+			if($thumb['error']) {
+				$error = str_replace('{out}', $sanitizer->entities($thumb['error']), $this->themeSettings['error']);
+			} 
 			$labels = $this->labels;
 			$out .= "
 				<div class='gridImage__hover'>
@@ -692,26 +706,15 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$variationCount = count($variations);
 		$editUrl = $this->getEditUrl($pagefile, $pageID); 
 		$variationUrl = $this->getVariationUrl($pagefile, $id); 
-		$buttonClass = "ui-button ui-corner-all ui-state-default $this->modalClass pw-modal";
+		$buttonClass = $this->themeSettings['buttonClass'] . " $this->modalClass pw-modal";
 		$modalAttrs = "data-buttons='#non_rte_dialog_buttons button' data-autoclose='1' data-close='#non_rte_cancel'";
 		$labels = $this->labels;
 		
-		if($n) {}
-
-		$out = "
-			<button type='button' data-href='$editUrl' class='InputfieldImageButtonCrop $buttonClass' $modalAttrs>
-				<span class='ui-button-text'>
-					<span class='fa fa-crop'></span> $labels[crop]
-				</span>
-			</button>
-			<button type='button' data-href='$variationUrl' class='$buttonClass' data-buttons='button'>
-				<span class='ui-button-text'>
-					<span class='fa fa-files-o'></span> 
-					$labels[variations]
-					<span class='ui-priority-secondary'>($variationCount)</span>
-				</span>
-			</button>
-			";
+		$buttonText = str_replace('{out}', "<span class='fa fa-crop'></span> $labels[crop]", $this->themeSettings['buttonText']);
+		$out = "<button type='button' data-href='$editUrl' class='InputfieldImageButtonCrop $buttonClass' $modalAttrs>$buttonText</button>"; 
+		$buttonText = "<span class='fa fa-files-o'></span> $labels[variations] <span class='ui-priority-secondary'>($variationCount)</span>";
+		$buttonText = str_replace('{out}', $buttonText, $this->themeSettings['buttonText']);
+		$out .= "<button type='button' data-href='$variationUrl' class='$buttonClass' data-buttons='button'>$buttonText</button>";
 
 		return $out;
 	}

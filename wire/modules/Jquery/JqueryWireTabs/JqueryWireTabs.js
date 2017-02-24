@@ -15,14 +15,22 @@
 			items: null,
 			skipRememberTabIDs: [],
 			itemsParent: null,
+			ulClass: 'WireTabs nav',
+			ulAttrs: '',
+			liActiveClass: '',
+			aActiveClass: 'on',
 			id: '' // id for tabList. if already exists, existing tabList will be used
 		};
-		
-		if(ProcessWire.config.JqueryWireTabs.rememberTabs != "undefined") {
-			options.rememberTabs = ProcessWire.config.JqueryWireTabs.rememberTabs;
-		}
-		var totalTabs = 0; 
 
+		var totalTabs = 0; 
+		var cfg = ProcessWire.config.JqueryWireTabs;
+		var keys = [ 'rememberTabs', 'cookieName', 'liActiveClass', 'aActiveClass', 'ulClass', 'ulAttrs' ];
+		
+		for(var n = 0; n < keys.length; n++) {
+			var key = keys[n];
+			if(cfg[key] != "undefined") options[key] = cfg[key];
+		}
+		
 		$.extend(options, customOptions);
 
 		return this.each(function(index) {
@@ -43,7 +51,8 @@
 						else $tabList = null;
 				}
 				if(!$tabList) {
-					$tabList = $("<ul></ul>").addClass("WireTabs nav");
+					$tabList = $('<ul' + (options.ulAttrs ? ' ' + options.ulAttrs : '') + '></ul>');
+					$tabList.addClass(options.ulClass);
 					if(options.id.length) $tabList.attr('id', options.id); 
 				}
 				
@@ -128,21 +137,40 @@
 			}
 
 			function tabClick() {
-				var $oldTab = $($tabList.find("a.on").removeClass("on").attr('href')).hide(); 
-				var $newTab = $($(this).addClass('on').attr('href')).show(); 
+				
+				var aActiveClass = options.aActiveClass;
+				var liActiveClass = options.liActiveClass;
+				
+				var $oldTab = $tabList.find("a." + aActiveClass);
+				var $newTab = $(this);
+				
+				var $oldTabContent = $($oldTab.attr('href'));
+				var $newTabContent = $($newTab.attr('href'));
+				
 				var newTabID = $newTab.attr('id'); 
-				var oldTabID = $oldTab.attr('id'); 
+				var oldTabID = $oldTab.attr('id');
 
+				$oldTab.removeClass(aActiveClass);
+				$newTab.addClass(aActiveClass);
+			
+				if(liActiveClass.length) {
+					$oldTab.closest('li').removeClass(liActiveClass);
+					$newTab.closest('li').addClass(liActiveClass);
+				}
+				
+				$oldTabContent.hide();
+				$newTabContent.show();
+				
 				// add a target classname equal to the ID of the selected tab
 				// so there is opportunity for 3rd party CSS adjustments outside this plugin
-				if(oldTabID) $target.removeClass($oldTab.attr('id')); 
+				if(oldTabID) $target.removeClass($oldTabContent.attr('id')); 
 				$target.addClass(newTabID); 
 				if(options.rememberTabs > -1) {
 					if(jQuery.inArray(newTabID, options.skipRememberTabIDs) != -1) newTabID = '';
 					if(options.rememberTabs == 1) setTabCookie(newTabID); 
 					lastTabID = newTabID; 
 				}
-				$(document).trigger('wiretabclick', [ $newTab, $oldTab ]); 
+				$(document).trigger('wiretabclick', [ $newTabContent, $oldTabContent ]); 
 				return false; 
 			}
 

@@ -65,4 +65,13 @@ function initPageEditForm() {
 			$('.pw-button-dropdown-toggle').trigger('pw-button-dropdown-off');
 		}
 	});
+
+	// hide other buttons when on delete tab, and restore them when leaving delete tab
+	$(document).on('wiretabclick', function(event, $newTab, $oldTab) {
+		if($newTab.attr('id') == 'ProcessPageEditDelete') {
+			$(".InputfieldSubmit:not(#wrap_submit_delete):visible").addClass('pw-hidden-tmp').hide();
+		} else if($oldTab.attr('id') == 'ProcessPageEditDelete') {
+			$(".InputfieldSubmit.pw-hidden-tmp").removeClass('pw-hidden-tmp').show();
+		}
+	});
 }

@@ -1204,9 +1204,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if((is_array($settings) && !empty($settings['viewNew'])) || $this->viewAction == 'new') $target = " target='_blank'";
 		
 		$a = 
-			"<a id='_ProcessPageEditView' $target href='$url' data-action='$this->viewAction'>$label</a>&nbsp;" . 
-			"<span id='_ProcessPageEditViewDropdownToggle' class='pw-dropdown-toggle' data-pw-dropdown='#_ProcessPageEditViewDropdown'>&nbsp;" . 
-			"<i class='fa fa-angle-down'></i>&nbsp;</span>";
+			"<a id='_ProcessPageEditView' $target href='$url' data-action='$this->viewAction'>$label" . 
+			"<span id='_ProcessPageEditViewDropdownToggle' class='pw-dropdown-toggle' data-pw-dropdown='#_ProcessPageEditViewDropdown'>" . 
+			"<i class='fa fa-angle-down'></i></span></a>";
 		
 		$this->addTab($id, $a);
 	}

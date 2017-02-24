@@ -157,8 +157,8 @@ class ProcessController extends Wire {
 
 		// set a proces fuel, primarily so that certain Processes can determine if they are the root Process 
 		// example: PageList when in PageEdit
-		$this->wire('process', $this->process); 
-
+		$this->wire('process', $this->process);
+	
 		return $this->process; 
 	}
 

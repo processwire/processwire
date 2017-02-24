@@ -1816,15 +1816,19 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			<ul class='selector-list'>
 			$rows
 			</ul>
+			<div class='ui-helper-clearfix'>
 			";
+		
+		
 		if($this->allowAddRemove) $out .= "
-			<a class='selector-add' href='#'><i class='fa fa-$this->addIcon'></i> $this->addLabel</a>
+				<a class='selector-add' href='#'><i class='fa fa-$this->addIcon'></i> $this->addLabel</a>
 			";
 		$out .= "
-			<span class='selector-counter$counterClass detail'></span>
-			<p class='selector-preview$previewClass' data-init-value='$initValue'>$attr[value]</p>
-			<input $attrStr />
-			<p class='detail or-notes'>$notes</p>
+				<span class='selector-counter$counterClass detail'></span>
+				<p class='selector-preview$previewClass' data-init-value='$initValue'>$attr[value]</p>
+				<input $attrStr />
+				<p class='detail or-notes'>$notes</p>
+			</div>
 
 			";
 

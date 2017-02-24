@@ -96,5 +96,8 @@
 
 #_ProcessPageEditViewDropdownToggle {
 	cursor: pointer;
+	padding-left: 8px;
+	padding-right: 8px; 
+	text-decoration: none;
 }
 

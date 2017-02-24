@@ -233,6 +233,10 @@ class MarkupPagerNav extends Wire implements Module {
 		$this->options['nextItemAriaLabel'] = $this->_('Next page');
 		$this->options['previousItemAriaLabel'] = $this->_('Previous page');
 		$this->options['lastItemAriaLabel'] = $this->_('Page {n}, last page');
+	
+		// check for all-instance options
+		$options = $this->wire('config')->MarkupPagerNav;
+		if(is_array($options)) $this->options = array_merge($this->options, $options);
 	}
 
 	/**

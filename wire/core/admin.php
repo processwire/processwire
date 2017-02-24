@@ -111,6 +111,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 		}
 		if($input->get('modal')) $session->addHookBefore('redirect', null, '_hookSessionRedirectModal'); 
 		$content = $controller->execute();
+		$process = $controller->wire('process');
 
 	} catch(Wire404Exception $e) {
 		$wire->error($e->getMessage()); 
@@ -168,6 +169,7 @@ if($controller && $controller->isAjax()) {
 	if(!strlen($content)) $content = '<p>' . __('The process returned no content.') . '</p>';
 	$adminThemeFile = $config->paths->adminTemplates . 'default.php';
 	if(strpos($adminThemeFile, $config->paths->site) === 0) {
+		// @todo determine if compilation needed
 		$adminThemeFile = $wire->files->compile($adminThemeFile);
 	}
 	/** @noinspection PhpIncludeInspection */

@@ -71,9 +71,11 @@ var InputfieldSelector = {
 			InputfieldSelector.normalizeHeightRows($inputfield); 
 		}); 
 
+		/*
 		$(".InputfieldSelector .InputfieldContent").eq(0).each(function() {
 			InputfieldSelector.borderColor = $(this).css('border-bottom-color'); 
 		}); 
+		*/
 
 		// trigger change any event for first item, in case we have one already populated
 		//var $rows = $(".InputfieldSelector .selector-row:not(.selector-template-row)"); 

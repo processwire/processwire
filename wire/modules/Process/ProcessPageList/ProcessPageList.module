@@ -201,7 +201,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			$this->render = $render;
 		}
 
-		$this->wire('config')->js('ProcessPageList', array(
+		$defaults = array(
 			'containerID' => 'PageListContainer', 
 			'ajaxURL' => $this->config->urls->admin . "page/list/", 
 			'ajaxMoveURL' => $this->config->urls->admin . "page/sort/",
@@ -209,6 +209,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			'openPageIDs' => $openPageIDs, 
 			'openPageData' => $openPageData,
 			'openPagination' => (int) $this->input->get->n, // @todo: make it openPaginations and correspond to openPageIDs
+			'paginationClass' => 'PageListPagination', 
 			'showRootPage' => $this->showRootPage ? true : false, 
 			'limit' => $this->limit, 
 			'start' => $this->start, 
@@ -225,7 +226,10 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			'trashLabel' => $this->trashLabel,
 			'ajaxNetworkError' => $this->_('Network error, please try again later'), // Network error during AJAX request
 			'ajaxUnknownError' => $this->_('Unknown error, please try again later'), // Unknown error during AJAX request
-			)); 
+			); 
+		$settings = $this->wire('config')->ProcessPageList;
+		$settings = is_array($settings) ? array_merge($defaults, $settings) : $defaults;
+		$this->wire('config')->js('ProcessPageList', $settings);
 		
 		$tokenName = $this->session->CSRF->getTokenName();
 		$tokenValue = $this->session->CSRF->getTokenValue();

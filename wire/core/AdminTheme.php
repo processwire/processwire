@@ -249,31 +249,37 @@ abstract class AdminTheme extends WireData implements Module {
 		// we already have this field installed, no need to continue
 		if($field) {
 			$this->message($toUseNote); 
-			return;
+		} else {
+			// this will be the 2nd admin theme installed, so add a field that lets them select admin theme
+			$field = $this->wire(new Field());
+			$field->name = 'admin_theme';
+			$field->type = $this->wire('modules')->get('FieldtypeModule');
+			$field->set('moduleTypes', array('AdminTheme'));
+			$field->set('labelField', 'title');
+			$field->set('inputfieldClass', 'InputfieldRadios');
+			$field->label = 'Admin Theme';
+			$field->flags = Field::flagSystem;
+			try {
+				$field->save();
+			} catch(\Exception $e) {
+				$this->error("Error creating 'admin_theme' field: " . $e->getMessage());
+			}
 		}
 
-		// this will be the 2nd admin theme installed, so add a field that lets them select admin theme
-		$field = $this->wire(new Field());
-		$field->name = 'admin_theme';
-		$field->type = $this->wire('modules')->get('FieldtypeModule'); 
-		$field->set('moduleTypes', array('AdminTheme')); 
-		$field->set('labelField', 'title'); 
-		$field->set('inputfieldClass', 'InputfieldRadios'); 
-		$field->label = 'Admin Theme';
-		$field->flags = Field::flagSystem; 
-		$field->save();	
-
-		$fieldgroup = $this->wire('fieldgroups')->get('user'); 
-		$fieldgroup->add($field); 
-		$fieldgroup->save();
-
-		// make this field one that the user is allowed to configure in their profile
-		$data = $this->wire('modules')->getModuleConfigData('ProcessProfile'); 
-		$data['profileFields'][] = 'admin_theme';
-		$this->wire('modules')->saveModuleConfigData('ProcessProfile', $data); 
-
-		$this->message($this->_('Installed field "admin_theme" and added to user profile settings.')); 
-		$this->message($toUseNote); 
+		if($field && $field->id) {
+			/** @var Fieldgroup $fieldgroup */
+			$fieldgroup = $this->wire('fieldgroups')->get('user');
+			if(!$fieldgroup->hasField($field)) {
+				$fieldgroup->add($field);
+				$fieldgroup->save();
+				$this->message($this->_('Installed field "admin_theme" and added to user profile settings.'));
+				$this->message($toUseNote);
+			}
+			// make this field one that the user is allowed to configure in their profile
+			$data = $this->wire('modules')->getModuleConfigData('ProcessProfile');
+			$data['profileFields'][] = 'admin_theme';
+			$this->wire('modules')->saveModuleConfigData('ProcessProfile', $data); 
+		}
 	}
 
 	/**

@@ -274,6 +274,7 @@ var ProcessWireAdmin = {
 				var setupDropdownHover = false;
 				var $itemsIcon = $a.children('.pw-has-items-icon');
 				$itemsIcon.removeClass('fa-angle-right').addClass('fa-spinner fa-spin');
+				$ul.css('opacity', 0);
 
 				$.getJSON(url, function(data) {
 					$itemsIcon.removeClass('fa-spinner fa-spin').addClass('fa-angle-right');
@@ -308,9 +309,10 @@ var ProcessWireAdmin = {
 						}
 						$ul.append($li);
 					});
+					
 
-					$ul.addClass('navJSON')
-					$ul.addClass('length' + parseInt(data.list.length));
+					$ul.addClass('navJSON').addClass('length' + parseInt(data.list.length)).hide();
+					if($ul.children().length) $ul.css('opacity', 1.0).fadeIn('fast');
 
 					// trigger the first call
 					hoverDropdownAjaxItem($a);

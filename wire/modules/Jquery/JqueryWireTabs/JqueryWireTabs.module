@@ -6,6 +6,8 @@
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  * 
+ * @property int $rememberTabs
+ * 
  */
 
 class JqueryWireTabs extends ModuleJS implements ConfigurableModule { 
@@ -26,10 +28,31 @@ class JqueryWireTabs extends ModuleJS implements ConfigurableModule {
 	// extending this class causes the class named JS and CSS files to automatically be loaded
 
 	public function init() {
-		parent::init();
-		wire('config')->js('JqueryWireTabs', array(
+		
+		$defaults = array(
+			'ulClass' => 'WireTabs nav',
+			'ulAttrs' => '',
+			'liActiveClass' => '',
+			'aActiveClass' => 'on',
 			'rememberTabs' => (int) $this->rememberTabs,
-			)); 
+			'loadStyles' => true, 
+			'cookieName' => 'WireTabs',
+		);
+	
+		$className = 'JqueryWireTabs';
+		$settings = $this->wire('config')->get($className); 
+		
+		if(is_array($settings)) {
+			$settings = array_merge($defaults, $settings);
+		} else {
+			$settings = $defaults;
+		}
+		
+		$this->loadStyles = $settings['loadStyles'];
+		
+		$this->wire('config')->js($className, $settings);
+		
+		parent::init();
 	}
 
 	public function getModuleConfigInputfields(array $data) {
@@ -54,12 +77,15 @@ class JqueryWireTabs extends ModuleJS implements ConfigurableModule {
 	 * 
 	 */
 	public function renderTabList(array $tabs, array $options = array()) {
+		$settings = $this->wire('config')->get('JqueryWireTabs');
 		$defaults = array(
-			'class' => 'WireTabs nav',
+			'class' => isset($options['class']) ? $options['class'] : $settings['ulClass'],
 			'id' => '', 
 		);
 		$options = array_merge($defaults, $options); 
-		$out = "<ul class='$options[class]'" . ($options['id'] ? " id='$options[id]'" : "") . ">";
+		$attrs = "class='$options[class]'" . ($options['id'] ? " id='$options[id]'" : "");
+		if(!empty($settings['ulAttrs'])) $attrs .= " $settings[ulAttrs]";
+		$out = "<ul $attrs>";
 		
 		foreach($tabs as $tabID => $title) {
 			//$title = $this->wire('sanitizer')->entities1($title);

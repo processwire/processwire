@@ -93,6 +93,14 @@ $(document).ready(function() {
 
 			// URL where page move's should be posted
 			ajaxMoveURL: ProcessWire.config.urls.admin + 'page/sort/',
+		
+			// classes for pagination
+			paginationClass: 'PageListPagination',
+			paginationCurrentClass: 'PageListPaginationCurrent',
+			paginationLinkClass: 'ui-state-default',
+			paginationLinkCurrentClass: 'ui-state-active',
+			paginationHoverClass: 'ui-state-hover',
+			paginationDisabledClass: 'ui-priority-secondary',
 
 			// pagination number that you want to open (to correspond with openPageIDs)
 			openPagination: 0, 
@@ -355,7 +363,7 @@ $(document).ready(function() {
 
 				if(firstPagination < 0) firstPagination = 0;
 
-				var $list = $("<ul></ul>").addClass("PageListPagination").data('paginationInfo', {
+				var $list = $("<ul></ul>").addClass(options.paginationClass).data('paginationInfo', {
 					start: start,
 					limit: limit,
 					total: total
@@ -368,14 +376,14 @@ $(document).ready(function() {
 				 *
 				 */
 				var paginationClick = function(e) {
-					var $curList = $(this).parents("ul.PageListPagination");
+					var $curList = $(this).parents("ul." + options.paginationClass);
 					var info = $curList.data('paginationInfo'); 
 					if(!info) return false;
 					var start = parseInt($(this).attr('href')) * info.limit;
 					if(start === NaN) start = 0;
 					var $newList = getPaginationList(id, start, info.limit, info.total);
 					var $spinner = $(options.spinnerMarkup);
-					var $loading = $("<li>&nbsp;</li>").append($spinner.hide());
+					var $loading = $("<li>&nbsp;</li>").addClass(options.paginationDisabledClass).append($spinner.hide());
 					$curList.siblings(".PageList").remove(); // remove any open lists below current
 					$curList.replaceWith($newList); 
 					$newList.append($loading); 
@@ -396,22 +404,25 @@ $(document).ready(function() {
 	
 				for(var pagination = firstPagination, cnt = 0; pagination < numPaginations; pagination++, cnt++) {
 
-					var $a = $("<a></a>").html(pagination+1).attr('href', pagination).addClass('ui-state-default'); 
-					var $item = $("<li></li>").addClass('PageListPagination' + cnt).append($a); // .addClass('ui-state-default');
+					var $a = $("<a></a>").html(pagination+1).attr('href', pagination).addClass(options.paginationLinkClass); 
+					var $item = $("<li></li>").addClass(options.paginationClass + cnt).append($a); // .addClass('ui-state-default');
 
 					if(pagination == curPagination) {
 						//$item.addClass("PageListPaginationCurrent ui-state-focus"); 
-						$item.addClass("PageListPaginationCurrent").find("a").removeClass('ui-state-default').addClass("ui-state-active"); 
+						$item.addClass(options.paginationCurrentClass).find("a")
+							.removeClass(options.paginationLinkClass)
+							.addClass(options.paginationLinkCurrentClass); 
 					}
 
 					$list.append($item); 
 
 					if(!$blankItem) {
-						$blankItem = $item.clone().removeClass('PageListPaginationCurrent ui-state-active'); 
-						$blankItem.find('a').removeClass('ui-state-active').addClass('ui-state-default');  
+						$blankItem = $item.clone().removeClass(options.paginationCurrentClass + ' ' + options.paginationLinkCurrentClass); 
+						$blankItem.find('a').removeClass(options.paginationLinkCurrentClass).addClass(options.paginationLinkClass);  
 					}
 					// if(!$blankItem) $blankItem = $item.clone().removeClass('PageListPaginationCurrent').find('a').removeClass('ui-state-focus').addClass('ui-state-default'); 
-					if(!$separator) $separator = $blankItem.clone().removeClass('ui-state-default').html("&hellip;"); 
+					if(!$separator) $separator = $blankItem.clone().removeClass(options.paginationLinkClass)
+						.addClass(options.paginationDisabledClass).html("&hellip;"); 
 					//if(!$separator) $separator = $blankItem.clone().html("&hellip;"); 
 
 					if(cnt >= maxPaginationLinks && pagination < numPaginations) {
@@ -444,9 +455,9 @@ $(document).ready(function() {
 
 				$list.find("a").click(paginationClick)
 					.hover(function() { 
-						$(this).addClass('ui-state-hover'); 
+						$(this).addClass(options.paginationHoverClass); 
 					}, function() { 
-						$(this).removeClass("ui-state-hover"); 
+						$(this).removeClass(options.paginationHoverClass); 
 					}); 
 
 				return $list;
