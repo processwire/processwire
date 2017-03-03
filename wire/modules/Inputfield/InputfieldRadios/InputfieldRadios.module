@@ -67,6 +67,7 @@ class InputfieldRadios extends InputfieldSelect {
 			$label = $this->entityEncode($label, Inputfield::textFormatBasic);
 			$label = str_replace('!wbr!', '<wbr>', $label);
 			$label = "<span class='$textClass'>$label</span>";
+			$class = trim($this->wire('sanitizer')->entities($this->attr('class')));
 
 			$out .= 
 				"<li$liAttr><label$attrs>" . 
@@ -74,6 +75,7 @@ class InputfieldRadios extends InputfieldSelect {
 				"type='radio' " . 
 				"name='{$this->name}' " . 
 				"id='$id' " .
+				"class='$class' " . 
 				"value='" . htmlspecialchars($key, ENT_QUOTES) . "' />" . 
 				"<span class='$textClass'>$label</span>" . 
 				"</label></li>";

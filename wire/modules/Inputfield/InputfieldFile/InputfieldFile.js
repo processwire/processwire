@@ -399,18 +399,27 @@ $(document).ready(function() {
 				this.value = '';
 			}, false);
 
-			dropArea.addEventListener("dragleave", function() { $(this).removeClass('ui-state-hover'); }, false);
-			dropArea.addEventListener("dragenter", function() { $(this).addClass('ui-state-hover'); }, false);
+			dropArea.addEventListener("dragleave", function() { 
+				$(this).removeClass('ui-state-hover'); 
+				$(this).closest('.Inputfield').removeClass('pw-drag-in-file'); 
+			}, false);
+			dropArea.addEventListener("dragenter", function() { 
+				$(this).addClass('ui-state-hover'); 
+				$(this).closest('.Inputfield').addClass('pw-drag-in-file InputfieldStateConfirmLeave');
+			}, false);
 
 			dropArea.addEventListener("dragover", function (evt) {
-				if(!$(this).is('ui-state-hover')) $(this).addClass('ui-state-hover'); 
+				if(!$(this).is('ui-state-hover')) {
+					$(this).addClass('ui-state-hover');
+					$(this).closest('.Inputfield').addClass('pw-drag-in-file');
+				}
 				evt.preventDefault();
 				evt.stopPropagation();
 			}, false);
 			
 			dropArea.addEventListener("drop", function (evt) {
 				traverseFiles(evt.dataTransfer.files);
-				$(this).removeClass("ui-state-hover");
+				$(this).removeClass("ui-state-hover").closest('.Inputfield').removeClass('pw-drag-in-file InputfieldStateConfirmLeave');
 				evt.preventDefault();
 				evt.stopPropagation();
 			}, false);		

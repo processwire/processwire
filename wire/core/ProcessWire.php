@@ -45,7 +45,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 53;
+	const versionRevision = 54;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -282,7 +282,7 @@ class ProcessWire extends Wire {
 		if($config->useFunctionsAPI) {
 			$file = $config->paths->core . 'FunctionsAPI.php';
 			/** @noinspection PhpIncludeInspection */
-			include($file);
+			include_once($file);
 		}
 		
 

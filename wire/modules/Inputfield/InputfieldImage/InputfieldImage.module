@@ -80,7 +80,6 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 */
 	protected $modalClass = 'pw-modal-large';
 	
-	protected $themeSettings = array();
 
 	public function init() {
 		parent::init();
@@ -126,15 +125,15 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			'na' => $this->_('N/A'), // for JS
 			'changes' => $this->_('This images field may have unsaved changes that could be lost after this action. Please save before cropping, or double-click the button proceed anyway.'),
 		));
-	
+
 		$themeDefaults = array(
-			'error' => "<span class='ui-state-error-text'>{out}</span>",
+			// 'error' => "<span class='ui-state-error-text'>{out}</span>", // provided by InputfieldFile
 			'buttonClass' => "ui-button ui-corner-all ui-state-default",
 			'buttonText' => "<span class='ui-button-text'>{out}</span>", 
 		);
 		$themeSettings = $this->wire('config')->InputfieldImage;
-		$this->themeSettings = is_array($themeSettings) ? array_merge($themeDefaults, $themeSettings) : $themeDefaults;
-		
+		$themeSettings = is_array($themeSettings) ? array_merge($themeDefaults, $themeSettings) : $themeDefaults;
+		$this->themeSettings = array_merge($this->themeSettings, $themeSettings);
 	}
 
 	/**

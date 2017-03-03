@@ -144,8 +144,14 @@
 				var $oldTab = $tabList.find("a." + aActiveClass);
 				var $newTab = $(this);
 				
-				var $oldTabContent = $($oldTab.attr('href'));
-				var $newTabContent = $($newTab.attr('href'));
+				if(!$oldTab.length) $oldTab = $tabList.find("a:eq(0)");
+				
+				
+				var oldTabHref = $oldTab.attr('href');
+				var newTabHref = $newTab.attr('href');
+			
+				var $oldTabContent = oldTabHref && oldTabHref.indexOf('#') === 0 ? $(oldTabHref) : null;
+				var $newTabContent = newTabHref && newTabHref.indexOf('#') === 0 ? $(newTabHref) : null;
 				
 				var newTabID = $newTab.attr('id'); 
 				var oldTabID = $oldTab.attr('id');
@@ -158,8 +164,13 @@
 					$newTab.closest('li').addClass(liActiveClass);
 				}
 				
-				$oldTabContent.hide();
-				$newTabContent.show();
+				if($oldTabContent) $oldTabContent.hide();
+				if($newTabContent) {
+					$newTabContent.show();
+				} else if(newTabHref && newTabHref.length) {
+					window.location.href = newTabHref;
+					return true;
+				}
 				
 				// add a target classname equal to the ID of the selected tab
 				// so there is opportunity for 3rd party CSS adjustments outside this plugin

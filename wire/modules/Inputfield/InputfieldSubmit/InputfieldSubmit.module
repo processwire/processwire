@@ -7,8 +7,9 @@
  * https://processwire.com
  * License: MPL 2.0
  * 
- * @property bool $header Whether or not button will also appear in header. 
- * @property bool $secondary Whether or not button is secondary.
+ * @property bool $header Whether or not button will also appear in header (default=false). 
+ * @property bool $secondary Whether or not button is secondary (default=false). 
+ * @property bool $small Whether or not button should be small, where supported (default=false). 
  * @property string $dropdownInputName #pw-internal
  *
  */
@@ -42,6 +43,7 @@ class InputfieldSubmit extends Inputfield {
 		$this->attr('value', $this->_('Submit')); // Standard submit button label
 		$this->attr('class', 'ui-button ui-widget ui-state-default ui-corner-all');
 		$this->skipLabel = Inputfield::skipLabelBlank; 
+		$this->set('small', false);
 		
 		// name of 'hidden' input that will receive the clicked dropdown item value
 		$this->set('dropdownInputName', '_action_value');
@@ -95,6 +97,21 @@ class InputfieldSubmit extends Inputfield {
 		}
 		return $this;
 	}
+	
+	/**
+	 * Make this button small?
+	 * 
+	 * By default, buttons are regular size. This makes them small.
+	 * Supported only for non-dropdown, non-header buttons. 
+	 *
+	 * @param bool $small Default=true
+	 * @return $this
+	 *
+	 */
+	public function setSmall($small = true) {
+		$this->set('small', $small ? true : false);
+		return $this;
+	}
 
 	/**
 	 * Render ready
@@ -111,6 +128,9 @@ class InputfieldSubmit extends Inputfield {
 			$class = str_replace('head_button_clone', 'pw-head-button', $class);
 			$this->attr('class', $class);
 		}
+		if($this->getSetting('small')) {
+			$this->addClass('InputfieldSubmitSmall', 'wrapClass');
+		}
 		return parent::renderReady($parent, $renderValueMode);
 	}
 
@@ -126,6 +146,7 @@ class InputfieldSubmit extends Inputfield {
 		$icon = $icon ? "<i class='fa fa-$icon'></i> " : '';
 		$value = $this->entityEncode($this->attr('value'));
 		$out = "<button $attrs><span class='ui-button-text'>$icon$value</span></button>";
+		if($this->getSetting('small')) $out = "<small>$out</small>";
 		if(count($this->dropdownItems)) $out .= $this->renderDropdown();
 		return $out; 
 	}

@@ -84,6 +84,7 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 			'aClass' => '',
 			'loadStyles' => true,
 			'loadScripts' => true,
+			'tabField' => $this->get('tabField'),
 		);
 
 		$settings = $this->wire('config')->get('LanguageTabs');

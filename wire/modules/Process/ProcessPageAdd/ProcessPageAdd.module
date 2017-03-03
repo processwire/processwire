@@ -634,6 +634,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 					$inputfield = $field->getInputfield($page);
 					if($inputfield) {
 						if($this->template && $this->template->noLang) $inputfield->useLanguages = false;
+						$inputfield->columnWidth = 100;
 						$form->append($inputfield);
 					}
 					break;
@@ -646,6 +647,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 					// skip it
 				} else {
 					$inputfield = $field->getInputfield($page);
+					$inputfield->columnWidth = 100;
 					if($inputfield) $form->append($inputfield);
 				}
 			}

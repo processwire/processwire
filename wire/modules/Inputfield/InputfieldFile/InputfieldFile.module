@@ -80,6 +80,14 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	protected $isAjax = false;
 
 	/**
+	 * Admin theme specific settings
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $themeSettings = array();
+
+	/**
 	 * Commonly used text labels, translated, indexed by label name
 	 * 
 	 * @var array
@@ -142,6 +150,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$this->uploadOnlyMode = (int) $this->wire('input')->get('uploadOnlyMode');
 		$this->addClass('InputfieldItemList', 'wrapClass');
 		$this->addClass('InputfieldHasFileList', 'wrapClass');
+
+		$themeDefaults = array(
+			'error' => "<span class='ui-state-error-text'>{out}</span>",
+		);
+		$themeSettings = $this->wire('config')->InputfieldFile;
+		$this->themeSettings = is_array($themeSettings) ? array_merge($themeDefaults, $themeSettings) : $themeDefaults;
 	}
 	
 	public function get($key) {
@@ -209,6 +223,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$out = '';
 		$tabs = '';
 		static $hasLangTabs = null;
+		static $langTabSettings = array();
 
 		if($this->renderValueMode) {
 			if($this->wire('languages')) {
@@ -231,7 +246,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				$languages = array(null);
 			} else {
 				$numLanguages = $languages->count();
-				if(is_null($hasLangTabs)) $hasLangTabs = $this->wire('modules')->isInstalled('LanguageTabs');
+				if(is_null($hasLangTabs)) {
+					$hasLangTabs = $this->wire('modules')->isInstalled('LanguageTabs');
+					if($hasLangTabs) {
+						$langTabSettings = $this->wire('modules')->getModule('LanguageTabs')->getSettings();
+					}
+				}
 			}
 
 			foreach($languages as $language) {
@@ -241,7 +261,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				$labelClass = "detail";
 
 				if($language) {
-					$descriptionFieldLabel = (string) $language->getUnformatted('title');
+					$tabField = empty($langTabSettings['tabField']) ? 'title' : $langTabSettings['tabField'];
+					$descriptionFieldLabel = (string) $language->getUnformatted($tabField);
 					if(empty($descriptionFieldLabel)) $descriptionFieldLabel = $language->get('name');
 					$descriptionFieldLabel = $this->wire('sanitizer')->entities($descriptionFieldLabel);
 					if(!$language->isDefault()) $descriptionFieldName = "description{$language->id}_$id";
@@ -251,7 +272,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 						$descriptionFieldLabel = "<s>$descriptionFieldLabel</s>";
 					}
 					$tabID = "langTab_{$id}__$language";
-					$tabs .= "<li><a data-lang='$language' class='langTab$language' href='#$tabID'>$descriptionFieldLabel</a></li>";
+					$aClass = "langTab$language";
+					if(!empty($langTabSettings['aClass'])) $aClass .= " " . $langTabSettings['aClass'];
+					$tabs .= "<li><a data-lang='$language' class='$aClass' href='#$tabID'>$descriptionFieldLabel</a></li>";
 					$out .= "<div class='InputfieldFileDescription LanguageSupport' data-language='$language' id='$tabID'>"; // open wrapper
 				} else {
 					$out .= "<div class='InputfieldFileDescription'>"; // open wrapper
@@ -271,7 +294,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			}
 			
 			if($numLanguages && $hasLangTabs) {
-				$out = "<div class='hasLangTabs langTabsContainer'><div class='langTabs'><ul>$tabs</ul>$out</div></div>";
+				$ulClass = empty($langTabSettings['ulClass']) ? '' : " class='$langTabSettings[ulClass]'";
+				$ulAttr = empty($langTabSettings['ulAttrs']) ? '' : " $langTabSettings[ulAttrs]";
+				$out = "<div class='hasLangTabs langTabsContainer'><div class='langTabs'><ul $ulAttr$ulClass>$tabs</ul>$out</div></div>";
 				if($this->isAjax) $out .= "<script>setupLanguageTabs($('#wrap_" . $this->attr('id') . "'));</script>";
 			}
 
@@ -328,7 +353,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	
 		$out = 
 			"<p class='InputfieldFileInfo InputfieldItemHeader ui-state-default ui-widget-header'>" . 
-			wireIconMarkupFile($pagefile->basename, "fa-fw HideIfEmpty") . 
+			wireIconMarkupFile($pagefile->basename, "fa-fw HideIfEmpty") . '&nbsp;' . 
 			"<a class='InputfieldFileName' title='$pagefile->basename' target='_blank' href='{$pagefile->url}'>$displayName</a> " . 
 			"<span class='InputfieldFileStats'>" . str_replace(' ', '&nbsp;', $pagefile->filesizeStr) . "</span> ";
 		
@@ -443,7 +468,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		if(!$this->noAjax) $out .= "
 				<span class='AjaxUploadDropHere description'>
 					<span>
-						<i class='fa fa-upload'></i>&nbsp;$dragDropLabel
+						<i class='fa fa-cloud-upload'></i>&nbsp;$dragDropLabel
 					</span>
 				</span>
 			";	

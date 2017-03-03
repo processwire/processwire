@@ -4,7 +4,7 @@
 	margin-bottom: 1em; 
 }
 
-#columnWidthSlider {
+.InputfieldColumnWidthSlider {
 	float: left;
 	width: 70%; 
 	position: relative;

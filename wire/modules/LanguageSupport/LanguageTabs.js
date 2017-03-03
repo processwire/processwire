@@ -39,7 +39,7 @@ function setupLanguageTabs($form) {
 		else $langTabs = $form.find('.langTabs');
 	$langTabs.each(function() {
 		var $this = $(this);
-		if($this.hasClass('langTabsInit')) return;
+		if($this.hasClass('langTabsInit') || $this.hasClass('ui-tabs')) return;
 		var $inputfield = $this.closest('.Inputfield');
 		var $content = $inputfield.children('.InputfieldContent'); 
 		if(!$content.hasClass('langTabsContainer')) {
