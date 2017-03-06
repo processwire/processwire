@@ -490,7 +490,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$out .= "</ul>";
 		}
 
-		if($viewable) {
+		if($viewable && !count($this->fields)) {
 			// this supports code in the buildFormView() method
 			$out .= "<ul id='_ProcessPageEditViewDropdown' class='pw-dropdown-menu pw-dropdown-menu-rounded' data-my='left top' data-at='left top-9'>";
 			foreach($this->getViewActions() as $name => $action) {

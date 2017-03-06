@@ -47,7 +47,8 @@
   line-height: 14px;
   display: none; }
 
-button.ui-datepicker-trigger {
+button.ui-datepicker-trigger,
+a.pw-ui-datepicker-trigger {
   /* tweak to datepicker trigger */
   margin: 0 0 0 0.5em; }
 

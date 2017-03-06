@@ -34,7 +34,7 @@ class InputfieldDatetime extends Inputfield {
 		return array(
 			'title' => __('Datetime', __FILE__), // Module Title
 			'summary' => __('Inputfield that accepts date and optionally time', __FILE__), // Module Summary
-			'version' => 105,
+			'version' => 106,
 			'permanent' => true, 
 			);
 	}
