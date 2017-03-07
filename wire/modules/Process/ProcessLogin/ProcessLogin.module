@@ -337,13 +337,27 @@ class ProcessLogin extends Process {
 
 		// warning about servers with locales that break UTF-8 strings called by basename
 		// and other file functions, due to a long running PHP bug 
-		if(basename("§") === "") { 
-			$s = stripos(PHP_OS, 'WIN') === 0 ? 'en-US' : 'en_US.UTF-8';
-			$this->warning(
-				$this->_('Warning: your server locale is undefined and may cause issues.') . ' ' . 
-				sprintf($this->_('Please add this to /site/config.php file (adjust “%s” as needed):'), $s) . ' ' . 
-				"setlocale(LC_ALL,'$s');"
-			);
+		if(basename("§") === "") {
+			$example = stripos(PHP_OS, 'WIN') === 0 ? 'en-US' : 'en_US.UTF-8';
+			$msg = $this->_('Warning: your server locale is undefined and may cause issues.') . ' ';
+			if($this->wire('modules')->isInstalled('LanguageSupport')) {
+				$msg .= sprintf($this->_('Please translate the “C” locale setting for each language to the proper locale in %s'),
+					'<u>/wire/modules/LanguageSupport/LanguageSupport.module</u> (shortcuts provided below):');
+				foreach($this->wire('languages') as $language) {
+					$url = $this->wire('config')->urls->admin . "setup/language-translator/edit/?language_id=$language->id&" . 
+						"textdomain=wire--modules--languagesupport--languagesupport-module&" . 
+						"filename=wire/modules/LanguageSupport/LanguageSupport.module";
+					$msg .= "<br />• <a target='_blank' href='$url'>" . $language->get('title|name') . "</a>";
+				}
+				$msg .= "<br /><small>" . 
+					sprintf($this->_('For example, the locale setting for US English might be: %s'), "<strong>$example</strong>") . 
+					"</small>";
+				$this->warning($msg, Notice::allowMarkup);
+			} else {
+				$msg .= sprintf($this->_('Please add this to /site/config.php file (adjust “%s” as needed):'), $example) . ' ' .
+					"setlocale(LC_ALL,'$example');";
+				$this->warning($msg);
+			}
 		}
 
 	}
