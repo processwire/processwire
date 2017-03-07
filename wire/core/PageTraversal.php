@@ -489,6 +489,7 @@ class PageTraversal {
 	public function urlOptions(Page $page, $options = array()) {
 
 		$config = $page->wire('config');
+		$template = $page->template;
 
 		$defaults = array(
 			'http' => is_bool($options) ? $options : false,
@@ -499,10 +500,13 @@ class PageTraversal {
 			'language' => is_object($options) && $options instanceof Page && $options->className() === 'Language' ? $options : null,
 		);
 
-		if(empty($options)) return rtrim($config->urls->root, '/') . $page->path();
+		if(empty($options)) {
+			$url = rtrim($config->urls->root, '/') . $page->path();
+			if($template->slashUrls === 0 && $page->id > 1) $url = rtrim($url, '/');
+			return $url;
+		}
 
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
-		$template = $page->template;
 		$sanitizer = $page->wire('sanitizer');
 		$language = null;
 		$url = null;
