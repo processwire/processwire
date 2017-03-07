@@ -649,7 +649,7 @@ class ProcessModule extends Process {
 			if($summary) $summary = "<p class='module-summary'>$summary</p>";
 			$buttons = '';
 			$confirmDeleteJS = "return confirm('" . sprintf($this->_('Delete %s?'), $name) . "')";
-			$confirmInstallJS = "return confirm('" . sprintf($this->_('Installing may cause problems. Are you sure you want to install?'), $name) . "')";
+			$confirmInstallJS = "return confirm('" . sprintf($this->_('Module requirements are not fulfilled so installing may cause problems. Are you sure you want to install?'), $name) . "')";
 			$editUrl = "edit?name={$name}";
 
 			if(!$installed) {

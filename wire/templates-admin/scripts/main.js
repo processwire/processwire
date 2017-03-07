@@ -386,15 +386,18 @@ var ProcessWireAdmin = {
 
 if(typeof ProcessWire != "undefined") {
 	ProcessWire.confirm = function(message, func) {
-		if(typeof vex != "undefined") {
+		if(typeof vex != "undefined" && typeof func != "undefined") {
 			vex.dialog.confirm({
 				message: message,
 				callback: function(v) {
 					if(v) func();
 				}
 			});
-		} else {
+		} else if(typeof func != "undefined") {
 			if(confirm(message)) func();
+		} else {
+			// regular JS confirm behavior
+			return confirm(message);
 		}
 	};
 
