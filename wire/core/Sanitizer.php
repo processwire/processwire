@@ -1839,8 +1839,9 @@ class Sanitizer extends Wire {
 	 * Sanitize a date or date/time string, making sure it is valid, and return it
 	 *
 	 * - If no date $format is specified, date will be returned as a unix timestamp.
-	 * - If given date is invalid or empty, NULL will be returned.
+	 * - If given date in invalid format and can’t be made valid, or date is empty, NULL will be returned.
 	 * - If $value is an integer or string of all numbers, it is always assumed to be a unix timestamp.
+	 * - If $format and “strict” option specified, date will also validate for format and no out-of-bounds values will be converted.
 	 * 
 	 * #pw-group-strings
 	 * #pw-group-numbers
@@ -1852,6 +1853,7 @@ class Sanitizer extends Wire {
 	 *  - `min` (string|int): Minimum allowed date in $format or unix timestamp format. Null is returned when date is less than this.
 	 *  - `max` (string|int): Maximum allowed date in $format or unix timestamp format. Null is returned when date is more than this.
 	 *  - `default` (mixed): Default value to return if no value specified.
+	 *  - `strict` (bool): Force dates that don’t match given $format, or out of bounds, to fail. Requires $format. (default=false)
 	 * @return string|int|null
 	 *
 	 */
@@ -1861,8 +1863,11 @@ class Sanitizer extends Wire {
 			'min' => '', // Minimum date allowed (in $dateFormat format, or a unix timestamp) 
 			'max' => '', // Maximum date allowed (in $dateFormat format, or a unix timestamp)
 			'default' => null, // Default value, if date didn't resolve
+			'strict' => false,
 		);
 		$options = array_merge($defaults, $options);
+		$datetime = $this->wire('datetime');
+		$_value = trim($value); // original value string
 		if(empty($value)) return $options['default'];
 		if(!is_string($value) && !is_int($value)) $value = $this->string($value);
 		if(ctype_digit("$value")) {
@@ -1870,10 +1875,16 @@ class Sanitizer extends Wire {
 			// make sure it resolves to a valid date
 			$value = strtotime(date('Y-m-d H:i:s', (int) $value));
 		} else {
-			$value = strtotime($value);
+			/** @var WireDateTime $datetime */
+			$value = $datetime->stringToTimestamp($value, $format); 
 		}
 		// value is now a unix timestamp
 		if(empty($value)) return null;
+		// if format is provided and in strict mode, validate for the format and bounds
+		if($format && $options['strict']) {
+			$test = $datetime->date($format, $value);
+			if($test !== $_value) return null;
+		}
 		if(!empty($options['min'])) {
 			// if value is less than minimum required, return null/error
 			$min = ctype_digit("$options[min]") ? (int) $options['min'] : (int) wireDate('ts', $options['min']);
