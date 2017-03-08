@@ -29,7 +29,7 @@ if($user->hasPermission('page-edit')) {
 	$searchForm = '';
 }
 
-$version = $adminTheme->version . 'j';
+$version = $adminTheme->version . 'k';
 
 $config->styles->prepend($config->urls->root . "wire/templates-admin/styles/AdminTheme.css?v=$version"); 
 $config->styles->prepend($config->urls->adminTemplates . "styles/" . ($adminTheme->colors ? "main-$adminTheme->colors" : "main-classic") . ".css?v=$version"); 

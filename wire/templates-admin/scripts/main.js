@@ -278,6 +278,11 @@ var ProcessWireAdmin = {
 
 				$.getJSON(url, function(data) {
 					$itemsIcon.removeClass('fa-spinner fa-spin').addClass('fa-angle-right');
+					
+					if(!data.list) {
+						console.log(data);
+						return;
+					}
 
 					// now add new event to monitor menu positions
 					if(!dropdownPositionsMonitored && data.list.length > 10) {
@@ -298,21 +303,55 @@ var ProcessWireAdmin = {
 						);
 						$ul.append($li);
 					}
+					
+					var numSubnavJSON = 0;
+					
 					// populate the retrieved items
 					$.each(data.list, function(n) {
+						
 						var icon = '';
-						if(this.icon) icon = "<i class='ui-priority-secondary fa fa-fw fa-" + this.icon + "'></i>";
-						var url = this.url.indexOf('/') === 0 ? this.url : data.url + this.url;
-						var $li = $("<li class='ui-menu-item'><a href='" + url + "'>" + icon + this.label + "</a></li>");
+						var url = '';
+						
+						if(this.icon) {
+							icon = "<i class='ui-priority-secondary fa fa-fw fa-" + this.icon + "'></i>";
+						}
+						
+						if(this.url == 'navJSON') {
+							// click triggers another navJSON load
+						} else {
+							var url = this.url.indexOf('/') === 0 ? this.url : data.url + this.url;
+						}
+						
+						var $li = $("<li class='ui-menu-item'></li>"); 
+						var $a = $("<a href='" + url + "'>" + icon + this.label + "</a>");
+						var $ulSub = null;
+					
+						if(this.navJSON) {
+							$a.attr('data-json', this.navJSON).addClass('pw-has-items pw-has-ajax-items');
+							$ulSub = $("<ul></ul>").addClass('subnavJSON');
+							var $icon = $("<i class='pw-has-items-icon fa fa-angle-right ui-priority-secondary'></i>");
+							$a.prepend($icon);
+							$li.prepend($a).append($ulSub);
+							numSubnavJSON++;
+						} else {
+							$li.prepend($a);
+						}
+						
 						if(typeof this.className != "undefined" && this.className && this.className.length) {
 							$li.addClass(this.className);
 						}
+						
 						$ul.append($li);
 					});
 					
-
 					$ul.addClass('navJSON').addClass('length' + parseInt(data.list.length)).hide();
 					if($ul.children().length) $ul.css('opacity', 1.0).fadeIn('fast');
+					
+					if(numSubnavJSON) {
+						var numParents = $ul.parents('ul').length;
+						$ul.find('ul.subnavJSON').css('z-index', 200 + numParents);
+						$ul.menu({});
+					}
 
 					// trigger the first call
 					hoverDropdownAjaxItem($a);

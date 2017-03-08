@@ -242,7 +242,16 @@ class ProcessPageList extends Process implements ConfigurableModule {
 				"data-token-value='$tokenValue'>" . 
 			"</div>$script"; 
 	}
-	
+
+	/**
+	 * Get the appropriate PageListRender classs
+	 * 
+	 * @param Page $page
+	 * @param null|int $limit
+	 * @param null|int $start
+	 * @return ProcessPageListRender
+	 * 
+	 */
 	protected function getPageListRender(Page $page, $limit = null, $start = null) {
 		
 		require_once(dirname(__FILE__) . '/ProcessPageListRender.php');
@@ -353,13 +362,104 @@ class ProcessPageList extends Process implements ConfigurableModule {
 
 	/**
 	 * Output JSON list of navigation items for this module's bookmarks
+	 * 
+	 * @param array $options
+	 * @return string|array
 	 *
 	 */
 	public function ___executeNavJSON(array $options = array()) {
-		$bookmarks = $this->getPageBookmarks();
-		$options['edit'] = $this->wire('config')->urls->admin . 'page/?id={id}';
-		$options = $bookmarks->initNavJSON($options);
-		return parent::___executeNavJSON($options);
+		
+		$config = $this->wire('config');
+		$urls = $this->wire('urls');
+		
+		if($this->useBookmarks) {
+			$bookmarks = $this->getPageBookmarks();
+			$options['edit'] = $urls->admin . 'page/?id={id}';
+			$options = $bookmarks->initNavJSON($options);
+			return parent::___executeNavJSON($options);
+		}
+
+		$parentID = (int) $this->wire('input')->get('parent_id');
+		if(!$parentID) $parentID = 1; 
+		$parent = $this->wire('pages')->get($parentID);
+		$parentViewable = $parent->viewable(false);
+		$renderer = $this->getPageListRender($parent);
+		$items = $parentViewable ? $renderer->getChildren() : new PageArray();
+		if($parentID === 1 && $parentViewable) $items->prepend($parent);
+		$skipPageIDs = array($config->trashPageID, $config->adminRootPageID);
+		$maxLabelLength = 40;
+		
+		$data = array(
+			'url' => $urls->admin . 'page/list/navJSON/',
+			'label' => '',
+			'icon' => 'sitemap',
+			'list' => array(),
+		);
+		
+		$data = array_merge($options, $data);
+
+		foreach($items as $page) {
+		
+			$id = $page->id;
+			if(in_array($id, $skipPageIDs)) continue;
+			$url = '';
+			
+			if($page->editable()) {
+				$url = $page->editUrl();
+			} else if($page->viewable()) {
+				$url = $page->url();
+			} else if(!$page->listable()) {
+				continue;
+			}
+			
+			$numChildren = $id > 1 ? $page->numChildren : 0;
+			$label = $renderer->getPageLabel($page, array('noTags' => true));
+			if($page->isUnpublished()) $label = "<s>$label</s>";
+			if(strlen($label) > $maxLabelLength) {
+				$label = substr($label, 0, $maxLabelLength); 
+				$pos = strrpos($label, ' '); 
+				if($pos !== false) $label = substr($label, 0, $pos);
+				$label .= ' &hellip;';
+			}
+			if($numChildren) $label .= " <small>$numChildren</small>";
+			$label .= ' &nbsp; '; 
+			
+			$a = array(
+				'url' => $url,
+				'id' => $id, 
+				'label' => $label, 
+				'icon' => $page->getIcon(),
+			);
+			
+			if($page->id > 1 && $page->numChildren) {
+				$a['navJSON'] = $data['url'] . "?parent_id=$page->id";
+			}
+			
+			$data['list'][] = $a;	
+		}
+		
+		if($items->getTotal() > $items->count()) {
+			$data['list'][] = array(
+				'url' => $urls->admin . "page/?open=$parentID",
+				'label' => $this->_('Show All') . ' ' . 
+					'<small>' . sprintf($this->_('(%d pages)'), $items->getTotal()) . '</small>',
+				'icon' => 'arrow-circle-right',
+				'className' => 'separator',
+			);
+		}
+		
+		if($parent->addable()) {
+			$data['list'][] = array(
+				'url' => $urls->admin . "page/add/?parent_id=$parentID",
+				'label' => __('Add New', '/wire/templates-admin/default.php'),
+				'icon' => 'plus-circle',
+				'className' => 'separator',
+			);
+		}
+		
+		if($config->ajax) header("Content-Type: application/json");
+		
+		return json_encode($data);
 	}
 	
 	public function ___executeOpen() {

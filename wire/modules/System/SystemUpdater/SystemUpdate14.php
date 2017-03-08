@@ -16,7 +16,7 @@ class SystemUpdate14 extends SystemUpdate {
 		$admin = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
 		$info = array(
 			'ProcessPageEdit' => $admin->path . 'page/edit/', 
-			'ProcessPageList' => $admin->path . 'page/list/',
+			// 'ProcessPageList' => $admin->path . 'page/list/',
 		);
 	
 		$numCompleted = 0;
