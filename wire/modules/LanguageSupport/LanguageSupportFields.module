@@ -190,7 +190,7 @@ class LanguageSupportFields extends WireData implements Module {
 	 * Hookable function called when a new language is added 
 	 * 
 	 * @param Page|Language $language
-	 e*
+	 *
 	 */
 	public function ___languageAdded(Page $language) {
 		// hookable, intentionally blank
