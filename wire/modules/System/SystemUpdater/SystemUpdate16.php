@@ -13,14 +13,16 @@ class SystemUpdate16 extends SystemUpdate {
 
 	public function executeAtReady() {
 
-		$admin = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
-		$page = $this->wire('pages')->get($admin->path . 'page/list/');
-		
-		if(!$page->id) return;
-		$page->of(false);
-		$page->removeStatus(Page::statusHidden);
+		$pages = $this->wire('pages');
+		$admin = $pages->get($this->wire('config')->adminRootPageID);
+		$pageList = $pages->get($admin->path . 'page/list/');
+		if(!$pageList->id) return;
+		$pageList->of(false);
+		$pageList->removeStatus(Page::statusHidden);
 		try {
-			$page->save();
+			$pageList->save();
+			$pageAdd = $pages->get($admin->path . 'page/add/');
+			if($pageAdd->id) $pages->insertBefore($pageList, $pageAdd);
 			$this->updater->saveSystemVersion(16);
 		} catch(\Exception $e) {
 			// will try next time

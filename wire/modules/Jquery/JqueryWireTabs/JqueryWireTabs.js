@@ -28,7 +28,7 @@
 		
 		for(var n = 0; n < keys.length; n++) {
 			var key = keys[n];
-			if(cfg[key] != "undefined") options[key] = cfg[key];
+			if(typeof cfg[key] != "undefined") options[key] = cfg[key];
 		}
 		
 		$.extend(options, customOptions);
@@ -93,7 +93,7 @@
 					}
 				}
 				if($rememberTab == null && cookieTab.length > 0 && options.rememberTabs > -1) {
-					$rememberTab = $tabList.find("a#_" + cookieTab);
+					$rememberTab = $tabList.find("a#" + cookieTab);
 				}
 				if($rememberTab && $rememberTab.length > 0) {
 					$rememberTab.click();
