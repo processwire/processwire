@@ -918,6 +918,7 @@ class Sanitizer extends Wire {
 	 * - `maxLength` (int): maximum characters allowed, or 0=no max (default=255).
 	 * - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*4).
 	 * - `stripTags` (bool): strip markup tags? (default=true).
+	 * - `stripMB4` (bool): strip emoji and other 4-byte UTF-8? (default=false). 
 	 * - `allowableTags` (string): markup tags that are allowed, if stripTags is true (use same format as for PHP's `strip_tags()` function.
 	 * - `multiLine` (bool): allow multiple lines? if false, then $newlineReplacement below is applicable (default=false).
 	 * - `newlineReplacement` (string): character to replace newlines with, OR specify boolean TRUE to remove extra lines (default=" ").
@@ -933,6 +934,7 @@ class Sanitizer extends Wire {
 			'maxLength' => 255, // maximum characters allowed, or 0=no max
 			'maxBytes' => 0,  // maximum bytes allowed (0 = default, which is maxLength*4)
 			'stripTags' => true, // strip markup tags
+			'stripMB4' => false, // strip Emoji and 4-byte characters? 
 			'allowableTags' => '', // tags that are allowed, if stripTags is true (use same format as for PHP's strip_tags function)
 			'multiLine' => false, // allow multiple lines? if false, then $newlineReplacement below is applicable
 			'newlineReplacement' => ' ', // character to replace newlines with, OR specify boolean TRUE to remove extra lines
@@ -962,7 +964,9 @@ class Sanitizer extends Wire {
 
 		if($options['stripTags']) $value = strip_tags($value, $options['allowableTags']); 
 
-		if($options['inCharset'] != $options['outCharset']) $value = iconv($options['inCharset'], $options['outCharset'], $value); 
+		if($options['inCharset'] != $options['outCharset']) $value = iconv($options['inCharset'], $options['outCharset'], $value);
+		
+		if($options['stripMB4']) $value = $this->removeMB4($value);
 
 		if($options['maxLength']) {
 			if(empty($options['maxBytes'])) $options['maxBytes'] = $options['maxLength'] * 4;
@@ -1010,6 +1014,7 @@ class Sanitizer extends Wire {
 	 *  - `maxLength` (int): maximum characters allowed, or 0=no max (default=16384 or 16kb).
 	 *  - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*3 or 48kb).
 	 *  - `stripTags` (bool): strip markup tags? (default=true).
+	 *  - `stripMB4` (bool): strip emoji and other 4-byte UTF-8? (default=false). 
 	 *  - `allowableTags` (string): markup tags that are allowed, if stripTags is true (use same format as for PHP's `strip_tags()` function.
 	 *  - `allowCRLF` (bool): allow CR+LF newlines (i.e. "\r\n")? (default=false, which means "\r\n" is replaced with "\n"). 
 	 *  - `inCharset` (string): input character set (default="UTF-8").
@@ -1797,6 +1802,41 @@ class Sanitizer extends Wire {
 	 */
 	function removeNewlines($str, $replacement = ' ') {
 		return str_replace(array("\r\n", "\r", "\n"), $replacement, $str);
+	}
+
+	/**
+	 * Removes 4-byte UTF-8 characters (like emoji) that produce error with with MySQL regular “UTF8” encoding
+	 * 
+	 * Returns the same value type that it is given. If given something other than a string or array, it just
+	 * returns it without modification. 
+	 * 
+	 * @param string|array $value String or array containing strings
+	 * @return string|array|mixed 
+	 * 
+	 */
+	function removeMB4($value) {
+		if(empty($value)) return $value;
+		if(is_array($value)) {
+			// process array recursively, looking for strings to convert
+			foreach($value as $key => $val) {
+				if(empty($val)) continue;
+				if(is_string($val) || is_array($val)) $value[$key] = $this->removeMB4($val);
+			}
+		} else if(is_string($value)) {
+			if(strlen($value) > 3 && max(array_map('ord', str_split($value))) >= 240) {
+				// string contains 4-byte characters
+				$regex =
+					'!(?:' .
+					'\xF0[\x90-\xBF][\x80-\xBF]{2}' .
+					'|[\xF1-\xF3][\x80-\xBF]{3}' .
+					'|\xF4[\x80-\x8F][\x80-\xBF]{2}' .
+					')!s';
+				$value = preg_replace($regex, '', $value);
+			}
+		} else {
+			// not a string or an array, leave as-is
+		}
+		return $value;
 	}
 
 	/**

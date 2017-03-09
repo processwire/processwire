@@ -912,6 +912,17 @@ $config->dbSocket = '';
  */
 $config->dbQueryLogMax = 500;
 
+/**
+ * Remove 4-byte characters (like emoji) when dbEngine is not utf8mb4?
+ * 
+ * When charset is not “utf8mb4” and this value is true, 4-byte UTF-8 characters are stripped
+ * out of inserted values when possible. Note that this can add some overhead to INSERTs. 
+ * 
+ * @var bool
+ * 
+ */
+$config->dbStripMB4 = false;
+
 
 
 /*** 8. MODULES *********************************************************************************/

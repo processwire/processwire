@@ -38,6 +38,11 @@ class PagesEditor extends Wire {
 	
 	public function __construct(Pages $pages) {
 		$this->pages = $pages;
+
+		$config = $pages->wire('config');
+		if($config->dbStripMB4 && strtolower($config->dbEngine) != 'utf8mb4') {
+			$this->addHookAfter('Fieldtype::sleepValue', $this, 'hookFieldtypeSleepValueStripMB4');
+		}
 	}
 	
 	public function isCloning() {
@@ -1383,5 +1388,17 @@ class PagesEditor extends Wire {
 		$query->execute();
 		
 		return count($sorts);
+	}
+
+	/**
+	 * Hook after Fieldtype::sleepValue to remove MB4 characters when present and applicable
+	 * 
+	 * This hook is only used if $config->dbStripMB4 is true and $config->dbEngine is not “utf8mb4”. 
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	protected function hookFieldtypeSleepValueStripMB4(HookEvent $event) {
+		$event->return = $this->wire('sanitizer')->removeMB4($event->return); 
 	}
 }
