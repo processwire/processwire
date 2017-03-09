@@ -298,6 +298,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$cnt = 0;
 		$numVisible = 0;
 		$numOpen = 0;
+		$isPost = $this->wire('input')->requestMethod('POST');
 		
 		// create field for each repeater iteration	
 		foreach($value as $key => $page) {
@@ -357,10 +358,14 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$wrap = $this->wire('modules')->get('InputfieldFieldset'); 
 			$wrap->addClass('InputfieldRepeaterItem InputfieldNoFocus');
 			$wrap->entityEncodeLabel = false;
-			$wrap->label = 
-				"<span class='InputfieldRepeaterItemLabel'>" . 
-				$this->entityEncode($this->renderRepeaterLabel($label, ++$cnt, $page)) . 
-				"</span>";
+			if(!$isPost) {
+				$wrap->label =
+					"<span class='InputfieldRepeaterItemLabel'>" .
+					$this->entityEncode($this->renderRepeaterLabel($label, ++$cnt, $page)) .
+					"</span>";
+			} else {
+				$wrap->label = "$label " . (++$cnt);
+			}
 			$wrap->name = "repeater_item_{$page->id}";
 			$wrap->wrapAttr('data-page', $page->id);
 			$wrap->wrapAttr('data-type', $this->getRepeaterItemType($page));
