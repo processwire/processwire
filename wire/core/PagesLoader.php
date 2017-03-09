@@ -668,9 +668,16 @@ class PagesLoader extends Wire {
 					$class = 'Page';
 				}
 			}
-			if($class != 'Page' && !wireClassExists($class)) {
-				$this->error("Class '$class' for Pages::getById() does not exist", Notice::log);
-				$class = 'Page';
+
+			$_class = wireClassName($class, true);
+			if($class != 'Page' && !wireClassExists($_class)) {
+				if(class_exists("\\$class")) {
+					$_class = "\\$class";
+				} else {
+					$this->error("Class '$class' for Pages::getById() does not exist", Notice::log);
+					$class = 'Page';
+					$_class = wireClassName($class, true);
+				}
 			}
 		
 			// page to populate, if provided in 'getOne' mode
@@ -678,7 +685,6 @@ class PagesLoader extends Wire {
 			$_page = $options['getOne'] && $options['page'] && $options['page'] instanceof Page ? $options['page'] : null;
 
 			try {
-				$_class = wireClassName($class, true);
 				// while($page = $stmt->fetchObject($_class, array($template))) {
 				/** @noinspection PhpAssignmentInConditionInspection */
 				while($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
