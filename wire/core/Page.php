@@ -2494,7 +2494,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *   making the return value the same as the `Page::hasChildren()` method. 
 	 * 
 	 * - When output formatting is off, returns number of all children without exclusion,
-	 *   making the return value teh same as the `Page::numChildren()` method. 
+	 *   making the return value the same as the `Page::numChildren()` method. 
 	 * 
 	 * ~~~~~
 	 * // Get number of visible children, like $page->hasChildren()
