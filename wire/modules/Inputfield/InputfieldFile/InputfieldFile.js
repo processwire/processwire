@@ -405,7 +405,7 @@ $(document).ready(function() {
 			}, false);
 			dropArea.addEventListener("dragenter", function() { 
 				$(this).addClass('ui-state-hover'); 
-				$(this).closest('.Inputfield').addClass('pw-drag-in-file InputfieldStateConfirmLeave');
+				$(this).closest('.Inputfield').addClass('pw-drag-in-file');
 			}, false);
 
 			dropArea.addEventListener("dragover", function (evt) {
@@ -419,7 +419,7 @@ $(document).ready(function() {
 			
 			dropArea.addEventListener("drop", function (evt) {
 				traverseFiles(evt.dataTransfer.files);
-				$(this).removeClass("ui-state-hover").closest('.Inputfield').removeClass('pw-drag-in-file InputfieldStateConfirmLeave');
+				$(this).removeClass("ui-state-hover").closest('.Inputfield').removeClass('pw-drag-in-file');
 				evt.preventDefault();
 				evt.stopPropagation();
 			}, false);		

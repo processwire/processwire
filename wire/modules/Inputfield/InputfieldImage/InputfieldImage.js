@@ -1176,7 +1176,7 @@ function InputfieldImage($) {
 				function dragStart() {
 					if($inputfield.hasClass('pw-drag-in-file')) return;
 					$el.addClass('ui-state-hover');
-					$inputfield.addClass('pw-drag-in-file InputfieldStateConfirmLeave');
+					$inputfield.addClass('pw-drag-in-file');
 				}
 				
 				function dragStop() {

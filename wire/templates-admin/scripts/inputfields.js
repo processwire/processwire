@@ -900,7 +900,6 @@ function InputfieldColumnWidths($target) {
  */
 function InputfieldFormBeforeUnloadEvent(e) {
 	var $changes = $(".InputfieldFormConfirm:not(.InputfieldFormSubmitted) .InputfieldStateChanged");
-	if($changes.length == 0) $changes = $('.InputfieldStateConfirmLeave');
 	if($changes.length == 0) return;
 	var msg = $('.InputfieldFormConfirm:eq(0)').attr('data-confirm') + "\n";
 	$changes.each(function() {
@@ -1217,7 +1216,21 @@ function InputfieldIntentions() {
 			// allow submissions again once they are out of the field
 			$form.removeClass('nosubmit');
 		}); 
-	}); 
+	});
+
+	// prevent dragged in files from loading in the browser (does not interfere with other drag/drop handlers)
+	if($("input[type=file]").length) {
+		$(document).on({
+			dragover: function() {
+				if($(this).is("input[type=file]")) return;
+				return false;
+			},
+			drop: function() {
+				if($(this).is("input[type=file]")) return;
+				return false;
+			}
+		});
+	}
 }
 
 /***********************************************************************************/
