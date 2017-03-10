@@ -680,13 +680,15 @@ class FieldtypeFile extends FieldtypeMulti {
 		$f->attr('name', 'inputfieldClass');
 		$f->label = $this->_('Inputfield Type');
 		$f->description = $this->_('The type of field that will be used to collect input.');
+		$f->notes = $this->_('Change this only if instructed to do so by 3rd party Inputfield module instructions.');
 		$f->required = true;
 		$baseClass = $this->defaultInputfieldClass;
 		
-		foreach($this->wire('modules') as $fm) {
-			if(strpos($fm->className(), 'Inputfield') !== 0) continue;
-			if("$fm" == $baseClass || is_subclass_of($fm->className(true), __NAMESPACE__ . "\\$baseClass"))
+		foreach($this->wire('modules')->findByPrefix('Inputfield') as $fm) {
+			if($baseClass == 'InputfieldFile' && strpos($fm, 'InputfieldImage') === 0) continue;
+			if("$fm" == $baseClass || is_subclass_of(__NAMESPACE__ . "\\$fm", __NAMESPACE__ . "\\$baseClass")) {
 				$f->addOption("$fm", str_replace("Inputfield", '', "$fm"));
+			}
 		}
 		
 		$inputfieldClass = $field->get('inputfieldClass');
