@@ -15,7 +15,8 @@ jQuery(document).ready(function($) {
 		var minlength = parseInt($input.attr('data-minlength'));
 		var options = {
 			banMode: $input.attr('data-banMode'),
-			strengthScaleFactor: parseFloat($input.attr('data-factor'))
+			strengthScaleFactor: parseFloat($input.attr('data-factor')),
+			minimumChars: minlength
 		};
 
 		$input.complexify(options, function(valid, complexity) {
