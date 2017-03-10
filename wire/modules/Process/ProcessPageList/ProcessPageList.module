@@ -444,7 +444,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 				'label' => $this->_('Show All') . ' ' . 
 					'<small>' . sprintf($this->_('(%d pages)'), $items->getTotal()) . '</small>',
 				'icon' => 'arrow-circle-right',
-				'className' => 'separator',
+				'className' => 'separator pw-pagelist-show-all',
 			);
 		}
 		
@@ -453,7 +453,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 				'url' => $urls->admin . "page/add/?parent_id=$parentID",
 				'label' => __('Add New', '/wire/templates-admin/default.php'),
 				'icon' => 'plus-circle',
-				'className' => 'separator',
+				'className' => 'separator pw-nav-add',
 			);
 		}
 		

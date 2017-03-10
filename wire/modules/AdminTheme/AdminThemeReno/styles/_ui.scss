@@ -104,7 +104,7 @@
 
 .ui-state-highlight,  
 .ui-widget-content .ui-state-highlight, 
-.ui-widget-header .ui-state-highlight,{
+.ui-widget-header .ui-state-highlight {
 	color: $highlight-color; 
 	background: $highlight-bg;
 	border: none;
@@ -188,6 +188,7 @@ p span.ui-state-error {
 	.ui-dialog-titlebar-close {
 		top: 50%;
 		right: 15px;
+		//noinspection CssInvalidPropertyValue
 		background-color: none;
 		color: $white;
 	}

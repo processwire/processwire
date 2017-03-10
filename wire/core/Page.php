@@ -1104,7 +1104,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function getField($field) {
 		$template = $this->template;
-		$fieldgroup = $template ? $this->template->fieldgroup : null;
+		$fieldgroup = $template ? $template->fieldgroup : null;
 		if(!$fieldgroup) return null;
 		if($this->outputFormatting && $fieldgroup->hasFieldContext($field)) {
 			$value = $fieldgroup->getFieldContext($field);
@@ -3826,5 +3826,23 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$result = $this->wire('pages')->$method($selector, $options);
 		return $result;
 	}
+
+	/*
+	public function remove($key) {
+		parent::remove($key);
+		if(isset($this->data[$key])) {
+			$a = parent::get('_statusCorruptedFields');
+			if(!is_array($a)) $a = array();
+			$k = array_search($key, $a);
+			if($k !== false) {
+				unset($a[$k]); 
+				if(empty($a)) $this->removeStatus(self::statusCorrupted);
+				parent::set('_statusCorruptedFields', $a);
+			}
+		}
+		return $this;
+	}
+	*/
+	
 }
 
