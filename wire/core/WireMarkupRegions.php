@@ -31,8 +31,23 @@ class WireMarkupRegions extends Wire {
 	 * 
 	 */
 	protected $selfClosingTags = array(
-		'input',
+		'link',
+		'area',
+		'base',
+		'br',
+		'col',
+		'command',
+		'embed',
+		'hr',
 		'img',
+		'input',
+		'keygen',
+		'link',
+		'meta',
+		'param',
+		'source',
+		'track',
+		'wbr',
 	);
 
 	/**
