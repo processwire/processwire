@@ -1788,7 +1788,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 					$operator = $selector->operator;
 					// convert to not operator when finding a not selector
 					if($selector->not && isset($this->operators["!$selector->operator"])) $operator = "!$selector->operator";
-					$opval = $this->renderOpval(($field2 ? $field2 : $field1), '', $operator, $value, $orChecked); 
+					//$opval = $this->renderOpval(($field2 ? $field2 : $field1), '', $operator, $value, $orChecked);
+					$opval = $this->renderOpval($field, '', $operator, $value, $orChecked); 
 					$rows .= $this->renderRow($select, $select2, $opval, $rowClass); 			
 				}
 			}
