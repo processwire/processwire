@@ -37,7 +37,8 @@ function initPageEditForm() {
 		$("button[type=submit]").each(function() {
 			var $button = $(this);
 			var name = $button.attr('name');
-			if(name.indexOf('submit') == -1) return;
+			if($button.hasClass('pw-no-dropdown')) return;
+			if(name.indexOf('submit') == -1 || name.indexOf('_draft') > -1) return;
 			if(name.indexOf('_save') == -1 && name.indexOf('_publish') == -1) return;
 			InputfieldSubmitDropdown.init($button, $dropdownTemplate);
 		});
