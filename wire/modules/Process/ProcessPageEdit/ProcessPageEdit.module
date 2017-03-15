@@ -2230,11 +2230,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if($this->page && $this->page->id != 1) $this->wire('breadcrumbs')->shift(); // shift off the 'Pages' breadcrumb
 		$page = $this->page ? $this->page : $this->parent;
 		if($this->masterPage) $page = $this->masterPage;
+		$lastID = (int) $this->wire('session')->get('ProcessPageList', 'lastID');
 
 		$numParents = $page->parents->count();
 		foreach($page->parents() as $cnt => $p) {
 			$url = "../?open=$p->id";
-			if($cnt == $numParents-1) $url = "../";
+			if($cnt == $numParents-1 && $p->id == $lastID) $url = "../";
 			$this->breadcrumb($url, $p->get("title|name"));
 		}
 
