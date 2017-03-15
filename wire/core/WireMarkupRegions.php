@@ -1248,7 +1248,11 @@ class WireMarkupRegions extends Wire {
 				$attrs = $region['attrs'];
 				$attrStr = count($attrs) ? ' ' . $this->renderAttributes($attrs, false) : '';
 				if(!strlen(trim($attrStr))) $attrStr = '';
-				$regionHTML = str_replace($region['open'], "<$region[name]$attrStr>", $regionHTML);
+				if($region['actionType'] == 'bool') {
+					$regionHTML = $region['region'];
+				} else {
+					$regionHTML = str_replace($region['open'], "<$region[name]$attrStr>", $regionHTML);
+				}
 			}
 			
 			if($debug) {
@@ -1332,7 +1336,9 @@ class WireMarkupRegions extends Wire {
 			// see if they can be populated now
 			$numUpdates += $this->populate($htmlDocument, $xregions);
 		}
-
+		
+		if($this->removeRegionTags($htmlDocument)) $numUpdates++;
+	
 		// if there is any leftover markup, place it above the HTML where it would usually go
 		if(strlen($leftoverMarkup)) {
 			$htmlDocument = $leftoverMarkup . $htmlDocument;
@@ -1340,6 +1346,20 @@ class WireMarkupRegions extends Wire {
 		}
 
 		return $numUpdates; 
+	}
+
+	/**
+	 * Remove any <region> or <pw-region> tags present in the markup, leaving their innerHTML contents
+	 * 
+	 * @param string $html
+	 * @return bool True if tags were removed, false if not
+	 * 
+	 */
+	protected function removeRegionTags(&$html) {
+		if(stripos($html, '</region>') === false && strpos($html, '</pw-region>') === false) return false;
+		$html = preg_replace('!</?(?:region|pw-region)(?:\s[^>]*>|>)!i', '', $html);
+		//$html = str_ireplace(array('</region>', '</pw-region>'), '', $html);
+		return true; 
 	}
 
 	/**
