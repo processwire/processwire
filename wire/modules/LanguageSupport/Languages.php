@@ -29,6 +29,7 @@
  * @method added(Page $language) Hook called when Language is added #pw-hooker
  * @method deleted(Page $language) Hook called when Language is deleted #pw-hooker
  * @method updated(Page $language, $what) Hook called when Language is added or deleted #pw-hooker
+ * @method languageChanged($fromLanguage, $toLanguage) Hook called when User language is changed #pw-hooker
  *
  */
 
@@ -36,6 +37,8 @@ class Languages extends PagesType {
 
 	/**
 	 * Reference to LanguageTranslator instance
+	 * 
+	 * @var LanguageTranslator
 	 *
 	 */
 	protected $translator = null;
@@ -93,7 +96,15 @@ class Languages extends PagesType {
 	 * 
 	 */
 	protected $editableCache = array();
-	
+
+	/**
+	 * Construct
+	 *
+	 * @param ProcessWire $wire
+	 * @param array $templates
+	 * @param array $parents
+	 * 
+	 */
 	public function __construct(ProcessWire $wire, $templates = array(), $parents = array()) {
 		parent::__construct($wire, $templates, $parents);
 		$this->wire('database')->addHookAfter('unknownColumnError', $this, 'hookUnknownColumnError');
@@ -107,9 +118,15 @@ class Languages extends PagesType {
 	 *
 	 */
 	public function translator(Language $language) {
-		if(is_null($this->translator)) $this->translator = $this->wire(new LanguageTranslator($language)); 
-			else $this->translator->setCurrentLanguage($language);
-		return $this->translator; 
+		/** @var LanguageTranslator $translator */
+		$translator = $this->translator;
+		if(is_null($translator)) {
+			$translator = $this->wire(new LanguageTranslator($language));
+			$this->translator = $translator;
+		} else {
+			$translator->setCurrentLanguage($language);
+		}
+		return $translator; 
 	}
 
 	/**
@@ -347,6 +364,110 @@ class Languages extends PagesType {
 		if($user->language && $user->language->id == $this->savedLanguage2->id) return false;
 		$user->language = $this->savedLanguage2;
 		return true;
+	}
+	
+	/**
+	 * Set the current locale
+	 *
+	 * This function behaves exactly the same way as [PHP setlocale](http://php.net/manual/en/function.setlocale.php) except
+	 * for the following:
+	 *
+	 * - If the $locale argument is omitted, it uses the locale setting translated for the current user language.
+	 * - You can optionally specify a CSV string of locales to try for the $locale argument. 
+	 * - You can optionally or a “category=locale;category=locale;category=locale” string for the $locale argument.
+	 *   When this type of string is used, the $category argument is ignored. 
+	 * - This method does not accept more than the 2 indicated arguments. 
+	 * 
+	 * See the PHP setlocale link above for a list of constants that can be used for the `$category` argument. 
+	 * 
+	 * ~~~~~
+	 * // Set locale to whatever settings defined for current $user language
+	 * $languages->setLocale(); 
+	 * 
+	 * // Set all locale categories 
+	 * $languages->setLocale(LC_ALL, 'en_US.UTF-8'); 
+	 * 
+	 * // Set locale for specific category (CTYPE)
+	 * $langauges->setLocale(LC_CTYPE, 'en_US.UTF-8'); 
+	 * 
+	 * // Try multiple locales till one works (in order) using array
+	 * $languages->setLocale(LC_ALL, [ 'en_US.UTF-8', 'en_US', 'en' ]);
+	 * 
+	 * // Same as above, except using CSV string
+	 * $languages->setLocale(LC_ALL, 'en_US.UTF-8, en_US, en'); 
+	 * 
+	 * // Set multiple categories and locales (first argument ignored)
+	 * $languages->setLocale(null, 'LC_CTYPE=en_US;LC_NUMERIC=de_DE;LC_TIME=es_ES'); 
+	 * ~~~~~
+	 * 
+	 * @param int $category Specify a PHP “LC_” constant or omit (or null) for default (LC_ALL).
+	 * @param string|array|null $locale Specify string, array or CSV string of locale name(s), or omit (null) for default language locale.
+	 * @return string|bool Returns the locale that was set or boolean false if requested locale cannot be set.
+	 * @see Languages::getLocale()
+	 *
+	 */
+	public function setLocale($category = LC_ALL, $locale = null) {
+		
+		$setLocale = ''; // return value
+		if($category === null) $category = LC_ALL;	
+
+		if($locale === null) {
+			// argument omitted means set according to language settings
+			$locale = __('C', 'wire--modules--languagesupport--languagesupport-module');
+		}
+
+		if(is_string($locale)) {
+			
+			if(strpos($locale, ',') !== false) {
+				// convert CSV string to array of locales
+				$locale = explode(',', $locale);
+				foreach($locale as $key => $value) {
+					$locale[$key] = trim($value);
+				}
+				
+			} else if(strpos($locale, ';') !== false) {
+				// multi-category and locale string, i.e. LC_CTYPE=en_US.UTF-8;LC_NUMERIC=C;LC_TIME=C
+				foreach(explode(';', $locale) as $s) {
+					// call setLocale() for each locale item present in the string
+					if(strpos($s, '=') === false) continue;
+					list($cats, $loc) = explode('=', $s); 
+					$cat = constant($cats);
+					if($cat !== null) {
+						$loc = $this->setLocale($cat, $loc);
+						if($loc !== false) $setLocale .= trim($cats) . '=' . trim($loc) . ";";
+					}
+				}
+				$setLocale = rtrim($setLocale, ';');
+				if(empty($setLocale)) $setLocale = false;
+			}
+		}
+
+		if($setLocale === '') {
+			if($locale === '0' || $locale === 0) {
+				// get locale (to be consistent with behavior of PHP setlocale)
+				$setLocale = $this->getLocale($category);
+			} else {
+				// set the locale
+				$setLocale = setlocale($category, $locale);
+			}
+		}
+
+		return $setLocale;
+	}
+
+	/**
+	 * Return the current locale setting
+	 * 
+	 * If using LC_ALL category and locales change by category, the returned string will be in 
+	 * the format: “category=locale;category=locale”, and so on. 
+	 *
+	 * @param int $category Optionally specify a PHP LC constant (default=LC_ALL)
+	 * @return string|bool Locale(s) string or boolean false if not supported by the system. 
+	 * @see Languages::setLocale()
+	 *
+	 */
+	public function getLocale($category = LC_ALL) {
+		return setlocale($category, '0');
 	}
 
 	/**

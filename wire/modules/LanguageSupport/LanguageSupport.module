@@ -182,8 +182,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		}
 
 		$this->wire('config')->dateFormat = $this->_('Y-m-d H:i:s'); // Sortable date format used in the admin
-		$locale = $this->_('C'); // Value to pass to PHP's setlocale(LC_ALL, 'value') function when initializing this language // Default is 'C'. Specify '0' to skip the setlocale() call (and carry on system default).
-		if($locale != '0') setlocale(LC_ALL, $locale); 
+		$locale = $this->_('C'); // Value to pass to PHP's setlocale(LC_ALL, 'value') function when initializing this language // Default is 'C'. Specify '0' to skip the setlocale() call (and carry on system default). Specify CSV string of locales to try multiple locales in order.
+		if($locale != '0') $languages->setLocale(LC_ALL, $locale); 
 
 		// setup our hooks handled by this class
 		$this->addHookBefore('Inputfield::render', $this, 'hookInputfieldBeforeRender');

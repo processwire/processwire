@@ -391,6 +391,7 @@ class Selectors extends WireArray {
 				$operator = $op;
 				$not = true;
 			} else {
+				if(is_array($value)) $value = implode('|', $value);
 				$debug = $this->wire('config')->debug ? "field='$field', value='$value', selector: '$this->selectorStr'" : "";
 				throw new WireException("Unknown Selector operator: '$operator' -- was your selector value properly escaped? $debug");
 			}
@@ -434,7 +435,7 @@ class Selectors extends WireArray {
 				}
 			}
 
-			if($field || strlen("$value")) {
+			if($field || $value || strlen("$value")) {
 				$selector = $this->create($field, $operator, $value);
 				if(!is_null($group)) $selector->group = $group; 
 				if($quote) $selector->quote = $quote; 

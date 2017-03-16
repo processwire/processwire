@@ -3,8 +3,12 @@
 /**
  * Multi-language support page names module
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @property int $moduleVersion
+ * @property int $inheritInactive
+ * @property int $useHomeSegment
  *
  */
 
@@ -129,7 +133,10 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 		// verify that page path doesn't have mixed languages where it shouldn't
 		$redirectURL = $this->verifyPath($this->requestPath);
-		if($redirectURL) return $this->wire('session')->redirect($redirectURL); 
+		if($redirectURL) {
+			$this->wire('session')->redirect($redirectURL);
+			return;
+		}
 
 		$page = $this->wire('page'); 
 
@@ -178,6 +185,9 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * Given a page path, return an updated version that lacks the language segment
 	 *
 	 * It extracts the language segment and uses that to later set the language
+	 * 
+	 * @param string $path
+	 * @return string
 	 *
 	 */
 	public function updatePath($path) {
@@ -269,7 +279,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		// set the language	
 		if(!$setLanguage) $setLanguage = $languages->get('default'); 
 		$user->language = $setLanguage; 
-		$this->setLanguage = $setLanguage; 
+		$this->setLanguage = $setLanguage;
+		$languages->setLocale();
 	
 		// if $page is the 404 page, exit out now
 		if($page->id == $config->http404PageID) return '';
@@ -360,10 +371,14 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Hook in before ProcesssPageView::execute to capture and modify $_GET[it] as needed
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookProcessPageViewExecute(HookEvent $event) {
-		$event->object->setDelayRedirects(true); 
+		/** @var ProcessPageView $process */
+		$process = $event->object;
+		$process->setDelayRedirects(true); 
 		// save now, since ProcessPageView removes $_GET['it'] when it executes
 		$it = isset($_GET['it']) ? $_GET['it'] : '';
 		$this->requestPath = $it; 
@@ -377,9 +392,13 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Hook in before ProcesssPageView::render to throw 404 when appropriate
+	 * 
+	 * @param HookEvent $event
+	 * @throws WireException
 	 *
 	 */
 	public function hookPageRender(HookEvent $event) {
+		if($event) {}
 		if($this->force404) {
 			$this->force404 = false; // prevent another 404 on the 404 page
 			throw new Wire404Exception();
@@ -390,12 +409,16 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * Hook in after ProcesssPageView::viewable account for specific language versions
 	 *
 	 * May be passed a Language name or page to check viewable for that language
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageViewable(HookEvent $event) {
 		if(!$event->return) return;
+		/** @var Page $page */
 		$page = $event->object;
 		// if(wire('user')->isSuperuser() || $page->editable()) return;
+		/** @var Language $language */
 		$language = $event->arguments(0);
 		if(!$language) return;
 		if(is_string($language)) $language = $this->wire('languages')->get($this->wire('sanitizer')->pageNameUTF8($language));
@@ -407,10 +430,14 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Hook into WirePageEditor (i.e. ProcessPageEdit) to remove the non-applicable default home name of 'home'
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookWirePageEditorExecute(HookEvent $event) {
-		$page = $event->object->getPage();
+		/** @var WirePageEditor $editor */
+		$editor = $event->object; 
+		$page = $editor->getPage();
 		if($page && $page->id == 1) {
 			if($page->name == Pages::defaultRootName) $page->name = '';
 		}
@@ -420,6 +447,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * Hook into the page name render for when in ProcessPageEdit
 	 *
 	 * Adds additional inputs for each language
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookInputfieldPageNameRenderAfter(HookEvent $event) {
@@ -489,13 +518,19 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * Process the input data from hookInputfieldPageNameRender
 	 *
 	 * @todo Just move this to the InputfieldPageName module rather than using hooks
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookInputfieldPageNameProcess(HookEvent $event) {
 
+		/** @var InputfieldPageName $inputfield */
 		$inputfield = $event->object; 
 		//$page = $this->process == 'ProcessPageEdit' ? $this->process->getPage() : new NullPage();
-		$page = $this->process->getPage();
+		/** @var WirePageEditor $process */
+		$process = $this->process; 
+		/** @var Page $page */
+		$page = $process instanceof WirePageEditor ? $process->getPage() : new NullPage();
 		if($page->id && !$page->editable('name', false)) return; // name is not editable
 		$input = $event->arguments[0];
 		/** @var Languages $languages */
@@ -533,10 +568,13 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Hook into PageFinder::getQuery to add language status check
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageFinderGetQuery(HookEvent $event) {
 		$query = $event->return;
+		/** @var PageFinder $pageFinder */
 		$pageFinder = $event->object; 
 		$options = $pageFinder->getOptions();
 		
@@ -555,9 +593,12 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Hook into Page::path to localize path for current language
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPagePath(HookEvent $event) {
+		/** @var Page $page */
 		$page = $event->object; 
 		if($page->template == 'admin') return;
 		$language = $this->wire('user')->get('language'); 
@@ -570,6 +611,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 *
 	 * event param Language|string|int Optional language 
 	 * event return string Localized language name or blank if not set
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageLocalName(HookEvent $event) {
@@ -586,9 +629,12 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 *
 	 * event param Language|string|int Optional language 
 	 * event return string Localized language path
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageLocalPath(HookEvent $event) {
+		/** @var Page $page */
 		$page = $event->object; 
 		$language = $this->getLanguage($event->arguments(0)); 
 		$event->return = $this->getPagePath($page, $language); 	
@@ -599,9 +645,12 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 *
 	 * event param Language|string|int Optional language 
 	 * event return string Localized language URL
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageLocalUrl(HookEvent $event) {
+		/** @var Page $page */
 		$page = $event->object; 
 		$language = $this->getLanguage($event->arguments(0)); 
 		$event->return = $this->wire('config')->urls->root . ltrim($this->getPagePath($page, $language), '/'); 	
@@ -612,6 +661,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 *
 	 * event param Language|string|int Optional language
 	 * event return string Localized language name or blank if not set
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageLocalHttpUrl(HookEvent $event) {
@@ -649,6 +700,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Update pages table for new column when a language is added
+	 * 
+	 * @param Language|Page $language
 	 *
 	 */
 	public function languageAdded(Page $language) {
@@ -668,6 +721,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Hook called when language is added
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookLanguageAdded(HookEvent $event) {
@@ -677,6 +732,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Update pages table to remove column when a language is deleted
+	 * 
+	 * @param Language|Page $language
 	 *
 	 */
 	protected function languageDeleted(Page $language) {
@@ -695,6 +752,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Hook called when language is deleted
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookLanguageDeleted(HookEvent $event) {
@@ -707,6 +766,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 *
 	 * Here we make use of the 'extraData' return property of the saveReady hook
 	 * to bundle in the language name fields into the query.
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageSaveReady(HookEvent $event) {
@@ -781,7 +842,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * 
 	 */
 	public function hookPageSetupNew(HookEvent $event) {
-		
+	
+		/** @var Page $page */
 		$page = $event->arguments[0];
 		
 		// if page already has a name, then no need to continue
@@ -820,6 +882,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Hook called immediately after a page is saved
+	 * 
+	 * @param HookEvent $event
 	 * 
 	 */
 	public function hookPageSaved(HookEvent $event) {
@@ -925,6 +989,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Check to make sure that the status table exists and creates it if not
+	 * 
+	 * @param bool $force
 	 *
 	 */
 	public function checkModuleVersion($force = false) {
@@ -961,6 +1027,9 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 	/**
 	 * Module interactive configuration fields
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
 	 *
 	 */
 	public function getModuleConfigInputfields(array $data) {
