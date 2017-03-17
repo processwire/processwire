@@ -20,12 +20,12 @@ function InputfieldRepeater($) {
 	var depthSize = 50;
 
 	/**
-	 * Whether or not AdminThemeReno is present
+	 * Whether or not AdminThemeDefault is present
 	 * 
 	 * @type {bool}
 	 * 
 	 */
-	var isReno = $('body').hasClass('AdminThemeReno');
+	var isAdminDefault = $('body').hasClass('AdminThemeDefault');
 
 	/**
 	 * Event timer for double clicks
@@ -495,8 +495,8 @@ function InputfieldRepeater($) {
 		var prevDepth = parseInt($depth.val());
 		var left = ui.position.left;
 	
-		// AdminThemeReno has something different going on with the left positions, so we adjust for that here
-		if(isReno) left -= depthSize;
+		// AdminThemeDefault has something different going on with the left positions, so we adjust for that here
+		if(!isAdminDefault) left -= depthSize;
 		
 		if(left < 0) {
 			depth = prevDepth - Math.round(Math.abs(left) / depthSize);

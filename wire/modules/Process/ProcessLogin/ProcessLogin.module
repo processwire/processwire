@@ -17,6 +17,7 @@
  * @method void afterLogin() #pw-hooker
  * @method void executeLogout() #pw-hooker
  * @method void afterLoginRedirect() #pw-hooker
+ * @method string afterLoginURL($url) #pw-hooker
  * @method string renderLoginForm() #pw-hooker
  * @method InputfieldForm buildLoginForm() #pw-hooker
  *
@@ -143,7 +144,8 @@ class ProcessLogin extends Process {
 	public function ___execute() {
 		
 		if($this->user->isLoggedin()) {
-			if($this->loginURL) $this->wire('session')->redirect($this->loginURL); 
+			if($this->loginURL) $this->wire('session')->redirect($this->afterLoginURL($this->loginURL));
+			if($this->input->get('layout')) return ''; // blank placeholder page option for admin themes
 			$this->message($this->_("You are logged in.")); 
 			if($this->isAdmin && $this->user->hasPermission('page-edit')) $this->afterLoginRedirect();
 			// fallback if nothing set
@@ -181,13 +183,13 @@ class ProcessLogin extends Process {
 				$this->session->remove('error');
 				$this->afterLogin();
 			}
-			$this->session->redirect("./?login=1" . ($this->id ? "&id={$this->id}" : ''));  
+			$url = $this->afterLoginURL("./?login=1" . ($this->id ? "&id=$this->id" : ''));
+			$this->session->redirect($url);  
 		} else {
 			$this->error($name . " - " . $this->_("Login failed")); 
 		}
 
 		return $this->renderLoginForm();
-
 	}
 	
 	/**
@@ -455,7 +457,19 @@ class ProcessLogin extends Process {
 	 *
 	 */
 	protected function ___afterLoginRedirect() {
-		$this->session->redirect($this->pages->get($this->config->adminRootPageID)->url);
+		$this->session->redirect($this->pages->get($this->config->adminRootPageID)->url . '?login=1');
+	}
+
+	/**
+	 * #pw-hooker
+	 * #pw-internal
+	 * 
+	 * @param string $url
+	 * @return string
+	 * 
+	 */
+	public function ___afterLoginURL($url) {
+		return $url;
 	}
 
 

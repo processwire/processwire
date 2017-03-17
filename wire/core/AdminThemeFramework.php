@@ -488,6 +488,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 		$navArray[] = array(
 			'url' => $urls->root,
 			'title' => $this->_('View site'),
+			'target' => '_top',
 			'icon' => 'eye',
 		);
 		
@@ -501,6 +502,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 		$navArray[] = array(
 			'url' => $urls->admin . 'login/logout/',
 			'title' => $this->_('Logout'),
+			'target' => '_top',
 			'icon' => 'power-off',
 		);
 		
