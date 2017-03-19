@@ -1406,8 +1406,9 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		$this->fullHeight = $this->image['height'];
 
 		if(0 == $this->finalWidth && 0 == $this->finalHeight) return false;
-		if(0 == $this->finalWidth) $this->finalWidth = ceil(($this->finalHeight / $this->fullHeight) * $this->fullWidth);
-		if(0 == $this->finalHeight) $this->finalHeight = ceil(($this->finalWidth / $this->fullWidth) * $this->fullHeight);
+		// -- THIS IS NOT NEEDED, AS IT IS DONE IN THE RESIZECALCULATION OF THE ENGINES!  @horst 19 March 2017
+		//if(0 == $this->finalWidth) $this->finalWidth = ceil(($this->finalHeight / $this->fullHeight) * $this->fullWidth);
+		//if(0 == $this->finalHeight) $this->finalHeight = ceil(($this->finalWidth / $this->fullWidth) * $this->fullHeight);
 
 		if($this->scale !== 1.0) { // adjust for hidpi
 			if($this->finalWidth) $this->finalWidth = ceil($this->finalWidth * $this->scale);
