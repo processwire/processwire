@@ -1336,7 +1336,6 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	protected function renderDateInput($name, $value, $useTime = false) {
 		$inputfield = $this->wire('modules')->get('InputfieldDatetime'); 
 		$inputfield->attr('name', $name); 
-		$inputfield->attr('value', $value); 
 		$inputfield->datepicker = InputfieldDatetime::datepickerFocus; 
 		$inputfield->placeholder = $this->datePlaceholder; 
 		$inputfield->dateInputFormat = $this->dateFormat; 
@@ -1345,6 +1344,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			$inputfield->timeInputFormat = $this->timeFormat;
 			$inputfield->placeholder .= ' ' . $this->timePlaceholder;
 		}
+		$inputfield->attr('value', $value); 
 		$inputfield->renderReady();
 		return $inputfield->render();
 	}
