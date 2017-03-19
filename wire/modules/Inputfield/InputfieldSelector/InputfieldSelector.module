@@ -1103,7 +1103,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$inputfield = null;
 		if(strpos($fieldName, '.') !== false) list($fieldName, $subfield) = explode('.', $fieldName); 
 
-		if(isset($this->systemFields[$fieldName])) {
+		if(isset($this->systemFields[$fieldName]) && !$subfield) {
 			// system field
 			$info = $this->systemFields[$fieldName];
 			if($fieldName == 'parent' && $this->initTemplate) {
@@ -1127,7 +1127,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			}
 
 		} else if(isset($this->modifierFields[$fieldName])) { 
-			// modified field
+			// modifier field
 			$info = $this->modifierFields[$fieldName]; 
 			$type = $info['input'];
 			if(isset($info['options'])) $options = $info['options'];
@@ -1139,14 +1139,20 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		} else if($type == 'selector') {
 			// selector field: do nothing here but skip it, and respond to it further down
 
-		} else if($field = $this->wire('fields')->get($fieldName)) { 
+		} else if(($fieldName == 'parent' && $subfield) || $field = $this->wire('fields')->get($fieldName)) { 
 			/** @var Field $field */
-			// custom field
-			$selectorInfo = $this->getSelectorInfo($field); 
+			// custom field or parent with subfield
+			$selectorInfo = $this->getSelectorInfo($field);
 			
-			if(count($selectorInfo)) {
-				// information available for custom field
-				if($subfield && isset($selectorInfo['subfields'][$subfield])) $selectorInfo = $selectorInfo['subfields'][$subfield]; 
+			if(count($selectorInfo) || $fieldName == 'parent') {
+				// information available for custom field or parent
+				if($fieldName == 'parent') {
+					// if parent, there is a subfield, and $field becomes the subfield
+					$selectorInfo = $this->getSelectorInfo($subfield);
+					$field = $this->wire('fields')->get($subfield);
+				} else if($subfield && isset($selectorInfo['subfields'][$subfield])) {
+					$selectorInfo = $selectorInfo['subfields'][$subfield]; 
+				}
 				$type = $selectorInfo['input']; 
 
 				if($type == 'page') {
@@ -1300,7 +1306,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 
 		} else if($type == 'datetime' || $type == 'date') {
 			// render date/datetime input
-			$out .= $this->renderDateInput($inputName, $selectedValue, $type == 'datetime'); 
+			$useTime = $type == 'datetime';
+			if(!$useTime && $field && $field->get('timeInputFormat')) $useTime = true; 
+			$out .= $this->renderDateInput($inputName, $selectedValue, $useTime); 
 
 		} else {
 			// render other input that uses an <input type='text'> whether text, number or selector
