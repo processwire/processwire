@@ -622,6 +622,11 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			$pHeight = $targetHeight;
 			$pWidth = $this->getProportionalWidth($targetHeight);
 		}
+		
+		// adjust rounding issues, @horst 19 March 2017 >>
+		if($targetWidth == $originalTargetWidth && 1 + $targetWidth == $pWidth) $pWidth = $pWidth - 1;
+		if($targetHeight == $originalTargetHeight && 1 + $targetHeight == $pHeight) $pHeight = $pHeight - 1;
+		// << adjust rounding issues
 
 		if(!$this->upscaling) {
 			// we are going to shoot for something smaller than the target
