@@ -542,6 +542,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$schema['keys']['pages_id'] = "KEY `pages_id` (`pages_id`,`status`,`created`)"; 
 		$schema['keys']['created'] = "KEY `created` (`created`, `status`)";
 		$schema['keys']['data'] = "FULLTEXT KEY `data` (`data`)";
+		$schema['xtra']['all'] = false;
 
 		return $schema;
 	}

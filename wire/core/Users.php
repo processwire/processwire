@@ -139,5 +139,25 @@ class Users extends PagesType {
 			'pageClass' => 'User'
 		));
 	}
+	
+	/**
+	 * Hook called just before a user is saved
+	 *
+	 * #pw-hooker
+	 *
+	 * @param Page $page The user about to be saved
+	 * @return array Optional extra data to add to pages save query.
+	 *
+	 */
+	public function ___saveReady(Page $page) {
+		/** @var User $user */
+		$user = $page; 		
+		if(!$user->id && $user instanceof User) {
+			// add guest role if user doesn't already have it
+			$role = $this->wire('roles')->get($this->wire('config')->guestUserRolePageID);
+			if($role->id && !$user->hasRole($role)) $user->addRole($role);
+		}
+		return array();
+	}
 
 }

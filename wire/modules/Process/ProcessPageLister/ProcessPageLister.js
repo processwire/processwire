@@ -34,7 +34,7 @@ var ProcessLister = {
 		ProcessLister.lister = $("#ProcessLister"); 
 
 		ProcessLister.filters.change(function() { ProcessLister.submit(); }); 
-		ProcessLister.results.on('click', '#ProcessListerTable > table > thead th', ProcessLister.columnSort)
+		ProcessLister.results.on('click', '.ProcessListerTable > thead th', ProcessLister.columnSort)
 
 		$(document).on('click', 'a.actions_toggle', ProcessLister.pageClick); 
 		$(document).on('click', '.actions a.ajax', ProcessLister.actionClickAjax);
@@ -268,6 +268,15 @@ var ProcessLister = {
 				// if(config.debug) console.log(js);
 				$("body").append('<script>' + js + '</script>');
 			}
+		}
+
+		if(data.indexOf('</script>') > -1) {
+			var d = document.createElement('div');
+			d.innerHTML = data;
+			var scripts = d.querySelectorAll('.Inputfield script');
+			$(scripts).each(function() {
+				$.globalEval(this.text || this.textContent || this.innerHTML || '');
+			});
 		}
 
 		// ProcessLister.results.find(".InputfieldForm").trigger('reloaded');

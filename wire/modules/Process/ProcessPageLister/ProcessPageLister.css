@@ -4,39 +4,41 @@
 #ProcessListerResultsTab {
   padding-top: 0.5em; }
 
-#ProcessListerResults #ProcessListerTable > table {
+#ProcessListerResults #ProcessListerTable {
+  clear: both; }
+#ProcessListerResults #ProcessListerTable table.ProcessListerTable {
   clear: both;
   position: relative; }
-  #ProcessListerResults #ProcessListerTable > table td table {
+  #ProcessListerResults #ProcessListerTable table.ProcessListerTable td table {
     width: 100%; }
-  #ProcessListerResults #ProcessListerTable > table > thead th {
+  #ProcessListerResults #ProcessListerTable table.ProcessListerTable > thead th {
     font-size: 0.857142857142857em; }
-    #ProcessListerResults #ProcessListerTable > table > thead th i {
+    #ProcessListerResults #ProcessListerTable table.ProcessListerTable > thead th i {
       font-size: 14px; }
-  #ProcessListerResults #ProcessListerTable > table > thead th strong {
+  #ProcessListerResults #ProcessListerTable table.ProcessListerTable > thead th strong {
     white-space: nowrap; }
-  #ProcessListerResults #ProcessListerTable > table > thead th b,
-  #ProcessListerResults #ProcessListerTable > table > thead .th b {
+  #ProcessListerResults #ProcessListerTable table.ProcessListerTable > thead th b,
+  #ProcessListerResults #ProcessListerTable table.ProcessListerTable > thead .th b {
     display: none; }
-  #ProcessListerResults #ProcessListerTable > table > thead th:first-child {
+  #ProcessListerResults #ProcessListerTable table.ProcessListerTable > thead th:first-child {
     padding-left: 0;
     /* reno */ }
-  #ProcessListerResults #ProcessListerTable > table > tbody > tr > td {
+  #ProcessListerResults #ProcessListerTable table.ProcessListerTable > tbody > tr > td {
     font-size: 0.928571428571429em; }
-    #ProcessListerResults #ProcessListerTable > table > tbody > tr > td:first-child, #ProcessListerResults #ProcessListerTable > table > tbody > tr > td:first-child > a {
+    #ProcessListerResults #ProcessListerTable table.ProcessListerTable > tbody > tr > td:first-child, #ProcessListerResults #ProcessListerTable table.ProcessListerTable > tbody > tr > td:first-child > a {
       padding-left: 0;
       /* reno */ }
-    #ProcessListerResults #ProcessListerTable > table > tbody > tr > td ul.MarkupFieldtype {
+    #ProcessListerResults #ProcessListerTable table.ProcessListerTable > tbody > tr > td ul.MarkupFieldtype {
       margin: 0;
       padding-left: 0; }
-      #ProcessListerResults #ProcessListerTable > table > tbody > tr > td ul.MarkupFieldtype > li {
+      #ProcessListerResults #ProcessListerTable table.ProcessListerTable > tbody > tr > td ul.MarkupFieldtype > li {
         margin: 0;
         padding-left: 0; }
-      #ProcessListerResults #ProcessListerTable > table > tbody > tr > td ul.MarkupFieldtype > li + li {
+      #ProcessListerResults #ProcessListerTable table.ProcessListerTable > tbody > tr > td ul.MarkupFieldtype > li + li {
         border-top: 1px solid #eee; }
-    #ProcessListerResults #ProcessListerTable > table > tbody > tr > td > *:first-child, #ProcessListerResults #ProcessListerTable > table > tbody > tr > td .col_preview > *:first-child {
+    #ProcessListerResults #ProcessListerTable table.ProcessListerTable > tbody > tr > td > *:first-child, #ProcessListerResults #ProcessListerTable table.ProcessListerTable > tbody > tr > td .col_preview > *:first-child {
       margin-top: 0; }
-    #ProcessListerResults #ProcessListerTable > table > tbody > tr > td > *:last-child, #ProcessListerResults #ProcessListerTable > table > tbody > tr > td .col_preview > *:last-child {
+    #ProcessListerResults #ProcessListerTable table.ProcessListerTable > tbody > tr > td > *:last-child, #ProcessListerResults #ProcessListerTable table.ProcessListerTable > tbody > tr > td .col_preview > *:last-child {
       margin-bottom: 0; }
 #ProcessListerResults .PageListerActions {
   display: none;

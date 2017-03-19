@@ -16,6 +16,12 @@
  * #pw-summary-system Most system properties directly correspond to columns in the `pages` database table. 
  * #pw-order-groups common,traversal,manipulation,date-time,access,output-rendering,status,constants,languages,system,advanced,hooks
  * #pw-use-constants
+ * #pw-var $page
+ * #pw-body = 
+ * The `$page` API variable represents the current page being viewed. However, the documentation 
+ * here also applies to all Page objects that you may work with in the API. We use `$page` as the most common example
+ * throughout the documentation, but you can substitute that with any variable name representing a Page.
+ * #pw-body
  *
  * @link http://processwire.com/api/ref/page/ Offical $page Documentation
  * @link http://processwire.com/api/selectors/ Official Selectors Documentation
@@ -37,7 +43,8 @@
  * @property Template|null $templatePrevious Previous template, if template was changed. #pw-advanced
  * @property Fieldgroup $fields All the Fields assigned to this page (via its template). Returns a Fieldgroup. #pw-advanced
  * @property int $numChildren The number of children (subpages) this page has, with no exclusions (fast). #pw-group-traversal
- * @property int $numVisibleChildren The number of visible children this page has. Excludes unpublished, no-access, hidden, etc. #pw-group-traversal
+ * @property int $hasChildren The number of visible children this page has. Excludes unpublished, no-access, hidden, etc. #pw-group-traversal
+ * @property int $numVisibleChildren Verbose alias of $hasChildren #pw-internal
  * @property PageArray $children All the children of this page. Returns a PageArray. See also $page->children($selector). #pw-group-traversal
  * @property Page|NullPage $child The first child of this page. Returns a Page. See also $page->child($selector). #pw-group-traversal
  * @property PageArray $siblings All the sibling pages of this page. Returns a PageArray. See also $page->siblings($selector). #pw-group-traversal
@@ -66,6 +73,7 @@
  * @property string $editUrl URL that this page can be edited at. #pw-group-advanced
  * @property string $editURL Alias of $editUrl. #pw-internal
  * @property PageRender $render May be used for field markup rendering like $page->render->title. #pw-advanced
+ * @property bool $loaderCache Whether or not pages loaded as a result of this one may be cached by PagesLoaderCache. #pw-internal
  * 
  * @property bool|null $_hasAutogenName Internal runtime use, set by Pages class when page as auto-generated name. #pw-internal
  * @property bool|null $_forceSaveParents Internal runtime/debugging use, force a page to refresh its pages_parents DB entries on save(). #pw-internal
@@ -76,16 +84,26 @@
  * 
  * Methods added by PagePermissions.module: 
  * ----------------------------------------
- * @method bool viewable($field = '') Returns true if the page (and optionally field) is viewable by the current user, false if not. #pw-group-access
- * @method bool editable($field = '') Returns true if the page (and optionally field) is editable by the current user, false if not. #pw-group-access
+ * @method bool viewable($field = '', $checkTemplateFile = true) Returns true if the page (and optionally field) is viewable by the current user, false if not. #pw-group-access
+ * @method bool editable($field = '', $checkPageEditable = true) Returns true if the page (and optionally field) is editable by the current user, false if not. #pw-group-access
  * @method bool publishable() Returns true if the page is publishable by the current user, false if not. #pw-group-access
  * @method bool listable() Returns true if the page is listable by the current user, false if not. #pw-group-access
  * @method bool deleteable() Returns true if the page is deleteable by the current user, false if not. #pw-group-access
  * @method bool deletable() Alias of deleteable(). #pw-group-access
- * @method bool trashable() Returns true if the page is trashable by the current user, false if not. #pw-group-access
+ * @method bool trashable($orDeleteable = false) Returns true if the page is trashable by the current user, false if not. #pw-group-access
  * @method bool addable($pageToAdd = null) Returns true if the current user can add children to the page, false if not. Optionally specify the page to be added for additional access checking. #pw-group-access
  * @method bool moveable($newParent = null) Returns true if the current user can move this page. Optionally specify the new parent to check if the page is moveable to that parent. #pw-group-access
  * @method bool sortable() Returns true if the current user can change the sort order of the current page (within the same parent). #pw-group-access
+ * @property bool $viewable #pw-group-access
+ * @property bool $editable #pw-group-access
+ * @property bool $publishable #pw-group-access
+ * @property bool $deleteable #pw-group-access
+ * @property bool $deletable #pw-group-access
+ * @property bool $trashable #pw-group-access
+ * @property bool $addable #pw-group-access
+ * @property bool $moveable #pw-group-access
+ * @property bool $sortable #pw-group-access
+ * @property bool $listable #pw-group-access
  *
  * Methods added by LanguageSupport.module (not installed by default) 
  * -----------------------------------------------------------------
@@ -127,6 +145,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * never exceeds 1024, otherwise issues in Pages::find() will need to be considered. 
 	 *
 	 * The status levels 16384 and above can safely be changed as needed as they are runtime only. 
+	 * 
+	 * Please note that statuses 2, 32, 256, and 4096 are reserved for future use.
 	 *
 	 */
 
@@ -272,7 +292,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @var Page|null
 	 *
 	 */
-	protected $parent = null;
+	protected $_parent = null;
+
+	/**
+	 * Parent ID for lazy loading purposes
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $_parent_id = 0;
 
 	/**
 	 * The previous parent used by the page, if it was changed during runtime. 	
@@ -361,6 +389,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	protected $lazyLoad = false;
+
+	/**
+	 * Whether or not pages loaded by this one are allowed to be cached by PagesLoaderCache class
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $loaderCache = true;
 
 	/**
 	 * Is this page allowing it's output to be formatted?
@@ -495,12 +531,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	static $baseProperties = array(
 		'accessTemplate' => 'getAccessTemplate',
+		'addable' => 'm',
 		'child' => 'm',
 		'children' => 'm',
 		'created' => 's', 
 		'createdStr' => '',
 		'createdUser' => '',
 		'created_users_id' => 's', 
+		'deletable' => 'm',
+		'deleteable' => 'm',
+		'editable' => 'm',
 		'editUrl' => 'm',
 		'fieldgroup' => '',
 		'filesManager' => 'm',
@@ -517,10 +557,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'isPublic' => 'm',
 		'isTrash' => 'm',
 		'isUnpublished' => 'm',
+		'listable' => 'm',
 		'modified' => 's',
 		'modifiedStr' => '',
 		'modifiedUser' => '',
 		'modified_users_id' => 's',
+		'moveable' => 'm',
 		'name' => 's',
 		'namePrevious' => 'p',
 		'next' => 'm',
@@ -533,12 +575,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'parents' => 'm',
 		'path' => 'm',
 		'prev' => 'm',
+		'publishable' => 'm',
 		'published' => 's',
 		'publishedStr' => '',
 		'render' => '',
 		'rootParent' => 'm',
 		'siblings' => 'm',
 		'sort' => 's',
+		'sortable' => 'm',
 		'sortfield' => 's',
 		'status' => 's',
 		'statusPrevious' => 'p',
@@ -546,7 +590,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'template' => 'p',
 		'templates_id' => '',
 		'templatePrevious' => 'p',
+		'trashable' => 'm',
 		'url' => 'm',
+		'viewable' => 'm'
 	);
 
 	/**
@@ -630,8 +676,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$value2 = clone $value; 
 			$this->set($name, $value2); // commit cloned value
 			// if value is Pagefiles, then tell it the new page
-			if($value2 instanceof Pagefiles) $value2->setPage($this); 
-
+			if($value2 instanceof PageFieldValueInterface) $value2->setPage($this);
 		}
 		$this->instanceID .= ".clone";
 		if($track) $this->setTrackChanges(true); 
@@ -656,7 +701,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param string $key Name of property to set
 	 * @param mixed $value Value to set
-	 * @return Page Reference to this Page
+	 * @return Page|WireData Reference to this Page
 	 * @see __set
 	 * @throws WireException
 	 *
@@ -693,9 +738,18 @@ class Page extends WireData implements \Countable, WireMatchable {
 				break;
 			case 'parent': 
 			case 'parent_id':
-				if(($key == 'parent_id' || is_int($value)) && $value) $value = $this->wire('pages')->get((int)$value); 
-					else if(is_string($value)) $value = $this->wire('pages')->get($value); 
-				if($value) $this->setParent($value);
+				if(is_object($value) && $value instanceof Page) {
+					// ok
+					$this->setParent($value);
+				} else if($value && !$this->_parent && 
+					($key == 'parent_id' || is_int($value) || (is_string($value) && ctype_digit("$value")))) {
+					// store only parent ID so that parent is lazy loaded,
+					// but only if parent hasn't already been previously loaded
+					$this->_parent_id = (int) $value;	
+				} else if($value && (is_string($value) || is_int($value))) {
+					$value = $this->_pages('get', $value);
+					$this->setParent($value);
+				}
 				break;
 			case 'parentPrevious':
 				if(is_null($value) || $value instanceof Page) $this->parentPrevious = $value; 
@@ -743,6 +797,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$this->instanceID = $value; 
 				self::$instanceIDs[$value] = $this->settings['id']; 
 				break;
+			case 'loaderCache':
+				$this->loaderCache = (bool) $value;	
+				break;
 			default:
 				if(strpos($key, 'name') === 0 && ctype_digit(substr($key, 5)) && $this->wire('languages')) {
 					// i.e. name1234
@@ -783,9 +840,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param string $key
-	 * @param mixed $value
-	 * @return $this
+	 * @param string $key Name of field/property to set
+	 * @param mixed $value Value to set
+	 * @return Page|WireData Returns reference to this page
 	 * 
 	 */
 	public function setForced($key, $value) {
@@ -804,7 +861,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param string $key
 	 * @param mixed $value
 	 * @param bool $load Should the existing value be loaded for change comparisons? (applicable only to non-autoload fields)
-	 * @return $this
+	 * @return Page|WireData Returns reference to this Page
 	 * @throws WireException
 	 *
 	 */
@@ -843,7 +900,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(!$this->isLoaded) {
 
 			// send the value to the Fieldtype to be woken up for storage in the page
-			$value = $field->type->wakeupValue($this, $field, $value); 
+			// $value = $field->type->wakeupValue($this, $field, $value); 
+			$value = $field->type->_callHookMethod('wakeupValue', array($this, $field, $value));
 
 			// page is currently loading, so we don't need to continue any further
 			return parent::set($key, $value); 
@@ -855,15 +913,25 @@ class Page extends WireData implements \Countable, WireMatchable {
 			// retrieve old value first in case it's not autojoined so that change comparisons and save's work 
 			if($load && $this->isLoaded) $this->get($key); 
 
-		} else if($this->outputFormatting && $field->type->formatValue($this, $field, $value) != $value) { 
-			// The field has been loaded or dereferenced from the API, and this field changes when formatters are applied to it. 
-			// There is a good chance they are trying to set a formatted value, and we don't allow this situation because the 
-			// possibility of data corruption is high. We set the Page::statusCorrupted status so that Pages::save() can abort.
-			$this->set('status', $this->status | self::statusCorrupted); 
-			$corruptedFields = $this->get('_statusCorruptedFields');
-			if(!is_array($corruptedFields)) $corruptedFields = array();
-			$corruptedFields[$field->name] = $field->name;
-			$this->set('_statusCorruptedFields', $corruptedFields); 
+		} else {
+			// check if the field is corrupted
+			$isCorrupted = false;
+			if(is_object($value) && $value instanceof PageFieldValueInterface) {
+				if($value->formatted()) $isCorrupted = true;
+			} else if($this->outputFormatting) {
+				$result = $field->type->_callHookMethod('formatValue', array($this, $field, $value));
+				if($result != $value) $isCorrupted = true; 
+			}
+			if($isCorrupted) {
+				// The field has been loaded or dereferenced from the API, and this field changes when formatters are applied to it. 
+				// There is a good chance they are trying to set a formatted value, and we don't allow this situation because the 
+				// possibility of data corruption is high. We set the Page::statusCorrupted status so that Pages::save() can abort.
+				$this->set('status', $this->status | self::statusCorrupted);
+				$corruptedFields = $this->get('_statusCorruptedFields');
+				if(!is_array($corruptedFields)) $corruptedFields = array();
+				$corruptedFields[$field->name] = $field->name;
+				$this->set('_statusCorruptedFields', $corruptedFields);
+			}
 		}
 
 		// isLoaded so sanitizeValue can determine if it can perform a typecast rather than a full sanitization (when helpful)
@@ -939,8 +1007,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 		}
 		
 		switch($key) {
+			case 'parent':
+				$value = $this->_parent ? $this->_parent : $this->parent();
+				break;
 			case 'parent_id':
-				$value = $this->parent ? $this->parent->id : 0; 
+				$value = $this->_parent ? $this->_parent->id : 0; 
+				if(!$value) $value = $this->_parent_id;
 				break;
 			case 'templates_id':
 				$value = $this->template ? $this->template->id : 0;
@@ -979,6 +1051,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 			case 'render':
 				$value = $this->wire('modules')->get('PageRender');	
 				$value->setPropertyPage($this);
+				break;
+			case 'loaderCache':
+				$value = $this->loaderCache;
 				break;
 			
 			default:
@@ -1029,7 +1104,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function getField($field) {
 		$template = $this->template;
-		$fieldgroup = $template ? $this->template->fieldgroup : null;
+		$fieldgroup = $template ? $template->fieldgroup : null;
 		if(!$fieldgroup) return null;
 		if($this->outputFormatting && $fieldgroup->hasFieldContext($field)) {
 			$value = $fieldgroup->getFieldContext($field);
@@ -1200,7 +1275,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * Get the value for a non-native page field, and call upon Fieldtype to join it if not autojoined
 	 *
 	 * @param string $key Name of field to get
-	 * @param string $selector Optional selector to filter load by
+	 * @param string $selector Optional selector to filter load by...
+	 *   ...or, if not in selector format, it becomes an __invoke() argument for object values .
 	 * @return null|mixed
 	 *
 	 */
@@ -1210,6 +1286,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$field = $this->getField($key);
 		$value = parent::get($key); 
 		if(!$field) return $value;  // likely a runtime field, not part of our data
+		$invokeArgument = '';
 		
 		if($field->useRoles && $this->outputFormatting) {
 			// API access may be limited when output formatting is ON
@@ -1223,29 +1300,38 @@ class Page extends WireData implements \Countable, WireMatchable {
 				// note: we do not store this blank value in the Page, so that
 				// the real value can potentially be loaded later without output formatting
 				$value = $field->type->getBlankValue($this, $field); 
-				return $field->type->formatValue($this, $field, $value);
+				return $this->formatFieldValue($field, $value);
 			}
 		}
 
 		if(!is_null($value) && empty($selector)) {
 			// if the non-filtered value is already loaded, return it 
-			return $this->outputFormatting ? $field->type->formatValue($this, $field, $value) : $value;
+			return $this->formatFieldValue($field, $value);
 		}
 		
 		$track = $this->trackChanges();
 		$this->setTrackChanges(false); 
 		if(!$field->type) return null;
+		
+		if($selector && !Selectors::stringHasSelector($selector)) {
+			// if selector argument provdied, but isn't valid, we assume it 
+			// to instead be an argument for the value's __invoke() method
+			$invokeArgument = $selector;
+			$selector = '';
+		}
 	
 		if($selector) {
 			$value = $field->type->loadPageFieldFilter($this, $field, $selector);	
 		} else {
-			$value = $field->type->loadPageField($this, $field);
+			// $value = $field->type->loadPageField($this, $field);
+			$value = $field->type->_callHookMethod('loadPageField', array($this, $field));
 		}
 		
 		if(is_null($value)) {
 			$value = $field->type->getDefaultValue($this, $field);
 		} else {
-			$value = $field->type->wakeupValue($this, $field, $value);
+			$value = $field->type->_callHookMethod('wakeupValue', array($this, $field, $value)); 
+			//$value = $field->type->wakeupValue($this, $field, $value);
 		}
 
 		// turn off output formatting and set the field value, which may apply additional changes
@@ -1261,8 +1347,48 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(is_object($value) && $value instanceof Wire) $value->resetTrackChanges(true);
 		if($track) $this->setTrackChanges(true); 
 	
+		$value = $this->formatFieldValue($field, $value);
 		
-		return $this->outputFormatting ? $field->type->formatValue($this, $field, $value) : $value; 
+		if($invokeArgument && is_object($value) && method_exists($value, '__invoke')) {
+			$value = $value->__invoke($invokeArgument);
+		}
+		
+		return $value;
+	}
+
+	/**
+	 * Return a value consistent with the page’s output formatting state
+	 * 
+	 * This is primarily for use as a helper to the getFieldValue() method. 
+	 * 
+	 * @param Field $field
+	 * @param mixed $value
+	 * @return mixed
+	 * 
+	 */
+	protected function formatFieldValue(Field $field, $value) {
+	
+		$hasInterface = is_object($value) && $value instanceof PageFieldValueInterface;
+		
+		if($hasInterface) {
+			$value->setPage($this);
+			$value->setField($field);
+		}
+
+		if($this->outputFormatting) {
+			// output formatting is enabled so return a formatted value
+			//$value = $field->type->formatValue($this, $field, $value);
+			$value = $field->type->_callHookMethod('formatValue', array($this, $field, $value));
+			// check again for interface since value may now be different
+			if($hasInterface) $hasInterface = is_object($value) && $value instanceof PageFieldValueInterface;
+			if($hasInterface) $value->formatted(true);
+		} else if($hasInterface && $value->formatted()) {
+			// unformatted requested, and value is already formatted so load a fresh copy
+			$this->__unset($field->name);
+			$value = $this->getFieldValue($field->name);
+		}
+		
+		return $value;
 	}
 	
 	/**
@@ -1678,20 +1804,22 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function setParent(Page $parent) {
-		if($this->parent && $this->parent->id == $parent->id) return $this; 
+		if($this->_parent && $this->_parent->id == $parent->id) return $this; 
 		if($parent->id && $this->id == $parent->id || $parent->parents->has($this)) {
 			throw new WireException("Page cannot be its own parent");
 		}
 		if($this->isLoaded) {
-			$this->trackChange('parent', $this->parent, $parent);
-			if(($this->parent && $this->parent->id) && $this->parent->id != $parent->id) {
+			if(!$this->_parent) $this->parent(); // force it to load
+			$this->trackChange('parent', $this->_parent, $parent);
+			if(($this->_parent && $this->_parent->id) && $this->_parent->id != $parent->id) {
 				if($this->settings['status'] & Page::statusSystem) {
 					throw new WireException("Parent changes are disallowed on this page");
 				}
-				if(is_null($this->parentPrevious)) $this->parentPrevious = $this->parent;
+				if(is_null($this->parentPrevious)) $this->parentPrevious = $this->_parent;
 			}
 		}
-		$this->parent = $parent; 
+		$this->_parent = $parent; 
+		$this->_parent_id = $parent->id;
 		return $this; 
 	}
 
@@ -1762,7 +1890,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		} else if(is_array($selector)) {
 			$selector["has_parent"] = $this->id;	
 		}
-		return $this->wire('pages')->find($selector, $options); 
+		return $this->_pages('find', $selector, $options); 
 	}
 
 	/**
@@ -1787,7 +1915,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param string $selector Selector to use, or omit to return all children.
 	 * @param array $options Optional options to modify behavior, the same as those provided to Pages::find.
-	 * @return PageArray Children that matched the selector, or all children (if no selector given)
+	 * @return PageArray|array Returns PageArray for most cases. Returns regular PHP array if using the findIDs option.
 	 * @see Page::child(), Page::find(), Page::numChildren(), Page::hasChildren()
 	 *
 	 */
@@ -1870,7 +1998,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-common
 	 * #pw-group-traversal
 	 *
-	 * @param string|array $selector Selector to use, or blank to return the first child. 
+	 * @param string|array|int $selector Selector to use, or blank to return the first child. 
 	 * @param array $options Optional options per Pages::find
 	 * @return Page|NullPage
 	 * @see Page::children()
@@ -1903,10 +2031,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function parent($selector = '') {
-		if(!$this->parent) return $this->wire('pages')->newNullPage();
-		if(empty($selector)) return $this->parent; 
-		if($this->parent->matches($selector)) return $this->parent; 
-		if($this->parent->parent_id) return $this->parent->parent($selector); // recursive, in a way
+		if(!$this->_parent) {
+			if($this->_parent_id) {
+				$this->_parent = $this->_pages('get', (int) $this->_parent_id);
+			} else {
+				return $this->wire('pages')->newNullPage();
+			}
+		}
+		if(empty($selector)) return $this->_parent; 
+		if($this->_parent->matches($selector)) return $this->_parent; 
+		if($this->_parent->parent_id) return $this->_parent->parent($selector); // recursive, in a way
 		return $this->wire('pages')->newNullPage();
 	}
 
@@ -2360,7 +2494,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *   making the return value the same as the `Page::hasChildren()` method. 
 	 * 
 	 * - When output formatting is off, returns number of all children without exclusion,
-	 *   making the return value teh same as the `Page::numChildren()` method. 
+	 *   making the return value the same as the `Page::numChildren()` method. 
 	 * 
 	 * ~~~~~
 	 * // Get number of visible children, like $page->hasChildren()
@@ -2453,17 +2587,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(parent::isChanged($what)) return true; 
 		$changed = false;
 		if($what) {
-			$value = $this->get($what); 
-			if(is_object($value) && $value instanceof Wire) 
-				$changed = $value->isChanged(); 
+			$data = array_key_exists($what, $this->data) ? array($this->data[$what]) : array();
 		} else {
-			foreach($this->data as $key => $value) {
-				if(is_object($value) && $value instanceof Wire)
-					$changed = $value->isChanged();
-				if($changed) break;
-			}
+			$data = &$this->data;
 		}
-
+		foreach($data as $key => $value) {
+			if(is_object($value) && $value instanceof Wire) {
+				$changed = $value->isChanged();
+			}
+			if($changed) break;
+		}
 		return $changed; 	
 	}
 
@@ -2543,7 +2676,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
-	 * Returns the URL to the page
+	 * Returns the URL to the page (optionally with additional $options)
 	 *
 	 * - This method can also be accessed by property `$page->url` (without parenthesis). 
 	 * 
@@ -2555,7 +2688,34 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - **Need to hook this method?** While it's not directly hookable, it does use the `$page->path()`
 	 *   method, which *is* hookable. As a result, you can affect the output of the url() method by
 	 *   hooking the path() method instead. 
-	 *
+	 * 
+	 * ## $options argument
+	 * 
+	 * You can specify an `$options` argument to this method with any of the following:
+	 * 
+	 * - `pageNum` (int|string): Specify pagination number, or "+" for next pagination, or "-" for previous pagination.
+	 * - `urlSegmentStr` (string): Specify a URL segment string to append.
+	 * - `urlSegments` (array): Specify array of URL segments to append (may be used instead of urlSegmentStr).
+	 * - `data` (array): Array of key=value variables to form a query string.
+	 * - `http` (bool): Specify true to make URL include scheme and hostname (default=false).
+	 * - `language` (Language): Specify Language object to return URL in that Language.
+	 * 
+	 * You can also specify any of the following for `$options` as shortcuts:
+	 * 
+	 * - If you specify an `int` for options it is assumed to be the `pageNum` option.
+	 * - If you specify `+` or `-` for options it is assumed to be the `pageNum` “next/previous pagination” option.
+	 * - If you specify any other `string` for options it is assumed to be the `urlSegmentStr` option.
+	 * - If you specify a `boolean` (true) for options it is assumed to be the `http` option. 
+	 * 
+	 * Please also note regarding `$options`:
+	 * 
+	 * - This method honors template slash settings for page, URL segments and page numbers. 
+	 * - Any passed in URL segments are automatically sanitized with `Sanitizer::pageNameUTF8()`.
+	 * - If using the `pageNum` or URL segment options please also make sure these are enabled on the page’s template.
+	 * - The query string generated by any `data` variables is entity encoded when output formatting is on. 
+	 * - The `language` option requires that the `LanguageSupportPageNames` module is installed. 
+	 * - The prefix for page numbers honors `$config->pageNumUrlPrefix` and multi-language prefixes as well. 
+	 * 
 	 * ~~~~~
 	 * // Using $page->url to output navigation
 	 * foreach($page->children as $child) {
@@ -2567,13 +2727,54 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * echo $page->url();  // outputs: /my-site/about/contact/
 	 * echo $page->path(); // outputs: /about/contact/
 	 * ~~~~~
+	 * ~~~~~
+	 * // Specify that you want a specific pagination (output: /example/page2)
+	 * echo $page->url(2);
 	 * 
+	 * // Get URL for next and previous pagination
+	 * echo $page->url('+'); // next
+	 * echo $page->url('-'); // prev
+	 * 
+	 * // Get a URL with scheme and hostname (output: http://domain.com/example/)
+	 * echo $page->url(true);
+	 * 
+	 * // Specify a URL segment string (output: /example/photos/1)
+	 * echo $page->url('photos/1');
+	 *
+	 * // Use a URL segment array (output: /example/photos/1)
+	 * echo $page->url([
+	 *   'urlSegments' => [ 'photos', '1' ]
+	 * ]);
+	 * 
+	 * // Get URL in a specific language
+	 * $fr = $languages->get('fr');
+	 * echo $page->url($fr); 
+	 *
+	 * // Include data/query vars (output: /example/?action=view&type=photos)
+	 * echo $page->url([
+	 *   'data' => [
+	 *     'action' => 'view',
+	 *     'type' => 'photos'
+	 *   ]
+	 * ]);
+	 * 
+	 * // Specify multiple options (output: http://domain.com/example/foo/page3?bar=baz)
+	 * echo $page->url([
+	 *   'http' => true,
+	 *   'pageNum' => 3,
+	 *   'urlSegmentStr' => 'foo',
+	 *   'data' => [ 'bar' => 'baz' ]
+	 * ]);
+	 * ~~~~~
+	 * 
+	 * @param array|int|string|bool|Language|null $options Optionally specify options to modify default behavior (see method description). 
 	 * @return string Returns page URL, for example: `/my-site/about/contact/`
 	 * @see Page::path(), Page::httpUrl(), Page::editUrl(), Page::localUrl()
 	 *
 	 */
-	public function url() {
-		$url = rtrim($this->wire('config')->urls->root, "/") . $this->path(); 
+	public function url($options = null) {
+		if($options !== null) return $this->traversal()->urlOptions($this, $options);
+		$url = rtrim($this->wire('config')->urls->root, "/") . $this->path();
 		if($this->template->slashUrls === 0 && $this->settings['id'] > 1) $url = rtrim($url, '/'); 
 		return $url;
 	}
@@ -2593,27 +2794,29 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * // Generating a link to this page using httpUrl
 	 * echo "<a href='$page->httpUrl'>$page->title</a>"; 
 	 * ~~~~~
-	 * 
+	 *
+	 * @param array $options For details on usage see `Page::url()` options argument. 
 	 * @return string Returns full URL to page, for example: `https://processwire.com/about/`
 	 * @see Page::url(), Page::localHttpUrl()
 	 *
 	 */
-	public function httpUrl() {
+	public function httpUrl($options = array()) {
 		if(!$this->template) return '';
-
 		switch($this->template->https) {
 			case -1: $protocol = 'http'; break;
 			case 1: $protocol = 'https'; break;
-			default: $protocol = $this->wire('config')->https ? 'https' : 'http'; 
+			default: $protocol = $this->wire('config')->https ? 'https' : 'http';
 		}
-
-		return "$protocol://" . $this->wire('config')->httpHost . $this->url();
+		if(is_array($options)) unset($options['http']);
+			else if(is_bool($options)) $options = array();
+		return "$protocol://" . $this->wire('config')->httpHost . $this->url($options);
 	}
 
 	/**
-	 * Return the URL necessary to edit this page
+	 * Return the URL necessary to edit this page 
 	 * 
 	 * - We recommend checking that the page is editable before outputting the editUrl(). 
+	 * - If user opens URL in their browser and is not logged in, they must login to account with edit permission.
 	 * - This method can also be accessed by property at `$page->editUrl` (without parenthesis). 
 	 * 
 	 * ~~~~~~
@@ -2624,14 +2827,21 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-group-advanced
 	 * 
+	 * @param array|bool $options Specify boolean true to force URL to include scheme and hostname, or use $options array:
+	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
 	 * @return string URL for editing this page
 	 * 
 	 */
-	public function editUrl() {
+	public function editUrl($options = array()) {
 		$adminTemplate = $this->wire('templates')->get('admin');
 		$https = $adminTemplate && ($adminTemplate->https > 0);
 		$url = ($https && !$this->wire('config')->https) ? 'https://' . $this->wire('config')->httpHost : '';
 		$url .= $this->wire('config')->urls->admin . "page/edit/?id=$this->id";
+		if($options === true || (is_array($options) && !empty($options['http']))) {
+			if(strpos($url, '://') === false) {
+				$url = ($https ? 'https://' : 'http://') . $this->wire('config')->httpHost . $url;
+			}
+		}
 		return $url;
 	}
 
@@ -3099,7 +3309,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *  - `true` (boolean): To return an array of status names (indexed by status number).
 	 *  - `integer|string|array`: Status number(s) or status name(s) to set the current page status (same as $page->status = $value)
 	 * @param int|null $status If you specified `true` for first argument, optionally specify status value you want to use (if not the current).
-	 * @return int|array|$this If setting status, `$this` is returned. If getting status: current status or array of status names is returned.
+	 * @return int|array|Page If setting status, `$this` is returned. If getting status: current status or array of status names is returned.
 	 * @see Page::addStauts(), Page::removeStatus(), Page::hasStatus()
 	 * 
 	 */
@@ -3150,7 +3360,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 			unset(Page::$loadingStack[$this->settings['id']]); 
 		}
 		$this->isLoaded = $isLoaded ? true : false; 
-		if($isLoaded) $this->loaded();
+		if($isLoaded) {
+			//$this->loaded();
+			$this->_callHookMethod('loaded');
+		}
 		return $this; 
 	}
 
@@ -3593,5 +3806,43 @@ class Page extends WireData implements \Countable, WireMatchable {
 			throw new WireException("Invalid arguments to Page::lazy()");
 		}
 	}
+
+	/**
+	 * Handles get/find loads specific to this Page from the $pages API variable
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $method The $pages API method to call (get, find, findOne, or count)
+	 * @param string|int $selector The selector argument of the $pages call
+	 * @param array $options Any additional options (see Pages::find for options). 
+	 * @return Pages|Page|PageArray|NullPage
+	 * @throws WireException
+	 * 
+	 */
+	public function _pages($method = '', $selector = '', $options = array()) {
+		if(empty($method)) return $this->wire('pages');
+		if(!isset($options['cache'])) $options['cache'] = $this->loaderCache;
+		if(!isset($options['caller'])) $options['caller'] = "page._pages.$method";
+		$result = $this->wire('pages')->$method($selector, $options);
+		return $result;
+	}
+
+	/*
+	public function remove($key) {
+		parent::remove($key);
+		if(isset($this->data[$key])) {
+			$a = parent::get('_statusCorruptedFields');
+			if(!is_array($a)) $a = array();
+			$k = array_search($key, $a);
+			if($k !== false) {
+				unset($a[$k]); 
+				if(empty($a)) $this->removeStatus(self::statusCorrupted);
+				parent::set('_statusCorruptedFields', $a);
+			}
+		}
+		return $this;
+	}
+	*/
+	
 }
 

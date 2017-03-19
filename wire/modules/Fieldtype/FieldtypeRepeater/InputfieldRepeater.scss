@@ -7,24 +7,61 @@
 	
 	.InputfieldRepeaterItem  > .InputfieldHeader {
 		line-height: 1em;
-		padding: 0.5em;
+		padding: 0.5em 0 0.5em 0.4em;
+		white-space: nowrap;
+		overflow: hidden;
+		position: relative;
 		
-		.toggle-icon {
-			line-height: 1em;
-			margin-right: 0.5em;
+		.InputfieldRepeaterItemLabel,
+		.InputfieldRepeaterItemControls {
+			display: none;
 		}
 		
-		& > .InputfieldRepeaterToggle,
-		& > .InputfieldRepeaterTrash {
-			cursor: pointer;
-			float: right;
+		&.InputfieldRepeaterHeaderInit {
+			.InputfieldRepeaterItemLabel {
+				display: inline-block;
+				padding-left: 0.25em;
+			}
+			.InputfieldRepeaterItemControls {
+				display: block;
+				padding-right: 0.5em;
+				padding-left: 0.5em;
+				margin-top: 0.5em;
+				position: absolute;
+				top: 0;
+				right: 0;
+				z-index: 1;
+				display: block;
+				white-space: nowrap;
+				height: 100%;
+
+				.InputfieldRepeaterClone,
+				.InputfieldRepeaterToggle,
+				.InputfieldRepeaterTrash,
+				.toggle-icon {
+					cursor: pointer;
+					float: right;
+				}
+				.InputfieldRepeaterTrash {
+					padding-right: 3px;
+				}
+				.InputfieldRepeaterToggle {
+					margin-right: 1em;
+				}
+				.InputfieldRepeaterClone {
+					margin-right: 1em;
+				}
+				.pw-icon-disabled {
+					opacity: 0.3;	
+				}
+			}
+
+			.toggle-icon {
+				line-height: 1em;
+				margin-right: 0.5em;
+			}
 		}
-		& > .InputfieldRepeaterTrash {
-			padding-right: 3px;
-		}
-		& > .InputfieldRepeaterToggle {
-			margin-right: 1em;
-		}
+		
 	}
 		
 	.InputfieldRepeaterItem:not(.InputfieldRepeaterDeletePending) {
@@ -44,10 +81,14 @@
 		&.InputfieldRepeaterOff > .InputfieldHeader {
 			// off items faded yet even more 
 			opacity: 0.5;
-			&:not(:hover) {
+			&:not(:hover) > .InputfieldRepeaterItemLabel {
 				text-decoration: line-through;
 			}
 		}
+	}
+	
+	.InputfieldRepeaterItem.InputfieldRepeaterDeletePending > .InputfieldHeader > .InputfieldRepeaterItemLabel {
+		text-decoration: line-through;
 	}
 	
 	.InputfieldRepeaterItem.InputfieldRepeaterItemLoading {
@@ -64,6 +105,12 @@
 		// used by non-ajax add mode
 		display: none;
 	}
+	
+	.InputfieldRepeaterDelete {
+		// delete checkbox
+		display: none;
+	}
+
 }
 
 .InputfieldRepeater {
@@ -77,7 +124,7 @@
 		//padding-left: 25px;
 		position: relative;
 	}
-	
+
 	.InputfieldRepeaterAddItem input {
 		// count of added items hidden
 		position: absolute;
@@ -92,6 +139,7 @@
 	
 	.InputfieldRepeaterDrag {
 		// draggable icon for repeater items
+		display: inline-block;
 		cursor: ns-resize;
 		opacity: 0.7;
 		line-height: 1em;

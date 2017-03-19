@@ -74,14 +74,22 @@ class ProcessPageSort extends Process {
 
 	/**
 	 * Saves a page that has had it's parent_id changed
+	 * 
+	 * @param Page $page
+	 * @param Page $parent
+	 * @throws WirePermissionException
 	 *
 	 */
 	protected function movePage(Page $page, Page $parent) {
 
 		if($page->parent_id == $parent->id) return;
 
-		if(!$page->moveable($parent)) 
-			throw new WirePermissionException($this->_("You do not have permission to move pages using this parent") . " - {$parent->path}"); 
+		if(!$page->moveable($parent)) {
+			throw new WirePermissionException(
+				$this->_("You do not have permission to move pages using this parent") . " - " . 
+				$parent->path()
+			);
+		}
 
 		$page->setOutputFormatting(false); 
 		$page->resetTrackChanges(true); 
@@ -93,27 +101,40 @@ class ProcessPageSort extends Process {
 
 	/**
 	 * Updates the sortfield for all pages having the same parent
+	 * 
+	 * @param Page $page
+	 * @param Page $parent
+	 * @throws WirePermissionException|WireException
 	 *
 	 */
 	protected function sortPages(Page $page, Page $parent) {
 
 		if(!$page->sortable()) { 
-			if(!$this->isMoved) throw new WirePermissionException($this->_("You do not have permission to sort pages using this parent") . " - {$parent->path}"); 
+			if(!$this->isMoved) {
+				throw new WirePermissionException(
+					$this->_("You do not have permission to sort pages using this parent") . " - " .
+					$parent->path()
+				);
+			}
 			return;
 		}
 
-		if($parent->sortfield && $parent->sortfield != 'sort') {
+		$sortfield = $parent->sortfield();
+		if($sortfield && $sortfield != 'sort') {
 			$msg = sprintf($this->_("Your sort was not saved because these pages are automatically sorted by %s."), $parent->sortfield);
-			if(!$this->isMoved) throw new WireException($msg); 
-				else $this->message($msg); 
+			if(!$this->isMoved) {
+				throw new WireException($msg);
+			} else {
+				$this->message($msg);
+			}
 			return;
 		}
-
+		
 		$changes = 0; 
-		$sortStart = 0;
 		$database = $this->wire('database');
 
-		// locate the 'sort' value of the current first sorted item, to use as our starting point (in case sorting in a pagination other than 1)
+		// locate the 'sort' value of the current first sorted item, to use as our starting point
+		// (in case sorting in a pagination other than 1)
 		$sql = "SELECT sort FROM pages WHERE parent_id=:parent_id AND id IN("; 
 		foreach($this->ids as $id) $sql .= ((int) $id) . ",";
 		$sql = rtrim($sql, ",") . ") ";
@@ -127,7 +148,6 @@ class ProcessPageSort extends Process {
 		
 		$query = $database->prepare("UPDATE pages SET sort=:sort1 WHERE id=:id AND parent_id=:parent_id AND sort!=:sort2");
 		$query->bindValue(":parent_id", $parent->id, \PDO::PARAM_INT);
-		$id = 0;
 		$pageSort = 0;
 		
 		foreach($this->ids as $sort => $id) {
@@ -146,6 +166,7 @@ class ProcessPageSort extends Process {
 		$page->save();
 		$parent->trackChange('children');
 		$parent->save();
+		$this->wire('pages')->sorted($page, false, $changes);
 
 		if($changes) $this->message("Updated sort for $changes pages", Notice::log); 
 		

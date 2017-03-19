@@ -17,7 +17,7 @@ require_once(__DIR__ . '/boot.php');
  * ~~~~~
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
  * 
  * @method init()
@@ -45,7 +45,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 42;
+	const versionRevision = 56;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -275,13 +275,17 @@ class ProcessWire extends Wire {
 		// If script is being called externally, add an extra shutdown function 
 		if(!$config->internal) register_shutdown_function(function() {
 			if(error_get_last()) return;
-			$process = $this->wire('process');
+			$process = isset($this) ? $this->wire('process') : wire('process');
 			if($process == 'ProcessPageView') $process->finished();
 		});
 		
 		if($config->useFunctionsAPI) {
-			include($config->paths->core . 'FunctionsAPI.php');
+			$file = $config->paths->core . 'FunctionsAPI.php';
+			/** @noinspection PhpIncludeInspection */
+			include_once($file);
 		}
+		
+
 
 		$this->setStatus(self::statusBoot);
 	}
@@ -352,6 +356,7 @@ class ProcessWire extends Wire {
 			Debug::timer('boot.load'); 
 		}
 
+		$this->wire('urls', $config->urls); // shortcut API var
 		$this->wire('log', new WireLog(), true); 
 		$this->wire('notices', new Notices(), true); 
 		$this->wire('sanitizer', new Sanitizer()); 
@@ -369,7 +374,8 @@ class ProcessWire extends Wire {
 			$this->trackException($e, true, 'Unable to load WireDatabasePDO');
 			throw new WireDatabaseException($e->getMessage()); 
 		}
-		
+	
+		/** @var WireCache $cache */
 		$cache = $this->wire('cache', new WireCache(), true); 
 		$cache->preload($config->preloadCacheNames); 
 		
@@ -739,7 +745,6 @@ class ProcessWire extends Wire {
 	 */
 	public static function buildConfig($rootPath, $rootURL = null, array $options = array()) {
 		
-		
 		if(DIRECTORY_SEPARATOR != '/') {
 			$rootPath = str_replace(DIRECTORY_SEPARATOR, '/', $rootPath);
 		}
@@ -749,13 +754,14 @@ class ProcessWire extends Wire {
 		$httpHost = '';
 		$scheme = '';
 		$siteDir = isset($options['siteDir']) ? $options['siteDir'] : 'site';
+		$cfg = array('dbName' => '');
 		
 		if($rootURL && strpos($rootURL, '://')) {
 			// rootURL is specifying scheme and hostname
 			list($scheme, $httpHost) = explode('://', $rootURL);
 			if(strpos($httpHost, '/')) {
 				list($httpHost, $rootURL) = explode('/', $httpHost, 2);	
-				if(empty($rootURL)) $rootURL = '/';
+				$rootURL = "/$rootURL";
 			} else {
 				$rootURL = '/';
 			}
@@ -766,9 +772,6 @@ class ProcessWire extends Wire {
 		$rootPath = rtrim($rootPath, '/');
 		$_rootURL = $rootURL;
 		if(is_null($rootURL)) $rootURL = '/';
-		
-		$config = new Config();
-		$config->dbName = '';
 		
 		// check what rootPath is referring to
 		if(strpos($rootPath, "/$siteDir")) {
@@ -799,11 +802,11 @@ class ProcessWire extends Wire {
 			unset($sf, $f, $x);
 		
 			// when internal is true, we are not being called by an external script
-			$config->internal = $realIndexFile == $realScriptFile;
+			$cfg['internal'] = $realIndexFile == $realScriptFile;
 
 		} else {
 			// when included from another app or command line script
-			$config->internal = false;
+			$cfg['internal'] = false;
 			$host = '';
 		}
 		
@@ -830,42 +833,50 @@ class ProcessWire extends Wire {
 		}
 
 		// other default directories
+		$sitePath = $rootPath . "/$siteDir/";
 		$wireDir = "wire";
 		$coreDir = "$wireDir/core";
 		$assetsDir = "$siteDir/assets";
 		$adminTplDir = 'templates-admin';
 	
 		// create new Config instance
-		$config->urls = new Paths($rootURL);
-		$config->urls->wire = "$wireDir/";
-		$config->urls->site = "$siteDir/";
-		$config->urls->modules = "$wireDir/modules/";
-		$config->urls->siteModules = "$siteDir/modules/";
-		$config->urls->core = "$coreDir/";
-		$config->urls->assets = "$assetsDir/";
-		$config->urls->cache = "$assetsDir/cache/";
-		$config->urls->logs = "$assetsDir/logs/";
-		$config->urls->files = "$assetsDir/files/";
-		$config->urls->tmp = "$assetsDir/tmp/";
-		$config->urls->templates = "$siteDir/templates/";
-		$config->urls->fieldTemplates = "$siteDir/templates/fields/";
-		$config->urls->adminTemplates = is_dir("$siteDir/$adminTplDir") ? "$siteDir/$adminTplDir/" : "$wireDir/$adminTplDir/";
-		$config->paths = clone $config->urls;
-		$config->paths->root = $rootPath . '/';
-		$config->paths->sessions = $config->paths->assets . "sessions/";
+		$cfg['urls'] = new Paths($rootURL);
+		$cfg['urls']->data(array(
+			'wire' => "$wireDir/",
+			'site' => "$siteDir/",
+			'modules' => "$wireDir/modules/",
+			'siteModules' => "$siteDir/modules/",
+			'core' => "$coreDir/",
+			'assets' => "$assetsDir/",
+			'cache' => "$assetsDir/cache/",
+			'logs' => "$assetsDir/logs/",
+			'files' => "$assetsDir/files/",
+			'tmp' => "$assetsDir/tmp/",
+			'templates' => "$siteDir/templates/",
+			'fieldTemplates' => "$siteDir/templates/fields/",
+			'adminTemplates' => "$wireDir/$adminTplDir/",
+		), true);
+		
+		$cfg['paths'] = clone $cfg['urls'];
+		$cfg['paths']->set('root', $rootPath . '/');
+		$cfg['paths']->data('sessions', $cfg['paths']->assets . "sessions/");
 
 		// Styles and scripts are CSS and JS files, as used by the admin application.
 	 	// But reserved here if needed by other apps and templates.
-		$config->styles = new FilenameArray();
-		$config->scripts = new FilenameArray();
+		$cfg['styles'] = new FilenameArray();
+		$cfg['scripts'] = new FilenameArray();
+		
+		$config = new Config();
+		$config->setTrackChanges(false);
+		$config->data($cfg, true);
 
 		// Include system config defaults
 		/** @noinspection PhpIncludeInspection */
 		require("$rootPath/$wireDir/config.php");
 
 		// Include site-specific config settings
-		$configFile = $config->paths->site . "config.php";
-		$configFileDev = $config->paths->site . "config-dev.php";
+		$configFile = $sitePath . "config.php";
+		$configFileDev = $sitePath . "config-dev.php";
 		if(is_file($configFileDev)) {
 			/** @noinspection PhpIncludeInspection */
 			@require($configFileDev);
@@ -878,8 +889,9 @@ class ProcessWire extends Wire {
 			$config->httpHost = $httpHost;
 			if(!in_array($httpHost, $config->httpHosts)) $config->httpHosts[] = $httpHost;
 		}
+		
 		if($scheme) $config->https = ($scheme === 'https'); 
-
+		
 		return $config;
 	}
 

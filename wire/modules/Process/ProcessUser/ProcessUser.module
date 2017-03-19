@@ -44,7 +44,7 @@ class ProcessUser extends ProcessPageType {
 	}
 	
 	protected function useLister() {
-		return true;
+		return $this->wire('user')->hasPermission('page-lister'); 
 	}
 
 	/**

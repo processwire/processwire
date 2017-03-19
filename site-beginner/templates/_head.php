@@ -11,7 +11,7 @@
 <body class='has-sidebar'>
 
 	<!-- top navigation -->
-	<ul class='topnav'><?php 
+	<ul class='topnav' role='navigation'><?php
 
 		// top navigation consists of homepage and its visible children
 		$homepage = $pages->get('/'); 
@@ -25,7 +25,7 @@
 			if($child->id == $page->rootParent->id) {
 				// this $child page is currently being viewed (or one of it's children/descendents)
 				// so we highlight it as the current page in the navigation
-				echo "<li class='current'><a href='$child->url'>$child->title</a></li>";
+				echo "<li class='current' aria-current='true'><span class='visually-hidden'>Current page: </span><a href='$child->url'>$child->title</a></li>";
 			} else {
 				echo "<li><a href='$child->url'>$child->title</a></li>";
 			}
@@ -40,12 +40,13 @@
 
 	<!-- search form -->
 	<form class='search' action='<?php echo $pages->get('template=search')->url; ?>' method='get'>
-		<input type='text' name='q' placeholder='Search' value='' />
-		<button type='submit' name='submit'>Search</button>
+		<label for='search' class='visually-hidden'>Search:</label>
+		<input type='text' name='q' id='search' placeholder='Search' value='' />
+		<button type='submit' name='submit' class='visually-hidden'>Search</button>
 	</form>
 
 	<!-- breadcrumbs -->
-	<div class='breadcrumbs'><?php 
+	<div class='breadcrumbs' role='navigation' aria-label='You are here:'><?php
 
 		// breadcrumbs are the current page's parents
 		foreach($page->parents() as $item) {
@@ -56,5 +57,5 @@
 
 	?></div>
 
-	<div id='main'>
+	<main id='main'>
 

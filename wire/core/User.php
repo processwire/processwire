@@ -435,17 +435,19 @@ class User extends Page {
 	}
 
 	/**
-	 * Returns the URL where this user can be edited 
+	 * Return the URL necessary to edit this user
 	 * 
 	 * In this case we adjust the default page editor URL to ensure users are edited
 	 * only from the Access section. 
-	 * 
+	 *
 	 * #pw-internal
-	 * 
-	 * @return string
-	 * 
+	 *
+	 * @param array|bool $options Specify boolean true to force URL to include scheme and hostname, or use $options array:
+	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
+	 * @return string URL for editing this user
+	 *
 	 */
-	public function editUrl() {
+	public function editUrl($options = array()) {
 		return str_replace('/page/edit/', '/access/users/edit/', parent::editUrl());
 	}
 

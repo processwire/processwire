@@ -20,13 +20,21 @@ class RepeaterPage extends Page {
 	 * Field instance that contains this repeater item
 	 *
 	 */
-	protected $forField = null;		
+	protected $forField = null;
+	
+	/**
+	 * Depth of this item
+	 *
+	 * @var int|null
+	 *
+	 */
+	protected $depth = null;
 
 	/**
 	 * Set the page that owns this repeater item
 	 *
 	 * @param Page $forPage
-	 * @return this
+	 * @return $this
 	 *
 	 */
 	public function setForPage(Page $forPage) {
@@ -55,7 +63,10 @@ class RepeaterPage extends Page {
 		// but if this repeater was loaded from somewhere else, that won't 
 		// have happened, so we have to determine it from it's location
 
-		$parentName = $this->parent()->name;
+		
+		/** @var Page $parent */
+		$parent = $this->parent();
+		$parentName = $parent->name;
 		$prefix = FieldtypeRepeater::repeaterPageNamePrefix;  // for-page-
 
 		if(strpos($parentName, $prefix) === 0) {
@@ -74,7 +85,7 @@ class RepeaterPage extends Page {
 	 * Set the field that owns this repeater item
 	 *
 	 * @param Field $forField
-	 * @return this
+	 * @return $this
 	 *
 	 */
 	public function setForField(Field $forField) {
@@ -91,7 +102,8 @@ class RepeaterPage extends Page {
 	public function getForField() {
 		if(!is_null($this->forField)) return $this->forField;
 
-		$grandparentName = $this->parent()->parent()->name; 	
+		$grandparent = $this->parent()->parent();
+		$grandparentName = $grandparent->name;
 		$prefix = FieldtypeRepeater::fieldPageNamePrefix;  // for-field-
 
 		if(strpos($grandparentName, $prefix) === 0) {
@@ -101,6 +113,31 @@ class RepeaterPage extends Page {
 		}
 
 		return $this->forField;
+	}
+	
+	public function get($key) {
+		$value = parent::get($key);
+		if($key === 'depth' && is_null($value)) {
+			$value = $this->getDepth();
+		}
+		return $value;
+	}
+	
+	public function getDepth() {
+		if(is_null($this->depth)) {
+			$this->depth = 0;
+			$name = $this->name;
+			while($name[$this->depth] === '-') $this->depth++;
+		}
+		return $this->depth;		
+	}
+	
+	public function setDepth($depth) {
+		$name = $this->name;
+		$_name = $name;
+		$name = ltrim($name, '-');
+		if($depth > 0) $name = str_repeat('-', $depth) . $name;
+		if($name !== $_name) $this->name = $name;
 	}
 
 	/**

@@ -22,6 +22,7 @@ $mainnav-width: 210px;
 $mainnav-width-wide: 230px; // bigger sidebar for wide screen?
 $masthead-height: 52px;
 
+//noinspection CssInvalidPropertyValue
 @mixin word-wrap() {
 	overflow-wrap: break-word;
 	word-break: break-word;
@@ -1239,7 +1240,7 @@ body.pw-init .toggle-icon {
 
 @media only screen and (max-width: 480px) {
 
-	#branding,{
+	#branding {
 		width: 100%;
 	}
 

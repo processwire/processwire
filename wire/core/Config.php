@@ -52,6 +52,7 @@
  * @property string $sessionName Default session name to use (default='wire') #pw-group-session
  * @property string $sessionNameSecure Session name when on HTTPS. Used when the sessionCookieSecure option is enabled (default). When blank (default), it will assume sessionName + 's'. #pw-group-session
  * @property bool|int $sessionCookieSecure Use secure cookies when on HTTPS? When enabled, separate sessions will be maintained for HTTP vs. HTTPS. Good for security but tradeoff is login session may be lost when switching (default=1 or true). #pw-group-session
+ * @property null|string $sessionCookieDomain Domain to use for sessions, which enables a session to work across subdomains, or NULL to disable (default/recommended). #pw-group-session
  * @property bool|callable $sessionAllow Are sessions allowed? Typically boolean true, unless provided a callable function that returns boolean. See /wire/config.php for an example.  #pw-group-session
  * @property int $sessionExpireSeconds How many seconds of inactivity before session expires? #pw-group-session
  * @property bool $sessionChallenge Should login sessions have a challenge key? (for extra security, recommended) #pw-group-session
@@ -78,7 +79,7 @@
  * 
  * @property bool $advanced Special mode for ProcessWire system development. Not recommended for regular site development or production use. #pw-group-system
  * @property bool $demo Special mode for demonstration use that causes POST requests to be disabled. Applies to core, but may not be safe with 3rd party modules. #pw-group-system
- * @property bool $debug Special mode for use when debugging or developing a site. Recommended TRUE when site is in development and FALSE when not. #pw-group-system
+ * @property bool|int $debug Special mode for use when debugging or developing a site. Recommended TRUE when site is in development and FALSE when not. Or set to Config::debugVerbose for verbose debug mode. #pw-group-system
  * @property string $debugIf Enable debug mode if condition is met #pw-group-system
  * @property array $debugTools Tools, and their order, to show in debug mode (admin) #pw-group-system
  * 
@@ -93,15 +94,17 @@
  * @property string $dbUser Database user #pw-group-database
  * @property string $dbPass Database password #pw-group-database
  * @property string $dbPort Database port (default=3306) #pw-group-database
- * @property string $dbCharset Default is 'utf8' #pw-group-database
+ * @property string $dbCharset Default is 'utf8' but 'utf8mb4' is also supported. #pw-group-database
+ * @property string $dbEngine Database engine (MyISAM or InnoDB) #pw-group-database
  * @property string $dbSocket Optional DB socket config for sites that need it.  #pw-group-database
  * @property bool $dbCache Whether to allow MySQL query caching. #pw-group-database
  * @property bool $dbLowercaseTables Force any created field_* tables to be lowercase. #pw-group-database
- * @property string $dbEngine Database engine (MyISAM or InnoDB) #pw-group-database
  * @property string $dbPath MySQL database exec path (Path to mysqldump) #pw-group-database
+ * @property array $dbOptions Any additional driver options to pass as $options argument to "new PDO(...)". #pw-group-database
+ * @property array $dbSqlModes Set or adjust SQL mode per MySQL version, where array keys are MySQL version and values are SQL mode command(s). #pw-group-database
  * @property int $dbQueryLogMax Maximum number of queries WireDatabasePDO will log in memory, when debug mode is enabled (default=1000). #pw-group-database
  * @property string $dbInitCommand Database init command, for PDO::MYSQL_ATTR_INIT_COMMAND. Note placeholder {charset} gets replaced with $config->dbCharset. #pw-group-database
- * $property array $dbSqlModes Set, add or remove SQL mode based on MySQL version. See default in /wire/config.php for details. #pw-group-database
+ * @property bool $dbStripMB4 When dbEngine is not utf8mb4 and this is true, we will attempt to remove 4-byte characters (like emoji) from inserts when possible. Note that this adds some overhead. #pw-group-database
  * 
  * @property array $pageList Settings specific to Page lists. #pw-group-modules
  * @property array $pageEdit Settings specific to Page editors. #pw-group-modules
@@ -118,6 +121,8 @@
  * @property bool $allowExceptions Allow Exceptions to propagate? (default=false, specify true only if you implement your own exception handler) #pw-group-system
  * @property bool $usePoweredBy Use the x-powered-by header? Set to false to disable. #pw-group-system
  * @property bool $useFunctionsAPI Allow most API variables to be accessed as functions? (see /wire/core/FunctionsAPI.php) #pw-group-system
+ * @property bool $useMarkupRegions Enable support for front-end markup regions? #pw-group-system
+ * @property int $lazyPageChunkSize Chunk size for for $pages->findMany() calls. #pw-group-system
  * 
  * @property string $userAuthSalt Salt generated at install time to be used as a secondary/non-database salt for the password system. #pw-group-session
  * @property string $userAuthHashType Default is 'sha1' - used only if Blowfish is not supported by the system. #pw-group-session
@@ -152,6 +157,12 @@
  *
  */
 class Config extends WireData {
+
+	/**
+	 * Constant for verbose debug mode (uses more memory)
+	 * 
+	 */
+	const debugVerbose = 2;
 
 	/**
 	 * Get URL for requested resource or module

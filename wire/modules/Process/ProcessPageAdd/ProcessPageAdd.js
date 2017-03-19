@@ -22,13 +22,15 @@ $(document).ready(function() {
 		} else {
 			showPublish = $t.attr('data-publish') === '1'; 
 		}
-		// console.log(showPublish); 
 		var $button = $("#submit_publish").closest('.Inputfield'); 
-		if($button.size() > 0) { 
+		if($button.length) {
+			var $button2 = $("#submit_publish_add").closest('.Inputfield'); 
 			if(showPublish) {
 				$button.fadeIn();		
+				$button2.fadeIn();
 			} else {
 				$button.fadeOut();
+				$button2.fadeOut();
 			}
 		}
 	}).change();

@@ -4,7 +4,7 @@
  * Base class for Page List rendering
  * 
  * @method array getPageActions(Page $page)
- * @method string getPageLabel(Page $page)
+ * @method string getPageLabel(Page $page, array $options = array())
  *
  */
 abstract class ProcessPageListRender extends Wire {
@@ -90,13 +90,14 @@ abstract class ProcessPageListRender extends Wire {
 	 * Return the Page's label text, whether that originates from the Page's name, headline, title, etc.
 	 *
 	 * @param Page $page
+	 * @param array $options
 	 * @return string
 	 *
 	 */
-	public function ___getPageLabel(Page $page) {
+	public function ___getPageLabel(Page $page, array $options = array()) {
 
 		$value = '';
-		$icon = $page->getIcon();
+		$icon = empty($options['noTags']) ? $page->getIcon() : '';
 
 		if(strpos($this->pageLabelField, '!') === 0) {
 			// exclamation forces this one to be used, rather than template-specific one
@@ -162,20 +163,22 @@ abstract class ProcessPageListRender extends Wire {
 
 				if(!strlen("$v")) continue;
 
-				$value .=
-					"<span class='label_$field'>" .
-					htmlspecialchars(strip_tags("$v"), ENT_QUOTES, "UTF-8", false) .
-					"</span>";
+				if(empty($options['noTags'])) $value .= "<span class='label_$field'>";
+				$value .= htmlspecialchars(strip_tags("$v"), ENT_QUOTES, "UTF-8", false);
+				if(empty($options['noTags'])) $value .= "</span>";
 			}
 		}
 
-		$icon = $page->getIcon();
 		if($icon) {
 			$icon = $this->wire('sanitizer')->name($icon);
 			$icon = "<i class='icon fa fa-fw fa-$icon'></i>";
 		}
 
-		if(!strlen($value)) $value = $page->get("title|name");
+		if(!strlen($value)) $value = $this->wire('sanitizer')->entities($page->getUnformatted("title|name"));
+		
+		if(!empty($options['noTags']) && strpos($value, '<') !== false) {
+			$value = strip_tags($value);
+		}
 
 		return $icon . trim($value);
 	}
@@ -193,6 +196,10 @@ abstract class ProcessPageListRender extends Wire {
 			return $this->config->urls->admin . "page/list/?&id={$this->page->id}&start=$start&render=" . $this->getRenderName();
 		}
 		return '';
+	}
+	
+	public function getChildren() {
+		return $this->children;
 	}
 
 }

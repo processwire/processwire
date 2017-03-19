@@ -502,3 +502,45 @@ body, input, textarea, table {
 	z-index: 9999;
 }
 
+/*********************************************************************
+ * 6. Accessibility helpers
+ *
+ */
+
+/* Hide visually, but remain approachable for screenreader */
+
+.visually-hidden {
+	position: absolute;
+	width: 1px;
+	height: 1px;
+	padding: 0;
+	margin: -1px;
+	white-space: nowrap;
+	overflow: hidden;
+	clip: rect(1px, 1px, 1px, 1px);
+	border: 0;
+}
+
+/* Show bypass link on hover */
+
+.element-focusable:focus {
+	clip: auto;
+	overflow: visible;
+	height: auto;
+}
+
+/* Sample styling for bypass link */
+
+.bypass-to-main:focus {
+	top: 0;
+	left: 0;
+	z-index: 10;
+	width: 100%;
+	height: 40px;
+	line-height: 40px;
+	text-align: center;
+	background: #333;
+	color: #fff;
+}
+
+

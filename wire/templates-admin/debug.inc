@@ -1,15 +1,28 @@
 <?php namespace ProcessWire; 
 
+/** @var Config $config */
+/** @var Pages $pages */
+/** @var Sanitizer $sanitizer */
+/** @var Session $session */
+/** @var WireInput $input */
+/** @var Fuel $fuel */
+/** @var Modules $modules */
+/** @var WireDatabasePDO $database */
+/** @var DatabaseMysqli $db */
+/** @var User $user */
+/** @var Page $page */
+/** @var WireCache $cache */
+/** @var WireClassLoader $classLoader */
+
 if(!defined("PROCESSWIRE")) die(); 
 $debugToolsLabel = __('Debug Mode Tools', __FILE__);
 
-?>
+echo 
+	"<p><a class='pw-panel' data-panel-id='debug' data-panel-width='75%' " . 
+	"data-tab-text='$debugToolsLabel' data-tab-icon='bug' data-tab-offset='200' " . 
+	"id='debug_toggle' href='#debug'><i class='fa fa-bug'></i> $debugToolsLabel</a></p>";
 
-<p>
-	<a class="pw-panel" data-panel-id="debug" data-panel-width="75%" data-tab-text="<?php echo $debugToolsLabel; ?>" data-tab-icon="bug" data-tab-offset="200" id="debug_toggle" href="#debug">
-		<i class='fa fa-cog'></i> <?php echo $debugToolsLabel; ?>
-	</a>
-</p>
+?>
 
 <div id="debug">
 	
@@ -19,6 +32,7 @@ $debugToolsLabel = __('Debug Mode Tools', __FILE__);
 		<?php
 		$o = '';
 		$oc = 0;
+		$oct = $pages->loader()->getTotalPagesLoaded();
 		foreach($pages->getCache() as $p) {
 			$oc++;
 			$parts = explode('/', trim($p->path, '/'));
@@ -30,12 +44,13 @@ $debugToolsLabel = __('Debug Mode Tools', __FILE__);
 				"<td>$p->id</td>" .
 				"<td>$path</td>" .
 				"<td>" . wireClassName($p) . "</td>" .
-				"<td>$p->_debug_loader</td>" .
+				($config->debug === Config::debugVerbose ? "<td>" . $sanitizer->entities($p->_debug_loader) . "</td>" : "") .
 				"</tr>";
 		}
+		$occ = $oct > $oc ? "$oc/$oct" : $oc;
 		?>
 		<div class="container">
-			<h3><a href='#'><?php echo __('Pages Loaded', __FILE__) . " <span class='ui-priority-secondary'>($oc)</span>"; ?></a></h3>
+			<h3><a href='#'><?php echo __('Pages Loaded', __FILE__) . " <span class='ui-priority-secondary'>($occ)</span>"; ?></a></h3>
 			<div>
 			<table>
 			<thead>
@@ -43,11 +58,15 @@ $debugToolsLabel = __('Debug Mode Tools', __FILE__);
 			<th>ID</th>
 			<th>Path</th>
 			<th>Type</th>
-			<th>Loader</th>
+			<?php if($config->debug === Config::debugVerbose) echo "<th>Loader</th>"; ?>
 			</tr>
 			</thead>
 			<tbody>
-			<?php echo $o; unset($o, $oc); ?> 
+			<?php 
+			echo $o; 
+			if($oct > $oc) echo "<p>A total of <strong>$oct</strong> pages were loaded, <strong>$oc</strong> of which are in memory:</p>";
+			unset($o, $oc, $oct, $occ); 
+			?> 
 			</tbody>
 			</table>
 			</div>

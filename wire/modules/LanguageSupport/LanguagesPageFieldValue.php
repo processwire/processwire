@@ -51,6 +51,8 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	/**
 	 * Construct the multi language value
 	 *
+	 * @param Page $page
+	 * @param Field $field
  	 * @param array|string $values
 	 *
 	 */

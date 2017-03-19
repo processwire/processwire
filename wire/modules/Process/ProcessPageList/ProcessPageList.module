@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $showRootPage Whether root page (like home) should be shown.
@@ -19,18 +19,76 @@
  * @property int $hoverActionDelay Milliseconds delay between hover and showing of actions. 
  * @property int $hoverActionFade Milliseconds to spend fading in or out actions. 
  * @property bool|int $useBookmarks Allow use of PageList bookmarks?
+ * 
+ * @method string ajaxAction($action)
+ * @method PageArray find($selectorString, Page $page)
  *
  */
 
 class ProcessPageList extends Process implements ConfigurableModule {
+	
+	/**
+	 * Module information
+	 *
+	 * @return array
+	 *
+	 */
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Page List',
+			'summary' => 'List pages in a hierarchal tree structure',
+			'version' => 119,
+			'permanent' => true,
+			'permission' => 'page-edit',
+			'icon' => 'sitemap',
+			'useNavJSON' => true,
+		);
+	}
 
-	protected $page; 
-	protected $id; 
-	protected $openPage; 
+
+	/**
+	 * @var Page|null
+	 * 
+	 */
+	protected $page;
+
+	/**
+	 * @var int
+	 * 
+	 */
+	protected $id;
+
+	/**
+	 * @var Page|null
+	 * 
+	 */
+	protected $openPage;
+
+	/**
+	 * @var int
+	 * 
+	 */
 	protected $start;
+	
+	/**
+	 * @var string
+	 *
+	 */
 	protected $trashLabel;
-	protected $render; 
-	protected $allowRenderTypes = array('JSON' => 'ProcessPageListRenderJSON');
+
+	/**
+	 * @var string|null i.e. "JSON"
+	 * 
+	 */
+	protected $render;
+
+	/**
+	 * @var array
+	 * 
+	 */
+	protected $allowRenderTypes = array(
+		'JSON' => 'ProcessPageListRenderJSON'
+	);
 	
 	/**
 	 * Default max pages to show before pagination (configurable in the module editor)
@@ -42,25 +100,17 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	 * Default animation speed (in ms) for the PageList
 	 *
 	 */
-	const defaultSpeed = 200; 
+	const defaultSpeed = 200;
 
-	public static function getModuleInfo() {
-		return array(
-			'title' => 'Page List',          
-			'summary' => 'List pages in a hierarchal tree structure', 
-			'version' => 118, 
-			'permanent' => true, 
-			'permission' => 'page-edit',
-			'icon' => 'sitemap',
-			'useNavJSON' => true,
-			);
-	}
-
+	/**
+	 * Construct and establish default config values
+	 * 
+	 */
 	public function __construct() {
 		
-		$this->showRootPage = true; 
-		$this->pageLabelField = 'title';
-		$this->limit = self::defaultLimit;
+		$this->set('showRootPage', true); 
+		$this->set('pageLabelField', 'title');
+		$this->set('limit', self::defaultLimit);
 		$this->set('useHoverActions', false);
 		$this->set('useBookmarks', false);
 		$this->set('bookmarks', array());
@@ -73,15 +123,20 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function init() {
+		
 		parent::init();
-		$isAjax = $this->wire('config')->ajax;
-		$this->start = isset($_GET['start']) ? (int) $_GET['start'] : 0;
-		$this->limit = (isset($_GET['limit']) && $_GET['limit'] < $this->limit) ? (int) $_GET['limit'] : $this->limit;
-		$this->render = isset($_GET['render']) ? strtoupper($this->sanitizer->name($_GET['render'])) : '';
-		if($isAjax && !$this->render && !$this->wire('input')->get('renderInputfieldAjax')) $this->render = 'JSON';
+		$config = $this->wire('config');
+		$input = $this->wire('input');
+		$isAjax = $config->ajax;
+		$limit = (int) $input->get->int('limit');
+		$render = $input->get('render');
+		$this->start = (int) $input->get->int('start'); //isset($_GET['start']) ? (int) $_GET['start'] : 0;
+		$this->limit = $limit && $limit < $this->limit ? $limit : $this->limit;
+		$this->render = $render ? strtoupper($this->wire('sanitizer')->name($render)) : '';
+		if($isAjax && !$this->render && !$input->get('renderInputfieldAjax')) $this->render = 'JSON';
 		if($this->render && !isset($this->allowRenderTypes[$this->render])) $this->render = null;
 
-		$settings = $this->wire('config')->pageList;
+		$settings = $config->pageList;
 		if(is_array($settings)) {
 			if(!empty($settings['useHoverActions'])) $this->set('useHoverActions', true);
 			$this->set('hoverActionDelay', isset($settings['hoverActionDelay']) ? (int) $settings['hoverActionDelay'] : 100);
@@ -91,67 +146,67 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		}
 		
 		if(!$isAjax) {
-			$this->wire('modules')->get('JqueryCore')->use('cookie');
-			$this->wire('modules')->get('JqueryCore')->use('longclick');
-			$this->wire('modules')->get('JqueryUI')->use('modal');	
+			$modules = $this->wire('modules');
+			$jQuery = $modules->get('JqueryCore');
+			$jQuery->use('cookie');
+			$jQuery->use('longclick');
+			$modules->get('JqueryUI')->use('modal');	
 		}
 	}
 
 	/**
 	 * Execute the Page List
+	 * 
+	 * @return string
+	 * @throws WireException|Wire404Exception|WirePermissionException
 	 *	
 	 */
 	public function ___execute() {
 
-		$langID = (int) $this->wire('input')->get->lang; 
+		$pages = $this->wire('pages');
+		$input = $this->wire('input');
+		$ajax = $this->wire('config')->ajax;
+		$langID = (int) $input->get('lang'); 
 		if($langID) $this->wire('user')->language = $this->languages->get($langID);
-		
 		$this->trashLabel = $this->_('Trash'); // Label for 'Trash' page in PageList // Overrides page title if used
-
-		if(isset($_GET['id']) && $_GET['id'] == 'bookmark') $this->wire('session')->redirect('./bookmarks/');
-		if(!$this->id) $this->id = isset($_GET['id']) ? (int) $_GET['id'] : 0; 
-		$this->openPage = $this->input->get->open ? $this->pages->get((int) $this->input->get->open) : $this->wire('pages')->newNullPage();
+		
+		$id = $input->get('id');
+		if($id === 'bookmark') $this->wire('session')->redirect('./bookmarks/');
+		$id = (int) $id; 
+		if(!$this->id && $id > 0) $this->id = $id;
+		
+		$openID = (int) $input->get('open');
+		$this->openPage = $openID ? $pages->get($openID) : $pages->newNullPage();
 		if($this->openPage->id && $this->speed > 50) $this->speed = floor($this->speed / 2);
-		$this->page = $this->pages->get("id=" . ($this->id ? $this->id : 1) . ", status<" . Page::statusMax); 
+		$this->page = $pages->get("id=" . ($this->id > 0 ? $this->id : 1) . ", status<" . Page::statusMax); 
 
 		if(!$this->page) throw new Wire404Exception("Unable to load page {$this->id}"); 
 		if(!$this->page->listable()) throw new WirePermissionException("You don't have access to list page {$this->page->url}"); 
-		$this->page->setOutputFormatting(false); 
-	
-		if($this->wire('config')->ajax && !empty($_POST['action'])) {
-			$action = $this->wire('input')->post('action');
-			if($action) return $this->ajaxAction($this->wire('sanitizer')->name($action));
+		$this->page->setOutputFormatting(false);
+
+		$action = $input->post('action');
+		if($ajax && $action) {
+			return $this->ajaxAction($this->wire('sanitizer')->name($action));
 		}
 
 		$p = $this->wire('page'); 
-		
 		if($p->name == 'list' && $p->process == $this) {
 			// ensure that we use the page's title is always consistent in the admin (i.e. 'Pages' not 'Page List')
 			$p->title = $p->parent->title; 
 		}
-	
-		/*
-		if($p->process == $this && $this->wire('input')->get('mode') != 'select') {
-			// store information about the last page list so that it can later be linked to again by ProcessPageEdit
-			$n = 1; 
-			if($this->start >= $this->limit) $n = ($this->start / $this->limit)+1; 	
-			$lastPageList = $this->session->get('lastPageList'); 
-			if(!is_array($lastPageList)) $lastPageList = array();
-				else $lastPageList = array_slice($lastPageList, 0, 10, true); 
-			$lastPageList[$this->page->id] = array(
-				'title' => (string) $this->page->get('title|name'), 
-				'url' => (string) $this->wire('page')->url,
-				'n' => $n
-				);
-			$this->session->set('lastPageList', $lastPageList); 
-		}
-		*/
 		
+		if($ajax && $this->id > 1 && $p->process == $this && $this->wire('input')->get('mode') != 'select') {
+			// remember last requested id
+			$this->wire('session')->setFor($this, 'lastID', $this->id);
+		}
+	
 		return $this->render();
 	}	
 
 	/**
 	 * Render the Page List
+	 * 
+	 * @return string
 	 *
 	 */
 	protected function render() {
@@ -159,7 +214,11 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$this->setupBreadcrumbs();
 		if($this->render) return $this->getPageListRender($this->page)->render();
 
-		$isAjax = $this->wire('config')->ajax;
+		$input = $this->wire('input');
+		$config = $this->wire('config');
+		$session = $this->wire('session');
+		$urls = $config->urls;
+		$isAjax = $config->ajax;
 		$openPageIDs = array();
 		$openPageData = array();
 		$script = '';
@@ -173,12 +232,12 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			if($this->id) {
 				// leave openPageIDs as empty array
 			} else {
-				$openPageIDs = $this->wire('input')->cookie->array('pagelist_open');
+				$openPageIDs = $input->cookie->array('pagelist_open');
 			}
 		}
 		
 		if($isAjax) {
-			if($this->wire('input')->get('renderInputfieldAjax')) {
+			if($input->get('renderInputfieldAjax')) {
 				$script = "<script>ProcessPageListInit();</script>";
 			}
 		} else if(count($openPageIDs)) {
@@ -201,14 +260,15 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			$this->render = $render;
 		}
 
-		$this->wire('config')->js('ProcessPageList', array(
+		$defaults = array(
 			'containerID' => 'PageListContainer', 
-			'ajaxURL' => $this->config->urls->admin . "page/list/", 
-			'ajaxMoveURL' => $this->config->urls->admin . "page/sort/",
+			'ajaxURL' => $urls->admin . "page/list/", 
+			'ajaxMoveURL' => $urls->admin . "page/sort/",
 			'rootPageID' => $this->id, 
 			'openPageIDs' => $openPageIDs, 
 			'openPageData' => $openPageData,
-			'openPagination' => (int) $this->input->get->n, // @todo: make it openPaginations and correspond to openPageIDs
+			'openPagination' => (int) $input->get('n'), 
+			'paginationClass' => 'PageListPagination', 
 			'showRootPage' => $this->showRootPage ? true : false, 
 			'limit' => $this->limit, 
 			'start' => $this->start, 
@@ -225,10 +285,13 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			'trashLabel' => $this->trashLabel,
 			'ajaxNetworkError' => $this->_('Network error, please try again later'), // Network error during AJAX request
 			'ajaxUnknownError' => $this->_('Unknown error, please try again later'), // Unknown error during AJAX request
-			)); 
+			); 
+		$settings = $config->ProcessPageList;
+		$settings = is_array($settings) ? array_merge($defaults, $settings) : $defaults;
+		$config->js('ProcessPageList', $settings);
 		
-		$tokenName = $this->session->CSRF->getTokenName();
-		$tokenValue = $this->session->CSRF->getTokenValue();
+		$tokenName = $session->CSRF->getTokenName();
+		$tokenValue = $session->CSRF->getTokenValue();
 		$class = $this->id ? "PageListContainerPage" : "PageListContainerRoot";
 	
 		return "\n" . 
@@ -238,7 +301,16 @@ class ProcessPageList extends Process implements ConfigurableModule {
 				"data-token-value='$tokenValue'>" . 
 			"</div>$script"; 
 	}
-	
+
+	/**
+	 * Get the appropriate PageListRender classs
+	 * 
+	 * @param Page $page
+	 * @param null|int $limit
+	 * @param null|int $start
+	 * @return ProcessPageListRender
+	 * 
+	 */
 	protected function getPageListRender(Page $page, $limit = null, $start = null) {
 		
 		require_once(dirname(__FILE__) . '/ProcessPageListRender.php');
@@ -264,51 +336,98 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		
 		return $renderer;
 	}
-	
+
+	/**
+	 * Set the page label field
+	 * 
+	 * @param $name
+	 * @param $pageLabelField
+	 * 
+	 */
 	public function setPageLabelField($name, $pageLabelField) {
 		$this->wire('session')->setFor($this, $name, $pageLabelField);	
 	}
-	
+
+	/**
+	 * Get the page label field
+	 * 
+	 * @return string
+	 * 
+	 */
 	protected function getPageLabelField() {
+		
 		$pageLabelField = '';
-		if(isset($_GET['labelName'])) {
-			$name = $this->wire('sanitizer')->fieldName($_GET['labelName']);
+		$name = $this->wire('input')->get('labelName');
+		
+		if($name) {
+			$name = $this->wire('sanitizer')->fieldName($name);
 			if($name) $pageLabelField = $this->wire('session')->getFor($this, $name);
 			if($pageLabelField) $pageLabelField = '!' . $pageLabelField; // "!" means it may not be overridden by template
 		}
-		if(empty($pageLabelField)) $pageLabelField = $this->pageLabelField;
+		
+		if(empty($pageLabelField)) {
+			$pageLabelField = $this->pageLabelField;
+		}
+		
 		return $pageLabelField;
 	}
-	
+
+	/**
+	 * Process an AJAX action and return JSON string
+	 * 
+	 * @param string $action
+	 * @return string
+	 * @throws WireException
+	 * 
+	 */
 	public function ___ajaxAction($action) {
-		if(!$this->page->editable()) throw new WireException("Page not editable");
-		if($this->page->id != $this->wire('input')->post('id')) throw new WireException("GET id does not match POST id");
 		
-		$tokenName = $this->session->CSRF->getTokenName();
-		$tokenValue = $this->session->CSRF->getTokenValue();
-		$postTokenValue = $this->wire('input')->post($tokenName);
+		$input = $this->wire('input');
+		$session = $this->wire('session');
+		
+		if(!$this->page->editable()) throw new WireException("Page not editable");
+		if($this->page->id != $input->post('id')) throw new WireException("GET id does not match POST id");
+		
+		$tokenName = $session->CSRF->getTokenName();
+		$tokenValue = $session->CSRF->getTokenValue();
+		$postTokenValue = $input->post($tokenName);
 		if($postTokenValue === null || $postTokenValue !== $tokenValue) throw new WireException("CSRF token does not match");
+		
 		$renderer = $this->getPageListRender($this->page, 0);	
 		$result = $renderer->actions()->processAction($this->page, $action);
+		
 		if(!empty($result['updateItem'])) {
 			$result['child'] = $renderer->renderChild($this->page);	
 			unset($result['updateItem']);
 		}
+		
 		if(!empty($result['appendItem'])) {
 			$newChild = $this->wire('pages')->get((int) $result['appendItem']);
 			$result['newChild'] = $renderer->renderChild($newChild);
 			unset($result['appendItem']);
 		}
+		
 		header("Content-type: application/json");
+		
 		return json_encode($result);
 	}
-	
+
+	/**
+	 * @param string $selectorString
+	 * @param Page $page
+	 * @return PageArray
+	 * 
+	 */
 	public function ___find($selectorString, Page $page) {
 		return $page->children($selectorString); 
 	}
 
 	/**
 	 * Set a value to this Page List (see WireData)
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return Process|ProcessPageList
 	 *
 	 */
 	public function set($key, $value) {
@@ -349,13 +468,104 @@ class ProcessPageList extends Process implements ConfigurableModule {
 
 	/**
 	 * Output JSON list of navigation items for this module's bookmarks
+	 * 
+	 * @param array $options
+	 * @return string|array
 	 *
 	 */
 	public function ___executeNavJSON(array $options = array()) {
-		$bookmarks = $this->getPageBookmarks();
-		$options['edit'] = $this->wire('config')->urls->admin . 'page/?id={id}';
-		$options = $bookmarks->initNavJSON($options);
-		return parent::___executeNavJSON($options);
+		
+		$config = $this->wire('config');
+		$urls = $this->wire('urls');
+		
+		if($this->useBookmarks) {
+			$bookmarks = $this->getPageBookmarks();
+			$options['edit'] = $urls->admin . 'page/?id={id}';
+			$options = $bookmarks->initNavJSON($options);
+			return parent::___executeNavJSON($options);
+		}
+
+		$parentID = (int) $this->wire('input')->get('parent_id');
+		if(!$parentID) $parentID = 1; 
+		$parent = $this->wire('pages')->get($parentID);
+		$parentViewable = $parent->viewable(false);
+		$renderer = $this->getPageListRender($parent);
+		$items = $parentViewable ? $renderer->getChildren() : new PageArray();
+		if($parentID === 1 && $parentViewable) $items->prepend($parent);
+		$skipPageIDs = array($config->trashPageID, $config->adminRootPageID);
+		$maxLabelLength = 40;
+		
+		$data = array(
+			'url' => $urls->admin . 'page/list/navJSON/',
+			'label' => '',
+			'icon' => 'sitemap',
+			'list' => array(),
+		);
+		
+		$data = array_merge($options, $data);
+
+		foreach($items as $page) {
+		
+			$id = $page->id;
+			if(in_array($id, $skipPageIDs)) continue;
+			$url = '';
+			
+			if($page->editable()) {
+				$url = $page->editUrl();
+			} else if($page->viewable()) {
+				$url = $page->url();
+			} else if(!$page->listable()) {
+				continue;
+			}
+			
+			$numChildren = $id > 1 ? $page->numChildren : 0;
+			$label = $renderer->getPageLabel($page, array('noTags' => true));
+			if($page->isUnpublished()) $label = "<s>$label</s>";
+			if(strlen($label) > $maxLabelLength) {
+				$label = substr($label, 0, $maxLabelLength); 
+				$pos = strrpos($label, ' '); 
+				if($pos !== false) $label = substr($label, 0, $pos);
+				$label .= ' &hellip;';
+			}
+			if($numChildren) $label .= " <small>$numChildren</small>";
+			$label .= ' &nbsp; '; 
+			
+			$a = array(
+				'url' => $url,
+				'id' => $id, 
+				'label' => $label, 
+				'icon' => $page->getIcon(),
+			);
+			
+			if($page->id > 1 && $page->numChildren) {
+				$a['navJSON'] = $data['url'] . "?parent_id=$page->id";
+			}
+			
+			$data['list'][] = $a;	
+		}
+		
+		if($items->getTotal() > $items->count()) {
+			$data['list'][] = array(
+				'url' => $urls->admin . "page/?open=$parentID",
+				'label' => $this->_('Show All') . ' ' . 
+					'<small>' . sprintf($this->_('(%d pages)'), $items->getTotal()) . '</small>',
+				'icon' => 'arrow-circle-right',
+				'className' => 'separator pw-pagelist-show-all',
+			);
+		}
+		
+		if($parent->addable()) {
+			$data['list'][] = array(
+				'url' => $urls->admin . "page/add/?parent_id=$parentID",
+				'label' => __('Add New', '/wire/templates-admin/default.php'),
+				'icon' => 'plus-circle',
+				'className' => 'separator pw-nav-add',
+			);
+		}
+		
+		if($config->ajax) header("Content-Type: application/json");
+		
+		return json_encode($data);
 	}
 	
 	public function ___executeOpen() {
@@ -386,13 +596,19 @@ class ProcessPageList extends Process implements ConfigurableModule {
 
 	/**
 	 * Build a form allowing configuration of this Module
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
 	 *
 	 */
 	public function getModuleConfigInputfields(array $data) {
 
+		/** @var InputfieldWrapper $fields */
 		$fields = $this->wire(new InputfieldWrapper());
+		/** @var Modules $modules */
 		$modules = $this->wire('modules');
 
+		/** @var InputfieldText $field */
 		$field = $modules->get("InputfieldText");
 		$field->attr('name', 'pageLabelField');
 		$field->attr('value', !empty($data['pageLabelField']) ? $data['pageLabelField'] : 'title');
@@ -405,10 +621,10 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$bookmarks->addConfigInputfields($fields);
 		$admin = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
 		$page = $this->wire('pages')->get($admin->path . 'page/list/');
-		$bookmarks->checkprocessPage($page);
+		$bookmarks->checkProcessPage($page);
 	
-		$settings = $this->wire('config')->pageList;
 		/*
+		$settings = $this->wire('config')->pageList;
 		if(empty($settings['useHoverActions'])) {
 			$field = $modules->get('InputfieldCheckbox');
 			$field->attr('name', 'useHoverActions');
@@ -422,7 +638,8 @@ class ProcessPageList extends Process implements ConfigurableModule {
 
 		$defaultNote1 = $this->_('Default value is %d.');
 		$defaultNote2 = $this->_('If left at the default value, this setting can also be specified in the $config->pageList array.');
-		
+	
+		/** @var InputfieldInteger $field */
 		$field = $modules->get("InputfieldInteger");
 		$field->attr('name', 'limit');
 		$field->attr('value', !empty($data['limit']) ? (int) $data['limit'] : self::defaultLimit);
@@ -430,6 +647,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$field->notes = sprintf($defaultNote1, self::defaultLimit) . ' ' . $defaultNote2;
 		$fields->append($field);
 
+		/** @var InputfieldInteger $field */
 		$field = $modules->get("InputfieldInteger");
 		$field->attr('name', 'speed');
 		$field->attr('value', array_key_exists('speed', $data) ? (int) $data['speed'] : self::defaultSpeed);

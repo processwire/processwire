@@ -9,6 +9,9 @@
  * https://processwire.com
  * 
  * @property int $repeaterMaxItems
+ * @property int $repeaterMinItems
+ * @property int $repeaterDepth
+ * @property bool $accordionMode
  * 
  * @method string renderRepeaterLabel($label, $cnt, Page $page)
  * 
@@ -21,7 +24,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Repeats fields from another template. Provides the input for FieldtypeRepeater.', __FILE__), // Module Summary
-			'version' => 105,
+			'version' => 106,
 			'requires' => 'FieldtypeRepeater',
 			);
 	}
@@ -85,7 +88,10 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	public function __construct() {
 		parent::__construct();
 		// these are part of the Fieldtype's config, and automatically set from it
-		$this->set('repeaterMaxItems', 0); 
+		$this->set('repeaterMaxItems', 0);
+		$this->set('repeaterMinItems', 0); 
+		$this->set('repeaterDepth', 0);
+		$this->set('accordionMode', false);
 	}
 
 	/**
@@ -108,6 +114,18 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 *
 	 */
 	public function ___renderRepeaterLabel($label, $cnt, Page $page) {
+	
+		static $allowRender = null;
+		if(is_null($allowRender)) {
+			$allowRender = true;	
+			$repeaterEditID = (int) $this->wire('input')->get('repeater_edit');
+			if($repeaterEditID && $repeaterEditID == $page->id) {
+				$allowRender = false;
+			} else if(count($_POST) && !$this->wire('config')->ajax) {
+				$allowRender = false;
+			}
+		}
+		if(!$allowRender) return $label;
 		
 		$out = '';
 		$repeaterTitle = $this->field ? $this->field->get('repeaterTitle') : '';
@@ -246,7 +264,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		/** @var InputfieldWrapper $form */
 		$form = $this->wire(new InputfieldWrapper());
 		$form->name = 'repeater_form_' . $this->name . ($itemID ? "_$itemID" : "");
-		$this->wrapAttr('data-page', $this->page->id);
+		
 		/** @var PageArray $value */
 		$value = $this->attr('value'); 
 	
@@ -264,19 +282,38 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$openIDs = array();
 		}
 		
+		$minItems = $this->repeaterMinItems;
+	
+		// if there are a minimum required number of items, set them up now
+		if(!$itemID && $minItems > 0) {
+			$notIDs = $value->explode('id');
+			while($value->count() < $this->repeaterMinItems) {
+				$item = $this->getNextReadyPage($notIDs);
+				$value->add($item);
+				$notIDs[] = $item->id;
+			}
+		}
+		
 		$repeaterCollapse = (int) $this->field->get('repeaterCollapse');
 		$cnt = 0;
+		$numVisible = 0;
+		$numOpen = 0;
+		$isPost = $this->wire('input')->requestMethod('POST');
 		
 		// create field for each repeater iteration	
 		foreach($value as $key => $page) {
 			if($itemID && $page->id != $itemID) continue;
 			
-			/** @var Page $page */
+			/** @var RepeaterPage $page */
 			$isUnpublished = $page->isUnpublished();
 			$isHidden = $page->isHidden();
 			$isOn = $page->hasStatus(Page::statusOn);
 			$isReadyItem = $isHidden && $isUnpublished;
-			$isOpen = in_array($page->id, $openIDs);
+			$isClone = $page->get('_repeater_clone'); 
+			$isOpen = in_array($page->id, $openIDs) || $isClone;
+			$isMinItem = $isReadyItem && $minItems && $cnt < $minItems;
+			
+			if($isOpen && $numOpen > 0 && $this->accordionMode) $isOpen = false;
 
 			// get the inputfields for the repeater page
 			if(is_null($loadInputsForIDs) || in_array($page->id, $loadInputsForIDs) || $isOpen) {
@@ -292,7 +329,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			// also add a delete checkbox to the repeater page fields
 			$delete = $this->wire('modules')->get('InputfieldCheckbox'); 
 			$delete->attr('id+name', "delete_repeater{$page->id}"); 
-			$delete->class = 'InputfieldRepeaterDelete';
+			$delete->addClass('InputfieldRepeaterDelete', 'wrapClass');
 			$delete->label = $this->_('Delete'); 
 			$delete->attr('value', $page->id); 
 
@@ -301,6 +338,17 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$sort->class = 'InputfieldRepeaterSort';
 			$sort->label = $this->_('Sort');
 			$sort->attr('value', $cnt);
+			
+			if($this->repeaterDepth > 0) {
+				$depth = $this->wire('modules')->get('InputfieldHidden');
+				$depth->attr('id+name', "depth_repeater{$page->id}");
+				$depth->class = 'InputfieldRepeaterDepth';
+				$depth->label = $this->_('Depth');
+				$depthValue = $page->getDepth();
+				$depth->attr('value', $depthValue);
+			} else {
+				$depth = null;
+			}
 
 			$loaded = $this->wire('modules')->get('InputfieldHidden');
 			$loaded->attr('id+name', "loaded_repeater{$page->id}");
@@ -308,17 +356,40 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$loaded->attr('value', $isLoaded ? 1 : 0); 
 
 			$wrap = $this->wire('modules')->get('InputfieldFieldset'); 
-			$wrap->addClass('InputfieldRepeaterItem');
-			$wrap->label = $this->renderRepeaterLabel($label, ++$cnt, $page);
+			$wrap->addClass('InputfieldRepeaterItem InputfieldNoFocus');
+			$wrap->entityEncodeLabel = false;
+			if(!$isPost) {
+				$wrap->label =
+					"<span class='InputfieldRepeaterItemLabel'>" .
+					$this->entityEncode($this->renderRepeaterLabel($label, ++$cnt, $page)) .
+					"</span>";
+			} else {
+				$wrap->label = "$label " . (++$cnt);
+			}
 			$wrap->name = "repeater_item_{$page->id}";
 			$wrap->wrapAttr('data-page', $page->id);
 			$wrap->wrapAttr('data-type', $this->getRepeaterItemType($page));
+			//$wrap->wrapAttr('data-editorPage', $this->page->id);
+			//$wrap->wrapAttr('data-parentPage', $page->parent->id);
 			$wrap->wrapAttr('data-editUrl', $page->editUrl()); // if needed by any Inputfields within like InputfieldFile/InputfieldImage
 			$wrap->set('useDependencies', false);
 			
+			if($isClone) $wrap->addClass('InputfieldRepeaterItemClone');
+			if($itemID) $wrap->addClass('InputfieldRepeaterItemRequested');
+			
+			if($page->get('_repeater_delete')) {
+				// something indicates it should already show delete state in editor
+				$delete->attr('checked', 'checked');
+				$wrap->addClass('InputfieldRepeaterDeletePending');
+				$wrap->addClass('ui-state-error', 'headerClass');
+			}
+			
 			if($isOpen) {
 				$wrap->collapsed = Inputfield::collapsedNo;
+				$numOpen++;
 			} else if($repeaterCollapse == FieldtypeRepeater::collapseExisting && !$page->get('_repeater_new') && !$isHidden) {
+				$wrap->collapsed = Inputfield::collapsedYes;
+			} else if($repeaterCollapse == FieldtypeRepeater::collapseExisting && $isMinItem) {
 				$wrap->collapsed = Inputfield::collapsedYes;
 			} else if($repeaterCollapse == FieldtypeRepeater::collapseAll) {
 				$wrap->collapsed = Inputfield::collapsedYes;
@@ -354,19 +425,52 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$wrap->add($inputfields); 
 			$wrap->prepend($delete); 
 			$wrap->prepend($sort);
+			if($depth) $wrap->prepend($depth);
 			$wrap->prepend($loaded);
 			
-			if(!$isReadyItem) $form->add($wrap);
+			if($isMinItem) {
+				// allow this ready item to be added so that minimum is met
+				$wrap->addClass('InputfieldRepeaterMinItem');
+				$isReadyItem = false;
+			}
+			
+			if(!$isReadyItem) {
+				$form->add($wrap);
+				$numVisible++;
+			}
+			
 			$this->labels[$page->id] = $wrap->getSetting('label');
+			if($itemID) break;
 		}	
 
-		// create a new/blank item to be used as a template for any new items added
-		$wrap = $this->wire('modules')->get('InputfieldFieldset');
-		$wrap->label = $this->renderRepeaterLabel($label, ++$cnt, new NullPage());
-		$wrap->class = 'InputfieldRepeaterItem InputfieldRepeaterNewItem';
-		$wrap->collapsed = Inputfield::collapsedNo;
-		$form->add($wrap);
+		if($itemID) {
+			// only rendering a single item, ajax mode
+			foreach($form->getAll() as $inputfield) {
+				$idAttr = $inputfield->attr('id');
+				$inputfield->renderReady($form, $this->renderValueMode);
+				$jsValue = $this->wire('config')->js($idAttr);
+				if(!empty($jsValue)) {
+					$inputfield->appendMarkup .= "<script>ProcessWire.config['$idAttr'] = " . json_encode($jsValue) . ';</script>';
+				}
+			}
+		} else {
+			// create a new/blank item to be used as a template for any new items added
+			/** @var InputfieldWrapper $wrap */
+			$wrap = $this->wire('modules')->get('InputfieldFieldset');
+			$wrap->label = $this->renderRepeaterLabel($label, ++$cnt, new NullPage());
+			$wrap->class = 'InputfieldRepeaterItem InputfieldRepeaterNewItem';
+			$wrap->collapsed = Inputfield::collapsedNo;
+			$form->add($wrap);
+		}
 
+		// max items warning
+		if($this->repeaterMaxItems && $numVisible > $this->repeaterMaxItems) {
+			$this->prependMarkup .=
+			"<p class='ui-state-error-text'>" .
+				sprintf($this->_('Warning: only the first %d item(s) will be used.'), $this->repeaterMaxItems) . 
+			"</p>";
+		}
+		
 		// cache
 		$this->form = $form;
 
@@ -392,23 +496,52 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	/**
 	 * Render a new item for ajax after 'add new' link clicked
 	 * 
+	 * @param int $cloneItemID
 	 * @return string
 	 * 
 	 */
-	public function renderAjaxNewItem() {
+	public function renderAjaxNewItem($cloneItemID = 0) {
 
 		/** @var PageArray $value */
 		$value = $this->attr('value');
-		$notIDs = $this->wire('sanitizer')->intArray(explode(',', trim($this->wire('input')->get('repeater_not'), ',')));
-		$readyPage = $this->getNextReadyPage($notIDs);
-		$readyPage->removeStatus(Page::statusHidden);
+		$clonePage = null;
+		$readyPage = null;
+	
+		if($cloneItemID) {
+			foreach($value as $item) {
+				if($item->id == $cloneItemID) {
+					$clonePage = $item;
+					break;
+				}
+			}
+		}
 		
-		// ensure editing page doesn't get saved (just in case) since we're removing all items
-		$this->page->addStatus(Page::statusCorrupted); 
-		
-		$value->add($readyPage);
-		
-		return $this->buildForm($readyPage->id)->render();
+		if($clonePage && $clonePage->id) {
+			/** @var FieldtypeRepeater $fieldtype */
+			$fieldtype = $this->field->type;
+			$readyPage = $this->wire('pages')->clone($clonePage, null, true,
+				array('set' => array(
+					'name' => $fieldtype->getUniqueRepeaterPageName() . 'c', // trailing "c" indicates clone
+					'sort' => count($value)+1,
+					'status' => $clonePage->status | Page::statusUnpublished
+					)
+				)
+			);
+			$readyPage->set('_repeater_clone', $clonePage->id); 
+		} else if(!$cloneItemID) {
+			$notIDs = $this->wire('sanitizer')->intArray(explode(',', trim($this->wire('input')->get('repeater_not'), ',')));
+			$readyPage = $this->getNextReadyPage($notIDs);
+			$readyPage->removeStatus(Page::statusHidden);
+		} 
+	
+		if($readyPage) {
+			// ensure editing page doesn't get saved (just in case) since we're removing all items
+			$this->page->addStatus(Page::statusCorrupted);
+			$value->add($readyPage);
+			return $this->buildForm($readyPage->id)->render();
+		} else {
+			return '';
+		}
 	}
 	
 	/**
@@ -439,8 +572,47 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 *
 	 */
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+		
 		$this->wire('modules')->get('JqueryCore')->use('cookie');
-		$this->preloadInputfieldAssets();	
+		$this->wire('modules')->get('JqueryUI')->use('vex');
+		$this->preloadInputfieldAssets();
+		
+		if($this->field->get('repeaterLoading') == FieldtypeRepeater::loadingOff) {
+			$this->addClass('InputfieldRepeaterNoAjaxAdd', 'wrapClass');
+		}
+		if($this->repeaterMaxItems > 0) {
+			$this->addClass('InputfieldRepeaterMax', 'wrapClass');
+		}
+		if($this->repeaterMinItems > 0) {
+			$this->addClass('InputfieldRepeaterMin', 'wrapClass');
+		}
+		if($this->repeaterDepth > 0) {
+			$this->addClass('InputfieldRepeaterDepth', 'wrapClass');
+		}
+		if($this->accordionMode) {
+			$this->addClass('InputfieldRepeaterAccordion', 'wrapClass');
+		}
+		$this->wrapAttr('data-page', $this->page->id);
+		$this->wrapAttr('data-max', (int) $this->repeaterMaxItems);
+		$this->wrapAttr('data-min', (int) $this->repeaterMinItems);
+		$this->wrapAttr('data-depth', (int) $this->repeaterDepth);
+
+		list($editorUrl, $queryString) = explode('?', $this->page->editUrl());
+		if($queryString) {}
+
+		$this->wire('config')->js('InputfieldRepeater', array(
+			'editorUrl' => $editorUrl,
+			'labels' => array(
+				'remove' => $this->_x('Click to delete this item, or double-click to delete all', 'repeater-item-action'),
+				'removeAll' => $this->_x('Delete all items?', 'repeater-item-action'),
+				'toggle' => $this->_x('Click to turn item on/off, or double-click to open/collapse all items', 'repeater-item-action'),
+				'clone' => $this->_x('Clone this item?', 'repeater-item-action'),
+				'openAll' => $this->_x('Open all items?', 'repeater-item-action'), 
+				'collapseAll' => $this->_x('Collapse all items?', 'repeater-item-action'),
+				'disabledMinMax' => $this->_('This action is disabled per min and/or max item settings.')
+			)
+		));
+
 		return parent::renderReady($parent, $renderValueMode);
 	}
 
@@ -480,7 +652,10 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		if($ajax && $input->get('field') == $this->attr('name')) {
 			$repeaterAdd = $input->get('repeater_add');
 			$repeaterEdit = (int) $input->get('repeater_edit');
-			if($repeaterAdd !== null && !$noAjaxAdd) {
+			$repeaterClone = (int) $input->get('repeater_clone');
+			if($repeaterClone) {
+				return $this->renderValueMode ? '' : $this->renderAjaxNewItem($repeaterClone);
+			} else if($repeaterAdd !== null && !$noAjaxAdd) {
 				return $this->renderValueMode ? '' : $this->renderAjaxNewItem();
 			} else if($repeaterEdit) {
 				if($this->renderValueMode) {
@@ -497,18 +672,11 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$collapse = $this->field->get('repeaterCollapse');
 		$forIDs = null; 
 		if($loading == FieldtypeRepeater::loadingAll && $collapse != FieldtypeRepeater::collapseNone) $forIDs = array();
-		list($editorUrl, $queryString) = explode('?', $this->page->editUrl());
-		if($queryString) {}
 		
-		$this->wire('config')->js('InputfieldRepeater', array(
-			'editorUrl' => $editorUrl, 
-			'labels' => array(
-				'remove' => $this->_x('Delete this item', 'repeater-item-action'), 
-				'toggle' => $this->_x('Toggle published/unpublished', 'repeater-item-action')
-			)
-		));
-
-		return $this->buildForm(0, $forIDs)->render() . $out; 
+		$form = $this->buildForm(0, $forIDs);
+		$out = ($this->renderValueMode ? $form->renderValue() : $form->render()) . $out;
+		
+		return $out;
 	}
 
 	/**
@@ -558,7 +726,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		// existing items
 		foreach($value as $key => $page) {
 			
-			/** @var Page $page */
+			/** @var RepeaterPage $page */
 			$pageIDs[] = $page->id;
 			
 			$isHidden = $page->isHidden();
@@ -568,6 +736,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$deleteName = "delete_repeater{$page->id}";
 			$sortName = "sort_repeater{$page->id}";
 			$publishName = "publish_repeater{$page->id}";
+			$depthName = "depth_repeater{$page->id}";
 
 			if($input->$deleteName == $page->id) {
 				$value->remove($page);
@@ -583,6 +752,14 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			if($page->isChanged('sort')) {
 				// $this->message("Sort changed for field {$this->field} page {$page->id}", Notice::debug); 
 				$sortChanged = true; 
+			}
+			
+			if($this->repeaterDepth > 0) {
+				$depth = (int) $input->$depthName;
+				if($page->getDepth() != $depth) {
+					$page->setDepth($depth);
+					$numChanges++;
+				}
 			}
 			
 			/** @var InputfieldWrapper $wrapper */
@@ -629,7 +806,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				for($n = 0; $n < $numNewItems; $n++) {
 					$page = $this->getNextReadyPage($pageIDs);
 					$page->removeStatus(Page::statusHidden);
-					$page->sort = count($value);
+					$page->sort = count($value)+1;
 					$value->add($page);
 					$numChanges++;
 				}
@@ -711,7 +888,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 * 
 	 * @param string $key
 	 * @param mixed $value
-	 * @return $this
+	 * @return Inputfield|InputfieldRepeater
 	 *
 	 */
 	public function set($key, $value) {

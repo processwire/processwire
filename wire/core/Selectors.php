@@ -29,6 +29,7 @@ require_once(PROCESSWIRE_CORE_PATH . "Selector.php");
  * #pw-body
  * 
  * @link https://processwire.com/api/selectors/ Official Selectors Documentation
+ * @method Selector[] getIterator()
  * 
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
@@ -291,39 +292,76 @@ class Selectors extends WireArray {
 	}
 
 	/**
-	 * Does the given string start with a selector? 
+	 * Is the give string a Selector string?
 	 *
-	 * Meaning string starts with [field][operator] like "field="
-	 * 
 	 * #pw-group-static-helpers
 	 *
-	 * @param string $str
+	 * @param string $str String to check for selector(s)
 	 * @return bool
 	 *
 	 */
 	static public function stringHasSelector($str) {
 		
+		if(!self::stringHasOperator($str)) return false;
+		
 		$has = false;
-
-		if(!self::stringHasOperator($str)) {
-			
-			// default: has=false
-			
-		} else if(preg_match('/^!?([-._a-zA-Z0-9|]+)([' . implode('', self::getOperatorChars()) . ']+)/', $str, $matches)) {
-
-			$field = $matches[1]; 
-			$operator = $matches[2]; 
-
-			if(in_array($field[0], array('-', '.', '|'))) {
-				// fields can't start with a dash or a period or a pipe
-				$has = false; 
-			} else if(!isset(self::$selectorTypes[$operator])) {
-				// if it's not an operator we recognize then abort
-				$has = false; 
-			} else {
-				// if we made it here, then we've found a selector
-				$has = true; 
+		$alphabet = 'abcdefghijklmnopqrstuvwxyz';
+	
+		// replace characters that are allowed but aren't useful here
+		if(strpos($str, '=(') !== false) $str = str_replace('=(', '=1,', $str);
+		$str = str_replace(array('!', '(', ')', '@', '.', '|', '_'), '', trim(strtolower($str)));
+	
+		// flatten sub-selectors
+		$pos = strpos($str, '[');
+		if($pos && strrpos($str, ']') > $pos) {
+			$str = str_replace(array(']', '=[', '<[', '>['), array('', '=1,', '<2,', '>3,'), $str);
+		}
+		$str = rtrim($str, ", ");
+		
+		// first character must match alphabet
+		if(strpos($alphabet, substr($str, 0, 1)) === false) return false;
+		
+		$operatorChars = implode('', self::getOperatorChars());
+		
+		if(strpos($str, ',')) {
+			// split the string into all key=value components and check each individually
+			$inQuote = '';
+			$cLast = '';
+			// replace comments in quoted values so that they aren't considered selector boundaries
+			for($n = 0; $n < strlen($str); $n++) {
+				$c = $str[$n];
+				if($c === ',') {
+					// commas in quoted values are replaced with semicolons
+					if($inQuote) $str[$n] = ';';
+				} else if(($c === '"' || $c === "'") && $cLast != "\\") {
+					if($inQuote && $inQuote === $c) {
+						$inQuote = ''; // end quote
+					} else if(!$inQuote) {
+						$inQuote = $c; // start quote
+					}
+				}
+				$cLast = $c;
 			}
+			$parts = explode(',', $str);
+		} else {
+			// outside of verbose mode, only the first apparent selector is checked
+			$parts = array($str);
+		}
+		
+		// check each key=value component
+		foreach($parts as $part) {
+			$has = preg_match('/^[a-z][a-z0-9]*([' . $operatorChars . ']+)(.*)$/', trim($part), $matches);
+			if($has) {
+				$operator = $matches[1];
+				$value = $matches[2];
+				if(!isset(self::$selectorTypes[$operator])) {
+					$has = false;
+				} else if(self::stringHasOperator($value) && $value[0] != '"' && $value[0] != "'") {
+					// operators not allowed in values unless quoted
+					$has = false;
+				}
+			}
+			if(!$has) break;
 		}
 		
 		return $has;
@@ -353,6 +391,7 @@ class Selectors extends WireArray {
 				$operator = $op;
 				$not = true;
 			} else {
+				if(is_array($value)) $value = implode('|', $value);
 				$debug = $this->wire('config')->debug ? "field='$field', value='$value', selector: '$this->selectorStr'" : "";
 				throw new WireException("Unknown Selector operator: '$operator' -- was your selector value properly escaped? $debug");
 			}
@@ -365,10 +404,9 @@ class Selectors extends WireArray {
 
 
 	/**
-	 * Given a selector string, return an array of (field, value, operator) for each selector in the strong. 
+	 * Given a selector string, populate to Selector objects in this Selectors instance
 	 *
 	 * @param string $str The string containing a selector (or multiple selectors, separated by commas)
-	 * @return array 
 	 *
 	 */
 	protected function extractString($str) {
@@ -397,7 +435,7 @@ class Selectors extends WireArray {
 				}
 			}
 
-			if($field || strlen("$value")) {
+			if($field || $value || strlen("$value")) {
 				$selector = $this->create($field, $operator, $value);
 				if(!is_null($group)) $selector->group = $group; 
 				if($quote) $selector->quote = $quote; 
@@ -494,7 +532,9 @@ class Selectors extends WireArray {
 	protected function extractValueQuick(&$str, $openingQuote, $closingQuote) {
 		
 		// determine where value ends
-		$commaPos = strpos("$str,", $closingQuote . ','); // "$str," just in case value is last and no trailing comma
+		$offset = 0;
+		if($openingQuote) $offset++; // skip over leading quote
+		$commaPos = strpos("$str,", $closingQuote . ',', $offset); // "$str," just in case value is last and no trailing comma
 		
 		if($commaPos === false && $closingQuote) {
 			// if closing quote and comma didn't match, try to match just comma in case of "something"<space>,
@@ -739,6 +779,47 @@ class Selectors extends WireArray {
 		if(!in_array($name, $this->allowedParseVars)) return false;
 		if(strlen($subname) && $this->wire('sanitizer')->fieldName($subname) !== $subname) return false;
 		return true; 
+	}
+
+	/**
+	 * Return array of all field names referenced in all of the Selector objects here
+	 * 
+	 * @param bool $subfields Default is to allow "field.subfield" fields, or specify false to convert them to just "field".
+	 * @return array Returned array has both keys and values as field names (same)
+	 * 
+	 */
+	public function getAllFields($subfields = true) {
+		$fields = array();
+		foreach($this as $selector) {
+			$field = $selector->field;
+			if(!is_array($field)) $field = array($field);
+			foreach($field as $f) {
+				if(!$subfields && strpos($f, '.')) {
+					list($f, $subfield) = explode('.', $f, 2);
+					if($subfield) {} // ignore
+				}
+				$fields[$f] = $f;
+			}
+		}
+		return $fields;
+	}
+
+	/**
+	 * Return array of all values referenced in all Selector objects here
+	 * 
+	 * @return array Returned array has both keys and values as field values (same)
+	 * 
+	 */
+	public function getAllValues() {
+		$values = array();
+		foreach($this as $selector) {
+			$value = $selector->value;
+			if(!is_array($value)) $value = array($value);
+			foreach($value as $v) {
+				$values[$v] = $v;
+			}
+		}
+		return $values;
 	}
 
 	/**

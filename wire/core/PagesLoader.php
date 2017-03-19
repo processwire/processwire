@@ -41,6 +41,14 @@ class PagesLoader extends Wire {
 	protected $nativeColumns = array();
 
 	/**
+	 * Total number of pages loaded by getById()
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $totalPagesLoaded = 0;
+
+	/**
 	 * Debug mode for pages class
 	 * 
 	 * @var bool
@@ -106,15 +114,20 @@ class PagesLoader extends Wire {
 		if(empty($selector)) return $this->pages->newPageArray($loadOptions);
 		if(!empty($options['lazy'])) return false;
 		
-		if(is_array($selector)) { 
-			
+		$value = false;
+		$filter = empty($options['findOne']);
+		
+		if(is_array($selector)) {
+
 			if(ctype_digit(implode('', array_keys($selector))) && !is_array(reset($selector)) && ctype_digit(implode('', $selector))) {
 				// if given a regular array of page IDs, we delegate that to getById() method, but with access/visibility control
-				return $this->filterListable(
-					$this->getById($selector),
-					(isset($options['include']) ? $options['include'] : ''),
-					$loadOptions);
+				$value = $this->getById($selector, $loadOptions);
+				$filter = true;
 			}
+
+		} else if(is_int($selector)) {
+			
+			$value = $this->getById(array($selector), $loadOptions);
 			
 		} else if(is_string($selector) || is_int($selector)) {
 			
@@ -129,20 +142,28 @@ class PagesLoader extends Wire {
 				if(ctype_digit("$selector") || strpos($selector, "id=") === 0) {
 					// if selector is just a number, or a string like "id=123" then we're going to do a shortcut
 					$s = str_replace("id=", '', $selector);
-					if(ctype_digit("$s")) {
-						$value = $this->getById(array((int) $s), $loadOptions);
-						if(empty($options['findOne'])) $value = $this->filterListable(
-							$value, (isset($options['include']) ? $options['include'] : ''), $loadOptions);
-						if($this->debug) $this->pages->debugLog('find', $selector . " [optimized]", $value);
-						return $value;
+					if(ctype_digit(str_replace('|', '', "$s"))) {
+						$a = explode('|', $s);
+						foreach($a as $k => $v) $a[$k] = (int) $v;
+						$value = $this->getById($a, $loadOptions);
 					}
 				}
 			}
 		}
-		
-		return false;
-	}
 	
+		if($value) {
+			if($filter) {
+				$includeMode = isset($options['include']) ? $options['include'] : '';
+				$value = $this->filterListable($value, $includeMode, $loadOptions);
+			}
+			if($this->debug) {
+				$this->pages->debugLog('find', $selector . " [optimized]", $value);
+			}
+		}
+
+		return $value;
+	}
+
 	/**
 	 * Given a Selector string, return the Page objects that match in a PageArray.
 	 *
@@ -152,8 +173,11 @@ class PagesLoader extends Wire {
 	 * @param string|int|array|Selectors $selector Specify selector (standard usage), but can also accept page ID or array of page IDs.
 	 * @param array|string $options Optional one or more options that can modify certain behaviors. May be assoc array or key=value string.
 	 *	- findOne: boolean - apply optimizations for finding a single page
-	 *  - findAll: boolean - find all pages with no exculsions (same as include=all option)
+	 *  - findAll: boolean - find all pages with no exclusions (same as include=all option)
+	 *  - findIDs: boolean|int - true=return array of [id, template_id, parent_id], or 1=return just page IDs. 
 	 *	- getTotal: boolean - whether to set returning PageArray's "total" property (default: true except when findOne=true)
+	 *  - cache: boolean - Allow caching of selectors and pages loaded (default=true). Also sets loadOptions[cache]. 
+	 *  - allowCustom: boolean - Whether to allow use of "_custom=new selector" in selectors (default=false). 
 	 *  - lazy: boolean - makes find() return Page objects that don't have any data populated to them (other than id and template). 
 	 *	- loadPages: boolean - whether to populate the returned PageArray with found pages (default: true).
 	 *		The only reason why you'd want to change this to false would be if you only needed the count details from
@@ -176,10 +200,15 @@ class PagesLoader extends Wire {
 		$loadPages = array_key_exists('loadPages', $options) ? (bool) $options['loadPages'] : true; 
 		$caller = isset($options['caller']) ? $options['caller'] : 'pages.find';
 		$lazy = empty($options['lazy']) ? false : true;
+		$findIDs = isset($options['findIDs']) ? $options['findIDs'] : false;
 		$debug = $this->debug && !$lazy;
-		$pages = $this->findShortcut($selector, $options, $loadOptions);
+		$cachePages = isset($options['cache']) ? (bool) $options['cache'] : true;
+		if(!$cachePages && !isset($loadOptions['cache'])) $loadOptions['cache'] = false;
 		
-		if($pages) return $pages;
+		if($loadPages && !$lazy && !$findIDs) {
+			$pages = $this->findShortcut($selector, $options, $loadOptions);
+			if($pages) return $pages;
+		}
 		
 		if($selector instanceof Selectors) {
 			$selectors = $selector;
@@ -195,10 +224,12 @@ class PagesLoader extends Wire {
 		$selectorString = is_string($selector) ? $selector : (string) $selectors;
 		
 		// see if this has been cached and return it if so
-		$pages = $this->pages->cacher()->getSelectorCache($selectorString, $options);
-		if(!is_null($pages)) {
-			if($debug) $this->pages->debugLog('find', $selectorString, $pages . ' [from-cache]');
-			return $pages;
+		if($loadPages && !$findIDs && !$lazy) {
+			$pages = $this->pages->cacher()->getSelectorCache($selectorString, $options);
+			if(!is_null($pages)) {
+				if($debug) $this->pages->debugLog('find', $selectorString, $pages . ' [from-cache]');
+				return $pages;
+			}
 		}
 		
 		$pageFinder = $this->pages->getPageFinder();
@@ -209,11 +240,16 @@ class PagesLoader extends Wire {
 		$profiler = $this->wire('profiler');
 		$profilerEvent = $profiler ? $profiler->start("$caller($selectorString)", "Pages") : null;
 		
-		if($lazy) {
-			if(strpos($selectorString, 'limit=') === false) $options['getTotal'] = false;
+		if(($lazy || $findIDs) && strpos($selectorString, 'limit=') === false) $options['getTotal'] = false;
+		
+		if($lazy || $findIDs === 1) {
 			$pagesIDs = $pageFinder->findIDs($selectors, $options);
 		} else {
 			$pagesInfo = $pageFinder->find($selectors, $options);
+		}
+		
+		if($debug && empty($loadOptions['caller'])) {
+			$loadOptions['caller'] = "$caller($selectorString)";
 		}
 
 		// note that we save this pagination state here and set it at the end of this method
@@ -228,16 +264,24 @@ class PagesLoader extends Wire {
 			$pages->finderOptions($options);
 			$pages->setDuplicateChecking(false);
 			$loadPages = false;
+			$cachePages = false;
 			$template = null;
-			
+
 			foreach($pagesIDs as $id) {
 				$page = $this->pages->newPage();
 				$page->_lazy($id);
+				$page->loaderCache = false;
 				$pages->add($page);
 			}
 
 			$pages->setDuplicateChecking(true);
 			if(count($pagesIDs)) $pages->_lazy(true);
+
+		} else if($findIDs) {
+			
+			$loadPages = false;
+			$cachePages = false;
+			$pages = $this->pages->newPageArray($loadOptions); // only for hooks to see
 
 		} else if($loadPages) {
 			// parent_id is null unless a single parent was specified in the selectors
@@ -255,6 +299,7 @@ class PagesLoader extends Wire {
 
 			if(count($idsByTemplate) > 1) {
 				// perform a load for each template, which results in unsorted pages
+				// @todo use $idsUnsorted array rather than $unsortedPages PageArray
 				$unsortedPages = $this->pages->newPageArray($loadOptions);
 				foreach($idsByTemplate as $tpl_id => $ids) {
 					$opt = $loadOptions;
@@ -282,6 +327,9 @@ class PagesLoader extends Wire {
 				$opt['parent_id'] = $parent_id;
 				$pages->import($this->getById($idsSorted, $opt));
 			}
+			
+			$sortsAfter = $pageFinder->getSortsAfter();
+			if(count($sortsAfter)) $pages->sort($sortsAfter);
 
 		} else {
 			$pages = $this->pages->newPageArray($loadOptions);
@@ -293,7 +341,9 @@ class PagesLoader extends Wire {
 		$pages->setSelectors($selectors);
 		$pages->setTrackChanges(true);
 
-		if($loadPages) $this->pages->cacher()->selectorCache($selectorString, $options, $pages);
+		if($loadPages && $cachePages) {
+			$this->pages->cacher()->selectorCache($selectorString, $options, $pages);
+		}
 
 		if($debug) {
 			$this->pages->debugLog('find', $selectorString, $pages);
@@ -303,10 +353,11 @@ class PagesLoader extends Wire {
 				$note .= ": " . $pages->first()->path;
 				if($count > 1) $note .= " ... " . $pages->last()->path;
 			}
-			Debug::saveTimer("$caller($selectorString)", $note);
+			if(substr($caller, -1) !== ')') $caller .= "($selectorString)";
+			Debug::saveTimer($caller, $note);
 			foreach($pages as $item) {
-				if($item->_debug_loaded) continue;
-				$item->setQuietly('_debug_loader', "$caller($selectorString)");
+				if($item->_debug_loader) continue;
+				$item->setQuietly('_debug_loader', $caller);
 			}
 		}
 		
@@ -317,6 +368,8 @@ class PagesLoader extends Wire {
 			'pagesInfo' => $pagesInfo,
 			'options' => $options
 		));
+		
+		if($findIDs) return $findIDs === 1 ? $pagesIDs : $pagesInfo;
 
 		return $pages;
 	}
@@ -352,21 +405,23 @@ class PagesLoader extends Wire {
 	 * Returns the first page matching the given selector with no exclusions
 	 *
 	 * @param string|int|array|Selectors $selector
+	 * @param array $options See Pages::find method for options
 	 * @return Page|NullPage Always returns a Page object, but will return NullPage (with id=0) when no match found
 	 *
 	 */
-	public function get($selector) {
+	public function get($selector, $options = array()) {
 		if(empty($selector)) return $this->pages->newNullPage();
 		if(is_string($selector) || is_int($selector)) {
 			$page = $this->pages->getCache($selector);
 			if($page) return $page;
 		}
-		$options = array(
+		$defaults = array(
 			'findOne' => true, // find only one page
 			'findAll' => true, // no exclusions
 			'getTotal' => false, // don't count totals
 			'caller' => 'pages.get'
 		);
+		$options = count($options) ? array_merge($defaults, $options) : $defaults;
 		$page = $this->pages->find($selector, $options)->first();
 		if(!$page) $page = $this->pages->newNullPage();
 		return $page;
@@ -392,6 +447,7 @@ class PagesLoader extends Wire {
 	 * - pageClass: string, default=auto-detect. Class to instantiate Page objects with. Leave blank to determine from template.
 	 * - pageArrayClass: string, default=PageArray. PageArray-derived class to store pages in (when 'getOne' is false).
 	 * - page (Page|null): Existing Page object to populate (also requires the getOne option to be true). (default=null)
+	 * - caller (string): Name of calling function, for debugging purposes (default=blank).
 	 *
 	 * Use the $options array for potential speed optimizations:
 	 * - Specify a 'template' with your call, when possible, so that this method doesn't have to determine it separately.
@@ -428,6 +484,7 @@ class PagesLoader extends Wire {
 			'page' => null, 
 			'pageClass' => '',  // blank = auto detect
 			'pageArrayClass' => 'PageArray',
+			'caller' => '', 
 		);
 
 		if(is_array($template)) {
@@ -611,9 +668,16 @@ class PagesLoader extends Wire {
 					$class = 'Page';
 				}
 			}
-			if($class != 'Page' && !wireClassExists($class)) {
-				$this->error("Class '$class' for Pages::getById() does not exist", Notice::log);
-				$class = 'Page';
+
+			$_class = wireClassName($class, true);
+			if($class != 'Page' && !wireClassExists($_class)) {
+				if(class_exists("\\$class")) {
+					$_class = "\\$class";
+				} else {
+					$this->error("Class '$class' for Pages::getById() does not exist", Notice::log);
+					$class = 'Page';
+					$_class = wireClassName($class, true);
+				}
 			}
 		
 			// page to populate, if provided in 'getOne' mode
@@ -621,7 +685,6 @@ class PagesLoader extends Wire {
 			$_page = $options['getOne'] && $options['page'] && $options['page'] instanceof Page ? $options['page'] : null;
 
 			try {
-				$_class = wireClassName($class, true);
 				// while($page = $stmt->fetchObject($_class, array($template))) {
 				/** @noinspection PhpAssignmentInConditionInspection */
 				while($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
@@ -638,6 +701,7 @@ class PagesLoader extends Wire {
 					}
 					unset($row['templates_id']);
 					foreach($row as $key => $value) $page->set($key, $value);
+					if($options['cache'] === false) $page->loaderCache = false;
 					$page->instanceID = ++$instanceID;
 					$page->setIsLoaded(true);
 					$page->setIsNew(false);
@@ -645,6 +709,7 @@ class PagesLoader extends Wire {
 					$page->setOutputFormatting($this->outputFormatting);
 					$loaded[$page->id] = $page;
 					if($options['cache']) $this->pages->cache($page);
+					$this->totalPagesLoaded++;
 				}
 			} catch(\Exception $e) {
 				$error = $e->getMessage() . " [pageClass=$class, template=$template]";
@@ -668,11 +733,18 @@ class PagesLoader extends Wire {
 		if($this->debug) {
 			$page = $this->wire('page');
 			if($page && $page->template == 'admin') {
-				$_template = is_null($template) ? '' : ", $template";
-				$_parent_id = is_null($parent_id) ? '' : ", $parent_id";
-				$_ids = count($_ids) > 1 ? "[" . implode(',', $_ids) . "]" : implode('', $_ids);
+				if(empty($options['caller'])) {
+					$_template = is_null($template) ? '' : ", $template";
+					$_parent_id = is_null($parent_id) ? '' : ", $parent_id";
+					if(count($_ids) > 10) {
+						$_ids = '[' . reset($_ids) . '…' . end($_ids) . ', ' . count($_ids) . ' pages]';
+					} else {
+						$_ids = count($_ids) > 1 ? "[" . implode(',', $_ids) . "]" : implode('', $_ids);
+					}
+					$options['caller'] = "pages.getById($_ids$_template$_parent_id)";
+				}
 				foreach($pages as $item) {
-					$item->setQuietly('_debug_loader', "getByID($_ids$_template$_parent_id)");
+					$item->setQuietly('_debug_loader', $options['caller']);
 				}
 			}
 		}
@@ -1068,6 +1140,16 @@ class PagesLoader extends Wire {
 		$value = $this->debug;
 		if(!is_null($debug)) $this->debug = (bool) $debug;
 		return $value;
+	}
+
+	/**
+	 * Return the total quantity of pages loaded by getById()
+	 * 
+	 * @return int
+	 * 
+	 */
+	public function getTotalPagesLoaded() {
+		return $this->totalPagesLoaded;
 	}
 	
 }

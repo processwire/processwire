@@ -46,6 +46,9 @@ if(!defined("PROCESSWIRE")) die();
  * always have this disabled for live/production sites since it reveals more information
  * than is advisible for security. 
  * 
+ * You may also set this to the constant `Config::debugVerbose` to enable verbose debug mode,
+ * which uses more memory and time. 
+ * 
  * #notes This enables debug mode for ALL requests. See the debugIf option for an alternative.
  * 
  * @var bool
@@ -126,6 +129,18 @@ $config->demo = false;
  * 
  */
 $config->useFunctionsAPI = false;
+
+/**
+ * Enable use of front-end markup regions?
+ *
+ * When enabled, HTML elements with an "id" attribute that are output before the opening 
+ * `<!doctype>` or `<html>` tag can replace elements in the document that have the same id. 
+ * Also supports append, prepend, replace, remove, before and after options. 
+ *
+ * @var bool
+ *
+ */
+$config->useMarkupRegions = false;
 
 
 /*** 2. DATES & TIMES *************************************************************************/
@@ -275,7 +290,12 @@ $config->sessionFingerprint = 1;
 $config->sessionCookieSecure = 1; 
 
 /**
- * Cookie domain
+ * Cookie domain for sessions
+ * 
+ * Enables a session to traverse multiple subdomains.
+ * Specify a string with domain or NULL to disable (default/recommended). 
+ * 
+ * @var string|null
  *
  */
 $config->sessionCookieDomain = null;
@@ -596,8 +616,8 @@ $config->fileCompilerOptions = array(
 	'siteOnly' => false,  // only allow compilation of files in /site/ directory
 	'showNotices' => true, // show notices about compiled files to superuser when logged in
 	'logNotices' => true, // log notices about compiled files and maintenance to file-compiler.txt log.
-	'chmodFile' => $config->chmodFile, // mode to use for created files, i.e. "0644"
-	'chmodDir' => $config->chmodDir,  // mode to use for created directories, i.e. "0755"
+	'chmodFile' => '', // mode to use for created files, i.e. "0644"
+	'chmodDir' => '',  // mode to use for created directories, i.e. "0755"
 	'exclusions' => array(), // exclude filenames or paths that start with any of these
 	'extensions' => array('php', 'module', 'inc'), // file extensions we compile
 	'cachePath' => $config->paths->cache . 'FileCompiler/', // path where compiled files are stored
@@ -773,9 +793,7 @@ $config->dbCharset = 'utf8';
 /**
  * Database engine
  * 
- * MyISAM is the recommended value, but you may also use InnoDB (experimental). 
- *
- * Note that use of 'InnoDB' is currently experimental. Avoid changing this after install.
+ * May be 'InnoDB' or 'MyISAM'. Avoid changing this after install.
  * 
  */
 $config->dbEngine = 'MyISAM';
@@ -871,7 +889,17 @@ $config->dbSqlModes = array(
 );
 
 /**
+ * A key=>value array of any additional driver-specific connection options.
+ * 
+ * @var array
+ * 
+ */
+$config->dbOptions = array();
+
+/**
  * Optional DB socket config for sites that need it (for most you should exclude this)
+ * 
+ * @var string
  *
  */
 $config->dbSocket = '';
@@ -883,6 +911,17 @@ $config->dbSocket = '';
  * 
  */
 $config->dbQueryLogMax = 500;
+
+/**
+ * Remove 4-byte characters (like emoji) when dbEngine is not utf8mb4?
+ * 
+ * When charset is not “utf8mb4” and this value is true, 4-byte UTF-8 characters are stripped
+ * out of inserted values when possible. Note that this can add some overhead to INSERTs. 
+ * 
+ * @var bool
+ * 
+ */
+$config->dbStripMB4 = false;
 
 
 
@@ -1112,6 +1151,14 @@ $config->allowExceptions = false;
  * 
  */
 $config->usePoweredBy = true;
+
+/**
+ * Chunk size for lazy-loaded pages used by $pages->findMany()
+ * 
+ * @var int
+ * 
+ */
+$config->lazyPageChunkSize = 250;
 
 /**
  * Settings specific to InputfieldWrapper class

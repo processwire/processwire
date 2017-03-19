@@ -452,7 +452,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$out .= $this->form->render();
 	
 		// buttons with dropdowns
-		if(!$this->wire('input')->get('modal') && !$this->wire('session')->get('touch') && !count($this->fields)) {
+		if(!$this->wire('input')->get('modal') && !count($this->fields)) {
 			
 			$config = $this->wire('config');
 			$file = $config->debug ? 'dropdown.js' : 'dropdown.min.js';
@@ -490,7 +490,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$out .= "</ul>";
 		}
 
-		if($viewable) {
+		if($viewable && !count($this->fields)) {
 			// this supports code in the buildFormView() method
 			$out .= "<ul id='_ProcessPageEditViewDropdown' class='pw-dropdown-menu pw-dropdown-menu-rounded' data-my='left top' data-at='left top-9'>";
 			foreach($this->getViewActions() as $name => $action) {
@@ -731,7 +731,11 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$submit2->attr('id', 'submit_save_unpublished');
 					$submit2->showInHeader();
 					$submit2->setSecondary();
-					$submit2->attr('value', $this->_('Save + Keep Unpublished')); // Button: save unpublished
+					if($this->wire('session')->clientWidth > 900) {
+						$submit2->attr('value', $this->_('Save + Keep Unpublished')); // Button: save unpublished
+					} else {
+						$submit2->attr('value', $saveLabel); // Button: save unpublished
+					}
 				}
 	
 				if($this->page->publishable()) {
@@ -1200,9 +1204,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if((is_array($settings) && !empty($settings['viewNew'])) || $this->viewAction == 'new') $target = " target='_blank'";
 		
 		$a = 
-			"<a id='_ProcessPageEditView' $target href='$url' data-action='$this->viewAction'>$label</a>&nbsp;" . 
-			"<span id='_ProcessPageEditViewDropdownToggle' class='pw-dropdown-toggle' data-pw-dropdown='#_ProcessPageEditViewDropdown'>&nbsp;" . 
-			"<i class='fa fa-angle-down'></i>&nbsp;</span>";
+			"<a id='_ProcessPageEditView' $target href='$url' data-action='$this->viewAction'>$label" . 
+			"<span id='_ProcessPageEditViewDropdownToggle' class='pw-dropdown-toggle' data-pw-dropdown='#_ProcessPageEditViewDropdown'>" . 
+			"<i class='fa fa-angle-down'></i></span></a>";
 		
 		$this->addTab($id, $a);
 	}
@@ -2226,11 +2230,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if($this->page && $this->page->id != 1) $this->wire('breadcrumbs')->shift(); // shift off the 'Pages' breadcrumb
 		$page = $this->page ? $this->page : $this->parent;
 		if($this->masterPage) $page = $this->masterPage;
+		$lastID = (int) $this->wire('session')->get('ProcessPageList', 'lastID');
 
 		$numParents = $page->parents->count();
 		foreach($page->parents() as $cnt => $p) {
 			$url = "../?open=$p->id";
-			if($cnt == $numParents-1) $url = "../";
+			if($cnt == $numParents-1 && $p->id == $lastID) $url = "../";
 			$this->breadcrumb($url, $p->get("title|name"));
 		}
 

@@ -33,7 +33,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Maintains a collection of fields that are repeated for any number of times.', __FILE__), // Module Summary
-			'version' => 105,
+			'version' => 106,
 			'autoload' => true,
 			'installs' => 'InputfieldRepeater'
 			);
@@ -468,7 +468,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * @return string
 	 *
 	 */
-	protected function getUniqueRepeaterPageName() {
+	public function getUniqueRepeaterPageName() {
 		static $cnt = 0;
 		return str_replace('.', '-', microtime(true)) . '-' . (++$cnt);
 	}
@@ -496,7 +496,9 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$inputfield = $this->wire('modules')->get($this->getInputfieldClass()); 
 		$inputfield->set('page', $page); 
 		$inputfield->set('field', $field);
-		$inputfield->set('repeaterMaxItems', $field->get('repeaterMaxItems')); 
+		$inputfield->set('repeaterMaxItems', (int) $field->get('repeaterMaxItems'));
+		$inputfield->set('repeaterMinItems', (int) $field->get('repeaterMinItems')); 
+		$inputfield->set('repeaterDepth', (int) $field->get('repeaterDepth'));
 		$inputfield->set('repeaterReadyItems', 0);  // ready items deprecated
 
 		$pageArray = $page->getUnformatted($field->name); 
@@ -533,6 +535,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			if($item->hasStatus(Page::statusUnpublished) 
 				&& $item->hasStatus(Page::statusHidden) 
 				&& $item->id
+				&& substr($item->name, -1) !== 'c' // cloned item
 				&& !in_array($item->id, $notIDs)) {
 				// existing/unused ready item that we will reuse	
 				$readyPage = $item;
@@ -637,8 +640,18 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		*/
 
 		// load the repeater pages
-		$a = $this->wire('pages')->find($selector);
-		$class = $this->getPageArrayClass(true);
+		$options = array(
+			'cache' => false, 
+			'caller' => $this->className() . '::wakeupValue',
+			'loadOptions' => array(
+				'cache' => false, 
+				'parent_id' => $parent_id, 
+				'template' => $this->wire('templates')->get($template_id)
+			)
+		);
+		
+		$a = $this->wire('pages')->find($selector, $options);
+		$class = $this->getPageArrayClass();
 		$pageArray = $this->wire(new $class($page, $field)); 
 		$pageArray->import($a);
 		$pageArray->resetTrackChanges(true); 
@@ -667,6 +680,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	
 		// if $value isn't a PageArray, then abort	
 		if(!$value instanceof PageArray) return array();
+		
+		/** @var PageArray $value */
 
 		$count = 0; 
 		$ids = array();
@@ -957,8 +972,10 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	public function ___formatValue(Page $page, Field $field, $value) {
+		
+		$maxItems = (int) $field->get('repeaterMaxItems');
 
-		if(!$value instanceof PageArray) return $this->getBlankValue($page, $field);
+		if(!$value instanceof PageArray) $value = $this->getBlankValue($page, $field);
 
 		/* TBA
 		if($field->repeaterMaxItems == 1) {
@@ -969,29 +986,19 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	
 		// used as a clone if a formatted version of $value is different from non-formatted
 		$formatted = null;
+		$cnt = 0;
 
 		// remove unpublished and ready items that shouldn't be here
 		foreach($value as $p) {
-
-			/*
-			if($p->status < Page::statusHidden) continue; 
-			$remove = false; 
-			if($p->isHidden()) {
-				// hidden pages (assumed to be a ready page) should never be included when page is being viewed (outputFormatting)
-				$remove = true; 
-			} else if($p->isUnpublished() && !$page->isUnpublished()) {
-				// unpublished items may only be included if the page is also unpublished (and presumably being previewed)
-				$remove = true; 
-			}
-			if($remove) {
-			*/
-			
-			if($p->isHidden() || $p->isUnpublished()) {
+			$cnt++;
+			if($p->isHidden() || $p->isUnpublished() || ($maxItems && $cnt > $maxItems)) {
 				if(is_null($formatted)) $formatted = clone $value;
+				/** @var Page $formatted */
 				$trackChanges = $formatted->trackChanges();
 				$formatted->setTrackChanges(false); 
 				$formatted->remove($p); 
 				$formatted->setTrackChanges($trackChanges); 
+				$cnt--;
 			}
 		}
 

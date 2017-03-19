@@ -16,6 +16,11 @@
  * https://processwire.com
  * 
  * @method WireArray and($item)
+ * @property int $count Number of items
+ * @property Wire|null $first First item
+ * @property Wire|null $last Last item
+ * @property array $keys All keys used in this WireArray
+ * @property array $values All values used in this WireArray
  *
  * #pw-order-groups traversal,retrieval,manipulation,info,output-rendering,other-data-storage,changes,fun-tools,hooker
  * #pw-summary WireArray is the base iterable array type used throughout the ProcessWire framework.
@@ -104,6 +109,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 */
 	public function isValidKey($key) {
 		// unused $key intentional for descending class/template purposes
+		if($key) {}
 		return true; 
 	}
 
@@ -489,13 +495,19 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * Returns the value of the item at the given index, or null if not set. 
 	 *
 	 * You may also specify a selector, in which case this method will return the same result as 
-	 * the `WireArray::findOne()` method. 
+	 * the `WireArray::findOne()` method. See the $key argument description for more details on 
+	 * what can be provided. 
 	 * 
 	 * #pw-group-retrieval
 	 *
-	 * @param int|string|array $key Key of item to retrieve. If not specified, 0 is assumed (for first item).
-	 *  You may also provide an array of keys, in which case an array of matching items will be returned, indexed by your keys.
-	 * @return WireData|Page|mixed|null Value of item requested, or null if it doesn't exist.
+	 * @param int|string|array $key Provide any of the following: 
+	 *  - Key of item to retrieve. 
+	 *  - Array of keys, in which case an array of matching items will be returned, indexed by your keys.
+	 *  - A selector string or selector array, to return the first item that matches the selector. 
+	 *  - A string of text with "{var}" tags in it that will be populated with any matching properties from this WireArray. 
+	 *  - A string like "foobar[]" which returns an array of all "foobar" properties from each item in the WireArray. 
+	 *  - A string containing the "name" property of any item, and the matching item will be returned. 
+	 * @return WireData|Page|mixed|array|null Value of item requested, or null if it doesn't exist.
 	 * @throws WireException
 	 *
 	 */
@@ -530,7 +542,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if(isset($this->data[$key])) return $this->data[$key]; 
 
 		// check if key contains a selector
-		if(Selectors::stringHasOperator($key)) {
+		if(Selectors::stringHasSelector($key)) {
 			$item = $this->findOne($key);
 			if($item === false) $item = null;
 			return $item;
@@ -1399,22 +1411,32 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		$sort = array();
 		$start = 0;
 		$limit = null;
+		$eq = null;
 
 		// leave sort, limit and start away from filtering selectors
 		foreach($selectors as $selector) {
 			$remove = true; 
+			$field = $selector->field;
 
-			if($selector->field === 'sort') {
+			if($field === 'sort') {
 				// use all sort selectors
 				$sort[] = $selector->value; 
 
-			} else if($selector->field === 'start') { 
+			} else if($field === 'start') { 
 				// use only the last start selector
 				$start = (int) $selector->value;
 
-			} else if($selector->field === 'limit') {
+			} else if($field === 'limit') {
 				// use only the last limit selector
-				$limit = (int) $selector->value; 
+				$limit = (int) $selector->value;
+
+			} else if(($field === 'index' || $field == 'eq') && !$this->wire('fields')->get($field)) {
+				// eq or index properties
+				switch($selector->value) {
+					case 'first': $eq = 0; break;
+					case 'last': $eq = -1; break;
+					default: $eq = (int) $selector->value;
+				}
 
 			} else {
 				// everything else is to be saved for filtering
@@ -1437,6 +1459,38 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 					$this->trackRemove($this->data[$key], $key);
 					unset($this->data[$key]);
 				}
+			}
+		}
+
+		if(!is_null($eq)) {
+			if($eq === -1) {
+				$limit = -1;
+				$start = null;
+			} else if($eq === 0) {
+				$start = 0;
+				$limit = 1;
+			} else {
+				$start = $eq;
+				$limit = 1;
+			}
+		}
+		
+		if($limit < 0 && $start < 0) {
+			// we don't support double negative, so double negative makes a positive 
+			$start = abs($start);
+			$limit = abs($limit);
+		} else {
+			if($limit < 0) {
+				if($start) {
+					$start = $start - abs($limit);
+					$limit = abs($limit);
+				} else {
+					$start = count($this->data) - abs($limit);
+					$limit = count($this->data);
+				}
+			}
+			if($start < 0) {
+				$start = count($this->data) - abs($start);
 			}
 		}
 
@@ -1736,7 +1790,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * #pw-internal
 	 *
 	 * @param bool $trackChanges True to turn change tracking ON, or false to turn OFF. Default of true is assumed. 
-	 * @return $this
+	 * @return Wire|WireArray
 	 *
 	 */
 	public function resetTrackChanges($trackChanges = true) {
@@ -1753,6 +1807,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
  	 *
 	 */
 	protected function trackAdd($item, $key) {
+		if($key) {}
 		if($this->trackChanges()) $this->itemsAdded[] = $item;
 	}
 
@@ -1764,6 +1819,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
  	 *
 	 */
 	protected function trackRemove($item, $key) {
+		if($key) {}
 		if($this->trackChanges()) $this->itemsRemoved[] = $item; 
 	}
 
@@ -2047,7 +2103,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *
 	 * @param string|null $key Name of data property you want to get or set. Omit to get all data properties. 
 	 * @param mixed|null $value Value of data property you want to set. Omit when getting properties. 
-	 * @return $this|mixed|null Returns one of the following, depending on specified arguments: 
+	 * @return WireArray|mixed|array|null Returns one of the following, depending on specified arguments: 
 	 *  - `mixed` when getting a single property: whatever you set is what you will get back.
 	 *  - `null` if the property you are trying to get does not exist in the data.
 	 *  - `$this` reference to this WireArray if you were setting a value. 
@@ -2092,6 +2148,8 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 				// if keys are not numeric, we delegete numbers to eq(n)
 				return $this->eq((int) $key);
 			}
+		} else if(is_callable($key) || (is_string($key) && strpos($key, '{') !== false && strpos($key, '}'))) {
+			return $this->each($key);
 		}
 		return $this->get($key);
 	}
@@ -2268,8 +2326,8 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 						$value = '/' . ltrim($value->path(), '/');
 					} else if($value instanceof WireData) {
 						$_value = $value;
-						$value = $value->name;
-						if(!$value) $value = $_value->id;
+						$value = $value->get('name');
+						if(!$value) $value = $_value->get('id');
 						if(!$value) $value = $_value->className();
 					} else {
 						// keep $value as it is

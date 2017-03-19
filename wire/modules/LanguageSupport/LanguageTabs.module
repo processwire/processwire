@@ -37,6 +37,8 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 	 */
 	protected $tabs = array();
 	
+	protected $settings = array();
+	
 	public function __construct() {
 		$this->set('tabField', 'title');
 	}
@@ -48,31 +50,53 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 	public function ready() {
 		if($this->wire('page')->template != 'admin') return;
 		$this->addHookAfter('InputfieldForm::render', $this, 'hookRenderInputfieldForm'); 
-
+	}
+	
+	public function getSettings() {
+		if(!empty($this->settings)) return $this->settings;
 		$language = null;
 		// allow for specifying language in your "edit" page link, from front-end
 		// so if you want to focus on the Spanish tabs when the user clicks "edit"
 		// from /es/path/to/page/, then you can by using a page edit link like:
 		// <a href='{$config->urls->admin}page/edit/?id=$page->id&language=$user->language'>Edit</a>
 		$id = (int) $this->input->get('language');
-		if($id) $language = $this->languages->get($id); 
+		if($id) $language = $this->languages->get($id);
 
 		// if language is not specified as a GET variable, then use the user's language
-		if(!$language || !$language->id) $language = $this->user->language; 
+		if(!$language || !$language->id) $language = $this->user->language;
 
 		// determine the index of the tab for the user's language	
-		$activeTab = 0; 	
+		$activeTab = 0;
 		foreach($this->languages as $index => $lang) {
-			if($lang->id == $language->id) $activeTab = $index; 
+			if($lang->id == $language->id) $activeTab = $index;
 		}
 
-		$settings = array(
+		$defaults = array(
+			'jQueryUI' => true,  // use jQuery UI tabs?
 			'labelOpen' => $this->_('Expand Language Tabs'),
-			'labelClose' => $this->_('Collapse/Convert Back to Tabs'), 
-			'activeTab' => $activeTab, 
-			); 
+			'labelClose' => $this->_('Collapse/Convert Back to Tabs'),
+			'activeTab' => $activeTab,
+			'ulClass' => '',
+			'ulAttrs' => '',
+			'liActiveClass' => '',
+			'liDisabledClass' => '',
+			'liEmptyClass' => '',
+			'aClass' => '',
+			'loadStyles' => true,
+			'loadScripts' => true,
+			'tabField' => $this->get('tabField'),
+		);
 
-		$this->wire('config')->js('LanguageTabs', $settings);
+		$settings = $this->wire('config')->get('LanguageTabs');
+		if(is_array($settings)) {
+			$this->settings = array_merge($defaults, $settings);
+		} else {
+			$this->settings = $defaults;
+		}
+
+		$this->wire('config')->js('LanguageTabs', $this->settings);
+		
+		return $this->settings;
 	}
 
 	/**
@@ -82,7 +106,22 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function hookRenderInputfieldForm(HookEvent $e) {
-		$this->wire('modules')->loadModuleFileAssets($this); 
+		
+		$settings = $this->getSettings();
+		$config = $this->wire('config');
+		
+		if($settings['jQueryUI']) {
+			$this->wire('adminTheme')->addBodyClass('LanguageTabsJqueryUI');
+		}
+		
+		if($settings['loadStyles']) {
+			$config->styles->add($config->urls->LanguageTabs . 'LanguageTabs.css');
+		}
+		if($settings['loadScripts']) {
+			$config->scripts->add($config->urls->LanguageTabs . 'LanguageTabs.js');
+		}
+		
+		// $this->wire('modules')->loadModuleFileAssets($this); 
 		$this->wire('modules')->get('JqueryCore')->use('longclick');
 		if(strpos($e->return, 'LanguageSupport') === false) return;
 		/** @var InputfieldForm $form */
@@ -107,20 +146,26 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function addTab(Inputfield $inputfield, Language $language) {
-		$liClass = '';
-		$class = 'langTab' . $language->id;
-		if($inputfield->isEmpty()) $liClass .= 'langTabEmpty ';
+		$settings = $this->getSettings();
+		$liClasses = array();
+		$aClasses = array('langTab' . $language->id);
 		$title = $language->get($this->tabField);
 		if(empty($title)) $title = $language->get('name');
 		$title = $this->wire('sanitizer')->entities1($title);
 		if(!$this->wire('languages')->editable($language)) {
 			$title = "<s>$title</s>";
-			$liClass .= 'LanguageNotEditable ';
+			$liClasses[] = 'LanguageNotEditable'; 
+			$liClasses[] = $settings['liDisabledClass'];
+		}
+		if($inputfield->isEmpty()) {
+			$liClasses[] = 'langTabEmpty';
+			$liClasses[] = $settings['liEmptyClass'];
 		}
 		$id = $inputfield->attr('id'); 
-		$liClass = trim($liClass);
+		$liClass = implode(' ', $liClasses);
+		$aClass = implode(' ', $aClasses);
 		/** @noinspection HtmlUnknownAnchorTarget */
-		$this->tabs[] = "<li class='$liClass'><a data-lang='$language->id' class='$class' href='#langTab_$id'>$title</a></li>";
+		$this->tabs[] = "<li class='$liClass'><a data-lang='$language->id' class='$aClass' href='#langTab_$id'>$title</a></li>";
 	}
 
 	/**
@@ -135,14 +180,18 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function renderTabs(Inputfield $inputfield, $content) {
+		$settings = $this->getSettings();
 		if(count($this->tabs) > 1) { 
 			$inputfield->wrapClass .= " hasLangTabs";
 			$inputfield->contentClass .= " langTabsContainer";
 			$tabs = implode('', $this->tabs);
 			$id = $inputfield->attr('id');
 			$note = "<small class='langTabsNote detail'><i class='fa fa-fw fa-angle-double-left'></i>" . 
-				$this->_('click+hold to change all tabs') . "</small>";
-			$content = "<div class='langTabs' id='langTabs_$id'>$note<ul>$tabs</ul>$content</div>";
+				$this->_('click twice to change all tabs') . "</small>";
+			$attrs = $settings['ulAttrs']; 
+			$attrs .= $settings['ulClass'] ? " class='$settings[ulClass]'" : "";
+			$attrs = strlen($attrs) ? " " . trim($attrs) : "";
+			$content = "<div class='langTabs' id='langTabs_$id'>$note<ul$attrs>$tabs</ul>$content</div>";
 		} else {
 			// do nothing, just return content because there was only 1 tab (no render necessary)
 		}

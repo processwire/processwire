@@ -622,6 +622,11 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			$pHeight = $targetHeight;
 			$pWidth = $this->getProportionalWidth($targetHeight);
 		}
+		
+		// adjust rounding issues, @horst 19 March 2017 >>
+		if($targetWidth == $originalTargetWidth && 1 + $targetWidth == $pWidth) $pWidth = $pWidth - 1;
+		if($targetHeight == $originalTargetHeight && 1 + $targetHeight == $pHeight) $pHeight = $pHeight - 1;
+		// << adjust rounding issues
 
 		if(!$this->upscaling) {
 			// we are going to shoot for something smaller than the target
@@ -1406,8 +1411,9 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		$this->fullHeight = $this->image['height'];
 
 		if(0 == $this->finalWidth && 0 == $this->finalHeight) return false;
-		if(0 == $this->finalWidth) $this->finalWidth = ceil(($this->finalHeight / $this->fullHeight) * $this->fullWidth);
-		if(0 == $this->finalHeight) $this->finalHeight = ceil(($this->finalWidth / $this->fullWidth) * $this->fullHeight);
+		// -- THIS IS NOT NEEDED, AS IT IS DONE IN THE RESIZECALCULATION OF THE ENGINES!  @horst 19 March 2017
+		//if(0 == $this->finalWidth) $this->finalWidth = ceil(($this->finalHeight / $this->fullHeight) * $this->fullWidth);
+		//if(0 == $this->finalHeight) $this->finalHeight = ceil(($this->finalWidth / $this->fullWidth) * $this->fullHeight);
 
 		if($this->scale !== 1.0) { // adjust for hidpi
 			if($this->finalWidth) $this->finalWidth = ceil($this->finalWidth * $this->scale);

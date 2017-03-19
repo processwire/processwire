@@ -37,7 +37,8 @@ function initPageEditForm() {
 		$("button[type=submit]").each(function() {
 			var $button = $(this);
 			var name = $button.attr('name');
-			if(name.indexOf('submit') == -1) return;
+			if($button.hasClass('pw-no-dropdown')) return;
+			if(name.indexOf('submit') == -1 || name.indexOf('_draft') > -1) return;
 			if(name.indexOf('_save') == -1 && name.indexOf('_publish') == -1) return;
 			InputfieldSubmitDropdown.init($button, $dropdownTemplate);
 		});
@@ -63,6 +64,15 @@ function initPageEditForm() {
 			$('.pw-button-dropdown-toggle').trigger('pw-button-dropdown-on');
 		} else {
 			$('.pw-button-dropdown-toggle').trigger('pw-button-dropdown-off');
+		}
+	});
+
+	// hide other buttons when on delete tab, and restore them when leaving delete tab
+	$(document).on('wiretabclick', function(event, $newTab, $oldTab) {
+		if($newTab.attr('id') == 'ProcessPageEditDelete') {
+			$(".InputfieldSubmit:not(#wrap_submit_delete):visible").addClass('pw-hidden-tmp').hide();
+		} else if($oldTab.attr('id') == 'ProcessPageEditDelete') {
+			$(".InputfieldSubmit.pw-hidden-tmp").removeClass('pw-hidden-tmp').show();
 		}
 	});
 }

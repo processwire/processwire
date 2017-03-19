@@ -153,6 +153,8 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 			$this->set('sanitizeMethod', 'pageName');
 		}
 		$this->hasLanguagePageNames = $this->wire('modules')->isInstalled('LanguageSupportPageNames'); 
+		
+		$this->removeClass('InputfieldNoBorder', 'wrapClass'); 
 	}
 
 	public function ___render() {

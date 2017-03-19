@@ -60,8 +60,10 @@
 </head>
 <body class="<?php if($sidebar) echo "has-sidebar"; ?>">
 
+	<a href="#main" class="visually-hidden element-focusable bypass-to-main"><?php echo _x('Skip to content', 'bypass'); ?></a>
+
 	<!-- language switcher / navigation -->
-	<ul class='languages'><?php
+	<ul class='languages' role='navigation'><?php
 		foreach($languages as $language) {
 			if(!$page->viewable($language)) continue; // is page viewable in this language?
 			if($language->id == $user->language->id) {
@@ -76,11 +78,11 @@
 	?></ul>
 
 	<!-- top navigation -->
-	<ul class='topnav'><?php 
+	<ul class='topnav' role='navigation'><?php
 		// top navigation consists of homepage and its visible children
 		foreach($homepage->and($homepage->children) as $item) {
 			if($item->id == $page->rootParent->id) {
-				echo "<li class='current'>";
+				echo "<li class='current' aria-current='true'><span class='visually-hidden'>" . _x('Current page:', 'navigation') . " </span>";
 			} else {
 				echo "<li>";
 			}
@@ -92,7 +94,7 @@
 	?></ul>
 
 	<!-- breadcrumbs -->
-	<div class='breadcrumbs'><?php 
+	<div class='breadcrumbs' role='navigation' aria-label='<?php echo _x('You are here:', 'breadcrumbs'); ?>'><?php
 		// breadcrumbs are the current page's parents
 		foreach($page->parents() as $item) {
 			echo "<span><a href='$item->url'>$item->title</a></span> "; 
@@ -103,12 +105,13 @@
 
 	<!-- search engine -->
 	<form class='search' action='<?php echo $pages->get('template=search')->url; ?>' method='get'>
-		<input type='text' name='q' placeholder='<?php echo _x('Search', 'placeholder'); ?>' />
-		<button type='submit' name='submit'><?php echo _x('Search', 'button'); ?></button>
+		<label for='search' class='visually-hidden'><?php echo _x('Search:', 'label'); ?></label>
+		<input type='text' name='q' id='search' placeh older='<?php echo _x('Search', 'placeholder'); ?>' />
+		<button type='submit' name='submit' class='visually-hidden'><?php echo _x('Search', 'button'); ?></button>
 	</form>
 
 
-	<div id='main'>
+	<main id='main'>
 
 		<!-- main content -->
 		<div id='content'>
@@ -121,15 +124,15 @@
 		<!-- sidebar content -->
 		<?php if($sidebar): ?>
 			
-		<div id='sidebar'>
+		<aside id='sidebar'>
 			
 			<?php echo $sidebar; ?>
 			
-		</div>
+		</aside>
 			
 		<?php endif; ?>
 
-	</div>
+	</main>
 
 	<!-- footer -->
 	<footer id='footer'>

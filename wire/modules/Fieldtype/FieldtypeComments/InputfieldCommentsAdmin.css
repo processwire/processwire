@@ -1,49 +1,41 @@
-.InputfieldCommentsAdmin .CommentsAdminItemHead {
-	margin-bottom: 0; 
-}
-
-.InputfieldCommentsAdmin p label,
-.InputfieldCommentsAdmin p input,
-.InputfieldCommentsAdmin p select {
-	display: block;
-}
-
-.InputfieldCommentsAdmin .CommentsAdminItemCite,
-.InputfieldCommentsAdmin .CommentsAdminItemEmail,
-.InputfieldCommentsAdmin .CommentsAdminItemWebsite,
-.InputfieldCommentsAdmin .CommentsAdminItemStatus,
-.InputfieldCommentsAdmin .CommentsAdminItemDelete {
-	float: left; 
-	width: 23%; 
-	margin-right: 2%; 
-}
-
-.InputfieldCommentsAdmin .CommentsAdminItemStatus {
-}
-
-.InputfieldCommentsAdmin .CommentsAdminItemCite input,
-.InputfieldCommentsAdmin .CommentsAdminItemWebsite input,
-.InputfieldCommentsAdmin .CommentsAdminItemEmail input {
-	width: 100%; 
+.InputfieldCommentsAdmin input[type=text],
+.InputfieldCommentsAdmin input[type=email],
+.InputfieldCommentsAdmin input[type=url],
+.InputfieldCommentsAdmin select,
+.InputfieldCommentsAdmin textarea {
+	width: 100%;
 }
 
 .InputfieldCommentsAdmin .CommentsAdminItemText {
-	clear: both; 
 	margin-bottom: 0;
 }
 
-.InputfieldCommentsAdmin .CommentsAdminItemHeadLabel {
-	float: right; 
-	padding-right: 1em; 
-}
-
-.InputfieldCommentsAdminList > li > .ui-widget-content {
-	padding: 1em; 
-}
-.InputfieldCommentsAdminList > li > .ui-widget-content > p {
+.InputfieldCommentsAdmin .InputfieldContent > .ui-helper-clearfix > p {
+	float: left; 
+	width: 23%; 
 	margin-top: 0;
+	margin-right: 2%; 
 }
 
-.InputfieldCommentsAdminList > li > .ui-widget-content label {
-	font-weight: bold; 
+.InputfieldCommentsAdmin .InputfieldContent p label,
+.InputfieldCommentsAdmin .InputfieldContent p input {
+	display: block;
+}
+
+.InputfieldCommentsAdmin:not(.InputfieldIsOffset) .Inputfields > .Inputfield {
+	margin: 3px 0;
+}
+
+@media screen and (max-width: 768px) {
+	.InputfieldCommentsAdmin .InputfieldContent > .ui-helper-clearfix > p {
+		width: 48%;
+	}
+}
+
+@media screen and (max-width: 500px) {
+	.InputfieldCommentsAdmin .InputfieldContent > .ui-helper-clearfix > p {
+		width: 100%;
+		margin-right: 0;
+		float: none;
+	}
 }

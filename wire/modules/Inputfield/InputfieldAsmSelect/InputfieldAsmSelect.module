@@ -6,7 +6,7 @@
  * @property int|bool $usePageEdit
  *
  */
-class InputfieldAsmSelect extends InputfieldSelectMultiple implements InputfieldHasArrayValue {
+class InputfieldAsmSelect extends InputfieldSelectMultiple implements InputfieldHasArrayValue, InputfieldHasSortableValue {
 
 	protected $asmOptions = array();
 

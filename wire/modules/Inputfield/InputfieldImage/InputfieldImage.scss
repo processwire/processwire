@@ -58,7 +58,10 @@ $itemPadding: 0.4em;
 
 // The <ul> element containing li.gridImage items and .InputfieldImageEdit
 .gridImages {
+	list-style: none;
+	padding-left: 0;
 	position: relative;
+	margin: 0;
 	margin-right: -.6em;
 	display: block;
 	list-style: none;

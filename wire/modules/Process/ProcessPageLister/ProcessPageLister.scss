@@ -10,7 +10,11 @@
 
 #ProcessListerResults {
 	
-	#ProcessListerTable > table {
+	#ProcessListerTable {
+		clear: both;
+	}
+	
+	#ProcessListerTable table.ProcessListerTable {
 		
 		clear: both;
 		position: relative;

@@ -77,6 +77,7 @@ endif;
  *	- Specify false to exclude all empty values (this is the default if not specified). 
  * 	- Specify true to allow all empty values to be retained.
  * 	- Specify an array of keys (from data) that should be retained if you want some retained and not others.
+ *  - Specify array of literal empty value types to retain, i.e. [ 0, '0', array(), false, null ].
  * 	- Specify the digit 0 to retain values that are 0, but not other types of empty values.
  * @param bool $beautify Beautify the encoded data when possible for better human readability? (requires PHP 5.4+)
  * @return string String of JSON data
@@ -801,13 +802,16 @@ function wireIsCallable($var, $syntaxOnly = false, &$callableName = '') {
  *  - Specify "*" to retrieve all defined regions in an array.
  *  - Prepend a "+" to the region name to have it prepend your given value to any existing value.
  *  - Append a "+" to the region name to have it append your given value to any existing value.
+ *  - Prepend a "++" to region name to make future calls without "+" automatically prepend. 
+ *  - Append a "++" to region name to make future calls without "+" to automatically append. 
  * @param null|string $value If setting a region, the text that you want to set.
  * @return string|null|bool|array Returns string of text when getting a region, NULL if region not set, or TRUE if setting region.
  *
  */
 function wireRegion($key, $value = null) {
-
+	
 	static $regions = array();
+	static $locked = array();
 
 	if(empty($key) || $key === '*') {
 		// all regions
@@ -822,17 +826,24 @@ function wireRegion($key, $value = null) {
 	} else {
 		// set region
 		$pos = strpos($key, '+');
-		if($pos !== false) $key = trim($key, '+');
+		if($pos !== false) {
+			$lock = strpos($key, '++') !== false;
+			$key = trim($key, '+');
+			if($lock !== false && !isset($locked[$key])) {
+				$locked[$key] = $lock === 0 ? '^' : '$'; // prepend : append
+			}
+		}
+		$lock = isset($locked[$key]) ? $locked[$key] : '';
 		if(!isset($regions[$key])) $regions[$key] = '';
-		if($pos === 0) {
+		if($pos === 0 || ($pos === false && $lock == '^')) {
 			// prepend
 			$regions[$key] = $value . $regions[$key];
-		} else if($pos) {
+		} else if($pos || ($pos === false && $lock == '$')) {
 			// append
 			$regions[$key] .= $value;
 		} else if($value === '') {
 			// clear region
-			unset($regions[$key]);
+			if(!$lock) unset($regions[$key]);
 		} else {
 			// insert/replace
 			$regions[$key] = $value;

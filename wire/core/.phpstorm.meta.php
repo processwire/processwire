@@ -15,6 +15,7 @@ namespace PHPSTORM_META {
 		\wire('') => [
 			'' == '@',
 			'config' instanceof \ProcessWire\Config,
+			'cache' instanceof \ProcessWire\WireCache,
 			'wire' instanceof \ProcessWire\ProcessWire,
 			'log' instanceof \ProcessWire\WireLog,
 			'notices' instanceof \ProcessWire\Notices,
@@ -46,6 +47,7 @@ namespace PHPSTORM_META {
 			// this one does not appear to work, leaving in case someone knows how to make it work
 			'' == '@',
 			'config' instanceof \ProcessWire\Config,
+			'cache' instanceof \ProcessWire\WireCache,
 			'wire' instanceof \ProcessWire\ProcessWire,
 			'log' instanceof \ProcessWire\WireLog,
 			'notices' instanceof \ProcessWire\Notices,

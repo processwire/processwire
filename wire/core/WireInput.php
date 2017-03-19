@@ -39,25 +39,25 @@
 class WireInput extends Wire {
 
 	/**
-	 * @var WireInputVars|null
+	 * @var WireInputData|null
 	 * 
 	 */
 	protected $getVars = null;
 	
 	/**
-	 * @var WireInputVars|null
+	 * @var WireInputData|null
 	 *
 	 */
 	protected $postVars = null;
 	
 	/**
-	 * @var WireInputVars|null
+	 * @var WireInputData|null
 	 *
 	 */
 	protected $cookieVars = null;
 	
 	/**
-	 * @var WireInputVars|null
+	 * @var WireInputData|null
 	 *
 	 */
 	protected $whitelist = null;
@@ -489,12 +489,13 @@ class WireInput extends Wire {
 			
 		} else if(isset($_SERVER['REQUEST_URI'])) {
 			// page not yet available, attempt to pull URL from request uri
-			$parts = explode('/', $_SERVER['REQUEST_URI']); 
-			$charset = $config->pageNameCharset;
-			foreach($parts as $part) {
-				$url .= "/" . ($charset === 'UTF8' ? $sanitizer->pageNameUTF8($part) : $sanitizer->pageName($part, false));
-			}
 			$info = parse_url($_SERVER['REQUEST_URI']);
+			$parts = explode('/', $info['path']);
+			$charset = $config->pageNameCharset;
+			foreach($parts as $i => $part) {
+				if($i > 0) $url .= "/";
+				$url .= ($charset === 'UTF8' ? $sanitizer->pageNameUTF8($part) : $sanitizer->pageName($part, false));
+			}
 			if(!empty($info['path']) && substr($info['path'], -1) == '/') {
 				$url = rtrim($url, '/') . '/'; // trailing slash
 			}
@@ -597,17 +598,19 @@ class WireInput extends Wire {
 	 * - OPTIONS
 	 * - or blank if not known
 	 * 
-	 * @return string
+	 * @param string $method Optionally enter the request method to return bool if current method matches
+	 * @return string|bool
 	 * @since 3.0.39
 	 * 
 	 */
-	public function requestMethod() {
+	public function requestMethod($method = '') {
 		if(isset($_SERVER['REQUEST_METHOD'])) {
 			$m = strtoupper($_SERVER['REQUEST_METHOD']);
 			$requestMethod = isset($this->requestMethods[$m]) ? $this->requestMethods[$m] : '';
 		} else {
 			$requestMethod = '';
 		}
+		if($method) return strtoupper($method) === $requestMethod;
 		return $requestMethod; 
 	}
 

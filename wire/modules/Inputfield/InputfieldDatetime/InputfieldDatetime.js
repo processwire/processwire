@@ -60,8 +60,22 @@ function InputfieldDatetimeDatepicker($t) {
 			$t.val(str); 
 		}); 
 	}
+
+	// if using a trigger button, replace with a link icon
+	if(showOn == 'button') {
+		var $button = $t.next('button.ui-datepicker-trigger');
+		if($button.length) {
+			var $a = $("<a class='pw-ui-datepicker-trigger' href='#'><i class='fa fa-calendar'></i></a>");
+			$button.after($a).hide();
+			$a.click(function() {
+				$button.click();
+				return false;
+			});
+		}
+	}
 	
 	$t.addClass('initDatepicker');
+	
 }
 
 jQuery(document).ready(function($) {

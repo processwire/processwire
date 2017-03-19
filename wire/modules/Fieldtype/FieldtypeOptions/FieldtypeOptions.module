@@ -325,6 +325,8 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 			$s = $database->escapeCol($subfield); 
 			$v = $database->escapeStr($value); 
 			$query->where("(SELECT COUNT(*) FROM $t WHERE $t.pages_id=pages.id AND $t.$s='$v')=0");
+			$query->parentQuery->where("($table.data IS NULL OR $table.$s!='$v')");
+			return $query;
 		}
 		
 		return parent::getMatchQuery($query, $table, $subfield, $operator, $value); 

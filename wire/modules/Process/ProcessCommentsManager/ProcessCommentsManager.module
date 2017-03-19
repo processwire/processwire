@@ -23,7 +23,7 @@ class ProcessCommentsManager extends Process {
 		return array(
 			'title' => 'Comments', 
 			'summary' => 'Manage comments in your site outside of the page editor.',
-			'version' => 6, 
+			'version' => 7, 
 			'author' => 'Ryan Cramer', 
 			'icon' => 'comments', 
 			'requires' => 'FieldtypeComments',
@@ -583,7 +583,7 @@ class ProcessCommentsManager extends Process {
 		if($cnt) { 
 			$button = $this->modules->get('InputfieldSubmit');
 			$button->attr('name', 'processComments');
-			$buton->showInHeader();
+			$button->showInHeader();
 			$button = $button->render();
 		} else $button = '';
 
@@ -592,7 +592,11 @@ class ProcessCommentsManager extends Process {
 		}
 
 		if(!count($comments)) {
-			return "<h2>" . $this->_('None to display') . "</h2>";
+			return
+				"<form>" . 
+					$tabsOut . 
+					"<h2>" . $this->_('None to display') . "</h2>" . 
+				"</form>";
 		}
 		
 		$commentsHeader = $this->renderCommentsHeader($limit, $field->useVotes, $field->useStars);

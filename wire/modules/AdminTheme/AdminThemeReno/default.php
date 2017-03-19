@@ -20,7 +20,7 @@
 if(!defined("PROCESSWIRE")) die();
 
 if(!isset($content)) $content = '';
-$version = $adminTheme->version . 'k';
+$version = $adminTheme->version . 'l';
 $ext = $config->debug ? "js" : "min.js";
 
 // Search form
@@ -62,6 +62,7 @@ $extras = $adminTheme->getExtraMarkup();
 	<script type="text/javascript"><?php echo $helpers->renderJSConfig(); ?></script>
 	<?php foreach($config->styles as $file) echo "\n\t<link type='text/css' href='$file' rel='stylesheet' />"; ?>
 	<?php foreach($config->scripts as $file) echo "\n\t<script type='text/javascript' src='$file'></script>"; ?>
+	<?php echo $extras['head']; ?>
 
 </head>
 

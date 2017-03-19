@@ -42,8 +42,8 @@ class InputfieldInteger extends Inputfield {
 			unset($attrs['size']);
 		}
 
-		if(empty($attrs['min']) && empty($attrs['max'])) {
-			// if both min+max are 0, then consider them non-applicable
+		if(!strlen("$attrs[min]") && !strlen("$attrs[max]")) {
+			// if both min+max are empty, then consider them non-applicable
 			unset($attrs['min'], $attrs['max']); 
 		} else {
 			// unset any that aren't applicable

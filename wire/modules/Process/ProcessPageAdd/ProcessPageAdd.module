@@ -321,22 +321,23 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 
 	public function ___execute() {
 
-		$this->wire('processHeadline', $this->_('Add New')); // Headline
+		$input = $this->wire('input');
+		$this->headline($this->_('Add New')); // Headline
 
 		if(!$this->parent_id) {
-			if(isset($_POST['parent_id'])) {
-				$this->parent_id = (int) $_POST['parent_id']; 
-			} else {
-				$this->parent_id = isset($_GET['parent_id']) ? (int) $_GET['parent_id'] : 0; 
+			if($input->post('parent_id')) {
+				$this->parent_id = (int) $input->post('parent_id');
+			} else if($input->get('parent_id')) {
+				$this->parent_id = (int) $input->get('parent_id');
 			}
 		}
 		
-		if($this->wire('input')->get('template_id') && !$this->parent_id) {
+		if($input->get('template_id') && !$this->parent_id) {
 			return $this->executeTemplate();
 		}
 
-		$template_id = (int) $this->wire('input')->post('template'); // note POST uses 'template' and GET uses 'template_id'
-		if(!$template_id) $template_id = (int) $this->wire('input')->get('template_id');
+		$template_id = (int) $input->post('template'); // note POST uses 'template' and GET uses 'template_id'
+		if(!$template_id) $template_id = (int) $input->get('template_id');
 		if($template_id) $this->template = $this->wire('templates')->get($template_id);
 		
 		if(!$this->parent_id && count($this->predefinedParents)) {
@@ -370,15 +371,15 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	
 		if($this->template && $this->parent) {
 			// determine whether quick-add can be used
-			if(strlen($this->parent->template->childNameFormat) || $this->input->get('name_format')) {
+			if(strlen($this->parent->template->childNameFormat) || $input->get('name_format')) {
 				$this->processQuickAdd($this->parent, $this->template);
 			}
 		}
 		
 		$this->form = $this->buildForm();
 		$this->form->setTrackChanges();
-
-		if($this->input->post->submit_save || $this->input->post->submit_publish) {
+		
+		if($input->post('submit_save') || $input->post('submit_publish') || $input->post('submit_publish_add')) {
 			$this->processInput($this->form);
 		}
 
@@ -633,6 +634,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 					$inputfield = $field->getInputfield($page);
 					if($inputfield) {
 						if($this->template && $this->template->noLang) $inputfield->useLanguages = false;
+						$inputfield->columnWidth = 100;
 						$form->append($inputfield);
 					}
 					break;
@@ -645,6 +647,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 					// skip it
 				} else {
 					$inputfield = $field->getInputfield($page);
+					$inputfield->columnWidth = 100;
 					if($inputfield) $form->append($inputfield);
 				}
 			}
@@ -767,6 +770,12 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 				$field = $this->modules->get('InputfieldSubmit');
 				$field->attr('id+name', 'submit_publish');
 				$field->attr('value', $this->_('Save + Publish'));
+				$field->setSecondary();
+				$form->append($field);
+				
+				$field = $this->modules->get('InputfieldSubmit');
+				$field->attr('id+name', 'submit_publish_add');
+				$field->attr('value', $this->_('Save + Publish + Add Another'));
 				$field->setSecondary();
 				$form->append($field);
 			}
@@ -938,7 +947,8 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$this->page->name = $name; 
 		$this->page->sort = $this->parent->numChildren; 
 
-		$publishNow = $this->page->publishable() && $this->wire('input')->post('submit_publish');
+		$publishAdd = $this->wire('input')->post('submit_publish_add');
+		$publishNow = $this->page->publishable() && ($this->wire('input')->post('submit_publish') || $publishAdd);
 		$languages = $template->getLanguages();
 
 		foreach($this->page->fieldgroup as $field) {
@@ -976,8 +986,19 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		}
 
 		$this->createdPageMessage($this->page); 
-		if($pageName != $this->page->name) $this->error(sprintf($this->_('Warning, the name you selected "%1$s" was already in use and has been changed to "%2$s".'), $pageName, $this->page->name));
-		$this->session->redirect("../edit/?id={$this->page->id}&new=1" . ($this->input->get->modal ? "&modal=1" : ''));
+		
+		if($pageName != $this->page->name) {
+			$this->error(sprintf(
+				$this->_('Warning, the name you selected "%1$s" was already in use and has been changed to "%2$s".'), 
+				$pageName, $this->page->name
+			));
+		} 
+		
+		if($publishNow && $publishAdd) {
+			$this->session->redirect("./?parent_id={$this->page->parent_id}&template_id={$this->page->template->id}");
+		} else {
+			$this->session->redirect("../edit/?id={$this->page->id}&new=1" . ($this->input->get->modal ? "&modal=1" : ''));
+		}
 	}
 
 	/**

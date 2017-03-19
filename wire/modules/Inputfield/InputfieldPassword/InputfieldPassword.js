@@ -12,10 +12,11 @@ jQuery(document).ready(function($) {
 		var $percent = $input.siblings('.pass-percent');
 		var $scores = $wrapScores.children();
 		var requirements = $wrapScores.attr('data-requirements').split(' ');
-		var minlength = parseInt($input.attr('minlength'));
+		var minlength = parseInt($input.attr('data-minlength'));
 		var options = {
 			banMode: $input.attr('data-banMode'),
-			strengthScaleFactor: parseFloat($input.attr('data-factor'))
+			strengthScaleFactor: parseFloat($input.attr('data-factor')),
+			minimumChars: minlength
 		};
 
 		$input.complexify(options, function(valid, complexity) {

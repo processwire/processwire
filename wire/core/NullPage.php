@@ -44,10 +44,11 @@ class NullPage extends Page {
 	/**
 	 * #pw-internal
 	 * 
+	 * @param array $options
 	 * @return string
 	 * 
 	 */
-	public function url() { return ''; }
+	public function url($options = array()) { return ''; }
 
 	/**
 	 * #pw-internal

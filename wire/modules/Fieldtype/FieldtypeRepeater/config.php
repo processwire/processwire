@@ -53,6 +53,7 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 			$this->message($this->_('Please add fields to this repeater from the "details" tab.'));
 		}
 
+		/** @var InputfieldHidden $f */
 		$f = $this->modules->get('InputfieldHidden');
 		$f->attr('name', 'template_id');
 		$f->label = 'Repeater Template ID';
@@ -80,6 +81,7 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$select->setAsmSelectOption('hideDeleted', false);
 
 		foreach($template->fieldgroup as $f) {
+			/** @var Field $f */
 			$f = $template->fieldgroup->getField($f->id, true); // get in context
 			$columnWidth = (int) $f->get('columnWidth');
 
@@ -146,6 +148,7 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 
 		// -------------------------------------------------
 
+		/** @var InputfieldRadios $f */
 		$f = $this->wire('modules')->get('InputfieldRadios');
 		$f->attr('name', 'repeaterCollapse');
 		$f->label = $this->_('Repeater item visibility in editor');
@@ -183,16 +186,65 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$f->label = $this->_('Remember which repeater items are open?');
 		$f->description = $this->_('When checked, opened repeater items remain open after saving or reloading from the page editor (unless the user closes them).');
 		$f->icon = 'lightbulb-o';
-		if((int) $field->get('rememberOpen')) {
-			$f->attr('checked', 'checked');
-		} else {
-			$f->collapsed = Inputfield::collapsedYes;	
-		}
+		if((int) $field->get('rememberOpen')) $f->attr('checked', 'checked');
+		$f->columnWidth = 50;
 		$inputfields->add($f);
 		
 		// -------------------------------------------------
+		
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', 'accordionMode');
+		$f->label = $this->_('Use accordion mode?');
+		$f->description = $this->_('When checked, only one repeater item will be open at a time.');
+		$f->icon = 'map-o';
+		if((int) $field->get('accordionMode')) $f->attr('checked', 'checked');
+		$f->columnWidth = 50;
+		$inputfields->add($f);
 
-		$numOldReady = $this->field->type->countOldReadyPages($field);
+		// -------------------------------------------------
+	
+		$value = (int) $field->get('repeaterMaxItems');
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->attr('name', 'repeaterMaxItems');
+		$f->attr('value', $value > 0 ? $value : '');
+		$f->label = $this->_('Maximum number of items');
+		$f->description = $this->_('If you need to limit the number of items allowed, enter the limit here (0=no limit).');
+		$f->icon = 'hand-stop-o';
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+		
+		// -------------------------------------------------
+		
+		$value = (int) $field->get('repeaterMinItems');
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->attr('name', 'repeaterMinItems');
+		$f->attr('value', $value > 0 ? $value : '');
+		$f->label = $this->_('Minimum number of items');
+		$f->description = $this->_('This many items will always be open and ready-to-edit (0=no minimum).');
+		$f->icon = 'hand-peace-o';
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+		
+		// -------------------------------------------------
+		
+		$value = (int) $field->get('repeaterDepth');
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->attr('name', 'repeaterDepth');
+		$f->attr('value', $value > 0 ? $value : '');
+		$f->label = $this->_('Item depth');
+		$f->collapsed = Inputfield::collapsedBlank;
+		$f->description = $this->_('To support items with depth, enter the max allowed depth, or leave blank to disable.');
+		$f->description .= ' ' . $this->_('When editing a repeater, you can change item depth by clicking the repeater item drag arrows and dragging the item right or left.');
+		$f->notes = $this->_('Depths are zero-based, meaning a depth of 3 allows depths 0, 1, 2 and 3.');
+		$f->notes .= ' ' . $this->_('Depth can be accessed from a repeater page item via `$item->depth`.');
+		$f->icon = 'indent';
+		$inputfields->add($f);
+
+		// -------------------------------------------------
+
+		/** @var FieldtypeRepeater $fieldtype */
+		$fieldtype = $this->field->type;
+		$numOldReady = $fieldtype->countOldReadyPages($field);
 		if($numOldReady) {
 			// @todo: should we just do this automatically?
 			$f = $this->wire('modules')->get('InputfieldCheckbox');
@@ -205,42 +257,6 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		}
 
 		// -------------------------------------------------
-
-		/*
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
-		$f->attr('name', 'noAjaxAdd');
-		$f->label = $this->_('Disable AJAX for adding items in editor');
-		$f->description = $this->_('By default, clicking the "Add Item" link will load the new repeater item via AJAX, which provides a more seamless experience. But some fields may not be compatible with this. Check this box to disable AJAX for adding items.'); // Description for noAjaxAdd option
-		$f->icon = 'frown-o';
-		$f->columnWidth = 50;
-		if($field->get('noAjaxAdd')) {
-			$f->attr('checked', 'checked');
-		} else {
-			$f->collapsed = Inputfield::collapsedYes;
-		}
-		$inputfields->add($f);
-		*/
-
-		// -------------------------------------------------
-
-		/*
-		if(is_null($field->repeaterReadyItems)) $field->repeaterReadyItems = self::defaultRepeaterReadyItems;
-		if($field->noAjaxAdd) $field->repeaterReadyItems = 0;
-		$input = $this->wire('modules')->get('InputfieldInteger');
-		$input->attr('id+name', 'repeaterReadyItems');
-		$input->attr('value', (int) abs($field->repeaterReadyItems));
-		$input->label = $this->_('Ready-To-Edit New Repeater Items') . " ({$field->repeaterReadyItems})";
-		$input->description = $this->_('The number of ready-to-edit (unpublished) items per page to keep rendered for use as new items.');
-		$input->notes =
-			$this->_('If set to 0, new items will only be created as needed. This is the most efficient setting.') . " \n" .
-			$this->_('If set to 1 or above, that many new items will be ready to edit as soon as you click "add item". This makes for faster additions.');
-		$input->collapsed = Inputfield::collapsedYes;
-		$input->showIf = 'noAjaxAdd=1';
-		$inputfields->add($input);
-		*/
-
-		// -------------------------------------------------
-
 
 		/** TBA
 		if(is_null($field->repeaterMaxItems)) $field->repeaterMaxItems = self::defaultRepeaterMaxItems; 
@@ -303,7 +319,9 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$fieldgroup->save();
 
 		if($this->wire('input')->post('_deleteOldReady')) {
-			$cnt = $this->field->type->countOldReadyPages($field, true);
+			/** @var FieldtypeRepeater $fieldtype */
+			$fieldtype = $this->field->type;
+			$cnt = $fieldtype->countOldReadyPages($field, true);
 			$this->message(sprintf($this->_('Deleted %d old/unused repeater item(s)'), $cnt));
 		}
 

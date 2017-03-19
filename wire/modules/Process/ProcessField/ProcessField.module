@@ -210,14 +210,16 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field = $this->modules->get("InputfieldSelect"); 
 		$field->attr('id+name', 'fieldtype'); 
 		$field->addOption('', $showAllLabel); 
-		foreach($this->fieldtypes as $fieldtype) $field->addOption($fieldtype->name, $fieldtype->shortName); 
-		$this->session->ProcessFieldListFieldtype = $this->sanitizer->name($this->input->get->fieldtype); 
+		foreach($this->fieldtypes as $fieldtype) {
+			$field->addOption($fieldtype->name, $fieldtype->longName);
+		}
+		$this->session->set('ProcessFieldListFieldtype', $this->sanitizer->name($this->input->get('fieldtype'))); 
 		$field->label = $this->_('Filter by Field Type');
 		$field->description = $this->_('When specified, only fields of the selected type will be shown. Built-in fields are also shown when filtering by field type.'); // Filter by fieldtype description
-		$value = $this->session->ProcessFieldListFieldtype; 
+		$value = $this->session->get('ProcessFieldListFieldtype'); 
 		$field->attr('value', $value); 
 		if($value && $fieldtype = $this->fieldtypes->get($value)) {
-			$form->description = sprintf($this->_('Showing fields of type: %s'), $fieldtype->shortName);
+			$form->description = sprintf($this->_('Showing fields of type: %s'), $fieldtype->longName);
 			$fieldset->collapsed = Inputfield::collapsedNo;
 		} else {
 			$field->collapsed = Inputfield::collapsedYes; 
@@ -458,7 +460,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		return array(
 			$field->name => "edit?id={$field->id}",
 			$icon . $this->sanitizer->entities($field->getLabel()), 
-			$field->type->shortName,
+			$this->sanitizer->entities($field->type->shortName),
 			"$flagsOut<a href='$numTemplatesLink'>$numTemplates</a>"
 			);
 	}
@@ -1057,12 +1059,21 @@ class ProcessField extends Process implements ConfigurableModule {
 				else $fieldtypes = $this->fieldtypes; 
 
 			if($fieldtypes && count($fieldtypes)) {
-				foreach($fieldtypes->sort('name') as $fieldtype) {
-					if(!$this->config->advanced && $fieldtype->isAdvanced() && $this->field->name != 'title' && $field->value != $fieldtype->className()) continue; 
-					$field->addOption($fieldtype->name, $fieldtype->shortName); 
+				$fieldtypeLabels = array();
+				foreach($fieldtypes as $fieldtype) {
+					$label = $fieldtype->longName;
+					if(isset($fieldtypeLabels[$label])) $label .= " ($fieldtype->name)";
+					$fieldtypeLabels[$label] = $fieldtype;
+				}
+				ksort($fieldtypeLabels);
+				$advanced = $this->config->advanced;
+				foreach($fieldtypeLabels as $label => $fieldtype) {
+					if(!$advanced && $fieldtype->isAdvanced() && $this->field->name != 'title' 
+						&& $field->value != $fieldtype->className()) continue; 
+					$field->addOption($fieldtype->name, $label); 
 				}
 			} else {
-				$field->addOption($this->field->type->name, $this->field->type->shortName); 
+				$field->addOption($this->field->type->name, $this->field->type->longName); 
 			}
 			
 			if(!$this->field->id) {
@@ -1725,7 +1736,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$form = $this->modules->get("InputfieldForm"); 
 		$form->attr('method', 'post');
 		$form->attr('action', 'saveChangeType'); 
-		$form->head = sprintf($this->_('Change field type from "%1$s" to "%2$s"'), $this->field->type->shortName, $newType->shortName);  
+		$form->head = sprintf($this->_('Change field type from "%1$s" to "%2$s"'), $this->field->type->longName, $newType->longName);  
 		$form->description = $this->_("Please note that changing the field type alters the database schema. If the new fieldtype is not compatible with the old, or if it contains a significantly different schema, it is possible for data loss to occur. As a result, you are advised to backup the database before completing a field type change."); // Change field type description
 
 		$f = $this->modules->get("InputfieldCheckbox"); 

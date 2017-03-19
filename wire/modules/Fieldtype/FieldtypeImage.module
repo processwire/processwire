@@ -56,13 +56,26 @@ class FieldtypeImage extends FieldtypeFile {
 		return "gif jpg jpeg png";
 	}
 
+	/**
+	 * Export a Pageimages value to a portable PHP array
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|float|int|null|object|string $value
+	 * @param array $options
+	 * @return array
+	 * 
+	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		/** @var Pageimages $pagefiles */
 		$pagefiles = $value; 
 		$value = parent::___exportValue($page, $field, $value, $options); 
-		foreach($value as $k => $v) {
-			$img = $pagefiles->get($v['name']); 
-			$value[$k]['width'] = $img->width();
-			$value[$k]['height'] = $img->height();
+		if(empty($options['system'])) {
+			foreach($value as $k => $v) {
+				$img = $pagefiles->get($v['name']);
+				$value[$k]['width'] = $img->width();
+				$value[$k]['height'] = $img->height();
+			}
 		}
 		return $value; 	
 	}

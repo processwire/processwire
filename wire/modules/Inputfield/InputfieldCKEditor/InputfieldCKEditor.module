@@ -84,7 +84,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 * Version number for CKEditor directory
 	 *
 	 */
-	const CKEDITOR_VERSION = '4.5.10';
+	const CKEDITOR_VERSION = '4.6.2';
 
 	/**
 	 * Instance of MarkupHTMLPurifier module
@@ -736,7 +736,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 
 		$pathNote = $this->_('Paths should be relative to your ProcessWire installation root (i.e. if site is running from a subdirectory, exclude that part).'); 
 		$descriptionCustomCss = $this->_('This option enables you to modify the way that text and other elements appear in your editor. This covers how they look in the administrative environment only, and has nothing to do with the front-end of your site.'); // contents.css description
-		$instructionsCustomCss = $this->_('Please see our [instructions](https://github.com/ryancramerdesign/ProcessWire/blob/dev/wire/modules/Inputfield/InputfieldCKEditor/README.md#custom-editor-css-file) on how to use this.'); // custom editor css instructions
+		$instructionsCustomCss = sprintf($this->_('Please see our [instructions](%s) on how to use this.'), 'https://github.com/processwire/processwire/blob/master/wire/modules/Inputfield/InputfieldCKEditor/README.md#custom-editor-css-file'); // custom editor css instructions
 
 		$f = $this->modules->get("InputfieldText");
 		$f->label = $this->_('Custom Editor CSS File (regular mode)');
@@ -764,7 +764,11 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->label = $this->_('Custom Editor JS Styles Set');
 		$f->description = $this->_('This option enables you to specify custom styles for selection in your editor. It requires that you have a "Styles" item in your toolbar settings above.'); // styles set description
 		$f->notes = $example . "mystyles:/site/modules/InputfieldCKEditor/mystyles.js"; 
-		$f->notes .= "\n" . $this->_('Please see our [instructions](https://github.com/ryancramerdesign/ProcessWire/blob/dev/wire/modules/Inputfield/InputfieldCKEditor/README.md#custom-editor-js-styles-set) on how to use this.') . " $pathNote"; // styles set notes
+		$f->notes .= "\n" . 
+			sprintf(
+				$this->_('Please see our [instructions]() on how to use this.'), // styles set notes
+				'https://github.com/processwire/processwire/blob/master/wire/modules/Inputfield/InputfieldCKEditor/README.md#custom-editor-js-styles-set'
+			) . ' ' . $pathNote;
 		$f->attr('name', 'stylesSet');
 		$value = $this->get('stylesSet');
 		$f->collapsed = Inputfield::collapsedBlank;
@@ -788,9 +792,9 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->attr('value', $value ? $value : '');
 		$f->notes = $example . "uiColor: #438ef0\n" . 
 			$this->_('If preferred, these settings can also be set in one of these files:') .
-			"\n[/site/modules/InputfieldCKEditor/config.js](https://github.com/ryancramerdesign/ProcessWire/blob/dev/site-default/modules/InputfieldCKEditor/config.js) - " . 
+			"\n[/site/modules/InputfieldCKEditor/config.js](https://github.com/processwire/processwire/blob/master/site-default/modules/InputfieldCKEditor/config.js) - " . 
 			$this->_('for all CKEditor fields') . " " .
-			"\n[/site/modules/InputfieldCKEditor/config-$this->name.js](https://github.com/ryancramerdesign/ProcessWire/blob/dev/site-default/modules/InputfieldCKEditor/config-body.js) - " . 
+			"\n[/site/modules/InputfieldCKEditor/config-$this->name.js](https://github.com/processwire/processwire/blob/master/site-default/modules/InputfieldCKEditor/config-body.js) - " . 
 			$this->_('only for this CKEditor field');
 		$wrapper->add($f);
 

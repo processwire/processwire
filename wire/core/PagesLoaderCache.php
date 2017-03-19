@@ -66,6 +66,7 @@ class PagesLoaderCache extends Wire {
 	 * Cache the given page.
 	 *
 	 * @param Page $page
+	 * @return void
 	 *
 	 */
 	public function cache(Page $page) {
@@ -156,6 +157,31 @@ class PagesLoaderCache extends Wire {
 	}
 
 	/**
+	 * Convert an options array to a string
+	 * 
+	 * @param array $options
+	 * @return string
+	 * 
+	 */
+	protected function optionsArrayToString(array $options) {
+		$str = '';
+		ksort($options);
+		foreach($options as $key => $value) {
+			if(is_array($value)) {
+				$value = $this->optionsArrayToString($value);
+			} else if(is_object($value)) {
+				if(method_exists($value, '__toString')) {
+					$value = (string) $value;
+				} else {
+					$value = wireClassName($value);
+				}
+			}
+			$str .= "[$key:$value]";
+		}
+		return $str;
+	}
+
+	/**
 	 * Retrieve any cached page IDs for the given selector and options OR false if none found.
 	 *
 	 * You may specify a third param as TRUE, which will cause this to just return the selector string (with hashed options)
@@ -169,12 +195,7 @@ class PagesLoaderCache extends Wire {
 	public function getSelectorCache($selector, $options, $returnSelector = false) {
 
 		if(count($options)) {
-			$optionsHash = '';
-			ksort($options);
-			foreach($options as $key => $value) {
-				if(is_array($value)) $value = print_r($value, true);
-				$optionsHash .= "[$key:$value]";
-			}
+			$optionsHash = $this->optionsArrayToString($options);
 			$selector .= "," . $optionsHash;
 		} else {
 			$selector .= ",";

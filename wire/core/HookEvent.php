@@ -43,17 +43,23 @@ class HookEvent extends WireData {
 
 	/**
 	 * Construct the HookEvent and establish default values
+	 * 
+	 * @param array $eventData Optional event data to start with
 	 *
 	 */
-	public function __construct() {
-		$this->set('object', null); 
-		$this->set('method', '');
-		$this->set('arguments', array()); 
-		$this->set('return', null); 
-		$this->set('replace', false); 
-		$this->set('options', array()); 
-		$this->set('id', ''); 
-		$this->set('cancelHooks', false);
+	public function __construct(array $eventData = array()) {
+		$data = array(
+			'object' => null,
+			'method' => '',
+			'arguments' => array(),
+			'return' => null,
+			'replace' => false,
+			'options' => array(),
+			'id' => '',
+			'cancelHooks' => false
+		);
+		if(!empty($eventData)) $data = array_merge($data, $eventData);
+		$this->data = $data;
 	}
 
 	/**
@@ -202,7 +208,7 @@ class HookEvent extends WireData {
 	 * ~~~~~
 	 * 
 	 * @param string|null $hookId
-	 * @return $this
+	 * @return HookEvent|WireData $this
 	 * 
 	 */
 	public function removeHook($hookId) {
@@ -226,7 +232,6 @@ class HookEvent extends WireData {
 		$s = rtrim($s, ", ") . ")";
 		return $s; 	
 	}
-
 
 }
 

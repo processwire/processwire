@@ -393,7 +393,9 @@ class InputfieldForm extends InputfieldWrapper {
 
 		// if field is not present in this form, we assume a blank value for it
 		if(!$inputfield) {
-			$this->error("Warning ($debugNote): dependency field '$name' is not present in this form.", Notice::debug);
+			if($name != 'collapsed') {
+				$this->error("Warning ($debugNote): dependency field '$name' is not present in this form.", Notice::debug);
+			}
 			return null;
 		}
 

@@ -34,7 +34,7 @@ $(document).ready(function() {
 	setAsmListItemStatus();
 
 	if($columnWidth.size() > 0) { 
-		var $slider = $("<div id='columnWidthSlider'></div>");
+		var $slider = $("<div class='InputfieldColumnWidthSlider'></div>");
 		var columnWidthVal = parseInt($("#columnWidth").val());
 		$columnWidth.val(columnWidthVal + '%'); 
 		$columnWidth.after($slider);

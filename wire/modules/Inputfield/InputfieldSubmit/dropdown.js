@@ -76,7 +76,7 @@ var InputfieldSubmitDropdown = {
 	 */
 	initDropdown: function($dropdown, $mainButton) {
 		
-		var $toggleButton = $("<button><i class='fa fa-angle-down'></i></button>")
+		var $toggleButton = $("<button type='button'><i class='fa fa-angle-down'></i></button>")
 			.attr('id', 'pw-dropdown-toggle-' + $mainButton.attr('id'));
 		
 		$mainButton.after($toggleButton);
@@ -157,8 +157,8 @@ var InputfieldSubmitDropdown = {
 	 */
 	init: function(buttonSelector, $dropdownTemplate) {
 	
-		// don't use dropdowns when on touch device or in modal window
-		if($('body').hasClass('touch-device') || $('body').hasClass('modal')) {
+		// don't use dropdowns when in modal window
+		if($('body').hasClass('modal')) {
 			$("ul.pw-button-dropdown").hide();
 			return false;
 		}

@@ -22,7 +22,7 @@ function renderNav(PageArray $items) {
 
 	if(!$items->count()) return;
 
-	echo "<ul class='nav'>";
+	echo "<ul class='nav' role='navigation'>";
 
 	// cycle through all the items
 	foreach($items as $item) {
@@ -30,7 +30,7 @@ function renderNav(PageArray $items) {
 		// render markup for each navigation item as an <li>
 		if($item->id == wire('page')->id) {
 			// if current item is the same as the page being viewed, add a "current" class to it
-			echo "<li class='current'>";
+			echo "<li class='current' aria-current='true'>";
 		} else {
 			// otherwise just a regular list item
 			echo "<li>";
@@ -67,15 +67,16 @@ function renderNavTree($items, $maxDepth = 3) {
 
 	// $out is where we store the markup we are creating in this function
 	// start our <ul> markup
-	echo "<ul class='nav nav-tree'>";
+	echo "<ul class='nav nav-tree' role='navigation'>";
 
 	// cycle through all the items
 	foreach($items as $item) {
 
 		// markup for the list item...
-		// if current item is the same as the page being viewed, add a "current" class to it
+		// if current item is the same as the page being viewed, add a "current" class and
+		// visually hidden text for screen readers to it
 		if($item->id == wire('page')->id) {
-			echo "<li class='current'>";
+			echo "<li class='current' aria-current='true'><span class='visually-hidden'>Current page: </span>";
 		} else {
 			echo "<li>";
 		}

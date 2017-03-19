@@ -7,6 +7,8 @@
  *
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @method coreVersionChange($fromVersion, $toVersion)
  *
  */
 
@@ -24,7 +26,7 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 			 * This version number is important, as this updater keeps the systemVersion up with this version
 			 *
 			 */
-			'version' => 15, 
+			'version' => 16, 
 			);
 	}
 
@@ -43,6 +45,8 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Part of the ConfigurableModule interface, sets config data to the module
+	 * 
+	 * @param array $data
 	 *
 	 */
 	public function setConfigData(array $data) {
@@ -104,7 +108,6 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 		if($this->wire('page')->template != 'admin') return;
 		if($this->wire('config')->ajax) return;
 		
-		$versionChanged = false;
 		$coreVersion = isset($this->configData['coreVersion']) ? $this->configData['coreVersion'] : '';
 		$configVersion = $this->wire('config')->version;
 		if($coreVersion != $configVersion) $this->coreVersionChange($coreVersion, $configVersion);
@@ -117,8 +120,8 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 	 * Note that version change is only detected when a page from the admin is viewed. 
 	 * To hook this, hook to "SystemUpdater::coreVersionChange"
 	 * 
-	 * @param $fromVersion
-	 * @param $toVersion
+	 * @param string $fromVersion
+	 * @param string $toVersion
 	 * 
 	 */
 	protected function ___coreVersionChange($fromVersion, $toVersion) {
@@ -171,6 +174,9 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 	 * Check for an update file in the format: SystemUpdater123 where '123' is the version it upgrades to
 	 *
  	 * If found, instantiate the class and it's constructor should perform the update or add any hooks necessary to perform the update
+	 * 
+	 * @param int $version
+	 * @return bool
 	 *
 	 */ 
 	protected function update($version) {
@@ -178,35 +184,55 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 		require_once(dirname(__FILE__) . '/SystemUpdate.php');
 		
 		$className = 'SystemUpdate' . $version;
-		$filename = $this->config->paths->SystemUpdater . $className . '.php';
+		$filename = $this->config->paths('SystemUpdater') . $className . '.php';
 		$className = wireClassName($className, true);
 		$errorMessage = sprintf('Failed to apply update %d', $version); 
 		
 		if(is_file($filename)) {
+			$update = null;
 			try {
 				include($filename); 
+				/** @var SystemUpdate $update */
 				$update = $this->wire(new $className($this)); 
 				$update->message('Initializing update'); 
 				$success = $update->execute();
+				if($success === false) $update->error($errorMessage);
 			} catch(\Exception $e) {
 				$msg = $errorMessage . " - " . $e->getMessage(); 
-				if($update) $update->error($msg); 
-					else $this->error($msg); 
+				if($update) {
+					$update->error($msg);
+				} else {
+					$this->error($msg);
+				}
 				$success = false;
 			}
-			if(!$success) {
-				if($success === false) $update->error($errorMessage);
-				return false;
-			}
+			if(!$success) return false;
 		}
+		
 		return true; 
 	}
-	
+
+	/**
+	 * Message notice
+	 * 
+	 * @param string $text
+	 * @param int $flags
+	 * @return SystemUpdater|WireData
+	 * 
+	 */
 	public function message($text, $flags = 0) {
 		$this->log($text);
 		return parent::message($text, $flags);
 	}
 
+	/**
+	 * Error notice
+	 * 
+	 * @param string $text
+	 * @param int $flags
+	 * @return SystemUpdater|WireData
+	 * 
+	 */
 	public function error($text, $flags = 0) {
 		$text = "ERROR: $text";
 		$this->log($text);
@@ -216,6 +242,8 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Log a message to system-updater.txt log file
 	 *
+	 * @param string $text
+	 * 
 	 */
 	public function log($text) {
 		$options = array('showUser' => false, 'showPage' => false); 
@@ -224,6 +252,9 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 
 	/**
 	 * Required for ConfigurableModule interface
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
 	 *
 	 */
 	public function getModuleConfigInputfields(array $data) {

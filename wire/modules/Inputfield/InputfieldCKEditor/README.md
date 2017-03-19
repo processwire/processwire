@@ -86,7 +86,7 @@ users can choose from your editor.**
    `mystyles:/site/modules/InputfieldCKEditor/mystyles.js`
    
    - ProcessWire's default profile comes with a
-     [ready-to-go mystyles.js](https://github.com/ryancramerdesign/ProcessWire/blob/dev/site-default/modules/InputfieldCKEditor/mystyles.js)
+     [ready-to-go mystyles.js](https://github.com/processwire/processwire/blob/master/site-default/modules/InputfieldCKEditor/mystyles.js)
      in the exact location mentioned above. Feel free to use this. 
 
    - The term **mystyles** is just something we made up, and you

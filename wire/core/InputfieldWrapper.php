@@ -102,6 +102,14 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	protected $requiredLabel = '';
 
 	/**
+	 * Whether or not column width is handled internally
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $useColumnWidth = true;
+
+	/**
 	 * Construct the Inputfield, setting defaults for all properties
 	 *
 	 */
@@ -119,6 +127,8 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		if(is_array($settings)) foreach($settings as $key => $value) {
 			if($key == 'requiredLabel') {
 				$this->requiredLabel = $value;
+			} else if($key == 'useColumnWidth') {
+				$this->useColumnWidth = $value;
 			} else {
 				$this->set($key, $value);
 			}
@@ -368,7 +378,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		$_classes = array_merge(self::$defaultClasses, self::$classes);
 		$markup = array();
 		$classes = array();
-		$useColumnWidth = true;
+		$useColumnWidth = $this->useColumnWidth;
 		$renderAjaxInputfield = $this->wire('config')->ajax ? $this->wire('input')->get('renderInputfieldAjax') : null;
 		
 		if(isset($_classes['form']) && strpos($_classes['form'], 'InputfieldFormNoWidths') !== false) {
@@ -504,7 +514,13 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				if($label || $quietMode) {
 					$for = $inputfield->getSetting('skipLabel') || $quietMode ? '' : $inputfield->attr('id');
 					// if $inputfield has a property of entityEncodeLabel with a value of boolean FALSE, we don't entity encode
-					if($inputfield->getSetting('entityEncodeLabel') !== false) $label = $inputfield->entityEncode($label);
+					$entityEncodeLabel = $inputfield->getSetting('entityEncodeLabel');
+					if(is_int($entityEncodeLabel) && $entityEncodeLabel >= Inputfield::textFormatBasic) {
+						// uses an Inputfield::textFormat constant
+						$label = $inputfield->entityEncode($label, $entityEncodeLabel);
+					} else if($entityEncodeLabel !== false) {
+						$label = $inputfield->entityEncode($label);
+					}
 					$icon = $inputfield->getSetting('icon');
 					$icon = $icon ? str_replace('{name}', $this->wire('sanitizer')->name(str_replace(array('icon-', 'fa-'), '', $icon)), $markup['item_icon']) : ''; 
 					$toggle = $collapsed == Inputfield::collapsedNever ? '' : $markup['item_toggle']; 
@@ -528,20 +544,25 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 					} else if(strpos($label, '{class}') !== false) {
 						$label = str_replace('{class}', '', $label); 
 					}
+				} else {
+					// no header
+					// $inputfield->addClass('InputfieldNoHeader', 'wrapClass'); 
 				}
-				if($useColumnWidth) {
-					$columnWidth = (int) $inputfield->getSetting('columnWidth');
-					$columnWidthAdjusted = $columnWidth + ($columnWidthTotal ? -1 * $columnWidthSpacing : 0);
-					if($columnWidth >= 9 && $columnWidth <= 100) {
-						$ffAttrs['class'] .= ' ' . $classes['item_column_width'];
-						if(!$columnWidthTotal) $ffAttrs['class'] .= ' ' . $classes['item_column_width_first'];
+				$columnWidth = (int) $inputfield->getSetting('columnWidth');
+				$columnWidthAdjusted = $columnWidth + ($columnWidthTotal ? -1 * $columnWidthSpacing : 0);
+				if($columnWidth >= 9 && $columnWidth <= 100) {
+					$ffAttrs['class'] .= ' ' . $classes['item_column_width'];
+					if(!$columnWidthTotal) $ffAttrs['class'] .= ' ' . $classes['item_column_width_first'];
+					if($useColumnWidth) {
 						$ffAttrs['style'] = "width: $columnWidthAdjusted%;";
-						$columnWidthTotal += $columnWidth;
-						//if($columnWidthTotal >= 100 && !$requiredIf) $columnWidthTotal = 0; // requiredIf meant to be a showIf?
-						if($columnWidthTotal >= 100) $columnWidthTotal = 0;
 					} else {
-						$columnWidthTotal = 0;
+						$ffAttrs['data-colwidth'] = "$columnWidthAdjusted%";
 					}
+					$columnWidthTotal += $columnWidth;
+					//if($columnWidthTotal >= 100 && !$requiredIf) $columnWidthTotal = 0; // requiredIf meant to be a showIf?
+					if($columnWidthTotal >= 100) $columnWidthTotal = 0;
+				} else {
+					$columnWidthTotal = 0;
 				}
 				if(!isset($ffAttrs['id'])) $ffAttrs['id'] = 'wrap_' . $inputfield->attr('id'); 
 				$ffAttrs['class'] = str_replace('Inputfield_ ', '', $ffAttrs['class']); 

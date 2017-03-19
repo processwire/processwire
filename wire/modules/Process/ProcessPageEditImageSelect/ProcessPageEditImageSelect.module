@@ -1236,7 +1236,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		$headline = sprintf(
 				$this->_n('%1$d variation for image %2$s', '%1$d variations for image %2$s', $cnt), 
-				$cnt, "<a class='preview' href='$pageimage->URL'>$pageimage->basename</a>"
+				//$cnt, "<a class='preview' href='$pageimage->URL'>$pageimage->basename</a>"
+				$cnt, $pageimage->basename
 			);
 		$this->headline($headline); 
 		

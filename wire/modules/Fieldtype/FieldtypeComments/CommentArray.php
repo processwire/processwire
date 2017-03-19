@@ -16,12 +16,16 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 
 	/**
 	 * Page that owns these comments, required to use the renderForm() or getCommentForm() methods. 
+	 * 
+	 * @var Page|null
 	 *
 	 */
 	protected $page = null; 
 
 	/**
 	 * Field object associated with this CommentArray
+	 * 
+	 * @var Field|null
 	 *
 	 */
 	protected $field = null;
@@ -58,6 +62,9 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 
 	/**
 	 * Per the WireArray interface, is the item a Comment
+	 * 
+	 * @param Wire|Comment $item
+	 * @return bool
 	 *
 	 */
 	public function isValidItem($item) {
@@ -80,10 +87,10 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	 */
 	public function render(array $options = array()) {
 		$defaultOptions = array(
-			'useGravatar' => ($this->field ? $this->field->useGravatar : ''),
-			'useVotes' => ($this->field ? $this->field->useVotes : 0),
-			'useStars' => ($this->field ? $this->field->useStars : 0),
-			'depth' => ($this->field ? (int) $this->field->depth : 0), 	
+			'useGravatar' => ($this->field ? $this->field->get('useGravatar') : ''),
+			'useVotes' => ($this->field ? $this->field->get('useVotes') : 0),
+			'useStars' => ($this->field ? $this->field->get('useStars') : 0),
+			'depth' => ($this->field ? (int) $this->field->get('depth') : 0), 	
 			'dateFormat' => 'relative', 
 			);
 		$options = array_merge($defaultOptions, $options);
@@ -91,7 +98,14 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 		return $commentList->render();
 	}
 
+	/**
+	 * Make a new blank CommentArray setup for the same Page/Field as the one it is called on
+	 * 
+	 * @return CommentArray
+	 * 
+	 */
 	public function makeNew() {
+		/** @var CommentArray $a */
 		$a = parent::makeNew();
 		if($this->page) $a->setPage($this->page);
 		if($this->field) $a->setField($this->field);
@@ -108,7 +122,7 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	 */
 	public function renderForm(array $options = array()) {
 		$defaultOptions = array(
-			'depth' => ($this->field ? (int) $this->field->depth : 0)
+			'depth' => ($this->field ? (int) $this->field->get('depth') : 0)
 			);
 		$options = array_merge($defaultOptions, $options); 
 		$form = $this->getCommentForm($options); 
@@ -128,6 +142,9 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 
 	/**
 	 * Return instance of CommentList object
+	 * 
+	 * @param array $options See CommentList::$options for details
+	 * @return CommentList
 	 *
 	 */
 	public function getCommentList(array $options = array()) {
@@ -149,6 +166,8 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 
 	/**
 	 * Set the page that these comments are on 
+	 * 
+	 * @param Page $page
 	 *
 	 */ 
 	public function setPage(Page $page) {
@@ -157,6 +176,8 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 
 	/**
 	 * Set the Field that these comments are on 
+	 * 
+	 * @param Field $field
 	 *
 	 */ 
 	public function setField(Field $field) {
@@ -165,6 +186,8 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	
 	/**
 	 * Get the page that these comments are on
+	 * 
+	 * @return Page
 	 *
 	 */
 	public function getPage() { 
@@ -173,6 +196,8 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 
 	/**
 	 * Get the Field that these comments are on
+	 * 
+	 * @return Field
 	 *
 	 */
 	public function getField() {
@@ -217,7 +242,8 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	 */
 	public function isIdentical(WireArray $items, $strict = true) {
 		$isIdentical = parent::isIdentical($items, $strict);
-		if($isIdentical && $strict) {
+		if($isIdentical && $strict && $items instanceof CommentArray) {
+			/** @var CommentArray $items */
 			if(((string) $this->getPage()) != ((string) $items->getPage())) return false;
 			if(((string) $this->getField()) != ((string) $items->getField())) return false;
 		}

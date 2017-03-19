@@ -28,9 +28,21 @@ var ProcessWireAdmin = {
 				at: "center top"
 			}
 		}).hover(function() {
-			$(this).addClass('ui-state-hover');
+			var $a = $(this);
+			if($a.is('a')) {
+				$a.addClass('ui-state-hover');
+			} else {
+				$a.data('pw-tooltip-cursor', $a.css('cursor'));
+				$a.css('cursor', 'pointer');	
+			}
+			$a.addClass('pw-tooltip-hover');
+			$a.css('cursor', 'pointer');
 		}, function() {
-			$(this).removeClass('ui-state-hover');
+			var $a = $(this);
+			$a.removeClass('pw-tooltip-hover ui-state-hover');
+			if(!$a.is('a')) {
+				$a.css('cursor', $a.data('pw-tooltip-cursor'));
+			}
 		});
 	},
 	
@@ -125,12 +137,28 @@ var ProcessWireAdmin = {
 			});
 
 			// when the mouse leaves the dropdown menu, hide it
-			$ul.mouseleave(function() {
-				//if($a.is(":hover")) return;
-				//if($a.filter(":hover").length) return;
-				$ul.hide();
-				$a.removeClass('hover');
-			});
+			if($a.hasClass('pw-dropdown-toggle-click')) {
+				var timer = null;
+				function mouseleaver() {
+					if(timer) clearTimeout(timer);
+					timer = setTimeout(function() {
+						if($ul.filter(":hover").length || $a.filter(":hover").length) {
+							return;
+						}
+						$ul.fadeOut('fast');
+						$a.removeClass('hover pw-dropdown-toggle-open');
+					}, 1000);
+				}
+				$ul.mouseleave(mouseleaver);
+				$a.mouseleave(mouseleaver);
+			} else {
+				$ul.mouseleave(function() {
+					//if($a.is(":hover")) return;
+					//if($a.filter(":hover").length) return;
+					$ul.hide();
+					$a.removeClass('hover');
+				});
+			}
 		}
 
 		function mouseenterDropdownToggle(e) {
@@ -142,9 +170,28 @@ var ProcessWireAdmin = {
 			var timeout = $a.data('pw-dropdown-timeout');
 			
 			if($a.hasClass('pw-dropdown-toggle-click')) {
-				if(e.type != 'mousedown') return;
+				if(e.type != 'mousedown') return false;
 				$a.removeClass('ui-state-focus');
-			}
+				if($a.hasClass('pw-dropdown-toggle-open')) {
+					$a.removeClass('pw-dropdown-toggle-open hover');
+					$ul.hide();
+					return;
+				} else {
+					$('.pw-dropdown-toggle-open').each(function() {
+						var $a = $(this);
+						var $ul = $a.data('pw-dropdown-ul');
+						$ul.mouseleave();
+					});
+					$a.addClass('pw-dropdown-toggle-open');
+					/*
+					$('body').one('click', function() {
+						$a.removeClass('pw-dropdown-toggle-open hover');
+						$ul.hide();
+					});
+					*/
+				}
+			} 
+				
 			if($a.hasClass('pw-dropdown-disabled')) return;
 
 			timeout = setTimeout(function() {
@@ -227,9 +274,15 @@ var ProcessWireAdmin = {
 				var setupDropdownHover = false;
 				var $itemsIcon = $a.children('.pw-has-items-icon');
 				$itemsIcon.removeClass('fa-angle-right').addClass('fa-spinner fa-spin');
+				$ul.css('opacity', 0);
 
 				$.getJSON(url, function(data) {
 					$itemsIcon.removeClass('fa-spinner fa-spin').addClass('fa-angle-right');
+					
+					if(!data.list) {
+						console.log(data);
+						return;
+					}
 
 					// now add new event to monitor menu positions
 					if(!dropdownPositionsMonitored && data.list.length > 10) {
@@ -250,20 +303,55 @@ var ProcessWireAdmin = {
 						);
 						$ul.append($li);
 					}
+					
+					var numSubnavJSON = 0;
+					
 					// populate the retrieved items
 					$.each(data.list, function(n) {
+						
 						var icon = '';
-						if(this.icon) icon = "<i class='ui-priority-secondary fa fa-fw fa-" + this.icon + "'></i>";
-						var url = this.url.indexOf('/') === 0 ? this.url : data.url + this.url;
-						var $li = $("<li class='ui-menu-item'><a href='" + url + "'>" + icon + this.label + "</a></li>");
+						var url = '';
+						
+						if(this.icon) {
+							icon = "<i class='ui-priority-secondary fa fa-fw fa-" + this.icon + "'></i>";
+						}
+						
+						if(this.url == 'navJSON') {
+							// click triggers another navJSON load
+						} else {
+							var url = this.url.indexOf('/') === 0 ? this.url : data.url + this.url;
+						}
+						
+						var $li = $("<li class='ui-menu-item'></li>"); 
+						var $a = $("<a href='" + url + "'>" + icon + this.label + "</a>");
+						var $ulSub = null;
+					
+						if(this.navJSON) {
+							$a.attr('data-json', this.navJSON).addClass('pw-has-items pw-has-ajax-items');
+							$ulSub = $("<ul></ul>").addClass('subnavJSON');
+							var $icon = $("<i class='pw-has-items-icon fa fa-angle-right ui-priority-secondary'></i>");
+							$a.prepend($icon);
+							$li.prepend($a).append($ulSub);
+							numSubnavJSON++;
+						} else {
+							$li.prepend($a);
+						}
+						
 						if(typeof this.className != "undefined" && this.className && this.className.length) {
 							$li.addClass(this.className);
 						}
+						
 						$ul.append($li);
 					});
-
-					$ul.addClass('navJSON')
-					$ul.addClass('length' + parseInt(data.list.length));
+					
+					$ul.addClass('navJSON').addClass('length' + parseInt(data.list.length)).hide();
+					if($ul.children().length) $ul.css('opacity', 1.0).fadeIn('fast');
+					
+					if(numSubnavJSON) {
+						var numParents = $ul.parents('ul').length;
+						$ul.find('ul.subnavJSON').css('z-index', 200 + numParents);
+						$ul.menu({});
+					}
 
 					// trigger the first call
 					hoverDropdownAjaxItem($a);
@@ -274,15 +362,35 @@ var ProcessWireAdmin = {
 
 		}
 
-		function touchClick() {
-			var touchCnt = $(this).attr('data-touchCnt');
+		var $lastTouchClickItem = null;
+
+		function touchClick(e) {
+			var $item = $(this);
+			var touchCnt = $item.attr('data-touchCnt');
+			if($lastTouchClickItem && $item.attr('id') != $lastTouchClickItem.attr('id')) {
+				$lastTouchClickItem.attr('data-touchCnt', 0);
+			}
+			$lastTouchClickItem = $item;
 			if(!touchCnt) touchCnt = 0;
 			touchCnt++;
-			$(this).attr('data-touchCnt', touchCnt);
-			if(touchCnt == 2) {
-				$(this).mouseleave();
+			$item.attr('data-touchCnt', touchCnt);
+			
+			if(touchCnt == 2 || ($item.hasClass('pw-has-ajax-items') && !$item.closest('ul').hasClass('topnav'))) {
+				var href = $item.attr('href');
+				$item.attr('data-touchCnt', 0);
+				if(typeof href != "undefined" && href.length > 1) {
+					return true;
+				} else {
+					$item.mouseleave();
+				}
 			} else {
-				$(this).mouseenter();
+				var datafrom = $item.attr('data-from');	
+				if(typeof datafrom == "undefined") var datafrom = '';
+				if(datafrom.indexOf('topnav') > -1) {
+					var from = datafrom.replace('topnav-', '') + '-';
+					$("a.pw-dropdown-toggle.hover:not('." + from + "')").attr('data-touchCnt', 0).mouseleave();
+				}
+				$item.mouseenter();
 			}
 			return false;
 		}
@@ -290,7 +398,7 @@ var ProcessWireAdmin = {
 		function init() {
 
 			if($("body").hasClass('touch-device')) {
-				$('#topnav').on("click", "a.pw-dropdown-toggle, a.pw-has-items", touchClick);
+				$(document).on("touchstart", "a.pw-dropdown-toggle, a.pw-has-items", touchClick);
 			}
 
 			$(".pw-dropdown-menu").on("click", "a:not(.pw-modal)", function(e) {
@@ -302,7 +410,7 @@ var ProcessWireAdmin = {
 			$(document)
 				.on('mousedown', '.pw-dropdown-toggle-click', mouseenterDropdownToggle)
 				.on('mouseenter', '.pw-dropdown-toggle:not(.pw-dropdown-toggle-click)', mouseenterDropdownToggle)
-				.on('mouseleave', '.pw-dropdown-toggle', mouseleaveDropdownToggle)
+				.on('mouseleave', '.pw-dropdown-toggle:not(.pw-dropdown-toggle-click)', mouseleaveDropdownToggle)
 				.on('mouseenter', '.pw-dropdown-menu a.pw-has-ajax-items:not(.pw-ajax-items-loaded)', mouseenterDropdownAjaxItem) // navJSON
 				.on('mouseleave', '.pw-dropdown-menu a.pw-has-ajax-items', function() { // navJSON
 					hoveredDropdownAjaxItem = null;
@@ -315,4 +423,45 @@ var ProcessWireAdmin = {
 	
 };
 
+if(typeof ProcessWire != "undefined") {
+	ProcessWire.confirm = function(message, func) {
+		if(typeof vex != "undefined" && typeof func != "undefined") {
+			vex.dialog.confirm({
+				message: message,
+				callback: function(v) {
+					if(v) func();
+				}
+			});
+		} else if(typeof func != "undefined") {
+			if(confirm(message)) func();
+		} else {
+			// regular JS confirm behavior
+			return confirm(message);
+		}
+	};
 
+	ProcessWire.alert = function(message, allowMarkup) {
+		if(typeof allowMarkup == "undefined") var allowMarkup = false;
+		if(typeof vex != "undefined") {
+			if(allowMarkup) {
+				vex.dialog.alert({unsafeMessage: message});
+			} else {
+				vex.dialog.alert(message);
+			}
+		} else {
+			alert(message);
+		}
+	};
+
+	ProcessWire.prompt = function(message, placeholder, func) {
+		if(typeof vex == "undefined") {
+			alert("prompt function requires vex");
+			return;
+		}
+		return vex.dialog.prompt({
+			message: message,
+			placeholder: placeholder,
+			callback: func
+		})
+	};
+}

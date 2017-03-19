@@ -34,29 +34,33 @@ function longclickLanguageTab(e) {
  */
 function setupLanguageTabs($form) {
 	var $langTabs;
+	var cfg = ProcessWire.config.LanguageTabs;
 	if($form.hasClass('langTabs')) $langTabs = $form; 
 		else $langTabs = $form.find('.langTabs');
 	$langTabs.each(function() {
 		var $this = $(this);
-		if($this.hasClass('ui-tabs')) return;
+		if($this.hasClass('langTabsInit') || $this.hasClass('ui-tabs')) return;
 		var $inputfield = $this.closest('.Inputfield');
 		var $content = $inputfield.children('.InputfieldContent'); 
 		if(!$content.hasClass('langTabsContainer')) {
 			if($inputfield.find('.langTabsContainer').length == 0) $content.addClass('langTabsContainer');
 		}
-		$this.tabs({ active: ProcessWire.config.LanguageTabs.activeTab });
+		if(cfg.jQueryUI) $this.tabs({active: cfg.activeTab});
+		$this.addClass('langTabsInit');
 		if($inputfield.length) $inputfield.addClass('hasLangTabs');
 		var $parent = $this.parent('.InputfieldContent'); 
 		if($parent.length) {
 			var $span = $("<span></span>")
-				.attr('title', ProcessWire.config.LanguageTabs.title)
+				.attr('title', cfg.labelOpen)
 				.attr('class', 'langTabsToggle')
 				.append("<i class='fa fa-folder-o'></i>");
 			$parent.prev('.InputfieldHeader').append($span);
 		}
+		
 		var $links = $this.find('a');
 		var timeout = null;
 		var $note = $parent.find('.langTabsNote');
+		
 		$links.on('mouseover', function() {
 			if(timeout) clearTimeout(timeout);
 			if($parent.width() < 500) return;
@@ -65,7 +69,22 @@ function setupLanguageTabs($form) {
 			if(timeout) clearTimeout(timeout);
 			if($parent.width() < 500) return;
 			timeout = setTimeout(function() { $note.fadeOut('fast'); }, 250);
-		});
+		}).on('click', function() {
+			var $a = $(this);
+			var $items = $a.closest('ul').siblings('.LanguageSupport');
+			var $closeItem = $items.filter('.LanguageSupportCurrent');
+			var $openItem = $items.filter($a.attr('href'));
+			if($closeItem.attr('id') == $openItem.attr('id')) {
+				$a.trigger('longclick');
+			} else {
+				$closeItem.removeClass('LanguageSupportCurrent');
+				$openItem.addClass('LanguageSupportCurrent');
+			}
+		}); 
+		
+		if(!cfg.jQueryUI) {
+			$links.eq(cfg.activeTab).click();
+		}
 	});
 }
 
@@ -81,22 +100,32 @@ function toggleLanguageTabs() {
 	var $content = $header.next('.InputfieldContent');
 	var $inputfield = $header.parent('.Inputfield');
 	var $langTabs = $content.children('.langTabs');
+	var $ul = $langTabs.children('ul');
+	var cfg = ProcessWire.config.LanguageTabs;
+	
 
 	if($content.hasClass('langTabsContainer')) {
-		$content.find('.ui-tabs-nav').find('a').click(); // activate all (i.e. for CKEditor)
+		$ul.find('a').click(); // activate all (i.e. for CKEditor)
 		$content.removeClass('langTabsContainer');
-		$inputfield.removeClass('hasLangTabs');
+		$inputfield.removeClass('hasLangTabs').addClass('langTabsOff');
 		$this.addClass('langTabsOff');
-		$langTabs.tabs('destroy');
+		if(cfg.jQueryUI) {
+			$langTabs.tabs('destroy');
+		} else {
+			$ul.hide();
+		}
 		$this.attr("title", ProcessWire.config.LanguageTabs.labelClose)
 			.find('i').removeClass("fa-folder-o").addClass("fa-folder-open-o");
 	} else {
 		$content.addClass('langTabsContainer');
-		$inputfield.addClass('hasLangTabs');
+		$inputfield.addClass('hasLangTabs').removeClass('langTabsOff');
 		$this.removeClass('langTabsOff');
-		$langTabs.tabs();
-		$(this).attr("title", ProcessWire.config.LanguageTabs.labelOpen)
-			.find('i').addClass("fa-folder-o").removeClass("fa-folder-open-o");
+		if(cfg.jQueryUI) {
+			$langTabs.tabs();
+		} else {
+			$ul.show();
+		}
+		$(this).attr("title", cfg.labelOpen).find('i').addClass("fa-folder-o").removeClass("fa-folder-open-o");
 	}
 	return false;
 }
@@ -122,7 +151,8 @@ function hideLanguageTabs() {
 
 	// make sure first tab is clicked
 	var $tab = $(".langTabs").find("li:eq(0)");
-	if(!$tab.hasClass('ui-state-active')) $tab.find('a').click();
+	var cfg = ProcessWire.config.LanguageTabs;
+	if(!$tab.hasClass(cfg.liActiveClass)) $tab.find('a').click();
 
 	// hide the tab toggler
 	$(".langTabsToggle, .LanguageSupportLabel:visible, .langTabs > ul").addClass('langTabsHidden');

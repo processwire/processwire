@@ -1,0 +1,195 @@
+
+.body.LanguageTabsJqueryUI {
+	.pw-content .langTabsContainer,
+	#content .langTabsContainer {
+		// padding-bottom: 0;
+	}
+	.pw-content .langTabsContainer .InputfieldError,
+	#content .langTabsContainer .InputfieldError {
+		margin-bottom: 0;
+	}
+}
+
+.langTabs.ui-tabs {
+	position: relative;
+	padding: 0;
+	
+	.ui-tabs-nav {
+		margin-bottom: 0;
+		&.ui-widget-header {
+			padding: 2px 3px 0;
+			border-bottom: none;
+		}
+		li {
+			margin: 0 4px 0 0;
+			a  {
+				padding: 0.3em 0.7em;
+				font-weight: bold;
+				outline: none;
+				font-size: 0.846153846153846em;
+			}
+		}
+		li.ui-state-active.ui-state-default {
+			border: 1px solid #fff;
+			padding-bottom: 0;
+		}
+		li.ui-state-active {
+			background: #fff;
+			a {
+				cursor: default;
+				background: #fff;
+				margin: 0;
+			}
+		}
+	}
+	
+	.ui-tabs-panel {
+		padding: 0.9em;
+		border-top: none;
+		.LanguageSupportLabel {
+			display: none;
+		}
+	}
+}
+
+.langTabsToggle {
+	float: right;
+	margin-right: 1em;
+}
+
+.InputfieldStateCollapsed .langTabsToggle {
+	display: none;
+}
+
+.langTabEmpty a {
+	opacity: 0.7;
+	font-weight: normal !important;
+}
+
+.langTabs > ul.ui-tabs {
+	display: none;
+}
+
+.hasLangTabs .langTabs > ul.ui-tabs {
+	display: block;
+}
+
+.InputfieldImage .InputfieldFileLink + .langTabsContainer {
+	margin-top: 0.5em;
+}
+
+.hadLanguageSupport > .InputfieldContent > .LanguageSupport {
+	margin-bottom: 0;
+}
+
+.langTabsHidden,
+.hadLanguageSupport .LanguageSupportLabel {
+	display: none;
+}
+
+.langTabsNote {
+	position: absolute;
+	top: 5px;
+	right: 1em;
+	display: none;
+}
+/*
+.langTabs {
+	position: relative;
+	padding: 0;
+}
+
+body.LanguageTabsJqueryUI {
+	.langTabs > ul {
+		display: none;
+	}
+	
+	.hasLangTabs .langTabs > ul {
+		display: block;
+	}
+	.pw-content .langTabsContainer,
+	#content .langTabsContainer {
+		padding-bottom: 0;
+	}
+
+	.pw-content .langTabsContainer .InputfieldError,
+	#content .langTabsContainer .InputfieldError {
+		margin-bottom: 0;
+	}
+
+	.langTabs .ui-tabs-nav.ui-widget-header {
+		padding: 2px 3px 0;
+		border-bottom: none;
+	}
+	.langTabs .ui-tabs-panel {
+		padding: 0.9em;
+		border-top: none;
+	}
+	.langTabs .ui-tabs-panel .LanguageSupportLabel {
+		display: none;
+
+	}
+	.langTabs.ui-tabs .ui-tabs-nav {
+		margin-bottom: 0;
+	}
+	.langTabs.ui-tabs .ui-tabs-nav li {
+		margin: 0 4px 0 0;
+	}
+	.langTabs.ui-tabs .ui-tabs-nav li a {
+		padding: 0.3em 0.7em;
+		font-weight: bold;
+		outline: none;
+		font-size: 0.846153846153846em;
+	}
+	.langTabs.ui-tabs .ui-tabs-nav li.ui-state-active.ui-state-default {
+		border: 1px solid #fff;
+		padding-bottom: 0;
+	}
+	.langTabs.ui-tabs .ui-tabs-nav li.ui-state-active {
+		background: #fff;
+	}
+	.langTabs.ui-tabs .ui-tabs-nav li.ui-state-active a {
+		cursor: default;
+		background: #fff;
+		margin: 0;
+	}
+	.langTabEmpty a {
+		opacity: 0.7;
+		font-weight: normal !important;
+	}
+
+	.InputfieldImage .InputfieldFileLink + .langTabsContainer {
+		margin-top: 0.5em;
+	}
+
+	.hadLanguageSupport > .InputfieldContent > .LanguageSupport {
+		margin-bottom: 0;
+	}
+
+}
+
+.langTabsToggle {
+	float: right; 
+	margin-right: 1em; 
+}
+
+.InputfieldStateCollapsed .langTabsToggle {
+	display: none; 
+}
+
+.langTabsHidden,
+.hadLanguageSupport .LanguageSupportLabel {
+	display: none; 
+}
+
+.langTabsNote {
+	position: absolute;
+	top: 5px;
+	right: 1em;
+	display: none;
+}
+
+.langTabs > ul > li {
+	cursor: pointer;
+}
+*/

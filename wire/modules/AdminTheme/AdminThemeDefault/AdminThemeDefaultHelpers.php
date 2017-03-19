@@ -66,10 +66,9 @@ class AdminThemeDefaultHelpers extends WireData {
 		
 		$out = '';
 		$loggedin = $this->wire('user')->isLoggedin();
-		$touch = $this->wire('session')->get('touch');
 		$separator = "<i class='fa fa-angle-right'></i>";
 	
-		if(!$touch && $loggedin && $this->className() == 'AdminThemeDefaultHelpers') {
+		if($loggedin && $this->className() == 'AdminThemeDefaultHelpers') {
 			
 			if($this->wire('config')->debug && $this->wire('user')->isSuperuser()) {
 				$label = __('Debug Mode Tools', '/wire/templates-admin/debug.inc');
@@ -289,7 +288,12 @@ class AdminThemeDefaultHelpers extends WireData {
 	
 		if(!$level && count($children)) {
 	
-			$out .= "<a href='$p->url' id='topnav-page-$p' data-from='topnav-page-{$p->parent}' class='page-$p- pw-dropdown-toggle'>$title</a>"; 
+			$out .= "<a href='$p->url' " . 
+				"id='topnav-page-$p' " . 
+				"data-from='topnav-page-{$p->parent}' " . 
+				"class='page-$p- pw-dropdown-toggle'>" . 
+				"$title</a>"; 
+			
 			$my = 'left-1 top';
 			if(in_array($p->name, array('access', 'page', 'module'))) $my = 'left top';
 			$out .= "<ul class='pw-dropdown-menu topnav' data-my='$my' data-at='left bottom'>";
@@ -311,7 +315,7 @@ class AdminThemeDefaultHelpers extends WireData {
 					$title = $this->_($c->title); 
 					if(!$title) $title = $c->name; 
 					$out .= 
-						"<li><a class='pw-has-items' data-from='topnav-page-$p' href='$c->url'>$icon$title</a>" . 
+						"<li><a class='pw-has-items page-$c-' data-from='topnav-page-$p' href='$c->url'>$icon$title</a>" . 
 						"<ul>" . $this->renderTopNavItemArray($c, $moduleInfo['nav']) . "</ul></li>";
 					
 				} else if(!empty($moduleInfo['useNavJSON'])) {
@@ -320,7 +324,8 @@ class AdminThemeDefaultHelpers extends WireData {
 					if(!strlen($title)) continue;
 					$icon = $this->getPageIcon($c);
 					$out .=
-						"<li><a class='pw-has-items pw-has-ajax-items' data-from='topnav-page-$p' data-json='{$c->url}navJSON/' " .
+						"<li><a class='pw-has-items pw-has-ajax-items page-$c-' " . 
+						"data-from='topnav-page-$p' data-json='{$c->url}navJSON/' " .
 						"href='$c->url'>$icon$title</a><ul></ul></li>";
 
 				} else {
@@ -343,7 +348,7 @@ class AdminThemeDefaultHelpers extends WireData {
 			// The /page/ and /page/list/ are the same process, so just keep them on /page/ instead. 
 			if(strpos($url, '/page/list/') !== false) $url = str_replace('/page/list/', '/page/', $url); 
 			
-			$out .= "<a class='page-id-$p-' href='$url'>$icon$title</a>"; 
+			$out .= "<a class='page-$p-' href='$url'>$icon$title</a>"; 
 		}
 	
 		$out .= "</li>";
@@ -400,8 +405,15 @@ class AdminThemeDefaultHelpers extends WireData {
 				$out .= "<li><a href='{$p->url}$item[url]'>$icon$label</a></li>";
 			} else {
 				$out .= 
-					"<li><a class='pw-has-items pw-has-ajax-items' data-from='topnav-page-$p' data-json='{$p->url}$item[navJSON]' " . 
-					"href='{$p->url}$item[url]'>$icon$label</a><ul></ul></li>";
+					"<li>" . 
+						"<a class='pw-has-items pw-has-ajax-items' " . 
+							"data-from='topnav-page-$p' " . 
+							"data-json='{$p->url}$item[navJSON]' " . 
+							"href='{$p->url}$item[url]'>" . 
+								"$icon$label&nbsp;&nbsp;&nbsp;" . 
+						"</a>" . 
+						"<ul></ul>" . 
+					"</li>";
 			}
 		}
 		return $out; 

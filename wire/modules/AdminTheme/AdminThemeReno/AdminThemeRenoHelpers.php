@@ -80,7 +80,7 @@ class AdminThemeRenoHelpers extends AdminThemeDefaultHelpers {
 		$avatarField != '' ?  $imgField = $user->get($avatarField) : $imgField = '';
 		$avatar = "<i class='fa $adminTheme->profile'></i>";
 	
-		if($user->isLoggedin() && !$this->session->get('touch')) { 
+		if($user->isLoggedin()) { 
 			if($config->debug && $user->isSuperuser()) {
 				$debugLabel = __('Debug Mode Tools', '/wire/templates-admin/debug.inc');
 				$items[] = array(

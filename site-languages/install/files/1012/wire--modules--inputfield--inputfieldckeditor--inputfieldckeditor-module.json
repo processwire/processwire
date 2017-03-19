@@ -144,10 +144,10 @@
             "text": "Pfade sollten relativ zum Root-Verzeichnis ihrer ProcessWire Installation sein (d.h. wenn die Seite in einem Unterverzeichnis l\u00e4uft, diesen Teil weglassen)."
         },
         "9728a8f280cf7e8b0b89b52749f7e800": {
-            "text": "Bitte lesen Sie die [Anweisungen](https:\/\/github.com\/ryancramerdesign\/ProcessWire\/blob\/dev\/wire\/modules\/Inputfield\/InputfieldCKEditor\/README.md#custom-editor-css-file) zur Benutzung."
+            "text": "Bitte lesen Sie die [Anweisungen](https:\/\/github.com\/processwire\/processwire\/blob\/master\/wire\/modules\/Inputfield\/InputfieldCKEditor\/README.md#custom-editor-css-file) zur Benutzung."
         },
         "63ba0561c6027fed354e6c5af252a77b": {
-            "text": "Bitte lesen Sie die [Anweisungen](https:\/\/github.com\/ryancramerdesign\/ProcessWire\/blob\/dev\/wire\/modules\/Inputfield\/InputfieldCKEditor\/README.md#custom-editor-js-styles-set) zur Benutzung."
+            "text": "Bitte lesen Sie die [Anweisungen](https:\/\/github.com\/processwire\/processwire\/blob\/master\/wire\/modules\/Inputfield\/InputfieldCKEditor\/README.md#custom-editor-js-styles-set) zur Benutzung."
         },
         "8cd140c060d298234e0079cb77ee8190": {
             "text": "Folgende Plugins wurden gefunden. Markieren Sie die Box neben jedem Plugin welches geladen werden soll."

@@ -50,7 +50,7 @@
  * @property WireMailTools $mail #pw-internal
  * @property WireFileTools $files #pw-internal
  * 
- * @method changed(string $what) See Wire::___changed()
+ * @method changed(string $what, $old = null, $new = null) See Wire::___changed()
  * @method log($str = '', array $options = array()) See Wire::___log()
  * @method callUnknown($method, $arguments) See Wire::___callUnknown()
  * @method Wire trackException(\Exception $e, $severe = true, $text = null)
@@ -364,14 +364,54 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param $method
-	 * @param $arguments
+	 * @param string $method
+	 * @param array $arguments
 	 * @return mixed
-	 * @internal
 	 * 
 	 */
 	public function _callMethod($method, $arguments) {
-		return call_user_func_array(array($this, $method), $arguments);
+		$qty = $arguments ? count($arguments) : 0;
+		$result = null;
+		switch($qty) {
+			case 0:
+				$result = $this->$method();
+				break;
+			case 1:
+				$result = $this->$method($arguments[0]);
+				break;
+			case 2:
+				$result = $this->$method($arguments[0], $arguments[1]);
+				break;
+			case 3:
+				$result = $this->$method($arguments[0], $arguments[1], $arguments[2]);
+				break;
+			default:
+				$result = call_user_func_array(array($this, $method), $arguments);
+		}
+		return $result;
+	}
+
+	/**
+	 * Call a hook method (optimization when it's known for certain the method exists)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $method Method name, without leading "___"
+	 * @param array $arguments
+	 * @return mixed
+	 * 
+	 */
+	public function _callHookMethod($method, array $arguments = array()) {
+		if(method_exists($this, $method)) {
+			return $this->_callMethod($method, $arguments);
+		}
+		$hooks = $this->wire('hooks');
+		if($hooks->isMethodHooked($this, $method)) {
+			$result = $hooks->runHooks($this, $method, $arguments);
+			return $result['return'];
+		} else {
+			return $this->_callMethod("___$method", $arguments);
+		}
 	}
 
 	/**
@@ -953,7 +993,13 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 			}
 		
 			if(is_null($old) || is_null($new) || $lastValue !== $new) {
-				$this->changed($what, $old, $new); // triggers ___changed hook
+				/** @var WireHooks $hooks */
+				$hooks = $this->wire('hooks');
+				if(($hooks && $hooks->isHooked('changed')) || !$hooks) {
+					$this->changed($what, $old, $new); // triggers ___changed hook
+				} else {
+					$this->___changed($what, $old, $new); 
+				}
 			}
 			
 			if($this->trackChanges & self::trackChangesValues) {
@@ -1490,8 +1536,6 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	/**
 	 * ProcessWire instance
 	 *
-	 * This will replace static fuel in PW 3.0
-	 *
 	 * @var ProcessWire|null
 	 *
 	 */
@@ -1505,7 +1549,6 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * #pw-internal
 	 *
 	 * @param ProcessWire $wire
-	 * @return $this
 	 *
 	 */
 	public function setWire(ProcessWire $wire) {

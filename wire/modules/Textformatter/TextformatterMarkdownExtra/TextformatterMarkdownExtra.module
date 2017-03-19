@@ -28,7 +28,7 @@ class TextformatterMarkdownExtra extends Textformatter implements ConfigurableMo
 	const flavorParsedownExtra = 2;
 	const flavorParsedown = 4;
 	const flavorMarkdownExtra = 2;
-	const flavorRCD = 16; // add RCD extensions to one of above, @see markdownExtensions() method
+	const flavorRCD = 16; // add RCD extensions to one of above, @see markdownExtensions() method (@deprecated)
 	
 	public function __construct() {
 		$this->set('flavor', self::flavorDefault); 
@@ -80,6 +80,7 @@ class TextformatterMarkdownExtra extends Textformatter implements ConfigurableMo
 	 * A few RCD extentions to MarkDown syntax, to be executed after Markdown has already had it's way with the text
 	 * 
 	 * @param string $str
+	 * @deprecated
 	 *
 	 */
 	public function markdownExtensions(&$str) {

@@ -64,6 +64,14 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	protected $init = false;
 
 	/**
+	 * Strip 4-byte characters in “quote” and “escapeStr” methods? (only when dbEngine is not utf8mb4)
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $stripMB4 = false;
+
+	/**
 	 * PDO connection settings
 	 * 
 	 */
@@ -107,6 +115,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$name = $config->dbName;
 		$socket = $config->dbSocket; 
 		$charset = $config->dbCharset;
+		$options = $config->dbOptions;
+		
 		$initCommand = str_replace('{charset}', $charset, $config->dbInitCommand);
 		
 		if($socket) {
@@ -118,13 +128,17 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			if($port) $dsn .= ";port=$port";
 		}
 		
-		$driver_options = array(
-			\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION
-		);
+		if(!is_array($options)) $options = array();
+	
+		if(!isset($options[\PDO::ATTR_ERRMODE])) {
+			$options[\PDO::ATTR_ERRMODE] = \PDO::ERRMODE_EXCEPTION;
+		}
 		
-		if($initCommand) $driver_options[\PDO::MYSQL_ATTR_INIT_COMMAND] = $initCommand;
+		if($initCommand && !isset($options[\PDO::MYSQL_ATTR_INIT_COMMAND])) {
+			$options[\PDO::MYSQL_ATTR_INIT_COMMAND] = $initCommand;
+		}
 		
-		$database = new WireDatabasePDO($dsn, $username, $password, $driver_options); 
+		$database = new WireDatabasePDO($dsn, $username, $password, $options); 
 		$database->setDebugMode($config->debug);
 		$config->wire($database);
 		$database->_init();
@@ -161,6 +175,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		if($this->init || !$this->isWired()) return;
 		$this->init = true; 
 		$config = $this->wire('config');
+		$this->stripMB4 = $config->dbStripMB4 && strtolower($config->dbEngine) != 'utf8mb4';
 		$this->queryLogMax = (int) $config->dbQueryLogMax;
 		$sqlModes = $config->dbSqlModes;
 		if(is_array($sqlModes)) {
@@ -625,7 +640,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 */
 	public function escapeStr($str) {
-		return substr($this->pdo()->quote($str), 1, -1);
+		return substr($this->quote($str), 1, -1);
 	}
 
 	/**
@@ -654,6 +669,9 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *
 	 */
 	public function quote($str) {
+		if($this->stripMB4 && is_string($str) && !empty($str)) {
+			$str = $this->wire('sanitizer')->removeMB4($str);
+		}
 		return $this->pdo()->quote($str);
 	}
 

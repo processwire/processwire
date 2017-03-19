@@ -71,16 +71,23 @@ class WireHooks {
 	protected $staticHooks = array();
 
 	/**
-	 * A static cache of all hook method/property names for an optimization.
+	 * A cache of all hook method/property names for an optimization.
 	 *
 	 * Hooked methods end with '()' while hooked properties don't.
 	 *
 	 * This does not distinguish which instance it was added to or whether it was removed.
-	 * But will use keys in the form 'fromClass::method' (with value 'method') in cases where a fromClass was specified.
 	 * This cache exists primarily to gain some speed in our __get and __call methods.
 	 *
 	 */
 	protected $hookMethodCache = array();
+
+	/**
+	 * Same as hook method cache but for "Class::method"
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $hookClassMethodCache = array();
 
 	/**
 	 * Cache of all local hooks combined, for debugging purposes
@@ -88,6 +95,14 @@ class WireHooks {
 	 */
 	protected $allLocalHooks = array();
 
+	/**
+	 * Cached parent classes and interfaces
+	 * 
+	 * @var array of class|interface => [ 'parentClass', 'parentClass', 'interface', 'interface', 'etc.' ]
+	 * 
+	 */
+	protected $parentClasses = array();
+	
 	/**
 	 * @var Config
 	 * 
@@ -134,6 +149,9 @@ class WireHooks {
 	public function getHooks(Wire $object, $method = '', $type = self::getHooksAll) {
 
 		$hooks = array();
+
+		// see if we can do a quick exit
+		if($method && $method !== '*' && !$this->isHookedOrParents($object, $method)) return $hooks;
 
 		// first determine which local hooks when should include
 		if($type !== self::getHooksStatic) {
@@ -205,7 +223,7 @@ class WireHooks {
 		if($needSort && count($hooks) > 1) {
 			defined("SORT_NATURAL") ? ksort($hooks, SORT_NATURAL) : uksort($hooks, "strnatcmp");
 		}
-
+		
 		return $hooks;
 	}
 
@@ -217,8 +235,11 @@ class WireHooks {
 	 * As a result, a true return value indicates something "might" be hooked, as opposed to be
 	 * being definitely hooked.
 	 *
-	 * If checking for a hooked method, it should be in the form "Class::method()" or "method()".
-	 * If checking for a hooked property, it should be in the form "Class::property" or "property".
+	 * If checking for a hooked method, it should be in the form `Class::method()` or `method()` (with parenthesis).
+	 * If checking for a hooked property, it should be in the form `Class::property` or `property`.
+	 * 
+	 * If you need to check if a method/property is hooked, including any of its parent classes, use
+	 * the `WireHooks::isMethodHooked()`, `WireHooks::isPropertyHooked()`, or `WireHooks::hasHook()` methods instead. 
 	 *
 	 * @param string $method Method or property name in one of the following formats:
 	 * 	Class::method()
@@ -228,23 +249,130 @@ class WireHooks {
 	 * @param Wire|null $instance Optional instance to check against (see hasHook method for details)
 	 * 	Note that if specifying an $instance, you may not use the Class::method() or Class::property options for $method argument.
 	 * @return bool
+	 * @see WireHooks::isMethodHooked(), WireHooks::isPropertyHooked(), WireHooks::hasHook()
 	 *
 	 */
 	public function isHooked($method, Wire $instance = null) {
 		if($instance) return $this->hasHook($instance, $method);
-		$hooked = false;
 		if(strpos($method, ':') !== false) {
-			if(array_key_exists($method, $this->hookMethodCache)) $hooked = true; // fromClass::method() or fromClass::property
+			$hooked = isset($this->hookClassMethodCache[$method]); // fromClass::method() or fromClass::property
 		} else {
-			if(in_array($method, $this->hookMethodCache)) $hooked = true; // method() or property
+			$hooked = isset($this->hookMethodCache[$method]); // method() or property
 		}
 		return $hooked;
 	}
 
 	/**
+	 * Similar to isHooked() method but also checks parent classes for the hooked method as well 
+	 * 
+	 * This method is designed for fast determinations of whether something is hooked
+	 * 
+	 * @param string|Wire $class
+	 * @param string $method Name of method or property
+	 * @param string $type May be either 'method', 'property' or 'either'
+	 * @return bool
+	 * 
+	 */
+	protected function isHookedOrParents($class, $method, $type = 'either') {
+		
+		$property = '';
+		if(is_object($class)) {
+			$className = wireClassName($class);
+			$object = $class;
+		} else {
+			$className = $class;
+			$object = null;
+		}
+		
+		if($object) {
+			// first check local hooks attached to this instance
+			$localHooks = $object->getLocalHooks();
+			if(!empty($localHooks[rtrim($method, '()')])) {
+				return true;
+			}
+		}
+
+		if($type == 'method' || $type == 'either') {
+			if(strpos($method, '(') === false) $method .= '()';
+			if($type == 'either') $property = rtrim($method, '()');
+		} else {
+			$property = rtrim($method, '()');
+		}
+
+		if($type == 'method') {
+			if(!isset($this->hookMethodCache[$method])) return false; // not hooked for any class
+			$hooked = isset($this->hookClassMethodCache["$className::$method"]);
+		} else if($type == 'property') {
+			if(!isset($this->hookMethodCache[$property])) return false; // not hooked for any class
+			$hooked = isset($this->hookClassMethodCache["$className::$property"]);
+		} else {
+			if(!isset($this->hookMethodCache[$method]) 
+				&& !isset($this->hookMethodCache[$property])) return false;
+			$hooked = isset($this->hookClassMethodCache["$className::$property"]) || 
+				isset($this->hookClassMethodCache["$className::$method"]);
+		}
+		
+		if(!$hooked) {
+			foreach($this->getClassParents($class) as $parentClass) {
+				if($type == 'method') {
+					if(isset($this->hookClassMethodCache["$parentClass::$method"])) {
+						$hooked = true;
+						$this->hookClassMethodCache["$class::$method"] = true;
+					}
+				} else if($type == 'property') {
+					if(isset($this->hookClassMethodCache["$parentClass::$property"])) {
+						$hooked = true;
+						$this->hookClassMethodCache["$class::$property"] = true;
+					}
+				} else {
+					if(isset($this->hookClassMethodCache["$parentClass::$method"])) {
+						$hooked = true;
+						$this->hookClassMethodCache["$class::$method"] = true;
+					}
+					if(!$hooked && isset($this->hookClassMethodCache["$parentClass::$property"])) {
+						$hooked = true;
+						$this->hookClassMethodCache["$class::$property"] = true;
+					}
+				}
+				if($hooked) break;	
+			}
+		}
+		
+		return $hooked;
+	}
+
+	/**
+	 * Similar to isHooked() method but also checks parent classes for the hooked method as well
+	 *
+	 * This method is designed for fast determinations of whether something is hooked
+	 *
+	 * @param string|Wire $class
+	 * @param string $method Name of method
+	 * @return bool
+	 *
+	 */
+	public function isMethodHooked($class, $method) {
+		return $this->isHookedOrParents($class, $method, 'method');
+	}
+
+	/**
+	 * Similar to isHooked() method but also checks parent classes for the hooked property as well
+	 *
+	 * This method is designed for fast determinations of whether something is hooked
+	 *
+	 * @param string|Wire $class
+	 * @param string $property Name of property
+	 * @return bool
+	 *
+	 */
+	public function isPropertyHooked($class, $property) {
+		return $this->isHookedOrParents($class, $property, 'property');
+	}
+	
+	/**
 	 * Similar to isHooked(), returns true if the method or property hooked, false if it isn't.
 	 *
-	 * Accomplishes the same thing as the isHooked() method, but this is more accruate,
+	 * Accomplishes the same thing as the isHooked() method, but this is more accurate,
 	 * and potentially slower than isHooked(). Less for optimization use, more for accuracy use.
 	 *
 	 * It checks for both static hooks and local hooks, but only accepts a method() or property
@@ -270,9 +398,7 @@ class WireHooks {
 		}
 
 		// quick exit when possible
-		if(!in_array($method, $this->hookMethodCache)) {
-			return false;
-		}
+		if(!isset($this->hookMethodCache[$method])) return false;
 
 		$_method = rtrim($method, '()');
 		$localHooks = $object->getLocalHooks();
@@ -285,18 +411,41 @@ class WireHooks {
 			$hooked = true;
 		} else {
 			// check parent classes and interfaces
-			$classes = wireClassParents($object, false);
-			$interfaces = wireClassImplements($object);
-			if(is_array($interfaces)) $classes = array_merge($interfaces, $classes);
-			foreach($classes as $class) {
+			foreach($this->getClassParents($object) as $class) {
 				if(!empty($this->staticHooks[$class][$_method])) {
 					$hooked = true;
+					$this->hookClassMethodCache["$class::$method"] = true;
 					break;
 				}
 			}
 		}
 
 		return $hooked;
+	}
+
+	/**
+	 * Get an array of parent classes and interfaces for the given object
+	 * 
+	 * @param Wire|string $object Maybe either object instance or class name
+	 * @param bool $cache Allow use of cache for getting or storing? (default=true)
+	 * @return array
+	 * 
+	 */
+	public function getClassParents($object, $cache = true) {
+		if(is_string($object)) {
+			$className = $object;
+		} else {
+			$className = $object->className();
+		}
+		if($cache && isset($this->parentClasses[$className])) {
+			$classes = $this->parentClasses[$className];
+		} else {
+			$classes = wireClassParents($object, false);
+			$interfaces = wireClassImplements($object);
+			if(is_array($interfaces)) $classes = array_merge($interfaces, $classes);
+			if($cache) $this->parentClasses[$className] = $classes;
+		}
+		return $classes;
 	}
 
 
@@ -364,7 +513,7 @@ class WireHooks {
 			}
 			unset($ref);
 		}
-
+		
 		if(strpos($method, '::')) {
 			list($fromClass, $method) = explode('::', $method, 2);
 			if(strpos($fromClass, '(') !== false) {
@@ -380,7 +529,6 @@ class WireHooks {
 			}
 			$options['fromClass'] = $fromClass;
 		}
-		
 
 		$argOpen = strpos($method, '(');
 		if($argOpen && strpos($method, ')') > $argOpen+1) {
@@ -453,7 +601,7 @@ class WireHooks {
 				$priority = "$options[priority].$n";
 			}
 		}
-
+	
 		// Note hookClass is always blank when this is a local hook
 		$id = "$hookClass:$priority:$method";
 		$options['priority'] = $priority;
@@ -468,10 +616,10 @@ class WireHooks {
 		);
 		$hooks[$method][$priority] = $hook;
 
-		// cacheValue is just the method() or property, cacheKey includes optional fromClass::
+		// cache record known hooks so they can be detected quickly
 		$cacheValue = $options['type'] == 'method' ? "$method()" : "$method";
-		$cacheKey = ($options['fromClass'] ? $options['fromClass'] . '::' : '') . $cacheValue;
-		$this->hookMethodCache[$cacheKey] = $cacheValue;
+		if($options['fromClass']) $this->hookClassMethodCache["$options[fromClass]::$cacheValue"] = true;
+		$this->hookMethodCache[$cacheValue] = true;
 
 		// keep track of all local hooks combined when debug mode is on
 		if($local && $this->config->debug) {
@@ -534,14 +682,15 @@ class WireHooks {
 
 		$realMethod = "___$method";
 		if($type == 'method') $result['methodExists'] = method_exists($object, $realMethod); 
-		if(!$result['methodExists'] && !$this->hasHook($object, $method . ($type == 'method' ? '()' : ''))) {
+		// if(!$result['methodExists'] && !$this->hasHook($object, $method . ($type == 'method' ? '()' : ''))) {
+		if(!$result['methodExists'] && !$this->isHookedOrParents($object, $method, $type)) {
 			return $result; // exit quickly when we can
 		}
 
 		$hooks = $this->getHooks($object, $method);
 		$cancelHooks = false;
 		$profiler = $this->wire->wire('profiler');
-
+	
 		foreach(array('before', 'after') as $when) {
 
 			if($type === 'method' && $when === 'after' && $result['replace'] !== true) {
@@ -557,6 +706,7 @@ class WireHooks {
 				if(!$hook['options'][$when]) continue;
 
 				if(!empty($hook['options']['objMatch'])) {
+					/** @var Selectors $objMatch */
 					$objMatch = $hook['options']['objMatch'];
 					// object match comparison to determine at runtime whether to execute the hook
 					if(is_object($objMatch)) {
@@ -571,6 +721,7 @@ class WireHooks {
 					$argMatches = $hook['options']['argMatch'];
 					$matches = true;
 					foreach($argMatches as $argKey => $argMatch) {
+						/** @var Selectors $argMatch */
 						$argVal = isset($arguments[$argKey]) ? $arguments[$argKey] : null;
 						if(is_object($argMatch)) {
 							// Selectors object
@@ -594,15 +745,16 @@ class WireHooks {
 					if(!$matches) continue; // don't run hook
 				}
 
-				$event = new HookEvent();
+				$event = new HookEvent(array(
+					'object' => $object,
+					'method' => $method,
+					'arguments' => $arguments,
+					'when' => $when,
+					'return' => $result['return'],
+					'id' => $hook['id'],
+					'options' => $hook['options']
+				));
 				$this->wire->wire($event);
-				$event->object = $object;
-				$event->method = $method;
-				$event->arguments = $arguments;
-				$event->when = $when;
-				$event->return = $result['return'];
-				$event->id = $hook['id'];
-				$event->options = $hook['options'];
 
 				$toObject = $hook['toObject'];
 				$toMethod = $hook['toMethod'];
@@ -624,6 +776,7 @@ class WireHooks {
 					}
 					$toMethod($event);
 				} else {
+					/** @var Wire $toObject */
 					if($hook['toPublic']) {
 						// public
 						$returnValue = $toObject->$toMethod($event);
@@ -632,6 +785,7 @@ class WireHooks {
 						$returnValue = $toObject->_callMethod($toMethod, array($event));
 					}
 					// @todo allow for use of $returnValue as alternative to $event->return
+					if($returnValue) {}
 				}
 				
 				if($profilerEvent) $profiler->stop($profilerEvent);
@@ -660,9 +814,9 @@ class WireHooks {
 	/**
 	 * Start timing a hook and return the timer name
 	 * 
-	 * @param $object
-	 * @param $method
-	 * @param $arguments
+	 * @param Wire $object
+	 * @param String $method
+	 * @param array $arguments
 	 * @return string
 	 * 
 	 */
@@ -694,8 +848,8 @@ class WireHooks {
 	 * }
 	 *
 	 * @param Wire $object
-	 * @param string|null $hookId
-	 * @return $this
+	 * @param string|null $hookID
+	 * @return Wire
 	 *
 	 */
 	public function removeHook(Wire $object, $hookID) {
@@ -707,6 +861,9 @@ class WireHooks {
 				$object->setLocalHooks($localHooks);
 			} else {
 				unset($this->staticHooks[$hookClass][$method][$priority]);
+				if(empty($this->staticHooks[$hookClass][$method])) {
+					unset($this->hookClassMethodCache["$hookClass::$method"]);
+				}
 			}
 		}
 		return $object;

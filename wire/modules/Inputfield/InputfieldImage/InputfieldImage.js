@@ -546,7 +546,7 @@ function InputfieldImage($) {
 			var $button = $(this);
 			var $list = $button.closest('.gridImages');
 			if(!$list.hasClass('gridImagesAlerted')) {
-				alert(ProcessWire.config.InputfieldImage.labels.changes);
+				ProcessWire.alert(ProcessWire.config.InputfieldImage.labels.changes);
 				$list.addClass('gridImagesAlerted');
 			}
 			setTimeout(function() {
@@ -713,16 +713,20 @@ function InputfieldImage($) {
 
 		var w = $img.width();
 		var h = $img.height();
-		//if(!w) w = gridSize; // parseInt($img.attr('data-w'));
-		//if(!h) h = gridSize; // parseInt($img.attr('data-h'));
+		if(!w) w = parseInt($img.attr('data-w'));
+		if(!h) h = parseInt($img.attr('data-h'));
 		
 		if(ragged) {
+			$img.css('max-height', '100%').css('max-width', 'none');
 			$img.attr('height', gridSize).removeAttr('width');
 		} else if(w >= h) {
+			$img.css('max-height', '100%').css('max-width', 'none');
 			$img.attr('height', gridSize).removeAttr('width');
 		} else if(h > w) {
+			$img.css('max-height', 'none').css('max-width', '100%');
 			$img.attr('width', gridSize).removeAttr('height');
 		} else {
+			$img.css('max-height', '100%').css('max-width', 'none');
 			$img.removeAttr('width').attr('height', gridSize);
 		}
 
@@ -1158,7 +1162,7 @@ function InputfieldImage($) {
 			/**
 			 * Setup the dropzone where files are dropped
 			 *
-			 * @param $el
+			 * @param $el .InputfieldContent element
 			 *
 			 */
 			function setupDropzone($el) {
@@ -1167,17 +1171,30 @@ function InputfieldImage($) {
 				if($el.hasClass('InputfieldImageDropzoneInit')) return;
 
 				var el = $el.get(0);
+				var $inputfield = $el.closest('.Inputfield');
+				
+				function dragStart() {
+					if($inputfield.hasClass('pw-drag-in-file')) return;
+					$el.addClass('ui-state-hover');
+					$inputfield.addClass('pw-drag-in-file');
+				}
+				
+				function dragStop() {
+					if(!$inputfield.hasClass('pw-drag-in-file')) return;
+					$el.removeClass('ui-state-hover');
+					$inputfield.removeClass('pw-drag-in-file');
+				}
 
 				el.addEventListener("dragleave", function() {
-					$el.removeClass('ui-state-hover');
+					dragStop();
 				}, false);
 				
 				el.addEventListener("dragenter", function() {
-					$el.addClass('ui-state-hover');
+					dragStart();
 				}, false);
 
 				el.addEventListener("dragover", function(evt) {
-					if(!$el.is('ui-state-hover')) $el.addClass('ui-state-hover');
+					if(!$el.is('ui-state-hover')) dragStart();
 					evt.preventDefault();
 					evt.stopPropagation();
 					return false;
@@ -1185,7 +1202,7 @@ function InputfieldImage($) {
 
 				el.addEventListener("drop", function(evt) {
 					traverseFiles(evt.dataTransfer.files);
-					$el.removeClass("ui-state-hover");
+					dragStop();
 					evt.preventDefault();
 					evt.stopPropagation();
 					return false;
@@ -1205,6 +1222,14 @@ function InputfieldImage($) {
 				var $i = null; // placeholder .gridItem
 				var haltDrag = false; // true when drag should be halted
 				var timer = null; // for setTimeout
+				var $inputfield = $gridImages.closest('.Inputfield');
+				
+				function addInputfieldClass() {
+					$inputfield.addClass('pw-drag-in-file');
+				}
+				function removeInputfieldClass() {
+					$inputfield.removeClass('pw-drag-in-file');
+				}
 				
 				function getCenterCoordinates($el) {
 					var offset = $el.offset();
@@ -1228,6 +1253,7 @@ function InputfieldImage($) {
 					if(noDropInPlace()) return;
 					evt.preventDefault();
 					evt.stopPropagation();
+					addInputfieldClass();
 					haltDrag = false;
 					if($i == null) {
 						var gridSize = $gridImages.attr('data-size') + 'px';
@@ -1249,6 +1275,7 @@ function InputfieldImage($) {
 					if(noDropInPlace()) return;
 					evt.preventDefault();
 					evt.stopPropagation();
+					addInputfieldClass();
 					haltDrag = false;
 					if($i == null) return;
 					// $('.gridImage', $gridImages).trigger('drag');
@@ -1270,12 +1297,14 @@ function InputfieldImage($) {
 						if(!haltDrag || $i == null) return;
 						$i.remove();
 						$i = null;
+						removeInputfieldClass();
 					}, 1000); 
 				}
 				
 				function drop(evt) {
 					if(noDropInPlace()) return;
-					
+				
+					removeInputfieldClass();
 					// console.log(evt.originalEvent.dataTransfer.files);
 					
 					haltDrag = false;
@@ -1400,6 +1429,7 @@ function InputfieldImage($) {
 
 				// File uploaded: called for each file
 				xhr.addEventListener("load", function() {
+					xhr.getAllResponseHeaders();
 					var response = $.parseJSON(xhr.responseText),
 						wasZipFile = response.length > 1;
 					if(response.error !== undefined) response = [response];

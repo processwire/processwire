@@ -25,7 +25,8 @@
  * https://processwire.com
  * 
  * @method string getMarkup($key = null) Render a simple/default markup value for each item #pw-internal
- * 
+ * @property Page|null $first First item
+ * @property Page|null $last Last item
  * @property Page[] $data #pw-internal
  *
  */

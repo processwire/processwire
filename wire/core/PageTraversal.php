@@ -34,15 +34,17 @@ class PageTraversal {
 			// onlyVisible takes the place of selector
 			$onlyVisible = $selector; 
 			if(!$onlyVisible) return $page->get('numChildren');
-			return $page->wire('pages')->count("parent_id=$page->id"); 
+			return $page->_pages('count', "parent_id=$page->id"); 
 			
 		} else if($selector === 1) { 
 			// viewable pages only
 			$numChildren = $page->get('numChildren');
 			if(!$numChildren) return 0;
 			if($page->wire('user')->isSuperuser()) return $numChildren;
-			if($page->wire('user')->hasPermission('page-edit')) return $page->wire('pages')->count("parent_id=$page->id, include=unpublished");
-			return $page->wire('pages')->count("parent_id=$page->id, include=hidden"); 
+			if($page->wire('user')->hasPermission('page-edit')) {
+				return $page->_pages('count', "parent_id=$page->id, include=unpublished");
+			}
+			return $page->_pages('count', "parent_id=$page->id, include=hidden"); 
 
 		} else if(empty($selector) || (!is_string($selector) && !is_array($selector))) {
 			return $page->get('numChildren'); 
@@ -53,7 +55,7 @@ class PageTraversal {
 			} else if(is_array($selector)) {
 				$selector["parent_id"] = $page->id;
 			}
-			return $page->wire('pages')->count($selector);
+			return $page->_pages('count', $selector);
 		}
 	}
 
@@ -63,11 +65,11 @@ class PageTraversal {
 	 * @param Page $page
 	 * @param string|array $selector Selector to use, or blank to return all children
 	 * @param array $options
-	 * @return PageArray
+	 * @return PageArray|array
 	 *
 	 */
 	public function children(Page $page, $selector = '', $options = array()) {
-		if(!$page->numChildren) return $page->wire('pages')->newPageArray();
+		if(!$page->numChildren) return $page->_pages()->newPageArray();
 		$defaults = array('caller' => 'page.children'); 
 		$options = array_merge($defaults, $options); 
 		$sortfield = $page->sortfield();
@@ -81,7 +83,7 @@ class PageTraversal {
 			$selector = trim("parent_id=$page->id, $selector", ", ");
 			if(strpos($selector, 'sort=') === false) $selector .= ", sort=$sortfield";
 		}
-		return $page->wire('pages')->find($selector, $options); 
+		return $page->_pages('find', $selector, $options); 
 	}
 
 	/**
@@ -96,7 +98,7 @@ class PageTraversal {
 	 *
 	 */
 	public function child(Page $page, $selector = '', $options = array()) {
-		if(!$page->numChildren) return $page->wire('pages')->newNullPage();
+		if(!$page->numChildren) return $page->_pages()->newNullPage();
 		$defaults = array('getTotal' => false, 'caller' => 'page.child'); 
 		$options = array_merge($defaults, $options); 
 		if(is_array($selector)) {
@@ -107,7 +109,7 @@ class PageTraversal {
 			if(strpos($selector, 'start=') === false) $selector .= ", start=0"; // prevent pagination
 		}
 		$children = $this->children($page, $selector, $options); 
-		return count($children) ? $children->first() : $page->wire('pages')->newNullPage();
+		return count($children) ? $children->first() : $page->_pages()->newNullPage();
 	}
 
 	/**
@@ -211,7 +213,7 @@ class PageTraversal {
 			$selector = trim($selector, ", ");
 		}
 		$options = array('caller' => 'page.siblings'); 
-		return $page->wire('pages')->find($selector, $options); 
+		return $page->_pages('find', $selector, $options); 
 	}
 
 	/**
@@ -247,18 +249,18 @@ class PageTraversal {
 			
 		} else if(strpos($until, '/') === 0) {
 			// page path
-			$stopPage = $pages->get($until);
+			$stopPage = $page->_pages('get', $until);
 			
 		} else if(is_array($selector) || is_array($options['until'])) {
 			// either selector or until is an array
 			$s = new Selectors($options['until']);
 			foreach(new Selectors($selector) as $item) $s->add($item);
 			$s->add(new SelectorEqual('limit', 1));
-			$stopPage = $page->wire('pages')->find($s)->first();
+			$stopPage = $page->_pages('find', $s)->first();
 			
 		} else {
 			// selector string
-			$stopPage = $page->wire('pages')->find("$selector, limit=1, $until")->first();
+			$stopPage = $page->_pages('find', "$selector, limit=1, $until")->first();
 		}
 		
 		if($stopPage && $stopPage->id) {
@@ -324,6 +326,7 @@ class PageTraversal {
 		} else if($options['all']) {
 			$result = $pages->getById($rows, array(
 				'parent_id' => $parent->id,
+				'cache' => $page->loaderCache
 			));
 			if($options['all'] && $options['prev']) $result = $result->reverse();
 			
@@ -332,7 +335,8 @@ class PageTraversal {
 			$result = $pages->getById(array($row['id']), array(
 				'template' => $page->wire('templates')->get($row['templates_id']),
 				'parent_id' => $row['parent_id'],
-				'getOne' => true
+				'getOne' => true,
+				'cache' => $page->loaderCache
 			));
 		}
 		
@@ -447,6 +451,132 @@ class PageTraversal {
 		$options = array_merge($options, $defaults);
 		return $this->_next($page, $filter, $options);
 	}
+	
+	/**
+	 * Returns the URL to the page with $options
+	 *
+	 * You can specify an `$options` argument to this method with any of the following:
+	 *
+	 * - `pageNum` (int|string): Specify pagination number, or "+" for next pagination, or "-" for previous pagination.
+	 * - `urlSegmentStr` (string): Specify a URL segment string to append.
+	 * - `urlSegments` (array): Specify array of URL segments to append (may be used instead of urlSegmentStr).
+	 * - `data` (array): Array of key=value variables to form a query string.
+	 * - `http` (bool): Specify true to make URL include scheme and hostname (default=false).
+	 * - `language` (Language): Specify Language object to return URL in that Language.
+	 *
+	 * You can also specify any of the following for `$options` as shortcuts:
+	 *
+	 * - If you specify an `int` for options it is assumed to be the `pageNum` option.
+	 * - If you specify `+` or `-` for options it is assumed to be the `pageNum` “next/previous pagination” option.
+	 * - If you specify any other `string` for options it is assumed to be the `urlSegmentStr` option.
+	 * - If you specify a `boolean` (true) for options it is assumed to be the `http` option.
+	 *
+	 * Please also note regarding `$options`:
+	 *
+	 * - This method honors template slash settings for page, URL segments and page numbers.
+	 * - Any passed in URL segments are automatically sanitized with `Sanitizer::pageNameUTF8()`.
+	 * - If using the `pageNum` or URL segment options please also make sure these are enabled on the page’s template.
+	 * - The query string generated by any `data` variables is entity encoded when output formatting is on.
+	 * - The `language` option requires that the `LanguageSupportPageNames` module is installed.
+	 * - The prefix for page numbers honors `$config->pageNumUrlPrefix` and multi-language prefixes as well.
+	 *
+	 * @param Page $page
+	 * @param array|int|string|bool|Language $options Optionally specify options to modify default behavior (see method description).
+	 * @return string Returns page URL, for example: `/my-site/about/contact/`
+	 * @see Page::path(), Page::httpUrl(), Page::editUrl(), Page::localUrl()
+	 *
+	 */
+	public function urlOptions(Page $page, $options = array()) {
+
+		$config = $page->wire('config');
+		$template = $page->template;
+
+		$defaults = array(
+			'http' => is_bool($options) ? $options : false,
+			'pageNum' => is_int($options) || (is_string($options) && in_array($options, array('+', '-'))) ? $options : 1,
+			'data' => array(),
+			'urlSegmentStr' => is_string($options) ? $options : '',
+			'urlSegments' => array(),
+			'language' => is_object($options) && $options instanceof Page && $options->className() === 'Language' ? $options : null,
+		);
+
+		if(empty($options)) {
+			$url = rtrim($config->urls->root, '/') . $page->path();
+			if($template->slashUrls === 0 && $page->id > 1) $url = rtrim($url, '/');
+			return $url;
+		}
+
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		$sanitizer = $page->wire('sanitizer');
+		$language = null;
+		$url = null;
+
+		if(count($options['urlSegments'])) {
+			$options['urlSegmentStr'] = implode('/', $options['urlSegments']);
+		}
+
+		if($options['language'] && $page->wire('modules')->isInstalled('LanguageSupportPageNames')) {
+			if(!is_object($options['language'])) {
+				$options['language'] = null;
+			} else if(!$options['language'] instanceof Page) {
+				$options['language'] = null;
+			} else if(strpos($options['language']->className(), 'Language') === false) {
+				$options['language'] = null;
+			}
+			if($options['language']) {
+				/** @var Language $language */
+				$language = $options['language'];
+				// localUrl method provided as hook by LanguageSupportPageNames
+				$url = $page->localUrl($language);
+			}
+		}
+
+		if(is_null($url)) {
+			$url = rtrim($config->urls->root, '/') . $page->path();
+			if($template->slashUrls === 0 && $page->id > 1) $url = rtrim($url, '/');
+		}
+
+		if(is_string($options['urlSegmentStr']) && strlen($options['urlSegmentStr'])) {
+			$url = rtrim($url, '/') . '/' . $sanitizer->pagePathNameUTF8(trim($options['urlSegmentStr'], '/'));
+			if($template->slashUrlSegments === '' || $template->slashUrlSegments) $url .= '/';
+		}
+
+		if($options['pageNum']) {
+			if($options['pageNum'] === '+') {
+				$options['pageNum'] = $page->wire('input')->pageNum + 1;
+			} else if($options['pageNum'] === '-' || $options['pageNum'] === -1) {
+				$options['pageNum'] = $page->wire('input')->pageNum - 1;
+			}
+			if((int) $options['pageNum'] > 1) {
+				$prefix = '';
+				if($language) {
+					$lsp = $page->wire('modules')->get('LanguageSupportPageNames');
+					$prefix = $lsp ? $lsp->get("pageNumUrlPrefix$language") : '';
+				}
+				if(!strlen($prefix)) $prefix = $config->pageNumUrlPrefix;
+				$url = rtrim($url, '/') . '/' . $prefix . ((int) $options['pageNum']);
+				if($template->slashPageNum) $url .= '/';
+			}
+		}
+
+		if(count($options['data'])) {
+			$query = http_build_query($options['data']);
+			if($page->of()) $query = $sanitizer->entities($query);
+			$url .= '?' . $query;
+		}
+
+		if($options['http']) {
+			switch($template->https) {
+				case -1: $scheme = 'http'; break;
+				case 1: $scheme = 'https'; break;
+				default: $scheme = $config->https ? 'https' : 'http';
+			}
+			$url = "$scheme://" . $page->wire('config')->httpHost . $url;
+		}
+
+		return $url;
+	}
+
 
 	/******************************************************************************************************************
 	 * LEGACY METHODS

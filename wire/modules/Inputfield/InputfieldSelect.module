@@ -450,7 +450,7 @@ class InputfieldSelect extends Inputfield {
 	 * 
 	 * @param string $key
 	 * @param mixed $value
-	 * @return $this
+	 * @return Inputfield|InputfieldSelect
 	 * 
 	 */
 	public function set($key, $value) {
@@ -469,7 +469,7 @@ class InputfieldSelect extends Inputfield {
 	 * 
 	 * @param array|string $key
 	 * @param array|int|string $value
-	 * @return $this
+	 * @return Inputfield|InputfieldSelect
 	 * 
 	 */
 	public function setAttribute($key, $value) {
@@ -528,14 +528,19 @@ class InputfieldSelect extends Inputfield {
 
 		$inputfields = parent::___getConfigInputfields();
 
-		$f = $this->wire('modules')->get('InputfieldTextarea'); 
+		if($this instanceof InputfieldHasArrayValue) {
+			$f = $this->wire('modules')->get('InputfieldTextarea');
+			$f->description = $this->_('To have pre-selected default value(s), enter the option values (one per line) below.'); 
+		} else {
+			$f = $this->wire('modules')->get('InputfieldText');
+			$f->description = $this->_('To have a pre-selected default value, enter the option value below.'); 
+		}
 		$f->attr('name', 'defaultValue'); 
-		$f->attr('value', $this->defaultValue); 
-		$f->label = $this->_('Default Value'); 
-		$f->description = $this->_('To have pre-selected default value(s), enter the option values (one per line) below. For page selections, this would be the page ID number(s).'); 
-		$f->notes = $this->_('This default value(s) option is available because you checked the "required" box above.'); 
-		$f->showIf = 'required>0';
-		$f->collapsed = Inputfield::collapsedBlank;
+		$f->label = $this->_('Default value'); 
+		$f->attr('value', $this->defaultValue);
+		$f->description .= ' ' . $this->_('For default page selection, the value would be the page ID number.'); 
+		$f->notes = $this->_('IMPORTANT: The default value is not used unless the field is required (see the “required” checkbox on this screen).'); 
+		$f->collapsed = $this->hasFieldtype === false ? Inputfield::collapsedBlank : Inputfield::collapsedNo;
 		
 		$inputfields->add($f); 
 

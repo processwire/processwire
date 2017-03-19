@@ -390,7 +390,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 		
 		if(!is_array($value) || !count($value) || empty($field->template_id)) return $this->getBlankValue($page, $field);
 		
-		$template_id = $field->template_id; 
+		$template_id = $field->get('template_id'); 
 		
 		if(!is_array($template_id)) { 
 			$template_id = $template_id ? array($template_id) : array();
@@ -402,18 +402,20 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 			$template = null;
 		}
 		
-		if($field->sortfields) {
-			$selector = $template ? "template=$template, " : ""; 
-			$selector .= "include=unpublished, id=" . implode('|', $value);
-			foreach(explode(',', $field->sortfields) as $sortfield) {
-				$selector .= ", sort=" . $this->wire('sanitizer')->name(trim($sortfield));
+		$loadOptions = array('cache' => false);
+		if($template) $loadOptions['template'] = $template;
+		
+		$items = $this->wire('pages')->getById($value, $loadOptions);
+		
+		$sortfields = $field->get('sortfields');
+		if($sortfields) {
+			$sorts = array();
+			foreach(explode(',', $sortfields) as $sortfield) {
+				$sorts[] = $this->wire('sanitizer')->name(trim($sortfield));
 			}
-			$items = $this->wire('pages')->find($selector); 
-			
-		} else {
-			$items = $this->wire('pages')->getById($value, $template); 
+			if(count($sorts)) $items->sort($sorts);
 		}
-			
+		
 		return $items; 
 	}
 
