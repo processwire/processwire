@@ -104,5 +104,32 @@ class Language extends Page {
 	public function getPagesManager() {
 		return $this->wire('languages');
 	}
+
+	/**
+	 * Get locale for this language
+	 * 
+	 * See the `Languages::getLocale()` method for full details.
+	 * 
+	 * @param int $category Optional category (default=LC_ALL)
+	 * @return string|bool
+	 * @see Languages::setLocale()
+	 * 
+	 */
+	public function getLocale($category = LC_ALL) {
+		return $this->wire('languages')->getLocale($category, $this);
+	}
+
+	/**
+	 * Set the current locale to use settings defined for this language
+	 * 
+	 * See the `Languages::setLocale()` method for full details.
+	 * 
+	 * @param int $category Optional category (default=LC_ALL)
+	 * @see Languages::setLocale()
+	 * 
+	 */
+	public function setLocale($category = LC_ALL) {
+		return $this->wire('languages')->setLocale($category, $this);
+	}
 }
 

@@ -376,9 +376,14 @@ class Languages extends PagesType {
 	 * - You can optionally specify a CSV string of locales to try for the $locale argument. 
 	 * - You can optionally or a “category=locale;category=locale;category=locale” string for the $locale argument.
 	 *   When this type of string is used, the $category argument is ignored. 
-	 * - This method does not accept more than the 2 indicated arguments. 
+	 * - This method does not accept more than the 3 indicated arguments. 
+	 * - Any of the arguments may be swapped.
 	 * 
 	 * See the PHP setlocale link above for a list of constants that can be used for the `$category` argument. 
+	 * 
+	 * Note that the locale is set once at bootup by ProcessWire, and does not change after that unless you call this
+	 * method. Meaning, a change to `$user->language` does not automatically change the locale. If you want to change
+	 * the locale, you would have to call this method after changing the user’s language from the API side.
 	 * 
 	 * ~~~~~
 	 * // Set locale to whatever settings defined for current $user language
@@ -400,8 +405,9 @@ class Languages extends PagesType {
 	 * $languages->setLocale(null, 'LC_CTYPE=en_US;LC_NUMERIC=de_DE;LC_TIME=es_ES'); 
 	 * ~~~~~
 	 * 
-	 * @param int $category Specify a PHP “LC_” constant or omit (or null) for default (LC_ALL).
-	 * @param string|array|null $locale Specify string, array or CSV string of locale name(s), or omit (null) for default language locale.
+	 * @param int|string|array|null|Language $category Specify a PHP “LC_” constant (int) or omit (or null) for default (LC_ALL).
+	 * @param int|string|array|null|Language $locale Specify string, array or CSV string of locale name(s), 
+	 *   omit (null) for current language locale, or specify Language object to pull locale from that language. 
 	 * @return string|bool Returns the locale that was set or boolean false if requested locale cannot be set.
 	 * @see Languages::getLocale()
 	 *
@@ -409,11 +415,18 @@ class Languages extends PagesType {
 	public function setLocale($category = LC_ALL, $locale = null) {
 		
 		$setLocale = ''; // return value
+		
+		if(!is_int($category)) {
+			list($category, $locale) = array($locale, $category); // swap arguments
+		}
+		
 		if($category === null) $category = LC_ALL;	
 
-		if($locale === null) {
+		if($locale === null || is_object($locale)) {
 			// argument omitted means set according to language settings
-			$locale = __('C', 'wire--modules--languagesupport--languagesupport-module');
+			$language = $locale instanceof Language ? $locale : $this->wire('user')->language;
+			$textdomain = 'wire--modules--languagesupport--languagesupport-module';
+			$locale = $language->translator()->getTranslation($textdomain, 'C');
 		}
 
 		if(is_string($locale)) {
@@ -460,14 +473,29 @@ class Languages extends PagesType {
 	 * 
 	 * If using LC_ALL category and locales change by category, the returned string will be in 
 	 * the format: “category=locale;category=locale”, and so on. 
-	 *
-	 * @param int $category Optionally specify a PHP LC constant (default=LC_ALL)
+	 * 
+	 * The first and second arguments may optionally be swapped and either can be omitted. 
+	 * 
+	 * @param int|Language|string|null $category Optionally specify a PHP LC constant (default=LC_ALL)
+	 * @param Language|string|int|null $language Optionally return locale for specific language (default=current locale, regardless of language)
 	 * @return string|bool Locale(s) string or boolean false if not supported by the system. 
 	 * @see Languages::setLocale()
+	 * @throws WireException if given a $language argument that is invalid
 	 *
 	 */
-	public function getLocale($category = LC_ALL) {
-		return setlocale($category, '0');
+	public function getLocale($category = LC_ALL, $language = null) {
+		if(is_int($language)) list($category, $language) = array($language, $category);	// argument swap
+		if($category === null) $category = LC_ALL;
+		if($language) {
+			if(!$language instanceof Language) {
+				$language = $this->get($language);
+				if(!$language instanceof Language) throw new WireException("Invalid getLocale() language");
+			}
+			$locale = $language->translator()->getTranslation('wire--modules--languagesupport--languagesupport-module', 'C');
+		} else {
+			$locale = setlocale($category, '0');
+		}
+		return $locale;
 	}
 
 	/**
