@@ -61,7 +61,6 @@ abstract class AdminThemeFramework extends AdminTheme {
 	public function __construct() {
 		parent::__construct();
 		$this->set('useAsLogin', false);
-		$this->wire('modules')->get('JqueryUI')->use('panel');
 		$this->sanitizer = $this->wire('sanitizer');
 	}
 

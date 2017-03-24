@@ -452,7 +452,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$out .= $this->form->render();
 	
 		// buttons with dropdowns
-		if(!$this->wire('input')->get('modal') && !count($this->fields)) {
+		if(!$this->wire('config')->modal && !count($this->fields)) {
 			
 			$config = $this->wire('config');
 			$file = $config->debug ? 'dropdown.js' : 'dropdown.min.js';
@@ -490,7 +490,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$out .= "</ul>";
 		}
 
-		if($viewable && !count($this->fields)) {
+		if($viewable && !count($this->fields) && !$this->wire('config')->modal) {
 			// this supports code in the buildFormView() method
 			$out .= "<ul id='_ProcessPageEditViewDropdown' class='pw-dropdown-menu pw-dropdown-menu-rounded' data-my='left top' data-at='left top-9'>";
 			foreach($this->getViewActions() as $name => $action) {
@@ -559,7 +559,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			"panel" => "<a class='pw-panel pw-panel-reload$class' href='$url' data-tab-text='$labels[view]' data-tab-icon='eye'>$labels[panel]</a>",
 			"modal" => "<a class='pw-modal pw-modal-large$class' href='$url'>$labels[modal]</a>",
 			"new" => "<a class='$class' target='_blank' href='$url'>$labels[new]</a>",
-			"this" => "<a class='$class' href='$url'>$labels[this]</a>",
+			"this" => "<a class='$class' target='_top' href='$url'>$labels[this]</a>",
 		), $actions);
 		
 		foreach($actions as $name => $action) {
@@ -595,7 +595,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	protected function ___buildForm(InputfieldForm $form) {
 
 		$action = "./?id=$this->id";
-		$modal = (int) $this->wire('input')->get('modal');
+		$modal = (int) $this->wire('config')->modal;
 		if($modal) $action .= "&modal=$modal";
 		$context = $this->wire('input')->get('context');
 		if($context !== null) {
@@ -720,7 +720,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			if($this->isTrash) $this->message($this->_("This page is in the Trash")); 
 			$tabDelete = $this->buildFormDelete();
 			if($tabDelete->children()->count()) $form->append($tabDelete);
-			if($this->page->viewable() && !$this->input->get('modal')) $this->buildFormView($this->page->httpUrl); 
+			if($this->page->viewable() && !$modal) $this->buildFormView($this->page->httpUrl); 
 	
 			if($this->page->hasStatus(Page::statusUnpublished)) {
 	
@@ -854,12 +854,13 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			}
 
 			if($page->addable()) { 
+				$modal = $this->wire('config')->modal;
 				/** @var InputfieldButton $button */
 				$button = $this->modules->get("InputfieldButton"); 
 				$button->attr('id+name', 'AddPageBtn'); 
 				$button->attr('value', $this->_('Add New Page Here')); // Button: add new child page
 				$button->icon = 'plus-circle';
-				$button->attr('href', "../add/?parent_id={$page->id}" . ($this->input->get('modal') ? "&modal=1" : ''));
+				$button->attr('href', "../add/?parent_id={$page->id}" . ($modal ? "&modal=$modal" : ''));
 				$field->append($button);
 			}
 			$wrapper->append($field); 
@@ -1201,7 +1202,11 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$settings = $this->wire('config')->pageEdit; 
 		$target = '';
 		
-		if((is_array($settings) && !empty($settings['viewNew'])) || $this->viewAction == 'new') $target = " target='_blank'";
+		if((is_array($settings) && !empty($settings['viewNew'])) || $this->viewAction == 'new') {
+			$target = " target='_blank'";
+		} else {
+			$target = " target='_top'";
+		}
 		
 		$a = 
 			"<a id='_ProcessPageEditView' $target href='$url' data-action='$this->viewAction'>$label" . 
@@ -1442,7 +1447,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	protected function ___processSaveRedirect($redirectUrl) {
 		if(!$redirectUrl) $redirectUrl = "./?id={$this->page->id}&s=1";
-		if($this->input->get('modal')) $redirectUrl .= "&modal=1";
+		$modal = $this->wire('config')->modal;
+		if($modal) $redirectUrl .= "&modal=$modal";
 		if(count($this->fields)) {
 			if(count($this->fields) == 1) $redirectUrl .= "&field={$this->field->name}";
 			else $redirectUrl .= "&fields=" . implode(',', array_keys($this->fields));
@@ -2231,15 +2237,19 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$page = $this->page ? $this->page : $this->parent;
 		if($this->masterPage) $page = $this->masterPage;
 		$lastID = (int) $this->wire('session')->get('ProcessPageList', 'lastID');
+		$settings = $this->wire('config')->pageEdit;
+		$editCrumbs = !empty($settings['editCrumbs']);
 
 		$numParents = $page->parents->count();
 		foreach($page->parents() as $cnt => $p) {
-			$url = "../?open=$p->id";
-			if($cnt == $numParents-1 && $p->id == $lastID) $url = "../";
+			$url = $editCrumbs && $p->editable() ? "./?id=$p->id" : "../?open=$p->id";
+			if(!$editCrumbs && $cnt == $numParents-1 && $p->id == $lastID) $url = "../";
 			$this->breadcrumb($url, $p->get("title|name"));
 		}
 
-		if($this->page && $this->field) $this->breadcrumb("./?id={$this->page->id}", $page->get("title|name"));
+		if($this->page && $this->field) {
+			$this->breadcrumb("./?id={$this->page->id}", $page->get("title|name"));
+		}
 	}
 
 

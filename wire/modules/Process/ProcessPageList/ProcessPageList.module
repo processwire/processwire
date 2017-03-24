@@ -452,7 +452,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	}
 
 	/**
-	 * Get an instance of PageBookmarks
+	 * Get an instance of PageBookmarks (to be phased out)
 	 * 
 	 * @return PageBookmarks
 	 * 
@@ -582,7 +582,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	}
 
 	/**
-	 * Execute the Page Bookmarks 
+	 * Execute the Page Bookmarks (to be phased out)
 	 * 
 	 * @return string
 	 * @throws WireException
@@ -616,12 +616,15 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$field->description = $this->_('Every page in a PageList is identified by a label, typically a title or headline field. You may specify which field it should use here. To specify multiple fields, separate each field name with a space, or use your own format string with field names surrounded in {brackets}. If the field resolves to an object (like another page), then specify the property with a dot, i.e. {anotherpage.title}. Note that if the format you specify resolves to a blank value then ProcessWire will use the page "name" field.'); // pageLabelField description
 		$field->notes = $this->_('You may optionally override this setting on a per-template basis in each template "advanced" settings.'); // pageLabelField notes
 		$fields->append($field);
-	
-		$bookmarks = $this->getPageBookmarks();
-		$bookmarks->addConfigInputfields($fields);
-		$admin = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
-		$page = $this->wire('pages')->get($admin->path . 'page/list/');
-		$bookmarks->checkProcessPage($page);
+
+		if(!empty($data['useBookmarks'])) {
+			// support bookmarks only if already in use as bookmarks for ProcessPageList to be phased out
+			$bookmarks = $this->getPageBookmarks();
+			$bookmarks->addConfigInputfields($fields);
+			$admin = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
+			$page = $this->wire('pages')->get($admin->path . 'page/list/');
+			$bookmarks->checkProcessPage($page);
+		}
 	
 		/*
 		$settings = $this->wire('config')->pageList;

@@ -1003,6 +1003,7 @@ $config->pageList = array(
  * #property bool confirm Notify user if they attempt to navigate away from unsaved changes?
  * #property bool ajaxChildren Whether to load the 'children' tab via ajax 
  * #property bool ajaxParent Whether to load the 'parent' field via ajax
+ * #property bool editCrumbs Whether or not breadcrumbs load page editor (false=load page list). 
  * 
  * @var array
  * 
@@ -1012,6 +1013,7 @@ $config->pageEdit = array(
 	'confirm' => true, 
 	'ajaxChildren' => true, 
 	'ajaxParent' => true,
+	'editCrumbs' => false,
 );
 
 
@@ -1193,6 +1195,12 @@ $config->https = null;
  *
  */
 $config->ajax = false;
+
+/**
+ * modal: This is automatically set to TRUE when request is in a modal window. 
+ * 
+ */
+$config->modal = false;
 
 /**
  * external: This is automatically set to TRUE when PW is externally bootstrapped.

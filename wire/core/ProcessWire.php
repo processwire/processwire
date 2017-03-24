@@ -45,7 +45,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 56;
+	const versionRevision = 57;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -258,6 +258,7 @@ class ProcessWire extends Wire {
 		
 		$config->ajax = (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest');
 		$config->cli = (!isset($_SERVER['SERVER_SOFTWARE']) && (php_sapi_name() == 'cli' || ($_SERVER['argc'] > 0 && is_numeric($_SERVER['argc']))));
+		$config->modal = empty($_GET['modal']) ? false : abs((int) $_GET['modal']); 
 		
 		$version = self::versionMajor . "." . self::versionMinor . "." . self::versionRevision; 
 		$config->version = $version;

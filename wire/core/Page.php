@@ -2842,6 +2842,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$url = ($https ? 'https://' : 'http://') . $this->wire('config')->httpHost . $url;
 			}
 		}
+		$append = $this->wire('session')->getFor($this, 'appendEditUrl'); 
+		if($append) $url .= $append;
 		return $url;
 	}
 

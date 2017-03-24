@@ -17,6 +17,7 @@
  * @see /wire/config.php for more detailed descriptions of all config properties. 
  *
  * @property bool $ajax If the current request is an ajax (asynchronous javascript) request, this is set to true. #pw-group-runtime
+ * @property bool|int $modal If the current request is in a modal window, this is set to a positive number. False if not. #pw-group-runtime
  * @property string $httpHost Current HTTP host name. #pw-group-HTTP-and-input
  * @property bool $https If the current request is an HTTPS request, this is set to true. #pw-group-runtime
  * @property string $version Current ProcessWire version string (i.e. "2.2.3") #pw-group-system #pw-group-runtime
