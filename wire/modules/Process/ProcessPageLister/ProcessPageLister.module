@@ -1148,6 +1148,13 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		
 		reset($fields); 
 		$isFirstCol = key($fields) == $name; 
+		
+		if($subname && $name == 'parent') {
+			// if parent and subname present, focus on just the subname value
+			if($value instanceof Page) $value = $value->getUnformatted($subname);
+			$name = $subname;
+			$subname = '';
+		}
 
 		/** @var Field $field */
 		$field = isset($fields[$name]) ? $fields[$name] : $this->wire('fields')->get($name);
@@ -1289,7 +1296,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$value = $this->wire('sanitizer')->entities($value); 
 		}
 	
-		if($isFirstCol) $value = $this->buildListerTableColActions($p, $value); 
+		if($isFirstCol) $value = $this->buildListerTableColActions($p, $value);
 
 		return $value; 
 

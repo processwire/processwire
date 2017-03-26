@@ -144,6 +144,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		'allowSubfieldGroups',
 		'allowModifiers',
 		'allowAddRemove',
+		'showFieldLabels',
 		'fieldsWhitelist',
 		'dateFormat',
 		'datePlaceholder',
