@@ -119,7 +119,7 @@ class FieldtypeInteger extends Fieldtype {
 		$f->label = $this->_('Are blank and 0 equivalent?'); 
 		$f->description = $this->_('This affects how ProcessWire matches pages during database find operations.') . ' ' . 
 			$this->_('If 0 and blank are equivalent (the Yes option) then a search for **field=0** or **field=""** will produce the same results.') . ' ' . 
-			$this->_('If they or not equivalent (the No option) then a search for **field=0** will only match fields containing the value 0, and **field=""** will only match fields with no value.') . ' ' . 
+			$this->_('If they are not equivalent (the No option) then a search for **field=0** will only match fields containing the value 0, and **field=""** will only match fields with no value.') . ' ' . 
 			$this->_('As another example, with the Yes option **field<1** would match both the value 0 and no value, and with the No option it would match only 0.'); 
 		$f->attr('name', 'zeroNotEmpty'); 
 		$f->addOption(0, $this->_('Yes - Blank and 0 are equivalent'));
