@@ -113,6 +113,10 @@ class FieldtypeDatetime extends FieldtypeText {
 
 	/**
 	 * Return the Inputfield used for date/time (InputfieldDatetime)
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return InputfieldDatetime
 	 *
 	 */
 	public function getInputfield(Page $page, Field $field) {
@@ -123,6 +127,11 @@ class FieldtypeDatetime extends FieldtypeText {
 
 	/**
 	 * Sanitize value, per Fieldtype interface
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|\DateTime $value
+	 * @return int
 	 *	
  	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
@@ -131,10 +140,14 @@ class FieldtypeDatetime extends FieldtypeText {
 
 	/**
 	 * Sanitize a value assumed to be either a timestamp or in strtotime() compatible format
+	 * 
+	 * @param string|int|\DateTime
+	 * @return int
 	 *
 	 */
 	protected function _sanitizeValue($value) {
-		if(empty($value)) return ''; 
+		if(empty($value)) return '';
+		if($value instanceof \DateTime) return $value->getTimestamp();
 		// already a timestamp
 		if(ctype_digit(ltrim($value, '-'))) return (int) $value; 
 		return strtotime($value); 
@@ -142,13 +155,18 @@ class FieldtypeDatetime extends FieldtypeText {
 
 	/**
 	 * Format the value for output, according to selected format and language
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $value
+	 * @return string
 	 *
 	 */
 	public function ___formatValue(Page $page, Field $field, $value) {
 		$format = '';
 		if($this->languages && !$this->user->language->isDefault()) $format = $field->get("dateOutputFormat{$this->user->language}"); 
-		if(!$format) $format = $field->dateOutputFormat; 
-		return $this->formatDate($value, $format); 
+		if(!$format) $format = $field->get('dateOutputFormat');
+		return $this->wire('datetime')->formatDate($value, $format);
 	}
 
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
@@ -158,6 +176,13 @@ class FieldtypeDatetime extends FieldtypeText {
 
 	/**
 	 * Match a date/time value in the database, as used by PageFinder
+	 * 
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param int|string $value
+	 * @return DatabaseQuerySelect
 	 *
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
@@ -177,6 +202,9 @@ class FieldtypeDatetime extends FieldtypeText {
 
 	/**
 	 * Return database schema used by this field
+	 * 
+	 * @param Field $field
+	 * @return array
 	 *
 	 */
 	public function getDatabaseSchema(Field $field) {
@@ -189,6 +217,11 @@ class FieldtypeDatetime extends FieldtypeText {
 
 	/**
 	 * Convert value from timestamp to Y-m-d H:i:s date string
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int $value
+	 * @return string
 	 *
 	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {
@@ -198,6 +231,11 @@ class FieldtypeDatetime extends FieldtypeText {
 
 	/**
 	 * Convert value from Y-m-d H:i:s string to timestamp
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $value
+	 * @return int
 	 *
 	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
@@ -209,13 +247,17 @@ class FieldtypeDatetime extends FieldtypeText {
 
 	/**
 	 * Field configuration screen
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
 	 *
 	 */
 	public function ___getConfigInputfields(Field $field) {
 
 		$inputfields = parent::___getConfigInputfields($field);
-		$wdt = new WireDateTime();
+		$wdt = $this->wire('datetime');
 
+		/** @var InputfieldSelect $f */
 		$f = $this->modules->get('InputfieldSelect'); 
 		$f->attr('name', '_dateOutputFormat'); 
 		$f->label = $this->_('Date Output Format'); 
@@ -230,7 +272,7 @@ class FieldtypeDatetime extends FieldtypeText {
 			$dateFormatted = $wdt->formatDate($date, $format); 	
 			if($format == 'U') $dateFormatted .= " " . $this->_('(unix timestamp)');
 			$f->addOption($format, $dateFormatted); 
-			if(!$found && strpos($field->dateOutputFormat, $format) !== false) {
+			if(!$found && strpos($field->get('dateOutputFormat'), $format) !== false) {
 				$f->attr('value', $format); 
 				$found = true; 
 			}
@@ -250,18 +292,19 @@ class FieldtypeDatetime extends FieldtypeText {
 		foreach($wdt->getTimeFormats() as $format) {
 			$timeFormatted = $wdt->formatDate($date, $format); 	
 			$f->addOption($format, $timeFormatted); 
-			if(!$found && strpos($field->dateOutputFormat, $format) !== false) {
+			if(!$found && strpos($field->get('dateOutputFormat'), $format) !== false) {
 				$f->attr('value', $format); 
 				$found = true; 
 			}
 		}
 		$f->attr('onchange', "$('#Inputfield_dateOutputFormat').val($('#Inputfield__dateOutputFormat').val() + ' ' + $(this).val());"); 
 		//$f->collapsed = Inputfield::collapsedBlank;
-		$inputfields->add($f); 
+		$inputfields->add($f);
 
+		/** @var InputfieldText $f */
 		$f = $this->modules->get("InputfieldText"); 
 		$f->attr('name', 'dateOutputFormat'); 
-		$f->attr('value', $field->dateOutputFormat); 
+		$f->attr('value', $field->get('dateOutputFormat')); 
 		$f->attr('size', 20); 
 		$f->label = $this->_('Date/Time Output Format Code');
 		$f->description = $this->_('The date/time will be output according to the format below. This is automatically built from the date/time selections above, but you may change it as needed to suit your needs.') . ' ';
