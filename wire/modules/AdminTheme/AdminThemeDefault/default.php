@@ -77,7 +77,7 @@ $extras = $adminTheme->getExtraMarkup();
 		<div class="pw-container container">
 
 			<a id='logo' href='<?php echo $config->urls->admin?>'>
-				<img width='130' src="<?php echo $config->urls->adminTemplates?>styles/images/logo.png" alt="ProcessWire" />
+                <img width='144' src="<?php echo $config->urls->adminTemplates?>styles/images/logo.png" alt="ProcessWire" />
 			</a>
 
 			<?php 

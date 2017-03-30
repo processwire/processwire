@@ -25,7 +25,7 @@ if(!isset($formAction)) $formAction = './install.php';
 
 	<div id="masthead" class="pw-masthead ui-helper-clearfix">
 		<div class="pw-container">
-			<a id='logo' target='_blank' href='http://processwire.com'><img width='130' src="wire/modules/AdminTheme/AdminThemeDefault/styles/images/logo.png" alt="ProcessWire" /></a>
+			<a id='logo' target='_blank' href='https://processwire.com'><img width='144' src="wire/modules/AdminTheme/AdminThemeDefault/styles/images/logo.png" alt="ProcessWire" /></a>
 		</div>
 	</div><!--/#masthead-->
 
