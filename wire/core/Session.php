@@ -249,6 +249,10 @@ class Session extends Wire implements \IteratorAggregate {
 		ini_set('session.use_only_cookies', 1);
 		ini_set('session.cookie_httponly', 1);
 		ini_set('session.gc_maxlifetime', $this->config->sessionExpireSeconds);
+		
+		if($this->config->sessionCookieDomain) {
+			ini_set('session.cookie_domain', $this->config->sessionCookieDomain);
+		}
 
 		if(ini_get('session.save_handler') == 'files') {
 			if(ini_get('session.gc_probability') == 0) {
