@@ -136,7 +136,7 @@ $(document).ready(function() {
 		// true when operations are occurring where we want to ignore clicks
 		var ignoreClicks = false;
 		
-		var isModal = $("body").hasClass("modal");
+		var isModal = $("body").hasClass("modal") || $("body").hasClass("pw-iframe");
 	
 		$.extend(options, customOptions);
 

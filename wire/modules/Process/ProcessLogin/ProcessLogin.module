@@ -457,7 +457,9 @@ class ProcessLogin extends Process {
 	 *
 	 */
 	protected function ___afterLoginRedirect() {
-		$this->session->redirect($this->pages->get($this->config->adminRootPageID)->url . '?login=1');
+		$url = $this->wire('config')->urls->admin . 'page/?login=1';
+		$url = $this->afterLoginURL($url);
+		$this->wire('session')->redirect($url);
 	}
 
 	/**

@@ -28,7 +28,19 @@ class ProcessHome extends Process {
 	}
 
 	public function ___execute() {
-		$this->session->redirect("page/"); 
+		$input = $this->wire('input');
+		$vars = array();
+		if($input->get('login')) $vars['login'] = (int) $input->get('login');
+		if($input->get('layout')) $vars['layout'] = $this->wire('sanitizer')->name($input->get('layout'));
+		$url = "page/";	
+		if(count($vars)) {
+			$url .= '?';
+			foreach($vars as $key => $value) {
+				$url .= "$key=" . $this->wire('sanitizer')->entities($value) . "&";
+			}
+			$url = rtrim($url, '&');
+		}
+		$this->session->redirect($url); 
 	}	
 
 }
