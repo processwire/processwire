@@ -423,7 +423,7 @@ class PageFrontEdit extends WireData implements Module {
 		
 		if($hasEditTags) {
 			// remove modal edit tags
-			$out = preg_replace('!</?' . $tag . '\s[^>]*>\s*!is', '', $out);
+			$out = preg_replace('!</?' . $tag . '(?:\s[^>]*>|>)\s*!is', '', $out);
 		}
 		
 		if($hasEditAttr) {
