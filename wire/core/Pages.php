@@ -862,10 +862,6 @@ class Pages extends Wire {
 	 * // set $page to have sort=5, moving any 5+ sort pages ahead
 	 * $pages->sort($page, 5);
 	 * 
-	 * // same as above using alternate syntax
-	 * $page->sort = 5;
-	 * $pages->sort($page);
-	 * 
 	 * // re-build sort values for children of $page, removing duplicates and gaps
 	 * $pages->sort($page, true);
 	 * ~~~~~
