@@ -459,6 +459,8 @@ class Template extends WireData implements Saveable, Exportable {
 	 */
 	public function set($key, $value) {
 
+		if($key == 'cacheTime') $key = 'cache_time'; // alias
+		
 		if($key == 'flags') { 
 			$this->setFlags($value); 
 
@@ -473,7 +475,7 @@ class Template extends WireData implements Saveable, Exportable {
 				if($fieldgroup) $this->setFieldgroup($fieldgroup); 
 					else $this->error("Unable to load fieldgroup '$value' for template $this->name"); 
 				return $this;
-			} else if($key == 'cache_time' || $key == 'cacheTime') {
+			} else if($key == 'cache_time') {
 				$value = (int) $value; 
 			} else {
 				$value = '';
