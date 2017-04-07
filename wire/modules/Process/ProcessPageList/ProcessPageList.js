@@ -174,6 +174,11 @@ $(document).ready(function() {
 					*/
 				}
 				
+				$(document).on('pageListRefresh', function(e, pageID) {
+					// i.e. $(document).trigger('pageListRefresh', pageID); 
+					refreshList(pageID);
+				});
+				
 				if(options.useHoverActions) { 
 					$root.addClass('PageListUseHoverActions');
 					setupHoverActions();
@@ -470,8 +475,8 @@ $(document).ready(function() {
 			 * @param jQuery $target Item to attach children to
 		 	 * @param int start If not starting from first item, num of item to start with
 			 * @param bool beginList Set to true if this is the first call to create the list
-			 * @param bool replace Should any existing list be replaced (true) or appended (false)
 			 * @param bool pagination Set to false if you don't want pagination, otherwise leave it out
+			 * @param bool replace Should any existing list be replaced (true) or appended (false)
 			 *
 			 */
 			function loadChildren(id, $target, start, beginList, pagination, replace, callback) {
@@ -974,6 +979,40 @@ $(document).ready(function() {
 				});
 				// console.log(currentOpenPageIDs);
 				$.cookie('pagelist_open', currentOpenPageIDs);
+			}
+
+			/**
+			 * Force refresh the list that pageID appears in
+			 * 
+			 * @param pageID
+			 * @param animate
+			 * 
+			 */
+			function refreshList(pageID, animate) {
+				
+				var $parentList = $('.PageListID' + pageID).parent('.PageList');
+				var $parentItem = $parentList.prev('.PageListItem');
+				if(!$parentItem.length) return;
+				
+				var parentID = $parentItem.attr('class').match(/PageListID(\d+)/)[1];
+				var start = 0;
+				var $pagination = $parentList.children("ul." + options.paginationClass);
+				var paginationInfo = $pagination.data('paginationInfo');
+				var $removeItems = null;
+				
+				if(paginationInfo) {
+					var $a = $pagination.find('.pw-link-active');
+					if($a.length) start = parseInt($a.attr('href')) * paginationInfo.limit;
+					if(start === NaN) start = 0;
+				}
+				if(parentID == 1) {
+					$removeItems = $parentList.children();
+					$parentList = $parentItem;
+				}
+				$parentList.addClass('PageListForceReload');
+				loadChildren(parentID, $parentList, start, false, true, true, function() {
+					if($removeItems && $removeItems.length) $removeItems.remove();
+				});
 			}
 			
 			/**

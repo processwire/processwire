@@ -756,6 +756,10 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * This enables you to add a new accessible property to an existing object, which will execute
 	 * your hook implementation method when called upon. 
 	 * 
+	 * Note that adding a hook with this just makes it possible to call the hook as a property. 
+	 * Any hook property you add can also be called as a method, i.e. `$obj->foo` and `$obj->foo()`
+	 * are the same.
+	 * 
 	 * ~~~~~
 	 * // Adding a hook property
 	 * $wire->addHookProperty('Page::lastModifiedStr', function($event) {
