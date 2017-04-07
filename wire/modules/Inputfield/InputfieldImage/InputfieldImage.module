@@ -302,7 +302,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		if(!$this->noAjax) {
 
 			$dropLabel = $this->uploadOnlyMode ? $this->labels['drag-drop'] : $this->labels['drag-drop-in'];
-			$refreshLabel = $this->_('legacy thumbnails will be re-created on save');
+			// $refreshLabel = $this->('legacy thumbnails will be re-created on save');
 			
 			$out .= "
 				<span class='AjaxUploadDropHere description'>
@@ -441,7 +441,6 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$thumb = $img;
 		$error = '';
 		$attr = array();
-		$is2x = false;
 
 		$_thumbHeight = $thumb->height;
 		$thumbHeight = $_thumbHeight;
@@ -484,19 +483,18 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 					$thumbHeight = $this->gridSize;
 				}
 				$this->set('_hasLegacyThumbs', true);
-				$is2x = false;
 			} else {
 				// use new thumbnail size, 260px (scaled to 130px in output)
-				if($thumbWidth >= $thumbHeight && $thumbHeight > $gridSize2x) {
-					$thumb = $thumb->height($gridSize2x, $imageSizerOptions);
-					$thumbHeight = $this->gridSize;
-					$thumbWidth = 0;
-					$is2x = true;
+				if($thumbWidth >= $thumbHeight) {
+					if($thumbHeight > $gridSize2x) {
+						$thumb = $thumb->height($gridSize2x, $imageSizerOptions);
+						$thumbHeight = $this->gridSize;
+						$thumbWidth = 0;
+					}
 				} else if($thumbWidth > $gridSize2x) {
 					$thumb = $thumb->width($gridSize2x, $imageSizerOptions);
 					$thumbWidth = $this->gridSize;
 					$thumbHeight = 0;
-					$is2x = true;
 				}
 			}
 
@@ -559,7 +557,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$sanitizer = $this->wire('sanitizer');
 		$thumb = $this->getAdminThumb($pagefile, false);
 		$fileStats = str_replace(' ', '&nbsp;', $pagefile->filesizeStr) . ", {$pagefile->width}&times;{$pagefile->height} ";
-		$gridSize = $this->gridSize;
+		// $gridSize = $this->gridSize;
 
 		// <div class='gridImage__overflow' style='width: {$gridSize}px; height: {$gridSize}px'>
 		$out = $this->getTooltip($pagefile) . "
@@ -699,7 +697,8 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	protected function ___renderButtons($pagefile, $id, $n) {
 		
 		if(!$this->useImageEditor) return '';
-		
+	
+		if($n) {} // ignore, $n is for hooks
 		$pageID = $pagefile->pagefiles->page->id;
 		$variations = $this->getPagefileVariations($pagefile);
 		$variationCount = count($variations);
