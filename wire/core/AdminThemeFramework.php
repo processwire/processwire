@@ -144,17 +144,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	public function getPageTitle(Page $p) {
 
 		if($p->name == 'add' && $p->parent->name == 'page') {
-			// ProcessPageAdd: avoid showing this menu item if there are no predefined family settings to use
-			$numAddable = $this->wire('session')->getFor('ProcessPageAdd', 'numAddable');
-			if($numAddable === null) {
-				/** @var ProcessPageAdd $processPageAdd */
-				$processPageAdd = $this->wire('modules')->getModule('ProcessPageAdd', array('noInit' => true));
-				if($processPageAdd) {
-					$addData = $processPageAdd->executeNavJSON(array('getArray' => true));
-					$numAddable = $addData['list'];
-				}
-			}
-			if(!$numAddable) return '';
+
 			$title = $this->getAddNewLabel();
 
 		} else {
@@ -310,26 +300,55 @@ abstract class AdminThemeFramework extends AdminTheme {
 	public function allowPageInNav(Page $p, $children = array(), $permission = null) {
 
 		if($this->isSuperuser) return true;
-		if($p->viewable()) return true;
+		
 		$allow = false;
-
-		foreach($children as $child) {
-			if($child->viewable()) {
-				$allow = true;
-				break;
+		$pageViewable = $p->viewable();
+		$numChildren = count($children);
+		
+		if($p->process == 'ProcessPageAdd') {
+			// ProcessPageAdd: avoid showing this menu item if there are no predefined family settings to use
+			$numAddable = $this->wire('session')->getFor('ProcessPageAdd', 'numAddable');
+			if($numAddable === null) {
+				/** @var ProcessPageAdd $processPageAdd */
+				$processPageAdd = $this->wire('modules')->getModule('ProcessPageAdd', array('noInit' => true));
+				if($processPageAdd) {
+					$addData = $processPageAdd->executeNavJSON(array('getArray' => true));
+					$numAddable = $addData['list'];
+					$this->wire('session')->setFor('ProcessPageAdd', 'numAddable', $numAddable);
+				}
+			}
+			// no addable options, so do not show the "Add New" item
+			if(!$numAddable) return false;
+			
+		} else if(empty($permission)) {
+			// no permission specified
+			
+			if(!$p->process) {
+				// no process module present, so we delegate to just the page viewable state if no children to check
+				if($pageViewable && !$numChildren) return true;
+				
+			} else if($p->process == 'ProcessList') {
+				// page just serves as a list for children
+				
+			} else {
+				// determine permission from Process module, if present
+				$moduleInfo = $this->wire('modules')->getModuleInfo($p->process);
+				if(!empty($moduleInfo['permission'])) $permission = $moduleInfo['permission'];
 			}
 		}
-
-		if($allow) return true;
-
-		if($permission === null && $p->process) {
-			// determine permission
-			$moduleInfo = $this->wire('modules')->getModuleInfo($p->process);
-			if(!empty($moduleInfo['permission'])) $permission = $moduleInfo['permission'];
-		}
-
+		
 		if($permission) {
+			// specific permission required to determine view access
 			$allow = $this->wire('user')->hasPermission($permission);
+			
+		} else if($pageViewable && $p->parent_id == $this->wire('config')->adminRootPageID) {
+			// primary nav page requires that at least one child is viewable
+			foreach($children as $child) {
+				if($this->allowPageInNav($child)) {
+					$allow = true;
+					break;
+				}
+			}
 		}
 
 		return $allow;
@@ -461,7 +480,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 			);
 
 			if(!empty($moduleInfo['nav'])) {
-				$childItem['children'] = $this->moduleToNavArray($moduleInfo, $c);  // @todo should $p be $c?
+				$childItem['children'] = $this->moduleToNavArray($moduleInfo, $c);  
 			}
 
 			$navArray['children'][] = $childItem;

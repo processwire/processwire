@@ -784,6 +784,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$fields->attr('id', $id); 
 		$fields->attr('title', $title); 
+		$fields->addClass('WireTab');
 		$this->addTab($id, $title);
 
 		if($this->page->template->nameContentTab) {
@@ -1446,13 +1447,23 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function ___processSaveRedirect($redirectUrl) {
-		if(!$redirectUrl) $redirectUrl = "./?id={$this->page->id}&s=1";
+		if($redirectUrl) {
+			$redirectUrl .= (strpos($redirectUrl, '?') === false ? '?' : '&') . 's=1';
+		} else {
+			$redirectUrl = "./?id={$this->page->id}&s=1";
+		}
+		$redirectUrl .= "&c=" . count($this->changes);
 		$modal = $this->wire('config')->modal;
 		if($modal) $redirectUrl .= "&modal=$modal";
 		if(count($this->fields)) {
-			if(count($this->fields) == 1) $redirectUrl .= "&field={$this->field->name}";
-			else $redirectUrl .= "&fields=" . implode(',', array_keys($this->fields));
-			if(count($this->changes)) $redirectUrl .= "&changes=" . implode(',', $this->changes);
+			if(count($this->fields) == 1) {
+				$redirectUrl .= "&field={$this->field->name}";
+			} else {
+				$redirectUrl .= "&fields=" . implode(',', array_keys($this->fields));
+			}
+			if(count($this->changes)) {
+				$redirectUrl .= "&changes=" . implode(',', $this->changes);
+			}
 		}
 		$this->redirectUrl = $redirectUrl;
 		$this->session->redirect($redirectUrl);

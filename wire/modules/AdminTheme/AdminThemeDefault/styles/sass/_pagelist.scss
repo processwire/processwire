@@ -172,3 +172,17 @@
 	margin-bottom: 5px; 
 }
 
+.pw-dropdown-menu {
+	.PageListStatusUnpublished {
+		text-decoration: line-through;
+	}
+
+	.PageListStatusHidden {
+		opacity: 0.5;
+	}
+
+	.PageListStatusNotEditable {
+		cursor: not-allowed;
+	}
+}
+

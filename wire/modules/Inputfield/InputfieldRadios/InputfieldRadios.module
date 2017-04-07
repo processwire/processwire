@@ -28,6 +28,13 @@ class InputfieldRadios extends InputfieldSelect {
 
 	public function ___render() {	
 
+		$defaults = array(
+			'wbr' => true, 
+			'noSelectLabels' => true,
+		);
+		$settings = $this->wire('config')->get('InputfieldRadios');
+		$settings = is_array($settings) ? array_merge($defaults, $settings) : $defaults;
+		
 		$this->checkDefaultValue();
 		$inline = false;
 		$columns = (int) $this->optionColumns;
@@ -59,14 +66,13 @@ class InputfieldRadios extends InputfieldSelect {
 			if($this->isOptionSelected($key)) $checked = " checked='checked'";
 			$disabled = empty($attrs['disabled']) ? "" : " disabled='disabled'";
 			unset($attrs['selected'], $attrs['checked'], $attrs['disabled']); 
-			$textClass = 'pw-no-select';
+			$textClass = $settings['noSelectLabels'] ? 'pw-no-select' : '';
 			if($disabled) $textClass .= ' ui-state-disabled';
 			$attrs = $this->getOptionAttributesString($attrs);
 			if($attrs) $attrs = ' ' . $attrs;
-			$label = str_replace(' ', ' !wbr!', $value);
+			$label = $settings['wbr'] ? str_replace(' ', ' !wbr!', $value) : $value;
 			$label = $this->entityEncode($label, Inputfield::textFormatBasic);
-			$label = str_replace('!wbr!', '<wbr>', $label);
-			$label = "<span class='$textClass'>$label</span>";
+			if($settings['wbr']) $label = str_replace('!wbr!', '<wbr>', $label);
 			$class = trim($this->wire('sanitizer')->entities($this->attr('class')));
 
 			$out .= 

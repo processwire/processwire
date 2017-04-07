@@ -509,9 +509,11 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			$id = $page->id;
 			if(in_array($id, $skipPageIDs)) continue;
 			$url = '';
+			$editable = false;
 			
 			if($page->editable()) {
 				$url = $page->editUrl();
+				$editable = true;
 			} else if($page->viewable()) {
 				$url = $page->url();
 			} else if(!$page->listable()) {
@@ -520,12 +522,20 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			
 			$numChildren = $id > 1 ? $page->numChildren : 0;
 			$label = $renderer->getPageLabel($page, array('noTags' => true));
-			if($page->isUnpublished()) $label = "<s>$label</s>";
 			if(strlen($label) > $maxLabelLength) {
 				$label = substr($label, 0, $maxLabelLength); 
 				$pos = strrpos($label, ' '); 
 				if($pos !== false) $label = substr($label, 0, $pos);
 				$label .= ' &hellip;';
+			}
+			$labelClasses = array();
+			if($page->isUnpublished()) $labelClasses[] = 'PageListStatusUnpublished';
+			if($page->isHidden()) $labelClasses[] = 'PageListStatusHidden';
+			if($page->hasStatus(Page::statusLocked)) $labelClasses[] = 'PageListStatusLocked';
+			if($page->hasStatus(Page::statusDraft)) $labelClasses[] = 'PageListStatusDraft';
+			if(!$editable) $labelClasses[] = 'PageListStatusNotEditable';
+			if(count($labelClasses)) {
+				$label = "<span class='" . implode(' ', $labelClasses) . "'>$label</span>";
 			}
 			if($numChildren) $label .= " <small>$numChildren</small>";
 			$label .= ' &nbsp; '; 
@@ -535,6 +545,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 				'id' => $id, 
 				'label' => $label, 
 				'icon' => $page->getIcon(),
+				'edit' => $editable
 			);
 			
 			if($page->id > 1 && $page->numChildren) {

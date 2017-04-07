@@ -87,7 +87,7 @@ ul.InputfieldFileList li .InputfieldFileDescription {
   ul.InputfieldFileList li .InputfieldFileDescription input {
     width: 100%; }
 ul.InputfieldFileList li .InputfieldFileSort {
-  display: none; }
+  display: none !important; }
 
 .Inputfield .InputfieldFileTags input {
   margin-bottom: 0.5em; }

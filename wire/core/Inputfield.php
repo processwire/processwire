@@ -809,12 +809,13 @@ abstract class Inputfield extends WireData implements Module {
 		foreach($addClasses as $addClass) {
 			$addClass = trim($addClass); 
 			if(!strlen($addClass)) continue;
-			if(in_array($addClass, $classes)) continue; // if already present, don't add it
 			$classes[] = $addClass;
 		}
+		
+		$classes = array_unique($classes);
 	
 		// convert back to string
-		$value = implode(' ', $classes); 
+		$value = trim(implode(' ', $classes)); 
 	
 		// set back to Inputfield
 		if($property == 'class') {
