@@ -278,7 +278,8 @@ class ProcessModule extends Process {
 		
 		if($this->input->post->download && $this->input->post->download_name) {
 			$this->session->CSRF->validate();
-			return $this->downloadConfirm($this->input->post->download_name);
+			$className = trim($this->input->post->download_name);
+			return $this->downloadConfirm($className);
 		} else if($this->input->get->download_name) {
 			return $this->downloadConfirm($this->input->get->download_name); 
 		}
