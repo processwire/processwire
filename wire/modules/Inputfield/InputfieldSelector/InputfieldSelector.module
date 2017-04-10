@@ -260,12 +260,13 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		if(!$this->wire('user')->isLoggedin()) return;
 
 		$this->set('initValue', $this->sessionGet('initValue')); 
-		$this->setup();
 		$sanitizer = $this->wire('sanitizer'); 
 		
 		foreach($this->sessionVarNames as $key) {
 			$this->set($key, $this->sessionGet($key));
 		}
+		
+		$this->setup();
 
 		if($action == 'field') { 
 			$out = $this->renderSelectField(); 
@@ -1273,8 +1274,16 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			
 			if($type != 'checkbox' && !isset($this->systemFields[$fieldName]) && !isset($this->modifierFields[$fieldName])) {
 				// allow for a "None" option to find pages that have no selections for the field
-				$selected = $selectedValue == '""' ? ' selected' : '';
-				$out .= "<option$selected value='\"\"'>" . $this->_('None') . "</option>";
+				$none = '0';
+				foreach($options as $value => $label) {
+					// if select is using "0" as a literal selectable value, don't consider it as "None"
+					if($value === 0 || $value === '0') {
+						$none = '""';
+						break;
+					}
+				}
+				$selected = $selectedValue == $none || $selectedValue == '""' ? ' selected' : '';
+				$out .= "<option$selected value='$none'>" . $this->_('None') . "</option>";
 			}
 		
 			// render each option
