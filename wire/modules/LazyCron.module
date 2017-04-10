@@ -85,7 +85,7 @@ class LazyCron extends WireData implements Module {
 				"is guaranteed to be at least the time requested, rather than exactly the " . 
 				"time requested. This is fine for most cases, but you can make it not lazy " . 
 				"by connecting this to a real CRON job. See the module file for details. ", 
-			'href' => 'http://processwire.com/talk/index.php/topic,284.0.html',
+			'href' => 'https://processwire.com/api/modules/lazy-cron/',
 			'permanent' => false, 
 			'singular' => true, 
 			'autoload' => true, 
