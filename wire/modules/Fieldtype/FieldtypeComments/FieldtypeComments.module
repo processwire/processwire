@@ -26,6 +26,11 @@ require_once($dirname . "/CommentForm.php");
  * ProcessWire Comments Fieldtype
  *
  * A field that stores user posted comments for a single Page. 
+ * 
+ * @method mixed updateComment(Page $page, $field, Comment $comment, array $properties)
+ * @method commentDeleted(Page $page, Field $field, Comment $comment, $notes = '') #pw-hooker
+ * @method commentApproved(Page $page, Field $field, Comment $comment, $notes = '') #pw-hooker
+ * @method commentUnapproved(Page $page, Field $field, Comment $comment, $notes = '') #pw-hooker
  *
  */
 class FieldtypeComments extends FieldtypeMulti {
@@ -104,11 +109,19 @@ class FieldtypeComments extends FieldtypeMulti {
 
 	/**
 	 * Update a query to match the text with a fulltext index
+	 * 
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param mixed $value
+	 * @return DatabaseQuerySelect
 	 *
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
 		if($subfield == 'text') $subfield = 'data';
 		if(empty($subfield) || $subfield === 'data') { 
+			/** @var DatabaseQuerySelectFulltext $ft */
 			$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
 			$ft->match($table, $subfield, $operator, $value);
 			return $query;
@@ -252,7 +265,8 @@ class FieldtypeComments extends FieldtypeMulti {
 			$this->commentUnapproved($page, $field, $comment); 
 		}
 
-		if($field->useAkismet && $comment->ip && $comment->user_agent && ($submitHam || $submitSpam)) {
+		if($field->get('useAkismet') && $comment->ip && $comment->user_agent && ($submitHam || $submitSpam)) {
+			/** @var CommentFilterAkismet $akismet */
 			$akismet = $this->modules->get("CommentFilterAkismet"); 
 			$akismet->setComment($comment); 
 			if($submitHam) $akismet->submitHam();
@@ -302,7 +316,8 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		$this->checkCommentCodes($comment);
 		
-		if($field->useAkismet) {
+		if($field->get('useAkismet')) {
+			/** @var CommentFilterAkismet $akismet */
 			$akismet = $this->modules->get('CommentFilterAkismet'); 
 			$akismet->setComment($comment); 
 			$akismet->checkSpam(); // automatically sets status if spam
@@ -371,11 +386,15 @@ class FieldtypeComments extends FieldtypeMulti {
 
 	/**
 	 * Schema for the Comments Fieldtype
+	 * 
+	 * @param Field $field
+	 * @return array
 	 *
 	 */
 	public function getDatabaseSchema(Field $field) {
 
-		$websiteSchema = "varchar(250) NOT NULL default ''"; 
+		$maxIndexLength = $this->wire('database')->getMaxIndexLength();
+		$websiteSchema = "varchar($maxIndexLength) NOT NULL default ''"; 
 		$parentSchema = "int unsigned NOT NULL default 0";
 		$flagSchema = "int unsigned NOT NULL default 0";
 		$codeSchema = "varchar(128) default NULL";
@@ -386,7 +405,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$downvoteSchema = "int unsigned NOT NULL default 0";
 		$starsSchema = "tinyint unsigned default NULL";
 		
-		$schemaVersion = (int) $field->schemaVersion;
+		$schemaVersion = (int) $field->get('schemaVersion');
 		$updateSchema = true;
 
 		if(!$schemaVersion) {
@@ -490,7 +509,7 @@ class FieldtypeComments extends FieldtypeMulti {
 					// column already exists
 					$schemaVersion = 6;
 				} else {
-					$updateSchema = false;
+					// $updateSchema = false;
 				}
 			}
  		}
@@ -506,13 +525,13 @@ class FieldtypeComments extends FieldtypeMulti {
 		$schema['id'] = "int unsigned NOT NULL auto_increment";
 		$schema['status'] = "tinyint(3) NOT NULL default '0'";
 		$schema['cite'] = "varchar(128) NOT NULL default ''"; 
-		$schema['email'] = "varchar(250) NOT NULL default ''";
+		$schema['email'] = "varchar(128) NOT NULL default ''";
 		$schema['data'] = "text NOT NULL"; 
 		$schema['sort'] = "int unsigned NOT NULL";
 		$schema['created'] = "int unsigned NOT NULL"; 	
 		$schema['created_users_id'] = "int unsigned NOT NULL";
 		$schema['ip'] = "varchar(15) NOT NULL default ''";
-		$schema['user_agent'] = "varchar(250) NOT NULL default ''";
+		$schema['user_agent'] = "varchar($maxIndexLength) NOT NULL default ''";
 
 		$schemaVersion = $field->schemaVersion;
 		if($schemaVersion > 0) $schema['website'] = $websiteSchema;
@@ -559,6 +578,7 @@ class FieldtypeComments extends FieldtypeMulti {
 
 		if(!$page->id || !$field->id) return false;
 
+		/** @var CommentArray $allItems */
 		$allItems = $page->get($field->name);
 		$database = $this->wire('database');
 		$table = $database->escapeTable($field->table);
@@ -566,6 +586,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		if(!$allItems) return false;
 		if(!$allItems->isChanged() && !$page->isChanged($field->name)) return true; 
 
+		/** @var CommentArray $itemsRemoved */
 		$itemsRemoved = $allItems->getItemsRemoved();
 		if(count($itemsRemoved)) {
 			foreach($itemsRemoved as $item) {
@@ -649,6 +670,9 @@ class FieldtypeComments extends FieldtypeMulti {
 
 	/**
 	 * Configuration that appears with each Comments fieldtype
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
 	 *
 	 */
 	public function ___getConfigInputfields(Field $field) {
@@ -937,6 +961,10 @@ class FieldtypeComments extends FieldtypeMulti {
 
 	/**
 	 * For FieldtypeMulti interface, return NULL to indicate that the field is not auto-joinable
+	 * 
+	 * @param Field $field
+	 * @param DatabaseQuerySelect $query
+	 * @return null
 	 *
 	 */
 	public function getLoadQueryAutojoin(Field $field, DatabaseQuerySelect $query) {
@@ -1200,6 +1228,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * @param Page $page
 	 * @param Field $field
 	 * @param Comment $comment
+	 * @param string $notes
 	 * @return mixed
 	 *
 	 */
@@ -1235,6 +1264,8 @@ class FieldtypeComments extends FieldtypeMulti {
 
 	/**
 	 * Hook called after comment has been deleted
+	 * 
+	 * #pw-hooker
 	 *
 	 * @param Page $page
 	 * @param Field $field
@@ -1247,6 +1278,8 @@ class FieldtypeComments extends FieldtypeMulti {
 
 	/**
 	 * Hook called when a comment goes from un-approved to approved
+	 * 
+	 * #pw-hooker
 	 * 
 	 * @param Page $page
 	 * @param Field $field
@@ -1297,6 +1330,8 @@ class FieldtypeComments extends FieldtypeMulti {
 
 	/**
 	 * Hook called when a comment goes from approved to pending or spam
+	 * 
+	 * #pw-hooker
 	 *
 	 * @param Page $page
 	 * @param Field $field
