@@ -137,8 +137,10 @@ var ProcessWireAdminTheme = {
 			},
 			select: function(event, ui) {
 				// follow the link if the Enter/Return key is tapped
-				event.preventDefault();
-				window.location = ui.item.edit_url;
+				if(typeof event.key != 'undefined') {
+					event.preventDefault();
+					window.location = ui.item.edit_url;
+				}
 			}
 		}).focus(function() {
 			$(this).siblings('label').find('i').hide(); // hide icon
