@@ -1523,7 +1523,8 @@ class Sanitizer extends Wire {
 		}
 
 		$value = trim($value); // trim any kind of whitespace
-		$value = trim($value, '+!,'); // chars to remove from begin and end 
+		$value = trim($value, '+,'); // chars to remove from begin and end 
+		if(strpos($value, '!') !== false) $needsQuotes = true; 
 		
 		if(!$needsQuotes && $options['useQuotes'] && strlen($value)) {
 			$a = substr($value, 0, 1); 
@@ -1726,6 +1727,7 @@ class Sanitizer extends Wire {
 	 * @param int|bool $flags See PHP html_entity_decode function for flags. 
 	 * @param string $encoding Encoding (default="UTF-8").
 	 * @return string String with entities removed.
+	 * @see Sanitizer::entities()
 	 *
 	 */
 	public function unentities($str, $flags = ENT_QUOTES, $encoding = 'UTF-8') {
@@ -1809,6 +1811,8 @@ class Sanitizer extends Wire {
 	 * 
 	 * Returns the same value type that it is given. If given something other than a string or array, it just
 	 * returns it without modification. 
+	 * 
+	 * #pw-group-strings
 	 * 
 	 * @param string|array $value String or array containing strings
 	 * @return string|array|mixed 
