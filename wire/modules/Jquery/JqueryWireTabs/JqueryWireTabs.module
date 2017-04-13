@@ -16,7 +16,7 @@ class JqueryWireTabs extends ModuleJS implements ConfigurableModule {
 		return array(
 			'title' => __('jQuery Wire Tabs Plugin', __FILE__),
 			'summary' => __('Provides a jQuery plugin for generating tabs in ProcessWire.', __FILE__),
-			'version' => 107,
+			'version' => 108,
 			'permanent' => true, 
 		);
 	}
@@ -33,6 +33,7 @@ class JqueryWireTabs extends ModuleJS implements ConfigurableModule {
 			'ulClass' => 'WireTabs nav',
 			'ulAttrs' => '',
 			'liActiveClass' => '',
+			'requestID' => ((string) $this->wire('process')) . ((int) $this->wire('input')->get('id')), 
 			'aActiveClass' => 'on',
 			'rememberTabs' => (int) $this->rememberTabs,
 			'loadStyles' => true, 

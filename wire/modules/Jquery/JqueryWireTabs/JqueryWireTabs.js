@@ -11,6 +11,7 @@
 
 		var options = {
 			rememberTabs: 0, // -1 = no, 0 = only after submit, 1 = always
+			requestID: '', 
 			cookieName: 'WireTabs',
 			items: null,
 			skipRememberTabIDs: [],
@@ -24,7 +25,7 @@
 
 		var totalTabs = 0; 
 		var cfg = ProcessWire.config.JqueryWireTabs;
-		var keys = [ 'rememberTabs', 'cookieName', 'liActiveClass', 'aActiveClass', 'ulClass', 'ulAttrs' ];
+		var keys = [ 'rememberTabs', 'requestID', 'cookieName', 'liActiveClass', 'aActiveClass', 'ulClass', 'ulAttrs' ];
 		
 		for(var n = 0; n < keys.length; n++) {
 			var key = keys[n];
@@ -186,11 +187,11 @@
 			}
 
 			function setTabCookie(value) {
-				document.cookie = options.cookieName + '=' + escape(value);
+				document.cookie = options.cookieName + '=' + options.requestID + '-' + escape(value);
 			}
 	
 			function getTabCookie() {
-				var regex = new RegExp('(?:^|;)\\s?' + options.cookieName + '=(.*?)(?:;|$)','i');
+				var regex = new RegExp('(?:^|;)\\s?' + options.cookieName + '=' + options.requestID + '-(.*?)(?:;|$)','i');
 				var match = document.cookie.match(regex);	
 				match = match ? match[1] : '';
 				return match;
