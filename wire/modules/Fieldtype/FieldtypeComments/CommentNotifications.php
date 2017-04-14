@@ -1,8 +1,17 @@
 <?php namespace ProcessWire;
 
 class CommentNotifications extends Wire {
-	
-	protected $page;	
+
+	/**
+	 * @var Page
+	 * 
+	 */
+	protected $page;
+
+	/**
+	 * @var Field
+	 * 
+	 */
 	protected $field;
 
 	/*
@@ -42,7 +51,7 @@ class CommentNotifications extends Wire {
 		$actionURL = $page->httpUrl . "?field=$field->name&page_id=$page->id&code=$comment->code&comment_success=";
 
 		// skip notification when spam
-		if($comment->status == Comment::statusSpam && !$field->notifySpam) return;
+		if($comment->status == Comment::statusSpam && !$field->notifySpam) return 0;
 
 		if($comment->status == Comment::statusPending) {
 			$status = $this->_("Pending Approval");
@@ -117,7 +126,8 @@ class CommentNotifications extends Wire {
 				$value = "$info[value] (<a href='$actionURL'>$actionLabel</a>)";
 				
 			} else if($key == 'page') { 
-				$value = "<a href='$info[value]'>$page->title</a> (<a href='$page->editUrl'>" . $this->_('Edit') . ")";
+				$editUrl = $page->editUrl(true);
+				$value = "<a href='$info[value]'>$page->title</a> (<a href='$editUrl'>" . $this->_('Edit') . ")";
 						
 			} else {
 				$value = $this->wire('sanitizer')->entities($info['value']);
@@ -240,6 +250,9 @@ class CommentNotifications extends Wire {
 		if(!$action) return $info;
 		$action = $this->wire('sanitizer')->pageName($action);
 		$status = null;
+		
+		/** @var FieldtypeComments $fieldtype */
+		$fieldtype = $this->field->type; 
 
 		switch($action) {
 			case 'approve': $status = Comment::statusApproved; break;
@@ -278,7 +291,7 @@ class CommentNotifications extends Wire {
 			return $info;
 			
 		} else if($action == 'upvote' || $action == 'downvote') {
-			$info = array_merge($info, $this->field->type->checkVoteAction($this->page)); 	
+			$info = array_merge($info, $fieldtype->checkVoteAction($this->page)); 	
 			return $info;
 		}
 
@@ -316,7 +329,7 @@ class CommentNotifications extends Wire {
 		
 		$info['valid'] = true; // all required vars are present
 		
-		$comment = $this->field->type->getCommentByCode($page, $field, $code);
+		$comment = $fieldtype->getCommentByCode($page, $field, $code);
 		if(!$comment) {
 			$info['message'] = "Invalid comment code or code has already been used";
 			return $info;
@@ -328,7 +341,7 @@ class CommentNotifications extends Wire {
 			'code' => null // remove code, since it is a 1-time use code
 		);
 
-		if($this->field->type->updateComment($page, $field, $comment, $properties)) {
+		if($fieldtype->updateComment($page, $field, $comment, $properties)) {
 			$info['message'] = "Updated comment $comment->id to '$action'";
 			$info['success'] = true; 
 			$this->wire('log')->message($info['message']);
@@ -408,8 +421,9 @@ class CommentNotifications extends Wire {
 	 * Send a user (not admin) notification email
 	 * 
 	 * @param Comment $comment
-	 * @param $email
-	 * @param $subcode
+	 * @param string $email
+	 * @param string $subcode
+	 * @return int
 	 * 
 	 */
 	public function ___sendNotificationEmail(Comment $comment, $email, $subcode) {
