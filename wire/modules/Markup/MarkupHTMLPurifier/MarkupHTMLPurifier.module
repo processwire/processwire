@@ -31,7 +31,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 		return array(
 			'title' => 'HTML Purifier', 
 			'summary' => 'Front-end to the HTML Purifier library.', 
-			'version' => 105, 
+			'version' => 492, 
 			'singular' => false, 
 			'autoload' => false, 
 			);
