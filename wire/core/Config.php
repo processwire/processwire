@@ -12,6 +12,10 @@
  * https://processwire.com
  * 
  * #pw-summary Holds ProcessWire configuration settings as defined in /wire/config.php and /site/config.php. 
+ * #pw-body =
+ * For more detailed descriptions of these $config properties, including default values, see the
+ * [/wire/config.php](https://github.com/processwire/processwire/blob/master/wire/config.php) file. 
+ * #pw-body
  *
  *
  * @see /wire/config.php for more detailed descriptions of all config properties. 
@@ -57,14 +61,14 @@
  * @property bool|callable $sessionAllow Are sessions allowed? Typically boolean true, unless provided a callable function that returns boolean. See /wire/config.php for an example.  #pw-group-session
  * @property int $sessionExpireSeconds How many seconds of inactivity before session expires? #pw-group-session
  * @property bool $sessionChallenge Should login sessions have a challenge key? (for extra security, recommended) #pw-group-session
- * @property bool $sessionFingerprint Should login sessions be tied to IP and user agent? May conflict with dynamic IPs. #pw-group-session
+ * @property bool $sessionFingerprint Should login sessions be tied to IP and user agent? 0 or false: Fingerprint off. 1 or true: Fingerprint on with default/recommended setting (currently 10). 2: Fingerprint only the remote IP. 4: Fingerprint only the forwarded/client IP (can be spoofed). 8: Fingerprint only the useragent. 10: Fingerprint the remote IP and useragent (default). 12: Fingerprint the forwarded/client IP and useragent. 14: Fingerprint the remote IP, forwarded/client IP and useragent (all). #pw-group-session
  * @property int $sessionHistory Number of session entries to keep (default=0, which means off). #pw-group-session
  * 
  * @property string $prependTemplateFile PHP file in /site/templates/ that will be loaded before each page's template file (default=none) #pw-group-template-files
  * @property string $appendTemplateFile PHP file in /site/templates/ that will be loaded after each page's template file (default=none) #pw-group-template-files
  * @property bool $templateCompile Allow use of compiled templates? #pw-group-template-files
  * 
- * @property string $uploadUnzipCommand Shell command to unzip archives, used by WireUpload class. @deprecated #pw-group-deprecated
+ * @property string $uploadUnzipCommand Shell command to unzip archives, used by WireUpload class. #pw-group-deprecated
  * @property string $uploadTmpDir Optionally override PHP's upload_tmp_dir with your own. Should include a trailing slash. #pw-group-files
  * @property string $uploadBadExtensions Space separated list of file extensions that are always disallowed from uploads. #pw-group-files
  * 
@@ -135,26 +139,26 @@
  * @property int $inputfieldColumnWidthSpacing Used by some admin themes to commmunicate to InputfieldWrapper at runtime. #pw-internal
  * @property bool $debugMarkupQA Set to true to make the MarkupQA class report verbose debugging messages (to superusers). #pw-internal
  * 
- * @property int $rootPageID ID of homepage (usually 1) #pw-group-system-IDs
- * @property int $adminRootPageID ID of admin root page #pw-group-system-IDs
- * @property int $trashPageID #pw-group-system-IDs
- * @property int $loginPageID #pw-group-system-IDs
- * @property int $http404PageID #pw-group-system-IDs
- * @property int $usersPageID #pw-group-system-IDs
+ * @property int $rootPageID Page ID of homepage (usually 1) #pw-group-system-IDs
+ * @property int $adminRootPageID Page ID of admin root page #pw-group-system-IDs
+ * @property int $trashPageID Page ID of the trash page. #pw-group-system-IDs
+ * @property int $loginPageID Page ID of the admin login page. #pw-group-system-IDs
+ * @property int $http404PageID Page ID of the 404 “page not found” page. #pw-group-system-IDs
+ * @property int $usersPageID Page ID of the page having users as children. #pw-group-system-IDs
  * @property array $usersPageIDs Populated if multiple possible users page IDs (parent for users pages) #pw-group-system-IDs
- * @property int $rolesPageID #pw-group-system-IDs
- * @property int $permissionsPageID #pw-group-system-IDs
- * @property int $guestUserPageID #pw-group-system-IDs
- * @property int $superUserPageID #pw-group-system-IDs
- * @property int $guestUserRolePageID #pw-group-system-IDs
- * @property int $superUserRolePageID #pw-group-system-IDs
- * @property int $userTemplateID #pw-group-system-IDs
+ * @property int $rolesPageID Page ID of the page having roles as children. #pw-group-system-IDs
+ * @property int $permissionsPageID Page ID of the page having permissions as children. #pw-group-system-IDs
+ * @property int $guestUserPageID Page ID of the guest (default/not-logged-in) user. #pw-group-system-IDs
+ * @property int $superUserPageID Page ID of the original superuser (created during installation). #pw-group-system-IDs
+ * @property int $guestUserRolePageID Page ID of the guest user role (inherited by all users, not just guest). #pw-group-system-IDs
+ * @property int $superUserRolePageID Page ID of the superuser role. #pw-group-system-IDs
+ * @property int $userTemplateID Template ID of the user template. #pw-group-system-IDs
  * @property array $userTemplateIDs Array of template IDs when multiple allowed for users.  #pw-group-system-IDs
- * @property int $roleTemplateID #pw-group-system-IDs
- * @property int $permissionTemplateID #pw-group-system-IDs
- * @property int $externalPageID ID of page assigned to $page API variable when externally bootstrapped #pw-group-system-IDs
- * @property array $preloadPageIDs IDs of pages that will be preloaded at beginning of request #pw-group-system-IDs
- * @property int $installed Timestamp of when this PW was installed, set automatically for compatibility detection. #pw-group-system
+ * @property int $roleTemplateID Template ID of the role template. #pw-group-system-IDs
+ * @property int $permissionTemplateID Template ID of the permission template. #pw-group-system-IDs
+ * @property int $externalPageID Page ID of page assigned to $page API variable when externally bootstrapped #pw-group-system-IDs
+ * @property array $preloadPageIDs Page IDs of pages that will always be preloaded at beginning of request #pw-group-system-IDs
+ * @property int $installed Timestamp of when this PW was installed, set automatically by the installer for future compatibility detection. #pw-group-system
  *
  */
 class Config extends WireData {

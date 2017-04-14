@@ -293,7 +293,7 @@ $config->sessionCookieSecure = 1;
  * Cookie domain for sessions
  * 
  * Enables a session to traverse multiple subdomains.
- * Specify a string with domain or NULL to disable (default/recommended). 
+ * Specify a string having “.domain.com” (with leading period) or NULL to disable (default/recommended). 
  * 
  * @var string|null
  *

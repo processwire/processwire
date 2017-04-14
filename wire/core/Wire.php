@@ -15,8 +15,11 @@
  * classes that are hooking into others. 
  * #pw-body
  * #pw-order-groups common,identification,hooks,notices,changes,hooker,api-helpers
+ * #pw-summary-api-helpers Shortcuts to ProcessWire API variables. Access without any arguments returns the API variable. Some support arguments as shortcuts to methods in the API variable.
+ * #pw-summary-changes Methods to support tracking and retrieval of changes made to the object.
+ * #pw-summary-hooks Methods for managing hooks for an object instance or class. 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-use-constants
@@ -76,7 +79,7 @@
  * @method WireFileTools files() Access the $files API variable as a function.  #pw-group-api-helpers
  * @method WireCache|string|array|PageArray|null cache($name = '', $expire = null, $func = null) Access the $cache API variable as a function.  #pw-group-api-helpers
  * @method Languages|Language|NullPage|null languages($name = '') Access the $languages API variable as a function.  #pw-group-api-helpers
- * @method WireInput|WireInputData array|string|int|null input($type = '', $key = '', $sanitizer = '') Access the $input API variable as a function.  #pw-group-api-helpers
+ * @method WireInput|WireInputData|array|string|int|null input($type = '', $key = '', $sanitizer = '') Access the $input API variable as a function.  #pw-group-api-helpers
  * @method WireInputData|string|int|array|null inputGet($key = '', $sanitizer = '') Access the $input->get() API variable as a function.  #pw-group-api-helpers
  * @method WireInputData|string|int|array|null inputPost($key = '', $sanitizer = '') Access the $input->post() API variable as a function.  #pw-group-api-helpers
  * @method WireInputData|string|int|array|null inputCookie($key = '', $sanitizer = '') Access the $input->cookie() API variable as a function.  #pw-group-api-helpers

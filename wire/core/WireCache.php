@@ -107,6 +107,8 @@ class WireCache extends Wire {
 	 * 
 	 * After a preloaded cache is returned from a get() call, it is removed from local storage. 
 	 * 
+	 * #pw-group-advanced
+	 * 
 	 * @param string|array $names
 	 * @param int|string|null $expire
 	 * 
@@ -118,6 +120,8 @@ class WireCache extends Wire {
 
 	/**
 	 * Preload all caches for the given object or namespace
+	 * 
+	 * #pw-group-advanced
 	 * 
 	 * @param object|string $ns
 	 * @param int|string|null $expire
@@ -134,18 +138,39 @@ class WireCache extends Wire {
 	 * 
 	 * Optionally specify expiration time and/or a cache generation function to use when cache needs to be created.
 	 * 
+	 * Cached value can be a string, an array of non-object values, or a PageArray. 
+	 * 
+	 * ~~~~~
+	 * // get single cache value 
+	 * $str = $cache->get('foo');
+	 * 
+	 * // get 3 cached values, returns associative array with foo, bar, baz indexes
+	 * $array = $cache->get([ 'foo', 'bar', 'baz' ]);
+	 * 
+	 * // get all cache values with names starting with “hello”
+	 * $array = $cache->get('hello*');
+	 * 
+	 * // get cache only if it’s less than or equal to 1 hour old (3600 seconds)
+	 * $str = $cache->get('foo', 3600);
+	 * 
+	 * // same as above, but also generates the cache value with function when expired
+	 * $str = $cache->get('foo', 3600, function() {
+	 *   return "This is the cached value";
+	 * });
+	 * ~~~~~
+	 * 
 	 * @param string|array $name Provide a single cache name, an array of cache names, or an asterisk cache name.
-	 * 	If given a single cache name (string) just the contents of that cache will be returned.
-	 * 	If given an array of names, multiple caches will be returned, indexed by cache name. 
-	 * 	If given a cache name with an asterisk in it, it will return an array of all matching caches. 
+	 * - If given a single cache name (string) just the contents of that cache will be returned.
+	 * - If given an array of names, multiple caches will be returned, indexed by cache name. 
+	 * - If given a cache name with an asterisk in it, it will return an array of all matching caches. 
 	 * @param int|string|null $expire Optionally specify max age (in seconds) OR oldest date string.
-	 * 	If cache exists and is older, then blank returned. You may omit this to divert to whatever expiration
-	 * 	was specified at save() time. Note: The $expire and $func arguments may optionally be reversed. 
-	 * 	If using a $func, the behavior of $expire becomes the same as that of save(). 
+	 * - If cache exists and is older, then blank returned. You may omit this to divert to whatever expiration
+	 *   was specified at save() time. Note: The $expire and $func arguments may optionally be reversed. 
+	 * - If using a $func, the behavior of $expire becomes the same as that of save(). 
 	 * @param callable $func Optionally provide a function/closure that generates the cache value and it 
-	 * 	will be used when needed.This option requires that only one cache is being retrieved (not an array of caches). 
+	 * 	will be used when needed. This option requires that only one cache is being retrieved (not an array of caches). 
 	 * 	Note: The $expire and $func arguments may optionally be reversed. 
-	 * @return string|array|PageArray|mixed|null Returns null if cache doesn't exist and no generation function provided. 
+	 * @return string|array|PageArray|mixed|null Returns null if cache doesn’t exist and no generation function provided. 
 	 * @throws WireException if given invalid arguments
 	 * 
 	 * 
@@ -320,11 +345,25 @@ class WireCache extends Wire {
 	/**
 	 * Same as get() but with namespace
 	 * 
+	 * Namespace is useful to avoid cache name collisions. The ProcessWire core commonly uses cache 
+	 * namespace to bind cache values to the object class, which often make a good namespace. 
+	 * 
+	 * Please see the `$cache->get()` method for usage of all arguments. 
+	 * 
+	 * ~~~~~
+	 * // specify namespace as a string
+	 * $value = $cache->getFor('my-namespace', 'my-cache-name');
+	 * 
+	 * // or specify namespace is an object instance
+	 * $value = $cache->get($this, 'my-cache-name'); 
+	 * ~~~~~
+	 * 
 	 * @param string|object $ns Namespace
-	 * @param string $name
-	 * @param null|int|string $expire
-	 * @param callable|null $func
-	 * @return string|array
+	 * @param string $name Cache name
+	 * @param null|int|string $expire Optional expiration
+	 * @param callable|null $func Optional cache generation function
+	 * @return string|array|PageArray|mixed|null Returns null if cache doesn’t exist and no generation function provided. 
+	 * @see WireCache::get()
 	 * 
 	 */
 	public function getFor($ns, $name, $expire = null, $func = null) {
@@ -335,17 +374,27 @@ class WireCache extends Wire {
 	/**
 	 * Save data to cache with given name
 	 * 
+	 * ~~~~~
+	 * $value = "This is the value that will be cached.";
+	 * 
+	 * // cache the value, using default expiration (daily)
+	 * $cache->save("my-cache-name", $value); 
+	 * 
+	 * // cache the value, and expire after 1 hour (3600 seconds)
+	 * $cache->save("my-cache-name", $value, 3600); 
+	 * ~~~~~
+	 * 
 	 * @param string $name Name of cache, can be any string up to 255 chars
-	 * @param string|array|PageArray $data Data that you want to cache 
+	 * @param string|array|PageArray $data Data that you want to cache. May be string, array of non-object values, or PageArray.
 	 * @param int|Page $expire Lifetime of this cache, in seconds, OR one of the following:
 	 *  - Specify one of the `WireCache::expire*` constants. 
-	 *  - Specify the future date you want it to expire (as unix timestamp or any strtotime compatible date format)  
-	 *  - Provide a Page object to expire when any page using that template is saved.  
+	 *  - Specify the future date you want it to expire (as unix timestamp or any `strtotime()` compatible date format)  
+	 *  - Provide a `Page` object to expire when any page using that template is saved.  
 	 *  - Specify `WireCache::expireNever` to prevent expiration.  
 	 *  - Specify `WireCache::expireSave` to expire when any page or template is saved.   
-	 *  - Specify selector string matching pages that, when saved, expire the cache.   
+	 *  - Specify selector string matching pages that–when saved–expire the cache.   
 	 * @return bool Returns true if cache was successful, false if not
-	 * @throws WireException if given uncachable data
+	 * @throws WireException if given data that cannot be cached
 	 * 
 	 */
 	public function save($name, $data, $expire = self::expireDaily) {
@@ -403,13 +452,24 @@ class WireCache extends Wire {
 	/**
 	 * Same as save() except with namespace
 	 * 
+	 * Namespace is useful to avoid cache name collisions. The ProcessWire core commonly uses cache
+	 * namespace to bind cache values to the object class, which often make a good namespace.
+	 * 
+	 * ~~~~~
+	 * // save cache using manually specified namespace
+	 * $cache->save("my-namespace", "my-cache-name", $value);
+	 * 
+	 * // save cache using namespace of current object
+	 * $cache->save($this, "my-cache-name", $value); 
+	 * ~~~~~
+	 *
 	 * @param string|object $ns Namespace for cache
 	 * @param string $name Name of cache, can be any string up to 255 chars
 	 * @param string|array|PageArray $data Data that you want to cache
 	 * @param int|Page $expire Lifetime of this cache, in seconds, OR one of the following:
 	 *  - Specify one of the `WireCache::expire*` constants.
 	 *  - Specify the future date you want it to expire (as unix timestamp or any strtotime compatible date format)
-	 *  - Provide a Page object to expire when any page using that template is saved.
+	 *  - Provide a `Page` object to expire when any page using that template is saved.
 	 *  - Specify `WireCache::expireNever` to prevent expiration.
 	 *  - Specify `WireCache::expireSave` to expire when any page or template is saved.
 	 *  - Specify selector string matching pages that, when saved, expire the cache.
@@ -422,7 +482,7 @@ class WireCache extends Wire {
 	}
 
 	/**
-	 * Given a $expire seconds, date, page, or template convert it to an ISO-8601 date
+	 * Given an expiration seconds, date, page, or template, convert it to an ISO-8601 date
 	 * 
 	 * Returns an array of expires info requires multiple parts, like with self::expireSelector.
 	 * In this case it returns array with array('expires' => date, 'selector' => selector);
@@ -498,7 +558,15 @@ class WireCache extends Wire {
 	}
 
 	/**
-	 * Delete/clear the cache(s) identified by $name
+	 * Delete/clear the cache(s) identified by given name or wildcard
+	 * 
+	 * ~~~~~
+	 * // Delete cache named "my-cache-name"
+	 * $cache->delete("my-cache-name");
+	 * 
+	 * // Delete all caches starting with "my-"
+	 * $cache->delete("my-*");
+	 * ~~~~~
 	 * 
 	 * @param string $name Name of cache, or partial name with wildcard (i.e. "MyCache*") to clear multiple caches. 
 	 * @return bool True on success, false on failure
@@ -527,10 +595,18 @@ class WireCache extends Wire {
 	}
 
 	/**
-	 * Delete the cache identified by $name within given namespace ($ns)
+	 * Delete one or more caches in a given namespace
+	 * 
+	 * ~~~~~
+	 * // Delete all in namespace
+	 * $cache->deleteFor("my-namespace"); 
+	 * 
+	 * // Delete one cache in namespace
+	 * $cache->deleteFor("my-namespace", "my-cache-name"); 
+	 * ~~~~~
 	 *
-	 * @param string $ns Namespace of cache
-	 * @param string $name If none specified, all for $ns are deleted
+	 * @param string $ns Namespace of cache.
+	 * @param string $name Name of cache. If none specified, all for namespace are deleted.
 	 * @return bool True on success, false on failure
 	 *
 	 */
@@ -544,6 +620,9 @@ class WireCache extends Wire {
 	 * Cache maintenance removes expired caches
 	 * 
 	 * Should be called as part of a regular maintenance routine and after page/template save/deletion.
+	 * ProcessWire already calls this automatically, so you don’t typically need to call this method on your own. 
+	 * 
+	 * #pw-group-advanced
 	 * 
 	 * @param Template|Page|null|bool Item to run maintenance for or, if not specified, general maintenance is performed.
 	 * 	General maintenance only runs once per request. Specify boolean true to force general maintenance to run.
@@ -796,6 +875,8 @@ class WireCache extends Wire {
 	/**
 	 * Get information about all the caches in this WireCache
 	 * 
+	 * #pw-group-advanced
+	 * 
 	 * @param bool $verbose Whether to be more verbose for human readability
 	 * @param string $name Optionally specify name of cache to get info. If omitted, all caches are included.
 	 * @return array of arrays of cache info
@@ -874,6 +955,8 @@ class WireCache extends Wire {
 
 	/**
 	 * Save to the cache log
+	 * 
+	 * #pw-internal
 	 *
 	 * @param string $str Message to log
 	 * @param array $options
