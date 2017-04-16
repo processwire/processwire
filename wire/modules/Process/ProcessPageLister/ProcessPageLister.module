@@ -584,7 +584,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	public function buildColumnsField() {
 
-		$fields = $this->template ? $this->template->fieldgroup : $this->wire('fields'); 
+		$fields = $this->wire('fields');
 		$options = $this->getSystemColumns();
 
 		/** @var InputfieldAsmSelect $f */
@@ -668,7 +668,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function allowColumnField(Field $field) {
-		
+	
 		if(in_array($field->name, $this->disallowColumns)) return false;
 		if(count($this->limitFields) && !in_array($field->name, $this->limitFields)) {
 			if(!in_array($field->name, $this->columns)) return false;
@@ -1062,6 +1062,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$subname = '';
 			if(strpos($name, '.')) list($name, $subname) = explode('.', $name);
 			$field = $this->template ? $this->template->fieldgroup->getField($name, true) : $this->fields->get($name);
+			if(!$field && $this->template) $field = $this->fields->get($name);
+			
 			$label = $field ? $field->getLabel() : '';
 			if(!$label) $label = isset($systemLabels[$name]) ? $systemLabels[$name] : $name;
 			$icon = $field ? $field->getIcon(true) : '';
