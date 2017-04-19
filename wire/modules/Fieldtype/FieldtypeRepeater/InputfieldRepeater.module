@@ -346,14 +346,16 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				$depth->label = $this->_('Depth');
 				$depthValue = $page->getDepth();
 				$depth->attr('value', $depthValue);
+				$depth->set('renderValueAsInput', true);
 			} else {
 				$depth = null;
 			}
 
 			$loaded = $this->wire('modules')->get('InputfieldHidden');
 			$loaded->attr('id+name', "loaded_repeater{$page->id}");
-			$loaded->class = 'InputfieldRepeaterLoaded';
 			$loaded->attr('value', $isLoaded ? 1 : 0); 
+			$loaded->set('renderValueAsInput', true);
+			$loaded->class = 'InputfieldRepeaterLoaded';
 
 			$wrap = $this->wire('modules')->get('InputfieldFieldset'); 
 			$wrap->addClass('InputfieldRepeaterItem InputfieldNoFocus');
@@ -653,13 +655,14 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$repeaterAdd = $input->get('repeater_add');
 			$repeaterEdit = (int) $input->get('repeater_edit');
 			$repeaterClone = (int) $input->get('repeater_clone');
+			if($input->get('inrvm')) $this->renderValueMode = true; 
 			if($repeaterClone) {
 				return $this->renderValueMode ? '' : $this->renderAjaxNewItem($repeaterClone);
 			} else if($repeaterAdd !== null && !$noAjaxAdd) {
 				return $this->renderValueMode ? '' : $this->renderAjaxNewItem();
 			} else if($repeaterEdit) {
 				if($this->renderValueMode) {
-					return $this->buildForm($repeaterEdit)->renderValue();
+					return $this->buildForm($repeaterEdit)->renderValue(); 
 				} else {
 					return $this->buildForm($repeaterEdit)->render();
 				}
