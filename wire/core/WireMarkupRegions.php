@@ -201,12 +201,13 @@ class WireMarkupRegions extends Wire {
 		
 		if($options['leftover']) $regions["leftover"] = trim($markup);
 		
-		if(self::debug) {
+		if(self::debug && $options['verbose']) {
 			$debugNote = "$options[debugNote] in [sm]" . $this->debugNoteStr($_markup, 50) . " …[/sm] => ";
 			$numRegions = 0;
 			foreach($regions as $key => $region) {
 				if($key == 'leftover') continue;
-				$debugNote .= "$region[name]#$region[pwid], ";
+				$details = empty($region['details']) ? '' : " ($region[details]) ";
+				$debugNote .= "$region[name]#$region[pwid]$details, ";
 				$numRegions++;
 			}
 			if(!$numRegions) $debugNote .= 'NONE';
@@ -444,6 +445,7 @@ class WireMarkupRegions extends Wire {
 			'action' => $tagInfo['action'],
 			'actionType' => $tagInfo['actionType'], 
 			'actionTarget' => $tagInfo['actionTarget'],
+			'error' => false, 
 			'details' => '',
 			'region' => '', // region without wrapping tags
 			'html' => '', // region with wrapping tags
@@ -469,6 +471,7 @@ class WireMarkupRegions extends Wire {
 			// multiple close tags present, must figure out which is the right one
 			$testStart = 0;
 			$doCnt = 0;
+			$maxDoCnt = 100000;
 			$openTag1 = "<$tagInfo[name]>";
 			$openTag2 = "<$tagInfo[name] ";
 			do {
@@ -485,9 +488,18 @@ class WireMarkupRegions extends Wire {
 					// tags within don't balance, so try again
 					$testStart = $testPos + strlen($tagInfo['close']);
 				}
-			} while($doCnt < 200 && $testStart < strlen($region));
-
-			if($verbose) $verboseRegion['details'] = "Matched region after testing $doCnt <$tagInfo[name]> tag(s)";
+			} while($doCnt < $maxDoCnt && $testStart < strlen($region));
+			
+			if($doCnt >= $maxDoCnt) {
+				if($verbose) {
+					$verboseRegion['error'] = true;
+					$verboseRegion['details'] = "Failed region match after $doCnt tests for <$tagInfo[name]> tag(s)";
+				} else {
+					$region = 'error';
+				}
+			} else if($verbose) {
+				$verboseRegion['details'] = "Matched region after testing $doCnt <$tagInfo[name]> tag(s)";
+			}
 		}
 	
 		// region with wrapping tag
