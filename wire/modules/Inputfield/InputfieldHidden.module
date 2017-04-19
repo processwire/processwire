@@ -2,6 +2,8 @@
 
 /**
  * An Inputfield for handling XHTML "hidden" form inputs
+ * 
+ * @property bool $renderValueAsInput Render the hidden input, even when in renderValue mode (default=false)
  *
  */
 class InputfieldHidden extends Inputfield {
@@ -18,11 +20,20 @@ class InputfieldHidden extends Inputfield {
 	public function __construct() {
 		parent::__construct();
 		$this->setAttribute('type', 'hidden'); 
+		$this->set('renderValueAsInput', false);
 		$this->initValue = '';
 	}
 
 	public function ___render() {
 		return "<input " . $this->getAttributesString() . " />"; 
+	}
+	
+	public function ___renderValue() {
+		if($this->renderValueAsInput) {
+			return $this->render();
+		} else {
+			return parent::___renderValue();
+		}
 	}
 
 	public function getAttributes() {
