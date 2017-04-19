@@ -440,7 +440,7 @@ class CommentForm extends Wire implements CommentFormInterface {
 				"\n\t<p class='$starsClass {$id}_stars' data-note='$starsNote'>" .
 				"\n\t\t<label>" .
 				"\n\t\t\t<span>$labels[stars]</span>" .
-				"\n\t\t\t<input type='number' name='stars' id='{$id}_stars' value='$inputValues[stars]' min='0' max='5' />" .
+				"\n\t\t\t<input type='number' name='stars' value='$inputValues[stars]' min='0' max='5' />" .
 				"\n\t\t\t" . $commentStars->render(0, true) .
 				"\n\t\t</label>" .
 				"\n\t</p>";

@@ -80,7 +80,7 @@ function CommentFormStars($) {
 		var value = parseInt($(this).attr('data-value'));
 		var $parent = $(this).parent();
 		var $input = $parent.prev('input');
-		$input.val(value);
+		$input.val(value).attr('value', value); // redundancy intended, val() not working on webkit mobile for some reason
 		setStars($parent, value);
 		$input.change();
 		return false;
