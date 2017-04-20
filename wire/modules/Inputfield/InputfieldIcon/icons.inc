@@ -1,4 +1,8 @@
 fa-500px
+fa-address-book
+fa-address-book-o
+fa-address-card
+fa-address-card-o
 fa-adjust
 fa-adn
 fa-align-center
@@ -45,9 +49,11 @@ fa-audio-description
 fa-backward
 fa-balance-scale
 fa-ban
+fa-bandcamp
 fa-bar-chart
 fa-barcode
 fa-bars
+fa-bath
 fa-battery-empty
 fa-battery-full
 fa-battery-half
@@ -184,15 +190,19 @@ fa-dribbble
 fa-dropbox
 fa-drupal
 fa-edge
+fa-eercast
 fa-eject
 fa-ellipsis-h
 fa-ellipsis-v
 fa-empire
 fa-envelope
 fa-envelope-o
+fa-envelope-open
+fa-envelope-open-o
 fa-envelope-square
 fa-envira
 fa-eraser
+fa-etsy
 fa-eur
 fa-exchange
 fa-exclamation
@@ -250,6 +260,7 @@ fa-fort-awesome
 fa-forumbee
 fa-forward
 fa-foursquare
+fa-free-code-camp
 fa-frown-o
 fa-futbol-o
 fa-gamepad
@@ -277,6 +288,7 @@ fa-google-plus-square
 fa-google-wallet
 fa-graduation-cap
 fa-gratipay
+fa-grav
 fa-h-square
 fa-hacker-news
 fa-hand-lizard-o
@@ -290,6 +302,7 @@ fa-hand-pointer-o
 fa-hand-rock-o
 fa-hand-scissors-o
 fa-hand-spock-o
+fa-handshake-o
 fa-hashtag
 fa-hdd-o
 fa-header
@@ -308,7 +321,11 @@ fa-hourglass-start
 fa-houzz
 fa-html5
 fa-i-cursor
+fa-id-badge
+fa-id-card
+fa-id-card-o
 fa-ils
+fa-imdb
 fa-inbox
 fa-indent
 fa-industry
@@ -340,6 +357,7 @@ fa-line-chart
 fa-link
 fa-linkedin
 fa-linkedin-square
+fa-linode
 fa-linux
 fa-list
 fa-list-alt
@@ -369,8 +387,10 @@ fa-maxcdn
 fa-meanpath
 fa-medium
 fa-medkit
+fa-meetup
 fa-meh-o
 fa-mercury
+fa-microchip
 fa-microphone
 fa-microphone-slash
 fa-minus
@@ -430,6 +450,7 @@ fa-plus
 fa-plus-circle
 fa-plus-square
 fa-plus-square-o
+fa-podcast
 fa-power-off
 fa-print
 fa-product-hunt
@@ -439,9 +460,11 @@ fa-qrcode
 fa-question
 fa-question-circle
 fa-question-circle-o
+fa-quora
 fa-quote-left
 fa-quote-right
 fa-random
+fa-ravelry
 fa-rebel
 fa-recycle
 fa-reddit
@@ -478,6 +501,7 @@ fa-shirtsinbulk
 fa-shopping-bag
 fa-shopping-basket
 fa-shopping-cart
+fa-shower
 fa-sign-in
 fa-sign-language
 fa-sign-out
@@ -493,6 +517,7 @@ fa-smile-o
 fa-snapchat
 fa-snapchat-ghost
 fa-snapchat-square
+fa-snowflake-o
 fa-sort
 fa-sort-alpha-asc
 fa-sort-alpha-desc
@@ -533,6 +558,7 @@ fa-subscript
 fa-subway
 fa-suitcase
 fa-sun-o
+fa-superpowers
 fa-superscript
 fa-table
 fa-tablet
@@ -541,6 +567,7 @@ fa-tag
 fa-tags
 fa-tasks
 fa-taxi
+fa-telegram
 fa-television
 fa-tencent-weibo
 fa-terminal
@@ -550,6 +577,11 @@ fa-th
 fa-th-large
 fa-th-list
 fa-themeisle
+fa-thermometer-empty
+fa-thermometer-full
+fa-thermometer-half
+fa-thermometer-quarter
+fa-thermometer-three-quarters
 fa-thumb-tack
 fa-thumbs-down
 fa-thumbs-o-down
@@ -591,7 +623,10 @@ fa-upload
 fa-usb
 fa-usd
 fa-user
+fa-user-circle
+fa-user-circle-o
 fa-user-md
+fa-user-o
 fa-user-plus
 fa-user-secret
 fa-user-times
@@ -618,9 +653,15 @@ fa-wheelchair
 fa-wheelchair-alt
 fa-wifi
 fa-wikipedia-w
+fa-window-close
+fa-window-close-o
+fa-window-maximize
+fa-window-minimize
+fa-window-restore
 fa-windows
 fa-wordpress
 fa-wpbeginner
+fa-wpexplorer
 fa-wpforms
 fa-wrench
 fa-xing

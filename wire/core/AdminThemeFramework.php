@@ -573,8 +573,8 @@ abstract class AdminThemeFramework extends AdminTheme {
 	/**
 	 * Render runtime notices div#notices
 	 *
-	 * @param array $options See defaults in method
 	 * @param Notices $notices
+	 * @param array $options See defaults in method
 	 * @return string
 	 *
 	 */
