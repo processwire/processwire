@@ -1447,15 +1447,17 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function ___processSaveRedirect($redirectUrl) {
+		$admin = true;
 		if($redirectUrl) {
-			$redirectUrl .= (strpos($redirectUrl, '?') === false ? '?' : '&') . 's=1';
+			$admin = strpos($redirectUrl, $this->wire('config')->urls->admin) === 0; 
+			if($admin) $redirectUrl .= (strpos($redirectUrl, '?') === false ? '?' : '&') . 's=1';
 		} else {
 			$redirectUrl = "./?id={$this->page->id}&s=1";
 		}
-		$redirectUrl .= "&c=" . count($this->changes);
-		$modal = $this->wire('config')->modal;
+		if($admin) $redirectUrl .= "&c=" . count($this->changes);
+		$modal = $admin && $this->wire('config')->modal;
 		if($modal) $redirectUrl .= "&modal=$modal";
-		if(count($this->fields)) {
+		if(count($this->fields) && $admin) {
 			if(count($this->fields) == 1) {
 				$redirectUrl .= "&field={$this->field->name}";
 			} else {

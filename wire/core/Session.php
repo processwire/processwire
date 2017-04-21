@@ -343,27 +343,67 @@ class Session extends Wire implements \IteratorAggregate {
 
 	/**
 	 * Generate a session fingerprint
+	 *
+	 * If the `$mode` argument is omitted, the mode is pulled from `$config->sessionFingerprint`. If using the
+	 * mode argument, specify one of the following: 
 	 * 
+	 *  - 0 or false: Fingerprint nothing.
+	 *  - 1 or true: Fingerprint on with default/recommended setting (currently 10).
+	 *  - 2: Fingerprint only the remote IP.
+	 *  - 4: Fingerprint only the forwarded/client IP (can be spoofed).
+	 *  - 8: Fingerprint only the useragent.
+	 *  - 10: Fingerprint the remote IP and useragent (default).
+	 *  - 12: Fingerprint the forwarded/client IP and useragent.
+	 *  - 14: Fingerprint the remote IP, forwarded/client IP and useragent (all).
+	 * 
+	 * If using fingerprint in an environment where the user’s IP address may change during the session, you should
+	 * fingerprint only the useragent, or disable fingerprinting.
+	 * 
+	 * If using fingerprint with an AWS load balancer, you should use one of the options that uses the “client IP” 
+	 * rather than the “remote IP”, fingerprint only the useragent, or disable fingerprinting. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param int|bool|null $mode Optionally specify fingerprint mode (default=$config->sessionFingerprint)
+	 * @param bool $debug Return non-hashed fingerprint for debugging purposes? (default=false)
 	 * @return bool|string Returns false if fingerprints not enabled. Returns string if enabled.
 	 * 
 	 */
-	protected function getFingerprint() {
+	public function getFingerprint($mode = null, $debug = false) {
+	
+		$debugInfo = array();
+		$useFingerprint = $mode === null ? $this->config->sessionFingerprint : $mode;
 		
-		$useFingerprint = $this->config->sessionFingerprint;
 		if(!$useFingerprint) return false;
 
 		if(is_bool($useFingerprint) || $useFingerprint == 1) {
 			// default (boolean true)
 			$useFingerprint = self::fingerprintRemoteAddr | self::fingerprintUseragent;
+			if($debug) $debugInfo[] = 'default';
 		}
 
 		$fingerprint = '';
-		if($useFingerprint & self::fingerprintRemoteAddr) $fingerprint .= $this->getIP(true);
-		if($useFingerprint & self::fingerprintClientAddr) $fingerprint .= $this->getIP(false, 2);
+		
+		if($useFingerprint & self::fingerprintRemoteAddr) {
+			$fingerprint .= $this->getIP(true);
+			if($debug) $debugInfo[] = 'remote-addr';
+		}
+		
+		if($useFingerprint & self::fingerprintClientAddr) {
+			$fingerprint .= $this->getIP(false, 2);
+			if($debug) $debugInfo[] = 'client-addr';
+		}
+		
 		if($useFingerprint & self::fingerprintUseragent) {
 			$fingerprint .= isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
+			if($debug) $debugInfo[] = 'useragent';
 		}
-		$fingerprint = md5($fingerprint);
+		
+		if($debug) {
+			$fingerprint = implode(',', $debugInfo) . ': ' . $fingerprint;
+		} else {
+			$fingerprint = md5($fingerprint);
+		}
 		
 		return $fingerprint;
 	}

@@ -268,6 +268,15 @@ $config->sessionChallenge = true;
  * 	12: Fingerprint the forwarded/client IP and useragent
  * 	14: Fingerprint the remote IP, forwarded/client IP and useragent (all). 
  * 
+ * If using fingerprint in an environment where the user’s 
+ * IP address may change during the session, you should
+ * fingerprint only the useragent, or disable fingerprinting.
+ *
+ * If using fingerprint with an AWS load balancer, you should 
+ * use one of the options that uses the “client IP” rather than 
+ * the “remote IP”, fingerprint only the useragent, or disable 
+ * fingerprinting.
+ * 
  * @var int
  *
  */
