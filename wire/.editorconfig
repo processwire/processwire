@@ -1,0 +1,31 @@
+; This file is for unifying the coding style for different editors and IDEs.
+; More information at http://editorconfig.org
+
+
+root = true
+
+
+[*]
+charset = utf-8
+end_of_line = lf
+
+
+[*.{php,inc,module}]
+tab_width = 4
+indent_style = tab
+trim_trailing_whitespace = false
+insert_final_newline = true
+
+
+[*.js]
+tab_width = 4
+indent_style = tab
+trim_trailing_whitespace = true
+insert_final_newline = true
+
+
+[*.{css,less,scss}]
+tab_width = 2
+indent_style = tab
+trim_trailing_whitespace = true
+insert_final_newline = true
