@@ -223,6 +223,7 @@ function InputfieldRepeater($) {
 		var $inputfields = $loaded.closest('.Inputfields');
 		
 		if($repeater.hasClass('InputfieldRenderValueMode')) ajaxURL += '&inrvm=1';
+		if($repeater.hasClass('InputfieldNoDraft')) ajaxURL += '&nodraft=1';	
 
 		$spinner.removeClass('fa-arrows').addClass('fa-spin fa-spinner');
 		repeaterID = repeaterID.replace(/_repeater\d+$/, '');

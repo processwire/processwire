@@ -109,7 +109,7 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();
-		if($this->hasFieldtype != 'FieldtypePage') return $inputfields;
+		if($this->hasFieldtype != 'FieldtypePage' || !$this->hasField) return $inputfields;
 		$f = $this->wire('modules')->get('InputfieldRadios');
 		$f->attr('name', 'usePageEdit');
 		$f->label = $this->_('Link selected pages to page editor?');

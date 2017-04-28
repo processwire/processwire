@@ -553,7 +553,20 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$readyPage->save();
 		}
 		$readyPage->setQuietly('_repeater_new', 1);
+		$this->readyPageSaved($readyPage, $page, $field); 
 		return $readyPage;
+	}
+
+	/**
+	 * Hook called when a ready page is saved
+	 * 
+	 * @param Page $readyPage
+	 * @param Page $ownerPage
+	 * @param Field $field
+	 * 
+	 */
+	protected function ___readyPageSaved(Page $readyPage, Page $ownerPage, Field $field) {
+		// for hooks only
 	}
 
 	/**
