@@ -49,7 +49,7 @@ var InputfieldSelector = {
 			var $t = $(this); 
 			clearTimeout(timeout); 
 			if($t.hasClass("input-value-subselect") && InputfieldSelector.valueHasOperator($t.val())) {
-				var $preview = $t.parents('.selector-list').siblings('.selector-preview'); 
+				var $preview = $t.closest('.InputfieldContent').find('.selector-preview'); 
 				$preview.html('Subselect detected: when done <a href="#" onclick="return false">click here to commit your change</a>.'); 
 				return;
 			}
@@ -566,13 +566,13 @@ var InputfieldSelector = {
 				if(si === null || typeof si == "undefined" || typeof si.value == "undefined") continue; 
 				if(si.field == '_custom' && si.isOrGroup) {
 					s.isOrGroup = true;
-				} else if(si.mayOrField && si.value == s.value) {
+				} else if(si.mayOrField && si.value == s.value && si.operator == s.operator) {
 					si.checkbox.show();
 					if(si.useOrField) {
 						s.field += '|' + si.field; 
 						selectors[i] = null;
 					}
-				} else if(si.mayOrValue && si.field == s.field) {
+				} else if(si.mayOrValue && si.field == s.field && si.operator == s.operator) {
 					si.checkbox.show();
 					if(si.useOrValue) { 
 						s.value += '|' + si.value; 
@@ -600,7 +600,7 @@ var InputfieldSelector = {
 			}
 		}
 
-		var $preview = $item.parents('.selector-list').siblings('.selector-preview'); 
+		var $preview = $item.closest('.InputfieldContent').find('.selector-preview'); 
 		var initValue = $preview.attr('data-init-value'); 
 		if(initValue && initValue.length) initValue += ', ';
 
