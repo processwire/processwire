@@ -136,17 +136,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			|| $this->wire('input')->get('reloadInputfieldAjax')
 			|| $this->wire('input')->get('renderInputfieldAjax');
 
-		// get the max filesize
-		$filesize = trim(ini_get('post_max_size'));
-		$last = strtolower(substr($filesize, -1));
-		if(ctype_alpha($last)) $filesize = rtrim($filesize, $last);
-		$filesize = (int) $filesize;
-		if($last == 'g') $this->maxFilesize = (($filesize*1024)*1024)*1024;
-			else if($last == 'm') $this->maxFilesize = ($filesize*1024)*1024;
-			else if($last == 'k') $this->maxFilesize = $filesize*1024;
-			else if((int) $filesize > 0) $this->maxFilesize = (int) $filesize;
-			else $this->maxFilesize = (5*1024)*1024; 
-
+		$this->setMaxFilesize(trim(ini_get('post_max_size'))); 
 		$this->uploadOnlyMode = (int) $this->wire('input')->get('uploadOnlyMode');
 		$this->addClass('InputfieldItemList', 'wrapClass');
 		$this->addClass('InputfieldHasFileList', 'wrapClass');
@@ -165,6 +155,41 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		if($key == 'tagsFieldLabel') return $this->labels['tags'];
 		if($key == 'deleteLabel') return $this->labels['delete'];
 		return parent::get($key);
+	}
+	
+	public function set($key, $value) {
+		if($key == 'maxFilesize') return $this->setMaxFilesize($value);
+		return parent::set($key, $value); 
+	}
+
+	/**
+	 * Set the max file size in bytes or use string like "30m", "2g" "500k"
+	 * 
+	 * @param int|string $filesize
+	 * @return $this
+	 * 
+	 */
+	public function setMaxFilesize($filesize) {
+		if(ctype_digit("$filesize")) {
+			$this->maxFilesize = (int) $filesize;
+		} else {
+			$filesize = rtrim($filesize, 'bB'); // convert mb=>m, gb=>g, kb=>k
+			$last = strtolower(substr($filesize, -1));
+			if(ctype_alpha($last)) $filesize = rtrim($filesize, $last);
+			$filesize = (int) $filesize;
+			if($last == 'g') {
+				$this->maxFilesize = (($filesize * 1024) * 1024) * 1024;
+			} else if($last == 'm') {
+				$this->maxFilesize = ($filesize * 1024) * 1024;
+			} else if($last == 'k') {
+				$this->maxFilesize = $filesize * 1024;
+			} else if($filesize > 0) {
+				$this->maxFilesize = $filesize;
+			} else {
+				$this->maxFilesize = (5 * 1024) * 1024;
+			}
+		}
+		return $this;
 	}
 
 	/**

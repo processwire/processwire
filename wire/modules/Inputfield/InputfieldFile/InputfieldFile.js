@@ -112,10 +112,10 @@ $(document).ready(function() {
 		$("body").addClass("ie-no-drop"); // ??
 
 		$(document).on('change', '.InputfieldFileUpload input[type=file]', function() {
-			
+		
 			var $t = $(this);
-			var $mask = $t.parent(".InputMask");
-
+			var $mask = $t.closest(".InputMask");
+			
 			if($t.val().length > 1) {
 				$mask.addClass("ui-state-disabled");
 			} else {
@@ -130,18 +130,22 @@ $(document).ready(function() {
 			var maxFiles = parseInt($upload.find('.InputfieldFileMaxFiles').val());
 			var numFiles = $list.children('li').length + $upload.find('input[type=file]').length + 1;
 			
-			if(maxFiles > 0 && numFiles >= maxFiles) return;
+			if(maxFiles > 0 && numFiles >= maxFiles) {
+				// no more files allowed
+			} else {
+				$upload.find(".InputMask").not(":last").each(function() {
+					var $m = $(this);
+					if($m.find("input[type=file]").val() < 1) $m.remove();
+				});
 
-			$upload.find(".InputMask").not(":last").each(function() {
-				var $m = $(this);
-				if($m.find("input[type=file]").val() < 1) $m.remove();
-			});
-		
-			// add another input
-			var $i = $mask.clone().removeClass("ui-state-disabled");
-			$i.children("input[type=file]").val('');
-			$i.insertAfter($mask);
-			$i.css('margin-left', '0.5em').removeClass('ui-state-active');
+				// add another input
+				var $mask2 = $mask.clone().removeClass("ui-state-disabled");
+				var $input = $mask2.find('input[type=file]');
+				$input.attr('id', $input.attr('id') + '-');
+				$input.val('');
+				$mask2.insertAfter($mask);
+				$mask2.css('margin-left', '0.5em').removeClass('ui-state-active');
+			}
 		
 			// update file input to contain file name
 			var name = $t.val();

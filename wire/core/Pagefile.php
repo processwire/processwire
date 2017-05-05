@@ -763,7 +763,7 @@ class Pagefile extends WireData {
 	 *
 	 */
 	public function __toString() {
-		return $this->basename; 
+		return (string) $this->basename; 
 	}
 
 	/**
