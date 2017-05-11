@@ -766,7 +766,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->notes = $example . "mystyles:/site/modules/InputfieldCKEditor/mystyles.js"; 
 		$f->notes .= "\n" . 
 			sprintf(
-				$this->_('Please see our [instructions]() on how to use this.'), // styles set notes
+				$this->_('Please see our [instructions](%s) on how to use this.'), // styles set notes
 				'https://github.com/processwire/processwire/blob/master/wire/modules/Inputfield/InputfieldCKEditor/README.md#custom-editor-js-styles-set'
 			) . ' ' . $pathNote;
 		$f->attr('name', 'stylesSet');
