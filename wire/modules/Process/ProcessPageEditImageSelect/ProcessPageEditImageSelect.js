@@ -88,14 +88,14 @@ function setupSelectedImage() {
 	var $img = $("#selected_image");
 	var $hidpi = $("#selected_image_hidpi"); 
 	var fullWidth; // full/original width when not resized
-	var minWidth = parseInt($("#input_width").attr('min'));
-	var minHeight = parseInt($("#input_height").attr('min'));
+	var minWidth = parseInt($("#input_width").data('min'));
+	var minHeight = parseInt($("#input_height").data('min'));
 	
 	function setupImage($img) {
 
 		var originalWidth = $img.width();
-		var maxWidth = $("#input_width").attr('max');
-		var maxHeight = $("#input_height").attr('max');
+		var maxWidth = $("#input_width").data('max');
+		var maxHeight = $("#input_height").data('max');
 		
 		
 		function updateHidpiCheckbox(w) {
