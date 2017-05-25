@@ -1,3 +1,10 @@
+
+/*****************************************************************************************************************
+ * ProcessWire InputfieldImage
+ * 
+ * Copyright 2017 by ProcessWire
+ * 
+ */
 function InputfieldImage($) {
 	
 	// When uploading a file in place: .gridItem that file(s) will be placed before
@@ -1107,6 +1114,7 @@ function InputfieldImage($) {
 			var gridSize = $fileList.data("gridsize");
 			var doneTimer = null; // for AjaxUploadDone event
 			var maxFiles = parseInt($this.find('.InputfieldImageMaxFiles').val());
+			var resizeSettings = getClientResizeSettings($inputfield);
 
 			setupDropzone($this);
 			if(maxFiles != 1) setupDropInPlace($fileList);
@@ -1334,9 +1342,10 @@ function InputfieldImage($) {
 			 * Upload file
 			 * 
 			 * @param file
+			 * @param extension (optional)
 			 * 
 			 */
-			function uploadFile(file) {
+			function uploadFile(file, extension) {
 			
 				var labels = ProcessWire.config.InputfieldImage.labels;
 				var filesizeStr = parseInt(file.size / 1024, 10) + '&nbsp;kB';
@@ -1420,12 +1429,15 @@ function InputfieldImage($) {
 				xhr = new XMLHttpRequest();
 
 				// Update progress bar
-				xhr.upload.addEventListener("progress", function(evt) {
-					if(!evt.lengthComputable) return;
+				function updateProgress(evt) {
+					if(typeof evt != "undefined") {
+						if(!evt.lengthComputable) return;
+						$progressBar.attr("value", parseInt((evt.loaded / evt.total) * 100));
+					}
 					$('body').addClass('pw-uploading');
-					$progressBar.attr("value", parseInt((evt.loaded / evt.total) * 100));
 					$spinner.css('display', 'block');
-				}, false);
+				}
+				xhr.upload.addEventListener("progress", updateProgress, false);
 
 				// File uploaded: called for each file
 				xhr.addEventListener("load", function() {
@@ -1535,32 +1547,53 @@ function InputfieldImage($) {
 				} else if($inputfield.find(".InputfieldImageEdit:visible").length) {
 					$inputfield.find(".InputfieldImageEdit__close").click();
 				}
-
-				// Here we go
-				xhr.open("POST", postUrl, true);
-				xhr.setRequestHeader("X-FILENAME", encodeURIComponent(file.name));
-				xhr.setRequestHeader("X-FIELDNAME", fieldName);
-				xhr.setRequestHeader("Content-Type", "application/octet-stream"); // fix issue 96-Pete
-				xhr.setRequestHeader("X-" + postTokenName, postTokenValue);
-				xhr.setRequestHeader("X-REQUESTED-WITH", 'XMLHttpRequest');
-				xhr.send(file);
-
+				
 				// Present file info and append it to the list of files
 				if(uploadReplace.item) {
 					uploadReplace.item.replaceWith($progressItem);
 					uploadReplace.item = $progressItem;
 				} else if($uploadBeforeItem && $uploadBeforeItem.length) {
-					$uploadBeforeItem.before($progressItem); 
+					$uploadBeforeItem.before($progressItem);
 				} else {
 					$fileList.append($progressItem);
 				}
-				updateGrid();
-				$inputfield.trigger('change');
-				var numFiles = $inputfield.find('.InputfieldFileItem').length;
-				if(numFiles == 1) {
-					$inputfield.removeClass('InputfieldFileEmpty').removeClass('InputfieldFileMultiple').addClass('InputfieldFileSingle');
-				} else if(numFiles > 1) {
-					$inputfield.removeClass('InputfieldFileEmpty').removeClass('InputfieldFileSingle').addClass('InputfieldFileMultiple');
+
+				// Here we go
+				function sendUpload(file, imageData) {
+					xhr.open("POST", postUrl, true);
+					xhr.setRequestHeader("X-FILENAME", encodeURIComponent(file.name));
+					xhr.setRequestHeader("X-FIELDNAME", fieldName);
+					xhr.setRequestHeader("Content-Type", "application/octet-stream"); // fix issue 96-Pete
+					xhr.setRequestHeader("X-" + postTokenName, postTokenValue);
+					xhr.setRequestHeader("X-REQUESTED-WITH", 'XMLHttpRequest');
+					if(typeof imageData != "undefined" && imageData != false) {
+						xhr.send(imageData); 
+					} else {
+						xhr.send(file);
+					}
+					
+					updateGrid();
+					$inputfield.trigger('change');
+					var numFiles = $inputfield.find('.InputfieldFileItem').length;
+					if(numFiles == 1) {
+						$inputfield.removeClass('InputfieldFileEmpty').removeClass('InputfieldFileMultiple').addClass('InputfieldFileSingle');
+					} else if(numFiles > 1) {
+						$inputfield.removeClass('InputfieldFileEmpty').removeClass('InputfieldFileSingle').addClass('InputfieldFileMultiple');
+					}
+				}
+				
+				updateProgress();
+				
+				if(resizeSettings.maxWidth > 0 || resizeSettings.maxHeight > 0 || resizeSettings.maxSize > 0) {
+					var resizer = new PWImageResizer(resizeSettings);
+					$spinner.addClass('pw-resizing');
+					resizer.resize(file, function(imageData) {
+						$spinner.removeClass('pw-resizing');
+						// resize completed, start upload
+						sendUpload(file, imageData);
+					});
+				} else {
+					sendUpload(file);
 				}
 			}
 
@@ -1575,7 +1608,7 @@ function InputfieldImage($) {
 				var toKilobyte = function(i) {
 					return parseInt(i / 1024, 10);
 				};
-
+				
 				if(typeof files === "undefined") {
 					fileList.innerHTML = "No support for the File API in this web browser";
 					return;
@@ -1600,7 +1633,7 @@ function InputfieldImage($) {
 						$errorParent.append(errorItem(message, files[i].name));
 
 					} else {
-						uploadFile(files[i]);
+						uploadFile(files[i], extension);
 					}
 					
 					if(maxFiles == 1) break;
@@ -1615,6 +1648,7 @@ function InputfieldImage($) {
 			}, false);
 			
 		}
+		
 
 		/**
 		 * Setup dropzone within an .InputfieldImageEdit panel so one can drag/drop new photo into existing image enlargement
@@ -1647,6 +1681,30 @@ function InputfieldImage($) {
 		setupEnlargementDropzones();
 		
 	} // initUploadHTML5
+	
+	function getClientResizeSettings($inputfield) {
+		
+		var settings = {
+			maxWidth: 0,
+			maxHeight: 0,
+			maxSize: 0, 
+			quality: 1.0,
+			autoRotate: true,
+			debug: ProcessWire.config.debug
+		};
+	
+		var data = $inputfield.attr('data-resize');
+
+		if(typeof data != "undefined" && data.length) {
+			data = data.split(';');
+			settings.maxWidth = parseInt(data[0]);
+			settings.maxHeight = parseInt(data[1]);
+			settings.maxSize = parseFloat(data[2]);
+			settings.quality = parseFloat(data[3]);
+		}
+		
+		return settings;
+	}
 	
 	/**
 	 * Initialize InputfieldImage
