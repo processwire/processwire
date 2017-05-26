@@ -1002,7 +1002,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 			if(is_null($old) || is_null($new) || $lastValue !== $new) {
 				/** @var WireHooks $hooks */
 				$hooks = $this->wire('hooks');
-				if(($hooks && $hooks->isHooked('changed')) || !$hooks) {
+				if(($hooks && $hooks->isHooked('changed()')) || !$hooks) {
 					$this->changed($what, $old, $new); // triggers ___changed hook
 				} else {
 					$this->___changed($what, $old, $new); 
