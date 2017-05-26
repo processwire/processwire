@@ -1055,15 +1055,15 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			$field->value = '<p>' . 
 				sprintf($this->_('Add the following hook to a %s file and modify per your needs. The hook should find and return selectable pages in a PageArray.'), '<u>/site/ready.php</u>') . 
 				"</p><pre><code>" . 
-				"\$wire->addHookAfter('InputfieldPage::getSelectablePages', function(\$event) {" .
-				"\n  if(\$event->object->name == '<strong>$this->name</strong>') {" . 
-				"\n    \$event->return = \$event->pages->find('<strong>your selector here</strong>');" . 
+				"\$wire-&gt;addHookAfter('InputfieldPage::getSelectablePages', function(\$event) {" .
+				"\n  if(\$event-&gt;object-&gt;hasField == '<strong>$this->name</strong>') {" . 
+				"\n    \$event->return = \$event-&gt;pages-&gt;find('<strong>your selector here</strong>');" . 
 				"\n  }" . 
 				"\n});" . 
 				"</code></pre>" . 
 				"<p>" . 
 				sprintf($this->_('If you need to know the page being edited, it is accessible from: %s'), 
-					"<code>\$event->arguments('page');</code>") . 
+					"<code>\$event-&gt;arguments('page');</code>") . 
 				"</p>";
 		}
 		$field->label = $this->_('Custom PHP code');
