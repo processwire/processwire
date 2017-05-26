@@ -178,6 +178,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$sitePath = '/' . implode('/', $segments) . '/'; // combine to [/subdir]/site/
 		$sitePath = str_replace($config->urls->root, '', $sitePath); // remove possible subdir, reduce to: site/
 		// if it is a request to assets, then don't attempt to modify it
+		$sitePath = rtrim($sitePath, '/') . '/';
+		$path = rtrim($path, '/') . '/';
 		return strpos($path, $sitePath) === 0;
 	}
 

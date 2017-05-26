@@ -843,6 +843,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 			/** @var InputfieldMarkup $field */
 			$field = $this->modules->get("InputfieldMarkup"); 
+			$field->attr('id+name', 'ChildrenPageList');
 			$field->label = $title == $defaultTitle ? $this->_("Children / Subpages") : $title; // Children field label
 			if($pageList) {
 				$field->value = $pageList->execute();
@@ -870,6 +871,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if(empty($this->page->template->sortfield) && $this->user->hasPermission('page-sort', $this->page)) { 		
 			$sortfield = $this->page->sortfield && $this->page->sortfield != 'sort' ? $this->page->sortfield : '';
 			$fieldset = self::buildFormSortfield($sortfield, $this); 
+			$fieldset->attr('id+name', 'ChildrenSortSettings'); 
 			$fieldset->label = $this->_('Sort Settings'); // Children sort settings field label
 			$fieldset->icon = 'sort';
 			$fieldset->description = $this->_("If you want all current and future children to automatically sort by a specific field, select the field below and optionally check the 'reverse' checkbox to make the sort descending. Leave the sort field blank if you want to be able to drag-n-drop to your own order."); // Sort settings description text
@@ -1229,7 +1231,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field = $this->modules->get("InputfieldMarkup"); 
 		$field->label = $this->_('Who can access this page?'); // Roles information field label
 		$field->icon = 'users';
-		$field->attr('id', 'ProcessPageEditRoles');
+		$field->attr('id+name', 'ProcessPageEditRoles');
 		$field->collapsed = Inputfield::collapsedYesAjax;
 
 		/** @var MarkupAdminDataTable $table */
@@ -1836,6 +1838,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$labelAction = sprintf($this->_('Change template from "%1$s" to "%2$s"'), $this->page->template, $template); // Change template A to B headline
 		
 		$this->headline($labelConfirm);
+		if($this->wire('input')->get('modal')) $this->error("$labelConfirm – $labelAction"); // force modal open
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm"); 
