@@ -467,6 +467,7 @@ class ProcessTemplate extends Process {
 			if(substr($filename, -1 * strlen($ext)) != $ext) continue; 
 			if($ignoreRegex && preg_match($ignoreRegex, $filename)) continue;
 			$basename = basename($file->getFilename(), $ext); 
+			if($this->wire('sanitizer')->name($basename) !== $basename) continue;
 			if(count($this->wire('templates')->find("name=$basename"))) continue; 
 			$templateFiles[] = $basename; 
 		}
