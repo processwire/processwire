@@ -27,6 +27,7 @@ if(!defined("PROCESSWIRE")) die();
 /*** SITE CONFIG *************************************************************************/
 
 /** @var Config $config */
+/* @var $config Config */
 
 /**
  * Enable debug mode?
