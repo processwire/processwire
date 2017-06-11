@@ -29,7 +29,8 @@
  * @property string $url Current requested URL including page numbers and URL segments, excluding query string. #pw-group-URLs
  * @property string $httpUrl Like $url but includes the scheme/protcol and hostname. #pw-group-URLs
  * @property string $queryString Current query string #pw-group-URLs
- * @property string $scheme Current scheme/protcol, i.e. http or https #pw-group-URLs
+ * @property string $scheme Current scheme/protocol, i.e. http or https #pw-group-URLs
+ * @property string $requestMethod Current request method (i.e. GET, POST, etc.) or blank if not known
  * 
  * @property string $urlSegment1 First URL segment #pw-group-URL-segments
  * @property string $urlSegment2 Second URL segment #pw-group-URL-segments
@@ -397,6 +398,7 @@ class WireInput extends Wire {
 		if($key == 'fragment') return $this->fragment();
 		if($key == 'queryString') return $this->queryString();
 		if($key == 'scheme') return $this->scheme();
+		if($key == 'requestMethod') return $this->requestMethod();
 
 		if(strpos($key, 'urlSegment') === 0) {
 			if(strlen($key) > 10) $num = (int) substr($key, 10); 
