@@ -1,4 +1,4 @@
-.InputfieldIconAll {margin-top: 12px; text-align: justify;}
+.InputfieldIconAll { overflow: visible !important; margin-top: 12px; text-align: justify; }
 .InputfieldIconAll .fa.fw { padding: 7px 6px; font-size: 16px !important; transition: all 0.16s; min-width: 34px; text-align: center; backface-visibility: hidden; background: white; }
 .fa.fw:hover { background: #E2E9EF; cursor: pointer; }
 .fa.fw.on { background: #d52978; color: white; }
