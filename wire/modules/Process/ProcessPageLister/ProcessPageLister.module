@@ -1448,6 +1448,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				}
 				$value = "<a class='$class' id='page$p->id' href='#'>$icon$value$statusIcon</a> $actionsOut";
 			}
+		} else {
+			$value = "<a class='actions_toggle' id='page$p->id' href='#'>$value$statusIcon</a>";
 		}
 		if($isTrash) $value = "<div class='ui-priority-secondary'>$value</div>";
 		return $value; 
