@@ -79,6 +79,7 @@ function setupLanguageTabs($form) {
 			} else {
 				$closeItem.removeClass('LanguageSupportCurrent');
 				$openItem.addClass('LanguageSupportCurrent');
+				$a.trigger('languagetabclick', [ $openItem, $closeItem ]);
 			}
 		}); 
 		
