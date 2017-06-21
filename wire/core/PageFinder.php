@@ -823,7 +823,7 @@ class PageFinder extends Wire {
 					}
 				}
 				if(!$hasParent && $field->parent_id) {
-					if(strpos($field->type->className(), 'FieldtypeRepeater') !== false) {
+					if($this->isRepeaterFieldtype($field->type)) { 
 						// repeater items not stored directly under parent_id, but as another parent under parent_id. 
 						// so we use has_parent instead here
 						$selectors->prepend(new SelectorEqual('has_parent', $field->parent_id));
@@ -1078,7 +1078,7 @@ class PageFinder extends Wire {
 
 					if(count($fields) > 1 
 						|| (count($valueArray) > 1 && $numEmptyValues > 0)
-						|| $subfield == 'count' 
+						|| ($subfield == 'count' && !$this->isRepeaterFieldtype($field->type))
 						|| ($selector->not && $selector->operator != '!=') 
 						|| $selector->operator == '!=') {
 						// join should instead be a leftjoin
@@ -1574,8 +1574,13 @@ class PageFinder extends Wire {
 				$query->leftjoin("$table AS $tableAlias ON $tableAlias.pages_id=pages.$idColumn");
 
 				if($subValue === 'count') {
-					// sort by quantity of items
-					$value = "COUNT($tableAlias.data)";
+					if($this->isRepeaterFieldtype($field->type)) {
+						// repeaters have a native count column that can be used for sorting
+						$value = "$tableAlias.count";
+					} else {
+						// sort by quantity of items
+						$value = "COUNT($tableAlias.data)";
+					}
 
 				} else if(is_object($blankValue) && ($blankValue instanceof PageArray || $blankValue instanceof Page)) {
 					// If it's a FieldtypePage, then data isn't worth sorting on because it just contains an ID to the page
@@ -2187,12 +2192,11 @@ class PageFinder extends Wire {
 		}
 		
 		if($field) {
-			$className = $field->type->className();
 			if($field->type instanceof FieldtypePage) {
 				$is = true;
 			} else if(strpos($field->type->className(), 'FieldtypePageTable') !== false) {
 				$is = true;
-			} else if(strpos($className, 'FieldtypeRepeater') !== false) {
+			} else if($this->isRepeaterFieldtype($field->type)) {
 				$is = $literal ? false : true;
 			} else {
 				$test = $field->type->getBlankValue(new NullPage(), $field); 
@@ -2203,6 +2207,17 @@ class PageFinder extends Wire {
 		}
 		if($is && $field) $is = $field; 
 		return $is;
+	}
+
+	/**
+	 * Is the given Fieldtype for a repeater?
+	 * 
+	 * @param Fieldtype $fieldtype
+	 * @return bool
+	 * 
+	 */
+	protected function isRepeaterFieldtype(Fieldtype $fieldtype) {
+		return strpos($fieldtype->className(), 'FieldtypeRepeater') !== false;
 	}
 }
 
