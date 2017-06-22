@@ -131,10 +131,21 @@ class WireMarkupRegions extends Wire {
 			$positions = array();
 			foreach($tests as $str) {
 				$pos = stripos($markup, $str, $startPos);
-				if($pos !== false) {
-					if($str[0] == '<') $pos++; // HTML tag match, bump+1 to enable match
-					$positions[$pos] = $pos;
+				if($pos === false) continue;
+				if($selector === '.pw-*') {
+					// extra validation for .pw-* selectors to confirm they match a pw-[action] (legacy support)
+					$testAction = '';
+					$testPW = substr($markup, $pos, 20);
+					foreach($this->actions as $testAction) {
+						if(strpos($testPW, $testAction) !== false) {
+							$testAction = true;
+							break;
+						}
+					}	
+					if($testAction !== true) continue; // if not a pw-[action] then skip
 				}
+				if($str[0] == '<') $pos++; // HTML tag match, bump+1 to enable match
+				$positions[$pos] = $pos;
 			}
 			
 			// if no tests matched, we can abort now
@@ -318,6 +329,7 @@ class WireMarkupRegions extends Wire {
 		}
 		
 		$c = substr($find, 0, 1); 
+		$z = substr($find, -1);
 		
 		if($c === '#') {
 			// match an id, pw-id or data-pw-id attribute
@@ -328,8 +340,43 @@ class WireMarkupRegions extends Wire {
 				$finds[] = " $attr=$find ";
 				$finds[] = " $attr=$find>";
 			}
+
+		} else if($find === '[pw-action]') {
+			// find pw-[action] boolean attributes
+			foreach($this->actions as $action) {
+				$finds[] = " data-pw-$action ";
+				$finds[] = " data-pw-$action>";
+				$finds[] = " data-pw-$action=";
+				$finds[] = " pw-$action ";
+				$finds[] = " pw-$action>";
+				$finds[] = " pw-$action=";
+			}
+
+		/*	
+		} else if($c === '[' && $z === ']') {
+			// find any attribute (not currently used by markup regions)
 			
-		} else if($c === '.' && substr($find, -1) == '*') {
+			if(strpos($find, '=') === false) {
+				// match an attribute only
+				$attr = trim($find, '[]*+');
+				$tail = substr($find, -2);
+				if($tail === '*]') {
+					// match an attribute prefix
+					$finds = array(" $attr");
+				} else {
+					// match a whole attribute name
+					$finds = array(
+						" $attr ",
+						" $attr>",
+						" $attr=",
+					);
+				}
+			} else {
+				// match attribute and value (not yet implemented)
+			}
+		*/
+			
+		} else if($c === '.' && $z === '*') {
 			// match a class name prefix or action prefix
 			$find = trim($find, '.*');
 			$finds = array(
@@ -342,7 +389,7 @@ class WireMarkupRegions extends Wire {
 			);
 			if(strpos($find, 'pw-') !== false) $finds[] = " data-$find";
 			$hasClass = "$find*";
-			
+
 		} else if($c === '.') {
 			// match a class name or action
 			$find = trim($find, '.');
@@ -369,7 +416,7 @@ class WireMarkupRegions extends Wire {
 			
 		} else if(strpos($find, '=') !== false) {
 			// some other specified attribute in attr=value format
-			if(strpos($find, '[') !== false && substr($find, -1) === ']') {
+			if(strpos($find, '[') !== false && $z === ']') {
 				// i.e. div[attr=value]
 				list($findTag, $find) = explode('[', $find, 2);
 				$find = rtrim($find, ']');
@@ -395,7 +442,7 @@ class WireMarkupRegions extends Wire {
 				}
 			}
 
-		} else if(substr($find, -1) == '*') {
+		} else if($z === '*') {
 			// data-pw-* matches non-value attribute starting with a prefix
 			$finds = array(
 				" $find",
@@ -465,7 +512,9 @@ class WireMarkupRegions extends Wire {
 		} else if($closeQty === 1) {
 			// just one close tag present, making our job easy
 			$region = substr($region, 0, strrpos($region, $tagInfo['close']));
-			if($verbose) $verboseRegion['details'] = 'Only 1 possible closing tag';
+			if($verbose) {
+				$verboseRegion['details'] = 'Only 1 possible closing tag: ' . $tagInfo['close'];
+			}
 
 		} else {
 			// multiple close tags present, must figure out which is the right one
@@ -1132,7 +1181,7 @@ class WireMarkupRegions extends Wire {
 	 * definitions, though can be used with or without it.
 	 *
 	 * Beyond replacement of elements, append, prepend, insert before, insert after, and remove are also
-	 * supported via “pw-” prefix classes that you can add. The classes do not appear in the final output
+	 * supported via “pw-” prefix attributes that you can add. The attributes do not appear in the final output
 	 * markup. When performing replacements or modifications to elements, PW will merge the attributes
 	 * so that attributes present in the final output are present, plus any that were added by the markup
 	 * regions. See the examples for more details.
@@ -1147,50 +1196,43 @@ class WireMarkupRegions extends Wire {
 	 * 
 	 * In the examples, a “pw-id” or “data-pw-id” attribute may be used instead of an “id” attribute, when
 	 * or if preferred. In addition, any “pw-” attribute may be specified as a “data-pw-” attribute if you
-	 * prefer it. If you don't like using “pw-” class names, then use “pw-” attributes instead. 
+	 * prefer it. 
 	 * ~~~~~~
 	 * Replacing and removing elements
 	 * 
 	 *   <div id='main'>This replaces the #main div and merges any attributes</div>
 	 *   <div pw-replace='main'>This does the same as above</div>
-	 * 
-	 *   <div id='main' class='pw-remove'>This removes #main completely</div>
-	 *   <div pw-remove='main'>This does the same as above</div>
+	 *   <div id='main' pw-replace>This does the same as above</div>
+	 *   <div pw-remove='main'>This removes the #main div</div>
+	 *   <div id='main' pw-remove>This removes the #main div (same as above)</div>
 	 *
 	 * Prepending and appending elements
 	 * 
 	 *   <div id='main' class='pw-prepend'><p>This prepends #main with this p tag</p></div>
 	 *   <p pw-prepend='main'>This does the same as above</p>
-	 * 
-	 *   <div id='main' class='pw-append'><p>This appends #main with this p tag</p></div>
-	 *   <p pw-append='main'>This does the same as above</p>
+	 *   <div id='main' pw-append><p>This appends #main with this p tag</p></div>
+	 *   <p pw-append='main'>Removes the #main div</p>
 	 * 
 	 * Modifying attributes on an existing element
 	 * 
-	 *   <div id='main' class='pw-prepend bar'><p>This prepends #main and adds "bar" class to main</p></div>
-	 *   <div id='main' class='pw-append foo'><p>This appends #main and adds a "foo" class to #main</p></div>
-	 * 
-	 *   <div id='main' class='pw-append' title='hello'>Appends #main with this text + adds title attribute to #main</div>
-	 *   <div id='main' class='pw-append -baz'>Appends #main with this text + removes class “baz” from #main</div>
+	 *   <div id='main' class='bar' pw-prepend><p>This prepends #main and adds "bar" class to main</p></div>
+	 *   <div id='main' class='foo' pw-append><p>This appends #main and adds a "foo" class to #main</p></div>
+	 *   <div id='main' title='hello' pw-append>Appends #main with this text + adds title attribute to #main</div>
+	 *   <div id='main' class='-baz' pw-append>Appends #main with this text + removes class “baz” from #main</div>
 	 *
 	 * Inserting new elements
 	 * 
-	 *   <h2 class='pw-before-main'>This adds an h2 headline with this text before #main</h2>
-	 *   <h2 pw-before='main'>This does the same as above</h2>
+	 *   <h2 pw-before='main'>This adds an h2 headline with this text before #main</h2>
+	 *   <footer pw-after='main'><p>This adds a footer element with this text after #main</p></footer>
+	 *   <div pw-append='main' class='foo'>This appends a div.foo to #main with this text</div>
+	 *   <div pw-prepend='main' class='bar'>This prepends a div.bar to #main with this text</div>
 	 * 
-	 *   <footer class='pw-after-main'><p>This adds a footer element with this text after #main</p></footer>
-	 *   <footer pw-after='main'><p>This does the same as above</p></footer>
-	 * 
-	 *   <div class='pw-append-main foo'>This appends a div.foo to #main with this text</div>
-	 *   <div pw-append='main' class='foo'>This does the same as above</div>
-	 * 
-	 *   <div class='pw-prepend-main bar'>This prepends a div.bar to #main with this text</div>
-	 *   <div pw-prepend='main' class='bar'>This does the same as above</div>
 	 * ~~~~~~
 	 *
 	 * @param string $htmlDocument Document to populate regions to
 	 * @param string|array $htmlRegions Markup containing regions (or regions array from a find call)
-	 * @param array $options
+	 * @param array $options Options to modify behavior: 
+	 *  - `useClassActions` (bool): Allow "pw-*" actions to be specified in class names? Per original/legacy spec. (default=false)
 	 * @return int Number of updates made to $htmlDocument
 	 *
 	 */
@@ -1201,9 +1243,13 @@ class WireMarkupRegions extends Wire {
 		
 		$recursionLevel++;
 		$callQty++;
+
+		$defaults = array(
+			'useClassActions' => false // allow use of "pw-*" class actions? (legacy)
+		);
 		
+		$options = array_merge($defaults, $options);
 		$leftoverMarkup = '';
-		
 		$debugLandmark = "<!--PW-REGION-DEBUG-->";
 		$hasDebugLandmark = strpos($htmlDocument, $debugLandmark) !== false;
 		$debug = $hasDebugLandmark && $this->wire('config')->debug;
@@ -1214,7 +1260,8 @@ class WireMarkupRegions extends Wire {
 			$leftoverMarkup = '';
 			
 		} else if($this->hasRegions($htmlRegions)) {
-			$regions = $this->find(".pw-*, id=", $htmlRegions, array(
+			$selector = $options['useClassActions'] ? ".pw-*, id=" : "[pw-action], id=";
+			$regions = $this->find($selector, $htmlRegions, array(
 				'verbose' => true,
 				'leftover' => true,
 				'debugNote' => (isset($options['debugNote']) ? "$options[debugNote] => " : "") . "populate($callQty)", 
