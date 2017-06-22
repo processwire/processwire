@@ -1275,6 +1275,7 @@ class WireMarkupRegions extends Wire {
 
 		if(!count($regions)) {
 			if($debug) $htmlDocument = str_replace($debugLandmark, "<pre>No regions</pre>$debugLandmark", $htmlDocument);
+			$recursionLevel--;
 			return 0;
 		}
 
@@ -1393,16 +1394,19 @@ class WireMarkupRegions extends Wire {
 		
 		if(count($xregions) && $recursionLevel < 3) {
 			// see if they can be populated now
-			$numUpdates += $this->populate($htmlDocument, $xregions);
+			$numUpdates += $this->populate($htmlDocument, $xregions, $options);
 		}
-		
-		if($this->removeRegionTags($htmlDocument)) $numUpdates++;
+	
+		// remove region tags and pw-id attributes
+		if($recursionLevel === 1 && $this->removeRegionTags($htmlDocument)) $numUpdates++;
 	
 		// if there is any leftover markup, place it above the HTML where it would usually go
 		if(strlen($leftoverMarkup)) {
 			$htmlDocument = $leftoverMarkup . $htmlDocument;
 			$numUpdates++;
 		}
+		
+		$recursionLevel--;
 
 		return $numUpdates; 
 	}
@@ -1410,15 +1414,27 @@ class WireMarkupRegions extends Wire {
 	/**
 	 * Remove any <region> or <pw-region> tags present in the markup, leaving their innerHTML contents
 	 * 
+	 * Also removes data-pw-id and pw-id attributes
+	 * 
 	 * @param string $html
-	 * @return bool True if tags were removed, false if not
+	 * @return bool True if tags or attributes were removed, false if not
 	 * 
 	 */
 	protected function removeRegionTags(&$html) {
-		if(stripos($html, '</region>') === false && strpos($html, '</pw-region>') === false) return false;
-		$html = preg_replace('!</?(?:region|pw-region)(?:\s[^>]*>|>)!i', '', $html);
-		//$html = str_ireplace(array('</region>', '</pw-region>'), '', $html);
-		return true; 
+		
+		$updated = false;
+		
+		if(stripos($html, '</region>') !== false || strpos($html, '</pw-region>') !== false) {
+			$html = preg_replace('!</?(?:region|pw-region)(?:\s[^>]*>|>)!i', '', $html);
+			$updated = true;
+		}
+		
+		if(stripos($html, ' data-pw-id=') || stripos($html, ' pw-id=')) {
+			$html = preg_replace('/(<[^>]+)(?: data-pw-id| pw-id)=["\']?[^>\s"\']+["\']?/i', '$1', $html);
+			$updated = true;
+		}
+		
+		return $updated; 
 	}
 
 	/**
