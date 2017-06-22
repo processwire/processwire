@@ -772,12 +772,14 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 				$field->attr('value', $this->_('Save + Publish'));
 				$field->setSecondary();
 				$form->append($field);
-				
-				$field = $this->modules->get('InputfieldSubmit');
-				$field->attr('id+name', 'submit_publish_add');
-				$field->attr('value', $this->_('Save + Publish + Add Another'));
-				$field->setSecondary();
-				$form->append($field);
+			
+				if(!$this->wire('input')->get('modal')) {
+					$field = $this->modules->get('InputfieldSubmit');
+					$field->attr('id+name', 'submit_publish_add');
+					$field->attr('value', $this->_('Save + Publish + Add Another'));
+					$field->setSecondary();
+					$form->append($field);
+				}
 			}
 		}
 
