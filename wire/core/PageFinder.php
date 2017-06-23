@@ -683,13 +683,26 @@ class PageFinder extends Wire {
 		} else if($quote == '(') {
 			// selector contains an OR group (quoted selector)
 			// at least one (quoted selector) must match for each field specified in front of it
-			$groupName = $this->wire('sanitizer')->fieldName($selector->getField('string'));
+			$groupName = $selector->group ? $selector->group : $selector->getField('string');
+			$groupName = $this->wire('sanitizer')->fieldName($groupName);
 			if(!$groupName) $groupName = 'none';
 			if(!isset($this->extraOrSelectors[$groupName])) $this->extraOrSelectors[$groupName] = array();
 			if($selector->value instanceof Selectors) {
 				$this->extraOrSelectors[$groupName][] = $selector->value;
 			} else {
-				$this->extraOrSelectors[$groupName][] = $this->wire(new Selectors($selector->value));
+				if($selector->group) {
+					// group is pre-identified, indicating Selector field=value is the OR-group condition
+					$s = clone $selector;
+					$s->quote = '';
+					$s->group = null;
+					$groupSelectors = new Selectors();
+					$groupSelectors->add($s);
+				} else {
+					// selector field is group name and selector value is another selector containing OR-group condition
+					$groupSelectors = new Selectors($selector->value);
+				}
+				$this->wire($groupSelectors);
+				$this->extraOrSelectors[$groupName][] = $groupSelectors;
 			}
 			return false;
 			

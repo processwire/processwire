@@ -423,7 +423,7 @@ class Selectors extends WireArray {
 			}
 			$group = $this->extractGroup($str); 	
 			$field = $this->extractField($str); 
-			$operator = $this->extractOperator($str, $this->getOperatorChars());
+			$operator = $this->extractOperator($str, self::getOperatorChars());
 			$value = $this->extractValue($str, $quote); 
 
 			if($this->parseVars && $quote == '[' && $this->valueHasVar($value)) {
