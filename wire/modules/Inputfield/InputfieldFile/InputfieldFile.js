@@ -440,12 +440,14 @@ $(document).ready(function() {
 	/**
 	 * Progressive enchanchment for browsers that support html5 File API
 	 * 
-	 * #PageIDIndictator.size indicates PageEdit, which we're limiting AjaxUpload to since only ProcessPageEdit has the ajax handler
+	 * #PageIDIndictator.length indicates PageEdit, which we're limiting AjaxUpload to since only ProcessPageEdit has the ajax handler
 	 * 
 	 */
+	var allowAjax = false;
 	if (window.File && window.FileList && window.FileReader 
 		&& ($("#PageIDIndicator").length > 0 || $('.InputfieldAllowAjaxUpload').length > 0)) {  
 		InitHTML5('');  
+		allowAjax = true;
 	} else {
 		InitOldSchool();
 	}
@@ -454,6 +456,7 @@ $(document).ready(function() {
 	var resizeActive = false;
 	
 	var windowResize = function() {
+		if(!allowAjax) return;
 		$(".AjaxUploadDropHere").each(function() {
 			var $t = $(this); 
 			if($t.parent().width() <= minContainerWidth) {
@@ -464,18 +467,20 @@ $(document).ready(function() {
 		}); 
 		resizeActive = false;
 	}
-	
-	$(window).resize(function() {
-		if(resizeActive) return;
-		resizeActive = true; 
-		setTimeout(windowResize, 1000); 
-	}).resize();
+
+	if(allowAjax) {
+		$(window).resize(function() {
+			if(resizeActive) return;
+			resizeActive = true;
+			setTimeout(windowResize, 1000);
+		}).resize();
+	}
 	
 	//$(document).on('reloaded', '.InputfieldFileMultiple, .InputfieldFileSingle', function(event) {
 	$(document).on('reloaded', '.InputfieldHasFileList', function(event) {
 		initSortable($(this).find(".InputfieldFileList"));
 		InitHTML5($(this)); 
-		windowResize();
+		if(allowAjax) windowResize();
 	}); 
 	
 }); 
