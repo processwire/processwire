@@ -112,7 +112,9 @@ PWImageResizer.prototype.resize = function(file, completionCallback) {
 				This.consoleLog('detecting JPEG image orientation...');
 				
 				if((typeof EXIF.getData === "function") && (typeof EXIF.getTag === "function")) {
+					This.consoleLog('EXIF.getData starting');
 					EXIF.getData(img, function() {
+						This.consoleLog('EXIF.getData done, orientation:');
 						var orientation = EXIF.getTag(this, "Orientation");
 						This.consoleLog('image orientation from EXIF tag: ' + orientation);
 						This.scaleImage(img, orientation, completionCallback);
