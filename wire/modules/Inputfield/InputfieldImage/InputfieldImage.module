@@ -177,7 +177,9 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			$jsExt = $config->debug ? "js" : "min.js";
 			$config->scripts->add($thisURL . "exif.$jsExt");
 			$config->scripts->add($thisURL . "PWImageResizer.$jsExt");
-			$this->wrapAttr('data-resize', "$this->maxWidth;$this->maxHeight;$this->maxSize;" . (float) ($this->clientQuality / 100));
+			$maxSize = str_replace(',', '.', $this->maxSize); 
+			$quality = str_replace(',', '.', (float) ($this->clientQuality / 100));
+			$this->wrapAttr('data-resize', "$this->maxWidth;$this->maxHeight;$maxSize;$quality");
 		}
 		
 		if(!$renderValueMode && $this->value instanceof Pageimages) {
