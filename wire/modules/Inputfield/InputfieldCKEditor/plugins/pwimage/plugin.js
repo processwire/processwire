@@ -179,7 +179,7 @@
 			// when iframe loads, pull the contents into $i 
 			var $i = $iframe.contents();
 		
-			if($i.find("#selected_image").size() > 0) {
+			if($i.find("#selected_image").length > 0) {
 				// if there is a #selected_image element on the page...
 
 				var buttons = [
@@ -245,11 +245,13 @@
 								}
 						
 								// select the entire element surrounding the image so that we replace it all
-								editor.unlockSelection(); 
-								selection.unlock();
 								if(nodeGrandparentName === 'FIGURE') {
+									editor.unlockSelection();
+									selection.unlock();
 									selection.selectElement(nodeGrandparent);
 								} else if(nodeParentName === "A" || nodeParentName == 'FIGURE') {
+									editor.unlockSelection();
+									selection.unlock();
 									// @todo does not work in inline mode for some reason
 									selection.selectElement(nodeParent);
 								}
