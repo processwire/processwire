@@ -393,6 +393,7 @@ $itemPadding: 0.4em;
 	&--active,
 	&Single {
 		display: block;
+		z-index: 100;
 	}
 
 	&__inner {

@@ -245,7 +245,7 @@
   position: relative;
   display: none; }
   .InputfieldImageEdit--active, .InputfieldImageEditSingle {
-    display: block; }
+    display: block; z-index: 100; }
   .InputfieldImageEdit__inner {
     position: relative;
     display: flex;
