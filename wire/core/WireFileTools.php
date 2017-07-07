@@ -275,6 +275,76 @@ class WireFileTools extends Wire {
 	}
 
 	/**
+	 * Find all files in the given $path recursively, and return a flat array of all found filenames
+	 * 
+	 * @param string $path Path to start from (required). 
+	 * @param array $options Options to affect what is returned (optional):
+	 *  - `recursive` (int): How many levels of subdirectories this method should descend into (default=10). 
+	 *  - `extensions` (array): Only include files having these extensions, or omit to include all (default=[]).
+	 *  - `excludeDirNames` (array): Do not descend into directories having these names (default=[]).
+	 *  - `excludeHidden` (bool): Exclude hidden files? (default=false). 
+	 *  - `returnRelative` (bool): Make returned array have filenames relative to given start $path? (default=false)
+	 * @return array Flat array of filenames
+	 * 
+	 */
+	public function find($path, array $options = array()) {
+
+		$defaults = array(
+			'recursive' => 10, 
+			'extensions' => array(),
+			'excludeExtensions' => array(), 
+			'excludeDirNames' => array(),
+			'excludeHidden' => false,
+			'returnRelative' => false,
+		);
+		
+		if(!is_dir($path) || !is_readable($path)) return array();
+
+		$options = array_merge($defaults, $options);
+		if(empty($options['_level'])) {
+			// this is a non-recursive call
+			$options['_startPath'] = $path;
+			$options['_level'] = 0;
+			foreach($options['extensions'] as $k => $v) $options['extensions'][$k] = strtolower($v);
+		}
+		$options['_level']++;
+		if($options['recursive'] && $options['_level'] > $options['recursive']) return array();
+
+		$dirs = array();
+		$files = array();
+
+		foreach(new \DirectoryIterator($path) as $file) {
+			if($file->isDot()) continue;
+			$basename = $file->getBasename();
+			if($options['excludeHidden'] && strpos($basename, '.') === 0) continue;
+			if($file->isDir()) {
+				if(!in_array($basename, $options['excludeDirNames'])) $dirs[] = $file->getPathname();
+				continue;
+			}
+			$ext = strtolower($file->getExtension());
+			if(!empty($options['extensions']) && !in_array($ext, $options['extensions'])) continue;
+			if(!empty($options['excludeExtensions']) && in_array($ext, $options['excludeExtensions'])) continue;
+			$filename = $file->getPathname();
+			// make relative to provided path
+			if($options['returnRelative']) $filename = str_replace($options['_startPath'], '', $filename);
+			$files[] = $filename;
+		}
+
+		sort($files);
+
+		foreach($dirs as $dir) {
+			$_files = $this->find($dir, $options);
+			foreach($_files as $name) {
+				$files[] = $name;
+			}
+		}
+
+		$options['_level']--;
+
+		return $files;
+	}
+
+	/**
 	 * Unzips the given ZIP file to the destination directory
 	 * 
 	 * ~~~~~
@@ -580,7 +650,7 @@ class WireFileTools extends Wire {
 	 * @param array $options Array of options to modify behavior:
 	 *  - `func` (string): Function to use: include, include_once, require or require_once (default=include)
 	 *  - `autoExtension` (string): Extension to assume when no ext in filename, make blank for no auto assumption (default=php)
-	 *  - `allowedPaths` (array): Array of paths include files are allowed from. Note current dir is always allowed.
+	 *  - `allowedPaths` (array): Array of start paths include files are allowed from. Note current dir is always allowed.
 	 * @return bool Always returns true
 	 * @throws WireException if file doesn't exist or is not allowed
 	 *
@@ -643,14 +713,33 @@ class WireFileTools extends Wire {
 		extract($fuel);
 
 		// include the file
+		TemplateFile::pushRenderStack($filename); 
 		$func = $options['func'];
 		if($func == 'require') require($filename);
 			else if($func == 'require_once') require_once($filename);
 			else if($func == 'include_once') include_once($filename);
 			else include($filename);
+		TemplateFile::popRenderStack();
 
 		return true;
 	}
+
+	/**
+	 * Same as include() method except that file will not be executed if it as previously been included
+	 * 
+	 * See the `WireFileTools::include()` method for details, arguments and options.
+	 * 
+	 * @param string $filename
+	 * @param array $vars 
+	 * @param array $options
+	 * @return bool
+	 * @see WireFileTools::include()
+	 * 
+	 */
+	function includeOnce($filename, array $vars = array(), array $options = array()) {
+		$options['func'] = 'include_once';
+		return $this->include($filename, $vars, $options);
+	}	
 	
 	/**
 	 * Get the namespace used in the given .php or .module file
@@ -800,7 +889,9 @@ class WireFileTools extends Wire {
 	 */
 	public function compileInclude($file, array $options = array()) {
 		$file = $this->compile($file, $options);	
+		TemplateFile::pushRenderStack($file);
 		include($file);	
+		TemplateFile::popRenderStack();
 	}
 
 	/**
@@ -819,7 +910,9 @@ class WireFileTools extends Wire {
 	 */
 	public function compileIncludeOnce($file, array $options = array()) {
 		$file = $this->compile($file, $options);
+		TemplateFile::pushRenderStack($file);
 		include_once($file);
+		TemplateFile::popRenderStack();
 	}
 
 	/**
@@ -838,7 +931,9 @@ class WireFileTools extends Wire {
 	 */
 	public function compileRequire($file, array $options = array()) {
 		$file = $this->compile($file, $options);
-		require($file);	
+		TemplateFile::pushRenderStack($file); 
+		require($file);
+		TemplateFile::popRenderStack();
 	}
 
 	/**
@@ -856,8 +951,10 @@ class WireFileTools extends Wire {
 	 *
 	 */
 	public function compileRequireOnce($file, array $options = array()) {
+		TemplateFile::pushRenderStack($file); 
 		$file = $this->compile($file, $options);
 		require_once($file);
+		TemplateFile::popRenderStack();
 	}
 
 }
