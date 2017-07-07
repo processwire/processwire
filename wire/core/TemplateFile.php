@@ -22,6 +22,14 @@ class TemplateFile extends WireData {
 	protected $filename;
 
 	/**
+	 * The current filename being rendered (whether prepend, main, append, etc.)
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $currentFilename;
+
+	/**
 	 * Optional filenames that are prepended to the render
 	 *
 	 */
@@ -85,6 +93,14 @@ class TemplateFile extends WireData {
 	 */
 	protected $profiler = null;
 
+	/**
+	 * Stack of files that are currently being rendered
+	 *
+	 * @var array
+	 *
+	 */
+	static protected $renderStack = array();
+	
 	/**
 	 * DEPRECATED: Variables that will be applied globally to this and all other TemplateFile instances
 	 *
@@ -255,26 +271,32 @@ class TemplateFile extends WireData {
 		foreach($this->prependFilename as $_filename) {
 			if($this->halt) break;
 			if($this->profiler) $this->start($_filename);
+			$this->setCurrentFilename($_filename);
 			/** @noinspection PhpIncludeInspection */
 			require($_filename);
 			if($this->profiler) $this->stop();
+			$this->setCurrentFilename('');
 		}
 		
 		if($this->profiler) $this->start($this->filename);
 		if($this->halt) {
 			$returnValue = 0;
 		} else {
+			$this->setCurrentFilename($this->filename);
 			/** @noinspection PhpIncludeInspection */
 			$returnValue = require($this->filename);
+			$this->setCurrentFilename('');
 		}
 		if($this->profiler) $this->stop();
 		
 		foreach($this->appendFilename as $_filename) {
 			if($this->halt) break;
 			if($this->profiler) $this->start($_filename);
+			$this->setCurrentFilename($_filename);
 			/** @noinspection PhpIncludeInspection */
 			require($_filename);
 			if($this->profiler) $this->stop();
+			$this->setCurrentFilename('');
 		}
 		
 		$out = "\n" . ob_get_contents() . "\n";
@@ -333,6 +355,58 @@ class TemplateFile extends WireData {
 	public function setThrowExceptions($throwExceptions) {
 		$this->throwExceptions = $throwExceptions ? true : false;
 	}
+	
+	/**
+	 * Set the current filename being rendered
+	 *
+	 * @param $filename
+	 *
+	 */
+	protected function setCurrentFilename($filename) {
+		$this->currentFilename = $filename;
+		if(strlen($filename)) {
+			self::pushRenderStack($filename);
+		} else {
+			self::popRenderStack();
+		}
+	}
+
+	/**
+	 * Push a filename onto the render stack
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $filename
+	 * 
+	 */
+	public static function pushRenderStack($filename) {
+		self::$renderStack[] = $filename;
+	}
+
+	/**
+	 * Pop last file off of render stack
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return string|null item that was removed, or null if none found
+	 * 
+	 */
+	public static function popRenderStack() {
+		$result = array_pop(self::$renderStack); 
+		return $result;
+	}
+
+	/**
+	 * Get the current render stack
+	 * 
+	 * This contains the files currently being rendered from first to last
+	 * 
+	 * @return array
+	 * 
+	 */
+	public static function getRenderStack() {
+		return self::$renderStack;
+	}
 
 	/**
 	 * The string value of a TemplateFile is it's PHP template filename OR it's class name if no filename is set
@@ -361,7 +435,97 @@ class TemplateFile extends WireData {
 		$this->halt = $halt ? true : false;
 		return $this;
 	}
+	
+	/**
+	 * Hookable version of translation functions, $this->_(), $this->_x(), $this->_n()
+	 *
+	 * #pw-hooker
+	 *
+	 * @param string $text
+	 * @param array $options Additional options:
+	 *  - `file` (string): Filename where text appears
+	 *  - `context` (string): Context string
+	 *  - `textPlural` (string): Plural version of text, if provided
+	 *  - `count` (int): Quantity for plural, if plural provided
+	 * @return string
+	 *
+	protected function ___translate($text, array $options = array()) {
+		if(!empty($options['count']) && !empty($options['textPlural'])) {
+			$textdomain = $this->currentFilename ? $this->currentFilename : $this;
+			return _n($text, $options['textPlural'], $options['count'], $textdomain);
+		}
+		return $text;
+	}
+	 */
 
+	/**
+	 * Translate the given text string into the current language if available.
+	 *
+	 * If not available, or if the current language is the native language, then it returns the text as is.
+	 * 
+	 * #pw-group-translation
+	 *
+	 * @param string $text Text string to translate
+	 * @return string
+	 *
+	public function _($text) {
+		if($this->wire('hooks')->isHooked('TemplateFile::translate()')) {
+			// delegate to hooked translate() method if there are hooks
+			$options = array('file' => $this->currentFilename);
+			$_text = $this->translate($text, $options);
+			if($_text != $text) return $_text;
+		}
+		// map to textdomain of file being rendered
+		if($this->currentFilename) return __($text, $this->currentFilename);
+		return parent::_($text);
+	}
+	 */
 
+	/**
+	 * Perform a language translation in a specific context
+	 *
+	 * Used when to text strings might be the same in English, but different in other languages.
+	 * 
+	 * #pw-group-translation
+	 *
+	 * @param string $text Text for translation.
+	 * @param string $context Name of context
+	 * @return string Translated text or original text if translation not available.
+	 *
+	public function _x($text, $context) {
+		if($this->wire('hooks')->isHooked('TemplateFile::translate()')) {
+			// delegate to hooked translate() method if there are hooks
+			$options = array('file' => $this->currentFilename, 'context' => $context);
+			$_text = $this->translate($text, $options);
+			if($_text != $text) return $_text;
+		}
+		// map to textdomain of file being rendered
+		if($this->currentFilename) return _x($text, $context, $this->currentFilename);
+		return parent::_x($text, $context);
+	}
+	 */
+
+	/**
+	 * Perform a language translation with singular and plural versions
+	 *
+	 * #pw-group-translation
+	 *
+	 * @param string $textSingular Singular version of text (when there is 1 item).
+	 * @param string $textPlural Plural version of text (when there are multiple items or 0 items).
+	 * @param int $count Quantity used to determine whether singular or plural.
+	 * @return string Translated text or original text if translation not available.
+	 *
+	public function _n($textSingular, $textPlural, $count) {
+		if($this->wire('hooks')->isHooked('TemplateFile::translate()')) {
+			// delegate to hooked translate() method if there are hooks
+			$options = array('file' => $this->currentFilename, 'textPlural' => $textPlural, 'count' => $count);
+			$_text = $this->translate($textSingular, $options);
+			if($_text != $textSingular && $_text != $textPlural) return $_text;
+		}
+		// map to textdomain of file being rendered
+		if($this->currentFilename) return _n($textSingular, $textPlural, $count, $this->currentFilename);
+		return parent::_n($textSingular, $textPlural, $count);
+	}
+	 */
 }
 
