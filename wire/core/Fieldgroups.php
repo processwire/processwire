@@ -161,7 +161,7 @@ class Fieldgroups extends WireSaveableItemsLookup {
 						throw new WireException("Field '$field' may not be removed from fieldgroup '{$item->name}' because it is permanent.");
 					}
 
-					$field->type->deleteTemplateField($template, $field); 
+					if($field->type) $field->type->deleteTemplateField($template, $field); 
 					$item->finishRemove($field); 
 				}
 			}

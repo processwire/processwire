@@ -677,6 +677,8 @@ class Fields extends WireSaveableItems {
 			'countPages' => false,
 			'getPageIDs' => false, 
 		);
+		
+		if(!$field->type) return 0;
 
 		$options = array_merge($defaults, $options);
 		$database = $this->wire('database');

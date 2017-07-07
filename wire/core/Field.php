@@ -812,7 +812,8 @@ class Field extends WireData implements Saveable, Exportable {
 
 		// just in case an Inputfield needs to know its Fieldtype/Field context, or lack of it
 		$inputfield->set('hasFieldtype', $this->type);
-		$inputfield->set('hasField', $this); 
+		$inputfield->set('hasField', $this);
+		$inputfield->set('hasPage', $page); 
 		
 		// custom field settings
 		foreach($this->data as $key => $value) {

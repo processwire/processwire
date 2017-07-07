@@ -177,7 +177,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * #pw-internal
 	 * 
 	 * @param Field $field
-	 * @return bool
+	 * @return Fieldgroup $this
 	 *
 	 */
 	public function finishRemove(Field $field) {
@@ -194,7 +194,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * #pw-group-manipulation
 	 *
 	 * @param Field|string|int $field Field object, name or id. 
-	 * @return bool
+	 * @return Fieldgroup $this
 	 *
 	 */
 	public function softRemove($field) {
@@ -612,7 +612,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 			if(!$inputfield) continue;
 			if($inputfield->collapsed == Inputfield::collapsedHidden) continue;
 
-			$inputfield->value = $page->get($field->name); 
+			$inputfield->setAttribute('value', $page->get($field->name));
 			
 			if($multiMode) {
 				$fieldInputfields[$field->id] = $inputfield;
