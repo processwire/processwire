@@ -156,7 +156,7 @@ var pwPanels = {
 			.attr('href', panelURL)
 			.on('click', pwPanels.buttonClickEvent)
 			.on('mouseover', pwPanels.buttonMouseoverEvent)
-			.on('mouseut', pwPanels.buttonMouseoutEvent)
+			.on('mouseout', pwPanels.buttonMouseoutEvent)
 			.append($span);
 		
 		var $panel = $('<div />')
