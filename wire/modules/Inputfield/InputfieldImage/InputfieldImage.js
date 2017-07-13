@@ -531,6 +531,10 @@ function InputfieldImage($) {
 			} else if($el.is(".mfp-close")) {
 				// magnific popup close button
 				return;
+
+			} else if($el.is("a.remove")) {
+				// selectize 
+				return;
 				
 			} else {
 				// other

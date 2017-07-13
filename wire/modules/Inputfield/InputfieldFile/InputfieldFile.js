@@ -431,11 +431,100 @@ $(document).ready(function() {
 	} // initHTML5
 
 	/**
+	 * Initialize selectize tags
+	 * 
+	 * @param $inputfields
+	 * 
+	 */
+	function initTags($inputfields) {
+	
+		$inputfields.each(function() {
+
+			var $inputfield = $(this);
+			var $inputs = $inputfield.find('.InputfieldFileTagsInput:not(.selectized)');
+
+			if($inputs.length) {
+				$inputs.selectize({
+					plugins: ['remove_button', 'drag_drop'],
+					delimiter: ' ',
+					persist: false,
+					createOnBlur: true,
+					submitOnReturn: false,
+					create: function(input) {
+						return {
+							value: input,
+							text: input
+						}
+					}
+				});
+				return;
+			}
+
+			var $selects = $inputfield.find('.InputfieldFileTagsSelect:not(.selectized)');
+			if($selects.length) {
+				if(!$inputfield.hasClass('Inputfield')) $inputfield = $inputfield.closest('.Inputfield');
+				var configName = $inputfield.attr('data-configName');
+				var settings = ProcessWire.config[configName];
+				var options = [];
+				for(var n = 0; n < settings['tags'].length; n++) {
+					var tag = settings['tags'][n];
+					options[n] = {value: tag};
+				}
+				$selects.selectize({
+					plugins: ['remove_button', 'drag_drop'],
+					delimiter: ' ',
+					persist: true,
+					submitOnReturn: false,
+					closeAfterSelect: true,
+					createOnBlur: true,
+					maxItems: null,
+					valueField: 'value',
+					labelField: 'value',
+					searchField: ['value'],
+					options: options,
+					create: function(input) {
+						return {
+							value: input,
+							text: input
+						}
+					},
+					createFilter: function(input) {
+						if(settings.allowUserTags) return true; 
+						allow = false;
+						for(var n = 0; n < options.length; n++) {
+							if(input == options[n]) {
+								allow = true;
+								break;
+							}
+						}
+						return allow;
+					},
+					onDropdownOpen: function($dropdown) {
+						$dropdown.closest('li').css('z-index', 100);	
+					},
+					onDropdownClose: function($dropdown) {
+						$dropdown.closest('li').css('z-index', 'auto');	
+					},
+					render: {
+						item: function(item, escape) {
+							return '<div>' + escape(item.value) + '</div>';
+						},
+						option: function(item, escape) {
+							return '<div>' + escape(item.value) + '</div>';
+						}
+					}
+				});
+			}
+		});
+	}
+
+	/**
 	 * MAIN
 	 *
 	 */
 
 	initSortable($(".InputfieldFileList")); 
+	initTags($(".InputfieldFileHasTags")); 
 	
 	/**
 	 * Progressive enchanchment for browsers that support html5 File API
@@ -474,12 +563,16 @@ $(document).ready(function() {
 			resizeActive = true;
 			setTimeout(windowResize, 1000);
 		}).resize();
+		$(document).on('AjaxUploadDone', function(event) {
+			initTags($(this));
+		}); 
 	}
 	
 	//$(document).on('reloaded', '.InputfieldFileMultiple, .InputfieldFileSingle', function(event) {
 	$(document).on('reloaded', '.InputfieldHasFileList', function(event) {
 		initSortable($(this).find(".InputfieldFileList"));
 		InitHTML5($(this)); 
+		initTags($(this));
 		if(allowAjax) windowResize();
 	}); 
 	

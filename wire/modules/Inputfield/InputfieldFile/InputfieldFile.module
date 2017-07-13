@@ -7,6 +7,7 @@
  * @property int $maxFiles Maximum number of files allowed
  * @property int $maxFilesize Maximum file size
  * @property bool $useTags Whether or not tags are enabled
+ * @property string $tagsList Predefined tags
  * @property bool|int $unzip Whether or not unzip is enabled
  * @property bool|int $overwrite Whether or not overwrite mode is enabled
  * @property int $descriptionRows Number of rows for description field (default=1, 0=disable)
@@ -36,7 +37,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		return array(
 			'title' => __('Files', __FILE__), // Module Title
 			'summary' => __('One or more file uploads (sortable)', __FILE__), // Module Summary
-			'version' => 124,
+			'version' => 125,
 			'permanent' => true, 
 			);
 	}
@@ -74,9 +75,21 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected $uploadOnlyMode = 0;
-	
+
+	/**
+	 * This is true when we are only rendering the value rather than the inputs
+	 * 
+	 * @var bool
+	 * 
+	 */
 	protected $renderValueMode = false;
-	
+
+	/**
+	 * True when in ajax mode
+	 * 
+	 * @var bool
+	 * 
+	 */
 	protected $isAjax = false;
 
 	/**
@@ -108,6 +121,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$this->set('maxFiles', 0); 
 		$this->set('maxFilesize', 0); 
 		$this->set('useTags', 0);
+		$this->set('tagsList', ''); 
 
 		// native to this Inputfield
 		$this->set('unzip', 0); 
@@ -199,7 +213,15 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	public function isEmpty() {
 		return !count($this->value);
 	}
-	
+
+	/**
+	 * Set an attribute
+	 * 
+	 * @param array|string $key
+	 * @param array|int|string $value
+	 * @return Inputfield|InputfieldFile
+	 * 
+	 */
 	public function setAttribute($key, $value) {
 		if($key == 'value') {
 			if($value instanceof Pagefile) {
@@ -238,10 +260,26 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		return $this;
 	}
 
+	/**
+	 * Get the unique 'id' attribute for the given Pagefile
+	 * 
+	 * @param Pagefile $pagefile
+	 * @return string
+	 * 
+	 */
 	protected function pagefileId(Pagefile $pagefile) {
 		return $this->name . "_" . $pagefile->hash; 
 	}
 
+	/**
+	 * Render a description input for the given Pagefile
+	 * 
+	 * @param Pagefile $pagefile
+	 * @param string $id 
+	 * @param int $n
+	 * @return string
+	 * 
+	 */
 	protected function renderItemDescriptionField(Pagefile $pagefile, $id, $n) {
 	
 		if($n) {}
@@ -265,6 +303,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 
 			$userLanguage = $this->wire('user')->language;
 			$languages = $this->noLang ? null : $this->wire('languages');
+			$defaultDescriptionFieldLabel = $this->wire('sanitizer')->entities1($this->labels['description']);
 
 			if(!$userLanguage || !$languages || $languages->count() < 2) {
 				$numLanguages = 0;
@@ -274,7 +313,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				if(is_null($hasLangTabs)) {
 					$hasLangTabs = $this->wire('modules')->isInstalled('LanguageTabs');
 					if($hasLangTabs) {
-						$langTabSettings = $this->wire('modules')->getModule('LanguageTabs')->getSettings();
+						/** @var LanguageTabs $languageTabs */
+						$languageTabs = $this->wire('modules')->getModule('LanguageTabs');
+						$langTabSettings = $languageTabs->getSettings();
 					}
 				}
 			}
@@ -282,8 +323,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			foreach($languages as $language) {
 
 				$descriptionFieldName = "description_$id";
-				$descriptionFieldLabel = $this->labels['description'];
+				$descriptionFieldLabel = $defaultDescriptionFieldLabel;
 				$labelClass = "detail";
+				$attrStr = '';
 
 				if($language) {
 					$tabField = empty($langTabSettings['tabField']) ? 'title' : $langTabSettings['tabField'];
@@ -303,16 +345,20 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 					$out .= "<div class='InputfieldFileDescription LanguageSupport' data-language='$language' id='$tabID'>"; // open wrapper
 				} else {
 					$out .= "<div class='InputfieldFileDescription'>"; // open wrapper
+					$attrStr = "placeholder='$descriptionFieldLabel&hellip;'";
+					$labelClass = 'detail pw-hidden';
 				}
-
+				
+				$attrStr = "name='$descriptionFieldName' id='$descriptionFieldName' $attrStr";
+				
 				$out .= "<label for='$descriptionFieldName' class='$labelClass'>$descriptionFieldLabel</label>";
 
 				$description = $this->wire('sanitizer')->entities($pagefile->description($language));
 
 				if($this->descriptionRows > 1) {
-					$out .= "<textarea name='$descriptionFieldName' id='$descriptionFieldName' rows='{$this->descriptionRows}'>$description</textarea>";
+					$out .= "<textarea $attrStr rows='$this->descriptionRows'>$description</textarea>";
 				} else {
-					$out .= "<input type='text' name='$descriptionFieldName' id='$descriptionFieldName' value='$description' />";
+					$out .= "<input type='text' $attrStr value='$description' />";
 				}
 
 				$out .= "</div>"; // close wrapper
@@ -326,18 +372,45 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			}
 
 		}
-		
 
-		if($this->useTags) {
-			$tags = $this->wire('sanitizer')->entities($pagefile->tags);
-			$tagsLabel = $this->labels['tags'];
-			$out .= 
-				"<span class='InputfieldFileTags'>" .
-					"<label for='tags_$id' class='detail'>$tagsLabel</label>" .
-					"<input type='text' name='tags_$id' id='tags_$id' value='$tags' />" .
-				"</span>";
+		if($this->useTags) $out .= $this->renderItemTagsField($pagefile, $id, $n); 
+
+		return $out;
+	}
+
+	/**
+	 * Render the tags input for the given Pagefile
+	 * 
+	 * @param Pagefile $pagefile
+	 * @param string $id
+	 * @param int $n
+	 * @return string
+	 * 
+	 */
+	protected function renderItemTagsField(Pagefile $pagefile, $id, $n) {
+
+		if($n) {}
+		$tagsLabel = $this->wire('sanitizer')->entities($this->labels['tags']) . '&hellip;';
+		$tagsStr = $this->wire('sanitizer')->entities($pagefile->tags);
+		$tagsAttr = '';
+
+		if($this->useTags >= FieldtypeFile::useTagsPredefined) {
+			// select predefined
+			$tagsClass = 'InputfieldFileTagsSelect';
+			$tagsAttr = "data-cfgname='InputfieldFileTags_{$this->hasField->name}' ";
+
+		} else {
+			// text input
+			$tagsClass = 'InputfieldFileTagsInput';
 		}
 
+		$out = 
+			"<div class='InputfieldFileTags'>" . 
+				"<label for='tags_$id' class='detail pw-hidden'>$tagsLabel</label>" . 
+				"<input type='text' name='tags_$id' id='tags_$id' value='$tagsStr' " . 
+					"placeholder='$tagsLabel' class='$tagsClass' $tagsAttr/>" . 
+			"</div>";
+		
 		return $out;
 	}
 
@@ -505,6 +578,42 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 		$this->addClass('InputfieldNoFocus', 'wrapClass');
+		
+		if($this->useTags) {
+			$this->wire('modules')->get('JqueryUI')->use('selectize');
+			$this->addClass('InputfieldFileHasTags', 'wrapClass');
+			if($this->useTags >= FieldtypeFile::useTagsPredefined && $this->hasField) {
+				// predefined tags
+				$config = $this->wire('config');
+				$fieldName = $this->hasField->name;
+				$jsName = "InputfieldFileTags_$fieldName";
+				$allowUserTags = $this->useTags & FieldtypeFile::useTagsNormal;
+				$data = $config->js($jsName);
+				if(!is_array($data)) $data = array();
+				if(empty($data['tags'])) {
+					$tags = array();
+					foreach(explode(' ', (string) $this->get('tagsList')) as $tag) {
+						$tag = trim($tag);
+						if(!strlen($tag)) continue;
+						$tags[strtolower($tag)] = $tag;
+					}
+					if($allowUserTags) {
+						$pagefiles = $this->val();
+						if($pagefiles instanceof Pagefiles) {
+							$_tags = $pagefiles->tags(true);
+							if(count($_tags)) $tags = array_merge($tags, $_tags);
+						}
+					}
+					$data['tags'] = array_values($tags);
+					$data['allowUserTags'] = $allowUserTags;
+					$config->js($jsName, $data); 
+				}
+				$this->wrapAttr('data-configName', $jsName);
+			} else {
+				// regular tags text input
+			}
+		}
+		
 		return parent::renderReady($parent, $renderValueMode); 
 	}
 
@@ -704,7 +813,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 
 		foreach($keys as $key) { 
 			if(isset($input[$key . '_' . $id])) { 
-				$value = trim($input[$key . '_' . $id]); 
+				$value = $input[$key . '_' . $id]; 
+				if(is_array($value)) $value = implode(' ', $value);
+				$value = trim($value); 
 				if($value != $pagefile->$key) {
 					$pagefile->$key = $value; 
 					$changed = true; 
