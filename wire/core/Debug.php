@@ -66,7 +66,7 @@ class Debug {
 			$startTime = -microtime(true);
 			if(!$key) {
 				$key = (string) $startTime; 
-				while(isset(self::$timers[$key])) $key .= ".";
+				while(isset(self::$timers[$key])) $key .= "0";
 			}
 			self::$timers[(string) $key] = $startTime; 
 			$value = $key; 

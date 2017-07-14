@@ -104,7 +104,7 @@ class Database extends \mysqli implements WireDatabase {
 
 		if($this->debug) {
 			$timerKey = Debug::timer();
-			if(!$timerFirstStartTime) $timerFirstStartTime = $timerKey; 
+			if(!$timerFirstStartTime) $timerFirstStartTime = (float) $timerKey; 
 		} else $timerKey = null; 
 
 		$result = @parent::query($sql, $resultmode); 
@@ -113,9 +113,9 @@ class Database extends \mysqli implements WireDatabase {
 			if($this->debug) { 
 				if(isset($result->num_rows)) $sql .= " [" . $result->num_rows . " rows]";
 				if(!is_null($timerKey)) {
-					$elapsed = Debug::timer($timerKey); 
+					$elapsed = (float) Debug::timer($timerKey); 
 					$timerTotalQueryTime += $elapsed; 
-					$timerTotalSinceStart = Debug::timer() - $timerFirstStartTime; 
+					$timerTotalSinceStart = ((float) Debug::timer()) - $timerFirstStartTime; 
 					$sql .= " [{$elapsed}s, {$timerTotalQueryTime}s, {$timerTotalSinceStart}s]";
 				}
 				$this->queryLog($sql); 
