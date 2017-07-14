@@ -500,10 +500,10 @@ $(document).ready(function() {
 						return allow;
 					},
 					onDropdownOpen: function($dropdown) {
-						$dropdown.closest('li').css('z-index', 100);	
+						$dropdown.closest('li, .InputfieldImageEdit').css('z-index', 100);	
 					},
 					onDropdownClose: function($dropdown) {
-						$dropdown.closest('li').css('z-index', 'auto');	
+						$dropdown.closest('li, .InputfieldImageEdit').css('z-index', 'auto');	
 					},
 					render: {
 						item: function(item, escape) {

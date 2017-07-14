@@ -348,6 +348,8 @@
     margin: 1em 0 0.5em 0; }
     .InputfieldImageEdit__buttons button {
       margin-bottom: 0.5em; }
+  .InputfieldImageEdit .InputfieldFileDescription + .InputfieldFileTags {
+    margin-top: 0.5em; }
 
 .InputfieldImage .ImageData {
   display: none; }
