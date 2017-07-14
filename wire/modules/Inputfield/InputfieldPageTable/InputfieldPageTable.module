@@ -381,14 +381,7 @@ class InputfieldPageTable extends Inputfield {
 			/** @var Field $field */
 			$field = $fields[$column]; 
 			$v = $item->getFormatted($fieldName);
-			if($field->type instanceof FieldtypeImage) {
-				$field->inputfieldSetting('renderValueFlags', Inputfield::renderValueMinimal | Inputfield::renderValueNoWrap);
-				$value = (string) $field->type->markupValue($item, $field, $v, $subfieldName);
-				$value = "<div class='Inputfield InputfieldImage InputfieldRenderValueMode'>$value</div>";
-				$field->inputfieldSetting('renderValueFlags', 'clear');
-			} else {
-				$value = $field->type->markupValue($item, $field, $v, $subfieldName);
-			}
+			$value = (string) $field->type->markupValue($item, $field, $v, $subfieldName);
 
 		} else {
 			// native
