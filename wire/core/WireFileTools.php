@@ -297,7 +297,8 @@ class WireFileTools extends Wire {
 			'excludeHidden' => false,
 			'returnRelative' => false,
 		);
-		
+
+		if(DIRECTORY_SEPARATOR != '/') $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
 		if(!is_dir($path) || !is_readable($path)) return array();
 
 		$options = array_merge($defaults, $options);
@@ -325,8 +326,12 @@ class WireFileTools extends Wire {
 			if(!empty($options['extensions']) && !in_array($ext, $options['extensions'])) continue;
 			if(!empty($options['excludeExtensions']) && in_array($ext, $options['excludeExtensions'])) continue;
 			$filename = $file->getPathname();
+			if(DIRECTORY_SEPARATOR != '/') $filename = str_replace(DIRECTORY_SEPARATOR, '/', $filename);
 			// make relative to provided path
-			if($options['returnRelative']) $filename = str_replace($options['_startPath'], '', $filename);
+			if($options['returnRelative']) {
+				$filename = str_replace($options['_startPath'], '', $filename);
+			}
+				
 			$files[] = $filename;
 		}
 
