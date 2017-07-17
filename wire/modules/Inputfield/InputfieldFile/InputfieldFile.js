@@ -442,7 +442,8 @@ $(document).ready(function() {
 
 			var $inputfield = $(this);
 			var $inputs = $inputfield.find('.InputfieldFileTagsInput:not(.selectized)');
-
+			var $selects = $inputfield.find('.InputfieldFileTagsSelect:not(.selectized)');
+			
 			if($inputs.length) {
 				$inputs.selectize({
 					plugins: ['remove_button', 'drag_drop'],
@@ -457,10 +458,8 @@ $(document).ready(function() {
 						}
 					}
 				});
-				return;
 			}
 
-			var $selects = $inputfield.find('.InputfieldFileTagsSelect:not(.selectized)');
 			if($selects.length) {
 				if(!$inputfield.hasClass('Inputfield')) $inputfield = $inputfield.closest('.Inputfield');
 				var configName = $inputfield.attr('data-configName');
@@ -563,7 +562,7 @@ $(document).ready(function() {
 			resizeActive = true;
 			setTimeout(windowResize, 1000);
 		}).resize();
-		$(document).on('AjaxUploadDone', function(event) {
+		$(document).on('AjaxUploadDone', '.InputfieldFileHasTags', function(event) {
 			initTags($(this));
 		}); 
 	}
