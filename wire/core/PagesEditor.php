@@ -180,41 +180,70 @@ class PagesEditor extends Wire {
 			}
 		}
 
-		// FAMILY CHECKS
 		// check for a parent change and whether it is allowed
-		if($saveable && $page->parentPrevious && $page->parentPrevious->id != $page->parent->id && empty($options['ignoreFamily'])) {
-			// page was moved
-			if($page->template->noMove && ($page->hasStatus(Page::statusSystem) || $page->hasStatus(Page::statusSystemID) || !$page->isTrash())) {
-				// make sure the page's template allows moves. only move laways allowed is to the trash, unless page has system status
-				$saveable = false;
-				$reason = "Pages using template '{$page->template}' are not moveable (template::noMove) [{$page->parentPrevious->path} => {$page->parent->path}]";
-
-			} else if($page->parent->template->noChildren) {
-				$saveable = false;
-				$reason = "Chosen parent '{$page->parent->path}' uses template that does not allow children.";
-
-			} else if($page->parent->id && $page->parent->id != $config->trashPageID && count($page->parent->template->childTemplates) 
-				&& !in_array($page->template->id, $page->parent->template->childTemplates)) {
-				// make sure the new parent's template allows pages with this template
-				$saveable = false;
-				$reason = 
-					"Can't move '{$page->name}' because Template '{$page->parent->template}' used by '{$page->parent->path}' " . 
-					"doesn't allow children with this template.";
-
-			} else if(count($page->template->parentTemplates) && $page->parent->id != $config->trashPageID 
-				&& !in_array($page->parent->template->id, $page->template->parentTemplates)) {
-				$saveable = false;
-				$reason = 
-					"Can't move '{$page->name}' because Template '{$page->parent->template}' used by '{$page->parent->path}' " . 
-					"is not allowed by template '{$page->template->name}'.";
-
-			} else if(count($page->parent->children("name={$page->name}, id!=$page->id, include=all"))) {
-				$saveable = false;
-				$reason = "Chosen parent '{$page->parent->path}' already has a page named '{$page->name}'";
-			}
+		if($saveable && $page->parentPrevious && empty($options['ignoreFamily'])) {
+			// parent has changed, check that the move is allowed
+			$saveable = $this->isMoveable($page, $page->parentPrevious, $page->parent, $reason); 
 		}
-
+		
 		return $saveable;
+	}
+
+	/**
+	 * Return whether given Page is moveable from $oldParent to $newParent
+	 * 
+	 * @param Page $page Page to move
+	 * @param Page $oldParent Current/old parent page
+	 * @param Page $newParent New requested parent page
+	 * @param string $reason Populated with reason why page is not moveable, if return false is false. 
+	 * @return bool
+	 * 
+	 */
+	public function isMoveable(Page $page, Page $oldParent, Page $newParent, &$reason) {
+		
+		if($oldParent->id == $newParent->id) return true; 
+		
+		$config = $this->wire('config');
+		$moveable = false;
+		
+		// page was moved
+		if($page->template->noMove 
+			&& ($page->hasStatus(Page::statusSystem) || $page->hasStatus(Page::statusSystemID) || !$page->isTrash())) {
+			// make sure the page template allows moves.
+			// only move always allowed is to the trash, unless page has system status
+			$reason = 
+				"Page using template '$page->template' is not moveable " . 
+				"(Template::noMove) [{$oldParent->path} => {$newParent->path}].";
+
+		} else if($newParent->template->noChildren) {
+			// check if new parent disallows children
+			$reason = 
+				"Chosen parent '$newParent->path' uses template '$newParent->template' that does not allow children.";
+
+		} else if($newParent->id && $newParent->id != $config->trashPageID && count($newParent->template->childTemplates)
+			&& !in_array($page->template->id, $newParent->template->childTemplates)) {
+			// make sure the new parent's template allows pages with this template
+			$reason =
+				"Cannot move '$page->name' because template '$newParent->template' used by page '$newParent->path' " .
+				"does not allow children using template '$page->template'.";
+
+		} else if(count($page->template->parentTemplates) && $newParent->id != $config->trashPageID
+			&& !in_array($newParent->template->id, $page->template->parentTemplates)) {
+			// check for allowed parentTemplates setting
+			$reason =
+				"Cannot move '$page->name' because template '$newParent->template' used by new parent '$newParent->path' " .
+				"is not allowed by moved page template '$page->template'.";
+
+		} else if(count($newParent->children("name=$page->name, id!=$page->id, include=all"))) {
+			// check for page name collision
+			$reason = 
+				"Chosen parent '$newParent->path' already has a page named '$page->name'.";
+			
+		} else {
+			$moveable = true;
+		}
+		
+		return $moveable;
 	}
 	
 	/**
@@ -433,6 +462,7 @@ class PagesEditor extends Wire {
 	 * 	- `forceID` (integer): Use this ID instead of an auto-assigned on (new page) or current ID (existing page)
 	 * 	- `ignoreFamily` (boolean): Bypass check of allowed family/parent settings when saving (default=false)
 	 *  - `noHooks` (boolean): Prevent before/after save hooks from being called (default=false)
+	 *  - `noFields` (boolean): Bypass saving of custom fields (default=false)
 	 * @return bool True on success, false on failure
 	 * @throws WireException
 	 *
@@ -446,6 +476,7 @@ class PagesEditor extends Wire {
 			'forceID' => 0,
 			'ignoreFamily' => false,
 			'noHooks' => false, 
+			'noFields' => false, 
 		);
 
 		if(is_string($options)) $options = Selectors::keyValueStringToArray($options);
@@ -466,7 +497,7 @@ class PagesEditor extends Wire {
 
 		if(!$this->isSaveable($page, $reason, '', $options)) {
 			if($language) $user->language = $language;
-			throw new WireException("Can't save page {$page->id}: {$page->path}: $reason");
+			throw new WireException("Can’t save page {$page->id}: {$page->path}: $reason");
 		}
 
 		if($page->hasStatus(Page::statusUnpublished) && $page->template->noUnpublish) {
@@ -653,7 +684,7 @@ class PagesEditor extends Wire {
 	 */
 	protected function savePageFinish(Page $page, $isNew, array $options) {
 		
-		$changes = $page->getChanges();
+		$changes = $page->getChanges(2);
 		$changesValues = $page->getChanges(true);
 
 		// update children counts for current/previous parent
@@ -688,14 +719,17 @@ class PagesEditor extends Wire {
 
 		// save each individual Fieldtype data in the fields_* tables
 		foreach($page->fieldgroup as $field) {
-			if(isset($corruptedFields[$field->name])) continue; // don't even attempt save of corrupted field
-			if(!$field->type) continue;
-			if(!$page->hasField($field)) continue; // field not valid for page
-			try {
-				$field->type->savePageField($page, $field);
-			} catch(\Exception $e) {
-				$error = sprintf($this->_('Error saving field "%s"'), $field->name) . ' - ' . $e->getMessage();
-				$this->trackException($e, true, $error);
+			$name = $field->name;
+			if($options['noFields'] || isset($corruptedFields[$name]) || !$field->type || !$page->hasField($field)) {
+				unset($changes[$name]);
+				unset($changesValues[$name]); 
+			} else {
+				try {
+					$field->type->savePageField($page, $field);
+				} catch(\Exception $e) {
+					$error = sprintf($this->_('Error saving field "%s"'), $name) . ' - ' . $e->getMessage();
+					$this->trackException($e, true, $error);
+				}
 			}
 		}
 
@@ -703,7 +737,17 @@ class PagesEditor extends Wire {
 		$page->of($of);
 
 		if(empty($page->template->sortfield)) $this->pages->sortfields()->save($page);
-		if($options['resetTrackChanges']) $page->resetTrackChanges();
+		
+		if($options['resetTrackChanges']) {
+			if($options['noFields']) {
+				// reset for only fields that were saved
+				foreach($changes as $change) $page->untrackChange($change);
+				$page->setTrackChanges(true);
+			} else {
+				// reset all changes
+				$page->resetTrackChanges();
+			}
+		}
 
 		// determine whether we'll trigger the added() hook
 		if($isNew) {
@@ -1235,6 +1279,37 @@ class PagesEditor extends Wire {
 		if(strpos($sql, ':modified')) $query->bindValue(':modified', date('Y-m-d H:i:s', $modified));
 		
 		return $this->wire('database')->execute($query);
+	}
+
+	/**
+	 * Move page to specified parent (work in progress)
+	 * 
+	 * This method is the same as changing a page parent and saving, but provides a useful shortcut
+	 * for some cases with less code. This method:
+	 * 
+	 * - Does not save the other custom fields of a page (if any are changed). 
+	 * - Does not require that output formatting be off (it manages that internally). 
+	 * 
+	 * @param Page $child Page that you want to move.
+	 * @param Page|int|string $parent Parent to move it under (may be Page object, path string, or ID integer).
+	 * @param array $options Options to modify behavior (see PagesEditor::save for options). 
+	 * @return bool|array True on success or false if not necessary.
+	 * @throws WireException if given parent does not exist, or move is not allowed
+	 *
+	 */
+	public function move(Page $child, $parent, array $options = array()) {
+		
+		if(is_string($parent) || is_int($parent)) $parent = $this->pages->get($parent); 
+		if(!$parent instanceof Page || !$parent->id) throw new WireException('Unable to locate parent for move');
+		
+		$options['noFields'] = true;
+		$of = $child->of();
+		$child->of(false);
+		$child->parent = $parent;
+		$result = $child->parentPrevious ? $this->pages->save($child, $options) : false;
+		if($of) $child->of(true);
+		
+		return $result;
 	}
 
 	/**
