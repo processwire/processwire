@@ -1128,14 +1128,27 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-group-changes
 	 *
-	 * @param bool $getValues Specify true to return an associative array containing an array of previous values, indexed by 
-	 *   property name, oldest to newest. Requires Wire::trackChangesValues mode to be enabled. 
+	 * @param bool $getValues Specify one of the following, or omit for default setting. 
+	 *  - `false` (bool): return array of changed property names (default setting).
+	 *  - `true` (bool): return an associative array containing an array of previous values, indexed by 
+	 *     property name, oldest to newest. Requires Wire::trackChangesValues mode to be enabled. 
+	 *  - `2` (int): Return array where both keys and values are changed property names. 
 	 * @return array
 	 *
 	 */
 	public function getChanges($getValues = false) {
-		if($getValues) return $this->changes; 
-		return array_keys($this->changes); 
+		if($getValues === 2) {
+			$changes = array();
+			foreach($this->changes as $name => $value) {
+				if($value) {} // value ignored
+				$changes[$name] = $name;
+			}
+			return $changes;
+		} else if($getValues) {
+			return $this->changes;
+		} else {
+			return array_keys($this->changes);
+		}
 	}
 
 	
