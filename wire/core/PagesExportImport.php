@@ -29,7 +29,7 @@
 class PagesExportImport extends Wire {
 
 	/**
-	 * Export given PageArray to a ZIP file (method not yet implemented)
+	 * Export given PageArray to a ZIP file
 	 * 
 	 * @param PageArray $items
 	 * @param array $options
@@ -37,20 +37,45 @@ class PagesExportImport extends Wire {
 	 * 
 	 */
 	public function exportZIP(PageArray $items, array $options = array()) {
-		return false;
+		$tempDir = new WireTempDir($this);
+		$this->wire($tempDir);
+		$tempDir->setRemove(false);
+		$path = $tempDir->get();
+		$jsonFile = $path . "pages.json";
+		$jsonData = $this->exportJSON($items, $options);
+		file_put_contents($jsonFile, $jsonData);
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
+		$zipFileItems = array($jsonFile);
+		$zipFileName = $path . 'pages.zip';
+		$zipFileInfo = $files->zip($zipFileName, $zipFileItems); 
+		foreach($zipFileItems as $file) {
+			unlink($file);
+		}
+		return $zipFileName;
 	}
 
 	/**
-	 * Import ZIP file to create pages (method not yet implemented)
+	 * Import ZIP file to create pages
 	 * 
 	 * @param string $filename Path+filename to ZIP file 
 	 * @param array $options
-	 * @return PageArray|int Pages that were imported (or count, if requested)
+	 * @return PageArray|bool
 	 * 
 	 */
 	public function importZIP($filename, array $options = array()) {
-		$pageArray = $this->wire('pages')->newPageArray();
-		return $options['count'] ? $pageArray->count() : $pageArray;
+		$tempDir = new WireTempDir($this);
+		$this->wire($tempDir);
+		$path = $tempDir->get();
+		$zipFileItems = $this->wire('files')->unzip($filename, $path); 
+		if(empty($zipFileItems)) {
+			$pageArray = false;
+		} else {
+			$jsonFile = $path . "pages.json";
+			$jsonData = file_get_contents($jsonFile);
+			$pageArray = $this->importJSON($jsonData, $options);
+		}
+		return $pageArray;	
 	}
 
 	/**
@@ -63,7 +88,7 @@ class PagesExportImport extends Wire {
 	 */
 	public function exportJSON(PageArray $items, array $options = array()) {
 		$data = $this->pagesToArray($items, $options); 
-		$data = json_encode($data); 
+		$data = wireEncodeJSON($data, true, true); 
 		return $data;
 	}
 
@@ -96,6 +121,7 @@ class PagesExportImport extends Wire {
 
 		$defaults = array(
 			'verbose' => false,
+			'fieldNames' => array(), // export only these field names, when specified
 		);
 
 		$options = array_merge($defaults, $options);
@@ -168,7 +194,6 @@ class PagesExportImport extends Wire {
 					$templates[$item->template->name] = $item->template->getExportData();
 				}
 			}
-
 		}
 
 		if($options['verbose']) $a['templates'] = $templates;
@@ -239,6 +264,8 @@ class PagesExportImport extends Wire {
 	
 		// iterate all fields and export value from each
 		foreach($page->template->fieldgroup as $field) {
+			
+			if(!empty($options['fieldNames']) && !in_array($field->name, $options['fieldNames'])) continue;
 			
 			$info = $this->getFieldInfo($field); 
 			if(!$info['exportable']) {
@@ -320,7 +347,7 @@ class PagesExportImport extends Wire {
 		}
 
 		$defaults = array(
-			'id' => 0, // ID that new Page should use, or update, if it already exists. (0=create new). Sets updatePage=true.
+			'id' => 0, // ID that new Page should use, or update, if it already exists. (0=create new). Sets update=true.
 			'parent' => 0, // Parent Page, path or ID. (0=auto detect from imported page path)
 			'template' => '', // Template object, name or ID. (0=auto detect from imported page template)
 			'update' => true, // update existing Page (rather than create new) if another page already has the same name+parent?
@@ -331,6 +358,7 @@ class PagesExportImport extends Wire {
 			'changeStatus' => true, 
 			'changeSort' => true, 
 			'saveOptions' => array('adjustName' => true), // options passed to Pages::save
+			'fieldNames' => array(),  // import only these field names, when specified
 		);
 		
 		$options = array_merge($defaults, $options); 
@@ -439,6 +467,7 @@ class PagesExportImport extends Wire {
 		
 		// populate custom fields
 		foreach($page->template->fieldgroup as $field) {
+			if(count($options['fieldNames']) && !in_array($field->name, $options['fieldNames'])) continue;
 			if(!isset($a['data'][$field->name])) {
 				$warnings[] = "Skipped field “$field->name” - template “$template” does not have it";
 				continue;
@@ -502,13 +531,13 @@ class PagesExportImport extends Wire {
 	 * 
 	 * Populates the following indexes: 
 	 *  - `exportable` (bool): True if field is exportable, false if not. 
-	 *  - `reason` (string): Reason why field is not exportable (when exportable==true). 
+	 *  - `reason` (string): Reason why field is not exportable (when exportable==false). 
 	 * 
 	 * @param Field $field
 	 * @return array
 	 * 
 	 */
-	protected function getFieldInfo(Field $field) {
+	public function getFieldInfo(Field $field) {
 		
 		$info = array(
 			'exportable' => true,
