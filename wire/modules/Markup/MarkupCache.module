@@ -48,6 +48,8 @@ class MarkupCache extends Wire implements Module, ConfigurableModule {
 
 	/**
 	 * Instance of CacheFile
+	 * 
+	 * @var CacheFile
 	 *
 	 */
 	protected $cache = null;
@@ -75,7 +77,7 @@ class MarkupCache extends Wire implements Module, ConfigurableModule {
 	 * Generate the module's path, static so it can be used by the static getModuleConfigInputfields function
 	 *
 	 */
-	protected function path() {
+	public function path() {
 		return $this->wire('config')->paths->cache . 'MarkupCache' . '/';
 	}
 
@@ -93,7 +95,8 @@ class MarkupCache extends Wire implements Module, ConfigurableModule {
 	 *
 	 * @param string $uniqueName A unique string or number to identify this cache, i.e. 'citiesList' 
 	 * @param int $seconds The number of seconds the cache should live. 
-	 * @return Returns the cache data, or FALSE if it has expired and needs to be re-created. 
+	 * @return string|bool Returns the cache data, or FALSE if it has expired and needs to be re-created. 
+	 * @throws WireException
 	 *
 	 */
 	public function get($uniqueName, $seconds = 3600) {
@@ -110,6 +113,7 @@ class MarkupCache extends Wire implements Module, ConfigurableModule {
 	 *
 	 * @param string $data Data to cache
 	 * @return int Number of bytes written to cache, or FALSE on failure. 
+	 * @throws WireException
 	 *
 	 */
 	public function save($data) {
@@ -164,6 +168,9 @@ class MarkupCache extends Wire implements Module, ConfigurableModule {
 
 	/**
 	 * Provide cache clearing capability in the module's configuration
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
 	 *	
  	 */
 	public function getModuleConfigInputfields(array $data) {
