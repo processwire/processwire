@@ -118,8 +118,17 @@ class Pagefile extends WireData {
 	 *
 	 */
 	protected function ___install($filename) {
+	
+		$basename = $filename;
+		
+		if(strpos($basename, '?') !== false) {
+			list($basename, $queryString) = explode('?', $basename); 	
+			if($queryString) {} // do not use in basename
+		} 
+	
+		if(empty($basename)) throw new WireException("Empty filename");
 
-		$basename = $this->pagefiles->cleanBasename($filename, true, false, true); 
+		$basename = $this->pagefiles->cleanBasename($basename, true, false, true); 
 		$pathInfo = pathinfo($basename); 
 		$basename = basename($basename, ".$pathInfo[extension]"); 
 
