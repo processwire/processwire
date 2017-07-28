@@ -407,7 +407,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				),
 			'title' => array(
 				'input' => 'text',
-				'label' => ($titleField ? $titleField->getLabel() : 'Title')
+				'label' => ($titleField ? $titleField->getLabel() : 'Title'),
+				'operators' => $this->operatorsByType['text']
 				), 
 			'id' => array(
 				'input' => 'number',
