@@ -2369,6 +2369,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(!is_null($field)) {
 			if($this->hasField($field)) {
 				return $this->wire('pages')->saveField($this, $field, $options);
+			} else if(is_string($field) && (isset($this->settings[$field]) || parent::get($field) !== null)) {
+				$options['noFields'] = true; 	
+				return $this->wire('pages')->save($this, $options);
 			} else {
 				return false;
 			}
