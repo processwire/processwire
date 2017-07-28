@@ -516,6 +516,12 @@ class WireMarkupRegions extends Wire {
 				$verboseRegion['details'] = 'Only 1 possible closing tag: ' . $tagInfo['close'];
 			}
 
+		} else if($tagInfo['pwid'] && false !== ($pos = strpos($region, "$tagInfo[close]<!--#$tagInfo[pwid]-->"))) {
+			// close tag indicates what it closes, i.e. “</div><!--#content-->”
+			$region = substr($region, 0, $pos);
+			$tagInfo['close'] = "$tagInfo[close]<!--#$tagInfo[pwid]-->";
+			if($verbose) $verboseRegion['details'] = "Fast match with HTML comment hint";
+
 		} else {
 			// multiple close tags present, must figure out which is the right one
 			$testStart = 0;
@@ -523,9 +529,15 @@ class WireMarkupRegions extends Wire {
 			$maxDoCnt = 100000;
 			$openTag1 = "<$tagInfo[name]>";
 			$openTag2 = "<$tagInfo[name] ";
+			$fail = false;
+			
 			do {
 				$doCnt++;
 				$testPos = stripos($region, $tagInfo['close'], $testStart);
+				if($testPos === false) {
+					$fail = true;
+					break;
+				}
 				$test = substr($region, 0, $testPos);
 				$openCnt = substr_count($test, $openTag1) + substr_count($test, $openTag2);
 				$closeCnt = substr_count($test, $tagInfo['close']);
@@ -539,7 +551,14 @@ class WireMarkupRegions extends Wire {
 				}
 			} while($doCnt < $maxDoCnt && $testStart < strlen($region));
 			
-			if($doCnt >= $maxDoCnt) {
+			if($fail) {
+				if($verbose) {
+					$verboseRegion['error'] = true;
+					$verboseRegion['details'] = "Failed to find closing tag $tagInfo[close] after $doCnt iterations";
+				} else {
+					$region = 'error';
+				}
+			} else if($doCnt >= $maxDoCnt) {
 				if($verbose) {
 					$verboseRegion['error'] = true;
 					$verboseRegion['details'] = "Failed region match after $doCnt tests for <$tagInfo[name]> tag(s)";
@@ -794,6 +813,15 @@ class WireMarkupRegions extends Wire {
 		
 		$open = strpos($tag, '<') === 0 ? $tag : "<$tag";
 		$close = $tag == '<!--' ? '-->' : '</' . trim($tag, '<>') . '>';
+	
+		// keep comments that start with <!--#
+		if($tag == "<!--" && strpos($markup, "<!--#") !== false) {
+			$hasHints = true;
+			$markup = str_replace("<!--#", "<!~~#", $markup);
+			$markup = preg_replace('/<!--#([-_.a-zA-Z0-9]+)-->/', '<!~~$1~~>', $markup);
+		} else {
+			$hasHints = false;
+		}
 		
 		do {
 			$pos = stripos($markup, $open, $startPos);
@@ -810,6 +838,11 @@ class WireMarkupRegions extends Wire {
 		
 		if($getRegions) return $regions;
 		if(count($regions)) $markup = str_replace($regions, '', $markup); 
+		
+		if($hasHints) {
+			// keep comments that start with <!--#
+			$markup = str_replace(array("<!~~#", "~~>"), array("<!--#", "-->"), $markup); 
+		}
 		
 		return $markup;
 	}
