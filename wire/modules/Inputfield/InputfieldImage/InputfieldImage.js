@@ -1518,8 +1518,8 @@ function InputfieldImage($) {
 						
 						if(uploadReplace.item && maxFiles != 1) {
 							// re-open replaced item
-							$markup.find(".gridImage__edit").click();
 							$markup.find(".InputfieldFileReplace").val(uploadReplace.file);
+							$markup.find(".gridImage__edit").click();
 						}
 				
 						// reset uploadReplace data
