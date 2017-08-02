@@ -84,7 +84,7 @@ class WireMarkupRegions extends Wire {
 	 *  - `leftover` (bool): Specify true if you want to return a "leftover" key in return value with leftover markup. 
 	 * @return array Returns one of the following: 
 	 *  - Associative array of [ 'id' => 'markup' ] when finding specific attributes or #id attributes. 
-	 *  - Regular array of markup regions when finding region shaving a specific class attribute. 
+	 *  - Regular array of markup regions when finding regions having a specific class attribute. 
 	 *  - Associative array of verbose information when the verbose option is used. 
 	 * @throws WireException if given invalid $find string
 	 * 
@@ -498,7 +498,14 @@ class WireMarkupRegions extends Wire {
 			'html' => '', // region with wrapping tags
 		);
 	
+		if($tagInfo['pwid']) $tagID = $tagInfo['pwid'];
+			else if(!empty($tagInfo['id'])) $tagID = $tagInfo['id'];
+			else if(!empty($tagInfo['attrs']['id'])) $tagID = $tagInfo['attrs']['id']; 
+			else if(!empty($tagInfo['actionTarget'])) $tagID = $tagInfo['actionTarget'];	
+			else $tagID = '';
+	
 		$selfClose = empty($tagInfo['close']);
+		$closeHint = "$tagInfo[close]<!--#$tagID-->";
 		$closeQty = $selfClose ? 1 : substr_count($region, $tagInfo['close']);
 
 		if(!$closeQty) {
@@ -508,19 +515,17 @@ class WireMarkupRegions extends Wire {
 		} else if($selfClose) {
 			$region = '';
 			if($verbose) $verboseRegion['details'] = 'Self closing tag (empty region)';
-
+			
+		} else if($tagID && false !== ($pos = strpos($region, $closeHint))) {
+			// close tag indicates what it closes, i.e. “</div><!--#content-->”
+			$region = substr($region, 0, $pos);
+			$tagInfo['close'] = $closeHint;
+			if($verbose) $verboseRegion['details'] = "Fast match with HTML comment hint";
+			
 		} else if($closeQty === 1) {
 			// just one close tag present, making our job easy
 			$region = substr($region, 0, strrpos($region, $tagInfo['close']));
-			if($verbose) {
-				$verboseRegion['details'] = 'Only 1 possible closing tag: ' . $tagInfo['close'];
-			}
-
-		} else if($tagInfo['pwid'] && false !== ($pos = strpos($region, "$tagInfo[close]<!--#$tagInfo[pwid]-->"))) {
-			// close tag indicates what it closes, i.e. “</div><!--#content-->”
-			$region = substr($region, 0, $pos);
-			$tagInfo['close'] = "$tagInfo[close]<!--#$tagInfo[pwid]-->";
-			if($verbose) $verboseRegion['details'] = "Fast match with HTML comment hint";
+			if($verbose) $verboseRegion['details'] = "Only 1 possible closing tag: $tagInfo[close]";
 
 		} else {
 			// multiple close tags present, must figure out which is the right one
@@ -1293,6 +1298,7 @@ class WireMarkupRegions extends Wire {
 			$leftoverMarkup = '';
 			
 		} else if($this->hasRegions($htmlRegions)) {
+			$htmlRegions = $this->stripRegions('<!--', $htmlRegions);
 			$selector = $options['useClassActions'] ? ".pw-*, id=" : "[pw-action], id=";
 			$regions = $this->find($selector, $htmlRegions, array(
 				'verbose' => true,
@@ -1356,17 +1362,21 @@ class WireMarkupRegions extends Wire {
 				$open = $region['open'];
 				$openLen = strlen($open);
 				if($openLen > 50) $open = substr($open, 0, 30) . '[sm]... +' . ($openLen - 30) . ' bytes[/sm]>';
-				$debugRegionStart = substr($region['region'], 0, 50);  
+				$debugRegionStart = "[sm]" . trim(substr($region['region'], 0, 80));  
 				$pos = strrpos($debugRegionStart, '>');
 				if($pos) $debugRegionStart = substr($debugRegionStart, 0, $pos+1);
-				$debugRegionEnd = substr($region['region'], -30); 
-				$pos = strpos($debugRegionEnd, '</'); 
-				if($pos !== false) $debugRegionEnd = substr($debugRegionEnd, $pos);
-				$debugRegion = $this->debugNoteStr("$debugRegionStart ... $debugRegionEnd");
-				$region['note'] = "$debugAction => #$pwid " .
+				$debugRegionStart .= " … [b]" . strlen($region['html']) . " bytes[/b][/sm]";
+				//$debugRegionEnd = substr($region['region'], -30); 
+				//$pos = strpos($debugRegionEnd, '</'); 
+				//if($pos !== false) $debugRegionEnd = substr($debugRegionEnd, $pos);
+				$region['note'] = strtoupper($debugAction) . " [b]#{$pwid}[/b] " .
 					($region['actionTarget'] != $pwid ? "(target=$region[actionTarget])" : "") . 
-					"... $open" . ($region['close'] ? "[sm]{$debugRegion}[/sm]$region[close]" : "");
-				$regionNote = "$regionKey. $region[note]";
+					"[sm]with[/sm] $open"; 
+				if($region['close']) {
+					$region['note'] .= $this->debugNoteStr($debugRegionStart) . $region['close'];
+				}
+				$regionNote = $region['note'];  // [sm](position=$regionKey)[/sm]";
+				
 			} else {
 				$regionNote = '';
 			}	
@@ -1384,12 +1394,10 @@ class WireMarkupRegions extends Wire {
 					'action' => $action, 
 					'mergeAttr' => $mergeAttr,
 				);
-				/*
-				$htmlDocument = $this->update("#$actionTarget", $regionHTML, $htmlDocument, array(
-					'action' => $action,
-					'mergeAttr' => $mergeAttr,
-				));
-				*/
+				if(is_string($htmlRegions)) {
+					// remove region markup from $htmlRegions so we can later determine what’s left
+					$htmlRegions = str_replace($region['html'], '', $htmlRegions);
+				}
 				$populatedNotes[] = $regionNote;
 				$numUpdates++;
 			}
@@ -1402,23 +1410,37 @@ class WireMarkupRegions extends Wire {
 			));
 		}
 
+		$htmlRegions = trim($htmlRegions);
 			
 		if($debug) {
-			$bull = "\n";
 			$leftoverBytes = strlen($leftoverMarkup);
-			$debugNotes = ""; // "\nProcessWire markup regions debug #$n ";
-			if(count($populatedNotes)) $debugNotes .= $bull . implode($bull, $populatedNotes);
-			if(count($rejectedNotes)) $debugNotes .= "\nSKIPPED: $bull" . implode($bull, $rejectedNotes);
-			if($leftoverBytes) $debugNotes .= "\n  $leftoverBytes non-region bytes skipped: [sm]{$leftoverMarkup}[/sm]";
-			if(count($this->debugNotes)) {
-				$debugNotes .= "\n---------------";
-				foreach($this->debugNotes as $n => $s) {
-					$debugNotes .= "\n$n. " . $this->debugNoteStr($s);
+			$htmlRegionsLen = strlen($htmlRegions); 
+			$debugNotes = array(); 
+			if($recursionLevel > 1) $debugNotes[] = "PASS: $recursionLevel";
+			if(count($populatedNotes)) $debugNotes = array_merge($debugNotes, $populatedNotes); // implode($bull, $populatedNotes);
+			if(count($rejectedNotes)) foreach($rejectedNotes as $note) $debugNotes[] = "SKIPPED: $note";
+			if($leftoverBytes) $debugNotes[] = "$leftoverBytes non-region bytes skipped: [sm]{$leftoverMarkup}[/sm]";
+			if($htmlRegionsLen) {
+				if($recursionLevel > 1) {
+					$debugNotes[] = "$htmlRegionsLen HTML-region bytes found no home after 2nd pass: [sm]{$htmlRegions}[/sm]";
+				} else if($this->hasRegions($htmlRegions)) {
+					$debugNotes[] = "$htmlRegionsLen HTML-region bytes remaining for 2nd pass: [sm]{$htmlRegions}[/sm]";
+				} else {
+					$debugNotes[] = "$htmlRegionsLen HTML bytes remaining, but no regions present: [sm]{$htmlRegions}[/sm]";
 				}
 			}
+			if(count($this->debugNotes)) {
+				$debugNotes[] = "---------------";
+				foreach($this->debugNotes as $n => $s) {
+					$debugNotes[] = $this->debugNoteStr($s);
+				}
+			}
+			if(!count($debugNotes)) $debugNotes[] = "Nothing found";
+			$debugNotes = "• " . implode("\n• ", $debugNotes);
 			$debugNotes = $this->wire('sanitizer')->entities($debugNotes);
 			$debugNotes .= "\n[sm]" . Debug::timer($debugTimer) . " seconds[/sm]";
 			$debugNotes = str_replace(array('[sm]', '[/sm]'), array('<small style="opacity:0.7">', '</small>'), $debugNotes);
+			$debugNotes = str_replace(array('[b]', '[/b]'), array('<strong>', '</strong>'), $debugNotes);
 			$debugNotes = "<pre class='pw-debug pw-region-debug'>$debugNotes</pre>$debugLandmark";
 			$htmlDocument = str_replace($debugLandmark, $debugNotes, $htmlDocument); 
 		} else if($hasDebugLandmark) {
@@ -1429,7 +1451,12 @@ class WireMarkupRegions extends Wire {
 			// see if they can be populated now
 			$numUpdates += $this->populate($htmlDocument, $xregions, $options);
 		}
-	
+		
+		if($recursionLevel === 1 && strlen($htmlRegions) && $this->hasRegions($htmlRegions)) {
+			// see if more regions can be pulled from leftover $htmlRegions
+			$numUpdates += $this->populate($htmlDocument, $htmlRegions, $options);
+		}
+
 		// remove region tags and pw-id attributes
 		if($recursionLevel === 1 && $this->removeRegionTags($htmlDocument)) $numUpdates++;
 	
@@ -1480,6 +1507,29 @@ class WireMarkupRegions extends Wire {
 	public function hasRegions(&$html) {
 		if(strpos($html, ' id=') === false && strpos($html, 'pw-') === false) return false;
 		return true;
+	}
+
+	/**
+	 * Does the given HTML markup have references to any pw-actions?
+	 * 
+	 * Note: not currently used by this class. 
+	 * 
+	 * @param string $html
+	 * @return bool
+	 * 
+	 */
+	public function hasRegionActions(&$html) {
+		$has = false;
+		foreach($this->actions as $action) {
+			if(strpos($html, "pw-$action") !== false) {
+				// found pw-action, now perform a more thorough check
+				if(preg_match('![="\'\s]pw-' . $action . '(?:["\'\s=][^<>]*>|>)!', $html)) {
+					$has = true;
+					break;
+				}
+			}
+		}
+		return $has;
 	}
 	
 	protected function debugNoteStr($str, $maxLength = 0) {
