@@ -116,8 +116,10 @@ class Sanitizer extends Wire {
 				}
 			}
 
-			$v = iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", $value);
-			if($v) $value = $v;
+			if(function_exists("\\iconv")) {
+				$v = iconv("UTF-8", "ASCII//TRANSLIT//IGNORE", $value);
+				if($v) $value = $v;
+			}
 			$needsWork = strlen(str_replace($allowed, '', $value)); 
 		}
 

@@ -28,7 +28,7 @@ class Roles extends PagesType {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @return Role
+	 * @return Role|NullPage|Page
 	 * @throws WireException
 	 * 
 	 */
@@ -84,8 +84,8 @@ class Roles extends PagesType {
 	 *
 	 * #pw-group-manipulation
 	 *
-	 * @param string $name Name of permission you want to add, i.e. "hello-world"
-	 * @return Role|Page|NullPage Returns a Permission page on success, or a NullPage on error
+	 * @param string $name Name of role you want to add, i.e. "hello-world"
+	 * @return Role|Page|NullPage Returns a Role page on success, or a NullPage on error
 	 *
 	 */
 	public function ___add($name) {
@@ -96,6 +96,8 @@ class Roles extends PagesType {
 	 * Ensure that every role has at least 'page-view' permission
 	 * 
 	 * #pw-internal
+	 * 
+	 * @param Page $page
 	 *
 	 */
 	protected function loaded(Page $page) {

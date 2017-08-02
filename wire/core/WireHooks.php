@@ -878,7 +878,11 @@ class WireHooks {
 	public function getAllLocalHooks() {
 		return $this->allLocalHooks;
 	}
-	
+
+	/**
+	 * @return string
+	 * 
+	 */
 	public function className() {
 		return wireClassName($this, false);
 	}
