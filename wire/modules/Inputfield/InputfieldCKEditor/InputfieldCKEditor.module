@@ -655,6 +655,13 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->label = $this->_('CKEditor Toolbar'); 
 		$f->description = $this->_('Separate each toolbar item with a comma. Group items by placing them on the same line and use a hyphen "-" where you want a separator to appear within a group. If you want more than one toolbar row, separate each row with a blank line.'); // Toolbar options description
 		$f->description .= ' ' . $this->_('Insert a hash "#" at the beginning of a line if you want it to be ignored.');
+		$f->notes = $this->_('Available core toolbar items:') . ' ' . 
+			'About, Anchor, Blockquote, Bold, BulletedList, Copy, CopyFormatting, CreateDiv, Cut, Find, Flash, Format, ' . 
+			'HorizontalRule, Iframe, Image, Indent, Italic, JustifyBlock, JustifyCenter, JustifyLeft, JustifyRight, ' . 
+			'Language, Link, Maximize, NewPage, NumberedList, Outdent, PageBreak, Paste, PasteFromWord, PasteText, ' . 
+			'Preview, Print, PWImage, PWLink, Redo, RemoveFormat, Replace, Save, Scayt, SelectAll, ShowBlocks, Smiley, ' . 
+			'Source, Sourcedialog, SpecialChar, SpellChecker, Strike, Styles, Subscript, Superscript, ' . 
+			'Table, Templates, Underline, Undo, Unlink';
 		$wrapper->add($f); 
 
 		$purifierInstalled = $this->wire('modules')->isInstalled('MarkupHTMLPurifier'); 
