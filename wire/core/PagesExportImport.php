@@ -7,20 +7,17 @@
  * 
  * $options argument for import methods:
  * 
- * - `parent` (Page|int|string): Parent Page, path or ID. (default=0, auto detect from imported page path)
- * - `template` (Template|int|string): Template object, name or ID. (default=0, auto detect from imported page template)
- * - `update` (bool): Update existing Page (rather than create new) if another page already has the same name+parent? (default=true)
- * - `skip` (bool): Skip page update/create if page already exists? (default=false)
- * - `changeTemplate` (bool): Allow template to be changed on updated pages? (default=false)
- * - `changeParent` (bool): Allow parent of existing pages to be changed? (default=false)
- * - `changeName` (bool): Allow name of existing pages to be changed? (default=false)
- * - `changeStatus` (bool): Allow status of existing pages to be changed? (default=true)
- * - `changeSort` (bool): Allow sort and sortfield properties of existing pages to be changed? (default=true)
- * - `saveOptions` (array): The $options agument provided to Pages::save() method. (default=['adjustName'=>true])
+ *  - `commit` (bool): Commit/save the changes now? (default=true). Specify false to perform a test import.
+ *  - `update` (bool): Allow update of existing pages? (default=true)
+ *  - `create` (bool): Allow creation of new pages? (default=true)
+ *  - `parent` (Page|string|int): Parent Page, path or ID. Omit to use import data (default=0).
+ *  - `template` (Template|string|int): Template object, name or ID. Omit to use import data (default=0).
+ *  - `fieldNames` (array): Import only these field names, or omit to use all import data (default=[]).
+ *  - `changeStatus` (bool): Allow status to be changed aon existing pages? (default=true)
+ *  - `changeSort` (bool): Allow sort and sortfield to be changed on existing pages? (default=true)
  * 
- * Note: all the "change" prefix options require update=true and skip=false options to be set. 
+ * Note: all the "change" prefix options require update=true. 
  * 
- *
  * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
  *
@@ -275,8 +272,9 @@ class PagesExportImport extends Wire {
 
 			/** @var Field $field */
 			/** @var Fieldtype $fieldtype */
-			$value = $page->get($field->name);
+			$value = $page->getUnformatted($field->name);
 			$exportValue = $field->type->exportValue($page, $field, $value, array('system' => true));
+			$this->message($exportValue);
 			$a['data'][$field->name] = $exportValue;
 		}
 
@@ -334,8 +332,26 @@ class PagesExportImport extends Wire {
 	 * 
 	 * Provided array ($a) must originate from the pageToArray() method format. 
 	 * 
+	 * Returns a Page on success or a NullPage on failure. Errors, warnings and messages related to the 
+	 * import can be pulled from `$page->errors()`, `$page->warnings()` and `$page->messages()`. 
+	 * 
+	 * The following options may be used with the `$options` argument:
+	 *  - `commit` (bool): Commit/save the changes now? (default=true). Specify false to perform a test run.
+	 *  - `update` (bool): Allow update of existing pages? (default=true)
+	 *  - `create` (bool): Allow creation of new pages? (default=true)
+	 *  - `parent` (Page|string|int): Parent Page, path or ID. Omit to use import data (default=0).
+	 *  - `template` (Template|string|int): Template object, name or ID. Omit to use import data (default=0).
+	 *  - `fieldNames` (array): Import only these field names, or omit to use all import data (default=[]).
+	 *  - `changeStatus` (bool): Allow status to be changed aon existing pages? (default=true)
+	 *  - `changeSort` (bool): Allow sort and sortfield to be changed on existing pages? (default=true)
+	 * 
+	 * The following options are for future use and not currently applicable:
+	 *  - `changeTemplate` (bool): Allow template to be changed on existing pages? (default=false)
+	 *  - `changeParent` (bool): Allow parent to be changed on existing pages? (default=false)
+	 *  - `changeName` (bool): Allow name to be changed on existing pages? (default=false)
+	 * 
 	 * @param array $a
-	 * @param array $options
+	 * @param array $options Options to modify default behavior, see method description. 
 	 * @return Page|NullPage
 	 * @throws WireException
 	 * 
@@ -350,20 +366,22 @@ class PagesExportImport extends Wire {
 			'id' => 0, // ID that new Page should use, or update, if it already exists. (0=create new). Sets update=true.
 			'parent' => 0, // Parent Page, path or ID. (0=auto detect from imported page path)
 			'template' => '', // Template object, name or ID. (0=auto detect from imported page template)
-			'update' => true, // update existing Page (rather than create new) if another page already has the same name+parent?
-			'skip' => false, // skip page update/create if page already exists?
-			'changeTemplate' => false, // allow template to be changed on updated pages? (requires update=true, skip=false)
+			'update' => true, // allow update of existing pages?
+			'create' => true,  // allow creation of new pages?
+			'changeTemplate' => false, // allow template to be changed on updated pages? (requires update=true)
 			'changeParent' => false, 
 			'changeName' => true, 
 			'changeStatus' => true, 
 			'changeSort' => true, 
 			'saveOptions' => array('adjustName' => true), // options passed to Pages::save
 			'fieldNames' => array(),  // import only these field names, when specified
+			'commit' => true, // commit the import? If false, changes aren't saved (dry run). 
 		);
 		
 		$options = array_merge($defaults, $options); 
 		$errors = array(); // fatal errors
 		$warnings = array(); // non-fatal warnings
+		$messages = array(); // informational
 		$pages = $this->wire('pages');
 		$path = $a['path'];
 		$languages = $this->wire('languages');
@@ -371,7 +389,7 @@ class PagesExportImport extends Wire {
 		
 		if($options['id']) {
 			$options['update'] = true;
-			$options['skip'] = false;
+			$options['create'] = false;
 		}
 		
 		/** @var Languages $languages */
@@ -387,7 +405,13 @@ class PagesExportImport extends Wire {
 			} else {
 				$parent = $pages->get('/' . ltrim($options['parent'], '/')); 
 			}
-			if(!$parent->id) $errors[] = "Specified parent does not exist: $options[parent]";
+			if($parent->id) {
+				$options['changeParent'] = true;
+				$path = $parent->path . $a['settings']['name'] . '/';
+				$a['path'] = $path;
+			} else {
+				$errors[] = "Specified parent does not exist: $options[parent]";
+			}
 		} else if(strrpos($path, '/')) {
 			// determine parent from imported page path
 			$parts = explode('/', trim($path, '/'));
@@ -421,53 +445,67 @@ class PagesExportImport extends Wire {
 			}
 		} else {
 			$page = $pages->get($path);
-			if($page->id) {
-				// updating existing Page
+			if($page->id && !$options['update']) {
+				// create new page rather than updating existing page
+				$errors[] = "Skipped update to existing page because update option is disabled";
+			} else if($page->id) {
+				// update of existing page allowed
+			} else if(!$options['create']) {
+				// creation of new pages is not allowed
+				$errors[] = "Skipped create of new page because create option is disabled";
 			} else if(wireClassExists($a['class'])) {
 				// use specified class
 				$page = new $a['class']();
 			} else {
 				// requested page class does not exist (warning?)
+				$warnings[] = "Unable to locate Page class “$a[class]”, using Page class instead";
 				$page = new Page();
 			}
 		}
 	
-		if($page->id) {
-			// page laready exists, determine if we should update it
-			if($options['skip']) {
-				$errors[] = "Skipped update to page because options[skip=true]: $page->path";
-			} else if($options['update']) {
-				// existing page will be updated
-			} else {
-				// create new page rather than updating existing page
-				$page = new Page();
-			}
-		}
+		$isNew = $page->id == 0;
+		$page->setTrackChanges(true); 	
+		$page->setQuietly('_importPath', $a['path']); 
+		$page->setQuietly('_importType', $isNew ? 'create' : 'update');
 
 		// if any errors occurred above, abort
-		if(count($errors) || $page instanceof NullPage) {
+		if(count($errors) && !$page instanceof NullPage) $page = new NullPage(); 
+	
+		// if we were only able to create a NullPage, abort now
+		if($page instanceof NullPage) {
 			foreach($errors as $error) $page->error($error);
 			return $page;
 		}
 		
+		// we don't currently allow template changes on existing pages	
+		if(!$isNew) $options['changeTemplate'] = false;
+		
 		// populate page base settings
-		$isNew = $page->id == 0;
 		$page->of(false);
-		if($options['changeTemplate'] || $isNew) $page->template = $template;
-		if($options['changeParent'] || $isNew) $page->parent = $parent;
-		if($options['changeName'] || $isNew) $page->name = $a['settings']['name'];
-		if($options['changeStatus'] || $isNew) $page->status = $a['settings']['status'];
+		if($options['changeTemplate'] || $isNew) if($page->template->name != $template->name) $page->template = $template;
+		if($options['changeParent'] || $isNew) if($page->parent->id != $parent->id) $page->parent = $parent;
+		if($options['changeName'] || $isNew) if($page->name != $a['settings']['name']) $page->name = $a['settings']['name'];
+		if($options['changeStatus'] || $isNew) if($page->status != $a['settings']['status']) $page->status = $a['settings']['status'];
 		if($options['changeSort'] || $isNew) {
-			$page->sort = $a['settings']['sort'];
-			$page->sortfield = $a['settings']['sortfield'];
+			if($page->sort != $a['settings']['sort']) $page->sort = $a['settings']['sort'];
+			if($page->sortfield != $a['settings']['sortfield']) $page->sortfield = $a['settings']['sortfield'];
 		}
+		
+		$changes = $page->getChanges();
 
 		// save blank page now if it is new, so that it has an ID
-		if($isNew) $pages->save($page, $options['saveOptions']); 
+		if($isNew && $options['commit']) {
+			$pages->save($page, $options['saveOptions']);
+		}
 		
 		// populate custom fields
 		foreach($page->template->fieldgroup as $field) {
 			if(count($options['fieldNames']) && !in_array($field->name, $options['fieldNames'])) continue;
+			$fieldInfo = $this->getFieldInfo($field); 
+			if(!$fieldInfo['exportable']) {
+				$warnings[] = $fieldInfo['reason'];
+				continue;
+			}
 			if(!isset($a['data'][$field->name])) {
 				$warnings[] = "Skipped field “$field->name” - template “$template” does not have it";
 				continue;
@@ -490,12 +528,19 @@ class PagesExportImport extends Wire {
 			}
 		}
 		
-		$pages->save($page, $options['saveOptions']);
+		$changes = array_unique(array_merge($changes, $page->getChanges())); 
+	
+		if($options['commit']) {
+			$pages->save($page, $options['saveOptions']);
+		}
 
 		if($languages) $languages->unsetDefault();
 		
 		foreach($errors as $error) $page->error($error); 
 		foreach($warnings as $warning) $page->warning($warning);
+		foreach($messages as $message) $page->message($message); 
+		
+		$page->setQuietly('_importChanges', $changes); 
 		
 		return $page;
 	}
@@ -524,6 +569,13 @@ class PagesExportImport extends Wire {
 		
 		// @todo method needs implementation
 		
+		$page->warning("File field '$field->name' not yet supported"); 
+		
+		if($options['commit']) {
+		} else {
+			// do not commit
+		}
+		
 	}
 
 	/**
@@ -539,6 +591,10 @@ class PagesExportImport extends Wire {
 	 */
 	public function getFieldInfo(Field $field) {
 		
+		static $cache = array();
+		
+		if(isset($cache[$field->id])) return $cache[$field->id];
+		
 		$info = array(
 			'exportable' => true,
 			'reason' => '',
@@ -546,6 +602,9 @@ class PagesExportImport extends Wire {
 		
 		if($field->type instanceof FieldtypeFile) {
 			// we will handle these
+			$info['exportable'] = false;
+			$info['reason'] = 'Not yet supported';	
+			$cache[$field->id] = $info;
 			return $info;
 		}
 	
@@ -554,6 +613,7 @@ class PagesExportImport extends Wire {
 		} catch(\Exception $e) {
 			$info['exportable'] = false;
 			$info['reason'] = $e->getMessage();
+			$cache[$field->id] = $info;
 			return $info;
 		}
 
@@ -563,8 +623,10 @@ class PagesExportImport extends Wire {
 			// @todo check if fieldtype implements its own exportValue/importValue, and if
 			// it does then allow the value to be exported
 			$info['exportable'] = false;
-			$info['reason'] = "Field '$field' cannot be exported because $field->type uses data outside table '$field->table'";
+			$info['reason'] = "Field '$field' cannot be used because $field->type uses data outside table '$field->table'";
 		}
+		
+		$cache[$field->id] = $info;
 		
 		return $info;
 	}
