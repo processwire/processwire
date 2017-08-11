@@ -89,7 +89,7 @@ class WireTempDir extends Wire {
 		$this->wire($pass);
 		$len = mt_rand(10, 30);
 		$name = microtime() . '.' . $pass->randomBase64String($len, true);
-		$a = explode($name, '.');
+		$a = explode('.', $name);
 		shuffle($a);
 		$name = $prefix . implode('O', $a);
 		$this->createdName = $name;
