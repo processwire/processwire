@@ -35,6 +35,12 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	protected $defaultLanguagePageID = 0;
 
 	/**
+	 * @var LanguageSupport|null
+	 * 
+	 */
+	protected $languageSupport = null;
+
+	/**
 	 * Reference to Field that this value is for
 	 *
 	 */
@@ -62,19 +68,62 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		$this->setPage($page);
 		$this->setField($field);
 
-		$languageSupport = $this->wire('modules')->get('LanguageSupport');
-		$this->defaultLanguagePageID = $languageSupport->defaultLanguagePageID; 
+		$this->languageSupport = $this->wire('modules')->get('LanguageSupport');
+		$this->defaultLanguagePageID = $this->languageSupport->defaultLanguagePageID; 
+		
+		if(!is_array($values)) {
+			$values = array('data' => $values); 
+		}
+		
+		$this->importArray($values); 
+	}
 
-		if(!is_array($values)) $values = array('data' => $values); 
-
+	/**
+	 * Import array of language values 
+	 * 
+	 * Indexes may be:
+	 * - “data123” where 123 is language ID or “data” for default language
+	 * - "en” language name (may be any language name) 
+	 * - “123” language ID
+	 * 
+	 * One index style must be used, you may not combine multiple. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param array $values
+	 * 
+	 */
+	public function importArray(array $values) {
+		
+		reset($values);
+		$testKey = key($values);
+		
+		if($testKey === null) return;
+		
+		if(strpos($testKey, 'data') !== 0) {
+			// array does not use "data123" indexes, so work with language ID or language name indexes
+			// and convert to "data123" indexes
+			$_values = array();
+			foreach($values as $key => $value) {
+				if(ctype_digit("$key")) $key = (int) $key;
+				$language = $this->wire('languages')->get($key);
+				if($language && $language->id) {
+					$dataKey = $language->isDefault() ? "data" : "data$language->id";
+					$_values[$dataKey] = $value;
+				}
+			}
+			if(count($_values)) $values = $_values;
+		}
+		
 		if(array_key_exists('data', $values)) {
-			$this->data[$this->defaultLanguagePageID] = $values['data']; 
+			if(is_null($values['data'])) $values['data'] = '';
+			$this->data[$this->defaultLanguagePageID] = $values['data'];
 		}
 
-		foreach($languageSupport->otherLanguagePageIDs as $id) {
-			$key = 'data' . $id; 	
-			$value = empty($values[$key]) ? '' : $values[$key]; 
-			$this->data[$id] = $value; 
+		foreach($this->languageSupport->otherLanguagePageIDs as $id) {
+			$key = 'data' . $id;
+			$value = empty($values[$key]) ? '' : $values[$key];
+			$this->data[$id] = $value;
 		}
 	}
 
