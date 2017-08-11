@@ -334,5 +334,44 @@ class FieldtypeTextarea extends FieldtypeText {
 		return $inputfields; 
 	}
 
+	/**
+	 * Export value
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|int|object|string $value
+	 * @param array $options
+	 * @return array|string
+	 *
+	 */
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		$value = parent::___exportValue($page, $field, $value, $options); 
+		if(!empty($options['system'])) {
+			if($field->get('contentType') >= self::contentTypeHTML) {
+				$this->htmlReplacements($page, $field, $value, false);
+			}
+		}
+		return $value; 
+	}
+	
+	/**
+	 * Import value
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|int|object|string $value
+	 * @param array $options
+	 * @return array|string
+	 *
+	 */
+	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
+		$value = parent::___importValue($page, $field, $value, $options);
+		$originalID = (int) $page->get('_importOriginalID'); 
+		if($originalID && $page->id && strpos($value, "/$originalID/")) {
+			$value = str_replace("/assets/files/$originalID/", "/assets/files/$page->id/", $value); 
+		}
+		return $value;
+	}
+
 }
 
