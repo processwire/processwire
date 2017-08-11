@@ -252,13 +252,21 @@ class FieldtypeFile extends FieldtypeMulti {
 	}
 
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		
 		$pagefiles = $value; 
 		$value = $this->sleepValue($page, $field, $value); 
 		$exportValue = array();
+		$defaults = array(
+			'noJSON' => false, // no JSON for exported file descriptions or other properties (use array instead)
+		);
+		if(!isset($options['FieldtypeFile'])) $options['FieldtypeFile'] = array();
+		$options['FieldtypeFile'] = array_merge($defaults, $options['FieldtypeFile']); 
+		
 		foreach($value as $k => $v) {
 			/** @var Pagefile $pagefile */
 			$pagefile = $pagefiles->get($v['data']); 
 			$a = array('url' => $pagefile->httpUrl()); 
+			
 			if(!empty($options['system'])) {
 				unset($v['created'], $v['modified']);
 				$exportKey = $v['data'];
@@ -267,10 +275,67 @@ class FieldtypeFile extends FieldtypeMulti {
 				$a['filesize'] = $pagefile->filesize();
 				$exportKey = $k;
 			}
+			
 			unset($v['data']); 
+	
+			if($options['FieldtypeFile']['noJSON']) {
+				// export version 2 for exported description uses array value for multi-language, rather than JSON string
+				if(!isset($v['description'])) $v['description'] = '';
+				$v['description'] = $this->exportDescription($v['description'], $options);
+			}
+			
 			$exportValue[$exportKey] = array_merge($a, $v);
 		}
+		
 		return $exportValue; 	
+	}
+
+	/**
+	 * Export description value to array (multi-language, indexed by lang name) or string (non-multi-language)
+	 * 
+	 * @param string|array $value
+	 * @return array|string
+	 * 
+	 */
+	protected function exportDescription($value) {
+		
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
+		
+		if(is_string($value)) {
+			if(strpos($value, '[') !== 0 && strpos($value, '{') !== 0) return $value;
+			$a = json_decode($value, true);
+			if(!is_array($a)) return $value;
+		} else if(is_array($value)) {
+			$a = $value;
+		} else {
+			$a = array();
+		}
+	
+		if(!$languages) {
+			$value = count($a) ? (string) reset($a) : ''; // return first/default
+			return $value; 
+		}
+
+		$description = array(); 
+		
+		// ensure value present for every language, even if blank
+		foreach($languages as $language) {
+			$description[$language->name] = '';
+		}
+		
+		foreach($a as $langKey => $langVal) {
+			if(ctype_digit("$langKey")) $langKey = (int) $langKey;
+			if(empty($langKey)) {
+				$langKey = 'default';
+			} else {
+				$langKey = $languages->get($langKey)->name;
+				if(empty($langKey)) continue;
+			}
+			$description[$langKey] = $langVal;
+		}
+		
+		return $description;
 	}
 
 	public function getBlankValue(Page $page, Field $field) {
