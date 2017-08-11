@@ -154,7 +154,7 @@ class PagesExportImport extends Wire {
 		foreach($items as $item) {
 
 			$exportItem = $this->pageToArray($item, $options);
-			$a['pages'][] = $exportItem;
+			$a['pages'][$exportItem['path']] = $exportItem;
 
 			// include information about field settings so that warnings can be generated at
 			// import time if there are applicable differences in the field settings
@@ -170,6 +170,7 @@ class PagesExportImport extends Wire {
 				} else {
 					$a['fields'][$fieldName] = array(
 						'type' => $field->type->className(),
+						'label' => $field->label, 
 						'version' => $moduleInfo['versionStr']
 					);
 				}
@@ -192,6 +193,10 @@ class PagesExportImport extends Wire {
 				}
 			}
 		}
+	
+		// sort by path to ensure parents are created before their children
+		ksort($a['pages']); 
+		$a['pages'] = array_values($a['pages']); 
 
 		if($options['verbose']) $a['templates'] = $templates;
 
@@ -256,25 +261,36 @@ class PagesExportImport extends Wire {
 			'template' => $page->template->name,
 			'settings' => $settings, 
 			'data' => array(),
-			'warnings' => array(),
+			// 'warnings' => array(),
+		);
+		
+		$exportValueOptions = array(
+			'system' => true, 
+			'caller' => $this, 
+			'FieldtypeFile' => array(
+				'noJSON' => true
+			),
+			'FieldtypeImage' => array(
+				'variations' => true, 
+			),				
 		);
 	
 		// iterate all fields and export value from each
 		foreach($page->template->fieldgroup as $field) {
+			/** @var Field $field */
 			
 			if(!empty($options['fieldNames']) && !in_array($field->name, $options['fieldNames'])) continue;
 			
 			$info = $this->getFieldInfo($field); 
 			if(!$info['exportable']) {
-				$a['warnings'][$field->name] = $info['reason'];
+				// $a['warnings'][$field->name] = $info['reason'];
+				// $this->warning("Field '$field->name' - $info[reason]"); 
 				continue;
 			}
 
-			/** @var Field $field */
-			/** @var Fieldtype $fieldtype */
 			$value = $page->getUnformatted($field->name);
-			$exportValue = $field->type->exportValue($page, $field, $value, array('system' => true));
-			$this->message($exportValue);
+			$exportValue = $field->type->exportValue($page, $field, $value, $exportValueOptions);
+			// $this->message($exportValue);
 			$a['data'][$field->name] = $exportValue;
 		}
 
@@ -312,6 +328,9 @@ class PagesExportImport extends Wire {
 		// $a has: type (string), version (string), pagination (array), pages (array), fields (array)
 		
 		if(empty($a['pages'])) return $options['count'] ? 0 : $pageArray;
+
+		// @todo generate warnings from this import info
+		$info = $this->getImportInfo($a); 
 		
 		foreach($a['pages'] as $item) {
 			$page = $this->arrayToPage($item, $options);
@@ -344,11 +363,14 @@ class PagesExportImport extends Wire {
 	 *  - `fieldNames` (array): Import only these field names, or omit to use all import data (default=[]).
 	 *  - `changeStatus` (bool): Allow status to be changed aon existing pages? (default=true)
 	 *  - `changeSort` (bool): Allow sort and sortfield to be changed on existing pages? (default=true)
+	 *  - `replaceTemplates` (array): Array of import-data template name to replacement template name (default=[])
+	 *  - `replaceFields` (array): Array of import-data field name to replacement field name (default=[]) 
 	 * 
 	 * The following options are for future use and not currently applicable:
 	 *  - `changeTemplate` (bool): Allow template to be changed on existing pages? (default=false)
 	 *  - `changeParent` (bool): Allow parent to be changed on existing pages? (default=false)
 	 *  - `changeName` (bool): Allow name to be changed on existing pages? (default=false)
+	 *  - `replaceParents` (array): Array of import-data parent path to replacement parent path (default=[])
 	 * 
 	 * @param array $a
 	 * @param array $options Options to modify default behavior, see method description. 
@@ -375,7 +397,11 @@ class PagesExportImport extends Wire {
 			'changeSort' => true, 
 			'saveOptions' => array('adjustName' => true), // options passed to Pages::save
 			'fieldNames' => array(),  // import only these field names, when specified
+			'replaceFields' => array(), // array of import-data field name to replacement page field name
+			'replaceTemplates' => array(), // array of import-data template name to replacement page template name
+			'replaceParents' => array(), // array of import-data parent path to replacement parent path
 			'commit' => true, // commit the import? If false, changes aren't saved (dry run). 
+			'debug' => false, 
 		);
 		
 		$options = array_merge($defaults, $options); 
@@ -383,9 +409,8 @@ class PagesExportImport extends Wire {
 		$warnings = array(); // non-fatal warnings
 		$messages = array(); // informational
 		$pages = $this->wire('pages');
-		$path = $a['path'];
 		$languages = $this->wire('languages');
-		$fileFields = array();
+		$missingFields = array();
 		
 		if($options['id']) {
 			$options['update'] = true;
@@ -395,56 +420,121 @@ class PagesExportImport extends Wire {
 		/** @var Languages $languages */
 		if($languages) $languages->setDefault();
 
-		// determine parent
-		if($options['parent']) {
-			// parent specified in options
-			if(is_object($options['parent']) && $options['parent'] instanceof Page) {
-				$parent = $options['parent'];
-			} else if(ctype_digit("$options[parent]")) {
-				$parent = $pages->get((int) $options['parent']); 
-			} else {
-				$parent = $pages->get('/' . ltrim($options['parent'], '/')); 
-			}
-			if($parent->id) {
-				$options['changeParent'] = true;
-				$path = $parent->path . $a['settings']['name'] . '/';
-				$a['path'] = $path;
-			} else {
-				$errors[] = "Specified parent does not exist: $options[parent]";
-			}
-		} else if(strrpos($path, '/')) {
-			// determine parent from imported page path
-			$parts = explode('/', trim($path, '/'));
-			array_pop($parts); // pop off name
-			$parentPath = '/' . implode('/', $parts);
-			$parent = $pages->get($parentPath); 
-			if(!$parent->id) $errors[] = "Unable to locate parent page: $parentPath";
-		} else if($path === '/') {
-			// homepage, parent is not applicable
-			$parent = new NullPage();	
-		} else {
-			// parent cannot be determined
-			$parent = new NullPage();	
-			$errors[] = "Unable to determine parent";
-		}
+		// determine parent and template
+		$page = $this->importGetPage($a, $options, $errors); 
+		$parent = $page->id ? $page->parent : $this->importGetParent($a, $options, $errors); 
+		$template = $page->id ? $page->template : $this->importGetTemplate($a, $options, $errors);
 		
-		// determine template
-		$template = empty($options['template']) ? $a['template'] : $options['template'];
-		if(!is_object($template)) {
-			$_template = $template;
-			$template = $this->wire('templates')->get($template);
-			if(!$template) $errors[] = "Unable to locate template: $_template";
+		$isNew = $page->id == 0 && !$page instanceof NullPage;
+		$page->setTrackChanges(true); 	
+		$page->setQuietly('_importPath', $a['path']); 
+		$page->setQuietly('_importType', $isNew ? 'create' : 'update');
+		$page->setQuietly('_importTemplate', $template); 
+		$page->setQuietly('_importParent', $parent); 
+		$page->setQuietly('_importOriginalID', $a['settings']['id']); // original/external ID
+		
+		// if any errors occurred above, abort
+		if(count($errors) && !$page instanceof NullPage) $page = new NullPage(); 
+	
+		// if we were only able to create a NullPage, abort now
+		if($page instanceof NullPage) {
+			foreach($errors as $error) $page->error($error);
+			if($languages) $languages->unsetDefault();
+			return $page;
 		}
 
-		// determine page (new or existing)
+		$page->of(false);
+		$this->importPageSettings($page, $a['settings'], $options); 
+		$changes = $page->getChanges();
+
+		// save blank page now if it is new, so that it has an ID
+		if($isNew && $options['commit']) {
+			$pages->save($page, $options['saveOptions']);
+		}
+
+		// populate custom fields
+		foreach($a['data'] as $name => $value) {
+			
+			if(count($options['fieldNames']) && !in_array($name, $options['fieldNames'])) continue;
+			if(isset($options['replaceFields'][$name])) $name = $options['replaceFields'][$name];
+			
+			$field = $this->wire('fields')->get($name); 
+			
+			if(!$field) {
+				if(is_array($value) && !count($value)) continue;
+				if(!is_array($value) && !strlen($value)) continue;
+				$missingFields[$name] = $name;
+				continue;
+			}
+			
+			$fieldInfo = $this->getFieldInfo($field);
+			
+			if(!$fieldInfo['exportable']) {
+				// field cannot be imported
+				$warnings[] = $fieldInfo['reason'];
+			} else {
+				// proceed with import of field
+				try {
+					$this->importFieldValue($page, $field, $value, $options);
+				} catch(\Exception $e) {
+					$warnings[] = $e->getMessage();
+				}
+			}
+		}
+		
+		if(count($missingFields)) {
+			$warnings[] = "Skipped fields (not found): " . implode(', ', $missingFields); 
+		}
+	
+		$changes = array_unique(array_merge($changes, $page->getChanges())); 
+	
+		if($options['commit']) {
+			$pages->save($page, $options['saveOptions']);
+		}
+
+		if($languages) $languages->unsetDefault();
+		
+		foreach($errors as $error) $page->error($error); 
+		foreach($warnings as $warning) $page->warning($warning);
+		foreach($messages as $message) $page->message($message); 
+		
+		$page->setQuietly('_importChanges', $changes);
+		$page->setQuietly('_importMissingFields', $missingFields); 
+		
+		return $page;
+	}
+
+	/**
+	 * Get the page to import to
+	 * 
+	 * @param array $a Import data
+	 * @param array $options Import settings
+	 * @param array $errors Errors array
+	 * @return NullPage|Page
+	 * 
+	 */
+	protected function importGetPage(array &$a, array &$options, array &$errors) {
+		
+		/** @var Pages $pages */
+		$pages = $this->wire('pages');
+		$path = $a['path'];
+		
 		/** @var Page|NullPage $page */
+		
 		if(!empty($options['id'])) {
-			$page = $pages->get((int) $options['id']); 
+			$page = $pages->get((int) $options['id']);
 			if(!$page->id) {
 				$errors[] = "Unable to find specified page to update by ID: $options[id]";
 			}
+			
 		} else {
-			$page = $pages->get($path);
+			if(isset($a['_importToID'])) {
+				// if provided with ID added by getImportInfo() method
+				$id = (int) $a['_importToID'];
+				$page = $id ? $pages->get($id) : new NullPage();
+			} else {
+				$page = $pages->get($path);
+			}
 			if($page->id && !$options['update']) {
 				// create new page rather than updating existing page
 				$errors[] = "Skipped update to existing page because update option is disabled";
@@ -458,91 +548,246 @@ class PagesExportImport extends Wire {
 				$page = new $a['class']();
 			} else {
 				// requested page class does not exist (warning?)
-				$warnings[] = "Unable to locate Page class “$a[class]”, using Page class instead";
+				$warnings[] = "Unable to locate Page class '$a[class]', using Page class instead";
 				$page = new Page();
 			}
 		}
-	
-		$isNew = $page->id == 0;
-		$page->setTrackChanges(true); 	
-		$page->setQuietly('_importPath', $a['path']); 
-		$page->setQuietly('_importType', $isNew ? 'create' : 'update');
+		
+		return $page;
+	}
 
-		// if any errors occurred above, abort
-		if(count($errors) && !$page instanceof NullPage) $page = new NullPage(); 
-	
-		// if we were only able to create a NullPage, abort now
-		if($page instanceof NullPage) {
-			foreach($errors as $error) $page->error($error);
-			return $page;
+	/**
+	 * Get the Page Template to use for import
+	 * 
+	 * @param array $a Import data
+	 * @param array $options Import options
+	 * @param array $errors Errors array
+	 * @return Template|null
+	 * 
+	 */
+	protected function importGetTemplate(array &$a, array &$options, array &$errors) {
+		$template = empty($options['template']) ? $a['template'] : $options['template'];
+		$name = is_object($template) ? $template->name : $template;
+		if(isset($options['replaceTemplates'][$name])) $template = $options['replaceTemplates'][$name];
+		$_template = $template;
+		if(is_object($template)) {
+			// ok
+		} else {
+			$template = $this->wire('templates')->get($template);
 		}
+		if($template) {
+			$options['template'] = $template;
+			$a['template'] = (string) $template;
+		} else {
+			$errors[] = "Unable to locate template: $_template";
+		}
+		return $template; 
+	}
+
+	/**
+	 * Get the parent of the page being imported
+	 * 
+	 * @param array $a Import data
+	 * @param array $options Import options
+	 * @param array $errors Errors array
+	 * @return Page|NullPage
+	 * 
+	 */
+	protected function importGetParent(array &$a, array &$options, array &$errors) {
+		// determine parent
+		static $previousPaths = array();
+		$usePrevious = true;
+		$pages = $this->wire('pages'); 
+		$path = $a['path'];
+		
+		if($options['parent']) {
+			// parent specified in options
+			if(is_object($options['parent']) && $options['parent'] instanceof Page) {
+				$parent = $options['parent'];
+			} else if(ctype_digit("$options[parent]")) {
+				$parent = $pages->get((int) $options['parent']);
+			} else {
+				$parent = $pages->get('/' . ltrim($options['parent'], '/'));
+			}
+			if($parent->id) {
+				$options['changeParent'] = true;
+				$path = $parent->path . $a['settings']['name'] . '/';
+				$a['path'] = $path;
+			} else {
+				$errors[] = "Specified parent does not exist: $options[parent]";
+			}
+		} else if(strrpos($path, '/')) {
+			// determine parent from imported page path
+			$parts = explode('/', trim($path, '/'));
+			array_pop($parts); // pop off name
+			$parentPath = '/' . implode('/', $parts);
+			if(strlen($parentPath) > 1) $parentPath .= '/';
+			if(isset($options['replaceParents'][$parentPath])) {
+				$parentPath = $options['replaceParents'][$parentPath];
+			}
+			$parent = $pages->get($parentPath);
+			if(!$parent->id) {
+				$foundParent = false;
+				if(!$options['commit']) {
+					// check if the parent will be created by the import
+					if(isset($previousPaths[$parentPath])) {
+						$foundParent = true; 
+					}
+				}
+				if(!$foundParent) {
+					$errors[] = "Unable to locate parent page: $parentPath";
+					$usePrevious = false;
+				}
+			}
+		} else if($path === '/') {
+			// homepage, parent is not applicable
+			$parent = new NullPage();
+		} else {
+			// parent cannot be determined
+			$parent = new NullPage();
+			$errors[] = "Unable to determine parent";
+		}
+		
+		if($parent->id) {
+			$options['parent'] = $parent;
+		}
+
+		if($usePrevious){
+			$key = rtrim($path, '/');
+			if($key) $previousPaths[$path] = true;
+		}
+		
+		return $parent;
+	}
+
+	/**
+	 * Import native page settings
+	 * 
+	 * @param Page $page
+	 * @param array $settings Contents of the import data 'settings' array
+	 * @param array $options
+	 * 
+	 */
+	protected function importPageSettings(Page $page, array $settings, array $options) {
+		
+		$isNew = $page->get('_importType') == 'create';
 		
 		// we don't currently allow template changes on existing pages	
 		if(!$isNew) $options['changeTemplate'] = false;
-		
+		$template = $options['template'];
+		$parent = $options['parent'];
+		$languages = $this->wire('languages');
+		$langProperties = array();
+
 		// populate page base settings
-		$page->of(false);
-		if($options['changeTemplate'] || $isNew) if($page->template->name != $template->name) $page->template = $template;
-		if($options['changeParent'] || $isNew) if($page->parent->id != $parent->id) $page->parent = $parent;
-		if($options['changeName'] || $isNew) if($page->name != $a['settings']['name']) $page->name = $a['settings']['name'];
-		if($options['changeStatus'] || $isNew) if($page->status != $a['settings']['status']) $page->status = $a['settings']['status'];
+		if($options['changeTemplate'] || $isNew) {
+			if(!$page->template || $page->template->name != $template->name) $page->template = $template;
+		}
+		if($options['changeParent'] || $isNew) {
+			if($parent && $page->parent->id != $parent->id) $page->parent = $parent;
+		}
+		if($options['changeStatus'] || $isNew) {
+			if($page->status != $settings['status']) $page->status = $settings['status'];
+			$langProperties[] = 'status';
+		}
+		if($options['changeName'] || $isNew) {
+			if($page->name != $settings['name']) $page->name = $settings['name'];
+			$langProperties[] = 'name';
+		}
 		if($options['changeSort'] || $isNew) {
-			if($page->sort != $a['settings']['sort']) $page->sort = $a['settings']['sort'];
-			if($page->sortfield != $a['settings']['sortfield']) $page->sortfield = $a['settings']['sortfield'];
-		}
-		
-		$changes = $page->getChanges();
-
-		// save blank page now if it is new, so that it has an ID
-		if($isNew && $options['commit']) {
-			$pages->save($page, $options['saveOptions']);
-		}
-		
-		// populate custom fields
-		foreach($page->template->fieldgroup as $field) {
-			if(count($options['fieldNames']) && !in_array($field->name, $options['fieldNames'])) continue;
-			$fieldInfo = $this->getFieldInfo($field); 
-			if(!$fieldInfo['exportable']) {
-				$warnings[] = $fieldInfo['reason'];
-				continue;
-			}
-			if(!isset($a['data'][$field->name])) {
-				$warnings[] = "Skipped field “$field->name” - template “$template” does not have it";
-				continue;
-			} else if($field->type instanceof FieldtypeFile) {
-				$fileFields[] = $field;
-				continue;
-			}
-			try {
-				$value = $field->type->importValue($page, $field, $a['data'][$field->name], array('system' => true));
-				$page->set($field->name, $value); 
-			} catch(\Exception $e) {
-				$warnings[] = $e->getMessage();
-			}
-		}
-	
-		// handle file fields
-		if(count($fileFields)) {
-			foreach($fileFields as $field) {
-				$this->importFileField($page, $field, $a['data'][$field->name], $options);
-			}
-		}
-		
-		$changes = array_unique(array_merge($changes, $page->getChanges())); 
-	
-		if($options['commit']) {
-			$pages->save($page, $options['saveOptions']);
+			if($page->sort != $settings['sort']) $page->sort = $settings['sort'];
+			if($page->sortfield != $settings['sortfield']) $page->sortfield = $settings['sortfield'];
 		}
 
-		if($languages) $languages->unsetDefault();
+		if($languages && count($langProperties)) {
+			foreach($langProperties as $property) {
+				foreach($languages as $language) {
+					if($language->isDefault()) continue;
+					$remoteKey = "{$property}_$language->name";
+					$localKey = "{$property}$language->id";
+					if(!isset($settings[$remoteKey])) continue;
+					if($settings[$remoteKey] != $page->get($localKey)) {
+						$page->set($localKey, $settings[$remoteKey]);
+					}
+				}
+			}
+		}
+	}
+
+	/**
+	 * Import value for a single field
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|string|int|float $importValue
+	 * @param array $options Looks only at 'commit' option to determine when testing 
+	 * 
+	 */
+	protected function importFieldValue(Page $page, Field $field, $importValue, array $options) {
 		
-		foreach($errors as $error) $page->error($error); 
-		foreach($warnings as $warning) $page->warning($warning);
-		foreach($messages as $message) $page->message($message); 
+		if($field->type instanceof FieldtypeFile) {
+			// file fields (cannot be accessed until page exists)
+			if($page->id) {
+				return $this->importFileFieldValue($page, $field, $importValue, $options);
+			} else if(!empty($importValue)) {
+				$page->trackChange($field->name);
+			}
+		}
 		
-		$page->setQuietly('_importChanges', $changes); 
+		$o = array(
+			'system' => true,
+			'caller' => $this, 
+			'test' => !$options['commit']
+		);
 		
-		return $page;
+		// fake-commit for more verbose testing of certain fieldtypes
+		$fakeCommit = false;
+		if(!$options['commit']) {
+			// we fake-commit Page refs so that validity is tested and errors known before commit
+			if($field->type instanceof FieldtypePage) $fakeCommit = true;
+		}
+		
+		if($page->get('_importType') == 'create' && !$options['commit'] && !$fakeCommit) {
+			// test import on a new page, so value will always be used
+			$page->trackChange($field->name);
+			return;
+		}
+		
+		$pageValue = $page->getUnformatted($field->name);
+		$exportValue = $pageValue === null ? null : $field->type->exportValue($page, $field, $pageValue, $o);
+		
+		if(is_array($importValue) && is_array($exportValue)) {
+			// use regular '==' only for array comparisons
+			if($exportValue == $importValue) return;
+		} else {
+			// use '===' for all other value comparisons
+			if($exportValue === $importValue) return;
+		}
+		
+		if($options['commit'] || $fakeCommit) {
+			$pageValue = $field->type->importValue($page, $field, $importValue, $o);
+			if($pageValue !== null) $page->set($field->name, $pageValue);
+			if(is_object($pageValue) && $pageValue instanceof Wire) {
+				// copy notices from the pageValue to the page
+				foreach(array('errors', 'warnings', 'messages') as $noticeType) {
+					foreach($pageValue->$noticeType('clear') as $notice) {
+						$method = rtrim($noticeType, 's');
+						$page->$method($notice->text); 
+						$this->warning($notice->text); 
+					}
+				}
+			}
+		} else {
+			// test import on existing page, avoids actually setting value to the page
+			$page->trackChange($field->name); // values appear to be different
+		}
+		
+		if($options['debug']) {
+			if(is_string($exportValue)) $exportValue = strlen($exportValue) . " bytes\n" . $exportValue;
+			if(is_string($importValue)) $importValue = strlen($importValue) . " bytes\n" . $importValue;
+			$this->message("$field->name OLD: <pre>" . htmlentities(print_r($exportValue, true)) . "</pre>", Notice::allowMarkup);
+			$this->message("$field->name NEW: <pre>" . htmlentities(print_r($importValue, true)) . "</pre>", Notice::allowMarkup);
+		}
 	}
 
 	/**
@@ -550,32 +795,320 @@ class PagesExportImport extends Wire {
 	 * 
 	 * @param Page $page
 	 * @param Field $field
-	 * @param array $data Export/sleep value of file field
+	 * @param array $data Export value of file field
 	 * @param array $options
 	 * 
 	 */
-	protected function importFileField(Page $page, Field $field, array $data, array $options = array()) {
+	protected function importFileFieldValue(Page $page, Field $field, array $data, array $options = array()) {
 		
 		// Expected format of given $data argument: 
 		// $data = [
 		//      'file1.jpg' => [
 		//          'url' => 'http://domain.com/site/assets/files/123/file1.jpg',
 		//          'description' => 'file description',
-		//          'tags' => 'file tags'
+		//          'tags' => 'file tags',
+		//          'variations' => [ 'file1.260x0.jpg' => 'http://domain.com/site/assets/files/123/file1.260x0.jpg' ]
 		//      ],
 		//      'file2.png' => [ ... see above ... ],
 		//      'file3.gif' => [ ... see above ... ],
 		// ];
-		
-		// @todo method needs implementation
-		
-		$page->warning("File field '$field->name' not yet supported"); 
-		
-		if($options['commit']) {
-		} else {
-			// do not commit
+
+		/** @var Pagefiles $pagefiles */
+		$pagefiles = $page->get($field->name); 
+		if(!$pagefiles || !$pagefiles instanceof Pagefiles) {
+			$page->warning("Unable to import files to field '$field->name' because it is not a files field"); 
+			return;
 		}
 		
+		$filesAdded = array();
+		$filesUpdated = array();
+		$filesRemoved = array();
+		$filesDownloaded = array();
+		
+		$maxFiles = (int) $field->get('maxFiles'); 
+		$languages = $this->wire('languages'); 
+		$filesPath = $pagefiles->path();
+		/** @var WireHttp $http */
+		$http = $this->wire(new WireHttp());
+		
+		foreach($data as $fileName => $fileInfo) {
+		
+			/** @var Pagefile $pagefile */
+			$pagefile = $pagefiles->get($fileName); 
+			$isNew = false;
+			
+			if(!$pagefile) {
+				// new file, needs to be added
+				$isNew = true;
+				try {
+					if($options['commit']) {
+						$pagefiles->add($fileInfo['url']);
+						$pagefile = $pagefiles->last();
+						if(!$pagefile) throw new WireException("Unable to add file $fileInfo[url]");
+						if($maxFiles === 1 && $pagefiles->count() > 1) {
+							$pagefiles->remove($pagefiles->first()); // file replacement
+						}
+					} else {
+						$pagefile = null;
+					}
+					$filesAdded[] = $fileName;
+				} catch(\Exception $e) {
+					$page->warning($e->getMessage()); 	
+					$pagefile = null;
+				}
+				if(!$pagefile) continue;
+			}
+			
+			$pagefile->setTrackChanges(true);
+			$variations = array();
+			
+			// description, tags, etc. 
+			foreach($fileInfo as $key => $value) {
+				if($key == 'url') continue;
+				if($key == 'variations') {
+					$variations = $value;
+					continue;
+				}
+				if($key == 'description') {
+					$oldValue = $languages ? $pagefile->description(true, true) : $pagefile->get('description');
+				} else {
+					$oldValue = $pagefile->get($key);
+				}
+				if($value == $oldValue) {
+					continue; // no differences
+				}
+				if(empty($value) && empty($oldValue)) {
+					continue; // no differences
+				}
+				if($key == 'description') {
+					$pagefile->description($value);
+					if(!$pagefile->isChanged($key)) continue;
+				} else if($options['commit']) {
+					$pagefile->set($key, $value);
+					if(!$pagefile->isChanged($key)) continue;
+				}
+				if(!isset($filesUpdated[$key])) $filesUpdated[$key] = array();
+				if(!$isNew) {
+					$filesUpdated[$key][] = $fileName;
+					if($options['debug']) {
+						$this->message("$field->name: $pagefile->name ($key) OLD: <pre>" . 
+							print_r($oldValue, true) . "</pre>", Notice::allowMarkup);
+						$this->message("$field->name: $pagefile->name ($key) NEW: <pre>" . 
+							print_r($value, true) . "</pre>", Notice::allowMarkup); 
+					}
+				}
+			}
+			
+			if(count($variations)) {
+				foreach($variations as $name => $url) {
+					$targetFile = $filesPath . $name;
+					if(!file_exists($targetFile)) {
+						try {
+							if($options['commit']) $http->download($url, $targetFile);
+							$filesDownloaded[] = $name;
+						} catch(\Exception $e) {
+							$page->warning("Error downloading file $url - " . $e->getMessage());
+						}
+					}
+				}
+			}
+		}
+		
+	
+		// determine removed files
+		foreach($pagefiles as $pagefile) {
+			if(isset($data[$pagefile->name])) continue; 
+			$filesRemoved[] = $pagefile->name; 
+			if($options['commit']) $pagefiles->remove($pagefile); 
+		}
+		
+		$numAdded = count($filesAdded);
+		$numUpdated = count($filesUpdated);
+		$numRemoved = count($filesRemoved); 
+		$numDownloaded = count($filesDownloaded); 
+		$numTotal = $numAdded + $numUpdated + $numRemoved; // intentionally excludes numDownloaded
+		
+		if($numTotal > 0) {
+			$pagefiles->trackChange('value');
+			if($options['commit']) $page->set($field->name, $pagefiles); 
+			$page->trackChange($field->name);
+			if($numAdded) $page->message("$field->name: " . 
+				sprintf($this->_n('Added %d file', 'Added %d files', $numAdded), $numAdded) . ": " . 
+				implode(', ', $filesAdded)
+			); 
+			if($numUpdated) {
+				foreach($filesUpdated as $property => $files) {
+					$numFiles = count($files); 
+					$page->message("$field->name: " . 
+						sprintf($this->_n('Updated %s for %d file', 'Updated %s for %d files', $numFiles), $property, $numFiles) . ': ' . 
+						implode(', ', $files)
+					);
+				}
+			}
+			if($numRemoved) $page->message("$field->name: " . 
+				sprintf($this->_n('Removed %d file', 'Removed %d files', $numRemoved), $numRemoved) . ": " . 
+				implode(', ', $filesRemoved)
+			); 
+		}
+		
+		if($numDownloaded) {
+			$page->trackChange($field->name); 
+			$page->message("$field->name (variation): " .
+				sprintf($this->_n('Downloaded %d file', 'Downloaded %d files', $numDownloaded), $numDownloaded) . ": " .
+				implode(', ', $filesDownloaded)
+			); 
+		}
+	}
+	/**
+	 * Return array of info about the import data
+	 * 
+	 * This also populates the given import data ($a) with an '_info' property, which is an array containing 
+	 * all of the import info returned by this method. For each item in the 'pages' index it also populates
+	 * an '_importToID' property containing the ID of the existing local page to update, or 0 if it should be
+	 * a newly created page. 
+	 *
+	 * Return value:
+	 * ~~~~~
+	 * array(
+	 *   'numNew' => 0,
+	 *   'numExisting' => 0,
+	 *   'missingParents' => [ '/path/to/parent/' ],
+	 *   'missingTemplates' => [ 'basic-page-hello' ],
+	 *   'missingFields' => [ 'some_field', 'another_field' ],
+	 *   'missingFieldsTypes' => [ 'some_field' => 'FieldtypeText', 'another_field' => 'FieldtypeTextarea' ]
+	 *   'mismatchedFields' => [ 'some_field' => 'FieldtypeText' ] // field name => expected type
+	 *   'missingTemplateFields' => [ 'template_name' => [ 'field1', 'field2', etc ] ]
+	 * );
+	 * ~~~~~
+	 *
+	 * @param array $a Import data array
+	 * @return array
+	 *
+	 */
+	public function getImportInfo(array &$a) {
+
+		$missingTemplateFields = array();
+		$missingFieldsTypes = array();
+		$missingTemplates = array();
+		$mismatchedFields = array();
+		$missingParents = array();
+		$missingFields = array();
+		$templateNames = array();
+		$parentPaths = array();
+		$pagePaths = array();
+		$numExisting = 0;
+		$numNew = 0;
+
+		/** @var Pages $pages */
+		$pages = $this->wire('pages');
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		/** @var PageFinder $pageFinder */
+		$pageFinder = $this->wire(new PageFinder());
+		
+		// Identify missing fields
+		foreach($a['fields'] as $fieldName => $fieldInfo) {
+			// Note: $fieldInfo [ 'type' => 'FieldtypeText', 'version' => '1.0.0', 'blankValue' => '' ]
+			$field = $fields->get($fieldName);
+			if(!$field) {
+				$missingFields[] = $fieldName;
+				$missingFieldsTypes[$fieldName] = $fieldInfo['type'];
+			} else if($fieldInfo['type'] != $field->type->className()) {
+				$mismatchedFields[$fieldName] = $fieldInfo['type'];
+			}
+		}
+
+		// Determine which pages are new and which are existing
+		foreach($a['pages'] as $key => $item) {
+			$path = $sanitizer->pagePathNameUTF8($item['path']);
+			if($item['path'] !== $path) continue; 
+			$pagePaths[$path] = $item['settings']['id'];
+			if($path != '/') {
+				$parts = explode('/', trim($path, '/'));
+				array_pop($parts);
+				$parentPath = '/' . implode('/', $parts);
+				if(count($parts)) $parentPath .= '/';
+				$parentPaths[$parentPath] = $parentPath;
+			}
+			$templateName = $item['template'];
+			if(!isset($templateNames[$templateName])) {
+				$templateNames[$templateName] = array_keys($item['data']);
+			}
+			
+			$pageIDs = $pageFinder->findIDs(new Selectors("path=$path, include=all")); 
+			
+			if(!count($pageIDs)) {
+				// no match
+				$pageID = 0;
+			} else if(count($pageIDs) > 1) {
+				// more than one match, use another method
+				$pageID = $pages->get($path)->id;
+			} else {
+				// found
+				$pageID = reset($pageIDs); 
+			}
+			
+			$a['pages'][$key]['_importToID'] = $pageID; // populate local ID 
+			$pageID ? $numExisting++ : $numNew++;
+		}
+
+		// determine which templates are missing, and which fields are missing from templates
+		foreach($templateNames as $templateName => $fieldNames) {
+			$template = $this->wire('templates')->get($templateName);
+			if($template) {
+				// template exists
+				$missingTemplateFields[$templateName] = array();
+				foreach($fieldNames as $fieldName) {
+					if(isset($missingFields[$fieldName]) || !$template->hasField($fieldName)) {
+						$missingTemplateFields[$templateName][] = $fieldName;
+					}
+				}
+			} else {
+				// template does not exist
+				$missingTemplates[] = $templateName;
+			}
+		}
+
+		// determine which parents are missing
+		foreach($parentPaths as $key => $path) {
+			if(isset($pagePaths[$path])) {
+				// this parent already exists or will be created during import
+			} else {
+				$parentID = $pages->getByPath($path, array('getID' => true));
+				if(!$parentID) $missingParents[] = $path;
+			}
+		}
+		/*
+		foreach($missingParents as $key => $path) {
+			// remove parents that are children of another missing parent
+			foreach($missingParents as $k => $p) {
+				if($key === $k) continue;
+				if(strlen($path) > strlen($p)) {
+					if(strpos($path, $p) === 0) unset($missingParents[$key]); 
+				} else {
+					if(strpos($p, $path) === 0) unset($missingParents[$k]);
+				}
+				
+			}
+		}
+		*/
+
+		$info = array(
+			'numNew' => $numNew,
+			'numExisting' => $numExisting,
+			'missingParents' => $missingParents,
+			'missingFields' => $missingFields,
+			'missingFieldsTypes' => $missingFieldsTypes,
+			'mismatchedFields' => array(),
+			'missingTemplates' => $missingTemplates,
+			'missingTemplateFields' => $missingTemplateFields
+		);
+		
+		$a['_info'] = $info;
+		
+		return $info;
 	}
 
 	/**
@@ -595,37 +1128,44 @@ class PagesExportImport extends Wire {
 		
 		if(isset($cache[$field->id])) return $cache[$field->id];
 		
-		$info = array(
-			'exportable' => true,
-			'reason' => '',
-		);
+		$fieldtype = $field->type;
+		$exportable = true;
+		$reason = '';
 		
-		if($field->type instanceof FieldtypeFile) {
-			// we will handle these
-			$info['exportable'] = false;
-			$info['reason'] = 'Not yet supported';	
-			$cache[$field->id] = $info;
-			return $info;
-		}
-	
-		try {
-			$schema = $field->type->getDatabaseSchema($field);
-		} catch(\Exception $e) {
-			$info['exportable'] = false;
-			$info['reason'] = $e->getMessage();
-			$cache[$field->id] = $info;
-			return $info;
-		}
+		if($fieldtype instanceof FieldtypeFile) {
+			// files are allowed
+			
+		} else if($fieldtype instanceof FieldtypeFieldsetOpen || $fieldtype instanceof FieldtypeFieldsetClose) {
+			// fieldsets not exportable
+			$reason = 'Nothing to export/import for fieldsets';
+			$exportable = false;
+			
+		} else {
+			// test to see if exportable
+			try {
+				$schema = $fieldtype->getDatabaseSchema($field);
+			} catch(\Exception $e) {
+				$exportable = false;
+				$reason = $e->getMessage();
+			}
 
-		if(!isset($schema['xtra']['all']) || $schema['xtra']['all'] !== true) {
-			// this fieldtype is storing data outside of the DB or in other unknown tables
-			// there's a good chance we won't be able to export/import this into an array
-			// @todo check if fieldtype implements its own exportValue/importValue, and if
-			// it does then allow the value to be exported
-			$info['exportable'] = false;
-			$info['reason'] = "Field '$field' cannot be used because $field->type uses data outside table '$field->table'";
+			if($exportable && (!isset($schema['xtra']['all']) || $schema['xtra']['all'] !== true)) {
+				// this fieldtype is storing data outside of the DB or in other unknown tables
+				// there's a good chance we won't be able to export/import this into an array
+				// @todo check if fieldtype implements its own exportValue/importValue, and if
+				// it does then allow the value to be exported
+				$exportable = false;
+				$reason = "Field '$field' cannot be used because $field->type uses data outside table '$field->table'";
+			}
 		}
 		
+		if(!$exportable && empty($reason)) $reason = 'Export/import not supported';
+
+		$info = array(
+			'exportable' => $exportable,
+			'reason' => $reason,
+		);
+
 		$cache[$field->id] = $info;
 		
 		return $info;
