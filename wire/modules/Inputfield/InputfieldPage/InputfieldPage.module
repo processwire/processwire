@@ -220,7 +220,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		if(!$field instanceof Field) throw new WireException('isValidPage requires a valid Field or field name');
 		
 		if($editPage && $page->id == $editPage->id) {
-			$editPage->set('_isValidPage', "Page is referencing itself and circular page reference not allowed");
+			$editPage->setQuietly('_isValidPage', "Page is referencing itself and circular page reference not allowed");
 			return false; // prevent circular reference
 		}
 		
@@ -242,7 +242,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 					// looks like its okay
 				} else {
 					// also fails $pages->cont() check, so definitely not valid
-					if($editPage) $editPage->set('_isValidPage', "Page $page does not match findPagesSelector: $selector");
+					if($editPage) $editPage->setQuietly('_isValidPage', "Page $page does not match findPagesSelector: $selector");
 					$valid = false;
 				}
 			}
@@ -265,7 +265,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 					$valid = false;
 				}
 				if(!$valid && $editPage) {
-					$editPage->set('_isValidPage', "Page $page does not have required parent $parent_id");
+					$editPage->setQuietly('_isValidPage', "Page $page does not have required parent $parent_id");
 				}
 			} else {
 				// PHP version prior to 5.3.8
@@ -283,7 +283,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		if(!$hasRequiredTemplate) { 
 			$valid = false;
 			if($editPage) {
-				$editPage->set('_isValidPage', "Page $page does not have required template(s): " . implode(',', $template_ids));
+				$editPage->setQuietly('_isValidPage', "Page $page does not have required template(s): " . implode(',', $template_ids));
 			}
 		}
 		

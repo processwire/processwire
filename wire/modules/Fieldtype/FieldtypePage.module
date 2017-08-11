@@ -288,7 +288,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if(!empty($options['human'])) return implode("\n", $a); 
 		return $a; 
 	}
-
+	
 	protected function exportValuePage(Page $page, Field $field, Page $value, array $options = array()) {
 		if($page) {}
 		if($field) {}
@@ -313,6 +313,42 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		}
 		return $a; 
 	}
+	
+	/**
+	 * Import value
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|string $value
+	 * @param array $options
+	 * @return PageArray
+	 *
+	 */
+	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
+		$pageArray = $this->wire('pages')->newPageArray();
+		if(empty($value)) return $pageArray;
+		if(is_string($value)) $value = array($value);
+		foreach($value as $item) {
+			if(is_array($item)) {
+				$path = $item['path'];
+			} else if(is_string($item)) {
+				// system option
+				$path = $item;
+			}
+			$p = $this->wire('pages')->get($path);
+			if(!$p->id) {
+				$pageArray->error("Unable to find page '$path' to add to field '$field->name'");
+			} else if(!$this->isValidPage($p, $field, $page)) {
+				$reason = $page->get('_isValidPage');
+				$warning = "Page '$p->path' is not allowed by field '$field->name' " . ($reason ? "($reason)" : "");
+				$pageArray->error($warning);
+			} else {
+				$pageArray->add($p); 
+			}
+		}
+		return $pageArray;
+	}
+
 
 	/**
 	 * Format the given value for output. 
