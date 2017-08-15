@@ -718,20 +718,171 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		return $sleepValue;
 	}
 
+	/**
+	 * Export repeater value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param RepeaterPageArray$value
+	 * @param array $options
+	 *  - `minimal` (bool): Export a minimal array of just fields and values indexed by repeater page name (default=false)
+	 * @return array
+	 * 
+	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		
 		$a = array();
 		if(!WireArray::iterable($value)) return $a;
-		foreach($value as $k => $p) {
-			/** @var Page $p */
-			if($p->isUnpublished()) continue; 
-			$v = array();
-			foreach($p->template->fieldgroup as $f) {
-				if(!$p->hasField($f)) continue;
-				$v[$f->name] = $f->type->exportValue($p, $f, $p->getUnformatted($f->name), $options); 
+	
+		if(!empty($options['minimal']) || !empty($options['FieldtypeRepeater']['minimal'])) {
+			// minimal export option includes only fields data
+			
+			foreach($value as $k => $p) {
+				/** @var Page $p */
+				if($p->isUnpublished()) continue;
+				$v = array(); 
+				foreach($p->template->fieldgroup as $f) {
+					if(!$p->hasField($f)) continue;
+					$v[$f->name] = $f->type->exportValue($p, $f, $p->getUnformatted($f->name), $options);
+				}
+				$a[$p->name] = $v;
 			}
-			$a[] = $v; 
+			
+		} else {
+			// regular export
+			/** @var PagesExportImport $exporter */
+			$exporter = $this->wire(new PagesExportImport());
+			$a = $exporter->pagesToArray($value, $options);
 		}
-		return $a; 	
+		
+		return $a;
+	}
+
+	/**
+	 * Import repeater value previously exported by exportValue()
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array $value
+	 * @param array $options
+	 * @return bool|PageArray
+	 * @throws WireException
+	 * 
+	 */
+	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
+		
+		if(empty($value['type']) || $value['type'] != 'ProcessWire:PageArray') {
+			throw new WireException("$field->name: Invalid repeater importValue() \$value argument"); 
+		}
+		
+		if(!$page->id) {
+			$page->trackChange($field->name); 
+			throw new WireException("$field->name: Repeater will import after page is created");
+		}
+		
+		$repeaterParent = $this->getRepeaterPageParent($page, $field);
+		$repeaterTemplate = $this->getRepeaterTemplate($field);
+		$repeaterPageClass = $this->getPageClass();
+		$parentPath = $repeaterParent->path();
+		$commit = isset($options['commit']) ? (bool) $options['commit'] : true;
+		$messages = array();
+		$numAdded = 0;
+		$changesByField = array();
+		$numUpdated = 0;
+		$numDeleted = 0;
+		$itemsAdded = array();
+		$itemsDeleted = array();
+		$importItemNames = array();
+		$existingValue = $page->get($field->name); 
+		
+		// update paths for local
+		foreach($value['pages'] as $key => $item) {
+			$name = $item['settings']['name'];
+			$path = $parentPath . $name . '/';
+			$importItemNames[$name] = $name;
+			$value['pages'][$key]['path'] = $path;
+			$p = $this->wire('pages')->get($path); 
+			if($p->id) continue; // already exists
+			
+			// from this point forward, it is assumed we are creating a new repeater item
+			$numAdded++;
+			$page->trackChange($field->name); 
+			
+			if($commit) {
+				// create new repeater item, ready to be populated
+				/** @var RepeaterPage $readyPage */
+				$p = $this->wire(new $repeaterPageClass());
+				if($repeaterParent->id) $p->parent = $repeaterParent;
+				$p->template = $repeaterTemplate;
+				$p->name = $name;
+				$p->setForPage($page);
+				$p->setForField($field);
+				$p->save();
+				$itemsAdded[$p->id] = $p;
+			}
+		}
+		
+		foreach($existingValue as $p) {
+			if(!isset($importItemNames[$p->name])) {
+				$itemsDeleted[] = $p; 
+				$numDeleted++;
+			}
+		}
+		
+		$importOptions = array(
+			'commit' => $commit, 
+			'create' => true, 
+			'update' => true, 
+			'delete' => true, // @todo 
+			'pageArray' => $this->getBlankValue($page, $field), 
+		);
+		
+		/** @var PagesExportImport $importer */
+		$importer = $this->wire(new PagesExportImport()); 
+		$pageArray = $importer->arrayToPages($value, $importOptions); 	
+		
+		foreach($pageArray as $p) {
+			$changes = $p->get('_importChanges'); 
+			if(!count($changes)) continue;
+			if(isset($itemsAdded[$p->id]) || !$p->id) continue;
+			$numUpdated++;
+			foreach($changes as $fieldName) {
+				if(!isset($changesByField[$fieldName])) $changesByField[$fieldName] = 0;
+				$changesByField[$fieldName]++;
+			}
+			$this->wire('notices')->move($p, $pageArray, array('prefix' => "$field->name (id=$p->id): ")); 
+		}
+		
+		if($numDeleted && $commit) {
+			foreach($itemsDeleted as $p) {
+				$this->wire('pages')->delete($p); 
+			}
+		}
+		
+		if($numUpdated) {
+			$updateCounts = array();
+			foreach($changesByField as $fieldName => $count) {
+				$updateCounts[] = "$fieldName ($count)";	
+			}
+			$messages[] = "$numUpdated repeater page(s) updated – " . implode(', ', $updateCounts);
+		}
+		
+		if($numAdded) $messages[] = "$numAdded new repeater page(s) added";
+		if($numDeleted) $messages[] = "$numDeleted repeater page(s) DELETED";
+		
+		foreach($messages as $message) {
+			$pageArray->message("$field->name: $message");
+		}
+		
+		$pageArray->resetTrackChanges();
+		
+		$totalChanges = $numUpdated + $numAdded + $numDeleted;
+		if(!$totalChanges) {
+			// prevent it from being counted as a change when import code sets the value back to the page
+			$page->setQuietly($field->name, $pageArray);
+		}
+	
+		return $pageArray;
 	}
 
 

@@ -33,6 +33,7 @@
  * @method mixed wakeupValue(Page $page, Field $field, $value)
  * @method string|int|array sleepValue(Page $page, Field $field, $value)
  * @method string|float|int|array exportValue(Page $page, Field $field, $value, array $options = array())
+ * @method string|float|int|array|object importValue(Page $page, Field $field, $value, array $options = array())
  * @method bool createField(Field $field)
  * @method array getSelectorInfo(Field $field, array $data = array())
  * @method mixed|null loadPageField(Page $page, Field $field)
@@ -1267,7 +1268,7 @@ abstract class Fieldtype extends WireData implements Module {
 		if($key == 'name') return $this->className();
 		if($key == 'shortName') {
 			return str_replace('Fieldtype', '', $this->className());
-		} else if($key == 'longName') {
+		} else if($key == 'longName' && method_exists($this, 'getModuleInfo')) {
 			$info = $this->getModuleInfo($this);
 			return $info['title'];
 		}

@@ -159,30 +159,38 @@ class PagesExportImport extends Wire {
 			// include information about field settings so that warnings can be generated at
 			// import time if there are applicable differences in the field settings
 			foreach($exportItem['data'] as $fieldName => $value) {
-				if(isset($a['fields'][$fieldName])) continue;
-				$field = $this->wire('fields')->get($fieldName);
-				if(!$field || !$field->type) continue;
-				$moduleInfo = $this->wire('modules')->getModuleInfoVerbose($field->type);
-				if($options['verbose']) {
-					$fieldData = $field->getExportData();
-					unset($fieldData['id'], $fieldData['name']);
-					$a['fields'][$fieldName] = $fieldData;
-				} else {
-					$a['fields'][$fieldName] = array(
-						'type' => $field->type->className(),
-						'label' => $field->label, 
-						'version' => $moduleInfo['versionStr']
-					);
+				$fieldNames = array($fieldName);
+				if(is_array($value) && !empty($value['type']) && $value['type'] == 'ProcessWire:PageArray') {
+					// nested PageArray, pull in fields from it as well
+					foreach(array_keys($value['fields']) as $fieldName) $fieldNames[] = $fieldName;
 				}
-				$blankValue = $field->type->getBlankValue($item, $field);
-				if(is_object($blankValue)) {
-					if($blankValue instanceof Wire) {
-						$blankValue = "class:" . $blankValue->className();
+				foreach($fieldNames as $fieldName) {
+					if(isset($a['fields'][$fieldName])) continue;
+					$field = $this->wire('fields')->get($fieldName);
+					if(!$field || !$field->type) continue;
+					$moduleInfo = $this->wire('modules')->getModuleInfoVerbose($field->type);
+					if($options['verbose']) {
+						$fieldData = $field->getExportData();
+						unset($fieldData['name']);
+						$a['fields'][$fieldName] = $fieldData;
 					} else {
-						$blankValue = "class:" . get_class($blankValue);
+						$a['fields'][$fieldName] = array(
+							'type' => $field->type->className(),
+							'label' => $field->label,
+							'version' => $moduleInfo['versionStr'],
+							'id' => $field->id
+						);
 					}
+					$blankValue = $field->type->getBlankValue($item, $field);
+					if(is_object($blankValue)) {
+						if($blankValue instanceof Wire) {
+							$blankValue = "class:" . $blankValue->className();
+						} else {
+							$blankValue = "class:" . get_class($blankValue);
+						}
+					}
+					$a['fields'][$fieldName]['blankValue'] = $blankValue;
 				}
-				$a['fields'][$fieldName]['blankValue'] = $blankValue;
 			}
 
 			// include information about template settings so that warnings can be generated
@@ -319,10 +327,15 @@ class PagesExportImport extends Wire {
 
 		$defaults = array(
 			'count' => false,  // Return count of imported pages, rather than PageArray (reduced memory requirements)
+			'pageArray' => null, 
 		);
 		
 		$options = array_merge($defaults, $options);
-		$pageArray = $this->wire('pages')->newPageArray();
+		if(!empty($options['pageArray']) && $options['pageArray'] instanceof PageArray) {
+			$pageArray = $options['pageArray'];
+		} else {
+			$pageArray = $this->wire('pages')->newPageArray();
+		}
 		$count = 0;
 		
 		// $a has: type (string), version (string), pagination (array), pages (array), fields (array)
@@ -331,16 +344,14 @@ class PagesExportImport extends Wire {
 
 		// @todo generate warnings from this import info
 		$info = $this->getImportInfo($a); 
+		if($info) {}
 		
 		foreach($a['pages'] as $item) {
 			$page = $this->arrayToPage($item, $options);
-			$e = $page->errors('string clear');
-			$w = $page->warnings('string clear');
 			$id = $item['settings']['id'];
-			if(strlen($e)) foreach(explode("\n", $e) as $s) $pageArray->error("Page $id: $s");
-			if(strlen($w)) foreach(explode("\n", $w) as $s) $pageArray->warning("Page $id: $s");
-			$count++;
+			$this->wire('notices')->move($page, $pageArray, array('prefix' => "Page $id: ")); 
 			if(!$options['count']) $pageArray->add($page);
+			$count++;
 		}
 	
 		return $options['count'] ? $count : $pageArray;
@@ -390,6 +401,7 @@ class PagesExportImport extends Wire {
 			'template' => '', // Template object, name or ID. (0=auto detect from imported page template)
 			'update' => true, // allow update of existing pages?
 			'create' => true,  // allow creation of new pages?
+			'delete' => false, // allow deletion of pages? (@todo)
 			'changeTemplate' => false, // allow template to be changed on updated pages? (requires update=true)
 			'changeParent' => false, 
 			'changeName' => true, 
@@ -728,7 +740,8 @@ class PagesExportImport extends Wire {
 		if($field->type instanceof FieldtypeFile) {
 			// file fields (cannot be accessed until page exists)
 			if($page->id) {
-				return $this->importFileFieldValue($page, $field, $importValue, $options);
+				$this->importFileFieldValue($page, $field, $importValue, $options);
+				return;
 			} else if(!empty($importValue)) {
 				$page->trackChange($field->name);
 			}
@@ -737,6 +750,7 @@ class PagesExportImport extends Wire {
 		$o = array(
 			'system' => true,
 			'caller' => $this, 
+			'commit' => $options['commit'], 
 			'test' => !$options['commit']
 		);
 		
@@ -745,6 +759,7 @@ class PagesExportImport extends Wire {
 		if(!$options['commit']) {
 			// we fake-commit Page refs so that validity is tested and errors known before commit
 			if($field->type instanceof FieldtypePage) $fakeCommit = true;
+			if($field->type instanceof FieldtypeRepeater) $fakeCommit = true;
 		}
 		
 		if($page->get('_importType') == 'create' && !$options['commit'] && !$fakeCommit) {
@@ -768,14 +783,8 @@ class PagesExportImport extends Wire {
 			$pageValue = $field->type->importValue($page, $field, $importValue, $o);
 			if($pageValue !== null) $page->set($field->name, $pageValue);
 			if(is_object($pageValue) && $pageValue instanceof Wire) {
-				// copy notices from the pageValue to the page
-				foreach(array('errors', 'warnings', 'messages') as $noticeType) {
-					foreach($pageValue->$noticeType('clear') as $notice) {
-						$method = rtrim($noticeType, 's');
-						$page->$method($notice->text); 
-						$this->warning($notice->text); 
-					}
-				}
+				// movie notices from the pageValue to the page
+				$this->wire('notices')->move($pageValue, $page); 
 			}
 		} else {
 			// test import on existing page, avoids actually setting value to the page
@@ -1134,6 +1143,9 @@ class PagesExportImport extends Wire {
 		
 		if($fieldtype instanceof FieldtypeFile) {
 			// files are allowed
+
+		} else if($fieldtype instanceof FieldtypeRepeater) {
+			// repeaters are allowed
 			
 		} else if($fieldtype instanceof FieldtypeFieldsetOpen || $fieldtype instanceof FieldtypeFieldsetClose) {
 			// fieldsets not exportable
