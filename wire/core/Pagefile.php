@@ -248,7 +248,9 @@ class Pagefile extends WireData {
 				if(ctype_digit("$id")) {
 					$id = (int) $id;
 					if(!$id) $id = '';
-					$name = $n > 0 ? "description$id" : "description"; 
+					$name = $n > 0 ? "description$id" : "description";
+				} else if($id === 'default') {
+					$name = 'description';
 				} else if($languages) {
 					$language = $languages->get($id); // i.e. "default" or "es"
 					if(!$language->id) continue;

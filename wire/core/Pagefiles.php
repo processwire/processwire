@@ -75,6 +75,14 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 *
 	 */
 	protected $unlinkQueue = array();
+	
+	/**
+	 * Items to be renamed when Page is saved (oldName => newName)
+	 *
+	 * @var array
+	 *
+	 */
+	protected $renameQueue = array();
 
 	/**
 	 * IDs of any hooks added in this instance, used by the destructor
@@ -338,9 +346,20 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		foreach($this->unlinkQueue as $item) {
 			$item->unlink();
 		}
+		foreach($this->renameQueue as $item) {
+			$name = $item->get('_rename'); 
+			if(!$name) continue;
+			$item->rename($name); 
+		}
 		$this->unlinkQueue = array();
 		$this->removeHooks();
 		return $this; 
+	}
+	
+	protected function addSaveHook() {
+		if(!count($this->unlinkQueue) && !count($this->renameQueue)) {
+			$this->hookIDs[] = $this->page->filesManager->addHookBefore('save', $this, 'hookPageSave');
+		}
 	}
 
 	/**
@@ -375,9 +394,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	public function remove($item) {
 		if(is_string($item)) $item = $this->get($item); 
 		if(!$this->isValidItem($item)) throw new WireException("Invalid type to {$this->className}::remove(item)"); 
-		if(!count($this->unlinkQueue)) {
-			$this->hookIDs[] = $this->page->filesManager->addHookBefore('save', $this, 'hookPageSave'); 
-		}
+		$this->addSaveHook();
 		$this->unlinkQueue[] = $item; 
 		parent::remove($item); 
 		return $this; 
@@ -399,6 +416,28 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		}
 
 		return $this; 
+	}
+
+	/**
+	 * Queue a rename of a Pagefile
+	 * 
+	 * This only queues a rename. Rename actually occurs when page is saved. 
+	 * Note this differs from the behavior of `Pagefile::rename()`. 
+	 * 
+	 * #pw-group-manipulation
+	 * 
+	 * @param Pagefile $item
+	 * @param string $name
+	 * @return Pagefiles 
+	 * @see Pagefile::rename()
+	 * 
+	 */
+	public function rename(Pagefile $item, $name) {
+		$item->set('_rename', $name); 
+		$this->renameQueue[] = $item; 
+		$this->trackChange('renameQueue', $item->name, $name);
+		$this->addSaveHook();
+		return $this;
 	}
 
 	/**

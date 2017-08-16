@@ -560,6 +560,23 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	}
 
 	/**
+	 * Get Pagefile to pull description and tags from 
+	 * 
+	 * @param Pagefile $pagefile
+	 * @return Pageimage
+	 * 
+	 */
+	protected function getMetaPagefile(Pagefile $pagefile) {
+		if(!$this->isAjax || !isset($_SERVER['HTTP_X_REPLACENAME'])) return $pagefile;
+		$metaFilename = $_SERVER['HTTP_X_REPLACENAME'];
+		if(strpos($metaFilename, '?')) list($metaFilename,) = explode('?', $metaFilename); 
+		$metaFilename = $this->wire('sanitizer')->name($metaFilename);
+		$metaPagefile = $this->attr('value')->get($metaFilename);
+		if(!$metaPagefile instanceof Pagefile) $metaPagefile = $pagefile;
+		return $metaPagefile;
+	}
+
+	/**
 	 * Render a Pageimage item
 	 *
 	 * @param Pagefile|Pageimage $pagefile
@@ -593,8 +610,9 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			";
 		} else {
 			$buttons = $pagefile->ext() == 'svg' ? '' : $this->renderButtons($pagefile, $id, $n);
-			$description = $this->renderItemDescriptionField($pagefile, $id, $n);
-			$additional = $this->renderAdditionalFields($pagefile, $id, $n);
+			$metaPagefile = $this->getMetaPagefile($pagefile);
+			$description = $this->renderItemDescriptionField($metaPagefile, $id, $n);
+			$additional = $this->renderAdditionalFields($metaPagefile, $id, $n);
 			$error = '';
 			if($thumb['error']) {
 				$error = str_replace('{out}', $sanitizer->entities($thumb['error']), $this->themeSettings['error']);
@@ -654,8 +672,9 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		
 		if($editable) {
 			$buttons = $this->renderButtons($pagefile, $id, $n);
-			$descriptionField = $this->renderItemDescriptionField($pagefile, $id, $n);
-			$additional = $this->renderAdditionalFields($pagefile, $id, $n);
+			$metaPagefile = $this->getMetaPagefile($pagefile);
+			$descriptionField = $this->renderItemDescriptionField($metaPagefile, $id, $n);
+			$additional = $this->renderAdditionalFields($metaPagefile, $id, $n);
 			$editableOut = "
 				<div class='InputfieldImageEdit__buttons'>$buttons</div>
 				<div class='InputfieldImageEdit__core'>$descriptionField</div>

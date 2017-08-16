@@ -1517,8 +1517,23 @@ function InputfieldImage($) {
 						if($progressItem.length) $progressItem.remove();
 						
 						if(uploadReplace.item && maxFiles != 1) {
-							// re-open replaced item
+							// indicate replacement for processing
 							$markup.find(".InputfieldFileReplace").val(uploadReplace.file);
+							// update replaced file name (visually) if extensions are the same
+							var $imageEditName = $markup.find(".InputfieldImageEdit__name");
+							var uploadNewName = $imageEditName.text();
+							var uploadNewExt = uploadNewName.substring(uploadNewName.lastIndexOf('.')+1).toLowerCase();
+							uploadNewName = uploadNewName.substring(0, uploadNewName.lastIndexOf('.')); // remove ext
+							var uploadReplaceName = uploadReplace.file;
+							if(uploadReplaceName.indexOf('?') > -1) {
+								uploadReplaceName = uploadReplaceName.substring(0, uploadReplaceName.indexOf('?'));
+							}
+							var uploadReplaceExt = uploadReplaceName.substring(uploadReplaceName.lastIndexOf('.')+1).toLowerCase();
+							uploadReplaceName = uploadReplaceName.substring(0, uploadReplaceName.lastIndexOf('.')); // remove ext
+							if(uploadReplaceExt == uploadNewExt) {
+								$imageEditName.children('span').text(uploadReplaceName).removeAttr('contenteditable');
+							}
+							// re-open replaced item
 							$markup.find(".gridImage__edit").click();
 						}
 				
@@ -1567,6 +1582,7 @@ function InputfieldImage($) {
 					xhr.open("POST", postUrl, true);
 					xhr.setRequestHeader("X-FILENAME", encodeURIComponent(file.name));
 					xhr.setRequestHeader("X-FIELDNAME", fieldName);
+					if(uploadReplace.item) xhr.setRequestHeader("X-REPLACENAME", uploadReplace.file); 
 					xhr.setRequestHeader("Content-Type", "application/octet-stream"); // fix issue 96-Pete
 					xhr.setRequestHeader("X-" + postTokenName, postTokenValue);
 					xhr.setRequestHeader("X-REQUESTED-WITH", 'XMLHttpRequest');
