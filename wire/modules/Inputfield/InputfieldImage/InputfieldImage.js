@@ -1119,6 +1119,7 @@ function InputfieldImage($) {
 			var doneTimer = null; // for AjaxUploadDone event
 			var maxFiles = parseInt($this.find('.InputfieldImageMaxFiles').val());
 			var resizeSettings = getClientResizeSettings($inputfield);
+			var useClientResize = resizeSettings.maxWidth > 0 || resizeSettings.maxHeight > 0 || resizeSettings.maxSize > 0;
 
 			setupDropzone($this);
 			if(maxFiles != 1) setupDropInPlace($fileList);
@@ -1604,7 +1605,7 @@ function InputfieldImage($) {
 				
 				updateProgress();
 				
-				if(resizeSettings.maxWidth > 0 || resizeSettings.maxHeight > 0 || resizeSettings.maxSize > 0) {
+				if(useClientResize) {
 					var resizer = new PWImageResizer(resizeSettings);
 					$spinner.addClass('pw-resizing');
 					resizer.resize(file, function(imageData) {
@@ -1643,7 +1644,7 @@ function InputfieldImage($) {
 						message = extension + ' is a invalid file extension, please use one of:  ' + extensions;
 						$errorParent.append(errorItem(message, files[i].name));
 
-					} else if(files[i].size > maxFilesize && maxFilesize > 2000000) {
+					} else if(!useClientResize && files[i].size > maxFilesize && maxFilesize > 2000000) {
 						// I do this test only if maxFilesize is at least 2M (php default). 
 						// There might (not sure though) be some issues to get that value so don't want to overvalidate here -apeisa
 						var filesizeKB = toKilobyte(files[i].size),
