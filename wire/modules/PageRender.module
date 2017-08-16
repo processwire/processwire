@@ -517,9 +517,12 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 				throw new WireException('Missing or non-readable template file: ' . basename($options['filename']));
 			}
 		}
-	
+
 		if($this->wire('config')->useMarkupRegions) {
-			$this->populateMarkupRegions($data);
+			$contentType = $template->contentType; 
+			if(empty($contentType) || stripos($contentType, 'html') !== false) {
+				$this->populateMarkupRegions($data);
+			}
 		}
 
 		if($data && $cacheAllowed && $cacheFile) $cacheFile->save($data);
@@ -541,7 +544,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 */
 	protected function populateMarkupRegions(&$html) {
 		
-		$pos = stripos($html, '<!DOCTYPE');
+		$pos = stripos($html, '<!DOCTYPE html');
 		
 		if($pos === false) {
 			// if no doctype match, attempt an html tag match
