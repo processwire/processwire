@@ -441,8 +441,8 @@ $(document).ready(function() {
 		$inputfields.each(function() {
 
 			var $inputfield = $(this);
-			var $inputs = $inputfield.find('.InputfieldFileTagsInput:not(.selectized)');
-			var $selects = $inputfield.find('.InputfieldFileTagsSelect:not(.selectized)');
+			var $inputs = $inputfield.find('input.InputfieldFileTagsInput:not(.selectized)');
+			var $selects = $inputfield.find('input.InputfieldFileTagsSelect:not(.selectized)');
 			
 			if($inputs.length) {
 				$inputs.selectize({
