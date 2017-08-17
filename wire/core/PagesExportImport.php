@@ -755,12 +755,8 @@ class PagesExportImport extends Wire {
 		);
 		
 		// fake-commit for more verbose testing of certain fieldtypes
-		$fakeCommit = false;
-		if(!$options['commit']) {
-			// we fake-commit Page refs so that validity is tested and errors known before commit
-			if($field->type instanceof FieldtypePage) $fakeCommit = true;
-			if($field->type instanceof FieldtypeRepeater) $fakeCommit = true;
-		}
+		$fakeCommitTypes = array('FieldtypePage', 'FieldtypeRepeater', 'FieldtypeComments'); 
+		$fakeCommit = $options['commit'] || wireInstanceOf($field->type, $fakeCommitTypes); 
 		
 		if($page->get('_importType') == 'create' && !$options['commit'] && !$fakeCommit) {
 			// test import on a new page, so value will always be used
@@ -1141,11 +1137,14 @@ class PagesExportImport extends Wire {
 		$exportable = true;
 		$reason = '';
 		
-		if($fieldtype instanceof FieldtypeFile) {
-			// files are allowed
-
-		} else if($fieldtype instanceof FieldtypeRepeater) {
-			// repeaters are allowed
+		$extraType = wireInstanceOf($fieldtype, array(
+			'FieldtypeFile',
+			'FieldtypeRepeater',
+			'FieldtypeComments',
+		));
+		
+		if($extraType) {
+			// extra identified types are allowed
 			
 		} else if($fieldtype instanceof FieldtypeFieldsetOpen || $fieldtype instanceof FieldtypeFieldsetClose) {
 			// fieldsets not exportable
