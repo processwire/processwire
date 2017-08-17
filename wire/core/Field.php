@@ -962,7 +962,7 @@ class Field extends WireData implements Saveable, Exportable {
 			}
 			$inputfields->attr('title', $this->_('Input')); 
 			$inputfields->attr('id+name', 'inputfieldConfig');
-			$inputfieldInputfields = $inputfield->getConfigInputfields();
+			$inputfieldInputfields = $inputfield->getConfigInputfields($this);
 			if(!$inputfieldInputfields) $inputfieldInputfields = $this->wire(new InputfieldWrapper());
 			$configArray = $inputfield->getConfigArray(); 
 			if(count($configArray)) {
