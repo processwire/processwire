@@ -26,6 +26,87 @@
 class PagesExportImport extends Wire {
 
 	/**
+	 * Get the path where ZIP exports are stored
+	 * 
+	 * @param string $subdir Specify a subdirectory name if you want it to create it. 
+	 *   If it exists, it will create a numbered version of the subdir to ensure it is unique. 
+	 * @return string
+	 * 
+	 */
+	public function getExportPath($subdir = '') {
+	
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
+		$path = $this->wire('config')->paths->assets . 'backups/' . $this->className() . '/';
+		
+		$readmeText = "When this file is present, files and directories in here are auto-deleted after a short period of time.";
+		$readmeFile = $this->className() . '.txt';
+		$readmeFiles = array();
+		
+		if(!is_dir($path)) {
+			$files->mkdir($path, true);
+			$readmeFiles[] = $path . $readmeFile;
+		}
+		
+		if($subdir) {
+			$n = 0;
+			do {
+				$_path = $path . $subdir . ($n ? "-$n" : '') . '/';
+			} while(++$n && is_dir($_path)); 
+			$path = $_path;
+			$files->mkdir($path, true);
+			$readmeFiles[] = $path . $readmeFile;
+		}
+		
+		foreach($readmeFiles as $file) {
+			file_put_contents($file, $readmeText);
+			$files->chmod($readmeFile); 
+		}
+		
+		return $path; 
+	}
+
+	/**
+	 * Remove files and directories in /site/assets/backups/PagesExportImport/ that are older than $maxAge
+	 * 
+	 * @param int $maxAge Maximum age in seconds
+	 * @return int Number of files/dirs removed
+	 * 
+	 */
+	public function cleanupFiles($maxAge = 3600) {
+
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
+		$path = $this->getExportPath();
+		$qty = 0;
+		
+		foreach(new \DirectoryIterator($path) as $file) {
+			
+			if($file->isDot()) continue;
+			if($file->getBasename() == $this->className() . '.txt') continue; // we want this file to stay
+			if($file->getMTime() >= (time() - $maxAge)) continue; // not expired
+			
+			$pathname = $file->getPathname();
+			
+			if($file->isDir()) {
+				$testFile = rtrim($pathname, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . $this->className() . '.txt';
+				if(!is_file($testFile)) continue; 
+				if($files->rmdir($pathname, true)) {
+					$this->message($this->_('Removed old directory') . " - $pathname", Notice::debug); 
+					$qty++;
+				}
+			} else {
+				if(unlink($pathname)) {
+					$this->message($this->_('Removed old file') . " - $pathname", Notice::debug); 
+					$qty++;
+				}
+			}
+		}
+		
+		return $qty; 
+	}
+
+	/**
 	 * Export given PageArray to a ZIP file
 	 * 
 	 * @param PageArray $items
@@ -34,22 +115,46 @@ class PagesExportImport extends Wire {
 	 * 
 	 */
 	public function exportZIP(PageArray $items, array $options = array()) {
-		$tempDir = new WireTempDir($this);
-		$this->wire($tempDir);
-		$tempDir->setRemove(false);
-		$path = $tempDir->get();
-		$jsonFile = $path . "pages.json";
-		$jsonData = $this->exportJSON($items, $options);
-		file_put_contents($jsonFile, $jsonData);
+		
 		/** @var WireFileTools $files */
 		$files = $this->wire('files');
-		$zipFileItems = array($jsonFile);
-		$zipFileName = $path . 'pages.zip';
-		$zipFileInfo = $files->zip($zipFileName, $zipFileItems); 
-		foreach($zipFileItems as $file) {
-			unlink($file);
+		
+		$options['exportTarget'] = 'zip';
+		$zipPath = $this->getExportPath();
+		if(!is_dir($zipPath)) $files->mkdir($zipPath, true); 
+		
+		$tempDir = new WireTempDir($this);
+		$this->wire($tempDir);
+		$tmpPath = $tempDir->get();
+		$jsonFile = $tmpPath . "pages.json";
+		$zipItems = array($jsonFile);
+		$data = $this->pagesToArray($items, $options);
+	
+		// determine other files to add to ZIP
+		foreach($data['pages'] as $key => $item) {
+			if(!isset($item['_filesPath'])) continue;
+			$zipItems[] = $item['_filesPath'];
+			unset($data['pages'][$key]['_filesPath']);
 		}
-		return $zipFileName;
+	
+		// write out the pages.json file
+		file_put_contents($jsonFile, wireEncodeJSON($data, true, true));
+
+		$n = 0;
+		do {
+			$zipName = $zipPath . 'pages' . ($n ? "-$n" : '') . '.zip';
+		} while(++$n && file_exists($zipName)); 
+		
+		// @todo report errors from zipInfo
+		$zipInfo = $files->zip($zipName, $zipItems, array(
+			'maxDepth' => 1, 
+			'allowHidden' => false, 
+			'allowEmptyDirs' => false
+		)); 
+		
+		unlink($jsonFile); 
+		
+		return $zipName;
 	}
 
 	/**
@@ -61,17 +166,23 @@ class PagesExportImport extends Wire {
 	 * 
 	 */
 	public function importZIP($filename, array $options = array()) {
+		
 		$tempDir = new WireTempDir($this);
 		$this->wire($tempDir);
 		$path = $tempDir->get();
+		$options['filesPath'] = $path; 
+		
 		$zipFileItems = $this->wire('files')->unzip($filename, $path); 
-		if(empty($zipFileItems)) {
-			$pageArray = false;
-		} else {
-			$jsonFile = $path . "pages.json";
-			$jsonData = file_get_contents($jsonFile);
-			$pageArray = $this->importJSON($jsonData, $options);
-		}
+		
+		if(empty($zipFileItems)) return false;
+		
+		$jsonFile = $path . "pages.json";
+		$jsonData = file_get_contents($jsonFile);
+		$data = json_decode($jsonData, true);
+		if($data === false) return false;
+		
+		$pageArray = $this->arrayToPages($data, $options);
+		
 		return $pageArray;	
 	}
 
@@ -84,6 +195,10 @@ class PagesExportImport extends Wire {
 	 * 
 	 */
 	public function exportJSON(PageArray $items, array $options = array()) {
+		$defaults = array(
+			'exportTarget' => 'json'
+		);
+		$options = array_merge($defaults, $options); 
 		$data = $this->pagesToArray($items, $options); 
 		$data = wireEncodeJSON($data, true, true); 
 		return $data;
@@ -126,10 +241,14 @@ class PagesExportImport extends Wire {
 
 		$a = array(
 			'type' => 'ProcessWire:PageArray',
+			'created' => date('Y-m-d H:i:s'), 
 			'version' => $this->wire('config')->version,
-			'pagination' => array(),
+			'user' => $this->wire('user')->name,
+			'host' => $this->wire('config')->httpHost,
 			'pages' => array(),
 			'fields' => array(),
+			'timer' => Debug::timer(), 
+			// 'pagination' => array(),
 		);
 		
 		if($items->getLimit()) {
@@ -190,6 +309,10 @@ class PagesExportImport extends Wire {
 						}
 					}
 					$a['fields'][$fieldName]['blankValue'] = $blankValue;
+					foreach($field->type->getImportValueOptions($field) as $k => $v) {
+						if(isset($a['fields'][$fieldName][$k])) continue;
+						$a['fields'][$fieldName][$k] = $v;
+					}
 				}
 			}
 
@@ -205,6 +328,7 @@ class PagesExportImport extends Wire {
 		// sort by path to ensure parents are created before their children
 		ksort($a['pages']); 
 		$a['pages'] = array_values($a['pages']); 
+		$a['timer'] = Debug::timer($a['timer']); 
 
 		if($options['verbose']) $a['templates'] = $templates;
 
@@ -223,12 +347,18 @@ class PagesExportImport extends Wire {
 	 */
 	protected function pageToArray(Page $page, array $options) {
 		
+		$defaults = array(
+			'exportTarget' => '',
+		);
+		$options = array_merge($defaults, $options); 
+		
 		$of = $page->of();
 		$page->of(false);
 
 		/** @var Languages $languages */
 		$languages = $this->wire('languages');
 		if($languages) $languages->setDefault();
+		$numFiles = 0;
 	
 		// standard page settings
 		$settings = array(
@@ -290,16 +420,20 @@ class PagesExportImport extends Wire {
 			if(!empty($options['fieldNames']) && !in_array($field->name, $options['fieldNames'])) continue;
 			
 			$info = $this->getFieldInfo($field); 
-			if(!$info['exportable']) {
-				// $a['warnings'][$field->name] = $info['reason'];
-				// $this->warning("Field '$field->name' - $info[reason]"); 
-				continue;
-			}
+			if(!$info['exportable']) continue;
 
 			$value = $page->getUnformatted($field->name);
 			$exportValue = $field->type->exportValue($page, $field, $value, $exportValueOptions);
-			// $this->message($exportValue);
+			
 			$a['data'][$field->name] = $exportValue;
+			
+			if($field->type instanceof FieldtypeFile && $value) {
+				$numFiles += count($value);
+			}
+		}
+		
+		if($numFiles && $options['exportTarget'] == 'zip') {
+			$a['_filesPath'] = $page->filesManager()->path();
 		}
 
 		if($of) $page->of(true);
@@ -412,6 +546,7 @@ class PagesExportImport extends Wire {
 			'replaceFields' => array(), // array of import-data field name to replacement page field name
 			'replaceTemplates' => array(), // array of import-data template name to replacement page template name
 			'replaceParents' => array(), // array of import-data parent path to replacement parent path
+			'filesPath' => '', // path where file field directories are located when importing from zip (internal use)
 			'commit' => true, // commit the import? If false, changes aren't saved (dry run). 
 			'debug' => false, 
 		);
@@ -747,6 +882,8 @@ class PagesExportImport extends Wire {
 			}
 		}
 		
+		$fieldtypeSupportsOptions = $field->type->getImportValueOptions($field);
+		
 		$o = array(
 			'system' => true,
 			'caller' => $this, 
@@ -755,8 +892,7 @@ class PagesExportImport extends Wire {
 		);
 		
 		// fake-commit for more verbose testing of certain fieldtypes
-		$fakeCommitTypes = array('FieldtypePage', 'FieldtypeRepeater', 'FieldtypeComments'); 
-		$fakeCommit = $options['commit'] || wireInstanceOf($field->type, $fakeCommitTypes); 
+		$fakeCommit = $options['commit'] || !empty($fieldtypeSupportsOptions['test']);
 		
 		if($page->get('_importType') == 'create' && !$options['commit'] && !$fakeCommit) {
 			// test import on a new page, so value will always be used
@@ -828,13 +964,14 @@ class PagesExportImport extends Wire {
 		$filesAdded = array();
 		$filesUpdated = array();
 		$filesRemoved = array();
-		$filesDownloaded = array();
+		$variationsAdded = array();
 		
 		$maxFiles = (int) $field->get('maxFiles'); 
 		$languages = $this->wire('languages'); 
 		$filesPath = $pagefiles->path();
-		/** @var WireHttp $http */
-		$http = $this->wire(new WireHttp());
+		/** @var null|WireHttp $http */
+		$http = null; 
+		$pageID = $page->get('_importOriginalID'); 
 		
 		foreach($data as $fileName => $fileInfo) {
 		
@@ -847,7 +984,13 @@ class PagesExportImport extends Wire {
 				$isNew = true;
 				try {
 					if($options['commit']) {
-						$pagefiles->add($fileInfo['url']);
+						if(empty($options['filesPath'])) {
+							// importing from ZIP where files are located under filesPath option
+							$pagefiles->add($fileInfo['url']);
+						} else {
+							// importing from URL
+							$pagefiles->add("$options[filesPath]$pageID/$fileName");
+						}
 						$pagefile = $pagefiles->last();
 						if(!$pagefile) throw new WireException("Unable to add file $fileInfo[url]");
 						if($maxFiles === 1 && $pagefiles->count() > 1) {
@@ -870,6 +1013,7 @@ class PagesExportImport extends Wire {
 			// description, tags, etc. 
 			foreach($fileInfo as $key => $value) {
 				if($key == 'url') continue;
+				if($key == 'size') continue;
 				if($key == 'variations') {
 					$variations = $value;
 					continue;
@@ -903,22 +1047,47 @@ class PagesExportImport extends Wire {
 					}
 				}
 			}
-			
-			if(count($variations)) {
-				foreach($variations as $name => $url) {
-					$targetFile = $filesPath . $name;
-					if(!file_exists($targetFile)) {
-						try {
-							if($options['commit']) $http->download($url, $targetFile);
-							$filesDownloaded[] = $name;
-						} catch(\Exception $e) {
-							$page->warning("Error downloading file $url - " . $e->getMessage());
-						}
+		
+			// image variations
+			foreach($variations as $name => $url) {
+				
+				$targetFile = $filesPath . $name;
+				$sourceFile = empty($options['filesPath']) ? '' : "$options[filesPath]$pageID/$name";
+				$targetExists = file_exists($targetFile); 
+				$sourceExists = $sourceFile ? file_exists($sourceFile) : false;
+				
+				if($sourceExists && $targetExists) {
+					// skip because they are likely the same
+					if(filesize($sourceFile) == filesize($targetFile)) continue; 
+				} else if($targetExists) {
+					// target already exists so skip it (since we don't have a way to check size)
+					continue; 	
+				}
+				
+				if(!$options['commit']) {
+					$variationsAdded[] = $name;
+					continue; 
+				}
+				
+				if($sourceExists) {
+					// copy variation from options[filesPath]
+					if($this->wire('files')->copy($sourceFile, $targetFile)) {
+						$variationsAdded[] = $name;
+					} else {
+						$page->warning("Unable to copy file (image variation): $sourceFile");
+					}
+				} else {
+					// download variation via http
+					try {
+						if(is_null($http)) $http = $this->wire(new WireHttp());
+						$http->download($url, $targetFile);
+						$variationsAdded[] = $name;
+					} catch(\Exception $e) {
+						$page->warning("Error downloading file (image variation): $url - " . $e->getMessage());
 					}
 				}
 			}
 		}
-		
 	
 		// determine removed files
 		foreach($pagefiles as $pagefile) {
@@ -926,12 +1095,13 @@ class PagesExportImport extends Wire {
 			$filesRemoved[] = $pagefile->name; 
 			if($options['commit']) $pagefiles->remove($pagefile); 
 		}
-		
+	
+		// summarize all of the above
 		$numAdded = count($filesAdded);
 		$numUpdated = count($filesUpdated);
 		$numRemoved = count($filesRemoved); 
-		$numDownloaded = count($filesDownloaded); 
-		$numTotal = $numAdded + $numUpdated + $numRemoved; // intentionally excludes numDownloaded
+		$numVariations = count($variationsAdded); 
+		$numTotal = $numAdded + $numUpdated + $numRemoved; // intentionally excludes numVariations
 		
 		if($numTotal > 0) {
 			$pagefiles->trackChange('value');
@@ -956,11 +1126,14 @@ class PagesExportImport extends Wire {
 			); 
 		}
 		
-		if($numDownloaded) {
+		if($numVariations) {
+			$addedType = $http === null ? 'ZIP copy' : 'HTTP download'; 
 			$page->trackChange($field->name); 
 			$page->message("$field->name (variation): " .
-				sprintf($this->_n('Downloaded %d file', 'Downloaded %d files', $numDownloaded), $numDownloaded) . ": " .
-				implode(', ', $filesDownloaded)
+				sprintf(
+					$this->_n('Added %d file via %s', 'Added %d files via %s', $numVariations), 
+					$numVariations, $addedType
+				) . ": " . implode(', ', $variationsAdded)
 			); 
 		}
 	}

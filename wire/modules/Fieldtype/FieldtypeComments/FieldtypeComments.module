@@ -1586,8 +1586,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 *
 	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
-		$exportValue = array_values($this->exportComments($value)); 
-		return $exportValue; 
+		return array_values($this->exportComments($value));
 	}
 	
 	/**
@@ -1691,6 +1690,21 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		return $comments; 
 		
+	}
+
+	/**
+	 * Get associative array of options (name => default) that Fieldtype supports for importValue
+	 * 
+	 * #pw-internal
+	 *
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
+	public function getImportValueOptions(Field $field) {
+		$options = parent::getImportValueOptions($field);
+		$options['test'] = true;
+		return $options;
 	}
 
 }

@@ -334,6 +334,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			} else if(is_string($item)) {
 				// system option
 				$path = $item;
+			} else {
+				continue; 
 			}
 			$p = $this->wire('pages')->get($path);
 			if(!$p->id) {
@@ -349,6 +351,20 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		return $pageArray;
 	}
 
+	/**
+	 * Get associative array of options (name => default) that Fieldtype supports for importValue
+	 * 
+	 * #pw-internal
+	 *
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
+	public function getImportValueOptions(Field $field) {
+		$options = parent::getImportValueOptions($field);
+		$options['test'] = true;
+		return $options;
+	}
 
 	/**
 	 * Format the given value for output. 

@@ -42,15 +42,6 @@ class ProcessPagesExportImport extends Process {
 	protected $exportImport;
 
 	/**
-	 * Construct
-	 * 
-	 */
-	public function __construct() {
-		$this->exportImport = $this->wire(new PagesExportImport());
-		parent::__construct();
-	}
-
-	/**
 	 * Main execution handler
 	 * 
 	 * @return string
@@ -63,6 +54,10 @@ class ProcessPagesExportImport extends Process {
 			throw new WirePermissionException($this->_('Export/import is currently only available to superuser')); 
 		}
 		
+		$this->exportImport = new PagesExportImport();
+		$this->wire($this->exportImport);
+		$this->exportImport->cleanupFiles(600);
+
 		$input = $this->wire('input');
 		$user = $this->wire('user');
 		$breadcrumbLabel = $this->wire('page')->title;
@@ -113,6 +108,8 @@ class ProcessPagesExportImport extends Process {
 		
 		$form = $modules->get('InputfieldForm');
 		$form->attr('id', 'ProcessPagesExportImport');
+		$form->attr('method', 'post'); 
+		$form->attr('enctype', 'multipart/form-data');
 		
 		if($user->hasPermission('page-edit-export')) {
 			if(!$tab || $tab == 'export') $form->add($this->buildExportTab());
@@ -147,19 +144,18 @@ class ProcessPagesExportImport extends Process {
 		$f->description = $this->_('Paste in the JSON string previously exported from this tool.'); 
 		$tab->add($f);
 	
-		/*
 		$f = $modules->get('InputfieldFile');
 		$f->name = 'import_zip';
-		$f->label = $this->_('Import from ZIP file upload');
+		$f->label = $this->_('Import from ZIP file upload') . " (experimental)";
 		$f->extensions = 'zip';
 		$f->icon = 'upload';
 		$f->maxFiles = 1;
 		$f->unzip = 0;
 		$f->overwrite = false;
-		$f->setMaxFilesize('100g');
+		$f->setMaxFilesize('10g');
 		$f->collapsed = Inputfield::collapsedYes;
+		$f->destinationPath = $this->exportImport->getExportPath();
 		$tab->add($f);
-		*/
 
 		$f = $modules->get('InputfieldSubmit');
 		$f->attr('name', 'submit_import');
@@ -169,7 +165,7 @@ class ProcessPagesExportImport extends Process {
 	
 		return $tab;
 	}
-
+	
 	/**
 	 * Process a submitted import and return form with summary data
 	 * 
@@ -184,32 +180,44 @@ class ProcessPagesExportImport extends Process {
 
 		/** @var InputfieldWrapper $importTab */
 		$importTab = $this->buildForm('import');
-		
+	
 		$submitCommit = $input->post('submit_commit_import') ? true : false;
 		$submitTest = $input->post('submit_test_import') ? true : false;
+		$submitZIP = !empty($_FILES['import_zip']);
 		$fileField = null;
+		$filesPath = $this->wire('session')->getFor($this, 'filesPath'); 
+		$jsonFile = '';
 		$a = null;
 		
-		if(!empty($_POST['import_zip']) && count($_FILES) && empty($_POST['import_json'])) {
+		if($submitZIP) {
 			// ZIP file import
-			throw new WireException('ZIP import not yet supported');
-			/*
-			$tempDir = new WireTempDir();
-			$this->wire($tempDir);
-			$tempDir->create($this);
-			$fileField = $importTab->getChildByName('import_zip');
-			$fileField->destinationPath = $tempDir->get();
 			$importTab->processInput($input->post);
-			foreach($fileField->value as $pagefile) { }
-			$this->warning($fileField->value);
-			*/
+			$fileField = $importTab->getChildByName('import_zip');
+			$zipFile = $this->exportImport->getExportPath() . $fileField->value->first()->name;
+			if(!$zipFile || !is_file($zipFile)) throw new WireException('No ZIP file found: ' . $zipFile); 
+			$unzipPath = $this->exportImport->getExportPath('import-zip'); 
+			$zipFileItems = $this->wire('files')->unzip($zipFile, $unzipPath);
+			unlink($zipFile); 
+			if(empty($zipFileItems)) throw new WireException("No files found in ZIP"); 
+			$jsonFile = $unzipPath . "pages.json";
+			$this->wire('session')->setFor($this, 'filesPath', $unzipPath);
 			
-		} else {
+		} else if(!empty($_POST['import_json'])) {
 			// JSON import
 			$importTab->processInput($input->post);
 			$json = $importTab->getChildByName('import_json')->val(); 
 			if(empty($json)) throw new WireException($this->_('No import data found')); 
-			$a = json_decode($json, true); 
+			$a = json_decode($json, true);
+			$this->wire('session')->setFor($this, 'filesPath', ''); 
+			
+		} else if($filesPath) {
+			// ZIP import commit or test
+			$jsonFile = $filesPath . "pages.json";
+		}
+		
+		if($jsonFile) {
+			if(!is_file($jsonFile)) throw new WireException("No pages.json found in ZIP file"); 
+			$a = json_decode(file_get_contents($jsonFile), true);
 		}
 
 		if(!is_array($a)) throw new WireException($this->_('Invalid import data')); 
@@ -298,6 +306,7 @@ class ProcessPagesExportImport extends Process {
 			'changeName' => in_array('name', $fieldNames),
 			'changeStatus' => in_array('status', $fieldNames),
 			'changeSort' => in_array('sort', $fieldNames),
+			'filesPath' => $this->wire('session')->getFor($this, 'filesPath'), 
 		);
 		
 		foreach($a['pages'] as $key => $item) {
@@ -597,7 +606,6 @@ class ProcessPagesExportImport extends Process {
 			}
 		}
 	}
-
 
 	/**
 	 * Import item to a Page and return it 
@@ -979,7 +987,7 @@ class ProcessPagesExportImport extends Process {
 		$f->showIf = $showIf;
 		$f->icon = 'download';
 		$f->addActionValue('json', $this->_('JSON for copy/paste (default)'), 'scissors');
-		$f->addActionValue('zip', $this->_('ZIP file download (coming soon)'), 'download');
+		$f->addActionValue('zip', $this->_('ZIP file download') . ' (experimental)', 'download');
 		$tab->add($f);
 		
 		return $tab;
@@ -1015,7 +1023,6 @@ class ProcessPagesExportImport extends Process {
 		$exportType = $tab->getChildByName('export_type')->val();
 		$exportFields = $tab->getChildByName('export_fields')->val();
 		$exportTo = $input->post('submit_export') === 'zip' ? 'zip' : 'json';
-		if($exportTo == 'zip') throw new WireException('ZIP export not yet available');
 		
 		// @todo security and access control
 		// @todo paginate large sets
@@ -1079,7 +1086,8 @@ class ProcessPagesExportImport extends Process {
 			$f->val($json);
 			$form->add($f);
 			return $form->render() . "<p><a href='./'>" . $this->_('Run another export') . "</a></p>";
-		} else {
+			
+		} else if($exportTo == 'zip') {
 			// zip file download
 			$zipFile = $exporter->exportZIP($exportPages, $exportOptions);
 			if($zipFile) {
@@ -1093,6 +1101,8 @@ class ProcessPagesExportImport extends Process {
 				throw new WireException('Export failed during ZIP file generation');
 			}
 		}
+		
+		return '';
 	}
 
 	/**

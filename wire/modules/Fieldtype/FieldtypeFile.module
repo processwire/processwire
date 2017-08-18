@@ -265,14 +265,17 @@ class FieldtypeFile extends FieldtypeMulti {
 		foreach($value as $k => $v) {
 			/** @var Pagefile $pagefile */
 			$pagefile = $pagefiles->get($v['data']); 
-			$a = array('url' => $pagefile->httpUrl()); 
+			
+			$a = array(
+				'url' => $pagefile->httpUrl(),
+				'size' => $pagefile->filesize(), 
+			); 
 			
 			if(!empty($options['system'])) {
 				unset($v['created'], $v['modified']);
 				$exportKey = $v['data'];
 			} else {
 				$a['name'] = $v['data'];
-				$a['filesize'] = $pagefile->filesize();
 				$exportKey = $k;
 			}
 			
@@ -281,7 +284,7 @@ class FieldtypeFile extends FieldtypeMulti {
 			if($options['FieldtypeFile']['noJSON']) {
 				// export version 2 for exported description uses array value for multi-language, rather than JSON string
 				if(!isset($v['description'])) $v['description'] = '';
-				$v['description'] = $this->exportDescription($v['description'], $options);
+				$v['description'] = $this->exportDescription($v['description']);
 			}
 			
 			$exportValue[$exportKey] = array_merge($a, $v);

@@ -17,6 +17,7 @@
  * 
  * @property int $repeatersRootPageID
  * @method saveConfigInputfields(Field $field, Template $template, Page $parent)
+ * @method readyPageSaved(Page $readyPage, Page $ownerPage, Field $field) Hook called when ready page is saved
  * 
  * Page status notes for repeater items: 
  * - Unpublished & Hidden: Ready page, not yet used. Appears in unformatted repeater PageArray but user has not saved it.
@@ -614,7 +615,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$parent_id = null; 
 		$field_parent_id = $field->get('parent_id'); 
 		$template_id = $field->get('template_id'); 
-		$outputFormatting = $page->outputFormatting();
+		// $outputFormatting = $page->outputFormatting();
 
 		// if it's already in the target format, leave it
 		if($value instanceof PageArray) return $value; 
@@ -885,6 +886,20 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		return $pageArray;
 	}
 
+	/**
+	 * Get associative array of options (name => default) that Fieldtype supports for importValue
+	 * 
+	 * #pw-internal
+	 *
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
+	public function getImportValueOptions(Field $field) {
+		$options = parent::getImportValueOptions($field);
+		$options['test'] = true; 
+		return $options; 
+	}
 
 	/**
 	 * Get information used by selectors for querying this field
@@ -981,7 +996,6 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		return $parent; 
 	}
-
 
 	/**
 	 * Return the repeater template used by Field, i.e. repeater_name
@@ -1092,6 +1106,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	protected function sanitizeValueString(Page $page, Field $field, $value) {
 
+		if($page) {} // ignore
 		$result = false;
 
 		if(ctype_digit("$value")) {
@@ -1577,6 +1592,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * 
 	 */
 	protected function ___saveConfigInputfields(Field $field, Template $template, Page $parent) {
+		if($parent) {} // ignore
 		require_once(__DIR__ . '/config.php');
 		$helper = new FieldtypeRepeaterConfigHelper($field);
 		$helper->saveConfigInputfields($template);
@@ -1590,6 +1606,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	public function getModuleConfigInputfields(array $data) {
+		if($data) {} // ignore
 		return $this->wire(new InputfieldWrapper());
 	}
 

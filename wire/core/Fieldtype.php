@@ -522,6 +522,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 * @param Field $field
 	 * @param string|int|float|array|object $value
 	 * @return string|int|float|array
+	 * @see Fieldtype::wakeupValue()
 	 *
 	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {
@@ -534,18 +535,37 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 * This is intended for importing from PW-driven web services. If not overridden, it does
 	 * the same thing as the `Fieldtype::wakeupValue()` method. 
+	 * 
+	 * #pw-internal
 	 *
 	 * @param Page $page
 	 * @param Field $field
 	 * @param string|int|float|array|null $value
 	 * @param array $options Additional options if needed/applicable
 	 * @return string|int|array|object $value
+	 * @see Fieldtype::exportValue()
 	 *
 	 */
 	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
 		if($options) {}
 		$value = $this->wakeupValue($page, $field, $value); 
 		return $value; 
+	}
+
+	/**
+	 * Get associative array of options and info (name => value) that Fieldtype supports for importValue
+	 * 
+	 * - `test` (bool): indicates Fieldtype supports testing import before committing. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param array Field $field
+	 * @return array
+	 * 
+	 */
+	public function getImportValueOptions(Field $field) {
+		if($field) {} // ignore
+		return array();
 	}
 
 	/**

@@ -433,6 +433,7 @@ class WireFileTools extends Wire {
 	 *    Note that if you actually specify a hidden file in your $files argument, then that overrides this.
 	 *  - `allowEmptyDirs` (boolean): allow empty directories in the ZIP file? (default=true)
 	 *  - `overwrite` (boolean): Replaces ZIP file if already present (rather than adding to it) (default=false)
+	 *  - `maxDepth` (int): Max dir depth 0 for no limit (default=0). Specify 1 to stay only in dirs listed in $files. 
 	 *  - `exclude` (array): Files or directories to exclude
 	 *  - `dir` (string): Directory name to prepend to added files in the ZIP
 	 * @return array Returns associative array of:
@@ -443,11 +444,14 @@ class WireFileTools extends Wire {
 	 *
 	 */
 	public function zip($zipfile, $files, array $options = array()) {
+		
+		static $depth = 0;
 
 		$defaults = array(
 			'allowHidden' => false,
 			'allowEmptyDirs' => true,
 			'overwrite' => false,
+			'maxDepth' => 0, 
 			'exclude' => array(), // files or dirs to exclude
 			'dir' => '',
 			'zip' => null, // internal use: holds ZipArchive instance for recursive use
@@ -457,7 +461,7 @@ class WireFileTools extends Wire {
 			'files' => array(),
 			'errors' => array(),
 		);
-
+		
 		if(!empty($options['zip']) && !empty($options['dir']) && $options['zip'] instanceof \ZipArchive) {
 			// internal recursive call
 			$recursive = true;
@@ -490,23 +494,35 @@ class WireFileTools extends Wire {
 				if(!$options['allowHidden']) continue;
 				if(is_array($options['allowHidden']) && !in_array($basename, $options['allowHidden'])) continue;
 			}
-			if(count($options['exclude']) && (in_array($name, $options['exclude']) || in_array("$name/", $options['exclude']))) continue;
+			if(count($options['exclude'])) {
+				if(in_array($name, $options['exclude']) || in_array("$name/", $options['exclude'])) continue;
+			}
 			if(is_dir($file)) {
+				if($options['maxDepth'] > 0 && $depth >= $options['maxDepth']) continue;
 				$_files = array();
-				foreach(new \DirectoryIterator($file) as $f) if(!$f->isDot()) $_files[] = $f->getPathname();
+				foreach(new \DirectoryIterator($file) as $f) {
+					if($f->isDot()) continue; 
+					if($options['maxDepth'] > 0 && $f->isDir() && ($depth+1) >= $options['maxDepth']) continue;
+					$_files[] = $f->getPathname();
+				}
 				if(count($_files)) {
 					$zip->addEmptyDir($name);
 					$options['dir'] = "$name/";
 					$options['zip'] = $zip;
+					$depth++;
 					$_return = $this->zip($zipfile, $_files, $options);
+					$depth--;
 					foreach($_return['files'] as $s) $return['files'][] = $s;
 					foreach($_return['errors'] as $s) $return['errors'][] = $s;
 				} else if($options['allowEmptyDirs']) {
 					$zip->addEmptyDir($name);
 				}
 			} else if(file_exists($file)) {
-				if($zip->addFile($file, $name)) $return['files'][] = $name;
-				else $return['errors'][] = $name;
+				if($zip->addFile($file, $name)) {
+					$return['files'][] = $name;
+				} else {
+					$return['errors'][] = $name;
+				}
 			}
 		}
 
