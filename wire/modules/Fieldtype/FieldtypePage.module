@@ -743,14 +743,21 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			
 			return parent::getMatchQuery($query, $table, $subfield, $operator, $value);
 
-		} else if(in_array($subfield, $names)) { 
+		} else if(in_array($subfield, $names) || ($subfield == 'name' && $operator == '!=')) { 
 
 			if(!$database->isOperator($operator)) {
 				throw new WireException("Operator '$operator' is not implemented in {$this->className}");
 			}
 			
-			if(in_array($subfield, array('id', 'path', 'url'))) $subfield = 'data';
-
+			if($subfield == 'name') {
+				$value = $this->wire('sanitizer')->pageName($value);
+				$value = implode(',', $this->pages->findIDs("name=$value, include=all"));
+				if(empty($value)) $value = "0";
+				$idstr = true;
+			}
+			
+			if(in_array($subfield, array('id', 'path', 'url', 'name'))) $subfield = 'data';
+		
 			// if a page path rather than page ID was provided, then we translate the path to an ID for API syntax convenience
 			if($idstr || !ctype_digit("$value")) {
 				if(is_null($idstr) && $subfield == 'data' && strpos($value, ',') !== false) {
