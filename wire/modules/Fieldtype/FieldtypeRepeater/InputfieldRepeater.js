@@ -238,7 +238,7 @@ function InputfieldRepeater($) {
 			$item.removeClass('InputfieldRepeaterItemLoading');
 			InputfieldsInit($inputfields);
 
-			var $repeaters = $inputs.filter('.InputfieldRepeater');
+			var $repeaters = $inputs.find('.InputfieldRepeater');
 			if($repeaters.length) $repeaters.each(function() {
 				initRepeater($(this));
 			});
@@ -448,7 +448,7 @@ function InputfieldRepeater($) {
 	}
 
 	/**
-	 * Given an InputfieldRepeaterItem update the label consistent with any present formatting sting
+	 * Given an InputfieldRepeaterItem update the label consistent with any present formatting string
 	 * 
 	 * Primarily adjusts item count(s) and allowed for {secondary} text appearance
 	 * 
