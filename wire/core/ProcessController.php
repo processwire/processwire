@@ -267,7 +267,7 @@ class ProcessController extends Wire {
 		}
 		if(is_array($content)) {
 			// array of returned content indicates variables to send to a view
-			if(count($content)) {
+			if(count($content) || $this->process->getViewFile()) {
 				$viewFile = $this->getViewFile($this->process, $method); 
 				if($viewFile) {
 					// get output from a separate view file
