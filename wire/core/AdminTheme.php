@@ -95,7 +95,7 @@ abstract class AdminTheme extends WireData implements Module {
 	}
 
 	/**
-	 * Initialize the admin theme systme and determine which admin theme should be used
+	 * Initialize the admin theme system and determine which admin theme should be used
 	 *
 	 * All admin themes must call this init() method to register themselves. 
 	 *
