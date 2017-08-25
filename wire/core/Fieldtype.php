@@ -555,7 +555,21 @@ abstract class Fieldtype extends WireData implements Module {
 	/**
 	 * Get associative array of options and info (name => value) that Fieldtype supports for importValue
 	 * 
-	 * - `test` (bool): indicates Fieldtype supports testing import before committing. 
+	 * Current recognized options include the following: 
+	 * 
+	 * - `importable` (bool): Is the field importable (and exportable)? (default=auto-detect)
+	 * 
+	 * - `test` (bool): Indicates Fieldtype supports testing import before committing & populates notices to 
+	 *    returned Wire object. (default=false)
+	 * 
+	 * - `returnsPageValue` (bool): True if it returns the value that should set back to Page? False if return 
+	 *    value should not be set to Page. When false, it indicates the Fieldtype::importValue() handles the 
+	 *    actual commit to DB of import data. (default=true)
+	 * 
+	 * - `requiresExportValue` (bool): Indicates Fieldtype::importValue() requires an 'exportValue' of the 
+	 *    current value from Page in $options. (default=false)
+	 * 
+	 * - `restoreOnException` (bool): Restore previous value if Exception thrown during import (default=false). 
 	 * 
 	 * #pw-internal
 	 * 
@@ -564,8 +578,15 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 */
 	public function getImportValueOptions(Field $field) {
-		if($field) {} // ignore
-		return array();
+		$schema = $this->getDatabaseSchema($field); 
+		$options = array(
+			'importable' => (!isset($schema['xtra']['all']) || $schema['xtra']['all'] !== true) ? false : true,
+			'test' => false,
+			'returnsPageValue' => true,
+			'requiresExportValue' => false,
+			'restoreOnException' => false,
+		);
+		return $options; 
 	}
 
 	/**

@@ -882,9 +882,20 @@ class PagesExportImport extends Wire {
 			}
 		}
 		
-		$fieldtypeSupportsOptions = $field->type->getImportValueOptions($field);
+		$fieldtypeImportDefaults = array(
+			// supports testing before commit (populates notices to returned Wire).
+			'test' => false, 
+			// returns the value that should set back to Page? (false=return value for notices only).
+			// when false, it also indicates the Fieldtype::importValue() handles the actual commit to DB of import data.
+			'returnsPageValue' => true, 
+			// indicates Fieldtype::importValue() would like an 'exportValue' of the current value from Page in $options
+			'requiresExportValue' => false, 
+		);
+		
+		$fieldtypeImportOptions = array_merge($fieldtypeImportDefaults, $field->type->getImportValueOptions($field));
 		
 		$o = array(
+			'importType' => $page->get('_importType'), 
 			'system' => true,
 			'caller' => $this, 
 			'commit' => $options['commit'], 
@@ -892,7 +903,7 @@ class PagesExportImport extends Wire {
 		);
 		
 		// fake-commit for more verbose testing of certain fieldtypes
-		$fakeCommit = $options['commit'] || !empty($fieldtypeSupportsOptions['test']);
+		$fakeCommit = $options['commit'] || !empty($fieldtypeImportOptions['test']);
 		
 		if($page->get('_importType') == 'create' && !$options['commit'] && !$fakeCommit) {
 			// test import on a new page, so value will always be used
@@ -910,17 +921,36 @@ class PagesExportImport extends Wire {
 			// use '===' for all other value comparisons
 			if($exportValue === $importValue) return;
 		}
+
+		// at this point, values appear to be different
+		if($fieldtypeImportOptions['requiresExportValue']) $o['exportValue'] = $exportValue;
 		
 		if($options['commit'] || $fakeCommit) {
-			$pageValue = $field->type->importValue($page, $field, $importValue, $o);
-			if($pageValue !== null) $page->set($field->name, $pageValue);
+			$commitException = false;
+			try {
+				$pageValue = $field->type->importValue($page, $field, $importValue, $o);
+			} catch(\Exception $e) {
+				if($options['commit'] && $fieldtypeImportOptions['restoreOnException']) {
+					$commitException = true;
+					$pageValue = $field->type->importValue($page, $field, $exportValue, $o); 
+					$page->warning("$field: " . $e->getMessage());
+					$page->warning("$field: Attempted to restore previous value"); 
+				}
+			}
+			if(!$commitException) {
+				if($pageValue !== null && $fieldtypeImportOptions['returnsPageValue']) {
+					$page->set($field->name, $pageValue);
+				} else if(!$fieldtypeImportOptions['returnsPageValue']) {
+					$page->trackChange("{$field->name}__");
+				}
+			}
 			if(is_object($pageValue) && $pageValue instanceof Wire) {
 				// movie notices from the pageValue to the page
 				$this->wire('notices')->move($pageValue, $page); 
 			}
 		} else {
 			// test import on existing page, avoids actually setting value to the page
-			$page->trackChange($field->name); // values appear to be different
+			$page->trackChange($field->name); 
 		}
 		
 		if($options['debug']) {
@@ -1327,19 +1357,19 @@ class PagesExportImport extends Wire {
 		} else {
 			// test to see if exportable
 			try {
-				$schema = $fieldtype->getDatabaseSchema($field);
+				$importInfo = $fieldtype->getImportValueOptions($field); 
 			} catch(\Exception $e) {
 				$exportable = false;
 				$reason = $e->getMessage();
 			}
 
-			if($exportable && (!isset($schema['xtra']['all']) || $schema['xtra']['all'] !== true)) {
+			if($exportable && !$importInfo['importable']) {
 				// this fieldtype is storing data outside of the DB or in other unknown tables
 				// there's a good chance we won't be able to export/import this into an array
 				// @todo check if fieldtype implements its own exportValue/importValue, and if
 				// it does then allow the value to be exported
 				$exportable = false;
-				$reason = "Field '$field' cannot be used because $field->type uses data outside table '$field->table'";
+				$reason = "Field '$field' cannot be used because $field->type indicates imports are not supported";
 			}
 		}
 		

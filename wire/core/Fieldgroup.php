@@ -133,7 +133,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	/**
 	 * Remove a field from this fieldgroup
 	 * 
-	 * Note that this must be followed up with a `$field->save()` before it does anything destructive. 
+	 * Note that this must be followed up with a `$fieldgroup->save()` before it does anything destructive. 
 	 * This method does nothing more than queue the removal.
 	 *
 	 * _Technical Details_   

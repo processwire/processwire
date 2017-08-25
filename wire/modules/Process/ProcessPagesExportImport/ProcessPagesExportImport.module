@@ -183,7 +183,7 @@ class ProcessPagesExportImport extends Process {
 	
 		$submitCommit = $input->post('submit_commit_import') ? true : false;
 		$submitTest = $input->post('submit_test_import') ? true : false;
-		$submitZIP = !empty($_FILES['import_zip']);
+		$submitZIP = !empty($_FILES['import_zip']) && !empty($_FILES['import_zip']['name'][0]);
 		$fileField = null;
 		$filesPath = $this->wire('session')->getFor($this, 'filesPath'); 
 		$jsonFile = '';
@@ -815,6 +815,10 @@ class ProcessPagesExportImport extends Process {
 		}
 		
 		if($numChanges) {
+			foreach($changes as $key => $change) {
+				// i.e. 'field_name__' as disguised change
+				if(substr($change, -2) == '__') $changes[$key] = substr($change, 0, -2); 
+			}
 			if($languages) {
 				// indicate language in name and status changes
 				foreach($changes as $key => $change) {
