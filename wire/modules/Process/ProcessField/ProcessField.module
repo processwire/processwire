@@ -12,6 +12,7 @@
  * https://processwire.com
  * 
  * @property bool $listAfterSave
+ * @method bool allowFieldInTemplate(FIeld $field, Template $template)
  * 
  */
 
@@ -1570,11 +1571,17 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function ___saveContext() {
-		try { 
+		try {
+			$oldContextArray = $this->fieldgroup->getFieldContextArray($this->field->id); 
 			$this->form->processInput($this->input->post); 
 			$this->saveInputfields($this->form); 
 			$this->fields->saveFieldgroupContext($this->field, $this->fieldgroup, $this->contextNamespace); 
 			$this->saveRemoveOverrides();
+			$newContextArray = $this->fieldgroup->getFieldContextArray($this->field->id); 
+			$diffContextArray = array_diff_assoc($newContextArray, $oldContextArray); 
+			if(count($diffContextArray)) {
+				$this->fieldChangedContext($this->field, $this->fieldgroup, $diffContextArray); 
+			}
 		} catch(\Exception $e) {
 			$this->error($e->getMessage()); 
 		}
@@ -1939,23 +1946,31 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 		if(!$this->field || !$this->field->id) throw new WireException('No field specified');
 		$this->wire('session')->CSRF->validate();
-		
+	
+		$isFieldset = false;
 		$fields = array($this->field);
 		if($this->field->type instanceof FieldtypeFieldsetOpen) {
 			$fieldsetClose = $this->wire('fields')->get($this->field->name . '_END');
-			if($fieldsetClose) $fields[] = $fieldsetClose;
+			if($fieldsetClose) {
+				$fields[] = $fieldsetClose;
+				$isFieldset = true; 
+			}
 		}
-	
+		
 		// first handle additions, since it's possible for removals to take a long time or remote chance of timeout
 		foreach($this->wire('templates') as $template) {
 	
-			foreach($fields as $field) {
+			foreach($fields as $key => $field) {
+					
 				// usually just 1 element in $fields, except when $field is a FieldtypeFieldsetOpen in which case 
 				// there is also the corresponding FieldtypeFieldsetClose
+				$isFieldsetEnd = $isFieldset && $key > 0;
 				
 				$addFieldID = $this->wire('input')->post("add_{$field->id}_template_$template->id");
 				if(!$addFieldID) continue;
-				if($addFieldID === '-') {
+				if(!$this->allowFieldInTemplate($field, $template)) continue;
+				if($isFieldsetEnd && $template->fieldgroup->hasField($field)) continue;
+				if($addFieldID === '-' && !$isFieldsetEnd) {
 					// add as first field
 					$template->fieldgroup->add($field);
 					continue;
@@ -1963,9 +1978,20 @@ class ProcessField extends Process implements ConfigurableModule {
 				
 				$before = substr($addFieldID, 0, 1) == '-';
 				$addFieldID = (int) ltrim($addFieldID, '-');
+				$fieldNames = array();
 
 				foreach($template->fieldgroup as $f) {
+					$fieldName = $f->name;
+					$fieldNames[$fieldName] = $fieldName;
+					
 					if($f->id != $addFieldID) continue;
+					
+					if($isFieldsetEnd && !isset($fieldNames[$fields[0]->name])) {
+						// force to insert after opening fieldset
+						$before = false;
+						$addFieldID = $fields[0]->id;
+						continue;
+					}
 
 					if($before) {
 						$template->fieldgroup->insertBefore($field, $f);
@@ -2193,6 +2219,24 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function ___fieldChangedType(Field $field) { }
+
+	/**
+	 * Hook called when field context is changed and saved
+	 * 
+	 * @param Field $field
+	 * @param Fieldgroup $fieldgroup
+	 * @param array $changes Indexed by property name
+	 * 
+	 */
+	public function ___fieldChangedContext(Field $field, Fieldgroup $fieldgroup, array $changes) { }
+
+	/**
+	 * For hooks to modify if they want to specific prevent a field from being added to a template from here
+	 *
+	 */
+	public function ___allowFieldInTemplate(Field $field, Template $template) {
+		return true; 
+	}
 
 }
 
