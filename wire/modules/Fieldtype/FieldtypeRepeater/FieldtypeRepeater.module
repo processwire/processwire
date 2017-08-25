@@ -355,13 +355,19 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		// check for nested repeater
 		foreach($repeaters as $name) {
 			$repeaterItems = $ownerPage->get($name);	
-			if(!$repeaterItems || !$repeaterItems instanceof PageArray) continue;
-			foreach($repeaterItems as $nestedOwnerPage) {
-				// perform recursive check
-				$hasField = $this->isRepeaterItemValidOnPage($repeaterItem, $nestedOwnerPage);
-				if($hasField) break;
+			if(!$repeaterItems) continue;
+			if($repeaterItems instanceof PageArray) {
+				foreach($repeaterItems as $nestedOwnerPage) {
+					// perform recursive check
+					$hasField = $this->isRepeaterItemValidOnPage($repeaterItem, $nestedOwnerPage);
+					if($hasField) break;
+				}
+			} else if($repeaterItems instanceof RepeaterPage) {
+				// for single item value (i.e. FieldtypeFieldsetPage)
+				$hasField = $this->isRepeaterItemValidOnPage($repeaterItem, $repeaterItems);
+			} else {
+				continue;
 			}
-			if($hasField) break;	
 		}
 		
 		return $hasField;
@@ -1321,6 +1327,14 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		if(!$page->id || !$field->id) return false;
 		$value = $page->get($field->name); 
+		
+		if($value instanceof RepeaterPage) {
+			// for FieldsetPage compatibility
+			$pageArray = $this->getBlankValue($page, $field); 
+			$pageArray->add($value);
+			$pageArray->resetTrackChanges();
+			$value = $pageArray;
+		}
 
 		// pages that will be saved
 		$savePages = array();
