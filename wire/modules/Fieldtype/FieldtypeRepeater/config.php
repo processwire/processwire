@@ -77,6 +77,7 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$select->attr('id', 'repeaterFields');
 		$select->attr('title', $this->_('Add Field'));
 		$select->setAsmSelectOption('sortable', true);
+		$select->setAsmSelectOption('fieldset', true);
 		$select->setAsmSelectOption('editLink', $this->wire('config')->urls->admin . "setup/field/edit?id={value}&fieldgroup_id={$template->fieldgroup->id}&modal=1&process_template=1");
 		$select->setAsmSelectOption('hideDeleted', false);
 
