@@ -7,8 +7,7 @@
 #ProcessListerResults #ProcessListerTable {
   clear: both; }
 #ProcessListerResults #ProcessListerTable table.ProcessListerTable {
-  clear: both;
-  position: relative; }
+  clear: both; }
   #ProcessListerResults #ProcessListerTable table.ProcessListerTable td table {
     width: 100%; }
   #ProcessListerResults #ProcessListerTable table.ProcessListerTable > thead th {
