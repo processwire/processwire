@@ -2230,7 +2230,7 @@ class PageFinder extends Wire {
 	 * 
 	 */
 	protected function isRepeaterFieldtype(Fieldtype $fieldtype) {
-		return strpos($fieldtype->className(), 'FieldtypeRepeater') !== false;
+		return wireInstanceOf($fieldtype, 'FieldtypeRepeater'); 
 	}
 }
 

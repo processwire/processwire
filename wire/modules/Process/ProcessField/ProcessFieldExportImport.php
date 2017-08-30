@@ -1,5 +1,18 @@
 <?php namespace ProcessWire;
 
+/**
+ * Handles import/export for ProcessField
+ * 
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * https://processwire.com
+ *
+ * @method InputfieldForm buildExport()
+ * @method InputfieldForm buildImport()
+ * @method InputfieldForm buildInputDataForm()
+ * @method void processImport()
+ * 
+ */
+
 class ProcessFieldExportImport extends Wire {
 	
 	public function __construct() {
@@ -26,11 +39,12 @@ class ProcessFieldExportImport extends Wire {
 	/**
 	 * Execute export
 	 *
-	 * @return string
+	 * @return InputfieldForm
 	 *
 	 */
 	public function ___buildExport() {
 
+		/** @var InputfieldForm $form */
 		$form = $this->wire('modules')->get('InputfieldForm');
 		$form->action = './';
 		$form->method = 'post';
@@ -103,18 +117,20 @@ class ProcessFieldExportImport extends Wire {
 	}
 
 	/**
-	 * Build Textarea input form to past JSON data into
+	 * Build Textarea input form to pass JSON data into
 	 * 
 	 * @return InputfieldForm
 	 * 
 	 */
 	protected function ___buildInputDataForm() {
-		
+	
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
 		$form->action = './';
 		$form->method = 'post';
 		$form->attr('id', 'import_form');
-		
+	
+		/** @var InputfieldTextarea $f */
 		$f = $this->modules->get('InputfieldTextarea');
 		$f->attr('name', 'import_data');
 		$f->label = $this->_x('Import', 'button');
@@ -124,6 +140,7 @@ class ProcessFieldExportImport extends Wire {
 		$f->notes = $this->_('Copy the export data from another installation and then paste into the box above with CTRL-V or CMD-V.');
 		$form->add($f);
 
+		/** @var InputfieldSubmit $f */
 		$f = $this->wire('modules')->get('InputfieldSubmit') ;
 		$f->attr('name', 'submit_import');
 		$f->attr('value', $this->_('Preview'));
@@ -135,13 +152,22 @@ class ProcessFieldExportImport extends Wire {
 	/**
 	 * Execute import
 	 *
-	 * @return string
+	 * @return InputfieldForm
 	 * @throws WireException if given invalid import data
 	 *
 	 */
 	public function ___buildImport() {
-		
-		if($this->input->post('submit_commit')) return $this->processImport();
+	
+		/** @var InputfieldForm $form */
+		$form = $this->modules->get('InputfieldForm');
+		$form->action = './';
+		$form->method = 'post';
+		$form->attr('id', 'import_form');
+
+		if($this->input->post('submit_commit')) {
+			$this->processImport();
+			return $form;
+		}
 		
 		$verify = (int) $this->input->get('verify');
 		if($verify) {
@@ -153,11 +179,6 @@ class ProcessFieldExportImport extends Wire {
 		if(!$json) return $this->buildInputDataForm();
 		$data = is_array($json) ? $json : wireDecodeJSON($json);
 		if(!$data) throw new WireException("Invalid import data");
-
-		$form = $this->modules->get('InputfieldForm');
-		$form->action = './';
-		$form->method = 'post';
-		$form->attr('id', 'import_form');
 
 		$numChangesTotal = 0;
 		$numErrors = 0;
@@ -175,6 +196,7 @@ class ProcessFieldExportImport extends Wire {
 			$name = $this->wire('sanitizer')->fieldName($name);
 			$field = $this->wire('fields')->get($name);
 			$numChangesField = 0;
+			/** @var InputfieldFieldset $fieldset */
 			$fieldset = $this->modules->get('InputfieldFieldset');
 			$fieldset->label = $name;
 			$form->add($fieldset);
@@ -182,6 +204,7 @@ class ProcessFieldExportImport extends Wire {
 			if(!$field) {
 				$new = true;
 				$field = new Field();
+				$this->wire($field); 
 				$field->name = $name;
 				$fieldset->icon = 'sun-o';
 				$fieldset->label .= " [" . $this->_('new') . "]";
@@ -189,6 +212,7 @@ class ProcessFieldExportImport extends Wire {
 				$fieldset->icon = 'moon-o';
 			}
 
+			/** @var InputfieldMarkup $markup */
 			$markup = $this->modules->get('InputfieldMarkup');
 			$markup->addClass('InputfieldCheckboxes');
 			$markup->value = "";
@@ -199,9 +223,11 @@ class ProcessFieldExportImport extends Wire {
 				$changes = $field->setImportData($fieldData);
 			} catch(\Exception $e) {
 				$this->error($e->getMessage());
+				$changes = array();
 			}
 			$field->setImportData($savedFieldData); // restore
 
+			/** @var InputfieldCheckboxes $f */
 			$f = $this->wire('modules')->get('InputfieldCheckboxes');
 			$f->attr('name', "field_$name");
 			$f->label = $this->_('Changes');
@@ -287,7 +313,8 @@ class ProcessFieldExportImport extends Wire {
 			} else {
 				$form->description = $this->_('Please review the changes below and commit them when ready. If there are any changes that you do not want applied, uncheck the boxes where appropriate.');
 			}
-			
+		
+			/** @var InputfieldSubmit $f */
 			$f = $this->modules->get('InputfieldSubmit');
 			$f->attr('name', 'submit_commit');
 			$f->attr('value', $this->_('Commit Changes'));

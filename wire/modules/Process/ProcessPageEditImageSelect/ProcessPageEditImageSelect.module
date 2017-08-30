@@ -16,6 +16,9 @@
  * @property string $alignRightClass Align right class (align_right recommended)
  * @property string $alignCenterClass Align center class (align_center recommended)
  * 
+ * @method string execute()
+ * @method string executeEdit()
+ * 
  */
 
 class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
@@ -178,10 +181,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		// if $this->page is a repeater item (for example), $this->masterPage is page it lives on
 		$p = null;
-		if(strpos($this->page->className(), 'Repeater') !== false) {
+		if(wireInstanceOf($this->page, 'RepeaterPage')) {
 			/** @var RepeaterPage $p */
 			$p = $this->page;
-			while(strpos($p->className(), 'Repeater') !== false) {
+			while(wireInstanceOf($p, 'RepeaterPage')) {
 				$p = $p->getForPage();
 			}
 		}
@@ -194,7 +197,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			if($this->page->id === $user->id && $fieldName
 				&& $this->wire('modules')->get('PagePermissions')->userFieldEditable($fieldName)) {
 				// user editing allowed images field in their profile
-			} else if(strpos($this->page->className(), 'Repeater') !== false) {
+			} else if(wireInstanceOf($this->page, 'RepeaterPage')) {
 				if(!$this->masterPage->editable()) {
 					throw new WireException($this->labels['noAccess']);
 				}
@@ -318,9 +321,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 			if(in_array($field->name, $skipFields)) continue; 
 
-			if($field->type instanceof FieldtypeRepeater) {
+			if(wireInstanceOf($field->type, 'FieldtypeRepeater')) {
 				// get images that are possibly in a repeater
 				$repeaterValue = $page->get($field->name); 
+				if($repeaterValue instanceof Page) $repeaterValue = array($repeaterValue); 
 				if($repeaterValue) foreach($repeaterValue as $p) {
 					$images = $this->getImages($p, $p->fields, $level+1); 
 					if(!count($images)) continue; 
@@ -422,10 +426,12 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 		}
 
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm");
 		$form->action = "./"; 
 		$form->method = "get";
 
+		/** @var InputfieldPageListSelect $field */
 		$field = $this->modules->get("InputfieldPageListSelect"); 
 		$field->label = $this->_("Images on Page:") . ' ' . $this->page->get("title") . " (" . $this->page->path . ")"; // Headline for page selection, precedes current page title/url
 		$field->description = $this->_("If you would like to select images from another page, select the page below."); // Instruction on how to select another page

@@ -108,6 +108,8 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 	}
 	
 	/**
+	 * Is given field a fieldset opener?
+	 * 
 	 * For hooks to share in determining if this is a field they want to operate on
 	 * 
 	 * @param Field $field
