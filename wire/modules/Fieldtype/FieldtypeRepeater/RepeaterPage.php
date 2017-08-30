@@ -114,7 +114,14 @@ class RepeaterPage extends Page {
 
 		return $this->forField;
 	}
-	
+
+	/**
+	 * Get property
+	 * 
+	 * @param string $key
+	 * @return int|mixed|null
+	 * 
+	 */
 	public function get($key) {
 		$value = parent::get($key);
 		if($key === 'depth' && is_null($value)) {
@@ -122,7 +129,13 @@ class RepeaterPage extends Page {
 		}
 		return $value;
 	}
-	
+
+	/**
+	 * Get depth 
+	 * 
+	 * @return int
+	 * 
+	 */
 	public function getDepth() {
 		if(is_null($this->depth)) {
 			$this->depth = 0;
@@ -131,7 +144,13 @@ class RepeaterPage extends Page {
 		}
 		return $this->depth;		
 	}
-	
+
+	/**
+	 * Set depth 
+	 * 
+	 * @param int $depth
+	 * 
+	 */
 	public function setDepth($depth) {
 		$name = $this->name;
 		$_name = $name;
