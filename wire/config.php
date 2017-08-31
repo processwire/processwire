@@ -1045,6 +1045,14 @@ $config->logs = array(
 );
 
 /**
+ * Include IP address in logs, when applicable?
+ * 
+ * @var bool
+ * 
+ */
+$config->logIP = false;
+
+/**
  * Default admin theme
  * 
  * Module name of default admin theme for guest and users that haven't already selected one

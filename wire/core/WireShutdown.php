@@ -72,7 +72,8 @@ class WireShutdown extends Wire {
 		$http = isset($_SERVER['HTTP_HOST']);
 		$config = $this->wire('config');
 		$user = $this->wire('user');
-		$userName = $user ? $user->name : '?';
+		$userName = $user ? $user->name : '?'; 
+		if($config && $config->logIP && isset($_SERVER['REMOTE_ADDR'])) $userName .= " ($_SERVER[REMOTE_ADDR])";
 		$page = $this->wire('page');
 		$path = ($config ? $config->httpHost : '') . ($page ? $page->url : '/?/');
 		if($config && $http) $path = ($config->https ? 'https://' : 'http://') . $path;

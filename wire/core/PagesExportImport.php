@@ -912,7 +912,7 @@ class PagesExportImport extends Wire {
 		}
 		
 		$pageValue = $page->getUnformatted($field->name);
-		$exportValue = $pageValue === null ? null : $field->type->exportValue($page, $field, $pageValue, $o);
+		$exportValue = $pageValue === null || !$page->id ? null : $field->type->exportValue($page, $field, $pageValue, $o);
 		
 		if(is_array($importValue) && is_array($exportValue)) {
 			// use regular '==' only for array comparisons
@@ -930,11 +930,16 @@ class PagesExportImport extends Wire {
 			try {
 				$pageValue = $field->type->importValue($page, $field, $importValue, $o);
 			} catch(\Exception $e) {
-				if($options['commit'] && $fieldtypeImportOptions['restoreOnException']) {
+				$warning = $e->getMessage();
+				$page->warning((strpos($warning, "$field:") === 0 ? '' : "$field: ") . $warning);
+				if($options['commit'] && $fieldtypeImportOptions['restoreOnException'] && $page->id) {
 					$commitException = true;
-					$pageValue = $field->type->importValue($page, $field, $exportValue, $o); 
-					$page->warning("$field: " . $e->getMessage());
-					$page->warning("$field: Attempted to restore previous value"); 
+					try {
+						$pageValue = $field->type->importValue($page, $field, $exportValue, $o);
+						$page->warning("$field: Attempted to restore previous value");
+					} catch(\Exception $e) {
+						$commitException = true;
+					}
 				}
 			}
 			if(!$commitException) {

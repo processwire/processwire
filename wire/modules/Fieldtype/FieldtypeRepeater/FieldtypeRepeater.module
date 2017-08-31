@@ -793,6 +793,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$repeaterParent = $this->getRepeaterPageParent($page, $field);
 		$repeaterTemplate = $this->getRepeaterTemplate($field);
 		$repeaterPageClass = $this->getPageClass();
+		$repeaterPageArrayClass = $this->getPageArrayClass();
 		$parentPath = $repeaterParent->path();
 		$commit = isset($options['commit']) ? (bool) $options['commit'] : true;
 		$messages = array();
@@ -805,9 +806,17 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$importItemNames = array();
 		$existingValue = $page->get($field->name); 
 		
+		if(!$existingValue instanceof PageArray) { // i.e. FieldsetPage
+			$existingValue = $existingValue->id ? array($existingValue) : array();
+		}
+		
 		// update paths for local
 		foreach($value['pages'] as $key => $item) {
 			$name = $item['settings']['name'];
+			if(strpos($name, self::repeaterPageNamePrefix) === 0 && count($value['pages']) == 1) {
+				$name = self::repeaterPageNamePrefix . $page->id;  // i.e. FieldsetPage	
+				$value['pages'][$key]['settings']['name'] = $name;
+			}
 			$path = $parentPath . $name . '/';
 			$importItemNames[$name] = $name;
 			$value['pages'][$key]['path'] = $path;
@@ -829,22 +838,28 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				$p->setForField($field);
 				$p->save();
 				$itemsAdded[$p->id] = $p;
+				if($p->name != $name) $importItemNames[$p->name] = $p->name;
 			}
 		}
-		
-		foreach($existingValue as $p) {
-			if(!isset($importItemNames[$p->name])) {
-				$itemsDeleted[] = $p; 
-				$numDeleted++;
+
+		if($page->get('_importType') == 'update') {
+			foreach($existingValue as $p) {
+				if(!isset($importItemNames[$p->name])) {
+					$itemsDeleted[] = $p;
+					$numDeleted++;
+				}
 			}
 		}
+	
+		/** @var RepeaterPageArray $pageArray */
+		$pageArray = $this->wire(new $repeaterPageArrayClass($page, $field));
 		
 		$importOptions = array(
 			'commit' => $commit, 
 			'create' => true, 
 			'update' => true, 
 			'delete' => true, // @todo 
-			'pageArray' => $this->getBlankValue($page, $field), 
+			'pageArray' => $pageArray
 		);
 		
 		/** @var PagesExportImport $importer */
@@ -1208,6 +1223,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
 
 		$field = $query->field;
+		$singlePageMode = $this->className() == 'FieldtypeFieldsetPage';
 
 		if($subfield == 'count') { 
 			$value = (int) $value; 
@@ -1273,13 +1289,17 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				$pageFinder = $this->wire(new PageFinder());
 				$value = $this->wire('sanitizer')->selectorValue($value);
 				$templateID = $field->get('template_id');
-				$selectors = $this->wire(new Selectors("templates_id=$templateID, check_access=0, $f->name$operator$value"));
+				$includeMode = $singlePageMode ? "include=all" : "check_access=0";
+				$selectors = $this->wire(new Selectors("templates_id=$templateID, $includeMode, $f->name$operator$value"));
 				$matches = $pageFinder->find($selectors);
 
 				// use the IDs found from the separate find() as our getMatchQuery
 				if(count($matches)) {
 					$ids = array();
-					foreach($matches as $match) $ids[$match['parent_id']] = $match['parent_id'];
+					$matchKey = $singlePageMode ? 'id' : 'parent_id';
+					foreach($matches as $match) {
+						$ids[$match[$matchKey]] = $match[$matchKey];
+					}
 					$query->where("$table.parent_id IN(" . implode(',', $ids) . ")");
 				} else {
 					$query->where("1>2");  // force a non-match
