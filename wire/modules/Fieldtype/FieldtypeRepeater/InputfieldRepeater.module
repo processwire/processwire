@@ -333,7 +333,6 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				$delete = null;
 				$sort = null;
 				$depth = null;
-				$loaded = null;
 			} else {
 				// also add a delete checkbox to the repeater page fields
 				$delete = $this->wire('modules')->get('InputfieldCheckbox');
@@ -359,13 +358,13 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				} else {
 					$depth = null;
 				}
-
-				$loaded = $this->wire('modules')->get('InputfieldHidden');
-				$loaded->attr('id+name', "loaded_repeater{$page->id}");
-				$loaded->attr('value', $isLoaded ? 1 : 0);
-				$loaded->set('renderValueAsInput', true);
-				$loaded->class = 'InputfieldRepeaterLoaded';
 			}
+			
+			$loaded = $this->wire('modules')->get('InputfieldHidden');
+			$loaded->attr('id+name', "loaded_repeater{$page->id}");
+			$loaded->attr('value', $isLoaded ? 1 : 0);
+			$loaded->set('renderValueAsInput', true);
+			$loaded->class = 'InputfieldRepeaterLoaded';
 
 			$wrap = $this->wire('modules')->get('InputfieldFieldset'); 
 			$wrap->addClass('InputfieldRepeaterItem InputfieldNoFocus');
@@ -442,6 +441,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				$wrap->prepend($loaded);
 			} else {
 				$wrap->add($inputfields);
+				$wrap->prepend($loaded);
 			}
 				
 			if($isMinItem) {
