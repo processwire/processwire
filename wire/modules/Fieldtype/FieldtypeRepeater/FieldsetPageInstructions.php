@@ -40,7 +40,7 @@ function FieldsetPageInstructions(Field $field) {
 		
 		"<p>" .
 		"<span class='notes'>" . __('Outputting a value when in markup:') . "</span><br />" .
-		"<code>&lt;div class='example'&gt;<code><br />" .
+		"<code>&lt;div class='example'&gt;</code><br />" .
 		"<code>&nbsp; &lt;?=\$page->{$field->name}->$exampleName?&gt;</code><br />" .
 		"<code>&lt;/div&gt;</code>" .
 		"</p>" . 
