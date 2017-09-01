@@ -26,6 +26,15 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 	}
 
 	/**
+	 * @return bool
+	 * 
+	 */
+	protected function isSingleMode() {
+		$schema = $this->field->type->getDatabaseSchema($this->field);
+		$singleMode = !isset($schema['count']); 
+		return $singleMode;
+	}
+	/**
 	 * Return configuration fields definable for each FieldtypePage
 	 *
 	 * @param InputfieldWrapper $inputfields
@@ -114,6 +123,10 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 
 		if($this->wire('config')->debug) $select->notes = "This repeater uses template '$template' and parent '{$parent->path}'";
 		$inputfields->add($select);
+		
+		if($this->isSingleMode()) return $inputfields; 
+		
+		// all of the following fields are not applicable to single-page mode (i.e. FieldtypeFieldsetPage)
 
 		// -------------------------------------------------
 
@@ -307,14 +320,14 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 
 		foreach($ids as $id) {
 			if(!$f = $this->wire('fields')->get((int) $id)) continue;
-			if(!$fieldgroup->has($f)) $this->message(sprintf($this->_('Added Field "%1$s" to Repeater "%2$s"'), $f, $field));
+			if(!$fieldgroup->has($f)) $this->message(sprintf($this->_('Added Field "%1$s" to "%2$s"'), $f, $field));
 			$fieldgroup->add($f);
 		}
 
 		foreach($fieldgroup as $f) {
 			if(in_array($f->id, $ids)) continue;
 			$fieldgroup->remove($f);
-			$this->message(sprintf($this->_('Removed Field "%1$s" from Repeater "%2$s"'), $f, $field));
+			$this->message(sprintf($this->_('Removed Field "%1$s" from "%2$s"'), $f, $field));
 		}
 
 		$fieldgroup->save();

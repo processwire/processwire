@@ -12,6 +12,7 @@
  * @property int $repeaterMinItems
  * @property int $repeaterDepth
  * @property bool $accordionMode
+ * @property bool $singleMode
  * 
  * @method string renderRepeaterLabel($label, $cnt, Page $page)
  * 
@@ -92,6 +93,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$this->set('repeaterMinItems', 0); 
 		$this->set('repeaterDepth', 0);
 		$this->set('accordionMode', false);
+		$this->set('singleMode', false); 
 	}
 
 	/**
@@ -283,7 +285,6 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		}
 		
 		$minItems = $this->repeaterMinItems;
-		$maxItems = $this->repeaterMaxItems;
 	
 		// if there are a minimum required number of items, set them up now
 		if(!$itemID && $minItems > 0) {
@@ -300,7 +301,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$numVisible = 0;
 		$numOpen = 0;
 		$isPost = $this->wire('input')->requestMethod('POST');
-		$isSingle = $minItems == 1 && $maxItems == 1; 
+		$isSingle = $this->singleMode;
 		
 		// create field for each repeater iteration	
 		foreach($value as $key => $page) {
@@ -434,6 +435,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 					if(!$isOn) $wrap->addClass('InputfieldRepeaterOff');
 				}
 
+				$wrap->add($inputfields);
 				$wrap->prepend($delete);
 				$wrap->prepend($sort);
 				if($depth) $wrap->prepend($depth);
@@ -603,7 +605,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		if($min > 0) {
 			$this->addClass('InputfieldRepeaterMin', 'wrapClass');
 		}
-		if($min === 1 && $max === 1) {
+		if($this->singleMode) {
 			$this->addClass('InputfieldRepeaterSingle', 'wrapClass');
 			
 		} else if($this->repeaterDepth > 0) {
@@ -645,6 +647,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 */
 	protected function renderFooter($noAjaxAdd) {
 		// a hidden checkbox with link that we use to identify when items have been added
+		if($this->singleMode) return '';
 		$out =
 			"<p class='InputfieldRepeaterAddItem'>" .
 				"<input class='InputfieldRepeaterAddItemsQty' type='text' name='_{$this->name}_add_items' value='0' />" . // for noAjaxAdd
@@ -727,7 +730,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 */
 	public function ___processInput(WireInputData $input) {
 		
-		$isSingle = $this->repeaterMinItems == 1 && $this->repeaterMaxItems == 1; 
+		$isSingle = $this->singleMode; 
 		
 		/** @var PageArray $value */
 		$value = $this->attr('value');

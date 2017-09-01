@@ -436,7 +436,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			if(!$p->id) continue; 
 			$p->addStatus(Page::statusSystemOverride); 
 			$p->removeStatus(Page::statusSystem);
-			$this->message("Deleted repeater page {$p->path}", Notice::debug); 
+			$this->message("Deleted page {$p->path}", Notice::debug); 
 			$this->wire('pages')->delete($p, true);
 		}
 	}
@@ -889,11 +889,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			foreach($changesByField as $fieldName => $count) {
 				$updateCounts[] = "$fieldName ($count)";	
 			}
-			$messages[] = "$numUpdated repeater page(s) updated – " . implode(', ', $updateCounts);
+			$messages[] = "$numUpdated '$fieldName' page(s) updated – " . implode(', ', $updateCounts);
 		}
 		
-		if($numAdded) $messages[] = "$numAdded new repeater page(s) added";
-		if($numDeleted) $messages[] = "$numDeleted repeater page(s) DELETED";
+		if($numAdded) $messages[] = "$numAdded new '$fieldName' page(s) added";
+		if($numDeleted) $messages[] = "$numDeleted '$fieldName' page(s) DELETED";
 		
 		foreach($messages as $message) {
 			$pageArray->message("$field->name: $message");
@@ -966,7 +966,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		if($this->deletePageField === $field->get('parent_id')) return $parent; 
 
 		$parent->save();
-		$this->message("Created Repeater Page Parent: " . $parent->path, Notice::debug); 
+		$this->message("Created '$field' page parent: " . $parent->path, Notice::debug); 
 
 		return $parent; 
 	}
@@ -1005,7 +1005,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$parent->title = $field->name; 
 			$parent->addStatus(Page::statusSystem);
 			$parent->save();
-			$this->message('Created Repeater Parent: ' . $parent->path, Notice::debug); 
+			$this->message("Created '$field' parent: $parent->path", Notice::debug); 
 		}
 
 		if($parent->id) {
@@ -1015,7 +1015,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				$field->save();
 			}
 		} else {
-			throw new WireException("Unable to create repeater parent {$repeatersRootPage->path}$parentName"); 
+			throw new WireException("Unable to create parent {$repeatersRootPage->path}$parentName"); 
 		}
 
 		return $parent; 
@@ -1061,13 +1061,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$this->populateRepeaterTemplateSettings($template); 
 		$template->save();
 
-		if(!$template->id) throw new WireException("Unable to create repeater template: $templateName"); 
+		if(!$template->id) throw new WireException("Unable to create template: $templateName"); 
 
 		// save the template_id setting to the field
 		$field->set('template_id', $template->id); 	
 		$field->save();
 
-		$this->message("Created Repeater Template $template", Notice::debug);
+		$this->message("Created '$field' template: $template", Notice::debug);
 
 		return $template; 
 	}
@@ -1218,12 +1218,18 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * @param string $operator
 	 * @param string $value
 	 * @return DatabaseQuerySelect
+	 * @throws WireException
 	 *
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
 
 		$field = $query->field;
-		$singlePageMode = $this->className() == 'FieldtypeFieldsetPage';
+		$schema = $this->getDatabaseSchema($field); 
+		$singlePageMode = !isset($schema['count']);
+		
+		if($singlePageMode && in_array($subfield, array('count', 'parent', 'parent_id'))) {
+			throw new WireException("The count subfield option is not for field '$field'");
+		}
 
 		if($subfield == 'count') { 
 			$value = (int) $value; 
@@ -1236,7 +1242,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				foreach($field->getTemplates() as $template) $templateIDs[] = (int) $template->id; 
 				if(count($templateIDs)) {
 					$templateIDs = implode(',', $templateIDs); 
-					$sql = 	"($table.count{$operator}$value OR " . 
+					$sql = 	
+						"($table.count{$operator}$value OR " . 
 						"($table.count IS NULL AND pages.templates_id IN($templateIDs)))";
 					$query->where($sql); 
 				} else {
@@ -1269,11 +1276,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			}
 
 			if(in_array($operator, array('*=', '~=', '^=', '$=', '%='))) {
+				if($singlePageMode) throw new WireException("Operator $operator not supported for $field.data"); 
 				/** @var DatabaseQuerySelectFulltext $ft */
 				$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
 				$ft->match($table, $subfield, $operator, $value);
 
-			} else if(empty($value)) { 
+			} else if(empty($value) && !$singlePageMode) { 
 				// match where count is 0
 				$query->where("$table.count{$operator}0"); 
 
@@ -1283,29 +1291,36 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			
 		} else {
 			$f = $this->wire('fields')->get($subfield);
-			if($f) {
-				// match fields from the repeater template
-				// perform a separate find() operation for the subfield
-				$pageFinder = $this->wire(new PageFinder());
-				$value = $this->wire('sanitizer')->selectorValue($value);
-				$templateID = $field->get('template_id');
-				$includeMode = $singlePageMode ? "include=all" : "check_access=0";
-				$selectors = $this->wire(new Selectors("templates_id=$templateID, $includeMode, $f->name$operator$value"));
-				$matches = $pageFinder->find($selectors);
+			if(!$f) return $query; // unknown subfield
+			
+			// match fields from the repeater template
+			// perform a separate find() operation for the subfield
+			$pageFinder = $this->wire(new PageFinder());
+			$value = $this->wire('sanitizer')->selectorValue($value);
+			$templateID = $field->get('template_id');
+			$includeMode = $singlePageMode ? "include=all" : "check_access=0";
+			$selectors = $this->wire(new Selectors("templates_id=$templateID, $includeMode, $f->name$operator$value"));
+			$matches = $pageFinder->find($selectors);
 
-				// use the IDs found from the separate find() as our getMatchQuery
-				if(count($matches)) {
-					$ids = array();
-					$matchKey = $singlePageMode ? 'id' : 'parent_id';
+			// use the IDs found from the separate find() as our getMatchQuery
+			if(count($matches)) {
+				$ids = array();
+				if($singlePageMode) {
 					foreach($matches as $match) {
-						$ids[$match[$matchKey]] = $match[$matchKey];
+						$id = (int) $match['id'];
+						$ids[$id] = $id;
+					}
+					$query->where("$table.data IN(" . implode(',', $ids) . ")");
+				} else {
+					foreach($matches as $match) {
+						$parentID = (int) $match['parent_id'];
+						$ids[$parentID] = $parentID;
 					}
 					$query->where("$table.parent_id IN(" . implode(',', $ids) . ")");
-				} else {
-					$query->where("1>2");  // force a non-match
 				}
+			} else {
+				$query->where("1>2");  // force a non-match
 			}
-			
 		}
 
 		return $query; 
@@ -1392,7 +1407,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				$value->remove($p); 
 				$p = $this->wire('pages')->clone($p, $repeaterParent, false, $saveOptions);
 				$value->add($p);
-				$this->message("Cloned to repeater {$p->path} from field $field", Notice::debug); 
+				$this->message("Cloned to {$p->path} from field $field", Notice::debug); 
 				continue; 
 			}
 
@@ -1427,7 +1442,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				if($isHidden && $isUnpublished) continue; // this is a 'ready' page, we can ignore
 				
 				$changes = implode(', ', $p->getChanges());
-				$this->message("Saved Repeater {$p->path} " . ($changes ? "($changes)" : ''), Notice::debug); 
+				$this->message("Saved '$field' page: {$p->path} " . ($changes ? "($changes)" : ''), Notice::debug); 
 
 				if($isUnpublished && $isOn && $isProcessed && !$hasErrors) {
 					// publish requested and allowed
@@ -1435,7 +1450,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				}
 
 			} else {
-				$this->message("Added New Repeater", Notice::debug); 
+				$this->message("Added new '$field' page", Notice::debug); 
 			}
 
 			// save the repeater page
@@ -1492,7 +1507,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			// resursively delete the field parent and everything below it 
 			$this->wire('pages')->delete($parent, true); 
 
-			$this->message("Deleted Repeater Parent $parentPath", Notice::debug); 
+			$this->message("Deleted '$field' parent: $parentPath", Notice::debug); 
 		}
 
 		// delete the template used by this field
@@ -1512,7 +1527,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$fieldgroup = $this->wire('fieldgroups')->get($templateName); 
 			if($fieldgroup) $this->wire('fieldgroups')->delete($fieldgroup); 
 
-			$this->message("Deleted Repeater Template $templateName", Notice::debug); 
+			$this->message("Deleted '$field' template: $templateName", Notice::debug); 
 		}
 
 		return parent::___deleteField($field); 
@@ -1530,12 +1545,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		$result = parent::___deletePageField($page, $field); 
 		$this->deletePageField = $field->get('parent_id');
-		$fieldParent = $this->wire('pages')->get($field->get('parent_id'));
+		$fieldParent = $this->wire('pages')->get((int) $field->get('parent_id'));
 
 		// confirm that this field parent page is still part of the pages we manage
 		if($fieldParent->parent_id == $this->repeatersRootPageID) {
 			// locate the repeater page parent
-			$parent = $fieldParent->child('name=' . self::repeaterPageNamePrefix . $page->id); 
+			$parent = $fieldParent->child('name=' . self::repeaterPageNamePrefix . $page->id . ', include=all'); 
 			if($parent->id) { 
 				// remove system status from repeater page parent
 				$parent->addStatus(Page::statusSystemOverride);
