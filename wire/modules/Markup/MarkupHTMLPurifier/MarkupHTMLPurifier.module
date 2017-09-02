@@ -65,6 +65,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	 */
 	public function init() {
 		$this->settings->set('Cache.SerializerPath', $this->getCachePath());
+		$this->settings->set('Attr.AllowedFrameTargets', array('_blank'));
 		$this->settings->set('Attr.AllowedRel', array('nofollow'));
 		$this->settings->set('HTML.DefinitionID', 'html5-definitions');
 		$this->settings->set('HTML.DefinitionRev', 1);
