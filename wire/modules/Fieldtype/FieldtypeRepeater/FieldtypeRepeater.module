@@ -94,6 +94,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function init() {
 		$this->wire('pages')->addHookAfter('deleteReady', $this, 'hookPagesDelete');
 		parent::init();
+		$this->initFields();
 	}
 
 	/**	
@@ -102,19 +103,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	public function ready() {
 		// if(in_array('WirePageEditor', wireClassImplements((string) $this->wire('page')->process))) { // @todo
+		$this->initFields(); // intentionally repeated from init()
 		
-		// make sure that all templates used by repeater pages enforce a Page type of RepeaterPage
-		foreach($this->wire('fields') as $field) {
-			if(!$field->type instanceof FieldtypeRepeater) continue;
-			$template = $field->type->getRepeaterTemplate($field);
-			if(!$template) continue;
-			if(__NAMESPACE__) {
-				$template->setQuietly('pageClass', wireClassName($field->type->getPageClass()));
-			} else {
-				$template->setQuietly('pageClass', $field->type->getPageClass());
-			}
-		}
-	
 		if($this->wire('page')->process == 'ProcessPageEdit') {
 			
 			$this->addHookBefore('ProcessPageEdit::ajaxSave', $this, 'hookProcessPageEditAjaxSave');
@@ -138,6 +128,34 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		
 		$this->addHookBefore('PageFinder::getQuery', $this, 'hookPageFinderGetQuery'); 
 
+	}
+
+	/**
+	 * Initialize repeater fields at boot
+	 * 
+	 */
+	protected function initFields() {
+		
+		static $initFields = array();
+		$className = $this->className();
+		if(isset($initFields[$className])) return;
+		
+		$fields = $this->wire('fields');
+		if(!$fields) return;
+		
+		// make sure that all templates used by repeater pages enforce a Page type of RepeaterPage
+		foreach($fields as $field) {
+			if($field->type->className() != $className) continue; 
+			$template = $this->getRepeaterTemplate($field);
+			if(!$template) continue;
+			if(__NAMESPACE__) {
+				$template->setQuietly('pageClass', wireClassName($this->getPageClass()));
+			} else {
+				$template->setQuietly('pageClass', $this->getPageClass());
+			}
+		}
+		
+		$initFields[$className] = 1; 
 	}
 
 	/**
@@ -661,6 +679,10 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			if($page->editable($field->name)) $selector .= ", include=all";
 		}
 		*/
+		
+		$template = $this->wire('templates')->get((int) $template_id);
+		$pageArrayClass = $this->getPageArrayClass();
+		$pageArray = $this->wire(new $pageArrayClass($page, $field)); 
 
 		// load the repeater pages
 		$options = array(
@@ -669,14 +691,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			'loadOptions' => array(
 				'cache' => false, 
 				'parent_id' => $parent_id, 
-				'template' => $this->wire('templates')->get($template_id)
+				'template' => $template,
+				'pageClass' => $this->getPageClass(),
+				'pageArray' => $pageArray, 
 			)
 		);
 		
-		$a = $this->wire('pages')->find($selector, $options);
-		$class = $this->getPageArrayClass();
-		$pageArray = $this->wire(new $class($page, $field)); 
-		$pageArray->import($a);
+		$pageArray = $this->wire('pages')->find($selector, $options);
 		$pageArray->resetTrackChanges(true); 
 
 		return $pageArray; 
