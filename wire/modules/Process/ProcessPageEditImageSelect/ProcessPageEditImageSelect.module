@@ -275,7 +275,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$file = "{$this->page->id},$originalFilename"; 
 		
 		// if requested file is not one that we have, abort
-		if(!array_key_exists($file, $images)) throw new WireException("Invalid image file: $file");
+		if(!array_key_exists($file, $images)) throw new WireException("Cannot find image file '$originalFilename' on page: {$this->page->path}");
 
 		// return original
 		if(!$getVariation) return $images[$file];
