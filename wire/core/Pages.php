@@ -645,6 +645,7 @@ class Pages extends Wire {
 	 * - `findTemplates` (boolean): Determine which templates will be used (when no template specified) for more specific autojoins. (default=true)
 	 * - `pageClass` (string): Class to instantiate Page objects with. Leave blank to determine from template. (default=auto-detect)
 	 * - `pageArrayClass` (string): PageArray-derived class to store pages in (when 'getOne' is false). (default=PageArray)
+	 * - `pageArray` (PageArray|null): Populate this existing PageArray rather than creating a new one. (default=null)
 	 * - `page` (Page|null): Existing Page object to populate (also requires the getOne option to be true). (default=null)
 	 * 
 	 * **Use the `$options` array for potential speed optimizations:**
@@ -1196,11 +1197,17 @@ class Pages extends Wire {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param array $options Optionally specify array('pageArrayClass' => 'YourPageArrayClass')
+	 * @param array $options Optionally specify ONE of the following: 
+	 *  - `pageArrayClass` (string): Name of PageArray class to use (if not “PageArray”).
+	 *  - `pageArray` (PageArray): Wire and return this given PageArray, rather than instantiating a new one. 
 	 * @return PageArray
 	 * 
 	 */
 	public function newPageArray(array $options = array()) {
+		if(!empty($options['pageArray']) && $options['pageArray'] instanceof PageArray) {
+			$this->wire($options['pageArray']);
+			return $options['pageArray'];
+		}
 		$class = 'PageArray';
 		if(!empty($options['pageArrayClass'])) $class = $options['pageArrayClass'];
 		$class = wireClassName($class, true);

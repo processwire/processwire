@@ -189,7 +189,7 @@ class PagesLoaderCache extends Wire {
 	 * @param string $selector
 	 * @param array $options
 	 * @param bool $returnSelector default false
-	 * @return array|null|string
+	 * @return array|null|string|PageArray
 	 *
 	 */
 	public function getSelectorCache($selector, $options, $returnSelector = false) {
