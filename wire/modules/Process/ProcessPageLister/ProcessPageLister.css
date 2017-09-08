@@ -5,7 +5,8 @@
   padding-top: 0.5em; }
 
 #ProcessListerResults #ProcessListerTable {
-  clear: both; }
+  clear: both;
+  overflow-x: auto; }
 #ProcessListerResults #ProcessListerTable table.ProcessListerTable {
   clear: both;
   position: relative; }
