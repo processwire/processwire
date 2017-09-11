@@ -1294,12 +1294,14 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			if(in_array('hidpi', $info['suffix'])) $dimensions .= " ($info[hidpiWidth]x$info[hidpiHeight] {$this->labels['hidpi']})";
 			$filesize = filesize($info['path']); 
 			$filesizeStr = wireBytesStr($filesize);
-			$modified = date('Y-m-d H:i:s', filemtime($info['path'])); 
+			$mtime = filemtime($info['path']); 
+			$modified = date('Y-m-d H:i:s', $mtime); 
+			$url = "$info[url]?nc=$mtime";
 			
 			$table->row(array(
 				++$cnt, 
-				"<a class='preview' href='$info[url]'><img src='$info[url]' alt='$name' style='max-width: 100px;' /></a>",
-				"<a class='preview' href='$info[url]'>$name</a><br /><span class='detail'>{$width}x{$height}</span>", 
+				"<a class='preview' href='$url'><img src='$url' alt='$name' style='max-width: 100px;' /></a>",
+				"<a class='preview' href='$url'>$name</a><br /><span class='detail'>{$width}x{$height}</span>", 
 				"<span style='display: none;'>$filesize</span>$filesizeStr", 
 				$modified, 
 				implode('<br />', $notes),
