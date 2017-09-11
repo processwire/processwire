@@ -39,28 +39,10 @@ require_once(PROCESSWIRE_CORE_PATH . "Selector.php");
 class Selectors extends WireArray {
 
 	/**
-	 * Maximum length for a selector value
-	 *
-	 */
-	const maxValueLength = 500; 
-
-	/**
 	 * Maximum length for a selector operator
 	 *
 	 */
 	const maxOperatorLength = 10; 
-
-	/**
-	 * Maximum length for a selector field name
-	 *
-	 */
-	const maxFieldLength = 50; 
-
-	/**
-	 * Maximum number of selectors that can be present in a given selectors string
-	 *
-	 */
-	const maxSelectors = 20; 
 
 	/**
 	 * Static array of Selector types of $operator => $className
@@ -411,8 +393,6 @@ class Selectors extends WireArray {
 	 */
 	protected function extractString($str) {
 
-		$cnt = 0; 
-		
 		while(strlen($str)) {
 
 			$not = false;
@@ -442,8 +422,6 @@ class Selectors extends WireArray {
 				if($not) $selector->not = true; 
 				$this->add($selector); 
 			}
-
-			if(++$cnt > self::maxSelectors) break;
 		}
 
 	}
@@ -682,7 +660,7 @@ class Selectors extends WireArray {
 		$len = strlen("$value");
 		if($len) {
 			$str = substr($str, $n);
-			if($len > self::maxValueLength) $value = substr($value, 0, self::maxValueLength);
+			// if($len > self::maxValueLength) $value = substr($value, 0, self::maxValueLength);
 		}
 
 		$str = ltrim($str, ' ,"\']})'); // should be executed even if blank value
