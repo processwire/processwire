@@ -108,7 +108,7 @@ abstract class Selector extends WireData {
 	 * 
 	 */
 	public function operator() {
-		return self::getOperator();
+		return static::getOperator();
 	}
 
 	/**
@@ -181,20 +181,38 @@ abstract class Selector extends WireData {
 	/**
 	 * Return array of value(s) for this Selector
 	 *
+	 * @param bool $nonEmpty If empty array will be returned, forces it to return array with one blank item instead (default=false). 
 	 * @return array
 	 * @see Selector::value()
 	 * @since 3.0.42 Prior versions just supported the 'values' property. 
 	 *
 	 */
-	public function values() {
+	public function values($nonEmpty = false) {
 		$values = parent::get('value');
-		if(is_array($values)) return $values;
-		if(!is_object($values) && !strlen($values)) return array();
-		return array($values);
+		if(is_array($values)) {
+			// ok
+		} else if(is_string($values)) {
+			$values = strlen($values) ? array($values) : array();
+		} else if(is_object($values)) {
+			$values = $values instanceof WireArray ? $values->getArray() : array($values);
+		} else if($values) {
+			$values = array($values);
+		} else {
+			$values = array();
+		}
+		if($nonEmpty && !count($values)) $values = array('');
+		return $values; 
 	}
 
+	/**
+	 * Get a property 
+	 * 
+	 * @param string $key Property name
+	 * @return array|mixed|null|string Property value
+	 * 
+	 */
 	public function get($key) {
-		if($key == 'operator') return $this->getOperator();
+		if($key == 'operator') return $this->operator();
 		if($key == 'str') return $this->__toString();
 		if($key == 'values') return $this->values();
 		if($key == 'fields') return $this->fields();
@@ -259,7 +277,7 @@ abstract class Selector extends WireData {
 	 * 
 	 * @param string $key
 	 * @param mixed $value
-	 * @return $this
+	 * @return Selector|WireData
 	 * 
 	 */
 	public function set($key, $value) {
@@ -314,7 +332,7 @@ abstract class Selector extends WireData {
 		$matches = false;
 		$values1 = is_array($this->value) ? $this->value : array($this->value); 
 		$field = $this->field; 
-		$operator = $this->getOperator();
+		$operator = $this->operator();
 
 		// prepare the value we are comparing
 		if(is_object($value)) {
@@ -402,7 +420,7 @@ abstract class Selector extends WireData {
 		$str = 	($this->not ? '!' : '') . 
 			(is_null($this->group) ? '' : $this->group . '@') . 
 			(is_array($this->field) ? implode('|', $this->field) : $this->field) . 
-			$this->getOperator() . 
+			$this->operator() . 
 			(is_array($this->value) ? implode("|", $this->value) : $openingQuote . $this->value . $closingQuote);
 		return $str; 
 	}

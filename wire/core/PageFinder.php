@@ -610,6 +610,7 @@ class PageFinder extends Wire {
 				$o['getTotal'] = true;
 				$o['loadPages'] = false;
 				$o['returnVerbose'] = false;
+				/** @var Selectors $sel */
 				$sel = clone $selectors;
 				foreach($sel as $s) {
 					if($s->field == 'limit' || $s->field == 'start') $sel->remove($s);
@@ -1023,7 +1024,7 @@ class PageFinder extends Wire {
 				$tableAlias = $field->table . ($fieldCnt[$field->table] ? $fieldCnt[$field->table] : '');
 				$tableAlias = $database->escapeTable($tableAlias);
 
-				$valueArray = is_array($selector->value) ? $selector->value : array($selector->value); 
+				$valueArray = $selector->values(true); 
 				$join = '';
 				$fieldtype = $field->type; 
 				$operator = $selector->operator;
@@ -1765,8 +1766,7 @@ class PageFinder extends Wire {
 	 */
 	protected function getQueryNativeField(DatabaseQuerySelect $query, $selector, $fields) {
 
-		$value = $selector->value; 
-		$values = is_array($value) ? $value : array($value); 
+		$values = $selector->values(true); 
 		$SQL = '';
 		$database = $this->wire('database'); 
 
@@ -1806,7 +1806,7 @@ class PageFinder extends Wire {
 					}
 					$field = 'parent_id';
 
-					if(count($values) == 1 && $selector->getOperator() === '=') {
+					if(count($values) == 1 && $selector->operator() === '=') {
 						$this->parent_id = reset($values);
 					}
 
@@ -1855,7 +1855,7 @@ class PageFinder extends Wire {
 					// convert templates specified as a name to the numeric template ID
 					// allows selectors like 'template=my_template_name'
 					$field = 'templates_id';
-					if(count($values) == 1 && $selector->getOperator() === '=') $this->templates_id = reset($values);
+					if(count($values) == 1 && $selector->operator() === '=') $this->templates_id = reset($values);
 					if(!ctype_digit("$value")) $value = (($template = $this->wire('templates')->get($value)) ? $template->id : 0); 
 				}
 
