@@ -48,7 +48,7 @@ function InputfieldRepeater($) {
 			if(source == 'InputfieldRepeaterItemEdit' || source == 'InputfieldRepeaterItemAdd') {
 				event.stopPropagation();
 				var $r = $(this).find(".InputfieldRepeater");
-				if($r.length) initRepeater($r);
+				if($r.length) $r.each(function() { initRepeater($(this)) });
 				return;
 			}
 		}
@@ -743,6 +743,7 @@ function InputfieldRepeater($) {
 		initSortable($inputfieldRepeater, $inputfields);
 
 		// setup the add links
+		console.log($inputfieldRepeater); 
 		$(".InputfieldRepeaterAddLink:not(.InputfieldRepeaterAddLinkInit)", $inputfieldRepeater)
 			.addClass('InputfieldRepeaterAddLinkInit')
 			.click(eventAddLinkClick);
