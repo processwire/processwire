@@ -1,9 +1,9 @@
 <?php namespace ProcessWire;
 
 /**
- * ProcessWire 2.x Admin Markup Template
+ * ProcessWire 3.x Admin Markup Template
  *
- * Copyright 2012 by Ryan Cramer
+ * Copyright 2017 by Ryan Cramer
  *
  *
  */
