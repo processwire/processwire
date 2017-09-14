@@ -458,7 +458,10 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 					foreach($options[$plural] as $file) {
 						if(!ctype_alnum(str_replace(array(".", "-", "_", "/"), "", $file))) continue;
 						if(strpos($file, '..') !== false || strpos($file, '/.') !== false) continue; 
-						$file = $config->paths->templates . trim($file, '/');
+						// check if file path is absolute and located in /site/
+						if (strpos($file, $config->paths->site) !== 0) {
+							$file = $config->paths->templates . trim($file, '/');
+						}
 						if(!is_file($file)) continue; 
 						if($compiler && $compilerOptions['includes']) {
 							$file = $compiler->compile($file);
