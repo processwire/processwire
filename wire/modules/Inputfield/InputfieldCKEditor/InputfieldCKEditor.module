@@ -8,7 +8,7 @@
  *
  * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
- * 
+ *
  * @property bool|int $inlineMode ($default=0)
  * @property bool|int $usePurifier (default=0)
  * @property bool|int $useACF (default=1)
@@ -22,7 +22,7 @@
  * @property string $extraAllowedContent
  * @property string $formatTags
  * @property string $customOptions
- * 
+ *
  *
  */
 
@@ -31,16 +31,16 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 158, 
+			'version' => 158,
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
-			'installs' => array('MarkupHTMLPurifier'), 
+			'installs' => array('MarkupHTMLPurifier'),
 			);
 	}
 
 	const toggleCleanDIV = 2;  	// remove <div>s
-	const toggleCleanP = 4; 	// remove empty <p> tags	
+	const toggleCleanP = 4; 	// remove empty <p> tags
 	const toggleCleanNBSP = 8; 	// remove &nbsp; entities
-	
+
 
 	/**
 	 * Placeholder that appears as the value in the hidden input used by inline mode
@@ -53,7 +53,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 *
 	 */
 	const EXTRA_PLUGINS = 'pwimage,pwlink,sourcedialog';
-	
+
 	/**
 	 * Default value for CK Editor removePlugins config option
 	 *
@@ -115,48 +115,48 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	public function __construct() {
 		parent::__construct();
 
-		$this->set('inlineMode', 0); 
-		$this->set('usePurifier', 1); 
-		$this->set('useACF', 1); 
+		$this->set('inlineMode', 0);
+		$this->set('usePurifier', 1);
+		$this->set('useACF', 1);
 		$this->set('toggles', array());
 
-		$this->set('toolbar', '' . 
-			"Format, Styles, -, Bold, Italic, -, RemoveFormat\n" . 
-			"NumberedList, BulletedList, -, Blockquote\n" . 
-			"PWLink, Unlink, Anchor\n" . 
-			"PWImage, Table, HorizontalRule, SpecialChar\n" . 
-			"PasteText, PasteFromWord\n" . 
+		$this->set('toolbar', '' .
+			"Format, Styles, -, Bold, Italic, -, RemoveFormat\n" .
+			"NumberedList, BulletedList, -, Blockquote\n" .
+			"PWLink, Unlink, Anchor\n" .
+			"PWImage, Table, HorizontalRule, SpecialChar\n" .
+			"PasteText, PasteFromWord\n" .
 			"Scayt, -, Sourcedialog"
-			); 
+			);
 
-		$this->set('contentsCss', ''); 
-		$this->set('contentsInlineCss', ''); 
-		$this->set('stylesSet', ''); 
-		$this->set('extraPlugins', explode(',', self::EXTRA_PLUGINS)); 
-		$this->set('removePlugins', self::REMOVE_PLUGINS); 
-		$this->set('extraAllowedContent', self::EXTRA_ALLOWED_CONTENT); 
-		$this->set('formatTags', self::FORMAT_TAGS); 
+		$this->set('contentsCss', '');
+		$this->set('contentsInlineCss', '');
+		$this->set('stylesSet', '');
+		$this->set('extraPlugins', explode(',', self::EXTRA_PLUGINS));
+		$this->set('removePlugins', self::REMOVE_PLUGINS);
+		$this->set('extraAllowedContent', self::EXTRA_ALLOWED_CONTENT);
+		$this->set('formatTags', self::FORMAT_TAGS);
 		$this->set('customOptions', ''); // custom user-defined config options
-		
+
 		foreach($this->findPlugins() as $name => $file) {
 			$this->set("plugin_$name", ""); // json string of each plugin config settings
 		}
 	}
-	
+
 	public function set($key, $value) {
-	
+
 		// convert extraPlugins string to array
 		// used to be stored as a string in older versions
 		if($key == 'extraPlugins' && is_string($value)) {
-			$value = str_replace(' ', '', $value); 
-			$value = explode(',', $value); 
+			$value = str_replace(' ', '', $value);
+			$value = explode(',', $value);
 		} else if($key == 'extraAllowedContent') {
-			$value = str_replace(array("\r\n", "\n"), "; ", trim($value)); 
+			$value = str_replace(array("\r\n", "\n"), "; ", trim($value));
 		} else if($key == 'configName') {
 			$this->configName = $value;
 		}
-		
-		return parent::set($key, $value); 
+
+		return parent::set($key, $value);
 	}
 
 	/**
@@ -165,24 +165,24 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 * Toolbar items split by commas
 	 * Groups of toolbar items split by lines
 	 * Toolbar lines that starts with '#' are ignored
-	 * 
+	 *
 	 * @param string $str
 	 * @return array
 	 *
 	 */
 	protected function toolbarStringToArray($str) {
-		$str = str_replace(' ', '', $str); 
+		$str = str_replace(' ', '', $str);
 		$items = array();
-		$lines = explode("\n", $str); 
+		$lines = explode("\n", $str);
 		foreach($lines as $line) {
 			$line = trim($line);
 			if(strpos($line, '#') === 0) { // @ocorreiododiogo PR #1040
-				continue; 
+				continue;
 			} else if(empty($line)) {
 				$items[] = '/';
 			} else {
-				$lineArray = explode(',', $line); 
-				$items[] = $lineArray; 
+				$lineArray = explode(',', $line);
+				$items[] = $lineArray;
 			}
 		}
 		return $items;
@@ -190,14 +190,14 @@ class InputfieldCKEditor extends InputfieldTextarea {
 
 	/**
 	 * Prep a path starting from root to include any possible subdirs
-	 * 
+	 *
 	 * @param string $path
 	 * @param bool $cacheBust Specify true to append a cache busting query string to the returned URL
 	 * @return string URL from root
 	 *
 	 */
 	protected function pathFromRoot($path, $cacheBust = false) {
-		if(strpos($path, '//') !== false) return $path; // don't modify URLs with scheme 
+		if(strpos($path, '//') !== false) return $path; // don't modify URLs with scheme
 		$path = ltrim($path, '/');
 		if($cacheBust && strpos($path, '?') === false) {
 			$file = $this->wire('config')->paths->root . $path;
@@ -212,18 +212,18 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 
 		static $loaded = false;
-		
+
 		$class = $this->className();
 		$config = $this->wire('config');
-		$baseURL = $config->urls->$class; 
+		$baseURL = $config->urls->$class;
 		$basePath = $baseURL . "ckeditor-" . self::CKEDITOR_VERSION . '/';
-		
+
 		if(!$loaded) {
 			$config->scripts->add($basePath . "ckeditor.js");
 			$this->wire('modules')->get('JqueryUI')->use('modal');
 			$loaded = true;
 		}
-		
+
 		$this->globalConfig();
 
 		if($this->contentsCss) {
@@ -233,11 +233,11 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		}
 
 		// previous versions had a default setting removing the 'link' plugin, but now the Anchor
-		// tool requires it. this code fixes that situation for existing installations. 
+		// tool requires it. this code fixes that situation for existing installations.
 		if(stripos($this->toolbar, 'Anchor') !== false && stripos($this->removePlugins, 'link') !== false) {
 			$this->removePlugins = preg_replace('/\blink,?\b/i','', $this->removePlugins);
 		}
-		
+
 
 		$settings = array(
 			'baseHref' => $config->urls->root,
@@ -294,7 +294,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		if(strpos($this->configName, '_repeater')) $this->configName = preg_replace('/_repeater\d+/', '', $this->configName);
 		if(!in_array($this->configName, self::$configNames)) $this->config->js($this->configName, $settings);
 		self::$configNames[] = $this->configName;
-		
+
 		if($this->inlineMode) {
 			// inline css must be pre-loaded
 			if($this->contentsInlineCss) {
@@ -322,19 +322,19 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 *
 	 */
 	protected function globalConfig() {
-			
+
 		if(self::$isConfigured) return;
 
 		$cancelButtonLabel = $this->_('Cancel'); // Cancel button label
-		
+
 		$linkClassOptions = array();
-		$linkConfig = $this->wire('modules')->getModuleConfigData('ProcessPageEditLink'); 
+		$linkConfig = $this->wire('modules')->getModuleConfigData('ProcessPageEditLink');
 		if(!empty($linkConfig) && !empty($linkConfig['classOptions'])) {
 			foreach(explode("\n", $linkConfig['classOptions']) as $option) {
-				$linkClassOptions[] = trim($option, '+ ');	
+				$linkClassOptions[] = trim($option, '+ ');
 			}
 		}
-		
+
 		$info = self::getModuleInfo();
 
 		$settings = array(
@@ -358,16 +358,16 @@ class InputfieldCKEditor extends InputfieldTextarea {
 				'selectBtn'    => $this->_('Select Another')
 			)
 		);
-		
+
 		if($this->hasFieldtype === false) {
 			// not applicable when no page attached
-			unset($settings['pwlink'], $settings['pwimage']); 
+			unset($settings['pwlink'], $settings['pwimage']);
 			unset($settings['plugins']['pwlink'], $settings['plugins']['pwimage']);
 		}
-		
-		$this->wire('config')->js($this->className(), $settings); 
 
-		self::$isConfigured = true; 
+		$this->wire('config')->js($this->className(), $settings);
+
+		self::$isConfigured = true;
 	}
 
 	/**
@@ -378,10 +378,10 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 *
 	 */
 	protected function findPlugins($create = false) {
-		
+
 		static $plugins = array();
-		if(count($plugins) && !$create) return $plugins; 
-		
+		if(count($plugins) && !$create) return $plugins;
+
 		$config = $this->wire('config');
 		$class = $this->className();
 		$plugins = array();
@@ -390,26 +390,26 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			$config->paths->$class . "plugins/",
 			$config->paths->siteModules . "$class/plugins/",
 		);
-		
+
 		$urls = array(
 			$config->urls->$class . "plugins/",
 			$config->urls->siteModules . "$class/plugins/",
 		);
 
 		foreach($paths as $key => $path) {
-			
+
 			if(!file_exists($path)) {
 				if($create) {
 					$url = $urls[$key];
 					if($this->wire('files')->mkdir($path, true)) {
-						$this->message("Created new CKEditor external plugins directory: $url"); 	
+						$this->message("Created new CKEditor external plugins directory: $url");
 					} else {
 						$this->warning("The CKEditor external plugins directory does not exist: $url - Please create it when/if you want to install external plugins.");
 					}
 				}
 				continue;
 			}
-			
+
 			foreach(new \DirectoryIterator($path) as $dir) {
 				if(!$dir->isDir() || $dir->isDot()) continue;
 				$basename = $dir->getBasename();
@@ -420,7 +420,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			}
 		}
 
-		return $plugins; 
+		return $plugins;
 	}
 
 	/**
@@ -430,9 +430,9 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	protected function renderNormal() {
 		//$out = parent::___render() . "<script>CKEDITOR.replace('$this->id', config.$this->configName);</script>";
 		$this->addClass('InputfieldCKEditorNormal');
-		$this->attr('data-configName', $this->configName); 
+		$this->attr('data-configName', $this->configName);
 		$out = parent::___render() . "<script>config.InputfieldCKEditor.editors.$this->id = '$this->configName';</script>";
-		return $out; 
+		return $out;
 	}
 
 	/**
@@ -442,39 +442,39 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	protected function renderInline() {
 
 		if(!$this->wire('modules')->get('MarkupHTMLPurifier')) {
-			$this->error($this->_('CKEditor inline mode requires the MarkupHTMLPurifier module. Using normal mode instead.')); 
+			$this->error($this->_('CKEditor inline mode requires the MarkupHTMLPurifier module. Using normal mode instead.'));
 			return $this->renderNormal();
 		}
-		$value = $this->purifyValue($this->attr('value')); 
+		$value = $this->purifyValue($this->attr('value'));
 
-		$out = 	
-			"<div id='{$this->id}_ckeditor' class='InputfieldCKEditorInline InputfieldCKEditorInlineEditor' data-configName='$this->configName'>$value</div>" . 
+		$out =
+			"<div id='{$this->id}_ckeditor' class='InputfieldCKEditorInline InputfieldCKEditorInlineEditor' data-configName='$this->configName'>$value</div>" .
 			"<input type='hidden' name='$this->name' id='$this->id' value='" . self::PLACEHOLDER_TEXT . "' />";
 
-		return $out; 
+		return $out;
 	}
-	
+
 	public function ___renderValue() {
-		$out = "<div class='InputfieldTextareaContentTypeHTML InputfieldCKEditorInline'>" . 
+		$out = "<div class='InputfieldTextareaContentTypeHTML InputfieldCKEditorInline'>" .
 			$this->wire('sanitizer')->purify($this->attr('value')) . "</div>";
-		return $out; 
+		return $out;
 	}
-	
+
 	/**
 	 * Clean up a value that will be sent to/from the editor
 	 *
-	 * This is primarily for HTML Purifier 
-	 * 
+	 * This is primarily for HTML Purifier
+	 *
 	 * @param string $value
 	 * @return string
 	 *
 	 */
 	protected function purifyValue($value) {
 
-		$value = (string) $value; 
+		$value = (string) $value;
 		if(strpos($value, "\r") !== false) $value = str_replace(array("\r\n", "\r"), "\n", $value);
 		$length = strlen($value);
-		if(!$length) return ''; 
+		if(!$length) return '';
 
 		if($this->usePurifier && $this->wire('modules')->isInstalled('MarkupHTMLPurifier')) {
 			if(is_null(self::$purifier)) self::$purifier = $this->wire('modules')->get('MarkupHTMLPurifier');
@@ -484,29 +484,29 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			foreach($targets as $k => $v) $targets[$k] = trim($v);
 			self::$purifier->set('Attr.AllowedFrameTargets', $targets); // allow links opened in new window/tab
 			self::$purifier->set('Attr.EnableID', stripos($this->toolbar, 'anchor') !== false); // for anchor plugin use of id and name attributes
-			$value = self::$purifier->purify($value); 
+			$value = self::$purifier->purify($value);
 			// $newLength = strlen($value);
 			// if($length != $newLength) $this->message("HTML Purifier: $this->name (before: $length bytes, after: $newLength bytes)", Notice::debug);
 		}
 
 		// convert <div> to paragraphs
-		$toggles = $this->toggles; 
+		$toggles = $this->toggles;
 		if(is_array($toggles)) {
 			if(in_array(self::toggleCleanDIV, $toggles) && strpos($this->formatTags, 'div') === false && strpos($value, '<div') !== false) {
 				// for some reason CKEditor insists on pasting DIVs sometimes when they should be paragraphs
-				// so we attempt to fix that issue here 
-				$value = preg_replace('{\s*(</?)div[^><]*>\s*}is', '$1' . 'p>', $value); 
+				// so we attempt to fix that issue here
+				$value = preg_replace('{\s*(</?)div[^><]*>\s*}is', '$1' . 'p>', $value);
 				// fix doubled paragraph tags, in case the above replacement cased any
 				while(strpos($value, '<p><p>') !== false) {
-					$value = str_replace(array('<p><p>', '</p></p>'), array('<p>', '</p>'), $value); 
+					$value = str_replace(array('<p><p>', '</p></p>'), array('<p>', '</p>'), $value);
 				}
 			}
-	
+
 			// remove gratuitous whitespace added by CKEditor
 			if(in_array(self::toggleCleanP, $toggles)) {
 				$value = str_replace(array('<p><br /></p>', '<p>&nbsp;</p>', "<p>\xc2\xa0</p>", '<p></p>', '<p> </p>'), '', $value);
 			}
-	
+
 			// convert non-breaking space to regular space
 			if(in_array(self::toggleCleanNBSP, $toggles)) {
 				$value = str_ireplace('&nbsp;', ' ', $value);
@@ -514,28 +514,28 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			}
 		}
 
-		return $value; 
+		return $value;
 	}
 
 	/**
 	 * Process data submitted to a CKEditor field
 	 *
 	 * When inline mode is used, the content is run through HTML Purifier
-	 * 
+	 *
 	 * @param WireInputData $input
 	 * @return $this
 	 *
 	 */
 	public function ___processInput(WireInputData $input) {
 
-		$value = trim($input[$this->name]); 
+		$value = trim($input[$this->name]);
 		if($value == self::PLACEHOLDER_TEXT) return $this; // ignore value
 
-		$value = $this->purifyValue($value); 
+		$value = $this->purifyValue($value);
 
 		if($value != $this->attr('value')) {
 			$this->trackChange('value');
-			$this->setAttribute('value', $value); 	
+			$this->setAttribute('value', $value);
 		}
 
 		return $this;
@@ -543,80 +543,80 @@ class InputfieldCKEditor extends InputfieldTextarea {
 
 	/**
 	 * Convert a JSON-like plugin settings string to an array
-	 * 
+	 *
 	 * @param string $str
 	 * @param array|string $returnType Specify blank array to return settings as array, specify blank string to return JSON string.
 	 * @return bool|array Returns boolean false on failure
-	 * 
+	 *
 	 */
 	protected function convertPluginSettingsStr($str, $returnType = array()) {
-		
+
 		$str = trim($str, "{}\r\n "); // trim off surrounding whitespace and { }
 		if(empty($str)) return is_array($returnType) ? array() : '';
-	
+
 		$test = "{ $str }";
-		$test = json_decode($test, true); 	
-		
+		$test = json_decode($test, true);
+
 		if(!empty($test)) {
 			// if string already validates as JSON, we don't need to do anything further
-			return is_array($returnType) ? $test : $str; 
+			return is_array($returnType) ? $test : $str;
 		}
-		
-		$lines = explode("\n", $str); 
-		
+
+		$lines = explode("\n", $str);
+
 		foreach($lines as $key => $line) {
-			
-			$line = trim($line); 
-			
-			if(empty($line)) continue; 
-			
-			if(strpos(rtrim($line, ':, '), ':')) { 
+
+			$line = trim($line);
+
+			if(empty($line)) continue;
+
+			if(strpos(rtrim($line, ':, '), ':')) {
 				// line defines a "property: value"
-				
-				$line = rtrim($line, ', '); 
-				list($k, $v) = explode(':', $line); 
-				$test = strtolower(trim($v)); 
-				
+
+				$line = rtrim($line, ', ');
+				list($k, $v) = explode(':', $line);
+				$test = strtolower(trim($v));
+
 				if($test == 'true' || $test == 'false') {
 					// line has a boolean
-					
+
 				} else if(is_numeric($test)) {
 					// line has a number
-					
+
 				} else if(trim($test, "{}[]") != $test) {
 					// line is defining a map or array
-					
+
 				} else if(trim($test, '"\'') != $test) {
 					// line is already surrounded in quotes
-					
+
 				} else {
 					// line needs to be surrounded in quotes
 					$v = str_replace('"', '\\"', $v); // escape existing quotes
 					$v = '"' . trim($v) . '"';
 				}
-				
+
 				$k = trim($k, '"\''); // if property is quoted, unquote it
-				$line = "\"$k\": $v,"; 
+				$line = "\"$k\": $v,";
 			}
 			$lines[$key] = $line;
 		}
-		
+
 		$str = implode("\n", $lines); // convert lines back to string
 		$str = rtrim($str, ", "); // remove last comma
 
-		
+
 		if(strpos($str, '}') || strpos($str, ']') !== false) {
 			// remove commas that come right before a closing brace
-			$str = preg_replace('/,([\s\r\n]*[\}\]])/s', '$1', $str); 
+			$str = preg_replace('/,([\s\r\n]*[\}\]])/s', '$1', $str);
 		}
-		$str = str_replace(",\n", ", ", $str); 
-	
+		$str = str_replace(",\n", ", ", $str);
+
 		$str = "{ $str }";
 		$data = json_decode($str, true);
-		
-		if($data === false || is_null($data)) return false; 
-		if(is_string($returnType)) $data = trim(wireEncodeJSON($data, true, true), "{}\r\n "); 
-		return $data; 
+
+		if($data === false || is_null($data)) return false;
+		if(is_string($returnType)) $data = trim(wireEncodeJSON($data, true, true), "{}\r\n ");
+		return $data;
 	}
 
 	/*
@@ -626,12 +626,12 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	public function ___getConfigInputfields() {
 
 		$inputfields = parent::___getConfigInputfields();
-	
+
 		$yes = $this->_('Yes');
 		$no = $this->_('No');
 		$example = '**' . $this->_('Example:') . '** ';
 
-		if(!$this->stripTags) { 
+		if(!$this->stripTags) {
 			// remove non-applicable property
 			$f = $inputfields->get('stripTags');
 			if($f) $inputfields->remove($f);
@@ -639,88 +639,88 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			// keep showing it if value is set, in case a regular textarea w/stripTags was converted to a CKEditor
 		}
 
-		if(!$this->placeholder) {	
+		if(!$this->placeholder) {
 			$f = $inputfields->get('placeholder');
 			if($f) $inputfields->remove($f);
 		}
 
 		/** @var InputfieldFieldset $wrapper */
-		$wrapper = $this->wire('modules')->get('InputfieldFieldset'); 
-		$wrapper->label = $this->_('CKEditor Settings'); 
+		$wrapper = $this->wire('modules')->get('InputfieldFieldset');
+		$wrapper->label = $this->_('CKEditor Settings');
 
 		/** @var InputfieldTextarea $f */
-		$f = $this->wire('modules')->get('InputfieldTextarea'); 
-		$f->attr('name', 'toolbar'); 
+		$f = $this->wire('modules')->get('InputfieldTextarea');
+		$f->attr('name', 'toolbar');
 		$f->attr('value', $this->toolbar);
-		$f->label = $this->_('CKEditor Toolbar'); 
+		$f->label = $this->_('CKEditor Toolbar');
 		$f->description = $this->_('Separate each toolbar item with a comma. Group items by placing them on the same line and use a hyphen "-" where you want a separator to appear within a group. If you want more than one toolbar row, separate each row with a blank line.'); // Toolbar options description
 		$f->description .= ' ' . $this->_('Insert a hash "#" at the beginning of a line if you want it to be ignored.');
-		$f->notes = $this->_('Available core toolbar items:') . ' ' . 
-			'About, Anchor, Blockquote, Bold, BulletedList, Copy, CopyFormatting, CreateDiv, Cut, Find, Flash, Format, ' . 
-			'HorizontalRule, Iframe, Image, Indent, Italic, JustifyBlock, JustifyCenter, JustifyLeft, JustifyRight, ' . 
-			'Language, Link, Maximize, NewPage, NumberedList, Outdent, PageBreak, Paste, PasteFromWord, PasteText, ' . 
-			'Preview, Print, PWImage, PWLink, Redo, RemoveFormat, Replace, Save, Scayt, SelectAll, ShowBlocks, Smiley, ' . 
-			'Source, Sourcedialog, SpecialChar, SpellChecker, Strike, Styles, Subscript, Superscript, ' . 
+		$f->notes = $this->_('Available core toolbar items:') . ' ' .
+			'About, Anchor, Blockquote, Bold, BulletedList, Copy, CopyFormatting, CreateDiv, Cut, Find, Flash, Format, ' .
+			'HorizontalRule, Iframe, Image, Indent, Italic, JustifyBlock, JustifyCenter, JustifyLeft, JustifyRight, ' .
+			'Language, Link, Maximize, NewPage, NumberedList, Outdent, PageBreak, Paste, PasteFromWord, PasteText, ' .
+			'Preview, Print, PWImage, PWLink, Redo, RemoveFormat, Replace, Save, Scayt, SelectAll, ShowBlocks, Smiley, ' .
+			'Source, Sourcedialog, SpecialChar, SpellChecker, Strike, Styles, Subscript, Superscript, ' .
 			'Table, Templates, Underline, Undo, Unlink';
-		$wrapper->add($f); 
+		$wrapper->add($f);
 
-		$purifierInstalled = $this->wire('modules')->isInstalled('MarkupHTMLPurifier'); 
+		$purifierInstalled = $this->wire('modules')->isInstalled('MarkupHTMLPurifier');
 
 		/** @var InputfieldRadios $f */
-		$f = $this->wire('modules')->get('InputfieldRadios'); 
-		$f->attr('name', 'inlineMode'); 
+		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'inlineMode');
 		$f->label = $this->_('Editor Mode');
-		$f->addOption(0, $this->_('Regular Editor')); 
-		$f->addOption(1, $this->_('Inline Editor *')); 
-		$f->attr('value', (int) $this->inlineMode); 
+		$f->addOption(0, $this->_('Regular Editor'));
+		$f->addOption(1, $this->_('Inline Editor *'));
+		$f->attr('value', (int) $this->inlineMode);
 		$f->description = $this->_('When inline mode is enabled, the editor will not be loaded until you click in the text. This is faster and more efficient when there are numerous CKEditor fields on the page. However, it may not support as many features or editor customizations as regular mode.'); // Mode selection description
-		$f->notes = $this->_('*Inline mode requires that the HTML Purifier module is installed (MarkupHTMLPurifier).'); 
-		if($purifierInstalled) $f->notes = $this->_('*The required HTML Purifier module is installed.'); 
-			else $f->notes .= "\n" . $this->_('WARNING: it is not currently installed. You should install it before enabling inline mode.'); 
+		$f->notes = $this->_('*Inline mode requires that the HTML Purifier module is installed (MarkupHTMLPurifier).');
+		if($purifierInstalled) $f->notes = $this->_('*The required HTML Purifier module is installed.');
+			else $f->notes .= "\n" . $this->_('WARNING: it is not currently installed. You should install it before enabling inline mode.');
 		$f->optionColumns = 1;
-		$wrapper->add($f); 
-	
+		$wrapper->add($f);
+
 		// character and word counter option not available for inline editors
 		$f = $inputfields->getChildByName('showCount');
 		if($f) $f->notes = $this->_('Counter is supported for regular CKEditor fields, but not inline CKEditor fields.');
 
-		$f = $this->modules->get("InputfieldRadios"); 
-		$f->label = $this->_('Use ACF?'); 
-		$f->description = $this->_('When yes, the CKEditor Advanced Content Filter (ACF) will be active. This filter automatically strips any unrecognized markup or attributes from your HTML. Recommended.'); 
-		$f->attr('name', 'useACF'); 
+		$f = $this->modules->get("InputfieldRadios");
+		$f->label = $this->_('Use ACF?');
+		$f->description = $this->_('When yes, the CKEditor Advanced Content Filter (ACF) will be active. This filter automatically strips any unrecognized markup or attributes from your HTML. Recommended.');
+		$f->attr('name', 'useACF');
 		$f->addOption(1, $yes);
 		$f->addOption(0, $no);
-		$f->attr('value', $this->useACF); 
-		$f->columnWidth = 50; 
+		$f->attr('value', $this->useACF);
+		$f->columnWidth = 50;
 		$f->optionColumns = 1;
-		$wrapper->add($f); 
+		$wrapper->add($f);
 
-		$f = $this->modules->get("InputfieldRadios"); 
-		$f->label = $this->_('Use HTML Purifier?'); 
-		$f->description = $this->_('When yes, submitted content is run through [HTML Purifier](http://htmlpurifier.org/) for sanitization. This is a must have when using CKEditor for either inline mode or non-trusted users. Recommended either way.'); 
-		$f->attr('name', 'usePurifier'); 
+		$f = $this->modules->get("InputfieldRadios");
+		$f->label = $this->_('Use HTML Purifier?');
+		$f->description = $this->_('When yes, submitted content is run through [HTML Purifier](http://htmlpurifier.org/) for sanitization. This is a must have when using CKEditor for either inline mode or non-trusted users. Recommended either way.');
+		$f->attr('name', 'usePurifier');
 		$f->addOption(1, $yes);
 		$f->addOption(0, $no);
-		$f->attr('value', $this->usePurifier && $purifierInstalled ? 1 : 0); 
-		if(!$purifierInstalled) $f->attr('disabled', 'disabled'); 
-		$f->columnWidth = 50; 
+		$f->attr('value', $this->usePurifier && $purifierInstalled ? 1 : 0);
+		if(!$purifierInstalled) $f->attr('disabled', 'disabled');
+		$f->columnWidth = 50;
 		$f->optionColumns = 1;
-		$wrapper->add($f); 
+		$wrapper->add($f);
 
-		$f = $this->modules->get("InputfieldCheckboxes"); 
-		$f->label = $this->_('Beautify Markup Toggles'); 
-		$f->attr('name', 'toggles'); 
-		$f->addOption(self::toggleCleanDIV, $this->_('Convert div tags to paragraph tags')); 
-		$f->addOption(self::toggleCleanP, $this->_('Remove empty paragraph tags')); 
-		$f->addOption(self::toggleCleanNBSP, $this->_('Remove non-breaking spaces (nbsp)')); 
-		$f->description = $this->_('These are extra cleaning options (beyond ACF and HTML Purifier) that we have found helpful in many situations. They are applied when the page is saved. Checking all of these is recommended, unless you have a need to let any of these through in the markup.'); 
-		$f->attr('value', $this->toggles); 
-		$wrapper->add($f); 
+		$f = $this->modules->get("InputfieldCheckboxes");
+		$f->label = $this->_('Beautify Markup Toggles');
+		$f->attr('name', 'toggles');
+		$f->addOption(self::toggleCleanDIV, $this->_('Convert div tags to paragraph tags'));
+		$f->addOption(self::toggleCleanP, $this->_('Remove empty paragraph tags'));
+		$f->addOption(self::toggleCleanNBSP, $this->_('Remove non-breaking spaces (nbsp)'));
+		$f->description = $this->_('These are extra cleaning options (beyond ACF and HTML Purifier) that we have found helpful in many situations. They are applied when the page is saved. Checking all of these is recommended, unless you have a need to let any of these through in the markup.');
+		$f->attr('value', $this->toggles);
+		$wrapper->add($f);
 
 		$f = $this->modules->get("InputfieldText");
 		$f->label = $this->_('Format Tags');
-		$f->description = $this->_('Semicolon-separated list of selectable tags shown in the "format" dropdown.'); 
-		$f->notes = $this->_('Default format tags are:') . ' ' . self::FORMAT_TAGS; 
+		$f->description = $this->_('Semicolon-separated list of selectable tags shown in the "format" dropdown.');
+		$f->notes = $this->_('Default format tags are:') . ' ' . self::FORMAT_TAGS;
 		$f->attr('name', 'formatTags');
 		$value = $this->get('formatTags');
 		$f->collapsed = ($value == self::FORMAT_TAGS ? Inputfield::collapsedYes : Inputfield::collapsedNo);
@@ -729,9 +729,9 @@ class InputfieldCKEditor extends InputfieldTextarea {
 
 		$f = $this->modules->get("InputfieldTextarea");
 		$f->label = $this->_('Extra Allowed Content');
-		$f->description = $this->_('Allowed content rules per CKEditor [extraAllowedContent](http://docs.ckeditor.com/#!/api/CKEDITOR.config-cfg-extraAllowedContent) option. Applies only if the "Use ACF" checkbox above is checked.'); 
-		$f->description .= ' ' . $this->_('You may enter multiple rules by putting each on its own line.'); 
-		$f->notes = $example . "img[alt,!src,width,height]\n" . $this->_('The above example would allow alt, src, width and height attributes for img tags, with the src attribute always required.') . "\n" . 
+		$f->description = $this->_('Allowed content rules per CKEditor [extraAllowedContent](http://docs.ckeditor.com/#!/api/CKEDITOR.config-cfg-extraAllowedContent) option. Applies only if the "Use ACF" checkbox above is checked.');
+		$f->description .= ' ' . $this->_('You may enter multiple rules by putting each on its own line.');
+		$f->notes = $example . "img[alt,!src,width,height]\n" . $this->_('The above example would allow alt, src, width and height attributes for img tags, with the src attribute always required. The full rule format is "element[attributes]{styles}(classes)".') . "\n" .
 			$this->_('See [details](http://docs.ckeditor.com/#!/guide/dev_allowed_content_rules-section-2) in CKEditor documentation.');
 		$f->attr('name', 'extraAllowedContent');
 		$value = $this->get('extraAllowedContent');
@@ -739,13 +739,13 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->attr('value', str_replace("; ", "\n", $value)); // convert to multi-line for ease of input
 		$wrapper->add($f);
 
-		$pathNote = $this->_('Paths should be relative to your ProcessWire installation root (i.e. if site is running from a subdirectory, exclude that part).'); 
+		$pathNote = $this->_('Paths should be relative to your ProcessWire installation root (i.e. if site is running from a subdirectory, exclude that part).');
 		$descriptionCustomCss = $this->_('This option enables you to modify the way that text and other elements appear in your editor. This covers how they look in the administrative environment only, and has nothing to do with the front-end of your site.'); // contents.css description
 		$instructionsCustomCss = sprintf($this->_('Please see our [instructions](%s) on how to use this.'), 'https://github.com/processwire/processwire/blob/master/wire/modules/Inputfield/InputfieldCKEditor/README.md#custom-editor-css-file'); // custom editor css instructions
 
 		$f = $this->modules->get("InputfieldText");
 		$f->label = $this->_('Custom Editor CSS File (regular mode)');
-		$f->description = $descriptionCustomCss; 
+		$f->description = $descriptionCustomCss;
 		$f->notes = $example . "/site/modules/InputfieldCKEditor/contents.css\n$instructionsCustomCss  $pathNote";
 		$f->attr('name', 'contentsCss');
 		$value = $this->get('contentsCss');
@@ -756,8 +756,8 @@ class InputfieldCKEditor extends InputfieldTextarea {
 
 		$f = $this->modules->get("InputfieldText");
 		$f->label = $this->_('Custom Editor CSS File (inline mode)');
-		$f->description = $descriptionCustomCss; 
-		$f->notes .= $example . "/site/modules/InputfieldCKEditor/contents-inline.css\n$instructionsCustomCss $pathNote"; 
+		$f->description = $descriptionCustomCss;
+		$f->notes .= $example . "/site/modules/InputfieldCKEditor/contents-inline.css\n$instructionsCustomCss $pathNote";
 		$f->attr('name', 'contentsInlineCss');
 		$value = $this->get('contentsInlineCss');
 		$f->collapsed = Inputfield::collapsedBlank;
@@ -768,8 +768,8 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f = $this->modules->get("InputfieldText");
 		$f->label = $this->_('Custom Editor JS Styles Set');
 		$f->description = $this->_('This option enables you to specify custom styles for selection in your editor. It requires that you have a "Styles" item in your toolbar settings above.'); // styles set description
-		$f->notes = $example . "mystyles:/site/modules/InputfieldCKEditor/mystyles.js"; 
-		$f->notes .= "\n" . 
+		$f->notes = $example . "mystyles:/site/modules/InputfieldCKEditor/mystyles.js";
+		$f->notes .= "\n" .
 			sprintf(
 				$this->_('Please see our [instructions](%s) on how to use this.'), // styles set notes
 				'https://github.com/processwire/processwire/blob/master/wire/modules/Inputfield/InputfieldCKEditor/README.md#custom-editor-js-styles-set'
@@ -779,9 +779,9 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->collapsed = Inputfield::collapsedBlank;
 		$f->attr('value', $value);
 		$wrapper->add($f);
-		
-		$descriptionJSON = $this->_('If used, enter one per line of **property: value**, or use a JSON string.'); 
-		
+
+		$descriptionJSON = $this->_('If used, enter one per line of **property: value**, or use a JSON string.');
+
 		$f = $this->modules->get('InputfieldTextarea');
 		$f->attr('name', "customOptions");
 		$f->label = $this->_('Custom Config Options');
@@ -795,59 +795,59 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			}
 		}
 		$f->attr('value', $value ? $value : '');
-		$f->notes = $example . "uiColor: #438ef0\n" . 
+		$f->notes = $example . "uiColor: #438ef0\n" .
 			$this->_('If preferred, these settings can also be set in one of these files:') .
-			"\n[/site/modules/InputfieldCKEditor/config.js](https://github.com/processwire/processwire/blob/master/site-default/modules/InputfieldCKEditor/config.js) - " . 
+			"\n[/site/modules/InputfieldCKEditor/config.js](https://github.com/processwire/processwire/blob/master/site-default/modules/InputfieldCKEditor/config.js) - " .
 			$this->_('for all CKEditor fields') . " " .
-			"\n[/site/modules/InputfieldCKEditor/config-$this->name.js](https://github.com/processwire/processwire/blob/master/site-default/modules/InputfieldCKEditor/config-body.js) - " . 
+			"\n[/site/modules/InputfieldCKEditor/config-$this->name.js](https://github.com/processwire/processwire/blob/master/site-default/modules/InputfieldCKEditor/config-body.js) - " .
 			$this->_('only for this CKEditor field');
 		$wrapper->add($f);
 
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->modules->get('InputfieldFieldset');
-		$fieldset->attr('name', '_plugins_fieldset'); 
-		$fieldset->label = $this->_('Plugins'); 
-		$wrapper->add($fieldset); 
-	
+		$fieldset->attr('name', '_plugins_fieldset');
+		$fieldset->label = $this->_('Plugins');
+		$wrapper->add($fieldset);
+
 		/** @var InputfieldCheckboxes $f */
-		$f = $this->modules->get('InputfieldCheckboxes'); 
+		$f = $this->modules->get('InputfieldCheckboxes');
 		$f->attr('name', 'extraPlugins');
 		$f->label = $this->_('Extra Plugins');
-		$f->description = $this->_('The following plugins were found. Check the box next to each plugin you would like to load.'); 
+		$f->description = $this->_('The following plugins were found. Check the box next to each plugin you would like to load.');
 		$f->description .= ' ' . $this->_('At least one plugin must be checked.');
-		$f->notes = $this->_('To add more plugins, place them in **/site/modules/InputfieldCKEditor/plugins/[name]/**, replacing **[name]** with the name of the plugin.'); 
+		$f->notes = $this->_('To add more plugins, place them in **/site/modules/InputfieldCKEditor/plugins/[name]/**, replacing **[name]** with the name of the plugin.');
 		$plugins = $this->findPlugins(true);
-		ksort($plugins); 
+		ksort($plugins);
 		foreach($plugins as $name => $file) {
-			$label = $name; 
+			$label = $name;
 			if($name == 'pwlink' || $name == 'pwimage') $label .= " (" . $this->_('recommended') . ")";
-			$f->addOption($name, $label); 
+			$f->addOption($name, $label);
 		}
-		$f->attr('value', $this->extraPlugins); 
+		$f->attr('value', $this->extraPlugins);
 		$fieldset->add($f);
-		
+
 		foreach($plugins as $name => $file) {
 			if($name == 'pwimage' || $name == 'pwlink') continue;
 			$f = $this->modules->get('InputfieldTextarea');
-			$f->attr('name', "plugin_$name"); 
+			$f->attr('name', "plugin_$name");
 			$f->label = sprintf($this->_('%s settings'), ucfirst($name));
 			$f->description = $descriptionJSON;
 			$f->collapsed = Inputfield::collapsedBlank;
-			$value = $this->get("plugin_$name"); 
+			$value = $this->get("plugin_$name");
 			if($value) {
-				$test = $this->convertPluginSettingsStr($value, ''); 
+				$test = $this->convertPluginSettingsStr($value, '');
 				if($test === false) {
 					$f->error(sprintf($this->_('Plugin settings for "%s" failed JSON validation.'), $name));
 				}
 			}
-			$f->attr('value', $value ? $value : ''); 
-			$fieldset->add($f); 
+			$f->attr('value', $value ? $value : '');
+			$fieldset->add($f);
 		}
 
 		/*
 		$f = $this->modules->get("InputfieldTextarea");
 		$f->label = $this->_('Extra Plugins');
-		$f->description = $this->_('Comma separated list of extra plugins that CKEditor should load.'); 
+		$f->description = $this->_('Comma separated list of extra plugins that CKEditor should load.');
 		$f->notes = $this->_('Example: pwlink,pwimage,myplugin,anotherplugin');
 		$f->attr('name', 'extraPlugins');
 		$value = $this->get('extraPlugins');
@@ -855,19 +855,19 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->attr('value', $value);
 		$fieldset->add($f);
 		*/
-		
+
 		$f = $this->modules->get("InputfieldText");
 		$f->label = $this->_('Remove Plugins');
-		$f->description = $this->_('Comma separated list of removed plugins that CKEditor should not load.'); 
+		$f->description = $this->_('Comma separated list of removed plugins that CKEditor should not load.');
 		$f->notes = $example . 'link,image';
 		$f->attr('name', 'removePlugins');
 		$value = $this->get('removePlugins');
 		$f->collapsed = ($value == self::REMOVE_PLUGINS ? Inputfield::collapsedYes : Inputfield::collapsedNo);
 		$f->attr('value', $value);
 		$fieldset->add($f);
-		
-		$inputfields->add($wrapper); 
-		
-		return $inputfields; 
+
+		$inputfields->add($wrapper);
+
+		return $inputfields;
 	}
 }
