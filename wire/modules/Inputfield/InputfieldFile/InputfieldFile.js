@@ -129,6 +129,22 @@ $(document).ready(function() {
 			var $list = $inputfield.find('.InputfieldFileList');
 			var maxFiles = parseInt($upload.find('.InputfieldFileMaxFiles').val());
 			var numFiles = $list.children('li').length + $upload.find('input[type=file]').length + 1;
+			var maxFilesize = parseInt($upload.attr('data-maxfilesize'));
+			
+			var abort = false;
+			$upload.find("input[type=file]").each(function() {
+				if(typeof this.files[0] !== 'undefined'){
+					var size = this.files[0].size;
+					if(size > maxFilesize) {
+						ProcessWire.alert(
+							"File " + this.files[0].name +" is " + size + " bytes which exceeds max allowed size of " + maxFilesize + " bytes"
+						);
+						$(this).val('').closest('.InputMask').removeClass('ui-state-disabled ui-state-active');
+						abort = true;
+					}
+				}
+			});
+			if(abort) return false;
 			
 			if(maxFiles > 0 && numFiles >= maxFiles) {
 				// no more files allowed

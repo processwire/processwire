@@ -282,6 +282,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		if(empty($options['caller'])) {
 			$caller = $this->className() . ".get($selectorString)";
 			$options['caller'] = $caller;
+		} else {
+			$caller = $options['caller'];
 		}
 
 		if(ctype_digit("$selectorString")) {
@@ -547,10 +549,11 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	/**
 	 * Hook called just before a page is saved
 	 * 
-	 * #pw-hooker
+	 * #pw-internal
 	 *
 	 * @param Page $page The page about to be saved
 	 * @return array Optional extra data to add to pages save query.
+	 * @deprecated
 	 *
 	 */
 	public function ___saveReady(Page $page) { 
@@ -564,11 +567,12 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 * This is the same as Pages::save, except that it occurs before other save-related hooks (below),
 	 * Whereas Pages::save occurs after. In most cases, the distinction does not matter.
 	 * 
-	 * #pw-hooker
+	 * #pw-internal
 	 *
 	 * @param Page $page The page that was saved
 	 * @param array $changes Array of field names that changed
 	 * @param array $values Array of values that changed, if values were being recorded, see Wire::getChanges(true) for details.
+	 * @deprecated
 	 *
 	 */
 	public function ___saved(Page $page, array $changes = array(), $values = array()) { }
@@ -576,9 +580,10 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	/**
 	 * Hook called when a new page has been added
 	 * 
-	 * #pw-hooker
+	 * #pw-internal
 	 *
 	 * @param Page $page
+	 * @deprecated
 	 *
 	 */
 	public function ___added(Page $page) { }
@@ -586,9 +591,10 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	/**
 	 * Hook called when a page is about to be deleted, but before data has been touched
 	 * 
-	 * #pw-hooker
+	 * #pw-internal
 	 *
 	 * @param Page $page
+	 * @deprecated
 	 *
 	 */
 	public function ___deleteReady(Page $page) { }
@@ -596,9 +602,10 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	/**
 	 * Hook called when a page and it's data have been deleted
 	 * 
-	 * #pw-hooker
+	 * #pw-internal
 	 *
 	 * @param Page $page
+	 * @deprecated
 	 *
 	 */
 	public function ___deleted(Page $page) { }

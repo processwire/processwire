@@ -184,26 +184,41 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	public function setMaxFilesize($filesize) {
+		$max = $this->strToBytes($filesize);
+		$phpMax = $this->strToBytes(ini_get('upload_max_filesize'));
+		if($phpMax < $max) $max = $phpMax;	
+		$this->maxFilesize = $max; 
+		return $this;
+	}
+
+	/**
+	 * Convert string like "32M" to bytes (integer)
+	 * 
+	 * @param string|int $filesize
+	 * @return int
+	 * 
+	 */
+	protected function strToBytes($filesize) {
 		if(ctype_digit("$filesize")) {
-			$this->maxFilesize = (int) $filesize;
+			$bytes = (int) $filesize;
 		} else {
 			$filesize = rtrim($filesize, 'bB'); // convert mb=>m, gb=>g, kb=>k
 			$last = strtolower(substr($filesize, -1));
 			if(ctype_alpha($last)) $filesize = rtrim($filesize, $last);
 			$filesize = (int) $filesize;
 			if($last == 'g') {
-				$this->maxFilesize = (($filesize * 1024) * 1024) * 1024;
+				$bytes = (($filesize * 1024) * 1024) * 1024;
 			} else if($last == 'm') {
-				$this->maxFilesize = ($filesize * 1024) * 1024;
+				$bytes = ($filesize * 1024) * 1024;
 			} else if($last == 'k') {
-				$this->maxFilesize = $filesize * 1024;
+				$bytes = $filesize * 1024;
 			} else if($filesize > 0) {
-				$this->maxFilesize = $filesize;
+				$bytes = $filesize;
 			} else {
-				$this->maxFilesize = (5 * 1024) * 1024;
+				$bytes = (5 * 1024) * 1024;
 			}
 		}
-		return $this;
+		return $bytes; 
 	}
 
 	/**
