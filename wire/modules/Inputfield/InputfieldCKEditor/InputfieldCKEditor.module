@@ -731,7 +731,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->label = $this->_('Extra Allowed Content');
 		$f->description = $this->_('Allowed content rules per CKEditor [extraAllowedContent](http://docs.ckeditor.com/#!/api/CKEDITOR.config-cfg-extraAllowedContent) option. Applies only if the "Use ACF" checkbox above is checked.'); 
 		$f->description .= ' ' . $this->_('You may enter multiple rules by putting each on its own line.'); 
-		$f->notes = $example . "img[alt,!src,width,height]\n" . $this->_('The above example would allow alt, src, width and height attributes for img tags, with the src attribute always required.') . "\n" . 
+		$f->notes = $example . "img[alt,!src,width,height]\n" . $this->_('The above example would allow alt, src, width and height attributes for img tags, with the src attribute always required. The full rule format is "element[attributes]{styles}(classes)".') . "\n" .
 			$this->_('See [details](http://docs.ckeditor.com/#!/guide/dev_allowed_content_rules-section-2) in CKEditor documentation.');
 		$f->attr('name', 'extraAllowedContent');
 		$value = $this->get('extraAllowedContent');
