@@ -1345,6 +1345,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				return;
 			}
 		}
+		
+		$formErrors = 0;
 
 		// remove temporary status that may have been assigned by ProcessPageAdd quick add mode
 		if($this->page->hasStatus(Page::statusTemp)) $this->page->removeStatus(Page::statusTemp);
@@ -1363,7 +1365,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$this->message(sprintf($this->_('Change: %s'), implode(', ', $changes)), Notice::debug); // Message shown for each changed field
 			}
 
-			$formErrors = 0;
 			foreach($this->notices as $notice) {
 				if($notice instanceof NoticeError) $formErrors++;
 			}
@@ -1415,6 +1416,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$submitAction = $this->wire('input')->post('_after_submit_action');
 		if($this->redirectUrl) {
 			// non-default redirectUrl overrides after_submit_action
+		} else if($formErrors) {
+			// if there were errors to attend to, stay where we are
 		} else if($submitAction == 'exit') {
 			$this->redirectUrl = '../';
 		} else if($submitAction == 'view') {
