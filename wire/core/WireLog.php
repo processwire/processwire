@@ -29,7 +29,7 @@ class WireLog extends Wire {
 	 * 
 	 * @param string $text Message to log
 	 * @param bool|int $flags Specify boolean true to also have the message displayed interactively (admin only).
-	 * @return $this
+	 * @return Wire|WireLog
 	 *
 	 */
 	public function message($text, $flags = 0) {
@@ -49,7 +49,7 @@ class WireLog extends Wire {
 	 * 
 	 * @param string $text Text to save in the log
 	 * @param int|bool $flags Specify boolean true to also display the error interactively (admin only).
-	 * @return $this
+	 * @return Wire|WireLog
 	 *
 	 */
 	public function error($text, $flags = 0) {
@@ -67,7 +67,7 @@ class WireLog extends Wire {
 	 * 
 	 * @param string $text Text to save in the log
 	 * @param int|bool $flags Specify boolean true to also display the warning interactively (admin only).
-	 * @return $this
+	 * @return Wire|WireLog
 	 *
 	 */
 	public function warning($text, $flags = 0) {
@@ -257,7 +257,7 @@ class WireLog extends Wire {
 	 * 
 	 * #pw-group-retrieval
 	 * 
-	 * @param $name Name of log file (excluding extension)
+	 * @param string $name Name of log file (excluding extension)
 	 * @param array $options Optional options to modify default behavior: 
 	 * 	- `limit` (integer): Specify number of lines (default=100)
 	 * 	- `text` (string): Text to find. 
@@ -357,14 +357,19 @@ class WireLog extends Wire {
 	 * #pw-internal
 	 *
 	 * @param $name
-	 * @param int $limit
-	 * @param array $options
+	 * @param int|array $limit Limit, or specify $options array instead ('limit' can be in options array). 
+	 * @param array $options Array of options to affect behavior, may also be specified as 2nd argument. 
 	 * @deprecated Use getLines() or getEntries() intead.
 	 * @return array
 	 *
 	 */
 	public function get($name, $limit = 100, array $options = array()) {
-		return $this->getLines($name, $limit, $options);
+		if(is_array($limit)) {
+			$options = $limit;
+		} else {
+			$options['limit'] = $limit;
+		}
+		return $this->getLines($name, $options);
 	}
 
 	/**
