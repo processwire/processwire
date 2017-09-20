@@ -44,6 +44,11 @@ class ProcessRole extends ProcessPageType {
 		$form = $event->object;
 		$f = $form->getChildByName('permissions');
 		if(!$f) return;
+		if($this->getPage()->id == $this->wire('config')->superUserRolePageID) {
+			$f->wrapAttr('style', 'display:none');
+			$fn = $form->getChildByName('_pw_page_name');
+			if($fn) $fn->notes = $this->_('Note: superuser role always has all permissions, so permissions field is not shown.'); 
+		}
 		$f->entityEncodeText = false;
 		$f->label = $this->_('Permissions'); 
 		$f->description = $f->entityEncode(sprintf($this->_('For detailed descriptions of these permissions, please see the [permissions reference](%s).'), 'https://processwire.com/api/user-access/permissions/'), true); // Permissions documentation info
