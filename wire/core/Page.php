@@ -8,7 +8,7 @@
  * 1. Providing get/set access to the Page's properties
  * 2. Accessing the related hierarchy of pages (i.e. parents, children, sibling pages)
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Class used by all Page objects in ProcessWire.
@@ -112,7 +112,7 @@
  * 
  * Methods added by LanguageSupportPageNames.module (not installed by default)
  * ---------------------------------------------------------------------------
- * @method string localName($language = null) Return the page name in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages
+ * @method string localName($language = null, $useDefaultWhenEmpty = false) Return the page name in the current user’s language, or specify $language argument (Language object, name, or ID), or TRUE to use default page name when blank (instead of 2nd argument). #pw-group-languages
  * @method string localPath($language = null) Return the page path in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages
  * @method string localUrl($language = null) Return the page URL in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages
  * @method string localHttpUrl($language = null) Return the page URL (including scheme and hostname) in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages
