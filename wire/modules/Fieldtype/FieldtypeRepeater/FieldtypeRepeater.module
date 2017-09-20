@@ -145,7 +145,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		
 		// make sure that all templates used by repeater pages enforce a Page type of RepeaterPage
 		foreach($fields as $field) {
-			if($field->type->className() != $className) continue; 
+			if(!$field->type || $field->type->className() != $className) continue; 
 			$template = $this->getRepeaterTemplate($field);
 			if(!$template) continue;
 			if(__NAMESPACE__) {
@@ -910,11 +910,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			foreach($changesByField as $fieldName => $count) {
 				$updateCounts[] = "$fieldName ($count)";	
 			}
-			$messages[] = "$numUpdated '$fieldName' page(s) updated – " . implode(', ', $updateCounts);
+			$messages[] = "$numUpdated page(s) updated – " . implode(', ', $updateCounts);
 		}
 		
-		if($numAdded) $messages[] = "$numAdded new '$fieldName' page(s) added";
-		if($numDeleted) $messages[] = "$numDeleted '$fieldName' page(s) DELETED";
+		if($numAdded) $messages[] = "$numAdded new page(s) added";
+		if($numDeleted) $messages[] = "$numDeleted page(s) DELETED";
 		
 		foreach($messages as $message) {
 			$pageArray->message("$field->name: $message");
