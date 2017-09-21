@@ -174,7 +174,8 @@ function InputfieldRepeater($) {
 				$input.val('-1');
 			} else {
 				$this.removeClass(toggleOff).addClass(toggleOn);
-				$item.removeClass('InputfieldRepeaterUnpublished InputfieldRepeaterOff');
+				$item.removeClass('InputfieldRepeaterUnpublished InputfieldRepeaterOff')
+					.addClass('InputfieldRepeaterWasUnpublished');
 				$input.val('1');
 			}
 			checkMinMax($item.closest('.InputfieldRepeater'));
@@ -324,7 +325,7 @@ function InputfieldRepeater($) {
 		}
 
 		// determine which page IDs we don't accept for new items (because we already have them rendered)
-		var $unpublishedItems = $inputfields.find('.InputfieldRepeaterUnpublished:not(.InputfieldRepeaterMinItem)');
+		var $unpublishedItems = $inputfields.find('.InputfieldRepeaterUnpublished, .InputfieldRepeaterWasUnpublished'); // :not(.InputfieldRepeaterMinItem)');
 		if($unpublishedItems.length) {
 			ajaxURL += '&repeater_not=';
 			$unpublishedItems.each(function() {
