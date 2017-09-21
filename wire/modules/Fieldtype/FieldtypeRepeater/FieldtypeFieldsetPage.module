@@ -379,7 +379,7 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 			if($value->isHidden()) $value->removeStatus(Page::statusHidden); 
 		}
 		
-		$this->wire('pages')->save($value);
+		$this->wire('pages')->save($value, array('uncacheAll' => false));
 
 		$table = $this->wire('database')->escapeTable($field->table);
 		
