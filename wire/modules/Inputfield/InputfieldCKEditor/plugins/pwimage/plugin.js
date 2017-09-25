@@ -196,6 +196,7 @@
 								var alt = jQuery("#selected_image_description", $i).val();
 								var caption = jQuery("#selected_image_caption", $i).is(":checked") ? true : false;
 								var hidpi = jQuery("#selected_image_hidpi", $i).is(":checked") ? true : false;
+								var nosize = !!$img.attr('data-nosize');
 								var cls = $img.removeClass('ui-resizable No Alignment resizable_setup') 
 									.removeClass('rotate90 rotate180 rotate270 rotate-90 rotate-180 rotate-270')
 									.removeClass('flip_vertical flip_horizontal').attr('class');
@@ -208,7 +209,8 @@
 								// note: class is added to figureWrapper (rather than <img>) when this is a caption
 								if(caption === false) $insertHTML.addClass(cls); 
 								
-								if(width > 0) $insertHTML.attr('width', width); 
+								// respect noSizeAttr option in ProcessPageEditImageSelect
+								if(!nosize && width > 0) $insertHTML.attr('width', width);
 								
 								if($linkWrapper) {	
 									// img was wrapped in an <a>...</a> and/or <figure>
