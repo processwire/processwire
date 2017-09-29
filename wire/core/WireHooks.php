@@ -769,12 +769,22 @@ class WireHooks {
 				}
 
 				if(is_null($toObject)) {
-					if(!is_callable($toMethod) && strpos($toMethod, "\\") === false && __NAMESPACE__) {
-						$_toMethod = "\\" . __NAMESPACE__ . "\\$toMethod";
-						// if(!is_callable($_toMethod)) $_toMethod = "\\$toMethod";
-						$toMethod = $_toMethod;
+					$toMethodCallable = is_callable($toMethod);
+					if(!$toMethodCallable && strpos($toMethod, "\\") === false && __NAMESPACE__) {
+						$_toMethod = $toMethod;
+						$toMethod = "\\" . __NAMESPACE__ . "\\$toMethod";
+						$toMethodCallable = is_callable($toMethod);
+						if(!$toMethodCallable) {
+							$toMethod = "\\$_toMethod";
+							$toMethodCallable = is_callable($toMethod);
+						}
 					}
-					$toMethod($event);
+					if($toMethodCallable) {
+						$returnValue = $toMethod($event);
+					} else {
+						// hook fail, not callable
+						$returnValue = null;
+					}
 				} else {
 					/** @var Wire $toObject */
 					if($hook['toPublic']) {
@@ -784,11 +794,17 @@ class WireHooks {
 						// protected or private
 						$returnValue = $toObject->_callMethod($toMethod, array($event));
 					}
-					// @todo allow for use of $returnValue as alternative to $event->return
-					if($returnValue) {}
+					$toMethodCallable = true; 
+				}
+
+				if($returnValue !== null) {
+					// hook method/func had an explicit return statement with a value
+					// allow for use of $returnValue as alternative to $event->return?
 				}
 				
 				if($profilerEvent) $profiler->stop($profilerEvent);
+				
+				if(!$toMethodCallable) continue;
 
 				$result['numHooksRun']++;
 				

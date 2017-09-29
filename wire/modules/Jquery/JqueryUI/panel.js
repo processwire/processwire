@@ -222,7 +222,9 @@ var pwPanels = {
 		}
 
 		if(typeof text != "undefined" && text.length) {
-			$btn.children('.ui-button-text').text(text);
+			var $btnText = $btn.children('.ui-button-text');
+			var $text = $("<span />").text(text);
+			$btnText.html('<span>' + $text.text() + '</span>');
 			$btn.addClass('pw-panel-button-text');
 			btnExtraPx = 7;
 			//$btn.css(btnPos, (-1 * ($btn.height() + 7)) + 'px');

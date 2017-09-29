@@ -301,8 +301,10 @@ abstract class AdminThemeFramework extends AdminTheme {
 
 		if($this->isSuperuser) return true;
 		
-		$allow = false;
 		$pageViewable = $p->viewable();
+		if(!$pageViewable) return false;
+		
+		$allow = false;
 		$numChildren = count($children);
 		
 		if($p->process == 'ProcessPageAdd') {
@@ -580,7 +582,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 */
 	public function renderNotices($notices, array $options = array()) {
 
-		if(!count($notices)) return '';
+		// if(!count($notices)) return '';
 
 		if($this->isLoggedIn && $this->wire('modules')->isInstalled('SystemNotifications')) {
 			$systemNotifications = $this->wire('modules')->get('SystemNotifications');
@@ -720,7 +722,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 		$f->collapsed = Inputfield::collapsedBlank;
 		if($this->get('useAsLogin')) $f->attr('checked', 'checked');
 		$inputfields->add($f);
-
+		
 		if($f->attr('checked') && $this->input->requestMethod('GET')) {
 			$class = $this->className();
 			foreach($this->modules->findByPrefix('AdminTheme') as $name) {
