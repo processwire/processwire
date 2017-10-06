@@ -18,10 +18,15 @@ class ProcessPageListActions extends Wire {
 		'unlock' => 'Unlock',
 		'trash' => 'Trash',
 		'restore' => 'Restore',
+		'extras' => "<i class='fa fa-angle-right'></i>", 
 	);
 	
 	public function __construct() { 
 		$this->superuser = $this->wire('user')->isSuperuser();
+		$settings = $this->wire('config')->ProcessPageList; 
+		if(is_array($settings) && isset($settings['extrasLabel'])) {
+			$this->actionLabels['extras'] = $settings['extrasLabel'];
+		}
 	}
 
 	public function setActionLabels(array $actionLabels) {
@@ -81,7 +86,7 @@ class ProcessPageListActions extends Wire {
 			if(count($extras)) {
 				$actions['extras'] = array(
 					'cn' => 'Extras',
-					'name' => "<i class='fa fa-angle-right'></i>",
+					'name' => $this->actionLabels['extras'], 
 					'url' => '#',
 					'extras' => $extras,
 				);

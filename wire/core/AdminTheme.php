@@ -98,6 +98,8 @@ abstract class AdminTheme extends WireData implements Module {
 	 * Initialize the admin theme systme and determine which admin theme should be used
 	 *
 	 * All admin themes must call this init() method to register themselves. 
+	 * 
+	 * Note: this should be called after API ready. 
 	 *
 	 */
 	public function init() { 
@@ -116,6 +118,11 @@ abstract class AdminTheme extends WireData implements Module {
 		// if admin theme has already been set, then no need to continue
 		if($this->wire('adminTheme')) return; 
 
+		/** @var Config $config */
+		$config = $this->wire('config');
+		/** @var Session $session */
+		$session = $this->wire('session');
+		/** @var string $adminTheme */
 		$adminTheme = $this->wire('user')->admin_theme; 
 
 		if($adminTheme) {
@@ -129,19 +136,20 @@ abstract class AdminTheme extends WireData implements Module {
 		}
 
 		// adjust $config adminThumbOptions[scale] for auto detect when requested
-		$o = $this->wire('config')->adminThumbOptions; 
+		$o = $config->adminThumbOptions; 
 		if($o && isset($o['scale']) && $o['scale'] === 1) {
-			$o['scale'] = $this->wire('session')->hidpi ? 0.5 : 1.0; 
-			$this->wire('config')->adminThumbOptions = $o;
+			$o['scale'] = $session->hidpi ? 0.5 : 1.0; 
+			$config->adminThumbOptions = $o;
 		}
 
-		$this->config->js('modals', $this->config->modals); 
+		$config->js('modals', $config->modals); 
 		
-		if($this->wire('session')->hidpi) $this->addBodyClass('hidpi-device');
-		if($this->wire('session')->touch) $this->addBodyClass('touch-device'); 
+		if($session->hidpi) $this->addBodyClass('hidpi-device');
+		if($session->touch) $this->addBodyClass('touch-device'); 
+		
 		$this->addBodyClass($this->className());
 	}
-	
+
 	public function get($key) {
 		if($key == 'version') return $this->version;
 		return parent::get($key); 

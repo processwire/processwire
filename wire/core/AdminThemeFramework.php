@@ -84,6 +84,8 @@ abstract class AdminThemeFramework extends AdminTheme {
 
 	/**
 	 * Initialize and attach hooks
+	 * 
+	 * Note: descending classes should call this after API ready
 	 *
 	 */
 	public function init() {
@@ -98,13 +100,32 @@ abstract class AdminThemeFramework extends AdminTheme {
 		$this->isLoggedIn = $user->isLoggedin();
 		$this->isSuperuser = $this->isLoggedIn && $user->isSuperuser();
 		$this->isEditor = $this->isLoggedIn && ($this->isSuperuser || $user->hasPermission('page-edit'));
+		$this->includeInitFile();
 		
 		$modal = $this->wire('input')->get('modal');
 		if($modal) $this->isModal = $modal == 'inline' ? 'inline' : true; 	
 
 		// test notices when requested
-		if($this->wire('input')->get('test_notices')) $this->testNotices();
+		if($this->wire('input')->get('test_notices') && $this->isLoggedIn) $this->testNotices();
 	}
+	
+	/**
+	 * Include the admin theme init file
+	 *
+	 */
+	public function includeInitFile() {
+		$config = $this->wire('config');
+		$initFile = $config->paths->adminTemplates . 'init.php';
+		if(file_exists($initFile)) {
+			if(strpos($initFile, $config->paths->site) === 0) {
+				// admin themes in /site/modules/ may be compiled
+				$initFile = $this->wire('files')->compile($initFile);
+			}
+			/** @noinspection PhpIncludeInspection */
+			include_once($initFile);
+		}
+	}
+
 
 	/**
 	 * Perform a translation, based on text from shared admin file: /wire/templates-admin/default.php
@@ -584,10 +605,12 @@ abstract class AdminThemeFramework extends AdminTheme {
 
 		// if(!count($notices)) return '';
 
+		/*
 		if($this->isLoggedIn && $this->wire('modules')->isInstalled('SystemNotifications')) {
 			$systemNotifications = $this->wire('modules')->get('SystemNotifications');
 			if(!$systemNotifications->placement) return '';
 		}
+		*/
 
 		$defaults = array(
 			'messageClass' => 'NoticeMessage', // class for messages

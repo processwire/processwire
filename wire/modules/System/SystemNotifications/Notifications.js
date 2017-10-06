@@ -17,6 +17,13 @@ var Notifications = {
 		iconMessage: 'smile-o',
 		iconWarning: 'meh-o',
 		iconError: 'frown-o',
+		iconRemove: 'times-circle',
+		classCommon: 'NoticeItem', 
+		classMessage: 'NoticeMessage',
+		classWarning: 'NoticeWarning',
+		classError: 'NoticeError',
+		classDebug: 'NoticeDebug',
+		classContainer: 'container', 
 		ghostDelay: 2000, 
 		ghostDelayError: 4000, 
 		ghostFadeSpeed: 'fast',
@@ -273,11 +280,11 @@ var Notifications = {
 		}
 		
 		if(qtyError > 0) {
-			$bug.addClass('NoticeError', 'slow').removeClass('NoticeWarning', 'slow');
+			$bug.addClass(Notifications.options.classError, 'slow').removeClass(Notifications.options.classWarning, 'slow');
 		} else if(qtyWarning > 0) {
-			$bug.addClass('NoticeWarning', 'slow').removeClass('NoticeError', 'slow');
+			$bug.addClass(Notifications.options.classWarning, 'slow').removeClass(Notifications.options.classError, 'slow');
 		} else {
-			$bug.removeClass('NoticeWarning NoticeError', 'slow');
+			$bug.removeClass(Notifications.options.classWarning + ' ' + Notifications.options.classError, 'slow');
 		}
 	}, 
 	
@@ -389,7 +396,7 @@ var Notifications = {
 			$li = $("<li></li>");
 		}
 		
-		$li.attr('id', notification.id);
+		$li.attr('id', notification.id).addClass(Notifications.options.classCommon);
 		if(notification.expires > 0) {
 			$li.attr('data-expires', notification.expires);
 		}
@@ -397,9 +404,9 @@ var Notifications = {
 		var $icon = $("<i></i>").addClass('fa fa-fw fa-' + notification.icon);
 		var $title = $("<span></span>").addClass('NotificationTitle').html(notification.title);
 		var $p = $("<p></p>").append($title).prepend('&nbsp;').prepend($icon);
-		var $div = $("<div></div>").addClass('container').append($p);
+		var $div = $("<div></div>").addClass(Notifications.options.classContainer).append($p);
 		var $text = $("<div></div>").addClass('NotificationText');
-		var $rm = $("<i class='NotificationRemove fa fa-times-circle'></i>");
+		var $rm = $("<i class='NotificationRemove fa fa-" + Notifications.options.iconRemove + "'></i>");
 		var addClass = '';
 
 		if(progressNext > 0) {
@@ -422,10 +429,10 @@ var Notifications = {
 			$title.append(" <small data-created='" + notification.created + "' class='created'>" + notification.when + "</small>");
 		}
 
-		if(notification.flagNames.indexOf('debug') != -1) $li.addClass('NoticeDebug'); 
-		if(notification.flagNames.indexOf('error') != -1) $li.addClass('NoticeError'); 
-			else if(notification.flagNames.indexOf('warning') != -1) $li.addClass('NoticeWarning'); 
-			else if(notification.flagNames.indexOf('message') != -1) $li.addClass('NoticeMessage'); 
+		if(notification.flagNames.indexOf('debug') != -1) $li.addClass(Notifications.options.classDebug); 
+		if(notification.flagNames.indexOf('error') != -1) $li.addClass(Notifications.options.classError); 
+			else if(notification.flagNames.indexOf('warning') != -1) $li.addClass(Notifications.options.classWarning); 
+			else if(notification.flagNames.indexOf('message') != -1) $li.addClass(Notifications.options.classMessage); 
 		
 
 		if(notification.html.length > 0) {
@@ -586,15 +593,15 @@ var Notifications = {
 		var delay = Notifications.options.ghostDelay; 
 
 		if(notification.flagNames.indexOf('error') > -1) {
-			$ghost.addClass('NoticeError'); 
+			$ghost.addClass(Notifications.options.classError); 
 			delay = Notifications.options.ghostDelayError;
 			
 		} else if(notification.flagNames.indexOf('warning') > -1) {
-			$ghost.addClass('NoticeWarning'); 
+			$ghost.addClass(Notifications.options.classWarning); 
 			delay = Notifications.options.ghostDelayError;
 			
 		} else {
-			$ghost.addClass('NoticeMessage'); 
+			$ghost.addClass(Notifications.options.classMessage); 
 		}
 
 		Notifications.$ghosts.append($li.hide());
@@ -766,6 +773,8 @@ var Notifications = {
 		Notifications.$bug = $("#NotificationBug"); 
 		Notifications.$list = $("#NotificationList"); 
 		Notifications.$ghosts = $("#NotificationGhosts");
+		
+		if(!Notifications.$bug.length) return;
 
 		Notifications.$menu.hide();
 		Notifications.$bug.click(Notifications.clickBug);

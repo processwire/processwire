@@ -123,6 +123,9 @@ $(document).ready(function() {
 			// milliseconds in fade time to reveal or hide hover actions
 			hoverActionFade: 150,
 		
+			// show only edit and view actions, and make everything else extra actions
+			useNarrowActions: $('body').hasClass('pw-narrow-width'), 
+		
 			// markup for the spinner used when ajax calls are made
 			spinnerMarkup: "<span class='PageListLoading'><i class='ui-priority-secondary fa fa-fw fa-spin fa-spinner'></i></span>",
 		
@@ -622,7 +625,8 @@ $(document).ready(function() {
 			function addClickEvents($ul) {
 
 				$("a.PageListPage", $ul).click(clickChild);
-				$(".PageListActionMove a", $ul).click(clickMove);
+				$ul.on('click', '.PageListActionMove a', clickMove); 
+				// $(".PageListActionMove a", $ul).click(clickMove);
 				$(".PageListActionSelect a", $ul).click(clickSelect);
 				$(".PageListTriggerOpen:not(.PageListID1) > a.PageListPage", $ul).click();
 				$(".PageListActionExtras > a:not(.clickExtras)", $ul).addClass('clickExtras').on('click', clickExtras);
@@ -644,8 +648,8 @@ $(document).ready(function() {
 					.attr('title', child.path)
 					.html(child.label)
 					.addClass('PageListPage label'); 
-
-				$li.addClass('PageListID' + child.id); 
+				
+				$li.addClass(child.numChildren > 0 ? 'PageListHasChildren' : 'PageListNoChildren').addClass('PageListID' + child.id); 
 				if(child.status == 0) $li.addClass('PageListStatusOff disabled');
 				if(child.status & 2048) $li.addClass('PageListStatusUnpublished secondary'); 
 				if(child.status & 1024) $li.addClass('PageListStatusHidden secondary'); 
@@ -676,13 +680,26 @@ $(document).ready(function() {
 				}
 
 				var $lastAction = null;
+				var $extrasLink = null; // link that toggles extra actions
+				var extras = {}; // extra actions
+				
 				$(links).each(function(n, action) {
 					var actionName;
-					if(action.name == options.selectSelectLabel) actionName = 'Select';
-						else if(action.name == options.selectUnselectLabel) actionName = 'Select'; 
-						else actionName = action.cn; // cn = className
-
+					if(action.name == options.selectSelectLabel) {
+						actionName = 'Select';
+					} else if(action.name == options.selectUnselectLabel) {
+						actionName = 'Select';
+					} else {
+						actionName = action.cn; // cn = className
+						if(options.useNarrowActions && (actionName != 'Edit' && actionName != 'View' && actionName != 'Extras')) {
+							// move non-edit/view actions to extras when in narrow mode
+							extras[actionName] = action;
+							return;
+						}
+					}
+					
 					var $a = $("<a></a>").html(action.name).attr('href', action.url);
+					
 					if(!isModal) {
 						if(action.cn == 'Edit') {
 							$a.addClass('pw-modal pw-modal-large pw-modal-longclick');
@@ -691,13 +708,20 @@ $(document).ready(function() {
 							$a.addClass('pw-modal pw-modal-large pw-modal-longclick');
 						}
 					}
+					
 					if(typeof action.extras != "undefined") {
-						$a.data('extras', action.extras);
+						for(var key in action.extras) {
+							extras[key] = action.extras[key];
+						}
+						$extrasLink = $a;
 					}
 					var $action = $("<li></li>").addClass('PageListAction' + actionName).append($a);
 					if(actionName == 'Extras') $lastAction = $action; 
 						else $actions.append($action);
-				}); 
+				});
+				
+				if($extrasLink) $extrasLink.data('extras', extras);
+				
 				if($lastAction) {
 					$actions.append($lastAction);
 					$lastAction.addClass('ui-priority-secondary');

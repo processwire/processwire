@@ -107,7 +107,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 				$initFile = $wire->files->compile($initFile);
 			}
 			/** @noinspection PhpIncludeInspection */
-			include($initFile);
+			include_once($initFile);
 		}
 		if($input->get('modal')) $session->addHookBefore('redirect', null, '_hookSessionRedirectModal'); 
 		$content = $controller->execute();

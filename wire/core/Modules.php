@@ -742,8 +742,6 @@ class Modules extends WireArray {
 	/**
 	 * Retrieve the installed module info as stored in the database
 	 *
-	 * @return array Indexed by module class name => array of module info
-	 *
 	 */
 	protected function loadModulesTable() {
 		$database = $this->wire('database');
@@ -2648,8 +2646,11 @@ class Modules extends WireArray {
 			// if $info[requires] or $info[installs] isn't already an array, make it one
 			if(!is_array($info['requires'])) {
 				$info['requires'] = str_replace(' ', '', $info['requires']); // remove whitespace
-				if(strpos($info['requires'], ',') !== false) $info['requires'] = explode(',', $info['requires']); 
-					else $info['requires'] = array($info['requires']); 
+				if(strpos($info['requires'], ',') !== false) {
+					$info['requires'] = explode(',', $info['requires']);
+				} else {
+					$info['requires'] = array($info['requires']);
+				}
 			}
 	
 			// populate requiresVersions
@@ -2669,8 +2670,11 @@ class Modules extends WireArray {
 			// what does it install?
 			if(!is_array($info['installs'])) {
 				$info['installs'] = str_replace(' ', '', $info['installs']); // remove whitespace
-				if(strpos($info['installs'], ',') !== false) $info['installs'] = explode(',', $info['installs']); 
-					else $info['installs'] = array($info['installs']); 
+				if(strpos($info['installs'], ',') !== false) {
+					$info['installs'] = explode(',', $info['installs']);
+				} else {
+					$info['installs'] = array($info['installs']);
+				}
 			}
 
 			// misc

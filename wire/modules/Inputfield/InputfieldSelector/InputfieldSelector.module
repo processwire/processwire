@@ -49,6 +49,9 @@
  * @property string $subfieldIdentifier ...
  * @property string $groupIdentifier (1)
  * @property int $maxUsers [20] Maximum number of users selectable. If more than regular text input used rather than select.
+ * @property string $selectClass
+ * @property string $inputClass
+ * @property string $checkboxClass
  *
  *
  */
@@ -132,6 +135,13 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	protected $initTemplate = null;
 
 	/**
+	 * Has the ready method been called?
+	 * @var bool
+	 * 
+	 */
+	protected $isReady = false;
+
+	/**
 	 * Variable names that should be picked up through the session each time
 	 *
 	 */
@@ -202,7 +212,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$this->setting('timeFormat', $this->_('H:i')); // time format
 		$this->setting('timePlaceholder', $this->_('hh:mm')); // time format placeholder (what users see)
 		$this->setting('maxUsers', 20); // text input rather than select used when useres qty is greater than this
-		
+
 		parent::__construct();
 	}
 
@@ -247,6 +257,21 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	public function ready() {
+		
+		if($this->isReady) return;
+		$this->isReady = true;
+
+		// settings specified in $config->InputfieldSelector 
+		$configDefaults = array(
+			'selectClass' => '',
+			'inputClass' => '',
+			'checkboxClass' => '',
+		);
+		$configSettings = $this->wire('config')->InputfieldSelector;
+		$configSettings = is_array($configSettings) ? array_merge($configDefaults, $configSettings) : $configDefaults;
+		foreach($configSettings as $key => $value) {
+			$this->setting($key, $value);
+		}
 
 		$input = $this->wire('input'); 
 		$name = $input->get('name'); 
@@ -902,7 +927,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$outSections['adjust'] = "<option data-labels='$dataLabels' data-names='$dataNames' value='toggle-names-labels'>$dataDefault</option>";
 			
 		$inputName = $this->attr('name') . "__" . $settings['name'] . "[]";
-		$out = "<select class='select-$settings[name]' name='$inputName' data-type='$settings[type]' data-selected='$selectedValue'><option></option>";
+		$selectClass = trim("$this->selectClass select-$settings[name]"); 
+		$out = "<select class='$selectClass' name='$inputName' data-type='$settings[type]' data-selected='$selectedValue'><option></option>";
 
 		if(!$this->showOptgroups) {
 			ksort($outAll);
@@ -1051,7 +1077,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		}
 
 		$disabled = count($operators) ? "" : " disabled='disabled'";
-		$out = "<select$disabled class='select-operator' name='$inputName'>";
+		$selectClass = trim("$this->selectClass select-operator"); 
+		$out = "<select$disabled class='$selectClass' name='$inputName'>";
 
 		foreach($operators as $key => $label) {
 			if(isset($this->operators[$label])) {
@@ -1270,7 +1297,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		if(in_array($type, array('select', 'page', 'checkbox'))) { 
 			// render a <select> box for the value
 
-			$out .= "<select class='select-value input-value' name='$inputName'>";
+			$selectClass = trim("$this->selectClass select-value input-value"); 
+			$out .= "<select class='$selectClass' name='$inputName'>";
 			$out .= "<option value=''></option>";
 			
 			if($type != 'checkbox' && !isset($this->systemFields[$fieldName]) && !isset($this->modifierFields[$fieldName])) {
@@ -1313,7 +1341,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				}
 			}
 			$out .= "<input value='$selectedValueEntities' class='input-value' name='$inputName' type='hidden' />";
-			$out .= "<input value='$selectedValueTitle' class='input-value-autocomplete' name='autocomplete_$inputName' placeholder='$placeholder' type='text' />";
+			$inputClass = trim("$this->inputClass input-value-autocomplete"); 
+			$out .= "<input value='$selectedValueTitle' class='$inputClass' name='autocomplete_$inputName' placeholder='$placeholder' type='text' />";
 
 		} else if($type == 'datetime' || $type == 'date') {
 			// render date/datetime input
@@ -1324,7 +1353,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		} else {
 			// render other input that uses an <input type='text'> whether text, number or selector
 			$inputType = $type; 
-			$inputClass = "input-value input-value-$type";
+			$inputClass = trim("$this->inputClass input-value input-value-$type");
 			
 			if($type == 'number' || $type == 'selector' || $fieldName == 'id' || $subfield == 'id') {
 				// adding this class tells InputfieldSelector.js that selector strings are allowed for this input
@@ -1338,7 +1367,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		// end the opval row by rendering a checkbox for the OR option
 		$orLabel = $this->_('Check box to make this row OR rather than AND');
 		$orChecked = $orChecked ? ' checked' : '';
-		$out .= "<input$orChecked class='input-or' type='checkbox' name='or_$inputName' value='1' title='$orLabel' />";
+		$checkboxClass = trim("$this->checkboxClass input-or"); 
+		$out .= "<input$orChecked class='$checkboxClass' type='checkbox' name='or_$inputName' value='1' title='$orLabel' />";
 
 		return $out; 
 	}
@@ -1409,7 +1439,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$inputName = $this->attr('name') . "__" . $field->name . "[]"; 
 	
 		$outSub = ''; // subselector optgroup output
-		$out = "<select class='select-subfield' name='$inputName' data-type='$selectorInfo[input]'>";
+		$selectClass = trim("$this->selectClass select-subfield"); 
+		$out = "<select class='$selectClass' name='$inputName' data-type='$selectorInfo[input]'>";
 		$out .= "<option></option>";
 	
 		// determine if there is a current value string and if it contains a selector string
@@ -1705,6 +1736,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * 
 	 */
 	public function ___render() {
+		$this->ready();
 		// tell jQuery UI we want it to load the modal component which makes a.modal open modal windows
 		$this->wire('modules')->get('JqueryUI')->use('modal'); 
 
