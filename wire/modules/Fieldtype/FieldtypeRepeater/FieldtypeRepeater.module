@@ -1043,6 +1043,32 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	}
 
 	/**
+	 * Update repeater template and fieldgroup to have same name as field
+	 * 
+	 * @param Template $template Template having old name
+	 * @param string $name New name for template
+	 * 
+	 */
+	protected function updateRepeaterTemplateName(Template $template, $name) {
+	
+		if($template->name != $name && !$this->wire('templates')->get($name)) {
+			$this->message("Renamed repeater template from '$template->name' to '$name'", Notice::debug); 
+			$flags = $template->flags;
+			$template->flags = Template::flagSystemOverride;
+			$template->flags = 0;
+			$template->save();
+			$template->name = $name;
+			$template->flags = $flags;
+			$template->save();
+		}
+	
+		if($template->fieldgroup && $template->fieldgroup->name != $name && !$this->wire('fieldgroups')->get($name)) {
+			$template->fieldgroup->name = $name;
+			$template->fieldgroup->save();
+		}
+	}	
+
+	/**
 	 * Return the repeater template used by Field, i.e. repeater_name
 	 * 
 	 * Auto generate a repeater template, if it doesn't already exist.
@@ -1056,11 +1082,18 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		$template = null;
 		$templateID = (int) $field->get('template_id');
-		if($templateID) $template = $this->wire('templates')->get($templateID); 
-		if($template) return $template;
-
-		// template does not exist, so we create it
 		$templateName = self::templateNamePrefix . $field->name; 
+		
+		if($templateID) {
+			$template = $this->wire('templates')->get($templateID);
+			if($template && $template->name !== $templateName) {
+				// repeater has been renamed, update the template and fieldgroup names
+				$this->updateRepeaterTemplateName($template, $templateName);
+			}
+		}
+
+		// if template already exists, return it now
+		if($template) return $template;
 
 		// make sure the template name isn't already in use, make a unique one if it is
 		$n = 0; 
