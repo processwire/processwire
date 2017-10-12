@@ -516,8 +516,18 @@ class Selectors extends WireArray {
 		
 		if($commaPos === false && $closingQuote) {
 			// if closing quote and comma didn't match, try to match just comma in case of "something"<space>,
-			$commaPos = strpos(substr($str, 1), ',');
-			if($commaPos !== false) $commaPos++;
+			$str1 = substr($str, 1);
+			$commaPos = strpos($str1, ',');
+			if($commaPos !== false) {
+				$closingQuotePos = strpos($str1, $closingQuote); 
+				if($closingQuotePos > $commaPos) {
+					// comma is in quotes and thus not one we want to work with
+					return false;
+				} else {
+					// increment by 1 since it was derived from a string at position 1 (rather than 0)
+					$commaPos++;
+				}
+			}
 		}
 
 		if($commaPos === false) {
