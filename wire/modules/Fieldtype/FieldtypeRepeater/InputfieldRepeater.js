@@ -744,7 +744,6 @@ function InputfieldRepeater($) {
 		initSortable($inputfieldRepeater, $inputfields);
 
 		// setup the add links
-		console.log($inputfieldRepeater); 
 		$(".InputfieldRepeaterAddLink:not(.InputfieldRepeaterAddLinkInit)", $inputfieldRepeater)
 			.addClass('InputfieldRepeaterAddLinkInit')
 			.click(eventAddLinkClick);
