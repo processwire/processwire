@@ -1960,6 +1960,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				if(in_array($template->id, $this->config->userTemplateIDs) && !in_array($parent->id, $this->config->usersPageIDs)) continue; 
 				if($template->name == 'role' && $parent->id != $this->config->rolesPageID) continue;
 				if($template->name == 'permission' && $parent->id != $this->config->permissionsPageID) continue;
+				if(strpos($template->name, 'repeater_') === 0 || strpos($template->name, 'fieldset_') === 0) continue;
 			}
 
 			if(count($template->parentTemplates) && $parent->id && !in_array($parent->template->id, $template->parentTemplates)) {
