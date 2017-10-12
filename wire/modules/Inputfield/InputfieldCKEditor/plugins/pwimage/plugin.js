@@ -208,7 +208,7 @@
 								// note: class is added to figureWrapper (rather than <img>) when this is a caption
 								if(caption === false) $insertHTML.addClass(cls); 
 								
-								if(width > 0) $insertHTML.attr('width', width); 
+								if(width > 0 && $img.attr('data-nosize') != '1') $insertHTML.attr('width', width);
 								
 								if($linkWrapper) {	
 									// img was wrapped in an <a>...</a> and/or <figure>
