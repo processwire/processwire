@@ -94,7 +94,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function init() {
 		$this->wire('pages')->addHookAfter('deleteReady', $this, 'hookPagesDelete');
 		parent::init();
-		$this->initFields();
+		// $this->initFields();
 	}
 
 	/**	
@@ -103,7 +103,21 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	public function ready() {
 		// if(in_array('WirePageEditor', wireClassImplements((string) $this->wire('page')->process))) { // @todo
-		$this->initFields(); // intentionally repeated from init()
+		// $this->initFields(); // intentionally repeated from init()
+
+		// make sure that all templates used by repeater pages enforce a Page type of RepeaterPage
+		foreach($this->wire('fields') as $field) {
+			$fieldtype = $field->type;
+			if(!$fieldtype || !$fieldtype instanceof FieldtypeRepeater) continue;
+			/** @var FieldtypeRepeater $fieldtype */
+ 			$template = $fieldtype->getRepeaterTemplate($field);
+ 			if(!$template) continue;
+ 			if(__NAMESPACE__) {
+				$template->setQuietly('pageClass', wireClassName($fieldtype->getPageClass()));
+			} else {
+				$template->setQuietly('pageClass', $fieldtype->getPageClass());
+			}
+ 		}
 		
 		if($this->wire('page')->process == 'ProcessPageEdit') {
 			
@@ -133,7 +147,6 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	/**
 	 * Initialize repeater fields at boot
 	 * 
-	 */
 	protected function initFields() {
 		
 		static $initFields = array();
@@ -157,6 +170,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		
 		$initFields[$className] = 1; 
 	}
+	 */
 
 	/**
 	 * Get the class used for repeater Page objects
