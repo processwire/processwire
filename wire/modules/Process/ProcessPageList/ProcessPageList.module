@@ -212,70 +212,97 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	protected function render() {
 
 		$this->setupBreadcrumbs();
-		if($this->render) return $this->getPageListRender($this->page)->render();
+		
+		if($this->render) {
+			return $this->getPageListRender($this->page)->render();
+		}
+		
+		$session = $this->wire('session');
+		$input = $this->wire('input');
+		$isAjax = $this->wire('config')->ajax;
+		$tokenName = $session->CSRF->getTokenName();
+		$tokenValue = $session->CSRF->getTokenValue();
+		$class = $this->id ? "PageListContainerPage" : "PageListContainerRoot";
+		$script = '';
+		
+		$this->renderReady();
+		
+		if($isAjax && $input->get('renderInputfieldAjax')) {
+			$script = "<script>ProcessPageListInit();</script>";
+		}
+	
+		return "\n" . 
+			"<div id='PageListContainer' " .
+				"class='$class' " . 
+				"data-token-name='$tokenName' " . // CSRF tokens
+				"data-token-value='$tokenValue'>" . 
+			"</div>$script"; 
+	}
 
+	/**
+	 * Setup for render
+	 * 
+	 */
+	public function renderReady() {
+		
 		$input = $this->wire('input');
 		$config = $this->wire('config');
-		$session = $this->wire('session');
 		$urls = $config->urls;
 		$isAjax = $config->ajax;
 		$openPageIDs = array();
 		$openPageData = array();
-		$script = '';
-		
-		if($this->openPage->id > 1) {
-			$openPageIDs[] = $this->openPage->id; 
-			foreach($this->openPage->parents() as $parent) {
-				if($parent->id > 1 && $parent->id != $this->id) $openPageIDs[] = $parent->id;
-			}
-		} else if(!$isAjax && $this->wire('page')->process == $this) {
-			if($this->id) {
-				// leave openPageIDs as empty array
-			} else {
-				$openPageIDs = $input->cookie->array('pagelist_open');
-			}
-		}
-		
-		if($isAjax) {
-			if($input->get('renderInputfieldAjax')) {
-				$script = "<script>ProcessPageListInit();</script>";
-			}
-		} else if(count($openPageIDs)) {
-			$render = $this->render;
-			$this->render = 'JSON';
-			foreach($openPageIDs as $key => $openPageID) {
-				if(strpos($openPageID, '-')) {
-					list($openPageID, $openPageStart) = explode('-', $openPageID);
-					$openPageStart = (int) $openPageStart;
-				} else {
-					$openPageStart = 0;
+
+		if($this->openPage) {
+			if($this->openPage->id > 1) {
+				$openPageIDs[] = $this->openPage->id;
+				foreach($this->openPage->parents() as $parent) {
+					if($parent->id > 1 && $parent->id != $this->id) $openPageIDs[] = $parent->id;
 				}
-				$openPageID = (int) $openPageID;
-				$openPageIDs[$key] = "$openPageID-$openPageStart";
-				$p = $this->wire('pages')->get($openPageID);
-				if(!$p->id || !$p->listable()) continue;
-				$renderer = $this->getPageListRender($p, $this->limit, $openPageStart);
-				$openPageData["$openPageID-$openPageStart"] = $renderer->setOption('getArray', true)->render();
+			} else if(!$isAjax && $this->wire('page')->process == $this) {
+				if($this->id) {
+					// leave openPageIDs as empty array
+				} else {
+					$openPageIDs = $input->cookie->array('pagelist_open');
+				}
 			}
-			$this->render = $render;
+
+			if(!$isAjax && count($openPageIDs)) {
+				$render = $this->render;
+				$this->render = 'JSON';
+				foreach($openPageIDs as $key => $openPageID) {
+					if(strpos($openPageID, '-')) {
+						list($openPageID, $openPageStart) = explode('-', $openPageID);
+						$openPageStart = (int) $openPageStart;
+					} else {
+						$openPageStart = 0;
+					}
+					$openPageID = (int) $openPageID;
+					$openPageIDs[$key] = "$openPageID-$openPageStart";
+					$p = $this->wire('pages')->get($openPageID);
+					if(!$p->id || !$p->listable()) continue;
+					$renderer = $this->getPageListRender($p, $this->limit, $openPageStart);
+					$openPageData["$openPageID-$openPageStart"] = $renderer->setOption('getArray', true)->render();
+				}
+				$this->render = $render;
+			}
 		}
 
 		$defaults = array(
-			'containerID' => 'PageListContainer', 
-			'ajaxURL' => $urls->admin . "page/list/", 
+			'containerID' => 'PageListContainer',
+			'ajaxURL' => $urls->admin . "page/list/",
 			'ajaxMoveURL' => $urls->admin . "page/sort/",
-			'rootPageID' => $this->id, 
-			'openPageIDs' => $openPageIDs, 
+			'rootPageID' => $this->id,
+			'openPageIDs' => $openPageIDs,
 			'openPageData' => $openPageData,
-			'openPagination' => (int) $input->get('n'), 
-			'paginationClass' => 'PageListPagination', 
-			'showRootPage' => $this->showRootPage ? true : false, 
-			'limit' => $this->limit, 
-			'start' => $this->start, 
+			'openPagination' => (int) $input->get('n'),
+			'paginationClass' => 'PageListPagination',
+			'showRootPage' => $this->showRootPage ? true : false,
+			'limit' => $this->limit,
+			'start' => $this->start,
 			'speed' => ($this->speed !== null ? (int) $this->speed : self::defaultSpeed),
-			'useHoverActions' => $this->useHoverActions ? true : false, 
+			'useHoverActions' => $this->useHoverActions ? true : false,
 			'hoverActionDelay' => (int) $this->hoverActionDelay,
-			'hoverActionFade' => (int) $this->hoverActionFade, 
+			'hoverActionFade' => (int) $this->hoverActionFade,
 			'selectStartLabel' => $this->_('Change'), // Change a page selection
 			'selectCancelLabel' => $this->_('Cancel'), // Cancel a page selection
 			'selectSelectLabel' => $this->_('Select'), // Select a page
@@ -285,21 +312,10 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			'trashLabel' => $this->trashLabel,
 			'ajaxNetworkError' => $this->_('Network error, please try again later'), // Network error during AJAX request
 			'ajaxUnknownError' => $this->_('Unknown error, please try again later'), // Unknown error during AJAX request
-			); 
+		);
 		$settings = $config->ProcessPageList;
 		$settings = is_array($settings) ? array_merge($defaults, $settings) : $defaults;
 		$config->js('ProcessPageList', $settings);
-		
-		$tokenName = $session->CSRF->getTokenName();
-		$tokenValue = $session->CSRF->getTokenValue();
-		$class = $this->id ? "PageListContainerPage" : "PageListContainerRoot";
-	
-		return "\n" . 
-			"<div id='PageListContainer' " .
-				"class='$class' " . 
-				"data-token-name='$tokenName' " . // CSRF tokens
-				"data-token-value='$tokenValue'>" . 
-			"</div>$script"; 
 	}
 
 	/**

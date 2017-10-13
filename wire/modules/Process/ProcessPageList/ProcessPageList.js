@@ -140,6 +140,10 @@ $(document).ready(function() {
 		var ignoreClicks = false;
 		
 		var isModal = $("body").hasClass("modal") || $("body").hasClass("pw-iframe");
+		
+		if(typeof ProcessWire.config.ProcessPageList != "undefined") {
+			$.extend(options, ProcessWire.config.ProcessPageList);
+		}
 	
 		$.extend(options, customOptions);
 

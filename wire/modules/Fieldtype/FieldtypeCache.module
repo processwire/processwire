@@ -171,7 +171,7 @@ class FieldtypeCache extends Fieldtype {
 		$select->label = 'Fields to cache';
 		$select->description = 'Select all fields that you would like to be cached.';
 		$select->notes = 
-			"If you don't have 'autojoin' checked under this field's advanced settings, the you will have to " . 
+			"If you don't have 'autojoin' checked under this field's advanced settings, then you will have to " . 
 			"call \$page->{$field->name} before the cached fields will be loaded.";
 
 		foreach($this->fields as $f) {

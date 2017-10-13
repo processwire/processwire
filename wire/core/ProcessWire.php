@@ -804,7 +804,7 @@ class ProcessWire extends Wire {
 			unset($sf, $f, $x);
 		
 			// when internal is true, we are not being called by an external script
-			$cfg['internal'] = $realIndexFile == $realScriptFile;
+			$cfg['internal'] = strtolower($realIndexFile) == strtolower($realScriptFile);
 
 		} else {
 			// when included from another app or command line script

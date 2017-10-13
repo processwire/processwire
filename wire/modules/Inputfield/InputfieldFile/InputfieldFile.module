@@ -773,7 +773,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	}
 
 	protected function ___processInputDeleteFile(Pagefile $pagefile) {
-		$this->message($this->_("Deleted file:") . " $pagefile"); // Label that precedes a deleted filename
+		$fileLabel = $this->wire('config')->debug ? $pagefile->url() : $pagefile->name;
+		$this->message($this->_("Deleted file:") . " $fileLabel"); // Label that precedes a deleted filename
 		$this->value->delete($pagefile); 
 		$this->trackChange('value');
 	}
