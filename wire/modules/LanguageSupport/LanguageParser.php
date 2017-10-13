@@ -142,6 +142,12 @@ class LanguageParser extends Wire {
 				'([\'"])(.+?)(?<!\\\\)\\2\s*' . 	// "text"
 				'(?:,\s*[^)]+)?\)+(.*)$/m', 		// , textdomain (optional) and everything else
 				$data, $matches[2]); 
+		
+		// Find _t('text', $context, $textdomain, $options) style matches
+		preg_match_all(	'/([\s.=>(]_t|^_t)\(\s*' . 		// _t(
+				'([\'"])(.+?)(?<!\\\\)\\2\s*' . 	// "text"
+				'.+?\)+(.*)$/m', 		//  $context, $textdomain, $options (optional) and everything else
+				$data, $matches[2]);
 
 		// Find _x('text', 'context', textdomain) or $this->_x('text', 'context') style matches
 		preg_match_all(	'/([\s.=>(]_x|^_x)\(\s*' . 		// _x( or $this->_x(

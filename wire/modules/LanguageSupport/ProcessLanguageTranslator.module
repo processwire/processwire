@@ -656,8 +656,8 @@ class ProcessLanguageTranslator extends Process {
 		$dirs = array();
 		$root = $this->wire('config')->paths->root;
 
-		$find1 = array('$this->_(', '$this->_n(', '$this->_x(');
-		$find2 = array('__(', '_n(', '_x(');
+		$find1 = array('$this->_(', '$this->_n(', '$this->_x(', '$this->_t(');
+		$find2 = array('__(', '_n(', '_x(', '_t(');
 
 		foreach(new \DirectoryIterator($path) as $file) {
 
