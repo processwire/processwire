@@ -111,12 +111,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			if(!$fieldtype || !$fieldtype instanceof FieldtypeRepeater) continue;
 			/** @var FieldtypeRepeater $fieldtype */
  			$template = $fieldtype->getRepeaterTemplate($field);
- 			if(!$template) continue;
- 			if(__NAMESPACE__) {
-				$template->setQuietly('pageClass', wireClassName($fieldtype->getPageClass()));
-			} else {
-				$template->setQuietly('pageClass', $fieldtype->getPageClass());
-			}
+			if(!$template) continue;
+			$class = $fieldtype->getPageClass();
+ 			if(__NAMESPACE__ && $class) $class = wireClassName($class);
+			$_class = $template->get('pageClass'); 
+			if($class === $_class) continue;
+			$template->set('pageClass', $class); 
+			$template->save();
  		}
 		
 		if($this->wire('page')->process == 'ProcessPageEdit') {
