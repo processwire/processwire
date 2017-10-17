@@ -121,7 +121,7 @@ class ProcessPageSort extends Process {
 
 		$sortfield = $parent->sortfield();
 		if($sortfield && $sortfield != 'sort') {
-			$msg = sprintf($this->_("Your sort was not saved because these pages are automatically sorted by %s."), $parent->sortfield);
+			$msg = sprintf($this->_("Your sort was not saved because these pages are automatically sorted by %s."), $sortfield);
 			if(!$this->isMoved) {
 				throw new WireException($msg);
 			} else {
