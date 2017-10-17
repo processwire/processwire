@@ -152,6 +152,7 @@ class WireHooks {
 
 		// see if we can do a quick exit
 		if($method && $method !== '*' && !$this->isHookedOrParents($object, $method)) return $hooks;
+		
 
 		// first determine which local hooks when should include
 		if($type !== self::getHooksStatic) {
@@ -174,6 +175,7 @@ class WireHooks {
 
 		$needSort = false;
 		$namespace = __NAMESPACE__ ? __NAMESPACE__ . "\\" : "";
+		$objectParentNamespaces = array();
 
 		// join in static hooks
 		foreach($this->staticHooks as $className => $staticHooks) {
@@ -184,7 +186,21 @@ class WireHooks {
 					// objects in other namespaces
 					$_className = $_namespace . $className;
 					if(!$object instanceof $_className && $method !== '*') {
-						continue;
+						// object likely extends a class not in PW namespace, so check class parents instead
+						if(empty($objectParentNamespaces)) {
+							foreach(wireClassParents($object) as $nscn => $cn) {
+								list($ns,) = explode("\\", $nscn); 
+								$objectParentNamespaces[$ns] = $ns;	
+							}
+						}
+						$nsok = false;
+						foreach($objectParentNamespaces as $ns) {
+							$_className = "$ns\\$className";
+							if(!$object instanceof $_className) continue;
+							$nsok = true;
+							break;
+						}
+						if(!$nsok) continue;
 					}
 				} else {
 					continue;
