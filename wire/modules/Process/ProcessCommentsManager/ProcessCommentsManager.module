@@ -172,7 +172,8 @@ class ProcessCommentsManager extends Process {
 		if(empty($status) || ($status != 'all' && !in_array($status, $this->statuses))) {
 			$session->redirect($this->wire('page')->url . "list/$field->name/all/");
 		}
-		$headline = ucfirst($status); 
+		$statusNum = array_search($status, $this->statuses); 
+		$headline = $statusNum !== false ? $this->statusTranslations[$statusNum] : ucfirst($status); 
 		$this->breadcrumb('../', $field->getLabel());
 
 		$limit = (int) $this->wire('input')->get('limit');
@@ -351,7 +352,7 @@ class ProcessCommentsManager extends Process {
 
 			
 		$out = 	
-			"<table class='CommentItemInfo'>" .
+			"<table class='CommentItemInfo' cellspacing='0'>" .
 				"<tr class='CommentTitle'>" . 
 					"<th>" .
 						"<label>" . 
