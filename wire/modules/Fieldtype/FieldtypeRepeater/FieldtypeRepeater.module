@@ -119,8 +119,10 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$template->set('pageClass', $class); 
 			$template->save();
  		}
+ 		
+ 		$process = $this->wire('page')->process;
 		
-		if($this->wire('page')->process == 'ProcessPageEdit') {
+		if($process == 'ProcessPageEdit' || $process == 'ProcessProfile') {
 			
 			$this->addHookBefore('ProcessPageEdit::ajaxSave', $this, 'hookProcessPageEditAjaxSave');
 			
@@ -200,15 +202,48 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * 
 	 */
 	public function hookPagePermissionsPageEditableAjax(HookEvent $event) {
+		
 		if($event->return) return;
+		
 		$page = $event->arguments(0);
 		if(!$page instanceof RepeaterPage) return;
+		
+		$forField = $page->getForField();
 		$n = 0;
+		
 		while($page instanceof RepeaterPage) {
+			$forField = $page->getForField();
 			$page = $page->getForPage();
 			if(++$n > 20) break;
 		}
-		if(!$page instanceof RepeaterPage) $event->return = $page->editable();
+		
+		if(!$page instanceof RepeaterPage) {
+			// found the original owning page (forPage)
+			
+			$editable = null;
+			/** @var User $user */
+			$user = $this->wire('user');
+			/** @var WireInput $input */
+			$input = $this->wire('input');
+			/** @var Field|null $field */
+			$field = $input->get('field') ? $this->wire('fields')->get($input->get->fieldName('field')) : $forField;
+		
+			if($page instanceof User && $field && $field->type instanceof FieldtypeRepeater) {
+				// editing a repeater field in a User
+				if($user->hasPermission('user-admin')) {
+					$editable = true;
+				} else if($page->id === $user->id) {
+					// user editing themself, repeater field
+					/** @var PagePermissions $pagePermissions */
+					$pagePermissions = $this->wire('modules')->get('PagePermissions');
+					$editable = $pagePermissions->userFieldEditable($field);
+				}
+			}
+			
+			if($editable === null) $editable = $page->editable();
+			
+			$event->return = $editable;
+		}
 	}
 
 	/**

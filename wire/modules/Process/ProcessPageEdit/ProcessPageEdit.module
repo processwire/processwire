@@ -217,6 +217,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	protected $editor = null;
 
 	/**
+	 * Tell the Page what Process is being used to edit it?
+	 * 
+	 */
+	protected $setEditor = true;
+
+	/**
 	 * Names of changed fields
 	 * 
 	 * @var array
@@ -356,17 +362,47 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function ___loadPage($id) {
-		
+	
+		/** @var Page|NullPage $page */
 		$page = $this->wire('pages')->get((int) $id); 
 		
-		if($page instanceof NullPage) throw new WireException($this->noticeUnknown); // Init error: page doesn't exist
+		if($page instanceof NullPage) {
+			throw new WireException($this->noticeUnknown); // page doesn't exist
+		}
+
+		$editable = $page->editable();
 	
-		if(!$page->editable()) {
-			if($page instanceof User && $this->wire('user')->hasPermission('user-admin') && $this->wire('process') != 'ProcessUser') {
+		/** @var User $user */
+		$user = $this->wire('user');
+		
+		/** @var Config $config */
+		$config = $this->wire('config');
+		
+		/** @var Config $config */
+		$input = $this->wire('input');
+		
+		if($page instanceof User) {
+			// special case when page is a User
+			
+			$userAdmin = $user->hasPermission('user-admin');
+			$field = $input->get('field') ? $this->wire('fields')->get($input->get->fieldName('field')) : null;
+			
+			if($userAdmin && $this->wire('process') != 'ProcessUser') {
 				// only allow user pages to be edited from the access section (at least for non-superusers)
-				$this->wire('session')->redirect($this->wire('config')->urls->admin . 'access/users/edit/?id=' . $page->id);
+				$this->wire('session')->redirect($config->urls->admin . 'access/users/edit/?id=' . $page->id);
+				
+			} else if(!$userAdmin && $page->id === $user->id && $field && $config->ajax) {
+				// user is editing themself and we're responding to an ajax request for a field
+				/** @var PagePermissions $pagePermissions */
+				$pagePermissions = $this->wire('modules')->get('PagePermissions');
+				$editable = $pagePermissions->userFieldEditable($field); 
+				// prevent a later potential redirect to user editor
+				if($editable) $this->setEditor = false;
 			}
-			throw new WirePermissionException($this->noticeNoAccess); // Init: user doesn't have access
+		}
+		
+		if(!$editable) {
+			throw new WirePermissionException($this->noticeNoAccess);
 		}
 			
 		return $page;
@@ -383,8 +419,11 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		if(!$this->page) throw new WireException("No page found");
 		
-		$this->page->setEditor($this->editor ? $this->editor : $this); 
-
+		if($this->setEditor) {
+			// note that setting the editor can force a redirect to a ProcessPageType editor
+			$this->page->setEditor($this->editor ? $this->editor : $this);
+		}
+		
 		if($this->config->ajax && (isset($_SERVER['HTTP_X_FIELDNAME']) || count($_POST))) {
 			$this->ajaxSave($this->page);
 			return '';

@@ -588,6 +588,9 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 *
 	 */
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+	
+		/** @var User $user */
+		$user = $this->wire('user');
 		
 		$this->wire('modules')->get('JqueryCore')->use('cookie');
 		$this->wire('modules')->get('JqueryUI')->use('vex');
@@ -620,6 +623,12 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$this->wrapAttr('data-depth', (int) $this->repeaterDepth);
 
 		list($editorUrl, $queryString) = explode('?', $this->page->editUrl());
+		
+		if(strpos($editorUrl, '/users/edit/') && !$user->isSuperuser() && !$user->hasPermission('user-admin')) {
+			// to accommodate repeater in user profile, use main page editor 
+			$editorUrl = str_replace('/access/users/edit/', '/page/edit/', $editorUrl); 
+		}
+		
 		if($queryString) {}
 
 		$this->wire('config')->js('InputfieldRepeater', array(

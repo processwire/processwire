@@ -116,10 +116,11 @@ class PagePermissions extends WireData implements Module {
 	/**
 	 * Hook that adds a Page::editable([$field]) method to determine if $page is editable by current user
 	 * 
-	 * A field name may optionally be specified as the first argument, in which case the field on that page will also be checked for access. 
+	 * A field name may optionally be specified as the first argument, in which case the field on that 
+	 * page will also be checked for access. 
 	 * 
-	 * When using field, specify boolean false for second argument to bypass PageEditable check, as an optimization, if you have 
-	 * already determined that the page is editable.
+	 * When using field, specify boolean false for second argument to bypass PageEditable check, as an 
+	 * optimization, if you have already determined that the page is editable.
 	 * 
 	 * @param HookEvent $event
 	 *
@@ -448,12 +449,14 @@ class PagePermissions extends WireData implements Module {
 	/**
 	 * Is the given field editable by the current user in their user profile?
 	 *
-	 * @param string $name Field name
+	 * @param Field|string $name Field or Field name
 	 * @param User|null User to check (default=current user)
 	 * @return bool
 	 *
 	 */
 	public function userFieldEditable($name, User $user = null) {
+		if(is_object($name) && $name instanceof Field) $name = $name->name;
+		if(empty($name) || !is_string($name)) return false;
 		if(is_null($user)) $user = $this->wire('user');
 		if(!$user->isLoggedin()) return false;
 		if(!$user->hasPermission('profile-edit')) return false;
