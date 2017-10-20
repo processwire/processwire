@@ -816,6 +816,25 @@ function wireIsCallable($var, $syntaxOnly = false, &$callableName = '') {
 }
 
 /**
+ * Return the count of item(s) present in the given value
+ * 
+ * Duplicates behavior of PHP count() function prior to PHP 7.2, which states:
+ * Returns the number of elements in $value. When the parameter is neither an array nor an 
+ * object with implemented Countable interface, 1 will be returned. There is one exception, 
+ * if $value is NULL, 0 will be returned.
+ * 
+ * @param mixed $value
+ * @return int
+ * 
+ */
+function wireCount($value) {
+	if($value === null) return 0; 
+	if(is_array($value)) return count($value); 
+	if(is_object($value) && $value instanceof \Countable) return count($value);
+	return 1;
+}
+
+/**
  * Get or set an output region (primarily for front-end output usage)
  *
  * ~~~~~
