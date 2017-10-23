@@ -83,8 +83,6 @@ class ProcessLanguageTranslator extends Process {
 		$id = $this->input->get->language_id;
 		if($id) {
 			$this->setLanguage((int) $id);
-		} else if($this->session->translateLanguageID) {
-			$this->setLanguage($this->session->translateLanguageID);
 		}
 		// else throw new WireException("No language specified"); 
 		parent::init();
@@ -482,7 +480,7 @@ class ProcessLanguageTranslator extends Process {
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
-		$form->attr('action', "./?textdomain=$textdomain");
+		$form->attr('action', "./?textdomain=$textdomain&language_id={$this->language->id}");
 		$form->attr('method', 'post');
 		$form->description = sprintf($this->_('Translate %1$s to %2$s'), basename($file), $this->language->title);
 		$form->value = "<p>" .
