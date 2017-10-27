@@ -44,6 +44,7 @@ class InputfieldCheckboxes extends InputfieldSelectMultiple implements Inputfiel
 			/** @var MarkupAdminDataTable $table */
 			$table = $this->modules->get("MarkupAdminDataTable"); 
 			$table->setEncodeEntities(false);
+			$table->setSortable(false);
 			$table->addClass('pw-no-select');
 			if($this->thead) $table->headerRow(explode('|', htmlspecialchars($this->thead, ENT_QUOTES, 'UTF-8'))); 
 

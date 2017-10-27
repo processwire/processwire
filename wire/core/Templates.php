@@ -555,6 +555,88 @@ class Templates extends WireSaveableItems {
 	public function getParentPages(Template $template, $checkAccess = false) {
 		return $this->getParentPage($template, $checkAccess, true);
 	}
+	
+	/**
+	 * Set a Permission for a Template for and specific Role
+	 * 
+	 * Note: you must also save() the template to commit the change. 
+	 * 
+	 * #pw-internal
+	 *
+	 * @param Template $template
+	 * @param Permission|string|int $permission
+	 * @param Role|string|int $role
+	 * @param bool $revoke Specify true to revoke the permission, or omit to add the permission
+	 * @param bool $test When true, no changes are made but return value still applicable
+	 * @return bool True if an update was made (or would be made), false if not
+	 * @throws WireException If given unknown Role or Permission
+	 *
+	 */
+	public function setTemplatePermissionByRole(Template $template, $permission, $role, $revoke = false, $test = false) {
+
+		if(!$template->useRoles) throw new WireException("Template $template does not have access control enabled"); 
+		
+		$defaultPermissions = array('page-view', 'page-edit', 'page-create', 'page-add');
+		$updated = false;
+
+		if(is_string($role) || is_int($role)) $role = $this->wire('roles')->get($role);
+		if(!$role instanceof Role) throw new WireException("Unknown role for Template::setPermissionByRole");
+
+		if(is_string($permission) && in_array($permission, $defaultPermissions)) {
+			$permissionName = $permission;
+		} else if($permission instanceof Permission) {
+			$permissionName = $permission->name;
+		} else {
+			$permission = $this->wire('permissions')->get($permission);
+			$permissionName = $permission ? $permission->name : '';
+		}
+
+		if(in_array($permissionName, $defaultPermissions)) {
+			// use pre-defined view/edit/create/add roles
+			$roles = $template->getRoles($permissionName);
+			$has = $roles->has($role);
+			if($revoke) {
+				if($has) {
+					if($test) return true;
+					$roles->remove($role);
+					$template->setRoles($roles, $permissionName);
+					$updated = true;
+				}
+			} else if(!$has) {
+				if($test) return true;
+				$roles->add($role);
+				$template->setRoles($roles, $permissionName);
+				$updated = true; 
+			}
+
+		} else if($permission instanceof Permission) {
+			$rolesPermissions = $template->get('rolesPermissions');
+			if(!is_array($rolesPermissions)) $rolesPermissions = array();
+			$rolePermissions = isset($rolesPermissions["$role->id"]) ? $rolesPermissions["$role->id"] : array();
+			$_rolePermissions = $rolePermissions;
+			if($revoke) {
+				$key = array_search("$permission->id", $rolePermissions);
+				if($key !== false) unset($rolePermissions[$key]);
+				if(!in_array("-$permission->id", $rolePermissions)) $rolePermissions[] = "-$permission->id";
+			} else {
+				$key = array_search("-$permission->id", $rolePermissions);
+				if($key !== false) unset($rolePermissions[$key]);
+				if(!in_array("$permission->id", $rolePermissions)) $rolePermissions[] = "$permission->id";
+			}
+			if($rolePermissions !== $_rolePermissions) {
+				if($test) return true;
+				$rolesPermissions["$role->id"] = $rolePermissions;
+				$template->set('rolesPermissions', $rolesPermissions);
+				$updated = true;
+			}
+
+		} else {
+			throw new WireException("Unknown permission for Templates::setPermissionByRole");
+		}
+		
+		return $updated; 
+	}
+
 
 	/**
 	 * FUTURE USE: Is the parent/child relationship allowed?

@@ -608,6 +608,10 @@ class ProcessTemplate extends Process {
 	 */
 	public function ___executeEdit() {
 
+		if(substr($this->wire('input')->url(), -1) === '/') {
+			// we require non-trailing slash for edit requests
+			$this->wire('session')->redirect("../edit?id={$this->template->id}");
+		}
 		$this->wire('breadcrumbs')->add(new Breadcrumb('./', $this->moduleInfo['title'])); 
 		$min = $this->wire('config')->debug ? '' : '.min';
 		$this->wire('config')->scripts->add($this->wire('config')->urls->ProcessTemplate . "ProcessTemplateFieldCreator$min.js?v=1");
