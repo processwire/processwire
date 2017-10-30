@@ -149,7 +149,8 @@ $(document).ready(function() {
 
 		return this.each(function(index) {
 
-			var $container = $(this); 
+			var $container = $(this);
+			var $outer;
 			var $root; 
 			var $loading = $(options.spinnerMarkup); 
 			var firstPagination = 0; // used internally by the getPaginationList() function
@@ -168,10 +169,12 @@ $(document).ready(function() {
 					if(!options.selectedPageID.length) options.selectedPageID = 0;
 					options.mode = 'select';
 					$container.before($root); 
+					$outer = $container.closest('.InputfieldContent');
 					setupSelectMode();
 				} else {
 					options.mode = 'actions'; 
 					$container.append($root); 
+					$outer = $container;
 					loadChildren(options.rootPageID > 0 ? options.rootPageID : 1, $root, 0, true); 
 					/*
 					// longclick to initiate sort, still marinating on whether to support this
@@ -223,7 +226,7 @@ $(document).ready(function() {
 					}
 				}
 
-				$(document).on('keydown', '.PageListItem', function(e) { 
+				$outer.on('keydown', '.PageListItem', function(e) {
 					// PR#1 makes page-list keyboard accessible
 					e = e || window.event;
 					if(e.keyCode == 0 || e.keyCode == 32) {
@@ -237,8 +240,8 @@ $(document).ready(function() {
 						return false;
 					}
 				});
-				
-				$(document).on('mouseover', '.PageListItem', function(e) {
+
+				$outer.on('mouseover', '.PageListItem', function(e) {
 
 					if($root.is(".PageListSorting") || $root.is(".PageListSortSaving")) return;
 					if(!$(this).children('a:first').is(":hover")) return;
@@ -259,7 +262,7 @@ $(document).ready(function() {
 					hoverTimeout = setTimeout(function() {
 						if($hoveredItem.attr('class') == $item.attr('class')) {
 							if(!$hoveredItem.children('a:first').is(":hover")) return;
-							var $hideItems = $(".PageListItemHover");
+							var $hideItems = $outer.find(".PageListItemHover");
 							showItem($hoveredItem);
 							$hideItems.each(function() { hideItem($(this)); });
 						}
