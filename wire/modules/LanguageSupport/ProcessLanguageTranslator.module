@@ -482,7 +482,7 @@ class ProcessLanguageTranslator extends Process {
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
-		$form->attr('action', "./?textdomain=$textdomain");
+		$form->attr('action', "./?textdomain=$textdomain&language_id={$this->language->id}");
 		$form->attr('method', 'post');
 		$form->description = sprintf($this->_('Translate %1$s to %2$s'), basename($file), $this->language->title);
 		$form->value = "<p>" .
