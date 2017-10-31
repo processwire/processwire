@@ -306,7 +306,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		$numImages = 0;
 		$numImageFields = 0;
-		$skipFields = explode(' ', $this->skipFields);
+		$skipFields = $this->wire('input')->urlSegment1 ? array() : explode(' ', $this->skipFields);
 	
 		if(empty($fields)) {
 			if($this->field) {
@@ -418,7 +418,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 					$info = $in->getAdminThumb($image); 
 					$img = $info['markup'];
 				}
-				$out .= "\n\t<li><a href='./edit?file={$image->page->id},{$image->basename}&amp;modal=1&amp;id={$this->page->id}&amp;winwidth=$winwidth'>$img</a></li>";
+				$out .= "\n\t<li><a href='./edit?file={$image->page->id},{$image->basename}" . 
+					"&amp;modal=1&amp;id={$this->page->id}&amp;winwidth=$winwidth'>$img</a></li>";
 			}
 
 			$class = $this->noThumbs ? "" : " class='thumbs'";

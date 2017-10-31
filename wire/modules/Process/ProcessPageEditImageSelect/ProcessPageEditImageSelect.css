@@ -13,6 +13,7 @@
 #select_images a img {
 	border: 3px solid #fff; 
 	max-width: 100%; 
+	height: 130px;
 }
 
 #select_images a:hover img {
