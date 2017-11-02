@@ -686,7 +686,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 					return $this->fieldContexts[$field_id][$namespace];
 				}
 				return array();
-			} else {
+			} else if(isset($this->fieldContexts[$field_id])) {
 				return $this->fieldContexts[$field_id];
 			}
 		}
@@ -699,8 +699,8 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * #pw-internal
 	 * 
 	 * @param int $field_id Field ID
-	 * @param string $namespace Optional namespace
 	 * @param array $data
+	 * @param string $namespace Optional namespace
 	 * 
 	 */
 	public function setFieldContextArray($field_id, $data, $namespace = '') {

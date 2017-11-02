@@ -988,11 +988,12 @@ function InputfieldImage($) {
 		
 		//console.log('initInputfield');
 		//console.log($inputfield);
-		setGridSize($inputfield, size, ragged);
 		
 		if($inputfield.hasClass('InputfieldImageEditAll') || mode == 'list') {
 			var listSize = getCookieData($inputfield, 'listSize');
 			setListSize($inputfield, listSize);
+		} else {
+			setGridSize($inputfield, size, ragged);
 		}
 	
 		if(!$inputfield.hasClass('InputfieldImageInit')) {
