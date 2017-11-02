@@ -431,9 +431,14 @@ class ProcessLogin extends Process {
 	 *
 	 */
 	protected function ___renderLoginForm() {
-		if($this->wire('input')->get('login')) {
+		$loggedIn = $this->wire('user')->isLoggedin();
+		$out = '';
+		
+		if($this->wire('input')->get('login') && $loggedIn) {
+			// redirect to page after login
 			$this->afterLoginRedirect();
-			return '';
+		} else if($loggedIn) {
+			// user is already logged in, do nothing
 		} else {
 			// note the space after 'Login ' is intentional to separate it from the Login button for translation purposes
 			$this->headline($this->_('Login ')); // Headline for login form page
@@ -446,8 +451,9 @@ class ProcessLogin extends Process {
 			$home = $this->pages->get("/"); 
 			$links .= "<div><a href='{$home->url}'><i class='fa fa-home'></i> {$home->title}</a></div>";
 			if($links) $out .= "<p>$links</p>";
-			return $out; 
 		}
+		
+		return $out;
 	}
 
 	/**
