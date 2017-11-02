@@ -1203,7 +1203,8 @@ function InputfieldImage($) {
 					dragStop();
 				}, false);
 				
-				el.addEventListener("dragenter", function() {
+				el.addEventListener("dragenter", function(evt) {
+					evt.preventDefault();
 					dragStart();
 				}, false);
 

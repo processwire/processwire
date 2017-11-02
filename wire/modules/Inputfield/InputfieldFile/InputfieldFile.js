@@ -423,7 +423,8 @@ $(document).ready(function() {
 				$(this).removeClass('ui-state-hover'); 
 				$(this).closest('.Inputfield').removeClass('pw-drag-in-file'); 
 			}, false);
-			dropArea.addEventListener("dragenter", function() { 
+			dropArea.addEventListener("dragenter", function(evt) {
+				evt.preventDefault();
 				$(this).addClass('ui-state-hover'); 
 				$(this).closest('.Inputfield').addClass('pw-drag-in-file');
 			}, false);
