@@ -1718,6 +1718,113 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		return $field; 
 		*/
 	}
+	
+	/**
+	 * Export configuration values for external consumption
+	 *
+	 * Use this method to externalize any config values when necessary.
+	 * For example, internal IDs should be converted to GUIDs where possible.
+	 * Most Fieldtype modules can use the default implementation already provided here.
+	 *
+	 * #pw-group-configuration
+	 *
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 *
+	 */
+	public function ___exportConfigData(Field $field, array $data) {
+		
+		$data = parent::___exportConfigData($field, $data); 
+		
+		$template = $this->wire('templates')->get((int) $data['template_id']); 
+		
+		$data['template_id'] = 0;
+		$data['parent_id'] = 0;
+		$data['repeaterFields'] = array();
+		$data['fieldContexts'] = array();
+		
+		foreach($field->get('repeaterFields') as $fid) {
+			$f = $this->wire('fields')->get((int) $fid); 
+			if(!$f) continue;
+			$data['repeaterFields'][] = $f->name;
+			$data['fieldContexts'][$f->name] = $template->fieldgroup->getFieldContextArray($f->id);
+		}
+		
+		return $data;
+	}
+	
+	/**
+	 * Convert an array of exported data to a format that will be understood internally
+	 *
+	 * This is the opposite of the exportConfigData() method.
+	 * Most modules can use the default implementation provided here.
+	 *
+	 * #pw-group-configuration
+	 *
+	 * @param Field $field
+	 * @param array $data
+	 * @return array Data as given and modified as needed. Also included is $data[errors], an associative array
+	 *	indexed by property name containing errors that occurred during import of config data.
+	 *
+	 */
+	public function ___importConfigData(Field $field, array $data) {
+		
+		if(!$field->type instanceof FieldtypeRepeater) return $data;
+	
+		$errors = array();
+		$repeaterFields = array();
+		$saveFieldgroup = false;
+		$saveFieldgroupContext = false;
+		$template = $field->id ? $this->getRepeaterTemplate($field) : null;
+	
+		if(!empty($data['repeaterFields'])) {
+			foreach($data['repeaterFields'] as $name) {
+				$f = $this->wire('fields')->get($name);
+				if(!$f || !$f instanceof Field) {
+					$errors[] = "Unable to locate field to add to repeater: $name";
+					continue;
+				}
+				$repeaterFields[] = $f->id;
+			}
+			$data['repeaterFields'] = $repeaterFields;
+		}
+		
+		if($template && !empty($data['fieldContexts'])) {
+			foreach($data['fieldContexts'] as $name => $contextData) {
+				$f = $this->wire('fields')->get($name);
+				if(!$f || !$f instanceof Field) continue;
+				if($template->fieldgroup->hasField($f)) {
+					$f = $template->fieldgroup->getFieldContext($f->name);
+				}
+				$template->fieldgroup->add($f);
+				$saveFieldgroup = true;
+				if(!empty($contextData)) {
+					$template->fieldgroup->setFieldContextArray($f->id, $contextData);
+					$saveFieldgroupContext = true;
+				}
+			}
+		}
+		
+		if($template) {
+			if($saveFieldgroupContext) {
+				$template->fieldgroup->saveContext();
+			}
+			if($saveFieldgroup) {
+				$template->fieldgroup->save();
+			}
+		}
+		
+		unset($data['fieldContexts']); 
+		
+		$data = parent::___importConfigData($field, $data);
+		
+		if(count($errors)) {
+			$data['errors'] = array_merge($data['errors'], array('repeaterFields' => $errors)); 
+		}
+		
+		return $data; 
+	}
 
 	/**
 	 * Return configuration fields definable for each FieldtypePage

@@ -777,6 +777,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				$depthName = "depth_repeater{$page->id}";
 
 				if($input->$deleteName == $page->id) {
+					// @todo add check to Fieldgroups::isFieldNotRemoveable() before attempting remove
 					$value->remove($page);
 					$numChanges++;
 					continue;
