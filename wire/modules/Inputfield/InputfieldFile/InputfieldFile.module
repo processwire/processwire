@@ -163,11 +163,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	}
 	
 	public function get($key) {
-		if($key == 'renderValueMode') return $this->renderValueMode;
-		if($key == 'singleFileReplacement') return $this->singleFileReplacement;
-		if($key == 'descriptionFieldLabel') return $this->labels['description'];
-		if($key == 'tagsFieldLabel') return $this->labels['tags'];
-		if($key == 'deleteLabel') return $this->labels['delete'];
+		if($key === 'renderValueMode') return $this->renderValueMode;
+		if($key === 'singleFileReplacement') return $this->singleFileReplacement;
+		if($key === 'descriptionFieldLabel') return $this->labels['description'];
+		if($key === 'tagsFieldLabel') return $this->labels['tags'];
+		if($key === 'deleteLabel') return $this->labels['delete'];
+		if($key === 'themeSettings') return $this->themeSettings;
 		return parent::get($key);
 	}
 	
