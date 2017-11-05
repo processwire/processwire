@@ -45,7 +45,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 62;
+	const versionRevision = 82;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -804,7 +804,7 @@ class ProcessWire extends Wire {
 			unset($sf, $f, $x);
 		
 			// when internal is true, we are not being called by an external script
-			$cfg['internal'] = $realIndexFile == $realScriptFile;
+			$cfg['internal'] = strtolower($realIndexFile) == strtolower($realScriptFile);
 
 		} else {
 			// when included from another app or command line script

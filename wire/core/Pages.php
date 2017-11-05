@@ -394,13 +394,14 @@ class Pages extends Wire {
 	 *
 	 * @param Page $page Page object to save
 	 * @param array $options Optional array to modify default behavior, with one or more of the following:
-	 * - `uncacheAll` (boolean): Whether the memory cache should be cleared (default=true)
-	 * - `resetTrackChanges` (boolean): Whether the page's change tracking should be reset (default=true)
-	 * - `quiet` (boolean): When true, modified date and modified_users_id won't be updated (default=false)
-	 * - `adjustName` (boolean): Adjust page name to ensure it is unique within its parent (default=false)
-	 * - `forceID` (integer): Use this ID instead of an auto-assigned one (new page) or current ID (existing page)
-	 * - `ignoreFamily` (boolean): Bypass check of allowed family/parent settings when saving (default=false)
+	 * - `uncacheAll` (boolean): Whether the memory cache should be cleared (default=true).
+	 * - `resetTrackChanges` (boolean): Whether the page's change tracking should be reset (default=true).
+	 * - `quiet` (boolean): When true, modified date and modified_users_id won't be updated (default=false).
+	 * - `adjustName` (boolean): Adjust page name to ensure it is unique within its parent (default=false).
+	 * - `forceID` (integer): Use this ID instead of an auto-assigned one (new page) or current ID (existing page).
+	 * - `ignoreFamily` (boolean): Bypass check of allowed family/parent settings when saving (default=false).
 	 * - `noHooks` (boolean): Prevent before/after save hooks (default=false), please also use $pages->___save() for call.
+	 * - `noFields` (boolean): Bypass saving of custom fields, leaving only native properties to be saved (default=false).
 	 * @return bool True on success, false on failure
 	 * @throws WireException
 	 * @see Page::save(), Pages::saveField()
@@ -644,6 +645,7 @@ class Pages extends Wire {
 	 * - `findTemplates` (boolean): Determine which templates will be used (when no template specified) for more specific autojoins. (default=true)
 	 * - `pageClass` (string): Class to instantiate Page objects with. Leave blank to determine from template. (default=auto-detect)
 	 * - `pageArrayClass` (string): PageArray-derived class to store pages in (when 'getOne' is false). (default=PageArray)
+	 * - `pageArray` (PageArray|null): Populate this existing PageArray rather than creating a new one. (default=null)
 	 * - `page` (Page|null): Existing Page object to populate (also requires the getOne option to be true). (default=null)
 	 * 
 	 * **Use the `$options` array for potential speed optimizations:**
@@ -1195,11 +1197,17 @@ class Pages extends Wire {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param array $options Optionally specify array('pageArrayClass' => 'YourPageArrayClass')
+	 * @param array $options Optionally specify ONE of the following: 
+	 *  - `pageArrayClass` (string): Name of PageArray class to use (if not “PageArray”).
+	 *  - `pageArray` (PageArray): Wire and return this given PageArray, rather than instantiating a new one. 
 	 * @return PageArray
 	 * 
 	 */
 	public function newPageArray(array $options = array()) {
+		if(!empty($options['pageArray']) && $options['pageArray'] instanceof PageArray) {
+			$this->wire($options['pageArray']);
+			return $options['pageArray'];
+		}
 		$class = 'PageArray';
 		if(!empty($options['pageArrayClass'])) $class = $options['pageArrayClass'];
 		$class = wireClassName($class, true);

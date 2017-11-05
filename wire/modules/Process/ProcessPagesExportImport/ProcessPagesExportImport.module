@@ -1,0 +1,1148 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Page Export and Import
+ *
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * https://processwire.com
+ * 
+ * Note: this module supports page-edit-export and page-edit-import permissions, but currently the module is 
+ * designed only for use by superuser, so don't bother adding those permissions at present. 
+ * 
+ * @todo ZIP file support
+ * @todo Repeater support
+ * @todo PageTable support
+ *
+ */
+
+class ProcessPagesExportImport extends Process {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Pages Export/Import',
+			'summary' => 'Enables exporting and importing of pages. Development version, not yet recommended for production use.',
+			'version' => 1,
+			'author' => 'Ryan Cramer',
+			'icon' => 'paper-plane-o',
+			'permission' => 'page-edit-export', 
+			'page' => array(
+				'name' => 'export-import',
+				'parent' => 'page',
+				'title' => 'Export/Import'
+			)
+		);
+	}
+	
+	const debug = false;
+
+	/**
+	 * @var PagesExportImport
+	 * 
+	 */
+	protected $exportImport;
+
+	/**
+	 * Main execution handler
+	 * 
+	 * @return string
+	 * @throws \Exception
+	 * 
+	 */
+	public function ___execute() {
+		
+		if(!$this->wire('user')->isSuperuser()) {
+			throw new WirePermissionException($this->_('Export/import is currently only available to superuser')); 
+		}
+		
+		$this->exportImport = new PagesExportImport();
+		$this->wire($this->exportImport);
+		$this->exportImport->cleanupFiles(600);
+
+		$input = $this->wire('input');
+		$user = $this->wire('user');
+		$breadcrumbLabel = $this->wire('page')->title;
+		
+		try {
+			if($input->post('submit_export')) {
+				if($user->hasPermission('page-edit-export')) {
+					$this->breadcrumb('./', $breadcrumbLabel);
+					$this->headline($this->_('Export'));
+					return $this->processExport();
+				}
+			} else if($input->post('submit_import') || $input->post('submit_commit_import') || $input->post('submit_test_import')) {
+				if($user->hasPermission('page-edit-import')) {
+					$this->breadcrumb('./', $breadcrumbLabel);
+					$this->headline($this->_('Import'));
+					$form = $this->processImport();
+					return $form->render();
+				}
+			} else {
+				$this->warning(
+					'Please note this is a development version of pages export/import ' . 
+					'and not yet recommended for production use.'
+				);
+				$form = $this->buildForm();
+				return $form->render();
+			}
+		} catch(\Exception $e) {
+			if(self::debug) throw $e;
+			$this->error($e->getMessage());
+			$this->wire('session')->redirect($this->wire('page')->url); 
+		}
+		
+		return '';
+	}
+
+	/**
+	 * Build the main import/export form 
+	 * 
+	 * @param string $tab Optionally specify which tab to include, “export” or “import”
+	 * @return InputfieldForm|InputfieldWrapper
+	 * 
+	 */
+	protected function buildForm($tab = '') {
+		
+		$modules = $this->wire('modules');
+		$modules->get('JqueryWireTabs'); 
+		$user = $this->wire('user');
+		
+		$form = $modules->get('InputfieldForm');
+		$form->attr('id', 'ProcessPagesExportImport');
+		$form->attr('method', 'post'); 
+		$form->attr('enctype', 'multipart/form-data');
+		
+		if($user->hasPermission('page-edit-export')) {
+			if(!$tab || $tab == 'export') $form->add($this->buildExportTab());
+		}
+		
+		if($user->hasPermission('page-edit-import')) {
+			if(!$tab || $tab == 'import') $form->add($this->buildImportTab());
+		}
+		
+		return $form;
+	}
+
+	/**
+	 * Build the “import” tab
+	 * 
+	 * @return InputfieldWrapper
+	 * 
+	 */
+	protected function buildImportTab() {
+		
+		$modules = $this->wire('modules');
+
+		$tab = new InputfieldWrapper();
+		$tab->attr('id+name', 'tab_import');
+		$tab->attr('title', $this->_('Import'));
+		$tab->addClass('WireTab');
+	
+		$f = $modules->get('InputfieldTextarea'); 
+		$f->name = 'import_json';
+		$f->label = $this->_('Import from JSON string'); 
+		$f->icon = 'scissors';
+		$f->description = $this->_('Paste in the JSON string previously exported from this tool.'); 
+		$tab->add($f);
+	
+		$f = $modules->get('InputfieldFile');
+		$f->name = 'import_zip';
+		$f->label = $this->_('Import from ZIP file upload') . " (experimental)";
+		$f->extensions = 'zip';
+		$f->icon = 'upload';
+		$f->maxFiles = 1;
+		$f->unzip = 0;
+		$f->overwrite = false;
+		$f->setMaxFilesize('10g');
+		$f->collapsed = Inputfield::collapsedYes;
+		$f->destinationPath = $this->exportImport->getExportPath();
+		$tab->add($f);
+
+		$f = $modules->get('InputfieldSubmit');
+		$f->attr('name', 'submit_import');
+		$f->val($this->_('Continue')); 
+		$f->icon = 'angle-right';
+		$tab->add($f);
+	
+		return $tab;
+	}
+	
+	/**
+	 * Process a submitted import and return form with summary data
+	 * 
+	 * @return InputfieldForm
+	 * @throws WireException
+	 * 
+	 */
+	protected function processImport() {
+		
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+
+		/** @var InputfieldWrapper $importTab */
+		$importTab = $this->buildForm('import');
+	
+		$submitCommit = $input->post('submit_commit_import') ? true : false;
+		$submitTest = $input->post('submit_test_import') ? true : false;
+		$submitZIP = !empty($_FILES['import_zip']) && !empty($_FILES['import_zip']['name'][0]);
+		$fileField = null;
+		$filesPath = $this->wire('session')->getFor($this, 'filesPath'); 
+		$jsonFile = '';
+		$a = null;
+		
+		if($submitZIP) {
+			// ZIP file import
+			$importTab->processInput($input->post);
+			$fileField = $importTab->getChildByName('import_zip');
+			$zipFile = $this->exportImport->getExportPath() . $fileField->value->first()->name;
+			if(!$zipFile || !is_file($zipFile)) throw new WireException('No ZIP file found: ' . $zipFile); 
+			$unzipPath = $this->exportImport->getExportPath('import-zip'); 
+			$zipFileItems = $this->wire('files')->unzip($zipFile, $unzipPath);
+			unlink($zipFile); 
+			if(empty($zipFileItems)) throw new WireException("No files found in ZIP"); 
+			$jsonFile = $unzipPath . "pages.json";
+			$this->wire('session')->setFor($this, 'filesPath', $unzipPath);
+			
+		} else if(!empty($_POST['import_json'])) {
+			// JSON import
+			$importTab->processInput($input->post);
+			$json = $importTab->getChildByName('import_json')->val(); 
+			if(empty($json)) throw new WireException($this->_('No import data found')); 
+			$a = json_decode($json, true);
+			$this->wire('session')->setFor($this, 'filesPath', ''); 
+			
+		} else if($filesPath) {
+			// ZIP import commit or test
+			$jsonFile = $filesPath . "pages.json";
+		}
+		
+		if($jsonFile) {
+			if(!is_file($jsonFile)) throw new WireException("No pages.json found in ZIP file"); 
+			$a = json_decode(file_get_contents($jsonFile), true);
+		}
+
+		if(!is_array($a)) throw new WireException($this->_('Invalid import data')); 
+		if(empty($a['type']) || $a['type'] != 'ProcessWire:PageArray') throw new WireException("Invalid import type: $a[type]");
+		if(empty($a['pages'])) throw new WireException("No pages found to import");
+		if(empty($a['fields'])) throw new WireException("Import data contains no fields information");
+	
+		// adjust import data as needed
+		$this->adjustImportData($a); 
+		
+		// populate an _info array to $a
+		$this->exportImport->getImportInfo($a);
+		$info =& $a['_info'];
+		
+		// expand the original form with more import options
+		$form = $this->buildImportForm($importTab, $a);
+	
+		// determine whether we are testing, committing or continuing after 1st submit
+		if($submitCommit || $submitTest) {
+			// form has been submitted for testing or commit
+			$qty = $this->processImportSubmit($form, $a, $submitCommit);
+			if($submitCommit) {
+				$form->description = sprintf($this->_n('Imported %d page', 'Imported %d pages', $qty), $qty);
+				foreach($form->children() as $f) {
+					if($f->name != 'import_items') $form->remove($f);
+				}
+			} else {
+				$form->description = sprintf($this->_n('Tested import of %d page', 'Tested import of %d pages', $qty), $qty);
+			}
+
+		} else {
+			// first submission from import tab
+			$qty = count($a['pages']);
+			$form->description = sprintf($this->_n('Found %d page for import', 'Found %d pages for import', $qty), $qty);
+		}
+	
+		if($qty > 1) {
+			$form->description .= ' (' .
+				sprintf($this->_('%d new, %d existing'), $info['numNew'], $info['numExisting']) . ')';
+		}
+
+		return $form;
+	}
+
+	/**
+	 * Handles execution of PagesExportImport for test or commit imports
+	 * 
+	 * @param InputfieldForm $form
+	 * @param array $a Import data
+	 * @param bool $submitCommit Whether or not to commit the import
+	 * @return int Quantity of pages imported
+	 * 
+	 */
+	protected function processImportSubmit(InputfieldForm $form, array &$a, $submitCommit) {
+		
+		// FYI: 
+		// $a = array(
+		//   'type' => 'ProcessWire:PageArray',
+		//   'version' => '...',
+		//   'pagination' => array(),
+		//   'pages' => array( page import data ), 
+		//   'fields' => array( fields information ), 
+		// );
+
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		
+		$form->processInput($input->post);
+		
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $form->getChildByName('import_items');
+		$importMode = $form->getChildByName('import_mode')->val();
+		$fieldNames = $form->getChildByName('import_fields')->val();
+		$qty = 0;
+	
+		$options = array(
+			'update' => $importMode == 'all' || $importMode == 'update',
+			'create' => $importMode == 'all' || $importMode == 'create',
+			'saveOptions' => array('adjustName' => true),
+			'fieldNames' => $fieldNames, 
+			'replaceFields' => isset($a['_replaceFields']) ? $a['_replaceFields'] : array(), 
+			'commit' => $submitCommit,
+			'debug' => self::debug,
+			'changeTemplate' => false,
+			'changeParent' => false,
+			'changeName' => in_array('name', $fieldNames),
+			'changeStatus' => in_array('status', $fieldNames),
+			'changeSort' => in_array('sort', $fieldNames),
+			'filesPath' => $this->wire('session')->getFor($this, 'filesPath'), 
+		);
+		
+		foreach($a['pages'] as $key => $item) {
+			$id = $item['settings']['id'];
+			if($submitCommit && !$input->post("confirm$id")) continue;
+			$page = $this->processImportItemToPage($item, $options);
+			if(!$page instanceof NullPage) $qty++;
+			$fieldset->add($this->buildImportItemSummary($item, $page, $options));
+		}
+		
+		if(!$qty && $fieldset->children()->count() == 0) {
+			$fieldset->description = $this->_('No import details to display');
+		}
+		
+		return $qty; 
+	}
+
+	/**
+	 * Build a fieldset of inputs for missing resource replacement and swap in new values when selected
+	 * 
+	 * @param array $a Import data array, is updated by this method
+	 * @return InputfieldFieldset
+	 * 
+	 */
+	protected function identifyMissingResources(array &$a) {
+		
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+
+		/** @var Modules $modules*/
+		$modules = $this->wire('modules');
+
+		/** @var Templates $templates */
+		$templates = $this->wire('templates');
+		
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+		
+		/** @var Pages $pages */
+		$pages = $this->wire('pages');
+		
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+	
+		$numFatalItems = 0;
+		$missingItems = array();
+		$info = $a['_info'];
+	
+		// Missing templates
+		foreach($info['missingTemplates'] as $templateName) {
+			$inputName = "template_$templateName";
+			$inputValue = $input->post($inputName);
+			$template = null;
+			if($inputValue) {
+				$inputValue = $sanitizer->name($inputValue);
+				$template = $templates->get($inputValue);
+			}
+			
+			/** @var InputfieldSelect $f */
+			$f = $modules->get('InputfieldSelect');
+			$f->description =
+				sprintf(
+					$this->_('Pages having template “%s” cannot be imported because that template does not exist here.'),
+					$templateName
+				) . ' ' . $this->_('Select a template to substitute when creating these pages.');
+			
+			foreach($this->wire('templates') as $t) {
+				$f->addOption($t->name);
+			}
+			
+			if($template) {
+				// swap in new template
+				foreach($a['pages'] as $key => $item) {
+					if($item['template'] === $templateName) {
+						$a['pages'][$key]['template'] = $template->name;
+					}
+				}
+				$f->label = sprintf($this->_('OK: Replacing TEMPLATE “%1$s” with “%2$s”'), $templateName, $template->name); 
+				$f->collapsed = Inputfield::collapsedYes; 
+				$f->icon = 'check';
+			} else {
+				$f->icon = 'cubes';
+				$f->label = sprintf($this->_('Select replacement for TEMPLATE named “%s”'), $templateName);
+				$numFatalItems++;
+			}
+			
+			$f->attr('name', $inputName);
+			$f->attr('value', $template ? $template->name : '');
+			$missingItems[] = $f;
+		}
+	
+		// Missing fields
+		$replaceFields = array();
+		$importFields = $input->post('import_fields'); 
+		
+		foreach($info['missingFields'] as $fieldName) {
+			if($importFields && !in_array($fieldName, $importFields)) continue; 
+			
+			$inputName = "field_$fieldName";
+			$inputValue = $input->post($inputName);
+			$field = null;
+			
+			if($inputValue) {
+				$inputValue = $sanitizer->fieldName($inputValue);
+				$field = $fields->get($inputValue);
+			}
+			
+			/** @var InputfieldSelect $f */
+			$fieldtypeClass = $a['fields'][$fieldName]['type'];
+			$fieldtypeLabel = str_replace('Fieldtype', '', $fieldtypeClass);
+			$f = $modules->get('InputfieldSelect');
+			
+			$f->description = sprintf(
+					$this->_('A field named “%s” of type *%s* appears in the import data, but does not exist locally.'),
+					$fieldName,
+					$fieldtypeLabel
+				) . ' ' . $this->_('If you want to import this field, select a replacement field here.'); 
+			
+			if($field) {
+				// swap in new field 
+				$replaceFields[$fieldName] = $field->name; 
+				/*
+				 * // Moved to options[replaceFields], this code for reference: 
+				foreach($a['pages'] as $key => $item) {
+					if(!isset($item['data'][$fieldName])) continue;
+					if(isset($item['data'][$field->name])) continue;
+					$item['data'][$field->name] = $item['data'][$fieldName];
+					unset($item['data'][$fieldName]);
+					$a['pages'][$key] = $item;
+				}
+				*/
+				$f->icon = 'check';
+				$f->collapsed = Inputfield::collapsedYes;
+				$f->label = sprintf($this->_('OK: Replacing FIELD “%1$s” with “%2$s”'), $fieldName, $field->name);
+			} else {
+				$f->label = sprintf($this->_('Select replacement for FIELD named “%s”'), $fieldName);
+				$f->icon = 'cube';
+			}
+			
+			$f->addOption(''); 
+			$optionsRecommended = array();
+			$optionsOther = array();
+			
+			foreach($this->wire('fields') as $_field) {
+				/** @var Field $_field */
+				if($_field->type->className() == $fieldtypeClass && !$_field->hasFlag(Field::flagSystem)) {
+					$optionsRecommended[$_field->name] = $_field->name;
+				} else {
+					$optionsOther[$_field->name] = $_field->name;
+				}
+			}
+			
+			if(count($optionsRecommended)) {
+				$f->addOption($this->_('Potential replacement fields'), $optionsRecommended);
+				$f->addOption($this->_('Other fields (may not be compatible)'), $optionsOther);
+			} else {
+				$f->addOptions($optionsOther);
+			}
+			
+			$f->attr('name', $inputName);
+			$f->attr('value', $field ? $field->name : '');
+			$missingItems[] = $f;
+		}
+		$a['_replaceFields'] = $replaceFields;
+		
+		// Missing parents
+		$updatedParents = array();
+		
+		foreach($info['missingParents'] as $parentPath) {
+			
+			$inputName = "parent_" . str_replace('/', '__', trim($parentPath, '/'));
+			$inputValue = $input->post($inputName);
+			$parent = null;
+			
+			if($inputValue) {
+				$inputValue = (int) $inputValue; 
+				$parent = $pages->get($inputValue);
+				if(!$parent->id) $parent = null;
+			}
+			
+			if(!$parent) {
+				$skipParent = false;
+				foreach($updatedParents as $updatedPath => $updatedPage) {
+					if(strpos($parentPath, $updatedPath) === 0) {
+						$skipParent = true;
+					}
+				}
+				if($skipParent) continue;
+			}
+
+			/** @var InputfieldPageListSelect $f */
+			$f = $modules->get('InputfieldPageListSelect');
+			$f->startLabel = $this->_('Choose new parent'); 
+			$f->description =
+				sprintf(
+					$this->_('Pages having parent “%s” cannot be imported because that page does not exist here.'),
+					$parentPath
+				) . ' ' . $this->_('Select a parent page to use instead creating these pages.');
+
+			if($parent) {
+				// swap in new parent
+				foreach($a['pages'] as $key => $item) {
+					if(strpos($item['path'], $parentPath) === 0) {
+						$path = $parent->path . substr($item['path'], strlen($parentPath)); 
+						$a['pages'][$key]['path'] = $path;
+					}
+				}
+				$f->label = sprintf($this->_('OK: Replacing PARENT “%1$s” with “%2$s”'), $parentPath, $parent->path);
+				$f->collapsed = Inputfield::collapsedYes;
+				$f->icon = 'check';
+				$updatedParents[$parent->path] = $parent;
+			} else {
+				$f->icon = 'female';
+				$f->label = sprintf($this->_('Select replacement for PARENT named “%s”'), $parentPath);
+				$numFatalItems++;
+			}
+
+			$f->attr('name', $inputName);
+			$f->attr('value', $parent ? $parent->id : '');
+			$missingItems[] = $f;
+		}
+
+		if(count($missingItems)) {
+			/** @var InputfieldFieldset $fieldset */
+			$fieldset = $modules->get('InputfieldFieldset');
+			$fieldset->label = $this->_('Resource conflicts');
+			$fieldset->icon = 'warning';
+
+			foreach($missingItems as $f) {
+				$fieldset->add($f);
+			}
+		} else {
+			$fieldset = new InputfieldWrapper();
+		}
+		
+		if($numFatalItems) $a['_noCommit'] = true;
+		
+		return $fieldset; 
+	}
+	
+	/**
+	 * Adjust import data as needed to match specific import options
+	 *
+	 * @param array $a Import data to adjust
+	 * @throws WireException
+	 *
+	 */
+	protected function adjustImportData(&$a) {
+		
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		
+		$importParentID = (int) $input->post('import_parent');
+		$importParentType = $input->post('import_parent_type') === 'direct' ? 'direct' : 'below';
+		$importParent = $importParentID ? $this->wire('pages')->get($importParentID) : null;
+		$importParentPath = $importParent ? $importParent->path() : '';
+		
+		if($importParent && !$importParentID) throw new WireException("Unknown parent: $importParentID");
+		
+		if($importParentID && $importParentType === 'direct') {
+			// update paths to make pages direct children of selected parent
+			foreach($a['pages'] as $key => $item) {
+				$a['pages'][$key]['path'] = $importParentPath . $item['settings']['name'] . '/';
+			}
+
+		} else if($importParentID) {
+			// update import to all go under a selected parent
+			// locate all page paths
+			$importPaths = array();
+			$missingParentPaths = array();
+			foreach($a['pages'] as $item) {
+				$path = rtrim($item['path'], '/') . '/';
+				$importPaths[$path] = $item['settings']['id'];
+			}
+			// update page paths as necessary to ensure parents exist
+			foreach($a['pages'] as $item) {
+				$parts = explode('/', trim($item['path'], '/'));
+				array_pop($parts);
+				$parentPath = count($parts) ? '/' . implode('/', $parts) . '/' : '/';
+				if(isset($importPaths[$parentPath])) {
+					// parent of this page will also be imported
+				} else {
+					// this page's parent is not part of the import
+					$missingParentPaths[] = $parentPath;
+				}
+			}
+			$importParentPath = $importParent->path();
+			foreach($a['pages'] as $key => $item) {
+				$path = $item['path'];
+				foreach($missingParentPaths as $missingParentPath) {
+					if(strpos($path, $missingParentPath) === 0) {
+						$path = rtrim($importParentPath . substr($path, strlen($missingParentPath)), '/') . '/';
+					}
+				}
+				if($path == $item['path']) $path = $importParentPath . trim($path, '/') . '/';
+				$a['pages'][$key]['path'] = $path;
+			}
+		}
+	}
+
+	/**
+	 * Import item to a Page and return it 
+	 * 
+	 * @param array $item Import data for 1 page
+	 * @param array $options Options for importer
+	 * @return NullPage|Page
+	 * 
+	 */
+	protected function processImportItemToPage(array $item, array $options) {
+		try {
+			$page = $this->exportImport->arrayToPage($item, $options);
+		} catch(\Exception $e) {
+			$page = new NullPage();
+			$page->error($e->getMessage());
+		}
+		return $page; 
+	}
+
+	/**
+	 * Build the import form that appears after submitting from Import tab
+	 * 
+	 * @param InputfieldForm $tab The form that was used for the Import tab
+	 * @param array $a Array of import data
+	 * @return InputfieldForm 
+	 * 
+	 */
+	protected function buildImportForm(InputfieldForm $tab, array &$a) {
+	
+		$modules = $this->wire('modules');
+		
+		$form = $modules->get('InputfieldForm');
+		$form->attr('id', 'import-form');
+		$form->description = $this->_('Import summary');
+
+		// hide import data fields
+		if(!self::debug) {
+			foreach(array('import_json', 'import_zip') as $name) {
+				$f = $tab->getChildByName($name);
+				if($f) $f->wrapAttr('style', 'display:none');
+			}
+		}
+
+		// copy fields from tab to new form
+		/** @var InputfieldFieldset $importTab */
+		$importTab = $tab->getChildByName('tab_import'); 
+		foreach($importTab->children() as $f) {
+			if($f->attr('name') == 'import_zip') {
+				continue;
+			} else if($f instanceof InputfieldSubmit) {
+				continue;
+			} else {
+				$form->add($f);
+			}
+		}
+		
+		$form->add($this->identifyMissingResources($a)); 
+	
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
+		$f->name = 'import_mode';
+		$f->label = $this->_('Import mode');
+		$f->icon = 'edit';
+		$f->addOption('all',
+			$this->_('Create new pages and update existing pages')
+		);
+		$f->addOption('create',
+			$this->_('Create new pages only') . ' ' .
+			"[span.detail] (" .
+			$this->_('Skip over pages in the import that already exist') .
+			") [/span]"
+		);
+		$f->addOption('update',
+			$this->_('Update existing pages only') . ' ' .
+			"[span.detail] (" .
+			$this->_('Skip over pages in the import that do not already exist') .
+			") [/span]"
+		);
+		$f->attr('value', 'all');
+		$form->add($f);
+
+		/** @var InputfieldPageListSelect $f */
+		$f = $modules->get('InputfieldPageListSelect');
+		$f->attr('name', 'import_parent');
+		$f->label = $this->_('Import pages below parent');
+		$f->description = $this->_('When specified, pages will import to the parent page selected here.');
+		$f->collapsed = Inputfield::collapsedBlank;
+		$f->icon = 'female';
+		$f->showIf = 'import_mode!=update';
+		$f->startLabel = $this->_('Choose parent'); 
+		$checkedDirect = $this->wire('input')->post('import_parent_type') == 'direct' ? "checked='checked'" : '';
+		$checkedBelow = $checkedDirect ? '' : "checked='checked'"; 
+		$f->appendMarkup = 
+			"<p class='InputfieldRadios'>" . 
+				"<label style='display:block'>" . 
+					"<input type='radio' name='import_parent_type' $checkedBelow value='below'>" .
+					"<span class='pw-no-select'>" . 
+						$this->_('Import pages into selected parent and maintain page path structure below it') . 
+					"</span>" . 
+				"</label>" . 
+				"<label style='display:block'>" . 
+					"<input type='radio' name='import_parent_type' $checkedDirect value='direct'>" .
+					"<span class='pw-no-select'>" . 
+						$this->_('Import pages as children of selected parent page only') .
+					"</span>" . 
+				"</label>" . 
+			"</p>";
+			
+		$form->add($f);
+
+		/** @var InputfieldCheckboxes $f */
+		$f = $modules->get('InputfieldCheckboxes');
+		$f->attr('name', 'import_fields');
+		$f->label = $this->_('Fields allowed in import');
+		$f->description = $this->_('The following fields were found in the import data.');  
+		$f->description .= ' ' . $this->_('Uncheck any fields that you want to skip during import.'); 
+		$f->icon = 'cube';
+		$f->table = true;
+		$f->thead =
+			$this->_('Name') . '|' .
+			$this->_('Label') . '|' .
+			$this->_('Type');
+		$value = array('name', 'status', 'sort');
+		
+		foreach($a['fields'] as $fieldName => $fieldInfo) {
+			$typeName = str_replace('Fieldtype', '', $fieldInfo['type']);
+			$f->addOption($fieldName, "$fieldName|$fieldInfo[label]|$typeName");
+			$value[] = $fieldName;
+		}
+		$f->addOption('name', "name|" . $this->_('Page name') . "|System");
+		$f->addOption('status', "status|" . $this->_('Page status') . "|System");
+		$f->addOption('sort', "sort|" . $this->_('Page sort index') . "|System"); 
+		$f->attr('value', $value); 
+		if(!$this->wire('input')->post('submit_import')) $f->collapsed = Inputfield::collapsedYes;
+		$form->add($f);
+		
+		$submitTest = $this->wire('input')->post('submit_test_import') ? true : false;
+		$submitCommit = $this->wire('input')->post('submit_commit_import') ? true : false;
+
+		if($submitCommit || $submitTest) {
+			$fieldset = $modules->get('InputfieldFieldset');
+			$fieldset->attr('name', 'import_items');
+			$fieldset->label = $this->_('Import pages');
+			$fieldset->icon = 'copy';
+			$form->prepend($fieldset);
+		}
+		
+		/** @var InputfieldSubmit $f */
+		$f = $modules->get('InputfieldSubmit');
+		$f->attr('name', 'submit_test_import');
+		$f->val($this->_('Test Import'));
+		$f->icon = 'flask';
+		$f->showInHeader(true);
+		$form->add($f);
+	
+		if(($submitTest || $submitCommit) && empty($a['_noCommit'])) {
+			$f = $modules->get('InputfieldSubmit');
+			$f->attr('name', 'submit_commit_import');
+			$f->val($this->_('Commit Import'));
+			$f->icon = 'database';
+			$f->showInHeader(true);
+			$form->add($f);
+		}
+
+		return $form;
+	}
+
+	/**
+	 * Build a summary InputfieldMarkup for a single item/Page
+	 * 
+	 * @param array $item Import item array
+	 * @param Page|NullPage $page Resulting Page object
+	 * @param array $options Import options that were passed to PagesExportImport import() method
+	 * @return InputfieldMarkup
+	 * 
+	 */
+	protected function buildImportItemSummary(array $item, Page $page, array $options) {
+
+		$sanitizer = $this->wire('sanitizer');
+		$changes = $page->get('_importChanges');
+		$importType = $page->get('_importType');
+		$languages = $this->wire('languages');
+		$numChanges = count($changes);
+		$originalID = (int) $item['settings']['id'];
+		$out = '';
+		
+		static $n = 0;
+		$n++;
+		
+		$f = $this->wire('modules')->get('InputfieldMarkup');
+		$f->addClass('import-form-item');
+		$f->label = "$n. ";
+		
+		if($importType == 'create') {
+			$f->label .= sprintf($this->_('Create new page: %s'), $page->get('_importPath'));
+			$f->icon = 'plus-square';
+			$page->message(sprintf($this->_('Template: %s'), $page->template->name));
+		} else if($importType == 'update') {
+			$f->label .= sprintf($this->_('Update existing page: %s'), $page->get('_importPath'));
+			$f->icon = 'pencil-square';
+		} else if($page instanceof NullPage) {
+			$f->label .= sprintf($this->_('Page: %s – Fail'), $item['path']);
+			$f->icon = 'times-rectangle';
+		} else {
+			$f->label .= sprintf($this->_('Page: %s'), $item['path']);
+			$f->icon = 'question-circle';
+		}
+		
+		if($numChanges) {
+			foreach($changes as $key => $change) {
+				// i.e. 'field_name__' as disguised change
+				if(substr($change, -2) == '__') $changes[$key] = substr($change, 0, -2); 
+			}
+			if($languages) {
+				// indicate language in name and status changes
+				foreach($changes as $key => $change) {
+					if(preg_match('/^(name|status)(\d+)$/', $change, $matches)) {
+						$language = $languages->get((int) $matches[2]); 
+						if($language && $language->id) $changes[$key] = $matches[1] . " ($language->name)";
+					}
+				}
+			}
+			if($importType == 'create') {
+				$page->message($this->_('Populated fields:') . ' ' . implode(', ', $changes));
+			} else {
+				$page->message($this->_('Changed fields:') . ' ' . implode(', ', $changes));
+			}
+		} else if(!$page instanceof NullPage) {
+			$page->warning($this->_('No changes detected'));
+		}
+		
+		if($page instanceof NullPage) {
+			$page->error($this->_('Page cannot be imported'));
+			$f->addClass('import-form-item-fail'); 
+			$f->collapsed = Inputfield::collapsedYes;
+		} else {
+			if($options['commit']) $page->message($this->_('Import successful'));
+		}
+		
+		foreach(array('errors', 'warnings', 'messages') as $noticeType) {
+			$notices = $page->$noticeType('clear'); 
+			foreach($notices as $notice) {
+				$noticeText = $sanitizer->entities($notice->text);
+				if($noticeType != 'messages') {
+					$icon = $noticeType == 'errors' ? 'warning' : 'warning';
+				} else {
+					$icon = 'check';
+				}
+				$class = "import-" . trim($noticeType, 's');
+				$noticeText = "<i class='fa fa-fw fa-$icon'></i> $noticeText";
+				$out .= "<p class='$class'>$noticeText</p>";
+			}
+		}
+		
+		if(!$options['commit']) { 
+			if($page instanceof NullPage) {
+				// NullPage (error)
+			} else if($numChanges) {
+				// Page (success)
+				$attr = "type='radio' name='confirm$originalID' class='import-confirm'";
+				$val = $this->wire('input')->post("confirm$originalID");
+				if(($val == $originalID || $val === null) && $numChanges) {
+					$checkedYes = "checked='checked'";
+					$checkedNo = "";
+				} else {
+					$checkedYes = "";
+					$checkedNo = "checked='checked'";
+				}
+				$out .=
+					"<p class='import-form-item-input'>" .
+					"<i class='fa fa-fw fa-caret-right'></i> " .
+					$this->_('Import this page?') . '&nbsp; ' .
+					"<label><input $attr value='$originalID' $checkedYes />&nbsp;" . $this->_('Yes') . "</label>&nbsp; " .
+					"<label><input $attr value='' $checkedNo />&nbsp;" . $this->_('No') . "</label>" .
+					"</p>";
+			}
+		}
+
+		$f->val($out); 
+		
+		return $f; 
+	}
+
+	/**
+	 * Build the export tab
+	 * 
+	 * @return InputfieldWrapper
+	 * 
+	 */
+	protected function buildExportTab() {
+
+		$modules = $this->wire('modules');
+		
+		$tab = new InputfieldWrapper();
+		$tab->attr('id+name', 'tab_export');
+		$tab->attr('title', $this->_('Export'));
+		$tab->addClass('WireTab');
+		
+		$f = $modules->get('InputfieldRadios');
+		$f->attr('name', 'export_type'); 
+		$f->label = $this->_('What pages do you want to export?'); 
+		$f->icon = 'sitemap';
+		$f->addOption('specific', $this->_('Pages that I select'));
+		$f->addOption('parent', $this->_('Pages having parent'));
+		$f->addOption('selector', $this->_('Pages matching search'));
+		$tab->add($f);
+		
+		$f = $modules->get('InputfieldPageListSelectMultiple');
+		$f->attr('name', 'pages_specific');
+		$f->label = $this->_('Select pages');
+		$f->description = $this->_('Select one or more pages to include in the export.');
+		$f->icon = 'crosshairs';
+		$f->showIf = 'export_type=specific';
+		$tab->add($f);
+		
+		$f = $modules->get('InputfieldPageListSelect');
+		$f->attr('name', 'pages_parent');
+		$f->label = $this->_('Select parent page');
+		$f->description = $this->_('Select the parent of the pages you want to export. The children of this page will be exported.'); 
+		$f->icon = 'child';
+		$f->showIf = 'export_type=parent';
+		$tab->add($f);
+		
+		$f = $modules->get('InputfieldCheckboxes');
+		$f->attr('name', 'options_parent');
+		$f->label = $this->_('Additional options');
+		$f->icon = 'sliders';
+		$f->showIf = 'export_type=parent';
+		$f->addOption('parent', $this->_('Include the parent page in the export'));
+		$f->addOption('recursive', $this->_('Recursive') . ' ' .  
+			'[span.detail] (' . $this->_('Exports tree of pages rather than just direct children') . ') [/span]');
+		$f->addOption('hidden', $this->_('Include hidden pages'));
+		$f->addOption('unpublished', $this->_('Include hidden and unpublished pages'));
+		$tab->add($f);
+
+		$f = $modules->get('InputfieldSelector');
+		$f->attr('name', 'pages_selector');
+		$f->label = $this->_('Build a search to match pages for export');
+		$f->description = $this->_('Add one or more fields to search and match pages for export.');
+		$f->icon = 'map-o';
+		$f->showIf = 'export_type=selector';
+		$tab->add($f);
+		
+		$f = $modules->get('InputfieldCheckboxes'); 
+		$f->attr('name', 'export_fields'); 
+		$f->label = $this->_('Export fields'); 
+		$f->description = 
+			$this->_('By default, all supported fields on a page are included in the export.') . ' ' . 
+			$this->_('If you want your export to only include certain fields, then select them here.') . ' ' . 
+			$this->_('If no selection is made, then all supported fields are included in the export.');
+		$f->icon = 'cube';
+		$showIf = 'export_type=specific|parent|selector';
+		$f->showIf = $showIf; 
+		$f->table = true;
+		$f->collapsed = Inputfield::collapsedBlank;
+		$f->thead = 
+			$this->_('Name') . '|' . 
+			$this->_('Label') . '|' . 
+			$this->_('Type');
+		foreach($this->getExportableFields() as $field) {
+			$typeName = str_replace('Fieldtype', '', $field->type->className()); 
+			$f->addOption($field->name, "$field->name|$field->label|$typeName"); 
+		}
+		$tab->add($f);
+	
+		/*
+		$f = $modules->get('InputfieldRadios');
+		$f->attr('name', 'export_to');
+		$f->label = $this->_('How do you want to save the export?'); 
+		$f->addOption('zip', $this->_('Download ZIP file'));
+		$f->addOption('json', $this->_('Text for copy/paste')); 
+		$f->attr('value', 'zip');
+		$f->description = $this->_('Always choose the ZIP file option if you want to include file or image fields in your export.');
+		$f->showIf = $showIf; 
+		$f->collapsed = Inputfield::collapsedYes;
+		$tab->add($f); 
+		*/
+		
+		/** @var InputfieldSubmit $f */
+		$f = $modules->get('InputfieldSubmit');
+		$f->attr('name', 'submit_export');
+		$f->value = $this->_('Export Now');
+		$f->showIf = $showIf;
+		$f->icon = 'download';
+		$f->addActionValue('json', $this->_('JSON for copy/paste (default)'), 'scissors');
+		$f->addActionValue('zip', $this->_('ZIP file download') . ' (experimental)', 'download');
+		$tab->add($f);
+		
+		return $tab;
+	}
+
+	/**
+	 * Process submitted export form 
+	 * 
+	 * @return string
+	 * @throws WireException
+	 * 
+	 */
+	protected function processExport() {
+		
+		// export_type: string(specific, parent, selector)
+		// pages_specific: array(page IDs)
+		// pages_parent: integer(page ID)
+		// pages_selector: string(selector)
+		// options_parent: array('parent', 'recursive')
+		// export_fields: array(field names)
+		// export_to: string(zip, json)
+
+		/** @var Pages $pages */
+		$pages = $this->wire('pages');
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+
+		$form = $this->buildForm();
+		$form->processInput($input->post);
+		/** @var InputfieldFieldset $tab */
+		$tab = $form->getChildByName('tab_export');
+		
+		$exportType = $tab->getChildByName('export_type')->val();
+		$exportFields = $tab->getChildByName('export_fields')->val();
+		$exportTo = $input->post('submit_export') === 'zip' ? 'zip' : 'json';
+		
+		// @todo security and access control
+		// @todo paginate large sets
+		
+		// determine pages to export
+		switch($exportType) {
+			case 'specific':
+				$exportIDs = $tab->getChildByName('pages_specific')->val();
+				$exportPages = count($exportIDs) ? $pages->getById($exportIDs) : new PageArray();
+				break;
+			case 'parent':
+				$parentID = (int) $tab->getChildByName('pages_parent')->val();
+				$exportParent = $parentID ? $pages->get($parentID) : new NullPage(); 
+				if(!$exportParent->id) throw new WireException('Unable to load parent for export');
+				$exportOptions = $tab->getChildByName('options_parent')->val();
+				$includeMode = '';
+				if(in_array('unpublished', $exportOptions)) {
+					$includeMode = 'include=unpublished';
+				} else if(in_array('hidden', $exportOptions)) {
+					$includeMode = 'include=hidden';
+				}
+				if(in_array('recursive', $exportOptions)) {
+					$exportPages = $pages->find("has_parent=$parentID" . ($includeMode ? ", $includeMode" : "")); 
+				} else {
+					$exportPages = $exportParent->children($includeMode);
+				}
+				if(in_array('parent', $exportOptions)) {
+					$exportPages->prepend($exportParent); 
+				}
+				break;
+			case 'selector':
+				$exportSelector = $tab->getChildByName('pages_selector')->val();
+				$exportPages = $pages->find($exportSelector); 
+				break;
+			default:
+				$exportPages = new PageArray();
+		}
+	
+		$exportCount = $exportPages->getTotal();
+		if(!$exportCount) throw new WireException("No pages to export"); 
+	
+		$exporter = new PagesExportImport();
+		$this->wire($exporter); 
+		$exportOptions = array();
+		if(count($exportFields)) $exportOptions['fieldNames'] = $exportFields;
+		
+		if($exportTo == 'json') {
+			// json
+			$json = $exporter->exportJSON($exportPages, $exportOptions);
+			$form = $this->wire('modules')->get('InputfieldForm');
+			$f = $this->wire('modules')->get('InputfieldTextarea');
+			$f->attr('id+name', 'export_json');
+			$f->label = $this->_('Pages export data for copy/paste');
+			$f->description = sprintf(
+				$this->_n('This export includes %d page.', 'This export includes %d pages.', $exportCount), 
+				$exportCount
+				) . ' ' . 
+				$this->_('Click anywhere in the text below to select it for copy.') . ' ' . 
+				$this->_('You can then paste this text to the Import tab of another installation.');
+				
+			$f->val($json);
+			$form->add($f);
+			return $form->render() . "<p><a href='./'>" . $this->_('Run another export') . "</a></p>";
+			
+		} else if($exportTo == 'zip') {
+			// zip file download
+			$zipFile = $exporter->exportZIP($exportPages, $exportOptions);
+			if($zipFile) {
+				$this->wire('files')->send($zipFile, array(
+					'forceDownload' => true,
+					'exit' => false
+				));
+				unlink($zipFile);
+				exit;
+			} else {
+				throw new WireException('Export failed during ZIP file generation');
+			}
+		}
+		
+		return '';
+	}
+
+	/**
+	 * Get array of exportable fields
+	 * 
+	 * @return array Array of fieldName => Field object
+	 * 
+	 */
+	protected function getExportableFields() {
+		$exporter = new PagesExportImport();
+		$this->wire($exporter);
+		$fields = array();
+		foreach($this->wire('fields') as $field) {
+			if(!$field->type) continue;	
+			$info = $exporter->getFieldInfo($field);
+			if($info['exportable']) $fields[$field->name] = $field;
+		}
+		ksort($fields);
+		return $fields;
+	}
+
+	/**
+	 * Install module
+	 * 
+	 */
+	public function ___install() {
+		parent::___install(); 
+	}
+
+	/**
+	 * Uninstall module
+	 * 
+	 */
+	public function ___uninstall() {
+		parent::___uninstall(); 
+	}
+	
+}
+

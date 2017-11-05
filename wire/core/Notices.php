@@ -307,4 +307,32 @@ class Notices extends WireArray {
 		}
 		return $b; 
 	}
+
+	/**
+	 * Move notices from one Wire instance to another
+	 * 
+	 * @param Wire $from
+	 * @param Wire $to
+	 * @param array $options Additional options:
+	 *  - `types` (array): Types to move (default=['messages','warnings','errors'])
+	 *  - `prefix` (string): Optional prefix to add to moved notices text (default='')
+	 *  - `suffix` (string): Optional suffix to add to moved notices text (default='')
+	 * @return int Number of notices moved
+	 * 
+	 */
+	public function move(Wire $from, Wire $to, array $options = array()) {
+		$n = 0;
+		$types = isset($options['types']) ? $options['types'] : array('errors', 'warnings', 'messages'); 
+		foreach($types as $type) {
+			$method = rtrim($type, 's');
+			foreach($from->$type('clear') as $notice) {
+				$text = $notice->text; 
+				if(isset($options['prefix'])) $text = "$options[prefix]$text";
+				if(isset($options['suffix'])) $text = "$text$options[suffix]";
+				$to->$method($text, $notice->flags);
+				$n++;
+			}
+		}
+		return $n;
+	}
 }

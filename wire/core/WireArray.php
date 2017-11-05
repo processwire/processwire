@@ -2322,7 +2322,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			$info['items'] = array();
 			foreach($this->data as $key => $value) {
 				if(is_object($value)) {
-					if(method_exists($value, 'path')) {
+					if($value instanceof Page) {
 						$value = '/' . ltrim($value->path(), '/');
 					} else if($value instanceof WireData) {
 						$_value = $value;

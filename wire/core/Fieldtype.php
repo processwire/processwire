@@ -33,6 +33,7 @@
  * @method mixed wakeupValue(Page $page, Field $field, $value)
  * @method string|int|array sleepValue(Page $page, Field $field, $value)
  * @method string|float|int|array exportValue(Page $page, Field $field, $value, array $options = array())
+ * @method string|float|int|array|object importValue(Page $page, Field $field, $value, array $options = array())
  * @method bool createField(Field $field)
  * @method array getSelectorInfo(Field $field, array $data = array())
  * @method mixed|null loadPageField(Page $page, Field $field)
@@ -521,6 +522,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 * @param Field $field
 	 * @param string|int|float|array|object $value
 	 * @return string|int|float|array
+	 * @see Fieldtype::wakeupValue()
 	 *
 	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {
@@ -533,18 +535,58 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 * This is intended for importing from PW-driven web services. If not overridden, it does
 	 * the same thing as the `Fieldtype::wakeupValue()` method. 
+	 * 
+	 * #pw-internal
 	 *
 	 * @param Page $page
 	 * @param Field $field
 	 * @param string|int|float|array|null $value
 	 * @param array $options Additional options if needed/applicable
 	 * @return string|int|array|object $value
+	 * @see Fieldtype::exportValue()
 	 *
 	 */
 	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
 		if($options) {}
 		$value = $this->wakeupValue($page, $field, $value); 
 		return $value; 
+	}
+
+	/**
+	 * Get associative array of options and info (name => value) that Fieldtype supports for importValue
+	 * 
+	 * Current recognized options include the following: 
+	 * 
+	 * - `importable` (bool): Is the field importable (and exportable)? (default=auto-detect)
+	 * 
+	 * - `test` (bool): Indicates Fieldtype supports testing import before committing & populates notices to 
+	 *    returned Wire object. (default=false)
+	 * 
+	 * - `returnsPageValue` (bool): True if it returns the value that should set back to Page? False if return 
+	 *    value should not be set to Page. When false, it indicates the Fieldtype::importValue() handles the 
+	 *    actual commit to DB of import data. (default=true)
+	 * 
+	 * - `requiresExportValue` (bool): Indicates Fieldtype::importValue() requires an 'exportValue' of the 
+	 *    current value from Page in $options. (default=false)
+	 * 
+	 * - `restoreOnException` (bool): Restore previous value if Exception thrown during import (default=false). 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param array Field $field
+	 * @return array
+	 * 
+	 */
+	public function getImportValueOptions(Field $field) {
+		$schema = $this->getDatabaseSchema($field); 
+		$options = array(
+			'importable' => (!isset($schema['xtra']['all']) || $schema['xtra']['all'] !== true) ? false : true,
+			'test' => false,
+			'returnsPageValue' => true,
+			'requiresExportValue' => false,
+			'restoreOnException' => false,
+		);
+		return $options; 
 	}
 
 	/**
@@ -1267,7 +1309,7 @@ abstract class Fieldtype extends WireData implements Module {
 		if($key == 'name') return $this->className();
 		if($key == 'shortName') {
 			return str_replace('Fieldtype', '', $this->className());
-		} else if($key == 'longName') {
+		} else if($key == 'longName' && method_exists($this, 'getModuleInfo')) {
 			$info = $this->getModuleInfo($this);
 			return $info['title'];
 		}

@@ -136,6 +136,9 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 		$this->set('parentPage', null); // parent of page being edited, when available
 		$this->set('languageSupportLabel', ''); 
 		$this->set('slashUrls', 1); // whether a trailing slash should be shown in the URL preview
+	
+		// disable autocomplete for page name with custom attribute value
+		$this->attr('autocomplete', 'pw-page-name');
 
 		// optional checkbox associated with the input, for use with language support
 		$this->set('checkboxName', ''); // leave blank to disable 

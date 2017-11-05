@@ -16,6 +16,7 @@
  * @method bool deleteFieldDataByTemplate(Field $field, Template $template) #pw-hooker
  * @method void changedType(Saveable $item, Fieldtype $fromType, Fieldtype $toType) #pw-hooker
  * @method void changeTypeReady(Saveable $item, Fieldtype $fromType, Fieldtype $toType) #pw-hooker
+ * @method bool|Field clone(Field $item, $name = '') Clone a field and return it or return false on fail. 
  *
  */
 
@@ -282,7 +283,7 @@ class Fields extends WireSaveableItems {
 
 	/**
 	 * Create and return a cloned copy of the given Field
-	 *
+	 * 
 	 * @param Field|Saveable $item Field to clone
 	 * @param string $name Optionally specify name for new cloned item
 	 * @return bool|Saveable $item Returns the new clone on success, or false on failure
@@ -623,14 +624,14 @@ class Fields extends WireSaveableItems {
 		
 		if($success) {
 			$this->message(
-				sprintf($this->_('Deleted field "%1$s" data in %2$d row(s) from %3$d page(s).'), 
-					$field->name, $numRows, $numPages) . " [$deleteType]",
+				sprintf($this->_('Deleted field "%1$s" data in %2$d row(s) from %3$d page(s) using template "%4$s".'), 
+					$field->name, $numRows, $numPages, $template->name) . " [$deleteType]",
 				Notice::log
 			);
 		} else {
 			$this->error(
-				sprintf($this->_('Error deleting field "%1$s" data, %2$d row(s), %3$d page(s).'), 
-					$field->name, $numRows, $numPages) . " [$deleteType]",
+				sprintf($this->_('Error deleting field "%1$s" data, %2$d row(s), %3$d page(s) using template "%4$s".'), 
+					$field->name, $numRows, $numPages, $template->name) . " [$deleteType]",
 				Notice::log
 			);
 		}
@@ -677,6 +678,8 @@ class Fields extends WireSaveableItems {
 			'countPages' => false,
 			'getPageIDs' => false, 
 		);
+		
+		if(!$field->type) return 0;
 
 		$options = array_merge($defaults, $options);
 		$database = $this->wire('database');

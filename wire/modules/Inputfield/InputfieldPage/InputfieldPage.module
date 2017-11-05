@@ -220,7 +220,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		if(!$field instanceof Field) throw new WireException('isValidPage requires a valid Field or field name');
 		
 		if($editPage && $page->id == $editPage->id) {
-			$editPage->set('_isValidPage', "Page is referencing itself and circular page reference not allowed");
+			$editPage->setQuietly('_isValidPage', "Page is referencing itself and circular page reference not allowed");
 			return false; // prevent circular reference
 		}
 		
@@ -242,7 +242,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 					// looks like its okay
 				} else {
 					// also fails $pages->cont() check, so definitely not valid
-					if($editPage) $editPage->set('_isValidPage', "Page $page does not match findPagesSelector: $selector");
+					if($editPage) $editPage->setQuietly('_isValidPage', "Page $page does not match findPagesSelector: $selector");
 					$valid = false;
 				}
 			}
@@ -265,7 +265,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 					$valid = false;
 				}
 				if(!$valid && $editPage) {
-					$editPage->set('_isValidPage', "Page $page does not have required parent $parent_id");
+					$editPage->setQuietly('_isValidPage', "Page $page does not have required parent $parent_id");
 				}
 			} else {
 				// PHP version prior to 5.3.8
@@ -283,7 +283,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		if(!$hasRequiredTemplate) { 
 			$valid = false;
 			if($editPage) {
-				$editPage->set('_isValidPage', "Page $page does not have required template(s): " . implode(',', $template_ids));
+				$editPage->setQuietly('_isValidPage', "Page $page does not have required template(s): " . implode(',', $template_ids));
 			}
 		}
 		
@@ -1052,18 +1052,20 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			$field = $this->modules->get('InputfieldMarkup');
 			$field->attr('name', '_findPagesCode');
 			$field->collapsed = Inputfield::collapsedYes;
+			$if = "\$event-&gt;object-&gt;" . 
+				($this->name ? "hasField == '<strong>$this->name</strong>'" : "name == '<strong>your_field_name</strong>'");
 			$field->value = '<p>' . 
 				sprintf($this->_('Add the following hook to a %s file and modify per your needs. The hook should find and return selectable pages in a PageArray.'), '<u>/site/ready.php</u>') . 
 				"</p><pre><code>" . 
-				"\$wire->addHookAfter('InputfieldPage::getSelectablePages', function(\$event) {" .
-				"\n  if(\$event->object->name == '<strong>$this->name</strong>') {" . 
-				"\n    \$event->return = \$event->pages->find('<strong>your selector here</strong>');" . 
+				"\$wire-&gt;addHookAfter('InputfieldPage::getSelectablePages', function(\$event) {" .
+				"\n  if($if) {" . 
+				"\n    \$event->return = \$event-&gt;pages-&gt;find('<strong>your selector here</strong>');" . 
 				"\n  }" . 
 				"\n});" . 
 				"</code></pre>" . 
 				"<p>" . 
 				sprintf($this->_('If you need to know the page being edited, it is accessible from: %s'), 
-					"<code>\$event->arguments('page');</code>") . 
+					"<code>\$event-&gt;arguments('page');</code>") . 
 				"</p>";
 		}
 		$field->label = $this->_('Custom PHP code');
@@ -1177,7 +1179,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			$f->value = '<p>' .
 				$this->_('You have selected an input type that has specific requirements.') . ' ' .
 				$this->_('Specify only the “Parent” option below when configuring “Selectable pages”.') . ' ' .
-				$this->_('Note that the parent you specify implies the root of the tree of selectable pages.') .
+				$this->_('Note that the parent you specify implies the root of the tree of selectable pages.') . ' ' . 
 				$this->_('If you want to make everything selectable, then specify nothing.') .
 				'</p>';
 			$inputfields->insertAfter($f, $field);

@@ -39,28 +39,10 @@ require_once(PROCESSWIRE_CORE_PATH . "Selector.php");
 class Selectors extends WireArray {
 
 	/**
-	 * Maximum length for a selector value
-	 *
-	 */
-	const maxValueLength = 500; 
-
-	/**
 	 * Maximum length for a selector operator
 	 *
 	 */
 	const maxOperatorLength = 10; 
-
-	/**
-	 * Maximum length for a selector field name
-	 *
-	 */
-	const maxFieldLength = 50; 
-
-	/**
-	 * Maximum number of selectors that can be present in a given selectors string
-	 *
-	 */
-	const maxSelectors = 20; 
 
 	/**
 	 * Static array of Selector types of $operator => $className
@@ -411,8 +393,6 @@ class Selectors extends WireArray {
 	 */
 	protected function extractString($str) {
 
-		$cnt = 0; 
-		
 		while(strlen($str)) {
 
 			$not = false;
@@ -423,7 +403,7 @@ class Selectors extends WireArray {
 			}
 			$group = $this->extractGroup($str); 	
 			$field = $this->extractField($str); 
-			$operator = $this->extractOperator($str, $this->getOperatorChars());
+			$operator = $this->extractOperator($str, self::getOperatorChars());
 			$value = $this->extractValue($str, $quote); 
 
 			if($this->parseVars && $quote == '[' && $this->valueHasVar($value)) {
@@ -442,8 +422,6 @@ class Selectors extends WireArray {
 				if($not) $selector->not = true; 
 				$this->add($selector); 
 			}
-
-			if(++$cnt > self::maxSelectors) break;
 		}
 
 	}
@@ -538,8 +516,18 @@ class Selectors extends WireArray {
 		
 		if($commaPos === false && $closingQuote) {
 			// if closing quote and comma didn't match, try to match just comma in case of "something"<space>,
-			$commaPos = strpos(substr($str, 1), ',');
-			if($commaPos !== false) $commaPos++;
+			$str1 = substr($str, 1);
+			$commaPos = strpos($str1, ',');
+			if($commaPos !== false) {
+				$closingQuotePos = strpos($str1, $closingQuote); 
+				if($closingQuotePos > $commaPos) {
+					// comma is in quotes and thus not one we want to work with
+					return false;
+				} else {
+					// increment by 1 since it was derived from a string at position 1 (rather than 0)
+					$commaPos++;
+				}
+			}
 		}
 
 		if($commaPos === false) {
@@ -682,7 +670,7 @@ class Selectors extends WireArray {
 		$len = strlen("$value");
 		if($len) {
 			$str = substr($str, $n);
-			if($len > self::maxValueLength) $value = substr($value, 0, self::maxValueLength);
+			// if($len > self::maxValueLength) $value = substr($value, 0, self::maxValueLength);
 		}
 
 		$str = ltrim($str, ' ,"\']})'); // should be executed even if blank value

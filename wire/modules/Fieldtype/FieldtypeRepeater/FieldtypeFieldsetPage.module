@@ -1,0 +1,436 @@
+<?php namespace ProcessWire;
+
+require_once(dirname(__FILE__) . '/FieldtypeRepeater.module');
+
+/**
+ * ProcessWire Fieldset (Page)
+ *
+ * Maintains a collection of fields as a fieldset via an independent Page.
+ *
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * https://processwire.com
+ *
+ * @property int $repeatersRootPageID
+ *
+ */
+
+class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Fieldset (Page)', __FILE__), // Module Title
+			'summary' => __('Fieldset with fields isolated to separate namespace (page), enabling re-use of fields.', __FILE__), // Module Summary
+			'version' => 1,
+			'autoload' => true,
+			'requires' => 'FieldtypeRepeater'
+		);
+	}
+
+	/**
+	 * Construct 
+	 * 
+	 */
+	public function __construct() {
+		parent::__construct();
+		require_once(dirname(__FILE__) . '/FieldsetPage.php');
+	}
+
+	/**
+	 * Get the FieldsetPage object for the given $page and $field, or NullPage if field is not on page
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param bool $createIfNotExists
+	 * @return FieldsetPage|NullPage
+	 *
+	 */
+	public function getFieldsetPage(Page $page, Field $field, $createIfNotExists = true) {
+		
+		/** @var FieldsetPage|NullPage $readyPage */
+		
+		if(!$page->hasField($field)) return new NullPage();
+		
+		$parent = $this->getRepeaterPageParent($page, $field);
+
+		if($page->id) {
+			$name = self::repeaterPageNamePrefix . $page->id;
+			$readyPage = $parent->child("name=$name, include=all");
+		} else {
+			$name = '';
+			$readyPage = new NullPage();
+		}
+
+		if(!$readyPage->id) {
+			$class = $this->getPageClass();
+			$readyPage = $this->wire(new $class());
+			$readyPage->template = $this->getRepeaterTemplate($field);
+			if($parent->id) $readyPage->parent = $parent;
+			$readyPage->addStatus(Page::statusOn);
+			if($name) $readyPage->name = $name;
+			if($name && $createIfNotExists) {
+				$readyPage->save();
+				$readyPage->setQuietly('_repeater_new', 1);
+				$this->readyPageSaved($readyPage, $page, $field);
+			} else {
+				$readyPage->setQuietly('_repeater_new', 1);
+			}
+		}
+
+		if($readyPage instanceof FieldsetPage) {
+			$readyPage->setForPage($page);
+			$readyPage->setForField($field);
+			$readyPage->setTrackChanges(true);
+		}
+
+		return $readyPage; 
+	}
+
+	/**
+	 * Convert a repeater Page to a PageArray for use with methods/classes expecting RepeaterPageArray
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param RepeaterPage|FieldsetPage $value Optionally add this item to it 
+	 * @return RepeaterPageArray|PageArray
+	 * 
+	 */
+	public function getRepeaterPageArray(Page $page, Field $field, $value = null) {
+		if($value && $value instanceof PageArray) return $value; 
+		$pageArray = parent::getBlankValue($page, $field); 
+		if($value && $value instanceof Page) $pageArray->add($value); 
+		$pageArray->resetTrackChanges();
+		return $pageArray;
+	}
+	
+	/**
+	 * Get the class used for repeater Page objects
+	 *
+	 * @return string
+	 *
+	 */
+	public function getPageClass() {
+		return __NAMESPACE__ . "\\FieldsetPage";
+	}
+
+	/**
+	 * Get a blank value of this type, i.e. return a blank PageArray
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return FieldsetPage|PageArray
+	 *
+	 */
+	public function getBlankValue(Page $page, Field $field) {
+		return $this->getFieldsetPage($page, $field, false); 
+	}
+
+	/**
+	 * Return an InputfieldRepeater, ready to be used
+	 *
+	 * @param Page $page Page being edited
+	 * @param Field $field Field that needs an Inputfield
+	 * @return Inputfield
+	 *
+	 */
+	public function getInputfield(Page $page, Field $field) {
+
+		$hasField = $page->hasField($field->name);
+		
+		/** @var InputfieldRepeater $inputfield */
+		$inputfield = $this->wire('modules')->get($this->getInputfieldClass());
+		$inputfield->set('page', $page);
+		$inputfield->set('field', $field);
+		$inputfield->set('repeaterDepth', 0); 
+		$inputfield->set('repeaterReadyItems', 0);  // ready items deprecated
+		
+		if($hasField) {
+			$inputfield->set('repeaterMaxItems', 1);
+			$inputfield->set('repeaterMinItems', 1); 
+			$inputfield->set('singleMode', true); 
+		}
+
+		if($page->id && $hasField) {
+			$item = $page->get($field->name); 
+			if(!$item->id) $item = null;
+		} else {
+			$item = null;
+		}
+
+		$value = $this->getRepeaterPageArray($page, $field, $item);
+		$inputfield->val($value); 
+		
+		return $inputfield;
+	}
+
+	/**
+	 * Returns a page ready for use as a repeater
+	 *
+	 * @param Field $field
+	 * @param Page $page The page that the repeater field lives on
+	 * @return Page
+	 *
+	 */
+	public function getBlankRepeaterPage(Page $page, Field $field) {
+		return $this->getFieldsetPage($page, $field, true); 	
+	}
+	
+	/**
+	 * Get next page ready to be used as a new repeater item, creating it if it doesn't already exist
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param PageArray|Page $value
+	 * @param array $notIDs Optional Page IDs that should be excluded from the next ready page
+	 * @return Page
+	 *
+	 */
+	public function getNextReadyPage(Page $page, Field $field, $value = null, array $notIDs = array()) {
+		return $this->getFieldsetPage($page, $field, true); 
+	}
+
+	/**
+	 * Given a raw value (value as stored in DB), return the value as it would appear in a Page object
+	 *
+	 * Something to note is that this wakeup function is different than most in that the $value it is given
+	 * is just an array like array('data' => 123, 'parent_id' => 456) -- it doesn't actually contain any of the
+	 * repeater page data other than saying how many there are and the parent where they are stored. So this
+	 * wakeup function can technically do its job without even having the $value, unlike most other fieldtypes.
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array $value
+	 * @return FieldsetPage|Page $value
+	 *
+	 */
+	public function ___wakeupValue(Page $page, Field $field, $value) {
+		if($value instanceof Page) return $value; 
+		return $this->getFieldsetPage($page, $field, true); 
+	}
+	
+	/**
+	 * Return the database schema in predefined format
+	 *
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
+	public function getDatabaseSchema(Field $field) {
+
+		$schema = parent::getDatabaseSchema($field);
+		
+		unset(
+			$schema['parent_id'],
+			$schema['count'], 
+			$schema['keys']['parent_id'], 
+			$schema['keys']['count'],
+			$schema['keys']['data_exact']
+		); 
+		
+		$schema['data'] = 'int UNSIGNED NOT NULL';
+		$schema['keys']['data'] = 'KEY `data` (`data`)';
+
+		return $schema;
+	}
+
+	/**
+	 * Given an 'awake' value, as set by wakeupValue, convert the value back to a basic type for storage in DB.
+	 *
+	 * In this case, the sleepValue doesn't represent the actual value as they are stored in pages.
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|array|object $value
+	 * @return int
+	 *
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+		if($value instanceof PageArray) $value = $value->first();
+		$sleepValue = $value instanceof Page ? (int) $value->id : 0;
+		/*
+		$sleepValue = array(
+			'data' => "$id", 
+			'count' => $id > 0 ? 1 : 0,
+			'parent_id' => $id
+		);
+		*/
+		return $sleepValue;
+	}
+
+	/**
+	 * Export repeater value
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param RepeaterPageArray$value
+	 * @param array $options
+	 * @return array
+	 *
+	 */
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		$value = $this->getRepeaterPageArray($page, $field, $value); // export as PageArray
+		return parent::___exportValue($page, $field, $value, $options); 
+	}
+
+	/**
+	 * Return the parent used by the repeater pages for the given Page and Field
+	 * 
+	 * Unlike regular repeaters, all page items for a given field share the same parent, regardless of owning page. 
+	 *
+	 * i.e. /processwire/repeaters/for-field-123/
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Page
+	 *
+	 */
+	protected function getRepeaterPageParent(Page $page, Field $field) {
+		return $this->getRepeaterParent($field);
+	}
+
+	/**
+	 * Handles the sanitization and convertion to RepeaterPage value
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param mixed $value
+	 * @return FieldsetPage|Page
+	 *
+	 */
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		
+		if(is_string($value) || is_array($value)) {
+			$value = parent::sanitizeValue($page, $field, $value);
+		}
+		
+		if($value instanceof PageArray) {
+			if($value->count()) {
+				$value = $value->first();
+			} else {
+				$value = $this->getFieldsetPage($page, $field); 
+			}
+		}
+
+		if(!$value instanceof Page) {
+			$value = $this->getFieldsetPage($page, $field);
+		}
+		
+		return $value;
+	}
+
+	/**
+	 * Perform output formatting on the value delivered to the API
+	 *
+	 * This method is only used when $page->outputFormatting is true.
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Page|PageArray $value
+	 * @return Page
+	 *
+	 */
+	public function ___formatValue(Page $page, Field $field, $value) {
+		return $value; 
+	}
+	
+	/**
+	 * Load the given page field from the database table and return the value.
+	 *
+	 * - Return NULL if the value is not available.
+	 * - Return the value as it exists in the database, without further processing.
+	 * - This is intended only to be called by Page objects on an as-needed basis.
+	 * - Typically this is only called for fields that don't have 'autojoin' turned on.
+	 * - Any actual conversion of the value should be handled by the `Fieldtype::wakeupValue()` method.
+	 *
+	 * #pw-group-loading
+	 *
+	 * @param Page $page Page object to save.
+	 * @param Field $field Field to retrieve from the page.
+	 * @return mixed|null
+	 *
+	 */
+	public function ___loadPageField(Page $page, Field $field) {
+		return $this->getFieldsetPage($page, $field, true); 
+	}
+
+	/**
+	 * Save the given field from page
+	 *
+	 * @param Page $page Page object to save.
+	 * @param Field $field Field to retrieve from the page.
+	 * @return bool True on success, false on DB save failure.
+	 *
+	 */
+	public function ___savePageField(Page $page, Field $field) {
+		
+		if(!$page->id || !$field->id) return false;
+		$value = $page->get($field->name);
+		if(!$value instanceof Page) return false;
+		
+		// make the FieldsetPage mirror unpublished/hidden state from its owner
+		if($page->isUnpublished()) {
+			if(!$value->isUnpublished()) $value->addStatus(Page::statusUnpublished); 
+		} else {
+			if($value->isUnpublished()) $value->removeStatus(Page::statusUnpublished); 
+		}
+		
+		if($page->isHidden()) {
+			if(!$value->isHidden()) $value->addStatus(Page::statusHidden); 
+		} else {
+			if($value->isHidden()) $value->removeStatus(Page::statusHidden); 
+		}
+		
+		$this->wire('pages')->save($value, array('uncacheAll' => false));
+
+		$table = $this->wire('database')->escapeTable($field->table);
+		
+		$sql = 
+			"INSERT INTO `$table` (pages_id, data) VALUES(:pages_id, :data) " . 
+			"ON DUPLICATE KEY UPDATE `data`=VALUES(`data`)";
+		
+		$query = $this->wire('database')->prepare($sql);
+		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$query->bindValue(':data', $value->id, \PDO::PARAM_INT);
+		$result = $query->execute();
+
+		return $result;
+	}
+
+	/**
+	 * Return configuration fields definable for each FieldtypePage
+	 *
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+		
+		$inputfields = parent::___getConfigInputfields($field);
+		
+		$f = $inputfields->getChildByName('repeaterFields');
+		$f->label = $this->_('Fields in fieldset'); 
+		$f->description = $this->_('Define the fields that are used by this fieldset. You may also drag and drop fields to the desired order.');
+		$f->notes = '';
+		
+		$field->repeaterLoading = FieldtypeRepeater::loadingOff;
+		$field->repeaterMaxItems = 1;
+		$field->repeaterMinItems = 1;
+		
+		include(dirname(__FILE__) . '/FieldsetPageInstructions.php'); 
+		$inputfields->add(FieldsetPageInstructions($field));
+		
+		return $inputfields;
+	}
+
+	/**
+	 * Populate the settings for a newly created repeater template
+	 *
+	 * @param Template $template
+	 *
+	 */
+	protected function populateRepeaterTemplateSettings(Template $template) {
+		parent::populateRepeaterTemplateSettings($template); 
+		$template->pageLabelField = 'for_page_path';
+	}
+
+}
+

@@ -75,6 +75,14 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 *
 	 */
 	protected $unlinkQueue = array();
+	
+	/**
+	 * Items to be renamed when Page is saved (oldName => newName)
+	 *
+	 * @var array
+	 *
+	 */
+	protected $renameQueue = array();
 
 	/**
 	 * IDs of any hooks added in this instance, used by the destructor
@@ -338,9 +346,20 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		foreach($this->unlinkQueue as $item) {
 			$item->unlink();
 		}
+		foreach($this->renameQueue as $item) {
+			$name = $item->get('_rename'); 
+			if(!$name) continue;
+			$item->rename($name); 
+		}
 		$this->unlinkQueue = array();
 		$this->removeHooks();
 		return $this; 
+	}
+	
+	protected function addSaveHook() {
+		if(!count($this->unlinkQueue) && !count($this->renameQueue)) {
+			$this->hookIDs[] = $this->page->filesManager->addHookBefore('save', $this, 'hookPageSave');
+		}
 	}
 
 	/**
@@ -375,9 +394,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	public function remove($item) {
 		if(is_string($item)) $item = $this->get($item); 
 		if(!$this->isValidItem($item)) throw new WireException("Invalid type to {$this->className}::remove(item)"); 
-		if(!count($this->unlinkQueue)) {
-			$this->hookIDs[] = $this->page->filesManager->addHookBefore('save', $this, 'hookPageSave'); 
-		}
+		$this->addSaveHook();
 		$this->unlinkQueue[] = $item; 
 		parent::remove($item); 
 		return $this; 
@@ -399,6 +416,28 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		}
 
 		return $this; 
+	}
+
+	/**
+	 * Queue a rename of a Pagefile
+	 * 
+	 * This only queues a rename. Rename actually occurs when page is saved. 
+	 * Note this differs from the behavior of `Pagefile::rename()`. 
+	 * 
+	 * #pw-group-manipulation
+	 * 
+	 * @param Pagefile $item
+	 * @param string $name
+	 * @return Pagefiles 
+	 * @see Pagefile::rename()
+	 * 
+	 */
+	public function rename(Pagefile $item, $name) {
+		$item->set('_rename', $name); 
+		$this->renameQueue[] = $item; 
+		$this->trackChange('renameQueue', $item->name, $name);
+		$this->addSaveHook();
+		return $this;
 	}
 
 	/**
@@ -520,6 +559,59 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 			break;
 		}
 		return $item;
+	}
+	
+	/**
+	 * Get list of tags for all files in this Pagefiles array, or return files matching given tag(s)
+	 * 
+	 * This method can either return a list of all tags available, or return all files 
+	 * matching the given tag or tags (an alias of findTag method).
+	 * 
+	 * ~~~~~
+	 * // Get string of all tags
+	 * $tagsString = $page->files->tags(); 
+	 * 
+	 * // Get array of all tags
+	 * $tagsArray = $page->files->tags(true); 
+	 * 
+	 * // Find all files matching given tag
+	 * $pagefiles = $page->files->tags('foobar'); 
+	 * ~~~~~
+	 *
+	 * #pw-group-tags
+	 *
+	 * @param bool|string|array $value Specify one of the following:
+	 *  - Omit to return all tags as a string.
+	 *  - Boolean true if you want to return tags as an array (rather than string).
+	 *  - Boolean false to return tags as an array, with lowercase enforced.
+	 *  - String if you want to return files matching tags (See `Pagefiles::findTag()` method for usage)
+	 *  - Array if you want to return files matching tags (See `Pagefiles::findTag()` method for usage)
+	 * @return string|array|Pagefiles Returns all tags as a string or an array, or Pagefiles matching given tag(s). 
+	 *   When a tags array is returned, it is an associative array where the key and value are both the tag (keys are always lowercase).
+	 * @see Pagefiles::findTag(), Pagefile::tags()
+	 *
+	 */
+	public function tags($value = null) {
+		
+		if($value === null) {
+			$returnString = true; 
+			$value = true; 	
+		} else {
+			$returnString = false;
+		}
+		
+		if(is_bool($value)) {
+			// return array of tags
+			$tags = array();
+			foreach($this as $pagefile) {
+				$tags = array_merge($tags, $pagefile->tags($value));
+			}
+			if($returnString) $tags = implode(' ', $tags);
+			return $tags;
+		}
+		
+		// fallback to behavior of findTag
+		return $this->findTag($value); 
 	}
 
 	/**

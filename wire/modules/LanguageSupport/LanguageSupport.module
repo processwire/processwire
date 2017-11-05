@@ -433,6 +433,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		
 		foreach($languages as $language) {
 			$languageID = (int) $language->id;
+			$languages->setLanguage($language);
 
 			if($language->isDefault) { 
 				// default language
@@ -450,6 +451,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 				$inputfield->setAttribute('value', $inputfield->$valueAttr); 
 				$o = $renderValueMode ? $inputfield->___renderValue() : $inputfield->___render(); 
 			}
+			$languages->unsetLanguage();
 			
 			if($collapsed == Inputfield::collapsedBlank && !$inputfield->isEmpty()) {
 				$inputfield->collapsed = Inputfield::collapsedNo;

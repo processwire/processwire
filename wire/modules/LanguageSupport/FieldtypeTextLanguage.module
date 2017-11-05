@@ -37,10 +37,16 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 			// great, already what we wanted
 		} else {
 			// convert it to a LanguagesPageFieldValue
-			$str = (string) $value; 
-			$value = $page->getUnformatted($field->name); 
-			if(is_string($value)) $value = new LanguagesPageFieldValue($page, $field, $value); // #98
-			$value->setLanguageValue($this->wire('user')->language->id, $str); 
+			$pageValue = $page->getUnformatted($field->name); 
+			if(!$pageValue instanceof LanguagesPageFieldValue) {
+				$pageValue = new LanguagesPageFieldValue($page, $field, $pageValue); // #98
+			}
+			if(is_array($value)) {
+				$pageValue->importArray($value); 
+			} else {
+				$pageValue->setLanguageValue($this->wire('user')->language->id, (string) $value); 
+			}
+			$value = $pageValue; 
 		}
 		return $value; 
 	}
@@ -114,6 +120,28 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 			}
 		}
 		return $exportValue;
+	}
+	
+	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
+		if(is_null($value)) $value = '';
+		if(is_string($value)) {
+			$v = $value;
+			$value = $field->type->exportValue($page, $field, $page->getUnformatted($field->name), $options);
+			$value['default'] = $v; 
+		}
+		if(!is_array($value)) {
+			throw new WireException("Array value expected for multi-language importValue");
+		}
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
+		/** @var LanguagesPageFieldValue $importValue */
+		$importValue = $page->get($field->name); 
+		foreach($value as $languageName => $languageValue) {
+			$language = $languages->get($languageName); 
+			if(!$language->id) continue; 
+			$importValue->setLanguageValue($language->id, $languageValue); 
+		}
+		return $importValue;
 	}
 
 }

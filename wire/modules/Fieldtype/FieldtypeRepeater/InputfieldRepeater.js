@@ -48,7 +48,7 @@ function InputfieldRepeater($) {
 			if(source == 'InputfieldRepeaterItemEdit' || source == 'InputfieldRepeaterItemAdd') {
 				event.stopPropagation();
 				var $r = $(this).find(".InputfieldRepeater");
-				if($r.length) initRepeater($r);
+				if($r.length) $r.each(function() { initRepeater($(this)) });
 				return;
 			}
 		}
@@ -174,7 +174,8 @@ function InputfieldRepeater($) {
 				$input.val('-1');
 			} else {
 				$this.removeClass(toggleOff).addClass(toggleOn);
-				$item.removeClass('InputfieldRepeaterUnpublished InputfieldRepeaterOff');
+				$item.removeClass('InputfieldRepeaterUnpublished InputfieldRepeaterOff')
+					.addClass('InputfieldRepeaterWasUnpublished');
 				$input.val('1');
 			}
 			checkMinMax($item.closest('.InputfieldRepeater'));
@@ -238,7 +239,7 @@ function InputfieldRepeater($) {
 			$item.removeClass('InputfieldRepeaterItemLoading');
 			InputfieldsInit($inputfields);
 
-			var $repeaters = $inputs.filter('.InputfieldRepeater');
+			var $repeaters = $inputs.find('.InputfieldRepeater');
 			if($repeaters.length) $repeaters.each(function() {
 				initRepeater($(this));
 			});
@@ -324,7 +325,7 @@ function InputfieldRepeater($) {
 		}
 
 		// determine which page IDs we don't accept for new items (because we already have them rendered)
-		var $unpublishedItems = $inputfields.find('.InputfieldRepeaterUnpublished:not(.InputfieldRepeaterMinItem)');
+		var $unpublishedItems = $inputfields.find('.InputfieldRepeaterUnpublished, .InputfieldRepeaterWasUnpublished'); // :not(.InputfieldRepeaterMinItem)');
 		if($unpublishedItems.length) {
 			ajaxURL += '&repeater_not=';
 			$unpublishedItems.each(function() {
@@ -448,7 +449,7 @@ function InputfieldRepeater($) {
 	}
 
 	/**
-	 * Given an InputfieldRepeaterItem update the label consistent with any present formatting sting
+	 * Given an InputfieldRepeaterItem update the label consistent with any present formatting string
 	 * 
 	 * Primarily adjusts item count(s) and allowed for {secondary} text appearance
 	 * 

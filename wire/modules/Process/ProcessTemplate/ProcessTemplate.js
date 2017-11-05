@@ -121,36 +121,10 @@ $(document).ready(function() {
 
 	$("#wrap_redirectLogin input").click(redirectLoginClick); 
 
-	// -----------------
-	// asmSelect fieldgroup indentation
-	var fieldgroupFieldsChange = function() {
-		$ol = $('#fieldgroup_fields').prev('ol.asmList'); 
-		$ol.find('span.asmFieldsetIndent').remove();
-		$ol.children('li').children('span.asmListItemLabel').children("a:contains('_END')").each(function() {
-			var label = $(this).text();
-			if(label.substring(label.length-4) != '_END') return; 
-			label = label.substring(0, label.length-4); 
-			var $li = $(this).parents('li.asmListItem'); 
-			$li.addClass('asmFieldset asmFieldsetEnd'); 
-			while(1) { 
-				$li = $li.prev('li.asmListItem');
-				if($li.size() < 1) break;
-				var $span = $li.children('span.asmListItemLabel'); // .children('a');
-				var label2 = $span.text();
-				if(label2 == label) {
-					$li.addClass('asmFieldset asmFieldsetStart'); 
-					break;
-				}
-				$span.prepend($('<span class="asmFieldsetIndent"></span>')); 
-			}
-		}); 
-	};
-	$("#fieldgroup_fields").change(fieldgroupFieldsChange).bind('init', fieldgroupFieldsChange); 
-		
 	adjustAccessFields();
 	redirectLoginClick();
 
-        // instantiate the WireTabs
+	// instantiate the WireTabs
 	var $templateEdit = $("#ProcessTemplateEdit"); 
 	if($templateEdit.length > 0) {
 		$templateEdit.find('script').remove();

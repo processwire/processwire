@@ -84,7 +84,7 @@ class WireMarkupRegions extends Wire {
 	 *  - `leftover` (bool): Specify true if you want to return a "leftover" key in return value with leftover markup. 
 	 * @return array Returns one of the following: 
 	 *  - Associative array of [ 'id' => 'markup' ] when finding specific attributes or #id attributes. 
-	 *  - Regular array of markup regions when finding region shaving a specific class attribute. 
+	 *  - Regular array of markup regions when finding regions having a specific class attribute. 
 	 *  - Associative array of verbose information when the verbose option is used. 
 	 * @throws WireException if given invalid $find string
 	 * 
@@ -131,10 +131,21 @@ class WireMarkupRegions extends Wire {
 			$positions = array();
 			foreach($tests as $str) {
 				$pos = stripos($markup, $str, $startPos);
-				if($pos !== false) {
-					if($str[0] == '<') $pos++; // HTML tag match, bump+1 to enable match
-					$positions[$pos] = $pos;
+				if($pos === false) continue;
+				if($selector === '.pw-*') {
+					// extra validation for .pw-* selectors to confirm they match a pw-[action] (legacy support)
+					$testAction = '';
+					$testPW = substr($markup, $pos, 20);
+					foreach($this->actions as $testAction) {
+						if(strpos($testPW, $testAction) !== false) {
+							$testAction = true;
+							break;
+						}
+					}	
+					if($testAction !== true) continue; // if not a pw-[action] then skip
 				}
+				if($str[0] == '<') $pos++; // HTML tag match, bump+1 to enable match
+				$positions[$pos] = $pos;
 			}
 			
 			// if no tests matched, we can abort now
@@ -318,6 +329,7 @@ class WireMarkupRegions extends Wire {
 		}
 		
 		$c = substr($find, 0, 1); 
+		$z = substr($find, -1);
 		
 		if($c === '#') {
 			// match an id, pw-id or data-pw-id attribute
@@ -328,8 +340,43 @@ class WireMarkupRegions extends Wire {
 				$finds[] = " $attr=$find ";
 				$finds[] = " $attr=$find>";
 			}
+
+		} else if($find === '[pw-action]') {
+			// find pw-[action] boolean attributes
+			foreach($this->actions as $action) {
+				$finds[] = " data-pw-$action ";
+				$finds[] = " data-pw-$action>";
+				$finds[] = " data-pw-$action=";
+				$finds[] = " pw-$action ";
+				$finds[] = " pw-$action>";
+				$finds[] = " pw-$action=";
+			}
+
+		/*	
+		} else if($c === '[' && $z === ']') {
+			// find any attribute (not currently used by markup regions)
 			
-		} else if($c === '.' && substr($find, -1) == '*') {
+			if(strpos($find, '=') === false) {
+				// match an attribute only
+				$attr = trim($find, '[]*+');
+				$tail = substr($find, -2);
+				if($tail === '*]') {
+					// match an attribute prefix
+					$finds = array(" $attr");
+				} else {
+					// match a whole attribute name
+					$finds = array(
+						" $attr ",
+						" $attr>",
+						" $attr=",
+					);
+				}
+			} else {
+				// match attribute and value (not yet implemented)
+			}
+		*/
+			
+		} else if($c === '.' && $z === '*') {
 			// match a class name prefix or action prefix
 			$find = trim($find, '.*');
 			$finds = array(
@@ -342,7 +389,7 @@ class WireMarkupRegions extends Wire {
 			);
 			if(strpos($find, 'pw-') !== false) $finds[] = " data-$find";
 			$hasClass = "$find*";
-			
+
 		} else if($c === '.') {
 			// match a class name or action
 			$find = trim($find, '.');
@@ -369,7 +416,7 @@ class WireMarkupRegions extends Wire {
 			
 		} else if(strpos($find, '=') !== false) {
 			// some other specified attribute in attr=value format
-			if(strpos($find, '[') !== false && substr($find, -1) === ']') {
+			if(strpos($find, '[') !== false && $z === ']') {
 				// i.e. div[attr=value]
 				list($findTag, $find) = explode('[', $find, 2);
 				$find = rtrim($find, ']');
@@ -395,7 +442,7 @@ class WireMarkupRegions extends Wire {
 				}
 			}
 
-		} else if(substr($find, -1) == '*') {
+		} else if($z === '*') {
 			// data-pw-* matches non-value attribute starting with a prefix
 			$finds = array(
 				" $find",
@@ -451,7 +498,14 @@ class WireMarkupRegions extends Wire {
 			'html' => '', // region with wrapping tags
 		);
 	
+		if($tagInfo['pwid']) $tagID = $tagInfo['pwid'];
+			else if(!empty($tagInfo['id'])) $tagID = $tagInfo['id'];
+			else if(!empty($tagInfo['attrs']['id'])) $tagID = $tagInfo['attrs']['id']; 
+			else if(!empty($tagInfo['actionTarget'])) $tagID = $tagInfo['actionTarget'];	
+			else $tagID = '';
+	
 		$selfClose = empty($tagInfo['close']);
+		$closeHint = "$tagInfo[close]<!--#$tagID-->";
 		$closeQty = $selfClose ? 1 : substr_count($region, $tagInfo['close']);
 
 		if(!$closeQty) {
@@ -461,11 +515,17 @@ class WireMarkupRegions extends Wire {
 		} else if($selfClose) {
 			$region = '';
 			if($verbose) $verboseRegion['details'] = 'Self closing tag (empty region)';
-
+			
+		} else if($tagID && false !== ($pos = strpos($region, $closeHint))) {
+			// close tag indicates what it closes, i.e. “</div><!--#content-->”
+			$region = substr($region, 0, $pos);
+			$tagInfo['close'] = $closeHint;
+			if($verbose) $verboseRegion['details'] = "Fast match with HTML comment hint";
+			
 		} else if($closeQty === 1) {
 			// just one close tag present, making our job easy
 			$region = substr($region, 0, strrpos($region, $tagInfo['close']));
-			if($verbose) $verboseRegion['details'] = 'Only 1 possible closing tag';
+			if($verbose) $verboseRegion['details'] = "Only 1 possible closing tag: $tagInfo[close]";
 
 		} else {
 			// multiple close tags present, must figure out which is the right one
@@ -474,9 +534,15 @@ class WireMarkupRegions extends Wire {
 			$maxDoCnt = 100000;
 			$openTag1 = "<$tagInfo[name]>";
 			$openTag2 = "<$tagInfo[name] ";
+			$fail = false;
+			
 			do {
 				$doCnt++;
 				$testPos = stripos($region, $tagInfo['close'], $testStart);
+				if($testPos === false) {
+					$fail = true;
+					break;
+				}
 				$test = substr($region, 0, $testPos);
 				$openCnt = substr_count($test, $openTag1) + substr_count($test, $openTag2);
 				$closeCnt = substr_count($test, $tagInfo['close']);
@@ -490,7 +556,14 @@ class WireMarkupRegions extends Wire {
 				}
 			} while($doCnt < $maxDoCnt && $testStart < strlen($region));
 			
-			if($doCnt >= $maxDoCnt) {
+			if($fail) {
+				if($verbose) {
+					$verboseRegion['error'] = true;
+					$verboseRegion['details'] = "Failed to find closing tag $tagInfo[close] after $doCnt iterations";
+				} else {
+					$region = 'error';
+				}
+			} else if($doCnt >= $maxDoCnt) {
 				if($verbose) {
 					$verboseRegion['error'] = true;
 					$verboseRegion['details'] = "Failed region match after $doCnt tests for <$tagInfo[name]> tag(s)";
@@ -745,6 +818,15 @@ class WireMarkupRegions extends Wire {
 		
 		$open = strpos($tag, '<') === 0 ? $tag : "<$tag";
 		$close = $tag == '<!--' ? '-->' : '</' . trim($tag, '<>') . '>';
+	
+		// keep comments that start with <!--#
+		if($tag == "<!--" && strpos($markup, "<!--#") !== false) {
+			$hasHints = true;
+			$markup = str_replace("<!--#", "<!~~#", $markup);
+			$markup = preg_replace('/<!--#([-_.a-zA-Z0-9]+)-->/', '<!~~$1~~>', $markup);
+		} else {
+			$hasHints = false;
+		}
 		
 		do {
 			$pos = stripos($markup, $open, $startPos);
@@ -761,6 +843,11 @@ class WireMarkupRegions extends Wire {
 		
 		if($getRegions) return $regions;
 		if(count($regions)) $markup = str_replace($regions, '', $markup); 
+		
+		if($hasHints) {
+			// keep comments that start with <!--#
+			$markup = str_replace(array("<!~~#", "~~>"), array("<!--#", "-->"), $markup); 
+		}
 		
 		return $markup;
 	}
@@ -1132,7 +1219,7 @@ class WireMarkupRegions extends Wire {
 	 * definitions, though can be used with or without it.
 	 *
 	 * Beyond replacement of elements, append, prepend, insert before, insert after, and remove are also
-	 * supported via “pw-” prefix classes that you can add. The classes do not appear in the final output
+	 * supported via “pw-” prefix attributes that you can add. The attributes do not appear in the final output
 	 * markup. When performing replacements or modifications to elements, PW will merge the attributes
 	 * so that attributes present in the final output are present, plus any that were added by the markup
 	 * regions. See the examples for more details.
@@ -1147,50 +1234,43 @@ class WireMarkupRegions extends Wire {
 	 * 
 	 * In the examples, a “pw-id” or “data-pw-id” attribute may be used instead of an “id” attribute, when
 	 * or if preferred. In addition, any “pw-” attribute may be specified as a “data-pw-” attribute if you
-	 * prefer it. If you don't like using “pw-” class names, then use “pw-” attributes instead. 
+	 * prefer it. 
 	 * ~~~~~~
 	 * Replacing and removing elements
 	 * 
 	 *   <div id='main'>This replaces the #main div and merges any attributes</div>
 	 *   <div pw-replace='main'>This does the same as above</div>
-	 * 
-	 *   <div id='main' class='pw-remove'>This removes #main completely</div>
-	 *   <div pw-remove='main'>This does the same as above</div>
+	 *   <div id='main' pw-replace>This does the same as above</div>
+	 *   <div pw-remove='main'>This removes the #main div</div>
+	 *   <div id='main' pw-remove>This removes the #main div (same as above)</div>
 	 *
 	 * Prepending and appending elements
 	 * 
 	 *   <div id='main' class='pw-prepend'><p>This prepends #main with this p tag</p></div>
 	 *   <p pw-prepend='main'>This does the same as above</p>
-	 * 
-	 *   <div id='main' class='pw-append'><p>This appends #main with this p tag</p></div>
-	 *   <p pw-append='main'>This does the same as above</p>
+	 *   <div id='main' pw-append><p>This appends #main with this p tag</p></div>
+	 *   <p pw-append='main'>Removes the #main div</p>
 	 * 
 	 * Modifying attributes on an existing element
 	 * 
-	 *   <div id='main' class='pw-prepend bar'><p>This prepends #main and adds "bar" class to main</p></div>
-	 *   <div id='main' class='pw-append foo'><p>This appends #main and adds a "foo" class to #main</p></div>
-	 * 
-	 *   <div id='main' class='pw-append' title='hello'>Appends #main with this text + adds title attribute to #main</div>
-	 *   <div id='main' class='pw-append -baz'>Appends #main with this text + removes class “baz” from #main</div>
+	 *   <div id='main' class='bar' pw-prepend><p>This prepends #main and adds "bar" class to main</p></div>
+	 *   <div id='main' class='foo' pw-append><p>This appends #main and adds a "foo" class to #main</p></div>
+	 *   <div id='main' title='hello' pw-append>Appends #main with this text + adds title attribute to #main</div>
+	 *   <div id='main' class='-baz' pw-append>Appends #main with this text + removes class “baz” from #main</div>
 	 *
 	 * Inserting new elements
 	 * 
-	 *   <h2 class='pw-before-main'>This adds an h2 headline with this text before #main</h2>
-	 *   <h2 pw-before='main'>This does the same as above</h2>
+	 *   <h2 pw-before='main'>This adds an h2 headline with this text before #main</h2>
+	 *   <footer pw-after='main'><p>This adds a footer element with this text after #main</p></footer>
+	 *   <div pw-append='main' class='foo'>This appends a div.foo to #main with this text</div>
+	 *   <div pw-prepend='main' class='bar'>This prepends a div.bar to #main with this text</div>
 	 * 
-	 *   <footer class='pw-after-main'><p>This adds a footer element with this text after #main</p></footer>
-	 *   <footer pw-after='main'><p>This does the same as above</p></footer>
-	 * 
-	 *   <div class='pw-append-main foo'>This appends a div.foo to #main with this text</div>
-	 *   <div pw-append='main' class='foo'>This does the same as above</div>
-	 * 
-	 *   <div class='pw-prepend-main bar'>This prepends a div.bar to #main with this text</div>
-	 *   <div pw-prepend='main' class='bar'>This does the same as above</div>
 	 * ~~~~~~
 	 *
 	 * @param string $htmlDocument Document to populate regions to
 	 * @param string|array $htmlRegions Markup containing regions (or regions array from a find call)
-	 * @param array $options
+	 * @param array $options Options to modify behavior: 
+	 *  - `useClassActions` (bool): Allow "pw-*" actions to be specified in class names? Per original/legacy spec. (default=false)
 	 * @return int Number of updates made to $htmlDocument
 	 *
 	 */
@@ -1201,9 +1281,13 @@ class WireMarkupRegions extends Wire {
 		
 		$recursionLevel++;
 		$callQty++;
+
+		$defaults = array(
+			'useClassActions' => false // allow use of "pw-*" class actions? (legacy)
+		);
 		
+		$options = array_merge($defaults, $options);
 		$leftoverMarkup = '';
-		
 		$debugLandmark = "<!--PW-REGION-DEBUG-->";
 		$hasDebugLandmark = strpos($htmlDocument, $debugLandmark) !== false;
 		$debug = $hasDebugLandmark && $this->wire('config')->debug;
@@ -1214,7 +1298,9 @@ class WireMarkupRegions extends Wire {
 			$leftoverMarkup = '';
 			
 		} else if($this->hasRegions($htmlRegions)) {
-			$regions = $this->find(".pw-*, id=", $htmlRegions, array(
+			$htmlRegions = $this->stripRegions('<!--', $htmlRegions);
+			$selector = $options['useClassActions'] ? ".pw-*, id=" : "[pw-action], id=";
+			$regions = $this->find($selector, $htmlRegions, array(
 				'verbose' => true,
 				'leftover' => true,
 				'debugNote' => (isset($options['debugNote']) ? "$options[debugNote] => " : "") . "populate($callQty)", 
@@ -1228,6 +1314,7 @@ class WireMarkupRegions extends Wire {
 
 		if(!count($regions)) {
 			if($debug) $htmlDocument = str_replace($debugLandmark, "<pre>No regions</pre>$debugLandmark", $htmlDocument);
+			$recursionLevel--;
 			return 0;
 		}
 
@@ -1275,17 +1362,21 @@ class WireMarkupRegions extends Wire {
 				$open = $region['open'];
 				$openLen = strlen($open);
 				if($openLen > 50) $open = substr($open, 0, 30) . '[sm]... +' . ($openLen - 30) . ' bytes[/sm]>';
-				$debugRegionStart = substr($region['region'], 0, 50);  
+				$debugRegionStart = "[sm]" . trim(substr($region['region'], 0, 80));  
 				$pos = strrpos($debugRegionStart, '>');
 				if($pos) $debugRegionStart = substr($debugRegionStart, 0, $pos+1);
-				$debugRegionEnd = substr($region['region'], -30); 
-				$pos = strpos($debugRegionEnd, '</'); 
-				if($pos !== false) $debugRegionEnd = substr($debugRegionEnd, $pos);
-				$debugRegion = $this->debugNoteStr("$debugRegionStart ... $debugRegionEnd");
-				$region['note'] = "$debugAction => #$pwid " .
+				$debugRegionStart .= " … [b]" . strlen($region['html']) . " bytes[/b][/sm]";
+				//$debugRegionEnd = substr($region['region'], -30); 
+				//$pos = strpos($debugRegionEnd, '</'); 
+				//if($pos !== false) $debugRegionEnd = substr($debugRegionEnd, $pos);
+				$region['note'] = strtoupper($debugAction) . " [b]#{$pwid}[/b] " .
 					($region['actionTarget'] != $pwid ? "(target=$region[actionTarget])" : "") . 
-					"... $open" . ($region['close'] ? "[sm]{$debugRegion}[/sm]$region[close]" : "");
-				$regionNote = "$regionKey. $region[note]";
+					"[sm]with[/sm] $open"; 
+				if($region['close']) {
+					$region['note'] .= $this->debugNoteStr($debugRegionStart) . $region['close'];
+				}
+				$regionNote = $region['note'];  // [sm](position=$regionKey)[/sm]";
+				
 			} else {
 				$regionNote = '';
 			}	
@@ -1303,12 +1394,10 @@ class WireMarkupRegions extends Wire {
 					'action' => $action, 
 					'mergeAttr' => $mergeAttr,
 				);
-				/*
-				$htmlDocument = $this->update("#$actionTarget", $regionHTML, $htmlDocument, array(
-					'action' => $action,
-					'mergeAttr' => $mergeAttr,
-				));
-				*/
+				if(is_string($htmlRegions)) {
+					// remove region markup from $htmlRegions so we can later determine what’s left
+					$htmlRegions = str_replace($region['html'], '', $htmlRegions);
+				}
 				$populatedNotes[] = $regionNote;
 				$numUpdates++;
 			}
@@ -1321,23 +1410,37 @@ class WireMarkupRegions extends Wire {
 			));
 		}
 
+		$htmlRegions = trim($htmlRegions);
 			
 		if($debug) {
-			$bull = "\n";
 			$leftoverBytes = strlen($leftoverMarkup);
-			$debugNotes = ""; // "\nProcessWire markup regions debug #$n ";
-			if(count($populatedNotes)) $debugNotes .= $bull . implode($bull, $populatedNotes);
-			if(count($rejectedNotes)) $debugNotes .= "\nSKIPPED: $bull" . implode($bull, $rejectedNotes);
-			if($leftoverBytes) $debugNotes .= "\n  $leftoverBytes non-region bytes skipped: [sm]{$leftoverMarkup}[/sm]";
-			if(count($this->debugNotes)) {
-				$debugNotes .= "\n---------------";
-				foreach($this->debugNotes as $n => $s) {
-					$debugNotes .= "\n$n. " . $this->debugNoteStr($s);
+			$htmlRegionsLen = strlen($htmlRegions); 
+			$debugNotes = array(); 
+			if($recursionLevel > 1) $debugNotes[] = "PASS: $recursionLevel";
+			if(count($populatedNotes)) $debugNotes = array_merge($debugNotes, $populatedNotes); // implode($bull, $populatedNotes);
+			if(count($rejectedNotes)) foreach($rejectedNotes as $note) $debugNotes[] = "SKIPPED: $note";
+			if($leftoverBytes) $debugNotes[] = "$leftoverBytes non-region bytes skipped: [sm]{$leftoverMarkup}[/sm]";
+			if($htmlRegionsLen) {
+				if($recursionLevel > 1) {
+					$debugNotes[] = "$htmlRegionsLen HTML-region bytes found no home after 2nd pass: [sm]{$htmlRegions}[/sm]";
+				} else if($this->hasRegions($htmlRegions)) {
+					$debugNotes[] = "$htmlRegionsLen HTML-region bytes remaining for 2nd pass: [sm]{$htmlRegions}[/sm]";
+				} else {
+					$debugNotes[] = "$htmlRegionsLen HTML bytes remaining, but no regions present: [sm]{$htmlRegions}[/sm]";
 				}
 			}
+			if(count($this->debugNotes)) {
+				$debugNotes[] = "---------------";
+				foreach($this->debugNotes as $n => $s) {
+					$debugNotes[] = $this->debugNoteStr($s);
+				}
+			}
+			if(!count($debugNotes)) $debugNotes[] = "Nothing found";
+			$debugNotes = "• " . implode("\n• ", $debugNotes);
 			$debugNotes = $this->wire('sanitizer')->entities($debugNotes);
 			$debugNotes .= "\n[sm]" . Debug::timer($debugTimer) . " seconds[/sm]";
 			$debugNotes = str_replace(array('[sm]', '[/sm]'), array('<small style="opacity:0.7">', '</small>'), $debugNotes);
+			$debugNotes = str_replace(array('[b]', '[/b]'), array('<strong>', '</strong>'), $debugNotes);
 			$debugNotes = "<pre class='pw-debug pw-region-debug'>$debugNotes</pre>$debugLandmark";
 			$htmlDocument = str_replace($debugLandmark, $debugNotes, $htmlDocument); 
 		} else if($hasDebugLandmark) {
@@ -1346,16 +1449,24 @@ class WireMarkupRegions extends Wire {
 		
 		if(count($xregions) && $recursionLevel < 3) {
 			// see if they can be populated now
-			$numUpdates += $this->populate($htmlDocument, $xregions);
+			$numUpdates += $this->populate($htmlDocument, $xregions, $options);
 		}
 		
-		if($this->removeRegionTags($htmlDocument)) $numUpdates++;
+		if($recursionLevel === 1 && strlen($htmlRegions) && $this->hasRegions($htmlRegions)) {
+			// see if more regions can be pulled from leftover $htmlRegions
+			$numUpdates += $this->populate($htmlDocument, $htmlRegions, $options);
+		}
+
+		// remove region tags and pw-id attributes
+		if($recursionLevel === 1 && $this->removeRegionTags($htmlDocument)) $numUpdates++;
 	
 		// if there is any leftover markup, place it above the HTML where it would usually go
 		if(strlen($leftoverMarkup)) {
 			$htmlDocument = $leftoverMarkup . $htmlDocument;
 			$numUpdates++;
 		}
+		
+		$recursionLevel--;
 
 		return $numUpdates; 
 	}
@@ -1363,15 +1474,27 @@ class WireMarkupRegions extends Wire {
 	/**
 	 * Remove any <region> or <pw-region> tags present in the markup, leaving their innerHTML contents
 	 * 
+	 * Also removes data-pw-id and pw-id attributes
+	 * 
 	 * @param string $html
-	 * @return bool True if tags were removed, false if not
+	 * @return bool True if tags or attributes were removed, false if not
 	 * 
 	 */
 	protected function removeRegionTags(&$html) {
-		if(stripos($html, '</region>') === false && strpos($html, '</pw-region>') === false) return false;
-		$html = preg_replace('!</?(?:region|pw-region)(?:\s[^>]*>|>)!i', '', $html);
-		//$html = str_ireplace(array('</region>', '</pw-region>'), '', $html);
-		return true; 
+		
+		$updated = false;
+		
+		if(stripos($html, '</region>') !== false || strpos($html, '</pw-region>') !== false) {
+			$html = preg_replace('!</?(?:region|pw-region)(?:\s[^>]*>|>)!i', '', $html);
+			$updated = true;
+		}
+		
+		if(stripos($html, ' data-pw-id=') || stripos($html, ' pw-id=')) {
+			$html = preg_replace('/(<[^>]+)(?: data-pw-id| pw-id)=["\']?[^>\s"\']+["\']?/i', '$1', $html);
+			$updated = true;
+		}
+		
+		return $updated; 
 	}
 
 	/**
@@ -1384,6 +1507,29 @@ class WireMarkupRegions extends Wire {
 	public function hasRegions(&$html) {
 		if(strpos($html, ' id=') === false && strpos($html, 'pw-') === false) return false;
 		return true;
+	}
+
+	/**
+	 * Does the given HTML markup have references to any pw-actions?
+	 * 
+	 * Note: not currently used by this class. 
+	 * 
+	 * @param string $html
+	 * @return bool
+	 * 
+	 */
+	public function hasRegionActions(&$html) {
+		$has = false;
+		foreach($this->actions as $action) {
+			if(strpos($html, "pw-$action") !== false) {
+				// found pw-action, now perform a more thorough check
+				if(preg_match('![="\'\s]pw-' . $action . '(?:["\'\s=][^<>]*>|>)!', $html)) {
+					$has = true;
+					break;
+				}
+			}
+		}
+		return $has;
 	}
 	
 	protected function debugNoteStr($str, $maxLength = 0) {

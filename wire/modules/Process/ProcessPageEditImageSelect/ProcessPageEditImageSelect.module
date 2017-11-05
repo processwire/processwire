@@ -16,6 +16,9 @@
  * @property string $alignRightClass Align right class (align_right recommended)
  * @property string $alignCenterClass Align center class (align_center recommended)
  * 
+ * @method string execute()
+ * @method string executeEdit()
+ * 
  */
 
 class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
@@ -178,10 +181,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		// if $this->page is a repeater item (for example), $this->masterPage is page it lives on
 		$p = null;
-		if(strpos($this->page->className(), 'Repeater') !== false) {
+		if(wireInstanceOf($this->page, 'RepeaterPage')) {
 			/** @var RepeaterPage $p */
 			$p = $this->page;
-			while(strpos($p->className(), 'Repeater') !== false) {
+			while(wireInstanceOf($p, 'RepeaterPage')) {
 				$p = $p->getForPage();
 			}
 		}
@@ -194,7 +197,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			if($this->page->id === $user->id && $fieldName
 				&& $this->wire('modules')->get('PagePermissions')->userFieldEditable($fieldName)) {
 				// user editing allowed images field in their profile
-			} else if(strpos($this->page->className(), 'Repeater') !== false) {
+			} else if(wireInstanceOf($this->page, 'RepeaterPage')) {
 				if(!$this->masterPage->editable()) {
 					throw new WireException($this->labels['noAccess']);
 				}
@@ -272,7 +275,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$file = "{$this->page->id},$originalFilename"; 
 		
 		// if requested file is not one that we have, abort
-		if(!array_key_exists($file, $images)) throw new WireException("Invalid image file: $file");
+		if(!array_key_exists($file, $images)) throw new WireException("Cannot find image file '$originalFilename' on page: {$this->page->path}");
 
 		// return original
 		if(!$getVariation) return $images[$file];
@@ -303,7 +306,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		$numImages = 0;
 		$numImageFields = 0;
-		$skipFields = explode(' ', $this->skipFields);
+		$skipFields = $this->wire('input')->urlSegment1 ? array() : explode(' ', $this->skipFields);
 	
 		if(empty($fields)) {
 			if($this->field) {
@@ -318,9 +321,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 			if(in_array($field->name, $skipFields)) continue; 
 
-			if($field->type instanceof FieldtypeRepeater) {
+			if(wireInstanceOf($field->type, 'FieldtypeRepeater')) {
 				// get images that are possibly in a repeater
 				$repeaterValue = $page->get($field->name); 
+				if($repeaterValue instanceof Page) $repeaterValue = array($repeaterValue); 
 				if($repeaterValue) foreach($repeaterValue as $p) {
 					$images = $this->getImages($p, $p->fields, $level+1); 
 					if(!count($images)) continue; 
@@ -414,7 +418,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 					$info = $in->getAdminThumb($image); 
 					$img = $info['markup'];
 				}
-				$out .= "\n\t<li><a href='./edit?file={$image->page->id},{$image->basename}&amp;modal=1&amp;id={$this->page->id}&amp;winwidth=$winwidth'>$img</a></li>";
+				$out .= "\n\t<li><a href='./edit?file={$image->page->id},{$image->basename}" . 
+					"&amp;modal=1&amp;id={$this->page->id}&amp;winwidth=$winwidth'>$img</a></li>";
 			}
 
 			$class = $this->noThumbs ? "" : " class='thumbs'";
@@ -422,10 +427,12 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 		}
 
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm");
 		$form->action = "./"; 
 		$form->method = "get";
 
+		/** @var InputfieldPageListSelect $field */
 		$field = $this->modules->get("InputfieldPageListSelect"); 
 		$field->label = $this->_("Images on Page:") . ' ' . $this->page->get("title") . " (" . $this->page->path . ")"; // Headline for page selection, precedes current page title/url
 		$field->description = $this->_("If you would like to select images from another page, select the page below."); // Instruction on how to select another page
@@ -1288,12 +1295,14 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			if(in_array('hidpi', $info['suffix'])) $dimensions .= " ($info[hidpiWidth]x$info[hidpiHeight] {$this->labels['hidpi']})";
 			$filesize = filesize($info['path']); 
 			$filesizeStr = wireBytesStr($filesize);
-			$modified = date('Y-m-d H:i:s', filemtime($info['path'])); 
+			$mtime = filemtime($info['path']); 
+			$modified = date('Y-m-d H:i:s', $mtime); 
+			$url = "$info[url]?nc=$mtime";
 			
 			$table->row(array(
 				++$cnt, 
-				"<a class='preview' href='$info[url]'><img src='$info[url]' alt='$name' style='max-width: 100px;' /></a>",
-				"<a class='preview' href='$info[url]'>$name</a><br /><span class='detail'>{$width}x{$height}</span>", 
+				"<a class='preview' href='$url'><img src='$url' alt='$name' style='max-width: 100px;' /></a>",
+				"<a class='preview' href='$url'>$name</a><br /><span class='detail'>{$width}x{$height}</span>", 
 				"<span style='display: none;'>$filesize</span>$filesizeStr", 
 				$modified, 
 				implode('<br />', $notes),

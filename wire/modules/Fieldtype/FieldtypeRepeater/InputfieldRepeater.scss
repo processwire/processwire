@@ -110,6 +110,19 @@
 		// delete checkbox
 		display: none;
 	}
+	
+	&.InputfieldRepeaterSingle {
+		// repeater in single-item mode
+		> .InputfieldContent > .Inputfields {
+			margin-bottom: 0;
+			> .InputfieldRepeaterItem {
+				margin-bottom: 0;
+				> .InputfieldHeader {
+					display: none;
+				}
+			}
+		}
+	}
 
 }
 

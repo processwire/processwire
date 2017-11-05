@@ -224,6 +224,25 @@ class FieldtypeText extends Fieldtype {
 		}
 		return $data;
 	}
+	
+	/**
+	 * Import value
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|int|object|string $value
+	 * @param array $options
+	 * @return array|string
+	 *
+	 */
+	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
+		if(is_array($value) && isset($value['default']) && !$this->wire('languages')) {
+			// multi-language value to non-multi-language site, use only default language
+			$value = $value['default'];
+		}
+		$value = parent::___importValue($page, $field, $value, $options);
+		return $value;
+	}
 
 }
 

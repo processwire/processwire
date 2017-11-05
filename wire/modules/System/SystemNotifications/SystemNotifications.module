@@ -67,6 +67,7 @@ class SystemNotifications extends WireData implements Module {
 	
 		// hook method to access notifications, in case field name ever needs to change for some reason
 		$this->addHook('User::notifications', $this, 'hookUserNotifications'); 
+		$this->set('disabled', false);
 	}
 
 	/**
@@ -291,6 +292,8 @@ class SystemNotifications extends WireData implements Module {
 	 * 
 	 */
 	public function hookAdminThemeGetExtraMarkup($event) {
+		
+		if($this->disabled) return;
 
 		$config = $this->wire('config'); 
 		$url = $config->urls->SystemNotifications . 'Notifications'; 
@@ -325,6 +328,17 @@ class SystemNotifications extends WireData implements Module {
 			$options[$key] = $this->get($key); 
 		}
 		$options['reverse'] = (bool) ((int) $options['reverse']); 
+	
+		// options specified in $config->SystemNotifications
+		$configDefaults = array(
+			'classMessage' => 'NoticeMessage',
+			'classWarning' => 'NoticeWarning',
+			'classError' => 'NoticeError',
+			'classContainer' => 'container',
+		);
+		$configOptions = $this->wire('config')->SystemNotifications;
+		if(!is_array($configOptions)) $configOptions = array();
+		$options = array_merge($options, $configDefaults, $configOptions);
 	
 		$textdomain = '/wire/core/Functions.php'; 
 		$options['i18n'] = array(
@@ -436,7 +450,7 @@ class SystemNotifications extends WireData implements Module {
 
 		$extras = $event->return;
 		$extras['body'] .= $out;
-		$extras['masthead'] .= 
+		$extras['masthead'] .=
 			"<div id='NotificationBug' class='NotificationBug qty$qty' data-qty='$qty'>" . 
 			"<span class='qty fa fa-fw'>$qty</span>" . 
 			"<i class='NotificationSpinner fa fa-fw fa-spin fa-spinner'></i>" . 

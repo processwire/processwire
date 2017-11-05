@@ -30,6 +30,7 @@ class InputfieldInteger extends Inputfield {
 		$this->attr('max', '');  // blank means not set
 		$this->attr('size', '10');
 		$this->set('initValue', '');
+		$this->set('defaultValue', '');
 	}
 
 	public function ___render() {
@@ -57,11 +58,17 @@ class InputfieldInteger extends Inputfield {
 		if($attrs['type'] == 'text') unset($attrs['step'], $attrs['min'], $attrs['max']);
 
 		if($note) $note = " <span class='details'>$note</span>";
-		if(!strlen($attrs['value']) && strlen($this->initValue)) {
-			$attrs['value'] = (int) $this->initValue;
+		
+		if(!strlen($attrs['value'])) { 
+			if(strlen($this->initValue)) {
+				$attrs['value'] = (int) $this->initValue; // Inputfield-only version
+			} else if(strlen($this->defaultValue)) {
+				$attrs['value'] = (int) $this->defaultValue; // Fieldtype version
+			}
 		}
 
 		$out = "<input " . $this->getAttributesString($attrs) . " />"; // . $note; 
+		
 		return $out; 
 	}
 
@@ -128,7 +135,7 @@ class InputfieldInteger extends Inputfield {
 
 	public function getConfigInputfields() {
 		$inputfields = parent::getConfigInputfields();
-
+		
 		$f = $this->wire('modules')->get('InputfieldRadios');
 		$f->attr('name', 'inputType');
 		$f->label = $this->_('Numeric Input Type'); 

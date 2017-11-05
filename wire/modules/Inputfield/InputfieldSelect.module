@@ -66,14 +66,20 @@ class InputfieldSelect extends Inputfield {
 	/**
 	 * Add multiple options at once
 	 *
- 	 * @param array $options May be associative or regular array. If associative, use $value => $label. If regular,
- 	 *     use just array($value, ...)
+ 	 * @param array $options Array of options to add. It is assumed that array keys are the option value, and array 
+	 *   values are the option labels, unless overridden by the $assoc argument.
+	 * @param bool $assoc Is $options an associative array? (default=true). Specify false if $options is intended to be
+	 *   a regular PHP array, where the array keys/indexes should be ignored, and option value will also be the label.
 	 * @return $this
 	 *
 	 */
-	public function addOptions(array $options) {
+	public function addOptions(array $options, $assoc = true) {
 		foreach($options as $k => $v) {
-			$this->addOption($k, $v); 
+			if($assoc) {
+				$this->addOption($k, $v);
+			} else {
+				$this->addOption($v);
+			}
 		}
 		return $this; 
 	}

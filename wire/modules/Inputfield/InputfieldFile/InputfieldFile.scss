@@ -108,8 +108,11 @@ ul.InputfieldFileList li {
 		margin: 0;
 		padding: 0;
 		
-		input {
+		input[type=text] {
 			width: 100%; 
+		}
+		label.pw-hidden {
+			display: none;
 		}
 	}
 	.InputfieldFileSort {
@@ -194,6 +197,34 @@ ul.InputfieldFileListBlank + p.description {
 		// font-size: 1000px; // this prevents it from working
 		cursor: inherit;
 		width: 100%;
+	}
+}
+
+.InputfieldFileDescription,
+.InputfieldFileTags {
+	label.pw-hidden {
+		display: none;
+	}
+	input::placeholder {
+		font-size: 13px;
+		color: #999;
+	}
+}
+.AdminThemeDefault .InputfieldFileDescription {
+	input::placeholder {
+		padding-left: 3px;
+	}
+}
+
+.InputfieldFileTags {
+	.selectize-control.multi .selectize-input > div {
+		background: #eee;
+		border-radius: 3px;
+		white-space: nowrap;
+		a.remove {
+			color: #999;
+			border-color: #ddd;
+		}
 	}
 }
 

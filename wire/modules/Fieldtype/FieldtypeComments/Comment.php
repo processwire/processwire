@@ -119,6 +119,14 @@ class Comment extends WireData {
 	 */
 	protected $_parent = null;
 
+	/**
+	 * Quiet mode, when true actions like notification emails aren't triggered when applicable
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $quiet = false;
+
 	/**	
 	 * Construct a Comment and set defaults
 	 *
@@ -374,6 +382,22 @@ class Comment extends WireData {
 		if(!isset($options['blank'])) $options['blank'] = false;
 		return $comments->renderStars(false, $options);
 	}
+
+	/**
+	 * Get or set quiet mode
+	 * 
+	 * When quiet mode is active, comment additions/changes don't trigger notifications and such. 
+	 * 
+	 * @param bool $quiet Specify only if setting
+	 * @return bool The current quiet mode
+	 * 
+	 */
+	public function quiet($quiet = null) {
+		if(is_bool($quiet)) $this->quiet = $quiet; 
+		return $this->quiet; 
+	}
+	
+	
 
 }
 

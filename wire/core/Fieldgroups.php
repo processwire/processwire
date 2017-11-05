@@ -147,21 +147,12 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		if($item->id && $item->removedFields) {
 
 			foreach($this->wire('templates') as $template) {
-
 				if($template->fieldgroup->id !== $item->id) continue; 
-
 				foreach($item->removedFields as $field) {
-
 					// make sure the field is valid to delete from this template
-					if(($field->flags & Field::flagGlobal) && !$template->noGlobal) {
-						throw new WireException("Field '$field' may not be removed from fieldgroup '{$item->name}' because it is globally required (Field::flagGlobal)");
-					}
-
-					if($field->flags & Field::flagPermanent) {
-						throw new WireException("Field '$field' may not be removed from fieldgroup '{$item->name}' because it is permanent.");
-					}
-
-					$field->type->deleteTemplateField($template, $field); 
+					$error = $this->isFieldNotRemoveable($field, $item, $template);
+					if($error !== false) throw new WireException("$error Save of fieldgroup changes aborted.");
+					if($field->type) $field->type->deleteTemplateField($template, $field); 
 					$item->finishRemove($field); 
 				}
 			}
@@ -206,7 +197,7 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 * Also deletes the references in fieldgroups_fields table
 	 *
 	 * @param Saveable|Fieldgroup $item
-	 * @return Fieldgroups $this
+	 * @return bool
 	 * @throws WireException
 	 *
 	 */
@@ -218,7 +209,10 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		}
 
 		if(count($templates)) {
-			throw new WireException("Can't delete fieldgroup '{$item->name}' because it is in use by template(s): " . implode(', ', $templates)); 
+			throw new WireException(
+				"Can't delete fieldgroup '{$item->name}' because it is in use by template(s): " . 
+				implode(', ', $templates)
+			); 
 		}
 
 		return parent::___delete($item); 
@@ -272,7 +266,8 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		$contexts = $fieldgroup->getFieldContextArray();
 		$numSaved = 0;
 		foreach($contexts as $fieldID => $context) {
-			$field = $fieldgroup->getFieldContext($fieldID); 
+			$field = $fieldgroup->getFieldContext((int) $fieldID); 
+			if(!$field) continue;
 			if($this->wire('fields')->saveFieldgroupContext($field, $fieldgroup)) $numSaved++;
 		}
 		return $numSaved; 
@@ -452,6 +447,36 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		$fieldgroup->errors('clear');
 
 		return $return;
+	}
+
+	/**
+	 * Is the given Field not allowed to be removed from given Template?
+	 *
+	 * #pw-internal
+	 *
+	 * @param Field $field
+	 * @param Template $template
+	 * @param Fieldgroup $fieldgroup
+	 * @return bool|string Returns error message string if not removeable or boolean false if it is removeable
+	 *
+	 */
+	public function isFieldNotRemoveable(Field $field, Fieldgroup $fieldgroup, Template $template = null) {
+		
+		if(is_null($template)) $template = $this->wire('templates')->get($fieldgroup->name);
+
+		if(($field->flags & Field::flagGlobal) && (!$template || !$template->noGlobal)) {
+			return
+				"Field '$field' may not be removed from fieldgroup '{$this->name}' " . 
+				"because it is globally required (Field::flagGlobal).";
+		}
+
+		if($field->flags & Field::flagPermanent) {
+			return 
+				"Field '$field' may not be removed from fieldgroup '{$this->name}' " . 
+				"because it is permanent (Field::flagPermanent).";
+		}
+
+		return false;
 	}
 
 }

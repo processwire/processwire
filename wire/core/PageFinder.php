@@ -610,6 +610,7 @@ class PageFinder extends Wire {
 				$o['getTotal'] = true;
 				$o['loadPages'] = false;
 				$o['returnVerbose'] = false;
+				/** @var Selectors $sel */
 				$sel = clone $selectors;
 				foreach($sel as $s) {
 					if($s->field == 'limit' || $s->field == 'start') $sel->remove($s);
@@ -683,13 +684,26 @@ class PageFinder extends Wire {
 		} else if($quote == '(') {
 			// selector contains an OR group (quoted selector)
 			// at least one (quoted selector) must match for each field specified in front of it
-			$groupName = $this->wire('sanitizer')->fieldName($selector->getField('string'));
+			$groupName = $selector->group ? $selector->group : $selector->getField('string');
+			$groupName = $this->wire('sanitizer')->fieldName($groupName);
 			if(!$groupName) $groupName = 'none';
 			if(!isset($this->extraOrSelectors[$groupName])) $this->extraOrSelectors[$groupName] = array();
 			if($selector->value instanceof Selectors) {
 				$this->extraOrSelectors[$groupName][] = $selector->value;
 			} else {
-				$this->extraOrSelectors[$groupName][] = $this->wire(new Selectors($selector->value));
+				if($selector->group) {
+					// group is pre-identified, indicating Selector field=value is the OR-group condition
+					$s = clone $selector;
+					$s->quote = '';
+					$s->group = null;
+					$groupSelectors = new Selectors();
+					$groupSelectors->add($s);
+				} else {
+					// selector field is group name and selector value is another selector containing OR-group condition
+					$groupSelectors = new Selectors($selector->value);
+				}
+				$this->wire($groupSelectors);
+				$this->extraOrSelectors[$groupName][] = $groupSelectors;
 			}
 			return false;
 			
@@ -823,7 +837,7 @@ class PageFinder extends Wire {
 					}
 				}
 				if(!$hasParent && $field->parent_id) {
-					if(strpos($field->type->className(), 'FieldtypeRepeater') !== false) {
+					if($this->isRepeaterFieldtype($field->type)) { 
 						// repeater items not stored directly under parent_id, but as another parent under parent_id. 
 						// so we use has_parent instead here
 						$selectors->prepend(new SelectorEqual('has_parent', $field->parent_id));
@@ -1010,7 +1024,7 @@ class PageFinder extends Wire {
 				$tableAlias = $field->table . ($fieldCnt[$field->table] ? $fieldCnt[$field->table] : '');
 				$tableAlias = $database->escapeTable($tableAlias);
 
-				$valueArray = is_array($selector->value) ? $selector->value : array($selector->value); 
+				$valueArray = $selector->values(true); 
 				$join = '';
 				$fieldtype = $field->type; 
 				$operator = $selector->operator;
@@ -1078,7 +1092,7 @@ class PageFinder extends Wire {
 
 					if(count($fields) > 1 
 						|| (count($valueArray) > 1 && $numEmptyValues > 0)
-						|| $subfield == 'count' 
+						|| ($subfield == 'count' && !$this->isRepeaterFieldtype($field->type))
 						|| ($selector->not && $selector->operator != '!=') 
 						|| $selector->operator == '!=') {
 						// join should instead be a leftjoin
@@ -1574,8 +1588,13 @@ class PageFinder extends Wire {
 				$query->leftjoin("$table AS $tableAlias ON $tableAlias.pages_id=pages.$idColumn");
 
 				if($subValue === 'count') {
-					// sort by quantity of items
-					$value = "COUNT($tableAlias.data)";
+					if($this->isRepeaterFieldtype($field->type)) {
+						// repeaters have a native count column that can be used for sorting
+						$value = "$tableAlias.count";
+					} else {
+						// sort by quantity of items
+						$value = "COUNT($tableAlias.data)";
+					}
 
 				} else if(is_object($blankValue) && ($blankValue instanceof PageArray || $blankValue instanceof Page)) {
 					// If it's a FieldtypePage, then data isn't worth sorting on because it just contains an ID to the page
@@ -1747,8 +1766,7 @@ class PageFinder extends Wire {
 	 */
 	protected function getQueryNativeField(DatabaseQuerySelect $query, $selector, $fields) {
 
-		$value = $selector->value; 
-		$values = is_array($value) ? $value : array($value); 
+		$values = $selector->values(true); 
 		$SQL = '';
 		$database = $this->wire('database'); 
 
@@ -1788,7 +1806,7 @@ class PageFinder extends Wire {
 					}
 					$field = 'parent_id';
 
-					if(count($values) == 1 && $selector->getOperator() === '=') {
+					if(count($values) == 1 && $selector->operator() === '=') {
 						$this->parent_id = reset($values);
 					}
 
@@ -1837,7 +1855,7 @@ class PageFinder extends Wire {
 					// convert templates specified as a name to the numeric template ID
 					// allows selectors like 'template=my_template_name'
 					$field = 'templates_id';
-					if(count($values) == 1 && $selector->getOperator() === '=') $this->templates_id = reset($values);
+					if(count($values) == 1 && $selector->operator() === '=') $this->templates_id = reset($values);
 					if(!ctype_digit("$value")) $value = (($template = $this->wire('templates')->get($value)) ? $template->id : 0); 
 				}
 
@@ -2187,12 +2205,11 @@ class PageFinder extends Wire {
 		}
 		
 		if($field) {
-			$className = $field->type->className();
 			if($field->type instanceof FieldtypePage) {
 				$is = true;
 			} else if(strpos($field->type->className(), 'FieldtypePageTable') !== false) {
 				$is = true;
-			} else if(strpos($className, 'FieldtypeRepeater') !== false) {
+			} else if($this->isRepeaterFieldtype($field->type)) {
 				$is = $literal ? false : true;
 			} else {
 				$test = $field->type->getBlankValue(new NullPage(), $field); 
@@ -2203,6 +2220,17 @@ class PageFinder extends Wire {
 		}
 		if($is && $field) $is = $field; 
 		return $is;
+	}
+
+	/**
+	 * Is the given Fieldtype for a repeater?
+	 * 
+	 * @param Fieldtype $fieldtype
+	 * @return bool
+	 * 
+	 */
+	protected function isRepeaterFieldtype(Fieldtype $fieldtype) {
+		return wireInstanceOf($fieldtype, 'FieldtypeRepeater'); 
 	}
 }
 

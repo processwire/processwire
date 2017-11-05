@@ -34,16 +34,17 @@
 
 .CommentItems {
 	clear: both;
-	border-bottom: 1px solid #000; 
+	border-bottom: 1px solid #777; 
 	
-	& + button {
+	& + button.ui-button {
 		margin-top: 1em;
 	}
 }
 
 .CommentItem {
 	clear: both;
-	border-top: 1px solid #000;
+	border-top: 1px solid #777;
+	padding: 0.75em 0;
 	margin: 0;
 	width: 100%;
 	
@@ -65,7 +66,7 @@
 		th,
 		td {
 			padding: 4px 10px 4px 0;
-			border-bottom: 1px dotted #ccc;
+			border-bottom: 1px solid #ddd;
 			vertical-align: top;
 		}
 		
@@ -150,6 +151,7 @@
 			padding-right: 1em;
 
 			textarea {
+				font-size: 1em;
 				width: 100%;
 				min-height: 15em;
 				margin-top: 1em;
@@ -287,4 +289,8 @@
 		
 	}
 
+}
+
+.WireTabs {
+	opacity: 0;
 }

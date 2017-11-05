@@ -24,6 +24,8 @@ class Role extends Page {
 
 	/**
 	 * Create a new Role page in memory. 
+	 * 
+	 * @param Template $tpl
 	 *
 	 */
 	public function __construct(Template $tpl = null) {

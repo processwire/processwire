@@ -759,6 +759,49 @@ function wireClassParents($className, $autoload = true) {
 }
 
 /**
+ * Does given instance (or class) represent an instance of the given className (or class names)?
+ * 
+ * @param object|string $instance Object instance to test (or string of its class name).
+ * @param string|array $className Class name or array of class names to test against. 
+ * @param bool $autoload
+ * @return bool|string Returns one of the following:
+ *  - boolean false if not an instance (whether $className argument is string or array). 
+ *  - boolean true if given a single $className (string) and $instance is an instance of it. 
+ *  - string of first matching class name if $className was an array of classes to test.
+ * 
+ */
+function wireInstanceOf($instance, $className, $autoload = true) {
+	
+	if(is_array($className)) {
+		$returnClass = true; 
+		$classNames = $className;
+	} else {
+		$returnClass = false;
+		$classNames = array($className);
+	}
+	
+	$matchClass = null;
+	$instanceParents = null;
+
+	foreach($classNames as $className) {
+		$className = wireClassName($className, true); // with namespace
+		if(is_object($instance) && class_exists($className, $autoload)) {
+			if($instance instanceof $className) $matchClass = $className;
+		} else {
+			if(is_null($instanceParents)) {
+				$instanceParents = wireClassParents($instance, $autoload);
+				$instanceClass = is_string($instance) ? $instance : wireClassName($instance, true);
+				$instanceParents[$instanceClass] = 1;
+			}
+			if(isset($parents[$className])) $matchClass = $className;
+		}
+		if($matchClass !== null) break;
+	}
+	
+	return $returnClass ? $matchClass : ($matchClass !== null); 
+}
+
+/**
  * ProcessWire namespace aware version of PHP's is_callable() function
  *
  * @param string|callable $var
@@ -770,6 +813,25 @@ function wireClassParents($className, $autoload = true) {
 function wireIsCallable($var, $syntaxOnly = false, &$callableName = '') {
 	if(is_string($var)) $var = wireClassName($var, true);
 	return is_callable($var, $syntaxOnly, $callableName);
+}
+
+/**
+ * Return the count of item(s) present in the given value
+ * 
+ * Duplicates behavior of PHP count() function prior to PHP 7.2, which states:
+ * Returns the number of elements in $value. When the parameter is neither an array nor an 
+ * object with implemented Countable interface, 1 will be returned. There is one exception, 
+ * if $value is NULL, 0 will be returned.
+ * 
+ * @param mixed $value
+ * @return int
+ * 
+ */
+function wireCount($value) {
+	if($value === null) return 0; 
+	if(is_array($value)) return count($value); 
+	if(is_object($value) && $value instanceof \Countable) return count($value);
+	return 1;
 }
 
 /**

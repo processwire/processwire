@@ -27,7 +27,7 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Fieldset (Open)',
-			'version' => 100,
+			'version' => 101,
 			'summary' => 'Open a fieldset to group fields. Should be followed by a Fieldset (Close) after one or more fields.',
 			'permanent' => true, 
 			);
@@ -47,12 +47,21 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 	 */
 	public function init() {
 		if(!self::$hooked && ($this->process == 'ProcessField' || $this->process = 'ProcessTemplate')) {
-			$this->addHook('ProcessField::fieldAdded', $this, 'hookFieldAdded'); 
-			$this->addHook('ProcessField::fieldDeleted', $this, 'hookFieldDeleted'); 
-			$this->addHook('ProcessTemplate::fieldAdded', $this, 'hookTemplateFieldAdded'); 
-			$this->addHook('ProcessTemplate::fieldRemoved', $this, 'hookTemplateFieldRemoved'); 
+			$this->addProcessHooks();
 		}
 		self::$hooked = true;
+	}
+
+	/**
+	 * Add hooks to ProcessField or ProcessTemplate, called only when applicable
+	 * 
+	 */
+	protected function addProcessHooks() {
+		$this->addHook('ProcessField::fieldAdded', $this, 'hookFieldAdded');
+		$this->addHook('ProcessField::fieldDeleted', $this, 'hookFieldDeleted');
+		$this->addHook('ProcessField::allowFieldInTemplate', $this, 'hookAllowFieldInTemplate');
+		$this->addHook('ProcessTemplate::fieldAdded', $this, 'hookTemplateFieldAdded');
+		$this->addHook('ProcessTemplate::fieldRemoved', $this, 'hookTemplateFieldRemoved'); 
 	}
 
 	public function sanitizeValue(Page $page, Field $field, $value) {
@@ -99,7 +108,12 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 	}
 	
 	/**
+	 * Is given field a fieldset opener?
+	 * 
 	 * For hooks to share in determining if this is a field they want to operate on
+	 * 
+	 * @param Field $field
+	 * @return bool
 	 *
 	 */
 	protected function isFieldset(Field $field) {
@@ -107,26 +121,64 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 	}
 
 	/**
+	 * Get the Field that closes/terminates the given Fieldset field
+	 * 
+	 * @param Field $field
+	 * @param bool $createIfNotExists Create it if it doesn't already exist?
+	 * @return null|Field of type FieldtypeFieldsetClose
+	 * 
+	 */
+	public function getFieldsetCloseField(Field $field, $createIfNotExists = false) {
+		
+		if(!$this->isFieldset($field)) return;
+	
+		$name = $field->name . self::fieldsetCloseIdentifier;
+		$closer = $this->wire('fields')->get($name); 
+		
+		if(!$closer) {
+			$closeFieldID = (int) $field->get('closeFieldID');
+			if($closeFieldID) {
+				$closer = $this->wire('fields')->get($closeFieldID); 
+			}
+		}
+		
+		if(!$closer && $createIfNotExists) {
+			$closer = $this->wire(new Field());
+			$closer->type = $this->wire(new FieldtypeFieldsetClose());
+			$closer->name = $name;
+			$closer->label = "Close an open fieldset";
+			$closer->description = 
+				"This field was added automatically to accompany fieldset '$field'.  " . 
+				"It should be placed in your template/fieldgroup wherever you want the fieldset to end.";
+			$closer->set('openFieldID', $field->id); 
+			$closer->save();
+		} 
+		
+		if($closer && !$field->get('closeFieldID')) {
+			$field->set('closeFieldID', $closer->id); 
+			$field->save();
+		}
+		
+		return $closer; 
+	}
+
+	/**
 	 * Hook executed when field is added via ProcessField
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookFieldAdded($event) {
-
 		$field = $event->arguments[0]; 
 		if(!$this->isFieldset($field)) return; 
-
-		$closer = $this->wire(new Field());
-		$closer->type = $this->wire(new FieldtypeFieldsetClose());
-		$closer->name = $field->name . self::fieldsetCloseIdentifier;
-		$closer->label = "Close an open fieldset";
-		$closer->description = "This field was added automatically to accompany fieldset '$field'. It should be placed in your template/fieldgroup wherever you want the fieldset to end.";
-		$closer->save();	
-		
+		$closer = $this->getFieldsetCloseField($field, true); 
 		$this->message("Also added field '$closer', to accompany '$field'"); 
 	}
 
 	/**
 	 * Hook executed when field is deleted via ProcessField
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookFieldDeleted($event) {
@@ -134,37 +186,59 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 		$field = $event->arguments[0]; 
 		if(!$this->isFieldset($field)) return; 
 
-		$closer = $this->wire('fields')->get($field->name . self::fieldsetCloseIdentifier); 
-		if(!$closer) return; 
-
-		$this->wire('fields')->delete($closer); 
-		$this->message("Delete also issued for field '$closer'"); 
+		$closer = $this->getFieldsetCloseField($field); 
+		
+		if($closer) {
+			$this->wire('fields')->delete($closer);
+			$this->message("Delete also issued for field '$closer'");
+		}
 	}
 
 	/**
 	 * Hook executed when field is added to a template via ProcessTemplate
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookTemplateFieldAdded($event) {
+		/** @var Field $field */
+		/** @var Template $template */
 		list($field, $template) = $event->arguments; 
 		if(!$this->isFieldset($field)) return; 
-		$closer = $this->wire('fields')->get($field->name . self::fieldsetCloseIdentifier); 
+		$closer = $this->getFieldsetCloseField($field); 
 		if(!$closer) return; 
-		$template->fieldgroup->add($closer); 
-		$this->message("Also added field '$closer', which should be placed where you want to close fieldset '$field'"); 
+		if(!$template->fieldgroup->hasField($closer)) {
+			$template->fieldgroup->add($closer);
+			$this->message("Also added field '$closer', which should be placed where you want to close fieldset '$field'");
+		}
 	}
 
 	/**
 	 * Hook executed when field is removed from a template via ProcessTemplate
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookTemplateFieldRemoved($event) {
 		list($field, $template) = $event->arguments; 
 		if(!$this->isFieldset($field)) return; 
-		$closer = $this->wire('fields')->get($field->name . self::fieldsetCloseIdentifier); 
+		$closer = $this->getFieldsetCloseField($field); 
 		if(!$closer) return; 
 		$template->fieldgroup->remove($closer); 
 		$this->message("Also removed '$closer', which accompanies '$field'"); 
+	}
+
+	/**
+	 * Hook to ProcessField::allowFieldInTemplate
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookAllowFieldInTemplate(HookEvent $event) { 
+		/** @var Field $field */
+		// $field = $event->arguments(0);	
+		/** @var Template $template */
+		// $template = $event->arguments(1);
 	}
 
 	/**
@@ -184,12 +258,12 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 		if($this instanceof FieldtypeFieldsetClose) return;
 		// rename the _END field to match this one
 		$fields = $this->wire('fields');
-		$endField = $fields->get($field->name . self::fieldsetCloseIdentifier);
-		if(!$endField) {
-			$endField = $fields->get($prevName . self::fieldsetCloseIdentifier);
-			if($endField) {
-				$endField->name = $field->name . self::fieldsetCloseIdentifier;
-				$fields->save($endField);
+		$closer = $this->getFieldsetCloseField($field); 
+		if(!$closer) {
+			$closer = $fields->get($prevName . self::fieldsetCloseIdentifier);
+			if($closer) {
+				$closer->name = $field->name . self::fieldsetCloseIdentifier;
+				$fields->save($closer);
 			}
 		}
 		parent::___renamedField($field, $prevName); 

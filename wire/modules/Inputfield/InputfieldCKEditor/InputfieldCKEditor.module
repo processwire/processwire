@@ -3,12 +3,10 @@
 /**
  * ProcessWire Inputfield for CKEditor
  *
- * Web text editor for ProcessWire 2.2+
- *
- * CKEditor Copyright (C) 2003-2015, CKSource - Frederico Knabben
+ * CKEditor Copyright (C) 2003-2017, CKSource - Frederico Knabben
  * http://ckeditor.com
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool|int $inlineMode ($default=0)
@@ -33,7 +31,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 157, 
+			'version' => 159, 
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
 			'installs' => array('MarkupHTMLPurifier'), 
 			);
@@ -84,7 +82,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 * Version number for CKEditor directory
 	 *
 	 */
-	const CKEDITOR_VERSION = '4.6.2';
+	const CKEDITOR_VERSION = '4.7.3';
 
 	/**
 	 * Instance of MarkupHTMLPurifier module
@@ -657,6 +655,13 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->label = $this->_('CKEditor Toolbar'); 
 		$f->description = $this->_('Separate each toolbar item with a comma. Group items by placing them on the same line and use a hyphen "-" where you want a separator to appear within a group. If you want more than one toolbar row, separate each row with a blank line.'); // Toolbar options description
 		$f->description .= ' ' . $this->_('Insert a hash "#" at the beginning of a line if you want it to be ignored.');
+		$f->notes = $this->_('Available core toolbar items:') . ' ' . 
+			'About, Anchor, Blockquote, Bold, BulletedList, Copy, CopyFormatting, CreateDiv, Cut, Find, Flash, Format, ' . 
+			'HorizontalRule, Iframe, Image, Indent, Italic, JustifyBlock, JustifyCenter, JustifyLeft, JustifyRight, ' . 
+			'Language, Link, Maximize, NewPage, NumberedList, Outdent, PageBreak, Paste, PasteFromWord, PasteText, ' . 
+			'Preview, Print, PWImage, PWLink, Redo, RemoveFormat, Replace, Save, Scayt, SelectAll, ShowBlocks, Smiley, ' . 
+			'Source, Sourcedialog, SpecialChar, SpellChecker, Strike, Styles, Subscript, Superscript, ' . 
+			'Table, Templates, Underline, Undo, Unlink';
 		$wrapper->add($f); 
 
 		$purifierInstalled = $this->wire('modules')->isInstalled('MarkupHTMLPurifier'); 
@@ -766,7 +771,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->notes = $example . "mystyles:/site/modules/InputfieldCKEditor/mystyles.js"; 
 		$f->notes .= "\n" . 
 			sprintf(
-				$this->_('Please see our [instructions]() on how to use this.'), // styles set notes
+				$this->_('Please see our [instructions](%s) on how to use this.'), // styles set notes
 				'https://github.com/processwire/processwire/blob/master/wire/modules/Inputfield/InputfieldCKEditor/README.md#custom-editor-js-styles-set'
 			) . ' ' . $pathNote;
 		$f->attr('name', 'stylesSet');

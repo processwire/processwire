@@ -73,7 +73,10 @@ class MarkupQA extends Wire {
 		if($page) $this->setPage($page);
 		if($field) $this->setField($field);
 		$this->assetsURL = $this->wire('config')->urls->assets;
-		$this->debug = (bool) $this->wire('config')->debugMarkupQA && $this->wire('user')->isSuperuser(); 
+		if($this->wire('config')->debugMarkupQA) {
+			$user = $this->wire('user');
+			if($user) $this->debug = $user->isSuperuser();
+		}
 	}
 
 	/**
@@ -436,6 +439,10 @@ class MarkupQA extends Wire {
 			$langName = $this->debug && $language ? $language->name : '';
 			
 			if($livePath) {
+				if($path && substr($path, -1) != '/') {
+					// no trailing slash, retain the editors wishes here
+					$livePath = rtrim($livePath, '/');
+				}
 				if(strpos($livePath, '/trash/') !== false) {
 					// linked page is in trash, we won't update it but we'll produce a warning
 					$this->linkWarning("$path => $livePath (" . $this->_('it is in the trash') . ')');

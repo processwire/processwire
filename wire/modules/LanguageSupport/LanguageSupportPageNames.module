@@ -178,6 +178,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$sitePath = '/' . implode('/', $segments) . '/'; // combine to [/subdir]/site/
 		$sitePath = str_replace($config->urls->root, '', $sitePath); // remove possible subdir, reduce to: site/
 		// if it is a request to assets, then don't attempt to modify it
+		$sitePath = rtrim($sitePath, '/') . '/';
+		$path = rtrim($path, '/') . '/';
 		return strpos($path, $sitePath) === 0;
 	}
 
@@ -609,7 +611,8 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	/**
 	 * Add a Page::localName function with optional $language as argument
 	 *
-	 * event param Language|string|int Optional language 
+	 * event param Language|string|int|bool Optional language, or boolean true for behavior of 2nd argument. 
+	 * event param bool Substitute default language page name when page name is not defined for requested language.
 	 * event return string Localized language name or blank if not set
 	 * 
 	 * @param HookEvent $event
@@ -621,6 +624,9 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$nameField = $language->isDefault() ? "name" : "name$language";
 		$value = $page->get($nameField);
 		if(is_null($value)) $value = '';
+		if(empty($value) && $nameField !== 'name' && ($event->arguments(0) === true || $event->arguments(1) === true)) {
+			$value = $page->name;
+		}
 		$event->return = $value; 
 	}
 

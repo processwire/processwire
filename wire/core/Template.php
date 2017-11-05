@@ -362,7 +362,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 *  - `edit` 
 	 *  - `create` 
 	 *  - `add` 
-	 *  - Or a `Permission` object
+	 *  - Or a `Permission` object of `page-view` or `page-edit`
 	 * @return bool True if template has the role, false if not
 	 *
 	 */
@@ -402,12 +402,12 @@ class Template extends WireData implements Saveable, Exportable {
 	 * #pw-group-manipulation
 	 *
 	 * @param array|PageArray $value Role objects or array or Role IDs. 
-	 * @param string Specify one of the following:
+	 * @param string $type Specify one of the following:
 	 *  - `view` (default)
 	 *  - `edit`
 	 *  - `create`
 	 *  - `add` 
-	 *  - Or a `Permission` object
+	 *  - Or a `Permission` object of `page-view` or `page-edit`
 	 *
 	 */
 	public function setRoles($value, $type = 'view') {
@@ -431,6 +431,40 @@ class Template extends WireData implements Saveable, Exportable {
 				else if($type == 'create') $this->set('createRoles', $roleIDs);
 				else if($type == 'add') $this->set('addRoles', $roleIDs);
 		}
+	}
+
+	/**
+	 * Add a permission that applies to users having a specific role with pages using this template
+	 * 
+	 * Note that the change is not committed until you save() the template. 
+	 * 
+	 * @param Permission|int|string $permission Permission object, name, or id
+	 * @param Role|int|string $role Role object, name or id
+	 * @param bool $test Specify true to only test if an update would be made, without changing anything
+	 * @return bool Returns true if an update was made (or would be made), false if not
+	 * 
+	 */
+	public function addPermissionByRole($permission, $role, $test = false) {
+		return $this->wire('templates')->setTemplatePermissionByRole($this, $permission, $role, false, $test); 
+	}
+
+	/**
+	 * Revoke a permission that applies to users having a specific role with pages using this template
+	 *
+	 * Note that the change is not committed until you save() the template.
+	 *
+	 * @param Permission|int|string $permission Permission object, name, or id
+	 * @param Role|int|string $role Role object, name or id
+	 * @param bool $test Specify true to only test if an update would be made, without changing anything
+	 * @return bool Returns true if an update was made (or would be made), false if not
+	 *
+	 */
+	public function revokePermissionByRole($permission, $role, $test = false) {
+		return $this->wire('templates')->setTemplatePermissionByRole($this, $permission, $role, true, $test); 
+	}
+	
+	public function hasPermissionByRole($permission, $role) {
+		
 	}
 
 	/**
@@ -748,7 +782,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 * #pw-group-manipulation
 	 *
-	 * @return $this|bool Returns Template if successful, or false if not
+	 * @return Template|bool Returns Template if successful, or false if not
 	 *
 	 */
 	public function save() {
@@ -809,7 +843,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function hookFinished(HookEvent $e) {
-		foreach($this->wire('templates') as $template) {
+		foreach($e->wire('templates') as $template) {
 			if($template->isChanged('modified') || $template->isChanged('ns')) $template->save();
 		}
 	}
@@ -1041,7 +1075,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 * #pw-group-identification
 	 * 
-	 * @param $icon Font-awesome icon name
+	 * @param string $icon Font-awesome icon name
 	 * @return $this
 	 * 
 	 */

@@ -77,6 +77,27 @@ class FieldtypeImage extends FieldtypeFile {
 				$value[$k]['height'] = $img->height();
 			}
 		}
+		
+		if(!empty($options['FieldtypeImage'])) {
+			$o = $options['FieldtypeImage']; 
+			if(!empty($o['variations'])) {
+				// include URLs to image variations
+				foreach($value as $k => $v) {
+					if(empty($options['system'])) {
+						$img = $pagefiles->get($v['name']);
+					} else {
+						$img = $pagefiles->get($k); 
+					}
+					$variations = array();
+					foreach($img->getVariations() as $variation) {
+						$variations[$variation->name] = $variation->httpUrl();
+					}
+					$value[$k]['variations'] = $variations;
+					
+				}
+			}
+		}
+		
 		return $value; 	
 	}
 

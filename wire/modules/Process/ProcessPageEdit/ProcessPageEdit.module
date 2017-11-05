@@ -217,6 +217,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	protected $editor = null;
 
 	/**
+	 * Tell the Page what Process is being used to edit it?
+	 * 
+	 */
+	protected $setEditor = true;
+
+	/**
 	 * Names of changed fields
 	 * 
 	 * @var array
@@ -356,17 +362,47 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function ___loadPage($id) {
-		
+	
+		/** @var Page|NullPage $page */
 		$page = $this->wire('pages')->get((int) $id); 
 		
-		if($page instanceof NullPage) throw new WireException($this->noticeUnknown); // Init error: page doesn't exist
+		if($page instanceof NullPage) {
+			throw new WireException($this->noticeUnknown); // page doesn't exist
+		}
+
+		$editable = $page->editable();
 	
-		if(!$page->editable()) {
-			if($page instanceof User && $this->wire('user')->hasPermission('user-admin') && $this->wire('process') != 'ProcessUser') {
+		/** @var User $user */
+		$user = $this->wire('user');
+		
+		/** @var Config $config */
+		$config = $this->wire('config');
+		
+		/** @var Config $config */
+		$input = $this->wire('input');
+		
+		if($page instanceof User) {
+			// special case when page is a User
+			
+			$userAdmin = $user->hasPermission('user-admin');
+			$field = $input->get('field') ? $this->wire('fields')->get($input->get->fieldName('field')) : null;
+			
+			if($userAdmin && $this->wire('process') != 'ProcessUser') {
 				// only allow user pages to be edited from the access section (at least for non-superusers)
-				$this->wire('session')->redirect($this->wire('config')->urls->admin . 'access/users/edit/?id=' . $page->id);
+				$this->wire('session')->redirect($config->urls->admin . 'access/users/edit/?id=' . $page->id);
+				
+			} else if(!$userAdmin && $page->id === $user->id && $field && $config->ajax) {
+				// user is editing themself and we're responding to an ajax request for a field
+				/** @var PagePermissions $pagePermissions */
+				$pagePermissions = $this->wire('modules')->get('PagePermissions');
+				$editable = $pagePermissions->userFieldEditable($field); 
+				// prevent a later potential redirect to user editor
+				if($editable) $this->setEditor = false;
 			}
-			throw new WirePermissionException($this->noticeNoAccess); // Init: user doesn't have access
+		}
+		
+		if(!$editable) {
+			throw new WirePermissionException($this->noticeNoAccess);
 		}
 			
 		return $page;
@@ -383,8 +419,11 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		if(!$this->page) throw new WireException("No page found");
 		
-		$this->page->setEditor($this->editor ? $this->editor : $this); 
-
+		if($this->setEditor) {
+			// note that setting the editor can force a redirect to a ProcessPageType editor
+			$this->page->setEditor($this->editor ? $this->editor : $this);
+		}
+		
 		if($this->config->ajax && (isset($_SERVER['HTTP_X_FIELDNAME']) || count($_POST))) {
 			$this->ajaxSave($this->page);
 			return '';
@@ -843,6 +882,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 			/** @var InputfieldMarkup $field */
 			$field = $this->modules->get("InputfieldMarkup"); 
+			$field->attr('id+name', 'ChildrenPageList');
 			$field->label = $title == $defaultTitle ? $this->_("Children / Subpages") : $title; // Children field label
 			if($pageList) {
 				$field->value = $pageList->execute();
@@ -870,6 +910,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if(empty($this->page->template->sortfield) && $this->user->hasPermission('page-sort', $this->page)) { 		
 			$sortfield = $this->page->sortfield && $this->page->sortfield != 'sort' ? $this->page->sortfield : '';
 			$fieldset = self::buildFormSortfield($sortfield, $this); 
+			$fieldset->attr('id+name', 'ChildrenSortSettings'); 
 			$fieldset->label = $this->_('Sort Settings'); // Children sort settings field label
 			$fieldset->icon = 'sort';
 			$fieldset->description = $this->_("If you want all current and future children to automatically sort by a specific field, select the field below and optionally check the 'reverse' checkbox to make the sort descending. Leave the sort field blank if you want to be able to drag-n-drop to your own order."); // Sort settings description text
@@ -1229,7 +1270,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field = $this->modules->get("InputfieldMarkup"); 
 		$field->label = $this->_('Who can access this page?'); // Roles information field label
 		$field->icon = 'users';
-		$field->attr('id', 'ProcessPageEditRoles');
+		$field->attr('id+name', 'ProcessPageEditRoles');
 		$field->collapsed = Inputfield::collapsedYesAjax;
 
 		/** @var MarkupAdminDataTable $table */
@@ -1343,6 +1384,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				return;
 			}
 		}
+		
+		$formErrors = 0;
 
 		// remove temporary status that may have been assigned by ProcessPageAdd quick add mode
 		if($this->page->hasStatus(Page::statusTemp)) $this->page->removeStatus(Page::statusTemp);
@@ -1361,7 +1404,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$this->message(sprintf($this->_('Change: %s'), implode(', ', $changes)), Notice::debug); // Message shown for each changed field
 			}
 
-			$formErrors = 0;
 			foreach($this->notices as $notice) {
 				if($notice instanceof NoticeError) $formErrors++;
 			}
@@ -1413,6 +1455,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$submitAction = $this->wire('input')->post('_after_submit_action');
 		if($this->redirectUrl) {
 			// non-default redirectUrl overrides after_submit_action
+		} else if($formErrors) {
+			// if there were errors to attend to, stay where we are
 		} else if($submitAction == 'exit') {
 			$this->redirectUrl = '../';
 		} else if($submitAction == 'view') {
@@ -1836,6 +1880,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$labelAction = sprintf($this->_('Change template from "%1$s" to "%2$s"'), $this->page->template, $template); // Change template A to B headline
 		
 		$this->headline($labelConfirm);
+		if($this->wire('input')->get('modal')) $this->error("$labelConfirm – $labelAction"); // force modal open
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm"); 
@@ -1954,6 +1999,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				if(in_array($template->id, $this->config->userTemplateIDs) && !in_array($parent->id, $this->config->usersPageIDs)) continue; 
 				if($template->name == 'role' && $parent->id != $this->config->rolesPageID) continue;
 				if($template->name == 'permission' && $parent->id != $this->config->permissionsPageID) continue;
+				if(strpos($template->name, 'repeater_') === 0 || strpos($template->name, 'fieldset_') === 0) continue;
 			}
 
 			if(count($template->parentTemplates) && $parent->id && !in_array($parent->template->id, $template->parentTemplates)) {

@@ -572,15 +572,23 @@ class PagefilesManager extends Wire {
 	}
 
 	/**
-	 * Return a path where temporary files can be stored.
+	 * Return a path where temporary files can be stored unique to this ProcessWire instance
 	 * 
 	 * @return string
 	 *
 	 */
 	public function getTempPath() {
 		static $wtd = null;
-		if(is_null($wtd)) $wtd = $this->wire(new WireTempDir($this->className() . $this->page->id));
+		if(is_null($wtd)) {
+			$wtd = new WireTempDir();
+			$this->wire($wtd);
+			$wtd->setMaxAge(3600);
+			$name = $wtd->createName('PFM');
+			$wtd->create($name);
+		}
 		return $wtd->get();
+		// if(is_null($wtd)) $wtd = $this->wire(new WireTempDir($this->className() . $this->page->id));
+		// return $wtd->get();
 	}
-
+	
 }

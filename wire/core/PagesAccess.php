@@ -53,19 +53,25 @@ class PagesAccess extends Wire {
 	 */
 	public function __construct($item = null) {
 		if(!$item) return;
-		if($item instanceof Page) $this->updatePage($item); 
-			else if($item instanceof Template) $this->updateTemplate($template); 
+		if($item instanceof Page) {
+			$this->updatePage($item);
+		} else if($item instanceof Template) {
+			$this->updateTemplate($item);
+		}
 	}
 
 	/**
 	 * Rebuild the entire pages_access table (or a part of it) starting from the given parent_id
+	 * 
+	 * @param int $parent_id
+	 * @param int $accessTemplateID
+	 * @param bool $doDeletions
 	 *
 	 */
 	protected function rebuild($parent_id = 1, $accessTemplateID = 0, $doDeletions = true) {
 
 		$insertions = array();
 		$deletions = array();
-		$templates = $this->getTemplates();
 		$accessTemplates = $this->getAccessTemplates();
 		$parent_id = (int) $parent_id;
 		$accessTemplateID = (int) $accessTemplateID;
@@ -153,6 +159,8 @@ class PagesAccess extends Wire {
 	 * Update the pages_access table for the given Template
 	 *
 	 * To be called when a template's 'useRoles' property has changed. 
+	 * 
+	 * @param Template $template
 	 *
 	 */
 	public function updateTemplate(Template $template) {
@@ -218,6 +226,8 @@ class PagesAccess extends Wire {
 
 	/**
 	 * Delete a page from the pages_access table
+	 * 
+	 * @param Page $page
  	 *
 	 */
 	public function deletePage(Page $page) {

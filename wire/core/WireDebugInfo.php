@@ -91,7 +91,7 @@ class WireDebugInfo extends Wire {
 	 * @return array
 	 * 
 	 */
-	protected function Page(Page $page) {
+	public function Page(Page $page) {
 
 		$info = array(
 			'instanceID' => $page->instanceID,

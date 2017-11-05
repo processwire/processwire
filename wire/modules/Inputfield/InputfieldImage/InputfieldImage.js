@@ -1,3 +1,10 @@
+
+/*****************************************************************************************************************
+ * ProcessWire InputfieldImage
+ * 
+ * Copyright 2017 by ProcessWire
+ * 
+ */
 function InputfieldImage($) {
 	
 	// When uploading a file in place: .gridItem that file(s) will be placed before
@@ -524,6 +531,10 @@ function InputfieldImage($) {
 			} else if($el.is(".mfp-close")) {
 				// magnific popup close button
 				return;
+
+			} else if($el.is("a.remove")) {
+				// selectize 
+				return;
 				
 			} else {
 				// other
@@ -977,11 +988,12 @@ function InputfieldImage($) {
 		
 		//console.log('initInputfield');
 		//console.log($inputfield);
-		setGridSize($inputfield, size, ragged);
 		
 		if($inputfield.hasClass('InputfieldImageEditAll') || mode == 'list') {
 			var listSize = getCookieData($inputfield, 'listSize');
 			setListSize($inputfield, listSize);
+		} else {
+			setGridSize($inputfield, size, ragged);
 		}
 	
 		if(!$inputfield.hasClass('InputfieldImageInit')) {
@@ -1107,6 +1119,8 @@ function InputfieldImage($) {
 			var gridSize = $fileList.data("gridsize");
 			var doneTimer = null; // for AjaxUploadDone event
 			var maxFiles = parseInt($this.find('.InputfieldImageMaxFiles').val());
+			var resizeSettings = getClientResizeSettings($inputfield);
+			var useClientResize = resizeSettings.maxWidth > 0 || resizeSettings.maxHeight > 0 || resizeSettings.maxSize > 0;
 
 			setupDropzone($this);
 			if(maxFiles != 1) setupDropInPlace($fileList);
@@ -1189,7 +1203,8 @@ function InputfieldImage($) {
 					dragStop();
 				}, false);
 				
-				el.addEventListener("dragenter", function() {
+				el.addEventListener("dragenter", function(evt) {
+					evt.preventDefault();
 					dragStart();
 				}, false);
 
@@ -1334,9 +1349,10 @@ function InputfieldImage($) {
 			 * Upload file
 			 * 
 			 * @param file
+			 * @param extension (optional)
 			 * 
 			 */
-			function uploadFile(file) {
+			function uploadFile(file, extension) {
 			
 				var labels = ProcessWire.config.InputfieldImage.labels;
 				var filesizeStr = parseInt(file.size / 1024, 10) + '&nbsp;kB';
@@ -1420,12 +1436,15 @@ function InputfieldImage($) {
 				xhr = new XMLHttpRequest();
 
 				// Update progress bar
-				xhr.upload.addEventListener("progress", function(evt) {
-					if(!evt.lengthComputable) return;
+				function updateProgress(evt) {
+					if(typeof evt != "undefined") {
+						if(!evt.lengthComputable) return;
+						$progressBar.attr("value", parseInt((evt.loaded / evt.total) * 100));
+					}
 					$('body').addClass('pw-uploading');
-					$progressBar.attr("value", parseInt((evt.loaded / evt.total) * 100));
 					$spinner.css('display', 'block');
-				}, false);
+				}
+				xhr.upload.addEventListener("progress", updateProgress, false);
 
 				// File uploaded: called for each file
 				xhr.addEventListener("load", function() {
@@ -1501,9 +1520,24 @@ function InputfieldImage($) {
 						if($progressItem.length) $progressItem.remove();
 						
 						if(uploadReplace.item && maxFiles != 1) {
+							// indicate replacement for processing
+							$markup.find(".InputfieldFileReplace").val(uploadReplace.file);
+							// update replaced file name (visually) if extensions are the same
+							var $imageEditName = $markup.find(".InputfieldImageEdit__name");
+							var uploadNewName = $imageEditName.text();
+							var uploadNewExt = uploadNewName.substring(uploadNewName.lastIndexOf('.')+1).toLowerCase();
+							uploadNewName = uploadNewName.substring(0, uploadNewName.lastIndexOf('.')); // remove ext
+							var uploadReplaceName = uploadReplace.file;
+							if(uploadReplaceName.indexOf('?') > -1) {
+								uploadReplaceName = uploadReplaceName.substring(0, uploadReplaceName.indexOf('?'));
+							}
+							var uploadReplaceExt = uploadReplaceName.substring(uploadReplaceName.lastIndexOf('.')+1).toLowerCase();
+							uploadReplaceName = uploadReplaceName.substring(0, uploadReplaceName.lastIndexOf('.')); // remove ext
+							if(uploadReplaceExt == uploadNewExt) {
+								$imageEditName.children('span').text(uploadReplaceName).removeAttr('contenteditable');
+							}
 							// re-open replaced item
 							$markup.find(".gridImage__edit").click();
-							$markup.find(".InputfieldFileReplace").val(uploadReplace.file);
 						}
 				
 						// reset uploadReplace data
@@ -1535,32 +1569,54 @@ function InputfieldImage($) {
 				} else if($inputfield.find(".InputfieldImageEdit:visible").length) {
 					$inputfield.find(".InputfieldImageEdit__close").click();
 				}
-
-				// Here we go
-				xhr.open("POST", postUrl, true);
-				xhr.setRequestHeader("X-FILENAME", encodeURIComponent(file.name));
-				xhr.setRequestHeader("X-FIELDNAME", fieldName);
-				xhr.setRequestHeader("Content-Type", "application/octet-stream"); // fix issue 96-Pete
-				xhr.setRequestHeader("X-" + postTokenName, postTokenValue);
-				xhr.setRequestHeader("X-REQUESTED-WITH", 'XMLHttpRequest');
-				xhr.send(file);
-
+				
 				// Present file info and append it to the list of files
 				if(uploadReplace.item) {
 					uploadReplace.item.replaceWith($progressItem);
 					uploadReplace.item = $progressItem;
 				} else if($uploadBeforeItem && $uploadBeforeItem.length) {
-					$uploadBeforeItem.before($progressItem); 
+					$uploadBeforeItem.before($progressItem);
 				} else {
 					$fileList.append($progressItem);
 				}
-				updateGrid();
-				$inputfield.trigger('change');
-				var numFiles = $inputfield.find('.InputfieldFileItem').length;
-				if(numFiles == 1) {
-					$inputfield.removeClass('InputfieldFileEmpty').removeClass('InputfieldFileMultiple').addClass('InputfieldFileSingle');
-				} else if(numFiles > 1) {
-					$inputfield.removeClass('InputfieldFileEmpty').removeClass('InputfieldFileSingle').addClass('InputfieldFileMultiple');
+
+				// Here we go
+				function sendUpload(file, imageData) {
+					xhr.open("POST", postUrl, true);
+					xhr.setRequestHeader("X-FILENAME", encodeURIComponent(file.name));
+					xhr.setRequestHeader("X-FIELDNAME", fieldName);
+					if(uploadReplace.item) xhr.setRequestHeader("X-REPLACENAME", uploadReplace.file); 
+					xhr.setRequestHeader("Content-Type", "application/octet-stream"); // fix issue 96-Pete
+					xhr.setRequestHeader("X-" + postTokenName, postTokenValue);
+					xhr.setRequestHeader("X-REQUESTED-WITH", 'XMLHttpRequest');
+					if(typeof imageData != "undefined" && imageData != false) {
+						xhr.send(imageData); 
+					} else {
+						xhr.send(file);
+					}
+					
+					updateGrid();
+					$inputfield.trigger('change');
+					var numFiles = $inputfield.find('.InputfieldFileItem').length;
+					if(numFiles == 1) {
+						$inputfield.removeClass('InputfieldFileEmpty').removeClass('InputfieldFileMultiple').addClass('InputfieldFileSingle');
+					} else if(numFiles > 1) {
+						$inputfield.removeClass('InputfieldFileEmpty').removeClass('InputfieldFileSingle').addClass('InputfieldFileMultiple');
+					}
+				}
+				
+				updateProgress();
+				
+				if(useClientResize) {
+					var resizer = new PWImageResizer(resizeSettings);
+					$spinner.addClass('pw-resizing');
+					resizer.resize(file, function(imageData) {
+						$spinner.removeClass('pw-resizing');
+						// resize completed, start upload
+						sendUpload(file, imageData);
+					});
+				} else {
+					sendUpload(file);
 				}
 			}
 
@@ -1575,7 +1631,7 @@ function InputfieldImage($) {
 				var toKilobyte = function(i) {
 					return parseInt(i / 1024, 10);
 				};
-
+				
 				if(typeof files === "undefined") {
 					fileList.innerHTML = "No support for the File API in this web browser";
 					return;
@@ -1590,7 +1646,7 @@ function InputfieldImage($) {
 						message = extension + ' is a invalid file extension, please use one of:  ' + extensions;
 						$errorParent.append(errorItem(message, files[i].name));
 
-					} else if(files[i].size > maxFilesize && maxFilesize > 2000000) {
+					} else if(!useClientResize && files[i].size > maxFilesize && maxFilesize > 2000000) {
 						// I do this test only if maxFilesize is at least 2M (php default). 
 						// There might (not sure though) be some issues to get that value so don't want to overvalidate here -apeisa
 						var filesizeKB = toKilobyte(files[i].size),
@@ -1600,7 +1656,7 @@ function InputfieldImage($) {
 						$errorParent.append(errorItem(message, files[i].name));
 
 					} else {
-						uploadFile(files[i]);
+						uploadFile(files[i], extension);
 					}
 					
 					if(maxFiles == 1) break;
@@ -1615,6 +1671,7 @@ function InputfieldImage($) {
 			}, false);
 			
 		}
+		
 
 		/**
 		 * Setup dropzone within an .InputfieldImageEdit panel so one can drag/drop new photo into existing image enlargement
@@ -1647,6 +1704,30 @@ function InputfieldImage($) {
 		setupEnlargementDropzones();
 		
 	} // initUploadHTML5
+	
+	function getClientResizeSettings($inputfield) {
+		
+		var settings = {
+			maxWidth: 0,
+			maxHeight: 0,
+			maxSize: 0, 
+			quality: 1.0,
+			autoRotate: true,
+			debug: ProcessWire.config.debug
+		};
+	
+		var data = $inputfield.attr('data-resize');
+
+		if(typeof data != "undefined" && data.length) {
+			data = data.split(';');
+			settings.maxWidth = parseInt(data[0]);
+			settings.maxHeight = parseInt(data[1]);
+			settings.maxSize = parseFloat(data[2]);
+			settings.quality = parseFloat(data[3]);
+		}
+		
+		return settings;
+	}
 	
 	/**
 	 * Initialize InputfieldImage

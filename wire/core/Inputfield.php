@@ -68,7 +68,8 @@
  * @property string $requiredIf Optional conditions under which input is required (selector string). #pw-group-behavior
  * @property InputfieldWrapper|null $parent The parent InputfieldWrapper for this Inputfield or null if not set. #pw-internal
  * @property null|bool|Fieldtype $hasFieldtype The Fieldtype using this Inputfield, or boolean false when known not to have a Fieldtype, or null when not known. #pw-group-other
- * @property null|Field $hasField The Field object associated with this Inputfield, or or null when not applicable or not known. #pw-group-other
+ * @property null|Field $hasField The Field object associated with this Inputfield, or null when not applicable or not known. #pw-group-other
+ * @property null|Page $hasPage The Page object associated with this Inputfield, or null when not applicable or not known. #pw-group-other
  * @property bool|null $useLanguages When multi-language support active, can be set to true to make it provide inputs for each language, where supported (default=false). #pw-group-behavior
  * @property null|bool|int $entityEncodeLabel Set to boolean false to specifically disable entity encoding of field header/label (default=true). #pw-group-output
  * @property null|bool $entityEncodeText Set to boolean false to specifically disable entity encoding for other text: description, notes, etc. (default=true). #pw-group-output

@@ -118,8 +118,17 @@ class Pagefile extends WireData {
 	 *
 	 */
 	protected function ___install($filename) {
+	
+		$basename = $filename;
+		
+		if(strpos($basename, '?') !== false) {
+			list($basename, $queryString) = explode('?', $basename); 	
+			if($queryString) {} // do not use in basename
+		} 
+	
+		if(empty($basename)) throw new WireException("Empty filename");
 
-		$basename = $this->pagefiles->cleanBasename($filename, true, false, true); 
+		$basename = $this->pagefiles->cleanBasename($basename, true, false, true); 
 		$pathInfo = pathinfo($basename); 
 		$basename = basename($basename, ".$pathInfo[extension]"); 
 
@@ -189,12 +198,15 @@ class Pagefile extends WireData {
 	/**
 	 * Set a description, optionally parsing JSON language-specific descriptions to separate properties
 	 *
-	 * @param string $value
+	 * @param string|array $value
 	 * @param Page|Language Langage to set it for. Omit to determine automatically. 
 	 * @return $this
 	 *
 	 */
 	protected function setDescription($value, Page $language = null) {
+		
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
 		
 		/** @var Language|null $language */
 		
@@ -207,27 +219,45 @@ class Pagefile extends WireData {
 				$name .= $language->id;
 			}
 			parent::set($name, $value); 
+			if($name != 'description' && $this->isChanged($name)) $this->trackChange('description');
 			return $this; 
 		}
 
-		// check if it contains JSON?
-		$first = substr($value, 0, 1); 
-		$last = substr($value, -1); 
-		if(($first == '{' && $last == '}') || ($first == '[' && $last == ']')) {
-			$values = json_decode($value, true); 
+		if(is_array($value)) {
+			$values = $value;
 		} else {
-			$values = array(); 
+			// check if it contains JSON?
+			$first = substr($value, 0, 1);
+			$last = substr($value, -1);
+			if(($first == '{' && $last == '}') || ($first == '[' && $last == ']')) {
+				$values = json_decode($value, true);
+			} else {
+				$values = array();
+			}
 		}
+		
+		$numChanges = 0;
 
 		if($values && count($values)) {
 			$n = 0; 
 			foreach($values as $id => $v) {	
 				// first item is always default language. this ensures description will still
 				// work even if language support is later uninstalled. 
-				if($noLang && $n > 0) continue;
-				$name = $n > 0 ? "description$id" : "description"; 
-				parent::set($name, $v); 
+				if($noLang && $n > 0) break;
 				$n++; 
+				if(ctype_digit("$id")) {
+					$id = (int) $id;
+					if(!$id) $id = '';
+					$name = $n > 0 ? "description$id" : "description";
+				} else if($id === 'default') {
+					$name = 'description';
+				} else if($languages) {
+					$language = $languages->get($id); // i.e. "default" or "es"
+					if(!$language->id) continue;
+					$name = $language->isDefault() ? "description" : "description$language->id";
+				}
+				parent::set($name, $v);
+				if($this->isChanged($name)) $numChanges++;
 			}
 		} else {
 			// no JSON values so assume regular language description
@@ -235,11 +265,15 @@ class Pagefile extends WireData {
 			$language = $languages ? $this->wire('user')->language : null; 
 
 			if($languages && $language && !$noLang && !$language->isDefault()) {
-				parent::set("description$language", $value); 
+				$name = "description$language->id";
 			} else {
-				parent::set("description", $value); 
+				$name = "description";
 			}
+			parent::set($name, $value);
+			if($this->isChanged($name)) $numChanges++;
 		}
+		
+		if($numChanges && !$this->isChanged('description')) $this->trackChange('description');
 
 		return $this;
 	}
@@ -268,17 +302,31 @@ class Pagefile extends WireData {
 	 * #pw-group-common
 	 * #pw-group-manipulation
 	 * 
-	 * @param null|bool|Language
+	 * @param null|bool|Language|array
 	 * - To GET in current user language: Omit arguments or specify null.
 	 * - To GET in another language: Specify a Language name, id or object.
 	 * - To GET in all languages as a JSON string: Specify boolean true (if LanguageSupport not installed, regular string returned).
+	 * - To GET in all languages as an array indexed by language name: Specify boolean true for both arguments.
 	 * - To SET for a language: Specify a language name, id or object, plus the $value as the 2nd argument.
 	 * - To SET in all languages as a JSON string: Specify boolean true, plus the JSON string $value as the 2nd argument (internal use only).
+	 * - To SET in all languages as an array: Specify the array here, indexed by language ID or name, and omit 2nd argument. 
 	 * @param null|string $value Specify only when you are setting (single language) rather than getting a value.
 	 * @return string
 	 *
 	 */
 	public function description($language = null, $value = null) {
+		
+		if($language === true && $value === true) {
+			// return all in array indexed by language name
+			/** @var Languages $languages */
+			$languages = $this->wire('languages');
+			if(!$languages) return array('default' => parent::get('description'));
+			$value = array();
+			foreach($languages as $language) {
+				$value[$language->name] = (string) parent::get("description" . ($language->isDefault() ? '' : $language->id));
+			}
+			return $value;	
+		}
 
 		if(!is_null($value)) {
 			// set description mode
@@ -290,6 +338,13 @@ class Pagefile extends WireData {
 				$this->setDescription($value, $language); 
 			}
 			return $value; 
+		}
+		
+		if(is_array($language)) {
+			// set all from array, then return description in current language
+			$this->setDescription($language); 	
+			$language = null;
+			$value = null;
 		}
 
 		if((is_string($language) || is_int($language)) && $this->wire('languages')) {

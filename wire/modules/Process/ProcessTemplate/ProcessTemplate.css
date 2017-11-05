@@ -16,18 +16,6 @@ input[disabled=disabled] {
 	opacity: 0.5; 	
 }
 
-span.asmFieldsetIndent {
-	float: left; 
-	width: 15px; 
-	height: 5px; 
-}
-
-.pw-content .asmFieldset,
-#content .asmFieldset {
-	font-weight: bold; 
-}
-
-
 #ProcessTemplateList td:first-child,
 #ProcessTemplateList td:nth-child(2) {
 	width: 30%; 

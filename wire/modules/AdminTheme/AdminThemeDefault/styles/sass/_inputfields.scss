@@ -507,9 +507,7 @@ $ui-tabs-container-bg: transparentize($subtle-bg, 0.3); /* note same as item nes
 
 .Inputfields .langTabsContainer,
 #content .Inputfields .langTabsContainer {
-	padding-top: 0;
-	padding-left: 0;
-	padding-right: 0;
+	padding: 0;
 
 	p.description {
 		background: $ui-tabs-container-bg;
@@ -591,6 +589,17 @@ $ui-tabs-container-bg: transparentize($subtle-bg, 0.3); /* note same as item nes
 		}
 	}
 }
+.InputfieldFile .ui-tabs,
+.InputfieldImage .ui-tabs,
+#content .InputfieldFile .ui-tabs,
+#content .InputfieldImage .ui-tabs {
+	border: 1px solid $subtle-border;
+	border-radius: 0;
+}
+.InputfieldFile .langTabsContainer + .InputfieldFileTags,
+.InputfieldImage .langTabsContainer + .InputfieldFileTags {
+	margin-top: 0.5em;
+}
 
 .ui-tabs-panel,
 #content .ui-tabs-panel {
@@ -605,3 +614,4 @@ $ui-tabs-container-bg: transparentize($subtle-bg, 0.3); /* note same as item nes
 		display: none; 
 	}
 }
+

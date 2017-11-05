@@ -42,6 +42,7 @@ class InputfieldPageListSelect extends Inputfield implements InputfieldPageListS
 			/** @var ProcessPageList $process */
 			$process = $this->wire('modules')->get('ProcessPageList'); // prerequisite module
 			$process->setPageLabelField($this->attr('name'), $this->labelFieldName);
+			$process->renderReady();
 		}
 		return parent::renderReady($parent, $renderValueMode);
 	}

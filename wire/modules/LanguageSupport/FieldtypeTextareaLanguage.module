@@ -79,6 +79,33 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 		// in this method we are delegating the exportValue() to FieldtypeTextLanguage::exportValue
 		// but we want to make sure it has textarea sleepValue, so we pass sleepValue in the $options
 		if(!isset($options['sleepValue'])) $options['sleepValue'] = $this->sleepValue($page, $field, $value);
-		return $this->wire('fieldtypes')->get('FieldtypeTextLanguage')->___exportValue($page, $field, $value, $options);
+		$exportValue = $this->wire('fieldtypes')->get('FieldtypeTextLanguage')->___exportValue($page, $field, $value, $options);
+		return $exportValue; 
+	}
+
+	/**
+	 * Given an export value, import it to a LanguagesPageFieldValue 
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array $value
+	 * @param array $options
+	 * @return LanguagesPageFieldValue
+	 * 
+	 */
+	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
+	
+		/** @var LanguagesPageFieldValue $importValue */
+		$importValue = $this->wire('fieldtypes')->get('FieldtypeTextLanguage')->___importValue($page, $field, $value, $options);
+		
+		foreach($languages as $language) {
+			$languageValue = $importValue->getLanguageValue($language->id); 
+			$languageValue = parent::___importValue($page, $field, $languageValue, $options); 
+			$importValue->setLanguageValue($language->id, $languageValue);
+		}
+		
+		return $importValue; 
 	}
 }

@@ -11,7 +11,13 @@
  */
 
 class PageAccess {
-
+	
+	/**
+	 * @var ProcessWire
+	 * 
+	 */
+	protected $wire;
+	
 	/**
 	 * Allowed types for page access
 	 * 
@@ -43,7 +49,7 @@ class PageAccess {
 			$permission = $this->wire('permissions')->get($name);
 			$name = $permission ? $permission->name : 'edit';
 		} else if($name instanceof Permission) {
-			$name = $permission->name;
+			$name = $name->name;
 		}
 		
 		if(strpos($name, 'page-') === 0) $name = str_replace('page-', '', $name);
@@ -56,12 +62,13 @@ class PageAccess {
 	 * Returns the parent page that has the template from which we get our role/access settings from
 	 *
 	 * @param Page $page
-	 * @param string Type, one of 'view', 'edit', 'create' or 'add' (default='view')
+	 * @param string $type Type, one of 'view', 'edit', 'create' or 'add' (default='view')
 	 * @param int $level Recursion level for internal use only
 	 * @return Page|NullPage Returns NullPage if none found
 	 *
 	 */
 	public function getAccessParent(Page $page, $type = 'view', $level = 0) {
+		if(!$page->id) return $page->wire('pages')->newNullPage();
 		if(!in_array($type, $this->types)) $type = $this->getType($type);
 		if($page->template->useRoles || $page->id === 1) {
 			// found an access parent
@@ -80,7 +87,7 @@ class PageAccess {
 	 * Returns the template from which we get our role/access settings from
 	 *
 	 * @param Page $page
-	 * @param string Type, one of 'view', 'edit', 'create' or 'add' (default='view')
+	 * @param string $type Type, one of 'view', 'edit', 'create' or 'add' (default='view')
 	 * @return Template|null Returns null if none	
 	 *
 	 */
@@ -114,7 +121,7 @@ class PageAccess {
 	 *
 	 * @param Page $page
 	 * @param string|int|Role $role 
-	 * @param string Default is 'view', but you may specify 'create' or 'add' as well
+	 * @param string $type Default is 'view', but you may specify 'create' or 'add' as well
 	 * @return bool
 	 *
 	 */
@@ -124,5 +131,44 @@ class PageAccess {
 		if($role instanceof Role) return $roles->has($role); 
 		if(is_int($role)) return $roles->has("id=$role"); 
 		return false;
+	}
+	
+	/**
+	 * Get or inject a ProcessWire API variable or fuel a new object instance
+	 *
+	 * See Wire::wire() for explanation of all options.
+	 *
+	 * @param string|WireFuelable $name Name of API variable to retrieve, set, or omit to retrieve entire Fuel object.
+	 * @param null|mixed $value Value to set if using this as a setter, otherwise omit.
+	 * @param bool $lock When using as a setter, specify true if you want to lock the value from future changes (default=false)
+	 * @return mixed|Fuel
+	 * @throws WireException
+	 *
+	 */
+	public function wire($name = '', $value = null, $lock = false) {
+		if(!is_null($value)) return $this->wire->wire($name, $value, $lock);
+			else if($name instanceof WireFuelable && $this->wire) $name->setWire($this->wire);
+			else if($name) return $this->wire->wire($name); 
+		return $this->wire; 
+	}
+
+	/**
+	 * Set the ProcessWire instance
+	 *
+	 * @param ProcessWire $wire
+	 *
+	 */
+	public function setWire(ProcessWire $wire) {
+		$this->wire = $wire; 
+	}
+
+	/**
+	 * Get the ProcessWire instance
+	 *
+	 * @return ProcessWire
+	 *
+	 */
+	public function getWire() {
+		return $this->wire;
 	}
 }

@@ -517,9 +517,12 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 				throw new WireException('Missing or non-readable template file: ' . basename($options['filename']));
 			}
 		}
-	
+
 		if($this->wire('config')->useMarkupRegions) {
-			$this->populateMarkupRegions($data);
+			$contentType = $template->contentType; 
+			if(empty($contentType) || stripos($contentType, 'html') !== false) {
+				$this->populateMarkupRegions($data);
+			}
 		}
 
 		if($data && $cacheAllowed && $cacheFile) $cacheFile->save($data);
@@ -540,19 +543,35 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	protected function populateMarkupRegions(&$html) {
-		$pos = stripos($html, '<!DOCTYPE');
+		
+		$pos = stripos($html, '<!DOCTYPE html');
+		
 		if($pos === false) {
 			// if no doctype match, attempt an html tag match
 			$pos = stripos($html, '<html'); 
 		}
-		if($pos) {
-			// split document at doctype/html boundary
-			$htmlBefore = substr($html, 0, $pos);
-			$html = substr($html, $pos);
-			$markupRegions = new WireMarkupRegions();
-			$this->wire($markupRegions);
-			$markupRegions->populate($html, $htmlBefore);
+		
+		// if no document start, or document starts at pos==0, then nothing to populate
+		if(!$pos) return;
+		
+		// split document at doctype/html boundary
+		$htmlBefore = substr($html, 0, $pos);
+		$html = substr($html, $pos);
+		$markupRegions = new WireMarkupRegions();
+		$this->wire($markupRegions);
+		
+		$options = array('useClassActions' => true); 
+		$config = $this->wire('config');
+		$version = (int) $config->useMarkupRegions;
+		
+		if($config->installed >= 1498132609 || $version >= 2) {
+			// If PW installed after June 21, 2017 do not use legacy class actions
+			// as they are no longer part of the current WireMarkupRegions spec.
+			// Can also force this behavior by setting $config->useMarkupRegions = 2;
+			$options['useClassActions'] = false;
 		}
+		
+		$markupRegions->populate($html, $htmlBefore, $options);
 	}
 
 	/**

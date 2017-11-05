@@ -102,6 +102,9 @@
     font-size: 1.3em;
     cursor: move;
     text-shadow: 0px 0px 7px rgba(62, 185, 152, 0.7); }
+    .gridImage__resize.pw-resizing {
+      text-shadow: none;
+      background: rgba(0, 0, 0, 0.7); }
   .gridImage__progress {
     /* Reset the default appearance */
     -webkit-appearance: none;
@@ -345,6 +348,8 @@
     margin: 1em 0 0.5em 0; }
     .InputfieldImageEdit__buttons button {
       margin-bottom: 0.5em; }
+  .InputfieldImageEdit .InputfieldFileDescription + .InputfieldFileTags {
+    margin-top: 0.5em; }
 
 .InputfieldImage .ImageData {
   display: none; }

@@ -246,6 +246,8 @@ class FieldtypeComments extends FieldtypeMulti {
 	 *
 	 */
 	protected function checkExistingComment(Page $page, Field $field, Comment $comment) {
+		
+		if($comment->quiet()) return;
 
 		$submitSpam = false; 
 		$submitHam = false; 
@@ -312,7 +314,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 */ 
 	protected function checkNewComment(Page $page, Field $field, Comment $comment) {
 
-		if($comment->id) return;
+		if($comment->id || $comment->quiet()) return;
 		
 		$this->checkCommentCodes($comment);
 		
@@ -1509,6 +1511,200 @@ class FieldtypeComments extends FieldtypeMulti {
 		}
 		
 		parent::___renamedField($field, $prevName);
+	}
+
+	/**
+	 * Export Comment to array
+	 * 
+	 * @param Comment|array $comment
+	 * @return array
+	 * 
+	 */
+	protected function exportComment($comment) {
+		if(is_object($comment)) $comment = $comment->getArray();
+		if(isset($comment['created_users_id'])) {
+			$u = $this->wire('users')->get((int) $comment['created_users_id']);
+			$comment['created_user'] = $u->name;
+			unset($comment['created_users_id']); 
+		}
+		return $comment;
+	}
+
+	/**
+	 * Export Comments to array
+	 * 
+	 * @param CommentArray|array $comments 
+	 * @return array
+	 * 
+	 */
+	protected function exportComments($comments) {
+		
+		$commentsArray = array();
+		$exportComments = array();
+		
+		foreach($comments as $comment) {
+			if($comment['status'] == Comment::statusSpam) continue; // don't export spam
+			$commentsArray[(int) $comment['id']] = $comment; // index by comment id
+		}
+
+		foreach($commentsArray as $id => $comment) {
+
+			$key = $this->getCommentExportKey($comment);
+			$comment = $this->exportComment($comment);
+
+			if(!empty($comment['parent_id'])) {
+				$parentID = (int) $comment['parent_id'];
+				$parent = isset($commentsArray[$parentID]) ? $commentsArray[$parentID] : null;
+				if($parent) $comment['parent_key'] = $this->getCommentExportKey($parent); 
+			}
+
+			$exportComments[$key] = $comment;
+		}
+
+		return $exportComments; 
+	}
+	
+	/**
+	 * Get key used for exporting a comment
+	 *
+	 * @param Comment|array $comment
+	 * @return string
+	 *
+	 */
+	protected function getCommentExportKey($comment) {
+		return "$comment[created] $comment[email]";
+	}
+
+	/**
+	 * Export value
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|int|object|string $value
+	 * @param array $options
+	 * @return array|string
+	 *
+	 */
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		return array_values($this->exportComments($value));
+	}
+	
+	/**
+	 * Import value
+	 * 
+	 * Note: importValue does not delete comments, only insert or update. 
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array $value
+	 * @param array $options
+	 * @return array|string
+	 *
+	 */
+	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
+		
+		$value = $this->exportComments($value);
+		$comments = $page->get($field->name);
+		$commentsArray = array();
+		$addComments = array();
+		$updateComments = array();
+		$skipImportComments = array();
+		$updatePropertyCounts = array();
+		$skipUpdateProperties = array('id', 'created_user', 'created_users_id'); 
+		
+		foreach($comments as $comment) {
+			if($comment->status == Comment::statusSpam) continue; 
+			$key = $this->getCommentExportKey($comment); 
+			$commentsArray[$key] = $comment;
+		}
+		
+		foreach($value as $key => $importCommentArray) {
+			
+			if(!empty($importCommentArray['parent_key'])) {
+				$parentKey = $importCommentArray['parent_key'];
+				if(!isset($commentsArray[$parentKey])) {
+					$skipImportComments[$key] = $importCommentArray;
+					continue;
+				}
+				$importCommentArray['parent_id'] = $commentsArray[$parentKey]['id'];
+				unset($importCommentArray['parent_key']); 
+			}
+			
+			if(!isset($commentsArray[$key])) {
+				$addComments[$key] = $importCommentArray;
+				continue;
+			}
+			
+			$comment = $commentsArray[$key];
+			$commentArray = $this->exportComment($comment); 
+			
+			foreach($skipUpdateProperties as $property) {
+				unset($commentArray[$property]); 
+				unset($importCommentArray[$property]); 
+			}
+		
+			if($commentArray == $importCommentArray) continue; // no changes
+			
+			foreach($importCommentArray as $k => $v) {
+				if(isset($commentArray[$k]) && $commentArray[$k] == $v) continue;
+				$comment->set($k, $v); 
+				$comment->quiet(true);
+				$updateComments[$key] = $comment;
+				if(!isset($updatePropertyCounts[$k])) $updatePropertyCounts[$k] = 0;
+				$updatePropertyCounts[$k]++;
+			}
+		}
+		
+		foreach($addComments as $commentArray) {
+			unset($commentArray['id']); 	
+			$u = $this->wire('users')->get("name=" . $this->wire('sanitizer')->pageName($commentArray['created_user']));
+			$commentArray['created_users_id'] = $u->id;	
+			unset($commentArray['created_user']); 
+			$comment = $this->makeComment($page, $field, $commentArray); 
+			$comment->quiet(true);
+			$comments->add($comment); 
+		}
+
+		$numAddComments = count($addComments); 
+		$numUpdateComments = count($updateComments); 
+		$numSkipComments = count($skipImportComments); 
+		
+		if($numAddComments) {
+			$comments->message("$field->name: $numAddComments new added"); 
+		}
+		
+		if($numUpdateComments) {
+			$counts = array();
+			foreach($updatePropertyCounts as $property => $count) {
+				$counts[] = "$property ($count)";
+			}
+			$comments->message("$field->name: $numUpdateComments updated - " . implode(', ', $counts));
+			$comments->trackChange('value');
+		}
+		
+		if($numSkipComments) {
+			$comments->warning(
+				"$field->name: $numSkipComments skipped because parent comment(s) not yet present (run import again)"
+			); 
+		}
+		
+		return $comments; 
+		
+	}
+
+	/**
+	 * Get associative array of options (name => default) that Fieldtype supports for importValue
+	 * 
+	 * #pw-internal
+	 *
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
+	public function getImportValueOptions(Field $field) {
+		$options = parent::getImportValueOptions($field);
+		$options['test'] = true;
+		return $options;
 	}
 
 }

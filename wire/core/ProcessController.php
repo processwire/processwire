@@ -52,7 +52,15 @@ class ProcessController extends Wire {
 	 * @var string
 	 *
 	 */
-	protected $processName; 
+	protected $processName;
+
+	/**
+	 * Error message if unable to load Process module
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $processError = '';
 
 	/**
 	 * The name of the method to execute in this process
@@ -141,9 +149,13 @@ class ProcessController extends Wire {
 	 */
 	public function getProcess() {
 
-		if($this->process) $processName = $this->process->className();
-			else if($this->processName) $processName = $this->processName; 
-			else return null; 
+		if($this->process) {
+			$processName = $this->process->className();
+		} else if($this->processName) {
+			$processName = $this->processName;
+		} else {
+			return null;
+		}
 
 		// verify that there is adequate permission to execute the Process
 		$permissionName = '';
@@ -151,11 +163,18 @@ class ProcessController extends Wire {
 		if(!empty($info['permission'])) $permissionName = $info['permission']; 
 
 		$this->hasPermission($permissionName, true); // throws exception if no permission
+		
 		if(!$this->process) {
-			$this->process = $this->modules->getModule($processName);
+			$module = $this->modules->getModule($processName, array('returnError' => true)); 
+			if(is_string($module)) {
+				$this->processError = $module;
+				$this->process = null;
+			} else {
+				$this->process = $module;
+			}
 		}
 
-		// set a proces fuel, primarily so that certain Processes can determine if they are the root Process 
+		// set a process fuel, primarily so that certain Processes can determine if they are the root Process 
 		// example: PageList when in PageEdit
 		$this->wire('process', $this->process);
 	
@@ -259,7 +278,7 @@ class ProcessController extends Wire {
 			}
 
 		} else {
-			throw new ProcessController404Exception("The requested process does not exist");
+			throw new ProcessController404Exception("The requested process does not exist - $this->processError");
 		}
 	
 		if(empty($content) || is_bool($content)) {
@@ -267,7 +286,7 @@ class ProcessController extends Wire {
 		}
 		if(is_array($content)) {
 			// array of returned content indicates variables to send to a view
-			if(count($content)) {
+			if(count($content) || $this->process->getViewFile()) {
 				$viewFile = $this->getViewFile($this->process, $method); 
 				if($viewFile) {
 					// get output from a separate view file

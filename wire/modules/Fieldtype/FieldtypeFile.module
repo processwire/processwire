@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string formatValueString(Page $page, Field $field, $value)
@@ -21,15 +21,34 @@ class FieldtypeFile extends FieldtypeMulti {
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Files', __FILE__),
-			'version' => 104,
+			'version' => 105,
 			'summary' => __('Field that stores one or more files', __FILE__),
 			'permanent' => true,
 		);
 	}
 
+	/**
+	 * outputFormat: Automatic (single item or null when max files set to 1, array of items otherwise)
+	 * 
+	 */
 	const outputFormatAuto = 0;
-	const outputFormatArray = 1; 
-	const outputFormatSingle = 2; 
+
+	/**
+	 * outputFormat: Array of items
+	 * 
+	 */
+	const outputFormatArray = 1;
+
+	/**
+	 * outputFormat: Single item or null when empty
+	 * 
+	 */
+	const outputFormatSingle = 2;
+
+	/**
+	 * outputFormat: String that renders the item
+	 * 
+	 */
 	const outputFormatString = 30;
 
 	/**
@@ -43,9 +62,37 @@ class FieldtypeFile extends FieldtypeMulti {
 	 *
 	 */
 	const fileSchemaDate = 2;
-	
+
+	/**
+	 * Flag for useTags: tags off/disabled
+	 * 
+	 */
+	const useTagsOff = 0;
+
+	/**
+	 * Flag for useTags: normal text input tags
+	 * 
+	 */
+	const useTagsNormal = 1;
+
+	/**
+	 * Flag for useTags: predefined tags
+	 * 
+	 */
+	const useTagsPredefined = 8;
+
+	/**
+	 * Default class for Inputfield object used, auto-generated at construct
+	 * 
+	 * @var string
+	 * 
+	 */
 	protected $defaultInputfieldClass = '';
 
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		$this->defaultInputfieldClass = str_replace('Fieldtype', 'Inputfield', $this->className);
 	}
@@ -205,25 +252,93 @@ class FieldtypeFile extends FieldtypeMulti {
 	}
 
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+		
 		$pagefiles = $value; 
 		$value = $this->sleepValue($page, $field, $value); 
 		$exportValue = array();
+		$defaults = array(
+			'noJSON' => false, // no JSON for exported file descriptions or other properties (use array instead)
+		);
+		if(!isset($options['FieldtypeFile'])) $options['FieldtypeFile'] = array();
+		$options['FieldtypeFile'] = array_merge($defaults, $options['FieldtypeFile']); 
+		
 		foreach($value as $k => $v) {
 			/** @var Pagefile $pagefile */
 			$pagefile = $pagefiles->get($v['data']); 
-			$a = array('url' => $pagefile->httpUrl()); 
+			
+			$a = array(
+				'url' => $pagefile->httpUrl(),
+				'size' => $pagefile->filesize(), 
+			); 
+			
 			if(!empty($options['system'])) {
 				unset($v['created'], $v['modified']);
 				$exportKey = $v['data'];
 			} else {
 				$a['name'] = $v['data'];
-				$a['filesize'] = $pagefile->filesize();
 				$exportKey = $k;
 			}
+			
 			unset($v['data']); 
+	
+			if($options['FieldtypeFile']['noJSON']) {
+				// export version 2 for exported description uses array value for multi-language, rather than JSON string
+				if(!isset($v['description'])) $v['description'] = '';
+				$v['description'] = $this->exportDescription($v['description']);
+			}
+			
 			$exportValue[$exportKey] = array_merge($a, $v);
 		}
+		
 		return $exportValue; 	
+	}
+
+	/**
+	 * Export description value to array (multi-language, indexed by lang name) or string (non-multi-language)
+	 * 
+	 * @param string|array $value
+	 * @return array|string
+	 * 
+	 */
+	protected function exportDescription($value) {
+		
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
+		
+		if(is_string($value)) {
+			if(strpos($value, '[') !== 0 && strpos($value, '{') !== 0) return $value;
+			$a = json_decode($value, true);
+			if(!is_array($a)) return $value;
+		} else if(is_array($value)) {
+			$a = $value;
+		} else {
+			$a = array();
+		}
+	
+		if(!$languages) {
+			$value = count($a) ? (string) reset($a) : ''; // return first/default
+			return $value; 
+		}
+
+		$description = array(); 
+		
+		// ensure value present for every language, even if blank
+		foreach($languages as $language) {
+			$description[$language->name] = '';
+		}
+		
+		foreach($a as $langKey => $langVal) {
+			if(ctype_digit("$langKey")) $langKey = (int) $langKey;
+			if(empty($langKey)) {
+				$langKey = 'default';
+			} else {
+				$langKey = $languages->get($langKey)->name;
+				if(empty($langKey)) continue;
+			}
+			$description[$langKey] = $langVal;
+		}
+		
+		return $description;
 	}
 
 	public function getBlankValue(Page $page, Field $field) {
@@ -286,7 +401,7 @@ class FieldtypeFile extends FieldtypeMulti {
 		$textformatters = $field->get('textformatters'); 
 		if(!is_array($textformatters)) $textformatters = array();
 		if($field->get('entityEncode') && !count($textformatters)) $textformatters[] = 'TextformatterEntities';
-		$useTags = $field->get('useTags'); 
+		$useTags = (int) $field->get('useTags'); 
 	
 		foreach($textformatters as $name) {
 			$textformatter = $this->wire('modules')->get($name); 
@@ -663,15 +778,29 @@ class FieldtypeFile extends FieldtypeMulti {
 		$field->set('entityEncode', null);
 
 		// use tags
-		/** @var InputfieldCheckbox $f */
-		$f = $this->modules->get("InputfieldCheckbox"); 
-		$f->attr('name', 'useTags'); 
-		$f->attr('value', 1); 
-		if($field->get('useTags')) $f->attr('checked', 'checked'); 
-			else $f->collapsed = Inputfield::collapsedYes; 
-		$f->label = $this->_('Use Tags?'); 
-		$f->description = $this->_('If checked, the field will also contain an option for tags in addition to the description.'); // Use tags description
-		
+		/** @var InputfieldRadios $f */
+		$f = $this->modules->get("InputfieldRadios"); 
+		$f->attr('name', 'useTags');
+		$f->label = $this->_('Use Tags?');
+		$f->description = $this->_('When enabled, the field will also contain an option for tags in addition to the description.'); // Use tags description
+		$f->icon = 'tags';
+		$predefinedLabel = $this->_('User selects from list of predefined tags');
+		$f->addOption(self::useTagsOff, $this->_('Tags disabled'));
+		$f->addOption(self::useTagsNormal, $this->_('User enters tags by text input'));
+		$f->addOption(self::useTagsPredefined, $predefinedLabel);
+		$f->addOption(self::useTagsNormal | self::useTagsPredefined, $predefinedLabel . ' + ' . $this->_('can input their own')); 
+		$f->attr('value', (int) $field->get('useTags')); 
+		if(!$f->attr('value')) $f->collapsed = Inputfield::collapsedYes;
+		$inputfields->append($f); 
+	
+		/** @var InputfieldTextarea $f */
+		$f = $this->modules->get('InputfieldText'); 
+		$f->attr('name', 'tagsList'); 
+		$f->label = $this->_('Predefined tags');
+		$f->description = $this->_('Enter tags separated by a space. Tags may contain letters, digits, underscores or hyphens.');
+		$f->icon = 'tags';
+		$f->attr('value', $field->get('tagsList'));
+		$f->showIf = 'useTags>1';
 		$inputfields->append($f); 
 
 		// inputfield class

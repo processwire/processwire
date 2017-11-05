@@ -567,14 +567,19 @@ class Modules extends WireArray {
 	 * Initialize a single module
 	 * 
 	 * @param Module $module
-	 * @param bool $clearSettings If true, module settings will be cleared when appropriate to save space. 
+	 * @param array $options
+	 *  - `clearSettings` (bool): When true, module settings will be cleared when appropriate to save space. (default=true)
+	 *  - `throw` (bool): When true, exceptions will be allowed to pass through. (default=false)
 	 * @return bool True on success, false on fail
+	 * @throws \Exception Only if the `throw` option is true. 
 	 *
 	 */
-	protected function initModule(Module $module, $clearSettings = true) {
+	protected function initModule(Module $module, array $options = array()) {
 		
 		$result = true;
 		$debugKey = null;
+		$clearSettings = isset($options['clearSettings']) ? (bool) $options['clearSettings'] : true; 
+		$throw = isset($options['throw']) ? (bool) $options['throw'] : false;
 		
 		if($this->debug) {
 			static $n = 0;
@@ -601,6 +606,7 @@ class Modules extends WireArray {
 			try {
 				$module->init();
 			} catch(\Exception $e) {
+				if($throw) throw($e);
 				$this->error(sprintf($this->_('Failed to init module: %s'), $moduleName) . " - " . $e->getMessage());
 				$result = false;
 			}
@@ -741,8 +747,6 @@ class Modules extends WireArray {
 
 	/**
 	 * Retrieve the installed module info as stored in the database
-	 *
-	 * @return array Indexed by module class name => array of module info
 	 *
 	 */
 	protected function loadModulesTable() {
@@ -1169,11 +1173,13 @@ class Modules extends WireArray {
 	 * This is the same as `$modules->get()` except that you can specify additional options to modify default behavior.
 	 * These are the options you can specify in the `$options` array argument:
 	 * 
-	 *  - `noPermissionCheck` (bool): Specify true to disable module permission checks (and resulting exception).
-	 *  - `noInstall` (bool): Specify true to prevent a non-installed module from installing from this request.
-	 *  - `noInit` (bool): Specify true to prevent the module from being initialized.
-	 *  - `noSubstitute` (bool): Specify true to prevent inclusion of a substitute module.
-	 *  - `noCache` (bool): Specify true to prevent module instance from being cached for later getModule() calls.
+	 *  - `noPermissionCheck` (bool): Specify true to disable module permission checks (and resulting exception). (default=false)
+	 *  - `noInstall` (bool): Specify true to prevent a non-installed module from installing from this request. (default=false)
+	 *  - `noInit` (bool): Specify true to prevent the module from being initialized. (default=false)
+	 *  - `noSubstitute` (bool): Specify true to prevent inclusion of a substitute module. (default=false)
+	 *  - `noCache` (bool): Specify true to prevent module instance from being cached for later getModule() calls. (default=false)
+	 *  - `noThrow` (bool): Specify true to prevent exceptions from being thrown on permission or fatal error. (default=false)
+	 *  - `returnError` (bool): Return an error message (string) on error, rather than null. (default=false)
 	 * 
 	 * If the module is not installed, but is installable, it will be installed, instantiated, and initialized.
 	 * If you don't want that behavior, call `$modules->isInstalled('ModuleName')` as a condition first, OR specify 
@@ -1181,69 +1187,111 @@ class Modules extends WireArray {
 	 * 
 	 * @param string|int $key Module name or database ID.
 	 * @param array $options Optional settings to change load behavior, see method description for details. 
-	 * @return Module|_Module|null Returns ready-to-use module or NULL if not found.
-	 * @throws WirePermissionException If module requires a particular permission the user does not have
+	 * @return Module|_Module|null|string Returns ready-to-use module or NULL|string if not found (string if `returnError` option used).
+	 * @throws WirePermissionException|\Exception If module requires a particular permission the user does not have
 	 * @see Modules::get()
 	 *
 	 */
 	public function getModule($key, array $options = array()) {
 	
-		if(empty($key)) return null;
 		$module = null;
 		$needsInit = false;
+		$error = '';
+		
+		if(empty($key)) {
+			return empty($options['returnError']) ? null : "No module specified";
+		}
 
 		// check for optional module ID and convert to classname if found
 		if(ctype_digit("$key")) {
-			if(!$key = array_search($key, $this->moduleIDs)) return null;
+			$moduleID = (int) $key;
+			if(!$key = array_search($key, $this->moduleIDs)) {
+				return empty($options['returnError']) ? null : "Unable to find module ID $moduleID";
+			}
 		} else {
 			$key = wireClassName($key, false);
 		}
-
 		
 		$module = parent::get($key);
-		if(!$module && empty($options['noSubstitute'])) {
-			if($this->isInstallable($key) && empty($options['noInstall'])) {
-				// module is on file system and may be installed, no need to substitute
+		
+		if(!$module) { 
+			if(empty($options['noSubstitute'])) {
+				if($this->isInstallable($key) && empty($options['noInstall'])) {
+					// module is on file system and may be installed, no need to substitute
+				} else {
+					$module = $this->getSubstituteModule($key, $options);
+					if($module) return $module; // returned module is ready to use
+				}
 			} else {
-				$module = $this->getSubstituteModule($key, $options);
-				if($module) return $module; // returned module is ready to use
+				$error = "Module '$key' not found and substitute not allowed (noSubstitute=true)";	
 			}
 		}
 		
 		if($module) {
-
 			// check if it's a placeholder, and if it is then include/instantiate/init the real module 
 			// OR check if it's non-singular, so that a new instance is created
 			if($module instanceof ModulePlaceholder || !$this->isSingular($module)) {
 				$placeholder = $module;
 				$class = $this->getModuleClass($placeholder);
-				if($module instanceof ModulePlaceholder) $this->includeModule($module);
-				$module = $this->newModule($class);
+				try {
+					if($module instanceof ModulePlaceholder) $this->includeModule($module);
+					$module = $this->newModule($class);
+				} catch(\Exception $e) {
+					if(empty($options['noThrow'])) throw $e;
+					return empty($options['returnError']) ? null : "Module '$key' - " . $e->getMessage();
+				}
 				// if singular, save the instance so it can be used in later calls
 				if($module && $this->isSingular($module) && empty($options['noCache'])) $this->set($key, $module);
 				$needsInit = true;
 			}
 
-		} else if(empty($options['noInstall']) && array_key_exists($key, $this->getInstallable())) {
-			// check if the request is for an uninstalled module 
-			// if so, install it and return it 
-			$module = $this->install($key);
-			$needsInit = true;
+		} else if(empty($options['noInstall'])) { 
+			// module was not available to get, see if we can install it
+			if(array_key_exists($key, $this->getInstallable())) {
+				// check if the request is for an uninstalled module 
+				// if so, install it and return it 
+				try {
+					$module = $this->install($key);
+				} catch(\Exception $e) {
+					if(empty($options['noThrow'])) throw $e;
+					if(!empty($options['returnError'])) return "Module '$key' install failed: " . $e->getMessage();
+				}
+				$needsInit = true;
+				if(!$module) $error = "Module '$key' not installed and install failed";
+			} else {
+				$error = "Module '$key' is not present or listed as installable";
+			}
+		} else {
+			$error = "Module '$key' is not present and not installable (noInstall=true)";
 		}
 		
-		if($module && empty($options['noPermissionCheck'])) {
+		if(!$module) {
+			if(!$error) $error = "Unable to get module '$key'";
+			return empty($options['returnError']) ? null : $error;
+		}
+		
+		if(empty($options['noPermissionCheck'])) {
+			// check that user has permission required to use module
 			if(!$this->hasPermission($module, $this->wire('user'), $this->wire('page'))) {
-				throw new WirePermissionException($this->_('You do not have permission to execute this module') . ' - ' . wireClassName($module));
+				$error = $this->_('You do not have permission to execute this module') . ' - ' . wireClassName($module);
+				if(empty($options['noThrow'])) throw new WirePermissionException($error);
+				return empty($options['returnError']) ? null : $error;
 			}
 		}
 
 		// skip autoload modules because they have already been initialized in the load() method
 		// unless they were just installed, in which case we need do init now
-		if($module && $needsInit) {
+		if($needsInit && empty($options['noInit'])) {
 			// if the module is configurable, then load it's config data
 			// and set values for each before initializing the module
-			if(empty($options['noInit'])) {
-				if(!$this->initModule($module, false)) $module = null;
+			try {
+				if(!$this->initModule($module, array('clearSettings' => false, 'throw' => true))) {
+					return empty($options['returnError']) ? null : "Module '$module' failed init";
+					$module = null;
+				}
+			} catch(\Exception $e) {
+				if(empty($options['noThrow'])) throw $e; 
+				return empty($options['returnError']) ? null : "Module '$module' throw Exception on init - " . $e->getMessage();
 			}
 		}
 	
@@ -2648,8 +2696,11 @@ class Modules extends WireArray {
 			// if $info[requires] or $info[installs] isn't already an array, make it one
 			if(!is_array($info['requires'])) {
 				$info['requires'] = str_replace(' ', '', $info['requires']); // remove whitespace
-				if(strpos($info['requires'], ',') !== false) $info['requires'] = explode(',', $info['requires']); 
-					else $info['requires'] = array($info['requires']); 
+				if(strpos($info['requires'], ',') !== false) {
+					$info['requires'] = explode(',', $info['requires']);
+				} else {
+					$info['requires'] = array($info['requires']);
+				}
 			}
 	
 			// populate requiresVersions
@@ -2669,8 +2720,11 @@ class Modules extends WireArray {
 			// what does it install?
 			if(!is_array($info['installs'])) {
 				$info['installs'] = str_replace(' ', '', $info['installs']); // remove whitespace
-				if(strpos($info['installs'], ',') !== false) $info['installs'] = explode(',', $info['installs']); 
-					else $info['installs'] = array($info['installs']); 
+				if(strpos($info['installs'], ',') !== false) {
+					$info['installs'] = explode(',', $info['installs']);
+				} else {
+					$info['installs'] = array($info['installs']);
+				}
 			}
 
 			// misc

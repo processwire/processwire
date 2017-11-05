@@ -416,6 +416,11 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 			if(count($sorts)) $items->sort($sorts);
 		}
 		
+		foreach($items as $item) {
+			$item->setQuietly('_pageTableField', $field->id);
+			$item->setQuietly('_pageTableParent', $page->id); 
+		}
+		
 		return $items; 
 	}
 

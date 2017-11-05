@@ -13,7 +13,7 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('asmSelect', __FILE__),
-			'version' => 120,
+			'version' => 121,
 			'summary' => __('Multiple selection, progressive enhancement to select multiple', __FILE__), // Module Summary
 			'permanent' => true, 
 			);
@@ -32,7 +32,8 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 
 		parent::init(); 
 
-		$this->setAsmSelectOption('sortable', true); 
+		$this->setAsmSelectOption('sortable', true);
+		$this->setAsmSelectOption('fieldset', false); 
 
 		// an optional edit or detail link where items can be modified or viewed
 		// i.e. /path/to/page/?id={value} where {value} is replaced with option value

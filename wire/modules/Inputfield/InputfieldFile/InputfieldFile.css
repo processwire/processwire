@@ -83,9 +83,12 @@ ul.InputfieldFileList li .InputfieldFileDescription {
   font-weight: normal;
   margin: 0;
   padding: 0; }
-  ul.InputfieldFileList li .InputfieldFileTags input,
-  ul.InputfieldFileList li .InputfieldFileDescription input {
+  ul.InputfieldFileList li .InputfieldFileTags input[type=text],
+  ul.InputfieldFileList li .InputfieldFileDescription input[type=text] {
     width: 100%; }
+  ul.InputfieldFileList li .InputfieldFileTags label.pw-hidden,
+  ul.InputfieldFileList li .InputfieldFileDescription label.pw-hidden {
+    display: none; }
 ul.InputfieldFileList li .InputfieldFileSort {
   display: none !important; }
 
@@ -143,6 +146,25 @@ ul.InputfieldFileListBlank + p.description {
     opacity: 0;
     cursor: inherit;
     width: 100%; }
+
+.InputfieldFileDescription label.pw-hidden,
+.InputfieldFileTags label.pw-hidden {
+  display: none; }
+.InputfieldFileDescription input::placeholder,
+.InputfieldFileTags input::placeholder {
+  font-size: 13px;
+  color: #999; }
+
+.AdminThemeDefault .InputfieldFileDescription input::placeholder {
+  padding-left: 3px; }
+
+.InputfieldFileTags .selectize-control.multi .selectize-input > div {
+  background: #eee;
+  border-radius: 3px;
+  white-space: nowrap; }
+  .InputfieldFileTags .selectize-control.multi .selectize-input > div a.remove {
+    color: #999;
+    border-color: #ddd; }
 
 .pw-content ul.InputfieldFileList li .langTabs > ul,
 #content ul.InputfieldFileList li .langTabs > ul {

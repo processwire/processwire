@@ -13,7 +13,9 @@
  * @method TemplatesArray find($selector) Return the templates matching the the given selector query. #pw-internal
  * @method bool save(Template $template) Save the given Template.
  * @method bool delete() delete(Template $template) Delete the given Template. Note that this will throw a fatal error if the template is in use by any pages.
- * @method bool|Saveable|Template clone(Saveable $item, $name = '')
+ * @method bool|Saveable|Template clone(Saveable $item, $name = '') #pw-internal
+ * @method array getExportData(Template $template) Export Template data for external use. #pw-advanced
+ * @method array setImportData(Template $template, array $data) Given an array of Template export data, import it to the given Template. #pw-advanced
  *
  */
 class Templates extends WireSaveableItems {
@@ -107,7 +109,7 @@ class Templates extends WireSaveableItems {
 	 * Given a template ID or name, return the matching template or NULL if not found.
 	 * 
 	 * @param string|int $key Template name or ID
-	 * @return Template|null
+	 * @return Template|null|string
 	 *
 	 */
 	public function get($key) {
@@ -178,8 +180,10 @@ class Templates extends WireSaveableItems {
 			$access = $this->wire(new PagesAccess());
 			$access->updateTemplate($item); 
 		}
-		
-		$this->wire('cache')->maintenance($item);
+	
+		/** @var WireCache $cache */
+		$cache = $this->wire('cache');
+		$cache->maintenance($item);
 
 		return $result; 
 	}
@@ -198,7 +202,9 @@ class Templates extends WireSaveableItems {
 		if($cnt > 0) throw new WireException("Can't delete template '{$item->name}' because it is used by $cnt pages.");  
 
 		$return = parent::___delete($item);
-		$this->wire('cache')->maintenance($item); 
+		/** @var WireCache $cache */
+		$cache = $this->wire('cache');
+		$cache->maintenance($item); 
 		return $return;
 	}
 
@@ -268,6 +274,9 @@ class Templates extends WireSaveableItems {
 
 	/**
 	 * Overridden from WireSaveableItems to retain specific keys
+	 * 
+	 * @param array $value
+	 * @return string
 	 *
 	 */
 	protected function encodeData(array $value) {
@@ -367,7 +376,6 @@ class Templates extends WireSaveableItems {
 	 * 
 	 * @param Template $template Template you want to import to
 	 * @param array $data Import data array (must have been exported from getExportData() method).
-	 * @return bool True if successful, false if not
 	 * @return array Returns array with list of changes (see example in method description)
 	 *
 	 */
@@ -547,7 +555,206 @@ class Templates extends WireSaveableItems {
 	public function getParentPages(Template $template, $checkAccess = false) {
 		return $this->getParentPage($template, $checkAccess, true);
 	}
+	
+	/**
+	 * Set a Permission for a Template for and specific Role
+	 * 
+	 * Note: you must also save() the template to commit the change. 
+	 * 
+	 * #pw-internal
+	 *
+	 * @param Template $template
+	 * @param Permission|string|int $permission
+	 * @param Role|string|int $role
+	 * @param bool $revoke Specify true to revoke the permission, or omit to add the permission
+	 * @param bool $test When true, no changes are made but return value still applicable
+	 * @return bool True if an update was made (or would be made), false if not
+	 * @throws WireException If given unknown Role or Permission
+	 *
+	 */
+	public function setTemplatePermissionByRole(Template $template, $permission, $role, $revoke = false, $test = false) {
+
+		if(!$template->useRoles) throw new WireException("Template $template does not have access control enabled"); 
+		
+		$defaultPermissions = array('page-view', 'page-edit', 'page-create', 'page-add');
+		$updated = false;
+
+		if(is_string($role) || is_int($role)) $role = $this->wire('roles')->get($role);
+		if(!$role instanceof Role) throw new WireException("Unknown role for Template::setPermissionByRole");
+
+		if(is_string($permission) && in_array($permission, $defaultPermissions)) {
+			$permissionName = $permission;
+		} else if($permission instanceof Permission) {
+			$permissionName = $permission->name;
+		} else {
+			$permission = $this->wire('permissions')->get($permission);
+			$permissionName = $permission ? $permission->name : '';
+		}
+
+		if(in_array($permissionName, $defaultPermissions)) {
+			// use pre-defined view/edit/create/add roles
+			$roles = $template->getRoles($permissionName);
+			$has = $roles->has($role);
+			if($revoke) {
+				if($has) {
+					if($test) return true;
+					$roles->remove($role);
+					$template->setRoles($roles, $permissionName);
+					$updated = true;
+				}
+			} else if(!$has) {
+				if($test) return true;
+				$roles->add($role);
+				$template->setRoles($roles, $permissionName);
+				$updated = true; 
+			}
+
+		} else if($permission instanceof Permission) {
+			$rolesPermissions = $template->get('rolesPermissions');
+			if(!is_array($rolesPermissions)) $rolesPermissions = array();
+			$rolePermissions = isset($rolesPermissions["$role->id"]) ? $rolesPermissions["$role->id"] : array();
+			$_rolePermissions = $rolePermissions;
+			if($revoke) {
+				$key = array_search("$permission->id", $rolePermissions);
+				if($key !== false) unset($rolePermissions[$key]);
+				if(!in_array("-$permission->id", $rolePermissions)) $rolePermissions[] = "-$permission->id";
+			} else {
+				$key = array_search("-$permission->id", $rolePermissions);
+				if($key !== false) unset($rolePermissions[$key]);
+				if(!in_array("$permission->id", $rolePermissions)) $rolePermissions[] = "$permission->id";
+			}
+			if($rolePermissions !== $_rolePermissions) {
+				if($test) return true;
+				$rolesPermissions["$role->id"] = $rolePermissions;
+				$template->set('rolesPermissions', $rolesPermissions);
+				$updated = true;
+			}
+
+		} else {
+			throw new WireException("Unknown permission for Templates::setPermissionByRole");
+		}
+		
+		return $updated; 
+	}
 
 
+	/**
+	 * FUTURE USE: Is the parent/child relationship allowed?
+	 * 
+	 * By default this method returns an associative array containing the following:
+	 * 
+	 *  - `allowed` (bool): Is the relationship allowed?
+	 *  - `reasons` (array): Array of strings containing reasons why relationship is or is not allowed. 
+	 * 
+	 * If you specify the `false` for the `verbose` option then this method just returns a boolean.
+	 *
+	 * @param Template|Page $parent Parent Template or Page to test.
+	 * @param Template|Page $child Child Template or Page to test.
+	 * @param array $options Options to modify default behavior:
+	 *  - `verbose` (bool): Return verbose array. When false, returns boolean rather than array (default=true). 
+	 *  - `strict` (bool): Disallow relationships that do not match rules, even if relationship already exists (default=false).
+	 *     Note that this option only applies if method is given Page objects rather than Template objects. 
+	 * @return array|bool Returns associative array by default, or bool if the verbose option is false.
+	 * @throws WireException if given invalid argument
+	 *
+	public function allowRelationship($parent, $child, array $options = array()) {
+		
+		$defaults = array(
+			'verbose' => true, 
+			'strict' => false, 
+		);
+	
+		$options = array_merge($defaults, $options);
+		$parentPage = null;
+		$childPage = null;
+		
+		if($child instanceof Template) {
+			$childTemplate = $child;
+		} else if($child instanceof Page) {
+			$childPage = $child;
+			$childTemplate = $child->template;
+		} else {
+			throw new WireException('Invalid argument for child');
+		}
+		
+		if($parent instanceof Template) {
+			$parentTemplate = $parent;
+		} else if($parent instanceof Page) {
+			$parentPage = $parent;
+			$parentTemplate = $parent->template;
+		} else {
+			throw new WireException('Invalid argument for parent');
+		}
+
+		$reasonsNo = array();
+		$reasonsYes = array();
+		$isAlreadyParent = $parentPage && $childPage && $childPage->parent_id == $parentPage->id;
+		$isAlreadyParentNote = "parent/child allowed because relationship already exists";
+		
+		if($isAlreadyParent) {
+			if($options['strict']) {
+				// in strict mode, existing relationships are ignored and we stick only to the rules
+				$isAlreadyParent = false;
+			} else {
+				$reasonsYes[] = "Given child page ($childPage) already has this parent ($parentPage)";
+			}
+		}
+
+		if($parentTemplate->noChildren) {
+			$reason = "Parent template “$parentTemplate” specifies “no children”";
+			if($isAlreadyParent) {
+				$reasonsYes[] = "$reason - $isAlreadyParentNote";
+			} else {
+				$reasonsNo[] = $reason;
+			}
+		}
+		
+		if($childTemplate->noMove) {
+			$reason = "Child template “$childTemplate” specifies “no move”";
+			if($isAlreadyParent) {
+				$reasonsYes[] = "$reason - $isAlreadyParentNote";
+			} else {
+				$reasonsNo[] = $reason;
+			}
+		}
+		
+		if($childTemplate->noParents > 0) {
+			$reason = "Child template “$childTemplate” specifies “no parents” option";
+			if($isAlreadyParent) {
+				$reasonsYes[] = "$reason - $isAlreadyParentNote";
+			} else {
+				$reasonsNo[] = $reason;
+			}
+		} 
+		
+		if(count($parentTemplate->childTemplates)) { 
+			if(in_array($childTemplate->id, $parentTemplate->childTemplates)) {
+				$reasonsYes[] = "Parent template “$parentTemplate” specifically allows children of “$childTemplate”";
+			} else {
+				$reasonsNo[] = "Parent template “$parentTemplate” does not allow children using template “$childTemplate”";
+			}
+		} 
+		
+		if(count($childTemplate->parentTemplates)) { 
+			if(in_array($parentTemplate->id, $childTemplate->parentTemplates)) {
+				$reasonsYes[] = "Child template “$childTemplate” specifically allows parents using template “$parentTemplate”";
+			} else {
+				$reasonsNo[] = "Child template “$childTemplate” does not allow parents using template “$parentTemplate”";
+			}
+		}
+
+		$allowed = count($reasonsNo) ? false : true;
+		
+		if($options['verbose']) {
+			return array(
+				'allowed' => $allowed,
+				'reasons' => $allowed ? $reasonsYes : $reasonsNo, 
+			);
+		}
+		
+		return $allowed; 
+	}
+	 */
+	
 }
 

@@ -22,13 +22,14 @@
 
 .CommentItems {
   clear: both;
-  border-bottom: 1px solid #000; }
-  .CommentItems + button {
+  border-bottom: 1px solid #777; }
+  .CommentItems + button.ui-button {
     margin-top: 1em; }
 
 .CommentItem {
   clear: both;
-  border-top: 1px solid #000;
+  border-top: 1px solid #777;
+  padding: 0.75em 0;
   margin: 0;
   width: 100%;
   	/*
@@ -54,7 +55,7 @@
     .CommentItem table th,
     .CommentItem table td {
       padding: 4px 10px 4px 0;
-      border-bottom: 1px dotted #ccc;
+      border-bottom: 1px solid #ddd;
       vertical-align: top; }
     .CommentItem table th {
       font-weight: bold;
@@ -103,6 +104,7 @@
       cursor: pointer;
       padding-right: 1em; }
       .CommentItem .CommentContent .CommentText textarea {
+        font-size: 1em;
         width: 100%;
         min-height: 15em;
         margin-top: 1em;
@@ -181,5 +183,7 @@
     .CommentItem .CommentContent .CommentTextOverflow {
       overflow-y: auto;
       max-height: inherit; } }
+.WireTabs {
+  opacity: 0; }
 
 /*# sourceMappingURL=ProcessCommentsManager.css.map */

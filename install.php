@@ -109,6 +109,7 @@ class Installer {
 
 			case 5: require("./index.php");
 				/** @var ProcessWire $wire */
+				$wire->modules->refresh();
 				$this->adminAccountSave($wire); 
 				break;
 

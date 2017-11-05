@@ -152,6 +152,7 @@ class WireHooks {
 
 		// see if we can do a quick exit
 		if($method && $method !== '*' && !$this->isHookedOrParents($object, $method)) return $hooks;
+		
 
 		// first determine which local hooks when should include
 		if($type !== self::getHooksStatic) {
@@ -174,6 +175,7 @@ class WireHooks {
 
 		$needSort = false;
 		$namespace = __NAMESPACE__ ? __NAMESPACE__ . "\\" : "";
+		$objectParentNamespaces = array();
 
 		// join in static hooks
 		foreach($this->staticHooks as $className => $staticHooks) {
@@ -184,7 +186,21 @@ class WireHooks {
 					// objects in other namespaces
 					$_className = $_namespace . $className;
 					if(!$object instanceof $_className && $method !== '*') {
-						continue;
+						// object likely extends a class not in PW namespace, so check class parents instead
+						if(empty($objectParentNamespaces)) {
+							foreach(wireClassParents($object) as $nscn => $cn) {
+								list($ns,) = explode("\\", $nscn); 
+								$objectParentNamespaces[$ns] = $ns;	
+							}
+						}
+						$nsok = false;
+						foreach($objectParentNamespaces as $ns) {
+							$_className = "$ns\\$className";
+							if(!$object instanceof $_className) continue;
+							$nsok = true;
+							break;
+						}
+						if(!$nsok) continue;
 					}
 				} else {
 					continue;
@@ -769,12 +785,22 @@ class WireHooks {
 				}
 
 				if(is_null($toObject)) {
-					if(!is_callable($toMethod) && strpos($toMethod, "\\") === false && __NAMESPACE__) {
-						$_toMethod = "\\" . __NAMESPACE__ . "\\$toMethod";
-						// if(!is_callable($_toMethod)) $_toMethod = "\\$toMethod";
-						$toMethod = $_toMethod;
+					$toMethodCallable = is_callable($toMethod);
+					if(!$toMethodCallable && strpos($toMethod, "\\") === false && __NAMESPACE__) {
+						$_toMethod = $toMethod;
+						$toMethod = "\\" . __NAMESPACE__ . "\\$toMethod";
+						$toMethodCallable = is_callable($toMethod);
+						if(!$toMethodCallable) {
+							$toMethod = "\\$_toMethod";
+							$toMethodCallable = is_callable($toMethod);
+						}
 					}
-					$toMethod($event);
+					if($toMethodCallable) {
+						$returnValue = $toMethod($event);
+					} else {
+						// hook fail, not callable
+						$returnValue = null;
+					}
 				} else {
 					/** @var Wire $toObject */
 					if($hook['toPublic']) {
@@ -784,11 +810,17 @@ class WireHooks {
 						// protected or private
 						$returnValue = $toObject->_callMethod($toMethod, array($event));
 					}
-					// @todo allow for use of $returnValue as alternative to $event->return
-					if($returnValue) {}
+					$toMethodCallable = true; 
+				}
+
+				if($returnValue !== null) {
+					// hook method/func had an explicit return statement with a value
+					// allow for use of $returnValue as alternative to $event->return?
 				}
 				
 				if($profilerEvent) $profiler->stop($profilerEvent);
+				
+				if(!$toMethodCallable) continue;
 
 				$result['numHooksRun']++;
 				
@@ -878,7 +910,11 @@ class WireHooks {
 	public function getAllLocalHooks() {
 		return $this->allLocalHooks;
 	}
-	
+
+	/**
+	 * @return string
+	 * 
+	 */
 	public function className() {
 		return wireClassName($this, false);
 	}

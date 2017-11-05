@@ -1,4 +1,14 @@
 $(document).ready(function() {
+	
+	var ready = false;
+	
+	$(document).on('click', '.WireTabs a', function($event) {
+		if(ready) window.location.href = $(this).attr('href'); 
+		return false;
+	});
+
+	$('.WireTabs').css('opacity', 1.0); 
+	$('.WireTabs a.on').click();
 
 	$("a.CommentTextEdit").click(function() {
 		var $textarea = $("<textarea></textarea>");
@@ -106,4 +116,6 @@ $(document).ready(function() {
 	// for AdminThemeReno
 	var color = $(".WireTabs a.on").css('border-top-color');
 	$("#CommentListHeader").css('border-top-color', color);
+	
+	ready = true; 
 }); 

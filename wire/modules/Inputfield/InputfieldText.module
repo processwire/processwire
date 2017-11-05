@@ -144,6 +144,15 @@ class InputfieldText extends Inputfield {
 		
 		if(isset($attrs['maxlength']) && (int) $attrs['maxlength'] < 1) unset($attrs['maxlength']);
 
+		// placeholder attribute, languages support
+		if(!empty($attrs['placeholder']) && $this->wire('languages')) {
+			$language = $this->wire('user')->language;
+			if($language && $language->id && !$language->isDefault()) {
+				$placeholder = parent::get("placeholder$language->id"); 
+				if(strlen($placeholder)) $attrs['placeholder'] = $placeholder;
+			}
+		}
+
 		return $attrs; 
 	}
 

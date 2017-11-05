@@ -925,6 +925,8 @@ function InputfieldFormBeforeUnloadEvent(e) {
 function InputfieldStates($target) {
 
 	var hasTarget = true;
+	var $ = jQuery;
+	
 	if(typeof $target == "undefined") {
 		$target = $("body");
 		hasTarget = false;

@@ -129,6 +129,22 @@ $(document).ready(function() {
 			var $list = $inputfield.find('.InputfieldFileList');
 			var maxFiles = parseInt($upload.find('.InputfieldFileMaxFiles').val());
 			var numFiles = $list.children('li').length + $upload.find('input[type=file]').length + 1;
+			var maxFilesize = parseInt($upload.attr('data-maxfilesize'));
+			
+			var abort = false;
+			$upload.find("input[type=file]").each(function() {
+				if(typeof this.files[0] !== 'undefined'){
+					var size = this.files[0].size;
+					if(size > maxFilesize) {
+						ProcessWire.alert(
+							"File " + this.files[0].name +" is " + size + " bytes which exceeds max allowed size of " + maxFilesize + " bytes"
+						);
+						$(this).val('').closest('.InputMask').removeClass('ui-state-disabled ui-state-active');
+						abort = true;
+					}
+				}
+			});
+			if(abort) return false;
 			
 			if(maxFiles > 0 && numFiles >= maxFiles) {
 				// no more files allowed
@@ -407,7 +423,8 @@ $(document).ready(function() {
 				$(this).removeClass('ui-state-hover'); 
 				$(this).closest('.Inputfield').removeClass('pw-drag-in-file'); 
 			}, false);
-			dropArea.addEventListener("dragenter", function() { 
+			dropArea.addEventListener("dragenter", function(evt) {
+				evt.preventDefault();
 				$(this).addClass('ui-state-hover'); 
 				$(this).closest('.Inputfield').addClass('pw-drag-in-file');
 			}, false);
@@ -431,21 +448,111 @@ $(document).ready(function() {
 	} // initHTML5
 
 	/**
+	 * Initialize selectize tags
+	 * 
+	 * @param $inputfields
+	 * 
+	 */
+	function initTags($inputfields) {
+	
+		$inputfields.each(function() {
+
+			var $inputfield = $(this);
+			var $inputs = $inputfield.find('input.InputfieldFileTagsInput:not(.selectized)');
+			var $selects = $inputfield.find('input.InputfieldFileTagsSelect:not(.selectized)');
+			
+			if($inputs.length) {
+				$inputs.selectize({
+					plugins: ['remove_button', 'drag_drop'],
+					delimiter: ' ',
+					persist: false,
+					createOnBlur: true,
+					submitOnReturn: false,
+					create: function(input) {
+						return {
+							value: input,
+							text: input
+						}
+					}
+				});
+			}
+
+			if($selects.length) {
+				if(!$inputfield.hasClass('Inputfield')) $inputfield = $inputfield.closest('.Inputfield');
+				var configName = $inputfield.attr('data-configName');
+				var settings = ProcessWire.config[configName];
+				var options = [];
+				for(var n = 0; n < settings['tags'].length; n++) {
+					var tag = settings['tags'][n];
+					options[n] = {value: tag};
+				}
+				$selects.selectize({
+					plugins: ['remove_button', 'drag_drop'],
+					delimiter: ' ',
+					persist: true,
+					submitOnReturn: false,
+					closeAfterSelect: true,
+					createOnBlur: true,
+					maxItems: null,
+					valueField: 'value',
+					labelField: 'value',
+					searchField: ['value'],
+					options: options,
+					create: function(input) {
+						return {
+							value: input,
+							text: input
+						}
+					},
+					createFilter: function(input) {
+						if(settings.allowUserTags) return true; 
+						allow = false;
+						for(var n = 0; n < options.length; n++) {
+							if(input == options[n]) {
+								allow = true;
+								break;
+							}
+						}
+						return allow;
+					},
+					onDropdownOpen: function($dropdown) {
+						$dropdown.closest('li, .InputfieldImageEdit').css('z-index', 100);	
+					},
+					onDropdownClose: function($dropdown) {
+						$dropdown.closest('li, .InputfieldImageEdit').css('z-index', 'auto');	
+					},
+					render: {
+						item: function(item, escape) {
+							return '<div>' + escape(item.value) + '</div>';
+						},
+						option: function(item, escape) {
+							return '<div>' + escape(item.value) + '</div>';
+						}
+					}
+				});
+			}
+		});
+	}
+
+	/**
 	 * MAIN
 	 *
 	 */
 
 	initSortable($(".InputfieldFileList")); 
+	initTags($(".InputfieldFileHasTags")); 
 	
 	/**
 	 * Progressive enchanchment for browsers that support html5 File API
 	 * 
-	 * #PageIDIndictator.size indicates PageEdit, which we're limiting AjaxUpload to since only ProcessPageEdit has the ajax handler
+	 * #PageIDIndictator.length indicates PageEdit, which we're limiting AjaxUpload to since only ProcessPageEdit has the ajax handler
 	 * 
 	 */
+	var allowAjax = false;
 	if (window.File && window.FileList && window.FileReader 
 		&& ($("#PageIDIndicator").length > 0 || $('.InputfieldAllowAjaxUpload').length > 0)) {  
 		InitHTML5('');  
+		allowAjax = true;
 	} else {
 		InitOldSchool();
 	}
@@ -454,6 +561,7 @@ $(document).ready(function() {
 	var resizeActive = false;
 	
 	var windowResize = function() {
+		if(!allowAjax) return;
 		$(".AjaxUploadDropHere").each(function() {
 			var $t = $(this); 
 			if($t.parent().width() <= minContainerWidth) {
@@ -464,18 +572,24 @@ $(document).ready(function() {
 		}); 
 		resizeActive = false;
 	}
-	
-	$(window).resize(function() {
-		if(resizeActive) return;
-		resizeActive = true; 
-		setTimeout(windowResize, 1000); 
-	}).resize();
+
+	if(allowAjax) {
+		$(window).resize(function() {
+			if(resizeActive) return;
+			resizeActive = true;
+			setTimeout(windowResize, 1000);
+		}).resize();
+		$(document).on('AjaxUploadDone', '.InputfieldFileHasTags', function(event) {
+			initTags($(this));
+		}); 
+	}
 	
 	//$(document).on('reloaded', '.InputfieldFileMultiple, .InputfieldFileSingle', function(event) {
 	$(document).on('reloaded', '.InputfieldHasFileList', function(event) {
 		initSortable($(this).find(".InputfieldFileList"));
 		InitHTML5($(this)); 
-		windowResize();
+		initTags($(this));
+		if(allowAjax) windowResize();
 	}); 
 	
 }); 

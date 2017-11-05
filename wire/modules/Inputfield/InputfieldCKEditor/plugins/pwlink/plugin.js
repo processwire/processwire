@@ -139,7 +139,17 @@
 		// build the modal URL
 		var modalUrl = ProcessWire.config.urls.admin + 'page/link/?id=' + pageID + '&modal=1';
 		var $langWrapper = $textarea.closest('.LanguageSupport');
-		if($langWrapper.length) modalUrl += "&lang=" + $langWrapper.data("language");
+		
+		if($langWrapper.length) {
+			// multi-language field
+			modalUrl += "&lang=" + $langWrapper.data("language");
+		} else {
+			// multi-language field in Table
+			$langWrapper = $textarea.parents('.InputfieldTable_langTabs').find('li.ui-state-active a')
+			if($langWrapper.length && typeof $langWrapper.data('lang') != "undefined") {
+				modalUrl += "&lang=" + $langWrapper.data('lang');
+			}
+		}
 		
 		if($existingLink != null) {
 			var attrs = ['href', 'title', 'class', 'rel', 'target']; 

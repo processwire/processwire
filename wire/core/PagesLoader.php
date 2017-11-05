@@ -446,6 +446,7 @@ class PagesLoader extends Wire {
 	 * - findTemplates: boolean, default=true. Determine which templates will be used (when no template specified) for more specific autojoins.
 	 * - pageClass: string, default=auto-detect. Class to instantiate Page objects with. Leave blank to determine from template.
 	 * - pageArrayClass: string, default=PageArray. PageArray-derived class to store pages in (when 'getOne' is false).
+	 * - pageArray: PageArray, default=null. Optional predefined PageArray to populate to. 
 	 * - page (Page|null): Existing Page object to populate (also requires the getOne option to be true). (default=null)
 	 * - caller (string): Name of calling function, for debugging purposes (default=blank).
 	 *
@@ -483,6 +484,7 @@ class PagesLoader extends Wire {
 			'joinFields' => array(),
 			'page' => null, 
 			'pageClass' => '',  // blank = auto detect
+			'pageArray' => null, // PageArray to populate to
 			'pageArrayClass' => 'PageArray',
 			'caller' => '', 
 		);
@@ -810,9 +812,9 @@ class PagesLoader extends Wire {
 		// if page is already loaded and cache allowed, then get the path from it
 		if($options['useCache'] && $page = $this->pages->getCache($id)) {
 			/** @var Page $page */
-			if($languages) $languages->setLanguage($language);
+			if($languageID) $languages->setLanguage($language);
 			$path = $page->path();
-			if($languages) $languages->unsetLanguage();
+			if($languageID) $languages->unsetLanguage();
 			return $path;
 
 		} else if($id == $homepageID && $languages && !$languageID) {

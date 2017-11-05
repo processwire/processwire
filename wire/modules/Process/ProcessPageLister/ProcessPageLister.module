@@ -248,7 +248,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	
 		// whether or not table collapses (rather than horiz scroll) at lower resolutions
 		$this->set('responsiveTable', true);
-		
+	
+		$idLabel = $this->_('ID');
+		$pathLabel = $this->_('Path');
 		$nameLabel = $this->_('Name'); 
 		$createdLabel = $this->_('Created'); 
 		$modifiedLabel = $this->_('Modified');
@@ -261,10 +263,12 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 
 		// Array of system page labels of field_name => label
 		$this->set('systemLabels', array(
+			'id' => $idLabel,
 			'name' => $nameLabel, 
+			'path' => $pathLabel, 
 			'status' => $statusLabel, 
 			'template' => $templateLabel,
-			'templates_id' => $templateLabel . " ID",
+			'templates_id' => $templateLabel . ' ' . $idLabel,
 			'modified' => $modifiedLabel,	
 			'created' => $createdLabel,
 			'published' => $publishedLabel, 
@@ -585,8 +589,12 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	public function buildColumnsField() {
 
 		$fields = $this->wire('fields');
-		$options = $this->getSystemColumns();
-
+		$systemFields = $this->getSystemColumns();
+		$useLabels = $this->useColumnLabels;
+		$systemLabels = $this->getSystemLabels();
+		$template = $this->template;
+		$customFields = array();
+		
 		/** @var InputfieldAsmSelect $f */
 		$f = $this->modules->get('InputfieldAsmSelect'); 
 		$f->attr('name', 'columns'); 
@@ -595,43 +603,58 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$f->notes = $this->_('The user can optionally change which columns are shown, so these will just serve as the defaults.'); // columns description
 		$f->icon = 'table';
 	
-		$useLabels = $this->useColumnLabels; 
-		$systemLabels = $this->getSystemLabels();
-		
-		foreach($fields as $field) {
-			if(!$this->allowColumnField($field)) continue;
-			$options[$field->name] = $field; 
-		}
-
-		ksort($options); 
-		$template = $this->template;
-		
-		foreach($options as $field) {
-			if(is_object($field)) {
-				if($template) {
-					$_field = $template->fieldgroup->getField($field->name, true); // context
-					if($_field) $field = $_field; 
-				}
-				if($useLabels) {
-					$label = $field->getLabel();
-					$desc = $field->name; 
-					$f->addOption($field->name, $field->getLabel(), array('data-desc' => $field->name));
-				} else {
-					$label = $field->name; 
-					$desc = $field->getLabel();
-				}
-				$attr = array('data-desc' => $desc); 
-				$icon = $field->getIcon(true);
-				if($icon) $attr['data-handle'] = wireIconMarkup($icon, 'fw');
-				$f->addOption($field->name, $label, $attr);
-				
+		// system fields
+		foreach($systemFields as $field) {
+			$label = isset($systemLabels[$field]) ? $systemLabels[$field] : $field;
+			if($useLabels) {
+				$f->addOption($field, $label, array('data-desc' => $field));
 			} else {
-				$label = isset($systemLabels[$field]) ? $systemLabels[$field] : $field;
-				if($useLabels) $f->addOption($field, $label, array('data-desc' => $field)); 
-					else $f->addOption($field, $field, array('data-desc' => $label)); 
+				$f->addOption($field, $field, array('data-desc' => $label));
 			}
 		}
+		
+		$f->addOption('-', '———'); 
+	
+		// custom fields (sort)
+		foreach($fields as $field) {
+			if(!$this->allowColumnField($field)) continue;
+			if($useLabels) {
+				if($template) {
+					$_field = $template->fieldgroup->getField($field->name, true); // context
+					if($_field) $field = $_field;
+				}
+				$key = $field->getLabel(); 
+				if(isset($customFields[$key])) $key .= " $field->name";
+			} else {
+				$key = $field->name;
+			}
+			$customFields[$key] = $field; 
+		}
+		
+		ksort($customFields);
+	
+		// custom fields (add)
+		foreach($customFields as $field) {
+			if($template) {
+				$_field = $template->fieldgroup->getField($field->name, true); // context
+				if($_field) $field = $_field;
+			}
+			if($useLabels) {
+				$label = $field->getLabel();
+				$desc = $field->name;
+				$f->addOption($field->name, $field->getLabel(), array('data-desc' => $field->name));
+			} else {
+				$label = $field->name;
+				$desc = $field->getLabel();
+			}
+			$attr = array('data-desc' => $desc);
+			$icon = $field->getIcon(true);
+			if($icon) $attr['data-handle'] = wireIconMarkup($icon, 'fw');
+			$f->addOption($field->name, $label, $attr);
+		}
+		
 		$f->attr('value', $this->columns); 
+		
 		return $f; 
 	}
 
@@ -1448,6 +1471,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				}
 				$value = "<a class='$class' id='page$p->id' href='#'>$icon$value$statusIcon</a> $actionsOut";
 			}
+		} else {
+			$value = "<a class='actions_toggle' id='page$p->id' href='#'>$value$statusIcon</a>";
 		}
 		if($isTrash) $value = "<div class='ui-priority-secondary'>$value</div>";
 		return $value; 

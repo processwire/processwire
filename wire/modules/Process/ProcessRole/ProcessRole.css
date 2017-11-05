@@ -6,15 +6,12 @@ label.level2 {
 	padding-left: 2.25em;
 }
 
-#wrap_Inputfield_permissions td i.fa {
-	opacity: 0.6;
-}
 #wrap_Inputfield_permissions table td {
-	width: 70%;
+	width: 75%;
 }
 
 #wrap_Inputfield_permissions table > tbody > tr > td:first-child {
-	width: 30%; 
+	width: 25%; 
 }
 
 tr:not(.permission32):not(.permission0-page-add):not(.permission0-page-create).permission-checked .permission-added {
@@ -56,5 +53,58 @@ tr.permission32.permission-checked .permission-added {
 .InputfieldCheckboxes + p.description,
 p.description + p.description {
 	margin: 0.5em 0;
+}
+
+.template-permissions {
+	margin-top: 0.5em;
+}
+.template-permissions:not(.template-permissions-open) {
+	display: none;
+}
+.template-permissions > p {
+	margin: 0.5em 0;
+}
+.template-permissions label {
+	display: block;
+}
+
+.toggle-template-permissions {
+	display: block;
+	padding-left: 5px;
+	padding-right: 5px;
+}
+
+.permission-title {
+	font-weight: bold;
+}
+
+.page-edit-templates .permission-title {
+	cursor: pointer;
+}
+
+tr.permission-page-edit:not(.permission-checked) .toggle-template-permissions {
+	display: none;
+}
+tr.permission-page-edit:not(.permission-checked) .template-permissions,
+tr.permission-page-edit:not(.permission-checked) .template-permissions-open {
+	display: none !important;
+}
+tr.permission-checked .template-permissions label.template-permission-add {
+	display: none;
+}
+tr.permission-checked .description-not-checked {
+	display: none;
+}
+tr:not(.permission-checked) .description-checked {
+	display: none;
+}
+tr:not(.permission-checked) .template-permissions label.template-permission-revoke {
+	display: none;
+}
+#ProcessPageEdit table.AdminDataTable tr > th,
+#ProcessPageEdit table.AdminDataTable tr > td {
+	/* AdminThemeDefault and AdminThemeReno */
+	border-left: none;
+	border-right: none;
 }
 

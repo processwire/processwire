@@ -342,7 +342,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$page = $this->page;
 		// As the link generator might be called in a repeater, we need to find the containing page		
 		$n = 0;
-		while(strpos($page->className(), 'Repeater') !== false && ++$n < 10) {
+		while(wireInstanceOf($page, 'RepeaterPage') && ++$n < 10) {
 			/** @var RepeaterPage $page */
 			$page = $page->getForPage();
 		}
@@ -371,10 +371,15 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 				if($value) foreach($page->get($field->name) as $file) {
 					$files[$file->url] = $prefix . $field->getLabel() . ': ' . $file->basename;
 				}
-			} else if(strpos($type->className(), 'FieldtypeRepeater') !== false) {
+			} else if(wireInstanceOf($type, 'FieldtypeRepeater')) { 
 				$value = $page->get($field->name);
-				if($value) foreach($page->get($field->name) as $repeaterPage){
-					$files = array_merge($this->getFilesPage($repeaterPage, $field->getLabel() . ': '), $files);
+				if($value) {
+					if($value instanceof Page) $value = array($value);
+					if(WireArray::iterable($value)) {
+						foreach($value as $repeaterPage) {
+							$files = array_merge($this->getFilesPage($repeaterPage, $field->getLabel() . ': '), $files);
+						}
+					}
 				}
 			} 
 		}
