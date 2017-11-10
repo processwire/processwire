@@ -80,6 +80,8 @@ function setupLanguageTabs($form) {
 				$closeItem.removeClass('LanguageSupportCurrent');
 				$openItem.addClass('LanguageSupportCurrent');
 			}
+			// uikit tab (beta 34+) also requires a click on the <li> element
+			if($a.closest('ul.uk-tab').length) $a.closest('li').click();
 		}); 
 		
 		if(!cfg.jQueryUI) {
@@ -103,8 +105,11 @@ function toggleLanguageTabs() {
 	var $ul = $langTabs.children('ul');
 	var cfg = ProcessWire.config.LanguageTabs;
 	
+	clickLanguageTabActive = true;
 
 	if($content.hasClass('langTabsContainer')) {
+		$ul.find('.langTabLastActive').removeClass('langTabLastActive');
+		$ul.find('.' + cfg.liActiveClass).addClass('langTabLastActive');
 		$ul.find('a').click(); // activate all (i.e. for CKEditor)
 		$content.removeClass('langTabsContainer');
 		$inputfield.removeClass('hasLangTabs').addClass('langTabsOff');
@@ -126,7 +131,11 @@ function toggleLanguageTabs() {
 			$ul.show();
 		}
 		$(this).attr("title", cfg.labelOpen).find('i').addClass("fa-folder-o").removeClass("fa-folder-open-o");
+		$ul.find('.langTabLastActive').removeClass('langTabLastActive').children('a').click();
 	}
+	
+	clickLanguageTabActive = false;
+	
 	return false;
 }
 
