@@ -272,7 +272,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 				foreach($parents as $parent) {
 					$url = $item['url'];
 					if(strpos($url, 'parent_id') === false) $url .= "&parent_id=$parent->id";
-					$out .= "<li><i class='fa fa-fw'></i> <a href='./$url'>";
+					$out .= "<li><a href='./$url'>";
 					foreach($parent->parents()->and($parent) as $p) {
 						if($p->id == 1) continue;
 						$out .= "$p->title<i class='ui-priority-secondary fa fa-fw fa-angle-right'></i>";

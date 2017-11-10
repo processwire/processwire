@@ -50,7 +50,7 @@ class InputfieldPageListSelectMultiple extends Inputfield
 		$out = 	
 			"<li class='ui-state-default$class'>" . 
 			// "<span class='ui-icon ui-icon-arrowthick-2-n-s'></span>" . 
-			"<i class='itemSort fa fa-sort'></i> " . 
+			"<i class='itemSort fa fa-arrows'></i> " . 
 			"<span class='itemValue'>$value</span>" .
 			"<span class='itemLabel'>$label</span> " . 
 			"<a class='itemRemove' title='$this->removeLabel' href='#'><i class='fa fa-trash'></i></a>" . 

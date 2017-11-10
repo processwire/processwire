@@ -295,22 +295,26 @@ $(document).ready(function() {
 				var $pageLabel = $("<p></p>").addClass("PageListSelectName"); 
 				if(options.selectShowPageHeader) $pageLabel.append($loading); 
 
-				var $action = $("<a></a>").addClass("PageListSelectActionToggle").attr('href', '#')
-					.text(options.selectStartLabel).click(function() {
+				var $action = $("<a></a>")
+					.addClass("PageListSelectActionToggle")
+					.addClass("PageListSelectActionToggleStart")
+					.attr('href', '#')
+					.text(options.selectStartLabel)
+					.click(function() {
 
-					if($(this).text() == options.selectStartLabel) {
-
-						loadChildren(options.rootPageID > 0 ? options.rootPageID : 1, $root, 0, true); 
-						$(this).text(options.selectCancelLabel); 
-
-					} else {
-						$root.children(".PageList").slideUp(options.speed, function() {
-							$(this).remove();
-						}); 
-						$(this).text(options.selectStartLabel); 
-					}
-					return false; 
-				}); 
+						if($(this).text() == options.selectStartLabel) {
+							loadChildren(options.rootPageID > 0 ? options.rootPageID : 1, $root, 0, true); 
+							$(this).text(options.selectCancelLabel)
+								.removeClass('PageListSelectActionToggleStart').addClass('PageListSelectActionToggleCancel');
+						} else {
+							$(this).addClass('PageListSelectActionToggleStart').removeClass('PageListSelectActionToggleCancel');
+							$root.children(".PageList").slideUp(options.speed, function() {
+								$(this).remove();
+							}); 
+							$(this).text(options.selectStartLabel); 
+						}
+						return false; 
+					}); 
 
 				$actions.append($("<li></li>").append($action)); 
 
