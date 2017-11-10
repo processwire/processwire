@@ -1,0 +1,35 @@
+{
+	"name": "layout",
+	"title": "UI Layout",
+	"description": "Create advanced UI layouts with sizable, collapsible, nested panels and tons of options. Layout can create any UI look you want; from simple headers or sidebars to a complex application with toolbars, menus, help-panels, status bars, sub-forms, etc. Integrates with and enhances other UI widgets, like tabs, accordions and dialogs, to create rich interfaces.",
+	"version": "1.4.3",
+	"keywords": [
+		"ui",
+		"layout"
+	],
+	"author": {
+		"name": "Kevin Dalman",
+		"email": "kevin@jquery-dev.com"
+	},
+	"maintainers": [
+		{	"name": "Kevin Dalman",
+			"email": "kevin@jquery-dev.com",
+			"url": "http://layout.jquery-dev.com"
+		}
+	],
+	"licenses": [
+		{	"type": "MIT",
+			"url": "http://www.opensource.org/licenses/mit-license.php"
+		},
+		{	"type": "GPLv3",
+			"url": "http://www.gnu.org/licenses/gpl.html"
+		}
+	],
+	"homepage": "https://github.com/allpro/layout",
+	"docs": "http://layout.jquery-dev.com/documentation.cfm",
+	"bugs": "https://groups.google.com/forum/#!forum/jquery-ui-layout",
+	"download": "https://github.com/allpro/layout/archive/master.zip",
+	"dependencies": {
+		"jquery": ">=1.5"
+	}
+}

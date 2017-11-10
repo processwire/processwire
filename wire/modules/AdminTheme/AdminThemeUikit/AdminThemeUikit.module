@@ -1,0 +1,903 @@
+<?php namespace ProcessWire;
+
+/**
+ * AdminThemeUikit
+ * 
+ * @property bool $isSuperuser Is current user a superuser?
+ * @property bool $isEditor Does current user have page-edit permission?
+ * @property bool $isLoggedIn Is current user logged in?
+ * @property bool $useOffset Use offset/margin for all Inputfields?
+ * @property array $noBorderTypes Inputfield class names that should always use the noBorder option (when 100% width).
+ * @property array $cardTypes Inputfield class names that should always use the card option.
+ * @property array $offsetTypes Inputfield class names that should always use the offset option.
+ * @property string $logoURL URL to custom logo, relative to PW installation root. 
+ * @property string $cssURL URL to custom CSS file, relative to PW installation root. 
+ * @property string $layout Layout type (blank=default, sidenav=multi-pane, sidenav-tree=left-tree, sidenav-tree-alt=right-tree)
+ * @property int $logoAction Logo click action (0=admin root page list, 1=offcanvas nav)
+ * 
+ */
+class AdminThemeUikit extends AdminThemeFramework implements Module, ConfigurableModule {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Uikit',
+			'version' => 19,
+			'summary' => 'Uikit v3 admin theme (beta)',
+			'autoload' => 'template=admin', 
+			'requires' => 'ProcessWire>=3.0.61'
+		); 
+	}
+
+	/**
+	 * Development mode, to be used when developing this module’s code
+	 *
+	 */
+	const dev = false;
+
+	/**
+	 * Default logo image file (relative to this dir)
+	 * 
+	 */
+	const logo = 'uikit/custom/images/pw-mark.png';
+
+	/**
+	 * sidenavType: primary navigation on left sidebar
+	 * 
+	 */
+	const sidenavTypePrimary = 0;
+
+	/**
+	 * sidenavType: tree navigation on left sidebar
+	 * 
+	 */
+	const sidenavTypeTree = 1;
+
+	/**
+	 * Construct and establish default module config settings
+	 * 
+	 */
+	public function __construct() {
+		//$config = $this->wire('config');
+		//$config->defaultAdminTheme = $this->className();
+		parent::__construct();
+		$this->set('useOffset', false);
+		$this->set('cardTypes', array());
+		$this->set('offsetTypes', array());
+		$this->set('logoURL', '');
+		$this->set('cssURL', '');
+		$this->set('layout', '');
+		$this->set('noBorderTypes', array()); // 'InputfieldCKEditor' is a good one for this
+		$this->set('logoAction', 0); 
+		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax'); 
+	}
+	
+	/**
+	 * Initialize and attach hooks
+	 * 
+	 */
+	public function init() {
+		parent::init();
+
+		// if this is not the current admin theme, exit now so no hooks are attached
+		if(!$this->isCurrent()) return;
+	
+		/** @var Page $page */
+		$page = $this->wire('page');
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		/** @var Modules $modules */
+		$session = $this->wire('session');
+		
+		$sidenav = strpos($this->layout, 'sidenav') === 0;
+
+		// disable sidebar layout if SystemNotifications is active
+		if($sidenav && $modules->isInstalled('SystemNotifications')) {
+			if(!$modules->get('SystemNotifications')->disabled) {
+				$this->layout = '';
+				$sidenav = false;
+			}
+		}
+		
+		if(!$page || $page->template != 'admin') {
+			// front-end
+			if($sidenav) {
+				// ensure that page edit links on front-end load the sidenav-init 
+				$session->setFor('Page', 'appendEditUrl', "&layout=sidenav-init");
+			}
+			return;
+		}
+		
+		$session->removeFor('Page', 'appendEditUrl');
+		$modules->get('JqueryUI')->use('panel');
+
+		// add rendering hooks
+		$this->addHookBefore('Inputfield::render', $this, 'hookBeforeRenderInputfield');
+		$this->addHookBefore('Inputfield::renderValue', $this, 'hookBeforeRenderInputfield');
+		$this->addHookAfter('Inputfield::getConfigInputfields', $this, 'hookAfterInputfieldGetConfigInputfields');
+		$this->addHookAfter('Inputfield::getConfigAllowContext', $this, 'hookAfterInputfieldGetConfigAllowContext');
+		$this->addHookAfter('MarkupAdminDataTable::render', $this, 'hookAfterTableRender');
+	
+		// hooks and settings specific to sidebar layouts
+		if($sidenav) {
+			$this->addHookAfter('ProcessLogin::afterLoginURL', $this, 'hookAfterLoginURL');
+			if(strpos($this->layout, 'sidenav-tree') === 0) {
+				// page-edit breadcrumbs go to page editor when page tree is always in sidebar
+				$this->wire('config')->pageEdit('editCrumbs', true);
+			}
+		}
+		
+		// add cache clearing hooks
+		$this->wire('pages')->addHookAfter('saved', $this, 'hookClearCaches');
+		$modules->addHookAfter('refresh', $this, 'hookClearCaches');
+	}
+	
+	/**
+	 * Render an extra markup region
+	 *
+	 * @param string $for
+	 * @return mixed|string
+	 *
+	 */
+	public function renderExtraMarkup($for) {
+		$out = parent::renderExtraMarkup($for);
+		if($for === 'notices') {
+		}
+		return $out;
+	}
+	
+	/*******************************************************************************************
+	 * HOOKS
+	 *
+	 */
+
+	/**
+	 * Hook called before each Inputfield::render 
+	 * 
+	 * This updates the Inputfield classes and settings for Uikit. 
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookBeforeRenderInputfield(HookEvent $event) {
+
+		/** @var Inputfield $inputfield */
+		$inputfield = $event->object;
+		$class = $inputfield->className();
+		$formSettings = $event->wire('config')->get('InputfieldForm');
+		$widths = $formSettings['ukGridWidths'];
+		$columnWidth = (int) $inputfield->getSetting('columnWidth');
+		$field = $inputfield->hasField;
+		$isFieldset = $inputfield instanceof InputfieldFieldset;
+		$isMarkup = $inputfield instanceof InputfieldMarkup; 
+		$isWrapper = $inputfield instanceof InputfieldWrapper && !$isFieldset && !$isMarkup;
+		$ukWidthClass = '1-1';
+		$themeColor = '';
+		$themeBorder = '';
+		$themeOffset = '';
+		$wrapClasses = array();
+		
+		if($columnWidth < 10) $columnWidth = 100;
+		
+		if($inputfield instanceof InputfieldSubmit) {
+			// button
+			$inputfield->addClass('uk-width-auto uk-margin-top', 'wrapClass');
+			return; // no further settings needed for button
+		}
+
+		// determine column width class
+		if($columnWidth && $columnWidth < 100) {
+			if($columnWidth < 16) $columnWidth = 16;
+			foreach($widths as $pct => $uk) {
+				$pct = (int) $pct; 
+				if($columnWidth >= $pct) {
+					$ukWidthClass = $uk;
+					break;
+				}
+			}
+		}
+		
+		$wrapClasses[] = "uk-width-$ukWidthClass@m";
+		
+		if($isWrapper) {
+			if($ukWidthClass != '1-1') $inputfield->addClass(implode(' ', $wrapClasses), 'wrapClass');
+			return;
+		} else if($inputfield instanceof InputfieldTextarea) {
+			$inputfield->addClass('uk-textarea');
+		} else if($inputfield instanceof InputfieldPassword) {
+			$inputfield->addClass('uk-input uk-form-width-medium');
+		} else if($inputfield instanceof InputfieldText) {
+			$inputfield->addClass('uk-input');
+		} else if($inputfield instanceof InputfieldCheckboxes || $inputfield instanceof InputfieldCheckbox) {
+			$inputfield->addClass('uk-checkbox');
+			$inputfield->addClass('uk-form-controls-text', 'contentClass');
+		} else if($inputfield instanceof InputfieldRadios) {
+			$inputfield->addClass('uk-radio');
+			$inputfield->addClass('uk-form-controls-text', 'contentClass');
+		} else if($inputfield instanceof InputfieldFile) {
+			$themeColor = 'secondary';
+		}
+		
+		if($field) {
+			// pull optional uikit settings from Field object
+			$themeBorder = $field->get('themeBorder');
+			$themeOffset = $field->get('themeOffset');
+			$themeColor = $field->get('themeColor') ? $field->get('themeColor') : $themeColor;
+		}
+		
+		// determine custom settings which may be defined with Inputfield
+		if(!$themeBorder) $themeBorder = $inputfield->getSetting('themeBorder');
+		if(!$themeOffset) $themeOffset = $inputfield->getSetting('themeOffset'); // || in_array($class, $this->offsetTypes);
+		if(!$themeColor) $themeColor = $inputfield->getSetting('themeColor');
+		
+		if(!$themeBorder) {
+			if($formSettings['useBorders'] === false || in_array($class, $this->noBorderTypes)) {
+				$themeBorder = $columnWidth == 100 ? 'none' : 'hide';
+			} else if(in_array($class, $this->cardTypes)) {
+				$themeBorder = 'card';
+			} else {
+				$themeBorder = 'line';
+			}
+		}
+
+		if($themeColor) $wrapClasses[] = 'InputfieldIsColor';
+		
+		switch($themeColor) {
+			case 'primary':
+				$wrapClasses[] = 'InputfieldIsPrimary';
+				break;
+			case 'secondary':
+				$wrapClasses[] = 'InputfieldIsSecondary';
+				break;
+			case 'warning':
+				$wrapClasses[] = 'InputfieldIsWarning';
+				break;
+			case 'danger':
+				$wrapClasses[] = 'InputfieldIsError';
+				break;
+			case 'success':
+				$wrapClasses[] = 'InputfieldIsSuccess';
+				break;
+			case 'highlight':
+				$wrapClasses[] = 'InputfieldIsHighlight';
+				break;
+			case 'none':
+				break;
+		}
+		
+		switch($themeBorder) {
+			case 'none':
+				$wrapClasses[] = 'InputfieldNoBorder';
+				break;
+			case 'hide':
+				$wrapClasses[] = 'InputfieldHideBorder';
+				break;
+			case 'card':
+				$wrapClasses[] = 'uk-card uk-card-default';
+				break;
+		}
+		
+		if($themeOffset && $themeOffset !== 'none') {
+			$wrapClasses[] = 'InputfieldIsOffset';
+			if($themeOffset === 's') {
+				$wrapClasses[] = 'InputfieldIsOffsetSm';
+			} else if($themeOffset === 'l') {
+				$wrapClasses[] = 'InputfieldIsOffsetLg';
+			}
+		}
+		
+		if(count($wrapClasses)) {
+			$inputfield->addClass(implode(' ', $wrapClasses), 'wrapClass');
+		}
+	}
+
+	/**
+	 * Hook after Inputfield::getConfigInputfields() to add theme-specific configuration settings
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookAfterInputfieldGetConfigInputfields(HookEvent $event) {
+		
+		/** @var Inputfield $inputfield */
+		$inputfield = $event->object;
+		if($inputfield instanceof InputfieldWrapper) return;
+		$field = $inputfield->hasField;
+		$defaultLabel = ' ' . $this->_('(recommended)'); 
+		$autoLabel = $this->_('Auto');
+		$noneLabel = $this->_('None');
+		
+		/** @var InputfieldWrapper $inputfields */
+		$inputfields = $event->return;
+		if(!$inputfields) return;
+		
+		/** @var InputfieldFieldset $fieldsetVisibility */
+		$fieldsetVisibility = $inputfields->getChildByName('visibility');
+		if(!$fieldsetVisibility) return;
+		
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+		$fieldset->attr('id+name', '_adminTheme');
+		$fieldset->label = $this->_('Admin theme settings') . ' (' . str_replace('AdminTheme', '', $this->className()) . ')';
+		if($field) {
+			$fieldset->collapsed = !$field->get('themeColor') && !$field->get('themeBorder') && !$field->get('themeOffset');
+		}
+		$fieldset->icon = 'flask';
+		$fieldset->description = 
+			$this->_('These settings affect how this field appears when used with the Uikit admin theme.') . ' ' . 
+			$this->_('When choosing the “Auto” option, the settings will be determined at runtime.') . ' ' . 
+			$this->_('The “Margin” setting applies only to 100% width fields.'); 
+		$fieldsetParent = $fieldsetVisibility->getParent();
+		$fieldsetParent->insertAfter($fieldset, $fieldsetVisibility);
+		
+		/** @var InputfieldRadios $f */
+		$f = $event->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'themeOffset');
+		$f->label = $this->_('Margin');
+		$f->icon = 'arrows-v';
+		$f->addOption('', $autoLabel . $defaultLabel);
+		$f->addOption('s', $this->_('Small'));
+		$f->addOption('m', $this->_('Medium'));
+		$f->addOption('l', $this->_('Large'));
+		$f->addOption('none', $noneLabel);
+		$value = $field ? $field->get('themeOffset') : '';
+		if($value == 1) $value = 'm';
+		$f->attr('value', $value);
+		$f->columnWidth = 33;
+		$fieldset->add($f);
+		
+		/** @var InputfieldRadios $f */
+		$f = $event->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'themeBorder');
+		$f->label = $this->_('Border');
+		$f->addOption('', $autoLabel . $defaultLabel);
+		$f->addOption('line', $this->_x('Outline', 'border'));
+		$f->addOption('card', $this->_x('Card', 'border'));
+		$f->addOption('hide', $this->_x('Transparent', 'border'));
+		$f->addOption('none', $noneLabel);
+		$f->columnWidth = 33;
+		$f->icon = 'low-vision';
+		$value = $field ? $field->get('themeBorder') : '';
+		$f->attr('value', $value);
+		$fieldset->add($f);
+		
+		/** @var InputfieldRadios $f */
+		$f = $event->wire('modules')->get('InputfieldRadios');
+		$f->attr('name', 'themeColor');
+		$f->label = $this->_('Color');
+		$f->icon = 'eyedropper';
+		$f->addOption('', $autoLabel . $defaultLabel);
+		$f->addOption('primary', $this->_x('Primary', 'color'));
+		$f->addOption('secondary', $this->_x('Secondary', 'color'));
+		$f->addOption('highlight', $this->_x('Highlight', 'color'));
+		$f->addOption('warning', $this->_x('Warning', 'color'));
+		//$f->addOption('danger', $this->_x('Danger', 'color'));
+		$f->addOption('none', $noneLabel);
+		$value = $field ? $field->get('themeColor') : '';
+		$f->attr('value', $value);
+		$f->columnWidth = 34;
+		$f->showIf = 'themeBorder!=none';
+		$fieldset->add($f);
+		
+		$f = $event->wire('modules')->get('InputfieldMarkup');
+		$f->attr('id+name', '_adminThemeExample');
+		$f->label = $this->_('Example');
+		$f->value = "<p>" . 
+			$this->_('This field simply demonstrates the settings you selected above.') . ' ' . 
+			"</p>";
+		$f->collapsed = Inputfield::collapsedYes;
+		$f->icon = 'snowflake-o';
+		$fieldset->add($f);
+
+		$config = $this->wire('config');
+		$config->scripts->add($config->urls($this) . 'config-field.js');
+	}
+
+	/**
+	 * Get fields allowed for field/template context configuration
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookAfterInputfieldGetConfigAllowContext(HookEvent $event) {
+		$names = $event->return;
+		$names[] = '_adminTheme';
+		$names[] = 'themeOffset';
+		$names[] = 'themeBorder';
+		$names[] = 'themeColor';
+		$event->return = $names;
+	}
+
+	/**
+	 * Hook after MarkupAdminDataTable::render
+	 * 
+	 * This is primarily to add support for Uikit horizontal scrolling responsive tables,
+	 * which is used instead of the default MarkupAdminDataTable responsive table.
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookAfterTableRender(HookEvent $event) {
+		/** @var MarkupAdminDataTable $table */
+		$table = $event->object;
+		$classes = array();
+		if($table->responsive) $classes[] = 'pw-table-responsive uk-overflow-auto';
+		if($table->sortable) $classes[] = 'pw-table-sortable'; 
+		if($table->resizable) $classes[] = 'pw-table-resizable'; 
+		if(count($classes)) {
+			$class = implode(' ', $classes);
+			$event->return = "<div class='$class'>$event->return</div>";
+		}
+		
+	}
+	
+	/**
+	 * Event called when a page is saved or modules refreshed to clear caches
+	 *
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookClearCaches(HookEvent $event) {
+		$page = $event->arguments(0);
+		if(is_null($page) || ($page instanceof Page && $page->template == 'admin')) {
+			$this->wire('session')->removeFor($this, 'prnav');
+			$this->wire('session')->message("Cleared the admin theme navigation cache (primary nav)", Notice::debug);
+		}
+	}
+
+	/**
+	 * Hook to ProcessLogin::afterLoginURL()
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookAfterLoginURL(HookEvent $event) {
+		$layout = $this->layout;
+		if(!$layout) return;
+		$url = $event->return;
+		$url .= (strpos($url, '?') !== false ? '&' : '?') . "layout=$this->layout-init";
+		$event->return = $url;
+	}
+
+	
+	/*******************************************************************************************
+	 * MARKUP RENDERING METHODS
+	 *
+	 */
+
+	/**
+	 * Render a list of breadcrumbs (list items), excluding the containing <ul>
+	 *
+	 * @return string
+	 *
+	 */
+	public function ___renderBreadcrumbs() {
+
+		if(!$this->isLoggedIn || $this->isModal) return '';
+		$process = $this->wire('page')->process;
+		if($process == 'ProcessPageList') return '';
+		$breadcrumbs = $this->wire('breadcrumbs');
+		$out = '';
+
+		// don't show breadcrumbs if only one of them (subjective)
+		if(count($breadcrumbs) < 2 && $process != 'ProcessPageEdit') return '';
+
+		if(strpos($this->layout, 'sidenav') === false) {
+			$out = "<li>" . $this->renderQuickTreeLink() . "</li>";
+		}
+
+		foreach($breadcrumbs as $breadcrumb) {
+			$title = $breadcrumb->get('titleMarkup');
+			if(!$title) $title = $this->wire('sanitizer')->entities1($this->_($breadcrumb->title));
+			$out .= "<li><a href='$breadcrumb->url'>$title</a></li>";
+		}
+
+		if($out) $out = "<ul class='uk-breadcrumb'>$out</ul>";
+
+		return $out;
+	}
+
+	/**
+	 * Render the populated “Add New” head button, or blank when not applicable
+	 *
+	 * @return string
+	 *
+	 */
+	public function renderAddNewButton() {
+
+		$items = array();
+
+		foreach($this->getAddNewActions() as $item) {
+			$icon = $this->renderNavIcon($item['icon']);
+			$items[] = "<li><a href='$item[url]'>$icon$item[label]</a></li>";
+		}
+
+		if(!count($items)) return '';
+
+		$out = implode('', $items);
+		$label = $this->getAddNewLabel();
+		$icon = $this->renderIcon('angle-down');
+
+		$out =
+			"<button class='ui-button pw-dropdown-toggle'>$label $icon</button>" .
+			"<ul class='pw-dropdown-menu' data-at='right bottom+1'>$out</ul>";
+
+		return $out;
+	}
+
+	/**
+	 * Render runtime notices div#notices
+	 *
+	 * @param array $options See defaults in method
+	 * @param Notices $notices
+	 * @return string
+	 *
+	 */
+	public function renderNotices($notices, array $options = array()) {
+
+		$defaults = array(
+			'messageClass' => 'NoticeMessage uk-alert uk-alert-primary', // class for messages
+			'messageIcon' => 'check-square', // default icon to show with notices
+			'warningClass' => 'NoticeWarning uk-alert uk-alert-warning', // class for warnings
+			'warningIcon' => 'exclamation-circle', // icon for warnings
+			'errorClass' => 'NoticeError uk-alert uk-alert-danger', // class for errors
+			'errorIcon' => 'exclamation-triangle', // icon for errors
+			'debugClass' => 'NoticeDebug uk-alert', // class for debug items (appended)
+			'debugIcon' => 'bug', // icon for debug notices
+			'closeClass' => 'notice-remove', // class for close notices link <a>
+			'closeIcon' => 'times', // icon for close notices link
+			'listMarkup' => "<ul class='pw-notices' id='notices'>{out}</ul><!--/notices-->",
+			'itemMarkup' =>
+				"<li class='{class}'>" .
+					"<div class='pw-container uk-container uk-container-expand'>{remove}{icon}{text}</div>" .
+				"</li>"
+		);
+
+		$options = array_merge($defaults, $options);
+		
+		return parent::renderNotices($notices, $options);
+	}
+
+	/**
+	 * Render a single top navigation item for the given page
+	 *
+	 * This function designed primarily to be called by the renderPrimaryNavItems() function.
+	 *
+	 * @param array $item
+	 * @return string
+	 *
+	 */
+	protected function renderPrimaryNavItem(array $item) {
+
+		$title = $item['title'];
+		$out = "<li class='page-$item[id]-'>";
+
+		if(!count($item['children'])) {
+			$out .= "<a href='$item[url]'>$title</a></li>";
+			return $out;
+		}
+
+		$out .=
+			"<a href='$item[url]' " .
+				"id='prnav-page-$item[id]' " .
+				"data-from='prnav-page-$item[parent_id]' " .
+				"class='pw-dropdown-toggle'>" .
+				"$title</a>";
+
+		$my = 'left-1 top';
+		if(in_array($item['name'], array('access', 'page', 'module'))) $my = 'left top';
+		$out .=
+			"<ul class='pw-dropdown-menu prnav' data-my='$my' data-at='left bottom'>" .
+				$this->renderPrimaryNavItemChildren($item['children']) .
+			"</ul>" .
+			"</li>";
+
+		return $out;
+	}
+
+	/**
+	 * Renders <li> items navigation from given nav array
+	 *
+	 * @param array $items
+	 * @return string
+	 *
+	 */
+	protected function renderPrimaryNavItemChildren(array $items) {
+		$out = '';
+
+		foreach($items as $item) {
+
+			$icon = empty($item['icon']) ? '' : $this->renderNavIcon($item['icon']);
+			$title = $item['title'];
+			$out .= "<li class='page-$item[id]-'>";
+
+			if(!empty($item['children'])) {
+				$out .=
+					"<a class='pw-has-items' data-from='prnav-page-$item[parent_id]' href='$item[url]'>$icon$title</a>" .
+					"<ul>" . $this->renderPrimaryNavItemChildren($item['children']) . "</ul>";
+
+			} else if(!empty($item['navJSON'])) {
+				$out .=
+					"<a class='pw-has-items pw-has-ajax-items' " .
+						"data-from='prnav-page-$item[parent_id]' " .
+						"data-json='$item[navJSON]' " .
+						"href='$item[url]'>$icon$title" .
+					"</a>" .
+					"<ul></ul>";
+			} else {
+				$out .= "<a href='$item[url]'>$icon$title</a>";
+			}
+		}
+		$out .= "</li>";
+
+		return $out;
+	}
+
+	/**
+	 * Render all top navigation items, ready to populate in ul#prnav
+	 *
+	 * @return string
+	 *
+	 */
+	public function renderPrimaryNavItems() {
+
+		$cache = self::dev ? '' : $this->wire('session')->getFor($this, 'prnav');
+		if($cache) {
+			$this->markCurrentNavItems($cache);
+			return $cache;
+		}
+
+		$out = '';
+		$items = $this->getPrimaryNavArray();
+
+		foreach($items as $item) {
+			$out .= $this->renderPrimaryNavItem($item);
+		}
+
+		if(!self::dev) $this->wire('session')->setFor($this, 'prnav', $out);
+		$this->markCurrentNavItems($out);
+
+		return $out;
+	}
+
+	/**
+	 * Render sidebar navigation that uses uk-nav
+	 *
+	 * The contents is the same as the Primary nav, except that output is prepared for sidebar.
+	 *
+	 * @return string
+	 *
+	 */
+	public function renderSidebarNavItems() {
+
+		$cache = self::dev ? '' : $this->wire('session')->getFor($this, 'sidenav');
+
+		if($cache) {
+			$this->markCurrentNavItems($cache);
+			return $cache;
+		}
+
+		$out = '';
+		$items = $this->getPrimaryNavArray();
+		$ukNav = "class='uk-nav-sub uk-nav-default uk-nav-parent-icon' data-uk-nav='animation: false; multiple: true;'";
+
+		foreach($items as $item) {
+
+			$class = "page-$item[id]-";
+			$subnav = '';
+
+			foreach($item['children'] as $child) {
+				$icon = $child['icon'] ? $this->renderNavIcon($child['icon']) : '';
+				$childClass = "page-$child[id]-";
+				$childAttr = "";
+				$childNav = '';
+				if(count($child['children'])) {
+					$childClass .= ' uk-parent';
+					$childNavList = $this->renderPrimaryNavItemChildren($child['children']);
+					$childIcon = $this->renderNavIcon('arrow-circle-right');
+					$childNav =
+						"<ul $ukNav>" .
+							"<li class='pw-nav-dup'><a href='$child[url]'>$childIcon$child[title]</a></li>" .
+							$childNavList .
+						"</ul>";
+				} else if($child['navJSON']) {
+					$childClass .= ' uk-parent';
+					$childAttr = " class='pw-has-items pw-has-ajax-items' data-json='$child[navJSON]'";
+					$childNav = "<ul $ukNav></ul>";
+				}
+				$subnav .= "<li class='$childClass'><a$childAttr href='$child[url]'>$icon$child[title]</a>";
+				$subnav .= $childNav . "</li>";
+			}
+
+			if($subnav) {
+				$icon = $this->renderNavIcon($item['icon']);
+				$class .= " uk-parent";
+				$subnav =
+					"<ul $ukNav>" .
+					"<li class='pw-nav-dup'><a href='$item[url]'>$icon$item[title]</a></li>" .
+						$subnav .
+					"</ul>";
+			}
+
+			$out .=
+				"<li class='$class'><a href='$item[url]' id='sidenav-page-$item[id]'>$item[title]</a>" .
+					$subnav .
+				"</li>";
+		}
+
+		// render user nav
+		$user = $this->wire('user');
+		$userNav = $this->renderUserNavItems();
+		$out .=
+			"<li class='uk-parent'>" .
+				"<a href='#'>" . ucfirst($user->name) . "</a>" .
+				"<ul $ukNav>$userNav</ul>" .
+			"</li>";
+
+		$this->wire('session')->setFor($this, 'sidenav', $out);
+		$this->markCurrentNavItems($out);
+
+		return $out;
+	}
+	
+	/**
+	 * Identify current items in the primary nav and add appropriate classes to them
+	 *
+	 * This presumes that navigation items in given $out markup use "page-[id]-" classes,
+	 * which will be updated consistent with the current $page.
+	 *
+	 * @param $out
+	 *
+	 */
+	protected function markCurrentNavItems(&$out) {
+		$page = $this->wire('page');
+		foreach($page->parents()->and($page) as $p) {
+			$out = str_replace("page-$p-", "page-$p- uk-active", $out);
+		}
+	}
+
+	/**
+	 * Render navigation for the “user” menu
+	 *
+	 * @return string
+	 *
+	 */
+	public function renderUserNavItems() {
+
+		$items = $this->getUserNavArray();
+		$out = '';
+
+		foreach($items as $item) {
+			$label = $this->wire('sanitizer')->entities($item['title']);
+			$icon = isset($item['icon']) ? $this->renderNavIcon($item['icon']) : ' ';
+			$target = isset($item['target']) ? " target='$item[target]'" : '';
+			$out .= "<li><a$target href='$item[url]'>$icon$label</a></li>";
+		}
+
+		return $out;
+	}
+
+
+	/**
+	 * Render link that opens the quick page-tree panel
+	 *
+	 * @param string $icon Icon to use for link (default=sitemap)
+	 * @param string $text Optional text to accompany icon (default=empty)
+	 * @return string
+	 *
+	 */
+	public function renderQuickTreeLink($icon = 'tree', $text = '') {
+		$tree = $this->_('Tree');
+		$url = $this->wire('urls')->admin . 'page/';
+		return
+			"<a class='pw-panel' href='$url' data-tab-text='$tree' data-tab-icon='$icon' title='$tree'>" .
+				$this->renderNavIcon($icon) . $text .
+			"</a>";
+	}
+
+	/**
+	 * Get the URL to the ProcessWire or brand logo (or <img> tag) 
+	 * 
+	 * @param array $options
+	 *  - `getURL` (bool): Return only the URL? (default=false)
+	 *  - `getNative` (bool): Return only the ProcessWire brand logo? (default=false)
+	 *  - `alt` (string): Alt attribute for <img> tag (default=auto)
+	 * @return string
+	 * 
+	 */
+	public function getLogo(array $options = array()) {
+		
+		/** @var Config $config */
+		$config = $this->wire('config');
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		
+		$defaults = array(
+			'getURL' => false, 
+			'getNative' => false,
+			'alt' => '',
+		);
+	
+		$options = array_merge($defaults, $options);
+		$logoURL = $this->get('logoURL');
+		
+		if(empty($logoURL) || $options['getNative'] || strpos($logoURL, '//') !== false) {
+			$native = true;
+			$logoURL = $config->urls($this->className()) . self::logo;
+		} else {
+			$logoURL = $config->urls->root . ltrim($logoURL, '/');
+			$logoURL = $sanitizer->entities($logoURL);
+			$native = false;
+		}
+		
+		if($options['getURL']) return $logoURL;
+	
+		$alt = $options['alt'];
+		if(empty($alt) && $this->wire('user')->isLoggedin()) {
+			$alt = "ProcessWire $config->version";
+		}
+		$class = 'pw-logo ' . ($native ? 'pw-logo-native' : 'pw-logo-custom');
+		$img = "<img class='$class' src='$logoURL' alt='$alt' />";
+		
+		return $img;
+	}
+
+	/**
+	 * Get the URL to the ProcessWire or brand logo
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function getLogoURL() {
+		return $this->getLogo(array('getURL' => true));
+	}
+
+	/**
+	 * Get the primary Uikit CSS file to use
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function getUikitCSS() {
+		$config = $this->wire('config');
+		$cssURL = $this->get('cssURL');
+		$moduleInfo = self::getModuleInfo();
+		$version = $moduleInfo['version'];
+		if($cssURL) {
+			if(strpos($cssURL, '//') === false) $cssURL = $config->urls->root . ltrim($cssURL, '/');
+			return $this->wire('sanitizer')->entities($cssURL);
+		} else if(self::dev && strpos(__FILE__, '/wire/modules/') === false) {
+			return $config->urls->adminTemplates . 'uikit/custom/pw.css?v=' . $version;
+		} else {
+			return $config->urls->adminTemplates . 'uikit/dist/css/uikit.pw.min.css?v=' . $version;
+		}
+	}
+	
+	/**
+	 * Get Javascript that must be present in the document <head>
+	 *
+	 * @return string
+	 *
+	 */
+	public function getHeadJS() {
+	
+		$data = $this->wire('config')->js('adminTheme');
+		if(!is_array($data)) $data = array();
+		$data['logoAction'] = (int) $this->logoAction;
+		$this->wire('config')->js('adminTheme', $data);
+		
+		return parent::getHeadJS();
+	}
+
+	/**
+	 * Module configuration
+	 * 
+	 * @param InputfieldWrapper $inputfields
+	 * 
+	 */
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		parent::getModuleConfigInputfields($inputfields);
+		include(__DIR__ . '/config.php');
+		AdminThemeUikitConfig($this, $inputfields);
+	}
+}
+
