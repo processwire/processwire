@@ -97,11 +97,20 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			$inputfield = $field->getInputfield($this->user);
 			if(!$inputfield) continue;
 			$inputfield->value = $this->user->get($field->name);
-			if($field->name == 'admin_theme' && !$inputfield->value) $inputfield->value = 'AdminThemeDefault';
+			if($field->name == 'admin_theme' && !$inputfield->value) {
+				$inputfield->value = 'AdminThemeDefault';
+			}
 			if($field->type instanceof FieldtypeImage && !$this->user->hasPermission('page-edit-images', $this->user)) {
 				$inputfield->set('useImageEditor', false);
 			}
-			if($field->type instanceof FieldtypePassword && $field->name == 'pass') $inputfield->attr('autocomplete', 'off');
+			if($field->type instanceof FieldtypePassword && $field->name == 'pass') {
+				$inputfield->attr('autocomplete', 'off');
+				if($inputfield->getSetting('requireOld') == InputfieldPassword::requireOldAuto) {
+					$inputfield->set('requireOld', InputfieldPassword::requireOldYes); 
+				}
+				if(!$inputfield->getSetting('icon')) $inputfield->set('icon', 'key');
+					
+			}
 			$form->add($inputfield); 
 		}
 	
@@ -155,7 +164,8 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			$value = $inputfield->attr('value'); 
 			
 			if($field->name == 'email' && strlen($value)) {
-				if(count($this->users->find("id!={$user->id}, email=" . $this->sanitizer->selectorValue($value)))) {
+				$selector = "id!=$user->id, include=all, email=" . $this->sanitizer->selectorValue($value);
+				if(count($this->users->find($selector))) {
 					$this->error(sprintf($this->_('Email address "%s" already in use by another user.'), $value));
 					continue; 
 				}
