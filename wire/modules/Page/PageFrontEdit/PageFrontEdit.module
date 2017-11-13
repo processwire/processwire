@@ -22,7 +22,7 @@ class PageFrontEdit extends WireData implements Module {
 		return array(
 			'title' => 'Front-End Page Editor',
 			'summary' => 'Enables front-end editing of page fields.',
-			'version' => 2,
+			'version' => 3,
 			'author' => 'Ryan Cramer',
 			'license' => 'MPL 2.0',
 			'icon' => 'cube', 
@@ -968,6 +968,7 @@ class PageFrontEdit extends WireData implements Module {
 		}
 	
 		header("Content-type: application/json");
+		header("HTTP/1.1 200 OK");
 		echo json_encode($data);
 		exit;
 	}
