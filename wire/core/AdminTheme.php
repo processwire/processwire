@@ -277,7 +277,7 @@ abstract class AdminTheme extends WireData implements Module {
 			try {
 				$field->save();
 			} catch(\Exception $e) {
-				$this->error("Error creating 'admin_theme' field: " . $e->getMessage());
+				// $this->error("Error creating 'admin_theme' field: " . $e->getMessage());
 			}
 		}
 

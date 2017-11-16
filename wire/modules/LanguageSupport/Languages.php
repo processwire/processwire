@@ -296,10 +296,13 @@ class Languages extends PagesType {
 		if(is_null($language)) {
 			// save current user language setting and make current language default
 			if(!$this->defaultLanguage) return;
+			/** @var User $user */
 			$user = $this->wire('user');
 			if($user->language->id == $this->defaultLanguage->id) return; // already default
 			$this->savedLanguage = $user->language;
+			$previouslyChanged = $user->isChanged('language');	
 			$user->language = $this->defaultLanguage; 
+			if(!$previouslyChanged) $user->untrackChange('language');
 		} else {
 			// set what language is the default
 			$this->defaultLanguage = $language; 
@@ -315,7 +318,11 @@ class Languages extends PagesType {
 	 */
 	public function unsetDefault() { 
 		if(!$this->savedLanguage || !$this->defaultLanguage) return;
-		$this->wire('user')->language = $this->savedLanguage; 
+		/** @var User $user */
+		$user = $this->wire('user');
+		$previouslyChanged = $user->isChanged('language');
+		$user->language = $this->savedLanguage; 
+		if(!$previouslyChanged) $user->untrackChange('language');
 	}
 
 	/**

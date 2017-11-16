@@ -205,7 +205,10 @@ DirectoryIndex index.php index.html index.htm
   # Both of these lines are optional, but can help to reduce server load. However, they
   # are not compatible with the $config->pagefileSecure option (if enabled) and they 
   # may produce an Apache 404 rather than your regular 404. You may uncomment the two lines
-  # below if you don't need to use the $config->pagefileSecure option.
+  # below if you don't need to use the $config->pagefileSecure option. After uncommenting, test
+  # a URL like domain.com/site/assets/files/test.jpg to make sure you are getting a 404 and not
+  # your homepage. If getting your homepage, then either: do not use this option, or comment out 
+  # section #2 above that makes ProcessWire the 404 handler. 
   # ----------------------------------------------------------------------------------------------- 
 
   # RewriteCond %{REQUEST_FILENAME} !\.(jpg|jpeg|gif|png|ico)$ [NC]

@@ -1450,7 +1450,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 			if($field && count($parts) < 2) {
 				// this is a field that will provide its own formatted value
 				$subname = count($parts) == 1 ? array_shift($parts) : '';
-				if(!$this->wire($subname)) $value = $field->type->markupValue($this, $field, $value, $subname);
+				if(!$subname || !$this->wire($subname)) {
+					$value = $field->type->markupValue($this, $field, $value, $subname);
+				}
 			}
 			
 		} while(is_object($value) && count($parts));
