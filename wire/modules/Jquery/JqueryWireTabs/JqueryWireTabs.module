@@ -38,6 +38,10 @@ class JqueryWireTabs extends ModuleJS implements ConfigurableModule {
 			'rememberTabs' => (int) $this->rememberTabs,
 			'loadStyles' => true, 
 			'cookieName' => 'WireTabs',
+			'tooltipAttr' => array(
+				'class' => 'tooltip',
+				'title' => '{tip}',
+			), 
 		);
 	
 		$className = 'JqueryWireTabs';

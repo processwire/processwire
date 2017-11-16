@@ -127,8 +127,18 @@
 				if($t.hasClass('WireTabTip') || tip) {
 					// if the tab being added has the class 'WireTabTip' or has a data-tooltip attribute
 					// then display a tooltip with the tab
-					$a.addClass('tooltip');
-					$a.attr('title', tip ? tip : title); 
+					if(!tip) tip = title;
+					for(var key in cfg.tooltipAttr) {
+						var val = cfg.tooltipAttr[key];
+						if(val.indexOf('{tip}') > -1) val = val.replace('{tip}', tip); 
+						if(key === 'class') {
+							$a.addClass(val);
+						} else {
+							$a.attr(key, val); 
+						}
+					}
+					// $a.addClass('tooltip');
+					// $a.attr('title', tip ? tip : title); 
 				}
 				$t.hide();
 				// the following removed to prevent DOM manipulation if the tab content:
