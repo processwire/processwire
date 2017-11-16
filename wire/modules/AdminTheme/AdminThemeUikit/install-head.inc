@@ -29,6 +29,11 @@ $formAction = htmlentities($formAction, ENT_QUOTES, "UTF-8");
 		input, select, textarea {
 			font-size: 16px;
 		}
+		#main, 
+		#pw-mastheads .uk-container,
+		#pw-footer .uk-container {
+			max-width: 900px;
+		}
 	</style>
 	
 	<script type='text/javascript' src='wire/modules/Jquery/JqueryCore/JqueryCore.js'></script>
@@ -43,7 +48,7 @@ $formAction = htmlentities($formAction, ENT_QUOTES, "UTF-8");
 
 	<div id='pw-mastheads'>
 		<header id='pw-masthead-mobile' class='pw-masthead uk-background-muted'>
-			<div class='pw-container uk-container uk-container-expand uk-text-center'>
+			<div class='pw-container uk-container uk-container-center'>
 				<a href='https://processwire.com' target='_blank' class='pw-logo-link'>
 					<img class='pw-logo pw-logo-native' src='wire/modules/AdminTheme/AdminThemeUikit/uikit/custom/images/pw-mark.png' alt='' />
 				</a>
@@ -53,7 +58,7 @@ $formAction = htmlentities($formAction, ENT_QUOTES, "UTF-8");
 	</div>	
 
 	<!-- MAIN CONTENT -->
-	<main id='main' class='pw-container uk-container uk-container-expand uk-margin uk-margin-large-bottom'>
+	<main id='main' class='pw-container uk-container uk-container-center uk-margin'>
 		<div class='pw-content' id='content'>		
 			<header id='pw-content-head'>
 				<h1 class='uk-margin-remove-top'><?php echo $title; ?></h1>				

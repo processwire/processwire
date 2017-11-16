@@ -11,7 +11,7 @@
  * If that file exists, the installer will not run. So if you need to re-run this installer for any
  * reason, then you'll want to delete that file. This was implemented just in case someone doesn't delete the installer.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo have installer set session name
@@ -57,7 +57,7 @@ class Installer {
 	/**
 	 * File permissions, determined in the dbConfig function
 	 *
-	 * Below are last resort defaults
+	 * Below are worst case scenario, last resort defaults
 	 *
 	 */
 	protected $chmodDir = "0777";
@@ -67,7 +67,15 @@ class Installer {
 	 * Number of errors that occurred during the request
 	 *
 	 */
-	protected $numErrors = 0; 
+	protected $numErrors = 0;
+
+	/**
+	 * True when we are in a section
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $inSection = false;
 
 	/**
 	 * Available color themes
@@ -91,11 +99,11 @@ class Installer {
 		}
 
 		// these two vars used by install-head.inc
-		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installation";
+		$title = "ProcessWire " . PROCESSWIRE_INSTALL . " Installer";
 		$formAction = "./install.php";
 		if($title && $formAction) {} // ignore
 		
-		require("./wire/modules/AdminTheme/AdminThemeDefault/install-head.inc"); 
+		require("./wire/modules/AdminTheme/AdminThemeUikit/install-head.inc"); 
 
 		if(isset($_POST['step'])) switch($_POST['step']) {
 			
@@ -118,7 +126,7 @@ class Installer {
 
 		} else $this->welcome();
 
-		require("./wire/modules/AdminTheme/AdminThemeDefault/install-foot.inc"); 
+		require("./wire/modules/AdminTheme/AdminThemeUikit/install-foot.inc"); 
 	}
 
 
@@ -200,6 +208,7 @@ class Installer {
 		$out = '';
 		$profiles = $this->findProfiles();
 		if(!count($profiles)) $this->err("No profiles found!");
+		
 		foreach($profiles as $name => $profile) {
 			$title = empty($profile['title']) ? ucfirst($profile['name']) : $profile['title'];
 			//$selected = $name == 'site-default' ? " selected='selected'" : "";
@@ -222,12 +231,15 @@ class Installer {
 			If you are just getting started with ProcessWire, we recommend choosing
 			the <em>Default</em> site profile. If you already know what you are doing,
 			you might prefer the <em>Blank</em> site profile. 
-			<p>
-			<select name='profile' id='select-profile'>
-			<option value=''>Installation Profiles</option>
-			$options
-			</select>
-			<span class='detail'><i class='fa fa-angle-left'></i> Select each installation profile to see more information and a preview.</span>
+			<p style='width: 240px;'>
+				<select class='uk-select' name='profile' id='select-profile'>
+					<option value=''>Installation Profiles</option>
+					$options
+				</select>
+			</p>
+			<p class='detail'>
+				<i class='fa fa-angle-up'></i> 
+				Select each installation profile to see more information and a preview.
 			</p>
 			$out
 			<script type='text/javascript'>
@@ -246,20 +258,20 @@ class Installer {
 	 */
 	protected function initProfile() {
 	
-		$this->h('Site Installation Profile'); 
+		$this->h('Site Installation Profile', 'building-o'); 
 		
 		if(is_file("./site/install/install.sql")) {
-			$this->ok("Found installation profile in /site/install/");
+			$this->alertOk("Found installation profile in /site/install/");
 
 		} else if(is_dir("./site/")) {
-			$this->ok("Found /site/ -- already installed? ");
+			$this->alertOk("Found /site/ — already installed? ");
 
 		} else if(isset($_POST['profile'])) {
 			
 			$profiles = $this->findProfiles();
 			$profile = preg_replace('/[^-a-zA-Z0-9_]/', '', $_POST['profile']);
 			if(empty($profile) || !isset($profiles[$profile]) || !is_dir(dirname(__FILE__) . "/$profile")) {
-				$this->err("Profile not found");
+				$this->alertErr("Profile not found");
 				$this->selectProfile();
 				$this->btn("Continue", 0);
 				return;
@@ -268,9 +280,9 @@ class Installer {
 			// $this->h(empty($info['title']) ? ucfirst($info['name']) : $info['title']);
 			
 			if(@rename("./$profile", "./site")) {
-				$this->ok("Renamed /$profile => /site");
+				$this->alertOk("Renamed /$profile => /site");
 			} else {
-				$this->err("File system is not writable by this installer. Before continuing, please rename '/$profile' to '/site'");
+				$this->alertErr("File system is not writable by this installer. Before continuing, please rename '/$profile' to '/site'");
 				$this->btn("Continue", 0);
 				return;
 			}
@@ -290,7 +302,7 @@ class Installer {
 	 */
 	protected function compatibilityCheck() { 
 
-		$this->h("Compatibility Check"); 
+		$this->sectionStart('fa-gears Compatibility Check');
 		
 		if(version_compare(PHP_VERSION, self::MIN_REQUIRED_PHP_VERSION) >= 0) {
 			$this->ok("PHP version " . PHP_VERSION);
@@ -371,6 +383,7 @@ class Installer {
 		} else {
 			$this->ok(".htaccess looks good"); 
 		}
+		$this->sectionStop();
 
 		if($this->numErrors) {
 			$this->p("One or more errors were found above. We recommend you correct these issues before proceeding or <a href='http://processwire.com/talk/'>contact ProcessWire support</a> if you have questions or think the error is incorrect. But if you want to proceed anyway, click Continue below.");
@@ -385,16 +398,36 @@ class Installer {
 	 * Step 2: Configure the database and file permission settings
 	 * 
 	 * @param array $values
+	 * @param int $hasNumTables
 	 *
 	 */
-	protected function dbConfig($values = array()) {
+	protected function dbConfig($values = array(), $hasNumTables = 0) {
 
-		if(!is_file("./site/install/install.sql")) die("There is no installation profile in /site/. Please place one there before continuing. You can get it at processwire.com/download"); 
-
+		if(!is_file("./site/install/install.sql")) die(
+			"There is no installation profile in /site/. Please place one there before continuing. " . 
+			"You can get it at https://processwire.com/download/"
+		);
 		
-		$this->h("MySQL Database"); 
-		$this->p("Please specify a MySQL 5.x database and user account on your server. If the database does not exist, we will attempt to create it. If the database already exists, the user account should have full read, write and delete permissions on the database.*"); 
-		$this->p("*Recommended permissions are select, insert, update, delete, create, alter, index, drop, create temporary tables, and lock tables.", "detail"); 
+		if($hasNumTables) {
+			$this->sectionStart('fa-database Existing tables action'); 
+			// select($name, $label, $value, array $options) {
+			$this->p("What would you like to do with the existing database tables that are present?");
+			$this->select('dbTablesAction', '', 0, array(
+				'0' => 	"Click to select tables action",
+				'ignore' => "Ignore tables*", 
+				'remove' => "Remove tables", 
+			), 0);
+			$this->p("*When choosing “Ignore tables”, existing tables having the same name as newly imported tables will still be deleted.", 'detail'); 
+			$this->sectionStop();
+		}
+
+		$this->sectionStart('fa-database MySQL Database'); 
+		$this->p(
+			"Please specify a MySQL 5.x+ database and user account on your server. If the database does not exist, " . 
+			"we will attempt to create it. If the database already exists, the user account should have full read, " . 
+			"write and delete permissions on the database (recommended permissions are select, insert, update, delete, " . 
+			"create, alter, index, drop, create temporary tables, and lock tables)." 
+		); 
 
 		if(!isset($values['dbName'])) $values['dbName'] = '';
 		// @todo: are there PDO equivalents for the ini_get()s below?
@@ -405,8 +438,10 @@ class Installer {
 		if(!isset($values['dbEngine'])) $values['dbEngine'] = 'MyISAM';
 
 		if(!$values['dbHost']) $values['dbHost'] = 'localhost';
-		if(!$values['dbPort']) $values['dbPort'] = 3306; 
+		if(!$values['dbPort']) $values['dbPort'] = 3306;
 		if(empty($values['dbCharset'])) $values['dbCharset'] = 'utf8';
+		if($values['dbCharset'] != 'utf8mb4') $values['dbCharset'] = 'utf8';
+		if($values['dbEngine'] != 'InnoDB') $values['dbEngine'] = 'MyISAM';
 
 		foreach($values as $key => $value) {
 			if(strpos($key, 'chmod') === 0) {
@@ -416,39 +451,22 @@ class Installer {
 			}
 		}
 		
-
 		$this->input('dbName', 'DB Name', $values['dbName']); 
 		$this->input('dbUser', 'DB User', $values['dbUser']);
 		$this->input('dbPass', 'DB Pass', $values['dbPass'], false, 'password', false); 
-		$this->input('dbHost', 'DB Host', $values['dbHost']); 
-		$this->input('dbPort', 'DB Port', $values['dbPort'], true);
-		
-		echo 
-			"<div id='dbAdvancedToggle'><small>" . 
-			"<a class='ui-priority-secondary' href='#' onclick='$(\"#dbAdvanced\").slideDown();$(\"#dbAdvancedToggle\").slideUp();'>" .
-			"<i class='fa fa-wrench'></i> Advanced: Charset &amp; Engine &hellip;</a>" . 
-			"</small></div>";
-		
-		echo "<div id='dbAdvanced' style='display: none'>";
-		$this->h('Advanced Database Options'); 
+		$this->input('dbHost', 'DB Host', $values['dbHost'], false); 
+		$this->input('dbPort', 'DB Port', $values['dbPort']);
+	
+		$this->select('dbCharset', 'DB Charset', $values['dbCharset'], array('utf8', 'utf8mb4'));
+		$this->select('dbEngine', 'DB Engine', $values['dbEngine'], array('MyISAM', 'InnoDB'));
+		$this->clear();
+	
 		$this->p(
-			"The 'utf8' and 'MyISAM' options are known to work across the broadest range of servers and 3rd party modules, " . 
-			"so you should not change these settings unless you know what you are doing. " . 
-			"The 'utf8mb4' (charset) and/or 'InnoDB' (engine) may be preferable for some installations. " . 
-			"*Please note the 'InnoDB' option requires MySQL 5.6.4 or newer."
+			"The DB Charset option “utf8mb4” may not be compatible with all 3rd party modules.<br />" . 
+			"The DB Engine option “InnoDB” requires MySQL 5.6.4 or newer.", 
+			array('class' => 'detail', 'style' => 'margin-top:0')
 		);
-		echo "<p style='width: 135px; float: left; margin-top: 0;'><label>DB Charset</label><br />";
-		echo "<select name='dbCharset'>";
-		echo "<option value='utf8'" . ($values['dbCharset'] != 'utf8mb4' ? " selected" : "") . ">utf8</option>";
-		echo "<option value='utf8mb4'" . ($values['dbCharset'] == 'utf8mb4' ? " selected" : "") . ">utf8mb4</option>";
-		echo "</select></p>";
-		// $this->input('dbCharset', 'DB Charset', $values['dbCharset']); 
-		echo "<p style='width: 135px; float: left; margin-top: 0;'><label>DB Engine</label><br />"; 
-		echo "<select name='dbEngine'>";
-		echo "<option value='MyISAM'" . ($values['dbEngine'] != 'InnoDB' ? " selected" : "") . ">MyISAM</option>"; 
-		echo "<option value='InnoDB'" . ($values['dbEngine'] == 'InnoDB' ? " selected" : "") . ">InnoDB*</option>";
-		echo "</select></p>";
-		echo "</div>";
+		$this->sectionStop();
 
 		$cgi = false;
 		$defaults = array();
@@ -485,18 +503,12 @@ class Installer {
 
 		$values = array_merge($defaults, $values); 
 
-		$this->h("Default Time Zone"); 
-		echo "<p><select name='timezone'>"; 
-		foreach($this->timezones() as $key => $timezone) {
-			$label = $timezone; 
-			if(strpos($label, '|')) list($label, $timezone) = explode('|', $label); 
-			$selected = $timezone == $values['timezone'] ? "selected='selected'" : '';
-			$label = str_replace('_', ' ', $label); 
-			echo "<option value=\"$key\" $selected>$label</option>";
-		}
-		echo "</select></p>";
+		$this->sectionStart('fa-globe Time Zone');
+		$this->p('The time zone selection should be consistent with the time zone of the web server you are installing to.'); 
+		$this->selectTimezone($values['timezone']); 
+		$this->sectionStop();
 
-		$this->h("File Permissions"); 
+		$this->sectionStart("fa-key File Permissions"); 
 		$this->p(
 			"When ProcessWire creates directories or files, it assigns permissions to them. " . 
 			"Enter the most restrictive permissions possible that give ProcessWire (and you) read and write access to the web server (Apache). " . 
@@ -511,19 +523,27 @@ class Installer {
 		$this->input('chmodFile', 'Files', $values['chmodFile'], true); 
 
 		if($cgi) {
-			echo "<p class='detail' style='margin-top: 0;'>We detected that this file (install.php) is writable. That means Apache may be running as your user account. Given that, we populated the permissions above (755 &amp; 644) as possible starting point.</p>";
+			$this->p(
+				"We detected that this file (install.php) is writable. That means Apache may be running as your user account. Given that, we populated the permissions above (755 &amp; 644) as possible starting point.", 
+				array('class' => 'detail', 'style' => 'margin-top:0')
+			);
 		} else {
-			echo "<p class='detail' style='margin-top: 0;'>WARNING: 777 and 666 permissions mean that directories and files are readable and writable to everyone on the server (and thus not particularly safe). If in any kind of shared hosting environment, please consult your web host for their recommended permission settings for Apache readable/writable directories and files before proceeding. <a target='_blank' href='https://processwire.com/docs/security/file-permissions/'>More</a></p>";
+			$this->p(
+				"WARNING: 777 and 666 permissions mean that directories and files are readable and writable to everyone on the server (and thus not particularly safe). If in any kind of shared hosting environment, please consult your web host for their recommended permission settings for Apache readable/writable directories and files before proceeding. " . 
+				"<a target='_blank' href='https://processwire.com/docs/security/file-permissions/'>More</a>",
+				array('class' => 'detail', 'style' => 'margin-top:0')
+			);
 		}
+		
+		$this->sectionStop();
 
-		$this->h("HTTP Host Names"); 
+		$this->sectionStart('fa-server HTTP Host Names');
 		$this->p("What host names will this installation run on now and in the future? Please enter one host per line. You may also choose to leave this blank to auto-detect on each request, but we recommend using this whitelist for the best security in production environments."); 
 		$this->p("This field is recommended but not required. You can set this later by editing the file <u>/site/config.php</u> (setting \$config->httpHosts).", "detail"); 
 		$rows = substr_count($values['httpHosts'], "\n") + 2; 
-		echo "<p><textarea name='httpHosts' rows='$rows' style='width: 100%;'>" . htmlentities($values['httpHosts'], ENT_QUOTES, 'UTF-8') . "</textarea></p>";
-
+		$this->textarea('httpHosts', '', $values['httpHosts'], $rows); 
+		$this->sectionStop();
 		$this->btn("Continue", 4); 
-
 		$this->p("Note: After you click the button above, be patient &hellip; it may take a minute.", "detail");
 	}
 
@@ -540,7 +560,7 @@ class Installer {
 		$fields = array('chmodDir', 'chmodFile');
 		foreach($fields as $field) {
 			$value = (int) $_POST[$field];
-			if(strlen("$value") !== 3) $this->err("Value for '$field' is invalid");
+			if(strlen("$value") !== 3) $this->alertErr("Value for '$field' is invalid");
 			else $this->$field = "0$value";
 			$values[$field] = $value;
 		}
@@ -572,6 +592,7 @@ class Installer {
 
 		// db configuration
 		$fields = array('dbUser', 'dbName', 'dbPass', 'dbHost', 'dbPort', 'dbEngine', 'dbCharset');
+		
 		foreach($fields as $field) {
 			$value = get_magic_quotes_gpc() ? stripslashes($_POST[$field]) : $_POST[$field]; 
 			$value = substr($value, 0, 255); 
@@ -581,11 +602,10 @@ class Installer {
 	
 		$values['dbCharset'] = ($values['dbCharset'] === 'utf8mb4' ? 'utf8mb4' : 'utf8'); 
 		$values['dbEngine'] = ($values['dbEngine'] === 'InnoDB' ? 'InnoDB' : 'MyISAM'); 
-		// if(!ctype_alnum($values['dbCharset'])) $values['dbCharset'] = 'utf8';
 
 		if(!$values['dbUser'] || !$values['dbName'] || !$values['dbPort']) {
 			
-			$this->err("Missing database configuration fields"); 
+			$this->alertErr("Missing database configuration fields"); 
 			
 		} else {
 	
@@ -607,8 +627,8 @@ class Installer {
 					$database = $this->dbCreateDatabase($dsn, $values, $driver_options); 
 					
 				} else {
-					$this->err("Database connection information did not work.");
-					$this->err($e->getMessage());
+					$this->alertErr("Database connection information did not work.");
+					$this->alertErr(htmlentities($e->getMessage(), ENT_QUOTES, 'UTF-8'));
 				}
 			}
 		}
@@ -618,24 +638,55 @@ class Installer {
 			return;
 		}
 
-		$this->h("Test Database and Save Configuration");
-		$this->ok("Database connection successful to " . htmlspecialchars($values['dbName'])); 
+		$this->h("fa-database Test Database and Save Configuration");
+		$this->alertOk("Database connection successful to " . htmlspecialchars($values['dbName'])); 
+		
 		$options = array(
 			'dbCharset' => strtolower($values['dbCharset']), 
 			'dbEngine' => $values['dbEngine']
 		);
-	
+
+		// check if MySQL is new enough to support InnoDB with fulltext indexes
 		if($options['dbEngine'] == 'InnoDB') {
 			$query = $database->query("SELECT VERSION()");
 			list($dbVersion) = $query->fetch(\PDO::FETCH_NUM);
 			if(version_compare($dbVersion, "5.6.4", "<")) {
 				$options['dbEngine'] = 'MyISAM';
 				$values['dbEngine'] = 'MyISAM';
-				$this->err("Your MySQL version is $dbVersion and InnoDB requires 5.6.4 or newer. Engine changed to MyISAM.");
+				$this->alertErr("Your MySQL version is $dbVersion and InnoDB requires 5.6.4 or newer. Engine changed to MyISAM.");
+			}
+		}
+		
+		// check if database already has tables present
+		$query = $database->query("SHOW TABLES");
+		$tables = $query->fetchAll(\PDO::FETCH_COLUMN);
+		$numTables = count($tables);
+		$dbTablesAction = isset($_POST['dbTablesAction']) ? $_POST['dbTablesAction'] : '';
+		
+		if($numTables && $dbTablesAction) {
+			if($dbTablesAction === 'remove') {
+				// remove
+				foreach($tables as $table) {
+					$database->exec("DROP TABLE `$table`"); 
+				}
+				$this->alertOk("Dropped $numTables existing table(s)"); 
+				$numTables = 0;
+			} else if($dbTablesAction === 'ignore') {
+				// ignore
+				$this->alertOk('Existing tables will be ignored'); 
+			} else {
+				$dbTablesAction = '';
 			}
 		}
 
-		if($this->dbSaveConfigFile($values)) {
+		if($numTables && empty($dbTablesAction)) {
+			$this->alertErr(
+				"<strong>Database already has $numTables table(s) present:</strong> " . 
+				implode(', ', $tables) . ". " . 
+				"<strong>Please select below what you would like to do with these tables.</strong>"
+			); 
+			$this->dbConfig($values, $numTables);
+		} else if($this->dbSaveConfigFile($values)) {
 			$this->profileImport($database, $options);
 		} else {
 			$this->dbConfig($values);
@@ -674,17 +725,17 @@ class Installer {
 				$database->exec("CREATE SCHEMA IF NOT EXISTS `$dbName` DEFAULT CHARACTER SET `$dbCharset`");
 				// reconnect
 				$database = new \PDO($dsn, $values['dbUser'], $values['dbPass'], $driver_options);
-				if($database) $this->ok("Created database: $dbName"); 
+				if($database) $this->alertOk("Created database: $dbName"); 
 
 			} catch(\Exception $e) {
-				$this->err("Failed to create database with name $dbName");
-				$this->err($e->getMessage()); 
+				$this->alertErr("Failed to create database with name $dbName");
+				$this->alertErr($e->getMessage()); 
 				$database = null;
 			}
 			
 		} else {
 			$database = null;
-			$this->err("Unable to create database with that name. Please create the database with another tool and try again."); 
+			$this->alertErr("Unable to create database with that name. Please create the database with another tool and try again."); 
 		}
 		
 		return $database; 
@@ -737,7 +788,13 @@ class Installer {
 			"\n * Installer: Time zone setting" . 
 			"\n * " . 
 			"\n */" . 
-			"\n\$config->timezone = '$values[timezone]';" . 	
+			"\n\$config->timezone = '$values[timezone]';" .
+			"\n" .
+			"\n/**" .
+			"\n * Installer: Admin theme" .
+			"\n * " .
+			"\n */" .
+			"\n\$config->defaultAdminTheme = 'AdminThemeUikit';" .
 			"\n" . 
 			"\n/**" .
 			"\n * Installer: Unix timestamp of date/time installed" .
@@ -762,10 +819,10 @@ class Installer {
 		
 		if(($fp = fopen("./site/config.php", "a")) && fwrite($fp, $cfg)) {
 			fclose($fp); 
-			$this->ok("Saved configuration to ./site/config.php"); 
+			$this->alertOk("Saved configuration to ./site/config.php"); 
 			return true; 
 		} else {
-			$this->err("Error saving configuration to ./site/config.php. Please make sure it is writable."); 
+			$this->alertErr("Error saving configuration to ./site/config.php. Please make sure it is writable."); 
 			return false;
 		}
 	}
@@ -780,13 +837,15 @@ class Installer {
 	protected function profileImport($database, array $options) {
 
 		if(self::TEST_MODE) {
-			$this->ok("TEST MODE: Skipping profile import"); 
+			$this->alertOk("TEST MODE: Skipping profile import"); 
 			$this->adminAccount();
 			return;
 		}
 
 		$profile = "./site/install/";
-		if(!is_file("{$profile}install.sql")) die("No installation profile found in {$profile}"); 
+		if(!is_file("{$profile}install.sql")) die("No installation profile found in {$profile}");
+		
+		$this->sectionStart('fa-building-o Profile Import');
 
 		// checks to see if the database exists using an arbitrary query (could just as easily be something else)
 		try {
@@ -831,7 +890,7 @@ class Installer {
 		} else {
 			// they are installing site-default already 
 		}
-
+		$this->sectionStop();
 		$this->adminAccount();
 	}
 
@@ -894,7 +953,7 @@ class Installer {
 		$replace = array();
 		if($options['dbEngine'] != 'MyISAM') {
 			$replace['ENGINE=MyISAM'] = "ENGINE=$options[dbEngine]";
-			$this->warn("Engine changed to '$options[dbEngine]', please keep an eye out for issues."); 
+			// $this->alertWarn("Engine changed to '$options[dbEngine]', please keep an eye out for issues."); 
 		}
 		if($options['dbCharset'] != 'utf8') {
 			$replace['CHARSET=utf8'] = "CHARSET=$options[dbCharset]";
@@ -906,7 +965,7 @@ class Installer {
 					$replace['(255)'] = '(250)'; // max ley length in utf8mb4 is 1000 (250 * 4)
 				}
 			}
-			$this->warn("Character set has been changed to '$options[dbCharset]', please keep an eye out for issues."); 
+			// $this->alertWarn("Character set has been changed to '$options[dbCharset]', please keep an eye out for issues."); 
 		}
 		if(count($replace)) $restoreOptions['findReplaceCreateTable'] = $replace; 
 		require("./wire/core/WireDatabaseBackup.php"); 
@@ -916,7 +975,7 @@ class Installer {
 			$this->ok("Imported database file: $file1");
 			$this->ok("Imported database file: $file2"); 
 		} else {
-			foreach($backup->errors() as $error) $this->err($error); 
+			foreach($backup->errors() as $error) $this->alertErr($error); 
 		}
 	}
 
@@ -944,25 +1003,41 @@ class Installer {
 			$clean[$key] = $value;
 		}
 
-		$this->h("Admin Panel Information");
+		$this->sectionStart("fa-sign-in Admin Panel");
 		$this->input("admin_name", "Admin Login URL", $clean['admin_name'], false, "name"); 
+		/*
 		$js = "$('link#colors').attr('href', $('link#colors').attr('href').replace(/main-.*$/, 'main-' + $(this).val() + '.css'))";
 		echo "<p class='ui-helper-clearfix'><label>Color Theme<br /><select name='colors' id='colors' onchange=\"$js\">";
 		foreach($this->colors as $color) echo "<option value='$color'>" . ucfirst($color) . "</option>";
 		echo "</select></label> <span class='detail'><i class='fa fa-angle-left'></i> Change for a live preview</span></p>";
+		*/
+		$this->clear();
 		
-		$this->p("<i class='fa fa-info-circle'></i> You can change the admin URL later by editing the admin page and changing the name on the settings tab.<br /><i class='fa fa-info-circle'></i> You can change the colors later by going to Admin <i class='fa fa-angle-right'></i> Modules <i class='fa fa-angle-right detail'></i> Core <i class='fa fa-angle-right detail'></i> Admin Theme <i class='fa fa-angle-right'></i> Settings.", "detail"); 
-		$this->h("Admin Account Information");
-		$this->p("You will use this account to login to your ProcessWire admin. It will have superuser access, so please make sure to create a <a target='_blank' href='http://en.wikipedia.org/wiki/Password_strength'>strong password</a>.");
+		$this->p(
+			"fa-info-circle You can change the admin URL later by editing the admin page and changing the name on the settings tab.",
+			array('class' => 'detail', 'style' => 'margin-top:0')
+		); 
+		$this->sectionStop();
+		
+		$this->sectionStart("fa-user-circle Admin Account"); 
+		$this->p(
+			"You will use this account to login to your ProcessWire admin. It will have superuser access, so please make sure " . 
+			"to create a <a target='_blank' href='http://en.wikipedia.org/wiki/Password_strength'>strong password</a>."
+		);
 		$this->input("username", "User", $clean['username'], false, "name"); 
 		$this->input("userpass", "Password", $clean['userpass'], false, "password"); 
-		$this->input("userpass_confirm", "Password <small class='detail'>(again)</small>", $clean['userpass_confirm'], true, "password"); 
+		$this->input("userpass_confirm", "Password <small class='detail'>(again)</small>", $clean['userpass_confirm'], false, "password"); 
 		$this->input("useremail", "Email Address", $clean['useremail'], true, "email"); 
-		$this->p("<i class='fa fa-warning'></i> Please remember the password you enter above as you will not be able to retrieve it again.", "detail");
+		$this->p(
+			"fa-warning Please remember the password you enter above as you will not be able to retrieve it again.", 
+			array('class' => 'detail', 'style' => 'margin-top:0')
+		);
+		$this->sectionStop();
 		
-		$this->h("Cleanup");
+		$this->sectionStart("fa-bath Cleanup");
 		$this->p("Directories and files listed below are no longer needed and should be removed. If you choose to leave any of them in place, you should delete them before migrating to a production environment.", "detail"); 
 		$this->p($this->getRemoveableItems($wire, true)); 
+		$this->sectionStop();
 			
 		$this->btn("Continue", 5); 
 	}
@@ -1009,7 +1084,7 @@ class Installer {
 			$note = $disabled ? "<span class='detail'>(not writable/deletable by this installer)</span>" : "";
 			$markup =
 				"<label style='font-weight: normal;'>" .
-				"<input type='checkbox' $checked $disabled name='remove_items[]' value='$name' /> $item[label] $note" .
+				"<input class='uk-checkbox' type='checkbox' $checked $disabled name='remove_items[]' value='$name' /> $item[label] $note" .
 				"</label>";
 			$items[$name]['markup'] = $markup;
 			$out .= $out ? "<br />$markup" : $markup; 
@@ -1049,7 +1124,8 @@ class Installer {
 	protected function adminAccountSave($wire) {
 
 		$input = $wire->input;
-		$sanitizer = $wire->sanitizer; 
+		$sanitizer = $wire->sanitizer;
+		$adminTheme = $wire->modules->getInstall('AdminThemeUikit');
 
 		if(!$input->post('username') || !$input->post('userpass')) $this->err("Missing account information"); 
 		if($input->post('userpass') !== $input->post('userpass_confirm')) $this->err("Passwords do not match");
@@ -1085,6 +1161,7 @@ class Installer {
 		$user->name = $username;
 		$user->pass = $input->post('userpass'); 
 		$user->email = $email;
+		$user->admin_theme = $adminTheme;
 
 		if(!$user->roles->has("superuser")) $user->roles->add($superuserRole); 
 
@@ -1108,9 +1185,10 @@ class Installer {
 
 		$adminName = htmlentities($adminName, ENT_QUOTES, "UTF-8");
 
-		$this->h("Admin Account Saved");
+		$this->sectionStart("fa-user-circle Admin Account Saved");
 		$this->ok("User account saved: <b>{$user->name}</b>"); 
 
+		/*	
 		$colors = $wire->sanitizer->pageName($input->post('colors')); 
 		if(!in_array($colors, $this->colors)) $colors = reset($this->colors); 
 		$theme = $wire->modules->getInstall('AdminThemeDefault'); 
@@ -1119,20 +1197,28 @@ class Installer {
 		$configData['colors'] = $colors;
 		$wire->modules->saveModuleConfigData('AdminThemeDefault', $configData); 
 		$this->ok("Saved admin color set <b>$colors</b> - you will see this when you login."); 
+		*/
+		$this->sectionStop();
 
-		$this->h("Complete &amp; Secure Your Installation");
+		$this->sectionStart("fa-life-buoy Complete &amp; Secure Your Installation");
 		$this->getRemoveableItems($wire, false, true); 
 
 		$this->ok("Note that future runtime errors are logged to <b>/site/assets/logs/errors.txt</b> (not web accessible).");
-		$this->ok("For more configuration options see <b>/wire/config.php</b>.");
-		$this->warn("Please make your <b>/site/config.php</b> file non-writable, and readable only to you and Apache.");
-		$this->p("<a target='_blank' href='https://processwire.com/docs/security/file-permissions/#securing-your-site-config.php-file'>How to secure your /site/config.php file <i class='fa fa-angle-right'></i></a>");
+		$this->ok("For more configuration options see <b>/wire/config.php</b> and place any edits in /site/config.php.");
+		$this->p(
+			"Please make your <b>/site/config.php</b> file non-writable, and readable only to you and Apache.<br />" . 
+			"<a target='_blank' href='https://processwire.com/docs/security/file-permissions/#securing-your-site-config.php-file'>" . 
+			"How to secure your /site/config.php file <i class='fa fa-angle-right'></i></a>"
+		);
+		$this->sectionStop();
 		
 		if(is_writable("./site/modules/")) wireChmod("./site/modules/", true); 
 
-		$this->h("Use The Site!");
+		$this->sectionStart("fa-coffee Use The Site!");
 		$this->ok("Your admin URL is <a href='./$adminName/'>/$adminName/</a>"); 
 		$this->p("If you'd like, you may change this later by editing the admin page and changing the name.", "detail"); 
+		$this->sectionStop();
+		
 		$this->btn("Login to Admin", 1, 'sign-in', false, true, "./$adminName/"); 
 		$this->btn("View Site ", 1, 'angle-right', true, false, "./"); 
 
@@ -1147,6 +1233,44 @@ class Installer {
 	 * OUTPUT FUNCTIONS
 	 *
 	 */
+
+	/**
+	 * @param string $str
+	 * 
+	 */
+	protected function alertOk($str) {
+		if($this->inSection) {
+			$this->ok($str);
+		} else {
+			echo "\n<div class='uk-alert uk-alert-primary'><i class='fa fa-fw fa-check'></i> $str</div>";
+		}
+	}
+	
+	/**
+	 * @param string $str
+	 *
+	 */
+	protected function alertWarn($str) {
+		if($this->inSection) {
+			$this->warn($str);
+		} else {
+			$this->numErrors++;
+			echo "\n<div class='uk-alert uk-alert-warning'><i class='fa fa-fw fa-exclamation-triangle'></i> $str</div>";
+		}
+	}
+	
+	/**
+	 * @param string $str
+	 *
+	 */
+	protected function alertErr($str) {
+		if($this->inSection) {
+			$this->err($str);
+		} else {
+			$this->numErrors++;
+			echo "\n<div class='uk-alert uk-alert-danger'><i class='fa fa-fw fa-exclamation-triangle'></i> $str</div>";
+		}
+	}
 	
 	/**
 	 * Report and log an error
@@ -1156,8 +1280,13 @@ class Installer {
 	 *
 	 */
 	protected function err($str) {
-		$this->numErrors++;
-		echo "\n<li class='ui-state-error'><i class='fa fa-exclamation-triangle'></i> $str</li>";
+		if(!$this->inSection) {
+			$this->alertErr($str);
+		} else {
+			$this->numErrors++;
+			//echo "\n<li class='ui-state-error'><i class='fa fa-exclamation-triangle'></i> $str</li>";
+			echo "\n<div class='uk-text-danger'><i class='fa fa-fw fa-exclamation-triangle'></i> $str</div>";
+		}
 		return false;
 	}
 
@@ -1169,8 +1298,13 @@ class Installer {
 	 *
 	 */
 	protected function warn($str) {
-		$this->numErrors++;
-		echo "\n<li class='ui-state-error ui-priority-secondary'><i class='fa fa-asterisk'></i> $str</li>";
+		if(!$this->inSection) {
+			$this->alertWarn($str);
+		} else {
+			$this->numErrors++;
+			//echo "\n<li class='ui-state-error ui-priority-secondary'><i class='fa fa-asterisk'></i> $str</li>";
+			echo "\n<div class='uk-text-danger'><i class='fa fa-fw fa-asterisk'></i> $str</div>";
+		}
 		return false;
 	}
 	
@@ -1182,7 +1316,12 @@ class Installer {
 	 *
 	 */
 	protected function ok($str) {
-		echo "\n<li class='ui-state-highlight'><i class='fa fa-check-square-o'></i> $str</li>";
+		if(!$this->inSection) {
+			$this->alertOk($str);
+		} else {
+			//echo "\n<li class='ui-state-highlight'><i class='fa fa-check-square-o'></i> $str</li>";
+			echo "\n<div class=''><i class='fa fa-fw fa-check'></i> $str</div>";
+		}
 		return true; 
 	}
 
@@ -1199,7 +1338,7 @@ class Installer {
 	 */
 	protected function btn($label, $value, $icon = 'angle-right', $secondary = false, $float = false, $href = '') {
 		$class = $secondary ? 'ui-priority-secondary' : '';
-		if($float) $class .= " floated";
+		if($float) $class .= " uk-float-left";
 		$type = 'submit';
 		if($href) $type = 'button';
 		if($href) echo "<a href='$href'>";
@@ -1214,22 +1353,40 @@ class Installer {
 	 * Output a headline
 	 * 
 	 * @param string $label
+	 * @param string $icon
 	 *
 	 */
-	protected function h($label) {
-		echo "\n<h2>$label</h2>";
+	protected function h($label, $icon = '') {
+		if(strpos($label, 'fa-') === 0) {
+			list($icon, $label) = explode(' ', $label, 2);
+		}
+		if($icon) {
+			if(strpos($icon, 'fa-') !== 0) $icon = "fa-$icon";
+			$icon = "<i class='fa fa-fw $icon'></i> ";
+		}
+		echo "\n<h2>$icon$label</h2>";
 	}
 
 	/**
 	 * Output a paragraph 
 	 * 
 	 * @param string $text
-	 * @param string $class
+	 * @param string|array $class Class name, or array of attributes
 	 *
 	 */
 	protected function p($text, $class = '') {
-		if($class) echo "\n<p class='$class'>$text</p>";
-			else echo "\n<p>$text</p>";
+		$icon = '';
+		if(strpos($text, 'fa-') === 0) list($icon, $text) = explode(' ', $text, 2);
+		if($icon) $icon = "<i class='fa fa-fw $icon'></i> ";
+		if(is_array($class)) {
+			echo "\n<p";
+			foreach($class as $k => $v) echo " $k='$v'";
+			echo ">$icon$text</p>";
+		} else if($class) {
+			echo "\n<p class='$class'>$icon$text</p>";
+		} else {
+			echo "\n<p>$icon$text</p>";
+		}
 	}
 
 	/**
@@ -1244,7 +1401,7 @@ class Installer {
 	 *
 	 */
 	protected function input($name, $label, $value, $clear = false, $type = "text", $required = true) {
-		$width = 135; 
+		$width = 150; 
 		$required = $required ? "required='required'" : "";
 		$pattern = '';
 		$note = '';
@@ -1255,12 +1412,91 @@ class Installer {
 			$type = 'text';
 			$pattern = "pattern='[-_a-z0-9]{2,50}' ";
 			if($name == 'admin_name') $width = ($width*2);
-			$note = "<small class='detail' style='font-weight: normal;'>(a-z 0-9)</small>";
+			//$note = "<small class='detail' style='font-weight: normal;'>(a-z 0-9)</small>";
+			$note = "<span class='uk-text-small uk-text-muted'>(a-z 0-9)</span>";
 		}
 		$inputWidth = $width - 15; 
 		$value = htmlentities($value, ENT_QUOTES, "UTF-8"); 
-		echo "\n<p style='width: {$width}px; float: left; margin-top: 0;'><label>$label $note<br /><input type='$type' name='$name' value='$value' $required $pattern style='width: {$inputWidth}px;' /></label></p>";
-		if($clear) echo "\n<br style='clear: both;' />";
+		echo "\n<p style='width: {$width}px; float: left; margin-top: 0;'><label>$label $note<br />";
+		echo "<input class='uk-input' type='$type' name='$name' value='$value' $required $pattern style='width: {$inputWidth}px;' /></label></p>";
+		if($clear) $this->clear();
+	}
+	
+	/**
+	 * Output a <select>
+	 *
+	 * @param string $name
+	 * @param string $label
+	 * @param string $value
+	 * @param array $options
+	 * @param int $width
+	 *
+	 */
+	protected function select($name, $label, $value, array $options, $width = 150) {
+		
+		if($width) {
+			$inputWidth = $width - 15;
+			$inputStyle = " style='width: {$inputWidth}px'";
+			echo "\n<p style='width: {$width}px; float: left; margin-top: 0;'>";
+		} else {
+			$inputStyle = '';
+			echo "\n<p style='margin-top:0'>";
+		}
+		
+		if($label) echo "<label>$label</label><br />";
+		echo "\n\t<select class='uk-select' name='$name'$inputStyle>";
+		
+		foreach($options as $k => $v) {
+			if(is_int($k)) $k = $v; // make non-assoc array behave same as assoc
+			$selected = $k === $value ? " selected='selected'" : "";
+			echo "\n\t\t<option value='$k'$selected>$v</option>";
+		}
+		
+		echo "\n\t</select>";
+		echo "\n</p>";
+	}
+	
+	protected function selectTimezone($value) {
+		echo "\n<p style='width:240px'>";
+		echo "\n\t<select class='uk-select' name='timezone'>";
+		foreach($this->timezones() as $key => $timezone) {
+			$label = $timezone;
+			if(strpos($label, '|')) list($label, $timezone) = explode('|', $label);
+			$selected = $timezone == $value ? "selected='selected'" : '';
+			$label = str_replace('_', ' ', $label);
+			echo "\n\t\t<option value=\"$key\" $selected>$label</option>";
+		}
+		echo "\n\t</select>\n</p>";
+	}
+	
+	protected function textarea($name, $label, $value, $rows = 0) {
+		$rows = $rows ? " rows='$rows'" : "";
+		$value = htmlentities($value, ENT_QUOTES, 'UTF-8');
+		echo "\n<p>";
+		if($label) echo "\n\t<label for='textarea_$name'>$label</label><br />";
+		echo "\n\t<textarea class='uk-textarea' id='textarea_$name' name='$name'$rows style='width: 100%;'>$value</textarea>";
+		echo "\n</p>";
+	}
+	
+	protected function sectionStart($headline = '', $type = 'muted') {
+		echo "\n<div class='uk-section uk-section-small uk-section-$type uk-padding uk-margin'>";
+		echo "\n\t<div class='uk-container'>";
+		$icon = '';
+		if(strpos($headline, 'fa-') === 0) {
+			list($icon, $headline) = explode(' ', $headline, 2);
+			$icon = "<i class='fa fa-fw $icon'></i> ";
+		}
+		if($headline) echo "<h2>$icon$headline</h2>"; 
+		$this->inSection = true;
+	}
+	
+	protected function sectionStop() {
+		echo "\n\t</div>\n</div>";
+		$this->inSection = false;
+	}
+	
+	protected function clear() {
+		echo "\n<div style='clear: both;'></div>";
 	}
 
 
@@ -1281,10 +1517,10 @@ class Installer {
 		if(self::TEST_MODE) return true;
 		if(is_dir($path) || mkdir($path)) {
 			chmod($path, octdec($this->chmodDir));
-			if($showNote) $this->ok("Created directory: $path"); 
+			if($showNote) $this->alertOk("Created directory: $path"); 
 			return true; 
 		} else {
-			if($showNote) $this->err("Error creating directory: $path"); 
+			if($showNote) $this->alertErr("Error creating directory: $path"); 
 			return false; 
 		}
 	}
