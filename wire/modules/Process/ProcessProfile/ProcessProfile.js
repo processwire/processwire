@@ -10,4 +10,20 @@ $(document).ready(function() {
 				.closest('.Inputfield').removeClass('InputfieldStateChanged'); // @GerardLuskin
 		}, 1000);
 	}
+	
+	$("form#ProcessProfile").submit(function() {
+		console.log('ProcessProfile');
+		var $inputfields = $(".InputfieldStateChanged.InputfieldPassRequired");
+		if(!$inputfields.length) return;
+		var $pass = $('#_old_pass');
+		if($pass.val().length) return;
+		var $passWrap = $pass.closest('.InputfieldPassword');
+		if($passWrap.hasClass('InputfieldStateCollapsed')) {
+			setTimeout(function() {
+				$passWrap.find('.InputfieldHeader').click(); 
+			}, 200);
+		}
+		setTimeout(function() { $pass.focus(); }, 400); 
+		return false;
+	}); 
 }); 

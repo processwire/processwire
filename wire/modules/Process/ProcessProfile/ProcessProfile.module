@@ -22,7 +22,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			'permission' => 'profile-edit',
 			);
 	}
-
+	
 	/**
 	 * @var User
 	 * 
@@ -30,11 +30,29 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	protected $user;
 
 	/**
+	 * Label for user “name”
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $userNameLabel = '';
+
+	/**
+	 * Password required for changes to these field names
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $passRequiredNames = array();
+
+	/**
 	 * Construct/establish initial module configuration
 	 * 
 	 */
 	public function __construct() {
 		$this->set('profileFields', array()); 
+		$this->userNameLabel = $this->_('User Login Name'); // Label for user login name
+		parent::__construct();
 	}
 
 	/**
@@ -77,6 +95,9 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	 *
 	 */
 	protected function buildForm($fieldName = '') {
+	
+		/** @var User $user */
+		$user = $this->user;
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
@@ -87,38 +108,72 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		$form->attr('enctype', 'multipart/form-data');
 		$form->attr('autocomplete', 'off'); 
 		$form->addClass('InputfieldFormConfirm');
+	
+		// is password required to change some Inputfields?
+		$passRequired = false;
+		// Inputfields where password is required to change
+		$passRequiredInputfields = array();
+		$passRequiredNote = $this->_('To change this field, you must also enter your current password in the “Set Password” field.');
+		
+		if(in_array('name', $this->profileFields) && empty($fieldName)) {
+			/** @var InputfieldText $f */
+			$f = $this->wire('modules')->get('InputfieldText');
+			$f->attr('id+name', '_user_name');
+			$f->label = $this->userNameLabel;
+			$f->description = $this->_('User name may contain lowercase a-z, 0-9, hyphen or underscore.'); 
+			$f->icon = 'sign-in';
+			$f->attr('value', $user->name);
+			$f->attr('pattern', '^[-_a-z0-9]+$'); 
+			$f->required = true; 
+			$form->add($f);
+			$f->setTrackChanges(true);
+			$passRequiredInputfields[] = $f;
+		}
 
-		foreach($this->user->fields as $field) {
+		foreach($user->fields as $field) {
 			if($field->name == 'roles' || !in_array($field->name, $this->profileFields)) continue;
 			if($fieldName && $field->name !== $fieldName) continue;
 			/** @var Field $field */
-			$field = $this->user->fields->getFieldContext($field);
+			$field = $user->fields->getFieldContext($field);
 			/** @var Inputfield $inputfield */
-			$inputfield = $field->getInputfield($this->user);
+			$inputfield = $field->getInputfield($user);
 			if(!$inputfield) continue;
-			$inputfield->value = $this->user->get($field->name);
-			if($field->name == 'admin_theme' && !$inputfield->value) {
-				$inputfield->value = 'AdminThemeDefault';
-			}
-			if($field->type instanceof FieldtypeImage && !$this->user->hasPermission('page-edit-images', $this->user)) {
-				$inputfield->set('useImageEditor', false);
-			}
-			if($field->type instanceof FieldtypePassword && $field->name == 'pass') {
+			$inputfield->value = $user->get($field->name);
+			
+			if($field->name === 'admin_theme') {
+				if(!$inputfield->value) $inputfield->value = $this->wire('config')->defaultAdminTheme;
+				
+			} else if($field->type instanceof FieldtypeImage) {
+				if(!$user->hasPermission('page-edit-images', $user)) {
+					$inputfield->set('useImageEditor', false);
+				}
+				
+			} else if($field->type instanceof FieldtypePassword && $field->name == 'pass') {
 				$inputfield->attr('autocomplete', 'off');
 				if($inputfield->getSetting('requireOld') == InputfieldPassword::requireOldAuto) {
 					$inputfield->set('requireOld', InputfieldPassword::requireOldYes); 
 				}
+				if($inputfield->getSetting('requireOld') == InputfieldPassword::requireOldYes) {
+					$passRequired = true; 
+				}
 				if(!$inputfield->getSetting('icon')) $inputfield->set('icon', 'key');
-					
+				
+			} else if($field->name === 'email') {
+				if(!$inputfield->getSetting('icon')) $inputfield->set('icon', 'envelope-o');
+				if(strlen($inputfield->value)) {
+					$passRequiredInputfields[] = $inputfield;
+				}
 			}
+			
 			$form->add($inputfield); 
 		}
 	
 		/** @var InputfieldHidden $f */
+		// note used for processing, present only for front-end JS compatibility with ProcessPageEdit
 		$f = $this->modules->get('InputfieldHidden');
 		$f->attr('id', 'Inputfield_id');
 		$f->attr('name', 'id'); 
-		$f->attr('value', $this->user->id);
+		$f->attr('value', $user->id);
 		$f->addClass('InputfieldAllowAjaxUpload');
 		$form->add($f);
 
@@ -127,6 +182,14 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		$field->attr('id+name', 'submit_save_profile'); 
 		$field->showInHeader();
 		$form->add($field); 
+		
+		if($passRequired && count($passRequiredInputfields)) {
+			foreach($passRequiredInputfields as $f) {
+				$f->addClass('InputfieldPassRequired', 'wrapClass');
+				$this->passRequiredNames[$f->name] = $f->name;
+				$f->notes = ($f->notes ? "$f->notes\n" : "") . $passRequiredNote;
+			}
+		}
 	
 		return $form; 
 	}
@@ -136,6 +199,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	 * 
 	 * @param Inputfield $form
 	 * @param string $fieldName
+	 * @throws WireException
 	 *
 	 */
 	protected function processInput(Inputfield $form, $fieldName = '') {
@@ -144,15 +208,40 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 
 		$user = $this->user; 
 		$languages = $this->wire('languages');
+		$id = (int) $this->input->post('id');
+		
+		if($id !== $user->id) throw new WireException('Invalid POST data');
+		
 		$form->processInput($this->input->post);
 
 		if(count($form->getErrors())) {
 			$this->error($this->_("Profile not saved")); 
 			return;
 		}
-
+		
+		$passValue = $this->input->post->string('_old_pass');
+		
+		if(strlen($passValue)) {
+			$passAuthenticated = $user->pass->matches($passValue);
+			$passFailedMessage = $this->_('Required password was provided but is not correct');
+		} else {
+			$passAuthenticated = false;
+			$passFailedMessage = $this->_('Required password was not provided');
+		}
+		
 		$user->of(false);
 		$user->setTrackChanges(true);
+
+		if(in_array('name', $this->profileFields) && empty($fieldName)) {
+			$f = $form->getChildByName('_user_name');
+			if($f && $f->isChanged()) {
+				if(isset($this->passRequiredNames[$f->name]) && !$passAuthenticated) {
+					$f->error($passFailedMessage);
+				} else {
+					$this->processInputUsername($f);
+				}
+			}
+		}
 
 		foreach($user->fields as $field) {
 
@@ -161,7 +250,9 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			
 			$field = $this->user->fields->getFieldContext($field);
 			$inputfield = $form->getChildByName($field->name); 	
-			$value = $inputfield->attr('value'); 
+			$value = $inputfield->attr('value');
+			
+			if(empty($value) && in_array($field->name, array('pass', 'email'))) continue;
 			
 			if($field->name == 'email' && strlen($value)) {
 				$selector = "id!=$user->id, include=all, email=" . $this->sanitizer->selectorValue($value);
@@ -170,11 +261,16 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 					continue; 
 				}
 			}
-
-			if($field->name == 'pass' && empty($value)) continue; 
-
+			
 			$v = $user->get($field->name);
+			
 			if($inputfield->isChanged() || $v !== $value) {
+				
+				if(isset($this->passRequiredNames[$inputfield->name]) && !$passAuthenticated) {
+					$inputfield->error($passFailedMessage);
+					continue;	
+				}
+
 				if($languages && $inputfield->getSetting('useLanguages')) {
 					if(is_object($v)) {
 						$v->setFromInputfield($inputfield);
@@ -187,7 +283,6 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 					$user->set($field->name, $value);
 				}
 			}
-			
 		}
 
 		if($user->isChanged()) {
@@ -199,8 +294,97 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		}
 
 		$user->of(true); 
-
 	}
+	
+	protected function processInputUsername(Inputfield $f) {
+		
+		$user = $this->user;
+		
+		$userName = $this->wire('sanitizer')->pageName($f->val());
+		
+		if(empty($userName)) return false;
+		if($f->val() === $user->name) return false; // no change
+		if($userName === $user->name) return false; // no change after sanitization
+	
+		/* at this point we know that user changed their name */
+	
+		$error = $this->isDisallowedUserName($f->val()); 
+		if($error !== false) {
+			$f->error($error); 
+			return false;
+		}
+		
+		$user->name = $userName;
+	
+		if($this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
+			foreach($this->wire('languages') as $language) {
+				if(!$language->isDefault()) $user->set("name$language->id", $userName);
+			}
+		}
+	}
+	
+	/**
+	 * Return error message if user name is not allowed (to change to) or boolean false if it is
+	 *
+	 * @param string $value User name
+	 * @return bool|string
+	 *
+	 */
+	public function ___isDisallowedUserName($value) {
+
+		$disallowedNames = array(
+			'superuser',
+			'admin',
+			'administrator',
+			'root',
+			'guest',
+			'nobody',
+		);
+
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
+		$notAllowedLabel = $this->_('Not allowed');
+		$userName = $this->wire('sanitizer')->pageName($value);
+		
+		if($userName !== $value) {
+			return sprintf($this->_('Sanitized to “%s”, which differs from what you entered'), $userName);
+		}
+
+		if(strlen($userName) < 3) {
+			return $this->_('Too short');
+		} else if(strlen($userName) > 64) {
+			return $this->_('Too long');
+		}
+
+		if(in_array($userName, $disallowedNames)) {
+			return "$notAllowedLabel (#1)";
+		}
+
+		// check if user name is already in use
+		if($languages) $languages->setDefault();
+		$u = $this->wire('users')->get("name='$userName', include=all");
+		if($languages) $languages->unsetDefault();
+		if($u->id) {
+			return $this->_('Already in use');
+		}
+
+		$role = $this->wire('roles')->get("name='$userName', include=all");
+		if($role->id) {
+			return "$notAllowedLabel (#2)";
+		}
+
+		if(!ctype_alnum(substr($userName, 0, 1)) || !ctype_alnum(substr($userName, -1))) {
+			return $this->_('May not start or end with non-alpha, non-digit characters');
+		}
+
+		if(preg_match('/[-_.]{2,}/', $userName)) {
+			return $this->_('May not contain adjacent hyphens, underscores or periods');
+		}
+
+		return false;
+	}
+
+
 
 	/**
 	 * Module configuration
@@ -217,20 +401,28 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		
 		foreach($this->wire('users')->getTemplates() as $template) {
 			foreach($template->fieldgroup as $field) {
-				$fieldOptions[$field->name] = $field->name;
+				$fieldOptions[$field->name] = $field;
 			}
 		}
 		
-		sort($fieldOptions);
+		ksort($fieldOptions);
 
 		$inputfields = $this->wire(new InputfieldWrapper());
 		$f = $this->wire('modules')->get('InputfieldCheckboxes');
 		$f->label = $this->_("What fields can a user edit in their own profile?");
 		$f->attr('id+name', 'profileFields');
+		$f->icon = 'user-circle';
+		$f->table = true;
+		$f->thead = 
+			$this->_('Name') . '|' . 
+			$this->_('Label') . '|' . 
+			$this->_('Type');
 		
-		foreach($fieldOptions as $name) {
+		$f->addOption('name', "name|$this->userNameLabel|System"); 
+		
+		foreach($fieldOptions as $name => $field) {
 			if($name == 'roles') continue;
-			$f->addOption($name); 
+			$f->addOption($name, $name . '|' . str_replace('|', ' ', $field->getLabel()) . '|' . $field->type->shortName); 
 		}
 		
 		$f->attr('value', $profileFields);
@@ -248,7 +440,6 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	public function getPage() {
 		return $this->wire('user');
 	}
-
 
 
 }
