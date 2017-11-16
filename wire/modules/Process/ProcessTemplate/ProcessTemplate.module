@@ -757,7 +757,20 @@ class ProcessTemplate extends Process {
 		$f->attr('id+name', '_fieldgroup_fields_changed');
 		$f->attr('value', '');
 		$t->add($f);
-		if($template->name != $template->fieldgroup->name || $this->config->advanced) $t->add($this->buildEditFormFieldgroup($template));
+		
+		if(in_array($template->id, $this->wire('config')->userTemplateIDs)) {
+			/** @var ProcessProfile $profile */
+			$profile = $this->wire('modules')->get('ProcessProfile');
+			$profileInputs = $profile->getModuleConfigInputfields(array('profileFields' => $profile->profileFields));
+			$f = $profileInputs->getChildByName('profileFields');
+			$f->attr('id+name', '_user_profile_fields');
+			$f->description = $this->_('If you just added fields above, save first and then return here to select them.'); 
+			$t->add($f);
+		}
+
+		if($template->name != $template->fieldgroup->name || $this->config->advanced) {
+			$t->add($this->buildEditFormFieldgroup($template));
+		}
 	
 		/** @var InputfieldText $f */
 		$f = $this->modules->get('InputfieldText');
@@ -945,10 +958,6 @@ class ProcessTemplate extends Process {
 		$select->setAsmSelectOption('editLink', $this->wire('config')->urls->admin . "setup/field/edit?id={value}&fieldgroup_id={$template->fieldgroup->id}&modal=1&process_template=1"); 
 		$select->setAsmSelectOption('hideDeleted', false);
 		
-		if(in_array($template->id, $this->wire('config')->userTemplateIDs)) {
-			$select->notes = sprintf($this->_('To configure what fields a user can edit in their profile, see the [profile module settings](%s).'), $this->wire('config')->urls->admin . 'module/edit?name=ProcessProfile');
-		}
-
 		foreach($template->fieldgroup as $field) {
 			$field = $template->fieldgroup->getField($field->id, true); // get in context
 			$attrs = $this->getAsmListAttrs($field); 
@@ -2296,6 +2305,16 @@ class ProcessTemplate extends Process {
 			if($deleteFieldgroup) $this->fieldgroups->delete($fieldgroup);
 			$session->redirect("./");
 			return;
+		}
+
+		if(in_array($template->id, $this->wire('config')->userTemplateIDs)) {
+			$f = $form->getChildByName('_user_profile_fields');
+			$data = $this->wire('modules')->getConfig('ProcessProfile');
+			if($f && $data['profileFields'] != $f->val()) {
+				$data['profileFields'] = $f->val();
+				$this->wire('modules')->saveConfig('ProcessProfile', $data);
+				$this->message("Updated user profile fields", Notice::debug); 
+			}	
 		}
 
 		if($input->post('fieldgroup') && $input->post('fieldgroup') != $template->fieldgroup->id) {
