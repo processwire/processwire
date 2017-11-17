@@ -257,7 +257,16 @@ class InputfieldPageTable extends Inputfield {
 	 */
 	protected function renderTableHead(array $columns, array $labels) {
 
-		$out = "<table class='AdminDataTable AdminDataList AdminDataTableResponsive AdminDataTableResponsiveAlt'><thead><tr>";
+		/** @var MarkupAdminDataTable $module */
+		$module = $this->wire('modules')->get('MarkupAdminDataTable');
+		$classes = array();
+		foreach(array('class', 'addClass', 'responsiveClass', 'responsiveAltClass') as $key) {
+			$value = $module->settings($key);
+			if(!empty($value)) $classes[] = $value;
+		}
+		$tableClass = implode(' ', $classes);
+		
+		$out = "<table class='$tableClass'><thead><tr>";
 
 		if($this->needsEditColumn) $out .= "<th>&nbsp;</th>";
 
