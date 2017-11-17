@@ -171,7 +171,7 @@
 				$newTab.addClass(aActiveClass);
 			
 				if(liActiveClass.length) {
-					$oldTab.closest('li').removeClass(liActiveClass);
+					$tabList.find('li.' + liActiveClass).removeClass(liActiveClass);
 					$newTab.closest('li').addClass(liActiveClass);
 				}
 				

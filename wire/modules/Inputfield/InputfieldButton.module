@@ -37,7 +37,7 @@ class InputfieldButton extends InputfieldSubmit {
 		$out = parent::___render();
 		if($href) { 
 			$out = trim($out); 
-			$attr = $this->aclass ? " class='$this->aclass'" : "";
+			$attr = " class='" . trim("InputfieldButtonLink $this->aclass") . "'";
 			if($this->target) $attr .= " target='" . $this->wire('sanitizer')->entities($this->target) . "'";
 			$out = "<a$attr href='$href'>$out</a>";
 			$this->attr('href', $href); 
