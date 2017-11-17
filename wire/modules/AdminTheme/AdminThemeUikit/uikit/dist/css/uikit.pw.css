@@ -105,7 +105,6 @@ strong {
   padding: 0 0;
   background: none;
   overflow: auto;
-  display: block;
 }
 /*
  * Emphasize
@@ -3976,7 +3975,7 @@ ul.uk-nav-sub {
  */
 .uk-navbar-nav > li > a {
   color: #8d939e;
-  text-transform: capitalize;
+  text-transform: none;
   -webkit-transition: 0.1s ease-in-out;
   transition: 0.1s ease-in-out;
   -webkit-transition-property: color, background-color;
@@ -12174,8 +12173,27 @@ table.ProcessListerTable thead th {
 table.ProcessListerTable thead th:hover {
   text-decoration: underline;
 }
-table.AdminDataTable {
+table.AdminDataTable:not(.uk-table) {
+  /* 1 */
+  border-collapse: collapse;
+  border-spacing: 0;
+  /* 2 */
   width: 100%;
+  /* 3 */
+  margin-bottom: 20px;
+}
+table.AdminDataTable:not(.uk-table) th {
+  color: #6c8dae;
+  outline: none;
+}
+table.AdminDataTable:not(.uk-table) > tbody > tr > th {
+  vertical-align: top;
+  text-transform: none;
+  font-size: 16px;
+}
+table.AdminDataTable:not(.uk-table) .sort-date,
+table.AdminDataTable:not(.uk-table) .pw-table-sort-value {
+  display: none;
 }
 .uk-table-divider > tbody > tr:last-child {
   border-bottom-style: solid;
@@ -14384,6 +14402,13 @@ a.tooltip:hover {
 .pw-dropdown-menu-shorter .ui-menu-item:last-child a {
   margin-bottom: 0.5em;
 }
+.pw-user-nav > li > a > img {
+  border-radius: 50%;
+  margin: 0 4px 0 0;
+  width: 30px;
+  height: 30px;
+  vertical-align: top;
+}
 .PageListRoot > .PageList .PageList {
   margin-left: 1.5em;
 }
@@ -15141,6 +15166,9 @@ table.AdminDataTable .Inputfields .Inputfield .InputfieldContent {
 #pw-content-head-buttons .ui-button {
   margin-left: 10px;
   margin-right: 0;
+}
+a.InputfieldButtonLink:hover {
+  text-decoration: none;
 }
 /*** Language Tabs **********************************************************/
 .Inputfields .langTabsContainer .pw-description,

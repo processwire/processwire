@@ -53,6 +53,10 @@ $config->set('JqueryWireTabs', array(
 	'liActiveClass' => 'uk-active',
 	'aActiveClass' => 'pw-active',
 	'loadStyles' => false,
+	'tooltipAttr' => array(
+		'title' => '{tip}', 
+		'uk-tooltip' => '', 
+	), 
 ));
 
 $config->set('LanguageTabs', array(

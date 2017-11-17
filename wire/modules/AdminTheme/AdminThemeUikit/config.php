@@ -19,11 +19,84 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$modules = $adminTheme->wire('modules');
 	$session = $adminTheme->wire('session');
 	$layout = $adminTheme->layout;
+	$userTemplateURL = $inputfields->wire('config')->urls->admin . 'setup/template/edit?id=3';
+	
+	/** @var InputfieldFieldset $fieldset */
+	$fieldset = $modules->get('InputfieldFieldset');
+	$fieldset->label = __('Masthead and navigation');
+	$fieldset->icon = 'navicon';
+	$fieldset->collapsed = Inputfield::collapsedYes;
+	$inputfields->add($fieldset);
+
+	/** @var InputfieldSelect $f */
+	$f = $modules->get('InputfieldSelect');
+	$f->attr('name', 'userAvatar');
+	$f->label = __('User avatar');
+	$f->icon = 'user-circle';
+	$f->addOption('gravatar', __('Gravatar (external service that determines avatar from email)'));
+	$f->description = __('Select an image field, Gravatar, or icon to show for the user avatar in the masthead.');
+	$numImgFields = 0;
+	foreach($modules->wire('templates')->get('user')->fieldgroup as $field) {
+		if(!$field->type instanceof FieldtypeImage) continue;
+		$f->addOption("$field->id:$field->name", sprintf(__('Image field: %s'), $field->name));
+		$numImgFields++;
+	}
+	if(!$numImgFields) {
+		$f->notes = __('There are no image fields present on the “user” template at present, so only icons and Gravatar are shown.') . ' ';
+	}
+	$f->notes .= sprintf(__('You may add image fields to your user template [here](%s).'), $userTemplateURL);
+	
+	$icons = array(
+		'user-circle',
+		'user-circle-o',
+		'user',
+		'user-o',
+		'user-secret',
+		'vcard',
+		'vcard-o',
+		'child',
+		'female',
+		'male',
+		'paw',
+	);
+	foreach($icons as $icon) {
+		$f->addOption("icon.$icon", sprintf(__('Icon: %s'), $icon));
+	}
+	$f->attr('value', $adminTheme->get('userAvatar'));
+	$fieldset->add($f);
+
+	/** @var InputfieldText $f */
+	$f = $modules->get('InputfieldText');
+	$f->attr('name', 'userLabel');
+	$f->label = __('User navigation label format');
+	$f->description = 
+		__('This label appears next to the user avatar image/icon.') . ' ' . 
+		__('Specify field(s) and format to use for the user label, or blank for no user label.') . ' ' . 
+		sprintf(__('Use any fields/properties from your [user](%s) template surrounded in {brackets}.'), $userTemplateURL) . ' ' . 
+		__('Use {Name} for capitalized name, which is the default setting, or use {name} for lowercase name.');
+	$f->notes = __('Examples: “{name}”, “{Name}”, “{title}”, “{first_name} {last_name}”, “{company.title}”, etc.');
+	$f->attr('value', $adminTheme->userLabel);
+	$fieldset->add($f);
 
 	/** @var InputfieldRadios $f */
 	$f = $modules->get('InputfieldRadios');
-	$f->attr('name', 'layout');
-	$f->label = __('Layout');
+	$f->attr('name', 'logoAction');
+	$f->label = __('Masthead logo click action');
+	$f->addOption(0, __('Admin root page list'));
+	$f->addOption(1, __('Open offcanvas navigation'));
+	$f->attr('value', (int) $adminTheme->logoAction);
+	$fieldset->add($f);
+
+	$fieldset = $modules->get('InputfieldFieldset');
+	$fieldset->label = __('Layout');
+	$fieldset->icon = 'newspaper-o';
+	$fieldset->collapsed = Inputfield::collapsedYes; 
+	$inputfields->add($fieldset);
+
+	/** @var InputfieldRadios $f */
+	$f = $modules->get('InputfieldRadios');
+	$f->attr('id+name', 'layout');
+	$f->label = __('Interface type');
 	$f->addOption('', __('Traditional with masthead navigation') . 
 		' [span.detail] ' . $recommendedLabel . ' [/span]');
 	$opt = __('Page tree navigation in sidebar');
@@ -33,10 +106,8 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 		'* [span.detail] ' . $experimentalLabel . ' [/span]'); 
 	// $f->addOption('sidenav', __('Sidebar navigation (left) + page tree navigation (right)'));
 	$f->attr('value', $layout);
-	$f->icon = 'newspaper-o';
 	$f->notes = __('*Sidebar layouts not compatible with SystemNotifications module and may have issues with other modules.');
-	if(!$layout) $f->collapsed = Inputfield::collapsedYes; 
-	$inputfields->add($f);
+	$fieldset->add($f);
 
 	$lastLayout = $session->getFor($adminTheme, 'lastLayout');
 	if($lastLayout != $layout) {
@@ -59,6 +130,14 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	}
 
 	if(empty($_POST)) $session->setFor($adminTheme, 'lastLayout', $layout);
+	
+	$f = $modules->get('InputfieldInteger');
+	$f->attr('name', 'maxWidth'); 
+	$f->label = __('Maximum layout width'); 
+	$f->description = __('Specify the maximum width of the layout (in pixels) or 0 for no maximum.'); 
+	$f->notes = __('Applies to traditional interface only.'); 
+	$f->attr('value', $adminTheme->maxWidth); 
+	$fieldset->add($f); 
 
 	/** @var InputfieldFieldset $fieldset */
 	$fieldset = $modules->get('InputfieldFieldset');
@@ -173,20 +252,5 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$fieldset->add($f);
 	*/
 
-	/** @var InputfieldFieldset $fieldset */
-	$fieldset = $modules->get('InputfieldFieldset');
-	$fieldset->label = __('Navigation');
-	$fieldset->icon = 'navicon';
-	$fieldset->collapsed = Inputfield::collapsedYes;
-	$inputfields->add($fieldset); 
-
-	/** @var InputfieldRadios $f */
-	$f = $modules->get('InputfieldRadios');
-	$f->attr('name', 'logoAction');
-	$f->label = __('Masthead logo click action');
-	$f->addOption(0, __('Admin root page list'));
-	$f->addOption(1, __('Open offcanvas navigation'));
-	$f->attr('value', (int) $adminTheme->logoAction);
-	$fieldset->add($f); 
 
 }

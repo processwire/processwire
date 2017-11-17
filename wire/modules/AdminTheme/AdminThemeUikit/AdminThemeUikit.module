@@ -14,6 +14,8 @@
  * @property string $cssURL URL to custom CSS file, relative to PW installation root. 
  * @property string $layout Layout type (blank=default, sidenav=multi-pane, sidenav-tree=left-tree, sidenav-tree-alt=right-tree)
  * @property int $logoAction Logo click action (0=admin root page list, 1=offcanvas nav)
+ * @property string $userLabel Text containing user {vars} to use for user label in masthead (default="{Name}")
+ * @property int $maxWidth Maimum layout width in pixels, or 0 for no max (default=1600).
  * 
  */
 class AdminThemeUikit extends AdminThemeFramework implements Module, ConfigurableModule {
@@ -21,7 +23,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 19,
+			'version' => 20,
 			'summary' => 'Uikit v3 admin theme (beta)',
 			'autoload' => 'template=admin', 
 			'requires' => 'ProcessWire>=3.0.61'
@@ -68,6 +70,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('layout', '');
 		$this->set('noBorderTypes', array()); // 'InputfieldCKEditor' is a good one for this
 		$this->set('logoAction', 0); 
+		$this->set('userLabel', '{Name}'); 
+		$this->set('userAvatar', 'icon.user-circle'); 
+		$this->set('maxWidth', 1600); 
 		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax'); 
 	}
 	
@@ -310,17 +315,26 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$inputfields = $event->return;
 		if(!$inputfields) return;
 		
+		if(!$inputfield->hasFieldtype) return;
+		
 		/** @var InputfieldFieldset $fieldsetVisibility */
 		$fieldsetVisibility = $inputfields->getChildByName('visibility');
 		if(!$fieldsetVisibility) return;
+	
+		// if our fieldset is already present, remove it and add again (so that last added stays)
+		$test = $inputfields->getChildByName('_adminTheme');
+		if($test) $test->getParent()->remove($test); 
 		
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
 		$fieldset->attr('id+name', '_adminTheme');
 		$fieldset->label = $this->_('Admin theme settings') . ' (' . str_replace('AdminTheme', '', $this->className()) . ')';
+		$fieldset->collapsed = Inputfield::collapsedYes;
+		/*
 		if($field) {
 			$fieldset->collapsed = !$field->get('themeColor') && !$field->get('themeBorder') && !$field->get('themeOffset');
 		}
+		*/
 		$fieldset->icon = 'flask';
 		$fieldset->description = 
 			$this->_('These settings affect how this field appears when used with the Uikit admin theme.') . ' ' . 
@@ -753,6 +767,69 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		foreach($page->parents()->and($page) as $p) {
 			$out = str_replace("page-$p-", "page-$p- uk-active", $out);
 		}
+	}
+
+	/**
+	 * Render label for user masthead dropdown nav item
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function renderUserNavLabel() {
+		/** @var User $user */
+		$user = $this->wire('user');
+		$userLabel = $this->get('userLabel');
+		$userAvatar = $this->get('userAvatar');
+		$defaultIcon = 'user-circle';
+		
+		if(strpos($userLabel, '{') !== false) {
+			if(strpos($userLabel, '{Name}') !== false) {
+				$userLabel = str_replace('{Name}', ucfirst($user->name), $userLabel);
+			} else if(strpos($userLabel, '{name}') !== false) {
+				$userLabel = str_replace('{name}', $user->name, $userLabel);
+			}
+			if(strpos($userLabel, '{') !== false) {
+				$userLabel = $user->getText($userLabel, true, true);
+			}
+		} else {
+			$userLabel = $this->wire('sanitizer')->entities($userLabel);
+		}
+		
+		if($userAvatar) {
+			if($userAvatar === 'gravatar') {
+				if($user->email) {
+					$url = "https://www.gravatar.com/avatar/" . md5(strtolower(trim($user->email))) . "?s=80&d=mm&r=g";
+					$userAvatar = "<img class='pw-avatar' src='$url' alt='$user->name' />&nbsp;";
+				} else {
+					$userAvatar = $this->renderNavIcon("$defaultIcon fa-lg"); 
+				}
+			} else if(strpos($userAvatar, 'icon.') === 0) {
+				list(,$icon) = explode('.', $userAvatar); 
+				$userAvatar = $this->renderNavIcon("$icon fa-lg"); 
+			} else if(strpos($userAvatar, ':')) {
+				list($fieldID, $fieldName) = explode(':', $userAvatar); 
+				$field = $this->wire('fields')->get($fieldName);
+				if(!$field || !$field->type instanceof FieldtypeImage) {
+					$field = $this->wire('fields')->get((int) $fieldID); 
+				}
+				if($field && $field->type instanceof FieldtypeImage) {
+					$value = $user->get($field->name); 
+					if($value instanceof Pageimages) $value = $value->first();
+					if($value instanceof Pageimage) {
+						$value = $value->size(60, 60); 
+						$userAvatar	= "<img class='pw-avatar' src='$value->url' alt='$user->name' />&nbsp;";
+					} else {
+						$userAvatar = $this->renderNavIcon("$defaultIcon fa-lg"); 
+					}
+				} else {
+					$userAvatar = '';
+				}
+			}
+		}
+	
+		if($userAvatar) $userLabel = $userAvatar . $userLabel;
+		
+		return $userLabel;
 	}
 
 	/**

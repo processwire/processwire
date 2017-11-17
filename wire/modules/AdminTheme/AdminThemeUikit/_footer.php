@@ -32,7 +32,7 @@ if(!defined("PROCESSWIRE")) die();
 				</p>
 			</div>	
 		</div>	
-		<?php if($adminTheme->isEditor && $config->debug):
+		<?php if($adminTheme->isSuperuser && $config->debug):
 			include($config->paths->wire . 'templates-admin/debug.inc'); ?>
 			<script>
 				$('#debug_toggle').appendTo('#pw-uk-debug-toggle');

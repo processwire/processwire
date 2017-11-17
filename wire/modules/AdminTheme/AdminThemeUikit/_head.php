@@ -38,29 +38,17 @@ $config->scripts->append($config->urls->adminTemplates . "scripts/main.js?v=$ver
 	<title><?php echo $adminTheme->getBrowserTitle(); ?></title>
 
 	<script>
-		<?php if($adminTheme->isLoggedIn && $layout == 'sidenav'): ?>
-			// add panes
-			if(typeof parent.isPresent == "undefined") {
-				var href = window.location.href;
-				href += (href.indexOf('?') > 0 ? '&' : '?') + 'layout=sidenav-init';
-				window.location.href = href;
-			}
-		<?php elseif(!$adminTheme->isLoggedIn && $adminTheme->layout == 'sidenav'): // use of $adminTheme->layout intentional ?>
-			// remove panes
-			if(typeof parent.toggleSidebarPane != "undefined") {
-				var parentHref = parent.window.location.href;
-				var href = window.location.href;
-				if(parentHref != href) parent.window.location.href = href;
-			}
-		<?php endif; ?>
 		<?php echo $adminTheme->getHeadJS(); ?>
 	</script>
 
-<?php
-foreach($config->styles as $file) {
-	echo "\n\t<link type='text/css' href='$file' rel='stylesheet' />";
-}
-foreach($config->scripts as $file) {
-	echo "\n\t<script type='text/javascript' src='$file'></script>";
-}
-?>
+	<?php
+	foreach($config->styles as $file) {
+		echo "\n\t<link type='text/css' href='$file' rel='stylesheet' />";
+	}
+	if($adminTheme->maxWidth && strpos($layout, 'sidenav') === false) {
+		echo "\n\t<style type='text/css'>.pw-container { max-width: {$adminTheme->maxWidth}px; }</style>";
+	}
+	foreach($config->scripts as $file) {
+		echo "\n\t<script type='text/javascript' src='$file'></script>";
+	}
+	?>

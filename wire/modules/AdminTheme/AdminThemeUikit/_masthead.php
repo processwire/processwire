@@ -36,16 +36,16 @@ if(!defined("PROCESSWIRE")) die();
 					<ul class='uk-navbar-nav uk-margin-right pw-user-nav'>
 						<li>
 							<a id="tools-toggle" class="pw-dropdown-toggle" href="<?php echo $urls->admin; ?>profile/">
-								<?php echo $adminTheme->renderNavIcon('user-circle fa-lg') . $user->name; ?>
+								<?php echo $adminTheme->renderUserNavLabel(); ?>
 							</a>
 							<ul class="pw-dropdown-menu" data-my="left top" data-at="left bottom" style="display: none;">
-								<?php if($config->debug && strpos($adminTheme->layout, 'sidenav') === false): ?>
+								<?php if($config->debug && $adminTheme->isSuperuser && strpos($adminTheme->layout, 'sidenav') === false): ?>
 								<li>	
 									<a href='#' onclick="$('#debug_toggle').click(); return false;">
 										<?php echo $adminTheme->renderNavIcon('bug') . __('Debug'); ?>
 									</a>
 								</li>
-								<?php endif; ?>
+								<?php  endif; ?>
 								<?php echo $adminTheme->renderUserNavItems(); ?>
 							</ul>
 						</li>
