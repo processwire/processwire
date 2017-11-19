@@ -1083,9 +1083,11 @@ function InputfieldStates($target) {
 					if($li.hasClass('InputfieldNoFocus')) return;
 					var $input = $li.find(":input:visible");
 					if($input.length == 1 && !$input.is('button')) {
-						var t = $input.attr('type');
-						if($input.is('textarea') || t == 'text' || t == 'email' || t == 'url' || t == 'number') {
-							$input.focus();
+						if($input.css('position') != 'absolute') {
+							var t = $input.attr('type');
+							if($input.is('textarea') || t == 'text' || t == 'email' || t == 'url' || t == 'number') {
+								$input.focus();
+							}
 						}
 					}
 				} else {
