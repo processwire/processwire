@@ -11,10 +11,12 @@ if(!defined("PROCESSWIRE")) die();
  */
 function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputfields) {
 
-	$defaultNote = __('When blank, the default file used.') . ' ';
-	$defaultDesc = __('Enter path relative to homepage URL.');
+	$defaultFileNote = __('When blank, the default file used.') . ' ';
+	$defaultFileDesc = __('Enter path relative to homepage URL.');
 	$recommendedLabel = __('(RECOMMENDED)'); 
 	$experimentalLabel = __('(EXPERIMENTAL)'); 
+	$defaultLabel = __('(default)');
+	$exampleLabel = __('example'); 
 
 	$modules = $adminTheme->wire('modules');
 	$session = $adminTheme->wire('session');
@@ -139,6 +141,18 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$f->attr('value', $adminTheme->maxWidth); 
 	$fieldset->add($f); 
 
+	$testURL = $modules->wire('config')->urls->admin . 'profile/?test_notices';
+	$f = $modules->get('InputfieldRadios');
+	$f->attr('name', 'groupNotices'); 
+	$f->label = __('Notifications style');
+	$f->notes = __('Does not apply if the SystemNotifications module is installed.'); 
+	$f->addOption(1, __('Group by type with expand/collapse control') . " ([$exampleLabel]($testURL=group-on))");
+	$f->addOption(0, __('Always show all') . " ([$exampleLabel]($testURL=group-off))"); 
+	$f->attr('value', (int) $adminTheme->groupNotices); 
+	$fieldset->appendMarkup .= "<script>$('#wrap_Inputfield_groupNotices .InputfieldContent').find('a').addClass('pw-modal');</script>";
+	$modules->get('JqueryUI')->use('modal');
+	$fieldset->add($f); 
+
 	/** @var InputfieldFieldset $fieldset */
 	$fieldset = $modules->get('InputfieldFieldset');
 	$fieldset->label = __('Custom files');
@@ -151,9 +165,9 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$f->attr('name', 'cssURL');
 	$f->attr('value', $adminTheme->get('cssURL'));
 	$f->label = __('Primary CSS file');
-	$f->description = $defaultDesc . ' ' . 
+	$f->description = $defaultFileDesc . ' ' . 
 		__('We do not recommend changing this unless you are an admin theme developer.'); 
-	$f->notes = $defaultNote . "\nsite/modules/AdminThemeUikit/uikit/dist/css/uikit.pw.css";
+	$f->notes = $defaultFileNote . "\nsite/modules/AdminThemeUikit/uikit/dist/css/uikit.pw.css";
 	$f->collapsed = Inputfield::collapsedBlank;
 	$f->icon = 'file-code-o';
 	$fieldset->add($f);
@@ -163,8 +177,8 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$f->attr('name', 'logoURL');
 	$f->attr('value', $adminTheme->get('logoURL'));
 	$f->label = __('Logo image file');
-	$f->description = $defaultDesc;
-	$f->notes = $defaultNote . 
+	$f->description = $defaultFileDesc;
+	$f->notes = $defaultFileNote . 
 		__('File should be PNG, GIF, JPG or SVG, on transparent background, and at least 100px in both dimensions.');
 	$f->collapsed = Inputfield::collapsedBlank;
 	$f->icon = 'file-image-o';

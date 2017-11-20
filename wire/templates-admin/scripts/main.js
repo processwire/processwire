@@ -15,7 +15,26 @@ var ProcessWireAdmin = {
 		this.setupButtonStates();
 		this.setupTooltips();
 		this.setupDropdowns();
+		this.setupNotices();
 	},
+
+	setupNotices: function() {
+		$(".pw-notice-group-toggle").click(function() {
+			var $parent = $(this).closest('.pw-notice-group-parent'); 
+			var $children = $parent.nextUntil('.pw-notice-group-parent');
+			if($parent.hasClass('pw-notice-group-open')) {
+				$parent.removeClass('pw-notice-group-open');
+				$children.slideUp('fast');
+			} else {
+				$parent.addClass('pw-notice-group-open');
+				$children.slideDown('fast');
+			}
+			$parent.find('i[data-toggle]').each(function() {
+				$(this).toggleClass($(this).attr('data-toggle'));
+			}); 
+			return false;
+		}); 
+	}, 
 	
 	/**
 	 * Enable jQuery UI tooltips

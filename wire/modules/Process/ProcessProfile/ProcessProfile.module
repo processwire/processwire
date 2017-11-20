@@ -8,6 +8,7 @@
  *
  * 
  * @property array $profileFields Names of fields user is allowed to edit in their profile
+ * @method bool|string isDisallowedUserName($value)
  *
  */
 
@@ -208,10 +209,6 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 
 		$user = $this->user; 
 		$languages = $this->wire('languages');
-		$id = (int) $this->input->post('id');
-		
-		if($id !== $user->id) throw new WireException('Invalid POST data');
-		
 		$form->processInput($this->input->post);
 
 		if(count($form->getErrors())) {
@@ -321,6 +318,8 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 				if(!$language->isDefault()) $user->set("name$language->id", $userName);
 			}
 		}
+		
+		return true; 
 	}
 	
 	/**

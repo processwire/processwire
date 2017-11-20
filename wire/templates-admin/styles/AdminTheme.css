@@ -29,4 +29,5 @@
   user-select: none;
   /* prevent selection of this element */ }
 
-/*# sourceMappingURL=AdminTheme.css.map */
+.pw-notices .pw-notice-group-child {
+  display: none; }

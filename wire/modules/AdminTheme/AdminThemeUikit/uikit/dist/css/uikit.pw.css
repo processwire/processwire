@@ -15454,9 +15454,11 @@ a.InputfieldButtonLink:hover {
   padding-left: 0;
   margin: 3px 0;
 }
+.pw-notices .pw-notice-remove,
 .pw-notices .notice-remove {
   float: right;
   color: #354b60;
+  margin-left: 10px;
 }
 .pw-notices .uk-alert-primary .notice-remove {
   color: #3eb998;
@@ -15466,6 +15468,17 @@ a.InputfieldButtonLink:hover {
 }
 .pw-notices .uk-alert-danger .notice-remove {
   color: #bc283d;
+}
+.pw-notices .uk-alert-danger a {
+  color: rgba(255, 255, 255, 0.7);
+}
+.pw-notices .pw-notice-group-toggle {
+  font-size: 0.875rem;
+  text-transform: uppercase;
+  font-weight: bold;
+}
+.pw-notices .pw-notice-group-toggle:hover {
+  text-decoration: none;
 }
 .pw-layout-sidenav-tree .pw-notices,
 .pw-layout-sidenav-tree-alt .pw-notices {

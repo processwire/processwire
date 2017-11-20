@@ -579,10 +579,12 @@ abstract class AdminThemeFramework extends AdminTheme {
 
 	/**
 	 * Test all notice types
+	 * 
+	 * @return bool
 	 *
 	 */
 	public function testNotices() {
-		if(!$this->wire('user')->isLoggedin()) return;
+		if(!$this->wire('user')->isLoggedin()) return false;
 		$this->message('Message test');
 		$this->message('Message test debug', Notice::debug);
 		$this->message('Message test markup <a href="#">example</a>', Notice::allowMarkup);
@@ -592,26 +594,18 @@ abstract class AdminThemeFramework extends AdminTheme {
 		$this->error('Error test');
 		$this->error('Error test debug', Notice::debug);
 		$this->error('Error test markup <a href="#">example</a>', Notice::allowMarkup);
+		return true;
 	}
 	
 	/**
 	 * Render runtime notices div#notices
 	 *
-	 * @param Notices $notices
-	 * @param array $options See defaults in method
-	 * @return string
+	 * @param Notices|bool $notices Notices object or specify boolean true to return array of all available $options
+	 * @param array $options See defaults in method 
+	 * @return string|array Returns string unless you specify true for $notices argument, then it returns an array.
 	 *
 	 */
 	public function renderNotices($notices, array $options = array()) {
-
-		// if(!count($notices)) return '';
-
-		/*
-		if($this->isLoggedIn && $this->wire('modules')->isInstalled('SystemNotifications')) {
-			$systemNotifications = $this->wire('modules')->get('SystemNotifications');
-			if(!$systemNotifications->placement) return '';
-		}
-		*/
 
 		$defaults = array(
 			'messageClass' => 'NoticeMessage', // class for messages
@@ -622,20 +616,42 @@ abstract class AdminThemeFramework extends AdminTheme {
 			'errorIcon' => 'exclamation-triangle', // icon for errors
 			'debugClass' => 'NoticeDebug', // class for debug items (appended)
 			'debugIcon' => 'bug', // icon for debug notices
-			'closeClass' => 'notice-remove', // class for close notices link <a>
+			'closeClass' => 'pw-notice-remove notice-remove', // class for close notices link <a>
 			'closeIcon' => 'times', // icon for close notices link
 			'listMarkup' => "<ul class='pw-notices' id='notices'>{out}</ul><!--/notices-->",
-			'itemMarkup' => "<li class='{class}'>{remove}{icon}{text}</li>"
+			'itemMarkup' => "<li class='{class}'>{remove}{icon}{text}</li>",
+			// the following apply only when groupByType==true
+			'groupByType' => true, // Group notices by type
+			'groupParentClass' => 'pw-notice-group-parent', // class for parent notices
+			'groupChildClass' => 'pw-notice-group-child', // class for children (of parent notices)
+			'groupToggleMarkup' => "<a class='pw-notice-group-toggle' href='#'>{label}" . 
+				"<i class='fa fa-fw fa-bell-o' data-toggle='fa-bell-o fa-bell'></i>" . 
+				"<i class='fa fa-fw fa-angle-right' data-toggle='fa-angle-right fa-angle-down'></i></a>", 
+			'groupToggleLabel' => $this->_("+{n-1}"), 
 		);
-
+		
 		$options = array_merge($defaults, $options);
+		if($notices === true) return $options;
 		$config = $this->wire('config');
+		$noticesArray = array();
 		$out = '';
+		
+		$removeIcon = $this->renderIcon($options['closeIcon']);
+		$removeLabel = $this->_('Close all');
+		$removeLink = "<a class='$options[closeClass]' href='#' title='$removeLabel'>$removeIcon</a>";
+		
+		if($this->isLoggedIn && $this->wire('modules')->isInstalled('SystemNotifications')) {
+			$defaults['groupByType'] = false;
+			//$systemNotifications = $this->wire('modules')->get('SystemNotifications');
+			//if(!$systemNotifications->placement) return '';
+		}
 
 		foreach($notices as $n => $notice) {
 
 			$text = $notice->text;
-			if($notice->flags & Notice::allowMarkup) {
+			$allowMarkup = $notice->flags & Notice::allowMarkup;
+			
+			if($allowMarkup) {
 				// leave $text alone
 			} else {
 				// unencode + re-encode entities, just in case module already entity some or all of output
@@ -646,41 +662,70 @@ abstract class AdminThemeFramework extends AdminTheme {
 			if($notice instanceof NoticeError) {
 				$class = $options['errorClass'];
 				$icon = $options['errorIcon'];
+				$noticeType = 'errors';
 
 			} else if($notice instanceof NoticeWarning) {
 				$class = $options['warningClass'];
 				$icon = $options['warningIcon'];
+				$noticeType = 'warnings';
 
 			} else {
 				$class = $options['messageClass'];
 				$icon = $options['messageIcon'];
+				$noticeType = 'messages';
 			}
 
 			if($notice->flags & Notice::debug) {
 				$class .= " " . $options['debugClass'];
 				$icon = $options['debugIcon'];
+				// ensure non-debug version is set as well
+				if(!isset($noticesArray[$noticeType])) $noticesArray[$noticeType] = array();
+				$noticeType .= "-debug";
 			}
 
 			// indicate which class the notice originated from in debug mode
 			if($notice->class && $config->debug) $text = "{$notice->class}: $text";
 
-			// show remove link for first item only
-			if($n) {
-				$remove = '';
-			} else {
-				$removeIcon = $this->renderIcon($options['closeIcon']);
-				$removeLabel = $this->_('Close all');
-				$remove = "<a class='$options[closeClass]' href='#' title='$removeLabel'>$removeIcon</a>";
-			}
-
 			$replacements = array(
 				'{class}' => $class,
-				'{remove}' => $remove,
+				'{remove}' => '', 
 				'{icon}' => $this->renderNavIcon($notice->icon ? $notice->icon : $icon),
 				'{text}' => $text,
 			);
-
-			$out .= str_replace(array_keys($replacements), array_values($replacements), $options['itemMarkup']);
+			
+			if($options['groupByType']) {
+				if(!isset($noticesArray[$noticeType])) $noticesArray[$noticeType] = array();
+				$noticesArray[$noticeType][] = $replacements;
+			} else {
+				if($n === 0) $replacements['{remove}'] = $removeLink;
+				$out .= str_replace(array_keys($replacements), array_values($replacements), $options['itemMarkup']);
+			}
+		}
+	
+		if($options['groupByType']) {
+			$cnt = 0;
+			foreach($noticesArray as $noticeType => $noticeReplacements) {
+				if(strpos($noticeType, '-debug')) continue;
+				if(isset($noticesArray["$noticeType-debug"])) {
+					$noticeReplacements = array_merge($noticeReplacements, $noticesArray["$noticeType-debug"]);
+				}
+				$n = count($noticeReplacements);
+				if($n > 1) {
+					$notice =& $noticeReplacements[0];
+					$label = str_replace(array('{n}', '{n-1}'), array($n, $n-1), $options['groupToggleLabel']); 
+					$notice['{text}'] .= ' ' . str_replace(array('{label}'), array($label), $options['groupToggleMarkup']); 
+					$notice['{class}'] .= ' ' . $options['groupParentClass'];
+					$childClass = $options['groupChildClass'];
+				} else {
+					$childClass = '';
+				}
+				foreach($noticeReplacements as $i => $replacements) {
+					if(!$cnt) $replacements['{remove}'] = $removeLink;
+					if($childClass && $i > 0) $replacements['{class}'] .= ' ' . $childClass;
+					$out .= str_replace(array_keys($replacements), array_values($replacements), $options['itemMarkup']);
+					$cnt++;
+				}
+			}
 		}
 
 		$out = str_replace('{out}', $out, $options['listMarkup']);

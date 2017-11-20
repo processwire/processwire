@@ -15,7 +15,8 @@
  * @property string $layout Layout type (blank=default, sidenav=multi-pane, sidenav-tree=left-tree, sidenav-tree-alt=right-tree)
  * @property int $logoAction Logo click action (0=admin root page list, 1=offcanvas nav)
  * @property string $userLabel Text containing user {vars} to use for user label in masthead (default="{Name}")
- * @property int $maxWidth Maimum layout width in pixels, or 0 for no max (default=1600).
+ * @property int $maxWidth Maximum layout width in pixels, or 0 for no max (default=1600).
+ * @property bool|int $groupNotices Whether or not notices should be grouped by type
  * 
  */
 class AdminThemeUikit extends AdminThemeFramework implements Module, ConfigurableModule {
@@ -23,7 +24,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 20,
+			'version' => 21,
 			'summary' => 'Uikit v3 admin theme (beta)',
 			'autoload' => 'template=admin', 
 			'requires' => 'ProcessWire>=3.0.61'
@@ -73,6 +74,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('userLabel', '{Name}'); 
 		$this->set('userAvatar', 'icon.user-circle'); 
 		$this->set('maxWidth', 1600); 
+		$this->set('groupNotices', true);
 		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax'); 
 	}
 	
@@ -113,7 +115,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		}
 		
 		$session->removeFor('Page', 'appendEditUrl');
-		$modules->get('JqueryUI')->use('panel');
+		/** @var JqueryUI $jqueryUI */
+		$jqueryUI = $modules->get('JqueryUI');
+		$jqueryUI->use('panel');
 
 		// add rendering hooks
 		$this->addHookBefore('Inputfield::render', $this, 'hookBeforeRenderInputfield');
@@ -148,6 +152,22 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		if($for === 'notices') {
 		}
 		return $out;
+	}
+
+	/**
+	 * Test all notice types
+	 * 
+	 * @return bool
+	 *
+	 */
+	public function testNotices() {
+		if(parent::testNotices()) {
+			$v = $this->wire('input')->get('test_notices');
+			if($v === 'group-off') $this->groupNotices = false; 
+			if($v === 'group-on') $this->groupNotices = true; 
+			return true;
+		}
+		return false;
 	}
 	
 	/*******************************************************************************************
@@ -541,14 +561,15 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	/**
 	 * Render runtime notices div#notices
 	 *
+	 * @param Notices|bool $notices
 	 * @param array $options See defaults in method
-	 * @param Notices $notices
-	 * @return string
+	 * @return string|array
 	 *
 	 */
 	public function renderNotices($notices, array $options = array()) {
 
 		$defaults = array(
+			'groupByType' => $this->groupNotices ? true : false, 
 			'messageClass' => 'NoticeMessage uk-alert uk-alert-primary', // class for messages
 			'messageIcon' => 'check-square', // default icon to show with notices
 			'warningClass' => 'NoticeWarning uk-alert uk-alert-warning', // class for warnings
@@ -557,7 +578,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			'errorIcon' => 'exclamation-triangle', // icon for errors
 			'debugClass' => 'NoticeDebug uk-alert', // class for debug items (appended)
 			'debugIcon' => 'bug', // icon for debug notices
-			'closeClass' => 'notice-remove', // class for close notices link <a>
+			'closeClass' => 'pw-notice-remove notice-remove', // class for close notices link <a>
 			'closeIcon' => 'times', // icon for close notices link
 			'listMarkup' => "<ul class='pw-notices' id='notices'>{out}</ul><!--/notices-->",
 			'itemMarkup' =>
