@@ -177,6 +177,9 @@ function InputfieldDependencies($target) {
 
 		var $field = null;
 		var value;
+		
+		conditionField.replace('[', '\\[');
+        	conditionField.replace(']', '\\]');
 
 		consoleLog('getCheckboxFieldAndValue(see-next-line, ' + conditionField + ', ' + conditionSubfield + ')');
 		consoleLog(condition)
@@ -221,7 +224,7 @@ function InputfieldDependencies($target) {
 				} else if($field.attr('type') == 'radio') {
 					// radio: one we are looking for is NOT checked, but determine which one is checked
 					consoleLog(inputType + " is NOT checked: " + fieldID);
-					var $checkedField = $field.closest('form').find("input[name=" + $field.attr('name') + "]:checked");
+					var $checkedField = $field.closest('form').find("input[name=\"" + $field.attr('name') + "\"]:checked");
 					if($checkedField.length) {
 						val = $checkedField.val();
 						consoleLog("Checked value is: " + val);
