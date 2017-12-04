@@ -115,7 +115,7 @@ class MarkupFieldtype extends WireData implements Module {
 					$page = $value;
 					$value = $page->getFormatted($property);
 					$field = $this->wire('fields')->get($property);
-					if($field && $field->type) return $field->type->markupValue($page, $field, $value);
+					if(is_object($field) && $field->type) return $field->type->markupValue($page, $field, $value);
 					$valid = true;
 				} else if($value instanceof LanguagesValueInterface) {
 					/** @var LanguaagesValueInterface $value */
