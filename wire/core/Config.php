@@ -113,6 +113,7 @@
  * 
  * @property array $pageList Settings specific to Page lists. #pw-group-modules
  * @property array $pageEdit Settings specific to Page editors. #pw-group-modules
+ * @property array $pageAdd Settings specific to Page adding. #pw-group-modules
  * @property string $moduleServiceURL URL where the modules web service can be accessed #pw-group-modules
  * @property string $moduleServiceKey API key for modules web service #pw-group-modules
  * @property bool $moduleCompile Allow use of compiled modules? #pw-group-modules
@@ -182,7 +183,7 @@ class Config extends WireData {
 	 * $url = $config->urls->admin; 
 	 * ~~~~~
 	 * 
-	 * @param string $for Predefined ProcessWire URLs property or module name
+	 * @param string|Wire $for Predefined ProcessWire URLs property or module name
 	 * @return string|null
 	 * 
 	 */
@@ -195,7 +196,7 @@ class Config extends WireData {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param string $for Predefined ProcessWire URLs property or module name
+	 * @param string|Wire $for Predefined ProcessWire URLs property or module name
 	 * @return null|string
 	 * 
 	 */

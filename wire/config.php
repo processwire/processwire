@@ -1025,6 +1025,30 @@ $config->pageEdit = array(
 	'editCrumbs' => false,
 );
 
+/**
+ * PageAdd default settings
+ * 
+ * #property string noSuggestTemplates Disable suggestions for new pages (1=disable all, or specify template names separated by space)
+ * 
+ */
+$config->pageAdd = array(
+	'noSuggestTemplates' => '', 
+); 
+
+/**
+ * Disable template suggestions when adding new pages?
+ *
+ * Applies when adding a new page where more than one template may be selected for the newly added page.
+ *
+ * - true: Always disable template suggestions (forcing user to make selection)
+ * - false: Never disable template suggestions (default)
+ * - array: Array of template names or IDs where suggestions should be disabled when children are added.
+ *
+ * @var bool|array
+ *
+$config->noSuggestTemplate = false;
+ */
+
 
 /*** 9. MISC ************************************************************************************/
 
@@ -1057,7 +1081,7 @@ $config->logIP = false;
  * 
  * Module name of default admin theme for guest and users that haven't already selected one
  *
- * Core options include: **AdminThemeDefault** or **AdminThemeReno**.
+ * Core options include: **AdminThemeDefault** or **AdminThemeReno** or **AdminThemeUikit**.
  * Additional options will depend on what other 3rd party AdminTheme modules you have installed.
  *
  * @var string
@@ -1194,6 +1218,7 @@ $config->lazyPageChunkSize = 250;
  *	);
  * 
  */
+
 
 /*** 10. RUNTIME ********************************************************************************
  * 

@@ -113,7 +113,10 @@ class Paths extends WireData {
 	public function get($key) {
 		static $_http = null;
 		if($key == 'root') return $this->_root;
-		if(strpos($key, 'http') === 0) {
+		$http = '';
+		if(is_object($key)) {
+			$key = "$key";
+		} else if(strpos($key, 'http') === 0) {
 			if(is_null($_http)) {
 				$scheme = $this->wire('input')->scheme;
 				if(!$scheme) $scheme = 'http';
@@ -123,8 +126,6 @@ class Paths extends WireData {
 			$http = $_http;
 			$key = substr($key, 4);
 			$key[0] = strtolower($key[0]);
-		} else {
-			$http = '';
 		}
 		if($key == 'root') {
 			$value = $http . $this->_root;
