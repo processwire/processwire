@@ -398,6 +398,7 @@ class Pageimage extends Pagefile {
 		$defaultOptions = array(
 			'upscaling' => true,
 			'cropping' => true,
+			'sharpening' => 'soft',
 			'quality' => 90,
 			'hidpiQuality' => 40, 
 			'suffix' => array(), // can be array of suffixes or string of 1 suffix
