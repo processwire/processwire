@@ -798,11 +798,16 @@ abstract class FieldtypeMulti extends Fieldtype {
 			}
 
 			// only allow matches using templates with the requested field
-			$sql = 'pages.templates_id IN(';
-			foreach($field->getTemplates() as $template) {
-				$sql .= ((int) $template->id) . ',';	
+			$templates = $field->getTemplates();
+			if(count($templates)) {
+				$sql = 'pages.templates_id IN(';
+				foreach($templates as $template) {
+					$sql .= ((int) $template->id) . ',';
+				}
+				$sql = rtrim($sql, ',') . ')';
+			} else {
+				$sql = 'pages.templates_id=0';
 			}
-			$sql = rtrim($sql, ',') . ')';
 			$query->where($sql); // QA
 
 		} else {
