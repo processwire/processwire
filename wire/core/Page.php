@@ -358,6 +358,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	protected $fieldDataQueue = array();
 
 	/**
+	 * Field names that should be sanitized on first access (populated when isLoaded==false)
+	 * 
+	 * @var array of (field name => raw field value)
+	 * 
+	 */
+	protected $sanitizeNameQueue = array();
+
+	/**
 	 * Is this a new page (not yet existing in the database)?
 	 * 
 	 * @var bool
@@ -902,7 +910,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			// send the value to the Fieldtype to be woken up for storage in the page
 			// $value = $field->type->wakeupValue($this, $field, $value); 
 			$value = $field->type->_callHookMethod('wakeupValue', array($this, $field, $value));
-			$value = $field->type->sanitizeValue($this, $field, $value); 
+			$this->sanitizeNameQueue[$field->name] = $field->name;
 
 			// page is currently loading, so we don't need to continue any further
 			return parent::set($key, $value); 
@@ -1288,7 +1296,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$value = parent::get($key); 
 		if(!$field) return $value;  // likely a runtime field, not part of our data
 		$invokeArgument = '';
-		
+
+		if($value !== null && isset($this->sanitizeNameQueue[$key])) {
+			$value = $field->type->sanitizeValue($this, $field, $value);
+			$this->setQuietly($key, $value);
+			unset($this->sanitizeNameQueue[$key]); 
+		}
+
 		if($field->useRoles && $this->outputFormatting) {
 			// API access may be limited when output formatting is ON
 			if($field->flags & Field::flagAccessAPI) {
@@ -3520,6 +3534,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 				if($value != null && is_object($value)) {
 					if(method_exists($value, 'uncache') && $value !== $this) $value->uncache(); 
 					parent::set($field->name, null); 
+					if(isset($this->sanitizeNameQueue[$field->name])) unset($this->sanitizeNameQueue[$field->name]); 
 				}
 			}
 		}

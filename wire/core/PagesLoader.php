@@ -641,16 +641,22 @@ class PagesLoader extends Wire {
 			if($joinSortfield) $query->leftjoin('pages_sortfields ON pages_sortfields.pages_id=pages.id');
 			$query->groupby('pages.id');
 
-			if($options['autojoin'] && $this->autojoin) foreach($fields as $field) {
-				if(!empty($options['joinFields']) && in_array($field->name, $options['joinFields'])) {
-					// joinFields option specified to force autojoin this field
-				} else {
-					if(!($field->flags & Field::flagAutojoin)) continue; // autojoin not enabled for field
-					if($fields instanceof Fields && !($field->flags & Field::flagGlobal)) continue; // non-fieldgroup, autojoin only if global flag is set
+			if($options['autojoin'] && $this->autojoin) {
+				foreach($fields as $field) {
+					if(!empty($options['joinFields']) && in_array($field->name, $options['joinFields'])) {
+						// joinFields option specified to force autojoin this field
+					} else {
+						// check if autojoin not enabled for field
+						if(!($field->flags & Field::flagAutojoin)) continue; 
+						// non-fieldgroup, autojoin only if global flag is set
+						if($fields instanceof Fields && !($field->flags & Field::flagGlobal)) continue; 
+					}
+					$table = $database->escapeTable($field->table);
+					// check autojoin not allowed, otherwise merge in the autojoin query
+					if(!$field->type || !$field->type->getLoadQueryAutojoin($field, $query)) continue; 
+					// complete autojoin
+					$query->leftjoin("$table ON $table.pages_id=pages.id"); // QA
 				}
-				$table = $database->escapeTable($field->table);
-				if(!$field->type || !$field->type->getLoadQueryAutojoin($field, $query)) continue; // autojoin not allowed
-				$query->leftjoin("$table ON $table.pages_id=pages.id"); // QA
 			}
 
 			if(!is_null($parent_id)) $query->where("pages.parent_id=" . (int) $parent_id);
