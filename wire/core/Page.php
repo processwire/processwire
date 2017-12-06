@@ -902,6 +902,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			// send the value to the Fieldtype to be woken up for storage in the page
 			// $value = $field->type->wakeupValue($this, $field, $value); 
 			$value = $field->type->_callHookMethod('wakeupValue', array($this, $field, $value));
+			$value = $field->type->sanitizeValue($this, $field, $value); 
 
 			// page is currently loading, so we don't need to continue any further
 			return parent::set($key, $value); 
