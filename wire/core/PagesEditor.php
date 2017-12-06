@@ -129,9 +129,8 @@ class PagesEditor extends Wire {
 	public function isSaveable(Page $page, &$reason, $fieldName = '', array $options = array()) {
 
 		$saveable = false;
-		$outputFormattingReason = "Call \$page->setOutputFormatting(false) before getting/setting values that will be modified and saved. ";
+		$outputFormattingReason = "Call \$page->of(false); before getting/setting values that will be modified and saved.";
 		$corrupted = array();
-		$config = $this->wire('config');
 
 		if($fieldName && is_object($fieldName)) {
 			/** @var Field $fieldName */
@@ -148,14 +147,23 @@ class PagesEditor extends Wire {
 			if($fieldName && !in_array($fieldName, $corrupted)) $corrupted = array();
 		}
 
-		if($page instanceof NullPage) $reason = "Pages of type NullPage are not saveable";
-			else if((!$page->parent || $page->parent instanceof NullPage) && $page->id !== 1) $reason = "It has no parent assigned";
-			else if(!$page->template) $reason = "It has no template assigned";
-			else if(!strlen(trim($page->name)) && $page->id != 1) $reason = "It has an empty 'name' field";
-			else if(count($corrupted)) $reason = $outputFormattingReason . " [Page::statusCorrupted] fields: " . implode(', ', $corrupted);
-			else if($page->id == 1 && !$page->template->useRoles) $reason = "Selected homepage template cannot be used because it does not define access.";
-			else if($page->id == 1 && !$page->template->hasRole('guest')) $reason = "Selected homepage template cannot be used because it does not have the required 'guest' role in it's access settings.";
-			else $saveable = true;
+		if($page instanceof NullPage) {
+			$reason = "Pages of type NullPage are not saveable";
+		} else if(!$page->parent_id && $page->id !== 1 && (!$page->parent || $page->parent instanceof NullPage)) {
+			$reason = "It has no parent assigned";
+		} else if(!$page->template) {
+			$reason = "It has no template assigned";
+		} else if(!strlen(trim($page->name)) && $page->id != 1) {
+			$reason = "It has an empty 'name' field";
+		} else if(count($corrupted)) {
+			$reason = $outputFormattingReason . " [Page::statusCorrupted] fields: " . implode(', ', $corrupted);
+		} else if($page->id == 1 && !$page->template->useRoles) {
+			$reason = "Selected homepage template cannot be used because it does not define access.";
+		} else if($page->id == 1 && !$page->template->hasRole('guest')) {
+			$reason = "Selected homepage template cannot be used because it does not have required 'guest' role in its access settings.";
+		} else {
+			$saveable = true;
+		}
 
 		// check if they could corrupt a field by saving
 		if($saveable && $page->outputFormatting) {
