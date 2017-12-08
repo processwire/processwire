@@ -227,7 +227,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 *
 	 */
 	public function isEmpty() {
-		return !count($this->value);
+		return !wireCount($this->value);
 	}
 
 	/**
@@ -635,7 +635,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 
 	public function ___render() {
 		if(!$this->extensions) $this->error($this->_('No file extensions are defined for this field.')); 
-		$numItems = count($this->value);
+		$numItems = wireCount($this->value);
 		if($this->allowCollapsedItems()) $this->addClass('InputfieldItemListCollapse', 'wrapClass');
 		if($numItems == 0) {
 			$this->addClass('InputfieldFileEmpty', 'wrapClass');
