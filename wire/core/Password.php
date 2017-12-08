@@ -164,65 +164,151 @@ class Password extends Wire {
 	 * Modified for camelCase, variable names, and function-based context by Ryan.
 	 *
 	 * @param int $requiredLength Length of string you want returned (default=22)
-	 * @param bool $fast Set to true for a faster, though less random string (default=false, only use true for non-password use)
-	 * @return string
+	 * @param array|bool $options Specify array of options or boolean to specify only `fast` option.
+	 *  - `fast` (bool): Use fastest, not cryptographically secure method (default=false). 
+	 *  - `test` (bool|array): Return tests in a string (bool true), or specify array(true) to return tests array (default=false).
+	 *    Note that if the test option is used, then the fast option is disabled. 
+	 * @return string|array Returns only array if you specify array for $test argument, otherwise returns string
 	 *
 	 */
-	public function randomBase64String($requiredLength = 22, $fast = false) {
+	public function randomBase64String($requiredLength = 22, $options = array()) {
+		
+		$defaults = array(
+			'fast' => false,
+			'test' => false, 
+		);
 
+		if(is_array($options)) {
+			$options = array_merge($defaults, $options);
+		} else {
+			if(is_bool($options)) $defaults['fast'] = $options;
+			$options = $defaults; 
+		}
+		
 		$buffer = '';
 		$valid = false;
+		$tests = array();
+		$test = $options['test'];
 
-		if($fast) {
+		if($options['fast'] && !$test) {
 			// fast mode for non-password use, uses only mt_rand() generated characters		
 			$rawLength = $requiredLength;
 			
 		} else {
 			// for password use, slower
 			$rawLength = (int) ($requiredLength * 3 / 4 + 1);
-			
-			if(function_exists('mcrypt_create_iv')) {
+		
+			// mcrypt_create_iv 
+			if((!$valid || $test) && function_exists('mcrypt_create_iv') && !defined('PHALANGER')) {
 				// @operator added for PHP 7.1 which throws deprecated notice on this function call
 				$buffer = @mcrypt_create_iv($rawLength, MCRYPT_DEV_URANDOM);
 				if($buffer) $valid = true;
+				if($test) $tests['mcrypt_create_iv'] = $buffer;
+			} else if($test) {
+				$tests['mcrypt_create_iv'] = '';
 			}
 
-			if(!$valid && function_exists('openssl_random_pseudo_bytes')) {
-				$buffer = openssl_random_pseudo_bytes($rawLength);
-				if($buffer) $valid = true;
-			}
-
-			if(!$valid && file_exists('/dev/urandom')) {
-				$f = @fopen('/dev/urandom', 'r');
-				if($f) {
-					$read = strlen($buffer);
-					while($read < $rawLength) {
-						$buffer .= fread($f, $rawLength - $read);
-						$read = strlen($buffer);
-					}
-					fclose($f);
-					if($read >= $rawLength) $valid = true;
+			// PHP7 random_bytes
+			if((!$valid || $test) && function_exists('random_bytes')) {
+				try {
+					$buffer = random_bytes($rawLength);
+					if($buffer) $valid = true;
+				} catch(\Exception $e) {
+					$valid = false;
 				}
+				if($test) $tests['random_bytes'] = $buffer;
+			} else if($test) {
+				$tests['random_bytes'] = '';
+			}
+
+			// openssl_random_pseudo_bytes
+			if((!$valid || $test) && function_exists('openssl_random_pseudo_bytes')) {
+				$good = false;
+				$buffer = openssl_random_pseudo_bytes($rawLength, $good);
+				if($test) $tests['openssl_random_pseudo_bytes'] = $buffer . "\tNOTE=" . ($good ? 'strong' : 'NOT strong');
+				if(!$good) $buffer = '';
+				if($buffer) $valid = true;
+			} else if($test) {
+				$tests['openssl_random_pseudo_bytes'] = '';
+			}
+
+			// read from /dev/urandom
+			if((!$valid || $test) && @is_readable('/dev/urandom')) {
+				$f = fopen('/dev/urandom', 'r');
+				$readLength = 0;
+				if($test) $buffer = '';
+				while($readLength < $rawLength) {
+					$buffer .= fread($f, $rawLength - $readLength);
+					$readLength = $this->_strlen($buffer);
+				}
+				fclose($f);
+				if($readLength >= $rawLength) $valid = true;
+				if($test) $tests['/dev/urandom'] = $buffer;
+			} else if($test) {
+				$tests['/dev/urandom'] = '';
 			}
 		}
 
-		if(!$valid || strlen($buffer) < $rawLength) {
-			$bl = strlen($buffer);
+		$bufferLength = $this->_strlen($buffer);
+	
+		// mt_rand() fast
+		if(!$valid || $test || $bufferLength < $rawLength) {
 			for($i = 0; $i < $rawLength; $i++) {
-				if($i < $bl) {
+				if($i < $bufferLength) {
 					$buffer[$i] = $buffer[$i] ^ chr(mt_rand(0, 255));
 				} else {
 					$buffer .= chr(mt_rand(0, 255));
 				}
 			}
+			if($test) $tests['mt_rand'] = $buffer;
 		}
-
-		$salt = str_replace('+', '.', base64_encode($buffer));
-		$salt = substr($salt, 0, $requiredLength);
 		
-		//$salt .= $valid; // @todo: what was the point of this?j
-
+		if($test) {
+			// test mode
+			$salt = '';
+			foreach($tests as $name => $value) {
+				$note = '';
+				if(strpos($value, "\tNOTE=")) list($value, $note) = explode("\tNOTE=", $value); 
+				$value = empty($value) ? 'N/A' : $this->randomBufferToSalt($value, $requiredLength);
+				$_name = str_pad($name, 28, ' ', STR_PAD_LEFT);
+				$tests[$name] = $value;
+				$salt .= "\n$_name: $value $note";
+			}
+			$salt = is_array($test) ? $tests : ltrim($salt, "\n"); 
+		} else {
+			// regular random string mode
+			$salt = $this->randomBufferToSalt($buffer, $requiredLength);
+		}
+		
 		return $salt;
+	}
+
+	/**
+	 * Given random buffer string of bytes return base64 encoded salt
+	 * 
+	 * @param string $buffer
+	 * @param int $requiredLength
+	 * @return string
+	 * 
+	 */
+	protected function randomBufferToSalt($buffer, $requiredLength) {
+		$c1 = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/'; // base64
+		$c2 = './ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'; // bcrypt64
+		$salt = rtrim(base64_encode($buffer), '=');
+		$salt = strtr($salt, $c1, $c2);
+		$salt = substr($salt, 0, $requiredLength);
+		return $salt;
+	}
+
+	/**
+	 * Return string length, using mb_strlen() when available, or strlen() when not
+	 * 
+	 * @param string $s
+	 * @return int
+	 * 
+	 */
+	function _strlen($s) {
+		return function_exists('mb_strlen') ? mb_strlen($s, '8bit') : strlen($s);
 	}
 
 	/**
