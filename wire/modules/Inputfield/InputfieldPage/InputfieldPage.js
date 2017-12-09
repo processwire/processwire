@@ -9,7 +9,7 @@ function initInputfieldPage($this) {
 
 	// support for dependent selects
 	$this.find(".findPagesSelector").each(function() {
-
+		var $repeater = $this.parents('.InputfieldRepeaterItem');
 		var $t = $(this);
 		var selector = $t.val();
 		// if there is no "=page." present in the selector, then this can't be a dependent select
@@ -30,11 +30,12 @@ function initInputfieldPage($this) {
 
 			var part = parts[n];
 			var name = part.replace('=page.', '');
-			var $inputfield = $('#Inputfield_' + name);
+			var $inputfield = $repeater.length === 0 ? $('#Inputfield_' + name) : $('#Inputfield_' + name + "_repeater" + $repeater.data('page'));
 			if($inputfield.length < 1) return;
 
 			// monitor changes to the dependency field
-			$inputfield.change(function() {
+			$inputfield.off('change');
+			$inputfield.on('change', function() {
 				var s = selector;
 				var v = $inputfield.val();
 				if(v == null) {
