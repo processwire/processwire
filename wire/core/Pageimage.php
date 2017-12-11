@@ -229,12 +229,9 @@ class Pageimage extends Pagefile {
 
 		if($checkImage) { 
 			if($this->ext == 'svg') {
-				$xml = @file_get_contents($this->filename);
-				if($xml) {
-					$a = @simplexml_load_string($xml)->attributes();
-					$this->imageInfo['width'] = (int) $a->width > 0 ? (int) $a->width : '100%';
-					$this->imageInfo['height'] = (int) $a->height > 0 ? (int) $a->height : '100%';
-				}
+				$info = $this->getImageInfoSVG();
+				$this->imageInfo['width'] = $info['width'];
+				$this->imageInfo['height'] = $info['height'];
 			} else {
 				$info = @getimagesize($this->filename);
 				if($info) {
@@ -245,6 +242,47 @@ class Pageimage extends Pagefile {
 		}
 
 		return $this->imageInfo; 
+	}
+
+	/**
+	 * Gets the image info/size of an SVG
+	 *
+	 * Returned width and height values may be integers OR percentage strings.
+	 *
+	 * #pw-internal
+	 *
+	 * @return array of width and height
+	 *
+	 */
+	protected function getImageInfoSVG() {
+		$width = 0;
+		$height = 0;
+		$xml = @file_get_contents($this->filename);
+		
+		if($xml) {
+			$a = @simplexml_load_string($xml)->attributes();
+			if((int) $a->width > 0) $width = (int) $a->width;
+			if((int) $a->height > 0) $height = (int) $a->height;
+		}
+		
+		if((!$width || !$height) && (extension_loaded('imagick') || class_exists('\IMagick'))) {
+			try {
+				$imagick = new \Imagick();
+				$imagick->readImage($this->filename);
+				$width = $imagick->getImageWidth();
+				$height = $imagick->getImageHeight();
+			} catch(\Exception $e) {
+				// fallback to 100%
+			}
+		}
+		
+		if($width < 1) $width = '100%';
+		if($height < 1) $height = '100%';
+		
+		return array(
+			'width' => $width, 
+			'height' => $height
+		); 
 	}
 	
 	/**
