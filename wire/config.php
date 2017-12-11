@@ -554,7 +554,8 @@ $config->fileContentTypes = array(
  * 
  * #property bool upscaling Upscale if necessary to reach target size? (1=true, 0=false)
  * #property bool cropping Crop if necessary to reach target size? (1=true, 0=false)
- * #property bool autoRotation Automatically correct orientation?
+ * #property bool autoRotation Automatically correct orientation? (1=true, 0=false)
+ * #property bool interlace Use interlaced JPEGs by default? Recommended. (1=true, 0=false)
  * #property string sharpening Sharpening mode, enter one of: none, soft, medium, strong
  * #property int quality Image quality, enter a value between 1 and 100, where 100 is highest quality (and largest files)
  * #property float defaultGamma Default gamma of 0.5 to 4.0 or -1 to disable gamma correction (default=2.0)
@@ -566,6 +567,7 @@ $config->imageSizerOptions = array(
 	'upscaling' => true, // upscale if necessary to reach target size?
 	'cropping' => true, // crop if necessary to reach target size?
 	'autoRotation' => true, // automatically correct orientation?
+	'interlace' => false, // use interlaced JPEGs by default? (recommended)
 	'sharpening' => 'soft', // sharpening: none | soft | medium | strong
 	'quality' => 90, // quality: 1-100 where higher is better but bigger
 	'hidpiQuality' => 60, // Same as above quality setting, but specific to hidpi images

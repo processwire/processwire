@@ -185,6 +185,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 
 			// now release the intermediate image and update settings
 			imagedestroy($imageTemp);
+			$imageTemp = null;
 			$this->setImageInfo(imagesx($image), imagesy($image));
 			// $this->cropping = false; // ?? set this to prevent overhead with the following manipulation ??
 		}
@@ -202,12 +203,19 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 
 			// this is the case if the original size is requested or a greater size but upscaling is set to false
 
-			// the current version is allready the desired result, we only may have to apply compression where possible
-			$this->sharpening = 'none'; // we set sharpening to none
+			// current version is already the desired result, we only may have to compress JPEGs but leave GIF and PNG as is:
+			if($this->imageType == \IMAGETYPE_PNG || $this->imageType == \IMAGETYPE_GIF) {
+				$result = @copy($srcFilename, $dstFilename);
+				if(isset($image) && is_resource($image)) @imagedestroy($image); // clean up
+                if(isset($image)) $image = null;
+                return $result; // early return !
+            }
 
+            // process JPEGs
 			if(self::checkMemoryForImage(array(imagesx($image), imagesy($image), 3)) === false) {
 				throw new WireException(basename($srcFilename) . " - not enough memory to copy the final image");
 			}
+			$this->sharpening = 'none'; // we set sharpening to none, as the image only gets compressed, but not resized
 			$thumb = imagecreatetruecolor(imagesx($image), imagesy($image));          // create the final memory image
 			$this->prepareImageLayer($thumb, $image);
 			imagecopy($thumb, $image, 0, 0, 0, 0, imagesx($image), imagesy($image));  // copy our intermediate image into the final one
@@ -270,6 +278,15 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 						$thumb = $this->imSharpen($thumb, $this->sharpening);
 					}
 				}
+			}
+		}
+
+		// optionally apply interlace bit to the final image.
+		// this will result in progressive JPEGs
+		if($this->interlace && \IMAGETYPE_JPEG == $this->imageType) {
+			if(0 == imageinterlace($thumb, 1)) {
+				// log that setting the interlace bit has failed ?
+				// ...
 			}
 		}
 

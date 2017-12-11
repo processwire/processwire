@@ -8,6 +8,7 @@
  *
  * @property bool $autoRotation
  * @property bool $upscaling
+ * @property bool $interlace
  * @property array|string|bool $cropping
  * @property int $quality
  * @property string $sharpening
@@ -58,6 +59,14 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 *
 	 */
 	protected $quality = 90;
+
+	/**
+	 * Image interlace setting, false or true
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $interlace = false;
 
 	/**
 	 * Information about the image (width/height)
@@ -206,6 +215,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		'autoRotation',
 		'upscaling',
 		'cropping',
+		'interlace', 
 		'quality',
 		'sharpening',
 		'defaultGamma',
@@ -910,6 +920,19 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		$this->upscaling = $this->getBooleanValue($value);
 		return $this;
 	}
+	
+	/**
+	 * Turn on/off interlace 
+	 *
+	 * @param bool $value Whether to upscale or not (default = true)
+	 *
+	 * @return $this
+	 *
+	 */
+	public function setInterlace($value = true) {
+		$this->interlace = $this->getBooleanValue($value);
+		return $this;
+	}
 
 	/**
 	 * Set default gamma value: 0.5 - 4.0 | -1
@@ -1059,6 +1082,9 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 				case 'upscaling':
 					$this->setUpscaling($value);
 					break;
+				case 'interlace':
+					$this->setInterlace($value);
+					break;
 				case 'sharpening':
 					$this->setSharpening($value);
 					break;
@@ -1126,6 +1152,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			'quality' => $this->quality,
 			'cropping' => $this->cropping,
 			'upscaling' => $this->upscaling,
+			'interlace' => $this->interlace, 
 			'autoRotation' => $this->autoRotation,
 			'sharpening' => $this->sharpening,
 			'defaultGamma' => $this->defaultGamma,

@@ -436,6 +436,7 @@ class Pageimage extends Pagefile {
 		$defaultOptions = array(
 			'upscaling' => true,
 			'cropping' => true,
+			'interlace' => false, 
 			'sharpening' => 'soft',
 			'quality' => 90,
 			'hidpiQuality' => 40, 

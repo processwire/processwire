@@ -181,7 +181,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		$this->im = new \IMagick();
 
 		// set the working colorspace: COLORSPACE_RGB or COLORSPACE_SRGB    ( whats about COLORSPACE_GRAY ??)
-		$this->workspaceColorspace = \IMagick::COLORSPACE_SRGB;
+		$this->workspaceColorspace = \Imagick::COLORSPACE_SRGB;
 		$this->im->setColorspace($this->workspaceColorspace);
 
 		if(!$this->im->readImage($srcFilename)) {  // actually we get a filecopy from origFilename to destFilename from PageImage
@@ -192,7 +192,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		// check validity against image magick
 		if(!$this->im->valid()) {
 			$this->release();
-			throw new WireException(sprintf($this->_("loaded file '%s' is not a valid image", basename($srcFilename))));
+			throw new WireException(sprintf($this->_("loaded file '%s' is not a valid image"), basename($srcFilename)));
 		}
 
 		// get image format
@@ -207,12 +207,12 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		// check validity against PW
 		if(!in_array($this->imageFormat, $this->validSourceImageFormats())) {
 			$this->release();
-			throw new WireException(sprintf($this->_("loaded file '%s' is not in the list of valid images", basename($dstFilename))));
+			throw new WireException(sprintf($this->_("loaded file '%s' is not in the list of valid images"), basename($dstFilename)));
 		}
 
 		// check and retrieve different image parts and information: ICC, Colorspace, Colordepth, Metadata, etc
 		$this->imageColorspace = $this->im->getImageColorspace();
-		$this->workspaceColorspace = \IMagick::COLORSPACE_GRAY == $this->imageColorspace ? \IMagick::COLORSPACE_GRAY : $this->workspaceColorspace;
+		$this->workspaceColorspace = \Imagick::COLORSPACE_GRAY == $this->imageColorspace ? \Imagick::COLORSPACE_GRAY : $this->workspaceColorspace;
 		$this->im->setColorspace($this->workspaceColorspace);
 		$this->imageMetadata = $this->im->getImageProfiles('*');
 		if(!is_array($this->imageMetadata)) $this->imageMetadata = array();
@@ -311,14 +311,14 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 			#return true;
 			
 		} else if(2 == $resizemethod) { // 2 = resize with aspect ratio
-			if(!$this->im->resizeImage($finalWidth, $finalHeight, \IMagick::FILTER_LANCZOS, 1)) {
+			if(!$this->im->resizeImage($finalWidth, $finalHeight, \Imagick::FILTER_LANCZOS, 1)) {
 				$this->release();
 				return false;
 			}
 			$this->setImageInfo($this->im->getImageWidth(), $this->im->getImageHeight());
 			
 		} else if(4 == $resizemethod) { // 4 = resize and crop from center with aspect ratio
-			if(!$this->im->resizeImage($bgWidth, $bgHeight, \IMagick::FILTER_LANCZOS, 1)) {
+			if(!$this->im->resizeImage($bgWidth, $bgHeight, \Imagick::FILTER_LANCZOS, 1)) {
 				$this->release();
 				return false;
 			}
@@ -335,6 +335,11 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 			$this->imSharpen($this->sharpening);
 		}
 
+		// optionally apply interlace bit to the final image. This will result in progressive JPEGs
+		if($this->interlace && in_array(strtoupper($this->imageFormat), array('JPG', 'JPEG'))) {
+			$this->im->setInterlaceScheme(\Imagick::INTERLACE_JPEG);
+		}
+
 		if(isset($resetGamma) && $this->imageGamma && $this->imageGamma != 1) {
 			$this->im->gammaImage(1 / $this->imageGamma);
 		}
@@ -345,13 +350,13 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		$this->im->setImageFormat($this->imageFormat);
 		$this->im->setImageType($this->imageType);
 		if(in_array(strtoupper($this->imageFormat), array('JPG', 'JPEG'))) {
-			$this->im->setImageCompression(\IMagick::COMPRESSION_JPEG);
+			$this->im->setImageCompression(\Imagick::COMPRESSION_JPEG);
 			$this->im->setImageCompressionQuality($this->quality);
 		} else if(in_array(strtoupper($this->imageFormat), array('PNG', 'PNG8', 'PNG24'))) {
-			$this->im->setImageCompression(\IMagick::COMPRESSION_ZIP);
+			$this->im->setImageCompression(\Imagick::COMPRESSION_ZIP);
 			$this->im->setImageCompressionQuality($this->quality);
 		} else {
-			$this->im->setImageCompression(\IMagick::COMPRESSION_UNDEFINED);
+			$this->im->setImageCompression(\Imagick::COMPRESSION_UNDEFINED);
 			$this->im->setImageCompressionQuality($this->quality);
 		}
 
