@@ -404,7 +404,7 @@ class InputfieldForm extends InputfieldWrapper {
 		$matches = false;
 
 		if($subfield == 'count') {
-			$value = count($value);
+			$value = wireCount($value);
 			if(self::debug) $this->debugNote("Actual count ($debugNote): $value");
 		}
 		if(is_object($value)) $value = "$value";

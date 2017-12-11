@@ -61,7 +61,7 @@ class InputfieldMarkup extends InputfieldWrapper {
 		}
 		$out = trim($out);
 
-		if(count($textformatters)) {
+		if(wireCount($textformatters)) {
 			foreach($textformatters as $className) {
 				$t = $this->wire('modules')->get($className);
 				if(!$t) continue; 
