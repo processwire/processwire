@@ -17,13 +17,13 @@
  *
  * @see https://processwire.com/api/ref/session/ Session documentation
  *
- * @method User login() login($name, $pass) Login the user identified by $name and authenticated by $pass. Returns the user object on successful login or null on failure.
+ * @method User login() login($name, $pass, $force = false) Login the user identified by $name and authenticated by $pass. Returns the user object on successful login or null on failure.
  * @method Session logout() logout() Logout the current user, and clear all session variables.
  * @method void redirect() redirect($url, $http301 = true) Redirect this session to the specified URL. 
  * @method void init() Initialize session (called automatically by constructor) #pw-hooker
  * @method bool authenticate(User $user, $pass) #pw-hooker
  * @method bool isValidSession($userID) #pw-hooker
- * @method bool allowLogin($name) #pw-hooker
+ * @method bool allowLogin($name, User $user = null) #pw-hooker
  * @method void loginSuccess(User $user) #pw-hooker
  * @method void loginFailure($name, $reason) #pw-hooker
  * @method void logoutSuccess(User $user) #pw-hooker
@@ -746,27 +746,42 @@ class Session extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	public function ___login($name, $pass, $force = false) {
+	
+		/** @var User|null $user */
+		$user = null;
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		/** @var Users $users */
+		$users = $this->wire('users');
+		/** @var int $guestUserID */	
+		$guestUserID = $this->wire('config')->guestUserPageID;
+
+		$fail = true;
+		$failReason = '';
 		
-		$user = null;		
 		if(is_object($name) && $name instanceof User) {
 			$user = $name;
 			$name = $user->name;
 		} else {
-			$name = $this->wire('sanitizer')->pageNameUTF8($name);
+			$name = $sanitizer->pageNameUTF8($name);
 		}
-
-		if(!$this->allowLogin($name)) {
-			$this->loginFailure($name, "User is not allowed to login");
-			return null;
-		}
-
+		
+		if(!strlen($name)) return null;
+		
 		if(is_null($user)) {
-			$user = strlen($name) ? $this->wire('users')->get("name=$name") : null;
+			$user = $users->get('name=' . $sanitizer->selectorValue($name));
 		}
 
-		if(	$user && $user->id 
-			&& $user->id != $this->wire('config')->guestUserPageID 
-			&& ($force === true || $this->authenticate($user, $pass))) { 
+		if(!$user || !$user->id) {
+			$failReason = 'Unknown user';
+			
+		} else if($user->id == $guestUserID) {
+			$failReason = 'Guest user may not login';
+			
+		} else if(!$this->allowLogin($name, $user)) {
+			$failReason = 'Login not allowed';
+			
+		} else if($force === true || $this->authenticate($user, $pass)) { 
 
 			$this->trackChange('login', $this->wire('user'), $user); 
 			session_regenerate_id(true);
@@ -780,7 +795,8 @@ class Session extends Wire implements \IteratorAggregate {
 				$this->set('_user', 'challenge', $challenge); 
 				$secure = $this->config->sessionCookieSecure ? (bool) $this->config->https : false;
 				// set challenge cookie to last 30 days (should be longer than any session would feasibly last)
-				setcookie(session_name() . '_challenge', $challenge, time()+60*60*24*30, '/', $this->config->sessionCookieDomain, $secure, true); // PR #1264
+				setcookie(session_name() . '_challenge', $challenge, time()+60*60*24*30, '/', 
+					$this->config->sessionCookieDomain, $secure, true); 
 			}
 
 			if($this->config->sessionFingerprint) { 
@@ -791,21 +807,19 @@ class Session extends Wire implements \IteratorAggregate {
 			$this->wire('user', $user); 
 			$this->get('CSRF')->resetAll();
 			$this->loginSuccess($user); 
+			$fail = false;
 
-			return $user; 
-			
 		} else {
-			if(!$user || !$user->id) {
-				$reason = "Unknown user: $name";
-			} else if($user->id == $this->wire('config')->guestUserPageID) {
-				$reason = "Guest user may not login";
-			} else {
-				$reason = "Invalid password";
-			}
-			$this->loginFailure($name, $reason); 
+			// authentication failed
+			$failReason = 'Invalid password';
+		}
+		
+		if($fail) {
+			$this->loginFailure($name, $failReason);
+			$user = null;
 		}
 
-		return null; 
+		return $user; 
 	}
 
 	/**
@@ -857,12 +871,34 @@ class Session extends Wire implements \IteratorAggregate {
 	 * #pw-hooker
 	 * 
 	 * @param string $name User login name
+	 * @param User|null $user User object
 	 * @return bool True if allowed to login, false if not (hooks may modify this)
 	 *
 	 */
-	public function ___allowLogin($name) {
+	public function ___allowLogin($name, $user = null) {
+		$allow = true; 
+		if(!strlen($name)) return false;
+		if(!$user || !$user instanceof User) {
+			$name = $this->wire('sanitizer')->pageNameUTF8($name);
+			$user = $this->wire('users')->get("name=" . $this->wire('sanitizer')->selectorValue($name));
+			if(!$user || !$user->id) return false;
+		}
+		$xroles = $this->wire('config')->loginDisabledRoles;
+		if(!is_array($xroles) && !empty($xroles)) $xroles = array($xroles);
 		if($name) {}
-		return true; 
+		if($user) {
+			if($user->isUnpublished()) {
+				$allow = false;
+			} else if(is_array($xroles)) {
+				foreach($xroles as $xrole) {
+					if($user->hasRole($xrole)) {
+						$allow = false;
+						break;
+					}
+				}
+			}
+		}
+		return $allow; 
 	}
 
 	/**

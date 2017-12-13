@@ -278,6 +278,8 @@ class WireInput extends Wire {
 	 */
 	public function setUrlSegment($num, $value) {
 		$num = (int) $num; 
+		$maxLength = $this->wire('config')->maxUrlSegmentLength;
+		if($maxLength < 1) $maxLength = 128;
 		if(is_null($value)) {
 			// unset
 			$n = 0;
@@ -289,10 +291,10 @@ class WireInput extends Wire {
 			$this->urlSegments = $urlSegments;
 		} else if($this->wire('config')->pageNameCharset == 'UTF8') {
 			// set UTF8
-			$this->urlSegments[$num] = $this->wire('sanitizer')->pageNameUTF8($value);
+			$this->urlSegments[$num] = $this->wire('sanitizer')->pageNameUTF8($value, $maxLength);
 		} else {
 			// set ascii
-			$this->urlSegments[$num] = $this->wire('sanitizer')->name($value);
+			$this->urlSegments[$num] = $this->wire('sanitizer')->name($value, false, $maxLength);
 		}
 		
 	}

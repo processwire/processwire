@@ -449,15 +449,16 @@ class Sanitizer extends Wire {
 	 * #pw-group-pages
 	 * 
 	 * @param string $value Value to sanitize
+	 * @param int $maxLength Maximum number of characters allowed
 	 * @return string Sanitized value
 	 *
 	 */
-	public function pageNameUTF8($value) {
+	public function pageNameUTF8($value, $maxLength = 128) {
 		
 		if(!strlen($value)) return '';
 		
 		// if UTF8 module is not enabled then delegate this call to regular pageName sanitizer
-		if($this->wire('config')->pageNameCharset != 'UTF8') return $this->pageName($value);
+		if($this->wire('config')->pageNameCharset != 'UTF8') return $this->pageName($value, false, $maxLength);
 	
 		// we don't allow UTF8 page names to be prefixed with "xn-"
 		if(strpos($value, 'xn-') === 0) $value = substr($value, 3);
@@ -469,7 +470,7 @@ class Sanitizer extends Wire {
 		$extras = array('.', '-', '_', ' ', ',', ';', ':', '(', ')', '!', '?', '&', '%', '$', '#', '@');
 
 		// proceed only if value has some non-ascii characters
-		if(ctype_alnum(str_replace($extras, '', $value))) return $this->pageName($value);
+		if(ctype_alnum(str_replace($extras, '', $value))) return $this->pageName($value, false, $maxLength);
 
 		// validate that all characters are in our whitelist
 		$whitelist = $this->wire('config')->pageNameWhitelist;
@@ -514,6 +515,8 @@ class Sanitizer extends Wire {
 
 		// trim off any remaining separators/extras
 		$value = trim($value, '-_.');
+		
+		if(mb_strlen($value) > $maxLength) $value = mb_substr($value, 0, $maxLength); 
 		
 		return $value;
 	}
