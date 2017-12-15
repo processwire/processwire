@@ -111,7 +111,8 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		$config = $this->wire('config');
 		
 		if($settings['jQueryUI']) {
-			$this->wire('adminTheme')->addBodyClass('LanguageTabsJqueryUI');
+			$adminTheme = $this->wire('adminTheme');
+			if($adminTheme) $adminTheme->addBodyClass('LanguageTabsJqueryUI');
 		}
 		
 		if($settings['loadStyles']) {
