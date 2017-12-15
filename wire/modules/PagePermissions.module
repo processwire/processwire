@@ -490,6 +490,7 @@ class PagePermissions extends WireData implements Module {
 		$arg1 = $event->arguments(1);
 		$field = null; // field name or Field object, if specified as arg0
 		$checkFile = true; // return false if template filename doesn't exist
+		$status = $page->status;
 
 		// allow specifying User instance as argument 0 
 		// this gives you a "viewable to user" capability
@@ -508,16 +509,20 @@ class PagePermissions extends WireData implements Module {
 			// bypass template filename check
 			$checkFile = false;
 		}
-		
-		if($page->status >= Page::statusUnpublished) $viewable = false;
+
+		// if page has corrupted status, this need not affect viewable access
+		if($status & Page::statusCorrupted) $status = $status & ~Page::statusCorrupted;
+
+		// perform several viewable checks, in order
+		if($status >= Page::statusUnpublished) $viewable = false;
 			else if(!$page->template || ($checkFile && !$page->template->filenameExists())) $viewable = false; 
 			else if($user->isSuperuser()) $viewable = true; 
 			else if($page->process) $viewable = $this->processViewable($page);
 			else if(!$user->hasPermission("page-view", $page)) $viewable = false;
 			else if($page->isTrash()) $viewable = false; 
 
-		// if the page is editable by the current user, force it to be viewable
-		if(!$viewable && !$user->isGuest() && $page->hasStatus(Page::statusUnpublished)) {
+		// if the page is editable by the current user, force it to be viewable (if not viewable due to being unpublished)
+		if(!$viewable && !$user->isGuest() && ($status & Page::statusUnpublished)) {
 			if($page->editable() && (!$checkFile || $page->template->filenameExists())) $viewable = true; 
 		}
 		
