@@ -400,16 +400,6 @@ class Pageimage extends Pagefile {
 	 */
 	protected function ___size($width, $height, $options) {
 	
-		// I was getting unnecessarily resized images without this code below,
-		// but this may be better solved in ImageSizer?
-		/*
-		$w = $this->width();
-		$h = $this->height();
-		if($w == $width && $h == $height) return $this; 
-		if(!$height && $w == $width) return $this; 
-		if(!$width && $h == $height) return $this; 
-		*/
-		
 		if($this->ext == 'svg') return $this; 
 
 		if(!is_array($options)) { 
@@ -832,13 +822,18 @@ class Pageimage extends Pagefile {
 	 * 
 	 */
 	public function maxSize($width, $height, $options = array()) {
-		$w = $this->width();
-		$h = $this->height();
-		if($w >= $h) {
-			return $this->maxWidth($width, $options);
-		} else {
-			return $this->maxHeight($height, $options);
+		$options['upscaling'] = false;
+		$options['cropping'] = false;
+		
+		if($this->wire('config')->installed > 1513336849) { 
+			// New installations from 2017-12-15 forward use an "ms" suffix for images from maxSize() method
+			$suffix = isset($options['suffix']) ? $options['suffix'] : array();
+			if(!is_array($suffix)) $suffix = array();
+			$suffix[] = 'ms';
+			$options['suffix'] = $suffix;
 		}
+		
+		return $this->size($width, $height, $options);
 	}
 
 	/**
