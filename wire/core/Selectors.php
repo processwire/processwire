@@ -1209,6 +1209,47 @@ class Selectors extends WireArray {
 	}
 
 	/**
+	 * Get the first selector that uses given field name
+	 * 
+	 * This is useful for quickly retrieving values of reserved properties like "include", "limit", "start", etc. 
+	 * 
+	 * Using **$or:** By default this excludes selectors that have fields in an OR expression, like "a|b|c". 
+	 * So if you specified field "a" it would not be matched. If you wanted it to still match, specify true 
+	 * for the $or argument.
+	 * 
+	 * Using **$all:** By default only the first matching selector is returned. If you want it to return all 
+	 * matching selectors in an array, then specify true for the $all argument. This changes the return value
+	 * to always be an array of Selector objects, or a blank array if no match. 
+	 * 
+	 * @param string $fieldName Name of field to return value for (i.e. "include", "limit", etc.)
+	 * @param bool $or Allow fields that appear in OR expressions? (default=false)
+	 * @param bool $all Return an array of all matching Selector objects? (default=false)
+	 * @return Selector|array|null Returns null if field not present in selectors (or blank array if $all mode)
+	 * 
+	 */
+	public function getSelectorByField($fieldName, $or = false, $all = false) {
+		
+		$selector = null;
+		$matches = array();
+		
+		foreach($this as $sel) {
+			if($or) {
+				if(!in_array($fieldName, $sel->fields)) continue;
+			} else {
+				if($sel->field() !== $fieldName) continue;
+			}
+			if($all) {
+				$matches[] = $sel;
+			} else {
+				$selector = $sel;
+				break;
+			}
+		}
+		
+		return $all ? $matches : $selector;
+	}
+
+	/**
 	 * See if the given $selector specifies the given $field somewhere
 	 * 
 	 * @param array|string|Selectors $selector
