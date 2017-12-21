@@ -37,14 +37,16 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 			// great, already what we wanted
 		} else {
 			// convert it to a LanguagesPageFieldValue
-			$pageValue = $page->getUnformatted($field->name); 
+			$pageValue = $page->data($field->name); // raw unformatted value, with no load possible
 			if(!$pageValue instanceof LanguagesPageFieldValue) {
 				$pageValue = new LanguagesPageFieldValue($page, $field, $pageValue); // #98
 			}
 			if(is_array($value)) {
 				$pageValue->importArray($value); 
 			} else {
-				$pageValue->setLanguageValue($this->wire('user')->language->id, (string) $value); 
+				$user = $this->wire('user');
+				$language = $user ? $user->language : null;
+				if($language) $pageValue->setLanguageValue($language->id, (string) $value); 
 			}
 			$value = $pageValue; 
 		}

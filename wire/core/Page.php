@@ -909,7 +909,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		// if the page is currently loading from the database, we assume that any set values are 'raw' and need to be woken up
 		if(!$this->isLoaded) {
 			// queue for wakeup and sanitize on first field access
-			$this->wakeupNameQueue[$field->name] = $field->name;
+			$this->wakeupNameQueue[$key] = $key;
 			// page is currently loading, so we don't need to continue any further
 			return parent::set($key, $value); 
 		}
