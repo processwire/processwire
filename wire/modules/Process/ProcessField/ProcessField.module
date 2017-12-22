@@ -911,7 +911,8 @@ class ProcessField extends Process implements ConfigurableModule {
 			if(!$fieldgroup->hasFieldContext($field->name, $this->contextNamespace)) continue; 	
 			$allChanges[$fieldgroup->name] = $this->getContextChanges($form, $field, $fieldgroup);
 		}
-		if(!count($allChanges)) return;
+		
+		if(!count($allChanges) && !$this->wire('config')->advanced) return;
 		
 		$tab = $this->wire(new InputfieldWrapper());
 		$tab->attr('title', $this->_('Overrides'));
@@ -932,43 +933,117 @@ class ProcessField extends Process implements ConfigurableModule {
 			$f->notes = $this->_('To edit an override setting or override other settings, edit any template and click the field name in the fields list.');
 		}
 		$tab->add($f);
+
+		if(count($allChanges)) {
+			/** @var MarkupAdminDataTable $table */
+			$table = $this->wire('modules')->get('MarkupAdminDataTable');
+			$table->setEncodeEntities(false);
+			$table->setSortable(false);
+			$header = array();
+			if(!$this->fieldgroup) $header[] = $this->_x('Template', 'context-thead');
+			$header[] = $this->_x('Setting', 'context-thead');
+			$header[] = $this->_x('Original', 'context-thead');
+			$header[] = $this->_x('Override', 'context-thead');
+			$header[] = "<i class='fa fa-fw fa-lg fa-trash override-select-all'></i>";
+			$table->headerRow($header);
+
+			$sanitizer = $this->wire('sanitizer');
+			$lastFieldgroupName = '';
+			$this->wire('modules')->get('JqueryUI')->use('modal');
+
+			foreach($allChanges as $fieldgroupName => $changes) {
+				$fieldgroup = $this->wire('fieldgroups')->get($fieldgroupName);
+				foreach($changes as $key => $change) {
+					$a = $fieldgroupName;
+					// $a = "<a class='pw-modal' data-buttons='#Inputfield_submit_save_field' data-autoclose='1' " . 
+					//	"href='./edit?id={$this->field->id}&fieldgroup_id=$fieldgroup->id'>$fieldgroupName</a>";
+					$fieldgroupLabel = $fieldgroupName == $lastFieldgroupName ? '' : $a;
+					$row = array();
+					if(!$this->fieldgroup) $row[] = $fieldgroupLabel;
+					$row[] = $sanitizer->entities($change['label']);
+					$row[] = "<del>" . $sanitizer->entities($change['originalValue']) . "</del>";
+					$row[] = $sanitizer->entities($change['value']);
+					$row[] = "<input type='checkbox' name='_remove_context[]' value='$fieldgroup->id:$key' />";
+					$options = $fieldgroupLabel ? array('separator' => true) : array();
+					$table->row($row, $options);
+					$lastFieldgroupName = $fieldgroupName;
+				}
+			}
+
+			$f->value = $table->render();
+		} else {
+			$f->value = '<p>' . $this->_('There are currently no settings being overridden by template.') . '</p>';
+			$f->collapsed = Inputfield::collapsedYes;
+		}
 	
-		/** @var MarkupAdminDataTable $table */
-		$table = $this->wire('modules')->get('MarkupAdminDataTable');
-		$table->setEncodeEntities(false);
-		$table->setSortable(false);
-		$header = array();
-		if(!$this->fieldgroup) $header[] = $this->_x('Template', 'context-thead');
-		$header[] = $this->_x('Setting', 'context-thead');
-		$header[] = $this->_x('Original', 'context-thead');
-		$header[] = $this->_x('Override', 'context-thead');
-		$header[] = "<i class='fa fa-trash-o override-select-all'></i>";
-		$table->headerRow($header); 
+		// allow the following configuration only for advanced mode
+		if(!$this->wire('config')->advanced) return;
 		
-		$sanitizer = $this->wire('sanitizer');
-		$lastFieldgroupName = '';
-		$this->wire('modules')->get('JqueryUI')->use('modal');
-		
-		foreach($allChanges as $fieldgroupName => $changes) {
-			$fieldgroup = $this->wire('fieldgroups')->get($fieldgroupName);
-			foreach($changes as $key => $change) {
-				$a = $fieldgroupName;
-				// $a = "<a class='pw-modal' data-buttons='#Inputfield_submit_save_field' data-autoclose='1' " . 
-				//	"href='./edit?id={$this->field->id}&fieldgroup_id=$fieldgroup->id'>$fieldgroupName</a>";
-				$fieldgroupLabel = $fieldgroupName == $lastFieldgroupName ? '' : $a;
-				$row = array();
-				if(!$this->fieldgroup) $row[] = $fieldgroupLabel;
-				$row[] = $sanitizer->entities($change['label']);
-				$row[] = "<del>" . $sanitizer->entities($change['originalValue']) . "</del>";
-				$row[] = $sanitizer->entities($change['value']);
-				$row[] = "<input type='checkbox' name='_remove_context[]' value='$fieldgroup->id:$key' />";
-				$options = $fieldgroupLabel ? array('separator' => true) : array();
-				$table->row($row, $options);
-				$lastFieldgroupName = $fieldgroupName;
+		/** @var InputfieldCheckboxes $field */
+		$field = $this->modules->get('InputfieldCheckboxes');
+		$field->attr('name', 'allowContexts');
+		$field->label = $this->_('Allowed overrides');
+		$field->icon = 'sliders';
+		$field->description =
+			$this->_('Checked settings will appear as configuration options when editing this field within the context of a particular template.') . ' ' .
+			$this->_('**Warning:** doing this for settings beyond those specified by the module author may not always work, or may cause problems.');
+		$field->table = true;
+		$field->thead =
+			$this->_('Label') . '|' .
+			$this->_('Name') . '|' .
+			$this->_('Type');
+
+		$tabNames = array(
+			'fieldtypeConfig' => $this->_('Details:'),
+			'inputfieldConfig' => $this->_('Input:')
+		);
+		$exclusions = array(
+			'collapsed',
+			'showIf',
+			'required',
+			'requiredIf',
+			'columnWidth',
+			'visibility',
+			'themeOffset',
+			'themeBorder',
+			'themeColor',
+		);
+
+		$fieldtypeNames = $this->field->type->getConfigAllowContext($this->field);
+		if(!is_array($fieldtypeNames)) $fieldtypeNames = array();
+		$dummyPage = $this->wire('pages')->get("/"); // only using this to satisfy param requirement 
+		$inputfieldNames = $this->field->getInputfield($dummyPage)->getConfigAllowContext($this->field);
+		if(!is_array($inputfieldNames)) $inputfieldNames = array();
+		$alwaysSelected = array_merge($fieldtypeNames, $inputfieldNames);
+		$allowContexts = $this->field->get('allowContexts');
+		$alwaysSelected = array_diff($alwaysSelected, $allowContexts);
+		$qty = 0;
+
+		foreach($tabNames as $tabName => $tabLabel) {
+			/** @var InputfieldWrapper $tabInputfield */
+			$tabInputfield = $form->getChildByName($tabName);
+			if(!$tabInputfield) continue;
+			foreach($tabInputfield->getAll() as $f) {
+				$name = $f->name;
+				if(strpos($name, '_') === 0) continue;
+				if(in_array($name, $exclusions)) continue;
+				if($f instanceof InputfieldWrapper || $f instanceof InputfieldMarkup || $f instanceof InputfieldHidden) continue;
+				$typeName = str_replace('Inputfield', '', $f->className());
+				$label = str_replace('|', ' ', "$tabLabel $f->label") .
+					"| [span.detail] $name [/span] " .
+					"| [span.detail] $typeName [/span]";
+				if(in_array($name, $alwaysSelected)) {
+					$field->addOption($name, $label, array('checked' => 'checked', 'disabled' => 'disabled'));
+					$allowContexts[] = $name;
+				} else {
+					$field->addOption($name, $label);
+					$qty++;
+				}
 			}
 		}
 		
-		$f->value = $table->render();
+		$field->attr('value', $allowContexts);
+		if($qty) $tab->append($field);
 	}
 
 	/*

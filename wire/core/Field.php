@@ -31,6 +31,7 @@
  * @property array $viewRoles Role IDs with view access, applicable only if access control is enabled. #pw-group-access
  * @property array|null $orderByCols Columns that WireArray values are sorted by (default=null), Example: "sort" or "-created". #pw-internal
  * @property int|null $paginationLimit Used by paginated WireArray values to indicate limit to use during load. #pw-internal
+ * @property array $allowContexts Names of settings that are custom configured to be allowed for context. #pw-group-properties
  *
  * Common Inputfield properties that Field objects store:  
  * @property int|bool|null $required Whether or not this field is required during input #pw-group-properties
@@ -341,16 +342,17 @@ class Field extends WireData implements Saveable, Exportable {
 	 */
 	public function get($key) {
 		if($key == 'viewRoles') return $this->viewRoles;
-		else if($key == 'editRoles') return $this->editRoles;
-		else if($key == 'table') return $this->getTable();
-		else if($key == 'prevTable') return $this->prevTable;
-		else if($key == 'prevFieldtype') return $this->prevFieldtype;
-		else if(isset($this->settings[$key])) return $this->settings[$key];
-		else if($key == 'icon') return $this->getIcon(true);
-		else if($key == 'useRoles') return ($this->settings['flags'] & self::flagAccess) ? true : false;
-		else if($key == 'flags') return $this->settings['flags'];
+			else if($key == 'editRoles') return $this->editRoles;
+			else if($key == 'table') return $this->getTable();
+			else if($key == 'prevTable') return $this->prevTable;
+			else if($key == 'prevFieldtype') return $this->prevFieldtype;
+			else if(isset($this->settings[$key])) return $this->settings[$key];
+			else if($key == 'icon') return $this->getIcon(true);
+			else if($key == 'useRoles') return ($this->settings['flags'] & self::flagAccess) ? true : false;
+			else if($key == 'flags') return $this->settings['flags'];
 
 		$value = parent::get($key);
+		if($key === 'allowContexts' && !is_array($value)) $value = array();
 		if(is_array($this->trackGets)) $this->trackGets($key);
 		return $value;
 	}
@@ -916,6 +918,7 @@ class Field extends WireData implements Saveable, Exportable {
 		if($fieldgroupContext) {
 			$allowContext = $this->type->getConfigAllowContext($this); 
 			if(!is_array($allowContext)) $allowContext = array();
+			$allowContext = array_merge($allowContext, $this->allowContexts); 
 		} else {
 			$allowContext = array();
 		}
@@ -926,6 +929,8 @@ class Field extends WireData implements Saveable, Exportable {
 			if(!$fieldgroupContext) $inputfields->head = $this->_('Field type details');
 			$inputfields->attr('title', $this->_('Details'));
 			$inputfields->attr('id+name', 'fieldtypeConfig');
+			$remainingNames = array();
+			foreach($allowContext as $name) $remainingNames[$name] = $name;
 
 			try {
 				$fieldtypeInputfields = $this->type->getConfigInputfields($this); 
@@ -940,7 +945,19 @@ class Field extends WireData implements Saveable, Exportable {
 				foreach($fieldtypeInputfields as $inputfield) {
 					if($fieldgroupContext && !in_array($inputfield->name, $allowContext)) continue;
 					$inputfields->append($inputfield);
+					unset($remainingNames[$inputfield->name]);
 				}
+				// now capture those that may have been stuck in a fieldset
+				if($fieldgroupContext) {
+					foreach($remainingNames as $name) {
+						if($inputfields->getChildByName($name)) continue;
+						$inputfield = $fieldtypeInputfields->getChildByName($name);
+						if(!$inputfield) continue;
+						$inputfields->append($inputfield);
+						unset($remainingNames[$inputfield->name]);
+					}
+				}
+				
 			} catch(\Exception $e) {
 				$this->trackException($e, false, true); 
 			}
@@ -955,10 +972,14 @@ class Field extends WireData implements Saveable, Exportable {
 		if($inputfield) {
 			if($fieldgroupContext) {
 				$allowContext = array('visibility', 'collapsed', 'columnWidth', 'required', 'requiredIf', 'showIf');
-				$allowContext = array_merge($allowContext, $inputfield->getConfigAllowContext($this)); 
+				$allowContext = array_merge($allowContext, $this->allowContexts, $inputfield->getConfigAllowContext($this)); 
 			} else {
 				$allowContext = array();
 				$inputfields->head = $this->_('Input field settings');
+			}
+			$remainingNames = array();
+			foreach($allowContext as $name) {
+				$remainingNames[$name] = $name;
 			}
 			$inputfields->attr('title', $this->_('Input')); 
 			$inputfields->attr('id+name', 'inputfieldConfig');
@@ -974,6 +995,16 @@ class Field extends WireData implements Saveable, Exportable {
 			foreach($inputfieldInputfields as $i) { 
 				if($fieldgroupContext && !in_array($i->name, $allowContext)) continue; 
 				$inputfields->append($i); 
+				unset($remainingNames[$i->name]); 
+			}
+			if($fieldgroupContext) {
+				foreach($remainingNames as $name) {
+					if($inputfields->getChildByName($name)) continue;
+					$inputfield = $inputfieldInputfields->getChildByName($name);
+					if(!$inputfield) continue;
+					$inputfields->append($inputfield);
+					unset($remainingNames[$inputfield->name]);
+				}
 			}
 		}
 
