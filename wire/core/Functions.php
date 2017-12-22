@@ -501,7 +501,7 @@ function wireRenderFile($filename, array $vars = array(), array $options = array
  * - It will assume a ".php" extension if filename has no extension.
  * 
  * Note this function produced direct output. To retrieve output as a return value, use the 
- * wireTemplateFile function instead. 
+ * `wireRenderFile()` function instead. 
  * 
  * @param $filename
  * @param array $vars Optional variables you want to hand to the include (associative array)
