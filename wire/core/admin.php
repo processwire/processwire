@@ -119,7 +119,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 	} catch(WirePermissionException $e) {
 
 		if($controller && $controller->isAjax()) {
-			$content = $controller->jsonMessage($e->getMessage(), true); 
+			$content = $controller->jsonMessage($e->getMessage(), true);
 
 		} else if($user->isGuest()) {
 			/** @var Process $process */
