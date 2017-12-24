@@ -24,7 +24,7 @@
 
 if(!defined("PROCESSWIRE")) die("This file may not be accessed directly.");
 
-header("X-Frame-Options: SAMEORIGIN");
+header("X-Frame-Options: SAMEORIGIN"); 
 
 /**
  * Ensures a modal GET variable is retained through redirects, when appropriate
@@ -123,7 +123,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 
 		} else if($user->isGuest()) {
 			/** @var Process $process */
-			$process = $modules->get("ProcessLogin"); 
+			$process = $modules->get("ProcessLogin");
 			$content = $process->execute();
 		} else {
 			$wire->error($e->getMessage()); 	
