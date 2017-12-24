@@ -119,11 +119,11 @@ if($page->process && $page->process != 'ProcessPageView') {
 	} catch(WirePermissionException $e) {
 
 		if($controller && $controller->isAjax()) {
-			$content = $controller->jsonMessage($e->getMessage(), true);
+			$content = $controller->jsonMessage($e->getMessage(), true); 
 
 		} else if($user->isGuest()) {
 			/** @var Process $process */
-			$process = $modules->get("ProcessLogin");
+			$process = $modules->get("ProcessLogin"); 
 			$content = $process->execute();
 		} else {
 			$wire->error($e->getMessage()); 	
