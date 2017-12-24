@@ -18,14 +18,14 @@
  */
 class CacheFile extends Wire {
 
-	const cacheFileExtension = ".cache";
-	const globalExpireFilename = "lastgood";
+	private const cacheFileExtension = '.cache';
+	private const globalExpireFilename = 'lastgood';
 
 	/**
 	 * Max secondaryID cache files that will be allowed in a directory before it starts removing them. 
 	 *
 	 */
-	const maxCacheFiles = 999;
+	private const maxCacheFiles = 999;
 
 	protected $path; 
 	protected $primaryID = '';
@@ -33,8 +33,8 @@ class CacheFile extends Wire {
 	protected $cacheTimeSeconds = 0; 
 	protected $globalExpireFile = '';
 	protected $globalExpireTime = 0;
-	protected $chmodFile = "0666";
-	protected $chmodDir = "0777";
+	protected $chmodFile = '0666';
+	protected $chmodDir = '0777';
 
 
 	/**
@@ -66,7 +66,7 @@ class CacheFile extends Wire {
 			$this->globalExpireTime = @filemtime($this->globalExpireFile); 
 		}
 
-		$this->primaryID = $id ? $id : 'primaryID'; 
+		$this->primaryID = $id ?? 'primaryID';
 		$this->cacheTimeSeconds = (int) $cacheTimeSeconds; 
 	}
 
@@ -162,13 +162,15 @@ class CacheFile extends Wire {
 		return false;
 	}
 
-	/**
-	 * Saves $data to the cache
-	 * 
-	 * @param string $data
-	 * @return bool
-	 *
-	 */
+    /**
+     * Saves $data to the cache
+     *
+     * @param string $data
+     *
+     * @return bool
+     *
+     * @throws WireException
+     */
 	public function save($data) {
 		$filename = $this->buildFilename();
 
@@ -266,8 +268,8 @@ class CacheFile extends Wire {
 	 *
 	 */
 	public function expireAll() {
-		$note = "The modification time of this file represents the time of the last usable cache file. " . 
-			"Cache files older than this file are considered expired. " . date('m/d/y H:i:s');
+		$note = 'The modification time of this file represents the time of the last usable cache file. ' .
+                'Cache files older than this file are considered expired. ' . date('m/d/y H:i:s');
 		@file_put_contents($this->globalExpireFile, $note, LOCK_EX); 
 	}
 

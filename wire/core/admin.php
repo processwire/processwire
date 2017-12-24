@@ -22,9 +22,9 @@
  *
  */
 
-if(!defined("PROCESSWIRE")) die("This file may not be accessed directly.");
+if(!defined('PROCESSWIRE')) die('This file may not be accessed directly.');
 
-header("X-Frame-Options: SAMEORIGIN"); 
+header('X-Frame-Options: SAMEORIGIN');
 
 /**
  * Ensures a modal GET variable is retained through redirects, when appropriate
@@ -91,8 +91,8 @@ if($config->ajax) ob_start();
 if($page->process && $page->process != 'ProcessPageView') {
 	try {
 
-		if($config->demo && !in_array($page->process, array('ProcessLogin'))) {
-			if(count($_POST)) $wire->error("Features that use POST variables are disabled in this demo"); 
+		if($config->demo && $page->process != 'ProcessLogin') {
+			if(count($_POST)) $wire->error("Features that use POST variables are disabled in this demo");
 			foreach($_POST as $k => $v) unset($_POST[$k]); 
 			foreach($_FILES as $k => $v) unset($_FILES[$k]); 
 			$input->post->removeAll();
@@ -123,7 +123,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 
 		} else if($user->isGuest()) {
 			/** @var Process $process */
-			$process = $modules->get("ProcessLogin"); 
+			$process = $modules->get('ProcessLogin');
 			$content = $process->execute();
 		} else {
 			$wire->error($e->getMessage()); 	
