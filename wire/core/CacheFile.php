@@ -66,7 +66,7 @@ class CacheFile extends Wire {
 			$this->globalExpireTime = @filemtime($this->globalExpireFile); 
 		}
 
-		$this->primaryID = $id ? $id : 'primaryID'; 
+		$this->primaryID = $id ? $id : 'primaryID';
 		$this->cacheTimeSeconds = (int) $cacheTimeSeconds; 
 	}
 

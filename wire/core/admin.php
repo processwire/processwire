@@ -123,7 +123,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 
 		} else if($user->isGuest()) {
 			/** @var Process $process */
-			$process = $modules->get("ProcessLogin");
+			$process = $modules->get("ProcessLogin"); 
 			$content = $process->execute();
 		} else {
 			$wire->error($e->getMessage()); 	
