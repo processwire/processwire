@@ -406,6 +406,7 @@ class WireUpload extends Wire {
 		if($this->lowercase) $value = function_exists('mb_strtolower') ? mb_strtolower($value) : strtolower($value);
 		$value = $this->wire('sanitizer')->filename($value, Sanitizer::translate); 
 		$value = trim($value, "_");
+		if(!strlen($value)) return false;
 
 		$p = pathinfo($value);
 		if(!isset($p['extension'])) return false;
@@ -433,36 +434,63 @@ class WireUpload extends Wire {
 	 */
 	protected function saveUpload($tmp_name, $filename, $ajax = false) {
 
-		if(!$this->checkDestinationPath()) return false; 
+		if(!$this->checkDestinationPath()) return false;
+		
+		$success = false;
+		$error = '';
 		$filename = $this->getTargetFilename($filename); 
+		$_filename = $filename;
 		$filename = $this->validateFilename($filename);
-		if($this->lowercase) $filename = strtolower($filename); 
+		
+		if(!$filename && $this->name) {
+			// if filename doesn't validate, generate filename based on field name
+			$ext = pathinfo($_filename, PATHINFO_EXTENSION);
+			$filename = $this->name . ".$ext";
+			$filename = $this->validateFilename($filename);
+			$this->overwrite = false;
+		}
+		
 		$destination = $this->destinationPath . $filename;
-		$p = pathinfo($destination); 
-		$exists = file_exists($destination); 
-
-		if(!$this->overwrite && $filename != $this->overwriteFilename) {
-			// overwrite not allowed, so find a new name for it
-			$destination = $this->getUniqueFilename($destination); 
-			$filename = basename($destination); 
+		$p = pathinfo($destination);
+	
+		if($filename) {
 			
-		} else if($exists && $this->overwrite) {
-			// file already exists in destination and will be overwritten
-			// here we back it up temporarily, and we don't remove the backup till __destruct()
-			$bakName = $filename; 
-			do {
-				$bakName = "_$bakName";
-				$bakDestination = $this->destinationPath . $bakName;
-			} while(file_exists($bakDestination)); 
-			rename($destination, $bakDestination);
-			$this->overwrittenFiles[$bakDestination] = $destination;
+			if($this->lowercase) {
+				$filename = function_exists('mb_strtolower') ? mb_strtolower($filename) : strtolower($filename);
+			}
+			
+			$exists = file_exists($destination);
+
+			if(!$this->overwrite && $filename != $this->overwriteFilename) {
+				// overwrite not allowed, so find a new name for it
+				$destination = $this->getUniqueFilename($destination);
+				$filename = basename($destination);
+
+			} else if($exists && $this->overwrite) {
+				// file already exists in destination and will be overwritten
+				// here we back it up temporarily, and we don't remove the backup till __destruct()
+				$bakName = $filename;
+				do {
+					$bakName = "_$bakName";
+					$bakDestination = $this->destinationPath . $bakName;
+				} while(file_exists($bakDestination));
+				rename($destination, $bakDestination);
+				$this->overwrittenFiles[$bakDestination] = $destination;
+			}
+
+			if($ajax) {
+				$success = @rename($tmp_name, $destination);
+			} else {
+				$success = move_uploaded_file($tmp_name, $destination);
+			}
+		} else {
+			$error = "Filename does not validate";
 		}
 
-		if($ajax) $success = @rename($tmp_name, $destination);
-			else $success = move_uploaded_file($tmp_name, $destination);
-
 		if(!$success) {
-			$this->error("Unable to move uploaded file to: $destination");
+			if(!$destination || !$filename) $destination = $this->destinationPath . 'invalid-filename';
+			if(!$error) $error = "Unable to move uploaded file to: $destination";
+			$this->error($error); 
 			if(is_file($tmp_name)) @unlink($tmp_name); 
 			return false;
 		}
@@ -722,7 +750,7 @@ class WireUpload extends Wire {
 	 * 
 	 * @param array|Wire|string $text
 	 * @param int $flags
-	 * @return $this
+	 * @return Wire|WireUpload
 	 * 
 	 */
 	public function error($text, $flags = 0) {
