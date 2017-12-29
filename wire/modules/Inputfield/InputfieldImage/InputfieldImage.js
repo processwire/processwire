@@ -1127,6 +1127,10 @@ function InputfieldImage($) {
 			//setupDropHere();
 
 			$fileList.children().addClass('InputfieldFileItemExisting'); // identify items that are already there
+		
+			$inputfield.on('pwimageupload', function(event, data) {
+				traverseFiles([ data.file ], data.xhr); 
+			}); 
 
 			/**
 			 * Setup the .AjaxUploadDropHere 
@@ -1350,9 +1354,10 @@ function InputfieldImage($) {
 			 * 
 			 * @param file
 			 * @param extension (optional)
+			 * @param xhrsub (optional replacement for xhr)
 			 * 
 			 */
-			function uploadFile(file, extension) {
+			function uploadFile(file, extension, xhrsub) {
 			
 				var labels = ProcessWire.config.InputfieldImage.labels;
 				var filesizeStr = parseInt(file.size / 1024, 10) + '&nbsp;kB';
@@ -1433,7 +1438,11 @@ function InputfieldImage($) {
 				img.src = fileUrl;
 
 				// Uploading - for Firefox, Google Chrome and Safari
-				xhr = new XMLHttpRequest();
+				if(typeof xhrsub != "undefined") {
+					xhr = xhrsub;
+				} else {
+					xhr = new XMLHttpRequest();
+				}
 
 				// Update progress bar
 				function updateProgress(evt) {
@@ -1449,8 +1458,9 @@ function InputfieldImage($) {
 				// File uploaded: called for each file
 				xhr.addEventListener("load", function() {
 					xhr.getAllResponseHeaders();
-					var response = $.parseJSON(xhr.responseText),
-						wasZipFile = response.length > 1;
+					var response = $.parseJSON(xhr.responseText);
+					if(typeof response.ajaxResponse != "undefined") response = response.ajaxResponse; // ckeupload
+					var	wasZipFile = response.length > 1;
 					if(response.error !== undefined) response = [response];
 					// response = [{error: "Invalid"}];
 
@@ -1582,7 +1592,9 @@ function InputfieldImage($) {
 
 				// Here we go
 				function sendUpload(file, imageData) {
-					xhr.open("POST", postUrl, true);
+					if(typeof xhrsub == "undefined") {
+						xhr.open("POST", postUrl, true);
+					}
 					xhr.setRequestHeader("X-FILENAME", encodeURIComponent(file.name));
 					xhr.setRequestHeader("X-FIELDNAME", fieldName);
 					if(uploadReplace.item) xhr.setRequestHeader("X-REPLACENAME", uploadReplace.file); 
@@ -1626,7 +1638,7 @@ function InputfieldImage($) {
 			 * @param files
 			 * 
 			 */
-			function traverseFiles(files) {
+			function traverseFiles(files, xhr) {
 
 				var toKilobyte = function(i) {
 					return parseInt(i / 1024, 10);
@@ -1654,6 +1666,9 @@ function InputfieldImage($) {
 
 						message = 'Filesize ' + filesizeKB + ' kb is too big. Maximum allowed is ' + maxFilesizeKB + ' kb';
 						$errorParent.append(errorItem(message, files[i].name));
+						
+					} else if(typeof xhr != "undefined") {
+						uploadFile(files[i], extension, xhr);
 
 					} else {
 						uploadFile(files[i], extension);

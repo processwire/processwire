@@ -893,8 +893,13 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		
 		if(is_null($this->value)) $this->value = $this->wire(new Pagefiles($this->wire('page')));
 		if(!$this->destinationPath) $this->destinationPath = $this->value->path();
-		if(!$this->destinationPath || !is_dir($this->destinationPath)) return $this->error($this->_("destinationPath is empty or does not exist"));
-		if(!is_writable($this->destinationPath)) return $this->error($this->_("destinationPath is not writable"));
+		
+		if(!$this->destinationPath || !is_dir($this->destinationPath)) {
+			return $this->error($this->_("destinationPath is empty or does not exist"));
+		}
+		if(!is_writable($this->destinationPath)) {
+			return $this->error($this->_("destinationPath is not writable"));
+		}
 
 		$changed = false; 
 		$total = count($this->value); 
@@ -951,10 +956,37 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		}
 
 		if(count($this->ajaxResponses) && $this->isAjax) {
-			echo json_encode($this->ajaxResponses); 
+			echo $this->renderAjaxResponse();
 		}
 
 		return $this; 
+	}
+
+	/**
+	 * Render JSON response to AJAX request
+	 * 
+	 * @return string
+	 * 
+	 */
+	protected function renderAjaxResponse() {
+		if($this->wire('input')->get('ckeupload')) {
+			// https://docs.ckeditor.com/ckeditor4/docs/#!/guide/dev_file_upload
+			$a = $this->ajaxResponses[0];
+			$response = array(
+				'uploaded' => $a['error'] ? 0 : 1,
+				'fileName' => basename($a['file']),
+				'url' => $a['file'],
+				'ajaxResponse' => $a, // for InputfieldImage.js
+			);
+			if($a['error']) {
+				$response['error'] = array(
+					'message' => $a['message']
+				);
+			}
+			return json_encode($response);
+		} else {
+			return json_encode($this->ajaxResponses);
+		}
 	}
 
 	/**

@@ -66,6 +66,43 @@ function ckeResizeEvent(event) {
 }
 
 /**
+ * Handler for fileUploadRequest event
+ * 
+ * @param event
+ * 
+ */
+function ckeUploadEvent(event) {
+	
+	var xhr = event.data.fileLoader.xhr;
+	var fileLoader = event.data.fileLoader;
+	var configName = event.editor.name; 
+
+	configName = configName.replace('Inputfield_', 'InputfieldCKEditor_');
+	
+	if(typeof ProcessWire.config[configName] == "undefined") {
+		configName = configName.replace(/_ckeditor$/, ''); // inline only
+		if(typeof ProcessWire.config[configName] == "undefined") {
+			return false;
+		}
+	}
+	
+	var uploadFieldName = ProcessWire.config[configName].pwUploadField;
+	var $imageInputfield = $('#Inputfield_' + uploadFieldName); 
+	
+	if($imageInputfield.length) {
+		xhr.open("POST", fileLoader.uploadUrl, true);
+		$imageInputfield.trigger('pwimageupload', {
+			'name': fileLoader.fileName,
+			'file': fileLoader.file,
+			'xhr': xhr
+		});
+
+		// Prevented the default behavior.
+		event.stop();
+	}
+}
+
+/**
  * Attach events common to all CKEditor instances
  *
  * @param editor CKEditor instance
@@ -77,6 +114,7 @@ function ckeInitEvents(editor) {
 	editor.on('focus', ckeFocusEvent);
 	editor.on('change', ckeBlurEvent);
 	editor.on('resize', ckeResizeEvent);
+	editor.on('fileUploadRequest', ckeUploadEvent, null, null, 4); 
 
 	var $textarea = $(editor.element.$);
 	var $inputfield = $textarea.closest('.Inputfield.InputfieldColumnWidth');

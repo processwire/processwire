@@ -22,6 +22,7 @@
  * @property string $extraAllowedContent
  * @property string $formatTags
  * @property string $customOptions
+ * @property array $imageFields
  * 
  *
  */
@@ -31,7 +32,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 159, 
+			'version' => 160, 
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
 			'installs' => array('MarkupHTMLPurifier'), 
 			);
@@ -82,7 +83,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 * Version number for CKEditor directory
 	 *
 	 */
-	const CKEDITOR_VERSION = '4.7.3';
+	const CKEDITOR_VERSION = '4.8.0';
 
 	/**
 	 * Instance of MarkupHTMLPurifier module
@@ -119,6 +120,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$this->set('usePurifier', 1); 
 		$this->set('useACF', 1); 
 		$this->set('toggles', array());
+		$this->set('imageFields', array());
 
 		$this->set('toolbar', '' . 
 			"Format, Styles, -, Bold, Italic, -, RemoveFormat\n" . 
@@ -209,6 +211,47 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		return $path;
 	}
 
+	/**
+	 * Get field name to use for images, or blank if disabled (or unavailable)
+	 * 
+	 * @return string
+	 * 
+	 */
+	protected function getImagesFieldName() {
+		$imageFields = $this->imageFields;
+		if(!is_array($imageFields)) $imageFields = array();
+		if(in_array('x', $imageFields)) return '';
+		$page = $this->hasPage; 
+		if(!$page) return '';
+		$result = '';
+		foreach($imageFields as $name) {
+			if($page->template->hasField($name)) {
+				$result = $name;
+				break;
+			}
+		}
+		if(!$result && !count($imageFields)) {
+			// allow any available images field to be used, except those disallowed by ProcessPageEditImageSelect
+			$skipFields = $this->wire('session')->getFor($this, 'skipImageFields'); 
+			
+			if(!is_array($skipFields)) {
+				$skipFields = array();
+				$skipData = $this->wire('modules')->getModuleConfigData('ProcessPageEditImageSelect');
+				if(!empty($skipData['skipFields'])) $skipFields = explode(' ', $skipData['skipFields']); 
+				$this->wire('session')->setFor($this, 'skipImageFields', $skipFields);
+			}
+			
+			foreach($page->template->fieldgroup as $field) {
+				if(!$field->type instanceof FieldtypeImage) continue;
+				if((int) $field->maxFiles == 1) continue;
+				if(in_array($field->name, $skipFields)) continue;
+				$result = $field->name;		
+				break;
+			}
+		}
+		return $result;
+	}
+
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 
 		static $loaded = false;
@@ -237,21 +280,27 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		if(stripos($this->toolbar, 'Anchor') !== false && stripos($this->removePlugins, 'link') !== false) {
 			$this->removePlugins = preg_replace('/\blink,?\b/i','', $this->removePlugins);
 		}
-		
+
+		$extraPlugins = $this->extraPlugins;
+		$imagesField = $this->getImagesFieldName();
+		if($imagesField) $extraPlugins[] = 'uploadimage';
 
 		$settings = array(
 			'baseHref' => $config->urls->root,
 			'contentsCss' => $contentsCss,
 			'extraAllowedContent' => $this->extraAllowedContent,
-			'extraPlugins' => implode(',', $this->extraPlugins),
+			'extraPlugins' => implode(',', $extraPlugins),
 			'removePlugins' => $this->removePlugins,
 			'toolbar' => $this->toolbarStringToArray($this->toolbar),
 			'format_tags' => rtrim($this->formatTags, '; '),
 			'language' => $this->_x('en', 'language-pack'), // CKEditor default language pack to use
 			// 'enterMode' => 'CKEDITOR.ENTER_P', // already the default, can be left out
 			'entities' => false,
+			'pwUploadField' => $imagesField, 
+			'uploadUrl' => '',
 		);
 
+		if($imagesField) $settings['uploadUrl'] = $this->hasPage->editUrl() . '&InputfieldFileAjax=1&ckeupload=1'; 
 		if(!$this->useACF) $settings['allowedContent'] = true; // disables ACF, per CKEditor docs
 		if($this->rows) $settings['height'] = ($this->rows*2) . 'em'; // set editor height, based on rows value
 
@@ -706,6 +755,24 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$f->columnWidth = 50; 
 		$f->optionColumns = 1;
 		$wrapper->add($f); 
+	
+		/** @var InputfieldAsmSelect $f */
+		$f = $this->modules->get('InputfieldAsmSelect'); 
+		$f->attr('name', 'imageFields');
+		$f->label = $this->_('Images fields that may be used for dragged-in or pasted-in images'); 
+		$f->description = $this->_('If no fields are selected then an available images field will be automatically chosen at runtime. If the option labeled “None” is selected, then the feature will be disabled.'); 
+		$f->icon = 'picture-o';
+		$imageFields = $this->imageFields;
+		if(!is_array($imageFields)) $imageFields = array();
+		if(in_array('x', $imageFields) && count($imageFields) > 1) $imageFields = array('x');
+		foreach($this->wire('fields') as $field) {
+			if(!$field->type instanceof FieldtypeImage) continue;		
+			if((int) $field->maxFiles == 1) continue;
+			$f->addOption($field->name);
+		}
+		$f->addOption('x', $this->_('None (disable drag/paste image uploads)'));
+		$f->attr('value', $imageFields); 
+		$wrapper->add($f);
 
 		$f = $this->modules->get("InputfieldCheckboxes"); 
 		$f->label = $this->_('Beautify Markup Toggles'); 
