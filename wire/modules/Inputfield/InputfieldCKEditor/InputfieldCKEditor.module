@@ -222,7 +222,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		if(!is_array($imageFields)) $imageFields = array();
 		if(in_array('x', $imageFields)) return '';
 		$page = $this->hasPage; 
-		if(!$page) return '';
+		if(!$page || !$page->id || !$page->template) return '';
 		$result = '';
 		foreach($imageFields as $name) {
 			if($page->template->hasField($name)) {
