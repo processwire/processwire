@@ -83,19 +83,20 @@ function setupExecuteVariations() {
 function setupSelectedImage() {
 	
 	var croppingActive = false;
+	var inputPixelsActive = false;
 	var $form = $("#selected_image_settings"); 
 	var $container = $("#selected_image_container");
 	var $img = $("#selected_image");
 	var $hidpi = $("#selected_image_hidpi"); 
 	var fullWidth; // full/original width when not resized
-	var minWidth = parseInt($("#input_width").attr('min'));
-	var minHeight = parseInt($("#input_height").attr('min'));
+	var minWidth = 0; //parseInt($("#input_width").data('min'));
+	var minHeight = 0; // parseInt($("#input_height").data('min'));
 	
 	function setupImage($img) {
 
 		var originalWidth = $img.width();
-		var maxWidth = $("#input_width").attr('max');
-		var maxHeight = $("#input_height").attr('max');
+		var maxWidth = 9999; // $("#input_width").data('max');
+		var maxHeight = 9999; // $("#input_height").data('max');
 		
 		
 		function updateHidpiCheckbox(w) {
@@ -158,8 +159,8 @@ function setupSelectedImage() {
 				alsoResize: "#selected_image_container",
 				maxWidth: maxWidth,
 				maxHeight: maxHeight,
-				minWidth: minWidth < 10 ? 10 : minWidth,
-				minHeight: minHeight < 10 ? 10 : minHeight, 
+				minWidth: 10, //minWidth < 10 ? 10 : minWidth,
+				minHeight: 10, //minHeight < 10 ? 10 : minHeight, 
 				start: function() {
 					$form.addClass('resizing_active'); 
 				},
@@ -299,35 +300,65 @@ function setupSelectedImage() {
 
 		}
 		
-		function inputPixelsChange() {
+		function inputPixelsChange(event) {
+			
+			if(inputPixelsActive) return; 
 			if($(this).parents("#crop_coordinates").length) return;
+			
+			inputPixelsActive = true;
 
-			var w, h;
-
+			var w, h, 
+				abort = false,
+				noChange = false, 
+				oldWidth = $img.attr('width'),
+				oldHeight = $img.attr('height'),
+				origWidth = parseInt($img.attr('data-origwidth')),
+				origHeight = parseInt($img.attr('data-origheight'));
+		
+			oldWidth = typeof oldWidth == "undefined" ? $img.width() : parseInt(oldWidth);
+			oldHeight = typeof oldHeight == "undefined" ? $img.height() : parseInt(oldHeight);
+		
 			if($(this).attr('id') == 'input_width') {
 				w = parseInt($(this).val());
-				h = (w / $img.attr('width')) * $img.attr('height');
+				h = (origHeight / (origWidth / w));
+				if(w == oldWidth) noChange = true;
 			} else {
 				h = parseInt($(this).val());
-				w = (h / $img.attr('height')) * $img.attr('width');
+				w = Math.round((h / oldHeight) * oldWidth);
+				w = (origWidth / (origHeight / h));
+				if(h == oldHeight) noChange = true;
 			}
 
-			w = Math.floor(w);
-			h = Math.floor(h);
-			
-			if(w < 1 || h < 1 || w == $img.attr('width') || h == $img.attr('height') || w > maxWidth || (minWidth > 1 && w < minWidth) || (minHeight > 1 && h < minHeight)) {
-				$("#input_width").val($img.attr('width'));
-				$("#input_height").val($img.attr('height'));
+			if(w < 1 || h < 1 || noChange) {
+				// requested dimension too small, or image already at requested dimension
+				abort = 1;
+			} else if(maxWidth > 0 && w > maxWidth) {
+				// requested dimension exceeds maximum
+				abort = 2;
+			} else if((minWidth > 1 && w < minWidth) || (minHeight > 1 && h < minHeight)) {
+				// requested dimension smaller than minimum allowed
+				abort = 3;
+			} 
+		
+			if(abort) {
+				$("#input_width").val(oldWidth);
+				$("#input_height").val(oldHeight);
+				inputPixelsActive = false;
 				return false;
 			}
+			
+			var wRounded = Math.round(w);
+			var hRounded = Math.round(h);
 
 			setupImageResizable();
-			$("#input_height").val(h);
+			$("#input_height").val(hRounded);
 			$container.width(w).height(h);
 			$img.parent('.ui-wrapper').width(w).height(h); 
-			$img.width(w).height(h).attr('width', w).attr('height', h);
-			$img.addClass('resized');
+			$img.width(w).height(h)
+				.attr('width', wRounded).attr('height', hRounded)
+				.addClass('resized');
 			populateResizeDimensions();
+			inputPixelsActive = false;
 		}
 		
 		function alignClassChange() {
@@ -354,6 +385,10 @@ function setupSelectedImage() {
 				var origWidth = parseInt($img.attr('data-origwidth')); 
 				if(origWidth > maxWidth) origWidth = maxWidth;
 				//console.log('origWidth=' + origWidth);
+				if(origWidth > $(window).width()) {
+					// new width exceeds window size
+					$('#content').css('overflow-x', 'auto');
+				}
 				$("#input_width").val(origWidth).change();
 			});
 			
@@ -361,7 +396,7 @@ function setupSelectedImage() {
 				var imgWidth = $img.width();
 				var imgHeight = $img.height();
 				var windowWidth = $(window).width() - 30;
-				var windowHeight = $(window).height() - $("#wrap_info").height() - 20;
+				var windowHeight = $(window).height() - $("#wrap_info").height() - 60;
 				var updated = false;
 				
 				if(imgHeight > windowHeight) {
@@ -431,7 +466,7 @@ function setupSelectedImage() {
 					$("#wrap_description").slideDown('fast');
 				}
 			}); 
-		
+	
 			/*
 			$("#rotate_right_action, #rotate_left_action").click(function() {
 				$img.resizable('destroy');
@@ -495,15 +530,19 @@ function setupSelectedImage() {
 		}
 		
 		function fitImageToWindow() {
+			
 			var winwidth = $(window).width() - 30;
-			var winheight = $(window).height() - ($("#wrap_info").height() + 80);
+			var winheight = $(window).height() - ($("#wrap_info").height() + 60);
+			
 			if($img.width() > winwidth) {
 				$img.width(winwidth).css('height', 'auto').removeAttr('height');
 				$img.removeAttr('height');
 			}
+			
 			if($img.height() > winheight) {
 				$img.removeAttr('width').css('width', 'auto').height(winheight);
 			}
+			
 			$container.width($img.width()).height($img.height());
 		}
 		
@@ -555,8 +594,7 @@ function setupSelectedImage() {
 } // setupSelectedImage()
 
 $(document).ready(function() {
-	
-	var $page_id = $("#page_id"); 
+	var $page_id = $("#page_id");
 	if($page_id.length > 0) {
 		var page_id = $page_id.val();
 		$page_id.bind("pageSelected", function (event, data) {
@@ -566,11 +604,13 @@ $(document).ready(function() {
 	}
 
 	if($("#selected_image").length > 0) {
-		setupSelectedImage();
+		setTimeout(function() {
+			setupSelectedImage();
+		}, 250); 
 	} else if($("#ImageVariations").length > 0) {
 		setupExecuteVariations();
 	}
-	
+
 	enablePWImageDialogButtons();
 
 	// prevent enter from submitting any of our forms
@@ -580,6 +620,5 @@ $(document).ready(function() {
 			return false;
 		}
 	});
-
 
 }); 

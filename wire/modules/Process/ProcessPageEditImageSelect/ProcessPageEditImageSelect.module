@@ -837,10 +837,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				"</span>" .
 				"<span id='selected_image_pixels' class='hide_when_crop'>" . 
 					"<label><input title='$labels[width]' name='width' id='input_width' class='input_pixels' " .
-						"type='number' size='6' step='1' min='$minWidth' max='$originalWidth' value='$width' /></label>" .
+						"type='number' size='6' step='1' data-min='$minWidth' data-max='$originalWidth' value='$width' /></label>" .
 					"&nbsp;<i class='fa fa-times'></i>&nbsp;" . 
 					"<label><input title='$labels[height]' name='height' id='input_height' class='input_pixels' " . 
-						"type='number' size='6' step='1' min='$minHeight' max='$originalHeight' value='$height' /></label>" . 
+						"type='number' size='6' step='1' data-min='$minHeight' data-max='$originalHeight' value='$height' /></label>" . 
 				"</span> " .
 				"<span id='selected_image_checkboxes' class='hide_when_crop'>" . 
 					"<span id='wrap_link_original' class='show_when_rte'>" .
