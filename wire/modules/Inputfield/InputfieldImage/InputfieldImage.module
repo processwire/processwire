@@ -787,7 +787,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			"<option value=''>" . $this->_('Actions') . "</option>";
 		
 		foreach($actions as $name => $label) {
-			$out .= "<option value='$name'>" . $sanitizer->entities($label) . "</option>";
+			$out .= "<option value='$name'>" . $sanitizer->entities1($label) . "</option>";
 		}
 
 		$out .= "</select> ";
