@@ -88,20 +88,8 @@ class ImageSizer extends Wire {
 	 *
 	 */
 	public function __construct($filename = '', $options = array()) {
-		
-		if(isset($options['forceEngine'])) {
-			$this->forceEngineName = $options['forceEngine'];
-			unset($options['forceEngine']);
-		}
-
-		$this->filename = $filename;
-		$this->initialOptions = $options;
-		
-		if(strlen($filename)) {
-			$imageInspector = new ImageInspector($filename);
-			$this->inspectionResult = $imageInspector->inspect($filename, true);
-			$this->engine = $this->newImageSizerEngine($filename, $options, $this->inspectionResult);
-		}
+		if(!empty($options)) $this->setOptions($options); 
+		if(!empty($filename)) $this->setFilename($filename);
 	}
 	
 	/**
@@ -158,6 +146,7 @@ class ImageSizer extends Wire {
 		
 		if(empty($inspectionResult) && $filename && is_readable($filename)) {
 			$imageInspector = new ImageInspector($filename);
+			$this->wire($imageInspector); 
 			$inspectionResult = $imageInspector->inspect($filename, true);
 			$this->inspectionResult = $inspectionResult;
 		}
@@ -226,17 +215,8 @@ class ImageSizer extends Wire {
 	 */
 	public function ___resize($targetWidth, $targetHeight = 0) {
 		
-		if(empty($this->filename)) throw new WireException('No file to resize: please call setFilename($file) before resize()');
-		
-		if(empty($this->engine)) {
-			// set the engine, and check if the engine is ready to use
-			$this->engine = $this->newImageSizerEngine();
-			if(!$this->engine) {
-				throw new WireException('There seems to be no support for the GD image library on your host?');
-			}
-		}
-
-		$success = $this->engine->resize($targetWidth, $targetHeight);
+		$engine = $this->getEngine();
+		$success = $engine->resize($targetWidth, $targetHeight);
 		
 		if(!$success) {
 			// fallback to GD
@@ -297,8 +277,12 @@ class ImageSizer extends Wire {
 	 * 
 	 */
 	public function setOptions(array $options) {
+		if(isset($options['forceEngine'])) {
+			$this->setForceEngine($options['forceEngine']);
+			unset($options['forceEngine']);
+		}
 		$this->initialOptions = array_merge($this->initialOptions, $options);
-		if($this->engine) $this->engine->setOptions($options);
+		if($this->engine) $this->engine->setOptions($this->initialOptions);
 		return $this;
 	}
 
@@ -329,16 +313,48 @@ class ImageSizer extends Wire {
 	public function setUpscaling($value = true) { return $this->setOptions(array('upscaling', $value)); }
 	public function setUseUSM($value = true) { return $this->setOptions(array('useUSM', $value)); }
 
-	// getters (@todo phpdocs)
-	public function getWidth() { return $this->engine->image['width']; }
-	public function getHeight() { return $this->engine->image['height']; }
-	public function getFilename() { return $this->engine->filename; }
-	public function getExtension() { return $this->engine->extension; }
-	public function getImageType() { return $this->engine->imageType; }
-	public function isModified() { return $this->engine->modified; }
-	public function getOptions() { return $this->engine->getOptions(); }
-	public function getEngine() { return $this->engine; }
-	public function __get($key) { return $this->engine->__get($key); }
+	public function getWidth() { 
+		$image = $this->getEngine()->get('image');
+		return $image['width']; 
+	}
+	public function getHeight() { 
+		$image = $this->getEngine()->get('image');
+		return $image['height']; 
+	}
+	
+	public function getFilename() { return $this->getEngine()->filename; }
+	public function getExtension() { return $this->getEngine()->extension; }
+	public function getImageType() { return $this->getEngine()->imageType; }
+	public function isModified() { return $this->getEngine()->modified; }
+	public function getOptions() { return $this->getEngine()->getOptions(); }
+
+	/**
+	 * Get the current ImageSizerEngine
+	 * 
+	 * @return ImageSizerEngine
+	 * @throws WireException
+	 * 
+	 */
+	public function getEngine() { 
+		
+		if($this->engine) return $this->engine;
+		
+		if(empty($this->filename)) {
+			throw new WireException('No file to process: please call setFilename($file) before calling other methods');
+		}
+
+		$imageInspector = new ImageInspector($this->filename);
+		$this->inspectionResult = $imageInspector->inspect($this->filename, true);
+		$this->engine = $this->newImageSizerEngine($this->filename, $this->initialOptions, $this->inspectionResult);
+		// set the engine, and check if the engine is ready to use
+		if(!$this->engine) {
+			throw new WireException('There seems to be no support for the GD image library on your host?');
+		}
+
+		return $this->engine;
+	}
+	
+	public function __get($key) { return $this->getEngine()->__get($key); }
 
 	/**
 	 * ImageInformation from Image Inspector in short form or full RawInfoData
@@ -348,7 +364,8 @@ class ImageSizer extends Wire {
 	 *
 	 */
 	public function getImageInfo($rawData = false) {
-		
+	
+		$this->getEngine();
 		if($rawData) return $this->inspectionResult;
 		$imageType = $this->inspectionResult['info']['imageType'];
 		$type = '';
@@ -507,7 +524,9 @@ class ImageSizer extends Wire {
 	 *
 	 */
 	static public function imageResetIPTC($image) {
+		$wire = null;
 		if($image instanceof Pageimage) {
+			$wire = $image;
 			$filename = $image->filename;
 		} else if(is_readable($image)) {
 			$filename = $image;
@@ -515,8 +534,72 @@ class ImageSizer extends Wire {
 			return null;
 		}
 		$sizer = new ImageSizerEngineGD($filename);
+		if($wire) $wire->wire($sizer);
 		$result = false !== $sizer->writeBackIPTC($filename) ? true : false;
 		return $result;
 	}
+	
+	/**
+	 * Rotate image by given degrees
+	 *
+	 * @param int $degrees
+	 * @return bool
+	 *
+	 */
+	public function rotate($degrees) {
+		return $this->getEngine()->rotate($degrees);
+	}
+
+	/**
+	 * Flip image vertically
+	 *
+	 * @return bool
+	 *
+	 */
+	public function flipVertical() {
+		return $this->getEngine()->flipVertical();
+	}
+
+	/**
+	 * Flip image horizontally
+	 *
+	 * @return bool
+	 *
+	 */
+	public function flipHorizontal() {
+		return $this->getEngine()->flipHorizontal();
+	}
+
+	/**
+	 * Flip both vertically and horizontally
+	 *
+	 * @return bool
+	 *
+	 */
+	public function flipBoth() {
+		return $this->getEngine()->flipBoth();
+	}
+
+	/**
+	 * Convert image to greyscale (black and white)
+	 *
+	 * @return bool
+	 *
+	 */
+	public function convertToGreyscale() {
+		return $this->getEngine()->convertToGreyscale();
+	}
+
+	/**
+	 * Convert image to sepia tone
+	 *
+	 * @param int $sepia Sepia amount
+	 * @return bool
+	 *
+	 */
+	public function convertToSepia($sepia = 55) {
+		return $this->getEngine()->convertToSepia('', $sepia);
+	}
+
 
 }

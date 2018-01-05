@@ -125,7 +125,7 @@ function InputfieldImage($) {
 				});
 				$el.removeClass('InputfieldImageSorting');
 			},
-			cancel: ".InputfieldImageEdit"
+			cancel: ".InputfieldImageEdit,input,textarea,button,select,option"
 		};
 
 		$el.sortable(sortableOptions);
@@ -232,8 +232,9 @@ function InputfieldImage($) {
 	function checkInputfieldWidth($inputfield) {
 		
 		var narrowItems = [];
+		var mediumItems = [];
 		var wideItems = [];
-		var ni = 0, wi = 0;
+		var ni = 0, mi = 0, wi = 0;
 		var $inputfields;
 	
 		if(typeof $inputfield == "undefined") {
@@ -242,7 +243,7 @@ function InputfieldImage($) {
 			$inputfields = $inputfield;
 		}
 	
-		$inputfields.removeClass('InputfieldImageNarrow');
+		$inputfields.removeClass('InputfieldImageNarrow InputfieldImageMedium InputfieldImageWide');
 		
 		$inputfields.each(function() {
 			var $item = $(this);
@@ -251,12 +252,26 @@ function InputfieldImage($) {
 			if(width <= 500) {
 				narrowItems[ni] = $item;
 				ni++;
+			} else if(width <= 900) {
+				mediumItems[mi] = $item;
+				mi++;
+			} else {
+				wideItems[wi] = $item;
+				wi++;
 			}
 		});
 		
 		for(var n = 0; n < ni; n++) {
 			var $item = narrowItems[n];	
 			$item.addClass('InputfieldImageNarrow');
+		}
+		for(var n = 0; n < mi; n++) {
+			var $item = mediumItems[n];
+			$item.addClass('InputfieldImageMedium');
+		}
+		for(var n = 0; n < wi; n++) {
+			var $item = wideItems[n];
+			$item.addClass('InputfieldImageWide');
 		}
 	}
 
@@ -1015,6 +1030,15 @@ function InputfieldImage($) {
 		}
 		
 		checkInputfieldWidth($inputfield);
+	
+		$inputfield.on('change', '.InputfieldFileActionSelect', function() {
+			var $note = $(this).next('.InputfieldFileActionNote');
+			if($(this).val().length) {
+				$note.fadeIn();
+			} else {
+				$note.hide();
+			}
+		}); 
 	}
 
 	/*** UPLOAD **********************************************************************************/

@@ -399,6 +399,36 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	abstract protected function processResize($srcFilename, $dstFilename, $fullWidth, $fullHeight, $finalWidth, $finalHeight);
 
 	/**
+	 * Process rotate of an image
+	 * 
+	 * @param string $srcFilename
+	 * @param string $dstFilename
+	 * @param int $degrees Clockwise degrees, i.e. 90, 180, 270, -90, -180, -270
+	 * @return bool
+	 * 
+	 */
+	protected function processRotate($srcFilename, $dstFilename, $degrees) { 
+		if($srcFilename && $dstFilename && $degrees) {}
+		$this->error('rotate not implemented for ' . $this->className());
+		return false;
+	}
+
+	/**
+	 * Process vertical or horizontal flip of an image
+	 * 
+	 * @param string $srcFilename
+	 * @param string $dstFilename
+	 * @param bool $flipVertical True if flip is vertical, false if flip is horizontal
+	 * @return bool
+	 * 
+	 */
+	protected function processFlip($srcFilename, $dstFilename, $flipVertical) {
+		if($srcFilename && $dstFilename && $flipVertical) {}
+		$this->error('flip not implemented for ' . $this->className());
+		return false;
+	}
+
+	/**
 	 * Get array of image file extensions this ImageSizerModule can process
 	 *
 	 * @return array of uppercase file extensions, i.e. ['PNG', 'JPG']
@@ -1467,6 +1497,118 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		$this->loadImageInfo($this->filename, true);
 
 		return true;
+	}
+
+	/**
+	 * Just rotate image by number of degrees
+	 * 
+	 * @param int $degrees
+	 * @param string $dstFilename Optional destination filename. If not present, source will be overwritten. 
+	 * @return bool True on success, false on fail
+	 * 
+	 */
+	public function rotate($degrees, $dstFilename = '') {
+
+		$degrees = (int) $degrees;
+		$srcFilename = $this->filename;
+		
+		if(empty($dstFilename)) $dstFilename = $srcFilename;
+		
+		if($degrees > 360) $degrees = 360 - $degrees;
+		if($degrees < -360) $degrees = $degrees - 360;
+
+		if($degrees == 0 || $degrees == 360 || $degrees == -360) {
+			if($dstFilename != $this->filename) wireCopy($this->filename, $dstFilename);
+			return true;
+		}
+
+		if($srcFilename == $dstFilename) {
+			// src and dest are the same, so use a temporary file 
+			$n = 1;
+			do {
+				$tmpFilename = dirname($dstFilename) . "/.ise$n-" . basename($dstFilename);
+			} while(file_exists($tmpFilename) && $n++); 
+		} else {
+			// src and dest are different files
+			$tmpFilename = $dstFilename;
+		}
+		
+		$result = $this->processRotate($srcFilename, $tmpFilename, $degrees);
+		
+		if($result) {
+			// success
+			if($tmpFilename != $dstFilename) {
+				if(is_file($dstFilename)) unlink($dstFilename);
+				rename($tmpFilename, $dstFilename);
+			}
+			wireChmod($dstFilename);
+		} else {
+			// fail
+			if(is_file($tmpFilename)) unlink($tmpFilename);	
+		}
+		
+		return $result;
+	}
+
+	/**
+	 * Flip vertically 
+	 * 
+	 * @param string $dstFilename
+	 * @return bool
+	 * 
+	 */
+	public function flipVertical($dstFilename = '') {
+		if(empty($dstFilename)) $dstFilename = $this->filename;
+		return $this->processFlip($this->filename, $dstFilename, 'vertical'); 
+	}
+
+	/**
+	 * Flip horizontally 
+	 * 
+	 * @param string $dstFilename
+	 * @return bool
+	 * 
+	 */	
+	public function flipHorizontal($dstFilename = '') {
+		if(empty($dstFilename)) $dstFilename = $this->filename;
+		return $this->processFlip($this->filename, $dstFilename, 'horizontal'); 
+	}
+
+	/**
+	 * Flip both vertically and horizontally
+	 * 
+	 * @param string $dstFilename
+	 * @return bool
+	 * 
+	 */
+	public function flipBoth($dstFilename = '') {
+		if(empty($dstFilename)) $dstFilename = $this->filename;
+		return $this->processFlip($this->filename, $dstFilename, 'both');
+	}
+	
+	/**
+	 * Convert image to greyscale
+	 *
+	 * @param string $dstFilename If different from source file
+	 * @return bool
+	 *
+	 */
+	public function convertToGreyscale($dstFilename = '') {
+		if($dstFilename) {}
+		return false;
+	}
+
+	/**
+	 * Convert image to sepia
+	 *
+	 * @param string $dstFilename If different from source file
+	 * @param float|int $sepia Sepia value
+	 * @return bool
+	 *
+	 */
+	public function convertToSepia($dstFilename = '', $sepia = 55) {
+		if($dstFilename && $sepia) {}
+		return false;
 	}
 
 	/**

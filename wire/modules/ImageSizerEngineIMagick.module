@@ -11,7 +11,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'IMagick Image Sizer',
-			'version' => 1,
+			'version' => 2,
 			'summary' => "Upgrades image manipulations to use PHP's ImageMagick library when possible.",
 			'author' => 'Horst Nogajski',
 			'autoload' => false,
@@ -377,7 +377,139 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		$this->modified = true;
 		return true;
 	}
+	
+	/**
+	 * Process rotate of an image
+	 *
+	 * @param string $srcFilename
+	 * @param string $dstFilename
+	 * @param int $degrees Clockwise degrees, i.e. 90, 180, 270, -90, -180, -270
+	 * @return bool
+	 *
+	 */
+	protected function processRotate($srcFilename, $dstFilename, $degrees) {
 
+		$success = false;
+		$imagick = $this->getImagick($srcFilename);
+		if($imagick->rotateImage(new \ImagickPixel('#00000000'), $degrees)) {
+			$success = $this->processSave($imagick, $dstFilename); 
+		}
+		
+		return $success;
+	}
+
+	/**
+	 * Process vertical or horizontal flip of an image
+	 *
+	 * @param string $srcFilename
+	 * @param string $dstFilename
+	 * @param string $flipType Specify vertical, horizontal or both
+	 * @return bool
+	 *
+	 */
+	protected function processFlip($srcFilename, $dstFilename, $flipType) {
+		
+		$imagick = $this->getImagick($srcFilename); 
+		
+		if($flipType == 'vertical') {
+			$success = $imagick->flipImage();
+		} else if($flipType == 'horizontal') {
+			$success = $imagick->flopImage();
+		} else {
+			$success = $imagick->flipImage() && $imagick->flopImage();
+		}
+		
+		if($success) $success = $this->processSave($imagick, $dstFilename); 
+		
+		return $success;
+	}
+
+	/**
+	 * Reduce dimensions of image by half (using Imagick minifyImage method)
+	 * 
+	 * @param string $dstFilename If different from filename specified by setFilename()
+	 * @return bool
+	 * 
+	 */
+	public function reduceByHalf($dstFilename = '') {
+		$imagick = $this->getImagick($this->filename); 
+		$success = $imagick->minifyImage();
+		if($success) $success = $this->processSave($imagick, $dstFilename); 
+		return $success;
+	}
+
+	/**
+	 * Convert image to greyscale
+	 * 
+	 * @param string $dstFilename
+	 * @return bool
+	 * 
+	 */
+	public function convertToGreyscale($dstFilename = '') {
+		$imagick = $this->getImagick($this->filename); 
+		$success = $imagick->transformImageColorspace(\imagick::COLORSPACE_GRAY);
+		if($success) $success = $this->processSave($imagick, $dstFilename);
+		return $success;
+	}
+
+	/**
+	 * Convert image to sepia
+	 * 
+	 * @param string $dstFilename
+	 * @param float|int $sepia Sepia threshold
+	 * @return bool
+	 * 
+	 */
+	public function convertToSepia($dstFilename = '', $sepia = 55) {
+		$sepia += 35; 
+		$imagick = $this->getImagick($this->filename);
+		$success = $imagick->sepiaToneImage((float) $sepia); 
+		if($success) $success = $this->processSave($imagick, $dstFilename);
+		return $success;
+	}
+
+	/**
+	 * Save action image to file
+	 * 
+	 * @param \IMagick $imagick
+	 * @param string $dstFilename
+	 * @return bool
+	 * 
+	 */
+	protected function processSave(\IMagick $imagick, $dstFilename) {
+		if(empty($dstFilename)) $dstFilename = $this->filename;
+		$ext = strtolower(pathinfo($dstFilename, PATHINFO_EXTENSION)); 
+		if(in_array($ext, array('jpg', 'jpeg'))) {
+			if($this->interlace) {
+				$imagick->setInterlaceScheme(\Imagick::INTERLACE_JPEG);
+			}
+		}
+		$imagick->setImageCompressionQuality($this->quality);
+		$fp = fopen($dstFilename, 'wb');
+		if($fp === false) return false;
+		$success = $imagick->writeImageFile($fp);
+		fclose($fp);
+		return $success;
+	}
+
+	/**
+	 * Get instance of Imagick
+	 * 
+	 * @param string $filename Optional filename to read
+	 * @return \Imagick
+	 * @throws WireException
+	 * 
+	 */
+	public function getImagick($filename = '') {
+		$imagick = new \Imagick();
+		if($filename) {
+			if(!$imagick->readImage($filename)) {
+				throw new WireException("Imagick unable to load file: " . basename($filename));
+			}
+		}
+		return $imagick;
+	}
+	
 	/**
 	 * Sharpen the image
 	 * 

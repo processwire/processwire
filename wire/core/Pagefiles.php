@@ -47,6 +47,7 @@
  * @property Page $page Returns the Page that contains this set of files, same as the getPage() method. #pw-group-other
  * @property Field $field Returns the Field that contains this set of files, same as the getField() method. #pw-group-other
  * @method Pagefiles delete() delete(Pagefile $file) Removes the file and deletes from disk when page is saved. #pw-group-manipulation
+ * @method Pagefile|bool clone(Pagefile $item, array $options = array()) Duplicate a file and return it. #pw-group-manipulation
  *
  */
 
@@ -83,6 +84,14 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 *
 	 */
 	protected $renameQueue = array();
+
+	/**
+	 * Items to be made non-temp upon page save (like duplicated files)
+	 *
+	 * @var array
+	 *
+	 */
+	protected $unTempQueue = array();
 
 	/**
 	 * IDs of any hooks added in this instance, used by the destructor
@@ -342,22 +351,33 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 *
 	 */
 	public function hookPageSave() {
+		
 		if($this->page && $this->field && !$this->page->isChanged($this->field->name)) return $this;
+		
+		foreach($this->unTempQueue as $item) {
+			$item->isTemp(false);
+		}
+
 		foreach($this->unlinkQueue as $item) {
 			$item->unlink();
 		}
+		
 		foreach($this->renameQueue as $item) {
 			$name = $item->get('_rename'); 
 			if(!$name) continue;
 			$item->rename($name); 
 		}
+
+		$this->unTempQueue = array();
 		$this->unlinkQueue = array();
+		$this->renameQueue = array();
 		$this->removeHooks();
+		
 		return $this; 
 	}
 	
 	protected function addSaveHook() {
-		if(!count($this->unlinkQueue) && !count($this->renameQueue)) {
+		if(!count($this->unlinkQueue) && !count($this->renameQueue) && !count($this->unTempQueue)) {
 			$this->hookIDs[] = $this->page->filesManager->addHookBefore('save', $this, 'hookPageSave');
 		}
 	}
@@ -438,6 +458,64 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		$this->trackChange('renameQueue', $item->name, $name);
 		$this->addSaveHook();
 		return $this;
+	}
+
+	/**
+	 * Duplicate the Pagefile and add to this Pagefiles instance
+	 * 
+	 * After duplicating a file, you must follow up with a save of the page containing it.
+	 * Otherwise the file is marked for deletion. 
+	 * 
+	 * @param Pagefile $item Pagefile item to duplicate
+	 * @param array $options Options to modify default behavior:
+	 *  - `action` (string): Specify "append", "prepend", "after", "before" or blank to only return Pagefile. (default="after")
+	 *  - `pagefiles` (Pagefiles): Pagefiles instance file should be duplicated to. (default=$this)
+	 * @return Pagefile|bool Returns new Pagefile or boolean false on fail
+	 * 
+	 */
+	public function ___clone(Pagefile $item, array $options = array()) {
+		
+		$defaults = array(
+			'action' => 'after', 
+			'pagefiles' => $this, 
+		);
+	
+		$options = array_merge($defaults, $options);
+		/** @var Pagefiles $pagefiles */
+		$pagefiles = $options['pagefiles'];
+		$itemCopy = false;
+		$path = $pagefiles->path();		
+		$parts = explode('.', $item->basename(), 2); 
+		$n = $path === $this->path() ? 1 : 0;
+		
+		if($n && preg_match('/^(.+?)-(\d+)$/', $parts[0], $matches)) {
+			$parts[0] = $matches[1];
+			$n = (int) $matches[2];
+		}
+		
+		do {
+			$pathname = $n ? ($path . $parts[0] . "-$n." . $parts[1]) : ($path . $item->basename);
+		} while(file_exists($pathname) && $n++);
+		
+		if(copy($item->filename(), $pathname)) {
+			$this->wire('files')->chmod($pathname);
+			
+			$itemCopy = clone $item;
+			$itemCopy->setPagefilesParent($pagefiles);
+			$itemCopy->setFilename($pathname);
+			$itemCopy->isTemp(true);
+			
+			switch($options['action']) {
+				case 'append': $pagefiles->append($itemCopy); break;
+				case 'prepend': $pagefiles->prepend($itemCopy); break;
+				case 'before': $pagefiles->insertBefore($itemCopy, $item); break;
+				case 'after': $pagefiles->insertAfter($itemCopy, $item); break;
+			}
+			
+			$pagefiles->unTempQueue($itemCopy); 
+		} 
+		
+		return $itemCopy;
 	}
 
 	/**
@@ -755,6 +833,19 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 			$this->message("Removed '{$this->field->name}' temp file(s) for page {$this->page->path} - " . implode(', ', $removed), Notice::debug | Notice::log); 
 		}
 		return count($removed); 
+	}
+
+	/**
+	 * Add Pagefile as item to have temporary status removed when Page is saved
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Pagefile $pagefile
+	 * 
+	 */
+	public function unTempQueue(Pagefile $pagefile) {
+		$this->addSaveHook();
+		$this->unTempQueue[] = $pagefile;	
 	}
 
 	/**

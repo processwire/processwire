@@ -845,3 +845,8 @@ $itemPadding: 0.4em;
 		} // .gridImage
 	} // .InputfieldImageNarrow
 } // .InputfieldImageEditAll
+
+.InputfieldFileActionNote {
+	display: none;
+	white-space: nowrap;
+}

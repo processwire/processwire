@@ -533,4 +533,6 @@
     text-align: center;
     display: block; }
 
-/*# sourceMappingURL=InputfieldImage.css.map */
+.InputfieldFileActionNote {
+  display: none;
+  white-space: nowrap; }
