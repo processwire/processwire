@@ -86,6 +86,8 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			'*=' =>	__('Contains phrase or partial word', $f),
 			'%=' =>	__('Contains phrase/word using LIKE', $f),
 			'~=' =>	__('Contains all the words', $f),
+			'^=' =>	__('Starts with', $f),
+			'$=' =>	__('Ends with', $f),
 			);
 	}
 
