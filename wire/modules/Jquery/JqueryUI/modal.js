@@ -188,7 +188,8 @@ function pwModalWindow(href, options, size) {
 	$iframe.data('settings', settings);
 	$iframe.load(function() {
 		if(typeof settings.title == "undefined" || !settings.title) {
-			$iframe.dialog('option', 'title', $iframe.contents().find('title').text());
+			var title = $('<textarea />').text($iframe.contents().find('title').text()).html();
+			$iframe.dialog('option', 'title', title); 
 		}
 		$iframe.contents().find('form').css('-webkit-backface-visibility', 'hidden'); // to prevent jumping
 	}); 
