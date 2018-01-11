@@ -506,6 +506,7 @@ class PageFrontEdit extends WireData implements Module {
 	
 			$fields = array();
 			$inlineSupported = false;
+			$p = new NullPage();
 			
 			if($names) {
 				$p = $page;
@@ -666,7 +667,6 @@ class PageFrontEdit extends WireData implements Module {
 		$scripts = array();
 		$className = $this->className();
 		
-		$modules = $this->wire('modules');
 		$config = $this->wire('config');
 		$draft = (int) $this->wire('input')->get('draft');
 		$adminTheme = $this->wire('user')->admin_theme;
@@ -804,8 +804,7 @@ class PageFrontEdit extends WireData implements Module {
 		
 		if(strpos($formatted, "id=pw-editor-$field->name")) return $formatted;
 
-		$unformatted = $page->getUnformatted($field->name);
-		if(is_object($unformatted)) $unformatted = (string) $unformatted; 
+		$unformatted = $this->getUnformattedValue($page, $field);
 		$this->inlineEditors[$field->name] = $field->name;
 
 		// make sure we've got any initialization from the Inputfield
@@ -1078,6 +1077,7 @@ class PageFrontEdit extends WireData implements Module {
 				if($language && $useLanguages) {
 					$value = $page->get($name);
 					if(is_object($value) && in_array('LanguagesValueInterface', wireClassImplements($value))) {
+						/** @var LanguagesValueInterface $value */
 						$value->setLanguageValue($language, $inputfield->attr('value'));
 						$page->set($name, $value);
 						$page->trackChange($name);
@@ -1125,7 +1125,7 @@ class PageFrontEdit extends WireData implements Module {
 			foreach($fields as $key => $value) {
 				if(strpos($key, $page->id . '__') !== 0) continue;
 				$name = $names[$key];	
-				$data['unformatted'][$key] = (string) $page->getUnformatted($name);
+				$data['unformatted'][$key] = (string) $this->getUnformattedValue($page, $name);
 				$data['formatted'][$key] = (string) $page->getFormatted($name);
 			}
 		}
@@ -1133,6 +1133,47 @@ class PageFrontEdit extends WireData implements Module {
 		$data['error'] = trim($data['error']);
 		
 		return $data;
+	}
+	
+	/**
+	 * Get an unformatted Page value suitable for inclusion in existing markup
+	 * 
+	 * @param Page $page
+	 * @param Field|string $name Field object or name
+	 * @return string|int|float
+	 * 
+	 */
+	protected function getUnformattedValue(Page $page, $name) {
+		
+		if($name instanceof Field) {
+			$field = $name;
+			$name = $field->name;
+		} else {
+			$field = $this->wire('fields')->get($name);
+		}
+		
+		$unformatted = $page->getUnformatted($name);
+		if(is_object($unformatted)) $unformatted = (string) $unformatted;
+		
+		$purifyHTML = true;
+
+		if($field && $field->type instanceof FieldtypeTextarea) {
+			$contentType = (int) $field->get('contentType');
+			if($field->get('inputfieldClass') == 'InputfieldCKEditor' || $contentType == 1 || $contentType == 2) {
+				// HTML is expected and allowed
+				$purifyHTML = false;
+			}
+		}
+
+		if(is_string($unformatted) && $purifyHTML && (strpos($unformatted, '<') !== false || strpos($unformatted, '&') !== false)) {
+			// string might have some HTML in it, allow only a purified version through
+			/** @var Sanitizer $sanitizer */
+			$unformatted = trim($unformatted); 
+			$sanitizer = $this->wire('sanitizer');
+			$unformatted = $sanitizer->purify(trim($unformatted));
+		}
+		
+		return $unformatted;
 	}
 }
 
