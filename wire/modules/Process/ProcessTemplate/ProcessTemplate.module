@@ -993,10 +993,10 @@ class ProcessTemplate extends Process {
 			$desc = $field->label;
 			$maxDesc = 30;
 			if(strlen($desc) > $maxDesc) {
-				$desc = $this->wire('sanitizer')->entities(substr($desc, 0, $maxDesc));
+				$desc = substr($desc, 0, $maxDesc);
 				$pos = strrpos($desc, ' ');
 				if($pos) $desc = substr($desc, 0, strrpos($desc, ' '));
-				$desc .= '&hellip;';
+				$desc .= '…';
 			}
 
 			$status = str_replace('Fieldtype', '', $field->type);
@@ -1010,7 +1010,7 @@ class ProcessTemplate extends Process {
 		
 		$attrs = array(
 			'data-status' => $icons . $status,
-			'data-desc' => $desc
+			'data-desc' => $this->wire('sanitizer')->entities($desc)
 			);
 
 		if($field->icon) {

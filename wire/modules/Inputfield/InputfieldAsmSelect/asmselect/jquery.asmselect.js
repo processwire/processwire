@@ -619,11 +619,15 @@
 										var $asmSetDesc = $icontents.find('#' + options.listItemDescClass); // first try to find by ID
 										if($asmSetDesc.length == 0) $asmSetDesc = $icontents.find(':input.' + options.listItemDescClass); // then by class, if not ID
 										if($asmSetDesc.length > 0) {
-											$asmSetDesc = $asmSetDesc.eq(0); 
+											$asmSetDesc = $asmSetDesc.eq(0);
+											var asmSetDesc = $('<textarea />').text($asmSetDesc.val()).html();
 											var $desc = $asmItem.find('.' + options.listItemDescClass);
 											var $descA = $desc.find('a'); // does it have an <a> in there?
-											if($descA.length > 0) $descA.html($asmSetDesc.val()); 
-												else $desc.html($asmSetDesc.val());
+											if($descA.length > 0) {
+												$descA.html(asmSetDesc);
+											} else {
+												$desc.html(asmSetDesc);
+											}
 										}
 									}
 									$iframe.dialog('close'); 
