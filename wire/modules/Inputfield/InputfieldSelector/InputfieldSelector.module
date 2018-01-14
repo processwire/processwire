@@ -1539,6 +1539,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			} else {
 				$selector .= (int) $field->get('template_id'); 
 			}
+			$templateIDs = $field->get('template_ids');
+			if(is_array($templateIDs) && count($templateIDs)) $selector .= "|" . implode('|', $templateIDs);
 		}
 
 		if(empty($selector)) {
