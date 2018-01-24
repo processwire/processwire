@@ -52,7 +52,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		return array(
 			'title' => __('Images', __FILE__), // Module Title
 			'summary' => __('One or more image uploads (sortable)', __FILE__), // Module Summary
-			'version' => 121,
+			'version' => 122,
 			'permanent' => true,
 		);
 	}
@@ -125,6 +125,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		
 		$this->labels = array_merge($this->labels, array(
 			'crop' => $this->_('Crop'), 
+			'focus' => $this->_('Focus'), 
 			'variations' => $this->_('Variations'), 
 			'dimensions' => $this->_('Dimensions'), 
 			'filesize' => $this->_('Filesize'), 
@@ -143,6 +144,11 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$themeSettings = $this->wire('config')->InputfieldImage;
 		$themeSettings = is_array($themeSettings) ? array_merge($themeDefaults, $themeSettings) : $themeDefaults;
 		$this->themeSettings = array_merge($this->themeSettings, $themeSettings);
+	}
+	
+	public function get($key) {
+		if($key == 'themeSettings') return $this->themeSettings;
+		return parent::get($key);
 	}
 
 	/**
@@ -186,11 +192,14 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		}
 		
 		if(!$renderValueMode && $this->value instanceof Pageimages) {
-			$process = $this->wire('process');
-			if($process instanceof WirePageEditor) {
-				$page = $process->getPage();
-			} else {
-				$page = new NullPage();
+			$page = $this->hasPage;
+			if(!$page || !$page->id) {
+				$process = $this->wire('process');
+				if($process instanceof WirePageEditor) {
+					$page = $process->getPage();
+				} else {
+					$page = new NullPage();
+				}
 			}
 			if($page->id && $this->wire('user')->hasPermission('page-edit-images', $page)) {
 				$modules->get('JqueryUI')->use('modal');
@@ -250,6 +259,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 
 			if(!$this->renderValueMode) {
 				$dropNew = $this->wire('sanitizer')->entities1($this->_('drop in new image file to replace')); 
+				$focus = $this->wire('sanitizer')->entities1($this->_('drag circle to center of focus'));
 				$out .= "
 					<div class='InputfieldImageEdit'>
 						<div class='InputfieldImageEdit__inner'>
@@ -258,7 +268,8 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 							<div class='InputfieldImageEdit__imagewrapper'>
 								<div>
 									<img class='InputfieldImageEdit__image' src='' alt=''>
-									<small class='detail'><i class='fa fa-upload'></i> $dropNew</small>
+									<small class='detail detail-upload'>$dropNew</small>
+									<small class='detail detail-focus'>$focus</small>
 								</div>
 							</div>
 							<div class='InputfieldImageEdit__edit'></div>
@@ -474,6 +485,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			
 			$imageSizerOptions = $this->imageSizerOptions;
 			$imageSizerOptions['upscaling'] = true;
+			$imageSizerOptions['focus'] = false; // disable focus since we show focus from JS/CSS in admin thumbs
 			$adminThumbOptions = $this->wire('config')->adminThumbOptions;
 			$gridSize2x = $this->gridSize * 2;
 			// if($adminThumbOptions['scale'] === 1.0) $gridSize2x = $this->gridSize; // force non-HiDPI
@@ -542,6 +554,10 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$attr['data-w'] = $_thumbWidth;
 		$attr['data-h'] = $_thumbHeight;
 		$attr["data-original"] = $img->URL;
+	
+		$focus = $img->focus();
+		$attr['data-focus'] = $focus['str'];
+		
 		$markup = "<img ";
 		foreach($attr as $key => $value) $markup .= "$key=\"$value\" ";
 		$markup .= " />";
@@ -559,6 +575,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			'error' => $error,
 			'title' => $title, 
 		);
+		
 		return $a;
 	}
 
@@ -639,6 +656,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			// @todo move the following to separate method shared by the renderSingle 
 			$ext = $pagefile->ext();
 			$basename = $pagefile->basename(false);
+			$focus = $pagefile->focus();
 				
 			$out .= "
 				<div class='ImageData'>
@@ -651,6 +669,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 					<input class='InputfieldFileSort' type='text' name='sort_$id' value='$n' />
 					<input class='InputfieldFileReplace' type='hidden' name='replace_$id' />
 					<input class='InputfieldFileRename' type='hidden' name='rename_$id' />
+					<input class='InputfieldImageFocus' type='hidden' name='focus_$id' value='$focus[str]' />
 				</div>
 			";
 		}
@@ -744,16 +763,28 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$variations = $this->getPagefileVariations($pagefile);
 		$variationCount = count($variations);
 		$editUrl = $this->getEditUrl($pagefile, $pageID); 
-		$variationUrl = $this->getVariationUrl($pagefile, $id); 
-		$buttonClass = $this->themeSettings['buttonClass'] . " $this->modalClass pw-modal";
+		$variationUrl = $this->getVariationUrl($pagefile, $id);
+		$buttonClass = $this->themeSettings['buttonClass'];
+		$modalButtonClass = trim("$buttonClass $this->modalClass pw-modal");
 		$modalAttrs = "data-buttons='#non_rte_dialog_buttons button' data-autoclose='1' data-close='#non_rte_cancel'";
 		$labels = $this->labels;
+		$out = '';
 		
-		$buttonText = str_replace('{out}', "<span class='fa fa-crop'></span> $labels[crop]", $this->themeSettings['buttonText']);
-		$out = "<button type='button' data-href='$editUrl' class='InputfieldImageButtonCrop $buttonClass' $modalAttrs>$buttonText</button>"; 
-		$buttonText = "<span class='fa fa-files-o'></span> $labels[variations] <span class='ui-priority-secondary'>($variationCount)</span>";
+	
+		// Crop
+		$buttonText = str_replace('{out}', "<i class='fa fa-crop'></i> $labels[crop]", $this->themeSettings['buttonText']);
+		$out .= "<button type='button' data-href='$editUrl' class='InputfieldImageButtonCrop $modalButtonClass' $modalAttrs>$buttonText</button>";
+	
+		// Focus
+		$iconA = $pagefile->hasFocus ? 'fa-check-circle-o' : 'fa-circle-o';
+		$iconB = $pagefile->hasFocus ? 'fa-check-circle' : 'fa-dot-circle-o';
+		$buttonText = str_replace('{out}', "<i class='fa $iconA' data-toggle='$iconA $iconB'></i> $labels[focus]", $this->themeSettings['buttonText']);
+		$out .= "<button type='button' class='InputfieldImageButtonFocus $buttonClass'>$buttonText</button>"; 
+	
+		// Variations
+		$buttonText = "<i class='fa fa-files-o'></i> $labels[variations] <span class='ui-priority-secondary'>($variationCount)</span>";
 		$buttonText = str_replace('{out}', $buttonText, $this->themeSettings['buttonText']);
-		$out .= "<button type='button' data-href='$variationUrl' class='$buttonClass' data-buttons='button'>$buttonText</button>";
+		$out .= "<button type='button' data-href='$variationUrl' class='$modalButtonClass' data-buttons='button'>$buttonText</button>";
 		
 		return $out;
 	}
@@ -1260,6 +1291,45 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		}
 		
 		return $this;
+	}
+
+	/**
+	 * Process input for a given Pageimage
+	 * 
+	 * @param WireInputData $input
+	 * @param Pagefile|Pageimage $pagefile
+	 * @param int $n
+	 * @return bool
+	 * 
+	 */
+	protected function ___processInputFile(WireInputData $input, Pagefile $pagefile, $n) {
+
+		$changed = false;
+		
+		$id = $this->name . '_' . $pagefile->hash;
+		$key = "focus_$id";
+		$val = $input->$key;
+		
+		if($val !== null) {
+			if(!strlen($val)) $val = '50 50 0';
+			$focus = $pagefile->focus();
+			if($focus['str'] !== $val) {
+				$pagefile->focus($val);
+				$changed = true;
+				$focus = $pagefile->focus();
+				$rebuild = $pagefile->rebuildVariations();
+				// @todo rebuild variations only for images that specify both width and height
+				$this->message(
+					"Updated focus for $pagefile to: top=$focus[top]%, left=$focus[left]%, zoom=$focus[zoom] " . 
+					"and rebuilt " . count($rebuild['rebuilt']) . " variations", 
+					Notice::debug
+				);
+			}
+		}
+	
+		if(parent::___processInputFile($input, $pagefile, $n)) $changed = true;
+		
+		return $changed;
 	}
 
 	/**

@@ -109,9 +109,11 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 *
 	 * Possible values: northwest, north, northeast, west, center, east, southwest, south, southeast
 	 *    or TRUE to crop to center, or FALSE to disable cropping.
+	 * Or array where index 0 is % or px from left, and index 1 is % or px from top. Percent is assumed if
+	 *    values are number strings that end with %. Pixels are assumed of values are just integers. 
 	 * Default is: TRUE
 	 *
-	 * @var bool
+	 * @var bool|array
 	 *
 	 */
 	protected $cropping = true;
@@ -834,11 +836,13 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 				if(isset($value[$v])) $$v = $value[$v];
 			}
 		}
-
+		
 		foreach(array('x', 'y', 'w', 'h') as $k) {
-			$v = isset($$k) ? $$k : -1;
-			if(!is_int($v) || $v < 0) throw new WireException("Missing or wrong param $k for ImageSizer-cropExtra!");
-			if(('w' == $k || 'h' == $k) && 0 == $v) throw new WireException("Wrong param $k for ImageSizer-cropExtra!");
+			$v = (int) (isset($$k) ? $$k : -1);
+			if(!$v && $k == 'w' && $h > 0) $v = $this->getProportionalWidth((int) $h); 
+			if(!$v && $k == 'h' && $w > 0) $v = $this->getProportionalHeight((int) $w); 
+			if($v < 0) throw new WireException("Missing or wrong param $k=$v for ImageSizer-cropExtra! " . print_r($value, true));
+			if(('w' == $k || 'h' == $k) && 0 == $v) throw new WireException("Wrong param $k=$v for ImageSizer-cropExtra! " . print_r($value, true));
 		}
 
 		$this->cropExtra = array($x, $y, $w, $h);
@@ -1384,7 +1388,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	protected function getCropDimensions(&$w1, &$h1, $gdWidth, $targetWidth, $gdHeight, $targetHeight) {
 
 		if(is_string($this->cropping)) {
-
+			// calculate from 8 named cropping points 
 			switch($this->cropping) {
 				case 'nw':
 					$w1 = 0;
@@ -1418,20 +1422,45 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			}
 
 		} else if(is_array($this->cropping)) {
+			// calculate from specific percent or pixels from left and top
+			// $this->cropping is an array with the following:
+			// index 0 represents % or pixels from left
+			// index 1 represents % or pixels from top
 			// @interrobang + @u-nikos
-			if(strpos($this->cropping[0], '%') === false) $pointX = (int) $this->cropping[0];
-			else $pointX = $gdWidth * ((int) $this->cropping[0] / 100);
+			if(strpos($this->cropping[0], '%') === false) {
+				$pointX = (int) $this->cropping[0];
+			} else {
+				$pointX = $gdWidth * ((int) $this->cropping[0] / 100);
+			}
 
-			if(strpos($this->cropping[1], '%') === false) $pointY = (int) $this->cropping[1];
-			else $pointY = $gdHeight * ((int) $this->cropping[1] / 100);
+			if(strpos($this->cropping[1], '%') === false) {
+				$pointY = (int) $this->cropping[1];
+			} else {
+				$pointY = $gdHeight * ((int) $this->cropping[1] / 100);
+			}
+		
+			/*
+			if(isset($this->cropping[2]) && $this->cropping[2] > 1) {
+				// zoom percent (2-100)
+				$zoom = (int) $this->cropping[2];
+			}
+			*/
 
-			if($pointX < $targetWidth / 2) $w1 = 0;
-			else if($pointX > ($gdWidth - $targetWidth / 2)) $w1 = $gdWidth - $targetWidth;
-			else $w1 = $pointX - $targetWidth / 2;
+			if($pointX < $targetWidth / 2) {
+				$w1 = 0;
+			} else if($pointX > ($gdWidth - $targetWidth / 2)) {
+				$w1 = $gdWidth - $targetWidth;
+			} else {
+				$w1 = $pointX - $targetWidth / 2;
+			}
 
-			if($pointY < $targetHeight / 2) $h1 = 0;
-			else if($pointY > ($gdHeight - $targetHeight / 2)) $h1 = $gdHeight - $targetHeight;
-			else $h1 = $pointY - $targetHeight / 2;
+			if($pointY < $targetHeight / 2) {
+				$h1 = 0;
+			} else if($pointY > ($gdHeight - $targetHeight / 2)) {
+				$h1 = $gdHeight - $targetHeight;
+			} else {
+				$h1 = $pointY - $targetHeight / 2;
+			}
 		}
 
 	}

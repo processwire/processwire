@@ -102,11 +102,12 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 	protected function processResize($srcFilename, $dstFilename, $fullWidth, $fullHeight, $finalWidth, $finalHeight) {
 		
 		$this->modified = false;
+		$isModified = false;
 		if(isset($this->info['bits'])) $this->imageDepth = $this->info['bits'];
 		$this->imageFormat = strtoupper(str_replace('image/', '', $this->info['mime']));
 
 		if(!in_array($this->imageFormat, $this->validSourceImageFormats())) {
-			throw new WireException(sprintf($this->_("loaded file '%s' is not in the list of valid images", basename($dstFilename))));
+			throw new WireException(sprintf($this->_("loaded file '%s' is not in the list of valid images"), basename($dstFilename)));
 		}
 
 		$image = null;
@@ -141,6 +142,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 		if($this->rotate || $needRotation) { // @horst
 			$degrees = $this->rotate ? $this->rotate : $orientations[0];
 			$image = $this->imRotate($image, $degrees);
+			$isModified = true; 
 			if(abs($degrees) == 90 || abs($degrees) == 270) {
 				// we have to swap width & height now!
 				$tmp = array($this->getWidth(), $this->getHeight());
@@ -155,7 +157,10 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			} else if($orientations[1] > 0) {
 				$vertical = $orientations[1] == 2;
 			}
-			if(!is_null($vertical)) $image = $this->imFlip($image, $vertical);
+			if(!is_null($vertical)) {
+				$image = $this->imFlip($image, $vertical);
+				$isModified = true;
+			}
 		}
 
 		// if there is requested to crop _before_ resize, we do it here @horst
@@ -182,6 +187,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			$this->prepareImageLayer($image, $imageTemp);
 			imagecopy($image, $imageTemp, 0, 0, $x, $y, $w, $h);
 			unset($x, $y, $w, $h);
+			$isModified = true;
 
 			// now release the intermediate image and update settings
 			imagedestroy($imageTemp);
@@ -205,15 +211,12 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 
 			// current version is already the desired result, we only may have to compress JPEGs but leave GIF and PNG as is:
 			
-			/*
-			 * the following commented block of code prevents PNG/GIF cropping from working
-			if($this->imageType == \IMAGETYPE_PNG || $this->imageType == \IMAGETYPE_GIF) {
+			if(!$isModified && ($this->imageType == \IMAGETYPE_PNG || $this->imageType == \IMAGETYPE_GIF)) {
 				$result = @copy($srcFilename, $dstFilename);
 				if(isset($image) && is_resource($image)) @imagedestroy($image); // clean up
                 if(isset($image)) $image = null;
                 return $result; // early return !
             }
-			*/
 
             // process JPEGs
 			if(self::checkMemoryForImage(array(imagesx($image), imagesy($image), 3)) === false) {
@@ -243,10 +246,40 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			if(self::checkMemoryForImage(array($bgWidth, $bgHeight, 3)) === false) {
 				throw new WireException(basename($srcFilename) . " - not enough memory to resize to the intermediate image");
 			}
+			
+			$sourceX = 0;
+			$sourceY = 0;
+			$sourceWidth = $this->image['width'];
+			$sourceHeight = $this->image['height'];
+		
+			/*
+			 * @todo figure out how to make zoom setting adjust coordinates to imagecopyresampled() calls
+			$zoom = is_array($this->cropping) && isset($this->cropping[2]) ? $this->cropping[2] : 0;
+			if($zoom > 1) {
+				$zoom = $zoom * 0.01;
+				$sourceWidth -= $sourceWidth * $zoom;
+				$sourceHeight -= $sourceHeight * $zoom;
+				$sourceX = $this->image['width'] - ($sourceWidth / 2);
+				$sourceY = $this->image['height'] - ($sourceHeight / 2);
+				$bgX = 0;
+				$bgY = 0;
+			}
+			*/
 
 			$thumb2 = imagecreatetruecolor($bgWidth, $bgHeight);
 			$this->prepareImageLayer($thumb2, $image);
-			imagecopyresampled($thumb2, $image, 0, 0, 0, 0, $bgWidth, $bgHeight, $this->image['width'], $this->image['height']);
+			imagecopyresampled(
+				$thumb2, // destination image
+				$image, // source image
+				0, // destination X 
+				0, // destination Y
+				$sourceX, // source X
+				$sourceY, // source Y
+				$bgWidth, // destination width
+				$bgHeight, // destination height
+				$sourceWidth, // source width
+				$sourceHeight // source height
+			);
 
 			if(self::checkMemoryForImage(array($finalWidth, $finalHeight, 3)) === false) {
 				throw new WireException(basename($srcFilename) . " - not enough memory to crop to the final image");
@@ -254,7 +287,18 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 
 			$thumb = imagecreatetruecolor($finalWidth, $finalHeight);
 			$this->prepareImageLayer($thumb, $image);
-			imagecopyresampled($thumb, $thumb2, 0, 0, $bgX, $bgY, $finalWidth, $finalHeight, $finalWidth, $finalHeight);
+			imagecopyresampled(
+				$thumb, // destination image
+				$thumb2,  // source image
+				0, // destination X
+				0, // destination Y
+				$bgX, // source X
+				$bgY, // source Y
+				$finalWidth, // destination width
+				$finalHeight, // destination height
+				$finalWidth, // source width
+				$finalHeight // source height
+			);
 			imagedestroy($thumb2);
 		}
 
@@ -418,7 +462,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			$amount = intval($amount / 100 * $this->usmValue);
 
 			// apply unsharp mask filter
-			return $this->UnsharpMask($im, $amount, $radius, $threshold);
+			return $this->unsharpMask($im, $amount, $radius, $threshold);
 		}
 
 		// if we do not use USM, we use our default sharpening method,
@@ -562,12 +606,12 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			for($x = 0; $x < $w - 1; $x++) { // each row
 				for($y = 0; $y < $h; $y++) { // each pixel
 
-					$rgbOrig = ImageColorAt($img, $x, $y);
+					$rgbOrig = imagecolorat($img, $x, $y);
 					$rOrig = (($rgbOrig >> 16) & 0xFF);
 					$gOrig = (($rgbOrig >> 8) & 0xFF);
 					$bOrig = ($rgbOrig & 0xFF);
 
-					$rgbBlur = ImageColorAt($imgBlur, $x, $y);
+					$rgbBlur = imagecolorat($imgBlur, $x, $y);
 
 					$rBlur = (($rgbBlur >> 16) & 0xFF);
 					$gBlur = (($rgbBlur >> 8) & 0xFF);
@@ -586,20 +630,20 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 						: $bOrig;
 
 					if(($rOrig != $rNew) || ($gOrig != $gNew) || ($bOrig != $bNew)) {
-						$pixCol = ImageColorAllocate($img, $rNew, $gNew, $bNew);
-						ImageSetPixel($img, $x, $y, $pixCol);
+						$pixCol = imagecolorallocate($img, $rNew, $gNew, $bNew);
+						imagesetpixel($img, $x, $y, $pixCol);
 					}
 				}
 			}
 		} else {
 			for($x = 0; $x < $w; $x++) { // each row
 				for($y = 0; $y < $h; $y++) { // each pixel
-					$rgbOrig = ImageColorAt($img, $x, $y);
+					$rgbOrig = imagecolorat($img, $x, $y);
 					$rOrig = (($rgbOrig >> 16) & 0xFF);
 					$gOrig = (($rgbOrig >> 8) & 0xFF);
 					$bOrig = ($rgbOrig & 0xFF);
 
-					$rgbBlur = ImageColorAt($imgBlur, $x, $y);
+					$rgbBlur = imagecolorat($imgBlur, $x, $y);
 
 					$rBlur = (($rgbBlur >> 16) & 0xFF);
 					$gBlur = (($rgbBlur >> 8) & 0xFF);
@@ -624,7 +668,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 						$bNew = 0;
 					}
 					$rgbNew = ($rNew << 16) + ($gNew << 8) + $bNew;
-					ImageSetPixel($img, $x, $y, $rgbNew);
+					imagesetpixel($img, $x, $y, $rgbNew);
 				}
 			}
 		}

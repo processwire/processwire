@@ -61,7 +61,6 @@
       position: absolute;
       top: 50%;
       left: 50%;
-      transition: transform ease .3s;
       -ms-transform: translate3d(-50%, -50%, 0);
       transform: translate3d(-50%, -50%, 0); }
   .gridImage.gridImagePlaceholder .gridImage__overflow {
@@ -298,13 +297,22 @@
     min-height: 1em;
     padding: 20px; }
     .InputfieldImageEdit__imagewrapper > div {
-      width: 100%; }
+      width: 100%;
+      position: relative; }
     .InputfieldImageEdit__imagewrapper .detail {
-      display: block;
       text-align: center;
-      opacity: 0;
       margin-top: 2px; }
-    .InputfieldImageEdit__imagewrapper:hover .detail {
+    .InputfieldImageEdit__imagewrapper .detail-upload {
+      display: block;
+      opacity: 0; }
+    .InputfieldImageEdit__imagewrapper .detail-focus {
+      display: none; }
+    .InputfieldImageEdit__imagewrapper:hover .detail-upload {
+      opacity: 0.7; }
+    .InputfieldImageEdit__imagewrapper > div.focusWrap .detail-upload {
+      display: none; }
+    .InputfieldImageEdit__imagewrapper > div.focusWrap .detail-focus {
+      display: block;
       opacity: 0.7; }
   .InputfieldImageEdit__replace img {
     opacity: 0.5; }
@@ -350,6 +358,29 @@
       margin-bottom: 0.5em; }
   .InputfieldImageEdit .InputfieldFileDescription + .InputfieldFileTags {
     margin-top: 0.5em; }
+
+.gridImage__overflow .focusArea,
+.InputfieldImageEdit .focusArea {
+  display: none;
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  color: #fff;
+  cursor: default; }
+  .gridImage__overflow .focusArea.focusActive,
+  .InputfieldImageEdit .focusArea.focusActive {
+    display: block;
+    overflow: hidden; }
+  .gridImage__overflow .focusArea .focusCircle,
+  .InputfieldImageEdit .focusArea .focusCircle {
+    cursor: move;
+    width: 40px;
+    height: 40px;
+    border: 3px solid #fff;
+    border-radius: 50%;
+    background-color: rgba(255, 255, 255, 0.3); }
 
 .InputfieldImage .ImageData {
   display: none; }
@@ -431,6 +462,8 @@
     .InputfieldImageEditAll .gridImage__overflow > img {
       display: block;
       position: static !important;
+      top: 0;
+      left: 0;
       transition: none;
       -ms-transform: none;
       transform: none;
@@ -438,6 +471,10 @@
       max-width: 100% important;
       height: initial !important;
       cursor: move; }
+    .InputfieldImageEditAll .gridImage__overflow > .focusArea {
+      position: absolute;
+      top: 10px;
+      left: 10px; }
   .InputfieldImageEditAll .gridImage .ImageData {
     position: relative;
     float: left;

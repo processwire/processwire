@@ -24,18 +24,20 @@
  * ~~~~~
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
- * @property int $width Width of image, in pixels.
- * @property int $height Height of image, in pixels.
- * @property int $hidpiWidth HiDPI width of image, in pixels. #pw-internal
- * @property int $hidpiHeight HiDPI heigh of image, in pixels. #pw-internal
- * @property string $error Last image resizing error message, when applicable. #pw-group-resize-and-crop
- * @property Pageimage $original Reference to original $image, if this is a resized version. #pw-group-variations
- * @property string $url
- * @property string $basename
- * @property string $filename
+ * @property-read int $width Width of image, in pixels.
+ * @property-read int $height Height of image, in pixels.
+ * @property-read int $hidpiWidth HiDPI width of image, in pixels. #pw-internal
+ * @property-read int $hidpiHeight HiDPI heigh of image, in pixels. #pw-internal
+ * @property-read string $error Last image resizing error message, when applicable. #pw-group-resize-and-crop
+ * @property-read Pageimage $original Reference to original $image, if this is a resized version. #pw-group-variations
+ * @property-read string $url
+ * @property-read string $basename
+ * @property-read string $filename
+ * @property-read array $focus Focus array contains 'top' (float), 'left' (float), 'zoom' (int), and 'default' (bool) properties. 
+ * @property-read bool $hasFocus Does this image have custom focus settings? (i.e. $focus['default'] == true)
  * 
  * @method bool|array isVariation($basename, $allowSelf = false)
  * @method Pageimage crop($x, $y, $width, $height, $options = array())
@@ -178,6 +180,119 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
+	 * Get or set focus area for crops to use
+	 * 
+	 * These settings are used by $this->size() calls that specify BOTH width AND height. Focus helps to 
+	 * ensure that the important subject of the photo is not cropped out when the requested size proportion
+	 * differs from the original image proportion. For example, not chopping off someone’s head in a photo.
+	 * 
+	 * Default behavior is to return an array containing "top" and "left" indexes, representing percentages
+	 * from top and left. When arguments are specified, you are either setting the top/left percentages, or
+	 * unsetting focus, or getting focus in different ways, described in arguments below. 
+	 * 
+	 * A zoom argument/property is also present here for future use, but not currently supported. 
+	 * 
+	 * #pw-group-other
+	 * 
+	 * @param null|float|int|array|false $top Omit to get focus array, or specify one of the following:
+	 *   - GET: Omit all arguments to get focus array (default behavior). 
+	 *   - GET: Specify boolean TRUE to return TRUE if focus data is present or FALSE if not. 
+	 *   - GET: Specify integer 1 to make this method return pixel dimensions rather than percentages. 
+	 *   - SET: Specify both $top and $left arguments to set (values assumed to be percentages).
+	 *   - SET: Specify array containing "top" and "left" indexes to set (percentages). 
+	 *   - SET: Specify array where index 0 is top and index 1 is left (percentages). 
+	 *   - SET: Specify string in the format "top left", i.e. "25 70" (percentages). 
+	 *   - UNSET: Specify boolean false to remove any focus values. 
+	 * @param null|float|int $left Set left value (when $top value is float|int) 
+	 *   - This argument is only used when setting focus and should be omitted otherwise. 
+	 * @param null|int $zoom Zoom percent (not currently supported)
+	 * @return array|bool|Pageimage Returns one of the following: 
+	 *   - When getting returns array containing top, left and default properties. 
+	 *   - When TRUE was specified for the $top argument, it returns either TRUE (has focus) or FALSE (does not have). 
+	 *   - When setting or unsetting returns $this.
+	 * 
+	 */
+	public function focus($top = null, $left = null, $zoom = null) {
+		
+		if(is_string($top) && strpos($top, ' ') && $left === null) {
+			// SET string like "25 70 0" (representing "top left zoom")
+			if(strpos($top, ' ') != strrpos($top, ' ')) {
+				// with zoom
+				list($top, $left, $zoom) = explode(' ', $top, 3);
+			} else {
+				// without zoom
+				list($top, $left) = explode(' ', $top, 2);
+				$zoom = 0;
+			}	
+		}
+		
+		if($top === null || $top === true || ($top === 1 && $left === null)) {
+			// GET
+			$focus = $this->filedata('focus');
+			if(!is_array($focus) || empty($focus)) {
+				// use default
+				if($top === true) return false;
+				$focus = array(
+					'top' => 50, 
+					'left' => 50,
+					'zoom' => 0,
+					'default' => true, 
+					'str' => '50 50 0',
+				);
+			} else {
+				// use custom
+				if($top === true) return true;
+				if(!isset($focus['zoom'])) $focus['zoom'] = 0;
+				$focus['default'] = false;
+				$focus['str'] = "$focus[top] $focus[left] $focus[zoom]";
+			}
+			if($top === 1) {
+				// return pixel dimensions rather than percentages
+				$centerX = ($focus['left'] / 100) * $this->width(); // i.e. (50 / 100) * 500 = 250;
+				$centerY = ($focus['top'] / 100) * $this->height();
+				$focus['left'] = $centerX;
+				$focus['top'] = $centerY;
+			}
+			return $focus;
+			
+		} else if($top === false) {
+			// UNSET
+			$this->filedata(false, 'focus');
+			
+		} else if($top !== null && $left !== null) {
+			// SET
+			if(is_array($top)) {
+				if(isset($top['left'])) {
+					$left = $top['left'];
+					$top = $top['top'];
+					$zoom = isset($top['zoom']) ? $top['zoom'] : 0;
+				} else {
+					$top = $top[0];
+					$left = $top[1];
+					$zoom = isset($top[2]) ? $top[2] : 0;
+				}
+			}
+			
+			$top = (float) $top;
+			$left = (float) $left;
+			$zoom = (int) $zoom;
+			
+			if(((int) $top) == 50 && ((int) $left) == 50 && ($zoom < 2)) {
+				// if matches defaults, then no reason to store in filedata
+				$this->filedata(false, 'focus');
+			} else {
+				$this->filedata('focus', array(
+					'top' => round($top, 1),
+					'left' => round($left, 1),
+					'zoom' => $zoom
+				));
+			}
+		}
+		
+		return $this;
+	}
+	
+	/**
 	 * Get a property from this Pageimage
 	 * 
 	 * #pw-internal
@@ -206,6 +321,12 @@ class Pageimage extends Pagefile {
 			case 'error':
 				$value = $this->error;
 				break;
+			case 'focus':
+				$value = $this->focus();
+				break;
+			case 'hasFocus': 
+				$value = $this->focus(true);
+				break;
 			default: 
 				$value = parent::get($key); 
 		}
@@ -217,7 +338,8 @@ class Pageimage extends Pagefile {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param bool $reset
+	 * @param bool|string $reset Specify true to retrieve info fresh, or filename to check and return info for. 
+	 *   When specifying a filename, the info is only returned (not populated with this object). 
 	 * @return array
 	 * 
 	 */
@@ -226,22 +348,30 @@ class Pageimage extends Pagefile {
 		if($reset) $checkImage = true; 
 			else if($this->imageInfo['width']) $checkImage = false; 
 			else $checkImage = true; 
+		
+		$imageInfo = $this->imageInfo;
+		$filename = is_string($reset) && file_exists($reset) ? $reset : ''; 
 
-		if($checkImage) { 
+		if($checkImage || $filename) { 
 			if($this->ext == 'svg') {
-				$info = $this->getImageInfoSVG();
-				$this->imageInfo['width'] = $info['width'];
-				$this->imageInfo['height'] = $info['height'];
+				$info = $this->getImageInfoSVG($filename);
+				$imageInfo['width'] = $info['width'];
+				$imageInfo['height'] = $info['height'];
 			} else {
-				$info = @getimagesize($this->filename);
+				if($filename) {
+					$info = @getimagesize($filename);
+				} else {
+					$info = @getimagesize($this->filename);
+				}
 				if($info) {
-					$this->imageInfo['width'] = $info[0];
-					$this->imageInfo['height'] = $info[1];
+					$imageInfo['width'] = $info[0];
+					$imageInfo['height'] = $info[1];
 				}
 			}
+			if(!$filename) $this->imageInfo = $imageInfo;
 		}
 
-		return $this->imageInfo; 
+		return $imageInfo; 
 	}
 
 	/**
@@ -251,13 +381,15 @@ class Pageimage extends Pagefile {
 	 *
 	 * #pw-internal
 	 *
+	 * @param string $filename Optional filename to check
 	 * @return array of width and height
 	 *
 	 */
-	protected function getImageInfoSVG() {
+	protected function getImageInfoSVG($filename = '') {
 		$width = 0;
 		$height = 0;
-		$xml = @file_get_contents($this->filename);
+		if(!$filename) $filename = $this->filename;
+		$xml = @file_get_contents($filename);
 		
 		if($xml) {
 			$a = @simplexml_load_string($xml)->attributes();
@@ -268,7 +400,7 @@ class Pageimage extends Pagefile {
 		if((!$width || !$height) && (extension_loaded('imagick') || class_exists('\IMagick'))) {
 			try {
 				$imagick = new \Imagick();
-				$imagick->readImage($this->filename);
+				$imagick->readImage($filename);
 				$width = $imagick->getImageWidth();
 				$height = $imagick->getImageHeight();
 			} catch(\Exception $e) {
@@ -329,7 +461,7 @@ class Pageimage extends Pagefile {
 	 * 
 	 *  - `quality` (int): Quality setting 1-100 (default=90, or as specified in /site/config.php).
 	 *  - `upscaling` (bool): Allow image to be upscaled? (default=true).
-	 *  - `cropping` (string|bool): Cropping mode, see possible values in "cropping" section below (default=center).
+	 *  - `cropping` (string|bool|array): Cropping mode, see possible values in "cropping" section below (default=center).
 	 *  - `suffix` (string|array): Suffix word to identify the new image, or use array of words for multiple (default=none).
 	 *  - `forceNew` (bool): Force re-creation of the image even if it already exists? (default=false).
 	 *  - `sharpening` (string): Sharpening mode: "none", "soft", "medium", or "strong" (default=soft).
@@ -339,10 +471,16 @@ class Pageimage extends Pagefile {
 	 *  - `hidpi` (bool): Use HiDPI/retina pixel doubling? (default=false).
 	 *  - `hidpiQuality` (bool): Quality setting for HiDPI (default=40, typically lower than regular quality setting). 
 	 *  - `cleanFilename` (bool): Clean filename of historical resize information for shorter filenames? (default=false).
+	 *  - `nameWidth` (int): Width to use for filename (default is to use specified $width argument).
+	 *  - `nameHeight` (int): Height to use for filename (default is to use specified $height argument). 
+	 *  - `focus` (bool): Should resizes that result in crop use focus area if available? (default=true). 
+	 *     In order for focus to be applicable, resize must include both width and height. 
 	 * 
 	 * **Possible values for "cropping" option**  
 	 * 
-	 *  - `center` (string): to crop to center of image, default behavior.
+	 *  - `true` (bool): Auto detect and allow use of focus (default).
+	 *  - `false` (bool): Disallow cropping. 
+	 *  - `center` (string): to crop to center of image.
 	 *  - `x111y222` (string): to crop by pixels, 111px from left and 222px from top (replacing 111 and 222 with your values).
 	 *  - `north` (string): Crop North (top), may also be just "n".
 	 *  - `northwest` (string): Crop from Northwest (top left), may also be just "nw".
@@ -353,7 +491,9 @@ class Pageimage extends Pagefile {
 	 *  - `west` (string): Crop West (left), may also be just "w".
 	 *  - `east` (string): Crop East (right), may alos be just "e".
 	 *  - `blank` (string): Specify a blank string to disallow cropping during resize.
-	 *
+	 *  - `array(111,222)` (array): Array of integers index 0 is left pixels and index 1 is top pixels.
+	 *  - `array('11%','22%')` (array): Array of '%' appended strings where index 0 is left percent and index 1 is top percent.
+	 * 
 	 * **Note about "quality" and "upscaling" options** 
 	 * 
 	 * ProcessWire doesn't keep separate copies of images with different "quality" or "upscaling" values. 
@@ -436,6 +576,9 @@ class Pageimage extends Pagefile {
 			'cleanFilename' => false, // clean filename of historial resize information
 			'rotate' => 0,
 			'flip' => '', 
+			'nameWidth' => null, // override width to use for filename, int when populated
+			'nameHeight' => null,  // override height to use for filename, int when populated
+			'focus' => true, // allow single dimension resizes to use focus area?
 			);
 
 		$this->error = '';
@@ -443,16 +586,25 @@ class Pageimage extends Pagefile {
 		$configOptions = $this->wire('config')->imageSizerOptions; 
 		if(!is_array($configOptions)) $configOptions = array();
 		$options = array_merge($defaultOptions, $configOptions, $options); 
+		if($options['cropping'] === 1) $options['cropping'] = true;
 
 		$width = (int) $width;
 		$height = (int) $height;
-
-		if(is_string($options['cropping'])
+	
+		if($options['cropping'] === true && empty($options['cropExtra']) && $options['focus'] && $this->hasFocus) {
+			// crop to focus area
+			$focus = $this->focus(); 
+			$focus['zoom'] = 0; // not yet supported
+			$options['cropping'] = array("$focus[left]%", "$focus[top]%", "$focus[zoom]"); 
+			$crop = ''; // do not add suffix	
+			
+		} else if(is_string($options['cropping'])
 			&& strpos($options['cropping'], 'x') === 0
 			&& preg_match('/^x(\d+)[yx](\d+)/', $options['cropping'], $matches)) {
 			$options['cropping'] = true; 
 			$options['cropExtra'] = array((int) $matches[1], (int) $matches[2], $width, $height); 
 			$crop = '';
+			
 		} else {
 			$crop = ImageSizer::croppingValueStr($options['cropping']);
 		}
@@ -462,9 +614,15 @@ class Pageimage extends Pagefile {
 			$options['suffix'] = empty($options['suffix']) ? array() : explode(' ', $options['suffix']); 
 		}
 
-		if($options['rotate'] && !in_array(abs((int) $options['rotate']), array(90, 180, 270))) $options['rotate'] = 0;
-		if($options['rotate']) $options['suffix'][] = ($options['rotate'] > 0 ? "rot" : "tor") . abs($options['rotate']); 
-		if($options['flip']) $options['suffix'][] = strtolower(substr($options['flip'], 0, 1)) == 'v' ? 'flipv' : 'fliph';
+		if($options['rotate'] && !in_array(abs((int) $options['rotate']), array(90, 180, 270))) {
+			$options['rotate'] = 0;
+		}
+		if($options['rotate']) {
+			$options['suffix'][] = ($options['rotate'] > 0 ? "rot" : "tor") . abs($options['rotate']);
+		}
+		if($options['flip']) {
+			$options['suffix'][] = strtolower(substr($options['flip'], 0, 1)) == 'v' ? 'flipv' : 'fliph';
+		}
 		
 		$suffixStr = '';
 		if(!empty($options['suffix'])) {
@@ -483,20 +641,28 @@ class Pageimage extends Pagefile {
 			if($options['hidpiQuality']) $options['quality'] = $options['hidpiQuality'];
 		}
 
-		//$basename = $this->pagefiles->cleanBasename($this->basename(), false, false, false);
-		// cleanBasename($basename, $originalize = false, $allowDots = true, $translate = false) 
 		$originalName = $this->basename();
-		$basename = basename($originalName, "." . $this->ext());        // i.e. myfile
+		// determine basename without extension, i.e. myfile
+		$basename = basename($originalName, "." . $this->ext()); 
 		$originalSize = $debug ? @filesize($this->filename) : 0;
+		
 		if($options['cleanFilename'] && strpos($basename, '.') !== false) {
 			$basename = substr($basename, 0, strpos($basename, '.')); 
 		}
-		$basename .= '.' . $width . 'x' . $height . $crop . $suffixStr . "." . $this->ext();	// i.e. myfile.100x100.jpg or myfile.100x100nw-suffix1-suffix2.jpg
+		
+		// filename uses requested width/height unless another specified via nameWidth or nameHeight options
+		$nameWidth = is_int($options['nameWidth']) ? $options['nameWidth'] : $width;
+		$nameHeight = is_int($options['nameHeight']) ? $options['nameHeight'] : $height;
+		
+		// i.e. myfile.100x100.jpg or myfile.100x100nw-suffix1-suffix2.jpg
+		$basename .= '.' . $nameWidth . 'x' . $nameHeight . $crop . $suffixStr . "." . $this->ext();	
 		$filenameFinal = $this->pagefiles->path() . $basename;
 		$filenameUnvalidated = '';
 		$exists = file_exists($filenameFinal);
 
+		// create a new resize if it doesn't already exist or forceNew option is set
 		if(!$exists || $options['forceNew']) {
+			// filenameUnvalidated is temporary filename used for resize
 			$filenameUnvalidated = $this->pagefiles->page->filesManager()->getTempPath() . $basename;
 			if($exists && $options['forceNew']) @unlink($filenameFinal);
 			if(file_exists($filenameUnvalidated)) @unlink($filenameUnvalidated);
@@ -913,6 +1079,7 @@ class Pageimage extends Pagefile {
 	 * - `1` (int): Rebuild all non-suffix variations, and those w/suffix specifed in $suffix argument. ($suffix is INCLUSION list)
 	 * - `2` (int): Rebuild all variations, except those with suffix specified in $suffix argument. ($suffix is EXCLUSION list)
 	 * - `3` (int): Rebuild only variations specified in the $suffix argument. ($suffix is ONLY-INCLUSION list)
+	 * - `4` (int): Rebuild only non-proportional, non-crop variations (variations that specify both width and height)
 	 * 
 	 * Mode 0 is the only truly safe mode, as in any other mode there are possibilities that the resulting
 	 * rebuild of the variation may not be exactly what was intended. The issues with other modes primarily
@@ -940,7 +1107,7 @@ class Pageimage extends Pagefile {
 		$options['forceNew'] = true; 
 		
 		foreach($this->getVariations(array('info' => true)) as $info) {
-			
+		
 			$o = $options;
 			unset($o['cropping']); 
 			$skip = false; 
@@ -984,6 +1151,11 @@ class Pageimage extends Pagefile {
 				}
 			}
 			
+			if($mode == 4 && ($info['width'] == 0 || $info['height'] == 0)) {
+				// skip images that don't specify both width and height
+				$skip = true;
+			}
+			
 			if($skip) {
 				$skipped[] = $name; 
 				continue; 
@@ -994,12 +1166,32 @@ class Pageimage extends Pagefile {
 			$o['suffix'] = $info['suffix'];
 			if(is_file($info['path'])) unlink($info['path']); 
 			
+			if(!$info['width'] && $info['actualWidth']) {
+				$info['width'] = $info['actualWidth'];
+				$options['nameWidth'] = 0;
+			}
+			if(!$info['height'] && $info['actualHeight']) {
+				$info['height'] = $info['actualHeight'];
+				$options['nameHeight'] = 0;
+			}
+			
 			if($info['crop'] && preg_match('/^x(\d+)y(\d+)$/', $info['crop'], $matches)) {
+				// dimensional cropping info contained in filename
 				$cropX = (int) $matches[1];
 				$cropY = (int) $matches[2];
-				$variation = $this->crop($cropX, $cropY, $info['width'], $info['height'], $options); 
+				$variation = $this->crop($cropX, $cropY, $info['width'], $info['height'], $options);
+
+			} else if($info['crop']) {
+				// direct cropping info contained in filename
+				$options['cropping'] = $info['crop'];
+				$variation = $this->size($info['width'], $info['height'], $options);
+				
+			} else if($this->hasFocus) {
+				// crop to focus area, which the size() method will determine on its own
+				$variation = $this->size($info['width'], $info['height'], $options);
+				
 			} else {
-				if($info['crop']) $options['cropping'] = $info['crop'];
+				// no crop, no focus, just resize
 				$variation = $this->size($info['width'], $info['height'], $options);
 			}
 			
@@ -1027,8 +1219,10 @@ class Pageimage extends Pagefile {
 	 * - `original` (string): Original basename
 	 * - `url` (string): URL to image
 	 * - `path` (string): Full path + filename to image
-	 * - `width` (int): Specified width
-	 * - `height` (int): Specified height
+	 * - `width` (int): Specified width in filename
+	 * - `height` (int): Specified height in filename
+	 * - `actualWidth` (int): Actual width when checked manually
+	 * - `actualHeight` (int): Acual height when checked manually
 	 * - `crop` (string): Cropping info string or blank if none
 	 * - `suffix` (array): Array of suffixes
 	 * 
@@ -1152,7 +1346,10 @@ class Pageimage extends Pagefile {
 		} else {
 			return false; 
 		}
-		
+
+		$actualInfo = $this->getImageInfo($info['path']); 
+		$info['actualWidth'] = $actualInfo['width'];
+		$info['actualHeight'] = $actualInfo['height'];
 		$info['hidpiWidth'] = $this->hidpiWidth(0, $info['width']);
 		$info['hidpiHeight'] = $this->hidpiWidth(0, $info['height']); 
 	
