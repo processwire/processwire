@@ -438,7 +438,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * @return string
 	 * 
 	 */
-	protected function getDisplayBasename(Pagefile $pagefile, $maxLength = 25) {
+	public function getDisplayBasename(Pagefile $pagefile, $maxLength = 25) {
 		$displayName = $pagefile->basename;
 		if($this->noShortName) return $displayName;
 		if(strlen($displayName) > $maxLength) {
@@ -764,7 +764,11 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				if($val) $item->$key = $val;
 			}
 			// items saved in ajax or uploadOnly mode are temporary till saved in non-ajax/non-uploadOnly
-			if($this->isAjax && !$this->overwrite) $item->isTemp(true); 
+			if($this->isAjax && !$this->overwrite) {
+				if($this->wire('input')->get('InputfieldFileAjax') !== 'noTemp') {
+					$item->isTemp(true);
+				}
+			}
 			$this->fileAdded($item); 
 		} catch(\Exception $e) {
 			$item->unlink();

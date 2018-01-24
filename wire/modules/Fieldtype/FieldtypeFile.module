@@ -64,6 +64,12 @@ class FieldtypeFile extends FieldtypeMulti {
 	const fileSchemaDate = 2;
 
 	/**
+	 * File schema is configured to support 'filedata' encoded data (flag)
+	 *
+	 */
+	const fileSchemaFiledata = 4;
+
+	/**
 	 * Flag for useTags: tags off/disabled
 	 * 
 	 */
@@ -207,6 +213,7 @@ class FieldtypeFile extends FieldtypeMulti {
 			if(isset($v['modified'])) $pagefile->modified = $v['modified'];
 			if(isset($v['created'])) $pagefile->created = $v['created'];
 			if(isset($v['tags'])) $pagefile->tags = $v['tags'];
+			if(!empty($v['filedata'])) $pagefile->filedata = json_decode($v['filedata'], true);
 			$pagefile->setTrackChanges(true); 
 			$pagefiles->add($pagefile); 
 		}
@@ -244,6 +251,12 @@ class FieldtypeFile extends FieldtypeMulti {
 	
 			if($fileSchema & self::fileSchemaTags) {
 				$item['tags'] = $pagefile->tags;
+			}
+			
+			if($fileSchema & self::fileSchemaFiledata) {
+				$item['filedata'] = null; 
+				$filedata = $pagefile->filedata;
+				if(!empty($filedata)) $item['filedata'] = json_encode($filedata); 
 			}
 	
 			$sleepValue[] = $item;
@@ -516,10 +529,56 @@ class FieldtypeFile extends FieldtypeMulti {
 		$schema['data'] = "varchar($maxLen) NOT NULL";
 		$schema['description'] = "text NOT NULL";
 		$schema['modified'] = "datetime"; 
-		$schema['created'] = "datetime"; 
-		$schema['keys']['description'] = 'FULLTEXT KEY description (description)'; 
+		$schema['created'] = "datetime";
+		$schema['filedata'] = "mediumtext"; 
+		$schema['keys']['description'] = 'FULLTEXT KEY description (description)';
+		$schema['keys']['filedata'] = 'FULLTEXT KEY filedata (filedata)'; 
 		$schema['keys']['modified'] = 'index (modified)'; 
-		$schema['keys']['created'] = 'index (created)'; 
+		$schema['keys']['created'] = 'index (created)';
+		
+		if($field->id && !($field->get('fileSchema') & self::fileSchemaFiledata)) {
+			// permanently add new 'filedata' column to schema
+			$addFiledata = false;
+
+			try {
+				$query = $database->prepare("SHOW COLUMNS FROM `$table` WHERE Field='filedata'");
+				$query->execute();
+				$numRows = (int) $query->rowCount();
+				$query->closeCursor();
+
+				if($numRows) {
+					$field->set('fileSchema', $field->get('fileSchema') | self::fileSchemaFiledata);
+					$field->save();
+				} else {
+					$addFiledata = true;
+				}
+			} catch(\Exception $e) {
+				// intentionally blank
+			}
+
+			if($addFiledata) try {
+				$database->exec("ALTER TABLE `{$table}` ADD `filedata` $schema[filedata]");
+				$database->exec("ALTER TABLE `{$table}` ADD " . $schema['keys']['filedata']);
+				$field->set('fileSchema', $field->get('fileSchema') | self::fileSchemaFiledata);
+				$field->save();
+				$this->message("Added filedata to DB schema for '{$field->name}'", Notice::log);
+
+			} catch(\Exception $e) {
+
+				$query = $database->prepare("SHOW COLUMNS FROM `$table` WHERE Field='filedata'");
+				$query->execute();
+				$numRows = (int) $query->rowCount();
+				$query->closeCursor();
+
+				if($numRows) {
+					$field->set('fileSchema', $field->get('fileSchema') | self::fileSchemaFiledata);
+					$field->save();
+				} else {
+					$this->error("Error adding created/modified to '{$field->name}' schema", Notice::log);
+					unset($schema['filedata'], $schema['keys']['filedata']); 
+				}
+			}
+		}
 
 		if($field->id && !($field->get('fileSchema') & self::fileSchemaDate)) {
 			// permanently add new 'modified' and 'created' column to file schema

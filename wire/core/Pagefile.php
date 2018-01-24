@@ -54,7 +54,15 @@ class Pagefile extends WireData {
 	 * @var Pagefiles
 	 *
 	 */
-	protected $pagefiles; 
+	protected $pagefiles;
+
+	/**
+	 * Extra file data
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $filedata = array();
 
 	/**
 	 * Construct a new Pagefile
@@ -173,14 +181,20 @@ class Pagefile extends WireData {
 	 */
 	public function set($key, $value) {
 		
-		if($key == 'basename') $value = $this->pagefiles->cleanBasename($value, false); 
-		if($key == 'description') return $this->setDescription($value); 
-		if($key == 'modified') $value = ctype_digit("$value") ? (int) $value : strtotime($value); 
-		if($key == 'created') $value = ctype_digit("$value") ? (int) $value : strtotime($value);
-
-		if($key == 'tags') {
+		if($key == 'basename') {
+			$value = $this->pagefiles->cleanBasename($value, false);
+		} else if($key == 'description') {
+			return $this->setDescription($value);
+		} else if($key == 'modified') {
+			$value = ctype_digit("$value") ? (int) $value : strtotime($value);
+		} else if($key == 'created') {
+			$value = ctype_digit("$value") ? (int) $value : strtotime($value);
+		} else if($key == 'tags') {
 			$this->tags($value);
 			return $this;
+		} else if($key == 'filedata') {
+			if(is_array($value)) $this->filedata($value);
+			return $this;	
 		}
 		
 		if(strpos($key, 'description') === 0 && preg_match('/^description(\d+)$/', $value, $matches)) {
@@ -193,6 +207,59 @@ class Pagefile extends WireData {
 		}
 
 		return parent::set($key, $value); 
+	}
+
+	/**
+	 * Get or set filedata
+	 * 
+	 * Filedata is any additional data that you want to store with the file’s database record. 
+	 *
+	 *  
+	 * - To get a value, specify just the $key argument. Null is returned if request value is not present. 
+	 * - To get all values, omit all arguments. An associative array will be returned. 
+	 * - To set a value, specify the $key and the $value to set. 
+	 * - To set all values at once, specify an associative array for the $key argument. 
+	 * - To unset, specify boolean false (or null) for $key, and the name of the property to unset as $value. 
+	 * - To unset, you can also get all values, unset it from the retuned array, and set the array back. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string|array|false|null $key Specify array to set all file data, or key (string) to set or get a property,
+	 *  Or specify boolean false to remove key specified by $value argument.
+	 * @param null|string|array|int|float $value Specify a value to set for given property
+	 * @return Pagefile|Pageimage|array|string|int|float|bool|null
+	 * 
+	 */
+	public function filedata($key = '', $value = null) {
+		$filedata = $this->filedata;
+		if($key === false || $key === null) {
+			// unset property named in $value
+			if(!empty($value)) {
+				unset($this->filedata[$value]);
+				if(isset($filedata[$value])) $this->trackChange('filedata', $filedata, $this->filedata);
+			}
+			return $this;
+		} else if(empty($key)) {
+			// return all
+			return $filedata;
+		} else if(is_array($key)) {
+			// set all
+			if($key != $filedata) {
+				$this->filedata = $key;
+				$this->trackChange('filedata', $filedata, $this->filedata);
+			}
+			return $this;
+		} else if($value === null) {
+			// return value for key
+			return isset($this->filedata[$key]) ? $this->filedata[$key] : null;
+		} else {
+			// set value for key
+			if(!isset($filedata[$key]) || $filedata[$key] != $value) {
+				$this->filedata[$key] = $value;
+				$this->trackChange('filedata', $filedata, $this->filedata);
+			}
+			return $this;
+		}
 	}
 
 	/**
@@ -243,6 +310,7 @@ class Pagefile extends WireData {
 			foreach($values as $id => $v) {	
 				// first item is always default language. this ensures description will still
 				// work even if language support is later uninstalled. 
+				$name = 'description';
 				if($noLang && $n > 0) break;
 				$n++; 
 				if(ctype_digit("$id")) {
@@ -444,6 +512,10 @@ class Pagefile extends WireData {
 					$value = filemtime($this->filename()); 
 					parent::set($key, $value); 
 				}
+				break;
+			case 'fileData':
+			case 'filedata':
+				$value = $this->filedata();
 				break;
 			case 'mtime':
 				$value = filemtime($this->filename()); 
@@ -875,7 +947,7 @@ class Pagefile extends WireData {
 	 * #pw-internal
 	 *
 	 * @param string $path Path (not including basename)
-	 * @return mixed result of copy() function
+	 * @return bool result of copy() function
 	 *
 	 */
 	public function copyToPath($path) {

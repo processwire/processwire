@@ -107,3 +107,4 @@ foreach($corePreloads as $file) {
 	/** @noinspection PhpIncludeInspection */
 	include_once(PROCESSWIRE_CORE_PATH . $file);
 }
+unset($corePreloads);
