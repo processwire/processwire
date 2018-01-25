@@ -641,7 +641,7 @@ class SelectableOptionManager extends Wire {
 	 * @return int Number of options added
 	 *
 	 */
-	public function addOptions(Field $field, array $options) {
+	public function addOptions(Field $field, $options) {
 
 		$database = $this->wire('database');
 
