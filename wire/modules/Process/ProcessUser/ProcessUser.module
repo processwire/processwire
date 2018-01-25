@@ -362,10 +362,10 @@ class ProcessUser extends ProcessPageType {
 	 * Perform a general check for saving the roles field, making sure added/removed roles are okay
 	 * 
 	 * @param User $user
-	 * @param User $page
+	 * @param User|Page $page
 	 * 
 	 */
-	protected function checkSaveRoles(User $user, User $page) {
+	protected function checkSaveRoles(User $user, Page $page) {
 		
 		if($user->isSuperuser()) return;
 		
@@ -406,10 +406,10 @@ class ProcessUser extends ProcessPageType {
 	 * Perform checks for when "user-admin-all" permission is installed and user does not have it
 	 * 
 	 * @param User $user
-	 * @param User $page
+	 * @param User|Page $page
 	 * 
 	 */
-	protected function checkSaveUserAdminAll(User $user, User $page) {
+	protected function checkSaveUserAdminAll(User $user, Page $page) {
 		
 		if($user->isSuperuser()) return;
 		
