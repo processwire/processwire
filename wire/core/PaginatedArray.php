@@ -203,7 +203,7 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 			$pageNum = $start ? ($start / $limit) + 1 : 1;
 			$totalPages = ceil($total / $limit); 
 			if(!$totalPages) $pageNum = 0;
-			$str = sprintf($this->_('%1$s %1$d of %2$d'), $label, $pageNum, $totalPages); // Page quantity, i.e. Page 1 of 3
+			$str = sprintf($this->_('%1$s %2$d of %3$d'), $label, $pageNum, $totalPages); // Page quantity, i.e. Page 1 of 3
 			
 		} else {
 
