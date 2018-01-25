@@ -266,6 +266,11 @@ class ProcessRole extends ProcessPageType {
 						$checked = true;
 						$addedTemplates[$template->name] = $templateEditLink;
 					}
+				} else if($name == 'page-view') {
+					if($template->hasRole($role)) {
+						$checked = true;
+						$addedTemplates[$template->name] = $templateEditLink;
+					}
 				} else if(isset($rolesPermissions[$role->id])) {
 					// custom added or revoked permission
 					if(in_array($permission->id, $rolesPermissions[$role->id])) {
@@ -585,14 +590,14 @@ class ProcessRole extends ProcessPageType {
 		
 			// page-view
 			if($view) {
-				if(!$template->roles->has($role)) {
-					$template->roles->add($role);
+				if(!$template->hasRole($role)) {
+					$template->addRole($role); 
 					$updates[] = "Added page-view to template $template->name";
 				}
 			} else {
-				if($template->roles->has($role)) {
+				if($template->hasRole($role)) {
 					if($isGuestRole || !$guestHasView) {
-						$template->roles->remove($role);
+						$template->removeRole($role);
 						$updates[] = "Removed page-view from template $template->name";
 					}
 				}
