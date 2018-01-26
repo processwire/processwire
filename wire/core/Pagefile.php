@@ -232,13 +232,13 @@ class Pagefile extends WireData {
 	 */
 	public function filedata($key = '', $value = null) {
 		$filedata = $this->filedata;
+		$changed = false;
 		if($key === false || $key === null) {
 			// unset property named in $value
-			if(!empty($value)) {
+			if(!empty($value) && isset($filedata[$value])) {
 				unset($this->filedata[$value]);
-				if(isset($filedata[$value])) $this->trackChange('filedata', $filedata, $this->filedata);
+				$changed = true; 
 			}
-			return $this;
 		} else if(empty($key)) {
 			// return all
 			return $filedata;
@@ -246,9 +246,8 @@ class Pagefile extends WireData {
 			// set all
 			if($key != $filedata) {
 				$this->filedata = $key;
-				$this->trackChange('filedata', $filedata, $this->filedata);
+				$changed = true; 
 			}
-			return $this;
 		} else if($value === null) {
 			// return value for key
 			return isset($this->filedata[$key]) ? $this->filedata[$key] : null;
@@ -256,10 +255,14 @@ class Pagefile extends WireData {
 			// set value for key
 			if(!isset($filedata[$key]) || $filedata[$key] != $value) {
 				$this->filedata[$key] = $value;
-				$this->trackChange('filedata', $filedata, $this->filedata);
+				$changed = true;
 			}
-			return $this;
 		}
+		if($changed) {
+			$this->trackChange('filedata', $filedata, $this->filedata);
+			if($this->page && $this->field) $this->page->trackChange($this->field->name);
+		}
+		return $this;
 	}
 
 	/**

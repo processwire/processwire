@@ -1063,20 +1063,6 @@ $config->pageAdd = array(
 	'noSuggestTemplates' => '', 
 ); 
 
-/**
- * Disable template suggestions when adding new pages?
- *
- * Applies when adding a new page where more than one template may be selected for the newly added page.
- *
- * - true: Always disable template suggestions (forcing user to make selection)
- * - false: Never disable template suggestions (default)
- * - array: Array of template names or IDs where suggestions should be disabled when children are added.
- *
- * @var bool|array
- *
-$config->noSuggestTemplate = false;
- */
-
 
 /*** 9. MISC ************************************************************************************/
 

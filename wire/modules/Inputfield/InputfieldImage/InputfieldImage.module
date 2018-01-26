@@ -830,7 +830,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	/**
 	 * Get array of actions available for given Pagefile
 	 * 
-	 * @param Pagefile $pagefile
+	 * @param Pagefile|Pageimage $pagefile
 	 * @return array Associative array of ('action_name' => 'Action Label')
 	 * 
 	 */
@@ -849,6 +849,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			'dup' => $this->_('Duplicate'),
 			'rmv' => $this->_('Remove variations'),
 			'rbv' => $this->_('Rebuild variations'),
+			'rmf' => $this->_('Remove focus'), 
 			'vertical' => $this->_('vert'),
 			'horizontal' => $this->_('horiz'), 
 			'both' => $this->_('both'), 
@@ -886,6 +887,10 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			
 			$actions['bw'] = $labels['bw'];
 			$actions['sep'] = $labels['sep'];
+			
+			if($pagefile->hasFocus) {
+				$actions['rmf'] = $labels['rmf'];
+			}
 		}
 		
 		return $actions;
@@ -1345,6 +1350,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		
 		$success = null;
 		$showSuccess = true; 
+		$rebuildVariations = false;
 		
 		if($action == 'dup') {
 			// duplicate image file
@@ -1369,6 +1375,10 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			// rebuild variations
 		} else if($action == 'rmv') {
 			// remove variations
+		} else if($action == 'rmf') {
+			// remove focus
+			$pagefile->focus(false); 
+			$success = true; 
 		} else {
 			/** @var ImageSizer $sizer Image sizer actions */
 			$sizer = $this->wire(new ImageSizer($pagefile->filename()));
@@ -1396,8 +1406,9 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 				$success = $sizer->rotate($deg);
 			}
 			
-			if($success && $rebuildVariations) $pagefile->rebuildVariations();
 		}
+		
+		if($success && $rebuildVariations) $pagefile->rebuildVariations();
 		
 		if($success === null) {
 			// for hooks

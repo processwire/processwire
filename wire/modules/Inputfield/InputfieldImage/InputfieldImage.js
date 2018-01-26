@@ -2006,8 +2006,9 @@ function InputfieldImage($) {
 				}
 				
 				updateProgress();
-				
-				if(useClientResize) {
+			
+				var ext = file.name.substring(file.name.lastIndexOf('.')+1).toLowerCase();
+				if(useClientResize && (ext == 'jpg' || ext == 'jpeg' || ext == 'png' || ext == 'gif')) {
 					var resizer = new PWImageResizer(resizeSettings);
 					$spinner.addClass('pw-resizing');
 					resizer.resize(file, function(imageData) {
