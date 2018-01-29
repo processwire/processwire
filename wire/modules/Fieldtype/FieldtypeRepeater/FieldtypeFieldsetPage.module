@@ -363,6 +363,19 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	public function ___savePageField(Page $page, Field $field) {
 		
 		if(!$page->id || !$field->id) return false;
+		
+		if($page->get('_cloning') instanceof Page) {
+			// $page is being cloned, so lets also clone the FieldsetPage
+			$source = $page->get('_cloning')->get($field->name);
+			if(!$source->id) return false;
+			$target = $this->wire('pages')->clone($source, null, false, array(
+				'uncacheAll' => false,
+				'set' => array('name' => self::repeaterPageNamePrefix . $page->id)
+			));
+			if(!$target->id) return false;
+			$page->set($field->name, $target); 
+		}
+
 		$value = $page->get($field->name);
 		if(!$value instanceof Page) return false;
 		
