@@ -86,8 +86,10 @@ class ProcessRole extends ProcessPageType {
 	 * 
 	 */
 	public function hookProcessInput(HookEvent $event) {
-		if($event->wire('input')->post('_pw_page_name')) {
+		static $n = 0;
+		if(!$n && $event->wire('input')->post('_pw_page_name')) {
 			$this->savePermissionOptions();
+			$n++;
 		}
 	}
 
@@ -574,6 +576,7 @@ class ProcessRole extends ProcessPageType {
 			
 			/** @var Template $template */
 			if(!$template->useRoles) continue;
+			if($template->flags & Template::flagSystem) continue;
 
 			$updates = array();
 			$createRoles = $template->createRoles;
@@ -599,7 +602,14 @@ class ProcessRole extends ProcessPageType {
 					if($isGuestRole || !$guestHasView) {
 						$template->removeRole($role);
 						$updates[] = "Removed page-view from template $template->name";
+						// view is a pre-requisite for edit, add and create permissions
+						if($edit) $updates[] = "Also removed all edit-related permissions because edit requires view permission";
 					}
+				}
+				if($isGuestRole || !$guestHasView) {
+					$edit = false;
+					$add = false;
+					$create = false;
 				}
 			}
 			
@@ -654,12 +664,29 @@ class ProcessRole extends ProcessPageType {
 	
 			foreach($adds as $key => $permissionID) {
 				// force as strings
-				$adds[$key] = "$permissionID";
+				$adds[$key] = "$permissionID"; // placement intentional
+				
+				if(!$edit) {
+					/** @var Permission $permission */
+					$permission = $this->wire('permissions')->get((int) $permissionID);
+					if(!$permission->id) continue;
+					$parentPermission = $permission->getParentPermission();
+					// if permission requires page-edit, and user doesn't have page-edit, don't allow it to be added
+					if($parentPermission->name == 'page-edit') {
+						unset($adds[$key]); // placement intentional
+						$this->warning(sprintf(
+							$this->_('Permission “%1$s” for template “%2$s” not allowed (requires “%3$s” permission)'),
+							$permission->name, $template->name, $parentPermission->name	
+						));
+					}
+				}
 			}
+			
 			foreach($revokes as $key => $permissionID) {
 				// force as negative integer strings
 				$revokes[$key] = (string) (-1 * $permissionID);
 			}
+			
 			$rolePermissionsNew = array_merge($adds, $revokes); 
 			sort($rolePermissionsNew); 
 			sort($rolePermissions);
