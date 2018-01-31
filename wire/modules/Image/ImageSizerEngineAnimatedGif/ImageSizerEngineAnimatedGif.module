@@ -1,0 +1,357 @@
+<?php namespace ProcessWire;
+
+/**
+ * ImageSizer Engine Animated GIF by Horst
+ * 
+ * This module supports resizing and cropping of animated GIFs when using GD-Library
+ * (The GD-Library does not support this)
+ *
+ * This module is based upon the work of
+ *
+ *    * László Zsidi (initial classes)
+ *      http://www.gifs.hu/
+ *      http://www.phpclasses.org/gifsplit
+ *      http://www.phpclasses.org/gifmerge
+ *      (License: Apache 2.0)
+ *
+ *    * xurei (enhanced classes)
+ *      https://github.com/xurei/GIFDecoder_optimized
+ *      (License: Apache 2.0)
+ *
+ * Ported first to ProcessWire module & then to ImageSizerEngine module by Horst Nogajski
+ *
+ *      https://processwire.com/talk/topic/8386-image-animated-gif/
+ */
+class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
+	
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Animated GIF Image Sizer',
+			'version' => 1,
+			'summary' => "Upgrades image manipulations for animated GIFs.",
+			'author' => 'Horst Nogajski',
+		);
+	}
+
+	/**
+	 * Class constructor
+	 * 
+	 */
+	public function __construct() {
+		parent::__construct();
+		$this->set('enginePriority', 9); // use a late priority so that optional other installed engines get the job (first) if they support animated gifs
+	}
+
+	/**
+	 * Get valid image source formats
+	 * 
+	 * @return array
+	 * 
+	 */
+	protected function validSourceImageFormats() {
+		return array('GIF');
+	}
+
+	/**
+	 * Get valid target image formats
+	 * 
+	 * @return array
+	 * 
+	 */
+	protected function validTargetImageFormats() {
+		return $this->validSourceImageFormats();
+	}
+
+	/**
+	 * Is GD supported?
+	 *
+	 * @param string $action
+	 * @return bool
+	 *
+	 */
+	public function supported($action = 'imageformat') {
+		// first we check parts that are mandatory for all $actions
+		if(!function_exists('gd_info')) return false;
+
+		// and if it passes the mandatory requirements, we check particularly aspects here
+		switch($action) {
+			case 'imageformat':
+				// compare current imagefile infos fetched from ImageInspector
+				$requested = $this->getImageInfo(false);
+				switch($requested) {
+					case 'gif-anim':
+					case 'gif-trans-anim':
+						return true;
+					default:
+						return false;
+				}
+				break;
+
+			case 'install':
+				return true;
+
+			default:
+				return false;
+		}
+	}
+
+	/**
+	 * Process the image resize
+	 *
+	 * Processing is as follows:
+	 *    1. first do a check if the given image(type) can be processed, if not do an early return false
+	 *    2. than (try) to process all required steps, if one failes, return false
+	 *    3. if all is successful, finally return true
+	 *
+	 * @param string $srcFilename Source file
+	 * @param string $dstFilename Destination file
+	 * @param int $fullWidth Current width
+	 * @param int $fullHeight Current height
+	 * @param int $finalWidth Requested final width
+	 * @param int $finalHeight Requested final height
+	 * @return bool True if successful, false if not
+	 * @throws WireException
+	 *
+	 */
+	protected function processResize($srcFilename, $dstFilename, $fullWidth, $fullHeight, $finalWidth, $finalHeight) {
+		$this->modified = false;
+		if(isset($this->info['bits'])) $this->imageDepth = $this->info['bits'];
+		$this->imageFormat = strtoupper(str_replace('image/', '', $this->info['mime']));
+
+		if(!in_array($this->imageFormat, $this->validSourceImageFormats())) {
+			throw new WireException(sprintf($this->_("loaded file '%s' is not in the list of valid images"), basename($dstFilename)));
+		}
+
+		require_once(__DIR__ . '/gif_encoder.php');
+		require_once(__DIR__ . '/gif_decoder.php');
+		
+		$this->setTimeLimit(120);
+
+		// if extra crop manipulation is requested, it is processed first
+        if(is_array($this->cropExtra) && 4 == count($this->cropExtra)) { // crop before resize
+            list($cropX, $cropY, $cropWidth, $cropHeight) = $this->cropExtra;
+            $bg = null;
+            $gif = new ISEAG_GIFDecoder(file_get_contents($srcFilename));
+            $originalFramesMeta = $gif->GIFGetFramesMeta();
+            if(count($originalFramesMeta) <= 0) return false;
+            $this->meta = array(
+                'delays'    => $gif->GIFGetDelays(),
+                'loops'     => $gif->GIFGetLoop(),
+                'disposal'  => $gif->GIFGetDisposal(),
+                'tr'        => $gif->GIFGetTransparentR(),
+                'tg'        => $gif->GIFGetTransparentG(),
+                'tb'        => $gif->GIFGetTransparentB(),
+                'trans'     => (0 == $gif->GIFGetTransparentI() ? false : true)
+            );
+            $originalFrames = $gif->GIFGetFrames();
+            $newFrames = array();
+            foreach($originalFrames as $k => $v) {
+                $frame = @imagecreatefromstring($v);
+                if(!is_resource($frame)) continue;
+                if(!is_resource($bg)) {
+                    $bg = imagecreatetruecolor($fullWidth, $fullHeight);
+                    $this->prepareGDimage($bg);
+                }
+                $srcX = 0;
+                $srcY = 0;
+                $srcW = imagesx($frame);
+                $srcH = imagesy($frame);
+                $dstX = $originalFramesMeta[$k]['left'];
+                $dstY = $originalFramesMeta[$k]['top'];
+                $dstW = $originalFramesMeta[$k]['width'];
+                $dstH = $originalFramesMeta[$k]['height'];
+                imagecopy($bg, $frame, $dstX, $dstY, $srcX, $srcY, $srcW, $srcH);
+                $newimg = imagecreatetruecolor($cropWidth, $cropHeight);
+                $this->prepareGDimage($newimg);
+                imagecopy($newimg, $bg, 0, 0, $cropX, $cropY, $cropWidth, $cropHeight);
+                array_push($newFrames, $newimg);
+                $originalFrames[$k] = null;
+            }
+            if(count($newFrames) > 0) {
+                $frames = array();
+                foreach($newFrames as $nf) {
+                    if(!is_resource($nf)) continue;
+                    ob_start();
+                    imagegif($nf);
+                    $gifdata = ob_get_clean();
+                    array_push($frames, $gifdata);
+                    @imagedestroy($nf);
+                }
+                $gifmerge = new ISEAG_GIFEncoder(
+                    $frames,
+                    $this->meta['delays'],
+                    $this->meta['loops'],
+                    $this->meta['disposal'],
+                    $this->meta['tr'], $this->meta['tg'], $this->meta['tb'],
+                    'bin'
+                );
+                $result = false === fwrite(fopen($srcFilename, 'wb'), $gifmerge->GetAnimation()) ? false : true;
+                if($result) {
+                    $fullWidth = $cropWidth;
+                    $fullHeight = $cropHeight;
+                    $this->image = array('width' => $fullWidth, 'height' => $fullHeight);
+                }
+            } else {
+                // $result = false;
+            }
+            if(isset($bg) && is_resource($bg)) @imagedestroy($bg);
+            if(isset($frame) && is_resource($frame)) @imagedestroy($frame);
+            if(isset($newimg) && is_resource($newimg)) @imagedestroy($newimg);
+            unset($gif, $gifmerge, $originalFrames, $originalFramesMeta, $newFrames, $cropHeight, $cropWidth, $cropX, $cropY, $dstH, $dstW, $dstX, $dstY, $frames, $nf, $srcH, $srcW, $srcX, $srcY);
+            $this->meta = null;
+        }
+
+		// regular resize / crop manipulation starts here
+        $bgX = $bgY = 0;
+        $bgWidth = $fullWidth;
+        $bgHeight = $fullHeight;
+        $resizemethod = $this->getResizeMethod($bgWidth, $bgHeight, $finalWidth, $finalHeight, $bgX, $bgY);
+        if(0 == $resizemethod) return true; // if same size or disallowed greater size is requested, we stop here and leave the original copy as is
+
+        $gif = new ISEAG_GIFdecoder(file_get_contents($srcFilename));
+        $originalFramesMeta = $gif->GIFGetFramesMeta();
+        if(count($originalFramesMeta) <= 0) return false;
+        $this->meta = array(
+            'delays'    => $gif->GIFGetDelays(),
+            'loops'     => $gif->GIFGetLoop(),
+            'disposal'  => $gif->GIFGetDisposal(),
+            'tr'        => $gif->GIFGetTransparentR(),
+            'tg'        => $gif->GIFGetTransparentG(),
+            'tb'        => $gif->GIFGetTransparentB(),
+            'trans'     => (0 == $gif->GIFGetTransparentI() ? false : true)
+        );
+        $originalFrames = $gif->GIFGetFrames();
+        $newFrames = array();
+
+        if(2 == $resizemethod) { // 2 = resize with aspect ratio
+            $bg = null;
+            // $ratio = 1.0;
+            $ratio_w = $fullWidth / $finalWidth;
+            $ratio_h = $fullHeight / $finalHeight;
+            $ratio = ($ratio_h > $ratio_w ? $ratio_h : $ratio_w);
+            foreach($originalFrames as $k => $v) {
+                $frame = @imagecreatefromstring($v);
+                if(!is_resource($frame)) continue;
+                $newimg = imagecreatetruecolor($finalWidth, $finalHeight);
+                $this->prepareGDimage($newimg);
+                if(is_resource($bg)) {
+                    imagecopy($newimg, $bg, 0, 0, 0, 0, $finalWidth, $finalHeight);
+                }
+                $srcX = 0;
+                $srcY = 0;
+                $srcW = imagesx($frame);
+                $srcH = imagesy($frame);
+                $dstX = floor($originalFramesMeta[$k]['left'] / $ratio);
+                $dstY = floor($originalFramesMeta[$k]['top'] / $ratio);
+                $dstW = ceil($originalFramesMeta[$k]['width'] / $ratio);
+                $dstH = ceil($originalFramesMeta[$k]['height'] / $ratio);
+                imagecopyresampled($newimg, $frame, $dstX, $dstY, $srcX, $srcY, $dstW, $dstH, $srcW, $srcH);
+                array_push($newFrames, $newimg);
+                if(!is_resource($bg)) {
+                    $bg = imagecreatetruecolor($finalWidth, $finalHeight);
+                    $this->prepareGDimage($bg);
+                }
+                imagecopy($bg, $newimg, 0, 0, 0, 0, $finalWidth, $finalHeight);
+                $originalFrames[$k] = null;
+            }
+        }
+
+        if(4 == $resizemethod) { // 4 = resize and crop from center with aspect ratio
+            $bg = null;
+            // $ratio = 1.0;
+            $ratio_w = $fullWidth / $bgWidth;
+            $ratio_h = $fullHeight / $bgHeight;
+            $ratio = ($ratio_h > $ratio_w ? $ratio_h : $ratio_w);
+            foreach($originalFrames as $k => $v) {
+                $frame = @imagecreatefromstring($v);
+                if(!is_resource($frame)) continue;
+                $newimg = imagecreatetruecolor($bgWidth, $bgHeight);
+                $this->prepareGDimage($newimg);
+                if(is_resource($bg)) {
+                    imagecopy($newimg, $bg, 0, 0, 0, 0, $bgWidth, $bgHeight);
+                }
+                $srcX = 0;
+                $srcY = 0;
+                $srcW = imagesx($frame);
+                $srcH = imagesy($frame);
+                $dstX = floor($originalFramesMeta[$k]['left'] / $ratio);
+                $dstY = floor($originalFramesMeta[$k]['top'] / $ratio);
+                $dstW = ceil($originalFramesMeta[$k]['width'] / $ratio);
+                $dstH = ceil($originalFramesMeta[$k]['height'] / $ratio);
+                imagecopyresampled($newimg, $frame, $dstX, $dstY, $srcX, $srcY, $dstW, $dstH, $srcW, $srcH);
+                if(!is_resource($bg)) {
+                    $bg = imagecreatetruecolor($bgWidth, $bgHeight);
+                    $this->prepareGDimage($bg);
+                }
+                imagecopy($bg, $newimg, 0, 0, 0, 0, $bgWidth, $bgHeight);
+                $newimg = imagecreatetruecolor($finalWidth, $finalHeight);
+                $this->prepareGDimage($newimg);
+                imagecopy($newimg, $bg, 0, 0, $bgX, $bgY, $finalWidth, $finalHeight);
+                array_push($newFrames, $newimg);
+                $originalFrames[$k] = null;
+            }
+        }
+
+        if(count($newFrames) > 0) {
+            $frames = array();
+            foreach($newFrames as $nf) {
+                if(!is_resource($nf)) continue;
+                ob_start();
+                imagegif($nf);
+                $gifdata = ob_get_clean();
+                array_push($frames, $gifdata);
+                @imagedestroy($nf);
+            }
+            $gifmerge = new ISEAG_GIFEncoder(
+                $frames,
+                $this->meta['delays'],
+                $this->meta['loops'],
+                $this->meta['disposal'],
+                $this->meta['tr'], $this->meta['tg'], $this->meta['tb'],
+                'bin'
+            );
+            $result = false === fwrite(fopen($dstFilename, 'wb'), $gifmerge->GetAnimation()) ? false : true;
+        } else {
+            $result = false;
+        }
+
+        if(isset($bg) && is_resource($bg)) @imagedestroy($bg);
+        if(isset($frame) && is_resource($frame)) @imagedestroy($frame);
+        if(isset($newimg) && is_resource($newimg)) @imagedestroy($newimg);
+
+		if(!$result) {
+			return false;
+		}
+
+		$this->modified = true;
+		return true;
+	}
+
+	/**
+	 * Helper for transparent background preparation
+	 *
+	 * @param resource $gdimage by reference $gdimage
+	 * @return void
+	 *
+	 */
+    protected function prepareGDimage(&$gdimage) {
+        if(!$this->meta['trans']) return;
+        $transparentNew = imagecolorallocate($gdimage, $this->meta['tr'], $this->meta['tg'], $this->meta['tb']);
+        $transparentNewIndex = imagecolortransparent($gdimage, $transparentNew);
+        imagefill($gdimage, 0, 0, $transparentNewIndex);
+    }
+
+
+	/**
+	 * Module install
+	 * 
+	 * @throws WireException
+	 * 
+	 */
+	public function ___install() {
+		if(!$this->supported('install')) {
+			throw new WireException("This module requires that you have PHP's GD image library bundled or installed");
+		}
+	}
+	
+}
