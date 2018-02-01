@@ -1347,8 +1347,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			if(count($addRoles)) {
 				foreach($addRoles as $roleID) {
 					$role = $this->wire('roles')->get($roleID);
+					if(!$role->id) continue;
 					if(!$role->hasPermission("page-add", $this->page)) continue;
-					if($role->id) $table->row(array($role->name, $addLabel));
+					$table->row(array($role->name, $addLabel));
 				}
 			}
 

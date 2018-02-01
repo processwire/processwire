@@ -308,14 +308,18 @@ class Template extends WireData implements Saveable, Exportable {
 
 		if(strpos($type, 'page-') === 0) $type = str_replace('page-', '', $type);
 		
-		if($type != 'view') {
-			$roles = $this->wire('pages')->newPageArray();
+		if($type !== 'view') {
 			$roleIDs = null;
-			if($type == 'edit') $roleIDs = $this->editRoles;	
-				else if($type == 'create') $roleIDs = $this->createRoles;
-				else if($type == 'add') $roleIDs = $this->addRoles;
-				else throw new WireException("Unknown roles type: $type"); 
-			if(empty($roleIDs)) return $roles;
+			if($type === 'edit') {
+				$roleIDs = $this->editRoles;
+			} else if($type === 'create') {
+				$roleIDs = $this->createRoles;
+			} else if($type === 'add') {
+				$roleIDs = $this->addRoles;
+			} else {
+				throw new WireException("Unknown roles type: $type");
+			}
+			if(empty($roleIDs)) return $this->wire('pages')->newPageArray();
 			return $this->wire('pages')->getById($roleIDs);
 		}
 
@@ -414,17 +418,22 @@ class Template extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function setRoles($value, $type = 'view') {
-		if($type == 'view' || $type == 'page-view') {
+		if($type === 'view' || $type === 'page-view') {
 			if(is_array($value) || $value instanceof PageArray) {
 				$this->_roles = $value;
 			}
 		} else if(WireArray::iterable($value)) {
 			$roleIDs = array();
 			foreach($value as $v) {
-				if(is_int($v)) $id = $v;
-					else if(is_string($v) && ctype_digit($v)) $id = (int) $v;
-					else if($v instanceof Page) $id = $v->id;
-					else continue;
+				if(is_int($v)) {
+					$id = $v;
+				} else if(is_string($v) && ctype_digit($v)) {
+					$id = (int) $v;
+				} else if($v instanceof Page) {
+					$id = $v->id;
+				} else {
+					continue;
+				}
 				$roleIDs[] = $id;	
 			}
 			if($type == 'edit' || $type == 'page-edit') {
@@ -464,18 +473,40 @@ class Template extends WireData implements Saveable, Exportable {
 	 *
 	 * @param Role|int|string $role Role instance, id or name
 	 * @param string $type Type of role being added, one of: view, edit, create, add. (default=view)
+	 *   You may also specify “all” to remove the role entirely from all possible usages in the template. 
 	 * @return $this
 	 * @throws WireException If given $role cannot be resolved
 	 *
 	 */
 	public function removeRole($role, $type = 'view') {
-		if(is_int($role) || is_string($role)) $role = $this->wire('roles')->get($role);
-		if(!$role instanceof Role) throw new WireException("removeRole requires Role instance, name or id");
-		$roles = $this->getRoles($type); 
-		if($roles->has($role)) {
-			$roles->remove($role); 
-			$this->setRoles($roles, $type); 
+		
+		if(is_int($role) || is_string($role)) {
+			$role = $this->wire('roles')->get($role);
 		}
+		
+		if(!$role instanceof Role) {
+			throw new WireException("removeRole requires Role instance, name or id");
+		}
+		
+		if($type == 'all') {
+			$types = array('create', 'add', 'edit', 'view'); 
+			$rolesPermissions = $this->rolesPermissions;
+			if(isset($rolesPermissions["$role->id"])) {
+				unset($rolesPermissions["$role->id"]); 
+				$this->rolesPermissions = $rolesPermissions; 
+			}
+		} else {
+			$types = array($type);
+		}
+		
+		foreach($types as $t) {
+			$roles = $this->getRoles($t);
+			if($roles->has($role)) {
+				$roles->remove($role);
+				$this->setRoles($roles, $t);
+			}
+		}
+		
 		return $this; 
 	}
 

@@ -600,12 +600,11 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	public function ___deleteReady(Page $page) { }
 
 	/**
-	 * Hook called when a page and it's data have been deleted
+	 * Hook called when a page and its data have been deleted
 	 * 
 	 * #pw-internal
 	 *
 	 * @param Page $page
-	 * @deprecated
 	 *
 	 */
 	public function ___deleted(Page $page) { }

@@ -105,4 +105,23 @@ class Roles extends PagesType {
 			$page->permissions->add($this->wire('permissions')->get("name=page-view")); 
 		}
 	}
+	
+	/**
+	 * Hook called when a page and its data have been deleted
+	 *
+	 * #pw-internal
+	 *
+	 * @param Page $page
+	 *
+	 */
+	public function ___deleted(Page $page) { 
+		foreach($this->wire('templates') as $template) {
+			/** @var Template $template */
+			if(!$template->useRoles) continue;
+			$template->removeRole($page, 'all'); 
+			if($template->isChanged()) $template->save();
+		}
+
+		parent::___deleted($page);
+	}
 }
