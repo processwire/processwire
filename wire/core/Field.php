@@ -448,6 +448,20 @@ class Field extends WireData implements Saveable, Exportable {
 			if(strpos($key, '_') === 0) unset($data[$key]);
 		}
 
+		// convert access roles from IDs to names
+		if($this->useRoles) {
+			foreach(array('viewRoles', 'editRoles') as $roleType) {
+				if(!is_array($data[$roleType])) $data[$roleType] = array();
+				$roleNames = array();
+				foreach($data[$roleType] as $key => $roleID) {
+					$role = $this->wire('roles')->get($roleID);
+					if(!$role || !$role->id) continue;
+					$roleNames[] = $role->name;
+				}
+				$data[$roleType] = $roleNames;
+			}
+		}
+
 		return $data;
 	}
 
@@ -497,7 +511,11 @@ class Field extends WireData implements Saveable, Exportable {
 			$this->type = $this->wire('fieldtypes')->get($data['type']);
 		}
 
-		if(!$this->type) $this->type = $this->wire('fieldtypes')->get('FieldtypeText');
+		if(!$this->type) {
+			if(!empty($data['type'])) $this->error("Unable to locate field type: $data[type]"); 
+			$this->type = $this->wire('fieldtypes')->get('FieldtypeText');
+		}
+
 		$data = $this->type->importConfigData($this, $data);
 
 		// populate import data
@@ -632,6 +650,15 @@ class Field extends WireData implements Saveable, Exportable {
 				$ids[] = (int) $role;
 			} else if($role instanceof Role) {
 				$ids[] = (int) $role->id;
+			} else if(is_string($role) && strlen($role)) {
+				$rolePage = $this->wire('roles')->get($role); 
+				if($rolePage && $rolePage->id) {
+					$ids[] = $rolePage->id;
+				} else {
+					$this->error("Unknown role '$role'"); 
+				}
+			} else {
+				// invalid
 			}
 		}
 		if($type == 'view') {

@@ -450,7 +450,16 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function ___exportConfigData(Field $field, array $data) {
-		$data = $this->wire('fieldtypes')->get('FieldtypePage')->exportConfigData($field, $data); 
+		$data = $this->wire('fieldtypes')->get('FieldtypePage')->exportConfigData($field, $data);
+		if(is_array($data['template_id'])) {
+			// convert template IDs to names
+			$names = array();
+			foreach($data['template_id'] as $id) {
+				$template = $this->wire('templates')->get((int) $id); 
+				if($template) $names[] = $template->name;
+			}
+			$data['template_id'] = $names;
+		}
 		return $data;
 	}
 	
@@ -464,7 +473,25 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function ___importConfigData(Field $field, array $data) {
+		$templateIDs = array();
+		if(!empty($data['template_id'])) {
+			if(!is_array($data['template_id'])) $data['template_id'] = array($data['template_id']); 
+			$errorTemplates = array();
+			foreach($data['template_id'] as $name) {
+				$template = $this->wire('templates')->get($name); 	
+				if($template) {
+					$templateIDs[] = $template->id;
+				} else {
+					$errorTemplates[] = $name;
+				}
+			}
+			$data['template_id'] = 0;
+			if(count($errorTemplates)) {
+				$data['errors']['template_id'] = "Unable to find template(s): " . implode(', ', $errorTemplates);
+			}
+		}
 		$data = $this->wire('fieldtypes')->get('FieldtypePage')->importConfigData($field, $data);
+		$data['template_id'] = $templateIDs; 
 		return $data;
 	}
 
