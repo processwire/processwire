@@ -249,7 +249,7 @@ class InputfieldForm extends InputfieldWrapper {
 					
 					if($name == '1') {
 						$numFieldsMatched++;
-					} else if($this->selectorMatchesInputfield($selector, $name, 'showIf')) {
+					} else if($this->selectorMatchesInputfield($selector, $name, "'showIf' from '$child->label'")) {
 						$numFieldsMatched++;
 					}
 					
@@ -310,7 +310,6 @@ class InputfieldForm extends InputfieldWrapper {
 	 * 
 	 * @param WireInputData $input
 	 * @param array|Inputfield[] $delayedChildren
-	 * @return bool
 	 * 
 	 */
 	protected function processInputRequiredIf(WireInputData $input, array $delayedChildren) {

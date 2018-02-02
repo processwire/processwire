@@ -225,7 +225,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		}
 		
 		if($page->wire('pages')->cloning) {
-			return true; // bypass check when clong is active
+			return true; // bypass check when cloning is active
 		}
 
 		$valid = true;

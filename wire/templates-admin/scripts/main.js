@@ -483,4 +483,8 @@ if(typeof ProcessWire != "undefined") {
 			callback: func
 		})
 	};
+
+	ProcessWire.entities = function(str) {
+		return $('<textarea />').text(str).html();
+	};
 }
