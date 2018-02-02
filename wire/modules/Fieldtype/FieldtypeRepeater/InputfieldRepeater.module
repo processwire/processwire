@@ -116,18 +116,16 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 *
 	 */
 	public function ___renderRepeaterLabel($label, $cnt, Page $page) {
-	
-		static $allowRender = null;
-		if(is_null($allowRender)) {
-			$allowRender = true;	
-			$repeaterEditID = (int) $this->wire('input')->get('repeater_edit');
-			if($repeaterEditID && $repeaterEditID == $page->id) {
-				$allowRender = false;
-			} else if(count($_POST) && !$this->wire('config')->ajax) {
-				$allowRender = false;
-			}
+
+		// situations where we skip the render of repeater label because it is not needed
+		$repeaterEditID = (int) $this->wire('input')->get('repeater_edit');
+		if($repeaterEditID && $repeaterEditID == $page->id) {
+			// edit of item requested in URL that matches given $page
+			return $label;
+		} else if(count($_POST) && !$this->wire('config')->ajax) {
+			// POST request that is not ajax
+			return $label;
 		}
-		if(!$allowRender) return $label;
 		
 		$out = '';
 		$repeaterTitle = $this->field ? $this->field->get('repeaterTitle') : '';
