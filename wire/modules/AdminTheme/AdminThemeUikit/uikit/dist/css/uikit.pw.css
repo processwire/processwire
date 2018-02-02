@@ -14507,7 +14507,7 @@ a.tooltip:hover {
   background: #ffd;
 }
 .PageList .PageListItem > a.PageListPage {
-  line-height: 1.5em;
+  line-height: 1.6em;
   color: #7a002b;
   opacity: 1.0;
 }
@@ -14678,6 +14678,7 @@ body:not(.pw-narrow-width) .PageList .PageListItem.PageListNoChildren > a.PageLi
 .Inputfield {
   display: block;
   color: #354b60;
+  background: #fff;
   border: none;
   outline: 1px solid #d9e1ea;
 }
@@ -14746,6 +14747,14 @@ body:not(.pw-narrow-width) .PageList .PageListItem.PageListNoChildren > a.PageLi
 .Inputfield input[type=url]:not(.uk-input).InputfieldMaxWidth {
   width: 100%;
 }
+.Inputfield input[type=text]:not(.uk-input)[size],
+.Inputfield input[type=email]:not(.uk-input)[size],
+.Inputfield input[type=date]:not(.uk-input)[size],
+.Inputfield input[type=datetime]:not(.uk-input)[size],
+.Inputfield input[type=number]:not(.uk-input)[size],
+.Inputfield input[type=url]:not(.uk-input)[size] {
+  width: auto;
+}
 .Inputfield .InputfieldDatetime input.InputfieldDatetimeDatepicker {
   width: auto;
 }
@@ -14789,6 +14798,9 @@ body:not(.pw-narrow-width) .PageList .PageListItem.PageListNoChildren > a.PageLi
   padding-top: 4px;
   padding-bottom: 4px;
   vertical-align: top;
+}
+.Inputfield input[size] {
+  width: auto;
 }
 .Inputfields .InputfieldIsOffset:not(.InputfieldColumnWidth) {
   margin-top: 20px;
@@ -15974,7 +15986,7 @@ ul.uk-navbar-nav ul {
   position: absolute;
   bottom: -1px;
   left: 40%;
-  z-index: 999;
+  z-index: 99;
 }
 #pw-masthead .pw-search-form .pw-search-input {
   color: #8d939e;

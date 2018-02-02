@@ -24,7 +24,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 21,
+			'version' => 22,
 			'summary' => 'Uikit v3 admin theme (beta)',
 			'autoload' => 'template=admin', 
 			'requires' => 'ProcessWire>=3.0.61'
