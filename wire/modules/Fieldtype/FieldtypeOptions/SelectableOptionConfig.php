@@ -111,7 +111,7 @@ class SelectableOptionConfig extends Wire {
 			// options not posted, check if there are any pending session activities
 
 			$removedOptionIDs = $this->wire('session')->get($ns, 'removedOptionIDs');
-			if(count($removedOptionIDs)) {
+			if(wireCount($removedOptionIDs)) {
 				
 				$f = $this->wire('modules')->get('InputfieldHidden');
 				$f->attr('name', '_delete_options'); 
