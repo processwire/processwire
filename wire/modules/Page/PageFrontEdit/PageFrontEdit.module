@@ -492,11 +492,11 @@ class PageFrontEdit extends WireData implements Module {
 					}
 				} else if(empty($names)) {
 					$names = $attr;
-					if(strpos($names, ':') !== false) {
-						list($pageID, $names) = explode(':', $names);
-					} else if(strpos($names, '.') !== false) {
-						list($pageID, $names) = explode('.', $names);
-					}
+				}
+				if(strpos($names, ':') !== false) {
+					list($pageID, $names) = explode(':', $names);
+				} else if(strpos($names, '.') !== false) {
+					list($pageID, $names) = explode('.', $names);
 				}
 			}
 			
