@@ -91,7 +91,7 @@ class SelectableOptionConfig extends Wire {
 				}
 			}
 
-			$removedOptionIDs = $this->manager->getRemovedOptionIDs($this->field); // identified for removal
+			$removedOptionIDs = $this->manager->getRemovedOptionIDs(); // identified for removal
 			if(count($removedOptionIDs)) {
 				// stuff in session for next request
 				$this->wire('session')->set($ns, 'removedOptionIDs', $removedOptionIDs);
