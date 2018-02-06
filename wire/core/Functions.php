@@ -627,14 +627,96 @@ function wireIconMarkupFile($filename, $class = '') {
 /**
  * Given a quantity of bytes, return a more readable size string
  * 
- * @param int $size
+ * @param int $bytes Quantity in bytes
+ * @param bool|int|array $small Make returned string as small as possible (default=false), 
+ *   …or specify integer 1 for $small option but with space between number and unit label.
+ *   …or optionally specify $options argument here. 
+ * @param array|int $options Options to modify default behavior, or if an integer then `decimals` option is assumed:
+ *  - `decimals` (int): Number of decimals to use in returned value (default=0).
+ *  - `decimal_point` (string|null): Decimal point character, or null to detect from locale (default=null). 
+ *  - `thousands_sep` (string|null): Thousands separator, or null to detect from locale (default=null). 
+ *  - `small` (bool): If no $small argument was specified, you can optionally specify it in this $options array.
  * @return string
  * 
  */
-function wireBytesStr($size) {
-	if($size < 1024) return number_format($size) . ' ' . __('bytes', __FILE__);
-	$kb = round($size / 1024);
-	return number_format($kb) . " " . __('kB', __FILE__); // kilobytes
+function wireBytesStr($bytes, $small = false, $options = array()) {
+	
+	$defaults = array(
+		'decimals' => 0, 
+		'decimal_point' => null,
+		'thousands_sep' => null,
+	);
+
+	if(is_array($small)) {
+		$options = $small;
+		$small = isset($options['small']) ? $options['small'] : false;
+	}
+	if(!is_array($options)) $options = array('decimals' => (int) $options);
+	if(!is_int($bytes)) $bytes = (int) $bytes;
+	
+	$options = array_merge($defaults, $options);
+	$locale = array();
+	
+	// determine size value and units label	
+	if($bytes < 1024) {
+		$val = $bytes;
+		if($small) {
+			$label = $val > 0 ? __('B', __FILE__) : ''; // bytes
+		} else {
+			$label = __('bytes', __FILE__);
+		}
+	} else if($bytes < 1000000) {
+		$val = $bytes / 1024;
+		$label = __('kB', __FILE__); // kilobytes
+	} else if($bytes < 1073741824) {
+		$val = $bytes / 1024 / 1024;
+		$label = __('MB', __FILE__); // megabytes
+	} else { 
+		$val = $bytes / 1024 / 1024 / 1024; 
+		$label = __('GB', __FILE__); // gigabytes
+	}
+
+	// determine decimal point if not specified in $options
+	if($options['decimal_point'] === null) {
+		if($options['decimals'] > 0) {
+			// determine decimal point from locale
+			if(empty($locale)) $locale = localeconv();
+			$options['decimal_point'] = empty($locale['decimal_point']) ? '.' : $locale['decimal_point'];
+		} else {
+			// no decimal point needed (not used)
+			$options['decimal_point'] = '.';
+		}
+	}
+
+	// determine thousands separator if not specified in $options
+	if($options['thousands_sep'] === null) {
+		if($small || $val < 1000) {
+			// no thousands separator needed
+			$options['thousands_sep'] = '';
+		} else {
+			// get thousands separator from current locale
+			if(empty($locale)) $locale = localeconv();
+			$options['thousands_sep'] = empty($locale['thousands_sep']) ? '' : $locale['thousands_sep'];
+		}
+	}
+
+	// format number to string
+	$str = number_format($val, $options['decimals'], $options['decimal_point'], $options['thousands_sep']);
+
+	// in small mode remove numbers with decimals that consist only of zeros "0"
+	if($small && $options['decimals'] > 0) {
+		$test = substr($str, -1 * $options['decimals']);
+		if(((int) $test) === 0) {
+			$str = substr($str, 0, strlen($str) - ($options['decimals'] + 1)); // i.e. 123.00 => 123
+		} else {
+			$str = rtrim($str, '0'); // i.e. 123.10 => 123.1
+		}
+	}
+
+	// append units label to number
+	$str .= ($small === true ? '' : ' ') . $label;
+	
+	return $str;
 }
 
 /**
