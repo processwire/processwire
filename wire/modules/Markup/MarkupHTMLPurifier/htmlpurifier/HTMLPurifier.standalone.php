@@ -7,7 +7,7 @@
  * primary concern and you are using an opcode cache. PLEASE DO NOT EDIT THIS
  * FILE, changes will be overwritten the next time the script is run.
  *
- * @version 4.9.2
+ * @version 4.9.3
  *
  * @warning
  *      You must *not* include any other HTML Purifier files before this file,
@@ -39,7 +39,7 @@
  */
 
 /*
-    HTML Purifier 4.9.2 - Standards Compliant HTML Filtering
+    HTML Purifier 4.9.3 - Standards Compliant HTML Filtering
     Copyright (C) 2006-2008 Edward Z. Yang
 
     This library is free software; you can redistribute it and/or
@@ -78,12 +78,12 @@ class HTMLPurifier
      * Version of HTML Purifier.
      * @type string
      */
-    public $version = '4.9.2';
+    public $version = '4.9.3';
 
     /**
      * Constant with version of HTML Purifier.
      */
-    const VERSION = '4.9.2';
+    const VERSION = '4.9.3';
 
     /**
      * Global configuration object.
@@ -1764,7 +1764,7 @@ class HTMLPurifier_Config
      * HTML Purifier's version
      * @type string
      */
-    public $version = '4.9.2';
+    public $version = '4.9.3';
 
     /**
      * Whether or not to automatically finalize
@@ -2076,7 +2076,7 @@ class HTMLPurifier_Config
         }
 
         // Raw type might be negative when using the fully optimized form
-        // of stdclass, which indicates allow_null == true
+        // of stdClass, which indicates allow_null == true
         $rtype = is_int($def) ? $def : $def->type;
         if ($rtype < 0) {
             $type = -$rtype;
@@ -2688,11 +2688,11 @@ class HTMLPurifier_ConfigSchema
      *
      *  array(
      *      'Namespace' => array(
-     *          'Directive' => new stdclass(),
+     *          'Directive' => new stdClass(),
      *      )
      *  )
      *
-     * The stdclass may have the following properties:
+     * The stdClass may have the following properties:
      *
      *  - If isAlias isn't set:
      *      - type: Integer type of directive, see HTMLPurifier_VarParser for definitions
@@ -2703,8 +2703,8 @@ class HTMLPurifier_ConfigSchema
      *      - namespace: Namespace this directive aliases to
      *      - name: Directive name this directive aliases to
      *
-     * In certain degenerate cases, stdclass will actually be an integer. In
-     * that case, the value is equivalent to an stdclass with the type
+     * In certain degenerate cases, stdClass will actually be an integer. In
+     * that case, the value is equivalent to an stdClass with the type
      * property set to the integer. If the integer is negative, type is
      * equal to the absolute value of integer, and allow_null is true.
      *
@@ -2769,7 +2769,7 @@ class HTMLPurifier_ConfigSchema
      */
     public function add($key, $default, $type, $allow_null)
     {
-        $obj = new stdclass();
+        $obj = new stdClass();
         $obj->type = is_int($type) ? $type : HTMLPurifier_VarParser::$types[$type];
         if ($allow_null) {
             $obj->allow_null = true;
@@ -2816,14 +2816,14 @@ class HTMLPurifier_ConfigSchema
      */
     public function addAlias($key, $new_key)
     {
-        $obj = new stdclass;
+        $obj = new stdClass;
         $obj->key = $new_key;
         $obj->isAlias = true;
         $this->info[$key] = $obj;
     }
 
     /**
-     * Replaces any stdclass that only has the type property with type integer.
+     * Replaces any stdClass that only has the type property with type integer.
      */
     public function postProcess()
     {
@@ -5268,7 +5268,7 @@ class HTMLPurifier_Generator
             $attr = $this->generateAttributes($token->attr, $token->name);
             if ($this->_flashCompat) {
                 if ($token->name == "object") {
-                    $flash = new stdclass();
+                    $flash = new stdClass();
                     $flash->attr = $token->attr;
                     $flash->param = array();
                     $this->_flashStack[] = $flash;
@@ -7668,7 +7668,7 @@ class HTMLPurifier_Lexer
                         break;
                     }
 
-                    if (class_exists('DOMDocument') &&
+                    if (class_exists('DOMDocument', false) &&
                         method_exists('DOMDocument', 'loadHTML') &&
                         !extension_loaded('domxml')
                     ) {
@@ -14724,7 +14724,7 @@ class HTMLPurifier_ChildDef_List extends HTMLPurifier_ChildDef
         // a little sanity check to make sure it's not ALL whitespace
         $all_whitespace = true;
 
-        $current_li = false;
+        $current_li = null;
 
         foreach ($children as $node) {
             if (!empty($node->is_whitespace)) {
@@ -14745,7 +14745,7 @@ class HTMLPurifier_ChildDef_List extends HTMLPurifier_ChildDef
                 // to handle non-list elements; non-list elements should
                 // not be appended to an existing li; only li created
                 // for non-list. This distinction is not currently made.
-                if ($current_li === false) {
+                if ($current_li === null) {
                     $current_li = new HTMLPurifier_Node_Element('li');
                     $result[] = $current_li;
                 }
