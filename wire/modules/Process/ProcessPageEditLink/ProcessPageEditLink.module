@@ -113,9 +113,9 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			'rootParentUrl' => $this->page->rootParent->url,
 			'slashUrls' => $this->page->template ? $this->page->template->slashUrls : 1,
 			'urlType' => $this->urlType,
-			'extLinkRel' => $this->extLinkRel, 
+			'extLinkRel' => $this->wire('sanitizer')->names($this->extLinkRel), 
 			'extLinkTarget' => $this->extLinkTarget, 
-			'extLinkClass' => $this->extLinkClass, 
+			'extLinkClass' => $this->wire('sanitizer')->names($this->extLinkClass), 
 			));
 
 		parent::init();
@@ -447,20 +447,20 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$fieldset->icon = 'external-link';
 		$fieldset->collapsed = Inputfield::collapsedBlank;
 
-		$f = $this->wire('modules')->get('InputfieldName');
+		$f = $this->wire('modules')->get('InputfieldText');
 		$f->attr('name', 'extLinkClass');
 		$f->label = 'class';
-		$f->attr('value', $data['extLinkClass']);
+		$f->attr('value', $this->wire('sanitizer')->names($data['extLinkClass']));
 		$f->required = false;
 		$f->columnWidth = 34;
 		$fieldset->add($f);
 
-		$f = $this->wire('modules')->get('InputfieldName');
+		$f = $this->wire('modules')->get('InputfieldText');
 		$f->attr('name', 'extLinkRel');
 		$f->notes = $this->_('Example: Specifying **nofollow** would make external links default to be not followed by search engines.');
 		$f->label = 'rel';
 		$f->required = false; 
-		$f->attr('value', $data['extLinkRel']);
+		$f->attr('value', $this->wire('sanitizer')->names($data['extLinkRel']));
 		$f->columnWidth = 33; 
 		$fieldset->add($f);
 
