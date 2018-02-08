@@ -697,8 +697,22 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected function ___extractMetadata(Pagefile $pagefile, array $metadata = array()) {
+		
 		$metadata['description'] = $pagefile->description;
+		
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
+		if($languages && !$this->noLang) {
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				$metadata["description$language->id"] = $pagefile->description($language);
+			}
+		}
+		
 		$metadata['tags'] = $pagefile->tags;
+		$filedata = $pagefile->filedata();
+		if(count($filedata)) $metadata['filedata'] = $filedata;
+		
 		return $metadata;
 	}
 
