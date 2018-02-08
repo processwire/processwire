@@ -289,12 +289,14 @@ class WireInput extends Wire {
 				$urlSegments[++$n] = $v;
 			}
 			$this->urlSegments = $urlSegments;
-		} else if($this->wire('config')->pageNameCharset == 'UTF8') {
-			// set UTF8
-			$this->urlSegments[$num] = $this->wire('sanitizer')->pageNameUTF8($value, $maxLength);
 		} else {
-			// set ascii
-			$this->urlSegments[$num] = $this->wire('sanitizer')->name($value, false, $maxLength);
+			// sanitize to standard PW name format
+			$urlSegment = $this->wire('sanitizer')->name($value, false, $maxLength);
+			// if UTF-8 mode and value changed during name sanitization, try pageNameUTF8 instead
+			if($urlSegment !== $value && $this->wire('config')->pageNameCharset == 'UTF8') {
+				$urlSegment = $this->wire('sanitizer')->pageNameUTF8($value, $maxLength);
+			}
+			$this->urlSegments[$num] = $urlSegment;
 		}
 		
 	}
