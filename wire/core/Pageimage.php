@@ -591,7 +591,7 @@ class Pageimage extends Pagefile {
 		$width = (int) $width;
 		$height = (int) $height;
 	
-		if($options['cropping'] === true && empty($options['cropExtra']) && $options['focus'] && $this->hasFocus) {
+		if($options['cropping'] === true && empty($options['cropExtra']) && $options['focus'] && $this->hasFocus && $width && $height) {
 			// crop to focus area
 			$focus = $this->focus(); 
 			$focus['zoom'] = 0; // not yet supported
@@ -1165,7 +1165,8 @@ class Pageimage extends Pagefile {
 			$o['forceNew'] = true; 
 			$o['suffix'] = $info['suffix'];
 			if(is_file($info['path'])) unlink($info['path']); 
-			
+		
+			/*
 			if(!$info['width'] && $info['actualWidth']) {
 				$info['width'] = $info['actualWidth'];
 				$options['nameWidth'] = 0;
@@ -1174,6 +1175,7 @@ class Pageimage extends Pagefile {
 				$info['height'] = $info['actualHeight'];
 				$options['nameHeight'] = 0;
 			}
+			*/
 			
 			if($info['crop'] && preg_match('/^x(\d+)y(\d+)$/', $info['crop'], $matches)) {
 				// dimensional cropping info contained in filename
