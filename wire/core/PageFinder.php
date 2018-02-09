@@ -159,6 +159,7 @@ class PageFinder extends Wire {
 	protected $extraOrSelectors = array(); // one from each field must match
 	protected $sortsAfter = array(); // apply these sorts after pages loaded 
 	protected $reverseAfter = false; // reverse order after load?
+	protected $pageArrayData = array(); // any additional data that should be populated back to any resulting PageArray objects
 	
 	// protected $extraSubSelectors = array(); // subselectors that are added in after getQuery()
 	// protected $extraJoins = array();
@@ -377,6 +378,7 @@ class PageFinder extends Wire {
 		$this->templates_id = null;
 		$this->checkAccess = true; 
 		$this->getQueryNumChildren = 0;
+		$this->pageArrayData = array();
 		$this->setupStatusChecks($selectors, $options);
 
 		// move getTotal option to a class property, after setupStatusChecks
@@ -514,7 +516,7 @@ class PageFinder extends Wire {
 		$eq = null;
 		
 		foreach($selectors as $selector) {
-			$field = $selector->field;
+			$field = $selector->field();
 			
 			if($field === '_custom') {
 				$selectors->remove($selector);
@@ -548,8 +550,11 @@ class PageFinder extends Wire {
 				}
 				$selectors->remove($selector);
 				
-			} else if(strpos($selector->field(), '.owner.') && !$this->wire('fields')->get('owner')) {
+			} else if(strpos($field, '.owner.') && !$this->wire('fields')->get('owner')) {
 				$selector->field = str_replace('.owner.', '__owner.', $selector->field()); 
+				
+			} else if(stripos($field, 'Fieldtype') === 0) {
+				$this->preProcessFieldtypeSelector($selectors, $selector); 
 			}
 		}
 		
@@ -649,6 +654,117 @@ class PageFinder extends Wire {
 		
 		$this->limit = $limit;
 		$this->start = $start;
+	}
+
+	/**
+	 * Pre-process a selector having field name that begins with "Fieldtype"
+	 * 
+	 * @param Selectors $selectors
+	 * @param Selector $selector
+	 * 
+	 */
+	protected function preProcessFieldtypeSelector(Selectors $selectors, Selector $selector) {
+	
+		$foundFields = null;
+		$foundTypes = null;
+		$replaceFields = array();
+		$failFields = array();
+		/** @var Languages|null $languages */
+		$languages = $this->wire('languages');
+		$selectorCopy = null;
+		
+		foreach($selector->fields() as $fieldName) {
+		
+			$subfield = '';
+			$findPerField = false;
+			$findExtends = false;
+
+			if(strpos($fieldName, '.')) {
+				$parts = explode('.', $fieldName);
+				$fieldName = array_shift($parts); 
+				foreach($parts as $k => $part) {
+					if($part === 'fields') {
+						$findPerField = true;
+						unset($parts[$k]);
+					} else if($part === 'extends') {
+						$findExtends = true;
+						unset($parts[$k]); 
+					}
+				}
+				if(count($parts)) $subfield = implode('.', $parts);
+			}
+			
+			$fieldtype = $this->wire('fieldtypes')->get($fieldName);
+			if(!$fieldtype) continue;
+			$fieldtypeLang = $languages ? $this->wire('fieldtypes')->get("{$fieldName}Language") : null;
+			
+			foreach($this->wire('fields') as $f) {
+				
+				if($findExtends) {
+					// allow any Fieldtype that is an instance of given one, or extends it
+					if(!wireInstanceOf($f->type, $fieldtype) 
+						&& ($fieldtypeLang === null || !wireInstanceOf($f->type, $fieldtypeLang))) continue;
+					
+				} else {
+					// only allow given Fieldtype
+					if($f->type !== $fieldtype && ($fieldtypeLang === null || $f->type !== $fieldtypeLang)) continue;
+				}
+				
+				$fName = $subfield ? "$f->name.$subfield" : $f->name;
+				
+				if($findPerField) {
+					if($selectorCopy === null) $selectorCopy = clone $selector;
+					$selectorCopy->field = $fName;
+					$selectors->replace($selector, $selectorCopy); 
+					$count = $this->wire('pages')->count($selectors);
+					$selectors->replace($selectorCopy, $selector); 
+					if($count) {
+						if($foundFields === null) {
+							$foundFields = isset($this->pageArrayData['fields']) ? $this->pageArrayData['fields'] : array(); 
+						}
+						// include only fields that we know will match
+						$replaceFields[$fName] = $fName;
+						if(isset($foundFields[$fName])) {
+							$foundFields[$fName] += $count;
+						} else {
+							$foundFields[$fName] = $count;
+						}
+					} else {
+						$failFields[$fName] = $fName;
+					}
+				} else {
+					// include all fields (faster)
+					$replaceFields[$fName] = $fName;
+				}
+				
+				if($findExtends) {
+					if($foundTypes === null) {
+						$foundTypes = isset($this->pageArrayData['extends']) ? $this->pageDataArray['extends'] : array();
+					}
+					$fType = $f->type->className();
+					if(isset($foundTypes[$fType])) {
+						$foundTypes[$fType][] = $fName;
+					} else {
+						$foundTypes[$fType] = array($fName);
+					}
+				}
+			}
+		}
+		
+		if(count($replaceFields)) {
+			$selector->fields = array_values($replaceFields);
+		} else if(count($failFields)) {
+			// forced non-match and prevent field-not-found error after this method
+			$selector->field = reset($failFields);
+		}
+		
+		if(is_array($foundFields)) {
+			arsort($foundFields);
+			$this->pageArrayData['fields'] = $foundFields;
+		}
+		if(is_array($foundTypes)) {
+			$this->pageArrayData['extends'] = $foundTypes;
+		}
 	}
 
 
@@ -2455,6 +2571,20 @@ class PageFinder extends Wire {
 		}
 
 		return true;
+	}
+
+	/**
+	 * Get data that should be populated back to any resulting PageArray’s data() method
+	 * 
+	 * @param PageArray|null $pageArray Optionally populate given PageArray
+	 * @return array
+	 * 
+	 */
+	public function getPageArrayData(PageArray $pageArray = null) {
+		if($pageArray !== null && count($this->pageArrayData)) {
+			$pageArray->data($this->pageArrayData); 
+		}
+		return $this->pageArrayData; 
 	}
 }
 

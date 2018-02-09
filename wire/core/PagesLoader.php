@@ -335,6 +335,7 @@ class PagesLoader extends Wire {
 			$pages = $this->pages->newPageArray($loadOptions);
 		}
 
+		$pageFinder->getPageArrayData($pages); 
 		$pages->setTotal($total);
 		$pages->setLimit($limit);
 		$pages->setStart($start);

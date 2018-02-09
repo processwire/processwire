@@ -2101,19 +2101,55 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * #pw-group-other-data-storage
 	 * #pw-link [Introduction of data method](https://processwire.com/talk/topic/5098-new-wirearray-api-additions-on-dev/)
 	 *
-	 * @param string|null $key Name of data property you want to get or set. Omit to get all data properties. 
-	 * @param mixed|null $value Value of data property you want to set. Omit when getting properties. 
+	 * @param string|null|array|bool $key Name of data property you want to get or set, or: 
+	 *  - Omit to get all data properties. 
+	 *  - Specify associative array of [property => value] to set multiple properties. 
+	 *  - Specify associative array and boolean TRUE for $value argument to replace all data with the new array given in $key.
+	 *  - Specify regular array of property names to return multiple properties. 
+	 *  - Specify boolean FALSE to unset property name specified in $value argument. 
+	 * @param mixed|null|bool $value Value of data property you want to set. Omit when getting properties. 
+	 *  - Specify boolean TRUE to replace all data with associative array of data given in $key argument. 
 	 * @return WireArray|mixed|array|null Returns one of the following, depending on specified arguments: 
 	 *  - `mixed` when getting a single property: whatever you set is what you will get back.
 	 *  - `null` if the property you are trying to get does not exist in the data.
 	 *  - `$this` reference to this WireArray if you were setting a value. 
-	 *  - `array` of all data if you specified no arguments.
+	 *  - `array` of all data if you specified no arguments or requested multiple keys.
 	 *
 	 */
 	public function data($key = null, $value = null) {
-		if(is_null($key) && is_null($value)) return $this->extraData; 
-		if(is_null($value)) return isset($this->extraData[$key]) ? $this->extraData[$key] : null;
-		$this->extraData[$key] = $value; 
+		if($key === null && $value === null) {
+			// get all properties
+			return $this->extraData;
+		} else if(is_array($key)) {
+			// get or set multiple properties
+			if($value === true) {
+				// replace all data with data in given $key array
+				$this->extraData = $key;
+			} else {
+				// test if array is associative
+				if(ctype_digit(implode('0', array_keys($key)))) {
+					// regular, non-associative array, GET only requested properties
+					$a = array();
+					foreach($key as $k) {
+						$a[$k] = isset($this->extraData[$k]) ? $this->extraData[$k] : null;
+					}
+					return $a;
+				} else if(count($key)) {
+					// associative array, setting multiple values to extraData
+					$this->extraData = array_merge($this->extraData, $key);
+				}
+			}
+		} else if($key === false && is_string($value)) {
+			// unset a property
+			unset($this->extraData[$value]); 
+			
+		} else if($value === null) {
+			// get a property
+			return isset($this->extraData[$key]) ? $this->extraData[$key] : null;
+		} else {
+			// set a property
+			$this->extraData[$key] = $value;
+		}
 		return $this; 
 	}
 
