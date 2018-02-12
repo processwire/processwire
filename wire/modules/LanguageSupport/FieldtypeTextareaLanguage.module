@@ -24,6 +24,11 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 
 	/**
 	 * Sanitize value for storage
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param LanguagesPageFieldValue|string|array $value
+	 * @return LanguagesPageFieldValue
 	 *
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
@@ -33,9 +38,9 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 			// convert it to a LanguagesPageFieldValue
 			if(is_array($value)) $value = reset($value); 
 			$str = (string) $value; 
-			$value = $page->getUnformatted($field->name);
-			if(is_string($value) || is_array($value)) {
-				$value = new LanguagesPageFieldValue($page, $field, $value); // #98
+			$value = $page->data($field->name); 
+			if(!is_object($value)) { // string, array or null
+				$value = new LanguagesPageFieldValue($page, $field, $value);
 			}
 			$value->setLanguageValue($this->wire('user')->language->id, $str); 
 		}
@@ -44,6 +49,9 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 
 	/**
 	 * Return the database schema in specified format
+	 * 
+	 * @param Field $field
+	 * @return array
 	 *
 	 */
 	public function getDatabaseSchema(Field $field) {
@@ -59,6 +67,11 @@ class FieldtypeTextareaLanguage extends FieldtypeTextarea implements FieldtypeLa
 
 	/**
 	 * Format value for output, basically typcasting to a string and sending to textformatters from FieldtypeTextarea
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|LanguagesPageFieldValue $value
+	 * @return string
 	 *
 	 */
 	public function formatValue(Page $page, Field $field, $value) {
