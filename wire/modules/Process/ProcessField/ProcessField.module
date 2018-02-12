@@ -1656,6 +1656,8 @@ class ProcessField extends Process implements ConfigurableModule {
 						$this->fields->save($clone);
 						$this->message($this->_('Cloned Field') . " - {$this->field->name} => {$clone->name}");
 						if(!count($errors)) {
+							if($clone->type instanceof FieldtypeFieldsetOpen) $clone->set('closeFieldID', null);
+							$this->fieldAdded($clone);
 							$this->wire('session')->message($this->_('You are now editing the field you cloned.'));
 							$this->wire('session')->redirect("./edit?id=$clone->id#basics");
 						}
