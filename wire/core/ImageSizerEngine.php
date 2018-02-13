@@ -745,10 +745,29 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			$cropping = strtolower($cropping);
 			if(strpos($cropping, ',')) {
 				$cropping = explode(',', $cropping);
-				if(strpos($cropping[0], '%') !== false) $cropping[0] = round(min(100, max(0, $cropping[0]))) . '%';
-					else $cropping[0] = (int) $cropping[0];
-				if(strpos($cropping[1], '%') !== false) $cropping[1] = round(min(100, max(0, $cropping[1]))) . '%';
-					else $cropping[1] = (int) $cropping[1];
+			} else if(strpos($cropping, 'x') && preg_match('/^([pd])(\d+)x(\d+)(z\d+)?/', $cropping, $matches)) {
+				$cropping = array(0 => $matches[1], 1 => $matches[2]);
+				if(isset($matches[3])) $cropping[2] = (int) $matches[3]; 
+				if($matches[1] == 'p') {
+					$cropping[0] .= '%';
+					$cropping[0] .= '%';
+				}
+			}
+		}
+		if(is_array($cropping)) {
+			if(strpos($cropping[0], '%') !== false) {
+				$cropping[0] = round(min(100, max(0, $cropping[0]))) . '%';
+			} else {
+				$cropping[0] = (int) $cropping[0];
+			}
+			if(strpos($cropping[1], '%') !== false) {
+				$cropping[1] = round(min(100, max(0, $cropping[1]))) . '%';
+			} else {
+				$cropping[1] = (int) $cropping[1];
+			}
+			if(isset($cropping[2])) { // zoom
+				$cropping[2] = (int) $cropping[2]; 
+				if($cropping[2] < 2 || $cropping[2] > 99) unset($cropping[2]);
 			}
 		}
 
@@ -778,8 +797,12 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 
 		// crop name if custom center point is specified
 		if(is_array($cropping)) {
-			// p = percent, d = pixel dimension
-			$cropping = (strpos($cropping[0], '%') !== false ? 'p' : 'd') . ((int) $cropping[0]) . 'x' . ((int) $cropping[1]);
+			// p = percent, d = pixel dimension, z = zoom
+			$zoom = isset($cropping[2]) ? (int) $cropping[2] : 0;
+			$cropping = 
+				(strpos($cropping[0], '%') !== false ? 'p' : 'd') . 
+				((int) $cropping[0]) . 'x' . ((int) $cropping[1]);
+			if($zoom > 1 && $zoom < 100) $cropping .= "z$zoom";
 		}
 
 		// if crop is TRUE or FALSE, we don't reflect that in the filename, so make it blank
@@ -1671,6 +1694,120 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		if($gdWidth == $targetWidth && $gdWidth == $this->image['width'] && $gdHeight == $this->image['height'] && $gdHeight == $targetHeight) return 0;
 		if($gdWidth == $targetWidth && $gdHeight == $targetHeight) return 2;
 		return 4;
+	}
+
+	/**
+	 * Helper function to perform a cropExtra / cropBefore cropping
+	 *
+	 * Intended for use by the getFocusZoomCropDimensions() method
+	 *
+	 * @param string $focus (focus point in percent, like: 54.7%)
+	 * @param int $sourceDimension (source image width or height)
+	 * @param int $cropDimension (target crop-image width or height)
+	 *
+	 * @return int $position (crop position x or y in pixel)
+	 *
+	 */
+	protected function getFocusZoomPosition($focus, $sourceDimension, $cropDimension) {
+		$focus = intval($focus); // string with float value and percent char, (needs to be converted to integer)
+		$source = 100; // the source-dimensions percent-value (100)
+		$target = ($cropDimension / $sourceDimension * 100); // the crop-dimensions percent-value
+		$rest = $source - $target; // the unused dimension-part-value in percent
+		$tmp = $focus + ($target / 2); // temp value
+
+		// calculate the position in pixel !
+		if($tmp >= 100) {
+			$position = $sourceDimension - $cropDimension;
+		} else if($tmp <= floor($rest / 2)) {
+			$position = 0;
+		} else {
+			$position = ceil(($sourceDimension - $cropDimension) / 100 * $focus);
+		}
+
+		return $position;
+	}
+
+	/**
+	 * Get an array of the 4 dimensions necessary to perform a cropExtra / cropBefore cropping
+	 *
+	 * Intended for use by the resize() method
+	 *
+	 * @param int $zoom
+	 * @param int $fullWidth
+	 * @param int $fullHeight
+	 * @param int $finalWidth
+	 * @param int $finalHeight
+	 * @return array
+	 *
+	 */
+	protected function getFocusZoomCropDimensions($zoom, $fullWidth, $fullHeight, $finalWidth, $finalHeight) {
+		// validate & calculate / prepare params
+		$zoom = $zoom <= 70 ? $zoom : 70; // validate / correct the zoom value, it needs to be between 2 and 70
+		$zoom = $zoom >= 2 ? $zoom : 2;
+
+		// calculate the max crop dimensions
+		$ratioFinal = $finalWidth / $finalHeight; // get the ratio of the requested crop
+		$percentW = $finalWidth / $fullWidth * 100; // calculate percentage of the crop width in regard of the original width
+		$percentH = $finalHeight / $fullHeight * 100; // calculate percentage of the crop height in regard of the original height
+		if($percentW >= $percentH) { // check wich one is greater
+			$maxW = $fullWidth; // if percentW is greater, maxW becomes the original Width
+			$maxH = $fullWidth / $ratioFinal; // ... and maxH gets calculated via the ratio
+
+		} else {
+			$maxH = $fullHeight; // if percentH is greater, maxH becomes the original Height
+			$maxW = $fullHeight * $ratioFinal; // ... and maxW gets calculated via the ratio
+		}
+
+		// calculate the zoomed dimensions
+		$cropW = $maxW - ($maxW * $zoom / 100); // to get the final crop Width and Height, the amount for zoom-in
+		$cropH = $maxH - ($maxH * $zoom / 100); // needs to get stripped out
+
+		// validate against the minimal dimensions
+		if(!$this->upscaling) { // if upscaling isn't allowed, we decrease the zoom, so that we get a crop with the min-Dimensions
+			if($cropW < $finalWidth) {
+				$cropW = $finalWidth;
+				$cropH = $finalWidth / $ratioFinal;
+			}
+			if($cropH < $finalHeight) {
+				$cropH = $finalHeight;
+				$cropW = $finalHeight * $ratioFinal;
+			}
+		}
+
+		// calculate the crop positions
+		$tmpX = $this->getFocusZoomPosition($this->cropping[0], $fullWidth, $cropW); // calculate the x-position
+		$tmpY = $this->getFocusZoomPosition($this->cropping[1], $fullHeight, $cropH); // calculate the y-position
+
+		return array(
+			0 => (int) $tmpX,
+			1 => (int) $tmpY,
+			2 => (int) $cropW,
+			3 => (int) $cropH
+		);
+	}
+
+	/**
+	 * Get current zoom percentage setting or 0 if not set
+	 * 
+	 * Value is determined from the $this->cropping array index 2 and is used only if index 0 and
+	 * index 1 are percentages (and indicated as such with a percent sign). 
+	 * 
+	 * @return int
+	 * 
+	 */
+	protected function getFocusZoomPercent() {
+		// check if we have to proceed a zoomed focal point cropping,
+		// therefore we need index 0 and 1 to be strings with '%' sign included
+		// and index 2 to be an integer between 2 and 70
+		$a = $this->cropping;
+		if(is_array($a) && isset($a[2]) && strpos($a[0], '%') !== false && strpos($a[1], '%') !== false) {
+			$zoom = (int) $a[2];
+			if($zoom < 2) $zoom = 0;
+			if($zoom > 70) $zoom = 70;
+		} else {
+			$zoom = 0;
+		}
+		return $zoom;
 	}
 
 	/**

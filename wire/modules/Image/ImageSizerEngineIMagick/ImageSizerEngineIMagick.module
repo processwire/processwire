@@ -289,6 +289,13 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 			}
 		}
 
+		$zoom = $this->getFocusZoomPercent();
+		if($zoom > 1) {
+			// we need to configure a cropExtra call to respect the zoom factor
+			$this->cropExtra = $this->getFocusZoomCropDimensions($zoom, $fullWidth, $fullHeight, $finalWidth, $finalHeight);
+			$this->cropping = false;
+		}
+
 		if(is_array($this->cropExtra) && 4 == count($this->cropExtra)) { // crop before resize
 			list($cropX, $cropY, $cropWidth, $cropHeight) = $this->cropExtra;
 			#list($x, $y, $w, $h) = $this->cropExtra;

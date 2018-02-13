@@ -162,6 +162,13 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 				$isModified = true;
 			}
 		}
+		
+		$zoom = $this->getFocusZoomPercent();
+		if($zoom > 1) {
+			// we need to configure a cropExtra call to respect the zoom factor
+			$this->cropExtra = $this->getFocusZoomCropDimensions($zoom, $fullWidth, $fullHeight, $finalWidth, $finalHeight);
+			$this->cropping = false;
+		}
 
 		// if there is requested to crop _before_ resize, we do it here @horst
 		if(is_array($this->cropExtra)) {

@@ -594,7 +594,6 @@ class Pageimage extends Pagefile {
 		if($options['cropping'] === true && empty($options['cropExtra']) && $options['focus'] && $this->hasFocus && $width && $height) {
 			// crop to focus area
 			$focus = $this->focus(); 
-			$focus['zoom'] = 0; // not yet supported
 			$options['cropping'] = array("$focus[left]%", "$focus[top]%", "$focus[zoom]"); 
 			$crop = ''; // do not add suffix	
 			

@@ -127,6 +127,13 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
 		
 		$this->setTimeLimit(120);
 
+		$zoom = $this->getFocusZoomPercent();
+		if($zoom > 1) {
+			// we need to configure a cropExtra call to respect the zoom factor
+			$this->cropExtra = $this->getFocusZoomCropDimensions($zoom, $fullWidth, $fullHeight, $finalWidth, $finalHeight);
+			$this->cropping = false;
+		}
+
 		// if extra crop manipulation is requested, it is processed first
         if(is_array($this->cropExtra) && 4 == count($this->cropExtra)) { // crop before resize
             list($cropX, $cropY, $cropWidth, $cropHeight) = $this->cropExtra;
