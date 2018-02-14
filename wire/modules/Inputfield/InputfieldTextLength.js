@@ -89,7 +89,7 @@ function InputfieldTextLength($inputs) {
 				if(len > 0 && len > maxlength) {
 					note += "<span style='color:red'>" + cfg.max.replace('%d', maxlength) + "</span>";
 					hasError = true;
-				} else if(len > 0 && !hasError) {
+				} else if(len >= 0 && !hasError) {
 					note += cfg.max.replace('%d', maxlength);
 				}
 			}
