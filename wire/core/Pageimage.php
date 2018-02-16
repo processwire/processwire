@@ -579,6 +579,7 @@ class Pageimage extends Pagefile {
 			'nameWidth' => null, // override width to use for filename, int when populated
 			'nameHeight' => null,  // override height to use for filename, int when populated
 			'focus' => true, // allow single dimension resizes to use focus area?
+			'zoom' => null, // zoom override, used only if focus is applicable, int when populated
 			);
 
 		$this->error = '';
@@ -593,7 +594,8 @@ class Pageimage extends Pagefile {
 	
 		if($options['cropping'] === true && empty($options['cropExtra']) && $options['focus'] && $this->hasFocus && $width && $height) {
 			// crop to focus area
-			$focus = $this->focus(); 
+			$focus = $this->focus();
+			if(is_int($options['zoom'])) $focus['zoom'] = $options['zoom']; // override
 			$options['cropping'] = array("$focus[left]%", "$focus[top]%", "$focus[zoom]"); 
 			$crop = ''; // do not add suffix	
 			

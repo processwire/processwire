@@ -108,6 +108,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		if($gridSize >= (self::defaultGridSize * 2)) $gridSize = self::defaultGridSize; // establish max of 259
 		$this->set('gridSize', $gridSize); 
 		$this->set('gridMode', 'grid'); // one of "grid", "left" or "list"
+		$this->set('focusMode', 'on');  // One of "on", "zoom" or "off" 
 		
 		// adminThumbScale is no longer in use (here in case descending module using it)
 		$this->set('adminThumbScale', empty($options['scale']) ? 1.0 : (float) $options['scale']);
@@ -175,6 +176,10 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$jqueryCore->use('cookie');
 		$modules->loadModuleFileAssets('InputfieldFile');
 		$modules->getInstall("JqueryMagnific");
+		
+		if(!$renderValueMode && $this->focusMode == 'zoom') {
+			$this->addClass('InputfieldImageFocusZoom', 'wrapClass'); 
+		}
 	
 		$config->js('InputfieldImage', array(
 			'labels' => $this->labels,
@@ -776,10 +781,12 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$out .= "<button type='button' data-href='$editUrl' class='InputfieldImageButtonCrop $modalButtonClass' $modalAttrs>$buttonText</button>";
 	
 		// Focus
-		$iconA = $pagefile->hasFocus ? 'fa-check-circle-o' : 'fa-circle-o';
-		$iconB = $pagefile->hasFocus ? 'fa-check-circle' : 'fa-dot-circle-o';
-		$buttonText = str_replace('{out}', "<i class='fa $iconA' data-toggle='$iconA $iconB'></i> $labels[focus]", $this->themeSettings['buttonText']);
-		$out .= "<button type='button' class='InputfieldImageButtonFocus $buttonClass'>$buttonText</button>"; 
+		if($this->focusMode && $this->focusMode != 'off') {
+			$iconA = $pagefile->hasFocus ? 'fa-check-circle-o' : 'fa-circle-o';
+			$iconB = $pagefile->hasFocus ? 'fa-check-circle' : 'fa-dot-circle-o';
+			$buttonText = str_replace('{out}', "<i class='fa $iconA' data-toggle='$iconA $iconB'></i> $labels[focus]", $this->themeSettings['buttonText']);
+			$out .= "<button type='button' class='InputfieldImageButtonFocus $buttonClass'>$buttonText</button>";
+		}
 	
 		// Variations
 		$buttonText = "<i class='fa fa-files-o'></i> $labels[variations] <span class='ui-priority-secondary'>($variationCount)</span>";
@@ -969,6 +976,21 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$f->addOption('left', '[i.fa.fa-tasks][/i] ' . $this->_('Proportional grid images'));
 		$f->addOption('list', '[i.fa.fa-th-list][/i] ' . $this->_('Vertical list (verbose)'));
 		$f->attr('value', $this->gridMode);
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+
+		/** @var InputfieldRadios $f */
+		$f = $this->wire('modules')->get('InputfieldRadios'); 
+		$f->attr('name', 'focusMode'); 
+		$f->label = $this->_('Focus point selection'); 
+		$f->description = $this->_('Enables a draggable focus point to select the subject of an image. This helps to generate non-proportional crops.') . ' ' . 
+			$this->_('A preview of the focus point is also shown when images are in the “Square grid images” mode.');
+		$f->addOption('on', $this->_('Focus point')); 
+		$f->addOption('zoom', $this->_('Focus point and zoom'));
+		$f->addOption('off', $this->_('Disabled'));
+		$f->attr('value', $this->focusMode); 
+		$f->icon = 'crosshairs';
+		$f->columnWidth = 50;
 		$inputfields->add($f);
 
 		/** @var InputfieldFieldset $fieldset */

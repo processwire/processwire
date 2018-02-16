@@ -30,9 +30,6 @@ function InputfieldImage($) {
 	// grid items to retry for sizing by setGridSize() methods	
 	var retryGridItems = [];
 
-	// whether or not zoom-focus feature is available
-	var useZoomFocus = false;
-
 	/**
 	 * Whether or not AJAX drag/drop upload is allowed?
 	 * 
@@ -370,13 +367,14 @@ function InputfieldImage($) {
 	function startFocus($edit) {
 		
 		var $img, $el, $thumb, $input, $focusArea, $focusCircle, $inputfield, 
-			focusData = null, gridSize, mode, 
-			$zoomSlider, $zoomBox, lastZoomPercent = 0, 
-			lastZoomVisual = 0, startZoomVisual = -1;
+			focusData = null, gridSize, mode, $zoomSlider, $zoomBox, lastZoomPercent = 0,
+			useZoomFocus = false;
 		
 		$inputfield = $edit.closest('.Inputfield');
 		gridSize = getCookieData($inputfield, 'size');
 		mode = getCookieData($inputfield, 'mode');
+		
+		if($inputfield.hasClass('InputfieldImageFocusZoom')) useZoomFocus = true;
 		
 		if($edit.hasClass('gridImage')) {
 			// list mode
@@ -443,8 +441,8 @@ function InputfieldImage($) {
 			var $overlay = $focusCircle.parent();
 			var w = $overlay.width();
 			var h = $overlay.height();
-			var x = Math.round(((focus.left / 100) * w) - ($focusCircle.width() / 1.7));
-			var y = Math.round(((focus.top / 100) * h) - ($focusCircle.height() / 2.3));
+			var x = Math.round(((focus.left / 100) * w) - ($focusCircle.width() / 2)); // 1.7
+			var y = Math.round(((focus.top / 100) * h) - ($focusCircle.height() / 2)); // 2.3
 			if(x < 0) x = 0;
 			if(y < 0) y = 0;
 			$focusCircle.css({
@@ -477,63 +475,52 @@ function InputfieldImage($) {
 		// set the initial position for the focus circle 
 		setFocusDragPosition();
 	
-		// function called whenever the slider is moved
+		// function called whenever the slider is moved or circle is dragged with zoom active
 		var zoomSlide = function(zoomPercent) {
+			
+			var zoomBoxSize, focusCircleSize, focus, top, left, scale, faWidth, faHeight;
+		
+			// if no zoomPercent argument provided, use the last one
 			if(typeof zoomPercent == "undefined") zoomPercent = lastZoomPercent;
 			lastZoomPercent = zoomPercent;
-			var w = (100 - zoomPercent) + '%';
-			$zoomBox.width(w);
-			var zoomBoxSize = $zoomBox.width();
-			var focusCircleSize = $focusCircle.height();
-			$zoomBox.height(zoomBoxSize)
+			faWidth = $focusArea.width();
+			faHeight = $focusArea.height();
+		
+			if(faWidth > faHeight) {
+				$zoomBox.height((100 - zoomPercent) + '%'); // set width in percent
+				zoomBoxSize = $zoomBox.height(); // get width in pixels
+				$zoomBox.width(zoomBoxSize); // match width to ensure square zoom box
+			} else {
+				$zoomBox.width((100 - zoomPercent) + '%'); // set width in percent
+				zoomBoxSize = $zoomBox.width(); // get width in pixels
+				$zoomBox.height(zoomBoxSize); // match width to ensure square zoom box
+			}
 
-			var zoom = zoomPercent;
-			var top = parseInt($focusCircle.css('top')); // top of drag item
-			top += Math.floor(focusCircleSize / 2);  // plus half the height of drag item
-			top -= Math.ceil(zoomBoxSize / 2) - 3; // minus half the height of the zoom box (-3)
-
-			var left = parseInt($focusCircle.css('left'));
-			left += Math.floor(focusCircleSize / 2);
-			left -= Math.ceil(zoomBoxSize / 2) - 3;
-
-			if(top < 0) top = 0;
-			if(left < 0) left = 0;
-			// constrain to corners
-			if(top + zoomBoxSize > $focusArea.height()) top = $focusArea.height() - zoomBoxSize;
-			if(left + zoomBoxSize > $focusArea.width()) left = $focusArea.width() - zoomBoxSize;
-
-			$zoomBox.css({
-				top: top + 'px',
-				left: left + 'px'
+			// apply the zoom box position
+			focus = getFocus();
+			var crop = getFocusZoomCropDimensions(focus.left, focus.top, zoomPercent, faWidth, faHeight, zoomBoxSize, zoomBoxSize);
+			$zoomBox.css({ 
+				top: crop.top + 'px', 
+				left: crop.left + 'px',
 			});
 
-			setFocusProperty('zoom', zoomPercent);
-
-			// determine when to visually start showing zoom (in grid mode)
-			var zoomVisual = zoomPercent;
-			if(zoomBoxSize > $img.height() || zoomBoxSize > $img.width()) {
-				zoomVisual = 0;
-			} else {
-				if(!lastZoomVisual) startZoomVisual = zoomVisual;
-				zoomVisual = (zoomVisual - startZoomVisual)+1;
-			}
-			if(mode == 'grid') setGridSizeItem($thumb.parent(), gridSize, false, zoomVisual);
-			lastZoomVisual = zoomVisual;
-			/*
-			console.log('lastZoomVisual=' + lastZoomVisual + ', startZoomVisual=' + startZoomVisual + 
-				', img.height=' + $img.height() + ', img.width=' + $img.width() + 
-				', zoomBoxSize=' + zoomBoxSize + ', zoomVisual=' + zoomVisual);
-			*/
+			// save zoom percent
+			focus.zoom = crop.zoom; // crop.zoom may have been adjusted to prevent upscaling
+			setFocusProperty('zoom', crop.zoom);
+			
+			// update the preview if in gride mode
+			if(mode == 'grid') setGridSizeItem($thumb.parent(), gridSize, false, focus);
+			
 		}; // zoomSlide
 	
 		// function called when the focus item is dragged
 		var dragEvent = function(event, ui) {
 			var $this = $(this);
+			var circleSize = $this.outerHeight();
 			var w = $this.parent().width();
 			var h = $this.parent().height();
-			var t = ui.position.top > 0 ? ui.position.top + ($this.width() / 2) : 0;
-			var l = ui.position.left > 0 ? ui.position.left + ($this.height() / 2) : 0;
-			var oldFocus = getFocus();
+			var t = ui.position.top > 0 ? ui.position.top + (circleSize / 2) : 0;
+			var l = ui.position.left > 0 ? ui.position.left + (circleSize / 2) : 0;
 			var newFocus = {
 				'top': t > 0 ? ((t / h) * 100) : 0,
 				'left': l > 0 ? ((l / w) * 100) : 0,
@@ -541,9 +528,9 @@ function InputfieldImage($) {
 			};
 			setFocus(newFocus);
 			if(useZoomFocus) {
-				zoomSlide();
+				zoomSlide(newFocus.zoom);
 			} else if(mode == 'grid') {
-				setGridSizeItem($thumb.parent(), gridSize, false);
+				setGridSizeItem($thumb.parent(), gridSize, false, newFocus);
 			}
 		}; // dragEvent
 	
@@ -562,15 +549,15 @@ function InputfieldImage($) {
 			});
 			$zoomBox = $("<div />").addClass('focusZoomBox').css({
 				'position': 'absolute',
-				'background': 'rgba(0,0,0,0.5)',
-				'box-shadow': '0 0 20px rgba(0,0,0,.9)'
+				'background': 'rgba(0,0,0,0.5)'
+				//'box-shadow': '0 0 20px rgba(0,0,0,.9)'
 			});
 			$focusArea.prepend($zoomBox);
 			$img.after($zoomSlider);
 			$thumb.attr('src', $img.attr('src'));
 			$zoomSlider.slider({
 				min: 0,
-				max: 80,
+				max: 50,
 				value: zoom,
 				range: 'max',
 				slide: function(event, ui) {
@@ -600,6 +587,92 @@ function InputfieldImage($) {
 				$icon.removeClass('focusIconActive').toggleClass($icon.attr('data-toggle'));
 			}
 		}
+	}
+
+	/**
+	 * Get focus zoom position for either X or Y (duplicated from Horst’s PHP version in ImageSizerEngine)
+	 * 
+	 * @param focus Left or Top percentage
+	 * @param sourceDimension Width or Height of source image
+	 * @param cropDimension Width or Height of cropped image
+	 * @returns {number}
+	 * 
+	 */
+	function getFocusZoomPosition(focus, sourceDimension, cropDimension) {
+		focus = parseInt(focus); // string with float value and percent char, (needs to be converted to integer)
+		var source = 100; // the source-dimensions percent-value (100)
+		var target = (cropDimension / sourceDimension * 100); // the crop-dimensions percent-value
+		var rest = source - target; // the unused dimension-part-value in percent
+		var tmp = focus + (target / 2); // temp value
+		var position = 0;
+		
+		// calculate the position in pixel !
+		if(tmp >= 100) {
+			position = sourceDimension - cropDimension;
+		} else if(tmp <= Math.floor(rest / 2)) {
+			position = 0;
+		} else {
+			position = Math.ceil((sourceDimension - cropDimension) / 100 * focus);
+		}
+
+		return position;
+	}
+
+	/**
+	 * Get focus zoom crop dimensions (duplicated from Horst’s PHP version in ImageSizerEngine)
+	 * 
+	 * @param left Left percent
+	 * @param top Top percent
+	 * @param zoom Zoom percent
+	 * @param fullWidth Width of full size image
+	 * @param fullHeight Height of full size image
+	 * @param finalWidth Width of target cropped image
+	 * @param finalHeight Height of target cropped image
+	 * @returns {{left: number, top: number, width: number, height: number}}
+	 * 
+	 */
+	function getFocusZoomCropDimensions(left, top, zoom, fullWidth, fullHeight, finalWidth, finalHeight) {
+		// calculate the max crop dimensions
+		var ratioFinal = finalWidth / finalHeight; // get the ratio of the requested crop
+		var percentW = finalWidth / fullWidth * 100; // calculate percentage of the crop width in regard of the original width
+		var percentH = finalHeight / fullHeight * 100; // calculate percentage of the crop height in regard of the original height
+		
+		if(percentW >= percentH) { // check wich one is greater
+			var maxW = fullWidth; // if percentW is greater, maxW becomes the original Width
+			var maxH = fullWidth / ratioFinal; // ... and maxH gets calculated via the ratio
+		} else {
+			var maxH = fullHeight; // if percentH is greater, maxH becomes the original Height
+			var maxW = fullHeight * ratioFinal; // ... and maxW gets calculated via the ratio
+		}
+
+		// calculate the zoomed dimensions
+		var cropW = maxW - (maxW * zoom / 100); // to get the final crop Width and Height, the amount for zoom-in
+		var cropH = maxH - (maxH * zoom / 100); // needs to get stripped out
+
+		// validate against the minimal dimensions
+		var upscaling = true; 
+		if(!upscaling) { // if upscaling isn't allowed, we decrease the zoom, so that we get a crop with the min-Dimensions
+			if(cropW < finalWidth) {
+				cropW = finalWidth;
+				cropH = finalWidth / ratioFinal;
+			}
+			if(cropH < finalHeight) {
+				cropH = finalHeight;
+				cropW = finalHeight * ratioFinal;
+			}
+		}
+
+		// calculate the crop positions
+		var tmpX = getFocusZoomPosition(left, fullWidth, cropW); // calculate the x-position
+		var tmpY = getFocusZoomPosition(top, fullHeight, cropH); // calculate the y-position
+		
+		return {
+			'left': tmpX, 
+			'top': tmpY, 
+			'width': cropW, 
+			'height': cropH,
+			'zoom': zoom // adjusted zoom
+		};
 	}
 	
 	/**
@@ -989,10 +1062,10 @@ function InputfieldImage($) {
 	 * @param $item
 	 * @param gridSize
 	 * @param ragged
-	 * @param zoom
+	 * @param focus optional
 	 * 
 	 */
-	function setGridSizeItem($item, gridSize, ragged, zoom) {
+	function setGridSizeItem($item, gridSize, ragged, focus) {
 		
 		if($item.hasClass('gridImage__overflow')) {
 			var $img = $item.children('img');	
@@ -1009,9 +1082,7 @@ function InputfieldImage($) {
 			return;
 		}
 		
-		if(typeof zoom == "undefined") zoom = 0;
-
-		var focus = {};
+		var zoom = 0;
 		var w = $img.width();
 		var h = $img.height();
 		var dataW = parseInt($img.attr('data-w'));
@@ -1019,7 +1090,7 @@ function InputfieldImage($) {
 		if(!w) w = dataW;
 		if(!h) h = dataH;
 		
-		if(!ragged) {
+		if(!ragged && typeof focus == "undefined") {
 			var focusStr = $img.attr('data-focus');
 			if(typeof focusStr == "undefined") focusStr = '50.0 50.0 0';
 			var focusArray = focusStr.split(' ');
@@ -1029,6 +1100,7 @@ function InputfieldImage($) {
 				zoom: parseInt(focusArray[2]) 
 			};
 		}	
+		if(!ragged) zoom = focus.zoom;
 		
 		if(ragged) {
 			// show full thumbnail (not square)
@@ -1041,44 +1113,33 @@ function InputfieldImage($) {
 				'transform': 'translate3d(-50%, -50%, 0)'
 			});
 			
-		} else if(zoom > 0 && useZoomFocus) { 
+		} else if(zoom > 0 && $item.closest('.InputfieldImageFocusZoom').length) { 
 			// focus with zoom 
 			if(w >= h) {
-				$img.attr('height', gridSize).removeAttr('width');
 				var maxHeight = '100%';
 				var maxWidth = 'none';
 			} else {
 				var maxHeight = 'none';
 				var maxWidth = '100%';
-				$img.attr('width', gridSize).removeAttr('height');
 			}
+			var scale = 1 + ((zoom / 100) * 2);
 			var top = focus.top;
 			var left = focus.left;
-			var scale = 1 + (zoom / 25); //(zoom * 0.037);
-			if(scale < 0) scale = 0;
-			if(left < 1.0) left = 0.001;
-			if(top < 1.0) top = 0.001;
-			if(left >= 55) {
-				left += (left * 0.15);
-			} else if(left <= 45) {
-				left -= (left * 0.15); 
-			}
-			if(top > 50) {
-				top += (top * 0.1); 
-			} else if(top < 50) {
-				top -= (top * 0.1); 
-			}
-			if(left > 100) left = 100;
-			if(top > 100) top = 100;
+			if(top > 92 || top > 100) top = 100;
+			if(left > 92 || left > 100) left = 100;
+			if(top < 0) top = 0;
+			if(left < 0) left = 0;
+			var crop = getFocusZoomCropDimensions(left, top, zoom, w, h, gridSize, gridSize);
+			
 			$img.css({
-				'max-height': maxHeight,
-				'max-width': maxWidth, 
 				'top': top + '%',
 				'left': left + '%',
-				'transform-origin': 'top left', 
-				'transform': 'scale(' + scale + ') translate3d(-' + (left) + '%, -' + (top) + '%, 0)'
+				'transform-origin': 'top left',
+				'transform': 'scale(' + scale + ') translate3d(-' + left + '%, -' + top + '%, 0)',
+				'max-width': maxWidth,
+				'max-height': maxHeight
 			});
-			// console.log("top=" + top + ", left=" + left + ", scale=" + scale); 
+			// console.log("top=" + top + "%, left=" + left + "%, zoom=" + zoom + ", scale=" + scale);
 
 		} else if(w >= h) {
 			// image width greater than height
@@ -1171,6 +1232,7 @@ function InputfieldImage($) {
 			
 			$aPrev.removeClass(activeClass);
 			$a.addClass(activeClass);
+			stopFocus($inputfield);
 			
 			if(href == 'list') {
 				if(!$inputfield.hasClass('InputfieldImageEditAll')) {
