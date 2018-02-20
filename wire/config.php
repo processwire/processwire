@@ -1012,6 +1012,28 @@ $config->substituteModules = array(
 );
 
 /**
+ * WireMail module(s) default settings
+ * 
+ * Note you can add any other properties to the wireMail array that are supported by WireMail settings
+ * like we’ve done with from, fromName and headers here. Any values set here become defaults for the 
+ * WireMail module. 
+ * 
+ * #property string module Name of WireMail module to use or blank to auto-detect. (default='')
+ * #property string from Default from email address, when none provided at runtime. (default=$config->adminEmail)
+ * #property string fromName Default from name string, when none provided at runtime. (default='')
+ * #property array headers Default additional headers to send in email, key=value. (default=[])
+ * 
+ * @var array
+ * 
+ */
+$config->wireMail = array(
+	'module' => '', 
+	'from' => '', 
+	'fromName' => '', 
+	'headers' => array(), 
+);
+
+/**
  * PageList default settings
  * 
  * Note that 'limit' and 'speed' can also be overridden in the ProcessPageList module settings.

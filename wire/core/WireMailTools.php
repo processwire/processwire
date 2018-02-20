@@ -43,20 +43,43 @@ class WireMailTools extends Wire {
 	 */
 	public function ___new() {
 
+		/** @var WireMail|null $mail */
 		$mail = null;
+		
+		/** @var Modules $modules */
 		$modules = $this->wire('modules');
+		
+		$settings = $this->wire('config')->wireMail;
+		if(!is_array($settings)) $settings = array();
+		
+		// see if a WireMail module is specified in $config
+		if(isset($settings['module'])) {
+			$mail = $modules->get($settings['module']); 
+			unset($settings['module']); 
+		}
 
-		// attempt to locate an installed module that overrides WireMail
-		foreach($modules as $module) {
-			$parents = wireClassParents("$module");
-			if(in_array('WireMail', $parents) && $modules->isInstalled("$module")) {
-				$mail = $modules->get("$module");
-				break;
+		if(!$mail) {
+			// attempt to locate an installed module that overrides WireMail
+			foreach($modules->findByPrefix('WireMail') as $module) {
+				$parents = wireClassParents("$module");
+				if(in_array('WireMail', $parents) && $modules->isInstalled("$module")) {
+					$mail = $modules->get("$module");
+					break;
+				}
 			}
 		}
-		// if no module found, default to WireMail
-		if(is_null($mail)) $mail = $this->wire(new WireMail());
-		/** @var WireMail $mail */
+		
+		// if no module found, default to WireMail base class
+		if(!$mail) {
+			$mail = $this->wire(new WireMail());
+		}
+	
+		// if anything left in settings, apply as a default setting
+		if(!empty($settings)) {
+			foreach($settings as $key => $value) {
+				$mail->set($key, $value); 
+			}
+		}
 
 		// reset just in case module was not singular
 		$mail->to();
