@@ -5,7 +5,7 @@
  *
  * Provides the image selecting and editing capability for rich text editors (TinyMCE/CKEditor)
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $hidpiDefault HiDPI/Retina checkbox default checked?
@@ -32,24 +32,127 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			'permission' => 'page-edit',
 		);
 	}
-	
-	protected $maxImageWidth = 835; 
+
+	/**
+	 * Max image width when outputting <img> tags, derives value from $_GET[winwidth]
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $maxImageWidth = 835;
+
+	/**
+	 * Page that the image lives on
+	 * 
+	 * @var Page|null
+	 * 
+	 */
 	protected $page = null;
+	
+	/**
+	 * If $page is a repeater item, then $masterPage is the Page the repeater lives on 
+	 * 
+	 * @var Page|null
+	 * 
+	 */
 	protected $masterPage = null;
+	
+	/**
+	 * The page being edited, if different from $page
+	 * 
+	 * @var Page|null
+	 *
+	 */
 	protected $editorPage = null;
-	protected $defaultClass = 'Pageimage';
-	protected $file = '';
+	//protected $defaultClass = 'Pageimage';
+	//protected $file = '';
+
+	/**
+	 * If editing a filename that is a variation, this is the width determined from the filename (123x456)
+	 * 
+	 * @var int
+	 * 
+	 */
 	protected $editWidth = 0;
+	
+	/**
+	 * If editing a filename that is a variation, this is the height determined from the filename (123x456)
+	 *
+	 * @var int
+	 *
+	 */
 	protected $editHeight = 0;
+
+	/**
+	 * Whether or not HiDPI mode will be used or resizes
+	 * 
+	 * @var bool
+	 * 
+	 */
 	protected $hidpi = false;
+
+	/**
+	 * Extensions to match in a regex for files in $_GET[file]
+	 * 
+	 * @var string
+	 * 
+	 */
 	protected $extensions = 'jpg|jpeg|gif|png|svg';
+
+	/**
+	 * Common translation labels (see init)
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected $labels = array();
-	protected $rte = true; // in RTE mode?
+
+	/**
+	 * Are we in Rich Text editor mode? Determined from $_GET[rte]
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $rte = true;
+
+	/**
+	 * Field of type FieldtypeImage that edited image is part of
+	 * 
+	 * @var Field|null
+	 * 
+	 */
 	protected $field = null;
+
+	/**
+	 * Name of field of type FieldtypeImage that edited image is part of 
+	 * 
+	 * @var string
+	 * 
+	 */
 	protected $fieldName = '';
+
+	/**
+	 * If file being edited is a variation, $original is basename of the file it originated from 
+	 * 
+	 * @var string
+	 * 
+	 */
 	protected $original = '';
+
+	/**
+	 * Caption text for image when in RTE mode, can be provided in $_GET[caption]
+	 * 
+	 * @var string
+	 * 
+	 */
 	protected $caption = '';
 
+	/**
+	 * Default module config settings
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected static $defaultConfig = array(
 		'hidpiDefault' => 0, 
 		'skipFields' => '',
@@ -144,6 +247,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				$fieldName = str_replace($matches[0], '', $fieldName);
 			} else if(strpos($fieldName, '_LPID')) {
 				list($fieldName, $lpid) = explode('_LPID', $fieldName);
+				if($lpid) {} // ignore
 			}
 			$this->field = $this->wire('fields')->get($fieldName); 
 			if(!$this->field) throw new WireException("Unknown field $fieldName"); 
@@ -248,8 +352,9 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			$originalFilename = $file;
 			$file = $this->page->id . ',' . $file; 
 		} else {
-			// alrelady has a "123," at beginning
-			list($unused, $originalFilename) = explode(',', $file);
+			// already has a "123," at beginning
+			list($pageID, $originalFilename) = explode(',', $file);
+			if($pageID) {} // ignore
 		}
 		
 		$originalFilename = $this->wire('sanitizer')->filename($originalFilename, false, 1024);
@@ -422,8 +527,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 					"&amp;modal=1&amp;id={$this->page->id}&amp;winwidth=$winwidth'>$img</a></li>";
 			}
 
-			$class = $this->noThumbs ? "" : " class='thumbs'";
-			$out = "\n<ul id='select_images'$class>$out\n</ul>";
+			$class = $this->noThumbs ? "" : "thumbs";
+			$out = "\n<ul id='select_images' class='$class'>$out\n</ul>";
 
 		}
 
@@ -447,6 +552,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$imageFields = $this->getImageFields($this->page);
 		if(count($imageFields)) {
 			$imageFieldNames = implode(',', array_keys($imageFields)); 
+			/** @var InputfieldButton $btn */
 			$btn = $this->modules->get('InputfieldButton');
 			$uploadOnlyMode = "$this->page" === "$this->editorPage" ? 1 : 2;
 			$btn->href = "../edit/?modal=1&id={$this->page->id}&fields=$imageFieldNames&uploadOnlyMode=$uploadOnlyMode";
@@ -622,7 +728,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			$crop = $this->processCrop();
 			$parts = $this->hidpi ? array('width' => $crop->hidpiWidth()) : array();
 			$this->wire('session')->redirect($this->makeEditURL($crop->basename, $parts)); 
-			return;
+			return '';
 		} else if($this->wire('input')->post('submit_save_replace')) {
 			return $this->processSave(true); 
 		} else if($this->wire('input')->post('submit_save_copy')) {
@@ -673,7 +779,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				// when RTE mode, go to image selection again when invalid image
 				$this->error($e->getMessage());
 				$this->wire('session')->redirect("./?id={$this->page->id}");
-				return;
+				return '';
 			} else {
 				throw $e; 
 			}
@@ -845,7 +951,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				"<span id='selected_image_checkboxes' class='hide_when_crop'>" . 
 					"<span id='wrap_link_original' class='show_when_rte'>" .
 						"<label class='checkbox'>" .
-							"<input title='$labels[linkOriginal]' type='checkbox'$linkOriginalChecked " .
+							"<input title='$labels[linkOriginal]' type='checkbox' $linkOriginalChecked " .
 								"name='selected_image_link' id='selected_image_link' value='{$original->url}' /> " .
 							"<i class='fa fa-link ui-priority-secondary'></i>&nbsp;" .
 							"{$original->width}x{$original->height}" .
@@ -940,7 +1046,14 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		return $out; 
 		
 	}
-	
+
+	/**
+	 * Get a bunch of latin text
+	 * 
+	 * @param int $n How many blocks of latin to get (default=1)
+	 * @return string
+	 * 
+	 */
 	protected function getLatin($n = 1) {
 		$latin = "Lorem ipsum dolor sit amet, consectetur adipiscing elit. In malesuada magna ex. Donec sed consectetur felis, 
 			ac molestie massa. Duis fermentum rutrum vehicula. Praesent consequat efficitur dolor quis vestibulum.
@@ -961,7 +1074,14 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		for($c = 1; $c <= $n; $c++) $out .= $latin;
 		return $out; 
 	}
-	
+
+	/**
+	 * Process an image crop from submitted POST vars
+	 * 
+	 * @return Pageimage
+	 * @throws WireException
+	 * 
+	 */
 	protected function processCrop() {
 	
 		$post = $this->wire('input')->post; 
@@ -981,7 +1101,15 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		return $crop; 
 	}
-	
+
+	/**
+	 * Save resized image and existing eisting or create a copy
+	 * 
+	 * @param bool $replace Replace existing image? (default=false)
+	 * @return string Returns status output which may appear momentarily while dialog updating
+	 * @throws WireException
+	 * 
+	 */
 	protected function processSave($replace = false) {
 		
 		if(!$this->field) throw new WireException("Field is not defined"); 
@@ -1003,12 +1131,12 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		} else {
 			$image2 = $image; 
 		}
-		
+	
+		/** @var Pageimages $pageimages */
 		$pageimages = $this->page->getUnformatted($this->field->name);
 		$path = $pageimages->path();
 		$fileID = '';
 		$isNew = 0;
-		$headline = '';
 		$body = '';
 
 		if($replace) {
@@ -1019,6 +1147,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				
 				if($rebuildVariations && $this->field->adminThumbs) {
 					// remove original thumbnail
+					/** @var InputfieldImage $inputfield */
 					$inputfield = $this->field->getInputfield($this->page);
 					if($inputfield) {
 						$thumb = $inputfield->getAdminThumb($original);
@@ -1037,6 +1166,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				
 				$this->wire('pages')->uncacheAll();	
 				$page = $this->wire('pages')->get($this->page->id); 
+				/** @var Pageimages $value */
 				$value = $page->getUnformatted($this->field->name); 
 				
 				if($rebuildVariations) {
@@ -1195,7 +1325,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				"<p>" .
 				"<span id='selected_image_width'>$width</span>x" .
 				"<span id='selected_image_height'>$height</span> " .
-				"<label><input type='checkbox' id='selected_image_hidpi'$hidpiChecked />hidpi</label><br />" .
+				"<label><input type='checkbox' id='selected_image_hidpi' $hidpiChecked />hidpi</label><br />" .
 				"<img " . 
 					"id='selected_image' " . 
 					"class='$class' " . 
@@ -1214,6 +1344,9 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 
 	/**
 	 * Show all variations for the image provided in GET var 'file'
+	 * 
+	 * @return string
+	 * @throws WireException
 	 * 
 	 */
 	public function ___executeVariations() {
@@ -1280,9 +1413,10 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			// identify pid suffixes
 			foreach($info['suffix'] as $suffix) {
 				if(strpos($suffix, 'pid') === 0) {
-					$suffix = ltrim($suffix, 'pid'); 
-					if(ctype_digit($suffix)) $refpage = $this->wire('pages')->get((int) $suffix); 
-					if($refpage->id && $this->wire('user')->hasPermission('page-view', $refpage)) {
+					$suffix = ltrim($suffix, 'pid');
+					$refpage = null;
+					if(ctype_digit($suffix)) $refpage = $this->wire('pages')->get((int) $suffix);
+					if($refpage && $refpage->id && $this->wire('user')->hasPermission('page-view', $refpage)) {
 						$notes[] = $this->_x('Inserted from page:', 'notes') . " <a target='_blank' href='$refpage->url'>$refpage->path</a>";
 					}
 				}
@@ -1291,8 +1425,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			$width = (int) $info['width'];
 			$height = (int) $info['height'];
 			if(!$width || !$height) list($width, $height) = getimagesize($info['path']);
-			$dimensions = $width . 'x' . $height; 
-			if(in_array('hidpi', $info['suffix'])) $dimensions .= " ($info[hidpiWidth]x$info[hidpiHeight] {$this->labels['hidpi']})";
+			// $dimensions = $width . 'x' . $height; 
+			// if(in_array('hidpi', $info['suffix'])) $dimensions .= " ($info[hidpiWidth]x$info[hidpiHeight] {$this->labels['hidpi']})";
 			$filesize = filesize($info['path']); 
 			$filesizeStr = wireBytesStr($filesize);
 			$mtime = filemtime($info['path']); 
@@ -1389,8 +1523,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$f->attr('name', 'noSizeAttrs'); 
 		$f->attr('value', 1);
 		if(!empty($data['noSizeAttrs'])) $f->attr('checked', 'checked');
-		$f->label = $this->_('Skip width attributes on image tags?', __FILE__); // noSizeAttr label
-		$f->description = $this->_('By default, this module will include width attributes in the <img> tag. If you are using responsive images, you might want to disable this behavior. Check the box to disable width and height attributes.', __FILE__); // noSizeAttr description
+		$f->label = $this->_('Skip width attributes on image tags?'); // noSizeAttr label
+		$f->description = $this->_('By default, this module will include width attributes in the img tag. If you are using responsive images, you might want to disable this behavior. Check the box to disable width and height attributes.'); // noSizeAttr description
 		$f->notes = $this->_('We do not recommend checking this box as it will interfere with some features (like use of HiDPI/retina images).'); 
 		$inputfields->add($f);
 
