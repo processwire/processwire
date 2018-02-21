@@ -1250,7 +1250,7 @@ class PagesEditor extends Wire {
 		$copy->resetTrackChanges();
 		$this->pages->cloned($page, $copy);
 		$this->pages->debugLog('clone', "page=$page, parent=$parent", $copy);
-		$copy->setTrackChanges(false);
+		// $copy->setTrackChanges(false);
 
 		return $copy;
 	}
