@@ -103,6 +103,9 @@
 		var $figureCaption = null;
 		var nodeParentName = nodeParent.$.nodeName.toUpperCase(); 
 		var nodeGrandparentName = nodeGrandparent ? nodeGrandparent.$.nodeName.toUpperCase() : '';
+		var pwCkeSettings = ckeGetProcessWireConfig(editor);
+		
+		if(pwCkeSettings && pwCkeSettings['pwAssetPageID']) page_id = pwCkeSettings['pwAssetPageID'];
 	
 		selection.lock();
 		editor.lockSelection();

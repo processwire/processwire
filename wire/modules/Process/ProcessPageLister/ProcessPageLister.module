@@ -906,19 +906,20 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$showIncludeWarnings = $this->showIncludeWarnings; // whether to show warning message about removed include modes
 		
 		if($user->isSuperuser()) {
-			if(!preg_match('/(^|\s|,)include=/', $selector)) {
+			if(!preg_match('/(^|,\s|,)include=/', $selector)) {
 				$selector .= ", include=unpublished";
 			}
 			return $selector;
 		}
 		
-		if(!preg_match('/(^|\s|,)include=/', $selector)) {
+		if(!preg_match('/(^|,\s|,)include=/', $selector)) {
 			// if user has page-edit access, they can see unpublished pages by default
 			if($user->hasPermission('page-edit')) {
 				$selector .= ", include=unpublished";
 			}
 		}
-		
+	
+		/** @var Selectors $selectors */
 		$selectors = $this->wire(new Selectors($selector));
 		$templates = array();
 		$changed = false;

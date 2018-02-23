@@ -6,6 +6,29 @@
  */
 
 /**
+ * Get ProcessWire config settings for given CKE editor object or name
+ *
+ * @param editor
+ * @returns {*}
+ *
+ */
+function ckeGetProcessWireConfig(editor) {
+
+	var configName = typeof editor == "string" ? editor : editor.name;
+	configName = configName.replace('Inputfield_', 'InputfieldCKEditor_');
+
+	if(typeof ProcessWire.config[configName] == "undefined") {
+		configName = configName.replace(/_ckeditor$/, ''); // inline only
+		if(typeof ProcessWire.config[configName] == "undefined") {
+			return false;
+		}
+	}
+
+	return ProcessWire.config[configName];
+}
+
+
+/**
  * Add external plugins
  * 
  * These are located in:
@@ -75,18 +98,8 @@ function ckeUploadEvent(event) {
 	
 	var xhr = event.data.fileLoader.xhr;
 	var fileLoader = event.data.fileLoader;
-	var configName = event.editor.name; 
-
-	configName = configName.replace('Inputfield_', 'InputfieldCKEditor_');
-	
-	if(typeof ProcessWire.config[configName] == "undefined") {
-		configName = configName.replace(/_ckeditor$/, ''); // inline only
-		if(typeof ProcessWire.config[configName] == "undefined") {
-			return false;
-		}
-	}
-	
-	var uploadFieldName = ProcessWire.config[configName].pwUploadField;
+	var settings = ckeGetProcessWireConfig(event.editor);
+	var uploadFieldName = settings ? settings.pwUploadField : '_unknown';
 	var $imageInputfield = $('#Inputfield_' + uploadFieldName); 
 	
 	if($imageInputfield.length) {

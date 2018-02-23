@@ -23,6 +23,7 @@
  * @property string $formatTags
  * @property string $customOptions
  * @property array $imageFields
+ * @property int $assetPageID
  * 
  *
  */
@@ -121,6 +122,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$this->set('useACF', 1); 
 		$this->set('toggles', array());
 		$this->set('imageFields', array());
+		$this->set('assetPageID', 0); // FUTURE USE
 
 		$this->set('toolbar', '' . 
 			"Format, Styles, -, Bold, Italic, -, RemoveFormat\n" . 
@@ -214,14 +216,14 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	/**
 	 * Get field name to use for images, or blank if disabled (or unavailable)
 	 * 
+	 * @param Page $page Asset page
 	 * @return string
 	 * 
 	 */
-	protected function getImagesFieldName() {
+	protected function getImagesFieldName($page) {
 		$imageFields = $this->imageFields;
 		if(!is_array($imageFields)) $imageFields = array();
 		if(in_array('x', $imageFields)) return '';
-		$page = $this->hasPage; 
 		if(!$page || !$page->id || !$page->template) return '';
 		$result = '';
 		foreach($imageFields as $name) {
@@ -280,9 +282,15 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		if(stripos($this->toolbar, 'Anchor') !== false && stripos($this->removePlugins, 'link') !== false) {
 			$this->removePlugins = preg_replace('/\blink,?\b/i','', $this->removePlugins);
 		}
-
+	
+		// FUTURE USE
+		// $assetPage = $this->assetPageID ? $this->wire('pages')->get((int) $this->assetPageID) : $this->hasPage; 
+		// if(!$assetPage || !$assetPage->id) $assetPage = $this->hasPage;
+		$assetPage = $this->hasPage;
+		if(!$assetPage) $assetPage = new NullPage();
+		
 		$extraPlugins = $this->extraPlugins;
-		$imagesField = $this->getImagesFieldName();
+		$imagesField = $this->getImagesFieldName($assetPage);
 		if($imagesField) $extraPlugins[] = 'uploadimage';
 
 		$settings = array(
@@ -296,11 +304,28 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			'language' => $this->_x('en', 'language-pack'), // CKEditor default language pack to use
 			// 'enterMode' => 'CKEDITOR.ENTER_P', // already the default, can be left out
 			'entities' => false,
-			'pwUploadField' => $imagesField, 
 			'uploadUrl' => '',
+			'pwUploadField' => $imagesField,
+			'pwAssetPageID' => $assetPage->id,
 		);
+	
+		if($assetPage !== $this->hasPage && $assetPage->id) {
+			// external asset page (FUTURE USE)
+			$imagesInputfield = $this->wire('modules')->get('InputfieldImage'); 
+			$imagesInputfield->set('hasPage', $assetPage); 
+			$imagesInputfield->renderReady($parent, $renderValueMode);
+			$assetPageEditURL = $assetPage->editUrl() . "&InputfieldFileAjax=noTemp"; 
+		} else if($assetPage->id) {
+			// assetPage is hasPage
+			$assetPageEditURL = $assetPage->editUrl() . '&InputfieldFileAjax=1';
+		} else {
+			$assetPageEditURL = '';
+		}
 
-		if($imagesField) $settings['uploadUrl'] = $this->hasPage->editUrl() . '&InputfieldFileAjax=1&ckeupload=1'; 
+		if($imagesField && $assetPageEditURL) {
+			$settings['uploadUrl'] = $assetPageEditURL . '&ckeupload=1';
+		}
+		
 		if(!$this->useACF) $settings['allowedContent'] = true; // disables ACF, per CKEditor docs
 		if($this->rows) $settings['height'] = ($this->rows*2) . 'em'; // set editor height, based on rows value
 
@@ -772,7 +797,18 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		}
 		$f->addOption('x', $this->_('None (disable drag/paste image uploads)'));
 		$f->attr('value', $imageFields); 
+		// $f->columnWidth = 50;
 		$wrapper->add($f);
+	
+		/* FUTURE USE
+		$f = $this->modules->get('InputfieldPageListSelect'); 
+		$f->attr('name', 'assetPageID'); 
+		$f->label = $this->_('Page to use for image/asset storage');
+		$f->description = $this->_('By default, uploaded images will be stored with the page being edited. If you want to use a shared page for these assets instead, select it here.');
+		$f->columnWidth = 50;
+		$f->attr('value', (int) $this->assetPageID); 
+		$wrapper->add($f); 
+		*/
 
 		$f = $this->modules->get("InputfieldCheckboxes"); 
 		$f->label = $this->_('Beautify Markup Toggles'); 
