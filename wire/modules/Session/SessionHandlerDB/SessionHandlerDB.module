@@ -86,7 +86,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	 * Write the given $data for the given session ID
 	 *
 	 * @param string $id Session ID
-	 * @param string Serialized data to write
+	 * @param string $data Serialized data to write
 	 * @return bool
 	 *
 	 */
@@ -203,6 +203,9 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 
 	/**
 	 * Session configuration options
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
 	 *
 	 */
 	public function getModuleConfigInputfields(array $data) {
@@ -254,6 +257,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	 * 
 	 * @param string $key
 	 * @param mixed $value
+	 * @return void
 	 *
 	 */
 	public function __set($key, $value) {
@@ -365,7 +369,6 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 			$database = $this->wire('database');
 			$sql = "ALTER TABLE $table MODIFY data MEDIUMTEXT NOT NULL";
 			$query = $database->prepare($sql);
-			$success = false;
 			$query->execute();
 			$this->message("Updated sessions database for larger data storage", Notice::log);
 		}

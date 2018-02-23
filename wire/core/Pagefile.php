@@ -497,7 +497,7 @@ class Pagefile extends WireData {
 				break;
 			case 'URL':
 				// nocache url
-				$value = $this->url() . '?nc=' . @filemtime($this->filename());
+				$value = $this->noCacheURL();
 				break;
 			case 'pagefiles': 
 				$value = $this->pagefiles; 
@@ -526,6 +526,18 @@ class Pagefile extends WireData {
 		}
 		if(is_null($value)) return parent::get($key); 
 		return $value; 
+	}
+
+	/**
+	 * Hookable no-cache URL
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return string
+	 * 
+	 */
+	protected function ___noCacheURL() {
+		return $this->url() . '?nc=' . @filemtime($this->filename());
 	}
 
 	/**

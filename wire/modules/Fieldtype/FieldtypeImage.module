@@ -90,6 +90,7 @@ class FieldtypeImage extends FieldtypeFile {
 					}
 					$variations = array();
 					foreach($img->getVariations() as $variation) {
+						/** @var Pageimage $variation */
 						$variations[$variation->name] = $variation->httpUrl();
 					}
 					$value[$k]['variations'] = $variations;

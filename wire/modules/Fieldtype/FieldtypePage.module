@@ -599,9 +599,18 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if(InputfieldPage::isValidPage($value, $field, $forPage)) {
 			$valid = true;
 		} else {
-			$valid = false;
-			$reason = $forPage->get("_isValidPage"); 
-			if($throwException) throw new WireException("Page $value is not valid for $field->name ($reason)");
+			$n = 0;
+			while(wireInstanceOf($forPage, 'RepeaterPage') && ++$n < 10) {
+				/** @var RepeaterPage $forPage */
+				$forPage = $forPage->getForPage();
+			}
+			if($n && InputfieldPage::isValidPage($value, $field, $forPage)) {
+				$valid = true; 
+			} else {
+				$valid = false;
+				$reason = $forPage->get("_isValidPage");
+				if($throwException) throw new WireException("Page $value is not valid for $field->name ($reason)");
+			}
 		}
 		
 		return $valid;
