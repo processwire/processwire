@@ -276,4 +276,61 @@ class LanguageSupportInstall extends Wire {
 		}
 
 	}
+
+
+	/**
+	 * @return InputfieldWrapper
+	 * 
+	 */
+	public function getModuleConfigInputfields() {
+		$install = $this->_('Click to install:') . ' ';
+
+		$form = new InputfieldWrapper();
+		$names = array(
+			'LanguageSupportFields',
+			'LanguageSupportPageNames',
+			'LanguageTabs',
+		);
+		$installed = array();
+		$list = array();
+
+		foreach($names as $name) {
+			if($this->wire('modules')->isInstalled($name)) continue;
+			$list["./installConfirm?name=$name"] = "$install $name";
+			$installed[$name] = true;
+		}
+		
+		$list["../setup/languages/"] =
+			$this->_('Add and configure new languages');
+
+		$title = $this->wire('fields')->get('title');
+		if($title && strpos($title->type->className(), 'Language') === false) {
+			$list["../setup/field/edit?id=$title->id"] =
+				$this->_('Change the type of your "title" field from "Page Title" to "Page Title (Multi-language)"') . ' *';
+		}
+
+		$list["../setup/field/?fieldtype=FieldtypeText"] =
+			$this->_('Change the type of any other desired "Text" fields to "Text (Multi-language)"') . ' *';
+		$list["../setup/field/?fieldtype=FieldtypeTextarea"] =
+			$this->_('Change the type of any other desired "Textarea" fields to "Textarea (Multi-language)"') . ' *';
+
+		if(count($list)) {
+			$this->wire('modules')->get('JqueryUI')->use('modal');
+			$f = $this->wire('modules')->get('InputfieldMarkup');
+			$f->attr('name', '_next_steps');
+			$f->label = $this->_('Next steps');
+			$f->value = "<ul>";
+			foreach($list as $url => $text) {
+				$f->value .= "<li><a target='_blank' href='$url'>$text</a></li>";
+			}
+			$f->value .= "</ul>";
+			$f->description = 
+				$this->_('To continue setting up multi-language support, we recommend the following next steps.') . ' ' . 
+				$this->_('The links below will open in a new window/tab. Close each after finishing to return here.'); 
+			$f->notes = '*' . $this->_('Install the LanguageSupportFields module before attempting to change text field types.');
+			$form->add($f);
+		}
+
+		return $form; 
+	}
 }

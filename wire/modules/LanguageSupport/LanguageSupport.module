@@ -830,11 +830,12 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	 * @return InputfieldWrapper
 	 *
 	 */
-	public static function getModuleConfigInputfields(array $data) {
-		if($data) {}
-		$form = new InputfieldWrapper();
-		// TBA
-		return $form; 
+	public function getModuleConfigInputfields(array $data) {
+		if($data) { }
+		require(dirname(__FILE__) . '/LanguageSupportInstall.php'); 
+		/** @var LanguageSupportInstall $installer */
+		$installer = $this->wire(new LanguageSupportInstall());
+		return $installer->getModuleConfigInputfields();
 	}
 
 	/**
