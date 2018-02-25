@@ -73,6 +73,7 @@ class InputfieldTextarea extends InputfieldText {
 		if(in_array($this->contentType, array(FieldtypeTextarea::contentTypeHTML, FieldtypeTextarea::contentTypeImageHTML))) {
 			$value = strip_tags($value);
 		}
+		$value = $this->wire('sanitizer')->textarea($value, array('stripTags' => false)); 
 		return parent::getValueLength($value, $countWords);
 	}
 
