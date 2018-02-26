@@ -1848,6 +1848,7 @@ class PageFinder extends Wire {
 			foreach($this->wire('languages') as $language) {
 				if(!$language->isDefault()) $langNames[$language->id] = "name" . (int) $language->id;
 			}
+			if(!count($langNames)) $langNames = null;
 		} else {
 			$langNames = null;
 		}
@@ -1869,6 +1870,14 @@ class PageFinder extends Wire {
 			$query->where("pages.id=1");
 		} else {
 			$selectorValue = $selector->value;
+			if(is_array($selectorValue)) {
+				// only the PagePaths module can perform OR value searches on path/url
+				if($langNames) {
+					throw new PageFinderSyntaxException("OR values not supported for multi-language 'path' or 'url'"); 
+				} else {
+					throw new PageFinderSyntaxException("OR value support of 'path' or 'url' requires core PagePaths module");
+				}
+			}
 			if($langNames) $selectorValue = $this->wire('modules')->get('LanguageSupportPageNames')->updatePath($selectorValue); 
 			$parts = explode('/', rtrim($selectorValue, '/')); 
 			$part = $database->escapeStr($this->wire('sanitizer')->pageName(array_pop($parts), Sanitizer::toAscii)); 
