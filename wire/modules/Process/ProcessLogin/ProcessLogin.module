@@ -29,7 +29,7 @@ class ProcessLogin extends Process {
 		return array(
 			'title' => 'Login',
 			'summary' => 'Login to ProcessWire',
-			'version' => 103,
+			'version' => 104,
 			'permanent' => true,
 			'permission' => 'page-view',
 		);
@@ -451,6 +451,12 @@ class ProcessLogin extends Process {
 			$home = $this->pages->get("/"); 
 			$links .= "<div><a href='{$home->url}'><i class='fa fa-home'></i> {$home->title}</a></div>";
 			if($links) $out .= "<p>$links</p>";
+			
+			if(!$this->wire('modules')->isInstalled('InputDetect')) {
+				/** @var Config $config */
+				$config = $this->wire('config');
+				$config->scripts->prepend($config->urls->ProcessLogin . 'what-input.min.js');
+			}
 		}
 		
 		return $out;

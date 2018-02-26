@@ -13,8 +13,12 @@ $(document).ready(function() {
 	}
 	$("#login_hidpi").val(hidpi ? 1 : 0);
 
-	// detect whether or not it's a touch device
-	var touch = (('ontouchstart' in window) || (navigator.MaxTouchPoints > 0) || (navigator.msMaxTouchPoints > 0));
-	$("#login_touch").val(touch ? 1 : 0); 
-	$("#login_width").val($(window).width());
+	// via @Toutouwai #84
+	$('#ProcessLoginForm').submit(function() {
+		var $html = $('html');
+		var touch = $html.data('whatintent') == 'touch' || $html.data('whatinput') == 'touch';
+		$('#login_touch').val(touch ? 1 : 0);
+		$('#login_width').val($(window).width());
+	});
+	
 }); 
