@@ -1315,6 +1315,7 @@ class WireMarkupRegions extends Wire {
 		if(!count($regions)) {
 			if($debug) $htmlDocument = str_replace($debugLandmark, "<pre>No regions</pre>$debugLandmark", $htmlDocument);
 			$recursionLevel--;
+			if(!$recursionLevel) $this->removeRegionTags($htmlDocument); 
 			return 0;
 		}
 
@@ -1480,7 +1481,7 @@ class WireMarkupRegions extends Wire {
 	 * @return bool True if tags or attributes were removed, false if not
 	 * 
 	 */
-	protected function removeRegionTags(&$html) {
+	public function removeRegionTags(&$html) {
 		
 		$updated = false;
 		
