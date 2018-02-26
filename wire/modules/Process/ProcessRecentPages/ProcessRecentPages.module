@@ -397,7 +397,7 @@ class ProcessRecentPages extends Process {
 	 */
 	public function ___executeAnother() {
 		$items = $this->getAddAnotherNavItems();
-		if(!count($items)) return "<h2>" . $this->labels['no-created'] . "</h2>";
+		if(!count($items)) return "<h2>" . $this->labels['nothing'] . "</h2>";
 		$this->headline($this->_('Add another'));
 		$table = $this->wire('modules')->get('MarkupAdminDataTable'); 
 		$table->headerRow(array(
