@@ -284,7 +284,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * #pw-internal
 	 * 
 	 * @param int|Page $key
-	 * @return bool true if removed, false if not
+	 * @return $this This PageArray instance
 	 * 
 	 */
 	public function remove($key) {
@@ -351,7 +351,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * #pw-internal
 	 *
 	 * @param int $num Number of items to return
-	 * @return PageArray
+	 * @return PageArray|WireArray New PageArray instance
 	 *
 	 */
 	public function findRandom($num) {
@@ -368,7 +368,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 * @param int $start Starting index.
 	 * @param int $limit Number of items to include. If omitted, includes the rest of the array.
-	 * @return PageArray
+	 * @return PageArray|WireArray New PageArray instance
 	 *
 	 */
 	public function slice($start, $limit = 0) {
@@ -383,7 +383,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * #pw-internal
 	 *
 	 * @param int $num Return the nth item in this WireArray. Specify a negative number to count from the end rather than the start.
-	 * @return Page|null
+	 * @return Page|Wire|null Returns Page object or null if not present
 	 *
 	 */
 	public function eq($num) {
@@ -453,7 +453,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 * @param string|Selectors|array $selectors AttributeSelector string to use as the filter.
 	 * @param bool $not Make this a "not" filter? (default is false)
-	 * @return PageArray reference to current [filtered] instance
+	 * @return PageArray|WireArray reference to current [filtered] PageArray
 	 *
 	 */
 	protected function filterData($selectors, $not = false) {
@@ -467,7 +467,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * #pw-internal
 	 *
 	 * @param string $selector AttributeSelector string to use as the filter.
-	 * @return PageArray reference to current instance.
+	 * @return PageArray|PaginatedArray|WireArray reference to current PageArray instance.
 	 *
 	 */
 	public function filter($selector) {
@@ -480,7 +480,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * #pw-internal
 	 *
 	 * @param string $selector AttributeSelector string to use as the filter.
-	 * @return PageArray reference to current instance.
+	 * @return PageArray|PaginatedArray|WireArray reference to current PageArray instance.
 	 *
 	 */
 	public function not($selector) {
@@ -495,7 +495,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * #pw-internal
 	 *
 	 * @param string $selector AttributeSelector string.
-	 * @return PageArray
+	 * @return PageArray|WireArray New PageArray instance
 	 *
 	 */
 	public function find($selector) {
@@ -567,7 +567,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * #pw-internal
 	 *
-	 * @return Page[]|\ArrayObject
+	 * @return Page[]|\ArrayObject|PageArrayIterator
 	 *
 	 */
 	public function getIterator() {
@@ -628,7 +628,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	public function __debugInfo() {
 		$info = parent::__debugInfo();
 		$info['selectors'] = (string) $this->selectors; 
-		if(!count($info['selectors'])) unset($info['selectors']);
+		if(!wireCount($info['selectors'])) unset($info['selectors']);
 		return $info;
 	}
 
