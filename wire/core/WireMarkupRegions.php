@@ -121,11 +121,11 @@ class WireMarkupRegions extends Wire {
 		if(is_null($options['wrap'])) $options['wrap'] = $hasClass ? true : false;
 
 		$startPos = 0;
-		$whileCnt = 0;
-		$iterations = 0;
+		$whileCnt = 0; // number of do-while loop completions
+		$iterations = 0; // total number of iterations, including continue statements
 
 		do {
-			$iterations++;
+			if(++$iterations >= $options['max'] * 2) break;
 			
 			// find all the positions where each test appears
 			$positions = array();
@@ -188,9 +188,21 @@ class WireMarkupRegions extends Wire {
 				$regions[$pos] = $region;
 			}
 
-			$markup = trim(str_replace($region['html'], '', $markup));
+			$replaceQty = 0;
+			$markup = str_replace($region['html'], '', $markup, $replaceQty);
+			if(!$replaceQty) {
+				// region html was not present, try replacement without closing tag (which might be missing)
+				$markup = str_replace($region['open'] . $region['region'], '', $markup, $replaceQty);
+				if($replaceQty) {
+					$this->debugNotes[] = "ERROR: missing closing tag for: $region[open]";
+				} else {
+					$this->debugNotes[] = "ERROR: unable to populate: $region[open]";
+				}
+			}
+
+			if($replaceQty) $startPos = 0;
+			$markup = trim($markup);
 			if(empty($markup)) break;
-			$startPos = 0;
 			
 		} while(++$whileCnt < $options['max']);
 
@@ -1366,7 +1378,7 @@ class WireMarkupRegions extends Wire {
 				$debugRegionStart = "[sm]" . trim(substr($region['region'], 0, 80));  
 				$pos = strrpos($debugRegionStart, '>');
 				if($pos) $debugRegionStart = substr($debugRegionStart, 0, $pos+1);
-				$debugRegionStart .= " … [b]" . strlen($region['html']) . " bytes[/b][/sm]";
+				$debugRegionStart .= " … [b]" . strlen($region['region']) . " bytes[/b][/sm]";
 				//$debugRegionEnd = substr($region['region'], -30); 
 				//$pos = strpos($debugRegionEnd, '</'); 
 				//if($pos !== false) $debugRegionEnd = substr($debugRegionEnd, $pos);
@@ -1431,6 +1443,7 @@ class WireMarkupRegions extends Wire {
 				}
 			}
 			if(count($this->debugNotes)) {
+				$this->debugNotes = array_unique($this->debugNotes); 
 				$debugNotes[] = "---------------";
 				foreach($this->debugNotes as $n => $s) {
 					$debugNotes[] = $this->debugNoteStr($s);
