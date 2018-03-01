@@ -11,10 +11,18 @@
  * This version also lifts several pieces of code from Soma's Modules Manager
  * specific to the parts involved with downloading modules from the directory.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add support for module configuration inputfields with useLanguages option
+ * 
+ * @method string executeUpload($inputName = '')
+ * @method string executeDownloadURL($url = '')
+ * @method string executeDownload()
+ * @method string executeEdit()
+ * @method string executeInstallConfirm()
+ * @method InputfieldForm buildDownloadConfirmForm(array $data, $update = false)
+ * @method InputfieldForm buildDownloadSuccessForm($className)
  *
  */
 
@@ -156,6 +164,9 @@ class ProcessModule extends Process {
 	 * Output JSON list of navigation items for this (intended to for ajax use)
 	 *
 	 * For 2.5+ admin themes
+	 * 
+	 * @param array $options
+	 * @return string
 	 *
 	 */
 	public function ___executeNavJSON(array $options = array()) {
@@ -383,6 +394,7 @@ class ProcessModule extends Process {
 			}
 		}
 
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
 		$form->attr('action', './'); 
 		$form->attr('method', 'post'); 
@@ -398,6 +410,7 @@ class ProcessModule extends Process {
 		$tab->attr('title', $this->labels['site']);
 		$tab->attr('class', 'WireTab');
 
+		/** @var InputfieldSubmit $button */
 		$button = $this->modules->get('InputfieldSubmit');
 		$button->attr('name', 'clear_file_compiler');
 		$button->attr('value', $this->_('Clear compiled files'));
@@ -461,7 +474,8 @@ class ProcessModule extends Process {
 
 
 		// new
-		
+	
+		/** @var InputfieldWrapper $tab */
 		$tab = $this->wire(new InputfieldWrapper());
 		$tab->attr('id', 'tab_new_modules'); 
 		$tab->attr('title', $this->_('New'));
@@ -474,7 +488,8 @@ class ProcessModule extends Process {
 				$newModulesArray[$name] = 0;
 			}
 		}
-		
+	
+		/** @var InputfieldSelect $select */
 		$select = $this->wire('modules')->get('InputfieldSelect'); 
 		$select->attr('name', 'new_seconds'); 
 		$select->addClass('modules_filter'); 
@@ -484,16 +499,20 @@ class ProcessModule extends Process {
 		$select->addOption(2419200, $this->_('Within the last month')); 
 		$select->required = true; 
 		$select->attr('value', $newSeconds);
+		
+		/** @var InputfieldMarkup $markup */
 		$markup = $this->modules->get('InputfieldMarkup');
 		$markup->icon = 'lightbulb-o';
 		$markup->value = $select->render() . $this->renderListTable($newModulesArray, false, false, true, true);
 		$markup->label = $this->_('Recently Found and Installed Modules');
 		$tab->add($markup); 
 		
+		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->modules->get('InputfieldFieldset');
 		$fieldset->label = $this->labels['download_dir'];
 		$fieldset->icon = 'cloud-download';
 		//if($this->wire('input')->post('new_seconds')) $fieldset->collapsed = Inputfield::collapsedYes; 
+		/** @var InputfieldName $f */
 		$f = $this->modules->get('InputfieldName');
 		$f->attr('id+name', 'download_name');
 		$f->label = $this->_('Module Class Name');
@@ -554,13 +573,16 @@ class ProcessModule extends Process {
 		$f->icon = $fieldset->icon;
 		$fieldset->add($f);
 		$tab->add($fieldset);
-		
+	
+		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->modules->get('InputfieldFieldset');
 		$fieldset->attr('id', 'fieldset_check_new'); 
 		$fieldset->label = $this->labels['reset'];
 		$fieldset->description = $this->_('If you have placed new modules in /site/modules/ yourself, click this button to find them.');
 		$fieldset->collapsed = Inputfield::collapsedYes; 
 		$fieldset->icon = 'refresh';
+		
+		/** @var InputfieldButton $submit */
 		$submit = $this->modules->get('InputfieldButton');
 		$submit->attr('href', './?reset=1');
 		$submit->attr('id', 'reset_modules');
@@ -605,6 +627,7 @@ class ProcessModule extends Process {
 			$this->_x('Version', 'list'), 	// Modules list table header for 'Version' column
 			$this->_x('Summary', 'list')	// Modules list table header for 'Summary' column
 		);
+		/** @var MarkupAdminDataTable|null $table */
 		$table = null;
 		$total = 0;
 		$out = '';
@@ -680,11 +703,6 @@ class ProcessModule extends Process {
 
 				$title = "<span data-name='$name' class='$class'>$title</span>";
 
-				if(count($requires)) {
-					$buttonState = 'ui-state-default ui-state-disabled';
-					$buttonType = 'button';
-				} else {
-				}
 				$isConfirm = count($modulesArray) == 1 && $this->wire('input')->get('name');
 				$buttonState = 'ui-state-default';
 				$buttonPriority = $isConfirm ? "ui-priority-primary" : "ui-priority-secondary";
@@ -795,7 +813,7 @@ class ProcessModule extends Process {
 	/**
 	 * Checks for compatibility, polls the modules directory web service and returns rendered markup for the download info table and confirmation form
 	 * 
-	 * @param $name Class name of module
+	 * @param string $name Class name of module
 	 * @param bool $update Whether this is a 'check for updates' request
 	 * @return string
 	 * 
@@ -815,16 +833,19 @@ class ProcessModule extends Process {
 		$data = $http->get($url); 
 		if(empty($data)) {
 			$this->error($this->_('Error retrieving data from web service URL') . ' - ' . $http->getError());
-			return $this->session->redirect($redirectURL);
+			$this->session->redirect($redirectURL);
+			return '';
 		}
 		$data = json_decode($data, true); 
 		if(empty($data)) {
 			$this->error($this->_('Error decoding JSON from web service')); 
-			return $this->session->redirect($redirectURL);
+			$this->session->redirect($redirectURL);
+			return '';
 		}
 		if($data['status'] !== 'success') {
 			$this->error($this->_('Error reported by web service:') . ' ' . $this->wire('sanitizer')->entities($data['error']));
-			return $this->session->redirect($redirectURL);	
+			$this->session->redirect($redirectURL);	
+			return '';
 		}
 	
 		$installable = true; 
@@ -1038,7 +1059,8 @@ class ProcessModule extends Process {
 	 * 
 	 */
 	protected function ___buildDownloadSuccessForm($className) {
-		
+	
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
 
 		// check if modules isn't already installed and this isn't an update
@@ -1049,7 +1071,7 @@ class ProcessModule extends Process {
 			if(count($info['requires'])) $requires = $this->modules->getRequiresForInstall($className);
 			if(count($requires)) { 
 				foreach($requires as $moduleName) {
-					$this->error("$className - " . sprintf($this->_('Requires module "%s" before it can be installed'), $moduleName), Notice::warning | Notice::allowMarkup); 
+					$this->warning("$className - " . sprintf($this->_('Requires module "%s" before it can be installed'), $moduleName), Notice::allowMarkup); 
 				}
 				$this->wire('session')->redirect('../'); 
 			}
@@ -1061,11 +1083,13 @@ class ProcessModule extends Process {
 			$form->attr('method', 'post');
 			$form->attr('id', 'install_confirm_form');
 
+			/** @var InputfieldHidden $f */
 			$f = $this->modules->get('InputfieldHidden');
 			$f->attr('name', 'install');
 			$f->attr('value', $className);
 			$form->add($f);
-		
+	
+			/** @var InputfieldSubmit $submit */
 			$submit = $this->modules->get('InputfieldSubmit');
 			$submit->attr('name', 'submit');
 			$submit->attr('id', 'install_now');
@@ -1073,6 +1097,7 @@ class ProcessModule extends Process {
 			$submit->icon = 'sign-in';
 			$form->add($submit);
 
+			/** @var InputfieldButton $button */
 			$button = $this->modules->get('InputfieldButton');
 			$button->attr('href', '../');
 			$button->attr('value', $this->_('Leave Uninstalled'));
@@ -1085,6 +1110,7 @@ class ProcessModule extends Process {
 
 			$this->wire('processHeadline', $this->_('Updated:') . ' ' . $className);
 			$form->description = sprintf($this->_('%s was updated successfully.'), $className);
+			/** @var InputfieldButton $button */
 			$button = $this->modules->get('InputfieldButton');
 			$button->attr('href', "../?reset=1&edit=$className");
 			$button->attr('value', $this->_('Continue to module settings'));
@@ -1121,7 +1147,6 @@ class ProcessModule extends Process {
 
 		$info = null; 
 		$moduleName = '';
-		$out = '';
 
 		if(isset($_POST['name'])) $moduleName = $_POST['name']; 
 			else if(isset($_GET['name'])) $moduleName = $_GET['name'];
@@ -1141,6 +1166,10 @@ class ProcessModule extends Process {
 	 * Build and render for the form for editing a module's settings
 	 *
 	 * This method saves the settings if it's form has been posted
+	 * 
+	 * @param string $moduleName
+	 * @param array $moduleInfo
+	 * @return string
 	 *
 	 */
 	protected function renderEdit($moduleName, $moduleInfo) {
@@ -1155,12 +1184,13 @@ class ProcessModule extends Process {
 		}
 		if(!$moduleId) {
 			$this->error("Unknown module"); 
-			return $this->session->redirect('./'); 
+			$this->session->redirect('./'); 
+			return '';
 		}
 		if($this->wire('input')->get('refresh') == $moduleName) {
 			$this->wire('modules')->resetCache();
 			$this->session->redirect("./edit?name=$moduleName$collapseInfo");
-			return;
+			return '';
 		}
 		$sinfo = self::getModuleInfo();
 		$flags = $this->modules->getFlags($moduleName);
@@ -1177,7 +1207,6 @@ class ProcessModule extends Process {
 		$form->attr('action', "edit?name=$moduleName$collapseInfo"); 
 		$form->attr('method', 'post'); 
 
-		$fields = array();
 		$dependents = $this->modules->getRequiredBy($moduleName, true); 
 		$requirements = $this->modules->getRequires($moduleName, false, true); 
 		$dependentsStr = '';
@@ -1198,6 +1227,7 @@ class ProcessModule extends Process {
 		// identify duplicates
 		$duplicates = $this->modules->duplicates()->getDuplicates($moduleName); 
 		if(count($duplicates['files'])) {
+			/** @var InputfieldRadios $field */
 			$field = $this->modules->get('InputfieldRadios'); 
 			$field->attr('name', '_use_duplicate');
 			$field->label = $this->_('Module file to use'); 
@@ -1247,6 +1277,7 @@ class ProcessModule extends Process {
 
 		// submit button
 		if(count($form->children)) {
+			/** @var InputfieldSubmit $field */
 			$field = $this->modules->get("InputfieldSubmit"); 
 			$field->attr('name', 'submit_save_module'); 
 			$field->showInHeader();
@@ -1280,7 +1311,7 @@ class ProcessModule extends Process {
 			$form->processInput($this->input->post); 
 			$updatedNames = array();
 			
-			if(count($fields)) foreach($fields->getAll() as $field) {
+			if(wireCount($fields)) foreach($fields->getAll() as $field) {
 				// note field names beginning with '_' will not be stored	
 				if(($name = $field->attr('name')) && strpos($name, '_') !== 0) {
 					$value = $field->attr('value');
@@ -1349,6 +1380,7 @@ class ProcessModule extends Process {
 		$hooksStr = $this->renderModuleHooks($moduleName); 	
 		
 		// build a table that displays module info
+		/** @var MarkupAdminDataTable $table */
 		$table = $this->modules->get("MarkupAdminDataTable"); 
 		$table->setResponsive(false);
 		$table->setEncodeEntities(false); 
@@ -1425,7 +1457,8 @@ class ProcessModule extends Process {
 		if(!$this->wire('modules')->isInstallable($name, true)) throw new WireException("Module is not currently installable"); 
 		
 		$this->headline($this->labels['install']); 
-		
+	
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
 		$form->attr('action', './');
 		$form->attr('method', 'post');
