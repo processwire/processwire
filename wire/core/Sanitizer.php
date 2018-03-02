@@ -948,6 +948,8 @@ class Sanitizer extends Wire {
 			);
 
 		$options = array_merge($defaultOptions, $options); 
+		if($options['maxLength'] < 0) $options['maxLength'] = 0;
+		if($options['maxBytes'] < 0) $options['maxBytes'] = 0;
 		
 		if(!is_string($value)) $value = $this->string($value);
 
