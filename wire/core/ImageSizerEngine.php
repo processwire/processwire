@@ -1704,27 +1704,29 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 * @param string $focus (focus point in percent, like: 54.7%)
 	 * @param int $sourceDimension (source image width or height)
 	 * @param int $cropDimension (target crop-image width or height)
+	 * @param int $zoom
 	 *
 	 * @return int $position (crop position x or y in pixel)
 	 *
 	 */
-	protected function getFocusZoomPosition($focus, $sourceDimension, $cropDimension) {
+	protected function getFocusZoomPosition($focus, $sourceDimension, $cropDimension, $zoom) {
 		$focus = intval($focus); // string with float value and percent char, (needs to be converted to integer)
-		$source = 100; // the source-dimensions percent-value (100)
-		$target = ($cropDimension / $sourceDimension * 100); // the crop-dimensions percent-value
-		$rest = $source - $target; // the unused dimension-part-value in percent
-		$tmp = $focus + ($target / 2); // temp value
+		$scale = 1 + (($zoom / 100) * 2);
+		$focusPX = ($sourceDimension / 100 * $focus);
+		$posMinPX = $cropDimension / 2 / $scale;
+		$posMaxPX = $sourceDimension - ($cropDimension / 2);
 
 		// calculate the position in pixel !
-		if($tmp >= 100) {
-			$position = $sourceDimension - $cropDimension;
-		} else if($tmp <= floor($rest / 2)) {
-			$position = 0;
+		if($focusPX >= $posMaxPX) {
+			$posPX = $sourceDimension - $cropDimension;
+		} else if($focusPX <= $posMinPX) {
+			$posPX = 0;
 		} else {
-			$position = ceil(($sourceDimension - $cropDimension) / 100 * $focus);
+			$posPX = $focusPX - ($cropDimension / 2);
+			if(0 > $posPX) $posPX = 0;
 		}
 
-		return $position;
+		return $posPX;
 	}
 
 	/**
@@ -1752,7 +1754,6 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		if($percentW >= $percentH) { // check wich one is greater
 			$maxW = $fullWidth; // if percentW is greater, maxW becomes the original Width
 			$maxH = $fullWidth / $ratioFinal; // ... and maxH gets calculated via the ratio
-
 		} else {
 			$maxH = $fullHeight; // if percentH is greater, maxH becomes the original Height
 			$maxW = $fullHeight * $ratioFinal; // ... and maxW gets calculated via the ratio
@@ -1775,12 +1776,12 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		}
 
 		// calculate the crop positions
-		$tmpX = $this->getFocusZoomPosition($this->cropping[0], $fullWidth, $cropW); // calculate the x-position
-		$tmpY = $this->getFocusZoomPosition($this->cropping[1], $fullHeight, $cropH); // calculate the y-position
+		$posX = $this->getFocusZoomPosition($this->cropping[0], $fullWidth, $cropW, $zoom); // calculate the x-position
+		$posY = $this->getFocusZoomPosition($this->cropping[1], $fullHeight, $cropH, $zoom); // calculate the y-position
 
 		return array(
-			0 => (int) $tmpX,
-			1 => (int) $tmpY,
+			0 => (int) $posX,
+			1 => (int) $posY,
 			2 => (int) $cropW,
 			3 => (int) $cropH
 		);
