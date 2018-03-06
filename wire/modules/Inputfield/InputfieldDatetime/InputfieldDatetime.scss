@@ -64,5 +64,8 @@ a.pw-ui-datepicker-trigger {
 	margin: 0 0 0 0.5em;
 }
 
-
+input.InputfieldDatetimeDatepicker {
+	position: relative;
+	z-index: 1;
+}
 

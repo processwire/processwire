@@ -52,4 +52,6 @@ a.pw-ui-datepicker-trigger {
   /* tweak to datepicker trigger */
   margin: 0 0 0 0.5em; }
 
-/*# sourceMappingURL=InputfieldDatetime.css.map */
+input.InputfieldDatetimeDatepicker {
+  position: relative;
+  z-index: 1; }
