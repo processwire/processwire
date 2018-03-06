@@ -1,7 +1,7 @@
 /**
  * ProcessWire Admin Theme jQuery/Javascript
  *
- * Copyright 2017 by Ryan Cramer
+ * Copyright 2018 by Ryan Cramer
  *
  */
 
@@ -543,15 +543,24 @@ var ProcessWireAdminTheme = {
 			} while($in.hasClass('InputfieldColumnWidth'));
 		}
 
+		// get or set uk-width class
+		// width: may be integer of width, or classes you want to set (if $in is also provided)
+		// $in: An optional Inputfield that you want to populate given or auto-determined classes to
 		function ukGridClass(width, $in) {
 			
 			var ukGridClassDefault = 'uk-width-1-1';
 			var ukGridClass = ukGridClassDefault;
-			// var ukGrid = [1,1];
+			var widthIsClass = false;
 			
-			if(!width || width >= 100) {
+			if(typeof width == "string" && typeof $in != "undefined") {
+				// class already specified in width argument
+				ukGridClass = width;
+				widthIsClass = true;
+			} else if(!width || width >= 100) {
+				// full width
 				ukGridClass = ukGridClassDefault;
 			} else {
+				// determine width from predefined setting
 				for(var pct in ProcessWire.config.ukGridWidths) {
 					var cn = ProcessWire.config.ukGridWidths[pct];
 					pct = parseInt(pct);
@@ -563,80 +572,95 @@ var ProcessWireAdminTheme = {
 				}
 			}
 			
-			if(ukGridClass != ukGridClassDefault) {
+			if(!widthIsClass && ukGridClass != ukGridClassDefault) {
 				ukGridClass += '@m';
-				if(typeof $in != "undefined") $in.removeClass(ukGridClassDefault);
 			}
 
 			if(typeof $in != "undefined") {
 				if($in.hasClass(ukGridClass)) {
 					// no need to do anything
 				} else {
-					var c = $in.attr('class');
-					if(c.indexOf('@m') > 0) {
-						// replace existing class
-						c = c.replace(/uk-width-\d-\d@m/, ukGridClass);
-						$in.attr('class', c);
-					} else {
-						$in.addClass(ukGridClass);
-					}
+					removeUkGridClass($in);
+					$in.addClass(ukGridClass);
 				}
-				// $in.data('pwukgrid', ukGrid);
 			}
 			
 			return ukGridClass;
 		}
 
+		// remove any uk-width- classes from given str or $inputfield object
+		function removeUkGridClass(str) {
+			var $in = null;
+			if(typeof str != "string") {
+				$in = str;
+				str = $in.attr('class');
+			}
+			if(str.indexOf('uk-width-') > -1) {
+				var cls = str.replace(/uk-width-(\d-\d@m|\d-\d|expand)\s*/g, '');
+				if($in !== null) $in.attr('class', cls);
+			}
+			return str;
+		}
+		
+		// update widths and classes for Inputfields having the same parent as given $inputfield
+		// this is called when an Inputfield is shown or hidden
 		function updateInputfieldRow($inputfield) {
 
 			var $inputfields = $inputfield.parent().children('.Inputfield');
-			var $lastInputfield = null;
-			var width = 0;
+			var $lastInputfield = null; // last non-hidden Inputfield
+			var width = 0; // current combined width of all Inputfields in row
 			var w = 0; // current Inputfield width
-			var lastW = 0; // last Inputfield width
-			var lastGridClass = '';
+			var lastW = 0; // last Inputfield non-hidden Inputfield width
+			var debug = false; // verbose console.log messages
 
 			function consoleLog(msg, $in) {
+				if(!debug) return;
 				if(typeof $in == "undefined") $in = $inputfield;	
 				var id = $in.attr('id');
 				id = id.replace('wrap_Inputfield_', '');
-				//if(id.indexOf('test') !== 0) return;
 				console.log(id + ' (combined width=' + width + ', w=' + w + '): ' + msg);	
 			}
-
-			function updateLastInputfield(w) {
-				if(!$lastInputfield || !$lastInputfield.length) return;
-				var gridClass = '';
-				if($lastInputfield.hasClass('InputfieldColumnWidthFirst')) {
-					gridClass = 'uk-width-1-1';
-				} else if(width > 100) {
-					gridClass = '';
-				} else if(w >= 100) {
-					gridClass = 'uk-width-1-1';
-				} else if($lastInputfield.hasClass('InputfieldColumnWidthLast')) {
-					ukGridClass(100 - (width - w), $lastInputfield); 
-				}
-				if(gridClass.length) {
-					if(lastGridClass.length) $lastInputfield.removeClass(lastGridClass);
-					$lastInputfield.addClass(gridClass);
-				}
-			}
-
+			
 			$inputfields.each(function() {
 
 				$inputfield = $(this);
+				
 				var isLastColumn = false;
 				var isFirstColumn = false;
+				var isNewRow = $inputfield.hasClass('InputfieldColumnWidthFirst') || !$inputfield.hasClass('InputfieldColumnWidth');
+				
+				if(isNewRow && $lastInputfield && width < 100) {
+					// finish out the previous row, letting width expand to 100%
+					ukGridClass('InputfieldColumnWidthLast uk-width-expand', $lastInputfield); 
+				}
 
 				if($inputfield.hasClass('InputfieldColumnWidth')) {
+					// column having width
 					w = parseInt($inputfield.attr('data-colwidth'));
 				} else {
-					w = 100;
+					// full width column
+					w = 0;
+				}
+				
+				if(!w || w >= 100) {
+					// full width column consumes its own row, so we can reset everything here and exit
+					$lastInputfield = null;
+					lastW = 0;
+					width = 0;
+					if(debug) consoleLog("Skipping because full-width", $inputfield);
+					return;
 				}
 
 				if($inputfield.hasClass('InputfieldStateHidden')) {
-					// hidden, does not contribute to layout
-					// consoleLog('A: hidden', $inputfield);
+					// hidden column, reserve space even though its hidden
+					if(debug) consoleLog('A: hidden', $inputfield);
+					lastW += w;
+					width += w;
+					if($lastInputfield) {
+						// update previous visible column to include the width of the hidden column
+						if(debug) consoleLog('Updating this to width=' + lastW, $lastInputfield);
+						ukGridClass(lastW, $lastInputfield);
+					}
 					return;
 				}
 
@@ -644,21 +668,21 @@ var ProcessWireAdminTheme = {
 					// starting a new row
 					width = 0;
 					isFirstColumn = true;
-					$inputfield.removeClass('InputfieldColumnWidthLast');
-					// consoleLog('B: starting new row');
+					isLastColumn = false;
+					if(debug) consoleLog('B: starting new row', $inputfield);
 				} else if(width + w > 100) {
 					// start new row and update width for last column
-					if($lastInputfield) $lastInputfield.addClass('InputfieldColumnWidthLast');
-					updateLastInputfield(lastW);
+					if($lastInputfield) ukGridClass('InputfieldColumnWidthLast uk-width-expand', $lastInputfield); 
 					width = 0;
 					isFirstColumn = true;
-					// consoleLog('C: update last column for width and start new row');
+					if(debug) consoleLog('C: start new row because width would exceed 100%', $inputfield);
 				} else if(width + w == 100) {
+					// width comes to exactly 100% so make this the last column in the row
 					isLastColumn = true; 
-					// consoleLog('D: width is 100%');
+					if(debug) consoleLog('D: width is exactly 100%, so this is the last column', $inputfield);
 				} else {
 					// column that isn't first or last column
-					// consoleLog('E: not first or last column');
+					if(debug) consoleLog('E: not first or last column', $inputfield);
 				}
 
 				if(isLastColumn) {
@@ -675,16 +699,15 @@ var ProcessWireAdminTheme = {
 				width += w;
 				lastW = w; 
 				$lastInputfield = $inputfield;
-				lastGridClass = ukGridClass(w, $inputfield);
+				ukGridClass(w, $inputfield);
 			});
 			
-			$inputfields.find('.InputfieldColumnWidthLast').removeClass('InputfieldColumnWidthLast');
+			//$inputfields.find('.InputfieldColumnWidthLast').removeClass('InputfieldColumnWidthLast');
 
-			if(width < 100) {
-				// consoleLog('outside call because ' + width + '<100', $lastInputfield);
-				updateLastInputfield(w);
+			if(width < 100 && $lastInputfield) {
+				ukGridClass('InputfieldColumnWidthLast uk-width-expand', $lastInputfield); 
 			}
-		}
+		} // function updateInputfieldRow
 		
 		var showHideInputfieldTimer = null;
 

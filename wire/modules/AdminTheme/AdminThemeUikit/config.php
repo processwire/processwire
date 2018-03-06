@@ -266,7 +266,6 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$fieldset->add($f);
 	*/
 
-	/*
 	// The following is just for development/testing 
 	$f = $modules->get('InputfieldRadios');
 	$f->attr('name', 'test_radios');
@@ -276,7 +275,8 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$f->addOption(3, 'Option 3');
 	$f->columnWidth = 30;
 	$inputfields->add($f);
-	
+
+	/*
 	$f = $modules->get('InputfieldText'); 
 	$f->attr('name', 'test_text1');
 	$f->label = 'Test text 1'; 
@@ -288,6 +288,26 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$f->attr('name', 'test_text2');
 	$f->label = 'Test text 2'; 
 	$f->showIf = 'test_radios=1|2';
+	$f->columnWidth = 35;
+	$inputfields->add($f);
+
+	// These inputfields should appear as a second row
+	$f = $modules->get('InputfieldText');
+	$f->attr('name', 'test_text3');
+	$f->label = 'Test text 3';
+	$f->columnWidth = 30;
+	$inputfields->add($f);
+
+	$f = $modules->get('InputfieldText');
+	$f->attr('name', 'test_text4');
+	$f->label = 'Test text 4';
+	$f->columnWidth = 35;
+	$inputfields->add($f);
+
+	$f = $modules->get('InputfieldText');
+	$f->attr('name', 'test_text5');
+	$f->label = 'Test text 5';
+	$f->showIf = 'test_radios=3';
 	$f->columnWidth = 35;
 	$inputfields->add($f);
 	*/
