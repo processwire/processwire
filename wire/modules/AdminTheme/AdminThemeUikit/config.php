@@ -276,7 +276,7 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$f->addOption(3, 'Option 3');
 	$f->columnWidth = 30;
 	$inputfields->add($f);
-
+	
 	$f = $modules->get('InputfieldText'); 
 	$f->attr('name', 'test_text1');
 	$f->label = 'Test text 1'; 
@@ -295,20 +295,20 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$f = $modules->get('InputfieldText');
 	$f->attr('name', 'test_text3');
 	$f->label = 'Test text 3';
-	$f->columnWidth = 30;
+	$f->columnWidth = 35;
 	$inputfields->add($f);
 
 	$f = $modules->get('InputfieldText');
 	$f->attr('name', 'test_text4');
 	$f->label = 'Test text 4';
-	$f->columnWidth = 35;
+	$f->columnWidth = 25;
 	$inputfields->add($f);
 
 	$f = $modules->get('InputfieldText');
 	$f->attr('name', 'test_text5');
 	$f->label = 'Test text 5';
-	$f->showIf = 'test_radios=3';
-	$f->columnWidth = 35;
+	//$f->showIf = 'test_radios=3';
+	$f->columnWidth = 75;
 	$inputfields->add($f);
 	*/
 

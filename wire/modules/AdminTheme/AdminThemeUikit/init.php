@@ -21,6 +21,7 @@ if(!defined("PROCESSWIRE")) die();
 // uk class => width %
 $ukGridWidths = array(
 	'80%' => '4-5',
+	'75%' => '3-4',
 	'70%' => '2-3',
 	'64%' => '2-3',
 	'60%' => '3-5',
