@@ -37,7 +37,8 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 
 		// an optional edit or detail link where items can be modified or viewed
 		// i.e. /path/to/page/?id={value} where {value} is replaced with option value
-		$this->setAsmSelectOption('editLink', ''); 
+		$this->setAsmSelectOption('editLink', '');
+		$this->setAsmSelectOption('editLabel', "<i class='fa fa-fw fa-edit asmIcon'></i>"); 
 
 		// only applicable if editLink is set. set to false if you don't want edit link to be modal
 		$this->setAsmSelectOption('editLinkModal', true);

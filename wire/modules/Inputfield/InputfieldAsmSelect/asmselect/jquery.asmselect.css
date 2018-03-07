@@ -91,11 +91,16 @@
 	display: inline-block;
 }
 
-.asmListItemEdit .ui-icon {
+.asmListItemEdit .ui-icon,
+.asmListItemEdit .asmIcon {
 	/* hide the icon */
 	float: none; 
 	display: none; 
 }
+
+	.asmListItemEdit a:hover .asmIcon {
+		display: inline-block;
+	}
 	.asmListItemEdit a:hover .ui-icon {
 		/* display the icon when hovered on the edit label */
 		display: inline; 

@@ -45,3 +45,7 @@
 	margin-right: 0.5em;
 }
 
+.asmListItemEdit a > .asmIcon {
+	margin-left: 3px; 
+	text-decoration: none;
+}
