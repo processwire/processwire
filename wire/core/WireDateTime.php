@@ -89,10 +89,10 @@ class WireDateTime extends Wire {
 		'D' => array(	'%a', 	'D', 	'\w+'),				// Name of day, short			Mon
 		'F' => array(	'%B', 	'MM', 	'\w+'),				// Name of month, long			April
 		'M' => array(	'%b', 	'M', 	'\w+'),				// Name of month, short			Apr
-		'j' => array(	'$-d', 	'd', 	'\d{1,2}'),			// Day without leading zeros		1
-		'd' => array(	'$d', 	'dd', 	'\d{2}'),			// Day with leading zeros		01
-		'n' => array(	'$-m', 	'm', 	'\d{1,2}'),			// Month without leading zeros		4
-		'm' => array(	'$m', 	'mm', 	'\d{2}'),			// Month with leading zeros		04
+		'j' => array(	'%-d', 	'd', 	'\d{1,2}'),			// Day without leading zeros		1
+		'd' => array(	'%d', 	'dd', 	'\d{2}'),			// Day with leading zeros		01
+		'n' => array(	'%-m', 	'm', 	'\d{1,2}'),			// Month without leading zeros		4
+		'm' => array(	'%m', 	'mm', 	'\d{2}'),			// Month with leading zeros		04
 		'y' => array(	'%y', 	'y', 	'\d{2}'),			// Year 2 character			12
 		'Y' => array(	'%Y', 	'yy', 	'\d{4}'),			// Year 4 character			2012
 		'N' => array(	'%u', 	'', 	'[1-7]'),			// Day of the week (1-7)		1
