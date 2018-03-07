@@ -1836,6 +1836,10 @@ class ProcessField extends Process implements ConfigurableModule {
 			if($name == 'name' && (!$this->field->id || $value !== $this->field->name)) {
 				if(!$this->isAllowedName($value)) continue; 
 			}
+			
+			if(($name == 'showIf' || $name == 'requiredIf') && strlen($value)) {
+				$this->checkInputfieldDependencySetting($inputfield);
+			}
 
 			$this->field->set($name, $value); 
 
@@ -1866,6 +1870,36 @@ class ProcessField extends Process implements ConfigurableModule {
 				$flags = $flags & ~Field::flagAccessEditor;
 			}
 			if($flags != $this->field->flags) $this->field->flags = $flags;
+		}
+	}
+
+	/**
+	 * Check a showIf or requiredIf setting for potential problems
+	 * 
+	 * @param Inputfield $inputfield Inputfield containing the setting (showIf/requiredIf)
+	 * 
+	 */
+	protected function checkInputfieldDependencySetting(Inputfield $inputfield) {
+		$label = sprintf($this->_('Error in setting “%s”'), $inputfield->getSetting('label'));
+		$value = $inputfield->attr('value');
+		$valueLabel = ' ' . sprintf($this->_('(you specified “%s”)'), $value);
+		if(empty($value)) return;
+		try {
+			$selectors = new Selectors($value);
+		} catch(\Exception $e) {
+			$this->error("$label - " . $this->_('Unable to validate') . $valueLabel); 
+			return;
+		}
+		foreach($selectors as $selector) {
+			foreach($selector->fields() as $f) {
+				if(strpos($f, '.')) continue;
+				if(!strlen($selector->value())) continue;
+				$f = $this->wire('fields')->get($f);
+				if(!$f || !$f->type instanceof FieldtypePage) continue;
+				$v = implode('', $selector->values());
+				if(ctype_digit("$v")) continue; // validates
+				$this->error("$label - " . $this->_('This will not work because values must be page IDs') . $valueLabel);
+			}
 		}
 	}
 
