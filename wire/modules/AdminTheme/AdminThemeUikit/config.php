@@ -266,6 +266,7 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$fieldset->add($f);
 	*/
 
+	/*
 	// The following is just for development/testing 
 	$f = $modules->get('InputfieldRadios');
 	$f->attr('name', 'test_radios');
@@ -276,7 +277,6 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$f->columnWidth = 30;
 	$inputfields->add($f);
 
-	/*
 	$f = $modules->get('InputfieldText'); 
 	$f->attr('name', 'test_text1');
 	$f->label = 'Test text 1'; 

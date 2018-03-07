@@ -609,6 +609,7 @@ var ProcessWireAdminTheme = {
 			var $inputfields = $inputfield.parent().children('.Inputfield');
 			var $lastInputfield = null; // last non-hidden Inputfield
 			var width = 0; // current combined width of all Inputfields in row
+			var widthHidden = 0; // amount of width in row occupied by hidden field(s)
 			var w = 0; // current Inputfield width
 			var lastW = 0; // last Inputfield non-hidden Inputfield width
 			var debug = false; // verbose console.log messages
@@ -621,30 +622,33 @@ var ProcessWireAdminTheme = {
 				console.log(id + ' (combined width=' + width + ', w=' + w + '): ' + msg);	
 			}
 			
+			function expandLastInputfield($in) {
+				if(typeof $in == "undefined") $in = $lastInputfield;
+				if($in) ukGridClass('InputfieldColumnWidthLast uk-width-expand', $in); 
+			}
+			
 			$inputfields.each(function() {
 
 				$inputfield = $(this);
 				
 				var isLastColumn = false;
 				var isFirstColumn = false;
-				var isNewRow = $inputfield.hasClass('InputfieldColumnWidthFirst') || !$inputfield.hasClass('InputfieldColumnWidth');
+				var hasWidth = $inputfield.hasClass('InputfieldColumnWidth'); 
+				var isNewRow = !hasWidth || $inputfield.hasClass('InputfieldColumnWidthFirst');
 				
 				if(isNewRow && $lastInputfield && width < 100) {
 					// finish out the previous row, letting width expand to 100%
-					ukGridClass('InputfieldColumnWidthLast uk-width-expand', $lastInputfield); 
+					expandLastInputfield($lastInputfield);
 				}
+			
+				// if column has width defined, pull from its data-colwidth property
+				w = hasWidth ? parseInt($inputfield.attr('data-colwidth')) : 0;
 
-				if($inputfield.hasClass('InputfieldColumnWidth')) {
-					// column having width
-					w = parseInt($inputfield.attr('data-colwidth'));
-				} else {
-					// full width column
-					w = 0;
-				}
-				
 				if(!w || w >= 100) {
 					// full width column consumes its own row, so we can reset everything here and exit
+					if(width < 100) expandLastInputfield($lastInputfield);
 					$lastInputfield = null;
+					widthHidden = 0;
 					lastW = 0;
 					width = 0;
 					if(debug) consoleLog("Skipping because full-width", $inputfield);
@@ -656,14 +660,16 @@ var ProcessWireAdminTheme = {
 					if(debug) consoleLog('A: hidden', $inputfield);
 					lastW += w;
 					width += w;
-					if($lastInputfield) {
+					if($lastInputfield && width >= 100) {
 						// update previous visible column to include the width of the hidden column
 						if(debug) consoleLog('Updating this to width=' + lastW, $lastInputfield);
 						ukGridClass(lastW, $lastInputfield);
+					} else {
+						widthHidden += w;
 					}
 					return;
 				}
-
+			
 				if(!width || width >= 100) {
 					// starting a new row
 					width = 0;
@@ -672,7 +678,7 @@ var ProcessWireAdminTheme = {
 					if(debug) consoleLog('B: starting new row', $inputfield);
 				} else if(width + w > 100) {
 					// start new row and update width for last column
-					if($lastInputfield) ukGridClass('InputfieldColumnWidthLast uk-width-expand', $lastInputfield); 
+					expandLastInputfield($lastInputfield); 
 					width = 0;
 					isFirstColumn = true;
 					if(debug) consoleLog('C: start new row because width would exceed 100%', $inputfield);
@@ -692,8 +698,16 @@ var ProcessWireAdminTheme = {
 				}
 				if(isFirstColumn) {
 					$inputfield.addClass('InputfieldColumnWidthFirst');
+					widthHidden = 0;
 				} else {
 					$inputfield.removeClass('InputfieldColumnWidthFirst');
+				}
+				
+				if(widthHidden) {
+					// if there was any width from previous hidden fields in same row, add it to this field
+					w += widthHidden;
+					width -= widthHidden;
+					widthHidden = 0;
 				}
 
 				width += w;
@@ -702,11 +716,9 @@ var ProcessWireAdminTheme = {
 				ukGridClass(w, $inputfield);
 			});
 			
-			//$inputfields.find('.InputfieldColumnWidthLast').removeClass('InputfieldColumnWidthLast');
-
-			if(width < 100 && $lastInputfield) {
-				ukGridClass('InputfieldColumnWidthLast uk-width-expand', $lastInputfield); 
-			}
+			if(width < 100 && $lastInputfield) expandLastInputfield($lastInputfield);
+			
+			// $inputfields.find('.InputfieldColumnWidthLast').removeClass('InputfieldColumnWidthLast');
 		} // function updateInputfieldRow
 		
 		var showHideInputfieldTimer = null;
