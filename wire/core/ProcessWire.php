@@ -781,7 +781,7 @@ class ProcessWire extends Wire {
 			$testDir = array_pop($parts);
 			if(($testDir === $siteDir || strpos($testDir, 'site-') === 0) && is_file("$rootPath/config.php")) {
 				// rootPath was given as a /site/ directory rather than root directory
-				$rootPath = '/' . implode('/', $parts); // remove siteDir from rootPath
+				$rootPath = implode('/', $parts); // remove siteDir from rootPath
 				$siteDir = $testDir; // set proper siteDir
 			}
 		} 
