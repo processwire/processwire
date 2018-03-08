@@ -2248,9 +2248,9 @@ function InputfieldImage($) {
 
 		if(typeof data != "undefined" && data.length) {
 			data = data.split(';');
-			settings.maxWidth = parseInt(data[0]);
-			settings.maxHeight = parseInt(data[1]);
-			settings.maxSize = parseFloat(data[2]);
+			settings.maxWidth = data[0].length ? parseInt(data[0]) : 0;
+			settings.maxHeight = data[1].length ? parseInt(data[1]) : 0;
+			settings.maxSize = data[2].length ? parseFloat(data[2]) : 0;
 			settings.quality = parseFloat(data[3]);
 		}
 		

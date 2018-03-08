@@ -180,10 +180,14 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		if(!$renderValueMode && $this->focusMode == 'zoom') {
 			$this->addClass('InputfieldImageFocusZoom', 'wrapClass'); 
 		}
-	
-		$config->js('InputfieldImage', array(
-			'labels' => $this->labels,
-		));
+
+		$settings = $config->get('InputfieldImage'); 
+		if(!is_array($settings)) $settings = array();
+		if(empty($settings['ready'])) {
+			$settings['labels'] = $this->labels;
+			$settings['ready'] = true;
+			$config->js('InputfieldImage', $settings);
+		}
 
 		// client side image resize 
 		if(!$this->resizeServer && ($this->maxWidth || $this->maxHeight || $this->maxSize)) {

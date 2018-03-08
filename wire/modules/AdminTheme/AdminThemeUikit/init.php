@@ -108,9 +108,11 @@ $config->set('ProcessList', array(
 	'showIcon' => true,
 ));
 
+$buttonClassKey = $config->wire('hooks')->isHooked('InputfieldImage::renderButtons()') ? '_buttonClass' : 'buttonClass';
 $config->set('InputfieldImage', array(
-	'buttonClass' => "uk-button uk-button-small uk-button-text uk-margin-small-right",
-	'buttonText' => "{out}",
+	// only use custom classes if renderButtons is not hooked
+	$buttonClassKey => 'uk-button uk-button-small uk-button-text uk-margin-small-right',
+	'buttonText' => '{out}',
 ));
 
 $config->set('InputfieldFile', array(
