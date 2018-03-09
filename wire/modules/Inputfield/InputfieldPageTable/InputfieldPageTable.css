@@ -44,4 +44,7 @@
 .Inputfields .InputfieldPageTable td > *:last-child {
 	margin-bottom: 0;
 }
-
+.InputfieldPageTableAdd {
+	diplay: inline-block;
+	margin: 2px;
+}
