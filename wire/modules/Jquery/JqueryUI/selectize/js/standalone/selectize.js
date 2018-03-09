@@ -993,10 +993,15 @@
 		}
 		$to.css(styles);
 	};
+
+	// since measureString seems to get called multiple times for each event, keep a cache (added by ProcessWire)
+	var measureStringData = { str: '', width: 0 };
 	
 	/**
 	 * Measures the width of a string within a
 	 * parent element (in pixels).
+	 * 
+	 * (updated by ProcessWire to avoid bottleneck of adding & deleting element from DOM on every call)
 	 *
 	 * @param {string} str
 	 * @param {object} $parent
@@ -1007,25 +1012,34 @@
 			return 0;
 		}
 	
-		var $test = $('<test>').css({
-			position: 'absolute',
-			top: -99999,
-			left: -99999,
-			width: 'auto',
-			padding: 0,
-			whiteSpace: 'pre'
-		}).text(str).appendTo('body');
+		var $test = $('#selectize-measureString'); 
 	
-		transferStyles($parent, $test, [
-			'letterSpacing',
-			'fontSize',
-			'fontFamily',
-			'fontWeight',
-			'textTransform'
-		]);
+		if(!$test.length) {
+			
+			$test = $('<test>').attr('id', 'selectize-measureString').css({
+				position: 'absolute',
+				top: -99999,
+				left: -99999,
+				width: 'auto',
+				padding: 0,
+				whiteSpace: 'pre'
+			}).appendTo('body');
+			
+			transferStyles($parent, $test, [
+				'letterSpacing',
+				'fontSize',
+				'fontFamily',
+				'fontWeight',
+				'textTransform'
+			]);
+		}
 	
-		var width = $test.width();
-		$test.remove();
+		if(str === measureStringData.str) {
+			var width = measureStringData.width;
+		} else {
+			$test.text(str);
+			var width = $test.width();
+		}
 	
 		return width;
 	};
