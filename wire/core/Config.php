@@ -348,6 +348,9 @@ class Config extends WireData {
 	 *   'siteOnly' => true, 
 	 *   'cachePath' => $config->paths->root . '.my-cache/'
 	 * ]);
+	 * 
+	 * // To unset a property specify null for first argument and property to unset as second argument
+	 * $config->fileCompilerOptions(null, 'siteOnly'); 
 	 * ~~~~~
 	 *
 	 * #pw-internal
@@ -382,7 +385,14 @@ class Config extends WireData {
 				}
 			} else {
 				// property and value provided
-				$value[$property] = $arguments[1];
+				if($property === null && is_string($arguments[1])) {
+					// unset property
+					$property = $arguments[1];
+					unset($value[$property]); 
+				} else {
+					// set property with value
+					$value[$property] = $arguments[1];
+				}
 				parent::set($method, $value);
 			}
 		} else if($numArgs === 1) {

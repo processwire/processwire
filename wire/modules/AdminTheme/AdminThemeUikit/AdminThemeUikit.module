@@ -24,10 +24,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 23,
+			'version' => 24,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
-			'requires' => 'ProcessWire>=3.0.61'
+			'requires' => 'ProcessWire>=3.0.94'
 		); 
 	}
 
@@ -201,7 +201,13 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$themeOffset = '';
 		$wrapClasses = array();
 		
-		if($columnWidth < 10) $columnWidth = 100;
+		static $minColumnWidth = null;
+		
+		if($minColumnWidth === null) {
+			$widthKeys = array_keys($widths); 
+			ksort($widthKeys);
+			$minColumnWidth = (int) reset($widthKeys);
+		}
 		
 		if($inputfield instanceof InputfieldSubmit) {
 			// button
@@ -210,8 +216,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		}
 
 		// determine column width class
-		if($columnWidth && $columnWidth < 100) {
-			if($columnWidth < 16) $columnWidth = 16;
+		if($columnWidth < 10) {
+			$columnWidth = 100;
+		} else if($columnWidth && $columnWidth < 100) {
+			if($columnWidth < $minColumnWidth) $columnWidth = $minColumnWidth;
 			foreach($widths as $pct => $uk) {
 				$pct = (int) $pct; 
 				if($columnWidth >= $pct) {

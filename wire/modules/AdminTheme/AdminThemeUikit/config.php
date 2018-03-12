@@ -268,48 +268,73 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 
 	/*
 	// The following is just for development/testing 
+	$fieldset = $modules->get('InputfieldFieldset');
+	$fieldset->label = 'Test fieldset';
+	$inputfields->add($fieldset);
+
 	$f = $modules->get('InputfieldRadios');
 	$f->attr('name', 'test_radios');
 	$f->label = 'Test radios';
 	$f->addOption(1, 'Option 1');
 	$f->addOption(2, 'Option 2');
 	$f->addOption(3, 'Option 3');
-	$f->columnWidth = 30;
-	$inputfields->add($f);
+	$f->columnWidth = 35;
+	$fieldset->add($f);
 	
-	$f = $modules->get('InputfieldText'); 
+	$f = $modules->get('InputfieldText');
+	$f->attr('name', 'test_text0');
+	$f->label = 'Test text 0';
+	//$f->showIf = 'test_radios=1';
+	$f->columnWidth = 65;
+	$fieldset->add($f);
+	
+	$f = $modules->get('InputfieldText');
 	$f->attr('name', 'test_text1');
-	$f->label = 'Test text 1'; 
-	$f->showIf = 'test_radios=1';
-	$f->columnWidth = 35;
-	$inputfields->add($f);
-	
-	$f = $modules->get('InputfieldText'); 
+	$f->label = 'Test text 1';
+	$f->columnWidth = 20;
+	$fieldset->add($f);
+
+	$f = $modules->get('InputfieldText');
 	$f->attr('name', 'test_text2');
-	$f->label = 'Test text 2'; 
-	$f->showIf = 'test_radios=1|2';
-	$f->columnWidth = 35;
-	$inputfields->add($f);
+	$f->label = 'Test text 2';
+	//$f->showIf = 'test_radios=1|2';
+	$f->columnWidth = 20;
+	$fieldset->add($f);
 
 	// These inputfields should appear as a second row
 	$f = $modules->get('InputfieldText');
 	$f->attr('name', 'test_text3');
 	$f->label = 'Test text 3';
-	$f->columnWidth = 35;
-	$inputfields->add($f);
+	$f->columnWidth = 20;
+	$f->showIf = 'test_radios=1';
+	$fieldset->add($f);
 
 	$f = $modules->get('InputfieldText');
 	$f->attr('name', 'test_text4');
 	$f->label = 'Test text 4';
-	$f->columnWidth = 25;
-	$inputfields->add($f);
+	$f->columnWidth = 20;
+	$fieldset->add($f);
 
 	$f = $modules->get('InputfieldText');
 	$f->attr('name', 'test_text5');
 	$f->label = 'Test text 5';
 	//$f->showIf = 'test_radios=3';
+	$f->columnWidth = 20;
+	$fieldset->add($f);
+
+	$f = $modules->get('InputfieldText');
+	$f->attr('name', 'test_text6');
+	$f->label = 'Test text 6';
+	//$f->showIf = 'test_radios=3';
 	$f->columnWidth = 75;
-	$inputfields->add($f);
+	$fieldset->add($f);
+
+	$f = $modules->get('InputfieldText');
+	$f->attr('name', 'test_text7');
+	$f->label = 'Test text 7';
+	//$f->showIf = 'test_radios=3';
+	$f->columnWidth = 25;
+	$fieldset->add($f);
 	*/
 
 }

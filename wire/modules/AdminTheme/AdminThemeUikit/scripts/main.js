@@ -1,7 +1,7 @@
 /**
  * ProcessWire Admin Theme jQuery/Javascript
  *
- * Copyright 2017 by Ryan Cramer
+ * Copyright 2018 by Ryan Cramer
  *
  */
 
@@ -605,6 +605,7 @@ var ProcessWireAdminTheme = {
 		// update widths and classes for Inputfields having the same parent as given $inputfield
 		// this is called when an Inputfield is shown or hidden
 		function updateInputfieldRow($inputfield) {
+			if(!$inputfield) return;
 
 			var $inputfields = $inputfield.parent().children('.Inputfield');
 			var $lastInputfield = null; // last non-hidden Inputfield
@@ -612,7 +613,7 @@ var ProcessWireAdminTheme = {
 			var widthHidden = 0; // amount of width in row occupied by hidden field(s)
 			var w = 0; // current Inputfield width
 			var lastW = 0; // last Inputfield non-hidden Inputfield width
-			var debug = false; // verbose console.log messages
+			var debug = true; // verbose console.log messages
 
 			function consoleLog(msg, $in) {
 				if(!debug) return;
@@ -646,7 +647,7 @@ var ProcessWireAdminTheme = {
 
 				if(!w || w >= 100) {
 					// full width column consumes its own row, so we can reset everything here and exit
-					if(width < 100) expandLastInputfield($lastInputfield);
+					if(width < 100 && $lastInputfield) expandLastInputfield($lastInputfield);
 					$lastInputfield = null;
 					widthHidden = 0;
 					lastW = 0;
@@ -678,7 +679,7 @@ var ProcessWireAdminTheme = {
 					if(debug) consoleLog('B: starting new row', $inputfield);
 				} else if(width + w > 100) {
 					// start new row and update width for last column
-					expandLastInputfield($lastInputfield); 
+					if($lastInputfield) expandLastInputfield($lastInputfield); 
 					width = 0;
 					isFirstColumn = true;
 					if(debug) consoleLog('C: start new row because width would exceed 100%', $inputfield);
@@ -712,7 +713,7 @@ var ProcessWireAdminTheme = {
 
 				width += w;
 				lastW = w; 
-				$lastInputfield = $inputfield;
+				$lastInputfield = isLastColumn ? null : $inputfield;
 				ukGridClass(w, $inputfield);
 			});
 			
