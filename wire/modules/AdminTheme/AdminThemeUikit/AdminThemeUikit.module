@@ -205,7 +205,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		
 		if($minColumnWidth === null) {
 			$widthKeys = array_keys($widths); 
-			ksort($widthKeys);
+			sort($widthKeys);
 			$minColumnWidth = (int) reset($widthKeys);
 		}
 		
