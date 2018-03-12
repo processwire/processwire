@@ -613,7 +613,7 @@ var ProcessWireAdminTheme = {
 			var widthHidden = 0; // amount of width in row occupied by hidden field(s)
 			var w = 0; // current Inputfield width
 			var lastW = 0; // last Inputfield non-hidden Inputfield width
-			var debug = true; // verbose console.log messages
+			var debug = false; // verbose console.log messages
 
 			function consoleLog(msg, $in) {
 				if(!debug) return;
