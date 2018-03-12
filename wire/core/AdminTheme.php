@@ -312,6 +312,14 @@ abstract class AdminTheme extends WireData implements Module {
 	}
 	
 	public function ___uninstall() { 
+	
+		$defaultAdminTheme = $this->wire('config')->defaultAdminTheme;
+		if($defaultAdminTheme == $this->className()) {
+			throw new WireException(
+				"Cannot uninstall this admin theme because \$config->defaultAdminTheme = '$defaultAdminTheme'; " . 
+				"Please add this setting with a different value in /site/config.php"
+			); 
+		}
 
 		/*
 		if(self::$numAdminThemes > 1) return;
