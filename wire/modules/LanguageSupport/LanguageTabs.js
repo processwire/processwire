@@ -12,7 +12,7 @@ var clickLanguageTabActive = false;
  * @param e
  * 
  */
-function longclickLanguageTab(e) {
+function dblclickLanguageTab(e) {
 	if(clickLanguageTabActive) return;
 	clickLanguageTabActive = true;
 	var $tab = $(this);
@@ -75,7 +75,7 @@ function setupLanguageTabs($form) {
 			var $closeItem = $items.filter('.LanguageSupportCurrent');
 			var $openItem = $items.filter($a.attr('href'));
 			if($closeItem.attr('id') == $openItem.attr('id')) {
-				$a.trigger('longclick');
+				$a.trigger('dblclicklangtab');
 			} else {
 				$closeItem.removeClass('LanguageSupportCurrent');
 				$openItem.addClass('LanguageSupportCurrent');
@@ -185,7 +185,7 @@ function unhideLanguageTabs() {
  */
 jQuery(document).ready(function() { 
 	$(document).on('click', '.langTabsToggle', toggleLanguageTabs);
-	$(document).on('longclick', '.langTabs a', longclickLanguageTab);
+	$(document).on('dblclicklangtab', '.langTabs a', dblclickLanguageTab);
 	$(document).on('reloaded', '.Inputfield', function() {
 		setupLanguageTabs($(this));
 	});
