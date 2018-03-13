@@ -153,7 +153,7 @@ class ProcessUser extends ProcessPageType {
 			if($userAdminAll->id && !$user->hasPermission($userAdminAll)) {
 				// system has user-admin-all permission, and user doesn't have it
 				// so limit them only to the permission user-admin-[role] roles that they have assigned
-				$roles = [];
+				$roles = array();
 				foreach($user->getPermissions() as $permission) {
 					if(strpos($permission->name, 'user-admin-') !== 0) continue;
 					$roleName = str_replace('user-admin-', '', $permission->name);
