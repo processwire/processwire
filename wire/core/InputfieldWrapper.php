@@ -709,23 +709,8 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				return $this->renderInputfield($in, $renderValueMode);
 				
 			} else {
-				// do not render ajax inputfield
-				$url = $this->wire('input')->url();
-				$queryString = $this->wire('input')->queryString();
-				if(strpos($queryString, 'renderInputfieldAjax=') !== false) {
-					// in case nested ajax request 
-					$queryString = preg_replace('/&?renderInputfieldAjax=[^&]+/', '', $queryString);
-				}
-				$url .= $queryString ? "?$queryString&" : "?";
-				$url .= "renderInputfieldAjax=$inputfieldID";
-				$out = "<div class='renderInputfieldAjax'><input type='hidden' value='$url' /></div>";
-				if($inputfield instanceof InputfieldWrapper) {
-					// load assets they will need
-					foreach($inputfield->getAll() as $in) {
-						$in->renderReady($inputfield, $renderValueMode);
-					}
-				}
-				return $out; 
+				// do not render ajax inputfield now, instead render placeholder
+				return $this->renderInputfieldAjaxPlaceholder($inputfield, $renderValueMode);
 			}
 		}
 		
@@ -740,6 +725,45 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		if(is_null($out)) return '';
 		if(!strlen($out)) $out = '&nbsp;'; // prevent output from being skipped over
 		return $out;
+	}
+
+	/**
+	 * Render a placeholder for an ajax-loaded Inputfield
+	 * 
+	 * @param Inputfield $inputfield
+	 * @param bool $renderValueMode
+	 * @return string
+	 * 
+	 */
+	protected function renderInputfieldAjaxPlaceholder(Inputfield $inputfield, $renderValueMode) {
+		
+		$inputfieldID = $inputfield->attr('id');
+		$url = $this->wire('input')->url();
+		$queryString = $this->wire('input')->queryString();
+		
+		if(strpos($queryString, 'renderInputfieldAjax=') !== false) {
+			// in case nested ajax request 
+			$queryString = preg_replace('/&?renderInputfieldAjax=[^&]+/', '', $queryString);
+		}
+		
+		$url .= $queryString ? "?$queryString&" : "?";
+		$url .= "renderInputfieldAjax=$inputfieldID";
+		
+		$out = "<div class='renderInputfieldAjax'><input type='hidden' value='$url' /></div>";
+		
+		if($inputfield instanceof InputfieldWrapper) {
+			// load assets they will need
+			foreach($inputfield->getAll() as $in) {
+				$in->renderReady($inputfield, $renderValueMode);
+			}
+		}
+	
+		// ensure that Inputfield::render() hooks are still called
+		if($inputfield->hasHook('render()')) {
+			$inputfield->runHooks('render', array(), 'before');
+		}
+		
+		return $out; 
 	}
 
 	/**
