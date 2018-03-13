@@ -989,6 +989,8 @@ function InputfieldStates($target) {
 		
 		$.get(ajaxURL, function(data) {
 			$li.removeClass('InputfieldAjaxLoading InputfieldStateCollapsed');
+			var $icon = $li.children('.InputfieldHeader').find('.toggle-icon'); 
+			if($icon.length) $icon.toggleClass($icon.attr('data-to'));
 			$parent.replaceWith($(data)).hide();
 			$parent.slideDown();
 			var $inputfields = $li.find('.Inputfield');
