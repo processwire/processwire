@@ -529,7 +529,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *
 	 * @param string $method Method or property to run hooks for.
 	 * @param array $arguments Arguments passed to the method and hook. 
-	 * @param string $type May be either 'method' or 'property', depending on the type of call. Default is 'method'.
+	 * @param string|array $type May be either 'method', 'property' or array of hooks (from getHooks) to run. Default is 'method'.
 	 * @return array Returns an array with the following information: 
 	 * 	[return] => The value returned from the hook or NULL if no value returned or hook didn't exist. 
 	 *	[numHooksRun] => The number of hooks that were actually run. 
@@ -597,8 +597,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * - Also considers the class parents for hooks. 
 	 * 
 	 * ~~~~~
-	 * if($pages->hasHook('find')) {
-	 *   // the Pages::find method is hooked
+	 * if($pages->hasHook('find()')) {
+	 *   // the Pages::find() method is hooked
 	 * }
 	 * ~~~~~
 	 *
