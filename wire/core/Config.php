@@ -121,7 +121,7 @@
  * @property bool $moduleCompile Allow use of compiled modules? #pw-group-modules
  * @property array $wireMail Default WireMail module settings. #pw-group-modules
  * 
- * @property array $substituteModules Associative array with names of substitutute modules for when requested module doesn't exist #pw-group-modules
+ * @property array $substituteModules Associative array with names of substitute modules for when requested module doesn't exist #pw-group-modules
  * @property array $logs Additional core logs to keep #pw-group-admin
  * @property string $defaultAdminTheme Default admin theme: AdminThemeDefault or AdminThemeReno #pw-group-admin
  * @property string $fatalErrorHTML HTML used for fatal error messages in HTTP mode. #pw-group-system
