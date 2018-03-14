@@ -743,15 +743,19 @@ class ProcessWire extends Wire {
 	 * @param array $options Options to modify default behaviors (experimental): 
 	 *  - `siteDir` (string): Name of "site" directory in $rootPath that contains site's config.php, no slashes (default="site").
 	 * @return Config
+	 * @throws WireException
 	 * 
 	 */
 	public static function buildConfig($rootPath, $rootURL = null, array $options = array()) {
 		
+		if(strpos($rootPath, '..') !== false) {
+			$rootPath = realpath($rootPath);
+			if($rootPath === false) throw new WireException("Path not found"); 
+		}
+		
 		if(DIRECTORY_SEPARATOR != '/') {
 			$rootPath = str_replace(DIRECTORY_SEPARATOR, '/', $rootPath);
 		}
-
-		if(strpos($rootPath, '..') !== false) $rootPath = realpath($rootPath);
 		
 		$httpHost = '';
 		$scheme = '';
