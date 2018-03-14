@@ -103,7 +103,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		if($field->initValue) {
 			$value = $page->getUnformatted($field->name); 
 			if($field->required && !$field->requiredIf) {
-				if(empty($value) || !count($value)) {
+				if(empty($value) || !wireCount($value)) {
 					$page->set($field->name, $field->initValue);
 				}
 			} else if($this->wire('process') != 'ProcessField' && !wireCount($value)) {

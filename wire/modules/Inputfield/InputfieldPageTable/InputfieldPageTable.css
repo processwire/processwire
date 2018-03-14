@@ -45,3 +45,10 @@
 	margin-bottom: 0;
 }
 
+small .InputfieldPageTableAdd {
+ 	display: inline-block;
+	margin: 0 3px 3px 0;
+}
+.InputfieldPageTable small .InputfieldPageTableAdd button {
+	margin: 0; 
+}

@@ -150,6 +150,7 @@ class InputfieldPageTable extends Inputfield {
 			if($this->nameFormat) $url .= "&name_format=" . $this->wire('sanitizer')->entities($this->nameFormat);
 			$btn .= "<span class='InputfieldPageTableAdd' data-url='$url'>" . $button->render() . "</span>";
 		}
+		if(count($this->rowTemplates) > 1) $btn = "<small>$btn</small>";
 		$out .= "<div class='InputfieldPageTableButtons ui-helper-clearfix'>$btn</div>";
 
 		if(!$this->wire('input')->get('InputfieldPageTableField')) {
