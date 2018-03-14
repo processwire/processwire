@@ -499,9 +499,6 @@ function InputfieldRepeater($) {
 		var prevDepth = parseInt($depth.val());
 		var left = ui.position.left;
 	
-		// AdminThemeDefault has something different going on with the left positions, so we adjust for that here
-		if(!isAdminDefault) left -= depthSize;
-		
 		if(left < 0) {
 			depth = prevDepth - Math.round(Math.abs(left) / depthSize);
 			// console.log('decrease depth to: ' + depth);
@@ -555,6 +552,7 @@ function InputfieldRepeater($) {
 				$item.css('margin-left', targetLeft + 'px');
 			}
 		});
+		$inputfieldRepeater.children('.InputfieldContent').css('position', 'relative');
 	}
 
 	/**
