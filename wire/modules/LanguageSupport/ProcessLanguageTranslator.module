@@ -290,7 +290,7 @@ class ProcessLanguageTranslator extends Process {
 				$newTextdomains = array();
 				foreach(array('site' => 'file_site', 'wire' => 'file_wire') as $key => $name) {
 					$postFiles = $this->input->post->$name;
-					if(!count($postFiles)) continue;
+					if(!wireCount($postFiles)) continue;
 					foreach($postFiles as $file) {
 						if(!isset($files[$key][$file])) continue;
 						$textdomain = $this->translator->filenameToTextdomain($file);

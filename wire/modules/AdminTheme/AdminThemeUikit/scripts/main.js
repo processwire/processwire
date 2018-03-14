@@ -628,6 +628,35 @@ var ProcessWireAdminTheme = {
 				if($in) ukGridClass('InputfieldColumnWidthLast uk-width-expand', $in); 
 			}
 			
+			function applyHiddenInputfield() {
+				// hidden column, reserve space even though its hidden
+				if(debug) consoleLog('A: hidden', $inputfield);
+				lastW += w;
+				width += w;
+				if($lastInputfield && width >= 100) {
+					// finishing out row, update last visible column to include the width of the hidden column
+					lastW += widthHidden;
+					if(debug) consoleLog('Updating last visible Inputfield to width=' + lastW, $lastInputfield);
+					ukGridClass(lastW, $lastInputfield);
+					width = 0;
+					lastW = 0;
+					widthHidden = 0;
+					$lastInputfield = null;
+				} else {
+					widthHidden += w;
+				}
+			}
+			
+			function applyFullWidthInputfield() {
+				// full width column consumes its own row, so we can reset everything here and exit
+				if(debug) consoleLog("Skipping because full-width", $inputfield);
+				if(width < 100 && $lastInputfield) expandLastInputfield($lastInputfield);
+				$lastInputfield = null;
+				widthHidden = 0;
+				lastW = 0;
+				width = 0;
+			}
+			
 			$inputfields.each(function() {
 
 				$inputfield = $(this);
@@ -646,28 +675,14 @@ var ProcessWireAdminTheme = {
 				w = hasWidth ? parseInt($inputfield.attr('data-colwidth')) : 0;
 
 				if(!w || w >= 100) {
-					// full width column consumes its own row, so we can reset everything here and exit
-					if(width < 100 && $lastInputfield) expandLastInputfield($lastInputfield);
-					$lastInputfield = null;
-					widthHidden = 0;
-					lastW = 0;
-					width = 0;
-					if(debug) consoleLog("Skipping because full-width", $inputfield);
+					// full-width
+					applyFullWidthInputfield();
 					return;
 				}
 
 				if($inputfield.hasClass('InputfieldStateHidden')) {
-					// hidden column, reserve space even though its hidden
-					if(debug) consoleLog('A: hidden', $inputfield);
-					lastW += w;
-					width += w;
-					if($lastInputfield && width >= 100) {
-						// update previous visible column to include the width of the hidden column
-						if(debug) consoleLog('Updating this to width=' + lastW, $lastInputfield);
-						ukGridClass(lastW, $lastInputfield);
-					} else {
-						widthHidden += w;
-					}
+					// hidden 
+					applyHiddenInputfield();
 					return;
 				}
 			
@@ -704,16 +719,20 @@ var ProcessWireAdminTheme = {
 					$inputfield.removeClass('InputfieldColumnWidthFirst');
 				}
 				
-				if(widthHidden) {
+				if(isLastColumn) {
+					// last column in this row, reset for new row
+					$lastInputfield = null;
+					width = 0;
+					lastW = 0;
 					// if there was any width from previous hidden fields in same row, add it to this field
-					w += widthHidden;
-					width -= widthHidden;
+					if(widthHidden) w += widthHidden;
 					widthHidden = 0;
+				} else {
+					$lastInputfield = $inputfield;
+					width += w;
+					lastW = w;
 				}
-
-				width += w;
-				lastW = w; 
-				$lastInputfield = isLastColumn ? null : $inputfield;
+				
 				ukGridClass(w, $inputfield);
 			});
 			
