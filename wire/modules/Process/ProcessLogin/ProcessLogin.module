@@ -149,8 +149,15 @@ class ProcessLogin extends Process {
 			$this->message($this->_("You are logged in.")); 
 			if($this->isAdmin && $this->user->hasPermission('page-edit')) $this->afterLoginRedirect();
 			// fallback if nothing set
-			$url = $this->config->urls->root;
-			return "<p><a href='$url'>" . $this->_('Continue') . "</a></p>";
+			$btn = $this->wire('modules')->get('InputfieldButton'); 
+			if($this->user->hasPermission('profile-edit')) {
+				$btn->value = $this->_('Edit Profile'); 
+				$btn->href = $this->wire('config')->urls->admin . 'profile/';
+			} else {
+				$btn->value = $this->_('Continue'); 
+				$btn->href = $this->wire('config')->urls->root;
+			}
+			return "<p>" . $btn->render() . "</p>";
 		}
 
 		if($this->input->get('forgot') && $this->allowForgot) {
