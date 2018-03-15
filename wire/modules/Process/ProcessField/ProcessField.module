@@ -1012,7 +1012,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		$fieldtypeNames = $this->field->type->getConfigAllowContext($this->field);
 		if(!is_array($fieldtypeNames)) $fieldtypeNames = array();
 		$dummyPage = $this->wire('pages')->get("/"); // only using this to satisfy param requirement 
-		$inputfieldNames = $this->field->getInputfield($dummyPage)->getConfigAllowContext($this->field);
+		$inputfield = $this->field->getInputfield($dummyPage);
+		$inputfieldNames = $inputfield ? $inputfield->getConfigAllowContext($this->field) : array();
 		if(!is_array($inputfieldNames)) $inputfieldNames = array();
 		$alwaysSelected = array_merge($fieldtypeNames, $inputfieldNames);
 		$allowContexts = $this->field->get('allowContexts');
