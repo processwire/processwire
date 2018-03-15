@@ -168,7 +168,7 @@ jQuery(document).ready(function($) {
 	});
 
 	// accommodate issue where Firefox auto-populates remembered password when it shouldn't
-	var $ffinputs = $inputs.filter("[autocomplete='off']");
+	var $ffinputs = $('.InputfieldPassword').find("input[autocomplete='new-password']");
 	if($ffinputs.length) {
 		setTimeout(function() {
 			$ffinputs.each(function() {
