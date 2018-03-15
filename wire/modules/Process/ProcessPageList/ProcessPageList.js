@@ -693,6 +693,13 @@ $(document).ready(function() {
 				var $lastAction = null;
 				var $extrasLink = null; // link that toggles extra actions
 				var extras = {}; // extra actions
+				var hasExtrasLink = false; // only referenced if options.useNarrowActions
+		
+				if(options.useNarrowActions) {
+					for(var n = 0; n < links.length; n++) {
+						if(typeof links[n].extras != "undefined") hasExtrasLink = true;
+					}
+				}
 				
 				$(links).each(function(n, action) {
 					var actionName;
@@ -702,7 +709,8 @@ $(document).ready(function() {
 						actionName = 'Select';
 					} else {
 						actionName = action.cn; // cn = className
-						if(options.useNarrowActions && (actionName != 'Edit' && actionName != 'View' && actionName != 'Extras')) {
+						if(options.useNarrowActions && hasExtrasLink
+							&& (actionName != 'Edit' && actionName != 'View' && actionName != 'Extras')) {
 							// move non-edit/view actions to extras when in narrow mode
 							extras[actionName] = action;
 							return;
@@ -719,13 +727,13 @@ $(document).ready(function() {
 							$a.addClass('pw-modal pw-modal-large pw-modal-longclick');
 						}
 					}
-					
 					if(typeof action.extras != "undefined") {
 						for(var key in action.extras) {
 							extras[key] = action.extras[key];
 						}
 						$extrasLink = $a;
 					}
+					
 					var $action = $("<li></li>").addClass('PageListAction' + actionName).append($a);
 					if(actionName == 'Extras') $lastAction = $action; 
 						else $actions.append($action);
