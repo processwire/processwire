@@ -140,5 +140,5 @@ resolved any issues.
 
 ------
 
-Copyright 2016 by Ryan Cramer / Ryan Cramer Design, LLC
+Copyright 2018 by Ryan Cramer / Ryan Cramer Design, LLC
 
