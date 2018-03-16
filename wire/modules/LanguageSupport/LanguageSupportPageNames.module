@@ -557,15 +557,75 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			// set language page name
 			$name = $inputfield->attr('name') . $language;
 			$value = $sanitizer->pageNameUTF8($input->$name);
+			
+			// if it matches the value for the default language, avoid double storing it
 			if($value === $page->name) $value = '';
+			
+			// if it matches the value already on the page, then no need to go further
 			$key = "name$language";
 			if($value == $page->get($key)) continue; 
+			
+			// @todo uncomment in dev branch
+			// if(!$this->checkLanguagePageName($language, $page, $value, $inputfield)) continue;
+
 			if($page->id) {
 				$page->set($key, $value);
 			} else {
 				$page->setQuietly($key, $value); // avoid non-template exception when new page
 			}
 		}
+	}
+
+	/**
+	 * Check changed page name for given language
+	 * 
+	 * @param Language $language
+	 * @param Page $page
+	 * @param string $value New page name
+	 * @param Wire|null $errorTarget Object to send error to (Inputfield likely)
+	 * @return bool True if all good, false if not
+	 * 
+	 */
+	public function checkLanguagePageName(Language $language, Page $page, $value, Wire $errorTarget = null) {
+		// verify that it does not conflict with another page inheriting name from default language
+		$isValid = true;
+		$nameKey = "name$language->id";
+		
+		if(!strlen($value)) return true; 
+		
+		$sql =
+			"SELECT id, name, $nameKey FROM pages " .
+			"WHERE parent_id=:parent_id " .
+			"AND id!=:id " .
+			"AND (" .
+				"(name=:newName AND $nameKey IS NULL) " . // default name matches and lang name inherits it (is null)
+				"OR ($nameKey=:newName2)" . // or lang name is same as requested one
+			")";
+		
+		$query = $this->wire('database')->prepare($sql);
+		$query->bindValue(':parent_id', $page->parent_id, \PDO::PARAM_INT);
+		$query->bindValue(':newName', $value);
+		$query->bindValue(':newName2', $value);
+		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
+		
+		try {
+			$query->execute();
+			$row = $query->fetch(\PDO::FETCH_ASSOC); 
+			if($row) {
+				$isValid = false;
+				if($errorTarget) $errorTarget->error(sprintf(
+					$this->_('A sibling page (id=%1$d) is already using name "%2$s" for language: %3$s'), 
+					$row['id'], $value, $language->get('title|name')
+				));
+			}
+		} catch(\Exception $e) {
+			$this->error($e->getMessage());
+			$isValid = false;
+		}
+		
+		$query->closeCursor();
+		
+		return $isValid;
 	}
 
 	/**
