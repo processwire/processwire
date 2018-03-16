@@ -12,7 +12,6 @@ $(document).ready(function() {
 	}
 	
 	$("form#ProcessProfile").submit(function() {
-		console.log('ProcessProfile');
 		var $inputfields = $(".InputfieldStateChanged.InputfieldPassRequired");
 		if(!$inputfields.length) return;
 		var $pass = $('#_old_pass');
