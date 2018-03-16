@@ -132,8 +132,19 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		
 		if($page->id && $repeaterTitle) {
 			// custom repeater titles specified
+			$hasCnt = stripos($repeaterTitle, '#n') !== false;
 			
-			if($this->wire('sanitizer')->fieldName($repeaterTitle) === $repeaterTitle) {
+			// update index numbers?
+			if($hasCnt) {
+				// replace "#n" with index number of repeater item
+				$repeaterTitle = str_replace("#n", "#$cnt", $repeaterTitle);
+			}
+			
+			if(strpos($repeaterTitle, '{') !== false) {
+				// formatted {label}
+				$out = $page->getMarkup($repeaterTitle);
+
+			} else if(!$hasCnt && $this->wire('sanitizer')->fieldName($repeaterTitle) === $repeaterTitle) {
 				// just a single field name
 				$value = $page->getFormatted($repeaterTitle);
 				if(is_object($value)) {
@@ -145,24 +156,12 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 						$out = (string) $value;
 					}
 				}
-			} else if(strpos($repeaterTitle, '{') !== false) {
-				// formatted {label}
-				$out = $page->getMarkup($repeaterTitle);
 			} else {
 				// label, but with no page variables
 				$out = $repeaterTitle;
 			}
 			
 			$out = strip_tags(trim($out));
-		
-			// update index numbers?
-			if(stripos($out, '#n') !== false) {
-				// replace "#n" with index number of repeater item
-				$out = preg_replace('/#n\b/i', "#$cnt", $out);
-			} else {
-				// otherwise remove any pound signs so the JS side doesn't detect them
-				$out = str_replace('#', '', $out); 
-			}
 		}
 		
 		if(!strlen($out)) {
