@@ -285,6 +285,7 @@ class WireFileTools extends Wire {
 	 *  - `excludeHidden` (bool): Exclude hidden files? (default=false). 
 	 *  - `returnRelative` (bool): Make returned array have filenames relative to given start $path? (default=false)
 	 * @return array Flat array of filenames
+	 * @since 3.0.66
 	 * 
 	 */
 	public function find($path, array $options = array()) {
@@ -755,6 +756,7 @@ class WireFileTools extends Wire {
 	 * @param array $options
 	 * @return bool
 	 * @see WireFileTools::include()
+	 * @since 3.0.66
 	 * 
 	 */
 	function includeOnce($filename, array $vars = array(), array $options = array()) {
