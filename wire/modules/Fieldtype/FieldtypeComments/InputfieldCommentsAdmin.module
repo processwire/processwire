@@ -123,6 +123,16 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 			wireRelativeTimeStr($comment->created), 
 			$cite	
 		);
+		
+		if($this->hasField && $this->hasField->useStars) {
+			$starsInput = 
+				"<p class='CommentsAdminItemStars'>" .
+					"<label for='$names[stars]'><span class='detail'>" . $this->_('Stars') . "</span></label>" .
+					"<input type='number' min='0' max='5' id='$names[stars]' name='$names[stars]' value='$stars' />" .
+				"</p>";
+		} else {
+			$starsInput = '';
+		}
 	
 		$f->value =
 			"<div class='ui-helper-clearfix'>" . 
@@ -147,10 +157,7 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 					"<label for='$names[website]'><span class='detail'>" . $this->_('Website') . "</span></label>" . 
 					"<input type='text' id='$names[website]' name='$names[website]' value='$website' />" . 
 				"</p>" .
-				"<p class='CommentsAdminItemStars'>" . 
-					"<label for='$names[stars]'><span class='detail'>" . $this->_('Stars') . "</span></label>" . 
-					"<input type='number' min='0' max='5' id='$names[stars]' name='$names[stars]' value='$stars' />" . 
-				"</p>" .
+				$starsInput . 
 			"</div>" . 
 			"<p class='CommentsAdminItemText'>" . 
 				"<label for='$names[text]'><span class='detail'>" . $this->_('Text') . "</span></label>" . 
@@ -195,13 +202,14 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 			'cite', 
 			'email',
 			'website',
-			'stars',
 			'status',
 			'delete',
 			'parent_id', 
 			'text',
 			'sort',
 			);
+		
+		if($this->hasField && $this->hasField->useStars) $names[] = 'stars';
 
 		foreach($this->value as $comment) {
 
