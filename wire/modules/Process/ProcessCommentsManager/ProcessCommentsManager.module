@@ -23,7 +23,7 @@ class ProcessCommentsManager extends Process {
 		return array(
 			'title' => __('Comments', __FILE__), 
 			'summary' => __('Manage comments in your site outside of the page editor.', __FILE__),
-			'version' => 7, 
+			'version' => 8, 
 			'author' => 'Ryan Cramer', 
 			'icon' => 'comments', 
 			'requires' => 'FieldtypeComments',
@@ -252,6 +252,8 @@ class ProcessCommentsManager extends Process {
 
 		$numDeleted = 0;
 		$numChanged = 0;
+		/** @var FieldtypeComments $fieldtype */
+		$fieldtype = $field->type;
 
 		foreach($comments as $comment) {
 
@@ -287,7 +289,7 @@ class ProcessCommentsManager extends Process {
 			$_status = $this->input->post("CommentStatus{$comment->id}"); 
 			$status = (int) $_status;
 			if($status === Comment::statusDelete) {
-				if($field->type->deleteComment($comment->getPage(), $field, $comment)) {
+				if($fieldtype->deleteComment($comment->getPage(), $field, $comment)) {
 					$this->message(sprintf($this->_('Deleted comment #%d'), $comment->id)); 
 					$numDeleted++;
 				}
@@ -300,7 +302,7 @@ class ProcessCommentsManager extends Process {
 			}
 
 			if(count($properties)) {
-				$field->type->updateComment($comment->getPage(), $field, $comment, $properties); 	
+				$fieldtype->updateComment($comment->getPage(), $field, $comment, $properties); 	
 				$this->message(sprintf($this->_('Updated comment #%d'), $comment->id) . " (" . implode(', ', array_keys($properties)) . ")"); 
 			}
 
@@ -568,6 +570,7 @@ class ProcessCommentsManager extends Process {
 			if($cnt >= $limit) break;
 		}
 
+		/** @var MarkupPagerNav $pager */
 		$pager = $this->wire('modules')->get('MarkupPagerNav'); 
 		$pagerOut = $pager->render($comments, array(
 			'queryString' => $queryString,
@@ -576,7 +579,7 @@ class ProcessCommentsManager extends Process {
 		/** @var JqueryWireTabs $wireTabs */
 		$wireTabs = $this->modules->get('JqueryWireTabs'); 
 		$tabs = array();
-		$class = $this->input->urlSegment3 == 'all' ? 'on' : '';
+		$class = $this->input->urlSegment3 === 'all' ? 'on' : '';
 		$tabs["tabStatusAll"] = "<a class='$class' href='../all/'>" . $this->labelAll . "</a>";
 
 		foreach($this->statuses as $status => $name) {
@@ -592,6 +595,7 @@ class ProcessCommentsManager extends Process {
 		$this->headline($this->headline);
 
 		if($cnt) { 
+			/** @var InputfieldSubmit $button */
 			$button = $this->modules->get('InputfieldSubmit');
 			$button->attr('name', 'processComments');
 			$button->showInHeader();

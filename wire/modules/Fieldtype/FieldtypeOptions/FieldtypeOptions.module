@@ -151,6 +151,11 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 			} else if(strpos($value, "\n") !== false) {
 				$value = explode("\n", $value); 
 			}
+			if(is_array($value)) {
+				foreach($value as $k => $v) {
+					$value[$k] = trim($v); 
+				}
+			}
 		}
 		
 		if(empty($value)) return $this->getBlankValue($page, $field); 

@@ -10,15 +10,23 @@
 
 #ProcessListerResults {
 	
+	> form.InputfieldForm {
+		margin-bottom: 0;
+	}
+	
 	#ProcessListerTable {
 		clear: both;
 		overflow-x: auto;
+		> div {
+			margin-top: 0;
+		}
 	}
 	
 	#ProcessListerTable table.ProcessListerTable {
 		
 		clear: both;
 		position: relative;
+		margin-top: 0;
 		
 		td table {
 			width: 100%;
@@ -56,6 +64,7 @@
 				margin: 0;
 				padding-left: 0;
 				& > li {
+					list-style: none;
 					margin: 0;
 					padding-left: 0;
 				}
@@ -169,6 +178,7 @@
 .pw-content .lister_headline, 
 #content .lister_headline {
 	float: left;
+	margin-top: 1em;
 	@media only screen and (max-width: 767px) {
 		float: none;
 		clear: both;
@@ -188,9 +198,13 @@
 	float: right; 
 }
 
+#ProcessListerSelector {
+	display: inline-block;
+}
+
 p.version {
 	clear: both; 
-	padding-top: 1em; 
+	//padding-top: 1em; 
 }
 
 #ProcessListerScript {
@@ -207,6 +221,9 @@ p.version {
 	}
 	a.lister-lightbox img {
 		margin: 0 !important;
+	}
+	#content .lister_headline {
+		margin-top: 0.5em;
 	}
 }
 

@@ -8,7 +8,7 @@ $(document).ready(function() {
 	});
 
 	$('.WireTabs').css('opacity', 1.0); 
-	$('.WireTabs a.on').click();
+	$('.WireTabs a.on').parent('li').click();
 
 	$("a.CommentTextEdit").click(function() {
 		var $textarea = $("<textarea></textarea>");
