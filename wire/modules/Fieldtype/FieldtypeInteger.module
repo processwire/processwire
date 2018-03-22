@@ -54,8 +54,13 @@ class FieldtypeInteger extends Fieldtype {
 		if(is_string($value) && strlen($value) && !ctype_digit(ltrim($value, '-'))) {
 			// string value with one or more non-digit characters
 			$value = trim($value); 
+			// trim off common currency symbols
+			$value = trim($value, '$€ '); 
 			
-			if(preg_match('/^(\de\d|0x\d+|\+\d+)/', $value)) {
+			if(ctype_digit("$value")) {
+				// trimming reduced it to an int
+
+			} else if(preg_match('/^(\de\d|0x\d+|\+\d+)/', $value)) {
 				// likely a valid number, but in a non-native format to PW 
 				// examples: 1e123213, 0x1234, +123 (intval handles these)
 				$value = intval($value);
