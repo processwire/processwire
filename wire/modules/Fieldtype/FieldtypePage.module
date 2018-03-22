@@ -494,7 +494,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			// string has been normalized to newline separated only
 			$values = explode("\n", $values); 
 			foreach($values as $str) {
-				$v = $this->sanitizeValueString($page, $field, $str); // recursive
+				$v = $this->sanitizeValueString($page, $field, trim($str)); // recursive
 				if($v && $v->id) {
 					if(!$result) $result = $this->wire('pages')->newPageArray();
 					$result->add($v); 
@@ -503,12 +503,30 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			
 		} else if($parent_id) {
 			// set by title
-			$parentIDs = is_array($parent_id) ? implode('|', $parent_id) : $parent_id; 
-			$result = $this->wire('pages')->get("parent_id=$parentIDs, title=" . $this->wire('sanitizer')->selectorValue($value));
-			// set by name
-			if(!$result->id) $result = $this->wire('pages')->get("parent_id=$parentIDs, name=" . 
-				$this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($value))); 
-			
+			$value = trim($value); 
+			$parentIDs = is_array($parent_id) ? implode('|', $parent_id) : $parent_id;
+			// find by title
+			$pageTitle = $this->wire('sanitizer')->selectorValue($value);
+			$result = $this->wire('pages')->get("parent_id=$parentIDs, title=$pageTitle"); 
+			// if cannot find by title, find by name
+			if(!$result->id) {
+				$pageName = $this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($value));
+				$result = $this->wire('pages')->get("parent_id=$parentIDs, name=$pageName"); 
+			}
+			if(!$result->id && $field->get('_sanitizeValueString') === 'create' && $field->get('template_id')) {
+				// option to create page if it does not already exist (useful for imports)
+				// to use this, you must $field->set('_sanitizeValueString', 'create'); ahead of time
+				$template = $this->wire('templates')->get((int) $field->get('template_id'));
+				$parent = $this->wire('pages')->get((int) $parent_id); 
+				if($template && $parent->id) {
+					$result = $this->wire('pages')->newPage(array('template' => $template));
+					$result->parent = $parent; 
+					$result->title = $value; 
+					$result->name = $this->wire('sanitizer')->pageNameUTF8($value); 
+					$result->save(array('adjustName' => true));
+				}
+			}
+		// here	
 		} else {
 			$template_ids = self::getTemplateIDs($field, true);
 			if(!empty($template_ids)) {
