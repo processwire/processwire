@@ -72,7 +72,7 @@ class PagesTrash extends Wire {
 		}
 		if($save) $this->pages->save($page);
 		$this->pages->editor()->savePageStatus($page->id, Page::statusTrash, true, false);
-		$this->pages->trashed($page);
+		if($save) $this->pages->trashed($page);
 		$this->pages->debugLog('trash', $page, true);
 		return true;
 	}
@@ -132,7 +132,7 @@ class PagesTrash extends Wire {
 			$page->removeStatus(Page::statusTrash);
 			if($save) $page->save();
 			$this->pages->editor()->savePageStatus($page->id, Page::statusTrash, true, true);
-			$this->pages->restored($page);
+			if($save) $this->pages->restored($page);
 			$this->pages->debugLog('restore', $page, true);
 		} else {
 			if($save) $page->save();
