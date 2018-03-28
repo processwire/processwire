@@ -12,6 +12,9 @@
  * https://processwire.com
  * 
  * @method bool save($name, $text, $options = array())
+ * 
+ * @todo option to avoid saving same log entry text back-to-back
+ * @todo option to disable logs by name
  *
  */
 
@@ -246,7 +249,7 @@ class WireLog extends Wire {
 		unset($options['pageNum']); 
 		$log = $this->getFileLog($name); 
 		$limit = isset($options['limit']) ? (int) $options['limit'] : 100; 
-		return $log->find($limit, $pageNum); 
+		return $log->find($limit, $pageNum, $options); 
 	}
 
 	/**
