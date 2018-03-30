@@ -693,7 +693,6 @@ class WireFileTools extends Wire {
 
 		$options = array_merge($defaults, $options);
 		$filename = trim($filename);
-		if(DIRECTORY_SEPARATOR != '/') $filename = str_replace(DIRECTORY_SEPARATOR, '/', $filename);
 
 		// add .php extension if filename doesn't already have an extension
 		if($options['autoExtension'] && !strrpos(basename($filename), '.')) {
@@ -706,6 +705,8 @@ class WireFileTools extends Wire {
 			$filename = realpath($filename);
 			if($filename === false) throw new WireException("File does not exist: $_filename");
 		}
+		
+		if(DIRECTORY_SEPARATOR != '/') $filename = str_replace(DIRECTORY_SEPARATOR, '/', $filename);
 
 		if(strpos($filename, '//') !== false) {
 			throw new WireException("File is not allowed (double-slash): $filename");
@@ -722,6 +723,7 @@ class WireFileTools extends Wire {
 			// absolute path, make sure it's part of PW's installation
 			$allowed = false;
 			foreach($options['allowedPaths'] as $path) {
+				if(DIRECTORY_SEPARATOR != '/') $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
 				if(strpos($filename, $path) === 0) $allowed = true;
 			}
 			if(!$allowed) throw new WireException("File is not in an allowed path: $filename");
