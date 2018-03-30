@@ -480,7 +480,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				$ffAttrs['class'] .= ' ' . $classes['item_required_if']; 
 			}
 
-			if($collapsed) {
+			if($collapsed && $collapsed !== Inputfield::collapsedNever) {
 				$isEmpty = $inputfield->isEmpty();
 				if(($isEmpty && $inputfield instanceof InputfieldWrapper) || 
 					$collapsed === Inputfield::collapsedYes ||
@@ -1055,7 +1055,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * #pw-internal
 	 * 
 	 * @param bool $trackChanges
-	 * @return $this
+	 * @return Inputfield|InputfieldWrapper
 	 *
 	 */
 	public function setTrackChanges($trackChanges = true) {
@@ -1069,7 +1069,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * #pw-internal
 	 *
 	 * @param bool $trackChanges
-	 * @return $this
+	 * @return Inputfield|InputfieldWrapper
 	 *
 	 */
 	public function resetTrackChanges($trackChanges = true) {
