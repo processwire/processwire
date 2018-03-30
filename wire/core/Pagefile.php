@@ -12,11 +12,13 @@
  * Pagefile objects are contained by a `Pagefiles` object. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
- * @property-read string $url URL to the file on the server. 
- * @property-read string $URL Same as $url property but with browser cache busting query string appended that represents the file's modification time. #pw-group-other
+ * @property-read string $url URL to the file on the server.
+ * @property-read string $httpUrl URL to the file on the server including scheme and hostname.
+ * @property-read string $URL Same as $url property but with browser cache busting query string appended. #pw-group-other
+ * @property-read string $HTTPURL Same as the cache-busting uppercase “URL” property, but includes scheme and hostname. #pw-group-other
  * @property-read string $filename full disk path to the file on the server. 
  * @property-read string $name Returns the filename without the path, same as the "basename" property.
  * @property-read string $hash Get a unique hash (for the page) representing this Pagefile.
@@ -37,7 +39,8 @@
  * 
  * @method void install($filename)
  * @method string httpUrl()
- *
+ * @method string noCacheURL($http = false)
+ * 
  */
 
 class Pagefile extends WireData {
@@ -499,6 +502,9 @@ class Pagefile extends WireData {
 				// nocache url
 				$value = $this->noCacheURL();
 				break;
+			case 'HTTPURL':
+				$value = $this->noCacheURL(true);
+				break;
 			case 'pagefiles': 
 				$value = $this->pagefiles; 
 				break;
@@ -533,11 +539,12 @@ class Pagefile extends WireData {
 	 * 
 	 * #pw-internal
 	 * 
+	 * @param bool $http Include scheme and hostname?
 	 * @return string
 	 * 
 	 */
-	protected function ___noCacheURL() {
-		return $this->url() . '?nc=' . @filemtime($this->filename());
+	public function ___noCacheURL($http = false) {
+		return ($http ? $this->httpUrl() : $this->url()) . '?nc=' . @filemtime($this->filename());
 	}
 
 	/**
