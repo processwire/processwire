@@ -167,7 +167,8 @@ function AdminThemeUikitConfig(AdminTheme $adminTheme, InputfieldWrapper $inputf
 	$f->label = __('Primary CSS file');
 	$f->description = $defaultFileDesc . ' ' . 
 		__('We do not recommend changing this unless you are an admin theme developer.'); 
-	$f->notes = $defaultFileNote . "\nsite/modules/AdminThemeUikit/uikit/dist/css/uikit.pw.css";
+	$f->notes = $defaultFileNote . " " .
+		"[uikit.pw.css](" . $modules->wire('config')->urls('AdminThemeUikit') . "uikit/dist/css/uikit.pw.css)";
 	$f->collapsed = Inputfield::collapsedBlank;
 	$f->icon = 'file-code-o';
 	$fieldset->add($f);
