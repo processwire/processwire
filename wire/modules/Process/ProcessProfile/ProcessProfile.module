@@ -3,7 +3,7 @@
 /**
  * ProcessWire Self Profile
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
  * 
@@ -109,6 +109,10 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		$form->attr('enctype', 'multipart/form-data');
 		$form->attr('autocomplete', 'off'); 
 		$form->addClass('InputfieldFormConfirm');
+		
+		$fieldset = new InputfieldWrapper();
+		$this->wire($fieldset);
+		$form->add($fieldset);
 	
 		// is password required to change some Inputfields?
 		$passRequired = false;
@@ -126,7 +130,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			$f->attr('value', $user->name);
 			$f->attr('pattern', '^[-_a-z0-9]+$'); 
 			$f->required = true; 
-			$form->add($f);
+			$fieldset->add($f);
 			$f->setTrackChanges(true);
 			$passRequiredInputfields[] = $f;
 		}
@@ -166,7 +170,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 				}
 			}
 			
-			$form->add($inputfield); 
+			$fieldset->add($inputfield); 
 		}
 	
 		/** @var InputfieldHidden $f */
@@ -176,7 +180,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		$f->attr('name', 'id'); 
 		$f->attr('value', $user->id);
 		$f->addClass('InputfieldAllowAjaxUpload');
-		$form->add($f);
+		$fieldset->add($f);
 
 		/** @var InputfieldSubmit $field */
 		$field = $this->modules->get('InputfieldSubmit');
@@ -382,8 +386,6 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 
 		return false;
 	}
-
-
 
 	/**
 	 * Module configuration
