@@ -795,7 +795,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 
 			// check if a value is required and field is empty, trigger an error if so
 			if($child->name && $child->getSetting('required') && $child->isEmpty()) {
-				$child->error($this->requiredLabel); 
+				$requiredLabel = $child->getSetting('requiredLabel'); 
+				if(empty($requiredLabel)) $requiredLabel = $this->requiredLabel;
+				$child->error($requiredLabel); 
 			}
 		}
 

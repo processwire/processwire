@@ -51,6 +51,7 @@
  * @property string $description Optional description that appears under label to provide more detailed information. #pw-group-labels
  * @property string $notes Optional notes that appear under input area to provide additional notes. #pw-group-labels
  * @property string $icon Optional font-awesome icon name to accompany label (excluding the "fa-") part). #pw-group-labels
+ * @property string $requiredLabel Optional custom label to display when missing required value. @since 3.0.98 #pw-group-labels 
  * @property string $head Optional text that appears below label but above description (only used by some Inputfields). #pw-internal
  * @property string|null $prependMarkup Optional markup to prepend to the Inputfield content container. #pw-group-other
  * @property string|null $appendMarkup Optional markup to append to the Inputfield content container. #pw-group-other

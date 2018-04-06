@@ -362,7 +362,9 @@ class InputfieldForm extends InputfieldWrapper {
 			if($required) {
 				if($child->isEmpty()) {
 					if(self::debug) $this->debugNote("$child->name - determined that value IS required and is not present (error)");
-					$child->error($this->requiredLabel); // requiredLabel from InputfieldWrapper
+					$requiredLabel = $child->getSetting('requiredLabel');
+					if(empty($requiredLabel)) $requiredLabel = $this->requiredLabel; // requiredLabel from InputfieldWrapper
+					$child->error($requiredLabel); 
 				} else {
 					if(self::debug) $this->debugNote("$child->name - determined that value IS required and is populated (good)");
 				}
