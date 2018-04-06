@@ -491,6 +491,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		if($n && preg_match('/^(.+?)-(\d+)$/', $parts[0], $matches)) {
 			$parts[0] = $matches[1];
 			$n = (int) $matches[2];
+			if(!$n) $n = 1;
 		}
 		
 		do {
