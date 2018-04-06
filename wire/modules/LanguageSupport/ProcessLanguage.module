@@ -225,7 +225,6 @@ class ProcessLanguage extends ProcessPageType {
 			$message .= ")</span>";
 		}
 
-		$lastMod = date($this->config->dateFormat, filemtime($pagefile->filename)); 
 		$editLabel = $this->_x('Edit', 'edit-language-file'); 
 
 		$out = 	
