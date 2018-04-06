@@ -119,17 +119,31 @@ class InputfieldSelect extends Inputfield {
 			$attrs = array(); 
 			$label = null;
 
-			// if option starts with a plus then make it selected
-			if(substr($option, 0, 1) == '+') $attrs['selected'] = 'selected';
+			if(strpos($option, '++') === 0) {
+				// double plus should convert to single plus and not make it selected
+				$option = substr($option, 1);
+			} else if(substr($option, 0, 1) === '+') {
+				// if option starts with a plus then make it selected
+				$attrs['selected'] = 'selected';
+				$option = ltrim($option, '+');
+			} else if(strpos($option, 'disabled:') === 0) {
+				// if option starts with "disabled:" then make it disabled
+				$attrs['disabled'] = 'disabled';
+				$option = preg_replace('/^disabled:\s*/', '', $option);
+			}
 
-			// option option has an equals "=", but not "==", then assume it's a: value=label
-			if(strpos($option, '=') !== false && strpos($option, '==') === false) list($option, $label) = explode('=', $option); 	
+			if(strpos($option, '=') !== false && strpos($option, '==') === false) {
+				// option has an equals "=", but not "==", then assume it's a: value=label
+				list($option, $label) = explode('=', $option);
+			}
 
-			// convert double equals "==" to single equals "=", as a means of allowing escaped equals sign
-			if(strpos($option, '==') !== false) $option = str_replace('==', '=', $option);
+			if(strpos($option, '==') !== false) {
+				// convert double equals "==" to single equals "=", as a means of allowing escaped equals sign
+				$option = str_replace('==', '=', $option);
+			}
 
 			$option = trim($option, '+ '); 
-	
+		
 			if($optgroupLabel) {
 				// add option to optgroup
 				$optgroup[$option] = is_null($label) ? $option : $label;
@@ -142,7 +156,9 @@ class InputfieldSelect extends Inputfield {
 			$lastOption = $option;
 		}
 
-		if($optgroupLabel && count($optgroup)) $this->addOption($optgroupLabel, $optgroup);
+		if($optgroupLabel && count($optgroup)) {
+			$this->addOption($optgroupLabel, $optgroup);
+		}
 
 		return $this; 
 	}
