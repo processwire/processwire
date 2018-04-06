@@ -565,8 +565,12 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			$key = "name$language";
 			if($value == $page->get($key)) continue; 
 			
-			// @todo uncomment in dev branch
-			// if(!$this->checkLanguagePageName($language, $page, $value, $inputfield)) continue;
+			// @todo make the following apply without debug+advanced mode after further testing on dev
+			if($this->wire('config')->debug && $this->wire('config')->advanced) {
+				$parentID = $page->parent_id;
+				if(!$parentID) $parentID = (int) $this->wire('input')->post('parent_id');
+				if(!$this->checkLanguagePageName($language, $page, $parentID, $value, $inputfield)) continue;
+			}
 
 			if($page->id) {
 				$page->set($key, $value);
@@ -581,12 +585,13 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * 
 	 * @param Language $language
 	 * @param Page $page
+	 * @param int $parentID
 	 * @param string $value New page name
 	 * @param Wire|null $errorTarget Object to send error to (Inputfield likely)
 	 * @return bool True if all good, false if not
 	 * 
 	 */
-	public function checkLanguagePageName(Language $language, Page $page, $value, Wire $errorTarget = null) {
+	public function checkLanguagePageName(Language $language, Page $page, $parentID, $value, Wire $errorTarget = null) {
 		// verify that it does not conflict with another page inheriting name from default language
 		$isValid = true;
 		$nameKey = "name$language->id";
@@ -603,7 +608,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			")";
 		
 		$query = $this->wire('database')->prepare($sql);
-		$query->bindValue(':parent_id', $page->parent_id, \PDO::PARAM_INT);
+		$query->bindValue(':parent_id', $parentID, \PDO::PARAM_INT);
 		$query->bindValue(':newName', $value);
 		$query->bindValue(':newName2', $value);
 		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
