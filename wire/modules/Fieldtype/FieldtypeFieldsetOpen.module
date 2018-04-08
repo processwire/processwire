@@ -34,22 +34,15 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 	}
 
 	/**
-	 * Have the hooks been setup for this Fieldset?
-	 *
-	 */
-	protected static $hooked = false;
-
-	/**
 	 * Setup hooks to minotor when Fields are added and deleted
 	 *
 	 * But only do it once so that we don't have the same hooks setup when there are multiple Fieldsets
 	 *
 	 */
 	public function init() {
-		if(!self::$hooked && ($this->process == 'ProcessField' || $this->process = 'ProcessTemplate')) {
+		if($this->process == 'ProcessField' || $this->process = 'ProcessTemplate') {
 			$this->addProcessHooks();
 		}
-		self::$hooked = true;
 	}
 
 	/**
