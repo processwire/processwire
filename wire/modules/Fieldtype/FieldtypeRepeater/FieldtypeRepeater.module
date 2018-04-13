@@ -609,6 +609,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		if($value) {
 			if($value instanceof Page) $value = array($value); 
 			foreach($value as $item) {
+				/** @var Page $item */
 				if($item->hasStatus(Page::statusUnpublished) 
 					&& $item->hasStatus(Page::statusHidden) 
 					&& $item->id

@@ -543,6 +543,7 @@ var ProcessWireAdminTheme = {
 			} while($in.hasClass('InputfieldColumnWidth'));
 		}
 
+		var ukGridClassCache = [];
 		// get or set uk-width class
 		// width: may be integer of width, or classes you want to set (if $in is also provided)
 		// $in: An optional Inputfield that you want to populate given or auto-determined classes to
@@ -559,17 +560,21 @@ var ProcessWireAdminTheme = {
 			} else if(!width || width >= 100) {
 				// full width
 				ukGridClass = ukGridClassDefault;
+			} else if(typeof ukGridClassCache[width] != "undefined") {
+				// use previously cached value
+				ukGridClass = 'uk-width-' + ukGridClassCache[width];
 			} else {
 				// determine width from predefined setting
 				for(var pct in ProcessWire.config.ukGridWidths) {
 					var cn = ProcessWire.config.ukGridWidths[pct];
 					pct = parseInt(pct);
 					if(width >= pct) {
-						ukGridClass = 'uk-width-' + cn;
-						// ukGrid = cn.split('-');	
+						ukGridClass = cn;
 						break;
 					}
 				}
+				ukGridClassCache[width] = ukGridClass;
+				ukGridClass = 'uk-width-' + ukGridClass;
 			}
 			
 			if(!widthIsClass && ukGridClass != ukGridClassDefault) {
@@ -596,7 +601,7 @@ var ProcessWireAdminTheme = {
 				str = $in.attr('class');
 			}
 			if(str.indexOf('uk-width-') > -1) {
-				var cls = str.replace(/uk-width-(\d-\d@m|\d-\d|expand)\s*/g, '');
+				var cls = str.replace(/uk-width-(\d-\d|expand)[@smxl]*\s*/g, '');
 				if($in !== null) $in.attr('class', cls);
 			}
 			return str;
@@ -633,7 +638,7 @@ var ProcessWireAdminTheme = {
 				if(debug) consoleLog('A: hidden', $inputfield);
 				lastW += w;
 				width += w;
-				if($lastInputfield && width >= 100) {
+				if($lastInputfield && width >= 95) {
 					// finishing out row, update last visible column to include the width of the hidden column
 					lastW += widthHidden;
 					if(debug) consoleLog('Updating last visible Inputfield to width=' + lastW, $lastInputfield);
@@ -674,7 +679,7 @@ var ProcessWireAdminTheme = {
 				// if column has width defined, pull from its data-colwidth property
 				w = hasWidth ? parseInt($inputfield.attr('data-colwidth')) : 0;
 
-				if(!w || w >= 100) {
+				if(!w || w >= 95) {
 					// full-width
 					applyFullWidthInputfield();
 					return;
@@ -702,6 +707,11 @@ var ProcessWireAdminTheme = {
 					// width comes to exactly 100% so make this the last column in the row
 					isLastColumn = true; 
 					if(debug) consoleLog('D: width is exactly 100%, so this is the last column', $inputfield);
+				} else if(width + w >= 95) {
+					// width is close enough to 100% so treat it the same
+					isLastColumn = true;
+					w = 100 - width;
+					if(debug) consoleLog('D2: width is close enough to 100%, so this is the last column', $inputfield);
 				} else {
 					// column that isn't first or last column
 					if(debug) consoleLog('E: not first or last column', $inputfield);
