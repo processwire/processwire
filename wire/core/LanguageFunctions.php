@@ -5,13 +5,19 @@
  *
  * Provide GetText like language translation functions to ProcessWire
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
  */
 
 /**
  * Perform a language translation
+ * 
+ * ~~~~~~
+ * echo __('This is translatable text');
+ * echo __('Translatable with current file as textdomain', __FILE__); 
+ * echo __('Translatable with other file as textdomain', '/site/templates/_init.php');
+ * ~~~~~~
  * 
  * @param string $text Text for translation. 
  * @param string $textdomain Textdomain for the text, may be class name, filename, or something made up by you. If omitted, a debug backtrace will attempt to determine it automatically.
@@ -20,14 +26,23 @@
  *
  */
 function __($text, $textdomain = null, $context = '') {
+	static $useLimit = null;
 	if(!wire('languages')) return $text; 
 	if(!$language = wire('user')->language) return $text; 
 	/** @var Language $language */
 	if(!$language->id) return $text; 
+	if($useLimit === null) {
+		$useLimit = version_compare(PHP_VERSION, '5.4.0') >= 0;
+	}
 	if(is_null($textdomain)) {
-		if(defined('DEBUG_BACKTRACE_IGNORE_ARGS')) {
+		if($useLimit) {
+			// PHP 5.4.0 or newer
+			$traces = @debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS, 2);
+		} else if(defined('DEBUG_BACKTRACE_IGNORE_ARGS')) {
+			// PHP 5.3.6 or newer
 			$traces = @debug_backtrace(DEBUG_BACKTRACE_IGNORE_ARGS);
 		} else {
+			// older PHP (deprecated)
 			$traces = @debug_backtrace();
 		}
 		if(isset($traces[0]) && $traces[0]['file'] != __FILE__) {
@@ -57,6 +72,11 @@ function __($text, $textdomain = null, $context = '') {
  * 
  * Used when to text strings might be the same in English, but different in other languages. 
  * 
+ * ~~~~~
+ * echo _x('Click for more', 'button');
+ * echo _x('Click for more', 'text-link'); 
+ * ~~~~~
+ * 
  * @param string $text Text for translation. 
  * @param string $context Name of context
  * @param string $textdomain Textdomain for the text, may be class name, filename, or something made up by you. If omitted, a debug backtrace will attempt to determine automatically.
@@ -69,6 +89,13 @@ function _x($text, $context, $textdomain = null) {
 
 /**
  * Perform a language translation with singular and plural versions
+ * 
+ * ~~~~~
+ * $items = array(...);
+ * $qty = count($items);
+ * echo _n('Found one item', 'Found multiple items', $qty); 
+ * echo sprintf(_n('Found one item', 'Found %d items', $qty), $qty);
+ * ~~~~~
  * 
  * @param string $textSingular Singular version of text (when there is 1 item)
  * @param string $textPlural Plural version of text (when there are multiple items or 0 items)

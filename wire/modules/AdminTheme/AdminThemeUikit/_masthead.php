@@ -42,7 +42,7 @@ if(!defined("PROCESSWIRE")) die();
 								<?php if($config->debug && $adminTheme->isSuperuser && strpos($adminTheme->layout, 'sidenav') === false): ?>
 								<li>	
 									<a href='#' onclick="$('#debug_toggle').click(); return false;">
-										<?php echo $adminTheme->renderNavIcon('bug') . __('Debug'); ?>
+										<?php echo $adminTheme->renderNavIcon('bug') . __('Debug', __FILE__); ?>
 									</a>
 								</li>
 								<?php  endif; ?>
