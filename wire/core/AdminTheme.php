@@ -10,7 +10,7 @@
  * This file is licensed under the MIT license. 
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int|string $version Current admin theme version
@@ -61,6 +61,14 @@ abstract class AdminTheme extends WireData implements Module {
 	 *
 	 */
 	protected $bodyClasses = array();
+
+	/**
+	 * General purpose classes indexed by name
+	 *
+	 * @var array
+	 *
+	 */
+	protected $classes = array();
 
 	/**
 	 * Extra markup regions
@@ -232,7 +240,7 @@ abstract class AdminTheme extends WireData implements Module {
 	 * 
 	 */
 	public function addBodyClass($className) {
-		$this->bodyClasses[$className] = $className; 
+		$this->addClass('body', $className);
 	}
 
 	/**
@@ -242,7 +250,75 @@ abstract class AdminTheme extends WireData implements Module {
 	 * 
 	 */
 	public function getBodyClass() {
-		return trim(implode(' ', $this->bodyClasses)); 
+		return $this->getClass('body'); 
+	}
+
+	/**
+	 * Return class for a given named item or blank if none available
+	 * 
+	 * Omit the first argument to return all classes in an array.
+	 * 
+	 * @param string $name Tag or item name, i.e. “input”, or omit to return all defined [tags=classes]
+	 * @param bool $getArray Specify true to return array of class name(s) rather than string (default=false). $tagName argument required.
+	 * @return string|array Returns string or array of class names, or array of all [tags=classes] or $tagName argument is empty.
+	 * 
+	 */
+	public function getClass($name = '', $getArray = false) {
+		if(empty($name)) {
+			return $this->classes;
+		} else if(isset($this->classes[$name])) {
+			return $getArray ? explode(' ', $this->classes[$name]) : $this->classes[$name];
+		} else {
+			return $getArray ? array() : '';
+		}
+	}
+
+	/**
+	 * Add class for given named item
+	 * 
+	 * Default behavior is to merge classes if existing classes are already present for given item $name.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $name
+	 * @param string|array $class
+	 * @param bool $replace Specify true to replace any existing classes rather than merging them
+	 * 
+	 */
+	public function addClass($name, $class, $replace = false) {
+		if(is_array($class)) {
+			foreach($class as $c) {
+				$this->addClass($name, $c);
+			}
+		} else if(!$replace && isset($this->classes[$name])) {
+			$classes = $this->classes[$name];
+			if(strpos($classes, $class) !== false) {
+				// avoid re-adding class if it is already present
+				if(array_search($class, explode(' ', $classes)) !== false) return; 
+			}
+			$this->classes[$name] = trim($classes . ' ' . ltrim($class));	
+		} else {
+			$this->classes[$name] = trim($class);
+		}
+	}
+
+	/**
+	 * Set classes for multiple tags
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param array $classes Array of strings (class names) where keys are tag names
+	 * @param bool $replace Specify true to replace any existing classes rather than merge them (default=false)
+	 * 
+	 */
+	public function setClasses(array $classes, $replace = false) {
+		if($replace || empty($this->classes)) {
+			$this->classes = $classes;	
+		} else {
+			foreach($classes as $name => $class) {
+				$this->addClass($name, $class);
+			}
+		}
 	}
 
 	/**
