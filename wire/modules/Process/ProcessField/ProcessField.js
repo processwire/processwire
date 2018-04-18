@@ -45,7 +45,7 @@ $(document).ready(function() {
 			value: parseInt($columnWidth.val()),
 			slide: function(e, ui) {
 				var val = ui.value + '%';
-				$columnWidth.val(val); 
+				$columnWidth.val(val).trigger('change');
 				setAsmListItemStatus();
 			}
 		});

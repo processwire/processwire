@@ -1004,9 +1004,6 @@ class ProcessField extends Process implements ConfigurableModule {
 			'requiredIf',
 			'columnWidth',
 			'visibility',
-			'themeOffset',
-			'themeBorder',
-			'themeColor',
 		);
 
 		$fieldtypeNames = $this->field->type->getConfigAllowContext($this->field);
@@ -1027,7 +1024,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			foreach($tabInputfield->getAll() as $f) {
 				$name = $f->name;
 				if(strpos($name, '_') === 0) continue;
-				if(in_array($name, $exclusions)) continue;
+				if(in_array($name, $exclusions) || strpos($name, 'theme') === 0) continue;
 				if($f instanceof InputfieldWrapper || $f instanceof InputfieldMarkup || $f instanceof InputfieldHidden) continue;
 				$typeName = str_replace('Inputfield', '', $f->className());
 				$label = str_replace('|', ' ', "$tabLabel $f->label") .

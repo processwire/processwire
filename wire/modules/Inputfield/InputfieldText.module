@@ -125,7 +125,9 @@ class InputfieldText extends Inputfield {
 		
 		if(empty($attrs['size'])) {
 			unset($attrs['size']); 
-			$attrs['class'] = (empty($attrs['class']) ? '' : $attrs['class'] . ' ') . 'InputfieldMaxWidth';
+			if(!$this->hasClass('InputfieldSetWidth')) {
+				$attrs['class'] = (empty($attrs['class']) ? '' : $attrs['class'] . ' ') . 'InputfieldMaxWidth';
+			}
 		}
 		
 		if(!strlen($attrs['value']) && $this->initValue) {

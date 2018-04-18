@@ -381,7 +381,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		$useColumnWidth = $this->useColumnWidth;
 		$renderAjaxInputfield = $this->wire('config')->ajax ? $this->wire('input')->get('renderInputfieldAjax') : null;
 		
-		if(isset($_classes['form']) && strpos($_classes['form'], 'InputfieldFormNoWidths') !== false) {
+		if($useColumnWidth === true && isset($_classes['form']) && strpos($_classes['form'], 'InputfieldFormNoWidths') !== false) {
 			$useColumnWidth = false;
 		}
 	
@@ -555,7 +555,8 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 					if(!$columnWidthTotal) $ffAttrs['class'] .= ' ' . $classes['item_column_width_first'];
 					if($useColumnWidth) {
 						$ffAttrs['style'] = "width: $columnWidthAdjusted%;";
-					} else {
+					}
+					if(!$useColumnWidth || $useColumnWidth > 1) {
 						$ffAttrs['data-colwidth'] = "$columnWidthAdjusted%";
 					}
 					$columnWidthTotal += $columnWidth;
