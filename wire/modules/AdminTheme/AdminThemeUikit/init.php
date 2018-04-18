@@ -13,6 +13,8 @@ if(!defined("PROCESSWIRE")) die();
 /** @var AdminThemeUikit $adminTheme */
 /** @var WireInput $input */
 
+$adminTheme = $config->wire('adminTheme');
+
 /**
  * Configure PW modules for Uikit
  * 
@@ -20,17 +22,17 @@ if(!defined("PROCESSWIRE")) die();
 
 // uk class => width %
 $ukGridWidths = array(
-	'85%' => '5-6', // 85%-94%
-	'80%' => '4-5', // 80%-84%
-	'75%' => '3-4', // 75%-79%
-	'64%' => '2-3', // 64%-74%
-	'60%' => '3-5', // 60%-63%
-	'45%' => '1-2', // 45%-59%
-	'36%' => '2-5', // 36%-44%
+	'84%' => '5-6', // 84%-94%
+	'80%' => '4-5', // 80%-83%
+	'74%' => '3-4', // 74%-79%
+	'65%' => '2-3', // 65%-73%
+	'58%' => '3-5', // 58%-64%
+	'43%' => '1-2', // 43%-57%
+	'36%' => '2-5', // 36%-42%
 	'27%' => '1-3', // 27%-35%
-	'25%' => '1-4', // 25%-26%
-	'18%' => '1-5', // 18%-24%
-	'11%' => '1-6', // 11%-17%
+	'21%' => '1-4', // 21%-26%
+	'17%' => '1-5', // 17%-20%
+	'5%' => '1-6', // 5%-17%
 );
 
 $config->set('inputfieldColumnWidthSpacing', 0); 
@@ -69,7 +71,7 @@ $config->set('LanguageTabs', array(
 ));
 
 $config->set('MarkupAdminDataTable', array(
-	'addClass' => 'uk-table uk-table-divider uk-table-justify uk-table-small',
+	'addClass' => $adminTheme->getClass('table'), 
 	'loadStyles' => false,
 	'loadScripts' => true,
 	'responsiveClass' => '',
@@ -96,7 +98,7 @@ $config->set('ProcessPageList', array(
 ));
 
 $config->set('ProcessList', array(
-	'dlClass' => 'uk-description-list uk-description-list-divider',
+	'dlClass' => $adminTheme->getClass('dl'), 
 	'dtClass' => '',
 	'ddClass' => '',
 	'aClass' => '',
@@ -116,9 +118,9 @@ $config->set('InputfieldFile', array(
 ));
 
 $config->set('InputfieldSelector', array(
-	'selectClass' => 'uk-select',
-	'inputClass' => 'uk-input', 
-	'checkboxClass' => 'uk-checkbox'
+	'selectClass' => $adminTheme->getClass('select'),
+	'inputClass' => $adminTheme->getClass('input'), 
+	'checkboxClass' => $adminTheme->getClass('input-checkbox'), 
 ));
 
 $config->set('SystemNotifications', array(
@@ -151,5 +153,10 @@ $markup['item_content'] = "<div class='InputfieldContent uk-form-controls'>{out}
 InputfieldWrapper::setMarkup($markup);
 
 if(!$config->get('InputfieldWrapper')) $config->set('InputfieldWrapper', array());
-$config->InputfieldWrapper('useColumnWidth', false);
+
+if($adminTheme->noGrid) {
+	$config->InputfieldWrapper('useColumnWidth', 2); // 2=use both style='width:%' and data-colwidth attributes
+} else {
+	$config->InputfieldWrapper('useColumnWidth', false); 
+}
 

@@ -11664,6 +11664,19 @@ table.AdminDataTable:not(.uk-table) .pw-table-sort-value {
   opacity: 0.4;
   font-weight: normal;
 }
+.pw-table-resizable td,
+.pw-table-resizable th {
+  border-left-style: solid;
+  border-left-color: #e5e5e5;
+  border-left-width: 1px;
+}
+.pw-table-resizable td:first-child,
+.pw-table-resizable th:first-child {
+  border-left: none;
+}
+.pw-table-resizable .tablesorter-resizable-handle {
+  margin-left: 37px;
+}
 .uk-tab > li.uk-active {
   background: #fff;
 }
@@ -13873,10 +13886,7 @@ a.tooltip:hover {
   line-height: 1.4;
 }
 .PageList .ProcessListerTable tr.open {
-  background-color: #f0f3f7;
-}
-.PageList .ProcessListerTable tr.open > td:first-child {
-  padding-left: 10px !important;
+  background: linear-gradient(to right, transparent 0%, #f0f3f7 100%);
 }
 .PageList .ProcessListerTable tr.open > td:first-child a.actions_toggle {
   color: #d21846;
@@ -14199,6 +14209,16 @@ body:not(.pw-narrow-width) .PageList .PageListItem.PageListNoChildren > a.PageLi
 .Inputfield select {
   max-width: 100%;
 }
+.Inputfield .uk-select:not(.InputfieldSetWidth):not(.InputfieldMaxWidth) {
+  width: auto;
+}
+.Inputfield .uk-select:not([multiple]):not([size]) {
+  padding-right: 30px;
+}
+.Inputfield.InputfieldColumnWidth > .InputfieldContent .uk-select:not(.InputfieldSetWidth) {
+  width: 100%;
+  padding-right: initial;
+}
 .Inputfield textarea:not(.uk-textarea) {
   /* 1 */
   box-sizing: border-box;
@@ -14229,6 +14249,11 @@ body:not(.pw-narrow-width) .PageList .PageListItem.PageListNoChildren > a.PageLi
 }
 .Inputfield input[size] {
   width: auto;
+}
+@media screen and (max-width: 767px) {
+  body.AdminThemeUikitNoGrid .InputfieldColumnWidth {
+    width: 100% !important;
+  }
 }
 .Inputfields .InputfieldIsOffset:not(.InputfieldColumnWidth) {
   margin-top: 20px;
@@ -14335,6 +14360,8 @@ table .InputfieldIsOffset,
 }
 .InputfieldContent > textarea,
 .LanguageSupport > textarea,
+.InputfieldContent > select.InputfieldMaxWidth,
+.LanguageSupport > select.InputfieldMaxWidth,
 .InputfieldContent > input.InputfieldMaxWidth,
 .LanguageSupport > input.InputfieldMaxWidth {
   width: 100%;
@@ -15522,17 +15549,32 @@ html.pw-sidebar-frame #main,
 html.pw-sidebar-frame body #main {
   background: #f0f3f7;
 }
-.Inputfields input:not([type=submit]):not([type=file]):not([type=checkbox]):not([type=radio]),
-.Inputfields textarea {
-  background: #f0f3f7;
+.Inputfields input:not([type=submit]):not([type=file]):not([type=checkbox]):not([type=radio]):not(.uk-form-blank),
+.Inputfields textarea:not(.uk-form-blank) {
+  background-color: #f0f3f7;
   border: 1px solid;
   border-color: #b1c3d4 #cbd7e3 #cbd7e3 #cbd7e3;
   -webkit-appearance: none;
 }
-.Inputfields input:not([type=submit]):not([type=file]):not([type=checkbox]):not([type=radio]):focus,
-.Inputfields textarea:focus {
-  background: #f7f8fb;
+.Inputfields input:not([type=submit]):not([type=file]):not([type=checkbox]):not([type=radio]):not(.uk-form-blank):focus,
+.Inputfields textarea:not(.uk-form-blank):focus {
+  background-color: #f7f8fb;
   border-color: #b1c3d4 #cbd7e3 #cbd7e3 #cbd7e3;
+}
+.Inputfields select.uk-select:not(.uk-form-blank) {
+  border-radius: 3px;
+  background-color: #f0f3f7;
+  border: 1px solid;
+  border-color: #cbd7e3;
+  -webkit-appearance: none;
+}
+.Inputfields select.uk-select:not(.uk-form-blank):focus {
+  background-color: #f7f8fb;
+  border-color: #cbd7e3;
+}
+.Inputfields input.uk-form-blank:focus,
+.Inputfields textarea.uk-form-blank:focus {
+  background-color: #f7f8fb;
 }
 img.pw-logo {
   max-height: 40px;

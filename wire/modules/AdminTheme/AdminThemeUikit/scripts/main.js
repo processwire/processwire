@@ -477,6 +477,8 @@ var ProcessWireAdminTheme = {
 	 * 
 	 */
 	setupInputfields: function() {
+		
+		var noGrid = $('body').hasClass('AdminThemeUikitNoGrid'); 
 
 		function initFormMarkup() {
 			// horizontal forms setup
@@ -549,6 +551,15 @@ var ProcessWireAdminTheme = {
 		// $in: An optional Inputfield that you want to populate given or auto-determined classes to
 		function ukGridClass(width, $in) {
 			
+			if(noGrid && typeof $in != "undefined") {
+				if(typeof width == "string") {
+					$in.addClass(width);
+				} else {
+					$in.css('width', width + '%');
+				}
+				return '';
+			}
+			
 			var ukGridClassDefault = 'uk-width-1-1';
 			var ukGridClass = ukGridClassDefault;
 			var widthIsClass = false;
@@ -573,20 +584,22 @@ var ProcessWireAdminTheme = {
 						break;
 					}
 				}
-				ukGridClassCache[width] = ukGridClass;
-				ukGridClass = 'uk-width-' + ukGridClass;
+				if(ukGridClass.length) {
+					ukGridClassCache[width] = ukGridClass;
+					ukGridClass = 'uk-width-' + ukGridClass;
+				}
 			}
 			
-			if(!widthIsClass && ukGridClass != ukGridClassDefault) {
+			if(!widthIsClass && ukGridClass && ukGridClass != ukGridClassDefault) {
 				ukGridClass += '@m';
 			}
 
 			if(typeof $in != "undefined") {
-				if($in.hasClass(ukGridClass)) {
+				if(ukGridClass && $in.hasClass(ukGridClass)) {
 					// no need to do anything
 				} else {
 					removeUkGridClass($in);
-					$in.addClass(ukGridClass);
+					if(ukGridClass) $in.addClass(ukGridClass);
 				}
 			}
 			
@@ -630,7 +643,13 @@ var ProcessWireAdminTheme = {
 			
 			function expandLastInputfield($in) {
 				if(typeof $in == "undefined") $in = $lastInputfield;
-				if($in) ukGridClass('InputfieldColumnWidthLast uk-width-expand', $in); 
+				if($in) {
+					if(noGrid) {
+						$in.addClass('InputfieldColumnWidthLast'); 
+					} else {
+						ukGridClass('InputfieldColumnWidthLast uk-width-expand', $in);
+					}
+				}
 			}
 			
 			function applyHiddenInputfield() {

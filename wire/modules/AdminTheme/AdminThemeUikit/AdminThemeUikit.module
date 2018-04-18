@@ -17,6 +17,9 @@
  * @property string $userLabel Text containing user {vars} to use for user label in masthead (default="{Name}")
  * @property int $maxWidth Maximum layout width in pixels, or 0 for no max (default=1600).
  * @property bool|int $groupNotices Whether or not notices should be grouped by type
+ * @property string $inputSize Size for input/select elements. One of "s" for small, "m" for medium (default), or "l" for large. 
+ * @property bool|int $noGrid When true, do not use uk-width classes for Inputfields (use CSS percentages instead). 
+ * 
  * 
  */
 class AdminThemeUikit extends AdminThemeFramework implements Module, ConfigurableModule {
@@ -24,15 +27,17 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 25,
+			'version' => 26,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
-			'requires' => 'ProcessWire>=3.0.94'
+			'requires' => 'ProcessWire>=3.0.98'
 		); 
 	}
 
 	/**
 	 * Development mode, to be used when developing this module’s code
+	 * 
+	 * Makes it use runtime/temporary compiled CSS files rather than the final ones. 
 	 *
 	 */
 	const dev = false;
@@ -60,9 +65,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * 
 	 */
 	public function __construct() {
-		//$config = $this->wire('config');
-		//$config->defaultAdminTheme = $this->className();
+		
 		parent::__construct();
+		
 		$this->set('useOffset', false);
 		$this->set('cardTypes', array());
 		$this->set('offsetTypes', array());
@@ -75,6 +80,21 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('userAvatar', 'icon.user-circle'); 
 		$this->set('maxWidth', 1600); 
 		$this->set('groupNotices', true);
+		$this->set('inputSize', 'm'); // m=medium (default), s=small, l=large
+		$this->set('noGrid', false); 
+		
+		$this->setClasses(array(
+			'input' => 'uk-input',
+			'input-checkbox' => 'uk-checkbox',
+			'input-radio' => 'uk-radio',
+			'input-password' => 'uk-input uk-form-width-medium',
+			'select' => 'uk-select',
+			'select-asm' => 'uk-select uk-form-small',
+			'textarea' => 'uk-textarea',
+			'table' => 'uk-table uk-table-divider uk-table-justify uk-table-small',
+			'dl' => 'uk-description-list uk-description-list-divider',
+		));
+		
 		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax'); 
 	}
 	
@@ -112,6 +132,18 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 				$session->setFor('Page', 'appendEditUrl', "&layout=sidenav-init");
 			}
 			return;
+		}
+	
+		$inputSize = $this->get('inputSize');
+		if($inputSize && $inputSize != 'm') {
+			$inputClass = $inputSize === 'l' ? 'uk-form-large' : 'uk-form-small';
+			foreach(array('input', 'select', 'textarea') as $name) {
+				$this->addClass($name, $inputClass); 
+			}
+		}
+		
+		if($this->noGrid) {
+			$this->addClass('body', 'AdminThemeUikitNoGrid'); 
 		}
 		
 		$session->removeFor('Page', 'appendEditUrl');
@@ -169,6 +201,47 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		}
 		return false;
 	}
+
+	/**
+	 * Get Uikit uk-width-* class for given column width
+	 * 
+	 * @param int $columnWidth
+	 * @param array $widths
+	 * @return string
+	 * 
+	 */
+	protected function getUkWidthClass($columnWidth, array $widths) {
+		
+		static $minColumnWidth = null;
+		
+		$ukWidthClass = '1-1';
+		
+		if($minColumnWidth === null) {
+			$widthKeys = array_keys($widths);
+			sort($widthKeys, SORT_NATURAL);
+			$minColumnWidth = (int) reset($widthKeys);
+		}
+
+		if($columnWidth < 10) {
+			// use uk-width-1-1
+		} else if($columnWidth && $columnWidth < 100) {
+			if($columnWidth < $minColumnWidth) $columnWidth = $minColumnWidth;
+			// determine column width class
+			foreach($widths as $pct => $uk) {
+				$pct = (int) $pct;
+				if($columnWidth >= $pct) {
+					$ukWidthClass = $uk;
+					break;
+				}
+			}
+		}
+		
+		if($ukWidthClass === '1-1') {
+			return "uk-width-1-1";
+		} else {
+			return "uk-width-$ukWidthClass@m";
+		}
+	}
 	
 	/*******************************************************************************************
 	 * HOOKS
@@ -195,19 +268,16 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$isFieldset = $inputfield instanceof InputfieldFieldset;
 		$isMarkup = $inputfield instanceof InputfieldMarkup; 
 		$isWrapper = $inputfield instanceof InputfieldWrapper && !$isFieldset && !$isMarkup;
-		$ukWidthClass = '1-1';
+		$ukWidthClass = 'uk-width-1-1';
 		$themeColor = '';
 		$themeBorder = '';
 		$themeOffset = '';
+		$themeInputSize = '';
+		$themeInputWidth = '';
+		$themeBlank = false;
 		$wrapClasses = array();
-		
-		static $minColumnWidth = null;
-		
-		if($minColumnWidth === null) {
-			$widthKeys = array_keys($widths); 
-			sort($widthKeys);
-			$minColumnWidth = (int) reset($widthKeys);
-		}
+		$inputClasses = array();
+		$noGrid = $this->noGrid;
 		
 		if($inputfield instanceof InputfieldSubmit) {
 			// button
@@ -215,37 +285,30 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			return; // no further settings needed for button
 		}
 
-		// determine column width class
-		if($columnWidth < 10) {
-			$columnWidth = 100;
-		} else if($columnWidth && $columnWidth < 100) {
-			if($columnWidth < $minColumnWidth) $columnWidth = $minColumnWidth;
-			foreach($widths as $pct => $uk) {
-				$pct = (int) $pct; 
-				if($columnWidth >= $pct) {
-					$ukWidthClass = $uk;
-					break;
-				}
-			}
+		if(!$noGrid) {
+			$ukWidthClass = $this->getUkWidthClass($columnWidth, $widths); 
+			if($ukWidthClass) $wrapClasses[] = $ukWidthClass;
 		}
 		
-		$wrapClasses[] = "uk-width-$ukWidthClass@m";
-		
 		if($isWrapper) {
-			if($ukWidthClass != '1-1') $inputfield->addClass(implode(' ', $wrapClasses), 'wrapClass');
+			if($ukWidthClass != 'uk-width-1-1') $inputfield->addClass($ukWidthClass, 'wrapClass');
 			return;
 		} else if($inputfield instanceof InputfieldTextarea) {
-			$inputfield->addClass('uk-textarea');
+			$inputClasses[] = $this->getClass('textarea'); 
 		} else if($inputfield instanceof InputfieldPassword) {
-			$inputfield->addClass('uk-input uk-form-width-medium');
+			$inputClasses[] = $this->getClass('input-password');
 		} else if($inputfield instanceof InputfieldText) {
-			$inputfield->addClass('uk-input');
+			$inputClasses[] = $this->getClass('input');
 		} else if($inputfield instanceof InputfieldCheckboxes || $inputfield instanceof InputfieldCheckbox) {
-			$inputfield->addClass('uk-checkbox');
+			$inputClasses[] = $this->getClass('input-checkbox');
 			$inputfield->addClass('uk-form-controls-text', 'contentClass');
 		} else if($inputfield instanceof InputfieldRadios) {
-			$inputfield->addClass('uk-radio');
+			$inputClasses[] = $this->getClass('input-radio');
 			$inputfield->addClass('uk-form-controls-text', 'contentClass');
+		} else if($inputfield instanceof InputfieldAsmSelect) {
+			$inputClasses[] = $this->getClass('select-asm');
+		} else if($inputfield instanceof InputfieldSelect && !$inputfield instanceof InputfieldHasArrayValue) {
+			$inputClasses[] = $this->getClass('select');
 		} else if($inputfield instanceof InputfieldFile) {
 			$themeColor = 'secondary';
 		}
@@ -254,13 +317,19 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			// pull optional uikit settings from Field object
 			$themeBorder = $field->get('themeBorder');
 			$themeOffset = $field->get('themeOffset');
+			$themeInputSize = $field->get('themeInputSize');
+			$themeInputWidth = $field->get('themeInputWidth');
 			$themeColor = $field->get('themeColor') ? $field->get('themeColor') : $themeColor;
+			$themeBlank = $field->get('themeBlank');
 		}
 		
 		// determine custom settings which may be defined with Inputfield
 		if(!$themeBorder) $themeBorder = $inputfield->getSetting('themeBorder');
 		if(!$themeOffset) $themeOffset = $inputfield->getSetting('themeOffset'); // || in_array($class, $this->offsetTypes);
 		if(!$themeColor) $themeColor = $inputfield->getSetting('themeColor');
+		if(!$themeInputSize) $themeInputSize = $inputfield->getSetting('themeInputSize');
+		if(!$themeInputWidth) $themeInputWidth = $inputfield->getSetting('themeInputWidth');
+		if(!$themeBlank) $themeBlank = $inputfield->getSetting('themeBlank');
 		
 		if(!$themeBorder) {
 			if($formSettings['useBorders'] === false || in_array($class, $this->noBorderTypes)) {
@@ -271,42 +340,51 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 				$themeBorder = 'line';
 			}
 		}
+		
+		if($themeInputSize) {
+			$inputfield->removeClass('uk-form-small uk-form-large');
+			if($themeInputSize != 'm') {
+				$inputClasses[] = $themeInputSize == 'l' ? 'uk-form-large' : 'uk-form-small';
+			}
+		}
+		
+		if($themeInputWidth) {
+			$inputWidthClasses = array(
+				'xs' => 'uk-form-width-xsmall',
+				's' => 'uk-form-width-small',
+				'm' => 'uk-form-width-medium',
+				'l' => 'uk-form-width-large',
+				'f' => 'InputfieldMaxWidth',
+			);
+			$inputfield->removeClass($inputWidthClasses);
+			if(isset($inputWidthClasses[$themeInputWidth])) {
+				$inputClasses[] = $inputWidthClasses[$themeInputWidth];
+				if($themeInputWidth != 'f') $inputClasses[] = 'InputfieldSetWidth';
+			}
+		}
+		
+		if($themeBlank) {
+			$inputClasses[] = 'uk-form-blank';
+		}
 
-		if($themeColor) $wrapClasses[] = 'InputfieldIsColor';
+		if($themeColor) {
+			$wrapClasses[] = 'InputfieldIsColor';
+		}
 		
 		switch($themeColor) {
-			case 'primary':
-				$wrapClasses[] = 'InputfieldIsPrimary';
-				break;
-			case 'secondary':
-				$wrapClasses[] = 'InputfieldIsSecondary';
-				break;
-			case 'warning':
-				$wrapClasses[] = 'InputfieldIsWarning';
-				break;
-			case 'danger':
-				$wrapClasses[] = 'InputfieldIsError';
-				break;
-			case 'success':
-				$wrapClasses[] = 'InputfieldIsSuccess';
-				break;
-			case 'highlight':
-				$wrapClasses[] = 'InputfieldIsHighlight';
-				break;
-			case 'none':
-				break;
+			case 'primary': $wrapClasses[] = 'InputfieldIsPrimary'; break;
+			case 'secondary': $wrapClasses[] = 'InputfieldIsSecondary'; break;
+			case 'warning': $wrapClasses[] = 'InputfieldIsWarning'; break;
+			case 'danger': $wrapClasses[] = 'InputfieldIsError'; break;
+			case 'success': $wrapClasses[] = 'InputfieldIsSuccess'; break;
+			case 'highlight': $wrapClasses[] = 'InputfieldIsHighlight'; break;
+			case 'none': break;
 		}
 		
 		switch($themeBorder) {
-			case 'none':
-				$wrapClasses[] = 'InputfieldNoBorder';
-				break;
-			case 'hide':
-				$wrapClasses[] = 'InputfieldHideBorder';
-				break;
-			case 'card':
-				$wrapClasses[] = 'uk-card uk-card-default';
-				break;
+			case 'none': $wrapClasses[] = 'InputfieldNoBorder'; break;
+			case 'hide': $wrapClasses[] = 'InputfieldHideBorder'; break;
+			case 'card': $wrapClasses[] = 'uk-card uk-card-default'; break;
 		}
 		
 		if($themeOffset && $themeOffset !== 'none') {
@@ -316,6 +394,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			} else if($themeOffset === 'l') {
 				$wrapClasses[] = 'InputfieldIsOffsetLg';
 			}
+		}
+		
+		if(count($inputClasses)) {
+			$inputfield->addClass(implode(' ', $inputClasses));
 		}
 		
 		if(count($wrapClasses)) {
@@ -334,104 +416,11 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		/** @var Inputfield $inputfield */
 		$inputfield = $event->object;
 		if($inputfield instanceof InputfieldWrapper) return;
-		$field = $inputfield->hasField;
-		$defaultLabel = ' ' . $this->_('(recommended)'); 
-		$autoLabel = $this->_('Auto');
-		$noneLabel = $this->_('None');
-		
 		/** @var InputfieldWrapper $inputfields */
 		$inputfields = $event->return;
-		if(!$inputfields) return;
-		
-		if(!$inputfield->hasFieldtype) return;
-		
-		/** @var InputfieldFieldset $fieldsetVisibility */
-		$fieldsetVisibility = $inputfields->getChildByName('visibility');
-		if(!$fieldsetVisibility) return;
-	
-		// if our fieldset is already present, remove it and add again (so that last added stays)
-		$test = $inputfields->getChildByName('_adminTheme');
-		if($test) $test->getParent()->remove($test); 
-		
-		/** @var InputfieldFieldset $fieldset */
-		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
-		$fieldset->attr('id+name', '_adminTheme');
-		$fieldset->label = $this->_('Admin theme settings') . ' (' . str_replace('AdminTheme', '', $this->className()) . ')';
-		$fieldset->collapsed = Inputfield::collapsedYes;
-		/*
-		if($field) {
-			$fieldset->collapsed = !$field->get('themeColor') && !$field->get('themeBorder') && !$field->get('themeOffset');
-		}
-		*/
-		$fieldset->icon = 'flask';
-		$fieldset->description = 
-			$this->_('These settings affect how this field appears when used with the Uikit admin theme.') . ' ' . 
-			$this->_('When choosing the “Auto” option, the settings will be determined at runtime.') . ' ' . 
-			$this->_('The “Margin” setting applies only to 100% width fields.'); 
-		$fieldsetParent = $fieldsetVisibility->getParent();
-		$fieldsetParent->insertAfter($fieldset, $fieldsetVisibility);
-		
-		/** @var InputfieldRadios $f */
-		$f = $event->wire('modules')->get('InputfieldRadios');
-		$f->attr('name', 'themeOffset');
-		$f->label = $this->_('Margin');
-		$f->icon = 'arrows-v';
-		$f->addOption('', $autoLabel . $defaultLabel);
-		$f->addOption('s', $this->_('Small'));
-		$f->addOption('m', $this->_('Medium'));
-		$f->addOption('l', $this->_('Large'));
-		$f->addOption('none', $noneLabel);
-		$value = $field ? $field->get('themeOffset') : '';
-		if($value == 1) $value = 'm';
-		$f->attr('value', $value);
-		$f->columnWidth = 33;
-		$fieldset->add($f);
-		
-		/** @var InputfieldRadios $f */
-		$f = $event->wire('modules')->get('InputfieldRadios');
-		$f->attr('name', 'themeBorder');
-		$f->label = $this->_('Border');
-		$f->addOption('', $autoLabel . $defaultLabel);
-		$f->addOption('line', $this->_x('Outline', 'border'));
-		$f->addOption('card', $this->_x('Card', 'border'));
-		$f->addOption('hide', $this->_x('Transparent', 'border'));
-		$f->addOption('none', $noneLabel);
-		$f->columnWidth = 33;
-		$f->icon = 'low-vision';
-		$value = $field ? $field->get('themeBorder') : '';
-		$f->attr('value', $value);
-		$fieldset->add($f);
-		
-		/** @var InputfieldRadios $f */
-		$f = $event->wire('modules')->get('InputfieldRadios');
-		$f->attr('name', 'themeColor');
-		$f->label = $this->_('Color');
-		$f->icon = 'eyedropper';
-		$f->addOption('', $autoLabel . $defaultLabel);
-		$f->addOption('primary', $this->_x('Primary', 'color'));
-		$f->addOption('secondary', $this->_x('Secondary', 'color'));
-		$f->addOption('highlight', $this->_x('Highlight', 'color'));
-		$f->addOption('warning', $this->_x('Warning', 'color'));
-		//$f->addOption('danger', $this->_x('Danger', 'color'));
-		$f->addOption('none', $noneLabel);
-		$value = $field ? $field->get('themeColor') : '';
-		$f->attr('value', $value);
-		$f->columnWidth = 34;
-		$f->showIf = 'themeBorder!=none';
-		$fieldset->add($f);
-		
-		$f = $event->wire('modules')->get('InputfieldMarkup');
-		$f->attr('id+name', '_adminThemeExample');
-		$f->label = $this->_('Example');
-		$f->value = "<p>" . 
-			$this->_('This field simply demonstrates the settings you selected above.') . ' ' . 
-			"</p>";
-		$f->collapsed = Inputfield::collapsedYes;
-		$f->icon = 'snowflake-o';
-		$fieldset->add($f);
-
-		$config = $this->wire('config');
-		$config->scripts->add($config->urls($this) . 'config-field.js');
+		include_once(dirname(__FILE__) . '/config.php'); 
+		$configHelper = new AdminThemeUikitConfigHelper($this);
+		$configHelper->configInputfield($inputfield, $inputfields); 
 	}
 
 	/**
@@ -446,6 +435,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$names[] = 'themeOffset';
 		$names[] = 'themeBorder';
 		$names[] = 'themeColor';
+		$names[] = 'themeInputSize';
+		$names[] = 'themeInputWidth';
+		$names[] = 'themeBlank';
 		$event->return = $names;
 	}
 
@@ -1002,8 +994,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 */
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
 		parent::getModuleConfigInputfields($inputfields);
-		include(__DIR__ . '/config.php');
-		AdminThemeUikitConfig($this, $inputfields);
+		include_once(__DIR__ . '/config.php');
+		$configHelper = new AdminThemeUikitConfigHelper($this);
+		$configHelper->configModule($inputfields);
 	}
 }
 
