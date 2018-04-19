@@ -677,11 +677,12 @@ class ProcessPageView extends Process {
 	 *
 	 */
 	protected function checkProtocol($page) {
-
-		$requireHTTPS = $page->template->https;
-		if($requireHTTPS == 0) return; // neither HTTP or HTTPS required
-		
+	
+		/** @var Config $config */
 		$config = $this->wire('config');
+		$requireHTTPS = $page->template->https;
+		if($requireHTTPS == 0 || $config->noHTTPS) return; // neither HTTP or HTTPS required
+		
 		$isHTTPS = $config->https; 
 		$scheme = '';
 

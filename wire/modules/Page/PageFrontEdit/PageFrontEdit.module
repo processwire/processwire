@@ -164,7 +164,7 @@ class PageFrontEdit extends WireData implements Module {
 		if($config->ajax && $input->post('action') == 'PageFrontEditSave') {
 			// skip, this is handled by another hook
 			
-		} else if($this->wire('templates')->get('admin')->https == 1 && !$config->https && $page->template->https != -1) {
+		} else if($this->wire('templates')->get('admin')->https == 1 && !$config->https && !$config->noHTTPS && $page->template->https != -1) {
 			// hooks allowed, but we need the same scheme as admin
 			$url = $input->httpUrl(true);
 			if(strpos($url, 'http://') === 0) {

@@ -95,6 +95,7 @@
  * @property array $adminThumbOptions Admin thumbnail image options #pw-group-images
  * @property array $httpHosts HTTP hosts For added security, specify the host names ProcessWire should recognize. #pw-group-HTTP-and-input
  * @property int $maxPageNum Maximum number of recognized paginations #pw-group-URLs
+ * @property bool $noHTTPS When boolean true, pages requiring HTTPS will not enforce it (useful for dev environments). 
  * 
  * @property string $dbHost Database host #pw-group-database
  * @property string $dbName Database name #pw-group-database
@@ -401,6 +402,23 @@ class Config extends WireData {
 		}
 		
 		return $this;
+	}
+
+	/**
+	 * Return true if current PHP version is equal to or newer than the given version 
+	 * 
+	 * ~~~~~
+	 * if($config->phpVersion('7.0.0')) {
+	 *   // PHP version is 7.x
+	 * }
+	 * ~~~~~
+	 * 
+	 * @param string|null $minVersion
+	 * @return bool
+	 * 
+	 */
+	public function phpVersion($minVersion) {
+		return version_compare(PHP_VERSION, $minVersion) >= 0;
 	}
 }
 

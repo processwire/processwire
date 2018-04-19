@@ -2834,15 +2834,23 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function httpUrl($options = array()) {
-		if(!$this->template) return '';
-		switch($this->template->https) {
+		$template = $this->template;
+		if(!$template) return '';
+		/** @var Config $config */
+		$config = $this->wire('config');
+		$mode = $template->https;
+		if($mode > 0 && $config->noHTTPS) $mode = 0;
+		switch($mode) {
 			case -1: $protocol = 'http'; break;
 			case 1: $protocol = 'https'; break;
-			default: $protocol = $this->wire('config')->https ? 'https' : 'http';
+			default: $protocol = $config->https ? 'https' : 'http';
 		}
-		if(is_array($options)) unset($options['http']);
-			else if(is_bool($options)) $options = array();
-		return "$protocol://" . $this->wire('config')->httpHost . $this->url($options);
+		if(is_array($options)) {
+			unset($options['http']);
+		} else if(is_bool($options)) {
+			$options = array();
+		}
+		return "$protocol://" . $config->httpHost . $this->url($options);
 	}
 
 	/**
@@ -2866,13 +2874,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function editUrl($options = array()) {
+		/** @var Config $config */
+		$config = $this->wire('config');
+		/** @var Template $adminTemplate */
 		$adminTemplate = $this->wire('templates')->get('admin');
-		$https = $adminTemplate && ($adminTemplate->https > 0);
-		$url = ($https && !$this->wire('config')->https) ? 'https://' . $this->wire('config')->httpHost : '';
-		$url .= $this->wire('config')->urls->admin . "page/edit/?id=$this->id";
+		$https = $adminTemplate && ($adminTemplate->https > 0) && !$config->noHTTPS;
+		$url = ($https && !$config->https) ? 'https://' . $config->httpHost : '';
+		$url .= $config->urls->admin . "page/edit/?id=$this->id";
 		if($options === true || (is_array($options) && !empty($options['http']))) {
 			if(strpos($url, '://') === false) {
-				$url = ($https ? 'https://' : 'http://') . $this->wire('config')->httpHost . $url;
+				$url = ($https ? 'https://' : 'http://') . $config->httpHost . $url;
 			}
 		}
 		$append = $this->wire('session')->getFor($this, 'appendEditUrl'); 
@@ -3356,9 +3367,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(is_null($status)) $status = $this->status; 
 		if($value === false) return $status; 
 		$names = array();
+		$remainder = $status;
 		foreach(self::$statuses as $name => $value) {
-			if($status & $value) $names[$value] = $name; 
+			if($status & $value) {
+				$names[$value] = $name;
+				$remainder = $remainder & ~$value;
+			}
 		}
+		if($remainder > 1) $names[$remainder] = "unknown-$remainder";
 		return $names; 
 	}
 
