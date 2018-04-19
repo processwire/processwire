@@ -16,11 +16,13 @@ function updateAdminThemeUikitExample() {
 		var v = f.find('input:checked').val();
 
 		if(v == 's') {
-			input.removeClass('uk-form-large').addClass('uk-form-small');
+			input.removeClass('uk-form-large uk-form-medium').addClass('uk-form-small');
+		} else if(v == 'm') {
+			input.removeClass('uk-form-large uk-form-small').addClass('uk-form-medium');
 		} else if(v == 'l') {
-			input.removeClass('uk-form-small').addClass('uk-form-large');
+			input.removeClass('uk-form-small uk-form-medium').addClass('uk-form-large');
 		} else {
-			input.removeClass('uk-form-large uk-form-small');
+			input.removeClass('uk-form-large uk-form-medium uk-form-small');
 		}
 	}
 	

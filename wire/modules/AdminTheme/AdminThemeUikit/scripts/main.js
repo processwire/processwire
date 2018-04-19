@@ -1,7 +1,7 @@
 /**
  * ProcessWire Admin Theme jQuery/Javascript
  *
- * Copyright 2018 by Ryan Cramer
+ * Copyright 2017 by Ryan Cramer
  *
  */
 
@@ -480,8 +480,9 @@ var ProcessWireAdminTheme = {
 		
 		var noGrid = $('body').hasClass('AdminThemeUikitNoGrid'); 
 
-		function initFormMarkup() {
-			// horizontal forms setup
+		function initFormMarkup($target) {
+			
+			// horizontal forms setup (currently not used)
 			$("form.uk-form-horizontal").each(function() {
 				$(this).find('.InputfieldContent > .Inputfields').each(function() {
 					var $content = $(this);
@@ -523,6 +524,16 @@ var ProcessWireAdminTheme = {
 			$('.MarkupPagerNav:not(.uk-pagination)').each(function() {
 				$(this).addClass('uk-pagination');
 			});
+			
+			/*
+			 // apply to inputs that don't have Uikit classes (possibly uncomment later)
+			if(typeof $target == "undefined") $target = $('.InputfieldForm');
+			$('select:not([multiple]):not(.uk-select)', $target).addClass('uk-select');
+			$('input:not(.uk-input):not(:checkbox):not(:radio):not(:button):not(:submit):not(:hidden)', $target).addClass('uk-input');
+			$('textarea:not(.uk-textarea)', $target).addClass('uk-textarea');
+			$('input:checkbox:not(.uk-checkbox)', $target).addClass('uk-checkbox');
+			$('input:radio:not(.uk-radio)', $target).addClass('uk-radio');
+			*/
 		}
 		
 		function identifyFirstLastRows($inputfields) {
@@ -796,7 +807,7 @@ var ProcessWireAdminTheme = {
 		};
 
 		
-		$(document).on('reloaded', function() { initFormMarkup() }); // function() intentional
+		$(document).on('reloaded', function() { initFormMarkup($(this)) }); // function() intentional
 		$(document).on('hideInputfield', showHideInputfield);
 		$(document).on('showInputfield', showHideInputfield);
 

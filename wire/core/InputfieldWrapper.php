@@ -548,18 +548,28 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 					// no header
 					// $inputfield->addClass('InputfieldNoHeader', 'wrapClass'); 
 				}
+				
 				$columnWidth = (int) $inputfield->getSetting('columnWidth');
-				$columnWidthAdjusted = $columnWidth + ($columnWidthTotal ? -1 * $columnWidthSpacing : 0);
+				$columnWidthAdjusted = $columnWidth;
+				if($columnWidthSpacing) {
+					$columnWidthAdjusted = $columnWidth + ($columnWidthTotal ? -1 * $columnWidthSpacing : 0);
+				}
 				if($columnWidth >= 9 && $columnWidth <= 100) {
 					$ffAttrs['class'] .= ' ' . $classes['item_column_width'];
-					if(!$columnWidthTotal) $ffAttrs['class'] .= ' ' . $classes['item_column_width_first'];
+					if(!$columnWidthTotal) {
+						$ffAttrs['class'] .= ' ' . $classes['item_column_width_first'];
+					}
+					$columnWidthTotal += $columnWidth;
+					if(!$useColumnWidth || $useColumnWidth > 1) {
+						if($columnWidthTotal >= 95 && $columnWidthTotal < 100) {
+							$columnWidthAdjusted += (100 - $columnWidthTotal);
+							$columnWidthTotal = 100;
+						}
+						$ffAttrs['data-colwidth'] = "$columnWidthAdjusted%";
+					}
 					if($useColumnWidth) {
 						$ffAttrs['style'] = "width: $columnWidthAdjusted%;";
 					}
-					if(!$useColumnWidth || $useColumnWidth > 1) {
-						$ffAttrs['data-colwidth'] = "$columnWidthAdjusted%";
-					}
-					$columnWidthTotal += $columnWidth;
 					//if($columnWidthTotal >= 100 && !$requiredIf) $columnWidthTotal = 0; // requiredIf meant to be a showIf?
 					if($columnWidthTotal >= 100) $columnWidthTotal = 0;
 				} else {

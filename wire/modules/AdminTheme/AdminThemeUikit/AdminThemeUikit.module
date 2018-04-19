@@ -27,7 +27,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 26,
+			'version' => 27,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
 			'requires' => 'ProcessWire>=3.0.98'
@@ -90,6 +90,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			'input-password' => 'uk-input uk-form-width-medium',
 			'select' => 'uk-select',
 			'select-asm' => 'uk-select uk-form-small',
+			'select-small' => 'uk-select uk-form-small',
 			'textarea' => 'uk-textarea',
 			'table' => 'uk-table uk-table-divider uk-table-justify uk-table-small',
 			'dl' => 'uk-description-list uk-description-list-divider',
@@ -269,6 +270,8 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$isMarkup = $inputfield instanceof InputfieldMarkup; 
 		$isWrapper = $inputfield instanceof InputfieldWrapper && !$isFieldset && !$isMarkup;
 		$ukWidthClass = 'uk-width-1-1';
+		$globalInputSize = $this->get('inputSize');
+		$noGrid = $this->get('noGrid');
 		$themeColor = '';
 		$themeBorder = '';
 		$themeOffset = '';
@@ -277,9 +280,16 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$themeBlank = false;
 		$wrapClasses = array();
 		$inputClasses = array();
-		$noGrid = $this->noGrid;
+		$removeInputClasses = array();
 		
-		if($inputfield instanceof InputfieldSubmit) {
+		if($inputfield instanceof InputfieldForm) {
+			if($globalInputSize == 's') {
+				$inputfield->addClass('InputfieldFormSmallInputs');	
+			} else if($globalInputSize == 'l') {
+				$inputfield->addClass('InputfieldFormLargeInputs');	
+			}
+			return;
+		} else if($inputfield instanceof InputfieldSubmit) {
 			// button
 			$inputfield->addClass('uk-width-auto uk-margin-top', 'wrapClass');
 			return; // no further settings needed for button
@@ -298,6 +308,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		} else if($inputfield instanceof InputfieldPassword) {
 			$inputClasses[] = $this->getClass('input-password');
 		} else if($inputfield instanceof InputfieldText) {
+			$inputClasses[] = $this->getClass('input');
+		} else if($inputfield instanceof InputfieldInteger) {
+			$inputClasses[] = $this->getClass('input');
+		} else if($inputfield instanceof InputfieldDateTime) {
 			$inputClasses[] = $this->getClass('input');
 		} else if($inputfield instanceof InputfieldCheckboxes || $inputfield instanceof InputfieldCheckbox) {
 			$inputClasses[] = $this->getClass('input-checkbox');
@@ -341,13 +355,21 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			}
 		}
 		
-		if($themeInputSize) {
-			$inputfield->removeClass('uk-form-small uk-form-large');
-			if($themeInputSize != 'm') {
-				$inputClasses[] = $themeInputSize == 'l' ? 'uk-form-large' : 'uk-form-small';
+		if($themeInputSize && $globalInputSize != $themeInputSize) {
+			if($globalInputSize === 's') {
+				$removeInputClasses[] = 'uk-form-small';
+			} else if($globalInputSize === 'l') {
+				$removeInputClasses[] = 'uk-form-large';
+			}
+			if($themeInputSize === 'm') {
+				$inputClasses[] = 'uk-form-medium';
+			} else if($themeInputSize === 's') {
+				$inputClasses[] = 'uk-form-small';
+			} else if($themeInputSize === 'l') {
+				$inputClasses[] = 'uk-form-large';
 			}
 		}
-		
+	
 		if($themeInputWidth) {
 			$inputWidthClasses = array(
 				'xs' => 'uk-form-width-xsmall',
@@ -400,9 +422,14 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$inputfield->addClass(implode(' ', $inputClasses));
 		}
 		
+		if(count($removeInputClasses)) {
+			$inputfield->removeClass($removeInputClasses);
+		}
+		
 		if(count($wrapClasses)) {
 			$inputfield->addClass(implode(' ', $wrapClasses), 'wrapClass');
 		}
+		
 	}
 
 	/**

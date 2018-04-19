@@ -256,7 +256,8 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'inputSize');
 		$f->label = $this->_('Default input size');
-		$f->description = $this->_('This affects the appearance of most text, textarea and select fields.');
+		$f->description = $this->_('This affects the appearance of many text, textarea and select fields.');
+		$f->notes = $this->_('Not all Inputfields support the “small” or “large” options.'); 
 		$f->icon = 'expand';
 		$f->columnWidth = 50;
 		$sizes = array(

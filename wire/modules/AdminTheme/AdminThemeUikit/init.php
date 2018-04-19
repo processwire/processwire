@@ -111,6 +111,7 @@ $config->set('InputfieldImage', array(
 	// only use custom classes if renderButtons is not hooked
 	$buttonClassKey => 'uk-button uk-button-small uk-button-text uk-margin-small-right', 
 	'buttonText' => '{out}',
+	'selectClass' => $adminTheme->getClass('select-small'),
 ));
 
 $config->set('InputfieldFile', array(
@@ -118,8 +119,8 @@ $config->set('InputfieldFile', array(
 ));
 
 $config->set('InputfieldSelector', array(
-	'selectClass' => $adminTheme->getClass('select'),
-	'inputClass' => $adminTheme->getClass('input'), 
+	'selectClass' => $adminTheme->getClass('select') . ' InputfieldSetWidth',
+	'inputClass' => $adminTheme->getClass('input') . ' InputfieldSetWidth', 
 	'checkboxClass' => $adminTheme->getClass('input-checkbox'), 
 ));
 
