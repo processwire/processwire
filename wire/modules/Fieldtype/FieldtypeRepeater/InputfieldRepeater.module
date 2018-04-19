@@ -808,23 +808,26 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$page->setQuietly('_repeater_errors', $numErrors); // signal to FieldtypeRepeater::savePageField() that page has errors
 			$page->setQuietly('_repeater_processed', true); // signal to FieldtypeRepeater::savePageField() that page had input processed
 			$this->formToPage($wrapper, $page);
-			$publish = $isSingle ? 0 : (int) $input->$publishName;
+			$publish = $isSingle ? 0 : $input->$publishName;
 			
-			if($publish > 0 && ($isHidden || $isUnpublished)) {
-				// publish requested (publish=1)
-				if($isHidden) $page->removeStatus(Page::statusHidden);
-				if(!$numErrors && $isUnpublished) $page->removeStatus(Page::statusUnpublished);
-				if(!$isOn) $page->addStatus(Page::statusOn);
-				
-			} else if($publish < 0) {
-				// unpublish requested (publish=-1)
-				if($isOn) $page->removeStatus(Page::statusOn);
-				if($isHidden) $page->removeStatus(Page::statusHidden);
-				if(!$isUnpublished) $page->addStatus(Page::statusUnpublished);
-				
-			} else if(!$isOn) {
-				// no publish change requested, just ensure page is on
-				$page->addStatus(Page::statusOn);
+			if($publish !== null) {
+				$publish = (int) $publish;
+				if($publish > 0 && ($isHidden || $isUnpublished)) {
+					// publish requested (publish=1)
+					if($isHidden) $page->removeStatus(Page::statusHidden);
+					if(!$numErrors && $isUnpublished) $page->removeStatus(Page::statusUnpublished);
+					if(!$isOn) $page->addStatus(Page::statusOn);
+
+				} else if($publish < 0) {
+					// unpublish requested (publish=-1)
+					if($isOn) $page->removeStatus(Page::statusOn);
+					if($isHidden) $page->removeStatus(Page::statusHidden);
+					if(!$isUnpublished) $page->addStatus(Page::statusUnpublished);
+
+				} else if(!$isOn) {
+					// no publish change requested, just ensure page is on
+					$page->addStatus(Page::statusOn);
+				}
 			}
 
 			if($page->isChanged() && $this->page->id) $numChanges++;
