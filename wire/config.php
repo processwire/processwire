@@ -142,6 +142,25 @@ $config->useFunctionsAPI = false;
  */
 $config->useMarkupRegions = false;
 
+/**
+ * Disable all HTTPS requirements?
+ * 
+ * Use this option only for development or staging environments, on sites where you are 
+ * otherwise requiring HTTPS. By setting this option to something other than false, you
+ * can disable any HTTPS requirements specified per-template, enabling you to use your 
+ * site without SSL during development or staging, etc.
+ * 
+ * The following options are available:
+ * - boolean true: Disable HTTPS requirements globally
+ * - string containing hostname: Disable HTTPS requirements only for specified hostname.
+ * - array containing hostnames: Disable HTTPS requirements for specified hostnames. 
+ * 
+ * @var bool|string|array
+ *
+ */
+$config->noHTTPS = false;
+
+
 
 /*** 2. DATES & TIMES *************************************************************************/
 

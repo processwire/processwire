@@ -45,7 +45,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 98;
+	const versionRevision = 99;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -208,7 +208,7 @@ class ProcessWire extends Wire {
 		$this->setConfig($config);
 		$this->load($config);
 		
-		if($this->getNumInstances() > 1) {
+		if(self::getNumInstances() > 1) {
 			// this instance is not handling the request and needs a mock $page API var and pageview
 			/** @var ProcessPageView $view */
 			$view = $this->wire('modules')->get('ProcessPageView');
@@ -220,7 +220,7 @@ class ProcessWire extends Wire {
 		$str = $this->className() . " ";
 		$str .= self::versionMajor . "." . self::versionMinor . "." . self::versionRevision; 
 		if(self::versionSuffix) $str .= " " . self::versionSuffix;
-		if($this->getNumInstances() > 1) $str .= " #$this->instanceID";
+		if(self::getNumInstances() > 1) $str .= " #$this->instanceID";
 		return $str;
 	}
 
@@ -286,7 +286,22 @@ class ProcessWire extends Wire {
 			/** @noinspection PhpIncludeInspection */
 			include_once($file);
 		}
-		
+
+		// check if noHTTPS option is using conditional hostname
+		if($config->noHTTPS && $config->noHTTPS !== true) {
+			$noHTTPS = $config->noHTTPS;
+			$httpHost = $config->httpHost;
+			if(is_string($noHTTPS)) $noHTTPS = array($noHTTPS);
+			if(is_array($noHTTPS)) {
+				$config->noHTTPS = false;
+				foreach($noHTTPS as $host) {
+					if($host === $httpHost) {
+						$config->noHTTPS = true;
+						break;
+					}
+				}
+			}
+		}
 
 
 		$this->setStatus(self::statusBoot);

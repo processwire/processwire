@@ -95,7 +95,7 @@
  * @property array $adminThumbOptions Admin thumbnail image options #pw-group-images
  * @property array $httpHosts HTTP hosts For added security, specify the host names ProcessWire should recognize. #pw-group-HTTP-and-input
  * @property int $maxPageNum Maximum number of recognized paginations #pw-group-URLs
- * @property bool $noHTTPS When boolean true, pages requiring HTTPS will not enforce it (useful for dev environments). 
+ * @property bool|string|array $noHTTPS When boolean true, pages requiring HTTPS will not enforce it (useful for dev environments). May also specify hostname (string) or hostnames (array) to disable HTTPS for. #pw-group-HTTP-and-input
  * 
  * @property string $dbHost Database host #pw-group-database
  * @property string $dbName Database name #pw-group-database
