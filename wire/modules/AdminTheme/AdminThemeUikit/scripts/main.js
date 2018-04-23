@@ -1,7 +1,7 @@
 /**
  * ProcessWire Admin Theme jQuery/Javascript
  *
- * Copyright 2017 by Ryan Cramer
+ * Copyright 2018 by Ryan Cramer
  *
  */
 
@@ -525,14 +525,15 @@ var ProcessWireAdminTheme = {
 				$(this).addClass('uk-pagination');
 			});
 			
-			/*
-			 // apply to inputs that don't have Uikit classes (possibly uncomment later)
+			 // apply to inputs that don’t already have Uikit classes 
 			if(typeof $target == "undefined") $target = $('.InputfieldForm');
-			$('select:not([multiple]):not(.uk-select)', $target).addClass('uk-select');
-			$('input:not(.uk-input):not(:checkbox):not(:radio):not(:button):not(:submit):not(:hidden)', $target).addClass('uk-input');
-			$('textarea:not(.uk-textarea)', $target).addClass('uk-textarea');
-			$('input:checkbox:not(.uk-checkbox)', $target).addClass('uk-checkbox');
-			$('input:radio:not(.uk-radio)', $target).addClass('uk-radio');
+			var $selects = $('select:not([multiple]):not(.uk-select)', $target); 
+			$selects.addClass('uk-select'); 
+			/* add support for the following as needed:
+			var $inputs = $('input:not(.uk-input):not(:checkbox):not(:radio):not(:button):not(:submit):not(:hidden)', $target);
+			var $textareas = $('textarea:not(.uk-textarea)', $target);
+			var $checkboxes = $('input:checkbox:not(.uk-checkbox)', $target);
+			var $radios = $('input:radio:not(.uk-radio)', $target);
 			*/
 		}
 		

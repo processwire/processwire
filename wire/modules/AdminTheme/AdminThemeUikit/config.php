@@ -267,7 +267,8 @@ class AdminThemeUikitConfigHelper extends Wire {
 		);
 		foreach($sizes as $value => $info) {
 			$f->addOption($value, $info[0]);
-			$label = reset(explode(' ', $info[0]));
+			$label = explode(' ', $info[0]); 
+			$label = reset($label);
 			$e1->value .= "<div class='uk-margin-small'><input disabled class='uk-input $info[1]' value='$label' /></div>";
 			$e2->value .= "<div class='uk-margin-small'><select disabled class='uk-select $info[1]'><option>$label</option></select></div>";
 		}
