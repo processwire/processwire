@@ -445,6 +445,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		if($inputfield instanceof InputfieldWrapper) return;
 		/** @var InputfieldWrapper $inputfields */
 		$inputfields = $event->return;
+		if(!$inputfields instanceof InputfieldWrapper) return;
 		include_once(dirname(__FILE__) . '/config.php'); 
 		$configHelper = new AdminThemeUikitConfigHelper($this);
 		$configHelper->configInputfield($inputfield, $inputfields); 
