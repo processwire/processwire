@@ -434,8 +434,12 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			foreach(array('error', 'description', 'head', 'notes') as $property) {
 				$text = $property == 'error' ? $errorsOut : $inputfield->getSetting($property); 
 				if(!empty($text) && !$quietMode) {
-					$text = nl2br($entityEncodeText ? $inputfield->entityEncode($text, true) : $text);
-					$text = str_replace('{out}', $text, $markup["item_$property"]);
+					if($entityEncodeText) {
+						$text = $inputfield->entityEncode($text, true);
+					}
+					if($inputfield->textFormat != Inputfield::textFormatMarkdown) {
+						$text = str_replace('{out}', nl2br($text), $markup["item_$property"]);
+					}
 				} else {
 					$text = '';
 				}
