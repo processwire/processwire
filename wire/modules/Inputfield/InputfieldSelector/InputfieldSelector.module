@@ -710,7 +710,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	protected function renderTestSelector($selector) {
 		try {
 			$selector = $this->sanitizeSelectorString($selector); 
-			$cnt = $this->wire('pages')->count($selector);
+			$cnt = $this->wire('pages')->count($selector, array('allowCustom' => true));
 			$out = '';
 			// take into account a limit=n 
 			if(strpos($selector, 'limit=') !== false && preg_match('/\blimit=(\d+)/', $selector, $matches)) {
