@@ -1,0 +1,133 @@
+// form that surrounds modules lists
+#modules_form {
+	
+	p.description {
+		margin-top: 0;
+	}
+	
+	select.modules_filter {
+		margin-top: 0.75em;
+	}
+	
+	#Inputfield_new_seconds {
+		margin-bottom: 1em;
+	}
+
+	.InputfieldFileValidExtensions {
+		// this becomes redundant in module upload 
+		display: none;
+	}
+}
+
+// modules list table(s)
+#modules_form table.AdminDataList {
+	clear: both;
+	margin-top: 0.5em;
+	margin-bottom: 2em;
+	
+	td, th {
+		padding-right: 10px !important;
+		
+		&:first-child {
+			width: 30%;
+			vertical-align: top;
+		}
+		
+		&:nth-child(2) {
+			text-align: center;
+		}
+	}
+	
+	td {
+		&:last-child {
+			width: 70%;
+		}
+		
+		p.module-summary {
+			margin: 0;
+		}
+		
+		.requires,
+		.date,
+		.installs {
+			display: block;
+		}
+		
+		.buttons {
+			display: block;
+			margin: 0.25em 0;
+		}
+	}
+}
+
+// modules list: module name/link that is not yet installed
+a span.not_installed {
+	text-decoration: line-through;
+}
+	a:hover span.not_installed {
+		text-decoration: none; 
+	}
+
+// modules list: module name/link that is permanent
+a span.PermanentModule {
+	font-weight: normal;
+}
+
+// New module tab: download and install buttons
+#godownload, 
+#install_now,
+#no_install {
+    float: left; 
+}
+
+// individual module info table
+#ModuleInfo table.AdminDataList {
+	td:first-child {
+		font-weight: bold;
+		text-align: right;
+		width: 20%;
+		padding-right: 1em;
+	}
+
+	tr:last-child td {
+		border-bottom: none;
+	}
+}
+
+
+// fouc prevention
+.pw-init {
+	#modules_form, 
+	.WireTab,
+	.WireTabs li {
+		display: none;
+	}
+}
+
+
+/*
+ * The following appear to no longer be in use, kept here for short term reference
+ *
+h3.ui-widget-header {
+	padding: 5px 10px;
+	margin-bottom: 0 !important;
+	font-size: 1.2em;
+}
+#wrap_reset {
+	margin: 0;
+	float: right; 
+	.ui-button {
+		margin-right: 0;
+	}
+}
+button.install {
+	margin: 1px 0 0 1em;	
+	float: right; 
+}
+table.AdminDataList span.ui-icon {
+	position: relative;
+	bottom: -2px;
+	opacity: 0.4;
+}
+*/
+
