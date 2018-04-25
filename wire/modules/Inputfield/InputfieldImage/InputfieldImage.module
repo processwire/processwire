@@ -210,6 +210,10 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 					$page = new NullPage();
 				}
 			}
+			if(wireClassExists('RepeaterPage')) {
+				/** @var RepeaterPage $page */
+				while(wireInstanceOf($page, 'RepeaterPage')) $page = $page->getForPage();
+			}
 			if($page->id && $this->wire('user')->hasPermission('page-edit-images', $page)) {
 				$modules->get('JqueryUI')->use('modal');
 			} else {
