@@ -363,13 +363,14 @@ var ProcessWireAdminTheme = {
 				},
 				select: function(event, ui) {
 					// follow the link if the Enter/Return key is tapped
-					
 					$(this).val('');
-					event.preventDefault();
-					if(typeof parent.isPresent == "undefined") {
-						window.location = ui.item.edit_url;
-					} else {
-						parent.jQuery('#pw-admin-main')[0].contentWindow.document.location.href = ui.item.edit_url;
+					if(typeof event.key !== 'undefined') {
+						event.preventDefault();
+						if(typeof parent.isPresent == "undefined") {
+							window.location = ui.item.edit_url;
+						} else {
+							parent.jQuery('#pw-admin-main')[0].contentWindow.document.location.href = ui.item.edit_url;
+						}
 					}
 				}
 			}).focus(function() {
