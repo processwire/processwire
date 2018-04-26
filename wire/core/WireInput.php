@@ -650,5 +650,24 @@ class WireInput extends Wire {
 			}
 		}
 	}
+	
+	/**
+	 * debugInfo PHP 5.6+ magic method
+	 *
+	 * This is used when you print_r() an object instance.
+	 *
+	 * @return array
+	 *
+	 */
+	public function __debugInfo() {
+		$info = parent::__debugInfo();
+		$info['get'] = $this->getVars ? $this->getVars->getArray() : null;
+		$info['post'] = $this->postVars ? $this->postVars->getArray() : null;
+		$info['cookie'] = $this->cookieVars ? $this->cookieVars->getArray() : null;
+		$info['whitelist'] = $this->whitelist ? $this->whitelist->getArray() : null;
+		$info['urlSegments'] = $this->urlSegments;
+		$info['pageNum'] = $this->pageNum;
+		return $info;
+	}
 }
 
