@@ -231,10 +231,18 @@ class PagePermissions extends WireData implements Module {
 	 * Returns whether the given user ($page) is editable by the current user 
 	 * 
 	 * @param User|Page $page
+	 * @param array $options
+	 *  - `viewable` (bool): Specify true if only a viewable check is needed (default=false)
 	 * @return bool
 	 * 
 	 */
-	public function userEditable(Page $page) {
+	public function userEditable(Page $page, array $options = array()) {
+		
+		$defaults = array(
+			'viewable' => false, // specify true if method is being used to determine viewable state
+		);
+		
+		$options = count($options) ? array_merge($defaults, $options) : $defaults;
 		
 		if($page->className() != 'User') $page = $this->wire('users')->get($page->id);
 		if(!$page || $page instanceof NullPage) return false;
@@ -242,18 +250,25 @@ class PagePermissions extends WireData implements Module {
 		$user = $this->wire('user');
 
 		// if user is editing themselves in ProcessProfile, and they have permission to do so
-		if($user->id === $page->id && $this->wire('page')->process == 'ProcessProfile' && $user->hasPermission('profile-edit')) return true;
+		if($user->id === $page->id) {
+			if($this->wire('page')->process == 'ProcessProfile' && $user->hasPermission('profile-edit')) {
+				return true;
+			}
+		}
 
 		// if the current process is something other than ProcessUser, they don't have permission
-		$process = $this->wire('process');
-		if($process != 'ProcessUser' && (!$process instanceof ProcessPageList) && (!$process instanceof ProcessPageLister)) {
-			return false;
+		if(!$options['viewable']) {
+			$process = $this->wire('process');
+			if($process != 'ProcessUser' && (!$process instanceof ProcessPageList) && (!$process instanceof ProcessPageLister)) {
+				return false;
+			}
 		}
 	
 		// if user doesn't have user-admin permission, they have no edit access
 		if(!$user->hasPermission('user-admin')) return false;
 
-		// if the user page being edited has a superuser role, and the current user doesn't, never let them edit regardless of any other permissions
+		// if the user page being edited has a superuser role, and the current user doesn't,
+		// never let them edit regardless of any other permissions
 		$superuserRole = $this->wire('roles')->get($this->wire('config')->superUserRolePageID);
 		if($page->roles->has($superuserRole) && !$user->roles->has($superuserRole)) return false;
 
@@ -518,7 +533,7 @@ class PagePermissions extends WireData implements Module {
 			else if(!$page->template || ($checkFile && !$page->template->filenameExists())) $viewable = false; 
 			else if($user->isSuperuser()) $viewable = true; 
 			else if($page->process) $viewable = $this->processViewable($page);
-			else if($page instanceof User && $user->hasPermission('user-admin')) $viewable = $this->userEditable($page); 
+			else if($page instanceof User && $user->hasPermission('user-admin')) $viewable = $this->userEditable($page, array('viewable' => true)); 
 			else if(!$user->hasPermission("page-view", $page)) $viewable = false;
 			else if($page->isTrash()) $viewable = false; 
 
