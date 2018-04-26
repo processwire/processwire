@@ -331,5 +331,5 @@ $(document).ready(function() {
 		id: 'PageEditLinkTabs'
 	});
 
-
+	$('#link_page_url_input').focus();
 }); 
