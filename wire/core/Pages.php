@@ -1224,6 +1224,7 @@ class Pages extends Wire {
 	 * @param array $options Optionally specify array of any of the following:
 	 *   - `pageClass` (string): Class to use for Page object (default='Page').
 	 *   - `template` (Template|id|string): Template to use. 
+	 *   - Plus any other Page properties or fields you want to set at this time
 	 * @return Page
 	 *
 	 */
@@ -1242,9 +1243,16 @@ class Pages extends Wire {
 		} else {
 			$template = null;
 		}
+		
 		$class = wireClassName($class, true);
 		$page = $this->wire(new $class($template));
 		if(!$page instanceof Page) $page = $this->wire(new Page($template));
+		
+		unset($options['pageClass'], $options['template']); 
+		foreach($options as $name => $value) {
+			$page->set($name, $value);
+		}
+		
 		return $page;
 	}
 
