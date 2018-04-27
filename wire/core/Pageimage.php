@@ -1298,6 +1298,7 @@ class Pageimage extends Pagefile {
 		static $level = 0;
 		$variationName = basename($basename);
 		$originalName = $this->basename; 
+		$info = array();
 	
 		// that that everything from the beginning up to the first period is exactly the same
 		// otherwise, they are different source files
@@ -1320,9 +1321,6 @@ class Pageimage extends Pagefile {
 		// if file doesn't start with the original name then it's not a variation
 		if(strpos($variationName, $originalName) !== 0) return false; 
 	
-		// if not in verbose mode, just return variation file name
-		if(!$options['verbose']) return $variationName;
-	
 		// get down to the meat and the base
 		// meat is the part of the filename containing variation info like dimensions, crop, suffix, etc.
 		// base is the part before that, which may include parent meat
@@ -1341,16 +1339,14 @@ class Pageimage extends Pagefile {
 
 		// identify parent and any parent suffixes
 		$suffixAll = array();
-		while(($pos = strrpos($base, '.')) !== false) {
-			$part = substr($base, $pos+1); 
-			// if(is_null($parent)) {
-				// $parent = substr($base, 0, $pos) . $ext;
-				//$parent = $originalName . "." . $part . $ext;
-			// }
-			$base = substr($base, 0, $pos); 
-			while(($rpos = strrpos($part, '-')) !== false) {
-				$suffixAll[] = substr($part, $rpos+1); 
-				$part = substr($part, 0, $rpos); 
+		if($options['verbose']) {
+			while(($pos = strrpos($base, '.')) !== false) {
+				$part = substr($base, $pos + 1);
+				$base = substr($base, 0, $pos);
+				while(($rpos = strrpos($part, '-')) !== false) {
+					$suffixAll[] = substr($part, $rpos + 1);
+					$part = substr($part, 0, $rpos);
+				}
 			}
 		}
 
@@ -1375,7 +1371,7 @@ class Pageimage extends Pagefile {
 		// if regex does not match, return false
 		if(preg_match($re1, $meat, $matches)) {
 			// this is a variation with dimensions, return array of info
-			$info = array(
+			if($options['verbose']) $info = array(
 				'name' => $basename, 
 				'url' => $this->pagefiles->url . $basename, 
 				'path' => $this->pagefiles->path . $basename, 
@@ -1389,7 +1385,7 @@ class Pageimage extends Pagefile {
 		} else if(preg_match($re2, $meat, $matches)) {
 		
 			// this is a variation only with suffix
-			$info = array(
+			if($options['verbose']) $info = array(
 				'name' => $basename, 
 				'url' => $this->pagefiles->url . $basename,
 				'path' => $this->pagefiles->path . $basename, 
@@ -1403,6 +1399,9 @@ class Pageimage extends Pagefile {
 		} else {
 			return false; 
 		}
+	
+		// if not in verbose mode, just return variation basename
+		if(!$options['verbose']) return $variationName;
 
 		$actualInfo = $this->getImageInfo($info['path']); 
 		$info['actualWidth'] = $actualInfo['width'];
