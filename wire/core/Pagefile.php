@@ -28,10 +28,13 @@
  * @property string $description Value of the file’s description field (string), if enabled. Note you can also set this property directly.
  * @property string $tags Value of the file’s tags field (string), if enabled. #pw-group-tags
  * @property string $ext File’s extension (i.e. last 3 or so characters) 
- * @property int $filesize File size (number of bytes).
+ * @property-read int $filesize File size (number of bytes).
  * @property int $modified Unix timestamp of when Pagefile (file, description or tags) was last modified. #pw-group-date-time
- * @property int $mtime Unix timestamp of when file (only) was last modified. #pw-group-date-time
+ * @property-read string $modifiedStr Readable date/time string of when Pagefile was last modified. #pw-group-date-time
+ * @property-read int $mtime Unix timestamp of when file (only) was last modified. #pw-group-date-time
+ * @property-read string $mtimeStr Readable date/time string when file (only) was last modified. #pw-group-date-time
  * @property int $created Unix timestamp of when file was created. #pw-group-date-time
+ * @property-read string $createdStr Readable date/time string of when Pagefile was created #pw-group-date-time
  * @property string $filesizeStr File size as a formatted string, i.e. “123 Kb”. 
  * @property Pagefiles $pagefiles The Pagefiles WireArray that contains this file. #pw-group-other
  * @property Page $page The Page object that this file is part of. #pw-group-other
@@ -522,12 +525,21 @@ class Pagefile extends WireData {
 					parent::set($key, $value); 
 				}
 				break;
+			case 'modifiedStr':
+			case 'createdStr':
+				$value = parent::get(str_replace('Str', '', $key));
+				$value = wireDate($this->wire('config')->dateFormat, $value);
+				break;
 			case 'fileData':
 			case 'filedata':
 				$value = $this->filedata();
 				break;
 			case 'mtime':
+			case 'mtimeStr':
+			case 'filemtime':	
+			case 'filemtimeStr':	
 				$value = filemtime($this->filename()); 
+				if(strpos($key, 'Str')) $value = wireDate($this->wire('config')->dateFormat, $value);
 				break;
 		}
 		if(is_null($value)) return parent::get($key); 
@@ -1025,6 +1037,30 @@ class Pagefile extends WireData {
 	 */
 	public function isTemp($set = null) {
 		return $this->pagefiles->isTemp($this, $set); 
+	}
+
+	/**
+	 * Debug info
+	 * 
+	 * @return array
+	 * 
+	 */
+	public function __debugInfo() {
+		$filedata = $this->filedata();
+		if(empty($filedata)) $filedata = null;
+		$info = array(
+			'url' => $this->url(),
+			'filename' => $this->filename(),
+			'filesize' => $this->filesize(),
+			'description' => $this->description,
+			'tags' => $this->tags, 
+			'created' => $this->createdStr,
+			'modified' => $this->modifiedStr,
+			'filemtime' => $this->mtimeStr,
+			'filedata' => $filedata,
+		);
+		if(empty($info['filedata'])) unset($info['filedata']); 
+		return $info;
 	}
 }
 

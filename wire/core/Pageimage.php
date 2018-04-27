@@ -36,10 +36,13 @@
  * @property-read string $url
  * @property-read string $basename
  * @property-read string $filename
- * @property-read array $focus Focus array contains 'top' (float), 'left' (float), 'zoom' (int), and 'default' (bool) properties. 
+ * @property-read array $focus Focus array contains 'top' (float), 'left' (float), 'zoom' (int), and 'default' (bool) properties.
+ * @property-read string $focusStr Readable string containing focus information.
  * @property-read bool $hasFocus Does this image have custom focus settings? (i.e. $focus['default'] == true)
+ * @property-read array $suffix Array containing file suffix(es).
+ * @property-read string $suffixStr String of file suffix(es) separated by comma.
  * 
- * @method bool|array isVariation($basename, $allowSelf = false)
+ * @method bool|array isVariation($basename, $options = array())
  * @method Pageimage crop($x, $y, $width, $height, $options = array())
  * @method array rebuildVariations($mode = 0, array $suffix = array(), array $options = array())
  * @method install($filename)
@@ -201,7 +204,8 @@ class Pageimage extends Pagefile {
 	 *   - SET: Specify both $top and $left arguments to set (values assumed to be percentages).
 	 *   - SET: Specify array containing "top" and "left" indexes to set (percentages). 
 	 *   - SET: Specify array where index 0 is top and index 1 is left (percentages). 
-	 *   - SET: Specify string in the format "top left", i.e. "25 70" (percentages). 
+	 *   - SET: Specify string in the format "top left", i.e. "25 70" or "top left zoom", i.e. "25 70 30" (percentages).
+	 *   - SET: Specify CSV key=value string in the format "top=25%, left=70%, zoom=30%" in any order
 	 *   - UNSET: Specify boolean false to remove any focus values. 
 	 * @param null|float|int $left Set left value (when $top value is float|int) 
 	 *   - This argument is only used when setting focus and should be omitted otherwise. 
@@ -214,16 +218,29 @@ class Pageimage extends Pagefile {
 	 */
 	public function focus($top = null, $left = null, $zoom = null) {
 		
-		if(is_string($top) && strpos($top, ' ') && $left === null) {
-			// SET string like "25 70 0" (representing "top left zoom")
-			if(strpos($top, ' ') != strrpos($top, ' ')) {
-				// with zoom
-				list($top, $left, $zoom) = explode(' ', $top, 3);
-			} else {
-				// without zoom
-				list($top, $left) = explode(' ', $top, 2);
-				$zoom = 0;
-			}	
+		if(is_string($top) && $left === null) { 
+			if(strpos($top, '=')) {
+				// SET string "top=25%, left=70%, zoom=0%"
+				$a = array('top' => 50, 'left' => 50, 'zoom' => 0);
+				$parts = explode(',', str_replace(array(' ', '%'), '', $top));
+				foreach($parts as $part) {
+					if(!strpos($part, '=')) continue;
+					list($name, $pct) = explode('=', $part);
+					$a[$name] = strpos($pct, '.') !== false ? (float) $pct : (int) $pct;
+				}
+				$top = $a; // for later setting by array
+				unset($a);
+			} else if(strpos($top, ' ')) {
+				// SET string like "25 70 0" (representing "top left zoom")
+				if(strpos($top, ' ') != strrpos($top, ' ')) {
+					// with zoom
+					list($top, $left, $zoom) = explode(' ', $top, 3);
+				} else {
+					// without zoom
+					list($top, $left) = explode(' ', $top, 2);
+					$zoom = 0;
+				}
+			}
 		}
 		
 		if($top === null || $top === true || ($top === 1 && $left === null)) {
@@ -324,8 +341,18 @@ class Pageimage extends Pagefile {
 			case 'focus':
 				$value = $this->focus();
 				break;
+			case 'focusStr':
+				$focus = $this->focus();
+				$value = "top=$focus[top]%,left=$focus[left]%,zoom=$focus[zoom]%" . ($focus['default'] ? " (default)" : "");
+				break;
 			case 'hasFocus': 
 				$value = $this->focus(true);
+				break;
+			case 'suffix':
+				$value = $this->suffix();
+				break;
+			case 'suffixStr':
+				$value = implode(',', $this->suffix());
 				break;
 			default: 
 				$value = parent::get($key); 
@@ -1012,7 +1039,10 @@ class Pageimage extends Pagefile {
 	 * #pw-group-variations
 	 *
 	 * @param array $options Optional, one or more options in an associative array of the following: 
-	 * 	- `info` (bool): when true, method returns variation info arrays rather than Pageimage objects
+	 * 	- `info` (bool): when true, method returns variation info arrays rather than Pageimage objects (default=false).
+	 *  - `verbose` (bool): Return verbose array of info. If false, returns only filenames (default=true). 
+	 *     This option does nothing unless the `info` option is true. Also note that if verbose is false, then all options
+	 *     following this one no longer apply (since it is no longer returning width/height info). 
 	 * 	- `width` (int): only variations with given width will be returned
 	 * 	- `height` (int): only variations with given height will be returned
 	 * 	- `width>=` (int): only variations with width greater than or equal to given will be returned
@@ -1027,15 +1057,26 @@ class Pageimage extends Pagefile {
 	public function getVariations(array $options = array()) {
 
 		if(!is_null($this->variations)) return $this->variations; 
-
-		$variations = $this->wire(new Pageimages($this->pagefiles->page)); 
+		
+		$defaults = array(
+			'info' => false,
+			'verbose' => true, 
+		);
+		
+		$options = array_merge($defaults, $options);
+		if(!$options['verbose'] && !$options['info']) $options['verbose'] = true; // non-verbose only allowed if info==true
+		$variations = $options['info'] ? null : $this->wire(new Pageimages($this->pagefiles->page)); 
 		$dir = new \DirectoryIterator($this->pagefiles->path); 
 		$infos = array();
 
 		foreach($dir as $file) {
 			if($file->isDir() || $file->isDot()) continue; 			
-			$info = $this->isVariation($file->getFilename());
+			$info = $this->isVariation($file->getFilename(), array('verbose' => $options['verbose']));
 			if(!$info) continue; 
+			if($options['info'] && !$options['verbose']) {
+				$infos[] = $info;
+				continue;
+			}
 			$allow = true;
 			if(count($options)) foreach($options as $option => $value) {
 				switch($option) {
@@ -1238,11 +1279,21 @@ class Pageimage extends Pagefile {
 	 * #pw-group-variations
 	 * 
 	 * @param string $basename Filename to check (basename, which excludes path)
-	 * @param bool $allowSelf When true, it will return variation info even if same as current Pageimage.
-	 * @return bool|array Returns false if not a variation, or array of info if it is.
+	 * @param array|bool $options Array of options to modify behavior, or boolean to only specify `allowSelf` option.
+	 *  - `allowSelf` (bool): When true, it will return variation info even if same as current Pageimage. (default=false)
+	 *  - `verbose` (bool): Return verbose array of info? If false, just returns basename (string) or false. (default=true)
+	 * @return bool|string|array Returns false if not a variation, or array (verbose) or string (non-verbose) of info if it is.
 	 *
 	 */
-	public function ___isVariation($basename, $allowSelf = false) {
+	public function ___isVariation($basename, $options = array()) {
+		
+		$defaults = array(
+			'allowSelf' => false, 
+			'verbose' => true, 
+		);
+		
+		if(!is_array($options)) $options = array('allowSelf' => (bool) $options);
+		$options = array_merge($defaults, $options);
 
 		static $level = 0;
 		$variationName = basename($basename);
@@ -1264,10 +1315,13 @@ class Pageimage extends Pagefile {
 		}
 	
 		// if file is the same as the original, then it's not a variation
-		if(!$allowSelf && $variationName == $this->basename) return false;
+		if(!$options['allowSelf'] && $variationName == $this->basename) return false;
 		
 		// if file doesn't start with the original name then it's not a variation
 		if(strpos($variationName, $originalName) !== 0) return false; 
+	
+		// if not in verbose mode, just return variation file name
+		if(!$options['verbose']) return $variationName;
 	
 		// get down to the meat and the base
 		// meat is the part of the filename containing variation info like dimensions, crop, suffix, etc.
@@ -1353,8 +1407,8 @@ class Pageimage extends Pagefile {
 		$actualInfo = $this->getImageInfo($info['path']); 
 		$info['actualWidth'] = $actualInfo['width'];
 		$info['actualHeight'] = $actualInfo['height'];
-		$info['hidpiWidth'] = $this->hidpiWidth(0, $info['width']);
-		$info['hidpiHeight'] = $this->hidpiWidth(0, $info['height']); 
+		$info['hidpiWidth'] = $this->hidpiWidth(0, $info['actualWidth']);
+		$info['hidpiHeight'] = $this->hidpiWidth(0, $info['actualHeight']);
 	
 		if(empty($info['crop'])) {
 			// attempt to extract crop info from suffix
@@ -1483,6 +1537,36 @@ class Pageimage extends Pagefile {
 			parent::unlink();
 			throw new WireException($this->_('Unable to install invalid image')); 
 		}
+	}
+
+	/**
+	 * Debug info
+	 * 
+	 * @return array
+	 * 
+	 */
+	public function __debugInfo() {
+		static $depth = 0;
+		$depth++;
+		$info = parent::__debugInfo();	
+		$info['width'] = $this->width();	
+		$info['height'] = $this->height();
+		$info['suffix'] = $this->suffixStr;
+		if($this->hasFocus) $info['focus'] = $this->focusStr;
+		if(isset($info['filedata']) && isset($info['filedata']['focus'])) unset($info['filedata']['focus']); 
+		if(empty($info['filedata'])) unset($info['filedata']);
+		$original = $this->original;
+		if($original && $original !== $this) $info['original'] = $original->basename;
+		if($depth < 2) {
+			$info['variations'] = array();
+			$variations = $this->getVariations(array('info' => true, 'verbose' => false));
+			foreach($variations as $name) {
+				$info['variations'][] = $name;
+			}
+			if(empty($info['variations'])) unset($info['variations']); 
+		}
+		$depth--;
+		return $info;
 	}
 
 }
