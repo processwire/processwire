@@ -172,7 +172,7 @@ jQuery(document).ready(function($) {
 	if($ffinputs.length) {
 		setTimeout(function() {
 			$ffinputs.each(function() {
-				if($(this).val().length < 1) return;
+				if($(this).val().length < 1 || $(this).attr('value').length > 0) return;
 				$(this).val('').trigger('keyup').change()
 					.closest('.Inputfield').removeClass('InputfieldStateChanged');
 			});
