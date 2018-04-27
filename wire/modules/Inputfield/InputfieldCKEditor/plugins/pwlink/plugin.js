@@ -217,7 +217,7 @@
 			$i.find("#ProcessPageEditLinkForm").data('iframe', $iframe);
 		
 			// capture enter key in main URL text input
-			jQuery("#link_page_url", $i).keydown(function(event) {
+			jQuery("#link_page_url_input", $i).keydown(function(event) {
 				var $this = jQuery(this);
 				var val = jQuery.trim($this.val());
 				if (event.keyCode == 13) {
