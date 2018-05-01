@@ -1314,8 +1314,9 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			// process actions, but only on non-ajax save requests
 			foreach($this->value as $k => $pagefile) {
 				$id = $this->pagefileId($pagefile);
-				$action = $sanitizer->alphanumeric($input->{"act_$id"});
+				$action = $input->{"act_$id"};
 				if(empty($action)) continue;
+				$action = $sanitizer->pageName($action);
 				$actions = $this->getFileActions($pagefile);
 				if(!isset($actions[$action])) continue; // action not available for this file
 				$success = $this->processFileAction($pagefile, $action, $actions[$action]);
