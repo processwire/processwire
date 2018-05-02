@@ -1,32 +1,32 @@
-#modules_form p.description {
+.ModulesList p.description {
   margin-top: 0; }
-#modules_form select.modules_filter {
+.ModulesList select.modules_filter {
   margin-top: 0.75em; }
-#modules_form #Inputfield_new_seconds {
+.ModulesList #Inputfield_new_seconds {
   margin-bottom: 1em; }
-#modules_form .InputfieldFileValidExtensions {
+.ModulesList .InputfieldFileValidExtensions {
   display: none; }
 
-#modules_form table.AdminDataList {
+.ModulesList table.AdminDataList {
   clear: both;
   margin-top: 0.5em;
   margin-bottom: 2em; }
-  #modules_form table.AdminDataList td, #modules_form table.AdminDataList th {
+  .ModulesList table.AdminDataList td, .ModulesList table.AdminDataList th {
     padding-right: 10px !important; }
-    #modules_form table.AdminDataList td:first-child, #modules_form table.AdminDataList th:first-child {
+    .ModulesList table.AdminDataList td:first-child, .ModulesList table.AdminDataList th:first-child {
       width: 30%;
       vertical-align: top; }
-    #modules_form table.AdminDataList td:nth-child(2), #modules_form table.AdminDataList th:nth-child(2) {
+    .ModulesList table.AdminDataList td:nth-child(2), .ModulesList table.AdminDataList th:nth-child(2) {
       text-align: center; }
-  #modules_form table.AdminDataList td:last-child {
+  .ModulesList table.AdminDataList td:last-child {
     width: 70%; }
-  #modules_form table.AdminDataList td p.module-summary {
+  .ModulesList table.AdminDataList td p.module-summary {
     margin: 0; }
-  #modules_form table.AdminDataList td .requires,
-  #modules_form table.AdminDataList td .date,
-  #modules_form table.AdminDataList td .installs {
+  .ModulesList table.AdminDataList td .requires,
+  .ModulesList table.AdminDataList td .date,
+  .ModulesList table.AdminDataList td .installs {
     display: block; }
-  #modules_form table.AdminDataList td .buttons {
+  .ModulesList table.AdminDataList td .buttons {
     display: block;
     margin: 0.25em 0; }
 

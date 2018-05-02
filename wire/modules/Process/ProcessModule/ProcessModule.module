@@ -400,6 +400,7 @@ class ProcessModule extends Process {
 		$form->attr('method', 'post'); 
 		$form->attr('enctype', 'multipart/form-data'); 
 		$form->attr('id', 'modules_form');
+		$form->addClass('ModulesList');
 
 		$this->modules->get('JqueryWireTabs');
 		
@@ -1462,6 +1463,8 @@ class ProcessModule extends Process {
 		$form = $this->modules->get('InputfieldForm');
 		$form->attr('action', './');
 		$form->attr('method', 'post');
+		$form->attr('id', 'modules_install_confirm_form');
+		$form->addClass('ModulesList'); 
 		$form->description = sprintf($this->_('Install %s?'), $name); 
 		
 		$modulesArray[$name] = (int) $this->modules->isInstalled($name); 

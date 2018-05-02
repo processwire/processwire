@@ -1,5 +1,5 @@
 // form that surrounds modules lists
-#modules_form {
+.ModulesList {
 	
 	p.description {
 		margin-top: 0;
@@ -20,7 +20,7 @@
 }
 
 // modules list table(s)
-#modules_form table.AdminDataList {
+.ModulesList table.AdminDataList {
 	clear: both;
 	margin-top: 0.5em;
 	margin-bottom: 2em;
