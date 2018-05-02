@@ -1148,6 +1148,9 @@ class PagesEditor extends Wire {
 				$name .= $nStr;
 			}
 		}
+		
+		$of = $page->of();
+		$page->of(false);
 
 		// Ensure all data is loaded for the page
 		foreach($page->fieldgroup as $field) {
@@ -1161,7 +1164,8 @@ class PagesEditor extends Wire {
 		$copy->setIsNew(true);
 		$copy->name = $name;
 		$copy->parent = $parent;
-
+		$copy->of(false);
+		
 		// set any properties indicated in options	
 		if(isset($options['set']) && is_array($options['set'])) {
 			foreach($options['set'] as $key => $value) {
@@ -1190,8 +1194,6 @@ class PagesEditor extends Wire {
 			if($copy->hasField($field)) $copy->trackChange($field->name);
 		}
 
-		$o = $copy->outputFormatting;
-		$copy->setOutputFormatting(false);
 		$this->pages->cloneReady($page, $copy);
 		$this->cloning++;
 		$options['ignoreFamily'] = true; // skip family checks during clone
@@ -1200,14 +1202,15 @@ class PagesEditor extends Wire {
 		} catch(\Exception $e) {
 			$this->cloning--;
 			$copy->setQuietly('_cloning', null); 
+			$page->of($of);
 			throw $e;
 		}
 		$this->cloning--;
-		$copy->setOutputFormatting($o);
 
 		// check to make sure the clone has worked so far
 		if(!$copy->id || $copy->id == $page->id) {
 			$copy->setQuietly('_cloning', null);
+			$page->of($of);
 			return $this->pages->newNullPage();
 		}
 
@@ -1247,10 +1250,11 @@ class PagesEditor extends Wire {
 		}
 
 		$copy->setQuietly('_cloning', null);
+		$copy->of($of);
+		$page->of($of);
 		$copy->resetTrackChanges();
 		$this->pages->cloned($page, $copy);
 		$this->pages->debugLog('clone', "page=$page, parent=$parent", $copy);
-		// $copy->setTrackChanges(false);
 
 		return $copy;
 	}
