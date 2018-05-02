@@ -1583,6 +1583,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 			if($name && $errorAction 
 				&& $inputfield->getSetting('required') && $inputfield->isEmpty() 
+				&& !$inputfield->getSetting('requiredSkipped')	
 				&& !$this->page->isUnpublished()) {
 				
 				if($errorAction === 1) {

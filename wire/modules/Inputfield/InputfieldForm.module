@@ -325,11 +325,13 @@ class InputfieldForm extends InputfieldWrapper {
 			
 			// shift first $child off the array
 			$child = array_shift($delayedChildren);
-			if(!$child->getSetting('required')) continue; 
+			if(!$child->getSetting('required') || $child->getSetting('requiredSkipped')) continue; 
 			
-		
 			// if field was not shown, then it can't be required
-			if($child->getSetting('showIfSkipped')) continue;
+			if($child->getSetting('showIfSkipped')) {
+				$child->set('requiredSkipped', true);
+				continue;
+			}
 
 			$required = true; 
 			$selectorString = $child->getSetting('requiredIf');
@@ -370,8 +372,8 @@ class InputfieldForm extends InputfieldWrapper {
 				}
 			} else {
 				if(self::debug) $this->debugNote("$child->name - determined that value is not required");
+				$child->set('requiredSkipped', true); 
 			}
-			
 		}
 	}
 
