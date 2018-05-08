@@ -1362,7 +1362,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	
 		/** @var InputfieldText $field */
 		$field = $this->modules->get("InputfieldText");
-		$field->attr('id+name', 'clone_field');
+		$field->attr('id+name', '_clone_field');
 		$field->attr('value', '');
 		$field->label = $this->_('Duplicate/clone this field?');
 		$field->icon = 'copy';
@@ -1643,7 +1643,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				$this->error($e->getMessage()); 
 			}
 			
-			$cloneField = $this->form->get('clone_field');
+			$cloneField = $this->form->get('_clone_field');
 			$cloneName = $cloneField ? $cloneField->attr('value') : ''; 
 			if($cloneName && $this->isAllowedName($cloneName)) {
 				$clone = $this->fields->clone($this->field);
