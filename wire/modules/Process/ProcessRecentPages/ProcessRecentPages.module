@@ -50,7 +50,7 @@ class ProcessRecentPages extends Process {
 					'url' => '?added=1',
 					'label' => 'Created',
 					'icon' => 'users',
-					'navJSON' => 'navJSON/?added=1&me=1',
+					'navJSON' => 'navJSON/?added=1',
 				),
 				array(
 					'url' => '?edited=1&me=1', 
