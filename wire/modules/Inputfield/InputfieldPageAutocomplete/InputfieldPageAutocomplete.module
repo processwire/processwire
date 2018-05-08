@@ -195,7 +195,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		
 		$attrs =
 			"data-max='$max' " . 
-			"data-url='$url' " . 
+			"data-url='" . $this->wire('sanitizer')->entities($url) . "' " . 
 			"data-label='" . $this->wire('sanitizer')->entities($labelField) . "' " . 
 			"data-search='$searchField' " . 
 			"data-operator='$operator'";
