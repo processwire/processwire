@@ -8,8 +8,10 @@
  * For more details about how Process modules work, please see:
  * /wire/core/Process.php
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @method string findReady($selector)
  *
  */
 
@@ -25,8 +27,18 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			);
 	}
 
+	/**
+	 * Default operator for text searches
+	 * 
+	 */
 	const defaultOperator = '%=';
 
+	/**
+	 * Native/system sortable properties
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected $nativeSorts = array(
 		'relevance',
 		'name',
@@ -46,11 +58,36 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		'sortfield',
 		);
 
+	/**
+	 * Names of all Field objects in PW
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected $fieldOptions = array();
-	protected $customSorts = array();
+
+	/**
+	 * All operators where key is operator and value is description
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected $operators = array();
+
+	/**
+	 * Items per pagination
+	 * 
+	 * @var int
+	 * 
+	 */
 	protected $resultLimit = 25;
-	protected $maxLimit = 250;
+
+	/**
+	 * Lister instance, when applicable 
+	 * 
+	 * @var null|ProcessPageLister
+	 * 
+	 */
 	protected $lister = null;
 	
 	/**
@@ -61,7 +98,11 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected $adminSearchMode = false;
-	
+
+	/**
+	 * Initialize module
+	 * 
+	 */
 	public function init() {
 
 		foreach($this->fields as $field) {
@@ -74,6 +115,12 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		parent::init();
 	}
 
+	/**
+	 * Get operators used for searches, where key is operator and value is description
+	 * 
+	 * @return array
+	 * 
+	 */
 	static public function getOperators() {
 		$f = __FILE__; 
 		return array(
@@ -105,6 +152,20 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$this->operators = self::getOperators();
 	}
 
+	/**
+	 * Hookable function to optionally modify selector before it is sent to $pages->find()
+	 * 
+	 * Not applicable when Lister is handling the search/render. 
+	 * 
+	 * #pw-hooker
+	 *
+	 * @param string $selector Selector that will be used to find pages
+	 * @return string Must return the selector (optionally modified)
+	 *
+	 */
+	protected function ___findReady($selector) {
+		return $selector;
+	}
 
 	/**
 	 * Perform an interactive search and provide a search form (default)
@@ -140,6 +201,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$lister->columns = $this->getDisplayFields();
 			return $lister->execute();
 		} else {
+			$selector = $this->findReady($selector); 
 			$matches = $this->pages->find($selector);
 			return $this->render($matches, $displaySelector);
 		}
@@ -157,7 +219,6 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 		$this->fullSetup();
 		$selector = '';
-		$displaySelector = '';
 		$limit = $this->resultLimit;
 		$start = 0;
 		$status = 0;
@@ -314,6 +375,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			} 
 		}
 	
+		$selector = $this->findReady($selector); 
 		$items = $this->pages->find($selector);
 		
 		if(!$superuser && $checkEditAccess) {
@@ -395,12 +457,25 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 	/**
 	 * Render the search results
+	 * 
+	 * @param PageArray $matches
+	 * @param string $displaySelector
+	 * @return string
 	 *
 	 */
 	protected function render(PageArray $matches, $displaySelector) {
 
 		$out = '';
-		if($displaySelector) $this->message(sprintf($this->_n('Found %1$d page using selector: %2$s', 'Found %1$d pages using selector: %2$s', $matches->getTotal()), $matches->getTotal(), $displaySelector));
+		
+		if($displaySelector) {
+			$this->message(
+				sprintf(
+					$this->_n('Found %1$d page using selector: %2$s', 'Found %1$d pages using selector: %2$s', $matches->getTotal()), 
+					$matches->getTotal(), 
+					$displaySelector
+				)
+			);
+		}
 
 		// determine what fields will be displayed
 		$display = array();
@@ -423,7 +498,10 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 				$class = 'show_options';
 			} 
 
-			$out .= "\n<div id='ProcessPageSearchResults' class='$class'>" . $this->renderMatchesTable($matches, $display) . "\n</div>";
+			$out .= 
+				"\n<div id='ProcessPageSearchResults' class='$class'>" . 
+					$this->renderMatchesTable($matches, $display) . 
+				"\n</div>";
 		}
 
 		return $out;
@@ -431,12 +509,22 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 	/**
 	 * Build a selector based upon interactive choices from the search form 
+	 * 
+	 * Only used by execute(), not used by executeFor()
+	 * 
+	 * ~~~~~
+	 * Returns array(
+	 *   0 => $selector,         // string, main selector for search
+	 *   1 => $displaySelector,  // string, selector for display purposes
+	 *   2 => $initSelector,     // string, selector for initialization in Lister (the part user cannot change)
+	 *   3 => $defaultSelector   // string default selector used by Lister (the part user can change)
+	 * );
+	 * ~~~~~
+	 * @return array
 	 *
 	 */
 	protected function buildSelector() {
 		$selector = ''; // for regular ProcessPageSearch
-		$initSelector = ''; // for Lister, non-changable part of the selector
-		$defaultSelector = ''; // for Lister, changeable filters
 
 		// search query text
 		$q = $this->input->whitelist('q');
@@ -485,7 +573,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$s = ''; // anything added to this will be populated to both $selector and $initSelector below
 
 		// limit results for pagination
-		$s = ", limit={$this->resultLimit}";
+		$s .= ", limit={$this->resultLimit}";
 		
 		$adminRootPage = $this->wire('pages')->get($this->wire('config')->adminRootPageID); 
 
@@ -560,8 +648,12 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$this->input->whitelist('sort', 'relevance');
 		if($this->input->get->sort) {
 			$sort = $this->sanitizer->fieldName($this->input->get->sort);
-			if($sort && (in_array($sort, $this->nativeSorts) || in_array($sort, $this->fieldOptions))) $this->input->whitelist('sort', $sort);
-			if($this->input->get->reverse) $this->input->whitelist('reverse', 1);
+			if($sort && (in_array($sort, $this->nativeSorts) || in_array($sort, $this->fieldOptions))) {
+				$this->input->whitelist('sort', $sort);
+			}
+			if($this->input->get->reverse) {
+				$this->input->whitelist('reverse', 1);
+			}
 		}
 
 		// template
@@ -576,6 +668,10 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 	/**
 	 * Is the given field name selectable?
+	 * 
+	 * @param string $name
+	 * @param int $level
+	 * @return bool
 	 *
 	 */
 	protected function isSelectableFieldName($name, $level = 0) {
@@ -618,12 +714,14 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 		$out  = "\n\t<p id='wrap_search_query'>";
 
-		$out .= "\n\t<p id='wrap_search_field'>" .
+		$out .= 
+			"\n\t<p id='wrap_search_field'>" .
 			"\n\t<label for='search_field'>" . $this->_('Search in field(s):') . "</label>" .
 			"\n\t<input type='text' name='field' value='" . htmlentities($this->searchFields, ENT_QUOTES) . "' />" .
 			"\n\t</p>";
 
-		$out .=	"\n\t<p id='wrap_search_operator'>" .
+		$out .=	
+			"\n\t<p id='wrap_search_operator'>" .
 			"\n\t<label for='search_operator'>" . $this->_('Type of search:') . "</label>" .
 			"\n\t<select id='search_operator' name='operator'>";
 
@@ -633,10 +731,12 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$out .= "\n\t\t<option$attrs value='$n'>$desc (a" . htmlentities($operator) . "b)</option>";
 			$n++;
 		}
-		$out .= "\n\t</select>" .
+		$out .= 
+			"\n\t</select>" .
 			"\n\t</p>";
 
-		$out .= "\n\t<label class='ui-priority-primary' for='search_query'>" . $this->_('Search for:') . "</label>" .
+		$out .= 
+			"\n\t<label class='ui-priority-primary' for='search_query'>" . $this->_('Search for:') . "</label>" .
 			"\n\t<input id='search_query' type='text' name='q' value='" . htmlentities($this->input->whitelist('q'), ENT_QUOTES, "UTF-8") . "' />" .
 			"\n\t<input type='hidden' name='show_options' value='1' />" . 
 			"\n\t</p>";
@@ -646,7 +746,8 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 		$advCollapsed = true; 
 
-		$out2 = "\n\t<p id='wrap_search_template'>" .
+		$out2 = 
+			"\n\t<p id='wrap_search_template'>" .
 			"\n\t<label for='search_template'>" . $this->_('Limit to template:') . "</label>" .
 			"\n\t<select id='search_template' name='template'>" .
 			"\n\t\t<option></option>";
@@ -658,11 +759,13 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$out2 .= "\n\t<option$attrs>{$template->name}</option>";
 		}
 
-		$out2 .= "\n\t</select>" .
+		$out2 .= 
+			"\n\t</select>" .
 			"\n\t</p>";
 
 
-		$out2.= "\n\t<p id='wrap_search_sort'>" .
+		$out2.= 
+			"\n\t<p id='wrap_search_sort'>" .
 			"\n\t<label for='search_sort'>" . $this->_('Sort by:') . "</label>" .
 			"\n\t<select id='search_sort' name='sort'>";
 
@@ -677,35 +780,41 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$out2 .= "\n\t\t<option$attrs>$s</option>";
 		}
 
-		$out2 .= "\n\t</select>" .
+		$out2 .= 
+			"\n\t</select>" .
 			"\n\t</p>";
 
 		if($sort != 'relevance') {
 			$reverse = $this->input->whitelist('reverse'); 
-			$out2 .= "\n\t<p id='wrap_search_options'>" .
+			$out2 .= 
+				"\n\t<p id='wrap_search_options'>" .
 				"\n\t<label><input type='checkbox' name='reverse' value='1' " . ($reverse ? "checked='checked' " : '') . "/> " . $this->_('Reverse sort?') . "</label>" .
 				"\n\t</p>";
 			if($reverse) $advCollapsed = false;
 		}
 
 		$display = $this->input->whitelist('display'); 
-		$out2.= "\n\t<p id='wrap_search_display'>" .
+		$out2 .= 
+			"\n\t<p id='wrap_search_display'>" .
 			"\n\t<label for='search_display'>" . $this->_('Display field(s):') . "</label>" .
 			"\n\t<input type='text' name='display' value='" . htmlentities($display, ENT_QUOTES) . "' />" .
 			"\n\t</p>";
 		if($display && $display != 'title,path') $advCollapsed = false;
 
 
+		/** @var InputfieldSubmit $submit */
 		$submit = $this->modules->get("InputfieldSubmit");
 		$submit->attr('name', 'submit');
 		$submit->attr('value', $this->_x('Search', 'submit')); // Search submit button for advanced search
 		$out .= "<p>" . $submit->render() . "</p>";
 
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm");
 		$form->attr('id', 'ProcessPageSearchOptionsForm');
 		$form->method = 'get';
 		$form->action = './';
 
+		/** @var InputfieldMarkup $field */
 		$field = $this->modules->get("InputfieldMarkup");
 		$field->label = $this->_("Search Options");
 		$field->value = $out;
@@ -719,7 +828,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 		$form->add($field);
 
-		/* Remove temporarily
+		/* no longer in use
 		$field = $this->modules->get("InputfieldMarkup"); 
 		$field->id = 'ProcessPageSearchShortcuts'; 
 		$field->collapsed = true; 
@@ -733,46 +842,22 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 	}
 
-	protected function renderShortcuts() {
 
-		$out = '';
-		$links = array(
-			'Quick Links',
-			"All by creation date" => '?q=&submit=Search&display=title+path+created&sort=created&reverse=1' ,
-			"All by latest edit date" => '?q=&submit=Search&display=title+path+created&sort=modified&reverse=1',
-			"Users by creation date" => '?q=&template=user&submit=Search&operator=~%3D&display=name+email+created&sort=created&reverse=1',
-			'New pages by template',
-			);
-
-		foreach($this->templates as $template) {
-			// Quick links only for content with more than one page
-			// if($template->getNumPages() < 2) continue;
-
-			// Users get own quick link earlier, others are rather irrelevant
-			if($template->flags & Template::flagSystem) continue; 
-
-			$links[$template->name] = "?q=&template={$template->name}&submit=Search&operator=~%3D&display=title+path+created&sort=created&reverse=1";
-		}
-
-		foreach($links as $label => $value) {
-			if(is_int($label)) {
-				$out .= "<h4>$value</h4>";
-			} else {
-				$value .= "&show_options=1";
-				$value = htmlspecialchars($value); 
-				$out .= "<a href='$value'>$label</a>";
-			}
-		}
-
-		return $out;
-	}
-
-	protected function renderMatchesTable(PageArray $matches, array $display, $id = 'ProcessPageSearchResultsList') {
+	/**
+	 * Render a table of matches
+	 * 
+	 * @param PageArray $matches
+	 * @param array $display Fields to display (from getDisplayFields method)
+	 * @return string
+	 * 
+	 */
+	protected function renderMatchesTable(PageArray $matches, array $display) {
 
 		if(!count($display)) $display = array('path'); 
 		$out = '';
 
 		if(!count($matches)) return $out;
+		/** @var MarkupAdminDataTable $table */
 		$table = $this->modules->get("MarkupAdminDataTable");
 		$table->setSortable(false); 
 		$table->setEncodeEntities(false);
@@ -817,7 +902,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * 
 	 * Applicable to adminSearchMode only. 
 	 * 
-	 * @param $q Text to find
+	 * @param string $q Text to find
 	 * @return array Array of matches
 	 * 
 	 */
@@ -872,8 +957,9 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * Render the provided matches as a JSON string for AJAX use
 	 * 
 	 * @param PageArray $matches
-	 * @param array Array of fields to display, or display format associative array
+	 * @param array $display Array of fields to display, or display format associative array
 	 * @param string $selector
+	 * @return string
 	 *
 	 */
 	protected function renderMatchesAjax(PageArray $matches, $display, $selector) {
@@ -964,6 +1050,9 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * Convert object to an array where possible, otherwise convert to a string
 	 *
 	 * For use by renderMatchesAjax
+	 * 
+	 * @param Page|WireData|WireArray|Wire|object $o
+	 * @return array
 	 *
 	 */
 	protected function setupObjectMatch($o) {
@@ -985,6 +1074,9 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * Filter an array converting any indexes containing objects to arrays or strings
 	 *
 	 * For use by renderMatchesAjax
+	 * 
+	 * @param array $a
+	 * @return array
 	 *
 	 */
 	protected function setupArrayMatch(array $a) {
@@ -995,6 +1087,13 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		return $a; 
 	}
 
+	/**
+	 * Render search for that submits to this process
+	 * 
+	 * @param string $placeholder Value for placeholder attribute in search input
+	 * @return string
+	 * 
+	 */
 	public function renderSearchForm($placeholder = '') {
 
 		$q = substr($this->input->get->q, 0, 128);
@@ -1008,9 +1107,10 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$placeholder = '';
 		}
 
-		$out = 	"\n<form id='ProcessPageSearchForm' data-action='{$adminURL}page/search/' action='{$adminURL}page/search/' method='get'>" .
+		$out = 	
+			"\n<form id='ProcessPageSearchForm' data-action='{$adminURL}page/search/' action='{$adminURL}page/search/' method='get'>" .
 			"\n\t<label for='ProcessPageSearchQuery'><i class='fa fa-search'></i></label>" . 
-			"\n\t<input type='text' id='ProcessPageSearchQuery' name='q' value='$q'$placeholder />" .
+			"\n\t<input type='text' id='ProcessPageSearchQuery' name='q' value='$q' $placeholder />" .
 			"\n\t<input type='submit' id='ProcessPageSearchSubmit' name='search' value='Search' />" . //" . $this->_x('Search', 'input') . "' />" . // Text that appears as the placeholder text in the top search submit input
 			"\n\t<input type='hidden' name='show_options' value='1' />" .
 			"\n\t<span id='ProcessPageSearchStatus'></span>" .
@@ -1064,5 +1164,42 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		return $inputfields;
 	}
 
+	/*
+	 * No longer in use, but here for reference:
+	 * 
+	protected function renderShortcuts() {
+
+		$out = '';
+		$links = array(
+			'Quick Links',
+			"All by creation date" => '?q=&submit=Search&display=title+path+created&sort=created&reverse=1' ,
+			"All by latest edit date" => '?q=&submit=Search&display=title+path+created&sort=modified&reverse=1',
+			"Users by creation date" => '?q=&template=user&submit=Search&operator=~%3D&display=name+email+created&sort=created&reverse=1',
+			'New pages by template',
+			);
+
+		foreach($this->templates as $template) {
+			// Quick links only for content with more than one page
+			// if($template->getNumPages() < 2) continue;
+
+			// Users get own quick link earlier, others are rather irrelevant
+			if($template->flags & Template::flagSystem) continue; 
+
+			$links[$template->name] = "?q=&template={$template->name}&submit=Search&operator=~%3D&display=title+path+created&sort=created&reverse=1";
+		}
+
+		foreach($links as $label => $value) {
+			if(is_int($label)) {
+				$out .= "<h4>$value</h4>";
+			} else {
+				$value .= "&show_options=1";
+				$value = htmlspecialchars($value); 
+				$out .= "<a href='$value'>$label</a>";
+			}
+		}
+
+		return $out;
+	}
+	*/
 
 }
