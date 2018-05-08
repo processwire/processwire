@@ -177,7 +177,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		$operator = $this->operator; 
 		$id = $this->id; 
 		$max = (int) $this->maxSelectedItems; 
-		$class = $this->useList ? 'has_list' : 'no_list';
+		$class = 'ui-autocomplete-input ' . ($this->useList ? 'has_list' : 'no_list');
 		if($this->useAndWords) $class .= " and_words";
 		if($this->allowAnyValue) $class .= " allow_any";
 		
