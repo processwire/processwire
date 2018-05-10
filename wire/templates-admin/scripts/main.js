@@ -449,11 +449,12 @@ if(typeof ProcessWire != "undefined") {
 			vex.dialog.confirm({
 				message: message,
 				callback: function(v) {
-					if(v) func();
+					func(v);
 				}
 			});
 		} else if(typeof func != "undefined") {
-			if(confirm(message)) func();
+			if(confirm(message)) func(true);
+			else func(false);
 		} else {
 			// regular JS confirm behavior
 			return confirm(message);
