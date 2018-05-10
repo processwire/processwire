@@ -383,6 +383,9 @@ var pwPanels = {
 				$panel.find('iframe.pw-panel-content').remove();
 			}
 
+			// trigger panel-closed event
+			$(document).trigger('pw-panel-closed', $panel);
+
 		} else {
 
 			// open the panel
