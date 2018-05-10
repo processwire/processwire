@@ -276,9 +276,12 @@ class InputfieldSelect extends Inputfield {
 		reset($options); 
 		$key = key($options); 
 		$hasBlankOption = empty($key); 
-		if($allowBlank && !$hasBlankOption && !$this->attr('multiple') 
-			&& (!$this->required || ($this->hasFieldtype == 'FieldtypeOptions' && !$this->attr('value')))) {
-			$out .= "<option value=''>&nbsp;</option>";
+		if($allowBlank && !$hasBlankOption && !$this->attr('multiple')) { 
+			if($this->getSetting('required') && $this->attr('value')) {
+				// if required and a value is already selected, do not add a blank option
+			} else {
+				$out .= "<option value=''>&nbsp;</option>";
+			}
 		}
 
 		foreach($options as $value => $label) {
