@@ -63,7 +63,7 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 
 	public function getInputfield(Page $page, Field $field) {
 		$inputfield = $this->wire(new InputfieldFieldsetOpen());
-		$inputfield->class = $this->className();
+		$inputfield->class = $this->className() . ' InputfieldFieldset';
 		return $inputfield; 
 	}
 
