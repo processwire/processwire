@@ -565,12 +565,9 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			$key = "name$language";
 			if($value == $page->get($key)) continue; 
 			
-			// @todo make the following apply without debug+advanced mode after further testing on dev
-			if($this->wire('config')->debug && $this->wire('config')->advanced) {
-				$parentID = $page->parent_id;
-				if(!$parentID) $parentID = (int) $this->wire('input')->post('parent_id');
-				if(!$this->checkLanguagePageName($language, $page, $parentID, $value, $inputfield)) continue;
-			}
+			$parentID = $page->parent_id;
+			if(!$parentID) $parentID = (int) $this->wire('input')->post('parent_id');
+			if(!$this->checkLanguagePageName($language, $page, $parentID, $value, $inputfield)) continue;
 
 			if($page->id) {
 				$page->set($key, $value);
