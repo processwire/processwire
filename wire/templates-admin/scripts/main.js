@@ -364,7 +364,8 @@ var ProcessWireAdmin = {
 					});
 					
 					$ul.addClass('navJSON').addClass('length' + parseInt(data.list.length)).hide();
-					if($ul.children().length) $ul.css('opacity', 1.0).fadeIn('fast');
+					if($ul.children().length) $ul.css('opacity', 1.0);
+					if(hoveredDropdownAjaxItem == $a) $ul.fadeIn('fast');
 					
 					if(numSubnavJSON) {
 						var numParents = $ul.parents('ul').length;
