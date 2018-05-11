@@ -83,8 +83,6 @@ class ProcessLanguageTranslator extends Process {
 		$id = $this->input->get->language_id;
 		if($id) {
 			$this->setLanguage((int) $id);
-		} else if($this->session->translateLanguageID) {
-			$this->setLanguage($this->session->translateLanguageID);
 		}
 		// else throw new WireException("No language specified"); 
 		parent::init();
