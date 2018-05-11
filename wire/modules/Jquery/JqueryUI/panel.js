@@ -382,6 +382,9 @@ var pwPanels = {
 				// force it to create new iframe on every load
 				$panel.find('iframe.pw-panel-content').remove();
 			}
+			
+			// trigger panel-closed event
+			$(document).trigger('pw-panel-closed', $panel);
 
 		} else {
 
@@ -442,6 +445,9 @@ var pwPanels = {
 		
 			// indicate that this panel has been opened and is initialized
 			$panel.addClass('pw-panel-container-init');
+			
+			// trigger panel-opened event
+			$(document).trigger('pw-panel-opened', $panel);
 		}
 
 		return false;
