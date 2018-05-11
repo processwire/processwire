@@ -444,16 +444,40 @@ var ProcessWireAdmin = {
 };
 
 if(typeof ProcessWire != "undefined") {
-	ProcessWire.confirm = function(message, func) {
-		if(typeof vex != "undefined" && typeof func != "undefined") {
+	/**
+	 * Confirmation dialog
+	 * 
+	 * ~~~~~
+	 * if(ProcessWire.confirm('Send this message now?', function() {
+	 *   // user clicked Ok
+	 * }, function() {
+	 *   // user clicked Cancel
+	 * }); 
+	 * ~~~~~
+	 * 
+	 * @param message Message to display (or question to ask)
+	 * @param funcOk Callback called on "Ok"
+	 * @param funcCancel Callback called on "Cancel" (optional)
+	 * 
+	 */
+	ProcessWire.confirm = function(message, funcOk, funcCancel) {
+		if(typeof vex != "undefined" && typeof funcOk != "undefined") {
 			vex.dialog.confirm({
 				message: message,
 				callback: function(v) {
-					if(v) func();
+					if(v) {
+						funcOk();
+					} else if(typeof funcCancel != "undefined") {
+						funcCancel();
+					}
 				}
 			});
-		} else if(typeof func != "undefined") {
-			if(confirm(message)) func();
+		} else if(typeof funcOk != "undefined") {
+			if(confirm(message)) {
+				funcOk();
+			} else if(typeof funcCancel != "undefined") {
+				funcCancel();
+			}
 		} else {
 			// regular JS confirm behavior
 			return confirm(message);
