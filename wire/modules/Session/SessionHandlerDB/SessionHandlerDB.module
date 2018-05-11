@@ -42,13 +42,20 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$this->database = $this->wire('database');
 		$this->set('useIP', 0); // track IP address?
 		$this->set('useUA', 0); // track query string?
+		$this->set('noPS', 0); // disallow parallel sessions per user
 		$this->set('lockSeconds', 50); // max number of seconds to wait to obtain DB row lock
 	}
 	
 	public function init() {
 		parent::init();
 		// keeps session active
-		$this->wire('session')->set($this, 'ts', time()); 
+		$this->wire('session')->set($this, 'ts', time());
+		$user = $this->wire('user');
+		if ($this->noPS) {
+			$this->addHookAfter('Session::loginSuccess', function ($e) {
+	        	$this->cleanup();
+	    	});
+		}
 	}
 
 	/**
@@ -168,6 +175,24 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		return $this->database->exec($sql);
 	}
 
+	 /**
+     * Destroy all sessions of a user in the DB except current
+     * call this function if you want to disallow multiple devices
+     * will also destroy orphaned sessions
+     *
+     * @return bool True on success, false on failure 
+     *
+     */
+    public function cleanup() {
+        $table = self::dbTableName;
+        $database = $this->database;
+        $sessionID = $_COOKIE[session_name()];
+        $userID = $this->wire('user')->id;
+        $query = $database->prepare("DELETE FROM `$table` WHERE user_id=:user_id AND id NOT IN (:id)"); 
+        $query->execute(array(":id" => $sessionID,":user_id" => $userID));
+        return true; 
+    }
+
 	/**
 	 * Install sessions table
 	 *
@@ -236,6 +261,15 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$f->label = $this->_('Track user agent in session data?');
 		$f->notes = $this->_('The user agent typically contains information about the browser being used.');
 		$f->description = $description;
+		$form->add($f);
+
+		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$f->attr('name', 'noPS'); 
+		$f->attr('value', 1);
+		$f->attr('checked', empty($data['noPS']) ? '' : 'checked');
+		$f->label = $this->_('Disallow parallel sessions');
+		$f->notes = $this->_('Successful Login expires all sessions on other devices and removes orphaned sessions in the DB.');
+		$f->description = $this->_('Checking this box will allow only one single session for a user at a time.');
 		$form->add($f);
 
 		if(ini_get('session.gc_probability') == 0) {
