@@ -5,8 +5,13 @@
  *
  * @see /wire/core/SessionHandler.php
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @property int|bool $useIP Track IP address?
+ * @property int|bool $useUA Track user agent?
+ * @property int|bool $noPS Prevent more than one session per logged-in user?
+ * @property int $lockSeconds Max number of seconds to wait to obtain DB row lock.
  *
  */
 
@@ -41,14 +46,16 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		parent::__construct();
 		$this->database = $this->wire('database');
 		$this->set('useIP', 0); // track IP address?
-		$this->set('useUA', 0); // track query string?
+		$this->set('useUA', 0); // track user agent?
+		$this->set('noPS', 0); // disallow parallel sessions per user
 		$this->set('lockSeconds', 50); // max number of seconds to wait to obtain DB row lock
 	}
 	
 	public function init() {
 		parent::init();
 		// keeps session active
-		$this->wire('session')->set($this, 'ts', time()); 
+		$this->wire('session')->set($this, 'ts', time());
+		if($this->noPS) $this->addHookAfter('Session::loginSuccess', $this, 'hookLoginSuccess');
 	}
 
 	/**
@@ -238,6 +245,15 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$f->description = $description;
 		$form->add($f);
 
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', 'noPS');
+		$f->attr('value', 1);
+		$f->attr('checked', empty($data['noPS']) ? '' : 'checked');
+		$f->label = $this->_('Disallow parallel sessions?');
+		$f->notes = $this->_('When enabled, successful login expires all other sessions for that user on other devices/browsers.');
+		$f->description = $this->_('Checking this box will allow only one single session for a logged-in user at a time.');
+		$form->add($f);
+
 		if(ini_get('session.gc_probability') == 0) {
 			$form->warning(
 				"Your PHP has a configuration error with regard to sessions. It is configured to never clean up old session files. " . 
@@ -372,6 +388,29 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 			$query->execute();
 			$this->message("Updated sessions database for larger data storage", Notice::log);
 		}
+	}
+
+	/**
+	 * Hook called after Session::loginSuccess to enforce the noPS option
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookLoginSuccess(HookEvent $event) {
+		if(!$this->noPS) return;
+		/** @var User $user */
+		$user = $event->arguments(0);
+		$table = self::dbTableName;
+		$query = $this->wire('database')->prepare("DELETE FROM `$table` WHERE user_id=:user_id AND id!=:id");
+		$query->bindValue(':id', session_id()); 
+		$query->bindValue(':user_id', $user->id, \PDO::PARAM_INT);  
+		$query->execute();
+		$n = $query->rowCount();
+		if($n) $this->message(sprintf(
+			$this->_('Previous login session for “%s” has been removed/logged-out.'), 
+			$user->name
+		));
+		$query->closeCursor();
 	}
 
 }
