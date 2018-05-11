@@ -393,7 +393,6 @@ class WireTextTools extends Wire {
 		$tests = array();
 		$punctuationChars = $this->getPunctuationChars();
 		$endSentenceChars = $this->getPunctuationChars(true);
-		$noEndSentenceWords = explode(' ', $options['noEndSentence']); 
 
 		if($options['keepFormatTags']) {
 			$options['keepTags'] = array_merge($options['keepTags'], array(
@@ -439,7 +438,7 @@ class WireTextTools extends Wire {
 		if($type === 'block') {
 			$pos = $options['maximize'] ? mb_strrpos($str, $blockEndChar) : mb_strpos($str, $blockEndChar);
 			if($pos === false) {
-				$type = 'word';
+				$type = 'sentence';
 			} else {
 				$tests[] = $pos;
 				$options['trim'] .= $blockEndChar;
@@ -448,10 +447,7 @@ class WireTextTools extends Wire {
 
 		// find sentences closest to end	
 		if($type === 'sentence') {
-			foreach($endSentenceChars as $find) {
-				$pos = $options['maximize'] ? mb_strrpos($str, "$find ") : mb_strpos($str, "$find ");
-				if($pos) $tests[] = $pos;
-			}
+			$this->truncateSentenceTests($str, $tests, $endSentenceChars, $options);
 			if(!count($tests)) $type = 'punctuation';
 		}
 
@@ -489,37 +485,20 @@ class WireTextTools extends Wire {
 			$lastChar = mb_substr($result, -1);
 			$result = rtrim($result, $options['trim']);
 
-			if($type === 'sentence') {
-				$pos = strrpos($result, ' ');
-				if(!$pos) break;
-				// if sentence type, make sure it doesn't end with a disallowed word
-				$lastWord = mb_substr($result, $pos + 1);
-				while(!ctype_alnum(mb_substr($lastWord, 0, 1)) && strlen($lastWord)) {
-					$lastWord = mb_substr($lastWord, 1);
-				}
-				foreach($noEndSentenceWords as $word) {
-					if($word !== $lastWord) continue;
-					$tests[] = $pos;
-					$type = 'word';
-					$result = '';
-					break;
-				}
-			} else if($type === 'block') {
+			if($type === 'sentence' || $type === 'block') {
 				// good to go with result as is
-			} else {
-				if(in_array($lastChar, $endSentenceChars)) {
-					// great, end with sentence ending punctuation
-				} else if(in_array($lastChar, $punctuationChars)) {
-					$trims = ' ';
-					foreach($punctuationChars as $c) {
-						if(mb_strpos($options['noTrim'], $c) !== false) continue;
-						if(in_array($c, $endSentenceChars)) continue;
-						$trims .= $c;
-					}
-					$result = rtrim($result, $trims) . $options['more'];
-				} else {
-					$result .= $options['more'];
+			} else if(in_array($lastChar, $endSentenceChars)) {
+				// good, end with sentence ending punctuation
+			} else if(in_array($lastChar, $punctuationChars)) {
+				$trims = ' ';
+				foreach($punctuationChars as $c) {
+					if(mb_strpos($options['noTrim'], $c) !== false) continue;
+					if(in_array($c, $endSentenceChars)) continue;
+					$trims .= $c;
 				}
+				$result = rtrim($result, $trims) . $options['more'];
+			} else {
+				$result .= $options['more'];
 			}
 
 		} while(!strlen($result) && count($tests));
@@ -528,8 +507,63 @@ class WireTextTools extends Wire {
 		if(strlen($result) && count($options['keepTags']) && strpos($result, '<') !== false) {
 			$result = $this->fixUnclosedTags($result);
 		}
-
+		
 		return $result;
+	}
+
+	/**
+	 * Helper to truncate() method, generate tests/positions for where sentences end
+	 * 
+	 * @param string $str
+	 * @param array $tests Tests to append found positions to
+	 * @param array $endSentenceChars
+	 * @param array $options Options provided to truncate method
+	 * 
+	 */
+	protected function truncateSentenceTests($str, array &$tests, array $endSentenceChars, array $options) {
+		
+		$chars = $endSentenceChars;
+		$thisStr = $str;
+		$nextStr = '';
+		$nextOffset = 0;
+		$offset = 0; // offset used for maximize==false mode only
+		$n = 0;
+		
+		// regex matches specified words, plus digits or single letters followed by period
+		$noEndRegex = '!\b(' . str_replace(' ', '|', preg_quote($options['noEndSentence'])) . '|\d+\.|\w\.)$!';
+		
+		do {
+			
+			if($nextStr) {
+				$offset = $nextOffset;
+				$thisStr = $nextStr;
+				$nextStr = '';
+				$chars = array('.');
+			}
+			
+			foreach($chars as $find) {
+				
+				$pos = $options['maximize'] ? mb_strrpos($thisStr, "$find ") : mb_strpos($thisStr, "$find ", $offset);
+				
+				if(!$pos) continue;
+				
+				if($find === '.') {
+					$testStr = mb_substr($thisStr, 0, $pos + 1);
+					if(preg_match($noEndRegex, $testStr, $matches)) {
+						// ends with a disallowed word, next time try to match with a shorter string
+						if($options['maximize']) {
+							$nextStr = mb_substr($testStr, 0, mb_strlen($testStr) - mb_strlen($matches[1]) - 1);
+						} else {
+							$nextOffset = mb_strlen($testStr);
+						}
+						continue;
+					}
+				}
+				
+				$tests[] = $pos;
+			}
+			
+		} while(strlen($nextStr) && ++$n < 3);
 	}
 
 	/**
