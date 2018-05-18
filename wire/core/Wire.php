@@ -1476,8 +1476,9 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * @param string $str Text to log, or omit to return the `$log` API variable.
 	 * @param array $options Optional extras to include: 
-	 * 	- `url` (string): URL to record the with the log entry (default=auto-detect)
-	 * 	- `name` (string): Name of log to use (default=auto-detect)
+	 *  - `url` (string): URL to record the with the log entry (default=auto-detect)
+	 *  - `name` (string): Name of log to use (default=auto-detect)
+	 *  - `user` (User|string|null): User instance, user name, or null to log for current User. (default=null)
 	 * @return WireLog
 	 *
 	 */

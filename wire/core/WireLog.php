@@ -95,6 +95,7 @@ class WireLog extends Wire {
 	 * @param array $options Options to modify default behavior:
 	 *   - `showUser` (bool): Include the username in the log entry? (default=true)
 	 *   - `showURL` (bool): Include the current URL in the log entry? (default=true) 
+	 *   - `user` (User|string|null): User instance, user name, or null to use current User. (default=null)
 	 *   - `url` (bool): URL to record with the log entry (default=auto determine)
 	 *   - `delimiter` (string): Log entry delimiter (default="\t" aka tab)
 	 * @return bool Whether it was written or not (generally always going to be true)
@@ -106,6 +107,7 @@ class WireLog extends Wire {
 		$defaults = array(
 			'showUser' => true,
 			'showURL' => true,
+			'user' => null, 
 			'url' => '', // URL to show (default=blank, auto-detect)
 			'delimiter' => "\t",
 			);
@@ -141,8 +143,15 @@ class WireLog extends Wire {
 		}
 		
 		if($options['showUser']) {
-			$user = $this->wire('user');
-			$text = ($user && $user->id ? $user->name : "?") . "$options[delimiter]$text";
+			$user = !empty($options['user']) ? $options['user'] : $this->wire('user');
+			$userName = '';
+			if($user instanceof Page) {
+				$userName = $user->id ? $user->name : '?';
+			} else if(is_string($user)) {
+				$userName = $user;
+			}
+			if(empty($userName)) $userName = '?';
+			$text = "$userName$options[delimiter]$text";
 		}
 		
 		return $log->save($text);
