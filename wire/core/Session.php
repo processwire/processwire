@@ -618,6 +618,18 @@ class Session extends Wire implements \IteratorAggregate {
 	}
 
 	/**
+	 * Remove all session variables in given namespace
+	 * 
+	 * @param string|object $ns
+	 * @return $this
+	 * 
+	 */
+	public function removeAllFor($ns) {
+		$this->remove($ns, true); 
+		return $this;
+	}
+
+	/**
 	 * Given a namespace object or string, return the namespace string
 	 * 
 	 * @param object|string $ns
@@ -714,10 +726,23 @@ class Session extends Wire implements \IteratorAggregate {
 		} else {
 			$ip = $_SERVER['REMOTE_ADDR']; 
 		}
-
-		// sanitize by converting to and from integer
-		$ip = ip2long($ip);
-		if(!$int) $ip = long2ip($ip);
+		
+		if($useClient === 2 && strpos($ip, ',') !== false) {
+			// return multiple IPs
+			$ips = explode(',', $ip);
+			foreach($ips as $key => $ip) {
+				$ip = ip2long(trim($ip));
+				if(!$int) $ip = long2ip($ip);
+				$ips[$key] = $ip;
+			}
+			$ip = implode(',', $ips);
+			
+		} else {
+			// sanitize by converting to and from integer
+			$ip = ip2long(trim($ip));
+			if(!$int) $ip = long2ip($ip);
+		}
+		
 		return $ip;
 	}
 
