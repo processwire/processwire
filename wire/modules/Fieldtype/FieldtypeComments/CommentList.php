@@ -180,6 +180,14 @@ class CommentList extends Wire implements CommentListInterface {
 			$header = str_replace(array('{cite}', '{created}'), array($cite, $created), $this->options['commentHeader']);
 			if(strpos($header, '{votes}') !== false) $header = str_replace('{votes}', $this->renderVotes($comment), $header);
 			if(strpos($header, '{stars}') !== false) $header = str_replace('{stars}', $this->renderStars($comment), $header);
+			if(strpos($header, '{url}') !== false) {
+				$header	= str_replace('{url}', $comment->getPage()->url() . '#Comment' . $comment->id, $header);
+			}
+			if(strpos($header, '{page.') !== false) {
+				$page = $comment->getPage();
+				$header = str_replace('{page.', '{', $header); 
+				$header = $page->getMarkup($header);
+			}
 		}
 		
 		$liClass = '';
