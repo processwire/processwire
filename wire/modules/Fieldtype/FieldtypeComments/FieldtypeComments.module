@@ -980,7 +980,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * @param string $selectorString Selector string with query
 	 * @return CommentArray
 	 * @throws WireException
-	 * @deprecated Use $field->type->find($field, $selectorString) instead.
+	 * @deprecated Use $field->type->find($selectorString) instead.
 	 *
 	 */
 	static public function findComments($field, $selectorString) {
@@ -990,20 +990,59 @@ class FieldtypeComments extends FieldtypeMulti {
 	}
 
 	/**
-	 * Given a field and a selector, find all comments matching the selector (non-static version)
+	 * Given a field and a selector, find all comments matching the selector 
 	 *
-	 * Note that if you don't specify a limit=n, it will default to a limit of 10
-	 * If you don't specify a sort, it will default to sort=-created
+	 * - If you don’t specify a “limit=n”, it will default to a limit of 10.
+	 * - If you don’t specify a sort, it will default to “sort=-created”.
+	 * - Arguments may be optionally reversed (for backwards compatibility).
+	 * 
+	 * Unlike $pages->find(), pagination of comments is not automatically tied to 
+	 * $input->pageNum(). As a result, if you paginate, you should specify both 
+	 * “start=n” and “limit=n” in your selector:
+	 * 
+	 * ~~~~~~
+	 * $limit = 20;
+	 * $start = ($input->pageNum() - 1) * $limit; 
+	 * $comments = $field->type->find("text%=something, start=$start, limit=$limit"); 
+	 * ~~~~~~
+	 * 
+	 * Please also note that this function returns comments without taking anything 
+	 * about the page they live on into account. As a result, it can return comments 
+	 * from unpublished or non-viewable pages. If you need this, check the returned 
+	 * results:
+	 * 
+	 * ~~~~
+	 * $comments = $field->type->find('text%=something'); 
+	 * foreach($comments as $comment) {
+	 *   $p = $comment->getPage();
+	 *   if(!$p->viewable()) $comments->remove($comment); 
+	 * }
+	 * ~~~~
 	 *
-	 * @param Field|string Field object or name of field
-	 * @param string $selectorString Selector string with query
+	 * @param string|null $selectorString Selector string with query
+	 * @param Field|string Optional Field object. If omitted, then it will be determined automatically. 
 	 * @return CommentArray
 	 * @throws WireException
+	 * 
+	 * @todo add an 'include=' property for matching based on page status
+	 * @todo add support for page.native properties
 	 *
 	 */
-	public function find($field, $selectorString) {
-		if(is_string($field)) $field = $this->wire('fields')->get($field);
-		if(!$field instanceof Field) throw new WireException('Arg 1 to find() must be a field');
+	public function find($selectorString, $field = null) {
+		if($field !== null) {
+			if($selectorString instanceof Field || Selectors::stringHasSelector($field)) {
+				// arguments are reversed
+				$s = $selectorString;
+				$selectorString = $field;
+				$field = $s;
+			}
+			if(is_string($field)) $field = $this->wire('fields')->get($field);
+		}
+		if(!$field instanceof Field) $field = $this->getLastAccessField();
+		if(!$field instanceof Field) $field = $this->getCommentsFields(true);
+		if(!$field instanceof Field) throw new WireException("Unable to determine comments field"); 
+		
+		if($selectorString === null) $selectorString = '';
 		
 		$intColumns = array(
 			'id', 
@@ -1044,12 +1083,14 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		$selectQuery->select("$table.*")->from($table)->where('id>0');
 		$countQuery->select('COUNT(*)')->from($table)->where('id>0');
-		
-		$selectors = $this->wire(new Selectors($selectorString));
+	
+		/** @var Selectors $selectors */
+		$selectors = $selectorString instanceof Selectors ? $selectorString : $this->wire(new Selectors($selectorString));
 		$wheres = array();
 		$joins = array();
 		$leftJoins = array();
 		$binds = array();
+		$status = null;
 		$cnt = 0;
 
 		foreach($selectors as $selector) {
@@ -1069,6 +1110,15 @@ class FieldtypeComments extends FieldtypeMulti {
 				$values = array($value);
 			}
 
+			if($f === 'status') {
+				if(!ctype_digit($value)) {
+					if($value === 'approved') $value = Comment::statusApproved;
+						else if($value === 'pending') $value = Comment::statusPending;
+						else if($value === 'spam') $value = Comment::statusSpam;
+				}
+				$status = (int) $value;
+			}
+			
 			if($f == 'page') $f = 'pages_id';
 			if($f == 'user') $f = 'created_users_id';
 			if(strpos($f, 'page.') === 0) $f = 'page_' . substr($f, 6); 
@@ -1153,6 +1203,11 @@ class FieldtypeComments extends FieldtypeMulti {
 				}
 			}
 		}
+	
+		// if no status was specified and we’re on the front-end, match only approved comments
+		if($status === null && $this->wire('page')->template != 'admin') {
+			$wheres[] = "$table.status>=" . Comment::statusApproved;
+		}
 		
 		foreach($wheres as $where) {
 			$selectQuery->where($where);
@@ -1216,6 +1271,25 @@ class FieldtypeComments extends FieldtypeMulti {
 		$comments->setTotal($total);
 
 		return $comments; 
+	}
+
+	/**
+	 * Return comments field(s)
+	 * 
+	 * @param bool $one Return only the first one found? (default=false)
+	 * @return array|Field|null
+	 * 
+	 */
+	public function getCommentsFields($one = false) {
+		$fields = array();
+		foreach($this->wire('fields') as $field) {
+			if($field->type instanceof FieldtypeComments) {
+				$fields[] = $field;
+				if($one) break;
+			}
+		}
+		if($one) return count($fields) ? $fields[0] : null;
+		return $fields;
 	}
 
 	/**

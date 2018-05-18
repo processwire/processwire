@@ -341,6 +341,11 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function get($key) {
+		if($key === 'type' && isset($this->settings['type'])) {
+			$value = $this->settings['type'];
+			if($value) $value->setLastAccessField($this);
+			return $value;
+		}
 		if($key == 'viewRoles') return $this->viewRoles;
 			else if($key == 'editRoles') return $this->editRoles;
 			else if($key == 'table') return $this->getTable();
@@ -1010,6 +1015,7 @@ class Field extends WireData implements Saveable, Exportable {
 			}
 			$inputfields->attr('title', $this->_('Input')); 
 			$inputfields->attr('id+name', 'inputfieldConfig');
+			/** @var InputfieldWrapper $inputfieldInputfields */
 			$inputfieldInputfields = $inputfield->getConfigInputfields();
 			if(!$inputfieldInputfields) $inputfieldInputfields = $this->wire(new InputfieldWrapper());
 			$configArray = $inputfield->getConfigArray(); 

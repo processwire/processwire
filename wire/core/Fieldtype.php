@@ -78,6 +78,14 @@ abstract class Fieldtype extends WireData implements Module {
 	protected $loadPageFieldFilters = null;
 
 	/**
+	 * Field that last referenced this Fieldtype from $field->type
+	 * 
+	 * @var Field|null
+	 * 
+	 */
+	protected $lastAccessField = null;
+
+	/**
 	 * Construct
 	 * 
 	 */
@@ -90,6 +98,30 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function init() { }
+
+	/**
+	 * Set last access field
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Field $field
+	 * 
+	 */
+	public function setLastAccessField(Field $field) {
+		$this->lastAccessField = $field;
+	}
+
+	/**
+	 * Return field that last accessed this Fieldtype via $field->type
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return null|Field
+	 * 
+	 */
+	public function getLastAccessField() {
+		return $this->lastAccessField;
+	}
 
 	/**
 	 * Fieldtype modules are singular, in that only one instance is needed per request
