@@ -1004,33 +1004,87 @@ class FieldtypeComments extends FieldtypeMulti {
 	public function find($field, $selectorString) {
 		if(is_string($field)) $field = $this->wire('fields')->get($field);
 		if(!$field instanceof Field) throw new WireException('Arg 1 to find() must be a field');
+		
+		$intColumns = array(
+			'id', 
+			'status', 
+			'created', 
+			'pages_id', 
+			'parent_id', 
+			'created_users_id', 
+			'upvotes', 
+			'downvotes', 
+			'stars'
+		);
+			
+		$sortColumns = array(
+			'sort', 
+			'status', 
+			'id', 
+			'pages_id', 
+			'created_users_id', 
+			'created', 
+			'upvotes', 
+			'downvotes', 
+			'stars'
+		);
 
 		$limit = 10;
 		$start = 0;
-		$desc = true;
-		$sort = 'created';
+		$sorts = array();
 		$database = $this->wire('database');
+		
+		$selectQuery = new DatabaseQuerySelect();
+		$countQuery = new DatabaseQuerySelect();
+		
+		$this->wire($selectQuery);
+		$this->wire($countQuery);
+		
 		$table = $database->escapeTable($field->getTable());
-		$sql =  "SELECT * FROM `$table` WHERE id>0 ";
-		$sqlCount = "SELECT COUNT(*) FROM `$table` WHERE id>0 ";
+		
+		$selectQuery->select("$table.*")->from($table)->where('id>0');
+		$countQuery->select('COUNT(*)')->from($table)->where('id>0');
+		
 		$selectors = $this->wire(new Selectors($selectorString));
+		$wheres = array();
+		$joins = array();
+		$leftJoins = array();
+		$binds = array();
+		$cnt = 0;
 
 		foreach($selectors as $selector) {
 
-			$f = $database->escapeCol($selector->field);
+			$cnt++;
+			$f = $selector->field;
+			if(is_array($selector->field)) throw new WireException("OR not supported for field in: $selector"); 
+			$f = $database->escapeCol($f);
 			$operator = $selector->operator;
 			$value = $selector->value;
-			$_sql = '';
 
-			if(!$database->isOperator($operator)) continue;
 			if(is_array($f)) $f = reset($f);
-			if(is_array($value)) $value = reset($value);
+			if(is_array($value)) {
+				$values = $value;
+				$value = reset($value);
+			} else {
+				$values = array($value);
+			}
 
 			if($f == 'page') $f = 'pages_id';
 			if($f == 'user') $f = 'created_users_id';
+			if(strpos($f, 'page.') === 0) $f = 'page_' . substr($f, 6); 
 
-			if(in_array($f, array('id', 'status', 'created', 'pages_id', 'parent_id', 'created_users_id', 'upvotes', 'downvotes', 'stars'))) {
-				$_sql .= "AND $f$operator" . ((int) $value)  . " ";
+			if(in_array($f, $intColumns)) {
+				if(!$database->isOperator($operator)) $operator = '=';
+				if(count($values) > 1 && ($operator == '=' || $operator == '!=')) {
+					$intValues = array();
+					foreach($values as $v) {
+						if(is_object($v)) $v = (string) $v;
+						$intValues[] = (int) $v;
+					}
+					$wheres[] = "$table.$f " . ($operator == '=' ? 'IN(' : 'NOT IN(') . implode(',', $intValues) . ')';
+				} else {
+					$wheres[] = "$table.$f$operator" . ((int) $value);
+				}
 
 			} else if($f == 'start') {
 				$start = (int) $value;
@@ -1041,28 +1095,93 @@ class FieldtypeComments extends FieldtypeMulti {
 			} else if($f == 'sort') {
 				$desc = substr($value, 0, 1) == '-';
 				$value = trim($value, '-');
-				if(in_array($value, array('sort', 'status', 'id', 'pages_id', 'created_users_id', 'created', 'upvotes', 'downvotes', 'stars'))) {
+				if(in_array($value, $sortColumns)) {
 					$sort = $database->escapeCol($value);
+					$sorts[] = "$table.$sort" . ($desc ? ' DESC' : ' ASC');
 				}
 
 			} else if($f == 'cite' || $f == 'email' || $f == 'ip') {
-				$value = $database->escapeStr($value);
-				$_sql .= "AND $f$operator'$value' ";
+				if(!$database->isOperator($operator)) $operator = '=';
+				if(count($values) > 1) {
+					$ors = array();
+					foreach($values as $v) {
+						$ors[] = "$table.$f$operator:cnt$cnt";
+						$binds["cnt$cnt"] = $v;
+						$cnt++;
+					}
+					$wheres[] = '(' . implode(' OR ', $ors) . ')';
+				} else {
+					$wheres[] = "$table.$f$operator:cnt$cnt";
+					$binds["cnt$cnt"] = $value;
+				}
+				
+			} else if($f == 'text' || $f == 'data') {
+				$f = 'data';
+				foreach(array($selectQuery, $countQuery) as $q) {
+					$fulltext = new DatabaseQuerySelectFulltext($q);
+					$this->wire($fulltext);
+					$fulltext->match($table, $f, $operator, $value);
+				}
+			} else if(strpos($f, 'page_') === 0) {
+				list($f, $fieldName) = explode('_', $f, 2); 
+				if($f) {} // ignore
+				if(strpos($fieldName, '.')) {
+					list($fieldName, $colName) = explode('.', $fieldName); 
+					$colName = $database->escapeCol($colName);
+				} else {
+					$colName = 'data';
+				}
+				/** @var Field $field */
+				$field = $this->wire('fields')->get($fieldName);
+				if(!$field) continue;
+				$fieldTable = $field->getTable();
+				if(!$database->isOperator($operator)) $operator = '=';
+				if(count($values) > 1) {
+					$ors = array();
+					foreach($values as $v) {
+						$ft = $fieldTable . $cnt;
+						$leftJoins[] = "$fieldTable AS $ft ON $ft.pages_id=$table.pages_id AND $ft.$colName$operator:cnt$cnt";
+						$binds["cnt$cnt"] = $v;
+						$ors[] = "$ft.$colName IS NOT NULL";
+						$cnt++;
+					}
+					$wheres[] = '(' . implode(' OR ', $ors) . ')';
+				} else {
+					$ft = $fieldTable . $cnt;
+					$joins[] = "$fieldTable AS $ft ON $ft.pages_id=$table.pages_id AND $ft.$colName$operator:cnt$cnt";
+					$binds["cnt$cnt"] = $value;
+				}
 			}
-
-			$sql .= $_sql;
-			$sqlCount .= $_sql;
 		}
-
-		$sql .= "ORDER BY $sort " . ($desc ? "DESC" : "ASC") . " ";
-		$sql .= "LIMIT $start, $limit";
+		
+		foreach($wheres as $where) {
+			$selectQuery->where($where);
+			$countQuery->where($where);
+		}
+		foreach($joins as $join) {
+			$selectQuery->join($join);
+			$countQuery->join($join);
+		}
+		foreach($leftJoins as $leftJoin) {
+			$selectQuery->leftjoin($leftJoin);
+			$countQuery->leftjoin($leftJoin);
+		}
+		
+		if(empty($sorts)) $sorts[] = "$table.created DESC";
+		
+		$selectQuery->orderby(implode(',', $sorts));
+		$selectQuery->limit("$start,$limit"); 
 
 		$comments = $this->wire(new CommentArray());
 		$comments->setField($field);
 		$comments->setStart($start);
 		$comments->setLimit($limit);
 
+		$sql = $selectQuery->getQuery();
 		$query = $database->prepare($sql);
+		foreach($binds as $key => $value) {
+			$query->bindValue(":$key", $value); 
+		}
 		$query->execute();
 		$commentPages = array();
 
@@ -1087,7 +1206,10 @@ class FieldtypeComments extends FieldtypeMulti {
 			$comment->setIsLoaded(true);
 		}
 		$query->closeCursor();
-		$query = $database->prepare($sqlCount);
+		$query = $database->prepare($countQuery->getQuery());
+		foreach($binds as $key => $value) {
+			$query->bindValue(":$key", $value); 
+		}
 		$query->execute();
 		list($total) = $query->fetch(\PDO::FETCH_NUM);
 		$comments->resetTrackChanges();

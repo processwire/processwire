@@ -39,7 +39,7 @@ class MarkupPageArray extends WireData implements Module {
 
 	public function init() { 
 		$this->addHook("PageArray::render", $this, "renderPageArray"); 
-		$this->addHook("PageArray::renderPager", $this, "renderPager"); 
+		$this->addHook("PaginatedArray::renderPager", $this, "renderPager"); 
 	}	
 
 	/**
