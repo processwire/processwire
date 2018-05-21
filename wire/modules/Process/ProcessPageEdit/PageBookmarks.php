@@ -43,8 +43,6 @@ class PageBookmarks extends Wire {
 	 */
 	public function initNavJSON(array $options = array()) {
 
-		$page = $this->wire('page');
-		$templatesArray = array();
 		$bookmarkFields = array();
 		$bookmarksArray = array();
 		$rolesArray = array();
@@ -67,7 +65,6 @@ class PageBookmarks extends Wire {
 		$n = 0;
 		foreach($bookmarkFields as $name => $bookmarkIDs) {
 			$bookmarks = count($bookmarkIDs) ? $this->wire('pages')->getById($bookmarkIDs) : array();
-			// $className = "separator";
 			$role = isset($rolesArray[$name]) ? $rolesArray[$name] : null;
 			foreach($bookmarks as $page) {
 				if($this->process == 'ProcessPageEdit' && !$page->editable()) continue;
@@ -77,9 +74,7 @@ class PageBookmarks extends Wire {
 				$icon = $page->template->getIcon();
 				if(!$icon) $icon = $options['defaultIcon'];
 				$page->setQuietly($iconKey, $icon);
-				// $page->setQuietly($classKey, $className);
 				$page->setQuietly('_roleName', $role ? $role->name : $this->labels['all']);
-				$className = '';
 				$bookmarksArray[$page->id] = $page;
 			}
 			$n++;
@@ -98,7 +93,7 @@ class PageBookmarks extends Wire {
 			$add->set('_icon', 'bookmark-o');
 			$add->set('title', $this->labels['bookmarks']);
 			$add->set('id', 'bookmark');
-			$add->set($classKey, 'highlight separator');
+			$add->set($classKey, 'separator');
 			array_unshift($bookmarksArray, $add);
 		}
 			
@@ -135,6 +130,7 @@ class PageBookmarks extends Wire {
 		$noneHeadline = $this->_('There are currently no bookmarks defined'); 
 		
 		foreach($options['items'] as $item) {
+			/** @var WireData $item */
 			if($item->id == 'bookmark') continue;
 			$url = str_replace('{id}', $item->id, $options['edit']);
 			$icon = $item->_icon ? "<i class='fa fa-fw fa-$item->_icon'></i> " : "";
@@ -167,7 +163,7 @@ class PageBookmarks extends Wire {
 	 * Provides the editor for bookmarks and returns InputfieldForm
 	 * 
 	 * @return InputfieldForm
-	 * @throws WirePermissionException
+	 * @throws WirePermissionException|WireException
 	 * 
 	 */
 	public function editBookmarksForm() {
@@ -274,7 +270,6 @@ class PageBookmarks extends Wire {
 	/**
 	 * Check and update the given process page for hidden/visible status depending on useBookmarks setting
 	 * 
-	 * @param Process $process
 	 * @param Page $page
 	 * 
 	 */
@@ -295,7 +290,6 @@ class PageBookmarks extends Wire {
 	 * Populate any configuration inputfields to the given $inputfields wrapper for $process
 	 * 
 	 * @param InputfieldWrapper $inputfields
-	 * @param Process $process
 	 * 
 	 */
 	public function addConfigInputfields(InputfieldWrapper $inputfields) {
