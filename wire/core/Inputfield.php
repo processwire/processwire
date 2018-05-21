@@ -1458,7 +1458,9 @@ abstract class Inputfield extends WireData implements Module {
 			$errors[] = $text; 
 			$this->wire('session')->set($key, $errors); 
 		}
-		$text .= $this->name ? " ($this->name)" : "";
+		$label = $this->getSetting('label');
+		if(empty($label)) $label= $this->attr('name');
+		if(strlen($label)) $text .= " - $label"; 
 		return parent::error($text, $flags); 
 	}
 
