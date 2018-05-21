@@ -249,7 +249,6 @@ class WireTempDir extends Wire {
 		if(!is_int($maxAge)) $maxAge = $this->tempDirMaxAge;
 		
 		$numSubdirs = 0;
-		$pathname = '';
 		$oldestAllowedFileTime = time() - $maxAge;
 		$success = true;
 		
@@ -275,7 +274,7 @@ class WireTempDir extends Wire {
 		
 			if($removeDir) {
 				if(!$this->rmdir($pathname, true)) {
-					$this->log("Unable to remove: $path");
+					$this->log("Unable to remove: $pathname");
 					$success = false;
 				}
 			} else {
@@ -288,7 +287,7 @@ class WireTempDir extends Wire {
 			if($this->rmdir($path, true)) {
 				$success = true;
 			} else {
-				$this->log("Unable to remove: $pathname");
+				$this->log("Unable to remove: $path");
 				$success = false;
 			}
 		}
@@ -356,6 +355,7 @@ class WireTempDir extends Wire {
 		if($this->wire('files')->mkdir($dir, $recursive)) {
 			$dir = rtrim($dir, "/\\") . DIRECTORY_SEPARATOR;
 			file_put_contents($dir . self::hiddenFileName, time());
+			return true;
 		} else {
 			return false;
 		}
