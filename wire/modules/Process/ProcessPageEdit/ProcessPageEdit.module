@@ -1242,7 +1242,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$label = $this->_('View'); // Tab Label: View
 		$id = $this->className() . 'View';
 		$settings = $this->wire('config')->pageEdit; 
-		$target = '';
 		
 		if((is_array($settings) && !empty($settings['viewNew'])) || $this->viewAction == 'new') {
 			$target = " target='_blank'";
@@ -1607,7 +1606,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				} else if($errorAction === 2 && $this->page->publishable() && $this->page->id > 1) {
 					// unpublish page missing required value
 					$this->page->setQuietly('_forceAddStatus', Page::statusUnpublished);
-					$this->error(sprintf($this->_('Page unpublished because field "%s" is required'), $name));
+					$label = $inputfield->getSetting('label');
+					if(empty($label)) $label = $inputfield->attr('name');
+					$this->error(sprintf($this->_('Page unpublished because field "%s" is required'), $label));
 					continue;
 				}
 			}
