@@ -1079,6 +1079,8 @@ function InputfieldStates($target) {
 			$li.addClass('InputfieldStateWasCollapsed'); // this class only used here
 			$li.trigger(isCollapsed ? 'openReady' : 'closeReady');
 			$li.toggleClass('InputfieldStateCollapsed', duration, function() {
+				// jQuery seems to add overflow:hidden, and this interferes with outline CSS property on Inputfields
+				if($li.css('overflow') == 'hidden') $li.css('overflow', ''); 
 				if(isCollapsed) {
 					$li.trigger('opened');
 					if($li.hasClass('InputfieldColumnWidth')) $li.children('.InputfieldContent').show();
