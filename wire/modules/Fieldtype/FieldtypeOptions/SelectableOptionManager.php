@@ -155,6 +155,8 @@ class SelectableOptionManager extends Wire {
 				$sorted[] = $option;
 			}
 		}
+		
+		$query->closeCursor();
 
 		$options = $this->wire(new SelectableOptionArray());
 		$options->setField($field); 
@@ -183,17 +185,20 @@ class SelectableOptionManager extends Wire {
 			// no need to use fulltext matching if operator is not a partial match operator
 			return $this->getOptions($field, array($property => $value));
 		}
-		
+	
+		/** @var DatabaseQuerySelect $query */
 		$query = $this->wire(new DatabaseQuerySelect());
 		$query->select('*'); 
 		$query->from(self::optionsTable); 
 		$query->where("fields_id=:fields_id"); 
 		$query->bindValue(':fields_id', $field->id); 
-		
+	
+		/** @var DatabaseQuerySelectFulltext $ft */
 		$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
 		$ft->match(self::optionsTable, $property, $operator, $value);
 	
 		$result = $query->execute();
+		/** @var SelectableOptionArray $options */
 		$options = $this->wire(new SelectableOptionArray());
 		$options->setField($field); 
 		
@@ -642,18 +647,35 @@ class SelectableOptionManager extends Wire {
 	 *
 	 */
 	public function addOptions(Field $field, $options) {
-
+		
+		/** @var WireDatabasePDO $database */
 		$database = $this->wire('database');
+		
+		// options that have pre-assigned IDs
+		$optionsByID = array();
 
-		$sql = 	
-			"SELECT MAX(option_id) FROM " . self::optionsTable . " " .
-			"WHERE fields_id=:fields_id";
+		// determine if any added options already have IDs
+		foreach($options as $option) {
+			if(!$option instanceof SelectableOption || !strlen($option->title)) continue;
+			if($option->id > 0) $optionsByID[(int) $option->id] = $option;
+		}
+		
+		if(count($options) > count($optionsByID)) {
+			// Determine starting value (max) for auto-assigned IDs
+			$sql =
+				"SELECT MAX(option_id) FROM " . self::optionsTable . " " .
+				"WHERE fields_id=:fields_id";
 
-		$query = $database->prepare($sql);
-		$query->bindValue(':fields_id', $field->id);
-		$query->execute();
+			$query = $database->prepare($sql);
+			$query->bindValue(':fields_id', $field->id);
+			$query->execute();
 
-		list($max) = $query->fetch(\PDO::FETCH_NUM);
+			list($max) = $query->fetch(\PDO::FETCH_NUM);
+			$query->closeCursor();
+		} else {
+			// there are no auto-assigned IDs
+			$max = 0;
+		}
 
 		$sql = 	
 			"INSERT INTO " . self::optionsTable . " " .
@@ -664,12 +686,16 @@ class SelectableOptionManager extends Wire {
 		$query = $database->prepare($sql);
 
 		foreach($options as $option) {
-			if(!strlen($option->title)) continue;
-			if(!$option instanceof SelectableOption) continue;
-			$id = ++$max;
-			$query->bindValue(':fields_id', $field->id);
-			$query->bindValue(':option_id', $id);
-			$query->bindValue(':sort', $option->sort);
+			if(!$option instanceof SelectableOption || !strlen($option->title)) continue;
+			if($option->id > 0) {
+				$id = $option->id;
+			} else {
+				$id = ++$max;
+				while(isset($optionsByID[$id])) $id++;
+			}
+			$query->bindValue(':fields_id', $field->id, \PDO::PARAM_INT);
+			$query->bindValue(':option_id', $id, \PDO::PARAM_INT);
+			$query->bindValue(':sort', $option->sort, \PDO::PARAM_INT);
 			$query->bindValue(':title', $option->title);
 			$query->bindValue(':value', $option->value); 
 			
@@ -696,7 +722,7 @@ class SelectableOptionManager extends Wire {
 	 * 
 	 */
 	public function updateLanguages(HookEvent $event = null) {
-
+		if($event) {} // ignore
 		if(!$this->useLanguages) return;
 		
 		$database = $this->wire('database'); 

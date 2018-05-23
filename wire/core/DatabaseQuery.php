@@ -18,7 +18,7 @@
  * 
  * @property array $where
  * @property array $bindValues
- * @properety array $bindIndex
+ * @property array $bindIndex
  *
  */
 abstract class DatabaseQuery extends WireData {
@@ -216,6 +216,9 @@ abstract class DatabaseQuery extends WireData {
 
 	/**
 	 * Execute the query with the current database handle
+	 * 
+	 * @return \PDOStatement
+	 * @throws WireException|\Exception|\PDOException
 	 *
 	 */
 	public function execute() {
