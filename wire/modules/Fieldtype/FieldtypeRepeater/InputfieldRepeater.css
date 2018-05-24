@@ -68,29 +68,31 @@
     .Inputfields .InputfieldRepeater.InputfieldRepeaterSingle > .InputfieldContent > .Inputfields > .InputfieldRepeaterItem > .InputfieldHeader {
       display: none; }
 
-.InputfieldRepeater .InputfieldWrapper,
-.InputfieldRepeater .InputfieldWrapper > .Inputfields {
-  margin-top: 0 !important; }
-.InputfieldRepeater ul.ui-sortable > .InputfieldRepeaterItem > .InputfieldHeader {
-  position: relative; }
-.InputfieldRepeater .InputfieldRepeaterAddItem input {
-  display: none !important; }
-.InputfieldRepeater ul.Inputfields + .InputfieldRepeaterAddItem {
-  margin-top: 0; }
-.InputfieldRepeater .InputfieldRepeaterDrag {
-  display: inline-block;
-  cursor: ns-resize;
-  opacity: 0.7;
-  line-height: 1em; }
-  .InputfieldRepeater .InputfieldRepeaterDrag:hover {
-    cursor: move;
-    opacity: 1.0; }
-.InputfieldRepeater.InputfieldRenderValueMode .InputfieldRepeaterDrag {
-  margin-right: 0.25em;
-  opacity: 0.5; }
-  .InputfieldRepeater.InputfieldRenderValueMode .InputfieldRepeaterDrag:hover {
-    cursor: not-allowed;
+.InputfieldRepeater {
+  z-index: 1; }
+  .InputfieldRepeater .InputfieldWrapper,
+  .InputfieldRepeater .InputfieldWrapper > .Inputfields {
+    margin-top: 0 !important; }
+  .InputfieldRepeater ul.ui-sortable > .InputfieldRepeaterItem > .InputfieldHeader {
+    position: relative; }
+  .InputfieldRepeater .InputfieldRepeaterAddItem input {
+    display: none !important; }
+  .InputfieldRepeater ul.Inputfields + .InputfieldRepeaterAddItem {
+    margin-top: 0; }
+  .InputfieldRepeater .InputfieldRepeaterDrag {
+    display: inline-block;
+    cursor: ns-resize;
+    opacity: 0.7;
+    line-height: 1em; }
+    .InputfieldRepeater .InputfieldRepeaterDrag:hover {
+      cursor: move;
+      opacity: 1.0; }
+  .InputfieldRepeater.InputfieldRenderValueMode .InputfieldRepeaterDrag {
+    margin-right: 0.25em;
     opacity: 0.5; }
+    .InputfieldRepeater.InputfieldRenderValueMode .InputfieldRepeaterDrag:hover {
+      cursor: not-allowed;
+      opacity: 0.5; }
 
 .AdminThemeReno .InputfieldRepeaterItem > .InputfieldHeader .ui-priority-secondary {
   color: rgba(255, 255, 255, 0.8) !important; }
