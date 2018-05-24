@@ -74,9 +74,7 @@
 .InputfieldRepeater ul.ui-sortable > .InputfieldRepeaterItem > .InputfieldHeader {
   position: relative; }
 .InputfieldRepeater .InputfieldRepeaterAddItem input {
-  position: absolute;
-  left: -9999px;
-  top: 0; }
+  display: none !important; }
 .InputfieldRepeater ul.Inputfields + .InputfieldRepeaterAddItem {
   margin-top: 0; }
 .InputfieldRepeater .InputfieldRepeaterDrag {
