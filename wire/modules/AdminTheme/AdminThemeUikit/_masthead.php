@@ -20,8 +20,8 @@ if(!defined("PROCESSWIRE")) die();
 	</header>
 	<header id='pw-masthead' class='pw-masthead uk-background-muted' data-pw-height='73'>
 		<div class='pw-container uk-container uk-container-expand'>
-			<nav class="uk-navbar-container uk-navbar-transparent" uk-navbar>
-				<div class="uk-navbar-left">
+			<nav class='uk-navbar uk-navbar-container uk-navbar-transparent' uk-navbar>
+				<div class='uk-navbar-left'>
 					<a class="pw-logo-link uk-logo uk-margin-right" href='<?php echo $adminTheme->isLoggedIn ? $config->urls->admin : $config->urls->root; ?>'>
 						<?php echo $adminTheme->getLogo(); ?>
 					</a>

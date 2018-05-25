@@ -196,6 +196,7 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$fieldset->add($f);
 
 		$testURL = $modules->wire('config')->urls->admin . 'profile/?test_notices';
+		/** @var InputfieldRadios $f */
 		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'groupNotices');
 		$f->label = $this->_('Notifications style');
@@ -213,7 +214,7 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$f = $inputfields->getChildByName('useAsLogin');
 		if($f) $f->collapsed = Inputfield::collapsedNo;
 		
-		/** @var InputfieldFieldset $fieldset */
+		/** @var InputfieldFieldset $fieldset2 */
 		$fieldset2 = $modules->get('InputfieldFieldset');
 		$fieldset2->label = $this->_('Advanced');
 		$fieldset2->collapsed = Inputfield::collapsedBlank;
@@ -577,6 +578,7 @@ class AdminThemeUikitConfigHelper extends Wire {
 		);
 	
 		foreach($widths as $n => $width) {
+			/** @var InputfieldText $f */
 			$f = $modules->get('InputfieldText');
 			$f->attr('name', "_w$n"); 
 			$f->label = "Width $width%";

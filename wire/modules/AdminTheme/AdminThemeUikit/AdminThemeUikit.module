@@ -27,10 +27,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 27,
+			'version' => 28,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
-			'requires' => 'ProcessWire>=3.0.98'
+			'requires' => 'ProcessWire>=3.0.100'
 		); 
 	}
 
@@ -311,7 +311,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$inputClasses[] = $this->getClass('input');
 		} else if($inputfield instanceof InputfieldInteger) {
 			$inputClasses[] = $this->getClass('input');
-		} else if($inputfield instanceof InputfieldDateTime) {
+		} else if($inputfield instanceof InputfieldDatetime) {
 			$inputClasses[] = $this->getClass('input');
 		} else if($inputfield instanceof InputfieldCheckboxes || $inputfield instanceof InputfieldCheckbox) {
 			$inputClasses[] = $this->getClass('input-checkbox');

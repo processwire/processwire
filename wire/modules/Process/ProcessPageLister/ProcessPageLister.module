@@ -1165,7 +1165,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 * @param Page $p
 	 * @param array $fields
 	 * @param string $name
-	 * @param mixed $value
+	 * @param mixed $value Not used at present 
 	 * @return string
 	 *
 	 */
@@ -1178,17 +1178,17 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		
 		reset($fields); 
 		$isFirstCol = key($fields) == $name; 
+		$value = $p->getFormatted($name); 
 		
 		if($subname && $name == 'parent') {
 			// if parent and subname present, focus on just the subname value
-			if($value instanceof Page) $value = $value->getUnformatted($subname);
+			if($value instanceof Page) $value = $value->getFormatted($subname);
 			$name = $subname;
 			$subname = '';
 		}
 
 		/** @var Field $field */
 		$field = isset($fields[$name]) ? $fields[$name] : $this->wire('fields')->get($name);
-		if(is_null($value)) $value = $p->getUnformatted($name);
 		$delimiter = isset($this->delimiters[$fullname]) ? $this->delimiters[$fullname] : "<br />";
 		
 		if(!$subname && ($value instanceof Page || $value instanceof PageArray)) {
@@ -1296,7 +1296,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 
 		} else if($field && $field->type instanceof FieldtypeDatetime) {
 			// datetime field
-			$value = $field->type->formatValue($p, $field, $value); 
+			// $value = $field->type->formatValue($p, $field, $value); 
 			$value = "<span class='datetime'>$value</span>";
 
 		} else if($field && $field->type instanceof FieldtypeCheckbox) {

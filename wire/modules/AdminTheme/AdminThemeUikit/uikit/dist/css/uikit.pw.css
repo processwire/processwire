@@ -14249,6 +14249,7 @@ body:not(.pw-narrow-width) .PageList .PageListItem.PageListNoChildren > a.PageLi
 .Inputfield .uk-select:not([multiple]):not([size]) {
   padding-right: 30px !important;
 }
+.Inputfield .InputfieldContent table td .uk-select:not(.InputfieldSetWidth),
 .Inputfield.InputfieldColumnWidth > .InputfieldContent .uk-select:not(.InputfieldSetWidth) {
   width: 100%;
   padding-right: initial;
@@ -14392,6 +14393,10 @@ table .InputfieldIsOffset,
   background: #fff;
   padding: 1px 20px 23px 20px;
 }
+.InputfieldContent > .InputfieldError {
+  display: inline-block;
+  padding: 5px 12px 5px 5px;
+}
 .InputfieldContent > textarea,
 .LanguageSupport > textarea,
 .InputfieldContent > select.InputfieldMaxWidth,
@@ -14524,8 +14529,12 @@ table.AdminDataTable .Inputfields .Inputfield .InputfieldContent {
   padding: 0;
 }
 /*** Inputfield color support ********************************************************/
-.InputfieldIsPrimary:not(.InputfieldNoBorder):not(.InputfieldHideBorder) {
-  outline: 1px solid #d0dbe7 !important;
+.InputfieldIsPrimary:not(.InputfieldNoBorder) {
+  /*
+    &:not(.InputfieldHideBorder) {
+      outline: @pw-inputfield-border-primary !important;
+    }
+    */
 }
 .InputfieldIsPrimary:not(.InputfieldNoBorder) > .InputfieldHeader,
 .InputfieldIsPrimary:not(.InputfieldNoBorder) > .InputfieldContent {
@@ -14542,8 +14551,12 @@ table.AdminDataTable .Inputfields .Inputfield .InputfieldContent {
 .InputfieldIsSecondary > .InputfieldContent {
   background: #fafbfc;
 }
-.InputfieldIsSuccess:not(.InputfieldNoBorder):not(.InputfieldHideBorder) {
-  outline: 1px solid #b3dde9 !important;
+.InputfieldIsSuccess:not(.InputfieldNoBorder) {
+  /*
+    &:not(.InputfieldHideBorder) {
+      outline: @pw-inputfield-border-success !important;
+    }
+    */
 }
 .InputfieldIsSuccess:not(.InputfieldNoBorder) > .InputfieldHeader,
 .InputfieldIsSuccess:not(.InputfieldNoBorder) > .InputfieldContent {
@@ -14552,8 +14565,12 @@ table.AdminDataTable .Inputfields .Inputfield .InputfieldContent {
 .InputfieldIsSuccess > .InputfieldHeader {
   color: #8bccde;
 }
-.InputfieldIsHighlight:not(.InputfieldNoBorder):not(.InputfieldHideBorder) {
-  outline: 1px solid #d9e1ea !important;
+.InputfieldIsHighlight:not(.InputfieldNoBorder) {
+  /*
+    &:not(.InputfieldHideBorder) {
+      outline: @pw-inputfield-border-highlight !important;
+    }
+    */
 }
 .InputfieldIsHighlight:not(.InputfieldNoBorder) > .InputfieldHeader,
 .InputfieldIsHighlight:not(.InputfieldNoBorder) > .InputfieldContent {
@@ -14562,8 +14579,12 @@ table.AdminDataTable .Inputfields .Inputfield .InputfieldContent {
 .InputfieldIsHighlight > .InputfieldHeader {
   color: inherit;
 }
-.InputfieldIsWarning:not(.InputfieldNoBorder):not(.InputfieldHideBorder) {
-  outline: 1px solid #ffe091 !important;
+.InputfieldIsWarning:not(.InputfieldNoBorder) {
+  /*
+    &:not(.InputfieldHideBorder) {
+      outline: @pw-inputfield-border-warning !important;
+    }
+    */
 }
 .InputfieldIsWarning:not(.InputfieldNoBorder) > .InputfieldHeader,
 .InputfieldIsWarning:not(.InputfieldNoBorder) > .InputfieldContent {
@@ -14572,10 +14593,14 @@ table.AdminDataTable .Inputfields .Inputfield .InputfieldContent {
 .InputfieldIsWarning > .InputfieldHeader {
   color: #354b60;
 }
-.InputfieldStateError:not(.InputfieldNoBorder):not(.InputfieldHideBorder),
-.InputfieldIsDanger:not(.InputfieldNoBorder):not(.InputfieldHideBorder),
-.InputfieldIsError:not(.InputfieldNoBorder):not(.InputfieldHideBorder) {
-  outline: 1px solid #d64156 !important;
+.InputfieldStateError:not(.InputfieldNoBorder),
+.InputfieldIsDanger:not(.InputfieldNoBorder),
+.InputfieldIsError:not(.InputfieldNoBorder) {
+  /*
+    &:not(.InputfieldHideBorder) {
+     outline: @pw-inputfield-border-danger !important;
+    }
+    */
 }
 .InputfieldStateError:not(.InputfieldNoBorder) > .InputfieldHeader,
 .InputfieldIsDanger:not(.InputfieldNoBorder) > .InputfieldHeader,
@@ -15309,9 +15334,6 @@ body.pw-init .pw-button-dropdown {
 body.pw-init .WireTab {
   display: none;
 }
-body.pw-init #pw-masthead > * {
-  display: none;
-}
 ul.uk-navbar-nav ul {
   display: none;
 }
@@ -15483,6 +15505,10 @@ ul.uk-navbar-nav ul {
   left: 40%;
   z-index: 99;
 }
+#pw-masthead .uk-navbar-nav > li > a.hover:after,
+#pw-masthead .uk-navbar-nav > li > a:hover:after {
+  z-index: 200;
+}
 #pw-masthead .pw-search-form .pw-search-input {
   color: #8d939e;
   background: transparent;
@@ -15596,7 +15622,6 @@ html.pw-sidebar-frame body #main {
   border-color: #b1c3d4 #cbd7e3 #cbd7e3 #cbd7e3;
 }
 .Inputfields select.uk-select:not(.uk-form-blank) {
-  border-radius: 3px;
   background-color: #f0f3f7;
   border: 1px solid;
   border-color: #cbd7e3;

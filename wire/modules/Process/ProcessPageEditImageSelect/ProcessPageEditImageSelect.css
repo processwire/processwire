@@ -194,6 +194,7 @@ small.ui-helper-clearfix {
 
 #selected_image_settings {
 	margin-top: 1em;
+	margin-bottom: 30px;
 	/* the following supposed to fix modal jumping issue */
 	-webkit-backface-visibility: hidden;
 }

@@ -224,6 +224,14 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		$this->page = $page; 
 	}
 	
+	public function getPage() {
+		return $this->page; 
+	}
+	
+	public function getField() {
+		return $this->field;
+	}
+	
 	public function __debugInfo() {
 		$info = parent::__debugInfo();
 		foreach($this->wire('languages') as $language) {
