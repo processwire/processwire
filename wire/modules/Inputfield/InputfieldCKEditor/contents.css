@@ -74,18 +74,13 @@ hr {
 
 figure {
 	display: table;
-	/*width: 1px;*/
 	margin: 1em 0;
-}
-
-figure img {
-	display: table-row; 
-	margin-bottom: 0.5em;
 }
 
 .cke_editable figure figcaption, 
 figure figcaption {
-	display: table-row; 
+	display: table-caption;
+	caption-side: bottom;
 	line-height: 1.3em;
 	color: #777; 
 	font-size: 13px; 
