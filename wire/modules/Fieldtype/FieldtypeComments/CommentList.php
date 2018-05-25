@@ -48,6 +48,7 @@ class CommentList extends Wire implements CommentListInterface {
 	protected $options = array(
 		'headline' => '', 	// '<h3>Comments</h3>', 
 		'commentHeader' => '', 	// 'Posted by {cite} on {created} {stars}',
+		'commentFooter' => '', 
 		'dateFormat' => '', 	// 'm/d/y g:ia', 
 		'encoding' => 'UTF-8', 
 		'admin' => false, 	// shows unapproved comments if true
@@ -141,6 +142,45 @@ class CommentList extends Wire implements CommentListInterface {
 		
 		return $out; 
 	}
+
+	/**
+	 * Populate comment {variable} placeholders
+	 * 
+	 * @param Comment $comment
+	 * @param string $out
+	 * @param array $placeholders Additional placeholders to populate as name => value (exclude the brackets)
+	 * @return string
+	 * 
+	 */
+	protected function populatePlaceholders(Comment $comment, $out, $placeholders = array()) {
+		
+		if(empty($out) || strpos($out, '{') === false) return $out;
+		
+		foreach($placeholders as $key => $value) {
+			$key = '{' . $key . '}';	
+			if(strpos($out, $key) === false) continue;
+			$out = str_replace($key, $value, $out);
+		}
+		
+		if(strpos($out, '{votes}') !== false) {
+			$out = str_replace('{votes}', $this->renderVotes($comment), $out);
+		}
+		if(strpos($out, '{stars}') !== false) {
+			$out = str_replace('{stars}', $this->renderStars($comment), $out);
+		}
+		
+		if(strpos($out, '{url}') !== false) {
+			$out = str_replace('{url}', $comment->getPage()->url() . '#Comment' . $comment->id, $out);
+		}
+		
+		if(strpos($out, '{page.') !== false) {
+			$page = $comment->getPage();
+			$out = str_replace('{page.', '{', $out);
+			$out = $page->getMarkup($out);
+		}
+		
+		return $out;
+	}
 	
 	/**
 	 * Render the comment
@@ -171,30 +211,29 @@ class CommentList extends Wire implements CommentListInterface {
 		if($comment->website) $website = $comment->getFormatted('website'); 
 		if($website) $cite = "<a href='$website' rel='nofollow' target='_blank'>$cite</a>";
 		$created = wireDate($this->options['dateFormat'], $comment->created); 
+		$placeholders = array(
+			'cite' => $cite, 
+			'created' => $created, 
+			'gravatar' => $gravatar
+		);
 		
 		if(empty($this->options['commentHeader'])) {
 			$header = "<span class='CommentCite'>$cite</span> <small class='CommentCreated'>$created</small> ";
 			if($this->options['useStars']) $header .= $this->renderStars($comment);
 			if($this->options['useVotes']) $header .= $this->renderVotes($comment); 
 		} else {
-			$header = str_replace(array('{cite}', '{created}'), array($cite, $created), $this->options['commentHeader']);
-			if(strpos($header, '{votes}') !== false) $header = str_replace('{votes}', $this->renderVotes($comment), $header);
-			if(strpos($header, '{stars}') !== false) $header = str_replace('{stars}', $this->renderStars($comment), $header);
-			if(strpos($header, '{url}') !== false) {
-				$header	= str_replace('{url}', $comment->getPage()->url() . '#Comment' . $comment->id, $header);
-			}
-			if(strpos($header, '{page.') !== false) {
-				$page = $comment->getPage();
-				$header = str_replace('{page.', '{', $header); 
-				$header = $page->getMarkup($header);
-			}
+			$header = $this->populatePlaceholders($comment, $this->options['commentHeader'], $placeholders);
 		}
-		
+
+		$footer = $this->populatePlaceholders($comment, $this->options['commentFooter'], $placeholders); 
 		$liClass = '';
 		$replies = $this->options['depth'] > 0 ? $this->renderList($comment->id, $depth+1) : ''; 
 		if($replies) $liClass .= ' CommentHasReplies';
-		if($comment->status == Comment::statusPending) $liClass .= ' CommentStatusPending'; 
-			else if($comment->status == Comment::statusSpam) $liClass .= ' CommentStatusSpam';
+		if($comment->status == Comment::statusPending) {
+			$liClass .= ' CommentStatusPending';
+		} else if($comment->status == Comment::statusSpam) {
+			$liClass .= ' CommentStatusSpam';
+		}
 		
 		$out = 
 			"\n\t<li id='Comment{$comment->id}' class='CommentListItem$liClass' data-comment='$comment->id'>" . $gravatar . 
@@ -215,7 +254,7 @@ class CommentList extends Wire implements CommentListInterface {
 
 		if($this->options['depth'] > 0 && $depth < $this->options['depth']) {
 			$out .=
-				"\n\t\t<div class='CommentFooter'>" . 
+				"\n\t\t<div class='CommentFooter'>" . $footer . 
 				"\n\t\t\t<p class='CommentAction'>" .
 				"\n\t\t\t\t<a class='CommentActionReply' data-comment-id='$comment->id' href='#Comment{$comment->id}'>" . $this->options['replyLabel'] . "</a> " .
 				($permalink ? "\n\t\t\t\t$permalink" : "") . 
@@ -225,7 +264,7 @@ class CommentList extends Wire implements CommentListInterface {
 			if($replies) $out .= $replies;
 			
 		} else {
-			$out .= "\n\t\t<div class='CommentFooter'></div>";
+			$out .= "\n\t\t<div class='CommentFooter'>$footer</div>";
 		}
 	
 		$out .= "\n\t</li>";
