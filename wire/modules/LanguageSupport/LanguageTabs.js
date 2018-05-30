@@ -163,7 +163,9 @@ function hideLanguageTabs() {
 	// make sure first tab is clicked
 	var $tab = $(".langTabs").find("li:eq(0)");
 	var cfg = ProcessWire.config.LanguageTabs;
-	if(!$tab.hasClass(cfg.liActiveClass)) $tab.find('a').click();
+	if(cfg.liActiveClass) {
+		if(!$tab.hasClass(cfg.liActiveClass)) $tab.find('a').click();
+	}
 
 	// hide the tab toggler
 	$(".langTabsToggle, .LanguageSupportLabel:visible, .langTabs > ul").addClass('langTabsHidden');
