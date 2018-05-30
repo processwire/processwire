@@ -109,7 +109,9 @@ function toggleLanguageTabs() {
 
 	if($content.hasClass('langTabsContainer')) {
 		$ul.find('.langTabLastActive').removeClass('langTabLastActive');
-		$ul.find('.' + cfg.liActiveClass).addClass('langTabLastActive');
+		if(cfg.liActiveClass) {
+			$ul.find('.' + cfg.liActiveClass).addClass('langTabLastActive');
+		}
 		$ul.find('a').click(); // activate all (i.e. for CKEditor)
 		$content.removeClass('langTabsContainer');
 		$inputfield.removeClass('hasLangTabs').addClass('langTabsOff');
