@@ -307,7 +307,10 @@ class PageFrontEdit extends WireData implements Module {
 
 		// if given field name doesn't map to a custom field, delegate the request to $page instead
 		$renderField = false;
-		$field = $this->wire('fields')->get($arg1);
+		foreach(explode("|", $arg1) as $name) {
+			$field = $this->wire('fields')->get($name);
+			if($field) break;
+		}
 		if(!$field) {
 			if(strpos($arg1, '_') === 0 && substr($arg1, -1) === '_') {
 				$renderField = true;
