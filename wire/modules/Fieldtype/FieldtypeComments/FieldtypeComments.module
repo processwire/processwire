@@ -1222,7 +1222,13 @@ class FieldtypeComments extends FieldtypeMulti {
 			$countQuery->leftjoin($leftJoin);
 		}
 		
-		if(empty($sorts)) $sorts[] = "$table.created DESC";
+		if(count($selectQuery->get('orderby')) && !empty($sorts)) {
+			$selectQuery->set('orderby', array());
+		}
+		
+		if(empty($sorts)) {
+			$sorts[] = "$table.created DESC";
+		}
 		
 		$selectQuery->orderby(implode(',', $sorts));
 		$selectQuery->limit("$start,$limit"); 
