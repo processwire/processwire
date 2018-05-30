@@ -118,9 +118,8 @@ function toggleLanguageTabs() {
 		$this.addClass('langTabsOff');
 		if(cfg.jQueryUI) {
 			$langTabs.tabs('destroy');
-		} else {
-			$ul.hide();
 		}
+		$ul.hide();
 		$this.attr("title", ProcessWire.config.LanguageTabs.labelClose)
 			.find('i').removeClass("fa-folder-o").addClass("fa-folder-open-o");
 	} else {
@@ -129,9 +128,8 @@ function toggleLanguageTabs() {
 		$this.removeClass('langTabsOff');
 		if(cfg.jQueryUI) {
 			$langTabs.tabs();
-		} else {
-			$ul.show();
 		}
+		$ul.show();
 		$(this).attr("title", cfg.labelOpen).find('i').addClass("fa-folder-o").removeClass("fa-folder-open-o");
 		$ul.find('.langTabLastActive').removeClass('langTabLastActive').children('a').click();
 	}
