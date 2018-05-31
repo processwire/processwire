@@ -109,16 +109,17 @@ function toggleLanguageTabs() {
 
 	if($content.hasClass('langTabsContainer')) {
 		$ul.find('.langTabLastActive').removeClass('langTabLastActive');
-		$ul.find('.' + cfg.liActiveClass).addClass('langTabLastActive');
+		if(cfg.liActiveClass) {
+			$ul.find('.' + cfg.liActiveClass).addClass('langTabLastActive');
+		}
 		$ul.find('a').click(); // activate all (i.e. for CKEditor)
 		$content.removeClass('langTabsContainer');
 		$inputfield.removeClass('hasLangTabs').addClass('langTabsOff');
 		$this.addClass('langTabsOff');
 		if(cfg.jQueryUI) {
 			$langTabs.tabs('destroy');
-		} else {
-			$ul.hide();
 		}
+		$ul.hide();
 		$this.attr("title", ProcessWire.config.LanguageTabs.labelClose)
 			.find('i').removeClass("fa-folder-o").addClass("fa-folder-open-o");
 	} else {
@@ -127,9 +128,8 @@ function toggleLanguageTabs() {
 		$this.removeClass('langTabsOff');
 		if(cfg.jQueryUI) {
 			$langTabs.tabs();
-		} else {
-			$ul.show();
 		}
+		$ul.show();
 		$(this).attr("title", cfg.labelOpen).find('i').addClass("fa-folder-o").removeClass("fa-folder-open-o");
 		$ul.find('.langTabLastActive').removeClass('langTabLastActive').children('a').click();
 	}
@@ -161,7 +161,9 @@ function hideLanguageTabs() {
 	// make sure first tab is clicked
 	var $tab = $(".langTabs").find("li:eq(0)");
 	var cfg = ProcessWire.config.LanguageTabs;
-	if(!$tab.hasClass(cfg.liActiveClass)) $tab.find('a').click();
+	if(cfg.liActiveClass) {
+		if(!$tab.hasClass(cfg.liActiveClass)) $tab.find('a').click();
+	}
 
 	// hide the tab toggler
 	$(".langTabsToggle, .LanguageSupportLabel:visible, .langTabs > ul").addClass('langTabsHidden');
