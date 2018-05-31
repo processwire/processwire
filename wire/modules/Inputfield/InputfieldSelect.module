@@ -9,6 +9,8 @@
  * Subclasses that select multiple values should implement the InputfieldHasArrayValue interface. 
  * 
  * @property string|int $defaultValue
+ * @property array|string $options Get or set options, array of [value => label], or use options string. 
+ * @property array $optionAttributes 
  *
  */
 class InputfieldSelect extends Inputfield {
@@ -26,6 +28,14 @@ class InputfieldSelect extends Inputfield {
 	protected $optionAttributes = array();
 
 	/**
+	 * Alternate language labels for options, array of [ languageID => [ optionValue => optionLabel ] ]
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $optionLanguageLabels = array();
+
+	/**
 	 * Return information about this module
 	 *
 	 */
@@ -38,6 +48,10 @@ class InputfieldSelect extends Inputfield {
 			);
 	}
 
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		parent::__construct();
 		$this->set('defaultValue', ''); 
@@ -84,6 +98,59 @@ class InputfieldSelect extends Inputfield {
 		return $this; 
 	}
 
+	/**
+	 * Set/replace all options
+	 *
+	 * @param array $options Array of options to add. It is assumed that array keys are the option value, and array
+	 *   values are the option labels, unless overridden by the $assoc argument.
+	 * @param bool $assoc Is $options an associative array? (default=true). Specify false if $options is intended to be
+	 *   a regular PHP array, where the array keys/indexes should be ignored, and option value will also be the label.
+	 * @return $this
+	 *
+	 */
+	public function setOptions(array $options, $assoc = true) {
+		$this->options = array();
+		return $this->addOptions($options, $assoc);
+	}
+
+	/**
+	 * Get or set alternative language label(s) 
+	 * 
+	 * @param Language|int|string $language Language object, id or name (required). 
+	 * @param string|null|bool $key Option key/value to get/set label for, 
+	 *  OR omit to return all currently set option language labels for language,
+	 *  OR boolean false to remove all language labels for this option value/key.
+	 *  OR array of [ optionValue => optionLabel ] to add multiple option values for language.
+	 * @param $label|string|bool Translated label text to set,
+	 *  OR omit to GET language label.
+	 *  OR boolean false to remove.
+	 * @return string|array|Inputfield Return value depends on given arguments
+	 * 
+	 */
+	public function optionLanguageLabel($language, $key = null, $label = null) {
+		if(is_string($language) && !ctype_digit("$language")) {
+			$language = $this->wire('languages')->get($language);
+		}
+		$languageID = (int) "$language"; // converts Page or string to id
+		if(!isset($this->optionLanguageLabels[$languageID])) {
+			$this->optionLanguageLabels[$languageID] = array();
+		}
+		if($key === null) {
+			return $this->optionLanguageLabels[$languageID];
+		} else if($key === false) {
+			unset($this->optionLanguageLabels[$languageID]);
+		} else if(is_array($key)) {
+			foreach($key as $k => $v) $this->optionLanguageLabels[$languageID][$k] = $v;
+		} else if($label === null) {
+			return isset($this->optionLanguageLabels[$languageID][$key]) ? $this->optionLanguageLabels[$languageID][$key] : '';
+		} else if($label === false) {
+			unset($this->optionLanguageLabels[$languageID][$key]);
+		} else {
+			$this->optionLanguageLabels[$languageID][$key] = $label;
+		}
+		return $this;	
+	}
+	
 	/**
 	 * Given a multi-line string, convert it to options, one per line
 	 *
@@ -161,6 +228,26 @@ class InputfieldSelect extends Inputfield {
 		}
 
 		return $this; 
+	}
+
+	/**
+	 * Add/modify existing option labels from a line separated key=value string, primarily for multi-language support
+	 * 
+	 * @param string $str String of optionValue=optionLabel with each on its own line
+	 * @param int $languageID Language ID to set for, or omit for default language
+	 * 
+	 */
+	protected function addOptionLabelsString($str, $languageID = 0) {
+		foreach(explode("\n", $str) as $line) {
+			$line = trim($line);
+			if(!strpos($line, '=')) continue; // 0 or false OK
+			list($key, $label) = explode('=', $line, 2);
+			if($languageID) {
+				$this->optionLanguageLabel($languageID, $key, $label); 
+			} else {
+				$this->addOption($key, $label);
+			}
+		}
 	}
 
 	/**
@@ -261,6 +348,75 @@ class InputfieldSelect extends Inputfield {
 		}
 		return $disabled;
 	}
+	
+	/**
+	 * Get an attributes array intended for an item (or for all items)
+	 *
+	 * @param string|int|null $key Option value, or omit to return ALL option attributes indexed by option value
+	 * @return array Array of attributes
+	 *
+	 */
+	public function getOptionAttributes($key = null) {
+		if($key === null) return $this->optionAttributes;
+		if(!isset($this->optionAttributes[$key])) return array();
+		return $this->optionAttributes[$key];
+	}
+
+	/**
+	 * Set/replace entire attributes array for an item
+	 *
+	 * @param string|int|array $key Option value, or specify associative array (indexed by option value) to set ALL option attributes
+	 * @param array $attrs Array of attributes to set, or omit if you specified array for first argument.
+	 * @return $this
+	 *
+	 */
+	public function setOptionAttributes($key, array $attrs = array()) {
+		if(is_array($key)) {
+			$this->optionAttributes = $key;
+		} else {
+			$this->optionAttributes[$key] = $attrs;
+		}
+		return $this;
+	}
+
+	/**
+	 * Add attributes for an item (without removing existing attributes), or for multiple items
+	 *
+	 * @param string|int|array $key Option value, or array of option attributes indexed by option value.
+	 * @param array $attrs Array of attributes to set, or omit if you specified array for first argument.
+	 * @return $this
+	 *
+	 */
+	public function addOptionAttributes($key, array $attrs = array()) {
+		if(is_array($key)) {
+			foreach($key as $k => $v) {
+				$this->addOptionAttributes($k, $v); 
+			}
+		} else {
+			$value = isset($this->optionAttributes[$key]) ? $this->optionAttributes[$key] : array();
+			$this->optionAttributes[$key] = array_merge($value, $attrs);
+		}
+		return $this;
+	}
+
+	/**
+	 * Get an attributes string intended for the <option> element
+	 *
+	 * @param string|array $key If given an array, it will be assumed to the attributes you want rendered. 
+	 *   If given a value for an existing option, then the attributes for that option will be rendered.
+	 * @return string
+	 *
+	 */
+	public function getOptionAttributesString($key) {
+		if(is_array($key)) {
+			$attrs = $key;
+		} else if(!isset($this->optionAttributes[$key])) {
+			return '';
+		} else {
+			$attrs = $this->optionAttributes[$key];
+		}
+		return $this->getAttributesString($attrs);
+	}
 
 	/**
 	 * Render the given options
@@ -332,6 +488,33 @@ class InputfieldSelect extends Inputfield {
 	}
 
 	/**
+	 * Render ready
+	 * 
+	 * @param Inputfield|null $parent
+	 * @param bool $renderValueMode
+	 * @return bool
+	 * 
+	 */
+	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+		if(!empty($this->optionLanguageLabels) && $this->wire('languages') && $this->hasFieldtype === false) {
+			// make option labels use use language where available
+			$language = $this->wire('user')->language;
+			$defaultLanguage = $this->wire('languages')->getDefault();
+			if(!empty($this->optionLanguageLabels[$language->id])) {
+				$labels = $this->optionLanguageLabels[$language->id];
+				foreach($this->options as $key => $defaultLabel) {
+					if(empty($labels[$key])) continue;
+					$this->options[$key] = $labels[$key];
+					if($language->id != $defaultLanguage->id) {
+						$this->optionLanguageLabel($defaultLanguage, $key, $defaultLabel);
+					}
+				}
+			}
+		}
+		return parent::renderReady($parent, $renderValueMode);
+	}
+
+	/**
 	 * Render and return the output for this Select
 	 * 
 	 * @return string
@@ -382,35 +565,6 @@ class InputfieldSelect extends Inputfield {
 		if(strlen($out)) $out = "<ul class='pw-bullets'>$out</ul>";
 		
 		return $out; 
-	}
-
-	/**
-	 * Get an attributes array intended for the <option> element
-	 *
-	 * @param string $key
-	 * @return array
-	 *
-	 */
-	public function getOptionAttributes($key) {
-		if(!isset($this->optionAttributes[$key])) return array();
-		return $this->optionAttributes[$key]; 
-	}
-
-	/**
-	 * Get an attributes string intended for the <option> element
-	 *
-	 * @param string|array $key If an array, it will be assumed to the attributes you want rendered. If a key for an
-	 *     existing option, then  the attributes for that option will be rendered. 
-	 * @return string
-	 *
-	 */
-	protected function getOptionAttributesString($key) {
-
-		if(is_array($key)) $attrs = $key; 
-			else if(!isset($this->optionAttributes[$key])) return '';
-			else $attrs = $this->optionAttributes[$key]; 
-
-		return $this->getAttributesString($attrs); 
 	}
 
 	/**
@@ -482,10 +636,24 @@ class InputfieldSelect extends Inputfield {
 	public function set($key, $value) {
 
 		if($key == 'options') {
-			if(is_string($value)) return $this->addOptionsString($value); 
-			if(is_array($value)) $this->options = $value; 	
+			if(is_string($value)) {
+				return $this->addOptionsString($value);
+			} else if(is_array($value)) {
+				$this->options = $value;
+			}
 			return $this;
-		} 
+		} else if(strpos($key, 'options') === 0 && $this->hasFieldtype === false) {
+			list(,$languageID) = explode('options', $key);
+			if(ctype_digit($languageID)) {
+				$this->addOptionLabelsString($value, (int) $languageID); 
+				return $this;
+			}
+		} else if($key == 'optionAttributes') {
+			if(is_array($value)) {
+				$this->optionAttributes = $value; 
+			}
+			return $this;
+		}
 
 		return parent::set($key, $value); 
 	}
@@ -572,40 +740,56 @@ class InputfieldSelect extends Inputfield {
 
 		// if dealing with an inputfield that has an associated fieldtype, 
 		// we don't need to perform the remaining configuration
-		if($this->hasFieldtype === false) {
+		if($this->hasFieldtype !== false) return $inputfields;
 
-			$isInputfieldSelect = $this->className() == 'InputfieldSelect';
+		// the following configuration specific to non-Fieldtype use of single/multi-selects
+		$isInputfieldSelect = $this->className() == 'InputfieldSelect';
+		/** @var Languages|null $languages */
+		$languages = $this->wire('languages');
 
-			$f = $this->wire('modules')->get('InputfieldTextarea'); 
-			$f->attr('name', 'options'); 
-			$value = '';
-			foreach($this->options as $key => $option) {
-				if(is_array($option)) {
-					$value .= "$key\n";
-					foreach($option as $o) {
-						$value .= "   $o\n";
-					}
-				} else {
-					$value .= "$option\n";
+		$f = $this->wire('modules')->get('InputfieldTextarea'); 
+		$f->attr('name', 'options');
+		$f->label = $this->_('Options');
+		$value = '';
+		foreach($this->options as $key => $option) {
+			if(is_array($option)) {
+				$value .= "$key\n";
+				foreach($option as $o) {
+					$value .= "   $o\n";
 				}
+			} else {
+				$value .= "$option\n";
 			}
-			$value = trim($value);
-			if(empty($value)) {
-				$value = "=\nOption 1\nOption 2\nOption 3";
-				if(!$isInputfieldSelect) $value = ltrim($value, '='); 
-			}
-			$f->attr('value', $value); 
-			$f->attr('rows', 10); 
-			$f->label = $this->_('Options');
-			$f->description = $this->_('Enter the options that may be selected, one per line.');
-			$f->notes = 
-				($isInputfieldSelect ? $this->_('To precede your list with a blank option, enter just a equals sign "=" as the first option.') . "\n" : '') . 
-				$this->_('To make an option selected, precede it with a plus sign. Example: +My Option') . "\n" . 
-				$this->_('To keep a separate value and label, separate them with an equals sign. Example: value=My Option') . "\n" . 
-				($isInputfieldSelect ? $this->_('To create an optgroup (option group) indent the options in the group with 3 or more spaces.') : ''); 
-				
-			$inputfields->add($f); 
 		}
+		$value = trim($value);
+		if(empty($value)) {
+			$optionLabel = $f->label;
+			if($optionLabel === 'Options') $optionLabel = 'Option';
+			$value = "=\n$optionLabel 1\n$optionLabel 2\n$optionLabel 3";
+			if(!$isInputfieldSelect) $value = ltrim($value, '='); 
+		}
+		$f->attr('value', $value); 
+		$f->attr('rows', 10); 
+		$f->description = $this->_('Enter the options that may be selected, one per line.');
+		if($languages) $f->description .= ' ' . $this->_('To use multi-language option labels, please see the instructions below this field.'); 
+		$f->notes = 
+			($languages ? '**' . $this->_('Instructions:') . "**\n" : '') .
+			'• ' . $this->_('Specify one option per line.') . "\n" . 
+			'• ' . $this->_('To keep a separate value and label, separate them with an equals sign. Example: value=My Option') . " \n"  . 
+			($isInputfieldSelect ? '• ' . $this->_('To precede your list with a blank option, enter just a equals sign "=" as the first option.') . "\n" : '') .
+			'• ' . $this->_('To make an option selected, precede it with a plus sign. Example: +My Option') . 
+			($isInputfieldSelect ? "\n• " . $this->_('To create an optgroup (option group) indent the options in the group with 3 or more spaces.') : ''); 
+		if($languages) $f->notes .= " \n\n**" . $this->_('Multi-language instructions:') . "**\n" .
+			'• ' . $this->_('We recommend using using `value=label`, where `value` is the same across languages and `label` is translated.') . " \n" . 
+			'• ' . $this->_('First define your default language options, and then copy/paste into the other languages and translate labels.') . " \n" . 
+			'• ' . $this->_('Selected options and optgroups are defined on the default language; the other inputs are only for label translation.') . "\n" . 
+			'• ' . $this->_('Labels that are not translated inherit the default language label.'); 
+		
+		if($languages) {
+			$f->useLanguages = true;
+		}
+			
+		$inputfields->add($f); 
 
 		return $inputfields; 
 	}
