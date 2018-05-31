@@ -70,6 +70,64 @@ class Sanitizer extends Wire {
 	protected $textTools = null;
 
 	/**
+	 * UTF-8 whitespace hex codes
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $whitespaceUTF8 = array(
+		'0009', // character tab
+		'000A', // line feed
+		'000B', // line tab
+		'000C', // form feed
+		'000D', // carriage return
+		'0020', // space
+		'0085', // next line
+		'00A0', // non-breaking space
+		'1680', // ogham space mark
+		'180E', // mongolian vowel separator
+		'2000', // en quad
+		'2001', // em quad
+		'2002', // en space
+		'2003', // em space
+		'2004', // three per em space
+		'2005', // four per em space
+		'2006', // six per em space
+		'2007', // figure space
+		'2008', // punctuation space
+		'2009', // thin space
+		'200A', // hair space
+		'200B', // zero width space
+		'200C', // zero width non-join
+		'200D', // zero width join
+		'2028', // line seperator
+		'2029', // paragraph seperator
+		'202F', // narrow non-breaking space
+		'205F', // medium mathematical space   
+		'2060', // word join
+		'3000', // ideographic space
+		'FEFF', // zero width non-breaking space
+	);
+
+	/**
+	 * HTML entities representing whitespace
+	 * 
+	 * Note that this array is populated with all decimal/hex entities after a call to 
+	 * getWhitespaceArray() method with the $html option as true. 
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $whitespaceHTML = array(
+		'&nbsp;', // non-breaking space
+		'&ensp;', // en space
+		'&emsp;', // em space
+		'&thinsp;', // thin space
+		'&zwnj;', // zero width non-join
+		'&zwj;', // zero width join
+	);
+
+	/**
 	 * Construct the sanitizer
 	 *
 	 */
@@ -929,10 +987,15 @@ class Sanitizer extends Wire {
 	 * - `maxLength` (int): maximum characters allowed, or 0=no max (default=255).
 	 * - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*4).
 	 * - `stripTags` (bool): strip markup tags? (default=true).
-	 * - `stripMB4` (bool): strip emoji and other 4-byte UTF-8? (default=false). 
+	 * - `stripMB4` (bool): strip emoji and other 4-byte UTF-8? (default=false).
+	 * - `stripSpace` (bool|string): strip whitespace? Specify true or character to replace whitespace with (default=false). 
+	 * - `reduceSpace` (bool|string): reduce consecutive whitespace to single? Specify true or character to reduce to (default=false).
+	 *    Note that the reduceSpace option is an alternative to the stripSpace option, they should not be used together.
 	 * - `allowableTags` (string): markup tags that are allowed, if stripTags is true (use same format as for PHP's `strip_tags()` function.
 	 * - `multiLine` (bool): allow multiple lines? if false, then $newlineReplacement below is applicable (default=false).
-	 * - `newlineReplacement` (string): character to replace newlines with, OR specify boolean TRUE to remove extra lines (default=" ").
+	 * - `convertEntities` (bool): convert HTML entities to equivalent character(s)? (default=false). 
+	 * - `newlineReplacement` (string): character to replace newlines with, OR specify boolean true to remove extra lines (default=" ").
+	 * - `truncateTail` (bool): if truncate necessary for maxLength, truncate from end/tail? Use false to truncate head (default=true).
 	 * - `inCharset` (string): input character set (default="UTF-8").
 	 * - `outCharset` (string): output character set (default="UTF-8").
 	 * @return string
@@ -946,16 +1009,29 @@ class Sanitizer extends Wire {
 			'maxBytes' => 0,  // maximum bytes allowed (0 = default, which is maxLength*4)
 			'stripTags' => true, // strip markup tags
 			'stripMB4' => false, // strip Emoji and 4-byte characters? 
+			'stripSpace' => false, // remove/replace whitespace? If yes, specify character to replace with, or true for blank
+			'reduceSpace' => false, // reduce whitespace to single? If yes, specify character to replace with or true for ' '.
 			'allowableTags' => '', // tags that are allowed, if stripTags is true (use same format as for PHP's strip_tags function)
 			'multiLine' => false, // allow multiple lines? if false, then $newlineReplacement below is applicable
+			'convertEntities' => false, // convert HTML entities to equivalent characters?
 			'newlineReplacement' => ' ', // character to replace newlines with, OR specify boolean TRUE to remove extra lines
 			'inCharset' => 'UTF-8', // input charset
 			'outCharset' => 'UTF-8',  // output charset
+			'trunateTail' => true, // if truncate necessary for maxLength, remove chars from tail? False to truncate from head.
+			'trim' => true, // trim whitespace from beginning/end, or specify character(s) to trim, or false to disable
 			);
 
-		$options = array_merge($defaultOptions, $options); 
+		$truncated = false;
+		$options = array_merge($defaultOptions, $options);
+		if(isset($options['multiline'])) $options['multiLine'] = $options['multiline']; // common case error
+		if(isset($options['maxlength'])) $options['maxLength'] = $options['maxlength']; // common case error
 		if($options['maxLength'] < 0) $options['maxLength'] = 0;
 		if($options['maxBytes'] < 0) $options['maxBytes'] = 0;
+		
+		if($options['reduceSpace'] !== false && $options['stripSpace'] === false) {
+			// if reduceSpace option is used then provide necessary value for stripSpace option
+			$options['stripSpace'] = is_string($options['reduceSpace']) ? $options['reduceSpace'] : ' ';
+		}
 		
 		if(!is_string($value)) $value = $this->string($value);
 
@@ -975,21 +1051,51 @@ class Sanitizer extends Wire {
 			}
 		}
 
-		if($options['stripTags']) $value = strip_tags($value, $options['allowableTags']); 
+		if($options['stripTags']) {
+			$value = strip_tags($value, $options['allowableTags']);
+		}
 
-		if($options['inCharset'] != $options['outCharset']) $value = iconv($options['inCharset'], $options['outCharset'], $value);
+		if($options['inCharset'] != $options['outCharset']) {
+			$value = iconv($options['inCharset'], $options['outCharset'], $value);
+		}
 		
-		if($options['stripMB4']) $value = $this->removeMB4($value);
+		if($options['convertEntities']) {
+			$value = $this->unentities($value, true, $options['outCharset']); 
+		}
 
+		if($options['stripSpace'] !== false) {
+			$c = is_string($options['stripSpace']) ? $options['stripSpace'] : '';
+			$allow = $options['multiLine'] ? array("\n") : array();
+			$value = $this->removeWhitespace($value, array('replace' => $c, 'allow' => $allow));
+		}
+
+		if($options['stripMB4']) {
+			$value = $this->removeMB4($value);
+		}
+		
+		if($options['trim']) {
+			$value = is_string($options['trim']) ? trim($value, $options['trim']) : trim($value);
+		}
+		
 		if($options['maxLength']) {
 			if(empty($options['maxBytes'])) $options['maxBytes'] = $options['maxLength'] * 4;
 			if($this->multibyteSupport) {
 				if(mb_strlen($value, $options['outCharset']) > $options['maxLength']) {
-					$value = mb_substr($value, 0, $options['maxLength'], $options['outCharset']);
+					$truncated = true;
+					if($options['truncateTail']) {
+						$value = mb_substr($value, 0, $options['maxLength'], $options['outCharset']);
+					} else {
+						$value = mb_substr($value, -1 * $options['maxLength'], null, $options['outCharset']);
+					}
 				}
 			} else {
 				if(strlen($value) > $options['maxLength']) {
-					$value = substr($value, 0, $options['maxLength']);
+					$truncated = true;
+					if($options['truncateTail']) {
+						$value = substr($value, 0, $options['maxLength']);
+					} else {
+						$value = substr($value, -1 * $options['maxLength']); 
+					}
 				}
 			}
 		}
@@ -997,16 +1103,30 @@ class Sanitizer extends Wire {
 		if($options['maxBytes']) {
 			$n = $options['maxBytes'];
 			while(strlen($value) > $options['maxBytes']) {
+				$truncated = true;
 				$n--;
 				if($this->multibyteSupport) {
-					$value = mb_substr($value, 0, $n, $options['outCharset']);
+					if($options['truncateTail']) {
+						$value = mb_substr($value, 0, $n, $options['outCharset']);
+					} else {
+						$value = mb_substr($value, $n, null, $options['outCharset']); 
+					}
 				} else {
-					$value = substr($value, 0, $n);
+					if($options['truncateTail']) {
+						$value = substr($value, 0, $n);
+					} else {
+						$value = substr($value, $n); 
+					}
 				}
 			}
 		}
+		
+		if($truncated && $options['trim']) {
+			// secondary trim after truncation
+			$value = is_string($options['trim']) ? trim($value, $options['trim']) : trim($value);
+		}
 
-		return trim($value); 	
+		return $value;
 	}
 
 	/**
@@ -1015,7 +1135,7 @@ class Sanitizer extends Wire {
 	 * - This sanitizer is useful for user-submitted text from a plain-text `<textarea>` field, 
 	 *   or any other kind of string value that might have multiple-lines.
 	 * 
-	 * - Don't use this sanitizer for values where you want to allow HTML (like rich text fields). 
+	 * - Don’t use this sanitizer for values where you want to allow HTML (like rich text fields). 
 	 *   For those values you should instead use the `$sanitizer->purify()` method. 
 	 * 
 	 * - If using returned value for front-end output, be sure to run it through `$sanitizer->entities()` first.
@@ -1024,14 +1144,18 @@ class Sanitizer extends Wire {
 	 *
 	 * @param string $value String value to sanitize
 	 * @param array $options Options to modify default behavior
-	 *  - `maxLength` (int): maximum characters allowed, or 0=no max (default=16384 or 16kb).
-	 *  - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*3 or 48kb).
-	 *  - `stripTags` (bool): strip markup tags? (default=true).
-	 *  - `stripMB4` (bool): strip emoji and other 4-byte UTF-8? (default=false). 
-	 *  - `allowableTags` (string): markup tags that are allowed, if stripTags is true (use same format as for PHP's `strip_tags()` function.
-	 *  - `allowCRLF` (bool): allow CR+LF newlines (i.e. "\r\n")? (default=false, which means "\r\n" is replaced with "\n"). 
-	 *  - `inCharset` (string): input character set (default="UTF-8").
-	 *  - `outCharset` (string): output character set (default="UTF-8").
+	 * - `maxLength` (int): maximum characters allowed, or 0=no max (default=16384 or 16kb).
+	 * - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*3 or 48kb).
+	 * - `stripTags` (bool): strip markup tags? (default=true).
+	 * - `stripMB4` (bool): strip emoji and other 4-byte UTF-8? (default=false).
+	 * - `stripIndents` (bool): Remove indents (space/tabs) at the beginning of lines? (default=false)
+	 * - `reduceSpace` (bool|string): reduce consecutive whitespace to single? Specify true or character to reduce to (default=false).
+	 * - `allowableTags` (string): markup tags that are allowed, if stripTags is true (use same format as for PHP's `strip_tags()` function.
+	 * - `convertEntities` (bool): convert HTML entities to equivalent character(s)? (default=false).
+	 * - `truncateTail` (bool): if truncate necessary for maxLength, truncate from end/tail? Use false to truncate head (default=true).
+	 * - `allowCRLF` (bool): allow CR+LF newlines (i.e. "\r\n")? (default=false, which means "\r\n" is replaced with "\n"). 
+	 * - `inCharset` (string): input character set (default="UTF-8").
+	 * - `outCharset` (string): output character set (default="UTF-8").
 	 * @return string
 	 * @see Sanitizer::text(), Sanitizer::purify()
 	 * 
@@ -1043,12 +1167,20 @@ class Sanitizer extends Wire {
 
 		if(!isset($options['multiLine'])) $options['multiLine'] = true; 	
 		if(!isset($options['maxLength'])) $options['maxLength'] = 16384; 
-		if(!isset($options['maxBytes'])) $options['maxBytes'] = $options['maxLength'] * 3; 
+		if(!isset($options['maxBytes'])) $options['maxBytes'] = $options['maxLength'] * 4; 
 	
 		// convert \r\n to just \n
-		if(empty($options['allowCRLF']) && strpos($value, "\r\n") !== false) $value = str_replace("\r\n", "\n", $value); 
+		if(empty($options['allowCRLF']) && strpos($value, "\r\n") !== false) {
+			$value = str_replace("\r\n", "\n", $value);
+		}
 
-		return $this->text($value, $options); 
+		$value = $this->text($value, $options); 
+		
+		if(!empty($options['stripIndents'])) {
+			$value = preg_replace('/^[ \t]+/m', '', $value); 
+		}
+		
+		return $value;
 	}
 
 	/**
@@ -1731,13 +1863,19 @@ class Sanitizer extends Wire {
 	 * 
 	 * Wrapper for PHP's `html_entity_decode()` function that contains typical ProcessWire usage defaults.
 	 *
-	 * The arguments used here are identical to those for PHP's 
+	 * The arguments used here are identical to those for PHP’s (except `$flags` can be boolean true):  
 	 * [html_entity_decode](http://www.php.net/manual/en/function.html-entity-decode.php) function.
+	 * 
+	 * For the `$flags` argument, specify boolean `true` if you want to perform a more comprehensive entity
+	 * decode than what PHP does. That will make it convert all UTF-8 entities (including decimal and hex numbered
+	 * entities), and it will remove any remaining entity sequences if the could not be converted, ensuring there
+	 * are no entities possible in returned value. 
 	 * 
 	 * #pw-group-strings
 	 * 
 	 * @param string $str String to remove entities from
-	 * @param int|bool $flags See PHP html_entity_decode function for flags. 
+	 * @param int|bool $flags See PHP html_entity_decode function for flags, 
+	 *   OR specify boolean true to convert all entities and remove any that cannot be converted.
 	 * @param string $encoding Encoding (default="UTF-8").
 	 * @return string String with entities removed.
 	 * @see Sanitizer::entities()
@@ -1745,7 +1883,23 @@ class Sanitizer extends Wire {
 	 */
 	public function unentities($str, $flags = ENT_QUOTES, $encoding = 'UTF-8') {
 		if(!is_string($str)) $str = $this->string($str);
-		return html_entity_decode($str, $flags, $encoding); 
+		$str = html_entity_decode($str, ($flags === true ? ENT_QUOTES : $flags), $encoding);
+		if($flags !== true || strpos($str, '&') === false) return $str;
+		// flags is true and at least one "&" remains, so we are doing a full entity removal
+		// first, replace common entities that can possibly remain
+		$entities = array('&apos;' => "'");
+		$str = str_ireplace(array_keys($entities), array_values($entities), $str);
+		if(strpos($str, '&#') !== false) {
+			// manually convert decimal and hex entities
+			$str = preg_replace_callback('/(&#[0-9A-F]+;)/i', function($matches) use($encoding) {
+				return mb_convert_encoding($matches[1], $encoding, "HTML-ENTITIES");
+			}, $str);
+		}
+		if(strpos($str, '&') !== false) {
+			// strip out any entities that remain
+			$str = preg_replace('/&(?:#[0-9A-F]|[A-Z]+);/i', ' ', $str);
+		}
+		return $str;
 	}
 
 	/**
@@ -1817,6 +1971,95 @@ class Sanitizer extends Wire {
 	 */
 	public function removeNewlines($str, $replacement = ' ') {
 		return str_replace(array("\r\n", "\r", "\n"), $replacement, $str);
+	}
+
+	/**
+	 * Remove or replace all whitespace from string
+	 * 
+	 * #pw-group-strings
+	 * 
+	 * @param string $str String to remove whitespace from
+	 * @param array|string $options Options to modify behavior, or specify string for `replace` option:
+	 *  - `replace` (string): Character(s) to replace whitespace with (default='').
+	 *  - `collapse` (bool): If using replace, collapse consecutive replace chars to single? (default=true)
+	 *  - `trim` (bool): If using replace, trim it from beginning and end? (default=true)
+	 *  - `html` (bool): Remove/replace HTML whitespace entities too? (default=true)
+	 *  - `allow` (array): Array of whitespace characters that may remain. (default=[])
+	 * @return string
+	 * 
+	 */
+	public function removeWhitespace($str, $options = array()) {
+		$defaults = array(
+			'replace' => '',
+			'collapse' => true,
+			'trim' => true,
+			'html' => true,
+			'allow' => array(), 
+		);
+		if(!is_array($options)) {
+			$defaults['replace'] = $options;
+			$options = $defaults;
+		} else {
+			$options = array_merge($defaults, $options);
+		}
+		if($options['html'] && strpos($str, '&') === false) $options['html'] = false;
+		$whitespace = $this->getWhitespaceArray($options['html']); 
+		foreach($options['allow'] as $c) {
+			$key = array_search($c, $whitespace); 
+			if($key !== false) unset($whitespace[$key]);
+		}
+		$rep = $options['replace'];
+		if($options['html']) {
+			$str = str_ireplace($whitespace, $rep, $str);
+		} else {
+			$str = str_replace($whitespace, $rep, $str);
+		}
+		if(strlen($rep)) {
+			if($options['collapse']) {
+				while(strpos($str, "$rep$rep") !== false) {
+					$str = str_replace("$rep$rep", $rep, $str);
+				}
+			}
+			if($options['trim']) {
+				$str = trim($str, $rep);
+			}
+		}
+		return $str;
+	}
+
+	/**
+	 * Get array of all characters (including UTF-8) that can be used as whitespace in strings
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param bool|int $html Also include HTML entities that represent whitespace? false=no, true=both, 1=only-html (default=false)
+	 * @return array
+	 * 
+	 */
+	public function getWhitespaceArray($html = false) {
+	
+		static $whitespaceUTF8 = array();
+		static $whitespaceHTML = array();
+		
+		if(empty($whitespaceUTF8)) {
+			// json_decode can handle conversion of \u0000 sequences regardless of PHP version
+			$whitespaceUTF8 = json_decode('["\u' . implode('","\u', $this->whitespaceUTF8) . '"]', true); 
+		}
+		
+		if($html) {
+			if(empty($whitespaceHTML)) {
+				$whitespaceHTML = $this->whitespaceHTML;
+				foreach($this->whitespaceUTF8 as $key => $value) {
+					$whitespaceHTML[] = "&#x$value;"; // hex entity
+					$whitespaceHTML[] = "&#" . hexdec($value) . ';'; // decimal entity
+				}
+			}
+			$whitespace = $html === 1 ? $whitespaceHTML : array_merge($whitespaceUTF8, $whitespaceHTML); 
+		} else {
+			$whitespace = $whitespaceUTF8;
+		}
+		
+		return $whitespace;
 	}
 	
 	/**
