@@ -107,7 +107,7 @@ class WireTextTools extends Wire {
 
 		// convert entities to plain text equivalents
 		if($options['convertEntities'] && strpos($str, '&') !== false) {
-			$str = $this->unentities($str);
+			$str = $this->wire('sanitizer')->unentities($str);
 		}
 
 		return trim($str);

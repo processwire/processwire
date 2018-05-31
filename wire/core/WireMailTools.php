@@ -120,6 +120,7 @@ class WireMailTools extends Wire {
 	 * @param array|string $options Array of options OR the $bodyHTML string. Array $options are:
 	 *  - `body` (string): Email body (text)
 	 *  - `bodyHTML` (string): Email body (HTML)
+	 *  - `replyTo` (string): Reply-to email address
 	 *  - `headers` (array): Associative array of header name => header value
 	 *  - Any additional options will be sent along to the WireMail module or class, in tact.
 	 * @return int|WireMail Returns number of messages sent or WireMail object if no arguments specified.
@@ -133,7 +134,7 @@ class WireMailTools extends Wire {
 		if(empty($to)) return $mail;
 
 		$defaults = array(
-			'body' => $body,
+			'body' => is_string($body) ? $body : '',
 			'bodyHTML' => '',
 			'replyTo' => '', // email address
 			'headers' => array(),
@@ -159,8 +160,10 @@ class WireMailTools extends Wire {
 
 		try {
 			// configure the mail
-			$mail->to($to)->from($from)->subject($subject)->body($options['body']);
+			$mail->to($to)->subject($subject);
+			if(strlen($from)) $mail->from($from);
 			if(strlen($options['bodyHTML'])) $mail->bodyHTML($options['bodyHTML']);
+			if(strlen($options['body'])) $mail->body($options['body']);
 			if(count($options['headers'])) foreach($options['headers'] as $k => $v) $mail->header($k, $v);
 			// send along any options we don't recognize
 			foreach($options as $key => $value) {
@@ -175,6 +178,85 @@ class WireMailTools extends Wire {
 		}
 
 		return $numSent;
+	}
+
+	/**
+	 * Send an email, drop-in replacement for PHP mail() that uses the same arguments
+	 * 
+	 * This is an alternative to using the `$mail->send()` method, and may be simpler for those converting
+	 * existing PHP `mail()` calls to WireMail calls. 
+	 * 
+	 * This function duplicates the same arguments as PHP’s mail function, enabling you to replace an existing 
+	 * PHP `mail(…)` call with `$mail->mail(…)`. 
+	 * 
+	 * But unlike PHP’s mail function, this one can also send HTML (or multipart) emails if you provide 
+	 * an `$options` array for the `$message` argument (rather than a string). See the options array for 
+	 * the `$mail->send()` method for details. 
+	 * ~~~~~
+	 * // 1. Basic PHP mail() style usage
+	 * $mail->mail('ryan@processwire.com', 'Subject', 'Message body');
+	 * 
+	 * // 2. PHP mail() style usage with with $headers argument
+	 * $mail->mail('ryan@processwire.com', 'Subject', 'Message body', 'From: hello@world.com'); 
+	 * 
+	 * // 3. Alternate usage with html and text body
+	 * $mail->mail('ryan@processwire.com', 'Subject', [
+	 *   'bodyHTML' => '<html><body><h1>Message HTML body</h1></body</html>',
+	 *   'body' => 'Message text body',
+	 *   'from' => 'hello@world.com',
+	 * ]);
+	 * ~~~~~
+	 * 
+	 * @param string|array $to Email address TO. For multiple, specify CSV string or array. 
+	 * @param string $subject Email subject
+	 * @param string|array $message Email body (PHP mail style), OR specify $options array with any of the following:
+	 *  - `bodyHTML` (string): Email body (HTML)
+	 *  - `body` (string): Email body (text). If not specified, and bodyHTML is, then text body will be auto-generated.
+	 *  - `from` (string): From email address
+	 *  - `replyTo` (string): Reply-to email address
+	 *  - `headers` (array): Associative array of header name => header value
+	 * @param array $headers Optional additional headers as [name=value] array or "Name: Value" newline-separated string. 
+	 *   Use this argument to duplicate PHP mail() style arguments. No need to use if you used $options array for the $message argument.
+	 * @return bool True on success, false on fail.
+	 * 
+	 */
+	public function mail($to, $subject, $message, $headers = array()) {
+		$from = '';
+		
+		if(is_string($headers)) {
+			$_headers = explode("\n", $headers); 
+			$headers = array();
+			foreach($_headers as $header) {
+				if(!strpos($header, ':')) continue;
+				list($key, $val) = explode(':', $header, 2);
+				$headers[trim($key)] = trim($val);
+			}
+		}
+		
+		foreach($headers as $key => $val) {
+			if(strtolower($key) !== 'from') continue;
+			$from = $val;
+			unset($headers[$key]); 
+			break;
+		}
+	
+		if(is_array($message)) {
+			// message is $options array
+			$options = $message;
+			if(!empty($options['headers'])) $headers = array_merge($headers, $options['headers']);
+			$options['headers'] = $headers;
+			if(isset($options['from'])) {
+				if(empty($from)) $from = $options['from'];
+				unset($options['from']);
+			}
+			$qty = $this->send($to, $from, $subject, $options); 
+			
+		} else {
+			// regular PHP style mail() call converted to $mail->send() call
+			$qty = $this->send($to, $from, $subject, $message, $headers);
+		}
+		
+		return $qty > 0;
 	}
 
 	public function __get($key) {

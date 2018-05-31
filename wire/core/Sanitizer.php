@@ -988,6 +988,7 @@ class Sanitizer extends Wire {
 	 * - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*4).
 	 * - `stripTags` (bool): strip markup tags? (default=true).
 	 * - `stripMB4` (bool): strip emoji and other 4-byte UTF-8? (default=false).
+	 * - `stripQuotes` (bool): strip out any "quote" or 'quote' characters? Specify true, or character to replace with. (default=false)
 	 * - `stripSpace` (bool|string): strip whitespace? Specify true or character to replace whitespace with (default=false). 
 	 * - `reduceSpace` (bool|string): reduce consecutive whitespace to single? Specify true or character to reduce to (default=false).
 	 *    Note that the reduceSpace option is an alternative to the stripSpace option, they should not be used together.
@@ -1009,6 +1010,7 @@ class Sanitizer extends Wire {
 			'maxBytes' => 0,  // maximum bytes allowed (0 = default, which is maxLength*4)
 			'stripTags' => true, // strip markup tags
 			'stripMB4' => false, // strip Emoji and 4-byte characters? 
+			'stripQuotes' => false, // strip quote characters? Specify true, or character to replace them with
 			'stripSpace' => false, // remove/replace whitespace? If yes, specify character to replace with, or true for blank
 			'reduceSpace' => false, // reduce whitespace to single? If yes, specify character to replace with or true for ' '.
 			'allowableTags' => '', // tags that are allowed, if stripTags is true (use same format as for PHP's strip_tags function)
@@ -1071,6 +1073,10 @@ class Sanitizer extends Wire {
 
 		if($options['stripMB4']) {
 			$value = $this->removeMB4($value);
+		}
+		
+		if($options['stripQuotes']) {
+			$value = str_replace(array('"', "'"), (is_string($options['stripQuotes']) ? $options['strip_quotes'] : ''), $value);
 		}
 		
 		if($options['trim']) {
