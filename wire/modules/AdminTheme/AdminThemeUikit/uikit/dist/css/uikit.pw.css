@@ -14394,7 +14394,7 @@ table .InputfieldIsOffset,
   padding: 1px 20px 23px 20px;
 }
 .InputfieldContent > .InputfieldError {
-  display: inline-block;
+  display: block;
   padding: 5px 12px 5px 5px;
 }
 .InputfieldContent > textarea,

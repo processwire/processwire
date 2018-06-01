@@ -27,7 +27,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 28,
+			'version' => 29,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
 			'requires' => 'ProcessWire>=3.0.100'
@@ -788,11 +788,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		}
 
 		// render user nav
-		$user = $this->wire('user');
 		$userNav = $this->renderUserNavItems();
 		$out .=
 			"<li class='uk-parent'>" .
-				"<a href='#'>" . ucfirst($user->name) . "</a>" .
+				"<a href='#'>" . $this->renderUserNavLabel() . "</a>" .
 				"<ul $ukNav>$userNav</ul>" .
 			"</li>";
 
