@@ -1,0 +1,111 @@
+
+#html-body, h1, h2, h3, h4, h5 {
+	/* default font */
+	font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+#masthead-logo img {
+	/* image for masthead logo */
+	width: 100px;
+}
+
+#edit-page {
+	/* the edit page link that appears when page is editable */
+	position: absolute;
+	top: 10px;
+	right: 10px
+}
+
+#offcanvas-toggle {
+	/* the hamburger icon that toggles the mobile navigation */
+	position: absolute;
+	top: 10px;
+	left: 15px; 
+}
+
+#offcanvas-nav .uk-search-input {
+	/* the search box that appears in offcanvas nav */
+	width: 100%;
+}
+
+img.uk-comment-avatar {
+	/* avatar that appears in comments */
+	width: 60px;
+	height: 60px; 
+}
+
+@media only screen and (max-width: 959px) {
+	/* custom adjustments for mobile layouts under 960px */
+	#masthead {
+		/* primary nav is not visible, so it needs some padding here */
+		padding-bottom: 20px;
+	}
+}
+
+
+/****************************************************************
+ * Bodycopy text and images
+ *
+ * These styles are good to have on any ProcessWire site
+ *
+ */
+
+.align_left {
+	/* for images placed in rich text editor */ 
+	float: left;
+	margin: 0 1em 0.5em 0; 
+	position: relative;
+	top: 0.5em;
+	max-width: 50%; 
+}
+
+.align_right {
+	/* for images placed in rich text editor */ 
+	float: right;
+	margin: 0 0 0.5em 1em;
+	max-width: 50%; 
+}
+
+.align_center {
+	/* for images placed in rich text editor */ 
+	display: block;
+	margin: 1em auto; 
+	position: relative;
+	top: 0.5em;
+}
+
+figure {
+	/* figure for image that has a caption */
+	display: table;
+	margin: 1em 0;
+}
+
+figure figcaption {
+	/* display caption text below image contained to image width */
+	display: table-caption;
+	caption-side: bottom;
+	font-size: 13px;
+	line-height: 1.4em;
+	margin-top: 5px;
+	color: #777;
+}
+
+@media only screen and (max-width: 767px) {
+	/* common PW mobile layout adjustments for widths under 768px */ 
+
+	.align_left, .align_right, .align_center {
+		/* display images in center rather than aligned */
+		display: block;
+		float: none; 
+		margin: 1em auto;
+		max-width: 100%; 
+	}
+	
+	figure,
+    figure figcaption {
+		/* let figcaption display as wide as needed below image */
+	    display: block;
+	    text-align: center;
+    }
+}
+

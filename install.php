@@ -11,7 +11,7 @@
  * If that file exists, the installer will not run. So if you need to re-run this installer for any
  * reason, then you'll want to delete that file. This was implemented just in case someone doesn't delete the installer.
  * 
- * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo have installer set session name
@@ -228,8 +228,8 @@ class Installer {
 		
 		echo "
 			<p>A site installation profile is a ready-to-use and modify site for ProcessWire. 
-			If you are just getting started with ProcessWire, we recommend choosing
-			the <em>Default</em> site profile. If you already know what you are doing,
+			If you are just getting started with ProcessWire, we recommend choosing the <em>Regular</em> 
+			or <em>Default</em> site profile. If you already know what you are doing,
 			you might prefer the <em>Blank</em> site profile. 
 			<p style='width: 240px;'>
 				<select class='uk-select' name='profile' id='select-profile'>

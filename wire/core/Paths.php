@@ -131,12 +131,16 @@ class Paths extends WireData {
 			$value = $http . $this->_root;
 		} else {
 			$value = parent::get($key);
-			if(!is_null($value) && strlen($value)) {
-				if($value[0] == '/' || (DIRECTORY_SEPARATOR != '/' && $value[1] == ':')) {
-					$value = $http . $value;
-				} else {
-					$value = $http . $this->_root . $value;
-				}
+			if($value === null || !strlen($value)) return $value;
+			$pos = strpos($value, '//');
+			if($pos !== false && ($pos === 0 || ($pos > 0 && $value[$pos-1] === ':'))) {
+				// fully qualified URL
+			} else if($value[0] == '/' || (DIRECTORY_SEPARATOR != '/' && $value[1] == ':')) {
+				// path specifies its own root
+				$value = $http . $value;
+			} else {
+				// path needs root prepended
+				$value = $http . $this->_root . $value;
 			}
 		}
 		return $value; 
