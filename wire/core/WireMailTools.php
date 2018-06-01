@@ -3,7 +3,7 @@
 /**
  * ProcessWire Mail Tools ($mail API variable)
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Provides an API interface to email and WireMail. 
@@ -181,6 +181,31 @@ class WireMailTools extends Wire {
 	}
 
 	/**
+	 * Send an email with given message text assumed to be HTML 
+	 * 
+	 * This is just like the `$mail->send()` method with the exception that the body argument 
+	 * is assumed to be HTML rather than text. Note that the text version of the email is auto
+	 * generated from the HTML, unless a `body` is provided in the `$options` array.
+	 *
+	 * @param string|array $to Email address TO. For multiple, specify CSV string or array.
+	 * @param string $from Email address FROM. This may be an email address, or a combined name and email address.
+	 *   Example of combined name and email: `Karen Cramer <karen@processwire.com>`
+	 * @param string $subject Email subject
+	 * @param string $bodyHTML Email body in HTML
+	 * @param array|string $options Array of options OR the $bodyHTML string. Array $options are:
+	 *  - `body` (string): Email body (text)
+	 *  - `replyTo` (string): Reply-to email address
+	 *  - `headers` (array): Associative array of header name => header value
+	 *  - Any additional options will be sent along to the WireMail module or class, in tact.
+	 * @return int|WireMail Returns number of messages sent or WireMail object if no arguments specified.
+	 * 
+	 */
+	public function sendHTML($to = '', $from = '', $subject = '', $bodyHTML = '', $options = array()) {
+		$options['bodyHTML'] = $bodyHTML;
+		return $this->send($to, $from, $subject, $options);
+	}
+
+	/**
 	 * Send an email, drop-in replacement for PHP mail() that uses the same arguments
 	 * 
 	 * This is an alternative to using the `$mail->send()` method, and may be simpler for those converting
@@ -257,6 +282,34 @@ class WireMailTools extends Wire {
 		}
 		
 		return $qty > 0;
+	}
+
+	/**
+	 * Send an email with message assumed to be in HTML
+	 * 
+	 * This is the same as the `$mail->mail()` method except that the message argument is
+	 * assumed to be HTML rather than text. The text version of the email will be auto-generated
+	 * from the given HTML.
+	 * 
+	 * @param string|array $to Email address TO. For multiple, specify CSV string or array.
+	 * @param string $subject Email subject
+	 * @param string|array Email message in HTML
+	 * @param array $headers Optional additional headers as [name=value] array or "Name: Value" newline-separated string.
+	 *   Use this argument to duplicate PHP mail() style arguments. No need to use if you used $options array for the $message argument.
+	 * @return bool True on success, false on fail.
+	 * 
+	 */
+	public function mailHTML($to, $subject, $messageHTML, $headers = array()) {
+		if(is_array($messageHTML)) {
+			$options = $messageHTML;
+			if(!empty($headers) && empty($options['headers'])) $options['headers'] = $headers;
+		} else {
+			$options = array(
+				'bodyHTML' => $messageHTML,
+				'headers' => $headers
+			);
+		}
+		return $this->mail($to, $subject, $options); 
 	}
 
 	public function __get($key) {
