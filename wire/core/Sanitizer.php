@@ -1019,7 +1019,7 @@ class Sanitizer extends Wire {
 			'newlineReplacement' => ' ', // character to replace newlines with, OR specify boolean TRUE to remove extra lines
 			'inCharset' => 'UTF-8', // input charset
 			'outCharset' => 'UTF-8',  // output charset
-			'trunateTail' => true, // if truncate necessary for maxLength, remove chars from tail? False to truncate from head.
+			'truncateTail' => true, // if truncate necessary for maxLength, remove chars from tail? False to truncate from head.
 			'trim' => true, // trim whitespace from beginning/end, or specify character(s) to trim, or false to disable
 			);
 
