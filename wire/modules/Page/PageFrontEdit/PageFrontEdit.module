@@ -22,7 +22,7 @@ class PageFrontEdit extends WireData implements Module {
 		return array(
 			'title' => 'Front-End Page Editor',
 			'summary' => 'Enables front-end editing of page fields.',
-			'version' => 2,
+			'version' => 3,
 			'author' => 'Ryan Cramer',
 			'license' => 'MPL 2.0',
 			'icon' => 'cube', 
@@ -240,8 +240,12 @@ class PageFrontEdit extends WireData implements Module {
 		$className = $field->type->className();
 		$supported = false;
 		foreach($this->inlineAllowFieldtypes as $allowClass) {
-			if($allowClass == $className || in_array($allowClass, $classParents)) {
+			if($allowClass == $className) { 
 				$supported = true;	
+				break;
+			} else if(in_array($allowClass, $classParents)) {
+				$test = $field->type->getBlankValue(new NullPage(), $field);
+				if(!is_object($test)) $supported = true;
 				break;
 			}
 		}
@@ -806,6 +810,7 @@ class PageFrontEdit extends WireData implements Module {
 
 		$unformatted = $this->getUnformattedValue($page, $field);
 		$this->inlineEditors[$field->name] = $field->name;
+		$langID = $this->wire('languages') ? $this->wire('user')->language->id : 0;
 
 		// make sure we've got any initialization from the Inputfield
 		$inputfield = $field->___getInputfield($page);
@@ -820,7 +825,7 @@ class PageFrontEdit extends WireData implements Module {
 		
 		return
 			"<$tag id=pw-edit-$this->editorNum class='pw-edit pw-edit-$inputfield' data-name=$field->name " . 
-				"data-page=$page->id style='position:relative'>" .
+				"data-page=$page->id data-lang='$langID' style='position:relative'>" .
 				"<$tag class=pw-edit-orig>" .
 					$formatted .
 				"</$tag>" .

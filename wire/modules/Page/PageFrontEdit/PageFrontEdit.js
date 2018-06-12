@@ -336,7 +336,7 @@ function PageFrontEditInit($) {
 		$(document).on('pw-modal-closed', function(e, eventData) {
 			if(eventData.abort) return; // modal.js populates 'abort' if "x" button was clicked
 			var target = $(e.target);
-			if(!target.is('.pw-edit-modal')) return;
+			if(!target.hasClass('pw-edit-modal')) return;
 			var targetID = target.attr('id');
 			var viewURL = $('#pw-url').val();
 			viewURL += (viewURL.indexOf('?') > -1 ? '&' : '?') + 'pw_edit_fields=' + target.attr('data-fields');

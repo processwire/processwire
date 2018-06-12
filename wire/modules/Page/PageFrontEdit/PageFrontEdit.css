@@ -208,7 +208,7 @@ button.ui-button.ui-state-active,
     background: #E4EBEE;
     border: none;
     margin-top: -8px;
-    padding: 1px 8px 1px 8px; }
+    padding: 8px 8px 1px 8px; }
     .ui-dialog .ui-dialog-buttonpane .ui-dialog-buttonset {
       float: right; }
   .ui-dialog .ui-dialog-buttonpane button {
@@ -262,26 +262,36 @@ button.ui-button.ui-state-active,
   opacity: 0;
   filter: Alpha(Opacity=0); }
 
-/*** AdminThemeReno jQuery UI ************************************************/
+/*** AdminThemeReno or Uikit jQuery UI ************************************************/
+.pw-AdminThemeUikit .ui-dialog .ui-dialog-titlebar,
 .pw-AdminThemeReno .ui-dialog .ui-dialog-titlebar {
   background: #2a3c51; }
+  .pw-AdminThemeUikit .ui-dialog .ui-dialog-titlebar .ui-button,
   .pw-AdminThemeReno .ui-dialog .ui-dialog-titlebar .ui-button {
     background: none;
     border: none; }
+.pw-AdminThemeUikit .ui-dialog .ui-dialog-buttonpane,
 .pw-AdminThemeReno .ui-dialog .ui-dialog-buttonpane {
-  margin-top: -5px; }
+  margin-top: -5px;
+  padding-top: 6px; }
+.pw-AdminThemeUikit .ui-dialog .ui-dialog-title,
 .pw-AdminThemeReno .ui-dialog .ui-dialog-title {
   padding: 5px 10px;
   font-weight: normal;
   color: #FFF;
   font-size: 1.2em; }
+.pw-AdminThemeUikit .ui-dialog .ui-dialog-titlebar-close,
 .pw-AdminThemeReno .ui-dialog .ui-dialog-titlebar-close {
   right: 15px;
   background: none;
   border: none;
   color: #FFF; }
+.pw-AdminThemeUikit .ui-widget-overlay,
 .pw-AdminThemeReno .ui-widget-overlay {
   background: #1C2836; }
+.pw-AdminThemeUikit .ui-button,
+.pw-AdminThemeUikit button.ui-button.ui-state-default,
+.pw-AdminThemeUikit .ui-button.ui-state-default,
 .pw-AdminThemeReno .ui-button,
 .pw-AdminThemeReno button.ui-button.ui-state-default,
 .pw-AdminThemeReno .ui-button.ui-state-default {
@@ -292,20 +302,29 @@ button.ui-button.ui-state-active,
   border: 1px solid #3eb998;
   border-radius: 3px;
   transition: all 120ms ease-in; }
-.pw-AdminThemeReno .ui-button-text, .pw-AdminThemeReno .ui-button-text-only .ui-button-text {
+.pw-AdminThemeUikit .ui-button-text, .pw-AdminThemeUikit .ui-button-text-only .ui-button-text,
+.pw-AdminThemeReno .ui-button-text,
+.pw-AdminThemeReno .ui-button-text-only .ui-button-text {
   padding: 0.6em 1.1em;
   font-size: 1em; }
+.pw-AdminThemeUikit button.ui-button.ui-priority-secondary,
+.pw-AdminThemeUikit .ui-button.ui-priority-secondary,
 .pw-AdminThemeReno button.ui-button.ui-priority-secondary,
 .pw-AdminThemeReno .ui-button.ui-priority-secondary {
   background: #4d6c76;
   border: 1px solid #4d6c76;
   color: #fff; }
+  .pw-AdminThemeUikit button.ui-button.ui-priority-secondary:hover,
+  .pw-AdminThemeUikit .ui-button.ui-priority-secondary:hover,
   .pw-AdminThemeReno button.ui-button.ui-priority-secondary:hover,
   .pw-AdminThemeReno .ui-button.ui-priority-secondary:hover {
     color: #fff;
     border: 1px solid #3eb998;
     background: #3eb998;
     cursor: pointer; }
+.pw-AdminThemeUikit .ui-button:hover,
+.pw-AdminThemeUikit button.ui-button.ui-state-hover,
+.pw-AdminThemeUikit .ui-button.ui-state-hover,
 .pw-AdminThemeReno .ui-button:hover,
 .pw-AdminThemeReno button.ui-button.ui-state-hover,
 .pw-AdminThemeReno .ui-button.ui-state-hover {
@@ -313,6 +332,8 @@ button.ui-button.ui-state-active,
   background: #e83561;
   border: 1px solid #e83561;
   text-decoration: none; }
+.pw-AdminThemeUikit .ui-button.ui-state-hover.ui-state-active,
+.pw-AdminThemeUikit .ui-button.ui-state-hover.ui-priority-secondary.ui-state-active,
 .pw-AdminThemeReno .ui-button.ui-state-hover.ui-state-active,
 .pw-AdminThemeReno .ui-button.ui-state-hover.ui-priority-secondary.ui-state-active {
   background: #e83561;
@@ -370,5 +391,3 @@ body.pw-AdminThemeDefault .pw-edit-cancel {
   body.pw-AdminThemeDefault .pw-edit-cancel:hover {
     background-color: #d80e1c;
     border-color: #d80e1c; }
-
-/*# sourceMappingURL=PageFrontEdit.css.map */

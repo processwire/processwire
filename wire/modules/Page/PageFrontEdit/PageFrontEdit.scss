@@ -281,7 +281,7 @@ button.ui-button.ui-state-active,
 		background: $subtle-bg;
 		border: none;
 		margin-top: -8px;
-		padding: 1px 8px 1px 8px;
+		padding: 8px 8px 1px 8px;
 		.ui-dialog-buttonset {
 			float: right;
 		}
@@ -345,8 +345,9 @@ button.ui-button.ui-state-active,
 	filter:Alpha(Opacity=0);
 }
 
-/*** AdminThemeReno jQuery UI ************************************************/
+/*** AdminThemeReno or Uikit jQuery UI ************************************************/
 
+.pw-AdminThemeUikit,
 .pw-AdminThemeReno {
 	.ui-dialog {
 		.ui-dialog-titlebar {
@@ -359,6 +360,7 @@ button.ui-button.ui-state-active,
 
 		.ui-dialog-buttonpane {
 			margin-top: -5px;
+			padding-top: 6px; 
 		}
 
 		.ui-dialog-title {

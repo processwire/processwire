@@ -166,6 +166,7 @@ function pwModalWindow(href, options, size) {
 	}
 	var $iframe = jQuery('<iframe class="pw-modal-window" frameborder="0" src="' + url + '"></iframe>');
 	$iframe.attr('id', 'pw-modal-window-' + (pwModalWindows.length+1));
+	pwModalWindows[pwModalWindows.length] = $iframe;
 	
 	if(typeof size == "undefined" || size.length == 0) var size = 'large';
 	var settings = pwModalWindowSettings(size);
@@ -261,11 +262,11 @@ function pwModalOpenEvent(e) {
 
 	var settings = {
 		title: $a.attr('title'),
-		close: function(event, ui) {
+		close: function(e, ui) {
 			// abort is true when the "x" button at top right of window is what closed the window
-			var abort = typeof event.toElement != "undefined" && jQuery(event.toElement).hasClass('fa-times');
+			var abort = typeof e.originalEvent != "undefined" && jQuery(e.originalEvent.target).closest('.ui-dialog-titlebar-close').length > 0;
 			var eventData = { 
-				event: event, 
+				event: e, 
 				ui: ui, 
 				abort: abort 
 			};
