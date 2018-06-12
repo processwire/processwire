@@ -188,7 +188,7 @@ function pwModalWindow(href, options, size) {
 	$iframe.data('settings', settings);
 	$iframe.load(function() {
 		if(typeof settings.title == "undefined" || !settings.title) {
-			var title = $('<textarea />').text($iframe.contents().find('title').text()).html();
+			var title = jQuery('<textarea />').text($iframe.contents().find('title').text()).html();
 			$iframe.dialog('option', 'title', title); 
 		}
 		$iframe.contents().find('form').css('-webkit-backface-visibility', 'hidden'); // to prevent jumping
@@ -332,7 +332,8 @@ function pwModalOpenEvent(e) {
 
 		if(closeOnLoad) {
 			// this occurs when item saved and resulting page is loaded
-			if($icontents.find(".NoticeError, .NoticeWarning, .ui-state-error").length == 0) {
+			var $errorItems = $icontents.find(".NoticeError, .ui-state-error");
+			if($errorItems.length == 0) {
 				// if there are no error messages present, close the window
 				if(typeof Notifications != "undefined") {
 					var messages = [];
@@ -347,6 +348,9 @@ function pwModalOpenEvent(e) {
 				}
 				$iframe.dialog('close');
 				return;
+			} else {
+				// console.log('error items prevent modal autoclose:');
+				// console.log($errorItems);
 			}
 		}
 
