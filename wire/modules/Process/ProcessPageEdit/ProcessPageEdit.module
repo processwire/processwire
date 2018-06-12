@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * @property string $noticeUnknown
@@ -248,6 +248,64 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	protected $config;
 
+	/**
+	 * @var Sanitizer
+	 * 
+	 */
+	protected $sanitizer;
+
+	/**
+	 * @var Session
+	 * 
+	 */
+	protected $session;
+
+	/**
+	 * Sanitized contents of get[modal]
+	 * 
+	 * @var int|string|bool|null
+	 * 
+	 */
+	protected $requestModal = null;
+
+	/**
+	 * Sanitized contents of get[context]
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $requestContext = '';
+
+	/**
+	 * Sanitized contents of get[language]
+	 * 
+	 * @var Language|null
+	 * 
+	 */
+	protected $requestLanguage = null;
+
+	/**
+	 * Is the LanguageSupportPageNames module installed?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $hasLanguagePageNames = false;
+
+	/**
+	 * Contents of $config->pageEdit
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $configSettings = array(
+		'viewNew' => false,
+		'confirm' => true,
+		'ajaxChildren' => true,
+		'ajaxParent' => true,
+		'editCrumbs' => false,
+	);
+
 	
 	/***********************************************************************************************************************
 	 * METHODS
@@ -283,28 +341,34 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$this->modules = $this->wire('modules');
 		$this->input = $this->wire('input');
 		$this->config = $this->wire('config');
-		
-		if(in_array($this->wire('input')->urlSegment1, array('navJSON', 'bookmarks'))) return;
-		if(isset($_GET['id']) && $_GET['id'] == 'bookmark') {
-			$this->wire('session')->redirect('./bookmarks/');
-			return;
-		}
+		$this->user = $this->wire('user');
+		$this->sanitizer = $this->wire('sanitizer');
+		$this->session = $this->wire('session');
 		
 		// predefined messages that maybe used in multiple places
 		$this->set('noticeUnknown', $this->_("Unknown page")); // Init error: Unknown page
 		$this->set('noticeLocked', $this->_("This page is locked for edits")); // Init error: Page is locked
 		$this->set('noticeNoAccess', $this->_("You don't have access to edit")); // Init error: User doesn't have access
-
+		
+		$settings = $this->config->pageEdit;
+		if(is_array($settings)) $this->configSettings = array_merge($this->configSettings, $settings); 
+		
+		if(in_array($this->input->urlSegment1, array('navJSON', 'bookmarks'))) return;
+	
+		$getID = $this->input->get('id');
+		if($getID === 'bookmark') {
+			$this->session->redirect('./bookmarks/');
+			return;
+		}
+		$getID = (int) $getID;
 		$postID = (int) $this->input->post('id');
-		$id = $postID;
-		if(!$id) $id = (int) $this->input->get('id');
+		$id = abs($postID ? $postID : $getID); 
 
 		if(!$id) {
-			$this->wire('session')->redirect('./bookmarks/');
+			$this->session->redirect('./bookmarks/');
 			throw new Wire404Exception($this->noticeUnknown); // Init error: no page provided
 		}
 
-		$this->user = $this->wire('user');
 		$this->page = $this->loadPage($id); 
 		$this->id = $this->page->id; 
 		$this->pageClass = $this->page->className();
@@ -314,13 +378,13 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		// check if editing specific field or fieldset only
 		if($this->page) {
-			$field = $this->wire('input')->get('field');
-			$fields = $this->wire('input')->get('fields'); 
+			$field = $this->input->get('field');
+			$fields = $this->input->get('fields'); 
 			if($field && !$fields) $fields = $field;
 			if($fields) {
 				$fields = explode(',', $fields); 
 				foreach($fields as $fieldName) {
-					$fieldName = $this->wire('sanitizer')->fieldName($fieldName);
+					$fieldName = $this->sanitizer->fieldName($fieldName);
 					if(!$fieldName) throw new WireException("Invalid field name specified");
 					$field = $this->page->template->fieldgroup->getField($fieldName, true); // get in context
 					if(!$field) throw new WireException("Field '$fieldName' is not applicable to this page");
@@ -340,6 +404,28 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if(!$this->isPost) { 
 			$this->setupHeadline();
 			$this->setupBreadcrumbs();
+		}
+
+		// optional context GET var
+		$context = $this->input->get('context');
+		if($context) $this->requestContext = $this->sanitizer->name($context);
+	
+		// optional language GET var
+		$languages = $this->wire('languages');
+		if($languages) {
+			$this->hasLanguagePageNames = $this->modules->isInstalled('LanguageSupportPageNames');
+			if($this->hasLanguagePageNames) {
+				$languageID = (int) $this->input->get('language');
+				if($languageID > 0) {
+					$language = $languages->get($languageID);
+					if($language->id && $language->id != $this->user->language->id) $this->requestLanguage = $language;
+				}
+			}
+		}
+	
+		// optional modal setting
+		if($this->config->modal) {
+			$this->requestModal = $this->sanitizer->name($this->config->modal);	
 		}
 
 		parent::init();
@@ -373,13 +459,13 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$editable = $page->editable();
 	
 		/** @var User $user */
-		$user = $this->wire('user');
+		$user = $this->user;
 		
 		/** @var Config $config */
-		$config = $this->wire('config');
+		$config = $this->config;
 		
 		/** @var Config $config */
-		$input = $this->wire('input');
+		$input = $this->input; 
 		
 		if($page instanceof User) {
 			// special case when page is a User
@@ -389,12 +475,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			
 			if($userAdmin && $this->wire('process') != 'ProcessUser') {
 				// only allow user pages to be edited from the access section (at least for non-superusers)
-				$this->wire('session')->redirect($config->urls->admin . 'access/users/edit/?id=' . $page->id);
+				$this->session->redirect($config->urls->admin . 'access/users/edit/?id=' . $page->id);
 				
 			} else if(!$userAdmin && $page->id === $user->id && $field && $config->ajax) {
 				// user is editing themself and we're responding to an ajax request for a field
 				/** @var PagePermissions $pagePermissions */
-				$pagePermissions = $this->wire('modules')->get('PagePermissions');
+				$pagePermissions = $this->modules->get('PagePermissions');
 				$editable = $pagePermissions->userFieldEditable($field); 
 				// prevent a later potential redirect to user editor
 				if($editable) $this->setEditor = false;
@@ -484,16 +570,17 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		}
 
 		if(!count($this->fields)) { 
-			$tabs = $this->wire('modules')->get('JqueryWireTabs')->renderTabList($this->getTabs(), array('id' => 'PageEditTabs')); 
-			$this->form->value = $tabs; 
+			/** @var JqueryWireTabs $tabs */
+			$tabs = $this->modules->get('JqueryWireTabs');
+			$this->form->value = $tabs->renderTabList($this->getTabs(), array('id' => 'PageEditTabs')); 
 		}
 		
 		$out .= $this->form->render();
 	
 		// buttons with dropdowns
-		if(!$this->wire('config')->modal && !count($this->fields)) {
-			
-			$config = $this->wire('config');
+		if(!$this->requestModal && !count($this->fields)) {
+		
+			$config = $this->config;
 			$file = $config->debug ? 'dropdown.js' : 'dropdown.min.js';
 			$config->scripts->add($config->urls->InputfieldSubmit . $file);
 			
@@ -529,7 +616,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$out .= "</ul>";
 		}
 
-		if($viewable && !count($this->fields) && !$this->wire('config')->modal) {
+		if($viewable && !count($this->fields) && !$this->requestModal) {
 			// this supports code in the buildFormView() method
 			$out .= "<ul id='_ProcessPageEditViewDropdown' class='pw-dropdown-menu pw-dropdown-menu-rounded' data-my='left top' data-at='left top-9'>";
 			foreach($this->getViewActions() as $name => $action) {
@@ -541,6 +628,36 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$out .= "<scr" . "ipt>initPageEditForm();</script>"; // ends up being slightly faster than ready() (or at least appears that way)
 		
 		return $out; 
+	}
+
+	/**
+	 * Get URL to view this page
+	 * 
+	 * @param Language|int|string|null $language
+	 * @return string
+	 * @throws WireException
+	 * 
+	 */
+	protected function getViewUrl($language = null) {
+		$url = '';
+		if(!$this->page) throw new WireException('No page yet');
+		if($this->hasLanguagePageNames) {
+			/** @var Languages $languages */
+			$languages = $this->wire('languages');
+			if($language) {
+				if(is_string($language) || is_int($language)) $language = $languages->get($language);
+				$userLanguage = $language;
+			} else if($this->requestLanguage) {
+				$userLanguage = $this->requestLanguage;
+			} else {
+				$userLanguage = $this->user->language;
+			}
+			if($userLanguage && $userLanguage->id) {
+				$url = $this->page->localHttpUrl($userLanguage);
+			}
+		}
+		if(!$url) $url = $this->page->httpUrl();
+		return $url;
 	}
 
 	/**
@@ -573,10 +690,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			return $labels;
 		}
 
-		$url = $this->page->httpUrl();
+		$url = $this->getViewUrl();
 		if($this->page->hasStatus(Page::statusDraft) && strpos($url, '?') === false) $url .= '?draft=1';
-		$languages = $this->wire('modules')->isInstalled('LanguageSupportPageNames') ? $this->page->template->getLanguages() : null;
-		
+		$languages = $this->hasLanguagePageNames ? $this->page->template->getLanguages() : null;
+	
 		foreach($icons as $name => $icon) {
 			$labels[$name] = "<i class='fa fa-fw fa-$icon'></i>&nbsp;" . $labels[$name];
 		}
@@ -584,11 +701,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$class = '';
 		$languageUrls = array();
 		if($languages) {
-			$userLanguage = $this->wire('user')->language;
 			$class .= ' pw-has-items';
 			foreach($languages as $language) {
 				if(!$this->page->viewable($language)) continue;
-				$localUrl = $language->id == $userLanguage->id ? $url : $this->page->localHttpUrl($language);
+				$localUrl = $this->page->localHttpUrl($language);
 				if($this->page->hasStatus(Page::statusDraft) && strpos($localUrl, '?') === false) $localUrl .= '?draft=1';
 				$languageUrls[$language->id] = $localUrl;
 			}
@@ -625,6 +741,42 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	}
 
 	/**
+	 * Get URL (or form action attribute) for editing this page
+	 * 
+	 * @param array $options
+	 * @return string
+	 * 
+	 */
+	public function getEditUrl($options = array()) {
+		$defaults = array(
+			'id' => $this->page->id, 
+			'modal' => $this->requestModal,
+			'context' => $this->requestContext,
+			'language' => $this->requestLanguage,
+			'field' => '', 
+			'fields' => '',
+			'uploadOnlyMode' => '',
+		);
+		if($this->field) {
+			$numFields = count($this->fields);
+			if($numFields == 1 && $this->field) {
+				$defaults['field'] = $this->field->name;
+			} else if($numFields > 1) {
+				$defaults['fields'] = implode(',', array_keys($this->fields));
+			}
+		}
+		$uploadOnlyMode = (int) $this->input->get('uploadOnlyMode'); 
+		if($uploadOnlyMode && !$this->config->ajax) $defaults['uploadOnlyMode'] = $uploadOnlyMode;
+		$options = array_merge($defaults, $options);
+		$url = './?';
+		foreach($options as $name => $value) {
+			if(empty($value)) continue;
+			$url .= "&$name=$value";
+		}
+		return $url;
+	}
+
+	/**
 	 * Build the form used for Page Edits
 	 * 
 	 * @param InputfieldForm $form
@@ -633,35 +785,21 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	protected function ___buildForm(InputfieldForm $form) {
 
-		$action = "./?id=$this->id";
-		$modal = (int) $this->wire('config')->modal;
-		if($modal) $action .= "&modal=$modal";
-		$context = $this->wire('input')->get('context');
-		if($context !== null) {
-			$context = $this->wire('sanitizer')->name($context);
-			$action .= "&context=$context";
-		}
-		$form->attr('id+name', 'ProcessPageEdit'); 
-		$form->attr('action', $action);
+		$form->attr('id+name', 'ProcessPageEdit');
+		$form->attr('action', $this->getEditUrl(array('id' => $this->id)));
 		$form->attr('method', 'post'); 
 		$form->attr('enctype', 'multipart/form-data'); 
 		$form->attr('class', 'ui-helper-clearfix template_' . $this->page->template . ' class_' . $this->page->className); 
 		$form->attr('autocomplete', 'off');
 		$form->attr('data-uploading', $this->_('Are you sure? An upload is currently in progress and it may be lost if you proceed.'));
 		
-		$settings = $this->wire('config')->pageEdit;
-		if(empty($settings) || !isset($settings['confirm']) || !empty($settings['confirm'])) {
-			$form->addClass('InputfieldFormConfirm');
-		}
+		if($this->configSettings['confirm']) $form->addClass('InputfieldFormConfirm');
 
 		// for ProcessPageEditImageSelect support
-		$uploadOnlyMode = (int) $this->wire('input')->get('uploadOnlyMode');
-		if($uploadOnlyMode && !$this->wire('config')->ajax) {
-			$action .= "&uploadOnlyMode=" . $uploadOnlyMode;
-			$form->attr('action', $action);
+		if($this->input->get('uploadOnlyMode') && !$this->config->ajax) {
 			// for modal uploading with InputfieldFile or InputfieldImage
 			if(count($this->fields) && $this->field->type instanceof FieldtypeImage) {
-				$this->redirectUrl = "../image/?id=$this->id";
+				$this->setRedirectUrl("../image/?id=$this->id");
 			}
 		}
 		
@@ -671,9 +809,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	
 		if($this->field) { 
 			// focus in on a specific field or fields 
-			
-			$action .= count($this->fields) == 1 ? "&field={$this->field->name}" : "&fields=" . implode(',', array_keys($this->fields));
-			$form->attr('action', $action);
 			$form->addClass('ProcessPageEditSingleField'); 
 		
 			foreach($this->fields as $field) {
@@ -721,17 +856,19 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					if(!$tabViewable) continue;
 					
 					if($inputfield->modal) {
-						$context = $this->wire('sanitizer')->name($this->wire('input')->get('context'));
+						$href = $this->getEditUrl(array('field' => $inputfield->name, 'modal' => 1)); 
 						$this->addTab($tabOpen->id, "<a class='pw-modal' " .
-							"title='" . $this->wire('sanitizer')->entities($tabOpen->label) . "' " . 
+							"title='" . $this->sanitizer->entities($tabOpen->label) . "' " . 
 							"data-buttons='#ProcessPageEdit button[type=submit]' " . 
 							"data-autoclose='1' " . 
-							"href='./?id={$this->page->id}&field=$inputfield->name&modal=1&context=$context'>" . 
-							$this->wire('sanitizer')->entities1($tabOpen->label) . "</a>");
-						$this->wire('modules')->get('JqueryUI')->use('modal');
+							"href='$href'>" . 
+							$this->sanitizer->entities1($tabOpen->label) . "</a>");
+						/** @var JqueryUI $jqueryUI */
+						$jqueryUI = $this->modules->get('JqueryUI');
+						$jqueryUI->use('modal');
 						$tabOpen = null;
 					} else {
-						$this->addTab($tabOpen->id, $this->wire('sanitizer')->entities1($tabOpen->label));
+						$this->addTab($tabOpen->id, $this->sanitizer->entities1($tabOpen->label));
 					}
 					
 				} else if($tabOpen && !$this->isPost) {
@@ -759,7 +896,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			if($this->isTrash) $this->message($this->_("This page is in the Trash")); 
 			$tabDelete = $this->buildFormDelete();
 			if($tabDelete->children()->count()) $form->append($tabDelete);
-			if($this->page->viewable() && !$modal) $this->buildFormView($this->page->httpUrl); 
+			if($this->page->viewable() && !$this->requestModal) $this->buildFormView($this->getViewUrl()); 
 	
 			if($this->page->hasStatus(Page::statusUnpublished)) {
 	
@@ -770,7 +907,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$submit2->attr('id', 'submit_save_unpublished');
 					$submit2->showInHeader();
 					$submit2->setSecondary();
-					if($this->wire('session')->clientWidth > 900) {
+					if($this->session->clientWidth > 900) {
 						$submit2->attr('value', $this->_('Save + Keep Unpublished')); // Button: save unpublished
 					} else {
 						$submit2->attr('value', $saveLabel); // Button: save unpublished
@@ -803,8 +940,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field = $this->modules->get('InputfieldHidden');
 		$field->attr('name', 'id');
 		$field->attr('value', $this->page->id); 
-		$form->append($field); 
-
+		$form->append($field);
+		
 		return $form; 
 	}
 
@@ -856,12 +993,11 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	protected function ___buildFormChildren() {
 
-		$settings = $this->wire('config')->pageEdit;
 		$page = $this->masterPage ? $this->masterPage : $this->page; 
 		$wrapper = $this->wire(new InputfieldWrapper());
 		$id = $this->className() . 'Children';
 		$wrapper->attr('id+name', $id);
-		if(!empty($settings['ajaxChildren'])) $wrapper->collapsed = Inputfield::collapsedYesAjax;
+		if(!empty($this->configSettings['ajaxChildren'])) $wrapper->collapsed = Inputfield::collapsedYesAjax;
 		$defaultTitle = $this->_('Children'); // Tab Label: Children
 		$title = $this->page->template->getTabLabel('children'); 
 		if(!$title) $title = $defaultTitle;
@@ -895,13 +1031,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			}
 
 			if($page->addable()) { 
-				$modal = $this->wire('config')->modal;
 				/** @var InputfieldButton $button */
 				$button = $this->modules->get("InputfieldButton"); 
 				$button->attr('id+name', 'AddPageBtn'); 
 				$button->attr('value', $this->_('Add New Page Here')); // Button: add new child page
 				$button->icon = 'plus-circle';
-				$button->attr('href', "../add/?parent_id={$page->id}" . ($modal ? "&modal=$modal" : ''));
+				$button->attr('href', "../add/?parent_id={$page->id}" . ($this->requestModal ? "&modal=$this->requestModal" : ''));
 				$field->append($button);
 			}
 			$wrapper->append($field); 
@@ -998,7 +1133,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$this->addTab($id, $title);
 
 		// name
-		if(($this->page->id > 1 || $this->wire('modules')->isInstalled('LanguageSupportPageNames')) && !$this->page->template->nameContentTab) {
+		if(($this->page->id > 1 || $this->hasLanguagePageNames) && !$this->page->template->nameContentTab) {
 			/** @var InputfieldPageName $field */
 			$field = $this->modules->get('InputfieldPageName');
 			$label = $this->page->template->getNameLabel();
@@ -1020,7 +1155,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if($this->page->editable('template', false)) { 
 
 			$languages = $this->wire('languages');
-			$language = $this->wire('user')->language; 
+			$language = $this->user->language; 
 
 			/** @var InputfieldSelect $field */
 			$field = $this->modules->get('InputfieldSelect');
@@ -1052,11 +1187,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$field->addOption($p->id, $p->path); 
 				}
 			} else {
-				$settings = $this->wire('config')->pageEdit; 
 				/** @var InputfieldPageListSelect $field */
 				$field = $this->modules->get('InputfieldPageListSelect');
 				$field->set('parent_id', 0);
-				if(!empty($settings['ajaxParent'])) $field->collapsed = Inputfield::collapsedYesAjax;
+				if(!empty($this->configSettings['ajaxParent'])) $field->collapsed = Inputfield::collapsedYesAjax;
 			}
 			$field->required = true;
 			$field->label = $this->_('Parent'); // Settings: Parent field label
@@ -1107,8 +1241,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$modifiedName = $page->modifiedUser ? $page->modifiedUser->name : ''; 
 		if(empty($createdName)) $createdName = $unknown;
 		if(empty($modifiedName)) $modifiedName = $unknown;
-		if($this->wire('user')->isSuperuser()) {
-			$url = $this->wire('config')->urls->admin . 'access/users/edit/?id=';
+		if($this->user->isSuperuser()) {
+			$url = $this->config->urls->admin . 'access/users/edit/?id=';
 			if($createdName != $unknown && $page->createdUser instanceof User) $createdName = "<a href='$url{$page->createdUser->id}'>$createdName</a>";
 			if($modifiedName != $unknown && $page->modifiedUser instanceof User) $modifiedName = "<a href='$url{$page->modifiedUser->id}'>$modifiedName</a>";
 		}
@@ -1129,7 +1263,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field->attr('id+name', 'ProcessPageEditInfo'); 
 		$field->label = $this->_('Info'); // Settings: Info field label
 		$field->icon = 'info-circle';
-		if($this->wire('config')->advanced) $field->notes = "Object type: " . $page->className();
+		if($this->config->advanced) $field->notes = "Object type: " . $page->className();
 		$field->value = $info; 
 		
 		return $field; 
@@ -1176,7 +1310,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field->attr('value', $value); 
 		$field->label = $this->_('Status'); // Settings: Status field label
 		
-		if($this->wire('config')->debug) $field->notes = $this->page->statusStr;
+		if($this->config->debug) $field->notes = $this->page->statusStr;
 
 		return $field; 
 	}
@@ -1241,16 +1375,15 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$label = $this->_('View'); // Tab Label: View
 		$id = $this->className() . 'View';
-		$settings = $this->wire('config')->pageEdit; 
 		
-		if((is_array($settings) && !empty($settings['viewNew'])) || $this->viewAction == 'new') {
-			$target = " target='_blank'";
+		if((!empty($this->configSettings['viewNew'])) || $this->viewAction == 'new') {
+			$target = '_blank';
 		} else {
-			$target = " target='_top'";
+			$target = '_top';
 		}
 		
 		$a = 
-			"<a id='_ProcessPageEditView' $target href='$url' data-action='$this->viewAction'>$label" . 
+			"<a id='_ProcessPageEditView' target='$target' href='$url' data-action='$this->viewAction'>$label" . 
 			"<span id='_ProcessPageEditViewDropdownToggle' class='pw-dropdown-toggle' data-pw-dropdown='#_ProcessPageEditViewDropdown'>" . 
 			"<i class='fa fa-angle-down'></i></span></a>";
 		
@@ -1275,7 +1408,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		/** @var MarkupAdminDataTable $table */
 		$table = $this->modules->get("MarkupAdminDataTable"); 
 		
-		if($this->wire('input')->get('renderInputfieldAjax') == 'ProcessPageEditRoles') {
+		if($this->input->get('renderInputfieldAjax') == 'ProcessPageEditRoles') {
 			$roles = $this->page->getAccessRoles();
 			$accessTemplate = $this->page->getAccessTemplate('edit');
 			if($accessTemplate) {
@@ -1452,17 +1585,17 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			}
 		}
 
-		$submitAction = $this->wire('input')->post('_after_submit_action');
+		$submitAction = $this->input->post('_after_submit_action');
 		if($this->redirectUrl) {
 			// non-default redirectUrl overrides after_submit_action
 		} else if($formErrors) {
 			// if there were errors to attend to, stay where we are
 		} else if($submitAction == 'exit') {
-			$this->redirectUrl = '../';
+			$this->setRedirectUrl('../');
 		} else if($submitAction == 'view') {
-			$this->redirectUrl = $this->page->httpUrl();
+			$this->setRedirectUrl($this->getViewUrl());
 		} else if($submitAction == 'add') {
-			$this->redirectUrl = "../add/?parent_id={$this->page->parent_id}";
+			$this->setRedirectUrl("../add/?parent_id={$this->page->parent_id}");
 		} else if($submitAction == 'next') {
 			$nextPage = $this->page->next("include=unpublished");
 			if($nextPage->id) {
@@ -1475,13 +1608,13 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				}
 			}
 			if($nextPage->id) {
-				$this->redirectUrl = "./?id=$nextPage->id";
+				$this->setRedirectUrl($this->getEditUrl(array('id' => $nextPage->id)));
 			} else {
 				$this->warning($this->_('There is no editable next page to edit.'));
 			}
 		}
 
-		$this->processSaveRedirect($this->redirectUrl);
+		$this->processSaveRedirect($this->getRedirectUrl());
 	}
 
 	/**
@@ -1490,30 +1623,25 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * @param string $redirectUrl
 	 *
 	 */
-	protected function ___processSaveRedirect($redirectUrl) {
+	protected function ___processSaveRedirect($redirectUrl = '') {
 		if($redirectUrl) {
 			$c = substr($redirectUrl, 0, 1);
-			$admin = $c === '.' || $c === '?' || strpos($redirectUrl, $this->wire('config')->urls->admin) === 0; 
-			if($admin) $redirectUrl .= (strpos($redirectUrl, '?') === false ? '?' : '&') . 's=1';
+			$admin = $c === '.' || $c === '?' || strpos($redirectUrl, $this->config->urls->admin) === 0; 
+			if($admin) {
+				$redirectUrl .= (strpos($redirectUrl, '?') === false ? '?' : '&') . 's=1';
+			}
 		} else {
 			$admin = true;
-			$redirectUrl = "./?id={$this->page->id}&s=1";
+			$redirectUrl = $this->getEditUrl(array('s' => 1)); 
 		}
-		if($admin) $redirectUrl .= "&c=" . count($this->changes);
-		$modal = $admin && $this->wire('config')->modal;
-		if($modal) $redirectUrl .= "&modal=$modal";
-		if(count($this->fields) && $admin) {
-			if(count($this->fields) == 1) {
-				$redirectUrl .= "&field={$this->field->name}";
-			} else {
-				$redirectUrl .= "&fields=" . implode(',', array_keys($this->fields));
-			}
-			if(count($this->changes)) {
+		if($admin) {
+			$redirectUrl .= "&c=" . count($this->changes);
+			if(count($this->fields) && count($this->changes)) {
 				$redirectUrl .= "&changes=" . implode(',', $this->changes);
 			}
 		}
-		$this->redirectUrl = $redirectUrl;
-		$this->session->redirect($redirectUrl);
+		$this->setRedirectUrl($redirectUrl);
+		$this->session->redirect($this->getRedirectUrl());
 	}
 
 	/**
@@ -1750,7 +1878,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			return false; 
 		}
 
-		$afterDeleteRedirect = $this->wire('config')->urls->admin . "page/?open={$this->parent->id}";
+		$afterDeleteRedirect = $this->config->urls->admin . "page/?open={$this->parent->id}";
 		if($this->wire('page')->process != $this->className()) $afterDeleteRedirect = "../";
 
 		if(($this->isTrash || $this->page->template->noTrash) && $this->page->deleteable()) {
@@ -1870,9 +1998,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if(!$this->useSettings || !$this->user->hasPermission('page-template', $this->page)) {
 			throw new WireException("You don't have permission to change the template on this page.");
 		}
-
-		if(!isset($_GET['template'])) throw new WireException("This method requires a 'template' get var"); 
-		$template = $this->templates->get((int) $_GET['template']); 
+		
+		$templateID = (int) $this->input->get('template');
+		if($templateID < 1) throw new WireException("This method requires a 'template' get var"); 
+		$template = $this->templates->get($templateID); 
 		if(!$template) throw new WireException("Unknown template"); 
 
 		if(!$this->isAllowedTemplate($template->id)) {
@@ -1883,7 +2012,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$labelAction = sprintf($this->_('Change template from "%1$s" to "%2$s"'), $this->page->template, $template); // Change template A to B headline
 		
 		$this->headline($labelConfirm);
-		if($this->wire('input')->get('modal')) $this->error("$labelConfirm – $labelAction"); // force modal open
+		if($this->requestModal) $this->error("$labelConfirm – $labelAction"); // force modal open
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm"); 
@@ -1898,7 +2027,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$list = array();
 		foreach($this->page->template->fieldgroup as $field) {
 			if(!$template->fieldgroup->has($field)) {
-				$list[] = $this->wire('sanitizer')->entities($field->getLabel()) . " ($field->name)";
+				$list[] = $this->sanitizer->entities($field->getLabel()) . " ($field->name)";
 			}
 		}
 		if(!$list) $this->executeSaveTemplate($template); 
@@ -1976,7 +2105,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if(is_array($this->allowedTemplates)) return $this->allowedTemplates;
 
 		$templates = array();
-		$user = $this->wire('user');
+		$user = $this->user;
 		$isSuperuser = $user->isSuperuser();
 		$page = $this->masterPage ? $this->masterPage : $this->page;
 		$parent = $page->parent; 
@@ -1994,6 +2123,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$allTemplates = count($this->predefinedTemplates) ? $this->predefinedTemplates : $this->wire('templates'); 
 
 		foreach($allTemplates as $template) {
+			/** @var Template $template */
 
 			if(isset($templates[$template->id])) continue; 
 
@@ -2172,6 +2302,36 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	protected function setRedirectUrl($url) {
 		$this->redirectUrl = $url;
+		$this->message("setRedirectUrl($url)"); 
+	}
+
+	/**
+	 * Get the current redirectUrl
+	 * 
+	 * @param array $extras Any extra parts you want to add as array of strings like "key=value"
+	 * @return string
+	 * 
+	 */
+	protected function getRedirectUrl(array $extras = array()) {
+		$url = $this->redirectUrl;
+		if(!strlen($url)) $url = "./?id=$this->id";
+		if($this->requestModal && strpos($url, 'modal=') === false) {
+			$extras[] = "modal=$this->requestModal";
+		}
+		if(strpos($url, './') === 0 || (strpos($url, '/') !== 0 && strpos($url, '../') !== 0)) {
+			if($this->requestLanguage && strpos($url, 'language=') === false) {
+				$extras[] = "language=$this->requestLanguage";
+			}
+			if($this->requestContext && preg_match('/\bid=' . $this->id . '\b/', $url)) {
+				$extras[] = "context=$this->requestContext";
+			}
+		}
+		if(count($extras)) {
+			$url .= strpos($url, '?') === false ? "?" : "&"; 
+			$url .= implode('&', $extras);
+		}
+		$this->message("getRedirectURL: $this->redirectUrl => $url"); 
+		return $url;
 	}
 
 	/**
@@ -2293,15 +2453,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	public function setupBreadcrumbs() {
-		if($this->wire('input')->urlSegment1) return;
+		if($this->input->urlSegment1) return;
 		if($this->wire('page')->process != $this->className()) return;
 		$this->wire('breadcrumbs')->shift(); // shift off the 'Admin' breadcrumb
 		if($this->page && $this->page->id != 1) $this->wire('breadcrumbs')->shift(); // shift off the 'Pages' breadcrumb
 		$page = $this->page ? $this->page : $this->parent;
 		if($this->masterPage) $page = $this->masterPage;
-		$lastID = (int) $this->wire('session')->get('ProcessPageList', 'lastID');
-		$settings = $this->wire('config')->pageEdit;
-		$editCrumbs = !empty($settings['editCrumbs']);
+		$lastID = (int) $this->session->get('ProcessPageList', 'lastID');
+		$editCrumbs = !empty($this->configSettings['editCrumbs']);
 
 		$numParents = $page->parents->count();
 		foreach($page->parents() as $cnt => $p) {
@@ -2349,13 +2508,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$inputfields->add($f);
 		
-		
 		$bookmarks = $this->getPageBookmarks();
-		
 		$bookmarks->addConfigInputfields($inputfields);
 		$admin = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
 		$page = $this->wire('pages')->get($admin->path . 'page/edit/');
 		$bookmarks->checkProcessPage($page);
+		
 		return $inputfields;
 	}
 
