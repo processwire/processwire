@@ -7,6 +7,8 @@
  *
  * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @since 3.0.101
  *
  *
  */
@@ -20,7 +22,7 @@ class WireTextTools extends Wire {
 	 * improves the readability of the text. 
 	 * 
 	 * #pw-internal
-	 *
+	 * 
 	 * @param string $str String to convert to text
 	 * @param array $options 
 	 *  - `keepTags` (array): Tag names to keep in returned value, i.e. [ "em", "strong" ]. (default=none)
@@ -46,6 +48,9 @@ class WireTextTools extends Wire {
 		$options = array_merge($defaults, $options);
 
 		if(strpos($str, '>') !== false) {
+
+			// strip out everything up to and including </head>, if present
+			if(strpos($str, '</head>') !== false) list(, $str) = explode('</head>', $str); 
 
 			// ensure tags are separated by whitespace
 			$str = str_replace('><', '> <', $str);

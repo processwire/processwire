@@ -415,10 +415,33 @@ class Config extends WireData {
 	 * 
 	 * @param string|null $minVersion
 	 * @return bool
+	 * @since 3.0.101
 	 * 
 	 */
 	public function phpVersion($minVersion) {
 		return version_compare(PHP_VERSION, $minVersion) >= 0;
+	}
+
+	/**
+	 * Check if current ProcessWire version is equal to or newer than given versino
+	 * 
+	 * If no version argument is given, it simply returns the current ProcessWire version. 
+	 * 
+	 * ~~~~~
+	 * if($config->version('3.0.100')) {
+	 *   // ProcessWire version is 3.0.100 or newer
+	 * }
+	 * ~~~~~
+	 * 
+	 * @param string $minVersion Specify version string if you want to compare against current version
+	 * @return bool|string Returns current version if no argument given, OR boolean if given a version argument: 
+	 *  - If given version is older than current, returns false.
+	 *  - If given version is equal to or newer than current, returns true.
+	 * @since 3.0.106
+	 * 
+	 */
+	public function version($minVersion = '') {
+		return version_compare($this->version, $minVersion) >= 0;
 	}
 }
 

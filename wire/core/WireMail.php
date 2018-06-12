@@ -318,7 +318,7 @@ class WireMail extends WireData implements WireMailInterface {
 		}
 		if($name) $this->mail['replyToName'] = $this->sanitizeHeader($name); 
 		$this->mail['replyTo'] = $email;
-		if(empty($name)) $name = $this->mail['replyToName']; 
+		if(empty($name) && !empty($this->mail['replyToName'])) $name = $this->mail['replyToName']; 
 		if(strlen($name)) $email = $this->bundleEmailAndName($email, $name); 
 		$this->header('Reply-To', $email); 
 		return $this; 

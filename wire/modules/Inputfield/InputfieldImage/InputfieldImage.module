@@ -1446,6 +1446,11 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			$success = $this->processUnknownFileAction($pagefile, $action, $label); 
 		}
 		
+		if($success) {
+			$pagefile->trackChange("action-$action");
+			$this->trackChange('value');
+		}
+		
 		if($success && $showSuccess) {
 			$this->message(sprintf($this->_('Executed action “%1$s” on file %2$s'), $label, $pagefile->basename));
 		} else if($success === false) {

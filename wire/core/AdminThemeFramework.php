@@ -9,7 +9,7 @@
  * @property bool $isSuperuser
  * @property bool $isEditor
  * @property bool $isLoggedIn
- * @property bool $isModal
+ * @property bool|string $isModal
  * @property bool|int $useAsLogin
  * @method array getUserNavArray()
  *

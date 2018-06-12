@@ -22,7 +22,6 @@ function ckeGetProcessWireConfig(editor) {
 	configName = configName.replace('Inputfield_', 'InputfieldCKEditor_');
 
 	if(typeof ProcessWire.config[configName] == "undefined" && configName.indexOf('_repeater') > 0) {
-		console.log('configName=' + configName);
 		configName = configName.replace(/_repeater[0-9]+/, '');
 		$repeaterItem = $('#' + editorName).closest('.InputfieldRepeaterItem');
 	}

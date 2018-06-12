@@ -1040,6 +1040,7 @@ $config->substituteModules = array(
  * #property string module Name of WireMail module to use or blank to auto-detect. (default='')
  * #property string from Default from email address, when none provided at runtime. (default=$config->adminEmail)
  * #property string fromName Default from name string, when none provided at runtime. (default='')
+ * #property string newline What to use for newline if different from RFC standard of "\r\n" (optional). 
  * #property array headers Default additional headers to send in email, key=value. (default=[])
  * 
  * @var array

@@ -989,14 +989,14 @@ class Sanitizer extends Wire {
 	 * - `stripTags` (bool): strip markup tags? (default=true).
 	 * - `stripMB4` (bool): strip emoji and other 4-byte UTF-8? (default=false).
 	 * - `stripQuotes` (bool): strip out any "quote" or 'quote' characters? Specify true, or character to replace with. (default=false)
-	 * - `stripSpace` (bool|string): strip whitespace? Specify true or character to replace whitespace with (default=false). 
-	 * - `reduceSpace` (bool|string): reduce consecutive whitespace to single? Specify true or character to reduce to (default=false).
-	 *    Note that the reduceSpace option is an alternative to the stripSpace option, they should not be used together.
+	 * - `stripSpace` (bool|string): strip whitespace? Specify true or character to replace whitespace with (default=false). Since 3.0.105
+	 * - `reduceSpace` (bool|string): reduce consecutive whitespace to single? Specify true or character to reduce to (default=false). 
+	 *    Note that the reduceSpace option is an alternative to the stripSpace option, they should not be used together. Since 3.0.105
 	 * - `allowableTags` (string): markup tags that are allowed, if stripTags is true (use same format as for PHP's `strip_tags()` function.
 	 * - `multiLine` (bool): allow multiple lines? if false, then $newlineReplacement below is applicable (default=false).
-	 * - `convertEntities` (bool): convert HTML entities to equivalent character(s)? (default=false). 
+	 * - `convertEntities` (bool): convert HTML entities to equivalent character(s)? (default=false). Since 3.0.105
 	 * - `newlineReplacement` (string): character to replace newlines with, OR specify boolean true to remove extra lines (default=" ").
-	 * - `truncateTail` (bool): if truncate necessary for maxLength, truncate from end/tail? Use false to truncate head (default=true).
+	 * - `truncateTail` (bool): if truncate necessary for maxLength, truncate from end/tail? Use false to truncate head (default=true). Since 3.0.105
 	 * - `inCharset` (string): input character set (default="UTF-8").
 	 * - `outCharset` (string): output character set (default="UTF-8").
 	 * @return string
@@ -1019,7 +1019,7 @@ class Sanitizer extends Wire {
 			'newlineReplacement' => ' ', // character to replace newlines with, OR specify boolean TRUE to remove extra lines
 			'inCharset' => 'UTF-8', // input charset
 			'outCharset' => 'UTF-8',  // output charset
-			'trunateTail' => true, // if truncate necessary for maxLength, remove chars from tail? False to truncate from head.
+			'truncateTail' => true, // if truncate necessary for maxLength, remove chars from tail? False to truncate from head.
 			'trim' => true, // trim whitespace from beginning/end, or specify character(s) to trim, or false to disable
 			);
 
@@ -1154,11 +1154,11 @@ class Sanitizer extends Wire {
 	 * - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*3 or 48kb).
 	 * - `stripTags` (bool): strip markup tags? (default=true).
 	 * - `stripMB4` (bool): strip emoji and other 4-byte UTF-8? (default=false).
-	 * - `stripIndents` (bool): Remove indents (space/tabs) at the beginning of lines? (default=false)
-	 * - `reduceSpace` (bool|string): reduce consecutive whitespace to single? Specify true or character to reduce to (default=false).
+	 * - `stripIndents` (bool): Remove indents (space/tabs) at the beginning of lines? (default=false). Since 3.0.105
+	 * - `reduceSpace` (bool|string): reduce consecutive whitespace to single? Specify true or character to reduce to (default=false). Since 3.0.105
 	 * - `allowableTags` (string): markup tags that are allowed, if stripTags is true (use same format as for PHP's `strip_tags()` function.
-	 * - `convertEntities` (bool): convert HTML entities to equivalent character(s)? (default=false).
-	 * - `truncateTail` (bool): if truncate necessary for maxLength, truncate from end/tail? Use false to truncate head (default=true).
+	 * - `convertEntities` (bool): convert HTML entities to equivalent character(s)? (default=false). Since 3.0.105
+	 * - `truncateTail` (bool): if truncate necessary for maxLength, truncate from end/tail? Use false to truncate head (default=true). Since 3.0.105
 	 * - `allowCRLF` (bool): allow CR+LF newlines (i.e. "\r\n")? (default=false, which means "\r\n" is replaced with "\n"). 
 	 * - `inCharset` (string): input character set (default="UTF-8").
 	 * - `outCharset` (string): output character set (default="UTF-8").
@@ -1881,7 +1881,7 @@ class Sanitizer extends Wire {
 	 * 
 	 * @param string $str String to remove entities from
 	 * @param int|bool $flags See PHP html_entity_decode function for flags, 
-	 *   OR specify boolean true to convert all entities and remove any that cannot be converted.
+	 *   OR specify boolean true to convert all entities and remove any that cannot be converted (since 3.0.105). 
 	 * @param string $encoding Encoding (default="UTF-8").
 	 * @return string String with entities removed.
 	 * @see Sanitizer::entities()
@@ -1992,6 +1992,7 @@ class Sanitizer extends Wire {
 	 *  - `html` (bool): Remove/replace HTML whitespace entities too? (default=true)
 	 *  - `allow` (array): Array of whitespace characters that may remain. (default=[])
 	 * @return string
+	 * @since 3.0.105
 	 * 
 	 */
 	public function removeWhitespace($str, $options = array()) {
@@ -2040,6 +2041,7 @@ class Sanitizer extends Wire {
 	 * 
 	 * @param bool|int $html Also include HTML entities that represent whitespace? false=no, true=both, 1=only-html (default=false)
 	 * @return array
+	 * @since 3.0.105
 	 * 
 	 */
 	public function getWhitespaceArray($html = false) {
@@ -2123,6 +2125,7 @@ class Sanitizer extends Wire {
 	 *  - `convertEntities` (bool): Convert HTML entities to non-entity characters? (default=false)
 	 *  - `noEndSentence` (string): Strings that sentence may not end with, space-separated values (default='Mr. Mrs. …')
 	 * @return string
+	 * @since 3.0.101
 	 *
 	 */
 	function truncate($str, $maxLength = 300, $options = array()) {
@@ -2767,6 +2770,7 @@ class Sanitizer extends Wire {
 	 * Get instance of WireTextTools
 	 * 
 	 * @return WireTextTools
+	 * @since 3.0.101
 	 * 
 	 */
 	public function getTextTools() {
