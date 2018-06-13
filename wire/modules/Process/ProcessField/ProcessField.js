@@ -5,7 +5,7 @@ $(document).ready(function() {
 	}; 
 	$("#templates_id").change(fieldFilterFormChange); 
 	$("#fieldtype").change(fieldFilterFormChange); 
-	$("#show_system").click(fieldFilterFormChange); 
+	$("#wrap_show_system input").click(fieldFilterFormChange); 
 
 	var $asmListItemStatus = $("#asmListItemStatus"); 
 	
@@ -65,7 +65,7 @@ $(document).ready(function() {
 
 	// instantiate the WireTabs
 	var $fieldEdit = $("#ProcessFieldEdit"); 
-	if($fieldEdit.size() > 0 && $('li.WireTab').size() > 1) {
+	if($fieldEdit.length > 0 && $('li.WireTab').length > 1) {
 		$fieldEdit.find('script').remove();
 		$fieldEdit.WireTabs({
 			items: $(".Inputfields li.WireTab"),

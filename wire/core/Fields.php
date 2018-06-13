@@ -5,7 +5,7 @@
  *
  * Manages collection of ALL Field instances, not specific to any particular Fieldgroup
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Manages all custom fields in ProcessWire
@@ -37,6 +37,8 @@ class Fields extends WireSaveableItems {
 	static protected $nativeNamesSystem = array(
 		'child',
 		'children',
+		'count',
+		'check_access',
 		'created_users_id',
 		'created',
 		'createdUser',
@@ -44,11 +46,16 @@ class Fields extends WireSaveableItems {
 		'createdUsersID',
 		'data',
 		'description',
+		'editUrl',
+		'end',
 		'fieldgroup',
 		'fields',
 		'find',
 		'flags',
 		'get',
+		'has_parent',
+		'hasParent',
+		'httpUrl',
 		'id',
 		'include',
 		'isNew',
@@ -76,13 +83,24 @@ class Fields extends WireSaveableItems {
 		'templatePrevious',
 		'templates_id',
 		'url',
+		'_custom',
 	);
 
 	/**
 	 * Field names that are native/permanent to this instance of ProcessWire (configurable at runtime)
+	 * 
+	 * Array indexes are the names and values are all boolean true. 
 	 *
 	 */
 	protected $nativeNamesLocal = array();
+
+	/**
+	 * Cache of all tags for all fields, populated to array when asked for the first time
+	 * 
+	 * @var array|null
+	 * 
+	 */
+	protected $tagList = null;
 
 	/**
 	 * Construct
@@ -90,6 +108,8 @@ class Fields extends WireSaveableItems {
 	 */
 	public function __construct() {
 		$this->fieldsArray = new FieldsArray();
+		// convert so that keys are names so that isset() can be used rather than in_array()
+		if(isset(self::$nativeNamesSystem[0])) self::$nativeNamesSystem = array_flip(self::$nativeNamesSystem);
 	}
 
 	/**
@@ -207,6 +227,8 @@ class Fields extends WireSaveableItems {
 				}
 			}	
 		}
+		
+		$this->getTags('reset');
 
 		return true; 
 	}
@@ -806,8 +828,8 @@ class Fields extends WireSaveableItems {
 	 *
 	 */
 	public function isNative($name) {
-		if(in_array($name, self::$nativeNamesSystem)) return true; 
-		if(in_array($name, $this->nativeNamesLocal)) return true;
+		if(isset(self::$nativeNamesSystem[$name])) return true;
+		if(isset($this->nativeNamesLocal[$name])) return true; 
 		return false; 
 	}
 
@@ -820,7 +842,76 @@ class Fields extends WireSaveableItems {
 	 *
 	 */
 	public function setNative($name) {
-		$this->nativeNamesLocal[] = $name; 
+		$this->nativeNamesLocal[$name] = true; 
+	}
+
+	/**
+	 * Get list of all tags used by fields
+	 * 
+	 * - By default it returns an array of tag names where both keys and values are the tag names. 
+	 * - If you specify true for the `$getFields` argument, it returns an array where the keys are 
+	 *   tag names and the values are arrays of field names in the tag. 
+	 * - If you specify "reset" for the `$getFields` argument it returns a blank array and resets 
+	 *   internal tags cache.
+	 * 
+	 * @param bool|string $getFieldNames Specify true to return associative array where keys are tags and values are field names
+	 *   …or specify the string "reset" to force getTags() to reset its cache, forcing it to reload on the next call. 
+	 * @return array 
+	 * @since 3.0.106
+	 * 
+	 */
+	public function getTags($getFieldNames = false) {
+		
+		if($getFieldNames === 'reset') {
+			$this->tagList = null;
+			return array();
+		}
+		
+		if($this->tagList === null) {
+			$tagList = array();
+			foreach($this as $field) {
+				/** @var Field $field */
+				$fieldTags = $field->getTags();
+				foreach($fieldTags as $tag) {
+					if(!isset($tagList[$tag])) $tagList[$tag] = array();
+					$tagList[$tag][] = $field->name;
+				}
+			}
+			ksort($tagList);
+			$this->tagList = $tagList;
+		}
+		
+		if($getFieldNames) return $this->tagList;
+		
+		$tagList = array();
+		foreach($this->tagList as $tag => $fieldNames) {
+			$tagList[$tag] = $tag;
+		}
+		
+		return $tagList;
+	}
+
+	/**
+	 * Return all fields that have the given $tag
+	 * 
+	 * Returns an associative array of `['field_name' => 'field_name']` if `$getFieldNames` argument is true, 
+	 * or `['field_name => Field instance]` if not (which is the default). 
+	 * 
+	 * @param string $tag Tag to find fields for
+	 * @param bool $getFieldNames If true, returns array of field names rather than Field objects (default=false). 
+	 * @return array Array of Field objects, or array of field names if requested. Array keys are always field names.
+	 * @since 3.0.106
+	 * 
+	 */
+	public function findByTag($tag, $getFieldNames = false) {
+		$tags = $this->getTags(true);
+		$items = array();
+		if(!isset($tags[$tag])) return $items;
+		foreach($tags[$tag] as $fieldName) {
+			$items[$fieldName] = ($getFieldNames ? $fieldName : $this->get($fieldName));
+		}
+		ksort($items);
+		return $items;
 	}
 
 	/**

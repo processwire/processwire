@@ -267,9 +267,10 @@ class ProcessTemplate extends Process {
 		/** @var InputfieldSelect $field */
 		$field = $this->modules->get("InputfieldSelect"); 
 		$field->attr('id+name', 'filter_field'); 
-		$field->label = $this->_("Filter by Field");
+		$field->label = $this->_('Filter by field');
 		$field->description = $this->_("Select a field and only templates using that field will be shown."); // Filter by Field, description
 		$field->addOption('', $this->_x('Show All', 'filter-select'));
+		$field->icon = 'cube';
 
 		foreach($this->fields as $f) {
 			$name = $f->name; 
@@ -299,6 +300,8 @@ class ProcessTemplate extends Process {
 			$field->attr('name', 'system'); 
 			$field->addOption(1, $this->labels['Yes']); 
 			$field->addOption(0, $this->labels['No']); 
+			$field->optionColumns = 1;
+			$field->icon = 'gear';
 			if($input->get('system') !== null) {
 				$filterSystem  = (int) $input->get('system'); 
 				$this->session->set('ProcessTemplateFilterSystem', $filterSystem);

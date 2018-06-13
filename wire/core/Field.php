@@ -12,7 +12,7 @@
  * #pw-body Field objects are managed by the `$fields` API variable. 
  * #pw-use-constants
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
  * @property int $id Numeric ID of field in the database #pw-group-properties
@@ -26,6 +26,8 @@
  * @property string $description Longer description text for the field #pw-group-properties
  * @property string $notes Additional notes text about the field #pw-group-properties
  * @property string $icon Icon name used by the field, if applicable #pw-group-properties
+ * @property string $tags Tags that represent this field, if applicable (space separated string). #pw-group-properties
+ * @property-read array $tagList Same as $tags property, but as an array. #pw-group-properties
  * @property bool $useRoles Whether or not access control is enabled #pw-group-access
  * @property array $editRoles Role IDs with edit access, applicable only if access control is enabled. #pw-group-access
  * @property array $viewRoles Role IDs with view access, applicable only if access control is enabled. #pw-group-access
@@ -204,6 +206,14 @@ class Field extends WireData implements Saveable, Exportable {
 	protected $inputfieldSettings = array();
 
 	/**
+	 * Tags assigned to this field, keys are lowercase version of tag, values can possibly contain mixed case
+	 * 
+	 * @var null|array
+	 * 
+	 */
+	protected $tagList = null;
+
+	/**
 	 * True if lowercase tables should be enforce, false if not (null = unset). Cached from $config
 	 *
 	 */
@@ -341,6 +351,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function get($key) {
+		
 		if($key === 'type' && isset($this->settings['type'])) {
 			$value = $this->settings['type'];
 			if($value) $value->setLastAccessField($this);
@@ -355,6 +366,8 @@ class Field extends WireData implements Saveable, Exportable {
 			else if($key == 'icon') return $this->getIcon(true);
 			else if($key == 'useRoles') return ($this->settings['flags'] & self::flagAccess) ? true : false;
 			else if($key == 'flags') return $this->settings['flags'];
+			else if($key == 'tagList') return $this->getTags();
+			else if($key == 'tags') return $this->getTags(true);
 
 		$value = parent::get($key);
 		if($key === 'allowContexts' && !is_array($value)) $value = array();
@@ -1253,6 +1266,104 @@ class Field extends WireData implements Saveable, Exportable {
 		$icon = $this->wire('sanitizer')->pageName($icon); 
 		parent::set('icon', $icon); 
 		return $this; 
+	}
+
+	/**
+	 * Get tags
+	 * 
+	 * @param bool|string $getString Optionally specify true for space-separated string, or delimiter string (default=false)
+	 * @return array|string Returns array of tags unless $getString option is requested
+	 * @since 3.0.106
+	 * 
+	 */
+	public function getTags($getString = false) {
+		if($this->tagList === null) {
+			$tagList = $this->setTags(parent::get('tags'));
+		} else {
+			$tagList = $this->tagList;
+		}
+		if($getString !== false) {
+			$delimiter = $getString === true ? ' ' : $getString;
+			return implode($delimiter, $tagList);
+		}
+		return $tagList;
+	}
+
+	/**
+	 * Set all tags
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param array $tagList Array of tags to add
+	 * @param bool $reindex Set to false to set given $tagsList exactly as-is (assumes it's already in correct format)
+	 * @return array Array of tags that were set
+	 * @since 3.0.106
+	 * 
+	 */
+	public function setTags($tagList, $reindex = true) {
+		if($tagList === null || $tagList === '') {
+			$tagList = array();
+		} else if(!is_array($tagList)) {
+			$tagList = explode(' ', $tagList);
+		}
+		if($reindex && count($tagList)) {
+			$tags = array();
+			foreach($tagList as $tag) {
+				$tag = trim($tag);
+				if(strlen($tag)) $tags[strtolower($tag)] = $tag;
+			}
+			$tagList = $tags;
+		}
+		if($this->tagList !== $tagList) {
+			$this->tagList = $tagList;
+			parent::set('tags', implode(' ', $tagList)); 
+			$this->wire('fields')->getTags('reset');
+		}
+		return $tagList;
+	}
+
+	/**
+	 * Add one or more tags
+	 * 
+	 * @param string $tag
+	 * @return array Returns current tag list
+	 * @since 3.0.106
+	 * 
+	 */
+	public function addTag($tag) {
+		$tagList = $this->getTags();
+		$tagList[strtolower($tag)] = $tag;
+		$this->setTags($tagList, false);
+		return $tagList;
+	}
+
+	/**
+	 * Return true if this field has the given tag or false if not
+	 * 
+	 * @param string $tag
+	 * @return bool
+	 * @since 3.0.106
+	 * 
+	 */
+	public function hasTag($tag) {
+		$tagList = $this->getTags();
+		return isset($tagList[strtolower(trim(ltrim($tag, '-')))]);
+	}
+
+	/**
+	 * Remove a tag
+	 * 
+	 * @param string $tag
+	 * @return array Returns current tag list
+	 * @since 3.0.106
+	 * 
+	 */
+	public function removeTag($tag) {
+		$tagList = $this->getTags();
+		$tag = strtolower($tag);
+		if(!isset($tagList[$tag])) return $tagList;
+		unset($tagList[$tag]); 
+		return $this->setTags($tagList, false);
 	}
 
 	/**

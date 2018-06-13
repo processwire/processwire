@@ -48,7 +48,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		return array(
 			'title' => __('Fields', __FILE__),
 			'summary' => __('Edit individual fields that hold page data', __FILE__),
-			'version' => 112,
+			'version' => 113,
 			'permanent' => true, 
 			'permission' => 'field-admin', // add this permission if you want this Process available for roles other than Superuser
 			'icon' => 'cube', 
@@ -128,19 +128,32 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function init() {
+		
 		if($this->input->urlSegment1 == 'edit') $this->modules->get("JqueryWireTabs");
+		
 		$this->moduleInfo = self::getModuleInfo();
 		$this->headline($this->moduleInfo['title']); 
+		
 		$this->labels = array(
 			'save' => $this->_('Save'), // Save button label
 			'import' => $this->_('Import'), 
 			'export' => $this->_('Export'),
-			'ok' => $this->_('Ok')
-			);
+			'ok' => $this->_('Ok'),
+			'name' => $this->_x('Name', 'list thead'), 
+			'label' => $this->_x('Label', 'list thead'),
+			'type' => $this->_x('Type', 'list thead'), 
+			'tag' => $this->_('Tag'),
+			'tags' => $this->_('Tags'),
+			'manage-tags' => $this->_('Manage Tags'), 
+			'fields' => $this->_('Fields'),
+			'templates' => $this->_x('Templates', 'list thead quantity'), 
+			'yes' => $this->_x('Yes', 'access'), // General purpose "Yes" label
+			'no' => $this->_x('No', 'access') // General purpose "No" label
+		);
 		
-		if($this->input->post->id) $this->id = (int) $this->input->post->id;
-			else $this->id = $this->input->get->id ? (int) $this->input->get->id : 0;
-
+		$this->id = (int) $this->input->post('id');
+		if(!$this->id) $this->id = (int) $this->input->get('id'); 
+		if($this->id < 1) $this->id = 0;
 		if($this->id) $this->field = $this->fields->get($this->id);
 		if(!$this->field) $this->field = new Field();
 
@@ -196,7 +209,11 @@ class ProcessField extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function ___getListFilterForm() {
-
+	
+		/** @var Session $session */
+		$session = $this->wire('session');
+		/** @var WireInput $input */
+		$input = $this->wire('input');
 		$showAllLabel = $this->_('Show All'); 
 
 		/** @var InputfieldForm $form */
@@ -223,14 +240,20 @@ class ProcessField extends Process implements ConfigurableModule {
 			if($template->flags & Template::flagSystem) $name .= "*";
 			$field->addOption($template->id, $name); 
 		}
-		$this->session->ProcessFieldListTemplatesID = (int) $this->input->get->templates_id; 
-		$field->label = $this->_('Filter by Template');
+		$inputTemplatesID = $input->get('templates_id');
+		if($inputTemplatesID !== null) {
+			$session->setFor($this, 'filterTemplate', (int) $inputTemplatesID);
+			$inputTemplatesID = null;
+		}
+		// $this->session->ProcessFieldListTemplatesID = (int) $this->input->get->templates_id; 
+		$field->label = $this->_('Filter by template');
 		$field->description = $this->_("When selected, only the fields from a specific template will be shown. Built-in fields are also shown when filtering by template. Asterisk (*) indicates system templates."); // Filter by template description
-		$value = (int) $this->session->ProcessFieldListTemplatesID; 
-		$field->attr('value', $value); 
-		if($value && $template = $this->templates->get($value)) {
+		$field->icon = 'cubes';
+		$filterTemplateID = (int) $session->getFor($this, 'filterTemplate'); // $this->session->ProcessFieldListTemplatesID; 
+		$field->attr('value', $filterTemplateID); 
+		if($filterTemplateID && $template = $this->templates->get($filterTemplateID)) {
 			$form->description = sprintf($this->_('Showing fields from template: %s'), $template);
-			$this->wire('processHeadline', $this->_('Fields by Template')); // Page headline when filtering by template
+			$this->headline($this->_('Fields by Template')); // Page headline when filtering by template
 			$fieldset->collapsed = Inputfield::collapsedNo;
 		} else {
 			$template = null;
@@ -247,12 +270,17 @@ class ProcessField extends Process implements ConfigurableModule {
 		foreach($this->fieldtypes as $fieldtype) {
 			$field->addOption($fieldtype->name, $fieldtype->longName);
 		}
-		$this->session->set('ProcessFieldListFieldtype', $this->sanitizer->name($this->input->get('fieldtype'))); 
-		$field->label = $this->_('Filter by Field Type');
+		$inputFieldtype = $input->get('fieldtype'); 
+		if($inputFieldtype !== null) {
+			$session->setFor($this, 'filterFieldtype', $this->wire('sanitizer')->name($inputFieldtype));
+			$inputFieldtype = null;
+		}
+		$field->label = $this->_('Filter by type');
 		$field->description = $this->_('When specified, only fields of the selected type will be shown. Built-in fields are also shown when filtering by field type.'); // Filter by fieldtype description
-		$value = $this->session->get('ProcessFieldListFieldtype'); 
-		$field->attr('value', $value); 
-		if($value && $fieldtype = $this->fieldtypes->get($value)) {
+		$field->icon = 'plug';
+		$filterFieldtype = $session->getFor($this, 'filterFieldtype'); 
+		$field->attr('value', $filterFieldtype); 
+		if($filterFieldtype && $fieldtype = $this->fieldtypes->get($filterFieldtype)) {
 			$form->description = sprintf($this->_('Showing fields of type: %s'), $fieldtype->longName);
 			$fieldset->collapsed = Inputfield::collapsedNo;
 		} else {
@@ -262,16 +290,24 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		// ----------------------------------------------------------------
 
-		if(is_null($template) && !$this->session->ProcessFieldListFieldtype) {
-			/** @var InputfieldCheckbox $field */
-			$field = $this->modules->get("InputfieldCheckbox"); 
+		if(is_null($template) && !$session->getFor($this, 'filterFieldtype')) {
+			/** @var InputfieldRadios $field */
+			$field = $this->modules->get("InputfieldRadios"); 
 			$field->attr('id+name', 'show_system'); 
-			$field->label = $this->_('Show built-in fields?');
+			$field->label = $this->_('Show system fields?');
 			$field->description = $this->_("When checked, built-in fields will also be shown. These include system fields and permanent fields. System fields are required by the system and cannot be deleted or have their name changed. Permanent fields are those that cannot be removed from a template. These fields are used internally by ProcessWire."); // Show built-in fields description
-			$field->value = 1; 
+			$field->addOption(1, $this->labels['yes']);
+			$field->addOption(0, $this->labels['no']);
+			$field->optionColumns = 1;
+			$field->icon = 'gear';
 			$field->collapsed = Inputfield::collapsedYes; 
-			$this->session->ProcessFieldListShowSystem = (int) $this->input->get->show_system; 
-			if($this->session->ProcessFieldListShowSystem) {
+			$inputShowSystem = $input->get('show_system');
+			if($inputShowSystem !== null) {
+				$session->setFor($this, 'filterShowSystem', (int) $inputShowSystem); 
+				$inputShowSystem = null;
+			}
+			$field->value = (int) $session->getFor($this, 'filterShowSystem'); 
+			if($session->getFor($this, 'filterShowSystem')) {
 				$field->attr('checked', 'checked');
 				$field->collapsed = Inputfield::collapsedNo;
 				$fieldset->collapsed = Inputfield::collapsedNo;
@@ -279,8 +315,10 @@ class ProcessField extends Process implements ConfigurableModule {
 			}
 			$fieldset->add($field); 
 		} else {
-			$this->session->ProcessFieldListShowSystem = 1; 
+			// $session->setFor($this, 'filterShowSystem', 1); 
 		}
+		
+		
 		
 		return $form;
 	}
@@ -293,39 +331,40 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	public function ___execute() {
 		if($this->wire('config')->ajax) return $this->renderListJSON();
-
+	
+		/** @var Session $session */
+		$session = $this->wire('session');
 		$out = $this->getListFilterForm()->render() . "\n<div id='ProcessFieldList'>\n";
 		$fieldsByTag = array();
 		$untaggedLabel = $this->_('Untagged');
-		$hasFilters = $this->session->ProcessFieldListTemplatesID || $this->session->ProcessFieldListFieldtype;
-		$collapsedTags = array();
+		$hasFilters = $session->getFor($this, 'filterTemplate') || $session->getFor($this, 'filterFieldtype');
+		$showSystem = $session->getFor($this, 'filterShowSystem');
+		$collapsedTags = $this->wire('modules')->getConfig($this, 'collapsedTags');
 		$caseTags = array(); // indexed by lowercase version of tag
-
+		if(!is_array($collapsedTags)) $collapsedTags = array();
+		$systemTag = $this->_x('System', 'tag'); // Tag applied to the group of built-in/system fields
 
 		if(!$hasFilters) foreach($this->fields as $field) {
-			if($this->session->ProcessFieldListShowSystem) {
-				if($field->flags & Field::flagSystem || $field->flags & Field::flagPermanent) 
-					$field->tags .= " " . $this->_x('Built-In', 'tag'); // Tag applied to the group of built-in/system fields
+			$tags = $field->getTags(); 
+			if($showSystem || $hasFilters) {
+				if($field->flags & Field::flagSystem || $field->flags & Field::flagPermanent) {
+					$tags['system'] = $systemTag;
+					$caseTags[$systemTag] = $systemTag;
+				}
 			}
-			if(empty($field->tags)) {
+			if(empty($tags)) {
 				$tag = strtolower($untaggedLabel);
 				if(!isset($fieldsByTag[$tag])) $fieldsByTag[$tag] = array();
 				$fieldsByTag[$tag][$field->name] = $field;
 				$caseTags[$tag] = $untaggedLabel;
 				continue; 
 			}
-			$tags = explode(' ', trim($field->tags));
-			foreach($tags as $tag) {
-				if(empty($tag)) continue; 
-				$caseTag = ltrim($tag, '-');
-				$tag = strtolower($tag);
-				if(substr($tag, 0, 1) == '-') {
-					$tag = ltrim($tag, '-');
-					$collapsedTags[] = $tag;
-				}
+			foreach($tags as $name => $tag) {
 				if(!isset($fieldsByTag[$tag])) $fieldsByTag[$tag] = array();
 				$fieldsByTag[$tag][$field->name] = $field;	
-				if(!isset($caseTags[$tag])) $caseTags[$tag] = $caseTag; 
+				if(!isset($caseTags[$tag])) {
+					$caseTags[$tag] = sprintf($this->_('Tag: %s'), trim($tag, '_-'));
+				}
 			}
 		}
 
@@ -339,6 +378,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				$f->entityEncodeLabel = false;
 				$f->label = $caseTags[$tag];
 				$f->icon = 'tags';
+				if($tag == $systemTag) $f->icon = 'gear';
 				$f->value = $this->getListTable($fields)->render();
 				if(in_array($tag, $collapsedTags)) $f->collapsed = Inputfield::collapsedYes; 
 				$form->add($f);
@@ -358,6 +398,14 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->icon = 'plus-circle';
 		$button->showInHeader();
 		$out .= $button->render();
+		
+		$button = $this->modules->get('InputfieldButton');
+		$button->id = 'tags_button';
+		$button->href = './tags/';
+		$button->icon = 'tags';
+		$button->value = $this->labels['manage-tags'];
+		//$button->setSecondary();
+		$out .= $button->render();
 	
 		$button = $this->modules->get('InputfieldButton');
 		$button->id = 'import_button';
@@ -376,13 +424,172 @@ class ProcessField extends Process implements ConfigurableModule {
 		$out .= $button->render();
 
 		if($this->input->nosave) {
-			$this->session->remove('ProcessFieldListTemplatesID');
-			$this->session->remove('ProcessFieldListFieldtype');
-			$this->session->remove('ProcessFieldListShowSystem');
+			$session->removeFor($this, 'filterTemplate');
+			$session->removeFor($this, 'filterFieldtype');
+			$session->removeFor($this, 'filterShowSystem');
 		}
 
 		return $out;
 	}
+
+	/**
+	 * Handle the “Manage Tags” actions
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function executeTags() {
+		
+		/** @var WireInput $input */
+		$input = $this->wire('input'); 
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+		/** @var Sanitizer $sanitizer*/
+		$sanitizer = $this->wire('sanitizer');
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
+
+		$out = '';
+		$labels = $this->labels;
+		$headline = $labels['tags'];
+		$this->headline($headline);
+		$this->breadcrumb('../', $labels['fields']);
+		
+		$tags = $fields->getTags();
+		$editTag = $input->get->name('edit_tag');
+		$saveTag = $input->post->name('save_tag');
+		
+		$collapsedTags = $modules->getConfig($this, 'collapsedTags');
+		if(!is_array($collapsedTags)) $collapsedTags = array();
+	
+		if($editTag) {
+			// edit which fields are assigned to tag
+			$this->breadcrumb('./', $headline);
+			$this->headline("$labels[tag] - " . (isset($tags[$editTag]) ? $tags[$editTag] : $editTag));
+			
+			/** @var InputfieldName $f */
+			$f = $modules->get('InputfieldName');
+			$f->attr('name', 'rename_tag');
+			$f->attr('value', isset($tags[$editTag]) ? $tags[$editTag] : $editTag);
+			$f->collapsed = Inputfield::collapsedYes;
+			$f->addClass('InputfieldIsSecondary', 'wrapClass');
+			$f->icon = 'tag';
+			$form->add($f);
+
+			/** @var InputfieldCheckboxes $f */
+			$f = $modules->get('InputfieldCheckboxes');
+			$f->attr('name', 'tag_fields');
+			$f->label = $this->_('Select all fields that should have this tag');
+			$f->table = true;
+			$f->icon = 'cube';
+			$f->thead = "$labels[name]|$labels[label]|$labels[type]|$labels[tags]";
+			$value = array();
+			foreach($fields as $field) {
+				/** @var Field $field */
+				if($field->flags & Field::flagSystem && !in_array($field->name, array('title', 'email'))) continue;
+				$f->addOption($field->name, "**$field->name**|$field->label|{$field->type->shortName}|" . $field->getTags(', '));
+				if($field->hasTag($editTag)) $value[] = $field->name;
+			}
+			$f->attr('value', $value);
+			$form->add($f);
+			
+			/** @var InputfieldCheckbox */
+			$f = $modules->get('InputfieldCheckbox');
+			$f->attr('name', 'tag_collapsed'); 
+			$f->label = $this->_('Display as collapsed in fields list?');
+			if(in_array($editTag, $collapsedTags)) $f->attr('checked', 'checked');
+			$form->add($f);
+		
+			/** @var InputfieldHidden $f */
+			$f = $modules->get('InputfieldHidden');
+			$f->attr('name', 'save_tag');
+			$f->attr('value', $editTag); 
+			$form->appendMarkup = "<p class='detail'>" . wireIconMarkup('trash-o') . ' ' . 
+				$this->_('To delete this tag, remove all fields from it.') . "</p>";
+			$form->add($f);
+			
+		} else if($saveTag) {
+			// save tag
+			$tagFields = $sanitizer->names($input->post('tag_fields'));
+			$renameTag = $input->post->fieldName('rename_tag');
+			$isCollapsed = (int) $input->post('tag_collapsed');
+			$removeTag = '';
+			if($renameTag && $renameTag != $saveTag) {
+				$removeTag = $saveTag;	
+				$saveTag = $renameTag;
+			}
+			foreach($fields as $field) {
+				/** @var Field $field */
+				if($removeTag && $field->hasTag($removeTag)) {
+					$field->removeTag($removeTag);
+				}
+				if(in_array($field->name, $tagFields)) { 
+					// field should have the given tag
+					if($field->hasTag($saveTag)) continue;
+					$field->addTag($saveTag);
+					$this->message(sprintf($this->_('Added tag “%1$s” to field: %2$s'), $saveTag, $field->name));
+				} else if($field->hasTag($saveTag)) {
+					// field should not have the given tag
+					$field->removeTag($saveTag);
+					$this->message(sprintf($this->_('Removed tag “%1$s” from field: %2$s'), $saveTag, $field->name));
+				}
+				if($field->isChanged('tags')) $field->save();
+			}
+			$_collapsedTags = $collapsedTags;
+			if($isCollapsed) {
+				if(!in_array($saveTag, $collapsedTags)) $collapsedTags[] = $saveTag;
+			} else {
+				$key = array_search($saveTag, $collapsedTags); 
+				if($key !== false) unset($collapsedTags[$key]); 
+			}
+			if($collapsedTags !== $_collapsedTags) {
+				$modules->saveConfig($this, 'collapsedTags', $collapsedTags);
+			}
+			$this->wire('session')->redirect('./'); 
+			return '';
+			
+		} else {
+			// list defined tags
+			$out .= "<p class='description'>" . 
+				$this->_('Tags enable you to create collections of fields for listing or searching.') . "</p>";
+			/** @var MarkupAdminDataTable $table */
+			$table = $modules->get('MarkupAdminDataTable');
+			$table->setSortable(false);
+			$table->setEncodeEntities(false);
+			$table->headerRow(array($labels['name'], $labels['fields']));
+			
+			foreach($tags as $key => $tag) {
+				$tagFields = $fields->findByTag($tag, true);
+				$table->row(array(
+					$tag => "./?edit_tag=$tag",
+					implode(', ', $tagFields)
+				));
+				if($fields->get($key)) {
+					$this->warning(sprintf($this->_('Warning: tag “%s” has the same name as a Field.'), $tag));
+				}
+			}
+			
+			if(count($tags)) $out .= $table->render();
+
+			$form->attr('method', 'get');
+			/** @var InputfieldName $f */
+			$f = $modules->get('InputfieldName');
+			$f->attr('name', 'edit_tag');
+			$f->label = $this->_('Add new tag');
+			$f->icon = 'tag';
+			$f->addClass('InputfieldIsSecondary', 'wrapClass');
+			$form->add($f);
+		}
+		
+		$f = $modules->get('InputfieldSubmit');
+		$form->add($f);
+		$out .= $form->render();
+	
+		return $out;
+	}
+	
 
 	/**
 	 * Get the table that lists fields
@@ -395,13 +602,9 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		/** @var MarkupAdminDataTable $table */
 		$table = $this->modules->get("MarkupAdminDataTable");
+		$labels = $this->labels; 
 
-		$headerRow = array(
-			$this->_x('Name', 'list thead'), 
-			$this->_x('Label', 'list thead'), 
-			$this->_x('Type', 'list thead'), 
-			$this->_x('Templates', 'list thead quantity')
-			);
+		$headerRow = array($labels['name'], $labels['label'], $labels['type'], $labels['templates']); 
 
 		$table->headerRow($headerRow);
 		$table->setEncodeEntities(false);
@@ -464,11 +667,11 @@ class ProcessField extends Process implements ConfigurableModule {
 		$flags = array();
 		$builtIn = false;
 		
-		$templatesID = $this->session->ProcessFieldListTemplatesID; 
+		$templatesID = (int) $this->session->getFor($this, 'filterTemplate'); 
 		if($templatesID && $template = $this->templates->get($templatesID)) {
 			if(!$template->fieldgroup->has($field)) return array();
 		}
-		if($fieldtype = $this->session->ProcessFieldListFieldtype) {
+		if($fieldtype = $this->session->getFor($this, 'filterFieldtype')) {
 			if($field->type != $fieldtype) return array();
 		}
 
@@ -489,8 +692,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		if($field->showIf) $flags[] = 'Dependency';
 		if($field->required) $flags[] = 'Required';
 
-		if($builtIn && !$templatesID && $field->name != 'title') {
-			if(!$this->session->ProcessFieldListShowSystem) return array();
+		if($builtIn && !$templatesID && $field->name != 'title' && $field->name != 'email') {
+			if(!$this->session->getFor($this, 'filterShowSystem')) return array();
 		}
 
 		foreach($field->getFieldgroups() as $fieldgroup) {
@@ -740,7 +943,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$out = 	
 			"<div id='fieldgroupContext'>" . 
 			"<select id='fieldgroupContextSelect' name='fieldgroup_id'>" . 
-			"<option value=''>$contextLabel</option>"; // . $this->_x('None (default)', 'context select') . "</option>";
+			"<option value=''>$contextLabel</option>"; 
 
 		foreach($fieldgroups->sort('name') as $fieldgroup) {
 			$selected = $this->fieldgroup && $this->fieldgroup->id == $fieldgroup->id ? " selected='selected'" : '';
@@ -979,6 +1182,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		// allow the following configuration only for advanced mode
 		if(!$this->wire('config')->advanced) return;
 		
+		$labels = $this->labels;
+		
 		/** @var InputfieldCheckboxes $field */
 		$field = $this->modules->get('InputfieldCheckboxes');
 		$field->attr('name', 'allowContexts');
@@ -988,10 +1193,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			$this->_('Checked settings will appear as configuration options when editing this field within the context of a particular template.') . ' ' .
 			$this->_('**Warning:** doing this for settings beyond those specified by the module author may not always work, or may cause problems.');
 		$field->table = true;
-		$field->thead =
-			$this->_('Label') . '|' .
-			$this->_('Name') . '|' .
-			$this->_('Type');
+		$field->thead = "$labels[label]|$labels[name]|$labels[type]";
 
 		$tabNames = array(
 			'fieldtypeConfig' => $this->_('Details:'),
@@ -1195,7 +1397,7 @@ class ProcessField extends Process implements ConfigurableModule {
 
 			/** @var InputfieldSelect $field */
 			$field = $this->modules->get('InputfieldSelect');
-			$field->label = $this->_x('Type', 'select label'); // Label for field type select
+			$field->label = $this->labels['type'];
 			$field->attr('name', 'type'); 
 			$field->required = true; 
 			if($this->field->type) $field->attr('value', $this->field->type->name); 
@@ -1245,7 +1447,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		/** @var InputfieldText $field */
 		$field = $this->modules->get('InputfieldText');
 		$field->attr('id+name', 'field_label'); 
-		$field->label = $this->_x('Label', 'text input'); // Label for 'field label' text input
+		$field->label = $this->labels['label'];
 		$field->attr('value', $this->field->label); 
 		$field->class .= ' asmListItemDesc'; // for modal to populate parent asmSelect desc field with this value (recognized by jquery.asmselect.js)
 		$field->description = $this->_("This is the label that appears above the entry field. If left blank, the name will be used instead."); // Description for 'field label'
@@ -1324,8 +1526,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->table = true;
 		$field->icon = 'check-square';
 		$field->thead = 
-			$this->_x('Name', 'usage-table-th') . '|' . 
-			$this->_x('Label', 'usage-table-th') . '|' . 
+			$this->labels['name'] . '|' . 
+			$this->labels['label'] . '|' . 
 			$this->_x('Populated pages', 'usage-table-th') . 
 			($multi ? '|' . $this->_x('Rows of data', 'usage-table-th') : ''); 
 		$numOmitted = 0;
@@ -1410,8 +1612,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		$f->label = $this->_('Do you want to manage access control for this field?');
 		$f->description = $this->_('When enabled, you can limit view and edit access to this field by user role.');
 		$f->icon = 'key';
-		$f->addOption(1, $this->_x('Yes', 'access'));
-		$f->addOption(0, $this->_x('No', 'access'));
+		$f->addOption(1, $this->labels['yes']);
+		$f->addOption(0, $this->labels['no']);
 		$f->attr('value', (int) $this->field->useRoles);
 		$f->optionColumns = 1;
 		$tab->add($f);
@@ -1512,14 +1714,16 @@ class ProcessField extends Process implements ConfigurableModule {
 		/** @var InputfieldText $field */
 		$field = $this->modules->get("InputfieldText"); 
 		$field->attr('name', 'tags'); 
-		$field->attr('value', $this->field->tags); 
+		$field->attr('value', $this->field->getTags(true)); 
 		$field->icon = 'tags';
-		$field->label = $this->_('Tags');
+		$field->label = $this->labels['tags'];
 		$field->description = $this->_('If you want to visually group this field with others in the fields list, enter a one-word tag. Enter the same tag on other fields you want to group with. To specify multiple tags, separate each with a space. Use of tags may be worthwhile if your site has a large number of fields.'); // Description for field tags
-		$field->notes = 
-			$this->_('Each tag must be one word (hyphenation is okay).') . " " . 
-			$this->_('To make a tag collapsed in the fields list, prepend a hyphen to it, like this: -hello');
-		$form->prepend($field); 
+		$field->notes = $this->_('Each tag must be one word (underscores are okay).') . ' ' . 
+			'[' . $this->labels['manage-tags'] . '](./tags/)';
+		$field->collapsed = Inputfield::collapsedBlank;
+		$form->prepend($field);
+
+		$this->wire('modules')->get('JqueryUI')->use('selectize');
 		
 		return $form;
 	}
@@ -1953,8 +2157,10 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		$this->buildEditForm();
 
-		$this->wire('processHeadline', sprintf($this->_('Change type for field: %s'), $this->field->name)); // Page headline when changing type
-		$this->wire('breadcrumbs')->add(new Breadcrumb('./', 'Fields'))->add(new Breadcrumb("./edit?id={$this->field->id}", $this->field->name)); 
+		$this->headline(sprintf($this->_('Change type for field: %s'), $this->field->name)); // Page headline when changing type
+		$this->wire('breadcrumbs')
+			->add(new Breadcrumb('./', $this->labels['fields']))
+			->add(new Breadcrumb("./edit?id={$this->field->id}", $this->field->name)); 
 
 		if(!$this->input->get->type) $this->session->redirect('./'); 
 		$newType = $this->wire('sanitizer')->name($this->input->get->type); 
@@ -2040,8 +2246,8 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	public function ___executeImport() {
 		
-		$this->wire('processHeadline', $this->labels['import']);
-		$this->wire('breadcrumbs')->add(new Breadcrumb('../', $this->moduleInfo['title']));
+		$this->headline($this->labels['import']);
+		$this->breadcrumb('../', $this->moduleInfo['title']);
 		
 		require(dirname(__FILE__) . '/ProcessFieldExportImport.php');
 		
@@ -2061,8 +2267,8 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	public function ___executeExport() {
 		
-		$this->wire('processHeadline', $this->labels['export']);
-		$this->wire('breadcrumbs')->add(new Breadcrumb('../', $this->moduleInfo['title'])); 
+		$this->headline($this->labels['export']);
+		$this->breadcrumb('../', $this->moduleInfo['title']); 
 		
 		require(dirname(__FILE__) . '/ProcessFieldExportImport.php'); 
 		/** @var ProcessFieldExportImport $o */
@@ -2144,13 +2350,13 @@ class ProcessField extends Process implements ConfigurableModule {
 					}
 					$f->addOption(0, $this->_('Do not add'));
 
-					foreach($template->fieldgroup as $field) { // overwrite of $field is OK
-						if(strpos((string) $field->type, 'FieldtypeFieldset') === 0) continue;
-						$f->addOption($field->name, array(
-							"-$field->id" => sprintf($beforeLabel, $field->name),
-							"$field->id"  => sprintf($afterLabel, $field->name)
+					foreach($template->fieldgroup as $_field) { // overwrite of $field is OK
+						if(strpos((string) $_field->type, 'FieldtypeFieldset') === 0) continue;
+						$f->addOption($_field->name, array(
+							"-$_field->id" => sprintf($beforeLabel, $_field->name),
+							"$_field->id"  => sprintf($afterLabel, $_field->name)
 						));
-						$value = "$field->id";
+						$value = "$_field->id";
 					}
 
 					$f->attr('value', $value);
@@ -2484,6 +2690,25 @@ class ProcessField extends Process implements ConfigurableModule {
 	public function ___allowFieldInTemplate(Field $field, Template $template) {
 		if($field && $template) {}
 		return true; 
+	}
+
+	/**
+	 * Upgrade module from one version to another
+	 * 
+	 * @param int|string $fromVersion
+	 * @param int|string $toVersion
+	 * 
+	 */
+	public function ___upgrade($fromVersion, $toVersion) {
+		$collapsedTags = $this->wire('modules')->getConfig($this, 'collapsedTags');
+		if(!is_array($collapsedTags)) {
+			$collapsedTags = array();
+			foreach($this->wire('fields')->getTags() as $tag) {
+				$c = substr($tag, 0, 1);
+				if($c === '-' || $c === '_') $collapsedTags[] = $tag;
+			}
+			$this->wire('modules')->saveConfig($this, 'collapsedTags', $collapsedTags);
+		}
 	}
 
 }

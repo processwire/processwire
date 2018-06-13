@@ -783,20 +783,45 @@ class PageFinder extends Wire {
 	 *
 	 */
 	protected function preProcessSelector(Selector $selector, Selectors $selectors, array $options, $level = 0) {
-		
+	
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
 		$quote = $selector->quote;
-		$fields = $selector->fields;
+		$fieldsArray = $selector->fields;
 		$hasDoubleDot = false;
+		$tags = null;
 		
-		foreach($fields as $fn) {
+		foreach($fieldsArray as $key => $fn) {
+			
 			$dot = strpos($fn, '.');
+			$parts = $dot ? explode('.', $fn) : array($fn);
+			
+			// determine if it is a double-dot field (a.b.c)
 			if($dot && strrpos($fn, '.') !== $dot) {
 				if(strpos($fn, '__owner.') !== false) continue;
 				$hasDoubleDot = true;
-				break;
+			} 
+	
+			// determine if it is referencing any tags that should be coverted to field1|field2|field3
+			foreach($parts as $partKey => $part) {
+				if($tags !== null && empty($tags)) continue;
+				if($fields->get($part)) continue; // maps to Field object
+				if($fields->isNative($part)) continue; // maps to native property
+				if($tags === null) $tags = $fields->getTags(true); // determine tags
+				if(!isset($tags[$part])) continue; // not a tag
+				$tagFields = $tags[$part];
+				foreach($tagFields as $k => $fieldName) {
+					$_parts = $parts;
+					$_parts[$partKey] = $fieldName;
+					$tagFields[$k] = implode('.', $_parts);
+				}
+				if(count($tagFields)) {
+					unset($fieldsArray[$key]);
+					$selector->fields = array_merge($fieldsArray, $tagFields);
+				}
 			}
 		}
-	
+		
 		if($quote == '[') {
 			// selector contains another embedded selector that we need to convert to page IDs
 			// i.e. field=[id>0, name=something, this=that]
@@ -831,11 +856,11 @@ class PageFinder extends Wire {
 		} else if($hasDoubleDot) {
 			// has an "a.b.c" type string in the field, convert to a sub-selector
 			
-			if(count($fields) > 1) {
+			if(count($fieldsArray) > 1) {
 				throw new PageFinderSyntaxException("Multi-dot 'a.b.c' type selectors may not be used with OR '|' fields");
 			}
 			
-			$fn = reset($fields);
+			$fn = reset($fieldsArray);
 			$parts = explode('.', $fn);
 			$fieldName = array_shift($parts);
 			$field = $this->isPageField($fieldName);
