@@ -3615,6 +3615,7 @@ class Modules extends WireArray {
 					// we allow for option of no return statement in the method
 					$module = $this->getModule($moduleName);
 					$fields = $this->wire(new InputfieldWrapper());
+					$fields->setParent($form);
 					$_fields = $module->getModuleConfigInputfields($fields);
 					if($_fields instanceof InputfieldWrapper) $fields = $_fields;
 					unset($_fields);

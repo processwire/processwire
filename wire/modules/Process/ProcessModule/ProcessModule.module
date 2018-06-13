@@ -1241,7 +1241,7 @@ class ProcessModule extends Process {
 			$form->add($field); 
 		}
 		
-		$fields = $this->wire('modules')->getModuleConfigInputfields($moduleName); 
+		$fields = $this->wire('modules')->getModuleConfigInputfields($moduleName, $form); 
 		if($fields) {
 			foreach($fields as $field) {
 				$form->add($field);

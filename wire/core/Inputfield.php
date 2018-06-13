@@ -498,6 +498,39 @@ abstract class Inputfield extends WireData implements Module {
 	}
 
 	/**
+	 * Get the root parent InputfieldWrapper element (farthest parent, commonly InputfieldForm)
+	 * 
+	 * This returns null only if Inputfield it is called from has not yet been added to an InputfieldWrapper.
+	 * 
+	 * #pw-group-traversal
+	 *
+	 * @return InputfieldForm|InputfieldWrapper|null
+	 * @since 3.0.106
+	 * 
+	 */
+	public function getRootParent() {
+		$parents = $this->getParents();
+		return count($parents) ? end($parents) : null;
+	}
+
+	/**
+	 * Get the InputfieldForm element that contains this field or null if not yet defined
+	 * 
+	 * This is the same as the `getRootParent()` method except that it returns null if root parent 
+	 * is not an InputfieldForm. 
+	 * 
+	 * #pw-group-traversal
+	 * 
+	 * @return InputfieldForm|null
+	 * @since 3.0.106
+	 * 
+	 */
+	public function getForm() {
+		$form = $this instanceof InputfieldForm ? $this : $this->getRootParent();
+		return ($form instanceof InputfieldForm ? $form : null);
+	}
+
+	/**
 	 * Set an attribute 
 	 *
 	 * - For most public API use, you might consider using the the shorter `Inputfield::attr()` method instead. 
@@ -1571,9 +1604,12 @@ abstract class Inputfield extends WireData implements Module {
 	 */
 	public function entityEncode($str, $markdown = false) {
 		
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		
 		// if already encoded, then un-encode it
 		if(strpos($str, '&') !== false && preg_match('/&(#\d+|[a-zA-Z]+);/', $str)) {
-			$str = html_entity_decode($str, ENT_QUOTES, "UTF-8");
+			$str = $sanitizer->unentities($str);
 		}
 		
 		if($markdown && $markdown !== self::textFormatNone) {
@@ -1585,17 +1621,17 @@ abstract class Inputfield extends WireData implements Module {
 			if(!$textFormat) $textFormat = self::textFormatBasic;
 			if($textFormat & self::textFormatBasic) {
 				// only basic markdown allowed (default behavior)
-				$str = $this->wire('sanitizer')->entitiesMarkdown($str, array('allowBrackets' => true));
+				$str = $sanitizer->entitiesMarkdown($str, array('allowBrackets' => true));
 			} else if($textFormat & self::textFormatMarkdown) {
 				// full markdown, plus HTML is also allowed
-				$str = $this->wire('sanitizer')->entitiesMarkdown($str, array('fullMarkdown' => true));
+				$str = $sanitizer->entitiesMarkdown($str, array('fullMarkdown' => true));
 			} else {
 				// nothing allowed, text fully entity encoded regardless of $markdown request
-				$str = $this->wire('sanitizer')->entities($str);
+				$str = $sanitizer->entities($str);
 			}
 			
 		} else {
-			$str = $this->wire('sanitizer')->entities($str);
+			$str = $sanitizer->entities($str);
 		}
 		
 		return $str;
