@@ -221,6 +221,14 @@ class MarkupPagerNav extends Wire implements Module {
 	protected $isLastPage = null;
 
 	/**
+	 * Prefix to identify page numbers in URL, i.e. page123 or page=123
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $pageNumUrlPrefix = 'page';
+
+	/**
 	 * Construct
 	 * 
 	 */
@@ -272,12 +280,21 @@ class MarkupPagerNav extends Wire implements Module {
 		if($limit) $this->itemsPerPage = $limit;
 		$this->pageNum = $items->getStart() < $this->itemsPerPage  ? 1 : ceil($items->getStart() / $this->itemsPerPage)+1; 
 
-		if(is_null($this->options['page'])) $this->options['page'] = $this->wire('page'); 
+		if(is_null($this->options['page'])) {
+			$this->options['page'] = $this->wire('page');
+		}
 
 		if(!strlen($this->queryString)) {
 			$whitelist = $this->wire('input')->whitelist->getArray(); 
-			if(!count($this->options['getVars']) && count($whitelist)) $this->setGetVars($whitelist); 
-				else if(count($this->options['getVars'])) $this->setGetVars($this->getVars); 
+			if(!count($this->options['getVars']) && count($whitelist)) {
+				$this->setGetVars($whitelist);
+			} else if(count($this->options['getVars'])) {
+				$this->setGetVars($this->getVars);
+			}
+		}
+		
+		if($config->pageNumUrlPrefix) {
+			$this->pageNumUrlPrefix = $config->pageNumUrlPrefix;
 		}
 
 		$pagerNav = new PagerNav($this->totalItems, $this->itemsPerPage, $this->pageNum); 
@@ -286,13 +303,6 @@ class MarkupPagerNav extends Wire implements Module {
 		$pager = $pagerNav->getPager();
 		$out = '';
 	
-		// if allowPageNum is true, then we can use urlSegment style page numbers rather than GET var page numbers	
-		$allowPageNum = $this->options['page']->template->allowPageNum; 
-		$slashUrls = $this->options['page']->template->slashUrls;
-		$slashPageNum = $this->options['page']->template->slashPageNum;
-		$pageNumUrlPrefix = $config->pageNumUrlPrefix; 
-		if(!$pageNumUrlPrefix) $pageNumUrlPrefix = 'page';
-
 		$pagerCount = count($pager);
 		if($pagerCount > 1) $this->isLastPage = false; 
 		$firstNumberKey = null;
@@ -316,23 +326,8 @@ class MarkupPagerNav extends Wire implements Module {
 				$out .= $this->renderItemSeparator();
 				continue; 
 			} 
-
-			$url = $this->baseUrl;
-			if(!$url) $url = $this->options['page']->url;
-
-			if($item->pageNum > 1) {
-				if($allowPageNum) {
-					if($slashUrls === 0) $url .= '/'; // enforce a trailing slash, regardless of slashUrls template setting
-					$url .= "$pageNumUrlPrefix{$item->pageNum}";
-					if($slashPageNum > 0) $url .= '/';
-					$url .= $this->queryString; 
-				} else {
-					$url .= $this->queryString . ($this->queryString ? "&" : "?") . "$pageNumUrlPrefix=" . $item->pageNum;
-				}
-			} else {
-				$url .= $this->queryString; 
-			}
-
+			
+			$url = $this->getURL($item->pageNum); 
 			$classes = array();
 			
 			if($item->type != 'first' && $item->type != 'last' && isset($this->options[$item->type . 'ItemClass'])) {
@@ -418,8 +413,7 @@ class MarkupPagerNav extends Wire implements Module {
 				''
 			), $this->options['listMarkup']);
 
-			if($nextURL) $config->urls->next = $nextURL;
-			if($prevURL) $config->urls->prev = $prevURL;
+			if($nextURL || $prevURL) $this->updateConfigVars($nextURL, $prevURL); 
 		}
 		
 		return $out; 
@@ -635,6 +629,74 @@ class MarkupPagerNav extends Wire implements Module {
 	public function setLabels($next, $prev) { 
 		$this->options['nextItemLabel'] = $next; 
 		$this->options['previousItemLabel'] = $prev; 
+	}
+
+	/**
+	 * Get URL for given pagination number
+	 * 
+	 * Requires that render() method has already started or been previously called. 
+	 *
+	 * @param int $pageNum
+	 * @param bool $http Include scheme and hostname?
+	 * @return string
+	 *
+	 */
+	public function getURL($pageNum, $http = false) {
+
+		/** @var Page $page */
+		$page = $this->options['page'];
+		$template = $page->template;
+		if($this->baseUrl) {
+			$url = $this->baseUrl;
+		} else if($http) {
+			$url = $page->httpUrl();
+		} else {
+			$url = $page->url();
+		}
+
+		if($pageNum > 1) {
+			if($template->allowPageNum) {
+				// if allowPageNum is true, then we can use urlSegment style page numbers rather than GET var page numbers	
+				if($template->slashUrls === 0) $url .= '/'; // enforce a trailing slash, regardless of slashUrls template setting
+				$url .= $this->pageNumUrlPrefix . $pageNum;
+				if($template->slashPageNum > 0) $url .= '/';
+				$url .= $this->queryString;
+			} else {
+				// query string style pagination
+				$url .= $this->queryString . (strlen($this->queryString) ? "&" : "?") . "$this->pageNumUrlPrefix=$pageNum";
+			}
+		} else {
+			$url .= $this->queryString;
+		}
+
+		return $url;
+	}
+
+	/**
+	 * Populate $config->urls->next, $config->urls->prev, and $config->pagerHeadTags
+	 *
+	 * @param string $nextURL
+	 * @param string $prevURL
+	 *
+	 */
+	protected function updateConfigVars($nextURL, $prevURL) {
+
+		/** @var Config $config */
+		$config = $this->wire('config');
+		$httpRoot = $this->wire('input')->httpHostUrl();
+		$pagerHeadTags = '';
+
+		if($nextURL) {
+			$config->urls->next = $nextURL;
+			$pagerHeadTags .= "<link rel=\"next\" href=\"$httpRoot$nextURL\" />";
+		}
+
+		if($prevURL) {
+			$config->urls->prev = $prevURL;
+			$pagerHeadTags .= "<link rel=\"prev\" href=\"$httpRoot$prevURL\" />";
+		}
+
+		$config->set('pagerHeadTags', $pagerHeadTags);
 	}
 	
 	/* 
