@@ -1332,9 +1332,17 @@ $config->versionName = '';
  * Value is null, 0, or 1 or higher. This should be kept at null in this file. 
  *
  */
-$config->inputfieldColumnWidthSpacing = null; 
+$config->inputfieldColumnWidthSpacing = null;
 
-
+/**
+ * Populated to contain <link rel='next|prev'.../> tags for document head
+ * 
+ * This is populated only after a MarkupPagerNav::render() has rendered pagination and is
+ * otherwise null. 
+ *
+ * $config->pagerHeadTags = '';
+ * 
+ */
 
 /*** 11. SYSTEM *********************************************************************************
  * 
