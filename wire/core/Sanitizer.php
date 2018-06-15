@@ -611,7 +611,7 @@ class Sanitizer extends Wire {
 		if(strpos($value, 'xn--') !== 0) $value = 'xn--' . substr($value, 3);
 		if(function_exists('idn_to_utf8')) {
 			// use native php function if available
-			$value = idn_to_utf8($value);
+			$value = @idn_to_utf8($value);
 		} else {
 			// otherwise use Punycode class
 			$pc = new Punycode();
@@ -654,7 +654,7 @@ class Sanitizer extends Wire {
 		
 		if(function_exists("idn_to_ascii")) {
 			// use native php function if available
-			$value = substr(idn_to_ascii($value), 3);
+			$value = substr(@idn_to_ascii($value), 3);
 		} else {
 			// otherwise use Punycode class
 			$pc = new Punycode();
@@ -1550,13 +1550,13 @@ class Sanitizer extends Wire {
 		} else {
 			// domain contains utf8
 			$pc = function_exists("idn_to_ascii") ? false : new Punycode();
-			$domain = $pc ? $pc->encode($domain) : idn_to_ascii($domain);
+			$domain = $pc ? $pc->encode($domain) : @idn_to_ascii($domain);
 			if($domain === false || !strlen($domain)) return '';
 			$url = $scheme . $domain . $rest;
 			$url = filter_var($url, FILTER_VALIDATE_URL);
 			if(strlen($url)) {
 				// convert back to utf8 domain
-				$domain = $pc ? $pc->decode($domain) : idn_to_utf8($domain);
+				$domain = $pc ? $pc->decode($domain) : @idn_to_utf8($domain);
 				if($domain === false) return '';
 				$url = $scheme . $domain . $rest;
 			}
