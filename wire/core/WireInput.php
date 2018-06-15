@@ -332,14 +332,52 @@ class WireInput extends Wire {
 	 * 
 	 * #pw-group-URL-segments
 	 *
+	 * @param bool $verbose Include pagination number (pageNum) and trailing slashes, when appropriate? (default=false)
+	 *  - Use this option for a more link-ready version of the URL segment string (since 3.0.106). 
+	 * @param array $options Options to adjust behavior (since 3.0.106):
+	 *  - `segments` (array|null): Optionally specify URL segments to use, rather than those from current request. (default=null)
+	 *  - `pageNum` (int): Optionally specify page number to use rather than current. (default=current page number)
+	 *  - `page` (Page): Optionally specify Page to use for context. (default=current page)
+	 *  - *NOTE* the `pageNum` and `page` options are not applicable unless the $verbose argument is true. 
 	 * @return string URL segment string, i.e. `segment1/segment2/segment3` or blank if none
 	 * @see WireInput::urlSegment()
 	 *
 	 */
-	public function urlSegmentStr() {
-		return implode('/', $this->urlSegments);
+	public function urlSegmentStr($verbose = false, array $options = array()) {
+	
+		if(isset($options['segments']) && is_array($options['segments'])) {
+			$segments = $options['segments'];
+		} else {
+			$segments = $this->urlSegments;
+		}
+		
+		$str = implode('/', $segments);
+	
+		// regular mode exits here
+		if(!$verbose) return $str;
+	
+		// verbose mode takes page number, slash settings, and other $options into account
+		$page = isset($options['page']) && $options['page'] instanceof Page ? $options['page'] : $this->wire('page');
+		$template = $page->template;
+		
+		if(isset($options['pageNum'])) {
+			$pageNum = (int) $options['pageNum']; 
+		} else if($template->allowPageNum) {
+			$pageNum = $this->pageNum();
+		} else {
+			$pageNum = 0;
+		}
+		
+		if($pageNum > 1) {
+			if(strlen($str)) $str .= '/';
+			$str .= $this->pageNumStr($pageNum);
+			if($template->slashPageNum) $str .= '/';
+		} else if($template->slashUrlSegments && strlen($str)) {
+			$str .= '/';
+		}
+			
+		return $str;
 	}
-
 
 	/**
 	 * Return the current pagination/page number (starting from 1)
@@ -364,6 +402,30 @@ class WireInput extends Wire {
 	 */
 	public function pageNum() {
 		return $this->pageNum; 	
+	}
+	
+	/**
+	 * Return the string that represents the page number URL segment
+	 * 
+	 * Returns blank when page number is 1, since page 1 is assumed when no pagination number present in URL. 
+	 * 
+	 * This is the string that gets appended to the URL and typically looks like `page123`,
+	 * but can be changed by modifying the `$config->pageNumUrlPrefix` setting, or specifying
+	 * language-specific page number settings in the LanguageSupportPageNames module. 
+	 * 
+	 * #pw-group-URL-segments
+	 * 
+	 * @param int $pageNum Optionally specify page number to use (default=0, which means use current page number)
+	 * @return string
+	 * @since 3.0.106
+	 * 
+	 */
+	public function pageNumStr($pageNum = 0) {
+		$pageNumStr = '';
+		$pageNum = (int) $pageNum;
+		if($pageNum < 1) $pageNum = $this->pageNum();
+		if($pageNum > 1) $pageNumStr = $this->wire('config')->pageNumUrlPrefix . $pageNum;
+		return $pageNumStr;
 	}
 
 	/**
@@ -471,7 +533,7 @@ class WireInput extends Wire {
 			$pageNum = $this->pageNum();
 			if(strlen($segmentStr) || $pageNum > 1) {
 				if($segmentStr) $url = rtrim($url, '/') . '/' . $segmentStr;
-				if($pageNum > 1) $url = rtrim($url, '/') . '/' . $config->pageNumUrlPrefix . $pageNum;
+				if($pageNum > 1) $url = rtrim($url, '/') . '/' . $this->pageNumStr($pageNum); 
 				if(isset($_SERVER['REQUEST_URI'])) {
 					$info = parse_url($_SERVER['REQUEST_URI']);
 					if(!empty($info['path']) && substr($info['path'], -1) == '/') $url .= '/'; // trailing slash
@@ -539,7 +601,21 @@ class WireInput extends Wire {
 	 * 
 	 */
 	public function httpUrl($withQueryString = false) {
-		return $this->scheme() . '://' . $this->wire('config')->httpHost . $this->url($withQueryString);
+		return $this->httpHostUrl() . $this->url($withQueryString);
+	}
+
+	/**
+	 * Get current scheme and URL for hostname without any path or query string
+	 * 
+	 * For example: `https://www.domain.com`
+	 * 
+	 * #pw-group-URLs
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function httpHostUrl() {
+		return $this->scheme() . '://' . $this->wire('config')->httpHost;
 	}
 
 	/**
