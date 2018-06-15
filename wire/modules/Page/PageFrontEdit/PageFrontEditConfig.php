@@ -126,7 +126,7 @@ class PageFrontEditConfig extends ModuleConfig {
 			$f->description .= " [$moreLabel](https://processwire.com/api/modules/front-end-editing/#option-a-automatic-editing)";
 			$href = "{$this->config->urls->admin}module/edit?name=PageFrontEdit&modal=1&";
 			$f->value =
-				"<p><a class='pw-modal ui-button ui-state-default' data-buttons='.ui-button' data-autoclose href='$href'>" .
+				"<p><a class='pw-modal ui-button ui-state-default' data-buttons='#Inputfield_submit_save_module' data-autoclose href='$href'>" .
 				"<i class='fa fa-gear fa-fw'></i>" . $this->_('Configure') . "</a></p>";
 			if(in_array($field->id, $module->inlineEditFields)) {
 				$f->notes = $this->_('This option is currently ENABLED for this field.'); 
