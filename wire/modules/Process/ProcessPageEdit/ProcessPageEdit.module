@@ -2302,7 +2302,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	protected function setRedirectUrl($url) {
 		$this->redirectUrl = $url;
-		$this->message("setRedirectUrl($url)"); 
 	}
 
 	/**
@@ -2330,7 +2329,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$url .= strpos($url, '?') === false ? "?" : "&"; 
 			$url .= implode('&', $extras);
 		}
-		$this->message("getRedirectURL: $this->redirectUrl => $url"); 
 		return $url;
 	}
 
