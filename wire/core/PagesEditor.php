@@ -398,6 +398,9 @@ class PagesEditor extends Wire {
 				if(strlen($page->title)) $pageName = $page->title;
 					else $pageName = $this->untitledPageName;
 
+			} elseif($format == 'id') {
+				$pageName = $page->id;
+
 			} else if(!ctype_alnum($format) && !preg_match('/^[-_a-zA-Z0-9]+$/', $format)) {
 				// it is a date format
 				$pageName = date($format);
