@@ -905,15 +905,15 @@ class WireHttp extends Wire {
 	protected function setResponseHeader(array $responseHeader) {
 		
 		$this->responseHeader = $responseHeader;
+		$httpText = '';
+		$httpCode = 0;
 		
 		if(!empty($responseHeader[0])) {
-			list($http, $httpCode, $httpText) = explode(' ', trim($responseHeader[0]), 3); 
-			if($http) {} // ignore
+			list(/*HTTP*/, $httpCode) = explode(' ', trim($responseHeader[0]), 2); 
+			$httpCode = trim($httpCode);
+			if(strpos($httpCode, ' ')) list($httpCode, $httpText) = explode(' ', $httpCode, 2);
 			$httpCode = (int) $httpCode;
-			$httpText = preg_replace('/[^-_.;() a-zA-Z0-9]/', ' ', $httpText); 
-		} else {
-			$httpCode = 0;
-			$httpText = '';
+			if(strlen($httpText)) $httpText = preg_replace('/[^-_.;() a-zA-Z0-9]/', ' ', $httpText); 
 		}
 		
 		$this->httpCode = (int) $httpCode;
