@@ -1508,7 +1508,7 @@ class Sanitizer extends Wire {
 	}
 
 	/**
-	 * Implementation of PHP's FILTER_VALIDATE_URL with IDN support (will convert to valid)
+	 * Implementation of PHP's FILTER_VALIDATE_URL with IDN and underscore support (will convert to valid)
 	 *
 	 * Example: http://трикотаж-леко.рф
 	 *
@@ -1518,10 +1518,28 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	protected function filterValidateURL($url, array $options) {
-
+	
+		// placeholders are characters known to be rejected by FILTER_VALIDATE_URL that should not be
+		$placeholders = array();
+		
+		if(strpos($url, '_') !== false && strpos(parse_url($url, PHP_URL_HOST), '_') !== false) {
+			// hostname contains an underscore and FILTER_VALIDATE_URL does not support them in hostnames
+			do {
+				$placeholder = 'UNDER' . mt_rand() . 'SCORE';
+			} while(strpos($url, $placeholder) !== false);
+			$url = str_replace('_', $placeholder, $url);
+			$placeholders[$placeholder] = '_';
+		}
+		
 		$_url = $url;
 		$url = filter_var($url, FILTER_VALIDATE_URL);
-		if($url !== false && strlen($url)) return $url;
+		if($url !== false && strlen($url)) {
+			// if filter_var returns a URL, then we know there is no IDN present and we can exit now
+			if(count($placeholders)) {
+				$url = str_replace(array_keys($placeholders), array_values($placeholders), $url);
+			}
+			return $url;
+		}
 
 		// if allowIDN was specifically set false, don't proceed further
 		if(isset($options['allowIDN']) && !$options['allowIDN']) return $url;
@@ -1572,6 +1590,10 @@ class Sanitizer extends Wire {
 				if($domain === false) return '';
 				$url = $scheme . $domain . $rest;
 			}
+		}
+		
+		if(count($placeholders)) {
+			$url = str_replace(array_keys($placeholders), array_values($placeholders), $url); 
 		}
 
 		return $url;
