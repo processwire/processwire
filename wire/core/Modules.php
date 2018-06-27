@@ -1287,7 +1287,6 @@ class Modules extends WireArray {
 			try {
 				if(!$this->initModule($module, array('clearSettings' => false, 'throw' => true))) {
 					return empty($options['returnError']) ? null : "Module '$module' failed init";
-					$module = null;
 				}
 			} catch(\Exception $e) {
 				if(empty($options['noThrow'])) throw $e; 
@@ -1508,7 +1507,7 @@ class Modules extends WireArray {
 	 * #pw-internal Almost always recommend using findByPrefix() instead
 	 * 
 	 * @param string $selector Selector string
-	 * @return Modules WireArray of found modules, instantiated and ready-to-use
+	 * @return WireArray of found modules, instantiated and ready-to-use
 	 *	
 	 */
 	public function find($selector) {
@@ -2420,13 +2419,14 @@ class Modules extends WireArray {
 	 * @param $className
 	 * @return array Only includes module info specified in the module file itself.
 	 *
-	 */
 	protected function getModuleInfoInternalSafe($className) {
 		// future addition
 		// load file, preg_split by /^\s*(public|private|protected)[^;{]+function\s*([^)]*)[^{]*{/
 		// isolate the one that starts has getModuleInfo in matches[1]
 		// parse data from matches[2]
+		return array();
 	}
+	 */
 
 	/**
 	 * Retrieve module info for system properties: PHP or ProcessWire
@@ -2794,7 +2794,7 @@ class Modules extends WireArray {
 	/**
 	 * Returns a verbose array of information for a Module
 	 * 
-	 * This is the same as what's returned by `Modules::getModuleInfo()` except that it has the following additional properties:
+	 * This is the same as what’s returned by `Modules::getModuleInfo()` except that it has the following additional properties:
 	 * 
 	 *  - `versionStr` (string): formatted module version string.
 	 *  - `file` (string): module filename from PW installation root, or false when it can't be found.
@@ -2818,6 +2818,29 @@ class Modules extends WireArray {
 		$options['verbose'] = true; 
 		$info = $this->getModuleInfo($class, $options); 
 		return $info;
+	}
+
+	/**
+	 * Get just a single property of module info
+	 * 
+	 * @param Module|string $class Module instance or module name
+	 * @param string $property Name of property to get
+	 * @param array $options Additional options (see getModuleInfo method for options)
+	 * @return mixed|null Returns value of property or null if not found
+	 * 
+	 */
+	public function getModuleInfoProperty($class, $property, array $options = array()) {
+		if(isset($this->moduleInfoVerboseKeys[$property])) {
+			$info = $this->getModuleInfoVerbose($class, $options);
+			$info['verbose'] = true;
+		} else {
+			$info = $this->getModuleInfo($class, $options);
+		}
+		if(!isset($info[$property]) && empty($info['verbose'])) {
+			// try again, just in case we can find it in verbose data
+			$info = $this->getModuleInfoVerbose($class, $options);
+		}
+		return isset($info[$property]) ? $info[$property] : null;
 	}
 
 	/**
@@ -4694,7 +4717,7 @@ class Modules extends WireArray {
 	 * #pw-internal
 	 * 
 	 * @param Module|int|string $module Module object or class name
-	 * @return array Returns number of files that were added
+	 * @return int Returns number of files that were added
 	 * 
 	 */
 	public function loadModuleFileAssets($module) {
@@ -4772,7 +4795,7 @@ class Modules extends WireArray {
 	 * 
 	 * @param array|Wire|string $text
 	 * @param int $flags
-	 * @return $this
+	 * @return Modules|WireArray
 	 * 
 	 */
 	public function error($text, $flags = 0) {
