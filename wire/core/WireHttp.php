@@ -22,7 +22,7 @@
  * 
  * Thanks to @horst for his assistance with several methods in this class.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * @method bool|string send($url, $data = array(), $method = 'POST')
@@ -220,6 +220,22 @@ class WireHttp extends Wire {
 	 *
 	 */
 	protected $hasFopen = false;
+
+	/**
+	 * Options to pass to $sanitizer->url('url', $options) in WireHttp::validateURL() method
+	 * 
+	 * Can be modified with the setValidateURLOptions() method.
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $validateURLOptions = array(
+		'allowRelative' => false,
+		'requireScheme' => true,
+		'stripQuotes' => false,
+		'encodeSpace' => true,
+		'throw' => true,
+	);
 
 	/**
 	 * Construct/initialize
@@ -1019,13 +1035,8 @@ class WireHttp extends Wire {
 	 * 
 	 */
 	public function validateURL($url, $throw = false) {
-		$options = array(
-			'allowRelative' => false, 
-			'allowSchemes' => $this->allowSchemes, 
-			'requireScheme' => true,
-			'stripQuotes' => false,
-			'throw' => true,
-			);
+		$options = $this->validateURLOptions;
+		$options['allowSchemes'] = $this->allowSchemes;
 		try {
 			$url = $this->wire('sanitizer')->url($url, $options); 
 		} catch(WireException $e) {
@@ -1130,6 +1141,24 @@ class WireHttp extends Wire {
 	}
 
 	/**
+	 * Set options array given to $sanitizer->url() 
+	 * 
+	 * It should not be necessary to call this unless you are dealing with an unusual URL that is causing
+	 * errors with the default options in WireHttp. Note that the “allowSchemes” option is set separately
+	 * with the setAllowSchemes() method in this class. 
+	 * 
+	 * To return current validate URL options, omit the $options argument. 
+	 * 
+	 * @param array $options Options to set, see the $sanitizer->url() method for details on options. 
+	 * @return array Always returns current options 
+	 * 
+	 */
+	public function setValidateURLOptions(array $options = array()) {
+		if(!empty($options)) $this->validateURLOptions = array_merge($this->validateURLOptions, $options);
+		return $this->validateURLOptions;
+	}
+
+	/**
 	 * Return array of allowed schemes
 	 * 
 	 * @return array
@@ -1174,6 +1203,7 @@ class WireHttp extends Wire {
 	 * 
 	 */
 	public function _errorHandler($errno, $errstr, $errfile, $errline, $errcontext) {
+		if($errfile || $errline || $errcontext) {} // ignore
 		$this->error[] = "$errno: $errstr";
 	}
 

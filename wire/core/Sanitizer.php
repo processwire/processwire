@@ -1315,6 +1315,8 @@ class Sanitizer extends Wire {
 	 *  - `allowSchemes` (array): Array of allowed schemes, lowercase (default=[] any).
 	 *  - `disallowSchemes` (array): Array of disallowed schemes, lowercase (default=['file']).
 	 *  - `requireScheme` (bool): Specify true to require a scheme in the URL, if one not present, it will be added to non-relative URLs (default=true).
+	 *  - `convertEncoded` (boolean): Convert most encoded hex characters characters (i.e. “%2F”) to non-encoded? (default=true)
+	 *  - `encodeSpace` (boolean): Encoded space to “%20” or allow “%20“ in URL? Only useful if convertEncoded is true. (default=false)
 	 *  - `stripTags` (bool): Specify false to prevent tags from being stripped (default=true).
 	 *  - `stripQuotes` (bool): Specify false to prevent quotes from being stripped (default=true).
 	 *  - `maxLength` (int): Maximum length in bytes allowed for URLs (default=4096).
@@ -1333,6 +1335,8 @@ class Sanitizer extends Wire {
 			'allowSchemes' => array(),
 			'disallowSchemes' => array('file', 'javascript'),
 			'requireScheme' => true,
+			'convertEncoded' => true, 
+			'encodeSpace' => false, 
 			'stripTags' => true,
 			'stripQuotes' => true,
 			'maxLength' => 4096,
@@ -1380,15 +1384,17 @@ class Sanitizer extends Wire {
 			$queryString = '';
 		}
 
-		$pathIsEncoded = strpos($domainPath, '%') !== false;
-		if($pathIsEncoded || filter_var($domainPath, FILTER_SANITIZE_URL) !== $domainPath) {
+		$pathIsEncoded = $options['convertEncoded'] && strpos($domainPath, '%') !== false;
+		$pathModifiedByFilter = filter_var($domainPath, FILTER_SANITIZE_URL) !== $domainPath;
+		
+		if($pathIsEncoded || $pathModifiedByFilter) {
 			// the domain and/or path contains extended characters not supported by FILTER_SANITIZE_URL
 			// Example: https://de.wikipedia.org/wiki/Linkshänder
 			// OR it is already rawurlencode()'d
 			// Example: https://de.wikipedia.org/wiki/Linksh%C3%A4nder
 			// we convert the URL to be FILTER_SANITIZE_URL compatible
 			// if already encoded, first remove encoding: 
-			if(strpos($domainPath, '%') !== false) $domainPath = rawurldecode($domainPath);
+			if($pathIsEncoded) $domainPath = rawurldecode($domainPath);
 			// Next, encode it, for example: https%3A%2F%2Fde.wikipedia.org%2Fwiki%2FLinksh%C3%A4nder
 			$domainPath = rawurlencode($domainPath);
 			// restore characters allowed in domain/path
@@ -1417,7 +1423,8 @@ class Sanitizer extends Wire {
 				if($slashPos === false) $slashPos = $dotPos+1;
 				// if the first slash comes after the first dot, the dot is likely part of a domain.com/path/
 				// if the first slash comes before the first dot, then it's likely a /path/product.html
-				if($dotPos && $slashPos > $dotPos && preg_match('{^([^\s_.]+\.)?[^-_\s.][^\s_.]+\.([a-z]{2,6})([./:#]|$)}i', $value, $matches)) {
+				$regex = '{^([^\s_.]+\.)?[^-_\s.][^\s_.]+\.([a-z]{2,6})([./:#]|$)}i';
+				if($dotPos && $slashPos > $dotPos && preg_match($regex, $value, $matches)) {
 					// most likely a domain name
 					// $tld = $matches[3]; // TODO add TLD validation to confirm it's a domain name
 					$value = $this->filterValidateURL("http://$value", $options); // add scheme for validation
@@ -1461,7 +1468,7 @@ class Sanitizer extends Wire {
 
 		if($pathIsEncoded && strlen($value)) {
 			// restore to non-encoded, UTF-8 version 
-			if(strpos('?', $value) !== false) {
+			if(strpos($value, '?') !== false) {
 				list($domainPath, $queryString) = explode('?', $value);
 			} else {
 				$domainPath = $value;
@@ -1469,6 +1476,7 @@ class Sanitizer extends Wire {
 			}
 			$domainPath = rawurldecode($domainPath);
 			if(strpos($domainPath, '%') !== false) {
+				// if any apparently encoded characters remain afer rawurldecode, remove them
 				$domainPath = preg_replace('/%[0-9ABCDEF]{1,2}/i', '', $domainPath);
 				$domainPath = str_replace('%', '', $domainPath);
 			}
@@ -1476,23 +1484,27 @@ class Sanitizer extends Wire {
 			$value = $domainPath . (strlen($queryString) ? "?$queryString" : "");
 		}
 
-		if(strlen($value)) {
-			if($options['stripTags']) {
-				if(stripos($value, '%3') !== false) {
-					$value = str_ireplace(array('%3C', '%3E'), array('!~!<', '>!~!'), $value);
-					$value = strip_tags($value);
-					$value = str_ireplace(array('!~!<', '>!~!', '!~!'), array('%3C', '%3E', ''), $value); // restore, in case valid/non-tag
-				} else {
-					$value = strip_tags($value);
-				}
+		if(!strlen($value)) return '';
+		
+		if($options['stripTags']) {
+			if(stripos($value, '%3') !== false) {
+				$value = str_ireplace(array('%3C', '%3E'), array('!~!<', '>!~!'), $value); // convert encoded to placeholders to strip
+				$value = strip_tags($value);
+				$value = str_ireplace(array('!~!<', '>!~!', '!~!'), array('%3C', '%3E', ''), $value); // restore, in case valid/non-tag
+			} else {
+				$value = strip_tags($value);
 			}
-			if($options['stripQuotes']) {
-				$value = str_replace(array('"', "'", "%22", "%27"), '', $value);
-			}
-			return $value;
 		}
-
-		return '';
+		
+		if($options['stripQuotes']) {
+			$value = str_replace(array('"', "'", "%22", "%27"), '', $value);
+		}
+		
+		if($options['encodeSpace'] && strpos($value, ' ')) {
+			$value = str_replace(' ', '%20', $value);
+		}
+		
+		return $value;
 	}
 
 	/**
