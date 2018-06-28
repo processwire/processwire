@@ -7,7 +7,7 @@
  * to the new location whenever the past URL is accessed. 
  *
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * @method upgrade($fromVersion, $toVersion)
@@ -20,7 +20,7 @@ class PagePathHistory extends WireData implements Module {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Path History', 
-			'version' => 2, 
+			'version' => 3, 
 			'summary' => "Keeps track of past URLs where pages have lived and automatically redirects (301 permament) to the new location whenever the past URL is accessed.",
 			'singular' => true, 
 			'autoload' => true, 
@@ -74,8 +74,8 @@ class PagePathHistory extends WireData implements Module {
 	 */
 	protected function getVersion() {
 		if($this->version) return $this->version;
-		$info = $this->wire('modules')->getModuleInfo($this);
-		$this->version = $info['version'];
+		$this->version = $this->wire('modules')->getModuleInfoProperty($this, 'version');
+		if(!$this->version) $this->version = 1;
 		return $this->version;
 	}
 
@@ -103,6 +103,8 @@ class PagePathHistory extends WireData implements Module {
 		if(!$languages) return null;
 		if($language instanceof Page) {
 			// ok
+		} else if($language === 0) {
+			$language = $languages->getDefault();
 		} else if(is_int($language) || ctype_digit($language)) {
 			$language = $languages->get((int) $language);
 		} else if(is_string($language) && $language) {
@@ -150,33 +152,86 @@ class PagePathHistory extends WireData implements Module {
 	/**
 	 * Get an array of all paths the given page has previously had, oldest to newest
 	 *
-	 * Optionally specify a Language object to isolate results to a specific language 
+	 * For the options argument: 
+	 * - Optionally specify a Language instance (or name or ID) to isolate results to a specific language.
+	 * - Optionally specify boolean true to return verbose info. 
 	 * 
-	 * @param Page $page
-	 * @param Language|null $language If none specified, then all languages are included
+	 * @param Page $page Page to retrieve paths for. 
+	 * @param Language|null|array|bool Specify an option below: 
+	 *  - `language` (Language|int|string): Limit returned paths to this language. If none specified, then all languages are included.
+	 *  - `verbose` (bool): Return associative array for each path with additional info (date and language, if present). 
+	 *  - Or you may specify the `language` option for the options argument. 
+	 *  - Or you may specify boolean `true` for options argument as a shortcut for the `verbose` option. 
 	 * @return array of paths
 	 * 
 	 */
-	public function getPathHistory(Page $page, $language = null) {
+	public function getPathHistory(Page $page, $options = array()) {
 		
+		$defaults = array(
+			'language' => !is_array($options) && !is_bool($options) ? $options : null, 
+			'verbose' => is_bool($options) ? $options : false, 
+		);
+		
+		/** @var WireDatabasePDO $database */
 		$database = $this->wire('database');
-		$table = self::dbTableName;
-		$paths = array();
-		$language = $this->getLanguage($language);
-	
-		$sql = "SELECT path FROM $table WHERE pages_id=:pages_id ";
-		if($language) $sql .= "AND language_id=:language_id ";
-		$sql .= "ORDER BY created";
 		
-		$query = $database->prepare($sql);
-		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-		if($language) $query->bindValue(':language_id', $language->isDefault() ? 0 : $language->id, \PDO::PARAM_INT);
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		
+		$paths = array();
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		
+		if($this->getVersion() < 2) {
+			$options['language'] = null;
+			$allowLanguage = false;
+		} else {
+			$allowLanguage = $this->wire('languages') && $this->wire('modules')->isInstalled('LanguageSupportPageNames');
+		}
+		
+		$language = $options['language'] && $allowLanguage ? $this->getLanguage($options['language']) : null;
+		$finds = array('pages_id' => $page->id);
+		$selects = array('path');
+		$wheres = array();
+		
+		if($options['verbose']) $selects[] = 'created';
+		if($options['verbose'] && $allowLanguage) $selects[] = 'language_id';
+		if($language) $finds['language_id'] = $language->isDefault() ? 0 : $language->id;
+		
+		foreach($finds as $col => $value) {
+			$wheres[] = "$col=:$col";
+		}
+	
+		$query = $database->prepare(
+			'SELECT ' . implode(', ', $selects) . ' FROM ' . self::dbTableName . ' ' . 
+			'WHERE ' . implode(' AND ', $wheres) . ' ' . 
+			"ORDER BY created"
+		);
+		
+		foreach($finds as $col => $value) {
+			$query->bindValue(":$col", $value, \PDO::PARAM_INT); 
+		}
 		
 		try {
 			$query->execute();
+			
 			/** @noinspection PhpAssignmentInConditionInspection */
-			while($row = $query->fetch(\PDO::FETCH_NUM)) {
-				$paths[] = $this->wire('sanitizer')->pagePathName($row[0], Sanitizer::toUTF8);
+			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+				
+				$path = $sanitizer->pagePathName($row['path'], Sanitizer::toUTF8);
+				
+				if($options['verbose']) {
+					$value = array('path' => $path);
+					$pathDate = $row['created'];
+					$value['date'] = $pathDate;
+					if($allowLanguage && isset($row['language_id'])) {
+						$pathLanguage = $this->getLanguage((int) $row['language_id']);
+						$value['language'] = $pathLanguage && $pathLanguage->id ? $pathLanguage : null;
+					}
+				} else {
+					$value = $path;
+				}
+				
+				$paths[] = $value;
 			}
 		} catch(\Exception $e) {
 			// intentionally blank
