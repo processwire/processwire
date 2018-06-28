@@ -54,7 +54,11 @@ class WireMailTools extends Wire {
 		
 		// see if a WireMail module is specified in $config
 		if(isset($settings['module'])) {
-			$mail = $modules->get($settings['module']); 
+			if($settings['module'] === 'WireMail') {
+				$mail = $this->wire(new WireMail()); 
+			} else {
+				$mail = $modules->get($settings['module']);
+			}
 			unset($settings['module']); 
 		}
 
