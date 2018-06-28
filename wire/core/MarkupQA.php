@@ -414,7 +414,8 @@ class MarkupQA extends Wire {
 				$pageID = $pwid;
 				$languageID = 0;
 			}
-			
+
+			$pageID = (int) $pageID;
 			$full = $matches[0][$key];
 			$start = $matches[1][$key];
 			$href = $matches[3][$key];
@@ -427,7 +428,7 @@ class MarkupQA extends Wire {
 				$language = null;
 			}
 			
-			$livePath = $this->wire('pages')->getPath((int) $pageID, array(
+			$livePath = $this->wire('pages')->getPath($pageID, array(
 				'language' => $language
 			));
 			
@@ -467,6 +468,108 @@ class MarkupQA extends Wire {
 		if(count($replacements)) {
 			$value = str_replace(array_keys($replacements), array_values($replacements), $value);
 		}
+	}
+
+	/**
+	 * Find pages linking to another
+	 * 
+	 * @param Page $page Page to find links to, or omit to use page specified in constructor
+	 * @param array $fieldNames Field names to look in or omit to use field specified in constructor
+	 * @param string $selector Optional selector to use as a filter
+	 * @param array $options Additional options
+	 *  - `getIDs` (bool): Return array of page IDs rather than Page instances. (default=false)
+	 *  - `getCount` (bool): Return a total count (int) of found pages rather than Page instances. (default=false)
+	 *  - `confirm` (bool): Confirm that the links are present by looking at the actual page field data. (default=true)
+	 *     You can specify false for this option to make it perform faster, but with a potentially less accurate result.
+	 * @return PageArray|array|int
+	 * 
+	 */
+	public function findLinks(Page $page = null, $fieldNames = array(), $selector = '', array $options = array()) {
+		
+		$defaults = array(
+			'getIDs' => false,
+			'getCount' => false, 
+			'confirm' => true 
+		);
+
+		$options = array_merge($defaults, $options);
+		
+		if($options['getIDs']) {
+			$result = array();
+		} else if($options['getCount']) {
+			$result = 0;
+		} else {
+			$result = $this->wire('pages')->newPageArray();
+		}
+		
+		if(!$page) $page = $this->page;
+		if(!$page) return $result;
+		
+		if(empty($fieldNames)) {
+			if($this->field) $fieldNames[] = $this->field->name;
+			if(empty($fieldNames)) return $result;
+		}
+		
+		if($selector === true) $selector = "include=all";
+		$op = strlen("$page->id") > 3 ? "~=" : "%=";
+		$selector = implode('|', $fieldNames) . "$op'$page->id', id!=$page->id, $selector";
+		$selector = trim($selector, ', ');
+		
+		
+		// find pages
+		if($options['getCount'] && !$options['confirm']) {
+			// just return a count
+			return $this->wire('pages')->count($selector);
+		} else {
+			// find the IDs
+			$checkIDs = array();
+			$foundIDs = $this->wire('pages')->findIDs($selector);
+			if(!count($foundIDs)) return $result;
+			if($options['confirm']) {
+				$checkIDs = array_flip($foundIDs);
+				$foundIDs = array();
+			}
+		}
+		
+		// confirm results
+		foreach($fieldNames as $fieldName) {
+			if(!count($checkIDs)) break;
+			$field = $this->wire('fields')->get($fieldName);
+			if(!$field) continue;
+			$table = $field->getTable();
+			$ids = implode(',', array_keys($checkIDs));
+			$sql = "SELECT * FROM `$table` WHERE `pages_id` IN($ids)";
+			$query = $this->wire('database')->prepare($sql);
+			$query->execute();
+
+			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+				$pageID = (int) $row['pages_id'];
+				if(isset($foundIDs[$pageID])) continue;
+				$row = implode(' ', $row);
+				$find = "data-pwid=$page->id";
+				// first check if it might be there
+				if(!strpos($row, $find)) continue;
+				// then confirm with a more accurate check
+				if(!strpos($row, "$find ") && !strpos($row, "$find\t") && !strpos($row, "$find-")) continue;
+				// at this point we have confirmed that this item links to $page
+				unset($checkIDs[$pageID]);
+				$foundIDs[$pageID] = $pageID;
+			}
+			
+			$query->closeCursor();
+		}
+	
+		if(count($foundIDs)) {
+			if($options['getIDs']) {
+				$result = $foundIDs;
+			} else if($options['getCount']) {
+				$result = count($foundIDs); 
+			} else {
+				$result = $this->wire('pages')->getById($foundIDs);
+			}
+		}
+	
+		return $result;
 	}
 
 	/**
@@ -554,7 +657,7 @@ class MarkupQA extends Wire {
 			list($name, $val) = explode('=', $attr);
 
 			$name = strtolower($name);
-			$val = trim($val, "\"' ");
+			$val = trim($val, "\"'> ");
 
 			if($name == 'alt' && !strlen($val)) {
 				$replaceAlt = $attr;

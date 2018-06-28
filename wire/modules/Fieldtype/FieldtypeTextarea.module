@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * Properties set to $field that is using this type, acceessed by $field->get('property'):
@@ -24,7 +24,7 @@ class FieldtypeTextarea extends FieldtypeText {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Textarea',
-			'version' => 106,
+			'version' => 107,
 			'summary' => 'Field that stores multiple lines of text',
 			'permanent' => true,
 		);
@@ -371,6 +371,44 @@ class FieldtypeTextarea extends FieldtypeText {
 			$value = str_replace("/assets/files/$originalID/", "/assets/files/$page->id/", $value); 
 		}
 		return $value;
+	}
+
+	/**
+	 * Find abstracted HTML/href attribute Textarea links to given $page
+	 * 
+	 * @param Page $page Find links to this page
+	 * @param string|bool $selector Optionally filter by selector or specify boolean true to assume "include=all". 
+	 * @param string|Field $field Optionally limit to searching given field name/instance.
+	 * @param array $options Options to modify return value: 
+	 *  - `getIDs` (bool): Return array of page IDs rather than Page instances. (default=false)
+	 *  - `getCount` (bool): Return a total count (int) of found pages rather than Page instances. (default=false)
+	 *  - `confirm` (bool): Confirm that the links are present by looking at the actual page field data. (default=true)
+	 *     You can specify false for this option to make it perform faster, but with a potentially less accurate result.
+	 * @return PageArray|array|int
+	 * 
+	 */
+	public function findLinks(Page $page, $selector = '', $field = '', array $options = array()) {
+
+		$searchFields = array();
+		if($selector === true) $selector = "include=all";
+		
+		foreach($this->wire('fields') as $f) {
+			if($field) {
+				if("$f" != "$field") continue;
+			} else {
+				// limit to fields with contentTypeHTML and htmlLinkAbstract
+				$contentType = $f->get('contentType');
+				if(empty($contentType)) continue;
+				if($contentType != self::contentTypeHTML && $contentType != self::contentTypeImageHTML) continue;
+				$htmlOptions = $f->get('htmlOptions');
+				if(!is_array($htmlOptions) || !in_array(self::htmlLinkAbstract, $htmlOptions)) continue;
+			}
+			$searchFields[$f->name] = $f->name;
+		}
+		
+		if(!count($searchFields)) return $this->wire('pages')->newPageArray();
+		
+		return $this->markupQA()->findLinks($page, $searchFields, $selector, $options); 
 	}
 
 }
