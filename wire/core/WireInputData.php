@@ -16,7 +16,7 @@
  *
  * Each WireInputData is not instantiated unless specifically asked for.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
  * @link http://processwire.com/api/ref/input/ Offical $input API variable documentation
@@ -71,15 +71,39 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	protected $data = array();
 
 	/**
+	 * Are we working with lazy data (data by reference)?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $lazy = false;
+
+	/**
+	 * When lazy mode is active, these are keys of values set in a non-lazy way
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $unlazyKeys = array();
+
+	/**
 	 * Construct
 	 * 
 	 * @param array $input Associative array of variables to store
+	 * @param bool $lazy Use lazy loading?
 	 * 
 	 */
-	public function __construct(array $input = array()) {
+	public function __construct(&$input = array(), $lazy = false) {
 		$this->useFuel(false);
 		$this->stripSlashes = get_magic_quotes_gpc();
-		$this->setArray($input);
+		if(!empty($input)) {
+			if($lazy) {
+				$this->data = &$input;
+				$this->lazy = true;
+			} else {
+				$this->setArray($input);
+			}
+		}
 	}
 
 	/**
@@ -101,7 +125,19 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	 * 
 	 */
 	public function getArray() {
-		return $this->data;
+		if($this->lazy) {
+			$data = array();
+			foreach($this->data as $key => $value) {
+				if(isset($this->unlazyKeys[$key])) {
+					$data[$key] = $value;
+				} else {
+					$data[$key] = $this->__get($key);
+				}
+			}
+			return $data;
+		} else {
+			return $this->data;
+		}
 	}
 
 	/**
@@ -112,9 +148,13 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	 *
 	 */
 	public function __set($key, $value) {
-		if(is_string($value) && $this->stripSlashes) $value = stripslashes($value);
-		if(is_array($value)) $value = $this->cleanArray($value);
+		if(is_string($value)) {
+			if($this->stripSlashes) $value = stripslashes($value);
+		} else if(is_array($value)) {
+			$value = $this->cleanArray($value);
+		}
 		$this->data[$key] = $value;
+		if($this->lazy) $this->unlazyKeys[$key] = $key;
 	}
 
 	/**
@@ -154,12 +194,40 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	 *
 	 */
 	public function __get($key) {
-		// if($key == 'whitelist') return $this->whitelist;
-		return isset($this->data[$key]) ? $this->data[$key] : null;
+		
+		if(strpos($key, '|')) {
+			$value = null;
+			foreach(explode('|', $key) as $k) {
+				$value = $this->__get($k);
+				if($value !== null) break;
+			}
+			return $value;
+			
+		} else if(isset($this->data[$key])) {
+			$value = $this->data[$key];
+			if($this->lazy && !isset($this->unlazyKeys[$key])) {
+				// in lazy mode, value is not cleaned until it is accessed
+				if(is_string($value)) {
+					if($this->stripSlashes) $value = stripslashes($value);
+				} else if(is_array($value)) {
+					$value = $this->cleanArray($value);
+				}
+			}
+			
+		} else {
+			$value = null;
+		}
+		
+		return $value;
 	}
 
 	public function getIterator() {
-		return new \ArrayObject($this->data);
+		if($this->lazy) {
+			$data = $this->getArray();
+			return new \ArrayObject($data);
+		} else {
+			return new \ArrayObject($this->data);
+		}
 	}
 
 	public function offsetExists($key) {
@@ -176,6 +244,7 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 
 	public function offsetUnset($key) {
 		unset($this->data[$key]);
+		if($this->lazy && isset($this->unlazyKeys[$key])) unset($this->unlazyKeys[$key]); 
 	}
 
 	public function count() {
@@ -183,12 +252,14 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	}
 	
 	public function remove($key) {
-		unset($this->data[$key]);
+		$this->offsetUnset($key);
 		return $this;
 	}
 
 	public function removeAll() {
 		$this->data = array();
+		$this->lazy = false;
+		$this->unlazyKeys = array();
 		return $this;
 	}
 

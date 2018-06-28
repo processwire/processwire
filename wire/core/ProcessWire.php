@@ -447,7 +447,8 @@ class ProcessWire extends Wire {
 		$session = $this->wire('session', new Session($this), true); 
 		$this->initVar('session', $session);
 		$this->wire('user', $users->getCurrentUser()); 
-		$this->wire('input', new WireInput(), true); 
+		$input = $this->wire('input', new WireInput(), true); 
+		if($config->wireInputLazy) $input->setLazy(true);
 
 		// populate admin URL before modules init()
 		$config->urls->admin = $config->urls->root . ltrim($pages->getPath($config->adminRootPageID), '/');

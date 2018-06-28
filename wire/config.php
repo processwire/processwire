@@ -831,7 +831,21 @@ $config->maxPageNum = 999;
  */
 $config->wireInputOrder = 'get post';
 
-
+/**
+ * Lazy-load get/post/cookie input into $input API var?
+ * 
+ * This is an experimental option for reduced memory usage when a lot of input data is present. 
+ * 
+ * This prevents PW from keeping separate copies of get/post/cookie data, and it instead works
+ * directly from the PHP $_GET, $_POST and $_COOKIE vars.
+ * 
+ * This option is also useful in that anything you SET to PW’s $input->get/post/cookie also gets
+ * set to the equivalent PHP $_GET, $_POST and $_COOKIE. 
+ * 
+ * @var bool
+ * 
+ */
+$config->wireInputLazy = false;
 
 
 /*** 7. DATABASE ********************************************************************************/

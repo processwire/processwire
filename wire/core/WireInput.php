@@ -75,6 +75,14 @@ class WireInput extends Wire {
 	protected $pageNum = 1;
 
 	/**
+	 * Use lazy loading method for get/post/cookie?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $lazy = false;
+
+	/**
 	 * @var array
 	 * 
 	 */
@@ -94,6 +102,18 @@ class WireInput extends Wire {
 	public function __construct() {
 		$this->useFuel(false);
 		$this->unregisterGLOBALS();
+	}
+
+	/**
+	 * Set for lazy loading
+	 * 
+	 * Must be called before accessing any get/post/cookie input
+	 * 
+	 * @param bool $lazy
+	 * 
+	 */
+	public function setLazy($lazy = true) {
+		$this->lazy = (bool) $lazy;
 	}
 	
 	/**
@@ -121,7 +141,7 @@ class WireInput extends Wire {
 	 */
 	public function get($key = '') {
 		if(is_null($this->getVars)) {
-			$this->getVars = $this->wire(new WireInputData($_GET));
+			$this->getVars = $this->wire(new WireInputData($_GET, $this->lazy));
 			$this->getVars->offsetUnset('it');
 		}
 		return $key ? $this->getVars->__get($key) : $this->getVars; 
@@ -150,7 +170,7 @@ class WireInput extends Wire {
 	 *
 	 */
 	public function post($key = '') {
-		if(is_null($this->postVars)) $this->postVars = $this->wire(new WireInputData($_POST)); 
+		if(is_null($this->postVars)) $this->postVars = $this->wire(new WireInputData($_POST, $this->lazy)); 
 		return $key ? $this->postVars->__get($key) : $this->postVars; 
 	}
 
@@ -166,7 +186,7 @@ class WireInput extends Wire {
 	 *
 	 */
 	public function cookie($key = '') {
-		if(is_null($this->cookieVars)) $this->cookieVars = $this->wire(new WireInputData($_COOKIE)); 
+		if(is_null($this->cookieVars)) $this->cookieVars = $this->wire(new WireInputData($_COOKIE, $this->lazy)); 
 		return $key ? $this->cookieVars->__get($key) : $this->cookieVars; 
 	}
 
@@ -605,17 +625,50 @@ class WireInput extends Wire {
 	}
 
 	/**
+	 * Same as httpUrl() method but always uses https scheme, rather than current request scheme
+	 * 
+	 * See httpUrl() method for argument and usage details. 
+	 * 
+	 * @param bool $withQueryString
+	 * @return string
+	 * @see WireInput::httpUrl()
+	 * 
+	 */
+	public function httpsUrl($withQueryString = false) {
+		return $this->httpHostUrl(true) . $this->url($withQueryString);
+	}
+
+	/**
 	 * Get current scheme and URL for hostname without any path or query string
 	 * 
 	 * For example: `https://www.domain.com`
 	 * 
 	 * #pw-group-URLs
 	 * 
+	 * @param string|bool|null Optionally specify this argument to force a particular scheme (rather than using current):
+	 *  - boolean true to force “https”
+	 *  - boolean false to force “http”
+	 *  - string with scheme you want to use
+	 *  - blank string or "//" for no scheme, i.e. URL begins with "//" which refers to current scheme. 
+	 *  - omit argument or null to use current request scheme (default behavior). 
 	 * @return string
 	 * 
 	 */
-	public function httpHostUrl() {
-		return $this->scheme() . '://' . $this->wire('config')->httpHost;
+	public function httpHostUrl($scheme = null) {
+		if($scheme === true) {
+			$scheme = 'https://';
+		} else if($scheme === false) {
+			$scheme = 'http://';
+		} else if(is_string($scheme)) {
+			if(strlen($scheme)) {
+				if(strpos($scheme, '//') === false) $scheme = "$scheme://";
+			} else {
+				$scheme = '//';
+			}
+		} else {
+			$scheme = $this->scheme() . '://';
+		}
+		return $scheme . $this->wire('config')->httpHost;
 	}
 
 	/**
