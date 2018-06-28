@@ -8,7 +8,7 @@
  * 1. Providing get/set access to the Page's properties
  * 2. Accessing the related hierarchy of pages (i.e. parents, children, sibling pages)
  * 
- * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Class used by all Page objects in ProcessWire.
@@ -29,9 +29,10 @@
  * @property int $id The numbered ID of the current page #pw-group-system
  * @property string $name The name assigned to the page, as it appears in the URL #pw-group-system #pw-group-common
  * @property string $namePrevious Previous name, if changed. Blank if not. #pw-advanced 
- * @property string $title The page's title (headline) text
- * @property string $path The page's URL path from the homepage (i.e. /about/staff/ryan/) 
- * @property string $url The page's URL path from the server's document root
+ * @property string $title The page’s title (headline) text
+ * @property string $path The page’s URL path from the homepage (i.e. /about/staff/ryan/) 
+ * @property string $url The page’s URL path from the server's document root
+ * @property array $urls All URLs the page is accessible from, whether current, former and multi-language. #pw-advanced
  * @property string $httpUrl Same as $page->url, except includes scheme (http or https) and hostname.
  * @property Page|string|int $parent The parent Page object or a NullPage if there is no parent. For assignment, you may also use the parent path (string) or id (integer). #pw-group-traversal
  * @property Page|null $parentPrevious Previous parent, if parent was changed. #pw-group-traversal
@@ -74,6 +75,11 @@
  * @property string $editURL Alias of $editUrl. #pw-internal
  * @property PageRender $render May be used for field markup rendering like $page->render->title. #pw-advanced
  * @property bool $loaderCache Whether or not pages loaded as a result of this one may be cached by PagesLoaderCache. #pw-internal
+ * @property int $numReferences Total number of pages referencing this page with Page reference fields. #pw-group-traversal
+ * @property int $hasReferences Number of visible pages (to current user) referencing this page with page reference fields. #pw-group-traversal
+ * @property int $numReferencing Total number of other pages this page is pointing to (referencing) with Page fields. #pw-group-traversal
+ * @property int $numLinks Total number of pages manually linking to this page in Textarea/HTML fields. #pw-group-traversal
+ * @property int $hasLinks Number of visible pages (to current user) linking to this page in Textarea/HTML fields. #pw-group-traversal
  * 
  * @property Page|null $_cloning Internal runtime use, contains Page being cloned (source), when this Page is the new copy (target). #pw-internal
  * @property bool|null $_hasAutogenName Internal runtime use, set by Pages class when page as auto-generated name. #pw-internal
@@ -92,6 +98,7 @@
  * @method bool deleteable() Returns true if the page is deleteable by the current user, false if not. #pw-group-access
  * @method bool deletable() Alias of deleteable(). #pw-group-access
  * @method bool trashable($orDeleteable = false) Returns true if the page is trashable by the current user, false if not. #pw-group-access
+ * @method bool restorable() Returns true if page is in the trash and is capable of being restored to its original location. #pw-group-access
  * @method bool addable($pageToAdd = null) Returns true if the current user can add children to the page, false if not. Optionally specify the page to be added for additional access checking. #pw-group-access
  * @method bool moveable($newParent = null) Returns true if the current user can move this page. Optionally specify the new parent to check if the page is moveable to that parent. #pw-group-access
  * @method bool sortable() Returns true if the current user can change the sort order of the current page (within the same parent). #pw-group-access
@@ -132,6 +139,8 @@
  * @method string getMarkup($key) Return the markup value for a given field name or {tag} string. #pw-internal
  * @method string|mixed renderField($fieldName, $file = '') Returns rendered field markup, optionally with file relative to templates/fields/. #pw-internal
  * @method string|mixed renderValue($value, $file) Returns rendered markup for $value using $file relative to templates/fields/. #pw-internal
+ * @method PageArray references($selector = '', $field = '') Return pages that are pointing to this one by way of Page reference fields. #pw-group-traversal
+ * @method PageArray links($selector = '', $field = '') Return pages that link to this one contextually in Textarea/HTML fields. #pw-group-traversal
  * 
  */
 
@@ -177,6 +186,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	const statusSystem = 16;
+
+	/**
+	 * Page has a globally unique name and no other pages may have the same name
+	 * 
+	 */
+	const statusUnique = 32;
 
 	/**
 	 * Page has pending draft changes (name: "draft"). 
@@ -535,6 +550,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *  - "p": Property name maps to same property name in $this
 	 *  - "m": Property name maps to same method name in $this
 	 *  - "n": Property name maps to same method name in $this, but may be overridden by custom field
+	 *  - "t": Property name maps to PageTraversal method with same name, if not overridden by custom field
 	 *  - [blank]: needs additional logic to be handled ([blank]='')
 	 * 
 	 * @var array
@@ -555,8 +571,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'editUrl' => 'm',
 		'fieldgroup' => '',
 		'filesManager' => 'm',
-		'hasParent' => 'parents',
 		'hasChildren' => 'm',
+		'hasLinks' => 't',
+		'hasParent' => 'parents',
+		'hasReferences' => 't',
 		'httpUrl' => 'm',
 		'id' => 's',
 		'index' => 'n',
@@ -568,6 +586,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'isPublic' => 'm',
 		'isTrash' => 'm',
 		'isUnpublished' => 'm',
+		'links' => 'n',
 		'listable' => 'm',
 		'modified' => 's',
 		'modifiedStr' => '',
@@ -578,6 +597,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'namePrevious' => 'p',
 		'next' => 'm',
 		'numChildren' => 's',
+		'numLinks' => 't',
+		'numReferences' => 't',
 		'output' => 'm',
 		'outputFormatting' => 'p',
 		'parent' => 'm',
@@ -589,6 +610,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'publishable' => 'm',
 		'published' => 's',
 		'publishedStr' => '',
+		'references' => 'n',
+		'referencing' => 't',
 		'render' => '',
 		'rootParent' => 'm',
 		'siblings' => 'm',
@@ -603,6 +626,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'templatePrevious' => 'p',
 		'trashable' => 'm',
 		'url' => 'm',
+		'urls' => 'm',
 		'viewable' => 'm'
 	);
 
@@ -1006,18 +1030,21 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(isset(self::$basePropertiesAlternates[$key])) $key = self::$basePropertiesAlternates[$key];
 		if(isset(self::$baseProperties[$key])) {
 			$type = self::$baseProperties[$key];
-			if($type == 'p') {
+			if($type === 'p') {
 				// local property
 				return $this->$key;
-			} else if($type == 'm') {
+			} else if($type === 'm') {
 				// local method
 				return $this->{$key}();
-			} else if($type == 'n') {
+			} else if($type === 'n') {
 				// local method, possibly overridden by $field
 				if(!$this->wire('fields')->get($key)) return $this->{$key}();
-			} else if($type == 's') {
+			} else if($type === 's') {
 				// settings property
 				return $this->settings[$key];
+			} else if($type === 't') {
+				// map to method in PageTraversal, if not overridden by field
+				if(!$this->wire('fields')->get($key)) return $this->traversal()->{$key}($this);
 			} else if($type) {
 				// defined local method
 				return $this->{$type}();
@@ -2346,6 +2373,42 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if($siblings) return $this->traversal()->prevUntilSiblings($this, $selector, $filter, $siblings);
 		return $this->traversal()->prevUntil($this, $selector, $filter); 
 	}
+	
+	/**
+	 * Return pages that have Page reference fields pointing to this one (references)
+	 * 
+	 * By default this excludes pages that are hidden, unpublished and pages excluded due to access control for the current user. 
+	 * To prevent these exclusions specify an include mode in the selector, i.e. `include=all`, or you can use
+	 * boolean `true` as a shortcut to specify that you do not want any exclusions. 
+	 * 
+	 * #pw-group-traversal
+	 *
+	 * @param string|bool $selector Optional selector to filter results by, or boolean true as shortcut for `include=all`.
+	 * @param Field|string|bool $field Optionally limit to pages using specified field (name or Field object),
+	 *  - OR specify boolean TRUE to return array of PageArrays indexed by field names.
+	 *  - If $field argument not specified, it searches all applicable Page fields. 
+	 * @return PageArray|array
+	 *
+	 */
+	public function ___references($selector = '', $field = '') {
+		return $this->traversal()->references($this, $selector, $field); 
+	}
+
+	/**
+	 * Return pages linking to this one (in Textarea/HTML fields)
+	 * 
+	 * Applies only to Textarea fields with “html” content-type and link abstraction enabled. 
+	 * 
+	 * #pw-group-traversal
+	 * 
+	 * @param string|bool $selector Optional selector to filter by or boolean true for “include=all”. (default='')
+	 * @param string|Field $field Optionally limit results to specified field. (default=all applicable Textarea fields)
+	 * @return PageArray
+	 * 
+	 */
+	public function ___links($selector = '', $field = '') {
+		return $this->traversal()->links($this, $selector, $field); 
+	}
 
 	/**
 	 * Get languages active for this page and viewable by current user
@@ -2813,6 +2876,35 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
+	 * Return all URLs that this page can be accessed from (excluding URL segments and pagination)
+	 * 
+	 * This includes the current page URL, any other language URLs (for which page is active), and 
+	 * any past (historical) URLs the page was previously available at (which will redirect to it). 
+	 * 
+	 * - Returned URLs do not include additional URL segments or pagination numbers.
+	 * - Returned URLs are indexed by language name, i.e. “default”, “fr”, “es”, etc. 
+	 * - If multi-language URLs not installed, then index is just “default”. 
+	 * - Past URLs are indexed by language; then ISO-8601 date, i.e. “default;2016-08-11T07:44:43-04:00”,
+	 *   where the date represents the last date that URL was considered current. 
+	 * - If PagePathHistory core module is not installed then past/historical URLs are excluded. 
+	 * - You can disable past/historical or multi-language URLs by using the $options argument. 
+	 * 
+	 * #pw-advanced
+	 * 
+	 * @param array $options Options to modify default behavior:
+	 *  - `http` (bool): Make URLs include current scheme and hostname (default=false). 
+	 *  - `past` (bool): Include past/historical URLs? (default=true)
+	 *  - `languages` (bool): Include other language URLs when supported/available? (default=true).
+	 *  - `language` (Language|int|string): Include only URLs for this language (default=null).
+	 *     Note: the `languages` option must be true if using the `language` option.
+	 * @return array
+	 * 
+	 */
+	public function urls($options = array()) {
+		return $this->traversal()->urls($this, $options);	
+	}
+
+	/**
 	 * Returns the URL to the page, including scheme and hostname
 	 * 
 	 * - This method is just like the `$page->url()` method except that it also includes scheme and hostname.
@@ -2885,6 +2977,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 			if(strpos($url, '://') === false) {
 				$url = ($https ? 'https://' : 'http://') . $config->httpHost . $url;
 			}
+		}
+		if($this->wire('languages') && $this->wire('page')->template->id != $adminTemplate->id) {
+			$language = $this->wire('user')->language;
+			if($language) $url .= "&language=$language->id";
 		}
 		$append = $this->wire('session')->getFor($this, 'appendEditUrl'); 
 		if($append) $url .= $append;

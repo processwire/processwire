@@ -576,7 +576,258 @@ class PageTraversal {
 
 		return $url;
 	}
+	
+	/**
+	 * Return all URLs that this page can be accessed from (excluding URL segments and pagination)
+	 *
+	 * This includes the current page URL, any other language URLs (for which page is active), and
+	 * any past (historical) URLs the page was previously available at (which will redirect to it).
+	 *
+	 * - Returned URLs do not include additional URL segments or pagination numbers.
+	 * - Returned URLs are indexed by language name, i.e. “default”, “fr”, “es”, etc.
+	 * - If multi-language URLs not installed, then index is just “default”.
+	 * - Past URLs are indexed by language; then ISO-8601 date, i.e. “default;2016-08-11T07:44:43-04:00”,
+	 *   where the date represents the last date that URL was considered current.
+	 * - If PagePathHistory core module is not installed then past/historical URLs are excluded.
+	 * - You can disable past/historical or multi-language URLs by using the $options argument.
+	 *
+	 * @param Page $page
+	 * @param array $options Options to modify default behavior:
+	 *  - `http` (bool): Make URLs include current scheme and hostname (default=false).
+	 *  - `past` (bool): Include past/historical URLs? (default=true)
+	 *  - `languages` (bool): Include other language URLs when supported/available? (default=true).
+	 *  - `language` (Language|int|string): Include only URLs for this language (default=null). 
+	 *     Note: the `languages` option must be true if using the `language` option. 
+	 * @return array
+	 *
+	 */
+	public function urls(Page $page, $options = array()) {
 
+		$defaults = array(
+			'http' => false,
+			'past' => true,
+			'languages' => true,
+			'language' => null, 
+		);
+
+		/** @var Modules $modules */
+		$modules = $page->wire('modules');
+		$options = array_merge($defaults, $options);
+		$languages = $options['languages'] ? $page->wire('languages') : null;
+		$slashUrls = $page->template->slashUrls;
+		$httpHostUrl = $options['http'] ? $page->wire('input')->httpHostUrl() : '';
+		
+		if($options['language'] && $languages) {
+			if(!$options['language'] instanceof Page) {
+				$options['language'] = $languages->get($options['language']);
+			}
+			if($options['language'] && $options['language']->id) {
+				$languages = array($options['language']);
+			}
+		}
+
+		// include other language URLs
+		if($languages && $modules->isInstalled('LanguageSupportPageNames')) {
+			foreach($languages as $language) {
+				if(!$language->isDefault() && !$page->get("status$language")) continue;
+				$urls[$language->name] = $page->localUrl($language);
+			}
+		} else {
+			$urls = array('default' => $page->url());
+		}
+
+		// add in historical URLs
+		if($options['past'] && $modules->isInstalled('PagePathHistory')) {
+			$history = $modules->get('PagePathHistory');
+			$rootUrl = $page->wire('config')->urls->root;
+			$pastPaths = $history->getPathHistory($page, array(
+				'language' => $options['language'],
+				'verbose' => true	
+			)); 
+			foreach($pastPaths as $pathInfo) {
+				$key = '';
+				if(!empty($pathInfo['language'])) {
+					if($options['languages']) {
+						$key .= $pathInfo['language']->name . ';';
+					} else {
+						// they asked to have multi-language excluded
+						if(!$pathInfo['language']->isDefault()) continue;
+					}
+				} 
+				$key .= wireDate('c', $pathInfo['date']);
+				$urls[$key] = $rootUrl . ltrim($pathInfo['path'], '/');
+			}
+		}
+
+		// update URLs for current expected slash and http settings
+		foreach($urls as $key => $url) {
+			if($url !== '/') $url = $slashUrls ? rtrim($url, '/') . '/' : rtrim($url, '/');
+			if($options['http']) $url = $httpHostUrl . $url;	
+			$urls[$key] = $url;
+		}
+		
+		return $urls;
+	}
+
+	/**
+	 * Return pages that are referencing the given one by way of Page references
+	 * 
+	 * @param Page $page
+	 * @param string|bool $selector Optional selector to filter results by or boolean true as shortcut for `include=all`. 
+	 * @param Field|string $field Limit to follower pages using this field, 
+	 *   - or specify boolean TRUE to make it return array of PageArrays indexed by field name. 
+	 * @param bool $getCount Specify true to return counts rather than PageArray(s)
+	 * @return PageArray|array|int
+	 * @throws WireException Highly unlikely
+	 * 
+	 */
+	public function references(Page $page, $selector = '', $field = '', $getCount = false) {
+		$fieldtype = $page->wire('fieldtypes')->get('FieldtypePage');	
+		if(!$fieldtype) throw new WireException('Unable to find FieldtypePage');
+		if($selector === true) $selector = "include=all";
+		return $fieldtype->findReferences($page, $selector, $field, $getCount); 
+	}
+	
+	/**
+	 * Return number of VISIBLE pages that are following (referencing) the given one by way of Page references
+	 * 
+	 * Note that this excludes hidden, unpublished and otherwise non-accessible pages (access control). 
+	 * If you do not want to exclude these, use the numFollowers() function instead, OR specify "include=all" for
+	 * the $selector argument. 
+	 *
+	 * @param Page $page
+	 * @param string $selector Filter count by this selector
+	 * @param string|Field|bool $field Limit count to given Field or specify boolean true to return array of counts.
+	 * @return int|array Returns count, or array of counts (if $field==true)
+	 *
+	 */
+	public function hasReferences(Page $page, $selector = '', $field = '') {
+		return $this->references($page, $selector, $field, true);
+	}
+
+	/**
+	 * Return number of ANY pages that are following (referencing) the given one by way of Page references
+	 * 
+	 * @param Page $page
+	 * @param string $selector Filter count by this selector
+	 * @param string|Field|bool $field Limit count to given Field or specify boolean true to return array of counts. 
+	 * @return int|array Returns count, or array of counts (if $field==true)
+	 * 
+	 */
+	public function numReferences(Page $page, $selector = '', $field = '') {
+		if(stripos($selector, "include=") === false) $selector = rtrim("include=all, $selector", ', ');
+		return $this->hasReferences($page, $selector, $field); 
+	}
+
+	/**
+	 * Return pages that this page is referencing by way of Page reference fields
+	 * 
+	 * @param Page $page
+	 * @param bool $field Limit results to requested field, or specify boolean true to return array indexed by field names.
+	 * @param bool $getCount Specify true to return count(s) rather than pages. 
+	 * @return PageArray|int|array
+	 * 
+	 */
+	public function referencing(Page $page, $field = false, $getCount = false) {
+		$fieldName = '';
+		if(is_bool($field) || is_null($field)) {
+			$byField = $field ? true : false;
+		} else if(is_string($field)) {
+			$fieldName = $page->wire('sanitizer')->fieldName($field);
+		} else if(is_int($field)) {
+			$field = $page->wire('fields')->get($field);
+			if($field) $fieldName = $field->name;
+		} else if($field instanceof Field) {
+			$fieldName = $field->name;
+		}
+
+		// results
+		$fieldCounts = array(); // counts indexed by field name (if count mode)
+		$items = $page->wire('pages')->newPageArray();
+		$itemsByField = array();
+		
+		foreach($page->template->fieldgroup as $f) {
+			if($fieldName && $field->name != $fieldName) continue;
+			if(!$f->type instanceof FieldtypePage) continue;
+			if($byField) $itemsByField[$f->name] = $this->wire('pages')->newPageArray();
+			$value = $page->get($f->name);
+			if($value instanceof Page && $value->id) {
+				$items->add($value);
+				if($byField) $itemsByField[$f->name]->add($value);
+				$fieldCounts[$f->name] = 1;
+			} else if($value instanceof PageArray && $value->count()) {
+				$items->import($value);
+				if($byField) $itemsByField[$f->name]->import($value);
+				$fieldCounts[$f->name] = $value->count();
+			} else {
+				unset($itemsByField[$f->name]);
+			}
+		}
+		
+		if($getCount) return $byField ? $fieldCounts : $items->count();
+		if($byField) return $itemsByField;
+		
+		return $items;
+	}
+
+	/**
+	 * Return number of pages this one is following (referencing) by way of Page references
+	 * 
+	 * @param Page $page
+	 * @param bool $field Optionally limit to field, or specify boolean true to return array of counts per field. 
+	 * @return int|array
+	 * 
+	 */
+	public function numReferencing(Page $page, $field = false) {
+		return $this->referencing($page, $field, true); 
+	}
+
+	/**
+	 * Find other pages linking to the given one by way contextual links is textarea/html fields
+	 * 
+	 * @param Page $page
+	 * @param string $selector
+	 * @param bool|string|Field $field
+	 * @param array $options
+	 *  - `getIDs` (bool): Return array of page IDs rather than Page instances. (default=false)
+	 *  - `getCount` (bool): Return a total count (int) of found pages rather than Page instances. (default=false)
+	 *  - `confirm` (bool): Confirm that the links are present by looking at the actual page field data. (default=true)
+	 *     You can specify false for this option to make it perform faster, but with a potentially less accurate result.
+	 * @return PageArray|array|int
+	 * @throws WireException
+	 * 
+	 */
+	public function links(Page $page, $selector = '', $field = false, array $options = array()) {
+		/** @var FieldtypeTextarea $fieldtype */
+		$fieldtype = $page->wire('fieldtypes')->get('FieldtypeTextarea');
+		if(!$fieldtype) throw new WireException('Unable to find FieldtypeTextarea');
+		return $fieldtype->findLinks($page, $selector, $field, $options); 
+	}
+
+	/**
+	 * Return total found number of pages linking to this one with no exclusions
+	 * 
+	 * @param Page $page
+	 * @param bool $field
+	 * @return int
+	 * 
+	 */
+	public function numLinks(Page $page, $field = false) {
+		return $this->links($page, true, $field, array('getCount' => true));
+	}
+
+	/**
+	 * Return total number of pages visible to current user linking to this one
+	 * 
+	 * @param Page $page
+	 * @param bool $field
+	 * @return array|int|PageArray
+	 * 
+	 */
+	public function hasLinks(Page $page, $field = false) {
+		return $this->links($page, '', $field, array('getCount' => true));
+	}
+	
 
 	/******************************************************************************************************************
 	 * LEGACY METHODS
