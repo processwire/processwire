@@ -152,27 +152,35 @@ class User extends Page {
 	 * ~~~~~
 	 * 
 	 * @param string|Permission $name Permission name, object or id. 
-	 * @param Page|Template $context Page or Template
+	 * @param Page|Template|bool|string $context Page or Template... 
+	 *  - or specify boolean true to return if user has permission OR if it was added at any template
+	 *  - or specify string "templates" to return array of Template objects where user has permission
 	 * @return bool
 	 *
 	 */
 	public function hasPermission($name, $context = null) {
 		// This method serves as the public interface to the hasPagePermission and hasTemplatePermission methods.
 		
-		if(is_null($context) || $context instanceof Page) {
-			if($this->wire('hooks')->isHooked('hasPagePermission()')) {
-				return $this->hasPagePermission($name, $context);
-			} else {
-				return $this->___hasPagePermission($name, $context);
-			}
-		}
+		if($context === null || $context instanceof Page) {
+			$hook = $this->wire('hooks')->isHooked('hasPagePermission()');
+			return $hook ? $this->hasPagePermission($name, $context) : $this->___hasPagePermission($name, $context);
+		} 
+		
+		$hook = $this->wire('hooks')->isHooked('hasTemplatePermission()');
 		
 		if($context instanceof Template) {
-			if($this->wire('hooks')->isHooked('hasTemplatePermission()')) {
-				return $this->hasTemplatePermission($name, $context); 
-			} else {
-				return $this->___hasTemplatePermission($name, $context);
+			return $hook ? $this->hasTemplatePermission($name, $context) : $this->___hasTemplatePermission($name, $context);
+		}
+		
+		if($context === true || $context === 'templates') {
+			$addedTemplates = array();
+			foreach($this->wire('templates') as $t) {
+				if(!$t->useRoles) continue;
+				$has = $hook ? $this->hasTemplatePermission($name, $t) : $this->___hasTemplatePermission($name, $t);
+				if($has) $addedTemplates[] = $t;
+				if($has && $context === true) break; // we only need to know if there is at least one, so break now
 			}
+			return $context === true ? count($addedTemplates) > 0 : $addedTemplates;	
 		}
 		
 		return false;
@@ -282,8 +290,7 @@ class User extends Page {
 	 */
 	protected function ___hasTemplatePermission($name, $template) {
 		
-		if($name instanceof Template) $name = $name->name; 
-		if(is_object($name)) throw new WireException("Invalid type"); 
+		if(is_object($name)) $name = $name->name; 
 
 		if($this->isSuperuser()) return true; 
 
