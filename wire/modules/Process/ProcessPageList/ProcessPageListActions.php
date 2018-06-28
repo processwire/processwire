@@ -167,25 +167,26 @@ class ProcessPageListActions extends Wire {
 			}
 		}
 
-		if($this->superuser) {
-			$trashIcon = "<i class='fa fa-trash-o'></i>&nbsp;";
-			if($page->trashable()) {
-				$extras['trash'] = array(
-					'cn'   => 'Trash',
-					'name' => $trashIcon . $this->actionLabels['trash'],
-					'url'  => "$adminUrl?action=trash&id=$page->id",
-					'ajax' => true
-				);
-			} else if($trash) {
-				if(preg_match('/^(' . $page->id . ')\.\d+\.\d+_.+$/', $page->name)) {
-					$extras['restore'] = array(
-						'cn' => 'Restore',	
-						'name' => $trashIcon . $this->actionLabels['restore'],
-						'url' => "$adminUrl?action=restore&id=$page->id", 
-						'ajax' => true
-					);
-				}
-			}
+		$trashable = $page->trashable();
+		$trashIcon = "<i class='fa fa-trash-o'></i>&nbsp;";
+		if($trashable && !$user->isSuperuser()) {
+			// do not allow non-superuser ability to trash branches of pages, only individual pages
+			if($page->numChildren(1) > 0) $trashable = false;
+		}
+		if($trashable) {
+			$extras['trash'] = array(
+				'cn' => 'Trash',
+				'name' => $trashIcon . $this->actionLabels['trash'],
+				'url' => "$adminUrl?action=trash&id=$page->id",
+				'ajax' => true
+			);
+		} else if($trash && $page->restorable()) {
+			$extras['restore'] = array(
+				'cn' => 'Restore',	
+				'name' => $trashIcon . $this->actionLabels['restore'],
+				'url' => "$adminUrl?action=restore&id=$page->id", 
+				'ajax' => true
+			);
 		}
 
 		return $extras;

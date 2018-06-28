@@ -9,6 +9,8 @@ require_once(dirname(__FILE__) . '/ProcessPageListRender.php');
 class ProcessPageListRenderJSON extends ProcessPageListRender {
 
 	protected $systemIDs = array();
+	
+	protected $allowTrash = null;
 
 	public function __construct(Page $page, PageArray $children) {
 
@@ -20,6 +22,44 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			$this->config->trashPageID,
 			$this->config->loginPageID,
 		);
+	}
+
+	/**
+	 * Are we allowed to display the Trash page?
+	 * 
+	 * @return bool
+	 * 
+	 */
+	protected function allowTrash() {
+		
+		if($this->allowTrash !== null) return $this->allowTrash;
+		
+		/** @var User $user */
+		$user = $this->wire('user');
+		
+		$petc = 'page-edit-trash-created';
+		if(!$this->wire('permissions')->has($petc)) $petc = false;
+		
+		if($user->isSuperuser()) {
+			// superuser
+			$this->allowTrash = true;
+		} else if($user->hasPermission('page-delete')) {
+			// has page-delete globally
+			$this->allowTrash = true;
+		} else if($petc && $user->hasPermission($petc)) {
+			// has page-edit-trash-created globally
+			$this->allowTrash = true;
+		} else if($user->hasPermission('page-delete', true)) {
+			// has page-delete added specifically at a template
+			$this->allowTrash = true; 
+		} else if($petc && $user->hasPermission($petc, true)) {
+			// has page-edit-trash-created added specifically at a template
+			$this->allowTrash = true; 
+		} else {
+			$this->allowTrash = false;
+		}
+		
+		return $this->allowTrash;
 	}
 
 	public function renderChild(Page $page) {
@@ -59,12 +99,24 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		}
 
 		if($page->id == $this->config->trashPageID) {
-			$note = "&lt; " . $this->_("Trash open: drag pages below here to trash them"); // Message that appears next to the Trash page when open
+			$note = '';
+			if($this->superuser) {
+				$note = "&lt; " . $this->_("Trash open: drag pages below here to trash them"); // Message that appears next to the Trash page when open
+			}
 			$icons = array('trash-o'); // override any other icons
+			$numChildren = $page->numChildren(false);
+			if($numChildren > 0 && !$this->superuser) {
+				// manually count quantity that are listable in the trash
+				$numChildren = 0;
+				foreach($page->children("include=all") as $child) {
+					if($child->listable()) $numChildren++;
+				}
+			}
 		} else {
 			if($page->hasStatus(Page::statusTemp)) $icons[] = 'bolt';
 			if($page->hasStatus(Page::statusLocked)) $icons[] = 'lock';
 			if($page->hasStatus(Page::statusDraft)) $icons[] = 'paperclip';
+			$numChildren = $page->numChildren(1);
 		}
 
 		if(!$label) $label = $this->getPageLabel($page);
@@ -77,7 +129,7 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			'id' => $page->id,
 			'label' => $label,
 			'status' => $page->status,
-			'numChildren' => $page->numChildren(1),
+			'numChildren' => $numChildren,
 			'path' => $page->template->slashUrls || $page->id == 1 ? $page->path() : rtrim($page->path(), '/'),
 			'template' => $page->template->name,
 			//'rm' => $this->superuser && $page->trashable(),
@@ -97,26 +149,34 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 	public function render() {
 
 		$children = array();
-
 		$extraPages = array(); // pages forced to bottom of list
-		$id404 = $this->wire('config')->http404PageID;
+		$config = $this->wire('config');
+		$idTrash = $config->trashPageID;
+		$id404 = $config->http404PageID;
+		$page404 = null;
 
 		foreach($this->children as $page) {
 			if(!$this->superuser && !$page->listable()) continue;
 
 			if($page->id == $id404 && !$this->superuser) {
 				// allow showing 404 page, only if it's editable
+				$page404 = $page;
 				if(!$page->editable()) continue;
 			} else if(in_array($page->id, $this->systemIDs)) {
-				$extraPages[] = $page;
+				if($this->superuser) $extraPages[$page->id] = $page;
 				continue;
 			}
 
 			$child = $this->renderChild($page);
 			$children[] = $child;
 		}
+		
+		if(!$this->superuser && $page404 && $page404->parent_id == 1 && !isset($extraPages[$idTrash])) {
+			$pageTrash = $this->wire('pages')->get($idTrash);
+			if($pageTrash->id && $pageTrash->listable()) $extraPages[$pageTrash->id] = $pageTrash;
+		}
 
-		if($this->superuser) foreach($extraPages as $page) {
+		foreach($extraPages as $page) {
 			$children[] = $this->renderChild($page);
 		}
 
