@@ -50,7 +50,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		return array(
 			'title' => 'Page Edit',
 			'summary' => 'Edit a Page',
-			'version' => 108,
+			'version' => 109,
 			'permanent' => true,
 			'permission' => 'page-edit',
 			'icon' => 'edit',
@@ -1218,11 +1218,73 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		// informational sections
 		if(!$this->isPost) {
-			$wrapper->add($this->buildFormRoles()); 
-			$wrapper->add($this->buildFormInfo()); 
+			$wrapper->add($this->buildFormRoles());
+			$wrapper->add($this->buildFormReferences()); 
+			$wrapper->add($this->buildFormInfo());
 		}
+		
 
 		return $wrapper; 
+	}
+	
+	/**
+	 * Build the Settings > References fieldset on the Page Edit form
+	 *
+	 * @return InputfieldMarkup
+	 *
+	 */
+	protected function buildFormReferences() {
+	
+		/** @var InputfieldMarkup $field */
+		$field = $this->modules->get('InputfieldMarkup');
+		$field->attr('id', 'ProcessPageEditReferences');
+		$field->label = $this->_('What pages point to this one?');
+		$field->icon = 'link';
+		$field->collapsed = Inputfield::collapsedYesAjax;
+
+		if($this->input->get('renderInputfieldAjax') != 'ProcessPageEditReferences') return $field;
+		
+		$links = $this->page->links("include=all, limit=100");
+		$references = $this->page->references("include=all, limit=100");
+
+		$numTotal = $references->getTotal() + $links->getTotal();
+		$numShown = $references->count() + $links->count();
+		$numNotShown = $numTotal - $numShown;
+		$labelNotListable = $this->_('Not listable');
+
+		if($numTotal) {
+			$field->description = sprintf(
+				$this->_('Found %d other page(s) pointing to this one in Page fields or href links.'),
+				$numTotal
+			);
+			$out = "<ul>";
+			$itemsByType = array(
+				$this->_('(in page field)') => $references,
+				$this->_('(in href link)') => $links
+			);
+			foreach($itemsByType as $label => $items) {
+				$label = "<span class='detail'>$label</span>";
+				foreach($items as $item) {
+					/** @var Page $item */
+					if($item->listable()) {
+						$url = $item->editable() ? $item->editUrl() : $item->url();
+						$out .= "<li><a href='$url' title='$item->url' target='_blank'>" . $item->get('title|path') . "</a> $label</li>";
+					} else {
+						$out .= "<li>$item->id $labelNotListable $label</li>";
+					}
+				}
+			}
+			$out .= "</ul>";
+			if($numNotShown) {
+				$out .= "<div class='notes'>" . sprintf($this->_('%d additional pages not shown.'), $numNotShown) . "</div>";
+			}
+		} else {
+			$out = "<p>" . $this->_('Did not find any other pages pointing to this one in page fields or href links.') . "</p>";
+		}
+		
+		$field->value = $out;
+		
+		return $field;
 	}
 
 	/**
