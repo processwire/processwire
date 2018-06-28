@@ -67,6 +67,11 @@
  * @method string getSelector($limit = null)
  * @method PageArray findResults($selector)
  * @method string executeReset()
+ * @method string executeEditBookmark()
+ * @method string executeViewport() ListerPro
+ * @method string executeConfig() ListerPro
+ * @method string executeActions() ListerPro
+ * @method string executeSave() ListerPro
  * 
  * 
  * @todo make system fields hookable for output like markupValue is for custom fields

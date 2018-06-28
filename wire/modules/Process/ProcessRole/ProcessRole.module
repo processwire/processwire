@@ -6,7 +6,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -24,12 +24,34 @@ class ProcessRole extends ProcessPageType {
 			'useNavJSON' => true,
 			); 
 	}
-	
+
+	/**
+	 * Array of [ 'icon-name' => 'icon markup' ]
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected $icons = array();
+
+	/**
+	 * Array of [ 'permission-name' => 'Additional notes for permission' ]
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected $templatePermissionNotes = array();
+
+	/**
+	 * Array of [ 'permission-name' => 'Description of permission' ]
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected $templatePermissionDescriptions = array();
 
 	/**
+	 * Role object for guest role
+	 * 
 	 * @var Role
 	 * 
 	 */
