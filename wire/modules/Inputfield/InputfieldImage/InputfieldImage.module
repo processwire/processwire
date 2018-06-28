@@ -1310,7 +1310,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			$this->message($this->_('Recreated all legacy thumbnails') . " - $this->name"); 
 		}
 
-		if(!$this->isAjax) {
+		if(!$this->isAjax && !$this->wire('config')->ajax) {
 			// process actions, but only on non-ajax save requests
 			foreach($this->value as $k => $pagefile) {
 				$id = $this->pagefileId($pagefile);
