@@ -1,8 +1,15 @@
 <?php namespace ProcessWire;
 
+/**
+ * ProcessPageListActions
+ *
+ * @method array getExtraActions(Page $page)
+ * 
+ */
 class ProcessPageListActions extends Wire {
 	
 	protected $superuser = false;
+	protected $useTrash = false;
 	
 	protected $actionLabels = array(
 		'edit' => 'Edit',
@@ -31,6 +38,10 @@ class ProcessPageListActions extends Wire {
 
 	public function setActionLabels(array $actionLabels) {
 		$this->actionLabels = array_merge($this->actionLabels, $actionLabels);
+	}
+	
+	public function setUseTrash($useTrash) {
+		$this->useTrash = (bool) $useTrash;
 	}
 	
 	/**
@@ -167,7 +178,7 @@ class ProcessPageListActions extends Wire {
 			}
 		}
 
-		$trashable = $page->trashable();
+		$trashable = $this->useTrash && $page->trashable();
 		$trashIcon = "<i class='fa fa-trash-o'></i>&nbsp;";
 		if($trashable && !$user->isSuperuser()) {
 			// do not allow non-superuser ability to trash branches of pages, only individual pages

@@ -19,6 +19,7 @@ abstract class ProcessPageListRender extends Wire {
 	protected $superuser = false;
 	protected $actions = null;
 	protected $options = array();
+	protected $useTrash = false;
 
 	public function __construct(Page $page, PageArray $children) {
 		$this->page = $page;
@@ -65,6 +66,11 @@ abstract class ProcessPageListRender extends Wire {
 
 	public function setLabel($key, $value) {
 		$this->actionLabels[$key] = $value;
+	}
+	
+	public function setUseTrash($useTrash) {
+		$this->useTrash = (bool) $useTrash;
+		$this->actions->setUseTrash($this->getUseTrash());
 	}
 
 	public function setPageLabelField($pageLabelField) {
@@ -200,6 +206,10 @@ abstract class ProcessPageListRender extends Wire {
 	
 	public function getChildren() {
 		return $this->children;
+	}
+	
+	public function getUseTrash() {
+		return $this->useTrash; 
 	}
 
 }

@@ -607,44 +607,36 @@ class PagePermissions extends WireData implements Module {
 	 */	
 	public function trashListable($page = null) {
 		/** @var User $user */
-		static $showTrashUsers = array();
 		$user = $this->wire('user');
+		
+		// trash and anything in it always visible to superuser
+		if($user->isSuperuser()) return true;
 
-		if(isset($showTrashUsers[$user->id])) {
-			$showTrash = $showTrashUsers[$user->id];
+		// determine if system has page-edit-trash-created permission installed
+		$petc = 'page-edit-trash-created';
+		if(!$this->wire('permissions')->has($petc)) $petc = false;
+		
+		if($user->hasPermission('page-delete')) {
+			// has page-delete globally
+		} else if($petc && $user->hasPermission($petc)) {
+			// has page-edit-trash-created globally
+		} else if($user->hasPermission('page-delete', true)) {
+			// has page-delete added specifically at a template
+		} else if($petc && $user->hasPermission($petc, true)) {
+			// has page-edit-trash-created added specifically at a template
 		} else {
-			$petc = 'page-edit-trash-created';
-			if(!$this->wire('permissions')->has($petc)) $petc = false;
-			if($user->isSuperuser()) {
-				// superuser
-				$showTrash = true;
-			} else if($user->hasPermission('page-delete')) {
-				// has page-delete globally
-				$showTrash = true;
-			} else if($petc && $user->hasPermission($petc)) {
-				// has page-edit-trash-created globally
-				$showTrash = true;
-			} else if($user->hasPermission('page-delete', true)) {
-				// has page-delete added specifically at a template
-				$showTrash = true;
-			} else if($petc && $user->hasPermission($petc, true)) {
-				// has page-edit-trash-created added specifically at a template
-				$showTrash = true;
-			} else {
-				$showTrash = false;
-			}
-			$showTrashUsers[$user->id] = $showTrash;
+			// user does not have any of the permissions above, so trash is not listable
+			return false;
 		}
 		
-		if(!$showTrash) return false;
-		if($page === null || !$page->id) return $showTrash;
-
-		$trashPageID = $this->wire('config')->trashPageID;
-		if($page->id == $trashPageID) return $showTrash;
+		// if request not asking about specific page, return general "trash is listable?" request
+		if($page === null || !$page->id) return true; 
 		
-		$listable = $this->pageEditable($page); 
-
-		return $listable;
+		// if request is for the actual Trash page, consider this to be a general request
+		if($page->id == $this->wire('config')->trashPageID) return true;
+	
+		// page is listable in the trash only if it is also editable
+		return $this->pageEditable($page); 
 	}
 
 	/**
@@ -859,14 +851,24 @@ class PagePermissions extends WireData implements Module {
 	 */
 	public function moveable($event) {
 		/** @var Page $page */
-		$page = $event->object; 
-		$moveable = $page->editable('parent');
-		if($moveable && count($event->arguments) && $event->arguments[0] instanceof Page) {
-			/** @var Page $parent */
-			$parent = $event->arguments[0];
-			$moveable = $parent->addable($page);
+		$page = $event->object;
+		
+		/** @var Page|null $parent */
+		$parent = $event->arguments(0);
+		if(!$parent || !$parent instanceof Page || !$parent->id) $parent = null;
+	
+		if($page->id == 1) {
+			$moveable = false;
+		} else {
+			$moveable = $page->editable('parent');
 		}
-		if($page->id == 1) $moveable = false; 
+		
+		if($moveable && $parent) {
+			$moveable = $parent->addable($page);
+		} else if($parent && $parent->isTrash() && $parent->id == $this->wire('config')->trashPageID) {
+			$moveable = $page->deletable();
+		}
+		
 		$event->return = $moveable;
 	}
 

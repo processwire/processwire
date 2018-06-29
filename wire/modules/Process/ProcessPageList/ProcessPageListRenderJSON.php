@@ -10,8 +10,6 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 
 	protected $systemIDs = array();
 	
-	protected $allowTrash = null;
-
 	public function __construct(Page $page, PageArray $children) {
 
 		parent::__construct($page, $children);
@@ -22,44 +20,6 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			$this->config->trashPageID,
 			$this->config->loginPageID,
 		);
-	}
-
-	/**
-	 * Are we allowed to display the Trash page?
-	 * 
-	 * @return bool
-	 * 
-	 */
-	protected function allowTrash() {
-		
-		if($this->allowTrash !== null) return $this->allowTrash;
-		
-		/** @var User $user */
-		$user = $this->wire('user');
-		
-		$petc = 'page-edit-trash-created';
-		if(!$this->wire('permissions')->has($petc)) $petc = false;
-		
-		if($user->isSuperuser()) {
-			// superuser
-			$this->allowTrash = true;
-		} else if($user->hasPermission('page-delete')) {
-			// has page-delete globally
-			$this->allowTrash = true;
-		} else if($petc && $user->hasPermission($petc)) {
-			// has page-edit-trash-created globally
-			$this->allowTrash = true;
-		} else if($user->hasPermission('page-delete', true)) {
-			// has page-delete added specifically at a template
-			$this->allowTrash = true; 
-		} else if($petc && $user->hasPermission($petc, true)) {
-			// has page-edit-trash-created added specifically at a template
-			$this->allowTrash = true; 
-		} else {
-			$this->allowTrash = false;
-		}
-		
-		return $this->allowTrash;
 	}
 
 	public function renderChild(Page $page) {
@@ -173,7 +133,9 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		
 		if(!$this->superuser && $page404 && $page404->parent_id == 1 && !isset($extraPages[$idTrash])) {
 			$pageTrash = $this->wire('pages')->get($idTrash);
-			if($pageTrash->id && $pageTrash->listable()) $extraPages[$pageTrash->id] = $pageTrash;
+			if($pageTrash->id && $this->getUseTrash() && $pageTrash->listable()) {
+				$extraPages[$pageTrash->id] = $pageTrash;
+			}
 		}
 
 		foreach($extraPages as $page) {

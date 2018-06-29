@@ -19,6 +19,7 @@
  * @property int $hoverActionDelay Milliseconds delay between hover and showing of actions. 
  * @property int $hoverActionFade Milliseconds to spend fading in or out actions. 
  * @property bool|int $useBookmarks Allow use of PageList bookmarks?
+ * @property bool|int $useTrash Allow non-superusers to use Trash?
  * 
  * @method string ajaxAction($action)
  * @method PageArray find($selectorString, Page $page)
@@ -37,7 +38,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		return array(
 			'title' => 'Page List',
 			'summary' => 'List pages in a hierarchal tree structure',
-			'version' => 120,
+			'version' => 121,
 			'permanent' => true,
 			'permission' => 'page-edit',
 			'icon' => 'sitemap',
@@ -113,6 +114,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$this->set('limit', self::defaultLimit);
 		$this->set('useHoverActions', false);
 		$this->set('useBookmarks', false);
+		$this->set('useTrash', false);
 		$this->set('bookmarks', array());
 		
 		parent::__construct();
@@ -349,6 +351,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$renderer->setLimit($limit);
 		$renderer->setPageLabelField($this->getPageLabelField());
 		$renderer->setLabel('trash', $this->trashLabel);
+		$renderer->setUseTrash($this->useTrash || $this->wire('user')->isSuperuser());
 		
 		return $renderer;
 	}
@@ -634,6 +637,17 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$fields = $this->wire(new InputfieldWrapper());
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
+	
+		/** @var InputfieldCheckbox $field */
+		$field = $modules->get('InputfieldCheckbox'); 
+		$field->attr('name', 'useTrash');
+		$field->label = $this->_('Allow non-superuser editors to use Trash?'); 
+		$field->icon = 'trash-o';
+		$field->description = 
+			$this->_('When checked, users will be able to see pages in the trash (only pages they have access to).') . ' ' . 
+			$this->_('This will also enable the “Trash” and “Restore” actions, where access control allows.'); 
+		if(!empty($data['useTrash'])) $field->attr('checked', 'checked'); 
+		$fields->append($field); 
 
 		/** @var InputfieldText $field */
 		$field = $modules->get("InputfieldText");
