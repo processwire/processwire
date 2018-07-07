@@ -120,6 +120,7 @@ class WireInput extends Wire {
 	 *
 	 */
 	public function get($key = '') {
+		if($key === 'requestBody') return $this->requestBody();
 		if(is_null($this->getVars)) {
 			$this->getVars = $this->wire(new WireInputData($_GET));
 			$this->getVars->offsetUnset('it');
@@ -401,6 +402,7 @@ class WireInput extends Wire {
 		if($key == 'fragment') return $this->fragment();
 		if($key == 'queryString') return $this->queryString();
 		if($key == 'scheme') return $this->scheme();
+		if($key == 'requestBody') return $this->requestBody();
 
 		if(strpos($key, 'urlSegment') === 0) {
 			if(strlen($key) > 10) $num = (int) substr($key, 10); 
@@ -574,6 +576,17 @@ class WireInput extends Wire {
 	 */
 	public function queryString($overrides = array()) {
 		return $this->get()->queryString($overrides);
+	}
+	
+	/**
+	 * Return the latest JSON request body
+	 *
+	 *
+	 * @return array Returns the unsanitized json request body
+	 *
+	 */
+	public function requestBody() {
+		return json_decode(file_get_contents("php://input"));
 	}
 
 	/**
