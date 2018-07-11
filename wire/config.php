@@ -851,6 +851,36 @@ $config->wireInputLazy = false;
 /*** 7. DATABASE ********************************************************************************/
 
 /**
+ * Database name
+ *
+ */
+$config->dbName = '';
+
+/**
+ * Database username
+ *
+ */
+$config->dbUser = '';
+
+/**
+ * Database password
+ *
+ */
+$config->dbPass = '';
+
+/**
+ * Database host
+ *
+ */
+$config->dbHost = '';
+
+/**
+ * Database port
+ *
+ */
+$config->dbPort = 3306;
+
+/**
  * Database character set
  * 
  * utf8 is the only recommended value for this. 
@@ -903,30 +933,6 @@ $config->dbPath = '';
  * 
  */
 $config->dbLowercaseTables = true;
-
-/**
- * Database username
- * 
- */
-$config->dbUser = '';
-
-/**
- * Database password
- * 
- */
-$config->dbPass = '';
-
-/**
- * Database host
- * 
- */
-$config->dbHost = '';
-
-/**
- * Database port
- * 
- */
-$config->dbPort = 3306;
 
 /**
  * Database init command (PDO::MYSQL_ATTR_INIT_COMMAND)
