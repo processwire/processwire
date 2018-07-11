@@ -36,6 +36,8 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 
 	/**
 	 * Return a new blank item 
+	 * 
+	 * @return Saveable|Wire
 	 *
 	 */
 	abstract public function makeBlankItem();
@@ -190,6 +192,9 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 * Should the given item key/field be saved in the database?
 	 *
 	 * Template method used by ___save()
+	 * 
+	 * @param string $key
+	 * @return bool
 	 *
 	 */
 	protected function saveItemKey($key) {
@@ -369,6 +374,9 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 * Encode the 'data' portion of the table.
 	 * 	
 	 * This is a front-end to wireEncodeJSON so that it can be overridden if needed.
+	 * 
+	 * @param array $value
+	 * @return string
 	 *
 	 */
 	protected function encodeData(array $value) {
@@ -379,6 +387,9 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 * Decode the 'data' portion of the table.
 	 * 	
 	 * This is a front-end to wireDecodeJSON that it can be overridden if needed.
+	 * 
+	 * @param string $value
+	 * @return array
 	 *
 	 */
 	protected function decodeData($value) {
@@ -387,6 +398,9 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 
 	/**
 	 * Enforce no locally-scoped fuel for this class
+	 * 
+	 * @param bool|null $useFuel
+	 * @return bool
 	 *
 	 */
 	public function useFuel($useFuel = null) {
@@ -508,7 +522,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 *
 	 * @param string $text
 	 * @param int|bool $flags See Notices::flags
-	 * @return $this
+	 * @return Wire|WireSaveableItems
 	 *
 	 */
 	public function error($text, $flags = 0) {

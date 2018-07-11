@@ -584,6 +584,7 @@ class WireCache extends Wire {
 			$query = $this->wire('database')->prepare($sql, "cache.delete($name)"); 
 			$query->bindValue(':name', $name); 
 			$query->execute();
+			$query->closeCursor();
 			$success = true; 
 			$this->log($this->_('Cleared cache') . ' - ' . $name);
 		} catch(\Exception $e) {
@@ -790,7 +791,7 @@ class WireCache extends Wire {
 	 * Run maintenance for a template that was just saved or deleted
 	 *
 	 * @param Template $template
-	 * @return bool
+	 * @return bool Returns true if any caches were deleted, false if not
 	 *
 	 */
 	protected function maintenanceTemplate(Template $template) {
@@ -804,6 +805,8 @@ class WireCache extends Wire {
 		$result = $query->execute();
 		$qty = $result ? $query->rowCount() : 0;
 		if($qty) $this->log(sprintf($this->_('Maintenance expired %d cache(s) for saved template'), $qty));
+		
+		return $qty > 0;
 	}
 	
 	/**

@@ -5,7 +5,7 @@
  *
  * Provides the base interfaces required by modules.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Module is the primary PHP interface for module types in ProcessWire. 
@@ -213,6 +213,11 @@
  * 
  *    - **Callable function:** The module will automatically load only if the given callable function 
  *      returns true. 
+ * 
+ * - `searchable` (string): When present, indicates that module implements a search() method 
+ *    consistent with the SearchableModule interface. The value of the 'searchable' property should 
+ *    be the name that the search results are referred to, using ascii characters of a-z, 0-9, and
+ *    underscore. See the SearchableModule interface in this file for more details. 
  * 
  * -----------------------------------------------------------------------------------------------
  * 
@@ -486,5 +491,86 @@ interface _Module {
 	 * 
 	 */
 	public function getModuleConfigArray();
+}
+
+/**
+ * Interface SearchableModule
+ *
+ * Interface for modules that implement a method and expected array return value
+ * for completing basic text searches (primarily for admin search engine).
+ * 
+ * It is optional to add this interface to "implements" section of the module class definition.
+ * However, you must specify a "searchable: name" property in your getModuleInfo() method in 
+ * order for ProcessWire to recognize the module is searchable. See below for more info:
+ *
+ * ~~~~~~
+ * public static function getModuleInfo() {
+ *   return array(
+ *     'searchable' => 'name', 
+ * 
+ *     // You'll need the above 'searchable' property returned by your getModuleInfo(). 
+ *     // The value of 'name' should be the name by which search results should be referred to	
+ *     // if the user wants to limit the search to this module. For instance, if your module 
+ *     // was called “ProcessWidgets”, you’d probably choose the name “widgets” for this. 
+ *     // If the module represents an API variable, the name should be the same as the API variable. 
+ *     // ...
+ *   );
+ * }
+ * ~~~~~
+ * 
+ */
+interface SearchableModule {
+
+	/**
+	 * Search for items containing $text and return an array representation of them
+	 * 
+	 * You may implement also implement this method as hookable, i.e. ___search(), but not that you’ll
+	 * want to skip the "implements SearchableModule" in your class definition. 
+	 *
+	 * Must return PHP array in the format below. For each item in the 'items' array, Only the 'title' 
+	 * and 'url' properties are required for each item (the rest are optional). 
+	 *
+	 * $result = array(
+	 *   'title' => 'Title of these items',
+	 *   'total' => 999, // total number of items found, or omit if pagination not supported or active
+	 *   'url' => '', // optional URL to view all items, or omit for a PW-generated one
+	 *   'items' => array(
+	 *     [0] => array(
+	 *       'id' => 123, // Unique ID of item (optional)
+	 *       'name' => 'Name of item', // (optional)
+	 *       'title' => 'Title of item', // (*required)
+	 *       'subtitle' => 'Secondary/subtitle of item',  // (optional)
+	 *       'summary' => 'Summary or description of item', // (optional)
+	 *       'url' => 'URL to view or edit the item', // (*required)
+	 *       'icon' => 'Optional icon name to represent the item, i.e. "gear" or "fa-gear"', // (optional)
+	 *       'group' => 'Optionally group with other items having this group name, overrides $result[title]', // (optional)
+	 *       'status' => int, // refers to Page status, omit if not a Page item (optional)
+	 *       'modified' => int, // modified date of item as unix timestamp (optional)
+	 *     [1] => array(
+	 *       ...
+	 *     ),
+	 *   )
+	 * );
+	 * 
+	 * Please note: When ProcessWire calls this method, if the module is not already loaded (autoload), 
+	 * it instantiates the module but DOES NOT call the init() or ready() methods. That’s because the 
+	 * search method is generally self contained. If you need either of those methods to be called,
+	 * and your module is not autoload, you should call the method(s) from your search() method. 
+	 *
+	 * @param string $text Text to search for
+	 * @param array $options Options array provided to search() calls: 
+	 *  - `edit` (bool): True if any 'url' returned should be to edit items rather than view them
+	 *  - `multilang` (bool): If true, search all languages rather than just current (default=true).
+	 *  - `start` (int): Start index (0-based), if pagination active (default=0).
+	 *  - `limit` (int): Limit to this many items, or 0 for no limit. (default=0).
+	 *  - `type` (string): If search should only be of a specific type, i.e. "pages", "modules", etc. then it is 
+	 *     specified here. This corresponds with the getModuleInfo()['searchable'] name or item 'group' property. 
+	 *  - `operator` (string): Selector operator type requested, if more than one is supported (default is %=).
+	 *  - `property` (string): If search should limit to a particular property/fieldj, it is named here. 
+	 *  - `verbose` (bool): True if output can optionally be more verbose, false if not. (default=false)
+	 * @return array
+	 *
+	 */
+	public function search($text, array $options = array()); 
 }
 

@@ -558,4 +558,19 @@ abstract class Process extends WireData implements Module {
 	public function getViewVars() {
 		return $this->_viewVars; 
 	}
+
+	/**
+	 * Return the Page that this process lives on 
+	 * 
+	 * @return Page|NullPage
+	 * 
+	 */
+	public function getProcessPage() {
+		$page = $this->wire('page'); 
+		if($page->process === $this) return $page;
+		$moduleID = $this->wire('modules')->getModuleID($this);
+		if(!$moduleID) return new NullPage();
+		$page = $this->wire('pages')->get("process=$moduleID, include=all"); 
+		return $page;
+	}
 }
