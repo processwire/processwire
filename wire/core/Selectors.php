@@ -216,16 +216,51 @@ class Selectors extends WireArray {
 	}
 
 	/**
+	 * Return a string indicating the type of operator that it is, or false if not an operator
+	 * 
+	 * @param string $operator Operator to check
+	 * @param bool $is Change return value to just boolean true or false. 
+	 * @return bool|string
+	 * @since 3.0.108
+	 * 
+	 */
+	static public function getOperatorType($operator, $is = false) {
+		if(!isset(self::$selectorTypes[$operator])) return false;
+		$type = self::$selectorTypes[$operator];
+		// now double check that we can map it back, in case PHP filters anything in the isset()
+		$op = array_search($type); 
+		if($op === $operator) {
+			if($is) return true;
+			// Convert types like "SelectorEquals" to "Equals"
+			if(strpos($type, 'Selector') === 0) list(,$type) = explode('Selector', $type, 2);
+			return $type;
+		}
+		return false;
+	}
+
+	/**
+	 * Returns true if given string is a recognized operator, or false if not
+	 * 
+	 * @param string $operator
+	 * @return bool
+	 * @since 3.0.108
+	 * 
+	 */
+	static public function isOperator($operator) {
+		return self::getOperatorType($operator, true);
+	}
+
+	/**
 	 * Does the given string have an operator in it? 
 	 * 
 	 * #pw-group-static-helpers
 	 *
-	 * @param string $str
+	 * @param string $str String that might contain an operator
+	 * @param bool $getOperator Specify true to return the operator that was found, or false if not (since 3.0.108)
 	 * @return bool
 	 *
 	 */
-	static public function stringHasOperator($str) {
-		
+	static public function stringHasOperator($str, $getOperator = false) {
 		
 		static $letters = 'abcdefghijklmnopqrstuvwxyz';
 		static $digits = '_0123456789';
@@ -267,8 +302,13 @@ class Selectors extends WireArray {
 				} 
 			}
 			
-			if($has) break;
+			if($has) {
+				if($getOperator) $getOperator = $operator;
+				break;
+			}
 		}
+		
+		if($has && $getOperator) return $getOperator;
 		
 		return $has; 
 	}
