@@ -2,7 +2,7 @@
  * Alternate Select Multiple (asmSelect) 1.3 - jQuery Plugin
  * http://www.ryancramer.com/projects/asmselect/
  * 
- * Copyright (c) 2009-2014 by Ryan Cramer - http://www.ryancramer.com
+ * Copyright (c) 2009-2018 by Ryan Cramer - http://www.ryancramer.com
  * 
  * Licensed under the MIT license. 
  *
@@ -16,6 +16,8 @@
 
 			listType: 'ol',						// Ordered list 'ol', or unordered list 'ul'
 			sortable: false, 					// Should the list be sortable?
+			addable: true, 						// Can items be added to selection?
+			deletable: true,					// Can items be removed from selection? 
 			highlight: false,					// Use the highlight feature? 
 			fieldset: false,					// Use fieldset support? (for PW Fieldset types)
 			animate: false,						// Animate the the adding/removing of items in the list?
@@ -75,6 +77,7 @@
 			function init() {
 
 				// initialize the alternate select multiple
+				if(options.deletable && !options.addable) options.hideDeleted = false;
 
 				// this loop ensures uniqueness, in case of existing asmSelects placed by ajax (1.0.3)
 				while($("#" + options.containerClass + index).length > 0) index++; 
@@ -84,6 +87,7 @@
 					.addClass($original.attr('class'))
 					.attr('name', options.selectClass + index)
 					.attr('id', options.selectClass + index); 
+				if(!options.addable) $select.hide();
 
 				$selectRemoved = $("<select></select>"); 
 
@@ -332,7 +336,8 @@
 
 				if(!$O) return; // this is the first item, selectLabel
 
-				var $removeLink = $("<a></a>")
+				var $removeLink = null;
+				if(options.deletable) $removeLink = $("<a></a>")
 					.attr("href", "#")
 					.addClass(options.removeClass)
 					.prepend(options.removeLabel)
@@ -388,9 +393,9 @@
 					.addClass(options.listItemClass)
 					.append($itemLabel)
 					.append($itemDesc)
-					.append($itemStatus)
-					.append($removeLink)
-					.hide();
+					.append($itemStatus);
+				if($removeLink) $item.append($removeLink);
+				$item.hide();
 
 				if(options.jQueryUI) {
 					$item.addClass('ui-state-default')
