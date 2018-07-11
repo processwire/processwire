@@ -24,6 +24,7 @@ class ProcessUser extends ProcessPageType {
 			'permission' => 'user-admin',
 			'icon'       => 'group',
 			'useNavJSON' => true,
+			'searchable' => 'users' 
 		);
 	}
 

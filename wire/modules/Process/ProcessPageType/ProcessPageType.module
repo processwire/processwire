@@ -603,5 +603,59 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		return $this->wire('pages')->newNullPage();
 	}
 	
+	/**
+	 * Search for items containing $text and return an array representation of them
+	 *
+	 * Implementation for SearchableModule interface
+	 *
+	 * @param string $text Text to search for
+	 * @param array $options Options to modify behavior:
+	 *  - `edit` (bool): True if any 'url' returned should be to edit items rather than view them
+	 *  - `multilang` (bool): If true, search all languages rather than just current (default=true).
+	 *  - `start` (int): Start index (0-based), if pagination active (default=0).
+	 *  - `limit` (int): Limit to this many items, if pagination active (default=0, disabled).
+	 * @return array
+	 *
+	 */
+	public function search($text, array $options = array()) {
+
+		$page = $this->getProcessPage();
+		$this->pages = $this->wire($page->name); 
+		
+		/** @var Languages $languages */
+		$page = $this->getProcessPage();
+
+		$result = array(
+			'title' => $page->id ? $page->title : $this->className(),
+			'items' => array(),
+		);
+		
+		$text = $this->wire('sanitizer')->selectorValue($text);
+		$property = empty($options['property']) ? 'name' : $options['property'];
+		$operator = isset($options['operator']) ? $options['operator'] : '%=';
+		$selector = "$property$operator$text, ";
+		if(isset($options['start'])) $selector .= "start=$options[start], ";
+		if(!empty($options['limit'])) $selector .= "limit=$options[limit], ";
+		$items = $this->pages->find(trim($selector, ", ")); 
+	
+		foreach($items as $item) {
+			$result['items'][] = $this->getSearchItemInfo($item); 
+		}
+
+		return $result;
+	}
+	
+	protected function getSearchItemInfo(Page $item) {
+		return array(
+			'id' => $item->id,
+			'name' => $item->name,
+			'title' => $item->get('title|name'),
+			'subtitle' => $item->template->name,
+			'summary' => '',
+			'icon' => $item->getIcon(),
+			'url' => empty($options['edit']) ? $item->url() : $item->editUrl()
+		);
+	}
+	
 }
 
