@@ -57,7 +57,7 @@ class ProcessTemplate extends Process {
 			'permanent' => true, 
 			'icon' => 'cubes', 
 			'useNavJSON' => true, 
-	
+			'searchable' => 'templates', 
 			// add this permission if you want this Process available for roles other than Superuser
 			'permission' => 'template-admin', 
 			);
@@ -2997,6 +2997,85 @@ class ProcessTemplate extends Process {
 		return $form->render();
 	}
 
+	/**
+	 * Search for items containing $text and return an array representation of them
+	 *
+	 * Implementation for SearchableModule interface
+	 *
+	 * @param string $text Text to search for
+	 * @param array $options Options to modify behavior:
+	 *  - `edit` (bool): True if any 'url' returned should be to edit items rather than view them
+	 *  - `multilang` (bool): If true, search all languages rather than just current (default=true).
+	 *  - `start` (int): Start index (0-based), if pagination active (default=0).
+	 *  - `limit` (int): Limit to this many items, if pagination active (default=0, disabled).
+	 * @return array
+	 *
+	 */
+	public function search($text, array $options = array()) {
+
+		/** @var Languages $languages */
+		$languages = $this->wire('langauges');
+		$page = $this->getProcessPage();
+
+		$result = array(
+			'title' => $page->id ? $page->title : $this->className(),
+			'items' => array(),
+		);
+
+		$looseItems = array();
+		$exactItems = array();
+		$cnt = 0;
+
+		foreach($this->wire('templates') as $item) {
+			/** @var Template $item */
+			$search = array(' ', $item->name);
+
+			if(!empty($options['multilang']) && $languages) {
+				foreach($languages as $lang) {
+					$search[] = $item->getLabel($lang);
+				}
+			} else {
+				$search[] = $item->getLabel();
+			}
+
+			// when search matches field name exactly (that template has), allow template to be matched
+			foreach($item->fieldgroup as $field) {
+				if(strtolower($text) == strtolower($field->name)) $search[] = $field->name;
+			}
+
+			$search = implode(' ', $search);
+			$pos = stripos($search, $text);
+			if($pos === false) continue;
+			$exact = stripos($search, " $text");
+			$numFields = $item->fieldgroup->count();
+			$labelFields = sprintf($this->_n('%d field', '%d fields', $numFields), $numFields);
+			$label = $item->getLabel();
+			$subtitle = $label == $item->name ? $labelFields : "$label ($labelFields)";
+
+			$item = array(
+				'id' => $item->id,
+				'name' => $item->name,
+				'title' => $item->name,
+				'subtitle' => trim($subtitle), 
+				'summary' => $item->fieldgroup->implode(', ', 'name'),
+				'icon' => $item->getIcon(),
+				'url' => empty($options['edit']) ? '' : $page->url() . "edit?id=$item->id",
+			);
+
+			if($exact) {
+				$exactItems[] = $item;
+			} else {
+				$looseItems[] = $item;
+			}
+			
+			$cnt++;
+			if(!empty($options['limit']) && $cnt >= $options['limit']) break;
+		}
+
+		$result['items'] = array_merge($exactItems, $looseItems);
+
+		return $result;
+	}
 
 }
 

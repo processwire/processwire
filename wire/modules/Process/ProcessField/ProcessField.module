@@ -53,6 +53,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			'permission' => 'field-admin', // add this permission if you want this Process available for roles other than Superuser
 			'icon' => 'cube', 
 			'useNavJSON' => true,
+			'searchable' => 'fields', 
 			'addFlag' => Modules::flagsNoUserConfig
 			);
 	}
@@ -2601,6 +2602,85 @@ class ProcessField extends Process implements ConfigurableModule {
 		return $changes;
 	}
 
+	/**
+	 * Search for items containing $text and return an array representation of them
+	 *
+	 * Implementation for SearchableModule interface
+	 *
+	 * @param string $text Text to search for
+	 * @param array $options Options to modify behavior:
+	 *  - `edit` (bool): True if any 'url' returned should be to edit items rather than view them
+	 *  - `multilang` (bool): If true, search all languages rather than just current (default=true).
+	 *  - `start` (int): Start index (0-based), if pagination active (default=0).
+	 *  - `limit` (int): Limit to this many items, if pagination active (default=0, disabled).
+	 * @return array
+	 *
+	 */
+	public function search($text, array $options = array()) {
+
+		/** @var Languages $languages */
+		$languages = $this->wire('langauges');
+		$page = $this->getProcessPage();
+
+		$result = array(
+			'title' => $page->id ? $page->title : $this->className(),
+			'items' => array(),
+		);
+
+		$looseItems = array();
+		$exactItems = array();
+		$property = isset($options['property']) ? $options['property'] : '';
+		$cnt = 0;
+
+		foreach($this->wire('fields') as $item) {
+			/** @var Field $item */
+			if(!$item->type) continue;
+
+			$search = array(' ');
+			if(empty($property) || $property == 'name' || $property == 'all') $search[] = $item->name; 
+			if(empty($property) || $property == 'type' || $property == 'all') $search[] = $item->type->shortName;
+
+			if(!empty($options['multilang']) && $languages) {
+				foreach($languages as $lang) {
+					if(empty($property) || $property == 'label' || $property == 'all') $search[] = $item->getLabel($lang);
+					if($property == 'description' || $property == 'all') $search[] = $item->getDescription($lang);
+					if($property == 'notes' || $property == 'all') $search[] = $item->getNotes($lang);
+				}
+			} else {
+				if(empty($property) || $property == 'label' || $property == 'all') $search[] = $item->label;
+				if($property == 'description' || $property == 'all') $search[] = $item->description;
+				if($property == 'notes' || $property == 'all') $search[] = $item->notes;
+			}
+
+			$search = implode(' ', $search);
+			$pos = stripos($search, $text);
+			if($pos === false) continue;
+			$exact = stripos($search, " $text");
+
+			$item = array(
+				'id' => $item->id,
+				'name' => $item->name,
+				'title' => $item->name, 
+				'subtitle' => $item->type->shortName,
+				'summary' => $item->getLabel(),
+				'icon' => $item->getIcon(),
+				'url' => empty($options['edit']) ? '' : $page->url() . "edit?id=$item->id",
+			);
+
+			if($exact) {
+				$exactItems[] = $item;
+			} else {
+				$looseItems[] = $item;
+			}
+			
+			$cnt++;
+			if(!empty($options['limit']) && $cnt >= $options['limit']) break;
+		}
+
+		$result['items'] = array_merge($exactItems, $looseItems);
+
+		return $result;
+	}
 
 	/**
 	 * Build a form allowing configuration of this Module
