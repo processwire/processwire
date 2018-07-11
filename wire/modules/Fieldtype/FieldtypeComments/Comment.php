@@ -172,7 +172,16 @@ class Comment extends WireData {
 			
 		} else if($key == 'children') {
 			return $this->children();
-		}
+			
+		} else if($key == 'url') {
+			return $this->url();
+			
+		} else if($key == 'httpUrl' || $key == 'httpURL') {
+			return $this->httpUrl();
+			
+		} else if($key == 'editUrl' || $key == 'editURL') {
+			return $this->editUrl();
+		}	
 
 		return parent::get($key); 
 	}
@@ -396,9 +405,39 @@ class Comment extends WireData {
 		if(is_bool($quiet)) $this->quiet = $quiet; 
 		return $this->quiet; 
 	}
-	
-	
 
+	/**
+	 * Return URL to view comment
+	 * 
+	 * @param bool $http
+	 * @return string
+	 * 
+	 */
+	public function url($http = false) {
+		$fragment = "#Comment$this->id";
+		if(!$this->page || !$this->page->id) return $fragment; 
+		return ($http ? $this->page->httpUrl() : $this->page->url) . $fragment;
+	}
+
+	/**
+	 * Return full http URL to view comment
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function httpUrl() {
+		return $this->url(true);
+	}
+
+	/**
+	 * Return URL to edit comment
+	 * 
+	 */
+	public function editUrl() {
+		if(!$this->page || !$this->page->id) return '';
+		if(!$this->field) return '';
+		return $this->page->editUrl() . "?field={$this->field->name}#CommentsAdminItem$this->id";
+	}
 }
 
 
