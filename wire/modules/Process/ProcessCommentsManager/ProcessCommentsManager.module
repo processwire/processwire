@@ -27,6 +27,7 @@ class ProcessCommentsManager extends Process {
 			'author' => 'Ryan Cramer', 
 			'icon' => 'comments', 
 			'requires' => 'FieldtypeComments',
+			'searchable' => 'comments', 
 			'permission' => 'comments-manager', 
 			'permissions' => array(
 				'comments-manager' => 'Use the comments manager', 
@@ -173,14 +174,19 @@ class ProcessCommentsManager extends Process {
 		
 		$session = $this->wire('session');
 
+		$commentID = (int) $this->input->get('id');
 		$name = $this->sanitizer->fieldName($this->input->urlSegment2); 
 		if(!$name) return $this->error($this->_('No comments field specified in URL')); 
 		$field = $this->fields->get($name); 
 		if(!$field || !$field->type instanceof FieldtypeComments) return $this->error($this->_('Unrecognized field')); 
 		$status = $this->input->urlSegment3;
+		
 		if(empty($status) || ($status != 'all' && !in_array($status, $this->statuses))) {
-			$session->redirect($this->wire('page')->url . "list/$field->name/all/");
+			$redirectUrl = $this->wire('page')->url . "list/$field->name/all/";
+			if($commentID) $redirectUrl .= "?id=$commentID";
+			$session->redirect($redirectUrl); 
 		}
+		
 		$statusNum = array_search($status, $this->statuses); 
 		$headline = $statusNum !== false ? $this->statusTranslations[$statusNum] : $status; 
 		if($headline === 'all') $headline = $this->labelAll;
@@ -202,29 +208,53 @@ class ProcessCommentsManager extends Process {
 			$sort = $session->getFor($this, 'sort');
 			if(!$sort) $sort = '-created';
 		}
-		
-		$start = ($this->input->pageNum-1) * $limit; 
+	
+		$start = ($this->input->pageNum - 1) * $limit;
 		$selector = "start=$start, limit=$limit, sort=$sort";
+		if($status != 'all') $selector .= ", status=$statusNum";
+
 		$filterOut = '';
 		$filterLabels = array(
 			'id' => $this->_('ID'),
 			'parent_id' => $this->_('Replies to'), 
 			);
 
-
-		if($status != 'all') {
-			$selector .= ", status=" . array_search($status, $this->statuses); 
-		}
-
-		foreach(array('cite', 'email', 'ip', 'id', 'parent_id') as $key) {
-			$value = $this->input->get->$key; 
-			if(is_null($value)) continue; 
-			if($key == 'id' || $key == 'parent_id') $value = (int) $value; 
-			$this->input->whitelist($key, $this->sanitizer->text($value)); 
-			$value = $this->sanitizer->selectorValue($value); 
+		$properties = array('cite', 'email', 'text', 'ip', 'id', 'parent_id', 'stars');
+		
+		$q = $this->input->get('q');
+		if($q !== null) {
+			// query $q that contain a selector 
+			$q = trim($this->sanitizer->text($q, array('stripTags' => false)));
+			$op = Selectors::stringHasOperator($q, true);
+			if($op) {
+				list($property, $value) = explode($op, $q, 2); 
+				$property = $this->sanitizer->fieldName($property);
+				if(!in_array($property, $properties)) $property = '';
+			} else {
+				$property = 'text';
+				$op = strpos($q, ' ') ? '~=' : '%=';
+				$value = $q;
+			}
+			if($property && $value) {
+				$selector .= ", $property$op" . $this->sanitizer->selectorValue($value);
+				$this->input->whitelist('q', "$property$op$value"); 
+			}
+			$filterOut .= $this->wire('sanitizer')->entities(", $property$op$value"); 
+		} 
+		
+		foreach($properties as $key) {
+			$value = $this->input->get->$key;
+			if(is_null($value)) continue;
+			if($key == 'id' || $key == 'parent_id' || $key == 'stars') {
+				$value = (int) $value;
+			} else {
+				$value = trim($this->sanitizer->text($value));
+			}
+			$this->input->whitelist($key, $value);
+			$value = $this->sanitizer->selectorValue($value);
 			$selector .= ", $key=$value";
 			//$this->message(ucfirst($key) . ": " . htmlentities($value, ENT_QUOTES, "UTF-8") . " (<a href='./'>" . $this->_('remove filter') . "</a>)", Notice::allowMarkup); 
-			$filterLabel = isset($filterLabels[$key]) ? $filterLabels[$key] : ucfirst($key); 
+			$filterLabel = isset($filterLabels[$key]) ? $filterLabels[$key] : ucfirst($key);
 			$filterOut .= $this->wire('sanitizer')->entities(", $filterLabel: $value");
 		}
 
@@ -650,6 +680,88 @@ class ProcessCommentsManager extends Process {
 	public function ___install() {
 		$this->checkInstall();
 		return parent::___install();
+	}
+	
+	/**
+	 * Search for items containing $text and return an array representation of them
+	 *
+	 * Implementation for SearchableModule interface
+	 *
+	 * @param string $text Text to search for
+	 * @param array $options Options to modify behavior:
+	 *  - `edit` (bool): True if any 'url' returned should be to edit items rather than view them
+	 *  - `multilang` (bool): If true, search all languages rather than just current (default=true).
+	 *  - `start` (int): Start index (0-based), if pagination active (default=0).
+	 *  - `limit` (int): Limit to this many items, if pagination active (default=0, disabled).
+	 * @return array
+	 *
+	 */
+	public function search($text, array $options = array()) {
+
+		/** @var Languages $languages */
+		$page = $this->getProcessPage();
+		$fields = array();
+		foreach($this->wire('fields') as $field) {
+			if($field->type instanceof FieldtypeComments) $fields[$field->name] = $field;
+		}
+
+		$result = array(
+			'title' => $page->id ? (string) $page->title : $this->className(),
+			'total' => 0,
+			'url' => '',
+			'items' => array(),
+		);
+		
+		$operator = empty($options['operator']) ? '%=' : $options['operator'];
+		$value = $this->wire('sanitizer')->selectorValue($text); 	
+		$summaryLength = $options['verbose'] ? 1024 : 200;
+		
+		if(!empty($options['property'])) {
+			$selector = "$options[property]$operator$value";
+			$q = "$options[property]$operator$text"; 
+		} else {
+			$selector = "text$operator$value";
+			$q = "text{$operator}$text"; 
+		}
+		
+		if(!empty($options['limit'])) $selector .= ", limit=$options[limit]";
+		if(!empty($options['start'])) $selector .= ", start=$options[start]";
+	
+		foreach($fields as $fieldName => $field) {
+			/** @var CommentArray $comments */
+			$comments = $field->type->find($selector); 
+			if(!count($comments)) continue;
+			$result['total'] += $comments->getTotal();
+			$url = $page->url() . "list/$field->name/all/";
+			if(count($fields) == 1) $result['url'] = $url . "?q=" . urlencode($q); 
+			foreach($comments as $comment) {
+				/** @var Comment $comment */
+				$commentPage = $comment->getPage();
+				$editUrl = $url . "?id=$comment->id";
+				$item = array(
+					'id' => $comment->id,
+					'name' => $comment->cite,
+					'title' => $comment->cite, 
+					'subtitle' => $commentPage && $commentPage->id ? (string) $commentPage->get('title|name') : '', 
+					'summary' => $this->wire('sanitizer')->truncate($comment->text, $summaryLength), 
+					'url' => empty($options['edit']) ? $comment->url() : $editUrl
+				);
+				$result['items'][] = $item;
+			}
+		}
+
+		/* // for debugging:
+		$result['items'][] = array(
+			'id' => 0,
+			'name' => '',
+			'title' => $selector,
+			'subtitle' => '',
+			'summary' => '',
+			'url' => '#'
+		);
+		*/
+
+		return $result;
 	}
 
 
