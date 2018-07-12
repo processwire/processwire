@@ -1442,6 +1442,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	protected function buildFormRestore() {
 	
 		if(!$this->page->isTrash()) return false;
+		if(!$this->page->restorable()) return false;
 		/** @var InputfieldWrapper $wrapper */
 		$wrapper = $this->wire(new InputfieldWrapper());
 		$id = $this->className() . 'Restore';

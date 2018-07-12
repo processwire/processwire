@@ -843,13 +843,17 @@ function wireClassParents($className, $autoload = true) {
 /**
  * Does given instance (or class) represent an instance of the given className (or class names)?
  * 
+ * Since version 3.0.108 the $className argument may also represent an interface, 
+ * array of interfaces, or mixed array of interfaces and class names. Previous versions did
+ * not support interfaces unless the $instance argument was an object.
+ * 
  * @param object|string $instance Object instance to test (or string of its class name).
- * @param string|array $className Class name or array of class names to test against. 
+ * @param string|array $className Class/interface name or array of class/interface names to test against. 
  * @param bool $autoload
  * @return bool|string Returns one of the following:
  *  - boolean false if not an instance (whether $className argument is string or array). 
  *  - boolean true if given a single $className (string) and $instance is an instance of it. 
- *  - string of first matching class name if $className was an array of classes to test.
+ *  - string of first matching class/interface name if $className was an array of classes to test.
  * 
  */
 function wireInstanceOf($instance, $className, $autoload = true) {
@@ -861,21 +865,50 @@ function wireInstanceOf($instance, $className, $autoload = true) {
 		$returnClass = false;
 		$classNames = array($className);
 	}
-	
+
 	$matchClass = null;
+	$instanceIsObject = is_object($instance);
 	$instanceParents = null;
+	$instanceInterfaces = null;
+	$instanceClass = null;
+	
+	if($instanceIsObject) {
+		// instance is an object
+	} else if(is_string($instance)) {
+		// instance is a class name, make sure it has namespace
+		$instanceClass = wireClassName($instance, true);
+		if($instanceClass === null) $instanceClass = $instance; // if above failed
+		$instance = $instanceClass;
+	} else {
+		// unrecognized instance value
+		return false;
+	}
 
 	foreach($classNames as $className) {
 		$className = wireClassName($className, true); // with namespace
-		if(is_object($instance) && class_exists($className, $autoload)) {
-			if($instance instanceof $className) $matchClass = $className;
+		if($instanceIsObject && (class_exists($className, $autoload) || interface_exists($className, $autoload))) {
+			if($instance instanceof $className) {
+				$matchClass = $className;
+			}
 		} else {
-			if(is_null($instanceParents)) {
+			if($instanceClass === null) {
+				$instanceClass = wireClassName($instance, true);
+				if($instanceClass === null) break;
+			}
+			if($instanceParents === null) {
 				$instanceParents = wireClassParents($instance, $autoload);
-				$instanceClass = is_string($instance) ? $instance : wireClassName($instance, true);
 				$instanceParents[$instanceClass] = 1;
 			}
-			if(isset($parents[$className])) $matchClass = $className;
+			if(isset($instanceParents[$className])) {
+				$matchClass = $className;
+			} else {
+				if($instanceInterfaces === null) {
+					$instanceInterfaces = wireClassImplements($instance, $autoload);
+				}
+				if(isset($instanceInterfaces[$className])) {
+					$matchClass = $className;
+				}
+			}
 		}
 		if($matchClass !== null) break;
 	}
