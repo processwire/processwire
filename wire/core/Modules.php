@@ -264,6 +264,7 @@ class Modules extends WireArray {
 		'core', 
 		'versionStr',
 		'permissions',
+		'searchable', 
 		'page',
 		);
 
@@ -1537,7 +1538,11 @@ class Modules extends WireArray {
 	 * ~~~~~
 	 * 
 	 * @param string $prefix Specify prefix, i.e. "Process", "Fieldtype", "Inputfield", etc.
-	 * @param bool $instantiate Specify true to return Module instances, or false to return class names (default=false)
+	 * @param bool|int $instantiate Specify one of the following:
+	 *  - Boolean true to return array of instantiated modules.
+	 *  - Boolean false to return array of module names (default).
+	 *  - Integer 1 to return array of module info for each matching module.
+	 *  - Integer 2 to return array of verbose module info for each matching module. 
 	 * @return array Returns array of module class names or Module objects. In either case, array indexes are class names.
 	 * 
 	 */
@@ -1546,12 +1551,115 @@ class Modules extends WireArray {
 		foreach($this as $key => $value) {
 			$className = wireClassName($value->className(), false);
 			if(strpos($className, $prefix) !== 0) continue;
-			if($instantiate) {
-				$results[$className] = $this->get($className);
+			if($instantiate === 1) {
+				$results[$className] = $this->getModuleInfo($className); 
+			} else if($instantiate === 2) {
+				$results[$className] = $this->getModuleInfoVerbose($className); 
+			} else if($instantiate === true) {
+				$results[$className] = $this->getModule($className);
 			} else {
 				$results[$className] = $className;
 			}
 		}
+		return $results;
+	}
+
+	/**
+	 * Find modules by matching a property or properties in their module info 
+	 * 
+	 * @param string|array $selector Specify one of the following: 
+	 *  - Selector string to match module info. 
+	 *  - Array of [ 'property' => 'value' ] to match in module info (this is not a selector array). 
+	 *  - Name of property that will match module if not empty in module info. 
+	 * @param bool|int $instantiate Specify one of the following: 
+	 *  - Boolean true to return array of instantiated modules.
+	 *  - Boolean false to return array of module names (default).
+	 *  - Integer 1 to return array of module info for each matching module.
+	 *  - Integer 2 to return array of verbose module info for each matching module. 
+	 * @return array Array of modules, module names or module info arrays, indexed by module name.
+	 * 
+	 */
+	public function findByInfo($selector, $instantiate = false) {
+		
+		$selectors = null;
+		$infos = null;
+		$keys = null;
+		$results = array();
+		$verbose = $instantiate === 2;
+		$properties = array();
+		$has = '';
+		
+		if(is_array($selector)) {
+			// find matching all values in array
+			$keys = $selector;
+			$properties = array_keys($keys);
+		} if(!ctype_alnum($selector) && Selectors::stringHasOperator($selector)) {
+			// find by selectors
+			$selectors = new Selectors($selector);
+			if(!$verbose) foreach($selectors as $s) {
+				$properties = array_merge($properties, $s->fields()); 
+			}
+		} else {
+			// find non-empty property
+			$has = $selector;
+			$properties[] = $has;
+		}
+	
+		// check if any verbose properties are part of the find
+		if(!$verbose) foreach($properties as $property) {
+			if(!in_array($property, $this->moduleInfoVerboseKeys)) continue;
+			$verbose = true;
+			break;
+		}
+		
+		foreach($this->getModuleInfo('*', array('verbose' => $verbose)) as $info) {
+			$isMatch = false;
+			
+			if($has) {
+				// simply check if property is non-empty
+				if(!empty($info[$has])) $isMatch = true;
+				
+			} else if($selectors) {
+				// match selector
+				$total = 0;
+				$n = 0;
+				foreach($selectors as $selector) {
+					$total++;
+					$values = array();
+					foreach($selector->fields() as $property) {
+						if(isset($info[$property])) $values[] = $info[$property];
+					}
+					if($selector->matches($values)) $n++;
+				}
+				if($n && $n === $total) $isMatch = true;
+				
+			} else if($keys) {
+				// match all values in $keys array
+				$n = 0;
+				foreach($keys as $key => $value) {
+					if($value === '*') {
+						// match any non-empty value
+						if(!empty($info[$key])) $n++;
+					} else {
+						// match exact value
+						if(isset($info[$key]) && $value == $info[$key]) $n++;
+					}
+				}
+				if($n && $n === count($keys)) $isMatch = true;
+			}
+			
+			if($isMatch) {
+				$moduleName = $info['name'];
+				if(is_int($instantiate)) {
+					$results[$moduleName] = $info;
+				} else if($instantiate === true) {
+					$results[$moduleName] = $this->getModule($moduleName);
+				} else {
+					$results[$moduleName] = $moduleName;
+				}
+			}
+		}
+		
 		return $results;
 	}
 
@@ -2477,19 +2585,20 @@ class Modules extends WireArray {
 	 *  - `name` (string): module class name.
 	 *  - `title` (string): module title.
 	 *  - `version` (int): module version.
-	 *  - `icon` (string): Optional icon name (excluding the "fa  - ") part.
+	 *  - `icon` (string): Optional icon name (excluding the "fa-") part.
 	 *  - `requires` (array): module names required by this module.
 	 *  - `requiresVersions` (array): required module versions–module name is key, value is array($operator, $version).
 	 *  - `installs` (array): module names that this module installs.
 	 *  - `permission` (string): permission name required to execute this module.
 	 *  - `autoload` (bool): true if module is autoload, false if not.
 	 *  - `singular` (bool): true if module is singular, false if not.
-	 *  - `created` (int): unix  - timestamp of date/time module added to system (for uninstalled modules, it is the file date).
+	 *  - `created` (int): unix-timestamp of date/time module added to system (for uninstalled modules, it is the file date).
 	 *  - `installed` (bool): is the module currently installed? (boolean, or null when not determined)
 	 *  - `configurable` (bool|int): true or positive number when the module is configurable.
 	 *  - `namespace` (string): PHP namespace that module lives in.
 	 *
-	 *  The following properties are also included when "verbose" mode is requested. When not in verbose mode, these properties are present but blank:
+	 * The following properties are also included when "verbose" mode is requested. When not in verbose mode, these 
+	 * properties are present but blank:
 	 *
 	 *  - `versionStr` (string): formatted module version string.
 	 *  - `file` (string): module filename from PW installation root, or false when it can't be found.
@@ -2497,10 +2606,11 @@ class Modules extends WireArray {
 	 *  - `author` (string): module author, when specified.
 	 *  - `summary` (string): summary of what this module does.
 	 *  - `href` (string): URL to module details (when specified).
-	 *  - `permissions` (array): permissions installed by this module, associative array ('permission  - name' => 'Description').
+	 *  - `permissions` (array): permissions installed by this module, associative array ('permission-name' => 'Description').
 	 *  - `page` (array): definition of page to create for Process module (see Process class)
 	 *
-	 *  The following properties appear only for "Process" modules. See the Process class for more details:
+	 * The following properties appear only for "Process" modules, and only if specified by module. 
+	 * See the Process class for more details:
 	 *
 	 *  - `nav` (array): navigation definition
 	 *  - `useNavJSON` (bool): whether the Process module provides JSON navigation
@@ -2515,12 +2625,17 @@ class Modules extends WireArray {
 	 * $moduleInfo = $modules->getModuleInfoVerbose('MarkupAdminDataTable');
 	 * ~~~~~
 	 * 
-	 * @param string|Module|int $class May be class name, module instance, or module ID. 
-	 *   Specify "*" or "all" to retrieve module info for all modules. 
+	 * @param string|Module|int $class Specify one of the following:
+	 *  - Module object instance 
+	 *  - Module class name (string)
+	 *  - Module ID (int)
+	 *  - To get info for ALL modules, specify `*` or `all`.
+	 *  - To get system information, specify `ProcessWire` or `PHP`.
+	 *  - To get a blank module info template, specify `info`.
 	 * @param array $options Optional options to modify behavior of what gets returned
-	 *  - `verbose` (bool): Makes the info also include additional properties (they will be usually blank without this option specified).
-	 *  - `noCache` (bool): prevents use of cache to retrieve the module info.
-	 *  - `noInclude` (bool): prevents include() of the module file, applicable only if it hasn't already been included.
+	 *  - `verbose` (bool): Makes the info also include verbose properties, which are otherwise blank. (default=false)
+	 *  - `minify` (bool): Remove non-applicable and properties that match defaults? (default=false, or true when getting `all`)
+	 *  - `noCache` (bool): prevents use of cache to retrieve the module info. (default=false)
 	 * @return array Associative array of module information
 	 * @throws WireException when a module exists but has no means of returning module info
 	 * @see Modules::getModuleInfoVerbose()
@@ -2528,15 +2643,28 @@ class Modules extends WireArray {
 	 *	
 	 */
 	public function getModuleInfo($class, array $options = array()) {
-	
-		if(!isset($options['verbose'])) $options['verbose'] = false; 
-		if(!isset($options['noCache'])) $options['noCache'] = false;
 		
+		$getAll = $class === '*' || $class === 'all';
+		$getSystem = $class === 'ProcessWire' || $class === 'PHP' || $class === 'info';
+		
+		$defaults = array(
+			'verbose' => false,
+			'minify' => $getAll,
+			'noCache' => false, 
+			'noInclude' => false,
+		);
+		
+		$options = array_merge($defaults, $options);
 		$info = array();
 		$module = $class;
-		$moduleName = $this->getModuleClass($module); 
-		$moduleID = (string) $this->getModuleID($module); // typecast to string for cache
+		$moduleName = '';
+		$moduleID = 0;
 		$fromCache = false;  // was the data loaded from cache?
+	
+		if(!$getAll && !$getSystem) {
+			$moduleName = $this->getModuleClass($module);
+			$moduleID = (string) $this->getModuleID($module); // typecast to string for cache
+		}
 		
 		static $infoTemplate = array(
 			// module database ID
@@ -2576,7 +2704,9 @@ class Modules extends WireArray {
 			// is the module currently installed? (boolean, or null when not determined)
 			'installed' => null,
 			// this is set to true when the module is configurable, false when it's not, and null when it's not determined
-			'configurable' => null, 
+			'configurable' => null,
+			// verbose mode only: true when module implements SearchableModule interface, or null|false when not
+			'searchable' => null, 
 			// namespace that module lives in (string)
 			'namespace' => null,
 			// verbose mode only: this is set to the module filename (from PW installation root), false when it can't be found, null when it hasn't been determined
@@ -2590,8 +2720,30 @@ class Modules extends WireArray {
 			// 'page' => array(), // page to create for Process module: see Process.php
 			// 'permissionMethod' => string or callable // method to call to determine permission: see Process.php
 			);
-	
-		if($module instanceof Module) {
+		
+		if($getAll) {
+			if(empty($this->moduleInfoCache)) $this->loadModuleInfoCache();
+			$modulesInfo = $this->moduleInfoCache;
+			if($options['verbose']) {
+				if(empty($this->moduleInfoCacheVerbose)) $this->loadModuleInfoCacheVerbose();
+				foreach($this->moduleInfoCacheVerbose as $moduleID => $moduleInfoVerbose) {
+					$modulesInfo[$moduleID] = array_merge($modulesInfo[$moduleID], $moduleInfoVerbose);
+				}
+			}
+			if(!$options['minify']) {
+				foreach($modulesInfo as $moduleID => $info) {
+					$modulesInfo[$moduleID] = array_merge($infoTemplate, $info); 
+				}
+			}
+			return $modulesInfo;
+
+		} else if($getSystem) {
+			// module is a system 
+			if($class === 'info') return $infoTemplate;
+			$info = $this->getModuleInfoSystem($module);
+			return $options['minify'] ? $info : array_merge($infoTemplate, $info);
+
+		} else if($module instanceof Module) {
 			// module is an instance
 			// $moduleName = method_exists($module, 'className') ? $module->className() : get_class($module); 
 			// return from cache if available
@@ -2604,28 +2756,12 @@ class Modules extends WireArray {
 				if(!count($info)) $info = $this->getModuleInfoInternal($module); 
 			}
 			
-		} else if($module == 'PHP' || $module == 'ProcessWire') {
-			// module is a system 
-			$info = $this->getModuleInfoSystem($module);
-			return array_merge($infoTemplate, $info);
-			
-		} else if($module === '*' || $module === 'all') {
-			if(empty($this->moduleInfoCache)) $this->loadModuleInfoCache();
-			$modulesInfo = $this->moduleInfoCache;
-			if($options['verbose']) {
-				if(empty($this->moduleInfoCacheVerbose)) $this->loadModuleInfoCacheVerbose();
-				foreach($this->moduleInfoCacheVerbose as $moduleID => $moduleInfoVerbose) {
-					$modulesInfo[$moduleID] = array_merge($modulesInfo[$moduleID], $moduleInfoVerbose);
-				}
-			}
-			return $modulesInfo;
-			
 		} else {
 			
 			// module is a class name or ID
 			if(ctype_digit("$module")) $module = $moduleName;
 			
-			// return from cache if available
+			// return from cache if available (as it almost always should be)
 			if(empty($options['noCache']) && !empty($this->moduleInfoCache[$moduleID])) {
 				$info = $this->moduleInfoCache[$moduleID];
 				$fromCache = true; 
@@ -2666,10 +2802,11 @@ class Modules extends WireArray {
 			return $info;
 		}
 		
-		$info = array_merge($infoTemplate, $info); 
+		if(!$options['minify']) $info = array_merge($infoTemplate, $info); 
 		$info['id'] = (int) $moduleID;
 
 		if($fromCache) {
+			// since cache is loaded at init(), this is the most common scenario
 
 			if($options['verbose']) { 
 				if(empty($this->moduleInfoCacheVerbose)) $this->loadModuleInfoCacheVerbose();
@@ -2683,7 +2820,7 @@ class Modules extends WireArray {
 			if(is_null($info['singular'])) $info['singular'] = false;
 			if(is_null($info['configurable'])) $info['configurable'] = false;
 			if(is_null($info['core'])) $info['core'] = false;
-			if(is_null($info['installed'])) $info['installed'] = true; 
+			if(is_null($info['installed'])) $info['installed'] = true;
 			if(is_null($info['namespace'])) $info['namespace'] = strlen(__NAMESPACE__) ? "\\" . __NAMESPACE__ . "\\" : "";
 			if(!empty($info['requiresVersions'])) $info['requires'] = array_keys($info['requiresVersions']);
 			if($moduleName == 'SystemUpdater') $info['configurable'] = 1; // fallback, just in case
@@ -2692,8 +2829,9 @@ class Modules extends WireArray {
 			// are already accounted for in the cached module info
 		
 		} else {
-			
-			// if $info[requires] or $info[installs] isn't already an array, make it one
+			// not from cache, only likely to occur when refreshing modules info caches
+
+			// if $info[requires] isn't already an array, make it one
 			if(!is_array($info['requires'])) {
 				$info['requires'] = str_replace(' ', '', $info['requires']); // remove whitespace
 				if(strpos($info['requires'], ',') !== false) {
@@ -2718,6 +2856,7 @@ class Modules extends WireArray {
 			}
 
 			// what does it install?
+			// if $info[installs] isn't already an array, make it one
 			if(!is_array($info['installs'])) {
 				$info['installs'] = str_replace(' ', '', $info['installs']); // remove whitespace
 				if(strpos($info['installs'], ',') !== false) {
@@ -2728,7 +2867,7 @@ class Modules extends WireArray {
 			}
 
 			// misc
-			$info['versionStr'] = $this->formatVersion($info['version']); // versionStr
+			if($options['verbose']) $info['versionStr'] = $this->formatVersion($info['version']); // versionStr
 			$info['name'] = $moduleName; // module name
 
 			// module configurable?
@@ -2784,6 +2923,18 @@ class Modules extends WireArray {
 			// the file property is not stored in the verbose cache, but provided as a verbose key
 			$info['file'] = $this->getModuleFile($moduleName);
 			if($info['file']) $info['core'] = strpos($info['file'], $this->coreModulesDir) !== false; // is it core?
+		} else {
+			// module info may still contain verbose keys with undefined values	
+		}
+		
+		if($options['minify']) {
+			// when minify, any values that match defaults from infoTemplate are removed
+			if(!$options['verbose']) foreach($this->moduleInfoVerboseKeys as $key) unset($info[$key]); 
+			foreach($info as $key => $value) {
+				if(!array_key_exists($key, $infoTemplate)) continue;
+				if($value !== $infoTemplate[$key]) continue;
+				unset($info[$key]); 
+			}
 		}
 		
 		// if($this->debug) $this->message("getModuleInfo($moduleName) " . ($fromCache ? "CACHE" : "NO-CACHE")); 
