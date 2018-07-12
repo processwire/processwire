@@ -326,9 +326,19 @@ var ProcessWireAdminTheme = {
 			},
 			_renderItem: function(ul, item) {
 				if(item.label == item.template) item.template = '';
-				return $("<li>")
-					.append("<a href='" + item.edit_url + "'>" + item.label + " <small>" + item.template + "</small></a></li>")
-					.appendTo(ul);
+				var $label = $("<span></span>").text(item.label).css('margin-right', '3px');
+				if(item.unpublished) $label.css('text-decoration', 'line-through');
+				if(item.hidden) $label.css('opacity', 0.7);
+				if(item.icon.length) {
+					var $icon = $('<i></i>').addClass('fa fa-fw fa-' + item.icon).css('margin-right', '2px');
+					$label.prepend($icon);
+				}
+				var $a = $("<a></a>")
+					.attr('href', item.edit_url)
+					.attr('title', item.tip)
+					.append($label)
+					.append($("<small class='uk-text-muted'></small>").text(item.template));
+				return $("<li></li>").append($a).appendTo(ul);
 			}
 		});
 		
@@ -342,7 +352,7 @@ var ProcessWireAdminTheme = {
 				$status.html("<i class='fa fa-spinner fa-spin'></i>");
 			},
 			source: function(request, response) {
-				var url = $input.parents('form').attr('action') + 'for?get=template_label,title&include=all&admin_search=' + request.term;
+				var url = $input.parents('form').attr('action') + '?q=' + request.term;
 				$.getJSON(url, function(data) {
 					var len = data.matches.length; 
 					if(len < data.total) $status.text(data.matches.length + '/' + data.total); 
@@ -354,7 +364,12 @@ var ProcessWireAdminTheme = {
 							page_id: item.id,
 							template: item.template_label ? item.template_label : '',
 							edit_url: item.editUrl,
-							type: item.type
+							type: item.type,
+							tip: item.tip,
+							unpublished: (typeof item.unpublished != "undefined" ? item.unpublished : false),
+							hidden: (typeof item.hidden != "undefined" ? item.hidden : false),
+							locked: (typeof item.locked != "undefined" ? item.locked : false),
+							icon: (typeof item.icon != "undefined" ? item.icon : '')
 						}
 					}));
 				});

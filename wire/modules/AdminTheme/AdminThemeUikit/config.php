@@ -561,6 +561,16 @@ class AdminThemeUikitConfigHelper extends Wire {
 	 */
 	public function configTests(InputfieldWrapper $inputfields) {
 
+		$form = $inputfields->getForm();
+		if($form) {
+			$form->action .= '&tests=1';
+			$this->wire('session')->addHookBefore('redirect', function(HookEvent $event) {
+				$url = $event->arguments(0);
+				$url .= '&tests=1';
+				$event->arguments(0, $url);
+			});
+		}
+		
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
 	
@@ -705,7 +715,6 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$f->showIf = 'test_select=2';
 		$f->notes = $f->showIf . " ($f->columnWidth%)";
 		$fieldset->add($f);
-
 	}
 	
 }

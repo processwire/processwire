@@ -2651,6 +2651,12 @@ class ProcessField extends Process implements ConfigurableModule {
 				if($property == 'description' || $property == 'all') $search[] = $item->description;
 				if($property == 'notes' || $property == 'all') $search[] = $item->notes;
 			}
+			
+			if($property == 'data') {
+				foreach($item->getArray() as $k => $v) {
+					$search[] = (string) $v;
+				}
+			}
 
 			$search = implode(' ', $search);
 			$pos = stripos($search, $text);

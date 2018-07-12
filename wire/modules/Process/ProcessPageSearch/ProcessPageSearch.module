@@ -12,6 +12,14 @@
  * https://processwire.com
  * 
  * @method string findReady($selector)
+ * @property string $searchFields
+ * @property string $searchFields2
+ * @property string $displayField
+ * @property string $operator Single-word/partial match operator
+ * @property string $operator2 Multi-word operator
+ * @property array $searchTypesOrder
+ * @property array $noSearchTypes
+ * 
  *
  */
 
@@ -89,15 +97,32 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected $lister = null;
-	
+
 	/**
-	 * Mode indicating admin ajax search, set by GET var admin_search=1
+	 * Debug mode?
 	 * 
-	 * This mode typically focuses on just searching the 'title' field. 
-	 * This mode also includes data specific to ajax requests. 
+	 * @var bool
 	 * 
 	 */
-	protected $adminSearchMode = false;
+	protected $debug = true;
+	
+	public function __construct() {
+		parent::__construct();
+		$this->set('searchFields', 'title body');
+		$this->set('searchFields2', 'title'); 
+		$this->set('displayField', 'name'); 
+		$this->set('operator', self::defaultOperator); 
+		$this->set('operator2', '~='); 
+		$this->set('searchTypesOrder', array('fields', 'templates', 'modules', 'pages', 'trash'));
+		$this->set('noSearchTypes', array()); // search types that have been removed
+
+		// make nativeSorts indexed by value
+		$sorts = array();
+		foreach($this->nativeSorts as $sort) {
+			$sorts[$sort] = $sort;
+		}
+		$this->nativeSorts = $sorts;
+	}
 
 	/**
 	 * Initialize module
@@ -108,11 +133,21 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		foreach($this->fields as $field) {
 			if($field->type instanceof FieldtypeFieldsetOpen) continue;
 			if($field->type instanceof FieldtypePassword) continue;
-			$this->fieldOptions[] = $field->name;
+			// @todo add field access control checking
+			$this->fieldOptions[$field->name] = $field->name;
 		}
 
-		sort($this->fieldOptions);
+		ksort($this->fieldOptions);
 		parent::init();
+	}
+	
+	public function set($key, $value) {
+		if($key == 'searchFields' || $key == 'searchFields2') {
+			if(is_array($value)) $value = implode(' ', $value); 
+		} else if($key == 'noSearchTypes' && !is_array($value)) {
+			$value = explode(' ', $value);
+		}
+		return parent::set($key, $value);
 	}
 
 	/**
@@ -123,6 +158,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 */
 	static public function getOperators() {
 		$f = __FILE__; 
+		$anyOrder = __('(in any order)', $f); 
 		return array(
 			'=' => 	__('Equals', $f),
 			'!=' =>	__('Does not equal', $f),
@@ -130,11 +166,11 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			'>=' =>	__('Greater than or equal to', $f),
 			'<' => 	__('Less than', $f),
 			'<=' =>	__('Less than or equal to', $f),
-			'*=' =>	__('Contains phrase or partial word', $f),
-			'%=' =>	__('Contains phrase/word using LIKE', $f),
-			'~=' =>	__('Contains all the words', $f),
-			'^=' =>	__('Starts with', $f),
-			'$=' =>	__('Ends with', $f),
+			'*=' =>	__('Contains phrase or partial word', $f) . '*',
+			'%=' =>	__('Contains phrase/word using LIKE', $f) . '*',
+			'~=' =>	__('Contains all the words', $f) . ' ' . $anyOrder,
+			'^=' =>	__('Starts with', $f) . '*',
+			'$=' =>	__('Ends with', $f) . '*',
 			);
 	}
 
@@ -163,7 +199,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * @return string Must return the selector (optionally modified)
 	 *
 	 */
-	protected function ___findReady($selector) {
+	public function ___findReady($selector) {
 		return $selector;
 	}
 
@@ -180,7 +216,6 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		}
 		
 		$ajax = $this->wire('config')->ajax; 
-
 		if($this->lister && $ajax) {
 			// we will just let Lister do it's thing, since it remembers settings in session
 			return $this->lister->execute(); 
@@ -216,24 +251,55 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function ___executeFor() {
+		
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
+		/** @var User $user */
+		$user = $this->wire('user');
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		
+		if($input->get('admin_search')) return $this->executeLive();
 
 		$this->fullSetup();
-		$selector = '';
+		$selectors = array();
 		$limit = $this->resultLimit;
 		$start = 0;
 		$status = 0;
 		$names = array();
-		$adminSearchStr = '';
-		$languages = $this->wire('languages');
 		$userLanguage = null;
-		$user = $this->wire('user');
 		$superuser = $user->isSuperuser();
 		$checkEditAccess = false;
+		$hasInclude = '';
 		
-		foreach($this->input->get as $name => $value) {
+		// names to skip (must be lowercase)
+		$skipNames = array(
+			'get', 
+			'display', 
+			'format_name', 
+			'admin_search'
+		); 
+	
+		// names to convert (keys must be lowercase)
+		$convertNames = array(
+			'hasparent' => 'has_parent',
+			'checkaccess' => 'check_access',
+		);
+		
+		foreach($input->get as $name => $value) {
+
+			$lowerName = strtolower(trim($name));
 			
-			if($name == 'get' || $name == 'display' || $name == 'format_name') continue; 
-			if($name == 'lang_id') {
+			if(isset($convertNames[$lowerName])) {
+				$name = $convertNames[$lowerName];
+				$lowerName = strtolower($name);
+			}
+			
+			if(in_array($lowerName, $skipNames)) continue;
+			
+			if($lowerName == 'lang_id') {
 				if($languages) {
 					// force results for specific language
 					$language = $languages->get((int) $value);
@@ -245,7 +311,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 				}
 				continue;
 			}
-
+			
 			// operator has no '=', so we'll get the value from the name
 			// so that you can do something like: bedrooms>5 rather than bedrooms>=5
 			if(!strlen($value) && preg_match('/([^<>]+)\s*([<>])\s*([^<>]+)/', $name, $matches)) {
@@ -253,7 +319,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 				$name = $matches[1];
 				$operator = $matches[2];
 				$value = $matches[3]; 
-
+				
 			} else {
 
 				$operator = substr($name, -1) . '=';
@@ -268,49 +334,51 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			// replace '-' with '.' since '.' is not allowed in URL variable names
 			if(strpos($name, '-')) $name = str_replace('-', '.', $name); 
 
-			if(strpos($name, ',')) $name = $this->sanitizer->names($name, ',', array('_', '.')); 
-				else $name = $this->sanitizer->pageName($name); // note: switch to pageName over fieldName to support "." 
+			if(strpos($name, ',')) {
+				$name = $sanitizer->names($name, ',', array('_', '.'));
+			} else {
+				$name = $sanitizer->pageName($name); // note: switch to pageName over fieldName to support "." 
+			}
 
 			if(!$name) continue; 
+			$lowerName = strtolower($name);
 
-			if($name == 'limit') { 
+			if($lowerName == 'limit') { 
 				$limit = (int) $value; 
-				$this->input->whitelist('limit', $value);
+				$input->whitelist('limit', $value);
 				continue; 
 			}
 
-			if($name == 'start') { 
+			if($lowerName == 'start') { 
 				$start = (int) $value;
-				$this->input->whitelist('start', $value); 
+				$input->whitelist('start', $value); 
 				continue; 
 			}
 
 			// if dealing with a user other than superuser, only allow include=hidden
-			if($name == 'include' && $value != 'hidden' && !$superuser) {
-				if($user->hasPermission('page-edit') && $this->input->get('admin_search')) {
-					$value = 'unpublished';
-					$checkEditAccess = true;
-				} else {
-					$value = 'hidden';
+			if($lowerName == 'include') {
+				$name = $lowerName;
+				$value = strtolower($value);
+				if($value != 'hidden' && !$superuser) {
+					if($user->hasPermission('page-edit') && $input->get('admin_search')) {
+						$value = 'unpublished';
+						$checkEditAccess = true;
+					} else {
+						$value = 'hidden';
+					}
 				}
+				$hasInclude = $value; 
 			}
 		
 			// don't allow setting of check_access property, except for superuser
-			if($name == 'check_access' && !$superuser) continue; 
+			if($lowerName == 'check_access' && !$superuser) continue; 
 			
 			// don't allow setting of the 'status' property, except for superuser
-			if($name == 'status') {
+			if($lowerName == 'status') {
 				if(!$superuser) continue; 
 				$status = (int) $value;
 			}
 			
-			// check if adminSearchMode should be enabled (for ajax search)
-			if($name == 'admin_search') {
-				$adminSearchStr = $this->sanitizer->selectorValue($value); 
-				$this->adminSearchMode = true; 
-				continue; 
-			}
-
 			// replace URL-compatible comma separators with selector-compatible pipes
 			if(strpos($name, ',')) $name = str_replace(',', '|', $name); 
 
@@ -327,57 +395,39 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 				if(strpos($val, '|')) {
 					$valuesOR = explode('|', $val);
 					foreach($valuesOR as $k => $v) {
-						$valuesOR[$k] = $this->sanitizer->selectorValue($v);
+						$valuesOR[$k] = $sanitizer->selectorValue($v);
 					}
 					$val = implode('|', $valuesOR);
 				} else {
-					$val = $this->sanitizer->selectorValue($val);
+					$val = $sanitizer->selectorValue($val);
 				}
 				$valuesAND[$key] = $val;
 			}
+			
 			$value = implode(',', $valuesAND); 
-
-			$this->input->whitelist($name . rtrim($operator, '='), trim($value, '"\'')); 	
+			$input->whitelist($name . rtrim($operator, '='), trim($value, '"\'')); 	
+			
 			foreach($valuesAND as $val) {
-				$selector .= "$name$operator$val, ";
+				$selectors[] = "$name$operator$val";
 			}
+			
 			$names[] = $name; 
-		}
-		
-		if(strlen($adminSearchStr)) {
-			// adminSearchMode active, auto populate a search, like title%=value
-			$fields = $this->searchFields2 ? explode(' ', $this->searchFields2) : array('title');
-			$operator = strlen($adminSearchStr) < 4 ? '%=' : '*=';
-			$selector .= implode('|', $fields) . $operator . $adminSearchStr . ", ";
-		}
-
-		if($start) $selector .= "start=$start, ";
-		$selector .= "limit=$limit, ";
-
-		$selector = rtrim($selector, ", "); 
-		$displaySelector = $selector; 
-		
-		if($this->adminSearchMode && !in_array('has_parent', $names)) {
-			// exclude repeaters from matching, when present
-			$admin = $this->wire('pages')->get($this->wire('config')->adminRootPageID);
-			$repeaters = $admin->children("name=repeaters, include=all"); 
-			if(count($repeaters)) $selector .= ", has_parent!=" . $repeaters->first()->id; 
-		}
-
-		if(!$status && !preg_match('/\binclude=/', $selector)) {
-			if($superuser) {
-				// superuser only
-				$selector .= ", include=all, status<" . Page::statusTrash;
-			} else if($this->adminSearchMode && $user->hasPermission('page-edit')) {
-				// admin search mode and user has some kind of page-edit permission
-				$selector .= ", include=unpublished, status<" . Page::statusTrash;
-				$checkEditAccess = true;
-			} 
-		}
+			
+		} // foreach input
 	
-		$selector = $this->findReady($selector); 
+		if($start) $selectors[] = "start=$start";
+		$selectors[] = "limit=$limit";
+		$displaySelector = implode(',', $selectors);
+
+		if(!$status && !$hasInclude && $superuser) {
+			// superuser only
+			$selectors[] = "include=all, status<" . Page::statusTrash;
+		}
+
+		$selector = implode(', ', $selectors);
+		$selector = $this->findReady($selector);
 		$items = $this->pages->find($selector);
-		
+
 		if(!$superuser && $checkEditAccess) {
 			// filter out non-editable pages, since some may be included via include=unpublished
 			foreach($items as $item) {
@@ -389,6 +439,51 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		if($userLanguage) $user->language = $userLanguage;
 		
 		return $out; 
+	}
+
+	/**
+	 * Execute live search
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function executeLive() {
+		require_once(dirname(__FILE__) . '/ProcessPageSearchLive.php'); 
+		$liveSearch = new ProcessPageSearchLive($this);
+		$liveSearch->setSearchTypesOrder($this->searchTypesOrder); 
+		$liveSearch->setNoSearchTypes($this->noSearchTypes);
+		$liveSearch->setDefaultOperators($this->operator, $this->operator2); 
+		if($this->wire('config')->ajax) {
+			header('Content-type: application/json'); 
+			return $liveSearch->execute();
+		} else {
+			return $liveSearch->executeViewAll();
+		}
+	}
+
+	/**
+	 * Get ID of the repeaters root page ID or 0 if not installed
+	 * 
+	 * @return int
+	 * 
+	 */
+	public function getRepeatersPageID() {
+		/** @var Session $session */
+		$session = $this->wire('session');
+		$repeaterID = $session->getFor($this, 'repeaterID');
+		if(is_int($repeaterID)) return $repeaterID; 
+		if($this->wire('modules')->isInstalled('FieldtypeRepeater')) {
+			$repeaterPage = $this->wire('pages')->get(
+				"parent_id=" . $this->wire('config')->adminRootPageID . ", " . 
+				"name=repeaters, " . 
+				"include=all"
+			);
+			$repeaterID = $repeaterPage->id; 
+			$session->setFor($this, 'repeaterID', (int) $repeaterID);
+		} else {
+			$repeaterID = 0;
+		}
+		return $repeaterID;
 	}
 
 	/**
@@ -463,7 +558,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * @return string
 	 *
 	 */
-	protected function render(PageArray $matches, $displaySelector) {
+	protected function render(PageArray $matches, $displaySelector = '') {
 
 		$out = '';
 		
@@ -525,13 +620,20 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 */
 	protected function buildSelector() {
 		$selector = ''; // for regular ProcessPageSearch
-
+		$input = $this->wire('input');
+		
 		// search query text
-		$q = $this->input->whitelist('q');
+		$q = $input->whitelist('q');
 		if(strlen($q)) { 
-			$searchFields = $this->searchFields;
-			if(is_string($searchFields)) $searchFields = explode(' ', $searchFields);
-
+			// GET vars "property" or "field" can used interchangably
+			if($input->whitelist('property')) {
+				$searchFields = array($input->whitelist('property'));
+			} else if($input->whitelist('field')) {
+				$searchFields = explode(' ', $input->whitelist('field'));
+			} else {	
+				$searchFields = $input->get('live') ? $this->searchFields2 : $this->searchFields;
+				if(is_string($searchFields)) $searchFields = explode(' ', $searchFields);
+			}
 			foreach($searchFields as $fieldName) {
 				$fieldName = $this->sanitizer->fieldName($fieldName);
 				$selector .= "$fieldName|";
@@ -540,13 +642,13 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		} 
 
 		// determine if results are sorted by something other than relevance
-		$sort = $this->input->whitelist('sort');
+		$sort = $input->whitelist('sort');
 		if($sort && $sort != 'relevance') {
-			$reverse = $this->input->whitelist('reverse') ? "-" : '';
+			$reverse = $input->whitelist('reverse') ? "-" : '';
 			$selector .= ", sort=$reverse$sort";
 
 			// if a specific template isn't requested, then locate the templates that use this field and confine the search to them
-			if(!$this->input->whitelist('template') && !in_array($sort, $this->nativeSorts)) {
+			if(!$input->whitelist('template') && !isset($this->nativeSorts[$sort])) {
 				$templates = array();
 				foreach($this->templates as $template) {
 					if($template->fieldgroup->has($sort)) $templates[] = $template->name;
@@ -556,8 +658,17 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		}
 
 		// determine if search limited to a specific template
-		if($this->input->whitelist('template')) {
-			$selector .= ", template=" . $this->input->whitelist('template');
+		if($input->whitelist('template')) {
+			$selector .= ", template=" . $input->whitelist('template');
+		}
+		
+		$trash = $input->whitelist('trash');
+		if($trash !== null && $this->wire('user')->isSuperuser()) {
+			if($trash === 0) {
+				$selector .= ", status!=trash";
+			} else if($trash === 1) {
+				$selector .= ", status=trash, include=all";
+			}
 		}
 
 		if(!$selector) {
@@ -578,7 +689,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$adminRootPage = $this->wire('pages')->get($this->wire('config')->adminRootPageID); 
 
 		// exclude admin repeater pages unless the admin template is chosen
-		if(!$this->input->whitelist('template')) {
+		if(!$input->whitelist('template')) {
 			// but only for superuser, as we're excluding all admin pages for non-superusers
 			if($this->user->isSuperuser()) {
 				$repeaters = $adminRootPage->child('name=repeaters, include=all');
@@ -607,29 +718,41 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function processInput() {
+	
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
 
-		// search fields
-		if($this->input->get->field) {
-			$field = str_replace(',', ' ', $this->input->get->field);
+		// search query
+		$q = $input->get('q');
+		if($q !== null) $this->processInputQuery($q);
+
+		// search fields (can optionally contain multiple CSV field names)
+		$field = $input->get('field');
+		if($field) {
+			$field = str_replace(',', ' ', $field);
 			$fieldArray = explode(' ', $field);
 			$field = '';
 			foreach($fieldArray as $f) {
-				$f = $this->sanitizer->fieldName($f);
-				if(!in_array($f, $this->fieldOptions) && !in_array($f, $this->nativeSorts)) continue;
+				$f = $sanitizer->fieldName($f);
+				if(!isset($this->fieldOptions[$f]) && !isset($this->nativeSorts[$f])) continue;
 				$field .= $f . " ";
 			}
 			$field = rtrim($field, " ");
 			if($field) {
 				$this->searchFields = $field;
-				$this->input->whitelist('field', $field);
+				$input->whitelist('field', $field);
 			}
+		} else if($input->get('live')) {
+			$input->whitelist('field', $this->searchFields2);
 		} else {
-			$this->input->whitelist('field', $this->searchFields);
+			$input->whitelist('field', $this->searchFields);
 		}
 
 		// operator, search type
 		if(empty($this->operator)) $this->operator = self::defaultOperator; 
-		$operator = $this->input->get->operator; 
+		$operator = $input->get('operator'); 
 		if(!is_null($operator)) {
 			if(array_key_exists($operator, $this->operators)) {
 				$this->operator = substr($this->input->get->operator, 0, 3);
@@ -637,73 +760,212 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 				$operators = array_keys($this->operators); 
 				if(isset($operators[$operator])) $this->operator = $operators[$operator]; 
 			}
-			$this->input->whitelist('operator', $this->operator);
+			$input->whitelist('operator', $this->operator);
 		}
 
-		// search query
-		$q = $this->sanitizer->text(substr($this->input->get->q, 0, 128));
-		$this->input->whitelist('q', $q);
-
 		// sort
-		$this->input->whitelist('sort', 'relevance');
-		if($this->input->get->sort) {
-			$sort = $this->sanitizer->fieldName($this->input->get->sort);
-			if($sort && (in_array($sort, $this->nativeSorts) || in_array($sort, $this->fieldOptions))) {
-				$this->input->whitelist('sort', $sort);
+		$input->whitelist('sort', 'relevance');
+		$sort = $input->get('sort');
+		if($sort) {
+			$sort = $sanitizer->fieldName($sort);
+			if($sort && (isset($this->nativeSorts[$sort]) || isset($this->fieldOptions[$sort]))) {
+				$input->whitelist('sort', $sort);
 			}
-			if($this->input->get->reverse) {
-				$this->input->whitelist('reverse', 1);
+			if($input->get('reverse')) {
+				$input->whitelist('reverse', 1);
 			}
 		}
 
 		// template
-		if($this->input->get->template) {
-			$template = $this->sanitizer->name($this->input->get->template);
-			if(!$this->templates->get($template)) $template = '';
-			if($template) $this->input->whitelist('template', $template);
+		$template = $input->get('template');
+		if($template) {
+			$template = $sanitizer->templateName($template);
+			$template = $this->wire('templates')->get($template);
+			if($template && $this->wire('user')->hasPermission('page-view', $template)) {
+				$input->whitelist('template', $template->name);
+			}
+		}
+	
+		// trash (liveSearch)
+		$trash = $input->get('trash');
+		if($trash !== null && $this->wire('user')->isSuperuser()) {
+			$trash = (int) $trash;
+			if($trash === 0 || $trash === 1) {
+				$input->whitelist('trash', $trash);
+			}
+		}
+	
+		// custom property (like 'field', except can contain only one name)
+		$property = $input->get('property');
+		if($property !== null) {
+			$property = $sanitizer->fieldName($property);
+			if($this->isSelectableFieldName($property)) {
+				$input->whitelist('property', $property);
+			}
+		}
+	}
+
+	/**
+	 * Process input for the $q query variable
+	 * 
+	 * Since $q can also have type, field/property, operator and search text embedded within it,
+	 * this function separates all of those out and populates GET variables for them, when present.
+	 * 
+	 * @param $q
+	 * 
+	 */
+	protected function processInputQuery($q) {
+		
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+
+		$q = trim($sanitizer->text($q));
+		$redirectUrl = '';
+		$operator = '';
+		$operators = $this->operators;
+		$type = '';
+		
+		$operators['=='] = 'Equals';
+		$operators[':'] = 'Auto'; // alternative to '='
+
+		// handle cases where search type (template), property, and operator are bundled in with the $q
+		if(!$this->operator) $this->operator = '%=';
+
+		// deetermine which operator (if any) is present in $q
+		foreach($operators as $operator => $description) {
+			if(strpos($q, $operator) === false) continue;
+			if(!preg_match('/^([^=%$*<>~^:]+)' . $operator . '([^=%$*<>~^:]+)$/', $q, $matches)) continue;
+			if($operator === '=') $operator = '?'; // operator to be determined on factors search text
+			if($operator === '==') $operator = '=';
+			$type = $sanitizer->name($matches[1]);
+			$q = trim($matches[2]);
+			break;
 		}
 
+		if($operator === '?') {
+			// operator was '=': use 'contains words' operator if there is more than one word in $q
+			$operator = strpos($q, ' ') ? '~=' : $this->operator;
+		} else if(empty($operator)) {
+			// operator was not present, only query text was, so use default operator
+			$operator = $this->operator;
+		}
+		$input->get->operator = $operator;
+
+		if(strpos($type, '.')) {
+			// type with property/field
+			list($type, $field) = explode('.', $type, 2);
+			$field = $this->wire('sanitizer')->fieldName(trim($field));
+			$input->get->field = $field;
+		} else {
+			$field = '';
+		}
+
+		if($type == 'pages') {
+			// okay
+		} else if($type == 'trash') {
+			$input->get->trash = 1;
+		} else if($type) {
+			$template = $type ? $this->wire('templates')->get($type) : '';
+			if($template) {
+				// defined template
+				$input->get->template = $template->name;
+			} else {
+				// some other non-page type
+				$redirectUrl = $this->wire('page')->url . 'live/' .
+					'?q=' . urlencode($q) .
+					'&type=' . urlencode($type) .
+					'&property=' . urlencode($field) .
+					'&operator=' . urlencode($operator);
+			}
+		}
+		
+		if($redirectUrl) $this->wire('session')->redirect($redirectUrl);
+		
+		$input->whitelist('q', $q);
 	}
 
 
 	/**
 	 * Is the given field name selectable?
 	 * 
-	 * @param string $name
-	 * @param int $level
+	 * @param string $name Field "name" or "name1|name2|name3"
+	 * @param int $level Greater than 0 when recursive
 	 * @return bool
 	 *
 	 */
 	protected function isSelectableFieldName($name, $level = 0) {
 		
 		$selectable = array(
-			'parent', 'template', 'template_label', 'has_parent', 'hasParent', 
-			'children', 'numChildren', 'num_children', 'count', 'path', 
+			'parent', 
+			'template', 
+			'template_label', 
+			'has_parent', 
+			'hasParent', 
+			'children', 
+			'numChildren', 
+			'num_children', 
+			'count', 
+			'path', 
+		);
+		
+		$notSelectable = array(
+			// must be lowercase
+			'pass',
+			'config',
+			'it',
+			'display',
+		);
+		
+		$noSubnames = array(
+			// must be lowercase
+			'include',
+			'check_access',
+			'checkaccess',
 		);
 
 		$is = false;
 
-		if(!$level && strpos($name, '|')) {
+		if(!$level && strpos($name, '|') !== false) {
 			$names = explode('|', $name); 
 			$cnt = 0;
-			foreach($names as $n) if(!$this->isSelectableFieldName($n, $level+1)) $cnt++;
+			foreach($names as $n) {
+				if(!$this->isSelectableFieldName($n, $level + 1)) $cnt++;
+			}
 			return $cnt == 0; 
 
 		} else if(strpos($name, '.')) {
-			list($name, $subname) = explode('.', $name); 
+			list($name, $subname) = explode('.', $name, 2); 
+			if(strpos($subname, '.') !== false) return false;
+			if(in_array(strtolower($subname), $noSubnames)) return false;
 			if(!$this->isSelectableFieldName($subname, $level)) return false;	
 		}
 		
-		if($name == 'path' && (!$this->wire('modules')->isInstalled('PagePaths') || $this->wire('languages'))) {
+		$lowerName = strtolower($name);
+		
+		if($lowerName == 'path' && (!$this->wire('modules')->isInstalled('PagePaths') || $this->wire('languages'))) {
 			$name = 'name';
+			$lowerName = $name;
 		}
 
-		if(in_array($name, $this->nativeSorts)) $is = true; 
- 			else if(in_array($name, $selectable)) $is = true; 
-			else if(!$level && in_array($name, array('include', 'status', 'check_access'))) $is = true; 
-			else if(in_array($name, $this->fieldOptions)) $is = true; 
+		if(isset($this->nativeSorts[$name])) {
+			// native sort properties
+			$is = true;
+		} else if(in_array($name, $selectable)) {
+			// always selectable properties
+			$is = true;
+		} else if(!$level && in_array($name, array('include', 'status', 'check_access'))) {
+			// selectable, but only if not OR’d with other fields (level=0), and must be access checked outside this method
+			$is = true;
+		} else if(isset($this->fieldOptions[$name])) {
+			// custom fields
+			$is = true;
+		}
 
-		if($name == 'pass' || $name == 'config' || $name == 'it' || $name == 'display') $is = false;
+		if(in_array($lowerName, $notSelectable)) {
+			$is = false;
+		}
 		
 		return $is; 
 	}
@@ -839,7 +1101,6 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$form->add($field); 
 
 		return $form->render();
-
 	}
 
 
@@ -898,62 +1159,6 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	}
 
 	/**
-	 * Find other types of ProcessWire assets that may be useful in search
-	 * 
-	 * Applicable to adminSearchMode only. 
-	 * 
-	 * @param string $q Text to find
-	 * @return array Array of matches
-	 * 
-	 */
-	protected function findOtherTypes($q) {
-		
-		$language = $this->wire('user')->language;
-		$language = $language && $language->id && !$language->isDefault() ? $language->id : '';
-		$results = array();
-		
-		foreach($this->wire('fields') as $field) {
-			$name = $field->name;
-			$label = $field->{"label$language"};
-			if(stripos($name . $label, $q) !== false) $results[] = array(
-				'id' => $field->id, 
-				'template_label' => str_replace('Fieldtype', '', $field->type), 
-				'title' => $field->name, 
-				'editUrl' => $this->wire('config')->urls->admin . "setup/field/edit?id=$field->id",
-				'type' => $this->_x('Fields', 'match-type') 
-				); 
-		}
-		
-		foreach($this->wire('templates') as $template) {
-			$name = $template->name;
-			$label = $template->{"label$language"};
-			if(stripos($name . $label, $q) !== false) $results[] = array(
-				'id' => $template->id,
-				'template_label' => $template->name,
-				'title' => $label ? $label : $template->name,
-				'editUrl' => $this->wire('config')->urls->admin . "setup/template/edit?id=$template->id",
-				'type' => $this->_x('Templates', 'match-type')
-			);
-		}
-		
-		foreach($this->wire('modules') as $module) {
-			//if($module instanceof ModulePlaceholder) continue; 
-			$name = $module->className();
-			$info = $this->wire('modules')->getModuleInfo($module);
-			$title = $module instanceof ModulePlaceholder ? $name : $info['title'];
-			if(stripos($name . $title, $q) !== false) $results[] = array(
-				'id' => $module->id,
-				'template_label' => $name, 
-				'title' => $title, 
-				'editUrl' => $this->wire('config')->urls->admin . "module/edit?name=$name",
-				'type' => $this->_x('Modules', 'match-type')
-				);
-		}
-		
-		return $results; 
-	}
-
-	/**
 	 * Render the provided matches as a JSON string for AJAX use
 	 * 
 	 * @param PageArray $matches
@@ -979,14 +1184,6 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			if($language && !$language->isDefault()) $templateLabel = "label$language";
 		}
 		
-		if($this->adminSearchMode && $this->user->isSuperuser()) {
-			// enable search to include users when adminSearchMode and superuser
-			$a['matches'] = $this->findOtherTypes($this->input->get('admin_search')); 	
-			$users = $this->wire('users')->find("name%=" . 
-				$this->wire('sanitizer')->pageName($this->input->get('admin_search'), Sanitizer::toAscii)); 
-			if(count($users)) $matches->prepend($users);
-		}
-
 		foreach($matches as $page) {
 			/** @var Page $page */
 
@@ -1106,9 +1303,11 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		} else {
 			$placeholder = '';
 		}
-
+		
+		$action = $adminURL . 'page/search/live/';
+		
 		$out = 	
-			"\n<form id='ProcessPageSearchForm' data-action='{$adminURL}page/search/' action='{$adminURL}page/search/' method='get'>" .
+			"\n<form id='ProcessPageSearchForm' data-action='$action' action='$action' method='get'>" .
 			"\n\t<label for='ProcessPageSearchQuery'><i class='fa fa-search'></i></label>" . 
 			"\n\t<input type='text' id='ProcessPageSearchQuery' name='q' value='$q' $placeholder />" .
 			"\n\t<input type='submit' id='ProcessPageSearchSubmit' name='search' value='Search' />" . //" . $this->_x('Search', 'input') . "' />" . // Text that appears as the placeholder text in the top search submit input
@@ -1124,82 +1323,132 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 		$inputfields = $this->wire(new InputfieldWrapper());
 		$modules = $this->wire('modules');
-
-		$inputfield = $modules->get("InputfieldText");
-		$inputfield->attr('name', 'searchFields');
-		if(!isset($data['searchFields'])) $data['searchFields'] = 'title body';
-		if(is_array($data['searchFields'])) $data['searchFields'] = implode(' ', $data['searchFields']);
-		$inputfield->attr('value', $data['searchFields']);
-		$inputfield->label = $this->_("Default fields to search");
-		$description = $this->_("Enter the names for one or more text-based fields that you want to search, separating each by a space."); // Default fields description
-		$inputfield->description = $description; 
-		$inputfields->append($inputfield);
+		$textFields = array();
+		$allSearchTypes = array('pages', 'trash', 'modules');
+		$textOperators = array('%=', '~=', '*=', '^=', '=');
+		$allOperators = self::getOperators();
 		
-		$inputfield = $modules->get("InputfieldText");
-		$inputfield->attr('name', 'searchFields2');
-		if(!isset($data['searchFields2'])) $data['searchFields2'] = 'title';
-		if(is_array($data['searchFields2'])) $data['searchFields2'] = implode(' ', $data['searchFields2']);
-		$inputfield->attr('value', $data['searchFields2']);
-		$inputfield->label = $this->_("Field(s) to search in admin search (ajax) mode");
-		$inputfield->description = $description;
-		$inputfield->notes = $this->_("We recommend limiting this to 1 or 2 fields at the most since results populate a live autocomplete field. Typically you would just search the title."); // Fields to search description
-		$inputfields->append($inputfield);
-
-		$inputfield = $modules->get("InputfieldText");
-		$inputfield->attr('name', 'displayField');
-		$inputfield->attr('value', isset($data['displayField']) ? $data['displayField'] : 'name');
-		$inputfield->label = $this->_("Default field name(s) to display in search results");
-		$inputfield->description = $this->_("If specifying more than one field, separate each with a space.");
-		$inputfields->append($inputfield);
-
-		$inputfield = $modules->get("InputfieldSelect");
-		$inputfield->attr('name', 'operator');
-		$inputfield->attr('value', isset($data['operator']) ? $data['operator'] : self::defaultOperator);
-		$inputfield->label = $this->_("Default search operator");
-		foreach(self::getOperators() as $operator => $label) {
-			$inputfield->addOption($operator, "$operator $label"); 
+		if(!isset($data['searchTypesOrder'])) $data['searchTypesOrder'] = array();
+		if(!isset($data['noSearchTypes'])) $data['noSearchTypes'] = array();
+		$searchTypesOrder = &$data['searchTypesOrder'];
+		$noSearchTypes = &$data['noSearchTypes'];
+	
+		// find all text fields
+		foreach($this->wire('fields') as $field) {
+			if(!$field->type instanceof FieldtypeText) continue;
+			$textFields[$field->name] = $field;
 		}
-		$inputfields->append($inputfield);
+	
+		// ensure that base/built-in search types are present 
+		foreach($allSearchTypes as $key) {
+			if(!in_array($key, $searchTypesOrder)) $searchTypesOrder[] = $key;
+		}
+	
+		// find searchable modules
+		foreach($this->wire('modules') as $module) {
+			$info = $this->wire('modules')->getModuleInfoVerbose($module);
+			if(empty($info['searchable'])) continue;
+			$name = $info['searchable'];
+			if(is_bool($name) || ctype_digit($name)) $name = $info['name'];
+			$allSearchTypes[$name] = $name;
+			if(!in_array($name, $searchTypesOrder)) $searchTypesOrder[] = $name;
+		}
+		
+		$fieldset = $modules->get('InputfieldFieldset'); 
+		$fieldset->label = $this->_('Admin live search'); 
+		$fieldset->icon = 'search';
+		$inputfields->add($fieldset);
+
+		$f = $modules->get('InputfieldAsmSelect');
+		$f->attr('name', 'searchTypesOrder');
+		$f->label = $this->_('Search order');
+		$f->description = 
+			$this->_('These are the types of searches that will be performed during an admin live search.') . ' ' . 
+			$this->_('Drag them to the order you want the search results to be listed in.');
+		foreach($allSearchTypes as $name) {
+			$label = $name;
+			if(in_array($name, $noSearchTypes)) $label .= ' ' . $this->_('(excluded)');
+			$f->addOption($name, $label);
+		}
+		$f->attr('value', $searchTypesOrder); 
+		$f->setAsmSelectOption('deletable', false);
+		$f->setAsmSelectOption('addable', false); 
+		$fieldset->add($f);
+		
+		$f = $modules->get('InputfieldAsmSelect');
+		$f->attr('name', 'noSearchTypes');
+		$f->label = $this->_('Exclude search types');
+		$f->description =
+			$this->_('Select any search types that you want to exclude from live search. These might be types you don’t often need to search.') . ' ' .
+			$this->_('The more types excluded, the faster the live search will perform.') . ' ' . 
+			$this->_('Any selected types can still be searched if asked for specifically in the search.') . ' ' .
+			$this->_('For example, if you excluded the “trash” type, it could still be searched if you prefixed your search with “trash=”, like “trash=hello”.');
+		foreach($allSearchTypes as $name) {
+			$f->addOption($name);
+		}
+		$f->attr('value', $noSearchTypes);
+		$fieldset->add($f);
+		
+		$f = $modules->get('InputfieldAsmSelect');
+		$f->attr('name', 'searchFields2');
+		$f->label = $this->_('Page fields to search');
+		$f->description = 
+			$this->_('This applies to search results from “pages” and “trash” only.') . ' ' . 
+			$this->_("We recommend limiting this to 1 or 2 fields at the most to ensure the live search is fast. Typically you would just search the “title” field."); // Fields to search description
+		foreach($textFields as $field) $f->addOption($field->name); 
+		$value = isset($data['searchFields2']) ? $data['searchFields2'] : array('title');
+		$value = !is_array($value) ? explode(' ', $value) : $value;
+		$f->value = $value;
+		$fieldset->add($f);
+		
+		$f = $modules->get('InputfieldAsmSelect');
+		$f->attr('name', 'searchFields');
+		$f->label = $this->_('Page fields to search if user hits “enter” in the search box');
+		$f->description = 
+			$this->_('Typically this would be the same as above, but you might also want to add additional field(s).') . ' ' . 
+			$this->_('For instance, rather than just searching the “title” field, you might want to also search a “body” field as well.'); 
+		foreach($textFields as $field) $f->addOption($field->name);
+		$value = isset($data['searchFields']) ? $data['searchFields'] : array('title', 'body');
+		$value = !is_array($value) ? explode(' ', $value) : $value;
+		$f->value = $value;
+		$fieldset->append($f);
+
+		$f = $modules->get("InputfieldSelect");
+		$f->attr('name', 'operator');
+		$f->attr('value', isset($data['operator']) ? $data['operator'] : self::defaultOperator);
+		$f->label = $this->_('Default search operator for single and partial word searches');
+		$f->columnWidth = 50;
+		foreach($textOperators as $operator) {
+			$label = $allOperators[$operator];
+			$f->addOption($operator, "$operator $label");
+		}
+		$partialLabel = '*' . $this->_('Indicates support of partial word matches'); 
+		$f->notes = $partialLabel;
+		$fieldset->append($f);
+		
+		$f = $modules->get("InputfieldSelect");
+		$f->attr('name', 'operator2');
+		$f->attr('value', isset($data['operator2']) ? $data['operator2'] : '~=');
+		$f->label = $this->_('Default search operator for multi-word (phrase) searches');
+		$f->columnWidth = 50;
+		foreach($textOperators as $operator) {
+			$label = $allOperators[$operator];
+			$f->addOption($operator, "$operator $label");
+		}
+		$f->notes = $partialLabel;
+		$fieldset->append($f);
+		
+		// displayField: no longer used, except if user lacks page-lister permission
+		$f = $modules->get("InputfieldHidden");
+		$f->attr('name', 'displayField');
+		$f->attr('value', isset($data['displayField']) ? $data['displayField'] : 'name');
+		$f->label = $this->_("Default field name(s) to display in search results");
+		$f->description = $this->_("If specifying more than one field, separate each with a space.");
+		$inputfields->append($f);
 
 		return $inputfields;
 	}
 
-	/*
-	 * No longer in use, but here for reference:
-	 * 
-	protected function renderShortcuts() {
 
-		$out = '';
-		$links = array(
-			'Quick Links',
-			"All by creation date" => '?q=&submit=Search&display=title+path+created&sort=created&reverse=1' ,
-			"All by latest edit date" => '?q=&submit=Search&display=title+path+created&sort=modified&reverse=1',
-			"Users by creation date" => '?q=&template=user&submit=Search&operator=~%3D&display=name+email+created&sort=created&reverse=1',
-			'New pages by template',
-			);
-
-		foreach($this->templates as $template) {
-			// Quick links only for content with more than one page
-			// if($template->getNumPages() < 2) continue;
-
-			// Users get own quick link earlier, others are rather irrelevant
-			if($template->flags & Template::flagSystem) continue; 
-
-			$links[$template->name] = "?q=&template={$template->name}&submit=Search&operator=~%3D&display=title+path+created&sort=created&reverse=1";
-		}
-
-		foreach($links as $label => $value) {
-			if(is_int($label)) {
-				$out .= "<h4>$value</h4>";
-			} else {
-				$value .= "&show_options=1";
-				$value = htmlspecialchars($value); 
-				$out .= "<a href='$value'>$label</a>";
-			}
-		}
-
-		return $out;
-	}
-	*/
 
 }

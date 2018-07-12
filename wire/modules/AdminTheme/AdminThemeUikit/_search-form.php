@@ -5,7 +5,7 @@ if(!defined("PROCESSWIRE")) die();
 /** @var Paths $urls */
 /** @var AdminThemeUikit $adminTheme */
 
-$searchURL = $urls->admin . 'page/search/';
+$searchURL = $urls->admin . 'page/search/live/';
 
 if($adminTheme->isEditor): ?>
 <form class='pw-search-form' data-action='<?php echo $searchURL; ?>' action='<?php echo $searchURL; ?>' method='get'>
