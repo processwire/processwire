@@ -2962,6 +2962,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * @param array|bool $options Specify boolean true to force URL to include scheme and hostname, or use $options array:
 	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
+	 *  - `language` (Language|bool): Optionally specify Language to start editor in, or boolean true to force current user language.
 	 * @return string URL for editing this page
 	 * 
 	 */
@@ -2978,9 +2979,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$url = ($https ? 'https://' : 'http://') . $config->httpHost . $url;
 			}
 		}
-		if($this->wire('languages') && $this->wire('page')->template->id != $adminTemplate->id) {
+		if($this->wire('languages')) { 
 			$language = $this->wire('user')->language;
-			if($language) $url .= "&language=$language->id";
+			if(empty($options['language'])) {
+				if($this->wire('page')->template->id == $adminTemplate->id) $language = null;
+			} else if($options['language'] instanceof Page) {
+				$language = $options['language'];
+			} else if($options['language'] !== true) {
+				$language = $this->wire('languages')->get($options['language']);
+			}
+			if($language && $language->id) $url .= "&language=$language->id";
 		}
 		$append = $this->wire('session')->getFor($this, 'appendEditUrl'); 
 		if($append) $url .= $append;
