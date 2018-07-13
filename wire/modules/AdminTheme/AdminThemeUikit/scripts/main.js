@@ -313,6 +313,8 @@ var ProcessWireAdminTheme = {
 					.attr('title', item.tip)
 					.append($label)
 					.append($("<small class='uk-text-muted'></small>").text(item.template));
+
+				if(item.edit_url == '#' || !item.edit_url.length) $a.removeAttr('href');
 				
 				return $("<li></li>").append($a).appendTo(ul);
 			}
@@ -378,6 +380,7 @@ var ProcessWireAdminTheme = {
 					$(this).val('');
 					if(typeof event.key !== 'undefined') {
 						event.preventDefault();
+						if(ui.item.edit_url === '#' || ui.item.edit_url.length < 1) return false;
 						if(typeof parent.isPresent == "undefined") {
 							window.location = ui.item.edit_url;
 						} else {

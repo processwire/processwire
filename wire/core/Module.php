@@ -534,6 +534,7 @@ interface SearchableModule {
 	 *   'title' => 'Title of these items',
 	 *   'total' => 999, // total number of items found, or omit if pagination not supported or active
 	 *   'url' => '', // optional URL to view all items, or omit for a PW-generated one
+	 *   'properties' => array(), // optional list of supported search properties, only looked for if $options['info'] === true;
 	 *   'items' => array(
 	 *     [0] => array(
 	 *       'id' => 123, // Unique ID of item (optional)
@@ -549,25 +550,35 @@ interface SearchableModule {
 	 *     [1] => array(
 	 *       ...
 	 *     ),
-	 *   )
+	 *   ),
 	 * );
-	 * 
-	 * Please note: When ProcessWire calls this method, if the module is not already loaded (autoload), 
+	 *
+	 * PLEASE NOTE:  
+	 * When ProcessWire calls this method, if the module is not already loaded (autoload), 
 	 * it instantiates the module but DOES NOT call the init() or ready() methods. That’s because the 
 	 * search method is generally self contained. If you need either of those methods to be called,
-	 * and your module is not autoload, you should call the method(s) from your search() method. 
-	 *
+	 * and your module is not autoload, you should call the method(s) from your search() method.
+	 * 
+	 * About the optional “properties” index:
+	 * If ProcessWire calls your search() method with $options['info'] == true; then it is likely wanting to see
+	 * what properties are available for search. For instance, properties for a Module search might be: 
+	 * [ 'name', 'title', 'summary' ]. Implementation of the properties index is optional, and for PW’s informational
+	 * purposes only. 
+	 * 
 	 * @param string $text Text to search for
 	 * @param array $options Options array provided to search() calls: 
-	 *  - `edit` (bool): True if any 'url' returned should be to edit items rather than view them
+	 *  - `edit` (bool): True if any 'url' returned should be to edit rather than view items, where access allows. (default=true)
 	 *  - `multilang` (bool): If true, search all languages rather than just current (default=true).
 	 *  - `start` (int): Start index (0-based), if pagination active (default=0).
 	 *  - `limit` (int): Limit to this many items, or 0 for no limit. (default=0).
 	 *  - `type` (string): If search should only be of a specific type, i.e. "pages", "modules", etc. then it is 
 	 *     specified here. This corresponds with the getModuleInfo()['searchable'] name or item 'group' property. 
+	 *     Note that ProcessWire won’t call your search() method if the type cannot match this search. 
 	 *  - `operator` (string): Selector operator type requested, if more than one is supported (default is %=).
 	 *  - `property` (string): If search should limit to a particular property/fieldj, it is named here. 
 	 *  - `verbose` (bool): True if output can optionally be more verbose, false if not. (default=false)
+	 *  - `debug` (bool): True if DEBUG option was specified in query. (default=false)
+	 *  - `help` (bool): True if we are just querying for help/info and are not using the search results. (default=false)
 	 * @return array
 	 *
 	 */

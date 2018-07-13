@@ -620,7 +620,8 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	public function search($text, array $options = array()) {
 
 		$page = $this->getProcessPage();
-		$this->pages = $this->wire($page->name); 
+		$this->pages = $this->wire($page->name);
+		$templates = $this->pages->getTemplates();
 		
 		/** @var Languages $languages */
 		$page = $this->getProcessPage();
@@ -629,6 +630,18 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			'title' => $page->id ? $page->title : $this->className(),
 			'items' => array(),
 		);
+	
+		if(!empty($options['help'])) {
+			$result['properties'] = array('name');
+			foreach($templates as $template) {
+				foreach($template->fieldgroup as $field) {
+					if($field->type instanceof FieldtypePassword) continue;
+					if($field->type instanceof FieldtypeFieldsetOpen) continue;
+					$result['properties'][] = $field->name;
+				}
+			}
+			return $result;
+		}
 		
 		$text = $this->wire('sanitizer')->selectorValue($text);
 		$property = empty($options['property']) ? 'name' : $options['property'];

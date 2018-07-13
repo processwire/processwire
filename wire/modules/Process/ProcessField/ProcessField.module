@@ -2625,7 +2625,20 @@ class ProcessField extends Process implements ConfigurableModule {
 		$result = array(
 			'title' => $page->id ? $page->title : $this->className(),
 			'items' => array(),
+			'total' => 0, 
+			'properties' => array(
+				'name',
+				'type',
+				'label',
+				'description',
+				'notes',
+				'settings',
+				'tags',
+				'icon',
+			)
 		);
+		
+		if(!empty($options['help'])) return $result;
 
 		$looseItems = array();
 		$exactItems = array();
@@ -2652,10 +2665,13 @@ class ProcessField extends Process implements ConfigurableModule {
 				if($property == 'notes' || $property == 'all') $search[] = $item->notes;
 			}
 			
-			if($property == 'data') {
+			if($property == 'settings' || $property == 'data') {
 				foreach($item->getArray() as $k => $v) {
 					$search[] = (string) $v;
 				}
+			} else if(!in_array($property, $result['properties'])) {
+				$val = $item->get($property);
+				if($val !== null) $search[] = $val;
 			}
 
 			$search = implode(' ', $search);
@@ -2663,6 +2679,9 @@ class ProcessField extends Process implements ConfigurableModule {
 			if($pos === false) continue;
 			$exact = stripos($search, " $text");
 
+			$result['total']++;
+			if(!empty($options['limit']) && $cnt >= $options['limit']) break;
+			
 			$item = array(
 				'id' => $item->id,
 				'name' => $item->name,
@@ -2680,11 +2699,10 @@ class ProcessField extends Process implements ConfigurableModule {
 			}
 			
 			$cnt++;
-			if(!empty($options['limit']) && $cnt >= $options['limit']) break;
 		}
 
 		$result['items'] = array_merge($exactItems, $looseItems);
-
+		
 		return $result;
 	}
 

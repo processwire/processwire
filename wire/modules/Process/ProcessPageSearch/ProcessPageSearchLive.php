@@ -52,6 +52,7 @@ class ProcessPageSearchLive extends Wire {
 		'limit' => 15,
 		'verbose' => false, 
 		'debug' => false,
+		'help' => false,
 	);
 
 	/**
@@ -370,7 +371,8 @@ class ProcessPageSearchLive extends Wire {
 			'multilang' => $this->wire('languages') ? true : false,
 			'language' => $language, 
 			'start' => $start, 
-			'limit' => $limit
+			'limit' => $limit,
+			'help' => strtolower($q) === 'help',
 		));
 		
 		if($this->isViewAll) {
@@ -463,12 +465,14 @@ class ProcessPageSearchLive extends Wire {
 		}
 		
 		if($this->process) {
-			$headline = $this->labels['search-results'];
-			if($type) $headline .= " - " . ucfirst($type);
-			$this->process->headline($this->pagination->getPaginationString(array(
-				'label' => $headline, 
-				'count' => count($results)
-			)));
+			if($type) {
+				$this->process->headline($this->pagination->getPaginationString(array(
+					'label' => $this->labels['search-results'] . " - " . ucfirst($type),
+					'count' => count($results)
+				)));
+			} else {
+				$this->process->headline($this->labels['search-results']); 
+			}
 		}
 	
 		$out = $this->renderList($results); 
@@ -517,6 +521,7 @@ class ProcessPageSearchLive extends Wire {
 		$type = $liveSearch['type'];
 		$foundTypes = array();
 		$modulesInfo = array();
+		$help = $liveSearch['help'];
 		
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
@@ -536,7 +541,7 @@ class ProcessPageSearchLive extends Wire {
 		if($type != 'pages' && $type != 'trash') {
 			$modulesInfo = $modules->getModuleInfo('*', array('verbose' => true));
 		}
-
+		
 		foreach($modulesInfo as $info) {
 
 			if(empty($info['searchable'])) continue;
@@ -564,7 +569,7 @@ class ProcessPageSearchLive extends Wire {
 				// ok
 			}
 			
-			if(!$module || empty($result['items'])) continue;
+			if(!$module || (empty($result['items']) && empty($liveSearch['help']))) continue;
 			if(empty($result['total'])) $result['total'] = count($result['items']);
 		
 			if(!in_array($thisType, $this->searchTypesOrder)) $this->searchTypesOrder[] = $thisType;
@@ -574,6 +579,14 @@ class ProcessPageSearchLive extends Wire {
 			$title = empty($result['title']) ? $info['title'] : $result['title'];
 			$n = $liveSearch['start'];
 			$item = null;
+			
+			if($help) {
+				foreach($result['items'] as $key => $item) {
+					if($item['name'] != 'help') unset($result['items'][$key]); 
+				}
+				$result['items'] = array_merge($this->makeHelpItems($result, $thisType), $result['items']); 
+			}
+			
 			foreach($result['items'] as $item) {
 				$n++;
 				$item = array_merge($this->itemTemplate, $item);
@@ -582,18 +595,20 @@ class ProcessPageSearchLive extends Wire {
 				$items[$order] = $item;
 				$order++;
 			}
-			if($n && $n < $result['total'] && !$this->isViewAll) {
+			
+			if($n && $n < $result['total'] && !$this->isViewAll && !$help) {
 				$url = isset($result['url']) ? $result['url'] : '';
 				$items[$order] = $this->makeViewAllItem($liveSearch, $thisType, $item['group'], $result['total'], $url); 
 			}
-			if($this->isViewAll && $this->pagination && $type) {
+			
+			if($this->isViewAll && $this->pagination && $type && !$help) {
 				$this->pagination->setTotal($result['total']); 
 				$this->pagination->setLimit($liveSearch['limit']);
 				$this->pagination->setStart($liveSearch['start']); 
 			}
 		}
 		
-		if($type && !count($foundTypes) && !in_array($type, array('pages', 'trash', 'modules'))) {
+		if($type && !$help && !count($foundTypes) && !in_array($type, array('pages', 'trash', 'modules'))) {
 			if(empty($liveSearch['template']) && !count($foundTypes)) {
 				// if no types matched, and it’s going to skip pages, assume type is a property, and do a pages search
 				$liveSearch = $this->init(array(
@@ -635,6 +650,8 @@ class ProcessPageSearchLive extends Wire {
 		}
 		
 		ksort($items);
+		
+		if($help) $items = array_merge($this->makeHelpItems(array(), 'help'), $items); 
 
 		return $items;
 	}
@@ -652,6 +669,13 @@ class ProcessPageSearchLive extends Wire {
 		$user = $this->wire('user');
 		$superuser = $user->isSuperuser();
 		$pages = $this->wire('pages');
+		
+		if(!empty($liveSearch['help'])) {
+			$result = array('title' => 'pages', 'items' => array(), 'properties' => array('name', 'title'));
+			if($this->wire('fields')->get('body')) $result['properties'][] = 'body';
+			$result['properties'][] = $this->_('or any field name');
+			return $this->makeHelpItems($result, 'pages');	
+		}
 		
 		// a $pages->find() search will be included in the live search
 		$selectors = &$liveSearch['selectors'];
@@ -766,6 +790,24 @@ class ProcessPageSearchLive extends Wire {
 		$items = array();
 		$forceMatch = false;
 		
+		if(!empty($liveSearch['help'])) {
+			$info = $this->wire('modules')->getModuleInfoVerbose('ProcessPageSearch');
+			$properties = array();
+			foreach(array_keys($info) as $property) {
+				$value = $info[$property];
+				if(!is_array($value)) $properties[$property] = $property;
+			}
+			$exclude = array('id', 'file', 'versionStr', 'core');
+			foreach($exclude as $key) unset($properties[$key]); 
+			$result = array(
+				'title' => 'Modules',
+				'items' => array(),
+				'properties' => $properties
+			);
+			$items = $this->makeHelpItems($result, 'modules');
+			return $items;
+		}
+
 		if($liveSearch['type'] === 'modules' && !empty($liveSearch['property'])) {
 			// searching for custom module property
 			$forceMatch = true;
@@ -779,18 +821,20 @@ class ProcessPageSearchLive extends Wire {
 		}
 			
 		foreach($infos as $info) {
+			$id = isset($info['id']) ? $info['id'] : 0;
 			$name = $info['name'];
 			$title = $info['title'];
+			$summary = isset($info['summary']) ? $info['summary'] : '';
 			if(!$forceMatch) {
-				$searchText = "$name $title $info[summary]";
+				$searchText = "$name $title $summary";
 				if(stripos($searchText, $q) === false) continue;
 			}
 			$item = array(
-				'id' => $info['id'],
+				'id' => $id,
 				'name' => $name,
 				'title' => $title,
 				'subtitle' => $name,
-				'summary' => $info['summary'],
+				'summary' => $summary, 
 				'url' => $this->wire('config')->urls->admin . "module/edit?name=$name",
 				'group' => $groupLabel,
 			);
@@ -866,6 +910,129 @@ class ProcessPageSearchLive extends Wire {
 			'group' => 'Debug',
 		));
 	}
+	
+	/**
+	 * Make a search result item that displays property info
+	 *
+	 * @param array $result Result array returned by a SearchableModule::search() method
+	 * @param string $type
+	 * @return array
+	 *
+	 */
+	protected function makeHelpItems(array $result, $type) {
+		
+		$items = array();
+		$helloLabel = $this->_('test');
+		$usage1desc = $this->wire('sanitizer')->unentities($this->_('Searches %1$s for: %2$s')); 
+		$usage2desc = $this->wire('sanitizer')->unentities($this->_('Searches “%1$s” property of %2$s for: %3$s')); 
+		
+		if($type === 'help') {
+			$operators = ProcessPageSearch::getOperators();
+			$summary = 
+				$this->_('Examples use the “=” equals operator.') . " \n" . 
+				$this->_('In some cases you can also use these:') . "\n";
+			foreach($operators as $op => $label) {
+				$summary .= "$op " . rtrim($label, '*') . "\n";
+			}
+			$items[] = array(
+				'title' => $this->_('operators:'),
+				'subtitle' => implode(', ', array_keys($operators)), 
+				'summary' => $summary, 
+				'group' => 'help',
+				'url' => 'https://processwire.com/api/selectors/#operators'
+			);
+			if($this->wire('user')->isSuperuser() && $this->process) {
+				$items[] = array(
+					'title' => $this->_('configure'),
+					'subtitle' => $this->_('Click here to configure search settings'),
+					'url' => $url = $this->wire('modules')->getModuleEditUrl('ProcessPageSearch'),
+					'group' => 'help',
+				);
+			}
+			return $items;
+		}
+		
+		// include any items from result that had the name "help"
+		foreach($result['items'] as $item) {
+			if($item['name'] == 'help') $items[] = $item;
+		}
+
+		$items[] = array(
+			'title' => "$type=$helloLabel",
+			'subtitle' => sprintf($usage1desc, $type, $helloLabel),
+		);
+		
+		if(!empty($result['properties'])) {
+		
+			if($type == 'pages' || $type == 'modules') {
+				$property = 'title';
+			} else if($type == 'fields' || $type == 'templates') {
+				$property = 'label';
+			} else {
+				$property = reset($result['properties']);
+			}
+			
+			$items[] = array(
+				'title' => "$type.$property=$helloLabel",
+				'subtitle' => sprintf($usage2desc, $property, $type, $helloLabel)
+			);
+			
+			if($type === 'pages') {
+				$items[] = array(
+					'title' => "$property=$helloLabel", 
+					'subtitle' => $this->_('Same as above (shorter syntax if no names collide)')
+				);
+				$templateName = 'basic-page';
+				$items[] = array(
+					'title' => "$templateName=$helloLabel",
+					'subtitle' => sprintf($this->_('Limit results to template: %s'), $templateName),
+				);
+				$items[] = array(
+					'title' => "$templateName.$property=$helloLabel",
+					'subtitle' => sprintf($this->_('Limit results to %s field on template'), $property)
+				);
+				
+			} else if($type === 'templates') {
+				$fieldName = 'images';
+				$items[] = array(
+					'title' => "templates.fields=$fieldName",
+					'subtitle' => sprintf($this->_('Find templates that have field: %s'), $fieldName)
+				);
+			} else if($type === 'fields') {
+				$items[] = array(
+					'title' => "fields.settings=ckeditor",
+					'subtitle' => $this->_('Find fields with “ckeditor” in settings'),
+				);
+			}
+			
+			$properties = implode(', ', $result['properties']);
+
+			if(strlen($properties) > 50) {
+				$properties = $this->wire('sanitizer')->truncate($properties, 50) . ' ' . $this->_('(hover for more)');
+			}
+
+			$summary =
+				sprintf($this->_('The examples use the “%s” property.'), $property) . "\n" .
+				$this->_('You can also use any of these properties:') . "\n • " .
+				implode("\n • ", $result['properties']);
+
+			$items[] = array(
+				'title' => $this->_('properties'),
+				'subtitle' => $properties,
+				'summary' => $summary
+			);
+		}
+		
+		$group = sprintf($this->_('%s help'), $type);
+		
+		foreach($items as $key => $item) {
+			$item['name'] = 'help';
+			$item['group'] = $group;
+			$items[$key] = array_merge($this->itemTemplate, $item); 
+		}
+	
+		return $items;
+	}
 
 	/**
 	 * Make a search result item that displays a “view all” link
@@ -927,11 +1094,17 @@ class ProcessPageSearchLive extends Wire {
 
 		$pagination = $this->pagination->renderPager();
 		$a = array();
+		$group = '';
 		
 		$out = "\n<div class='$class'>" . $pagination;
 		
 		foreach($items as $item) {
-			$a[] = $this->renderItem($item, $prefix); 
+			$headline = '';
+			if($item['group'] != $group) {
+				$group = $item['group'];
+				$headline = "<h2>" . $this->wire('sanitizer')->entities($group) . "</h2>";
+			}
+			$a[] = $headline . $this->renderItem($item, $prefix); 
 		}
 		
 		$out .= implode('<hr />', $a) . $pagination . "\n</div>";
@@ -961,7 +1134,7 @@ class ProcessPageSearchLive extends Wire {
 			}
 		}
 		
-		$title = "<strong class='$prefix-title'>$item[title]</strong> ";
+		$title = "<strong class='$prefix-title'>$item[title]</strong>";
 		$subtitle = empty($item['subtitle']) ? '' : "<br /><em class='$prefix-subtitle'>$item[subtitle]</em> ";
 		$summary = empty($item['summary']) ? '' : "<br /><span class='$prefix-summary'>$item[summary]</span> ";
 		

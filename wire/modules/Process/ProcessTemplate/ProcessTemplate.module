@@ -3016,11 +3016,22 @@ class ProcessTemplate extends Process {
 		/** @var Languages $languages */
 		$languages = $this->wire('langauges');
 		$page = $this->getProcessPage();
+		$property = isset($options['property']) ? $options['property'] : '';
 
 		$result = array(
 			'title' => $page->id ? $page->title : $this->className(),
 			'items' => array(),
+			'total' => 0, 
+			'properties' => array(
+				'name',
+				'label', 
+				'tags',
+				'fields',
+			)
 		);
+		
+		if(!empty($options['help'])) return $result;
+		if(!empty($property) && !in_array($property, $result['properties'])) return $result;
 
 		$looseItems = array();
 		$exactItems = array();
@@ -3028,19 +3039,26 @@ class ProcessTemplate extends Process {
 
 		foreach($this->wire('templates') as $item) {
 			/** @var Template $item */
-			$search = array(' ', $item->name);
+			$search = array(' ');
+			if(!$property || $property == 'name' ) $search[] = $item->name;
 
-			if(!empty($options['multilang']) && $languages) {
-				foreach($languages as $lang) {
-					$search[] = $item->getLabel($lang);
+			if(!$property || $property == 'label') {
+				if(!empty($options['multilang']) && $languages) {
+					foreach($languages as $lang) {
+						$search[] = $item->getLabel($lang);
+					}
+				} else {
+					$search[] = $item->getLabel();
 				}
-			} else {
-				$search[] = $item->getLabel();
 			}
 
 			// when search matches field name exactly (that template has), allow template to be matched
-			foreach($item->fieldgroup as $field) {
-				if(strtolower($text) == strtolower($field->name)) $search[] = $field->name;
+			if($property == 'fields') {
+				foreach($item->fieldgroup as $field) {
+					if(strtolower($text) == strtolower($field->name)) $search[] = $field->name;
+				}
+			} else if($property == 'tags') {
+				$search[] = $item->tags;
 			}
 
 			$search = implode(' ', $search);
@@ -3051,6 +3069,9 @@ class ProcessTemplate extends Process {
 			$labelFields = sprintf($this->_n('%d field', '%d fields', $numFields), $numFields);
 			$label = $item->getLabel();
 			$subtitle = $label == $item->name ? $labelFields : "$label ($labelFields)";
+			
+			$result['total']++;
+			if(!empty($options['limit']) && $cnt >= $options['limit']) continue;
 
 			$item = array(
 				'id' => $item->id,
@@ -3067,9 +3088,8 @@ class ProcessTemplate extends Process {
 			} else {
 				$looseItems[] = $item;
 			}
-			
+
 			$cnt++;
-			if(!empty($options['limit']) && $cnt >= $options['limit']) break;
 		}
 
 		$result['items'] = array_merge($exactItems, $looseItems);

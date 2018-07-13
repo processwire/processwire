@@ -710,7 +710,22 @@ class ProcessCommentsManager extends Process {
 			'total' => 0,
 			'url' => '',
 			'items' => array(),
+			'properties' => array(
+				'text',
+				'cite',
+				'email',
+				'status',
+				'created',
+				'website',
+				'ip',
+				'user_agent',
+				'upvotes',
+				'downvotes',
+				'stars'
+			)
 		);
+		
+		if($options['help']) return $result;
 		
 		$operator = empty($options['operator']) ? '%=' : $options['operator'];
 		$value = $this->wire('sanitizer')->selectorValue($text); 	

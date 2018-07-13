@@ -1538,7 +1538,7 @@ class Modules extends WireArray {
 	 * ~~~~~
 	 * 
 	 * @param string $prefix Specify prefix, i.e. "Process", "Fieldtype", "Inputfield", etc.
-	 * @param bool|int $instantiate Specify one of the following:
+	 * @param bool|int $load Specify one of the following:
 	 *  - Boolean true to return array of instantiated modules.
 	 *  - Boolean false to return array of module names (default).
 	 *  - Integer 1 to return array of module info for each matching module.
@@ -1546,16 +1546,16 @@ class Modules extends WireArray {
 	 * @return array Returns array of module class names or Module objects. In either case, array indexes are class names.
 	 * 
 	 */
-	public function findByPrefix($prefix, $instantiate = false) {
+	public function findByPrefix($prefix, $load = false) {
 		$results = array();
 		foreach($this as $key => $value) {
 			$className = wireClassName($value->className(), false);
 			if(strpos($className, $prefix) !== 0) continue;
-			if($instantiate === 1) {
+			if($load === 1) {
 				$results[$className] = $this->getModuleInfo($className); 
-			} else if($instantiate === 2) {
+			} else if($load === 2) {
 				$results[$className] = $this->getModuleInfoVerbose($className); 
-			} else if($instantiate === true) {
+			} else if($load === true) {
 				$results[$className] = $this->getModule($className);
 			} else {
 				$results[$className] = $className;
@@ -1571,7 +1571,7 @@ class Modules extends WireArray {
 	 *  - Selector string to match module info. 
 	 *  - Array of [ 'property' => 'value' ] to match in module info (this is not a selector array). 
 	 *  - Name of property that will match module if not empty in module info. 
-	 * @param bool|int $instantiate Specify one of the following: 
+	 * @param bool|int $load Specify one of the following: 
 	 *  - Boolean true to return array of instantiated modules.
 	 *  - Boolean false to return array of module names (default).
 	 *  - Integer 1 to return array of module info for each matching module.
@@ -1579,13 +1579,13 @@ class Modules extends WireArray {
 	 * @return array Array of modules, module names or module info arrays, indexed by module name.
 	 * 
 	 */
-	public function findByInfo($selector, $instantiate = false) {
+	public function findByInfo($selector, $load = false) {
 		
 		$selectors = null;
 		$infos = null;
 		$keys = null;
 		$results = array();
-		$verbose = $instantiate === 2;
+		$verbose = $load === 2;
 		$properties = array();
 		$has = '';
 		
@@ -1612,7 +1612,12 @@ class Modules extends WireArray {
 			break;
 		}
 		
-		foreach($this->getModuleInfo('*', array('verbose' => $verbose)) as $info) {
+		$moduleInfoOptions = array(
+			'verbose' => $verbose,
+			'minify' => false
+		);
+		
+		foreach($this->getModuleInfo('*', $moduleInfoOptions) as $info) {
 			$isMatch = false;
 			
 			if($has) {
@@ -1650,9 +1655,9 @@ class Modules extends WireArray {
 			
 			if($isMatch) {
 				$moduleName = $info['name'];
-				if(is_int($instantiate)) {
+				if(is_int($load)) {
 					$results[$moduleName] = $info;
-				} else if($instantiate === true) {
+				} else if($load === true) {
 					$results[$moduleName] = $this->getModule($moduleName);
 				} else {
 					$results[$moduleName] = $moduleName;
@@ -3164,6 +3169,27 @@ class Modules extends WireArray {
 	 */
 	public function getModuleConfigData($className) {
 		return $this->getConfig($className);
+	}
+
+	/**
+	 * Return the URL where the module can be edited, configured or uninstalled
+	 * 
+	 * If module is not installed, it just returns the URL to ProcessModule.
+	 * 
+	 * #pw-group-configuration
+	 * 
+	 * @param string|Module $className
+	 * @param bool $collapseInfo
+	 * @return string
+	 * 
+	 */
+	public function getModuleEditUrl($className, $collapseInfo = true) {
+		if(!is_string($className)) $className = $this->getModuleClass($className);
+		$url = $this->wire('config')->urls->admin . 'module/';
+		if(empty($className) || !$this->isInstalled($className)) return $url;
+		$url .= "edit/?name=$className";
+		if($collapseInfo) $url .= "&collapse_info=1";
+		return $url;
 	}
 	
 	/**
