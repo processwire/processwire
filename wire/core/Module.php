@@ -575,7 +575,7 @@ interface SearchableModule {
 	 *     specified here. This corresponds with the getModuleInfo()['searchable'] name or item 'group' property. 
 	 *     Note that ProcessWire won’t call your search() method if the type cannot match this search. 
 	 *  - `operator` (string): Selector operator type requested, if more than one is supported (default is %=).
-	 *  - `property` (string): If search should limit to a particular property/fieldj, it is named here. 
+	 *  - `property` (string): If search should limit to a particular property/field, it is named here. 
 	 *  - `verbose` (bool): True if output can optionally be more verbose, false if not. (default=false)
 	 *  - `debug` (bool): True if DEBUG option was specified in query. (default=false)
 	 *  - `help` (bool): True if we are just querying for help/info and are not using the search results. (default=false)

@@ -949,6 +949,7 @@ class ProcessPageSearchLive extends Wire {
 					'group' => 'help',
 				);
 			}
+			foreach($items as $key => $item) $items[$key] = array_merge($this->itemTemplate, $item); 
 			return $items;
 		}
 		
