@@ -308,6 +308,10 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			'pwUploadField' => $imagesField,
 			'pwAssetPageID' => $assetPage->id,
 		);
+		
+		if(empty($settings['extraAllowedContent'])) {
+			unset($settings['extraAllowedContent']);
+		}
 	
 		if($assetPage !== $this->hasPage && $assetPage->id) {
 			// external asset page (FUTURE USE)
