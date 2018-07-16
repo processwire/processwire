@@ -662,7 +662,14 @@ class ProcessPageView extends Process {
 			$forPageID = substr($page->parent->name, strrpos($page->parent->name, '-') + 1); // for-page-(id)
 			$forPage = $this->wire('pages')->get((int) $forPageID);
 			// delegate viewable check to the page the repeater lives on
-			if($forPage->id && $forPage->viewable($field)) return $page;
+			if($forPage->id) {
+				if($forPage->viewable($field)) return $page;
+				if(strpos($forPage->template->name, 'repeater_') === 0) {
+					// go recursive for nested repeaters
+					$forPage = $this->checkAccessDelegated($forPage); 	
+					if($forPage && $forPage->id) return $forPage; 
+				}
+			}
 		}
 		return null;
 	}
