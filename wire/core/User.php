@@ -27,7 +27,15 @@
  *
  */
 
-class User extends Page { 
+class User extends Page {
+
+	/**
+	 * Cached value for $user->isSuperuser() checks
+	 * 
+	 * @var null|bool
+	 * 
+	 */
+	protected $isSuperuser = null;
 
 	/**
 	 * Create a new User page in memory. 
@@ -155,7 +163,7 @@ class User extends Page {
 	 * @param Page|Template|bool|string $context Page or Template... 
 	 *  - or specify boolean true to return if user has permission OR if it was added at any template
 	 *  - or specify string "templates" to return array of Template objects where user has permission
-	 * @return bool
+	 * @return bool|array
 	 *
 	 */
 	public function hasPermission($name, $context = null) {
@@ -233,7 +241,7 @@ class User extends Page {
 
 		if(!$permission || !$permission->id) return false;
 
-		$roles = $this->get('roles'); 
+		$roles = $this->getUnformatted('roles'); 
 		if(empty($roles) || !$roles instanceof PageArray) return false; 
 		$has = false; 
 		$accessTemplate = is_null($page) ? false : $page->getAccessTemplate($permission->name);
@@ -390,17 +398,23 @@ class User extends Page {
 	 *
 	 */
 	public function isSuperuser() {
+		if(is_bool($this->isSuperuser)) return $this->isSuperuser;
 		$config = $this->wire('config');
-		if($this->id === $config->superUserPageID) return true; 
-		if($this->id === $config->guestUserPageID) return false;
-		$superuserRoleID = (int) $config->superUserRolePageID; 
-		$roles = $this->get('roles');
-		if(empty($roles)) return false;
-		$is = false;
-		foreach($roles as $role) if(((int) $role->id) === $superuserRoleID) {
+		if($this->id === $config->superUserPageID) {
 			$is = true;
-			break;
+		} else if($this->id === $config->guestUserPageID) {
+			$is = false;
+		} else {
+			$superuserRoleID = (int) $config->superUserRolePageID;
+			$roles = $this->getUnformatted('roles');
+			if(empty($roles)) return false; // no cache intentional
+			$is = false;
+			foreach($roles as $role) if(((int) $role->id) === $superuserRoleID) {
+				$is = true;
+				break;
+			}
 		}
+		$this->isSuperuser = $is;
 		return $is;
 	}
 
@@ -483,6 +497,19 @@ class User extends Page {
 	 */
 	public function getPagesManager() {
 		return $this->wire('users');
+	}
+
+	/**
+	 * Hook called when field has changed
+	 * 
+	 * @param string $what
+	 * @param mixed $old
+	 * @param mixed $new
+	 * 
+	 */
+	public function ___changed($what, $old = null, $new = null) {
+		if($what == 'roles' && is_bool($this->isSuperuser)) $this->isSuperuser = null;
+		parent::___changed($what, $old, $new); 
 	}
 
 }

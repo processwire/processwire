@@ -344,7 +344,10 @@ class ProcessPageView extends Process {
 
 		if($config->pagefileSecure) {
 			$page = $this->checkRequestFile($it);
-			if(is_object($page)) return $page; // Page or NullPage
+			if(is_object($page)) {
+				$this->responseType = self::responseTypeFile;
+				return $page; // Page or NullPage
+			}
 		}
 
 		// optimization to filter out page numbers first
@@ -602,14 +605,14 @@ class ProcessPageView extends Process {
 	 */
 	protected function checkAccess($page) {
 
-		if($page->viewable()) return $page; 
-	
 		if($this->requestFile) {
 			// if a file was requested, we still allow view even if page doesn't have template file
-			// this is something that viewable() does not echeck
-			if($page->editable()) return $page;
+			if($page->viewable(false)) return $page; 
+			// if($page->editable()) return $page;
 			if($this->checkAccessDelegated($page)) return $page; 
 			if($page->status < Page::statusUnpublished && $this->wire('user')->hasPermission('page-view', $page)) return $page;
+		} else if($page->viewable()) {
+			return $page;
 		}
 
 		$accessTemplate = $page->getAccessTemplate();
