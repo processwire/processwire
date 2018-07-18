@@ -149,13 +149,15 @@ class SessionCSRF extends Wire {
 	 * #pw-group-validating
 	 *
 	 * @param int|string|null $id Optional unique ID for this token, but required if checking a single use token.
+	 * @param bool|null Reset after checking? Or omit (null) for auto (which resets if single-use token, and not otherwise). 
 	 * @return bool
 	 *
 	 */
-	public function hasValidToken($id = '') {
+	public function hasValidToken($id = '', $reset = null) {
 		
 		$tokenName = $this->getTokenName($id);
 		$tokenValue = $this->getTokenValue($id);
+		$valid = false;
 		
 		if(strlen($id)) {
 			$singles = $this->session->get($this, 'singles'); 
@@ -163,14 +165,19 @@ class SessionCSRF extends Wire {
 				// remove single use token
 				unset($singles[$tokenName]); 
 				$this->session->set($this, 'singles', $singles); 
+				if($reset !== false) $reset = true; 
 			}
 		}
 		
-		if($this->config->ajax && isset($_SERVER["HTTP_X_$tokenName"]) && $_SERVER["HTTP_X_$tokenName"] === $tokenValue) return true; 
-		if($this->input->post($tokenName) === $tokenValue) return true; 
+		if($this->config->ajax && isset($_SERVER["HTTP_X_$tokenName"]) && $_SERVER["HTTP_X_$tokenName"] === $tokenValue) {
+			$valid = true;
+		} else if($this->input->post($tokenName) === $tokenValue) {
+			$valid = true; 
+		}
+
+		if($reset) $this->resetToken($id);
 		
-		// if this point is reached, token was invalid
-		return false; 
+		return $valid; 
 	}
 
 	/**
