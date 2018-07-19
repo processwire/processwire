@@ -388,7 +388,7 @@ class FileCompiler extends Wire {
 			$targetData = $this->compileData($targetData, $sourcePathname);
 			if(false !== file_put_contents($targetPathname, $targetData, LOCK_EX)) {
 				$this->chmod($targetPathname); 
-				touch($targetPathname, filemtime($sourcePathname));
+				$this->touch($targetPathname, filemtime($sourcePathname));
 				$targetHash = md5_file($targetPathname);
 				$cacheData = array(
 					'source' => array(
@@ -977,7 +977,7 @@ class FileCompiler extends Wire {
 			
 			copy($sourceFile, $targetFile);
 			$this->chmod($targetFile);
-			touch($targetFile, filemtime($sourceFile));
+			$this->touch($targetFile, filemtime($sourceFile));
 			$numCopied++;
 		}
 		
@@ -1060,7 +1060,7 @@ class FileCompiler extends Wire {
 			// maintenance already run today
 			return false;
 		}
-		touch($lastRunFile);
+		$this->touch($lastRunFile);
 		$this->chmod($lastRunFile);
 		clearstatcache();
 
@@ -1113,11 +1113,11 @@ class FileCompiler extends Wire {
 				unlink($targetFile);
 				if($useLog) $this->log("Maintenance/Remove target file: $targetURL$basename");
 				
-			} else if(filemtime($sourceFile) != filemtime($targetFile)) {
+			} else if(filemtime($sourceFile) > filemtime($targetFile)) {
 				// source file has changed
 				copy($sourceFile, $targetFile);
 				$this->chmod($targetFile);
-				touch($targetFile, filemtime($sourceFile));
+				$this->touch($targetFile, filemtime($sourceFile));
 				if($useLog) $this->log("Maintenance/Copy new version of source file to target file: $sourceURL$basename => $targetURL$basename");
 			}
 		}
@@ -1160,6 +1160,30 @@ class FileCompiler extends Wire {
 	 */
 	public function addExclusion($pathname) {
 		$this->exclusions[] = $pathname;
+	}
+
+	/**
+	 * Same as PHP touch() but with fallbacks for cases where touch() does not work
+	 * 
+	 * @param string $filename
+	 * @param null|int $time
+	 * @return bool
+	 * 
+	 */
+	protected function touch($filename, $time = null) {
+		if($time === null) {
+			$result = @touch($filename); 
+		} else {
+			$result = @touch($filename, $time);
+			// try again, but without time
+			if(!$result) $result = @touch($filename); 
+		}
+		if(!$result) {
+			// lastly try alternative method which should have same affect as touch without $time
+			$fp = fopen($filename, 'a');
+			$result = $fp !== false ? fclose($fp) : false;
+		}
+		return $result;
 	}
 
 }
