@@ -34,6 +34,7 @@
  * @property string $url The page’s URL path from the server's document root
  * @property array $urls All URLs the page is accessible from, whether current, former and multi-language. #pw-advanced
  * @property string $httpUrl Same as $page->url, except includes scheme (http or https) and hostname.
+ * @property string $httpsUrl Same as $page->httpUrl but with HTTPS forced on
  * @property Page|string|int $parent The parent Page object or a NullPage if there is no parent. For assignment, you may also use the parent path (string) or id (integer). #pw-group-traversal
  * @property Page|null $parentPrevious Previous parent, if parent was changed. #pw-group-traversal
  * @property int $parent_id The numbered ID of the parent page or 0 if homepage or not assigned. #pw-group-system
@@ -576,6 +577,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'hasParent' => 'parents',
 		'hasReferences' => 't',
 		'httpUrl' => 'm',
+		'httpsUrl' => 'm',
 		'id' => 's',
 		'index' => 'n',
 		'instanceID' => 'p',
@@ -646,6 +648,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'fields' => 'fieldgroup',
 		'has_parent' => 'hasParent',
 		'httpURL' => 'httpUrl',
+		'httpsURL' => 'httpsUrl',
 		'modifiedUserID' => 'modified_users_id',
 		'modifiedUsersID' => 'modified_users_id',
 		'modified_user_id' => 'modified_users_id',
@@ -2943,6 +2946,18 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$options = array();
 		}
 		return "$protocol://" . $config->httpHost . $this->url($options);
+	}
+
+	/**
+	 * Returns the URL to the page, including scheme and hostname, HTTPS forced ON
+	 *
+	 * @param array $options For details on usage see `Page::url()` options argument. 
+	 * @return string Returns full URL to page, for example: `https://processwire.com/about/`
+	 * @see Page::url(), Page::localHttpUrl()
+	 *
+	 */
+	public function httpsUrl($options = array()) {
+		return str_replace('http://', 'https://', $this->httpUrl($options));
 	}
 
 	/**
