@@ -24,6 +24,7 @@
  * @property InputfieldsArray|null $children Inputfield instances that are direct children of this InputfieldWrapper.  #pw-group-properties
  * 
  * @method string renderInputfield(Inputfield $inputfield, $renderValueMode = false) #pw-group-output
+ * @method Inputfield new($typeName, $name = '', $label = '', array $settings = array()) #pw-group-manipulation
  *
  */
 
@@ -185,21 +186,85 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	/**
 	 * Add an Inputfield item as a child (also accepts array definition)
 	 * 
+	 * Since 3.0.110: If given a string value, it is assumed to be an Inputfield type that you 
+	 * want to add. In that case, it will create the Inputfield and return it instead of $this. 
+	 * 
 	 * #pw-group-manipulation
 	 *
-	 * @param Inputfield|array $item
-	 * @return $this
+	 * @param Inputfield|array|string $item
+	 * @return Inputfield|InputfieldWrapper|$this
 	 * @see InputfieldWrapper::import()
 	 *
 	 */
 	public function add($item) {
-		if(is_array($item)) {
+		if(is_string($item)) {
+			return $this->___new($item);
+		} else if(is_array($item)) {
 			$this->importArray($item); 
 		} else {
-			$item->setParent($this); 
 			$this->children->add($item); 
+			$item->setParent($this); 
 		}
 		return $this; 
+	}
+
+	/**
+	 * Create a new Inputfield, add it to this InputfieldWrapper, and return the new Inputfield
+	 * 
+	 * - Only the $typeName argument is required. 
+	 * - You may optionally substitute the $settings argument for the $name or $label arguments.
+	 * - You may optionally substitute Inputfield “description” property for $settings argument.
+	 * 
+	 * #pw-group-manipulation
+	 * 
+	 * @param string $typeName Inputfield type, i.e. “InputfieldCheckbox” or just “checkbox” for short. 
+	 * @param string|array $name Name of input (or substitute $settings here). 
+	 * @param string|array $label Label for input (or substitute $settings here).
+	 * @param array|string $settings Settings to add to Inputfield (optional). Or if string, assumed to be “description”.
+	 * @return Inputfield|InputfieldSelect|InputfieldWrapper An Inputfield instance ready to populate with additional properties/attributes.
+	 * @throws WireException If you request an unknown Inputfield type
+	 * @since 3.0.110
+	 * 
+	 */
+	public function ___new($typeName, $name = '', $label = '', $settings = array()) {
+		
+		if(is_array($name)) {
+			$settings = $name;
+			$name = '';
+		} else if(is_array($label)) {
+			$settings = $label;
+			$label = '';
+		} 
+		
+		if(strpos($typeName, 'Inputfield') !== 0) {
+			$typeName = "Inputfield" . ucfirst($typeName);
+		}
+	
+		/** @var Inputfield|InputfieldSelect|InputfieldWrapper $inputfield */
+		$inputfield = $this->wire('modules')->getModule($typeName);
+		
+		if(!$inputfield && wireClassExists($typeName)) {
+			$inputfield = $this->wire(new $typeName());
+		}
+		
+		if(!$inputfield || !$inputfield instanceof Inputfield) {
+			throw new WireException("Unknown Inputfield type: $typeName");
+		}
+		
+		if(strlen($name)) $inputfield->attr('name', $name);
+		if(strlen($label)) $inputfield->label = $label;
+	
+		if(is_array($settings)) {
+			foreach($settings as $key => $value) {
+				$inputfield->set($key, $value);
+			}
+		} else if(is_string($settings)) {
+			$inputfield->description = $settings;
+		}
+		
+		$this->add($inputfield);
+		
+		return $inputfield;
 	}
 
 	/**
@@ -939,6 +1004,61 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		} else {
 			return $this->children;
 		}
+	}
+
+	/**
+	 * Find an Inputfield below this one that has the given name
+	 * 
+	 * This is an alternative to the `getChildByName()` method, with more options for when you need it. 
+	 * For instance, it can also accept a selector string or numeric index for the $name argument, and you
+	 * can optionally disable the $recursive behavior. 
+	 * 
+	 * #pw-group-retrieval-and-traversal
+	 * 
+	 * @param string|int $name Name or selector string of child to find, omit for first child, or specify zero-based index of child to return.
+	 * @param bool $recursive Find child recursively? Looks for child in this wrapper, and all other wrappers below it. (default=true)
+	 * @return Inputfield|null Returns Inputfield instance if found, or null if not.
+	 * @since 3.0.110
+	 * 
+	 */
+	public function child($name = '', $recursive = true) {
+		$child = null;
+
+		if(!$this->children->count()) {
+			// no child possible
+
+		} else if(empty($name)) {
+			// first child
+			$child = $this->children->first();
+			
+		} else if(is_int($name)) {
+			// number index
+			$child = $this->children->eq($name);
+			
+		} else if($this->wire('sanitizer')->name($name) === $name) {
+			// child by name
+			$wrappers = array();
+			foreach($this->children as $f) {
+				if($f->getAttribute('name') === $name) {
+					$child = $f;
+					break;
+				} else if($recursive && $f instanceof InputfieldWrapper) {
+					$wrappers[] = $f;
+				}
+			}
+			if(!$child && $recursive && count($wrappers)) {
+				foreach($wrappers as $wrapper) {
+					$child = $wrapper->child($name, $recursive);
+					if($child) break;
+				}
+			}
+
+		} else if(Selectors::stringHasSelector($name)) {
+			// first child matching selector string
+			$child = $this->children("$name, limit=1")->first();
+		}
+		
+		return $child;
 	}
 
 	/**
