@@ -217,7 +217,7 @@ class WireClassLoader {
 
 		if($namespace) {
 			$paths = self::$namespaces[$namespace];
-			$dir = count($_parts) ? implode("/", $_parts) . '/' : '';
+			$dir = count($_parts) ? implode('/', array_reverse($_parts)) . '/' : '';
 			foreach($this->extensions as $ext) {
 				foreach($paths as $path) {
 					$file = "$path$dir$name$ext";
