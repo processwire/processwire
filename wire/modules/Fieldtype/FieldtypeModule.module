@@ -25,7 +25,17 @@ class FieldtypeModule extends Fieldtype {
 	}
 
 	public function getBlankValue(Page $page, Field $field) {
-		return null;
+		$blankType = $field->get('blankType');
+		if($blankType === 'zero') {
+			$value = 0;
+		} else if($blankType === 'false') {
+			$value = false;
+		} else if($blankType === 'placeholder') {
+			$value = $this->wire(new ModulePlaceholder());
+		} else {
+			$value = null;
+		}
+		return $value;
 	}
 
 	public function isAdvanced() {
@@ -33,19 +43,25 @@ class FieldtypeModule extends Fieldtype {
 	}
 
 	public function sanitizeValue(Page $page, Field $field, $value) {
-		if(!$value) return null;
+		if(!$value) return $this->getBlankValue($page, $field);
 		if($field->instantiateModule) return $value instanceof Module ? $value : $this->modules->get($value); 
 		if(ctype_digit("$value")) return $this->modules->getModuleClass((int) $value); 
-		return $this->modules->getModuleID($value) ? $value : null;
+		return $this->modules->getModuleID($value) ? $value : $this->getBlankValue($page, $field);
 	}
 
 	public function ___wakeupValue(Page $page, Field $field, $value) {
+		if(empty($value)) return $this->getBlankValue($page, $field);
 		if($field->instantiateModule) return $this->wire('modules')->get($value); 
 		return $this->wire('modules')->getModuleClass((int) $value); 
 	}
 
 	public function ___sleepValue(Page $page, Field $field, $value) {
-		return $this->modules->getModuleID($value); 
+		$blankValue = $this->getBlankValue($page, $field);
+		if(!$value || "$blankValue" == "$value") {
+			return 0;
+		} else {
+			return $this->modules->getModuleID($value);
+		}
 	}
 
 	public function getInputfield(Page $page, Field $field) {
@@ -55,8 +71,8 @@ class FieldtypeModule extends Fieldtype {
 		if(!$inputfield) $inputfield = $this->modules->get('InputfieldSelect'); 
 
 		$inputfield->attr('name', $field->name); 
-		$inputfield->class = $this->className(); 
-		if($inputfieldClass == 'InputfieldSelect') $inputfield->addOption(0, ''); 
+		$inputfield->class = $this->className();
+		//if($inputfieldClass == 'InputfieldSelect') $inputfield->addOption(0, ''); 
 		$options = array();
 
 		foreach($this->modules as $module) {
@@ -81,6 +97,10 @@ class FieldtypeModule extends Fieldtype {
 		}
 
 		ksort($options); 
+		
+		if($inputfieldClass == 'InputfieldRadios' && $field->get('showNoneOption')) {
+			$inputfield->addOption(0, $this->_('None'));
+		}
 
 		foreach($options as $label => $module) {
 			$inputfield->addOption((string) $module, $label); 
@@ -103,7 +123,7 @@ class FieldtypeModule extends Fieldtype {
 
 		$f = $this->modules->get("InputfieldCheckboxes"); 
 		$f->attr('name', 'moduleTypes'); 
-
+		
 		foreach($this->modules as $module) {
 			if(strpos($module->className(), 'AdminTheme') === 0) {
 				$matches = array('', 'AdminTheme');
@@ -145,6 +165,22 @@ class FieldtypeModule extends Fieldtype {
 		$f->columnWidth = 50;
 		$f->attr('value', $field->inputfieldClass);
 		$inputfields->add($f); 
+		
+		$f = $this->modules->get('InputfieldCheckbox');
+		$f->label = $this->_('Show a “None” option?');
+		$f->attr('name', 'showNoneOption');
+		$f->attr('value', (int) $field->get('showNoneOption'));
+		$f->showIf = 'inputfieldClass=InputfieldRadios';
+		$inputfields->add($f);
+		
+		$f = $this->modules->get('InputfieldRadios');
+		$f->attr('name', 'blankType');
+		$f->label = $this->_('Blank value type');
+		$f->addOption('null', 'Null');
+		$f->addOption('zero', 'Integer 0');
+		$f->addOption('false', 'Boolean false');
+		$f->addOption('placeholder', 'ModulePlaceholder instance');
+		$inputfields->add($f);
 
 		return $inputfields; 			
 	}
