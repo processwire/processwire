@@ -48,15 +48,24 @@ class ProcessPermission extends ProcessPageType {
 		$optionalPermissions = $this->wire('permissions')->getOptionalPermissions();
 		
 		if(count($optionalPermissions)) {
+			$reducerPermissions = $this->wire('permissions')->getReducerPermissions();
 			
 			$f = $this->wire('modules')->get('InputfieldCheckboxes');
 			$f->name = 'install_permissions';
 			$f->label = $this->_('Check the box next to each optional permission you would like to install.');
 			$f->table = true;
 			
+			
 			foreach($optionalPermissions as $name => $label) {
-				$f->addOption($name, "$name|$label");
+				$displayName = $name;
+				if(isset($reducerPermissions[$name])) $displayName .= '*';
+				$f->addOption($name, "$displayName|$label");
 			}
+			
+			$f->notes = '*' . 
+				$this->_('When installed, user must have this permission to complete described task.') . ' ' . 
+				$this->_('When NOT installed, permission is assumed if user already has edit access to described resource.') . ' ' . 
+				$this->_('As a result, if installed, this permission may remove existing access until it is assigned to roles.');
 			
 			$fieldset->add($f);
 

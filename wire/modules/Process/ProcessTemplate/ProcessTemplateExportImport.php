@@ -259,8 +259,8 @@ class ProcessTemplateExportImport extends Wire {
 					$attr = array('checked' => 'checked');
 				}
 				
-				if($new) $optionValue = "$property|$newValue";
-					else $optionValue = "$property|$oldValue|$newValue";
+				if($new) $optionValue = " $property|$newValue";
+					else $optionValue = " $property|$oldValue|$newValue";
 				
 				$f->addOption($property, $optionValue, $attr);
 			}

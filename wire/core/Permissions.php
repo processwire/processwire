@@ -47,6 +47,25 @@ class Permissions extends PagesType {
 	);
 
 	/**
+	 * Permissions that can reduce existing access upon installation
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $reducerPermissions = array(
+		'page-hide',
+		'page-publish',
+		'page-edit-created',
+		'page-edit-images',
+		'page-rename',
+		'page-edit-lang-',
+		'page-edit-lang-none',
+		'user-admin-',
+		'user-admin-all',
+		'page-lister-',
+	);
+
+	/**
 	 * Does the system have a permission with the given name?
 	 * 
 	 * ~~~~~
@@ -158,7 +177,9 @@ class Permissions extends PagesType {
 		$languages = $this->wire('languages');
 		if($languages) {
 			$label = $this->_('Edit fields on a page in language: %s');
-			$a["page-edit-lang-default"] = sprintf($label, 'default') . ' ' . $this->_('(also required to create or delete pages)');
+			$alsoLabel = $this->_('(also required to create or delete pages)');
+			$a["page-edit-lang-default"] = sprintf($label, 'default') . ' ' . $alsoLabel;
+			$a["page-edit-lang-none"] = $this->_('Edit single-language fields on multi-language page'); 
 			foreach($languages as $language) {
 				if($language->isDefault()) continue;
 				$a["page-edit-lang-$language->name"] = sprintf($label, $language->name);
@@ -179,6 +200,32 @@ class Permissions extends PagesType {
 
 		return $a;
 	}
+
+	/**
+	 * Get permission names that can reduce existing access, when installed
+	 * 
+	 * Returned permission names that end with a "-" indicate that given permission name is a prefix
+	 * that applies for anything that appears after it. 
+	 * 
+	 * @return array Array of permission names where both index and value are permission name
+	 * 
+	 */
+	public function getReducerPermissions() {
+		$a = $this->reducerPermissions; 
+		$languages = $this->wire('languages');
+		if($languages && $this->wire('modules')->isInstalled('LanguageSupportFields')) {
+			foreach($languages as $language) {
+				$a[] = "page-edit-lang-$language->name";
+			}
+		}
+		foreach($this->wire('roles') as $role) {
+			$a[] = "user-admin-$role->name";
+		}
+		$a = array_flip($a);
+		foreach($a as $k => $v) $a[$k] = $k;
+		return $a;
+	}
+	
 
 	/**
 	 * Return array of permission names that are delegated to another when not installed

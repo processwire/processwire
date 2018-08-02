@@ -167,7 +167,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		$templateID = (int) $this->wire('input')->get('templates_id');
 		if(!$templateID) $templateID = (int) $this->wire('session')->get($this->className() . 'TemplatesID');
 		$selector = $templateID ? "templates_id=$templateID, " : "";
-		return $this->renderList($selector . "limit=25, status<" . Page::statusMax);
+		return $this->renderList($selector . "limit=100, status<" . Page::statusMax);
 	}
 
 	/**

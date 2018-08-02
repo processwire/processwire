@@ -168,6 +168,8 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 				if(strlen($inputfield->value)) {
 					$passRequiredInputfields[] = $inputfield;
 				}
+			} else if($field->name === 'tfa_type') {
+				$passRequiredInputfields[] = $inputfield;
 			}
 			
 			$fieldset->add($inputfield); 
@@ -264,6 +266,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			}
 			
 			$v = $user->get($field->name);
+			if($field->type instanceof FieldtypeModule) $v = "$v";
 			
 			if($inputfield->isChanged() || $v !== $value) {
 				
