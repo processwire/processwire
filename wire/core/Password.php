@@ -387,14 +387,14 @@ class Password extends Wire {
 
 	/**
 	 * Return a pseudo-random alpha or alphanumeric character
-	 *
+	 * 
 	 * @param int $qty Number of random characters requested
 	 * @param bool $alphanumeric Specify true to allow digits in return value
 	 * @param array $disallow Characters that may not be used in return value
 	 * @return string
 	 *
 	 */
-	protected function randomAlpha($qty = 1, $alphanumeric = false, $disallow = array()) {
+	public function randomAlpha($qty = 1, $alphanumeric = false, $disallow = array()) {
 		$letters = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 		$digits = '0123456789';
 		if($alphanumeric) $letters .= $digits;
@@ -408,6 +408,126 @@ class Password extends Wire {
 			$value .= $letters[$n];
 		}
 		return $value;
+	}
+
+	/**
+	 * Return cryptographically secure random alphanumeric, alpha or numeric string
+	 * 
+	 * This method does essentially the same thing as the randomAlpha() method except
+	 * that it is alphanumeric by default, it uses a more cryptographically secure 
+	 * method by default (and thus can be slower), and it provides for more $options. 
+	 * 
+	 * **Note about the `allow` option:**   
+	 * If this option is used, it overrides the `alpha` and `numeric` options and creates a 
+	 * string that has only the given characters. If given characters are not ASCII alpha or 
+	 * numeric, then the `fast` option is always used, as the crypto-secure option does not 
+	 * support non-alphanumeric characters. 
+	 * 
+	 * @param int $length Required length of string, or 0 for random length
+	 * @param array $options Options to modify default behavior:
+	 *  - `fast` (bool): Use fast, non-cryptographically secure method instead? (default=false)
+	 *  - `alpha` (bool): Allow ASCII alphabetic characters? (default=true)
+	 *  - `upper` (bool): Allow uppercase ASCII alphabetic characters? (default=true)
+	 *  - `lower` (bool): Allow lowercase ASCII alphabetic characters? (default=true)
+	 *  - `numeric` (bool): Allow numeric characters 0123456789? (default=true)
+	 *  - `allow` (array|string): Only allow these ASCII alpha or digit characters, see notes. (default='')
+	 *  - `disallow` (array|string): Do not allow these characters. (default='')
+	 *  - `minLength` (int): If $length argument is 0, minimum length of returned string. (default=10)
+	 *  - `maxLength` (int): If $length argument is 0, maximum length of returned string. (default=40)
+	 * @return string
+	 * @throws WireException
+	 * 
+	 */
+	public function randomAlnum($length = 0, array $options = array()) {
+		
+		$defaults = array(
+			'fast' => false,
+			'alpha' => true, 
+			'upper' => true, 
+			'lower' => true, 
+			'numeric' => true, 
+			'allow' => '', 
+			'disallow' => array(),
+			'minLength' => 10, 
+			'maxLength' => 40,
+		);
+		
+		$options = array_merge($defaults, $options);
+		$allowed = '';
+		$value = '';
+		
+		if($length < 1) {
+			$length = mt_rand($options['minLength'], $options['maxLength']);
+		}
+		
+		if(is_string($options['disallow'])) {
+			// convert to array
+			$options['disallow'] = explode('', $options['disallow']); 
+		}
+		
+		if(is_array($options['allow'])) {
+			// convert to string
+			$options['allow'] = implode('', $options['allow']);
+		}
+		
+		if(strlen($options['allow'])) {
+			// only fast option supports non-alphanumeric characters
+			if(!ctype_alnum($options['allow'])) $options['fast'] = true;
+			$allowed = $options['allow'];
+			
+		} else {
+			if($options['alpha']) {
+				if($options['upper']) $allowed .= 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+				if($options['lower']) $allowed .= 'abcdefghijklmnopqrstuvwxyz';
+			}
+			if($options['numeric']) {
+				$allowed .= '0123456789';
+			}
+		}
+	
+		if(count($options['disallow'])) {
+			$allowed = str_replace($options['disallow'], '', $allowed); 
+		}
+		
+		if(!strlen($allowed)) {
+			throw new WireException("Specified options prevent any alnum string from being created"); 
+		}
+		
+		if($options['fast']) {
+			// fast method
+			for($x = 0; $x < $length; $x++) {
+				$n = mt_rand(0, strlen($allowed) - 1);
+				$value .= $allowed[$n];
+			}
+		} else {
+			// slow but cryptographically secure method
+			$qty = 0;
+			do {
+				$baseLen = strlen($allowed) < 50 ? $length * 3 : $length * 2;
+				$baseStr = $this->randomBase64String($baseLen);
+				for($n = 0; $n < strlen($baseStr); $n++) {
+					$c = $baseStr[$n];
+					if(strpos($allowed, $c) === false) continue;
+					$value .= $c;
+					if(++$qty >= $length) break;
+				}
+			} while($qty < $length);
+		}
+		
+		return $value;
+	}
+
+	/**
+	 * Return string of random digits
+	 * 
+	 * @param int $length Required length of string or 0 for random length
+	 * @param array $options See options for randomAlnum() method
+	 * @return string
+	 * 
+	 */
+	public function randomDigits($length = 0, array $options = array()) {
+		$options['alpha'] = false;
+		return $this->randomAlnum($length, $options);
 	}
 
 	/**
