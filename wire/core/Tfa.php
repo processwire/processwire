@@ -336,7 +336,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function ___render() {
-		$this->message($this->_('Please enter your authentication code to complete login.'));
+		// $this->message($this->_('Please enter your authentication code to complete login.'));
 		if($this->className() == 'Tfa') {
 			// make sure we call the render from the module that implements TFA
 			$module = $this->getModule();
