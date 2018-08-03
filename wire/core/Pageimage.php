@@ -1565,6 +1565,12 @@ class Pageimage extends Pagefile {
 			if(empty($info['variations'])) unset($info['variations']); 
 		}
 		$depth--;
+		if($this->config->imageDebugVerbose) {
+			$is = new ImageSizer($this->filename);
+			$info['imageInspector'] = $is->getImageInfo(true);
+			$info['imageInspector']['availableEngines'] = $is->getEngines();
+			$info['imageInspector']['neededEngineSupport'] = $is->getImageInfo();
+		}
 		return $info;
 	}
 
