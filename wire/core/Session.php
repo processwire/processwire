@@ -906,8 +906,9 @@ class Session extends Wire implements \IteratorAggregate {
 		if(!$user || !$user instanceof User) {
 			$name = $this->wire('sanitizer')->pageNameUTF8($name);
 			$user = $this->wire('users')->get("name=" . $this->wire('sanitizer')->selectorValue($name));
-			if(!$user || !$user->id) return false;
 		}
+		if(!$user || !$user->id || !$user instanceof User) return false;
+		if($user->isGuest()) return false;
 		$xroles = $this->wire('config')->loginDisabledRoles;
 		if(!is_array($xroles) && !empty($xroles)) $xroles = array($xroles);
 		if($name) {}

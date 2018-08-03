@@ -87,8 +87,12 @@ class FieldtypeModule extends Fieldtype {
 			}
 			if(!$found) continue; 
 			if($field->labelField == 'title') {
-				$info = $this->wire('modules')->getModuleInfo($module); 
+				$info = $this->wire('modules')->getModuleInfo($module);
 				$label = !empty($info['title']) ? $info['title'] : (string) $module;
+			} else if($field->labelField == 'title-summary') {
+				$info = $this->wire('modules')->getModuleInfoVerbose($module);
+				$label = !empty($info['title']) ? $info['title'] : (string) $module;
+				if(!empty($info['summary'])) $label .= " [span.detail] • " . $info['summary'] . ' [/span]';
 			} else {
 				$label = (string) $module; 
 			}
@@ -151,8 +155,9 @@ class FieldtypeModule extends Fieldtype {
 		$f = $this->modules->get('InputfieldRadios'); 
 		$f->label = $this->_('Options Label'); 
 		$f->attr('name', 'labelField'); 
-		$f->addOption('', $this->_('Module Class Name')); 
-		$f->addOption('title', $this->_('Module Title')); 
+		$f->addOption('', $this->_('Name')); 
+		$f->addOption('title', $this->_('Title'));
+		$f->addOption('title-summary', $this->_('Title and summary'));
 		$f->attr('value', $field->labelField); 
 		$f->columnWidth = 50; 
 		$inputfields->add($f); 
