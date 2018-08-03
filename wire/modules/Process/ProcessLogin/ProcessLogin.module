@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $allowForgot Whether the ProcessForgotPassword module is installed. 
@@ -16,10 +16,14 @@
  * @method void beforeLogin() #pw-hooker
  * @method void afterLogin() #pw-hooker
  * @method void executeLogout() #pw-hooker
- * @method void afterLoginRedirect() #pw-hooker
- * @method string afterLoginURL($url) #pw-hooker
+ * @method string afterLoginOutput() #pw-hooker
+ * @method void afterLoginRedirect($url = '') #pw-hooker
+ * @method string afterLoginURL($url = '') #pw-hooker
  * @method string renderLoginForm() #pw-hooker
  * @method InputfieldForm buildLoginForm() #pw-hooker
+ * @method void login($name, $pass) #pw-hooker
+ * @method void loginFailed($name) #pw-hooker
+ * @method void loginSuccess(User $user) #pw-hooker
  *
  */
 
@@ -29,7 +33,7 @@ class ProcessLogin extends Process {
 		return array(
 			'title' => 'Login',
 			'summary' => 'Login to ProcessWire',
-			'version' => 104,
+			'version' => 105,
 			'permanent' => true,
 			'permission' => 'page-view',
 		);
@@ -142,61 +146,106 @@ class ProcessLogin extends Process {
 	 *
 	 */
 	public function ___execute() {
+	
+		/** @var Session $session */
+		$session = $this->wire('session');
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		/** @var User $user */
+		$user = $this->wire('user');
 		
-		if($this->user->isLoggedin()) {
-			if($this->loginURL) $this->wire('session')->redirect($this->afterLoginURL($this->loginURL));
-			if($this->input->get('layout')) return ''; // blank placeholder page option for admin themes
-			$this->message($this->_("You are logged in.")); 
-			if($this->isAdmin && $this->user->hasPermission('page-edit')) $this->afterLoginRedirect();
-			// fallback if nothing set
-			$btn = $this->wire('modules')->get('InputfieldButton'); 
-			if($this->user->hasPermission('profile-edit')) {
-				$btn->value = $this->_('Edit Profile'); 
-				$btn->href = $this->wire('config')->urls->admin . 'profile/';
-			} else {
-				$btn->value = $this->_('Continue'); 
-				$btn->href = $this->wire('config')->urls->root;
+		if($user->isLoggedin()) {
+			
+			if($this->loginURL && !$input->get('login')) {
+				$this->afterLoginRedirect($this->loginURL);
 			}
-			return "<p>" . $btn->render() . "</p>";
+			if($input->get('layout')) return ''; // blank placeholder page option for admin themes
+			$this->message($this->_("You are logged in.")); 
+			if($this->isAdmin && $user->hasPermission('page-edit') && !$input->get('login')) {
+				$this->afterLoginRedirect();
+			}
+			// fallback if nothing set
+			return $this->afterLoginOutput();
 		}
-
-		if($this->input->get('forgot') && $this->allowForgot) {
+		
+		$tfa = null;	
+		$tfas = $this->wire('modules')->findByPrefix('Tfa');
+		if(count($tfas)) {
+			$tfa = new Tfa();
+			$this->wire($tfa);
+		}
+		
+		if($tfa && $tfa->active()) {
+			// two factor authentication
+			if($tfa->success()) {
+				$this->loginSuccess($this->wire('user'));
+				$this->afterLoginRedirect('./');
+			} else {
+				return $tfa->render();
+			}
+			
+		} else if($input->get('forgot') && $this->allowForgot) {
 			/** @var ProcessForgotPassword $process */
-			$process = $this->modules->get("ProcessForgotPassword"); 
+			$process = $this->modules->get("ProcessForgotPassword");
 			return $process->execute();
 		}
-
+		
 		$this->buildLoginForm();
+		$loginSubmit = $input->post('login_submit');
 
-		if($this->wire('input')->post('login_submit')) {
-			$this->form->processInput($this->wire('input')->post);
-		} else if($this->isAdmin) {
-			$this->beforeLogin();
-		}
-
-		if(!$this->nameField->attr('value') || !$this->passField->attr('value')) {
+		if($loginSubmit) {
+			$this->form->processInput($input->post);
+		} else {
+			if($this->isAdmin) $this->beforeLogin();
 			return $this->renderLoginForm();
 		}
+		
+		$name = $this->wire('sanitizer')->pageName($this->nameField->attr('value'));
+		$pass = substr($this->passField->attr('value'), 0, 128);
 
-		$name = $this->wire('sanitizer')->pageName($this->nameField->attr('value')); 
-		$pass = substr($this->passField->attr('value'), 0, 128); 
+		if(!$name || !$pass) return $this->renderLoginForm();
+
+		// vars to copy from non-logged in session to logged-in session
+		$session->setFor($this, 'copyVars', array(
+			'hidpi' => $input->post('login_hidpi') ? true : false, 
+			'touch' => $input->post('login_touch') ? true : false, 	
+			'clientWidth' => (int) $input->post('login_width'),
+		));
 	
-		if($this->wire('session')->login($name, $pass)) {
-			$this->session->message($name . ' - ' . $this->_("Successful login")); 
-			if($this->isAdmin) {
-				$this->session->set('hidpi', $this->wire('input')->post->login_hidpi ? true : false);
-				$this->session->set('touch', $this->wire('input')->post->login_touch ? true : false);
-				$this->session->set('clientWidth', (int) $this->wire('input')->post('login_width'));
-				$this->session->remove('error');
-				$this->afterLogin();
-			}
-			$url = $this->afterLoginURL("./?login=1" . ($this->id ? "&id=$this->id" : ''));
-			$this->session->redirect($url);  
-		} else {
-			$this->error($name . " - " . $this->_("Login failed")); 
-		}
+		if($tfa) $tfa->start($name, $pass); 
+		
+		$this->login($name, $pass);
 
 		return $this->renderLoginForm();
+	}
+
+	/**
+	 * Perform login and redirect on success
+	 * 
+	 * @param $name
+	 * @param $pass
+	 * @return bool Returns false on fail, performs redirect on success
+	 * 
+	 */
+	public function ___login($name, $pass) {
+		/** @var Session $session */
+		$session = $this->wire('session');
+		
+		if($name && $pass) {
+			$loginUser = $session->login($name, $pass);
+		} else {
+			$loginUser = false;
+		}
+		
+		if($loginUser && $loginUser->id) {
+			$this->loginSuccess($loginUser); 
+			$this->afterLoginRedirect('./'); 
+			
+		} else {
+			$this->loginFailed($name); 
+		}
+		
+		return false;
 	}
 	
 	/**
@@ -470,18 +519,40 @@ class ProcessLogin extends Process {
 	}
 
 	/**
+	 * Output that appears if there is nowhere to redirect to after login
+	 * 
+	 * Called only if login originated from the actual login page, OR if user does not have page-edit permission
+	 * and thus can’t browse around in the admin. 
+	 * 
+	 * @return string
+	 * 
+	 */
+	protected function ___afterLoginOutput() {
+		$btn = $this->wire('modules')->get('InputfieldButton');
+		if($this->wire('user')->hasPermission('profile-edit')) {
+			$btn->value = $this->_('Edit Profile');
+			$btn->href = $this->config->urls->admin . 'profile/';
+		} else {
+			$btn->value = $this->_('Continue');
+			$btn->href = $this->wire('config')->urls->root;
+		}
+		return "<p>" . $btn->render() . "</p>";
+	}
+
+	/**
 	 * Redirect to admin root after login
 	 *
-	 * Called only if the login request originated on the actual login page. 
+	 * @param string $url
 	 *
 	 */
-	protected function ___afterLoginRedirect() {
-		$url = $this->wire('config')->urls->admin . 'page/?login=1';
+	protected function ___afterLoginRedirect($url = '') {
 		$url = $this->afterLoginURL($url);
 		$this->wire('session')->redirect($url);
 	}
 
 	/**
+	 * Hooks can modify the redirect URL with this hook
+	 * 
 	 * #pw-hooker
 	 * #pw-internal
 	 * 
@@ -489,10 +560,61 @@ class ProcessLogin extends Process {
 	 * @return string
 	 * 
 	 */
-	public function ___afterLoginURL($url) {
+	public function ___afterLoginURL($url = '') {
+		if(empty($url)) {
+			$user = $this->wire('user');
+			if($this->loginURL) {
+				$url = $this->loginURL;
+			} else if($this->isAdmin && $user->isLoggedin() && $user->hasPermission('page-edit')) {
+				if($this->id || $this->wire('process') !== $this->className()) {
+					$url = './';	
+				} else {
+					$url = $this->wire('config')->urls->admin . 'page/';
+				}
+			} else {
+				$url = './';
+			}
+		}
+		if($this->id && !preg_match('/[?&]id=/', $url)) {
+			$url .= (strpos($url, '?') ? '&' : '?') . 'id=' . $this->id;
+		}
+		if(strpos($url, 'login=1') === false) {
+			$url .= (strpos($url, '?') ? '&' : '?') . 'login=1';
+		}
 		return $url;
 	}
 
+	/**
+	 * Hook called on login fail
+	 * 
+	 * @param $name
+	 * 
+	 */
+	protected function ___loginFailed($name) {
+		$this->error("$name - " . $this->_("Login failed"));
+	}
+
+	/**
+	 * Hook called on login success
+	 * 
+	 * @param User $user
+	 * 
+	 */
+	protected function ___loginSuccess(User $user) {
+		/** @var Session $session */
+		$session = $this->wire('session');
+		$this->wire('session')->message($user->name . ' - ' . $this->_("Successful login"));
+		if($this->isAdmin) {
+			$copyVars = $session->getFor($this, 'copyVars');
+			if(!is_array($copyVars)) $copyVars = array();
+			foreach($copyVars as $key => $value) {
+				$session->set($key, $value);
+			}
+			$session->remove('error');
+			$session->removeFor($this, 'copyVars');
+			$this->afterLogin();
+		}
+	}
 
 }
 

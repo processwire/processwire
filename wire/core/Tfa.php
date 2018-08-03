@@ -1,7 +1,13 @@
 <?php namespace ProcessWire;
 
 /**
- * Tfa - Two Factor Authentication module base class
+ * Tfa - ProcessWire Two Factor Authentication module base class
+ * 
+ * This class is for “Tfa” modules to extend. See the TfaEmail and TfaTotp modules as examples. 
+ * 
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * https://processwire.com
+ * 
  *
  * USAGE
  * ~~~~~~
@@ -18,35 +24,29 @@
  *   $pass = $input->post('pass');
  *   $tfa->start($name, $pass); 
  * 
- *   // the above code performs a redirect if TFA is active for the user
+ *   // the start() method performs a redirect if TFA is active for the user
  *   // place your regular code to login user here, which will be used if TFA is not active for the user
+ * 
+ * } else {
+ *   // render login form
  * }
  * ~~~~~~
  * 
- * @method install()
  * @property int $codeLength Required length for authentication code (default=6)
  * @property int $codeExpire Codes expire after this many seconds (default=180)
  * @property int $codeType Type of TFA code to use, see codeType constants (default=0, which is Tfa::codeTypeDigits)
  * 
+ * @method bool start($name, $pass)
+ * @method InputfieldForm buildAuthCodeForm()
+ * @method string render()
+ * @method User|bool process()
+ * @method void getUserSettingsInputfields(User $user, InputfieldWrapper $fieldset, $settings) 
+ * @method array processUserSettingsInputfields(User $user, InputfieldWrapper $fieldset, $settings, $settingsPrev) 
+ * @method install()
+ * @method uninstall()
+ * 
  */
 class Tfa extends WireData implements Module, ConfigurableModule {
-
-	/**
-	 * Code type: digits only
-	 * 
-	 */
-	const codeTypeDigits = 0;
-	
-	/**
-	 * Code type: alphabetical letters only
-	 */
-	const codeTypeAlpha = 1;
-
-	/**
-	 * Code type: alphanumeric (letters and digits)
-	 * 
-	 */
-	const codeTypeAlnum = 2;
 
 	/**
 	 * Name used for GET variable when TFA is active
@@ -56,14 +56,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 */
 	protected $keyName = 'tfa';
 
-	/**
-	 * User that authenticated login and pass, but not necessarily code yet
-	 * 
-	 * @var User|null
-	 * 
-	 */
-	protected $authUser = null;
-	
 	/**
 	 * Form used for code input
 	 * 
@@ -81,30 +73,14 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	protected $userFieldName = 'tfa_type';
 
 	/**
-	 * Cached result of getUserConfigInputfields()
-	 * 
-	 * @var InputfieldFieldset|null
-	 * 
-	 */
-	protected $userConfigInputfields = null;
-
-	/**
 	 * Construct
 	 * 
 	 */
 	public function __construct() {
-		
+		if(!$this->wire('fields')->get($this->userFieldName)) $this->install();
+		if($this->className() != 'Tfa') $this->initHooks();
+		$this->set('codeExpire', 180);
 		parent::__construct();
-		
-		if(!$this->wire('fields')->get($this->userFieldName)) {
-			$this->install();
-		}
-		
-		$this->initHooks();
-		
-		$this->set('codeLength', 6); 
-		$this->set('codeExpire', 180); 
-		$this->set('codeType', self::codeTypeDigits);
 	}
 
 	/**
@@ -123,7 +99,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * @return bool
 	 * 
 	 */
-	public function start($name, $pass) {
+	public function ___start($name, $pass) {
 
 		/** @var Sanitizer $sanitizer */
 		$sanitizer = $this->wire('sanitizer');
@@ -143,28 +119,20 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		
 		// check if user exists but does not have 2FA enabled
 		$tfaModule = $user->get($this->userFieldName);
-		if(!$tfaModule || !$tfaModule->enabled($user)) return true;
+		if(!$tfaModule) return true;
+		
+		$settings = $tfaModule->getUserSettings($user);
+		if(!$tfaModule->enabledForUser($user, $settings)) return true;
 
 		// check if user name and pass authenticate
 		if(!$session->authenticate($user, $pass)) return false;
 
 		// at this point user has successfully authenticated with given name and pass
-		$this->authUser = $user;
-
-		// generate new authentication code for user
-		$code = $tfaModule->generateUserCode($user);
-		
-		if(strlen($code) && $tfaModule->sendUserCode($user, $code)) {
+		if($tfaModule->startUser($user, $settings)) {
 			$key = $this->getSessionKey(true);
-			$this->sessionSet(array(
-				'id' => $user->id,
-				'name' => $user->name,
-				'type' => $tfaModule->className(), 
-				'time' => time(),
-			));
 			$session->redirect("./?$this->keyName=$key"); 
 		} else {
-			$this->error('Error creating or sending authentication code');
+			$this->error($this->_('Error creating or sending authentication code'));
 			$session->redirect('./');
 		}
 		
@@ -172,7 +140,69 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Returns true if TFA is active and process() should be called
+	 * Start two-factor authentication for User
+	 * 
+	 * Modules must implement this method unless they do not need to generate or send 
+	 * authentication codes to the user. Below are details on how to implement this 
+	 * method:
+	 * 
+	 * A. For modules that generate and validate their own authentication codes:
+	 *    1. Generate an authentication code for user
+	 *    2. Save the code to session
+	 *    3. Send the code to the user via whatever TFA channel is used
+	 *    4. Call parent::startUser($user)
+	 *    5. Return true (if no errors)
+	 * 
+	 * B. For modules that use an external service to generate, send and validate codes:
+	 *    1. Call on the external service to generate and the code to user
+	 *    2. Call parent::startUser($user)
+	 *    3. Return true (if no errors)
+	 * 
+	 * C. Modules that do not generate or send codes, but only validate them (i.e. TOTP): 
+	 *    You can omit implementation, leaving just the built-in one below. 
+	 *    But if you do implement it, make sure you call the parent::startUser($user).
+	 * 
+	 * @param User $user
+	 * @param array $settings Settings configured by user
+	 * @return bool True on success, false on fail
+	 * 
+	 */
+	public function startUser(User $user, array $settings) {
+		if($settings) {} // ignore
+		$this->sessionSet(array(
+			'id' => $user->id,
+			'name' => $user->name,
+			'type' => $this->className(),
+			'time' => time(),
+		));
+		return true; 
+	}
+	
+	/**
+	 * Return true if code is valid or false if not
+	 *
+	 * Modules MUST implement this method.
+	 *
+	 * @param User $user
+	 * @param string|int $code
+	 * @param array $settings User configured TFA settings
+	 * @return bool|int Returns true if valid, false if not, or optionally integer 0 if code was valid but is now expired
+	 * @throws WireException
+	 *
+	 */
+	public function isValidUserCode(User $user, $code, array $settings) {
+		if($user && $code && $settings) {} // ignore
+		throw new WireException('Modules should not call this method');
+	}
+
+	/**
+	 * Returns true if a TFA process is currently active
+	 * 
+	 * - This method should be called if $tfa->success() returns false. 
+	 * - If this method returns true, you should `echo $tfa->render()` which will
+	 *   render the auth code form. 
+	 * - If this method returns false and login/pass submitted, then call `$tfa->start()`,
+	 *   or if login not submitted, then render login form. 
 	 * 
 	 * @return bool
 	 * 
@@ -188,17 +218,21 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * check is needed to verify that the user has enabled TFA. 
 	 * 
 	 * @param User $user
+	 * @param array $settings
 	 * @return bool
 	 * 
 	 */
-	public function enabled(User $user) {
-		$settings = $this->getUserSettings($user);
+	public function enabledForUser(User $user, array $settings) {
+		if($user) {} // ignore
 		$enabled = empty($settings['enabled']) ? false : true;
 		return $enabled;
 	}
 
 	/**
-	 * Returns true when TFA has successfully completed
+	 * Returns true when TFA has successfully completed and user is now logged in
+	 * 
+	 * Note that this method functions as part of the TFA flow control and will
+	 * perform redirects during processing. 
 	 * 
 	 * @return bool
 	 * 
@@ -233,109 +267,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		return null;
 	}
 
-	/**
-	 * Create unique two-factor authentication code for given $user
-	 * 
-	 * @param User $user
-	 * @return string
-	 * 
-	 */
-	public function generateUserCode(User $user) {
-		$pass = new Password();
-		
-		if($this->codeType == self::codeTypeAlpha) {
-			$code = $pass->randomAlnum($this->codeLength, array('numeric' => false));
-		} else if($this->codeType == self::codeTypeAlnum) {
-			$code = $pass->randomAlnum($this->codeLength);
-		} else {
-			$code = $pass->randomDigits($this->codeLength);
-		}
-		
-		$expires = time() + $this->codeExpire;
-		$this->saveUserCode($user, $code, $expires);
-		
-		return $code;
-	}
-
-	/**
-	 * Send code to user, if applicable to the 2FA authentication method
-	 * 
-	 * @param User $user User to send to
-	 * @param string $code Code to send
-	 * @return bool Return true on success, false on fail
-	 * 
-	 */
-	public function sendUserCode(User $user, $code) {
-		if($user && $code) {} // ignore
-		return true;
-	}
-
-	/**
-	 * Save code to valid codes list in session
-	 * 
-	 * @param User $user
-	 * @param string $code
-	 * @param int $expires Omit to use module configured expires time
-	 * 
-	 */
-	public function saveUserCode(User $user, $code, $expires = 0) {
-		if($user) {} // ignore
-		if(empty($expires)) $expires = $this->codeExpire;
-		$codes = $this->sessionGet('codes');
-		if(!is_array($codes)) $codes = array();
-		$codes[] = array(
-			'code' => $code,
-			'expires' => $expires,
-		);
-		$this->sessionSet('codes', $codes);
-	}
-
-	/**
-	 * Get array of codes that are valid (and not yet expired) that can be used for TFA for user
-	 * 
-	 * Note: if you implement your own isValidUserCode() method that does not need to call this method, 
-	 * then this method will not be used and can be ignored. 
-	 * 
-	 * @param User $user
-	 * @return array
-	 * 
-	 */
-	protected function getValidUserCodes(User $user) {
-		if($user) {} // ignore
-		$time = time();
-		$codes = $this->sessionGet('codes', array());
-		$valid = array();
-		foreach($codes as $key => $info) {
-			if($time >= $info['expires']) {
-				unset($codes[$key]);	
-			} else if(!empty($info['code'])) {
-				$valid[] = $info['code'];
-			}
-		}
-		$this->sessionSet('codes', $codes);
-		return $valid;
-	}
-	
-	/**
-	 * Return true if code is valid or false if not
-	 *
-	 * @param User $user
-	 * @param string|int $code
-	 * @return bool
-	 *
-	 */
-	public function isValidUserCode(User $user, $code) {
-		if($user) {} // ignore
-		if(empty($code)) return false;
-		$valid = false;
-		foreach($this->getValidUserCodes($user) as $validCode) {
-			if($validCode && $code === $validCode) {
-				$valid = true;
-				break;
-			}
-		}
-		return $valid;
-	}
 
 	/**
 	 * Get a unique key that can be used in the “tfa” GET variable used by this module
@@ -364,7 +295,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * @return InputfieldForm
 	 *
 	 */
-	protected function buildAuthCodeForm() {
+	public function ___buildAuthCodeForm() {
 		
 		if($this->authCodeForm) return $this->authCodeForm;
 		
@@ -404,7 +335,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * @return string
 	 * 
 	 */
-	public function render() {
+	public function ___render() {
 		$this->message($this->_('Please enter your authentication code to complete login.'));
 		if($this->className() == 'Tfa') {
 			// make sure we call the render from the module that implements TFA
@@ -424,7 +355,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * @return User|bool Returns logged-in user object on successful code completion, or false on fail
 	 * 
 	 */
-	public function process() {
+	public function ___process() {
 
 		/** @var WireInput $input */
 		$input = $this->wire('input');
@@ -476,8 +407,12 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		// at this point, a code has been submitted
 		$this->sessionSet('tries', ++$numTries);
 
+		
 		// validate code
-		if($this->isValidUserCode($user, $code) === true) {
+		$settings = $this->getUserSettings($user);
+		$valid = $this->isValidUserCode($user, $code, $settings); 
+		
+		if($valid === true) {
 			// code is validated, so do a forced login since user is already authenticated
 			$this->sessionReset();
 			$user = $session->forceLogin($user);
@@ -490,7 +425,11 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 			}
 		} else {
 			// failed validation
-			$this->error($this->_('Invalid code'));
+			if($valid === 0) {
+				$this->error($this->_('Expired code'));
+			} else {
+				$this->error($this->_('Invalid code'));
+			}
 			// will ask them to try again
 			$session->redirect("./?$this->keyName=" . $this->getSessionKey());
 		}
@@ -510,7 +449,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * @param array $settings
 	 * 
 	 */
-	public function getUserConfigInputfields(User $user, InputfieldWrapper $fieldset, $settings) {
+	public function ___getUserSettingsInputfields(User $user, InputfieldWrapper $fieldset, $settings) {
 		if($user || $fieldset || $settings) {} // ignore
 		$fieldset->icon = 'user-secret';
 		$fieldset->attr('id+name', '_tfa_settings');
@@ -533,7 +472,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * @return array Return $newSettings array (modified as needed)
 	 * 
 	 */
-	public function processUserConfigInputfields(User $user, InputfieldWrapper $fieldset, $settings, $settingsPrev) {
+	public function ___processUserSettingsInputfields(User $user, InputfieldWrapper $fieldset, $settings, $settingsPrev) {
 		if($user || $fieldset || $settings || $settingsPrev) {} // ignore
 		return $settings;
 	}
@@ -544,18 +483,8 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * @param InputfieldWrapper $inputfields
 	 * 
 	 */
-	public function ___getModuleConfigInputfields(InputfieldWrapper $inputfields) {
-		$inputfields->new('integer', 'codeLength', $this->_('Authentication code length'))
-			->val($this->codeLength)
-			->columnWidth(50);
-		$inputfields->new('integer', 'codeExpire', $this->_('Code expiration (seconds)'))
-			->val($this->codeExpire)
-			->columnWidth(50);
-		$inputfields->new('radios', 'codeType', $this->_('Type of code to use'))
-			->val($this->codeType)
-			->addOption(self::codeTypeDigits, $this->_('Digits [0-9]'))
-			->addOption(self::codeTypeAlpha, $this->_('Alpha [A-Z]'))
-			->addOption(self::codeTypeAlnum, $this->_('Alphanumeric [A-Z 0-9]'));
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		if($inputfields) {} // ignore
 	}
 	
 	/*** SESSION *******************************************************************************************/
@@ -620,7 +549,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	protected function getDefaultUserSettings(User $user) {
 		if($user) {}
 		return array(
-			'enabled' => false
+			'enabled' => false // whether user has this auth method enabled
 		);
 	}
 	
@@ -629,9 +558,18 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 *
 	 * @param User $user
 	 * @return array
+	 * @throws WireException
 	 *
 	 */
 	public function getUserSettings(User $user) {
+		$className = $this->className();
+		
+		if($className === 'Tfa') {
+			throw new WireException('getUserSettings should only be called from Module instance');
+		}
+	
+		$tfaSettings = $user->get('_tfa_settings');
+		if(!empty($tfaSettings[$className])) return $tfaSettings[$className];
 		
 		$defaults = $this->getDefaultUserSettings($user);
 		
@@ -639,7 +577,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		if(!$field) return $defaults;
 		
 		$value = $user->get($field->name);
-		if(empty($value)) return $defaults;
+		if(empty($value)) return $defaults; // no tfa_type is selected by user
 		
 		$table = $field->getTable();
 		$sql = "SELECT `settings` FROM `$table` WHERE pages_id=:user_id";
@@ -650,14 +588,20 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$query->closeCursor();
 		
 		if(empty($data)) {
-			$settings = $defaults;
+			$tfaSettings = array($className => $defaults);
 		} else {
-			$settings = json_decode($data, true);
-			if(!is_array($settings)) $settings = array();
-			$settings = array_merge($defaults, $settings);
+			$tfaSettings = json_decode($data, true);
+			if(!is_array($tfaSettings)) $tfaSettings = array();
+			if(isset($tfaSettings[$className])) {
+				$tfaSettings[$className] = array_merge($defaults, $tfaSettings[$className]);
+			} else {
+				$tfaSettings[$className] = $defaults;
+			}
 		}
+
+		$user->setQuietly('_tfa_settings', $tfaSettings);
 		
-		return $settings;
+		return $tfaSettings[$className]; 
 	}
 
 	/**
@@ -666,14 +610,20 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * @param User $user
 	 * @param array $settings
 	 * @return bool
+	 * @throws WireException
 	 *
 	 */
 	public function saveUserSettings(User $user, array $settings) {
+		$className = $this->className();
+		if($className === 'Tfa') throw new WireException('Method may only be called from module');
+		if(!empty($settings[$className])) $settings = $settings[$className]; // just in case it is $tfaSettings
+		$tfaSettings = array($className => $settings);
+		$user->setQuietly('_tfa_settings', $tfaSettings);
 		$field = $this->wire('fields')->get($this->userFieldName);
 		if(!$field) return false;
 		if(!$user->get($field->name)) return false; // no module selected
 		$table = $field->getTable();
-		$json = json_encode($settings);
+		$json = json_encode($tfaSettings);
 		$sql = "UPDATE `$table` SET `settings`=:json WHERE pages_id=:user_id";
 		$query = $this->wire('database')->prepare($sql);
 		$query->bindValue(':user_id', $user->id, \PDO::PARAM_INT);
@@ -687,15 +637,11 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * @return User
 	 *
 	 */
-	protected function getUser() {
+	public function getUser() {
 
 		$user = null;
 
-		if($this->authUser) {
-			// user that authenticated	
-			$user = $this->authUser;
-
-		} else if($this->wire('user')->isLoggedin()) {
+		if($this->wire('user')->isLoggedin()) {
 			// if user is logged in, user can be current user or one being edited
 			$process = $this->wire('process');
 
@@ -760,14 +706,16 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		if(!$inputfield) return;
 		
 		$user = $this->getUser();
+		if($user->isGuest()) {
+			$inputfield->val(0);
+			return;
+		}
 
 		// fieldset for TFA settings
-		if($this->userConfigInputfields) {
-			$fieldset = $this->userConfigInputfields;
-		} else {
-			$fieldset = new InputfieldWrapper();
-			$settings = $this->getUserSettings($user);
-			$this->getUserConfigInputfields($user, $fieldset, $settings);
+		$fieldset = new InputfieldWrapper();
+		$settings = $this->getUserSettings($user);
+		if(!$this->enabledForUser($user, $settings)) {
+			$this->getUserSettingsInputfields($user, $fieldset, $settings);
 		}
 
 		foreach($fieldset->getAll() as $f) {
@@ -777,7 +725,6 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		}
 		
 		$form->insertAfter($fieldset, $inputfield); 
-
 	}
 
 	/**
@@ -805,9 +752,16 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $form->getChildByName('_tfa_settings');
 		$user = $this->getUser();
+		if($user->isGuest()) {
+			$inputfield->val(0);
+			return;
+		}
+		
 		$settingsPrev = $this->getUserSettings($user);
 		$settings = $settingsPrev;
 		$changes = array();
+		
+		if($this->enabledForUser($user, $settings)) return;
 
 		foreach($fieldset->getAll() as $f) {
 			$name = $f->attr('name');
@@ -815,7 +769,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 			$settings[$name] = $f->val();
 		}
 		
-		$settings = $this->processUserConfigInputfields($user, $fieldset, $settings, $settingsPrev);
+		$settings = $this->processUserSettingsInputfields($user, $fieldset, $settings, $settingsPrev);
 		
 		foreach($settings as $name => $value) {
 			if(!isset($settingsPrev[$name]) || $settingsPrev[$name] !== $settings[$name]) {
@@ -827,7 +781,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		}
 		
 		if(count($changes)) {
-			$this->message("TFA settings changed: " . implode(', ', $changes), Notice::debug);
+			// $this->message("TFA settings changed: " . implode(', ', $changes), Notice::debug);
 			$this->saveUserSettings($user, $settings);
 		}
 	}
@@ -835,7 +789,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	/**
 	 * Hook before InputfieldForm::render()
 	 * 
-	 * This method adds the fields configured in getUserConfigInputfields() and adds
+	 * This method adds the fields configured in getUserSettingsInputfields() and adds
 	 * them to the form being rendered, but only if the form already has a field
 	 * named “tfa_type”. It also pulls the settings stored in that field, and 
 	 * populates the module-specific configuration fields. 
@@ -853,26 +807,36 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		if(!$inputfield) return;
 		if(!$inputfield->val()) return;
 		
-
 		/** @var Modules $modules */
 		$modules = $event->wire('modules');
 		$user = $this->getUser();
-		$settings = $this->getUserSettings($user);
 		
-		if($this->userConfigInputfields && false) {
-			$fieldset = $this->userConfigInputfields;
+		if($user->isGuest()) {
+			$inputfield->val(0);
+			return;
+		}
+		
+		$settings = $this->getUserSettings($user);
+		$enabled = $this->enabledForUser($user, $settings);
+		$fieldset = $modules->get('InputfieldFieldset');
+		$fieldset->label = $modules->getModuleInfoProperty($this, 'title');
+		$fieldset->showIf = "$this->userFieldName=" . $this->className();
+	
+		if($enabled) {
+			$fieldset->label .= ' - ' . $this->_('ENABLED'); 
+			$fieldset->icon = 'user-secret';
+			$fieldset->description = 
+				$this->_('Two factor authentication enabled!') . ' ' . 
+				$this->_('To disable or change settings, select the “None” option above and save.');
+			$fieldset->collapsed = Inputfield::collapsedYes;
 		} else {
 			/** @var InputfieldFieldset $fieldset */
-			$fieldset = $modules->get('InputfieldFieldset');
-			$fieldset->label = $modules->getModuleInfoProperty($this, 'title');
-			$fieldset->showIf = "$this->userFieldName=" . $this->className();
-			$this->getUserConfigInputfields($user, $fieldset, $settings);
+			$this->getUserSettingsInputfields($user, $fieldset, $settings);
+			if(!$this->wire('input')->requestMethod('POST')) {
+				$this->warning($this->_('Please configure your two-factor authentication settings'));
+			}
 		}
 		
-		if(!$this->enabled($user) && !$this->wire('input')->requestMethod('POST')) {
-			$this->warning($this->_('Please configure your two-factor authentication settings'));
-		}
-
 		$inputfield->getParent()->insertAfter($fieldset, $inputfield);
 
 		foreach($fieldset->getAll() as $f) {
@@ -900,12 +864,13 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 			$field->label = $this->_('2-factor authentication type');
 			$field->type = $this->wire('fieldtypes')->get('FieldtypeModule');
 			$field->flags = Field::flagSystem;
+			$field->description = 'After making or changing a selection, submit the form and return here to configure it.';
 			$field->icon = 'user-secret';
 			$field->set('moduleTypes', array('Tfa'));
 			$field->set('instantiateModule', 1);
 			$field->set('showNoneOption', 1);
-			$field->set('labelField', 'title');
-			$field->set('inputfieldClass', 'InputfieldRadios'); 
+			$field->set('labelField', 'title-summary');
+			$field->set('inputfieldClass', 'InputfieldRadios');
 			$field->set('blankType', 'zero');
 			$this->wire('fields')->save($field);
 			$this->message("Added field: $field->name", Notice::debug);
