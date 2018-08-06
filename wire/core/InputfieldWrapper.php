@@ -416,6 +416,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				array_push($wrappers, $inputfield); 
 			} 
 
+			$inputfield->unsetParent();
 			$wrapper->add($inputfield); 
 		}
 

@@ -493,10 +493,29 @@ abstract class Inputfield extends WireData implements Module {
 	 */
 	public function setParent(InputfieldWrapper $parent) {
 		if($this->parent && $this->parent instanceof InputfieldWrapper && $this->parent !== $parent) {
-			$this->parent->remove($this);
+			$oldRootParent = $this->getRootParent();
+			if(!$oldRootParent) $oldRootParent = $this->parent;
+			$newRootParent = $parent->getRootParent();
+			if(!$newRootParent) $newRootParent = $parent;
+			if($oldRootParent === $newRootParent) {
+				// if field staying in the same form, remove from previous parent
+				$this->parent->remove($this);
+			}
 		}
 		$this->parent = $parent; 
 		return $this; 
+	}
+
+	/**
+	 * Unset any previously set parent
+	 * 
+	 * #pw-internal
+	 * @return $this
+	 * 
+	 */
+	public function unsetParent() {
+		$this->parent = null;
+		return $this;
 	}
 
 	/**
