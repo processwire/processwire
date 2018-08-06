@@ -1211,7 +1211,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			}
 			$pageimages->add($pathname);
 			$pageimage = $pageimages->last();
-			$pageimage->isTemp(true);
+			if(!$this->field->get('overwrite')) $pageimage->isTemp(true);
 			$this->page->save($this->field->name);
 			$fileID = "file_$pageimage->hash";
 			$isNew = 1; 
