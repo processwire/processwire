@@ -16,6 +16,7 @@
  * @method InputfieldForm buildForm()
  * @method bool processInput(InputfieldForm $form)
  * @method array getAllowedTemplates($parent = null)
+ * @method string nameChangedWarning(Page $page, $namePrevious)
  *
  */
 
@@ -1063,6 +1064,21 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			)
 		); 
 	}
+	
+	/**
+	 * Hook called when the page's name changed during save
+	 *
+	 * @param Page $page
+	 * @param $namePrevious
+	 * @return string Warning message
+	 *
+	 */
+	protected function ___nameChangedWarning(Page $page, $namePrevious) {
+		return sprintf(
+			$this->_('Warning, the name you selected "%1$s" has been changed to "%2$s".'),
+			$namePrevious, $page->name
+		);
+	}
 
 	/**
 	 * Save the submitted page add form
@@ -1155,11 +1171,9 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$this->createdPageMessage($this->page); 
 		
 		if($pageName != $this->page->name) {
-			$this->error(sprintf(
-				$this->_('Warning, the name you selected "%1$s" was already in use and has been changed to "%2$s".'), 
-				$pageName, $this->page->name
-			));
-		} 
+			$warning = $this->nameChangedWarning($this->page, $pageName);
+			if($warning) $this->warning($warning);
+		}
 		
 		if($publishNow && $publishAdd) {
 			$this->session->redirect("./?parent_id={$this->page->parent_id}&template_id={$this->page->template->id}");
