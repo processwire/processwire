@@ -1548,12 +1548,17 @@ class Pageimage extends Pagefile {
 		static $depth = 0;
 		$depth++;
 		$info = parent::__debugInfo();	
-		$info['width'] = $this->width();	
+		$is = new ImageSizer($this->filename);
+		$ii = $is->getImageInfo(true);
+		$info['extension'] = $ii['extension'];
+		$info['width'] = $this->width();
 		$info['height'] = $this->height();
 		$info['suffix'] = $this->suffixStr;
 		if($this->hasFocus) $info['focus'] = $this->focusStr;
 		if(isset($info['filedata']) && isset($info['filedata']['focus'])) unset($info['filedata']['focus']); 
 		if(empty($info['filedata'])) unset($info['filedata']);
+		foreach($ii['info'] as $k => $v) $info[$k] = $v;
+		$info['iptcRaw'] = $ii['iptcRaw'];
 		$original = $this->original;
 		if($original && $original !== $this) $info['original'] = $original->basename;
 		if($depth < 2) {
@@ -1565,12 +1570,8 @@ class Pageimage extends Pagefile {
 			if(empty($info['variations'])) unset($info['variations']); 
 		}
 		$depth--;
-		if($this->config->imageDebugVerbose) {
-			$is = new ImageSizer($this->filename);
-			$info['imageInspector'] = $is->getImageInfo(true);
-			$info['imageInspector']['availableEngines'] = $is->getEngines();
-			$info['imageInspector']['neededEngineSupport'] = $is->getImageInfo();
-		}
+		$info['neededEngineSupport'] = $is->getImageInfo();
+		$info['foundSupportingEngines'] = $is->getEngines();
 		return $info;
 	}
 
