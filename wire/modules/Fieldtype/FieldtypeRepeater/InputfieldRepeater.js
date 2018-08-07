@@ -93,6 +93,7 @@ function InputfieldRepeater($) {
 					//$item.toggleClass('InputfieldStateCollapsed', 100);
 				}
 				$item.addClass('InputfieldRepeaterDeletePending');
+				$item.closest('.Inputfield').addClass('InputfieldStateChanged');
 			}
 			$header.find('.InputfieldRepeaterItemControls').css('background-color', $header.css('background-color'));
 		}
