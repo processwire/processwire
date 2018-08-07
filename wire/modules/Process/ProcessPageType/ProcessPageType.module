@@ -652,13 +652,13 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		$items = $this->pages->find(trim($selector, ", ")); 
 	
 		foreach($items as $item) {
-			$result['items'][] = $this->getSearchItemInfo($item); 
+			$result['items'][] = $this->getSearchItemInfo($item, $options); 
 		}
 
 		return $result;
 	}
 	
-	protected function getSearchItemInfo(Page $item) {
+	protected function getSearchItemInfo(Page $item, array $options) {
 		return array(
 			'id' => $item->id,
 			'name' => $item->name,
