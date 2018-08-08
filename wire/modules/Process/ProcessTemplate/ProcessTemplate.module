@@ -97,7 +97,13 @@ class ProcessTemplate extends Process {
 				'This template is used by %d pages', 
 				$this->numPages), $this->numPages
 			),
-		);
+			'templateNameFormat' => 
+				$this->_('Template names may use letters (a-z A-Z), numbers (0-9), hyphens and underscores.') . ' ' .
+				$this->_('Lowercase is optional but recommended.') . ' ' . 
+				$this->_('Do not include a file extension.'),
+			'invalidTemplateName' => $this->_('Template name does not match required format.'),
+			'nameAlreadyInUse' => $this->_('The name "%s" is already in use'),
+	);
 
 		if($this->input->urlSegment1) $this->modules->get("JqueryWireTabs"); 
 		
@@ -504,7 +510,7 @@ class ProcessTemplate extends Process {
 					$name = $this->wire('sanitizer')->name(basename($name)); 
 					if(!strlen($name)) continue;
 					if($this->wire('templates')->get($name) || $this->wire('fieldgroups')->get($name)) {	
-						$this->error($name . " - " . $this->_('Name is already in use')); 
+						$this->error(sprintf($this->labels['nameAlreadyInUse'], $name)); 
 					} else {
 						$postTemplates[] = $name;
 					}
@@ -576,6 +582,7 @@ class ProcessTemplate extends Process {
 			$field->label = sprintf($this->_('Templates found in: %s'), "$templateUrl*.{$this->config->templateExtension}"); 
 			$field->description = $this->_('The following new templates were found. Check the box next to each template you want to add.'); // Templates found, description
 			$field->attr('id+name', 'templates'); 
+			$field->icon = 'search-plus';
 			foreach($templateFiles as $file) $field->addOption($file); 
 			$form->append($field); 
 		} else {
@@ -587,12 +594,14 @@ class ProcessTemplate extends Process {
 		$field->label = $this->_('Create a new template without a file');
 		$field->description = $this->_('If you want to create a new template even though there is currently no file associated with it, enter the name of the template here.'); // Create template with no file, description
 		$field->description .= ' ' . $this->_('You may enter multiple template names by separating each with a space.'); 
-		$field->notes = $this->_('Do not include a file extension'); 
+		$field->notes = $this->labels['templateNameFormat'];
 		$field->attr('id+name', 'template_name'); 
+		$field->set('pattern', '^[-_.a-zA-Z0-9 ]*$');
+		$field->icon = 'plus-circle';
 		$field->collapsed = count($templateFiles) ? Inputfield::collapsedYes : Inputfield::collapsedNo; 
 		$form->append($field); 
 
-		$form->append($this->buildEditFormImport()); 
+		$form->append($this->buildEditFormImport(true)); 
 
 		/** @var InputfieldSubmit $field */
 		$field = $this->modules->get('InputfieldSubmit');
@@ -1029,10 +1038,11 @@ class ProcessTemplate extends Process {
 	/**  
 	 * Build the "import" tab for edit form
 	 * 
+	 * @param bool $collapsed
 	 * @return InputfieldWrapper
 	 * 
 	 */
-	protected function buildEditFormImport() {
+	protected function buildEditFormImport($collapsed = false) {
 
 		/** @var InputfieldWrapper $form */
 		$form = $this->wire(new InputfieldWrapper());
@@ -1041,10 +1051,11 @@ class ProcessTemplate extends Process {
 		$field = $this->modules->get("InputfieldSelect"); 
 		$field->label = $this->_('Duplicate fields used by another template'); 
 		$field->description = $this->_('If you want to duplicate fields used by another template, select it here. Fields already present in this template will be left alone.'); // Duplicate fields, description
- 
+		$field->icon = 'cube';
 		$field->attr('id+name', 'import_fieldgroup'); 
 		$field->addOption(''); 
 		$field->attr('value', ''); 
+		if($collapsed) $field->collapsed = Inputfield::collapsedYes;
 
 		foreach($this->fieldgroups->find("sort=name") as $fieldgroup) {
 			$template = $this->templates->get($fieldgroup->name); 	
@@ -1269,12 +1280,15 @@ class ProcessTemplate extends Process {
 		if(!($template->flags & Template::flagSystem)) { 
 			$field = $this->modules->get("InputfieldName"); 
 			$field->label = $this->_('Rename Template');
-			$field->description = $this->_('The name used to refer to this template. This is also the default filename of the template file (with .php extension) in /site/templates/.'); // Rename template, description
+			$field->description = $this->_('The name used to refer to this template. This is also the default filename of the template file (with .php extension) in /site/templates/.') . ' '; // Rename template, description
 			if(basename($template->filename, '.php') == $template->name) {
-				 if(is_writable($template->filename)) $field->description .= $this->_('The template filename is writable and will be renamed as well.'); // Rename template, filename writable, description
-					else $field->description .= $this->_('The template file is not writable so you will have to rename it manually (instructions will be provided after you save).'); // Rename template, filename not writable, description
+				 if(is_writable($template->filename)) {
+					 $field->description .= $this->_('The template filename is writable and will be renamed as well.'); // Rename template, filename writable, description
+				 } else {
+					 $field->description .= $this->_('The template file is not writable so you will have to rename it manually (instructions will be provided after you save).'); // Rename template, filename not writable, description
+				 }
 			}
-			$field->notes = $this->_('Enter any combination of letters (a-z), numbers (0-9), hyphens or underscores (no spaces). Do not include the .php file extension.'); // Rename template, notes
+			$field->notes = $this->labels['templateNameFormat'];
 			$field->attr('id+name', 'rename'); 
 			$field->attr('value', $template->name); 
 			$field->collapsed = Inputfield::collapsedYes;
@@ -1287,6 +1301,7 @@ class ProcessTemplate extends Process {
 		$field->attr('id+name', 'clone_template');
 		$field->label = $this->_('Duplicate/clone this template?');
 		$field->description = $this->_('Enter the name of the new template you want to create. The clone will be created when you save. If your templates directory is writable and the template has a file, it will also be cloned.'); // Clone template, description
+		$field->notes = $this->labels['templateNameFormat'];
 		$field->collapsed = Inputfield::collapsedYes; 
 		$field->icon = 'clone';
 		$form->append($field);
@@ -2500,13 +2515,20 @@ class ProcessTemplate extends Process {
 		// check for template rename
 		if($rename = $form->get('rename')) {
 			$rename = $rename->attr('value');
-			if($rename && $template->name != $rename) {
+			$_rename = $rename;
+			$rename = $sanitizer->name($rename);
+			if($rename && $template->name != $rename) { 
 				if($redirectUrl) {
 					$this->error($this->_('Skipped template rename - please complete that after the current action.'));
+				} else if($_rename !== $rename) {
+					$this->error($this->labels['invalidTemplateName']);
+				} else if($this->wire('templates')->get($rename)) {
+					$this->error(sprintf($this->labels['nameAlreadyInUse'], $rename)); 
 				} else {
 					$redirectUrl = "rename?id={$template->id}&name=$rename";
 				}
 			}
+			unset($rename, $_rename);
 		}
 
 		try {
@@ -2519,11 +2541,12 @@ class ProcessTemplate extends Process {
 		// check for creation of clone 
 		$cloneTemplateName = $input->post('clone_template');
 		if($cloneTemplateName) {
-			$cloneTemplateName = $sanitizer->pageName($cloneTemplateName);
-			if(!$cloneTemplateName) {
-				$this->error($this->_('Invalid template name specified for clone'));
+			$_cloneTemplateName = $cloneTemplateName;
+			$cloneTemplateName = $sanitizer->name($cloneTemplateName);
+			if(!$cloneTemplateName || $_cloneTemplateName !== $cloneTemplateName) {
+				$this->error($this->labels['invalidTemplateName']); 
 			} else if($this->wire('templates')->get($cloneTemplateName)) {
-				$this->error($this->_('Cannot clone because a template with that name already exists'));
+				$this->error(sprintf($this->labels['nameAlreadyInUse'], $cloneTemplateName)); 
 			} else {
 				$clone = $this->templates->clone($this->template, $cloneTemplateName);
 				if($clone) {
@@ -2533,6 +2556,7 @@ class ProcessTemplate extends Process {
 					$this->error($this->_('Error creating clone of this template'));
 				}
 			}
+			unset($cloneTemplateName, $_cloneTemplateName);
 		}
 
 		if(!$redirectUrl) $redirectUrl = "edit?id={$template->id}";
@@ -2858,7 +2882,12 @@ class ProcessTemplate extends Process {
 		} else if($input->get('name')) {
 			$name = $input->get('name');
 		}
+		$_name = $name;
 		$name = $sanitizer->name($name); 
+		if($_name !== $name) {
+			$this->error($this->labels['invalidTemplateName']);
+			$name = '';
+		}
 		if(!$name) {
 			$this->session->redirect($redirectUrl);
 			return '';
@@ -2866,7 +2895,7 @@ class ProcessTemplate extends Process {
 			
 
 		if($this->templates->get($name) || $this->fieldgroups->get($name)) {
-			$this->error(sprintf($this->_('The name "%s" is already in use'), $name)); 	
+			$this->error(sprintf($this->labels['nameAlreadyInUse'], $name)); 	
 			$this->session->redirect($redirectUrl); 
 			return '';
 		}
