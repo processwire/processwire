@@ -1825,39 +1825,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 				if($name == 'status' && $this->processInputStatus($inputfield)) continue; 
 			}
-
-			if($name && $errorAction 
-				&& $inputfield->getSetting('required') && $inputfield->isEmpty() 
-				&& !$inputfield->getSetting('requiredSkipped')	
-				&& !$this->page->isUnpublished()) {
-				
-				if($errorAction === 1) {
-					// restore existing value by skipping processing of empty when required
-					$value = $inputfield->attr('value');
-					if($value instanceof Wire) $value->resetTrackChanges();
-					if($this->page->getField($name)) $this->page->remove($name); // force fresh copy to reload
-					$previousValue = $this->page->get($name);
-					$this->page->untrackChange($name);
-					if($previousValue) {
-						// we should have a previous value to restore
-						if(WireArray::iterable($previousValue) && !count($previousValue)) {
-							// previous value still empty
-						} else {
-							// previous value restored by simply not setting new value to $page
-							$inputfield->error($this->_('Restored previous value'));
-							continue;
-						}
-					}
-					
-				} else if($errorAction === 2 && $this->page->publishable() && $this->page->id > 1) {
-					// unpublish page missing required value
-					$this->page->setQuietly('_forceAddStatus', Page::statusUnpublished);
-					$label = $inputfield->getSetting('label');
-					if(empty($label)) $label = $inputfield->attr('name');
-					$this->error(sprintf($this->_('Page unpublished because field "%s" is required'), $label));
-					continue;
-				}
-			}
+			
+			if($this->processInputErrorAction($this->page, $inputfield, $name, $errorAction)) continue;
 
 			if($name && $inputfield->isChanged()) {
 				if($languages && $inputfield->getSetting('useLanguages')) {
@@ -1885,6 +1854,72 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$this->page->addStatus($forceAddStatus);
 			}
 		}
+	}
+
+	/**
+	 * Process required error actions as configured with page’s template
+	 * 
+	 * @param Page $page
+	 * @param Inputfield|InputfieldRepeater $inputfield Inputfield that has already had its processInput() method called.
+	 * @param string $name Name of field that we are checking.
+	 * @param null|int $errorAction Error action from $page->template->errorAction, or omit to auto-detect. 
+	 * @return bool Returns true if field $name should be skipped over during processing, or false if not
+	 * 
+	 */
+	public function processInputErrorAction(Page $page, Inputfield $inputfield, $name, $errorAction = null) {
+		
+		if(empty($name)) return false;
+		if($errorAction === null) $errorAction = (int) $page->template->get('errorAction');
+		if(!$errorAction) return false;
+		if($page->isUnpublished()) return false;
+	
+		$isRequired = $inputfield->getSetting('required');
+		$isRepeater = strpos($inputfield->className(), 'Repeater') > 0 && wireInstanceOf($inputfield, 'InputfieldRepeater', false);
+
+		if(!$isRepeater && !$isRequired) return false;
+		if($inputfield->getSetting('requiredSkipped')) return false;
+		
+		if($isRepeater) {
+			if($inputfield->numRequiredEmpty() > 0) {
+				// repeater has required fields that are empty
+			} else if($isRequired && $inputfield->numPublished() < 1) {
+				// repeater is required and has no published items
+			} else {
+				// repeater is okay for now
+				return false;
+			}
+		} else if(!$inputfield->isEmpty()) {
+			return false;
+		}
+		
+		if($errorAction === 1) {
+			// restore existing value by skipping processing of empty when required
+			$value = $inputfield->attr('value');
+			if($value instanceof Wire) $value->resetTrackChanges();
+			if($page->getField($name)) $page->remove($name); // force fresh copy to reload
+			$previousValue = $page->get($name);
+			$page->untrackChange($name);
+			if($previousValue) {
+				// we should have a previous value to restore
+				if(WireArray::iterable($previousValue) && !count($previousValue)) {
+					// previous value still empty
+				} else {
+					// previous value restored by simply not setting new value to $page
+					$inputfield->error($this->_('Restored previous value'));
+					return true;
+				}
+			}
+
+		} else if($errorAction === 2 && $page->publishable() && $page->id > 1) {
+			// unpublish page missing required value
+			$page->setQuietly('_forceAddStatus', Page::statusUnpublished);
+			$label = $inputfield->getSetting('label');
+			if(empty($label)) $label = $inputfield->attr('name');
+			$inputfield->error(sprintf($this->_('Page unpublished because field "%s" is required'), $label));
+			return false;
+		}
+		
+		return false;
 	}
 
 	/**

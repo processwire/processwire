@@ -83,6 +83,14 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	protected $renderValueMode = false;
 
 	/**
+	 * Number of required empty Inputfields after processing
+	 * 
+	 * @var int 
+	 * 
+	 */
+	protected $numRequiredEmpty = 0;
+
+	/**
 	 * Set config defaults
 	 *
 	 */
@@ -271,14 +279,18 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$label = $this->field->getLabel();
 		if(!$label) $label = ucfirst($this->field->name); 
 
-		// remember which repeater items are open, when enabled
+		// remember which repeater items are open (as stored in cookie), when enabled
+		$openIDs = array();
 		if((int) $this->field->get('rememberOpen')) {
 			$this->addClass('InputfieldRepeaterRememberOpen', 'wrapClass');
-			$openIDs = $this->wire('input')->cookie('repeaters_open');
+			$openIDs = $this->wire('input')->cookie('repeaters_open'); 
 			if($openIDs) $openIDs = explode('|', trim($openIDs, '|'));
 			if(!is_array($openIDs)) $openIDs = array();
-		} else {
-			$openIDs = array();
+		}
+		// merge with any open IDs in session
+		$_openIDs = $this->wire('session')->getFor($this, 'openIDs');
+		if(is_array($_openIDs) && !empty($_openIDs)) {
+			$openIDs = array_merge($openIDs, array_values($_openIDs));
 		}
 		
 		$minItems = $this->repeaterMinItems;
@@ -754,6 +766,11 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$sortChanged = false;
 		$value->setTrackChanges(true);
 		$pageIDs = array();
+		$_openIDs = $this->wire('session')->getFor($this, 'openIDs');
+		if(!is_array($_openIDs)) $_openIDs = array();
+		$openIDs = $_openIDs; // these two are compared with each other at the end
+		$this->numRequiredEmpty = 0;
+		$this->getErrors(true); 
 
 		// existing items
 		foreach($value as $key => $page) {
@@ -802,9 +819,11 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			/** @var InputfieldWrapper $wrapper */
 			$wrapper = $this->wrappers[$page->id]; 
 			$wrapper->resetTrackChanges(true); 
+			$wrapper->getErrors(true); // clear out any errors
 			$wrapper->processInput($input);
 			
 			$numErrors = count($wrapper->getErrors());
+			$numRequiredEmpty = count($wrapper->getEmpty(true));
 			$page->setQuietly('_repeater_errors', $numErrors); // signal to FieldtypeRepeater::savePageField() that page has errors
 			$page->setQuietly('_repeater_processed', true); // signal to FieldtypeRepeater::savePageField() that page had input processed
 			$this->formToPage($wrapper, $page);
@@ -828,6 +847,14 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 					// no publish change requested, just ensure page is on
 					$page->addStatus(Page::statusOn);
 				}
+			}
+			
+			if($numErrors || $numRequiredEmpty) {
+				$this->error(sprintf($this->_('Errors in “%s” item %d'), $this->label, $key + 1));
+				if(!$page->hasStatus(Page::statusUnpublished)) $this->numRequiredEmpty += $numRequiredEmpty;
+				$openIDs[$page->id] = $page->id; // force item with error to be open on next request
+			} else if(isset($openIDs[$page->id])) {
+				unset($openIDs[$page->id]);
 			}
 
 			if($page->isChanged() && $this->page->id) $numChanges++;
@@ -858,6 +885,9 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$this->page->trackChange($this->attr('name'));
 			$this->trackChange('value');
 		}
+	
+		// if openIDs value changed, update the session variable
+		if($_openIDs !== $openIDs) $this->wire('session')->setFor($this, 'openIDs', $openIDs); 
 
 		return $this; 
 	}
@@ -921,6 +951,33 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$cnt++;
 		}
 		return $cnt === 0; 
+	}
+
+	/**
+	 * Return quantity of published items
+	 * 
+	 * @return int
+	 * 
+	 */
+	public function numPublished() {
+		/** @var PageArray $value */
+		$value = $this->attr('value');
+		if(empty($value) || !count($value)) return 0;
+		$num = 0;
+		foreach($value as $item) {
+			if(!$item->hasStatus(Page::statusUnpublished)) $num++;
+		}
+		return $num;
+	}
+
+	/**
+	 * Get number of required but empty Inputfields (across all repeater items)
+	 * 
+	 * @return int
+	 * 
+	 */
+	public function numRequiredEmpty() {
+		return $this->numRequiredEmpty;
 	}
 
 	/**

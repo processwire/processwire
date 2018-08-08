@@ -967,6 +967,34 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	}
 
 	/**
+	 * Return Inputfields in this wrapper that are required and have empty values
+	 *
+	 * This method includes all children up through the tree, not just direct children.
+	 *
+	 * #pw-internal
+	 *
+	 * @param bool $required Only include empty Inputfields that are required? (default=true)
+	 * @return array of Inputfield instances indexed by name attributes
+	 *
+	 */
+	public function getEmpty($required = true) {
+		$a = array();
+		static $n = 0;
+		foreach($this->children as $child) {
+			if($child instanceof InputfieldWrapper) {
+				$a = array_merge($a, $child->getEmpty($required));
+			} else {
+				if($required && !$child->getSetting('required')) continue;
+				if(!$child->isEmpty()) continue;
+				$name = $child->attr('name');
+				if(empty($name)) $name = "_unknown" . (++$n);
+				$a[$name] = $child;
+			}
+		}
+		return $a;
+	}
+
+	/**
 	 * Return an array of errors that occurred on any of the children during input processing.
 	 *
 	 * Should only be called after `InputfieldWrapper::processInput()`.
