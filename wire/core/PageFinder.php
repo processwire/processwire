@@ -522,6 +522,7 @@ class PageFinder extends Wire {
 				$selectors->remove($selector);
 				if(!empty($options['allowCustom'])) {
 					$_selectors = $this->wire(new Selectors($selector->value()));
+					$this->preProcessSelectors($_selectors, $options);
 					/** @var Selectors $_selectors */
 					foreach($_selectors as $s) $selectors->add($s);
 				}
