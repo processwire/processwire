@@ -140,11 +140,15 @@ class ProcessPageView extends Process {
 		$config = $this->config; 
 		$debug = $config->debug; 
 		if($config->usePoweredBy !== null) header('X-Powered-By:' . ($config->usePoweredBy ? ' ProcessWire CMS' : ''));
-		if(is_array($config->pageNumUrlPrefixes)) foreach($config->pageNumUrlPrefixes as $prefix) {
-			$this->pageNumUrlPrefixes[$prefix] = $prefix;
-		}
-		if(!count($this->pageNumUrlPrefixes)) {
-			$prefix = $this->config->pageNumUrlPrefix;
+		
+		$pageNumUrlPrefixes = $config->pageNumUrlPrefixes;
+		if(!is_array($pageNumUrlPrefixes)) $pageNumUrlPrefixes = array();
+		if(count($pageNumUrlPrefixes)) {
+			foreach($pageNumUrlPrefixes as $prefix) {
+				$this->pageNumUrlPrefixes[$prefix] = $prefix;
+			}
+		} else {
+			$prefix = $config->pageNumUrlPrefix;
 			if(strlen($prefix)) $this->pageNumUrlPrefixes[$prefix] = $prefix;
 		}
 
@@ -425,7 +429,6 @@ class ProcessPageView extends Process {
 	 * Check if the requested URL is to a secured page file
 	 *
 	 * This function sets $this->requestFile when it finds one.
-	 * This function updates the $it variable when pagefile found.
 	 * Returns Page when a pagefile was found and matched to a page.
 	 * Returns NullPage when request should result in a 404. 
 	 * Returns true, and updates $it, when pagefile was found using old/deprecated method.
@@ -436,20 +439,68 @@ class ProcessPageView extends Process {
 	 *
 	 */
 	protected function checkRequestFile(&$it) {
+	
+		/** @var Config $config */
 		$config = $this->wire('config');
+		/** @var Pages $pages */
+		$pages = $this->wire('pages');
+		
+		// request with url to root (applies only if site runs from subdirectory)
+		$itRoot = rtrim($config->urls->root, '/') . $it;
 
 		// check for secured filename, method 1: actual file URL, minus leading "." or "-"
-		if(strpos(rtrim($config->urls->root, '/') . $it, $config->urls->files) === 0) {
-			if(preg_match('{/([\d\/]+)/([-_.a-zA-Z0-9]+)$}', $it, $matches) && strpos($matches[2], '.')) {
+		if(strpos($itRoot, $config->urls->files) === 0) {
+			// request is for file in site/assets/files/...
+			$idAndFile = substr($itRoot, strlen($config->urls->files));
+			
+			// matching in $idAndFile: 1234/file.jpg, 1/2/3/4/file.jpg, 1234/subdir/file.jpg, 1/2/3/4/subdir/file.jpg, etc. 
+			if(preg_match('{^(\d[\d\/]*)/([-_a-zA-Z0-9][-_./a-zA-Z0-9]+)$}', $idAndFile, $matches) && strpos($matches[2], '.')) {
 				// request is consistent with those that would match to a file
-				$this->requestFile = $matches[2]; 	
-				$idPath = str_replace('/', '', $matches[1]); 
-				$page = $this->pages->get((int) $idPath); // Page or NullPage
-				return $page; 
+				$idPath = trim($matches[1], '/');
+				$file = trim($matches[2], '.');
+				
+				if(!ctype_digit("$idPath")) {
+					// extended paths where id separated by slashes, i.e. 1/2/3/4
+					if($config->pagefileExtendedPaths) {
+						// allow extended paths
+						$idPath = str_replace('/', '', $matches[1]); 
+					} else {
+						// extended paths not allowed
+						return $pages->newNullPage();
+					}
+				}
+				
+				if(strpos($file, '/') !== false) {
+					// file in subdirectory (for instance ProDrafts uses subdirectories for draft files)
+					list($subdir, $file) = explode('/', $file, 2);
+					
+					if(strpos($file, '/') !== false) {
+						// there is more than one subdirectory, which we do not allow
+						return $pages->newNullPage();
+						
+					} else if(strpos($subdir, '.') !== false || strlen($subdir) > 128) {
+						// subdirectory has a "." in it or subdir length is too long
+						return $pages->newNullPage();
+						
+					} else if(!preg_match('/^[a-zA-Z0-9][-_a-zA-Z0-9]+$/', $subdir)) {
+						// subdirectory nat in expected format  
+						return $pages->newNullPage();
+					}
+					
+					$file = trim($file, '.');
+					$this->requestFile = "$subdir/$file";
+					
+				} else {
+					// file without subdirectory
+					$this->requestFile = $file;
+				}
+				
+				return $pages->get((int) $idPath); // Page or NullPage
+				
 			} else {
 				// request was to something in /site/assets/files/ but we don't recognize it
 				// tell caller that this should be a 404
-				return $this->wire('pages')->newNullPage();
+				return $pages->newNullPage();
 			}
 		}
 

@@ -590,7 +590,7 @@ class Template extends WireData implements Saveable, Exportable {
 
 			if($this->settings[$key] != $value) {
 				if($this->settings[$key] && ($this->settings['flags'] & Template::flagSystem) && in_array($key, array('id', 'name'))) {
-					throw new WireException("Template '$this' has the system flag and you may not change it's 'id' or 'name' fields. "); 
+					throw new WireException("Template '$this' has the system flag and you may not change its 'id' or 'name' fields. "); 
 				}
 				$this->trackChange($key, $this->settings[$key], $value); 
 			}
