@@ -388,6 +388,10 @@ class Password extends Wire {
 	/**
 	 * Return a pseudo-random alpha or alphanumeric character
 	 * 
+	 * This method may be deprecated at some point, so it is preferable to use the 
+	 * `randomLetters()` or `randomAlnum()` methods instead, when you can count on 
+	 * the PW version being 3.0.109 or higher. 
+	 * 
 	 * @param int $qty Number of random characters requested
 	 * @param bool $alphanumeric Specify true to allow digits in return value
 	 * @param array $disallow Characters that may not be used in return value
@@ -421,36 +425,54 @@ class Password extends Wire {
 	 * If this option is used, it overrides the `alpha` and `numeric` options and creates a 
 	 * string that has only the given characters. If given characters are not ASCII alpha or 
 	 * numeric, then the `fast` option is always used, as the crypto-secure option does not 
-	 * support non-alphanumeric characters. 
+	 * support non-alphanumeric characters. When the `allow` option is used, the `strict` 
+	 * option does not apply. 
 	 * 
 	 * @param int $length Required length of string, or 0 for random length
 	 * @param array $options Options to modify default behavior:
-	 *  - `fast` (bool): Use fast, non-cryptographically secure method instead? (default=false)
 	 *  - `alpha` (bool): Allow ASCII alphabetic characters? (default=true)
 	 *  - `upper` (bool): Allow uppercase ASCII alphabetic characters? (default=true)
 	 *  - `lower` (bool): Allow lowercase ASCII alphabetic characters? (default=true)
 	 *  - `numeric` (bool): Allow numeric characters 0123456789? (default=true)
+	 *  - `strict` (bool): Require that at least 1 character representing each true option above is present? (default=false)
 	 *  - `allow` (array|string): Only allow these ASCII alpha or digit characters, see notes. (default='')
 	 *  - `disallow` (array|string): Do not allow these characters. (default='')
+	 *  - `require` (array|string): Require that these character(s) are present. (default='')
+	 *  - `extras` (array|string): Also allow these non-alphanumeric extra characters. (default='')
 	 *  - `minLength` (int): If $length argument is 0, minimum length of returned string. (default=10)
 	 *  - `maxLength` (int): If $length argument is 0, maximum length of returned string. (default=40)
+	 *  - `noRepeat` (bool): Prevent same character from appearing more than once in sequence? (default=false)
+	 *  - `noStart` (string|array): Do not start string with these characters. (default='')
+	 *  - 'noEnd` (string|array): Do not end string with these characters. (default='')
+	 *  - `fast` (bool): Use fast, non-cryptographically secure method instead? (default=false)
 	 * @return string
 	 * @throws WireException
+	 * @since 3.0.109
 	 * 
 	 */
 	public function randomAlnum($length = 0, array $options = array()) {
 		
 		$defaults = array(
-			'fast' => false,
 			'alpha' => true, 
 			'upper' => true, 
 			'lower' => true, 
 			'numeric' => true, 
+			'strict' => false, 
 			'allow' => '', 
 			'disallow' => array(),
+			'extras' => array(), 
+			'require' => array(), 
 			'minLength' => 10, 
 			'maxLength' => 40,
+			'noRepeat' => false, 
+			'noStart' => array(), 
+			'noEnd' => array(),
+			'fast' => false,
 		);
+		
+		$alphaUpperChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+		$alphaLowerChars = 'abcdefghijklmnopqrstuvwxyz';
+		$numericChars = '0123456789';
 		
 		$options = array_merge($defaults, $options);
 		$allowed = '';
@@ -459,62 +481,153 @@ class Password extends Wire {
 		if($length < 1) {
 			$length = mt_rand($options['minLength'], $options['maxLength']);
 		}
-		
-		if(is_string($options['disallow'])) {
-			// convert to array
-			$options['disallow'] = explode('', $options['disallow']); 
+	
+		// some options can be specified as strings, but we want them as arrays
+		foreach(array('disallow', 'extras', 'require', 'noStart', 'noEnd') as $name) {
+			$val = $options[$name];
+			if(is_array($val)) continue;
+			if(strlen($val)) {
+				$options[$name] = str_split($val); 
+			} else {
+				$options[$name] = array();
+			}
 		}
-		
-		if(is_array($options['allow'])) {
-			// convert to string
-			$options['allow'] = implode('', $options['allow']);
+	
+		// some options can be specified as arrays, but we want them as strings
+		foreach(array('allow', 'noStart', 'noEnd') as $name) {
+			if(is_array($options[$name])) $options[$name] = implode('', $options[$name]); 
 		}
 		
 		if(strlen($options['allow'])) {
-			// only fast option supports non-alphanumeric characters
+			// only fast option supports non-alphanumeric characters specified in allow option
 			if(!ctype_alnum($options['allow'])) $options['fast'] = true;
 			$allowed = $options['allow'];
 			
 		} else {
 			if($options['alpha']) {
-				if($options['upper']) $allowed .= 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-				if($options['lower']) $allowed .= 'abcdefghijklmnopqrstuvwxyz';
+				if($options['upper']) $allowed .= $alphaUpperChars;
+				if($options['lower']) $allowed .= $alphaLowerChars;
 			}
 			if($options['numeric']) {
-				$allowed .= '0123456789';
+				$allowed .= $numericChars;
 			}
 		}
 	
+		$numExtras = count($options['extras']); 
+		
+		if($numExtras) {
+			$allowed .= implode('', $options['extras']); 
+		}
+		
 		if(count($options['disallow'])) {
 			$allowed = str_replace($options['disallow'], '', $allowed); 
 		}
 		
+		foreach($options['require'] as $c) {
+			if(strpos($allowed, $c) === false) $allowed = '';
+		}
+
 		if(!strlen($allowed)) {
 			throw new WireException("Specified options prevent any alnum string from being created"); 
 		}
 		
-		if($options['fast']) {
-			// fast method
-			for($x = 0; $x < $length; $x++) {
-				$n = mt_rand(0, strlen($allowed) - 1);
-				$value .= $allowed[$n];
-			}
-		} else {
-			// slow but cryptographically secure method
-			$qty = 0;
-			do {
-				$baseLen = strlen($allowed) < 50 ? $length * 3 : $length * 2;
-				$baseStr = $this->randomBase64String($baseLen);
-				for($n = 0; $n < strlen($baseStr); $n++) {
-					$c = $baseStr[$n];
-					if(strpos($allowed, $c) === false) continue;
+		do {
+			if($options['fast']) {
+				// fast method
+				$lastChar = '';
+				for($x = 0; $x < $length; $x++) {
+					$n = mt_rand(0, strlen($allowed) - 1);
+					$c = $allowed[$n];
+					if($options['noRepeat'] && $c === $lastChar) {
+						$x--;
+						continue;
+					}
 					$value .= $c;
-					if(++$qty >= $length) break;
+					$lastChar = $c;
 				}
-			} while($qty < $length);
-		}
+			} else {
+				// slower but more cryptographically secure method
+				$qty = 0;
+				do {
+					$baseLen = strlen($allowed) < 50 ? $length * 3 : $length * 2;
+					$baseStr = $this->randomBase64String($baseLen);
+					if($numExtras && !ctype_alnum($baseStr)) {
+						// base64 string includes "/" or "." characters and we have substitutions (extras)
+						$base64Extras = array('slash' => '/', 'period' => '.');
+						$r = 0; // non-zero if we need to perform replacements at the ed
+						foreach($base64Extras as $name => $c) {	
+							while(strpos($baseStr, $c) !== false) {
+								list($a, $b) = explode($c, $baseStr, 2); 
+								$n = $numExtras > 1 ? mt_rand(0, $numExtras-1) : 0;
+								$x = $options['extras'][$n];
+								if(in_array($x, $base64Extras)) {
+									$x = $name;
+									$r++;
+								}
+								$baseStr = $a . $x . $b;
+							}
+						}
+						if($r) {
+							$baseStr = str_replace(array_keys($base64Extras), array_values($base64Extras), $baseStr);
+						}
+						unset($a, $b, $c, $r, $x); 
+					}
+					if($options['alpha']) {
+						if($options['lower'] && !$options['upper']) {
+							$baseStr = strtolower($baseStr);
+						} else if($options['upper'] && !$options['lower']) {
+							$baseStr = strtoupper($baseStr);
+						}
+					}
+					$lastChar = '';
+					for($n = 0; $n < strlen($baseStr); $n++) {
+						$c = $baseStr[$n];
+						if(strpos($allowed, $c) === false) continue;
+						if($options['noRepeat'] && $c === $lastChar) continue;
+						$value .= $c;
+						$lastChar = $c;
+						if(++$qty >= $length) break;
+					}
+				} while($qty < $length);
+			}
+
+			// check that all required characters are present
+			if(count($options['require'])) {
+				$n = 0;
+				foreach($options['require'] as $c) {
+					if(strpos($value, $c) === false) $n++;
+				}
+				if($n) continue;
+			}
+
+			// enforce returned value having at least one of each requested type (alpha, upper, lower, numeric)
+			if($options['strict'] && !strlen($options['allow'])) {
+				if($options['alpha'] && $options['upper'] && !preg_match('/[A-Z]/', $value)) continue;
+				if($options['alpha'] && $options['lower'] && !preg_match('/[a-z]/', $value)) continue;
+				if($options['numeric'] && !preg_match('/[0-9]/', $value)) continue;
+			}
+
+			if(strlen($value) > $length) $value = substr($value, 0, $length);
+			if(strlen($options['noStart'])) $value = ltrim($value, $options['noStart']);
+			if(strlen($options['noEnd'])) $value = rtrim($value, $options['noEnd']); 
+			
+		} while(strlen($value) < $length);
 		
 		return $value;
+	}
+
+	/**
+	 * Return string of random letters
+	 *
+	 * @param int $length Required length of string or 0 for random length
+	 * @param array $options See options for randomAlnum() method
+	 * @return string
+	 * @since 3.0.109
+	 *
+	 */
+	public function randomLetters($length = 0, array $options = array()) {
+		if(!isset($options['numeric'])) $options['numeric'] = false;
+		return $this->randomAlnum($length, $options);
 	}
 
 	/**
@@ -523,6 +636,7 @@ class Password extends Wire {
 	 * @param int $length Required length of string or 0 for random length
 	 * @param array $options See options for randomAlnum() method
 	 * @return string
+	 * @since 3.0.109
 	 * 
 	 */
 	public function randomDigits($length = 0, array $options = array()) {
