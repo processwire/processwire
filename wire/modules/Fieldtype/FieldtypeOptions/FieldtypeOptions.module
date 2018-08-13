@@ -419,6 +419,40 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		$data['errors']['export_options'] = $this->_('Import of options is not yet implemented. Though they can easily be imported from one site to another by copy/paste directly from the field edit screen.'); 
 		return $data;
 	}
+
+	/**
+	 * Return a cloned copy of $field
+	 *
+	 * @param Field $field
+	 * @return Field cloned copy
+	 *
+	 */
+	public function ___cloneField(Field $field) {
+		$this->wire('fields')->addHookAfter('cloned', $this, 'hookCloned');
+		return parent::___cloneField($field);
+	}
+
+	/**
+	 * Hook called when field is cloned, to clone the selectable options from old field to new field
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookCloned(HookEvent $event) {
+		/** @var Field $oldField */
+		$oldField = $event->arguments(0);
+		/** @var Field $newField */
+		$newField = $event->arguments(1);
+		/** @var FieldtypeOptions $fieldtype */
+		$fieldtype = $oldField->type; 
+		if(!$fieldtype instanceof FieldtypeOptions) return;
+		$options = $fieldtype->getOptions($oldField);
+		$options->setField($newField);
+		$fieldtype->addOptions($newField, $options);
+		$event->removeHook(null);
+	}
 	
 	/**
 	 * Get Inputfields needed to configure this Fieldtype
