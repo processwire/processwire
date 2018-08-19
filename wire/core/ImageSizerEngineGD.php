@@ -221,11 +221,11 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			if(!$isModified && ($this->imageType == \IMAGETYPE_PNG || $this->imageType == \IMAGETYPE_GIF)) {
 				$result = @copy($srcFilename, $dstFilename);
 				if(isset($image) && is_resource($image)) @imagedestroy($image); // clean up
-                if(isset($image)) $image = null;
-                return $result; // early return !
-            }
+				if(isset($image)) $image = null;
+				return $result; // early return !
+			}
 
-            // process JPEGs
+			// process JPEGs
 			if(self::checkMemoryForImage(array(imagesx($image), imagesy($image), 3)) === false) {
 				throw new WireException(basename($srcFilename) . " - not enough memory to copy the final image");
 			}
