@@ -258,21 +258,6 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			$sourceY = 0;
 			$sourceWidth = $this->image['width'];
 			$sourceHeight = $this->image['height'];
-		
-			/*
-			 * @todo figure out how to make zoom setting adjust coordinates to imagecopyresampled() calls
-			$zoom = is_array($this->cropping) && isset($this->cropping[2]) ? $this->cropping[2] : 0;
-			if($zoom > 1) {
-				$zoom = $zoom * 0.01;
-				$sourceWidth -= $sourceWidth * $zoom;
-				$sourceHeight -= $sourceHeight * $zoom;
-				$sourceX = $this->image['width'] - ($sourceWidth / 2);
-				$sourceY = $this->image['height'] - ($sourceHeight / 2);
-				$bgX = 0;
-				$bgY = 0;
-			}
-			*/
-
 			$thumb2 = imagecreatetruecolor($bgWidth, $bgHeight);
 			$this->prepareImageLayer($thumb2, $image);
 			imagecopyresampled(
