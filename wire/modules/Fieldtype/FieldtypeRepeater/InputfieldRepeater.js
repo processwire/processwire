@@ -347,6 +347,11 @@ function InputfieldRepeater($) {
 			initRepeater($addItem);
 			$addItem.unwrap(); // unwrap div once item initialized
 			$addItem.find('.Inputfield').trigger('reloaded', [ 'InputfieldRepeaterItemAdd' ]);
+			if(cloneID) {
+				$addItem.find('.Inputfield').trigger('cloned', [ 'InputfieldRepeaterItemAdd' ]);
+				// next line can remove 9/2019, as 'cloned' support will have been in InputfieldTable for awhile
+				$addItem.find('.InputfieldTableRowID').val(0); 
+			}
 			$addItem.find('.InputfieldRepeaterSort').val($inputfields.children().length);
 			$('html, body').animate({
 				scrollTop: $addItem.offset().top
