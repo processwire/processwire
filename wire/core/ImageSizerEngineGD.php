@@ -246,7 +246,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			$this->prepareImageLayer($thumb, $image);
 			imagecopyresampled($thumb, $image, 0, 0, 0, 0, $finalWidth, $finalHeight, $this->image['width'], $this->image['height']);
 
-		} else if(4 == $resizeMethod) { // 4 = resize and crop with aspect ratio
+		} else if(4 == $resizeMethod) { // 4 = resize and crop with aspect ratio, - or crop without resizing ($upscaling == false)
 
 			// we have to scale up or down and to _crop_
 
