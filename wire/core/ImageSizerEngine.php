@@ -686,6 +686,11 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 				$pWidth = $img['width'];
 				$targetWidth = ceil($pHeight / $ratioTarget);
 			}
+			if($this->cropping) {
+				// we have to disable any sharpening method here, 
+				// as the source will not be resized, only cropped
+				$this->sharpening = 'none';
+			}
 		}
 
 		if(!$this->cropping) {
