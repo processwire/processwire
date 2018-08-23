@@ -77,6 +77,7 @@
  * 
  * @property string $pageNameCharset Character set for page names, must be 'ascii' (default, lowercase) or 'UTF8' (uppercase). #pw-group-URLs
  * @property string $pageNameWhitelist Whitelist of characters allowed in UTF8 page names. #pw-group-URLs
+ * @property string $pageNameUntitled Name to use for untitled pages (default="untitled"). #pw-group-URLs
  * @property string $pageNumUrlPrefix Prefix used for pagination URLs. Default is "page", resulting in "/page1", "/page2", etc. #pw-group-URLs
  * @property array $pageNumUrlPrefixes Multiple prefixes that may be used for detecting pagination (internal use, for multi-language) #pw-group-URLs
  * @property int $maxUrlSegments Maximum number of extra stacked URL segments allowed in a page's URL (including page numbers)  #pw-group-URLs

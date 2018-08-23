@@ -123,6 +123,12 @@ class Pages extends Wire {
 	protected $editor;
 
 	/**
+	 * @var PagesNames
+	 * 
+	 */
+	protected $names;
+
+	/**
 	 * @var PagesLoaderCache
 	 * 
 	 */
@@ -1342,6 +1348,17 @@ class Pages extends Wire {
 	public function editor() {
 		if(!$this->editor) $this->editor = $this->wire(new PagesEditor($this));
 		return $this->editor;
+	}
+	
+	/**
+	 * @return PagesNames
+	 *
+	 * #pw-internal
+	 *
+	 */
+	public function names() {
+		if(!$this->names) $this->names = $this->wire(new PagesNames($this)); 
+		return $this->names;
 	}
 
 	/**

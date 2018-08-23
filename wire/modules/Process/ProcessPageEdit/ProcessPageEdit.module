@@ -2264,6 +2264,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$page = $this->masterPage ? $this->masterPage : $this->page;
 		$parent = $page->parent; 
 		$parentEditable = ($parent->id && $parent->editable());
+		/** @var Config $config */
+		$config = $this->wire('config');
 
 		// current page template is assumed, otherwise we wouldn't be here
 		$templates[$page->template->id] = $page->template; 
@@ -2283,9 +2285,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 			if($template->flags & Template::flagSystem) {
 				// if($template->name == 'user' && $parent->id != $this->config->usersPageID) continue;
-				if(in_array($template->id, $this->config->userTemplateIDs) && !in_array($parent->id, $this->config->usersPageIDs)) continue; 
-				if($template->name == 'role' && $parent->id != $this->config->rolesPageID) continue;
-				if($template->name == 'permission' && $parent->id != $this->config->permissionsPageID) continue;
+				if(in_array($template->id, $config->userTemplateIDs) && !in_array($parent->id, $config->usersPageIDs)) continue; 
+				if($template->name == 'role' && $parent->id != $config->rolesPageID) continue;
+				if($template->name == 'permission' && $parent->id != $config->permissionsPageID) continue;
 				if(strpos($template->name, 'repeater_') === 0 || strpos($template->name, 'fieldset_') === 0) continue;
 			}
 
@@ -2300,17 +2302,16 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				if(!in_array($template->id, $parent->template->childTemplates)) continue; 
 			}
 
-			if($isSuperuser) { 
-				$templates[$template->id] = $template;
-
-			} else if($template->noParents == -1) {
+			if($template->noParents == -1 && $template->getNumPages() > 0) {
 				// only one of these is allowed to exist
-				if($template->getNumPages() > 0) continue;
+				continue;
 				
 			} else if($template->noParents) {
 				// user can't change to a template that has been specified as no more instances allowed
-				// except for superuser... we'll let them do it
 				continue;
+				
+			} else if($isSuperuser) {
+				$templates[$template->id] = $template;
 
 			} else if((!$template->useRoles && $parentEditable) || $user->hasPermission('page-edit', $template)) {
 				// determine if the template's assigned roles match up with the users's roles
@@ -2568,14 +2569,23 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 */
 	public function setupHeadline() {
 
+		$titlePage = null;
+		
 		if($this->page && $this->page->id) {
 			$page = $this->page;
-			$title = $page->get('title|name');
+			$title = $page->get('title');
+			if(empty($title)) {
+				if($this->wire('pages')->names()->isUntitledPageName($page->name)) {
+					$title = $page->template->getLabel();
+				} else {
+					$title = $page->get('name');
+				}
+			}
 		} else if($this->parent && $this->parent->id) {
-			$page = $this->parent;
+			$titlePage = $this->parent;
 			$title = rtrim($this->parent->path, '/') . '/[...]';
 		} else {
-			$page = new NullPage();
+			$titlePage = new NullPage();
 			$title = '[...]';
 		}
 
@@ -2592,8 +2602,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				$headline = implode(', ', $labels);
 			}
 			$browserTitle .= " ($headline)";
+			
+		} else if($titlePage) {
+			$headline = $titlePage->get('title|name');
+			
 		} else {
-			$headline = $page->get("title|name");
+			$headline = $title;
 		}
 
 		$this->headline($headline);

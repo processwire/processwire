@@ -807,6 +807,16 @@ $config->pageNameCharset = 'ascii';
 $config->pageNameWhitelist = '-_.abcdefghijklmnopqrstuvwxyz0123456789æåäßöüđжхцчшщюяàáâèéëêěìíïîõòóôøùúûůñçčćďĺľńňŕřšťýžабвгдеёзийклмнопрстуфыэęąśłżź';
 
 /**
+ * Name to use for untitled pages
+ * 
+ * When page has this name, the name will be changed automatically (to a field like title) when it is possible to do so.
+ * 
+ * @var string
+ * 
+ */
+$config->pageNameUntitled = "untitled";
+
+/**
  * Maximum paginations
  *
  * Maxmum number of supported paginations when using page numbers.
