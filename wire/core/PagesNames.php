@@ -136,16 +136,40 @@ class PagesNames extends Wire {
 	}
 
 	/**
+	 * Does the given name or Page have a number suffix? Returns the number if yes, or false if not
+	 * 
+	 * @param string|Page $name
+	 * @param bool $getNamePrefix Return the name prefix rather than the number suffix? (default=false)
+	 * @return int|bool|string Returns false if no number suffix, or int for number suffix or string for name prefix (if requested)
+	 * 
+	 */
+	public function hasNumberSuffix($name, $getNamePrefix = false) {
+		if($name instanceof Page) $name = $name->name;
+		list($namePrefix, $numberSuffix) = $this->nameAndNumber($name);
+		if(!$numberSuffix) return false;
+		return $getNamePrefix ? $namePrefix : $numberSuffix;
+	}
+
+	/**
 	 * Get the name format string that should be used for given $page if no name was assigned
 	 * 
 	 * @param Page $page
+	 * @param array $options
+	 *  - `fallbackFormat` (string): Fallback format if another cannot be determined (default='untitled-time').
+	 *  - `parent` (Page|null): Optional parent page to use instead of $page->parent (default=null). 
 	 * @return string
 	 * 
 	 */
-	public function defaultPageNameFormat(Page $page) {
+	public function defaultPageNameFormat(Page $page, array $options = array()) {
 		
-		$format = 'untitled-time'; // default fallback format
-		$parent = $page->parent();
+		$defaults = array(
+			'fallbackFormat' => 'untitled-time',
+			'parent' => null, 
+		);
+		
+		$options = array_merge($defaults, $options);
+		$parent = $options['parent'] ? $options['parent'] : $page->parent();
+		$format = ''; 
 
 		if($parent && $parent->id && $parent->template->childNameFormat) {
 			// if format specified with parent template, use that
@@ -160,6 +184,14 @@ class PagesNames extends Wire {
 			/** @var LanguagesPageFieldValue $pageTitle */
 			$pageTitle = $page->title;
 			if(strlen($pageTitle->getDefaultValue())) $format = 'title';
+		}
+		
+		if(empty($format)) {
+			if($page->id && $options['fallbackFormat']) {
+				$format = $options['fallbackFormat'];
+			} else {
+				$format = 'untitled-time';
+			}
 		}
 		
 		return $format;
@@ -273,29 +305,47 @@ class PagesNames extends Wire {
 	 *
 	 * @param string|Page $name Name to make unique, or Page to pull it from.
 	 * @param Page||string|null You may optionally specify Page or name in this argument if not in the first.
-	 *
+	 *  Note that specifying a Page here or in the first argument is important if the page already exists, as it is used
+	 *  as the page to exclude when checking for name collisions, and we want to exclude $page from that check.
+	 * @param array $options 
+	 *  - `parent` (Page|null): Optionally specify a different parent if $page does not currently have the parent you want to use.
+	 *  - `language` (Language|int): Get unique for this language (if multi-language page names active). 
 	 * @return string Returns unique name
 	 *
 	 */
-	public function uniquePageName($name = '', $page = null) {
+	public function uniquePageName($name = '', $page = null, array $options = array()) {
+		
+		$defaults = array(
+			'page' => null, 
+			'parent' => null, 
+			'language' => null 
+		);
 
-		$options = array();
+		$options = array_merge($defaults, $options);
 
 		if($name instanceof Page) {
 			$_name = is_string($page) ? $page : '';
 			$page = $name;
 			$name = $_name;
 		}
-
+		
 		if($page) {
-			$parent = $page->parent();
+			if($options['parent'] === null) $options['parent'] = $page->parent();
 			if(!strlen($name)) $name = $page->name;
-			$options['parent'] = $parent;
 			$options['page'] = $page;
 		}
-
+		
 		if(!strlen($name)) {
-			$name = $this->uniqueRandomPageName();
+			// no name currently present, so we need to determine what kind of name it should have
+			if($page) {
+				$format = $this->defaultPageNameFormat($page, array(
+					'fallbackFormat' => $page->id ? 'random' : 'untitled-time',
+					'parent' => $options['parent']
+				));
+				$name = $this->pageNameFromFormat($page, $format); 
+			} else {
+				$name = $this->uniqueRandomPageName();
+			}
 		}
 		
 		while($this->pageNameExists($name, $options)) {
@@ -389,7 +439,7 @@ class PagesNames extends Wire {
 	 *  - `page` (Page|int): Ignore this Page or page ID
 	 *  - `parent` (Page|int): Limit search to only this parent.
 	 *  - `multilang` (bool): Check other languages if multi-language page names supported? (default=false)
-	 *  - `language` (Language|int): Limit check to only this language (default=null)
+	 *  - `language` (Language|int): Limit check to only this language [also implies multilang option] (default=null)
 	 *
 	 * @return int Returns quantity of pages using name, or 0 if name not in use.
 	 *

@@ -746,25 +746,19 @@ class PagePermissions extends WireData implements Module {
 	 * 
 	 */
 	public function restorable($event) {
-		$event->return = true;
 		/** @var Page $page */
 		$page = $event->object;
 		/** @var User $user */
 		$user = $this->wire('user');
 		$event->return = false;
 		if($page->isLocked()) return;
-		if(!$page->isTrash()) return;
+		if(!$page->isTrash() && !$page->rootParent()->isTrash()) return;
 		if(!$user->isSuperuser() && !$page->editable()) return;
-		$parts = explode('.', $page->name, 4); 
-		if(count($parts) < 3) return;
-		list($pageID, $parentID, $rest) = explode('.', $page->name);
-		list($sort, $name) = explode('_', $rest, 2); 
-		if($pageID || $sort) {} // ignore
-		$parent = $this->wire('pages')->get((int) $parentID); 
+		$info = $this->wire('pages')->trasher()->getRestoreInfo($page);
+		if(!$info['restorable']) return;
+		$parent = $info['parent'];
 		// check if parent does not allow this user to add pages here
-		if(!$parent->addable($page)) return;
-		// check if parent already has a page with the same name	
-		if($parent->numChildren("name=$name, include=all")) return;
+		if(!$parent->id || !$parent->addable($page)) return;
 		$event->return = true; 
 	}
 

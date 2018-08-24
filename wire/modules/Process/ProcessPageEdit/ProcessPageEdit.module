@@ -1443,6 +1443,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	
 		if(!$this->page->isTrash()) return false;
 		if(!$this->page->restorable()) return false;
+		$info = $this->wire('pages')->trasher()->getRestoreInfo($this->page);
+		if(!$info['restorable']) return false;
+		
 		/** @var InputfieldWrapper $wrapper */
 		$wrapper = $this->wire(new InputfieldWrapper());
 		$id = $this->className() . 'Restore';
@@ -1451,13 +1454,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$wrapper->attr('id', $id);
 		$wrapper->attr('title', $restoreLabel);
 		$this->addTab($id, $restoreLabel);
-	
-		if(!preg_match('/^(\d+)\.(\d+)\.(\d+)_(.+)$/', $this->page->name, $matches)) return false;
-		$parentID = (int) $matches[2];
-		$parent = $parentID ? $this->wire('pages')->get($parentID) : null;
+		$newPath = $info['parent']->path() . $info['name'] . '/';
 		
-		if(!$parent || !$parent->id) return false;
-
 		/** @var InputfieldCheckbox $field */
 		$field = $this->modules->get('InputfieldCheckbox');
 		$field->attr('id+name', 'restore_page');
@@ -1466,7 +1464,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field->icon = 'trash-o';
 		$field->label = $restoreLabel2;
 		$field->description = $this->_('Check the box to confirm that you want to restore this page.'); // Restore page confirmation instruction
-		$field->notes = sprintf($this->_('The page will be restored into parent: **%s**'), $parent->get('path'));
+		$field->notes = sprintf($this->_('The page will be restored to: **%s**.'), $newPath);
+		if($info['namePrevious']) $field->notes .= ' ' . 
+			sprintf($this->_('Original name will be adjusted from **%1$s** to **%2$s** to be unique.'), $info['namePrevious'], $info['name']);
 		$field->label2 = $restoreLabel;
 		$wrapper->append($field);
 

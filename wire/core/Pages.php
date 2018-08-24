@@ -29,7 +29,7 @@
  * @method bool saveField(Page $page, $field, array $options = array()) Save just the named field from $page. Same as: $page->save('field') #pw-group-manipulation
  * @method bool trash(Page $page, $save = true) Move a page to the trash. If you have already set the parent to somewhere in the trash, then this method won't attempt to set it again. #pw-group-manipulation
  * @method bool restore(Page $page, $save = true) Restore a trashed page to its original location. #pw-group-manipulation
- * @method int emptyTrash() Empty the trash and return number of pages deleted. #pw-group-manipulation
+ * @method int|array emptyTrash(array $options = array()) Empty the trash and return number of pages deleted. #pw-group-manipulation
  * @method bool delete(Page $page, $recursive = false, array $options = array()) Permanently delete a page and it's fields. Unlike trash(), pages deleted here are not restorable. If you attempt to delete a page with children, and don't specifically set the $recursive param to True, then this method will throw an exception. If a recursive delete fails for any reason, an exception will be thrown. #pw-group-manipulation
  * @method Page|NullPage clone(Page $page, Page $parent = null, $recursive = true, $options = array()) Clone an entire page, it's assets and children and return it. #pw-group-manipulation
  * @method Page|NullPage add($template, $parent, $name = '', array $values = array()) #pw-group-manipulation
@@ -619,13 +619,14 @@ class Pages extends Wire {
 	 * 
 	 * #pw-group-manipulation
 	 *
-	 * @return int Returns total number of pages deleted from trash.
+	 * @param array $options See PagesTrash::emptyTrash() for advanced options
+	 * @return int|array Returns total number of pages deleted from trash, or array if verbose option specified.
 	 * 	This number is negative or 0 if not all pages could be deleted and error notices may be present.
 	 * @see Pages::trash(), Pages::restore()
 	 *
 	 */
-	public function ___emptyTrash() {
-		return $this->trasher()->emptyTrash();
+	public function ___emptyTrash(array $options = array()) {
+		return $this->trasher()->emptyTrash($options);
 	}
 	
 	/**
