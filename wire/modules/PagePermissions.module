@@ -756,6 +756,7 @@ class PagePermissions extends WireData implements Module {
 		if(!$user->isSuperuser() && !$page->editable()) return;
 		$info = $this->wire('pages')->trasher()->getRestoreInfo($page);
 		if(!$info['restorable']) return;
+		/** @var Page $parent */
 		$parent = $info['parent'];
 		// check if parent does not allow this user to add pages here
 		if(!$parent->id || !$parent->addable($page)) return;
