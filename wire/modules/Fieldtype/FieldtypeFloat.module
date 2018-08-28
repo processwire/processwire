@@ -104,6 +104,7 @@ class FieldtypeFloat extends Fieldtype {
 	}
 	
 	public static function getPrecision($value) {
+	        $value = (float)$value;
 		$remainder = ceil($value) - $value;
 		$precision = strlen(ltrim($remainder, '0., '));
 		if(!$precision) $precision = 1; 
