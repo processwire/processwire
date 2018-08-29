@@ -14689,6 +14689,10 @@ table.AdminDataTable .Inputfields .Inputfield .InputfieldContent {
   margin-left: 0;
   margin-right: 10px;
 }
+#pw-content-head-buttons {
+  position: relative;
+  z-index: 1;
+}
 #pw-content-head-buttons .ui-button {
   margin-left: 10px;
   margin-right: 0;
