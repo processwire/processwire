@@ -854,18 +854,22 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 		/** @var Page $page */
 		$page = $event->arguments[0];
+		
 		/** @var Pages $pages */
 		$pages = $event->object; 
+	
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+	
+		/** @var array $extraData */
 		$extraData = $event->return; 
-		if(!is_array($extraData)) $extraData = array();
+		
 		$alwaysActiveTypes = array('User', 'Role', 'Permission', 'Language'); 
 		$pageNameCharset = $this->wire('config')->pageNameCharset;
+		$isCloning = $pages->editor()->isCloning();
 		
-		$defaultN = 1;
-		if($pages->cloning && preg_match('/^(.+)-(\d+)$/', $page->name, $matches)) {
-			$defaultN = (int) $matches[2];
-		}
-
+		if(!is_array($extraData)) $extraData = array();
+		
 		foreach($this->wire('languages') as $language) {
 			
 			if($language->isDefault()) continue; 
@@ -873,21 +877,20 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 			// populate a name123 field for each language
 			$name = "name$language_id";
-			$value = $this->wire('sanitizer')->pageNameUTF8($page->get($name)); 
+			$value = $sanitizer->pageNameUTF8($page->get($name)); 
 			if(!strlen($value)) {
 				$value = 'NULL';
-			} else if($pages->cloning) {
+			} else if($isCloning) {
 				// this save is the result of a clone() operation
 				// make sure that the name is unique for other languages
-				$newValue = $value;
-				while($page->parent->children("$name=$newValue, include=all")->count() > 0) {
-					$newValue = $value . "-$defaultN";
-					$defaultN++;
-				}
-				$value = $newValue; 
+				$value = $pages->names()->uniquePageName(array(
+					'name' => $value, 
+					'page' => $page, 
+					'language' => $language, 
+				));
 			}
 			if($pageNameCharset == 'UTF8') {
-				$extraData[$name] = $this->wire('sanitizer')->pageName($value, Sanitizer::toAscii);
+				$extraData[$name] = $sanitizer->pageName($value, Sanitizer::toAscii);
 			} else {
 				$extraData[$name] = $value;
 			}

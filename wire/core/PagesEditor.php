@@ -566,11 +566,14 @@ class PagesEditor extends Wire {
 	protected function savePageQueryException(Page $page, $query, $exception, array $options) {
 		
 		$errorCode = $exception->getCode();
-		if($errorCode != 23000) return false;
+		
+		// 23000=integrity constraint violation, duplicate entry
+		if($errorCode != 23000) return false; 
 		
 		if(!$this->pages->names()->hasAutogenName($page) && !$options['adjustName']) return false;
 
 		// account for the duplicate possibly being a multi-language name field
+		// i.e. “Duplicate entry 'bienvenido-2-1001' for key 'name1013_parent_id'”
 		if($this->wire('languages') && preg_match('/\b(name\d*)_parent_id\b/', $exception->getMessage(), $matches)) {
 			$nameField = $matches[1];
 		} else {
@@ -1025,28 +1028,15 @@ class PagesEditor extends Wire {
 
 		if(is_string($options)) $options = Selectors::keyValueStringToArray($options);
 		if(!isset($options['recursionLevel'])) $options['recursionLevel'] = 0; // recursion level
+		if($parent === null) $parent = $page->parent; 
 
-		if(isset($options['set']) && isset($options['set']['name'])) {
+		if(isset($options['set']) && isset($options['set']['name']) && strlen($options['set']['name'])) {
 			$name = $options['set']['name'];
-			
 		} else {
-			// if parent is not changing, we have to modify name now
-			if(is_null($parent) || $parent->id == $page->parent->id) {
-				$parent = $page->parent;
-				$n = 1;
-				$name = $page->name . '-' . $n;
-			} else {
-				$name = $page->name;
-				$n = 0;
-			}
-
-			// make sure that we have a unique name
-			while(count($parent->children("name=$name, include=all"))) {
-				$name = $page->name;
-				$nStr = "-" . (++$n);
-				if(strlen($name) + strlen($nStr) > Pages::nameMaxLength) $name = substr($name, 0, Pages::nameMaxLength - strlen($nStr));
-				$name .= $nStr;
-			}
+			$name = $this->pages->names()->uniquePageName(array(
+				'name' => $page->name, 
+				'parent' => $parent
+			));
 		}
 		
 		$of = $page->of();

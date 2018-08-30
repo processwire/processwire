@@ -41,6 +41,14 @@ class PagesNames extends Wire {
 	protected $delimiter = '-';
 
 	/**
+	 * Max length for page names
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $nameMaxLength = 128;
+
+	/**
 	 * Construct
 	 *
 	 * @param Pages $pages
@@ -51,9 +59,10 @@ class PagesNames extends Wire {
 		$pages->wire($this);
 		$untitled = $this->wire('config')->pageNameUntitled;
 		if($untitled) $this->untitledPageName = $untitled;
+		$this->nameMaxLength = Pages::nameMaxLength;
 		parent::__construct();
 	}
-
+	
 	/**
 	 * Assign a name to given Page (if it doesn’t already have one)
 	 * 
@@ -224,16 +233,33 @@ class PagesNames extends Wire {
 	 * date() format, PHP strftime() format, as well as some other predefined options.
 	 *
 	 * @param Page $page
-	 * @param string $format Optional format. If not specified, pulls from $page’s parent template.
-	 *
+	 * @param string|array $format Optional format. If not specified, pulls from $page’s parent template.
+	 * @param array $options Options to modify behavior. May also be specified in $format argument. 
+	 *  - `language` (Language|string): Language to use
+	 *  - `format` (string): Optional format to use, if $options were specified in $format argument. 
 	 * @return string
 	 *
 	 */
-	public function pageNameFromFormat(Page $page, $format = '') {
+	public function pageNameFromFormat(Page $page, $format = '', array $options = array()) {
 		
+		$defaults = array(
+			'format' => '', 
+			'language' => null, 
+		);
+		
+		if(is_array($format)) {
+			$options = $format;
+			$format = empty($options['format']) ? '' : $options['format'];
+		}
+		
+		$options = array_merge($defaults, $options);
 		if(!strlen($format)) $format = $this->defaultPageNameFormat($page);
 		$format = trim($format);
 		$name = '';
+		
+		if($options['language']) {
+			$this->wire('languages')->setLanguage($options['language']);	
+		}
 		
 		if($format === 'title' && !strlen(trim((string) $page->title))) {
 			$format = 'untitled-time';
@@ -285,9 +311,15 @@ class PagesNames extends Wire {
 			$name = $format;
 		}
 
+		if(strlen($name) > $this->nameMaxLength) $name = $this->adjustNameLength($name);
+		
 		$utf8 = $this->wire('config')->pageNameCharset === 'UTF8';
 		$sanitizer = $this->wire('sanitizer');
 		$name = $utf8 ? $sanitizer->pageNameUTF8($name) : $sanitizer->pageName($name, Sanitizer::translate);
+		
+		if($options['language']) {
+			$this->wire('languages')->unsetLanguage();
+		}
 
 		return $name;
 	}
@@ -303,35 +335,61 @@ class PagesNames extends Wire {
 	 * The returned value is not yet assigned to the given $page, so if it is something different than what
 	 * is already on $page, you’ll want to assign it manually after this.
 	 *
-	 * @param string|Page $name Name to make unique, or Page to pull it from.
-	 * @param Page||string|null You may optionally specify Page or name in this argument if not in the first.
-	 *  Note that specifying a Page here or in the first argument is important if the page already exists, as it is used
-	 *  as the page to exclude when checking for name collisions, and we want to exclude $page from that check.
+	 * @param string|Page|array $name Name to make unique
+	 *  You may optionally substitute the $page argument or $options arguments here, if that is all you need.
+	 * @param Page||string|null|array Page to exclude from duplicate check and/or to pull $name or parent from (if not otherwise specified). 
+	 *  Note that specifying a Page is important if the page already exists, as it is used as the page to exclude when checking for 
+	 *  name collisions, and we want to exclude $page from that check. You may optionally substitute the $options or $name arguments
+	 *  here, if that is all you need. If $parent or $name are specified separately from this $page argument, they will override
+	 *  whatever parent or name settings are on this $page argument. 
 	 * @param array $options 
 	 *  - `parent` (Page|null): Optionally specify a different parent if $page does not currently have the parent you want to use.
-	 *  - `language` (Language|int): Get unique for this language (if multi-language page names active). 
+	 *  - `language` (Language|int): Get unique for this language (if multi-language page names active).
+	 *  - `page` (Page|null): If you specified no $page argument, you can optionally bundle it in the $options array. 
+	 *  - `name` (string): If you specified no $name argument, you can optionally bundle it in the $options array.
 	 * @return string Returns unique name
 	 *
 	 */
 	public function uniquePageName($name = '', $page = null, array $options = array()) {
 		
 		$defaults = array(
+			'name' => '',
 			'page' => null, 
 			'parent' => null, 
 			'language' => null 
 		);
 
-		$options = array_merge($defaults, $options);
-
-		if($name instanceof Page) {
+		// handle argument substitutions
+		if(is_array($page)) {
+			// options specified in $page argument
+			$options = $page;
+			$page = !empty($options['page']) ? $options['page'] : null;
+		} else if(is_array($name)) {
+			// options specified in $name argument
+			$options = $name;
+			$name = !empty($options['name']) ? $options['name'] : '';
+		} else if($name instanceof Page) {
+			// $page argument specified in $name argument
 			$_name = is_string($page) ? $page : '';
 			$page = $name;
 			$name = $_name;
 		}
 		
+		$options = array_merge($defaults, $options);
+		
+		if(empty($page) && !empty($options['page'])) $page = $options['page'];
+		if(empty($name) && !empty($options['name'])) $name = $options['name'];
+
 		if($page) {
 			if($options['parent'] === null) $options['parent'] = $page->parent();
-			if(!strlen($name)) $name = $page->name;
+			if(!strlen($name)) {
+				if($options['language']) {
+					$name = $page->get("name$options[language]");
+					if(!strlen($name)) $name = $page->name;
+				} else {
+					$name = $page->name;
+				}
+			}
 			$options['page'] = $page;
 		}
 		
@@ -342,7 +400,7 @@ class PagesNames extends Wire {
 					'fallbackFormat' => $page->id ? 'random' : 'untitled-time',
 					'parent' => $options['parent']
 				));
-				$name = $this->pageNameFromFormat($page, $format); 
+				$name = $this->pageNameFromFormat($page, $format, array('language' => $options['language'])); 
 			} else {
 				$name = $this->uniqueRandomPageName();
 			}
@@ -351,6 +409,8 @@ class PagesNames extends Wire {
 		while($this->pageNameExists($name, $options)) {
 			$name = $this->incrementName($name);
 		}
+		
+		if(strlen($name) > $this->nameMaxLength) $name = $this->adjustNameLength($name);
 
 		return $name;
 	}
@@ -365,7 +425,7 @@ class PagesNames extends Wire {
 	 */
 	public function adjustNameLength($name, $maxLength = 0) {
 
-		if($maxLength < 1) $maxLength = Pages::nameMaxLength;
+		if($maxLength < 1) $maxLength = $this->nameMaxLength;
 		if(strlen($name) <= $maxLength) return $name;
 
 		$trims = implode('', $this->delimiters);
@@ -415,16 +475,22 @@ class PagesNames extends Wire {
 		list($namePrefix, $n) = $this->nameAndNumber($name); 
 		
 		if($namePrefix !== $name) {
+			// name already had an increment
 			if($num) {
+				// specific number was supplied
 				$num = (int) $num;
 				$name = $namePrefix . $this->delimiter . $num;
 			} else {
+				// no number supplied 
+				// make sure that any leading zeros are retained before we increment number
 				$zeros = '';
 				while(strpos($name, $namePrefix . $this->delimiter . "0$zeros") === 0) $zeros .= '0';
+				// increment the number
 				$name = $namePrefix . $this->delimiter . $zeros . (++$n);
 			}
 		} else {
-			if(!is_int($num)) $num = 1; 
+			// name does not yet have an increment, so make it "name-1"
+			if(!is_int($num) || $num < 1) $num = 1; 
 			$name = $namePrefix . $this->delimiter . $num;
 		}
 		
@@ -433,14 +499,16 @@ class PagesNames extends Wire {
 
 	/**
 	 * Is the given name is use by a page?
+	 * 
+	 * If the `multilang` option is used, it checks if the page name exists in any language. 
+	 * IF the `language` option is used, it only checks that particular language (regardless of `multilang` option).
 	 *
 	 * @param string $name
 	 * @param array $options
 	 *  - `page` (Page|int): Ignore this Page or page ID
 	 *  - `parent` (Page|int): Limit search to only this parent.
 	 *  - `multilang` (bool): Check other languages if multi-language page names supported? (default=false)
-	 *  - `language` (Language|int): Limit check to only this language [also implies multilang option] (default=null)
-	 *
+	 *  - `language` (Language|int): Limit check to only this language (default=null)
 	 * @return int Returns quantity of pages using name, or 0 if name not in use.
 	 *
 	 */
@@ -465,9 +533,9 @@ class PagesNames extends Wire {
 		if($languages) {
 			foreach($languages as $language) {
 				if($options['language'] && "$options[language]" !== "$language") continue;
-				$property = $language->isDefault() ? 'name' : 'name' . (int) $language->id;
-				$wheres[] = "$property=:name$language->id";
-				$binds[":name$language->id"] = $name;
+				$property = $language->isDefault() ? "name" : "name" . (int) $language->id;
+				$wheres[] = "$property=:$property";
+				$binds[":$property"] = $name;
 			}
 			$wheres = array('(' . implode(' OR ', $wheres) . ')');
 		} else {
