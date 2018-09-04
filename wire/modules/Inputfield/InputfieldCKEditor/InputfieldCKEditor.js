@@ -28,6 +28,9 @@ function ckeGetProcessWireConfig(editor) {
 	if(typeof ProcessWire.config[configName] == "undefined" && configName.indexOf('_ckeditor') > 0) {
 		configName = configName.replace(/_ckeditor$/, ''); // inline only
 	}
+	if(typeof ProcessWire.config[configName] == "undefined" && configName.indexOf('__') > 0) {
+		configName = configName.replace(/__\d+$/, ''); // remove language-id
+	}
 	if(typeof ProcessWire.config[configName] == "undefined") {
 		settings.error = 'Cannot find CKEditor settings for ' + configName;
 	} else {
