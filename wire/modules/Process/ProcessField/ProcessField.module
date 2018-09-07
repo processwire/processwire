@@ -312,7 +312,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				$field->attr('checked', 'checked');
 				$field->collapsed = Inputfield::collapsedNo;
 				$fieldset->collapsed = Inputfield::collapsedNo;
-				$form->description = $this->_("Showing all fields, including built-in system and permament fields."); 
+				$form->description = $this->_('Showing all fields, including built-in system and permanent fields.'); 
 			}
 			$fieldset->add($field); 
 		} else {
