@@ -81,7 +81,29 @@ class WireHttp extends Wire {
 	 * @var array
 	 * 
 	 */
-	protected $errorCodes = array(
+	protected $httpCodes = array(
+		100 => 'Continue',
+		101 => 'Switching Protocols',
+		102 => 'Processing (WebDAV; RFC 2518)', 
+		200 => 'OK',
+		201 => 'Created',
+		202 => 'Accepted',
+		203 => 'Non-Authoritative Information',
+		204 => 'No Content',
+		205 => 'Reset Content',
+		206 => 'Partial Content',
+		207 => 'Multi-Status (WebDAV; RFC 4918)',
+		208 => 'Already Reported (WebDAV; RFC 5842)',
+		226 => 'IM Used (RFC 3229)',
+		300 => 'Multiple Choices',
+		301 => 'Moved Permanently',
+		302 => 'Found',
+		303 => 'See Other',
+		304 => 'Not Modified',
+		305 => 'Use Proxy',
+		306 => 'Switch Proxy',
+		307 => 'Temporary Redirect',
+		308 => 'Permanent Redirect',
 		400 => 'Bad Request',
 		401 => 'Unauthorized',
 		402 => 'Payment Required',
@@ -319,8 +341,9 @@ class WireHttp extends Wire {
 	 *
 	 */
 	public function head($url, $data = array()) {
-		$responseHeader = $this->send($url, $data, 'HEAD');
-		return is_array($responseHeader) ? $responseHeader : false;
+		$this->send($url, $data, 'HEAD');
+		$responseHeaders = $this->getResponseHeaders();
+		return is_array($responseHeaders) ? $responseHeaders : false;
 	}
 
 	/**
@@ -489,7 +512,7 @@ class WireHttp extends Wire {
 			
 		} else {
 			$code = $this->getHttpCode();
-			if($code && isset($this->errorCodes[$code])) {
+			if($code && $code >= 400 && isset($this->httpCodes[$code])) {
 				// known http error code, no need to fallback to sockets
 				$result = false;
 			} else if($code && $code >= 200 && $code < 300) {
@@ -713,7 +736,7 @@ class WireHttp extends Wire {
 		fclose($fp); 
 			
 		$methods = implode(", ", $triedMethods);
-		if(count($this->error) || isset($this->errorCodes[$this->httpCode])) {
+		if(count($this->error) || ($this->httpCode >= 400 && isset($this->httpCodes[$this->httpCode]))) {
 			unlink($toFile);
 			$error = $this->_('File could not be downloaded') . ' ' . htmlentities("($fromURL) ") . $this->getError() . " (tried: $methods)";
 			throw new WireException($error); 
@@ -919,7 +942,9 @@ class WireHttp extends Wire {
 		$this->httpCode = (int) $httpCode;
 		$this->httpCodeText = $httpText; 
 		
-		if(isset($this->errorCodes[$this->httpCode])) $this->error[] = $this->errorCodes[$this->httpCode]; 
+		if($this->httpCode >= 400 && isset($this->httpCodes[$this->httpCode])) {
+			$this->error[] = $this->httpCodes[$this->httpCode];
+		}
 
 		// parsed version
 		$this->responseHeaders = array();
@@ -1080,8 +1105,8 @@ class WireHttp extends Wire {
 	 */
 	public function getError($getArray = false) {
 		$error = $getArray ? $this->error : implode(', ', $this->error); 
-		if(isset($this->errorCodes[$this->httpCode])) {
-			$httpError = "$this->httpCode " . $this->errorCodes[$this->httpCode];
+		if($this->httpCode >= 400 && isset($this->httpCodes[$this->httpCode])) {
+			$httpError = "$this->httpCode " . $this->httpCodes[$this->httpCode];
 			if($getArray) {
 				array_unshift($error, $httpError); 
 			} else {
@@ -1104,13 +1129,41 @@ class WireHttp extends Wire {
 	}
 
 	/**
+	 * Return array of all possible HTTP codes as (code => description)
+	 *
+	 * @return array
+	 *
+	 */
+	public function getHttpCodes() {
+		return $this->httpCodes;	
+	}
+	
+	/**
+	 * Return array of all possible HTTP success codes as (code => description)
+	 *
+	 * @return array
+	 *
+	 */
+	public function getSuccessCodes() {
+		$codes = array();
+		foreach($this->httpCodes as $code => $text) {
+			if($code < 400) $codes[$code] = $text;
+		}
+		return $codes;
+	}
+
+	/**
 	 * Return array of all possible HTTP error codes as (code => description)
 	 * 
 	 * @return array
 	 * 
 	 */
 	public function getErrorCodes() {
-		return $this->errorCodes;
+		$errorCodes = array();
+		foreach($this->httpCodes as $code => $text) {
+			if($code >= 400) $errorCodes[$code] = $text;
+		}
+		return $errorCodes;
 	}
 
 	/**

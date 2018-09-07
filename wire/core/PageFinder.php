@@ -1932,7 +1932,7 @@ class PageFinder extends Wire {
 				$query->join($sql); 
 
 			} else {
-				$query->join("pages AS rootparent ON ($alias.parent_id=rootparent.id AND rootparent.id=1)");
+				$query->join("pages AS rootparent$n ON ($alias.parent_id=rootparent$n.id AND rootparent$n.id=1)");
 			}
 			$lastAlias = $alias; 
 		}
