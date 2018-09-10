@@ -2162,7 +2162,7 @@ class Sanitizer extends Wire {
 	 * @since 3.0.101
 	 *
 	 */
-	function truncate($str, $maxLength = 300, $options = array()) {
+	public function truncate($str, $maxLength = 300, $options = array()) {
 		return $this->getTextTools()->truncate($str, $maxLength, $options);
 	}
 
@@ -2178,7 +2178,7 @@ class Sanitizer extends Wire {
 	 * @return string|array|mixed 
 	 * 
 	 */
-	function removeMB4($value) {
+	public function removeMB4($value) {
 		if(empty($value)) return $value;
 		if(is_array($value)) {
 			// process array recursively, looking for strings to convert
@@ -2201,6 +2201,175 @@ class Sanitizer extends Wire {
 			// not a string or an array, leave as-is
 		}
 		return $value;
+	}
+
+	/**
+	 * Convert string to be all hyphenated-lowercase (aka kabab-case, hyphen-case, dash-case, etc.)
+	 * 
+	 * For example, "Hello World" or "helloWorld" becomes "hello-world".
+	 * 
+	 * #pw-group-strings
+	 * 
+	 * @param string $value
+	 * @param array $options
+	 *  - `hyphen` (string): Character to use as the hyphen (default='-')
+	 *  - `allow` (string): Characters to allow or range of characters to allow, for placement in regex (default='a-z0-9').
+	 *  - `allowUnderscore` (bool): Allow underscores? (default=false)
+	 * @return string
+	 * 
+	 */
+	public function hyphenCase($value, array $options = array()) {
+		
+		$defaults = array(
+			'hyphen' => '-', 
+			'allow' => 'a-z0-9', 
+			'allowUnderscore' => false,
+		);
+
+		$options = array_merge($defaults, $options);
+		$value = $this->string($value);
+		$hyphen = $options['hyphen'];
+	
+		// if value is empty then exit now
+		if(!strlen($value)) return '';
+		
+		if($options['allowUnderscore']) $options['allow'] .= '_';
+	
+		// check if value is already in the right format, and return it if so
+		if(strtolower($value) === $value) {
+			if($options['allow'] === $defaults['allow']) {
+				if(ctype_alnum(str_replace($hyphen, '', $value))) return $value;
+			} else {
+				if(preg_match('/^[' . $hyphen . $options['allow'] . ']+$/', $value)) return $value;
+			}
+		}
+		
+		// don’t allow apostrophes to be separators
+		$value = str_replace(array("'", "’"), '', $value);
+		// some initial whitespace conversions to reduce workload on preg_replace
+		$value = str_replace(array(" ", "\r", "\n", "\t"), $hyphen, $value);	
+		// convert everything not allowed to hyphens
+		$value = preg_replace('/[^' . $options['allow'] . ']+/i', $hyphen, $value);
+		// convert camel case to hyphenated
+		$value = preg_replace('/([[:lower:]])([[:upper:]])/', '$1' . $hyphen . '$2', $value);
+		// prevent doubled hyphens
+		$value = preg_replace('/' . $hyphen . $hyphen . '+/', $hyphen, $value);
+		
+		if($options['allowUnderscore']) {
+			$value = str_replace(array('-_', '_-'), '_', $value);
+		}
+		
+		return strtolower(trim($value, $hyphen)); 
+	}
+	
+	/**
+	 * Alias of hyphenCase()
+	 * 
+	 * #pw-group-strings
+	 *
+	 * @param string $value
+	 * @param array $options See hyphenCase()
+	 * @return string
+	 *
+	 */
+	public function kebabCase($value, array $options = array()) {
+		return $this->hyphenCase($value, $options);
+	}
+
+	/**
+	 * Convert string to be all snake_case (lowercase and underscores)
+	 *
+	 * For example, "Hello World" or "hello-world" becomes "hello_world".
+	 * 
+	 * #pw-group-strings
+	 *
+	 * @param string $value
+	 * @param array $options
+	 *  - `allow` (string): Characters to allow or range of characters to allow, for placement in regex (default='a-z0-9').
+	 *  - `hyphen` (string): Character to use as the hyphen (default='-')
+	 * @return string
+	 *
+	 */
+	public function snakeCase($value, array $options = array()) {
+		$options['hyphen'] = '_';
+		return $this->hyphenCase($value, $options);
+	}
+
+	/**
+	 * Convert string to be all camelCase
+	 * 
+	 * For example, "Hello World" becomes "helloWorld" or "foo-bar-baz" becomes "fooBarBaz".
+	 * 
+	 * #pw-group-strings
+	 * 
+	 * @param string $value
+	 * @param array $options
+	 *  - `allow` (string): Characters to allow or range of characters to allow, for placement in regex (default='a-zA-Z0-9').
+	 *  - `allowUnderscore` (bool): Allow underscore characters? (default=false)
+	 *  - `startLowercase` (bool): Always start return value with lowercase character? (default=true)
+	 *  - `startNumber` (bool): Allow return value to begin with a number? (default=false)
+	 * @return string
+	 * 
+	 */
+	public function camelCase($value, array $options = array()) {
+		
+		$defaults = array(
+			'allow' => 'a-zA-Z0-9',
+			'allowUnderscore' => false, 
+			'startLowercase' => true, 
+			'startNumber' => false, 
+		);
+		
+		$options = array_merge($defaults, $options);
+		$allow = $options['allow'] . ($options['allowUnderscore'] ? '_' : ''); 
+		$needsWork = true;
+		
+		if($allow === $defaults['allow']) {
+			if(ctype_alnum($value)) $needsWork = false;
+		} else {
+			if(preg_match('/^[' . $allow . ']+$/', $value)) $needsWork = false;
+		}
+	
+		if($needsWork) {
+			$value = preg_replace('/([^' . $allow . ' ]+)([' . $allow . ']+)/', '$1 $2', $value);
+			$value = preg_replace('/[^' . $allow . ' ]+/', '', $value);
+
+			$parts = explode(' ', $value);
+			$value = '';
+
+			foreach($parts as $n => $part) {
+				if(empty($part)) continue;
+				$value .= $n ? ucfirst($part) : $part;
+			}
+		}
+		
+		if($options['startLowercase'] && isset($value[0])) {
+			$value[0] = strtolower($value[0]);
+		}
+		
+		if(!$options['startNumber']) {
+			$value = ltrim($value, '0123456789'); 
+		}
+		
+		return $value;
+	}
+
+	/**
+	 * Convert string to PascalCase (like camelCase, but first letter always uppercase)
+	 * 
+	 * For example, "hello world" becomes "HelloWorld" or "foo-bar-baz" becomes "FooBarBaz".
+	 * 
+	 * #pw-group-strings
+	 * 
+	 * @param string $value
+	 * @param array $options See options for camelCase() method
+	 * @return string
+	 * 
+	 */
+	public function pascalCase($value, array $options = array()) {
+		$options['startLowercase'] = false;
+		$value = $this->camelCase($value, $options);
+		return ucfirst($value);
 	}
 
 	/**
