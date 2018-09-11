@@ -33,6 +33,7 @@ var InputfieldDependenciesProcessing = false;
  * 
  */
 function InputfieldDependencies($target) {
+	var $ = jQuery;
 	
 	if(InputfieldDependenciesProcessing) return;
 	
@@ -644,6 +645,7 @@ function InputfieldDependencies($target) {
 
 function InputfieldColumnWidths($target) {
 
+	var $ = jQuery;
 	var hasTarget = true;
 	if(typeof $target == "undefined") {
 		hasTarget = false;
@@ -899,6 +901,7 @@ function InputfieldColumnWidths($target) {
  * 
  */
 function InputfieldFormBeforeUnloadEvent(e) {
+	var $ = jQuery;
 	var $changes = $(".InputfieldFormConfirm:not(.InputfieldFormSubmitted) .InputfieldStateChanged");
 	if($changes.length == 0) return;
 	var msg = $('.InputfieldFormConfirm:eq(0)').attr('data-confirm') + "\n";
@@ -918,9 +921,196 @@ function InputfieldFormBeforeUnloadEvent(e) {
 	return msg; // Gecko and WebKit
 }
 
+/**
+ * Focus the Inputfield
+ * 
+ * If the Inputfield is not visible, this method will track it down and reveal it. 
+ * If the Inputfield is collapsed, this method will open it. 
+ * If the Inputfield has an input that can be focused, it will be focused. 
+ * 
+ * @param $inputfield
+ * 
+ */
+function InputfieldFocus($inputfield) {
+
+	if(!$inputfield.hasClass('Inputfield')) $inputfield = $inputfield.closest('.Inputfield');
+	if(!$inputfield.length) return;
+
+	if($inputfield.hasClass('InputfieldStateCollapsed') || !$inputfield.is(':visible')) {
+		InputfieldToggle($inputfield, true, 0, function($in, open, duration) {
+			InputfieldFocus($in);
+		});
+		return;
+	}
+
+	var focused = false;
+	if($inputfield.hasClass('InputfieldNoFocus')) {
+		// does not support focusing
+	} else {
+		var $input = $inputfield.find(":input:visible:enabled:not(button):not(.InputfieldNoFocus):first");
+		if($input.length) {
+			if($input.css('position') == 'absolute' || $input.is('button')) {
+				// do not attempt to focus absolute positioned inputs or button elements
+			} else {
+				var t = $input.attr('type');
+				if($input.is('textarea') || t == 'text' || t == 'email' || t == 'url' || t == 'number') {
+					$input.focus();
+					focused = true;
+				}
+			}
+		}
+	}
+
+	if(!focused) {
+		// item could not be directly focused, see if we can make make it visible 
+		var pageTop = jQuery(window).scrollTop();
+		var pageBottom = pageTop + jQuery(window).height();
+		var inputTop = $inputfield.offset().top;
+		var inputBottom = inputTop + $inputfield.height();
+		var inView = ((inputTop <= pageBottom) && (inputBottom >= pageTop));
+		// var fullyInView = ((pageTop < inputTop) && (pageBottom > inputBottom));
+		if(!inView) setTimeout(function() {
+			// if the browser couldn't focus the inputfield, at least show where it is
+			jQuery('html, body').animate({
+				scrollTop: $inputfield.offset().top - 10
+			}, 100);
+		}, 100); 
+	}
+}
+
+/**
+ * Toggle the given $inputfield open or closed
+ * 
+ * Also triggers these events on $inputfield: openReady, closeReady, opened, closed
+ * 
+ * @param $inputfield Inputfield to toggle, or some element within it
+ * @param open Boolean true to open, false to close, or null for opposite of current state
+ * @param duration How many milliseconds for animation? (default=100)
+ * @param completedCallback Optional function to call upon completion, given $inputfield as argument
+ * @returns {boolean}
+ * 
+ */
+function InputfieldToggle($inputfield, open, duration, completedCallback) {
+	
+	if(!$inputfield.length) return;
+	if(!$inputfield.hasClass('Inputfield')) $inputfield = $inputfield.closest('.Inputfield');
+	
+	var $header = $inputfield.children('.InputfieldHeader, .ui-widget-header');
+	var $content = $inputfield.children('.InputfieldContent, .ui-widget-content');
+	var $toggleIcon = $header.find('.toggle-icon');
+	var isCollapsed = $inputfield.hasClass("InputfieldStateCollapsed");
+	
+	if($inputfield.hasClass('InputfieldAjaxLoading')) return false;
+	if($inputfield.hasClass('InputfieldStateToggling')) return false;
+	
+	if(typeof open == "undefined" || open === null) var open = isCollapsed;
+	if(typeof duration == "undefined") var duration = 100;
+	
+	function completed() {
+		if(typeof completedCallback != "undefined") completedCallback($inputfield, open, duration);
+	}
+	
+	function toggled() {
+		// jQuery seems to add overflow:hidden, and this interferes with outline CSS property on Inputfields
+		if($inputfield.css('overflow') == 'hidden') $inputfield.css('overflow', '');
+		$toggleIcon.toggleClass($toggleIcon.attr('data-to')); // data-to=classes to toggle
+		$inputfield.removeClass('InputfieldStateToggling');
+		setTimeout('InputfieldColumnWidths()', 500);
+		completed();
+	}
+
+	function opened() {
+		$inputfield.trigger('opened');
+		if($inputfield.hasClass('InputfieldColumnWidth')) {
+			$inputfield.children('.InputfieldContent').show();
+		}
+		if(!$inputfield.hasClass('InputfieldNoFocus')) InputfieldFocus($inputfield);
+		toggled();
+	}
+
+	function closed() {
+		if($inputfield.css('overflow') == 'hidden') $inputfield.css('overflow', '');
+		$inputfield.trigger('closed');
+		if($inputfield.hasClass('InputfieldColumnWidth')) {
+			$inputfield.children('.InputfieldContent').hide();
+		}
+		toggled();
+	}
+
+	// check if we need to open parent inputfields first
+	if(open && !$inputfield.is(':visible')) {
+		// if Inputfield is in a non-visible tab, open the tab
+		var $tabContent = $inputfield.parents('.InputfieldWrapper').last();
+		if($tabContent.length && !$tabContent.is(':visible')) {
+			var $tabButton = jQuery('#_' + $tabContent.attr('id'));
+			if($tabButton.length) {
+				$tabContent.show();
+				setTimeout(function() { $tabButton.click(); }, 25);
+			}
+		}
+		// inputfield is not visible likely due to parents being hidden
+		var $collapsedParent = $inputfield.closest('.InputfieldStateCollapsed');
+		if($collapsedParent.length) {
+			InputfieldToggle($collapsedParent, true, duration, function($in) {
+				InputfieldToggle($in, true, duration, completedCallback);
+			});
+			// InputfieldToggle($collapsedParent, true, 0);
+		}
+	}
+
+	// if open requested and inputfield already open, no action is needed
+	if(open && !isCollapsed) {
+		completed();
+		return;
+	}
+	
+	// if close requested and inputfield already closed, no action is needed
+	if(!open && isCollapsed) {
+		completed();
+		return;
+	}
+
+	// if ajax loaded, force InputfieldStates() click handler to open this one
+	if(isCollapsed && ($inputfield.hasClass('collapsed10') || $inputfield.hasClass('collapsed11'))) {
+		$toggleIcon.click();
+		return;
+	}
+
+	// handle either open or close
+	if(open && isCollapsed) {
+		$inputfield.addClass('InputfieldStateToggling').trigger('openReady');
+		$inputfield.toggleClass('InputfieldStateCollapsed', duration, opened);
+	} else if(!open && !isCollapsed) {
+		$inputfield.addClass('InputfieldStateToggling').trigger('closeReady');
+		$inputfield.toggleClass('InputfieldStateCollapsed', duration, closed);
+	}
+}
+
+/**
+ * Open a collapsed Inputfield
+ * 
+ * @param $inputfield
+ * @param duration Optional number of milliseconds for animation or 0 for none (default=100)
+ * 
+ */
+function InputfieldOpen($inputfield, duration) {
+	InputfieldToggle($inputfield, true, duration);
+}
+
+/**
+ * Close/collapse an open Inputfield
+ * 
+ * @param $inputfield
+ * @param duration Optional number of milliseconds for animation or 0 for none (default=100)
+ * 
+ */
+function InputfieldClose($inputfield, duration) {
+	InputfieldToggle($inputfield, false, duration);
+}
+
 /*****************************************************************************************************
  * Setup the toggles for Inputfields and the animations that occur between opening and closing
- * 
+ *
  */
 function InputfieldStates($target) {
 
@@ -997,6 +1187,7 @@ function InputfieldStates($target) {
 			if($inputfields.length) {
 				$inputfields.trigger('reloaded', [ 'InputfieldAjaxLoad' ]);
 				InputfieldStates($li);	
+				InputfieldRequirements($li);
 				InputfieldColumnWidths();
 			} else {
 				$li.trigger('reloaded', [ 'InputfieldAjaxLoad' ]);
@@ -1064,8 +1255,10 @@ function InputfieldStates($target) {
 		var isCollapsed = $li.hasClass("InputfieldStateCollapsed"); 
 		var wasCollapsed = $li.hasClass("InputfieldStateWasCollapsed");
 		var duration = 100;
-		
+	
+		if(!$li.length) return;
 		if($li.hasClass('InputfieldAjaxLoading')) return false;
+		if($li.hasClass('InputfieldStateToggling')) return false;
 		
 		if(typeof data != "undefined") {
 			if(typeof data.duration != "undefined") duration = data.duration;
@@ -1077,31 +1270,9 @@ function InputfieldStates($target) {
 			
 		if(isCollapsed || wasCollapsed || isIcon) {
 			$li.addClass('InputfieldStateWasCollapsed'); // this class only used here
-			$li.trigger(isCollapsed ? 'openReady' : 'closeReady');
-			$li.toggleClass('InputfieldStateCollapsed', duration, function() {
-				// jQuery seems to add overflow:hidden, and this interferes with outline CSS property on Inputfields
-				if($li.css('overflow') == 'hidden') $li.css('overflow', ''); 
-				if(isCollapsed) {
-					$li.trigger('opened');
-					if($li.hasClass('InputfieldColumnWidth')) $li.children('.InputfieldContent').show();
-					if($li.hasClass('InputfieldNoFocus')) return;
-					var $input = $li.find(":input:visible");
-					if($input.length == 1 && !$input.is('button')) {
-						if($input.css('position') != 'absolute') {
-							var t = $input.attr('type');
-							if($input.is('textarea') || t == 'text' || t == 'email' || t == 'url' || t == 'number') {
-								$input.focus();
-							}
-						}
-					}
-				} else {
-					$li.trigger('closed');
-					if($li.hasClass('InputfieldColumnWidth')) $li.children('.InputfieldContent').hide();
-				}
-			});
-			$icon.toggleClass($icon.attr('data-to')); // data-to=classes to toggle
-			setTimeout('InputfieldColumnWidths()', 500);
+			InputfieldToggle($li, null, duration);
 		} else {
+			// Inputfield not collapsible unless toggle icon clicked, so pulsate the toggle icon and focus any inputs
 			if(typeof jQuery.ui != 'undefined') {
 				var color1 = $icon.css('color');
 				var color2 = $li.children('.InputfieldHeader, .ui-widget-header').css('color'); 
@@ -1110,7 +1281,7 @@ function InputfieldStates($target) {
 					$icon.css('color', color1);
 				});
 			}
-			if(!$li.hasClass('InputfieldNoFocus')) $li.find(":input:visible:eq(0)").focus();
+			InputfieldFocus($li);
 		}
 
 		return false;
@@ -1183,6 +1354,7 @@ function overflowAdjustments() {
  * 
  */
 function InputfieldIntentions() {
+	var $ = jQuery;
 	
 	// adjustments for unintended actions, like hitting enter in a text field in a multi-button form
 	$(".InputfieldForm").each(function() {
@@ -1250,7 +1422,7 @@ function InputfieldWindowResizeActions1() {
 	// notify all Inputfields that they have been resized
 	// note: event is not triggered at ready() so Inputfield should trigger its own
 	// resize event if it needs this as part of setup
-	$(".Inputfield").trigger('resized');
+	jQuery(".Inputfield").trigger('resized');
 }
 
 function InputfieldWindowResizeActions2() {
@@ -1260,12 +1432,65 @@ function InputfieldWindowResizeActions2() {
 }
 
 /**
+ * Manage required attributes on Inputfields
+ * 
+ */
+function InputfieldRequirements($target) {
+	// show tab that input[required] is in, via @Toutouwai 
+	jQuery(':input[required]', $target).on('invalid', function() {
+		var $input = jQuery(this);
+		InputfieldFocus(jQuery(this));
+	});
+}
+
+/**
+ * Event handler called when 'reload' event is triggered on an Inputfield
+ * 
+ */
+function InputfieldReloadEvent(event, extraData) {
+	console.log('InputfieldReloadEvent ' + $(this).attr('id'));
+	var $t = $(this);
+	var $form = $t.closest('form');
+	var fieldName = $t.attr('id').replace('wrap_Inputfield_', '');
+	var url = $form.attr('action');
+	if(fieldName.indexOf('_repeater') > 0) {
+		var pageID = $t.closest('.InputfieldRepeaterItem').attr('data-page');
+		url = url.replace(/\?id=\d+/, '?id=' + pageID);
+		fieldName = fieldName.replace(/_repeater\d+$/, '');
+	}
+	url += url.indexOf('?') > -1 ? '&' : '?';
+	url += 'field=' + fieldName + '&reloadInputfieldAjax=' + fieldName;
+	if(typeof extraData != "undefined") {
+		if(typeof extraData['queryString'] != "undefined") {
+			url += '&' + extraData['queryString'];
+		}
+	}
+	consoleLog('Inputfield reload: ' + fieldName);
+	$.get(url, function(data) {
+		var id = $t.attr('id');
+		var $content = jQuery(data).find("#" + id).children(".InputfieldContent");
+		if(!$content.length && id.indexOf('_repeater') > -1) {
+			id = 'wrap_Inputfield_' + fieldName;
+			$content = jQuery(data).find("#" + id).children(".InputfieldContent");
+			if(!$content.length) {
+				console.log("Unable to find #" + $t.attr('id') + " in response from " + url);
+			}
+		}
+		$t.children(".InputfieldContent").html($content.html());
+		// if(typeof jQuery.ui != 'undefined') $t.effect("highlight", 1000); 
+		$t.trigger('reloaded', [ 'reload' ]);
+	});
+	event.stopPropagation();
+}
+
+/**
  * Function for external initialization of new Inputfields content (perhaps ajax loaded)
  * 
  */
 function InputfieldsInit($target) {
 	InputfieldStates($target);
 	InputfieldDependencies($target);
+	InputfieldRequirements($target);
 	setTimeout(function() { InputfieldColumnWidths(); }, 100);
 }
 
@@ -1274,7 +1499,9 @@ function InputfieldsInit($target) {
 jQuery(document).ready(function($) {
 
 	InputfieldStates();
+	
 	InputfieldDependencies($(".InputfieldForm:not(.InputfieldFormNoDependencies)"));
+	
 	InputfieldIntentions();
 	
 	setTimeout(function() { InputfieldColumnWidths(); }, 100);
@@ -1285,52 +1512,20 @@ jQuery(document).ready(function($) {
 		setTimeout('InputfieldWindowResizeActions1()', 1000);
 		setTimeout('InputfieldWindowResizeActions2()', 2000); 	
 	};
+
+	$(window).resize(windowResized);
 	
-	var tabClicked = function() {
+	$("ul.WireTabs > li > a").click(function() {
 		if(InputfieldWindowResizeQueued) return;
 		InputfieldWindowResizeQueued = true;
 		setTimeout('InputfieldWindowResizeActions1()', 250);
-		setTimeout('InputfieldWindowResizeActions2()', 500); 	
-		return true; 
-	}; 
+		setTimeout('InputfieldWindowResizeActions2()', 500);
+		return true;
+	}); 
+	
+	InputfieldRequirements($('.InputfieldForm'));
 
-	$(window).resize(windowResized); 
-	$("ul.WireTabs > li > a").click(tabClicked);
-
-	$(document).on('reload', '.Inputfield', function(event, extraData) {
-		var $t = $(this);
-		var $form = $t.closest('form');
-		var fieldName = $t.attr('id').replace('wrap_Inputfield_', ''); 
-		var url = $form.attr('action');
-		if(fieldName.indexOf('_repeater') > 0) {
-			var pageID = $t.closest('.InputfieldRepeaterItem').attr('data-page');
-			url = url.replace(/\?id=\d+/, '?id=' + pageID);
-			fieldName = fieldName.replace(/_repeater\d+$/, '');
-		}
-		url += url.indexOf('?') > -1 ? '&' : '?';
-		url += 'field=' + fieldName + '&reloadInputfieldAjax=' + fieldName;
-		if(typeof extraData != "undefined") {
-			if(typeof extraData['queryString'] != "undefined") {
-				url += '&' + extraData['queryString'];
-			}
-		}
-		consoleLog('Inputfield reload: ' + fieldName); 
-		$.get(url, function(data) {
-			var id = $t.attr('id');
-			var $content = $(data).find("#" + id).children(".InputfieldContent");
-			if(!$content.length && id.indexOf('_repeater') > -1) {
-				id = 'wrap_Inputfield_' + fieldName;	
-				$content = $(data).find("#" + id).children(".InputfieldContent");
-				if(!$content.length) {
-					console.log("Unable to find #" + $t.attr('id') + " in response from " + url);
-				}
-			}
-			$t.children(".InputfieldContent").html($content.html());
-			// if(typeof jQuery.ui != 'undefined') $t.effect("highlight", 1000); 
-			$t.trigger('reloaded', [ 'reload' ]); 
-		});
-		event.stopPropagation();
-	});
+	$(document).on('reload', '.Inputfield', InputfieldReloadEvent);
 
 	/*
 	// for testing: 
@@ -1338,5 +1533,4 @@ jQuery(document).ready(function($) {
 		console.log($(this).attr('id'));
 	});
 	*/
-	
 }); 
