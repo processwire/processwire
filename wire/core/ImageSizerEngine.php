@@ -669,28 +669,28 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		if($targetWidth == $originalTargetWidth && 1 + $targetWidth == $pWidth) $pWidth = $pWidth - 1;
 		if($targetHeight == $originalTargetHeight && 1 + $targetHeight == $pHeight) $pHeight = $pHeight - 1;
 
-		if(!$this->upscaling) {
-			// we are going to shoot for something smaller than the target
-
-			while($pWidth > $img['width'] || $pHeight > $img['height']) {
-				// favor the smallest dimension
-				if($pWidth > $img['width']) {
-					$pWidth = $img['width'];
-					$pHeight = $this->getProportionalHeight($pWidth);
-				}
-
-				if($pHeight > $img['height']) {
-					$pHeight = $img['height'];
-					$pWidth = $this->getProportionalWidth($pHeight);
-				}
-
-				if($targetWidth > $pWidth) $targetWidth = $pWidth;
-				if($targetHeight > $pHeight) $targetHeight = $pHeight;
-
-				if(!$this->cropping) {
-					$targetWidth = $pWidth;
-					$targetHeight = $pHeight;
-				}
+		if(!$this->upscaling && ($img['width'] < $targetWidth || $img['height'] < $targetHeight)) {
+			// via @horst-n PR #118: 
+			// upscaling is not allowed and we have one or both dimensions to small,
+			// we scale down the target dimensions to fit within the image dimensions, 
+			// with respect to the target dimensions ratio
+			$ratioSource = $img['height'] / $img['width'];
+			$ratioTarget = $targetHeight / $targetWidth;
+			if($ratioSource >= $ratioTarget) {
+				// ratio is equal or target fits into source
+				$pWidth = $targetWidth = $img['width'];
+				$pHeight = $img['height'];
+				$targetHeight = ceil($pWidth * $ratioTarget);
+			} else {
+				// target doesn't fit into source
+				$pHeight = $targetHeight = $img['height'];
+				$pWidth = $img['width'];
+				$targetWidth = ceil($pHeight / $ratioTarget);
+			}
+			if($this->cropping) {
+				// we have to disable any sharpening method here, 
+				// as the source will not be resized, only cropped
+				$this->sharpening = 'none';
 			}
 		}
 

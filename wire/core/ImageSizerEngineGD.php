@@ -221,11 +221,11 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			if(!$isModified && ($this->imageType == \IMAGETYPE_PNG || $this->imageType == \IMAGETYPE_GIF)) {
 				$result = @copy($srcFilename, $dstFilename);
 				if(isset($image) && is_resource($image)) @imagedestroy($image); // clean up
-                if(isset($image)) $image = null;
-                return $result; // early return !
-            }
+				if(isset($image)) $image = null;
+				return $result; // early return !
+			}
 
-            // process JPEGs
+			// process JPEGs
 			if(self::checkMemoryForImage(array(imagesx($image), imagesy($image), 3)) === false) {
 				throw new WireException(basename($srcFilename) . " - not enough memory to copy the final image");
 			}
@@ -246,7 +246,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			$this->prepareImageLayer($thumb, $image);
 			imagecopyresampled($thumb, $image, 0, 0, 0, 0, $finalWidth, $finalHeight, $this->image['width'], $this->image['height']);
 
-		} else if(4 == $resizeMethod) { // 4 = resize and crop with aspect ratio
+		} else if(4 == $resizeMethod) { // 4 = resize and crop with aspect ratio, - or crop without resizing ($upscaling == false)
 
 			// we have to scale up or down and to _crop_
 
@@ -259,20 +259,6 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			$sourceWidth = $this->image['width'];
 			$sourceHeight = $this->image['height'];
 		
-			/*
-			 * @todo figure out how to make zoom setting adjust coordinates to imagecopyresampled() calls
-			$zoom = is_array($this->cropping) && isset($this->cropping[2]) ? $this->cropping[2] : 0;
-			if($zoom > 1) {
-				$zoom = $zoom * 0.01;
-				$sourceWidth -= $sourceWidth * $zoom;
-				$sourceHeight -= $sourceHeight * $zoom;
-				$sourceX = $this->image['width'] - ($sourceWidth / 2);
-				$sourceY = $this->image['height'] - ($sourceHeight / 2);
-				$bgX = 0;
-				$bgY = 0;
-			}
-			*/
-
 			$thumb2 = imagecreatetruecolor($bgWidth, $bgHeight);
 			$this->prepareImageLayer($thumb2, $image);
 			imagecopyresampled(
