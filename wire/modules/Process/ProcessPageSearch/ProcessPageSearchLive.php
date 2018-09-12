@@ -5,6 +5,7 @@
  * 
  * @method renderList(array $items, $prefix = 'pw-search', $class = 'list')
  * @method renderItem(array $item, $prefix = 'pw-search', $class = 'list')
+ * @method string|array execute($getJSON = true)
  * 
  * @todo support searching repeaters
  * 
@@ -394,7 +395,7 @@ class ProcessPageSearchLive extends Wire {
 	 * @return string|array
 	 * 
 	 */
-	public function execute($getJSON = true) {
+	public function ___execute($getJSON = true) {
 
 		/** @var WireInput $input */
 		$input = $this->wire('input');
@@ -785,7 +786,7 @@ class ProcessPageSearchLive extends Wire {
 	 * 
 	 */
 	protected function useType($type, $requestType = '') {
-		if($type === $requestType) return true; 
+		if($requestType) return $type === $requestType; 
 		return !in_array($type, $this->noSearchTypes); 
 	}
 
