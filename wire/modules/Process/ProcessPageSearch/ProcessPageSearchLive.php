@@ -669,6 +669,7 @@ class ProcessPageSearchLive extends Wire {
 		$user = $this->wire('user');
 		$superuser = $user->isSuperuser();
 		$pages = $this->wire('pages');
+		$config = $this->wire('config');
 		
 		if(!empty($liveSearch['help'])) {
 			$result = array('title' => 'pages', 'items' => array(), 'properties' => array('name', 'title'));
@@ -707,6 +708,7 @@ class ProcessPageSearchLive extends Wire {
 	
 		try {
 			if($this->useType('pages', $liveSearch['type'])) {
+				$selector .= ', templates_id!=' . implode('|', $config->userTemplateIDs); // users are searched separately
 				$items['pages'] = $pages->find("$selector, status<" . Page::statusTrash);
 			}
 		} catch(\Exception $e) {
