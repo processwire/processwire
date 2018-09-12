@@ -123,6 +123,9 @@ class ProcessModule extends Process {
 		} else { 
 			$this->labels['download_install'] = $this->_('Download and Install');
 		}
+		$this->labels['get_module_info'] = $this->_('Get Module Info'); 
+		$this->labels['module_information'] = $this->_x("Module Information", 'edit');
+		$this->labels['download_now'] = $this->_('Download Now');
 		$this->labels['download_dir'] = $this->_('Add Module From Directory');
 		$this->labels['upload'] = $this->_('Upload');
 		$this->labels['upload_zip'] = $this->_('Add Module From Upload');
@@ -517,7 +520,12 @@ class ProcessModule extends Process {
 		$f = $this->modules->get('InputfieldName');
 		$f->attr('id+name', 'download_name');
 		$f->label = $this->_('Module Class Name');
-		$f->description = $this->_('You may browse the modules directory and locate the module you want to download and install. Type or paste in the "class name" for the module you want to install.');
+		$f->description = 
+			$this->_('You may browse the modules directory and locate the module you want to download and install.') . ' ' . 
+			sprintf(
+				$this->_('Type or paste in the class name for the module you want to install, then click the “%s” button to proceed.'), 
+				$this->labels['get_module_info']
+			);
 		$f->notes = $this->_('The modules directory is located at [modules.processwire.com](http://modules.processwire.com)'); 
 		$f->attr('placeholder', $this->_('ModuleClassName')); // placeholder
 		$f->required = false; 
@@ -525,7 +533,7 @@ class ProcessModule extends Process {
 		
 		$f = $this->modules->get('InputfieldSubmit');
 		$f->attr('id+name', 'download');
-		$f->value = $this->labels['download_install'];
+		$f->value = $this->labels['get_module_info'];
 		$f->icon = $fieldset->icon;
 		$fieldset->add($f);
 		$tab->add($fieldset);
@@ -892,6 +900,8 @@ class ProcessModule extends Process {
 		$form->attr('method', 'post');
 		$form->attr('id', 'ModuleInfo');
 		$markup = $this->wire('modules')->get('InputfieldMarkup');
+		$markup->label = $data['title'];
+		$markup->icon = 'info-circle';
 		$form->add($markup);
 		
 		$installed = $this->modules->isInstalled($data['class_name']) ? $this->modules->getModuleInfoVerbose($data['class_name']) : null;
@@ -988,10 +998,12 @@ class ProcessModule extends Process {
 		$markup->value = $table->render();
 
 		if($installable && $data['download_url']) {
+			/** @var InputfieldSubmit $btn */
 			$btn = $this->wire('modules')->get('InputfieldSubmit');
 			$btn->attr('id+name', 'godownload');
-			$btn->value = $this->labels['download_install'];
+			$btn->value = $this->labels['download_now'];
 			$btn->icon = 'cloud-download';
+			$btn->showInHeader(true);
 			if($update) $btn->value .= " ($data[module_version])";
 			$form->add($btn);
 			$this->session->ProcessModuleDownloadURL = $data['download_url'];
@@ -1009,7 +1021,6 @@ class ProcessModule extends Process {
 		$btn->class .= ' ui-priority-secondary';
 		$form->add($btn);
 
-		$form->description = $this->wire('sanitizer')->entities($data['title']); 
 		return $form;
 	}
 
@@ -1422,7 +1433,7 @@ class ProcessModule extends Process {
 		$field = $this->modules->get("InputfieldMarkup"); 
 		$field->attr('id', 'ModuleInfo'); 
 		$field->attr('value', $table->render()); 
-		$field->label = $this->_x("Module Information", 'edit');
+		$field->label = $this->labels['module_information'];
 		$field->icon = 'info-circle';
 		if($collapseInfo) $field->collapsed = Inputfield::collapsedYes;
 		$form->prepend($field); 
