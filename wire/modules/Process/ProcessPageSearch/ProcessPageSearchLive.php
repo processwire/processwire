@@ -548,7 +548,7 @@ class ProcessPageSearchLive extends Wire {
 			$name = $info['name'];
 			$thisType = $info['searchable'];
 	
-			if($type != $thisType && in_array($thisType, $this->noSearchTypes)) continue;
+			if(!$this->useType($thisType, $type)) continue;
 			if($type && $this->isViewAll && $type != $thisType) continue;
 			if($type && stripos($thisType, $type) === false) continue;
 			if(!empty($liveSearch['template']) && !empty($liveSearch['property'])) continue;
@@ -631,7 +631,7 @@ class ProcessPageSearchLive extends Wire {
 		}
 
 		// use built-in modules search when appropriate
-		if((empty($type) || $type == 'modules') && $this->wire('user')->isSuperuser()) {
+		if($this->useType('modules', $type) && $this->wire('user')->isSuperuser()) {
 			if(!in_array('modules', $this->searchTypesOrder)) $this->searchTypesOrder[] = 'modules';
 			$order = array_search('modules', $this->searchTypesOrder) * 100;
 			foreach($this->findModules($liveSearch, $modulesInfo) as $item) {
@@ -706,13 +706,13 @@ class ProcessPageSearchLive extends Wire {
 		$matches = array('pages' => array(), 'trash' => array());
 	
 		try {
-			if(empty($liveSearch['type']) || $liveSearch['type'] == 'pages') {
+			if($this->useType('pages', $liveSearch['type'])) {
 				$items['pages'] = $pages->find("$selector, status<" . Page::statusTrash);
 			}
 		} catch(\Exception $e) {
 		}
 		try {
-			if($superuser && (empty($liveSearch['type']) || $liveSearch['type'] == 'trash')) {
+			if($superuser && $this->useType('trash', $liveSearch['type'])) {
 				$items['trash'] = $pages->find("$selector, status>=" . Page::statusTrash);
 			}
 		} catch(\Exception $e) {
@@ -772,6 +772,19 @@ class ProcessPageSearchLive extends Wire {
 		}
 
 		return $matches;
+	}
+
+	/**
+	 * Allow this search type?
+	 * 
+	 * @param string $type Type to check
+	 * @param string $requestType Type specifically requested by user
+	 * @return bool
+	 * 
+	 */
+	protected function useType($type, $requestType = '') {
+		if($type === $requestType) return true; 
+		return !in_array($type, $this->noSearchTypes); 
 	}
 
 
