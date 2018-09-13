@@ -219,32 +219,46 @@ class PagesEditor extends Wire {
 			// make sure the page template allows moves.
 			// only move always allowed is to the trash, unless page has system status
 			$reason = 
-				"Page using template '$page->template' is not moveable " . 
-				"(Template::noMove) [{$oldParent->path} => {$newParent->path}].";
+				sprintf($this->_('Page using template “%s” is not moveable.'), $page->template->name) . ' ' . 
+				"(Template::noMove) [{$oldParent->path} => {$newParent->path}]";
 
 		} else if($newParent->template->noChildren) {
 			// check if new parent disallows children
-			$reason = 
-				"Chosen parent '$newParent->path' uses template '$newParent->template' that does not allow children.";
+			$reason = sprintf(
+				$this->_('Chosen parent “%1$s” uses template “%2$s” that does not allow children.'), 
+				$newParent->path, 
+				$newParent->template->name
+			);
 
 		} else if($newParent->id && $newParent->id != $config->trashPageID && count($newParent->template->childTemplates)
 			&& !in_array($page->template->id, $newParent->template->childTemplates)) {
 			// make sure the new parent's template allows pages with this template
-			$reason =
-				"Cannot move '$page->name' because template '$newParent->template' used by page '$newParent->path' " .
-				"does not allow children using template '$page->template'.";
+			$reason = sprintf(
+				$this->_('Cannot move “%1$s” because template “%2$s” used by page “%3$s” does not allow children using template “%4$s”.'), 
+				$page->name, 
+				$newParent->template->name, 
+				$newParent->path,
+				$page->template->name
+			);
 
 		} else if(count($page->template->parentTemplates) && $newParent->id != $config->trashPageID
 			&& !in_array($newParent->template->id, $page->template->parentTemplates)) {
 			// check for allowed parentTemplates setting
-			$reason =
-				"Cannot move '$page->name' because template '$newParent->template' used by new parent '$newParent->path' " .
-				"is not allowed by moved page template '$page->template'.";
+			$reason = sprintf(
+				$this->_('Cannot move “%1$s” because template “%2$s” used by new parent “%3$s” is not allowed by moved page template “%4$s”.'),
+				$page->name, 
+				$newParent->template->name, 
+				$newParent->path, 
+				$page->template->name
+			);
 
 		} else if(count($newParent->children("name=$page->name, id!=$page->id, include=all"))) {
 			// check for page name collision
-			$reason = 
-				"Chosen parent '$newParent->path' already has a page named '$page->name'.";
+			$reason = sprintf(
+				$this->_('Chosen parent “%1$s” already has a page named “%2$s”.'),
+				$newParent->path,
+				$page->name
+			);
 			
 		} else {
 			$moveable = true;
