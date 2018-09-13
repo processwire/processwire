@@ -35,10 +35,13 @@ class FieldtypeCheckbox extends Fieldtype {
 	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
 		if(is_null($value)) $value = $page->get($field->name); 
 		$checked = $value ? " checked='checked'" : "";
-		return "<input type='checkbox'$checked disabled='disabled' />";
+		$textValue = $value ? '☒': '☐'; // utf-8 checkbox (the ☑ is also works for checked, but not quite as visible)
+		// note: the span below ensures a value survives even if markupValue has tags stripped from it
+		return "<input type='checkbox' $checked disabled='disabled' /><span style='display:none'>$textValue</span>";
 	}
 
 	public function getInputfield(Page $page, Field $field) {
+		/** @var InputfieldCheckbox $inputfield */
 		$inputfield = $this->modules->get('InputfieldCheckbox'); 
 		$inputfield->set('checkedValue', 1); 
 		$inputfield->set('uncheckedValue', 0); 
