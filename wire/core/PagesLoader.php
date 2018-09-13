@@ -115,7 +115,7 @@ class PagesLoader extends Wire {
 		if(!empty($options['lazy'])) return false;
 		
 		$value = false;
-		$filter = empty($options['findOne']);
+		$filter = empty($options['findAll']);
 		
 		if(is_array($selector)) {
 
