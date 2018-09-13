@@ -212,12 +212,14 @@ class PagesEditor extends Wire {
 		
 		$config = $this->wire('config');
 		$moveable = false;
+		$isSystem = $page->hasStatus(Page::statusSystem) || $page->hasStatus(Page::statusSystemID);
+		$toTrash = $newParent->id > 0 && $newParent->isTrash();
+		$wasTrash = $oldParent->id > 0 && $oldParent->isTrash();
 		
 		// page was moved
-		if($page->template->noMove 
-			&& ($page->hasStatus(Page::statusSystem) || $page->hasStatus(Page::statusSystemID) || !$page->isTrash())) {
+		if($page->template->noMove && ($isSystem || (!$toTrash && !$wasTrash))) {
 			// make sure the page template allows moves.
-			// only move always allowed is to the trash, unless page has system status
+			// only move always allowed is to the trash (or out of it), unless page has system status
 			$reason = 
 				sprintf($this->_('Page using template “%s” is not moveable.'), $page->template->name) . ' ' . 
 				"(Template::noMove) [{$oldParent->path} => {$newParent->path}]";
