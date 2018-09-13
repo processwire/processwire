@@ -655,6 +655,8 @@ class ProcessLanguageTranslator extends Process {
 		$files = array();
 		$dirs = array();
 		$root = $this->wire('config')->paths->root;
+		$assetsDir = '/site/assets/';
+		if(DIRECTORY_SEPARATOR != '/') $assetsDir = str_replace('/', DIRECTORY_SEPARATOR, $assetsDir);
 
 		$find1 = array('$this->_(', '$this->_n(', '$this->_x(');
 		$find2 = array('__(', '_n(', '_x(');
@@ -674,7 +676,7 @@ class ProcessLanguageTranslator extends Process {
 			if(substr($file->getBasename(), 0, 1) == '.') continue; // skip hidden;
 			if($file->isDir()) {
 				$pathname = $file->getPathname();
-				if(strpos($pathname, '/site/assets/') !== false) continue; // avoid descending into /site/assets/
+				if(strpos($pathname, $assetsDir) !== false) continue; // avoid descending into /site/assets/
 				$dirs[] = $pathname;
 				continue;
 			}
