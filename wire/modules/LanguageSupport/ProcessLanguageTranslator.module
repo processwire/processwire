@@ -658,8 +658,17 @@ class ProcessLanguageTranslator extends Process {
 
 		$find1 = array('$this->_(', '$this->_n(', '$this->_x(');
 		$find2 = array('__(', '_n(', '_x(');
+	
+		try {
+			$dirIterator = new \DirectoryIterator($path);
+		} catch(\Exception $e) {
+			$this->warning($e->getMessage());
+			$dirIterator = false;
+		}
+		
+		if(!$dirIterator) return array();
 
-		foreach(new \DirectoryIterator($path) as $file) {
+		foreach($dirIterator as $file) {
 
 			if($file->isDot()) continue;
 			if(substr($file->getBasename(), 0, 1) == '.') continue; // skip hidden;
