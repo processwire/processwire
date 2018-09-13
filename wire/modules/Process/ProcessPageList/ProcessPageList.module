@@ -530,13 +530,13 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			$url = '';
 			$editable = false;
 			
-			if($page->editable()) {
+			if(!$page->listable()) {
+				continue;
+			} else if($page->editable()) {
 				$url = $page->editUrl();
 				$editable = true;
 			} else if($page->viewable()) {
 				$url = $page->url();
-			} else if(!$page->listable()) {
-				continue;
 			}
 			
 			$numChildren = $id > 1 ? $page->numChildren : 0;
