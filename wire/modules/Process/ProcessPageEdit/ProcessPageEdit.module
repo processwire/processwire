@@ -1454,7 +1454,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$wrapper->attr('id', $id);
 		$wrapper->attr('title', $restoreLabel);
 		$this->addTab($id, $restoreLabel);
-		$newPath = $info['parent']->path() . $info['name'] . '/';
+		/** @var Page $parent */
+		$parent = $info['parent'];
+		$newPath = $parent->path() . $info['name'] . '/';
 		
 		/** @var InputfieldCheckbox $field */
 		$field = $this->modules->get('InputfieldCheckbox');
@@ -2266,6 +2268,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$parentEditable = ($parent->id && $parent->editable());
 		/** @var Config $config */
 		$config = $this->wire('config');
+		$superAdvanced = $isSuperuser && $config->advanced; 
 
 		// current page template is assumed, otherwise we wouldn't be here
 		$templates[$page->template->id] = $page->template; 
@@ -2302,11 +2305,11 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				if(!in_array($template->id, $parent->template->childTemplates)) continue; 
 			}
 
-			if($template->noParents == -1 && $template->getNumPages() > 0) {
-				// only one of these is allowed to exist
+			if(!$superAdvanced && $template->noParents < 0 && $template->getNumPages() > 0) {
+				// only one of these is allowed to exist (noParents=-1)
 				continue;
 				
-			} else if($template->noParents) {
+			} else if($template->noParents > 0) {
 				// user can't change to a template that has been specified as no more instances allowed
 				continue;
 				
