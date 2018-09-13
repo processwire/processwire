@@ -790,7 +790,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 						// disallow unpublished
 						$warning = sprintf($this->_('Unpublished page %1$s is not allowed in field "%2$s"'), $page->path, $this->label);
 						if($this->wire('user')->isSuperuser()) {
-							$warning .= ' ' . sprintf($this->_('To allow unpublished pages, edit the "%s" field and see the setting on the "Advanced" tab.'), $this->name);
+							$warning .= ' ' . sprintf($this->_('To allow unpublished pages, edit the “%s” field and see the setting on the “Details” tab.'), $this->name);
 						}
 						$this->warning($warning);
 						continue; 
