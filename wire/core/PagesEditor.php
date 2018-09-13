@@ -282,6 +282,7 @@ class PagesEditor extends Wire {
 	 * - Populates any default values for fields. 
 	 *
 	 * @param Page $page
+	 * @throws \Exception|WireException|\PDOException if failure occurs while in DB transaction
 	 *
 	 */
 	public function setupNew(Page $page) {
@@ -327,6 +328,7 @@ class PagesEditor extends Wire {
 				}
 			} catch(\Exception $e) {
 				$this->trackException($e, false, true);
+				if($this->wire('database')->inTransaction()) throw $e;
 			}
 		}
 	}
@@ -598,6 +600,7 @@ class PagesEditor extends Wire {
 	 * @param bool $isNew
 	 * @param array $options
 	 * @return bool
+	 * @throws \Exception|WireException|\PDOException If any field-saving failure occurs while in a DB transaction
 	 *
 	 */
 	protected function savePageFinish(Page $page, $isNew, array $options) {
@@ -647,6 +650,7 @@ class PagesEditor extends Wire {
 				} catch(\Exception $e) {
 					$error = sprintf($this->_('Error saving field "%s"'), $name) . ' - ' . $e->getMessage();
 					$this->trackException($e, true, $error);
+					if($this->wire('database')->inTransaction()) throw $e;
 				}
 			}
 		}
