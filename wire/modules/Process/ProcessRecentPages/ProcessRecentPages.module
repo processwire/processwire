@@ -98,7 +98,8 @@ class ProcessRecentPages extends Process {
 		$this->addHookProperty('Page::recentTimeStr', $this, 'hookPageRecentTimeStr'); 
 		parent::init();
 		$this->labels['nothing'] = $this->_('No pages match (yet)'); 
-		$this->oldestDate = (int) @filemtime($this->wire('config')->paths->assets . 'installed.php'); 
+		$this->oldestDate = (int) $this->wire('config')->installed; 
+		if(!$this->oldestDate) $this->oldestDate = @filemtime($this->wire('config')->paths->assets . 'installed.php'); 
 	}
 
 	/**

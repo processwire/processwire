@@ -1454,7 +1454,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		// if there was nothing found, finish early
 		if(!$total) {
-			// no references found and PageArray requested, return blank PageArray
+			// no references found 
+			if($getCount) return $total;
 			return $byField ? array() : $pages->newPageArray();
 		}
 	

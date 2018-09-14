@@ -23,6 +23,7 @@
  * @method void init() Initialize session (called automatically by constructor) #pw-hooker
  * @method bool authenticate(User $user, $pass) #pw-hooker
  * @method bool isValidSession($userID) #pw-hooker
+ * @method bool allowLoginAttempt($name) #pw-hooker
  * @method bool allowLogin($name, User $user = null) #pw-hooker
  * @method void loginSuccess(User $user) #pw-hooker
  * @method void loginFailure($name, $reason) #pw-hooker
@@ -793,11 +794,16 @@ class Session extends Wire implements \IteratorAggregate {
 		
 		if(!strlen($name)) return null;
 		
-		if(is_null($user)) {
+		$allowAttempt = $this->allowLoginAttempt($name); 
+		
+		if($allowAttempt && is_null($user)) {
 			$user = $users->get('name=' . $sanitizer->selectorValue($name));
 		}
+		
+		if(!$allowAttempt) {
+			$failReason = 'Blocked login attempt';
 
-		if(!$user || !$user->id) {
+		} else if(!$user || !$user->id) {
 			$failReason = 'Unknown user';
 			
 		} else if($user->id == $guestUserID) {
@@ -925,6 +931,21 @@ class Session extends Wire implements \IteratorAggregate {
 			}
 		}
 		return $allow; 
+	}
+
+	/**
+	 * Allow login attempt for given name at all?
+	 * 
+	 * This method does nothing and is purely for hooks to modify return value. 
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param string $name
+	 * @return bool
+	 * 
+	 */
+	public function ___allowLoginAttempt($name) {
+		return strlen($name) > 0;
 	}
 
 	/**

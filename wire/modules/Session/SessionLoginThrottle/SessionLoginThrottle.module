@@ -5,9 +5,14 @@
  *
  * Throttles the frequency of logins for a given account, helps to reduce dictionary attacks.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
+ * 
+ * @property int|bool $checkIP
+ * @property int $seconds
+ * @property int $maxSeconds
+ * @property int|bool $logFails
  *
  */
 
@@ -16,22 +21,41 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Session Login Throttle', 
-			'version' => 102, 
-			'summary' => 
-				'Throttles the frequency of logins for a given account, helps to reduce dictionary attacks ' . 
-				'by introducing an exponential delay between logins.',
+			'version' => 103, 
+			'summary' => 'Throttles login attempts to help prevent dictionary attacks.',
 			'permanent' => false, 
 			'singular' => true, 
 			'autoload' => function() { return count($_POST) > 0;  }
 			);
 	}
 
+	/**
+	 * Default module settings
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected static $defaultSettings = array(
 		'checkIP' => 0,
 		'seconds' => 5,
-		'maxSeconds' => 60 
-		);
+		'maxSeconds' => 60,
+		'logFails' => 0,
+	);
 
+	/**
+	 * Cached results of allowLogin() in case there are multiple calls
+	 * 
+	 * This ensures that only one attempt can be recorded per request. 
+	 * 
+	 * @var array of name (string) => result (bool)
+	 * 
+	 */
+	protected $allowLoginResults = array();
+
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		foreach(self::$defaultSettings as $key => $value) {
 			$this->set($key, $value); 
@@ -44,20 +68,22 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 	 */
 	public function init() {
 		if($this->wire('config')->demo) return;
-		$this->session->addHookAfter('allowLogin', $this, 'sessionAllowLogin'); 
+		$this->session->addHookAfter('allowLoginAttempt', $this, 'hookSessionAllowLoginAttempt'); 
 	}
 
 	/**
 	 * Hooks into Session::authenticate to make it respond 'false' if the user has already failed a login. 
 	 *
 	 * Further, it imposes an increasing delay for every failed attempt 
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
-	public function sessionAllowLogin($event) {
+	public function hookSessionAllowLoginAttempt(HookEvent $event) {
 
 		// check if some other module has already disallowed login, in which case we won't do anything
 		$allowed = $event->return; 
-		if(!$allowed) return false; 
+		if(!$allowed) return;
 
 		$name = $event->arguments[0]; 
 
@@ -73,7 +99,17 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$event->return = $allowed;
 	}
 
+	/**
+	 * Allow given user name to login?
+	 * 
+	 * @param string $name User name, may also be IP address 
+	 * @return bool
+	 * @throws WireException
+	 * 
+	 */
 	protected function allowLogin($name) {
+		
+		if(isset($this->allowLoginResults[$name])) return $this->allowLoginResults[$name];
 
 		$time = time();
 		$database = $this->wire('database');
@@ -83,7 +119,13 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$query->bindValue(":name", $name);
 		$query->execute();
 		$numRows = $query->rowCount();
-		if($numRows) list($attempts, $lastAttempt) = $query->fetch(\PDO::FETCH_NUM);
+		if($numRows) {
+			list($attempts, $lastAttempt) = $query->fetch(\PDO::FETCH_NUM);
+		} else {
+			$attempts = 0;
+			$lastAttempt = 0;
+		}
+		$query->closeCursor();
 		$allowed = false;
 
 		if($numRows) {
@@ -92,9 +134,21 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 				if($requireSeconds > $this->maxSeconds) $requireSeconds = $this->maxSeconds; 
 				$elapsedSeconds = $time - $lastAttempt; 
 				if($elapsedSeconds < $requireSeconds) {
-					$error = sprintf($this->_("Please wait at least %d seconds before attempting another login."), $requireSeconds); 
-					if($this->wire('process') == 'ProcessLogin') parent::error($error); 
-						else throw new WireException($error); // ensures the error can't be missed in unknown API usage
+					if($this->logFails) {
+						$this->wire('log')->save(
+							"login-throttle", 
+							"Blocked login attempt for '$name' (attempts=$attempts, seconds=$requireSeconds)",
+							array('showUser' => false)
+						);
+					}
+					$error = 
+						$this->_('Login not attempted due to overflow.') . ' ' . 
+						sprintf($this->_("Please wait at least %d seconds before attempting another login."), $requireSeconds); 
+					if($this->wire('process') == 'ProcessLogin') {
+						parent::error($error);
+					} else {
+						throw new WireException($error); // ensures the error can't be missed in unknown API usage
+					}
 				} else {
 					$allowed = true; 
 				}
@@ -105,23 +159,26 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 
 			// if there have been more than $this->maxSeconds since the previous attempt, consider this as a first login attempt (@jlj)
 			if($time - $lastAttempt > $this->maxSeconds) $attempts = 1;
-			
-			$query = $database->prepare('UPDATE session_login_throttle SET attempts=:attempts, last_attempt=:time WHERE name=:name');
+
+			$sql = 'UPDATE session_login_throttle SET attempts=:attempts, last_attempt=:time WHERE name=:name';
+			$query = $database->prepare($sql);
 			$query->bindValue(':attempts', $attempts);
 			$query->bindValue(':time', $time);
 			$query->bindValue(':name', $name);
 			$query->execute();
 
 		} else {
-			$allowed = true; 
-			
-			$query = $database->prepare('INSERT INTO session_login_throttle (name, attempts, last_attempt) VALUES(:name, :attempts, :last_attempt)');
+			$allowed = true;
+			$attempts = 1;
+
+			$sql = 'INSERT INTO session_login_throttle (name, attempts, last_attempt) VALUES(:name, :attempts, :last_attempt)';
+			$query = $database->prepare($sql);
 			$query->bindValue(":name", $name);
-			$query->bindValue(":attempts", 1, \PDO::PARAM_INT);
+			$query->bindValue(":attempts", $attempts, \PDO::PARAM_INT);
 			$query->bindValue(":last_attempt", $time, \PDO::PARAM_INT);
 			$query->execute();
 		}
-
+		
 		// delete saved login attempts that are no longer applicable
 		$expired = $time - $this->maxSeconds;
 		
@@ -129,6 +186,8 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$query = $database->prepare($sql);
 		$query->bindValue(":expired", $expired, \PDO::PARAM_INT);
 		$query->execute();
+		
+		$this->allowLoginResults[$name] = $allowed;
 			
 		return $allowed; 
 	}
@@ -136,16 +195,21 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 
 	/**
 	 * Add custom config options (coming soon, just a placeholder for now)
+	 * 
+	 * @param array $data
+	 * @return InputfieldWrapper
 	 *
 	 */
 	public function getModuleConfigInputfields(array $data) {
 
+		/** @var InputfieldWrapper $inputfields */
 		$inputfields = $this->wire(new InputfieldWrapper());
 
 		foreach(self::$defaultSettings as $key => $value) {
 			if(!isset($data[$key])) $data[$key] = $value;
 		}
 
+		/** @var InputfieldCheckbox $f */
 		$f = $this->wire('modules')->get('InputfieldCheckbox');
 		$f->attr('name', 'checkIP');
 		$f->attr('value', 1);
@@ -154,6 +218,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$f->description = $this->_('By default, throttling will only be done by username. If you check this box, then throttling will also be done by IP address. We recommended enabling this option if your users are not coming from a shared IP address.');
 		$inputfields->add($f);
 
+		/** @var InputfieldInteger $f */
 		$f = $this->wire('modules')->get('InputfieldInteger'); 
 		$f->attr('name', 'seconds');
 		$f->attr('value', $data['seconds']); 
@@ -167,10 +232,16 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 		$f->label = $this->_('Maximum number of seconds a user would ever have to wait before attempting another login'); 
 		$f->description = $this->_('Because the wait time is increased exponentially on each attempt, this places a maximum (cap) on the wait time. You should leave this set to a fairly high number.');
 		$f->notes = $this->_('60=1 minute, 300=5 minutes, 600=10 minutes, 3600=1 hour, 86400=1 day'); 
-		$inputfields->add($f); 
-
+		$inputfields->add($f);
+	
+		/** @var InputfieldCheckbox $f */
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', 'logFails');
+		if($data['logFails']) $f->attr('checked', 'checked');
+		$f->label = $this->_('Save to log file when name/IP is blocked?');
+		$inputfields->add($f);
+		
 		return $inputfields;
-
 	}
 
 	/**
