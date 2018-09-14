@@ -17,6 +17,14 @@
  *   ->body('Hello there big world')
  *   ->bodyHTML('<h2>Hello there big world</h2>');
  * $numSent = $message->send();
+ * 
+ * // ProcessWire 3.0.113 lets you skip the $mail->new() call if you want:
+ * $numSent = $mail->subject('Hello world')
+ *   ->to('user@domain.com')
+ *   ->from('you@company.com')
+ *   ->body('Hello there big world')
+ *   ->bodyHTML('<h2>Hello there big world</h2>')
+ *   ->send();
  * ~~~~~
  * #pw-body
  * 
@@ -301,6 +309,7 @@ class WireMailTools extends Wire {
 	 * @param array $headers Optional additional headers as [name=value] array or "Name: Value" newline-separated string.
 	 *   Use this argument to duplicate PHP mail() style arguments. No need to use if you used $options array for the $message argument.
 	 * @return bool True on success, false on fail.
+	 * @since 3.0.109
 	 * 
 	 */
 	public function mailHTML($to, $subject, $messageHTML, $headers = array()) {
@@ -316,6 +325,50 @@ class WireMailTools extends Wire {
 		return $this->mail($to, $subject, $options); 
 	}
 
+	/**
+	 * Return new WireMail instance populated with “to” email
+	 * 
+	 * @param string|array $email Email to send to–specify any one of the following:
+	 * - Single email address 
+	 * - String like: "John Smith <user@example.com>"
+	 * - CSV string of either of the above. 
+	 * - Regular PHP array of email addresses.
+	 * - Associative array of ['user@xample.com' => 'John Smith'].
+	 * @param string $name An optional TO name, applies only if your $email argument was just an email address. 
+	 * @return WireMail
+	 * @throws WireException if given invalid email address
+	 * @since 3.0.113
+	 * 
+	 */
+	public function to($email, $name = null) {
+		return $this->new()->to($email, $name);
+	}
+	
+	/**
+	 * Return new WireMail instance populated with “from” email
+	 *
+	 * @param string $email Must be a single email address or "User Name <user@example.com>" string.
+	 * @param string|null An optional FROM name
+	 * @return WireMail
+	 * @since 3.0.113
+	 *
+	 */
+	public function from($email, $name = null) {
+		return $this->new()->from($email, $name);
+	}
+	
+	/**
+	 * Return new WireMail instance populated with subject
+	 *
+	 * @param string $subject
+	 * @return WireMail
+	 * @since 3.0.113
+	 *
+	 */
+	public function subject($subject) {
+		return $this->new()->subject($subject);
+	}
+	
 	public function __get($key) {
 		if($key === 'new') return $this->new();
 		return parent::__get($key);
