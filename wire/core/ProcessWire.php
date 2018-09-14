@@ -204,8 +204,9 @@ class ProcessWire extends Wire {
 
 		$this->wire('hooks', new WireHooks($this, $config), true);
 
-		$this->shutdown = $this->wire(new WireShutdown());
 		$this->setConfig($config);
+		$this->shutdown = $this->wire(new WireShutdown($config));
+		$this->setStatus(self::statusBoot);
 		$this->load($config);
 		
 		if(self::getNumInstances() > 1) {
@@ -274,13 +275,6 @@ class ProcessWire extends Wire {
 			$config->debug = $debugIf;
 		}
 
-		// If script is being called externally, add an extra shutdown function 
-		if(!$config->internal) register_shutdown_function(function() {
-			if(error_get_last()) return;
-			$process = isset($this) ? $this->wire('process') : wire('process');
-			if($process == 'ProcessPageView') $process->finished();
-		});
-		
 		if($config->useFunctionsAPI) {
 			$file = $config->paths->core . 'FunctionsAPI.php';
 			/** @noinspection PhpIncludeInspection */
@@ -302,9 +296,6 @@ class ProcessWire extends Wire {
 				}
 			}
 		}
-
-
-		$this->setStatus(self::statusBoot);
 	}
 
 	/**
@@ -751,6 +742,41 @@ class ProcessWire extends Wire {
 	}
 
 	/**
+	 * Get root path, check it, and optionally auto-detect it if not provided
+	 * 
+	 * @param bool|string $rootPath Root path if already known, in which case we’ll just modify as needed
+	 * @return string
+	 * 
+	 */
+	protected static function getRootPath($rootPath = '') {
+		
+		if(strpos($rootPath, '..') !== false) {
+			$rootPath = realpath($rootPath);
+		}
+
+		if(empty($rootPath) && !empty($_SERVER['SCRIPT_FILENAME'])) {
+			// first try to determine from the script filename
+			$parts = explode(DIRECTORY_SEPARATOR, $_SERVER['SCRIPT_FILENAME']);
+			array_pop($parts); // most likely: index.php
+			$rootPath = implode('/', $parts) . '/';
+			if(!file_exists($rootPath . 'wire/core/ProcessWire.php')) $rootPath = '';
+		}
+		
+		if(empty($rootPath)) {
+			// if unable to determine from script filename, attempt to determine from current file
+			$parts = explode(DIRECTORY_SEPARATOR, __FILE__);
+			$parts = array_slice($parts, 0, -3); // removes "ProcessWire.php", "core" and "wire"
+			$rootPath = implode('/', $parts) . '/';
+		}
+		
+		if(DIRECTORY_SEPARATOR != '/') {
+			$rootPath = str_replace(DIRECTORY_SEPARATOR, '/', $rootPath);
+		}
+
+		return $rootPath; 
+	}
+
+	/**
 	 * Static method to build a Config object for booting ProcessWire
 	 * 
 	 * @param string $rootPath Path to root of installation where ProcessWire's index.php file is located.
@@ -762,17 +788,9 @@ class ProcessWire extends Wire {
 	 * @throws WireException
 	 * 
 	 */
-	public static function buildConfig($rootPath, $rootURL = null, array $options = array()) {
-		
-		if(strpos($rootPath, '..') !== false) {
-			$rootPath = realpath($rootPath);
-			if($rootPath === false) throw new WireException("Path not found"); 
-		}
-		
-		if(DIRECTORY_SEPARATOR != '/') {
-			$rootPath = str_replace(DIRECTORY_SEPARATOR, '/', $rootPath);
-		}
-		
+	public static function buildConfig($rootPath = '', $rootURL = null, array $options = array()) {
+	
+		$rootPath = self::getRootPath($rootPath);
 		$httpHost = '';
 		$scheme = '';
 		$siteDir = isset($options['siteDir']) ? $options['siteDir'] : 'site';

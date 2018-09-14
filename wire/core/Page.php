@@ -1538,7 +1538,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function getText($key, $oneLine = false, $entities = null) {
 		$value = $this->getMarkup($key);
-		if(!strlen($value)) return '';
+		$length = strlen($value);
+		if(!$length) return '';
 		$options = array(
 			'entities' => (is_null($entities) ? $this->outputFormatting() : (bool) $entities)
 		);
@@ -1547,6 +1548,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 		} else {
 			$value = $this->wire('sanitizer')->markupToText($value, $options);
 		}
+		// if stripping tags from non-empty value made it empty, just indicate that it was markup and length
+		if(!strlen(trim($value))) $value = "markup($length)";
 		return $value; 	
 	}
 

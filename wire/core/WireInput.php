@@ -577,7 +577,7 @@ class WireInput extends Wire {
 			// page not yet available, attempt to pull URL from request uri
 			$info = parse_url($_SERVER['REQUEST_URI']);
 			$parts = explode('/', $info['path']);
-			$charset = $config->pageNameCharset;
+			$charset = $config ? $config->pageNameCharset : '';
 			foreach($parts as $i => $part) {
 				if($i > 0) $url .= "/";
 				$url .= ($charset === 'UTF8' ? $sanitizer->pageNameUTF8($part) : $sanitizer->pageName($part, false));
