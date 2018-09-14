@@ -9,12 +9,6 @@
  */
 
 /**
- * Exception triggered by SessionCSRF::validate() when CSRF detected
- *
- */
-class WireCSRFException extends WireException {}
-
-/**
  * ProcessWire CSRF Protection
  *
  * #pw-summary Provides an API for cross site request forgery protection.

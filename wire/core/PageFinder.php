@@ -1,8 +1,5 @@
 <?php namespace ProcessWire;
 
-class PageFinderException extends WireException { }
-class PageFinderSyntaxException extends PageFinderException { }
-
 /**
  * ProcessWire PageFinder
  *
