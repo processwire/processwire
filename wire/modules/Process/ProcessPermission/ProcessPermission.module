@@ -83,6 +83,20 @@ class ProcessPermission extends ProcessPageType {
 		}
 	}
 	
+	/**
+	 * Get the page editor
+	 *
+	 * @param string $moduleName One of 'ProcessPageEdit' or 'ProcessPageAdd' (or other that extends)
+	 * @return ProcessPageEdit|ProcessPageAdd|WirePageEditor
+	 * @throws WireException If requested editor moduleName not found
+	 *
+	 */
+	protected function getEditor($moduleName) {
+		$editor = parent::getEditor($moduleName);
+		if($editor == 'ProcessPageAdd') $editor->set('noAutoPublish', true);
+		return $editor;
+	}
+	
 	public function ___executeAdd() {
 		
 		// hide the title field, since it is counterproductive when adding a new permission
