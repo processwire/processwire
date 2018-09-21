@@ -251,6 +251,14 @@ class Modules extends WireArray {
 	protected $coreModulesDir = '';
 
 	/**
+	 * Array of moduleName => order to indicate autoload order when necessary
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $autoloadOrders = array();
+
+	/**
 	 * Properties that only appear in 'verbose' moduleInfo
 	 * 
 	 * @var array
@@ -751,6 +759,7 @@ class Modules extends WireArray {
 	 *
 	 */
 	protected function loadModulesTable() {
+		$this->autoloadOrders = array();
 		$database = $this->wire('database');
 		// we use SELECT * so that this select won't be broken by future DB schema additions
 		// Currently: id, class, flags, data, with created added at sysupdate 7
@@ -765,7 +774,8 @@ class Modules extends WireArray {
 			$class = $row['class'];
 			$this->moduleIDs[$class] = $moduleID;
 			$this->moduleFlags[$moduleID] = $flags;
-			$loadSettings = ($flags & self::flagsAutoload) || ($flags & self::flagsDuplicate) || ($class == 'SystemUpdater');
+			$autoload = $flags & self::flagsAutoload;
+			$loadSettings = $autoload || ($flags & self::flagsDuplicate) || ($class == 'SystemUpdater');
 			
 			if($loadSettings) {
 				// preload config data for autoload modules since we'll need it again very soon
@@ -783,6 +793,14 @@ class Modules extends WireArray {
 				$this->createdDates[$moduleID] = $row['created']; 
 			}
 			
+			if($autoload && !empty($this->moduleInfoCache[$moduleID]['autoload'])) {
+				$autoload = $this->moduleInfoCache[$moduleID]['autoload'];
+				if(is_int($autoload) && $autoload > 1) {
+					// autoload specifies an order > 1, indicating it should load before others
+					$this->autoloadOrders[$class] = $autoload;
+				}
+			}
+			
 			unset($row['data']); // info we don't want stored in modulesTableCache
 			$this->modulesTableCache[$class] = $row;
 		}
@@ -798,12 +816,13 @@ class Modules extends WireArray {
 	 */
 	protected function load($path) {
 
+		$config = $this->wire('config');
 		$debugKey = $this->debug ? $this->debugTimerStart("load($path)") : null; 
 		$installed =& $this->modulesTableCache;
 		$modulesLoaded = array();
 		$modulesDelayed = array();
 		$modulesRequired = array();
-		$rootPath = $this->wire('config')->paths->root;
+		$rootPath = $config->paths->root;
 		$basePath = substr($path, strlen($rootPath));
 
 		foreach($this->findModuleFiles($path, true) as $pathname) {
@@ -819,7 +838,7 @@ class Modules extends WireArray {
 			$requires = array();
 			$name = $moduleName;
 			$moduleName = $this->loadModule($path, $pathname, $requires, $installed);
-			if(!$this->wire('config')->paths->get($name)) $this->setConfigPaths($name, dirname($basePath . $pathname));
+			if(!$config->paths->get($name)) $this->setConfigPaths($name, dirname($basePath . $pathname));
 			if(!$moduleName) continue;
 		
 			if(count($requires)) {
@@ -1030,6 +1049,7 @@ class Modules extends WireArray {
 
 		static $startPath;
 		static $callNum = 0;
+		static $prependFiles = array();
 
 		$callNum++;
 		$config = $this->wire('config');
@@ -1053,6 +1073,11 @@ class Modules extends WireArray {
 		}
 
 		$files = array();
+		$autoloadOrders = null;
+		
+		if(count($this->autoloadOrders) && $path !== $config->paths->modules) {
+			$autoloadOrders = &$this->autoloadOrders;
+		}
 		
 		try {
 			$dir = new \DirectoryIterator($path); 
@@ -1070,7 +1095,6 @@ class Modules extends WireArray {
 
 			if(DIRECTORY_SEPARATOR != '/') {
 				$pathname = str_replace(DIRECTORY_SEPARATOR, '/', $pathname); 
-				$filename = str_replace(DIRECTORY_SEPARATOR, '/', $filename); 
 			}
 
 			if(strpos($pathname, '/.') !== false) {
@@ -1084,16 +1108,30 @@ class Modules extends WireArray {
 			}
 
 			// if the filename doesn't end with .module or .module.php, then stop and move onto the next
-			if(!strpos($filename, '.module')) continue; 
-			if(substr($filename, -7) !== '.module' && substr($filename, -11) !== '.module.php') {
-				continue; 
+			$extension = $file->getExtension();
+			if($extension !== 'module' && $extension !== 'php') continue;
+			list($moduleName, $extension) = explode('.', $filename, 2);
+			if($extension !== 'module'  && $extension !== 'module.php') continue;
+			
+			$pathname = str_replace($startPath, '', $pathname); 
+			
+			if($autoloadOrders !== null && isset($autoloadOrders[$moduleName])) {
+				$prependFiles[$pathname] = $autoloadOrders[$moduleName];
+			} else {
+				$files[] = $pathname;
 			}
-		
-			$files[] = str_replace($startPath, '', $pathname); 
 		}
-
+		
 		if($level == 0 && $dir !== null) {
-			if($cache && $cacheName) $cache->save($cacheName, implode("\n", $files), WireCache::expireNever); 
+			if(!empty($prependFiles)) {
+				// one or more non-core modules must be loaded first in a specific order
+				arsort($prependFiles);
+				$files = array_merge(array_keys($prependFiles), $files);
+				$prependFiles = array();
+			}
+			if($cache && $cacheName) {
+				$cache->save($cacheName, implode("\n", $files), WireCache::expireNever);
+			}
 		}
 
 		return $files;
@@ -4106,6 +4144,7 @@ class Modules extends WireArray {
 			return;
 		}
 		$this->clearModuleInfoCache();
+		$this->loadModulesTable();
 		foreach($this->paths as $path) $this->findModuleFiles($path, false); 
 		foreach($this->paths as $path) $this->load($path);
 		if($this->duplicates()->numNewDuplicates() > 0) $this->duplicates()->updateDuplicates(); // PR#1020

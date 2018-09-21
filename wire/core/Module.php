@@ -199,7 +199,7 @@
  *    something like an Inputfield module would not be singular. When not specified, modules that extend an 
  *    existing base type typically inherit the singular setting from the module they extend. 
  * 
- * - `autoload` (boolean|string|callable): Should this module load automatically at boot? (default=false).
+ * - `autoload` (boolean|string|callable|int): Should this module load automatically at boot? (default=false).
  *    This is good for modules that attach hooks or that need to otherwise load on every single
  *    request. Autoload is typically specified as a boolean true or false. Below are the different ways
  *    autoload can be specified: 
@@ -213,6 +213,9 @@
  * 
  *    - **Callable function:** The module will automatically load only if the given callable function 
  *      returns true. 
+ * 
+ *    - **Integer:** If given integer 2 or higher, it will autoload the module before other autoload
+ *      modules (in /site/modules/). Higher numbers autoload before lower numbers. 
  * 
  * - `searchable` (string): When present, indicates that module implements a search() method 
  *    consistent with the SearchableModule interface. The value of the 'searchable' property should 
