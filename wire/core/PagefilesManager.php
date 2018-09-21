@@ -231,6 +231,40 @@ class PagefilesManager extends Wire {
 	}
 
 	/**
+	 * Copy/import files from given path into the page’s files directory
+	 * 
+	 * #pw-group-manipulation
+	 * 
+	 * @param string $fromPath Path to copy/import files from. 
+	 * @param bool $move Move files into directory rather than copy?
+	 * @return int Number of files/directories copied.
+	 * @since 3.0.114
+	 * 
+	 */
+	public function importFiles($fromPath, $move = false) {
+		return $this->_copyFiles($fromPath, $this->path(), $move); 
+	}
+
+	/**
+	 * Replace all page’s files with those from given path
+	 * 
+	 * #pw-group-manipulation
+	 * 
+	 * @param string $fromPath
+	 * @param bool $move Move files to destination rather than copy? (default=false)
+	 * @return int Number of files/directories copied.
+	 * @throws WireException if given a path that does not exist.
+	 * @since 3.0.114
+	 * 
+	 * 
+	 */
+	public function replaceFiles($fromPath, $move = false) {
+		if(!is_dir($fromPath)) throw new WireException("Path does not exist: $fromPath"); 
+		$this->emptyPath();
+		return $this->_copyFiles($fromPath, $this->path(), $move);
+	}
+
+	/**
 	 * Recursively move all files managed by this PagefilesManager into a new path.
 	 * 
 	 * #pw-group-manipulation
