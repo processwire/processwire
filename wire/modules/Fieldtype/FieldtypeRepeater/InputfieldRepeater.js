@@ -219,7 +219,7 @@ function InputfieldRepeater($) {
 		var pageID = $repeater.attr('data-page'); // $("#Inputfield_id").val();
 		var itemID = parseInt($item.attr('data-page'));
 		var repeaterID = $repeater.attr('id');
-		var fieldName = repeaterID.replace('wrap_Inputfield_', '');
+		var fieldName = repeaterID.replace('wrap_Inputfield_', '').replace('_LPID' + pageID, '');
 		var ajaxURL = ProcessWire.config.InputfieldRepeater.editorUrl + '?id=' + pageID + '&field=' + fieldName + '&repeater_edit=' + itemID;
 		var $spinner = $item.find('.InputfieldRepeaterDrag');
 		var $inputfields = $loaded.closest('.Inputfields');
@@ -228,7 +228,7 @@ function InputfieldRepeater($) {
 		if($repeater.hasClass('InputfieldNoDraft')) ajaxURL += '&nodraft=1';	
 
 		$spinner.removeClass('fa-arrows').addClass('fa-spin fa-spinner');
-		repeaterID = repeaterID.replace(/_repeater\d+$/, '');
+		repeaterID = repeaterID.replace(/_repeater\d+$/, '').replace('_LPID' + pageID, '');
 
 		$.get(ajaxURL, function(data) {
 			var $inputs = $(data).find('#' + repeaterID + ' > ' +
