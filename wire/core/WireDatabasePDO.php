@@ -333,6 +333,32 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Are transactions available with current DB engine (or table)?
+	 * 
+	 * #pw-group-PDO
+	 * 
+	 * @param string $table Optionally specify a table to specifically check to that table
+	 * @return bool
+	 * 
+	 */
+	public function supportsTransaction($table = '') {
+		$engine = '';
+		if($table) {
+			$query = $this->prepare('SHOW TABLE STATUS WHERE name=:name'); 
+			$query->bindValue(':name', $table); 
+			$query->execute();
+			if($query->rowCount()) {
+				$row = $query->fetch(\PDO::FETCH_ASSOC);
+				$engine = empty($row['engine']) ? '' : $row['engine'];
+			}
+			$query->closeCursor();
+		} else {
+			$engine = $this->wire('config')->dbEngine;
+		}
+		return strtoupper($engine) === 'INNODB';
+	}
+
+	/**
 	 * Commits a transaction
 	 * 
 	 * #pw-group-PDO
