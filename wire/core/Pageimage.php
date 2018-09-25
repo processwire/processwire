@@ -1016,6 +1016,13 @@ class Pageimage extends Pagefile {
 	 * 
 	 */
 	public function maxSize($width, $height, $options = array()) {
+	
+		if($width < 1 || $this->width() <= $width) $width = 0;
+		if($height < 1 || $this->height() <= $height) $height = 0;
+
+		// if already within maxSize dimensions then do nothing
+		if(!$width && !$height) return $this;
+		
 		$options['upscaling'] = false;
 		$options['cropping'] = false;
 		
