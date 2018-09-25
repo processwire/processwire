@@ -1086,12 +1086,12 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	}
 
 	/**
-	 * Returns true if change tracking is on, or false if it is not. 
+	 * Returns true or 1 if change tracking is on, or false or 0 if it is not, or mode bitmask (int) if requested. 
 	 * 
 	 * #pw-group-changes
 	 *
-	 * @param bool $getMode When true, the track changes mode bitmask will be returned rather than a boolean
-	 * @return bool|int 
+	 * @param bool $getMode When true, the track changes mode bitmask will be returned 
+	 * @return int|bool 0/false if off, 1/true if On, or mode bitmask if requested 
 	 * 
 	 */
 	public function trackChanges($getMode = false) {
