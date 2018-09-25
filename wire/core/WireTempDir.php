@@ -274,7 +274,7 @@ class WireTempDir extends Wire {
 		
 			if($removeDir) {
 				if(!$this->rmdir($pathname, true)) {
-					$this->log("Unable to remove: $pathname");
+					$this->log("Unable to remove (B): $pathname");
 					$success = false;
 				}
 			} else {
@@ -287,7 +287,7 @@ class WireTempDir extends Wire {
 			if($this->rmdir($path, true)) {
 				$success = true;
 			} else {
-				$this->log("Unable to remove: $path");
+				$this->log("Unable to remove (A): $path");
 				$success = false;
 			}
 		}
@@ -354,7 +354,9 @@ class WireTempDir extends Wire {
 	protected function mkdir($dir, $recursive = false) {
 		if($this->wire('files')->mkdir($dir, $recursive)) {
 			$dir = rtrim($dir, "/\\") . DIRECTORY_SEPARATOR;
-			file_put_contents($dir . self::hiddenFileName, time());
+			$hiddenFile = $dir . self::hiddenFileName;
+			file_put_contents($hiddenFile, time());
+			$this->wire('files')->chmod($hiddenFile);
 			return true;
 		} else {
 			return false;
