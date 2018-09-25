@@ -337,6 +337,18 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		if(is_string($item)) {
 			/** @var Pagefile $item */
 			$item = $this->wire(new Pagefile($this, $item)); 
+			
+		} else if($item instanceof Pagefile) {
+			$page = $this->get('page');	
+			if($page && "$page" !== "$item->page") {
+				$newItem = clone $item;
+				$newItem->setPagefilesParent($this);
+				$newItem->install($item->filename);
+				$newItem->isTemp(true);
+				$this->unTempQueue($newItem);
+				$this->message("Copied $item->url to $newItem->url", Notice::debug); 
+				$item = $newItem;
+			}
 		}
 
 		/** @var Pagefiles $result */
