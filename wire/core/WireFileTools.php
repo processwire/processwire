@@ -5,7 +5,7 @@
  * 
  * #pw-summary Helpers for working with files and directories. 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
  * @method bool include($filename, array $vars = array(), array $options = array())
@@ -298,7 +298,7 @@ class WireFileTools extends Wire {
 			'returnRelative' => false,
 		);
 
-		if(DIRECTORY_SEPARATOR != '/') $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
+		$path = $this->unixDirName($path);
 		if(!is_dir($path) || !is_readable($path)) return array();
 
 		$options = array_merge($defaults, $options);
@@ -325,8 +325,7 @@ class WireFileTools extends Wire {
 			$ext = strtolower($file->getExtension());
 			if(!empty($options['extensions']) && !in_array($ext, $options['extensions'])) continue;
 			if(!empty($options['excludeExtensions']) && in_array($ext, $options['excludeExtensions'])) continue;
-			$filename = $file->getPathname();
-			if(DIRECTORY_SEPARATOR != '/') $filename = str_replace(DIRECTORY_SEPARATOR, '/', $filename);
+			$filename = $this->unixFileName($file->getPathname());
 			// make relative to provided path
 			if($options['returnRelative']) {
 				$filename = str_replace($options['_startPath'], '', $filename);
@@ -371,7 +370,7 @@ class WireFileTools extends Wire {
 	 */
 	public function unzip($file, $dst) {
 
-		$dst = rtrim($dst, DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
+		$dst = rtrim($dst, '/' . DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
 		if(!class_exists('\ZipArchive')) throw new WireException("PHP's ZipArchive class does not exist");
 		if(!is_file($file)) throw new WireException("ZIP file does not exist");
@@ -551,6 +550,25 @@ class WireFileTools extends Wire {
 		$http->sendFile($filename, $options, $headers);
 	}
 
+	/**
+	 * Create (overwrite or append) a file, put the $contents in it, and adjust permissions
+	 * 
+	 * This is the same as PHP’s `file_put_contents()` except that it’s preferable to use this in 
+	 * ProcessWire because it adjusts the file permissions configured with `$config->chmodFile`.
+	 * 
+	 * @param string $filename Filename to write to
+	 * @param string|mixed $contents Contents to write to file
+	 * @param int $flags Flags to modify behavior:
+	 *  - `FILE_APPEND` (constant): Append to file if it already exists .
+	 *  - `LOCK_EX` (constant): Acquire exclusive lock to file while writing.
+	 * @return int|bool Number of bytes written or boolean false on fail 
+	 * 
+	 */
+	public function filePutContents($filename, $contents, $flags = 0) {
+		$result = file_put_contents($filename, $contents, $flags); 
+		if($result !== false) $this->chmod($filename);
+		return $result;
+	}
 
 	/**
 	 * Given a filename, render it as a ProcessWire template file
@@ -600,7 +618,7 @@ class WireFileTools extends Wire {
 		);
 
 		$options = array_merge($defaults, $options);
-		if(DIRECTORY_SEPARATOR != '/') $filename = str_replace(DIRECTORY_SEPARATOR, '/', $filename);
+		$filename = $this->unixFileName($filename);
 
 		// add .php extension if filename doesn't already have an extension
 		if($options['autoExtension'] && !strrpos(basename($filename), '.')) {
@@ -706,7 +724,7 @@ class WireFileTools extends Wire {
 			if($filename === false) throw new WireException("File does not exist: $_filename");
 		}
 		
-		if(DIRECTORY_SEPARATOR != '/') $filename = str_replace(DIRECTORY_SEPARATOR, '/', $filename);
+		$filename = $this->unixFileName($filename);
 
 		if(strpos($filename, '//') !== false) {
 			throw new WireException("File is not allowed (double-slash): $filename");
@@ -723,8 +741,7 @@ class WireFileTools extends Wire {
 			// absolute path, make sure it's part of PW's installation
 			$allowed = false;
 			foreach($options['allowedPaths'] as $path) {
-				if(DIRECTORY_SEPARATOR != '/') $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
-				if(strpos($filename, $path) === 0) $allowed = true;
+				if($this->fileInPath($filename, $path)) $allowed = true;
 			}
 			if(!$allowed) throw new WireException("File is not in an allowed path: $filename");
 		}
@@ -780,7 +797,6 @@ class WireFileTools extends Wire {
 		
 		if($fileIsContents) {
 			$data = $file;
-			$file = '';
 		} else {
 			$data = file_get_contents($file);
 			if($data === false) return $namespace;
@@ -978,6 +994,52 @@ class WireFileTools extends Wire {
 		$file = $this->compile($file, $options);
 		require_once($file);
 		TemplateFile::popRenderStack();
+	}
+
+	/**
+	 * Convert given directory name to use unix slashes and enforce trailing or no-trailing slash
+	 * 
+	 * @param string $dir Directory name to adust (if it needs it)
+	 * @param bool $trailingSlash True to force trailing slash, false to force no trailing slash (default=true)
+	 * @return string Adjusted directory name
+	 * 
+	 */
+	public function unixDirName($dir, $trailingSlash = true) {
+		if(DIRECTORY_SEPARATOR != '/' && strpos($dir, DIRECTORY_SEPARATOR) !== false) {
+			$dir = str_replace(DIRECTORY_SEPARATOR, '/', $dir);
+		}
+		$dir = rtrim($dir, '/');
+		if($trailingSlash) $dir .= '/';
+		return $dir;
+	}
+
+	/**
+	 * Convert given file name to use unix slashes (if it isn’t already)
+	 *
+	 * @param string $file File name to adjust (if it needs it)
+	 * @return string Adjusted file name
+	 *
+	 */
+	public function unixFileName($file) {
+		return $this->unixDirName($file, false);
+	}
+
+	/**
+	 * Is given $file name in given $path name? (aka: is $file a subdirectory somewhere within $path)
+	 * 
+	 * This is purely for string comparison purposes, it does not check if file/path actually exists. 
+	 * Note that if $file and $path are identical, this method returns false. 
+	 * 
+	 * @param string $file May be a file or a directory
+	 * @param string $path
+	 * @return bool
+	 * 
+	 */
+	public function fileInPath($file, $path) {
+		$file = $this->unixDirName($file); // use of unixDirName rather than unixFileName intentional
+		$path = $this->unixDirName($path);
+		if($file === $path || strlen($file) <= strlen($path)) return false;
+		return strpos($file, $path) === 0;
 	}
 
 }
