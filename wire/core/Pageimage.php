@@ -1017,11 +1017,19 @@ class Pageimage extends Pagefile {
 	 */
 	public function maxSize($width, $height, $options = array()) {
 	
-		if($width < 1 || $this->width() <= $width) $width = 0;
-		if($height < 1 || $this->height() <= $height) $height = 0;
+		$adjustedWidth = $width < 1 || $this->width() <= $width ? 0 : $width;
+		$adjustedHeight = $height < 1 || $this->height() <= $height ? 0 : $height;
 
 		// if already within maxSize dimensions then do nothing
-		if(!$width && !$height) return $this;
+		if(!$adjustedWidth && !$adjustedHeight) {
+			if(empty($options)) return $this; // image already within target
+			$adjustedWidth = $width;
+			$options['nameHeight'] = $height;
+		} else if(!$adjustedWidth) {
+			$options['nameWidth'] = $width;
+		} else if(!$adjustedHeight) {
+			$options['nameHeight'] = $height;
+		}
 		
 		$options['upscaling'] = false;
 		$options['cropping'] = false;
@@ -1034,7 +1042,7 @@ class Pageimage extends Pagefile {
 			$options['suffix'] = $suffix;
 		}
 		
-		return $this->size($width, $height, $options);
+		return $this->size($adjustedWidth, $adjustedHeight, $options);
 	}
 
 	/**
