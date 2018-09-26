@@ -3,7 +3,7 @@
 /**
  * ProcessWire Temporary Directory Manager
  *
- * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -85,13 +85,9 @@ class WireTempDir extends Wire {
 	 * 
 	 */
 	public function createName($prefix = '') {
-		$pass = new Password();
-		$this->wire($pass);
-		$len = mt_rand(10, 30);
-		$name = microtime() . '.' . $pass->randomBase64String($len, true);
-		$a = explode('.', $name);
-		shuffle($a);
-		$name = $prefix . implode('O', $a);
+		$random = new WireRandom();
+		$len = $random->integer(10, 20);
+		$name = $prefix . str_replace(' ', 'T', microtime()) . 'R' . $random->alphanumeric($len);
 		$this->createdName = $name;
 		return $name;
 	}
@@ -206,7 +202,7 @@ class WireTempDir extends Wire {
 			return true;
 		}
 	
-		if(is_dir($this->tempDir)) {
+		if($this->tempDir && is_dir($this->tempDir)) {
 			// remove temporary directory created by this instance
 			if(!$this->rmdir($this->tempDir, true)) {
 				$this->log("$errorMessage: $this->tempDir");
@@ -214,7 +210,7 @@ class WireTempDir extends Wire {
 			}
 		}
 	
-		if(is_dir($this->tempDirRoot)) {
+		if($this->tempDirRoot && is_dir($this->tempDirRoot)) {
 			if($this->createdName && strpos($this->tempDirRoot, "/.$this->createdName")) {
 				// if tempDirRoot is just for this PW instance, we can remove it now
 				$this->rmdir($this->tempDirRoot, true);
@@ -224,7 +220,7 @@ class WireTempDir extends Wire {
 			}
 		}
 		
-		if(!$classRuns && is_dir($this->classRoot)) {
+		if(!$classRuns && $this->classRoot && is_dir($this->classRoot)) {
 			$this->removeExpiredDirs($this->classRoot, 86400); 
 		}
 	
@@ -263,10 +259,8 @@ class WireTempDir extends Wire {
 			}
 			
 			// old dir found: check times on files/dirs within that dir
-			$pathname = rtrim($dir->getPathname(), "/\\") . DIRECTORY_SEPARATOR;
-			
-			// if our .wtd identifier file isn't present, ignore the directory
-			if(!is_file($pathname . self::hiddenFileName)) continue;
+			$pathname = $this->wire('files')->unixDirName($dir->getPathname());
+			if(!$this->isTempDir($pathname)) continue;
 			
 			$removeDir = true;
 			$newestFileTime = $this->getNewestModTime($pathname); 
@@ -352,11 +346,11 @@ class WireTempDir extends Wire {
 	 * 
 	 */
 	protected function mkdir($dir, $recursive = false) {
-		if($this->wire('files')->mkdir($dir, $recursive)) {
-			$dir = rtrim($dir, "/\\") . DIRECTORY_SEPARATOR;
-			$hiddenFile = $dir . self::hiddenFileName;
-			file_put_contents($hiddenFile, time());
-			$this->wire('files')->chmod($hiddenFile);
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
+		$dir = $files->unixDirName($dir);
+		if($files->mkdir($dir, $recursive)) {
+			$files->filePutContents($dir . self::hiddenFileName, time());
 			return true;
 		} else {
 			return false;
@@ -372,9 +366,28 @@ class WireTempDir extends Wire {
 	 * 
 	 */
 	protected function rmdir($dir, $recursive = false) {
-		$dir = rtrim($dir, "/\\") . DIRECTORY_SEPARATOR;
-		if(!is_file($dir . self::hiddenFileName)) return false;
-		unlink($dir . self::hiddenFileName);
+		$dir = $this->wire('files')->unixDirName($dir);
+		if(!strlen($dir) || !is_dir($dir)) return true;
+		if(!$this->isTempDir($dir)) return false;
+		if(is_file($dir . self::hiddenFileName)) unlink($dir . self::hiddenFileName);
 		return $this->wire('files')->rmdir($dir, $recursive);
 	}
+
+	/**
+	 * Is given directory/path created by this class?
+	 * 
+	 * @param string $dir
+	 * @return bool
+	 * 
+	 */
+	protected function isTempDir($dir) {
+		if(!strlen($dir) || !is_dir($dir)) {
+			// if given a non-directory return false
+			return false;
+		} else if($this->classRoot && $this->wire('files')->fileInPath($dir, $this->classRoot)) {
+			return true;
+		}
+		return false;
+	}
+
 }
