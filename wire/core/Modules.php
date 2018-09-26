@@ -259,6 +259,14 @@ class Modules extends WireArray {
 	protected $autoloadOrders = array();
 
 	/**
+	 * Are we currently refreshing?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $refreshing = false;
+
+	/**
 	 * Properties that only appear in 'verbose' moduleInfo
 	 * 
 	 * @var array
@@ -1017,7 +1025,8 @@ class Modules extends WireArray {
 			} else if($autoload) {
 				$this->includeModuleFile($pathname, $basename);
 				if(!($info['flags'] & self::flagsDisabled)) {
-					$module = $this->newModule($basename);
+					$module = $this->refreshing ? parent::get($basename) : null;
+					if(!$module) $module = $this->newModule($basename);
 				}
 			}
 		}
@@ -4143,11 +4152,13 @@ class Modules extends WireArray {
 		if($this->wire('config')->systemVersion < 6) {
 			return;
 		}
+		$this->refreshing = true;
 		$this->clearModuleInfoCache();
 		$this->loadModulesTable();
 		foreach($this->paths as $path) $this->findModuleFiles($path, false); 
 		foreach($this->paths as $path) $this->load($path);
 		if($this->duplicates()->numNewDuplicates() > 0) $this->duplicates()->updateDuplicates(); // PR#1020
+		$this->refreshing = false;
 	}
 
 	/**
