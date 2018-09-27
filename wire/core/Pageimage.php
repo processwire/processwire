@@ -502,6 +502,7 @@ class Pageimage extends Pagefile {
 	 *  - `nameHeight` (int): Height to use for filename (default is to use specified $height argument). 
 	 *  - `focus` (bool): Should resizes that result in crop use focus area if available? (default=true). 
 	 *     In order for focus to be applicable, resize must include both width and height. 
+	 *  - `allowOriginal` (bool): Return original if already at width/height? May not be combined with other options. (default=false)
 	 * 
 	 * **Possible values for "cropping" option**  
 	 * 
@@ -607,6 +608,7 @@ class Pageimage extends Pagefile {
 			'nameHeight' => null,  // override height to use for filename, int when populated
 			'focus' => true, // allow single dimension resizes to use focus area?
 			'zoom' => null, // zoom override, used only if focus is applicable, int when populated
+			'allowOriginal' => false, // Return original image if already at requested dimensions? (must be only specified option)
 			);
 
 		$this->error = '';
@@ -618,6 +620,13 @@ class Pageimage extends Pagefile {
 
 		$width = (int) $width;
 		$height = (int) $height;
+		
+		if($options['allowOriginal'] && count($requestOptions) === 1) {
+			if((!$width || $this->width() == $width) && (!$height || $this->height() == $height)) {
+				// return original image if already at requested width/height
+				return $this;
+			}
+		}
 	
 		if($options['cropping'] === true && empty($options['cropExtra']) && $options['focus'] && $this->hasFocus && $width && $height) {
 			// crop to focus area
