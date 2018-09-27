@@ -1199,7 +1199,13 @@ class Session extends Wire implements \IteratorAggregate {
 				end($history);
 				$lastKey = key($history);
 				$nextKey = $lastKey+1;
-				if($cnt >= $historyCnt) $history = array_slice($history, -1 * ($historyCnt-1), null, true); 
+				if($cnt >= $historyCnt) { 
+					if($historyCnt > 1) {
+						$history = array_slice($history, -1 * ($historyCnt - 1), null, true);
+					} else {
+						$history = array();
+					}
+				}
 			} else {
 				$nextKey = 0;
 			}
