@@ -1011,18 +1011,26 @@ class Pageimage extends Pagefile {
 	 * 
 	 * @param int $width Max allowed width
 	 * @param int $height Max allowed height
-	 * @param array $options See `Pageimage::size()` method for options
+	 * @param array $options See `Pageimage::size()` method for options, or these additional options:
+	 *  - `allowOriginal` (bool): Allow original image to be returned if already within max requested dimensions? (default=false)
 	 * @return Pageimage
 	 * 
 	 */
 	public function maxSize($width, $height, $options = array()) {
-	
+		
+		$defaults = array(
+			'allowOriginal' => false,
+			'upscaling' => false,
+			'cropping' => false
+		);
+		
+		$options = array_merge($defaults, $options);
 		$adjustedWidth = $width < 1 || $this->width() <= $width ? 0 : $width;
 		$adjustedHeight = $height < 1 || $this->height() <= $height ? 0 : $height;
 
 		// if already within maxSize dimensions then do nothing
 		if(!$adjustedWidth && !$adjustedHeight) {
-			if(empty($options)) return $this; // image already within target
+			if($options['allowOriginal']) return $this; // image already within target
 			$adjustedWidth = $width;
 			$options['nameHeight'] = $height;
 		} else if(!$adjustedWidth) {
@@ -1030,9 +1038,6 @@ class Pageimage extends Pagefile {
 		} else if(!$adjustedHeight) {
 			$options['nameHeight'] = $height;
 		}
-		
-		$options['upscaling'] = false;
-		$options['cropping'] = false;
 		
 		if($this->wire('config')->installed > 1513336849) { 
 			// New installations from 2017-12-15 forward use an "ms" suffix for images from maxSize() method
