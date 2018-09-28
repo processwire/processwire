@@ -18,7 +18,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		return array(
 			'title' => __('User Profile', __FILE__), // getModuleInfo title          
 			'summary' => __('Enables user to change their password, email address and other settings that you define.', __FILE__), // getModuleInfo summary 
-			'version' => 103, 
+			'version' => 104, 
 			'permanent' => true, 
 			'permission' => 'profile-edit',
 			);
@@ -118,7 +118,10 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		$passRequired = false;
 		// Inputfields where password is required to change
 		$passRequiredInputfields = array();
-		$passRequiredNote = $this->_('To change this field, you must also enter your current password in the “Set Password” field.');
+		$this->wire('config')->js('ProcessProfile', array(
+			'passRequiredAlert' => $this->_('For security, please enter your current password to save these changes:')
+		));
+		$this->wire('modules')->get('JqueryUI')->use('vex');
 		
 		if(in_array('name', $this->profileFields) && empty($fieldName)) {
 			/** @var InputfieldText $f */
@@ -194,7 +197,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			foreach($passRequiredInputfields as $f) {
 				$f->addClass('InputfieldPassRequired', 'wrapClass');
 				$this->passRequiredNames[$f->name] = $f->name;
-				$f->notes = ($f->notes ? "$f->notes\n" : "") . $passRequiredNote;
+				// $f->notes = ($f->notes ? "$f->notes\n" : "") . $passRequiredNote;
 			}
 		}
 	

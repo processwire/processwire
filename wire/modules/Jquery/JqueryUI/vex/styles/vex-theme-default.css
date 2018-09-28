@@ -351,11 +351,26 @@
   top: -1.1em;
   bottom: auto; }
 
-.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input textarea:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="date"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="datetime"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="datetime-local"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="email"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="month"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="number"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="password"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="search"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="tel"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="text"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="time"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="url"]:focus, .AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="week"]:focus {
+.AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input textarea:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="date"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="datetime"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="datetime-local"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="email"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="month"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="number"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="password"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="search"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="tel"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="text"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="time"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="url"]:focus, .AdminThemeUikit .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="week"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input textarea:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="date"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="datetime"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="datetime-local"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="email"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="month"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="number"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="password"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="search"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="tel"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="text"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="time"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="url"]:focus,
+.AdminThemeReno .vex.vex-theme-default .vex-dialog-form .vex-dialog-input input[type="week"]:focus {
   -moz-box-shadow: inset 0 0 0 2px #86d7c1;
   -webkit-box-shadow: inset 0 0 0 2px #86d7c1;
   box-shadow: inset 0 0 0 2px #86d7c1; }
+.AdminThemeUikit .vex.vex-theme-default .vex-dialog-button.vex-dialog-button-primary,
 .AdminThemeReno .vex.vex-theme-default .vex-dialog-button.vex-dialog-button-primary {
-  background: #3eb998; }
+  background: #3eb998;
+  font-weight: normal; }
 
-/*# sourceMappingURL=vex-theme-default.css.map */

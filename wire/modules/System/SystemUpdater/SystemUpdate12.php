@@ -10,9 +10,9 @@ class SystemUpdate12 extends SystemUpdate {
 
 		$query = $this->wire('database')->prepare("SHOW columns FROM `pages` LIKE 'published'");
 		$query->execute();
+		$result = true;
 		
 		if($query->rowCount() == 0) {
-			$result = true;
 
 			try {
 				$this->wire('database')->exec('ALTER TABLE pages ADD published datetime DEFAULT NULL AFTER `created_users_id`');
