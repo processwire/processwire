@@ -11,7 +11,8 @@
  * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
- * @property bool $allowForgot Whether the ProcessForgotPassword module is installed. 
+ * @property bool $allowForgot Whether the ProcessForgotPassword module is installed.
+ * @property array $tfaRecRoleIDs Role IDs where admin prompts/recommends them to enable TFA.
  * 
  * @method void beforeLogin() #pw-hooker
  * @method void afterLogin() #pw-hooker
@@ -24,16 +25,17 @@
  * @method void login($name, $pass) #pw-hooker
  * @method void loginFailed($name) #pw-hooker
  * @method void loginSuccess(User $user) #pw-hooker
+ * 
  *
  */
 
-class ProcessLogin extends Process {
+class ProcessLogin extends Process implements ConfigurableModule {
 	
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Login',
 			'summary' => 'Login to ProcessWire',
-			'version' => 105,
+			'version' => 106,
 			'permanent' => true,
 			'permission' => 'page-view',
 		);
@@ -92,6 +94,23 @@ class ProcessLogin extends Process {
 	 * 
 	 */
 	protected $logoutURL = '';
+
+	/**
+	 * Did user login with two factor authentication?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $tfaLoginSuccess = false;
+
+	/**
+	 * Construct
+	 * 
+	 */
+	public function __construct() {
+		$this->set('tfaRecRoleIDs', array());
+		parent::__construct();
+	}
 
 	/**
 	 * Build the login form 
@@ -178,6 +197,7 @@ class ProcessLogin extends Process {
 		if($tfa && $tfa->active()) {
 			// two factor authentication
 			if($tfa->success()) {
+				$this->tfaLoginSuccess = true;
 				$this->loginSuccess($this->wire('user'));
 				$this->afterLoginRedirect('./');
 			} else {
@@ -601,19 +621,90 @@ class ProcessLogin extends Process {
 	 * 
 	 */
 	protected function ___loginSuccess(User $user) {
+		
 		/** @var Session $session */
 		$session = $this->wire('session');
-		$this->wire('session')->message($user->name . ' - ' . $this->_("Successful login"));
+		$session->message($user->name . ' - ' . $this->_("Successful login"));
+		
 		if($this->isAdmin) {
 			$copyVars = $session->getFor($this, 'copyVars');
 			if(!is_array($copyVars)) $copyVars = array();
 			foreach($copyVars as $key => $value) {
 				$session->set($key, $value);
 			}
+
 			$session->remove('error');
 			$session->removeFor($this, 'copyVars');
-			$this->afterLogin();
 		}
+			
+		if(count($this->tfaRecRoleIDs) && !$this->tfaLoginSuccess) {
+			// determine if Tfa module is installed and user has role requiring Tfa
+			$requireTfa = false;
+			if(count($this->wire('modules')->findByPrefix('Tfa'))) {
+				foreach($this->tfaRecRoleIDs as $roleID) {
+					$role = $this->wire('roles')->get((int) $roleID);
+					if($role && $user->hasRole($role)) {
+						$requireTfa = true;
+						break;
+					}
+				}
+			}
+			if($requireTfa) {
+				$url = $this->wire('config')->urls('admin') . 'profile/#wrap_Inputfield_tfa_type';
+				$session->setFor('_user', 'requireTfa', $url);
+			}
+		}
+
+		if($this->isAdmin) $this->afterLogin();
+	}
+
+	/**
+	 * Configure module settings
+	 * 
+	 * @param InputfieldWrapper $inputfields
+	 * 
+	 */
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+	
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+	
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get('InputfieldFieldset');
+		$fieldset->label = $this->_('Two-factor authentication');
+		$fieldset->icon = 'user-secret';
+		$inputfields->add($fieldset);
+		$tfaModules = $modules->findByPrefix('Tfa');
+		
+		if(count($tfaModules)) {
+			$items = array();
+			foreach($tfaModules as $name) {
+				$items[] = "[$name](" . $modules->getModuleEditUrl($name) . ")";
+			}
+			$fieldset->description = $this->_('Found the following Tfa modules:') . ' ' . implode(', ', $items);
+			/** @var InputfieldCheckboxes $f */
+			$f = $modules->get('InputfieldCheckboxes');
+			$f->attr('name', 'tfaRecRoleIDs');
+			$f->icon = 'gears';
+			$f->label = $this->_('Strongly suggest two-factor authentication for these roles');
+			$f->description = 
+				$this->_('After logging in to the admin, ProcessWire will prompt users in the roles you select here to use two-factor authentication for their accounts.');
+			foreach($this->wire('roles') as $role) {
+				if($role->name == 'guest') continue;
+				$f->addOption($role->id, $role->name);
+			}
+			$f->attr('value', $this->get('tfaRecRoleIDs'));
+			$fieldset->add($f);
+			
+		} else {
+			$fieldset->description = $this->_('To configure this you must first install one or more Tfa modules and then return here.');
+		}
+		
+		$fieldset->appendMarkup = 
+			"<p><a target='_blank' href='https://modules.processwire.com/categories/tfa/'>" . 
+			$this->_('Tfa modules in the ProcessWire modules directory') . ' ' . 
+			wireIconMarkup('external-link') . "</a></p>";
+	
 	}
 
 }

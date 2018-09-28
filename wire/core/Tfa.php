@@ -323,7 +323,9 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$f->attr('id', 'Inputfield_login_submit');
 		$form->add($f);
 
-		$form->appendMarkup = "<p><a href='./'>" . $this->_('Cancel') . "</a></p>";
+		$form->appendMarkup = 
+			"<p><a href='./'>" . $this->_('Cancel') . "</a></p>" . 
+			"<script>if(typeof jQuery!='undefined') jQuery(document).ready(function(){jQuery('#login_name').focus();});</script>";
 		$this->authCodeForm = $form;
 
 		return $form;
@@ -809,17 +811,20 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		
 		/** @var Modules $modules */
 		$modules = $event->wire('modules');
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
 		$user = $this->getUser();
 		
 		if($user->isGuest()) {
 			$inputfield->val(0);
 			return;
 		}
-		
+
+		$tfaTitle = $modules->getModuleInfoProperty($this, 'title');
 		$settings = $this->getUserSettings($user);
 		$enabled = $this->enabledForUser($user, $settings);
 		$fieldset = $modules->get('InputfieldFieldset');
-		$fieldset->label = $modules->getModuleInfoProperty($this, 'title');
+		$fieldset->label = $tfaTitle;
 		$fieldset->showIf = "$this->userFieldName=" . $this->className();
 	
 		if($enabled) {
@@ -829,11 +834,17 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 				$this->_('Two factor authentication enabled!') . ' ' . 
 				$this->_('To disable or change settings, select the “None” option above and save.');
 			$fieldset->collapsed = Inputfield::collapsedYes;
+			$this->wire('session')->removeFor('_user', 'requireTfa'); // set by ProcessLogin
 		} else {
 			/** @var InputfieldFieldset $fieldset */
 			$this->getUserSettingsInputfields($user, $fieldset, $settings);
 			if(!$this->wire('input')->requestMethod('POST')) {
-				$this->warning($this->_('Please configure your two-factor authentication settings'));
+				$this->warning(
+					'<strong>' . $sanitizer->entities1($this->_('Please configure')) . '</strong> ' .   
+					wireIconMarkup('angle-right') . ' ' . 
+					"<a href='#wrap_Inputfield_tfa_type'>" . $sanitizer->entities1($tfaTitle) . "</a>",
+					Notice::allowMarkup 
+				);
 			}
 		}
 		

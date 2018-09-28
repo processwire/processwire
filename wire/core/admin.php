@@ -6,7 +6,7 @@
  * This file is designed for inclusion by /site/templates/admin.php template and all the variables 
  * it references are from your template namespace. 
  *
- * Copyright 2016 by Ryan Cramer
+ * Copyright 2018 by Ryan Cramer
  * 
  * @var Config $config
  * @var User $user
@@ -66,6 +66,25 @@ function _checkForHttpHostError(Config $config) {
 		); 
 }
 
+/**
+ * Check if two factor authentication is being required and display warning with link to configure
+ *
+ * @param Session $session
+ *
+ */
+function _checkForTwoFactorAuth(Session $session) {
+	$tfaUrl = $session->getFor('_user', 'requireTfa'); // contains URL to configure TFA
+	if(!$tfaUrl || strpos($tfaUrl, $session->wire('page')->url()) === 0) return;
+	$sanitizer = $session->wire('sanitizer');
+	$session->wire('user')->warning(
+		'<strong>' . $sanitizer->entities1(__('Action required')) . '</strong> ' .
+		wireIconMarkup('angle-right') . ' ' . 
+		"<a href='$tfaUrl'>" . $sanitizer->entities1(__('Enable two-factor authentication')) . " </a>",
+		Notice::allowMarkup
+	);
+}
+
+
 // notify superuser if there is an http host error
 if($user->isSuperuser()) _checkForHttpHostError($config); 
 
@@ -81,17 +100,20 @@ $breadcrumbs = $wire->wire('breadcrumbs', new Breadcrumbs());
 foreach($page->parents() as $p) {
 	if($p->id > 1) $breadcrumbs->add(new Breadcrumb($p->url, $p->get("title|name"))); 
 }
+
 $controller = null;
 $content = '';
-
+$ajax = $config->ajax;
+$modal = $input->get('modal') ? true : false;
+$demo = $config->demo;
 
 // enable modules to output their own ajax responses if they choose to
-if($config->ajax) ob_start();
+if($ajax) ob_start();
 
 if($page->process && $page->process != 'ProcessPageView') {
 	try {
 
-		if($config->demo && !in_array($page->process, array('ProcessLogin'))) {
+		if($demo && !in_array($page->process, array('ProcessLogin'))) {
 			if(count($_POST)) $wire->error("Features that use POST variables are disabled in this demo"); 
 			foreach($_POST as $k => $v) unset($_POST[$k]); 
 			foreach($_FILES as $k => $v) unset($_FILES[$k]); 
@@ -109,9 +131,12 @@ if($page->process && $page->process != 'ProcessPageView') {
 			/** @noinspection PhpIncludeInspection */
 			include_once($initFile);
 		}
-		if($input->get('modal')) $session->addHookBefore('redirect', null, '_hookSessionRedirectModal'); 
+		if($modal) $session->addHookBefore('redirect', null, '_hookSessionRedirectModal'); 
 		$content = $controller->execute();
 		$process = $controller->wire('process');
+		
+		if(!$ajax && !$modal && !$demo && $user->isLoggedin()) _checkForTwoFactorAuth($session);
+		if($process) {} // ignore
 
 	} catch(Wire404Exception $e) {
 		$wire->error($e->getMessage()); 
@@ -154,7 +179,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 	$content = '<p>' . __('This page has no process assigned.') . '</p>';
 }
 
-if($config->ajax) {
+if($ajax) {
 	// enable modules to output their own ajax responses if they choose to
 	if(!$content) $content = ob_get_contents();
 	ob_end_clean();
@@ -175,5 +200,6 @@ if($controller && $controller->isAjax()) {
 	/** @noinspection PhpIncludeInspection */
 	require($adminThemeFile);
 	$session->removeNotices();
+	if($content) {} // ignore
 }
 
