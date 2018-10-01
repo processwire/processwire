@@ -38,7 +38,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		return array(
 			'title' => 'Page List',
 			'summary' => 'List pages in a hierarchal tree structure',
-			'version' => 121,
+			'version' => 122,
 			'permanent' => true,
 			'permission' => 'page-edit',
 			'icon' => 'sitemap',
@@ -133,10 +133,10 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$limit = (int) $input->get->int('limit');
 		$render = $input->get('render');
 		$this->start = (int) $input->get->int('start'); //isset($_GET['start']) ? (int) $_GET['start'] : 0;
-		$this->limit = $limit && $limit < $this->limit ? $limit : $this->limit;
+		$this->limit = $limit > 0 && $limit < $this->limit ? $limit : $this->limit;
 		$this->render = $render ? strtoupper($this->wire('sanitizer')->name($render)) : '';
 		if($isAjax && !$this->render && !$input->get('renderInputfieldAjax')) $this->render = 'JSON';
-		if($this->render && !isset($this->allowRenderTypes[$this->render])) $this->render = null;
+		if(strlen($this->render) && !isset($this->allowRenderTypes[$this->render])) $this->render = null;
 
 		$settings = $config->pageList;
 		if(is_array($settings)) {
@@ -332,7 +332,8 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	protected function getPageListRender(Page $page, $limit = null, $start = null) {
 		
 		require_once(dirname(__FILE__) . '/ProcessPageListRender.php');
-		$class = "ProcessPageListRender" . $this->render;
+		if(!$this->render || !isset($this->allowRenderTypes[$this->render])) $this->render = 'JSON';
+		$class = $this->allowRenderTypes[$this->render];
 		$className = wireClassName($class, true);
 		
 		if(!class_exists($className, false)) require_once(dirname(__FILE__) . "/$class.php");

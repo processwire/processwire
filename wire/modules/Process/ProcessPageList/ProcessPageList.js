@@ -108,7 +108,7 @@ $(document).ready(function() {
 			// IDs of the pages that we want to automatically open (default none) 
 			openPageIDs: [],
 		
-			// pre-rendered data corresponding to openPageIDs, indexed by '_123' where 123 is id
+			// pre-rendered data corresponding to openPageIDs, indexed by 'id-start', i.e. 123-0
 			openPageData: {},
 
 			// speed at which the slideUp/slideDown run (in ms)
@@ -510,7 +510,9 @@ $(document).ready(function() {
 					var $children = listChildren($(data.children)); 
 					var nextStart = data.start + data.limit; 
 					//var openPageKey = id + '-' + start;
-					
+				
+					if($target.hasClass('PageListItem')) setNumChildren($target, data.page.numChildren);
+
 					if(data.page.numChildren > nextStart) {
 						var $a = $("<a></a>").attr('href', nextStart).data('pageId', id).text(options.moreLabel).click(clickMore); 
 						$children.append($("<ul></ul>").addClass('PageListActions actions').append($("<li></li>").addClass('PageListActionMore').append($a)));
@@ -572,8 +574,6 @@ $(document).ready(function() {
 						}
 					}
 					*/
-					$target.removeClass('PageListForceReload'); // if it happens to be present
-
 				}; 
 
 				if(!replace) $target.append($loading.fadeIn('fast')); 
@@ -626,6 +626,46 @@ $(document).ready(function() {
 				addClickEvents($ul);
 				
 				return $list; 
+			}
+
+			/**
+			 * Set a parent to reload its children on next access rather than using cached data
+			 * 
+			 * @param $pageListItem .PageList or .PageListItem element
+			 * @param reloadNow Reload the list now? (default=false)
+			 *
+			 */
+			function setForceReload($pageListItem, reloadNow) {
+				
+				if($pageListItem.hasClass('PageList')) $pageListItem = $pageListItem.prev('.PageListItem');
+				
+				$pageListItem.addClass('PageListForceReload');
+			
+				var id = $pageListItem.data('pageId');
+				var prefix = id + '-';
+				
+				if(typeof options.openPageData != "undefined") {
+					// remove cached items from openPageData
+					var openPageData = {};
+					for(var key in options.openPageData) {
+						if(key.indexOf(prefix) === 0) {
+							// skip it
+						} else {
+							openPageData[key] = options.openPageData[key];
+						}
+					}
+					options.openPageData = openPageData;
+				}
+			
+				if(typeof reloadNow != "undefined" && reloadNow) {
+					var $a = $pageListItem.children('a.PageListPage');
+					if($pageListItem.hasClass('PageListItemOpen')) {
+						$a.click();
+						setTimeout(function() { $a.click(); }, 250);
+					} else {
+						$a.click();
+					}
+				}
 			}
 
 			/**
@@ -751,6 +791,36 @@ $(document).ready(function() {
 			}
 
 			/**
+			 * Get number of children for given .PageListItem
+			 * 
+			 */
+			function getNumChildren($item) {
+				var $numChildren = $item.children('.PageListNumChildren');
+				if(!$numChildren.length) return 0;
+				var numChildren = $numChildren.text();
+				return numChildren.length ? parseInt(numChildren) : 0;
+			}
+
+			/**
+			 * Set number of children for given PageListItem
+			 * 
+			 */
+			function setNumChildren($item, numChildren) {
+				var $numChildren = $item.children('.PageListNumChildren');
+				if(!$numChildren.length) {
+					$numChildren = $('<span>0</span>').addClass('PageListNumChildren detail');
+					$item.append($numChildren);
+				}	
+				if(numChildren < 1) {
+					$item.removeClass('PageListHasChildren').addClass('PageListNoChildren');
+					numChildren = '';
+				} else {
+					$item.removeClass('PageListNoChildren').addClass('PageListHasChildren');
+				}
+				$numChildren.text(numChildren);
+			}
+
+			/**
 			 * Extra actions button click handler
 			 * 
 			 */
@@ -852,6 +922,7 @@ $(document).ready(function() {
 											$liNew.hide();
 											$li.after($liNew);
 											$liNew.slideDown();
+											setForceReload($liNew.closest('.PageList'));
 										} else if($liNew) {
 											// update existing item
 											if($li.hasClass('PageListItemOpen')) $liNew.addClass('PageListItemOpen');
@@ -862,12 +933,16 @@ $(document).ready(function() {
 											// display message for 1 second, then remove
 											setTimeout(function () {
 												$msg.fadeOut('normal', function () { 
+													var $parentItem = $liNew.closest('.PageList').prev('.PageListItem');
+													var numChildren = getNumChildren($parentItem);
 													if(removeItem) {
-														var $numChildren = $liNew.closest('.PageList').prev('.PageListItem').children('.PageListNumChildren'); 
-														if($numChildren.length) {
-															var numChildren = parseInt($numChildren.text());
-															if(numChildren > 0) $numChildren.text(numChildren-1); 
-														}
+														numChildren--;
+													} else if(addNew) {
+														numChildren++;
+													}
+													setNumChildren($parentItem, numChildren);
+													setForceReload($parentItem);
+													if(removeItem) {	
 														$liNew.next('.PageList').fadeOut('fast');
 														$liNew.fadeOut('fast', function() {
 															$liNew.remove();
@@ -882,16 +957,7 @@ $(document).ready(function() {
 										// refresh the children of the page represented by refreshChildren
 										if(refreshChildren) {
 											var $refreshParent = $(".PageListID" + refreshChildren);
-											if($refreshParent.length) {
-												$refreshParent.addClass('PageListForceReload'); 
-												var $a = $refreshParent.children('a.PageListPage'); 
-												if($refreshParent.hasClass('PageListItemOpen')) {
-													$a.click();
-													setTimeout(function() { $a.click(); }, 250);
-												} else {
-													$a.click();
-												}
-											}
+											if($refreshParent.length) setForceReload($refreshParent, true);
 										}
 									});
 									
@@ -1052,7 +1118,7 @@ $(document).ready(function() {
 					$removeItems = $parentList.children();
 					$parentList = $parentItem;
 				}
-				$parentList.addClass('PageListForceReload');
+				setForceReload($parentList);
 				loadChildren(parentID, $parentList, start, false, true, true, function() {
 					if($removeItems && $removeItems.length) $removeItems.remove();
 				});
@@ -1105,7 +1171,7 @@ $(document).ready(function() {
 				$root.find('.PageListItemOpen').each(function() {
 					var numChildren = $(this).children('.PageListNumChildren').text(); 
 					// if there are children and the next sibling doesn't contain a visible .PageList, then don't add a placeholder
-					if(parseInt(numChildren) > 1 && $(this).next().find(".PageList:visible").size() == 0) {
+					if(parseInt(numChildren) > 1 && $(this).next().find(".PageList:visible").length == 0) {
 						return; 
 					}
 					var $ul = $("<div></div>").addClass('PageListPlaceholder').addClass('PageList');
@@ -1209,14 +1275,21 @@ $(document).ready(function() {
 				var parent_id = parseInt($ulPrev.data('pageId')); 
 
 				// check if item was moved to an invalid spot
-				// in this case, a spot between another open PageListItem and it's PageList
+				// in this case, a spot between another open PageListItem and its PageList
 				var $liPrev = $li.prev(".PageListItem"); 
 				if($liPrev.is(".PageListItemOpen")) return false; 
 
 				// check if item was moved into an invisible parent placeholder PageList
 				if($ul.is('.PageListPlaceholder')) {
-					// if so, it's no longer a placeholder, but a real PageList
-					$ul.removeClass('PageListPlaceholder').children('.PageListPlaceholderItem').remove();
+					var $ulNext = $ul.next();
+					if($ulNext.is('.PageList:visible')) {
+						// first item at top of list ended up in placeholder, but belongs in next sibling PageList
+						$ulNext.prepend($li);
+						$ul = $ulNext;
+					} else {
+						// if so, it's no longer a placeholder, but a real PageList
+						$ul.removeClass('PageListPlaceholder').children('.PageListPlaceholderItem').remove();
+					}
 				}
 
 				$root.addClass('PageListSortSaving'); 
@@ -1266,15 +1339,17 @@ $(document).ready(function() {
 							n = '';
 							$from.remove(); // empty list, no longer needed
 						}
-						$numChildren.text(n); 
+						$numChildren.text(n);
+						setForceReload($fromItem);
 				
 						// update count where item went to	
 						var $toItem = $ul.prev(".PageListItem"); 
 						$numChildren = $toItem.children(".PageListNumChildren"); 	
 						n = $numChildren.text().length > 0 ? parseInt($numChildren.text()) + 1 : 1; 
-						$numChildren.text(n); 
+						$numChildren.text(n);
+						setForceReload($toItem);
 					}
-					$from.attr('id', ''); 
+					$from.attr('id', ''); // remove tempoary #PageListMoveFrom
 					$root.removeClass('PageListSortSaving'); 
 
 				}, 'json'); 
