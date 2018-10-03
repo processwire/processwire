@@ -467,6 +467,13 @@ class WireHttp extends Wire {
 
 		if(!empty($data)) $this->setData($data);
 		
+		if(!isset($this->headers['user-agent'])) {
+			// some web servers deliver a 400 error if no user-agent set in request header, so make sure one is set
+			$this->setHeader('user-agent', 
+				'ProcessWire/' . ProcessWire::versionMajor . '.' . ProcessWire::versionMinor . ' (' . $this->className() . ')'
+			);
+		}
+		
 		if(!in_array(strtoupper($method), $this->allowHttpMethods)) $method = 'POST';
 
 		if(!$this->hasFopen || strpos($url, 'https://') === 0 && !extension_loaded('openssl')) {
