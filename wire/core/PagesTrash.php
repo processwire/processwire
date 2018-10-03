@@ -319,7 +319,7 @@ class PagesTrash extends Wire {
 		);
 		
 		$options = array_merge($defaults, $options);
-		$trashPageID = $this->wire('config')->trashPageID;
+		$trashPage = $this->getTrashPage();
 		$masterSelector = "include=all, children.count=0, status=" . Page::statusTrash;
 		$totalDeleted = 0;
 		$lastTotalInTrash = 0;
@@ -331,8 +331,16 @@ class PagesTrash extends Wire {
 		$startTime = time();
 		$stopTime = $options['timeLimit'] ? $startTime + $options['timeLimit'] : false;
 		$stopNow = false;
+		$database = $this->wire('database');
+		$useTransaction = $database->supportsTransaction();
 		$options['stopTime'] = $stopTime; // for pass2
-
+		$timeExpired = false;
+		$onlyDirectChildren = true; // limit to direct children at first
+		
+		if($options['chunkTimeLimit'] > $options['timeLimit']) {
+			$options['chunkTimeLimit'] = $options['timeLimit'];
+		}
+		
 		// Empty trash pass1:
 		// Operates by finding pages in trash using Page::statusTrash that have no children
 		do {
@@ -345,25 +353,42 @@ class PagesTrash extends Wire {
 			if(count($nonTrashIDs)) {
 				$selector .= ", id!=" . implode('|', $nonTrashIDs);
 			}
+
+			if($onlyDirectChildren) {
+				// limit to direct children of trash page that themselves have no children
+				$selector .= ", parent_id=$trashPage->id";
+			} else {
+				$totalInTrash = $this->pages->count($selector);
+				if(!$totalInTrash || $totalInTrash == $lastTotalInTrash) break;
+				$lastTotalInTrash = $totalInTrash;
+			}
 			
-			$totalInTrash = $this->pages->count($selector);
-			if(!$totalInTrash || $totalInTrash == $lastTotalInTrash) break;
-			$lastTotalInTrash = $totalInTrash;
+			if($options['chunkSize'] > 0) {
+				$selector .= ", limit=$options[chunkSize]";
+			}
 			
-			if($options['chunkSize'] > 0) $selector .= ", limit=$options[chunkSize]";
 			$items = $this->pages->find($selector);
-			$cnt = $items->count();
+			$numItems = $items->count();
+			$totalItems = $items->getTotal();
+			$numDeleted = 0;
+			
+			if($useTransaction) $database->beginTransaction();
 			
 			foreach($items as $item) {
 			
 				// determine if any limits have been reached
-				if($stopTime && time() > $stopTime) $stopNow = true;
-				if($options['pageLimit'] && $totalDeleted >= $options['pageLimit']) $stopNow = true;
+				if($stopTime && time() > $stopTime) {
+					$stopNow = true;
+					$timeExpired = true;
+				}
+				if($options['pageLimit'] && $totalDeleted >= $options['pageLimit']) {
+					$stopNow = true;
+				}
 				if($stopNow) break;
 				
 				// if page does not have trash as a parent, then this is a page with trash status
 				// that is somewhere else in the page tree (not likely)
-				if($item->rootParent()->id !== $trashPageID) {
+				if(!$onlyDirectChildren && $item->rootParent()->id !== $trashPage->id) {
 					$nonTrashIDs[$item->id] = $item->id;
 					$errorCnt++;
 					continue;
@@ -371,35 +396,58 @@ class PagesTrash extends Wire {
 			
 				// delete the page
 				try {
-					$totalDeleted += $this->pages->delete($item, true);
+					$numDeleted += $this->pages->delete($item, true);
 				} catch(\Exception $e) {
 					$this->error($e->getMessage());
 					$errorCnt++;
 				}
 			}
-			
-			$this->pages->uncacheAll();
-			$chunkCnt++;
-			if($options['chunkLimit'] && $chunkCnt >= $options['chunkLimit']) break;
-			
-		} while($cnt && !$stopNow);
 
+			$totalDeleted += $numDeleted;
+			if($useTransaction) $database->commit();
+			$this->pages->uncacheAll();
+			
+			if($options['chunkLimit'] && $chunkCnt >= $options['chunkLimit']) {
+				// if chunk limit exceeded then stop now
+				$stopNow = true;
+				
+			} else if($onlyDirectChildren) {
+				// move past direct children next if all were loaded in this chunk
+				if($totalItems === $numItems || !$numDeleted) $onlyDirectChildren = false;
+				
+			} else if(!$numDeleted) {
+				// if no items deleted (and we're beyond direct children), we should stop now
+				$stopNow = true;
+			}
+			
+			if(!$stopNow) $chunkCnt++;
+			
+		} while(!$stopNow);
+		
 		// if recording verbose info, populate it for pass1 now
 		if($options['verbose']) {
 			$result['pass1_cnt'] = $chunkCnt;
 			$result['pass1_numDeleted'] = $totalDeleted;
 			$result['pass1_numErrors'] = $errorCnt;
 			$result['pass1_elapsedTime'] = Debug::timer($timer);
+			$result['pass1_timeExpired'] = $timeExpired;
+		}
+		
+		if(count($nonTrashIDs)) {
+			// remove trash status from the pages that should not have it
+			$this->pages->editor()->savePageStatus($nonTrashIDs, Page::statusTrash, false, true);
 		}
 
 		// Empty trash pass2:
 		// Operates by finding pages that are children of the Trash and performing recursive delete upon them
 		if($options['pass2'] && !$stopNow && !$options['pageLimit']) {
+			if($useTransaction) $database->beginTransaction();
 			$totalDeleted += $this->emptyTrashPass2($options, $result);
+			if($useTransaction) $database->commit();
 		}
 			
 		if($totalDeleted || $options['verbose']) {
-			$numTrashChildren = $this->wire('pages')->count("parent_id=$trashPageID, include=all");
+			$numTrashChildren = $this->wire('pages')->trasher()->getTrashTotal();
 			// return a negative number if pages still remain in trash
 			if($numTrashChildren && !$options['verbose']) $totalDeleted = $totalDeleted * -1;
 		} else {
@@ -409,6 +457,8 @@ class PagesTrash extends Wire {
 		if($options['verbose']) {
 			$result['startTime'] = $startTime;
 			$result['elapsedTime'] = Debug::timer($timer);
+			$result['pagesPerSecond'] = $totalDeleted ? round($totalDeleted / $result['elapsedTime'], 2) : 0;
+			$result['timeExpired'] = !empty($result['pass1_timeExpired']) || !empty($result['pass2_timeExpired']);
 			$result['numDeleted'] = $totalDeleted;
 			$result['numRemain'] = $numTrashChildren;
 			$result['numErrors'] = $errorCnt;
@@ -440,7 +490,8 @@ class PagesTrash extends Wire {
 		$timer = $options['verbose'] ? Debug::timer() : null;
 		$numErrors = 0;
 		$numDeleted = 0;
-		$trashPage = $this->pages->get($this->wire('config')->trashPageID);
+		$timeExpired = false;
+		$trashPage = $this->getTrashPage();
 		$trashPages = $trashPage->children("include=all");
 
 		foreach($trashPages as $t) {
@@ -451,7 +502,10 @@ class PagesTrash extends Wire {
 				$this->error($e->getMessage());
 				$numErrors++;
 			}
-			if($options['stopTime'] && time() > $options['stopTime']) break;
+			if($options['stopTime'] && time() > $options['stopTime']) {
+				$timeExpired = true;
+				break;
+			}
 		}
 
 		$this->pages->uncacheAll();
@@ -460,9 +514,36 @@ class PagesTrash extends Wire {
 			$result['pass2_numDeleted'] = $numDeleted;
 			$result['pass2_numErrors'] = $numErrors;
 			$result['pass2_elapsedTime'] = Debug::timer($timer);
+			$result['pass2_timeExpired'] = $timeExpired;
 		}
 
 		return $numDeleted;
+	}
+
+	/**
+	 * Get total number of pages in trash
+	 * 
+	 * @return int
+	 * 
+	 */
+	public function getTrashTotal() {
+		return $this->pages->count("include=all, status=" . Page::statusTrash);
+	}
+
+	/**
+	 * Return the root parent trash page
+	 * 
+	 * @return Page
+	 * @throws WireException if trash page cannot be located (highly unlikely)
+	 * 
+	 */
+	public function getTrashPage() {
+		$trashPageID = $this->wire('config')->trashPageID;
+		$trashPage = $this->pages->get((int) $trashPageID);
+		if(!$trashPage->id || $trashPage->id != $trashPageID) {
+			throw new WireException("Cannot find trash page $trashPageID");
+		}
+		return $trashPage;
 	}
 
 }
