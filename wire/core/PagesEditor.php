@@ -900,51 +900,87 @@ class PagesEditor extends Wire {
 	 * While this can be performed with other methods, this is here just to make it fast for internal/non-api use.
 	 * See the trash and restore methods for an example.
 	 *
-	 * @param int $pageID
+	 * @param int|array|Page|PageArray $pageID Page ID, Page, array of page IDs, or PageArray
 	 * @param int $status Status per flags in Page::status* constants. Status will be OR'd with existing status, unless $remove option is set.
 	 * @param bool $recursive Should the status descend into the page's children, and grandchildren, etc?
 	 * @param bool $remove Should the status be removed rather than added?
+	 * @return int Number of pages updated
 	 *
 	 */
 	public function savePageStatus($pageID, $status, $recursive = false, $remove = false) {
 
-		$pageID = (int) $pageID;
 		$status = (int) $status;
-		$sql = $remove ? "status & ~$status" : $sql = "status|$status";
+		$sql = $remove ? "status & ~$status" : "status|$status";
 		$database = $this->wire('database');
-
-		$query = $database->prepare("UPDATE pages SET status=$sql WHERE id=:page_id");
-		$query->bindValue(":page_id", $pageID, \PDO::PARAM_INT);
-		$database->execute($query);
-
-		if($recursive) {
-			$parentIDs = array($pageID);
-
-			do {
-				$parentID = array_shift($parentIDs);
-
-				// update all children to have the same status
-				$query = $database->prepare("UPDATE pages SET status=$sql WHERE parent_id=:parent_id");
-				$query->bindValue(":parent_id", $parentID, \PDO::PARAM_INT);
-				$database->execute($query);
-
-				// locate children that themselves have children
-				$query = $database->prepare(
-					"SELECT pages.id FROM pages " .
-					"JOIN pages AS pages2 ON pages2.parent_id=pages.id " .
-					"WHERE pages.parent_id=:parent_id " .
-					"GROUP BY pages.id " .
-					"ORDER BY pages.sort"
-				);
-				$query->bindValue(':parent_id', $parentID, \PDO::PARAM_INT);
-				$database->execute($query);
-				/** @noinspection PhpAssignmentInConditionInspection */
-				while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-					$parentIDs[] = (int) $row['id'];
-				}
-				$query->closeCursor();
-			} while(count($parentIDs));
+		$rowCount = 0;
+		$multi = is_array($pageID) || $pageID instanceof PageArray;
+		
+		if($multi && $recursive) {
+			// multiple page IDs combined with recursive option, must be handled individually
+			foreach($pageID as $id) {
+				$rowCount += $this->savePageStatus((int) "$id", $status, $recursive, $remove);
+			}
+			// exit early in this case
+			return $rowCount; 
+			
+		} else if($multi) {
+			// multiple page IDs without recursive option, can be handled in one query
+			$ids = array();
+			foreach($pageID as $id) {
+				$id = (int) "$id";
+				if($id > 0) $ids[$id] = $id;
+			}
+			if(!count($ids)) $ids[] = 0;
+			$query = $database->prepare("UPDATE pages SET status=$sql WHERE id IN(" . implode(',', $ids) . ")");
+			$database->execute($query);
+			return $query->rowCount();
+			
+		} else {
+			// single page ID or Page object
+			$pageID = (int) "$pageID";
+			$query = $database->prepare("UPDATE pages SET status=$sql WHERE id=:page_id");
+			$query->bindValue(":page_id", $pageID, \PDO::PARAM_INT);
+			$database->execute($query);
+			$rowCount = $query->rowCount();
 		}
+		
+		if(!$recursive) return $rowCount;
+		
+		// recursive mode assumed from this point forward
+		$parentIDs = array($pageID);
+
+		do {
+			$parentID = array_shift($parentIDs);
+
+			// update all children to have the same status
+			$query = $database->prepare("UPDATE pages SET status=$sql WHERE parent_id=:parent_id");
+			$query->bindValue(":parent_id", $parentID, \PDO::PARAM_INT);
+			$database->execute($query);
+			$rowCount += $query->rowCount();
+			$query->closeCursor();
+
+			// locate children that themselves have children
+			$query = $database->prepare(
+				"SELECT pages.id FROM pages " .
+				"JOIN pages AS pages2 ON pages2.parent_id=pages.id " .
+				"WHERE pages.parent_id=:parent_id " .
+				"GROUP BY pages.id " .
+				"ORDER BY pages.sort"
+			);
+			
+			$query->bindValue(':parent_id', $parentID, \PDO::PARAM_INT);
+			$database->execute($query);
+			
+			/** @noinspection PhpAssignmentInConditionInspection */
+			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+				$parentIDs[] = (int) $row['id'];
+			}
+			
+			$query->closeCursor();
+			
+		} while(count($parentIDs));
+		
+		return $rowCount;
 	}
 	
 	/**
