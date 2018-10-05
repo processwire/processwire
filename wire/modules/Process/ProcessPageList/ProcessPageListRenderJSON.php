@@ -72,13 +72,18 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 					if($child->listable()) $numChildren++;
 				}
 			}
+			if(strpos($this->qtyType, 'total') !== false) {
+				$numTotal = $this->wire('pages')->trasher()->getTrashTotal();
+			} else {
+				$numTotal = $numChildren;
+			}
 		} else {
 			if($page->hasStatus(Page::statusTemp)) $icons[] = 'bolt';
 			if($page->hasStatus(Page::statusLocked)) $icons[] = 'lock';
 			if($page->hasStatus(Page::statusDraft)) $icons[] = 'paperclip';
 			$numChildren = $page->numChildren(1);
+			$numTotal = strpos($this->qtyType, 'total') !== false ? $page->numDescendants : $numChildren;
 		}
-
 		if(!$label) $label = $this->getPageLabel($page);
 		
 		if(count($icons)) foreach($icons as $n => $icon) {
@@ -90,6 +95,7 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			'label' => $label,
 			'status' => $page->status,
 			'numChildren' => $numChildren,
+			'numTotal' => $numTotal, 
 			'path' => $page->template->slashUrls || $page->id == 1 ? $page->path() : rtrim($page->path(), '/'),
 			'template' => $page->template->name,
 			//'rm' => $this->superuser && $page->trashable(),

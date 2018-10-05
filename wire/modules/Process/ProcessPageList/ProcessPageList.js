@@ -131,6 +131,10 @@ $(document).ready(function() {
 		
 			// session field name that holds page label format, when used
 			labelName: '',
+		
+			// what to show in the PageListNumChildren quantity: 'children', 'total', 'children/total', 'total/children', or 'id'
+			// default is blank, which implies 'children'
+			qtyType: '', 
 		};
 	
 		// array of "123.0" (page_id.start) that are currently open (used in non-select mode only)
@@ -511,7 +515,9 @@ $(document).ready(function() {
 					var nextStart = data.start + data.limit; 
 					//var openPageKey = id + '-' + start;
 				
-					if($target.hasClass('PageListItem')) setNumChildren($target, data.page.numChildren);
+					if($target.hasClass('PageListItem')) {
+						setNumChildren($target, data.page.numChildren, data.page.numTotal);
+					}
 
 					if(data.page.numChildren > nextStart) {
 						var $a = $("<a></a>").attr('href', nextStart).data('pageId', id).text(options.moreLabel).click(clickMore); 
@@ -717,8 +723,7 @@ $(document).ready(function() {
 				}); 
 
 				$li.append($a); 
-				var $numChildren = $("<span>" + (child.numChildren ? child.numChildren : '') + "</span>").addClass('PageListNumChildren detail'); 
-				$li.append($numChildren); 
+				setNumChildren($li, child.numChildren, child.numTotal, true);
 		
 				if(child.note && child.note.length) $li.append($("<span>" + child.note + "</span>").addClass('PageListNote detail')); 	
 				
@@ -794,30 +799,101 @@ $(document).ready(function() {
 			 * Get number of children for given .PageListItem
 			 * 
 			 */
-			function getNumChildren($item) {
-				var $numChildren = $item.children('.PageListNumChildren');
-				if(!$numChildren.length) return 0;
-				var numChildren = $numChildren.text();
-				return numChildren.length ? parseInt(numChildren) : 0;
+			function getNumChildren($item, getTotal) {
+				if(typeof getTotal == "undefined") var getTotal = false;
+				if(getTotal) {
+					var n = $item.attr('data-numTotal');
+				} else {
+					var n = $item.attr('data-numChild');
+				}
+				return n && n.length > 0 ? parseInt(n) : 0;
+			}
+			
+			function getNumTotal($item) {
+				return getNumChildren($item, true);
 			}
 
 			/**
 			 * Set number of children for given PageListItem
 			 * 
 			 */
-			function setNumChildren($item, numChildren) {
-				var $numChildren = $item.children('.PageListNumChildren');
-				if(!$numChildren.length) {
-					$numChildren = $('<span>0</span>').addClass('PageListNumChildren detail');
-					$item.append($numChildren);
+			function setNumChildren($item, numChildren, numTotal, addNew) {
+				
+				if(typeof numTotal == "undefined") var numTotal = numChildren;
+				if(typeof addNew == "undefined") var addNew = false;
+			
+				var $numChildren = addNew ? '' : $item.children('.PageListNumChildren');
+				var n = numChildren === false ? numTotal : numChildren;
+				
+				if(addNew || !$numChildren.length) {
+					$numChildren = $('<span></span>').addClass('PageListNumChildren detail');
+					addNew = true;
 				}	
-				if(numChildren < 1) {
+				
+				if(n < 1) {
 					$item.removeClass('PageListHasChildren').addClass('PageListNoChildren');
-					numChildren = '';
+					if(numTotal !== false) numTotal = 0;
 				} else {
 					$item.removeClass('PageListNoChildren').addClass('PageListHasChildren');
 				}
-				$numChildren.text(numChildren);
+				
+				if(numTotal === false) {
+					numTotal = getNumTotal($item);
+				} else {
+					$item.attr('data-numTotal', numTotal);
+				}
+				
+				if(numChildren === false) {
+					numChildren = getNumChildren($item);
+				} else {
+					if(numChildren < 0) numChildren = 0;
+					$item.attr('data-numChild', numChildren);
+				}
+
+				var numLabel = '';
+				switch(options.qtyType) {
+					case 'total':
+						numLabel = numTotal;
+						break;
+					case 'total/children':
+						var slash = "<span class='ui-priority-secondary'>/</span>";
+						numLabel = numTotal > 0 && numTotal != numChildren ? numTotal + slash + numChildren : numTotal;
+						break;
+					case 'children/total':
+						var slash = "<span class='ui-priority-secondary'>/</span>";
+						numLabel = numTotal > 0 && numTotal != numChildren ? numChildren + slash + numTotal : numTotal;
+						break;
+					case 'id':
+						numLabel = $item.data('pageId');
+						break;
+					default:
+						numLabel = numChildren;
+				}
+				if(!numLabel) numLabel = '';
+				$numChildren.html(numLabel);
+				
+				if(addNew) $item.append($numChildren);
+			}
+
+			/**
+			 * Set total/descendants
+			 * 
+			 */
+			function setNumTotal($item, numTotal) {
+				setNumChildren($item, false, numTotal);
+			}
+
+			/**
+			 * Recursively adjust total/descendants number up the tree by given amount (n)
+			 * 
+			 */
+			function adjustNumTotal($item, n) {
+				var numTotal = getNumTotal($item);
+				numTotal += n;
+				if(numTotal < 0) numTotal = 0;
+				setNumTotal($item, numTotal);
+				var $parentItem = $item.closest('.PageList').prev('.PageListItem');
+				if($parentItem.length) adjustNumTotal($parentItem, n);
 			}
 
 			/**
@@ -935,12 +1011,15 @@ $(document).ready(function() {
 												$msg.fadeOut('normal', function () { 
 													var $parentItem = $liNew.closest('.PageList').prev('.PageListItem');
 													var numChildren = getNumChildren($parentItem);
+													var numTotal = getNumTotal($parentItem);
 													if(removeItem) {
 														numChildren--;
+														adjustNumTotal($parentItem, -1);
 													} else if(addNew) {
 														numChildren++;
+														adjustNumTotal($parentItem, 1);
 													}
-													setNumChildren($parentItem, numChildren);
+													setNumChildren($parentItem, numChildren, false);
 													setForceReload($parentItem);
 													if(removeItem) {	
 														$liNew.next('.PageList').fadeOut('fast');
@@ -1031,7 +1110,7 @@ $(document).ready(function() {
 					}
 				} else {
 					$li.addClass('PageListItemOpen');
-					var numChildren = parseInt($li.children('.PageListNumChildren').text()); 
+					var numChildren = getNumChildren($li); 
 					if(numChildren > 0 || $li.hasClass('PageListForceReload')) {
 						ignoreClicks = true; 
 						var start = getOpenPageStart(id);
@@ -1169,7 +1248,7 @@ $(document).ready(function() {
 
 				// make an invisible PageList placeholder that allows 'move' action to create a child below this
 				$root.find('.PageListItemOpen').each(function() {
-					var numChildren = $(this).children('.PageListNumChildren').text(); 
+					var numChildren = getNumChildren($(this)); 
 					// if there are children and the next sibling doesn't contain a visible .PageList, then don't add a placeholder
 					if(parseInt(numChildren) > 1 && $(this).next().find(".PageList:visible").length == 0) {
 						return; 
@@ -1333,20 +1412,22 @@ $(document).ready(function() {
 					if(!$ul.is("#PageListMoveFrom")) {
 						// update count where item came from
 						var $fromItem = $from.prev(".PageListItem"); 	
-						var $numChildren = $fromItem.children(".PageListNumChildren"); 
-						var n = $numChildren.text().length > 0 ? parseInt($numChildren.text()) - 1 : 0; 
-						if(n == 0) {
-							n = '';
+						var numChildren = getNumChildren($fromItem);
+						var numTotal = getNumTotal($fromItem);
+						if(numChildren > 0) {
+							numChildren--;
+							adjustNumTotal($fromItem, -1);
+						} else {
 							$from.remove(); // empty list, no longer needed
 						}
-						$numChildren.text(n);
+						setNumChildren($fromItem, numChildren, false);
 						setForceReload($fromItem);
 				
 						// update count where item went to	
 						var $toItem = $ul.prev(".PageListItem"); 
-						$numChildren = $toItem.children(".PageListNumChildren"); 	
-						n = $numChildren.text().length > 0 ? parseInt($numChildren.text()) + 1 : 1; 
-						$numChildren.text(n);
+						numChildren = getNumChildren($toItem) + 1;
+						adjustNumTotal($toItem, 1);
+						setNumChildren($toItem, numChildren, false);
 						setForceReload($toItem);
 					}
 					$from.attr('id', ''); // remove tempoary #PageListMoveFrom

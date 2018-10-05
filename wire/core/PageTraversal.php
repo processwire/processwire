@@ -22,43 +22,87 @@ class PageTraversal {
 	 * @param Page $page
 	 * @param bool|string|int|array $selector 
 	 *	When not specified, result includes all children without conditions, same as $page->numChildren property.
-	 *	When a string or array, a selector is assumed and quantity will be counted based on selector.
+	 *	When a string or array, a selector is assumed and quantity will be counted based on selector. 
 	 * 	When boolean true, number includes only visible children (excludes unpublished, hidden, no-access, etc.)
 	 *	When boolean false, number includes all children without conditions, including unpublished, hidden, no-access, etc.
 	 * 	When integer 1 number includes viewable children (as opposed to visible, viewable includes hidden pages + it also includes unpublished pages if user has page-edit permission).
+	 * @param array $options
+	 *  - `descendants` (bool): Use descendants rather than direct children
 	 * @return int Number of children
 	 *
 	 */
-	public function numChildren(Page $page, $selector = null) {
+	public function numChildren(Page $page, $selector = null, array $options = array()) {
+	
+		$descendants = empty($options['descendants']) ? false : true;
+		$parentType = $descendants ? 'has_parent' : 'parent_id';
+		
 		if(is_bool($selector)) {
 			// onlyVisible takes the place of selector
 			$onlyVisible = $selector; 
-			if(!$onlyVisible) return $page->get('numChildren');
-			return $page->_pages('count', "parent_id=$page->id"); 
+			$numChildren = $page->get('numChildren');
+			if(!$numChildren) {
+				return 0;
+			} else if($onlyVisible) {
+				return $page->_pages('count', "$parentType=$page->id"); 
+			} else if($descendants) {
+				return $this->numDescendants($page);
+			} else {
+				return $numChildren;
+			}
 			
 		} else if($selector === 1) { 
 			// viewable pages only
 			$numChildren = $page->get('numChildren');
 			if(!$numChildren) return 0;
-			if($page->wire('user')->isSuperuser()) return $numChildren;
-			if($page->wire('user')->hasPermission('page-edit')) {
-				return $page->_pages('count', "parent_id=$page->id, include=unpublished");
+			if($page->wire('user')->isSuperuser()) {
+				if($descendants) return $this->numDescendants($page);
+				return $numChildren;
+			} else if($page->wire('user')->hasPermission('page-edit')) {
+				return $page->_pages('count', "$parentType=$page->id, include=unpublished");
+			} else {
+				return $page->_pages('count', "$parentType=$page->id, include=hidden");
 			}
-			return $page->_pages('count', "parent_id=$page->id, include=hidden"); 
 
 		} else if(empty($selector) || (!is_string($selector) && !is_array($selector))) {
-			return $page->get('numChildren'); 
+			// no selector provided
+			if($descendants) return $this->numDescendants($page);
+			return $page->get('numChildren');
 
 		} else {
+			// selector string or array provided
 			if(is_string($selector)) {
-				$selector = "parent_id=$page->id, $selector";
+				$selector = "$parentType=$page->id, $selector";
 			} else if(is_array($selector)) {
-				$selector["parent_id"] = $page->id;
+				$selector[$parentType] = $page->id;
 			}
 			return $page->_pages('count', $selector);
 		}
 	}
 
+	/**
+	 * Return number of descendants, optionally with conditions
+	 *
+	 * Use this over $page->numDescendants property when you want to specify a selector or when you want the result to
+	 * include only visible descendants. See the options for the $selector argument.
+	 *
+	 * @param Page $page
+	 * @param bool|string|int|array $selector
+	 *	When not specified, result includes all descendants without conditions, same as $page->numDescendants property.
+	 *	When a string or array, a selector is assumed and quantity will be counted based on selector.
+	 * 	When boolean true, number includes only visible descendants (excludes unpublished, hidden, no-access, etc.)
+	 *	When boolean false, number includes all descendants without conditions, including unpublished, hidden, no-access, etc.
+	 * 	When integer 1 number includes viewable descendants (as opposed to visible, viewable includes hidden pages + it also includes unpublished pages if user has page-edit permission).
+	 * @return int Number of descendants
+	 *
+	 */
+	public function numDescendants(Page $page, $selector = null) {
+		if($selector === null) {
+			return $page->_pages('count', "has_parent=$page->id, include=all");
+		} else {
+			return $this->numChildren($page, $selector, array('descendants' => true));
+		}
+	}
+	
 	/**
 	 * Return this page's children pages, optionally filtered by a selector
 	 *

@@ -20,6 +20,7 @@ abstract class ProcessPageListRender extends Wire {
 	protected $actions = null;
 	protected $options = array();
 	protected $useTrash = false;
+	protected $qtyType = '';
 
 	public function __construct(Page $page, PageArray $children) {
 		$this->page = $page;
@@ -75,6 +76,10 @@ abstract class ProcessPageListRender extends Wire {
 
 	public function setPageLabelField($pageLabelField) {
 		$this->pageLabelField = $pageLabelField;
+	}
+	
+	public function setQtyType($qtyType) {
+		$this->qtyType = $qtyType;
 	}
 	
 	public function actions() {

@@ -20,6 +20,7 @@
  * @property int $hoverActionFade Milliseconds to spend fading in or out actions. 
  * @property bool|int $useBookmarks Allow use of PageList bookmarks?
  * @property bool|int $useTrash Allow non-superusers to use Trash?
+ * @property string $qtyType What to show in children quantity label? 'children', 'total', 'children/total', 'total/children', or 'id'
  * 
  * @method string ajaxAction($action)
  * @method PageArray find($selectorString, Page $page)
@@ -116,6 +117,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$this->set('useBookmarks', false);
 		$this->set('useTrash', false);
 		$this->set('bookmarks', array());
+		$this->set('qtyType', '');
 		
 		parent::__construct();
 	}
@@ -302,6 +304,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			'limit' => $this->limit,
 			'start' => $this->start,
 			'speed' => ($this->speed !== null ? (int) $this->speed : self::defaultSpeed),
+			'qtyType' => $this->qtyType,
 			'useHoverActions' => $this->useHoverActions ? true : false,
 			'hoverActionDelay' => (int) $this->hoverActionDelay,
 			'hoverActionFade' => (int) $this->hoverActionFade,
@@ -347,12 +350,14 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			$children = $this->wire('pages')->newPageArray();
 		}
 
+		/** @var ProcessPageListRender $renderer */
 		$renderer = $this->wire(new $className($page, $children));
 		$renderer->setStart($start);
 		$renderer->setLimit($limit);
 		$renderer->setPageLabelField($this->getPageLabelField());
 		$renderer->setLabel('trash', $this->trashLabel);
 		$renderer->setUseTrash($this->useTrash || $this->wire('user')->isSuperuser());
+		$renderer->setQtyType($this->qtyType);
 		
 		return $renderer;
 	}
@@ -699,6 +704,20 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$field->label = $this->_('Animation Speed (in ms)');
 		$field->description = $this->_('This is the speed at which each branch in the page tree animates up or down. Lower numbers are faster but less visible. For no animation specify 0.'); // Animation speed description 
 		$field->notes = sprintf($defaultNote1, self::defaultSpeed) . ' ' . $defaultNote2;
+		$fields->append($field);
+	
+		/** @var InputfieldRadios $field */
+		$field = $modules->get('InputfieldRadios');
+		$field->attr('name', 'qtyType');
+		$field->label = $this->_('Children quantity type');
+		$field->description = $this->_('In the page list, a quantity of children is shown next to each page when applicable. What type of quantity should it show?');
+		$field->notes = $this->_('When showing descendants, the quantity includes all descendants, whether listable to the user or not.');
+		$field->addOption('', $this->_('Immediate children (default)'));
+		$field->addOption('total', $this->_('Descendants: children, grandchildren, great-grandchildren, and on…'));
+		$field->addOption('children/total', $this->_('Both: children/descendants'));
+		$field->addOption('total/children', $this->_('Both: descendants/children'));
+		$field->addOption('id', $this->_('Show Page ID number instead'));
+		$field->attr('value', empty($data['qtyType']) ? '' : $data['qtyType']); 
 		$fields->append($field);
 
 		return $fields; 

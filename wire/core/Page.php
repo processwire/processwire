@@ -46,6 +46,7 @@
  * @property int $numChildren The number of children (subpages) this page has, with no exclusions (fast). #pw-group-traversal
  * @property int $hasChildren The number of visible children this page has. Excludes unpublished, no-access, hidden, etc. #pw-group-traversal
  * @property int $numVisibleChildren Verbose alias of $hasChildren #pw-internal
+ * @property int $numDescendants Number of descendants (quantity of children, and their children, and so on). #pw-group-traversal
  * @property PageArray $children All the children of this page. Returns a PageArray. See also $page->children($selector). #pw-group-traversal
  * @property Page|NullPage $child The first child of this page. Returns a Page. See also $page->child($selector). #pw-group-traversal
  * @property PageArray $siblings All the sibling pages of this page. Returns a PageArray. See also $page->siblings($selector). #pw-group-traversal
@@ -141,6 +142,11 @@
  * @method string|mixed renderValue($value, $file) Returns rendered markup for $value using $file relative to templates/fields/. #pw-internal
  * @method PageArray references($selector = '', $field = '') Return pages that are pointing to this one by way of Page reference fields. #pw-group-traversal
  * @method PageArray links($selector = '', $field = '') Return pages that link to this one contextually in Textarea/HTML fields. #pw-group-traversal
+ * 
+ * Alias/alternate methods
+ * -----------------------
+ * @method PageArray descendants($selector = '', array $options = array()) Find descendant pages, alias of `Page::find()`, see that method for details. #pw-group-traversal
+ * @method Page|NullPage descendant($selector = '', array $options = array()) Find one descendant page, alias of `Page::findOne()`, see that method for details. #pw-group-traversal
  * 
  */
 
@@ -597,6 +603,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'namePrevious' => 'p',
 		'next' => 'm',
 		'numChildren' => 's',
+		'numDescendants' => 'm',
 		'numLinks' => 't',
 		'numReferences' => 't',
 		'output' => 'm',
@@ -659,6 +666,17 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'template_id' => 'templates_id',
 		'templateID' => 'templates_id',
 		'templatesID' => 'templates_id',
+	);
+
+	/**
+	 * Method alternates/aliases (alias => actual)
+	 * 
+	 * @var array
+	 * 
+	 */
+	static $baseMethodAlternates = array(
+		'descendants' => 'find',
+		'descendant' => 'findOne',
 	);
 
 	/**
@@ -1063,7 +1081,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$value = $this->template ? $this->template->id : 0;
 				break;
 			case 'fieldgroup':
-				$value = $this->template->fieldgroup;
+				$value = $this->template ? $this->template->fieldgroup : null;
 				break;
 			case 'modifiedUser':
 			case 'createdUser':
@@ -1175,6 +1193,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	public function getFields() {
 		if(!$this->template) return new FieldsArray();
 		$fields = new FieldsArray();
+		/** @var Fieldgroup $fieldgroup */
 		$fieldgroup = $this->template->fieldgroup;
 		foreach($fieldgroup as $field) {
 			if($fieldgroup->hasFieldContext($field)) {
@@ -1661,8 +1680,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 			if(count($arguments)) {
 				return $this->getFieldValue($method, $arguments[0]);
 			} else {
-				return $this->get($method); 
+				return $this->get($method);
 			}
+		} else if(isset(self::$baseMethodAlternates[$method])) { 
+			return call_user_func_array(array($this, self::$baseMethodAlternates[$method]), $arguments);
 		} else {
 			return parent::___callUnknown($method, $arguments);
 		}
@@ -1925,7 +1946,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
-	 * Find pages matching given selector in the descendent hierarchy
+	 * Find descendant pages matching given selector 
 	 *
 	 * This is the same as `Pages::find()` except that the results are limited to descendents of this Page.
 	 * 
@@ -1951,6 +1972,35 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$selector["has_parent"] = $this->id;	
 		}
 		return $this->_pages('find', $selector, $options); 
+	}
+	
+	/**
+	 * Find one descendant page matching given selector
+	 *
+	 * This is the same as `Pages::findOne()` except that the match is always a descendant of page it is called on.
+	 *
+	 * ~~~~~
+	 * // Find the most recently modified descendant page
+	 * $item = $page->findOne("sort=-modified");
+	 * ~~~~~
+	 *
+	 * #pw-group-common
+	 * #pw-group-traversal
+	 *
+	 * @param string|array $selector Selector string or array
+	 * @param array $options Optional options to modify default bheavior, see options for `Pages::find()`.
+	 * @return Page|NullPage Returns Page when found, or NullPage when nothing found. 
+	 * @see Pages::findOne(), Page::child()
+	 *
+	 */
+	public function findOne($selector = '', $options = array()) {
+		if(!$this->numChildren) return $this->wire('pages')->newNullPage();
+		if(is_string($selector)) {
+			$selector = trim("has_parent={$this->id}, $selector", ", ");
+		} else if(is_array($selector)) {
+			$selector["has_parent"] = $this->id;
+		}
+		return $this->_pages('findOne', $selector, $options);
 	}
 
 	/**
@@ -2231,6 +2281,35 @@ class Page extends WireData implements \Countable, WireMatchable {
 			}
 		}
 		return $this->traversal()->siblings($this, $selector); 
+	}
+	
+	/**
+	 * Return number of descendants (children, grandchildren, great-grandchildren, …), optionally with conditions
+	 *
+	 * Use this over the `$page->numDescendants` property when you want to specify a selector or apply
+	 * some other filter to the result (see options for `$selector` argument). If you want to include only
+	 * visible descendants specify a selector (string or array) or boolean true for the `$selector` argument,
+	 * if you don’t need a selector. 
+	 *
+	 * If you want to find descendant pages (rather than count), use the `Page::find()` method.
+	 *
+	 * ~~~~~
+	 * // Find how many descendants were modified in the last week
+	 * $qty = $page->numDescendants("modified>='-1 WEEK'");
+	 * ~~~~~
+	 *
+	 * #pw-group-traversal
+	 *
+	 * @param bool|string|array $selector
+	 * - When not specified, result includes all descendants without conditions, same as $page->numDescendants property.
+	 * - When a string or array, a selector is assumed and quantity will be counted based on selector.
+	 * - When boolean true, number includes only visible descendants (excludes unpublished, hidden, no-access, etc.)
+	 * @return int Number of descendants
+	 * @see Page::numChildren(), Page::find()
+	 *
+	 */
+	public function numDescendants($selector = null) {
+		return $this->traversal()->numDescendants($this, $selector);
 	}
 
 	/**
