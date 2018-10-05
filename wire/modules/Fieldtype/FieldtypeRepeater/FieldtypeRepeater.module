@@ -805,7 +805,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * 
 	 * @param Page $page
 	 * @param Field $field
-	 * @param RepeaterPageArray$value
+	 * @param RepeaterPageArray $value
 	 * @param array $options
 	 *  - `minimal` (bool): Export a minimal array of just fields and values indexed by repeater page name (default=false)
 	 * @return array

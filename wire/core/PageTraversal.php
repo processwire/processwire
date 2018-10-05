@@ -1048,8 +1048,7 @@ class PageTraversal {
 			$siblings->prepend($page);
 		}
 
-		$siblings = $this->nextAll($page, '', $siblings); 
-
+		$siblings = $this->nextAllSiblings($page, '', $siblings); 
 		$all = $page->wire('pages')->newPageArray();
 		$stop = false;
 
@@ -1100,8 +1099,7 @@ class PageTraversal {
 			$siblings->add($page);
 		}
 
-		$siblings = $this->prevAll($page, '', $siblings); 
-
+		$siblings = $this->prevAllSiblings($page, '', $siblings); 
 		$all = $page->wire('pages')->newPageArray();
 		$stop = false;
 

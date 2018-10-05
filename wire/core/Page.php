@@ -46,7 +46,7 @@
  * @property int $numChildren The number of children (subpages) this page has, with no exclusions (fast). #pw-group-traversal
  * @property int $hasChildren The number of visible children this page has. Excludes unpublished, no-access, hidden, etc. #pw-group-traversal
  * @property int $numVisibleChildren Verbose alias of $hasChildren #pw-internal
- * @property int $numDescendants Number of descendants (quantity of children, and their children, and so on). #pw-group-traversal
+ * @property int $numDescendants Number of descendants (quantity of children, and their children, and so on). @since 3.0.116 #pw-group-traversal
  * @property PageArray $children All the children of this page. Returns a PageArray. See also $page->children($selector). #pw-group-traversal
  * @property Page|NullPage $child The first child of this page. Returns a Page. See also $page->child($selector). #pw-group-traversal
  * @property PageArray $siblings All the sibling pages of this page. Returns a PageArray. See also $page->siblings($selector). #pw-group-traversal
@@ -99,7 +99,7 @@
  * @method bool deleteable() Returns true if the page is deleteable by the current user, false if not. #pw-group-access
  * @method bool deletable() Alias of deleteable(). #pw-group-access
  * @method bool trashable($orDeleteable = false) Returns true if the page is trashable by the current user, false if not. #pw-group-access
- * @method bool restorable() Returns true if page is in the trash and is capable of being restored to its original location. #pw-group-access
+ * @method bool restorable() Returns true if page is in the trash and is capable of being restored to its original location. @since 3.0.107 #pw-group-access
  * @method bool addable($pageToAdd = null) Returns true if the current user can add children to the page, false if not. Optionally specify the page to be added for additional access checking. #pw-group-access
  * @method bool moveable($newParent = null) Returns true if the current user can move this page. Optionally specify the new parent to check if the page is moveable to that parent. #pw-group-access
  * @method bool sortable() Returns true if the current user can change the sort order of the current page (within the same parent). #pw-group-access
@@ -145,8 +145,8 @@
  * 
  * Alias/alternate methods
  * -----------------------
- * @method PageArray descendants($selector = '', array $options = array()) Find descendant pages, alias of `Page::find()`, see that method for details. #pw-group-traversal
- * @method Page|NullPage descendant($selector = '', array $options = array()) Find one descendant page, alias of `Page::findOne()`, see that method for details. #pw-group-traversal
+ * @method PageArray descendants($selector = '', array $options = array()) Find descendant pages, alias of `Page::find()`, see that method for details. @since 3.0.116 #pw-group-traversal
+ * @method Page|NullPage descendant($selector = '', array $options = array()) Find one descendant page, alias of `Page::findOne()`, see that method for details. @since 3.0.116 #pw-group-traversal
  * 
  */
 
@@ -323,6 +323,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	protected $_parent_id = 0;
+
+	/**
+	 * Traversal siblings/items set by setTraversalItems() to force usage in some page traversal calls
+	 * 
+	 * @var PageArray|null
+	 * 
+	 */
+	protected $traversalPages = null;
 
 	/**
 	 * The previous parent used by the page, if it was changed during runtime. 	
@@ -1991,6 +1999,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param array $options Optional options to modify default bheavior, see options for `Pages::find()`.
 	 * @return Page|NullPage Returns Page when found, or NullPage when nothing found. 
 	 * @see Pages::findOne(), Page::child()
+	 * @since 3.0.116
 	 *
 	 */
 	public function findOne($selector = '', $options = array()) {
@@ -2332,7 +2341,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-traversal
 	 *
 	 * @param string|array $selector Optional selector. When specified, will find nearest next sibling that matches. 
-	 * @param PageArray $siblings DEPRECATED: Optional siblings to use instead of the default. Avoid using this argument
+	 * @param PageArray $siblings Optional siblings to use instead of the default. Avoid using this argument
 	 *   as it forces this method to use the older/slower functions. 
 	 * @return Page|NullPage Returns the next sibling page, or a NullPage if none found. 
 	 *
@@ -2342,6 +2351,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$siblings = $selector;
 			$selector = '';
 		}
+		if($siblings === null && $this->traversalPages) $siblings = $this->traversalPages;
 		if($siblings) return $this->traversal()->nextSibling($this, $selector, $siblings);
 		return $this->traversal()->next($this, $selector);
 	}
@@ -2373,6 +2383,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$getQty = $selector;
 			$selector = '';
 		}
+		if($siblings === null && $this->traversalPages) $siblings = $this->traversalPages;
 		if($getPrev) {
 			if($siblings) return $this->traversal()->prevAllSiblings($this, $selector, $siblings);
 			return $this->traversal()->prevAll($this, $selector, array('qty' => $getQty));
@@ -2388,11 +2399,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param string|Page|array $selector May either be a selector or Page to stop at. Results will not include this. 
 	 * @param string|array $filter Optional selector to filter matched pages by
-	 * @param PageArray $siblings DEPRECATED: Optional PageArray of siblings to use instead (avoid).
+	 * @param PageArray $siblings Optional PageArray of siblings to use instead (avoid).
 	 * @return PageArray
 	 *
 	 */
 	public function nextUntil($selector = '', $filter = '', PageArray $siblings = null) {
+		if($siblings === null && $this->traversalPages) $siblings = $this->traversalPages;
 		if($siblings) return $this->traversal()->nextUntilSiblings($this, $selector, $filter, $siblings); 
 		return $this->traversal()->nextUntil($this, $selector, $filter); 
 	}
@@ -2411,7 +2423,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-traversal
 	 *
 	 * @param string|array $selector Optional selector. When specified, will find nearest previous sibling that matches. 
-	 * @param PageArray|null $siblings DEPRECATED: $siblings Optional siblings to use instead of the default.
+	 * @param PageArray|null $siblings Optional siblings to use instead of the default.
 	 * @return Page|NullPage Returns the previous sibling page, or a NullPage if none found. 
 	 *
 	 */
@@ -2420,6 +2432,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$siblings = $selector;
 			$selector = '';
 		}
+		if($siblings === null && $this->traversalPages) $siblings = $this->traversalPages;
 		if($siblings) return $this->traversal()->prevSibling($this, $selector, $siblings);
 		return $this->traversal()->prev($this, $selector);
 	}
@@ -2447,11 +2460,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 * @param string|Page|array $selector May either be a selector or Page to stop at. Results will not include this. 
 	 * @param string|array $filter Optional selector to filter matched pages by
-	 * @param PageArray|null $siblings DEPRECATED: Optional PageArray of siblings to use instead of default. 
+	 * @param PageArray|null $siblings Optional PageArray of siblings to use instead of default. 
 	 * @return PageArray
 	 *
 	 */
 	public function prevUntil($selector = '', $filter = '', PageArray $siblings = null) {
+		if($siblings === null && $this->traversalPages) $siblings = $this->traversalPages;
 		if($siblings) return $this->traversal()->prevUntilSiblings($this, $selector, $filter, $siblings);
 		return $this->traversal()->prevUntil($this, $selector, $filter); 
 	}
@@ -2470,6 +2484,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *  - OR specify boolean TRUE to return array of PageArrays indexed by field names.
 	 *  - If $field argument not specified, it searches all applicable Page fields. 
 	 * @return PageArray|array
+	 * @since 3.0.107
 	 *
 	 */
 	public function ___references($selector = '', $field = '') {
@@ -2486,6 +2501,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param string|bool $selector Optional selector to filter by or boolean true for “include=all”. (default='')
 	 * @param string|Field $field Optionally limit results to specified field. (default=all applicable Textarea fields)
 	 * @return PageArray
+	 * @since 3.0.107
 	 * 
 	 */
 	public function ___links($selector = '', $field = '') {
@@ -2980,6 +2996,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *  - `language` (Language|int|string): Include only URLs for this language (default=null).
 	 *     Note: the `languages` option must be true if using the `language` option.
 	 * @return array
+	 * @since 3.0.107
 	 * 
 	 */
 	public function urls($options = array()) {
@@ -3956,6 +3973,31 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function ___setEditor(WirePageEditor $editor) {
 		// $this->setQuietly('_editor', $editor); // uncomment when/if needed
+	}
+
+	/**
+	 * Get or set current traversal pages (internal use)
+	 * 
+	 * When setting, force use of given $items (siblings) and sort order in some 
+	 * traversal methods like next(), prev() and related methods. Given $items must 
+	 * include this page as well before used in any traversal calls.
+	 * 
+	 * - To set, specify a PageArray for $items. 
+	 * - To unset, specify boolean false for $items. 
+	 * - To get current traversal pages omit all arguments. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param PageArray|bool|null $items Traversal pages (PageArray), boolean false to unset, or omit to get. 
+	 * @throws WireException if given $siblings that do not include $this page. 
+	 * @return PageArray|null
+	 * @since 3.0.116
+	 * 
+	 */
+	public function traversalPages($items = null) {
+		if($items instanceof PageArray) $this->traversalPages = $items; // set
+		if($items === false) $this->traversalPages = null; // unset
+		return $this->traversalPages; // get
 	}
 
 	/**

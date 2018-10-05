@@ -5,7 +5,7 @@
  *
  * Special PageArray for use by repeaters that includes a getNewItem() method
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -102,6 +102,32 @@ class RepeaterPageArray extends PageArray {
 		$class = get_class($this);
 		$newArray = $this->wire(new $class($this->parent, $this->field));
 		return $newArray;
+	}
+	
+	/**
+	 * Track an item added
+	 *
+	 * @param Wire|mixed $item
+	 * @param int|string $key
+	 *
+	 */
+	protected function trackAdd($item, $key) {
+		/** @var RepeaterPage $item */
+		$item->traversalPages($this);
+		parent::trackAdd($item, $key);
+	}
+
+	/**
+	 * Track an item removed
+	 *
+	 * @param Wire|mixed $item
+	 * @param int|string $key
+	 *
+	 */
+	protected function trackRemove($item, $key) {
+		/** @var RepeaterPage $item */
+		if($item->traversalPages() === $this) $item->traversalPages(false);
+		parent::trackRemove($item, $key);
 	}
 
 	
