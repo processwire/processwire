@@ -104,6 +104,7 @@ class FieldtypeFloat extends Fieldtype {
 	}
 	
 	public static function getPrecision($value) {
+		$value = (float) $value;
 		$remainder = ceil($value) - $value;
 		$precision = strlen(ltrim($remainder, '0., '));
 		if(!$precision) $precision = 1; 
@@ -121,6 +122,7 @@ class FieldtypeFloat extends Fieldtype {
 
 		if(is_null($field->precision)) $field->precision = 2; 
 
+		/** @var InputfieldInteger $f */
 		$f = $this->modules->get('InputfieldInteger');
 		$f->attr('name', 'precision'); 
 		$f->label = $this->_('Number of decimal digits to round to');
