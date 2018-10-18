@@ -782,7 +782,6 @@ class Pageimage extends Pagefile {
 	public function ___createVariation($filenameUnvalidated, $filenameFinal) {
 		if(@rename($filenameUnvalidated, $filenameFinal)) {
 			$this->wire('files')->chmod($filenameFinal);
-			$pageimage = clone $this; 
 		}
 	}
 	
