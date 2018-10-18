@@ -729,7 +729,7 @@ class Pageimage extends Pagefile {
 					}
 					
 					if($sizer->resize($width, $height)) {
-						$this->createVariation($width, $height, $filenameUnvalidated, $filenameFinal);
+						$this->createVariation($filenameUnvalidated, $filenameFinal);
 					} else {
 						$this->error = "ImageSizer::resize($width, $height) failed for $filenameUnvalidated";
 					}
