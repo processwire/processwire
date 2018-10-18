@@ -728,8 +728,8 @@ class Pageimage extends Pagefile {
 						}
 					}
 					
-					if($sizer->resize($width, $height) && @rename($filenameUnvalidated, $filenameFinal)) {
-						$this->wire('files')->chmod($filenameFinal);
+					if($sizer->resize($width, $height)) {
+						$this->createVariation($width, $height, $filenameUnvalidated, $filenameFinal);
 					} else {
 						$this->error = "ImageSizer::resize($width, $height) failed for $filenameUnvalidated";
 					}
@@ -777,6 +777,13 @@ class Pageimage extends Pagefile {
 		$pageimage->setOriginal($this); 
 
 		return $pageimage; 
+	}
+	
+	public function ___createVariation($filenameUnvalidated, $filenameFinal) {
+		if(@rename($filenameUnvalidated, $filenameFinal)) {
+			$this->wire('files')->chmod($filenameFinal);
+			$pageimage = clone $this; 
+		}
 	}
 	
 	/**
