@@ -230,6 +230,9 @@ class PagesExportImport extends Wire {
 	 *
 	 */
 	public function pagesToArray(PageArray $items, array $options = array()) {
+	
+		/** @var Config $config */
+		$config = $this->wire('config');
 
 		$defaults = array(
 			'verbose' => false,
@@ -242,11 +245,15 @@ class PagesExportImport extends Wire {
 		$a = array(
 			'type' => 'ProcessWire:PageArray',
 			'created' => date('Y-m-d H:i:s'), 
-			'version' => $this->wire('config')->version,
+			'version' => $config->version,
 			'user' => $this->wire('user')->name,
-			'host' => $this->wire('config')->httpHost,
+			'host' => $config->httpHost,
 			'pages' => array(),
 			'fields' => array(),
+			'urls' => array(
+				'root' => $config->urls->root,
+				'assets' => $config->urls->assets
+			),
 			'timer' => Debug::timer(), 
 			// 'pagination' => array(),
 		);
@@ -480,6 +487,9 @@ class PagesExportImport extends Wire {
 		$info = $this->getImportInfo($a); 
 		if($info) {}
 		
+		if(isset($a['url'])) $options['originalRootUrl'] = $a['url'];
+		if(isset($a['host'])) $options['originalHost'] = $a['host'];
+		
 		foreach($a['pages'] as $item) {
 			$page = $this->arrayToPage($item, $options);
 			$id = $item['settings']['id'];
@@ -510,6 +520,8 @@ class PagesExportImport extends Wire {
 	 *  - `changeSort` (bool): Allow sort and sortfield to be changed on existing pages? (default=true)
 	 *  - `replaceTemplates` (array): Array of import-data template name to replacement template name (default=[])
 	 *  - `replaceFields` (array): Array of import-data field name to replacement field name (default=[]) 
+	 *  - `originalRootUrl` (string): Original root URL (not including hostname)
+	 *  - `originalHost` (string): Original hostname 
 	 * 
 	 * The following options are for future use and not currently applicable:
 	 *  - `changeTemplate` (bool): Allow template to be changed on existing pages? (default=false)
@@ -528,6 +540,9 @@ class PagesExportImport extends Wire {
 		if(empty($a['type']) || $a['type'] != 'ProcessWire:Page') {
 			throw new WireException('Invalid array provided to arrayToPage() method');
 		}
+	
+		/** @var Config $config */
+		$config = $this->wire('config');
 
 		$defaults = array(
 			'id' => 0, // ID that new Page should use, or update, if it already exists. (0=create new). Sets update=true.
@@ -547,6 +562,8 @@ class PagesExportImport extends Wire {
 			'replaceTemplates' => array(), // array of import-data template name to replacement page template name
 			'replaceParents' => array(), // array of import-data parent path to replacement parent path
 			'filesPath' => '', // path where file field directories are located when importing from zip (internal use)
+			'originalHost' => $config->httpHost, 
+			'originalRootUrl' => $config->urls->root,
 			'commit' => true, // commit the import? If false, changes aren't saved (dry run). 
 			'debug' => false, 
 		);
@@ -899,7 +916,9 @@ class PagesExportImport extends Wire {
 			'system' => true,
 			'caller' => $this, 
 			'commit' => $options['commit'], 
-			'test' => !$options['commit']
+			'test' => !$options['commit'],
+			'originalHost' => $options['originalHost'],
+			'originalRootUrl' => $options['originalRootUrl'],
 		);
 		
 		// fake-commit for more verbose testing of certain fieldtypes
@@ -1366,9 +1385,10 @@ class PagesExportImport extends Wire {
 			} catch(\Exception $e) {
 				$exportable = false;
 				$reason = $e->getMessage();
+				$importInfo = false;
 			}
 
-			if($exportable && !$importInfo['importable']) {
+			if($exportable && $importInfo && !$importInfo['importable']) {
 				// this fieldtype is storing data outside of the DB or in other unknown tables
 				// there's a good chance we won't be able to export/import this into an array
 				// @todo check if fieldtype implements its own exportValue/importValue, and if
