@@ -315,11 +315,21 @@ class CommentList extends Wire implements CommentListInterface {
 	 * It also populates a session variable 'CommentApprovalMessage' with
 	 * a text message of what occurred.
 	 *
+	 * @param array $options
 	 * @return string
 	 *
 	 */
-	public function renderCheckActions() {
-
+	public function renderCheckActions(array $options = array()) {
+		
+		$defaults = array(
+			'messageIdAttr' => 'CommentApprovalMessage',
+			'messageMarkup' => "<p id='{id}' class='{class}'><strong>{message}</strong></p>", 
+			'linkMarkup' => "<a href='{href}'>{label}</a>",
+			'successClass' => 'success',
+			'errorClass' => 'error',
+		);
+		
+		$options = array_merge($defaults, $options);
 		$action = $this->wire('input')->get('comment_success');
 		if(empty($action) || $action === "1") return '';
 
@@ -327,11 +337,22 @@ class CommentList extends Wire implements CommentListInterface {
 			$message = $this->wire('session')->get('CommentApprovalMessage');
 			if($message) {
 				$this->wire('session')->remove('CommentApprovalMessage');
-				$class = $action === '2' ? 'success' : 'error';
+				$class = $action === '2' ? $options['successClass'] : $options['errorClass'];
 				$commentID = (int) $this->wire('input')->get('comment_id');
 				$message = $this->wire('sanitizer')->entities($message);
-				if($commentID) $message = str_replace($commentID, "<a href='#Comment$commentID'>$commentID</a>", $message);
-				return "<p id='CommentApprovalMessage' class='$class'><strong>$message</strong></p>";
+				if($commentID) {
+					$link = str_replace(
+						array('{href}', '{label}'), 
+						array("#Comment$commentID", $commentID), 
+						$options['linkMarkup']
+					);
+					$message = str_replace($commentID, $link, $message);
+				}
+				return str_replace(
+					array('{id}', '{class}', '{message}'), 
+					array($options['messageIdAttr'], $class, $message), 
+					$options['messageMarkup']
+				);
 			}
 		}
 
@@ -345,7 +366,7 @@ class CommentList extends Wire implements CommentListInterface {
 			if($info['commentID']) $url .= "comment_id=$info[commentID]&";
 			$url .= "comment_success=" . ($info['success'] ? '2' : '3');
 			$this->wire('session')->set('CommentApprovalMessage', $info['message']);
-			$this->wire('session')->redirect($url . '#CommentApprovalMessage');
+			$this->wire('session')->redirect($url . '#' . $options['messageIdAttr']);
 		}
 
 		return '';

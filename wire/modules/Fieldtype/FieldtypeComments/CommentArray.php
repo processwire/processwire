@@ -86,14 +86,6 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function render(array $options = array()) {
-		$defaultOptions = array(
-			'useGravatar' => ($this->field ? $this->field->get('useGravatar') : ''),
-			'useVotes' => ($this->field ? $this->field->get('useVotes') : 0),
-			'useStars' => ($this->field ? $this->field->get('useStars') : 0),
-			'depth' => ($this->field ? (int) $this->field->get('depth') : 0),
-			'dateFormat' => ($this->field ? $this->field->get('dateFormat') : 'relative'),
-			);
-		$options = array_merge($defaultOptions, $options);
 		$commentList = $this->getCommentList($options); 
 		return $commentList->render();
 	}
@@ -148,6 +140,21 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function getCommentList(array $options = array()) {
+		$field = $this->field;
+		if($field) {
+			$defaults = array(
+				'useGravatar' => $field->get('useGravatar'),
+				'useVotes' => $field->get('useVotes'),
+				'useStars' => $field->get('useStars'),
+				'depth' => $field->get('depth'),
+				'dateFormat' => $field->get('dateFormat'),
+			);
+		} else {
+			$defaults = array(
+				'dateFormat' => 'relative'
+			);
+		}
+		$options = array_merge($defaults, $options);
 		return $this->wire(new CommentList($this, $options)); 	
 	}
 
@@ -274,6 +281,7 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 		if($getCount) return array($stars, $count);
 		return $stars;
 	}
+	
 	/**
 	 * Render combined star rating for all comments in this CommentsArray
 	 *
@@ -303,6 +311,18 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 		$out = $commentStars->render($stars, $options['input']);
 		if($showCount) $out .= $commentStars->renderCount((int) $count, $stars, $options['schema']);
 		return $out;
+	}
+	
+	/**
+	 * Track an item added
+	 *
+	 * @param Comment $item
+	 * @param int|string $key
+	 *
+	 */
+	protected function trackAdd($item, $key) {
+		parent::trackAdd($item, $key);
+		if(!$item->getPageComments(false)) $item->setPageComments($this);
 	}
 }
 

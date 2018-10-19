@@ -421,13 +421,16 @@ class InputfieldSelect extends Inputfield {
 	/**
 	 * Render the given options
 	 * 
-	 * @param array $options
-	 * @param bool $allowBlank
+	 * Note: method was protected prior to 3.0.116
+	 * 
+	 * @param array|null $options Options array or omit (null) to use already specified options
+	 * @param bool $allowBlank Allow first item to be blank when supported? (default=tru)
 	 * @return string
 	 * 
 	 */
-	protected function renderOptions($options, $allowBlank = true) {
+	public function renderOptions($options = null, $allowBlank = true) {
 
+		if($options === null) $options = $this->options;
 		$out = '';
 		reset($options); 
 		$key = key($options); 

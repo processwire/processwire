@@ -127,6 +127,12 @@ class Comment extends WireData {
 	 */
 	protected $quiet = false;
 
+	/**
+	 * @var CommentArray|null
+	 * 
+	 */
+	protected $pageComments = null;
+
 	/**	
 	 * Construct a Comment and set defaults
 	 *
@@ -252,6 +258,9 @@ class Comment extends WireData {
 
 	/**
 	 * Clean a comment string by issuing several filters
+	 * 
+	 * @param string $str
+	 * @return string
 	 *
 	 */
 	public function cleanCommentString($str) {
@@ -364,17 +373,48 @@ class Comment extends WireData {
 	 * 
 	 */
 	public function children() {
-		$field = $this->getField();
-		$comments = $this->getPage()->get($field->name);
+		/** @var CommentArray $comments */
+		$comments = $this->getPageComments();
 		$children = $comments->makeNew();
-		$children->setPage($this->getPage());
-		$children->setField($field); 
+		$page = $this->getPage();
+		$field = $this->getField();
+		if($page) $children->setPage($this->getPage());
+		if($field) $children->setField($this->getField()); 
 		$id = $this->id; 
 		foreach($comments as $comment) {
 			if(!$comment->parent_id) continue;
 			if($comment->parent_id == $id) $children->add($comment);
 		}
 		return $children;
+	}
+
+	/**
+	 * Get array that holds all the comments for the current Page/Field
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param bool $autoDetect Autodetect from Page and Field if not already set? (default=true)
+	 * @return CommentArray|null
+	 * 
+	 */
+	public function getPageComments($autoDetect = true) {
+		if($autoDetect && !$this->pageComments) {
+			$field = $this->getField();
+			$this->pageComments = $this->getPage()->get($field->name);
+		}
+		return $this->pageComments;
+	}
+
+	/**
+	 * Set the CommentArray that holds all comments for the curent Page/Field
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param CommentArray $pageComments
+	 * 
+	 */
+	public function setPageComments(CommentArray $pageComments) {
+		$this->pageComments = $pageComments;
 	}
 
 	/**

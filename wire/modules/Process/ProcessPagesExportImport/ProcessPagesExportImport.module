@@ -77,10 +77,12 @@ class ProcessPagesExportImport extends Process {
 					return $form->render();
 				}
 			} else {
+				/*
 				$this->warning(
 					'Please note this is a development version of pages export/import ' . 
 					'and not yet recommended for production use.'
 				);
+				*/
 				$form = $this->buildForm();
 				return $form->render();
 			}
@@ -307,6 +309,8 @@ class ProcessPagesExportImport extends Process {
 			'changeStatus' => in_array('status', $fieldNames),
 			'changeSort' => in_array('sort', $fieldNames),
 			'filesPath' => $this->wire('session')->getFor($this, 'filesPath'), 
+			'originalHost' => isset($a['host']) ? $a['host'] : $this->wire('config')->httpHost, 
+			'originalRootUrl' => isset($a['url']) ? $a['url'] : $this->wire('config')->urls->root,
 		);
 		
 		foreach($a['pages'] as $key => $item) {
