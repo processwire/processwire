@@ -366,10 +366,66 @@ class FieldtypeTextarea extends FieldtypeText {
 	 */
 	public function ___importValue(Page $page, Field $field, $value, array $options = array()) {
 		$value = parent::___importValue($page, $field, $value, $options);
-		$originalID = (int) $page->get('_importOriginalID'); 
-		if($originalID && $page->id && strpos($value, "/$originalID/")) {
-			$value = str_replace("/assets/files/$originalID/", "/assets/files/$page->id/", $value); 
+		
+		// update changed IDs represented in asset paths
+		if(strpos($value, '/assets/files/') !== false) {
+			$originalID = (int) $page->get('_importOriginalID');
+			if($originalID && $page->id && strpos($value, "/$originalID/")) {
+				$value = str_replace("/assets/files/$originalID/", "/assets/files/$page->id/", $value);
+			}
 		}
+	
+		$contentType = $field->get('contentType');
+		if($contentType == self::contentTypeHTML || $contentType == self::contentTypeImageHTML) {
+			$value = $this->importValueHTML($value, $options);
+		}
+		
+		return $value;
+	}
+
+	/**
+	 * Helper to importValue function for HTML-specific content
+	 * 
+	 * This primarily updates references to export-site URLs to the current site
+	 * 
+	 * @param string $value
+	 * @param array $options
+	 * @return string
+	 * 
+	 */
+	protected function importValueHTML($value, array $options) {
+		// update changed root URLs in href or src attributes 
+		$config = $this->wire('config');
+		$url = $config->urls->root;
+		$host = $config->httpHost;
+		$_url = isset($options['originalRootUrl']) ? $options['originalRootUrl'] : $url; // original URL
+		$_host = isset($options['originalHost']) ? $options['originalHost'] : $host; // original host
+		
+		if($_url === $url && $_host === $host) return $value;
+
+		$findReplace = array();
+		$href = 'href="';
+		$src = 'src="';
+		
+		if($_host != $host) {
+			$schemes = array('http://', 'https://');
+			foreach($schemes as $scheme) {
+				$findReplace[$href . $scheme . $_host . '/'] = $href . '/';
+				$findReplace[$href . $scheme . $_host . '/'] = $href . '/';
+			}
+		}
+		
+		if($_url != $url) {
+			$findReplace[$href . $_url] = $href . $url;
+			$findReplace[$src . $_url] = $src . $url;
+		}
+		
+		foreach($findReplace as $find => $replace) {
+			if($find === $replace) continue;
+			if(strpos($value, $find) === false) continue;
+			$value = preg_replace('!(\s)' . $find . '!', '$1' . $replace, $value);
+		}
+		
 		return $value;
 	}
 
