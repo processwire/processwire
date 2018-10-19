@@ -16,6 +16,7 @@
  * https://processwire.com
  * 
  * @method WireArray and($item)
+ * @method WireArray new($items = array()) 
  * @property int $count Number of items
  * @property Wire|null $first First item
  * @property Wire|null $last Last item
@@ -82,6 +83,14 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	protected $duplicateChecking = true;
 
 	/**
+	 * Construct
+	 * 
+	 */
+	public function __construct() {
+		if($this->className() === 'WireArray') $this->duplicateChecking = false;	
+	}
+
+	/**
 	 * Is the given item valid for storange in this array?
 	 * 
 	 * Template method that descending classes may use to validate items added to this WireArray
@@ -93,6 +102,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *
 	 */
 	public function isValidItem($item) {
+		if($this->className() === 'WireArray') return true;
 		return $item instanceof Wire; 
 	}
 
@@ -1967,13 +1977,18 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			'append' => ''
 			);
 
+		if(!count($this->data)) return '';
+			
+		$firstItem = reset($this->data);
+		$itemIsObject = is_object($firstItem);
+
 		if(!is_string($delimiter) && is_callable($delimiter)) {
 			// first delimiter argument omitted and a function was supplied 
 			// property is assumed to be blank
 			if(is_array($property)) $options = $property; 
 			$property = $delimiter; 
 			$delimiter = '';
-		} else if(empty($property) || is_array($property)) {
+		} else if($itemIsObject && (empty($property) || is_array($property))) {
 			// delimiter was omitted, forcing $property to be first arg
 			if(is_array($property)) $options = $property; 
 			$property = $delimiter; 
@@ -1986,8 +2001,13 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		$n = 0;
 
 		foreach($this as $key => $item) {
-			if($isFunction) $value = $property($item, $key); 
-				else $value = $item->get($property); 
+			if($isFunction) {
+				$value = $property($item, $key);
+			} else if(strlen($property) && $itemIsObject) {
+				$value = $item->get($property);
+			} else {
+				$value = $item;
+			}
 			if(is_array($value)) $value = 'array(' . count($value) . ')';
 			$value = (string) $value; 
 			if(!strlen($value) && $options['skipEmpty']) continue; 
@@ -2026,7 +2046,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * @see WireArray::each(), WireArray::implode()
 	 *
 	 */
-	public function explode($property, array $options = array()) {
+	public function explode($property = '', array $options = array()) {
 		$defaults = array(
 			'getMethod' => 'get', // method used to get value from each item
 			'key' => null,
@@ -2037,6 +2057,10 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		$isFunction = !$isArray && !is_string($property) && is_callable($property);
 		$values = array();
 		foreach($this as $key => $item) {
+			if(!is_object($item)) {
+				$values[$key] = $item;
+				continue;
+			}
 			if(!empty($options['key']) && is_string($options['key'])) {
 				$key = $item->get($options['key']);	
 				if(!is_string($key) || !is_int($key)) $key = (string) $key;	
@@ -2253,7 +2277,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * Perform an action upon each item in the WireArray
 	 * 
 	 * This is typically used to execute a function for each item, or to build a string 
-	 * or array from each item.
+	 * or array from each item. 
 	 * 
 	 * ~~~~~
 	 * // Generate navigation list of page children: 
@@ -2261,8 +2285,16 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *   return "<li><a href='$child->url'>$child->title</a></li>";
 	 * });
 	 * 
+	 * // If 2 arguments specified to custom function(), 1st is the key, 2nd is the value
+	 * echo $page->children()->each(function($key, $child) {
+	 *   return "<li><a href='$child->url'>$key: $child->title</a></li>";
+	 * });
+	 * 
 	 * // Same as above using different method (template string):
 	 * echo $page->children()->each("<li><a href='{url}'>{title}</a></li>");
+	 * 
+	 * // If WireArray used to hold non-object items, use only {key} and/or {value}
+	 * echo $items->each('<li>{key}: {value}</li>');
 	 * 
 	 * // Get an array of all "title" properties 
 	 * $titles = $page->children()->each("title"); 
@@ -2312,7 +2344,11 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 					if(is_null($result)) $result = '';
 					// if returned value resulted in {tags}, go ahead and parse them
 					if(strpos($val, '{') !== false && strpos($val, '}')) {
-						$val = wirePopulateStringTags($val, $item);
+						if(is_object($item)) {
+							$val = wirePopulateStringTags($val, $item);
+						} else {
+							$val = wirePopulateStringTags($val, array('key' => $index, 'value' => $item));
+						}
 					}
 					$result .= $val;
 				}
@@ -2320,8 +2356,12 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		} else if(is_string($func) && strpos($func, '{') !== false && strpos($func, '}')) {
 			// string with variables
 			$result = '';
-			foreach($this as $item) {
-				$result .= wirePopulateStringTags($func, $item);
+			foreach($this as $key => $item) {
+				if(is_object($item)) {
+					$result .= wirePopulateStringTags($func, $item);
+				} else {
+					$result .= wirePopulateStringTags($func, array('key' => $key, 'value' => $item));
+				}
 			}
 		} else {
 			// array or string or null
@@ -2376,5 +2416,69 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if(count($this->itemsAdded)) $info['itemsAdded'] = $this->itemsAdded;
 		if(count($this->itemsRemoved)) $info['itemsRemoved'] = $this->itemsRemoved;
 		return $info;
+	}
+
+	/**
+	 * Static method caller, primarily for support of WireArray::new() method
+	 * 
+	 * @param string $name
+	 * @param array $arguments
+	 * @return mixed
+	 * @throws WireException
+	 * 
+	 */
+	public static function __callStatic($name, $arguments) {
+		$class = get_called_class();
+		if($name === 'new') {
+			$n = count($arguments);
+			if($n === 0) {
+				// no items specified
+				$items = null;
+			} else if($n === 1) {
+				$items = reset($arguments);
+				if(is_array($items) || $items instanceof WireArray) {
+					// multiple items specified in one argument				
+				} else {
+					// one item specified
+					$items = array($items);
+				}
+			} else {
+				// multiple items specified as arguments
+				$items = $arguments;
+			}
+			$a = new $class();
+			if(WireArray::iterable($items)) {
+				$a->import($items);
+			} else if($items !== null) {
+				$a->add($items);
+			}
+			return $a;
+		} else {
+			throw new WireException("Unrecognized static method: $class::$name()");
+		}
+	}
+
+	/**
+	 * Create a new WireArray instance of this type, optionally adding $items to it
+	 * 
+	 * This method call be called statically or non-statically, but is primarily useful as a static method call. 
+	 * 
+	 * ~~~~~~
+	 * // Create new WireArray with a, b and c items
+	 * $a = WireArray::new([ 'a', 'b', 'c' ]);
+	 * 
+	 * // This also works when called statically (array syntax can optionally be omitted)
+	 * $a = WireArray::new('a', 'b', 'c');
+	 * ~~~~~~
+	 * 
+	 * @param array|WireArray|mixed|null $items Items (or item) to add to new WireArray
+	 * @return WireArray
+	 * @since 3.0.117
+	 * 
+	 */
+	public function ___new($items = null) {
+		$a = self::new($items);
+		$this->wire($a);
+		return $a;
 	}
 }
