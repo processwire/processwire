@@ -177,6 +177,7 @@ class WireMarkupRegions extends Wire {
 			// build the region (everything in $markupAfter that starts after the ">")
 			$regionMarkup = empty($tagInfo['close']) ? '' : substr($markupAfter, $closeOpenTagPos + 1);
 			$region = $this->getTagRegion($regionMarkup, $tagInfo, $options);
+			$region['startPos'] = $openTagPos;
 
 			if($options['single']) {
 				// single mode means we just return the markup
@@ -863,6 +864,36 @@ class WireMarkupRegions extends Wire {
 		
 		return $markup;
 	}
+
+	/**
+	 * Strip optional tags/comments from given markup
+	 * 
+	 * @param string $markup
+	 * @return string
+	 * 
+	 */
+	public function stripOptional($markup) {
+		$attrs = array('data-pw-optional', 'pw-optional'); 
+		foreach($attrs as $attrName) {
+			if(strpos($markup, " $attrName") === false) continue;
+			$regions = $this->find($attrName, $markup, array('verbose' => true));
+			foreach($regions as $region) {
+				$pos = strpos($markup, $region['html']);
+				if($pos === false) continue;
+				$content = trim($region['region']);
+				if(strlen($content)) {
+					// not empty, remove just the pw-optional attribute
+					$open = $region['open'];
+					$open = str_ireplace(" $attrName", '', $open);
+					$markup = substr($markup, 0, $pos) . $open . substr($markup, $pos + strlen($region['open']));
+				} else {
+					// empty optional region, can be removed
+					$markup = substr($markup, 0, $pos) . substr($markup, $pos + strlen($region['html']));
+				}
+			}
+		}
+		return $markup; 
+	}
 	
 	/**
 	 * Merge attributes from one HTML tag to another
@@ -1327,7 +1358,10 @@ class WireMarkupRegions extends Wire {
 		if(!count($regions)) {
 			if($debug) $htmlDocument = str_replace($debugLandmark, "<pre>No regions</pre>$debugLandmark", $htmlDocument);
 			$recursionLevel--;
-			if(!$recursionLevel) $this->removeRegionTags($htmlDocument); 
+			if(!$recursionLevel) {
+				$this->removeRegionTags($htmlDocument);
+				if(strpos($htmlDocument, 'pw-optional')) $htmlDocument = $this->stripOptional($htmlDocument);
+			}
 			return 0;
 		}
 
@@ -1481,6 +1515,10 @@ class WireMarkupRegions extends Wire {
 		}
 		
 		$recursionLevel--;
+		
+		if(!$recursionLevel && strpos($htmlDocument, 'pw-optional')) {
+			$htmlDocument = $this->stripOptional($htmlDocument);
+		}
 
 		return $numUpdates; 
 	}
