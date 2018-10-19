@@ -45,7 +45,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 116;
+	const versionRevision = 117;
 
 	/**
 	 * Version suffix string (when applicable)
