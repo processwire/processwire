@@ -2,7 +2,7 @@
 
 /**
  * AdminThemeUikit initialization file
- * 
+ *
  */
 
 if(!defined("PROCESSWIRE")) die();
@@ -17,7 +17,7 @@ $adminTheme = $config->wire('adminTheme');
 
 /**
  * Configure PW modules for Uikit
- * 
+ *
  */
 
 // uk class => width %
@@ -35,7 +35,7 @@ $ukGridWidths = array(
 	'5%' => '1-6', // 5%-17%
 );
 
-$config->set('inputfieldColumnWidthSpacing', 0); 
+$config->set('inputfieldColumnWidthSpacing', 0);
 $config->js('ukGridWidths', $ukGridWidths);
 
 $config->set('InputfieldForm', array(
@@ -55,23 +55,23 @@ $config->set('JqueryWireTabs', array(
 	'aActiveClass' => 'pw-active',
 	'loadStyles' => false,
 	'tooltipAttr' => array(
-		'title' => '{tip}', 
-		'uk-tooltip' => '', 
-	), 
+		'title' => '{tip}',
+		'uk-tooltip' => '',
+	),
 ));
 
 $config->set('LanguageTabs', array(
-	'jQueryUI' => false, 
+	'jQueryUI' => false,
 	'ulClass' => '',
 	'ulAttrs' => 'uk-tab',
 	'liActiveClass' => 'uk-active',
-	'liDisabledClass' => 'uk-disabled',
+	'liDisabledClass' => '',
 	'liEmptyClass' => '',
 	'aClass' => '',
 ));
 
 $config->set('MarkupAdminDataTable', array(
-	'addClass' => $adminTheme->getClass('table'), 
+	'addClass' => $adminTheme->getClass('table'),
 	'loadStyles' => false,
 	'loadScripts' => true,
 	'responsiveClass' => '',
@@ -94,11 +94,11 @@ $config->set('ProcessPageList', array(
 	'paginationLinkCurrentClass' => 'pw-link-active',
 	'paginationHoverClass' => 'pw-link-hover',
 	'paginationDisabledClass' => 'uk-disabled',
-	// 'extrasLabel' => "<i class='fa fa-caret-right'></i>", 
+	// 'extrasLabel' => "<i class='fa fa-caret-right'></i>",
 ));
 
 $config->set('ProcessList', array(
-	'dlClass' => $adminTheme->getClass('dl'), 
+	'dlClass' => $adminTheme->getClass('dl'),
 	'dtClass' => '',
 	'ddClass' => '',
 	'aClass' => '',
@@ -106,10 +106,10 @@ $config->set('ProcessList', array(
 	'showIcon' => true,
 ));
 
-$buttonClassKey = $config->wire('hooks')->isHooked('InputfieldImage::renderButtons()') ? '_buttonClass' : 'buttonClass'; 
+$buttonClassKey = $config->wire('hooks')->isHooked('InputfieldImage::renderButtons()') ? '_buttonClass' : 'buttonClass';
 $config->set('InputfieldImage', array(
 	// only use custom classes if renderButtons is not hooked
-	$buttonClassKey => 'uk-button uk-button-small uk-button-text uk-margin-small-right', 
+	$buttonClassKey => 'uk-button uk-button-small uk-button-text uk-margin-small-right',
 	'buttonText' => '{out}',
 	'selectClass' => $adminTheme->getClass('select-small'),
 ));
@@ -120,12 +120,12 @@ $config->set('InputfieldFile', array(
 
 $config->set('InputfieldSelector', array(
 	'selectClass' => $adminTheme->getClass('select') . ' InputfieldSetWidth',
-	'inputClass' => $adminTheme->getClass('input') . ' InputfieldSetWidth', 
-	'checkboxClass' => $adminTheme->getClass('input-checkbox'), 
+	'inputClass' => $adminTheme->getClass('input') . ' InputfieldSetWidth',
+	'checkboxClass' => $adminTheme->getClass('input-checkbox'),
 ));
 
 $config->set('SystemNotifications', array(
-	'classCommon' => 'uk-alert', 
+	'classCommon' => 'uk-alert',
 	'classMessage' => 'NoticeMessage uk-alert-primary',
 	'classWarning' => 'NoticeWarning uk-alert-warning',
 	'classError' => 'NoticeError uk-alert-danger',
@@ -135,7 +135,7 @@ $config->set('SystemNotifications', array(
 
 /**
  * Inputfield forms markup and classes
- * 
+ *
  */
 
 $classes = InputfieldWrapper::getClasses();
@@ -158,6 +158,5 @@ if(!$config->get('InputfieldWrapper')) $config->set('InputfieldWrapper', array()
 if($adminTheme->noGrid) {
 	$config->InputfieldWrapper('useColumnWidth', 2); // 2=use both style='width:%' and data-colwidth attributes
 } else {
-	$config->InputfieldWrapper('useColumnWidth', false); 
+	$config->InputfieldWrapper('useColumnWidth', false);
 }
-
