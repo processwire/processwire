@@ -89,9 +89,13 @@ class InputfieldCheckbox extends Inputfield {
 		$attrs = $this->getAttributes();
 		$attrs['value'] = $this->checkedValue; 
 		
+		if($this->getSetting('entityEncodeLabel') !== false) {
+			$label = $this->entityEncode($label);
+		}
+		
 		$out = 	
 			"<label><input type='checkbox' " . $this->getAttributesString($attrs) . " />" . 
-			"<span class='pw-no-select'>" . $this->entityEncode($label) . "</span></label>"; 
+			"<span class='pw-no-select'>$label</span></label>"; 
 		
 		return $out; 
 	}

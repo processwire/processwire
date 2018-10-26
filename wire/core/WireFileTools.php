@@ -386,6 +386,7 @@ class WireFileTools extends Wire {
 
 		for($i = 0; $i < $zip->numFiles; $i++) {
 			$name = $zip->getNameIndex($i);
+			if(strpos($name, '..') !== false) continue;
 			if($zip->extractTo($dst, $name)) {
 				$names[$i] = $name;
 				$filename = $dst . ltrim($name, '/');

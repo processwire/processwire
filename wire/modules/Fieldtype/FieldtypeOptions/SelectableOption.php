@@ -103,7 +103,7 @@ class SelectableOption extends WireData { // implements LanguagesValueInterface 
 	 * @return string
 	 * 
 	 */
-	protected function getProperty($property) {
+	public function getProperty($property) {
 		if($this->wire('languages')) {
 			$language = $this->wire('user')->language; 
 			if($language->isDefault()) {

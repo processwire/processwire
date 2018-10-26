@@ -1814,6 +1814,8 @@ class FieldtypeComments extends FieldtypeMulti {
 		$updatePropertyCounts = array();
 		$skipUpdateProperties = array('id', 'created_user', 'created_users_id'); 
 		
+		if(!$comments) return null;
+		
 		foreach($comments as $comment) {
 			if($comment->status == Comment::statusSpam) continue; 
 			$key = $this->getCommentExportKey($comment); 

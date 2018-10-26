@@ -16,7 +16,7 @@
  * https://processwire.com
  * 
  * @method WireArray and($item)
- * @method WireArray new($items = array()) 
+ * @method static WireArray new($items = array()) 
  * @property int $count Number of items
  * @property Wire|null $first First item
  * @property Wire|null $last Last item
@@ -2446,39 +2446,36 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 				// multiple items specified as arguments
 				$items = $arguments;
 			}
-			$a = new $class();
-			if(WireArray::iterable($items)) {
-				$a->import($items);
-			} else if($items !== null) {
-				$a->add($items);
-			}
-			return $a;
+			return self::newInstance($items, $class);
 		} else {
 			throw new WireException("Unrecognized static method: $class::$name()");
 		}
 	}
 
 	/**
-	 * Create a new WireArray instance of this type, optionally adding $items to it
+	 * Create new instance of this class
 	 * 
-	 * This method call be called statically or non-statically, but is primarily useful as a static method call. 
+	 * Method for internal use, use `$a = WireArray::new($items)` or `$a = WireArrray($items)` instead. 
 	 * 
-	 * ~~~~~~
-	 * // Create new WireArray with a, b and c items
-	 * $a = WireArray::new([ 'a', 'b', 'c' ]);
+	 * #pw-internal 
 	 * 
-	 * // This also works when called statically (array syntax can optionally be omitted)
-	 * $a = WireArray::new('a', 'b', 'c');
-	 * ~~~~~~
-	 * 
-	 * @param array|WireArray|mixed|null $items Items (or item) to add to new WireArray
+	 * @param array|WireArray|null $items Items to add or omit (null) for none
+	 * @param string $class Class name to instantiate or omit for called class
 	 * @return WireArray
-	 * @since 3.0.117
 	 * 
 	 */
-	public function ___new($items = null) {
-		$a = self::new($items);
-		$this->wire($a);
+	public static function newInstance($items = null, $class = '') {
+		if(empty($class)) $class = get_called_class();
+		/** @var WireArray $a */
+		$a = new $class();
+		if($items instanceof WireArray) {
+			$items->wire($a);
+			$a->import($items);
+		} else if(is_array($items)) {
+			$a->import($items);
+		} else if($items !== null) {
+			$a->add($items);
+		}
 		return $a;
 	}
 }

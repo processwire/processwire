@@ -60,7 +60,7 @@ class User extends Page {
 	 * }
 	 * ~~~~~
 	 *
-	 * @param string|Role|int May be Role name, object or ID. 
+	 * @param string|Role|int $role May be Role name, object or ID. 
 	 * @return bool
 	 *
 	 */
@@ -107,7 +107,7 @@ class User extends Page {
 	 * $user->save();
 	 * ~~~~~
 	 *
-	 * @param string|int|Role Maybe Role name, object, or ID. 
+	 * @param string|int|Role $role May be Role name, object, or ID. 
 	 * @return bool Returns false if role not recognized, true otherwise
 	 *
 	 */
@@ -131,7 +131,7 @@ class User extends Page {
 	 * $user->save();
 	 * ~~~~~
 	 *
-	 * @param string|int|Role May be Role name, object or ID. 
+	 * @param string|int|Role $role May be Role name, object or ID. 
 	 * @return bool false if role not recognized, true otherwise
 	 *
 	 */

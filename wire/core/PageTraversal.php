@@ -175,6 +175,28 @@ class PageTraversal {
 	}
 
 	/**
+	 * Return number of parents (depth relative to homepage) that this page has, optionally filtered by a selector
+	 * 
+	 * For example, homepage has 0 parents and root level pages have 1 parent (which is the homepage), and the
+	 * number increases the deeper the page is in the pages structure. 
+	 * 
+	 * @param Page $page
+	 * @param string $selector Optional selector to filter by (default='')
+	 * @return int Number of parents
+	 * 
+	 */
+	public function numParents(Page $page, $selector = '') {
+		$num = 0;
+		$parent = $page->parent();
+		while($parent && $parent->id) {
+			if($selector !== '' && !$parent->matches($selector)) continue;
+			$num++;
+			$parent = $parent->parent();
+		}
+		return $num;
+	}
+
+	/**
 	 * Return all parent from current till the one matched by $selector
 	 *
 	 * @param Page $page
@@ -660,6 +682,7 @@ class PageTraversal {
 		$languages = $options['languages'] ? $page->wire('languages') : null;
 		$slashUrls = $page->template->slashUrls;
 		$httpHostUrl = $options['http'] ? $page->wire('input')->httpHostUrl() : '';
+		$urls = array();
 		
 		if($options['language'] && $languages) {
 			if(!$options['language'] instanceof Page) {
@@ -682,6 +705,7 @@ class PageTraversal {
 
 		// add in historical URLs
 		if($options['past'] && $modules->isInstalled('PagePathHistory')) {
+			/** @var PagePathHistory $history */
 			$history = $modules->get('PagePathHistory');
 			$rootUrl = $page->wire('config')->urls->root;
 			$pastPaths = $history->getPathHistory($page, array(
@@ -691,11 +715,13 @@ class PageTraversal {
 			foreach($pastPaths as $pathInfo) {
 				$key = '';
 				if(!empty($pathInfo['language'])) {
+					/** @var Language $language */
+					$language = $pathInfo['language'];
 					if($options['languages']) {
-						$key .= $pathInfo['language']->name . ';';
+						$key .= $language->name . ';';
 					} else {
 						// they asked to have multi-language excluded
-						if(!$pathInfo['language']->isDefault()) continue;
+						if(!$language->isDefault()) continue;
 					}
 				} 
 				$key .= wireDate('c', $pathInfo['date']);
@@ -774,6 +800,7 @@ class PageTraversal {
 	 */
 	public function referencing(Page $page, $field = false, $getCount = false) {
 		$fieldName = '';
+		$byField = null;
 		if(is_bool($field) || is_null($field)) {
 			$byField = $field ? true : false;
 		} else if(is_string($field)) {
@@ -793,7 +820,7 @@ class PageTraversal {
 		foreach($page->template->fieldgroup as $f) {
 			if($fieldName && $field->name != $fieldName) continue;
 			if(!$f->type instanceof FieldtypePage) continue;
-			if($byField) $itemsByField[$f->name] = $this->wire('pages')->newPageArray();
+			if($byField) $itemsByField[$f->name] = $page->wire('pages')->newPageArray();
 			$value = $page->get($f->name);
 			if($value instanceof Page && $value->id) {
 				$items->add($value);
@@ -916,6 +943,7 @@ class PageTraversal {
 
 		$next = $page;
 		do {
+			/** @var Page $next */
 			$next = $siblings->getNext($next, false);
 			if(empty($selector) || !$next || $next->matches($selector)) break;
 		} while($next && $next->id);
@@ -959,6 +987,7 @@ class PageTraversal {
 
 		$prev = $page;
 		do {
+			/** @var Page $prev */
 			$prev = $siblings->getPrev($prev, false); 
 			if(empty($selector) || !$prev || $prev->matches($selector)) break;
 		} while($prev && $prev->id); 
@@ -1006,7 +1035,7 @@ class PageTraversal {
 	 * @param Page $page
 	 * @param string|array $selector Optional selector. When specified, will filter the found siblings.
 	 * @param PageArray $siblings Optional siblings to use instead of the default. 
-	 * @return Page|NullPage Returns all matching pages before this one.
+	 * @return PageArray
 	 *
 	 */
 	public function prevAllSiblings(Page $page, $selector = '', PageArray $siblings = null) {

@@ -605,7 +605,13 @@ class ProcessPagesExportImport extends Process {
 						$path = rtrim($importParentPath . substr($path, strlen($missingParentPath)), '/') . '/';
 					}
 				}
-				if($path == $item['path']) $path = $importParentPath . trim($path, '/') . '/';
+				if($path == $item['path']) {
+					if(strpos($path, $importParentPath) === 0) {
+						// parent already present in path
+					} else {
+						$path = $importParentPath . trim($path, '/') . '/';
+					}
+				}
 				$a['pages'][$key]['path'] = $path;
 			}
 		}

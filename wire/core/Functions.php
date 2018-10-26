@@ -1031,3 +1031,26 @@ function wireRegion($key, $value = null) {
 	return $result;
 }
 
+/**
+ * Create new WireArray, add given $items to it, and return it
+ * 
+ * @param array|WireArray $items
+ * @return WireArray
+ * 
+ */
+function WireArray($items = array()) {
+	return WireArray::newInstance($items);
+}
+
+/**
+ * Create new PageArray, add given $items (pages) to it, and return it
+ *
+ * @param array|PageArray $items
+ * @return WireArray
+ *
+ */
+function PageArray($items = array()) {
+	return PageArray::newInstance($items);
+}
+
+
