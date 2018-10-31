@@ -721,6 +721,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			if(count($languageUrls) > 1) {
 				$ul = "<ul class=''>";
 				foreach($languages as $language) {
+					/** @var Language $language */
 					if(!isset($languageUrls[$language->id])) continue;
 					$localUrl = $languageUrls[$language->id];
 					$label = $language->get('title|name');
@@ -1223,11 +1224,18 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		// informational sections
 		if(!$this->isPost) {
 			$wrapper->add($this->buildFormRoles());
-			$wrapper->add($this->buildFormReferences()); 
+			$wrapper->add($this->buildFormReferences());
+		}
+	
+		if($this->wire('user')->isSuperuser()) {
+			$f = $this->buildFormPrevPaths();
+			if($f) $wrapper->add($f);
+		}
+		
+		if(!$this->isPost) {
 			$wrapper->add($this->buildFormInfo());
 		}
 		
-
 		return $wrapper; 
 	}
 	
@@ -1242,7 +1250,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		/** @var InputfieldMarkup $field */
 		$field = $this->modules->get('InputfieldMarkup');
 		$field->attr('id', 'ProcessPageEditReferences');
-		$field->label = $this->_('What pages point to this one?');
+		$field->label = $this->_('What pages link to this page?');
 		$field->icon = 'link';
 		$field->collapsed = Inputfield::collapsedYesAjax;
 
@@ -1258,7 +1266,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		if($numTotal) {
 			$field->description = sprintf(
-				$this->_('Found %d other page(s) pointing to this one in Page fields or href links.'),
+				$this->_('Found %d other page(s) linking to this one in Page fields or href links.'),
 				$numTotal
 			);
 			$out = "<ul>";
@@ -1288,6 +1296,199 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$field->value = $out;
 		
+		return $field;
+	}
+	
+	/**
+	 * Build the “Settings > What URLs redirect to this page?” fieldset on the Page Edit form
+	 *
+	 * @return InputfieldMarkup|null
+	 *
+	 */
+	protected function buildFormPrevPaths() {
+	
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		/** @var Languages|null $languages */
+		$languages = $this->wire('languages');
+		
+		if($this->isPost && $input->post('_prevpath_add') === null) return null;
+		if(!$modules->isInstalled('PagePathHistory')) return null;
+
+		/** @var InputfieldMarkup $field */
+		$field = $modules->get('InputfieldMarkup');
+		$field->attr('id', 'ProcessPageEditPrevPaths');
+		$field->label = $this->_('What other URLs redirect to this page?');
+		$field->icon = 'map-signs';
+		
+		if(!$this->isPost) {				
+			$field->collapsed = Inputfield::collapsedYesAjax;
+			if($input->get('renderInputfieldAjax') != 'ProcessPageEditPrevPaths') return $field;
+		}
+		
+		$field->description = 
+			$this->_('Whenever a page is moved or the name changes, we remember the previous location for redirects.') . ' ' . 
+			$this->_('Below is a list of URLs (paths) that automatically redirect to this page (using 301 permanent redirect).') . ' ' . 
+			$this->_('You may delete any paths/URLs or manually add new ones.'); 
+		
+		/** @var PagePathHistory $history */
+		$history = $modules->get('PagePathHistory');
+		$data = $history->getPathHistory($this->page, array(
+			'verbose' => true,
+			'virtual' => true
+		));
+		
+		$multilang = $languages && $modules->isInstalled('LanguageSupportPageNames');
+		$slashUrls = $this->page->template->slashUrls;
+		$deleteIDs = array();
+		$rootUrl = $this->wire('config')->urls->root;
+		
+		/** @var InputfieldCheckbox $delete */
+		$delete = $modules->get('InputfieldCheckbox');
+		$delete->label = wireIconMarkup('trash-o');
+		$delete->attr('name', '_prevpath_delete[]');
+		$delete->entityEncodeLabel = false;
+		$delete->attr('title', $this->_x('Delete', 'prev-path-delete'));
+		$delete->renderReady();
+		
+		if($this->isPost) {
+			$deleteIDs = array_flip($input->post->array('_prevpath_delete'));
+		}
+
+		/** @var MarkupAdminDataTable $table */
+		$table = $modules->get('MarkupAdminDataTable');
+		$table->setEncodeEntities(false);
+		$table->setSortable(false);
+		
+		$header = array(
+			$this->_x('URL', 'prev-path'),
+			$this->_x('When', 'prev-path-date'),
+		);
+
+		if(count($data)) {
+			if($multilang) $header[] = $this->_x('Language', 'prev-path-language');
+			$header[] = '&nbsp;';
+			if(!$multilang) {
+				$row = array(
+					$sanitizer->entities($this->page->path),
+					$this->_x('Current', 'prev-path-current'),
+					'&nbsp;',
+				);
+				$table->row($row);
+			}
+		} else {
+			$table->row(array(
+				$this->_('No redirect paths'),
+				$this->_('Not yet')
+			));
+		}
+		
+		$table->headerRow($header);
+		
+		foreach($data as $n => $item) {
+			
+			$id = md5($item['path'] . $item['date']); 
+			$path = $item['path'];
+			
+			if($this->isPost && isset($deleteIDs[$id])) {
+				if($history->deletePathHistory($this->page, $path)) {
+					$this->message(sprintf($this->_('Deleted redirect for previous URL: %s'), $path));
+					continue;
+				}
+			}
+
+			if($slashUrls) $path .= '/';
+		
+			$url = $sanitizer->entities(rtrim($rootUrl, '/') . $path);
+			$path = $sanitizer->entities($path);
+			$row = array(
+				"<a href='$url' target='_blank'>$path</a>",
+				wireRelativeTimeStr($item['date']),
+			);
+			if($multilang && isset($item['language'])) {
+				/** @var Language $language */
+				$language = $item['language'];
+				if($language && $language->id) {
+					$langLabel = $language->get('title|name');
+					if(!$language->isDefault() && !$this->page->get("status$language")) $langLabel = "<s>$langLabel</s>";
+					$row[] = $langLabel;
+				} else {
+					$row[] = '?';
+				}
+			}
+			if(empty($item['virtual'])) {
+				$delete->attr('name', '_prevpath_delete[]');
+				$delete->attr('value', $id);
+				$row[] = "<div class='InputfieldCheckbox'>" . $delete->render() . "</div>";
+			} else {
+				$parentLabel = $this->_x('Parent', 'prev-path-parent');
+				$parent = $this->wire('pages')->get((int) $item['virtual']);
+				if($parent->id) $parentLabel = "<a target='_blank' title='$parent->path' href='$parent->editUrl'>$parentLabel</a>";
+				$row[] = $parentLabel;
+			}
+			$table->row($row);
+		}
+	
+		/** @var InputfieldTextarea $add */
+		$add = $modules->get('InputfieldTextarea');
+		$add->attr('name', '_prevpath_add'); 
+		$add->label = $this->_('Add new redirect URLs');
+		$add->description = 
+			$this->_('Enter additional paths/URLs (one per line) that should redirect to this page.') . ' ' . 
+			$this->_('Enter the URL path only (i.e. “/hello/world/”), do NOT include scheme, domain, port, query string or fragments.') . ' ';
+		if($rootUrl != '/') {
+			$add->description .= sprintf(
+				$this->_('Paths are relative to site root so do NOT include the %s subdirectory at the beginning.'), 
+				$rootUrl
+			);
+		}
+		$add->collapsed = Inputfield::collapsedYes;
+		$add->icon = 'plus';
+		$add->addClass('InputfieldIsSecondary', 'wrapClass');
+		if($multilang) {
+			$add->notes = $this->_('To specify a language for the redirect, enter path/URL on line prefixed with language name:');
+			foreach($languages->findNonDefault() as $language) {
+				$add->notes .= "\n`$language->name:" . 
+					sprintf($this->_('/your/%s/url/'), $language->name) . "` " . // /your/[language-name]/url/
+					sprintf($this->_('(for %s)'), $language->get('title|name')); // (for [language-title])
+			}
+		}
+
+		if($this->isPost) {
+			$add->processInput($input->post);
+			if($add->val()) {
+				foreach(explode("\n", $add->val()) as $path) {
+					if(strpos($path, ':')) {
+						list($langName, $path) = explode(':', $path, 2);
+						$language = $languages->get($sanitizer->pageName($langName));
+						if(!$language || !$language->id) $language = null;
+					} else {
+						$language = null;
+					}
+					$path = $sanitizer->pagePathName($path);
+					if(!strlen($path)) continue; 
+					if($history->addPathHistory($this->page, $path, $language)) {
+						$this->message(sprintf(
+							$this->_('Added redirect: %s'), 
+							$path
+						));
+					} else {
+						$this->warning(sprintf(
+							$this->_('Unable to add redirect %s because it appears to conflict with another path'), 
+							$path
+						));
+					}
+				}
+			}
+		} else {
+			$field->val($table->render());
+			$field->add($add);
+		}
+
 		return $field;
 	}
 
