@@ -743,10 +743,10 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			foreach($d as $f) {
 				if(!$f->isDir() && preg_match('/\.cache$/D', $f->getFilename())) {
 					$numFiles++; 
-					@unlink($f->getPathname()); 
+					$this->wire('files')->unlink($f->getPathname()); 
 				}
 			}
-			@rmdir($file->getPathname()); 
+			$this->wire('files')->rmdir($file->getPathname()); 
 		}
 
 		if($clearNow) {

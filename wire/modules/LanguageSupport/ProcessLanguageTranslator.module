@@ -648,7 +648,7 @@ class ProcessLanguageTranslator extends Process {
 		
 		if(is_null($this->fp)) {
 			$f = $this->language->filesManager()->path() . '.phrase-index.txt'; // @todo make hidden
-			if(is_file($f)) unlink($f);
+			if(is_file($f)) $this->wire('files')->unlink($f);
 			$this->fp = fopen($f, "a");
 		}
 

@@ -151,7 +151,7 @@ class LazyCron extends WireData implements Module {
 			// other LazyCron process potentially running
 			if(filemtime($lockfile) < (time() - 3600)) {
 				// expired lock file, some fatal error must have occurred during last LazyCron run
-				@unlink($lockfile); 
+				$this->wire('files')->unlink($lockfile); 
 			} else {
 				// skip running this time as an active lock file exists
 				return;
@@ -168,7 +168,7 @@ class LazyCron extends WireData implements Module {
 
 			// file is probably locked, so skip it this time
 			if($filedata === false) {
-				@unlink($lockfile);
+				$this->wire('files')->unlink($lockfile);
 				return; 
 			}
 		} else {
@@ -210,7 +210,7 @@ class LazyCron extends WireData implements Module {
 			if($this->config->chmodFile) @chmod($filename, octdec($this->config->chmodFile));
 		}
 
-		@unlink($lockfile); 
+		$this->wire('files')->unlink($lockfile); 
 	}
 
 	/**

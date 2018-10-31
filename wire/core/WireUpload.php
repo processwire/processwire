@@ -179,7 +179,7 @@ class WireUpload extends Wire {
 	public function __destruct() {
 		// cleanup files that were backed up when overwritten
 		foreach($this->overwrittenFiles as $bakDestination => $destination) {
-			if(is_file($bakDestination)) unlink($bakDestination);
+			if(is_file($bakDestination)) $this->wire('files')->unlink($bakDestination);
 		}
 	}
 
@@ -491,7 +491,7 @@ class WireUpload extends Wire {
 			if(!$destination || !$filename) $destination = $this->destinationPath . 'invalid-filename';
 			if(!$error) $error = "Unable to move uploaded file to: $destination";
 			$this->error($error); 
-			if(is_file($tmp_name)) @unlink($tmp_name); 
+			if(is_file($tmp_name)) $this->wire('files')->unlink($tmp_name); 
 			return false;
 		}
 
@@ -533,7 +533,7 @@ class WireUpload extends Wire {
 		} catch(\Exception $e) {
 			$this->error($e->getMessage());
 			$this->wire('files')->rmdir($tmpDir, true);
-			unlink($zipFile); 
+			$this->wire('files')->unlink($zipFile);
 			return $files;
 		}
 	
@@ -544,7 +544,7 @@ class WireUpload extends Wire {
 			$pathname = $tmpDir . $file;
 
 			if(!$this->isValidUpload($file, filesize($pathname), UPLOAD_ERR_OK)) {
-				@unlink($pathname); 
+				$this->wire('files')->unlink($pathname, $tmpDir); 
 				continue; 
 			}
 
@@ -574,12 +574,12 @@ class WireUpload extends Wire {
 				$this->completedFilenames[] = basename($destination); 
 				$cnt++; 
 			} else {
-				@unlink($pathname); 
+				$this->wire('files')->unlink($pathname, $tmpDir);
 			}
 		}
 
 		$this->wire('files')->rmdir($tmpDir, true); 
-		@unlink($zipFile); 
+		$this->wire('files')->unlink($zipFile);
 
 		if(!$cnt) return false; 
 		return true; 	

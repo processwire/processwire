@@ -952,7 +952,7 @@ class Pagefile extends WireData {
 	 */
 	public function unlink() {
 		if(!strlen($this->basename) || !is_file($this->filename)) return true; 
-		return unlink($this->filename); 	
+		return $this->wire('files')->unlink($this->filename, true);
 	}
 
 	/**
@@ -968,7 +968,7 @@ class Pagefile extends WireData {
 	 */
 	public function rename($basename) {
 		$basename = $this->pagefiles->cleanBasename($basename, true); 
-		if(rename($this->filename, $this->pagefiles->path . $basename)) {
+		if($this->wire('files')->rename($this->filename, $this->pagefiles->path . $basename, true)) {
 			$this->set('basename', $basename); 
 			return $this->basename();
 		}

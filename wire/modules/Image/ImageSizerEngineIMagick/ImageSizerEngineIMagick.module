@@ -368,7 +368,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		}
 
 		// save to file
-		@unlink($dstFilename);
+		$this->wire('files')->unlink($dstFilename);
 		@clearstatcache(dirname($dstFilename));
 		##if(!$this->im->writeImage($this->destFilename)) {
 		// We use this approach for saving so that it behaves the same like core ImageSizer with images that

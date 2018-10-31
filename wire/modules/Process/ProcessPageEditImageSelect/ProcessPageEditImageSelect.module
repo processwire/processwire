@@ -1154,15 +1154,15 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 						$thumb = $thumb['thumb'];
 						if($thumb->url != $original->url) {
 							// there is a thumbnail, distinct from the original image
-							unlink($thumb->filename);
+							$this->wire('files')->unlink($thumb->filename);
 						}
 					}
 				}
 				
 				// replace original image
 				$target = $path . $this->original;
-				unlink($target); 
-				rename($image2->filename(), $target);
+				$this->wire('files')->unlink($target); 
+				$this->wire('files')->rename($image2->filename(), $target);
 				
 				$this->wire('pages')->uncacheAll();	
 				$page = $this->wire('pages')->get($this->page->id); 
@@ -1365,7 +1365,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			foreach($delete as $name) {
 				if(!isset($variations[$name])) continue; 
 				$info = $variations[$name]; 
-				if(is_file($info['path']) && unlink($info['path'])) {
+				if(is_file($info['path']) && $this->wire('files')->unlink($info['path'])) {
 					$this->message($this->_('Deleted image variation') . " - $info[url]"); 
 					unset($variations[$name]); 
 				} else {

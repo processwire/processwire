@@ -744,16 +744,15 @@ class WireHttp extends Wire {
 			
 		$methods = implode(", ", $triedMethods);
 		if(count($this->error) || ($this->httpCode >= 400 && isset($this->httpCodes[$this->httpCode]))) {
-			unlink($toFile);
+			$this->wire('files')->unlink($toFile);
 			$error = $this->_('File could not be downloaded') . ' ' . htmlentities("($fromURL) ") . $this->getError() . " (tried: $methods)";
 			throw new WireException($error); 
 		} else {
 			$bytes = filesize($toFile); 
 			$this->message("Downloaded " . htmlentities($fromURL) . " => $toFile (using: $methods) [$bytes bytes]", Notice::debug); 
 		}
-		
-		$chmodFile = $this->wire('config')->chmodFile; 
-		if($chmodFile) chmod($toFile, octdec($chmodFile));
+	
+		$this->wire('files')->chmod($toFile);
 		
 		return $toFile;
 	}

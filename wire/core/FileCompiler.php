@@ -1110,7 +1110,7 @@ class FileCompiler extends Wire {
 
 			if(!file_exists($sourceFile)) {
 				// source file has been deleted
-				unlink($targetFile);
+				$this->wire('files')->unlink($targetFile, true);
 				if($useLog) $this->log("Maintenance/Remove target file: $targetURL$basename");
 				
 			} else if(filemtime($sourceFile) > filemtime($targetFile)) {

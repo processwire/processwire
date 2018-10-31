@@ -451,11 +451,11 @@ class FileLog extends Wire {
 		fclose($fpr); 
 
 		if($cnt) {
-			unlink($filename); 
-			rename("$filename.new", $filename);
+			$this->wire('files')->unlink($filename, true);
+			$this->wire('files')->rename("$filename.new", $filename, true);
 			$this->wire('files')->chmod($filename); 
 		} else {
-			@unlink("$filename.new"); 
+			$this->wire('files')->unlink("$filename.new", true);
 		}
 	
 		return $cnt;	
@@ -477,8 +477,8 @@ class FileLog extends Wire {
 			'dateTo' => time(),
 		));
 		if(file_exists($toFile)) {
-			unlink($this->logFilename); 
-			rename($toFile, $this->logFilename); 
+			$this->wire('files')->unlink($this->logFilename, true);
+			$this->wire('files')->rename($toFile, $this->logFilename, true);
 			return $qty; 
 		}
 		return 0;
@@ -491,7 +491,7 @@ class FileLog extends Wire {
 	 * 
 	 */
 	public function delete() {
-		return @unlink($this->logFilename); 
+		return $this->wire('files')->unlink($this->logFilename, true);
 	}
 
 	public function __toString() {

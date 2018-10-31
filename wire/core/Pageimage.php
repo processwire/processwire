@@ -701,8 +701,8 @@ class Pageimage extends Pagefile {
 		if(!$exists || $options['forceNew']) {
 			// filenameUnvalidated is temporary filename used for resize
 			$filenameUnvalidated = $this->pagefiles->page->filesManager()->getTempPath() . $basename;
-			if($exists && $options['forceNew']) @unlink($filenameFinal);
-			if(file_exists($filenameUnvalidated)) @unlink($filenameUnvalidated);
+			if($exists && $options['forceNew']) $this->wire('files')->unlink($filenameFinal, true);
+			if(file_exists($filenameUnvalidated)) $this->wire('files')->unlink($filenameUnvalidated, true);
 			if(@copy($this->filename(), $filenameUnvalidated)) {
 				try { 
 					
@@ -760,8 +760,8 @@ class Pageimage extends Pagefile {
 		// if an error occurred, that error property will be populated with details
 		if($this->error) { 
 			// error condition: unlink copied file 
-			if(is_file($filenameFinal)) @unlink($filenameFinal);
-			if($filenameUnvalidated && is_file($filenameUnvalidated)) @unlink($filenameUnvalidated);
+			if(is_file($filenameFinal)) $this->wire('files')->unlink($filenameFinal, true);
+			if($filenameUnvalidated && is_file($filenameUnvalidated)) $this->wire('files')->unlink($filenameUnvalidated);
 
 			// write an invalid image so it's clear something failed
 			// todo: maybe return a 1-pixel blank image instead?
@@ -1235,7 +1235,7 @@ class Pageimage extends Pagefile {
 			// rebuild the variation
 			$o['forceNew'] = true; 
 			$o['suffix'] = $info['suffix'];
-			if(is_file($info['path'])) unlink($info['path']); 
+			if(is_file($info['path'])) $this->wire('files')->unlink($info['path'], true); 
 		
 			/*
 			if(!$info['width'] && $info['actualWidth']) {
@@ -1477,7 +1477,7 @@ class Pageimage extends Pagefile {
 		$variations = $this->getVariations();	
 
 		foreach($variations as $variation) {
-			if(is_file($variation->filename)) unlink($variation->filename); 			
+			if(is_file($variation->filename)) $this->wire('files')->unlink($variation->filename, true);
 		}
 
 		$this->variations = null;

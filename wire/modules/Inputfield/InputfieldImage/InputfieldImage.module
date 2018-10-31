@@ -439,8 +439,8 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			}
 			$pagefile2 = $pagefile->size($maxWidth, $maxHeight, array('cropping' => false));
 			if($pagefile->filename != $pagefile2->filename) {
-				unlink($pagefile->filename);
-				rename($pagefile2->filename, $pagefile->filename);
+				$this->wire('files')->unlink($pagefile->filename);
+				$this->wire('files')->rename($pagefile2->filename, $pagefile->filename);
 			}
 			$pagefile->getImageInfo(true); // force it to reload its dimensions
 		}
@@ -510,7 +510,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			$exists = is_file($f);
 			
 			if($exists && $remove) {
-				unlink($f); 
+				$this->wire('files')->unlink($f); 
 				$exists = false;
 			}
 			

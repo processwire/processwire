@@ -29,7 +29,7 @@ class WireFileTools extends Wire {
 	 *   // directory created: /site/assets/cache/foo-bar/
 	 * }
 	 * ~~~~~
-	 *
+	 * 
 	 * @param string $path Directory you want to create
 	 * @param bool|string $recursive If set to true, all directories will be created as needed to reach the end.
 	 * @param string|null|bool $chmod Optional mode to set directory to (default: $config->chmodDir), format must be a string i.e. "0755"
@@ -65,31 +65,54 @@ class WireFileTools extends Wire {
 	 * for the `$recursive` argument. You should be careful with this option, as it can easily wipe out an entire 
 	 * directory tree in a flash. 
 	 * 
+	 * Note that the $options argument was added in 3.0.118.
+	 * 
 	 * ~~~~~
 	 * // Remove directory /site/assets/cache/foo-bar/ and everything in it
-	 * $files->rmdir($config->paths->cache . 'foo-bar/', true); 
+	 * $files->rmdir($config->paths->cache . 'foo-bar/', true);
+	 * 
+	 * // Remove directory after ensuring $pathname is somewhere within /site/assets/
+	 * $files->rmdir($pathname, true, [ 'limitPath' => $config->paths->assets ]); 
 	 * ~~~~~
 	 * 
 	 * @param string $path Path/directory you want to remove
 	 * @param bool $recursive If set to true, all files and directories in $path will be recursively removed as well (default=false). 
+	 * @param array|bool|string $options Optional settings to adjust behavior or (bool|string) for limitPath option:
+	 *  - `limitPath` (string|bool|array): Must be somewhere within given path, boolean true for site assets, or false to disable (default=false).
+	 *  - `throw` (bool): Throw verbose WireException (rather than return false) when potentially consequential fail (default=false). 
 	 * @return bool True on success, false on failure
 	 *
 	 */
-	public function rmdir($path, $recursive = false) {
+	public function rmdir($path, $recursive = false, $options = array()) { 
+		
+		$defaults = array(
+			'limitPath' => false, 
+			'throw' => false, 
+		);
+		
+		if(!is_array($options)) $options = array('limitPath' => $options);
+		$options = array_merge($defaults, $options);
+		
+		// if there's nothing to remove, exit now
 		if(!is_dir($path)) return false;
-		if(!strlen(trim($path, '/.'))) return false; // just for safety, don't proceed with empty string
+
+		// verify that path is allowed for this operation
+		if(!$this->allowPath($path, $options['limitPath'], $options['throw'])) return false;
+	
+		// handle recursive rmdir
 		if($recursive === true) {
 			$files = @scandir($path);
 			if(is_array($files)) foreach($files as $file) {
-				if($file == '.' || $file == '..') continue;
+				if($file == '.' || $file == '..' || strpos($file, '..') !== false) continue;
 				$pathname = "$path/$file";
 				if(is_dir($pathname)) {
-					$this->rmdir($pathname, true);
+					$this->rmdir($pathname, $recursive, $options);
 				} else {
-					@unlink($pathname);
+					$this->unlink($pathname, $options['limitPath'], $options['throw']);
 				}
 			}
 		}
+		
 		return @rmdir($path);
 	}
 
@@ -109,7 +132,7 @@ class WireFileTools extends Wire {
 	 * // Update the mode of /site/assets/cache/foo-bar/ recursively
 	 * $files->chmod($config->paths->cache . 'foo-bar/', true); 
 	 * ~~~~~
-	 *
+	 * 
 	 * @param string $path Path or file that you want to adjust mode for (may be a path/directory or a filename).
 	 * @param bool|string $recursive If set to true, all files and directories in $path will be recursively set as well (default=false). 
 	 * @param string|null|bool $chmod If you want to set the mode to something other than ProcessWire's chmodFile/chmodDir settings,
@@ -176,16 +199,19 @@ class WireFileTools extends Wire {
 	 * // Copy everything from /site/assets/cache/foo/ to /site/assets/cache/bar/
 	 * $copyFrom = $config->paths->cache . "foo/";
 	 * $copyTo = $config->paths->cache . "bar/";
-	 * copy($copyFrom, $copyTo); 
+	 * $files->copy($copyFrom, $copyTo); 
 	 * ~~~~~
-	 *
+	 * 
 	 * @param string $src Path to copy files from, or filename to copy. 
 	 * @param string $dst Path (or filename) to copy file(s) to. Directory is created if it doesn't already exist.
 	 * @param bool|array $options Array of options: 
 	 *  - `recursive` (boolean): Whether to copy directories within recursively. (default=true)
 	 *  - `allowEmptyDirs` (boolean): Copy directories even if they are empty? (default=true)
-	 *  - If a boolean is specified for $options, it is assumed to be the 'recursive' option.
+	 *  - `limitPath` (bool|string|array): Limit copy to within path given here, or true for site assets path (default=false).
+	 *  - Note that the limitPath option was added in 3.0.118. 
+	 *  - If a boolean is specified for $options, it is assumed to be the `recursive` option.
 	 * @return bool True on success, false on failure.
+	 * @throws WireException if `limitPath` option is used and either $src or $dst is not allowed
 	 *
 	 */
 	public function copy($src, $dst, $options = array()) {
@@ -193,10 +219,16 @@ class WireFileTools extends Wire {
 		$defaults = array(
 			'recursive' => true,
 			'allowEmptyDirs' => true,
+			'limitPath' => false, 
 		);
 
 		if(is_bool($options)) $options = array('recursive' => $options);
 		$options = array_merge($defaults, $options);
+	
+		if($options['limitPath'] !== false) {
+			$this->allowPath($src, $options['limitPath'], true);
+			$this->allowPath($dst, $options['limitPath'], true);
+		}
 		
 		if(!is_dir($src)) {
 			// just copy a file
@@ -246,6 +278,220 @@ class WireFileTools extends Wire {
 		}
 
 		closedir($dir);
+		
+		return true;
+	}
+
+	/**
+	 * Unlink/delete file with additional protections relative to PHP unlink()
+	 * 
+	 * - This method requires a full pathname to a file to unlink and does not 
+	 *   accept any kind of relative path traversal. 
+	 * 
+	 * - This method will only unlink files in /site/assets/ if you specify `true` 
+	 *   for the `$limitPath` option (recommended).
+	 * 
+	 * @param string $filename
+	 * @param string|bool $limitPath Limit only to files within some starting path? (default=false) 
+	 *  - Boolean true to limit unlink operations to somewhere within /site/assets/ (only known always writable path).
+	 *  - Boolean false to disable to security feature. (default)
+	 *  - An alternative path (string) that represents the starting path (full disk path) to limit deletions to. 
+	 *  - An array with multiple of the above string option. 
+	 * @param bool $throw Throw exception on error?
+	 * @return bool True on success, false on fail
+	 * @throws WireException If file is not allowed to be removed or unlink fails
+	 * @since 3.0.118
+	 * 
+	 */
+	public function unlink($filename, $limitPath = false, $throw = false) {
+		
+		if(!$this->allowPath($filename, $limitPath, $throw)) {
+			// path not allowed
+			return false;
+		}
+		
+		if(!is_file($filename) && !is_link($filename)) {
+			// only files or links (that exist) can be deleted
+			return false;
+		}
+		
+		if(@unlink($filename)) {
+			return true;
+		} else {
+			if($throw) throw new WireException("Unable to unlink file $filename");
+			return false;
+		}
+	}
+
+	/**
+	 * Rename a file or directory and update permissions
+	 * 
+	 * Note that this method will fail if pathname given by $newName argument already exists. 
+	 * 
+	 * @param string $oldName Old pathname, must be full disk path. 
+	 * @param string $newName New pathname, must be full disk path OR can be basename to assume same path as $oldName. 
+	 * @param array|bool|string $options Options array to modify behavior or substitute `limitPath` (bool or string) option here.
+	 *  - `limitPath` (bool|string|array): Limit renames to within this path, or boolean TRUE for site/assets, or FALSE to disable (default=false).
+	 *  - `throw` (bool): Throw WireException with verbose details on error? (default=false)
+	 *  - `chmod` (bool): Adjust permissions to be consistent with $config after rename? (default=true)
+	 *  - If given a bool or string for $options the `limitPath` option is assumed. 
+	 * @return bool True on success, false on fail (or WireException if throw option specified). 
+	 * @throws WireException If error occurs and $throw argument was true.
+	 * @since 3.0.118
+	 * 
+	 */
+	public function rename($oldName, $newName, $options = array()) {
+		
+		$defaults = array(
+			'limitPath' => false,
+			'throw' => false, 
+			'chmod' => true, 
+		);
+		
+		if(!is_array($options)) $options = array('limitPath' => $options);
+		$options = array_merge($defaults, $options);
+	
+		// if only basename was specified for the newName then use path from oldName
+		if(basename($newName) === $newName) {
+			$newName = dirname($oldName) . '/' . $newName;
+		}
+		
+		try {
+			$this->allowPath($oldName, $options['limitPath'], true);
+		} catch(\Exception $e) {
+			if($options['throw']) throw new WireException("Rename oldName path invalid: " . $e->getMessage());
+			return false;
+		}
+		
+		try {
+			$this->allowPath($newName, $options['limitPath'], true);
+		} catch(\Exception $e) {
+			if($options['throw']) throw new WireException("Rename newName path invalid: " . $e->getMessage());
+			return false;
+		}
+		
+		if(!file_exists($oldName)) {
+			if($options['throw']) throw new WireException("Rename given pathname (oldName) that does not exist: $oldName");
+			return false;
+		}
+		
+		if(file_exists($newName)) {
+			if($options['throw']) throw new WireException("Rename to pathname (newName) that already exists: $newName");
+			return false;
+		}
+		
+		if(!rename($oldName, $newName)) {
+			if($options['throw']) throw new WireException("Rename failed: $oldName => $newName");
+		}
+	
+		if($options['chmod']) {
+			$this->chmod($newName);
+		}
+		
+		return true;
+	}
+	
+	/**
+	 * Allow path or filename to to be used for file manipulation actions?
+	 * 
+	 * Given path must be a full path (no relative references). If given a $limitPath, it must be a 
+	 * directory that already exists. 
+	 * 
+	 * Note that this method does not indicate whether or not the given pathname exists, only that it is allowed.
+	 * As a result this can be used for checking a path before creating something in it too. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $pathname File or directory name to check
+	 * @param bool|string|array $limitPath Any one of the following (default=false): 
+	 *  - Full disk path (string) that $pathname must be within (whether directly or in subdirectory of).
+	 *  - Array of the above.
+	 *  - Boolean false to disable (default).
+	 *  - Boolean true for site assets path, which is the only known always-writable path in PW. 
+	 * @param bool $throw Throw verbose exceptions on error? (default=false).
+	 * @return bool True if given pathname allowed, false if not.
+	 * @throws WireException when $throw argument is true and function would otherwise return false. 
+	 * @since 3.0.118
+	 * 
+	 */
+	public function allowPath($pathname, $limitPath = false, $throw = false) {
+		
+		if(is_array($limitPath)) {
+			// run allowPath() for each of the specified limitPaths
+			$allow = false;	
+			foreach($limitPath as $dir) {
+				if(!is_string($dir) || empty($dir)) continue;
+				$allow = $this->allowPath($pathname, $dir, false);
+				if($allow) break; // found one that is allowed
+			}
+			if(!$allow && $throw) {
+				throw new WireException("Given pathname is not within any of the paths allowed by limitPath");
+			}
+			return $allow;
+			
+		} else if($limitPath === true) {
+			// default limitPath
+			$limitPath = $this->wire('config')->paths->assets;
+			
+		} else if($limitPath === false) {
+			// no limitPath in use	
+			
+		} else if(empty($limitPath) || !is_string($limitPath)) { 
+			// invalid limitPath argument (wrong type or path does not exist)
+			if($throw) throw new WireException("Invalid type for limitPath argument");
+			return false;
+			
+		} else if(!is_dir($limitPath)) {
+			if($throw) throw new WireException("$limitPath (limitPath) does not exist");
+			return false;
+		}
+			
+		if($limitPath !== false) try {
+			// if limitPath can't pass allowPath then neither can $pathname
+			$this->allowPath($limitPath, false, true);
+		} catch(\Exception $e) {
+			if($throw) throw new WireException("Validating limitPath reported: " . $e->getMessage());
+			return false;
+		}
+		
+		if(DIRECTORY_SEPARATOR != '/') {
+			$pathname = str_replace(DIRECTORY_SEPARATOR, '/', $pathname);
+			if(is_string($limitPath)) $limitPath = str_replace(DIRECTORY_SEPARATOR, '/', $limitPath);
+			$testname = $pathname;
+			if(strpos($pathname, ':')) list(,$testname) = explode(':', $pathname, 2); // reduce to no drive letter, if present
+		} else {
+			$testname = $pathname;
+		}
+		
+		if(!strlen(trim($testname, '/.')) || substr_count($testname, '/') < 2) {
+			// do not allow paths that consist of nothing but slashes and/or dots
+			// and do not allow paths off root or lacking absolute path reference
+			if($throw) throw new WireException("pathname not allowed: $pathname");
+			return false; 
+		}
+		
+		if(strpos($pathname, '..') !== false) {
+			// not allowed to traverse anywhere
+			if($throw) throw new WireException('pathname may not traverse “../”');
+			return false;
+		}
+		
+		if(strpos($pathname, '.') === 0 || empty($pathname)) {
+			if($throw) throw new WireException('pathname may not begin with “.”');
+			return false;
+		}
+
+		if(strpos($pathname, '//') !== false) {
+			// URLs or accidental extra slashes not allowed
+			if($throw) throw new WireException('pathname may not contain double slash “//”');
+			return false;
+		}
+
+		if($limitPath !== false && strpos($pathname, $limitPath) !== 0) {
+			// disallow paths that do not begin with limitPath (i.e. /path/to/public_html/site/assets/)
+			if($throw) throw new WireException("Given pathname is not within $limitPath (limitPath)");
+			return false;
+		}
 		
 		return true;
 	}
@@ -360,6 +606,8 @@ class WireFileTools extends Wire {
 	 *   // $items is an array of filenames that were unzipped into $dst
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-archives
 	 *
 	 * @param string $file ZIP file to extract
 	 * @param string $dst Directory where files should be unzipped into. Directory is created if it doesn't exist.
@@ -424,6 +672,8 @@ class WireFileTools extends Wire {
 	 *   }
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-archives
 	 *
 	 * @param string $zipfile Full path and filename to create or update (i.e. /path/to/myfile.zip)
 	 * @param array|string $files Array of files to add (full path and filename), or directory (string) to add.
@@ -474,7 +724,7 @@ class WireFileTools extends Wire {
 			if(!is_dir($zippath)) throw new WireException("Path for ZIP file ($zippath) does not exist");
 			if(!is_writable($zippath)) throw new WireException("Path for ZIP file ($zippath) is not writable");
 			if(empty($files)) throw new WireException("Nothing to add to ZIP file $zipfile");
-			if(is_file($zipfile) && $options['overwrite'] && !unlink($zipfile)) throw new WireException("Unable to overwrite $zipfile");
+			if(is_file($zipfile) && $options['overwrite'] && !$this->unlink($zipfile)) throw new WireException("Unable to overwrite $zipfile");
 			if(!is_array($files)) $files = array($files);
 			if(!is_array($options['exclude'])) $options['exclude'] = array($options['exclude']);
 			$recursive = false;
@@ -547,6 +797,7 @@ class WireFileTools extends Wire {
 	 *
 	 */
 	public function send($filename, array $options = array(), array $headers = array()) {
+		$this->allowPath($filename, false, true);
 		$http = new WireHttp();
 		$http->sendFile($filename, $options, $headers);
 	}
@@ -563,9 +814,11 @@ class WireFileTools extends Wire {
 	 *  - `FILE_APPEND` (constant): Append to file if it already exists .
 	 *  - `LOCK_EX` (constant): Acquire exclusive lock to file while writing.
 	 * @return int|bool Number of bytes written or boolean false on fail 
+	 * @throws WireException if given invalid $filename (since 3.0.118)
 	 * 
 	 */
 	public function filePutContents($filename, $contents, $flags = 0) {
+		$this->allowPath($filename, false, true);
 		$result = file_put_contents($filename, $contents, $flags); 
 		if($result !== false) $this->chmod($filename);
 		return $result;
@@ -585,6 +838,8 @@ class WireFileTools extends Wire {
 	 *
 	 * Note this function returns the output to you, so that you can send the output wherever you want (delayed output).
 	 * For direct output, use the `$files->include()` function instead.
+	 * 
+	 * #pw-group-includes
 	 *
 	 * @param string $filename Assumed relative to /site/templates/ unless you provide a full path name with the filename.
 	 *  If you provide a path, it must resolve somewhere in site/templates/, site/modules/ or wire/modules/.
@@ -671,7 +926,6 @@ class WireFileTools extends Wire {
 		return $t->render();
 	}
 
-
 	/**
 	 * Include a PHP file passing it all API variables and optionally your own specified variables
 	 *
@@ -684,6 +938,8 @@ class WireFileTools extends Wire {
 	 *
 	 * Note this function produces direct output. To retrieve output as a return value, use the
 	 * `$files->render()` function instead.
+	 * 
+	 * #pw-group-includes
 	 *
 	 * @param string $filename Filename to include
 	 * @param array $vars Optional variables you want to hand to the include (associative array)
@@ -769,6 +1025,8 @@ class WireFileTools extends Wire {
 	 * Same as include() method except that file will not be executed if it as previously been included
 	 * 
 	 * See the `WireFileTools::include()` method for details, arguments and options.
+	 * 
+	 * #pw-group-includes
 	 * 
 	 * @param string $filename
 	 * @param array $vars 
@@ -884,7 +1142,7 @@ class WireFileTools extends Wire {
 	/**
 	 * Compile the given file using ProcessWire’s file compiler
 	 * 
-	 * #pw-group-compiler
+	 * #pw-internal
 	 * 
 	 * @param string $file File to compile
 	 * @param array $options Optional associative array of the following: 
@@ -916,7 +1174,7 @@ class WireFileTools extends Wire {
 	/**
 	 * Compile and include() the given file
 	 * 
-	 * #pw-group-compiler
+	 * #pw-internal
 	 *
 	 * @param string $file File to compile and include
 	 * @param array $options Optional associative array of the following:
@@ -937,7 +1195,7 @@ class WireFileTools extends Wire {
 	/**
 	 * Compile and include_once() the given file
 	 *
-	 * #pw-group-compiler
+	 * #pw-group-internal
 	 *
 	 * @param string $file File to compile and include
 	 * @param array $options Optional associative array of the following:
@@ -958,7 +1216,7 @@ class WireFileTools extends Wire {
 	/**
 	 * Compile and require() the given file
 	 *
-	 * #pw-group-compiler
+	 * #pw-internal
 	 *
 	 * @param string $file File to compile and include
 	 * @param array $options Optional associative array of the following:
@@ -979,7 +1237,7 @@ class WireFileTools extends Wire {
 	/**
 	 * Compile and require_once() the given file
 	 * 
-	 * #pw-group-compiler
+	 * #pw-internal
 	 *
 	 * @param string $file File to compile and include
 	 * @param array $options Optional associative array of the following:
@@ -1000,6 +1258,8 @@ class WireFileTools extends Wire {
 	/**
 	 * Convert given directory name to use unix slashes and enforce trailing or no-trailing slash
 	 * 
+	 * #pw-group-filenames
+	 * 
 	 * @param string $dir Directory name to adust (if it needs it)
 	 * @param bool $trailingSlash True to force trailing slash, false to force no trailing slash (default=true)
 	 * @return string Adjusted directory name
@@ -1016,6 +1276,8 @@ class WireFileTools extends Wire {
 
 	/**
 	 * Convert given file name to use unix slashes (if it isn’t already)
+	 * 
+	 * #pw-group-filenames
 	 *
 	 * @param string $file File name to adjust (if it needs it)
 	 * @return string Adjusted file name
@@ -1029,7 +1291,9 @@ class WireFileTools extends Wire {
 	 * Is given $file name in given $path name? (aka: is $file a subdirectory somewhere within $path)
 	 * 
 	 * This is purely for string comparison purposes, it does not check if file/path actually exists. 
-	 * Note that if $file and $path are identical, this method returns false. 
+	 * Note that if $file and $path are identical, this method returns false.
+	 * 
+	 * #pw-group-filenames
 	 * 
 	 * @param string $file May be a file or a directory
 	 * @param string $path

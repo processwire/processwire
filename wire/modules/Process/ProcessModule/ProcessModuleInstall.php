@@ -234,13 +234,13 @@ class ProcessModuleInstall extends Wire {
 		$mkdirDestination = false;
 
 		try {
-			$files = wireUnzipFile($file, $tempDir);
-			if(is_file($file)) unlink($file);
+			$files = $this->wire('files')->unzip($file, $tempDir);
+			if(is_file($file)) $this->wire('files')->unlink($file, true);
 			foreach($files as $f) $this->message("Extracted: $f", Notice::debug); 
 
 		} catch(\Exception $e) {
 			$this->error($e->getMessage());
-			if(is_file($file)) unlink($file);
+			if(is_file($file)) $this->wire('files')->unlink($file, true);
 			return false;
 		}
 
@@ -283,7 +283,7 @@ class ProcessModuleInstall extends Wire {
 
 		if(!$success) {
 			$this->error($this->_('Unable to copy module files:') . ' ' . $dirLabel);
-			if($mkdirDestination && !wireRmdir($destinationDir, true)) {
+			if($mkdirDestination && !$this->wire('files')->rmdir($destinationDir, true)) {
 				$this->error($this->_('Could not delete failed module dir:') . ' ' . $destinationDir, Notice::log);
 			}
 		}
@@ -306,11 +306,13 @@ class ProcessModuleInstall extends Wire {
 			// remove symbolic link
 			unlink(rtrim($moduleDir, '/'));
 			$dir = str_replace($this->wire('config')->paths->root, '/', $moduleDir); 
-			$this->error(sprintf($this->_('Please note that %s was a symbolic link and has been converted to a regular directory'), $dir), Notice::warning); 
+			$this->warning(sprintf(
+				$this->_('Please note that %s was a symbolic link and has been converted to a regular directory'), $dir
+			)); 
 		} else {
 			// module is a regular directory
 			// just rename it to become the new backup dir
-			if(rename($moduleDir, $backupDir)) $success = true; 
+			if($this->wire('files')->rename($moduleDir, $backupDir)) $success = true; 
 		}
 		
 		if($success) {
@@ -352,6 +354,7 @@ class ProcessModuleInstall extends Wire {
 
 		$tempDir = $this->getTempDir();
 
+		/** @var WireUpload $ul */
 		$ul = $this->wire(new WireUpload($inputName));
 		$ul->setValidExtensions(array('zip'));
 		$ul->setMaxFiles(1);
@@ -416,7 +419,7 @@ class ProcessModuleInstall extends Wire {
 
 		} catch(\Exception $e) {
 			$this->error($e->getMessage());
-			@unlink($tempZIP);
+			$this->wire('files')->unlink($tempZIP);
 		}
 
 		return $success ? $destinationDir : false; 

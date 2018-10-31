@@ -318,16 +318,16 @@ class PagefilesManager extends Wire {
 		$errors = 0;
 		if($recursive) {
 			// clear out path and everything below it
-			if(!wireRmdir($path, true)) $errors++;
+			if(!$this->wire('files')->rmdir($path, true, true)) $errors++;
 			if(!$rmdir) $this->_createPath($path); 
 		} else {
 			// only clear out files in path
 			foreach(new \DirectoryIterator($path) as $file) {
 				if($file->isDot() || $file->isDir()) continue; 
-				if(!unlink($file->getPathname())) $errors++;
+				if(!$this->wire('files')->unlink($file->getPathname(), true)) $errors++;
 			}
 			if($rmdir) {
-				@rmdir($path); // will not be successful if other dirs within it
+				$this->wire('files')->rmdir($path, false, true); // will not be successful if other dirs within it
 			}
 		}
 		return $errors === 0;

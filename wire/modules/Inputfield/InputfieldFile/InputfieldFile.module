@@ -760,8 +760,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				$err = false;
 				foreach($ul->getOverwrittenFiles() as $bakFile => $newFile) {
 					if(basename($newFile) != $filename) continue; 
-					unlink($newFile); 	
-					rename($bakFile, $newFile); // restore
+					$this->wire('files')->unlink($newFile); 	
+					$this->wire('files')->rename($bakFile, $newFile); // restore
 					$ul->error(sprintf($this->_('Refused file %s because it is already on the file system and owned by a different field.'), $filename)); 
 					$err = true; 
 				}

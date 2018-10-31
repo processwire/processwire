@@ -2068,6 +2068,7 @@ class Modules extends WireArray {
 		$success = false;
 		$reason = $this->isDeleteable($class, true); 
 		if($reason !== true) throw new WireException($reason); 
+		$siteModulesPath = $this->wire('config')->paths->siteModules;
 
 		$filename = $this->installable[$class];
 		$basename = basename($filename); 
@@ -2161,7 +2162,7 @@ class Modules extends WireArray {
 		foreach($files as $file) {
 			$file = "$path/$file";
 			if(!file_exists($file)) continue;
-			if(unlink($file)) {
+			if($this->wire('files')->unlink($file, $siteModulesPath)) {
 				$this->message("Removed file: $file", Notice::debug);
 			} else {
 				$this->error("Unable to remove file: $file", Notice::debug);

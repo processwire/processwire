@@ -96,7 +96,7 @@ class PagesExportImport extends Wire {
 					$qty++;
 				}
 			} else {
-				if(unlink($pathname)) {
+				if($files->unlink($pathname, true)) {
 					$this->message($this->_('Removed old file') . " - $pathname", Notice::debug); 
 					$qty++;
 				}
@@ -151,8 +151,9 @@ class PagesExportImport extends Wire {
 			'allowHidden' => false, 
 			'allowEmptyDirs' => false
 		)); 
+		if($zipInfo) {} // ignore
 		
-		unlink($jsonFile); 
+		$files->unlink($jsonFile, true); 
 		
 		return $zipName;
 	}

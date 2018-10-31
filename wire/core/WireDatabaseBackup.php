@@ -668,7 +668,7 @@ class WireDatabaseBackup {
 		$success = false;
 		if($file && file_exists($file)) {
 			if(!filesize($file)) {
-				unlink($file);
+				$this->wire('files')->unlink($file, true);
 			} else {
 				$success = true; 
 			}
@@ -904,7 +904,7 @@ class WireDatabaseBackup {
 		
 		if(file_exists($file)) {
 			if(filesize($file) > 0) return $file; 
-			unlink($file); 
+			$this->wire('files')->unlink($file); 
 		}
 		
 		return false;

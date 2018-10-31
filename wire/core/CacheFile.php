@@ -210,7 +210,7 @@ class CacheFile extends Wire {
 		foreach($dir as $file) {
 			if($file->isDir() || $file->isDot()) continue; 
 			//if(strpos($file->getFilename(), self::cacheFileExtension)) @unlink($file->getPathname()); 
-			if(self::isCacheFile($file->getPathname())) @unlink($file->getPathname()); 
+			if(self::isCacheFile($file->getPathname())) $this->wire('files')->unlink($file->getPathname()); 
 		}
 
 		return @rmdir($this->path); 
@@ -223,7 +223,7 @@ class CacheFile extends Wire {
 	 *
 	 */
 	protected function removeFilename($filename) {
-		@unlink($filename); 
+		$this->wire('files')->unlink($filename); 
 	}
 
 
@@ -250,7 +250,7 @@ class CacheFile extends Wire {
 				$numRemoved += self::removeAll($pathname, true); 
 
 			} else if($file->isFile() && (self::isCacheFile($pathname) || ($file->getFilename() == self::globalExpireFilename))) {
-				if(unlink($pathname)) $numRemoved++;
+				if(wire('files')->unlink($pathname)) $numRemoved++;
 			}
 		}
 

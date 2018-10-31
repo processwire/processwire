@@ -369,8 +369,8 @@ class WireTempDir extends Wire {
 		$dir = $this->wire('files')->unixDirName($dir);
 		if(!strlen($dir) || !is_dir($dir)) return true;
 		if(!$this->isTempDir($dir)) return false;
-		if(is_file($dir . self::hiddenFileName)) unlink($dir . self::hiddenFileName);
-		return $this->wire('files')->rmdir($dir, $recursive);
+		if(is_file($dir . self::hiddenFileName)) $this->wire('files')->unlink($dir . self::hiddenFileName, true);
+		return $this->wire('files')->rmdir($dir, $recursive, true);
 	}
 
 	/**
