@@ -20,7 +20,7 @@ class PagePathHistory extends WireData implements Module {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Path History', 
-			'version' => 3, 
+			'version' => 4, 
 			'summary' => "Keeps track of past URLs where pages have lived and automatically redirects (301 permament) to the new location whenever the past URL is accessed.",
 			'singular' => true, 
 			'autoload' => true, 
@@ -64,6 +64,8 @@ class PagePathHistory extends WireData implements Module {
 		$this->pages->addHook('renamed', $this, 'hookPageMoved'); 
 		$this->pages->addHook('deleted', $this, 'hookPageDeleted');
 		$this->addHook('ProcessPageView::pageNotFound', $this, 'hookPageNotFound'); 
+		$this->addHook('Page::addUrl', $this, 'hookPageAddUrl');
+		$this->addHook('Page::removeUrl', $this, 'hookPageRemoveUrl');
 	}
 
 	/**
@@ -115,40 +117,91 @@ class PagePathHistory extends WireData implements Module {
 	}
 
 	/**
-	 * Set a history path for a page
+	 * Set a history path for a page and delete any existing entries for page’s current path
 	 * 
 	 * @param Page $page
 	 * @param string $path
 	 * @param Language|int $language
+	 * @return bool True on success, or false if path already consumed in history
 	 *
 	 */
 	public function setPathHistory(Page $page, $path, $language = null) {
 		
 		$database = $this->wire('database');
 		$table = self::dbTableName;
+		$result = $this->addPathHistory($page, $path, $language);
+		
+		if($result) {
+			// delete any possible entries that overlap with the $page current path since are no longer applicable
+			$query = $database->prepare("DELETE FROM $table WHERE path=:path LIMIT 1");
+			$query->bindValue(":path", rtrim($this->wire('sanitizer')->pagePathName($page->path, Sanitizer::toAscii), '/'));
+			$query->execute();
+		}
+		
+		return $result;
+	}
+
+	/**
+	 * Add a history path for a page
+	 * 
+	 * @param Page $page
+	 * @param string $path
+	 * @param null|Language $language
+	 * @return bool True if path was added, or false if it likely overlaps with an existing path
+	 * 
+	 */
+	public function addPathHistory(Page $page, $path, $language = null) {
+		
+		$database = $this->wire('database');
+		$table = self::dbTableName;
 		$path = $this->wire('sanitizer')->pagePathName('/' . trim($path, '/'), Sanitizer::toAscii);
+		if($this->wire('pages')->count("path=$path")) return false;
 		$language = $this->getLanguage($language);
 
 		$sql = "INSERT INTO $table SET path=:path, pages_id=:pages_id, created=NOW()";
-		if($language) $sql .= ', language_id=:language_id'; 
-		
+		if($language) $sql .= ', language_id=:language_id';
+
 		$query = $database->prepare($sql);
 		$query->bindValue(":path", $path);
 		$query->bindValue(":pages_id", $page->id, \PDO::PARAM_INT);
 		if($language) $query->bindValue(':language_id', $language->id, \PDO::PARAM_INT);
 
 		try {
-			$query->execute();
+			$result = $query->execute();
 		} catch(\Exception $e) {
 			// ignore the exception because it means there is already a past URL (duplicate)
+			$result = false;
 		}
-
-		// delete any possible entries that overlap with the $page since are no longer applicable
-		$query = $database->prepare("DELETE FROM $table WHERE path=:path LIMIT 1");
-		$query->bindValue(":path", rtrim($this->wire('sanitizer')->pagePathName($page->path, Sanitizer::toAscii), '/'));
-		$query->execute();
+		
+		return $result;
 	}
-
+	
+	/**
+	 * Delete path entry for given page and path
+	 * 
+	 * @param Page $page
+	 * @param string $path
+	 * @return int
+	 * 
+	 */
+	public function deletePathHistory(Page $page, $path) {
+		
+		$database = $this->wire('database');
+		$table = self::dbTableName;
+		$path = $this->wire('sanitizer')->pagePathName('/' . trim($path, '/'), Sanitizer::toAscii);
+		
+		$sql = "DELETE FROM $table WHERE path=:path AND pages_id=:pages_id LIMIT 1";
+		$query = $database->prepare($sql);
+		$query->bindValue(':path', $path);
+		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+		
+		$cnt = $query->rowCount();
+		$query->closeCursor();
+		
+		return $cnt;
+	}
+	
 	/**
 	 * Get an array of all paths the given page has previously had, oldest to newest
 	 *
@@ -159,7 +212,9 @@ class PagePathHistory extends WireData implements Module {
 	 * @param Page $page Page to retrieve paths for. 
 	 * @param Language|null|array|bool Specify an option below: 
 	 *  - `language` (Language|int|string): Limit returned paths to this language. If none specified, then all languages are included.
-	 *  - `verbose` (bool): Return associative array for each path with additional info (date and language, if present). 
+	 *  - `verbose` (bool): Return associative array for each path with additional info (date and language, if present).
+	 *  - `virtual` (bool): Return history that includes auto-determined virtual entries from parent history? (default=true)
+	 *     What this does is also include changes to parent pages that would affect overall URL to requested page. 
 	 *  - Or you may specify the `language` option for the options argument. 
 	 *  - Or you may specify boolean `true` for options argument as a shortcut for the `verbose` option. 
 	 * @return array of paths
@@ -167,9 +222,13 @@ class PagePathHistory extends WireData implements Module {
 	 */
 	public function getPathHistory(Page $page, $options = array()) {
 		
+		static $level = 0;
+		$level++;
+		
 		$defaults = array(
 			'language' => !is_array($options) && !is_bool($options) ? $options : null, 
 			'verbose' => is_bool($options) ? $options : false, 
+			'virtual' => true, 
 		);
 		
 		/** @var WireDatabasePDO $database */
@@ -231,10 +290,182 @@ class PagePathHistory extends WireData implements Module {
 					$value = $path;
 				}
 				
-				$paths[] = $value;
+				$paths[$path] = $value;
 			}
 		} catch(\Exception $e) {
 			// intentionally blank
+		}
+		
+		if($options['virtual']) {
+			// get changes to current and previous parents as well
+			foreach($paths as $value) {
+				$virtualPaths = $this->getVirtualHistory($page, $value, $options);
+				foreach($virtualPaths as $virtualPath => $virtualInfo) {
+					if(isset($paths[$virtualPath])) continue;
+					$paths[$virtualPath] = $virtualInfo;
+				}
+			}
+			if($level === 1 && $options['verbose']) {
+				$paths = $this->sortVerbosePathInfo($paths); 
+			}
+		}	
+	
+		$level--;
+		
+		return array_values($paths);
+	}
+
+	/**
+	 * Sort verbose paths by date
+	 * 
+	 * @param array $paths Verbose paths
+	 * @param bool $newest Sort newest to oldest? Specify false so sort oldest to newest. (default=true)
+	 * @return array
+	 * 
+	 */
+	protected function sortVerbosePathInfo(array $paths, $newest = true) {
+		
+		$sortPaths = array();
+		
+		foreach($paths as $value) {
+			$date = strtotime($value['date']);
+			while(isset($sortPaths[$date])) $date++;
+			$sortPaths[$date] = $value;
+		}
+		
+		if($newest) {
+			krsort($sortPaths);
+		} else {
+			ksort($sortPaths);
+		}
+		
+		return $sortPaths;
+	}
+
+	/**
+	 * Get history which includes entries not actually in pages_paths table reflecting changes to parents
+	 * 
+	 * @param Page $page
+	 * @param string|array $path
+	 * @param array $options
+	 *
+	 * @return array
+	 * 
+	 */
+	protected function getVirtualHistory(Page $page, $path, array $options) {
+		
+		$paths = array();
+		$checkParents = array();
+		
+		if(is_array($path)) {
+			// path is verbose info
+			$pathInfo = $path;
+			$path = $pathInfo['path'];
+		} else {
+			// path is string
+			$pathInfo = array('path');
+		}
+	
+		// separate page name and parent path
+		$parts = explode('/', trim($path, '/'));
+		$pageName = array_pop($parts);
+		$parentPath = implode('/', $parts);
+	
+		// if page’s current parent is not homepage, include it 
+		if($page->parent_id > 1) {
+			$checkParents[] = $page->parent;
+		}
+
+		// if historical parent path differs from page’s current parent path, include it
+		if($parentPath !== '/' && $parentPath != $page->parent()->path()) {
+			$parent = $this->wire('pages')->get("/$parentPath");
+			if(!$parent->id) $parent = $this->getPage($parentPath);
+			// if parent from path is different from current page parent, include in our list of parents to check
+			if($parent->id > 1 && $parent->id != $page->parent_id) {
+				$checkParents[] = $parent;
+			}
+		}
+
+		// get paths for each parent 
+		foreach($checkParents as $parent) {
+			$parentPaths = $this->getVirtualHistoryParent($page, $pageName, $pathInfo, $parent, $options);
+			foreach($parentPaths as $parentPath => $parentInfo) {
+				if(!isset($paths[$parentPath])) {
+					$paths[$parentPath] = $parentInfo;
+				}
+			}
+		}
+		
+		return $paths;
+	}
+
+	/**
+	 * Get virtual history for page in context of a specific parent (companion to getVirtualHistory method)
+	 * 
+	 * @param Page $page
+	 * @param string $pageName Historical name (or same as page->name)
+	 * @param array|string $pagePathInfo Path or pathInfo array
+	 * @param Page $parent
+	 * @param array $options
+	 * @return array
+	 * 
+	 */
+	protected function getVirtualHistoryParent(Page $page, $pageName, array $pagePathInfo, Page $parent, array $options) {
+		
+		$paths = array();
+		
+		// get path history for this parent
+		$parentPaths = $this->getPathHistory($parent, $options);
+
+		// pageNamesDates is array of name => timestamp
+		$pageNamesDates = array(
+			$pageName => isset($pagePathInfo['date']) ? strtotime($pagePathInfo['date']) : 0
+		);
+
+		// if historical name differs from current name, include current name in pageNamesDates
+		if($page->name != $pageName) {
+			$pageNamesDates[$page->name] = $page->modified;
+		}
+
+		// iterate through each of the names this page has had, along with the date that it was changed to it
+		foreach($pageNamesDates as $name => $date) {
+
+			// iterate through all possible parent paths
+			foreach($parentPaths as $parentPathInfo) {
+
+				$parentPath = $options['verbose'] ? $parentPathInfo['path'] : $parentPathInfo;
+
+				// create path that is historical parent path plus current iteration of page name
+				$path = $parentPath . '/' . $name;
+
+				// if we've already got this path, skip it
+				if(isset($paths[$path])) continue;
+
+				// non-verbose mode only includes paths
+				if(empty($options['verbose'])) {
+					$paths[$path] = $path;
+					continue;
+				}
+				
+				// if parent change date is older than page change date, then we can skip it
+				if(strtotime($parentPathInfo['date']) < $date) continue;
+				
+				// $path .= " $parentInfo[date] | $pathInfo[date]";
+				
+				// create verbose info for this entry
+				$pathInfo = array(
+					'path' => $path,
+					'date' => $parentPathInfo['date'],
+					'virtual' => $parent->id
+				);
+				
+				// if parent is specific to a language, include that info in the verbose value
+				if(isset($parentPathInfo['language'])) {
+					$pathInfo['language'] = $parentPathInfo['language'];
+				}
+				
+				$paths[$path] = $pathInfo;
+			}
 		}
 		
 		return $paths;
@@ -445,6 +676,53 @@ class PagePathHistory extends WireData implements Module {
 		$query = $database->prepare("DELETE FROM " . self::dbTableName . " WHERE pages_id=:pages_id"); 
 		$query->bindValue(":pages_id", $page->id, \PDO::PARAM_INT);
 		$query->execute();
+	}
+
+	/**
+	 * Implementation for $page->addUrl($url, [$language]) method
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookPageAddUrl(HookEvent $event) {
+		/** @var Page $page */
+		$page = $event->object; 
+		/** @var string $url */
+		$url = $event->arguments(0);
+		/** @var Language|null $language */
+		$language = $event->arguments(1);
+		$event->return = $this->addPathHistory($page, $this->urlToPath($url), $language); 
+	}
+	
+	/**
+	 * Implementation for $page->removeUrl($url, [$language]) method
+	 *
+	 * @param HookEvent $event
+	 *
+	 */
+	public function hookPageRemoveUrl(HookEvent $event) {
+		/** @var page $page */
+		$page = $event->object;
+		/** @var string $url */
+		$url = $event->arguments(0);
+		$event->return = (bool) $this->deletePathHistory($page, $this->urlToPath($url));
+	}
+
+	/**
+	 * Given URL that may include a root subdirectory, convert it to path relative to root subdirectory
+	 * 
+	 * @param string $url
+	 * @return string
+	 * 
+	 */
+	protected function urlToPath($url) {
+		$rootUrl = $this->wire('config')->urls->root;
+		if(strlen($rootUrl) > 1 && strpos($url, $rootUrl) === 0) {
+			$path = substr($url, strlen($rootUrl) - 1);
+		} else {
+			$path = $url;
+		}
+		return $path;
 	}
 
 	/**

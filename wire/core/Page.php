@@ -32,7 +32,7 @@
  * @property string $title The page’s title (headline) text
  * @property string $path The page’s URL path from the homepage (i.e. /about/staff/ryan/) 
  * @property string $url The page’s URL path from the server's document root
- * @property array $urls All URLs the page is accessible from, whether current, former and multi-language. #pw-advanced
+ * @property array $urls All URLs the page is accessible from, whether current, former and multi-language. #pw-group-urls
  * @property string $httpUrl Same as $page->url, except includes scheme (http or https) and hostname.
  * @property Page|string|int $parent The parent Page object or a NullPage if there is no parent. For assignment, you may also use the parent path (string) or id (integer). #pw-group-traversal
  * @property Page|null $parentPrevious Previous parent, if parent was changed. #pw-group-traversal
@@ -47,6 +47,7 @@
  * @property int $hasChildren The number of visible children this page has. Excludes unpublished, no-access, hidden, etc. #pw-group-traversal
  * @property int $numVisibleChildren Verbose alias of $hasChildren #pw-internal
  * @property int $numDescendants Number of descendants (quantity of children, and their children, and so on). @since 3.0.116 #pw-group-traversal
+ * @property int $numParents Number of parent pages (i.e. depth) @since 3.0.117 #pw-group-traversal
  * @property PageArray $children All the children of this page. Returns a PageArray. See also $page->children($selector). #pw-group-traversal
  * @property Page|NullPage $child The first child of this page. Returns a Page. See also $page->child($selector). #pw-group-traversal
  * @property PageArray $siblings All the sibling pages of this page. Returns a PageArray. See also $page->siblings($selector). #pw-group-traversal
@@ -72,7 +73,7 @@
  * @property int|null $statusPrevious Previous status, if status was changed. #pw-group-status
  * @property string statusStr Returns space-separated string of status names active on this page. #pw-group-status
  * @property Fieldgroup $fieldgroup Fieldgroup used by page template. Shorter alias for $page->template->fieldgroup (same as $page->fields) #pw-advanced
- * @property string $editUrl URL that this page can be edited at. #pw-group-advanced
+ * @property string $editUrl URL that this page can be edited at. #pw-group-urls
  * @property string $editURL Alias of $editUrl. #pw-internal
  * @property PageRender $render May be used for field markup rendering like $page->render->title. #pw-advanced
  * @property bool $loaderCache Whether or not pages loaded as a result of this one may be cached by PagesLoaderCache. #pw-internal
@@ -113,7 +114,13 @@
  * @property bool $moveable #pw-group-access
  * @property bool $sortable #pw-group-access
  * @property bool $listable #pw-group-access
- *
+ * 
+ * Methods added by PagePathHistory.module (installed by default)
+ * --------------------------------------------------------------
+ * @method bool addUrl($url, $language = null) Add a new URL that redirects to this page and save immediately (returns false if already taken). #pw-group-urls #pw-group-manipulation
+ * @method bool removeUrl($url) Remove a URL that redirects to this page and save immediately. #pw-group-urls #pw-group-manipulation
+ * Note: you can use the $page->urls() method to get URLs added by PagePathHistory.
+ * 
  * Methods added by LanguageSupport.module (not installed by default) 
  * -----------------------------------------------------------------
  * @method Page setLanguageValue($language, $field, $value) Set value for field in language (requires LanguageSupport module). $language may be ID, language name or Language object. Field should be field name (string). #pw-group-languages
@@ -122,9 +129,9 @@
  * Methods added by LanguageSupportPageNames.module (not installed by default)
  * ---------------------------------------------------------------------------
  * @method string localName($language = null, $useDefaultWhenEmpty = false) Return the page name in the current user’s language, or specify $language argument (Language object, name, or ID), or TRUE to use default page name when blank (instead of 2nd argument). #pw-group-languages
- * @method string localPath($language = null) Return the page path in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages
- * @method string localUrl($language = null) Return the page URL in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages
- * @method string localHttpUrl($language = null) Return the page URL (including scheme and hostname) in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages
+ * @method string localPath($language = null) Return the page path in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages #pw-group-urls
+ * @method string localUrl($language = null) Return the page URL in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages #pw-group-urls
+ * @method string localHttpUrl($language = null) Return the page URL (including scheme and hostname) in the current user's language, or specify $language argument (Language object, name, or ID). #pw-group-languages #pw-group-urls
  * 
  * Methods added by ProDrafts.module (if installed)
  * ------------------------------------------------
@@ -2851,6 +2858,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-hookable
 	 * #pw-group-common
+	 * #pw-group-urls
 	 * 
 	 * ~~~~~
 	 * // Difference between path and url on site running from subdirectory /my-site/
@@ -2976,6 +2984,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * ]);
 	 * ~~~~~
 	 * 
+	 * #pw-group-common
+	 * #pw-group-urls
+	 * 
 	 * @param array|int|string|bool|Language|null $options Optionally specify options to modify default behavior (see method description). 
 	 * @return string Returns page URL, for example: `/my-site/about/contact/`
 	 * @see Page::path(), Page::httpUrl(), Page::editUrl(), Page::localUrl()
@@ -3002,7 +3013,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - If PagePathHistory core module is not installed then past/historical URLs are excluded. 
 	 * - You can disable past/historical or multi-language URLs by using the $options argument. 
 	 * 
-	 * #pw-advanced
+	 * #pw-group-urls
 	 * 
 	 * @param array $options Options to modify default behavior:
 	 *  - `http` (bool): Make URLs include current scheme and hostname (default=false). 
@@ -3012,6 +3023,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *     Note: the `languages` option must be true if using the `language` option.
 	 * @return array
 	 * @since 3.0.107
+	 * @see Page::addUrl(), page::removeUrl()
 	 * 
 	 */
 	public function urls($options = array()) {
@@ -3033,6 +3045,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * // Generating a link to this page using httpUrl
 	 * echo "<a href='$page->httpUrl'>$page->title</a>"; 
 	 * ~~~~~
+	 * 
+	 * #pw-group-common
+	 * #pw-group-urls
 	 *
 	 * @param array $options For details on usage see `Page::url()` options argument. 
 	 * @return string Returns full URL to page, for example: `https://processwire.com/about/`
@@ -3072,7 +3087,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * }
 	 * ~~~~~~
 	 * 
-	 * #pw-group-advanced
+	 * #pw-group-urls
 	 * 
 	 * @param array|bool $options Specify boolean true to force URL to include scheme and hostname, or use $options array:
 	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
