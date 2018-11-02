@@ -449,8 +449,11 @@ class PagePathHistory extends WireData implements Module {
 				
 				// if parent change date is older than page change date, then we can skip it
 				if(strtotime($parentPathInfo['date']) < $date) continue;
-				
-				// $path .= " $parentInfo[date] | $pathInfo[date]";
+			
+				// if path is related to trash do not include it
+				if(strpos($path, '/trash/') === 0 || preg_match('!/\d+\.\d+\.\d+_[-_a-z0-9]+!', $path)) {
+					continue;
+				}
 				
 				// create verbose info for this entry
 				$pathInfo = array(

@@ -72,7 +72,7 @@
  * @method string executeConfig() ListerPro
  * @method string executeActions() ListerPro
  * @method string executeSave() ListerPro
- * @method string renderExtraTabs() #pw-hooker
+ * @method string renderedExtras($markup) #pw-hooker
  * 
  * 
  * @todo make system fields hookable for output like markupValue is for custom fields
@@ -513,9 +513,24 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			return $this; 
 		} else if($key == 'parent' && !$value instanceof Page) {
 			$value = $this->wire('pages')->get($value); 
+		} else if($key === 'finalSelector') {
+			$this->finalSelector = $value;
 		}
 		return parent::set($key, $value);
 	}
+
+	/**
+	 * Get a Lister setting
+	 * 
+	 * @param string $key
+	 * @return mixed|string
+	 * 
+	 */
+	public function get($key) {
+		if($key === 'finalSelector') return $this->finalSelector;
+		return parent::get($key);
+	}
+
 
 	/**
 	 * Set a Lister session variable
@@ -1833,22 +1848,23 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$resetLabel = $this->_('Reset filters and columns to default'); 
 		$out = "<div id='ProcessListerRefreshTab' title='$refreshLabel' class='WireTab WireTabTip'></div>";
 		$out .= "<div id='ProcessListerResetTab' title='$resetLabel' class='WireTab WireTabTip'></div>";
-		$out .= $this->renderExtraTabs();
+		$out = $this->renderedExtras($out);
 		return $out; 
 	}
 
 	/**
-	 * Optionally hook this if you want to add additional tabs
+	 * Called when extra tabs markup has been rendered
 	 * 
-	 * See renderExtras() method above for examples.
+	 * Optionally hook this if you want to modify or add additional tabs markup returned by renderExtras()
 	 * 
 	 * #pw-hooker
 	 *
-	 * @return string Markup for extra tabs
+	 * @param string $markup Existing tab markup already rendered
+	 * @return string Contents of the $markup variable optionally prepended/appended with additional tab markup
 	 * 
 	 */
-	public function ___renderExtraTabs() {
-		return '';
+	public function ___renderedExtras($markup) {
+		return $markup;
 	}
 
 	/**
@@ -2019,7 +2035,6 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		
 		return parent::___executeNavJSON($options);
 	}
-	
 
 
 	/**
