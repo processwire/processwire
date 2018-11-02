@@ -613,7 +613,7 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$f->addOption(3, 'Option 3');
 		$f->columnWidth = 25;
 		$fieldset->add($f);
-	
+
 		/** @var InputfieldCheckbox $f */
 		$f = $modules->get('InputfieldCheckbox');
 		$f->attr('name', 'test_checkbox');

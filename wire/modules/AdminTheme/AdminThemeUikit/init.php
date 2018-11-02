@@ -65,7 +65,7 @@ $config->set('LanguageTabs', array(
 	'ulClass' => '',
 	'ulAttrs' => 'uk-tab',
 	'liActiveClass' => 'uk-active',
-	'liDisabledClass' => 'uk-disabled',
+	'liDisabledClass' => '',
 	'liEmptyClass' => '',
 	'aClass' => '',
 ));
