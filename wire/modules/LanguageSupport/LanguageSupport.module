@@ -486,8 +486,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$inputfield = $event->object;
 		$replace = false; 
 		
-		if($inputfield->getSetting('useLanguages')) {
-			// native multi-language field
+		if($inputfield->getSetting('useLanguages') || $inputfield->getSetting('hasLanguages')) { 
+			// multi-language field
 			$this->hookInputfieldBeforeRender($event); // ensures default language values are populated
 			if(!$this->wire('languages')->editable($this->defaultLanguagePage)) $replace = true; 
 			

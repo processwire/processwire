@@ -969,22 +969,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$this->addTab($id, $title);
 
 		if($this->page->template->nameContentTab) {
-			// name
-			/** @var InputfieldPageName $field */
-			$field = $this->modules->get('InputfieldPageName');
-			$label = $this->page->template->getNameLabel();
-			if($label) $field->label = $label;
-			$field->attr('name', '_pw_page_name');
-			$field->attr('value', $this->page->name);
-			$field->required = $this->page->id != 1 && !$this->page->hasStatus(Page::statusTemp);
-			$field->slashUrls = $this->page->template->slashUrls;
-			if(!$this->page->editable('name', false)) {
-				$field->attr('disabled', 'disabled');
-				$field->required = false;
-			}
-			$field->editPage = $this->page;
-			if($this->page->parent) $field->parentPage = $this->page->parent;
-			$fields->prepend($field);
+			$fields->prepend($this->buildFormPageName());
 		}
 
 		return $fields;
@@ -1129,7 +1114,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function ___buildFormSettings() {
+		
+		$superuser = $this->wire('user')->isSuperuser();
 
+		/** @var InputfieldWrapper $wrapper */
 		$wrapper = $this->wire(new InputfieldWrapper());
 		$id = $this->className() . 'Settings';
 		$title = $this->_('Settings'); // Tab Label: Settings
@@ -1139,104 +1127,170 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		// name
 		if(($this->page->id > 1 || $this->hasLanguagePageNames) && !$this->page->template->nameContentTab) {
-			/** @var InputfieldPageName $field */
-			$field = $this->modules->get('InputfieldPageName');
-			$label = $this->page->template->getNameLabel();
-			if($label) $field->label = $label;
-			$field->attr('value', $this->page->name); 
-			$field->attr('name', '_pw_page_name');
-			$field->slashUrls = $this->page->template->slashUrls;
-			$field->required = $this->page->id != 1 && !$this->page->hasStatus(Page::statusTemp);
-			if(!$this->page->editable('name', false)) {
-				$field->attr('disabled', 'disabled'); 
-				$field->required = false;
-			}
-			$field->editPage = $this->page;
-			if($this->page->parent) $field->parentPage = $this->page->parent;
-			$wrapper->prepend($field); 
+			$wrapper->prepend($this->buildFormPageName()); 
 		}
 
 		// template
-		if($this->page->editable('template', false)) { 
-
-			$languages = $this->wire('languages');
-			$language = $this->user->language; 
-
-			/** @var InputfieldSelect $field */
-			$field = $this->modules->get('InputfieldSelect');
-			$field->attr('id+name', 'template'); 
-			$field->attr('value', $this->page->template->id); 
-			$field->required = true; 
-
-			foreach($this->getAllowedTemplates() as $template) {
-				/** @var Template $template */
-				$label = '';
-				if($languages && $language) $label = $template->get('label' . $language->id); 
-				if(!$label) $label = $template->label ? $template->label : $template->name;
-				$field->addOption($template->id, $label); 
-			}
-		} else {
-			$field = $this->modules->get('InputfieldMarkup');
-			$field->attr('value', "<p>" . $this->page->template->getLabel() . "</p>"); 
-		}
-		$field->label = $this->_('Template'); // Settings: Template field label
-		$field->icon = 'cubes';
-		$wrapper->add($field); 
+		$wrapper->add($this->buildFormTemplate()); 
 
 		// parent
 		if($this->page->id > 1 && $this->page->editable('parent', false)) {
-			// @todo also use predefined parents when page is limited to only certain parents (template family settings)
-			if(count($this->predefinedParents)) {
-				$field = $this->modules->get('InputfieldSelect'); 
-				foreach($this->predefinedParents as $p) {
-					$field->addOption($p->id, $p->path); 
-				}
-			} else {
-				/** @var InputfieldPageListSelect $field */
-				$field = $this->modules->get('InputfieldPageListSelect');
-				$field->set('parent_id', 0);
-				if(!empty($this->configSettings['ajaxParent'])) $field->collapsed = Inputfield::collapsedYesAjax;
-			}
-			$field->required = true;
-			$field->label = $this->_('Parent'); // Settings: Parent field label
-			$field->icon = 'folder-open-o';
-			$field->attr('id+name', 'parent_id');
-			$field->attr('value', $this->page->parent_id);
-			$wrapper->add($field); 
+			$wrapper->add($this->buildFormParent()); 
 		}
 
 		// createdUser
-		if($this->page->id && $this->user->isSuperuser() && $this->page->template->allowChangeUser) {
-			/** @var InputfieldPageListSelect $field */
-			$field = $this->modules->get('InputfieldPageListSelect');
-			$field->label = $this->_('Created by User');
-			$field->attr('id+name', 'created_users_id'); 
-			$field->attr('value', $this->page->created_users_id);
-			$field->parent_id = $this->config->usersPageID; // @todo support $config->usersPageIDs (array)
-			$field->showPath = false; 
-			$field->required = true; 
-			$wrapper->add($field);
+		if($this->page->id && $superuser && $this->page->template->allowChangeUser) {
+			$wrapper->add($this->buildFormCreatedUser());
 		}
 
 		// status
 		$wrapper->add($this->buildFormStatus()); 
 
-		// informational sections
+		// roles and references
 		if(!$this->isPost) {
+			// what users may access this page
 			$wrapper->add($this->buildFormRoles());
+			// what pages link tot his page
 			$wrapper->add($this->buildFormReferences());
 		}
-	
-		if($this->wire('user')->isSuperuser()) {
+
+		// page path history (previous URLs)
+		if($superuser) {
 			$f = $this->buildFormPrevPaths();
 			if($f) $wrapper->add($f);
 		}
-		
+	
+		// information about created and modified user and time
 		if(!$this->isPost) {
 			$wrapper->add($this->buildFormInfo());
 		}
 		
 		return $wrapper; 
+	}
+
+	/**
+	 * Build the page name input
+	 *
+	 * @return InputfieldPageName
+	 *
+	 */
+	protected function buildFormPageName() {
+
+		/** @var InputfieldPageName $field */
+		$field = $this->modules->get('InputfieldPageName');
+		$field->attr('name', '_pw_page_name');
+		$field->attr('value', $this->page->name);
+		$field->slashUrls = $this->page->template->slashUrls;
+		$field->required = $this->page->id != 1 && !$this->page->hasStatus(Page::statusTemp);
+
+		$label = $this->page->template->getNameLabel();
+		if($label) $field->label = $label;
+
+		if(!$this->page->editable('name', false)) {
+			$field->attr('disabled', 'disabled');
+			$field->required = false;
+		}
+
+		if($this->hasLanguagePageNames) {
+			// Using 'hasLanguages' as opposed to 'useLanguages' for different support from LanguageSupportPageNames
+			$field->setQuietly('hasLanguages', true);
+		}
+
+		$field->editPage = $this->page;
+		if($this->page->parent) $field->parentPage = $this->page->parent;
+
+		return $field;
+	}
+
+	/**
+	 * Build the template selection field
+	 *
+	 * @return InputfieldMarkup|InputfieldSelect
+	 *
+	 */
+	protected function buildFormTemplate() {
+
+		if($this->page->editable('template', false)) {
+			/** @var Languages $languages */
+			$languages = $this->wire('languages');
+			/** @var Language $language */
+			$language = $this->user->language;
+
+			/** @var InputfieldSelect $field */
+			$field = $this->modules->get('InputfieldSelect');
+			$field->attr('id+name', 'template');
+			$field->attr('value', $this->page->template->id);
+			$field->required = true;
+
+			foreach($this->getAllowedTemplates() as $template) {
+				/** @var Template $template */
+				$label = '';
+				if($languages && $language) $label = $template->get('label' . $language->id);
+				if(!$label) $label = $template->label ? $template->label : $template->name;
+				$field->addOption($template->id, $label);
+			}
+		} else {
+			/** @var InputfieldMarkup $field */
+			$field = $this->modules->get('InputfieldMarkup');
+			$field->attr('value', "<p>" . $this->page->template->getLabel() . "</p>");
+		}
+
+		$field->label = $this->_('Template'); // Settings: Template field label
+		$field->icon = 'cubes';
+
+		return $field;
+	}
+
+	/**
+	 * Build the parent selection Inputfield
+	 *
+	 * @return InputfieldPageListSelect|InputfieldSelect
+	 *
+	 */
+	protected function buildFormParent() {
+
+		if(count($this->predefinedParents)) {
+			/** @var InputfieldSelect $field */
+			$field = $this->modules->get('InputfieldSelect');
+			foreach($this->predefinedParents as $p) {
+				$field->addOption($p->id, $p->path);
+			}
+
+		} else {
+			/** @var InputfieldPageListSelect $field */
+			$field = $this->modules->get('InputfieldPageListSelect');
+			$field->set('parent_id', 0);
+			if(!empty($this->configSettings['ajaxParent'])) {
+				$field->collapsed = Inputfield::collapsedYesAjax;
+			}
+		}
+
+		$field->required = true;
+		$field->label = $this->_('Parent'); // Settings: Parent field label
+		$field->icon = 'folder-open-o';
+		$field->attr('id+name', 'parent_id');
+		$field->attr('value', $this->page->parent_id);
+
+		return $field;
+	}
+
+	/**
+	 * Build the created user selection
+	 *
+	 * @return InputfieldPageListSelect
+	 *
+	 */
+	protected function buildFormCreatedUser() {
+		/** @var InputfieldPageListSelect $field */
+		$field = $this->modules->get('InputfieldPageListSelect');
+		$field->label = $this->_('Created by User');
+		$field->attr('id+name', 'created_users_id');
+		$field->attr('value', $this->page->created_users_id);
+		$field->parent_id = $this->config->usersPageID; // @todo support $config->usersPageIDs (array)
+		$field->showPath = false;
+		$field->required = true;
+
+		return $field;
 	}
 	
 	/**
