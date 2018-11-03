@@ -40,6 +40,13 @@ $ukGridWidths = array(
 $config->set('inputfieldColumnWidthSpacing', 0); 
 $config->js('ukGridWidths', $ukGridWidths);
 
+$roles = array();
+foreach ($this->user->roles as $role) {
+	array_push($roles, $role->name);
+}
+$config->js('roles', $roles);
+$config->js('user', $this->user->name);
+
 $config->set('InputfieldForm', array(
 	'useOffset' => false, // must be false to support configuration per-field
 	'useBorders' => true, // must be true to support configuration per-field
