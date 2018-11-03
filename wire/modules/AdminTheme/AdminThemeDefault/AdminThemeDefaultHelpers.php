@@ -563,6 +563,13 @@ class AdminThemeDefaultHelpers extends WireData {
 			'adminTemplates' => $config->urls->adminTemplates,
 			); 
 
+		$roles = array();
+		foreach ($this->user->roles as $role) {
+			array_push($roles, $role->name);
+		}
+		$jsConfig['roles'] = $roles;
+		$jsConfig['user'] = $this->user->name;
+		
 		$out = 
 			"var ProcessWire = { config: " . wireEncodeJSON($jsConfig, true, $config->debug) . " }; " . 
 			"var config = ProcessWire.config; "; // legacy support
