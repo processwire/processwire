@@ -40,7 +40,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * Makes it use runtime/temporary compiled CSS files rather than the final ones. 
 	 *
 	 */
-	const dev = true;
+	const dev = false;
 
 	/**
 	 * Default logo image file (relative to this dir)
