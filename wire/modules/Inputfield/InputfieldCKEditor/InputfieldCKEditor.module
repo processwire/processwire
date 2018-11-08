@@ -291,7 +291,11 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		
 		$extraPlugins = $this->extraPlugins;
 		$imagesField = $this->getImagesFieldName($assetPage);
-		if($imagesField) $extraPlugins[] = 'uploadimage';
+		
+		if($imagesField) {
+			$extraPlugins[] = 'uploadimage';
+			$this->addClass('InputfieldHasUpload', 'wrapClass'); 
+		}
 
 		$settings = array(
 			'baseHref' => $config->urls->root,

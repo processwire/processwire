@@ -1319,6 +1319,14 @@ function InputfieldStates($target) {
 	$(document).on('submit', '.InputfieldFormConfirm', function() {
 		$(this).addClass('InputfieldFormSubmitted');
 	});
+
+	// open Inputfields supporting uploads when file dragged in, per @Toutouwai #242
+	$(document).on('dragenter', '.InputfieldHasUpload.InputfieldStateCollapsed', function(e) {
+		var dt = e.originalEvent.dataTransfer;
+		if(dt.types && (dt.types.indexOf ? dt.types.indexOf('Files') !== -1 : dt.types.contains('Files'))) {
+			InputfieldOpen($(this));
+		}
+	});
 	
 	window.addEventListener("beforeunload", InputfieldFormBeforeUnloadEvent);
 }

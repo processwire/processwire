@@ -594,6 +594,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 		$this->addClass('InputfieldNoFocus', 'wrapClass');
+		if(!$renderValueMode) $this->addClass('InputfieldHasUpload', 'wrapClass');
 		
 		if($this->useTags) {
 			$this->wire('modules')->get('JqueryUI')->use('selectize');
