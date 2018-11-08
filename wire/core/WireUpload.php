@@ -287,7 +287,16 @@ class WireUpload extends Wire {
 		$filename = rawurldecode($filename); // per #1487
 		$dir = $this->getUploadDir();
 		$tmpName = tempnam($dir, wireClassName($this, false));
-		file_put_contents($tmpName, file_get_contents('php://input')); 
+		
+		$inputHandle = fopen("php://input", "rb");
+		$outputHandle = fopen($tmpName, "wb");
+		while(! feof($inputHandle)) {
+			$filedata = fread($inputHandle, 4096 * 1024);
+			fwrite($outputHandle, $filedata);
+		}
+		fclose($outputHandle);
+		fclose($inputHandle);
+		
 		$filesize = is_file($tmpName) ? filesize($tmpName) : 0;
 		$error = $filesize ? UPLOAD_ERR_OK : UPLOAD_ERR_NO_FILE;
 
