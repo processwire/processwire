@@ -287,7 +287,21 @@ class WireUpload extends Wire {
 		$filename = rawurldecode($filename); // per #1487
 		$dir = $this->getUploadDir();
 		$tmpName = tempnam($dir, wireClassName($this, false));
-		file_put_contents($tmpName, file_get_contents('php://input')); 
+	
+		// upload without chunks:
+		// file_put_contents($tmpName, file_get_contents('php://input'));
+	
+		// upload with chunks (via @BitPoet processwire-requests#233)
+		$uploadData = fopen("php://input", "rb");
+		$saveFile = fopen($tmpName, "wb");
+		$chunkSize = 8192 * 1024; // about 8 megabytes
+		while(!feof($uploadData)) {
+			$chunk = fread($uploadData, $chunkSize); 
+			if($chunk !== false) fwrite($saveFile, $chunk);
+		}
+		fclose($saveFile);
+		fclose($uploadData);
+		
 		$filesize = is_file($tmpName) ? filesize($tmpName) : 0;
 		$error = $filesize ? UPLOAD_ERR_OK : UPLOAD_ERR_NO_FILE;
 
