@@ -2373,6 +2373,36 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	}
 
 	/**
+	 * Divide this WireArray into $qty slices and return array of them (each being another WireArray)
+	 * 
+	 * This is not destructive to the original WireArray as it returns new WireArray objects. 
+	 *
+	 * #pw-group-retrieval
+	 * #pw-group-traversal
+	 * 
+	 * @param int $qty Number of slices
+	 * @return array Array of WireArray objects
+	 * 
+	 */
+	public function slices($qty) {
+		$slices = array();
+		if($qty < 1) return $slices;
+		$total = $this->count();
+		$limit = $total ? ceil($total / $qty) : 0;
+		$start = 0;
+		for($n = 0; $n < $qty; $n++) {
+			if($start < $total) {
+				$slice = $this->slice($start, $limit);
+			} else {
+				$slice = $this->makeNew();
+			}
+			$slices[] = $slice;
+			$start += $limit;
+		}
+		return $slices;
+	}
+
+	/**
 	 * Set the current duplicate checking state
 	 * 
 	 * Applies only to non-associative WireArray types. 
