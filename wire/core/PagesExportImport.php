@@ -375,6 +375,8 @@ class PagesExportImport extends Wire {
 			'status' => $page->status,
 			'sort' => $page->sort,
 			'sortfield' => $page->sortfield,
+			'created' => $page->createdStr,
+			'modified' => $page->modifiedStr,
 		);
 
 		// verbose page settings
@@ -382,11 +384,9 @@ class PagesExportImport extends Wire {
 			$settings = array_merge($settings, array(
 				'parent_id' => $page->parent_id,
 				'templates_id' => $page->templates_id,
-				'created' => $page->createdStr,
-				'modified' => $page->modifiedStr,
-				'published' => $page->publishedStr,
 				'created_user' => $page->createdUser->name,
 				'modified_user' => $page->modifiedUser->name,
+				'published' => $page->publishedStr,
 			));
 		}
 		
@@ -557,7 +557,7 @@ class PagesExportImport extends Wire {
 			'changeName' => true, 
 			'changeStatus' => true, 
 			'changeSort' => true, 
-			'saveOptions' => array('adjustName' => true), // options passed to Pages::save
+			'saveOptions' => array('adjustName' => true, 'quiet' => true), // options passed to Pages::save
 			'fieldNames' => array(),  // import only these field names, when specified
 			'replaceFields' => array(), // array of import-data field name to replacement page field name
 			'replaceTemplates' => array(), // array of import-data template name to replacement page template name
@@ -862,6 +862,12 @@ class PagesExportImport extends Wire {
 		if($options['changeSort'] || $isNew) {
 			if($page->sort != $settings['sort']) $page->sort = $settings['sort'];
 			if($page->sortfield != $settings['sortfield']) $page->sortfield = $settings['sortfield'];
+		}
+		
+		foreach(array('created', 'modified', 'published') as $dateType) {
+			if(isset($settings[$dateType])) {
+				$page->set($dateType, strtotime($settings[$dateType]));
+			}
 		}
 
 		if($languages && count($langProperties)) {

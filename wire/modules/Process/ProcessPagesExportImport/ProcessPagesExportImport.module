@@ -283,6 +283,7 @@ class ProcessPagesExportImport extends Process {
 		//   'pages' => array( page import data ), 
 		//   'fields' => array( fields information ), 
 		// );
+		set_time_limit(3600);
 
 		/** @var WireInput $input */
 		$input = $this->wire('input');
@@ -298,7 +299,7 @@ class ProcessPagesExportImport extends Process {
 		$options = array(
 			'update' => $importMode == 'all' || $importMode == 'update',
 			'create' => $importMode == 'all' || $importMode == 'create',
-			'saveOptions' => array('adjustName' => true),
+			'saveOptions' => array('adjustName' => true, 'quiet' => true),
 			'fieldNames' => $fieldNames, 
 			'replaceFields' => isset($a['_replaceFields']) ? $a['_replaceFields'] : array(), 
 			'commit' => $submitCommit,
@@ -1023,6 +1024,8 @@ class ProcessPagesExportImport extends Process {
 		// options_parent: array('parent', 'recursive')
 		// export_fields: array(field names)
 		// export_to: string(zip, json)
+		
+		set_time_limit(3600);
 
 		/** @var Pages $pages */
 		$pages = $this->wire('pages');

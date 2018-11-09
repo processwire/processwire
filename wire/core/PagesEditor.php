@@ -512,7 +512,9 @@ class PagesEditor extends Wire {
 			} else if($isNew) {
 				$sql = 'modified=NOW()';
 			}
-			if(!$isNew && $page->created > 0) $data['created'] = date('Y-m-d H:i:s', $page->created);
+			if($page->created > 0) {
+				$data['created'] = date('Y-m-d H:i:s', $page->created);
+			}
 		}
 
 		if(isset($data['modified_users_id'])) $page->modified_users_id = $data['modified_users_id'];
@@ -531,8 +533,9 @@ class PagesEditor extends Wire {
 
 		$sql = trim($sql, ", ");
 
-		if($isNew) {
-			$query = $database->prepare("INSERT INTO pages SET $sql, created=NOW()");
+		if($isNew) { 
+			if(empty($data['created'])) $sql .= ', created=NOW()';
+			$query = $database->prepare("INSERT INTO pages SET $sql");
 		}  else {
 			$query = $database->prepare("UPDATE pages SET $sql WHERE id=:page_id");
 			$query->bindValue(":page_id", (int) $page->id, \PDO::PARAM_INT);
