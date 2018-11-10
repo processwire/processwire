@@ -400,6 +400,7 @@ $focusPointCircleSize: 40px;
 	&--active,
 	&Single {
 		display: block;
+		z-index: 100;
 	}
 
 	&__inner {
