@@ -1079,13 +1079,19 @@ class Pageimage extends Pagefile {
 	 * 	- `width<=` (int): only variations with width less than or equal to given will be returned
 	 * 	- `height<=` (int): only variations with height less than or equal to given will be returned
 	 * 	- `suffix` (string): only variations having the given suffix will be returned
+	 *  - `suffixes` (array): only variations having one of the given suffixes will be returned
+	 *  - `noSuffix` (string): exclude variations having this suffix
+	 *  - `noSuffixes` (array): exclude variations having any of these suffixes
+	 *  - `name` (string): only variations containing this text in filename will be returned (case insensitive)
+	 *  - `noName` (string): only variations NOT containing this text in filename will be returned (case insensitive)
+	 *  - `regexName` (string): only variations that match this PCRE regex will be returned
 	 * @return Pageimages|array Returns Pageimages array of Pageimage instances. 
 	 *  Only returns regular array if provided `$options['info']` is true.
 	 *
 	 */
 	public function getVariations(array $options = array()) {
 
-		if(!is_null($this->variations)) return $this->variations; 
+		if(!is_null($this->variations) && empty($options)) return $this->variations; 
 		
 		$defaults = array(
 			'info' => false,
@@ -1098,16 +1104,31 @@ class Pageimage extends Pagefile {
 		$dir = new \DirectoryIterator($this->pagefiles->path); 
 		$infos = array();
 
+		// if suffix or noSuffix option contains space, convert it to suffixes or noSuffixes array option
+		foreach(array('suffix', 'noSuffix') as $key) {
+			if(!isset($options[$key])) continue;
+			if(strpos(trim($options['suffix']), ' ') === false) continue;
+			$keyPlural = $key . 'es';
+			$value = isset($options[$keyPlural]) ? $options[$keyPlural] : array();
+			$options[$keyPlural] = array_merge($value, explode(' ', trim($options[$key]))); 
+			unset($options[$key]);
+		}
+
 		foreach($dir as $file) {
+			
 			if($file->isDir() || $file->isDot()) continue; 			
+			
 			$info = $this->isVariation($file->getFilename(), array('verbose' => $options['verbose']));
 			if(!$info) continue; 
+			
 			if($options['info'] && !$options['verbose']) {
 				$infos[] = $info;
 				continue;
 			}
+			
 			$allow = true;
-			if(count($options)) foreach($options as $option => $value) {
+			
+			foreach($options as $option => $value) {
 				switch($option) {
 					case 'width': $allow = $info['width'] == $value; break;
 					case 'width>=': $allow = $info['width'] >= $value; break;
@@ -1115,10 +1136,34 @@ class Pageimage extends Pagefile {
 					case 'height': $allow = $info['height'] == $value; break;
 					case 'height>=': $allow = $info['height'] >= $value; break;
 					case 'height<=': $allow = $info['height'] <= $value; break;
+					case 'name': $allow = stripos($file->getBasename(), $value) !== false; break;
+					case 'noName': $allow = stripos($file->getBasename(), $value) === false; break;
+					case 'regexName': $allow = preg_match($value, $file->getBasename()); break;
 					case 'suffix': $allow = in_array($value, $info['suffix']); break;
+					case 'noSuffix': $allow = !in_array($value, $info['suffix']); break;
+					case 'suffixes':
+						// any one of given suffixes will allow the variation
+						$allow = false;
+						foreach($value as $suffix) {
+							$allow = in_array($suffix, $info['suffix']);
+							if($allow) break;
+						}
+						break;
+					case 'noSuffixes': 
+						// any one of the given suffixes will disallow the variation
+						$allow = true;
+						foreach($value as $noSuffix) {
+							if(!in_array($noSuffix, $info['suffix'])) continue;
+							$allow = false;
+							break;
+						}
+						break;
 				}
+				if(!$allow) break;
 			}
+			
 			if(!$allow) continue; 
+			
 			if(!empty($options['info'])) {
 				$infos[$file->getBasename()] = $info;
 			} else {
@@ -1131,12 +1176,11 @@ class Pageimage extends Pagefile {
 			}
 		}
 
-		if(!empty($options['info'])) {
-			return $infos;
-		} else {
-			$this->variations = $variations;
-			return $variations; 
-		}
+		if(!empty($options['info'])) return $infos;
+		
+		if(empty($options)) $this->variations = $variations;
+		
+		return $variations; 
 	}
 
 	/**
@@ -1469,19 +1513,41 @@ class Pageimage extends Pagefile {
 	 * 
 	 * #pw-group-variations
 	 *
-	 * @return $this
+	 * @param array $options See options for getVariations() method to limit what variations are removed, plus these:
+	 *  - `dryRun` (bool): Do not remove now and instead only return the filenames of variations that would be deleted (default=false).
+	 *  - `getFiles` (bool): Return deleted filenames? Also assumed if the test option is used (default=false). 
+	 * @return $this|array Returns $this by default, or array of deleted filenames if the `returnFiles` option is specified
 	 *
 	 */
-	public function removeVariations() {
+	public function removeVariations(array $options = array()) {
+		
+		$defaults = array(
+			'dryRun' => false,
+			'getFiles' => false
+		);
 
-		$variations = $this->getVariations();	
+		$variations = $this->getVariations($options);
+		if(!empty($options['dryrun'])) $defaults['dryRun'] = $options['dryrun']; // case insurance
+		$options = array_merge($defaults, $options); // placement after getVariations() intended
+		$deletedFiles = array();
+		
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
 
 		foreach($variations as $variation) {
-			if(is_file($variation->filename)) $this->wire('files')->unlink($variation->filename, true);
+			$filename = $variation->filename;
+			if(!is_file($filename)) continue;
+			if($options['dryRun']) {
+				$success = true;
+			} else {
+				$success = $files->unlink($filename, true);
+			}
+			if($success) $deletedFiles[] = $filename;
 		}
 
-		$this->variations = null;
-		return $this;	
+		if(!$options['dryRun']) $this->variations = null;
+		
+		return ($options['dryRun'] || $options['getFiles'] ? $deletedFiles : $this);
 	}
 
 	/**
