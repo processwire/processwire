@@ -139,6 +139,30 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 	}
 
 	/**
+	 * Is there a next pagination containing more items in this PaginatedArray after the current one?
+	 * 
+	 * #pw-group-other
+	 * 
+	 * @return int
+	 * 
+	 */
+	public function hasNext() {
+		return $this->getStart() + $this->count() < $this->getTotal();
+	}
+
+	/**
+	 * Is there a previous pagination before the current one?
+	 * 
+	 * #pw-group-other
+	 * 
+	 * @return bool
+	 * 
+	 */
+	public function hasPrev() {
+		return $this->getStart() > 0;
+	}
+
+	/**
 	 * Get a property of the PageArray
 	 *
 	 * These map to functions from the array and are here for convenience.
