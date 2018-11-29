@@ -128,6 +128,15 @@ class FieldtypeFloat extends Fieldtype {
 		$f->label = $this->_('Number of decimal digits to round to');
 		$f->attr('value', $field->precision); 
 		$f->attr('size', 8); 
+		$f->description = $this->_('There is also a Decimal Fieldtype for ProcessWire, see here:')
+			."\n[https://processwire.com/talk/topic/7542-development-fieldtypefloat-fieldtypedecimal/](https://processwire.com/talk/topic/7542-development-fieldtypefloat-fieldtypedecimal/)"
+			."\n[https://github.com/processwire/processwire-requests/issues/126](https://github.com/processwire/processwire-requests/issues/126)"
+			."\n[https://github.com/arjenblokzijl/FieldtypeDecimal](https://github.com/arjenblokzijl/FieldtypeDecimal)"
+			;
+		$f->notes = "float a = 0.15 + 0.15".
+			"\nfloat b = 0.1 + 0.2".
+			"\nif(a == b) // can be false!".
+			"\nif(a >= b) // can also be false!";
 		$inputfields->append($f);
 		
 		$f = $this->wire('modules')->get('FieldtypeInteger')->___getConfigInputfields($field)->getChildByName('zeroNotEmpty'); 
