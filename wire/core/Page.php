@@ -1177,7 +1177,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * @param string|int|Field $field
 	 * @return Field|null
-	 * @throws WireException if given invalid argument
 	 * @todo determine if we can always retrieve in context regardless of output formatting.
 	 * 
 	 */
@@ -2575,27 +2574,30 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function save($field = null, array $options = array()) {
+		
 		if(is_array($field) && empty($options)) {
 			$options = $field;
 			$field = null;
 		}
-		if(!is_null($field)) {
-			if($this->hasField($field)) {
-				return $this->wire('pages')->saveField($this, $field, $options);
-			} else if(is_string($field) && (isset($this->settings[$field]) || parent::get($field) !== null)) {
-				$options['noFields'] = true; 	
-				return $this->wire('pages')->save($this, $options);
-			} else {
-				return false;
-			}
+		
+		if(empty($field)) {
+			return $this->wire('pages')->save($this, $options);
 		}
+		
+		if($this->hasField($field)) {
+			// save field
+			return $this->wire('pages')->saveField($this, $field, $options);
+		}
+
+		// save only native properties
+		$options['noFields'] = true; 
 		return $this->wire('pages')->save($this, $options);
 	}
 	
 	/**
 	 * Quickly set field value(s) and save to database 
 	 * 
-	 * You can specify a single vield and value, or an array of fields and values. 
+	 * You can specify a single field and value, or an array of fields and values. 
 	 *
 	 * This method does not need output formatting to be turned off first, so make sure that whatever
 	 * value(s) you set are not formatted values.
@@ -3935,7 +3937,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * Return a Page helper class instance that's common among all Page objects in this ProcessWire instance
 	 * 
 	 * @param $className
-	 * @return object
+	 * @return object|PageComparison|PageAccess|PageTraversal
 	 * 
 	 */
 	protected function getHelperInstance($className) {
@@ -4019,7 +4021,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-internal
 	 * 
 	 * @param PageArray|bool|null $items Traversal pages (PageArray), boolean false to unset, or omit to get. 
-	 * @throws WireException if given $siblings that do not include $this page. 
 	 * @return PageArray|null
 	 * @since 3.0.116
 	 * 
@@ -4125,7 +4126,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @param string $method The $pages API method to call (get, find, findOne, or count)
 	 * @param string|int $selector The selector argument of the $pages call
 	 * @param array $options Any additional options (see Pages::find for options). 
-	 * @return Pages|Page|PageArray|NullPage
+	 * @return Pages|Page|PageArray|NullPage|int
 	 * @throws WireException
 	 * 
 	 */
