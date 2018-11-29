@@ -276,7 +276,7 @@ class WireTempDir extends Wire {
 			}
 		}
 
-		if(!$numSubdirs) {
+		if(!$numSubdirs && $path != $this->classRoot && $this->isTempDir($path)) {
 			// if no subdirectories, we can remove the root
 			if($this->rmdir($path, true)) {
 				$success = true;
@@ -381,10 +381,13 @@ class WireTempDir extends Wire {
 	 * 
 	 */
 	protected function isTempDir($dir) {
+		$files = $this->wire('files');
 		if(!strlen($dir) || !is_dir($dir)) {
 			// if given a non-directory return false
 			return false;
-		} else if($this->classRoot && $this->wire('files')->fileInPath($dir, $this->classRoot)) {
+		}
+		if($this->classRoot && $files->fileInPath($dir, $this->classRoot)) {
+			// dir is within classRoot path
 			return true;
 		}
 		return false;
