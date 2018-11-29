@@ -44,7 +44,7 @@ abstract class ProcessPageListRender extends Wire {
 			'restore' => $this->_('Restore'), // Restore from trash action
 		);
 		require_once(dirname(__FILE__) . '/ProcessPageListActions.php');
-		$this->actions = $this->wire(new ProcessPageListActions($this));
+		$this->actions = $this->wire(new ProcessPageListActions());
 		$this->actions->setActionLabels($this->actionLabels);
 	}
 	
@@ -102,13 +102,14 @@ abstract class ProcessPageListRender extends Wire {
 	 *
 	 * @param Page $page
 	 * @param array $options
+	 *  - `noTags` (bool): If true, HTML will be excluded [other than for icon] in returned text value (default=false)
+	 *  - `noIcon` (bool): If true, icon markup will be excluded from returned value (default=false)
 	 * @return string
 	 *
 	 */
 	public function ___getPageLabel(Page $page, array $options = array()) {
 
 		$value = '';
-		$icon = empty($options['noTags']) ? $page->getIcon() : '';
 
 		if(strpos($this->pageLabelField, '!') === 0) {
 			// exclamation forces this one to be used, rather than template-specific one
@@ -124,9 +125,10 @@ abstract class ProcessPageListRender extends Wire {
 		$bracket1 = strpos($pageLabelField, '{'); 
 		
 		if($bracket1 !== false && $bracket1 < strpos($pageLabelField, '}')) {
-	
 			// predefined format string
+			$icon = $page->getIcon();
 			if($icon) $pageLabelField = str_replace(array("fa-$icon", "icon-$icon", "  "), array('', '', ' '), $pageLabelField);
+			if(!empty($options['noIcon'])) $icon = '';
 			// adjust string so that it'll work on a single line, without the markup in it
 			$value = $page->getText($pageLabelField, true, true);
 			// if(strpos($value, '</li>')) $value = preg_replace('!</li>\s*<li[^>]*>!', ', ', $value); 
@@ -135,6 +137,7 @@ abstract class ProcessPageListRender extends Wire {
 		} else {
 			
 			// CSV or space-separated field or fields
+			$icon = empty($options['noTags']) ? $page->getIcon() : '';
 
 			// convert to array
 			if(strpos($pageLabelField, ' ')) $fields = explode(' ', $pageLabelField);
@@ -183,6 +186,8 @@ abstract class ProcessPageListRender extends Wire {
 		if($icon) {
 			$icon = $this->wire('sanitizer')->name($icon);
 			$icon = "<i class='icon fa fa-fw fa-$icon'></i>";
+		} else {
+			$icon = '';
 		}
 
 		if(!strlen($value)) $value = $this->wire('sanitizer')->entities($page->getUnformatted("title|name"));

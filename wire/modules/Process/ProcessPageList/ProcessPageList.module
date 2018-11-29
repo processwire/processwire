@@ -546,7 +546,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 			}
 			
 			$numChildren = $id > 1 ? $page->numChildren : 0;
-			$label = $renderer->getPageLabel($page, array('noTags' => true));
+			$label = $renderer->getPageLabel($page, array('noTags' => true, 'noIcon' => true));
 			if(strlen($label) > $maxLabelLength) {
 				$label = substr($label, 0, $maxLabelLength); 
 				$pos = strrpos($label, ' '); 
