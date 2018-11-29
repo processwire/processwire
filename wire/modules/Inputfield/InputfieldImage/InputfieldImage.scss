@@ -882,6 +882,11 @@ $focusPointCircleSize: 40px;
 					height: auto !important;
 				}
 				
+				> .focusArea { // #728
+					top: 0;
+					left: 0;
+				}
+				
 			}
 			.ImageData {
 				padding: 0;
