@@ -428,7 +428,7 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 		$field->repeaterMaxItems = 1;
 		$field->repeaterMinItems = 1;
 		
-		include(dirname(__FILE__) . '/FieldsetPageInstructions.php'); 
+		include_once(dirname(__FILE__) . '/FieldsetPageInstructions.php'); 
 		$inputfields->add(FieldsetPageInstructions($field));
 		
 		return $inputfields;
