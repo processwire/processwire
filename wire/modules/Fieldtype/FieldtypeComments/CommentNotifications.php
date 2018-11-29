@@ -44,14 +44,14 @@ class CommentNotifications extends Wire {
 	 */
 	protected function ___sendAdminNotificationEmail(Comment $comment) {
 
-		if(!$this->field->notificationEmail) return false;
+		if(!$this->field->get('notificationEmail')) return false;
 		
 		$field = $this->field;
 		$page = $this->page; 
 		$actionURL = $page->httpUrl . "?field=$field->name&page_id=$page->id&code=$comment->code&comment_success=";
 
 		// skip notification when spam
-		if($comment->status == Comment::statusSpam && !$field->notifySpam) return 0;
+		if($comment->status == Comment::statusSpam && !$field->get('notifySpam')) return 0;
 
 		if($comment->status == Comment::statusPending) {
 			$status = $this->_("Pending Approval");
@@ -62,7 +62,7 @@ class CommentNotifications extends Wire {
 			$actionURL .= "spam";
 			$actionLabel = $this->_('Mark as SPAM'); 
 		} else if($comment->status == Comment::statusSpam) {
-			$status = sprintf($this->_("SPAM - will be deleted automatically after %d days"), $field->deleteSpamDays);
+			$status = sprintf($this->_("SPAM - will be deleted automatically after %d days"), $field->get('deleteSpamDays'));
 			$actionURL .= "approve";
 			$actionLabel = $this->_('Not SPAM: Approve Now'); 
 		} else {
@@ -142,7 +142,7 @@ class CommentNotifications extends Wire {
 		
 		$bodyHTML .= "</table></body></html>\n\n";
 
-		$emails = $this->parseEmails($field->notificationEmail); 	
+		$emails = $this->parseEmails($field->get('notificationEmail')); 	
 		if(count($emails)) {
 			$mail = $this->wire('mail')->new();
 			foreach($emails as $email) $mail->to($email);
@@ -156,10 +156,11 @@ class CommentNotifications extends Wire {
 	}
 	
 	protected function getFromEmail() {
-		if($this->field->fromEmail) {
-			$fromEmail = $this->field->fromEmail;
-		} else {
-			$fromEmail = $this->_x('processwire', 'email-from-name') . '@' . $this->wire('config')->httpHost;
+		$fromEmail = $this->field->get('fromEmail');
+		if(empty($fromEmail)) {
+			$host = $this->wire('config')->httpHost;
+			if(strpos($host, ':') !== false) list($host, /*port*/) = explode(':', $host, 2);
+			$fromEmail = $this->_x('processwire', 'email-from-name') . '@' . $host;
 		}
 		return $fromEmail;
 	}
