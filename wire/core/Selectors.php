@@ -104,6 +104,7 @@ class Selectors extends WireArray {
 	 *
 	 */
 	public function __construct($selector = null) {
+		parent::__construct();
 		if(!is_null($selector)) $this->init($selector);
 	}
 
@@ -228,7 +229,7 @@ class Selectors extends WireArray {
 		if(!isset(self::$selectorTypes[$operator])) return false;
 		$type = self::$selectorTypes[$operator];
 		// now double check that we can map it back, in case PHP filters anything in the isset()
-		$op = array_search($type); 
+		$op = array_search($type, self::$selectorTypes); 
 		if($op === $operator) {
 			if($is) return true;
 			// Convert types like "SelectorEquals" to "Equals"
@@ -399,7 +400,7 @@ class Selectors extends WireArray {
 	 *
 	 * @param string $field Field name or names (separated by a pipe)
 	 * @param string $operator Operator, i.e. "="
-	 * @param string $value Value or values (separated by a pipe)
+	 * @param string|array $value Value or values (separated by a pipe)
 	 * @return Selector Returns the correct type of `Selector` object that corresponds to the given `$operator`.
 	 * @throws WireException
 	 *
@@ -1150,7 +1151,7 @@ class Selectors extends WireArray {
 			$_sanitize = $sanitize;
 			if(is_array($value)) $value = 'array'; // we don't allow arrays here
 			if(is_object($value)) $value = (string) $value;
-			if(is_int($value) || ctype_digit($value)) {
+			if(is_int($value) || (ctype_digit("$value") && strpos($value, '0') !== 0)) {
 				$value = (int) $value;
 				if($_sanitize == 'selectorValue') $_sanitize = ''; // no need to sanitize integer to string
 			}
