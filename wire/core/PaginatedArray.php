@@ -139,14 +139,28 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 	}
 
 	/**
+	 * Does this WireArray have more than one pagination?
+	 * 
+	 * #pw-group-other
+	 * 
+	 * @return bool
+	 * @since 3.0.120
+	 * 
+	 */
+	public function hasPagination() {
+		return $this->getTotal() > 0 && $this->count() < $this->getTotal();
+	}
+
+	/**
 	 * Is there a next pagination containing more items in this PaginatedArray after the current one?
 	 * 
 	 * #pw-group-other
 	 * 
 	 * @return int
+	 * @since 3.0.120
 	 * 
 	 */
-	public function hasNext() {
+	public function hasNextPagination() {
 		return $this->getStart() + $this->count() < $this->getTotal();
 	}
 
@@ -156,9 +170,10 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 	 * #pw-group-other
 	 * 
 	 * @return bool
+	 * @since 3.0.120
 	 * 
 	 */
-	public function hasPrev() {
+	public function hasPrevPagination() {
 		return $this->getStart() > 0;
 	}
 

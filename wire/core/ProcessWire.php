@@ -44,7 +44,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 119;
+	const versionRevision = 120;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -784,7 +784,6 @@ class ProcessWire extends Wire {
 	 * @param array $options Options to modify default behaviors (experimental): 
 	 *  - `siteDir` (string): Name of "site" directory in $rootPath that contains site's config.php, no slashes (default="site").
 	 * @return Config
-	 * @throws WireException
 	 * 
 	 */
 	public static function buildConfig($rootPath = '', $rootURL = null, array $options = array()) {

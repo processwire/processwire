@@ -102,8 +102,10 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *
 	 */
 	public function isValidItem($item) {
-		if($this->className() === 'WireArray') return true;
-		return $item instanceof Wire; 
+		if($item instanceof Wire) return true;
+		$className = $this->className();
+		if($className === 'WireArray' || $className === 'PaginatedArray') return true;
+		return false;
 	}
 
 	/**
@@ -184,7 +186,9 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 */
 	public function makeBlankItem() {
 		$class = wireClassName($this, false); 
-		if($class != 'WireArray') throw new WireException("Class '$class' doesn't yet implement method 'makeBlankItem()' and it needs to."); 
+		if($class != 'WireArray' && $class != 'PaginatedArray') {
+			throw new WireException("Class '$class' doesn't yet implement method 'makeBlankItem()' and it needs to.");
+		}
 		return null;
 	}
 
@@ -532,8 +536,8 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 
 		// if given an array of keys, return all matching items
 		if(is_array($key)) { 
+			/** @var array $key */
 			if(ctype_digit(implode('', array_keys($key)))) {
-				/** @var array $key */
 				$items = array();
 				foreach($key as $k) {
 					$item = $this->get($k);

@@ -10,7 +10,7 @@
  *
  * Hookable methods: 
  * =================
- * @method array|DatabaseQuerySelect find(Selectors $selectors, $options = array())
+ * @method array|DatabaseQuerySelect find(Selectors|string|array $selectors, $options = array())
  * @method DatabaseQuerySelect getQuery($selectors, array $options)
  * @method string getQueryAllowedTemplatesWhere(DatabaseQuerySelect $query, $where)
  * @method void getQueryJoinPath(DatabaseQuerySelect $query, $selector)
@@ -1074,6 +1074,7 @@ class PageFinder extends Wire {
 		$fieldCnt = array(); // counts number of instances for each field to ensure unique table aliases for ANDs on the same field
 		$lastSelector = null; 
 		$sortSelectors = array(); // selector containing 'sort=', which gets added last
+		$subqueries = array();
 		$joins = array();
 		// $this->extraJoins = array();
 		$database = $this->wire('database');

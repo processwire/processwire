@@ -108,6 +108,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 */
 	public function getItemKey($item) {
 		if(!$item instanceof Page) return null;	
+		if(!$this->duplicateChecking) return parent::getItemKey($item);
 		
 		// first see if we can determine key from our index
 		$id = $item->id;

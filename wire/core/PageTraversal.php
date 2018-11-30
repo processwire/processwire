@@ -452,7 +452,7 @@ class PageTraversal {
 	 * @param Page $page
 	 * @param string $selector Optional selector. When specified, will filter the found siblings.
 	 * @param array $options Options to pass to the _next() method
-	 * @return Page|NullPage Returns all matching pages after this one.
+	 * @return PageArray Returns all matching pages after this one.
 	 *
 	 */
 	public function nextAll(Page $page, $selector = '', array $options = array()) {
@@ -467,7 +467,7 @@ class PageTraversal {
 	 * @param Page $page
 	 * @param string $selector Optional selector. When specified, will filter the found siblings.
 	 * @param array $options Options to pass to the _next() method
-	 * @return Page|NullPage Returns all matching pages after this one.
+	 * @return PageArray Returns all matching pages after this one.
 	 *
 	 */
 	public function prevAll(Page $page, $selector = '', array $options = array()) {
@@ -1001,7 +1001,7 @@ class PageTraversal {
 	 * @param Page $page
 	 * @param string|array $selector Optional selector. When specified, will filter the found siblings.
 	 * @param PageArray $siblings Optional siblings to use instead of the default. 
-	 * @return Page|NullPage Returns all matching pages after this one.
+	 * @return PageArray Returns all matching pages after this one.
 	 *
 	 */
 	public function nextAllSiblings(Page $page, $selector = '', PageArray $siblings = null) {
