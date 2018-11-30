@@ -330,7 +330,8 @@ class WireShutdown extends Wire {
 				->to($config->adminEmail)
 				->from($config->adminEmail)
 				->subject($this->labels['email-subject'])
-				->body("Page: $url\nUser: $name\n\n" . str_replace("\t", "\n", $message));
+				->body("Page: $url\nUser: $name\n\n" . str_replace("\t", "\n", $message))
+				->send();
 			if($n) $who .= $this->labels['admin-notified'];
 		}
 		
