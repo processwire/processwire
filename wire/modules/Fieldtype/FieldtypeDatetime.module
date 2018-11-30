@@ -288,13 +288,13 @@ class FieldtypeDatetime extends FieldtypeText {
 		$f->addOption('', $this->_('None'));
 		$f->columnWidth = 50;
 		$date = strtotime('5:10:02 PM');
-		$found = false;
+		$dateOutputFormat = $field->get('dateOutputFormat');
 		foreach($wdt->getTimeFormats() as $format) {
 			$timeFormatted = $wdt->formatDate($date, $format); 	
 			$f->addOption($format, $timeFormatted); 
-			if(!$found && strpos($field->get('dateOutputFormat'), $format) !== false) {
-				$f->attr('value', $format); 
-				$found = true; 
+			if(strpos($dateOutputFormat, $format) !== false) {
+				list(,$test) = explode($format, $dateOutputFormat);
+				if(!strlen($test)) $f->attr('value', $format);
 			}
 		}
 		$f->attr('onchange', "$('#Inputfield_dateOutputFormat').val($('#Inputfield__dateOutputFormat').val() + ' ' + $(this).val());"); 
