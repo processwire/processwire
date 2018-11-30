@@ -219,7 +219,7 @@ var ProcessLister = {
 				$b.remove();
 				$(this).find('span').remove();
 				var $icon = $(this).find('i');
-				var label = $(this).text();
+				var label = $(this).html();
 				if (txt == sort) {
 					$(this).html("<u>" + label + "</u><span>&nbsp;&darr;</span><b>" + txt + "</b>");
 				} else if (sort == '-' + txt) {
