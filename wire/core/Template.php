@@ -21,6 +21,7 @@
  * @property string $ns Namespace found in the template file, or blank if not determined.   #pw-group-identification
  * @property string $pageClass Class for instantiated page objects. Page assumed if blank, or specify class name.  #pw-group-identification
  * @property int $modified Last modified time for template or template file
+ * @property string $icon Icon name specified with the template (preferable to use getIcon/setIcon methods instead). #pw-internal
  * 
  * Fieldgroup/Fields 
  * 
