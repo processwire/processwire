@@ -208,9 +208,9 @@ class SelectableOptionConfig extends Wire {
 			}
 			$f->attr('value', $field->initValue); 
 			if(!$this->field->required && !$this->field->requiredIf) {
-				$f->notes = $this->_('Please note: your selections here do not become active unless a value is *always* required for this field. See the "required" option on the Input tab of your field settings.');
+				$f->notes = $this->_('Please note: Your pre-selection is not active, as this field is not a required field. Activate the option "required" in the input tab of the field.');
 			} else {
-				$f->notes = $this->_('This feature is active since a value is always required.'); 
+				$f->notes = $this->_('The pre-selection is active because this field is a required field.'); 
 			}
 			$inputfields->add($f); 
 			$inputfields->add($this->getInstructions());
