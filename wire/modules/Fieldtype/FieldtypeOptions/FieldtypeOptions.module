@@ -109,7 +109,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 			} else if($this->wire('process') != 'ProcessField' && !wireCount($value)) {
 				$this->warning(
 					$field->getLabel() . " ($field->name): " . 
-					$this->_('Configured pre-selection not populated since value is not always required. Please correct this field configuration.') 
+					$this->_('Your pre-selection could not be populated. To enable the pre-selection, you must activate the "required" field option for this field. You can find it under the input tab in the fields settings.') 
 				);
 			}
 		}
