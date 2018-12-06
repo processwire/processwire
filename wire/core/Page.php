@@ -943,7 +943,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		// if the page is not yet loaded and a '__' field was set, then we queue it so that the loaded() method can 
 		// instantiate all those fields knowing that all parts of them are present for wakeup. 
 		if(!$this->isLoaded && strpos($key, '__')) {
-			list($key, $subKey) = explode('__', $key); 
+			list($key, $subKey) = explode('__', $key, 2); 
 			if(!isset($this->fieldDataQueue[$key])) $this->fieldDataQueue[$key] = array();
 			$this->fieldDataQueue[$key][$subKey] = $value; 
 			return $this;
@@ -3149,6 +3149,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	/**
 	 * Return the index/position of this page relative to siblings.
 	 * 
+	 * If given a hidden or unpublished page, that page would not usually be part of the group of siblings, 
+	 * unless specifically including hidden and/or unpublished pages. As a result, such pages will return -1 
+	 * for this method (as of 3.0.121), indicating they are not part of the default index.
+	 *
+	 * If you want this method to include hidden/unpublished pages as part of the index numbers, then
+	 * specify boolean true for the $selector argument (which implies "include=all") OR specify a
+	 * selector of "include=hidden", "include=unpublished" or "include=all".
+	 * 
 	 * ~~~~~
 	 * $i = $page->index();
 	 * $n = $page->parent->numChildren();
@@ -3157,12 +3165,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-group-traversal
 	 * 
-	 * @return int Returns index number (zero-based)
+	 * @param bool|string|array Specify one of the following (since 3.0.121): 
+	 *  - Boolean true to include hidden and unpublished pages as part of the index numbers (same as "include=all"). 
+	 *  - An "include=hidden", "include=unpublished" or "include=all" selector to include them in the index numbers. 
+	 *  - A string selector or selector array to filter the criteria for the returned index number. 
+	 * @return int Returns index number (zero-based), or -1 if page is hidden or unpublished and no $selector argument provided. 
 	 * @since 3.0.24
 	 * 
 	 */
-	public function index() {
-		return $this->traversal()->index($this);
+	public function index($selector = '') {
+		return $this->traversal()->index($this, $selector);
 	}
 
 	/**
@@ -3660,10 +3672,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	protected function processFieldDataQueue() {
+		
+		$template = $this->template;
+		if(!$template) return;
+		$fieldgroup = $template->fieldgroup;
+		if(!$fieldgroup) return;
 
 		foreach($this->fieldDataQueue as $key => $value) {
 
-			$field = $this->fieldgroup->get($key); 
+			$field = $fieldgroup->get($key); 
 			if(!$field) continue;
 
 			// check for autojoin multi fields, which may have multiple values bundled into one string

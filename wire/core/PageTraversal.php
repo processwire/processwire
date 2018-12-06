@@ -371,7 +371,10 @@ class PageTraversal {
 		$parent = $page->parent();
 		
 		if($options['until'] || $options['qty']) $options['all'] = true;
-		if(!$parent || !$parent->id) return $options['all'] ? $pages->newPageArray() : $pages->newNullPage();
+		if(!$parent || !$parent->id) {
+			if($options['qty']) return 0;
+			return $options['all'] ? $pages->newPageArray() : $pages->newNullPage();
+		}
 		
 		if(is_array($selector)) {
 			$selector['parent_id'] = $parent->id; 
@@ -412,12 +415,29 @@ class PageTraversal {
 	/**
 	 * Return the index/position of the given page relative to its siblings
 	 * 
+	 * If given a hidden or unpublished page, that page would not usually be part of the group of siblings. 
+	 * As a result, such pages will return -1 for this method (as of 3.0.121), indicating they are not part 
+	 * of the default index. 
+	 * 
+	 * If you want this method to include hidden/unpublished pages as part of the index numbers, then 
+	 * specify boolean true for the $selector argument (which implies "include=all") OR specify a 
+	 * selector of "include=hidden", "include=unpublished" or "include=all". 
+	 * 
 	 * @param Page $page
-	 * @return int|NullPage|Page|PageArray
+	 * @param string|array|bool $selector Selector to apply or boolean true for "include=all" (since 3.0.121).
+	 *  - Boolean true to include hidden and unpublished pages as part of the index numbers (same as "include=all").
+	 *  - An "include=hidden", "include=unpublished" or "include=all" selector to include them in the index numbers.
+	 *  - A string selector or selector array to filter the criteria for the returned index number.
+	 * @return int Returns index number (zero-based), or -1 if page is hidden or unpublished and no $selector argument provided.
 	 * 
 	 */
-	public function index(Page $page) {
-		$index = $this->_next($page, '', array('prev' => true, 'all' => true, 'qty' => true));
+	public function index(Page $page, $selector = '') {
+		if($selector === true) {
+			$selector = "include=all";
+		} else if(empty($selector) && ($page->isHidden() || $page->isUnpublished())) {
+			return -1;
+		}
+		$index = $this->_next($page, $selector, array('prev' => true, 'all' => true, 'qty' => true));
 		return $index;
 	}
 	
