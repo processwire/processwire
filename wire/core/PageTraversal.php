@@ -283,10 +283,25 @@ class PageTraversal {
 	}
 
 	/**
+	 * Get include mode specified in selector or blank if none
+	 * 
+	 * @param string|array|Selectors $selector
+	 * @return string
+	 * 
+	 */
+	protected function _getIncludeMode($selector) {
+		if(is_string($selector) && strpos($selector, 'include=') === false) return '';
+		if(is_array($selector)) return isset($selector['include']) ? $selector['include'] : '';
+		$selector = $selector instanceof Selectors ? $selector : new Selectors($selector);
+		$include = $selector->getSelectorByField('include');
+		return $include ? $include->value() : '';
+	}
+
+	/**
 	 * Builds the PageFinder options for the _next() method
 	 * 
 	 * @param Page $page
-	 * @param string|array $selector
+	 * @param string|array|Selectors $selector
 	 * @param array $options
 	 * @return array
 	 * 
@@ -298,7 +313,16 @@ class PageTraversal {
 			'startAfterID' => $options['prev'] ? 0 : $page->id,
 			'stopBeforeID' => $options['prev'] ? $page->id : 0,
 			'returnVerbose' => $options['all'] ? false : true,
+			'alwaysAllowIDs' => array(),
 		);
+		
+		if($page->isUnpublished() || $page->isHidden()) {
+			// allow next() to still move forward even though it is hidden or unpublished
+			$includeMode = $this->_getIncludeMode($selector);
+			if(!$includeMode || ($includeMode === 'hidden' && $page->isUnpublished())) {
+				$fo['alwaysAllowIDs'][] = $page->id;
+			}
+		}
 
 		if(!$options['until']) return $fo;
 		
@@ -346,7 +370,7 @@ class PageTraversal {
 	 * Provides the core logic for next, prev, nextAll, prevAll, nextUntil, prevUntil
 	 *
 	 * @param Page $page
-	 * @param string|array $selector Optional selector. When specified, will find nearest sibling(s) that match.
+	 * @param string|array|Selectors $selector Optional selector. When specified, will find nearest sibling(s) that match.
 	 * @param array $options Options to modify behavior
 	 *  - `prev` (bool): When true, previous siblings will be returned rather than next siblings.
 	 *  - `all` (bool): If true, returns all nextAll or prevAll rather than just single sibling (default=false).
@@ -378,8 +402,12 @@ class PageTraversal {
 		
 		if(is_array($selector)) {
 			$selector['parent_id'] = $parent->id; 
-		} else {
+		} else if(is_string($selector)) {
 			$selector = trim("parent_id=$parent->id, $selector", ", ");
+		} else if($selector instanceof Selectors) {
+			$selector->add(new SelectorEqual('parent_id', $parent->id));
+		} else {
+			throw new WireException('Selector must be string, array or Selectors object');
 		}
 		
 		$pageFinder = $pages->getPageFinder();
@@ -416,15 +444,16 @@ class PageTraversal {
 	 * Return the index/position of the given page relative to its siblings
 	 * 
 	 * If given a hidden or unpublished page, that page would not usually be part of the group of siblings. 
-	 * As a result, such pages will return -1 for this method (as of 3.0.121), indicating they are not part 
-	 * of the default index. 
+	 * As a result, such pages will return what the value would be if they were visible (as of 3.0.121). This
+	 * may overlap with the index of other pages, since indexes are relative to visible pages, unless you
+	 * specify an include mode (see next paragraph). 
 	 * 
 	 * If you want this method to include hidden/unpublished pages as part of the index numbers, then 
 	 * specify boolean true for the $selector argument (which implies "include=all") OR specify a 
 	 * selector of "include=hidden", "include=unpublished" or "include=all". 
 	 * 
 	 * @param Page $page
-	 * @param string|array|bool $selector Selector to apply or boolean true for "include=all" (since 3.0.121).
+	 * @param string|array|bool|Selectors $selector Selector to apply or boolean true for "include=all" (since 3.0.121).
 	 *  - Boolean true to include hidden and unpublished pages as part of the index numbers (same as "include=all").
 	 *  - An "include=hidden", "include=unpublished" or "include=all" selector to include them in the index numbers.
 	 *  - A string selector or selector array to filter the criteria for the returned index number.
@@ -432,12 +461,8 @@ class PageTraversal {
 	 * 
 	 */
 	public function index(Page $page, $selector = '') {
-		if($selector === true) {
-			$selector = "include=all";
-		} else if(empty($selector) && ($page->isHidden() || $page->isUnpublished())) {
-			return -1;
-		}
-		$index = $this->_next($page, $selector, array('prev' => true, 'all' => true, 'qty' => true));
+		if($selector === true) $selector = "include=all";
+		$index = $this->_next($page, $selector, array('prev' => true, 'all' => true, 'qty' => 'index'));
 		return $index;
 	}
 	
@@ -445,7 +470,7 @@ class PageTraversal {
 	 * Return the next sibling page
 	 *
 	 * @param Page $page
-	 * @param string $selector Optional selector. When specified, will find nearest next sibling that matches.
+	 * @param string|array|Selectors $selector Optional selector. When specified, will find nearest next sibling that matches.
 	 * @return Page|NullPage Returns the next sibling page, or a NullPage if none found.
 	 *
 	 */
@@ -457,7 +482,7 @@ class PageTraversal {
 	 * Return the previous sibling page
 	 *
 	 * @param Page $page
-	 * @param string $selector Optional selector. When specified, will find nearest previous sibling that matches.
+	 * @param string|array|Selectors $selector Optional selector. When specified, will find nearest previous sibling that matches.
 	 * @return Page|NullPage Returns the previous sibling page, or a NullPage if none found.
 	 *
 	 */
@@ -470,7 +495,7 @@ class PageTraversal {
 	 * Return all sibling pages after this one, optionally matching a selector
 	 *
 	 * @param Page $page
-	 * @param string $selector Optional selector. When specified, will filter the found siblings.
+	 * @param string|array|Selectors $selector Optional selector. When specified, will filter the found siblings.
 	 * @param array $options Options to pass to the _next() method
 	 * @return PageArray Returns all matching pages after this one.
 	 *
@@ -485,7 +510,7 @@ class PageTraversal {
 	 * Return all sibling pages prior to this one, optionally matching a selector
 	 *
 	 * @param Page $page
-	 * @param string $selector Optional selector. When specified, will filter the found siblings.
+	 * @param string|array|Selectors $selector Optional selector. When specified, will filter the found siblings.
 	 * @param array $options Options to pass to the _next() method
 	 * @return PageArray Returns all matching pages after this one.
 	 *
@@ -503,7 +528,7 @@ class PageTraversal {
 	 * Return all sibling pages after this one until matching the one specified
 	 *
 	 * @param Page $page
-	 * @param string|Page|array $selector May either be a selector or Page to stop at. Results will not include this.
+	 * @param string|Page|array|Selectors $selector May either be a selector or Page to stop at. Results will not include this.
 	 * @param string|array $filter Optional selector to filter matched pages by
 	 * @param array $options Options to pass to the _next() method
 	 * @return PageArray

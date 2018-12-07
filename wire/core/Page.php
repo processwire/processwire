@@ -3149,9 +3149,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	/**
 	 * Return the index/position of this page relative to siblings.
 	 * 
-	 * If given a hidden or unpublished page, that page would not usually be part of the group of siblings, 
-	 * unless specifically including hidden and/or unpublished pages. As a result, such pages will return -1 
-	 * for this method (as of 3.0.121), indicating they are not part of the default index.
+	 * If given a hidden or unpublished page, that page would not usually be part of the group of siblings.
+	 * As a result, such pages will return what the value would be if they were visible (as of 3.0.121). This
+	 * may overlap with the index of other pages, since indexes are relative to visible pages, unless you
+	 * specify an include mode (see next paragraph). 
 	 *
 	 * If you want this method to include hidden/unpublished pages as part of the index numbers, then
 	 * specify boolean true for the $selector argument (which implies "include=all") OR specify a
