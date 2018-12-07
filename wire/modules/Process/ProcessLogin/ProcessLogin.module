@@ -417,13 +417,18 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		// and other file functions, due to a long running PHP bug 
 		if(basename("§") === "") {
 			$example = stripos(PHP_OS, 'WIN') === 0 ? 'en-US' : 'en_US.UTF-8';
-			$msg = $this->_('Warning: your server locale is undefined and may cause issues.') . ' ';
+			$localeLabel = $this->_('Your current locale setting is “%s”.') . ' ';
+			$msg = $this->_('Note: your current server locale setting isn’t working as expected with the UTF-8 charset and may cause minor issues.') . ' ';
 			if($this->wire('modules')->isInstalled('LanguageSupport')) {
-				$msg .= sprintf($this->_('Please translate the “C” locale setting for each language to the proper locale in %s'),
-					'<u>/wire/modules/LanguageSupport/LanguageSupport.module</u> (shortcuts provided below):');
+				$textdomain = 'wire--modules--languagesupport--languagesupport-module';
+				$locale = __('C', $textdomain);
+				if(empty($locale)) $locale = setlocale(LC_CTYPE, 0); 
+				$msg .= sprintf($localeLabel, $locale);
+				$msg .= sprintf($this->_('Please translate the “C” locale setting for each language to the compatible locale in %s'),
+					'<u>/wire/modules/LanguageSupport/LanguageSupport.module</u>:');
 				foreach($this->wire('languages') as $language) {
 					$url = $this->wire('config')->urls->admin . "setup/language-translator/edit/?language_id=$language->id&" . 
-						"textdomain=wire--modules--languagesupport--languagesupport-module&" . 
+						"textdomain=$textdomain&" . 
 						"filename=wire/modules/LanguageSupport/LanguageSupport.module";
 					$msg .= "<br />• <a target='_blank' href='$url'>" . $language->get('title|name') . "</a>";
 				}
@@ -432,12 +437,16 @@ class ProcessLogin extends Process implements ConfigurableModule {
 					"</small>";
 				$this->warning($msg, Notice::allowMarkup);
 			} else {
-				$msg .= sprintf($this->_('Please add this to /site/config.php file (adjust “%s” as needed):'), $example) . ' ' .
-					"setlocale(LC_ALL,'$example');";
-				$this->warning($msg);
+				$locale = setlocale(LC_CTYPE, 0);
+				$msg .= 
+					sprintf($localeLabel, $locale) . 
+					sprintf(
+						$this->_('Please add this to your %1$s file (adjust “%2$s” as needed):'), 
+						'<u>/site/config.php</u>', $example
+					) . " <code>setlocale(LC_ALL,'$example');</code>";
+				$this->warning($msg, Notice::allowMarkup);
 			}
 		}
-
 	}
 
 	/**
