@@ -457,7 +457,7 @@ class PageTraversal {
 	 *  - Boolean true to include hidden and unpublished pages as part of the index numbers (same as "include=all").
 	 *  - An "include=hidden", "include=unpublished" or "include=all" selector to include them in the index numbers.
 	 *  - A string selector or selector array to filter the criteria for the returned index number.
-	 * @return int Returns index number (zero-based), or -1 if page is hidden or unpublished and no $selector argument provided.
+	 * @return int Returns index number (zero-based)
 	 * 
 	 */
 	public function index(Page $page, $selector = '') {
