@@ -35,7 +35,7 @@
  * @method Page|NullPage add($template, $parent, $name = '', array $values = array()) #pw-group-manipulation
  * @method int sort(Page $page, $value = false) Set the “sort” value for given $page while adjusting siblings, or re-build sort for its children. #pw-group-manipulation
  * @method setupNew(Page $page) Setup new page that does not yet exist by populating some fields to it. #pw-internal
- * @method string setupPageName(Page $page, array $options = []) Determine and populate a name for the given page. #pw-internal
+ * @method string setupPageName(Page $page, array $options = array()) Determine and populate a name for the given page. #pw-internal
  * @method void insertBefore(Page $page, Page $beforePage) Insert one page as a sibling before another. #pw-advanced
  * @method void insertAfter(Page $page, Page $afterPage) Insert one page as a sibling after another. #pw-advanced
  * 

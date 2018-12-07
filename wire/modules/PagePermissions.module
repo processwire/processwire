@@ -621,7 +621,8 @@ class PagePermissions extends WireData implements Module {
 		$user = $this->wire('user'); 
 		$listable = true; 
 
-		if($user->isSuperuser()) $listable = true; 
+		if($page instanceof NullPage) $listable = false;
+			else if($user->isSuperuser()) $listable = true; 
 			else if($page instanceof User && $user->hasPermission('user-admin')) $listable = true; 
 			else if($page->hasStatus(Page::statusUnpublished) && !$page->editable()) $listable = false;
 			else if($page->process && !$this->processViewable($page)) $listable = false;

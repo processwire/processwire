@@ -48,7 +48,7 @@ function initInputfieldPage($this) {
 				s = s.replace(part, '=' + v);
 				s = s.replace(/,\s*/g, '&');
 				if(s.indexOf('_LPID')) s = s.replace(/_LPID[0-9]+/g, '');
-				var url = ProcessWire.config.urls.admin + 'page/search/for?' + s + '&limit=999&get=' + labelFieldName;
+				var url = ProcessWire.config.urls.admin + 'page/search/for?' + s + '&limit=9999&get=' + labelFieldName;
 				if(formatName.length) url += '&format_name=' + formatName;
 				$.getJSON(url, {}, function(data) {
 					//$select.children().remove();

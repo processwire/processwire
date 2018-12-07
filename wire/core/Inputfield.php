@@ -289,7 +289,7 @@ abstract class Inputfield extends WireData implements Module {
 	 */
 
 	/**
-	 * Attributes specified for the XHTML output, like class, rows, cols, etc. 
+	 * Attributes specified for the HTML output, like class, rows, cols, etc. 
 	 *
 	 */
 	protected $attributes = array();
@@ -1218,7 +1218,7 @@ abstract class Inputfield extends WireData implements Module {
 	 * @param bool $renderValueMode
 	 * 
 	 */
-	public function ___renderReadyHook(Inputfield $parent = null, $renderValueMode) { }
+	public function ___renderReadyHook(Inputfield $parent = null, $renderValueMode = false) { }
 
 	/**
 	 * This hook was replaced by renderReady

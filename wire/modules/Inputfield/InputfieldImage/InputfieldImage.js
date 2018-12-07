@@ -1419,7 +1419,10 @@ function InputfieldImage($) {
 		if(!name.length || typeof value == "undefined") return;
 		if(data[name][property] == value) return; // if already set with same value, exit now
 		data[name][property] = value; 
-		$.cookie('InputfieldImage', data);
+		// $.cookie('InputfieldImage', data);
+		$.cookie('InputfieldImage', data, {
+			secure: (window.location.protocol.indexOf("https:") === 0)
+		});
 		cookieData = data;
 		//console.log('setCookieData(' + property + ', ' + value + ')');
 	}
