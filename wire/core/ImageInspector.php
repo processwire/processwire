@@ -135,7 +135,7 @@ class ImageInspector extends WireData {
 		if(is_array($additionalInfo) && $parseAppmarker) {
 			$appmarker = array();
 			foreach($additionalInfo as $k => $v) {
-				$appmarker[$k] = substr($v, 0, strpos($v, null));
+				$appmarker[$k] = substr($v, 0, strpos($v, chr(null)));
 			}
 			$this->info['appmarker'] = $appmarker;
 			if(isset($additionalInfo['APP13'])) {

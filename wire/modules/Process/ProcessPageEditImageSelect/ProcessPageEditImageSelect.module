@@ -443,7 +443,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			if(!$field->type instanceof FieldtypeImage) continue; 
 			$numImageFields++;
 			$images = $page->getUnformatted($field->name); 
-			if(!count($images)) continue; 
+			if(!wireCount($images)) continue; 
 
 			foreach($images as $image) {
 				$numImages++;
