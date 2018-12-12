@@ -9,7 +9,7 @@
 
 .asmOptionDisabled {
 	/* disabled options in new select */
-	color: #999; 
+	color: #999 !important; 
 }
 
 .asmHighlight {
