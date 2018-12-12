@@ -1114,6 +1114,7 @@ class PagesEditor extends Wire {
 		$copy->name = $name;
 		$copy->parent = $parent;
 		$copy->of(false);
+		$copy->set('numChildren', 0);
 		
 		// set any properties indicated in options	
 		if(isset($options['set']) && is_array($options['set'])) {
