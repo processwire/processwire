@@ -536,7 +536,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 * Set a Lister session variable
 	 *
 	 * @param string $key
-	 * @param string|int $value
+	 * @param string|int|array $value
 	 *
 	 */
 	public function sessionSet($key, $value) {
@@ -549,7 +549,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 * Get a Lister session variable
 	 *
 	 * @param string $key
-	 * @return string|int|null
+	 * @return string|int|array|null
 	 *
 	 */
 	public function sessionGet($key) {

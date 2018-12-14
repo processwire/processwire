@@ -90,7 +90,7 @@ class InputfieldCheckbox extends Inputfield {
 		$attrs['value'] = $this->checkedValue; 
 		
 		if($this->getSetting('entityEncodeLabel') !== false) {
-			$label = $this->entityEncode($label);
+			$label = $this->entityEncode($label, Inputfield::textFormatBasic);
 		}
 		
 		$out = 	

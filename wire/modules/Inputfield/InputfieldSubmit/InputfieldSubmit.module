@@ -25,6 +25,14 @@ class InputfieldSubmit extends Inputfield {
 	}
 
 	/**
+	 * Names of submit buttons created
+	 * 
+	 * @var array
+	 * 
+	 */ 
+	protected static $submitNames = array();
+
+	/**
 	 * Additional dropdown actions added to the button
 	 * 
 	 * @var array
@@ -63,7 +71,12 @@ class InputfieldSubmit extends Inputfield {
 		if($key == 'secondary') return $this->hasClass('ui-priority-secondary');
 		return parent::get($key);
 	}
-
+	
+	public function setAttribute($key, $value) {
+		if($key === 'name') self::$submitNames[$value] = $value;
+		return parent::setAttribute($key, $value);
+	}	
+		
 	/**
 	 * Show another copy of this button in the header? 
 	 * 
@@ -261,6 +274,16 @@ class InputfieldSubmit extends Inputfield {
 	 */
 	public function addActionLink($url, $label, $icon = '') {
 		$this->addActionItem('link', $url, $label, $icon);
+	}
+	
+	/**
+	 * #pw-internal
+	 * 
+	 * @return array()
+	 * 
+	 */
+	static public function getSubmitNames() {
+		return self::$submitNames;
 	}
 	
 }
