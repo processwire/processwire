@@ -1535,6 +1535,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		if(is_null($pageListRender)) {
 			require_once($this->wire('config')->paths->ProcessPageList . 'ProcessPageListRenderJSON.php');
 			$pageListRender = $this->wire(new ProcessPageListRenderJSON($this->wire('page'), $this->wire('pages')->newPageArray())); 
+			$pageListRender->setUseTrash($this->wire('user')->isSuperuser()); 
 		}
 		
 		$actions = $pageListRender->getPageActions($p);
@@ -1830,7 +1831,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$btn->href = $this->addURL . $action;
 			$btn->showInHeader();
 			$btn->icon = 'plus-circle';
-			$out = str_replace("<a ", "<a class='$btnClass' ", $btn->render());
+			$btn->aclass = $btnClass;
+			$out = $btn->render();
 			if($this->editMode == self::windowModeBlank) $out = str_replace("<a " ,"<a target='_blank' ", $out);
 		}
 		

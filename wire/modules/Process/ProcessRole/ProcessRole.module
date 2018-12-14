@@ -469,11 +469,11 @@ class ProcessRole extends ProcessPageType {
 		if($permission->name == 'page-view' && $this->guestRole->hasPermission('page-view', $template)) {
 			$checked = true;
 			$disabled = true;
-			$note = $this->_('(inherited from guest role)');
+			$note = $this->_('(required because inherited from guest role)');
 		}
 		
 		$checked = $checked ? 'checked' : '';
-		$disabled = $disabled ? 'disabled' : '';
+		$disabled = $disabled ? 'onclick="return false"' : '';
 		$class = "template-permission template{$template->id}-permission$permission->id";
 		
 		// note: pt=permission+template, tp=template+permission
