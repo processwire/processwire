@@ -1022,13 +1022,20 @@ class Sanitizer extends Wire {
 			'truncateTail' => true, // if truncate necessary for maxLength, remove chars from tail? False to truncate from head.
 			'trim' => true, // trim whitespace from beginning/end, or specify character(s) to trim, or false to disable
 			);
-
+		
+		static $alwaysReplace = null;
 		$truncated = false;
 		$options = array_merge($defaultOptions, $options);
 		if(isset($options['multiline'])) $options['multiLine'] = $options['multiline']; // common case error
 		if(isset($options['maxlength'])) $options['maxLength'] = $options['maxlength']; // common case error
 		if($options['maxLength'] < 0) $options['maxLength'] = 0;
 		if($options['maxBytes'] < 0) $options['maxBytes'] = 0;
+		
+		if($alwaysReplace === null) {
+			$alwaysReplace = array(
+				mb_convert_encoding('&#8232;', 'UTF-8', 'HTML-ENTITIES') => '', // line-seperator that is sometimes copy/pasted
+			);
+		}
 		
 		if($options['reduceSpace'] !== false && $options['stripSpace'] === false) {
 			// if reduceSpace option is used then provide necessary value for stripSpace option
@@ -1063,6 +1070,11 @@ class Sanitizer extends Wire {
 		
 		if($options['convertEntities']) {
 			$value = $this->unentities($value, true, $options['outCharset']); 
+		}
+		
+		foreach($alwaysReplace as $find => $replace) {
+			if(strpos($value, $find) === false) continue;
+			$value = str_replace($find, $replace, $value);
 		}
 
 		if($options['stripSpace'] !== false) {
@@ -1968,7 +1980,6 @@ class Sanitizer extends Wire {
 	 * @param string $str String to purify
 	 * @param array $options See [config options](http://htmlpurifier.org/live/configdoc/plain.html).
 	 * @return string Purified markup string.
-	 * @throws WireException if given something other than a string
 	 *
 	 */
 	public function purify($str, array $options = array()) {
