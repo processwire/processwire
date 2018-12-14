@@ -225,7 +225,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * Import the given item(s) into this WireArray.
 	 * 
 	 * - Adds imported items to the end of the WireArray. 
-	 * - Skips over any items already present in the WireArray. 
+	 * - Skips over any items already present in the WireArray (when duplicateChecking is enabled)
 	 * 
 	 * #pw-group-manipulation
 	 * 
@@ -236,13 +236,18 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 */
 	public function import($items) {
 
-		if(!is_array($items) && !self::iterable($items)) 
-			throw new WireException('WireArray cannot import non arrays or non-iterable objects'); 
-
+		if(!is_array($items) && !self::iterable($items)) {
+			throw new WireException('WireArray cannot import non arrays or non-iterable objects');
+		}
+	
 		foreach($items as $key => $value) {
-			if(($k = $this->getItemKey($value)) !== null) $key = $k;
-			if(isset($this->data[$key])) continue; // won't overwrite existing keys
-			$this->set($key, $value); 
+			if($this->duplicateChecking) {
+				if(($k = $this->getItemKey($value)) !== null) $key = $k;
+				if(isset($this->data[$key])) continue; // won't overwrite existing keys
+				$this->set($key, $value);
+			} else {
+				$this->add($value); 
+			}
 		}
 
 		return $this;
