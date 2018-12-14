@@ -675,7 +675,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			// we scale down the target dimensions to fit within the image dimensions, 
 			// with respect to the target dimensions ratio
 			$ratioSource = $img['height'] / $img['width'];
-			$ratioTarget = $targetHeight / $targetWidth;
+			$ratioTarget = !$this->cropping ? $ratioSource : $targetHeight / $targetWidth;
 			if($ratioSource >= $ratioTarget) {
 				// ratio is equal or target fits into source
 				$pWidth = $targetWidth = $img['width'];
