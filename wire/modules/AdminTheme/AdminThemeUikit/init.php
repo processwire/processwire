@@ -141,6 +141,7 @@ $config->set('SystemNotifications', array(
 $classes = InputfieldWrapper::getClasses();
 $classes['form'] = 'InputfieldFormNoWidths InputfieldFormVertical uk-form-vertical';
 $classes['list'] = 'Inputfields uk-grid-collapse uk-grid-match';
+$classes['list_clearfix'] = 'uk-clearfix';
 $classes['item_column_width_first'] = 'InputfieldColumnWidthFirst uk-first-column';
 $classes['item'] = 'Inputfield {class} Inputfield_{name}'; // . ($adminTheme->get('useOffset') ? ' InputfieldIsOffset' : '');
 $classes['item_error'] = "InputfieldStateError uk-alert-danger";
