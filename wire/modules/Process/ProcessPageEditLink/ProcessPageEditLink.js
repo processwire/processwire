@@ -36,8 +36,10 @@ $(document).ready(function() {
 				$fileSelect.append($option);
 			});
 			$wrap.find("p.notes strong").text(selectedPageData.url);
-			$wrap.children().effect('highlight', {}, 500); 
-			$fileSelect.effect('bounce', {}, 50);
+			if($fileSelect.is(":visible")) {
+				$wrap.children().effect('highlight', {}, 500);
+				$fileSelect.effect('bounce', {}, 50);
+			}
 		}); 
 	}
 
@@ -94,7 +96,7 @@ $(document).ready(function() {
 			selectedPageData.url = ProcessWire.config.urls.root + data.url.substring(1);
 			selectedPageData.url = absoluteToRelativePath(selectedPageData.url); 
 			$linkPageURL.val(selectedPageData.url).change();
-			if($fileSelect.is(":visible")) populateFileSelect(selectedPageData);
+			populateFileSelect(selectedPageData); // was: if($fileSelect.is(":visible")) { ... }
 		}
 
 		$(this).parents(".InputfieldInteger").children(".InputfieldHeader").click() // to close the field
