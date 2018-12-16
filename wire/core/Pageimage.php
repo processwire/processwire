@@ -1539,14 +1539,14 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
-	 * Optionally set options to be picked up from the __debugInfo method
+	 * Get DebugInfo, optionally with individual options array 
 	 * 
-	 * @return pageimage object
+	 * @return array
 	 * 
 	 */
-	public function setDebugOptions($options = array()) {
+	public function getDebugInfo($options = array()) {
 		$this->debugOptions = $options;
-		return $this;
+		return $this->__debugInfo();
 	}
 	
 	/**
