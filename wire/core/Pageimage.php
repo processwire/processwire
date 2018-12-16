@@ -1539,6 +1539,17 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
+	 * Optionally set options to be picked up from the __debugInfo method
+	 * 
+	 * @return pageimage object
+	 * 
+	 */
+	public function setDebugOptions($options = array()) {
+		$this->debugOptions = $options;
+		return $this;
+	}
+	
+	/**
 	 * Debug info
 	 * 
 	 * @return array
@@ -1547,15 +1558,16 @@ class Pageimage extends Pagefile {
 	public function __debugInfo() {
 		static $depth = 0;
 		$depth++;
-		$info = parent::__debugInfo();	
-		$is = new ImageSizer($this->filename);
+		$info = parent::__debugInfo();
+		$options = is_array($this->debugOptions) ? $this->debugOptions : array();
+		$is = new ImageSizer($this->filename, $options);
 		$ii = $is->getImageInfo(true);
 		$info['extension'] = $ii['extension'];
 		$info['width'] = $this->width();
 		$info['height'] = $this->height();
 		$info['suffix'] = $this->suffixStr;
 		if($this->hasFocus) $info['focus'] = $this->focusStr;
-		if(isset($info['filedata']) && isset($info['filedata']['focus'])) unset($info['filedata']['focus']); 
+		if(isset($info['filedata']) && isset($info['filedata']['focus'])) unset($info['filedata']['focus']);
 		if(empty($info['filedata'])) unset($info['filedata']);
 		foreach($ii['info'] as $k => $v) $info[$k] = $v;
 		$info['iptcRaw'] = $ii['iptcRaw'];
@@ -1567,13 +1579,14 @@ class Pageimage extends Pagefile {
 			foreach($variations as $name) {
 				$info['variations'][] = $name;
 			}
-			if(empty($info['variations'])) unset($info['variations']); 
+			if(empty($info['variations'])) unset($info['variations']);
 		}
 		$depth--;
 		$info['neededEngineSupport'] = $is->getImageInfo();
-		$info['foundSupportingEngines'] = $is->getEngines();
+		$info['installedEngines'] = array_merge($is->getEngines(), array('ImageSizerEngineGD'));
+		$info['selectedEngine'] = $is->getEngine();
+		$info['individualOptions'] = $options;
 		return $info;
 	}
-
 }
 
