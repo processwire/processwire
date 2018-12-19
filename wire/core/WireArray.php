@@ -2511,7 +2511,11 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			$items->wire($a);
 			$a->import($items);
 		} else if(is_array($items)) {
-			$a->import($items);
+			if(ctype_digit(implode('0', array_keys($items)))) {
+				$a->import($items);
+			} else {
+				$a->setArray($items);
+			}
 		} else if($items !== null) {
 			$a->add($items);
 		}
