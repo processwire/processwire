@@ -1032,9 +1032,13 @@ class Sanitizer extends Wire {
 		if($options['maxBytes'] < 0) $options['maxBytes'] = 0;
 		
 		if($alwaysReplace === null) {
-			$alwaysReplace = array(
-				mb_convert_encoding('&#8232;', 'UTF-8', 'HTML-ENTITIES') => '', // line-seperator that is sometimes copy/pasted
-			);
+			if($this->multibyteSupport) {
+				$alwaysReplace = array(
+					mb_convert_encoding('&#8232;', 'UTF-8', 'HTML-ENTITIES') => '', // line-seperator that is sometimes copy/pasted
+				);
+			} else {
+				$alwaysReplace = array();
+			}
 		}
 		
 		if($options['reduceSpace'] !== false && $options['stripSpace'] === false) {
@@ -2074,9 +2078,89 @@ class Sanitizer extends Wire {
 			}
 			if($options['trim']) {
 				$str = trim($str, $rep);
+				if(count($options['allow'])) $str = trim($str, implode('', $options['allow']));
 			}
 		}
 		return $str;
+	}
+
+	/**
+	 * Reduce whitespace to minimum required to maintain intended separation
+	 *
+	 * This is a variation of the removeWhitespace() function that converts whitespace to be all of the same type
+	 * and collapses all consequitive whitespace to single whitespace.
+	 * 
+	 * If `multiline` option is specified then newlines allowed to remain as-is. 
+	 * 
+	 * #pw-internal
+	 *
+	 * @param string $str
+	 * @param array $options
+	 *  - `replace` (string): Character(s) to replace whitespace with (default=' ' i.e. single space).
+	 *  - `collapse` (bool): Collapse consecutive replace chars to single? (default=true)
+	 *  - `trim` (bool): Trim allowed whitespace beginning and end? (default=true)
+	 *  - `html` (bool): Remove/replace HTML whitespace entities too? (default=false)
+	 *  - `allow` (array): Array of whitespace characters that may remain. (default=[" "])
+	 *  - `multiline` (bool): Allow newlines? This adds "\n" to the allow list. (default=false)
+	 * @return string
+	 * @since 3.0.123
+	 *
+	 */
+	public function reduceWhitespace($str, $options = array()) {
+		$defaults = array(
+			'replace' => ' ',
+			'collapse' => true,
+			'trim' => true,
+			'html' => false,
+			'allow' => array(' '),
+			'multiline' => false,
+		);
+		$options = array_merge($defaults, $options); 
+		return $this->normalizeWhitespace($str, $options);
+	}
+
+	/**
+	 * Normalize whitespace in the string to be all of the same type
+	 * 
+	 * This for instance replaces all UTF-8 whitespace variants, tabs and newlines to a regular ASCII space. 
+	 * If `multiline` option is specified then newlines allowed to remain as-is. 
+	 * 
+	 * This is a variation of the removeWhitespace() function that converts whitespace to be all of the same type
+	 * rather than removing the whitespace. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $str
+	 * @param array $options
+	 *  - `replace` (string): Character(s) to replace whitespace with (default=' ' i.e. single space).
+	 *  - `collapse` (bool): Cllapse consecutive replace chars to single? (default=false)
+	 *  - `trim` (bool): Trim whitespace from beginning and end? (default=false)
+	 *  - `html` (bool): Remove/replace HTML whitespace entities too? (default=false)
+	 *  - `allow` (array): Array of whitespace characters that may remain. (default=[" "])
+	 *  - `multiline` (bool): Allow newlines? This adds "\n" to the allow list. (default=false)
+	 * @return string
+	 * @since 3.0.123
+	 * 
+	 */
+	public function normalizeWhitespace($str, $options = array()) {
+		$defaults = array(
+			'replace' => ' ',
+			'collapse' => false, 
+			'trim' => false, 
+			'html' => false, 
+			'allow' => array(' '), 
+			'multiline' => false, 
+		);
+		$options = array_merge($defaults, $options);
+		if(!$options['multiline'] && in_array("\n", $options['allow'])) {
+			$options['multiline'] = true;
+		}
+		if($options['multiline']) {
+			$options['allow'][] = "\n";
+			if(strpos($str, "\r") !== false) $str = str_replace(array("\r\n", "\r"), "\n", $str);
+		}
+		$str = $this->removeWhitespace($str, $options);
+		return $str; 
 	}
 
 	/**
