@@ -779,7 +779,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		}
 	
 		$limitSubfields = null; // becomes $limitField indexed array of subfield names when applicable
-		if(count($this->limitFields)) {
+		if(wireCount($this->limitFields)) {
 			$limitSubfields = array();
 			foreach($this->limitFields as $limitField) {
 				$settings['limitFields'][$limitField] = $limitField;
