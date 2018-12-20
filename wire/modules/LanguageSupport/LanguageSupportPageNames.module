@@ -248,6 +248,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 		// determine if we should set the current language based on requested URL
 		if(!$setLanguage) foreach($parentsAndPage as $p) {
+			/** @var Page $p */
 
 			$requestedPart = strtolower(array_shift($requestedParts)); 
 			if($requestedPart === $p->name) continue; 
@@ -607,6 +608,10 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		
 		if(!strlen($value)) return true; 
 		
+		if($this->wire('config')->pageNameCharset == 'UTF8') {
+			$value = $this->wire('sanitizer')->pageName($value, Sanitizer::toAscii); 
+		}
+		
 		$sql =
 			"SELECT id, name, $nameKey FROM pages " .
 			"WHERE parent_id=:parent_id " .
@@ -693,6 +698,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 *
 	 */
 	public function hookPageLocalName(HookEvent $event) {
+		/** @var Page $page */
 		$page = $event->object; 
 		$language = $this->getLanguage($event->arguments(0)); 
 		$nameField = $language->isDefault() ? "name" : "name$language";
