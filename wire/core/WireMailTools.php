@@ -28,7 +28,7 @@
  * ~~~~~
  * #pw-body
  * 
- * @method WireMail new() Create a new WireMail() instance
+ * @method WireMail new($options = array()) Create a new WireMail() instance
  * @property WireMail new Get a new WireMail() instance (same as method version)
  *
  *
@@ -39,33 +39,46 @@ class WireMailTools extends Wire {
 	/**
 	 * Get a new WireMail instance for sending email
 	 * 
+	 * Note: The `$options` argument added in 3.0.123, previous versions had no $options argument.
+	 * 
 	 * ~~~~~
 	 * $message = $mail->new();
 	 * $message->to('user@domain.com')->from('you@company.com');
 	 * $message->subject('Mail Subject')->body('Mail Body Text')->bodyHTML('Body HTML');
 	 * $numSent = $message->send();
 	 * ~~~~~
+	 * 
 	 *
+	 * @param array|string $options Optional settings to override defaults, or string for `module` option:
+	 *  - `module` (string): Class name of WireMail module you want to use rather than auto detect, or 'WireMail' to force using default PHP mail. 
+	 *    If requested module is not available, it will fall-back to one that is (or PHP mail), so check class name of returned value if there
+	 *    is any doubt about what WireMail module is being used. 
+	 *  - You may also specify: subject, from, fromName, to, toName, subject or any other WireMail property and it will be populated. 
 	 * @return WireMail
 	 *
 	 */
-	public function ___new() {
+	public function ___new($options = array()) {
+	
+		if(is_string($options) && !empty($options)) $options = array('module' => $options); 
+		if(!is_array($options)) $options = array();
 
 		/** @var WireMail|null $mail */
 		$mail = null;
 		
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
-		
+	
+		// merge config settings with requested options
 		$settings = $this->wire('config')->wireMail;
 		if(!is_array($settings)) $settings = array();
+		if(count($options)) $settings = array_merge($settings, $options);
 		
-		// see if a WireMail module is specified in $config
-		if(isset($settings['module'])) {
-			if($settings['module'] === 'WireMail') {
+		// see if a specific WireMail module is requested
+		if(!empty($settings['module'])) {
+			if(strtolower($settings['module']) === 'wiremail') {
 				$mail = $this->wire(new WireMail()); 
 			} else {
-				$mail = $modules->get($settings['module']);
+				$mail = $modules->getModule($settings['module']);
 			}
 			unset($settings['module']); 
 		}
