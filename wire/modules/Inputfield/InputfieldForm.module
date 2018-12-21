@@ -127,6 +127,15 @@ class InputfieldForm extends InputfieldWrapper {
 		} else {
 			$tokenField = '';
 		}
+	
+		/* @todo 3.0.125
+		$name = $this->getAttribute('name');
+		if(!empty($name)) {
+			$name = $this->wire('sanitizer')->entities($name);
+			$class = $this->className();
+			$tokenField .= "<input type='hidden' name='_$class' value='$name' />";
+		}
+		*/
 		
 		$out = 	
 			"<form $attrStr>" . 
@@ -456,6 +465,83 @@ class InputfieldForm extends InputfieldWrapper {
 
 		return $matches;
 	}
+
+	/**
+	 * Is this form submitted?
+	 * 
+	 * This should only be called after the form has been completely built and submit buttons added to it.
+	 * When using this option it is preferable (though not required) that your form has been given a name attribute.
+	 * Optionally provide the name (or instance) of the submit button you want to check.
+	 *
+	 * - Returns boolean false if not submitted.
+	 * - Returns boolean true if submitted, but submit button not known or not used.
+	 * - Returns clicked/submitted InputfieldSubmit object instance when known and available.
+	 * 
+	 * @param string|InputfieldSubmit $submitName Name of submit button or instance of InputfieldSubmit
+	 * @return bool|InputfieldSubmit
+	 * @todo 3.0.125
+	 * 
+	public function isSubmitted($submitName = '') {
+	
+		$method = strtoupper($this->attr('method'));
+		$input = $this->wire('input');
+		$submit = false;
+		$formName = $this->getAttribute('name');
+		$submitNames = array();
+
+		// if the current request method is not the same as the forms, exit early
+		if(!$input->requestMethod($method)) return false;
+	
+		if(!empty($submitName)) {
+			// given a specific submit button to check
+			if($submitName instanceof InputfieldSubmit) {
+				$submitName = $submitName->attr('name');
+			}
+			if(is_string($submitName)) {
+				$submitNames[] = $submitName;
+			}
+		}
+		
+		if(empty($submitNames)) {
+			// no specific submit button, so check all known submit button names
+			$submitNames = InputfieldSubmit::getSubmitNames();
+		}
+		
+		if(!empty($formName)) {
+			// this form has a name attribute, so we can add that to our checks
+			$key = '_' . $this->className();
+			$value = $method === 'GET' ? $input->get($key) : $input->post($key);
+			if($value !== $formName) {
+				// submitted form name does not match this form
+				return false;
+			}
+			// at this point we know this form as submitted
+			$submit = true;
+		}
+	
+		// find out which submit button was clicked if possible
+		foreach($submitNames as $name) {
+			$value = $method === 'GET' ? $input->get($name) : $input->post($name);
+			// if value not present in input for this submit button then skip it
+			if($value === null) continue; 
+			// value was submitted for button name
+			$f = $this->getChildByName($name);
+			// if value submitted is not the same as value on the button, skip it
+			if(!$f || $f->val() !== $value) continue;
+			// we found our submit button
+			$submit = $f;
+			break;
+		}
+	
+		// if submitted and CSRF protection in place, check that token is valid
+		if($submit && $this->getSetting('protectCSRF') && $method === 'POST') {
+			$csrf = $this->wire('session')->CSRF();
+			if(!$csrf->hasValidToken()) $submit = false;
+		}
+		
+		return $submit ? $submit : false;
+	}
+	 */
 
 }
 
