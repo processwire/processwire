@@ -8,7 +8,16 @@
  * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  * https://processwire.com
  * 
- * #pw-summary Manages all custom fields in ProcessWire
+ * #pw-summary Manages all custom fields in ProcessWire, independently of any Fieldgroup. 
+ * #pw-var $fields
+ * #pw-body = 
+ * Each field returned is an object of type `Field`. The $fields API variable is iterable: 
+ * ~~~~~
+ * foreach($fields as $field) {
+ *   echo "<p>Name: $field->name, Type: $field->type, Label: $field->label</p>";
+ * }
+ * ~~~~~
+ * #pw-body
  * 
  * @method Field|null get($key) Get a field by name or id
  * @method bool changeFieldtype(Field $field1, $keepSettings = false)
@@ -309,7 +318,6 @@ class Fields extends WireSaveableItems {
 	 * @param Field|Saveable $item Field to clone
 	 * @param string $name Optionally specify name for new cloned item
 	 * @return bool|Saveable $item Returns the new clone on success, or false on failure
-	 * @throws WireException
 	 *
 	 */
 	public function ___clone(Saveable $item, $name = '') {

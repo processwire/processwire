@@ -18,6 +18,8 @@
  * 
  * @property int $id Fieldgroup database ID #pw-group-retrieval
  * @property string $name Fieldgroup name #pw-group-retrieval
+ * @property array $fields_id Array of all field IDs in this Fieldgroup
+ * @property null|FieldsArray $removedFields Null when there are no removed fields, or FieldsArray when there are. 
  *
  */
 class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupItems {
@@ -335,7 +337,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 * #pw-group-retrieval
 	 *
 	 * @param string|int $key Property name to retrieve, or Field name
-	 * @return Field|string|int|null
+	 * @return Field|string|int|null|array
 	 *
 	 */
 	public function get($key) {

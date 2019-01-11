@@ -531,6 +531,7 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 */
 	public function getParents() {
+		/** @var InputfieldWrapper|null $parent */
 		$parent = $this->getParent();
 		if(!$parent) return array();
 		$parents = array($parent);
