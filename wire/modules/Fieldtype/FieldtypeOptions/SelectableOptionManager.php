@@ -97,41 +97,51 @@ class SelectableOptionManager extends Wire {
 			'id' => array(),
 			'title' => array(),
 			'value' => array(),
+			'or' => false, // change conditions from AND to OR?
 		);
 
 		$sortKey = true;
 		$sorted = array();
 		$filters = array_merge($defaults, $filters);
+		$wheres = array();
 
 		// make sure that all filters are arrays
 		foreach($defaults as $key => $unused) {
 			if(!is_array($filters[$key])) $filters[$key] = array($filters[$key]); 
 		}
 
-		$sql = 'SELECT * FROM ' . self::optionsTable . ' WHERE fields_id=:fields_id ';
-
 		if(count($filters['id'])) {
-			$sql .= 'AND option_id IN(';
+			$s = 'option_id IN(';
 			foreach($filters['id'] as $id) {
 				$id = (int) $id;
-				$sql .= "$id,";
+				$s .= "$id,";
 				$sorted[$id] = ''; // placeholder
 			}
-			$sql = rtrim($sql, ',') . ')';
+			$s = rtrim($s, ',') . ')';
 			$sortKey = 'filters-id';
+			$wheres[] = $s;
 		} 
-	
+
 		foreach(array('title', 'value') as $property) {
 			if(!count($filters[$property])) continue;
-			$sql .= "AND `$property` IN(";
+			$s = "`$property` IN(";
 			foreach($filters[$property] as $val) {
-				$sql .= $this->wire('database')->quote($val) . ',';
+				$s .= $this->wire('database')->quote($val) . ',';
 				$sorted[$val] = ''; // placeholder
 			}
-			$sql = rtrim($sql, ',') . ')';
+			$s = rtrim($s, ',') . ')';
 			$sortKey = "filters-$property";
+			$wheres[] = $s;
 		}
-			
+
+		$sql = 'SELECT * FROM ' . self::optionsTable . ' WHERE fields_id=:fields_id ';
+		if(count($wheres) > 1) {
+			$andOr = $filters['or'] ? ' OR ' : ' AND ';
+			$sql .= 'AND (' . implode($andOr, $wheres) . ') ';
+		} else if(count($wheres) === 1) {
+			$sql .= 'AND ' . reset($wheres);
+		}
+		
 		if($sortKey === true) $sql .= 'ORDER BY sort ASC';
 
 		$query = $this->wire('database')->prepare($sql);
@@ -173,7 +183,7 @@ class SelectableOptionManager extends Wire {
 	 * Perform a partial match on title of options
 	 * 
 	 * @param Field $field
-	 * @param string $property Either 'title' or 'value'
+	 * @param string $property Either 'title' or 'value'. May also be blank (to imply 'either') if operator is '=' or '!='
 	 * @param string $operator
 	 * @param string $value Value to find
 	 * @return SelectableOptionArray
