@@ -13,7 +13,7 @@
 body {
 	/* Font */
 	font-family: sans-serif, Arial, Verdana, "Trebuchet MS";
-	font-size: 15px;
+	font-size: 16px;
 
 	/* Text color */
 	color: #333;
@@ -21,7 +21,7 @@ body {
 	/* Remove the background color to make it transparent */
 	background-color: #fff;
 
-	margin: 10px;
+	margin: 10px 15px;
 }
 
 .cke_editable {
@@ -33,6 +33,7 @@ blockquote {
 	font-style: italic;
 	font-family: Georgia, Times, "Times New Roman", serif;
 	padding: 2px 0;
+	margin-left: 0;
 	border-style: solid;
 	border-color: #ccc;
 	border-width: 0;
@@ -53,6 +54,10 @@ blockquote {
 
 a {
 	color: #0782C1;
+}
+
+small {
+	font-size: 14px;
 }
 
 ol,ul,dl {
