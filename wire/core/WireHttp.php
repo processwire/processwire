@@ -22,10 +22,11 @@
  * 
  * Thanks to @horst for his assistance with several methods in this class.
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
- * @method bool|string send($url, $data = array(), $method = 'POST')
+ * @method bool|string send($url, $data = array(), $method = 'POST', array $options = array())
+ * 
  *
  */
 
@@ -244,6 +245,14 @@ class WireHttp extends Wire {
 	protected $hasFopen = false;
 
 	/**
+	 * Last type used for send (fopen, socket, curl)
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $lastSendType = '';
+
+	/**
 	 * Options to pass to $sanitizer->url('url', $options) in WireHttp::validateURL() method
 	 * 
 	 * Can be modified with the setValidateURLOptions() method.
@@ -287,12 +296,14 @@ class WireHttp extends Wire {
 	 *
 	 * @param string $url URL to post to (including http:// or https://)
 	 * @param mixed $data Associative array of data to send (if not already set before), or raw data to send.
+	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
 	 * @return bool|string False on failure or string of contents received on success.
+	 * @see WireHttp::send(), WireHttp::get(), WireHttp::head()
 	 *
 	 */
-	public function post($url, $data = array()) {
+	public function post($url, $data = array(), array $options = array()) {
 		if(!isset($this->headers['content-type'])) $this->setHeader('content-type', 'application/x-www-form-urlencoded; charset=utf-8');
-		return $this->send($url, $data, 'POST');
+		return $this->send($url, $data, 'POST', $options);
 	}
 
 	/**
@@ -312,11 +323,13 @@ class WireHttp extends Wire {
 	 *
 	 * @param string $url URL to send request to (including http:// or https://)
 	 * @param mixed $data Array of data to send (if not already set before) or raw data to send.
+	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
 	 * @return bool|string False on failure or string of contents received on success.
+	 * @see WireHttp::send(), WireHttp::post(), WireHttp::head(), WireHttp::getJSON()
 	 *
 	 */
-	public function get($url, $data = array()) {
-		return $this->send($url, $data, 'GET');
+	public function get($url, $data = array(), array $options = array()) {
+		return $this->send($url, $data, 'GET', $options);
 	}
 
 	/**
@@ -325,11 +338,13 @@ class WireHttp extends Wire {
 	 * @param string $url URL to send request to (including http:// or https://)
 	 * @param bool $assoc Default is to return an array (specified by TRUE). If you want an object instead, specify FALSE. 
 	 * @param mixed $data Array of data to send (if not already set before) or raw data to send
-	 * @return bool|array|object False on failure or an array or object on success. 
+	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
+	 * @return bool|array|object False on failure or an array or object on success.
+	 * @see WireHttp::send(), WireHttp::get()
 	 *
 	 */
-	public function getJSON($url, $assoc = true, $data = array()) {
-		return json_decode($this->get($url, $data), $assoc); 
+	public function getJSON($url, $assoc = true, $data = array(), array $options = array()) {
+		return json_decode($this->get($url, $data, $options), $assoc); 
 	}
 
 	/**
@@ -337,11 +352,13 @@ class WireHttp extends Wire {
 	 *
 	 * @param string $url URL to request (including http:// or https://)
 	 * @param mixed $data Array of data to send (if not already set before) or raw data to send
+	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
 	 * @return bool|array False on failure or Arrray with ResponseHeaders on success.
+	 * @see WireHttp::send(), WireHttp::post(), WireHttp::get()
 	 *
 	 */
-	public function head($url, $data = array()) {
-		$this->send($url, $data, 'HEAD');
+	public function head($url, $data = array(), array $options = array()) {
+		$this->send($url, $data, 'HEAD', $options);
 		$responseHeaders = $this->getResponseHeaders();
 		return is_array($responseHeaders) ? $responseHeaders : false;
 	}
@@ -352,11 +369,13 @@ class WireHttp extends Wire {
 	 * @param string $url URL to request (including http:// or https://)
 	 * @param mixed $data Array of data to send (if not already set before) or raw data
 	 * @param bool $textMode When true function will return a string rather than integer, see the statusText() method.
+	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
 	 * @return bool|integer|string False on failure or integer or string of status code (200|404|etc) on success.
+	 * @see WireHttp::send(), WireHttp::statusText()
 	 *
 	 */
-	 public function status($url, $data = array(), $textMode = false) {
-		$this->send($url, $data, 'HEAD');
+	 public function status($url, $data = array(), $textMode = false, array $options = array()) {
+		$this->send($url, $data, 'HEAD', $options);
 		return $this->getHttpCode($textMode); 
 	}
 
@@ -365,12 +384,14 @@ class WireHttp extends Wire {
 	 *
 	 * @param string $url URL to request (including http:// or https://)
 	 * @param mixed $data Array of data to send (if not already set before) or raw data
+	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
 	 * @return bool|string False on failure or string of status code + text on success.
 	 *	Example: "200 OK', "302 Found", "404 Not Found"
+	 * @see WireHttp::send(), WireHttp::status()
 	 *
 	 */
-	public function statusText($url, $data = array()) {
-		return $this->status($url, $data, true); 
+	public function statusText($url, $data = array(), array $options = array()) {
+		return $this->status($url, $data, true, $options); 
 	}
 
 	/**
@@ -455,68 +476,128 @@ class WireHttp extends Wire {
 	 * @param string $url URL to send to (including http:// or https://).
 	 * @param array $data Array of data to send (if not already set before).
 	 * @param string $method Method to use (either POST, GET, PUT, DELETE or others as needed).
+	 * @param array|string $options Options to modify behavior (this argument added in 3.0.124): 
+	 *  - `use` (string): What handler to use, one of 'auto', 'fopen', 'curl' or 'socket' (default='auto')
+	 *    If the 'auto' option is used, the method will first try fopen and then fallback to curl and sockets unless 'fallback' is disabled.
+	 *  - `fallback` (bool|string): Allow fallback to other methods? Applies only if 'use' option is 'auto'. (default=true)
+	 *    For a specific fallback method specify 'socket' or 'curl'
 	 * @return bool|string False on failure or string of contents received on success.
 	 *
 	 */
-	public function ___send($url, $data = array(), $method = 'POST') { 
+	public function ___send($url, $data = array(), $method = 'POST', array $options = array()) {
+		
+		$defaults = array(
+			'use' => 'auto',
+			'fallback' => 'auto', // false, 'auto', 'socket' or 'curl'
+			'_url' => $url, // original unmodified URL
+		);
 
-		$url = $this->validateURL($url, false); 
+		$options = array_merge($defaults, $options);
+		$url = $this->validateURL($url, false);
+		$allowFopen = $this->hasFopen;
+		$result = false;
+		
 		if(empty($url)) return false;
 		$this->resetResponse();
-		$unmodifiedURL = $url;
-
+		
 		if(!empty($data)) $this->setData($data);
-		
-		if(!isset($this->headers['user-agent'])) {
-			// some web servers deliver a 400 error if no user-agent set in request header, so make sure one is set
-			$this->setHeader('user-agent', 
-				'ProcessWire/' . ProcessWire::versionMajor . '.' . ProcessWire::versionMinor . ' (' . $this->className() . ')'
-			);
-		}
-		
+		if(!isset($this->headers['user-agent'])) $this->setHeader('user-agent', $this->getUserAgent());
 		if(!in_array(strtoupper($method), $this->allowHttpMethods)) $method = 'POST';
+		if($allowFopen && strpos($url, 'https://') === 0 && !extension_loaded('openssl')) $allowFopen = false;
 
-		if(!$this->hasFopen || strpos($url, 'https://') === 0 && !extension_loaded('openssl')) {
+		if($options['use'] === 'socket') {
+			// force socket
 			return $this->sendSocket($url, $method); 
+			
+		} else if($options['use'] === 'curl') {
+			// force curl
+			if(!$this->hasCURL) {
+				$this->error[] = 'CURL is not available';
+				return false;
+			}
+			return $this->sendCURL($url, $method, $options);
+			
+		} else if($options['use'] === 'fopen' && !$allowFopen) {
+			$this->error[] = 'fopen is not available';
+			return false;
 		}
 
+		if($allowFopen) {
+			$result = $this->sendFopen($url, $method, $options);
+		} else if($options['fallback'] === false) {
+			$this->error[] = 'fopen not available and fallback option is disabled';
+		}
+		
+		if($result === false && $options['fallback'] !== false) {
+			// on fopen fail fallback to CURL then sockets
+			if($this->hasCURL && $options['fallback'] !== 'socket') {
+				$result = $this->sendCURL($url, $method, $options);
+			}
+			if($result === false && $options['fallback'] !== 'curl') {
+				$result = $this->sendSocket($options['_url'], $method);
+			}
+		}
+
+		return $result;
+	}
+
+	/**
+	 * Send using fopen
+	 * 
+	 * @param string $url
+	 * @param string $method
+	 * @param array $options
+	 *
+	 * @return bool|string
+	 * 
+	 */
+	protected function sendFopen($url, $method = 'POST', array $options = array()) {
+
+		if($options) { /* ignore */ }
+		
+		$this->resetResponse();
+		$this->lastSendType = 'fopen';
+		
 		if(!empty($this->data)) {
-			$content = http_build_query($this->data); 
-			if($method === 'GET' && strlen($content)) { 
-				$url .= (strpos($url, '?') === false ? '?' : '&') . $content; 
+			$content = http_build_query($this->data);
+			if(($method === 'GET' || $method === 'HEAD') && strlen($content)) {
+				$url .= (strpos($url, '?') === false ? '?' : '&') . $content;
 				$content = '';
 			}
 		} else if(!empty($this->rawData)) {
-			$content = $this->rawData; 
+			$content = $this->rawData;
 		} else {
 			$content = '';
 		}
 
-		$this->setHeader('content-length', strlen($content)); 
+		$this->setHeader('content-length', strlen($content));
 
 		$header = '';
-		foreach($this->headers as $key => $value) $header .= "$key: $value\r\n";
+		foreach($this->headers as $key => $value) {
+			$header .= "$key: $value\r\n";
+		}
+		
 		$header .= "Connection: close\r\n";
 
 		$options = array(
-			'http' => array( 
+			'http' => array(
 				'method' => $method,
-				'timeout' => $this->getTimeout(), 
+				'timeout' => $this->getTimeout(),
 				'content' => $content,
 				'header' => $header,
-				)
-			);      
+			)
+		);
 
 		set_error_handler(array($this, '_errorHandler'));
-		$context = stream_context_create($options); 
+		$context = stream_context_create($options);
 		$fp = fopen($url, 'rb', false, $context);
 		restore_error_handler();
 
-		if(isset($http_response_header)) $this->setResponseHeader($http_response_header); 
-		
+		if(isset($http_response_header)) $this->setResponseHeader($http_response_header);
+
 		if($fp) {
-			$result = @stream_get_contents($fp); 
-			
+			$result = @stream_get_contents($fp);
+
 		} else {
 			$code = $this->getHttpCode();
 			if($code && $code >= 400 && isset($this->httpCodes[$code])) {
@@ -526,8 +607,7 @@ class WireHttp extends Wire {
 				// PR #1281: known http success status code, no need to fallback to sockets
 				$result = true;
 			} else {
-				// fallback to sockets
-				$result = $this->sendSocket($unmodifiedURL, $method);
+				$result = false;
 			}
 		}
 
@@ -535,42 +615,94 @@ class WireHttp extends Wire {
 	}
 	
 	/**
-	 * Send using CURL (coming soon)
+	 * Send using CURL
 	 *
 	 * @param string $url 
 	 * @param string $method
 	 * @param array $options
 	 * @return bool|string
 	 *
+	 */
 	protected function sendCURL($url, $method = 'POST', $options = array()) {
 
 		$this->resetResponse();
+		$this->lastSendType = 'curl';
 		$timeout = isset($options['timeout']) ? (float) $options['timeout'] : $this->getTimeout();
-		if(!in_array(strtoupper($method), $this->allowHttpMethods)) $method = 'POST';
-
-		$curl = curl_init($url);
+		$curl = curl_init();
 
 		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $timeout);
 		curl_setopt($curl, CURLOPT_TIMEOUT, $timeout);
 		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
-		if($method == 'POST') curl_setopt($curl, CURLOPT_POST, true);
-			else if($method == 'PUT') curl_setopt($curl, CURLOPT_PUT, true);
-			else curl_setopt($curl, CURLOPT_GET, true);
-		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true); 
-
+		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
+		curl_setopt($curl, CURLOPT_SAFE_UPLOAD, true);
+		curl_setopt($curl, CURLOPT_USERAGENT, $this->getUserAgent());
+		
+		if(count($this->headers)) {
+			curl_setopt($curl, CURLOPT_HTTPHEADER, $this->headers);
+		}
+		
+		if($method == 'POST') {
+			curl_setopt($curl, CURLOPT_POST, true);
+		} else if($method == 'PUT') {
+			curl_setopt($curl, CURLOPT_PUT, true);
+		} else if($method == 'HEAD') {
+			curl_setopt($curl, CURLOPT_NOBODY, true); 
+		} else {
+			curl_setopt($curl, CURLOPT_HTTPGET, true);
+		}
+		
 		// @felixwahner #1027
 		if(isset($options['http']) && isset($options['http']['proxy']) && !is_null($options['http']['proxy'])) {
 			curl_setopt($curl, CURLOPT_PROXY, $options['http']['proxy']);
 		}
+		
+		if(!empty($this->data)) {
+			if($method === 'POST') {
+				curl_setopt($curl, CURLOPT_POSTFIELDS, $this->data);
+			} else {
+				$content = http_build_query($this->data);
+				if(strlen($content)) $url .= (strpos($url, '?') === false ? '?' : '&') . $content;
+			}
+		} else if(!empty($this->rawData)) {
+			if($method === 'POST') {
+				curl_setopt($curl, CURLOPT_POSTFIELDS, $this->rawData);
+			} else {
+				throw new WireException("Raw data option with CURL not supported for $method"); 
+			}
+		}
 
+		// called by CURL for each header and populates the $responseHeaders var
+		$responseHeaders = array();
+		curl_setopt($curl, CURLOPT_HEADERFUNCTION, function($curl, $header) use(&$responseHeaders) {
+			if($curl) { /* ignore */ }
+			$length = strlen($header);
+			$header = explode(':', $header, 2);
+			if(count($header) < 2) return $length; // ignore invalid headers
+			$name = strtolower(trim($header[0]));
+			$value = trim($header[1]);
+			if(!array_key_exists($name, $responseHeaders)) {
+				$responseHeaders[$name] = array($value);
+			} else {
+				$responseHeaders[$name][] = $value;
+			}
+			return $length;
+		});
+
+		curl_setopt($curl, CURLOPT_URL, $url); 
 		$result = curl_exec($curl);
-		if($result) $this->httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
-		if($result === false) $this->error[] = curl_error($curl);
+
+		if($result === false) {
+			$this->error[] = curl_error($curl);
+			$this->httpCode = 0;
+		} else {
+			$this->setResponseHeaderValues($responseHeaders);
+			$this->httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
+		}
+		
 		curl_close($curl);
 
 		return $result;
 	}
-	 */
 
 	/**
 	 * Alternate method of sending when allow_url_fopen isn't allowed
@@ -587,6 +719,7 @@ class WireHttp extends Wire {
 		static $level = 0; // recursion level
 
 		$this->resetResponse();
+		$this->lastSendType = 'socket';
 		$timeout = isset($options['timeout']) ? (float) $options['timeout'] : $this->getTimeout();
 		if(!in_array(strtoupper($method), $this->allowHttpMethods)) $method = 'POST';
 
@@ -671,7 +804,7 @@ class WireHttp extends Wire {
 	 * @param string $fromURL URL of file you want to download.
 	 * @param string $toFile Filename you want to save it to (including full path).
 	 * @param array $options Optional aptions array for PHP's stream_context_create(), plus these optional options: 
-	 * 	- `useMethod` (string): Specify "curl", "fopen" or "socket" to force a specific method (default=auto-detect).
+	 * 	- `use` or `useMethod` (string): Specify "curl", "fopen" or "socket" to force a specific method (default=auto-detect).
 	 * 	- `timeout` (float): Number of seconds till timeout.
 	 * @return string Filename that was downloaded (including full path).
 	 * @throws WireException All error conditions throw exceptions. 
@@ -696,10 +829,15 @@ class WireHttp extends Wire {
 				$options['timeout'] = $this->timeout; 
 			}
 		}
+	
+		// the 'use' option can also be specified as a 'useMethod' option
+		if(isset($options['useMethod']) && !isset($options['use'])) {
+			$options['use'] = $options['useMethod'];
+		}
 		
-		if(isset($options['useMethod'])) {
-			$useMethod = $options['useMethod'];
-			unset($options['useMethod']);
+		if(isset($options['use'])) {
+			$useMethod = $options['use'];
+			unset($options['use']);
 			if(!in_array($useMethod, $allowMethods)) throw new WireException("Unrecognized useMethod: $useMethod"); 
 			if($useMethod == 'curl' && !$this->hasCURL) throw new WireException("System does not support CURL");
 			if($useMethod == 'fopen' && !$this->hasFopen) throw new WireException("System does not support fopen"); 
@@ -982,6 +1120,40 @@ class WireHttp extends Wire {
 	}
 
 	/**
+	 * Set response headers where they are provided as an associative array and values can be strings or arrays
+	 * 
+	 * @param array $responseHeader headers in an associative array
+	 * 
+	 */
+	protected function setResponseHeaderValues(array $responseHeader) {
+		$this->responseHeaders = array();
+		$this->responseHeaderArrays = array();
+
+		foreach($responseHeader as $key => $value) {
+			$key = strtolower($key);
+			if(!isset($this->responseHeaders[$key])) {
+				if(is_array($value)) {
+					$valueArray = $value;
+					$valueStr = count($value) ? reset($value) : '';
+				} else {
+					$valueArray = strlen($value) ? array($value) : array();
+					$valueStr = $value;
+				}
+				$this->responseHeaders[$key] = $valueStr;
+				$this->responseHeaderArrays[$key] = $valueArray;
+			} else {
+				if(is_array($value)) {
+					foreach($value as $k => $v) {
+						$this->responseHeaderArrays[$key][] = $v;
+					}
+				} else {
+					$this->responseHeaderArrays[$key][] = $value;
+				}
+			}
+		}
+	}
+
+	/**
 	 * Send the contents of the given filename to the current http connection.
 	 *
 	 * This function utilizes the `$config->fileContentTypes` to match file extension
@@ -1228,6 +1400,24 @@ class WireHttp extends Wire {
 	}
 
 	/**
+	 * Get the current user-agent header
+	 * 
+	 * To set the user agent header, use `$http->setHeader('user-agent', '...');`
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function getUserAgent() {
+		if(isset($this->headers['user-agent'])) {
+			$userAgent = $this->headers['user-agent'];
+		} else {
+			// some web servers deliver a 400 error if no user-agent set in request header, so make sure one is set
+			$userAgent = 'ProcessWire/' . ProcessWire::versionMajor . '.' . ProcessWire::versionMinor . ' (' . $this->className() . ')';
+		}
+		return $userAgent;
+	}
+
+	/**
 	 * Set the number of seconds till connection times out 
 	 * 
 	 * @param int|float $seconds
@@ -1249,6 +1439,18 @@ class WireHttp extends Wire {
 	 */
 	public function getTimeout() {
 		return $this->timeout === null ? self::defaultTimeout : (float) $this->timeout; 
+	}
+
+	/**
+	 * Get the last used internal sending type: fopen, curl or socket
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function getLastSendType() {
+		return $this->lastSendType;
 	}
 
 	/**
