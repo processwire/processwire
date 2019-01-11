@@ -76,9 +76,10 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	protected $whitespaceUTF8 = array(
+		'0000', // null byte
 		'0009', // character tab
 		'000A', // line feed
-		'000B', // line tab
+		'000B', // line tab (vertical tab)
 		'000C', // form feed
 		'000D', // carriage return
 		'0020', // space
@@ -2161,6 +2162,101 @@ class Sanitizer extends Wire {
 		}
 		$str = $this->removeWhitespace($str, $options);
 		return $str; 
+	}
+
+	/**
+	 * Trim of all known UTF-8 whitespace types (or given chars) from beginning and ending of string
+	 * 
+	 * Like PHP’s trim() but works with multibyte strings and recognizes all types of UTF-8 whitespace
+	 * as well as HTML whitespace entities. This method also optionally accepts an array for $chars argument
+	 * which enables you to trim out string sequences greater than one character long. 
+	 * 
+	 * If you do not need an extensive multibyte trim, use PHP’s trim() instead because this takes more overhead.
+	 * PHP multibyte support (mb_string) is strongly recommended if using this function. 
+	 * 
+	 * #pw-group-strings
+	 * 
+	 * @param string $str
+	 * @param string|array $chars Characters to trim or omit (blank string) for all known whitespace (including UTF-8) and HTML-entity whitespace. 
+	 * @return string
+	 * @since 3.0.124
+	 * 
+	 */
+	public function trim($str, $chars = '') {
+	
+		$mb = $this->multibyteSupport; 
+		$len = $mb ? mb_strlen($str) : strlen($str);
+		if(!$len) return $str;
+		if(is_array($chars) && !count($chars)) $chars = '';
+		$trims = array();
+
+		// setup trim
+		if($chars === '') {
+			// default whitespace characters
+			$trims = $this->getWhitespaceArray(true);
+			// let PHP default whitespace trim run first
+			$str = trim($str);
+			
+		} else {
+			// user-specified characters
+			if(is_array($chars)) {
+				$trims = $chars;
+			} else {
+				for($n = 0; $n < mb_strlen($str); $n++) {
+					$trim = $mb ? mb_substr($chars, $n, 1) : substr($chars, $n, 1);
+					$trimLen = $mb ? mb_strlen($trim) : strlen($trim);
+					if($trimLen) $trims[] = $trim;
+				}
+			}
+		}
+
+		// begin trim
+		do {
+			$numRemovedStart = 0; // num removed from start
+			$numRemovedEnd = 0; // num removed from end
+			
+			foreach($trims as $trimKey => $trim) {
+				$trimPos = $mb ? mb_strpos($str, $trim) : strpos($str, $trim);
+		
+				// if trim not present anywhere in string it can be removed from our trims list
+				if($trimPos === false) {
+					unset($trims[$trimKey]);
+					continue;
+				}
+				
+				// at this point we know the trim character is present somewhere in the string
+				$trimLen = $mb ? mb_strlen($trim) : strlen($trim);
+				
+				// while this trim character matches at beginning of string, remove it
+				while($trimPos === 0) {
+					$str = $mb ? mb_substr($str, $trimLen) : substr($str, $trimLen);
+					$trimPos = $mb ? mb_strpos($str, $trim) : strpos($str, $trim);
+					$numRemovedStart++;
+				}
+				
+				// trim from end
+				if($trimPos > 0) do {
+					$x = 0; // qty removed only in this do/while iteration
+					$trimPos = $mb ? mb_strrpos($str, $trim) : strrpos($str, $trim);
+					if($trimPos === false) break;
+					$strLen = $mb ? mb_strlen($str) : strlen($str);
+					if($trimPos + $trimLen >= $strLen) {
+						$str = $mb ? mb_substr($str, 0, $trimPos) : substr($str, 0, $trimPos); 	
+						$numRemovedEnd++;
+						$x++;
+					}
+				} while($x > 0);
+			
+				// if trim no longer present, remove it
+				if($trimPos === false) unset($trims[$trimKey]); 
+				
+			} // foreach
+			
+			$strLen = $mb ? mb_strlen($str) : strlen($str);
+			
+		} while($numRemovedStart + $numRemovedEnd > 0 && $strLen > 0);
+		
+		return $str;
 	}
 
 	/**
