@@ -1134,8 +1134,23 @@ $config->pageEdit = array(
  */
 $config->pageAdd = array(
 	'noSuggestTemplates' => '', 
-); 
+);
 
+/**
+ * MarkupQA (markup quality assurance) optional settings
+ * 
+ * This is used by Textarea Fieldtype when enabled and using content-type HTML.
+ *
+ * #property array ignorePaths Paths that begin with any of these will be ignored and left alone (not abstracted), i.e. [ '/a/b/', '/c/d/' ]
+ * #property bool debug Show debugging info to superusers? (default=false). May also be specified in $config->debugMarkupQA.
+ * 
+ * @var array
+ * 
+ */
+$config->markupQA = array(
+	// 'ignorePaths' => [ "/some/path/", "/another/path/", "/and/so/on/" ],
+	// 'debug' => true,
+);
 
 /*** 9. MISC ************************************************************************************/
 

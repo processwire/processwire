@@ -17,7 +17,7 @@
  * 
  * Runtime errors are logged to: /site/assets/logs/markup-qa-errors.txt
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  */ 
@@ -45,22 +45,24 @@ class MarkupQA extends Wire {
 	protected $field;
 
 	/**
-	 * Whether or not to track verbose info to $page
+	 * Markup QA custom settings
 	 * 
-	 * $page->_markupQA = array('field_name' => array(counts)))
+	 * Can be specified in $config->markupQA = [ ... ]
 	 * 
-	 * @var bool
+	 * - `ignorePaths` (array): Starting paths that should be ignored during link abstraction. Any paths that begin
+	 *    with one of these will be left alone. Note these are paths rather than URLs, so if the site runs off a 
+	 *    subdirectory, then you should exclude the subdirectory in these paths. 
+	 * - `debug` (bool): Show debugging info to superusers? (default=false). May also be specified in $config->debugMarkupQA=true;
+	 * - `verbose` (bool): Whether or not to track verbose info to $page: `$page->_markupQA = [ 'field_name' => [ counts ]]`
 	 * 
-	 */
-	protected $verbose = false;
-
-	/**
-	 * Whether verbose debug mode is active
-	 * 
-	 * @var bool
+	 * @var array
 	 * 
 	 */
-	protected $debug = false;
+	protected $settings = array(
+		'ignorePaths' => array(),
+		'debug' => false,
+		'verbose' => false,
+	);
 
 	/**
 	 * Construct
@@ -70,23 +72,24 @@ class MarkupQA extends Wire {
 	 *
 	 */
 	public function __construct(Page $page = null, Field $field = null) {
-		if($page) $this->setPage($page);
-		if($field) $this->setField($field);
-		$this->assetsURL = $this->wire('config')->urls->assets;
-		if($this->wire('config')->debugMarkupQA) {
-			$user = $this->wire('user');
-			if($user) $this->debug = $user->isSuperuser();
+		if($page) {
+			$this->setPage($page);
+			$page->wire($this);
 		}
-	}
-
-	/**
-	 * Enable or disable verbose mode
-	 * 
-	 * @param bool $verbose
-	 * 
-	 */
-	public function setVerbose($verbose) {
-		$this->verbose = $verbose ? true : false;
+		if($field) {
+			$this->setField($field);
+			if(!$page) $field->wire($this);
+		}
+		/** @var Config $config */
+		$config = $this->wire('config');
+		$this->assetsURL = $config->urls->assets;
+		$settings = $config->markupQA;
+		if(is_array($settings) && count($settings)) {
+			if(!empty($settings['ignorePaths'])) $this->ignorePaths($settings['ignorePaths']);
+			if(!empty($settings['debug'])) $this->debug(true);
+			if(!empty($settings['verbose'])) $this->verbose(true);
+		}
+		if($config->debugMarkupQA) $this->debug(true);
 	}
 
 	/**
@@ -107,6 +110,75 @@ class MarkupQA extends Wire {
 	 */
 	public function setField(Field $field) {
 		$this->field = $field; 
+	}
+
+	/**
+	 * Get or set paths to ignore for link abstraction
+	 * 
+	 * To get ignored paths call function with no arguments. Otherwise you are setting them. 
+	 * 
+	 * @param array|string|null $paths Array of paths or string of one path, or CSV or newline separated string of multiple paths. 
+	 * @param bool $replace True to replace all existing paths, or false to merge with existing paths (default=false)
+	 * @return array Returns array of current ignore paths
+	 * @throws WireException if given invalid $paths argument
+	 * 
+	 */
+	public function ignorePaths($paths = null, $replace = false) {
+		if($paths === null) {
+			return $this->settings['ignorePaths'];
+		} else if(is_string($paths)) {
+			// string of one path or CSV/newline separated multiple paths
+			$paths = trim($paths);
+			if(strpos($paths, "\n")) {
+				$paths = explode("\n", $paths);
+			} else if(strpos($paths, ",")) {
+				$paths = explode(",", $paths);
+			} else {
+				$paths = strlen($paths) ? array($paths) : array();
+			}
+			foreach($paths as $k => $v) $paths[$k] = trim($v); // remove any remaining whitespace
+		}
+		if(!is_array($paths)) throw new WireException('setIgnorePaths() requires array or string');
+		if(!$replace) $paths = array_merge($this->settings['ignorePaths'], $paths);
+		$this->settings['ignorePaths'] = $paths;
+		return $paths;
+	}
+
+	/**
+	 * Get or set debug status
+	 * 
+	 * Applies only if current user is a superuser
+	 * 
+	 * @param bool|null $set Omit this argument to get or specify bool to set
+	 * @return bool
+	 * 
+	 */
+	public function debug($set = null) {
+		if(is_bool($set)) {
+			if($set === true) {
+				$user = $this->wire('user');
+				if(!$user || !$user->isSuperuser()) $set = false;
+			}
+			$this->settings['debug'] = $set;
+		}
+		return $this->settings['debug'];
+	}
+
+	/**
+	 * Get or set verbose state
+	 * 
+	 * Whether or not to set/track verbose information to page, i.e.
+	 * `$page->_markupQA = array('field_name' => array(counts))`
+	 * 
+	 * When getting, if $page or $field have not been populated, verbose is always false. 
+	 *
+	 * @param bool|null $set Omit this argument to get or specify bool to set
+	 * @return bool
+	 *
+	 */
+	public function verbose($set = null) {
+		if(is_bool($set)) $this->settings['verbose'] = $set;
+		return $this->settings['verbose'] && $this->page && $this->field ? true : false;
 	}
 
 	/**
@@ -166,7 +238,7 @@ class MarkupQA extends Wire {
 			// sleep 
 			$value = str_ireplace(array_keys($replacements), array_values($replacements), $value);
 
-			if($this->verbose && $this->page && $this->field) {
+			if($this->verbose()) {
 				$info = $this->page->get('_markupQA');	
 				if(!is_array($info)) $info = array();
 				if(!is_array($info[$this->field->name])) $info[$this->field->name] = array();
@@ -231,7 +303,7 @@ class MarkupQA extends Wire {
 		}
 		
 		if($path && $path != $_path) {
-			if($this->debug) $this->message("MarkupQA absoluteToRelative converted: $_path => $path");
+			if($this->debug()) $this->message("MarkupQA absoluteToRelative converted: $_path => $path");
 		}
 
 		return $path;
@@ -252,7 +324,7 @@ class MarkupQA extends Wire {
 		// if there is already a data-pwid attribute present, then links are already asleep
 		if(strpos($value, 'href=') === false || strpos($value, 'data-pwid=')) return;
 	
-		$info = $this->verbose ? $this->page->get('_markupQA') : array();
+		$info = $this->verbose() ? $this->page->get('_markupQA') : array();
 		if(!is_array($info)) $info = array();
 		if(isset($info[$this->field->name])) {
 			$counts = $info[$this->field->name];	
@@ -265,6 +337,7 @@ class MarkupQA extends Wire {
 				'other' => 0,
 				'unresolved' => 0,
 				'nohttp' => 0, 
+				'ignored' => 0, 
 			);
 		}
 		
@@ -279,6 +352,8 @@ class MarkupQA extends Wire {
 		
 		$replacements = array();
 		$languages = $this->wire('languages');
+		$debug = $this->debug();
+		
 		if($languages && !$this->wire('modules')->isInstalled('LanguageSupportPageNames')) $languages = null;
 		
 		foreach($matches[3] as $key => $path) {
@@ -297,7 +372,7 @@ class MarkupQA extends Wire {
 				list($x, $host) = explode('//', $href);
 				if($host != $this->wire('config')->httpHost && !in_array($host, $this->wire('config')->httpHosts)) {
 					$counts['external']++;
-					if($this->debug) $this->message("MarkupQA sleepLinks skipping because hostname: $host");
+					if($debug) $this->message("MarkupQA sleepLinks skipping because hostname: $host");
 					// external hostname, which we will skip over
 					continue;
 				}
@@ -322,7 +397,19 @@ class MarkupQA extends Wire {
 					continue;
 				}
 			}
-		
+	
+			// check if this path is in the ignored paths list
+			$ignored = false;
+			foreach($this->ignorePaths() as $ignorePath) {
+				if(strpos($path, $ignorePath) !== 0) continue;
+				if($debug) $this->message("MarkupQA sleepLinks skipped $path because it matches ignored path $ignorePath"); 
+				$counts['ignored']++;
+				$ignored = true;
+				break;
+			}
+			if($ignored) continue;
+	
+			// get the page ID for the path
 			$pageID = $this->wire('pages')->getByPath($path, array(
 				'getID' => true,
 				'useLanguages' => $languages ? true : false,
@@ -342,7 +429,7 @@ class MarkupQA extends Wire {
 				}
 				$replacements[$full] = "$start\tdata-pwid=$pwid$href$path$end";
 				$counts['internal']++;
-				if($this->debug) {
+				if($debug) {
 					$langName = $language ? $language->name : 'n/a';
 					$this->message(
 						"MarkupQA sleepLinks (field=$this->field, page={$this->page->path}, lang=$langName): " . 
@@ -353,7 +440,7 @@ class MarkupQA extends Wire {
 				// did not resolve to a page, see if it resolves to a file or directory
 				$file = $this->wire('config')->paths->root . ltrim($path, '/');
 				if(file_exists($file)) {
-					if($this->debug) $this->message("MarkupQA sleepLinks link resolved to a file: $path");
+					if($debug) $this->message("MarkupQA sleepLinks link resolved to a file: $path");
 					$counts['files']++;
 				} else {
 					$parts = explode('/', trim($path, '/'));
@@ -375,7 +462,7 @@ class MarkupQA extends Wire {
 		}
 		
 		$info[$this->field->name] = $counts;
-		if($this->verbose) $this->page->setQuietly('_markupQA', $info);
+		if($this->verbose()) $this->page->setQuietly('_markupQA', $info);
 	}
 
 	/**
@@ -405,6 +492,9 @@ class MarkupQA extends Wire {
 		$replacements = array();
 		$languages = $this->wire('languages');
 		$rootURL = $this->wire('config')->urls->root;
+		$adminURL = $this->wire('config')->urls->admin;
+		$adminPath = $rootURL === '/' ? $adminURL : str_replace($rootURL, '/', $adminURL);
+		$debug = $this->debug();
 		
 		foreach($matches[2] as $key => $pwid) {
 			
@@ -437,24 +527,38 @@ class MarkupQA extends Wire {
 				$href = ' ' . ltrim($href); // immunity to wakeupUrls(), replacing tab with space
 			}
 			
-			$langName = $this->debug && $language ? $language->name : '';
+			$langName = $debug && $language ? $language->name : '';
 			
 			if($livePath) {
+				$ignore = false;
+				foreach($this->ignorePaths() as $ignorePath) {
+					if(strpos($livePath, $ignorePath) !== 0) continue;
+					if($debug) $this->message("MarkupQA wakeupLinks path $livePath matches ignored path $ignorePath");
+					$ignore = true;
+					break;
+				}
 				if($path && substr($path, -1) != '/') {
 					// no trailing slash, retain the editors wishes here
 					$livePath = rtrim($livePath, '/');
 				}
-				if(strpos($livePath, '/trash/') !== false) {
+				if($ignore) {
+					// path should be ignored and left as-is
+				} else if(strpos($livePath, '/trash/') !== false) {
 					// linked page is in trash, we won't update it but we'll produce a warning
 					$this->linkWarning("$path => $livePath (" . $this->_('it is in the trash') . ')');
+					continue;
+				} else if(strpos($livePath, $adminPath) !== false) {
+					// do not update paths that point in admin
+					$this->linkWarning("$path => $livePath (" . $this->_('points to the admin') . ')');
+					continue;
 				} else if($livePath != $path) {
 					// path differs from what's in the markup and should be updated
-					if($this->debug) $this->warning(
+					if($debug) $this->warning(
 						"MarkupQA wakeupLinks PATH UPDATED (field=$this->field, page={$this->page->path}, " . 
 						"language=$langName): $path => $livePath"
 					);
 					$path = $livePath;
-				} else if($this->debug) {
+				} else if($debug) {
 					$this->message("MarkupQA wakeupLinks no changes (field=$this->field, language=$langName): $path => $livePath");
 				}
 			} else {
@@ -588,7 +692,7 @@ class MarkupQA extends Wire {
 				$path
 			));
 		}
-		if($this->verbose || $logWarning) {
+		if($this->verbose() || $logWarning) {
 			$this->error("Unable to resolve link: $path");
 		}
 	}
@@ -636,7 +740,7 @@ class MarkupQA extends Wire {
 		$user = $this->wire('user');
 		$attrStrings = explode(' ', $img); // array of strings like "key=value"
 
-		if($this->verbose) {
+		if($this->verbose()) {
 			$markupQA = $this->page->get('_markupQA');
 			if(!is_array($markupQA)) $markupQA = array();
 			if(!isset($markupQA[$this->field->name])) $markupQA[$this->field->name] = array();
@@ -782,7 +886,7 @@ class MarkupQA extends Wire {
 					// new name differs from what is in text. Rename file to be consistent with text.
 					rename($newPagefile->filename(), $pathname);
 				}
-				if($this->debug || $this->wire('config')->debug) {
+				if($this->debug() || $this->wire('config')->debug) {
 					$this->message($this->_('Re-created image variation') . " - $newPagefile->name");
 				}
 				$pagefile = $newPagefile; // for next iteration
@@ -823,4 +927,37 @@ class MarkupQA extends Wire {
 		*/
 		return $this;
 	}
+
+	/**
+	 * Get or set a setting
+	 * 
+	 * @param string $key Setting name to get or set, or omit to get all settings
+	 * @param string|array|int|null $value Setting value to set, or omit when getting setting
+	 * @return string|array|int|null|$this Returns value of $key
+	 * 
+	public function setting($key = null, $value = null) {
+		if($key === null) return $this->settings; // return all
+		if($value === null) return isset($this->settings[$key]) ? $this->settings[$key] : null; // return one
+		if($key === 'ignorePaths') return $this->ignorePaths($value); // set specific
+		$this->settings[$key] = $value; // set
+		return $value;
+	}
+	 */
+	
+	/**
+	 * Enable or disable verbose mode
+	 *
+	 * Sets whether or not to set/track verbose information to page, i.e.
+	 * `$page->_markupQA = array('field_name' => array(counts))`
+	 *
+	 * #pw-internal
+	 *
+	 * @param bool $verbose
+	 * @deprecated use verbose() method instead
+	 *
+	 */
+	public function setVerbose($verbose) {
+		$this->settings['verbose'] = $verbose ? true : false;
+	}
+
 }
