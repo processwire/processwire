@@ -186,6 +186,28 @@ class WireShutdown extends Wire {
 	}
 
 	/**
+	 * Add helpful info or replace error message with something better, when possible
+	 * 
+	 * @param string $message
+	 * @return string
+	 * 
+	 */
+	protected function amendErrorMessage($message) {
+		if(!$this->config->useFunctionsAPI && strpos($message, "undefined function ")) {
+			$names = _wireFunctionsAPI();
+			$names = implode('|', array_keys($names));
+			if(preg_match('/undefined function (ProcessWire.|\b)(' . $names . ')\(/', $message, $matches)) {
+				$name = $matches[2];
+				$message = // replace error message with the following
+					"You have attempted to access function $name(); that is only available if the ProcessWire Functions API is enabled. " .
+					"Enable it by setting \$config->useFunctionsAPI = true; in your /site/config.php file, and then this " .
+					"error message should no longer appear.";
+			}
+		}
+		return $message;
+	}
+
+	/**
 	 * Render an error message and reason why
 	 * 
 	 * @param string $message
@@ -202,7 +224,7 @@ class WireShutdown extends Wire {
 			echo "\n\n$message\n\n$why\n\n";
 			return;
 		}
-		
+
 		// output HTML error
 		$html = $this->config->fatalErrorHTML ? $this->config->fatalErrorHTML : self::defaultFatalErrorHTML;
 		$html = str_replace(array(
@@ -368,6 +390,7 @@ class WireShutdown extends Wire {
 		
 		if($why) {
 			$why = $this->labels['shown-because'] . " $why $who";
+			$message = $this->amendErrorMessage($message);
 			$this->sendErrorMessage($message, $why, $useHTML);
 		} else {
 			$this->sendError500($who, $useHTML);

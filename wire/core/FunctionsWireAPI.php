@@ -504,3 +504,43 @@ function wirePaths($key = '') {
 	return wire('config')->paths($key);
 }
 
+/**
+ * Return array of functions available from the functions API
+ * 
+ * Returned array is shortVersion => longVersion
+ * 
+ * @return array
+ * 
+ */
+function _wireFunctionsAPI() {
+	$names = array(
+		'cache' => 'wireCache',
+		'config' => 'wireConfig',
+		'database' => 'wireDatabase', 
+		'datetime' => 'wireDatetime',
+		'fields' => 'wireFields',
+		'files' => 'wireFiles',
+		'input' => 'wireInput',
+		'inputGet' => 'wireInputGet',
+		'inputPost' => 'wireInputPost',
+		'inputCookie' => 'wireInputCookie',
+		'languages' => 'wireLanguages', 
+		'modules' => 'wireModules', 
+		'page' => 'wirePage',
+		'pages' => 'wirePages', 
+		'paths' => 'wirePaths',
+		'permissions' => 'wirePermissions',
+		'profiler' => 'wireProfiler',
+		'region' => 'wireRegion', 
+		'roles' => 'wireRoles',
+		'sanitizer' => 'wireSanitizer', 
+		'setting' => '', // no implemented
+		'session' => 'wireSession', 
+		'templates' => 'wireTemplates',
+		'urls' => 'wireUrls', 
+		'user' => 'wireUser', 
+		'users' => 'wireUsers', 
+	);
+	return $names;
+}
+
