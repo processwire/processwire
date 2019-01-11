@@ -17,7 +17,7 @@ require_once(__DIR__ . '/boot.php');
  * ~~~~~
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @method init()
@@ -44,7 +44,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 123;
+	const versionRevision = 124;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -279,6 +279,8 @@ class ProcessWire extends Wire {
 			/** @noinspection PhpIncludeInspection */
 			include_once($file);
 		}
+		// @todo
+
 
 		// check if noHTTPS option is using conditional hostname
 		if($config->noHTTPS && $config->noHTTPS !== true) {
