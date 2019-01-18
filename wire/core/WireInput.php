@@ -121,6 +121,16 @@ class WireInput extends Wire {
 	 * 
 	 * Always sanitize (and validate where appropriate) any values from user input. 
 	 * 
+	 * The following optional features are available in ProcessWire version 3.0.125 and newer: 
+	 * 
+	 * - Provide a sanitization method as the 2nd argument to include sanitization.
+	 * - Provide an array of valid values as the 2nd argument to limit input to those values. 
+	 * - Provide a callback function that receives the value and returns a validated value. 
+	 * - Provide a fallback value as the 3rd argument to use if value not present or invalid.
+	 * - Append “[]” to the 1st argument to always force return value to be an array, i.e “colors[]”.
+	 *
+	 * Note that the `$valid` and `$fallback` arguments are only applicable if a `$key` argument is provided. 
+	 * 
 	 * ~~~~~
 	 * // Retrieve a "q" GET variable, sanitize and output
 	 * // Example request URL: domain.com/path/to/page/?q=TEST
@@ -131,20 +141,54 @@ class WireInput extends Wire {
 	 * // You can also combine $input and one $sanitizer call, replacing
 	 * // the "text" method call with any $sanitizer method: 
 	 * $q = $input->get->text('q'); 
-	 * ~~~~~
 	 *
+	 * // like the previous example, but specify sanitizer method as second argument (3.0.125+):
+	 * $q = $input->get('q', 'text'); 
+	 * 
+	 * // if you want more than one sanitizer, specify multiple in a CSV string (3.0.125+):
+	 * $q = $input->get('q', 'text,entities'); 
+	 * 
+	 * // you can provide a whitelist array of allowed values instead of a sanitizer method (3.0.125+):
+	 * $color = $input->get('color', [ 'red', 'blue', 'green' ]); 
+	 * 
+	 * // an optional 3rd argument lets you specify a fallback value to use if valid value not present or 
+	 * // empty in input, and it will return this value rather than null/empty (3.0.125+):
+	 * $qty = $input->get('qty', 'int', 1); // return 1 if no qty provided
+	 * $color = $input->get('color', [ 'red', 'blue', 'green' ], 'red'); // return red if no color selected
+	 * 
+	 * // you may optionally provide a callback function to sanitize/validate with (3.0.125+):
+	 * $isActive = $input->get('active', function($val) { return $val ? true : false; }); 
+	 * ~~~~~
+	 * 
 	 * @param string $key Name of GET variable you want to retrieve. 
-	 * - If populated, returns the value corresponding to the key or NULL if it doesn't exist.
-	 * - If blank, returns reference to the WireDataInput containing all GET vars. 
-	 * @return null|mixed|WireInputData Returns unsanitized value or NULL if not present. If no $key given, returns WireInputData with all GET vars. 
+	 *  - If populated, returns the value corresponding to the key or NULL if it doesn’t exist.
+	 *  - If blank, returns reference to the WireDataInput containing all GET vars. 
+	 * @param array|string|int|callable|null $valid Omit for no validation/sanitization, or provide one of the following (3.0.125+ only):
+	 *  - String name of Sanitizer method to to sanitize value with before returning it.
+	 *  - CSV string of multiple sanitizer names to process the value, in order. 
+	 *  - Array of allowed values (aka whitelist), where input value must be one of these, otherwise null (or fallback value) will returned. 
+	 *    Values in the array may be any string or integer.
+	 *  - Callback function to sanitize and validate the value. 
+	 *  - Integer if a specific number is the only allowed value other than fallback value (i.e. like a checkbox toggle).
+	 * @param mixed|null Optional fallback value to return if input value is not present or does not validate (3.0.125+ only). 
+	 * @return null|mixed|WireInputData Returns one of the following:
+	 *  - If given no `$key` argument, returns `WireInputData` with all unsanitized GET vars.
+	 *  - If given no `$valid` argument, returns unsanitized value or NULL if not present. 
+	 *  - If given a Sanitizer name for `$valid` argument, returns value sanitized with that Sanitizer method (3.0.125+).
+	 *  - If given an array of allowed values for `$valid` argument, returns value from that array if it was in the input, or null if not (3.0.125+).
+	 *  - If given a callable function for `$valid` argument, returns the value returned by that function (3.0.125+).
+	 *  - If given a `$fallback` argument, returns that value when it would otherwise return null (3.0.125+). 
+	 * @throws WireException if given unknown Sanitizer method for $valid argument
 	 *
 	 */
-	public function get($key = '') {
+	public function get($key = '', $valid = null, $fallback = null) {
 		if(is_null($this->getVars)) {
 			$this->getVars = $this->wire(new WireInputData($_GET, $this->lazy));
 			$this->getVars->offsetUnset('it');
 		}
-		return $key ? $this->getVars->__get($key) : $this->getVars; 
+		if(!strlen($key)) return $this->getVars;
+		if($valid === null && $fallback === null && !strpos($key, '[]')) return $this->getVars->__get($key);
+		return $this->getValidInputValue($this->getVars, $key, $valid, $fallback);
 	}
 
 	/**
@@ -152,42 +196,115 @@ class WireInput extends Wire {
 	 * 
 	 * Always sanitize (and validate where appropriate) any values from user input.
 	 * 
+	 * The following optional features are available in ProcessWire version 3.0.125 and newer:
+	 *
+	 * - Provide a sanitization method as the 2nd argument to include sanitization.
+	 * - Provide an array of valid values as the 2nd argument to limit input to those values.
+	 * - Provide a callback function that receives the value and returns a validated value.
+	 * - Provide a fallback value as the 3rd argument to use if value not present or invalid.
+	 * - Append “[]” to the 1st argument to always force return value to be an array, i.e “colors[]”.
+	 *
+	 * Note that the `$valid` and `$fallback` arguments are only applicable if a `$key` argument is provided.
+	 * 
+	 * 
 	 * ~~~~~
 	 * // Retrieve a "comments" POST variable, sanitize and output it
 	 * $comments = $input->post('comments'); 
-	 * $comments = $sanitizer->text($comments); // sanitize input as 1-line text
+	 * $comments = $sanitizer->textarea($comments); // sanitize input as multi-line text with no HTML
 	 * echo $sanitizer->entities($comments); // sanitize for output
 	 * 
 	 * // You can also combine $input and one $sanitizer call like this,
 	 * // replacing "text" with name of any $sanitizer method: 
-	 * $comments = $input->post->text('comments'); 
+	 * $comments = $input->post->textarea('comments');
+	 * 
+	 * // like the previous example, but specify sanitizer method as second argument (3.0.125+):
+	 * $comments = $input->post('comments', 'textarea');
+	 *
+	 * // if you want more than one sanitizer, specify multiple in a CSV string (3.0.125+):
+	 * $comments = $input->post('comments', 'textarea,entities');
+	 *
+	 * // you can provide a whitelist array of allowed values instead of a sanitizer method (3.0.125+):
+	 * $color = $input->post('color', [ 'red', 'blue', 'green' ]);
+	 *
+	 * // an optional 3rd argument lets you specify a fallback value to use if valid value not present or
+	 * // empty in input, and it will return this value rather than null/empty (3.0.125+):
+	 * $qty = $input->post('qty', 'int', 1); // return 1 if no qty provided
+	 * $color = $input->post('color', [ 'red', 'blue', 'green' ], 'red'); // return red if no color selected
+	 *
+	 * // you may optionally provide a callback function to sanitize/validate with (3.0.125+):
+	 * $isActive = $input->post('active', function($val) { return $val ? true : false; }); 
 	 * ~~~~~
 	 * 
 	 * @param string $key Name of POST variable you want to retrieve. 
 	 *  - If populated, returns the value corresponding to the key or NULL if it doesn't exist.
-	 *  - If blank, returns reference to the WireDataInput containing all POST vars. 
-	 * @return null|mixed|WireInputData Returns unsanitized value or NULL if not present. If no $key given, returns WireInputData with all POST vars. 
+	 *  - If blank, returns reference to the WireDataInput containing all POST vars.
+	 * @param array|string|int|callable|null $valid Omit for no validation/sanitization, or provide one of the following:
+	 *  - String name of Sanitizer method to to sanitize value with before returning it.
+	 *  - CSV string of multiple sanitizer names to process the value, in order.
+	 *  - Array of allowed values (aka whitelist), where input value must be one of these, otherwise null (or fallback value) will returned.
+	 *    Values in the array may be any string or integer.
+	 *  - Callback function to sanitize and validate the value.
+	 *  - Integer if a specific number is the only allowed value other than fallback value (i.e. like a checkbox toggle).
+	 * @param mixed|null Optional Fallback value to return if input value is not present or does not validate.
+	 * @return null|mixed|WireInputData Returns one of the following:
+	 *  - If given no `$key` argument, returns `WireInputData` with all unsanitized POST vars.
+	 *  - If given no `$valid` argument, returns unsanitized value or NULL if not present.
+	 *  - If given a Sanitizer name for `$valid` argument, returns value sanitized with that Sanitizer method (3.0.125+).
+	 *  - If given an array of allowed values for `$valid` argument, returns value from that array if it was in the input, or null if not (3.0.125+).
+	 *  - If given a callable function for `$valid` argument, returns the value returned by that function (3.0.125+).
+	 *  - If given a `$fallback` argument, returns that value when it would otherwise return null (3.0.125+).
+	 * @throws WireException if given unknown Sanitizer method for $valid argument
 	 *
 	 */
-	public function post($key = '') {
-		if(is_null($this->postVars)) $this->postVars = $this->wire(new WireInputData($_POST, $this->lazy)); 
-		return $key ? $this->postVars->__get($key) : $this->postVars; 
+	public function post($key = '', $valid = null, $fallback = null) {
+		if(is_null($this->postVars)) $this->postVars = $this->wire(new WireInputData($_POST, $this->lazy));
+		if(!strlen($key)) return $this->postVars;
+		if($valid === null && $fallback === null && !strpos($key, '[]')) return $this->postVars->__get($key);
+		return $this->getValidInputValue($this->postVars, $key, $valid, $fallback);
 	}
 
 	/**
 	 * Retrieve a named COOKIE variable value or all COOKIE variables
 	 * 
 	 * Always sanitize (and validate where appropriate) any values from user input.
+	 * 
+	 * The following optional features are available in ProcessWire version 3.0.125 and newer:
+	 *
+	 * - Provide a sanitization method as the 2nd argument to include sanitization.
+	 * - Provide an array of valid values as the 2nd argument to limit input to those values.
+	 * - Provide a callback function that receives the value and returns a validated value.
+	 * - Provide a fallback value as the 3rd argument to use if value not present or invalid.
+	 * - Append “[]” to the 1st argument to always force return value to be an array, i.e “colors[]”.
+	 *
+	 * Note that the `$valid` and `$fallback` arguments are only applicable if a `$key` argument is provided.
+	 * See the `WireInput::get()` method for usage examples (get method works the same as cookie method).
 	 *
 	 * @param string $key Name of the COOKIE variable you want to retrieve. 
 	 *  - If populated, returns the value corresponding to the key or NULL if it doesn't exist.
-	 *  - If blank, returns reference to the WireDataInput containing all COOKIE vars. 
-	 * @return null|mixed|WireInputData Returns unsanitized value or NULL if not present. If no $key given, returns WireInputData with all COOKIE vars.
+	 *  - If blank, returns reference to the WireDataInput containing all COOKIE vars.
+	 * @param array|string|int|callable|null $valid Omit for no validation/sanitization, or provide one of the following:
+	 *  - String name of Sanitizer method to to sanitize value with before returning it.
+	 *  - CSV string of multiple sanitizer names to process the value, in order.
+	 *  - Array of allowed values (aka whitelist), where input value must be one of these, otherwise null (or fallback value) will returned.
+	 *    Values in the array may be any string or integer.
+	 *  - Callback function to sanitize and validate the value.
+	 *  - Integer if a specific number is the only allowed value other than fallback value (i.e. like a checkbox toggle).
+	 * @param mixed|null Optional Fallback value to return if input value is not present or does not validate.
+	 * @return null|mixed|WireInputData Returns one of the following:
+	 *  - If given no `$key` argument, returns `WireInputData` with all unsanitized COOKIE vars.
+	 *  - If given no `$valid` argument, returns unsanitized value or NULL if not present.
+	 *  - If given a Sanitizer name for `$valid` argument, returns value sanitized with that Sanitizer method (3.0.125+).
+	 *  - If given an array of allowed values for `$valid` argument, returns value from that array if it was in the input, or null if not (3.0.125+).
+	 *  - If given a callable function for `$valid` argument, returns the value returned by that function (3.0.125+).
+	 *  - If given a `$fallback` argument, returns that value when it would otherwise return null (3.0.125+).
+	 * @throws WireException if given unknown Sanitizer method for $valid argument
 	 *
 	 */
-	public function cookie($key = '') {
-		if(is_null($this->cookieVars)) $this->cookieVars = $this->wire(new WireInputData($_COOKIE, $this->lazy)); 
-		return $key ? $this->cookieVars->__get($key) : $this->cookieVars; 
+	public function cookie($key = '', $valid = null, $fallback = null) {
+		if(is_null($this->cookieVars)) $this->cookieVars = $this->wire(new WireInputData($_COOKIE, $this->lazy));
+		if(!strlen($key)) return $this->cookieVars;
+		if($valid === null && $fallback === null && !strpos($key, '[]')) return $this->cookieVars->__get($key);
+		return $this->getValidInputValue($this->cookieVars, $key, $valid, $fallback);
 	}
 
 	/**
@@ -746,6 +863,157 @@ class WireInput extends Wire {
 		if($method) return strtoupper($method) === $requestMethod;
 		return $requestMethod; 
 	}
+	
+	/**
+	 * Provides the implementation for get/post/cookie method validation and fallback features
+	 *
+	 * @param WireInputData $input 
+	 * @param string $key Name of variable to pull from $input
+	 * @param array|string|callable|mixed|null $valid String containing name of Sanitizer method, or array of allowed values.
+	 * @param string|array|int|mixed $fallback Return this value rather than null if input value is not present or not valid.
+	 * @return array|int|mixed|null|WireInputData|string
+	 * @throws WireException if given unknown Sanitizer method or some other invalid arguments.
+	 *
+	 */
+	protected function getValidInputValue(WireInputData $input, $key, $valid, $fallback) {
+
+		if(!strlen($key)) return $input; // return all
+		
+		if(strpos($key, '[]')) {
+			$key = trim($key, '[]');
+			$forceArray = true;
+		} else {
+			$forceArray = false;
+		}
+
+		$value = $input->__get($key);
+		$cleanValue = null;
+
+		if($value === null && $fallback !== null) {
+			// no value present, use fallback
+			$cleanValue = $fallback;
+			
+		} else if($value === null && $valid === null && $fallback === null) {
+			// everything null
+			$cleanValue = null;
+			
+		} else if($valid === null) {
+			// no sanitization/validation requested
+			$cleanValue = $value === null ? $fallback : $value;
+
+		} else if(is_string($valid)) {
+			// sanitizer "name" or multiple "name1,name2,name3" specified for $valid argument
+			$cleanValue = $this->sanitizeValue($valid, $value, ($forceArray || is_array($fallback)));
+			if(empty($value) && $fallback !== null) $cleanValue = $fallback;
+
+		} else if(is_array($valid)) {
+			// whitelist provided for $valid argument
+			$cleanValue = $this->filterValue($value, $valid, ($forceArray || is_array($fallback))); 
+
+		} else if(is_callable($valid)) {
+			// callable function provided for sanitization and validation
+			$cleanValue = call_user_func($valid, $value);
+
+		} else if(is_int($valid)) {
+			// single integer provided as only allowed value
+			if(ctype_digit("$value")) {
+				$value = (int) $value;
+				if($valid === $value) $cleanValue = $valid;
+			}
+		}
+
+		if(($cleanValue === null || ($forceArray && empty($cleanValue))) && $fallback !== null) {
+			$cleanValue = $fallback;
+		}
+		if($forceArray && !is_array($cleanValue)) {
+			$cleanValue = ($cleanValue === null ? array() : array($cleanValue));
+		}
+
+		return $cleanValue;
+	}
+
+	/**
+	 * Filter value against given $valid whitelist
+	 * 
+	 * @param string|array $value
+	 * @param array $valid Whitelist of valid values
+	 * @param bool $getArray Filter to allow multiple values (array)?
+	 * @return array|string|null
+	 * @throws WireException If given a multidimensional array for $valid argument
+	 * 
+	 */
+	protected function filterValue($value, array $valid, $getArray) {
+		
+		$cleanValue = $getArray ? array() : null;
+		
+		if($getArray) {
+			if(!is_array($value)) {
+				// array expected but input value is not an array, so convert it to one
+				$value = ($value === null ? array() : array($value));
+			}
+		} else while(is_array($value)) {
+			$value = reset($value);
+		}
+		
+		foreach($valid as $validValue) {
+			if(is_array($validValue)) {
+				throw new WireException('Array of arrays not supported for valid value whitelist');
+			}
+			if($getArray) {
+				// input value is an array, as is the fallback, so array is expected return value
+				foreach($value as $dirtyValue) {
+					if(is_array($dirtyValue)) continue;
+					// multiple items allowed
+					if("$validValue" === "$dirtyValue") $cleanValue[] = $validValue;
+				}
+			} else if("$value" === "$validValue") {
+				$cleanValue = $validValue;
+				break; // stop at one
+			}
+		}
+		
+		return $cleanValue;
+	}
+
+	/**
+	 * Sanitize the given value with the given method(s)
+	 * 
+	 * @param string $method Sanitizer method name or CSV string of sanitizer method names
+	 * @param string|array|null $value
+	 * @param bool $getArray
+	 * @return array|mixed|null
+	 * @throws WireException If given unknown sanitizer method
+	 * 
+	 */
+	protected function sanitizeValue($method, $value, $getArray) {
+		
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		$values = is_array($value) ? $value : ($value === null ? array() : array($value));
+		$methods = strpos($method, ',') === false ? array($method) : explode(',', $method);
+		$cleanValues = array();
+		
+		foreach($values as $value) {
+			foreach($methods as $method) {
+				$method = trim($method);
+				if(empty($method)) continue;
+				if(method_exists($sanitizer, $method)) {
+					$value = call_user_func_array(array($sanitizer, $method), array($value));
+				} else if(method_exists($sanitizer, "___$method")) {
+					$value = call_user_func_array(array($sanitizer, "___$method"), array($value));
+				} else {
+					throw new WireException("Unknown sanitizer method: $method");
+				}
+			}
+			$cleanValues[] = $value;
+		}
+		
+		$cleanValue = $getArray ? $cleanValues : reset($cleanValues);
+		if($cleanValue === false) $cleanValue = null;
+		
+		return $cleanValue; 
+	}
+
 
 	/**
 	 * Emulate register globals OFF
