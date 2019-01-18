@@ -374,26 +374,30 @@ function wireLanguages($name = '') {
  *
  * ~~~~~
  * // Examples
- * $input = input(); // Returns $input API var (WireInput)
- * $post = input('post'); // Returns $input->post (WireInputData)
- * $value = input('get', 'sort'); // Returns $input->get('sort');
- * $value = input('get', 'sort', 'fieldName'); // Returns $input->get('sort') run through $sanitizer->fieldName().
+ * $input = wireInput(); // Returns $input API var (WireInput)
+ * $post = wireInput('post'); // Returns $input->post (WireInputData)
+ * $post = wireInput()->post(); // Same as above
+ * $value = wireInput('get', 'sort'); // Returns $input->get('sort');
+ * $value = wireInput('get', 'sort', 'fieldName'); // Returns $input->get('sort') run through $sanitizer->fieldName().
+ * $value = wireInput('get', 'sort', 'fieldName', 'title'); // Same as above but fallback to 'title' if no sort is present (3.0.125)
+ * $value = wireInput('get', 'sort', ['title', 'created', 'likes'], 'title'); // Require value to be one given or fallback to 'title' (3.0.125+)
+ * $value = wireInput()->get('sort', ['title', 'created', 'likes'], 'title'); // Same as above (3.0.125)
  * ~~~~~
  *
  * @param string $type Optionally indicate "get", "post", "cookie" or "whitelist"
  * @param string $key If getting a value, specify name of property containing value
- * @param string $sanitizer Optionally specify sanitizer name to run value through
- * @return WireInput|WireInputData array|string|int|null
+ * @param string $sanitizer Optionally specify sanitizer name to run value through, or array containing whitelist of allowed values (3.0.125).
+ * @param mixed $fallback Fallback value to return rather than null if value not present or does not validate (3.0.125+)
+ * @return WireInput|WireInputData|array|string|int|null
  *
  */
-function wireInput($type = '', $key = '', $sanitizer = '') {
+function wireInput($type = '', $key = '', $sanitizer = null, $fallback = null) {
 	/** @var WireInput $input */
 	$input = wire('input');
 	if(!strlen($type)) return $input;
 	$type = strtolower($type);
 	if(!strlen($key)) return $input->$type;
-	$value = $input->$type($key);
-	if(strlen($sanitizer)) $value = wireSanitizer($sanitizer, $value);
+	$value = $input->$type($key, $sanitizer, $fallback);
 	return $value;
 }
 
@@ -402,13 +406,14 @@ function wireInput($type = '', $key = '', $sanitizer = '') {
  *
  * This is the same as the input() function except that the $type "get" is already implied.
  *
- * @param string $key
- * @param string $sanitizer
+ * @param string $key Name of input variable to get
+ * @param string $sanitizer Optionally specify sanitizer name to run value through, or array containing whitelist of allowed values (3.0.125+).
+ * @param mixed $fallback Fallback value to return rather than null if value not present or does not validate (3.0.125+)
  * @return WireInputData|string|int|array|null
  *
  */
-function wireInputGet($key = '', $sanitizer = '') {
-	return wireInput('get', $key, $sanitizer);
+function wireInputGet($key = '', $sanitizer = null, $fallback = null) {
+	return wireInput('get', $key, $sanitizer, $fallback);
 }
 
 /**
@@ -416,13 +421,14 @@ function wireInputGet($key = '', $sanitizer = '') {
  *
  * This is the same as the input() function except that the $type "post" is already implied.
  *
- * @param string $key
- * @param string $sanitizer
+ * @param string $key Name of input variable to get
+ * @param string $sanitizer Optionally specify sanitizer name to run value through, or array containing whitelist of allowed values (3.0.125).
+ * @param mixed $fallback Fallback value to return rather than null if value not present or does not validate (3.0.125+)
  * @return WireInputData|string|int|array|null
  *
  */
-function wireInputPost($key = '', $sanitizer = '') {
-	return wireInput('post', $key, $sanitizer);
+function wireInputPost($key = '', $sanitizer = null, $fallback = null) {
+	return wireInput('post', $key, $sanitizer, $fallback);
 }
 
 /**
@@ -430,13 +436,14 @@ function wireInputPost($key = '', $sanitizer = '') {
  *
  * This is the same as the input() function except that the $type "cookie" is already implied.
  *
- * @param string $key
- * @param string $sanitizer
+ * @param string $key Name of input variable to get
+ * @param string $sanitizer Optionally specify sanitizer name to run value through, or array containing whitelist of allowed values (3.0.125+).
+ * @param mixed $fallback Fallback value to return rather than null if value not present or does not validate (3.0.125+)
  * @return WireInputData|string|int|array|null
  *
  */
-function wireInputCookie($key = '', $sanitizer = '') {
-	return wireInput('cookie', $key, $sanitizer);
+function wireInputCookie($key = '', $sanitizer = null, $fallback = null) {
+	return wireInput('cookie', $key, $sanitizer, $fallback);
 }
 
 /**
@@ -505,6 +512,50 @@ function wirePaths($key = '') {
 }
 
 /**
+ * Get or set a runtime site setting
+ *
+ * This is a simple helper function for maintaining runtime settings in a site profile.
+ * It simply sets and gets settings that you define. It is preferable to using ProcessWire’s
+ * `$config` or `config()` API var/function because it is not used to store anything else for
+ * ProcessWire. It is also preferable to using a variable (or variables) because it is always
+ * in scope and accessible anywhere in your template files, even within existing functions.
+ *
+ * ~~~~~
+ * // set a setting named “foo” to value “bar”
+ * setting('foo', 'bar');
+ *
+ * // get a setting named “foo”
+ * $value = setting('foo');
+ *
+ * // set or replace multiple settings
+ * setting([
+ *   'foo' => 'value',
+ *   'bar' => 123,
+ *   'baz' => [ 'foo', 'bar', 'baz' ]
+ * ]);
+ *
+ * // get all settings in associative array
+ * $a = setting();
+ *
+ * // to unset a setting
+ * setting(false, 'foo');
+ * ~~~~~
+ *
+ * @param string|array $name Setting name, or array to set multiple
+ * @param string|int|array|float|mixed $value Value to set, or omit if getting value of $name (default=null)
+ * @return array|string|int|bool|mixed|null
+ *
+ */
+function wireSetting($name = '', $value = null) {
+	static $settings = array();
+	if($name === '') return $settings;
+	if(is_array($name)) return $settings = array_merge($settings, $name);
+	if($name === false) { unset($settings[(string) $value]); return null; }
+	if($value !== null) $settings[$name] = $value;
+	return isset($settings[$name]) ? $settings[$name] : null;
+}
+
+/**
  * Return array of functions available from the functions API
  * 
  * Returned array is shortVersion => longVersion
@@ -534,7 +585,7 @@ function _wireFunctionsAPI() {
 		'region' => 'wireRegion', 
 		'roles' => 'wireRoles',
 		'sanitizer' => 'wireSanitizer', 
-		'setting' => '', // no implemented
+		'setting' => 'wireSetting',
 		'session' => 'wireSession', 
 		'templates' => 'wireTemplates',
 		'urls' => 'wireUrls', 

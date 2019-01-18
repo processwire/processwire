@@ -499,14 +499,23 @@ class WireFileTools extends Wire {
 	/**
 	 * Return a new temporary directory/path ready to use for files
 	 * 
+	 * The directory will be automatically removed after a set period of time (default=120s)
+	 * 
 	 * #pw-advanced
+	 * 
+	 * ~~~~~
+	 * $td = $files->tempDir('hello-world'); 
+	 * $path = (string) $td; // or use $td->get();
+	 * file_put_contents($path . 'some-file.txt', 'Hello world'); 
+	 * ~~~~~
 	 *
 	 * @param Object|string $name Provide the object that needs the temp dir, or name your own string
 	 * @param array|int $options Options array to modify default behavior:
 	 *  - `maxAge` (integer): Maximum age of temp dir files in seconds (default=120)
 	 *  - `basePath` (string): Base path where temp dirs should be created. Omit to use default (recommended).
 	 *  - Note: if you specify an integer for $options, then 'maxAge' is assumed.
-	 * @return WireTempDir
+	 * @return WireTempDir If you typecast return value to a string, it is the temp dir path (with trailing slash).
+	 * @see WireTempDir
 	 *
 	 */
 	public function tempDir($name, $options = array()) {
@@ -929,12 +938,12 @@ class WireFileTools extends Wire {
 	/**
 	 * Include a PHP file passing it all API variables and optionally your own specified variables
 	 *
-	 * This is the same as PHP's `include()` function except for the following:
+	 * This is the same as PHP’s `include()` function except for the following:
 	 * 
 	 * - It receives all API variables and optionally your custom variables
-	 * - If your filename is not absolute, it doesn't look in PHP's include path, only in the current dir.
+	 * - If your filename is not absolute, it doesn’t look in PHP’s include path, only in the current dir.
 	 * - It only allows including files that are part of the PW installation: templates, core modules or site modules
-	 * - It will assume a ".php" extension if filename has no extension.
+	 * - It will assume a “.php” extension if filename has no extension.
 	 *
 	 * Note this function produces direct output. To retrieve output as a return value, use the
 	 * `$files->render()` function instead.
@@ -948,7 +957,7 @@ class WireFileTools extends Wire {
 	 *  - `autoExtension` (string): Extension to assume when no ext in filename, make blank for no auto assumption (default=php)
 	 *  - `allowedPaths` (array): Array of start paths include files are allowed from. Note current dir is always allowed.
 	 * @return bool Always returns true
-	 * @throws WireException if file doesn't exist or is not allowed
+	 * @throws WireException if file doesn’t exist or is not allowed
 	 *
 	 */
 	function ___include($filename, array $vars = array(), array $options = array()) {

@@ -7,22 +7,46 @@
  * 
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
+ * 
+ * #pw-summary-arrays These shortcuts for creating WireArray types are available in ProcessWire 3.0.123 and newer. 
+ * #pw-summary-files These file system functions are procedural versions of some of those provided by the `$files` API variable.
  *
  */
 
 /**
- * Return a ProcessWire API variable, or NULL if it doesn't exist
+ * Return an API variable, or return current ProcessWire instance if given no arguments 
  *
- * And the wire() function is the recommended way to access the API when included from other PHP scripts.
- * Like the fuel() function, except that ommitting $name returns the current ProcessWire instance rather than the fuel.
- * The distinction may not matter in most cases.
+ * - Call `wire()` with no arguments returns the current ProcessWire instance. 
+ * - Call `wire('var')` to return the API variable represented by 'var', or null if not present.
+ * - Call `wire('all')` or `wire('*')` to return an iterable object of all API variables. 
+ * - Call `wire($object)` to attach $object to the current instance ($object must be Wire-derived object). 
+ * 
+ * #pw-group-common
+ * #pw-group-Functions-API
  *
- * @param string $name If omitted, returns a Fuel object with references to all the fuel.
- * @return null|ProcessWire|Wire|Session|Page|Pages|Modules|User|Users|Roles|Permissions|Templates|Fields|Fieldtypes|Sanitizer|Config|Notices|WireDatabasePDO|WireHooks|WireDateTime|WireFileTools|WireMailTools|WireInput|string|mixed
+ * @param string $name If omitted, returns current ProcessWire instance. 
+ * @return null|ProcessWire|Wire|Session|Page|Pages|Modules|User|Users|Roles|Permissions|Templates|Fields|Fieldtypes|Sanitizer|Config|Notices|WireDatabasePDO|WireHooks|WireDateTime|WireFileTools|WireMailTools|WireInput|string|mixed Requested API variable or null if it does not exist
  *
  */
 function wire($name = 'wire') {
 	return ProcessWire::getCurrentInstance()->wire($name); 
+}
+
+/**
+ * Get or set the current ProcessWire instance
+ * 
+ * #pw-group-common
+ * 
+ * @param ProcessWire|Wire|null $wire To set specify ProcessWire instance or any Wire-derived object in it, or omit to get current instance.
+ * @return ProcessWire
+ * @since 3.0.125
+ * 
+ */
+function wireInstance(Wire $wire = null) {
+	if($wire === null) return ProcessWire::getCurrentInstance();
+	if(!$wire instanceof ProcessWire) $wire = $wire->wire();
+	ProcessWire::setCurrentInstance($wire);
+	return $wire;
 }
 
 /**
@@ -31,6 +55,8 @@ function wire($name = 'wire') {
  * Same as Wire::getFuel($name) and Wire::getAllFuel();
  * When a $name is specified, this function is identical to the wire() function.
  * Both functions exist more for consistent naming depending on usage. 
+ * 
+ * #pw-internal
  *
  * @deprecated
  * @param string $name If omitted, returns a Fuel object with references to all the fuel.
@@ -48,6 +74,8 @@ function fuel($name = '') {
  * Newlines are assumed to be \n
  * 
  * Watch out when using this function with strings that have a <textarea>, you may want to have it use \r newlines, at least temporarily. 
+ * 
+ * #pw-internal
  *
  * @param string $str String that needs the tabs
  * @param int $numTabs Number of tabs to insert per line (note any existing tabs are left as-is, so indentation is retained)
@@ -71,6 +99,8 @@ endif;
  * The end result of all this is more optimized JSON.
  *
  * Use json_encode() instead if you don't want any empty values removed. 
+ * 
+ * #pw-internal
  *
  * @param array $data Array to be encoded to JSON
  * @param bool|array $allowEmpty Should empty values be allowed in the encoded data? 
@@ -95,12 +125,13 @@ function wireEncodeJSON(array $data, $allowEmpty = false, $beautify = false) {
 	return json_encode($data, $flags);
 }
 
-
 /**
  * Decode JSON to array
  *
  * Uses json_decode and works the same way except that arrays are forced.
  * This is the counterpart to the wireEncodeJSON() function.
+ * 
+ * #pw-internal
  *
  * @param string $json A JSON encoded string
  * @return array
@@ -114,6 +145,8 @@ function wireDecodeJSON($json) {
 
 /**
  * Minimize an array to remove empty values
+ * 
+ * #pw-internal 
  *
  * @param array $data Array to reduce
  * @param bool|array $allowEmpty Should empty values be allowed in the encoded data?
@@ -123,6 +156,7 @@ function wireDecodeJSON($json) {
  * 	- Specify the digit 0 to retain values that are 0, but not other types of empty values.
  * @param bool $convert Perform type conversions where appropriate: i.e. convert digit-only string to integer
  * @return array
+ * @deprecated Use $sanitizer->minArray() instead
  *
  */
 function wireMinArray(array $data, $allowEmpty = false, $convert = false) {
@@ -131,15 +165,19 @@ function wireMinArray(array $data, $allowEmpty = false, $convert = false) {
 	return $sanitizer->minArray($data, $allowEmpty, $convert);
 }
 
-
 /**
- * Create a directory that is writable to ProcessWire and uses the $config chmod settings
+ * Create a directory (optionally recursively) that is writable to ProcessWire and uses the $config chmod settings
+ * 
+ * This is procedural version of the `$files->mkdir()` method.
+ * 
+ * #pw-group-files
  * 
  * @param string $path
  * @param bool $recursive If set to true, all directories will be created as needed to reach the end. 
  * @param string $chmod Optional mode to set directory to (default: $config->chmodDir), format must be a string i.e. "0755"
- * 	If omitted, then ProcessWire's $config->chmodDir setting is used instead. 
+ * 	If omitted, then ProcessWire’s $config->chmodDir setting is used instead. 
  * @return bool
+ * @see WireFileTools::mkdir()
  *
  */ 
 function wireMkdir($path, $recursive = false, $chmod = null) {
@@ -149,11 +187,16 @@ function wireMkdir($path, $recursive = false, $chmod = null) {
 }
 
 /**
- * Remove a directory
+ * Remove a directory (optionally recursively)
+ * 
+ * This is procedural version of the `$files->rmdir()` method. See that method for more options. 
+ * 
+ * #pw-group-files
  * 
  * @param string $path
  * @param bool $recursive If set to true, all files and directories in $path will be recursively removed as well.
  * @return bool
+ * @see WireFileTools::rmdir()
  *
  */ 
 function wireRmdir($path, $recursive = false) {
@@ -163,7 +206,13 @@ function wireRmdir($path, $recursive = false) {
 }
 
 /**
- * Change the mode of a file or directory, consistent with PW's chmodFile/chmodDir settings
+ * Change the mode of a file or directory (optionally recursive)
+ * 
+ * If no `$chmod` mode argument is specified the `$config->chmodFile` or $config->chmodDir` settings will be used.
+ * 
+ * This is procedural version of the `$files->chmod()` method.
+ * 
+ * #pw-group-files
  * 
  * @param string $path May be a directory or a filename
  * @param bool $recursive If set to true, all files and directories in $path will be recursively set as well.
@@ -171,6 +220,7 @@ function wireRmdir($path, $recursive = false) {
  *   you may override it by specifying it here. Ignored otherwise. Format should be a string, like "0755".
  * @return bool Returns true if all changes were successful, or false if at least one chmod failed. 
  * @throws WireException when it receives incorrect chmod format
+ * @see WireFileTools::chmod()
  *
  */ 
 function wireChmod($path, $recursive = false, $chmod = null) {
@@ -180,17 +230,20 @@ function wireChmod($path, $recursive = false, $chmod = null) {
 }
 
 /**
- * Copy all files in directory $src to directory $dst
+ * Copy all files recursively from one directory to another 
  * 
- * The default behavior is to also copy directories recursively. 
+ * This is procedural version of the `$files->copy()` method.
+ * 
+ * #pw-group-files
  * 
  * @param string $src Path to copy files from
- * @param string $dst Path to copy files to. Directory is created if it doesn't already exist.
+ * @param string $dst Path to copy files to. Directory is created if it doesn’t already exist.
  * @param bool|array Array of options: 
- * 	- recursive (boolean): Whether to copy directories within recursively. (default=true)
- * 	- allowEmptyDirs (boolean): Copy directories even if they are empty? (default=true)
+ * 	- `recursive` (bool): Whether to copy directories within recursively. (default=true)
+ * 	- `allowEmptyDirs` (bool): Copy directories even if they are empty? (default=true)
  * 	- If a boolean is specified for $options, it is assumed to be the 'recursive' option. 
  * @return bool True on success, false on failure.
+ * @see WireFileTools::copy()
  * 
  */
 function wireCopy($src, $dst, $options = array()) {
@@ -202,10 +255,15 @@ function wireCopy($src, $dst, $options = array()) {
 /**
  * Unzips the given ZIP file to the destination directory
  * 
+ * This is procedural version of the `$files->unzip()` method. See that method for more details.
+ * 
+ * #pw-group-files
+ * 
  * @param string $file ZIP file to extract
- * @param string $dst Directory where files should be unzipped into. Directory is created if it doesn't exist.
+ * @param string $dst Directory where files should be unzipped into. Directory is created if it doesn’t exist.
  * @return array Returns an array of filenames (excluding $dst) that were unzipped.
  * @throws WireException All error conditions result in WireException being thrown.
+ * @see WireFileTools::unzip()
  * 
  */
 function wireUnzipFile($file, $dst) {
@@ -215,22 +273,27 @@ function wireUnzipFile($file, $dst) {
 }
 
 /**
- * Creates a ZIP file
+ * Create a ZIP file from given files
+ * 
+ * This is procedural version of the `$files->zip()` method. See that method for all options. 
+ * 
+ * #pw-group-files
  * 
  * @param string $zipfile Full path and filename to create or update (i.e. /path/to/myfile.zip)
  * @param array|string $files Array of files to add (full path and filename), or directory (string) to add.
  * 	If given a directory, it will recursively add everything in that directory.
- * @param array $options Associative array of:
- * 	- allowHidden (boolean or array): allow hidden files? May be boolean, or array of hidden files (basenames) you allow. (default=false)
+ * @param array $options Options modify default behavior:
+ * 	- `allowHidden` (bool|array): allow hidden files? May be boolean, or array of hidden files (basenames) you allow. (default=false)
  * 		Note that if you actually specify a hidden file in your $files argument, then that overrides this. 
- * 	- allowEmptyDirs (boolean): allow empty directories in the ZIP file? (default=true)
- * 	- overwrite (boolean): Replaces ZIP file if already present (rather than adding to it) (default=false)
- * 	- exclude (array): Files or directories to exclude
- * 	- dir (string): Directory name to prepend to added files in the ZIP
+ * 	- `allowEmptyDirs` (bool): allow empty directories in the ZIP file? (default=true)
+ * 	- `overwrite` (bool): Replaces ZIP file if already present (rather than adding to it) (default=false)
+ * 	- `exclude` (array): Files or directories to exclude
+ * 	- `dir` (string): Directory name to prepend to added files in the ZIP
  * @return array Returns associative array of:
- * 	- files => array(all files that were added), 
- * 	- errors => array(files that failed to add, if any)
+ * 	- `files` (array): all files that were added
+ * 	- `errors` (array): files that failed to add, if any
  * @throws WireException Original ZIP file creation error conditions result in WireException being thrown.
+ * @see WireFileTools::zip()
  * 
  */
 function wireZipFile($zipfile, $files, array $options = array()) {
@@ -242,43 +305,52 @@ function wireZipFile($zipfile, $files, array $options = array()) {
 /**
  * Send the contents of the given filename via http
  *
- * This function utilizes the $content->fileContentTypes to match file extension
+ * This function utilizes the `$config->fileContentTypes` to match file extension
  * to content type headers and force-download state. 
  *
- * This function throws a WireException if the file can't be sent for some reason.
+ * This function throws a WireException if the file can’t be sent for some reason.
+ * 
+ * This is procedural version of the `$files->send()` method. See that method for all options. 
+ * 
+ * #pw-group-files
  *
- * @param string $filename Filename to send
- * @param array $options Options that you may pass in, see $_options in function for details.
- * @param array $headers Headers that are sent, see $_headers in function for details. 
- *	To remove a header completely, make its value NULL and it won't be sent.
+ * @param string $filename Full path and filename to send
+ * @param array $options Optional options that you may pass in (see `WireHttp::sendFile()` for details)
+ * @param array $headers Optional headers that are sent (see `WireHttp::sendFile()` for details)
  * @throws WireException
+ * @see WireHttp::sendFile(), WireFileTools::send()
  *
  */
 function wireSendFile($filename, array $options = array(), array $headers = array()) {
-	$http = new WireHttp();
-	$http->sendFile($filename, $options, $headers);
+	/** @var WireFileTools $fileTools */
+	$files = wire('files');
+	$files->send($filename, $options, $headers);
 }
 
 /**
  * Given a unix timestamp (or date string), returns a formatted string indicating the time relative to now
  *
- * Example: 1 day ago, 30 seconds ago, etc. 
+ * Examples: “1 day ago”, “30 seconds ago”, “just now”, etc.  
+ * 
+ * This is the procedural version of `$datetime->relativeTimeStr()`.
  *
  * Based upon: http://www.php.net/manual/en/function.time.php#89415
+ * 
+ * #pw-group-strings
  *
  * @param int|string $ts Unix timestamp or date string
  * @param bool|int|array $abbreviate Whether to use abbreviations for shorter strings. 
- * 	Specify boolean TRUE for abbreviations (abbreviated where common, not always different from non-abbreviated)
- * 	Specify integer 1 for extra short abbreviations (all terms abbreviated into shortest possible string)
- * 	Specify boolean FALSE or omit for no abbreviations.
- * 	Specify associative array of key=value pairs of terms to use for abbreviations. The possible keys are:
- * 		just now, ago, from now, never
- * 		second, minute, hour, day, week, month, year, decade
- * 		seconds, minutes, hours, days, weeks, months, years, decades
- * @param bool $useTense Whether to append a tense like "ago" or "from now",
+ * 	- Specify boolean TRUE for abbreviations (abbreviated where common, not always different from non-abbreviated)
+ * 	- Specify integer 1 for extra short abbreviations (all terms abbreviated into shortest possible string)
+ * 	- Specify boolean FALSE or omit for no abbreviations.
+ * 	- Specify associative array of key=value pairs of terms to use for abbreviations. The possible keys are:
+ * 	  just now, ago, from now, never, second, minute, hour, day, week, month, year, decade, seconds, minutes, 
+ *    hours, days, weeks, months, years, decades
+ * @param bool $useTense Whether to append a tense like “ago” or “from now”,
  * 	May be ok to disable in situations where all times are assumed in future or past.
  * 	In abbreviate=1 (shortest) mode, this removes the leading "+" or "-" from the string. 
  * @return string
+ * @see WireDateTime::relativeTimeStr()
  *
  */
 function wireRelativeTimeStr($ts, $abbreviate = false, $useTense = true) {
@@ -289,81 +361,85 @@ function wireRelativeTimeStr($ts, $abbreviate = false, $useTense = true) {
 
 
 /**
- * Send an email or retrieve the mailer object
+ * Send an email or get a WireMail object to populate before send
  *
- * Note 1: The order of arguments is different from PHP's mail() function. 
- * Note 2: If no arguments are specified it simply returns a WireMail object (see #4 below).
+ * - Please note that the order of arguments is different from PHP’s mail() function. 
+ * - If no arguments are specified it simply returns a WireMail object (see #4 below).
+ * - This is a procedural version of functions provided by the `$mail` API variable (see that for more options).
+ * - This function will attempt to use an installed module that extends WireMail.
+ * - If no other WireMail module is installed, the default `WireMail` (which uses PHP mail) will be used instead.
  *
- * This function will attempt to use an installed module that extends WireMail.
- * If no module is installed, WireMail (which uses PHP mail) will be used instead.
- *
- * This function can be called in these ways:
- *
- * 1. Default usage: 
+ * ~~~~~~
+ * // Default usage: 
+ * wireMail($to, $from, $subject, $body, $options); 
  * 
- *    wireMail($to, $from, $subject, $body, $options); 
- * 
+ * // Specify body and/or bodyHTML in $options array (perhaps with other options): 
+ * $options = [ 'body' => $body, 'bodyHTML' => $bodyHTML ];
+ * wireMail($to, $from, $subject, $options); 
  *
- * 2. Specify body and/or bodyHTML in $options array (perhaps with other options): 
+ * // Specify both $body and $bodyHTML as arguments, but no $options: 
+ * wireMail($to, $from, $subject, $body, $bodyHTML); 
  * 
- *    wireMail($to, $from, $subject, $options); 
- *
- *
- * 3. Specify both $body and $bodyHTML as arguments, but no $options: 
+ * // Specify a blank call to wireMail() to get the WireMail sending object. This can
+ * // be either WireMail() or a class descending from it. If a WireMail descending
+ * // module is installed, it will be returned rather than WireMail():
+ * $mail = wireMail(); 
+ * $mail->to('user@domain.com')->from('you@company.com'); 
+ * $mail->subject('Mail Subject')->body('Mail Body Text')->bodyHTML('Body HTML'); 
+ * $numSent = $mail->send();
  * 
- *    wireMail($to, $from, $subject, $body, $bodyHTML); 
- * 
- *
- * 4. Specify a blank call to wireMail() to get the WireMail sending object. This can
- *    be either WireMail() or a class descending from it. If a WireMail descending
- *    module is installed, it will be returned rather than WireMail():
- * 
- *    $mail = wireMail(); 
- *    $mail->to('user@domain.com')->from('you@company.com'); 
- *    $mail->subject('Mail Subject')->body('Mail Body Text')->bodyHTML('Body HTML'); 
- *    $numSent = $mail->send();
- * 
+ * #pw-group-common
  *
  * @param string|array $to Email address TO. For multiple, specify CSV string or array. 
  * @param string $from Email address FROM. This may be an email address, or a combined name and email address. 
- *	Example of combined name and email: Karen Cramer <karen@processwire.com>
+ *	Example of combined name and email: `Karen Cramer <karen@processwire.com>`
  * @param string $subject Email subject
- * @param string|array $body Email body or omit to move straight to $options
+ * @param string|array $body Email body or omit to move straight to $options array
  * @param array|string $options Array of options OR the $bodyHTML string. Array $options are:
- * 	body: string
- * 	bodyHTML: string
- * 	headers: associative array of header name => header value
- *	Any additional options will be sent along to the WireMail module or class, in tact.
+ *  - `bodyHTML` (string): Email body as HTML. 
+ * 	- `body` (string): Email body as plain text. This is created automatically if you only provide $bodyHTML.
+ * 	- `headers` (array): Associative array of ['header name' => 'header value']
+ *	- Any additional options you provide will be sent along to the WireMail module or class, in tact.
  * @return int|WireMail Returns number of messages sent or WireMail object if no arguments specified. 
  *
  */
 function wireMail($to = '', $from = '', $subject = '', $body = '', $options = array()) { 
-	/** @var WireMail $mail */
+	/** @var WireMailTools $mail */
 	$mail = wire('mail');
 	return $mail->send($to, $from, $subject, $body, $options);
 }
 
 
 /**
- * Given a string $str and values $vars, replace tags in the string with the values
+ * Given a string ($str) and values ($vars), replace “{tags}” in the string with the values
  *
- * The $vars may also be an object, in which case values will be pulled as properties of the object. 
+ * - The `$vars` should be an associative array of `[ 'tag' => 'value' ]`.
+ * - The `$vars` may also be an object, in which case values will be pulled as properties of the object. 
  *
  * By default, tags are specified in the format: {first_name} where first_name is the name of the
- * variable to pull from $vars, '{' is the opening tag character, and '}' is the closing tag char.
+ * variable to pull from $vars, `{` is the opening tag character, and `}` is the closing tag char.
  *
- * The tag parser can also handle subfields and OR tags, if $vars is an object that supports that.
- * For instance {products.title} is a subfield, and {first_name|title|name} is an OR tag. 
+ * The tag parser can also handle subfields and OR tags, if `$vars` is an object that supports that.
+ * For instance `{products.title}` is a subfield, and `{first_name|title|name}` is an OR tag. 
+ * 
+ * ~~~~~
+ * $vars = [ 'foo' => 'FOO!', 'bar' => 'BAR!' ];
+ * $str = 'This is a test: {foo}, and this is another test: {bar}';
+ * echo wirePopulateStringTags($str, $vars); 
+ * // outputs: This is a test: FOO!, and this is another test: BAR!
+ * ~~~~~
+ * 
+ * #pw-group-strings
  *
  * @param string $str The string to operate on (where the {tags} might be found)
- * @param WireData|object|array Object or associative array to pull replacement values from. 
+ * @param WireData|object|array $vars Object or associative array to pull replacement values from. 
  * @param array $options Array of optional changes to default behavior, including: 
- * 	- tagOpen: The required opening tag character(s), default is '{'
- *	- tagClose: The optional closing tag character(s), default is '}'
- *	- recursive: If replacement value contains tags, populate those too? Default=false. 
- *	- removeNullTags: If a tag resolves to a NULL, remove it? If false, tag will remain. Default=true. 
- *	- entityEncode: Entity encode the values pulled from $vars? Default=false. 
- *	- entityDecode: Entity decode the values pulled from $vars? Default=false.
+ * 	- `tagOpen` (string): The required opening tag character(s), default is '{'
+ *	- `tagClose` (string): The optional closing tag character(s), default is '}'
+ *	- `recursive` (bool): If replacement value contains tags, populate those too? (default=false)
+ *	- `removeNullTags` (bool): If a tag resolves to a NULL, remove it? If false, tag will remain. (default=true)
+ *	- `entityEncode` (bool): Entity encode the values pulled from $vars? (default=false)
+ *	- `entityDecode` (bool): Entity decode the values pulled from $vars? (default=false)
  * @return string String with tags populated. 
  *
  */
@@ -446,12 +522,24 @@ function wirePopulateStringTags($str, $vars, array $options = array()) {
 /**
  * Return a new temporary directory/path ready to use for files
  * 
- * @param object|string $name Provide the object that needs the temp dir, or name your own string
- * @param array|int $options Options array: 
- * 	- maxAge: Maximum age of temp dir files in seconds (default=120)
- * 	- basePath: Base path where temp dirs should be created. Omit to use default (recommended).
- * 	Note: if you specify an integer for $options, then $maxAge is assumed. 
- * @return WireTempDir
+ * - The directory will be automatically removed after a set period of time (default=120s).
+ * - This is a procedural version of the `$files->tempDir()` method. 
+ * 
+ * ~~~~~
+ * $td = wireTempDir('hello-world');
+ * $path = (string) $td; // or use $td->get();
+ * file_put_contents($path . 'some-file.txt', 'Hello world');
+ * ~~~~~
+ * 
+ * #pw-group-files
+ *
+ * @param Object|string $name Provide the object that needs the temp dir, or name your own string
+ * @param array|int $options Options array to modify default behavior:
+ *  - `maxAge` (integer): Maximum age of temp dir files in seconds (default=120)
+ *  - `basePath` (string): Base path where temp dirs should be created. Omit to use default (recommended).
+ *  - Note: if you specify an integer for $options, then 'maxAge' is assumed.
+ * @return WireTempDir If you typecast return value to a string, it is the temp dir path (with trailing slash).
+ * @see WireFileTools::tempDir(), WireTempDir
  * 
  */
 function wireTempDir($name, $options = array()) {
@@ -463,26 +551,33 @@ function wireTempDir($name, $options = array()) {
 /**
  * Given a filename, render it as a ProcessWire template file
  * 
- * This is a shortcut to using the TemplateFile class. 
+ * This is a shortcut to using the `TemplateFile` class, as well as the procedural version of `$files->render()`.
  * 
- * File is assumed relative to /site/templates/ (or a directory within there) unless you specify a full path. 
- * If you specify a full path, it will accept files in or below site/templates/, site/modules/, wire/modules/.
- * 
- * Note this function returns the output for you to output wherever you want (delayed output).
- * For direct output, use the wireInclude() function instead. 
- * 
+ * File is assumed relative to `/site/templates/` (or a directory within there) unless you specify a full path.
+ * If you specify a full path, it will accept files in or below any of the following:
+ *
+ * - /site/templates/
+ * - /site/modules/
+ * - /wire/modules/
+ *
+ * Note this function returns the output to you, so that you can send the output wherever you want (delayed output).
+ * For direct output, use the `wireIncludeFile()` or `$files->include()` function instead.
+ *
+ * #pw-group-files
+ *
  * @param string $filename Assumed relative to /site/templates/ unless you provide a full path name with the filename.
- * 	If you provide a path, it must resolve somewhere in site/templates/, site/modules/ or wire/modules/.
- * @param array $vars Optional associative array of variables to send to template file. 
- * 	Please note that all template files automatically receive all API variables already (you don't have to provide them)
- * @param array $options Associative array of options to modify behavior: 
- * 	- defaultPath: Path where files are assumed to be when only filename or relative filename is specified (default=/site/templates/)
- *  - autoExtension: Extension to assume when no ext in filename, make blank for no auto assumption (default=php) 
- * 	- allowedPaths: Array of paths that are allowed (default is templates, core modules and site modules)
- * 	- allowDotDot: Allow use of ".." in paths? (default=false)
- * 	- throwExceptions: Throw exceptions when fatal error occurs? (default=true)
+ *  If you provide a path, it must resolve somewhere in site/templates/, site/modules/ or wire/modules/.
+ * @param array $vars Optional associative array of variables to send to template file.
+ *  Please note that all template files automatically receive all API variables already (you don't have to provide them).
+ * @param array $options Associative array of options to modify behavior:
+ *  - `defaultPath` (string): Path where files are assumed to be when only filename or relative filename is specified (default=/site/templates/)
+ *  - `autoExtension` (string): Extension to assume when no ext in filename, make blank for no auto assumption (default=php)
+ *  - `allowedPaths` (array): Array of paths that are allowed (default is templates, core modules and site modules)
+ *  - `allowDotDot` (bool): Allow use of ".." in paths? (default=false)
+ *  - `throwExceptions` (bool): Throw exceptions when fatal error occurs? (default=true)
  * @return string|bool Rendered template file or boolean false on fatal error (and throwExceptions disabled)
- * @throws WireException if template file doesn't exist
+ * @throws WireException if template file doesn’t exist
+ * @see wireIncludeFile(), WireFileTools::render(), WireFileTools::include()
  * 
  */
 function wireRenderFile($filename, array $vars = array(), array $options = array()) {
@@ -493,53 +588,67 @@ function wireRenderFile($filename, array $vars = array(), array $options = array
 
 /**
  * Include a PHP file passing it all API variables and optionally your own specified variables
+ 
+ * This is the procedural version of the `$files->include()` method. 
  * 
- * This is the same as PHP's include() function except for the following: 
+ * This is the same as PHP’s `include()` function except for the following:
+ *
  * - It receives all API variables and optionally your custom variables
- * - If your filename is not absolute, it doesn't look in PHP's include path, only in the current dir.
+ * - If your filename is not absolute, it doesn’t look in PHP’s include path, only in the current dir.
  * - It only allows including files that are part of the PW installation: templates, core modules or site modules
- * - It will assume a ".php" extension if filename has no extension.
- * 
- * Note this function produced direct output. To retrieve output as a return value, use the 
- * `wireRenderFile()` function instead. 
- * 
- * @param $filename
+ * - It will assume a “.php” extension if filename has no extension.
+ *
+ * Note this function produces direct output. To retrieve output as a return value, use the
+ * `wireRenderFile()` or `$files->render()` function instead.
+ *
+ * #pw-group-files
+ *
+ * @param string $filename Filename to include
  * @param array $vars Optional variables you want to hand to the include (associative array)
- * @param array $options Array of options to modify behavior: 
- * 	- func: Function to use: include, include_once, require or require_once (default=include)
- *  - autoExtension: Extension to assume when no ext in filename, make blank for no auto assumption (default=php) 
- * 	- allowedPaths: Array of paths include files are allowed from. Note current dir is always allowed.
- * @return bool Returns true 
- * @throws WireException if file doesn't exist or is not allowed
+ * @param array $options Array of options to modify behavior:
+ *  - `func` (string): Function to use: include, include_once, require or require_once (default=include)
+ *  - `autoExtension` (string): Extension to assume when no ext in filename, make blank for no auto assumption (default=php)
+ *  - `allowedPaths` (array): Array of start paths include files are allowed from. Note current dir is always allowed.
+ * @return bool Always returns true
+ * @throws WireException if file doesn’t exist or is not allowed
+ * @see wireRenderFile(), WireFileTools::include(), WireFileTools::render()
+ *
  * 
  */
 function wireIncludeFile($filename, array $vars = array(), array $options = array()) {
 	/** @var WireFileTools $files */
 	$files = wire('files');
-	return $files->include($filename, $vars, $options);
+	return $files->___include($filename, $vars, $options);
 }
 
 /**
  * Format a date, using PHP date(), strftime() or other special strings (see arguments).
  * 
- * This is designed to work the same wa as PHP's date() but be able to accept any common format
+ * This is designed to work the same wa as PHP’s `date()` but be able to accept any common format
  * used in ProcessWire. This is helpful in reducing code in places where you might have logic 
- * determining when to use date(), strftime(), or wireRelativeTimeStr(). 
+ * determining when to use `date()`, `strftime()`, or `wireRelativeTimeStr()`. 
  * 
- * @param string|int $format Use one of the following:
- *  - PHP date() format
- * 	- PHP strftime() format (detected by presence of a '%' somewhere in it)
- * 	- 'relative': for a relative date/time string.
- *  - 'relative-': for a relative date/time string with no tense. 
- * 	- 'rel': for an abbreviated relative date/time string.
- * 	- 'rel-': for an abbreviated relative date/time string with no tense.
- * 	- 'r': for an extra-abbreviated relative date/time string.
- * 	- 'r-': for an extra-abbreviated relative date/time string with no tense.
- * 	- 'ts': makes it return a unix timestamp
- * 	- '': blank string makes it use the system date format ($config->dateFormat) 
+ * This is the procedural version of the `$datetime->date()` method. 
+ * 
+ * ~~~~~
+ * echo wireDate('Y-m-d H:i:s'); // Outputs: 2019-01-20 06:48:11
+ * echo wireDate('relative', '2019-01-20 06:00'); // Outputs: 48 minutes ago
+ * ~~~~~
+ * 
+ * #pw-group-strings
+ * #pw-group-common
+ * 
+ * @param string|int $format Use any PHP date() or strftime() format, or one of the following:
+ * 	- `relative` for a relative date/time string.
+ *  - `relative-` for a relative date/time string with no tense. 
+ * 	- `rel` for an abbreviated relative date/time string.
+ * 	- `rel-` for an abbreviated relative date/time string with no tense.
+ * 	- `r` for an extra-abbreviated relative date/time string.
+ * 	- `r-` for an extra-abbreviated relative date/time string with no tense.
+ * 	- `ts` makes it return a unix timestamp.
+ * 	- Specify blank string to make it use the system date format ($config->dateFormat) .
  * 	- If given an integer and no second argument specified, it is assumed to be the second ($ts) argument. 
- * @param int|string|null $ts Optionally specify the date/time stamp or strtotime() compatible string. 
- * 	If not specified, current time is used.
+ * @param int|string|null $ts Optionally specify the date/time stamp or strtotime() compatible string. If not specified, current time is used.
  * @return string|bool Formatted date/time, or boolean false on failure
  * 
  */
@@ -551,9 +660,16 @@ function wireDate($format = '', $ts = null) {
 
 
 /**
- * Render markup for an icon
+ * Render markup for a system icon
  * 
- * Icon and class can be specified with or without the fa- prefix. 
+ * It is NOT necessary to specify an icon prefix like “fa-” with the icon name.
+ * 
+ * ~~~~~
+ * // Outputs: "<i class='fa fa-home'></i>"
+ * echo wireIconMarkup('home'); 
+ * ~~~~~
+ * 
+ * #pw-group-markup
  * 
  * @param string $icon Icon name (currently a font-awesome icon name, but support for more in future)
  * @param string $class Additional attributes for class (example: "fw" for fixed width)
@@ -583,8 +699,16 @@ function wireIconMarkup($icon, $class = '') {
 /**
  * Get the markup or class name for an icon that can represent the given filename
  * 
- * @param string $filename Can be any type of filename (with or without path)
- * @param string|bool $class Additional class attributes (optional). 
+ * ~~~~~
+ * // Outputs: "<i class='fa fa-pdf-o'></i>"
+ * echo wireIconMarkupFile('file.pdf'); 
+ * ~~~~~
+ * 
+ * #pw-group-markup
+ * #pw-group-files
+ * 
+ * @param string $filename Can be any type of filename (with or without path).
+ * @param string|bool $class Additional class attributes, i.e. "fw" for fixed-width (optional). 
  * 	Or specify boolean TRUE to get just the icon class name (no markup). 
  * @return string 
  * 
@@ -625,12 +749,15 @@ function wireIconMarkupFile($filename, $class = '') {
 }
 
 /**
- * Given a quantity of bytes, return a more readable size string
+ * Given a quantity of bytes (int), return readable string that refers to quantity in bytes, kB, MB, GB, etc.
+ * 
+ * #pw-group-strings
  * 
  * @param int $bytes Quantity in bytes
- * @param bool|int|array $small Make returned string as small as possible (default=false), 
- *   …or specify integer 1 for $small option but with space between number and unit label.
- *   …or optionally specify $options argument here. 
+ * @param bool|int|array $small Make returned string as small as possible? (default=false)
+ *  - `true` (bool): Yes, make returned string as small as possible. 
+ *  - `1` (int): Same as `true` but with space between number and unit label.
+ *  - Or optionally specify the $options argument here if you do not need the $small argument. 
  * @param array|int $options Options to modify default behavior, or if an integer then `decimals` option is assumed:
  *  - `decimals` (int): Number of decimals to use in returned value (default=0).
  *  - `decimal_point` (string|null): Decimal point character, or null to detect from locale (default=null). 
@@ -720,13 +847,17 @@ function wireBytesStr($bytes, $small = false, $options = array()) {
 }
 
 /**
- * Normalize a class name with or without namespace
+ * Normalize a class name with or without namespace, or get namespace of class
  * 
- * Can also be used in an equivalent way to PHP's get_class() function. 
+ * Default behavior is to return class name without namespace. 
  * 
- * @param string|object $className
+ * #pw-group-class-helpers
+ * 
+ * @param string|object $className Class name or object instance
  * @param bool|int|string $withNamespace Should return value include namespace? (default=false) 
- * 	or specify integer 1 to return only namespace (i.e. "ProcessWire", no leading or trailing backslashes)
+ *  - `false` (bool): Return only class name without namespace (default). 
+ *  - `true` (bool): Yes include namespace in returned value.
+ *  - `1` (int): Return only namespace (i.e. “ProcessWire”, with no leading or trailing backslashes)
  * @return string|null Returns string or NULL if namespace-only requested and unable to determine
  * 
  */
@@ -758,7 +889,13 @@ function wireClassName($className, $withNamespace = false) {
 }
 
 /**
- * ProcessWire namespace aware version of PHP's class_exists() function
+ * Does the given class name exist?
+ * 
+ * ProcessWire namespace aware version of PHP’s class_exists() function
+ * 
+ * If given a class name that does not include a namespace, the `\ProcessWire` namespace is assumed. 
+ * 
+ * #pw-group-class-helpers
  * 
  * @param string $className
  * @param bool $autoload
@@ -771,7 +908,13 @@ function wireClassExists($className, $autoload = true) {
 }
 
 /**
- * ProcessWire namespace aware version of PHP's method_exists() function
+ * Does the given class have the given method?
+ * 
+ * ProcessWire namespace aware version of PHP’s method_exists() function
+ * 
+ * If given a class name that does not include a namespace, the `\ProcessWire` namespace is assumed. 
+ * 
+ * #pw-group-class-helpers
  *
  * @param string $className
  * @param string $method
@@ -784,7 +927,12 @@ function wireMethodExists($className, $method) {
 }
 
 /**
- * ProcessWire namespace aware version of PHP's class_implements() function
+ * Get an array of all the interfaces that the given class implements
+ *
+ * - ProcessWire namespace aware version of PHP’s class_implements() function.
+ * - Return value has array keys as class name with namespace and array values as class name without namespace.
+ * 
+ * #pw-group-class-helpers
  *
  * @param string|object $className
  * @param bool $autoload
@@ -811,10 +959,14 @@ function wireClassImplements($className, $autoload = true) {
 }
 
 /**
- * ProcessWire namespace aware version of PHP's class_parents() function
+ * Return array of all parent classes for given class/object
+ *
+ * ProcessWire namespace aware version of PHP’s class_parents() function
  * 
  * Returns associative array where array keys are full namespaced class name, and 
  * values are the non-namespaced classname.
+ * 
+ * #pw-group-class-helpers
  *
  * @param string|object $className
  * @param bool $autoload
@@ -847,13 +999,15 @@ function wireClassParents($className, $autoload = true) {
  * array of interfaces, or mixed array of interfaces and class names. Previous versions did
  * not support interfaces unless the $instance argument was an object.
  * 
+ * #pw-group-class-helpers
+ * 
  * @param object|string $instance Object instance to test (or string of its class name).
  * @param string|array $className Class/interface name or array of class/interface names to test against. 
- * @param bool $autoload
+ * @param bool $autoload Allow PHP to autoload the class? (default=true)
  * @return bool|string Returns one of the following:
- *  - boolean false if not an instance (whether $className argument is string or array). 
- *  - boolean true if given a single $className (string) and $instance is an instance of it. 
- *  - string of first matching class/interface name if $className was an array of classes to test.
+ *  - `false` (bool): if not an instance (whether $className argument is string or array). 
+ *  - `true` (bool): if given a single $className (string) and $instance is an instance of it. 
+ *  - `ClassName` (string): first matching class/interface name if $className was an array of classes to test.
  * 
  */
 function wireInstanceOf($instance, $className, $autoload = true) {
@@ -917,7 +1071,11 @@ function wireInstanceOf($instance, $className, $autoload = true) {
 }
 
 /**
- * ProcessWire namespace aware version of PHP's is_callable() function
+ * Is the given $var callable as a function?
+ * 
+ * ProcessWire namespace aware version of PHP’s is_callable() function
+ * 
+ * #pw-group-class-helpers
  *
  * @param string|callable $var
  * @param bool $syntaxOnly
@@ -934,9 +1092,12 @@ function wireIsCallable($var, $syntaxOnly = false, &$callableName = '') {
  * Return the count of item(s) present in the given value
  * 
  * Duplicates behavior of PHP count() function prior to PHP 7.2, which states:
- * Returns the number of elements in $value. When the parameter is neither an array nor an 
- * object with implemented Countable interface, 1 will be returned. There is one exception, 
+ * 
+ * > Returns the number of elements in $value. When the parameter is neither an array nor an
+ * object with implemented Countable interface, 1 will be returned. There is one exception,
  * if $value is NULL, 0 will be returned.
+ * 
+ * #pw-group-common
  * 
  * @param mixed $value
  * @return int
@@ -951,6 +1112,12 @@ function wireCount($value) {
 
 /**
  * Get or set an output region (primarily for front-end output usage)
+ * 
+ * This function is an convenience for storing markup that ultimately gets output in a _main.php file 
+ * (or whatever file `$config->appendTemplateFile` is set to). It is an alternative to passing variables
+ * between included files and provides an interface for setting, appending, prepending and ultimately
+ * getting markup (or other strings) for output. It’s designed for use the the “Delayed Output” strategy,
+ * though does not necessarily require it. 
  *
  * ~~~~~
  * // define a region
@@ -974,6 +1141,8 @@ function wireCount($value) {
  * // clear all regions
  * region('*', '');
  * ~~~~~
+ * 
+ * #pw-internal
  *
  * @param string $key Name of region to get or set.
  *  - Specify "*" to retrieve all defined regions in an array.
@@ -1033,9 +1202,21 @@ function wireRegion($key, $value = null) {
 
 /**
  * Create new WireArray, add given $items to it, and return it
+ *
+ * This is the same as creating a `new WireArray()` and then adding items to it with separate `add()` calls,
+ * except that this function enables you to do it all in one shot. 
  * 
- * @param array|WireArray $items
+ * ~~~~~~
+ * $a = WireArray(); // create empty WireArray
+ * $a = WireArray('foo'); // create WireArray with one "foo" string
+ * $a = WireArray(['foo', 'bar', 'baz']); // create WireArray with 3 strings
+ * ~~~~~~
+ * 
+ * #pw-group-arrays
+ * 
+ * @param array|WireArray|mixed $items
  * @return WireArray
+ * @since 3.0.123
  * 
  */
 function WireArray($items = array()) {
@@ -1044,9 +1225,21 @@ function WireArray($items = array()) {
 
 /**
  * Create new PageArray, add given $items (pages) to it, and return it
+ * 
+ * This is the same as creating a `new PageArray()` and then adding items to it with separate `add()` calls, 
+ * except that this function enables you to do it all in one shot. 
+ * 
+ * ~~~~~
+ * $a = PageArray(); // create empty PageArray
+ * $a = PageArray($page); // create PageArray with one page
+ * $a = PageArray([ $page1, $page2, $page3 ]); // create PageArray with multiple items 
+ * ~~~~~
+ * 
+ * #pw-group-arrays
  *
  * @param array|PageArray $items
- * @return WireArray
+ * @return PageArray
+ * @since 3.0.123
  *
  */
 function PageArray($items = array()) {
