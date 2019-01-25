@@ -933,9 +933,10 @@ class Sanitizer extends Wire {
 	/**
 	 * Sanitize and validate an email address
 	 * 
-	 * Returns valid email address, or blank string if it isn't valid.
+	 * Returns valid email address, or blank string if it isn’t valid.
 	 * 
 	 * #pw-group-strings
+	 * #pw-group-validate
 	 *
 	 * @param string $value Email address to sanitize and validate.
 	 * @return string Sanitized, valid email address, or blank string on failure. 
@@ -1323,6 +1324,7 @@ class Sanitizer extends Wire {
 	 * ~~~~~~
 	 * 
 	 * #pw-group-strings
+	 * #pw-group-validate
 	 *
 	 * @param string $value URL to validate
 	 * @param bool|array $options Array of options to modify default behavior, including:
@@ -2753,6 +2755,95 @@ class Sanitizer extends Wire {
 		if(!isset($options['min'])) $options['min'] = PHP_INT_MAX * -1;
 		return $this->int($value, $options);
 	}
+	
+	/**
+	 * Sanitize value to be within the given min and max range
+	 * 
+	 * If float or decimal string specified for $min argument, return value will be a float,
+	 * otherwise an integer is returned.
+	 * 
+	 * ~~~~~
+	 * $n = 10;
+	 * $sanitizer->range($n, 100, 200); // returns 100
+	 * $sanitizer->range($n, 0, 1.0); // returns 1.0
+	 * $sanitizer->range($n, 1.1, 100.5); // returns 10.0
+	 * ~~~~~
+	 *
+	 * #pw-group-numbers
+	 *
+	 * @param int|float|string $value
+	 * @param int|float|string|null $min Minimum allowed value or null for no minimum (default=null)
+	 * @param int|float|string|null $max Maximum allowed value or null for no maximum (default=null)
+	 * @return int|float
+	 * @since 3.0.125
+	 *
+	 */
+	public function range($value, $min = null, $max = null) {
+		if(is_string($min)) $min = ctype_digit($min) ? (float) $min : (int) $min;
+		if(is_string($max)) $max = ctype_digit($max) ? (float) $max : (int) $max;
+		$value = is_float($min) || is_float($max) ? (float) $value : (int) $value;
+		if($min === null) $min = is_float($value) ? PHP_FLOAT_MIN : PHP_INT_MIN;
+		if($max === null) $max = is_float($value) ? PHP_FLOAT_MAX : PHP_INT_MAX;
+		if($min > $max) list($min, $max) = array($max, $min); // swap args if necessary
+		if($value < $min) {
+			$value = $min;
+		} else if($value > $max) {
+			$value = $max;
+		}
+		return $value;
+	}
+
+	/**
+	 * Sanitize value to be at least the given $min value
+	 * 
+	 * If float or decimal string specified for $min argument, return value will be a float, 
+	 * otherwise an integer is returned.
+	 * 
+	 * ~~~~~
+	 * $n = 10;
+	 * $sanitizer->min(100); // returns 100
+	 * $sanitizer->min(5); // returns 10
+	 * $sanitizer->min(1.0); // returns 10.0
+	 * ~~~~~
+	 * 
+	 * #pw-group-numbers
+	 * 
+	 * @param int|float|string $value
+	 * @param int|float|string $min Minimum allowed value 
+	 * @return int|float
+	 * @since 3.0.125
+	 * @see Sanitizer::max()
+	 * 
+	 */
+	public function min($value, $min = PHP_INT_MIN) {
+		return $this->range($value, $min, null); 
+	}
+
+	/**
+	 * Sanitize value to be at least the given $min value
+	 *
+	 * If float or decimal string specified for $min argument, return value will be a float,
+	 * otherwise an integer is returned.
+	 * 
+	 * ~~~~~
+	 * $n = 10;
+	 * $sanitizer->max(5); // returns 5
+	 * $sanitizer->max(100); // returns 10
+	 * $sanitizer->max(100.0); // returns 10.0
+	 * ~~~~~
+	 *
+	 * #pw-group-numbers
+	 *
+	 * @param int|float|string $value
+	 * @param int|float|string $max Maximum allowed value
+	 * @return int|float
+	 * @since 3.0.125
+	 * @see Sanitizer::min()
+	 *
+	 */
+	public function max($value, $max = PHP_INT_MAX) {
+		return $this->range($value, null, $max); 
+	}
 
 	/**
 	 * Sanitize to floating point value
@@ -3036,7 +3127,7 @@ class Sanitizer extends Wire {
 	 * @return string|int|null
 	 *
 	 */
-	public function option($value, array $allowedValues) {
+	public function option($value, array $allowedValues = array()) {
 		$key = array_search($value, $allowedValues);
 		if($key === false) return null;
 		return $allowedValues[$key];
@@ -3052,7 +3143,7 @@ class Sanitizer extends Wire {
 	 * @return array
 	 *
 	 */
-	public function options(array $values, array $allowedValues) {
+	public function options(array $values, array $allowedValues = array()) {
 		$a = array();
 		foreach($values as $value) {
 			$key = array_search($value, $allowedValues);
@@ -3098,6 +3189,100 @@ class Sanitizer extends Wire {
 		}
 		return (bool) $value;
 	}
+	
+	/**
+	 * Sanitize to a bit, returning only integer 0 or 1
+	 * 
+	 * This works the same as the bool sanitizer except that it returns 0 or 1 rather than false or true.
+	 * 
+	 * #pw-group-other
+	 * #pw-group-numbers
+	 *
+	 * @param string|int|array $value
+	 * @return int
+	 * @see Sanitizer::bool()
+	 * @since 3.0.125
+	 *
+	 */
+	public function bit($value) {
+		return $this->bool($value) ? 1 : 0;
+	}
+
+	/**
+	 * Limit length of given value to that specified
+	 * 
+	 * - For strings, this limits the length to that many characters. 
+	 * - For arrays, the maxLength is assumed to be the max allowed array items.
+	 * - For integers maxLength is assumed to be the max allowed digits. 
+	 * - For floats, maxLength is assumed to be max allowed digits (including decimal point).
+	 * - Returns the same type it is given: string, array, int or float
+	 * 
+	 * #pw-group-other
+	 * #pw-group-strings
+	 * 
+	 * @param string|int|array|float $value
+	 * @param int $maxLength Maximum length (default=128)
+	 * @param null|int $maxBytes Maximum allowed bytes (used for string types only)
+	 * @return array|bool|float|int|string
+	 * @since 3.0.125
+	 * 
+	 */
+	public function maxLength($value, $maxLength = 128, $maxBytes = null) {
+		if($maxLength < 0) $maxLength = abs($maxLength);
+		if(is_array($value)) {
+			if(count($value) > $maxLength) {
+				$value = $maxLength ? array_slice($value, 0, $maxLength) : array();
+			}
+		} else if(is_int($value)) {
+			$n = $maxLength;
+			while(strlen("$value") > $maxLength && $n) {
+				$value = (int) substr("$value", 0, $n);
+				$n--;
+			}
+		} else if(is_float($value)) {
+			$n = $maxLength;
+			while(strlen("$value") > $maxLength && $n) {
+				$value = (float) substr("$value", 0, $n);
+				$n--;
+			}
+		} else {
+			if(!is_string($value)) $value = $this->string($value);
+			if($this->multibyteSupport) {
+				if(mb_strlen($value) > $maxLength) {
+					$value = mb_substr($value, 0, $maxLength);
+				}
+				if($maxBytes) {
+					while(strlen($value) > $maxBytes) {
+						$value = mb_substr($value, 0, mb_strlen($value)-1);
+					}
+				}
+			} else {
+				if(strlen($value) > $maxLength) {
+					$value = substr($value, 0, $maxLength);
+				}
+			}
+		}
+		return $value;
+	}
+
+	/**
+	 * Limit bytes used by given string to max specified
+	 *
+	 * - This function will not break multibyte characters so long as PHP has mb_string. 
+	 * - This function works only with strings and if given a non-string it will be converted to one.
+	 * 
+	 * #pw-group-strings
+	 *
+	 * @param string $value
+	 * @param int $maxBytes
+	 * @return string
+	 * @since 3.0.125
+	 *
+	 */
+	public function maxBytes($value, $maxBytes = 128) {
+		if(!is_string($value)) $value = $this->string($value);
+		return $this->maxLength($value, $maxBytes, $maxBytes); 
+	}
 
 	/**
 	 * Run value through all sanitizers, return array indexed by sanitizer name and resulting value
@@ -3112,12 +3297,14 @@ class Sanitizer extends Wire {
 	 */
 	public function testAll($value) {
 		$sanitizers = array(
-			'alpha', 
+			'alpha',
 			'alphanumeric',
 			'array',
+			'bit',
 			'bool',
+			'camelCase',
 			'date',
-			'digits', 
+			'digits',
 			'email',
 			'emailHeader',
 			'entities',
@@ -3126,31 +3313,49 @@ class Sanitizer extends Wire {
 			'fieldName',
 			'filename',
 			'float',
+			'hyphenCase',
 			'int',
 			'intArray',
 			'intSigned',
 			'intUnsigned',
+			'kebabCase',
 			'markupToLine',
 			'markupToText',
+			'max',
+			'maxBytes',
+			'maxLength',
+			'min',
 			'minArray',
 			'name',
 			'names',
+			'normalizeWhitespace',
 			'pageName',
 			'pageNameTranslate',
 			'pageNameUTF8',
 			'pagePathName',
 			'pagePathNameUTF8',
+			'pascalCase',
 			'path',
 			'purify',
+			'range',
+			'reduceWhitespace',
+			'removeMB4',
 			'removeNewlines',
+			'removeWhitespace',
+			'sanitize',
 			'selectorField',
 			'selectorValue',
+			'snakeCase',
 			'string',
 			'templateName',
 			'text',
 			'textarea',
+			'trim',
+			'truncate',
 			'unentities',
 			'url',
+			'valid',
+			'validate',
 			'varName',
 		);
 		$results = array();
@@ -3236,9 +3441,280 @@ class Sanitizer extends Wire {
 		return $isValid;
 	}
 
+	/**********************************************************************************************************************
+	 * CLASS HELPERS
+	 *
+	 */
 
 	public function __toString() {
 		return "Sanitizer";
+	}
+	
+	/**
+	 * Parse method name into methods array and arguments
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $method
+	 * @param string $delim Multi-method delimiter or omit to auto-detect (underscore, comma or space)
+	 * @return array
+	 * @since 3.0.125
+	 * 
+	 */
+	protected function parseMethod($method, $delim = '') {
+	
+		static $cache = array();
+		if(isset($cache[$method])) return $cache[$method];
+		
+		$methods = array();
+		if(!ctype_alnum($method)) {
+			// may contain delimiter, determine what it is
+			$method = trim($method);
+			if($delim === '') {
+				// no delimiter specified in arguments
+				foreach(array('_', ',', ' ') as $d) {
+					if(strpos($method, $d) === false) continue;
+					$delim = $d;
+					break;
+				}
+			} else if(!strpos($method, $delim)) {
+				// delimiter specified, but is not present
+				$delim = '';
+			}
+			$parts = $delim === '' ? array($method) : explode($delim, $method);
+		} else {
+			// single "method" or "method123"
+			$parts = array($method);
+		}
+		
+		foreach($parts as $name) {
+	
+			$name = trim($name);
+			if(empty($name)) continue;
+			$maxLength = 0;
+			
+			if(ctype_digit($name)) {
+				// number-only assumed to be maxLength method
+				$exists = true;
+				$maxLength = (int) $name;
+				$name = 'maxLength';
+				
+			} else if($this->methodExists($name, false)) {
+				// method exists already
+				$exists = true;
+				
+			} else {
+				// method name needs parsing
+				$n = 0;
+				$s = '';
+				do {
+					$maxLength = $s;
+					$s = substr($name, -1 * (++$n));
+				} while(ctype_digit($s));
+				if(ctype_digit($maxLength)) {
+					$name = substr($name, 0, -1 * strlen($maxLength));
+					$maxLength = (int) $maxLength;
+				} else {
+					$maxLength = 0;
+				}
+				$exists = $this->methodExists($name, false);
+			}
+			
+			$methods[] = array(
+				'name' => $name, 
+				'maxLength' => $maxLength,
+				'exists' => $exists,
+			);
+		}
+		
+		$cache[$method] = $methods;
+	
+		return $methods;
+	}
+
+	/**
+	 * Does the given sanitizer method name exist?
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $name
+	 * @param bool $allowCombos Allow check to include combo-methods that combine multiple sanitizers and/or max-length? (default=true)
+	 * @return bool
+	 * @since 3.0.125
+	 * 
+	 */
+	public function methodExists($name, $allowCombos = true) {
+		$exists = method_exists($this, $name) || method_exists($this, "___$name") || $this->hasHook($name);
+		if(!$exists && $allowCombos) {
+			$methods = $this->parseMethod($name, '_');
+			if(empty($methods)) return false;
+			$exists = true;
+			foreach($methods as $method) {
+				if($method['exists']) continue;
+				$exists = false;
+				break;
+			}
+		}
+		return $exists;
+	}
+
+	/**
+	 * Call a sanitizer method indirectly where method name can contain combined/combo methods
+	 * 
+	 * This method is primarily here to support predefined sanitizers in strings, like those that might 
+	 * be specified in settings for a module or field. For regular use, you probably want to call the
+	 * sanitizer methods directly rather than through this method. 
+	 * 
+	 * ~~~~~
+	 * // sanitize with text then entities sanitizers
+	 * $value = $sanitizer->sanitize($value, 'text,entities'); 
+	 * 
+	 * // numbers appended to text sanitizers imply max length
+	 * $value = $sanitizer->sanitize($value, 'text128,entities'); 
+	 * ~~~~~
+	 * 
+	 * @param mixed $value
+	 * @param string $method Method name "method", or combined method name(s) "method1,method2,method3"
+	 * @return string|int|array|float|null
+	 * @since 3.0.125
+	 * 
+	 */
+	public function sanitize($value, $method = 'text') {
+		$maxLengthMethods = array(
+			'maxLength' => 4,
+			// method($val, $beautify, $maxLength)
+			'name' => 3,
+			'fieldName' => 3,
+			'templateName' => 3,
+			'pageName' => 3,
+			'filename' => 3,
+			'pagePathName' => 3,
+			'alpha' => 3,
+			'alphanumeric' => 3,
+
+			// method($val, $maxLength)
+			'pageNameTranslate' => 2,
+			'pageNameUTF8' => 2,
+			'digits' => 2,
+			'truncate' => 2,
+			'min' => 2, // min123 where 123 is minimum allowed value
+			'max' => 2, // max123 where 123 is maximum allowed value
+
+			// method($val, options[ 'maxLength' => 123 ])
+			'path' => 1,
+			'text' => 1,
+			'textarea' => 1,
+			'url' => 1,
+			'selectorValue' => 1,
+		);
+		
+		$methods = $this->parseMethod($method); 
+		
+		foreach($methods as $method) {
+			
+			$methodName = $method['name'];
+			if(!$method['exists']) throw new WireException("Unknown sanitizer: $methodName"); 
+			
+			if(!empty($method['maxLength'])) {
+				$maxLength = $method['maxLength'];
+				$n = isset($maxLengthMethods[$methodName]) ? $maxLengthMethods[$methodName] : 0;
+				switch($n) {
+					case 4: $value = $this->maxLength($value, $maxLength); break;
+					case 3: $value = $this->$methodName($value, false, $maxLength); break;
+					case 2: $value = $this->$methodName($value, $maxLength); break;
+					case 1: $value = $this->$methodName($value, array('maxLength' => $maxLength)); break;
+					default: $value = $this->maxLength($this->$methodName($value), $maxLength);
+				}
+			} else {
+				$value = $this->$methodName($value);
+			}
+		}
+		
+		return $value;
+	}
+
+	/**
+	 * Validate that value remains unchanged by given sanitizer method, or return null if not
+	 * 
+	 * If change is just a type conversion change or surrounding whitespace (that gets trimmed) 
+	 * then this is still considered valid. 
+	 * 
+	 * Returns NULL or given $fallback value if value does not validate. Note that if results like
+	 * 0, false or blank string are considered valid values, then this method can return them. So for
+	 * cases like that you should compare the return value with NULL (or whatever your $fallback is).
+	 * 
+	 * things like 0 or false (if that is a valid value) compare the return value with null before
+	 * assuming a value is not valid. 
+	 * 
+	 * #pw-group-validate
+	 * 
+	 * ~~~~~
+	 * $sanitizer->validate('abc', 'alpha'); // valid: returns 'abc'
+	 * $sanitizer->validate('abc123', 'alpha'); invalid: returns null
+	 * ~~~~~
+	 * 
+	 * @param string|int|array|float $value Value to validate
+	 * @param string $method Saniatizer method name or CSV names combo
+	 * @param null|mixed mixed $fallback Optionally return this fallback value (rather than null) if value does not validate
+	 * @return null|mixed Returns sanitized value if it validates or null (or given fallback) if value does not validate
+	 * @since 3.0.125
+	 * 
+	 */
+	public function validate($value, $method = 'text', $fallback = null) {
+		$valid = $this->sanitize($value, $method); 
+		if(is_array($valid)) {
+			if(is_array($value) && $valid == $value) return $valid;
+		} else if(is_bool($valid)) {
+			if($valid == $value) return $valid;	
+		} else {
+			if(is_string($value)) $value = trim($value);
+			if(is_string($valid)) $valid = trim($valid);
+			if($valid == $value && strlen("$valid") == strlen("$value")) return $valid;
+		}
+		return $fallback;
+	}
+
+	/**
+	 * Is given value valid? (i.e. unchanged by given sanitizer method)
+	 * 
+	 * ~~~~~~
+	 * if($sanitizer->valid('abc123', 'alphanumeric')) {
+	 *  // value is valid
+	 * }
+	 * ~~~~~~
+	 * 
+	 * #pw-group-validate
+	 * 
+	 * @param string|int|array|float $value Value to check if valid
+	 * @param string $method Method name or CSV method names
+	 * @param bool $strict When true, sanitized value must be identical in type to the one given
+	 * @return bool
+	 * @since 3.0.125
+	 * 
+	 */
+	public function valid($value, $method = 'text', $strict = false) {
+		$valid = $this->validate($value, $method);
+		if($valid === null) return false;
+		if($strict && $value !== $valid) return false;
+		return true;
+	}
+	
+	/**
+	 * Map to sanitizers
+	 *
+	 * @param $method
+	 * @param $arguments
+	 *
+	 * @return string|int|array|float|null Returns null when input variable does not exist
+	 * @throws WireException
+	 *
+	 */
+	public function ___callUnknown($method, $arguments) {
+		if($this->methodExists($method) && count($arguments)) {
+			return $this->sanitize($arguments[0], $method); 
+		} else {
+			return parent::___callUnknown($method, $arguments);
+		}
 	}
 
 }
