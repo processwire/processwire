@@ -285,25 +285,30 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	 * @throws WireException
 	 *
 	 */
-	public function __call($method, $arguments) {
+	public function ___callUnknown($method, $arguments) {
 		$sanitizer = $this->wire('sanitizer');
-		$method = ltrim($method, '_');
-		if(!method_exists($sanitizer, $method)) {
-			$method = "___$method";
-			if(!method_exists($sanitizer, $method)) {
-				$method = ltrim($method, "_");
-				throw new WireException("Unknown method '$method' - Specify a valid Sanitizer or WireInputData method.");
+		if(!$sanitizer->methodExists($method)) {
+			try {
+				return parent::___callUnknown($method, $arguments);
+			} catch(\Exception $e) {
+				throw new WireException("Unknown method '$method' - specify a valid Sanitizer name or WireInputData method"); 
 			}
 		}
 		if(!isset($arguments[0])) {
 			throw new WireException("For method '$method' specify an input variable name for first argument");
 		}
+		// swap input name with input value in arguments array
 		$arguments[0] = $this->__get($arguments[0]);
-		if(is_null($arguments[0])) {
-			// value is not present in input at all
-			// @todo do you want to provide an alternate means of handling this situation?
+		if($arguments[0] === null) {
+			// value is not present in input at all, accommodate potential fallback value?
 		}
-		return call_user_func_array(array($sanitizer, $method), $arguments);
+		if(count($arguments) > 1) {
+			// more than one argument to sanitizer method
+			return call_user_func_array(array($sanitizer, $method), $arguments);
+		} else {
+			// single argument, pass along to sanitize method
+			return $sanitizer->sanitize($arguments[0], $method); 
+		}
 	}
 }
 

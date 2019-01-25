@@ -989,7 +989,8 @@ class WireInput extends Wire {
 		
 		/** @var Sanitizer $sanitizer */
 		$sanitizer = $this->wire('sanitizer');
-		$values = is_array($value) ? $value : ($value === null ? array() : array($value));
+		//$values = is_array($value) ? $value : ($value === null ? array() : array($value));
+		$values = is_array($value) ? $value : array($value);
 		$methods = strpos($method, ',') === false ? array($method) : explode(',', $method);
 		$cleanValues = array();
 		
@@ -997,10 +998,8 @@ class WireInput extends Wire {
 			foreach($methods as $method) {
 				$method = trim($method);
 				if(empty($method)) continue;
-				if(method_exists($sanitizer, $method)) {
-					$value = call_user_func_array(array($sanitizer, $method), array($value));
-				} else if(method_exists($sanitizer, "___$method")) {
-					$value = call_user_func_array(array($sanitizer, "___$method"), array($value));
+				if($sanitizer->methodExists($method)) {
+					$value = $sanitizer->sanitize($value, $method); 
 				} else {
 					throw new WireException("Unknown sanitizer method: $method");
 				}
