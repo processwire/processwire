@@ -428,7 +428,7 @@ class PagesEditor extends Wire {
 			$page->removeStatus(Page::statusUnpublished);
 		}
 
-		if($page->parentPrevious) {
+		if($page->parentPrevious && !$isNew) {
 			if($page->isTrash() && !$page->parentPrevious->isTrash()) {
 				$this->pages->trash($page, false);
 			} else if($page->parentPrevious->isTrash() && !$page->parent->isTrash()) {

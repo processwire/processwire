@@ -244,6 +244,8 @@ class DatabaseQuerySelectFulltext extends Wire {
 		//$a = preg_split('/[-\s,+*!.?()=;]+/', $value); 
 		$a = preg_split('/[-\s,+*!?()=;]+/', $value); 
 		foreach($a as $k => $v) {
+			$v = trim($v);
+			if(!strlen($v)) continue;
 			if(DatabaseStopwords::has($v)) {
 				continue; 
 			}

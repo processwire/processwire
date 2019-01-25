@@ -106,7 +106,7 @@
 	<!-- search engine -->
 	<form class='search' action='<?php echo $pages->get('template=search')->url; ?>' method='get'>
 		<label for='search' class='visually-hidden'><?php echo _x('Search:', 'label'); ?></label>
-		<input type='text' name='q' id='search' placeh older='<?php echo _x('Search', 'placeholder'); ?>' />
+		<input type='text' name='q' id='search' placeholder='<?php echo _x('Search', 'placeholder'); ?>' />
 		<button type='submit' name='submit' class='visually-hidden'><?php echo _x('Search', 'button'); ?></button>
 	</form>
 

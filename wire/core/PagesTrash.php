@@ -42,7 +42,7 @@ class PagesTrash extends Wire {
 	public function trash(Page $page, $save = true) {
 		
 		if(!$this->pages->isDeleteable($page) || $page->template->noTrash) {
-			throw new WireException("This page may not be placed in the trash");
+			throw new WireException("This page (id=$page->id) may not be placed in the trash");
 		}
 		
 		if(!$trash = $this->pages->get($this->config->trashPageID)) {
