@@ -44,7 +44,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 124;
+	const versionRevision = 125;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -279,8 +279,12 @@ class ProcessWire extends Wire {
 			/** @noinspection PhpIncludeInspection */
 			include_once($file);
 		}
-		// @todo
 
+		if($config->installed >= 1547136020) {
+			// installations Jan 10, 2019 and onwards:
+			// make the __('text') translation function return entity encoded text, whether translated or not
+			__(true, 'entityEncode', true);
+		}
 
 		// check if noHTTPS option is using conditional hostname
 		if($config->noHTTPS && $config->noHTTPS !== true) {
