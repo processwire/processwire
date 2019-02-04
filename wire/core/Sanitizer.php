@@ -7,11 +7,90 @@
  * 
  * #pw-summary Provides methods for sanitizing and validating user input, preparing data for output, and more. 
  * #pw-use-constants
- *
- * Modules may also add methods to the Sanitizer as needed i.e. $this->sanitizer->addHook('myMethod', $myClass, 'myMethod'); 
- * See the Wire class definition for more details about the addHook method. 
+ * #pw-body = 
+ * Sanitizer is useful for sanitizing input or any other kind of data that you need to match a particular type or format. 
+ * The Sanitizer methods are accessed from the `$sanitizer` API variable and/or `sanitizer()` API variable/function.
+ * For example:
+ * ~~~~~~
+ * $cleanValue = $sanitizer->text($dirtyValue); 
+ * ~~~~~~
+ * You can replace the `text()` call above with any other sanitizer method. Many sanitizer methods also accept additional
+ * arguments—see each individual method for details. 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ### Sanitizer and input
+ * 
+ * Sanitizer methods are most commonly used with user input. As a result, the methods in this class are also accessible
+ * from the `$input->get`, `$input->post` and `$input->cookie` API variables, in the same manner that they are here. 
+ * This is a useful shortcut for intances where you don’t need to provide additional arguments to the sanitizer method.
+ * Below are a few examples of this usage:
+ * ~~~~~
+ * // get GET variable 'id' as integer
+ * $id = $input->get->int('id');
+ * 
+ * // get POST variable 'name' as 1-line plain text
+ * $name = $input->post->text('name');
+ * 
+ * // get POST variable 'comments' as multi-line plain text
+ * $comments = $input->post->textarea('comments'); 
+ * ~~~~~
+ * In ProcessWire 3.0.125 and newer you can also perform the same task as the above with one less `->` level like the
+ * example below: 
+ * ~~~~~
+ * $comments = $input->post('comments','textarea'); 
+ * ~~~~~
+ * This is more convenient in some IDEs because it’ll never be flagged as an unrecognized function call. Though outside
+ * of that it makes little difference how you call it, as they both do the same thing. 
+ * 
+ * See the `$input` API variable for more details on how to call sanitizers directly from $input.
+ * 
+ * ### Adding your own sanitizers
+ *
+ * You can easily add your own new sanitizers via ProcessWire hooks. Hooks are commonly added in a /site/ready.php file, 
+ * or from a Module, though you may add them wherever you want. The following example adds a sanitizer method called 
+ * `zip()` which enforces a 5 digit zip code:
+ * ~~~~~
+ * $sanitizer->addHook('zip', function(HookEvent $event) {
+ *   $sanitizer = $event->object;
+ *   $value = $event->arguments(0); // get first argument given to method
+ *   $value = $sanitizer->digits($value, 5); // allow only digits, max-length 5
+ *   if(strlen($value) < 5) $value = ''; // if fewer than 5 digits, it is not a zip
+ *   $event->return = $value;
+ * });
+ *
+ * // now you can use your zip sanitizer
+ * $dirtyValue = 'Decatur GA 30030';
+ * $cleanValue = $sanitizer->zip($dirtyValue);
+ * echo $cleanValue; // outputs: 30030
+ * ~~~~~
+ *
+ * ### Additional options (3.0.125 or newer)
+ * 
+ * In ProcessWire 3.0.125+ you can also combine sanitizer methods in a single call. These are defined by separating each 
+ * sanitizer method with an understore. The example below runs the value through the text sanitizer and then through the 
+ * entities sanitizer:
+ * ~~~~~
+ * $cleanValue = $sanitizer->text_entities($dirtyValue);
+ * ~~~~~
+ * If you append a number to any sanitizer call that returns a string, it is assumed to be maximum allowed length. For 
+ * example the following would sanitize the value to be text of no more than 20 characters:
+ * ~~~~~
+ * $cleanValue = $sanitizer->text20($dirtyValue); 
+ * ~~~~~
+ * The above technique also works for any user-defined sanitizers you’ve added via hooks. We like this strategy for 
+ * storage of sanitizer calls that are executed at some later point, like those you might store in a module config. It
+ * essentially enables you to define loose data types for sanitization. In addition, if there are other cases where you
+ * need multiple sanitizers to clean a particular value, this strategy can do it with a lot less code than you would 
+ * with multiple sanitizer calls. 
+ * 
+ * Most methods in the Sanitizer class focus on sanitization rather than validation, with a few exceptions. You can 
+ * convert ta sanitizer call to validation call by calling the `validate()` method with the name of the sanitizer and the
+ * value. A validation call simply implies that if the value is modified by sanitization then it is considered invalid
+ * and thus it’ll return a non-value rather than a sanitized value. See the `Sanitizer::validate()` and 
+ * `Sanitizer::valid()` methods for usage details. 
+ * 
+ * #pw-body
+ * 
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  * @link http://processwire.com/api/variables/sanitizer/ Offical $sanitizer API variable Documentation
@@ -2564,6 +2643,82 @@ class Sanitizer extends Wire {
 		$value = $this->camelCase($value, $options);
 		return ucfirst($value);
 	}
+	
+	/**
+	 * Sanitize string value to have only the given characters 
+	 * 
+	 * You must provide a string of allowed characters in the `$allow` argument. If not provided then 
+	 * the only [ a-z A-Z 0-9 ] are allowed. You may optionally specify `[alpha]` to refer to any 
+	 * ASCII alphabet character, or `[digit]` to refer to any digit. 
+	 * 
+	 * ~~~~~
+	 * echo $sanitizer->chars('foo123barBaz456', 'barz1'); // Outputs: 1baraz
+	 * echo $sanitizer->chars('(800) 555-1234', '[digit]', '.');  // Outputs: 800.555.1234
+	 * echo $sanitizer->chars('Decatur, GA 30030', '[alpha]', '-'); // Outputs: Decatur-GA
+	 * echo $sanitizer->chars('Decatur, GA 30030', '[alpha][digit]', '-'); // Outputs: Decatur-GA-30030
+	 * ~~~~~
+	 * 
+	 * #pw-group-strings
+	 *
+	 * @param string $value Value to sanitize
+	 * @param string|array $allow Allowed characters string. If omitted then only alphanumeric [ a-z A-Z 0-9 ] are allowed.
+	 *  Use shortcut `[alpha]` to refer to any “a-z A-Z” char or `[digit]` to refer to any digit. 
+	 * @param string $replacement Replace disallowed chars with this char or string, or omit for blank. (default='')
+	 * @param bool $collapse Collapse multiple $replacement chars to one and trim from return value? (default=true)
+	 * @param bool|null $mb Specify bool to force use of multibyte on or off, or omit to auto-detect. (default=null)
+	 * @return string
+	 * @since 3.0.126
+	 *
+	 */
+	public function chars($value, $allow = '', $replacement = '', $collapse = true, $mb = null) {
+	
+		$value = $this->string($value);
+		$alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+		$digit = '0123456789';
+		
+		if(is_array($allow)) $allow = implode('', $allow);
+		
+		if(!strlen($allow)) {
+			$allow = $alpha . $digit;
+		} else {
+			if(stripos($allow, '[alpha]') !== false) $allow = str_ireplace('[alpha]', $alpha, $allow);
+			if(stripos($allow, '[digit]') !== false) $allow = str_ireplace('[digit]', $digit, $allow);
+		}
+		if($mb === null) $mb = $this->multibyteSupport ? !mb_check_encoding($allow . $value, 'ASCII') : false;
+		
+		$result = '';
+		$lastChar = '';
+		$length = $mb ? mb_strlen($value) : strlen($value);
+		$hasReplacement = false;
+		
+		for($n = 0; $n < $length; $n++) {
+			if($mb) {
+				$char = mb_substr($value, $n, 1);
+				$ok = mb_strpos($allow, $char) !== false; 
+			} else {
+				$char = $value[$n];
+				$ok = strpos($allow, $char) !== false;
+			}
+			if($collapse && $char === $replacement) {
+				$hasReplacement = true;
+				if($char === $lastChar) continue;
+			}
+			if($ok) {
+				$result .= $char;
+				$lastChar = $char;
+			} else if($replacement !== '') {
+				if(!$collapse || $replacement !== $lastChar) $result .= $replacement;
+				$lastChar = $replacement;
+				$hasReplacement = true;
+			}
+		}
+		
+		if($collapse && $hasReplacement && $replacement !== '') {
+			$result = $mb ? $this->trim($result, $replacement) : trim($result, $replacement); 
+		}
+		
+		return $result;
+	}
 
 	/**
 	 * Sanitize value to string
@@ -3704,6 +3859,8 @@ class Sanitizer extends Wire {
 	 *
 	 * @param $method
 	 * @param $arguments
+	 * 
+	 * #pw-internal
 	 *
 	 * @return string|int|array|float|null Returns null when input variable does not exist
 	 * @throws WireException
