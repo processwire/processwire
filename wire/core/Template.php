@@ -107,6 +107,7 @@
  * @property int $compile Set to 1 to enable compilation, 2 to compile file and included files, 3 for auto, or 0 to disable.  #pw-group-other
  * @property string $tags Optional tags that can group this template with others in the admin templates list. #pw-group-other 
  * @property string $pageLabelField CSV or space separated string of field names to be displayed by ProcessPageList (overrides those set with ProcessPageList config). #pw-group-other
+ * @property int|bool $_importMode Internal use property set by template importer when importing #pw-internal
  * 
  *
  */
@@ -1170,6 +1171,19 @@ class Template extends WireData implements Saveable, Exportable {
 		}
 		$this->pageLabelField = $label;
 		return $this;
+	}
+
+	/**
+	 * Ensures that isset() and empty() work for this classes properties.
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $key
+	 * @return bool
+	 *
+	 */
+	public function __isset($key) {
+		return isset($this->settings[$key]) || isset($this->data[$key]);
 	}
 
 }
