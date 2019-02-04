@@ -17,6 +17,8 @@
  * @method bool processInput(InputfieldForm $form)
  * @method array getAllowedTemplates($parent = null)
  * @method string nameChangedWarning(Page $page, $namePrevious)
+ * 
+ * @property bool|int $noAutoPublish Disable automatic publishing?
  *
  */
 
@@ -280,7 +282,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	 */
 	public function ___executeTemplate() {
 
-		$templateID = (int) $this->input->get->template_id; 
+		$templateID = (int) $this->input->get('template_id'); 
 		if(!$templateID) throw new WireException("No template specified"); 
 		$template = $this->templates->get($templateID); 
 		if(!$template) throw new WireException("Unknown template"); 
@@ -343,6 +345,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	 * 
 	 */
 	public function renderChooseTemplate() {
+		/** @var array $data */
 		$data = $this->executeNavJSON(array('getArray' => true)); 
 		$out = '';
 		$bookmarkItem = null;
@@ -742,7 +745,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 
 		$form->attr('id', 'ProcessPageAdd'); 
 		$form->addClass('InputfieldFormFocusFirst');
-		$form->attr('action', './' . ($this->input->get->modal ? "?modal=1" : '')); 
+		$form->attr('action', './' . ($this->input->get('modal') ? "?modal=1" : '')); 
 		$form->attr('data-ajax-url', $this->wire('config')->urls->admin . 'page/add/'); 
 		$form->attr('data-dup-note',  $this->_('The name entered is already in use. If you do not modify it, the name will be made unique automatically after you save.')); 
 		$form->attr('method', 'post');
@@ -998,7 +1001,13 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 
 		$this->deleteOldTempPages();
 		// allow for nameFormat to come from a name_format GET variable
-		$nameFormat = $this->sanitizer->text($this->input->get('name_format')); 
+		$nameFormat = $this->wire('input')->get('name_format');
+		if(strlen($nameFormat)) {
+			$nameFormat = $this->sanitizer->chars($this->sanitizer->text($nameFormat), '-_[alpha][digit]', '-'); 
+		} else {
+			if(count($parent->template->childTemplates) > 1) return false;
+			$nameFormat = '';
+		}
 		$nameFormatTemplate = $parent->template->childNameFormat;
 		if(strlen($nameFormat)) {
 			// temporarily assign to the template->childNameFormat property
@@ -1178,7 +1187,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		if($publishNow && $publishAdd) {
 			$this->session->redirect("./?parent_id={$this->page->parent_id}&template_id={$this->page->template->id}");
 		} else {
-			$this->session->redirect("../edit/?id={$this->page->id}&new=1" . ($this->input->get->modal ? "&modal=1" : ''));
+			$this->session->redirect("../edit/?id={$this->page->id}&new=1" . ($this->input->get('modal') ? "&modal=1" : ''));
 		}
 		
 		return true;
@@ -1294,6 +1303,8 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	public function getShortcutSortField() {
 		
 		$this->wire('session')->remove($this, 'nav');
+		
+		/** @var array $data */
 		$data = $this->executeNavJSON(array('getArray' => true));
 		$name = 'shortcutSort';
 

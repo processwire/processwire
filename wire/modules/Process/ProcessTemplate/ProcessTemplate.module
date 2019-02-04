@@ -948,7 +948,7 @@ class ProcessTemplate extends Process {
 	 * Edit the fields that are part of this template
 	 * 
 	 * @param Template $template
-	 * @return InputfieldAsmSelect
+	 * @return InputfieldAsmSelect|InputfieldMarkup
 	 *
 	 */
 	protected function buildEditFormFields(Template $template) {
