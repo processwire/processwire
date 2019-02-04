@@ -163,6 +163,15 @@ class PageFinder extends Wire {
 	protected $sortsAfter = array(); // apply these sorts after pages loaded 
 	protected $reverseAfter = false; // reverse order after load?
 	protected $pageArrayData = array(); // any additional data that should be populated back to any resulting PageArray objects
+	protected $singlesFields = array( // fields that can only be used by themselves (not OR'd with other fields)
+		'has_parent', 
+		'hasParent', 
+		'num_children',
+		'numChildren',
+		'children.count',
+		'limit',
+		'start',
+	);
 	
 	// protected $extraSubSelectors = array(); // subselectors that are added in after getQuery()
 	// protected $extraJoins = array();
@@ -2309,12 +2318,32 @@ class PageFinder extends Wire {
 	 *
 	 */
 	protected function arrangeFields(array $fields) {
+		
 		$custom = array();
 		$native = array();
+		$singles = array();
+		
 		foreach($fields as $name) {
-			if($this->wire('fields')->isNative($name)) $native[] = $name;
-				else $custom[] = $name; 
+			if($this->wire('fields')->isNative($name)) {
+				$native[] = $name;
+			} else {
+				$custom[] = $name;
+			}
+			if(in_array($name, $this->singlesFields)) {
+				$singles[] = $name;
+			}
 		}
+		
+		if(count($singles) && count($fields) > 1) {
+			// field in use that may no be combined with others
+			if($this->wire('config')->debug || $this->wire('config')->installed > 1549299319) {
+				// debug mode or anything installed after February 4th, 2019
+				$f = reset($singles);
+				$fs = implode('|', $fields);
+				throw new PageFinderSyntaxException("Field '$f' cannot OR with other fields in '$fs'");
+			}
+		}
+		
 		return array_merge($native, $custom); 
 	}
 
