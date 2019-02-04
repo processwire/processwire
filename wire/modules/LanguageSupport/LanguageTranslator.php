@@ -311,7 +311,8 @@ class LanguageTranslator extends Wire {
 		if(!isset($this->textdomains[$textdomain])) $this->loadTextdomain($textdomain); 
 
 		// see if this translation exists
-		if(!empty($this->textdomains[$textdomain]['translations'][$hash]['text'])) { 
+		if(isset($this->textdomains[$textdomain]['translations'][$hash]['text']) 
+			&& strlen($this->textdomains[$textdomain]['translations'][$hash]['text'])) { 
 
 			// translation found
 			$text = $this->textdomains[$textdomain]['translations'][$hash]['text'];	

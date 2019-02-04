@@ -5,13 +5,13 @@
  *
  * This is the process assigned to the processwire/setup/language-translator/ page.
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  * 
  * @method string executeList()
  * @method string executeAdd()
- * @method string processAdd(Inputfield $field)
+ * @method string processAdd(Inputfield $field = null, $sourceFilename = '')
  * @method string executeEdit()
  * @method processEdit($form, $textdomain, $translations)
  * 
@@ -80,11 +80,11 @@ class ProcessLanguageTranslator extends Process {
 	public function init() {
 
 		// if language specified as a GET var in the URL, then pick it up and use it (storing in session)
-		$id = $this->input->get->language_id;
+		$id = $this->input->get('language_id');
 		if($id) {
 			$this->setLanguage((int) $id);
-		} else if($this->session->translateLanguageID) {
-			$this->setLanguage($this->session->translateLanguageID);
+		} else if($this->session->get('translateLanguageID')) {
+			$this->setLanguage($this->session->get('translateLanguageID'));
 		}
 		// else throw new WireException("No language specified"); 
 		parent::init();
@@ -110,7 +110,7 @@ class ProcessLanguageTranslator extends Process {
 		if(!$language instanceof Language || !$language->id) throw new WireException($this->_("Unknown/invalid language"));
 		if(!$language->editable()) throw new WirePermissionException($this->_('You do not have permission to edit this language'));
 		$this->language = $language;
-		$this->session->translateLanguageID = $language->id;
+		$this->session->set('translateLanguageID', $language->id);
 		$this->translator = new LanguageTranslator($this->language);
 	}
 
@@ -260,6 +260,7 @@ class ProcessLanguageTranslator extends Process {
 			$form->add($field);
 		}
 
+		/** @var InputfieldText $field */
 		$field = $this->modules->get('InputfieldText');
 		$field->attr('name', 'filename');
 		$field->label = $this->_('Enter file to translate');
@@ -269,6 +270,7 @@ class ProcessLanguageTranslator extends Process {
 		$field->collapsed = Inputfield::collapsedYes;
 		$form->add($field);
 
+		/** @var InputfieldSubmit $submit */
 		$submit = $this->modules->get("InputfieldSubmit");
 		$submit->attr('id+name', 'submit_add');
 		$submit->icon = 'plane';
@@ -282,8 +284,8 @@ class ProcessLanguageTranslator extends Process {
 		$submit->icon = 'refresh';
 		$form->add($submit);
 
-		if($this->input->post->submit_add) {
-			if($this->input->post->filename) {
+		if($this->input->post('submit_add')) {
+			if($this->input->post('filename')) {
 				$this->processAdd($field);
 
 			} else {
@@ -302,10 +304,12 @@ class ProcessLanguageTranslator extends Process {
 					}
 				}
 				if(count($newTextdomains) == 1) {
-					return $this->session->redirect("../edit/?language_id={$this->language->id}&textdomain=" . reset($newTextdomains));
+					$this->session->redirect("../edit/?language_id={$this->language->id}&textdomain=" . reset($newTextdomains));
+					return '';
 				} else if(count($newTextdomains) > 1) {
 					// render form again
-					return $this->session->redirect("../../languages/edit/?id={$this->language->id}");
+					$this->session->redirect("../../languages/edit/?id={$this->language->id}");
+					return '';
 				}
 			}
 
@@ -341,7 +345,9 @@ class ProcessLanguageTranslator extends Process {
 			if($this->parseTranslatableFile($pathname)) {
 
 				$textdomain = $this->translator->addFileToTranslate($filename);
-				if($textdomain) return $this->session->redirect("../edit/?language_id={$this->language->id}&textdomain=$textdomain");
+				if($textdomain) {
+					$this->session->redirect("../edit/?language_id={$this->language->id}&textdomain=$textdomain");
+				}
 
 				$this->error($this->_('That file is already in the system'));
 
@@ -357,6 +363,8 @@ class ProcessLanguageTranslator extends Process {
 	}
 
 	protected function executeEditField($hash, $untranslated, $translated) {
+		
+		/** @var InputfieldText $field */
 
 		if(strlen($untranslated) < 128) {
 			$field = $this->modules->get("InputfieldText");
@@ -365,8 +373,6 @@ class ProcessLanguageTranslator extends Process {
 			$field->attr('rows', 3);
 		}
 		
-		/** @var InputfieldText $field */
-
 		$field->attr('id+name', $hash);
 		$field->set('textFormat', Inputfield::textFormatNone);
 		$field->attr('value', $translated);
@@ -388,7 +394,7 @@ class ProcessLanguageTranslator extends Process {
 			}
 		}
 
-		if((empty($translated) || $translated === '+') && !$field instanceof InputfieldTextarea) {
+		if((!strlen($translated) || $translated === '+') && !$field instanceof InputfieldTextarea) {
 			$languages = $this->wire('languages');
 			$languages->setLanguage($this->language);
 			$this->wire('user')->language = $this->language;
@@ -429,12 +435,14 @@ class ProcessLanguageTranslator extends Process {
 
 			// if the hash still exists in the untranslated phrases, then it is not abandoned
 			if(isset($this->untranslated[$hash])) continue;
+			if(!isset($translation['text'])) $translation['text'] = '';
 
 			$n++;
+			/** @var InputfieldCheckbox $field */
 			$field = $this->modules->get("InputfieldCheckbox");
 			$field->attr('name', "abandoned$n");
 			$field->attr('value', $hash);
-			$field->description = empty($translation['text']) ? $this->_('[empty]') : $translation['text'];
+			$field->description = !strlen($translation['text']) ? $this->_('[empty]') : $translation['text'];
 			$field->label = $this->_('Delete?'); // Checkbox label
 			$field->icon = 'trash-o';
 			$fieldset->add($field);
@@ -458,7 +466,7 @@ class ProcessLanguageTranslator extends Process {
 		$this->breadcrumb('../add/', $this->_x('Select File(s)', 'breadcrumb'));
 		$this->headline($this->_x('Translate File', 'headline'));
 
-		$textdomain = $this->input->get->textdomain;
+		$textdomain = $this->input->get('textdomain');
 		$file = $this->translator->textdomainToFilename($textdomain);
 		if(!$file) {
 			if($this->input->get('filename')) {
@@ -501,6 +509,7 @@ class ProcessLanguageTranslator extends Process {
 
 		$this->executeEditAbandoned($translations, $form);
 
+		/** @var InputfieldCheckbox $field */
 		$field = $this->modules->get('InputfieldCheckbox');
 		$field->attr('id+name', 'untranslated');
 		$field->label = $this->_('Only show blocks that are not yet translated');
@@ -516,7 +525,7 @@ class ProcessLanguageTranslator extends Process {
 		$submit->addActionValue('next', $this->_('Save + Next'), 'edit');
 		$form->add($submit);
 
-		if($this->input->post->save_translations) $this->processEdit($form, $textdomain, $translations);
+		if($this->input->post('save_translations')) $this->processEdit($form, $textdomain, $translations);
 
 		return $form->render();
 	}
@@ -612,7 +621,9 @@ class ProcessLanguageTranslator extends Process {
 	 *
 	 */
 	protected function addBreadcrumbs() {
-		$languagesPage = $this->pages->get($this->modules->get('LanguageSupport')->languagesPageID);
+		/** @var LanguageSupport $languageSupport */
+		$languageSupport = $this->modules->get('LanguageSupport');
+		$languagesPage = $this->pages->get($languageSupport->languagesPageID);
 		$url = $languagesPage->url;
 		$this->wire('breadcrumbs')->add(new Breadcrumb($url, $languagesPage->title));
 		$this->wire('breadcrumbs')->add(new Breadcrumb($url . "edit/?id={$this->language->id}", $this->language->get('title|name')));

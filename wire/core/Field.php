@@ -40,7 +40,8 @@
  * @property string|null $requiredIf A selector-style string that defines the conditions under which input is required #pw-group-properties
  * @property string|null $showIf A selector-style string that defines the conditions under which the Inputfield is shown #pw-group-properties
  * @property int|null $columnWidth The Inputfield column width (percent) 10-100. #pw-group-properties
- * @property int $collapsed The Inputfield 'collapsed' value (see Inputfield constants). #pw-group-properties
+ * @property int|null $collapsed The Inputfield 'collapsed' value (see Inputfield collapsed constants). #pw-group-properties
+ * @property int|null $textFormat The Inputfield 'textFormat' value (see Inputfield textFormat constants). #pw-group-properties
  * 
  * @method bool viewable(Page $page = null, User $user = null) Is the field viewable on the given $page by the given $user? #pw-group-access
  * @method bool editable(Page $page = null, User $user = null) Is the field editable on the given $page by the given $user? #pw-group-access

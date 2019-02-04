@@ -97,6 +97,7 @@
  * @property string $wrapClass Optional class name (CSS) to apply to the HTML element wrapping the Inputfield. #pw-group-other
  * @property string $headerClass Optional class name (CSS) to apply to the InputfieldHeader element #pw-group-other
  * @property string $contentClass Optional class name (CSS) to apply to the InputfieldContent element #pw-group-other
+ * @property int|null $textFormat Text format to use for description/notes text in Inputfield (see textFormat constants) #pw-group-output
  * 
  * @method string|Inputfield required($required = null) Get or set required state. @since 3.0.110 #pw-group-behavior
  * @method string|Inputfield requiredIf($requiredIf = null) Get or set required-if selector. @since 3.0.110 #pw-group-behavior
