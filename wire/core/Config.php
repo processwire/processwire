@@ -428,7 +428,7 @@ class Config extends WireData {
 	}
 
 	/**
-	 * Check if current ProcessWire version is equal to or newer than given versino
+	 * Check if current ProcessWire version is equal to or newer than given version
 	 * 
 	 * If no version argument is given, it simply returns the current ProcessWire version. 
 	 * 

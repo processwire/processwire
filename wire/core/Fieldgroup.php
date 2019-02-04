@@ -316,7 +316,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	}
 
 	/**
-	 * Does this fieldgroup having the given field?
+	 * Does this fieldgroup have the given field?
 	 * 
 	 * #pw-group-retrieval
 	 *

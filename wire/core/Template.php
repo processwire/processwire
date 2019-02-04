@@ -547,7 +547,7 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 * #pw-group-fields
 	 *
-	 * @param string|int|Field May be field name, id or object. 
+	 * @param string|int|Field $name May be field name, id or object. 
 	 * @return bool
 	 *
 	 */

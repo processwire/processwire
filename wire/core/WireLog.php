@@ -281,7 +281,7 @@ class WireLog extends Wire {
 	 *  - `date` (string): ISO-8601 date string
 	 *  - `user` (string): user name or boolean false if unknown
 	 *  - `url` (string): full URL or boolean false if unknown
-	 *  - `text` (string) text of the log entry
+	 *  - `text` (string): text of the log entry
 	 * @see WireLog::getLines()
 	 * 
 	 */
