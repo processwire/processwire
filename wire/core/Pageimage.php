@@ -33,19 +33,48 @@
  * @property-read int $hidpiHeight HiDPI heigh of image, in pixels. #pw-internal
  * @property-read string $error Last image resizing error message, when applicable. #pw-group-resize-and-crop
  * @property-read Pageimage $original Reference to original $image, if this is a resized version. #pw-group-variations
- * @property-read string $url
- * @property-read string $basename
- * @property-read string $filename
  * @property-read array $focus Focus array contains 'top' (float), 'left' (float), 'zoom' (int), and 'default' (bool) properties.
  * @property-read string $focusStr Readable string containing focus information.
  * @property-read bool $hasFocus Does this image have custom focus settings? (i.e. $focus['default'] == true)
  * @property-read array $suffix Array containing file suffix(es).
  * @property-read string $suffixStr String of file suffix(es) separated by comma.
- * 
+ * @property-read string $alt Convenient alias for the 'description' property, unless overridden (since 3.0.125).
+ * @property-read string $src Convenient alias for the 'url' property, unless overridden (since 3.0.125).
+ *
+ * Properties inherited from Pagefile
+ * ==================================
+ * @property-read string $url URL to the file on the server.
+ * @property-read string $httpUrl URL to the file on the server including scheme and hostname.
+ * @property-read string $URL Same as $url property but with browser cache busting query string appended. #pw-group-other
+ * @property-read string $HTTPURL Same as the cache-busting uppercase “URL” property, but includes scheme and hostname. #pw-group-other
+ * @property-read string $filename full disk path to the file on the server.
+ * @property-read string $name Returns the filename without the path, same as the "basename" property.
+ * @property-read string $hash Get a unique hash (for the page) representing this Pagefile.
+ * @property-read array $tagsArray Get file tags as an array. #pw-group-tags @since 3.0.17
+ * @property int $sort Sort order in database. #pw-group-other
+ * @property string $basename Returns the filename without the path.
+ * @property string $description Value of the file’s description field (string), if enabled. Note you can also set this property directly.
+ * @property string $tags Value of the file’s tags field (string), if enabled. #pw-group-tags
+ * @property string $ext File’s extension (i.e. last 3 or so characters)
+ * @property-read int $filesize File size (number of bytes).
+ * @property int $modified Unix timestamp of when Pagefile (file, description or tags) was last modified. #pw-group-date-time
+ * @property-read string $modifiedStr Readable date/time string of when Pagefile was last modified. #pw-group-date-time
+ * @property-read int $mtime Unix timestamp of when file (only) was last modified. #pw-group-date-time
+ * @property-read string $mtimeStr Readable date/time string when file (only) was last modified. #pw-group-date-time
+ * @property int $created Unix timestamp of when file was created. #pw-group-date-time
+ * @property-read string $createdStr Readable date/time string of when Pagefile was created #pw-group-date-time
+ * @property string $filesizeStr File size as a formatted string, i.e. “123 Kb”.
+ * @property Pagefiles $pagefiles The Pagefiles WireArray that contains this file. #pw-group-other
+ * @property Page $page The Page object that this file is part of. #pw-group-other
+ * @property Field $field The Field object that this file is part of. #pw-group-other
+ *
+ * Hookable methods 
+ * ================
  * @method bool|array isVariation($basename, $options = array())
  * @method Pageimage crop($x, $y, $width, $height, $options = array())
  * @method array rebuildVariations($mode = 0, array $suffix = array(), array $options = array())
  * @method install($filename)
+ * @method render($tpl = '')
  *
  */
 
@@ -354,6 +383,14 @@ class Pageimage extends Pagefile {
 			case 'suffixStr':
 				$value = implode(',', $this->suffix());
 				break;
+			case 'alt':
+				$value = parent::get('alt');
+				if($value === null) $value = $this->description();
+				break;
+			case 'src':
+				$value = parent::get('src');
+				if($value === null) $value = $this->url();
+				break;
 			default: 
 				$value = parent::get($key); 
 		}
@@ -612,8 +649,10 @@ class Pageimage extends Pagefile {
 			);
 
 		$this->error = '';
-		$debug = $this->wire('config')->debug;
-		$configOptions = $this->wire('config')->imageSizerOptions; 
+		/** @var Config $config */
+		$config = $this->wire('config');
+		$debug = $config->debug;
+		$configOptions = $config->imageSizerOptions; 
 		if(!is_array($configOptions)) $configOptions = array();
 		$options = array_merge($defaultOptions, $configOptions, $options); 
 		if($options['cropping'] === 1) $options['cropping'] = true;
@@ -698,7 +737,11 @@ class Pageimage extends Pagefile {
 		$exists = file_exists($filenameFinal);
 
 		// create a new resize if it doesn't already exist or forceNew option is set
-		if(!$exists || $options['forceNew']) {
+		if(!$exists && !file_exists($this->filename())) {
+			// no original file exists to create variation from 
+			$this->error = "Original image does not exist to create size variation";
+			
+		} else if(!$exists || $options['forceNew']) {
 			// filenameUnvalidated is temporary filename used for resize
 			$filenameUnvalidated = $this->pagefiles->page->filesManager()->getTempPath() . $basename;
 			if($exists && $options['forceNew']) $this->wire('files')->unlink($filenameFinal, true);
@@ -763,14 +806,10 @@ class Pageimage extends Pagefile {
 			if(is_file($filenameFinal)) $this->wire('files')->unlink($filenameFinal, true);
 			if($filenameUnvalidated && is_file($filenameUnvalidated)) $this->wire('files')->unlink($filenameUnvalidated);
 
-			// write an invalid image so it's clear something failed
-			// todo: maybe return a 1-pixel blank image instead?
-			$data = "This is intentionally invalid image data.\n";
-			if(file_put_contents($filenameFinal, $data) !== false) $this->wire('files')->chmod($filenameFinal);
-
 			// we also tell PW about it for logging and/or admin purposes
-			$this->error($this->error); 
-			if($debug) $this->wire('log')->save('image-sizer', "$filenameFinal - $this->error");
+			$this->error($this->error);
+			$logError = str_replace($config->paths->root, $config->urls->root, $filenameFinal)  . " - $this->error";
+			$this->wire('log')->save('image-sizer', $logError);
 		}
 
 		$pageimage->setFilename($filenameFinal); 	
@@ -1614,6 +1653,71 @@ class Pageimage extends Pagefile {
 		return false; 
 	}
 
+	/**
+	 * Render markup for this image (optionally using a provided template string)
+	 * 
+	 * Given template string can contain any of the placeholders, which will be replaced: 
+	 *  - `{url}` or `{src}` Image URL (typically used for src attribute)
+	 *  - `{httpUrl}` File URL with scheme and hostname (alternate for src attribute)
+	 *  - `{URL}` Same as url but with cache busting query string
+	 *  - `{HTTPURL}` Same as httpUrl but with cache busting query string
+	 *  - `{description}` or `{alt}` Image description (typically used in alt attribute)
+	 *  - `{tags}` File tags (might be useful in class attribute)
+	 *  - `{width}` Width of image
+	 *  - `{height}` Height of image
+	 *  - `{hidpiWidth}` HiDPI width of image
+	 *  - `{hidpiHeight}` HiDPI height of image
+	 *  - `{ext}` File extension
+	 *  - `{original.name}` Replace “name” with any of the properties above to refer to original image.
+	 *     If there is no original image then these just refer back to the current image. 
+	 * 
+	 * ~~~~~
+	 * $image = $page->images->first();
+	 * if($image) {
+	 *   // default output
+	 *   echo $image->render(); 
+	 *   // custom output
+	 *   echo $image->render("<img class='pw-image' src='{url}' alt='{alt}'>"); 
+	 *   // custom output with link to original/full-size
+	 *   echo $image->render("<a href='{original.url}'><img src='{url}' alt='{alt}'></a>"); 
+	 * }
+	 * ~~~~~
+	 * 
+	 * @param string $tpl
+	 * @return string
+	 * 
+	 */
+	public function ___render($tpl = '') {
+		if(empty($tpl)) {
+			$tpl = "<img src='{url}' alt='{description}' />";
+		}
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		$properties = array(
+			'url', 'httpUrl', 'URL', 'HTTPURL', 
+			'description', 'alt', 'tags', 'ext',
+			'width', 'height', 'hidpiWidth', 'hidpiHeight',
+		);
+		$replacements = array();
+		foreach($properties as $property) {
+			$tag = '{' . $property . '}';
+			if(strpos($tpl, $tag) === false) continue;
+			$value = $sanitizer->entities1($this->get($property));
+			$replacements[$tag] = $value;
+		}
+		if(strpos($tpl, '{original.') !== false) {
+			$original = $this->getOriginal();
+			if(!$original) $original = $this;
+			foreach($properties as $property) {
+				$tag = '{original.' . $property . '}';
+				if(strpos($tpl, $tag) === false) continue;
+				$value = $sanitizer->entities1($original->get($property));
+				$replacements[$tag] = $value;
+			}
+		}
+		return str_replace(array_keys($replacements), array_values($replacements), $tpl);
+	}
+		
 	/**
 	 * Install this Pagefile
 	 *
