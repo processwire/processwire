@@ -319,7 +319,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 			$n = 0;
 			if(!strlen($name)) $name = $item->name; 
 			// ensure the new name is unique
-			while($this->get($name)) $name = $item->name . '_' . (++$n); 
+			while($this->get($name)) $name = rtrim($item->name, '_') . '_' . (++$n); 
 			$item->name = $name; 
 		}
 
