@@ -481,8 +481,9 @@ class WireFileTools extends Wire {
 			return false;
 		}
 
-		if(strpos($pathname, '//') !== false) {
-			// URLs or accidental extra slashes not allowed
+		$pos = strpos($pathname, '//');
+		if($pos !== false && $pos !== strpos($this->wire('config')->paths->assets, '//')) {
+			// URLs or accidental extra slashes not allowed, unless they also appear in a known safe system path
 			if($throw) throw new WireException('pathname may not contain double slash “//”');
 			return false;
 		}
