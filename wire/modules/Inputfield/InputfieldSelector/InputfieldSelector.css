@@ -14,7 +14,7 @@
 	margin: 0;
 	border-top: 1px solid #eee;
 	padding: 0.5em 0 0.5em 0.25em;
-	line-height: 1em;
+	line-height: inherit;
 }
 
 .InputfieldSelector .selector-row:last-child {
