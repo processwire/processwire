@@ -8,7 +8,7 @@
  *
  * This is the most used object in the ProcessWire API. 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  * @link http://processwire.com/api/variables/pages/ Offical $pages Documentation
@@ -349,7 +349,9 @@ class Pages extends Wire {
 			unset($options['verbose']);
 		}
 		$options['findIDs'] = $verbose ? true : 1;
-		return $this->find($selector, $options);
+		/** @var array $ids */
+		$ids = $this->find($selector, $options);
+		return $ids;
 	}
 
 	/**
@@ -1306,11 +1308,11 @@ class Pages extends Wire {
 	 *
 	 */
 	public function __invoke($key) {
-		if(empty($key)) return $this;
-		if(is_int($key)) return $this->get($key); 
-		if(is_array($key)) return $this->getById($key); 
-		if(strpos($key, '/') === 0 && ctype_alnum(str_replace(array('/', '-', '_', '.'), '', $key))) return $this->get($key);
-		return $this->find($key);
+		if(empty($key)) return $this; // no argument
+		if(is_int($key)) return $this->get($key); // page ID
+		if(is_array($key) && ctype_digit(implode('', $key))) return $this->getById($key); // array of page IDs
+		if(is_string($key) && strpos($key, '/') !== false && $this->sanitizer->pagePathName($key) === $key) return $this->get($key); // page path
+		return $this->find($key); // selector string or array
 	}
 
 	/**
