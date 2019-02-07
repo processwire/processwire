@@ -578,11 +578,13 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			if($ffOut) {
 				$attrs = '';
 				$label = $inputfield->getSetting('label');
-				if(!strlen($label) && $inputfield->getSetting('skipLabel') != Inputfield::skipLabelBlank) {
+				$skipLabel = $inputfield->getSetting('skipLabel'); 
+				$skipLabel = is_bool($skipLabel) || empty($skipLabel) ? (bool) $skipLabel : (int) $skipLabel; // force as bool or int
+				if(!strlen($label) && $skipLabel !== Inputfield::skipLabelBlank && $inputfield->className() != 'InputfieldWrapper') {
 					$label = $inputfield->attr('name');
 				}
 				if($label || $quietMode) {
-					$for = $inputfield->getSetting('skipLabel') || $quietMode ? '' : $inputfield->attr('id');
+					$for = $skipLabel || $quietMode ? '' : $inputfield->attr('id');
 					// if $inputfield has a property of entityEncodeLabel with a value of boolean FALSE, we don't entity encode
 					$entityEncodeLabel = $inputfield->getSetting('entityEncodeLabel');
 					if(is_int($entityEncodeLabel) && $entityEncodeLabel >= Inputfield::textFormatBasic) {
@@ -597,7 +599,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 					if($toggle && strpos($toggle, 'title=') === false) {
 						$toggle = str_replace("class=", "title='" . $this->_('Toggle open/close') . "' class=", $toggle);
 					}
-					if($inputfield->getSetting('skipLabel') === Inputfield::skipLabelHeader || $quietMode) {
+					if($skipLabel === Inputfield::skipLabelHeader || $quietMode) {
 						// label only shows when field is collapsed
 						$label = str_replace('{out}', $icon . $label . $toggle, $markup['item_label_hidden']); 
 					} else {
