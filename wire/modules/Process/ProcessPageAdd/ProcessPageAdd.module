@@ -316,7 +316,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$f->attr('name', 'parent_id'); 
 		$f->attr('id', 'select_parent_id'); 
 		$f->label = sprintf($this->_('Where do you want to add the new %s?'), "\"$templateLabel\""); 
-		$f->description = sprintf($this->_('Please select a parent %s page below:'), "\"$parentTemplateLabel\""); 
+		$f->description = sprintf($this->_('Please select a parent %s page below:'), "\"$parentTemplateLabel\"");
 		
 		$options = array();
 		foreach($parents as $parent) {
@@ -332,9 +332,16 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		}
 
 		$form->add($f);
+		
+		$f = $this->wire('modules')->get('InputfieldHidden');
+		$f->attr('name', 'template_id');
+		$f->attr('value', $template->id);
+		$form->add($f);
+
 		$f = $this->wire('modules')->get('InputfieldSubmit');
 		$f->attr('id', 'select_parent_submit'); 
 		$form->add($f); 
+		
 		return $form->render();
 	}
 
