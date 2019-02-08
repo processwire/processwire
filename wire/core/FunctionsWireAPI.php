@@ -35,7 +35,7 @@
 function _wirePagesAPI($_apiVar, $selector) {
 	
 	/** @var Pages|PagesType $pages */
-	$pages = wire($_apiVar);
+	$pages = is_object($_apiVar) ? $_apiVar : wire($_apiVar);
 	if(!$pages) return null;
 	if(!$selector) return $pages;
 

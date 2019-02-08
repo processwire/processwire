@@ -1185,6 +1185,10 @@ class Template extends WireData implements Saveable, Exportable {
 	public function __isset($key) {
 		return isset($this->settings[$key]) || isset($this->data[$key]);
 	}
+	
+	public function __debugInfo() {
+		return array_merge(array('settings' => $this->settings), parent::__debugInfo());
+	}
 
 }
 

@@ -19,6 +19,7 @@
  * Item must have a gettable/settable 'id' property for this interface as well
  * 
  * @property int $id
+ * @property string $name
  *
  */
 interface Saveable {
