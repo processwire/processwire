@@ -28,7 +28,7 @@ function InputfieldImage($) {
 	var cookieData = null;
 	
 	// grid items to retry for sizing by setGridSize() methods	
-	var retryGridItems = [];
+	var retryGridItems = []; // i.e. [ { item: $item, gridSize: 123 } ]
 
 	// true when the grid is being resized with the slider
 	var gridSliding = false;
@@ -1102,13 +1102,13 @@ function InputfieldImage($) {
 		$gridImages.find(".gridImage__edit, .gridImage__resize").css('line-height', size); 
 		$gridImages.attr('data-size', gridSize);
 		setCookieData($inputfield, 'size', gridSize); 
-	
+
 		if(retryGridItems.length) setTimeout(function() {
 			while(retryGridItems.length) {
-				var $item = retryGridItems.pop();
-				setGridSizeItem($item, gridSize, ragged);
+				var item = retryGridItems.pop();
+				setGridSizeItem(item.item, item.gridSize, ragged);
 			}
-		}, 150); 
+		}, 150);
 	}
 
 	/**
@@ -1253,7 +1253,7 @@ function InputfieldImage($) {
 					height: gridSize + 'px'
 				});
 			} else {
-				retryGridItems.push($item);
+				retryGridItems.push({ item: $item, gridSize: gridSize });
 				$item.attr('data-tries', tries + 1); 
 			}
 		}
