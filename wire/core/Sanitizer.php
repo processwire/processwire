@@ -424,7 +424,7 @@ class Sanitizer extends Wire {
 	 * 
 	 * ~~~~~
 	 * $test = "Hello world";
-	 * echo $sanitizer->varName($test); // outputs: Hello_world
+	 * echo $sanitizer->fieldName($test); // outputs: Hello_world
 	 * ~~~~~
 	 * 
 	 * #pw-group-strings
@@ -439,6 +439,45 @@ class Sanitizer extends Wire {
 	 */
 	public function fieldName($value, $beautify = false, $maxLength = 128) {
 		return $this->nameFilter($value, array('_'), '_', $beautify, $maxLength); 
+	}
+
+	/**
+	 * Sanitize as a field name but with optional subfield(s) like “field.subfield”
+	 * 
+	 * - Periods must be present to indicate subfield(s), otherwise behaves same as fieldName() sanitizer.
+	 * - By default allows just one subfield. To allow more, increase the $limit argument. 
+	 * - To allow any quantity of subfields, specify -1. 
+	 * - To reduce a `field.subfield...` combo to just `field` specify 0 for limit argument. 
+	 * - Maximum length of returned string is (128 + ($limit * 128)).
+	 * 
+	 * ~~~~~~
+	 * echo $sanitizer->fieldSubfield('a.b.c'); // outputs: a.b (default behavior)
+	 * echo $sanitizer->fieldSubfield('a.b.c', 2); // outputs: a.b.c
+	 * echo $sanitizer->fieldSubfield('a.b.c', 0); // outputs: a
+	 * echo $sanitizer->fieldSubfield('a.b.c', -1); // outputs: a.b.c (any quantity)
+	 * echo $sanitizer->fieldSubfield('foo bar.baz'); // outputs: foo_bar.baz
+	 * echo $sanitizer->fieldSubfield('foo bar baz'); // outputs: foo_bar_baz
+	 * ~~~~~~
+	 * 
+	 * @param string $value Value to sanitize
+	 * @param int $limit Max allowed quantity of subfields, or use -1 for any quantity (default=1). 
+	 * @return string
+	 * @since 3.0.126
+	 * 
+	 */
+	public function fieldSubfield($value, $limit = 1) {
+		if(!strlen($value)) return '';
+		if(!strpos($value, '.')) return $this->fieldName($value);
+		$parts = array();
+		foreach(explode('.', trim($value, '.')) as $part) {
+			$part = $this->fieldName($part);
+			if(!strlen($part)) break;
+			$parts[] = $part;
+			if($limit > -1 && count($parts) - 1 >= $limit) break;
+		}
+		$cnt = count($parts); 
+		if(!$cnt) return '';
+		return $cnt === 1 ? $parts[0] : implode('.', $parts);
 	}
 	
 	/**
@@ -483,8 +522,11 @@ class Sanitizer extends Wire {
 	 * @param string $value Value to sanitize as a page name
 	 * @param bool|int|array $beautify This argument accepts a few different possible values (default=false): 
 	 *  - `true` (boolean): Make it pretty. Use this when using a pageName for the first time. 
+	 *  - `$options` (array): You can optionally specify the $options array for this argument instead.
 	 *  - `Sanitizer::translate` (constant): This will make it translate non-ASCII letters based on *InputfieldPageName* module config settings. 
-	 *  - `$options` (array): You can optionally specify the $options array for this argument instead. 
+	 *  - `Sanitizer::toAscii` (constant): Convert UTF-8 characters to punycode ASCII.
+	 *  - `Sanitizer::toUTF8` (constant): Convert punycode ASCII to UTF-8.
+	 *  - `Sanitizer::okUTF8` (constant): Allow UTF-8 characters to appear in path (implied if $config->pageNameCharset is 'UTF8'). 
 	 * @param int|array $maxLength Maximum number of characters allowed in the name.
 	 *  You may also specify the $options array for this argument instead. 
 	 * @param array $options Array of options to modify default behavior. See Sanitizer::name() method for available options. 
@@ -867,7 +909,13 @@ class Sanitizer extends Wire {
 	 * #pw-group-pages
 	 *
 	 * @param string $value Value to sanitize
-	 * @param bool $beautify Beautify the value? (default=false)
+	 * @param bool $beautify Beautify the value? (default=false). Maybe any of the following:
+	 * - `true` (bool): Beautify the individual page names in the path to remove redundant and trailing punctuation and more.
+	 * - `false` (bool): Do not perform any conversion or attempt to make it more pretty, just sanitize (default). 
+	 * - `Sanitizer::translate` (constant): Translate UTF-8 characters to visually similar ASCII (using InputfieldPageName module settings).
+	 * - `Sanitizer::toAscii` (constant): Convert UTF-8 characters to punycode ASCII. 
+	 * - `Sanitizer::toUTF8` (constant): Convert punycode ASCII to UTF-8. 
+	 * - `Sanitizer::okUTF8` (constant): Allow UTF-8 characters to appear in path (implied if $config->pageNameCharset is 'UTF8'). 
 	 * @param int $maxLength Maximum length (default=1024)
 	 * @return string Sanitized path name
 	 *
@@ -3754,6 +3802,7 @@ class Sanitizer extends Wire {
 			'truncate' => 2,
 			'min' => 2, // min123 where 123 is minimum allowed value
 			'max' => 2, // max123 where 123 is maximum allowed value
+			'fieldSubfield' => 2, // maxLength is $limit argument
 
 			// method($val, options[ 'maxLength' => 123 ])
 			'path' => 1,
