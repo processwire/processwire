@@ -5,8 +5,10 @@
  * 
  * #pw-summary The $datetime API variable provides helpers for working with dates/times and conversion between formats.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @method string relativeTimeStr($ts, $abbreviate = false, $useTense = true)
  * 
  */
 
@@ -448,7 +450,7 @@ class WireDateTime extends Wire {
 	 * @return string Formatted relative time string
 	 *
 	 */
-	public function relativeTimeStr($ts, $abbreviate = false, $useTense = true) {
+	public function ___relativeTimeStr($ts, $abbreviate = false, $useTense = true) {
 		// Originally based upon: <http://www.php.net/manual/en/function.time.php#89415>
 
 		if(empty($ts)) {
@@ -602,8 +604,13 @@ class WireDateTime extends Wire {
 		$format = $this->_('Q P T'); // Relative time order: Q=Quantity, P=Period, T=Tense (i.e. 2 Days Ago)
 		$format = str_replace(array('Q', 'P', 'T'), array('{Q}', '{P}', '{T}'), $format);
 		$out = str_replace(array('{Q}', '{P}', '{T}'), array(" $quantity", " $period", " $tense"), $format);
-		if($abbreviate === 1) $out = str_replace(" ", "", $out); // no space when extra-abbreviate is active
-		else if(strpos($out, '  ') !== false) $out = preg_replace('/\s\s+/', ' ', $out);
+		
+		if($abbreviate === 1) {
+			$out = str_replace(" ", "", $out); // no space when extra-abbreviate is active
+		} else if(strpos($out, '  ') !== false) {
+			$out = preg_replace('/\s\s+/', ' ', $out);
+		}
+		
 		return trim($out);
 	}
 
