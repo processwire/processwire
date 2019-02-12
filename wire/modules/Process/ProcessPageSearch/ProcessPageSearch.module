@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see:
  * /wire/core/Process.php
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string findReady($selector)
@@ -19,6 +19,8 @@
  * @property string $operator2 Multi-word operator
  * @property array $searchTypesOrder
  * @property array $noSearchTypes
+ * 
+ * @property bool|int $adminSearchMode Deprecated/no longer in use?
  * 
  *
  */
@@ -204,29 +206,41 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	}
 
 	/**
-	 * Perform an interactive search and provide a search form (default)
-	 *
+	 * Return instance of ProcessPageLister or null if not available
+	 * 
+	 * @return ProcessPageLister|null
+	 * 
 	 */
-	public function ___execute() {
-		
+	protected function getLister() {
+		if($this->lister) return $this->lister;
 		if($this->wire('user')->hasPermission('page-lister')) {
 			if($this->wire('modules')->isInstalled('ProcessPageLister')) {
 				$this->lister = $this->wire('modules')->get('ProcessPageLister');
 			}
 		}
-		
+		return $this->lister;
+	}
+
+	/**
+	 * Perform an interactive search and provide a search form (default)
+	 *
+	 */
+	public function ___execute() {
+	
+		$lister = $this->getLister();
 		$ajax = $this->wire('config')->ajax; 
-		if($this->lister && $ajax) {
+		$bookmark = (int) $this->wire('input')->get('bookmark');
+		
+		if($lister && ($ajax || $bookmark)) {
 			// we will just let Lister do it's thing, since it remembers settings in session
-			return $this->lister->execute(); 
+			return $lister->execute(); 
 		} else {
 			$this->fullSetup();
 			$this->processInput();
 			list($selector, $displaySelector, $initSelector, $defaultSelector) = $this->buildSelector();
 		}
 		
-		if($this->lister) {
-			$lister = $this->lister;
+		if($lister) {
 			if(count($_GET)) $lister->sessionClear();
 			$lister->initSelector = $initSelector;
 			$lister->defaultSelector = $defaultSelector;
@@ -241,7 +255,17 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			return $this->render($matches, $displaySelector);
 		}
 	}
-
+	
+	public function executeReset() {
+		$lister = $this->getLister();
+		return $lister ? $lister->executeReset() : '';
+	}
+	
+	public function executeEditBookmark() {
+		$lister = $this->getLister();
+		return $lister ? $lister->executeEditBookmark() : '';
+	}
+	
 	/**
 	 * Perform a non-interactive search (based on URL GET vars)
 	 *
@@ -588,7 +612,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		} else {
 			// html output
 			$class = '';
-			if((int) $this->input->get->show_options !== 0 && $this->input->urlSegment1 != 'find') {
+			if((int) $this->input->get('show_options') !== 0 && $this->input->urlSegment1 != 'find') {
 				$out = "\n<div id='ProcessPageSearchOptions'>" . $this->renderFullSearchForm() . "</div>";
 				$class = 'show_options';
 			} 
@@ -672,7 +696,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		}
 
 		if(!$selector) {
-			$this->error($this->_("No search specified"));
+			if(!$this->lister) $this->error($this->_("No search specified"));
 			return array('','','','');
 		}
 
@@ -755,7 +779,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$operator = $input->get('operator'); 
 		if(!is_null($operator)) {
 			if(array_key_exists($operator, $this->operators)) {
-				$this->operator = substr($this->input->get->operator, 0, 3);
+				$this->operator = substr($this->input->get('operator'), 0, 3);
 			} else if(ctype_digit("$operator")) { 
 				$operators = array_keys($this->operators); 
 				if(isset($operators[$operator])) $this->operator = $operators[$operator]; 
@@ -1249,7 +1273,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * For use by renderMatchesAjax
 	 * 
 	 * @param Page|WireData|WireArray|Wire|object $o
-	 * @return array
+	 * @return array|string
 	 *
 	 */
 	protected function setupObjectMatch($o) {
@@ -1293,7 +1317,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 */
 	public function renderSearchForm($placeholder = '') {
 
-		$q = substr($this->input->get->q, 0, 128);
+		$q = substr($this->input->get('q'), 0, 128);
 		$q = $this->wire('sanitizer')->entities($q); 
 		$adminURL = $this->wire('config')->urls->admin; 
 		
