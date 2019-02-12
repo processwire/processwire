@@ -603,5 +603,157 @@ class WireTextTools extends Wire {
 		}
 		return explode(' ', $s); 
 	}
+	
+	/**
+	 * Find and return all {placeholder} tags found in given string
+	 *
+	 * @param string $str String that might contain field {tags}
+	 * @param array $options
+	 *  - `has` (bool): Specify true to only return true or false if it has tags (default=false).
+	 * 	- `tagOpen` (string): The required opening tag character(s), default is '{'
+	 *	- `tagClose` (string): The required closing tag character(s), default is '}'
+	 * @return array|bool
+	 * @since 3.0.126
+	 *
+	 */
+	public function findPlaceholders($str, array $options = array()) {
+		
+		$defaults = array(
+			'has' => false,
+			'tagOpen' => '{',
+			'tagClose' => '}', 
+		);
+		
+		$options = array_merge($defaults, $options);
+		$tags = array();
+		$pos1 = strpos($str, $options['tagOpen']);
+		
+		if($pos1 === false) return $options['has'] ? false : $tags;
+		
+		if(strlen($options['tagClose'])) {
+			$pos2 = strpos($str, $options['tagClose']);
+			if($pos2 === false) return $options['has'] ? false : $tags;
+		}
+
+		$regex = '/' . preg_quote($options['tagOpen']) . '([-_.|a-zA-Z0-9]+)' . preg_quote($options['tagClose']) . '/';
+		if($options['has']) return (bool) preg_match($regex, $str);
+		if(!preg_match_all($regex, $str, $matches)) return $tags;
+		
+		foreach($matches[0] as $key => $tag) {
+			$name = $matches[1][$key];
+			$tags[$name] = $tag;
+		}
+			
+		return $tags;
+	}
+
+	/**
+	 * Does the string have any {placeholder} tags in it?
+	 *
+	 * @param string $str
+	 * @param array $options
+	 * 	- `tagOpen` (string): The required opening tag character(s), default is '{'
+	 *	- `tagClose` (string): The required closing tag character(s), default is '}'
+	 * @return bool
+	 * @since 3.0.126
+	 *
+	 */
+	public function hasPlaceholders($str, array $options = array()) {
+		$options['has'] = true;
+		return $this->findPlaceholders($str, $options);
+	}
+	
+	/**
+	 * Given a string ($str) and values ($vars), populate placeholder “{tags}” in the string with the values
+	 *
+	 * - The `$vars` should be an associative array of `[ 'tag' => 'value' ]`.
+	 * - The `$vars` may also be an object, in which case values will be pulled as properties of the object.
+	 *
+	 * By default, tags are specified in the format: {first_name} where first_name is the name of the
+	 * variable to pull from $vars, `{` is the opening tag character, and `}` is the closing tag char.
+	 *
+	 * The tag parser can also handle subfields and OR tags, if `$vars` is an object that supports that.
+	 * For instance `{products.title}` is a subfield, and `{first_name|title|name}` is an OR tag.
+	 *
+	 * ~~~~~
+	 * $vars = [ 'foo' => 'FOO!', 'bar' => 'BAR!' ];
+	 * $str = 'This is a test: {foo}, and this is another test: {bar}';
+	 * echo $sanitizer->getTextTools()->populatePlaceholders($str, $vars);
+	 * // outputs: This is a test: FOO!, and this is another test: BAR!
+	 * ~~~~~
+	 *
+	 * @param string $str The string to operate on (where the {tags} might be found)
+	 * @param WireData|object|array $vars Object or associative array to pull replacement values from.
+	 * @param array $options Array of optional changes to default behavior, including:
+	 * 	- `tagOpen` (string): The required opening tag character(s), default is '{'
+	 *	- `tagClose` (string): The optional closing tag character(s), default is '}'
+	 *	- `recursive` (bool): If replacement value contains tags, populate those too? (default=false)
+	 *	- `removeNullTags` (bool): If a tag resolves to a NULL, remove it? If false, tag will remain. (default=true)
+	 *	- `entityEncode` (bool): Entity encode the values pulled from $vars? (default=false)
+	 *	- `entityDecode` (bool): Entity decode the values pulled from $vars? (default=false)
+	 *  - `allowMarkup` (bool): Allow markup to appear in populated variables? (default=true)
+	 * @return string String with tags populated.
+	 * @since 3.0.126 Use wirePopulateStringTags() function for older versions
+	 *
+	 */
+	public function populatePlaceholders($str, $vars, array $options = array()) {
+		
+		$defaults = array(
+			'tagOpen' => '{', // opening tag (required)
+			'tagClose' => '}', // closing tag (optional)
+			'recursive' => false, // if replacement value contains tags, populate those too?
+			'removeNullTags' => true, // if a tag value resolves to a NULL, remove it? If false, tag will be left in tact.
+			'entityEncode' => false, // entity encode values pulled from $vars?
+			'entityDecode' => false, // entity decode values pulled from $vars?
+			'allowMarkup' => true, // allow markup to appear in populated variables?
+		);
+
+		$options = array_merge($defaults, $options);
+		$optionsNoRecursive = $options['recursive'] ? array_merge($options, array('recursive' => false)) : $options;
+		$replacements = array();
+		$tags = $this->findPlaceholders($str, $options);
+
+		// create a list of replacements by finding replacement values in $vars
+		foreach($tags as $fieldName => $tag) {
+			
+			if(isset($replacements[$tag])) continue; // if already found, do not do it again
+			$fieldValue = null;
+
+			if(is_object($vars)) {
+				if($vars instanceof Page) {
+					$fieldValue = $options['allowMarkup'] ? $vars->getMarkup($fieldName) : $vars->getText($fieldName);
+				} else if($vars instanceof WireData) {
+					$fieldValue = $vars->get($fieldName);
+				} else {
+					$fieldValue = $vars->$fieldName;
+				}
+			} else if(is_array($vars)) {
+				$fieldValue = isset($vars[$fieldName]) ? $vars[$fieldName] : null;
+			}
+			
+			// if value resolves to null and we are not removing null tags, then do not add to replacements
+			if($fieldValue === null && !$options['removeNullTags']) continue;
+			
+			$fieldValue = (string) $fieldValue;
+
+			if(!$options['allowMarkup'] && strpos($fieldValue, '<') !== false) $fieldValue = strip_tags($fieldValue);
+			if($options['entityEncode']) $fieldValue = htmlentities($fieldValue, ENT_QUOTES, 'UTF-8', false);
+			if($options['entityDecode']) $fieldValue = html_entity_decode($fieldValue, ENT_QUOTES, 'UTF-8');
+			
+			if($options['recursive'] && strpos($fieldValue, $options['tagOpen']) !== false) {
+				$fieldValue = $this->populatePlaceholders($fieldValue, $vars, $optionsNoRecursive);
+			}
+		
+			$replacements[$tag] = $fieldValue;
+		}
+
+		// replace the tags 
+		if(count($tags)) {
+			$str = str_replace(array_keys($replacements), array_values($replacements), $str);
+		}
+
+		return $str; 
+	}
+
 
 }

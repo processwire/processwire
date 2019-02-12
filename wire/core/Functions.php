@@ -444,78 +444,7 @@ function wireMail($to = '', $from = '', $subject = '', $body = '', $options = ar
  *
  */
 function wirePopulateStringTags($str, $vars, array $options = array()) {
-
-	$defaults = array(
-		// opening tag (required)
-		'tagOpen' => '{', 
-		// closing tag (optional)
-		'tagClose' => '}', 
-		// if replacement value contains tags, populate those too?
-		'recursive' => false, 
-		// if a tag value resolves to a NULL, remove it? If false, tag will be left in tact.
-		'removeNullTags' => true, 
-		// entity encode values pulled from $vars?
-		'entityEncode' => false, 	
-		// entity decode values pulled from $vars?
-		'entityDecode' => false, 
-	);
-
-	$options = array_merge($defaults, $options); 
-
-	// check if this string even needs anything populated
-	if(strpos($str, $options['tagOpen']) === false) return $str; 
-	if(strlen($options['tagClose']) && strpos($str, $options['tagClose']) === false) return $str; 
-
-	// find all tags
-	$tagOpen = preg_quote($options['tagOpen']);
-	$tagClose = preg_quote($options['tagClose']); 
-	$numFound = preg_match_all('/' . $tagOpen . '([-_.|a-zA-Z0-9]+)' . $tagClose . '/', $str, $matches);
-	if(!$numFound) return $str; 
-	$replacements = array();
-
-	// create a list of replacements by finding replacement values in $vars
-	foreach($matches[1] as $key => $fieldName) {
-
-		$tag = $matches[0][$key];
-		if(isset($replacements[$tag])) continue; // if already found, don't continue
-		$fieldValue = null;
-		
-		if(is_object($vars)) {
-			if($vars instanceof Page) {
-				$fieldValue = $vars->getMarkup($fieldName);
-				
-			} else if($vars instanceof WireData) {
-				$fieldValue = $vars->get($fieldName);
-				
-			} else {
-				$fieldValue = $vars->$fieldName;
-			}
-		} else if(is_array($vars)) {
-			$fieldValue = isset($vars[$fieldName]) ? $vars[$fieldName] : null;
-		}
-
-		if($options['entityEncode']) $fieldValue = htmlentities($fieldValue, ENT_QUOTES, 'UTF-8', false); 
-		if($options['entityDecode']) $fieldValue = html_entity_decode($fieldValue, ENT_QUOTES, 'UTF-8'); 
-
-		$replacements[$tag] = $fieldValue; 
-	}
-
-	// replace the tags 
-	foreach($replacements as $tag => $value) {
-
-		// populate tags recursively, if asked to do so
-		if($options['recursive'] && strpos($value, $options['tagOpen'])) {
-			$opt = array_merge($options, array('recursive' => false)); // don't go recursive beyond 1 level
-			$value = wirePopulateStringTags($value, $vars, $opt); 
-		}
-
-		// replace tags with replacement values
-		if($value !== null || $options['removeNullTags']) {
-			$str = str_replace($tag, (string) $value, $str);
-		}
-	}
-
-	return $str; 
+	return wire('sanitizer')->getTextTools()->populatePlaceholders($str, $vars, $options);
 }
 
 
@@ -1224,6 +1153,29 @@ function WireArray($items = array()) {
 }
 
 /**
+ * Create a new WireData instance and optionally add given associative array of data to it
+ * 
+ * ~~~~~
+ * $data = WireData([ 'hello' => 'world', 'foo' => 'bar' ]); 
+ * ~~~~~
+ * 
+ * @param array|\Traversable $data Can be an associative array or Traversable object of data to set, or omit if not needed
+ * @return WireData
+ * @since 3.0.126
+ * 
+ */
+function WireData($data = array()) {
+	$wireData = new WireData();
+	if(is_array($data)) {
+		if(!empty($data)) $wireData->setArray($data);
+	} else if($data instanceof \Traversable) {
+		foreach($data as $k => $v) $wireData->set($k, $v);
+	}
+	$wireData->resetTrackChanges(true);
+	return $wireData;
+}
+
+/**
  * Create new PageArray, add given $items (pages) to it, and return it
  * 
  * This is the same as creating a `new PageArray()` and then adding items to it with separate `add()` calls, 
@@ -1243,7 +1195,9 @@ function WireArray($items = array()) {
  *
  */
 function PageArray($items = array()) {
-	return PageArray::newInstance($items);
+	/** @var PageArray $pa */
+	$pa = PageArray::newInstance($items);
+	return $pa;
 }
 
 
