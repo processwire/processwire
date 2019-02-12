@@ -74,7 +74,7 @@
  * @method Pageimage crop($x, $y, $width, $height, $options = array())
  * @method array rebuildVariations($mode = 0, array $suffix = array(), array $options = array())
  * @method install($filename)
- * @method render($tpl = '')
+ * @method render($markup = '', $options = array())
  *
  */
 
@@ -1654,7 +1654,7 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
-	 * Render markup for this image (optionally using a provided template string)
+	 * Render markup for this image (optionally using a provided markup template string and or image size options)
 	 * 
 	 * Given template string can contain any of the placeholders, which will be replaced: 
 	 *  - `{url}` or `{src}` Image URL (typically used for src attribute)
@@ -1676,46 +1676,102 @@ class Pageimage extends Pagefile {
 	 * if($image) {
 	 *   // default output
 	 *   echo $image->render(); 
+	 * 
 	 *   // custom output
-	 *   echo $image->render("<img class='pw-image' src='{url}' alt='{alt}'>"); 
-	 *   // custom output with link to original/full-size
-	 *   echo $image->render("<a href='{original.url}'><img src='{url}' alt='{alt}'></a>"); 
+	 *   echo $image->render("<img class='pw-image' src='{url}' alt='{alt}'>");
+	 * 
+	 *   // custom output with options
+	 *   echo $image->render("<img src='{url}' alt='{alt}'>", [ 'width' => 300 ]);
+	 *
+	 *   // options can go in first argument if you prefer
+	 *   echo $image->render([ 'width' => 300, 'height' => 200 ]);
+	 *
+	 *   // if only width/height are needed, they can also be specified as a string (1st or 2nd arg)
+	 *   echo $image->render('300x200');
+	 * 
+	 *   // custom output with link to original/full-size and square crop of 300x300 for thumbnail
+	 *   echo $image->render([
+	 *     'markup' => "<a href='{original.url}'><img src='{url}' alt='{alt}'></a>",
+	 *     'width' => 300,
+	 *     'height' => 300
+	 *   ]);
 	 * }
 	 * ~~~~~
 	 * 
-	 * @param string $tpl
+	 * @param string|array $markup Markup template string or optional $options array if you do not want the template string here.
+	 * @param array|string $options Optionally resize image with these options sent to size() method:
+	 *  - `width` (int): Target width or 0 for current image size (or proportional if height specified).
+	 *  - `height` (int): Target height or 0 for current image size (or proportional if width specified).
+	 *  - `markup` (string): Markup template string (same as $markup argument), or omit for default (same as $markup argument).
+	 *  - `link` (bool): Link image to original size? Though you may prefer to do this with your own $markup (see examples). (default=false)
+	 *  - Plus any option available to the $options argument on the `Pageimage::size()` method. 
+	 *  - If you only need width and/or height, you can specify a width x height string, i.e. 123x456 (use 0 for proportional).
 	 * @return string
+	 * @see Pageimages::render()
 	 * 
 	 */
-	public function ___render($tpl = '') {
-		if(empty($tpl)) {
-			$tpl = "<img src='{url}' alt='{description}' />";
+	public function ___render($markup = '', $options = array()) {
+		
+		if(is_array($markup) || ($markup && strpos($markup, '}') === false)) {
+			$options = $markup;
+			$markup = isset($options['markup']) ? $options['markup'] : '';
+		} 
+		
+		if(empty($markup)) {
+			$markup = "<img src='{url}' alt='{description}' />";
 		}
+		
+		if(is_string($options)) {
+			if(ctype_digit(str_ireplace('x', '', $options))) {
+				if(stripos($options, 'x') === false) $options .= 'x0';
+				list($w, $h) = explode('x', strtolower($options));
+				$options = array('width' => (int) $w, 'height' => (int) $h);
+			} else {
+				$options = array();
+			}
+		}
+
 		/** @var Sanitizer $sanitizer */
 		$sanitizer = $this->wire('sanitizer');
+		$image = $this;
+		$original = null;
+		$replacements = array();
 		$properties = array(
-			'url', 'httpUrl', 'URL', 'HTTPURL', 
+			'url', 'httpUrl', 'URL', 'HTTPURL',
 			'description', 'alt', 'tags', 'ext',
 			'width', 'height', 'hidpiWidth', 'hidpiHeight',
 		);
-		$replacements = array();
+		
+		if(!empty($options['width']) || !empty($options['height'])) {
+			$w = isset($options['width']) ? (int) $options['width'] : 0;
+			$h = isset($options['height']) ? (int) $options['height'] : 0;
+			$original = $this;
+			$image = $this->size($w, $h, $options);
+		}
+		
+		if(!empty($options['link']) && strpos($markup, '<a ') === false) {
+			$markup = "<a href='{original.url}'>$markup</a>";
+		}
+		
 		foreach($properties as $property) {
 			$tag = '{' . $property . '}';
-			if(strpos($tpl, $tag) === false) continue;
-			$value = $sanitizer->entities1($this->get($property));
+			if(strpos($markup, $tag) === false) continue;
+			$value = $sanitizer->entities1($image->get($property));
 			$replacements[$tag] = $value;
 		}
-		if(strpos($tpl, '{original.') !== false) {
-			$original = $this->getOriginal();
-			if(!$original) $original = $this;
+		
+		if(strpos($markup, '{original.') !== false) {
+			if(!$original) $original = $image->getOriginal();
+			if(!$original) $original = $image;
 			foreach($properties as $property) {
 				$tag = '{original.' . $property . '}';
-				if(strpos($tpl, $tag) === false) continue;
+				if(strpos($markup, $tag) === false) continue;
 				$value = $sanitizer->entities1($original->get($property));
 				$replacements[$tag] = $value;
 			}
 		}
-		return str_replace(array_keys($replacements), array_values($replacements), $tpl);
+		
+		return str_replace(array_keys($replacements), array_values($replacements), $markup);
 	}
 		
 	/**
