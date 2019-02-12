@@ -313,7 +313,8 @@ class ProcessWire extends Wire {
 	protected function getHttpHost(Config $config) {
 
 		$httpHosts = $config->httpHosts; 
-		$port = (isset($_SERVER['SERVER_PORT']) && $_SERVER['SERVER_PORT'] != 80) ? (':' . ((int) $_SERVER['SERVER_PORT'])) : '';
+		$port = isset($_SERVER['SERVER_PORT']) ? (int) $_SERVER['SERVER_PORT'] : 80;
+		$port = ($port === 80 || $port === 443 ? "" : ":$port");
 		$host = '';
 
 		if(is_array($httpHosts) && count($httpHosts)) {
