@@ -40,6 +40,96 @@ class PageComparison {
 	}
 
 	/**
+	 * If value is available for $key return or call $yes condition (with optional $no condition)
+	 *
+	 * This merges the capabilities of an if() statement, get() and getMarkup() methods in one,
+	 * plus some useful PW type-specific logic, providing a useful output shortcut.
+	 * 
+	 * See phpdoc in `Page::if()` for full details.
+	 *
+	 * @param Page $page
+	 * @param string|bool|int $key Name of field to check, selector string to evaluate, or boolean/int to evalute
+	 * @param string|callable|mixed $yes If value for $key is present, return or call this
+	 * @param string|callable|mixed $no If value for $key is empty, return or call this
+	 * @return mixed|string|bool
+	 * @since 3.0.126
+	 *
+	 */
+	public function _if(Page $page, $key, $yes = '', $no = '') {
+
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $page->wire('sanitizer');
+
+		// if only given a key argument, we will be returning a boolean
+		if($yes === '' && $no === '') list($yes, $no) = array(true, false);
+
+		if(is_bool($key) || is_int($key)) {
+			// boolean or int
+			$val = $key;
+			$action = empty($val) ? $no : $yes;
+		} else if(ctype_digit("$key")) {
+			// integer or string value of Wire object
+			$val = (int) $key;
+			$action = empty($val) ? $no : $yes;
+		} else if(!ctype_alnum("$key") && Selectors::stringHasOperator($key)) {
+			// selector string
+			$val = $page->matches($key) ? 1 : 0;
+			$action = $val ? $yes : $no;
+		} else {
+			// field name or other format string accepted by $page->get()
+			$val = $page->get($key);
+			$action = empty($val) || ($val instanceof WireArray && !$val->count()) || $val instanceof NullPage ? $no : $yes;
+		}
+
+		if(is_string($action)) {
+			// action is a string
+			$getValue = false;
+			$tools = $sanitizer->getTextTools();
+			if(($action === 'value' || $action === 'val') && !$page->template->fieldgroup->hasField($action)) {
+				// implicit 'value' or 'val' maps back to name specified in $key argument
+				$getValue = $key;
+			}
+			if(empty($action)) {
+				$result = $action;
+				
+			} else if($getValue) {
+				$result = $page->get($getValue);
+				
+			} else if($tools->hasPlaceholders($action)) {
+				// action is a getMarkup() string
+				$keyIsFieldName = $sanitizer->fieldName($key) === $key;
+				$act = $action;
+				// if value placeholders present, replace them with field name placeholders
+				foreach(array('{value}', '{val}') as $tag) {
+					// string with {val} or {value} has that tag replaced with the {field_name}
+					if(strpos($action, $tag) === false) continue;
+					// if val or value is actually the name of a field in the system, then do not override it
+					if($page->hasField(trim($tag, '{}'))) continue;
+					$action = str_replace($tag, ($keyIsFieldName ? '{' . $key . '}' : $val), $action);
+				}
+				$result = $act === $action || $tools->hasPlaceholders($action) ? $page->getMarkup($action) : $action;
+				
+			} else if($sanitizer->fieldSubfield($action, -1) === $action && $page->hasField($sanitizer->fieldSubfield($action, 0))) {
+				// action is another field name that we want to get the value for
+				$result = $page->get($action);
+			} else {
+				// action is just a string to return
+				$result = $action;
+			}
+			
+		} else if(is_callable($action)) {
+			// action is callable
+			$result = call_user_func_array($action, array($val, $key, $page));
+			
+		} else {
+			// action is a number, array or object
+			$result = $action;
+		}
+
+		return $result;
+	}
+
+	/**
 	 * Given a Selectors object or a selector string, return whether this Page matches it
 	 *
 	 * @param Page $page
