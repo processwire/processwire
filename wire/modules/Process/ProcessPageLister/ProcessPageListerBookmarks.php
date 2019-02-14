@@ -63,6 +63,7 @@ class ProcessPageListerBookmarks extends Wire {
 	 */
 	public function buildBookmarkListForm() {
 
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
 		$form->attr('id', 'tab_bookmarks');
 		$form->method = 'post';
@@ -105,7 +106,7 @@ class ProcessPageListerBookmarks extends Wire {
 			$row = array();
 			$title = $bookmark['title']; 
 			if($languageID && !empty($bookmark["title$languageID"])) $title = $bookmark["title$languageID"];
-			$row[$title] = $bookmark['url'];
+			$row["$title\0"] = $bookmark['url'];
 			if($superuser) {
 				$selector = $bookmark['selector'];
 				if(strpos($selector, 'template=') !== false && preg_match('/template=([\d\|]+)/', $selector, $matches)) {
@@ -182,7 +183,7 @@ class ProcessPageListerBookmarks extends Wire {
 			$selector = $bookmark['selector'];
 			if($bookmark['sort']) $selector .= ", sort=$bookmark[sort]";
 			if($this->lister->initSelector && strpos($selector, $this->lister->initSelector) !== false) {
-				$selector = str_replace($this->initSelector, '', $selector); // ensure that $selector does not contain initSelector
+				$selector = str_replace($this->lister->initSelector, '', $selector); // ensure that $selector does not contain initSelector
 			}
 			if($this->lister->template) $f->initTemplate = $this->lister->template;
 			$default = $this->lister->className() == 'ProcessPageLister';
@@ -294,13 +295,13 @@ class ProcessPageListerBookmarks extends Wire {
 		$input = $this->wire('input');
 		$sanitizer = $this->wire('sanitizer');
 		$page = $this->wire('page');
-		$user = $this->wire('user');
 
 		$bookmarkID = $input->post->int('bookmark_id');
 		$bookmarkTitle = $input->post->text('bookmark_title');
 
 		if(!$bookmarkID && empty($bookmarkTitle)) {
-			return $this->wire('session')->redirect('../#tab_bookmarks');
+			$this->wire('session')->redirect('../#tab_bookmarks');
+			return;
 		}
 
 		$bookmarkSort = '';
@@ -308,7 +309,7 @@ class ProcessPageListerBookmarks extends Wire {
 		$bookmarkSelector = $bookmarkID ? $input->post->text('bookmark_selector', $textOptions) : $this->lister->getSelector();
 		if(preg_match('/\bsort=([-_.a-zA-Z]+)/', $bookmarkSelector, $matches)) $bookmarkSort = $matches[1];
 		$bookmarkSelector = preg_replace('/\b(include|sort|limit)=[^,]+,?/', '', $bookmarkSelector);
-		if($this->initSelector && strpos($bookmarkSelector, $this->lister->initSelector) !== false) {
+		if($this->lister->initSelector && strpos($bookmarkSelector, $this->lister->initSelector) !== false) {
 			// ensure that $selector does not contain initSelector
 			$bookmarkSelector = str_replace($this->lister->initSelector, '', $bookmarkSelector);
 		}
