@@ -47,7 +47,7 @@
  * @property-read string $httpUrl URL to the file on the server including scheme and hostname.
  * @property-read string $URL Same as $url property but with browser cache busting query string appended. #pw-group-other
  * @property-read string $HTTPURL Same as the cache-busting uppercase “URL” property, but includes scheme and hostname. #pw-group-other
- * @property-read string $filename full disk path to the file on the server.
+ * @property-read string $filename Full disk path to the file on the server.
  * @property-read string $name Returns the filename without the path, same as the "basename" property.
  * @property-read string $hash Get a unique hash (for the page) representing this Pagefile.
  * @property-read array $tagsArray Get file tags as an array. #pw-group-tags @since 3.0.17
@@ -1654,7 +1654,7 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
-	 * Render markup for this image (optionally using a provided markup template string and or image size options)
+	 * Render markup for this image (optionally using a provided markup template string and/or image size options)
 	 * 
 	 * Given template string can contain any of the placeholders, which will be replaced: 
 	 *  - `{url}` or `{src}` Image URL (typically used for src attribute)
@@ -1708,6 +1708,7 @@ class Pageimage extends Pagefile {
 	 *  - If you only need width and/or height, you can specify a width x height string, i.e. 123x456 (use 0 for proportional).
 	 * @return string
 	 * @see Pageimages::render()
+	 * @since 3.0.126
 	 * 
 	 */
 	public function ___render($markup = '', $options = array()) {

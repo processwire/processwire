@@ -222,6 +222,7 @@ class Pageimages extends Pagefiles {
 	 *  - Plus any option available to the $options argument on the `Pageimage::size()` method.
 	 *  - If you only need width and/or height, you can specify a width x height string, i.e. 123x456 (use 0 for proportional).
 	 * @return string
+	 * @since 3.0.126
 	 *
 	 */
 	public function ___render($markup = '', $options = array()) {

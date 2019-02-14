@@ -21,7 +21,7 @@
  * 
  * Sanitizer methods are most commonly used with user input. As a result, the methods in this class are also accessible
  * from the `$input->get`, `$input->post` and `$input->cookie` API variables, in the same manner that they are here. 
- * This is a useful shortcut for intances where you don’t need to provide additional arguments to the sanitizer method.
+ * This is a useful shortcut for instances where you don’t need to provide additional arguments to the sanitizer method.
  * Below are a few examples of this usage:
  * ~~~~~
  * // get GET variable 'id' as integer
@@ -72,7 +72,7 @@
  * $cleanValue = $sanitizer->text_entities($dirtyValue);
  * ~~~~~
  * If you append a number to any sanitizer call that returns a string, it is assumed to be maximum allowed length. For 
- * example the following would sanitize the value to be text of no more than 20 characters:
+ * example, the following would sanitize the value to be text of no more than 20 characters:
  * ~~~~~
  * $cleanValue = $sanitizer->text20($dirtyValue); 
  * ~~~~~
@@ -83,7 +83,7 @@
  * with multiple sanitizer calls. 
  * 
  * Most methods in the Sanitizer class focus on sanitization rather than validation, with a few exceptions. You can 
- * convert ta sanitizer call to validation call by calling the `validate()` method with the name of the sanitizer and the
+ * convert a sanitizer call to validation call by calling the `validate()` method with the name of the sanitizer and the
  * value. A validation call simply implies that if the value is modified by sanitization then it is considered invalid
  * and thus it’ll return a non-value rather than a sanitized value. See the `Sanitizer::validate()` and 
  * `Sanitizer::valid()` methods for usage details. 
