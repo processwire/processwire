@@ -15192,7 +15192,7 @@ em {
   color: inherit;
 }
 #pw-mastheads {
-  position: relative;
+  /*position: relative;*/
 }
 #pw-masthead,
 #pw-masthead-mobile {

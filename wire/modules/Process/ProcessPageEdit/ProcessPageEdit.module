@@ -853,6 +853,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$tabWrap->attr('title', $tabOpen->getSetting('label'));
 					$tabWrap->id = $tabOpen->attr('id');
 					$tabWrap->collapsed = $tabOpen->getSetting('collapsed');
+					// @todo support description in fieldset tab: works but needs styles for each admin theme, so commented out for now
+					// $tabWrap->description = $inputfield->description;
+					$tabWrap->notes = $inputfield->notes;
 					$contentTab->remove($inputfield); 
 					if(!$tabViewable) continue;
 					

@@ -240,6 +240,8 @@ class InputfieldSelect extends Inputfield {
 	protected function addOptionLabelsString($str, $languageID = 0) {
 		foreach(explode("\n", $str) as $line) {
 			$line = trim($line);
+			$line = ltrim($line, '+');
+			if(strpos($line, 'disabled:') === 0) list(,$line) = explode('disabled:', $line, 2);
 			if(!strpos($line, '=')) continue; // 0 or false OK
 			list($key, $label) = explode('=', $line, 2);
 			if($languageID) {
@@ -326,8 +328,12 @@ class InputfieldSelect extends Inputfield {
 
 		if($this instanceof InputfieldHasArrayValue) { 
 			// multiple selection
-			/** @var InputfieldSelect $this */
-			return in_array($value, $this->attr('value')); 
+			$selected = false;
+			foreach($valueAttr as $v) {
+				$selected = "$v" === "$value";
+				if($selected) break;
+			}
+			return $selected; 
 		}
 
 		return "$value" == (string) $this->value; 
