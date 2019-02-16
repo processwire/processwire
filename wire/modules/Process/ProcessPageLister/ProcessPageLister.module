@@ -1106,6 +1106,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$fields = array();
 		$header = array();
 		$systemLabels = $this->getSystemLabels();
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
 
 		foreach($columns as $key => $name) {
 			$subname = '';
@@ -1123,7 +1125,14 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 					$label .= $subfield->getLabel();
 					$subicon = $subfield->getIcon(true);
 					if($subicon) $icon = $subicon;
-				} else {
+				} else if($languages && $field && wireInstanceof($field->type, 'FieldtypeLanguageInterface')) {
+					
+					if(preg_match('/^data(\d+)$/', $subname, $matches)) {
+						$label .= $languages->get((int) $matches[1])->get('title|name');
+					} else {
+						$label .= $subname;
+					}
+			} else {
 					$label .= $subname;
 				}
 			}
@@ -1192,30 +1201,59 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	protected function buildListerTableCol(Page $p, array $fields, $name, $value = null) {
 
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
+		
+		if($languages && $p->template->noLang) $languages = null;
+		$langPageNames = $languages && $this->wire('modules')->isInstalled('LanguageSupportPageNames');
+
 		$subname = '';
 		$fullname = $name; 
+		$value = null;
+		$noEntities = false;
+		
 		if(strpos($name, '.')) list($name, $subname) = explode('.', $name); 
 		if($name == 'config' || $subname == 'config') return 'Not allowed';
 		
 		reset($fields); 
 		$isFirstCol = key($fields) == $name; 
-		$value = $p->getFormatted($name); 
 		
-		if($subname && $name == 'parent') {
+		/** @var Field $field */
+		$field = isset($fields[$name]) ? $fields[$name] : $this->wire('fields')->get($name);
+		$delimiter = isset($this->delimiters[$fullname]) ? $this->delimiters[$fullname] : "<br />";
+		
+		if($languages && $field) {
+			$language = $this->identifyLanguage($field, $subname);
+			if($language) {
+				$value = $this->getLanguageValue($p, $field, $language);
+				$subname = '';
+			}
+		} else if($langPageNames && in_array($name, array('name', 'path', 'url', 'httpUrl'))) { 
+			// multi-language columns requested in non-default language
+			$value = array();
+			foreach($languages as $lang) {
+				$langVal = $this->getLanguageValue($p, $name, $lang);
+				if(empty($langVal)) continue;
+				$value[] = $sanitizer->entities($langVal) . "&nbsp;<span class='detail'>($lang->name)</span>";
+			}
+			$noEntities = true;
+		}
+
+		if($value === null) $value = $p->getFormatted($name);
+		
+		if($subname && $name === 'parent') {
 			// if parent and subname present, focus on just the subname value
 			if($value instanceof Page) $value = $value->getFormatted($subname);
 			$name = $subname;
 			$subname = '';
 		}
-
-		/** @var Field $field */
-		$field = isset($fields[$name]) ? $fields[$name] : $this->wire('fields')->get($name);
-		$delimiter = isset($this->delimiters[$fullname]) ? $this->delimiters[$fullname] : "<br />";
 		
 		if(!$subname && ($value instanceof Page || $value instanceof PageArray)) {
 			if($field && $field->get('labelFieldName')) {
 				$subname = $field->get('labelFieldName');
-				if($this->wire('sanitizer')->fieldName($subname) == $subname) $subname .= "|name"; // fallback
+				if($sanitizer->fieldName($subname) == $subname) $subname .= "|name"; // fallback
 			} else {
 				$subname = 'title|name';
 			}
@@ -1237,7 +1275,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			if($field && $field->type) {
 				$value = $field->type->markupValue($p, $field, $value, $subname);
 			} else {
-				$value = $this->wire('sanitizer')->entities($value->getUnformatted($subname));
+				$value = $sanitizer->entities($value->getUnformatted($subname));
 			}
 
 		} else if($value instanceof PageArray) {
@@ -1294,15 +1332,15 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 					/** @var Pageimage $v */
 					$vfull = $v;
 					if($this->imageWidth || $this->imageHeight) $v = $v->size($this->imageWidth, $this->imageHeight);
-					$alt = $vfull->basename . ($vfull->description ? ' - ' . $this->sanitizer->entities1($vfull->description) : "");
+					$alt = $vfull->basename . ($vfull->description ? ' - ' . $sanitizer->entities1($vfull->description) : "");
 					$v = "<a href='$vfull->URL' title='$alt' class='lister-lightbox'><img alt='$alt' src='$v->URL' style='margin: 4px 4px 4px 0' /></a>";
 					$isImage = true;
 					
 				} else if($v instanceof Pagefile) {
 					/** @var Pageimage $v */
 					$v = "<a target='_blank' href='$v->url'>$v->basename</a>";
-				} else {
-					$v = $this->wire('sanitizer')->entities($v); 
+				} else if(!$noEntities) {
+					$v = $sanitizer->entities($v); 
 				}
 				$values[] = (string) $v;
 				if($isImage && $this->imageFirst) break;
@@ -1336,21 +1374,85 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 
 		} else if($field && $field->type) {
 			if($subname == 'data') $subname = '';
-			$value = $field->type->markupValue($p, $field, $value, $subname); 
+			$value = $field->type->markupValue($p, $field, $value, $subname);
 			// value may be MarkupFieldtype object
-			$value = (string) $value; 
+			$value = (string) $value;
 			
 		} else {
 			// other or unknown
 			if($subname == 'data') $value = (string) $value;
 			if($subname && is_object($value)) $value = $value->$subname;
-			$value = $this->wire('sanitizer')->entities($value); 
+			$value = $noEntities ? $value : $sanitizer->entities($value); 
 		}
 	
 		if($isFirstCol) $value = $this->buildListerTableColActions($p, $value);
 
 		return $value; 
 
+	}
+
+	/**
+	 * Identify language for given field and subname (column name)
+	 * 
+	 * @param Field $field
+	 * @param string $subname
+	 * @return Language|null
+	 * 
+	 */
+	protected function identifyLanguage(Field $field, $subname) {
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
+		if(!$languages) return null;
+		$language = null;
+		
+		if(ctype_digit(substr($subname, -4))) {
+			// i.e. data1234
+			foreach($languages as $lang) {
+				if(strpos($subname, "$lang->id")) {
+					$id = (int) substr($subname, -1 * strlen("$lang->id"));
+					if($id === $lang->id) {
+						$language = $lang;
+						break;
+					}
+				}
+			}
+		} else {
+			// default language or not a languages field
+		}
+		
+		if(!wireInstanceOf($field->type, 'FieldtypeLanguageInterface')) return null;
+		if(!$language) $language = $languages->getDefault();
+		if(!$language || !$language->id) $language = null;
+		
+		return $language;
+	}
+
+	/**
+	 * Get value for language 
+	 * @param Page $page
+	 * @param string|Field $fieldName
+	 * @param Language|string $language
+	 * @return mixed
+	 * 
+	 */
+	protected function getLanguageValue(Page $page, $fieldName, $language) {
+		if($fieldName instanceof Field) $fieldName = $fieldName->name;
+		$languages = $this->wire('languages');
+		if(!$languages) return $page->getFormatted($fieldName);
+		if($fieldName === 'name') {
+			$value = $page->localName($language);
+		} else if($fieldName === 'path') {
+			$value = $page->localPath($language);
+		} else if($fieldName === 'url') {
+			$value = $page->localUrl($language);
+		} else if(strtolower($fieldName) === 'httpurl') {
+			$value = $page->localHttpUrl($language);
+		} else {
+			$languages->setLanguage($language);
+			$value = $page->getFormatted($fieldName);
+			$languages->unsetLanguage();
+		}
+		return $value;
 	}
 	
 	/**
