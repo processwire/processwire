@@ -1289,6 +1289,17 @@ class Selectors extends WireArray {
 		
 		return $all ? $matches : $selector;
 	}
+	
+	public function __debugInfo() {
+		$info = parent::__debugInfo();
+		$info['string'] = $this->__toString();
+		return $info;
+	}
+	
+	public function debugInfoItem($item) {
+		if($item instanceof Selector) return $item->__debugInfo();
+		return parent::debugInfoItem($item);
+	}
 
 	/**
 	 * See if the given $selector specifies the given $field somewhere

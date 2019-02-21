@@ -2431,30 +2431,47 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *
 	 */
 	public function __debugInfo() {
+		
 		$info = parent::__debugInfo();
 		$info['count'] = $this->count();
+		
 		if(count($this->data)) {
 			$info['items'] = array();
 			foreach($this->data as $key => $value) {
-				if(is_object($value)) {
-					if($value instanceof Page) {
-						$value = '/' . ltrim($value->path(), '/');
-					} else if($value instanceof WireData) {
-						$_value = $value;
-						$value = $value->get('name');
-						if(!$value) $value = $_value->get('id');
-						if(!$value) $value = $_value->className();
-					} else {
-						// keep $value as it is
-					}
-				}
-				$info['items'][$key] = $value; 
+				$info['items'][$key] = $this->debugInfoItem($value);
 			}
 		}
+		
 		if(count($this->extraData)) $info['extraData'] = $this->extraData;
 		if(count($this->itemsAdded)) $info['itemsAdded'] = $this->itemsAdded;
 		if(count($this->itemsRemoved)) $info['itemsRemoved'] = $this->itemsRemoved;
+		
 		return $info;
+	}
+
+	/**
+	 * Return debug info for one item from this WireArray
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param mixed $item
+	 * @return mixed|null|string
+	 * 
+	 */
+	public function debugInfoItem($item) {
+		if(is_object($item)) {
+			if($item instanceof Page) {
+				$item = '/' . ltrim($item->path(), '/');
+			} else if($item instanceof WireData) {
+				$_item = $item;
+				$item = $item->get('name');
+				if(!$item) $item = $_item->get('id');
+				if(!$item) $item = $_item->className();
+			} else {
+				// keep $value as it is
+			}
+		}
+		return $item;
 	}
 
 	/**

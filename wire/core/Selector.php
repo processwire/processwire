@@ -172,7 +172,7 @@ abstract class Selector extends WireData {
 			if($forceString === 1) {
 				$value = reset($value);
 			} else {
-				$value = implode('|', $value);
+				$value = $this->wire('sanitizer')->selectorValue($value); 
 			}
 		}
 		return $value;
@@ -257,7 +257,7 @@ abstract class Selector extends WireData {
 	public function getValue($type = '') {
 		$value = $this->value; 
 		if($type == 'string') {
-			if(is_array($value)) $value = implode('|', $value);
+			if(is_array($value)) $value = $this->wire('sanitizer')->selectorValue($value);
 		} else if($type == 'array') {
 			if(!is_array($value)) $value = array($value);
 		} else if($this->quote == '[') {
@@ -410,19 +410,49 @@ abstract class Selector extends WireData {
 	 *
 	 */
 	public function __toString() {
+		
 		$openingQuote = $this->quote; 
 		$closingQuote = $openingQuote; 
+		
 		if($openingQuote) {
 			if($openingQuote == '[') $closingQuote = ']'; 	
 				else if($openingQuote == '{') $closingQuote = '}';
 				else if($openingQuote == '(') $closingQuote = ')';
 		}
-		$str = 	($this->not ? '!' : '') . 
+		
+		$value = $this->value();
+		if($openingQuote) $value = trim($value, $openingQuote . $closingQuote);
+		$value = $openingQuote . $value . $closingQuote;
+		
+		$str = 	
+			($this->not ? '!' : '') . 
 			(is_null($this->group) ? '' : $this->group . '@') . 
 			(is_array($this->field) ? implode('|', $this->field) : $this->field) . 
-			$this->operator() . 
-			(is_array($this->value) ? implode("|", $this->value) : $openingQuote . $this->value . $closingQuote);
+			$this->operator() . $value;
+		
 		return $str; 
+	}
+
+	/**
+	 * Debug info
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return array
+	 * 
+	 */
+	public function __debugInfo() {
+		$info = array(
+			'field' => $this->field,
+			'operator' => $this->operator,
+			'value' => $this->value,
+		);
+		if($this->not) $info['not'] = true;
+		if($this->forceMatch) $info['forceMatch'] = true;
+		if($this->group) $info['group'] = $this->group; 
+		if($this->quote) $info['quote'] = $this->quote;
+		$info['string'] = $this->__toString();
+		return $info;
 	}
 
 	/**
