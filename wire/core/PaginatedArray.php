@@ -216,8 +216,16 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 	 * 
 	 * This returns a string of `1 to 10 of 30` (items) or `1 of 10` (pages) for example.
 	 * 
-	 * You can optionally replace either of the arguments with an $options array instead. 
-	 * See the third example below for all options you can specify. (since 3.0.108)
+	 * Since 3.0.108 you can optionally replace either of the arguments with an $options o
+	 * array instead, and you can specify any of these options: 
+	 * 
+	 *  - `label` (string): Label to use for items, same as $label argument (default='').
+	 *  - `zeroLabel` (string): Alternate label to use if there are zero items, since 3.0.127 (default='').
+	 *  - `usePageNum` (bool): Specify true to show page numbers rather than item numbers (default=false). 
+	 *  - `count` (int): Use this count rather than count in this PaginatedArray (default=-1, disabled).
+	 *  - `start` (int): Use this start rather than start in this PaginatedArray (default=-1, disabled).
+	 *  - `limit` (int): Use this limit rather than limit in this PaginatedArray (default=-1, disabled).
+	 *  - `total` (int): Use this total rather than total in this PaginatedArray (default=-1, disabled). 
 	 * 
 	 * ~~~~~
 	 * // Get string like "Items 1 to 25 of 500"
@@ -229,6 +237,7 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 	 * // Get string where you specify all options
 	 * echo $items->getPaginationString(array(
 	 *   'label' => 'Items',
+	 *   'zeroLabel' => 'No items found', // 3.0.127+ only
 	 *   'usePageNum' => false,
 	 *   'count' => 10, 
 	 *   'start' => 0, 
@@ -248,6 +257,7 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 		
 		$options = array(
 			'label' => is_string($label) ? $label : '',
+			'zeroLabel' => '',
 			'usePageNum' => is_bool($usePageNum) ? $usePageNum : false,
 			'count' => -1,
 			'start' => -1,
@@ -266,7 +276,11 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 		$limit = $options['limit'] > -1 ? $options['limit'] : $this->getLimit();
 		$total = $options['total'] > -1 ? $options['total'] : $this->getTotal();
 		
-		if($usePageNum) {
+		if(empty($total) && !empty($options['zeroLabel'])) {
+			
+			$str = $options['zeroLabel'];
+
+		} else if($usePageNum) {
 			
 			$pageNum = $start ? ($start / $limit) + 1 : 1;
 			$totalPages = ceil($total / $limit); 
