@@ -79,6 +79,12 @@ class PageFinder extends Wire {
 		'returnVerbose' => true,
 
 		/**
+		 * Return parent IDs rather than page IDs? (requires that returnVerbose is false)
+		 * 
+		 */
+		'returnParentIDs' => false, 
+
+		/**
 		 * When true, only the DatabaseQuery object is returned by find(), for internal use. 
 		 * 
 		 */
@@ -369,6 +375,7 @@ class PageFinder extends Wire {
 	 *  - `returnVerbose` (bool): When true, this function returns array of arrays containing page ID, parent ID,
 	 *     template ID and score. When false, returns only an array of page IDs. True is required by most usage from
 	 *     Pages class. False is only for specific cases. 
+	 *  - `returnParentIDs` (bool): Return parent IDs only? (default=false, requires that 'returnVerbose' option is false).
 	 *  - `allowCustom` (bool): Whether or not to allow _custom='selector string' type values (default=false). 
 	 *  - `useSortsAfter` (bool): When true, PageFinder may ask caller to perform sort manually in some cases (default=false). 
 	 * @return array|DatabaseQuerySelect
@@ -510,6 +517,20 @@ class PageFinder extends Wire {
 	public function findIDs($selectors, $options = array()) {
 		$options['returnVerbose'] = false; 
 		return $this->find($selectors, $options); 
+	}
+	
+	/**
+	 * Same as findIDs() but returns the parent IDs of the pages that matched
+	 *
+	 * @param Selectors|string|array $selectors Selectors object, selector string or selector array
+	 * @param array $options
+	 * @return array of page parent IDs
+	 *
+	 */
+	public function findParentIDs($selectors, $options = array()) {
+		$options['returnVerbose'] = false;
+		$options['returnParentIDs'] = true;
+		return $this->find($selectors, $options);
 	}
 
 	/**
@@ -1126,12 +1147,20 @@ class PageFinder extends Wire {
 		// $this->extraJoins = array();
 		$database = $this->wire('database');
 		$this->preProcessSelectors($selectors, $options);
+		
+		if($options['returnVerbose']) {
+			$columns = array('pages.id', 'pages.parent_id', 'pages.templates_id');
+		} else if($options['returnParentIDs']) { 
+			$columns = array('pages.parent_id AS id');
+		} else {
+			$columns = array('pages.id');
+		}
 
 		/** @var DatabaseQuerySelect $query */
 		$query = $this->wire(new DatabaseQuerySelect());
-		$query->select($options['returnVerbose'] ? array('pages.id', 'pages.parent_id', 'pages.templates_id') : array('pages.id')); 
+		$query->select($columns);
 		$query->from("pages"); 
-		$query->groupby("pages.id");
+		$query->groupby($options['returnParentIDs'] ? 'pages.parent_id' : 'pages.id');
 	
 		$this->getQueryStartLimit($query);
 
@@ -1177,7 +1206,7 @@ class PageFinder extends Wire {
 				continue; 
 
 			} else if($this->wire('fields')->isNative($field) || strpos($fieldsStr, ':parent.') !== false) {
-				$this->getQueryNativeField($query, $selector, $fields, $options); 
+				$this->getQueryNativeField($query, $selector, $fields, $options, $selectors); 
 				continue; 
 			} 
 
@@ -1992,10 +2021,11 @@ class PageFinder extends Wire {
 	 * @param Selector $selector
 	 * @param array $fields
 	 * @param array $options
+	 * @param Selectors $selectors
 	 * @throws PageFinderSyntaxException
 	 *
 	 */
-	protected function getQueryNativeField(DatabaseQuerySelect $query, $selector, $fields, array $options) {
+	protected function getQueryNativeField(DatabaseQuerySelect $query, $selector, $fields, array $options, $selectors) {
 
 		$values = $selector->values(true); 
 		$SQL = '';
@@ -2046,12 +2076,28 @@ class PageFinder extends Wire {
 
 					if(!$this->wire('fields')->isNative($subfield)) {
 						$finder = $this->wire(new PageFinder());
+						$finderMethod = 'findIDs';
+						$includeSelector = 'include=all';
 						if($field == 'children') {
-							$s = $subfield ? '' : 'children.id';
+							if($subfield) {
+								$s = '';
+								$finderMethod = 'findParentIDs'; 
+								// inherit include mode from main selector
+								$includeSelector = trim(
+									$selectors->getSelectorByField('include') . ',' . 
+									$selectors->getSelectorByField('status') . ',' . 
+									$selectors->getSelectorByField('check_access'), ','
+								);
+							} else {
+								$s = 'children.id';
+							}
 						} else {
 							$s = 'children.count>0, ';
 						}
-						$IDs = $finder->findIDs(new Selectors("include=all, $s$subfield{$operator}" . implode('|', $values)));
+						$IDs = $finder->$finderMethod(new Selectors(ltrim(
+							"$includeSelector," . 
+							"$s$subfield$operator" . $this->wire('sanitizer')->selectorValue($values), ','
+						)));
 						if(!count($IDs)) $IDs[] = -1; // forced non match
 					} else {
 						// native
