@@ -1771,12 +1771,17 @@ class Sanitizer extends Wire {
 	 * ~~~~~
 	 * // Sanitize text for a search on title and body fields
 	 * $q = $input->get->text('q'); // text search query
-	 * $results = $pages->find("title|body%=" . $sanitizer->selectorValue($q)); 
+	 * $results = $pages->find("title|body%=" . $sanitizer->selectorValue($q));
+	 *
+	 * // In 3.0.127 you can also provide an array for the $value argument
+	 * $val = $sanitizer->selectorValue([ 'foo', 'bar', 'baz' ]); 
+	 * echo $val; // outputs: foo|bar|baz
 	 * ~~~~~
 	 * 
 	 * #pw-group-strings
 	 *
-	 * @param string $value String value to sanitize (assumed to be UTF-8). 
+	 * @param string|array $value String value to sanitize (assumed to be UTF-8), 
+	 *   or in 3.0.127+ you may use an array and it will be sanitized to an OR value string. 
 	 * @param array|int $options Options to modify behavior: 
 	 *   - `maxLength` (int): Maximum number of allowed characters (default=100). This may also be specified instead of $options array.
 	 *   - `useQuotes` (bool): Allow selectorValue() function to add quotes if it deems them necessary? (default=true)
@@ -1797,6 +1802,18 @@ class Sanitizer extends Wire {
 			$options = array();
 		}
 		$options = array_merge($defaults, $options);
+	
+		// if given an array, convert to an OR selector string
+		if(is_array($value)) {
+			$a = array();
+			foreach($value as $v) {
+				$v = $this->selectorValue($v, $options);
+				if($options['useQuotes'] && !strlen($v)) $v = '""';
+				$a[] = $v;
+			}
+			return implode('|', $a);
+		}
+		
 		if(!is_string($value)) $value = $this->string($value);
 		$value = trim($value); 
 		$quoteChar = '"';
