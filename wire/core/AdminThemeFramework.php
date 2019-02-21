@@ -270,6 +270,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 		if($this->isModal === 'inline') $classes[] = 'modal-inline';
 		if($this->wire('input')->urlSegment1) $classes[] =  'hasUrlSegments';
 		if($process) $classes[] = $process->className();
+		if(!$this->isLoggedIn) $classes[] = 'pw-guest';
 
 		return implode(' ', $classes);
 	}

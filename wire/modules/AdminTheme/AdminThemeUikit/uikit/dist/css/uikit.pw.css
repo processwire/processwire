@@ -13896,6 +13896,7 @@ a.tooltip:hover {
 }
 .ui-menu .ui-menu-item a i.fa {
   margin-left: -2px;
+  padding-left: 5px;
   color: #97aab4;
 }
 .ui-menu .ui-menu-item a.uk-active,
@@ -15191,9 +15192,12 @@ body {
 em {
   color: inherit;
 }
+/*
+// removed because it causes horiz scrollbar at small mobile widths
 #pw-mastheads {
-  /*position: relative;*/
+  position: relative;
 }
+*/
 #pw-masthead,
 #pw-masthead-mobile {
   height: 73px;
@@ -15363,22 +15367,28 @@ body.pw-layout-sidenav-side #pw-sidenav-bar {
 .pw-layout-sidenav-tree .ProDraftsNotice {
   margin-top: 20px;
 }
-.ProcessLogin #pw-masthead {
+body.pw-guest #pw-masthead {
   display: none;
 }
-.ProcessLogin #pw-masthead-mobile {
+body.pw-guest #pw-masthead-mobile {
   display: block !important;
 }
-.ProcessLogin #pw-content-head {
+body.pw-guest #pw-content-head {
   display: none;
 }
-.ProcessLogin #pw-content-body {
+body.pw-guest #pw-content-body {
   text-align: center;
 }
-.ProcessLogin .pw-notices > li > .uk-container {
+body.pw-guest .pw-notices > li > .uk-container {
   text-align: center;
 }
-.ProcessLogin .pw-notices .notice-remove {
+body.pw-guest .pw-notices .notice-remove {
+  display: none;
+}
+body.pw-guest hr {
+  display: none;
+}
+body.pw-guest footer {
   display: none;
 }
 .ProcessLogin #ProcessLoginForm {
@@ -15411,12 +15421,6 @@ body.pw-layout-sidenav-side #pw-sidenav-bar {
 }
 .ProcessLogin #ProcessLoginForm #wrap_Inputfield_login_submit .ui-button {
   margin: 0;
-}
-.ProcessLogin hr {
-  display: none;
-}
-.ProcessLogin footer {
-  display: none;
 }
 body.pw-init .pw-dropdown-menu,
 body.pw-init .pw-button-dropdown {
