@@ -1704,6 +1704,8 @@ class Pageimage extends Pagefile {
 	 *  - `height` (int): Target height or 0 for current image size (or proportional if width specified).
 	 *  - `markup` (string): Markup template string (same as $markup argument), or omit for default (same as $markup argument).
 	 *  - `link` (bool): Link image to original size? Though you may prefer to do this with your own $markup (see examples). (default=false)
+	 *  - `alt` (string): Text to use for “alt” attribute (default=text from image description).
+	 *  - `class` (string): Text to use for “class” attribute, if `{class}` present in markup (default='').
 	 *  - Plus any option available to the $options argument on the `Pageimage::size()` method. 
 	 *  - If you only need width and/or height, you can specify a width x height string, i.e. 123x456 (use 0 for proportional).
 	 * @return string
@@ -1719,7 +1721,12 @@ class Pageimage extends Pagefile {
 		} 
 		
 		if(empty($markup)) {
-			$markup = "<img src='{url}' alt='{description}' />";
+			// provide default markup
+			if(empty($options['class'])) {
+				$markup = "<img src='{url}' alt='{alt}' />";
+			} else {
+				$markup = "<img src='{url}' alt='{alt}' class='{class}' />";
+			}
 		}
 		
 		if(is_string($options)) {
@@ -1739,7 +1746,7 @@ class Pageimage extends Pagefile {
 		$replacements = array();
 		$properties = array(
 			'url', 'httpUrl', 'URL', 'HTTPURL',
-			'description', 'alt', 'tags', 'ext',
+			'description', 'alt', 'tags', 'ext', 'class',
 			'width', 'height', 'hidpiWidth', 'hidpiHeight',
 		);
 		
@@ -1757,8 +1764,17 @@ class Pageimage extends Pagefile {
 		foreach($properties as $property) {
 			$tag = '{' . $property . '}';
 			if(strpos($markup, $tag) === false) continue;
-			$value = $sanitizer->entities1($image->get($property));
+			if(($property === 'alt' || $property === 'class') && isset($options[$property])) {
+				$value = $sanitizer->entities($options[$property]);
+			} else {
+				$value = $sanitizer->entities1($image->get($property));
+			}
 			$replacements[$tag] = $value;
+		}
+		
+		if(strpos($markup, '{class}')) {
+			$class = isset($options['class']) ? $this->wire('sanitizer')->entities($options['class']) : 'pw-pageimage';
+			$replacements["{class}"] = $class; 
 		}
 		
 		if(strpos($markup, '{original.') !== false) {
