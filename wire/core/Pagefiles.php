@@ -565,7 +565,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 */ 
 	public function cleanBasename($basename, $originalize = false, $allowDots = true, $translate = false) {
 
-		$basename = strtolower($basename); 
+		$basename = function_exists('mb_strtolower') ? mb_strtolower($basename) : strtolower($basename);
 		$dot = strrpos($basename, '.'); 
 		$ext = $dot ? substr($basename, $dot) : ''; 
 		$basename = basename($basename, $ext);
