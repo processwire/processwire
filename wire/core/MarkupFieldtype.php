@@ -107,9 +107,14 @@ class MarkupFieldtype extends WireData implements Module {
 						$a = array();
 						foreach($value as $page) {
 							$v = $page->getFormatted($property);
-							$a[] = $field->type->markupValue($page, $field, $v);
+							$v = $field->type->markupValue($page, $field, $v);
+							if($page->viewable()) {
+								$a[] = "<a href='$page->url'>$v</a>";
+							} else {
+								$a[] = $v;
+							}
 						}
-						return $this->valueToString($a);
+						return $this->arrayToString($a, false);
 					} else {
 						$value = $value->explode($property, array('getMethod' => 'getFormatted'));
 					}
@@ -248,10 +253,11 @@ class MarkupFieldtype extends WireData implements Module {
 	 * Convert any value to a string
 	 * 
 	 * @param mixed $value
+	 * @param bool $encode
 	 * @return string
 	 * 
 	 */	
-	protected function valueToString($value) {
+	protected function valueToString($value, $encode = true) {
 		if(is_object($value) && ($value instanceof Pagefiles || $value instanceof Pagefile)) {
 			return $this->objectToString($value);
 		} else if(WireArray::iterable($value)) {
@@ -259,7 +265,7 @@ class MarkupFieldtype extends WireData implements Module {
 		} else if(is_object($value)) {
 			return $this->objectToString($value);
 		} else {
-			return $this->wire('sanitizer')->entities1($value);
+			return $encode ? $this->wire('sanitizer')->entities1($value) : $value;
 		}
 	}
 
@@ -267,14 +273,15 @@ class MarkupFieldtype extends WireData implements Module {
 	 * Render an unknown array or WireArray to a string
 	 * 
 	 * @param array|WireArray $value
+	 * @param bool $encode
 	 * @return string
 	 * 
 	 */
-	protected function arrayToString($value) {
+	protected function arrayToString($value, $encode = true) {
 		if(!count($value)) return '';
 		$out = "<ul class='MarkupFieldtype'>";
 		foreach($value as $v) {
-			$out .= "<li>" . $this->valueToString($v) . "</li>";
+			$out .= "<li>" . $this->valueToString($v, $encode) . "</li>";
 		}
 		$out .= "</ul>";
 		return $out; 
@@ -288,8 +295,16 @@ class MarkupFieldtype extends WireData implements Module {
 	 * 
 	 */
 	protected function objectToString($value) {
-		if($value instanceof WireArray && !$value->count()) return '';
-		if($value instanceof Page) return $value->get('title|name');
+		if($value instanceof WireArray) { 
+			if(!$value->count()) return '';
+		}
+		if($value instanceof Page) {
+			if($value->viewable()) {
+				return "<a href='$value->url'>" . $value->get('title|name') . "</a>";
+			} else {
+				return $value->get('title|name');
+			}
+		}
 		if($value instanceof Pagefiles || $value instanceof Pagefile) {
 			$out = $this->renderInputfieldValue($value);
 		} else {
