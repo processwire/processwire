@@ -192,6 +192,11 @@ class ProcessLanguageTranslator extends Process {
 			'site' => $this->findTranslatableFiles($this->wire('config')->paths->site, $useCache),
 			'wire' => $this->findTranslatableFiles($this->wire('config')->paths->wire, $useCache)
 		);
+		
+		if($this->input->get('refresh')) {
+			$this->wire('session')->redirect("../../languages/edit/?id={$this->language->id}"); 
+			return '';
+		}
 
 		$textdomains = array();
 		foreach(array('language_files', 'language_files_site') as $fieldName) {
@@ -486,7 +491,7 @@ class ProcessLanguageTranslator extends Process {
 			$this->session->redirect('../add/');
 		}
 
-		$numFound = $this->parseTranslatableFile($file);
+		$this->parseTranslatableFile($file);
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
@@ -658,7 +663,7 @@ class ProcessLanguageTranslator extends Process {
 		}
 		
 		if(is_null($this->fp)) {
-			$f = $this->language->filesManager()->path() . '.phrase-index.txt'; // @todo make hidden
+			$f = $this->language->filesManager()->path() . '.phrase-index.txt'; 
 			if(is_file($f)) $this->wire('files')->unlink($f);
 			$this->fp = fopen($f, "a");
 		}
@@ -723,7 +728,7 @@ class ProcessLanguageTranslator extends Process {
 				$files[$pathname] = $pathname;
 				if(preg_match_all('/\b(?:_[_nx]\(|->_[nx]?\()[\'"](.+?)[\'"]\)/', $text, $matches)) {
 					foreach($matches[1] as $key => $phrase) {
-						$phrase = str_replace(array('|', '^', "\n", "\r", "\t"), ' ', $phrase);
+						$phrase = str_replace(array('|', '^', "\n", "\r", "\t", "&lt;", "&gt;"), ' ', strip_tags($phrase));
 						fwrite($this->fp, "|$phrase");
 					}
 					$textdomain = $this->translator->filenameToTextdomain($pathname);
