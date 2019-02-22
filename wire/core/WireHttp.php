@@ -655,6 +655,11 @@ class WireHttp extends Wire {
 		if(isset($options['http']) && isset($options['http']['proxy']) && !is_null($options['http']['proxy'])) {
 			curl_setopt($curl, CURLOPT_PROXY, $options['http']['proxy']);
 		}
+
+		// Set custom cURL options
+		if(isset($options["curl"]) && is_array($options["curl"])) {
+			curl_setopt_array($curl, $options["curl"]);
+		}
 		
 		if(!empty($this->data)) {
 			if($method === 'POST') {
@@ -921,6 +926,11 @@ class WireHttp extends Wire {
 		// @felixwahner #1027
 		if(isset($options['http']) && isset($options['http']['proxy']) && !is_null($options['http']['proxy'])) {
 			curl_setopt($curl, CURLOPT_PROXY, $options['http']['proxy']);
+		}
+
+		// Set custom cURL options
+		if(isset($options["curl"]) && is_array($options["curl"])) {
+			curl_setopt_array($curl, $options["curl"]);
 		}
 		
 		$result = curl_exec($curl);
