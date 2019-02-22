@@ -138,11 +138,10 @@ class WireHooks {
 	 *
 	 * @param Wire $object
 	 * @param string $method Optional method that hooks will be limited to. Or specify '*' to return all hooks everywhere.
-	 * @param int $type Type of hooks to return: 0=all, 1=local only, 2=static only
 	 * @param int $type Type of hooks to return, specify one of the following constants:
-	 * 	- WireHooks::getHooksAll returns all hooks (default)
-	 * 	- WireHooks::getHooksLocal returns local hooks only
-	 * 	- WireHooks::getHooksStatic returns static hooks only
+	 * 	- WireHooks::getHooksAll returns all hooks [0] (default)
+	 * 	- WireHooks::getHooksLocal returns local hooks [1] only
+	 * 	- WireHooks::getHooksStatic returns static hooks [2] only
 	 * @return array
 	 *
 	 */

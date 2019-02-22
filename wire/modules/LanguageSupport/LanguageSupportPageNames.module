@@ -277,6 +277,9 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			} else {	
 				// inactive status only applies to the page itself
 				$active = $page->get("status$setLanguage") > 0; 
+			
+				// https://github.com/processwire/processwire-issues/issues/463
+				// $active = $page->get("status$setLanguage") > 0 || $page->template->noLang;
 			}
 			// if page is inactive for a language, and it's not editable, send a 404
 			if(!$active && !$page->editable() && $page->id != $config->http404PageID) {
