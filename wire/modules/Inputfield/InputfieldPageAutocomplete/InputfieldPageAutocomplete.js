@@ -25,22 +25,6 @@ var InputfieldPageAutocomplete = {
 		var disableChars = $input.attr('data-disablechars'); 
 		var noList = $input.hasClass('no_list');
 		
-		function setIconPosition($icon, side) {
-			var iconHeight = $icon.height();
-			if(iconHeight) {
-				var pHeight = $icon.parent().height();
-				var iconTop = ((pHeight - iconHeight) / 2);
-				$icon.css('top', iconTop + 'px');
-				if(side == 'left') {
-					$icon.css('left', (iconTop / 2) + 'px');
-				} else if(side == 'right') {
-					$icon.css('right', (iconTop / 4) + 'px');
-				}
-			} else {
-				// icon is not visible (in a tab or collapsed field), we'll leave it alone
-			}	
-		}
-	
 		function hasDisableChar(str) {
 			if(!disableChars || !disableChars.length) return false;
 			var disable = false;
@@ -53,14 +37,14 @@ var InputfieldPageAutocomplete = {
 			return disable;
 		}
 		
-		setIconPosition($icon, 'left');
+		InputfieldPageAutocomplete.setIconPosition($icon, 'left');
 		
 		if(noList) {
 			// specific to single-item autocompletes, where there is no separate "selected" list
 			
 			$input.attr('data-selectedLabel', $input.val());
 			var $remove = $input.siblings('.InputfieldPageAutocompleteRemove');
-			setIconPosition($remove, 'right');
+			InputfieldPageAutocomplete.setIconPosition($remove, 'right');
 			
 			$remove.click(function() {
 				$value.val('').change();
@@ -289,6 +273,28 @@ var InputfieldPageAutocomplete = {
 		$a.addClass('InputfieldPageAutocompleteInit');
 	},
 
+	/**
+	 * Set position of icon within parent element
+	 * 
+	 * @param $icon
+	 * @param side Either 'left' or 'right'
+	 * 
+	 */
+	setIconPosition: function($icon, side) {
+		var iconHeight = $icon.height();
+		if(iconHeight) {
+			var pHeight = $icon.parent().height();
+			var iconTop = ((pHeight - iconHeight) / 2);
+			$icon.css('top', iconTop + 'px');
+			if(side == 'left') {
+				$icon.css('left', (iconTop / 2) + 'px');
+			} else if(side == 'right') {
+				$icon.css('right', (iconTop / 4) + 'px');
+			}
+		} else {
+			// icon is not visible (in a tab or collapsed field), we'll leave it alone
+		}
+	},
 
 	/**
 	 * Callback function executed when a page is selected from PageList
@@ -378,6 +384,14 @@ $(document).ready(function() {
 		$li.remove();
 		InputfieldPageAutocomplete.rebuildInput($ol); 
 		return false; 
+	});
+	
+	$(document).on('wiretabclick', function(a, $tab) {
+		// update positions of icons that previously were not calculable
+		var $icon = $tab.find('.InputfieldPageAutocompleteStatus');
+		InputfieldPageAutocomplete.setIconPosition($icon, 'left');
+		$icon = $tab.find('.InputfieldPageAutocompleteRemove');
+		InputfieldPageAutocomplete.setIconPosition($icon, 'right');
 	});
 }); 
 

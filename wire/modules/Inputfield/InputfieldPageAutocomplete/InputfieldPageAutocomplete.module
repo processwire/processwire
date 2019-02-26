@@ -5,7 +5,7 @@
  *
  * This Inputfield connects the jQuery UI Autocomplete widget with the ProcessWire ProcessPageSearch AJAX API.
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $parent_id Limit results to this parent, or if combined with findPagesSelector, the search is performed as $pages->get($parent_id)->find() rather than $pages->find().
@@ -108,7 +108,7 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		$label = $this->wire('sanitizer')->entities($label);
 		$out = 	
 			"<li class='ui-state-default$class'>" . 
-			"<i class='fa fa-sort fa-fw'></i> " . 
+			"<i class='itemSort fa fa-arrows fa-fw'></i> " . 
 			"<span class='itemValue'>$value</span>" . 
 			"<span class='itemLabel'>$label</span> " . 
 			"<a class='itemRemove' href='#'><i class='fa fa-trash'></i></a>" . 
