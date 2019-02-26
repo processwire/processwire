@@ -546,35 +546,42 @@ class WireHooks {
 		}
 
 		$argOpen = strpos($method, '(');
-		if($argOpen && strpos($method, ')') > $argOpen+1) {
-			// extract argument selector match string(s), arg 0: Something::something(selector_string)
-			// or: Something::something(1:selector_string, 3:selector_string) matches arg 1 and 3. 
-			list($method, $argMatch) = explode('(', $method, 2);
-			$argMatch = trim($argMatch, ') ');
-			if(strpos($argMatch, ':') !== false) {
-				// zero-based argument indexes specified, i.e. 0:template=product, 1:order_status
-				$args = preg_split('/\b([0-9]):/', trim($argMatch), -1, PREG_SPLIT_DELIM_CAPTURE);
-				if(count($args)) {
-					$argMatch = array();
-					array_shift($args); // blank
-					while(count($args)) {
-						$argKey = (int) trim(array_shift($args));
-						$argVal = trim(array_shift($args), ', ');
-						$argMatch[$argKey] = $argVal;
+		if($argOpen) { 
+			// arguments to match may be specified in method name
+			$argClose = strpos($method, ')'); 
+			if($argClose === $argOpen+1) {
+				// method just has a "()" which can be discarded
+				$method = rtrim($method, '() ');
+			} else if($argClose > $argOpen+1) {
+				// extract argument selector match string(s), arg 0: Something::something(selector_string)
+				// or: Something::something(1:selector_string, 3:selector_string) matches arg 1 and 3. 
+				list($method, $argMatch) = explode('(', $method, 2);
+				$argMatch = trim($argMatch, ') ');
+				if(strpos($argMatch, ':') !== false) {
+					// zero-based argument indexes specified, i.e. 0:template=product, 1:order_status
+					$args = preg_split('/\b([0-9]):/', trim($argMatch), -1, PREG_SPLIT_DELIM_CAPTURE);
+					if(count($args)) {
+						$argMatch = array();
+						array_shift($args); // blank
+						while(count($args)) {
+							$argKey = (int) trim(array_shift($args));
+							$argVal = trim(array_shift($args), ', ');
+							$argMatch[$argKey] = $argVal;
+						}
+					}
+				} else {
+					// just single argument specified, so argument 0 is assumed
+				}
+				if(is_string($argMatch)) $argMatch = array(0 => $argMatch);
+				foreach($argMatch as $argKey => $argVal) {
+					if(Selectors::stringHasSelector($argVal)) {
+						$selectors = $this->wire->wire(new Selectors());
+						$selectors->init($argVal);
+						$argMatch[$argKey] = $selectors;
 					}
 				}
-			} else {
-				// just single argument specified, so argument 0 is assumed
+				if(count($argMatch)) $options['argMatch'] = $argMatch;
 			}
-			if(is_string($argMatch)) $argMatch = array(0 => $argMatch);
-			foreach($argMatch as $argKey => $argVal) {
-				if(Selectors::stringHasSelector($argVal)) {
-					$selectors = $this->wire->wire(new Selectors());
-					$selectors->init($argVal);
-					$argMatch[$argKey] = $selectors;
-				}
-			}
-			if(count($argMatch)) $options['argMatch'] = $argMatch;
 		}
 		
 		$localHooks = $object->getLocalHooks();
