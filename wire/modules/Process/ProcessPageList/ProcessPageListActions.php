@@ -125,12 +125,14 @@ class ProcessPageListActions extends Wire {
 		if(!$locked && !$trash && !$noSettings && $statusEditable) {
 			if($page->publishable()) {
 				if($page->isUnpublished()) {
-					$extras['pub'] = array(
-						'cn'   => 'Publish',
-						'name' => $this->actionLabels['pub'],
-						'url'  => "$adminUrl?action=pub&id=$page->id",
-						'ajax' => true,
-					);
+					if(!$page->hasStatus(Page::statusIncomplete)) {
+						$extras['pub'] = array(
+							'cn' => 'Publish',
+							'name' => $this->actionLabels['pub'],
+							'url' => "$adminUrl?action=pub&id=$page->id",
+							'ajax' => true,
+						);
+					}
 				} else if(!$page->template->noUnpublish) {
 					$extras['unpub'] = array(
 						'cn'   => 'Unpublish',
@@ -282,7 +284,7 @@ class ProcessPageListActions extends Wire {
 			}
 			if($success) try {
 				if($needSave) $success = $page->save();
-				if(!$success) $message = sprintf($this->_('Error executing: %s', $message));
+				if(!$success) $message = sprintf($this->_('Error executing: %s'), $message);
 			} catch(\Exception $e) {
 				$success = false;
 				$message = $e->getMessage();

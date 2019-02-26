@@ -14,6 +14,7 @@
  * @property string $noticeUnknown
  * @property string $noticeLocked
  * @property string $noticeNoAccess
+ * @property string $noticeIncomplete
  * @property string $viewAction One of 'panel', 'modal', 'new', 'this' (see getViewActions method)
  * @property bool $useBookmarks
  * 
@@ -349,6 +350,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$this->set('noticeUnknown', $this->_("Unknown page")); // Init error: Unknown page
 		$this->set('noticeLocked', $this->_("This page is locked for edits")); // Init error: Page is locked
 		$this->set('noticeNoAccess', $this->_("You don't have access to edit")); // Init error: User doesn't have access
+		$this->set('noticeIncomplete', $this->_("This page might have one or more incomplete fields (attempt to save or publish for more info)")); // Init error: User doesn't have access
 		
 		$settings = $this->config->pageEdit;
 		if(is_array($settings)) $this->configSettings = array_merge($this->configSettings, $settings); 
@@ -539,6 +541,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			} else {
 				$this->error($this->noticeLocked); // Page locked error
 			}
+		} else if(!$this->isPost && $this->page->status(Page::statusIncomplete) && !$this->input->get('s')) {
+			$this->warning($this->noticeIncomplete); 
 		}
 
 		return $this->renderEdit();
@@ -582,7 +586,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 			$config = $this->config;
 			$file = $config->debug ? 'dropdown.js' : 'dropdown.min.js';
-			$config->scripts->add($config->urls->InputfieldSubmit . $file);
+			$config->scripts->add($config->urls('InputfieldSubmit') . $file);
 			
 			$input = "<input type='hidden' id='after-submit-action' name='_after_submit_action' value='' />";
 			$out = str_replace('</form>', "$input</form>", $out);
@@ -915,7 +919,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$submit2->attr('id', 'submit_save_unpublished');
 					$submit2->showInHeader();
 					$submit2->setSecondary();
-					if($this->session->clientWidth > 900) {
+					if($this->session->get('clientWidth') > 900) {
 						$submit2->attr('value', $this->_('Save + Keep Unpublished')); // Button: save unpublished
 					} else {
 						$submit2->attr('value', $saveLabel); // Button: save unpublished
@@ -1907,6 +1911,17 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 			foreach($this->notices as $notice) {
 				if($notice instanceof NoticeError) $formErrors++;
+			}
+		
+			// if any Inputfields threw errors during processing, give the page an 'incomplete' status
+			// so that it can later be identified the page may be missing something
+			if($formErrors && count($this->form->getErrors())) {
+				// add incomplete status when form had errors
+				$this->page->addStatus(Page::statusIncomplete);
+			} else if($this->page->hasStatus(Page::statusIncomplete)) {
+				// if no errors, remove incomplete status
+				$this->page->removeStatus(Page::statusIncomplete);
+				$this->message($this->_('Removed incomplete status because no errors reported during save'));
 			}
 
 			$isUnpublished = $this->page->hasStatus(Page::statusUnpublished);

@@ -185,6 +185,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 	const statusOn = 1;
 
 	/**
+	 * Reserved status
+	 * #pw-internal
+	 * 
+	 */
+	const statusReserved = 2;
+
+	/**
 	 * Indicates page is locked for changes (name: "locked")
 	 * 
 	 */
@@ -206,6 +213,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 
 	/**
 	 * Page has a globally unique name and no other pages may have the same name
+	 * #pw-internal
 	 * 
 	 */
 	const statusUnique = 32;
@@ -225,7 +233,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	const statusVersions = 128;
 
 	/**
+	 * Page might have incomplete data because there were errors when last saved interactively or may be missing required fields
+	 * #pw-internal
+	 * 
+	 */
+	const statusIncomplete = 256;
+
+	/**
 	 * Page is temporary. 1+ day old unpublished pages with this status may be automatically deleted (name: "temp"). 
+	 * Applies only if this status is combined with statusUnpublished. 
 	 * #pw-internal
 	 * 
 	 */
@@ -287,11 +303,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	static protected $statuses = array(
+		'reserved' => self::statusReserved,
 		'locked' => self::statusLocked,
 		'systemID' => self::statusSystemID,
 		'system' => self::statusSystem,
+		'unique' => self::statusUnique,
 		'draft' => self::statusDraft,
 		'versions' => self::statusVersions,
+		'incomplete' => self::statusIncomplete, 
 		'temp' => self::statusTemp,
 		'hidden' => self::statusHidden,
 		'unpublished' => self::statusUnpublished,
@@ -3712,7 +3731,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *  - `integer|string|array`: Status number(s) or status name(s) to set the current page status (same as $page->status = $value)
 	 * @param int|null $status If you specified `true` for first argument, optionally specify status value you want to use (if not the current).
 	 * @return int|array|Page If setting status, `$this` is returned. If getting status: current status or array of status names is returned.
-	 * @see Page::addStauts(), Page::removeStatus(), Page::hasStatus()
+	 * @see Page::addStatus(), Page::removeStatus(), Page::hasStatus()
 	 * 
 	 */
 	public function status($value = false, $status = null) {
