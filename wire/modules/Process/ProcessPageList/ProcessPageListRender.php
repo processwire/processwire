@@ -5,6 +5,7 @@
  * 
  * @method array getPageActions(Page $page)
  * @method string getPageLabel(Page $page, array $options = array())
+ * @method int getNumChildren(Page $page, $selector = null) For hooks only, do not call directly
  *
  */
 abstract class ProcessPageListRender extends Wire {
@@ -21,6 +22,7 @@ abstract class ProcessPageListRender extends Wire {
 	protected $options = array();
 	protected $useTrash = false;
 	protected $qtyType = '';
+	protected $numChildrenHook = false; // is ProcessPageListRender::numChildren() hooked?
 
 	public function __construct(Page $page, PageArray $children) {
 		$this->page = $page;
@@ -46,6 +48,7 @@ abstract class ProcessPageListRender extends Wire {
 		require_once(dirname(__FILE__) . '/ProcessPageListActions.php');
 		$this->actions = $this->wire(new ProcessPageListActions());
 		$this->actions->setActionLabels($this->actionLabels);
+		$this->numChildrenHook = $this->wire('hooks')->isMethodHooked($this, 'getNumChildren');
 	}
 	
 	public function setOption($key, $value) {
@@ -207,7 +210,7 @@ abstract class ProcessPageListRender extends Wire {
 	}
 
 	public function getMoreURL() {
-		if($this->limit && ($this->page->numChildren(1) > ($this->start + $this->limit))) {
+		if($this->limit && ($this->numChildren($this->page, 1) > ($this->start + $this->limit))) {
 			$start = $this->start + $this->limit;
 			return $this->config->urls->admin . "page/list/?&id={$this->page->id}&start=$start&render=" . $this->getRenderName();
 		}
@@ -220,6 +223,41 @@ abstract class ProcessPageListRender extends Wire {
 	
 	public function getUseTrash() {
 		return $this->useTrash; 
+	}
+
+	/**
+	 * Hook this method if you want to manipulate the numChildren count for pages
+	 * 
+	 * ~~~~~
+	 * $wire->addHookAfter('ProcessPageListRender::getNumChildren', function($event) {
+	 *   $page = $event->arguments(0);
+	 *   $selector = $event->arguments(1);
+	 *   $event->return = $page->numChildren($selector); // your implementation here
+	 * }); 
+	 * ~~~~~
+	 * 
+	 * See Page::numChildren() for details on arguments
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param Page $page
+	 * @param string|int|bool|null $selector
+	 * @return int
+	 * 
+	 */
+	protected function ___getNumChildren(Page $page, $selector = null) {
+		return $page->numChildren($selector);
+	}
+
+	/**
+	 * Return number of children for page
+	 * @param Page $page
+	 * @param string|int|bool|null $selector
+	 * @return int
+	 * 
+	 */
+	public function numChildren(Page $page, $selector = null) {
+		return $this->numChildrenHook ? $this->getNumChildren($page, $selector) : $page->numChildren($selector);
 	}
 
 }

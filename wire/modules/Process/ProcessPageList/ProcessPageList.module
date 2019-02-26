@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $showRootPage Whether root page (like home) should be shown.
@@ -24,6 +24,8 @@
  * 
  * @method string ajaxAction($action)
  * @method PageArray find($selectorString, Page $page)
+ * 
+ * @todo Option to configure whether "Pub" action should appear for non-superusers
  *
  */
 
@@ -194,12 +196,12 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		}
 
 		$p = $this->wire('page'); 
-		if($p->name == 'list' && $p->process == $this) {
+		if($p->name == 'list' && "$p->process" == "$this") {
 			// ensure that we use the page's title is always consistent in the admin (i.e. 'Pages' not 'Page List')
 			$p->title = $p->parent->title; 
 		}
 		
-		if($ajax && $this->id > 1 && $p->process == $this && $this->wire('input')->get('mode') != 'select') {
+		if($ajax && $this->id > 1 && "$p->process" == "$this" && $this->wire('input')->get('mode') != 'select') {
 			// remember last requested id
 			$this->wire('session')->setFor($this, 'lastID', $this->id);
 		}
@@ -262,7 +264,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 				foreach($this->openPage->parents() as $parent) {
 					if($parent->id > 1 && $parent->id != $this->id) $openPageIDs[] = $parent->id;
 				}
-			} else if(!$isAjax && $this->wire('page')->process == $this) {
+			} else if(!$isAjax && ((string) $this->wire('page')->process) == "$this") {
 				if($this->id) {
 					// leave openPageIDs as empty array
 				} else {
@@ -545,7 +547,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 				$url = $page->url();
 			}
 			
-			$numChildren = $id > 1 ? $page->numChildren : 0;
+			$numChildren = $id > 1 ? $renderer->numChildren($page) : 0;
 			$label = $renderer->getPageLabel($page, array('noTags' => true, 'noIcon' => true));
 			if(strlen($label) > $maxLabelLength) {
 				$label = substr($label, 0, $maxLabelLength); 
@@ -573,7 +575,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 				'edit' => $editable
 			);
 			
-			if($page->id > 1 && $page->numChildren) {
+			if($numChildren) {
 				$a['navJSON'] = $data['url'] . "?parent_id=$page->id";
 			}
 			

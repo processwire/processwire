@@ -64,7 +64,7 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 				$note = "&lt; " . $this->_("Trash open: drag pages below here to trash them"); // Message that appears next to the Trash page when open
 			}
 			$icons = array('trash-o'); // override any other icons
-			$numChildren = $page->numChildren(false);
+			$numChildren = $this->numChildren($page, false);
 			if($numChildren > 0 && !$this->superuser) {
 				// manually count quantity that are listable in the trash
 				$numChildren = 0;
@@ -81,7 +81,7 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			if($page->hasStatus(Page::statusTemp)) $icons[] = 'bolt';
 			if($page->hasStatus(Page::statusLocked)) $icons[] = 'lock';
 			if($page->hasStatus(Page::statusDraft)) $icons[] = 'paperclip';
-			$numChildren = $page->numChildren(1);
+			$numChildren = $this->numChildren($page, 1);
 			$numTotal = strpos($this->qtyType, 'total') !== false ? $page->numDescendants : $numChildren;
 		}
 		if(!$label) $label = $this->getPageLabel($page);
