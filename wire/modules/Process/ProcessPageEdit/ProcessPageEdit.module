@@ -541,7 +541,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			} else {
 				$this->error($this->noticeLocked); // Page locked error
 			}
-		} else if(!$this->isPost && $this->page->status(Page::statusIncomplete) && !$this->input->get('s')) {
+		} else if(!$this->isPost && $this->page->hasStatus(Page::statusIncomplete) && !$this->input->get('s')) {
 			$this->warning($this->noticeIncomplete); 
 		}
 
@@ -1623,9 +1623,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$statuses[Page::statusUnpublished] = $this->_('Unpublished: Not visible on site'); // Settings: Unpublished status checkbox label
 		}
 			
-		if($this->config->advanced && $this->user->isSuperuser()) {
-			$statuses[Page::statusSystemID] = "System: Non-deleteable and locked ID (status not removeable via API)";
-			$statuses[Page::statusSystem] = "System: Non-deleteable and locked ID, name, template, parent (status not removeable via API)"; 
+		if($this->user->isSuperuser()) {
+			// $statuses[Page::statusUnique] = sprintf($this->_('Unique: Name “%s” may not be used by any other page in the system'), $this->page->name); 
+			if($this->config->advanced) {
+				$statuses[Page::statusSystemID] = "System: Non-deleteable and locked ID (status not removeable via API)";
+				$statuses[Page::statusSystem] = "System: Non-deleteable and locked ID, name, template, parent (status not removeable via API)";
+			}
 		}
 
 		$value = array();
@@ -2258,9 +2261,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if($this->page->publishable()) $statusFlags[] = Page::statusUnpublished; 
 		if($this->user->hasPermission('page-lock', $this->page)) $statusFlags[] = Page::statusLocked;
 
-		if($this->config->advanced && $this->user->isSuperuser()) {
-			$statusFlags[] = Page::statusSystemID;
-			$statusFlags[] = Page::statusSystem; 
+		if($this->user->isSuperuser()) {
+			// $statusFlags[] = Page::statusUnique;
+			if($this->config->advanced) {
+				$statusFlags[] = Page::statusSystemID;
+				$statusFlags[] = Page::statusSystem;
+			}
 		}
 
 		foreach($statusFlags as $flag) {
