@@ -436,6 +436,7 @@ class PagesEditor extends Wire {
 			}
 		}
 
+		$this->pages->names()->checkNameConflicts($page);
 		if(!$this->savePageQuery($page, $options)) return false;
 		$result = $this->savePageFinish($page, $isNew, $options);
 		if($language) $user->language = $language; // restore language

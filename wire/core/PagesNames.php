@@ -3,9 +3,9 @@
 /**
  * ProcessWire Pages Names
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
- *
+ * 
  */ 
 
 class PagesNames extends Wire {
@@ -69,7 +69,6 @@ class PagesNames extends Wire {
 	 * @param Page $page
 	 * @param string $format
 	 * @return string Returns page name that was assigned
-	 * @throws WireException
 	 * 
 	 */
 	public function setupNewPageName(Page $page, $format = '') {
@@ -551,6 +550,7 @@ class PagesNames extends Wire {
 			$wheres[] = 'parent_id=:parent_id';
 			$binds[':parent_id'] = $parentID; 
 		}
+		
 		if($pageID) {
 			$wheres[] = 'id!=:id';
 			$binds[':id'] = $pageID;
@@ -652,6 +652,106 @@ class PagesNames extends Wire {
 	 */
 	public function untitledPageName() {
 		return $this->untitledPageName;
+	}
+	
+	/**
+	 * Does given page have a name that has a conflict/collision?
+	 * 
+	 * In multi-language environment this applies to default language only. 
+	 * 
+	 * @param Page $page Page to check
+	 * @return string|bool Returns string with conflict reason or boolean false if no conflict
+	 * @throws WireException If given invalid $options argument
+	 * @since 3.0.127
+	 * 
+	 */
+	public function pageNameHasConflict(Page $page) {
+		
+		$reason = '';
+		
+		$sql = "SELECT id, status, parent_id FROM pages WHERE name=:name AND id!=:id";
+		$query = $this->wire('database')->prepare($sql);
+		$query->bindValue(':name', $page->name);
+		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+		
+		if(!$query->rowCount()) {
+			$query->closeCursor();
+			return false;
+		}
+		
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			if($row['status'] & Page::statusUnique) {
+				// name is already required to be unique globally
+				$reason = sprintf($this->_("Another page is using name “%s” and requires it to be globally unique"), $page->name);
+			}
+			if((int) $row['parent_id'] === $page->parent_id) {
+				// name already consumed by another page with same parent
+				$reason = sprintf($this->_('Another page with same parent is already using name “%s”'), $page->name);
+			}
+			if($reason) break;
+		}
+		
+		// page requires that it be the only one with this name, so if others have it, then disallow
+		if(!$reason && $page->hasStatus(Page::statusUnique)) {
+			$reason = sprintf($this->_('Cannot use name “%s” as globally unique because it is already used by other page(s)'), $page->name);
+		}
+		
+		$query->closeCursor();
+		
+		return $reason ? $reason : false;
+	}
+
+	/**
+	 * Check given page’s name for conflicts and increment as needed while also triggering a warning notice
+	 * 
+	 * @param Page $page
+	 * @since 3.0.127
+	 * 
+	 */
+	public function checkNameConflicts(Page $page) {
+		
+		$checkName = false;
+		$checkStatus = false;
+		$namePrevious = $page->namePrevious;
+		$statusPrevious = $page->statusPrevious;
+		$isNew = $page->isNew();
+		$nameChanged = !$isNew && $namePrevious !== null && $namePrevious !== $page->name;
+
+		if($isNew || $nameChanged) {
+			// new page or changed name
+			$checkName = true;
+		} else if($statusPrevious !== null && $page->hasStatus(Page::statusUnique) && !($statusPrevious & Page::statusUnique)) {
+			// page just received 'unique' status
+			$checkStatus = true;
+		}
+		
+		if(!$checkName && !$checkStatus) return;
+	
+		do {
+			
+			$conflict = $this->pageNameHasConflict($page);
+			if(!$conflict) break;
+			
+			$this->warning($conflict);
+			
+			if($checkName) {
+				if($nameChanged) {
+					// restore previous name
+					$page->name = $page->namePrevious;
+					$nameChanged = false;
+				} else {
+					// increment name
+					$page->name = $this->incrementName($page->name);
+				}
+				
+			} else if($checkStatus) {
+				// remove 'unique' status
+				$page->removeStatus(Page::statusUnique);
+				break;
+			}
+			
+		} while($conflict);
 	}
 	
 }

@@ -125,7 +125,7 @@ class ProcessPageListActions extends Wire {
 		if(!$locked && !$trash && !$noSettings && $statusEditable) {
 			if($page->publishable()) {
 				if($page->isUnpublished()) {
-					if(!$page->hasStatus(Page::statusIncomplete)) {
+					if(!$page->hasStatus(Page::statusFlagged)) {
 						$extras['pub'] = array(
 							'cn' => 'Publish',
 							'name' => $this->actionLabels['pub'],

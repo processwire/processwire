@@ -168,24 +168,21 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * Status levels 1024 and above are excluded from search by the core. Status levels 16384 and above are runtime only and not 
 	 * stored in the DB unless for logging or page history.
 	 *
-	 * If the under 1024 status flags are expanded in the future, it must be ensured that the combined value of the searchable flags 
-	 * never exceeds 1024, otherwise issues in Pages::find() will need to be considered. 
-	 *
 	 * The status levels 16384 and above can safely be changed as needed as they are runtime only. 
 	 * 
-	 * Please note that statuses 2, 32, 256, and 4096 are reserved for future use.
+	 * Please note that all other statuses are reserved for future use.
 	 *
 	 */
 
 	/**
-	 * Base status for pages in use (assigned automatically)
+	 * Base status for pages, represents boolean true (1) or false (0) as flag with other statuses, for internal use purposes only
 	 * #pw-internal
 	 * 
 	 */
 	const statusOn = 1;
-
+	
 	/**
-	 * Reserved status
+	 * Reserved status (internal use)
 	 * #pw-internal
 	 * 
 	 */
@@ -226,18 +223,30 @@ class Page extends WireData implements \Countable, WireMatchable {
 	const statusDraft = 64;
 
 	/**
-	 * Page has version data available (name: "versions").
+	 * Page is flagged as incomplete, needing review, or having some issue
+	 * ProcessPageEdit uses this status to indicate an error message occurred during last internactive save
 	 * #pw-internal
+	 * @since 3.0.127
 	 * 
 	 */
-	const statusVersions = 128;
-
+	const statusFlagged = 128;
+	const statusIncomplete = 128; // alias of statusFlagged
+	
 	/**
-	 * Page might have incomplete data because there were errors when last saved interactively or may be missing required fields
+	 * Deprecated, was never used, but kept in case any modules referenced it
 	 * #pw-internal
+	 * @deprecated
 	 * 
 	 */
-	const statusIncomplete = 256;
+	const statusVersions = 128; 
+	
+	/**
+	 * Reserved for internal use 
+	 * #pw-internal
+	 * @since 3.0.127
+	 *
+	 */
+	const statusInternal = 256;
 
 	/**
 	 * Page is temporary. 1+ day old unpublished pages with this status may be automatically deleted (name: "temp"). 
@@ -309,8 +318,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'system' => self::statusSystem,
 		'unique' => self::statusUnique,
 		'draft' => self::statusDraft,
-		'versions' => self::statusVersions,
-		'incomplete' => self::statusIncomplete, 
+		'flagged' => self::statusFlagged, 
+		'internal' => self::statusInternal,
 		'temp' => self::statusTemp,
 		'hidden' => self::statusHidden,
 		'unpublished' => self::statusUnpublished,
@@ -318,6 +327,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'deleted' => self::statusDeleted,
 		'systemOverride' => self::statusSystemOverride, 
 		'corrupted' => self::statusCorrupted, 
+		'max' => self::statusMax,
+		'on' => self::statusOn,
 		);
 
 	/**
@@ -1884,9 +1895,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 			if($this->settings['status'] & Page::statusSystemID) $value = $value | Page::statusSystemID;
 			if($this->settings['status'] & Page::statusSystem) $value = $value | Page::statusSystem; 
 		}
-		if($this->settings['status'] != $value) {
+		if($this->settings['status'] != $value && $this->isLoaded) {
 			$this->trackChange('status', $this->settings['status'], $value);
-			$this->statusPrevious = $this->settings['status'];
+			if($this->statusPrevious === null) {
+				$this->statusPrevious = $this->settings['status'];
+			}
 		}
 		$this->settings['status'] = $value;
 		if($value & Page::statusDeleted) {
@@ -3744,6 +3757,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$names = array();
 		$remainder = $status;
 		foreach(self::$statuses as $name => $value) {
+			if($value <= self::statusOn || $value >= self::statusMax) continue;
 			if($status & $value) {
 				$names[$value] = $name;
 				$remainder = $remainder & ~$value;

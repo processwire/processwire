@@ -525,6 +525,21 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			//'parent' => $this->_('parent'), 
 			); 
 		
+		$ignoreStatuses = array(
+			Page::statusOn, 
+			Page::statusReserved, 
+			Page::statusSystem, 
+			Page::statusSystemID, 
+		);
+		
+		foreach(Page::getStatuses() as $name => $status) {
+			if($status > Page::statusTrash) continue;
+			if($status === Page::statusDraft && !$this->wire('modules')->isInstalled('ProDrafts')) continue;
+			if(in_array($status, $ignoreStatuses)) continue;
+			if(isset($this->systemFields['status']['options'][$name])) continue; // use existing label
+			$this->systemFields['status']['options'][$name] = ucfirst($name);
+		}
+		
 		if(!count($users)) {
 			unset($this->systemFields['modified_users_id']['options']);
 			unset($this->systemFields['created_users_id']['options']); 

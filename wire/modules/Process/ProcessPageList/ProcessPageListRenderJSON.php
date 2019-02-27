@@ -81,7 +81,7 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			if($page->hasStatus(Page::statusTemp)) $icons[] = 'bolt';
 			if($page->hasStatus(Page::statusLocked)) $icons[] = 'lock';
 			if($page->hasStatus(Page::statusDraft)) $icons[] = 'paperclip';
-			if($page->hasStatus(Page::statusIncomplete)) $icons[] = 'exclamation-triangle';
+			if($page->hasStatus(Page::statusFlagged)) $icons[] = 'exclamation-triangle';
 			$numChildren = $this->numChildren($page, 1);
 			$numTotal = strpos($this->qtyType, 'total') !== false ? $page->numDescendants : $numChildren;
 		}

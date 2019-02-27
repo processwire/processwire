@@ -209,14 +209,8 @@ class PageFinder extends Wire {
 				$value = $selector->value; 
 				if(!ctype_digit("$value")) {
 					// allow use of some predefined labels for Page statuses
-					if($value == 'hidden') $selector->value = Page::statusHidden;
-						else if($value == 'unpublished') $selector->value = Page::statusUnpublished;
-						else if($value == 'draft') $selector->value = Page::statusDraft;
-						else if($value == 'versions') $selector->value = Page::statusVersions;
-						else if($value == 'locked') $selector->value = Page::statusLocked;
-						else if($value == 'trash') $selector->value = Page::statusTrash;
-						else if($value == 'max') $selector->value = Page::statusMax;
-					else $selector->value = 1;
+					$statuses = Page::getStatuses();
+					$selector->value = isset($statuses[$value]) ? $statuses[$value] : 1;
 				}
 				$not = false;
 				if(($selector->operator == '!=' && !$selector->not) || ($selector->not && $selector->operator == '=')) {
@@ -229,8 +223,8 @@ class PageFinder extends Wire {
 					$selectors[$key] = $this->wire(new SelectorBitwiseAnd('status', $selector->value));
 					
 				} else {
-					$not = $selector->not;
 					// some other operator like: >, <, >=, <=
+					$not = $selector->not;
 				}
 				if(!$not && (is_null($maxStatus) || $selector->value > $maxStatus)) $maxStatus = (int) $selector->value; 
 				

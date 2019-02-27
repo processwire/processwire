@@ -350,7 +350,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$this->set('noticeUnknown', $this->_("Unknown page")); // Init error: Unknown page
 		$this->set('noticeLocked', $this->_("This page is locked for edits")); // Init error: Page is locked
 		$this->set('noticeNoAccess', $this->_("You don't have access to edit")); // Init error: User doesn't have access
-		$this->set('noticeIncomplete', $this->_("This page might have one or more incomplete fields (attempt to save or publish for more info)")); // Init error: User doesn't have access
+		$this->set('noticeIncomplete', $this->_("This page might have one or more incomplete fields (attempt to save or publish for more info)"));
 		
 		$settings = $this->config->pageEdit;
 		if(is_array($settings)) $this->configSettings = array_merge($this->configSettings, $settings); 
@@ -541,7 +541,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			} else {
 				$this->error($this->noticeLocked); // Page locked error
 			}
-		} else if(!$this->isPost && $this->page->hasStatus(Page::statusIncomplete) && !$this->input->get('s')) {
+		} else if(!$this->isPost && $this->page->hasStatus(Page::statusFlagged) && !$this->input->get('s')) {
 			$this->warning($this->noticeIncomplete); 
 		}
 
@@ -1607,25 +1607,28 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$status = (int) $this->page->status;
 		$statuses = array(); 
+		$debug = $this->config->debug;
+		$advanced = $this->config->advanced;
 		
 		/** @var InputfieldCheckboxes $field */
 		$field = $this->modules->get('InputfieldCheckboxes');
 		$field->attr('name', 'status');
 		$field->icon = 'sliders';
-		
+
+		if(!$this->page->template->noUnpublish && $this->page->publishable()) {
+			$statuses[Page::statusUnpublished] = $this->_('Unpublished: Not visible on site'); // Settings: Unpublished status checkbox label
+		}
 		if($this->user->hasPermission('page-hide', $this->page)) {
 			$statuses[Page::statusHidden] = $this->_('Hidden: Excluded from lists and searches'); // Settings: Hidden status checkbox label
 		}
 		if($this->user->hasPermission('page-lock', $this->page)) {
 			$statuses[Page::statusLocked] = $this->_('Locked: Not editable'); // Settings: Locked status checkbox label
 		}
-		if(!$this->page->template->noUnpublish && $this->page->publishable()) {
-			$statuses[Page::statusUnpublished] = $this->_('Unpublished: Not visible on site'); // Settings: Unpublished status checkbox label
-		}
 			
 		if($this->user->isSuperuser()) {
-			// $statuses[Page::statusUnique] = sprintf($this->_('Unique: Name “%s” may not be used by any other page in the system'), $this->page->name); 
-			if($this->config->advanced) {
+			$statuses[Page::statusUnique] = sprintf($this->_('Unique: Require page name “%s” to be globally unique'), $this->page->name) . 
+				($this->wire('languages') ?  ' ' . $this->_('(in default language only)') : '');
+			if($advanced) {
 				$statuses[Page::statusSystemID] = "System: Non-deleteable and locked ID (status not removeable via API)";
 				$statuses[Page::statusSystem] = "System: Non-deleteable and locked ID, name, template, parent (status not removeable via API)";
 			}
@@ -1635,13 +1638,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		foreach($statuses as $s => $label) {
 			if($s & $status) $value[] = $s;
+			if(strpos($label, ': ')) $label = str_replace(': ', ': [span.detail]', $label) . '[/span]';
 			$field->addOption($s, $label);
 		}
 		
 		$field->attr('value', $value); 
 		$field->label = $this->_('Status'); // Settings: Status field label
 		
-		if($this->config->debug) $field->notes = $this->page->statusStr;
+		if($debug) $field->notes = $this->page->statusStr;
 
 		return $field; 
 	}
@@ -1916,15 +1920,15 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				if($notice instanceof NoticeError) $formErrors++;
 			}
 		
-			// if any Inputfields threw errors during processing, give the page an 'incomplete' status
+			// if any Inputfields threw errors during processing, give the page a 'flagged' status
 			// so that it can later be identified the page may be missing something
 			if($formErrors && count($this->form->getErrors())) {
-				// add incomplete status when form had errors
-				$this->page->addStatus(Page::statusIncomplete);
-			} else if($this->page->hasStatus(Page::statusIncomplete)) {
+				// add flagged status when form had errors
+				$this->page->addStatus(Page::statusFlagged);
+			} else if($this->page->hasStatus(Page::statusFlagged)) {
 				// if no errors, remove incomplete status
-				$this->page->removeStatus(Page::statusIncomplete);
-				$this->message($this->_('Removed incomplete status because no errors reported during save'));
+				$this->page->removeStatus(Page::statusFlagged);
+				$this->message($this->_('Removed flagged status because no errors reported during save'));
 			}
 
 			$isUnpublished = $this->page->hasStatus(Page::statusUnpublished);
@@ -2262,7 +2266,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if($this->user->hasPermission('page-lock', $this->page)) $statusFlags[] = Page::statusLocked;
 
 		if($this->user->isSuperuser()) {
-			// $statusFlags[] = Page::statusUnique;
+			$statusFlags[] = Page::statusUnique;
 			if($this->config->advanced) {
 				$statusFlags[] = Page::statusSystemID;
 				$statusFlags[] = Page::statusSystem;
