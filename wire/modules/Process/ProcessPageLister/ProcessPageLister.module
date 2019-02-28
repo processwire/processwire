@@ -1263,7 +1263,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			// count
 			$value = $value->count();
 
-		} else if($field && $field->type && $this->wire('hooks')->isHooked($field->type->className() . '::markupValue()')) {
+		} else if($field && $field->type && $this->wire('hooks')->isMethodHooked($field->type->className(), 'markupValue')) {
 			// if the markupValue method is hooked, let it have control
 			if($subname == 'data') $subname = '';
 			$value = $field->type->markupValue($p, $field, $value, $subname);
