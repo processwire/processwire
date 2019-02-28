@@ -307,6 +307,18 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		'editCrumbs' => false,
 	);
 
+	/**
+	 * Other core page classes
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $otherCorePageClasses = array(
+		'User',	
+		'Role',
+		'Permission',
+		'Language'
+	);
 	
 	/***********************************************************************************************************************
 	 * METHODS
@@ -911,8 +923,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			if($this->page->viewable() && !$this->requestModal) $this->buildFormView($this->getViewUrl()); 
 	
 			if($this->page->hasStatus(Page::statusUnpublished)) {
-	
-				if(wireClassName($this->page, false) == 'Page') {
+				$pageClassName = wireClassName($this->page, false); 
+				$publishable = $this->page->publishable();
+				if($publishable && (in_array($pageClassName, $this->otherCorePageClasses) || $this->page->template->noUnpublish)) {
+					// Do not show a button allowing page to remain unpublished for User, Permission, Role, Language or
+					// if the page's template indicates it cannot be unpublished
+				} else {
 					/** @var InputfieldSubmit $submit2 */
 					$submit2 = $this->modules->get('InputfieldSubmit');
 					$submit2->attr('name', 'submit_save');
@@ -926,7 +942,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					}
 				}
 	
-				if($this->page->publishable()) {
+				if($publishable) {
 					$saveName = 'submit_publish';
 					$saveLabel = $this->_("Publish"); // Button: publish
 				} else {
