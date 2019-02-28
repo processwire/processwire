@@ -62,6 +62,11 @@ class ProcessModule extends Process {
 					'navJSON' => 'navJSON/?install=1',
 				),
 				array(
+					'url' => '?new#tab_new_modules',
+					'label' => 'New',
+					'icon' => 'plus',
+				),
+				array(
 					'url' => '?reset=1',
 					'label' => 'Refresh',
 					'icon' => 'refresh',
