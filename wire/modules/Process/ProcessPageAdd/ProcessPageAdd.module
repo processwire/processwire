@@ -1046,7 +1046,6 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		if(!$this->isAllowedTemplate($template)) return false; 
 		$page->addStatus(Page::statusUnpublished); 
 		$page->addStatus(Page::statusTemp); // ProcessPageEdit will remove this status the first time the page is saved
-		$page->setEditor($this->editor); 
 	
 		// if languages are in use, make the new page inherit the parent's language status (active vs. inactive)
 		$languages = $template->getLanguages();
@@ -1057,7 +1056,8 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		}
 
 		try {
-			$this->wire('pages')->save($page); 
+			$this->wire('pages')->save($page);
+			$this->createdPageMessage($page);
 
 		} catch(\Exception $e) {
 			$this->error($e->getMessage()); 
@@ -1068,14 +1068,15 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			$parent->template->childNameFormat = $nameFormatTemplate; // restore original name format
 		}
 
-		if($page->id) { 
-			$this->createdPageMessage($page); 
-			$this->session->redirect("../edit/?id=$page->id&new=1" . ($this->wire('input')->get('modal') ? '&modal=1' : '')); 
+		if($page->id) {
+			// allow for classes descending Page to redirect to alternate editor if $this->editor is not the right kind
+			$page->setEditor($this->editor); 
+			// redirect to edit the page
+			$this->session->redirect("../edit/?id=$page->id&new=1" . ($this->wire('input')->get('modal') ? '&modal=1' : ''));
+			return true;
 		} else {
 			return false;
 		}
-		
-		return true;
 	}
 
 	/**
