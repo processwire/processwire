@@ -3,7 +3,7 @@
 /**
  * ProcessWire Page List Process
  *
- * Generates the ajax/js hierarchal page lists used throughout ProcessWire
+ * Generates the ajax/js hierarchical page lists used throughout ProcessWire
  * 
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
@@ -40,7 +40,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page List',
-			'summary' => 'List pages in a hierarchal tree structure',
+			'summary' => 'List pages in a hierarchical tree structure',
 			'version' => 122,
 			'permanent' => true,
 			'permission' => 'page-edit',
@@ -326,7 +326,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	}
 
 	/**
-	 * Get the appropriate PageListRender classs
+	 * Get the appropriate PageListRender class
 	 * 
 	 * @param Page $page
 	 * @param null|int $limit
