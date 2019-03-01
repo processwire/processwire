@@ -147,6 +147,10 @@ class PagesLoader extends Wire {
 						foreach($a as $k => $v) $a[$k] = (int) $v;
 						$value = $this->getById($a, $loadOptions);
 					}
+				} else if(!Selectors::stringHasOperator($selector)) {
+					if($this->wire('sanitizer')->pageNameUTF8($selector) === $selector) {
+						$selector = "name=$selector";
+					}
 				}
 			}
 		}

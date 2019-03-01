@@ -386,6 +386,20 @@ class ProcessPageView extends Process {
 				}
 			}
 			return $page; 
+		} else {
+			// check for globally unique page which can redirect
+			$trit = trim($it, '/');
+			$spit = $this->wire('sanitizer')->pageNameUTF8($trit);
+			if($trit === $spit) {
+				// one segment off root
+				$spit = $this->wire('sanitizer')->selectorValue($spit);
+				$page = $this->wire('pages')->get("name=$spit, status=" . Page::statusUnique);
+				if($page->id && $page->viewable()) {
+					$this->redirectURL = $page->url;
+				} else {
+					$page = null;
+				}
+			}
 		}
 
 		$this->requestURL = $it; 
