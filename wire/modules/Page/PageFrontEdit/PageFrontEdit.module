@@ -223,7 +223,17 @@ class PageFrontEdit extends WireData implements Module {
 		if(!$this->editorAllowed) return false;
 		if(!$this->inlineSupported($field)) return false;
 		// if(!in_array($field->id, $this->inlineEditFields) && $field->id != $this->inlineEditField) return false;
-		if(!$this->wire('user')->hasPermission('page-edit-front', $page)) return false;
+		/** @var User $user */
+		$user = $this->wire('user');
+		if($page->className() != 'Page' && wireInstanceOf($page, 'RepeaterPage')) {
+			/** @var RepeaterPage $page */
+			$forPage = $page->getForPage();
+			$forField = $page->getForField();
+			if(!$user->hasPermission('page-edit-front', $forPage)) return false;
+			if(!$forPage->editable($forField)) return false;
+		} else {
+			if(!$user->hasPermission('page-edit-front', $page)) return false;
+		}
 		if(!$page->editable($field)) return false;
 		return true;
 	}
@@ -964,7 +974,9 @@ class PageFrontEdit extends WireData implements Module {
 		} else {
 			// okay to make edits
 			try {
-				$this->wire('session')->CSRF->validate();
+				/** @var Session $session */
+				$session = $this->wire('session');
+				$session->CSRF->validate();
 				$data = $this->inlineProcessSaveEdits($fields, $data);
 			} catch(WireCSRFException $e) {
 				$data['error'] = "Failed CSRF check";	

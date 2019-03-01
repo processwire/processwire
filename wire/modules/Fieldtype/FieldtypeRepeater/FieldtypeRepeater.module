@@ -119,28 +119,53 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$template->set('pageClass', $class); 
 			$template->save();
  		}
+ 
+ 		/** @var Page $page */
+ 		$page = $this->wire('page');
  		
- 		$process = $this->wire('page')->process;
+ 		/** @var Process|null $process */
+ 		$process = $page->process;
+ 		
+		/** @var User $user */
+		$user = $this->wire('user');
 		
-		if($process == 'ProcessPageEdit' || $process == 'ProcessProfile') {
-			
+		/** @var Config $config */
+		$config = $this->wire('config');
+		
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+ 		
+		$inEditor = $process == 'ProcessPageEdit' || $process == 'ProcessProfile';
+		$isSuperuser = $user->isSuperuser();
+		
+		if($inEditor) {
+			// ProcessPageEdit or ProcessProfile
 			$this->addHookBefore('ProcessPageEdit::ajaxSave', $this, 'hookProcessPageEditAjaxSave');
-			
-			if($this->wire('config')->ajax) {
-				// handle scenario of repeater within repeater field
-				$fieldName = $this->wire('input')->get('field');
-				$pageID = (int) $this->wire('input')->get('id');
-				if($pageID && strpos($fieldName, '_repeater') && preg_match('/^(.+)_repeater\d+$/', $fieldName, $matches)) {
-					$editPage = $this->wire('pages')->get($pageID);
-					if($editPage->id && strpos($editPage->template->name, self::templateNamePrefix) === 0) {
-						// update field name to exclude the _repeater1234 part at the end, so that PageEdit recognizes it
-						$this->wire('input')->get->field = $matches[1];
-					}
+		}
+		
+		if($inEditor && $config->ajax) {
+			// handle scenario of repeater within repeater field
+			$fieldName = $input->get('field');
+			$pageID = (int) $input->get('id');
+			if($pageID && strpos($fieldName, '_repeater') && preg_match('/^(.+)_repeater\d+$/', $fieldName, $matches)) {
+				$editPage = $this->wire('pages')->get($pageID);
+				if($editPage->id && strpos($editPage->template->name, self::templateNamePrefix) === 0) {
+					// update field name to exclude the _repeater1234 part at the end, so that PageEdit recognizes it
+					$input->get->__set('field', $matches[1]);
 				}
 			}
-			if(!$this->wire('user')->isSuperuser()) {
-				$this->addHookAfter('PagePermissions::pageEditable', $this, 'hookPagePermissionsPageEditableAjax');
+		}
+		
+		if(!$inEditor && !$user->isGuest() && !$isSuperuser && $user->hasPermission('page-edit')) {
+			// allow for front-end editor to also trigger an inEditor=true condition
+			if(strpos($page->url, $config->urls->admin) === false && $page->editable()) {
+				if($this->wire('modules')->isInstalled('PageFrontEdit')) $inEditor = true;
 			}
+		}
+	
+		if($inEditor && !$isSuperuser) {
+			// need an extra hook to handle permissions
+			$this->addHookAfter('PagePermissions::pageEditable', $this, 'hookPagePermissionsPageEditableAjax');
 		}
 		
 		$this->addHookBefore('PageFinder::getQuery', $this, 'hookPageFinderGetQuery'); 
