@@ -148,6 +148,8 @@
 			$langWrapper = $textarea.parents('.InputfieldTable_langTabs').find('li.ui-state-active a')
 			if($langWrapper.length && typeof $langWrapper.data('lang') != "undefined") {
 				modalUrl += "&lang=" + $langWrapper.data('lang');
+			} else if(jQuery('#pw-edit-lang').length) {
+				modalUrl += "&lang=" + jQuery('#pw-edit-lang').val(); // front-end editor
 			}
 		}
 		
