@@ -337,13 +337,17 @@ var ProcessWireAdmin = {
 						
 						if(this.url == 'navJSON') {
 							// click triggers another navJSON load
-						} else {
-							var url = this.url.indexOf('/') === 0 ? this.url : data.url + this.url;
+						} else if(this.url.indexOf('/') === 0) {
+							url = this.url;
+						} else if(this.url.length) {
+							url = data.url + this.url;
 						}
 						
 						var $li = $("<li class='ui-menu-item'></li>"); 
-						var $a = $("<a href='" + url + "'>" + icon + this.label + "</a>");
+						var $a = $("<a>" + icon + this.label + "</a>");
 						var $ulSub = null;
+						
+						if(url.length) $a.attr('href', url);
 					
 						if(this.navJSON) {
 							$a.attr('data-json', this.navJSON).addClass('pw-has-items pw-has-ajax-items');

@@ -544,7 +544,8 @@ class ProcessPageList extends Process implements ConfigurableModule {
 				$url = $page->editUrl();
 				$editable = true;
 			} else if($page->viewable()) {
-				$url = $page->url();
+				// do not show view URLs per #818
+				// $url = $page->url();
 			}
 			
 			$numChildren = $id > 1 ? $renderer->numChildren($page) : 0;
