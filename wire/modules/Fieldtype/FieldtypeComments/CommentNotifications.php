@@ -343,7 +343,7 @@ class CommentNotifications extends Wire {
 		);
 
 		if($fieldtype->updateComment($page, $field, $comment, $properties)) {
-			$info['message'] = "Updated comment $comment->id to '$action'";
+			$info['message'] = sprintf($this->_('Updated comment %d to “%s”'), $comment->id, $action);
 			$info['success'] = true; 
 			$this->wire('log')->message($info['message']);
 		} else {
