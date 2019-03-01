@@ -251,13 +251,21 @@ class PagesNames extends Wire {
 			$format = empty($options['format']) ? '' : $options['format'];
 		}
 		
+		/** @var Languages|null $languages */
+		$languages = $this->wire('languages');
+		
 		$options = array_merge($defaults, $options);
 		if(!strlen($format)) $format = $this->defaultPageNameFormat($page);
 		$format = trim($format);
+		$formatType = '';
+		$defaultDateFormat = 'ymdHis';
 		$name = '';
 		
-		if($options['language']) {
-			$this->wire('languages')->setLanguage($options['language']);	
+		if($languages && $options['language']) {
+			$languages->setLanguage($options['language']); // receives language object, ID or name
+			$language = $languages->getLanguage(); // always gets actual Language object
+		} else {
+			$language = null;
 		}
 		
 		if($format === 'title' && !strlen(trim((string) $page->title))) {
@@ -267,6 +275,7 @@ class PagesNames extends Wire {
 		if($format === 'title') {
 			// title	
 			$name = trim((string) $page->title);
+			$formatType = 'field';
 			
 		} else if($format === 'random') {
 			// globally unique randomly generated page name
@@ -278,7 +287,7 @@ class PagesNames extends Wire {
 			
 		} else if($format === 'untitled-time') {
 			// untitled with datetime, i.e. “untitled-0yymmddhhmmss” (note leading 0 differentiates from increment)
-			$dateStr = date('ymdHis');
+			$dateStr = date($defaultDateFormat);
 			$name = $this->untitledPageName() . '-0' . $dateStr;
 
 		} else if(strpos($format, '}')) {
@@ -288,26 +297,57 @@ class PagesNames extends Wire {
 		} else if(strpos($format, '|')) {
 			// field names separated by "|" until one matches
 			$name = $page->getUnformatted($format);
+			$formatType = 'field'; // Page::hasField() accepts pipes
 
 		} else if(strpos($format, 'date:') === 0) {
 			// specified date format
 			list(, $format) = explode('date:', $format);
 			if(empty($format)) $format = 'Y-m-d H:i:s';
 			$name = wireDate(trim($format));
+			$formatType = 'date';
 
 		} else if(strpos($format, ' ') !== false || strpos($format, '/') !== false) {
 			// date assumed when spaces or slashes present in format
 			$name = wireDate($format);
+			$formatType = 'date';
 
 		} else if($this->wire('sanitizer')->fieldName($format) === $format) {
 			// single field name or predefined string
 			// this can also return null, which falls back to if() statement below
 			$name = (string) $page->getUnformatted($format);
+			$formatType = 'field';
 		}
 
 		if(!strlen($name)) {
-			// predefined string that is not a field name
-			$name = $format;
+			// requested format did not produce a page name, so now fall-back to something else.
+			// we either have a field name or some predefined string that is not a field name.
+			
+			if($formatType === 'field' && $page->hasField($format)) {
+				// format involves a field name that is valid for the page
+				
+				// restore previous language if we had set one
+				if($language) $languages->unsetLanguage();
+
+				// if requested in some other language, see if we can get it in default language
+				if($language && !$language->isDefault()) {
+					$name = $this->pageNameFromFormat($page, $format, array('language' => $languages->getDefault())); 
+				}
+
+				// fallback to untitled format if fields required are not present
+				if(!strlen($name)) {
+					$name = $this->pageNameFromFormat($page, 'untitled'); // no options intended
+				}
+
+				// return now to bypass everything that follows since we went recursive
+				return $name; 
+				
+			} else if($formatType === 'date' && $format !== $defaultDateFormat) {
+				// if given date format did not resolve to anything, try in our default date format 
+				$name = $this->pageNameFromFormat($page, $defaultDateFormat);
+				
+			} else {
+				$name = $format;
+			}
 		}
 
 		if(strlen($name) > $this->nameMaxLength) $name = $this->adjustNameLength($name);
@@ -316,9 +356,7 @@ class PagesNames extends Wire {
 		$sanitizer = $this->wire('sanitizer');
 		$name = $utf8 ? $sanitizer->pageNameUTF8($name) : $sanitizer->pageName($name, Sanitizer::translate);
 		
-		if($options['language']) {
-			$this->wire('languages')->unsetLanguage();
-		}
+		if($language) $languages->unsetLanguage();
 
 		return $name;
 	}
