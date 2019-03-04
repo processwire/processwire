@@ -723,9 +723,9 @@ function InputfieldColumnWidths($target) {
 			consoleLog('Adjusting ' + $item.attr('id') + ' from ' + h + ' to ' + maxColHeight); 
 			var $spacer = $("<div class='maxColHeightSpacer'></div>");
 			$container.append($spacer);
-			$container.hide();
+			// $container.hide(); // removed per #124
 			$spacer.height(pad);
-			$container.show();
+			// $container.show(); // removed per #124
 		}
 	}
 	
