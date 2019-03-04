@@ -136,7 +136,7 @@ class PageFrontEdit extends WireData implements Module {
 		if($page->template == 'admin') return;
 		
 		$config = $this->wire('config');
-		$this->addHook('Page::edit', $this, 'hookPageEditor');
+		$this->addHookBefore('Page::edit', $this, 'hookPageEditor');
 		$this->addHook('Page::editor', $this, 'hookPageEditor');
 
 		if(isset($_GET['livepreview'])) return; // PWPD
@@ -206,9 +206,7 @@ class PageFrontEdit extends WireData implements Module {
 		if(!$this->inlineEditorActive || !$this->editorAllowed) return false;
 		if(!in_array($field->id, $this->inlineEditFields) && $field->id != $this->inlineEditField) return false;
 		if($this->inlineLimitPage && $page->id != $this->page->id && in_array($field->id, $this->inlineEditFields)) return false;
-		if(!$this->wire('user')->hasPermission('page-edit-front', $page)) return false;
-		if(!$page->editable($field)) return false;
-		return true;
+		return $this->isEditable($page, $field); 
 	}
 	
 	/**
@@ -223,6 +221,18 @@ class PageFrontEdit extends WireData implements Module {
 		if(!$this->editorAllowed) return false;
 		if(!$this->inlineSupported($field)) return false;
 		// if(!in_array($field->id, $this->inlineEditFields) && $field->id != $this->inlineEditField) return false;
+		return $this->isEditable($page, $field);
+	}
+
+	/**
+	 * Is the given page and field front-end editable?
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool
+	 * 
+	 */
+	protected function isEditable(Page $page, Field $field) {
 		/** @var User $user */
 		$user = $this->wire('user');
 		if($page->className() != 'Page' && wireInstanceOf($page, 'RepeaterPage')) {
@@ -290,6 +300,7 @@ class PageFrontEdit extends WireData implements Module {
 		$arg2 = $event->arguments(1);
 		$arg3 = $event->arguments(2);
 		$livePreview = isset($_GET['livepreview']); // PWPD
+		$event->replace = true; 
 
 		if(is_null($arg1)) {
 			// no arguments specified
@@ -781,7 +792,7 @@ class PageFrontEdit extends WireData implements Module {
 		$viewURL = $this->wire('sanitizer')->entities($this->wire('input')->url(true));
 		
 		$out .= 
-			"<input type='hidden' id='Inputfield_id' value='{$this->page->id}' />" . // for CKE plugins
+			"<input type='hidden' id='Inputfield_id' class='PageFrontEdit' value='{$this->page->id}' />" . // for CKE plugins
 			"<input type='hidden' id='pw-edit-lang' value='$lang' />" .
 			"<input type='hidden' id='pw-edit-href' value='$editURL' />" . // edit
 			"<input type='hidden' id='pw-url' value='$viewURL' />" . // view
