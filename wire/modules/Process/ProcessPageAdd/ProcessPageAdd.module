@@ -1197,9 +1197,9 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			return false;
 		}
 
-		$this->createdPageMessage($this->page); 
-		
-		if($pageName != $this->page->name) {
+		$this->createdPageMessage($this->page);
+
+		if($this->wire('pages')->names()->hasAdjustedName($this->page)) {
 			$warning = $this->nameChangedWarning($this->page, $pageName);
 			if($warning) $this->warning($warning);
 		}

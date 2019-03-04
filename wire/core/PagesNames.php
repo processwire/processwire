@@ -110,6 +110,19 @@ class PagesNames extends Wire {
 	}
 
 	/**
+	 * Does the given page have a modified “name” during this request?
+	 * 
+	 * @param Page $page
+	 * @param bool|null $set Specify boolean true or false to set whether or not it has an adjusted name, or omit just to get
+	 * @return bool
+	 * 
+	 */
+	public function hasAdjustedName(Page $page, $set = null) {
+		if(is_bool($set)) $page->setQuietly('_hasAdjustedName', $set);
+		return $page->get('_hasAdjustedName') ? true : false;
+	}
+
+	/**
 	 * Is given page name an untitled page name?
 	 * 
 	 * @param string $name

@@ -361,7 +361,6 @@ class PagesEditor extends Wire {
 	 * @param array $options
 	 * 	- format: Optionally specify the format to use, or leave blank to auto-determine.
 	 * @return string If a name was generated it is returned. If no name was generated blank is returned.
-	 * @throws WireException if unique name can't be generated (highly unlikely)
 	 *
 	 */
 	public function setupPageName(Page $page, array $options = array()) {
@@ -607,6 +606,9 @@ class PagesEditor extends Wire {
 		$pageName = $this->pages->names()->incrementName($pageName);
 		$page->set($nameField, $pageName);
 		$query->bindValue(":$nameField", $this->wire('sanitizer')->pageName($pageName, Sanitizer::toAscii));
+		
+		// indicate that page has a modified name 
+		$this->pages->names()->hasAdjustedName($page, true);
 		
 		return true;
 	}
