@@ -64,7 +64,7 @@
 		margin-top: 0;
 	}
 
-	.Inputfields .Inputfields > .Inputfield:last-child,
+	// .Inputfields .Inputfields > .Inputfield:last-child, // removed per #305
 	.Inputfields > .Inputfield > .InputfieldContent > *:last-child {
 		/* last child element in an Inputfield content needs no margin since it is already padded */
 		margin-bottom: 0;
