@@ -14000,7 +14000,7 @@ a.tooltip:hover {
   line-height: 1.4;
 }
 .PageList .ProcessListerTable tr.open {
-  background: linear-gradient(to right, transparent 0%, #f0f3f7 100%);
+  background: linear-gradient(to right, #fff 0%, #f0f3f7 100%);
 }
 .PageList .ProcessListerTable tr.open > td:first-child a.actions_toggle {
   color: #d21846;
