@@ -120,14 +120,12 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		$config = $this->wire('config');
 		$idTrash = $config->trashPageID;
 		$id404 = $config->http404PageID;
-		$page404 = null;
 
 		foreach($this->children as $page) {
 			if(!$this->superuser && !$page->listable()) continue;
 
 			if($page->id == $id404 && !$this->superuser) {
 				// allow showing 404 page, only if it's editable
-				$page404 = $page;
 				if(!$page->editable()) continue;
 			} else if(in_array($page->id, $this->systemIDs)) {
 				if($this->superuser) $extraPages[$page->id] = $page;
@@ -137,10 +135,11 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 			$child = $this->renderChild($page);
 			$children[] = $child;
 		}
-		
-		if(!$this->superuser && $page404 && $page404->parent_id == 1 && !isset($extraPages[$idTrash])) {
+	
+		// add in the trash page if not present and allowed
+		if($this->page->id === 1 && !$this->superuser && !isset($extraPages[$idTrash]) && $this->getUseTrash()) {
 			$pageTrash = $this->wire('pages')->get($idTrash);
-			if($pageTrash->id && $this->getUseTrash() && $pageTrash->listable()) {
+			if($pageTrash->id && $pageTrash->listable()) {
 				$extraPages[$pageTrash->id] = $pageTrash;
 			}
 		}
