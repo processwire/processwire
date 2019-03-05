@@ -341,13 +341,26 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$class = $this->allowRenderTypes[$this->render];
 		$className = wireClassName($class, true);
 		
+		/** @var User $user */
+		$user = $this->wire('user');
+		$superuser = $user->isSuperuser();
+		
 		if(!class_exists($className, false)) require_once(dirname(__FILE__) . "/$class.php");
 		
 		if(is_null($limit)) $limit = $this->limit;
 		if(is_null($start)) $start = $this->start;
 		
 		if($limit) {
-			$children = $this->find("start=$start, limit=$limit, status<" . Page::statusMax, $page);
+			$selector = "start=$start, limit=$limit, status<" . Page::statusMax;
+			
+			if($this->useTrash && !$superuser) { 
+				$trashID = $this->wire('config')->trashPageID;
+				if($page->id == $trashID && $user->hasPermission('page-edit') && $page->listable()) {
+					$selector .= ", check_access=0";
+				}
+			}
+			
+			$children = $this->find($selector, $page);
 		} else {
 			$children = $this->wire('pages')->newPageArray();
 		}
@@ -358,7 +371,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$renderer->setLimit($limit);
 		$renderer->setPageLabelField($this->getPageLabelField());
 		$renderer->setLabel('trash', $this->trashLabel);
-		$renderer->setUseTrash($this->useTrash || $this->wire('user')->isSuperuser());
+		$renderer->setUseTrash($this->useTrash || $superuser);
 		$renderer->setQtyType($this->qtyType);
 		
 		return $renderer;

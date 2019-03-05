@@ -1104,7 +1104,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	 */
 	protected function ___nameChangedWarning(Page $page, $namePrevious) {
 		return sprintf(
-			$this->_('Warning, the name you selected "%1$s" has been changed to "%2$s".'),
+			$this->_('Warning, the name you selected "%1$s" was already in use and has been changed to "%2$s".'),
 			$namePrevious, $page->name
 		);
 	}

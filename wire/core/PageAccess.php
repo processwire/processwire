@@ -70,7 +70,8 @@ class PageAccess {
 	public function getAccessParent(Page $page, $type = 'view', $level = 0) {
 		if(!$page->id) return $page->wire('pages')->newNullPage();
 		if(!in_array($type, $this->types)) $type = $this->getType($type);
-		if($page->template->useRoles || $page->id === 1) {
+		
+		if($page->id === 1 || $page->template->useRoles) {
 			// found an access parent
 			if($type != 'view' && $level > 0 && $page->template->noInherit != 0) {
 				// access parent prohibits inheritance of edit-related permissions
@@ -78,8 +79,18 @@ class PageAccess {
 			}
 			return $page;
 		}
-		$parent = $page->parent();	
-		if($parent->id) return $this->getAccessParent($parent, $type, $level+1); 
+		
+		$parent = null;
+
+		if($type === 'edit' && $page->isTrash() && $page->id != $page->wire('config')->trashPageID) {
+			// pages in trash have an edit access parent as whatever it was prior to being trashed
+			$info = $page->wire('pages')->trasher()->parseTrashPageName($page->name);
+			if(!empty($info['parent_id'])) $parent = $page->wire('pages')->get((int) $info['parent_id']);
+		}
+		
+		if(!$parent || !$parent->id) $parent = $page->parent();	
+		if($parent->id) return $this->getAccessParent($parent, $type, $level + 1);
+		
 		return $page->wire('pages')->newNullPage();
 	}
 
