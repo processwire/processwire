@@ -1393,10 +1393,9 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		} else if($subfield == 'data' || $subfield == 'id' || !$subfield) {
 			
-			if($subfield == 'id') $subfield = '';
-		
 			// support matching of IDs via word matching fulltext index
 			if(ctype_digit("$value") && !empty($value)) {
+				if($subfield === 'id') $subfield = 'data';
 				if($operator === '=') { 
 					$operator = '~=';
 				} else if($operator === '!=') {
@@ -1412,8 +1411,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				$ft->match($table, $subfield, $operator, $value);
 
 			} else if(empty($value) && !$singlePageMode) { 
-				// match where count is 0
-				$query->where("$table.count{$operator}0"); 
+				// empty/0 value
+				if($operator === '=' && $subfield === 'id') {
+					$query->where('1>2'); // force non-match
+				} else {
+					// match where count is 0
+					$query->where("$table.count{$operator}0");
+				}
 
 			} else {
 				// match /path/to/page or other, not implemented
