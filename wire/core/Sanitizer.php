@@ -1281,7 +1281,7 @@ class Sanitizer extends Wire {
 	}
 
 	/**
-	 * Sanitize input string as multi-line text without no HTML tags
+	 * Sanitize input string as multi-line text without HTML tags
 	 * 
 	 * - This sanitizer is useful for user-submitted text from a plain-text `<textarea>` field, 
 	 *   or any other kind of string value that might have multiple-lines.
@@ -3486,6 +3486,57 @@ class Sanitizer extends Wire {
 	}
 
 	/**
+	 * Validate or sanitize a string to have a minimum length
+	 * 
+	 * If string meets minimum length it is returned as-is. 
+	 * 
+	 * Note that the default behavior of this function is to validate rather than sanitize the value. 
+	 * Meaning, it will return blank if the string does not meet the minimum length. Specify the `$padChar`
+	 * argument to change that behavior. 
+	 * 
+	 * If string does not meet minimum length, blank will be returned, unless a `$padChar` is defined in which
+	 * case the string will be padded with as many copies of that $padChar are necessary to meet the minimum
+	 * length. By default it padds to the right, but you can specify `true` for the `$padLeft` argument to 
+	 * make it pad to the left instead. 
+	 * 
+	 * ~~~~~~
+	 * $value = $sanitizer->minLength('foo'); // returns "foo"
+	 * $value = $sanitizer->minLength('foo', 3); // returns "foo"
+	 * $value = $sanitizer->minLength('foo', 5); // returns blank string
+	 * $value = $sanitizer->minLength('foo', 5, 'o'); // returns "foooo"
+	 * $value = $sanitizer->minLength('foo', 5, 'o', true); // returns "oofoo"
+	 * ~~~~~~
+	 * 
+	 * #pw-group-strings
+	 * 
+	 * @param string $value Value to enforcer a minimum length for
+	 * @param int $minLength Minimum allowed length
+	 * @param string $padChar Pad string with this character if it does not meet minimum length (default='')
+	 * @param bool $padLeft Pad to left rather than right? (default=false)
+	 * @return string
+	 * 
+	 */
+	public function minLength($value, $minLength = 1, $padChar = '', $padLeft = false) {
+		
+		$value = $this->string($value);
+		$length = $this->multibyteSupport ? mb_strlen($value) : strlen($value);
+		
+		if($length >= $minLength) return $value; 
+		if(!strlen($padChar)) return '';
+		
+		while($length < $minLength) {
+			if($padLeft) {
+				$value = $padChar . $value;
+			} else {
+				$value .= $padChar;
+			}
+			$length = $this->multibyteSupport ? mb_strlen($value) : strlen($value);
+		}
+	
+		return $value;
+	}
+
+	/**
 	 * Limit bytes used by given string to max specified
 	 *
 	 * - This function will not break multibyte characters so long as PHP has mb_string. 
@@ -3544,6 +3595,7 @@ class Sanitizer extends Wire {
 			'max',
 			'maxBytes',
 			'maxLength',
+			'minLength',
 			'min',
 			'minArray',
 			'name',
@@ -3819,6 +3871,7 @@ class Sanitizer extends Wire {
 			'truncate' => 2,
 			'min' => 2, // min123 where 123 is minimum allowed value
 			'max' => 2, // max123 where 123 is maximum allowed value
+			'minLength' => 2, // refers to minLength argument
 			'fieldSubfield' => 2, // maxLength is $limit argument
 
 			// method($val, options[ 'maxLength' => 123 ])
