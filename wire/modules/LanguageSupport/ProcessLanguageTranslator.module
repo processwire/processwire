@@ -684,7 +684,7 @@ class ProcessLanguageTranslator extends Process {
 			$dirIterator = false;
 		}
 		
-		if(!$dirIterator) return array();
+		if($dirIterator === false) return array();
 
 		foreach($dirIterator as $file) {
 
