@@ -4,7 +4,7 @@
  * #pw-summary ProcessWire Database Backup and Restore
  * #pw-summary-initialization It’s not typically necessary to call these initialization methods unless doing manual initialization.
  * #pw-var $backup
- * #pw-instantiate $backup = $database->backup();
+ * #pw-instantiate $backup = $database->backups();
  * #pw-order-groups actions,reporting,initialization,advanced
  * #pw-body = 
  * This class intentionally does not have any external dependencies (other than PDO)
