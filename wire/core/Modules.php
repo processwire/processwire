@@ -10,7 +10,7 @@
  * in order to save resources. As a result, anything iterating through these Modules should check to make sure it's not a ModulePlaceholder
  * before using it. If it's a ModulePlaceholder, then the real Module can be instantiated/retrieved by $modules->get($className).
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Loads and manages all modules in ProcessWire. 
@@ -3034,7 +3034,7 @@ class Modules extends WireArray {
 	 * 
 	 */
 	public function getModuleInfoProperty($class, $property, array $options = array()) {
-		if(isset($this->moduleInfoVerboseKeys[$property])) {
+		if(in_array($property, $this->moduleInfoVerboseKeys)) {
 			$info = $this->getModuleInfoVerbose($class, $options);
 			$info['verbose'] = true;
 		} else {
@@ -3251,6 +3251,9 @@ class Modules extends WireArray {
 	 * $data = $modules->getConfig('HelloWorld');
 	 * $data['greeting'] = 'Hello World! How are you today?';
 	 * $modules->saveConfig('HelloWorld', $data);
+	 * 
+	 * // Getting just one property 'apiKey' from module config data
+	 * @apiKey = $modules->getConfig('HelloWorld', 'apiKey'); 
 	 * ~~~~~~
 	 *
 	 * #pw-group-configuration
@@ -3258,8 +3261,8 @@ class Modules extends WireArray {
 	 * 
 	 * @param string|Module $class
 	 * @param string $property Optionally just get value for a specific property (omit to get all config)
-	 * @return array Module configuration data
-	 * @see Modules::saveConfig()
+	 * @return array|string|int|float Module configuration data, returns array unless a specific $property was requested
+	 * @see Modules::saveConfig() 
 	 * @since 3.0.16 Use method getModuleConfigData() with same arguments for prior versions (can also be used on any version).
 	 *
 	 */
@@ -3293,14 +3296,6 @@ class Modules extends WireArray {
 		return $data; 	
 	}
 	
-	/**
-	 * Alias of getConfig() for backwards compatibility
-	 *
-	 * @param string|Module $className
-	 * @return array
-	 *
-	 */
-
 	/**
 	 * Get the path + filename (or optionally URL) for this module
 	 * 

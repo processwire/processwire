@@ -398,7 +398,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	static public function getQueryLog() {
 		/** @var WireDatabasePDO $database */
 		$database = wire('database');
-		$database->queryLog();
+		return $database->queryLog();
 	}
 
 	/**

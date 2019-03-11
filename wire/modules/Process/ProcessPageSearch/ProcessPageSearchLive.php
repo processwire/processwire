@@ -597,7 +597,8 @@ class ProcessPageSearchLive extends Wire {
 				$order++;
 			}
 			
-			if($n && $n < $result['total'] && !$this->isViewAll && !$help) {
+			//if($n && $n < $result['total'] && !$this->isViewAll && !$help) {
+			if($n && $n < $result['total'] && !$help) {
 				$url = isset($result['url']) ? $result['url'] : '';
 				$items[$order] = $this->makeViewAllItem($liveSearch, $thisType, $item['group'], $result['total'], $url); 
 			}
@@ -1110,25 +1111,45 @@ class ProcessPageSearchLive extends Wire {
 	protected function ___renderList(array $items, $prefix = 'pw-search', $class = 'list') {
 
 		$pagination = $this->pagination->renderPager();
-		$a = array();
 		$group = '';
-		
-		$out = "\n<div class='$class'>" . $pagination;
-		
+		$groups = array();
+		$totals = array();
+		$icon = wireIconMarkup('angle-right');
+	
 		foreach($items as $item) {
-			$headline = '';
 			if($item['group'] != $group) {
 				$group = $item['group'];
-				$headline = "<h2>" . $this->wire('sanitizer')->entities($group) . "</h2>";
+				list(,$total) = explode('/', $item['n']); 
+				$totals[$group] = (int) $total;
+				$groups[$group] = ''; 
 			}
-			$a[] = $headline . $this->renderItem($item, $prefix); 
+			if($item['name'] === 'view-all') {
+				if($pagination) continue;
+				$groupLabel = $this->wire('sanitizer')->entities($group);
+				$groups[$group] .= 
+					"<p><a class='$prefix-view-all' href='$item[url]'>" . 
+					"$item[title] $icon $groupLabel (" . $totals[$group] . ")</a></p>";
+			} else {
+				$groups[$group] .= $this->renderItem($item, $prefix) . '<hr />';
+			}
 		}
 		
-		$out .= implode('<hr />', $a) . $pagination . "\n</div>";
+		$totalGroups = array();
+		foreach($groups as $group => $content) {
+			$total = $totals[$group];
+			$totalGroups["$group ($total)"] = $content;
+			unset($groups[$group]); 
+		}
 		
-		return $out; 
-	}
-
+		$wireTabs = $this->wire('modules')->get('JqueryWireTabs');
+		
+		return
+			"<div class='pw-search-$class'>" . 
+				$pagination . 
+				$wireTabs->render($totalGroups) . 
+				$pagination . 
+			"</div>";
+	} 
 	/**
 	 * Render an item for the “view all” list
 	 * 

@@ -1448,6 +1448,7 @@ class Pages extends Wire {
 			$manager = $page->getPagesManager();
 			if($manager instanceof PagesType) $manager->added($page);
 		}
+		$page->setQuietly('_added', true);
 	}
 
 	/**
