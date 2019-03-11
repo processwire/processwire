@@ -3567,7 +3567,22 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	public function testAll($value) {
-		$sanitizers = array(
+		$sanitizers = $this->getAll();
+		sort($sanitizers);
+		$results = array();
+		foreach($sanitizers as $method) {
+			$results[$method] = $this->$method($value);
+		}
+		return $results;
+	}
+
+	/**
+	 * Get all available sanitizers
+	 *
+	 * @return void
+	 */
+	public function ___getAll() {
+		return array(
 			'alpha',
 			'alphanumeric',
 			'array',
@@ -3630,11 +3645,6 @@ class Sanitizer extends Wire {
 			'validate',
 			'varName',
 		);
-		$results = array();
-		foreach($sanitizers as $method) {
-			$results[$method] = $this->$method($value);
-		}
-		return $results;
 	}
 
 	/**
