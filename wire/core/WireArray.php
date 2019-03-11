@@ -1679,13 +1679,20 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * $qty = count($items); 
 	 * ~~~~~
 	 * 
+	 * You can also pass a selector:
+	 * 
+	 * ~~~~~
+	 * $qty = $items->count("foo=bar");
+	 * ~~~~~
+	 * 
 	 * #pw-group-retrieval
 	 * 
 	 * @return int
 	 * 
 	 */
-	public function count() {
-		return count($this->data); 
+	public function count($selector = null) {
+		if(!$selector) return count($this->data);
+		return $this->find($selector)->count();
 	}
 
 	/**
