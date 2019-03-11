@@ -3,10 +3,12 @@
 /**
  * jQuery Tabs for ProcessWire
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $rememberTabs
+ * 
+ * @method string render(array $items, array $options = array())
  * 
  */
 
@@ -103,5 +105,63 @@ class JqueryWireTabs extends ModuleJS implements ConfigurableModule {
 		
 		$out .= "</ul>";
 		return $out; 
+	}
+
+	/**
+	 * All-in-one tabs rendering in ProcessWire admin
+	 * 
+	 * Use this method to render tabs, tab containers, and initialization script in the return value. This method
+	 * requires no other initialization or setup and returns ready-to-output tabs. 
+	 * 
+	 * ~~~~~
+	 * echo $modules->get('JqueryWireTabs')->render([
+	 *   'Foo' => 'Foo tab content',
+	 *   'Bar' => 'Bar tab content',
+	 *   'Baz' => 'Baz tab content',
+	 * ]); 
+	 * ~~~~~
+	 * 
+	 * @param array $items Array of one or more [ 'Tab Title' => 'Tab Content' ]
+	 * @param array $options Options to modify default behavior (I recommend omitting this argument unless you really need it)
+	 * @return string Markup ready for output
+	 * @since 3.0.127
+	 * 
+	 */
+	public function ___render(array $items, array $options = array()) {
+	
+		static $n = 0;
+		$n++;
+		
+		$defaults = array(
+			'id' => "pw-wiretabs-$n", 
+			'linksID' => "pw-wiretabs-$n-links", 
+			'itemClass' => "pw-wiretabs-item", 
+		);
+		
+		$sanitizer = $this->wire('sanitizer');
+		$options = array_merge($defaults, $options);
+		$links = array();
+		$out = '';
+		$cnt = 0;
+		
+		foreach($items as $itemTitle => $itemContent) {
+			$cnt++;
+			$itemID = "pw-wiretabs-$n-$cnt";
+			$links[$itemID] = $sanitizer->entities1($itemTitle);
+			$out .= "<div id='$itemID' class='$options[itemClass]'>$itemContent</div>";
+		}
+		
+		$out = 
+			"<div id='$options[id]' class='pw-wiretabs'>" . 
+				$this->renderTabList($links, array('id' => $options['linksID'])) . 
+				$out . 
+			"</div>" . 
+			"<script>jQuery(document).ready(function(){" . 
+			"jQuery('#$options[id]').WireTabs({" . 
+				"id:'$options[linksID]'," . 
+				"items:jQuery('.$options[itemClass]')" . 
+			"})});</script>";
+		
+		return $out;
 	}
 }
