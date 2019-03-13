@@ -577,7 +577,7 @@ class ProcessPageSearchLive extends Wire {
 			$order = array_search($thisType, $this->searchTypesOrder);
 			$order = $order * 100;
 			
-			$title = empty($result['title']) ? $info['title'] : $result['title'];
+			$title = empty($result['title']) ? "$info[title]" : "$result[title]";
 			$n = $liveSearch['start'];
 			$item = null;
 			
@@ -591,6 +591,7 @@ class ProcessPageSearchLive extends Wire {
 			foreach($result['items'] as $item) {
 				$n++;
 				$item = array_merge($this->itemTemplate, $item);
+				$item['group'] = empty($item['group']) ? "$title" : "$item[group]";
 				if(empty($item['group'])) $item['group'] = $title;
 				$item['n'] = "$n/$result[total]";
 				$items[$order] = $item;
@@ -1119,9 +1120,11 @@ class ProcessPageSearchLive extends Wire {
 		foreach($items as $item) {
 			if($item['group'] != $group) {
 				$group = $item['group'];
-				list(,$total) = explode('/', $item['n']); 
-				$totals[$group] = (int) $total;
 				$groups[$group] = ''; 
+			}
+			if(empty($totals[$group]) && isset($item['n'])) {
+				list(, $total) = explode('/', $item['n']);
+				$totals[$group] = (int) $total;
 			}
 			if($item['name'] === 'view-all') {
 				if($pagination) continue;
