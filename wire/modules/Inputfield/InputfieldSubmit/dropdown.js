@@ -20,6 +20,7 @@ var InputfieldSubmitDropdown = {
 		var href = $a.attr('href');
 		var $dropdown = $a.closest('.pw-button-dropdown');
 		var $button;
+		var $input = null;
 		
 		if(!$dropdown.length) return true;
 		
@@ -33,12 +34,13 @@ var InputfieldSubmitDropdown = {
 			
 			var value = $a.attr('data-pw-dropdown-value');
 			var selector = $dropdown.attr('data-pw-dropdown-input');
+			var dropdownSubmit = 1; 
 			
 			if(!value) return true;
 
 			if(selector) {
 				// populate a hidden input with dropdown value
-				var $input = $(selector);
+				$input = $(selector);
 				if(!$input.length) return true;
 				$input.val(value);
 			} else if(href.length > 1) {
@@ -47,7 +49,15 @@ var InputfieldSubmitDropdown = {
 			}
 			
 			// populate button 'value' attribute
-			if($button) $button.attr('value', value);
+			if($button) {
+				if($input) {
+					// attribute data-pw-dropdown-submit on the hidden input indicates if selected dropdown 
+					// value should become submit value in addition to populating the hidden input
+					dropdownSubmit = $input.attr('data-pw-dropdown-submit');	
+					dropdownSubmit = typeof dropdownSubmit == "undefined" ? 0 : parseInt(dropdownSubmit);
+				}
+				if(dropdownSubmit > 0) $button.attr('value', value);
+			}
 		}
 
 		if(!$button) return true;

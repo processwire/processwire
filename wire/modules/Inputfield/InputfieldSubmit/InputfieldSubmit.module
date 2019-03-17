@@ -10,7 +10,8 @@
  * @property bool $header Whether or not button will also appear in header (default=false). 
  * @property bool $secondary Whether or not button is secondary (default=false). 
  * @property bool $small Whether or not button should be small, where supported (default=false). 
- * @property string $dropdownInputName #pw-internal
+ * @property string $dropdownInputName Name of input to receive selected dropdown value (default='_action_value') #pw-internal
+ * @property bool $dropdownSubmit Selected dropdown value becomes submit value? (default=true) #pw-internal 
  *
  */
 class InputfieldSubmit extends Inputfield {
@@ -55,6 +56,10 @@ class InputfieldSubmit extends Inputfield {
 		
 		// name of 'hidden' input that will receive the clicked dropdown item value
 		$this->set('dropdownInputName', '_action_value');
+		
+		// Selected dropdown value becomes submit value? If set to false, then only the 
+		// dropdownInputName above will contain the selected value
+		$this->set('dropdownSubmit', true);
 	}
 	
 	public function set($key, $value) {
@@ -209,8 +214,11 @@ class InputfieldSubmit extends Inputfield {
 		if($numValues) {
 			// there are values that can be populated to a hidden input
 			$inputID = $dropdownID . '_value';
-			$out = "<input type='hidden' name='{$this->dropdownInputName}' id='$inputID' value='' />" .
-				str_replace("<ul ", "<ul data-pw-dropdown-input='#$inputID' ", $out);
+			$attr = "type='hidden' name='{$this->dropdownInputName}' id='$inputID' value='' ";
+			// copy the submitted dropdown value to the submit button value?
+			if($this->dropdownSubmit) $attr .= "data-pw-dropdown-submit='1' ";
+			// render the output
+			$out = "<input $attr />" . str_replace("<ul ", "<ul data-pw-dropdown-input='#$inputID' ", $out);
 		}
 	
 		// script to initialize this dropdown immediately
