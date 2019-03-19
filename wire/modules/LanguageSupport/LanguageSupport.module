@@ -439,6 +439,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 				// default language
 				$newID = $id;
 				$o = $event->return; 
+				$inputfield->attr('id', $newID);
 
 			} else {
 				// non-default language
