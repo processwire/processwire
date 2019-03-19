@@ -595,6 +595,9 @@ class InputfieldCKEditor extends InputfieldTextarea {
 				$value = str_replace("\xc2\xa0",' ', $value);
 			}
 		}
+	
+		// remove UTF-8 line separator characters
+		$value = str_replace($this->wire('sanitizer')->unentities('&#8232;'), '', $value);
 
 		return $value; 
 	}

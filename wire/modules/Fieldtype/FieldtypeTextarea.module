@@ -212,7 +212,7 @@ class FieldtypeTextarea extends FieldtypeText {
 				/** @var LanguagesValueInterface $value */
 				$v = $value->getLanguageValue($language->id);
 				$this->_htmlReplacement($page, $field, $v, $sleep);
-				$value->setLanguageValue($language, $v, $field);
+				$value->setLanguageValue($language, $v);
 			}
 			if($trackChanges) $value->setTrackChanges($trackChanges);
 			
@@ -263,6 +263,10 @@ class FieldtypeTextarea extends FieldtypeText {
 			}
 			if($useCheckImg) $markupQA->checkImgTags($value, $opts);
 		}
+
+		static $lsep = null;
+		if($lsep === null) $lsep = $this->wire('sanitizer')->unentities('&#8232;');
+		if(strpos($value, $lsep) !== false) $value = str_replace($lsep, '', $value);
 	}
 
 	/**
@@ -288,6 +292,7 @@ class FieldtypeTextarea extends FieldtypeText {
 			$this->configHelper()->getInputfieldError($field);
 		}
 		
+		/** @var InputfieldTextarea|InputfieldCKEditor $inputfield */
 		$inputfield->class = $this->className();
 		return $inputfield; 
 	}
@@ -328,7 +333,7 @@ class FieldtypeTextarea extends FieldtypeText {
 	 * 
 	 */
 	public function ___getConfigInputfields(Field $field) {
-		$this->markupQA()->setVerbose(true);
+		$this->markupQA()->verbose(true);
 		$inputfields = parent::___getConfigInputfields($field);
 		$inputfields = $this->configHelper()->getConfigInputfields($field, $inputfields);
 		return $inputfields; 
