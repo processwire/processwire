@@ -2774,6 +2774,17 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if($this->requestModal && strpos($url, 'modal=') === false) {
 			$extras[] = "modal=$this->requestModal";
 		}
+		if(strpos($url, '&field=') === false && strpos($url, '&fields=') === false) {
+			if(count($this->fields)) {
+				$names = array();
+				foreach($this->fields as $field) {
+					$names[] = "$field";
+				}
+				$extras[] = "fields=" . implode(',', $names);
+			} else if($this->field) {
+				$extras[] = "field=$this->field";
+			}
+		}
 		if(strpos($url, './') === 0 || (strpos($url, '/') !== 0 && strpos($url, '../') !== 0)) {
 			if($this->requestLanguage && strpos($url, 'language=') === false) {
 				$extras[] = "language=$this->requestLanguage";
