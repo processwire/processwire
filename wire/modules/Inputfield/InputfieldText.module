@@ -11,6 +11,7 @@
  * @property string $pattern HTML5 pattern attribute
  * @property string $initValue Optional initial/default value
  * @property bool $stripTags Should HTML tags be stripped from value?
+ * @property bool $noTrim By default whitespace is trimmed from value, set this to true to bypass that behavior (default=false).
  * @property bool $useLanguages When combined with multi-language support, setting this to true will provide one input per language. Get/set each language value with the "value[languageID]" property, and just "value" for default language. 
  * @property bool|int $requiredAttr When combined with "required" option, this also makes it use the HTML5 "required" attribute. (default=false)
  * @property int $showCount Show a character counter (1) or word counter (2) or neither (0). Recommended value is 1 when using minlength or maxlength.
@@ -51,6 +52,7 @@ class InputfieldText extends Inputfield {
 		$this->set('requiredAttr', 0);
 		$this->set('initValue', ''); // optional initial value
 		$this->set('stripTags', false); // strip tags from input?
+		$this->set('noTrim', false);
 		$this->set('showCount', self::showCountNone);
 
 		// if multi-language, support placeholders for each language
@@ -163,7 +165,7 @@ class InputfieldText extends Inputfield {
 	 * 
 	 * @param array|string $key
 	 * @param array|int|string $value
-	 * @return $this
+	 * @return Inputfield|InputfieldText|$this
 	 * 
 	 */
 	public function setAttribute($key, $value) {
@@ -195,6 +197,7 @@ class InputfieldText extends Inputfield {
 				'maxLength' => $this->maxlength, 
 				'maxBytes' => $this->maxlength*4, 
 				'stripTags' => false,
+				'trim' => $this->noTrim ? false : true,
 				)); 
 		}
 		
@@ -251,7 +254,7 @@ class InputfieldText extends Inputfield {
 			}
 			
 			if($maxlength > 0) {
-				$dirtyValue = trim($input->$name);
+				$dirtyValue = $this->noTrim ? (string) $input->$name : trim($input->$name);
 				$dirtyLength = $this->getValueLength($dirtyValue);
 				if($dirtyLength > $maxlength) {
 					$this->error(sprintf(

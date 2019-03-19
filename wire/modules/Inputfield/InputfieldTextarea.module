@@ -110,6 +110,7 @@ class InputfieldTextarea extends InputfieldText {
 				'maxLength' => $maxlength, 
 				'maxBytes' => $maxlength*4, 
 				'stripTags' => false, 
+				'trim' => $this->noTrim ? false : true
 				)); 
 		} else {
 			if(strpos($value, "\r\n") !== false) {
@@ -117,7 +118,7 @@ class InputfieldTextarea extends InputfieldText {
 			}
 		}
 		if($this->stripTags) $value = strip_tags($value);
-		return trim($value); 
+		return $this->noTrim ? $value : trim($value); 
 	}
 
 	/**
