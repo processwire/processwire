@@ -527,7 +527,7 @@ interface SearchableModule {
 	/**
 	 * Search for items containing $text and return an array representation of them
 	 * 
-	 * You may implement also implement this method as hookable, i.e. ___search(), but not that you’ll
+	 * You may also implement this method as hookable, i.e. ___search(), but note that you’ll
 	 * want to skip the "implements SearchableModule" in your class definition. 
 	 *
 	 * Must return PHP array in the format below. For each item in the 'items' array, Only the 'title' 
