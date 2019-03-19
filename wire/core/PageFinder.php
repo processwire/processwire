@@ -1604,6 +1604,15 @@ class PageFinder extends Wire {
 		static $where = null;
 		static $where2 = null;
 		static $leftjoin = null;
+		static $cacheUserID = null;
+		
+		if($cacheUserID !== $user->id) {
+			// clear cached values
+			$where = null;
+			$where2 = null;
+			$leftjoin = null;
+			$cacheUserID = $user->id;
+		}
 		
 		$hasWhereHook = $this->wire('hooks')->isHooked('PageFinder::getQueryAllowedTemplatesWhere()');
 
@@ -1632,6 +1641,7 @@ class PageFinder extends Wire {
 		$noTemplates = array();
 
 		$guestRoleID = $this->wire('config')->guestUserRolePageID; 
+		$cacheUserID = $user->id;
 
 		if($user->isGuest()) {
 			// guest 
