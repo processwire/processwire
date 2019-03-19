@@ -1676,7 +1676,8 @@ function InputfieldImage($) {
 			 */
 			function errorItem(message, filename) {
 				if(typeof filename !== "undefined") message = '<b>' + filename + ':</b> ' + message;
-				return '<li>' + message + '</li>';
+				var icon = "<i class='fa fa-fw fa-warning'></i> ";
+				return '<li>' + icon + message + '</li>';
 			}
 
 			/**
@@ -1986,6 +1987,7 @@ function InputfieldImage($) {
 						
 						if(r.error) {
 							$errorParent.append(errorItem(r.message));
+							if(n == (response.length-1)) $progressItem.hide();
 							continue;
 						}
 
