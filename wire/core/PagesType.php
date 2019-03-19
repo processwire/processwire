@@ -270,6 +270,23 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	}
 
 	/**
+	 * Given a Selector string, return the page IDs that match
+	 * 
+	 * @param string $selectorString
+	 * @param array $options
+	 * @return array
+	 * @since 3.0.128
+	 * @see Pages::findIDs()
+	 * 
+	 */
+	public function findIDs($selectorString, $options = array()) {
+		if(!isset($options['findAll'])) $options['findAll'] = true;
+		if(empty($options['caller'])) $options['caller'] = $this->className() . ".findIDs($selectorString)";
+		$ids = $this->wire('pages')->findIDs($this->selectorString($selectorString), $options);
+		return $ids;
+	}
+
+	/**
 	 * Get the first match of your selector string
 	 * 
 	 * @param string|int $selectorString
