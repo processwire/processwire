@@ -322,6 +322,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$columns = $this->sessionGet('columns'); 
 		if($columns) $this->columns = $columns; 
 		$ajax = $this->wire('config')->ajax;
+		
+		if(count($_POST)) $this->processInput();
 
 		if(!$this->template) {
 			$selector = $this->initSelector;
@@ -339,8 +341,6 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$knownTotal = $this->sessionGet('knownTotal');
 			if(is_array($knownTotal)) $this->knownTotal = $knownTotal;
 		}
-
-		if(count($_POST)) $this->processInput();
 
 		parent::init();
 	}
