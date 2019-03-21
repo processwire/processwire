@@ -13882,7 +13882,7 @@ a.tooltip:hover {
   border-top: none !important;
 }
 .ui-menu .ui-menu-item i.fa {
-  margin-right: 2px;
+  margin-right: 8px;
   color: #97aab4;
 }
 .ui-menu .ui-menu-item a {
