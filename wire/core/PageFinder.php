@@ -1176,26 +1176,35 @@ class PageFinder extends Wire {
 			if(count($fields) > 1) $fields = $this->arrangeFields($fields); 
 			$fieldsStr = ':' . implode(':', $fields) . ':'; // for strpos
 			$field = reset($fields); // first field
-			$subfield = '';
-			if(strpos($field, '.')) list($field, $subfield) = explode('.', $field); 
+			$fieldAndSubfield = $field;
+			if(strpos($field, '.')) list($field,) = explode('.', $field); 
 
 			// TODO Make native fields and path/url multi-field and multi-value aware
-			if($field == 'sort' && $selector->operator === '=' && !$subfield) {
-				$sortSelectors[] = $selector; 
-				continue; 
-
-			} else if($field == 'limit' || $field == 'start') {
+			if($fieldAndSubfield === 'sort' && $selector->operator === '=') {
+				$sortSelectors[] = $selector;
+				continue;
+			
+			} else if($fieldAndSubfield === 'sort' || $fieldAndSubfield === 'page.sort') {
+				if(!in_array($selector->operator, array('=', '!=', '<', '>', '>=', '<='))) {
+					throw new PageFinderSyntaxException("Property '$fieldAndSubfield' may not use operator: $selector->operator");
+				}
+				$selector->field = 'sort';
+				$selector->value = (int) $selector->value();
+				$this->getQueryNativeField($query, $selector, array('sort'), $options, $selectors); 
 				continue;
 
-			} else if($field == 'path' || $field == 'url') {
+			} else if($field === 'limit' || $field === 'start') {
+				continue;
+
+			} else if($field === 'path' || $field === 'url') {
 				$this->getQueryJoinPath($query, $selector); 
 				continue; 
 
-			} else if($field == 'has_parent' || $field == 'hasParent') {
+			} else if($field === 'has_parent' || $field === 'hasParent') {
 				$this->getQueryHasParent($query, $selector); 
 				continue; 
 
-			} else if($field == 'num_children' || $field == 'numChildren' || ($field == 'children' && $subfield == 'count')) { 
+			} else if($field === 'num_children' || $field === 'numChildren' || $fieldAndSubfield === 'children.count') { 
 				$this->getQueryNumChildren($query, $selector); 
 				continue; 
 
