@@ -719,10 +719,15 @@ class PagesNames extends Wire {
 	public function pageNameHasConflict(Page $page) {
 		
 		$reason = '';
+		$name = $page->name;
+	
+		if($this->wire('config')->pageNameCharset == 'UTF8') {
+			$name = $this->wire('sanitizer')->pageName($name, Sanitizer::toAscii);
+		}
 		
 		$sql = "SELECT id, status, parent_id FROM pages WHERE name=:name AND id!=:id";
 		$query = $this->wire('database')->prepare($sql);
-		$query->bindValue(':name', $page->name);
+		$query->bindValue(':name', $name);
 		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
 		$query->execute();
 		
