@@ -178,7 +178,7 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$f = $modules->get('InputfieldRadios');
 		$f->attr('id+name', 'noGrid');
 		$f->label = $this->_('Inputfield column widths');
-		$f->notes = $this->_('Chose option B if you are having any trouble achieving intended Inputfield column widths.');
+		$f->notes = $this->_('Choose option B if you are having any trouble achieving intended Inputfield column widths.');
 		$f->addOption(0, 'A: ' . $this->_('Uikit uk-width classes (up-to 6 columns)'));
 		$f->addOption(1, 'B: ' . $this->_('Percentage-based widths (additional flexibility)'));
 		$f->attr('value', (int) $adminTheme->get('noGrid'));
