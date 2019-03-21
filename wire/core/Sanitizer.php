@@ -650,29 +650,36 @@ class Sanitizer extends Wire {
 		if(strpos($value, 'xn-') === 0) $value = substr($value, 3);
 
 		// word separators that we always allow 
-		$separators = array('.', '-', '_'); 
-	
-		// we let regular pageName handle chars like these, if they appear without other UTF-8
-		$extras = array('.', '-', '_', ' ', ',', ';', ':', '(', ')', '!', '?', '&', '%', '$', '#', '@');
+		$separators = array('.', '-', '_');
 
-		// proceed only if value has some non-ascii characters
-		if(ctype_alnum(str_replace($extras, '', $value))) return $this->pageName($value, false, $maxLength);
-
-		// validate that all characters are in our whitelist
+		// whitelist of allowed characters and blacklist of disallowed characters
 		$whitelist = $this->wire('config')->pageNameWhitelist;
 		if(!strlen($whitelist)) $whitelist = false;
 		$blacklist = '/\\%"\'<>?#@:;,+=*^$()[]{}|&';
+		
+		// we let regular pageName handle chars like these, if they appear without other UTF-8
+		$extras = array('.', '-', '_', ',', ';', ':', '(', ')', '!', '?', '&', '%', '$', '#', '@');
+		if($whitelist === false || strpos($whitelist, ' ') === false) $extras[] = ' ';
+
+		// proceed only if value has some non-ascii characters
+		if(ctype_alnum(str_replace($extras, '', $value))) {
+			// let regular pageName sanitizer handle this
+			return $this->pageName($value, false, $maxLength);
+		}
+
+		// validate that all characters are in our whitelist
 		$replacements = array();
 
 		for($n = 0; $n < mb_strlen($value); $n++) {
 			$c = mb_substr($value, $n, 1);
-			if(!strlen(trim($c)) || ctype_cntrl($c)) {
-				// character does not resolve to something visible
+			$inBlacklist = mb_strpos($blacklist, $c) !== false || strpos($blacklist, $c) !== false;
+			$inWhitelist = !$inBlacklist && $whitelist !== false && mb_strpos($whitelist, $c) !== false;
+			if($inWhitelist && !$inBlacklist) {
+				// in whitelist
+			} else if($inBlacklist || !strlen(trim($c)) || ctype_cntrl($c)) {
+				// character does not resolve to something visible or is in blacklist
 				$replacements[] = $c;
-			} else if(mb_strpos($blacklist, $c) !== false || strpos($blacklist, $c) !== false) {
-				// character that is in blacklist
-				$replacements[] = $c;
-			} else if($whitelist !== false && mb_strpos($whitelist, $c) === false) {
+			} else {
 				// character that is not in whitelist, double check case variants
 				$cLower = mb_strtolower($c);
 				$cUpper = mb_strtoupper($c);

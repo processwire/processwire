@@ -281,6 +281,10 @@ class ProcessPageView extends Process {
 
 		/** @var Config $config */
 		$config = $this->wire('config');
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		/** @var Pages $pages */
+		$pages = $this->wire('pages');
 		
 		// force redirect to actual page URL? (if different from request URL)
 		$forceRedirect = false;
@@ -324,7 +328,7 @@ class ProcessPageView extends Process {
 			// sanitized URL does not match requested URL
 			if($config->pageNameCharset == 'UTF8') {
 				// test for extended page name URL
-				$it = $this->wire('sanitizer')->pagePathNameUTF8($shit);
+				$it = $sanitizer->pagePathNameUTF8($shit);
 			}
 			if($shit !== $it) {
 				// if still does not match then fail
@@ -368,7 +372,8 @@ class ProcessPageView extends Process {
 			$this->pageNum = (int) $matches[2]; 
 			$page = null;
 		} else { 
-			$page = $this->pages->get("path=$it, status<" . Page::statusMax); 
+			$spit = $sanitizer->selectorValue($it);
+			$page = $pages->get("path=$spit, status<" . Page::statusMax); 
 		}
 
 		$hasTrailingSlash = substr($it, -1) == '/';
@@ -389,11 +394,11 @@ class ProcessPageView extends Process {
 		} else {
 			// check for globally unique page which can redirect
 			$trit = trim($it, '/');
-			$spit = $this->wire('sanitizer')->pageNameUTF8($trit);
+			$spit = $sanitizer->pageNameUTF8($trit);
 			if($trit === $spit) {
 				// one segment off root
-				$spit = $this->wire('sanitizer')->selectorValue($spit);
-				$page = $this->wire('pages')->get("name=$spit, status=" . Page::statusUnique);
+				$spit = $sanitizer->selectorValue($spit);
+				$page = $pages->get("name=$spit, status=" . Page::statusUnique);
 				if($page->id && $page->viewable()) {
 					$this->redirectURL = $page->url;
 				} else {
@@ -416,8 +421,8 @@ class ProcessPageView extends Process {
 			$urlSegment = substr($it, $pos);
 			$urlSegments[$cnt] = $urlSegment; 
 			$it = substr($it, 0, $pos); // $it no longer includes the urlSegment
-			$selector = "path=" . $this->wire('sanitizer')->selectorValue($it, 2048) . ", status<" . Page::statusMax;
-			$page = $this->pages->get($selector);
+			$selector = "path=" . $sanitizer->selectorValue($it, 2048) . ", status<" . Page::statusMax;
+			$page = $pages->get($selector);
 			$cnt++; 
 		}
 
@@ -570,7 +575,7 @@ class ProcessPageView extends Process {
 		// now set the URL segments to the $input API variable
 		$cnt = 1; 
 		foreach($urlSegments as $urlSegment) {
-			if($cnt == 1) $page->urlSegment = $urlSegment; // backwards compatibility
+			if($cnt == 1) $page->setQuietly('urlSegment', $urlSegment); // backwards compatibility
 			$this->input->setUrlSegment($cnt, $urlSegment);
 			$cnt++;
 		}
