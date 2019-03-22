@@ -68,21 +68,22 @@ function fuel($name = '') {
 }
 
 
-/**
- * Indent the given string with $numTabs tab characters
- *
- * Newlines are assumed to be \n
- * 
- * Watch out when using this function with strings that have a <textarea>, you may want to have it use \r newlines, at least temporarily. 
- * 
- * #pw-internal
- *
- * @param string $str String that needs the tabs
- * @param int $numTabs Number of tabs to insert per line (note any existing tabs are left as-is, so indentation is retained)
- * @param string $str The provided string but with tabs inserted
- *
- */
-if(!function_exists("tabIndent")): 
+if(!function_exists("tabIndent")):
+	/**
+	 * Indent the given string with $numTabs tab characters
+	 *
+	 * Newlines are assumed to be \n
+	 *
+	 * Watch out when using this function with strings that have a <textarea>, you may want to have it use \r newlines, at least temporarily.
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $str String that needs the tabs
+	 * @param int $numTabs Number of tabs to insert per line (note any existing tabs are left as-is, so indentation is retained)
+	 * @param string $str The provided string but with tabs inserted
+	 * @deprecated
+	 *
+	 */
 	function tabIndent($str, $numTabs) {
 		$tabs = str_repeat("\t", $numTabs);
 		$str = str_replace("\n", "\n$tabs", $str);

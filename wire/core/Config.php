@@ -43,6 +43,7 @@
  * 
  * @property bool $pagefileSecure When used, files in /site/assets/files/ will be protected with the same access as the page. Routines files through a passthrough script. #pw-group-files
  * @property string $pagefileSecurePathPrefix One or more characters prefixed to the pathname of protected file dirs. This should be some prefix that the .htaccess file knows to block requests for. #pw-group-files
+ * @property string $pagefileUrlPrefix Deprecated property that was a string that prefixes filenames in PW URLs, becoming a shortcut to a page’s file’s URL (do not use, here for backwards compatibility only). #pw-internal
  * 
  * @property array $contentTypes Array of extensions and the associated MIME type for each (for template file output). #pw-group-template-files
  * @property array $fileContentTypes Array of extensions and the associated MIME type for each (for file output). See /wire/config.php for details and defaults. #pw-group-files
@@ -69,7 +70,7 @@
  * @property string $appendTemplateFile PHP file in /site/templates/ that will be loaded after each page's template file (default=none) #pw-group-template-files
  * @property bool $templateCompile Allow use of compiled templates? #pw-group-template-files
  * 
- * @property string $uploadUnzipCommand Shell command to unzip archives, used by WireUpload class. #pw-group-deprecated
+ * @property string $uploadUnzipCommand Shell command to unzip archives, used by WireUpload class (deprecated, no longer in use). #pw-internal
  * @property string $uploadTmpDir Optionally override PHP's upload_tmp_dir with your own. Should include a trailing slash. #pw-group-files
  * @property string $uploadBadExtensions Space separated list of file extensions that are always disallowed from uploads. #pw-group-files
  * 

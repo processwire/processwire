@@ -22,6 +22,7 @@
  *
  * @property string $value [selector string] Value that user can change.
  * @property string $initValue [selector string] Initial value that user can't change.
+ * @property Template|null $initTemplate [null] Optional context template, used only just 1 allowed (pulled from $initValue automatically).
  * @property string $addIcon [plus-circle] Icon used for the "Add Field" link.
  * @property string $addLabel [Add Field] Text used for the "Add Field" link
  * @property string $dateFormat [Y-m-d] Default PHP date() format for date fields.
@@ -1726,6 +1727,42 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			}
 		}
 		return parent::setAttribute($key, $value); 
+	}
+
+	/**
+	 * Set property
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return $this|Inputfield|WireData
+	 * @throws WireException
+	 * 
+	 */
+	public function set($key, $value) {
+		if($key === 'initTemplate') {
+			if($value && !$value instanceof Template) {
+				$value = $this->wire('templates')->get($value);
+			}
+			if($value === null || $value instanceof Template) {
+				$this->initTemplate = $value;
+				return $this;
+			} else {
+				throw new WireException('initTemplate must be a Template or null');
+			}
+		}
+		return parent::set($key, $value);
+	}
+
+	/**
+	 * Get property
+	 * 
+	 * @param string $key
+	 * @return mixed
+	 * 
+	 */
+	public function get($key) {
+		if($key === 'initTemplate') return $this->initTemplate;
+		return parent::get($key);
 	}
 
 	/**

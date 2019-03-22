@@ -1017,6 +1017,10 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			}
 		}
 		
+		if($templateSelector) {
+			// not currently used
+		}
+		
 		if($includeSelector) {
 			$includeMode = $includeSelector->value; 
 			
@@ -1200,6 +1204,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function buildListerTableCol(Page $p, array $fields, $name, $value = null) {
+		if($value) {} // ignore, used by ListerPro only
 
 		/** @var Sanitizer $sanitizer */
 		$sanitizer = $this->wire('sanitizer');
@@ -1644,6 +1649,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 
 		if(isset($actions['edit']) && $this->editURL && strpos($actions['edit']['url'], '/page/edit/') !== false) {
 			list($path, $queryString) = explode('?', $actions['edit']['url']);
+			if($path) {} // ignore, descriptive only
 			$actions['edit']['url'] = $this->editURL . '?' . $queryString;
 		}
 		

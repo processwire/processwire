@@ -245,10 +245,12 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$fieldset->set('themeOffset', true);
 		$inputfields->add($fieldset);
 
+		/** @var InputfieldMarkup $e1 */
 		$e1 = $modules->get('InputfieldMarkup');
 		$e1->label = $this->_('Input size examples');
 		$e1->columnWidth = 25;
 
+		/** @var InputfieldMarkup $e2 */
 		$e2 = $modules->get('InputfieldMarkup');
 		$e2->label = $this->_('Select size examples');
 		$e2->columnWidth = 25;
