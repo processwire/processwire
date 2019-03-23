@@ -219,6 +219,7 @@ var ProcessLister = {
 				$b.remove();
 				$(this).find('span').remove();
 				var $icon = $(this).find('i');
+				if($icon.length) $icon.remove(); // before the html() call
 				var label = $(this).html();
 				if (txt == sort) {
 					$(this).html("<u>" + label + "</u><span>&nbsp;&darr;</span><b>" + txt + "</b>");

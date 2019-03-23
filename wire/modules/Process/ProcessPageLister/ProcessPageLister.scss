@@ -227,3 +227,28 @@ p.version {
 	}
 }
 
+/**
+ * Styles specific to files and images
+ * 
+ */
+#ProcessListerTable {
+	.InputfieldFile,
+	.InputfieldImage {
+		.InputfieldContent,
+		.InputfieldHeader {
+			background: inherit;
+		}
+		.InputfieldHeader {
+			padding-left: 0;
+			padding-right: 0;
+			padding-top: 0;
+		}
+		.gridImage__tooltip {
+			table th,
+			table td {
+				padding: 0;
+			}
+		}
+	}
+}
+

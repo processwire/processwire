@@ -1488,6 +1488,7 @@ function InputfieldImage($) {
 		var size = getCookieData($inputfield, 'size');
 		var mode = getCookieData($inputfield, 'mode');
 		var ragged = mode == 'left' ? true : false;
+		var renderValueMode = $inputfield.hasClass('InputfieldRenderValueMode');
 		
 		if(!size) size = $gridImages.attr('data-gridsize');
 		size = parseInt(size);
@@ -1495,7 +1496,7 @@ function InputfieldImage($) {
 		//console.log('initInputfield');
 		//console.log($inputfield);
 		
-		if($inputfield.hasClass('InputfieldImageEditAll') || mode == 'list') {
+		if(!renderValueMode && ($inputfield.hasClass('InputfieldImageEditAll') || mode == 'list')) {
 			var listSize = getCookieData($inputfield, 'listSize');
 			setListSize($inputfield, listSize);
 		} else {
@@ -1505,7 +1506,7 @@ function InputfieldImage($) {
 		if(!$inputfield.hasClass('InputfieldImageInit')) {
 			$inputfield.addClass('InputfieldImageInit');
 			
-			if($inputfield.hasClass('InputfieldRenderValueMode')) {
+			if(renderValueMode) {
 				return setupMagnificForRenderValue($inputfield);
 
 			} else if(maxFiles == 1) {

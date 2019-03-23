@@ -118,6 +118,11 @@ ul.InputfieldFileList li {
 	.InputfieldFileSort {
 		display: none !important;
 	}
+	
+}
+
+.langTabsContainer + .InputfieldFileTags {
+	margin-top: 0.5em;
 }
 
 .Inputfield .InputfieldFileTags input {
