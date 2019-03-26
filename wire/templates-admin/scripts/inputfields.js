@@ -871,7 +871,8 @@ function InputfieldColumnWidths($target) {
 	} else if(!$('body').hasClass('InputfieldColumnWidthsInit')) {
 		// initialize monitoring events on first run
 		$('body').addClass('InputfieldColumnWidthsInit');
-		
+
+		/*
 		var changeTimeout = null;
 		var checkInputfieldHeightChange = function() {
 			var $this = $(this);
@@ -887,10 +888,11 @@ function InputfieldColumnWidths($target) {
 				checkNow();	
 			}
 		};
-		
+	
 		$(document).on('change', '.InputfieldColumnWidth :input', checkInputfieldHeightChange);
 		$(document).on('AjaxUploadDone', '.InputfieldFileList', checkInputfieldHeightChange);
 		$(document).on('heightChanged', '.InputfieldColumnWidth', checkInputfieldHeightChange);
+		*/
 	} 
 }
 
@@ -1191,6 +1193,7 @@ function InputfieldStates($target) {
 				InputfieldColumnWidths();
 			} else {
 				$li.trigger('reloaded', [ 'InputfieldAjaxLoad' ]);
+				InputfieldColumnWidths();
 			}
 			if($li.closest('.InputfieldFormNoDependencies').length == 0) {
 				InputfieldDependencies($li.parent());
@@ -1505,7 +1508,7 @@ function InputfieldsInit($target) {
 /***********************************************************************************/
 
 jQuery(document).ready(function($) {
-
+	
 	InputfieldStates();
 	
 	InputfieldDependencies($(".InputfieldForm:not(.InputfieldFormNoDependencies)"));
@@ -1534,6 +1537,20 @@ jQuery(document).ready(function($) {
 	InputfieldRequirements($('.InputfieldForm'));
 
 	$(document).on('reload', '.Inputfield', InputfieldReloadEvent);
+	
+	
+	if($('.InputfieldForm:not(.InputfieldFormNoWidths)').length) {
+		$(document).on('change', '.InputfieldColumnWidth :input', function() {
+			InputfieldColumnWidths(); // For fields with immediate height change (e.g. AsmSelect)
+			setTimeout(InputfieldColumnWidths, 300); // For fields with delayed height change (e.g. Files delete)
+		});
+		$(document).on('AjaxUploadDone', '.InputfieldFileList', function() {
+			InputfieldColumnWidths();
+		});
+		$(document).on('heightChanged', '.InputfieldColumnWidth', function() {
+			InputfieldColumnWidths();
+		});
+	}
 
 	/*
 	// for testing: 

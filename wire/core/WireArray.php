@@ -2047,7 +2047,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * #pw-group-retrieval
 	 * #pw-group-fun-tools
 	 *
-	 * @param string|callable|array $property Property or properties to retrieve, or callable function that shuld receive items.
+	 * @param string|callable|array $property Property or properties to retrieve, or callable function that should receive items.
 	 * @param array $options Options to modify default behavior:
 	 *  - `getMethod` (string): Method to call on each item to retrieve $property (default = "get")
 	 *  - `key` (string|null): Property of Wire objects to use for key of array, or omit (null) for non-associative array (default).
