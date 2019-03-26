@@ -352,9 +352,11 @@ abstract class Selector extends WireData {
 		// $values1 is the value stored by the selector
 		// $values2 is the value passed into the matches() function
 
-		$numMatches = 0; 
-		if($operator == '!=') $numMatchesRequired = (count($values1) + count($values2)) - 1; 
-			else $numMatchesRequired = 1; 
+		$numMatches = 0;
+		$numMatchesRequired = 1; 
+		if(($operator === '!=' && !$this->not) || ($this->not && $operator !== '!=')) {
+			$numMatchesRequired = count($values1) * count($values2);
+		} 
 		
 		$fields = is_array($field) ? $field : array($field); 
 		
