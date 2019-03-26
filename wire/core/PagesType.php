@@ -85,6 +85,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		$this->setWire($wire);
 		$this->addTemplates($templates);
 		$this->addParents($parents); 
+		$wire->pages->types($this);
+		parent::__construct();
 	}
 
 	/**
@@ -113,7 +115,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 				if($template) $this->templates[$template->id] = $template;
 			}
 		}
-		if(empty($this->template)) $this->template = reset($this->templates); // legacy deprecated
+		if(empty($this->template)) $this->template = reset($this->templates); 
 	}
 
 	/**
@@ -191,30 +193,18 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	public function isValid(Page $page) {
 
 		// quick exit when possible
-		if($this->template->id == $page->template->id && $this->parent_id == $page->parent_id) return true;
-		
-		$validTemplate = false;
-		foreach($this->templates as $template) {
-			if($page->template->id == $template->id) {
-				$validTemplate = true;
-				break;
-			}
+		if($this->template && $this->template->id === $page->template->id) {
+			if($this->parent_id && $this->parent_id === $page->parent_id) return true;
 		}
-		
+	
+		$validTemplate = $this->hasValidTemplate($page);
 		if(!$validTemplate && count($this->templates)) {
 			$validTemplates = implode(', ', array_keys($this->templates));
 			$this->error("Page $page->path must have template: $validTemplates");
 			return false;
 		}
 		
-		$validParent = false;
-		foreach($this->parents as $parent_id) {
-			if($parent_id == $page->parent_id) {
-				$validParent = true;
-				break;
-			}
-		}
-	
+		$validParent = $this->hasValidParent($page);
 		if(!$validParent && count($this->parents)) {
 			$validParents = implode(', ', $this->parents);
 			$this->error("Page $page->path must have parent: $validParents");
@@ -222,6 +212,80 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		}
 		
 		return true; 
+	}
+
+	/**
+	 * Does given Page use a template managed by this type?
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @return bool
+	 * @since 3.0.128
+	 * 
+	 */
+	public function hasValidTemplate(Page $page) {
+		$tid = (int) $page->templates_id;
+		if($this->template && count($this->templates) === 1) {
+			return $this->template->id === $tid;
+		}
+		$valid = false;
+		foreach($this->templates as $template) {
+			if($tid !== $template->id) continue;
+			$valid = true;
+			break;
+		}
+		return $valid;
+	}
+
+	/**
+	 * Does given Page have a parent managed by this type?
+	 * 
+	 * #pw-internal
+	 *
+	 * @param Page $page
+	 * @return bool
+	 * @since 3.0.128
+	 *
+	 */
+	public function hasValidParent(Page $page) {
+		$parent_id = (int) $page->parent_id; 
+		if($this->parent_id && $this->parent_id === $parent_id) return true;
+		$valid = false;
+		foreach($this->parents as $parent_id) {
+			if($parent_id !== $page->parent_id) continue;
+			$valid = true;
+			break;
+		}
+		return $valid;
+	}
+
+	/**
+	 * Does given Page have a Page class name managed by this type?
+	 * 
+	 * #pw-internal
+	 *
+	 * @param Page $page
+	 * @return bool
+	 * @since 3.0.128
+	 *
+	 */
+	public function hasValidClass(Page $page) {
+		$pageClass = $page->className();
+		if($this->pageClass && $pageClass === $this->pageClass) return true;
+		$valid = false;
+		foreach($this->templates as $template) {
+			/** @var Template $template */
+			if($template->pageClass) {
+				// template specifies a class 
+				if($template->pageClass === $pageClass) $valid = true;
+			} else {
+				// template specifies NO Page class, which implies "Page" as a class name is valid
+				if($pageClass === 'Page') $valid = true;
+			}
+			if($valid) break;	
+		}
+		return $valid;
 	}
 
 	/**
@@ -564,13 +628,13 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 */
 
 	/**
-	 * Hook called just before a page is saved
+	 * Hook called just before a page of this type is saved
 	 * 
-	 * #pw-internal
+	 * #pw-hooker
 	 *
 	 * @param Page $page The page about to be saved
 	 * @return array Optional extra data to add to pages save query.
-	 * @deprecated
+	 * @since 3.0.128
 	 *
 	 */
 	public function ___saveReady(Page $page) { 
@@ -579,28 +643,25 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	}
 
 	/**
-	 * Hook called after a page is successfully saved
+	 * Hook called after a page of this type is successfully saved
 	 *
-	 * This is the same as Pages::save, except that it occurs before other save-related hooks (below),
-	 * Whereas Pages::save occurs after. In most cases, the distinction does not matter.
-	 * 
-	 * #pw-internal
+	 * #pw-hooker
 	 *
 	 * @param Page $page The page that was saved
 	 * @param array $changes Array of field names that changed
 	 * @param array $values Array of values that changed, if values were being recorded, see Wire::getChanges(true) for details.
-	 * @deprecated
+	 * @since 3.0.128
 	 *
 	 */
 	public function ___saved(Page $page, array $changes = array(), $values = array()) { }
 
 	/**
-	 * Hook called when a new page has been added
+	 * Hook called when a new page of this type has been added
 	 * 
-	 * #pw-internal
+	 * #pw-hooker
 	 *
 	 * @param Page $page
-	 * @deprecated
+	 * @since 3.0.128
 	 *
 	 */
 	public function ___added(Page $page) { }
@@ -608,10 +669,10 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	/**
 	 * Hook called when a page is about to be deleted, but before data has been touched
 	 * 
-	 * #pw-internal
+	 * #pw-hooker
 	 *
 	 * @param Page $page
-	 * @deprecated
+	 * @since 3.0.128
 	 *
 	 */
 	public function ___deleteReady(Page $page) { }
@@ -619,9 +680,10 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	/**
 	 * Hook called when a page and its data have been deleted
 	 * 
-	 * #pw-internal
+	 * #pw-hooker
 	 *
 	 * @param Page $page
+	 * @since 3.0.128
 	 *
 	 */
 	public function ___deleted(Page $page) { }

@@ -157,7 +157,7 @@ class Users extends PagesType {
 			$role = $this->wire('roles')->get($this->wire('config')->guestUserRolePageID);
 			if($role->id && !$user->hasRole($role)) $user->addRole($role);
 		}
-		return array();
+		return parent::___saveReady($user);
 	}
 
 }

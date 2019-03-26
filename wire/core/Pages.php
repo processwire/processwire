@@ -138,7 +138,15 @@ class Pages extends Wire {
 	 * @var PagesTrash
 	 * 
 	 */
-	protected $trasher; 
+	protected $trasher;
+
+	/**
+	 * Array of PagesType managers
+	 * 
+	 * @var PagesType[]
+	 * 
+	 */
+	protected $types = array();
 
 	/**
 	 * Create the Pages object
@@ -1386,6 +1394,24 @@ class Pages extends Wire {
 	}
 
 	/**
+	 * Get array of all PagesType managers
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param PagesType|string Specify a PagesType object to add a Manager, or specify class name to retrieve manager
+	 * @return array|PagesType|null|bool Returns requested type, null if not found, or boolean true if manager added. 
+	 * 
+	 */
+	public function types($type = null) {
+		if(!$type) return $this->types;
+		if(is_string($type)) return isset($this->types[$type]) ? $this->types[$type] : null;
+		if(!$type instanceof PagesType) return null;
+		$name = $type->className();
+		$this->types[$name] = $type;
+		return true;
+	}
+
+	/**
 	 * Get or set debug state
 	 * 
 	 * #pw-internal
@@ -1428,9 +1454,8 @@ class Pages extends Wire {
 		/** @var WireCache $cache */
 		$cache = $this->wire('cache');
 		$cache->maintenance($page);
-		if($page->className() != 'Page') {
-			$manager = $page->getPagesManager();
-			if($manager instanceof PagesType) $manager->saved($page, $changes, $values);
+		foreach($this->types as $manager) {
+			if($manager->hasValidTemplate($page)) $manager->saved($page, $changes, $values);
 		}
 	}
 
@@ -1444,9 +1469,8 @@ class Pages extends Wire {
 	 */
 	public function ___added(Page $page) { 
 		$this->log("Added page", $page);
-		if($page->className() != 'Page') {
-			$manager = $page->getPagesManager();
-			if($manager instanceof PagesType) $manager->added($page);
+		foreach($this->types as $manager) {
+			if($manager->hasValidTemplate($page)) $manager->added($page);
 		}
 		$page->setQuietly('_added', true);
 	}
@@ -1526,9 +1550,10 @@ class Pages extends Wire {
 	 */
 	public function ___saveReady(Page $page) {
 		$data = array();
-		if($page->className() != 'Page') {
-			$manager = $page->getPagesManager();
-			if($manager instanceof PagesType) $data = $manager->saveReady($page);
+		foreach($this->types as $manager) {
+			if(!$manager->hasValidTemplate($page)) continue;
+			$a = $manager->saveReady($page);
+			if(!empty($a) && is_array($a)) $data = array_merge($data, $a); 
 		}
 		return $data;
 	}
@@ -1545,9 +1570,8 @@ class Pages extends Wire {
 	 *
 	 */
 	public function ___deleteReady(Page $page) {
-		if($page->className() != 'Page') {
-			$manager = $page->getPagesManager();
-			if($manager instanceof PagesType) $manager->deleteReady($page);
+		foreach($this->types as $manager) {
+			if($manager->hasValidTemplate($page)) $manager->deleteReady($page);
 		}
 	}
 
@@ -1564,9 +1588,8 @@ class Pages extends Wire {
 		/** @var WireCache $cache */
 		$cache = $this->wire('cache');
 		$cache->maintenance($page);
-		if($page->className() != 'Page') {
-			$manager = $page->getPagesManager();
-			if($manager instanceof PagesType) $manager->deleted($page);
+		foreach($this->types as $manager) {
+			if($manager->hasValidTemplate($page)) $manager->deleted($page);
 		}
 	}
 

@@ -533,6 +533,7 @@ class Languages extends PagesType {
 	 */
 	public function ___deleted(Page $language) {
 		$this->updated($language, 'deleted'); 
+		parent::___deleted($language);
 	}
 
 	/**
@@ -545,6 +546,7 @@ class Languages extends PagesType {
 	 */
 	public function ___added(Page $language) {
 		$this->updated($language, 'added'); 
+		parent::___added($language);
 	}
 
 	/**
