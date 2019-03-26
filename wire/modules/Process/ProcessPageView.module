@@ -372,7 +372,7 @@ class ProcessPageView extends Process {
 			$this->pageNum = (int) $matches[2]; 
 			$page = null;
 		} else { 
-			$spit = $sanitizer->selectorValue($it);
+			$spit = $sanitizer->selectorValue($it, 2048);
 			$page = $pages->get("path=$spit, status<" . Page::statusMax); 
 		}
 
@@ -397,7 +397,7 @@ class ProcessPageView extends Process {
 			$spit = $sanitizer->pageNameUTF8($trit);
 			if($trit === $spit) {
 				// one segment off root
-				$spit = $sanitizer->selectorValue($spit);
+				$spit = $sanitizer->selectorValue($spit, 2048);
 				$page = $pages->get("name=$spit, status=" . Page::statusUnique);
 				if($page->id && $page->viewable()) {
 					$this->redirectURL = $page->url;
