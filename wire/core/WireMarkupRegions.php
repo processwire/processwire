@@ -545,8 +545,8 @@ class WireMarkupRegions extends Wire {
 			$testStart = 0;
 			$doCnt = 0;
 			$maxDoCnt = 100000;
-			$openTag1 = "<$tagInfo[name]>";
-			$openTag2 = "<$tagInfo[name] ";
+			$openTag = "<$tagInfo[name]";
+			$openTags = array("$openTag>", "$openTag ", "$openTag\n", "$openTag\r", "$openTag\t"); 
 			$fail = false;
 			
 			do {
@@ -557,7 +557,10 @@ class WireMarkupRegions extends Wire {
 					break;
 				}
 				$test = substr($region, 0, $testPos);
-				$openCnt = substr_count($test, $openTag1) + substr_count($test, $openTag2);
+				$openCnt = 0;
+				foreach($openTags as $openTag) {
+					if(strpos($test, $openTag) !== false) $openCnt += substr_count($test, $openTag);
+				}
 				$closeCnt = substr_count($test, $tagInfo['close']);
 				if($openCnt == $closeCnt) {
 					// open and close tags balance, meaning we've found our region
