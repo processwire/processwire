@@ -1174,45 +1174,41 @@ class PageFinder extends Wire {
 			$group = $selector->group; // i.e. @field
 			$fields = is_array($fields) ? $fields : array($fields); 
 			if(count($fields) > 1) $fields = $this->arrangeFields($fields); 
-			$fieldsStr = ':' . implode(':', $fields) . ':'; // for strpos
-			$field = reset($fields); // first field
-			$fieldAndSubfield = $field;
-			if(strpos($field, '.')) list($field,) = explode('.', $field); 
+			$field1 = reset($fields); // first field including optional subfield
 
 			// TODO Make native fields and path/url multi-field and multi-value aware
-			if($fieldAndSubfield === 'sort' && $selector->operator === '=') {
+			if($field1 === 'sort' && $selector->operator === '=') {
 				$sortSelectors[] = $selector;
 				continue;
 			
-			} else if($fieldAndSubfield === 'sort' || $fieldAndSubfield === 'page.sort') {
+			} else if($field1 === 'sort' || $field1 === 'page.sort') {
 				if(!in_array($selector->operator, array('=', '!=', '<', '>', '>=', '<='))) {
-					throw new PageFinderSyntaxException("Property '$fieldAndSubfield' may not use operator: $selector->operator");
+					throw new PageFinderSyntaxException("Property '$field1' may not use operator: $selector->operator");
 				}
 				$selector->field = 'sort';
 				$selector->value = (int) $selector->value();
 				$this->getQueryNativeField($query, $selector, array('sort'), $options, $selectors); 
 				continue;
 
-			} else if($field === 'limit' || $field === 'start') {
+			} else if($field1 === 'limit' || $field1 === 'start') {
 				continue;
 
-			} else if($field === 'path' || $field === 'url') {
+			} else if($field1 === 'path' || $field1 === 'url') {
 				$this->getQueryJoinPath($query, $selector); 
 				continue; 
 
-			} else if($field === 'has_parent' || $field === 'hasParent') {
+			} else if($field1 === 'has_parent' || $field1 === 'hasParent') {
 				$this->getQueryHasParent($query, $selector); 
 				continue; 
 
-			} else if($field === 'num_children' || $field === 'numChildren' || $fieldAndSubfield === 'children.count') { 
+			} else if($field1 === 'num_children' || $field1 === 'numChildren' || $field1 === 'children.count') { 
 				$this->getQueryNumChildren($query, $selector); 
 				continue; 
 
-			} else if($this->wire('fields')->isNative($field) || strpos($fieldsStr, ':parent.') !== false) {
+			} else if($this->hasNativeFieldName($fields)) {
 				$this->getQueryNativeField($query, $selector, $fields, $options, $selectors); 
-				continue; 
-			} 
-
+				continue;
+			}
 			
 			// where SQL specific to the foreach() of fields below, if needed. 
 			// in this case only used by internally generated shortcuts like the blank value condition
@@ -2042,7 +2038,10 @@ class PageFinder extends Wire {
 
 		$values = $selector->values(true); 
 		$SQL = '';
+		/** @var WireDatabasePDO $database */
 		$database = $this->wire('database'); 
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
 
 		foreach($fields as $field) { 
 
@@ -2053,35 +2052,44 @@ class PageFinder extends Wire {
 			$IDs = array(); // populated in special cases where we can just match parent IDs
 			$sql = '';
 
-			if(strpos($field, '.')) list($field, $subfield) = explode('.', $field);
-			
-			if($field == 'sort' && $subfield) $subfield = '';
-
-			if(!$this->wire('fields')->isNative($field)) {
-				$subfield = $field;
-				$field = 'children';
+			if(strpos($field, '.')) {
+				list($field, $subfield) = explode('.', $field);
+				$subfield = $sanitizer->fieldName($subfield);
 			}
+			
+			$field = $sanitizer->fieldName($field);
+			if($field == 'sort' && $subfield) $subfield = '';
 			if($field == 'child') $field = 'children';
 
-			if(in_array($field, array('parent', 'parent_id', 'children'))) {
+			if($field != 'children' && !$this->wire('fields')->isNative($field)) {
+				$subfield = $field;
+				$field = '_pages';
+			}
+			
+			$isParent = $field === 'parent' || $field === 'parent_id';
+			$isChildren = $field === 'children';
+			$isPages = $field === '_pages';
 
-				if(strpos($field, 'parent') === 0 && (!$subfield || in_array($subfield, array('id', 'path', 'url')))) {
+			if($isParent || $isChildren || $isPages) {
+				// parent, children, pages
+
+				if(($isPages || $isParent) && (!$subfield || in_array($subfield, array('id', 'path', 'url')))) {
 					// match by location (id or path)
 					// convert parent fields like '/about/company/history' to the equivalent ID
 					foreach($values as $k => $v) {
 						if(ctype_digit("$v")) continue; 
-						$v = $this->wire('sanitizer')->pagePathName($v, Sanitizer::toAscii); 
+						$v = $sanitizer->pagePathName($v, Sanitizer::toAscii); 
 						if(strpos($v, '/') === false) $v = "/$v"; // prevent a plain string with no slashes
 						// convert path to id
-						$parent = $this->wire('pages')->get($v); 
-						if(!$parent instanceof NullPage) $values[$k] = $parent->id; 
-							else $values[$k] = null;
-
+						$parent = $this->wire('pages')->get($v);
+						$values[$k] = $parent instanceof NullPage ? null : $parent->id;
 					}
-					$field = 'parent_id';
-
-					if(count($values) == 1 && $selector->operator() === '=') {
-						$this->parent_id = reset($values);
+					$this->parent_id = null;
+					if($isParent) {
+						$field = 'parent_id'; 
+						if(count($values) == 1 && count($fields) == 1 && $selector->operator() === '=') {
+							$this->parent_id = reset($values);
+						} 
 					}
 
 				} else {
@@ -2091,33 +2099,37 @@ class PageFinder extends Wire {
 						$finder = $this->wire(new PageFinder());
 						$finderMethod = 'findIDs';
 						$includeSelector = 'include=all';
-						if($field == 'children') {
+						if($field === 'children' || $field === '_pages') {
 							if($subfield) {
 								$s = '';
-								$finderMethod = 'findParentIDs'; 
+								if($field === 'children') $finderMethod = 'findParentIDs'; 
 								// inherit include mode from main selector
 								$includeSelector = trim(
 									$selectors->getSelectorByField('include') . ',' . 
 									$selectors->getSelectorByField('status') . ',' . 
 									$selectors->getSelectorByField('check_access'), ','
 								);
-							} else {
+							} else if($field === 'children') {
 								$s = 'children.id';
+							} else {
+								$s = 'id';
 							}
 						} else {
 							$s = 'children.count>0, ';
 						}
 						$IDs = $finder->$finderMethod(new Selectors(ltrim(
 							"$includeSelector," . 
-							"$s$subfield$operator" . $this->wire('sanitizer')->selectorValue($values), ','
+							"$s$subfield$operator" . $sanitizer->selectorValue($values), ','
 						)));
 						if(!count($IDs)) $IDs[] = -1; // forced non match
 					} else {
 						// native
 						static $n = 0;
-						if($field == 'children') {
+						if($field === 'children') {
 							$table = "_children_native" . (++$n);
 							$query->join("pages AS $table ON $table.parent_id=pages.id");
+						} else if($field === '_pages') {
+							$table = 'pages';
 						} else {
 							$table = "_parent_native" . (++$n);
 							$query->join("pages AS $table ON pages.parent_id=$table.id");
@@ -2125,10 +2137,12 @@ class PageFinder extends Wire {
 						$field = $subfield;
 					}
 				}
+			} else {
+				// primary field is not 'parent', 'children' or 'pages'
 			}
 
 			if(count($IDs)) {
-				// parentIDs are IDs found via another query, and we don't need to match anything other than the parent ID
+				// parentIDs or IDs found via another query, and we don't need to match anything other than the parent ID
 				$in = $selector->not ? "NOT IN" : "IN"; 
 				$sql .= in_array($field, array('parent', 'parent_id')) ? "$table.parent_id " : "$table.id ";
 				$sql .= "$in(" . implode(',', $IDs) . ")";
@@ -2165,13 +2179,13 @@ class PageFinder extends Wire {
 					// handle one or more space-separated full words match to 'name' field in any order
 					$s = '';
 					foreach(explode(' ', $value) as $word) {
-						$word = $database->escapeStr($this->wire('sanitizer')->pageName($word, Sanitizer::toAscii)); 
+						$word = $database->escapeStr($sanitizer->pageName($word, Sanitizer::toAscii)); 
 						$s .= ($s ? ' AND ' : '') . "$table.$field RLIKE '" . '[[:<:]]' . $word . '[[:>:]]' . "'";
 					}
 
 				} else if($isName && in_array($operator, array('%=', '^=', '$=', '%^=', '%$=', '*='))) {
 					// handle partial match to 'name' field
-					$value = $database->escapeStr($this->wire('sanitizer')->pageName($value, Sanitizer::toAscii));
+					$value = $database->escapeStr($sanitizer->pageName($value, Sanitizer::toAscii));
 					if($operator == '^=' || $operator == '%^=') $value = "$value%";
 						else if($operator == '$=' || $operator == '%$=') $value = "%$value";
 						else $value = "%$value%";
@@ -2181,7 +2195,7 @@ class PageFinder extends Wire {
 					throw new PageFinderSyntaxException("Operator '{$operator}' is not supported for '$field'."); 
 
 				} else {
-					if($isName) $value = $this->wire('sanitizer')->pageName($value, Sanitizer::toAscii); 
+					if($isName) $value = $sanitizer->pageName($value, Sanitizer::toAscii); 
 					$value = $database->escapeStr($value); 
 					$s = "$table." . $field . $operator . ((ctype_digit("$value") && $field != 'name') ? ((int) $value) : "'$value'");
 				
@@ -2753,6 +2767,54 @@ class PageFinder extends Wire {
 			$pageArray->data($this->pageArrayData); 
 		}
 		return $this->pageArrayData; 
+	}
+	
+	/**
+	 * Are any of the given field name(s) native to PW system?
+	 * 
+	 * This is primarily used to determine whether the getQueryNativeField() method should be called.
+	 *
+	 * @param string|array|Selector $fieldNames Single field name, array of field names or pipe-separated string of field names
+	 * @return bool
+	 *
+	 */
+	protected function hasNativeFieldName($fieldNames) {
+
+		$fieldName = null;
+
+		if(is_object($fieldNames)) {
+			if($fieldNames instanceof Selector) {
+				$fieldNames = $fieldNames->fields();
+			} else {
+				return false;
+			}
+		}
+
+		if(is_string($fieldNames)) {
+			if(strpos($fieldNames, '|')) {
+				$fieldNames = explode('|', $fieldNames);
+				$fieldName = reset($fieldNames);
+			} else {
+				$fieldName = $fieldNames;
+				$fieldNames = array($fieldName);
+			}
+		} else if(is_array($fieldNames)) {
+			$fieldName = reset($fieldNames);
+		}
+
+		if($fieldName !== null) {
+			if(strpos($fieldName, '.')) list($fieldName,) = explode('.', $fieldName, 2);
+			if($this->wire('fields')->isNative($fieldName)) return true;
+		}
+
+		if(count($fieldNames)) {
+			$fieldsStr = ':' . implode(':', $fieldNames) . ':';
+			if(strpos($fieldsStr, ':parent.') !== false) return true;
+			if(strpos($fieldsStr, ':children.') !== false) return true;
+			if(strpos($fieldsStr, ':child.') !== false) return true;
+		}
+
+		return false;
 	}
 }
 
