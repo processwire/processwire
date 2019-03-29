@@ -436,6 +436,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 				if(is_null($value)) $value = $page->get($field); 
 				if(is_object($value) && $subfield) $value = $value->$subfield;
 				if(is_array($value)) $value = implode('|', $value); 
+				if(!strlen("$value") && (!$subfield || $subfield == 'id')) $value = '-1'; // force fail
 				$selector = str_replace($tag, "=$value", $selector); 
 			}
 		}
@@ -1171,7 +1172,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$inputfields->insertBefore($field, $selectablePagesFieldset); 	
 	
 		if($this->hasFieldtype !== false) {
-			
+		
+			/** @var InputfieldMarkup $f */
 			$f = $this->modules->get('InputfieldMarkup');
 			$f->label = $this->_('Regarding “Page List” input types');
 			$f->icon = 'warning';

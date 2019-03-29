@@ -430,7 +430,7 @@ class InputfieldSelect extends Inputfield {
 	 * Note: method was protected prior to 3.0.116
 	 * 
 	 * @param array|null $options Options array or omit (null) to use already specified options
-	 * @param bool $allowBlank Allow first item to be blank when supported? (default=tru)
+	 * @param bool $allowBlank Allow first item to be blank when supported? (default=true)
 	 * @return string
 	 * 
 	 */
