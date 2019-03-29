@@ -3436,6 +3436,28 @@ class Sanitizer extends Wire {
 	}
 
 	/**
+	 * Sanitize checkbox value
+	 * 
+	 * #pw-group-other
+	 * 
+	 * @param int|bool|string|mixed|null $value Value to check
+	 * @param int|bool|string|mixed|null $yes Value to return if checked (default=true)
+	 * @param int|bool|string|mixed|null $no Value to return if not checked (default=false)
+	 * @return int|bool|string|mixed|null Return value, based on $checked or $unchecked argument
+	 * @since 3.0.128
+	 * @see Sanitizer::bool(), Sanitizer::bit()
+	 * 
+	 */
+	public function checkbox($value, $yes = true, $no = false) {
+		if($value === '' || $value === '0' || $value === null || $value === false) {
+			return $no;
+		} else if(empty($value)) {
+			return $no; // array or other empty value
+		}
+		return $yes;
+	}
+
+	/**
 	 * Limit length of given value to that specified
 	 * 
 	 * - For strings, this limits the length to that many characters. 
@@ -3452,6 +3474,7 @@ class Sanitizer extends Wire {
 	 * @param null|int $maxBytes Maximum allowed bytes (used for string types only)
 	 * @return array|bool|float|int|string
 	 * @since 3.0.125
+	 * @see Sanitizer::minLength()
 	 * 
 	 */
 	public function maxLength($value, $maxLength = 128, $maxBytes = null) {
@@ -3521,6 +3544,7 @@ class Sanitizer extends Wire {
 	 * @param string $padChar Pad string with this character if it does not meet minimum length (default='')
 	 * @param bool $padLeft Pad to left rather than right? (default=false)
 	 * @return string
+	 * @see Sanitizer::maxLength()
 	 * 
 	 */
 	public function minLength($value, $minLength = 1, $padChar = '', $padLeft = false) {
