@@ -138,23 +138,22 @@ class WireHooks {
 	 *
 	 * @param Wire $object
 	 * @param string $method Optional method that hooks will be limited to. Or specify '*' to return all hooks everywhere.
-	 * @param int $type Type of hooks to return, specify one of the following constants:
+	 * @param int $getHooks Get hooks of type, specify one of the following constants:
 	 * 	- WireHooks::getHooksAll returns all hooks [0] (default)
 	 * 	- WireHooks::getHooksLocal returns local hooks [1] only
 	 * 	- WireHooks::getHooksStatic returns static hooks [2] only
 	 * @return array
 	 *
 	 */
-	public function getHooks(Wire $object, $method = '', $type = self::getHooksAll) {
+	public function getHooks(Wire $object, $method = '', $getHooks = self::getHooksAll) {
 
 		$hooks = array();
 
 		// see if we can do a quick exit
 		if($method && $method !== '*' && !$this->isHookedOrParents($object, $method)) return $hooks;
-		
 
 		// first determine which local hooks when should include
-		if($type !== self::getHooksStatic) {
+		if($getHooks !== self::getHooksStatic) {
 			$localHooks = $object->getLocalHooks();
 			if($method && $method !== '*') {
 				// populate all local hooks for given method
@@ -170,7 +169,7 @@ class WireHooks {
 		}
 
 		// if only local hooks requested, we can return them now
-		if($type === self::getHooksLocal) return $hooks;
+		if($getHooks === self::getHooksLocal) return $hooks;
 
 		$needSort = false;
 		$namespace = __NAMESPACE__ ? __NAMESPACE__ . "\\" : "";
@@ -480,7 +479,7 @@ class WireHooks {
 	 * @param object|null|callable $toObject Object to call $toMethod from,
 	 * 	Or null if $toMethod is a function outside of an object,
 	 * 	Or function|callable if $toObject is not applicable or function is provided as a closure.
-	 * @param string $toMethod Method from $toObject, or function name to call on a hook event. Optional.
+	 * @param string|array $toMethod Method from $toObject, or function name to call on a hook event, or $options array. 
 	 * @param array $options See $defaultHookOptions at the beginning of this class. Optional.
 	 * @return string A special Hook ID that should be retained if you need to remove the hook later
 	 * @throws WireException
@@ -713,7 +712,7 @@ class WireHooks {
 			'replace' => false,
 		);
 		
-		if($type === 'method' || $type === 'property') {
+		if($type === 'method' || $type === 'property' || $type === 'either') {
 			if(!$result['methodExists'] && !$this->isHookedOrParents($object, $method, $type)) {
 				return $result; // exit quickly when we can
 			}
@@ -740,6 +739,8 @@ class WireHooks {
 			foreach($hooks as $priority => $hook) {
 
 				if(!$hook['options'][$when]) continue;
+				if($type === 'property' && $hook['options']['type'] === 'method') continue;
+				if($type === 'method' && $hook['options']['type'] === 'property') continue;
 
 				if(!empty($hook['options']['objMatch'])) {
 					/** @var Selectors $objMatch */
