@@ -641,6 +641,11 @@ class WireHooks {
 		$cacheValue = $options['type'] == 'method' ? "$method()" : "$method";
 		if($options['fromClass']) $this->hookClassMethodCache["$options[fromClass]::$cacheValue"] = true;
 		$this->hookMethodCache[$cacheValue] = true;
+		if($options['type'] === 'either') {
+			$cacheValue = "$cacheValue()";
+			$this->hookMethodCache[$cacheValue] = true;
+			if($options['fromClass']) $this->hookClassMethodCache["$options[fromClass]::$cacheValue"] = true;
+		}
 
 		// keep track of all local hooks combined when debug mode is on
 		if($local && $this->config->debug) {
