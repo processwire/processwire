@@ -645,6 +645,8 @@ class Sanitizer extends Wire {
 		
 		// if UTF8 module is not enabled then delegate this call to regular pageName sanitizer
 		if($this->wire('config')->pageNameCharset != 'UTF8') return $this->pageName($value, false, $maxLength);
+		
+		$tt = $this->getTextTools();
 	
 		// we don't allow UTF8 page names to be prefixed with "xn-"
 		if(strpos($value, 'xn-') === 0) $value = substr($value, 3);
@@ -670,10 +672,10 @@ class Sanitizer extends Wire {
 		// validate that all characters are in our whitelist
 		$replacements = array();
 
-		for($n = 0; $n < mb_strlen($value); $n++) {
-			$c = mb_substr($value, $n, 1);
-			$inBlacklist = mb_strpos($blacklist, $c) !== false || strpos($blacklist, $c) !== false;
-			$inWhitelist = !$inBlacklist && $whitelist !== false && mb_strpos($whitelist, $c) !== false;
+		for($n = 0; $n < $tt->strlen($value); $n++) {
+			$c = $tt->substr($value, $n, 1);
+			$inBlacklist = $tt->strpos($blacklist, $c) !== false || strpos($blacklist, $c) !== false;
+			$inWhitelist = !$inBlacklist && $whitelist !== false && $tt->strpos($whitelist, $c) !== false;
 			if($inWhitelist && !$inBlacklist) {
 				// in whitelist
 			} else if($inBlacklist || !strlen(trim($c)) || ctype_cntrl($c)) {
@@ -681,14 +683,14 @@ class Sanitizer extends Wire {
 				$replacements[] = $c;
 			} else {
 				// character that is not in whitelist, double check case variants
-				$cLower = mb_strtolower($c);
-				$cUpper = mb_strtoupper($c);
-				if($cLower !== $c && mb_strpos($whitelist, $cLower) !== false) {
+				$cLower = $tt->strtolower($c);
+				$cUpper = $tt->strtoupper($c);
+				if($cLower !== $c && $tt->strpos($whitelist, $cLower) !== false) {
 					// allow character and convert to lowercase variant
-					$value = mb_substr($value, 0, $n) . $cLower . mb_substr($value, $n+1);
-				} else if($cUpper !== $c && mb_strpos($whitelist, $cUpper) !== false) {
+					$value = $tt->substr($value, 0, $n) . $cLower . $tt->substr($value, $n+1);
+				} else if($cUpper !== $c && $tt->strpos($whitelist, $cUpper) !== false) {
 					// allow character and convert to uppercase varient
-					$value = mb_substr($value, 0, $n) . $cUpper . mb_substr($value, $n+1);
+					$value = $tt->substr($value, 0, $n) . $cUpper . $tt->substr($value, $n+1);
 				} else {
 					// queue character to be replaced
 					$replacements[] = $c;
@@ -709,7 +711,7 @@ class Sanitizer extends Wire {
 		// trim off any remaining separators/extras
 		$value = trim($value, '-_.');
 		
-		if(mb_strlen($value) > $maxLength) $value = mb_substr($value, 0, $maxLength); 
+		if($tt->strlen($value) > $maxLength) $value = $tt->substr($value, 0, $maxLength); 
 		
 		return $value;
 	}
@@ -762,6 +764,7 @@ class Sanitizer extends Wire {
 		// exclude values that don't need to be converted
 		if(strpos($value, 'xn-') === 0) return $value;
 		if(ctype_alnum(str_replace(array('.', '-', '_'), '', $value))) return $value;
+		$tt = $this->getTextTools();
 
 		while(strpos($value, '__') !== false) {
 			$value = str_replace('__', '_', $value);
@@ -771,8 +774,8 @@ class Sanitizer extends Wire {
 			$_value = $value;
 			$parts = array();
 			while(strlen($_value)) {
-				$part = mb_substr($_value, 0, 12);
-				$_value = mb_substr($_value, 12);
+				$part = $tt->substr($_value, 0, 12);
+				$_value = $tt->substr($_value, 12);
 				$parts[] = $this->punyEncodeName($part);
 			}
 			$value = implode('__', $parts);
@@ -2099,8 +2102,8 @@ class Sanitizer extends Wire {
 		// first, replace common entities that can possibly remain
 		$entities = array('&apos;' => "'");
 		$str = str_ireplace(array_keys($entities), array_values($entities), $str);
-		if(strpos($str, '&#') !== false) {
-			// manually convert decimal and hex entities
+		if(strpos($str, '&#') !== false && $this->multibyteSupport) {
+			// manually convert decimal and hex entities (when possible)
 			$str = preg_replace_callback('/(&#[0-9A-F]+;)/i', function($matches) use($encoding) {
 				return mb_convert_encoding($matches[1], $encoding, "HTML-ENTITIES");
 			}, $str);
@@ -2337,8 +2340,8 @@ class Sanitizer extends Wire {
 	 */
 	public function trim($str, $chars = '') {
 	
-		$mb = $this->multibyteSupport; 
-		$len = $mb ? mb_strlen($str) : strlen($str);
+		$tt = $this->getTextTools();
+		$len = $tt->strlen($str);
 		if(!$len) return $str;
 		if(is_array($chars) && !count($chars)) $chars = '';
 		$trims = array();
@@ -2355,9 +2358,9 @@ class Sanitizer extends Wire {
 			if(is_array($chars)) {
 				$trims = $chars;
 			} else {
-				for($n = 0; $n < mb_strlen($str); $n++) {
-					$trim = $mb ? mb_substr($chars, $n, 1) : substr($chars, $n, 1);
-					$trimLen = $mb ? mb_strlen($trim) : strlen($trim);
+				for($n = 0; $n < $tt->strlen($str); $n++) {
+					$trim = $tt->substr($chars, $n, 1);
+					$trimLen = $tt->strlen($trim);
 					if($trimLen) $trims[] = $trim;
 				}
 			}
@@ -2369,7 +2372,7 @@ class Sanitizer extends Wire {
 			$numRemovedEnd = 0; // num removed from end
 			
 			foreach($trims as $trimKey => $trim) {
-				$trimPos = $mb ? mb_strpos($str, $trim) : strpos($str, $trim);
+				$trimPos = $tt->strpos($str, $trim);
 		
 				// if trim not present anywhere in string it can be removed from our trims list
 				if($trimPos === false) {
@@ -2378,23 +2381,23 @@ class Sanitizer extends Wire {
 				}
 				
 				// at this point we know the trim character is present somewhere in the string
-				$trimLen = $mb ? mb_strlen($trim) : strlen($trim);
+				$trimLen = $tt->strlen($trim);
 				
 				// while this trim character matches at beginning of string, remove it
 				while($trimPos === 0) {
-					$str = $mb ? mb_substr($str, $trimLen) : substr($str, $trimLen);
-					$trimPos = $mb ? mb_strpos($str, $trim) : strpos($str, $trim);
+					$str = $tt->substr($str, $trimLen);
+					$trimPos = $tt->strpos($str, $trim);
 					$numRemovedStart++;
 				}
 				
 				// trim from end
 				if($trimPos > 0) do {
 					$x = 0; // qty removed only in this do/while iteration
-					$trimPos = $mb ? mb_strrpos($str, $trim) : strrpos($str, $trim);
+					$trimPos = $tt->strrpos($str, $trim);
 					if($trimPos === false) break;
-					$strLen = $mb ? mb_strlen($str) : strlen($str);
+					$strLen = $tt->strlen($str);
 					if($trimPos + $trimLen >= $strLen) {
-						$str = $mb ? mb_substr($str, 0, $trimPos) : substr($str, 0, $trimPos); 	
+						$str = $tt->substr($str, 0, $trimPos);
 						$numRemovedEnd++;
 						$x++;
 					}
@@ -2405,7 +2408,7 @@ class Sanitizer extends Wire {
 				
 			} // foreach
 			
-			$strLen = $mb ? mb_strlen($str) : strlen($str);
+			$strLen = $tt->strlen($str);
 			
 		} while($numRemovedStart + $numRemovedEnd > 0 && $strLen > 0);
 		
@@ -2743,7 +2746,7 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function chars($value, $allow = '', $replacement = '', $collapse = true, $mb = null) {
-	
+
 		$value = $this->string($value);
 		$alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 		$digit = '0123456789';

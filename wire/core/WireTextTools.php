@@ -14,6 +14,23 @@
  */
 
 class WireTextTools extends Wire {
+
+	/**
+	 * mbstring support?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $mb;
+
+	/**
+	 * Construct
+	 * 
+	 */
+	public function __construct() {
+		$this->mb = function_exists("mb_internal_encoding");
+		parent::__construct();
+	}
 	
 	/**
 	 * Convert HTML markup to readable text
@@ -387,7 +404,7 @@ class WireTextTools extends Wire {
 			$maxLength = $options['maxLength'];
 		} else if(is_string($maxLength) && ctype_alpha($maxLength)) {
 			$options['type'] = $maxLength;
-			$maxLength = isset($options['maxLength']) ? $options['maxLength'] : mb_strlen($str);
+			$maxLength = isset($options['maxLength']) ? $options['maxLength'] : $this->strlen($str);
 		}
 
 		if(!$maxLength) $maxLength = 255;
@@ -406,14 +423,14 @@ class WireTextTools extends Wire {
 		}
 
 		if($type === 'block') {
-			if(mb_strpos($str, $blockEndChar) !== false) $str = str_replace($blockEndChar, ' ', $str);
+			if($this->strpos($str, $blockEndChar) !== false) $str = str_replace($blockEndChar, ' ', $str);
 			$options['endBlocksWith'] = $blockEndChar;
 		}
 
 		// collapse whitespace and strip tags
 		$str = $this->collapse($str, $options);
 		
-		if(trim($options['collapseLinesWith']) && mb_strpos($str, $options['collapseLinesWith'])) {
+		if(trim($options['collapseLinesWith']) && $this->strpos($str, $options['collapseLinesWith'])) {
 			// if lines are collapsed with something other than whitespace, avoid using that string
 			// when the line already ends with sentence punctuation
 			foreach($endSentenceChars as $c) {
@@ -422,26 +439,26 @@ class WireTextTools extends Wire {
 		}
 
 		// if anything above reduced the length of the string enough, return it now
-		if(mb_strlen($str) <= $maxLength) return $str;
+		if($this->strlen($str) <= $maxLength) return $str;
 
 		// get string at maximum possible length
 		if($options['visible']) {
 			// adjust for only visible length
 			$_str = $str;
-			$str = mb_substr($str, 0, $maxLength);
+			$str = $this->substr($str, 0, $maxLength);
 			$len = $this->getVisibleLength($str);
 			if($len < $maxLength) {
 				$maxLength += ($maxLength - $len);
-				$str = mb_substr($_str, 0, $maxLength);
+				$str = $this->substr($_str, 0, $maxLength);
 			}
 			unset($_str);
 		} else {
-			$str = mb_substr($str, 0, $maxLength);
+			$str = $this->substr($str, 0, $maxLength);
 		}
 
 		// match to closest blocks, like paragraph(s)
 		if($type === 'block') {
-			$pos = $options['maximize'] ? mb_strrpos($str, $blockEndChar) : mb_strpos($str, $blockEndChar);
+			$pos = $options['maximize'] ? $this->strrpos($str, $blockEndChar) : $this->strpos($str, $blockEndChar);
 			if($pos === false) {
 				$type = 'sentence';
 			} else {
@@ -459,7 +476,7 @@ class WireTextTools extends Wire {
 		// find punctuation closes to end of string
 		if($type === 'punctuation') {
 			foreach($punctuationChars as $find) {
-				$pos = $options['maximize'] ? mb_strrpos($str, $find) : mb_strpos($str, $find);
+				$pos = $options['maximize'] ? $this->strrpos($str, $find) : $this->strpos($str, $find);
 				if($pos) $tests[] = $pos;
 			}
 			if(!count($tests)) $type = 'word';
@@ -467,7 +484,7 @@ class WireTextTools extends Wire {
 
 		// find whitespace and last word closest to end of string
 		if($type === 'word' || !count($tests)) {
-			$pos = $options['maximize'] ? mb_strrpos($str, ' ') : mb_strpos($str, ' ');
+			$pos = $options['maximize'] ? $this->strrpos($str, ' ') : $this->strpos($str, ' ');
 			if($pos) $tests[] = $pos;
 		}
 
@@ -486,8 +503,8 @@ class WireTextTools extends Wire {
 		// process our tests
 		do {
 			$pos = array_pop($tests);
-			$result = trim(mb_substr($str, 0, $pos + 1));
-			$lastChar = mb_substr($result, -1);
+			$result = trim($this->substr($str, 0, $pos + 1));
+			$lastChar = $this->substr($result, -1);
 			$result = rtrim($result, $options['trim']);
 
 			if($type === 'sentence' || $type === 'block') {
@@ -497,7 +514,7 @@ class WireTextTools extends Wire {
 			} else if(in_array($lastChar, $punctuationChars)) {
 				$trims = ' ';
 				foreach($punctuationChars as $c) {
-					if(mb_strpos($options['noTrim'], $c) !== false) continue;
+					if($this->strpos($options['noTrim'], $c) !== false) continue;
 					if(in_array($c, $endSentenceChars)) continue;
 					$trims .= $c;
 				}
@@ -548,18 +565,18 @@ class WireTextTools extends Wire {
 			
 			foreach($chars as $find) {
 				
-				$pos = $options['maximize'] ? mb_strrpos($thisStr, "$find ") : mb_strpos($thisStr, "$find ", $offset);
+				$pos = $options['maximize'] ? $this->strrpos($thisStr, "$find ") : $this->strpos($thisStr, "$find ", $offset);
 				
 				if(!$pos) continue;
 				
 				if($find === '.') {
-					$testStr = mb_substr($thisStr, 0, $pos + 1);
+					$testStr = $this->substr($thisStr, 0, $pos + 1);
 					if(preg_match($noEndRegex, $testStr, $matches)) {
 						// ends with a disallowed word, next time try to match with a shorter string
 						if($options['maximize']) {
-							$nextStr = mb_substr($testStr, 0, mb_strlen($testStr) - mb_strlen($matches[1]) - 1);
+							$nextStr = $this->substr($testStr, 0, $this->strlen($testStr) - $this->strlen($matches[1]) - 1);
 						} else {
-							$nextOffset = mb_strlen($testStr);
+							$nextOffset = $this->strlen($testStr);
 						}
 						continue;
 					}
@@ -585,7 +602,7 @@ class WireTextTools extends Wire {
 		if(strpos($str, '&') !== false && strpos($str, ';')) {
 			$str = html_entity_decode($str, ENT_QUOTES, 'UTF-8');
 		}
-		return mb_strlen($str);
+		return $this->strlen($str);
 	}
 
 	/**
@@ -755,5 +772,216 @@ class WireTextTools extends Wire {
 		return $str; 
 	}
 
+	
+	/***********************************************************************************************************
+	 * MULTIBYTE PHP STRING FUNCTIONS THAT FALLBACK WHEN MBSTRING NOT AVAILABLE
+	 * 
+	 * These duplicate the equivalent PHP string methods and use exactly the same arguments
+	 * and exhibit exactly the same behavior. The only difference is that these methods using
+	 * the multibyte string versions when they are available, and fallback to the regular PHP 
+	 * string methods when not. Use these functions only when that behavior is okay. 
+	 * 
+	 */
+
+	/**
+	 * Get part of a string
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 * 
+	 * @param string $str
+	 * @param int $start
+	 * @param int|null $length Max chars to use from str. If omitted or NULL, extract all characters to the end of the string.
+	 * @return string
+	 * @see https://www.php.net/manual/en/function.substr.php
+	 * 
+	 */
+	public function substr($str, $start, $length = null) {
+		return $this->mb ? mb_substr($str, $start, $length) : substr($start, $start, $length);
+	}
+
+	/**
+	 * Find position of first occurrence of string in a string
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 * 
+	 * @param string $haystack
+	 * @param string $needle
+	 * @param int $offset
+	 * @return bool|false|int
+	 * @see https://www.php.net/manual/en/function.strpos.php
+	 * 
+	 */
+	public function strpos($haystack, $needle, $offset = 0) {
+		return $this->mb ? mb_strpos($haystack, $needle, $offset) : strpos($haystack, $needle, $offset);
+	}
+
+	/**
+	 * Find the position of the first occurrence of a case-insensitive substring in a string
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 *
+	 * @param string $haystack
+	 * @param string $needle
+	 * @param int $offset
+	 * @return bool|false|int
+	 * @see https://www.php.net/manual/en/function.stripos.php
+	 *
+	 */
+	public function stripos($haystack, $needle, $offset = 0) {
+		return $this->mb ? mb_stripos($haystack, $needle, $offset) : stripos($haystack, $needle, $offset);
+	}
+
+	/**
+	 * Find the position of the last occurrence of a substring in a string
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 *
+	 * @param string $haystack
+	 * @param string $needle
+	 * @param int $offset
+	 * @return bool|false|int
+	 * @see https://www.php.net/manual/en/function.strrpos.php
+	 *
+	 */
+	public function strrpos($haystack, $needle, $offset = 0) {
+		return $this->mb ? mb_strrpos($haystack, $needle, $offset) : strrpos($haystack, $needle, $offset);
+	}
+
+	/**
+	 * Find the position of the last occurrence of a case-insensitive substring in a string
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 *
+	 * @param string $haystack
+	 * @param string $needle
+	 * @param int $offset
+	 * @return bool|false|int
+	 * @see https://www.php.net/manual/en/function.strripos.php
+	 *
+	 */
+	public function strripos($haystack, $needle, $offset = 0) {
+		return $this->mb ? mb_strripos($haystack, $needle, $offset) : strripos($haystack, $needle, $offset);
+	}
+
+	/**
+	 * Get string length
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 * 
+	 * @param string $str
+	 * @return int
+	 * @see https://www.php.net/manual/en/function.strlen.php
+	 * 
+	 */
+	public function strlen($str) {
+		return $this->mb ? mb_strlen($str) : strlen($str);
+	}
+
+	/**
+	 * Make a string lowercase
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 * 
+	 * @param string $str
+	 * @return string
+	 * @see https://www.php.net/manual/en/function.strtolower.php
+	 * 
+	 */
+	public function strtolower($str) {
+		return $this->mb ? mb_strtolower($str) : strtolower($str);
+	}
+
+	/**
+	 * Make a string uppercase
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 *
+	 * @param string $str
+	 * @return string
+	 * @see https://www.php.net/manual/en/function.strtoupper.php
+	 *
+	 */
+	public function strtoupper($str) {
+		return $this->mb ? mb_strtoupper($str) : strtoupper($str);
+	}
+
+	/**
+	 * Count the number of substring occurrences
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 * 
+	 * @param string $haystack
+	 * @param string $needle
+	 * @return int
+	 * @see https://www.php.net/manual/en/function.substr-count.php
+	 * 
+	 */
+	public function substrCount($haystack, $needle) {
+		return $this->mb ? mb_substr_count($haystack, $needle) : substr_count($haystack, $needle); 
+	}
+
+	/**
+	 * Find the first occurrence of a string
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 *
+	 * @param string $haystack
+	 * @param string $needle
+	 * @param bool $beforeNeedle Return part of haystack before first occurrence of the needle? (default=false)
+	 * @return false|string
+	 * @see https://www.php.net/manual/en/function.strstr.php
+	 *
+	 */
+	public function strstr($haystack, $needle, $beforeNeedle = false) {
+		return $this->mb ? mb_strstr($haystack, $needle, $beforeNeedle) : strstr($haystack, $needle, $beforeNeedle);
+	}
+
+	/**
+	 * Find the first occurrence of a string (case insensitive)
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 * 
+	 * @param string $haystack
+	 * @param string $needle
+	 * @param bool $beforeNeedle Return part of haystack before first occurrence of the needle? (default=false)
+	 * @return false|string
+	 * @see https://www.php.net/manual/en/function.stristr.php
+	 * 
+	 */
+	public function stristr($haystack, $needle, $beforeNeedle = false) {
+		return $this->mb ? mb_stristr($haystack, $needle, $beforeNeedle) : stristr($haystack, $needle, $beforeNeedle); 
+	}
+
+
+	/**
+	 * Find the last occurrence of a character in a string
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 * 
+	 * @param string $haystack
+	 * @param string $needle Only first given character used
+	 * @return false|string
+	 * @see https://www.php.net/manual/en/function.strrchr.php
+	 * 
+	 */
+	public function strrchr($haystack, $needle) {
+		return $this->mb ? mb_strrchr($haystack, $needle) : strrchr($haystack, $needle); 
+	}
+
+	/**
+	 * Strip whitespace (or other characters) from the beginning and end of a string
+	 * 
+	 * #pw-group-PHP-function-alternates
+	 * 
+	 * @param string $str
+	 * @param string $chars Omit for default
+	 * @return string
+	 * 
+	 */
+	public function trim($str, $chars = '') {
+		if(!$this->mb) return $chars === '' ? trim($str) : trim($str, $chars);
+		return $this->wire('sanitizer')->trim($str, $chars);
+	}
+	
 
 }
