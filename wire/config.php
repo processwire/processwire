@@ -1066,12 +1066,39 @@ $config->substituteModules = array(
  * Note you can add any other properties to the wireMail array that are supported by WireMail settings
  * like we’ve done with from, fromName and headers here. Any values set here become defaults for the 
  * WireMail module. 
+ *
+ * Blacklist property
+ * ==================
+ * The blacklist property lets you specify email addresses, domains, partial host names or regular
+ * expressions that prevent sending to certain email addresses. This is demonstrated by example:
+ * ~~~~~
+ * // Example of blacklist definition
+ * $config->wireMail('blacklist', [
+ *   'email@domain.com', // blacklist this email address
+ *   '@host.domain.com', // blacklist all emails ending with @host.domain.com
+ *   '@domain.com', // blacklist all emails ending with @domain.com
+ *   'domain.com', // blacklist any email address ending with domain.com (would include mydomain.com too).
+ *   '.domain.com', // blacklist any email address at any host off domain.com (domain.com, my.domain.com, but NOT mydomain.com).
+ *   '/something/', // blacklist any email containing "something". PCRE regex assumed when "/" is used as opening/closing delimiter.
+ *   '/.+@really\.bad\.com$/', // another example of using a PCRE regular expression (blocks all "@really.bad.com").
+ * ]);
+ *
+ * // Test out the blacklist
+ * $email = 'somebody@bad-domain.com';
+ * $result = $mail->isBlacklistEmail($email, [ 'why' => true ]);
+ * if($result === false) {
+ *   echo "<p>Email address is not blacklisted</p>";
+ * } else {
+ *   echo "<p>Email is blacklisted by rule: $result</p>";
+ * }
+ * ~~~~~
  * 
  * #property string module Name of WireMail module to use or blank to auto-detect. (default='')
  * #property string from Default from email address, when none provided at runtime. (default=$config->adminEmail)
  * #property string fromName Default from name string, when none provided at runtime. (default='')
  * #property string newline What to use for newline if different from RFC standard of "\r\n" (optional). 
  * #property array headers Default additional headers to send in email, key=value. (default=[])
+ * #property array blacklist Email blacklist addresses or rules. (default=[])
  * 
  * @var array
  * 
@@ -1081,6 +1108,7 @@ $config->wireMail = array(
 	'from' => '', 
 	'fromName' => '', 
 	'headers' => array(), 
+	'blacklist' => array()
 );
 
 /**

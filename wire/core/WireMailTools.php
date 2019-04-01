@@ -3,7 +3,7 @@
 /**
  * ProcessWire Mail Tools ($mail API variable)
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Provides an API interface to email and WireMail. 
@@ -29,6 +29,7 @@
  * #pw-body
  * 
  * @method WireMail new($options = array()) Create a new WireMail() instance
+ * @method bool|string isBlacklistEmail($email, array $options = array())
  * @property WireMail new Get a new WireMail() instance (same as method version)
  *
  *
@@ -386,5 +387,107 @@ class WireMailTools extends Wire {
 		if($key === 'new') return $this->new();
 		return parent::__get($key);
 	}
+	
+	/**
+	 * Is given email address in the blacklist?
+	 *
+	 * - Returns boolean false if not blacklisted, true if it is.
+	 * - Uses `$config->wireMail['blacklist']` array unless given another blacklist array in $options.
+	 * - Always independently verify that your blacklist rules are working before assuming they do.
+	 * - Specify true for the `why` option if you want to return the matching rule when email is in blacklist.
+	 * - Specify true for the `throw` option if you want a WireException thrown when email is blacklisted.
+	 *
+	 * ~~~~~
+	 * // Define blacklist in /site/config.php
+	 * $config->wireMail('blacklist', [
+	 *   'email@domain.com', // blacklist this email address
+	 *   '@host.domain.com', // blacklist all emails ending with @host.domain.com
+	 *   '@domain.com', // blacklist all emails ending with @domain.com
+	 *   'domain.com', // blacklist any email address ending with domain.com (would include mydomain.com too).
+	 *   '.domain.com', // blacklist any email address at any host off domain.com (domain.com, my.domain.com, but NOT mydomain.com).
+	 *   '/something/', // blacklist any email containing "something". PCRE regex assumed when "/" is used as opening/closing delimiter.
+	 *   '/.+@really\.bad\.com$/', // another example of using a PCRE regular expression (blocks all "@really.bad.com").
+	 * ]);
+	 *
+	 * // Test if email in blacklist
+	 * $email = 'somebody@domain.com';
+	 * $result = $mail->isBlacklistEmail($email, [ 'why' => true ]);
+	 * if($result === false) {
+	 *   echo "<p>Email address is not blacklisted</p>";
+	 * } else {
+	 *   echo "<p>Email is blacklisted by rule: $result</p>";
+	 * }
+	 * ~~~~~
+	 *
+	 * @param string $email Email to check
+	 * @param array $options
+	 *  - `blacklist` (array): Use this blacklist rather than `$config->emailBlacklist` (default=[])
+	 *  - `throw` (bool): Throw WireException if email is blacklisted? (default=false)
+	 *  - `why` (bool): Return string containing matching rule when email is blacklisted? (default=false)
+	 * @return bool|string Returns true if email is blacklisted, false if not. Returns string if `why` option specified + email blacklisted.
+	 * @throws WireException if given a blacklist that is not an array, or if requested to via `throw` option.
+	 * @since 3.0.129
+	 *
+	 */
+	public function ___isBlacklistEmail($email, array $options = array()) {
+
+		$defaults = array(
+			'blacklist' => array(),
+			'throw' => false,
+			'why' => false,
+		);
+
+		$options = count($options) ? array_merge($defaults, $options) : $defaults;
+		$blacklist = $options['blacklist'];
+		if(empty($blacklist)) $blacklist = $this->wire('config')->wireMail('blacklist');
+		if(empty($blacklist)) return false;
+		if(!is_array($blacklist)) throw new WireException("Email blacklist must be array");
+
+		$inBlacklist = false;
+		$tt = $this->wire('sanitizer')->getTextTools();
+		$email = trim($tt->strtolower($email));
+
+		foreach($blacklist as $line) {
+			$line = $tt->strtolower(trim($line));
+			if(!strlen($line)) continue;
+			if(strpos($line, '/') === 0) {
+				// perform a regex match
+				if(preg_match($line, $email)) $inBlacklist = $line;
+			} else if(strpos($line, '@')) {
+				// full email (@ is present and is not first char)
+				if($email === $line) $inBlacklist = $line;
+			} else if(strpos($line, '.') === 0) {
+				// any hostname at domain (.domain.com)
+				list(,$emailDomain) = explode('@', $email);
+				if($emailDomain === ltrim($line, '.')) {
+					$inBlacklist = $line;
+				} else if($tt->substr($emailDomain, -1 * $tt->strlen($line)) === $line ) {
+					$inBlacklist = $line;
+				}
+			} else {
+				// match ending string, host or domain name (host.domain.com, domain.com)
+				if($tt->substr($email, -1 * $tt->strlen($line)) === $line) $inBlacklist = $line;
+			}
+			if($inBlacklist) break;
+		}
+
+		if(!$inBlacklist && strpos($email, '+')) {
+			// leading part of email contains a plus, so check again without the "+portion"
+			// i.e. ryan+test@domain.com
+			list($prefix, $rest) = explode('+', $email, 2);
+			list(,$hostname) = explode('@', $rest, 2);
+			$email = "$prefix@$hostname";
+			$inBlacklist = $this->isBlacklistEmail($email, $options);
+		}
+
+		if($inBlacklist !== false && $options['throw']) {
+			throw new WireException("Email matches blacklist" . ($options['why'] ? " ($inBlacklist)" : ""));
+		}
+
+		if(!$options['why'] && $inBlacklist !== false) $inBlacklist = true;
+
+		return $inBlacklist;
+	}
+
 
 }
