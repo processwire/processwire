@@ -286,10 +286,14 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		if(!$templateID) throw new WireException("No template specified"); 
 		$template = $this->templates->get($templateID); 
 		if(!$template) throw new WireException("Unknown template"); 
-		$parentTemplates = $template->parentTemplates; 
-		$parentTemplate = $this->wire('templates')->get(reset($parentTemplates)); 
-		if(!$parentTemplate) throw new WireException("Unable to locate parent template " . reset($parentTemplates)); 
-		$parents = $this->wire('pages')->find("template=$parentTemplate, include=hidden, limit=500, sort=name"); 
+		$parentTemplates = new TemplatesArray();;
+		foreach($template->parentTemplates as $templateID) {
+			$t = $this->templates->get((int) $templateID);
+			if($t) $parentTemplates->add($t);
+		}
+		if(!count($parentTemplates)) throw new WireException("No parent templates defined for $template->name");
+		$parentTemplateIDs = $parentTemplates->implode('|', 'id');
+		$parents = $this->wire('pages')->find("templates_id=$parentTemplateIDs, include=hidden, limit=500, sort=name"); 
 		if(!count($parents)) throw new WireException("No usable parents match this template"); 
 		if(count($parents) == 1) {
 			$url = "./?parent_id=" . $parents->first()->id; 
@@ -298,7 +302,6 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		}
 
 		$templateLabel = $this->getTemplateLabel($template); 
-		$parentTemplateLabel = $this->getTemplateLabel($parentTemplate); 
 		$form = $this->wire('modules')->get('InputfieldForm'); 
 		$form->description = $this->getTemplateLabel($template); 
 		$form->method = 'get';
@@ -316,7 +319,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$f->attr('name', 'parent_id'); 
 		$f->attr('id', 'select_parent_id'); 
 		$f->label = sprintf($this->_('Where do you want to add the new %s?'), "\"$templateLabel\""); 
-		$f->description = sprintf($this->_('Please select a parent %s page below:'), "\"$parentTemplateLabel\"");
+		$f->description = sprintf($this->_('Please select a parent %s page below:'), ''); // Select parent label // you can omit the '%s' (no longer used)
 		
 		$options = array();
 		foreach($parents as $parent) {
@@ -381,8 +384,9 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 					$url = $item['url'];
 					if(strpos($url, 'parent_id') === false) $url .= "&parent_id=$parent->id";
 					$out .= "<li><a href='./$url'>";
-					foreach($parent->parents()->and($parent) as $p) {
-						if($p->id == 1) continue;
+					$parentParents = $parent->parents()->and($parent);
+					foreach($parentParents as $p) {
+						if($p->id == 1 && $parentParents->count() > 1) continue;
 						$out .= "$p->title<i class='ui-priority-secondary fa fa-fw fa-angle-right'></i>";
 					}
 					$out .= "</a></li>";
@@ -479,7 +483,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		if(!$this->parent_id && count($this->predefinedParents)) {
 			$this->parent_id = $this->predefinedParents->first()->id;
 		}
-		
+
 		if(!$this->parent_id) return $this->renderChooseTemplate();
 
 		$this->parent = $this->pages->get((int) $this->parent_id); 

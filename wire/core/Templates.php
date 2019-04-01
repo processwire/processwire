@@ -223,6 +223,7 @@ class Templates extends WireSaveableItems {
 	public function ___clone(Saveable $item, $name = '') {
 
 		$original = $item;
+		/** @var Template $item */
 		$item = clone $item; 
 
 		if($item->flags & Template::flagSystem) {
@@ -479,6 +480,7 @@ class Templates extends WireSaveableItems {
 		
 		$foundParent = null;
 		$foundParents = $getAll ? $this->wire('pages')->newPageArray() : null;
+		$foundParentQty = 0;
 
 		if($template->noShortcut || !count($template->parentTemplates)) return $foundParents;
 		if($template->noParents == -1) {
@@ -508,11 +510,13 @@ class Templates extends WireSaveableItems {
 			if(!$numParentPages) continue;
 
 			if($getAll) {
+				// build list of all parents (will check access outside loop)
 				if($numParentPages) $foundParents->add($parentPages);
 				continue;
 			} else if($numParentPages > 1) {
-				// multiple possible parents
-				$parentPage = $this->wire('pages')->newNullPage();
+				// multiple possible parents, we can early-exit
+				$foundParentQty += $numParentPages;
+				break;
 			} else {
 				// one possible parent
 				$parentPage = $parentPages->first();
@@ -529,11 +533,12 @@ class Templates extends WireSaveableItems {
 				}
 			}
 
+			if($parentPage && $parentPage->id) $foundParentQty++;
 			$foundParent = $parentPage;
-			break;
+			if($foundParentQty > 1) break;
 		}
 		
-		if($checkAccess && $foundParents && $foundParents->count()) {
+		if($checkAccess && $getAll && $foundParents && $foundParents->count()) {
 			$p = $this->wire('pages')->newPage(array('template' => $template));
 			foreach($foundParents as $parentPage) {
 				if(!$parentPage->addable($p)) $foundParents->remove($parentPage);
@@ -541,6 +546,8 @@ class Templates extends WireSaveableItems {
 		}
 		
 		if($getAll) return $foundParents;
+		if($foundParentQty > 1) return $this->wire('pages')->newNullPage();
+		
 		return $foundParent;
 	}
 
