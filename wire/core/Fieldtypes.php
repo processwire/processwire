@@ -146,7 +146,7 @@ class Fieldtypes extends WireArray {
 	public function eq($num) { $this->preload(); return parent::eq($num); }
 	public function first() { $this->preload(); return parent::first(); }
 	public function last() { $this->preload(); return parent::last(); }
-	public function sort($properties) { $this->preload(); return parent::sort($properties); }
+	public function sort($properties, $flags = null) { $this->preload(); return parent::sort($properties, $flags); }
 	protected function filterData($selectors, $not = false) { $this->preload(); return parent::filterData($selectors, $not); }
 	public function makeCopy() { $this->preload(); return parent::makeCopy(); }
 	public function makeNew() { $this->preload(); return parent::makeNew(); }
