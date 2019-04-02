@@ -83,6 +83,14 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	protected $duplicateChecking = true;
 
 	/**
+	 * Flags for PHP sort functdions
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $sortFlags = 0; // 0 == SORT_REGULAR
+
+	/**
 	 * Construct
 	 * 
 	 */
@@ -1257,10 +1265,15 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * #pw-group-manipulation
 	 * 
 	 * @param string|array $properties Field names to sort by (CSV string or array). 
+	 * @param int|null $flags Optionally specify sort flags (see sortFlags method for details). 
 	 * @return $this reference to current instance.
 	 */
-	public function sort($properties) {
-		return $this->_sort($properties);
+	public function sort($properties, $flags = null) {
+		$_flags = $this->sortFlags; // remember
+		if(is_int($flags)) $this->sortFlags($flags);
+		$result = $this->_sort($properties);
+		if(is_int($flags) && $flags !== $_flags) $this->sortFlags($_flags); // restore
+		return $result;
 	}
 
 	/**
@@ -1292,6 +1305,32 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		$this->data = $data; 
 
 		return $this;
+	}
+
+	/**
+	 * Get or set sort flags that affect behavior of any sorting functions
+	 * 
+	 * The following constants may be used when setting the sort flags:
+	 * 
+	 * - `SORT_REGULAR` compare items normally (don’t change types)
+	 * - `SORT_NUMERIC` compare items numerically
+	 * - `SORT_STRING` compare items as strings
+	 * - `SORT_LOCALE_STRING` compare items as strings, based on the current locale
+	 * - `SORT_NATURAL` compare items as strings using “natural ordering” like natsort()
+	 * - `SORT_FLAG_CASE` can be combined (bitwise OR) with SORT_STRING or SORT_NATURAL to sort strings case-insensitively
+	 *
+	 * For more details, see `$sort_flags` argument at: https://www.php.net/manual/en/function.sort.php
+	 * 
+	 * #pw-group-manipulation
+	 * 
+	 * @param bool $sortFlags Optionally specify flag(s) to set
+	 * @return int Returns current flags
+	 * @since 3.0.129
+	 * 
+	 */
+	public function sortFlags($sortFlags = false) {
+		if(is_int($sortFlags)) $this->sortFlags = $sortFlags;
+		return $this->sortFlags;
 	}
 
 	/**
@@ -1355,8 +1394,8 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		}
 
 		// sort the items by the keys we collected
-		if($reverse) krsort($sortable);
-			else ksort($sortable); 
+		if($reverse) krsort($sortable, $this->sortFlags);
+			else ksort($sortable, $this->sortFlags); 
 
 		// add the items that resolved to no key to the end, as an array
 		$sortable[] = $unidentified; 
