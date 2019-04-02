@@ -1619,7 +1619,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *   `$wire = $this->wire();`
 	 *   
 	 * - Creating new API variables:   
-	 *   `$this->wire('widgets', $widgets');`
+	 *   `$this->wire('widgets', $widgets);`
 	 *   
 	 * - Injection of dependencies to Wire derived objects:   
 	 *   `$this->wire($widgets);`

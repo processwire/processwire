@@ -286,7 +286,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		if(!$templateID) throw new WireException("No template specified"); 
 		$template = $this->templates->get($templateID); 
 		if(!$template) throw new WireException("Unknown template"); 
-		$parentTemplates = new TemplatesArray();;
+		$parentTemplates = new TemplatesArray();
 		foreach($template->parentTemplates as $templateID) {
 			$t = $this->templates->get((int) $templateID);
 			if($t) $parentTemplates->add($t);
