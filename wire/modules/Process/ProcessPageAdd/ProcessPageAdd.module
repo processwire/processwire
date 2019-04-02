@@ -1026,7 +1026,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		// allow for nameFormat to come from a name_format GET variable
 		$nameFormat = $this->wire('input')->get('name_format');
 		if(strlen($nameFormat)) {
-			$nameFormat = $this->sanitizer->chars($this->sanitizer->text($nameFormat), '-_[alpha][digit]', '-'); 
+			$nameFormat = $this->sanitizer->chars($this->sanitizer->text($nameFormat), '-_:./| [alpha][digit]', '-');
 		} else {
 			if(count($parent->template->childTemplates) > 1) return false;
 			$nameFormat = '';

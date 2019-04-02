@@ -319,8 +319,8 @@ class PagesNames extends Wire {
 			$name = wireDate(trim($format));
 			$formatType = 'date';
 
-		} else if(strpos($format, ' ') !== false || strpos($format, '/') !== false) {
-			// date assumed when spaces or slashes present in format
+		} else if(strpos($format, ' ') !== false || strpos($format, '/') !== false || strpos($format, ':') !== false) {
+			// date assumed when spaces, slashes or colon present in format
 			$name = wireDate($format);
 			$formatType = 'date';
 
