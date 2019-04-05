@@ -1449,7 +1449,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * This function contains additions and modifications by @niklaka.
 	 *
 	 * @param string|array|Selectors $selectors Selector string|array to use as the filter.
-	 * @param bool $not Make this a "not" filter? (default is false)
+	 * @param bool|int $not Make this a "not" filter? Use int 1 for “not all” mode as if selectors had brackets around it. (default is false)
 	 * @return $this reference to current [filtered] instance
 	 *
 	 */
@@ -1470,6 +1470,8 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		$start = 0;
 		$limit = null;
 		$eq = null;
+		$notAll = $not === 1;
+		if($notAll) $not = true;
 
 		// leave sort, limit and start away from filtering selectors
 		foreach($selectors as $selector) {
@@ -1506,7 +1508,10 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		
 		// now filter the data according to the selectors that remain
 		foreach($this->data as $key => $item) {
+			$qty = 0;
+			$qtyMatch = 0;	
 			foreach($selectors as $selector) {
+				$qty++;
 				if(is_array($selector->field)) {
 					$value = array();
 					foreach($selector->field as $field) $value[] = (string) $this->getItemPropertyValue($item, $field);
@@ -1514,9 +1519,15 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 					$value = (string) $this->getItemPropertyValue($item, $selector->field);
 				}
 				if($not === $selector->matches($value) && isset($this->data[$key])) {
+					$qtyMatch++;
+					if($notAll) continue; // will do this outside the loop of all in $selectors match
 					$this->trackRemove($this->data[$key], $key);
 					unset($this->data[$key]);
 				}
+			}
+			if($notAll && $qty && $qty === $qtyMatch) {
+				$this->trackRemove($this->data[$key], $key);
+				unset($this->data[$key]);
 			}
 		}
 
@@ -1610,6 +1621,20 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	public function not($selector) {
 		// Same as filterData, but for public interface with the $not option specifically set to "true".
 		return $this->filterData($selector, true); 
+	}
+
+	/**
+	 * Like the not() method but $selector evaluated as if it had (brackets) around it 
+	 *
+	 * #pw-internal Until we've got a better description for what this does
+	 *
+	 * @param string|array|Selectors $selector
+	 * @return $this reference to current instance.
+	 * @see filterData
+	 *
+	 */
+	public function notAll($selector) {
+		return $this->filterData($selector, 1); 
 	}
 
 	/**
