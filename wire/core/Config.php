@@ -449,5 +449,33 @@ class Config extends WireData {
 	public function version($minVersion = '') {
 		return version_compare($this->version, $minVersion) >= 0;
 	}
+
+	/**
+	 * Was this ProcessWire installation installed after a particular date?
+	 * 
+	 * @param int|string $date Unix timestamp or strtotime() compatible date string
+	 * @return bool
+	 * @see Config::installedBefore(), Config::installed
+	 * @since 3.0.129
+	 * 
+	 */
+	public function installedAfter($date) {
+		if(!ctype_digit("$date")) $date = strtotime($date);
+		return $this->installed > $date; 
+	}
+
+	/**
+	 * Was this ProcessWire installation installed before a particular date?
+	 *
+	 * @param int|string $date Unix timestamp or strtotime() compatible date string
+	 * @return bool
+	 * @see Config::installedAfter(), Config::installed
+	 * @since 3.0.129
+	 *
+	 */
+	public function installedBefore($date) {
+		if(!ctype_digit("$date")) $date = strtotime($date);
+		return $this->installed < $date; 
+	}
 }
 
