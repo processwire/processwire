@@ -275,16 +275,31 @@ class PagesEditor extends Wire {
 	 * Note: this does not account for user permission checking. It only checks if the page is in a state to be saveable via the API.
 	 *
 	 * @param Page $page
+	 * @param bool $throw Throw WireException with additional details? 
 	 * @return bool True if deleteable, False if not
+	 * @throws WireException If requested to do so via $throw argument
 	 *
 	 */
-	public function isDeleteable(Page $page) {
+	public function isDeleteable(Page $page, $throw = false) {
 
-		$deleteable = true;
-		if(!$page->id || $page->status & Page::statusSystemID || $page->status & Page::statusSystem) $deleteable = false;
-			else if($page instanceof NullPage) $deleteable = false;
+		$error = false;
 
-		return $deleteable;
+		if($page instanceof NullPage) {
+			$error = "it is a NullPage";
+		} else if(!$page->id) {
+			$error = "it has no id";
+		} else if($page->hasStatus(Page::statusSystemID) || $page->hasStatus(Page::statusSystem)) {
+			$error = "it has “system” and/or “systemID” status";
+		} else if($page->hasStatus(Page::statusLocked)) {
+			$error = "it has “locked” status";
+		} else if($page->id === $this->wire('page')->id && $this->wire('config')->installedAfter('2019-04-04')) {
+			$error = "it is the current page being viewed, try \$pages->trash() instead";
+		}
+	
+		if($error === false) return true;
+		if($throw) throw new WireException("Page $page->path ($page->id) cannot be deleted: $error"); 
+
+		return false;
 	}
 	
 	/**
@@ -1017,7 +1032,7 @@ class PagesEditor extends Wire {
 		if(is_array($recursive)) $options = $recursive; 	
 		$options = array_merge($defaults, $options);
 
-		if(!$this->isDeleteable($page)) throw new WireException("This page may not be deleted");
+		$this->isDeleteable($page, true); // throws WireException
 		$numDeleted = 0;
 
 		if($page->numChildren) {
