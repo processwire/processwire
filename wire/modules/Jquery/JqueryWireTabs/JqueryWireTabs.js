@@ -40,6 +40,7 @@
 			var $target = $(this); 
 			var lastTabID = ''; // ID attribute of last tab that was clicked
 			var generate = true; // generate markup/manipulate DOM?
+			var queueTabClick = []; // queued wiretabclick event, becomes false after document.ready
 
 			function init() {
 
@@ -103,6 +104,12 @@
 				} else {
 					$tabList.children("li:first").children("a").click();
 				}
+				
+				$(document).ready(function() {
+					// if a wiretabclick event queued before document.ready, trigger it now
+					if(queueTabClick.length) $(document).trigger('wiretabclick', [ queueTabClick[0], queueTabClick[1] ]);
+					queueTabClick = false;
+				});
 			}
 
 			function addTab() {
@@ -192,7 +199,11 @@
 					if(options.rememberTabs == 1) setTabCookie(newTabID); 
 					lastTabID = newTabID; 
 				}
-				$(document).trigger('wiretabclick', [ $newTabContent, $oldTabContent ]); 
+				if(queueTabClick === false) {
+					$(document).trigger('wiretabclick', [ $newTabContent, $oldTabContent ]);
+				} else {
+					queueTabClick = [ $newTabContent, $oldTabContent ];
+				}
 				return false; 
 			}
 
