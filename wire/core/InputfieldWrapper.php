@@ -552,7 +552,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 
 			if($collapsed && $collapsed !== Inputfield::collapsedNever) {
 				$isEmpty = $inputfield->isEmpty();
-				if(($isEmpty && $inputfield instanceof InputfieldWrapper) || 
+				if(($isEmpty && $inputfield instanceof InputfieldWrapper && $collapsed !== Inputfield::collapsedPopulated) || 
 					$collapsed === Inputfield::collapsedYes ||
 					$collapsed === Inputfield::collapsedYesLocked ||
 					$collapsed === true || 

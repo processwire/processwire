@@ -526,6 +526,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 		$container = $this->wire(new InputfieldWrapper());
 		$containers = array();
 		$inFieldset = false;
+		$inHiddenFieldset = false;
 		$inModalGroup = '';
 	
 		// for multiple named fields
@@ -568,6 +569,14 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 					continue; 
 				}
 			}
+			if($inHiddenFieldset) {
+				// we are in a modal group that should be skipped since all the inputs require the modal
+				if($field->name == $inHiddenFieldset . "_END") {
+					$inHiddenFieldset = false;
+				} else {
+					continue;
+				}
+			}
 			
 			if($fieldName) {
 				// limit to specific field name
@@ -596,6 +605,10 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 			} else if($field->modal && $field->type instanceof FieldtypeFieldsetOpen) {
 				// field requires modal
 				$inModalGroup = $field->name;
+
+			} else if($field->type instanceof FieldtypeFieldsetOpen && $field->collapsed == Inputfield::collapsedHidden) {
+				$inHiddenFieldset = $field->name;
+				continue;
 
 			} else if(!$flat && $field->type instanceof FieldtypeFieldsetOpen) {
 				// new fieldset in non-flat mode
