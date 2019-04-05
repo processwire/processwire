@@ -464,109 +464,28 @@ class WireDateTime extends Wire {
 		$fromNow = $this->_('from now');
 		$prependFromNow = '';
 		$space = ' ';
-
+		
 		if($abbreviate === 1) {
 			// extra short abbreviations
-
 			$justNow = $this->_('now');
 			$ago = '';
 			$prependAgo = '-';
 			$fromNow = '';
 			$prependFromNow = '+';
 			$space = '';
-
-			$periodsSingular = array(
-				$this->_("s"),
-				$this->_("m"),
-				$this->_("hr"),
-				$this->_("d"),
-				$this->_("wk"),
-				$this->_("mon"),
-				$this->_("yr"),
-				$this->_("decade")
-			);
-
-			$periodsPlural = array(
-				$this->_("s"),
-				$this->_("m"),
-				$this->_("hr"),
-				$this->_("d"),
-				$this->_("wks"),
-				$this->_("mths"),
-				$this->_("yrs"),
-				$this->_("decades")
-			);
-
+			
 		} else if($abbreviate === true) {
 			// standard abbreviations
-
 			$justNow = $this->_('now');
 			$fromNow = '';
 			$prependFromNow = $this->_('in') . ' ';
 
-			$periodsSingular = array(
-				$this->_("sec"),
-				$this->_("min"),
-				$this->_("hr"),
-				$this->_("day"),
-				$this->_("week"),
-				$this->_("month"),
-				$this->_("year"),
-				$this->_("decade")
-			);
-
-			$periodsPlural = array(
-				$this->_("secs"),
-				$this->_("mins"),
-				$this->_("hrs"),
-				$this->_("days"),
-				$this->_("weeks"),
-				$this->_("months"),
-				$this->_("years"),
-				$this->_("decades")
-			);
-
-		} else {
-			// no abbreviations
-
-			$periodsSingular = array(
-				$this->_("second"),
-				$this->_("minute"),
-				$this->_("hour"),
-				$this->_("day"),
-				$this->_("week"),
-				$this->_("month"),
-				$this->_("year"),
-				$this->_("decade")
-			);
-
-			$periodsPlural = array(
-				$this->_("seconds"),
-				$this->_("minutes"),
-				$this->_("hours"),
-				$this->_("days"),
-				$this->_("weeks"),
-				$this->_("months"),
-				$this->_("years"),
-				$this->_("decades")
-			);
-
-			if(is_array($abbreviate)) {
-				// possible user specified abbreviations for replacements
-				$keys1 = array('second', 'minute', 'hour',  'day', 'week', 'month', 'year', 'decade');
-				$keys2 = array('seconds', 'minutes', 'hours',  'days', 'weeks', 'months', 'years', 'decades');
-				foreach($keys1 as $key => $term) {
-					if(isset($abbreviate[$term])) $periodsSingular[$key] = $abbreviate[$term];
-				}
-				foreach($keys2 as $key => $term) {
-					if(isset($abbreviate[$term])) $periodsPlural[$key] = $abbreviate[$term];
-				}
-				if(isset($abbreviate['just now'])) $justNow = $abbreviate['just now'];
-				if(isset($abbreviate['from now'])) $fromNow = $abbreviate['from now'];
-				if(isset($abbreviate['ago'])) $ago = $abbreviate['ago'];
-			}
+		} else if(is_array($abbreviate)) {
+			// user substitutions
+			if(isset($abbreviate['just now'])) $justNow = $abbreviate['just now'];
+			if(isset($abbreviate['from now'])) $fromNow = $abbreviate['from now'];
+			if(isset($abbreviate['ago'])) $ago = $abbreviate['ago'];
 		}
-
 
 		$lengths = array("60","60","24","7","4.35","12","10");
 		$now = time();
@@ -596,7 +515,7 @@ class WireDateTime extends Wire {
 		$difference = round($difference);
 		if(!$difference) return $justNow;
 
-		$periods = $difference != 1 ? $periodsPlural : $periodsSingular;
+		$periods = $difference != 1 ? $this->getPeriods($abbreviate, true) : $this->getPeriods($abbreviate, false);
 		$period = $periods[$j];
 
 		// return sprintf('%s%d%s%s %s', $prepend, (int) $difference, $space, $period, $tense); // i.e. 2 days ago (d=qty, 2=period, 3=tense)
@@ -614,5 +533,241 @@ class WireDateTime extends Wire {
 		return trim($out);
 	}
 
+	/**
+	 * Render an elapsed time string
+	 * 
+	 * @param int|string $start Starting timestamp or date/time string.
+	 * @param int|string $stop Ending timestamp or date/time string, or omit for now. 
+	 * @param bool|int|array $abbreviate
+	 *  - Specify boolean FALSE for verbose elapsed time string without abbreviations. 
+	 *  - Specify boolean TRUE for abbreviations (abbreviated where common, not always different from non-abbreviated).
+	 *  - Specify integer 1 for extra short abbreviations (all terms abbreviated into shortest possible string).
+	 *  - Specify integer 0 for digital elapsed time string like “00:01:12” referring to hours:minutes:seconds (default). 
+	 * @param array $options Additional options:
+	 *  - `delimiter` (string): String to separate time periods (default=' ').
+	 *  - `exclude` (array|string): Exclude these periods, one or more of: 'seconds', 'minutes', 'hours', 'days', 'weeks' (default=[])
+	 * @return string
+	 * @since 3.0.129
+	 * 
+	 */
+	public function elapsedTimeStr($start, $stop = null, $abbreviate = false, array $options = array()) {
+		
+		$defaults = array(
+			'delimiter' => ' ', 
+			'exclude' => array(),
+		);
+	
+		$options = array_merge($defaults, $options);
+		if(is_string($options['exclude'])) $options['exclude'] = explode(' ', $options['exclude']);
+		if($stop === null) $stop = time();
+		if(!ctype_digit("$start")) $start = strtotime($start);
+		if(!ctype_digit("$stop")) $stop = strtotime($stop);
+
+		$times = array();
+		$seconds = $stop - $start;
+		
+		if($seconds >= 604800 && $abbreviate !== 0 && !in_array('weeks', $options['exclude'])) {
+			$weeks = floor($seconds / 604800);
+			$seconds = $seconds - ($weeks * 604800);
+			$key = $weeks === 1 ? 'week' : 'weeks';
+			$times[$key] = $weeks;
+		}
+		
+		if($seconds >= 86400 && $abbreviate !== 0 && !in_array('days', $options['exclude'])) {
+			$days = floor($seconds / 86400); 
+			$seconds = $seconds - ($days * 86400); 
+			$key = $days === 1 ? 'day' : 'days';
+			$times[$key] = $days;
+		}
+
+		if($seconds >= 3600 && !in_array('hours', $options['exclude'])) {
+			$hours = floor($seconds / 3600);
+			$seconds = $seconds - ($hours * 3600);
+			$key = $hours === 1 ? 'hour' : 'hours';
+			$times[$key] = $hours;
+		} else {
+			$hours = 0;
+		}
+
+		if($seconds >= 60 && !in_array('minutes', $options['exclude'])) {
+			$minutes = floor($seconds / 60);
+			$seconds = $seconds - ($minutes * 60);
+			$key = $minutes === 1 ? 'minute' : 'minutes';
+			$times[$key] = $minutes;
+		} else {
+			$minutes = 0;
+		}
+
+		if($seconds > 0 && !in_array('seconds', $options['exclude'])) {
+			$key = $seconds === 1 ? 'second' : 'seconds';
+			$times[$key] = $seconds;
+			
+		} else {
+			$seconds = 0;
+		}
+		
+		if($abbreviate === 0) {
+			if(strlen($hours) < 2) $hours = "0$hours";
+			if(strlen($minutes) < 2) $minutes = "0$minutes";
+			if(strlen($seconds) < 2) $seconds = "0$seconds";
+			$str = "$hours:$minutes:$seconds";
+		} else {
+			$periods = $this->getPeriods($abbreviate); 
+			$a = array();
+			foreach($times as $key => $qty) {
+				$sep = $abbreviate === 1 ? '' : ' ';
+				$a[] = $qty . $sep . $periods[$key];
+			}
+			$str = implode($options['delimiter'], $a); 
+		}
+
+		return $str;
+	}
+
+	/**
+	 * Get named time periods
+	 * 
+	 * Returns regular array(s) of periods in this order: 
+	 * seconds, minutes, hours, days, weeks, months, years decades
+	 * 
+	 * If $plural argument is null (or omitted) it instead returns an array
+	 * indexed by period name including both singular and plural periods. 
+	 * 
+	 * @param $abbreviate
+	 *  - Specify 1 to get shortest possible abbreviations 
+	 *  - Specify true to get standard/medium abbreviations
+	 *  - Specify false to get large/full terms (no abbreviations)
+	 *  - Specify associative array to get large/full terms and substitute your own
+	 * @param null|true|int $plural 
+	 *  - Specify true to get plural, 
+	 *  - Specify false to get singular, 
+	 *  - Specify 1 to get array where [ 0 => [singulars], 1 => [plurals] ] 
+	 *  - Omit (or null) to get all in an indexed array
+	 * @return array
+	 * 
+	 */
+	protected function getPeriods($abbreviate, $plural = null) {
+		
+		static $definitions = array();
+		if(empty($definitions)) $definitions = array(
+			'keys-singular' => array(
+				'second', 
+				'minute', 
+				'hour', 
+				'day', 
+				'week', 
+				'month', 
+				'year', 
+				'decade'
+			),
+			'keys-plural' => array(
+				'seconds', 
+				'minutes', 
+				'hours', 
+				'days', 
+				'weeks', 
+				'months', 
+				'years', 
+				'decades'
+			),
+			'short-singular' => array(
+				$this->_("s"),
+				$this->_("m"),
+				$this->_("hr"),
+				$this->_("d"),
+				$this->_("wk"),
+				$this->_("mon"),
+				$this->_("yr"),
+				$this->_("decade")
+			),
+			'short-plural' => array(
+				$this->_("s"),
+				$this->_("m"),
+				$this->_("hr"),
+				$this->_("d"),
+				$this->_("wks"),
+				$this->_("mths"),
+				$this->_("yrs"),
+				$this->_("decades")
+			),
+			'medium-singular' => array(
+				$this->_("sec"),
+				$this->_("min"),
+				$this->_("hr"),
+				$this->_("day"),
+				$this->_("week"),
+				$this->_("month"),
+				$this->_("year"),
+				$this->_("decade")
+			),
+			'medium-plural' => array(
+				$this->_("secs"),
+				$this->_("mins"),
+				$this->_("hrs"),
+				$this->_("days"),
+				$this->_("weeks"),
+				$this->_("months"),
+				$this->_("years"),
+				$this->_("decades")
+			),
+			'large-singular' => array(
+				$this->_("second"),
+				$this->_("minute"),
+				$this->_("hour"),
+				$this->_("day"),
+				$this->_("week"),
+				$this->_("month"),
+				$this->_("year"),
+				$this->_("decade")
+			),
+			'large-plural' => array(
+				$this->_("seconds"),
+				$this->_("minutes"),
+				$this->_("hours"),
+				$this->_("days"),
+				$this->_("weeks"),
+				$this->_("months"),
+				$this->_("years"),
+				$this->_("decades")
+			),
+		);
+		
+		if($abbreviate === 1) {
+			// extra short abbreviations
+			$periodsPlural = $definitions['short-plural'];
+			$periodsSingular = $definitions['short-singular'];
+		} else if($abbreviate === true) {
+			// standard abbreviations
+			$periodsPlural = $definitions['medium-plural'];	
+			$periodsSingular = $definitions['medium-singular'];
+		} else {
+			// no abbreviations
+			$periodsPlural = $definitions['large-plural'];
+			$periodsSingular = $definitions['large-singular'];
+			// merge in any user-supplied abbreviations
+			if(is_array($abbreviate)) {
+				foreach($definitions['keys-plural'] as $key => $term) {
+					if(isset($abbreviate[$term])) $periodsPlural[$key] = $abbreviate[$term];
+				}
+				foreach($definitions['keys-singular'] as $key => $term) {
+					if(isset($abbreviate[$term])) $periodsSingular[$key] = $abbreviate[$term];
+				}
+			}
+		}
+		
+		if($plural === true) return $periodsPlural;
+		if($plural === false) return $periodsSingular;
+	
+		// get all indexed by term
+		$periods = array();
+		foreach($definitions['keys-plural'] as $key => $term) {
+			$periods[$term] = $periodsPlural[$key];
+		}
+		foreach($definitions['keys-singular'] as $key => $term) {
+			$periods[$term] = $periodsSingular[$key];
+		}
+		
+		return $periods;
+	}
 
 }
