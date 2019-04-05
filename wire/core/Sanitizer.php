@@ -1477,7 +1477,7 @@ class Sanitizer extends Wire {
 	 *  - `stripQuotes` (bool): Specify false to prevent quotes from being stripped (default=true).
 	 *  - `maxLength` (int): Maximum length in bytes allowed for URLs (default=4096).
 	 *  - `throw` (bool): Throw exceptions on invalid URLs (default=false).
-	 * @return string Returns a valid URL or blank string if it can't be made valid.
+	 * @return string Returns a valid URL or blank string if it can’t be made valid.
 	 * @throws WireException on invalid URLs, only if `$options['throw']` is true.
 	 *
 	 */
@@ -1661,6 +1661,24 @@ class Sanitizer extends Wire {
 		}
 		
 		return $value;
+	}
+
+	/**
+	 * URL with http or https scheme required
+	 * 
+	 * #pw-group-strings
+	 * #pw-group-validate
+	 * 
+	 * @param string $value URL to validate
+	 * @param array $options See the url() method for all options.
+	 * @return string Returns valid URL or blank string if it cannot be made valid. 
+	 * @since 3.0.129
+	 * 
+	 */
+	public function httpUrl($value, $options = array()) {
+		$options['requireScheme'] = true; 
+		if(empty($options['allowSchemes'])) $options['allowSchemes'] = array('http', 'https'); 
+		return $this->url($value, $options);
 	}
 
 	/**
