@@ -233,6 +233,54 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	}
 
 	/**
+	 * Update a DatabaseQuerySelect object to match a Page
+	 *
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param string $value
+	 * @return DatabaseQuerySelect
+	 * @throws WireException
+	 *
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		$field = $query->field;
+
+		if(in_array($subfield, array('count', 'parent', 'parent_id'))) {
+			throw new WireException("The '$subfield' subfield option is not available for field '$field'");
+		}
+
+		if($subfield == 'data' || $subfield == 'id' || !$subfield) {
+
+			if(!in_array($operator, array('=', '!=', '<', '>', '<=', '>='))) {
+				throw new WireException("Operator $operator not supported for $field." . ($subfield ? $subfield : 'data'));
+			}
+			$value = (int) "$value";
+			$query->where("($table.data{$operator}$value)");
+
+		} else {
+
+			$f = $this->wire('fields')->get($subfield);
+			if(!$f) return $query; // unknown subfield
+
+			// match fields from the repeater template, perform a separate find() operation for the subfield
+			$templateID = $field->get('template_id');
+			$value = $this->wire('sanitizer')->selectorValue($value);
+			$ids = $this->wire('pages')->findIDs("templates_id=$templateID, include=all, $f->name$operator$value");
+
+			// use the IDs found from the separate find() as our getMatchQuery
+			if(count($ids)) {
+				$query->where("$table.data IN(" . implode(',', $ids) . ")");
+			} else {
+				$query->where("1>2");  // force a non-match
+			}
+		}
+
+		return $query;
+	}
+
+	/**
 	 * Given an 'awake' value, as set by wakeupValue, convert the value back to a basic type for storage in DB.
 	 *
 	 * In this case, the sleepValue doesn't represent the actual value as they are stored in pages.

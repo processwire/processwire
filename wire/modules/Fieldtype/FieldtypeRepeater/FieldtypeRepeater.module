@@ -1354,12 +1354,6 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
 
 		$field = $query->field;
-		$schema = $this->getDatabaseSchema($field); 
-		$singlePageMode = !isset($schema['count']);
-		
-		if($singlePageMode && in_array($subfield, array('count', 'parent', 'parent_id'))) {
-			throw new WireException("The count subfield option is not for field '$field'");
-		}
 
 		if($subfield == 'count') { 
 			$value = (int) $value; 
@@ -1405,12 +1399,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			}
 
 			if(in_array($operator, array('*=', '~=', '^=', '$=', '%='))) {
-				if($singlePageMode) throw new WireException("Operator $operator not supported for $field.data"); 
 				/** @var DatabaseQuerySelectFulltext $ft */
 				$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
 				$ft->match($table, $subfield, $operator, $value);
 
-			} else if(empty($value) && !$singlePageMode) { 
+			} else if(empty($value)) {
 				// empty/0 value
 				if($operator === '=' && $subfield === 'id') {
 					$query->where('1>2'); // force non-match
@@ -1432,26 +1425,17 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$pageFinder = $this->wire(new PageFinder());
 			$value = $this->wire('sanitizer')->selectorValue($value);
 			$templateID = $field->get('template_id');
-			$includeMode = $singlePageMode ? "include=all" : "check_access=0";
-			$selectors = $this->wire(new Selectors("templates_id=$templateID, $includeMode, $f->name$operator$value"));
+			$selectors = $this->wire(new Selectors("templates_id=$templateID, check_access=0, $f->name$operator$value"));
 			$matches = $pageFinder->find($selectors);
 
 			// use the IDs found from the separate find() as our getMatchQuery
 			if(count($matches)) {
 				$ids = array();
-				if($singlePageMode) {
-					foreach($matches as $match) {
-						$id = (int) $match['id'];
-						$ids[$id] = $id;
-					}
-					$query->where("$table.data IN(" . implode(',', $ids) . ")");
-				} else {
-					foreach($matches as $match) {
-						$parentID = (int) $match['parent_id'];
-						$ids[$parentID] = $parentID;
-					}
-					$query->where("$table.parent_id IN(" . implode(',', $ids) . ")");
+				foreach($matches as $match) {
+					$parentID = (int) $match['parent_id'];
+					$ids[$parentID] = $parentID;
 				}
+				$query->where("$table.parent_id IN(" . implode(',', $ids) . ")");
 			} else {
 				$query->where("1>2");  // force a non-match
 			}
@@ -1736,7 +1720,6 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * 
 	 * @param Field $field
 	 * @throws WireException
-	 * @return Field
 	 *
 	 */
 	public function ___cloneField(Field $field) {
@@ -1745,7 +1728,6 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$field = parent::___cloneField($field); 
 		$field->parent_id = null;
 		$field->template_id = null;
-		return $field; 
 		*/
 	}
 	
