@@ -534,7 +534,7 @@ class WireCache extends Wire {
 
 		} else if(is_string($expire) && isset($this->expireNames[$expire])) {
 			// named expiration constant like "hourly", "daily", etc. 
-			$expire = $this->expireNames[$expire];
+			$expire = time() + $this->expireNames[$expire];
 
 		} else if(in_array($expire, array(self::expireNever, self::expireSave))) {
 			// good, we'll take it as-is
