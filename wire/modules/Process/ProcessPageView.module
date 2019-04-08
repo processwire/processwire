@@ -113,7 +113,7 @@ class ProcessPageView extends Process {
 		if(empty($this->dirtyURL) && !empty($_SERVER['QUERY_STRING'])) $this->dirtyURL = '?' . $_SERVER['QUERY_STRING'];
 
 		// check if there is an 'it' GET variable present in the request URL query string, which we don't want here
-		if(isset($_GET['it']) && strpos($this->dirtyURL, '?it=') !== false || strpos($this->dirtyURL, '&it=')) {
+		if(isset($_GET['it']) && (strpos($this->dirtyURL, '?it=') !== false || strpos($this->dirtyURL, '&it='))) {
 			// force to use path in request url rather than contents of 'it' var
 			list($it,) = explode('?', $this->dirtyURL);
 			$rootURL = $this->wire('config')->urls->root;
@@ -344,7 +344,7 @@ class ProcessPageView extends Process {
 			$indexRedirect = true; 
 		} else if(strpos($this->dirtyURL, 'index.php') !== false && strpos($it, 'index.php') === false) {
 			// if request contains index.php and the $it string does not, make it redirect to correct version
-			$forceRedirect = true; 
+			if(preg_match('!/index\.php$!', parse_url($this->dirtyURL, PHP_URL_PATH))) $forceRedirect = true; 
 		}
 		
 		$numParts = substr_count($it, '/');
