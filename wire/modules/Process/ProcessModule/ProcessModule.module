@@ -1141,14 +1141,14 @@ class ProcessModule extends Process {
 	/**********************************************************************************************************************************************************/
 	
 	public function ___executeUpload($inputName = '') {
-		if(!$inputName) throw new WireException("This URL may be be accessed directly"); 
+		if(!$inputName) throw new WireException("This URL may not be accessed directly"); 
 		$install = $this->wire(new ProcessModuleInstall());
 		$install->uploadModule($inputName);
 		$this->session->redirect('./?reset=1'); 
 	}
 	
 	public function ___executeDownloadURL($url = '') {
-		if(!$url) throw new WireException("This URL may be be accessed directly");
+		if(!$url) throw new WireException("This URL may not be accessed directly");
 		$install = $this->wire(new ProcessModuleInstall());
 		$install->downloadModule($url);
 		$this->session->redirect('./?reset=1'); 

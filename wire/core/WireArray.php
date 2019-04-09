@@ -83,7 +83,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	protected $duplicateChecking = true;
 
 	/**
-	 * Flags for PHP sort functdions
+	 * Flags for PHP sort functions
 	 * 
 	 * @var int
 	 * 
