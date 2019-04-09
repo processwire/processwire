@@ -120,7 +120,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 
 		// disable sidebar layout if SystemNotifications is active
 		if($sidenav && $modules->isInstalled('SystemNotifications')) {
-			if(!$modules->get('SystemNotifications')->disabled) {
+			/** @var SystemNotifications $systemNotifications */
+			$systemNotifications = $modules->get('SystemNotifications');
+			if(!$systemNotifications->disabled) {
 				$this->layout = '';
 				$sidenav = false;
 			}
@@ -726,22 +728,38 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * Render sidebar navigation that uses uk-nav
 	 *
 	 * The contents is the same as the Primary nav, except that output is prepared for sidebar.
+	 * This method uses a session-cached version. To clear the cache, logout then log back in.
 	 *
 	 * @return string
 	 *
 	 */
 	public function renderSidebarNavItems() {
 
-		$cache = self::dev ? '' : $this->wire('session')->getFor($this, 'sidenav');
-
-		if($cache) {
-			$this->markCurrentNavItems($cache);
-			return $cache;
+		// see if we can get it from the cache
+		$out = self::dev ? '' : $this->wire('session')->getFor($this, 'sidenav');
+		
+		if(empty($out)) {
+			$out = $this->renderSidebarNavCache();
+			$this->wire('session')->setFor($this, 'sidenav', $out);
 		}
+		
+		$out = str_replace('<!--pw-user-nav-label-->', $this->renderUserNavLabel(), $out);
+		$this->markCurrentNavItems($out);
 
+		return $out;
+	}
+
+	/**
+	 * Re-renders the sidebar nav to be cached
+	 * 
+	 * @return string
+	 * 
+	 */
+	protected function renderSidebarNavCache() {
+		
 		$out = '';
 		$items = $this->getPrimaryNavArray();
-		$ukNav = "class='uk-nav-sub uk-nav-default uk-nav-parent-icon' data-uk-nav='animation: false; multiple: true;'";
+		$ulAttrs = "class='uk-nav-sub uk-nav-default uk-nav-parent-icon' data-uk-nav='animation: false; multiple: true;'";
 
 		foreach($items as $item) {
 
@@ -758,14 +776,14 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 					$childNavList = $this->renderPrimaryNavItemChildren($child['children']);
 					$childIcon = $this->renderNavIcon('arrow-circle-right');
 					$childNav =
-						"<ul $ukNav>" .
+						"<ul $ulAttrs>" .
 							"<li class='pw-nav-dup'><a href='$child[url]'>$childIcon$child[title]</a></li>" .
 							$childNavList .
 						"</ul>";
 				} else if($child['navJSON']) {
 					$childClass .= ' uk-parent';
 					$childAttr = " class='pw-has-items pw-has-ajax-items' data-json='$child[navJSON]'";
-					$childNav = "<ul $ukNav></ul>";
+					$childNav = "<ul $ulAttrs></ul>";
 				}
 				$subnav .= "<li class='$childClass'><a$childAttr href='$child[url]'>$icon$child[title]</a>";
 				$subnav .= $childNav . "</li>";
@@ -775,8 +793,8 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 				$icon = $this->renderNavIcon($item['icon']);
 				$class .= " uk-parent";
 				$subnav =
-					"<ul $ukNav>" .
-					"<li class='pw-nav-dup'><a href='$item[url]'>$icon$item[title]</a></li>" .
+					"<ul $ulAttrs>" .
+						"<li class='pw-nav-dup'><a href='$item[url]'>$icon$item[title]</a></li>" .
 						$subnav .
 					"</ul>";
 			}
@@ -786,17 +804,13 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 					$subnav .
 				"</li>";
 		}
-
+		
 		// render user nav
-		$userNav = $this->renderUserNavItems();
 		$out .=
 			"<li class='uk-parent'>" .
-				"<a href='#'>" . $this->renderUserNavLabel() . "</a>" .
-				"<ul $ukNav>$userNav</ul>" .
+				"<a href='#'><!--pw-user-nav-label--></a>" . 
+				"<ul $ulAttrs>" . $this->renderUserNavItems() . "</ul>" .
 			"</li>";
-
-		$this->wire('session')->setFor($this, 'sidenav', $out);
-		$this->markCurrentNavItems($out);
 
 		return $out;
 	}
