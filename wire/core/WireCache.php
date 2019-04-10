@@ -5,15 +5,23 @@
  *
  * Simple cache for storing strings (encoded or otherwise) and serves as $cache API var
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  * #pw-summary Provides easy, persistent caching of markup, strings, arrays or PageArray objects. 
  * #pw-summary-constants These constants are used for the `$expire` argument of get() and save() cache methods. 
  * #pw-use-constants
+ * #pw-body = 
+ * ~~~~~
+ * // Get a cache named 'foo' that lasts for 1 hour (aka 3600 seconds)
+ * $value = $cache->get('foo', 3600, function() {
+ *   // this is called if cache expired or does not exist, 
+ *   // so generate a new cache value here and return it
+ *   return "This is the cached value";
+ * });
+ * ~~~~~
+ * #pw-body
  * 
- * @todo add support for a deleteAll() option that can delete non-system caches
- *
  */
 
 class WireCache extends Wire {
@@ -28,6 +36,13 @@ class WireCache extends Wire {
 	 * 
 	 */
 	const expireNever = '2010-04-08 03:10:10';
+
+	/**
+	 * Cache should never expire and should not be deleted during deleteAll() calls (for PW internal system use)
+	 * Can only be deleted by delete() calls that specify it directly or match it specifically with a wildcard. 
+	 *
+	 */
+	const expireReserved = '2010-04-08 03:10:01';
 
 	/**
 	 * Cache should expire when a given resource (Page or Template) is saved. 
@@ -272,22 +287,7 @@ class WireCache extends Wire {
 				$value = null; // cache does not exist
 			} else while($row = $query->fetch(\PDO::FETCH_NUM)) {
 				list($name, $value) = $row;
-				$c = substr($value, 0, 1);
-				if($c == '{' || $c == '[') {
-					$_value = json_decode($value, true);
-					if(is_array($_value)) {
-						if(array_key_exists('WireCache', $_value)) {
-							$_value = $_value['WireCache'];
-							// there is also $_value['selector'], which we don't need here
-						}
-						if(is_array($_value) && array_key_exists('PageArray', $_value)) {
-							$value = $this->arrayToPageArray($_value);
-						} else {
-							$value = $_value;
-						}
-					}
-					unset($_value);
-				}
+				if($this->looksLikeJSON($value)) $value = $this->decodeJSON($value); 
 				if($multi) $values[$name] = $value; 
 			}
 			$query->closeCursor();
@@ -417,7 +417,13 @@ class WireCache extends Wire {
 	 */
 	public function save($name, $data, $expire = self::expireDaily) {
 
-		if(is_object($data)) {
+		if(is_array($data)) {
+			if(array_key_exists('WireCache', $data)) {
+				throw new WireException("Cannot cache array that has 'WireCache' array key (reserved for internal use)"); 
+			} else if(array_key_exists('PageArray', $data) && array_key_exists('template', $data)) {
+				throw new WireException("Cannot cache array that has 'PageArray' combined with 'template' keys (reserved for internal use)"); 
+			}
+		} else if(is_object($data)) {
 			if($data instanceof PageArray) {
 				$data = $this->pageArrayToArray($data); 
 			} else if(method_exists($data, '__toString')) {
@@ -430,6 +436,7 @@ class WireCache extends Wire {
 		$expire = $this->getExpires($expire); 
 		
 		if(is_array($expire)) {
+			// expire based on selector string
 			$data = array(
 				'selector' => $expire['selector'], 
 				'WireCache' => $data
@@ -441,6 +448,9 @@ class WireCache extends Wire {
 		if(is_array($data)) {
 			$data = json_encode($data);
 			if($data === false) throw new WireException("Unable to encode array data for cache: $name"); 
+		} else if(is_string($data) && $this->looksLikeJSON($data)) {
+			// ensure potentailly already encoded JSON text remains as text when cache is awakened
+			$data = array('WireCache' => $data); 
 		}
 		
 		if(is_null($data)) $data = '';
@@ -502,7 +512,7 @@ class WireCache extends Wire {
 	/**
 	 * Given an expiration seconds, date, page, or template, convert it to an ISO-8601 date
 	 * 
-	 * Returns an array of expires info requires multiple parts, like with self::expireSelector.
+	 * Returns an array if expires info requires multiple parts, like with self::expireSelector.
 	 * In this case it returns array with array('expires' => date, 'selector' => selector);
 	 * 
 	 * @param $expire
@@ -536,7 +546,7 @@ class WireCache extends Wire {
 			// named expiration constant like "hourly", "daily", etc. 
 			$expire = time() + $this->expireNames[$expire];
 
-		} else if(in_array($expire, array(self::expireNever, self::expireSave))) {
+		} else if(in_array($expire, array(self::expireNever, self::expireReserved, self::expireSave))) {
 			// good, we'll take it as-is
 			return $expire;
 
@@ -599,6 +609,7 @@ class WireCache extends Wire {
 			if(strpos($name, '*') !== false || strpos($name, '%') !== false) {
 				// delete all caches matching wildcard
 				$name = str_replace('*', '%', $name);
+				if($name === '%') return $this->deleteAll() ? true : false;
 				$sql = 'DELETE FROM caches WHERE name LIKE :name';
 			} else {
 				$sql = 'DELETE FROM caches WHERE name=:name';
@@ -615,6 +626,56 @@ class WireCache extends Wire {
 			$success = false;
 		}
 		return $success;
+	}
+
+	/**
+	 * Delete all caches (where allowed)
+	 * 
+	 * This method deletes all caches other than those with `WireCache::expireReserved` status. 
+	 * 
+	 * @return int Quantity of caches deleted
+	 * @since 3.0.130
+	 * 
+	 */
+	public function deleteAll() {
+		try {
+			$sql = "DELETE FROM caches WHERE expires!=:reserved";
+			$query = $this->wire('database')->prepare($sql, "cache.deleteAll()");
+			$query->bindValue(':reserved', self::expireReserved);
+			$query->execute();
+			$qty = $query->rowCount();
+			$query->closeCursor();
+		} catch(\Exception $e) {
+			$this->trackException($e, true);
+			$this->error($e->getMessage());
+			$qty = 0;
+		}
+		return $qty;
+	}
+
+	/**
+	 * Deletes all caches that have expiration dates (only)
+	 * 
+	 * This method does not delete caches that are expired by saving of resources or matching selectors.
+	 * 
+	 * @return int
+	 * @since 3.0.130
+	 * 
+	 */
+	public function expireAll() {
+		try {
+			$sql = "DELETE FROM caches WHERE expires>:never";
+			$query = $this->wire('database')->prepare($sql, "cache.expireAll()");
+			$query->bindValue(':never', self::expireNever);
+			$query->execute();
+			$qty = $query->rowCount();
+			$query->closeCursor();
+		} catch(\Exception $e) {
+			$this->trackException($e, true);
+			$this->error($e->getMessage());
+			$qty = 0;
+		}
+		return $qty;
 	}
 
 	/**
@@ -903,17 +964,47 @@ class WireCache extends Wire {
 	 * #pw-group-advanced
 	 * 
 	 * @param bool $verbose Whether to be more verbose for human readability
-	 * @param string $name Optionally specify name of cache to get info. If omitted, all caches are included.
+	 * @param array|string $names Optionally specify name(s) of cache to get info. If omitted, all caches are included.
+	 * @param array|string $exclude Exclude any caches that begin with any of these namespaces (default=[])
 	 * @return array of arrays of cache info
 	 * 
 	 */
-	public function getInfo($verbose = true, $name = '') {
+	public function getInfo($verbose = true, $names = array(), $exclude = array()) {
+		
+		if(is_string($names)) $names = empty($names) ? array() : array($names);
+		if(is_string($exclude)) $exclude = empty($exclude) ? array() : array($exclude);
 		
 		$all = array();
+		$binds = array();
+		$wheres = array();
 		$sql = "SELECT name, data, expires FROM caches ";
-		if($name) $sql .= "WHERE name=:name";
+		
+		if(count($names)) {
+			$a = array();
+			foreach($names as $n => $s) {
+				$a[] = "name=:name$n";
+				$binds[":name$n"] = $s;
+			}
+			$wheres[] = '(' . implode(' OR ', $a) . ')';
+		}
+			
+		if(count($exclude)) {
+			foreach($exclude as $n => $s) {
+				$wheres[] = "name NOT LIKE :ex$n";
+				$binds[":ex$n"] = $s . '%';
+			}
+		}
+
+		if(count($wheres)) {
+			$sql .= "WHERE " . implode(' AND ', $wheres);
+		}
+		
 		$query = $this->wire('database')->prepare($sql);
-		if($name) $query->bindValue(":name", $name);
+		
+		foreach($binds as $key => $val) {
+			$query->bindValue($key, $val);
+		}
+		
 		$query->execute();
 		
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
@@ -924,8 +1015,7 @@ class WireCache extends Wire {
 				'expires' => '',
 			);
 			
-			$c = substr($row['data'], 0, 1);
-			if($c == '{' || $c == '[') {
+			if($this->looksLikeJSON($row['data'])) {
 				// json encoded
 				$data = json_decode($row['data'], true);
 				if(is_array($data)) {
@@ -937,7 +1027,7 @@ class WireCache extends Wire {
 						}
 						$data = $data['WireCache'];
 					}
-					if(is_array($data) && array_key_exists('PageArray', $data)) {
+					if(is_array($data) && array_key_exists('PageArray', $data) && array_key_exists('template', $data)) {
 						$info['type'] = 'PageArray'; 
 						if($verbose) $info['type'] .= ' (' . count($data['PageArray']) . ' pages)';
 					} else if(is_array($data)) {
@@ -950,6 +1040,8 @@ class WireCache extends Wire {
 			if(empty($info['expires'])) {
 				if($row['expires'] == self::expireNever) {
 					$info['expires'] = $verbose ? 'never' : '';
+				} else if($row['expires'] == self::expireReserved) {
+					$info['expires'] = $verbose ? 'reserved' : '';
 				} else if($row['expires'] == self::expireSave) {
 					$info['expires'] = $verbose ? 'when any page or template is modified' : 'save';
 				} else if($row['expires'] < time()) {
@@ -977,6 +1069,59 @@ class WireCache extends Wire {
 		
 		return $all;	
 	}
+	
+	/**
+	 * Does the given string look like it might be JSON?
+	 *
+	 * @param string $str
+	 * @return bool
+	 *
+	 */
+	protected function looksLikeJSON(&$str) {
+		if(empty($str)) return false;
+		$c = substr($str, 0, 1);
+		if($c === '{' && substr(trim($str), -1) === '}') return true;
+		if($c === '[' && substr(trim($str), -1) === ']') return true;
+		return false;
+	}
+
+	/**
+	 * Decode a JSON string (typically to array)
+	 *
+	 * Returns the given $value if it cannot be decoded.
+	 *
+	 * @param string $value JSON encoded text value
+	 * @param bool $toArray Decode to associative array? Specify false to decode to object. (default=true)
+	 * @return array|mixed|PageArray
+	 *
+	 */
+	protected function decodeJSON($value, $toArray = true) {
+
+		$a = json_decode($value, $toArray);
+
+		if(is_array($a)) {
+			// if there is a 'WireCache' key in the array, value becomes whatever is present in its value
+			if(array_key_exists('WireCache', $a)) $a = $a['WireCache'];
+
+			if(is_array($a) && isset($a['PageArray']) && is_array($a['PageArray']) && array_key_exists('template', $a)) {
+				// convert to PageArray if keys for 'PageArray' and 'template' are both present and 'PageArray' value is an array
+				$value = $this->arrayToPageArray($a);
+			} else {
+				// some other array
+				$value = $a;
+			}
+
+		} else if($a !== null) {
+			// it was JSON and now it’s some other non-array type
+			$value = $a;
+
+		} else {
+			// we will return the $value we were given
+		}
+
+		return $value;
+	}
+
 
 	/**
 	 * Save to the cache log

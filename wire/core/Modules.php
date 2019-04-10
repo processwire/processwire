@@ -1139,7 +1139,7 @@ class Modules extends WireArray {
 				$prependFiles = array();
 			}
 			if($cache && $cacheName) {
-				$cache->save($cacheName, implode("\n", $files), WireCache::expireNever);
+				$cache->save($cacheName, implode("\n", $files), WireCache::expireReserved);
 			}
 		}
 
@@ -4602,7 +4602,7 @@ class Modules extends WireArray {
 			if(!in_array($id, $this->moduleIDs)) unset($this->modulesLastVersions[$id]);
 		}
 		if(count($this->modulesLastVersions)) {
-			$this->wire('cache')->save(self::moduleLastVersionsCacheName, $this->modulesLastVersions, WireCache::expireNever);
+			$this->wire('cache')->save(self::moduleLastVersionsCacheName, $this->modulesLastVersions, WireCache::expireReserved);
 		} else {
 			$this->wire('cache')->delete(self::moduleLastVersionsCacheName);
 		}
@@ -4846,7 +4846,7 @@ class Modules extends WireArray {
 					}
 				}
 			}
-			$this->wire('cache')->save($cacheName, $data, WireCache::expireNever); 
+			$this->wire('cache')->save($cacheName, $data, WireCache::expireReserved); 
 		}
 	
 		$this->log('Saved module info caches'); 

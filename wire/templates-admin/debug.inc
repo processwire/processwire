@@ -370,15 +370,8 @@ Debug::saveTimer('timer-name', 'optional notes'); // stop and save timer
 		<?php
 		$o = '';	
 		$oc = 0;
-		$oc2 = 0;
-		$fileCompilerCacheQty = 0;
-		foreach($cache->getInfo() as $info) {
+		foreach($cache->getInfo(true, array(), array('FileCompiler', 'Modules', 'Permissions.')) as $info) {
 			$oc++;
-			if(strpos($info['name'], 'FileCompiler') === 0) {
-				$fileCompilerCacheQty++;
-				continue;
-			}
-			$oc2++;
 			$o .= "<table class=''><thead><tr><th colspan='2'>";
 			$o .= $sanitizer->entities($info['name']) . "</th></tr></thead><tbody>";
 			foreach($info as $key => $value) {
@@ -390,14 +383,11 @@ Debug::saveTimer('timer-name', 'optional notes'); // stop and save timer
 			}
 			$o .= "</tbody></table><br />";
 		}
-		if($fileCompilerCacheQty) {
-			$o .= "<p>Plus $fileCompilerCacheQty cached items for FileCompiler (not shown).</p>";
-		}
 		?>
 		<div class="container">
-			<h3><a href='#'><?php echo __('Cache') . " <span class='ui-priority-secondary'>($oc/$fileCompilerCacheQty/$oc2)</span>"; ?></a></h3>
+			<h3><a href='#'><?php echo __('Cache') . " <span class='ui-priority-secondary'>($oc)</span>"; ?></a></h3>
 			<div>
-				<?php echo $o; unset($o, $oc, $oc2, $fileCompilerCacheQty); ?>
+				<?php echo $o; unset($o, $oc); ?>
 			</div>
 		</div>
 	<?php endif; ?>
