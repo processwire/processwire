@@ -193,7 +193,7 @@ class PagesLoader extends Wire {
 	 *  - `stopBeforeID` (int): Stop loading pages once page matching this ID is found (default=0).
 	 *  - `startAfterID` (int): Start loading pages once page matching this ID is found (default=0).
 	 * 	- loadOptions: array - Optional assoc array of options to pass to getById() load options.
-	 * @return PageArray
+	 * @return PageArray|array
 	 *
 	 */
 	public function find($selector, $options = array()) {

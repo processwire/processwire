@@ -539,10 +539,10 @@ class WireDateTime extends Wire {
 	 * @param int|string $start Starting timestamp or date/time string.
 	 * @param int|string $stop Ending timestamp or date/time string, or omit for now. 
 	 * @param bool|int|array $abbreviate
-	 *  - Specify boolean FALSE for verbose elapsed time string without abbreviations. 
+	 *  - Specify boolean FALSE for verbose elapsed time string without abbreviations (default). 
 	 *  - Specify boolean TRUE for abbreviations (abbreviated where common, not always different from non-abbreviated).
 	 *  - Specify integer 1 for extra short abbreviations (all terms abbreviated into shortest possible string).
-	 *  - Specify integer 0 for digital elapsed time string like “00:01:12” referring to hours:minutes:seconds (default). 
+	 *  - Specify integer 0 for digital elapsed time string like “00:01:12” referring to hours:minutes:seconds. 
 	 * @param array $options Additional options:
 	 *  - `delimiter` (string): String to separate time periods (default=' ').
 	 *  - `exclude` (array|string): Exclude these periods, one or more of: 'seconds', 'minutes', 'hours', 'days', 'weeks' (default=[])

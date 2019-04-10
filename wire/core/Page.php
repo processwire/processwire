@@ -14,6 +14,7 @@
  * #pw-summary Class used by all Page objects in ProcessWire.
  * #pw-summary-languages Multi-language methods require these core modules: `LanguageSupport`, `LanguageSupportFields`, `LanguageSupportPageNames`. 
  * #pw-summary-system Most system properties directly correspond to columns in the `pages` database table. 
+ * #pw-summary-previous Provides access to the previously set runtime value of some Page properties. 
  * #pw-order-groups common,traversal,manipulation,date-time,access,output-rendering,status,constants,languages,system,advanced,hooks
  * #pw-use-constants
  * #pw-var $page
@@ -28,20 +29,20 @@
  *
  * @property int $id The numbered ID of the current page #pw-group-system
  * @property string $name The name assigned to the page, as it appears in the URL #pw-group-system #pw-group-common
- * @property string $namePrevious Previous name, if changed. Blank if not. #pw-advanced 
+ * @property string $namePrevious Previous name, if changed. Blank if not. #pw-group-previous
  * @property string $title The page’s title (headline) text
  * @property string $path The page’s URL path from the homepage (i.e. /about/staff/ryan/) 
  * @property string $url The page’s URL path from the server's document root
  * @property array $urls All URLs the page is accessible from, whether current, former and multi-language. #pw-group-urls
  * @property string $httpUrl Same as $page->url, except includes scheme (http or https) and hostname.
  * @property Page|string|int $parent The parent Page object or a NullPage if there is no parent. For assignment, you may also use the parent path (string) or id (integer). #pw-group-traversal
- * @property Page|null $parentPrevious Previous parent, if parent was changed. #pw-group-traversal
+ * @property Page|null $parentPrevious Previous parent, if parent was changed. #pw-group-previous
  * @property int $parent_id The numbered ID of the parent page or 0 if homepage or not assigned. #pw-group-system
  * @property int $templates_id The numbered ID of the template usedby this page. #pw-group-system
  * @property PageArray $parents All the parent pages down to the root (homepage). Returns a PageArray. #pw-group-common #pw-group-traversal
  * @property Page $rootParent The parent page closest to the homepage (typically used for identifying a section) #pw-group-traversal
  * @property Template|string $template The Template object this page is using. The template name (string) may also be used for assignment.
- * @property Template|null $templatePrevious Previous template, if template was changed. #pw-advanced
+ * @property Template|null $templatePrevious Previous template, if template was changed. #pw-group-previous
  * @property Fieldgroup $fields All the Fields assigned to this page (via its template). Returns a Fieldgroup. #pw-advanced
  * @property int $numChildren The number of children (subpages) this page has, with no exclusions (fast). #pw-group-traversal
  * @property int $hasChildren The number of visible children this page has. Excludes unpublished, no-access, hidden, etc. #pw-group-traversal
@@ -70,7 +71,7 @@
  * @property string $sortfield Field that a page is sorted by relative to its siblings (default="sort", which means drag/drop manual) #pw-group-system
  * @property null|array _statusCorruptedFields Field names that caused the page to have Page::statusCorrupted status. #pw-internal
  * @property int $status Page status flags. #pw-group-system #pw-group-status
- * @property int|null $statusPrevious Previous status, if status was changed. #pw-group-status
+ * @property int|null $statusPrevious Previous status, if status was changed. #pw-group-status #pw-group-previous
  * @property string statusStr Returns space-separated string of status names active on this page. #pw-group-status
  * @property Fieldgroup $fieldgroup Fieldgroup used by page template. Shorter alias for $page->template->fieldgroup (same as $page->fields) #pw-advanced
  * @property string $editUrl URL that this page can be edited at. #pw-group-urls
@@ -85,6 +86,7 @@
  * @property PageArray $links Return pages that link to this one contextually in Textarea/HTML fields. #pw-group-traversal
  * @property int $numLinks Total number of pages manually linking to this page in Textarea/HTML fields. #pw-group-traversal
  * @property int $hasLinks Number of visible pages (to current user) linking to this page in Textarea/HTML fields. #pw-group-traversal
+ * @property int $instanceID #pw-internal
  * 
  * @property Page|null $_cloning Internal runtime use, contains Page being cloned (source), when this Page is the new copy (target). #pw-internal
  * @property bool|null $_hasAutogenName Internal runtime use, set by Pages class when page as auto-generated name. #pw-internal
@@ -3278,7 +3280,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - Note the return value from this method may be different from the `Page::sortfield` (lowercase) property,
 	 *   as this method considers the sort field specified with the template as well. 
 	 * 
-	 * #pw-group-internal
+	 * #pw-group-system
 	 * 
 	 * @return string
 	 * 

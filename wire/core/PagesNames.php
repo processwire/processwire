@@ -6,6 +6,20 @@
  * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
+ * #pw-summary This class includes methods for generating and modifying page names.
+ * #pw-body = 
+ * While these methods are mosty for internal core use, some may at times be useful from the public API as well.
+ * You can access methods from this class via the Pages API variable at `$pages->names()`.
+ * ~~~~~
+ * if($pages->names()->pageNameExists('something')) {
+ *   // A page named “something” exists
+ * }
+ *
+ * // generate a globally unique random page name 
+ * $name = $pages->names()->uniqueRandomPageName();
+ * ~~~~~
+ * #pw-body
+ * 
  */ 
 
 class PagesNames extends Wire {
@@ -66,8 +80,10 @@ class PagesNames extends Wire {
 	/**
 	 * Assign a name to given Page (if it doesn’t already have one)
 	 * 
-	 * @param Page $page
-	 * @param string $format
+	 * #pw-group-manipulators
+	 * 
+	 * @param Page $page Page to setup a new name for
+	 * @param string $format Optional format string to use for name
 	 * @return string Returns page name that was assigned
 	 * 
 	 */
@@ -99,6 +115,8 @@ class PagesNames extends Wire {
 	/**
 	 * Does the given page have an auto-generated name (during this request)?
 	 * 
+	 * #pw-group-informational
+	 * 
 	 * @param Page $page
 	 * @return string|bool Returns auto-generated name if present, or boolean false if not
 	 * 
@@ -112,6 +130,8 @@ class PagesNames extends Wire {
 	/**
 	 * Does the given page have a modified “name” during this request?
 	 * 
+	 * #pw-group-informational
+	 * 
 	 * @param Page $page
 	 * @param bool|null $set Specify boolean true or false to set whether or not it has an adjusted name, or omit just to get
 	 * @return bool
@@ -123,7 +143,9 @@ class PagesNames extends Wire {
 	}
 
 	/**
-	 * Is given page name an untitled page name?
+	 * Does the given page have an untitled page name?
+	 * 
+	 * #pw-group-informational
 	 * 
 	 * @param string $name
 	 * @return bool
@@ -139,6 +161,8 @@ class PagesNames extends Wire {
 	 * 
 	 * Returns array like `[ 'name', 123 ]` where `name` is name without the suffix, and `123` is the numbered suffix.
 	 * If the name did not have a numbered suffix, then the 123 will be 0 and `name` will be the given `$name`.
+	 * 
+	 * #pw-group-informational
 	 * 
 	 * @param string $name
 	 * @param string $delimiter Character(s) that separate name and numbered suffix
@@ -159,6 +183,8 @@ class PagesNames extends Wire {
 	/**
 	 * Does the given name or Page have a number suffix? Returns the number if yes, or false if not
 	 * 
+	 * #pw-group-informational
+	 * 
 	 * @param string|Page $name
 	 * @param bool $getNamePrefix Return the name prefix rather than the number suffix? (default=false)
 	 * @return int|bool|string Returns false if no number suffix, or int for number suffix or string for name prefix (if requested)
@@ -173,6 +199,8 @@ class PagesNames extends Wire {
 
 	/**
 	 * Get the name format string that should be used for given $page if no name was assigned
+	 * 
+	 * #pw-group-informational
 	 * 
 	 * @param Page $page
 	 * @param array $options
@@ -243,6 +271,8 @@ class PagesNames extends Wire {
 	 *
 	 * For formats above that accept a wireDate() format, see `WireDateTime::date()` method for format details. It accepts PHP
 	 * date() format, PHP strftime() format, as well as some other predefined options.
+	 * 
+	 * #pw-group-generators
 	 *
 	 * @param Page $page
 	 * @param string|array $format Optional format. If not specified, pulls from $page’s parent template.
@@ -384,6 +414,8 @@ class PagesNames extends Wire {
 	 *
 	 * The returned value is not yet assigned to the given $page, so if it is something different than what
 	 * is already on $page, you’ll want to assign it manually after this.
+	 * 
+	 * #pw-group-generators
 	 *
 	 * @param string|Page|array $name Name to make unique
 	 *  You may optionally substitute the $page argument or $options arguments here, if that is all you need.
@@ -468,6 +500,8 @@ class PagesNames extends Wire {
 	/**
 	 * If name exceeds maxLength, truncate it, while keeping any numbered suffixes in place
 	 * 
+	 * #pw-group-manipulators
+	 * 
 	 * @param string $name
 	 * @param int $maxLength
 	 * @return string
@@ -515,6 +549,8 @@ class PagesNames extends Wire {
 	/**
 	 * Increment the suffix of a page name, or add one if not present
 	 * 
+	 * #pw-group-manipulators
+	 * 
 	 * @param string $name
 	 * @param int|null $num Number to use, or omit to determine and increment automatically
 	 * @return string
@@ -552,6 +588,8 @@ class PagesNames extends Wire {
 	 * 
 	 * If the `multilang` option is used, it checks if the page name exists in any language. 
 	 * IF the `language` option is used, it only checks that particular language (regardless of `multilang` option).
+	 * 
+	 * #pw-group-informational
 	 *
 	 * @param string $name
 	 * @param array $options
@@ -623,6 +661,8 @@ class PagesNames extends Wire {
 
 	/**
 	 * Get a random, globally unique page name
+	 * 
+	 * #pw-group-generators
 	 *
 	 * @param array $options
 	 *  - `page` (Page): If name is or should be assigned to a Page, specify it here. (default=null)
@@ -698,6 +738,8 @@ class PagesNames extends Wire {
 	/**
 	 * Return the untitled page name string
 	 * 
+	 * #pw-group-informational
+	 * 
 	 * @return string
 	 * 
 	 */
@@ -709,6 +751,8 @@ class PagesNames extends Wire {
 	 * Does given page have a name that has a conflict/collision?
 	 * 
 	 * In multi-language environment this applies to default language only. 
+	 * 
+	 * #pw-group-informational
 	 * 
 	 * @param Page $page Page to check
 	 * @return string|bool Returns string with conflict reason or boolean false if no conflict
@@ -760,6 +804,8 @@ class PagesNames extends Wire {
 
 	/**
 	 * Check given page’s name for conflicts and increment as needed while also triggering a warning notice
+	 * 
+	 * #pw-group-manipulators
 	 * 
 	 * @param Page $page
 	 * @since 3.0.127

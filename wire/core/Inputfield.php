@@ -1056,7 +1056,7 @@ abstract class Inputfield extends WireData implements Module {
 	 * 
 	 * #pw-group-attribute-methods
 	 *
-	 * @param string $class Class name you want to remove or specify one of the following:
+	 * @param string|array $class Class name you want to remove or specify one of the following:
 	 *   - Single class name to remove.
 	 *   - Space-separated class names you want to remove (Since 3.0.16).
 	 *   - Array of class names you want to remove (Since 3.0.16).

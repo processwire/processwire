@@ -8,7 +8,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Holds ProcessWire configuration settings as defined in /wire/config.php and /site/config.php. 
@@ -30,7 +30,7 @@
  * @property FilenameArray $styles Array used by ProcessWire admin to keep track of what stylesheet files its template should load. It will be blank otherwise. Feel free to use it for the same purpose in your own sites. #pw-group-runtime
  * @property FilenameArray $scripts Array used by ProcessWire admin to keep track of what javascript files its template should load. It will be blank otherwise. Feel free to use it for the same purpose in your own sites. #pw-group-runtime
  * 
- * @property Paths $urls Items from $config->urls reflect the http path one would use to load a given location in the web browser. URLs retrieved from $config->urls always end with a trailing slash. #pw-group-runtime
+ * @property Paths $urls Items from $config->urls reflect the http path one would use to load a given location in the web browser. URLs retrieved from $config->urls always end with a trailing slash. This is the same as the $urls API variable. #pw-group-runtime #pw-group-URLs
  * @property Paths $paths All of what can be accessed from $config->urls can also be accessed from $config->paths, with one important difference: the returned value is the full disk path on the server. There are also a few items in $config->paths that aren't in $config->urls. All entries in $config->paths always end with a trailing slash. #pw-group-runtime
  * 
  * @property string $templateExtension Default is 'php' #pw-group-template-files
@@ -202,15 +202,18 @@ class Config extends WireData {
 	}
 
 	/**
-	 * Alias for the url() method
+	 * Get URL for requested resource or module or get all URLs if no argument
 	 * 
 	 * #pw-internal
 	 * 
 	 * @param string|Wire $for Predefined ProcessWire URLs property or module name
-	 * @return null|string
+	 * @return null|string|Paths
+	 * @since 3.0.130
 	 * 
 	 */
-	public function urls($for) { return $this->url($for); }
+	public function urls($for = '') { 
+		return $for === '' ? $this->urls : $this->url($for); 
+	}
 
 	/**
 	 * Get disk path for requested resource or module
@@ -234,15 +237,18 @@ class Config extends WireData {
 	}
 
 	/**
-	 * Alias for the path() method
+	 * Get disk path for requested resource or module or get all paths if no argument
 	 *
 	 * #pw-internal
 	 *
 	 * @param string $for Predefined ProcessWire paths property or module name
-	 * @return null|string
+	 * @return null|string|Paths
+	 * @since 3.0.130
 	 *
 	 */
-	public function paths($for) { return $this->path($for); }
+	public function paths($for = '') { 
+		return $for === '' ? $this->paths : $this->path($for); 
+	}
 
 	/**
 	 * List of config keys that are also exported in javascript
@@ -419,6 +425,8 @@ class Config extends WireData {
 	 * }
 	 * ~~~~~
 	 * 
+	 * #pw-group-tools
+	 * 
 	 * @param string|null $minVersion
 	 * @return bool
 	 * @since 3.0.101
@@ -429,9 +437,9 @@ class Config extends WireData {
 	}
 
 	/**
-	 * Check if current ProcessWire version is equal to or newer than given version
+	 * Check if current ProcessWire version is equal to or newer than given version, or return current version
 	 * 
-	 * If no version argument is given, it simply returns the current ProcessWire version. 
+	 * If no version argument is given, it simply returns the current ProcessWire version (3.0.130+)
 	 * 
 	 * ~~~~~
 	 * if($config->version('3.0.100')) {
@@ -439,19 +447,24 @@ class Config extends WireData {
 	 * }
 	 * ~~~~~
 	 * 
+	 * #pw-group-tools
+	 * 
 	 * @param string $minVersion Specify version string if you want to compare against current version
-	 * @return bool|string Returns current version if no argument given, OR boolean if given a version argument: 
+	 * @return bool|string Returns current version if no argument given (3.0.130+), OR boolean if given a version argument: 
 	 *  - If given version is older than current, returns false.
 	 *  - If given version is equal to or newer than current, returns true.
-	 * @since 3.0.106
+	 * @since 3.0.106 with no-argument behavior added in 3.0.130
 	 * 
 	 */
 	public function version($minVersion = '') {
+		if($minVersion === '') return $this->version;
 		return version_compare($this->version, $minVersion) >= 0;
 	}
 
 	/**
 	 * Was this ProcessWire installation installed after a particular date?
+	 * 
+	 * #pw-group-tools
 	 * 
 	 * @param int|string $date Unix timestamp or strtotime() compatible date string
 	 * @return bool
@@ -466,6 +479,8 @@ class Config extends WireData {
 
 	/**
 	 * Was this ProcessWire installation installed before a particular date?
+	 * 
+	 * #pw-group-tools
 	 *
 	 * @param int|string $date Unix timestamp or strtotime() compatible date string
 	 * @return bool
@@ -476,6 +491,22 @@ class Config extends WireData {
 	public function installedBefore($date) {
 		if(!ctype_digit("$date")) $date = strtotime($date);
 		return $this->installed < $date; 
+	}
+	
+	/**
+	 * Set the current ProcessWire instance for this object (PW 3.0)
+	 *
+	 * #pw-internal
+	 *
+	 * @param ProcessWire $wire
+	 *
+	 */
+	public function setWire(ProcessWire $wire) {
+		parent::setWire($wire);
+		$paths = $this->paths;
+		if($paths) $paths->setWire($wire);
+		$urls = $this->urls;
+		if($urls) $urls->setWire($wire);
 	}
 }
 

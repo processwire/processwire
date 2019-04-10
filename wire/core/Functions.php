@@ -1160,6 +1160,8 @@ function WireArray($items = array()) {
  * $data = WireData([ 'hello' => 'world', 'foo' => 'bar' ]); 
  * ~~~~~
  * 
+ * #pw-group-arrays
+ * 
  * @param array|\Traversable $data Can be an associative array or Traversable object of data to set, or omit if not needed
  * @return WireData
  * @since 3.0.126

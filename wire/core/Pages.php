@@ -1362,9 +1362,11 @@ class Pages extends Wire {
 	}
 	
 	/**
+	 * Get Pages API methods specific to generating and modifying page names
+	 * 
 	 * @return PagesNames
 	 *
-	 * #pw-internal
+	 * #pw-advanced
 	 *
 	 */
 	public function names() {
