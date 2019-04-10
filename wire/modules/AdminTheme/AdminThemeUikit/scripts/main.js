@@ -126,13 +126,11 @@ var ProcessWireAdminTheme = {
 			}
 		}
 		if(skip) return;
+		var hbc = $header.css('background-color').replace(/ /g, ''); // first field header background color
+		if(hbc === 'rgb(255,255,255)' || hbc === 'rgba(0,0,0,0)') return;
 		var $tab = $('#_' + $newTabContent.attr('id')).parent();
 		if(!$tab.length) return;
-		var $a = $tab.children('a');
-		var bgc = $header.css('background-color');
-		if($tab.css('background-color') != bgc && $a.css('background-color') != bgc) {
-			$tab.addClass('pw-tab-muted');
-		}
+		if($tab.css('background-color').replace(/ /g, '') != hbc) $tab.addClass('pw-tab-muted');
 	}, 
 
 	/**
