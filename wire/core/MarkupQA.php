@@ -688,7 +688,7 @@ class MarkupQA extends Wire {
 			$this->warning(sprintf(
 				$this->_('Unable to resolve link on page %1$s in field "%2$s": %3$s'), 
 				$this->page->path, 
-				$this->field->name, 
+				$this->field->getLabel(), 
 				$path
 			));
 		}
