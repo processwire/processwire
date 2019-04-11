@@ -404,7 +404,7 @@ class WireCache extends Wire {
 	 * 
 	 * @param string $name Name of cache, can be any string up to 255 chars
 	 * @param string|array|PageArray $data Data that you want to cache. May be string, array of non-object values, or PageArray.
-	 * @param int|Page $expire Lifetime of this cache, in seconds, OR one of the following:
+	 * @param int|string|Page $expire Lifetime of this cache, in seconds, OR one of the following:
 	 *  - Specify one of the `WireCache::expire*` constants. 
 	 *  - Specify the future date you want it to expire (as unix timestamp or any `strtotime()` compatible date format)  
 	 *  - Provide a `Page` object to expire when any page using that template is saved.  
@@ -1069,6 +1069,155 @@ class WireCache extends Wire {
 		
 		return $all;	
 	}
+	
+	/**
+	 * Render a file as a ProcessWire template file and cache the output
+	 *
+	 * This method is similar to the `$files->render()` method and actually delegates the file
+	 * rendering to that method (when creating the cache). The important difference is that this
+	 * method caches the output according to WireCache rules for the `$expire` argument, rather
+	 * than re-rendering the file on every call. 
+	 *
+	 * If there are any changes to the source file `$filename` the cache will be automatically
+	 * re-created, regardless of what is specified for the `$expire` argument.
+	 * 
+	 * ~~~~~~
+	 * // render primary nav from site/templates/partials/primary-nav.php 
+	 * // and cache for 3600 seconds (1 hour)
+	 * echo $cache->renderFile('partials/primary-nav.php', 3600); 
+	 * ~~~~~~
+	 *
+	 * @param string $filename Filename to render (typically PHP file). 
+	 *   Can be full path/file, or dir/file relative to current work directory (which is typically /site/templates/).
+	 *   If providing a file relative to current dir, it should not start with "/". 
+	 *   File must be somewhere within site/templates/, site/modules/ or wire/modules/, or provide your own `allowedPaths` option. 
+	 *   Please note that $filename receives API variables already (you don’t have to provide them).
+	 * @param int|Page|string|null $expire Lifetime of this cache, in seconds, OR one of the following:
+	 *  - Specify one of the `WireCache::expire*` constants.
+	 *  - Specify the future date you want it to expire (as unix timestamp or any `strtotime()` compatible date format)
+	 *  - Provide a `Page` object to expire when any page using that template is saved.
+	 *  - Specify `WireCache::expireNever` to prevent expiration.
+	 *  - Specify `WireCache::expireSave` to expire when any page or template is saved.
+	 *  - Specify selector string matching pages that–when saved–expire the cache.
+	 *  - Omit for default value, which is `WireCache::expireDaily`. 
+	 * @param array $options Accepts all options for the `WireFileTools::render()` method, plus these additional ones:
+	 *  - `name` (string): Optionally specify a unique name for this cache, otherwise $filename will be used as the unique name. (default='')
+	 *  - `vars` (array): Optional associative array of extra variables to send to template file. (default=[])
+	 *  - `allowedPaths` (array): Array of paths that are allowed (default is anywhere within templates, core modules and site modules)
+	 *  - `throwExceptions` (bool): Throw exceptions when fatal error occurs? (default=true)
+	 * @return string|bool Rendered template file or boolean false on fatal error (and throwExceptions disabled)
+	 * @throws WireException if given file doesn’t exist
+	 * @see WireFileTools::render()
+	 * @since 3.0.130
+	 *
+	 */
+	public function renderFile($filename, $expire = null, array $options = array()) {
+
+		$defaults = array(
+			'name' => '',
+			'vars' => array(),
+			'throwExceptions' => true,
+		);
+
+		$out = null;
+		$paths = $this->wire('config')->paths;
+		$files = $this->wire('files');
+		$filename = $files->unixFileName($filename);
+		
+		if(strpos($filename, '/') !== 0 && strpos($filename, ':') === false && strpos($filename, '//') === false) {
+			// make relative to current path
+			$currentPath = $files->currentPath();
+			if($files->fileInPath($filename, $currentPath)) {
+				$f = $currentPath . $filename;
+				if(file_exists($f)) $filename = $f;
+			}
+		}
+		
+		$options = array_merge($defaults, $options);
+		$mtime = filemtime($filename);
+		$name = str_replace($paths->root, '', $filename);
+		$ns = 'cache.' . ($options['name'] ? $options['name'] : 'renderFile');
+		$cacheName = $this->cacheName($name, $ns);
+
+		if($mtime === false) {
+			if($options['throwExceptions']) throw new WireException("File not found: $filename");
+			return false;
+		}
+
+		$data = $this->get($cacheName, $expire);
+
+		// cache value is array where [ 0=created, 1='value' ]
+		if(!is_array($data) || $data[0] < $mtime) {
+			// cache does not exist or is older source file mtime
+			$out = $this->wire('files')->render($filename, $options['vars'], $options);
+			if($out === false) return false;
+			$data = array(time(), $out);
+			if($expire === null) $expire = self::expireDaily;
+			$this->save($cacheName, $data, $expire);
+		} else {
+			$out = $data[1];
+		}
+
+		return $out;
+	}
+
+	/**
+	 * Make sure a cache name is of the right length and format for a cache name
+	 *
+	 * @param string $name Name including namespace (if applicable)
+	 * @param bool|string $ns True to allow namespace present, false to prevent, or specify namespace to add to name if not already present.
+	 * @return string
+	 * @since 3.0.130
+	 * @todo update other methods in this class to use this method
+	 *
+	 *
+	 */
+	protected function cacheName($name, $ns = true) {
+
+		$maxLength = 190;
+		$name = trim($name);
+
+		if($ns === false) {
+			// namespace not allowed (cache name is NAME only)
+			while(strpos($name, '__') !== false) $name = str_replace('__', '_', $name);
+			if(strlen($name) > $maxLength) $name = md5($name);
+			return $name;
+		}
+
+		if(is_string($ns) && strlen($ns)) {
+			// a namespace has been supplied
+			while(strpos($name, '__') !== false) $name = str_replace('__', '_', $name);
+			while(strpos($ns, '__') !== false) $ns = str_replace('__', '_', $ns);
+			$ns = rtrim($ns, '_') . '__';
+			if(strpos($name, $ns) === 0) {
+				// name already has this namespace
+			} else {
+				// prepend namespace to name
+				$name = $ns . $name;
+			}
+		}
+
+		if(strlen($name) <= $maxLength) {
+			// name already in bounds
+			return $name;
+		}
+
+		// at this point we have a cache name that is too long
+		if(strpos($name, '__') !== false) {
+			// has namespace
+			list($ns, $name) = explode('__', $name, 2);
+			while(strpos($name, '__') !== false) $name = str_replace('__', '_', $name);
+			if(strlen($name) > 32) $name = md5($name);
+			if(strlen($ns . '__' . $name) > $maxLength) $ns = md5($ns); // not likely
+			$name = $ns . '__' . $name;
+		} else {
+			// no namespace
+			$name = md5($name);
+		}
+
+		return $name;
+	}
+
 	
 	/**
 	 * Does the given string look like it might be JSON?

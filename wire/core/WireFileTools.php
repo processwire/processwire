@@ -861,6 +861,8 @@ class WireFileTools extends Wire {
 	 *  - `allowedPaths` (array): Array of paths that are allowed (default is templates, core modules and site modules)
 	 *  - `allowDotDot` (bool): Allow use of ".." in paths? (default=false)
 	 *  - `throwExceptions` (bool): Throw exceptions when fatal error occurs? (default=true)
+	 *  - `cache` (int|string|Page): Specify non-zero value to cache rendered result for this many seconds, or see the `WireCache::renderFile()` 
+	 *     method `$expire` argument for more options you can specify here. (default=0, no cache) *Note: this option added in 3.0.130*
 	 * @return string|bool Rendered template file or boolean false on fatal error (and throwExceptions disabled)
 	 * @throws WireException if template file doesn't exist
 	 * @see WireFileTools::include()
@@ -881,6 +883,7 @@ class WireFileTools extends Wire {
 			),
 			'allowDotDot' => false,
 			'throwExceptions' => true,
+			'cache' => 0, 
 		);
 
 		$options = array_merge($defaults, $options);
@@ -922,6 +925,15 @@ class WireFileTools extends Wire {
 				$this->error($error);
 				return false;
 			}
+		}
+		
+		if($options['cache']) {
+			/** @var WireCache $cache */
+			$cache = $this->wire('cache');
+			$o = $options;
+			unset($o['cache']); 
+			$o['vars'] = $vars; 
+			return $cache->renderFile($filename, $options['cache'], $o); 
 		}
 
 		// render file and return output
@@ -1315,6 +1327,21 @@ class WireFileTools extends Wire {
 		$path = $this->unixDirName($path);
 		if($file === $path || strlen($file) <= strlen($path)) return false;
 		return strpos($file, $path) === 0;
+	}
+
+	/**
+	 * Get the current path / work directory
+	 * 
+	 * This is like PHP’s getcwd() function except that is in ProcessWire format as unix path with trailing slash.
+	 * 
+	 * #pw-group-filenames
+	 * 
+	 * @return string
+	 * @since 3.0.130
+	 * 
+	 */
+	public function currentPath() {
+		return $this->unixDirName(getcwd());
 	}
 
 }
