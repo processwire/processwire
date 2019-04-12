@@ -681,6 +681,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 					"<ul>" . $this->renderPrimaryNavItemChildren($item['children']) . "</ul>";
 
 			} else if(!empty($item['navJSON'])) {
+				$item['navJSON'] = $this->wire('sanitizer')->entities($item['navJSON']); 
 				$out .=
 					"<a class='pw-has-items pw-has-ajax-items' " .
 						"data-from='prnav-page-$item[parent_id]' " .
@@ -781,6 +782,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 							$childNavList .
 						"</ul>";
 				} else if($child['navJSON']) {
+					$child['navJSON'] = $this->wire('sanitizer')->entities($child['navJSON']); 
 					$childClass .= ' uk-parent';
 					$childAttr = " class='pw-has-items pw-has-ajax-items' data-json='$child[navJSON]'";
 					$childNav = "<ul $ulAttrs></ul>";

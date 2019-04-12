@@ -404,6 +404,7 @@ class AdminThemeDefaultHelpers extends WireData {
 			if(empty($item['navJSON'])) {
 				$out .= "<li><a href='{$p->url}$item[url]'>$icon$label</a></li>";
 			} else {
+				$item['navJSON'] = $this->wire('sanitizer')->entities($item['navJSON']);
 				$out .= 
 					"<li>" . 
 						"<a class='pw-has-items pw-has-ajax-items' " . 
