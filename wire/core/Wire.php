@@ -1758,11 +1758,26 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *
 	 */
 	public function __debugInfo() {
-		static $debugInfo = null;
-		if(is_null($debugInfo)) {
-			$debugInfo = $this->wire(new WireDebugInfo());
-		}
-		return $debugInfo->getDebugInfo($this);
+		/** @var WireDebugInfo $debugInfo */
+		$debugInfo = $this->wire(new WireDebugInfo());
+		return $debugInfo->getDebugInfo($this, true);
+	}
+
+	/**
+	 * Minimal/small debug info
+	 * 
+	 * Same as __debugInfo() but with no hooks info, no change tracking info, and less verbose 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return array
+	 * @since 3.0.130
+	 * 
+	 */
+	public function debugInfoSmall() {
+		/** @var WireDebugInfo $debugInfo */
+		$debugInfo = $this->wire(new WireDebugInfo());
+		return $debugInfo->getDebugInfo($this, true);
 	}
 
 

@@ -310,5 +310,9 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 			return $sanitizer->sanitize($arguments[0], $method); 
 		}
 	}
+	
+	public function __debugInfo() {
+		return $this->data;
+	}
 }
 

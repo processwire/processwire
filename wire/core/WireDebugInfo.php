@@ -12,22 +12,30 @@ class WireDebugInfo extends Wire {
 	 * Get all debug info for the given Wire object
 	 * 
 	 * @param Wire $obj
+	 * @param bool $small Return non-verbose debug info? (default=false)
 	 * @return array
 	 * 
 	 */
-	public function getDebugInfo(Wire $obj) {
+	public function getDebugInfo(Wire $obj, $small = false) {
 		
-		$className = $obj->className();
 		$info = array();
 		
-		if(method_exists($this, $className)) {
-			$info = array_merge($info, $this->$className($obj));
+		if($obj instanceof Page) {
+			$info = $this->Page($obj, $small);
+		} else if($this->className() != 'WireDebugInfo') {
+			// if other classes extend and implement their own class-specific methods
+			$className = $obj->className();
+			if(method_exists($this, $className)) {
+				$info = $this->$className($obj, $small);
+			}
 		}
 
-		$changes = $obj->getChanges();
-		if(count($changes)) $info['changes'] = $changes; 
-		$hooks = $this->getHooksInfo($obj);
-		if(count($hooks)) $info['hooks'] = $hooks; 
+		if(!$small) {
+			$changes = $obj->getChanges();
+			if(count($changes)) $info['changes'] = $changes;
+			$hooks = $this->getHooksInfo($obj);
+			if(count($hooks)) $info['hooks'] = $hooks;
+		}
 	
 		return $info;
 	}
@@ -60,7 +68,9 @@ class WireDebugInfo extends Wire {
 			}
 			$filename = '';
 			if(!empty($hook['toObject'])) {
-				$value .= $hook['toObject']->className() . "->";
+				/** @var Wire $toObject */
+				$toObject = $hook['toObject'];
+				$value .= $toObject->className() . "->";
 				$ref = new \ReflectionClass($hook['toObject']);
 				$filename = $ref->getFileName();
 			}
@@ -74,6 +84,7 @@ class WireDebugInfo extends Wire {
 				}
 			}
 			if($filename) $value .= " in " . basename($filename);
+			if($priority != "100.0") $value .= " ($priority)";
 			if(!isset($hooks[$key])) {
 				$hooks[$key] = $value;
 			} else {
@@ -88,11 +99,42 @@ class WireDebugInfo extends Wire {
 	 * Debug info specific to Page objects
 	 * 
 	 * @param Page $page
+	 * @param bool $small
 	 * @return array
 	 * 
 	 */
-	public function Page(Page $page) {
+	public function Page(Page $page, $small = false) {
+		
+		if($small) {
+			// minimal debug info
+			$info = array(
+				'id' => $page->id, 
+				'name' => $page->name, 
+				'parent' => $page->parent && $page->parent->id ? $page->parent->path() : '',
+				'status' => implode(', ', $page->status(true)), 
+				'template' => $page->template ? $page->template->name : '', 
+				'numChildren' => $page->numChildren(), 
+			);
+			
+			if(empty($info['numChildren'])) unset($info['numChildren']); 
+			if(empty($info['status'])) unset($info['status']);
+			
+			foreach($page->getArray() as $fieldName => $fieldValue) {
+				if(is_object($fieldValue)) {
+					$className = wireClassName($fieldValue);
+					if(method_exists($fieldValue, '__toString')) {
+						$fieldValue = (string) $fieldValue;
+						if($fieldValue !== $className) $fieldValue = "($className) $fieldValue";
+					} else {
+						$fieldValue = $className;
+					}
+				}
+				$info[$fieldName] = $fieldValue;
+			}
+			return $info;
+		}
 
+		// verbose debug info
 		$info = array(
 			'instanceID' => $page->instanceID,
 			'id' => $page->id, 
@@ -139,7 +181,7 @@ class WireDebugInfo extends Wire {
 			unset($info['parentPrevious']);
 		}
 
-		if($page->isNew) $info['isNew'] = 1;
+		if($page->isNew()) $info['isNew'] = 1;
 		$info['isLoaded'] = (int) $page->isLoaded();
 		$info['outputFormatting'] = (int) $page->outputFormatting();
 		if($page->quietMode) $info['quietMode'] = 1;

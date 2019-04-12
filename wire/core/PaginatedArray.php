@@ -308,11 +308,21 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 	 *
 	 */
 	public function __debugInfo() {
-		$info = parent::__debugInfo();
-		if($this->getLimit()) $info['pager'] = $this->getPaginationString();
-		$info['total'] = $this->getTotal();
-		$info['start'] = $this->getStart();
-		$info['limit'] = $this->getLimit();
+		$limit = $this->getLimit();
+		$count = $this->count();
+		$total = $this->getTotal();
+		if($limit || $total > $count) {
+			$info = array(
+				'count' => $count,
+				'total' => $total,
+				'start' => $this->getStart(),
+				'limit' => $limit, 
+				'pager' => $this->getPaginationString(), 
+			);
+			$info = array_merge($info, parent::__debugInfo());
+		} else {
+			$info = parent::__debugInfo();
+		}
 		return $info;
 	}
 }

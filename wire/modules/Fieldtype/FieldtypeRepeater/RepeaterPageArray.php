@@ -130,6 +130,16 @@ class RepeaterPageArray extends PageArray {
 		parent::trackRemove($item, $key);
 	}
 
+	public function __debugInfo() {
+		$info = array(
+			'field' => $this->field ? $this->field->debugInfoSmall() : '', 
+		);
+		if($this->parent && $this->parent->id) {
+			$info['parent'] = $this->parent->debugInfoSmall(); 
+		}
+		$info = array_merge($info, parent::__debugInfo());
+		return $info;
+	}
 	
 }
 

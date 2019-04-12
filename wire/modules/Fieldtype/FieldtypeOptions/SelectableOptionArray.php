@@ -29,7 +29,7 @@ class SelectableOptionArray extends WireArray {
 	/**
 	 * Field these options apply to (always applicable)
 	 * 
-	 * @var null
+	 * @var Field|null
 	 * 
 	 */	
 	protected $field = null;
@@ -248,5 +248,28 @@ class SelectableOptionArray extends WireArray {
 	public function hasID($id) {
 		return $this->getOptionByProperty('id', (int) $id);
 	}
+	
+	/**
+	 * Return debug info for one item from this WireArray
+	 *
+	 * #pw-internal
+	 *
+	 * @param mixed $item
+	 * @return mixed|null|string
+	 *
+	 */
+	public function debugInfoItem($item) {
+		if($item instanceof SelectableOption) $item = $item->debugInfoSmall();
+		return $item;
+	}
+	
+	public function __debugInfo() {
+		$info = parent::__debugInfo();
+		$info['of'] = (int) $this->of;
+		if($this->page) $info['page'] = $this->page->path();
+		if($this->field) $info['field'] = $this->field->name;
+		return $info;
+	}
+
 
 }

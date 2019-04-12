@@ -12,7 +12,7 @@
  * #pw-body Field objects are managed by the `$fields` API variable. 
  * #pw-use-constants
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  * @property int $id Numeric ID of field in the database #pw-group-properties
@@ -22,6 +22,7 @@
  * @property Fieldtype|null $type Fieldtype module that represents the type of this field #pw-group-properties
  * @property Fieldtype $prevFieldtype Previous Fieldtype, of type was changed #pw-group-properties
  * @property int $flags Bitmask of flags used by this field #pw-group-properties
+ * @property-read string $flagsStr Names of flags used by this field (readonly) #pw-group-properties
  * @property string $label Text string representing the label of the field #pw-group-properties
  * @property string $description Longer description text for the field #pw-group-properties
  * @property string $notes Additional notes text about the field #pw-group-properties
@@ -140,10 +141,10 @@ class Field extends WireData implements Saveable, Exportable {
 	 */
 	protected $settings = array(
 		'id'    => 0,
-		'type'  => null,
-		'flags' => 0,
 		'name'  => '',
 		'label' => '',
+		'flags' => 0,
+		'type'  => null,
 	);
 
 	/**
@@ -368,6 +369,7 @@ class Field extends WireData implements Saveable, Exportable {
 			else if($key == 'icon') return $this->getIcon(true);
 			else if($key == 'useRoles') return ($this->settings['flags'] & self::flagAccess) ? true : false;
 			else if($key == 'flags') return $this->settings['flags'];
+			else if($key == 'flagsStr') return $this->wire('fields')->getFlagNames($this->settings['flags'], true);
 			else if($key == 'tagList') return $this->getTags();
 			else if($key == 'tags') return $this->getTags(true);
 
@@ -1296,7 +1298,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param array $tagList Array of tags to add
+	 * @param array|string $tagList Array of tags to add (or space-separated string)
 	 * @param bool $reindex Set to false to set given $tagsList exactly as-is (assumes it's already in correct format)
 	 * @return array Array of tags that were set
 	 * @since 3.0.106
@@ -1377,8 +1379,9 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function __debugInfo() {
-		$info = parent::__debugInfo();
-		$info['settings'] = $this->settings; 
+		$info = $this->settings;
+		$info['flags'] = $info['flags'] ? "$this->flagsStr ($info[flags])" : "";
+		$info = array_merge($info, parent::__debugInfo());
 		if($this->prevTable) $info['prevTable'] = $this->prevTable;
 		if($this->prevFieldtype) $info['prevFieldtype'] = (string) $this->prevFieldtype;
 		if(!empty($this->trackGets)) $info['trackGets'] = $this->trackGets;
@@ -1387,6 +1390,15 @@ class Field extends WireData implements Saveable, Exportable {
 			$info['editRoles'] = $this->editRoles; 
 		}
 		return $info; 
+	}
+	
+	public function debugInfoSmall() {
+		return array(
+			'id' => $this->id, 
+			'name' => $this->name,
+			'label' => $this->getLabel(), 
+			'type' => $this->type ? wireClassName($this->type) : '',
+		);
 	}
 	
 }

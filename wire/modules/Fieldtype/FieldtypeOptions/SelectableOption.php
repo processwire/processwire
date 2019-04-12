@@ -143,6 +143,14 @@ class SelectableOption extends WireData { // implements LanguagesValueInterface 
 	public function __toString() {
 		return (string) $this->id;
 	}
+	
+	public function debugInfoSmall() {
+		return array(
+			'id' => $this->id,
+			'title' => $this->getTitle(),
+			'value' => $this->getValue(),
+		);
+	}
 
 	/**
 	 * Sets the value for a given language

@@ -95,6 +95,8 @@ class Fields extends WireSaveableItems {
 		'_custom',
 	);
 
+	protected $flagNames = array();
+
 	/**
 	 * Field names that are native/permanent to this instance of ProcessWire (configurable at runtime)
 	 * 
@@ -117,6 +119,17 @@ class Fields extends WireSaveableItems {
 	 */
 	public function __construct() {
 		$this->fieldsArray = new FieldsArray();
+		$this->flagNames = array(
+			Field::flagAutojoin => 'autojoin',
+			Field::flagGlobal => 'global',
+			Field::flagSystem => 'system',
+			Field::flagPermanent => 'permanent',
+			Field::flagAccess => 'access',
+			Field::flagAccessAPI => 'access-api',
+			Field::flagAccessEditor => 'access-editor',
+			Field::flagFieldgroupContext => 'fieldgroup-context',
+			Field::flagSystemOverride => 'system-override',
+		);
 		// convert so that keys are names so that isset() can be used rather than in_array()
 		if(isset(self::$nativeNamesSystem[0])) self::$nativeNamesSystem = array_flip(self::$nativeNamesSystem);
 	}
@@ -923,7 +936,32 @@ class Fields extends WireSaveableItems {
 	}
 
 	/**
+	 * Get all flag names or get all flag names for given flags or Field
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param int|Field|null $flags Specify flags or Field or omit to get all flag names
+	 * @param bool $getString Get a string of flag names rather than array? (default=false)
+	 * @return array|string When array is returned, array is of strings indexed by flag value (int)
+	 * 
+	 */
+	public function getFlagNames($flags = null, $getString = false) {
+		if($flags === null) {
+			$a = $this->flagNames;
+		} else {
+			$a = array();
+			if($flags instanceof Field) $flags = $flags->flags;
+			foreach($this->flagNames as $flag => $name) {
+				if($flags & $flag) $a[$flag] = $name;
+			}
+		}
+		return $getString ? implode(' ', $a) : $a;	
+	}
+
+	/**
 	 * Overridden from WireSaveableItems to retain keys with 0 values and remove defaults we don't need saved
+	 * 
+	 * #pw-internal
 	 * 
 	 * @param array $value
 	 * @return string of JSON

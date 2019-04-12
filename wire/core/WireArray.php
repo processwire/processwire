@@ -2495,20 +2495,36 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *
 	 */
 	public function __debugInfo() {
+	
+		$info = array(
+			'count' => $this->count(),
+			'items' => array(),
+		);
 		
-		$info = parent::__debugInfo();
-		$info['count'] = $this->count();
+		$info = array_merge($info, parent::__debugInfo());
 		
 		if(count($this->data)) {
 			$info['items'] = array();
 			foreach($this->data as $key => $value) {
+				if(is_object($value) && $value instanceof Wire) $key = $value->className() . ":$key";
 				$info['items'][$key] = $this->debugInfoItem($value);
 			}
 		}
-		
+
 		if(count($this->extraData)) $info['extraData'] = $this->extraData;
-		if(count($this->itemsAdded)) $info['itemsAdded'] = $this->itemsAdded;
-		if(count($this->itemsRemoved)) $info['itemsRemoved'] = $this->itemsRemoved;
+		
+		$trackers = array(
+			'itemsAdded' => $this->itemsAdded, 
+			'itemsRemoved' => $this->itemsRemoved
+		);
+		
+		foreach($trackers as $key => $value) {
+			if(!count($value)) continue;
+			$info[$key] = array();
+			foreach($value as $k => $v) {
+				$info[$key][] = $this->debugInfoItem($v); 
+			}
+		}
 		
 		return $info;
 	}
@@ -2525,7 +2541,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	public function debugInfoItem($item) {
 		if(is_object($item)) {
 			if($item instanceof Page) {
-				$item = '/' . ltrim($item->path(), '/');
+				$item = $item->debugInfoSmall();
 			} else if($item instanceof WireData) {
 				$_item = $item;
 				$item = $item->get('name');

@@ -87,6 +87,7 @@
  * @property int $numLinks Total number of pages manually linking to this page in Textarea/HTML fields. #pw-group-traversal
  * @property int $hasLinks Number of visible pages (to current user) linking to this page in Textarea/HTML fields. #pw-group-traversal
  * @property int $instanceID #pw-internal
+ * @property bool $quietMode #pw-internal
  * 
  * @property Page|null $_cloning Internal runtime use, contains Page being cloned (source), when this Page is the new copy (target). #pw-internal
  * @property bool|null $_hasAutogenName Internal runtime use, set by Pages class when page as auto-generated name. #pw-internal
@@ -673,6 +674,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'publishable' => 'm',
 		'published' => 's',
 		'publishedStr' => '',
+		'quietMode' => 'p',
 		'references' => 'n',
 		'referencing' => 't',
 		'render' => '',
