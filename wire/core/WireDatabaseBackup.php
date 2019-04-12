@@ -166,6 +166,9 @@ class WireDatabaseBackup {
 		
 		// allow DROP TABLE statements?
 		'allowDrop' => true, 
+	
+		// DROP ALL tables before restore? (requires that 'allowDrop' must also be true)
+		'dropAll' => false, 
 		
 		// halt execution when an error occurs?
 		'haltOnError' => false,
@@ -569,7 +572,7 @@ class WireDatabaseBackup {
 	 * 
 	 * #pw-group-reporting
 	 *
-	 * @param bool $count If true, returns array will be indexed by name and include count of records as value
+	 * @param bool $count If true, returns array indexed by name with count of records as value
 	 * @param bool $cache Allow use of cache?
 	 * @return array
 	 *
@@ -668,13 +671,30 @@ class WireDatabaseBackup {
 		$success = false;
 		if($file && file_exists($file)) {
 			if(!filesize($file)) {
-				$this->wire('files')->unlink($file, true);
+				$this->unlink($file);
 			} else {
 				$success = true; 
 			}
 		}
 	
 		return $success ? $file : false;
+	}
+
+	/**
+	 * Unlink file using PW if available or PHP if not
+	 * 
+	 * @param string $file
+	 * @return bool
+	 * @throws WireException
+	 * 
+	 */
+	protected function unlink($file) {
+		if(!is_file($file)) return false;
+		if($this->wire) {
+			return $this->wire->files->unlink($file, true);
+		} else {
+			return unlink($file); 
+		}
 	}
 
 	/**
@@ -737,7 +757,7 @@ class WireDatabaseBackup {
 	 * @return bool
 	 *
 	 */
-	protected function backupEndFile($file, array $summary = array(), array $options) {
+	protected function backupEndFile($file, array $summary = array(), array $options = array()) {
 
 		$fp = is_resource($file) ? $file : fopen($file, 'a+'); 
 		
@@ -904,7 +924,7 @@ class WireDatabaseBackup {
 		
 		if(file_exists($file)) {
 			if(filesize($file) > 0) return $file; 
-			$this->wire('files')->unlink($file); 
+			$this->unlink($file); 
 		}
 		
 		return false;
@@ -926,6 +946,7 @@ class WireDatabaseBackup {
 	 * @param array $options Options to modify default behavior: 
 	 * - `tables` (array): table names to restore (empty=all)
 	 * - `allowDrop` (bool): allow DROP TABLE statements (default=true)
+	 * - `dropAll` (bool): DROP ALL tables before restore? The allowDrop optional must also be true. (default=false)
 	 * - `haltOnError` (bool): halt execution when an error occurs? (default=false)
 	 * - `maxSeconds` (int): max number of seconds allowed for execution (default=1200)
 	 * - `findReplace` (array): find and replace in row data. Example: ['databass' => 'database']
@@ -980,7 +1001,7 @@ class WireDatabaseBackup {
 	 * 
 	 * @param string $filename Filename to restore (must be SQL file exported by this class)
 	 * @param array $options See $restoreOptions
-	 * @return true on success, false on failure. Call the errors() method to retrieve errors.
+	 * @return bool true on success, false on failure. Call the errors() method to retrieve errors.
 	 *
 	 */
 	protected function restorePDO($filename, array $options = array()) {
@@ -989,6 +1010,10 @@ class WireDatabaseBackup {
 		$numInserts = 0;
 		$numTables = 0; 
 		$numQueries = 0;
+		
+		if($options['allowDrop'] === true && $options['dropAll'] === true) {
+			$this->dropAllTables();
+		}
 	
 		$tables = array(); // selective tables to restore, optional
 		foreach($options['tables'] as $table) $tables[$table] = $table; 
@@ -1052,7 +1077,7 @@ class WireDatabaseBackup {
 			$this->error(count($this->errors) . " queries generated errors ($numQueries queries and $numInserts inserts for $numTables were successful)");
 			return false;
 		} else {
-			return $numQueries;
+			return $numQueries > 0;
 		}
 	}
 
@@ -1167,6 +1192,32 @@ class WireDatabaseBackup {
 		
 		return $numErrors === 0;
 	}
+
+	/**
+	 * Drop all tables from database
+	 * 
+	 * @return int Quantity of tables dropped
+	 * @throws \Exception
+	 * @since 3.0.130
+	 * 
+	 */
+	public function dropAllTables() {
+		
+		$database = $this->getDatabase();
+		$tables = $this->getAllTables(false, false);
+		$qty = 0;
+		
+		$database->exec("SET FOREIGN_KEY_CHECKS=0");
+		
+		foreach($tables as $table) {
+			if($database->exec("DROP TABLE IF EXISTS `$table`")) $qty++;
+		}
+		
+		$database->exec("SET FOREIGN_KEY_CHECKS=1");
+		
+		return $qty;
+	}
+		
 
 	////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 	
