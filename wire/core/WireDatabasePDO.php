@@ -216,6 +216,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 				$this->pdoConfig['pass'],
 				$this->pdoConfig['options']
 			);
+			// custom PDO statement for later maybe
+			// $this->pdo->setAttribute(\PDO::ATTR_STATEMENT_CLASS,array(__NAMESPACE__.'\WireDatabasePDOStatement',array($this)));
 		}
 		if(!$this->init) $this->_init();
 		return $this->pdo;
@@ -894,3 +896,15 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		return $result;
 	}
 }
+
+/**
+ * custom PDOStatement for later maybe
+ *
+class WireDatabasePDOStatement extends \PDOStatement {
+	protected $database;
+	protected function __construct(WireDatabasePDO $database) {
+		$this->database = $database;
+		// $database->message($this->queryString);
+	}
+}
+ */
