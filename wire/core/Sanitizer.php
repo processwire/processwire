@@ -271,7 +271,14 @@ class Sanitizer extends Wire {
 		
 		if($needsWork) {
 			$value = str_replace(array("'", '"'), '', $value); // blank out any quotes
-			$value = filter_var($value, FILTER_SANITIZE_STRING, FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_NO_ENCODE_QUOTES);
+			$_value = $value;
+			$filters = FILTER_FLAG_STRIP_LOW | FILTER_FLAG_STRIP_HIGH | FILTER_FLAG_NO_ENCODE_QUOTES;
+			$value = filter_var($value, FILTER_SANITIZE_STRING, $filters);
+			if(!strlen($value)) {
+				// if above filter blanked out the string, try with brackets already replaced
+				$value = str_replace(array('<', '>', '«', '»', '‹', '›'), $replacementChar, $_value);
+				$value = filter_var($value, FILTER_SANITIZE_STRING, $filters);
+			}
 			$hyphenPos = strpos($extras, '-');
 			if($hyphenPos !== false && $hyphenPos !== 0) {
 				// if hyphen present, ensure it's first (per PCRE requirements)
