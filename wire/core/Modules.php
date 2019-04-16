@@ -3271,7 +3271,9 @@ class Modules extends WireArray {
 		$emptyReturn = $property ? null : array();
 		$className = $class;
 		if(is_object($className)) $className = wireClassName($className->className(), false);
-		if(!$id = $this->moduleIDs[$className]) return $emptyReturn;
+		if(!isset($this->moduleIDs[$className])) return $emptyReturn;
+		$id = $this->moduleIDs[$className];
+		if(!$id) return $emptyReturn;
 		if(!isset($this->configData[$id])) return $emptyReturn; // module has no config data
 		
 		if(is_array($this->configData[$id])) {
