@@ -516,10 +516,11 @@ class WireHttp extends Wire {
 				$this->error[] = 'CURL is not available';
 				return false;
 			} else if(!$allowCURL) {
-				$this->error[] = 'Using CURL requires PHP 5.6+'; 
+				$this->error[] = 'Using CURL requires PHP 5.5+'; 
 				return false;
+			} else {
+				return $this->sendCURL($url, $method, $options);
 			}
-			return $this->sendCURL($url, $method, $options);
 			
 		} else if($options['use'] === 'fopen' && !$allowFopen) {
 			$this->error[] = 'fopen is not available';
@@ -638,8 +639,16 @@ class WireHttp extends Wire {
 		curl_setopt($curl, CURLOPT_TIMEOUT, $timeout);
 		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
-		curl_setopt($curl, CURLOPT_SAFE_UPLOAD, true);
 		curl_setopt($curl, CURLOPT_USERAGENT, $this->getUserAgent());
+
+		if(version_compare(PHP_VERSION, '5.6') >= 0) {
+			// CURLOPT_SAFE_UPLOAD value is default true (setopt not necessary)
+			// and PHP 7+ removes this option
+		} else if(version_compare(PHP_VERSION, '5.5') >= 0) {
+			curl_setopt($curl, CURLOPT_SAFE_UPLOAD, true);
+		} else {
+			// not reachable: version blocked before sendCURL call
+		}
 		
 		if(count($this->headers)) {
 			curl_setopt($curl, CURLOPT_HTTPHEADER, $this->headers);
