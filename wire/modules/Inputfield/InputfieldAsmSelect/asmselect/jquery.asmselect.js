@@ -260,7 +260,9 @@
 
 					if($t.is(":selected")) {
 						addListItem(id); 
-						addSelectOption(id, true); 						
+						addSelectOption(id, true);
+					} else if($t.is(":disabled")) {
+						addSelectOption(id, true);
 					} else {
 						numActive++;
 						addSelectOption(id); 
