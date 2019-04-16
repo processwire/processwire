@@ -495,6 +495,7 @@ class WireHttp extends Wire {
 		$options = array_merge($defaults, $options);
 		$url = $this->validateURL($url, false);
 		$allowFopen = $this->hasFopen;
+		$allowCURL = $this->hasCURL && version_compare(PHP_VERSION, '5.5') >= 0; // #849
 		$result = false;
 		
 		if(empty($url)) return false;
@@ -514,6 +515,9 @@ class WireHttp extends Wire {
 			if(!$this->hasCURL) {
 				$this->error[] = 'CURL is not available';
 				return false;
+			} else if(!$allowCURL) {
+				$this->error[] = 'Using CURL requires PHP 5.6+'; 
+				return false;
 			}
 			return $this->sendCURL($url, $method, $options);
 			
@@ -530,7 +534,7 @@ class WireHttp extends Wire {
 		
 		if($result === false && $options['fallback'] !== false) {
 			// on fopen fail fallback to CURL then sockets
-			if($this->hasCURL && $options['fallback'] !== 'socket') {
+			if($allowCURL && $options['fallback'] !== 'socket') {
 				$result = $this->sendCURL($url, $method, $options);
 			}
 			if($result === false && $options['fallback'] !== 'curl') {
