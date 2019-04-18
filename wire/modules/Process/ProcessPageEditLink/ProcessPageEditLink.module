@@ -31,7 +31,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			);
 	}
 	
-	const urlTypeAbsolute = 0;
+	const urlTypeRelativeToRoot = 0;
 	const urlTypeRelativeBranch = 1; 
 	const urlTypeRelativeAll = 2;
 	
@@ -68,7 +68,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			'classOptions' => "",
 			'relOptions' => "nofollow",
 			'targetOptions' => "_blank",
-			'urlType' => self::urlTypeAbsolute,
+			'urlType' => self::urlTypeRelativeToRoot,
 			'extLinkRel' => '',
 			'extLinkTarget' => '',
 			'extLinkClass' => '', 
@@ -476,11 +476,11 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		
 		$f = $this->wire('modules')->get('InputfieldRadios'); 
 		$f->attr('name', 'urlType'); 
-		$f->label = $this->_('URL type for page links'); 
-		$f->addOption(self::urlTypeAbsolute, $this->_('Absolute (default)')); 
-		$f->addOption(self::urlTypeRelativeBranch, $this->_('Relative URLs in the same branches only') . '*'); 
+		$f->label = $this->_('URL type for page links');
+        $f->addOption(self::urlTypeRelativeToRoot, $this->_('Relative to site root, starting with a slash (e.g. /blog/mypage/) without protocol and host (http://www.mysite.com) (default setting)'));
+        $f->addOption(self::urlTypeRelativeBranch, $this->_('Relative URLs in the same branches only') . '*');
 		$f->addOption(self::urlTypeRelativeAll, $this->_('Relative URLs always') . '*'); 
-		$f->attr('value', isset($data['urlType']) ? $data['urlType'] : self::urlTypeAbsolute); 
+		$f->attr('value', isset($data['urlType']) ? $data['urlType'] : self::urlTypeRelativeToRoot);
 		$f->notes = $this->_('*Currently experimental'); 
 		$f->collapsed = Inputfield::collapsedYes;
 		$inputfields->add($f); 
