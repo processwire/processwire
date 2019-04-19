@@ -5,8 +5,10 @@
  *
  * An Inputfield for handling administration of Comments.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @method InputfieldMarkup renderItem(Comment $comment, $n)
  *
  */
 
@@ -28,13 +30,20 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 		parent::init();
 	}
 
+	/**
+	 * @param Comment $comment
+	 * @param int $n
+	 * @return array|mixed|null|_Module|Field|Fieldtype|Module|NullPage|Page|Permission|Role|Template|WireData|WireInputData|string
+	 * 
+	 */
 	protected function ___renderItem(Comment $comment, $n) {
 
 		$statuses = array(
+			Comment::statusFeatured => array($this->_x('Featured', 'comment-status'), 'trophy'),
 			Comment::statusApproved => array($this->_x('Approved', 'comment-status'), 'check-circle'),
 			Comment::statusPending => array($this->_x('Pending', 'comment-status'), 'question-circle'), 
 			Comment::statusSpam => array($this->_x('Spam', 'comment-status'), 'warning'), 
-			);
+		);
 
 		$name = $this->name;
 		$names = array(
@@ -78,7 +87,7 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 			$selected = $parentID == $_comment->id ? " selected='selected'" : "";
 			$parentOut .= 
 				"<option$selected value='$_comment->id'>" . 
-				sprintf($this->_('Comment #%d (%s)'), $_n, $this->wire('sanitizer')->entities($_comment->cite)); 
+				sprintf($this->_('Comment #%d (%s)'), $_n, $this->wire('sanitizer')->entities($_comment->cite)) . 
 				"</option>";
 		}
 		$parentOut .= "</select>";
@@ -94,6 +103,7 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 		$num = $n+1; 
 
 		$liID = "CommentsAdminItem{$comment->id}";
+		/** @var InputfieldMarkup $f */
 		$f = $this->wire('modules')->get('InputfieldMarkup');
 		$f->attr('id', $liID);
 		$f->addClass("CommentsAdminItem$statusName"); 
@@ -124,10 +134,12 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 			$cite	
 		);
 		
-		if($this->hasField && $this->hasField->useStars) {
+		if($this->hasField && $this->hasField->get('useStars')) {
 			$starsInput = 
 				"<p class='CommentsAdminItemStars'>" .
-					"<label for='$names[stars]'><span class='detail'>" . $this->_('Stars') . "</span></label>" .
+					"<label for='$names[stars]'>" . 
+						"<span class='detail'>" . $this->_('Stars') . "</span>" . 
+					"</label>" .
 					"<input type='number' min='0' max='5' id='$names[stars]' name='$names[stars]' value='$stars' />" .
 				"</p>";
 		} else {
@@ -207,11 +219,12 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 			'parent_id', 
 			'text',
 			'sort',
-			);
+		);
 		
-		if($this->hasField && $this->hasField->useStars) $names[] = 'stars';
+		if($this->hasField && $this->hasField->get('useStars')) $names[] = 'stars';
 
 		foreach($this->value as $comment) {
+			/** @var Comment $comment */
 
 			$data = array();
 			foreach($names as $name) {
