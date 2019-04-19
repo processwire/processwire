@@ -15,6 +15,7 @@ $(document).ready(function() {
 		var $parent = $(this).closest('.CommentTextEditable');
 		$parent.parent('.CommentText').removeClass('CommentTextOverflow');
 		$textarea.attr('name', $parent.attr('id')); 
+		$textarea.addClass($parent.attr('data-textarea-class'));
 		//$textarea.height($parent.height()); 
 		$(this).remove(); // remove edit link
 		$textarea.val($parent.text()); 

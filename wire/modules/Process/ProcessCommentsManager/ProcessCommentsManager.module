@@ -99,12 +99,14 @@ class ProcessCommentsManager extends Process {
 		$this->wire('modules')->get('FieldtypeComments');
 		parent::init();
 		$this->statuses = array(
+			Comment::statusFeatured => 'featured',
 			Comment::statusApproved => 'approved',
 			Comment::statusPending => 'pending',
 			Comment::statusSpam => 'spam',
 			Comment::statusDelete => 'delete'
 		);
 		$this->statusTranslations = array(
+			Comment::statusFeatured => $this->_('Featured'),
 			Comment::statusApproved => $this->_('Approved'),
 			Comment::statusPending => $this->_('Pending'),
 			Comment::statusSpam => $this->_('Spam'),
@@ -359,13 +361,28 @@ class ProcessCommentsManager extends Process {
 			$children = $comment->children();
 			$numChildren = count($children);
 		}
+		
+		$adminTheme = $this->wire('adminTheme');
+		if($adminTheme && $adminTheme instanceof AdminThemeFramework) {
+			$inputClass = $adminTheme->getClass('input-small');
+			$textareaClass = $adminTheme->getClass('textarea');
+			$radioClass = $adminTheme->getClass('input-radio');
+			$checkboxClass = $adminTheme->getClass('input-checkbox');
+			$tableClass = $adminTheme->getClass('table');
+		} else {
+			$inputClass = '';
+			$textareaClass = '';
+			$radioClass = '';
+			$checkboxClass = '';
+			$tableClass = '';
+		}
 
 		foreach($this->statusTranslations as $status => $label) {
 			$checked = $comment->status == $status ? " checked='checked'" : '';
 			if($status == Comment::statusDelete && $numChildren) continue; 
 			$type .= 
 				"<label class='CommentStatus'>" . 
-				"<input type='radio' name='CommentStatus{$comment->id}' value='$status'$checked />&nbsp;" . 
+				"<input clas='$radioClass' type='radio' name='CommentStatus{$comment->id}' value='$status'$checked />&nbsp;" . 
 				"<small>$label</small>" . 
 				"</label> &nbsp; ";
 		}
@@ -382,23 +399,23 @@ class ProcessCommentsManager extends Process {
 		$text = preg_replace('/\r?(\n)/', '\r', $text); 
 		$text = str_replace('\r\r', "<br />\n<br />\n", $text);
 		$text = str_replace('\r', "<br />\n", $text);
-
+		
 		$page = $comment->getPage();
 
 		if($page->editable()) {
 			$text = 
-				"<div class='CommentTextEditable' id='CommentText$comment->id'>" . 
+				"<div class='CommentTextEditable' id='CommentText$comment->id' data-textarea-class='$textareaClass'>" . 
 				"<p>$text <a class='CommentTextEdit' href='#'><i class='fa fa-edit'></i>&nbsp;" . $this->_('edit') . "</a></p>" . 
 				"</div>";
 		}
 
 			
 		$out = 	
-			"<table class='CommentItemInfo' cellspacing='0'>" .
+			"<table class='CommentItemInfo $tableClass' cellspacing='0'>" .
 				"<tr class='CommentTitle'>" . 
 					"<th>" .
 						"<label>" . 
-							"<input class='CommentCheckbox' type='checkbox' name='comment[]' value='$comment->id' /> " . 
+							"<input class='CommentCheckbox $checkboxClass' type='checkbox' name='comment[]' value='$comment->id' /> " . 
 							"<span class='detail pw-no-select'>#$comment->id</span>" . 
 						"</label>" . 
 					"</th>" . 
@@ -452,11 +469,11 @@ class ProcessCommentsManager extends Process {
 				"<th>" . $this->_('Votes') . "</th>" . 
 				"<td class='CommentVotes'>" . 
 					"<label class='CommentUpvotes'>" . 
-						"<input title='upvotes' type='number' min='0' name='CommentUpvotes$comment->id' value='$comment->upvotes' />&nbsp;" . 
+						"<input class='$inputClass' title='upvotes' type='number' min='0' name='CommentUpvotes$comment->id' value='$comment->upvotes' />&nbsp;" . 
 						"<span><i class='fa fa-arrow-up'></i></span>" . 
 					"</label> " . 
 					"<label class='CommentDownvotes'>" . 
-						"<input title='downvotes' type='number' min='0' name='CommentDownvotes$comment->id' value='$comment->downvotes' />&nbsp;" . 
+						"<input class='$inputClass' title='downvotes' type='number' min='0' name='CommentDownvotes$comment->id' value='$comment->downvotes' />&nbsp;" . 
 						"<span><i class='fa fa-arrow-down'></i></span>" . 
 					"</label> " . 
 				"</td>" . 
@@ -510,9 +527,12 @@ class ProcessCommentsManager extends Process {
 		
 		$setStatusLabel = $this->_('Set status:');
 		$perPageLabel = $this->_('per page');
+		$adminTheme = $this->wire('adminTheme');
+		$selectClass = $adminTheme && $adminTheme instanceof AdminThemeFramework ? $adminTheme->getClass('select') : '';
+		$checkboxClass = $adminTheme && $adminTheme instanceof AdminThemeFramework ? $adminTheme->getClass('input-checkbox') : '';
 		
 		$pagerLimitOut = "
-			<select id='CommentLimitSelect'>
+			<select class='$selectClass' id='CommentLimitSelect'>
 				<option>10 $perPageLabel</option>
 				<option>25 $perPageLabel</option>
 				<option>50 $perPageLabel</option>
@@ -523,12 +543,12 @@ class ProcessCommentsManager extends Process {
 
 		$checkAllLabel = $this->_('Check/uncheck all');
 		$checkAll =
-			"<label title='$checkAllLabel'><input type='checkbox' id='CommentCheckAll' /> " .
+			"<label title='$checkAllLabel'><input class='$checkboxClass' type='checkbox' id='CommentCheckAll' /> " .
 			"<span class='detail'>#</span></label>";
 
 		$noCheckedLabel = $this->_('There are no checked items');
 		$actionsOut =
-			"<select id='CommentActions' data-nochecked='$noCheckedLabel'>" .
+			"<select class='$selectClass' id='CommentActions' data-nochecked='$noCheckedLabel'>" .
 			"<option value=''>" . $this->_('Actions (checked items)') . "</option>";
 
 		foreach($this->statusTranslations as $status => $label) {
@@ -554,7 +574,7 @@ class ProcessCommentsManager extends Process {
 			$sorts['downvotes'] = $this->_('Downvotes');
 		}
 
-		$sortByOut = "<select id='CommentListSort'>";
+		$sortByOut = "<select class='$selectClass' id='CommentListSort'>";
 		$sortLabelPrefix = $this->_('Sort:');
 		foreach($sorts as $sortKey => $sortLabel) {
 			$sortByOut .= "<option value='$sortKey'>$sortLabelPrefix $sortLabel</option>";
