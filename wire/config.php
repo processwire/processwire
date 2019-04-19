@@ -302,6 +302,30 @@ $config->sessionChallenge = true;
 $config->sessionFingerprint = 1;
 
 /**
+ * Force current session IP address (overriding auto-detect)
+ * 
+ * This overrides the return value of `$session->getIP()` method.
+ * Use this property only for setting the IP address. To get the IP address
+ * always use the `$session->getIP()` method instead. 
+ * 
+ * This is useful if you are in an environment where the remote IP address 
+ * comes from some property other than the REMOTE_ADDR in $_SERVER. For instance,
+ * if you are using a load balancer, what’s usually detected as the IP address is
+ * actually the IP address between the load balancer and the server, rather than
+ * the client IP address. So in that case, you’d want to set this property as
+ * follows:
+ * ~~~~~
+ * $config->sessionForceIP = $_SERVER['HTTP_X_FORWARDED_FOR'];
+ * ~~~~~
+ * If you don’t have a specific need to override the IP address of the user
+ * then you should leave this blank.
+ * 
+ * @var string
+ * 
+ */
+$config->sessionForceIP = '';
+
+/**
  * Use secure cookies when on HTTPS?
  * 
  * When enabled, separate sessions will be maintained for

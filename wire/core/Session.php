@@ -139,7 +139,7 @@ class Session extends Wire implements \IteratorAggregate {
 	public function __construct(ProcessWire $wire) {
 
 		$wire->wire($this);
-		$this->config = $this->wire('config'); 
+		$this->config = $wire->wire('config'); 
 		$this->sessionKey = $this->className();
 		
 		$instanceID = $wire->getProcessWireInstanceID();
@@ -691,7 +691,7 @@ class Session extends Wire implements \IteratorAggregate {
 	}
 
 	/**
-	 * Get the IP address of the current user
+	 * Get the IP address of the current user (IPv4)
 	 * 
 	 * ~~~~~
 	 * $ip = $session->getIP();
@@ -705,8 +705,14 @@ class Session extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	public function getIP($int = false, $useClient = false) {
+		
+		$ip = $this->config->sessionForceIP;
+		
+		if(!empty($ip)) {
+			// use IP address specified in $config->sessionForceIP and disregard other options
+			$useClient = false;
 
-		if(empty($_SERVER['REMOTE_ADDR'])) {
+		} else if(empty($_SERVER['REMOTE_ADDR'])) {
 			// when accessing via CLI Interface, $_SERVER['REMOTE_ADDR'] isn't set and trying to get it, throws a php-notice
 			$ip = '127.0.0.1';
 			

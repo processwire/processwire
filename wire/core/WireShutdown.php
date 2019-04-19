@@ -341,9 +341,9 @@ class WireShutdown extends Wire {
 		if($useHTML && $config->ajax) $useHTML = false;
 
 		// include IP address is user name if configured to do so
-		if($config->logIP && isset($_SERVER['REMOTE_ADDR'])) {
-			$ip = $this->wire('session') ? $this->wire('session')->getIP() : $_SERVER['REMOTE_ADDR'];
-			$name = "$name ($ip)";
+		if($config->logIP && $this->wire('session')) {
+			$ip = $this->wire('session')->getIP();
+			if(strlen($ip)) $name = "$name ($ip)";
 		}
 
 		// send error email if applicable

@@ -92,7 +92,7 @@ class SessionLoginThrottle extends WireData implements Module, ConfigurableModul
 			$allowed = false; 
 
 		} else if($this->checkIP) {
-			$ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';			
+			$ip = $this->wire('session')->getIP(); 
 			if(strlen($ip) && !$this->allowLogin($ip)) $allowed = false;
 		}
 

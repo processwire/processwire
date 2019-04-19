@@ -268,9 +268,18 @@ class ProcessWire extends Wire {
 		// $config->debugIf: optional setting to determine if debug mode should be on or off
 		if($config->debugIf && is_string($config->debugIf)) {
 			$debugIf = trim($config->debugIf);
-			if(strpos($debugIf, '/') === 0) $debugIf = (bool) @preg_match($debugIf, $_SERVER['REMOTE_ADDR']); // regex IPs
-				else if(is_callable($debugIf)) $debugIf = $debugIf(); // callable function to determine debug mode for us 
-				else $debugIf = $debugIf === $_SERVER['REMOTE_ADDR']; // exact IP match
+			$ip = $config->sessionForceIP;
+			if(empty($ip)) $ip = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : null;
+			if(strpos($debugIf, '/') === 0 && !empty($ip)) {
+				$debugIf = (bool) @preg_match($debugIf, $ip); // regex IPs
+			} else if(is_callable($debugIf)) {
+				$debugIf = $debugIf(); // callable function to determine debug mode for us 
+			} else if(!empty($ip)) {
+				$debugIf = $debugIf === $ip; // exact IP match
+			} else {
+				$debugIf = false;
+			}
+			unset($ip);
 			$config->debug = $debugIf;
 		}
 
