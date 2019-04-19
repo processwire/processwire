@@ -85,6 +85,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		
 		$this->setClasses(array(
 			'input' => 'uk-input',
+			'input-small' => 'uk-input uk-form-small',
 			'input-checkbox' => 'uk-checkbox',
 			'input-radio' => 'uk-radio',
 			'input-password' => 'uk-input uk-form-width-medium',

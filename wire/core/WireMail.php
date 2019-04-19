@@ -145,6 +145,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * 
 	 */
 	protected function sanitizeEmail($email) {
+		if(!strlen($email)) return '';
 		$email = strtolower(trim($email)); 
 		$clean = $this->wire('sanitizer')->email($email); 
 		if($email !== $clean) {

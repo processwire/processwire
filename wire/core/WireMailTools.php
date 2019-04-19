@@ -446,6 +446,10 @@ class WireMailTools extends Wire {
 		$inBlacklist = false;
 		$tt = $this->wire('sanitizer')->getTextTools();
 		$email = trim($tt->strtolower($email));
+		
+		if(strpos($email, '@') === false) {
+			return $options['why'] ? "Invalid email address" : true;
+		}
 
 		foreach($blacklist as $line) {
 			$line = $tt->strtolower(trim($line));
