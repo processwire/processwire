@@ -12,7 +12,8 @@
  * @property int $parent_id 
  * @property string $text 
  * @property int $sort 
- * @property int $status 
+ * @property int $status
+ * @property int|null $prevStatus
  * @property int $flags 
  * @property int $created 
  * @property string $email 
@@ -48,6 +49,12 @@ class Comment extends WireData {
 	 *	
 	 */
 	const statusApproved = 1;
+
+	/**
+	 * Status for comment that's been approved and featured
+	 * 
+	 */
+	const statusFeatured = 2;
 
 	/**
 	 * Status for Comment to indicate pending deletion
@@ -150,7 +157,7 @@ class Comment extends WireData {
 		$this->set('website', ''); 
 		$this->set('ip', ''); 
 		$this->set('user_agent', ''); 
-		$this->set('created_users_id', $this->config->guestUserID); 
+		$this->set('created_users_id', $this->config->guestUserPageID); 
 		$this->set('code', ''); // approval code
 		$this->set('subcode', ''); // subscriber code (for later user modifications to comment)
 		$this->set('upvotes', 0); 
@@ -161,8 +168,8 @@ class Comment extends WireData {
 	public function get($key) {
 		
 		if($key == 'user' || $key == 'createdUser') {
-			if(!$this->settings['created_users_id']) return $this->users->get($this->config->guestUserID); 
-			return $this->users->get($this->settings['created_users_id']); 
+			if(!$this->created_users_id) return $this->users->get($this->config->guestUserPageID); 
+			return $this->users->get($this->created_users_id); 
 
 		} else if($key == 'gravatar') {
 			return $this->gravatar();
@@ -187,7 +194,10 @@ class Comment extends WireData {
 			
 		} else if($key == 'editUrl' || $key == 'editURL') {
 			return $this->editUrl();
-		}	
+			
+		} else if($key == 'prevStatus') {
+			return $this->prevStatus;
+		}
 
 		return parent::get($key); 
 	}
@@ -454,9 +464,12 @@ class Comment extends WireData {
 	 * 
 	 */
 	public function url($http = false) {
-		$fragment = "#Comment$this->id";
-		if(!$this->page || !$this->page->id) return $fragment; 
-		return ($http ? $this->page->httpUrl() : $this->page->url) . $fragment;
+		if($this->page && $this->page->id) {
+			$url = $http ? $this->page->httpUrl() : $this->page->url;
+		} else {
+			$url = $http ? $this->wire('config')->urls->httpRoot : $this->wire('config')->urls->root;
+		}
+		return $url . "#Comment$this->id";
 	}
 
 	/**

@@ -12,31 +12,55 @@
  * 
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
+ * 
+ * @property string $appUserAgent
+ * @property string $charset
+ * @property string $homeURL @deprecated
+ * @property string $apiKey
  *
  *
  */
 
 abstract class CommentFilter extends WireData {
 
+	/**
+	 * @var Comment
+	 * 
+	 */
 	protected $comment; 
 
 	public function __construct() {
 		$this->set('appUserAgent', 'ProcessWire'); 
 		$this->set('charset', 'utf-8'); 
-		$this->set('homeURL', 'http://' . $this->config->httpHost); 
 		$this->set('apiKey', ''); 
 	}
 
 	public function init() {
+		/** @var Paths $urls */
+		$urls = $this->wire('config')->urls;
+		$this->set('homeURL', $urls->httpRoot);
 	}
 
 	public function setComment(Comment $comment) {
 		$this->comment = $comment; 
-		$this->set('pageUrl', $this->homeURL . $this->wire('page')->url); 
-		if(!$comment->ip) $comment->ip = $_SERVER['REMOTE_ADDR']; 
+		$page = $comment->getPage();
+		if(!$page || !$page->id) $page = $this->wire('page');
+		$this->set('pageUrl', $page->httpUrl); 
+		if(!$comment->ip) $comment->ip = $this->wire('session')->getIP();
 		if(!$comment->user_agent) $comment->user_agent = $_SERVER['HTTP_USER_AGENT']; 
 	}
 
+	/**
+	 * Send an HTTP POST request
+	 * 
+	 * @param $request
+	 * @param $host
+	 * @param $path
+	 * @param int $port
+	 * @return array|string
+	 * @deprecated no longer in use (replaced with WireHttp)
+	 * 
+	 */
 	protected function httpPost($request, $host, $path, $port = 80) {
 		// from ksd_http_post() - http://akismet.com/development/api/
 
