@@ -30,9 +30,23 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			'icon' => 'link', 
 			);
 	}
-	
+
+	/**
+	 * URL type: Absolute path from root (no relative paths)
+	 * 
+	 */
 	const urlTypeAbsolute = 0;
-	const urlTypeRelativeBranch = 1; 
+
+	/**
+	 * URL type: Relative path in same branch only
+	 * 
+	 */
+	const urlTypeRelativeBranch = 1;
+
+	/**
+	 * URL type: Relative path always
+	 * 
+	 */
 	const urlTypeRelativeAll = 2;
 	
 	/**
@@ -477,7 +491,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$f = $this->wire('modules')->get('InputfieldRadios'); 
 		$f->attr('name', 'urlType'); 
 		$f->label = $this->_('URL type for page links'); 
-		$f->addOption(self::urlTypeAbsolute, $this->_('Absolute (default)')); 
+		$f->addOption(self::urlTypeAbsolute, $this->_('Full/absolute path from root (default)')); 
 		$f->addOption(self::urlTypeRelativeBranch, $this->_('Relative URLs in the same branches only') . '*'); 
 		$f->addOption(self::urlTypeRelativeAll, $this->_('Relative URLs always') . '*'); 
 		$f->attr('value', isset($data['urlType']) ? $data['urlType'] : self::urlTypeAbsolute); 
