@@ -1562,7 +1562,7 @@ select.uk-form-width-xsmall {
   display: none;
 }
 /* 4 */
-.uk-select:not([multiple]):not([size]) option {
+.uk-select:not([multiple]):not([size]) option:not([disabled]) {
   color: #444;
 }
 /*
