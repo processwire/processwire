@@ -635,6 +635,8 @@ class Pageimage extends Pagefile {
 			'sharpening' => 'soft',
 			'quality' => 90,
 			'hidpiQuality' => 40, 
+			'webpQuality' => 90,
+			'webpAdd' => false,
 			'suffix' => array(), // can be array of suffixes or string of 1 suffix
 			'forceNew' => false,  // force it to create new image even if already exists
 			'hidpi' => false, 
@@ -733,9 +735,18 @@ class Pageimage extends Pagefile {
 		// i.e. myfile.100x100.jpg or myfile.100x100nw-suffix1-suffix2.jpg
 		$basename .= '.' . $nameWidth . 'x' . $nameHeight . $crop . $suffixStr . "." . $this->ext();	
 		$filenameFinal = $this->pagefiles->path() . $basename;
+		$filenameFinalWebp = $this->pagefiles->path() . str_replace(array('.jpg', '.jpeg', '.png', '.gif'), '.webp', $basename);
 		$filenameUnvalidated = '';
 		$exists = file_exists($filenameFinal);
 
+
+//my_var_dump([
+//	$defaultOptions,
+//	$requestOptions,
+//	$options,
+//]);
+
+		
 		// create a new resize if it doesn't already exist or forceNew option is set
 		if(!$exists && !file_exists($this->filename())) {
 			// no original file exists to create variation from 
@@ -743,9 +754,25 @@ class Pageimage extends Pagefile {
 			
 		} else if(!$exists || $options['forceNew']) {
 			// filenameUnvalidated is temporary filename used for resize
-			$filenameUnvalidated = $this->pagefiles->page->filesManager()->getTempPath() . $basename;
+			$tempDir = $this->pagefiles->page->filesManager()->getTempPath();
+			$filenameUnvalidated = $tempDir . $basename;
+			$filenameUnvalidatedWebp = $tempDir . str_replace(array('.jpg', '.jpeg', '.png', '.gif'), '.webp', $basename);
+			
 			if($exists && $options['forceNew']) $this->wire('files')->unlink($filenameFinal, true);
+			if(file_exists($filenameFinalWebp) && $options['forceNew']) $this->wire('files')->unlink($filenameFinalWebp, true);
+			
 			if(file_exists($filenameUnvalidated)) $this->wire('files')->unlink($filenameUnvalidated, true);
+			if(file_exists($filenameUnvalidatedWebp)) $this->wire('files')->unlink($filenameUnvalidatedWebp, true);
+			
+//my_var_dump([
+//	$options['webpAdd'],
+//	$basename,
+//	$filenameFinal,
+//	$filenameUnvalidated,
+//	$filenameFinalWebp,
+//	$filenameUnvalidatedWebp
+//]);
+
 			if(@copy($this->filename(), $filenameUnvalidated)) {
 				try { 
 					
@@ -773,6 +800,9 @@ class Pageimage extends Pagefile {
 					
 					if($sizer->resize($width, $height) && @rename($filenameUnvalidated, $filenameFinal)) {
 						$this->wire('files')->chmod($filenameFinal);
+						if($options['webpAdd'] && file_exists(($filenameUnvalidatedWebp)) && @rename($filenameUnvalidatedWebp, $filenameFinalWebp)) {
+							$this->wire('files')->chmod($filenameFinalWebp);
+						}
 					} else {
 						$this->error = "ImageSizer::resize($width, $height) failed for $filenameUnvalidated";
 					}
@@ -805,6 +835,8 @@ class Pageimage extends Pagefile {
 			// error condition: unlink copied file 
 			if(is_file($filenameFinal)) $this->wire('files')->unlink($filenameFinal, true);
 			if($filenameUnvalidated && is_file($filenameUnvalidated)) $this->wire('files')->unlink($filenameUnvalidated);
+			if(is_file($filenameFinalWebp)) $this->wire('files')->unlink($filenameFinalWebp, true);
+			if(is_file($filenameUnvalidatedWebp)) $this->wire('files')->unlink($filenameUnvalidatedWebp, true);
 
 			// we also tell PW about it for logging and/or admin purposes
 			$this->error($this->error);
@@ -1582,6 +1614,16 @@ class Pageimage extends Pagefile {
 				$success = $files->unlink($filename, true);
 			}
 			if($success) $deletedFiles[] = $filename;
+			
+			// Also remove WebP variation, if there exist one
+	        $webp = dirname($filename) . '/' . str_replace(array('.jpg', '.jpeg', '.png', '.gif'), '.webp', basename($filename));
+	        if(!is_file($webp)) continue;
+			if($options['dryRun']) {
+				$success = true;
+			} else {
+				$success = $files->unlink($webp, true);
+			}
+			if($success) $deletedFiles[] = $webp;
 		}
 
 		if(!$options['dryRun']) $this->variations = null;
