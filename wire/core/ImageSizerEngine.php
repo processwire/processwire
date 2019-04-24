@@ -11,6 +11,7 @@
  * @property bool $interlace
  * @property array|string|bool $cropping
  * @property int $quality
+ * @property int $webpQuality
  * @property string $sharpening
  * @property float $defaultGamma
  * @property float $scale
@@ -59,6 +60,14 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 *
 	 */
 	protected $quality = 90;
+
+	/**
+	 * WebP Image quality setting, 1..100
+	 *
+	 * @var int
+	 *
+	 */
+	protected $webpQuality = 90;
 
 	/**
 	 * Image interlace setting, false or true
@@ -219,6 +228,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		'cropping',
 		'interlace', 
 		'quality',
+		'webpQuality',
 		'sharpening',
 		'defaultGamma',
 		'scale',
@@ -890,6 +900,22 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	}
 
 	/**
+	 * Set the image quality 1-100 for WebP output, where 100 is highest quality
+	 *
+	 * @param int $n
+	 *
+	 * @return $this
+	 *
+	 */
+	public function setWebpQuality($n) {
+		$n = (int) $n;
+		if($n < 1) $n = 1;
+		if($n > 100) $n = 100;
+		$this->webpQuality = (int) $n;
+		return $this;
+	}
+
+	/**
 	 * Given an unknown sharpening value, return the string representation of it
 	 *
 	 * Okay for use in filenames. Method added by @horst
@@ -1116,6 +1142,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 *
 	 * @param array $options May contain the following (show with default values):
 	 *    'quality' => 90,
+	 *    'webpQuality' => 90,
 	 *    'cropping' => true,
 	 *    'upscaling' => true,
 	 *    'autoRotation' => true,
@@ -1147,6 +1174,9 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 					break;
 				case 'quality':
 					$this->setQuality($value);
+					break;
+				case 'webpQuality':
+					$this->setWebpQuality($value);
 					break;
 				case 'cropping':
 					$this->setCropping($value);
@@ -1207,6 +1237,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 
 		$options = array(
 			'quality' => $this->quality,
+			'webpQuality' => $this->webpQuality,
 			'cropping' => $this->cropping,
 			'upscaling' => $this->upscaling,
 			'interlace' => $this->interlace, 
