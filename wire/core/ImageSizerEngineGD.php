@@ -412,8 +412,9 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 	 */
 	protected function imSaveWebP($im, $filename, $quality = 90) {
 		if(!function_exists('imagewebp')) return false;
-		$newBasename = str_replace(array('.jpg', '.jpeg', '.png', '.gif'), '.webp', basename($filename));
-		return imagewebp($im, dirname($filename) . '/' . $newBasename, $quality);
+	    $path_parts = pathinfo($filename);
+	    $webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+		return imagewebp($im, $webpFilename, $quality);
 	}
 	
 	/**
