@@ -176,6 +176,33 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
+	 * Return the web accessible URL to this image files webP dependency
+	 * 
+	 * @return string
+	 *
+	 */
+	public function urlWebp() {
+	    if(!$this->hasWebp()) {
+	        return '#';  	    // @Ryan:  what should be returned for none existing webp variations here?
+	    }
+	    $path_parts = pathinfo($this->url);
+	    $webpUrl = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+	    return $webpUrl;
+	}
+
+	/**
+	 * Return if this image file has a webP dependency file
+	 * 
+	 * @return boolean
+	 *
+	 */
+	public function hasWebp() {
+	    $path_parts = pathinfo($this->filename());
+	    $webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+	    return is_readable($webpFilename);
+	}
+
+	/**
 	 * Returns the full disk path to the image file
 	 * 
 	 * #pw-hooks
@@ -390,6 +417,13 @@ class Pageimage extends Pagefile {
 			case 'src':
 				$value = parent::get('src');
 				if($value === null) $value = $this->url();
+				break;
+			case 'hasWebp': 
+				$value = $this->hasWebp();
+				break;
+			case 'urlWebp': 
+			case 'srcWebp': 
+				$value = $this->urlWebp();
 				break;
 			default: 
 				$value = parent::get($key); 
