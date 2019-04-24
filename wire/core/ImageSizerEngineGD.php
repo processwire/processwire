@@ -322,32 +322,73 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 			}
 		}
 
-		// optionally apply interlace bit to the final image.
-		// this will result in progressive JPEGs
-		if($this->interlace && \IMAGETYPE_JPEG == $this->imageType) {
-			if(0 == imageinterlace($thumb, 1)) {
-				// log that setting the interlace bit has failed ?
-				// ...
-			}
-		}
-
-		// write to file
+		// write to file(s)
 		$result = false;
 		switch($this->imageType) {
+			
 			case \IMAGETYPE_GIF:
 				// correct gamma from linearized 1.0 back to 2.0
 				$this->gammaCorrection($thumb, false);
-				$result = imagegif($thumb, $dstFilename);
+
+				// If only a WebP file is required
+				if($this->webpOnly) {
+					$result = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
+					
+				} else {
+					// optionally save an additional WebP file
+					if($this->webpAdd) {
+						$resultWebp = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
+					}
+					
+					// save the final GIF image file
+					$result = imagegif($thumb, $dstFilename);
+				}
 				break;
+				
 			case \IMAGETYPE_PNG:
+				// optionally correct gamma from linearized 1.0 back to 2.0
 				if(!$this->hasAlphaChannel()) $this->gammaCorrection($thumb, false);
-				// always use highest compression level for PNG (9) per @horst
-				$result = imagepng($thumb, $dstFilename, 9);
+				
+				// If only a WebP file is required
+				if($this->webpOnly) {
+					$result = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
+					
+				} else {
+					// optionally save an additional WebP file
+					if($this->webpAdd) {
+						$resultWebp = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
+					}
+					
+					// save the final PNG image file and always use highest compression level (9) per @horst
+					$result = imagepng($thumb, $dstFilename, 9);
+				}
 				break;
+
 			case \IMAGETYPE_JPEG:
 				// correct gamma from linearized 1.0 back to 2.0
 				$this->gammaCorrection($thumb, false);
-				$result = imagejpeg($thumb, $dstFilename, $this->quality);
+				
+				// If only a WebP file is required
+				if($this->webpOnly) {
+					$result = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
+					
+				} else {
+					// optionally save an additional WebP file
+					if($this->webpAdd) {
+						$resultWebp = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
+					}
+					
+					// optionally apply interlace bit to the final image. this will result in progressive JPEGs
+					if($this->interlace) {
+						if(0 == imageinterlace($thumb, 1)) {
+							// log that setting the interlace bit has failed ?
+							// ...
+						}
+					}
+					
+					// save the final JPEG image file
+					$result = imagejpeg($thumb, $dstFilename, $this->quality);
+				}
 				break;
 		}
 
@@ -357,6 +398,24 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 
 		return $result;
 	}
+	
+	/**
+	 * Create WebP image (@horst)
+	 * Is requested by image options: ["webpAdd" => true] OR ["webpOnly" => true]
+	 *
+	 * @param resource $im
+	 * @param string $dstFilename
+	 * @param int $quality
+	 *
+	 * @return boolean true | false
+	 * 
+	 */
+	protected function imSaveWebP($im, $filename, $quality = 90) {
+		if(!function_exists('imagewebp')) return false;
+		$newBasename = str_replace(array('.jpg', '.jpeg', '.png', '.gif'), '.webp', basename($filename));
+		return imagewebp($im, dirname($filename) . '/' . $newBasename, $quality);
+	}
+	
 	/**
 	 * Rotate image (@horst)
 	 *
