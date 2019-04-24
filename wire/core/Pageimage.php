@@ -40,6 +40,9 @@
  * @property-read string $suffixStr String of file suffix(es) separated by comma.
  * @property-read string $alt Convenient alias for the 'description' property, unless overridden (since 3.0.125).
  * @property-read string $src Convenient alias for the 'url' property, unless overridden (since 3.0.125).
+ * @property-read string $urlWebp The url property of an optional WebP-dependency file (since 3.0.132).
+ * @property-read string $srcWebp Convenient alias for the 'urlWebp' property (since 3.0.132).
+ * @property-read bool $hasWebp Does exist an optional WebP-dependency file for this image variation? (since 3.0.132)
  *
  * Properties inherited from Pagefile
  * ==================================
