@@ -182,8 +182,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	protected function processResize($srcFilename, $dstFilename, $fullWidth, $fullHeight, $finalWidth, $finalHeight) {
 		
 		$this->setTimeLimit(120);
-my_var_dump([$srcFilename, $dstFilename, $fullWidth, $fullHeight, $finalWidth, $finalHeight]);
-die('RIP');
+		
 		// start image magick
 		$this->im = new \IMagick();
 
@@ -359,16 +358,12 @@ die('RIP');
 		}
 
 		$this->im->setImageDepth(($this->imageDepth > 8 ? 8 : $this->imageDepth));
-
-		
-		
 		
 		
 		// prepare to save file(s)
 		if($this->webpAdd) {
 			$this->imWebp = clone $this->im;
 		}
-		
 		$this->im->setImageFormat($this->imageFormat);
 		$this->im->setImageType($this->imageType);
 		if(in_array(strtoupper($this->imageFormat), array('JPG', 'JPEG'))) {
@@ -383,37 +378,6 @@ die('RIP');
 		}
 
 		// write to file(s)
-		$result = false;
-		switch($this->imageType) {
-			
-			case \IMAGETYPE_GIF:
-					// optionally save an additional WebP file
-					
-					// save the final GIF image file
-					#$result = imagegif($thumb, $dstFilename);
-				break;
-				
-			case \IMAGETYPE_PNG:
-					// optionally save an additional WebP file
-					if($this->webpAdd) {
-						#$resultWebp = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
-					}
-					
-					// save the final PNG image file and always use highest compression level (9) per @horst
-					#$result = imagepng($thumb, $dstFilename, 9);
-				break;
-
-			case \IMAGETYPE_JPEG:
-					// optionally save an additional WebP file
-					if($this->webpAdd) {
-						#$resultWebp = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
-					}
-					
-					// save the final JPEG image file
-					#$result = imagejpeg($thumb, $dstFilename, $this->quality);
-				break;
-		}
-		// save to file
 		$this->wire('files')->unlink($dstFilename);
 		@clearstatcache(dirname($dstFilename));
 		##if(!$this->im->writeImage($this->destFilename)) {
