@@ -772,16 +772,10 @@ class Pageimage extends Pagefile {
 		// i.e. myfile.100x100.jpg or myfile.100x100nw-suffix1-suffix2.jpg
 		$basename .= '.' . $nameWidth . 'x' . $nameHeight . $crop . $suffixStr . "." . $this->ext();	
 		$filenameFinal = $this->pagefiles->path() . $basename;
-		$filenameFinalWebp = $this->pagefiles->path() . str_replace(array('.jpg', '.jpeg', '.png', '.gif'), '.webp', $basename);
+		$path_parts = pathinfo($filenameFinal);
+		$filenameFinalWebp = $this->pagefiles->path() . $path_parts['filename'] . '.webp';
 		$filenameUnvalidated = '';
 		$exists = file_exists($filenameFinal);
-
-
-//my_var_dump([
-//	$defaultOptions,
-//	$requestOptions,
-//	$options,
-//]);
 
 		
 		// create a new resize if it doesn't already exist or forceNew option is set
@@ -793,22 +787,14 @@ class Pageimage extends Pagefile {
 			// filenameUnvalidated is temporary filename used for resize
 			$tempDir = $this->pagefiles->page->filesManager()->getTempPath();
 			$filenameUnvalidated = $tempDir . $basename;
-			$filenameUnvalidatedWebp = $tempDir . str_replace(array('.jpg', '.jpeg', '.png', '.gif'), '.webp', $basename);
+		    $path_parts = pathinfo($filenameUnvalidated);
+		    $filenameUnvalidatedWebp = $tempDir . $path_parts['filename'] . '.webp';
 			
 			if($exists && $options['forceNew']) $this->wire('files')->unlink($filenameFinal, true);
 			if(file_exists($filenameFinalWebp) && $options['forceNew']) $this->wire('files')->unlink($filenameFinalWebp, true);
 			
 			if(file_exists($filenameUnvalidated)) $this->wire('files')->unlink($filenameUnvalidated, true);
 			if(file_exists($filenameUnvalidatedWebp)) $this->wire('files')->unlink($filenameUnvalidatedWebp, true);
-			
-//my_var_dump([
-//	$options['webpAdd'],
-//	$basename,
-//	$filenameFinal,
-//	$filenameUnvalidated,
-//	$filenameFinalWebp,
-//	$filenameUnvalidatedWebp
-//]);
 
 			if(@copy($this->filename(), $filenameUnvalidated)) {
 				try { 
