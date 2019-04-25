@@ -777,7 +777,6 @@ class Pageimage extends Pagefile {
 		$filenameUnvalidated = '';
 		$exists = file_exists($filenameFinal);
 
-		
 		// create a new resize if it doesn't already exist or forceNew option is set
 		if(!$exists && !file_exists($this->filename())) {
 			// no original file exists to create variation from 
