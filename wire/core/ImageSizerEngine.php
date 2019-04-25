@@ -70,6 +70,14 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	protected $webpQuality = 90;
 
 	/**
+	 * Also create a WebP Image with this variation?
+	 *
+	 * @var bool
+	 *
+	 */
+	protected $webpAdd = false;
+
+	/**
 	 * Image interlace setting, false or true
 	 *
 	 * @var bool
@@ -916,6 +924,19 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	}
 
 	/**
+	 * Set flag to also create a webp file or not
+	 *
+	 * @param bool $value
+	 *
+	 * @return $this
+	 *
+	 */
+	public function setWebpAdd($value) {
+		$this->webpAdd = (bool) $value;
+		return $this;
+	}
+
+	/**
 	 * Given an unknown sharpening value, return the string representation of it
 	 *
 	 * Okay for use in filenames. Method added by @horst
@@ -1177,6 +1198,9 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 					break;
 				case 'webpQuality':
 					$this->setWebpQuality($value);
+					break;
+				case 'webpAdd':
+					$this->setWebpAdd($value);
 					break;
 				case 'cropping':
 					$this->setCropping($value);
