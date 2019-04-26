@@ -1942,12 +1942,12 @@ class Pageimage extends Pagefile {
 		$indents = array_map('strlen', $lines);
 		if($indents) $m = max($indents) + 1;
 		$content = preg_replace_callback(
-            '#^(.*)=>\\n\s+(\S)#Um',
-            function($match) use ($m) {
-                return $match[1] . str_repeat(' ', ($m - strlen($match[1]) > 1 ? $m - strlen($match[1]) : 1)) . $match[2];
-            },
-            $content
-        );
+			'#^(.*)=>\\n\s+(\S)#Um',
+			function($match) use ($m) {
+				return $match[1] . str_repeat(' ', ($m - strlen($match[1]) > 1 ? $m - strlen($match[1]) : 1)) . $match[2];
+			},
+			$content
+		);
 		$content = preg_replace('#^((\s*).*){$#m', "\\1\n\\2{", $content);
 		$content = str_replace(array('<pre>', '</pre>'), '', $content);
 		if(isset($_SERVER['HTTP_HOST'])) {
