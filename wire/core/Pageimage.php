@@ -1878,6 +1878,88 @@ class Pageimage extends Pagefile {
 		}
 	}
 
+	
+	/**
+	 * Get verbose DebugInfo, optionally with individual options array, @horst
+	 * (without invoking the magic debug)
+	 * 
+	 * @return mixed: array | string
+	 * 
+	 */
+	public function getDebugInfo($options = array(), $returnAsString = false) {
+		static $depth = 0;
+		$depth++;
+		$info = $this->original ? array('original' => $this->original->basename, 'basename' => $this->basename) : array('original' => $this->basename, 'basename' => $this->basename);
+		$info = array_merge($info, parent::__debugInfo());
+		$fs = $info['filesize'];
+		unset($info['filesize']);
+		$is = new ImageSizer($this->filename, $options);
+		$ii = $is->getImageInfo(true);
+		$info['filesize'] = $fs;
+		$info['imageType'] = $ii['info']['imageType'];
+		$info['mime'] = $ii['info']['mime'];
+		unset($ii['info']['mime'], $ii['info']['imageType']);
+		$info['extension'] = $ii['extension'];
+		$info['webp'] = array();
+		if($this->hasWebp()) {
+			$info['webp']['hasWebp'] = true;
+			$info['webp']['webpUrl'] = $this->webpUrl;
+			$info['webp']['webpFilesize'] = filesize(dirname($this->filename) . '/' . pathinfo($this->filename, \PATHINFO_FILENAME) . '.webp');
+		} else {
+			$info['webp']['hasWebp'] = false;
+		}
+		$info['width'] = $this->width();
+		$info['height'] = $this->height();
+		$info['suffix'] = $this->suffixStr;
+		$info['focus'] = $this->hasFocus ? $this->focusStr : NULL;
+		if(isset($info['filedata']) && isset($info['filedata']['focus'])) unset($info['filedata']['focus']);
+		if(empty($info['filedata'])) unset($info['filedata']);
+		foreach($ii['info'] as $k => $v) $info[$k] = $v;
+		$info['iptcRaw'] = $ii['iptcRaw'];
+		if($depth < 2) {
+			$info['variations'] = array();
+			$variations = $this->getVariations(array('info' => true, 'verbose' => false));
+			foreach($variations as $name) {
+				$info['variations'][] = $name;
+			}
+			if(empty($info['variations'])) unset($info['variations']);
+		}
+		$depth--;
+		$info['neededEngineSupport'] = $is->getImageInfo();
+		$info['installedEngines'] = array_merge($is->getEngines(), array('ImageSizerEngineGD'));
+		$info['selectedEngine'] = $is->getEngine();
+		$info['individualOptions'] = $options;
+		if(!$returnAsString) {
+			return $info;
+		}
+		ob_start();
+		var_dump($info);
+		$content = ob_get_contents();
+		ob_end_clean();
+		$m = 0;
+		preg_match_all('#^(.*)=>#mU', $content, $stack);
+		$lines = $stack[1];
+		$indents = array_map('strlen', $lines);
+		if($indents) $m = max($indents) + 1;
+		$content = preg_replace_callback(
+            '#^(.*)=>\\n\s+(\S)#Um',
+            function($match) use ($m) {
+                return $match[1] . str_repeat(' ', ($m - strlen($match[1]) > 1 ? $m - strlen($match[1]) : 1)) . $match[2];
+            },
+            $content
+        );
+		$content = preg_replace('#^((\s*).*){$#m', "\\1\n\\2{", $content);
+		$content = str_replace(array('<pre>', '</pre>'), '', $content);
+		if(isset($_SERVER['HTTP_HOST'])) {
+			$return = "<pre style=\"margin:10px 10px 10px; padding:10px 10px 10px 10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:'Hack', 'Source Code Pro', 'Lucida Console', 'Courier', monospace; font-size:12px; line-height:15px; overflow:scroll;\">{$content}</pre>";
+		} else {
+			$return = $content;
+		}
+		return $return;
+	}
+
+	
+	
 	/**
 	 * Debug info
 	 * 
