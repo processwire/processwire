@@ -42,6 +42,8 @@
  * @property-read string $src Convenient alias for the 'url' property, unless overridden (since 3.0.125).
  * @property-read string $urlWebp The url property of an optional WebP-dependency file (since 3.0.132).
  * @property-read string $srcWebp Convenient alias for the 'urlWebp' property (since 3.0.132).
+ * @property-read string $webpUrl Convenient alias for the 'urlWebp' property (since 3.0.132).
+ * @property-read string $webpSrc Convenient alias for the 'urlWebp' property (since 3.0.132).
  * @property-read bool $hasWebp Does exist an optional WebP-dependency file for this image variation? (since 3.0.132)
  *
  * Properties inherited from Pagefile
@@ -426,6 +428,8 @@ class Pageimage extends Pagefile {
 				break;
 			case 'urlWebp': 
 			case 'srcWebp': 
+			case 'webpUrl': 
+			case 'webpSrc': 
 				$value = $this->urlWebp();
 				break;
 			default: 
