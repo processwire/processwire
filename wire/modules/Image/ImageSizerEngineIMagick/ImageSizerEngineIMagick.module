@@ -360,6 +360,10 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		$this->im->setImageDepth(($this->imageDepth > 8 ? 8 : $this->imageDepth));
 		
 		// prepare to save file(s)
+		if($this->webpAdd) {
+			$this->imWebp = clone $this->im; // make a copy before compressions take effect
+		}
+
 		$this->im->setImageFormat($this->imageFormat);
 		$this->im->setImageType($this->imageType);
 		if(in_array(strtoupper($this->imageFormat), array('JPG', 'JPEG'))) {
@@ -394,16 +398,13 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		
 		// optionally create a WebP dependency file
 		if($this->webpAdd) {
-			$this->imWebp = new \IMagick();
-			if($this->imWebp->readImage($dstFilename)) {
-				// prepare for webp output
-				$this->imWebp->setImageFormat('webp');
-				$this->imWebp->setImageCompressionQuality($this->webpQuality);
-				$this->imWebp->setOption('webp:method', '6');
-				#$this->imWebp->setOption('webp:lossless', 'true');
-				// save to file
-				$return = $this->imWebp->writeImage($webpFilename);
-			}
+			// prepare for webp output
+			$this->imWebp->setImageFormat('webp');
+			$this->imWebp->setImageCompressionQuality($this->webpQuality);
+			$this->imWebp->setOption('webp:method', '6');
+			#$this->imWebp->setOption('webp:lossless', 'true');
+			// save to file
+			$return = $this->imWebp->writeImage($webpFilename);
 		}
 
 		// release and return to event-object
