@@ -413,8 +413,8 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 	 */
 	protected function imSaveWebP($im, $filename, $quality = 90) {
 		if(!function_exists('imagewebp')) return false;
-	    $path_parts = pathinfo($filename);
-	    $webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+		$path_parts = pathinfo($filename);
+		$webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
 		if(file_exists($webpFilename)) $this->wire('files')->unlink($webpFilename);
 		return imagewebp($im, $webpFilename, $quality);
 	}

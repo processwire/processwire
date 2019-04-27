@@ -1262,6 +1262,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		$options = array(
 			'quality' => $this->quality,
 			'webpQuality' => $this->webpQuality,
+			'webpAdd' => $this->webpAdd,
 			'cropping' => $this->cropping,
 			'upscaling' => $this->upscaling,
 			'interlace' => $this->interlace, 
