@@ -11,7 +11,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'IMagick Image Sizer',
-			'version' => 2,
+			'version' => 3,
 			'summary' => "Upgrades image manipulations to use PHP's ImageMagick library when possible.",
 			'author' => 'Horst Nogajski',
 			'autoload' => false,
@@ -20,10 +20,19 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	}
 
 	/**
+	 * The (main) IMagick bitimage handler for regular image variations, (JPEG PNG)
+	 * 
 	 * @var \IMagick|null
 	 * 
 	 */
 	protected $im = null;
+	
+	/**
+	 * The (optionally) IMagick bitimage handler for additional WebP copies
+	 * 
+	 * @var \IMagick|null
+	 * 
+	 */
 	protected $imWebp = null;
 
 	// @todo the following need phpdoc
