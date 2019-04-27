@@ -188,11 +188,26 @@ class Pageimage extends Pagefile {
 	 */
 	public function webpUrl() {
 		if(!$this->hasWebp()) {
-			return '#';		// @Ryan:  what should be returned for none existing webp variations here?
+			return '#';			// @Ryan:  what should be returned for none existing webp variations here?
 		}
 		$path_parts = pathinfo($this->url);
 		$webpUrl = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
 		return $webpUrl;
+	}
+
+	/**
+	 * Return the filesystem path to this image files webP dependency
+	 * 
+	 * @return string
+	 *
+	 */
+	public function webpFilename() {
+		if(!$this->hasWebp()) {
+			return '';
+		}
+		$path_parts = pathinfo($this->filename);
+		$webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+		return $webpFilename;
 	}
 
 	/**
@@ -431,6 +446,9 @@ class Pageimage extends Pagefile {
 			case 'urlWebp': 
 			case 'srcWebp': 
 				$value = $this->webpUrl();
+				break;
+			case 'webpFilename': 
+				$value = $this->webpFilename();
 				break;
 			default: 
 				$value = parent::get($key); 
@@ -1905,7 +1923,7 @@ class Pageimage extends Pagefile {
 		if($this->hasWebp()) {
 			$info['webp']['hasWebp'] = true;
 			$info['webp']['webpUrl'] = $this->webpUrl;
-			$info['webp']['webpFilesize'] = filesize(dirname($this->filename) . '/' . pathinfo($this->filename, \PATHINFO_FILENAME) . '.webp');
+			$info['webp']['webpFilesize'] = filesize($this->webpFilename());
 		} else {
 			$info['webp']['hasWebp'] = false;
 		}
