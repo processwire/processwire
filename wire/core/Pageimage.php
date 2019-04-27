@@ -637,7 +637,7 @@ class Pageimage extends Pagefile {
 	 *  - Or you may specify type `int` containing "quality" value.
 	 *  - Or you may specify type `bool` containing "upscaling" value.
 	 * @return Pageimage Returns a new Pageimage object that is a variation of the original. 
-	 *  If the specified dimensions/options are the same as the original, then the original then the original will be returned.
+	 *  If the specified dimensions/options are the same as the original, then the original will be returned.
 	 *
 	 */
 	public function size($width, $height, $options = array()) {
@@ -1902,61 +1902,67 @@ class Pageimage extends Pagefile {
 	 * Get verbose DebugInfo, optionally with individual options array, @horst
 	 * (without invoking the magic debug)
 	 * 
-	 * @return mixed: array | string
+	 * @param array $options The individual options you also passes with your image variation creation
+	 * @param bool $returnAsString default is true and returns markup or plain text, false returns multidim array
+	 * @return array|string
 	 * 
 	 */
 	public function getDebugInfo($options = array(), $returnAsString = true) {
 		static $depth = 0;
 		$depth++;
-		
-		$thumb = "<img src='{$this->url}' style='max-width:120px; max-height:120px; ".($this->width() >= $this->height() ? 'width:100px; height:auto;' : 'height:100px; width:auto;')."' alt='' />";
-		$info = $this->original ? array('original' => $this->original->basename, 'basename' => $this->basename) : array('original' => $this->basename, 'basename' => $this->basename);
-		$info = array_merge(array('thumb' => $thumb), $info, parent::__debugInfo());
-		unset($info['filesize']);
-		if(!isset($_SERVER['HTTP_HOST'])) unset($info['thumb']);
-		
+
+		// fetch imagesizer, some infos and some options
 		$oSizer = new ImageSizer($this->filename, $options);
 		$osInfo = $oSizer->getImageInfo(true);
 		$finalOptions = $oSizer->getOptions();
 		
-		$info['suffix'] = $finalOptions['suffix'];
-		$info['extension'] = $osInfo['extension'];
-		$info['imageType'] = $osInfo['info']['imageType'];
-		$info['mime'] = $osInfo['info']['mime'];
-		unset($osInfo['info']['mime'], $osInfo['info']['imageType']);
-		$info['width'] = $this->width();
-		$info['height'] = $this->height();
-		$info['filesize'] = filesize($this->filename);
-		$info['focus'] = $this->hasFocus ? $this->focusStr : NULL;
+		// build some info parts and fetch some from parent (pagefile)
+		$thumb = array('thumb' => "<img src='{$this->url}' style='max-width:120px; max-height:120px; ".($this->width() >= $this->height() ? 'width:100px; height:auto;' : 'height:100px; width:auto;')."' alt='' />");
+		$original = $this->original ? array('original' => $this->original->basename, 'basename' => $this->basename) : array('original' => '{SELF}', 'basename' => $this->basename);
+		$parent = parent::__debugInfo();
+		unset($parent['filesize']);
+		
+		// start collecting the $info
+		$info = array_merge($thumb, $original, $parent, array(
+			'suffix'    => $finalOptions['suffix'],
+			'extension' => $osInfo['extension'],
+			'imageType' => $osInfo['info']['imageType'],
+			'mime'      => $osInfo['info']['mime'],
+			'width'     => $this->width(),
+			'height'    => $this->height(),
+			'filesize'  => filesize($this->filename),
+			'focus'     => $this->hasFocus ? $this->focusStr : NULL,
+		));
+		
+		// beautify the output, remove unnecessary items
 		if(isset($info['filedata']) && isset($info['filedata']['focus'])) unset($info['filedata']['focus']);
 		if(empty($info['filedata'])) unset($info['filedata']);
+		unset($osInfo['info']['mime'], $osInfo['info']['imageType']);
+		
+		// add the rest from osInfo to the final $info array
 		foreach($osInfo['info'] as $k => $v) $info[$k] = $v;
 		$info['iptcRaw'] = $osInfo['iptcRaw'];
+		unset($osInfo, $thumb, $original, $parent);
 		
 		// WEBP
-		$info['WEBP COPY'] = array();
-		if($this->hasWebp()) {
-			$info['WEBP COPY']['hasWebp'] = true;
-			$info['WEBP COPY']['webpUrl'] = $this->webpUrl;
-			if(isset($finalOptions['webpQuality'])) $info['WEBP COPY']['webpQuality'] = $finalOptions['webpQuality'];
-			$info['WEBP COPY']['filesize'] = filesize($this->webpFilename());
-			$info['WEBP COPY']['savings in percent'] = 100 - intval($info['WEBP COPY']['filesize'] / ($info['filesize'] / 100));
-		} else {
-			$info['WEBP COPY']['hasWebp'] = false;
-		}
+		$webp = array('WEBP COPY' => (!$this->hasWebp() ? array('hasWebp' => false) : array(
+			'hasWebp'            => true,
+			'webpUrl'            => $this->webpUrl,
+			'webpQuality'        => isset($finalOptions['webpQuality']) ? $finalOptions['webpQuality'] : NULL,
+			'filesize'           => filesize($this->webpFilename()),
+			'savings in percent' => 100 - intval(filesize($this->webpFilename()) / ($info['filesize'] / 100))
+		)));
+			
 		// VARIATIONS
 		if($depth < 2) {
-			$info['VARIATIONS'] = array();
+			$variationArray = array();
 			$variations = $this->getVariations(array('info' => true, 'verbose' => false));
-			foreach($variations as $name) {
-				$info['VARIATIONS'][] = $name;
-			}
-			#if(empty($info['VARIATIONS'])) unset($info['variations']);
+			foreach($variations as $name) $variationArray[] = $name;
 		}
 		$depth--;
+		unset($variations, $name);
+		
 		// ENGINES
-		$info['ENGINE(S)'] = array();
-		$info['ENGINE(S)']['neededEngineSupport'] = strtoupper($oSizer->getImageInfo());
 		$a = [];
 		$modules = $this->wire('modules');
 		$engines = array_merge($oSizer->getEngines(), array('ImageSizerEngineGD'));
@@ -1966,17 +1972,33 @@ class Pageimage extends Pagefile {
 			$a[$moduleName] = "priority {$priority}";
 		}
 		asort($a, SORT_STRING);
-		$info['ENGINE(S)']['installedEngines'] = $a;
-		unset($a, $moduleName, $configData, $engines, $priority, $engines, $modules);
-		$info['ENGINE(S)']['selectedEngine'] = $oSizer->getEngine()->className;
-		// OPTIONS
-		$info['OPTIONS HIERARCHY'] = array();
-		$info['OPTIONS HIERARCHY']['imageSizerOptions'] = $this->wire('config')->imageSizerOptions;
-		$info['OPTIONS HIERARCHY']['individualOptions'] = $options;
-		$info['OPTIONS HIERARCHY']['finalOptions'] = $finalOptions;
+		$enginesArray = array(
+			'neededEngineSupport' => strtoupper($oSizer->getImageInfo()),
+			'installedEngines' => $a,
+			'selectedEngine' => $oSizer->getEngine()->className
+		);
+		unset($a, $moduleName, $configData, $engines, $priority, $modules, $oSizer);
 		
+		// merge all into $info
+		$info = array_merge($info, $webp, 
+			array('VARIATIONS' => $variationArray), 
+			array('ENGINE(S)'  => $enginesArray),
+			// OPTIONS
+			array('OPTIONS HIERARCHY' => array(
+					'imageSizerOptions' => $this->wire('config')->imageSizerOptions,
+					'individualOptions' => $options,
+					'finalOptions' => $finalOptions
+				)
+			)
+		);
+		unset($variationArray, $webp, $enginesArray, $options, $finalOptions);
+
+		// If not in browser environment, remove the thumb image
+		if(!isset($_SERVER['HTTP_HOST'])) unset($info['thumb']);
+		
+		// return as array
 		if(!$returnAsString) {
-			return $info;  // return as array
+			return $info;  
 		}
 		
 		// make a beautyfied var_dump
@@ -2000,7 +2022,7 @@ class Pageimage extends Pagefile {
 		$content = str_replace(array('<pre>', '</pre>'), '', $content);
 		if(isset($_SERVER['HTTP_HOST'])) {
 			// build output for HTML
-			$return = "<pre style=\"margin:10px 10px 10px; padding:10px 10px 10px 10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:'Hack', 'Source Code Pro', 'Lucida Console', 'Courier', monospace; font-size:12px; line-height:15px; overflow:auto;\">{$content}</pre>";
+			$return = "<pre style=\"margin:10px; padding:10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:'Hack', 'Source Code Pro', 'Lucida Console', 'Courier', monospace; font-size:12px; line-height:15px; overflow:auto;\">{$content}</pre>";
 		} else {
 			// output for Console
 			$return = $content;
