@@ -10,8 +10,9 @@
  * @property bool $upscaling
  * @property bool $interlace
  * @property array|string|bool $cropping
- * @property int $quality
+ * @property bool $webpAdd
  * @property int $webpQuality
+ * @property int $quality
  * @property string $sharpening
  * @property float $defaultGamma
  * @property float $scale
@@ -237,6 +238,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		'interlace', 
 		'quality',
 		'webpQuality',
+		'webpAdd',
 		'sharpening',
 		'defaultGamma',
 		'scale',
