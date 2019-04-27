@@ -1905,55 +1905,78 @@ class Pageimage extends Pagefile {
 	 * @return mixed: array | string
 	 * 
 	 */
-	public function getDebugInfo($options = array(), $returnAsString = false) {
+	public function getDebugInfo($options = array(), $returnAsString = true) {
 		static $depth = 0;
 		$depth++;
+		
+		$thumb = "<img src='{$this->url}' style='max-width:120px; max-height:120px; ".($this->width() >= $this->height() ? 'width:100px; height:auto;' : 'height:100px; width:auto;')."' alt='' />";
 		$info = $this->original ? array('original' => $this->original->basename, 'basename' => $this->basename) : array('original' => $this->basename, 'basename' => $this->basename);
-		$info = array_merge($info, parent::__debugInfo());
-		$fs = $info['filesize'];
+		$info = array_merge(array('thumb' => $thumb), $info, parent::__debugInfo());
 		unset($info['filesize']);
-		$is = new ImageSizer($this->filename, $options);
-		$ii = $is->getImageInfo(true);
-		$info['filesize'] = $fs;
-		$info['imageType'] = $ii['info']['imageType'];
-		$info['mime'] = $ii['info']['mime'];
-		unset($ii['info']['mime'], $ii['info']['imageType']);
-		$info['extension'] = $ii['extension'];
-		$info['webp'] = array();
-		if($this->hasWebp()) {
-			$info['webp']['hasWebp'] = true;
-			$info['webp']['webpUrl'] = $this->webpUrl;
-			$info['webp']['webpFilesize'] = filesize($this->webpFilename());
-		} else {
-			$info['webp']['hasWebp'] = false;
-		}
+		if(!isset($_SERVER['HTTP_HOST'])) unset($info['thumb']);
+		
+		$oSizer = new ImageSizer($this->filename, $options);
+		$osInfo = $oSizer->getImageInfo(true);
+		$finalOptions = $oSizer->getOptions();
+		
+		$info['suffix'] = $finalOptions['suffix'];
+		$info['extension'] = $osInfo['extension'];
+		$info['imageType'] = $osInfo['info']['imageType'];
+		$info['mime'] = $osInfo['info']['mime'];
+		unset($osInfo['info']['mime'], $osInfo['info']['imageType']);
 		$info['width'] = $this->width();
 		$info['height'] = $this->height();
-		$info['suffix'] = $this->suffixStr;
+		$info['filesize'] = filesize($this->filename);
 		$info['focus'] = $this->hasFocus ? $this->focusStr : NULL;
 		if(isset($info['filedata']) && isset($info['filedata']['focus'])) unset($info['filedata']['focus']);
 		if(empty($info['filedata'])) unset($info['filedata']);
-		foreach($ii['info'] as $k => $v) $info[$k] = $v;
-		$info['iptcRaw'] = $ii['iptcRaw'];
+		foreach($osInfo['info'] as $k => $v) $info[$k] = $v;
+		$info['iptcRaw'] = $osInfo['iptcRaw'];
+		
+		// WEBP
+		$info['WEBP COPY'] = array();
+		if($this->hasWebp()) {
+			$info['WEBP COPY']['hasWebp'] = true;
+			$info['WEBP COPY']['webpUrl'] = $this->webpUrl;
+			if(isset($finalOptions['webpQuality'])) $info['WEBP COPY']['webpQuality'] = $finalOptions['webpQuality'];
+			$info['WEBP COPY']['filesize'] = filesize($this->webpFilename());
+			$info['WEBP COPY']['savings in percent'] = 100 - intval($info['WEBP COPY']['filesize'] / ($info['filesize'] / 100));
+		} else {
+			$info['WEBP COPY']['hasWebp'] = false;
+		}
+		// VARIATIONS
 		if($depth < 2) {
-			$info['variations'] = array();
+			$info['VARIATIONS'] = array();
 			$variations = $this->getVariations(array('info' => true, 'verbose' => false));
 			foreach($variations as $name) {
-				$info['variations'][] = $name;
+				$info['VARIATIONS'][] = $name;
 			}
-			if(empty($info['variations'])) unset($info['variations']);
+			#if(empty($info['VARIATIONS'])) unset($info['variations']);
 		}
 		$depth--;
-		$info['neededEngineSupport'] = $is->getImageInfo();
-		$info['installedEngines'] = array_merge($is->getEngines(), array('ImageSizerEngineGD'));
-		$info['selectedEngine'] = $is->getEngine();
-		$info['Options Hierarchy'] = array();
-		$info['Options Hierarchy']['imageSizerOptions'] = $this->wire('config')->imageSizerOptions;
-		$info['Options Hierarchy']['individualOptions'] = $options;
-		$info['Options Hierarchy']['finalOptions'] = $is->getOptions();
+		// ENGINES
+		$info['ENGINE(S)'] = array();
+		$info['ENGINE(S)']['neededEngineSupport'] = strtoupper($oSizer->getImageInfo());
+		$a = [];
+		$modules = $this->wire('modules');
+		$engines = array_merge($oSizer->getEngines(), array('ImageSizerEngineGD'));
+		foreach($engines as $moduleName) {
+			$configData = $modules->getModuleConfigData($moduleName);
+			$priority = isset($configData['enginePriority']) ? (int) $configData['enginePriority'] : 0;
+			$a[$moduleName] = "priority {$priority}";
+		}
+		asort($a, SORT_STRING);
+		$info['ENGINE(S)']['installedEngines'] = $a;
+		unset($a, $moduleName, $configData, $engines, $priority, $engines, $modules);
+		$info['ENGINE(S)']['selectedEngine'] = $oSizer->getEngine()->className;
+		// OPTIONS
+		$info['OPTIONS HIERARCHY'] = array();
+		$info['OPTIONS HIERARCHY']['imageSizerOptions'] = $this->wire('config')->imageSizerOptions;
+		$info['OPTIONS HIERARCHY']['individualOptions'] = $options;
+		$info['OPTIONS HIERARCHY']['finalOptions'] = $finalOptions;
 		
 		if(!$returnAsString) {
-			return $info;
+			return $info;  // return as array
 		}
 		
 		// make a beautyfied var_dump
