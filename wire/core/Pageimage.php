@@ -186,13 +186,13 @@ class Pageimage extends Pagefile {
 	 * @return string
 	 *
 	 */
-	public function urlWebp() {
-	    if(!$this->hasWebp()) {
-	        return '#';  	    // @Ryan:  what should be returned for none existing webp variations here?
-	    }
-	    $path_parts = pathinfo($this->url);
-	    $webpUrl = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
-	    return $webpUrl;
+	public function webpUrl() {
+		if(!$this->hasWebp()) {
+			return '#';		// @Ryan:  what should be returned for none existing webp variations here?
+		}
+		$path_parts = pathinfo($this->url);
+		$webpUrl = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+		return $webpUrl;
 	}
 
 	/**
@@ -202,9 +202,9 @@ class Pageimage extends Pagefile {
 	 *
 	 */
 	public function hasWebp() {
-	    $path_parts = pathinfo($this->filename());
-	    $webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
-	    return is_readable($webpFilename);
+		$path_parts = pathinfo($this->filename());
+		$webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+		return is_readable($webpFilename);
 	}
 
 	/**
@@ -426,11 +426,11 @@ class Pageimage extends Pagefile {
 			case 'hasWebp': 
 				$value = $this->hasWebp();
 				break;
-			case 'urlWebp': 
-			case 'srcWebp': 
 			case 'webpUrl': 
 			case 'webpSrc': 
-				$value = $this->urlWebp();
+			case 'urlWebp': 
+			case 'srcWebp': 
+				$value = $this->webpUrl();
 				break;
 			default: 
 				$value = parent::get($key); 
@@ -790,8 +790,8 @@ class Pageimage extends Pagefile {
 			// filenameUnvalidated is temporary filename used for resize
 			$tempDir = $this->pagefiles->page->filesManager()->getTempPath();
 			$filenameUnvalidated = $tempDir . $basename;
-		    $path_parts = pathinfo($filenameUnvalidated);
-		    $filenameUnvalidatedWebp = $tempDir . $path_parts['filename'] . '.webp';
+			$path_parts = pathinfo($filenameUnvalidated);
+			$filenameUnvalidatedWebp = $tempDir . $path_parts['filename'] . '.webp';
 			
 			if($exists && $options['forceNew']) $this->wire('files')->unlink($filenameFinal, true);
 			if(file_exists($filenameFinalWebp) && $options['forceNew']) $this->wire('files')->unlink($filenameFinalWebp, true);
@@ -1642,8 +1642,9 @@ class Pageimage extends Pagefile {
 			if($success) $deletedFiles[] = $filename;
 			
 			// Also remove WebP variation, if there exist one
-	        $webp = dirname($filename) . '/' . str_replace(array('.jpg', '.jpeg', '.png', '.gif'), '.webp', basename($filename));
-	        if(!is_file($webp)) continue;
+			$path_parts = pathinfo($filenameFinal);
+			$webp = dirname($filename) . '/' . $path_parts['filename'] . '.webp';
+			if(!is_file($webp)) continue;
 			if($options['dryRun']) {
 				$success = true;
 			} else {
@@ -1928,10 +1929,16 @@ class Pageimage extends Pagefile {
 		$info['neededEngineSupport'] = $is->getImageInfo();
 		$info['installedEngines'] = array_merge($is->getEngines(), array('ImageSizerEngineGD'));
 		$info['selectedEngine'] = $is->getEngine();
-		$info['individualOptions'] = $options;
+		$info['Options Hierarchy'] = array();
+		$info['Options Hierarchy']['imageSizerOptions'] = $this->wire('config')->imageSizerOptions;
+		$info['Options Hierarchy']['individualOptions'] = $options;
+		$info['Options Hierarchy']['finalOptions'] = $is->getOptions();
+		
 		if(!$returnAsString) {
 			return $info;
 		}
+		
+		// make a beautyfied var_dump
 		ob_start();
 		var_dump($info);
 		$content = ob_get_contents();
@@ -1951,10 +1958,13 @@ class Pageimage extends Pagefile {
 		$content = preg_replace('#^((\s*).*){$#m', "\\1\n\\2{", $content);
 		$content = str_replace(array('<pre>', '</pre>'), '', $content);
 		if(isset($_SERVER['HTTP_HOST'])) {
-			$return = "<pre style=\"margin:10px 10px 10px; padding:10px 10px 10px 10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:'Hack', 'Source Code Pro', 'Lucida Console', 'Courier', monospace; font-size:12px; line-height:15px; overflow:scroll;\">{$content}</pre>";
+			// build output for HTML
+			$return = "<pre style=\"margin:10px 10px 10px; padding:10px 10px 10px 10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:'Hack', 'Source Code Pro', 'Lucida Console', 'Courier', monospace; font-size:12px; line-height:15px; overflow:auto;\">{$content}</pre>";
 		} else {
+			// output for Console
 			$return = $content;
 		}
+		
 		return $return;
 	}
 
