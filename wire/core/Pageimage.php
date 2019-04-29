@@ -2033,7 +2033,7 @@ class Pageimage extends Pagefile {
 		$content = str_replace(array('<pre>', '</pre>'), '', $content);
 		if(isset($_SERVER['HTTP_HOST'])) {
 			// build output for HTML
-			$return = "<pre style=\"margin:10px; padding:10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:'Hack', 'Source Code Pro', 'Lucida Console', 'Courier', monospace; font-size:12px; line-height:15px; overflow:auto;\">{$content}</pre>";
+			$return = "<pre style=\"margin:10px; padding:10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:'Hack Regular', 'Source Code Pro', 'Envy Code R', 'Noto mono', 'Liberation Mono', 'Consolas', 'Lucida Console', 'DejaVu Sans Mono', 'LetterGothicStd', 'Courier New', 'Courier', monospace; font-size:12px; line-height:15px; overflow:auto;\">{$content}</pre>";
 		} else {
 			// output for Console
 			$return = $content;
