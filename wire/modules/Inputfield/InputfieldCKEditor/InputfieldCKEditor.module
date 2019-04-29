@@ -559,13 +559,14 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		if(!$length) return ''; 
 
 		if($this->usePurifier && $this->wire('modules')->isInstalled('MarkupHTMLPurifier')) {
+			$enableID = stripos($this->toolbar, 'anchor') !== false || $this->isExtraAllowedContentAttribute('id');
 			if(is_null(self::$purifier)) self::$purifier = $this->wire('modules')->get('MarkupHTMLPurifier');
 			$configData = $this->wire('modules')->getModuleConfigData('ProcessPageEditLink');
 			$targets = isset($configData['targetOptions']) ? $configData['targetOptions'] : '_blank';
 			$targets = explode("\n", $targets);
 			foreach($targets as $k => $v) $targets[$k] = trim($v);
 			self::$purifier->set('Attr.AllowedFrameTargets', $targets); // allow links opened in new window/tab
-			self::$purifier->set('Attr.EnableID', stripos($this->toolbar, 'anchor') !== false); // for anchor plugin use of id and name attributes
+			self::$purifier->set('Attr.EnableID', $enableID); // for anchor plugin use of id and name attributes
 			$value = self::$purifier->purify($value); 
 			// $newLength = strlen($value);
 			// if($length != $newLength) $this->message("HTML Purifier: $this->name (before: $length bytes, after: $newLength bytes)", Notice::debug);
@@ -702,6 +703,32 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		if($data === false || is_null($data)) return false; 
 		if(is_string($returnType)) $data = trim(wireEncodeJSON($data, true, true), "{}\r\n "); 
 		return $data; 
+	}
+
+	/**
+	 * Is the given attribute present for any tag in the extraAllowedContent?
+	 *
+	 * @param string $attr
+	 * @param string $type One of 'attribute', 'class' or 'style' (default='attribute')
+	 * @return bool
+	 *
+	 */
+	protected function isExtraAllowedContentAttribute($attr, $type = 'attribute') {
+		$types = array(
+			'attribute' => array('[', ']'),
+			'class' => array('(', ')'),
+			'style' => array('{', '}'),
+		);
+		$is = false;
+		list($open, $close) = $types[$type];
+		foreach(explode($open, str_replace(array(' ', '!'), '', $this->extraAllowedContent)) as $attrs) {
+			list($attrs,) = explode($close, $attrs, 2);
+			$attrs = explode(',', $attrs);
+			if(!in_array($attr, $attrs)) continue;
+			$is = true;
+			break;
+		}
+		return $is;
 	}
 
 	/*

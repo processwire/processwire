@@ -84,6 +84,19 @@ function _checkForTwoFactorAuth(Session $session) {
 	);
 }
 
+/**
+ * Check if POST request exceeds PHP’s max_input_vars
+ * 
+ * @param WireInput $input
+ * 
+ */
+function _checkForMaxInputVars(WireInput $input) {
+	$max = (int) ini_get('max_input_vars');
+	if($max && count($_POST) >= $max) {
+		$input->error(sprintf(__('You have reached PHP’s “max_input_vars” setting of %d — please increase it.'), $max)); 
+	}
+}
+
 
 // notify superuser if there is an http host error
 if($user->isSuperuser()) _checkForHttpHostError($config); 
@@ -118,6 +131,8 @@ if($page->process && $page->process != 'ProcessPageView') {
 			foreach($_POST as $k => $v) unset($_POST[$k]); 
 			foreach($_FILES as $k => $v) unset($_FILES[$k]); 
 			$input->post->removeAll();
+		} else if($input->requestMethod('POST') && $user->isLoggedin() && $user->hasPermission('page-edit')) {
+			_checkForMaxInputVars($input);
 		}
 
 		$controller = new ProcessController(); 
