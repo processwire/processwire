@@ -804,7 +804,7 @@ class Pageimage extends Pagefile {
 			// no original file exists to create variation from 
 			$this->error = "Original image does not exist to create size variation";
 			
-		} else if(!$exists || $options['forceNew']) {
+		} else if(!$exists || $options['forceNew'] || ($options['webpAdd'] && !$this->hasWebp())) {
 			// filenameUnvalidated is temporary filename used for resize
 			$tempDir = $this->pagefiles->page->filesManager()->getTempPath();
 			$filenameUnvalidated = $tempDir . $basename;
