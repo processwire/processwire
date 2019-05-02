@@ -794,17 +794,23 @@ class Pageimage extends Pagefile {
 		// i.e. myfile.100x100.jpg or myfile.100x100nw-suffix1-suffix2.jpg
 		$basename .= '.' . $nameWidth . 'x' . $nameHeight . $crop . $suffixStr . "." . $this->ext();	
 		$filenameFinal = $this->pagefiles->path() . $basename;
-		$path_parts = pathinfo($filenameFinal);
-		$filenameFinalWebp = $this->pagefiles->path() . $path_parts['filename'] . '.webp';
 		$filenameUnvalidated = '';
 		$exists = file_exists($filenameFinal);
+
+		$path_parts = pathinfo($filenameFinal);
+		$filenameFinalWebp = $this->pagefiles->path() . $path_parts['filename'] . '.webp';
+		// force new creation if requested webp copy doesn't exist, (regardless if regular variation exists or not)
+		if($options['webpAdd'] && !file_exists($filenameFinalWebp)) {
+			$options['forceNew'] = true;
+		}
 
 		// create a new resize if it doesn't already exist or forceNew option is set
 		if(!$exists && !file_exists($this->filename())) {
 			// no original file exists to create variation from 
 			$this->error = "Original image does not exist to create size variation";
 			
-		} else if(!$exists || $options['forceNew'] || ($options['webpAdd'] && !$this->hasWebp())) {
+		} else if(!$exists || $options['forceNew']) {
+			
 			// filenameUnvalidated is temporary filename used for resize
 			$tempDir = $this->pagefiles->page->filesManager()->getTempPath();
 			$filenameUnvalidated = $tempDir . $basename;
@@ -1660,7 +1666,7 @@ class Pageimage extends Pagefile {
 			if($success) $deletedFiles[] = $filename;
 			
 			// Also remove WebP variation, if there exist one
-			$path_parts = pathinfo($filenameFinal);
+			$path_parts = pathinfo($filename);
 			$webp = dirname($filename) . '/' . $path_parts['filename'] . '.webp';
 			if(!is_file($webp)) continue;
 			if($options['dryRun']) {
