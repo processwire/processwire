@@ -101,11 +101,6 @@ class WireTextTools extends Wire {
 			}
 		}
 		
-		// normalize newlines and whitespace around newlines
-		while(strpos($str, " \n") !== false) $str = str_replace(" \n", "\n", $str);
-		while(strpos($str, "\n ") !== false) $str = str_replace("\n ", "\n", $str);
-		while(strpos($str, "\n\n\n") !== false) $str = str_replace("\n\n\n", "\n\n", $str);
-
 		// strip tags
 		if(count($options['keepTags'])) {
 			// some tags will be allowed to remain
@@ -131,6 +126,11 @@ class WireTextTools extends Wire {
 		if($options['convertEntities'] && strpos($str, '&') !== false) {
 			$str = $this->wire('sanitizer')->unentities($str);
 		}
+		
+		// normalize newlines and whitespace around newlines
+		while(strpos($str, " \n") !== false) $str = str_replace(" \n", "\n", $str);
+		while(strpos($str, "\n ") !== false) $str = str_replace("\n ", "\n", $str);
+		while(strpos($str, "\n\n\n") !== false) $str = str_replace("\n\n\n", "\n\n", $str);
 
 		return trim($str);
 	}
