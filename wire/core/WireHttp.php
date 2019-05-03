@@ -26,6 +26,8 @@
  * https://processwire.com
  * 
  * @method bool|string send($url, $data = array(), $method = 'POST', array $options = array())
+ * @method int sendFile($filename, array $options = array(), array $headers = array())
+ * @method string download($fromURL, $toFile, array $options = array())
  * 
  *
  */
@@ -51,12 +53,12 @@ class WireHttp extends Wire {
 	const defaultDownloadTimeout = 50; 
 
 	/**
-	 * Default value for $headers, when reset
+	 * Default value for request $headers, when reset
 	 *
 	 */
 	protected $defaultHeaders = array(
 		'charset' => 'utf-8',
-		);
+	);
 
 	/**
 	 * Schemes we are allowed to use
@@ -77,7 +79,7 @@ class WireHttp extends Wire {
 	protected $headers = array();
 
 	/**
-	 * HTTP error codes
+	 * HTTP codes
 	 * 
 	 * @var array
 	 * 
@@ -162,7 +164,7 @@ class WireHttp extends Wire {
 		524 => 'A timeout occurred (Cloudflare)',
 		598 => 'Network read timeout error (Unknown)',
 		599 => 'Network connect timeout error (Unknown)',
-		);
+	);
 
 	/**
 	 * Seconds till timing out on a connection
@@ -293,6 +295,8 @@ class WireHttp extends Wire {
 	 *   echo "HTTP request failed: " . $http->getError();
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-HTTP-requests
 	 *
 	 * @param string $url URL to post to (including http:// or https://)
 	 * @param mixed $data Associative array of data to send (if not already set before), or raw data to send.
@@ -320,6 +324,8 @@ class WireHttp extends Wire {
 	 *   echo "HTTP request failed: " . $http->getError();
 	 * }
 	 * ~~~~~
+	 * 
+	 * #pw-group-HTTP-requests
 	 *
 	 * @param string $url URL to send request to (including http:// or https://)
 	 * @param mixed $data Array of data to send (if not already set before) or raw data to send.
@@ -334,6 +340,8 @@ class WireHttp extends Wire {
 
 	/**
 	 * Send to a URL that responds with JSON (using GET request) and return the resulting array or object.
+	 * 
+	 * #pw-group-HTTP-requests
 	 *
 	 * @param string $url URL to send request to (including http:// or https://)
 	 * @param bool $assoc Default is to return an array (specified by TRUE). If you want an object instead, specify FALSE. 
@@ -349,6 +357,8 @@ class WireHttp extends Wire {
 
 	/**
 	 * Send to a URL using a HEAD request
+	 * 
+	 * #pw-group-HTTP-requests
 	 *
 	 * @param string $url URL to request (including http:// or https://)
 	 * @param mixed $data Array of data to send (if not already set before) or raw data to send
@@ -365,6 +375,8 @@ class WireHttp extends Wire {
 
 	/**
 	 * Send to a URL using a HEAD request and return the status code
+	 * 
+	 * #pw-group-HTTP-requests
 	 *
 	 * @param string $url URL to request (including http:// or https://)
 	 * @param mixed $data Array of data to send (if not already set before) or raw data
@@ -381,6 +393,8 @@ class WireHttp extends Wire {
 
 	/**
 	 * Send to a URL using HEAD and return the status code and text like "200 OK"
+	 * 
+	 * #pw-group-HTTP-requests
 	 *
 	 * @param string $url URL to request (including http:// or https://)
 	 * @param mixed $data Array of data to send (if not already set before) or raw data
@@ -395,83 +409,12 @@ class WireHttp extends Wire {
 	}
 
 	/**
-	 * Set an array of headers, removes any existing headers
-	 * 
-	 * @param array $headers Associative array of headers to set
-	 * @return $this
-	 *
-	 */
-	public function setHeaders(array $headers) {
-		foreach($headers as $key => $value) {
-			$this->setHeader($key, $value);
-		}
-		return $this;
-	}
-
-	/**
-	 * Send an individual header to send
-	 * 
-	 * @param string $key Header name
-	 * @param string $value Header value
-	 * @return $this
-	 *
-	 */
-	public function setHeader($key, $value) {
-		$key = strtolower($key);
-		$this->headers[$key] = $value; 
-		return $this;
-	}
-
-	/**
-	 * Set an array of data, removes any existing data
-	 *
-	 * @param array $data Associative array of data
-	 * @return $this
-	 *
-	 */
-	public function setData($data) {
-		if(is_array($data)) $this->data = $data; 
-			else $this->rawData = $data; 
-		return $this;
-	}
-
-	/**
-	 * Set a variable to be included in the POST/GET request
-	 *
-	 * @param string $key
-	 * @param string|int $value
-	 * @return $this
-	 *
-	 */
-	public function set($key, $value) {
-		$this->data[$key] = $value; 
-		return $this;
-	}
-
-	/**
-	 * Allows setting to $data via $http->key = $value
-	 * 
-	 * @param string $key
-	 * @param mixed $value
-	 *
-	 */
-	public function __set($key, $value) {
-		$this->set($key, $value);
-	}
-
-	/**
-	 * Enables getting from $data via $http->key 
-	 * 
-	 * @param string $key
-	 * @return mixed
-	 *
-	 */
-	public function __get($key) {
-		return array_key_exists($key, $this->data) ? $this->data[$key] : null;
-	}	
-
-	/**
 	 * Send the given $data array to a URL using given method (i.e. POST, GET, PUT, DELETE, etc.)
+	 * 
+	 * This method handles the implementation for the get/post/head/etc. methods. It is preferable to use one 
+	 * of those dedicated request methods rather than this one.
+	 * 
+	 * #pw-group-HTTP-requests
 	 *
 	 * @param string $url URL to send to (including http:// or https://).
 	 * @param array $data Array of data to send (if not already set before).
@@ -489,6 +432,7 @@ class WireHttp extends Wire {
 		$defaults = array(
 			'use' => 'auto',
 			'fallback' => 'auto', // false, 'auto', 'socket' or 'curl'
+			'proxy' => '', 
 			'_url' => $url, // original unmodified URL
 		);
 
@@ -551,14 +495,12 @@ class WireHttp extends Wire {
 	 * 
 	 * @param string $url
 	 * @param string $method
-	 * @param array $options
+	 * @param array $options Options specific to fopen should be specified in [ 'fopen' => [ ... ] ]
 	 *
 	 * @return bool|string
 	 * 
 	 */
 	protected function sendFopen($url, $method = 'POST', array $options = array()) {
-
-		if($options) { /* ignore */ }
 		
 		$this->resetResponse();
 		$this->lastSendType = 'fopen';
@@ -583,18 +525,28 @@ class WireHttp extends Wire {
 		}
 		
 		$header .= "Connection: close\r\n";
-
-		$options = array(
-			'http' => array(
-				'method' => $method,
-				'timeout' => $this->getTimeout(),
-				'content' => $content,
-				'header' => $header,
-			)
+	
+		$http = array(
+			'method' => $method,
+			'timeout' => $this->getTimeout(),
+			'content' => $content,
+			'header' => $header,
 		);
+		if(!empty($options['proxy'])) $http['proxy'] = $options['proxy'];
+	
+		// merge fopen http options array if present, as well as any other options specified to fopen stream_context_create
+		if(isset($options['fopen']) && !empty($options['fopen']['http'])) {
+			// allow adding on to http option
+			$http = array_merge($options['fopen']['http'], $http);
+		} else if(!empty($options['http']) && is_array($options['http'])) {
+			// if http array specified outside fopen index
+			$http = array_merge($options['http'], $http);
+		}
+		$fopenOptions = array('http' => $http); 
+		if(isset($options['fopen'])) $fopenOptions = array_merge($options['fopen'], $fopenOptions);
 
 		set_error_handler(array($this, '_errorHandler'));
-		$context = stream_context_create($options);
+		$context = stream_context_create($fopenOptions);
 		$fp = fopen($url, 'rb', false, $context);
 		restore_error_handler();
 
@@ -633,6 +585,12 @@ class WireHttp extends Wire {
 		$this->resetResponse();
 		$this->lastSendType = 'curl';
 		$timeout = isset($options['timeout']) ? (float) $options['timeout'] : $this->getTimeout();
+		$proxy = '';
+		
+		if(!empty($options['proxy'])) $proxy = $options['proxy'];
+			else if(isset($options['curl']) && !empty($options['curl']['http']['proxy'])) $proxy = $options['curl']['http']['proxy'];
+			else if(isset($options['http']) && !empty($options['http']['proxy'])) $proxy = $options['http']['proxy'];
+
 		$curl = curl_init();
 
 		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $timeout);
@@ -663,11 +621,8 @@ class WireHttp extends Wire {
 		} else {
 			curl_setopt($curl, CURLOPT_HTTPGET, true);
 		}
-		
-		// @felixwahner #1027
-		if(isset($options['http']) && isset($options['http']['proxy']) && !is_null($options['http']['proxy'])) {
-			curl_setopt($curl, CURLOPT_PROXY, $options['http']['proxy']);
-		}
+	
+		if($proxy) curl_setopt($curl, CURLOPT_PROXY, $options['http']['proxy']);
 		
 		if(!empty($this->data)) {
 			if($method === 'POST') {
@@ -812,7 +767,9 @@ class WireHttp extends Wire {
 	 * Download a file from a URL and save it locally
 	 * 
 	 * First it will attempt to use CURL. If that fails, it will try `fopen()`, 
-	 * unless you specify a `useMethod` in `$options`.
+	 * unless you specify the `use` option in `$options`.
+	 * 
+	 * #pw-group-files
 	 * 
 	 * @param string $fromURL URL of file you want to download.
 	 * @param string $toFile Filename you want to save it to (including full path).
@@ -823,7 +780,7 @@ class WireHttp extends Wire {
 	 * @throws WireException All error conditions throw exceptions. 
 	 * 
 	 */
-	public function download($fromURL, $toFile, array $options = array()) {
+	public function ___download($fromURL, $toFile, array $options = array()) {
 
 		$fromURL = $this->validateURL($fromURL, true); 
 		$http = stripos($fromURL, 'http://') === 0; 
@@ -921,6 +878,11 @@ class WireHttp extends Wire {
 		
 		$this->resetResponse();
 		$fromURL = str_replace(' ', '%20', $fromURL);
+		$proxy = '';
+		
+		if(!empty($options['proxy'])) $proxy = $options['proxy'];
+			else if(isset($options['curl']) && !empty($options['curl']['http']['proxy'])) $proxy = $options['curl']['http']['proxy'];
+			else if(isset($options['http']) && !empty($options['http']['proxy'])) $proxy = $options['http']['proxy'];
 		
 		$curl = curl_init($fromURL);
 
@@ -930,11 +892,7 @@ class WireHttp extends Wire {
 		}
 		curl_setopt($curl, CURLOPT_FILE, $fp); // write curl response to file
 		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
-
-		// @felixwahner #1027
-		if(isset($options['http']) && isset($options['http']['proxy']) && !is_null($options['http']['proxy'])) {
-			curl_setopt($curl, CURLOPT_PROXY, $options['http']['proxy']);
-		}
+		if($proxy) curl_setopt($curl, CURLOPT_PROXY, $proxy);
 		
 		$result = curl_exec($curl);
 		if($result) $this->httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
@@ -964,7 +922,11 @@ class WireHttp extends Wire {
 		);
 		
 		$options = array_merge($defaultOptions, $options);
-		$context = stream_context_create(array('http' => $options));
+		$context = stream_context_create(
+			array(
+				'http' => $options
+			)
+		);
 
 		// download the file
 		set_error_handler(array($this, '_errorHandler'));
@@ -1002,11 +964,135 @@ class WireHttp extends Wire {
 		if(empty($content) && !count($this->error)) $this->error[] = 'no data received'; 
 		return count($this->error) ? false : true; 
 	}
+	
+	/**
+	 * Set an array of request headers to send with GET/POST/etc. request
+	 *
+	 * Merges with existing headers unless you specify true for the $reset option (since 3.0.131).
+	 * If you specify null for any header value, it removes the header (since 3.0.131).
+	 * 
+	 * #pw-group-request-headers
+	 *
+	 * @param array $headers Associative array of headers to set
+	 * @param array $options Options to modify default behavior (since 3.0.131):
+	 *  - `reset` (bool): Reset/clear all existing headers first? (default=false)
+	 *  - `replacements` (array): Associative array of [ find => replace ] values to replace in header values (default=[])
+	 * @return $this
+	 *
+	 */
+	public function setHeaders(array $headers, array $options = array()) {
+		$defaults = array(
+			'reset' => false,
+			'replacements' => array()
+		);
+		$options = array_merge($defaults, $options);
+		if($options['reset']) $this->headers = array();
+		$replacements = count($options['replacements']) ? $options['replacements'] : false;
+		foreach($headers as $key => $value) {
+			if(is_array($replacements)) $value = str_replace(array_keys($replacements), array_values($replacements), $value);
+			$this->setHeader($key, $value);
+		}
+		return $this;
+	}
+
+	/**
+	 * Send an individual request header to send with GET/POST/etc. request
+	 * 
+	 * #pw-group-request-headers
+	 *
+	 * @param string $key Header name
+	 * @param string $value Header value to set (or specify null to remove header, since 3.0.131)
+	 * @return $this
+	 *
+	 */
+	public function setHeader($key, $value) {
+		$key = strtolower($key);
+		if($value === null) {
+			unset($this->headers[$key]);
+		} else {
+			$this->headers[$key] = "$value";
+		}
+		return $this;
+	}
+
+	/**
+	 * Get all currently set request headers in an associative array
+	 *
+	 * Note: To get response headers from a previously sent request, use `WireHttp::getResponseHeaders()` instead.
+	 * 
+	 * #pw-group-request-headers
+	 *
+	 * @return array
+	 * @since 3.0.131
+	 *
+	 */
+	public function getHeaders() {
+		return $this->headers;
+	}
+
+	/**
+	 * Set an array of data, or string of raw data to send with next GET/POST/etc. request (overwriting the existing data or rawData)
+	 * 
+	 * #pw-advanced
+	 *
+	 * @param array|string $data Associative array of data or string of raw data
+	 * @return $this
+	 *
+	 */
+	public function setData($data) {
+		if(is_array($data)) {
+			$this->data = $data;
+		} else {
+			$this->rawData = $data;
+		}
+		return $this;
+	}
+
+	/**
+	 * Set a variable to be included in the next GET/POST/etc. request
+	 * 
+	 * #pw-internal
+	 *
+	 * @param string $key
+	 * @param string|int $value
+	 * @return $this
+	 *
+	 */
+	public function set($key, $value) {
+		$this->data[$key] = $value;
+		return $this;
+	}
+
+	/**
+	 * Directly set a variable to be included in the next GET/POST/etc. request
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 *
+	 */
+	public function __set($key, $value) {
+		$this->set($key, $value);
+	}
+
+	/**
+	 * Directly get a variable to be included in the next GET/POST/etc. request or NULL if not present
+	 * 
+	 * #pw-internal
+	 *
+	 * @param string $key
+	 * @return mixed
+	 *
+	 */
+	public function __get($key) {
+		return array_key_exists($key, $this->data) ? $this->data[$key] : null;
+	}
 
 	/**
 	 * Get the last HTTP response headers (normal array).
 	 * 
-	 * #pw-internal
+	 * #pw-group-response-headers
 	 * 
 	 * Useful to examine for errors if your request returned false
 	 * However, the `WireHttp::getResponseHeaders()` (plural) method may be better
@@ -1030,7 +1116,9 @@ class WireHttp extends Wire {
 	 * instead, which returns multi-value headers as arrays. 
 	 *
 	 * This method always returns an associative array of strings, unless you specify the
-	 * `$key` option in which case it will return a string, or NULL if the header is not present. 
+	 * `$key` option in which case it will return a string, or NULL if the header is not present.
+	 * 
+	 * #pw-group-response-headers
 	 *
 	 * @param string $key Optional header name you want to get (if you only need one)
 	 * @return array|string|null
@@ -1053,7 +1141,9 @@ class WireHttp extends Wire {
 	 * an array. 
 	 * 
 	 * This method always returns an associative array of strings and arrays, unless you specify the 
-	 * `$key` option in which case it can return an array, string, or NULL if the header is not present. 
+	 * `$key` option in which case it can return an array, string, or NULL if the header is not present.
+	 * 
+	 * #pw-group-response-headers
 	 * 
 	 * @param string $key Optional header name you want to get (if you only need a specific header)
 	 * @param bool $forceArrays If even single-value headers should be arrays, specify true (default=false). 
@@ -1173,12 +1263,16 @@ class WireHttp extends Wire {
 	 * to content type headers and force-download state.
 	 *
 	 * This function throws a `WireException` if the file can't be sent for some reason.
+	 * 
+	 * #pw-group-files
 	 *
 	 * @param string $filename Filename to send
 	 * @param array $options Options that you may pass in:
-	 *   - `exit` (bool): Halt program executation after file send (default=true). 
+	 *   - `exit` (bool): Halt program executation after file send (default=true).
+	 *   - `partial` (bool): Allow use of partial downloads via HTTP_RANGE requests? Since 3.0.131 (default=true)
 	 *   - `forceDownload` (bool|null): Whether file should force download (default=null, i.e. let content-type header decide).
 	 *   - `downloadFilename` (string): Filename you want the download to show on user's computer, or omit to use existing.
+	 *   - `headers` (array): The $headers argument to this method can also be provided as an option right here, since 3.0.131 (default=[])
 	 * @param array $headers Headers that are sent. These are the defaults: 
 	 *   - `pragma`: public
 	 *   - `expires`: 0
@@ -1187,21 +1281,26 @@ class WireHttp extends Wire {
 	 *   - `content-transfer-encoding`: binary
 	 *   - `content-length`: {filesize} (replaced with actual filesize)
 	 *   - To remove a header completely, make its value NULL and it won't be sent.
+	 * @return int Returns value only if `exit` option is false (value is quantity of bytes sent)
 	 * @throws WireException
 	 *
 	 */
-	public function sendFile($filename, array $options = array(), array $headers = array()) {
+	public function ___sendFile($filename, array $options = array(), array $headers = array()) {
 
-		$_options = array(
+		$defaultOptions = array(
 			// boolean: halt program execution after file send
 			'exit' => true,
+			// allow use of partial downloads with HTTP_RANGE headers?
+			'partial' => true, 
 			// boolean|null: whether file should force download (null=let content-type header decide)
 			'forceDownload' => null,
 			// string: filename you want the download to show on the user's computer, or blank to use existing.
 			'downloadFilename' => '',
+			// optionally specify headers here rather than as 3rd argument
+			'headers' => array(), 
 		);
 
-		$_headers = array(
+		$defaultHeaders = array(
 			"pragma" => "public",
 			"expires" =>  "0",
 			"cache-control" => "must-revalidate, post-check=0, pre-check=0",
@@ -1210,39 +1309,205 @@ class WireHttp extends Wire {
 			"content-length" => "{filesize}",
 		);
 
-		$this->wire('session')->close();
-		$options = array_merge($_options, $options);
-		$headers = array_merge($_headers, $headers);
 		if(!is_file($filename)) throw new WireException("File does not exist");
+		
+		$options = array_merge($defaultOptions, $options);
+		$headers = array_merge($defaultHeaders, $options['headers'], $headers);
 		$info = pathinfo($filename);
 		$ext = strtolower($info['extension']);
+		$filesize = filesize($filename);
 		$contentTypes = $this->wire('config')->fileContentTypes;
 		$contentType = isset($contentTypes[$ext]) ? $contentTypes[$ext] : $contentTypes['?'];
 		$forceDownload = $options['forceDownload'];
+		$bytesSent = 0;
+		
+		if($options['exit']) $this->wire('session')->close();
 		if(is_null($forceDownload)) $forceDownload = substr($contentType, 0, 1) === '+';
-		$contentType = ltrim($contentType, '+');
 		if(ini_get('zlib.output_compression')) ini_set('zlib.output_compression', 'Off');
-		$tags = array('{content-type}' => $contentType, '{filesize}' => filesize($filename));
-
-		foreach($headers as $key => $value) {
-			if(is_null($value)) continue;
-			if(strpos($value, '{') !== false) $value = str_replace(array_keys($tags), array_values($tags), $value);
-			header("$key: $value");
-		}
-
+		$contentType = ltrim($contentType, '+');
+		
 		if($forceDownload) {
 			$downloadFilename = empty($options['downloadFilename']) ? $info['basename'] : $options['downloadFilename'];
-			header("content-disposition: attachment; filename=\"$downloadFilename\"");
+			$headers['content-disposition'] = "attachment; filename=\"$downloadFilename\"";
 		}
 
+		$this->setHeaders($headers, array('replacements' => array(
+			'{content-type}' => $contentType,
+			'{filesize}' => $filesize
+		))); 
+		
+		if($options['partial']) {
+			//$this->setHeader('accept-ranges', "0-$filesize");
+			$this->setHeader('accept-ranges', 'bytes');
+			if(isset($_SERVER['HTTP_RANGE'])) {
+				$result = $this->sendFileRange($filename, $_SERVER['HTTP_RANGE']);
+				if(is_int($result)) {
+					if($options['exit']) exit();
+					return $result; // success
+				}
+				if($result === null) { // fail
+					$this->setHeader('httpcode', 416); // range cannot be satisfied
+					$this->setHeader('content-range', 'bytes 0-' . ($filesize - 1) . "/$filesize");
+					if($options['exit']) exit;
+					return 0;
+				} else if($result === false) {
+					// continue with regular send
+				}
+			}
+		}
+	
+		$this->sendHeaders();
 		@ob_end_clean();
 		@flush();
 		readfile($filename);
+		
 		if($options['exit']) exit;
+		
+		return $bytesSent;
+	}
+
+	/**
+	 * Handle an HTTP_RANGE request for sending of partial file (called by sendFile method)
+	 * 
+	 * @param string $filename
+	 * @param string $rangeStr Range string (i.e. `bytes=0-1234`) or omit to pull from `$_SERVER['HTTP_RANGE']`
+	 * @return bool|int Returns bytes sent, null if error in request or range, or false if request should be handled by sendFile() instead
+	 * 
+	 */
+	protected function sendFileRange($filename, $rangeStr = '') {
+	
+		if(empty($rangeStr)) $rangeStr = isset($_SERVER['HTTP_RANGE']) ? $_SERVER['HTTP_RANGE'] : '';
+		if(empty($rangeStr)) return false;
+		
+		$filesize = filesize($filename);
+		$rangeEnd = $filesize - 1;
+
+		// client has provided an HTTP_RANGE header containing a byte range
+		list($rangeType, $rangeBytes) = explode('=', $rangeStr, 2);
+		
+		if(strtolower($rangeType) !== 'bytes') return null; // unrecognized range type prefix
+		if(strpos($rangeBytes, ',') !== false) return null; // unsupported multibyte range
+		if(strpos($rangeBytes, '-') === false) return null; // unrecognized range bytes string
+
+		if(strpos($rangeBytes, '-') === 0) {
+			// no rangeStart: rangeBytes was "-123" or just "-"
+			$rangeStart = $filesize - ((int) ltrim($rangeBytes, '-'));
+		} else {
+			// rangeBytes was '0-1234' or '1234-5678' or '1234-'
+			$rangeArray = explode('-', $rangeBytes, 2); // 0=start, 1=end
+			$rangeStart = (int) $rangeArray[0];
+			if(isset($rangeArray[1]) && ctype_digit($rangeArray[1])) {
+				$rangeEnd = (int) $rangeArray[1];
+				if($rangeEnd >= $filesize) $rangeEnd = $filesize-1; // rangeEnd must be under filesize
+			} else {
+				// keep existing rangeEnd at EOF
+			}
+		}
+		if($rangeStart > $rangeEnd) return null; // do not allow start greater than end
+
+		$this->setHeader('httpcode', 206); // 206=Partial Content
+		$this->setHeader('content-range', "bytes $rangeStart-$rangeEnd/$filesize");
+		$this->setHeader('content-length', $rangeEnd - $rangeStart + 1);
+		$this->sendHeaders();
+		
+		@ob_end_clean();
+		@flush();
+
+		$fp = fopen($filename, 'rb');
+		$chunkSize = 1024 * 32;
+		$bytesSent = 0;
+		
+		fseek($fp, $rangeStart); 
+		
+		while(!feof($fp) && ($pos = ftell($fp)) <= $rangeEnd) {
+			if($pos + $chunkSize > $rangeEnd) $chunkSize = $rangeEnd - $pos + 1;
+			set_time_limit(600); 
+			echo fread($fp, $chunkSize);
+			$bytesSent += $chunkSize;
+		}
+		
+		fclose($fp);
+		
+		return $bytesSent;
+	}
+
+	/**
+	 * Send currently set HTTP request headers to connected HTTP client
+	 * 
+	 * This will send all HTTP headers previously set with setHeader() or setHeaders().
+	 * 
+	 * Note: if a header with name `httpCode` and integer value has been previously set, it will be sent as an HTTP status header
+	 * before the other headers. This can also be specified with the `httpCode` in the $options argument. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param array $options Options to modify default behavior:
+	 *  - `reset` (bool): Reset/clear headers that were set to WireHttp after sending? (default=false)
+	 *  - `headers` (array): Array [ name => value ] of headers to send, or omit to use headers set to WireHttp instance (default=[])
+	 *  - `httpCode` (int): HTTP status code to send or omit for none (default=0, aka don’t send)
+	 *  - `httpVersion` (string): HTTP version string (default='1.1')
+	 *  - `replacements` (array): Associative array of [ find => replace ] strings to replace values in headers, i.e. `[ '{filesize}' => 12345 ]` (default=[])
+	 * @return array Returns the headers that were sent (with duplicates removed, replacements processed, and lowercase header names)
+	 * @throws WireException If given an unrecognized `$option['status']` code
+	 * @since 3.0.131
+	 * 
+	 */
+	public function sendHeaders(array $options = array()) {
+		$defaults = array(
+			'reset' => false, 
+			'headers' => array(), 
+			'httpCode' => 0, 
+			'httpVersion' => '1.1',
+			'replacements' => array(),
+		);
+		$options = array_merge($defaults, $options);
+		$headers = empty($options['headers']) ? $this->headers : $options['headers'];
+		$httpCode = (int) $options['httpCode'];
+		if(!$httpCode && isset($headers['httpcode'])) { 
+			if(ctype_digit($headers['httpcode'])) $httpCode = (int) $headers['httpcode'];
+		}
+		if($httpCode > 0) {
+			if(!isset($this->httpCodes[$httpCode])) throw new WireException("Unrecognized http status code: $httpCode"); 
+			$this->sendHeader("HTTP/$options[httpVersion] $httpCode " . $this->httpCodes[$httpCode]);
+		}
+		$a = array();
+		foreach($headers as $key => $value) {
+			$key = strtolower($key);
+			if($value === null || $key === 'httpcode') continue;
+			if(count($options['replacements'])) {
+				$value = str_replace(array_keys($options['replacements']), array_values($options['replacements']), $value);
+			}
+			$a[$key] = $value;
+		}
+		foreach($a as $key => $value) {
+			$this->sendHeader($key, $value); 
+		}
+		if($options['reset'] && $headers === $this->headers) $this->headers = array();
+		return $a;
+	}
+
+	/**
+	 * Send a specific HTTP header to currenty connected HTTP client
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $name Header name or entire header string. 
+	 * @param null|string|int $value Header value, or omit if you provided entire header string in $name argument
+	 * @since 3.0.131
+	 * 
+	 */
+	public function sendHeader($name, $value = null) {
+		if($value === null) {
+			header($name);
+		} else {
+			header("$name: $value"); 
+		}
 	}
 
 	/**
 	 * Validate a URL for WireHttp use
+	 * 
+	 * #pw-internal
 	 *
 	 * @param string $url URL to validate
 	 * @param bool $throw Whether to throw exception on validation fail (default=false)
@@ -1309,6 +1574,8 @@ class WireHttp extends Wire {
 
 	/**
 	 * Get last HTTP code
+	 * 
+	 * #pw-group-HTTP-codes
 	 *
 	 * @param bool $withText Specify true to include the HTTP code text label with the code
 	 * @return int|string
@@ -1321,6 +1588,8 @@ class WireHttp extends Wire {
 
 	/**
 	 * Return array of all possible HTTP codes as (code => description)
+	 * 
+	 * #pw-group-HTTP-codes
 	 *
 	 * @return array
 	 *
@@ -1331,6 +1600,8 @@ class WireHttp extends Wire {
 	
 	/**
 	 * Return array of all possible HTTP success codes as (code => description)
+	 * 
+	 * #pw-group-HTTP-codes
 	 *
 	 * @return array
 	 *
@@ -1346,6 +1617,8 @@ class WireHttp extends Wire {
 	/**
 	 * Return array of all possible HTTP error codes as (code => description)
 	 * 
+	 * #pw-group-HTTP-codes
+	 * 
 	 * @return array
 	 * 
 	 */
@@ -1359,6 +1632,8 @@ class WireHttp extends Wire {
 
 	/**
 	 * Set schemes WireHttp is allowed to access (default=[http, https])
+	 * 
+	 * #pw-group-settings
 	 *
 	 * @param array|string $schemes Array of schemes or space-separated string of schemes
 	 * @param bool $replace Specify true to replace any existing schemes already allowed (default=false)
@@ -1383,6 +1658,18 @@ class WireHttp extends Wire {
 		}
 		return $this;
 	}
+	
+	/**
+	 * Return array of allowed schemes
+	 * 
+	 * #pw-group-settings
+	 *
+	 * @return array
+	 *
+	 */
+	public function getAllowSchemes() {
+		return $this->allowSchemes;
+	}
 
 	/**
 	 * Set options array given to $sanitizer->url() 
@@ -1392,6 +1679,8 @@ class WireHttp extends Wire {
 	 * with the setAllowSchemes() method in this class. 
 	 * 
 	 * To return current validate URL options, omit the $options argument. 
+	 * 
+	 * #pw-group-advanced
 	 * 
 	 * @param array $options Options to set, see the $sanitizer->url() method for details on options. 
 	 * @return array Always returns current options 
@@ -1403,19 +1692,11 @@ class WireHttp extends Wire {
 	}
 
 	/**
-	 * Return array of allowed schemes
-	 * 
-	 * @return array
-	 * 
-	 */
-	public function getAllowSchemes() {
-		return $this->allowSchemes; 
-	}
-
-	/**
 	 * Get the current user-agent header
 	 * 
 	 * To set the user agent header, use `$http->setHeader('user-agent', '...');`
+	 * 
+	 * #pw-group-request-headers
 	 * 
 	 * @return string
 	 * 
@@ -1433,6 +1714,8 @@ class WireHttp extends Wire {
 	/**
 	 * Set the number of seconds till connection times out 
 	 * 
+	 * #pw-group-settings
+	 * 
 	 * @param int|float $seconds
 	 * @return $this
 	 * 
@@ -1446,6 +1729,8 @@ class WireHttp extends Wire {
 	 * Get the number of seconds till connection times out
 	 *
 	 * Used by send(), get(), post(), getJSON(), but not by download() methods.
+	 * 
+	 * #pw-group-settings
 	 *
 	 * @return float
 	 *
