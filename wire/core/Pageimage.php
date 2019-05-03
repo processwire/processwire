@@ -833,7 +833,13 @@ class Pageimage extends Pagefile {
 					
 					/** @var ImageSizerEngine $engine */
 					$engine = $sizer->getEngine();
-					
+
+					/* if the current engine installation does not support webp, modify the options param */
+					if(isset($options['webpAdd']) && $options['webpAdd'] && !$engine->supported('webp')) {
+						$options['webpAdd'] = false;
+						$engine->setOptions($options);
+					}
+
 					// allow for ImageSizerEngine module settings for quality and sharpening to override system defaults
 					// when they are not specified as an option to this resize() method
 					$engineConfigData = $engine->getConfigData();
@@ -1929,7 +1935,7 @@ class Pageimage extends Pagefile {
 		        $original,
 				parent::__debugInfo(), 
 				array(
-					'suffix'    => $finalOptions['suffix'],
+					'suffix'    => isset($finalOptions['suffix']) ? $finalOptions['suffix'] : '',
 					'extension' => $osInfo['extension']
 				)
 		));
@@ -1993,7 +1999,8 @@ class Pageimage extends Pagefile {
 		$enginesArray = array(
 			'neededEngineSupport' => strtoupper($oSizer->getImageInfo()),
 			'installedEngines' => $a,
-			'selectedEngine' => $oSizer->getEngine()->className
+			'selectedEngine' => $oSizer->getEngine()->className,
+			'engineWebpSupport' => $oSizer->getEngine()->supported('webp')
 		);
 		unset($a, $moduleName, $configData, $engines, $priority, $modules, $oSizer);
 		

@@ -161,7 +161,22 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 						return false;
 				}
 				break;
-
+			
+			case 'webp':
+				if(!isset($this->wire('config')->webpSupportIM)) {
+					// only call it once
+				    ob_start();
+				    phpinfo(INFO_MODULES);
+				    $dump = ob_get_clean();
+				    $list = array();
+				    if(preg_match('#ImageMagick supported formats </td><td.*?>(.*?)</td>#msi', $dump, $matches) && isset($matches[1])) {
+				        $list = explode(',', str_replace(' ', '', mb_strtolower($matches[1])));
+				    }
+					$this->wire('config')->webpSupportIM = in_array('webp', $list);
+				}
+				return $this->wire('config')->webpSupportIM;
+				break;
+			
 			case 'install':
 				return true;
 
@@ -411,7 +426,9 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 			$this->imWebp->setImageFormat('webp');
 			$this->imWebp->setImageCompressionQuality($this->webpQuality);
 			$this->imWebp->setOption('webp:method', '6');
-			#$this->imWebp->setOption('webp:lossless', 'true');
+			//$this->imWebp->setOption('webp:lossless', 'true');                    // is this useful?
+ 			//$this->imWebp->setImageAlphaChannel(imagick::ALPHACHANNEL_ACTIVATE);  // is this useful?
+  			//$this->imWebp->setBackgroundColor(new ImagickPixel('transparent'));   // is this useful?
 			// save to file
 			$return = $this->imWebp->writeImage($webpFilename);
 		}

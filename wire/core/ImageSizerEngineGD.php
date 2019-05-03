@@ -57,6 +57,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 		// and if it passes the mandatory requirements, we check particularly aspects here
 		
 		switch($action) {
+
 			case 'imageformat':
 				// compare current imagefile infos fetched from ImageInspector
 				$requested = $this->getImageInfo(false);
@@ -69,7 +70,16 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 						return true;
 				}
 				break;
-
+			
+			case 'webp':
+				if(!isset($this->wire('config')->webpSupportGD)) {
+					// only call it once
+					$gd  = gd_info();
+					$this->wire('config')->webpSupportGD = isset($gd['WebP Support']) ? $gd['WebP Support'] : false;
+				}
+				return $this->wire('config')->webpSupportGD;
+				break;
+			
 			case 'install':
 				/*
 				$gd  = gd_info();
@@ -77,6 +87,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 				$png = isset($gd['PNG Support']) ? $gd['PNG Support'] : false;
 				$gif = isset($gd['GIF Read Support']) && isset($gd['GIF Create Support']) ? $gd['GIF Create Support'] : false;
 				$freetype = isset($gd['FreeType Support']) ? $gd['FreeType Support'] : false;
+				$webp = isset($gd['WebP Support']) ? $gd['WebP Support'] : false;
 				$this->config->gdReady = true;
 				*/
 				return true;
