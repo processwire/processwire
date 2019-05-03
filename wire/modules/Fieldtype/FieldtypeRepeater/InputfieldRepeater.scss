@@ -34,6 +34,8 @@
 				white-space: nowrap;
 				height: 100%;
 
+				
+				.InputfieldRepeaterSettingsToggle,
 				.InputfieldRepeaterClone,
 				.InputfieldRepeaterToggle,
 				.InputfieldRepeaterTrash,
@@ -50,6 +52,9 @@
 				.InputfieldRepeaterClone {
 					margin-right: 1em;
 				}
+				.InputfieldRepeaterSettingsToggle {
+					margin-right: 1em;
+				}
 				.pw-icon-disabled {
 					opacity: 0.3;	
 				}
@@ -61,6 +66,10 @@
 			}
 		}
 		
+	}
+	
+	.InputfieldStateCollapsed .InputfieldRepeaterSettingsToggle {
+		display: none;
 	}
 		
 	.InputfieldRepeaterItem:not(.InputfieldRepeaterDeletePending) {

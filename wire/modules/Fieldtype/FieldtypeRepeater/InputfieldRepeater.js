@@ -152,7 +152,29 @@ function InputfieldRepeater($) {
 		});
 		return false;
 	};
-
+	
+	var eventSettingsClick = function(e) {
+		var $this = $(this);
+		var $item = $this.closest('.InputfieldRepeaterItem');
+		var $settings = $item.children('.InputfieldContent')
+			.children('.Inputfields')
+			.children('.InputfieldWrapper')
+			.children('.Inputfields').children('.InputfieldRepeaterSettings');
+		
+		if($item.hasClass('InputfieldStateCollapsed')) {
+			$this.closest('.InputfieldHeader').click(); //find('.InputfieldRepeaterToggle').click();	
+		}
+		
+		if($settings.is(':visible')) {
+			$settings.slideUp('fast');
+			$this.addClass('ui-priority-secondary');
+		} else {
+			$settings.slideDown('fast');
+			$this.removeClass('ui-priority-secondary');
+		}
+		return false
+	}
+	
 	/**
 	 * Event handler for when the repeater item "on/off" toggle is clicked
 	 * 
@@ -655,11 +677,16 @@ function InputfieldRepeater($) {
 		var $toggle = $("<i class='fa InputfieldRepeaterToggle' data-on='fa-toggle-on' data-off='fa-toggle-off'></i>");
 		var cfg = ProcessWire.config.InputfieldRepeater;
 		var allowClone = !$inputfieldRepeater.hasClass('InputfieldRepeaterNoAjaxAdd');
+		var allowSettings = $inputfieldRepeater.hasClass('InputfieldRepeaterHasSettings');
 
 		if(cfg) {
 			$toggle.attr('title', cfg.labels.toggle);
 			$delete.attr('title', cfg.labels.remove);
 			$clone.attr('title', cfg.labels.clone);
+		}
+		
+		if(allowSettings) {
+			$inputfieldRepeater.find('.InputfieldRepeaterSettings').hide();
 		}
 
 		$headers.each(function() {
@@ -667,6 +694,7 @@ function InputfieldRepeater($) {
 			if($t.hasClass('InputfieldRepeaterHeaderInit')) return;
 			var icon = 'fa-arrows';
 			var $item = $t.parent();
+			var $settings = $t.find('.InputfieldRepeaterSettingsToggle').length > 0;
 			if($item.hasClass('InputfieldRepeaterNewItem')) {
 				// noAjaxAdd mode
 				icon = 'fa-plus';
@@ -681,10 +709,17 @@ function InputfieldRepeater($) {
 				var $deleteControl = $delete.clone(true);
 				var $collapseControl = $t.find('.toggle-icon');
 				$controls.prepend($collapseControl);
+				if(allowSettings) {
+					var $settingsToggle = $("<i class='fa fa-gear InputfieldRepeaterSettingsToggle ui-priority-secondary'></i>")
+						.attr('title', cfg.labels.settings); 
+					$controls.prepend($settingsToggle);
+				}
 				if(allowClone) $controls.prepend($clone.clone(true));
-				$controls.prepend($toggleControl).prepend($deleteControl);
+				$controls.prepend($toggleControl);
+				$controls.prepend($deleteControl);
 				$t.prepend($controls);
 				$controls.css('background-color', $t.css('background-color'));
+				
 			}
 			adjustItemLabel($item, false);
 		});
@@ -891,6 +926,7 @@ function InputfieldRepeater($) {
 			.on('click', '.InputfieldRepeaterTrash', eventDeleteClick)
 			.on('dblclick', '.InputfieldRepeaterTrash', eventDeleteDblClick)
 			.on('click', '.InputfieldRepeaterClone', eventCloneClick)
+			.on('click', '.InputfieldRepeaterSettingsToggle', eventSettingsClick)
 			.on('dblclick', '.InputfieldRepeaterToggle', eventOpenAllClick)
 			.on('click', '.InputfieldRepeaterToggle', eventToggleClick)
 			.on('opened', '.InputfieldRepeaterItem', eventItemOpened)

@@ -87,7 +87,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	/**
 	 * Return the current settings
 	 *
-	 * @return HTMLPurifier_Config
+	 * @return \HTMLPurifier_Config
 	 *
 	 */
 	public function getConfig() {
@@ -97,7 +97,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	/**
 	 * Get the HTMLPurifier instance
 	 *
-	 * @return HTMLPurifier
+	 * @return \HTMLPurifier
 	 *
 	 */
 	public function getPurifier() {
@@ -134,7 +134,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	 *
 	 * @param string $key
 	 * @param string $value
-	 * @return this
+	 * @return WireData|MarkupHTMLPurifier
 	 *
 	 */
 	public function set($key, $value) {

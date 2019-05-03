@@ -797,6 +797,17 @@ class WireUpload extends Wire {
 	public function getOverwrittenFiles() {
 		return $this->overwrittenFiles;
 	}
+
+	/**
+	 * Is an ajax upload request currently in progress?
+	 * 
+	 * @return bool
+	 * @since 3.0.131
+	 * 
+	 */
+	public static function isAjaxUploading() {
+		return !empty($_SERVER['HTTP_X_FILENAME']);
+	}
 }
 
 

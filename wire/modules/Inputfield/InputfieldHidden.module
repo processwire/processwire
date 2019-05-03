@@ -1,9 +1,10 @@
 <?php namespace ProcessWire;
 
 /**
- * An Inputfield for handling XHTML "hidden" form inputs
+ * An Inputfield for handling HTML “hidden” form inputs
  * 
  * @property bool $renderValueAsInput Render the hidden input, even when in renderValue mode (default=false)
+ * @property string $initValue Initial populated value if value attribute not separately populated (default='')
  *
  */
 class InputfieldHidden extends Inputfield {

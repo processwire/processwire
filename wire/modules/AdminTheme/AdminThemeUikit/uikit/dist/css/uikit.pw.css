@@ -11756,7 +11756,7 @@ table.AdminDataTable:not(.uk-table) .pw-table-sort-value {
   border-left: none;
 }
 .pw-table-resizable .tablesorter-resizable-handle {
-  margin-left: 37px;
+  /*margin-left: 37px;*/
 }
 .uk-tab > li.uk-active {
   background: #fff;
