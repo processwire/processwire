@@ -1915,11 +1915,11 @@ class Pageimage extends Pagefile {
 	 * (without invoking the magic debug)
 	 * 
 	 * @param array $options The individual options you also passes with your image variation creation
-	 * @param bool $returnAsString default is true and returns markup or plain text, false returns multidim array
-	 * @return array|string
+	 * @param bool $returnType 'string'|'array'|'object', default is 'string' and returns markup or plain text
+	 * @return array|object|string
 	 * 
 	 */
-	public function getDebugInfo($options = array(), $returnAsString = true) {
+	public function getDebugInfo($options = array(), $returnType = 'string') {
 		static $depth = 0;
 		$depth++;
 
@@ -1927,11 +1927,11 @@ class Pageimage extends Pagefile {
 		$oSizer = new ImageSizer($this->filename, $options);
 		$osInfo = $oSizer->getImageInfo(true);
 		$finalOptions = $oSizer->getOptions();
-		
+
 		// build some info parts and fetch some from parent (pagefile)
-		$thumb = array('THUMB' => "<img src='{$this->url}' style='max-width:120px; max-height:120px; ".($this->width() >= $this->height() ? 'width:100px; height:auto;' : 'height:100px; width:auto;')."' alt='' />");
+		$thumb = array('thumb' => "<img src='{$this->url}' style='max-width:120px; max-height:120px; ".($this->width() >= $this->height() ? 'width:100px; height:auto;' : 'height:100px; width:auto;')."' alt='' />");
 		$original = $this->original ? array('original' => $this->original->basename, 'basename' => $this->basename) : array('original' => '{SELF}', 'basename' => $this->basename);
-		$parent = array('FILES' => array_merge(
+		$parent = array('files' => array_merge(
 		        $original,
 				parent::__debugInfo(), 
 				array(
@@ -1940,8 +1940,8 @@ class Pageimage extends Pagefile {
 				)
 		));
 		// rearange parts
-		unset($parent['FILES']['filesize']);
-		$parent['FILES']['filesize'] = filesize($this->filename);
+		unset($parent['files']['filesize']);
+		$parent['files']['filesize'] = filesize($this->filename);
 
 		// VARIATIONS
 		if($depth < 2) {
@@ -1951,41 +1951,42 @@ class Pageimage extends Pagefile {
 		}
 		$depth--;
 		unset($variations, $name);
-		
+
 		// start collecting the $info
 		$info = array_merge($thumb, $parent, 
-			array('VARIATIONS' => $variationArray), 
-			array('IMAGEINFO' => array(
+			array('variations' => $variationArray), 
+			array('imageinfo' => array(
 				'imageType'   => $osInfo['info']['imageType'],
 				'mime'        => $osInfo['info']['mime'],
 				'width'       => $this->width(),
 				'height'      => $this->height(),
 				'focus'       => $this->hasFocus ? $this->focusStr : NULL,
-				'description' => $parent['FILES']['description'],
-				'tags'        => $parent['FILES']['tags'],
+				'description' => $parent['files']['description'],
+				'tags'        => $parent['files']['tags'],
 			)) 
 		);
-		unset($info['FILES']['tags'], $info['FILES']['description']);
-		
+		unset($info['files']['tags'], $info['files']['description']);
+
 		// beautify the output, remove unnecessary items
-		if(isset($info['FILES']['filedata']) && isset($info['FILES']['filedata']['focus'])) unset($info['FILES']['filedata']['focus']);
-		if(empty($info['FILES']['filedata'])) unset($info['FILES']['filedata']);
+		if(isset($info['files']['filedata']) && isset($info['files']['filedata']['focus'])) unset($info['files']['filedata']['focus']);
+		if(empty($info['files']['filedata'])) unset($info['files']['filedata']);
 		unset($osInfo['info']['mime'], $osInfo['info']['imageType']);
-		
+
 		// add the rest from osInfo to the final $info array
-		foreach($osInfo['info'] as $k => $v) $info['IMAGEINFO'][$k] = $v;
-		$info['IMAGEINFO']['iptcRaw'] = $osInfo['iptcRaw'];
+		foreach($osInfo['info'] as $k => $v) $info['imageinfo'][$k] = $v;
+		$info['imageinfo']['iptcRaw'] = $osInfo['iptcRaw'];
 		unset($osInfo, $thumb, $original, $parent);
-		
+
 		// WEBP
-		$webp = array('WEBP COPY' => (!$this->hasWebp() ? array('hasWebp' => false) : array(
-			'hasWebp'            => true,
-			'webpUrl'            => $this->webpUrl,
-			'webpQuality'        => isset($finalOptions['webpQuality']) ? $finalOptions['webpQuality'] : NULL,
-			'filesize'           => filesize($this->webpFilename()),
-			'savings in percent' => 100 - intval(filesize($this->webpFilename()) / ($info['FILES']['filesize'] / 100))
-		)));
-			
+		$webp = array('webp_copy' => array(
+			'hasWebp'          => $this->hasWebp(),
+			'webpUrl'          => (!$this->hasWebp() ? NULL : $this->webpUrl),
+			'webpQuality'      => (!isset($finalOptions['webpQuality']) ? NULL : $finalOptions['webpQuality']),
+			'filesize'         => (!$this->hasWebp() ? 0 : filesize($this->webpFilename())),
+			'savings'          => (!$this->hasWebp() ? 0 : intval($info['files']['filesize'] - filesize($this->webpFilename()))),
+			'savings_percent'  => (!$this->hasWebp() ? 0 : 100 - intval(filesize($this->webpFilename()) / ($info['files']['filesize'] / 100))),
+		));
+
 		// ENGINES
 		$a = [];
 		$modules = $this->wire('modules');
@@ -2003,12 +2004,12 @@ class Pageimage extends Pagefile {
 			'engineWebpSupport' => $oSizer->getEngine()->supported('webp')
 		);
 		unset($a, $moduleName, $configData, $engines, $priority, $modules, $oSizer);
-		
+
 		// merge all into $info
 		$info = array_merge($info, $webp, 
-			array('ENGINE(S)'  => $enginesArray),
+			array('engines'  => $enginesArray),
 			// OPTIONS
-			array('OPTIONS HIERARCHY' => array(
+			array('options_hierarchy' => array(
 					'imageSizerOptions' => $this->wire('config')->imageSizerOptions,
 					'individualOptions' => $options,
 					'finalOptions' => $finalOptions
@@ -2018,14 +2019,32 @@ class Pageimage extends Pagefile {
 		unset($variationArray, $webp, $enginesArray, $options, $finalOptions);
 
 		// If not in browser environment, remove the thumb image
-		if(!isset($_SERVER['HTTP_HOST'])) unset($info['THUMB']);
+		if(!isset($_SERVER['HTTP_HOST'])) unset($info['thumb']);
 		
-		// return as array
-		if(!$returnAsString) {
+		if('array' == $returnType) {
+			// return as array
 			return $info;  
+		} else if('object' == $returnType) {
+			// return as object
+			$object = new \stdClass();
+			foreach($info as $group => $array) {
+				$object->$group = new \stdClass();
+				if('thumb' == $group) {
+					$object->$group = $array;
+					continue;
+				}
+				$this->array_to_object($array, $object->$group);
+			}
+ 			return $object;
 		}
 		
 		// make a beautyfied var_dump
+		$tmp = $info;
+		$info = array();
+		foreach($tmp as $group => $array) {
+			$info[mb_strtoupper($group)] = $array;
+		}
+		unset($tmp, $group, $array);
 		ob_start();
 		var_dump($info);
 		$content = ob_get_contents();
@@ -2053,6 +2072,27 @@ class Pageimage extends Pagefile {
 		}
 		
 		return $return;
+	}
+	
+	/**
+	 * Helper method that converts a multidim array to a multidim object for the getDebugInfo method
+	 * 
+	 * @param array $array the input array
+	 * @param object $object the initial object, gets passed recursive by reference through all loops
+	 * @param bool $multidim set this to true to avoid multidimensional object
+	 * @return object the final multidim object
+	 * 
+	 */
+	private function array_to_object($array, &$object, $multidim = true) {
+		foreach($array as $key => $value) {
+			if($multidim && is_array($value)) {
+				$object->$key = new \stdClass();
+				$this->array_to_object($value, $object->$key, false);
+			} else {
+				$object->$key = $value;
+			}
+		}
+		return $object;
 	}
 
 	
