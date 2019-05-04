@@ -181,15 +181,12 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
-	 * Return the web accessible URL to this image files webP dependency
+	 * Return the web accessible URL to this image files webP dependency, also if no webp copy exists!
 	 * 
 	 * @return string
 	 *
 	 */
 	public function webpUrl() {
-		if(!$this->hasWebp()) {
-			return '#';			// @Ryan:  what should be returned for none existing webp variations here?
-		}
 		$path_parts = pathinfo($this->url);
 		$webpUrl = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
 		return $webpUrl;
