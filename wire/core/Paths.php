@@ -173,6 +173,9 @@ class Paths extends WireData {
 			$http = $_http;
 			$key = substr($key, 4);
 			$key[0] = strtolower($key[0]);
+		} else if(is_file($key)) {
+			$file = $this->normalizeSeparators($key);
+			return str_replace($this->wire('config')->paths->root, $this->_root, $file);
 		}
 		if($key == 'root') {
 			$value = $http . $this->_root;
