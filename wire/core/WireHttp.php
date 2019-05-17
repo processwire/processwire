@@ -439,7 +439,7 @@ class WireHttp extends Wire {
 		$options = array_merge($defaults, $options);
 		$url = $this->validateURL($url, false);
 		$allowFopen = $this->hasFopen;
-		$allowCURL = $this->hasCURL && version_compare(PHP_VERSION, '5.5') >= 0; // #849
+		$allowCURL = $this->hasCURL && (version_compare(PHP_VERSION, '5.5') >= 0 || $options['use'] === 'curl'); // #849
 		$result = false;
 		
 		if(empty($url)) return false;
@@ -622,7 +622,7 @@ class WireHttp extends Wire {
 			curl_setopt($curl, CURLOPT_HTTPGET, true);
 		}
 	
-		if($proxy) curl_setopt($curl, CURLOPT_PROXY, $options['http']['proxy']);
+		if($proxy) curl_setopt($curl, CURLOPT_PROXY, $proxy);
 		
 		if(!empty($this->data)) {
 			if($method === 'POST') {
@@ -1266,13 +1266,14 @@ class WireHttp extends Wire {
 	 * 
 	 * #pw-group-files
 	 *
-	 * @param string $filename Filename to send
+	 * @param string|bool $filename Filename to send (or boolean false if sending $options[data] rather than file)
 	 * @param array $options Options that you may pass in:
 	 *   - `exit` (bool): Halt program executation after file send (default=true).
 	 *   - `partial` (bool): Allow use of partial downloads via HTTP_RANGE requests? Since 3.0.131 (default=true)
 	 *   - `forceDownload` (bool|null): Whether file should force download (default=null, i.e. let content-type header decide).
 	 *   - `downloadFilename` (string): Filename you want the download to show on user's computer, or omit to use existing.
 	 *   - `headers` (array): The $headers argument to this method can also be provided as an option right here, since 3.0.131 (default=[])
+	 *   - `data` (string): String of data to send rather than contents of file, applicable only if $filename argument is false, Since 3.0.132.
 	 * @param array $headers Headers that are sent. These are the defaults: 
 	 *   - `pragma`: public
 	 *   - `expires`: 0
@@ -1298,6 +1299,8 @@ class WireHttp extends Wire {
 			'downloadFilename' => '',
 			// optionally specify headers here rather than as 3rd argument
 			'headers' => array(), 
+			// string of data to send rather than $filename, applicable only if $filename is boolean false
+			'data' => null, 
 		);
 
 		$defaultHeaders = array(
@@ -1309,14 +1312,26 @@ class WireHttp extends Wire {
 			"content-length" => "{filesize}",
 		);
 
-		if(!is_file($filename)) throw new WireException("File does not exist");
-		
 		$options = array_merge($defaultOptions, $options);
 		$headers = array_merge($defaultHeaders, $options['headers'], $headers);
-		$info = pathinfo($filename);
-		$ext = strtolower($info['extension']);
-		$filesize = filesize($filename);
 		$contentTypes = $this->wire('config')->fileContentTypes;
+		
+		if($filename === false) {
+			// sending data string
+			if(empty($options['downloadFilename'])) throw new WireException('The "downloadFilename" option is required'); 
+			if($options['data'] === null) throw new WireException('The "data" option is required');
+			$info = pathinfo($options['downloadFilename']);
+			$ext = strtolower($info['extension']);
+			$filesize = strlen($options['data']);
+			$options['partial'] = false;
+		} else {
+			// sending contents of file
+			if(!is_file($filename)) throw new WireException("File does not exist");
+			$info = pathinfo($filename);
+			$ext = strtolower($info['extension']);
+			$filesize = filesize($filename);
+		}
+
 		$contentType = isset($contentTypes[$ext]) ? $contentTypes[$ext] : $contentTypes['?'];
 		$forceDownload = $options['forceDownload'];
 		$bytesSent = 0;
@@ -1359,7 +1374,12 @@ class WireHttp extends Wire {
 		$this->sendHeaders();
 		@ob_end_clean();
 		@flush();
-		readfile($filename);
+		
+		if($filename === false) {
+			echo $options['data'];
+		} else {
+			readfile($filename);
+		}
 		
 		if($options['exit']) exit;
 		
