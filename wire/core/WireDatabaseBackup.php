@@ -1007,6 +1007,10 @@ class WireDatabaseBackup {
 	protected function restorePDO($filename, array $options = array()) {
 
 		$fp = fopen($filename, "rb");
+		if($fp === false) {
+			$this->error("Unable to open: $filename"); 
+			return false;
+		}
 		$numInserts = 0;
 		$numTables = 0; 
 		$numQueries = 0;

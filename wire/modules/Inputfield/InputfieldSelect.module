@@ -63,10 +63,9 @@ class InputfieldSelect extends Inputfield {
 	 * If you want to add an optgroup, use the $value param as the label, and the label param as an array of options. 
 	 * Note that optgroups may not be applicable to other Inputfields that descend from InputfieldSelect.
 	 *
-	 * @param string $value Value that the option submits
-	 * @param string $label|array Optional label associated with the value (if null, value will be used as the label)
-	 * @param array $attributes Optional attributes to be associated with this option (i.e. a 'selected' attribute for
-	 *     an <option> tag)
+	 * @param string $value Value that the option submits (or label of optgroup, if specifying an optgroup)
+	 * @param string $label|array Optional label associated with the value (if null, value will be used as the label), or array of optgroup options [value=>label]
+	 * @param array $attributes Optional attributes to be associated with this option (i.e. a 'selected' attribute for an <option> tag)
 	 * @return $this
 	 *
 	 */
@@ -315,7 +314,7 @@ class InputfieldSelect extends Inputfield {
 	public function isOptionSelected($value) {
 
 		$valueAttr = $this->attr('value'); 
-		if(empty($valueAttr)) {
+		if($this->isEmpty()) {
 			// no value set yet, check if it's set in any of the option attributes
 			$selected = false;
 			if(isset($this->optionAttributes[$value])) {
