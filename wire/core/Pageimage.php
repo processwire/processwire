@@ -40,6 +40,11 @@
  * @property-read string $suffixStr String of file suffix(es) separated by comma.
  * @property-read string $alt Convenient alias for the 'description' property, unless overridden (since 3.0.125).
  * @property-read string $src Convenient alias for the 'url' property, unless overridden (since 3.0.125).
+ * @property-read string $urlWebp The url property of an optional WebP-dependency file (since 3.0.132).
+ * @property-read string $srcWebp Convenient alias for the 'urlWebp' property (since 3.0.132).
+ * @property-read string $webpUrl Convenient alias for the 'urlWebp' property (since 3.0.132).
+ * @property-read string $webpSrc Convenient alias for the 'urlWebp' property (since 3.0.132).
+ * @property-read bool $hasWebp Does exist an optional WebP-dependency file for this image variation? (since 3.0.132)
  *
  * Properties inherited from Pagefile
  * ==================================
@@ -173,6 +178,45 @@ class Pageimage extends Pagefile {
 		} else { 
 			return $this->___url();
 		}
+	}
+
+	/**
+	 * Return the web accessible URL to this image files webP dependency, also if no webp copy exists!
+	 * 
+	 * @return string
+	 *
+	 */
+	public function webpUrl() {
+		$path_parts = pathinfo($this->url);
+		$webpUrl = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+		return $webpUrl;
+	}
+
+	/**
+	 * Return the filesystem path to this image files webP dependency
+	 * 
+	 * @return string
+	 *
+	 */
+	public function webpFilename() {
+		if(!$this->hasWebp()) {
+			return '';
+		}
+		$path_parts = pathinfo($this->filename);
+		$webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+		return $webpFilename;
+	}
+
+	/**
+	 * Return if this image file has a webP dependency file
+	 * 
+	 * @return boolean
+	 *
+	 */
+	public function hasWebp() {
+		$path_parts = pathinfo($this->filename());
+		$webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+		return is_readable($webpFilename);
 	}
 
 	/**
@@ -391,6 +435,18 @@ class Pageimage extends Pagefile {
 				$value = parent::get('src');
 				if($value === null) $value = $this->url();
 				break;
+			case 'hasWebp': 
+				$value = $this->hasWebp();
+				break;
+			case 'webpUrl': 
+			case 'webpSrc': 
+			case 'urlWebp': 
+			case 'srcWebp': 
+				$value = $this->webpUrl();
+				break;
+			case 'webpFilename': 
+				$value = $this->webpFilename();
+				break;
 			default: 
 				$value = parent::get($key); 
 		}
@@ -578,7 +634,7 @@ class Pageimage extends Pagefile {
 	 *  - Or you may specify type `int` containing "quality" value.
 	 *  - Or you may specify type `bool` containing "upscaling" value.
 	 * @return Pageimage Returns a new Pageimage object that is a variation of the original. 
-	 *  If the specified dimensions/options are the same as the original, then the original then the original will be returned.
+	 *  If the specified dimensions/options are the same as the original, then the original will be returned.
 	 *
 	 */
 	public function size($width, $height, $options = array()) {
@@ -635,6 +691,8 @@ class Pageimage extends Pagefile {
 			'sharpening' => 'soft',
 			'quality' => 90,
 			'hidpiQuality' => 40, 
+			'webpQuality' => 90,
+			'webpAdd' => false,
 			'suffix' => array(), // can be array of suffixes or string of 1 suffix
 			'forceNew' => false,  // force it to create new image even if already exists
 			'hidpi' => false, 
@@ -736,16 +794,32 @@ class Pageimage extends Pagefile {
 		$filenameUnvalidated = '';
 		$exists = file_exists($filenameFinal);
 
+		$path_parts = pathinfo($filenameFinal);
+		$filenameFinalWebp = $this->pagefiles->path() . $path_parts['filename'] . '.webp';
+		// force new creation if requested webp copy doesn't exist, (regardless if regular variation exists or not)
+		if($options['webpAdd'] && !file_exists($filenameFinalWebp)) {
+			$options['forceNew'] = true;
+		}
+
 		// create a new resize if it doesn't already exist or forceNew option is set
 		if(!$exists && !file_exists($this->filename())) {
 			// no original file exists to create variation from 
 			$this->error = "Original image does not exist to create size variation";
 			
 		} else if(!$exists || $options['forceNew']) {
+			
 			// filenameUnvalidated is temporary filename used for resize
-			$filenameUnvalidated = $this->pagefiles->page->filesManager()->getTempPath() . $basename;
+			$tempDir = $this->pagefiles->page->filesManager()->getTempPath();
+			$filenameUnvalidated = $tempDir . $basename;
+			$path_parts = pathinfo($filenameUnvalidated);
+			$filenameUnvalidatedWebp = $tempDir . $path_parts['filename'] . '.webp';
+			
 			if($exists && $options['forceNew']) $this->wire('files')->unlink($filenameFinal, true);
+			if(file_exists($filenameFinalWebp) && $options['forceNew']) $this->wire('files')->unlink($filenameFinalWebp, true);
+			
 			if(file_exists($filenameUnvalidated)) $this->wire('files')->unlink($filenameUnvalidated, true);
+			if(file_exists($filenameUnvalidatedWebp)) $this->wire('files')->unlink($filenameUnvalidatedWebp, true);
+
 			if(@copy($this->filename(), $filenameUnvalidated)) {
 				try { 
 					
@@ -756,7 +830,13 @@ class Pageimage extends Pagefile {
 					
 					/** @var ImageSizerEngine $engine */
 					$engine = $sizer->getEngine();
-					
+
+					/* if the current engine installation does not support webp, modify the options param */
+					if(isset($options['webpAdd']) && $options['webpAdd'] && !$engine->supported('webp')) {
+						$options['webpAdd'] = false;
+						$engine->setOptions($options);
+					}
+
 					// allow for ImageSizerEngine module settings for quality and sharpening to override system defaults
 					// when they are not specified as an option to this resize() method
 					$engineConfigData = $engine->getConfigData();
@@ -773,6 +853,9 @@ class Pageimage extends Pagefile {
 					
 					if($sizer->resize($width, $height) && @rename($filenameUnvalidated, $filenameFinal)) {
 						$this->wire('files')->chmod($filenameFinal);
+						if($options['webpAdd'] && file_exists(($filenameUnvalidatedWebp)) && @rename($filenameUnvalidatedWebp, $filenameFinalWebp)) {
+							$this->wire('files')->chmod($filenameFinalWebp);
+						}
 					} else {
 						$this->error = "ImageSizer::resize($width, $height) failed for $filenameUnvalidated";
 					}
@@ -805,6 +888,8 @@ class Pageimage extends Pagefile {
 			// error condition: unlink copied file 
 			if(is_file($filenameFinal)) $this->wire('files')->unlink($filenameFinal, true);
 			if($filenameUnvalidated && is_file($filenameUnvalidated)) $this->wire('files')->unlink($filenameUnvalidated);
+			if(is_file($filenameFinalWebp)) $this->wire('files')->unlink($filenameFinalWebp, true);
+			if(is_file($filenameUnvalidatedWebp)) $this->wire('files')->unlink($filenameUnvalidatedWebp, true);
 
 			// we also tell PW about it for logging and/or admin purposes
 			$this->error($this->error);
@@ -1582,6 +1667,17 @@ class Pageimage extends Pagefile {
 				$success = $files->unlink($filename, true);
 			}
 			if($success) $deletedFiles[] = $filename;
+			
+			// Also remove WebP variation, if there exist one
+			$path_parts = pathinfo($filename);
+			$webp = dirname($filename) . '/' . $path_parts['filename'] . '.webp';
+			if(!is_file($webp)) continue;
+			if($options['dryRun']) {
+				$success = true;
+			} else {
+				$success = $files->unlink($webp, true);
+			}
+			if($success) $deletedFiles[] = $webp;
 		}
 
 		if(!$options['dryRun']) $this->variations = null;
@@ -1810,6 +1906,194 @@ class Pageimage extends Pagefile {
 		}
 	}
 
+	
+	/**
+	 * Get verbose DebugInfo, optionally with individual options array, @horst
+	 * (without invoking the magic debug)
+	 * 
+	 * @param array $options The individual options you also passes with your image variation creation
+	 * @param bool $returnType 'string'|'array'|'object', default is 'string' and returns markup or plain text
+	 * @return array|object|string
+	 * 
+	 */
+	public function getDebugInfo($options = array(), $returnType = 'string') {
+		static $depth = 0;
+		$depth++;
+
+		// fetch imagesizer, some infos and some options
+		$oSizer = new ImageSizer($this->filename, $options);
+		$osInfo = $oSizer->getImageInfo(true);
+		$finalOptions = $oSizer->getOptions();
+
+		// build some info parts and fetch some from parent (pagefile)
+		$thumb = array('thumb' => "<img src='{$this->url}' style='max-width:120px; max-height:120px; ".($this->width() >= $this->height() ? 'width:100px; height:auto;' : 'height:100px; width:auto;')."' alt='' />");
+		$original = $this->original ? array('original' => $this->original->basename, 'basename' => $this->basename) : array('original' => '{SELF}', 'basename' => $this->basename);
+		$parent = array('files' => array_merge(
+		        $original,
+				parent::__debugInfo(), 
+				array(
+					'suffix'    => isset($finalOptions['suffix']) ? $finalOptions['suffix'] : '',
+					'extension' => $osInfo['extension']
+				)
+		));
+		// rearange parts
+		unset($parent['files']['filesize']);
+		$parent['files']['filesize'] = filesize($this->filename);
+
+		// VARIATIONS
+		if($depth < 2) {
+			$variationArray = array();
+			$variations = $this->getVariations(array('info' => true, 'verbose' => false));
+			foreach($variations as $name) $variationArray[] = $name;
+		}
+		$depth--;
+		unset($variations, $name);
+
+		// start collecting the $info
+		$info = array_merge($thumb, $parent, 
+			array('variations' => $variationArray), 
+			array('imageinfo' => array(
+				'imageType'   => $osInfo['info']['imageType'],
+				'mime'        => $osInfo['info']['mime'],
+				'width'       => $this->width(),
+				'height'      => $this->height(),
+				'focus'       => $this->hasFocus ? $this->focusStr : NULL,
+				'description' => $parent['files']['description'],
+				'tags'        => $parent['files']['tags'],
+			)) 
+		);
+		unset($info['files']['tags'], $info['files']['description']);
+
+		// beautify the output, remove unnecessary items
+		if(isset($info['files']['filedata']) && isset($info['files']['filedata']['focus'])) unset($info['files']['filedata']['focus']);
+		if(empty($info['files']['filedata'])) unset($info['files']['filedata']);
+		unset($osInfo['info']['mime'], $osInfo['info']['imageType']);
+
+		// add the rest from osInfo to the final $info array
+		foreach($osInfo['info'] as $k => $v) $info['imageinfo'][$k] = $v;
+		$info['imageinfo']['iptcRaw'] = $osInfo['iptcRaw'];
+		unset($osInfo, $thumb, $original, $parent);
+
+		// WEBP
+		$webp = array('webp_copy' => array(
+			'hasWebp'          => $this->hasWebp(),
+			'webpUrl'          => (!$this->hasWebp() ? NULL : $this->webpUrl),
+			'webpQuality'      => (!isset($finalOptions['webpQuality']) ? NULL : $finalOptions['webpQuality']),
+			'filesize'         => (!$this->hasWebp() ? 0 : filesize($this->webpFilename())),
+			'savings'          => (!$this->hasWebp() ? 0 : intval($info['files']['filesize'] - filesize($this->webpFilename()))),
+			'savings_percent'  => (!$this->hasWebp() ? 0 : 100 - intval(filesize($this->webpFilename()) / ($info['files']['filesize'] / 100))),
+		));
+
+		// ENGINES
+		$a = [];
+		$modules = $this->wire('modules');
+		$engines = array_merge($oSizer->getEngines(), array('ImageSizerEngineGD'));
+		foreach($engines as $moduleName) {
+			$configData = $modules->getModuleConfigData($moduleName);
+			$priority = isset($configData['enginePriority']) ? (int) $configData['enginePriority'] : 0;
+			$a[$moduleName] = "priority {$priority}";
+		}
+		asort($a, SORT_STRING);
+		$enginesArray = array(
+			'neededEngineSupport' => strtoupper($oSizer->getImageInfo()),
+			'installedEngines' => $a,
+			'selectedEngine' => $oSizer->getEngine()->className,
+			'engineWebpSupport' => $oSizer->getEngine()->supported('webp')
+		);
+		unset($a, $moduleName, $configData, $engines, $priority, $modules, $oSizer);
+
+		// merge all into $info
+		$info = array_merge($info, $webp, 
+			array('engines'  => $enginesArray),
+			// OPTIONS
+			array('options_hierarchy' => array(
+					'imageSizerOptions' => $this->wire('config')->imageSizerOptions,
+					'individualOptions' => $options,
+					'finalOptions' => $finalOptions
+				)
+			)
+		);
+		unset($variationArray, $webp, $enginesArray, $options, $finalOptions);
+
+		// If not in browser environment, remove the thumb image
+		if(!isset($_SERVER['HTTP_HOST'])) unset($info['thumb']);
+		
+		if('array' == $returnType) {
+			// return as array
+			return $info;  
+		} else if('object' == $returnType) {
+			// return as object
+			$object = new \stdClass();
+			foreach($info as $group => $array) {
+				$object->$group = new \stdClass();
+				if('thumb' == $group) {
+					$object->$group = $array;
+					continue;
+				}
+				$this->array_to_object($array, $object->$group);
+			}
+ 			return $object;
+		}
+		
+		// make a beautyfied var_dump
+		$tmp = $info;
+		$info = array();
+		foreach($tmp as $group => $array) {
+			$info[mb_strtoupper($group)] = $array;
+		}
+		unset($tmp, $group, $array);
+		ob_start();
+		var_dump($info);
+		$content = ob_get_contents();
+		ob_end_clean();
+		$m = 0;
+		preg_match_all('#^(.*)=>#mU', $content, $stack);
+		$lines = $stack[1];
+		$indents = array_map('strlen', $lines);
+		if($indents) $m = max($indents) + 1;
+		$content = preg_replace_callback(
+			'#^(.*)=>\\n\s+(\S)#Um',
+			function($match) use ($m) {
+				return $match[1] . str_repeat(' ', ($m - strlen($match[1]) > 1 ? $m - strlen($match[1]) : 1)) . $match[2];
+			},
+			$content
+		);
+		$content = preg_replace('#^((\s*).*){$#m', "\\1\n\\2{", $content);
+		$content = str_replace(array('<pre>', '</pre>'), '', $content);
+		if(isset($_SERVER['HTTP_HOST'])) {
+			// build output for HTML
+			$return = "<pre style=\"margin:10px; padding:10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:'Hack Regular', 'Source Code Pro', 'Envy Code R', 'Noto mono', 'Liberation Mono', 'Consolas', 'Lucida Console', 'DejaVu Sans Mono', 'LetterGothicStd', 'Courier New', 'Courier', monospace; font-size:12px; line-height:15px; overflow:auto;\">{$content}</pre>";
+		} else {
+			// output for Console
+			$return = $content;
+		}
+		
+		return $return;
+	}
+	
+	/**
+	 * Helper method that converts a multidim array to a multidim object for the getDebugInfo method
+	 * 
+	 * @param array $array the input array
+	 * @param object $object the initial object, gets passed recursive by reference through all loops
+	 * @param bool $multidim set this to true to avoid multidimensional object
+	 * @return object the final multidim object
+	 * 
+	 */
+	private function array_to_object($array, &$object, $multidim = true) {
+		foreach($array as $key => $value) {
+			if($multidim && is_array($value)) {
+				$object->$key = new \stdClass();
+				$this->array_to_object($value, $object->$key, false);
+			} else {
+				$object->$key = $value;
+			}
+		}
+		return $object;
+	}
+
+	
+	
 	/**
 	 * Debug info
 	 * 
