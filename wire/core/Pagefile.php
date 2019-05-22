@@ -39,6 +39,7 @@
  * @property Pagefiles $pagefiles The Pagefiles WireArray that contains this file. #pw-group-other
  * @property Page $page The Page object that this file is part of. #pw-group-other
  * @property Field $field The Field object that this file is part of. #pw-group-other
+ * @property array $filedata
  * 
  * @method void install($filename)
  * @method string httpUrl()
@@ -388,7 +389,7 @@ class Pagefile extends WireData {
 	 * - To SET in all languages as a JSON string: Specify boolean true, plus the JSON string $value as the 2nd argument (internal use only).
 	 * - To SET in all languages as an array: Specify the array here, indexed by language ID or name, and omit 2nd argument. 
 	 * @param null|string $value Specify only when you are setting (single language) rather than getting a value.
-	 * @return string
+	 * @return string|array
 	 *
 	 */
 	public function description($language = null, $value = null) {
@@ -564,7 +565,7 @@ class Pagefile extends WireData {
 	 * 
 	 * #pw-group-traversal
 	 *
-	 * @return Pagefile|null
+	 * @return Pagefile|Wire|null
 	 *	
 	 */
 	public function getNext() {
@@ -576,7 +577,7 @@ class Pagefile extends WireData {
 	 * 
 	 * #pw-group-traversal
 	 *
-	 * @return Pagefile|null
+	 * @return Pagefile|Wire|null
 	 *	
 	 */
 	public function getPrev() {

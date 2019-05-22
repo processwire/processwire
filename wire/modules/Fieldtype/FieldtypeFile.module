@@ -117,6 +117,7 @@ class FieldtypeFile extends FieldtypeMulti {
 		$inputfieldClass = $field->get('inputfieldClass');
 		if($inputfieldClass) $inputfield = $this->modules->get($inputfieldClass); 
 		if(!$inputfield) $inputfield = $this->modules->get($this->defaultInputfieldClass); 
+		/** @var Inputfield $inputfield */
 		$inputfield->class = $this->className();
 
 		$this->setupHooks($page, $field, $inputfield); 
@@ -228,7 +229,7 @@ class FieldtypeFile extends FieldtypeMulti {
 	 * @param Page $page
 	 * @param Field $field
 	 * @param string|int|array|object $value
-	 * @return string|int
+	 * @return array
 	 *
 	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {

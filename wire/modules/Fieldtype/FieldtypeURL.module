@@ -40,9 +40,9 @@ class FieldtypeURL extends FieldtypeText {
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
 		return $this->sanitizer->url($value, array(
-			'allowRelative' => $field->noRelative ? false : true,
-			'allowIDN' => $field->allowIDN ? true : false,
-			'stripQuotes' => $field->allowQuotes ? false : true
+			'allowRelative' => $field->get('noRelative') ? false : true,
+			'allowIDN' => $field->get('allowIDN') ? true : false,
+			'stripQuotes' => $field->get('allowQuotes') ? false : true
 		));
 	}
 
@@ -50,13 +50,13 @@ class FieldtypeURL extends FieldtypeText {
 	public function getInputfield(Page $page, Field $field) {
 		/** @var InputfieldURL $inputfield */
 		$inputfield = $this->modules->get('InputfieldURL'); 
-		$inputfield->set('noRelative', $field->noRelative); 
-		$inputfield->set('addRoot', $field->addRoot); 
+		$inputfield->set('noRelative', $field->get('noRelative')); 
+		$inputfield->set('addRoot', $field->get('addRoot')); 
 		return $inputfield; 
 	}
 
 	public function ___formatValue(Page $page, Field $field, $value) {
-		if($field->addRoot && !$field->noRelative && substr($value, 0, 1) == '/') {
+		if($field->get('addRoot') && !$field->get('noRelative') && substr($value, 0, 1) == '/') {
 			$root = rtrim($this->config->urls->root, '/');
 			$value = $root . $value; 
 		}		
@@ -84,7 +84,7 @@ class FieldtypeURL extends FieldtypeText {
 		$f->label = $this->_('Allow relative/local URLs without "http://" at the beginning?');
 		$f->addOption(0, $labelYes);
 		$f->addOption(1, $labelNo);
-		$f->attr('value', $field->noRelative ? 1 : 0);
+		$f->attr('value', $field->get('noRelative') ? 1 : 0);
 		$f->description = $this->_('Local/relative URLs are those without scheme and domain.');
 		$f->columnWidth = 33;
 		$f->optionColumns = 1;
@@ -95,7 +95,7 @@ class FieldtypeURL extends FieldtypeText {
 		$f->label = $this->_('Allow internationalized domain names (IDNs)?');
 		$f->addOption(1, $labelYes);
 		$f->addOption(0, $labelNo);
-		$f->attr('value', $field->allowIDN ? 1 : 0);
+		$f->attr('value', $field->get('allowIDN') ? 1 : 0);
 		$f->description = $this->_('When enabled, non-ASCII domain names are allowed.');
 		$f->columnWidth = 33;
 		$f->optionColumns = 1;
@@ -106,7 +106,7 @@ class FieldtypeURL extends FieldtypeText {
 		$f->label = $this->_('Allow single/double quote characters in URLs?');
 		$f->addOption(1, $labelYes);
 		$f->addOption(0, $labelNo);
-		$f->attr('value', $field->allowQuotes ? 1 : 0);
+		$f->attr('value', $field->get('allowQuotes') ? 1 : 0);
 		$f->description = $this->_('When enabled, you should be absolutely certain such URLs are entity encoded when used in markup.');
 		$f->columnWidth = 34;
 		$f->optionColumns = 1;
@@ -117,16 +117,18 @@ class FieldtypeURL extends FieldtypeText {
 		$f->label = $this->_("Prepend site's root path to local/relative URLs?");
 		$f->addOption(1, $labelYes);
 		$f->addOption(0, $labelNo);
-		$f->attr('value', $field->addRoot ? 1 : 0);
+		$f->attr('value', $field->get('addRoot') ? 1 : 0);
 		$f->description = $this->_("This option will automatically prepend the site's root path to any URLs that start with a slash, like /some/path/. This is useful if your site is running from a subdirectory because you won't have to include that subdirectory in the URLs you enter into this field. Should you later move your site to the root of a domain (or another subdirectory) you won't have to worry about broken URLs. With this option enabled, always enter URLs as if the site were running from the root of a domain, regardless of whether it's running from a subdirectory or not. Naturally this is applicable only if you selected 'Yes' to allowing local/relative URLs in the field above. Developers may also want to note that this option applies only when a page's outputFormatting is on."); // addRoot description
 		$f->notes = $this->_("Ensures that URLs aren't broken when moving a site from a subdirectory to root (the most common example)."); // addRoot notes
-		$f->collapsed = $field->addRoot ? Inputfield::collapsedNo : Inputfield::collapsedYes;
+		$f->collapsed = $field->get('addRoot') ? Inputfield::collapsedNo : Inputfield::collapsedYes;
 		$f->optionColumns = 1;
 		$f->showIf = "noRelative=0";
 		$inputfields->add($f);
 
 		return $inputfields;
 	}
+	
+	// @todo add markupValue()
 
 }
 

@@ -57,6 +57,12 @@ class PagefilesManager extends Wire {
 	const extendedDirName = '0/';
 
 	/**
+	 * Name of file that maintains the last modification time independent of directory (LATER/FUTURE)
+	 * 
+	const metaFileName = '.pw';
+	 */
+
+	/**
 	 * Reference to the Page object this PagefilesManager is managing
 	 * 
 	 * @var Page
@@ -483,6 +489,7 @@ class PagefilesManager extends Wire {
 		if(!$dir) return false; 
 		$has = false; 
 		while(!$has && ($f = readdir($dir)) !== false) $has = $f !== '..' && $f !== '.';
+		// while(!$has && ($f = readdir($dir)) !== false) $has = $f !== '..' && $f !== '.' && !$f !== self::metaFileName;
 		return $has; 
 	}
 
@@ -624,5 +631,48 @@ class PagefilesManager extends Wire {
 		// if(is_null($wtd)) $wtd = $this->wire(new WireTempDir($this->className() . $this->page->id));
 		// return $wtd->get();
 	}
-	
+
+	/**
+	 * Have this page’s files had modifications since last isModified(true) call? (FUTURE USE)
+	 *
+	 * Please note the following:
+	 *
+	 * - This only takes into account files in the actual directory and not subdirectories unless
+	 *   the $recursive option is true.
+	 *
+	 * - This method always returns true the first time it has been called on a given path.
+	 *
+	 * @param bool $reset Reset to current time if modified? Ensures future calls return false until modified again. (default=false)
+	 * @param bool $recursive Descend into directories (max 1 level)? (default=false)
+	 * @param string $path Path to check if not default, primarily for internal recursive use. (default='')
+	 * @return bool True if files in directory have been modified since last reset, or false if not
+	 *
+	public function isModified($reset = false, $recursive = false, $path = '') {
+		$files = $this->wire('files');
+		$path = empty($path) ? $this->path() : $files->unixDirName($path);
+		$file = $path . self::metaFileName;
+		if(!file_exists($file)) {
+			touch($file);
+			$files->chmod($file);
+			$isModified = true;
+		} else {
+			$fileTime = filemtime($file);
+			$pathTime = filemtime($path);
+			$isModified = $pathTime > $fileTime;
+			if($isModified && $reset) touch($file);
+		}
+		if($recursive && !$isModified) {
+			$dirs = array();
+			foreach(new \DirectoryIterator($path) as $item) {
+				if($item->isDot() || !$item->isDir()) continue;
+				$dirs[] = $item->getPathname();
+			}
+			foreach($dirs as $dir) {
+				$isModified = $this->isModified($reset, false, $dir);
+				if($isModified) break;
+			}
+		}
+		return $isModified;
+	}
+	 */
 }

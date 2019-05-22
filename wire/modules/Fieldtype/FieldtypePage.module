@@ -240,7 +240,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 * @param Page $page
 	 * @param Field $field
 	 * @param string|int|array|object $value
-	 * @return string|int
+	 * @return array
 	 *
 	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {
@@ -717,7 +717,6 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 * @param string $operator The comparison operator
 	 * @param mixed $value The value to find
 	 * @return DatabaseQuery $query
-	 * @throws WireException if given invalid or unrecognized arguments
 	 *
 	 */
 	protected function getLoadQueryWhere(Field $field, DatabaseQuerySelect $query, $col, $operator, $value) {
@@ -733,7 +732,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 * @param string $subfield
 	 * @param string $operator
 	 * @param string $value
-	 * @return DatabaseQuerySelect
+	 * @return DatabaseQuery
 	 * @throws WireException
 	 *
 	 */
@@ -1502,7 +1501,6 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 * @param Field|array $field Field object or array with all possible template IDs
 	 * @param bool $getString Specify true to return a 1|2|3 style string rather than an array
 	 * @return array|string
-	 * @throws WireException
 	 *
 	 */
 	static public function getTemplateIDs($field, $getString = false) {
