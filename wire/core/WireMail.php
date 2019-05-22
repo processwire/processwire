@@ -52,6 +52,8 @@
  * 
  * @method int send() Send email. 
  * @method string htmlToText($html) Convert HTML email body to TEXT email body. 
+ * @method string sanitizeHeaderName($name) #pw-internal
+ * @method string sanitizeHeaderValue($value) #pw-internal
  * 
  * @property array $to To email address.
  * @property array $toName Optional person’s name to accompany “to” email address
@@ -67,6 +69,7 @@
  * @property array $param Associative array of aditional params (likely not applicable to most WireMail modules). 
  * @property array $attachments Array of file attachments (if populated and where supported) #pw-advanced
  * @property string $newline Newline character, populated only if different from CRLF. #pw-advanced
+ * 
  *
  */
 
@@ -160,14 +163,46 @@ class WireMail extends WireData implements WireMailInterface {
 	}
 
 	/**
-	 * Sanitize string for use in a email header
+	 * Sanitize and normalize a header name
+	 *
+	 * @param string $name
+	 * @return string
+	 * @since 3.0.132
+	 *
+	 */
+	protected function ___sanitizeHeaderName($name) {
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		$name = $sanitizer->emailHeader($name, true);
+		// ensure consistent capitalization for header names
+		$name = ucwords(str_replace('-', ' ', $name));
+		$name = str_replace(' ', '-', $name);
+		return $name;
+	}
+
+	/**
+	 * Sanitize an email header header value
+	 *
+	 * @param string $value
+	 * @return string
+	 * @since 3.0.132
+	 *
+	 */
+	protected function ___sanitizeHeaderValue($value) {
+		return $this->wire('sanitizer')->emailHeader($value); 
+	}
+
+	/**
+	 * Alias of sanitizeHeaderValue() method for backwards compatibility
 	 * 
+	 * #pw-internal
+	 *
 	 * @param string $header
 	 * @return string
-	 * 
+	 *
 	 */
 	protected function sanitizeHeader($header) {
-		return $this->wire('sanitizer')->emailHeader($header); 
+		return $this->sanitizeHeaderValue($header);
 	}
 
 	/**
@@ -182,7 +217,7 @@ class WireMail extends WireData implements WireMailInterface {
 		if(strpos($email, '<') !== false && strpos($email, '>') !== false) {
 			// email has separate from name and email
 			if(preg_match('/^(.*?)<([^>]+)>.*$/', $email, $matches)) {
-				$name = $this->sanitizeHeader($matches[1]);
+				$name = $this->sanitizeHeaderValue($matches[1]);
 				$email = $matches[2]; 
 			}
 		}
@@ -203,7 +238,7 @@ class WireMail extends WireData implements WireMailInterface {
 	protected function bundleEmailAndName($email, $name) {
 		$email = $this->sanitizeEmail($email); 
 		if(!strlen($name)) return $email;
-		$name = $this->sanitizeHeader($name); 
+		$name = $this->sanitizeHeaderValue($name); 
 		$delim = '';
 		if(strpos($name, ',') !== false) {
 			// name contains a comma, so quote the value
@@ -265,7 +300,7 @@ class WireMail extends WireData implements WireMailInterface {
 			$toEmail = $this->sanitizeEmail($toEmail); 
 			if(strlen($toEmail)) {
 				$this->mail['to'][$toEmail] = $toEmail;
-				$this->mail['toName'][$toEmail] = $this->sanitizeHeader($toName);
+				$this->mail['toName'][$toEmail] = $this->sanitizeHeaderValue($toName);
 			}
 		}
 
@@ -289,7 +324,7 @@ class WireMail extends WireData implements WireMailInterface {
 		$emails = $this->mail['to']; 
 		if(!count($emails)) throw new WireException("Please set a 'to' address before setting a name."); 
 		$email = end($emails); 
-		$this->mail['toName'][$email] = $this->sanitizeHeader($name); 
+		$this->mail['toName'][$email] = $this->sanitizeHeaderValue($name); 
 		return $this;
 	}
 
@@ -324,7 +359,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 *
 	 */
 	public function fromName($name) {
-		$this->mail['fromName'] = $this->sanitizeHeader($name); 
+		$this->mail['fromName'] = $this->sanitizeHeaderValue($name); 
 		return $this; 
 	}
 
@@ -343,7 +378,7 @@ class WireMail extends WireData implements WireMailInterface {
 		} else {
 			$email = $this->sanitizeEmail($email);
 		}
-		if($name) $this->mail['replyToName'] = $this->sanitizeHeader($name); 
+		if($name) $this->mail['replyToName'] = $this->sanitizeHeaderValue($name); 
 		$this->mail['replyTo'] = $email;
 		if(empty($name) && !empty($this->mail['replyToName'])) $name = $this->mail['replyToName']; 
 		if(strlen($name)) $email = $this->bundleEmailAndName($email, $name); 
@@ -360,7 +395,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 */
 	public function replyToName($name) {
 		if(strlen($this->mail['replyTo'])) return $this->replyTo($this->mail['replyTo'], $name); 
-		$this->mail['replyToName'] = $this->sanitizeHeader($name);
+		$this->mail['replyToName'] = $this->sanitizeHeaderValue($name);
 		return $this; 
 	}
 
@@ -372,7 +407,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 *
 	 */
 	public function subject($subject) {
-		$this->mail['subject'] = $this->sanitizeHeader($subject); 	
+		$this->mail['subject'] = $this->sanitizeHeaderValue($subject); 	
 		return $this; 
 	}
 
@@ -430,15 +465,13 @@ class WireMail extends WireData implements WireMailInterface {
 			if(is_array($key)) {
 				$this->headers($key);
 			} else {
+				$key = $this->sanitizeHeaderName($key);
 				unset($this->mail['header'][$key]);
 			}
-		} else { 
-			$k = $this->wire('sanitizer')->name($this->sanitizeHeader($key)); 
-			// ensure consistent capitalization for all header keys
-			$k = ucwords(str_replace('-', ' ', $k)); 
-			$k = str_replace(' ', '-', $k); 
-			$v = $this->sanitizeHeader($value); 
-			$this->mail['header'][$k] = $v; 
+		} else {
+			$key = $this->sanitizeHeaderName($key);
+			$value = $this->sanitizeHeaderValue($value); 
+			if(strlen($key)) $this->mail['header'][$key] = $value; 
 		}
 		return $this; 
 	}
@@ -761,9 +794,7 @@ class WireMail extends WireData implements WireMailInterface {
 	 * 
 	 */
 	protected function ___htmlToText($html) {
-		$textTools = new WireTextTools();
-		$this->wire($textTools);
-		$text = $textTools->markupToText($html);
+		$text = $this->wire('sanitizer')->getTextTools()->markupToText($html);
 		$text = str_replace("\n", "\r\n", $text); 
 		$text = $this->strReplace($text, $this->multipartBoundary()); 
 		return $text;

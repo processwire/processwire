@@ -1093,18 +1093,23 @@ class Sanitizer extends Wire {
 	}
 
 	/**
-	 * Returns a value that may be used in an email header
+	 * Returns a value that may be used in an email header 
+	 * 
+	 * This method is designed to prevent one email header from injecting into another. 
 	 * 
 	 * #pw-group-strings
 	 *
 	 * @param string $value
+	 * @param bool $headerName Sanitize a header name rather than header value? (default=false) Since 3.0.132
 	 * @return string
 	 *
 	 */ 
-	public function emailHeader($value) {
+	public function emailHeader($value, $headerName = false) {
 		if(!is_string($value)) return '';
-		$a = array("\n", "\r", "<CR>", "<LF>", "0x0A", "0x0D", "%0A", "%0D", 'content-type:', 'bcc:', 'cc:', 'to:', 'reply-to:'); 
-		return trim(str_ireplace($a, ' ', $value));
+		$a = array("\n", "\r", "<CR>", "<LF>", "0x0A", "0x0D", "%0A", "%0D"); // newlines
+		$value = trim(str_ireplace($a, ' ', stripslashes($value)));
+		if($headerName) $value = trim(preg_replace('/[^-_a-zA-Z0-9]/', '-', trim($value, ':')), '-'); 
+		return $value;
 	}
 
 	/**
@@ -1354,6 +1359,16 @@ class Sanitizer extends Wire {
 	/**
 	 * Convert a string containing markup or entities to be plain text
 	 * 
+	 * This is one implementation but there is also a better one that you may prefer with the
+	 * `WireTextTools::markupToText()` method:
+	 * 
+	 * ~~~~~
+	 * $markup = '<html>a bunch of HTML here</html>';
+	 * // try both to see what you prefer:
+	 * $text1 = $sanitizer->markupToText($html);
+	 * $text2 = $sanitizer->getTextTools()->markupToText(); 
+	 * ~~~~~
+	 * 
 	 * #pw-group-strings
 	 * 
 	 * @param string $value String you want to convert
@@ -1363,6 +1378,7 @@ class Sanitizer extends Wire {
 	 *   - `entities` (bool): Entity encode returned value? (default=false). 
 	 *   - `trim` (string): Character(s) to trim from beginning and end of value (default=" -,:;|\n\t").
 	 * @return string Converted string of text
+	 * @see WireTextTools::markupToText() for different though likely better (for most cases) implementation. 
 	 * 
 	 */	
 	public function markupToText($value, array $options = array()) {

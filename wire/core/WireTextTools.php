@@ -46,28 +46,44 @@ class WireTextTools extends Wire {
 	 *  - `splitBlocks` (string): String to split paragraph and header elements. (default="\n\n")
 	 *  - `convertEntities` (bool): Convert HTML entities to plain text equivalents? (default=true)
 	 *  - `listItemPrefix` (string): Prefix for converted list item `<li>` elements. (default='• ')
+	 *  - `linksToUrls` (bool): Convert links to "(url)" rather than removing entirely? (default=true) Since 3.0.132
+	 *  - `uppercaseHeadlines` (bool): Convert headline tags to uppercase? (default=false) Since 3.0.132
+	 *  - `underlineHeadlines` (bool): Underline headlines with "=" or "-"? (default=true) Since 3.0.132
+	 *  - `collapseSpaces` (bool): Collapse extra/redundant extra spaces to single space? (default=true) Since 3.0.132
 	 *  - `replacements` (array): Associative array of strings to manually replace. (default=['&nbsp;' => ' '])
 	 * @return string
 	 *
 	 */
 	public function markupToText($str, array $options = array()) {
-
+		
 		$defaults = array(
 			'keepTags' => array(), 
+			'linksToUrls' => true, // convert links to just URL rather than removing entirely
 			'splitBlocks' => "\n\n",
+			'uppercaseHeadlines' => false, 
+			'underlineHeadlines' => true, 
 			'convertEntities' => true, 
 			'listItemPrefix' => '• ', 
+			'preIndent' => '', // indent for text within a <pre>
+			'collapseSpaces' => true,
 			'replacements' => array(
 				'&nbsp;' => ' '
 			),
+			'finishReplacements' => array(), // replacements applied at very end (internal)
 		);
 
+		// merge options using arrays
+		foreach(array('replacements') as $key) {
+			if(!isset($options[$key])) continue;
+			$options[$key] = array_merge($defaults[$key], $options[$key]);
+		}
+		
 		$options = array_merge($defaults, $options);
 
 		if(strpos($str, '>') !== false) {
 
 			// strip out everything up to and including </head>, if present
-			if(strpos($str, '</head>') !== false) list(, $str) = explode('</head>', $str); 
+			if(strpos($str, '</head>') !== false) list(, $str) = explode('</head>', $str);
 
 			// ensure tags are separated by whitespace
 			$str = str_replace('><', '> <', $str);
@@ -83,21 +99,78 @@ class WireTextTools extends Wire {
 			}
 
 			// ensure paragraphs and headers are followed by two newlines
-			if(stripos($str, '</p>') || stripos($str, '</h')) {
-				$str = preg_replace('!(</(?:p|h\d)>)!i', '$1' . $options['splitBlocks'], $str);
+			if(stripos($str, '</p') || stripos($str, '</h') || stripos($str, '</li') || stripos($str, '</bl') || stripos($str, '</div')) {
+				$str = preg_replace('!(</(?:p|h\d|ul|ol|pre|blockquote|div)>)!i', '$1' . $options['splitBlocks'], $str);
 			}
 
 			// ensure list items are on their own line and prefixed with a bullet
 			if(stripos($str, '<li') !== false) {
-				$prefix = in_array('li', $options['keepTags']) ? '' : $options['listItemPrefix']; 
-				$str = preg_replace('![\s\r\n]+<li[^>]*>!i', "\n<li>$prefix", $str);
+				$prefix = in_array('li', $options['keepTags']) ? '' : $options['listItemPrefix'];
+				$str = preg_replace('![\s\r\n]+<li[^>]*>[\s\r\n]*!i', "\n<li>$prefix", $str);
+				if($prefix) $options['replacements']["\n$prefix "] = "\n$prefix"; // prevent extra space
 			}
 
 			// convert <br> tags to be just a single newline
 			if(stripos($str, '<br') !== false) {
-				$str = str_replace(array('<br>', '<br/>', '<br />'), "<br>\n", $str);
+				$str = str_replace(array('<br>', '<br/>', '<br />', '</li>'), "<br>\n", $str);
 				while(stripos($str, "\n<br>") !== false) $str = str_replace("\n<br>", "<br>", $str);
 				while(stripos($str, "<br>\n\n") !== false) $str = str_replace("<br>\n\n", "<br>\n", $str);
+			}
+
+			// make headlines more prominent with underlines or uppercase
+			if(($options['uppercaseHeadlines'] || $options['underlineHeadlines']) && stripos($str, '<h') !== false) {
+				$topHtag = '';
+				if($options['underlineHeadlines']) {
+					// determine which is the top level headline tag 
+					for($n = 1; $n <= 6; $n++) {
+						if(stripos($str, "<h$n") === false) continue;
+						$topHtag = "h$n";
+						break;
+					}
+				}
+				if(preg_match_all('!<(h[123456])[^>]*>(.+?)</\1>!is', $str, $matches)) {
+					foreach($matches[2] as $key => $headline) {
+						$fullMatch = $matches[0][$key];
+						$tagName = strtolower($matches[1][$key]);
+						$underline = '';
+						if($options['underlineHeadlines']) {
+							$char = $tagName === $topHtag ? '=' : '-';
+							$underline = "\n" . str_repeat($char, $this->strlen($headline));
+						}
+						if($options['uppercaseHeadlines']) $headline = strtoupper($headline);
+						$str = str_replace($fullMatch, "<$tagName>$headline</$tagName>$underline", $str);
+					}
+				}
+			}
+		
+			// convert "<a href='url'>text</a>" tags to "text (url)"
+			if($options['linksToUrls'] && stripos($str, '<a ') !== false) {
+				if(preg_match_all('!<a\s[^<>]*href=([^\s>]+)[^<>]*>(.+?)</a>!is', $str, $matches)) {
+					$links = array();
+					foreach($matches[0] as $key => $fullMatch) {
+						$href = trim($matches[1][$key], '"\'');
+						if(strpos($href, '#') === 0) continue; // do not convert jumplinks
+						$anchorText = $matches[2][$key];
+						$links[$fullMatch] = "$anchorText ($href)";
+					}
+					if(count($links)) {
+						$str = str_replace(array_keys($links), array_values($links), $str); 
+					}
+				}
+			}
+		
+			// indent within <pre>...</pre> sections
+			if(strlen($options['preIndent']) && strpos($str, '<pre') !== false) {
+				if(preg_match_all('!<pre(?:>|\s[^>]*>)(.+?)</pre>!is', $str, $matches)) {
+					foreach($matches[0] as $key => $fullMatch) {
+						$lines = explode("\n", $matches[1][$key]);
+						foreach($lines as $k => $line) {
+							$lines[$k] = ':preIndent:' . rtrim($line); 
+						}
+						$str = str_replace($fullMatch, implode("\n", $lines), $str); 
+						$options['finishReplacements'][':preIndent:'] = $options['preIndent'];
+					}
+				}
 			}
 		}
 		
@@ -126,11 +199,20 @@ class WireTextTools extends Wire {
 		if($options['convertEntities'] && strpos($str, '&') !== false) {
 			$str = $this->wire('sanitizer')->unentities($str);
 		}
+	
+		// collapse any redundant/extra whitespace
+		if($options['collapseSpaces']) {
+			while(strpos($str, '  ') !== false) $str = str_replace('  ', ' ', $str);
+		}
 		
 		// normalize newlines and whitespace around newlines
 		while(strpos($str, " \n") !== false) $str = str_replace(" \n", "\n", $str);
 		while(strpos($str, "\n ") !== false) $str = str_replace("\n ", "\n", $str);
 		while(strpos($str, "\n\n\n") !== false) $str = str_replace("\n\n\n", "\n\n", $str);
+		
+		if(count($options['finishReplacements'])) {
+			$str = str_replace(array_keys($options['finishReplacements']), array_values($options['finishReplacements']), $str); 
+		}
 
 		return trim($str);
 	}
