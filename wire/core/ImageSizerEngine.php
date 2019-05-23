@@ -3,15 +3,13 @@
 /**
  * ImageSizer Engine Module (Abstract)
  * 
- * Copyright (C) 2016 by Horst Nogajski and Ryan Cramer
+ * Copyright (C) 2016-2019 by Horst Nogajski and Ryan Cramer
  * This file licensed under Mozilla Public License v2.0 http://mozilla.org/MPL/2.0/
  *
  * @property bool $autoRotation
  * @property bool $upscaling
  * @property bool $interlace
  * @property array|string|bool $cropping
- * @property bool $webpAdd
- * @property int $webpQuality
  * @property int $quality
  * @property string $sharpening
  * @property float $defaultGamma
@@ -20,6 +18,9 @@
  * @property string $flip
  * @property bool $useUSM
  * @property int $enginePriority Priority for use among other ImageSizerEngine modules (0=disabled, 1=first, 2=second, 3=and so on)
+ * @property bool $webpAdd
+ * @property int $webpQuality
+ * @property bool|null $webpResult
  * 
  */
 abstract class ImageSizerEngine extends WireData implements Module, ConfigurableModule {
@@ -77,6 +78,14 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 *
 	 */
 	protected $webpAdd = false;
+
+	/**
+	 * webp result (null=not known or not applicable)
+	 * 
+	 * @var bool|null
+	 * 
+	 */
+	protected $webpResult = null;
 
 	/**
 	 * Image interlace setting, false or true
@@ -902,10 +911,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 *
 	 */
 	public function setQuality($n) {
-		$n = (int) $n;
-		if($n < 1) $n = 1;
-		else if($n > 100) $n = 100;
-		$this->quality = $n;
+		$this->quality = $this->getIntegerValue($n, 1, 100);
 		return $this;
 	}
 
@@ -918,10 +924,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 *
 	 */
 	public function setWebpQuality($n) {
-		$n = (int) $n;
-		if($n < 1) $n = 1;
-		else if($n > 100) $n = 100;
-		$this->webpQuality = $n;
+		$this->webpQuality = $this->getIntegerValue($n, 1, 100);
 		return $this;
 	}
 
@@ -1252,6 +1255,25 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		if(in_array(strtolower($value), array('0', 'off', 'false', 'no', 'n', 'none'))) return false;
 		return ((int) $value) > 0;
 	}
+	
+	/**
+	 * Get integer value within given range
+	 *
+	 * @param int $n Number to require in given range
+	 * @param int $min Minimum allowed number
+	 * @param int $max Maximum allowed number
+	 * @return int
+	 *
+	 */
+	protected function getIntegerValue($n, $min, $max) {
+		$n = (int) $n;
+		if($n < $min) {
+			$n = $min;
+		} else if($n > $max) {
+			$n = $max;
+		}
+		return $n;
+	}
 
 	/**
 	 * Return an array of the current options
@@ -1305,6 +1327,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			'options'
 		);
 
+		if($key === 'webpResult') return $this->webpResult;
 		if(in_array($key, $keys)) return $this->$key;
 		if(in_array($key, $this->optionNames)) return $this->$key;
 		if(isset($this->options[$key])) return $this->options[$key];

@@ -8,10 +8,12 @@
  *
  * Other user contributions as noted.
  *
- * Copyright (C) 2016 by Horst Nogajski and Ryan Cramer
+ * Copyright (C) 2016-2019 by Horst Nogajski and Ryan Cramer
  * This file licensed under Mozilla Public License v2.0 http://mozilla.org/MPL/2.0/
  *
  * https://processwire.com
+ * 
+ * @method bool imSaveReady($im, $filename)
  *
  */
 class ImageSizerEngineGD extends ImageSizerEngine {
@@ -33,6 +35,22 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 	 * 
 	 */
 	protected $gammaLinearized;
+
+	/**
+	 * webp-only toggle for future use
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $webpOnly = false;
+
+	/**
+	 * Webp support available?
+	 * 
+	 * @var bool|null
+	 * 
+	 */
+	static protected $webpSupport = null;
 
 	/**
 	 * Get formats GD and resize
@@ -72,12 +90,12 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 				break;
 			
 			case 'webp':
-				if(!isset($this->wire('config')->webpSupportGD)) {
+				if(self::$webpSupport === null) {
 					// only call it once
 					$gd  = gd_info();
-					$this->wire('config')->webpSupportGD = isset($gd['WebP Support']) ? $gd['WebP Support'] : false;
+					self::$webpSupport = isset($gd['WebP Support']) ? $gd['WebP Support'] : false;
 				}
-				return $this->wire('config')->webpSupportGD;
+				return self::$webpSupport;
 				break;
 			
 			case 'install':
@@ -335,61 +353,29 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 
 		// write to file(s)
 		if(file_exists($dstFilename)) $this->wire('files')->unlink($dstFilename);
-		$result = false;
+		
+		$result = null; // null=not yet known
+		
 		switch($this->imageType) {
 			
 			case \IMAGETYPE_GIF:
 				// correct gamma from linearized 1.0 back to 2.0
 				$this->gammaCorrection($thumb, false);
-
-				// If only a WebP file is required
-				if($this->webpOnly) {
-					$result = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
-					
-				} else {
-					// optionally save an additional WebP file
-					if($this->webpAdd) {
-						$resultWebp = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
-					}
-					
-					// save the final GIF image file
-					$result = imagegif($thumb, $dstFilename);
-				}
+				// save the final GIF image file
+				if($this->imSaveReady($thumb, $srcFilename)) $result = imagegif($thumb, $dstFilename);
 				break;
 				
 			case \IMAGETYPE_PNG:
 				// optionally correct gamma from linearized 1.0 back to 2.0
 				if(!$this->hasAlphaChannel()) $this->gammaCorrection($thumb, false);
-				
-				// If only a WebP file is required
-				if($this->webpOnly) {
-					$result = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
-					
-				} else {
-					// optionally save an additional WebP file
-					if($this->webpAdd) {
-						$resultWebp = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
-					}
-					
-					// save the final PNG image file and always use highest compression level (9) per @horst
-					$result = imagepng($thumb, $dstFilename, 9);
-				}
+				// save the final PNG image file and always use highest compression level (9) per @horst
+				if($this->imSaveReady($thumb, $srcFilename)) $result = imagepng($thumb, $dstFilename, 9);
 				break;
 
 			case \IMAGETYPE_JPEG:
 				// correct gamma from linearized 1.0 back to 2.0
 				$this->gammaCorrection($thumb, false);
-				
-				// If only a WebP file is required
-				if($this->webpOnly) {
-					$result = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
-					
-				} else {
-					// optionally save an additional WebP file
-					if($this->webpAdd) {
-						$resultWebp = $this->imSaveWebP($thumb, $srcFilename, $this->webpQuality);
-					}
-					
+				if($this->imSaveReady($thumb, $srcFilename)) {
 					// optionally apply interlace bit to the final image. this will result in progressive JPEGs
 					if($this->interlace) {
 						if(0 == imageinterlace($thumb, 1)) {
@@ -397,18 +383,38 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 							// ...
 						}
 					}
-					
 					// save the final JPEG image file
 					$result = imagejpeg($thumb, $dstFilename, $this->quality);
 				}
 				break;
+				
+			default:
+				$result = false;
 		}
-
+		
 		// release the last GD image object
 		if(isset($thumb) && is_resource($thumb)) @imagedestroy($thumb);
 		if(isset($thumb)) $thumb = null;
+		if($result === null) $result = $this->webpResult; // if webpOnly option used
 
 		return $result;
+	}
+
+	/**
+	 * Called before saving of image, returns true if save should proceed, false if not
+	 * 
+	 * Also Creates a webp file when settings indicate it should. 
+	 * 
+	 * @param resource $im
+	 * @param string $filename Source filename
+	 * @return bool
+	 * 
+	 */
+	protected function ___imSaveReady($im, $filename) {
+		if($this->webpOnly || $this->webpAdd) {
+			$this->webpResult = $this->imSaveWebP($im, $filename, $this->webpQuality);
+		}
+		return $this->webpOnly ? false : true; 
 	}
 	
 	/**
@@ -416,7 +422,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 	 * Is requested by image options: ["webpAdd" => true] OR ["webpOnly" => true]
 	 *
 	 * @param resource $im
-	 * @param string $dstFilename
+	 * @param string $filename
 	 * @param int $quality
 	 *
 	 * @return boolean true | false
@@ -582,7 +588,7 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 	 * with mode = true it linearizes an image to 1
 	 * with mode = false it set it back to the originating gamma value
 	 *
-	 * @param GD -image-resource $image
+	 * @param resource $image
 	 * @param bool $mode
 	 *
 	 */
@@ -817,8 +823,8 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 	 *
 	 * Intended for use by the resize() method
 	 *
-	 * @param GD -resource $im, destination resource needs to be prepared
-	 * @param GD -resource $image, with GIF we need to read from source resource
+	 * @param resource $im, destination resource needs to be prepared
+	 * @param resource $image, with GIF we need to read from source resource
 	 *
 	 */
 	protected function prepareImageLayer(&$im, &$image) {

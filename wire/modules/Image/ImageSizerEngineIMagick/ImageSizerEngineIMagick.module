@@ -35,6 +35,15 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 */
 	protected $imWebp = null;
 
+	/**
+	 * Webp support available?
+	 * 
+	 * @var bool|null
+	 * 
+	 */
+	static protected $webpSupport = null;
+	
+
 	// @todo the following need phpdoc
 	protected $workspaceColorspace;
 	protected $imageFormat;
@@ -163,18 +172,12 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 				break;
 			
 			case 'webp':
-				if(!isset($this->wire('config')->webpSupportIM)) {
-					// only call it once
-				    ob_start();
-				    phpinfo(INFO_MODULES);
-				    $dump = ob_get_clean();
-				    $list = array();
-				    if(preg_match('#ImageMagick supported formats </td><td.*?>(.*?)</td>#msi', $dump, $matches) && isset($matches[1])) {
-				        $list = explode(',', str_replace(' ', '', mb_strtolower($matches[1])));
-				    }
-					$this->wire('config')->webpSupportIM = in_array('webp', $list);
+				if(self::$webpSupport === null) {
+					$im = new \IMagick();
+					$formats = $im->queryformats('WEBP*');
+					self::$webpSupport = count($formats) > 0; 
 				}
-				return $this->wire('config')->webpSupportIM;
+				return self::$webpSupport;
 				break;
 			
 			case 'install':
@@ -384,7 +387,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		$this->im->setImageDepth(($this->imageDepth > 8 ? 8 : $this->imageDepth));
 		
 		// prepare to save file(s)
-		if($this->webpAdd) {
+		if($this->webpAdd && $this->supported('webp')) {
 			$this->imWebp = clone $this->im; // make a copy before compressions take effect
 		}
 
@@ -416,12 +419,12 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		// set modified flag and delete optional webp dependency file
 		$this->modified = true;
 		$return = true;
-		$path_parts = pathinfo($srcFilename);
-		$webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
+		$pathinfo = pathinfo($srcFilename);
+		$webpFilename = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . '.webp';
 		if(file_exists($webpFilename)) $this->wire('files')->unlink($webpFilename);
 		
 		// optionally create a WebP dependency file
-		if($this->webpAdd) {
+		if($this->webpAdd && $this->imWebp) {
 			// prepare for webp output
 			$this->imWebp->setImageFormat('webp');
 			$this->imWebp->setImageCompressionQuality($this->webpQuality);

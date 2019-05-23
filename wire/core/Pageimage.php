@@ -40,11 +40,7 @@
  * @property-read string $suffixStr String of file suffix(es) separated by comma.
  * @property-read string $alt Convenient alias for the 'description' property, unless overridden (since 3.0.125).
  * @property-read string $src Convenient alias for the 'url' property, unless overridden (since 3.0.125).
- * @property-read string $urlWebp The url property of an optional WebP-dependency file (since 3.0.132).
- * @property-read string $srcWebp Convenient alias for the 'urlWebp' property (since 3.0.132).
- * @property-read string $webpUrl Convenient alias for the 'urlWebp' property (since 3.0.132).
- * @property-read string $webpSrc Convenient alias for the 'urlWebp' property (since 3.0.132).
- * @property-read bool $hasWebp Does exist an optional WebP-dependency file for this image variation? (since 3.0.132)
+ * @property-read PagefileExtra $webp Access webp version of image (since 3.0.132)
  *
  * Properties inherited from Pagefile
  * ==================================
@@ -72,6 +68,7 @@
  * @property Pagefiles $pagefiles The Pagefiles WireArray that contains this file. #pw-group-other
  * @property Page $page The Page object that this file is part of. #pw-group-other
  * @property Field $field The Field object that this file is part of. #pw-group-other
+ * @property PageimageDebugInfo $debugInfo
  *
  * Hookable methods 
  * ================
@@ -122,7 +119,13 @@ class Pageimage extends Pagefile {
 	private $imageInfo = array(
 		'width' => 0, 
 		'height' => 0, 
-		); 
+	);
+
+	/**
+	 * @var PageimageDebugInfo|null
+	 *
+	 */
+	private $pageimageDebugInfo = null; 
 
 	/**
 	 * Last size error, if one occurred. 
@@ -131,6 +134,14 @@ class Pageimage extends Pagefile {
 	 *
 	 */
 	protected $error = '';
+
+	/**
+	 * Last Pageimage::size() $options argument
+	 * 
+	 * @var array
+	 * 
+	 */
+	static protected $lastSizeOptions = array();
 
 	/**
 	 * Construct a new Pageimage
@@ -161,6 +172,7 @@ class Pageimage extends Pagefile {
 	public function __clone() {
 		$this->imageInfo['width'] = 0; 
 		$this->imageInfo['height'] = 0;
+		$this->extras = array();
 		parent::__clone();
 	}
 
@@ -178,45 +190,6 @@ class Pageimage extends Pagefile {
 		} else { 
 			return $this->___url();
 		}
-	}
-
-	/**
-	 * Return the web accessible URL to this image files webP dependency, also if no webp copy exists!
-	 * 
-	 * @return string
-	 *
-	 */
-	public function webpUrl() {
-		$path_parts = pathinfo($this->url);
-		$webpUrl = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
-		return $webpUrl;
-	}
-
-	/**
-	 * Return the filesystem path to this image files webP dependency
-	 * 
-	 * @return string
-	 *
-	 */
-	public function webpFilename() {
-		if(!$this->hasWebp()) {
-			return '';
-		}
-		$path_parts = pathinfo($this->filename);
-		$webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
-		return $webpFilename;
-	}
-
-	/**
-	 * Return if this image file has a webP dependency file
-	 * 
-	 * @return boolean
-	 *
-	 */
-	public function hasWebp() {
-		$path_parts = pathinfo($this->filename());
-		$webpFilename = $path_parts['dirname'] . '/' . $path_parts['filename'] . '.webp';
-		return is_readable($webpFilename);
 	}
 
 	/**
@@ -435,17 +408,21 @@ class Pageimage extends Pagefile {
 				$value = parent::get('src');
 				if($value === null) $value = $this->url();
 				break;
-			case 'hasWebp': 
-				$value = $this->hasWebp();
+			case 'webp':	
+				$value = $this->webp();
+				break;
+			case 'hasWebp':	
+				$value = $this->webp()->exists();
 				break;
 			case 'webpUrl': 
-			case 'webpSrc': 
-			case 'urlWebp': 
-			case 'srcWebp': 
-				$value = $this->webpUrl();
+				$value = $this->webp()->url();
 				break;
 			case 'webpFilename': 
-				$value = $this->webpFilename();
+				$value = $this->webp()->filename();
+				break;
+			case 'debugInfo':
+				if(!$this->pageimageDebugInfo) $this->pageimageDebugInfo = new PageimageDebugInfo($this);
+				$value = $this->pageimageDebugInfo;
 				break;
 			default: 
 				$value = parent::get($key); 
@@ -596,6 +573,8 @@ class Pageimage extends Pagefile {
 	 *  - `focus` (bool): Should resizes that result in crop use focus area if available? (default=true). 
 	 *     In order for focus to be applicable, resize must include both width and height. 
 	 *  - `allowOriginal` (bool): Return original if already at width/height? May not be combined with other options. (default=false)
+	 *  - `webpAdd` (bool): Also create a secondary .webp image variation? (default=false)
+	 *  - `webpQuality` (int): Quality setting for extra webp images (default=90). 
 	 * 
 	 * **Possible values for "cropping" option**  
 	 * 
@@ -640,10 +619,16 @@ class Pageimage extends Pagefile {
 	public function size($width, $height, $options = array()) {
 
 		if($this->wire('hooks')->isHooked('Pageimage::size()')) {
-			return $this->__call('size', array($width, $height, $options)); 
-		} else { 
-			return $this->___size($width, $height, $options);
+			$result = $this->__call('size', array($width, $height, $options)); 
+		} else {  
+			$result = $this->___size($width, $height, $options);
 		}
+		
+		$options['_width'] = $width;
+		$options['_height'] = $height;
+		self::$lastSizeOptions = $options;
+		
+		return $result;
 	}
 
 	/**
@@ -707,10 +692,14 @@ class Pageimage extends Pagefile {
 			);
 
 		$this->error = '';
+
+		/** @var WireFileTools $files */
 		/** @var Config $config */
+		$files = $this->wire('files');
 		$config = $this->wire('config');
 		$debug = $config->debug;
 		$configOptions = $config->imageSizerOptions; 
+		
 		if(!is_array($configOptions)) $configOptions = array();
 		$options = array_merge($defaultOptions, $configOptions, $options); 
 		if($options['cropping'] === 1) $options['cropping'] = true;
@@ -789,36 +778,36 @@ class Pageimage extends Pagefile {
 		$nameHeight = is_int($options['nameHeight']) ? $options['nameHeight'] : $height;
 		
 		// i.e. myfile.100x100.jpg or myfile.100x100nw-suffix1-suffix2.jpg
-		$basename .= '.' . $nameWidth . 'x' . $nameHeight . $crop . $suffixStr . "." . $this->ext();	
-		$filenameFinal = $this->pagefiles->path() . $basename;
+		$basenameNoExt = $basename . '.' . $nameWidth . 'x' . $nameHeight . $crop . $suffixStr;  // basename without ext
+		$basename = $basenameNoExt . '.' . $this->ext(); // basename with ext
+		
 		$filenameUnvalidated = '';
-		$exists = file_exists($filenameFinal);
-
-		$path_parts = pathinfo($filenameFinal);
-		$filenameFinalWebp = $this->pagefiles->path() . $path_parts['filename'] . '.webp';
+		$filenameUnvalidatedWebp = '';
+		
+		$filenameFinal = $this->pagefiles->path() . $basename;
+		$filenameFinalExists = file_exists($filenameFinal);
+		$filenameFinalWebp = $this->pagefiles->path() . $basenameNoExt . '.webp';
+		
 		// force new creation if requested webp copy doesn't exist, (regardless if regular variation exists or not)
-		if($options['webpAdd'] && !file_exists($filenameFinalWebp)) {
-			$options['forceNew'] = true;
-		}
+		if($options['webpAdd'] && !file_exists($filenameFinalWebp)) $options['forceNew'] = true;
 
 		// create a new resize if it doesn't already exist or forceNew option is set
-		if(!$exists && !file_exists($this->filename())) {
+		if(!$filenameFinalExists && !file_exists($this->filename())) {
 			// no original file exists to create variation from 
 			$this->error = "Original image does not exist to create size variation";
 			
-		} else if(!$exists || $options['forceNew']) {
-			
+		} else if(!$filenameFinalExists || $options['forceNew']) {
+
 			// filenameUnvalidated is temporary filename used for resize
 			$tempDir = $this->pagefiles->page->filesManager()->getTempPath();
 			$filenameUnvalidated = $tempDir . $basename;
-			$path_parts = pathinfo($filenameUnvalidated);
-			$filenameUnvalidatedWebp = $tempDir . $path_parts['filename'] . '.webp';
+			$filenameUnvalidatedWebp = $tempDir . basename($filenameFinalWebp);
 			
-			if($exists && $options['forceNew']) $this->wire('files')->unlink($filenameFinal, true);
-			if(file_exists($filenameFinalWebp) && $options['forceNew']) $this->wire('files')->unlink($filenameFinalWebp, true);
+			if($filenameFinalExists && $options['forceNew']) $files->unlink($filenameFinal, true);
+			if(file_exists($filenameFinalWebp) && $options['forceNew']) $files->unlink($filenameFinalWebp, true);
 			
-			if(file_exists($filenameUnvalidated)) $this->wire('files')->unlink($filenameUnvalidated, true);
-			if(file_exists($filenameUnvalidatedWebp)) $this->wire('files')->unlink($filenameUnvalidatedWebp, true);
+			if(file_exists($filenameUnvalidated)) $files->unlink($filenameUnvalidated, true);
+			if(file_exists($filenameUnvalidatedWebp)) $files->unlink($filenameUnvalidatedWebp, true);
 
 			if(@copy($this->filename(), $filenameUnvalidated)) {
 				try { 
@@ -832,7 +821,7 @@ class Pageimage extends Pagefile {
 					$engine = $sizer->getEngine();
 
 					/* if the current engine installation does not support webp, modify the options param */
-					if(isset($options['webpAdd']) && $options['webpAdd'] && !$engine->supported('webp')) {
+					if(!empty($options['webpAdd']) && !$engine->supported('webp')) {
 						$options['webpAdd'] = false;
 						$engine->setOptions($options);
 					}
@@ -851,23 +840,18 @@ class Pageimage extends Pagefile {
 						}
 					}
 					
-					if($sizer->resize($width, $height) && @rename($filenameUnvalidated, $filenameFinal)) {
-						$this->wire('files')->chmod($filenameFinal);
-						if($options['webpAdd'] && file_exists(($filenameUnvalidatedWebp)) && @rename($filenameUnvalidatedWebp, $filenameFinalWebp)) {
-							$this->wire('files')->chmod($filenameFinalWebp);
+					if($sizer->resize($width, $height) && $files->rename($filenameUnvalidated, $filenameFinal)) {
+						if($options['webpAdd'] && file_exists($filenameUnvalidatedWebp)) { 
+							$files->rename($filenameUnvalidatedWebp, $filenameFinalWebp);
 						}
 					} else {
 						$this->error = "ImageSizer::resize($width, $height) failed for $filenameUnvalidated";
 					}
 
-					$timer = $debug ? Debug::timer($timer) : null;
 					if($debug) $this->wire('log')->save('image-sizer',
 						str_replace('ImageSizerEngine', '', $sizer->getEngine()) . ' ' . 
-						($this->error ? "FAILED Resize: " : "Resized: ") . 
-						"$originalName => " . 
-						basename($filenameFinal) . " " .
-						"({$width}x{$height}) $timer secs " . 
-						"$originalSize => " . filesize($filenameFinal) . " bytes " . 
+						($this->error ? "FAILED Resize: " : "Resized: ") . "$originalName => " . basename($filenameFinal) . " " . 
+						"({$width}x{$height}) " . Debug::timer($timer) . " secs $originalSize => " . filesize($filenameFinal) . " bytes " . 
 						"(quality=$options[quality], sharpening=$options[sharpening]) "
 					);
 					
@@ -885,11 +869,11 @@ class Pageimage extends Pagefile {
 		// if desired, user can check for property of $pageimage->error to see if an error occurred. 
 		// if an error occurred, that error property will be populated with details
 		if($this->error) { 
-			// error condition: unlink copied file 
-			if(is_file($filenameFinal)) $this->wire('files')->unlink($filenameFinal, true);
-			if($filenameUnvalidated && is_file($filenameUnvalidated)) $this->wire('files')->unlink($filenameUnvalidated);
-			if(is_file($filenameFinalWebp)) $this->wire('files')->unlink($filenameFinalWebp, true);
-			if(is_file($filenameUnvalidatedWebp)) $this->wire('files')->unlink($filenameUnvalidatedWebp, true);
+			// error condition: unlink copied files
+			if($filenameFinal && is_file($filenameFinal)) $files->unlink($filenameFinal, true);
+			if($filenameUnvalidated && is_file($filenameUnvalidated)) $files->unlink($filenameUnvalidated);
+			if($filenameFinalWebp && is_file($filenameFinalWebp)) $files->unlink($filenameFinalWebp, true);
+			if($filenameUnvalidatedWebp && is_file($filenameUnvalidatedWebp)) $files->unlink($filenameUnvalidatedWebp);
 
 			// we also tell PW about it for logging and/or admin purposes
 			$this->error($this->error);
@@ -1668,16 +1652,13 @@ class Pageimage extends Pagefile {
 			}
 			if($success) $deletedFiles[] = $filename;
 			
-			// Also remove WebP variation, if there exist one
-			$path_parts = pathinfo($filename);
-			$webp = dirname($filename) . '/' . $path_parts['filename'] . '.webp';
-			if(!is_file($webp)) continue;
-			if($options['dryRun']) {
-				$success = true;
-			} else {
-				$success = $files->unlink($webp, true);
+			foreach($this->extras() as $extra) {
+				if($options['dryRun']) {
+					$deletedFiles[] = $extra->filename();
+				} else if($extra->unlink()) {
+					$deletedFiles[] = $extra->filename();
+				}
 			}
-			if($success) $deletedFiles[] = $webp;
 		}
 
 		if(!$options['dryRun']) $this->variations = null;
@@ -1728,7 +1709,7 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
-	 * Copy this Pageimage and any of it's variations to another path
+	 * Copy this Pageimage and any of its variations to another path
 	 * 
 	 * #pw-internal
 	 *
@@ -1739,10 +1720,8 @@ class Pageimage extends Pagefile {
 	public function copyToPath($path) {
 		if(parent::copyToPath($path)) {
 			foreach($this->getVariations() as $variation) {
-				if(is_file($variation->filename)) {
-					copy($variation->filename, $path . $variation->basename); 
-					if($this->config->chmodFile) chmod($path . $variation->basename, octdec($this->config->chmodFile));
-				}
+				if(!is_file($variation->filename)) continue;
+				$this->wire('files')->copy($variation->filename, $path); 
 			}
 			return true; 
 		}
@@ -1906,222 +1885,95 @@ class Pageimage extends Pagefile {
 		}
 	}
 
-	
 	/**
-	 * Get verbose DebugInfo, optionally with individual options array, @horst
-	 * (without invoking the magic debug)
+	 * Get WebP "extra" version of this Pageimage
+	 *
+	 * @return PagefileExtra
+	 * @since 3.0.132
+	 *
+	 */
+	public function webp() {
+		$webp = $this->extras('webp');
+		if(!$webp) {
+			$webp = new PagefileExtra($this, 'webp');
+			$this->extras('webp', $webp);
+			$webp->addHookAfter('create', $this, 'hookWebpCreate'); 
+		}
+		return $webp;
+	}
+
+	/**
+	 * Hook to PageimageExtra (.webp) create method
 	 * 
-	 * @param array $options The individual options you also passes with your image variation creation
-	 * @param bool $returnType 'string'|'array'|'object', default is 'string' and returns markup or plain text
-	 * @return array|object|string
+	 * #pw-internal
+	 * 
+	 * @param HookEvent $event
 	 * 
 	 */
-	public function getDebugInfo($options = array(), $returnType = 'string') {
-		static $depth = 0;
-		$depth++;
-
-		// fetch imagesizer, some infos and some options
-		$oSizer = new ImageSizer($this->filename, $options);
-		$osInfo = $oSizer->getImageInfo(true);
-		$finalOptions = $oSizer->getOptions();
-
-		// build some info parts and fetch some from parent (pagefile)
-		$thumb = array('thumb' => "<img src='{$this->url}' style='max-width:120px; max-height:120px; ".($this->width() >= $this->height() ? 'width:100px; height:auto;' : 'height:100px; width:auto;')."' alt='' />");
-		$original = $this->original ? array('original' => $this->original->basename, 'basename' => $this->basename) : array('original' => '{SELF}', 'basename' => $this->basename);
-		$parent = array('files' => array_merge(
-		        $original,
-				parent::__debugInfo(), 
-				array(
-					'suffix'    => isset($finalOptions['suffix']) ? $finalOptions['suffix'] : '',
-					'extension' => $osInfo['extension']
-				)
-		));
-		// rearange parts
-		unset($parent['files']['filesize']);
-		$parent['files']['filesize'] = filesize($this->filename);
-
-		// VARIATIONS
-		if($depth < 2) {
-			$variationArray = array();
-			$variations = $this->getVariations(array('info' => true, 'verbose' => false));
-			foreach($variations as $name) $variationArray[] = $name;
-		}
-		$depth--;
-		unset($variations, $name);
-
-		// start collecting the $info
-		$info = array_merge($thumb, $parent, 
-			array('variations' => $variationArray), 
-			array('imageinfo' => array(
-				'imageType'   => $osInfo['info']['imageType'],
-				'mime'        => $osInfo['info']['mime'],
-				'width'       => $this->width(),
-				'height'      => $this->height(),
-				'focus'       => $this->hasFocus ? $this->focusStr : NULL,
-				'description' => $parent['files']['description'],
-				'tags'        => $parent['files']['tags'],
-			)) 
-		);
-		unset($info['files']['tags'], $info['files']['description']);
-
-		// beautify the output, remove unnecessary items
-		if(isset($info['files']['filedata']) && isset($info['files']['filedata']['focus'])) unset($info['files']['filedata']['focus']);
-		if(empty($info['files']['filedata'])) unset($info['files']['filedata']);
-		unset($osInfo['info']['mime'], $osInfo['info']['imageType']);
-
-		// add the rest from osInfo to the final $info array
-		foreach($osInfo['info'] as $k => $v) $info['imageinfo'][$k] = $v;
-		$info['imageinfo']['iptcRaw'] = $osInfo['iptcRaw'];
-		unset($osInfo, $thumb, $original, $parent);
-
-		// WEBP
-		$webp = array('webp_copy' => array(
-			'hasWebp'          => $this->hasWebp(),
-			'webpUrl'          => (!$this->hasWebp() ? NULL : $this->webpUrl),
-			'webpQuality'      => (!isset($finalOptions['webpQuality']) ? NULL : $finalOptions['webpQuality']),
-			'filesize'         => (!$this->hasWebp() ? 0 : filesize($this->webpFilename())),
-			'savings'          => (!$this->hasWebp() ? 0 : intval($info['files']['filesize'] - filesize($this->webpFilename()))),
-			'savings_percent'  => (!$this->hasWebp() ? 0 : 100 - intval(filesize($this->webpFilename()) / ($info['files']['filesize'] / 100))),
-		));
-
-		// ENGINES
-		$a = [];
-		$modules = $this->wire('modules');
-		$engines = array_merge($oSizer->getEngines(), array('ImageSizerEngineGD'));
-		foreach($engines as $moduleName) {
-			$configData = $modules->getModuleConfigData($moduleName);
-			$priority = isset($configData['enginePriority']) ? (int) $configData['enginePriority'] : 0;
-			$a[$moduleName] = "priority {$priority}";
-		}
-		asort($a, SORT_STRING);
-		$enginesArray = array(
-			'neededEngineSupport' => strtoupper($oSizer->getImageInfo()),
-			'installedEngines' => $a,
-			'selectedEngine' => $oSizer->getEngine()->className,
-			'engineWebpSupport' => $oSizer->getEngine()->supported('webp')
-		);
-		unset($a, $moduleName, $configData, $engines, $priority, $modules, $oSizer);
-
-		// merge all into $info
-		$info = array_merge($info, $webp, 
-			array('engines'  => $enginesArray),
-			// OPTIONS
-			array('options_hierarchy' => array(
-					'imageSizerOptions' => $this->wire('config')->imageSizerOptions,
-					'individualOptions' => $options,
-					'finalOptions' => $finalOptions
-				)
-			)
-		);
-		unset($variationArray, $webp, $enginesArray, $options, $finalOptions);
-
-		// If not in browser environment, remove the thumb image
-		if(!isset($_SERVER['HTTP_HOST'])) unset($info['thumb']);
-		
-		if('array' == $returnType) {
-			// return as array
-			return $info;  
-		} else if('object' == $returnType) {
-			// return as object
-			$object = new \stdClass();
-			foreach($info as $group => $array) {
-				$object->$group = new \stdClass();
-				if('thumb' == $group) {
-					$object->$group = $array;
-					continue;
-				}
-				$this->array_to_object($array, $object->$group);
-			}
- 			return $object;
-		}
-		
-		// make a beautyfied var_dump
-		$tmp = $info;
-		$info = array();
-		foreach($tmp as $group => $array) {
-			$info[mb_strtoupper($group)] = $array;
-		}
-		unset($tmp, $group, $array);
-		ob_start();
-		var_dump($info);
-		$content = ob_get_contents();
-		ob_end_clean();
-		$m = 0;
-		preg_match_all('#^(.*)=>#mU', $content, $stack);
-		$lines = $stack[1];
-		$indents = array_map('strlen', $lines);
-		if($indents) $m = max($indents) + 1;
-		$content = preg_replace_callback(
-			'#^(.*)=>\\n\s+(\S)#Um',
-			function($match) use ($m) {
-				return $match[1] . str_repeat(' ', ($m - strlen($match[1]) > 1 ? $m - strlen($match[1]) : 1)) . $match[2];
-			},
-			$content
-		);
-		$content = preg_replace('#^((\s*).*){$#m', "\\1\n\\2{", $content);
-		$content = str_replace(array('<pre>', '</pre>'), '', $content);
-		if(isset($_SERVER['HTTP_HOST'])) {
-			// build output for HTML
-			$return = "<pre style=\"margin:10px; padding:10px; background-color:#F2F2F2; color:#000; border:1px solid #333; font-family:'Hack Regular', 'Source Code Pro', 'Envy Code R', 'Noto mono', 'Liberation Mono', 'Consolas', 'Lucida Console', 'DejaVu Sans Mono', 'LetterGothicStd', 'Courier New', 'Courier', monospace; font-size:12px; line-height:15px; overflow:auto;\">{$content}</pre>";
-		} else {
-			// output for Console
-			$return = $content;
-		}
-		
-		return $return;
+	public function hookWebpCreate(HookEvent $event) {
+		if(!$this->original) return;
+		/** @var PagefileExtra $webp */
+		$webp = $event->object;
+		$webp->unlink();
+		$options = self::$lastSizeOptions;
+		$options['webpAdd'] = true;
+		$this->original->size($options['_width'], $options['_height'], $options);
 	}
 	
 	/**
-	 * Helper method that converts a multidim array to a multidim object for the getDebugInfo method
-	 * 
-	 * @param array $array the input array
-	 * @param object $object the initial object, gets passed recursive by reference through all loops
-	 * @param bool $multidim set this to true to avoid multidimensional object
-	 * @return object the final multidim object
-	 * 
+	 * Get all extras, add an extra, or get an extra 
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $name
+	 * @param PagefileExtra $value
+	 * @return PagefileExtra[]
+	 * @since 3.0.132
+	 *
 	 */
-	private function array_to_object($array, &$object, $multidim = true) {
-		foreach($array as $key => $value) {
-			if($multidim && is_array($value)) {
-				$object->$key = new \stdClass();
-				$this->array_to_object($value, $object->$key, false);
-			} else {
-				$object->$key = $value;
-			}
-		}
-		return $object;
+	public function extras($name = null, PagefileExtra $value = null) {
+		if($name) return parent::extras($name, $value); 
+		$extras = parent::extras();
+		$extras['webp'] = $this->webp();
+		return $extras;
 	}
 
-	
-	
 	/**
-	 * Debug info
+	 * Basic debug info
 	 * 
 	 * @return array
 	 * 
 	 */
 	public function __debugInfo() {
-		static $depth = 0;
-		$depth++;
-		$info = parent::__debugInfo();	
-		$info['width'] = $this->width();	
-		$info['height'] = $this->height();
-		$info['suffix'] = $this->suffixStr;
-		if($this->hasFocus) $info['focus'] = $this->focusStr;
-		if(isset($info['filedata']) && isset($info['filedata']['focus'])) unset($info['filedata']['focus']); 
-		if(empty($info['filedata'])) unset($info['filedata']);
-		$original = $this->original;
-		if($original && $original !== $this) $info['original'] = $original->basename;
-		if($depth < 2) {
-			$info['variations'] = array();
-			$variations = $this->getVariations(array('info' => true, 'verbose' => false));
-			foreach($variations as $name) {
-				$info['variations'][] = $name;
-			}
-			if(empty($info['variations'])) unset($info['variations']); 
-		}
-		$depth--;
-		return $info;
+		return $this->debugInfo->getBasicDebugInfo();
+	}
+
+	/**
+	 * Verbose debug info (via @horst)
+	 * 
+	 * Optionally with individual options array.
+	 *
+	 * @param array $options The individual options you also passes with your image variation creation
+	 * @param string $returnType 'string'|'array'|'object', default is 'string' and returns markup or plain text
+	 * @return array|object|string
+	 * @since 3.0.132
+	 *
+	 */
+	public function getDebugInfo($options = array(), $returnType = 'string') {
+		return $this->debugInfo->getVerboseDebugInfo($options, $returnType);
+	}
+
+	/**
+	 * Get debug info from parent class
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return array
+	 * @since 3.0.132
+	 * 
+	 */
+	public function _parentDebugInfo() {
+		return parent::__debugInfo();
 	}
 
 }
