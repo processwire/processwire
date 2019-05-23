@@ -634,6 +634,8 @@ $config->imageSizerOptions = array(
 	'quality' => 90, // quality: 1-100 where higher is better but bigger
 	'hidpiQuality' => 60, // Same as above quality setting, but specific to hidpi images
 	'defaultGamma' => 2.0, // defaultGamma: 0.5 to 4.0 or -1 to disable gamma correction (default=2.0)
+	'webpAdd' => false, // set this to true, if the imagesizer engines should create a Webp copy with every (new) image variation
+	'webpQuality' => 90, // webpQuality: 1-100 where higher is better but bigger
 	);
 
 /**

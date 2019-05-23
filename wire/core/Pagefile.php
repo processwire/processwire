@@ -64,6 +64,12 @@ class Pagefile extends WireData {
 	protected $pagefiles;
 
 	/**
+	 * @var PagefileExtra[]
+	 * 
+	 */
+	protected $extras = array(); 
+
+	/**
 	 * Extra file data
 	 * 
 	 * @var array
@@ -952,8 +958,13 @@ class Pagefile extends WireData {
 	 *
 	 */
 	public function unlink() {
-		if(!strlen($this->basename) || !is_file($this->filename)) return true; 
-		return $this->wire('files')->unlink($this->filename, true);
+		/** @var WireFileTools $files */
+		if(!strlen($this->basename) || !is_file($this->filename)) return true;
+		$files = $this->wire('files');
+		foreach($this->extras() as $extra) {
+			$extra->unlink();
+		}
+		return $files->unlink($this->filename, true);
 	}
 
 	/**
@@ -968,10 +979,17 @@ class Pagefile extends WireData {
 	 *
 	 */
 	public function rename($basename) {
+		foreach($this->extras() as $extra) {
+			$extra->filename(); // init
+		}
 		$basename = $this->pagefiles->cleanBasename($basename, true); 
 		if($this->wire('files')->rename($this->filename, $this->pagefiles->path . $basename, true)) {
 			$this->set('basename', $basename); 
-			return $this->basename();
+			$basename = $this->basename();
+			foreach($this->extras() as $extra) {
+				$extra->rename();
+			}
+			return $basename;
 		}
 		return false; 
 	}
@@ -986,8 +1004,13 @@ class Pagefile extends WireData {
 	 *
 	 */
 	public function copyToPath($path) {
-		$result = copy($this->filename, $path . $this->basename()); 
-		if($this->config->chmodFile) chmod($path . $this->basename(), octdec($this->config->chmodFile));
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
+		$result = $files->copy($this->filename(), $path);
+		foreach($this->extras() as $extra) {
+			if(!$extra->exists()) continue;
+			$files->copy($extra->filename, $path);
+		}
 		return $result;
 	}
 
@@ -1038,6 +1061,25 @@ class Pagefile extends WireData {
 	 */
 	public function isTemp($set = null) {
 		return $this->pagefiles->isTemp($this, $set); 
+	}
+
+	/**
+	 * Get all extras, add an extra, or get an extra
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $name
+	 * @param PagefileExtra $value
+	 * @return PagefileExtra[]|PagefileExtra|null
+	 * @since 3.0.132
+	 * 
+	 */
+	public function extras($name = null, PagefileExtra $value = null) {
+		if($name === null) return $this->extras;
+		if($value !== null && $value instanceof PagefileExtra) {
+			$this->extras[$name] = $value;
+		}
+		return isset($this->extras[$name]) ? $this->extras[$name] : null;
 	}
 
 	/**
