@@ -1657,13 +1657,17 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			return false; // fallback or failed
 		}
 
-		// all went well, copy back the temp file, remove the temp file
-		if(!@copy($this->tmpFile, $this->filename)) return false; // fallback or failed 
-		$this->wire('files')->chmod($this->filename);
-		$this->wire('files')->unlink($this->tmpFile);
-
-		// post processing: IPTC, setModified and reload ImageInfo
-		$this->writeBackIPTC($this->filename, false);
+		if($this->webpOnly) {
+			$this->wire('files')->unlink($this->tmpFile);
+		} else {
+			// all went well, copy back the temp file,
+			if(!@copy($this->tmpFile, $this->filename)) return false; // fallback or failed 
+			$this->wire('files')->chmod($this->filename);
+			// remove the temp file
+			$this->wire('files')->unlink($this->tmpFile);
+			// post processing: IPTC, setModified and reload ImageInfo
+			$this->writeBackIPTC($this->filename, false);
+		}
 		$this->setModified($this->modified);
 		$this->loadImageInfo($this->filename, true);
 
