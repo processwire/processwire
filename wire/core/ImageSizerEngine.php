@@ -21,6 +21,7 @@
  * @property bool $webpAdd
  * @property int $webpQuality
  * @property bool|null $webpResult
+ * @property bool|null $webpOnly
  * 
  */
 abstract class ImageSizerEngine extends WireData implements Module, ConfigurableModule {
@@ -78,6 +79,14 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 *
 	 */
 	protected $webpAdd = false;
+
+	/**
+	 * Only create the webp file?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $webpOnly = false;
 
 	/**
 	 * webp result (null=not known or not applicable)
@@ -931,13 +940,27 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	/**
 	 * Set flag to also create a webp file or not
 	 *
-	 * @param bool $value
-	 *
+	 * @param bool $webpAdd
+	 * @param bool|null $webpOnly
 	 * @return self
 	 *
 	 */
-	public function setWebpAdd($value) {
-		$this->webpAdd = (bool) $value;
+	public function setWebpAdd($webpAdd, $webpOnly = null) {
+		$this->webpAdd = (bool) $webpAdd;
+		if(is_bool($webpOnly)) $this->webpOnly = $webpOnly;
+		return $this;
+	}
+
+	/**
+	 * Set flag to only create a webp file
+	 *
+	 * @param bool value$
+	 * @return self
+	 *
+	 */
+	public function setWebpOnly($value) {
+		$this->webpOnly = (bool) $value;
+		if($this->webpOnly) $this->webpAdd = true; // webpAdd required for webpOnly
 		return $this;
 	}
 
@@ -1207,6 +1230,9 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 				case 'webpAdd':
 					$this->setWebpAdd($value);
 					break;
+				case 'webpOnly':
+					$this->webpOnly = (bool) $value;
+					break;
 				case 'cropping':
 					$this->setCropping($value);
 					break;
@@ -1287,6 +1313,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			'quality' => $this->quality,
 			'webpQuality' => $this->webpQuality,
 			'webpAdd' => $this->webpAdd,
+			'webpOnly' => $this->webpOnly,
 			'cropping' => $this->cropping,
 			'upscaling' => $this->upscaling,
 			'interlace' => $this->interlace, 
@@ -1328,6 +1355,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		);
 
 		if($key === 'webpResult') return $this->webpResult;
+		if($key === 'webpOnly') return $this->webpOnly;
 		if(in_array($key, $keys)) return $this->$key;
 		if(in_array($key, $this->optionNames)) return $this->$key;
 		if(isset($this->options[$key])) return $this->options[$key];
@@ -1474,6 +1502,16 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	public function setModified($modified) {
 		$this->modified = $modified ? true : false;
 		return $this;
+	}
+
+	/**
+	 * Get whether the image was modified
+	 * 
+	 * @return bool
+	 * 
+	 */
+	public function getModified() {
+		return $this->modified;
 	}
 
 	/**

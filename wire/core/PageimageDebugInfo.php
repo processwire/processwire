@@ -275,7 +275,7 @@ class PageimageDebugInfo extends WireData {
 			$return = $content;
 		} else {
 			// build output for HTML
-			$return = "<pre>" . $this->wire('sanitizer')->entities($content) . "</pre>";
+			$return = "<pre style='overflow:auto'>$content</pre>";
 		}
 
 		return $return;

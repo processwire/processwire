@@ -37,14 +37,6 @@ class ImageSizerEngineGD extends ImageSizerEngine {
 	protected $gammaLinearized;
 
 	/**
-	 * webp-only toggle for future use
-	 * 
-	 * @var bool
-	 * 
-	 */
-	protected $webpOnly = false;
-
-	/**
 	 * Webp support available?
 	 * 
 	 * @var bool|null

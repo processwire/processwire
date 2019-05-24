@@ -645,7 +645,8 @@ class Pageimage extends Pagefile {
 	 *
 	 */
 	protected function ___size($width, $height, $options) {
-	
+
+		$this->error = '';
 		if($this->ext == 'svg') return $this; 
 
 		if(!is_array($options)) { 
@@ -678,6 +679,8 @@ class Pageimage extends Pagefile {
 			'hidpiQuality' => 40, 
 			'webpQuality' => 90,
 			'webpAdd' => false,
+			'webpName' => '', // use this for the webp file basename rather than mirroring from the jpg/png
+			'webpOnly' => false, // only keep the webp version (requires webpAdd option)
 			'suffix' => array(), // can be array of suffixes or string of 1 suffix
 			'forceNew' => false,  // force it to create new image even if already exists
 			'hidpi' => false, 
@@ -690,8 +693,6 @@ class Pageimage extends Pagefile {
 			'zoom' => null, // zoom override, used only if focus is applicable, int when populated
 			'allowOriginal' => false, // Return original image if already at requested dimensions? (must be only specified option)
 			);
-
-		$this->error = '';
 
 		/** @var WireFileTools $files */
 		/** @var Config $config */
@@ -786,11 +787,16 @@ class Pageimage extends Pagefile {
 		
 		$filenameFinal = $this->pagefiles->path() . $basename;
 		$filenameFinalExists = file_exists($filenameFinal);
-		$filenameFinalWebp = $this->pagefiles->path() . $basenameNoExt . '.webp';
+		
+		if(!empty($options['webpName'])) {
+			$filenameFinalWebp = $this->pagefiles->path() . basename($options['webpName'], '.webp') . '.webp';
+		} else {
+			$filenameFinalWebp = $this->pagefiles->path() . $basenameNoExt . '.webp';
+		}
 		
 		// force new creation if requested webp copy doesn't exist, (regardless if regular variation exists or not)
 		if($options['webpAdd'] && !file_exists($filenameFinalWebp)) $options['forceNew'] = true;
-
+		
 		// create a new resize if it doesn't already exist or forceNew option is set
 		if(!$filenameFinalExists && !file_exists($this->filename())) {
 			// no original file exists to create variation from 
@@ -801,7 +807,7 @@ class Pageimage extends Pagefile {
 			// filenameUnvalidated is temporary filename used for resize
 			$tempDir = $this->pagefiles->page->filesManager()->getTempPath();
 			$filenameUnvalidated = $tempDir . $basename;
-			$filenameUnvalidatedWebp = $tempDir . basename($filenameFinalWebp);
+			$filenameUnvalidatedWebp = $tempDir . $basenameNoExt . '.webp';
 			
 			if($filenameFinalExists && $options['forceNew']) $files->unlink($filenameFinal, true);
 			if(file_exists($filenameFinalWebp) && $options['forceNew']) $files->unlink($filenameFinalWebp, true);
@@ -822,7 +828,9 @@ class Pageimage extends Pagefile {
 
 					/* if the current engine installation does not support webp, modify the options param */
 					if(!empty($options['webpAdd']) && !$engine->supported('webp')) {
+						// no engines support webp
 						$options['webpAdd'] = false;
+						$options['webpOnly'] = false;
 						$engine->setOptions($options);
 					}
 
@@ -840,7 +848,12 @@ class Pageimage extends Pagefile {
 						}
 					}
 					
-					if($sizer->resize($width, $height) && $files->rename($filenameUnvalidated, $filenameFinal)) {
+					if($sizer->resize($width, $height)) {
+						if($options['webpAdd'] && $options['webpOnly']) {
+							if(is_file($filenameUnvalidated)) $files->unlink($filenameUnvalidated);
+						} else if(!$files->rename($filenameUnvalidated, $filenameFinal)) {
+							$this->error = "Rename failed: $filenameUnvalidated => $filenameFinal";
+						}
 						if($options['webpAdd'] && file_exists($filenameUnvalidatedWebp)) { 
 							$files->rename($filenameUnvalidatedWebp, $filenameFinalWebp);
 						}
@@ -848,7 +861,7 @@ class Pageimage extends Pagefile {
 						$this->error = "ImageSizer::resize($width, $height) failed for $filenameUnvalidated";
 					}
 
-					if($debug) $this->wire('log')->save('image-sizer',
+					if($debug && empty($options['webpOnly'])) $this->wire('log')->save('image-sizer',
 						str_replace('ImageSizerEngine', '', $sizer->getEngine()) . ' ' . 
 						($this->error ? "FAILED Resize: " : "Resized: ") . "$originalName => " . basename($filenameFinal) . " " . 
 						"({$width}x{$height}) " . Debug::timer($timer) . " secs $originalSize => " . filesize($filenameFinal) . " bytes " . 
@@ -1896,6 +1909,8 @@ class Pageimage extends Pagefile {
 		$webp = $this->extras('webp');
 		if(!$webp) {
 			$webp = new PagefileExtra($this, 'webp');
+			$webp->useSrcUrlOnFail = true; // use this pagefile URL instead if we fail to create a webp
+			$webp->useSrcUrlOnSize = true; // use webp URL only if it results in a smaller file
 			$this->extras('webp', $webp);
 			$webp->addHookAfter('create', $this, 'hookWebpCreate'); 
 		}
@@ -1911,13 +1926,30 @@ class Pageimage extends Pagefile {
 	 * 
 	 */
 	public function hookWebpCreate(HookEvent $event) {
-		if(!$this->original) return;
+		$original = $this->original;
 		/** @var PagefileExtra $webp */
 		$webp = $event->object;
 		$webp->unlink();
-		$options = self::$lastSizeOptions;
+		if($original) {
+			// we are in an image resized from an original
+			$options = self::$lastSizeOptions;
+			$width = $options['_width'];
+			$height = $options['_height'];
+		} else {
+			// we are the original
+			// create a file with same name as original but with .webp extension
+			$original = $this;
+			$options = array(
+				'allowOriginal' => false, 
+				'webpName' => basename($this->basename(), ".$this->ext"),
+				'webpOnly' => true
+			);
+			$width = $this->width;
+			$height = 0;
+		}
 		$options['webpAdd'] = true;
-		$this->original->size($options['_width'], $options['_height'], $options);
+		$original->size($width, $height, $options);
+		$event->return = empty($this->error); 
 	}
 	
 	/**

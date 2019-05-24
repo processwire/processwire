@@ -56,6 +56,14 @@ class ImageSizer extends Wire {
 	static protected $knownEngines = null;
 
 	/**
+	 * Names of engines that failed the supported() checks
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $failedEngineNames = array();
+
+	/**
 	 * Module/class name of engine that must only be used (for cases where you want to force a specific engine)
 	 * 
 	 * If the $options array contained a 'forceEngine' property, this contains the value.
@@ -84,7 +92,6 @@ class ImageSizer extends Wire {
 	 * 
 	 * @param string $filename Filename to resize. Omit only if instantiating class for a getEngines() call.
 	 * @param array $options Initial options to the engine.
-	 * @throws WireException
 	 *
 	 */
 	public function __construct($filename = '', $options = array()) {
@@ -152,21 +159,50 @@ class ImageSizer extends Wire {
 		}
 		
 		$engine = null;
+		$bestFallbackEngine = null; // first engine that was supported but failed webp check
+		$engineNames = $this->getEngines();
+		$engineNames[] = $this->defaultEngineName;
 	
 		// find first supported engine, according to knownEngines priority
-		foreach($this->getEngines() as $engineName) {
+		foreach($engineNames as $engineName) {
+			
 			if($this->forceEngineName && $engineName != $this->forceEngineName) continue;
-			$e = $this->wire('modules')->get($engineName);
+			
+			if($engineName === $this->defaultEngineName) {
+				$engineClass = __NAMESPACE__ . "\\$engineName";
+				$e = $this->wire(new $engineClass());
+			} else {
+				$e = $this->wire('modules')->get($engineName);
+			}
+			
+			if(!$e) continue;
+			
+			/** @var ImageSizerEngine $e */
 			$e->prepare($filename, $options, $inspectionResult);	
-			if($e->supported()) {
+			$supported = $e->supported();
+			
+			if($supported && !empty($options['webpAdd']) && !$e->supported('webp')) {
+				// engine does not support requested webp extra image
+				if(!$bestFallbackEngine) $bestFallbackEngine = $e;
+				
+			} else if($supported) {
+				// found supported engine
 				$engine = $e;
 				break;
-			}
+			} 
+			
+			$this->failedEngineNames[$engineName] = $engineName;
 		}
 		
-		if(!$engine) {
-			// fallback to default
-			$engine = $this->newDefaultImageSizerEngine($filename, $options, $inspectionResult);
+		if(!$engine) { 
+			// no engine found
+			if($bestFallbackEngine) {
+				// if there is a next best fallback, use it
+				$engine = $bestFallbackEngine;
+			} else {
+				// otherwise fallback to default
+				$engine = $this->newDefaultImageSizerEngine($filename, $options, $inspectionResult);
+			}
 		}
 		
 		return $engine;
@@ -294,11 +330,10 @@ class ImageSizer extends Wire {
 	 * 
 	 */
 	public function setModified($modified) {
-		if($this->engine) $this->engine->modified = $modified ? true : false;
+		if($this->engine) $this->engine->setModified($modified ? true : false);
 		return $this;
 	}
 
-	// setters (@todo phpdocs)
 	public function setAutoRotation($value = true) { return $this->setOptions(array('autoRotation', $value)); }
 	public function setCropExtra($value) { return $this->setOptions(array('cropExtra', $value)); }
 	public function setCropping($cropping = true) { return $this->setOptions(array('cropping', $cropping)); }
@@ -312,7 +347,6 @@ class ImageSizer extends Wire {
 	public function setTimeLimit($value = 30) { return $this->setOptions(array('timeLimit', $value)); }
 	public function setUpscaling($value = true) { return $this->setOptions(array('upscaling', $value)); }
 	public function setUseUSM($value = true) { return $this->setOptions(array('useUSM', $value)); }
-
 	public function getWidth() { 
 		$image = $this->getEngine()->get('image');
 		return $image['width']; 
@@ -321,12 +355,12 @@ class ImageSizer extends Wire {
 		$image = $this->getEngine()->get('image');
 		return $image['height']; 
 	}
-	
-	public function getFilename() { return $this->getEngine()->filename; }
-	public function getExtension() { return $this->getEngine()->extension; }
-	public function getImageType() { return $this->getEngine()->imageType; }
-	public function isModified() { return $this->getEngine()->modified; }
+	public function getFilename() { return $this->getEngine()->getFilename(); }
+	public function getExtension() { return $this->getEngine()->getExtension(); }
+	public function getImageType() { return $this->getEngine()->getImageType(); }
+	public function isModified() { return $this->getEngine()->getModified(); }
 	public function getOptions() { return $this->getEngine()->getOptions(); }
+	public function getFailedEngineNames() { return $this->failedEngineNames; }
 
 	/**
 	 * Get the current ImageSizerEngine
@@ -533,7 +567,7 @@ class ImageSizer extends Wire {
 		} else {
 			return null;
 		}
-		$sizer = new ImageSizerEngineGD($filename);
+		$sizer = new ImageSizerEngineGD();
 		if($wire) $wire->wire($sizer);
 		$result = false !== $sizer->writeBackIPTC($filename) ? true : false;
 		return $result;

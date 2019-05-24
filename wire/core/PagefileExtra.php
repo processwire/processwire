@@ -2,7 +2,9 @@
 
 /**
  * Extra extension for Pagefile or Pageimage objects
- * 
+ *
+ * Properties 
+ * ==========
  * @property string $url Local URL/path to file 
  * @property string $httpUrl Full HTTP URL with scheme and host
  * @property string $URL No-cache version of url
@@ -14,9 +16,16 @@
  * @property string $ext Alias of extension
  * @property bool $exists Does the file exist?
  * @property int $filesize Size of file in bytes
- * @property Pageimage $pagefile Source Pageimage objerct
+ * @property Pagefile|Pageimage $pagefile Source Pageimage object
  * 
- * @method create()
+ * The following properties affect the behavior of the URL-related methods
+ * =======================================================================
+ * @property bool $useSrcUrlOnFail Use source Pagefile URL if extra image does not exist and cannot be created? (default=false)
+ * @property bool $useSrcUrlOnSize Use source Pagefile URL if extra file is larger than source file? (default=false)
+ *
+ * Hookable methods 
+ * ================
+ * @method bool create()
  * 
  */
 
@@ -41,7 +50,7 @@ class PagefileExtra extends WireData {
 	 * 
 	 */
 	protected $filenamePrevious = '';
-
+	
 	/**
 	 * Construct
 	 *
@@ -53,6 +62,8 @@ class PagefileExtra extends WireData {
 		$pagefile->wire($this);	
 		$this->setPagefile($pagefile);
 		$this->setExtension($extension);
+		$this->useSrcUrlOnFail = true;
+		$this->useSrcUrlOnSize = false;
 		return parent::__construct();
 	}
 
@@ -79,10 +90,12 @@ class PagefileExtra extends WireData {
 	/**
 	 * Does the extra file currently exist?
 	 * 
+	 * @param bool $clear Clear stat cache before checking? (default=false)
 	 * @return bool
 	 * 
 	 */
-	public function exists() {
+	public function exists($clear = false) {
+		if($clear) clearstatcache();
 		return is_readable($this->filename());
 	}
 
@@ -93,7 +106,7 @@ class PagefileExtra extends WireData {
 	 * 
 	 */
 	public function filesize() {
-		return $this->exists() ? filesize($this->filename()) : 0;
+		return (int) @filesize($this->filename());
 	}
 
 	/**
@@ -122,13 +135,26 @@ class PagefileExtra extends WireData {
 	/**
 	 * Return the URL to the extra file, creating it if it does not already exist
 	 * 
+	 * @param bool $fallback Allow falling back to source Pagefile URL when appropriate?
 	 * @return string
 	 * 
 	 */
-	public function url() {
-		if(!$this->exists()) $this->create(); 
-		$pathinfo = pathinfo($this->pagefile->url());
-		return $pathinfo['dirname'] . '/' . $pathinfo['filename'] . '.' . $this->extension;
+	public function url($fallback = true) {
+		if(!$this->exists()) {
+			$this->create(); 
+			if($fallback && !$this->exists() && $this->useSrcUrlOnFail) {
+				// return original pagefile URL if the extra cannot be created
+				return $this->pagefile->url(); 
+			}
+		}
+		if($fallback && $this->useSrcUrlOnSize && $this->filesize() > $this->pagefile->filesize()) {
+			$url = $this->pagefile->url();
+		} else {
+			$pathinfo = pathinfo($this->pagefile->url());
+			$url = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . '.' . $this->extension;
+		}
+		
+		return $url;
 	}
 
 	/**
@@ -169,8 +195,12 @@ class PagefileExtra extends WireData {
 	 * 
 	 * Must be implemented by a hook or by descending class
 	 * 
+	 * @return bool Returns true on success, false on fail
+	 * 
 	 */
-	public function ___create() { }
+	public function ___create() { 
+		return false;
+	}
 
 	/**
 	 * Get property
@@ -212,7 +242,8 @@ class PagefileExtra extends WireData {
 				$value = $this->pagefile;
 				break;
 			default:	
-				$value = $this->pagefile->get($key);
+				$value = parent::get($key);
+				if($value === null) $value = $this->pagefile->get($key);
 		}
 		return $value;
 	}

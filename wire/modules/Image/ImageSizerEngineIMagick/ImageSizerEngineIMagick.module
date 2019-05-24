@@ -36,13 +36,12 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	protected $imWebp = null;
 
 	/**
-	 * Webp support available?
+	 * Static cache of formats and whether or not supported, as used by the supportsFormat() method (RJC)
 	 * 
-	 * @var bool|null
+	 * @var array of ['FORMAT' => true|false]
 	 * 
 	 */
-	static protected $webpSupport = null;
-	
+	static protected $formatSupport = array();
 
 	// @todo the following need phpdoc
 	protected $workspaceColorspace;
@@ -116,7 +115,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 * 
 	 */
 	protected function validSourceImageFormats() {
-		return array('JPG', 'JPEG', 'PNG24');
+		return array('JPG', 'JPEG', 'PNG24', 'PNG8', 'PNG', 'GIF', 'GIF87');
 		//return array(
 		//    'PNG', 'PNG8', 'PNG24',
 		//    'JPG', 'JPEG',
@@ -131,16 +130,33 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 * 
 	 */
 	protected function validTargetImageFormats() {
-		return $this->validSourceImageFormats();
+		$formats = $this->validSourceImageFormats();
+		if($this->supportsFormat('WEBP')) $formats[] = 'WEBP';
+		return $formats;
+	}
+	
+	/**
+	 * Is the given image format supported by this IMagick for source and target? (RJC)
+	 *
+	 * @param string $format String like png, jpg, jpg, png8, png24, png24-trans, png24-alpha, etc.
+	 * @return bool
+	 *
+	 */
+	public function supportsFormat($format) {
+		if(strpos($format, '-')) list($format,) = explode('-', $format);
+		$format = strtoupper($format);
+		if(isset(self::$formatSupport[$format])) return self::$formatSupport[$format];
+		try {
+			$im = new \IMagick();
+			$formats = $im->queryformats($format);
+			$supported = count($formats) > 0;
+		} catch(\Exception $e) {
+			$supported = false;
+		}
+		self::$formatSupport[$format] = $supported;
+		return $supported;
 	}
 
-	/**
-	 * Is IMagick supported? Is the current image(sub)format supported?
-	 * 
-	 * @param string $action
-	 * @return bool
-	 * 
-	 */
 	/**
 	 * Is IMagick supported? Is the current image(sub)format supported?
 	 *
@@ -154,39 +170,20 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		if(!class_exists("\\IMagick")) return false;
 
 		// and if it passes the mandatory requirements, we check particularly aspects here
-		switch($action) {
-
-			case 'imageformat':
-				// compare current imagefile infos fetched from ImageInspector
-				$requested = $this->getImageInfo(false);
-				switch($requested) {
-					case 'jpg':
-						return true;
-					case 'png24':
-					case 'png24-trans':
-					case 'png24-alpha':
-						return true;
-					default:
-						return false;
-				}
-				break;
-			
-			case 'webp':
-				if(self::$webpSupport === null) {
-					$im = new \IMagick();
-					$formats = $im->queryformats('WEBP*');
-					self::$webpSupport = count($formats) > 0; 
-				}
-				return self::$webpSupport;
-				break;
-			
-			case 'install':
-				return true;
-
-			default:
-				return false;
+		$supported = false;
+		if($action === 'imageformat') {
+			// compare current imagefile infos fetched from ImageInspector
+			$requested = $this->getImageInfo(false);
+			$supported = $this->supportsFormat($requested);
+		} else if($action === 'webp') {
+			$supported = $this->supportsFormat('WEBP');
+		} else if($action === 'install') {
+			$supported = true;
 		}
+		
+		return $supported; 
 	}
+
 
 	/**
 	 * Process the image resize
@@ -232,16 +229,16 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		$this->imageFormat = strtoupper($this->im->getImageFormat());
 
 		// only for JPEGs and 24bit PNGs
-		if(!in_array($this->imageFormat, array('JPG', 'JPEG', 'PNG24'))) {
+		if(!in_array($this->imageFormat, $this->validSourceImageFormats())) {
 			$this->release();
 			return false;
 		}
 
-		// check validity against PW
-		if(!in_array($this->imageFormat, $this->validSourceImageFormats())) {
-			$this->release();
-			throw new WireException(sprintf($this->_("loaded file '%s' is not in the list of valid images"), basename($dstFilename)));
-		}
+		// check validity against PW (this does not seem to be reachable due to above code, so commented it out —Ryan)
+		// if(!in_array($this->imageFormat, $this->validSourceImageFormats())) {
+		//	$this->release();
+		//	throw new WireException(sprintf($this->_("loaded file '%s' is not in the list of valid images"), basename($dstFilename)));
+		// }
 
 		// check and retrieve different image parts and information: ICC, Colorspace, Colordepth, Metadata, etc
 		$this->imageColorspace = $this->im->getImageColorspace();
@@ -385,46 +382,53 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		}
 
 		$this->im->setImageDepth(($this->imageDepth > 8 ? 8 : $this->imageDepth));
+	
+		// determine whether webp should be created as well (or on its own)
+		$webpOnly = $this->webpOnly && $this->supported('webp');
+		$webpAdd = $webpOnly || ($this->webpAdd && $this->supported('webp'));
 		
-		// prepare to save file(s)
-		if($this->webpAdd && $this->supported('webp')) {
-			$this->imWebp = clone $this->im; // make a copy before compressions take effect
-		}
-
-		$this->im->setImageFormat($this->imageFormat);
-		$this->im->setImageType($this->imageType);
-		if(in_array(strtoupper($this->imageFormat), array('JPG', 'JPEG'))) {
-			$this->im->setImageCompression(\Imagick::COMPRESSION_JPEG);
-			$this->im->setImageCompressionQuality($this->quality);
-		} else if(in_array(strtoupper($this->imageFormat), array('PNG', 'PNG8', 'PNG24'))) {
-			$this->im->setImageCompression(\Imagick::COMPRESSION_ZIP);
-			$this->im->setImageCompressionQuality($this->quality);
+		if($webpOnly) {
+			// only a webp file will be created
+			$this->imWebp = $this->im;
 		} else {
-			$this->im->setImageCompression(\Imagick::COMPRESSION_UNDEFINED);
-			$this->im->setImageCompressionQuality($this->quality);
-		}
+			if($webpAdd) $this->imWebp = clone $this->im; // make a copy before compressions take effect
+			$this->im->setImageFormat($this->imageFormat);
+			$this->im->setImageType($this->imageType);
+			if(in_array(strtoupper($this->imageFormat), array('JPG', 'JPEG'))) {
+				$this->im->setImageCompression(\Imagick::COMPRESSION_JPEG);
+				$this->im->setImageCompressionQuality($this->quality);
+			} else if(in_array(strtoupper($this->imageFormat), array('PNG', 'PNG8', 'PNG24'))) {
+				$this->im->setImageCompression(\Imagick::COMPRESSION_ZIP);
+				$this->im->setImageCompressionQuality($this->quality);
+			} else {
+				$this->im->setImageCompression(\Imagick::COMPRESSION_UNDEFINED);
+				$this->im->setImageCompressionQuality($this->quality);
+			}
 
-		// write to file
-		if(file_exists($dstFilename)) $this->wire('files')->unlink($dstFilename);
-		@clearstatcache(dirname($dstFilename));
-		##if(!$this->im->writeImage($this->destFilename)) {
-		// We use this approach for saving so that it behaves the same like core ImageSizer with images that
-		// have a wrong extension in their filename. When using writeImage() it automatically corrects the
-		// mimetype to match the fileextension, <- we want to avoid this!
-		if(!file_put_contents($dstFilename, $this->im)) {
-			$this->release();
-			return false;
+			// write to file
+			if(file_exists($dstFilename)) $this->wire('files')->unlink($dstFilename);
+			@clearstatcache(dirname($dstFilename));
+			##if(!$this->im->writeImage($this->destFilename)) {
+			// We use this approach for saving so that it behaves the same like core ImageSizer with images that
+			// have a wrong extension in their filename. When using writeImage() it automatically corrects the
+			// mimetype to match the fileextension, <- we want to avoid this!
+			if(!file_put_contents($dstFilename, $this->im)) {
+				$this->release();
+				return false;
+			}
 		}
-		
+			
 		// set modified flag and delete optional webp dependency file
 		$this->modified = true;
 		$return = true;
+		
+		// if there is a corresponding webp file present, remove it
 		$pathinfo = pathinfo($srcFilename);
 		$webpFilename = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . '.webp';
 		if(file_exists($webpFilename)) $this->wire('files')->unlink($webpFilename);
-		
+			
 		// optionally create a WebP dependency file
-		if($this->webpAdd && $this->imWebp) {
+		if($webpAdd) {
 			// prepare for webp output
 			$this->imWebp->setImageFormat('webp');
 			$this->imWebp->setImageCompressionQuality($this->webpQuality);
@@ -438,6 +442,7 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 
 		// release and return to event-object
 		$this->release();
+		
 		return $return;
 	}
 	
