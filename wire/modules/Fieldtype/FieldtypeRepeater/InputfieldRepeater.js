@@ -156,10 +156,18 @@ function InputfieldRepeater($) {
 	var eventSettingsClick = function(e) {
 		var $this = $(this);
 		var $item = $this.closest('.InputfieldRepeaterItem');
-		var $settings = $item.children('.InputfieldContent')
-			.children('.Inputfields')
-			.children('.InputfieldWrapper')
-			.children('.Inputfields').children('.InputfieldRepeaterSettings');
+	
+		// find .InputfieldRepeaterSettings, if applicable (like with RM)
+		// .InputfieldRepeaterItem > .InputfieldContent > .Inputfields > .InputfieldRepeaterSettings
+		var $settingsParent = $item.children('.InputfieldContent').children('.Inputfields');
+		var $settings = $settingsParent.children('.InputfieldRepeaterSettings'); // ajax loaded item
+		
+		if(!$settings.length) {
+			// already open item has more layers
+			// .InputfieldRepeaterItem > .InputfieldContent > .Inputfields > .InputfieldWrapper > .Inputfields > .InputfieldRepeaterSettings
+			$settingsParent = $settingsParent.children('.InputfieldWrapper').children('.Inputfields');
+			$settings = $settingsParent.children('.InputfieldRepeaterSettings');
+		}
 		
 		if($item.hasClass('InputfieldStateCollapsed')) {
 			$this.closest('.InputfieldHeader').click(); //find('.InputfieldRepeaterToggle').click();	
@@ -263,9 +271,14 @@ function InputfieldRepeater($) {
 			InputfieldsInit($inputfields);
 
 			var $repeaters = $inputs.find('.InputfieldRepeater');
-			if($repeaters.length) $repeaters.each(function() {
-				initRepeater($(this));
-			});
+			if($repeaters.length) {
+				// nested
+				$repeaters.each(function() {
+					initRepeater($(this));
+				});
+			} else {
+				$item.find('.InputfieldRepeaterSettings').hide();
+			}
 
 			$content.slideDown('fast', function() {
 				$spinner.removeClass('fa-spin fa-spinner').addClass('fa-arrows');
@@ -694,7 +707,6 @@ function InputfieldRepeater($) {
 			if($t.hasClass('InputfieldRepeaterHeaderInit')) return;
 			var icon = 'fa-arrows';
 			var $item = $t.parent();
-			var $settings = $t.find('.InputfieldRepeaterSettingsToggle').length > 0;
 			if($item.hasClass('InputfieldRepeaterNewItem')) {
 				// noAjaxAdd mode
 				icon = 'fa-plus';
