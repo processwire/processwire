@@ -647,7 +647,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				'removeAll' => $this->_x('Delete all items?', 'repeater-item-action'),
 				'toggle' => $this->_x('Click to turn item on/off, or double-click to open/collapse all items', 'repeater-item-action'),
 				'clone' => $this->_x('Clone this item?', 'repeater-item-action'),
-				'settings' => $this->_('Show settings?)', 'repeater-item-action'),
+				'settings' => $this->_('Show settings?', 'repeater-item-action'),
 				'openAll' => $this->_x('Open all items?', 'repeater-item-action'), 
 				'collapseAll' => $this->_x('Collapse all items?', 'repeater-item-action'),
 				'disabledMinMax' => $this->_('This action is disabled per min and/or max item settings.')
