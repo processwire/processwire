@@ -91,6 +91,7 @@ class WireInput extends Wire {
 		'POST' => 'POST',
 		'HEAD' => 'HEAD',
 		'PUT' => 'PUT',
+		'PATCH' => 'PATCH',
 		'DELETE' => 'DELETE',
 		'OPTIONS' => 'OPTIONS',
 	);
