@@ -89,7 +89,15 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * @var array|Field[]
 	 * 
 	 */	
-	protected $fields = array(); 
+	protected $fields = array();
+
+	/**
+	 * Field name suffix, applicable only when field or fields (above) is also set, in specific situations like repeaters
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $fnsx = '';
 
 	/**
 	 * Substituted master page (deprecated)
@@ -394,6 +402,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if($this->page) {
 			$field = $this->input->get('field');
 			$fields = $this->input->get('fields'); 
+			if($this->input->get('fnsx') !== null) $this->fnsx = $this->input->get->fieldName('fnsx');
 			if($field && !$fields) $fields = $field;
 			if($fields) {
 				$fields = explode(',', $fields); 
@@ -772,6 +781,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			'language' => $this->requestLanguage,
 			'field' => '', 
 			'fields' => '',
+			'fnsx' => $this->fnsx,
 			'uploadOnlyMode' => '',
 		);
 		if($this->field) {
@@ -785,12 +795,11 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$uploadOnlyMode = (int) $this->input->get('uploadOnlyMode'); 
 		if($uploadOnlyMode && !$this->config->ajax) $defaults['uploadOnlyMode'] = $uploadOnlyMode;
 		$options = array_merge($defaults, $options);
-		$url = './?';
+		$qs = array();
 		foreach($options as $name => $value) {
-			if(empty($value)) continue;
-			$url .= "&$name=$value";
+			if(!empty($value)) $qs[] = "$name=$value";
 		}
-		return $url;
+		return './?' . implode('&', $qs);
 	}
 
 	/**
@@ -826,11 +835,18 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	
 		if($this->field) { 
 			// focus in on a specific field or fields 
-			$form->addClass('ProcessPageEditSingleField'); 
+			$form->addClass('ProcessPageEditSingleField');
+
 		
 			foreach($this->fields as $field) {
-				foreach($this->page->getInputfields($field->name) as $inputfield) {
-					if(!$this->page->editable($inputfield->name, false)) continue;
+				$options = array(
+					'contextStr' => $this->fnsx,
+					'fieldName' => $field->name,
+					'namespace' => '',
+					'flat' => true,
+				);
+				foreach($this->page->getInputfields($options) as $inputfield) {
+					if(!$this->page->editable($field->name, false)) continue;
 					$skipCollapsed = array(
 						Inputfield::collapsedHidden,
 						Inputfield::collapsedNoLocked,

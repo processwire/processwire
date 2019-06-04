@@ -208,6 +208,18 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		if($page) {}
 		return 1;
 	}
+
+	/**
+	 * Get the name of the repeater item type (if used)
+	 * 
+	 * @param Page|int $type
+	 * @return string
+	 *
+	 */
+	protected function getRepeaterItemTypeName($type) {
+		if($type) {} // ignore
+		return '';
+	}
 	
 	/**
 	 * Preload all assets used by Inputfields of this type
@@ -386,9 +398,13 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			} else {
 				$wrap->label = "$label " . (++$cnt);
 			}
+			$itemType = $this->getRepeaterItemType($page);
+			$itemTypeName = $this->getRepeaterItemTypeName($itemType);
 			$wrap->name = "repeater_item_{$page->id}";
 			$wrap->wrapAttr('data-page', $page->id);
-			$wrap->wrapAttr('data-type', $this->getRepeaterItemType($page));
+			$wrap->wrapAttr('data-type', $itemType);
+			$wrap->wrapAttr('data-typeName', $itemTypeName);
+			$wrap->wrapAttr('data-fnsx', "_repeater$page->id");  // fnsx=field name suffix
 			//$wrap->wrapAttr('data-editorPage', $this->page->id);
 			//$wrap->wrapAttr('data-parentPage', $page->parent->id);
 			$wrap->wrapAttr('data-editUrl', $page->editUrl()); // if needed by any Inputfields within like InputfieldFile/InputfieldImage
@@ -647,7 +663,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				'removeAll' => $this->_x('Delete all items?', 'repeater-item-action'),
 				'toggle' => $this->_x('Click to turn item on/off, or double-click to open/collapse all items', 'repeater-item-action'),
 				'clone' => $this->_x('Clone this item?', 'repeater-item-action'),
-				'settings' => $this->_('Show settings?', 'repeater-item-action'),
+				'settings' => $this->_x('Show settings?', 'repeater-item-action'),
 				'openAll' => $this->_x('Open all items?', 'repeater-item-action'), 
 				'collapseAll' => $this->_x('Collapse all items?', 'repeater-item-action'),
 				'disabledMinMax' => $this->_('This action is disabled per min and/or max item settings.')

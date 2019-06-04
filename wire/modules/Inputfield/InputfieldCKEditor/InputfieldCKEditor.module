@@ -24,6 +24,7 @@
  * @property string $customOptions
  * @property array $imageFields
  * @property int $assetPageID
+ * @property string $configName
  * 
  *
  */

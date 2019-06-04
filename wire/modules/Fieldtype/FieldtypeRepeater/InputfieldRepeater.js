@@ -361,10 +361,11 @@ function InputfieldRepeater($) {
 		}
 
 		// determine which page IDs we don't accept for new items (because we already have them rendered)
-		var $unpublishedItems = $inputfields.find('.InputfieldRepeaterUnpublished, .InputfieldRepeaterWasUnpublished'); // :not(.InputfieldRepeaterMinItem)');
-		if($unpublishedItems.length) {
+		// var $unpublishedItems = $inputfields.find('.InputfieldRepeaterUnpublished, .InputfieldRepeaterWasUnpublished'); // :not(.InputfieldRepeaterMinItem)');
+		var $existingItems = $inputfields.find('.InputfieldRepeaterItem:not(.InputfieldRepeaterNewItem)'); 
+		if($existingItems.length) {
 			ajaxURL += '&repeater_not=';
-			$unpublishedItems.each(function() {
+			$existingItems.each(function() {
 				ajaxURL += $(this).attr('data-page') + ',';
 			});
 		}

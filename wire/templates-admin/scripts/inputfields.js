@@ -1459,18 +1459,21 @@ function InputfieldRequirements($target) {
  * 
  */
 function InputfieldReloadEvent(event, extraData) {
-	console.log('InputfieldReloadEvent ' + $(this).attr('id'));
 	var $t = $(this);
 	var $form = $t.closest('form');
 	var fieldName = $t.attr('id').replace('wrap_Inputfield_', '');
+	var fnsx = ''; // field name suffix
 	var url = $form.attr('action');
 	if(fieldName.indexOf('_repeater') > 0) {
-		var pageID = $t.closest('.InputfieldRepeaterItem').attr('data-page');
+		var $repeaterItem = $t.closest('.InputfieldRepeaterItem'); 
+		var pageID = $repeaterItem.attr('data-page');
 		url = url.replace(/\?id=\d+/, '?id=' + pageID);
+		fnsx = $repeaterItem.attr('data-fnsx');
 		fieldName = fieldName.replace(/_repeater\d+$/, '');
 	}
 	url += url.indexOf('?') > -1 ? '&' : '?';
 	url += 'field=' + fieldName + '&reloadInputfieldAjax=' + fieldName;
+	if(fnsx.length) url += '&fnsx=' + fnsx;
 	if(typeof extraData != "undefined") {
 		if(typeof extraData['queryString'] != "undefined") {
 			url += '&' + extraData['queryString'];
