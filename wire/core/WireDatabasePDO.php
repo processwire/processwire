@@ -594,6 +594,23 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Does the given table exist in this database?
+	 * 
+	 * #pw-group-custom
+	 * 
+	 * @param string $table
+	 * @return bool
+	 * @since 3.0.133
+	 * 
+	 */
+	public function tableExists($table) {
+		$query = $this->prepare('SHOW TABLES LIKE ?');
+		$query->execute(array($table));
+		$result = $query->fetchColumn();
+		return !empty($result);
+	}
+
+	/**
 	 * Is the given string a database comparison operator?
 	 * 
 	 * #pw-group-custom
