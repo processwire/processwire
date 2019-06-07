@@ -8,7 +8,7 @@
  * 1. Providing get/set access to the Page's properties
  * 2. Accessing the related hierarchy of pages (i.e. parents, children, sibling pages)
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Class used by all Page objects in ProcessWire.
@@ -88,6 +88,9 @@
  * @property int $hasLinks Number of visible pages (to current user) linking to this page in Textarea/HTML fields. #pw-group-traversal
  * @property int $instanceID #pw-internal
  * @property bool $quietMode #pw-internal
+ * @property WireData|null $_meta #pw-internal
+ * @property WireData $meta #pw-internal
+ * 
  * 
  * @property Page|null $_cloning Internal runtime use, contains Page being cloned (source), when this Page is the new copy (target). #pw-internal
  * @property bool|null $_hasAutogenName Internal runtime use, set by Pages class when page as auto-generated name. #pw-internal
@@ -601,7 +604,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'created' => 0,
 		'modified' => 0,
 		'published' => 0,
-		);
+	);
+
+	/**
+	 * Page meta data
+	 * 
+	 * @var null|WireDataDB
+	 * 
+	 */
+	protected $_meta = null;
 
 	/**
 	 * Properties that can be accessed, mapped to method of access (excluding custom fields of course)
@@ -777,6 +788,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$this->filesManager = clone $this->filesManager; 
 			$this->filesManager->setPage($this);
 		}
+		$this->_meta = null;
 		foreach($this->template->fieldgroup as $field) {
 			$name = $field->name; 
 			if(!$field->type->isAutoload() && !isset($this->data[$name])) continue; // important for draft loading
@@ -1176,9 +1188,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 			case 'loaderCache':
 				$value = $this->loaderCache;
 				break;
+			case '_meta':		
+				$value = $this->_meta; // null or WireDataDB
+				break;
 			
 			default:
 				if($key && isset($this->settings[(string)$key])) return $this->settings[$key];
+				if($key === 'meta' && !$this->wire('fields')->get('meta')) return $this->meta(); // always WireDataDB
 				
 				// populate a formatted string with {tag} vars
 				if(strpos($key, '{') !== false && strpos($key, '}')) return $this->getMarkup($key);
@@ -4363,6 +4379,56 @@ class Page extends WireData implements \Countable, WireMatchable {
 		return $this;
 	}
 	*/
+
+	/**
+	 * Get or set page’s persistent meta data 
+	 * 
+	 * This meta data is managed in the DB. Setting a value immediately saves it in the DB, while 
+	 * getting a value immediately loads it from the DB. As a result, this data is independent of the 
+	 * usual Page load and save operations. This is primarily for internal core use, but may be 
+	 * useful for other specific non-core purposes as well. 
+	 * 
+	 * Note that this meta data is completely free-form and has no connection to ProcessWire fields. 
+	 * Values for meta data must be basic PHP types, whether arrays, strings, numbers, etc. Please do
+	 * not use objects for meta values at this time.
+	 * 
+	 * ~~~~~
+	 * // set and save a meta value 
+	 * $page->meta()->set('colors', [ 'red, 'green', 'blue' ]); 
+	 * 
+	 * // get a meta value
+	 * $colors = $page->meta()->get('colors');
+	 * 
+	 * // alternate shorter syntax for either of the above
+	 * $page->meta('colors', [ 'red', 'green', 'blue' ]); // set
+	 * $colors = $page->meta('colors'); // get
+	 * 
+	 * // delete a meta value
+	 * $page->meta()->remove('colors');
+	 * 
+	 * // get the WireDataDB instance that stores the meta values,
+	 * // it has all the same methods as WireData objects...
+	 * $meta = $page->meta();
+	 * 
+	 * // ...such as, get all values in an array:
+	 * $values = $meta->getArray();
+	 * ~~~~~
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string|bool $key Omit to get the WireData instance or specify property name to get or set. 
+	 * @param null|mixed $value Value to set for given $key or omit if getting a value. 
+	 * @return WireDataDB|string|array|int|float
+	 * @since 3.0.133
+	 * 
+	 */
+	public function meta($key = '', $value = null) {
+		/** @var Pages $pages */
+		if($this->_meta === null) $this->_meta = $this->wire(new WireDataDB($this->id, 'pages_meta')); 
+		if(empty($key)) return $this->_meta; // return instance
+		if($value === null) return $this->_meta->get($key); // get value
+		return $this->_meta->set($key, $value); // set value
+	}
 	
 }
 

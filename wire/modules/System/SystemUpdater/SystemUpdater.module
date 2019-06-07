@@ -266,7 +266,8 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 			$f = $this->wire('modules')->get('InputfieldMarkup'); 	
 			$f->attr('name', '_log'); 
 			$f->label = $this->_('System Update Log'); 
-			$f->value = '<pre>' . $this->wire('sanitizer')->entities(file_get_contents($logfile)) . '</pre>';
+			$logContent = $this->wire('sanitizer')->unentities(file_get_contents($logfile)); 
+			$f->value = '<pre>' . $this->wire('sanitizer')->entities($logContent) . '</pre>';
 			$inputfields->add($f); 
 		}
 		

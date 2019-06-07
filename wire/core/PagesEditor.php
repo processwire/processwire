@@ -1062,6 +1062,8 @@ class PagesEditor extends Wire {
 		} catch(\Exception $e) {
 		}
 
+		$page->meta()->removeAll();
+		
 		/** @var PagesAccess $access */
 		$access = $this->wire(new PagesAccess());
 		$access->deletePage($page);
@@ -1220,6 +1222,7 @@ class PagesEditor extends Wire {
 		$copy->setQuietly('_cloning', null);
 		$copy->of($of);
 		$page->of($of);
+		$page->meta()->copyTo($copy->id); 
 		$copy->resetTrackChanges();
 		$this->pages->cloned($page, $copy);
 		$this->pages->debugLog('clone', "page=$page, parent=$parent", $copy);
