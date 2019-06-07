@@ -160,7 +160,6 @@ class InputfieldCheckbox extends Inputfield {
 			if($this->autocheck || $this->getSetting('formBuilder')) $this->attr('checked', 'checked');
 		}
 
-
 		return parent::setAttribute($key, $value); 
 	}
 
@@ -170,14 +169,49 @@ class InputfieldCheckbox extends Inputfield {
 	}
 
 	/**
+	 * Get or set current checkbox boolean attribute state
+	 * 
+	 * ~~~~~
+	 * // the following two lines are equivalent to GET checkbox state
+	 * $checked = $f->checked(); 
+	 * $checked = !empty($f->attr('checked'));
+	 * 
+	 * // the following two lines are equivalent to SET checkbox state
+	 * $f->checked(true);
+	 * $f->attr('checked', 'checked'); 
+	 * ~~~~~
+	 *
+	 * @param bool|null Specify boolean to set checkbox state
+	 * @return bool
+	 * @since 3.0.133
+	 *
+	 */
+	public function checked($checked = null) {
+		if($checked !== null) {
+			if($checked) {
+				$this->attr('checked', 'checked');
+				$checked = true;
+			} else {
+				$this->removeAttr('checked');
+				$checked = false;
+			}
+		} else {
+			$checked = $this->attr('checked');
+			$checked = empty($checked) ? false : true;
+		}
+		return $checked;
+	}
+
+	/**
 	 * Is checkbox currently checked?
+	 * 
+	 * #pw-internal
 	 * 
 	 * @return bool
 	 * 
 	 */
 	public function isChecked() {
-		$checked = $this->attr('checked'); 
-		return !empty($checked); 
+		return $this->checked();
 	}
 
 	/**
@@ -188,7 +222,7 @@ class InputfieldCheckbox extends Inputfield {
 	 */
 	public function isEmpty() {
 		// return $this->attr('value') != $this->checkedValue; 
-		return !$this->isChecked();
+		return !$this->checked();
 	}
 
 	/**
