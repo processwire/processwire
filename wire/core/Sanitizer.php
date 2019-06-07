@@ -143,6 +143,22 @@ class Sanitizer extends Wire {
 	protected $allowedASCII = array();
 
 	/**
+	 * ASCII alpha chars
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $alphaASCII = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+
+	/**
+	 * ASCII digits chars
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $digitASCII = '0123456789';
+
+	/**
 	 * @var null|WireTextTools
 	 * 
 	 */
@@ -214,7 +230,7 @@ class Sanitizer extends Wire {
 	public function __construct() {
 		$this->multibyteSupport = function_exists("mb_internal_encoding"); 
 		if($this->multibyteSupport) mb_internal_encoding("UTF-8");
-		$this->allowedASCII = str_split('abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789');
+		$this->allowedASCII = str_split($this->alphaASCII . $this->digitASCII);
 	}
 
 	/*************************************************************************************************************
@@ -418,7 +434,55 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function varName($value) {
-		return $this->nameFilter($value, array('_'), '_'); 
+		$value = $this->nameFilter($value, array('_'), '_'); 
+		if(!ctype_alpha($value)) $value = ltrim($value, $this->digitASCII); // vars cannot begin with numbers
+		return $value; 
+	}
+
+	/**
+	 * Sanitize to an ASCII-only HTML attribute name
+	 * 
+	 * @param string $value
+	 * @param int $maxLength
+	 * @return string
+	 * @since 3.0.133
+	 * 
+	 */
+	public function attrName($value, $maxLength = 255) {
+		
+		$value = trim($value); // force as trimmed string
+		if(ctype_alpha($value) && strlen($value) <= $maxLength) return $value; // simple 1-word attributes
+
+		// remove any non ":_a-zA-Z" characters from beginning of attribute name
+		while(strpos(":_$this->alphaASCII", substr($value, 0, 1)) === false && strlen($value)) {
+			$value = substr($value, 1); 
+		}
+		
+		if(ctype_alnum(str_replace(array('-', '_', ':', '.'), '', $value))) {
+			// names with HTML valid separators
+			if(strlen($value) <= $maxLength) return $value; 
+		}
+		
+		// at this point attribute name contains something unusual
+		if(!ctype_graph($value)) {
+			// contains non-visible characters
+			$value = preg_replace('/[\s\r\n\t]+/', '-', $value);
+			if(!ctype_graph($value)) $value = ''; // fail
+		}
+		
+		if($value !== '') {
+			// replace non-word, non-digit, non-punct characters
+			$value = preg_replace('/[^-_.:\w\d]+/', '-', $value);
+			$value = htmlspecialchars($value, ENT_QUOTES, 'UTF-8');
+		}
+		
+		if($value === 'data-') $value = ''; // data attribute with no name is disallowed
+		
+		if(strlen($value) > $maxLength) {
+			$value = substr($value, 0, $maxLength);
+		}
+		
+		return $value;
 	}
 
 	/**
@@ -1031,9 +1095,11 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	public function alpha($value, $beautify = false, $maxLength = 1024) {
-		$value = $this->alphanumeric($value, $beautify, 8192);
-		$numbers = array('0', '1', '2', '3', '4', '5', '6', '7', '8', '9');
-		$value = str_replace($numbers, '', $value);
+		$value = $this->alphanumeric($value, $beautify, $maxLength * 10);
+		if(!ctype_alpha($value)) {
+			$value = str_replace(str_split($this->digitASCII), '', $value);
+			if(!ctype_alpha($value)) $value = preg_replace('/[^a-zA-Z]+/', '', $value);
+		}	
 		if(strlen($value) > $maxLength) $value = substr($value, 0, $maxLength);
 		return $value;
 	}
@@ -1067,9 +1133,11 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function digits($value, $maxLength = 1024) {
-		$letters = str_split('_abcdefghijklmnopqrstuvwxyz');
-		$value = strtolower($this->nameFilter($value, array('_'), '_', false, $maxLength * 10));
-		$value = str_replace($letters, '', $value);
+		$value = $this->nameFilter($value, array('_'), '_', false, $maxLength * 10);
+		if(!ctype_digit($value)) {
+			$value = str_replace(str_split('_' . $this->alphaASCII), '', $value);
+			if(!ctype_digit($value)) $value = preg_replace('/[^\d]+/', '', $value);
+		}
 		if(strlen($value) > $maxLength) $value = substr($value, 0, $maxLength);
 		return $value; 
 	}
@@ -2736,7 +2804,7 @@ class Sanitizer extends Wire {
 		}
 		
 		if(!$options['startNumber']) {
-			$value = ltrim($value, '0123456789'); 
+			$value = ltrim($value, $this->digitASCII); 
 		}
 		
 		return $value;
@@ -2789,16 +2857,14 @@ class Sanitizer extends Wire {
 	public function chars($value, $allow = '', $replacement = '', $collapse = true, $mb = null) {
 
 		$value = $this->string($value);
-		$alpha = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-		$digit = '0123456789';
 		
 		if(is_array($allow)) $allow = implode('', $allow);
 		
 		if(!strlen($allow)) {
-			$allow = $alpha . $digit;
+			$allow = $this->alphaASCII . $this->digitASCII;
 		} else {
-			if(stripos($allow, '[alpha]') !== false) $allow = str_ireplace('[alpha]', $alpha, $allow);
-			if(stripos($allow, '[digit]') !== false) $allow = str_ireplace('[digit]', $digit, $allow);
+			if(stripos($allow, '[alpha]') !== false) $allow = str_ireplace('[alpha]', $this->alphaASCII, $allow);
+			if(stripos($allow, '[digit]') !== false) $allow = str_ireplace('[digit]', $this->digitASCII, $allow);
 		}
 		if($mb === null) $mb = $this->multibyteSupport ? !mb_check_encoding($allow . $value, 'ASCII') : false;
 		
@@ -3646,6 +3712,7 @@ class Sanitizer extends Wire {
 			'alpha',
 			'alphanumeric',
 			'array',
+			'attrName',
 			'bit',
 			'bool',
 			'camelCase',
@@ -3940,6 +4007,7 @@ class Sanitizer extends Wire {
 			'alphanumeric' => 3,
 
 			// method($val, $maxLength)
+			'attrName' => 2, 
 			'pageNameTranslate' => 2,
 			'pageNameUTF8' => 2,
 			'digits' => 2,
