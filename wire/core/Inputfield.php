@@ -641,21 +641,42 @@ abstract class Inputfield extends WireData implements Module {
 	 *   - Name of attribute (string)
 	 *   - Names of attributes (array)
 	 *   - String with names of attributes split by "+" or "|"
-	 * @param string|int|array $value Value of attribute to set. 
+	 * @param string|int|array|bool $value Value of attribute to set. 
 	 * @return $this
 	 * @see Inputfield::attr(), Inputfield::removeAttr(), Inputfield::addClass()
 	 *
 	 */
 	public function setAttribute($key, $value) {
 		
-		if(is_array($key)) $keys = $key; 
-			else if(strpos($key, '+') !== false) $keys = explode('+', $key); 
-			else if(strpos($key, '|') !== false) $keys = explode('|', $key); 
-			else $keys = array($key); 
+		if(is_array($key)) {
+			$keys = $key;
+		} else if(strpos($key, '+') !== false) {
+			$keys = explode('+', $key);
+		} else if(strpos($key, '|') !== false) {
+			$keys = explode('|', $key);
+		} else {
+			$keys = array($key);
+		}
+		
+		$booleanValue = is_bool($value) ? $value : null;
 
 		foreach($keys as $key) {
-
-			if($key == 'name' && strlen($value)) {
+			
+			if(!ctype_alpha("$key")) $key = $this->wire('sanitizer')->attrName($key);
+			if(empty($key)) continue;
+		
+			if($booleanValue !== null) {
+				if($booleanValue === true) {
+					// boolean true attribute sets value as attribute name (i.e. checked='checked')
+					$value = $key; 
+				} else if($booleanValue === false) {
+					// boolean false attribute implies remove attribute
+					$this->removeAttribute($key);
+					continue;
+				}
+			}
+			
+			if($key === 'name' && strlen($value)) {
 				$idAttr = $this->getAttribute('id'); 
 				$nameAttr = $this->getAttribute('name'); 
 				if($idAttr == $this->defaultID || $idAttr == $nameAttr || $idAttr == "Inputfield_$nameAttr") {
@@ -664,7 +685,9 @@ abstract class Inputfield extends WireData implements Module {
 				}
 			}
 
-			if(!array_key_exists($key, $this->attributes)) $this->attributes[$key] = '';
+			if(!array_key_exists($key, $this->attributes)) {
+				$this->attributes[$key] = '';
+			}
 
 			if(is_array($this->attributes[$key]) && !is_array($value)) {
 
@@ -762,7 +785,7 @@ abstract class Inputfield extends WireData implements Module {
 	 *   - Aassociative array to set multiple attributes. 
 	 *   - String with attributes split by "+" or "|" to set them all to have the same value. 
 	 *   - Specify boolean true to get all attributes in an associative array.
-	 * @param string|int|null $value Value to set (if setting), omit otherwise. 
+	 * @param string|int|bool|null $value Value to set (if setting), omit otherwise. 
 	 * @return Inputfield|array|string|int|object|float If setting an attribute, it returns this instance. If getting an attribute, the attribute is returned. 
 	 * @see Inputfield::removeAttr(), Inputfield::addClass(), Inputfield::removeClass()
 	 *
@@ -1132,12 +1155,16 @@ abstract class Inputfield extends WireData implements Module {
 		}
 
 		foreach($attributes as $attr => $value) {
-
-			// skip over empty attributes
-			if(!is_array($value) && !strlen("$value") && (!$value = $this->attr($attr))) continue;
-
-			// if an attribute has multiple values (like class), then bundle them into a string separated by spaces
-			if(is_array($value)) $value = implode(' ', $value); 
+			
+			if(is_array($value)) {
+				// if an attribute has multiple values (like class), then bundle them into a string separated by spaces
+				$value = implode(' ', $value);
+				
+			} else if(!strlen("$value") && strpos($attr, 'data-') !== 0) {
+				// skip over empty non-data attributes that are not arrays
+				// if(!$value = $this->attr($attr))) continue; // was in 3.0.132 and earlier
+				continue;
+			}
 
 			$str .= "$attr=\"" . htmlspecialchars($value, ENT_QUOTES, "UTF-8") . '" ';
 		}
