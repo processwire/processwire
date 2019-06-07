@@ -708,6 +708,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * 
 	 */
 	public function ___renderValue() {
+		if(!count($this->children)) return '';
 		$this->addClass('InputfieldRenderValueMode');
 		$this->set('renderValueMode', true); 
 		$out = $this->render(); 
@@ -806,7 +807,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			$inputfield->resetTrackChanges();
 		}
 		if(is_null($out)) return '';
-		if(!strlen($out)) $out = '&nbsp;'; // prevent output from being skipped over
+		if(!strlen($out) && !$inputfield instanceof InputfieldWrapper) $out = '&nbsp;'; // prevent output from being skipped over
 		return $out;
 	}
 

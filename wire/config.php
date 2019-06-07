@@ -621,6 +621,8 @@ $config->fileContentTypes = array(
  * #property string sharpening Sharpening mode, enter one of: none, soft, medium, strong
  * #property int quality Image quality, enter a value between 1 and 100, where 100 is highest quality (and largest files)
  * #property float defaultGamma Default gamma of 0.5 to 4.0 or -1 to disable gamma correction (default=2.0)
+ * #property bool webpAdd Create a WEBP copy with every new image variation? (default=false)
+ * #property int webpQuality Quality setting of 1-100 where higher is better but bigger (default=90)
  * 
  * @var array
  *

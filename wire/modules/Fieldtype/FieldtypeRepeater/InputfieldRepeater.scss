@@ -2,6 +2,9 @@
 	
 	& > .InputfieldContent > ul.Inputfields { 
 		margin-bottom: 1em;
+		&:last-child {
+			margin-bottom: 0;
+		}
 	}
 	
 	.InputfieldRepeaterItem  > .InputfieldHeader {

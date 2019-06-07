@@ -11,7 +11,7 @@
  * This version also lifts several pieces of code from Soma's Modules Manager
  * specific to the parts involved with downloading modules from the directory.
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add support for module configuration inputfields with useLanguages option
@@ -123,7 +123,7 @@ class ProcessModule extends Process {
 	
 	public function __construct() {
 		$this->labels['download'] = $this->_('Download'); 
-		if($this->input->get->update) {
+		if($this->input->get('update')) {
 			$this->labels['download_install'] = $this->_('Download and Update');
 		} else { 
 			$this->labels['download_install'] = $this->_('Download and Install');
@@ -263,9 +263,9 @@ class ProcessModule extends Process {
 		}
 		ksort($this->modulesArray); 
 
-		if($this->input->post->install) {
+		if($this->input->post('install')) {
 			$this->session->CSRF->validate();
-			$name = $this->wire('sanitizer')->name($this->input->post->install);
+			$name = $this->wire('sanitizer')->name($this->input->post('install'));
 			if($name && isset($this->modulesArray[$name]) && !$this->modulesArray[$name]) {
 				$module = $this->modules->install($name, array('force' => true)); 		
 				if($module) {
@@ -279,9 +279,9 @@ class ProcessModule extends Process {
 			}
 		}
 
-		if($this->input->post->delete) {
+		if($this->input->post('delete')) {
 			$this->session->CSRF->validate();
-			$name = $this->input->post->delete;
+			$name = $this->input->post('delete');
 			if($name && isset($this->modulesArray[$name])) {
 				$info = $this->modules->getModuleInfoVerbose($name); 		
 				try {
@@ -295,24 +295,24 @@ class ProcessModule extends Process {
 			}
 		}
 		
-		if($this->input->post->download && $this->input->post->download_name) {
+		if($this->input->post('download') && $this->input->post('download_name')) {
 			$this->session->CSRF->validate();
-			return $this->downloadConfirm($this->input->post->download_name);
-		} else if($this->input->get->download_name) {
-			return $this->downloadConfirm($this->input->get->download_name); 
+			return $this->downloadConfirm($this->input->post('download_name'));
+		} else if($this->input->get('download_name')) {
+			return $this->downloadConfirm($this->input->get('download_name')); 
 		}
 		
-		if($this->input->post->upload) {
+		if($this->input->post('upload')) {
 			$this->session->CSRF->validate();
 			$this->executeUpload('upload_module'); 
 		}
 		
-		if($this->input->post->download_zip && $this->input->post->download_zip_url) {
+		if($this->input->post('download_zip') && $this->input->post('download_zip_url')) {
 			$this->session->CSRF->validate();
-			$this->executeDownloadURL($this->input->post->download_zip_url); 		
+			$this->executeDownloadURL($this->input->post('download_zip_url')); 		
 		}
 		
-		if($this->input->post->clear_file_compiler) {
+		if($this->input->post('clear_file_compiler')) {
 			$this->session->CSRF->validate();
 			$compiler = new FileCompiler($this->wire('config')->paths->siteModules); 
 			$compiler->clearCache(true);
@@ -320,15 +320,15 @@ class ProcessModule extends Process {
 			$this->session->redirect('./');
 		}	
 		
-		if($this->input->get->update) {
-			$name = $this->sanitizer->name($this->input->get->update); 
+		if($this->input->get('update')) {
+			$name = $this->sanitizer->name($this->input->get('update')); 
 			if(isset($this->modulesArray[$name])) return $this->downloadConfirm($name, true); 
 		}
 
-		if($this->input->get->reset == 1) {
+		if($this->input->get('reset') == 1) {
 			$this->modules->resetCache();
 			$this->message(sprintf($this->_('Modules cache refreshed (%d modules)'), count($this->modules)));
-			$edit = $this->input->get->edit;
+			$edit = $this->input->get->fieldName('edit');
 			$duplicates = $this->modules->duplicates()->getDuplicates();
 			foreach($duplicates as $className => $files) {
 				$dup = $this->modules->duplicates()->getDuplicates($className); 
@@ -341,8 +341,11 @@ class ProcessModule extends Process {
 				}
 				$this->message("$msg</pre>", Notice::allowMarkup);
 			}
-			if($edit) $this->session->redirect("./edit?name=" . $this->sanitizer->fieldName($edit) . "&reset=2"); 
-				else $this->session->redirect("./?reset=2");
+			if($edit) {
+				$this->session->redirect("./edit?name=$edit&reset=2");
+			} else {
+				$this->session->redirect("./?reset=2");
+			}
 		}
 
 		return $this->renderList();
@@ -425,7 +428,8 @@ class ProcessModule extends Process {
 		$button->attr('value', $this->_('Clear compiled files'));
 		$button->addClass('ui-priority-secondary');
 		$button->icon = 'trash-o';
-		
+	
+		/** @var InputfieldMarkup $markup */
 		$markup = $this->modules->get('InputfieldMarkup');
 		$markup->label = $this->_('/site/modules/ - Modules specific to your site');
 		$markup->icon = 'folder-open-o';
@@ -439,12 +443,14 @@ class ProcessModule extends Process {
 		$form->add($tab); 
 		
 		// core
-		
+
+		/** @var InputfieldWrapper $tab */		
 		$tab = $this->wire(new InputfieldWrapper());
 		$tab->attr('id', 'tab_core_modules'); 
 		$tab->attr('title', $this->labels['core']);
 		$tab->attr('class', 'WireTab');
-		
+	
+		/** @var InputfieldMarkup $markup */
 		$markup = $this->modules->get('InputfieldMarkup');
 		$markup->value = $this->renderListTable($coreModulesArray);
 		$markup->label = $this->_('/wire/modules/ - Modules included with the ProcessWire core');
@@ -535,20 +541,23 @@ class ProcessModule extends Process {
 		$f->attr('placeholder', $this->_('ModuleClassName')); // placeholder
 		$f->required = false; 
 		$fieldset->add($f);
-		
+	
+		/** @var InputfieldSubmit $f */
 		$f = $this->modules->get('InputfieldSubmit');
 		$f->attr('id+name', 'download');
 		$f->value = $this->labels['get_module_info'];
 		$f->icon = $fieldset->icon;
 		$fieldset->add($f);
 		$tab->add($fieldset);
-		
+	
+		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->modules->get('InputfieldFieldset');
 		$fieldset->label = $this->labels['download_zip'];
 		$fieldset->icon = 'download';
 		$fieldset->collapsed = Inputfield::collapsedYes;
 		$trustNote = $this->_('Be absolutely certain that you trust the source of the ZIP file.'); 
-		
+	
+		/** @var InputfieldURL $f */
 		$f = $this->modules->get('InputfieldURL');
 		$f->attr('id+name', 'download_zip_url');
 		$f->label = $this->_('Module ZIP file URL');
@@ -558,17 +567,21 @@ class ProcessModule extends Process {
 		$f->required = false;
 		$fieldset->add($f);
 
+		/** @var InputfieldSubmit $f */
 		$f = $this->modules->get('InputfieldSubmit');
 		$f->attr('id+name', 'download_zip');
 		$f->value = $this->labels['download'];
 		$f->icon = $fieldset->icon;
 		$fieldset->add($f);
 		$tab->add($fieldset);
-		
+	
+		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->modules->get('InputfieldFieldset'); 
 		$fieldset->label = $this->labels['upload_zip'];
 		$fieldset->icon = 'upload';
 		$fieldset->collapsed = Inputfield::collapsedYes;
+		
+		/** @var InputfieldFile $f */
 		$f = $this->modules->get('InputfieldFile');
 		$f->extensions = 'zip';
 		$f->maxFiles = 1; 
@@ -610,7 +623,7 @@ class ProcessModule extends Process {
 		$form->add($tab);
 	
 		// if($this->input->get->reset == 2 && !$this->numFound) $this->message($this->_("No new modules found")); 
-		$this->session->ModulesUninstalled = $uninstalledNames;
+		$this->session->set('ModulesUninstalled', $uninstalledNames);
 
 		return $form->render(); 
 	}
@@ -634,7 +647,7 @@ class ProcessModule extends Process {
 		static $numCalls = 0; 
 		$numCalls++;
 		
-		$uninstalledPrev = is_array($this->session->ModulesUninstalled) ? $this->session->ModulesUninstalled : array();
+		$uninstalledPrev = is_array($this->session->get('ModulesUninstalled')) ? $this->session->get('ModulesUninstalled') : array();
 		$section = 'none';
 		$tableHeader = array(
 			$this->_x('Module', 'list'),	// Modules list table header for 'Module' column 
@@ -710,7 +723,7 @@ class ProcessModule extends Process {
 				$class = 'not_installed';
 				if(count($uninstalledPrev) && !in_array($name, $uninstalledPrev)) {
 					$class .= " new_module";
-					if(!$this->input->get->uninstalled) $this->message($this->_("Found new module") . " - $name"); // Message that precedes module name when new module is found
+					if(!$this->input->get('uninstalled')) $this->message($this->_("Found new module") . " - $name"); // Message that precedes module name when new module is found
 					$newModules[$name] = time();
 					$this->numFound++;
 				}
@@ -729,7 +742,7 @@ class ProcessModule extends Process {
 					$icon = 'fa-sign-in';
 				}
 				$buttons .=
-					"<button type='$buttonType' name='install'$buttonWarning data-install='$name' " . 
+					"<button type='$buttonType' name='install' $buttonWarning data-install='$name' " . 
 						"class='install_$name $buttonState ui-button $buttonPriority' value='$name'>" .
 						"<span class='ui-button-text'>" . 
 							"<i class='fa $icon'></i> " . 
@@ -836,9 +849,9 @@ class ProcessModule extends Process {
 	
 		$name = $this->wire('sanitizer')->name($name); 
 		$info = self::getModuleInfo();
-		$this->wire('processHeadline', $this->labels['download_install']); 
-		$this->wire('breadcrumbs')->add(new Breadcrumb('./', $info['title']));
-		if($update) $this->wire('breadcrumbs')->add(new Breadcrumb("./?edit=$name", $name)); 
+		$this->headline($this->labels['download_install']); 
+		$this->breadcrumb('./', $info['title']);
+		if($update) $this->breadcrumb("./?edit=$name", $name); 
 		
 		$redirectURL = $update ? "./edit?name=$name" : "./";
 		$className = $name; 
@@ -1011,8 +1024,8 @@ class ProcessModule extends Process {
 			$btn->showInHeader(true);
 			if($update) $btn->value .= " ($data[module_version])";
 			$form->add($btn);
-			$this->session->ProcessModuleDownloadURL = $data['download_url'];
-			$this->session->ProcessModuleClassName = $data['class_name'];
+			$this->session->set('ProcessModuleDownloadURL', $data['download_url']);
+			$this->session->set('ProcessModuleClassName', $data['class_name']);
 		} else {
 			$this->session->remove('ProcessModuleDownloadURL');
 			$this->session->remove('ProcessModuleClassName');
@@ -1040,16 +1053,17 @@ class ProcessModule extends Process {
 	 */
 	public function ___executeDownload() {
 
-		if(!$this->input->post->godownload) {
+		if(!$this->input->post('godownload')) {
 			$this->message($this->_('Download cancelled')); 
-			return $this->session->redirect('../'); 
+			$this->session->redirect('../'); 
+			return '';
 		}
 		
 		$this->session->CSRF->validate();
 		$this->modules->resetCache();
 
-		$url = $this->session->ProcessModuleDownloadURL;
-		$className = $this->session->ProcessModuleClassName;
+		$url = $this->session->get('ProcessModuleDownloadURL');
+		$className = $this->session->get('ProcessModuleClassName');
 		
 		$this->session->remove('ProcessModuleDownloadURL');
 		$this->session->remove('ProcessModuleClassName'); 
@@ -1064,7 +1078,8 @@ class ProcessModule extends Process {
 		if($completedDir) {
 			return $this->buildDownloadSuccessForm($className)->render();
 		} else {
-			return $this->session->redirect('../'); 
+			$this->session->redirect('../'); 
+			return '';
 		}
 	}
 
@@ -1093,7 +1108,7 @@ class ProcessModule extends Process {
 				$this->wire('session')->redirect('../'); 
 			}
 
-			$this->wire('processHeadline', $this->_('Downloaded:') . ' ' . $className);
+			$this->headline($this->_('Downloaded:') . ' ' . $className);
 
 			$form->description = sprintf($this->_('%s is ready to install'), $className);
 			$form->attr('action', '../');
@@ -1125,7 +1140,7 @@ class ProcessModule extends Process {
 
 		} else {
 
-			$this->wire('processHeadline', $this->_('Updated:') . ' ' . $className);
+			$this->headline($this->_('Updated:') . ' ' . $className);
 			$form->description = sprintf($this->_('%s was updated successfully.'), $className);
 			/** @var InputfieldButton $button */
 			$button = $this->modules->get('InputfieldButton');
@@ -1215,8 +1230,9 @@ class ProcessModule extends Process {
 			($this->wire('config')->debug && $this->wire('config')->advanced && ($flags & Modules::flagsAutoload)) ||
 			($flags & Modules::flagsDisabled);
 
-		$this->wire('breadcrumbs')->add(new Breadcrumb('./', $sinfo['title'])); 
-		$this->wire('processHeadline', $moduleInfo['title']); 
+		$this->breadcrumb('./', $sinfo['title']); 
+		$this->headline($moduleInfo['title']); 
+		$this->browserTitle(sprintf($this->_('Module: %s'), $moduleInfo['title'])); 
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm"); 
@@ -1349,7 +1365,7 @@ class ProcessModule extends Process {
 				}
 			}
 		
-			if($uninstallable && $this->input->post->uninstall === $moduleName) {
+			if($uninstallable && $this->input->post('uninstall') === $moduleName) {
 				$this->modules->uninstall($moduleName); 	
 				$this->session->message($this->_("Uninstalled Module") . " - $moduleName"); // Message shown before the name of a module that was just uninstalled
 				$redirectURL = './?uninstalled=1'; 
@@ -1484,6 +1500,7 @@ class ProcessModule extends Process {
 		$form->description = sprintf($this->_('Install %s?'), $name); 
 		
 		$modulesArray[$name] = (int) $this->modules->isInstalled($name); 
+		/** @var InputfieldMarkup $markup */
 		$markup = $this->modules->get('InputfieldMarkup');
 		$markup->value = $this->renderListTable($modulesArray, false, false, false, true, true);
 		$form->add($markup);

@@ -310,6 +310,7 @@ class Modules extends WireArray {
 	 *
 	 */
 	public function __construct($path) {
+		parent::__construct();
 		$this->addPath($path); 
 		$this->coreModulesDir = '/' . $this->wire('config')->urls->data('modules');
 	}
@@ -2690,9 +2691,8 @@ class Modules extends WireArray {
 	 *  - `minify` (bool): Remove non-applicable and properties that match defaults? (default=false, or true when getting `all`)
 	 *  - `noCache` (bool): prevents use of cache to retrieve the module info. (default=false)
 	 * @return array Associative array of module information
-	 * @throws WireException when a module exists but has no means of returning module info
 	 * @see Modules::getModuleInfoVerbose()
-	 * @todo move all getModuleInfo methods to their own ModuleInfo class and break this method down further. 
+	 * @todo move all getModuleInfo methods to their own ModuleInfo class and break this method down further.
 	 *	
 	 */
 	public function getModuleInfo($class, array $options = array()) {
@@ -3014,7 +3014,6 @@ class Modules extends WireArray {
 	 *  - `noCache` (bool): prevents use of cache to retrieve the module info
 	 *  - `noInclude` (bool): prevents include() of the module file, applicable only if it hasn't already been included
 	 * @return array Associative array of module information
-	 * @throws WireException when a module exists but has no means of returning module info
 	 * @see Modules::getModuleInfo()
 	 *
 	 */

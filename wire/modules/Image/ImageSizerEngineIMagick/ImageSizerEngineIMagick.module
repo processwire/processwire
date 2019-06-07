@@ -115,7 +115,8 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 	 * 
 	 */
 	protected function validSourceImageFormats() {
-		return array('JPG', 'JPEG', 'PNG24', 'PNG8', 'PNG', 'GIF', 'GIF87');
+		// 2019/06/07: “PNG8” removed because some versions of ImageMagick have some bug, may be able to add back later
+		return array('JPG', 'JPEG', 'PNG24', 'PNG', 'GIF', 'GIF87'); 
 		//return array(
 		//    'PNG', 'PNG8', 'PNG24',
 		//    'JPG', 'JPEG',
