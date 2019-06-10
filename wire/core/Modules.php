@@ -3030,6 +3030,7 @@ class Modules extends WireArray {
 	 * @param string $property Name of property to get
 	 * @param array $options Additional options (see getModuleInfo method for options)
 	 * @return mixed|null Returns value of property or null if not found
+	 * @since 3.0.107
 	 * 
 	 */
 	public function getModuleInfoProperty($class, $property, array $options = array()) {

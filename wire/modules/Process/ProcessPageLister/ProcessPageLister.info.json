@@ -1,7 +1,7 @@
 {
 	"title": "Lister",
 	"summary": "Admin tool for finding and listing pages by any property.", 
-	"version": 24, 
+	"version": 25, 
 	"author": "Ryan Cramer", 
 	"icon": "search", 
 	"singular": false, 
