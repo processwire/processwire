@@ -133,7 +133,7 @@ class PagefileExtra extends WireData {
 	}
 
 	/**
-	 * Return the URL to the extra file, creating it if it does not already exist
+	 * Return the URL to the extra file, creating it if it does not already exist, falling back if the server or browser doesn't support it or the WebP has a larger filesize
 	 * 
 	 * @param bool $fallback Allow falling back to source Pagefile URL when appropriate?
 	 * @return string
@@ -152,6 +152,9 @@ class PagefileExtra extends WireData {
 		} else {
 			$pathinfo = pathinfo($this->pagefile->url());
 			$url = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . '.' . $this->extension;
+		}
+		if(strpos($_SERVER['HTTP_ACCEPT'], 'image/webp') === false) {
+		    $url = $this->pagefile->url();
 		}
 		
 		return $url;
