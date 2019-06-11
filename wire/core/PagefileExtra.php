@@ -140,21 +140,22 @@ class PagefileExtra extends WireData {
 	 * 
 	 */
 	public function url($fallback = true) {
-		if(!$this->exists()) {
-			$this->create(); 
-			if($fallback && !$this->exists() && $this->useSrcUrlOnFail) {
-				// return original pagefile URL if the extra cannot be created
-				return $this->pagefile->url(); 
-			}
-		}
-		if($fallback && $this->useSrcUrlOnSize && $this->filesize() > $this->pagefile->filesize()) {
-			$url = $this->pagefile->url();
-		} else {
-			$pathinfo = pathinfo($this->pagefile->url());
-			$url = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . '.' . $this->extension;
-		}
 		if(strpos($_SERVER['HTTP_ACCEPT'], 'image/webp') === false) {
 		    $url = $this->pagefile->url();
+		} else {
+			if(!$this->exists()) {
+				$this->create(); 
+				if($fallback && !$this->exists() && $this->useSrcUrlOnFail) {
+					// return original pagefile URL if the extra cannot be created
+					return $this->pagefile->url(); 
+				}
+			}
+			if($fallback && $this->useSrcUrlOnSize && $this->filesize() > $this->pagefile->filesize()) {
+				$url = $this->pagefile->url();
+			} else {
+				$pathinfo = pathinfo($this->pagefile->url());
+				$url = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . '.' . $this->extension;
+			}
 		}
 		
 		return $url;
