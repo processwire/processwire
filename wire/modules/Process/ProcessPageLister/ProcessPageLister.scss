@@ -201,6 +201,9 @@
 #ProcessListerSelector {
 	display: inline-block;
 }
+#ProcessListerResultNotes + #ProcessListerSelector {
+	margin-top: 0;
+}
 
 p.version {
 	clear: both; 
@@ -211,9 +214,17 @@ p.version {
 	display: none;
 }
 
-#table_bookmarks {
-	margin-top: 0.5em;
+#tab_bookmarks {
+	table tr {
+		> td:first-child {
+			width: 30%;
+		}
+		> td:nth-child(2) {
+			width: 40%;
+		}
+	}
 }
+
 
 .AdminThemeReno {
 	a.lister-lightbox {

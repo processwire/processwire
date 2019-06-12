@@ -147,6 +147,14 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	protected $openPageIDs = array();
 
 	/**
+	 * Additional notes about the results to display underneath them
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $resultNotes = array();
+
+	/**
 	 * Initalize module config variables
 	 *
 	 */
@@ -348,35 +356,25 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	/**
 	 * Check for a bookmark specified in GET variable $n
 	 * 
-	 * return null|int|bool Returns NULL if not applicable, boolean false if bookmark not found, or integer of bookmark ID if applied
+	 * @param string $bookmarkID 
+	 * @return null|int|bool Returns NULL if not applicable, boolean false if bookmark not found, or integer of bookmark ID if applied
 	 * 
 	 */
-	public function checkBookmark() {
-		$n = (int) $this->wire('input')->get('bookmark');
-		if(!$n) return null;
-		$bookmarks = $this->getBookmarksInstance()->getBookmarks();
-		if(!isset($bookmarks[$n])) return false;
-		$bookmark = $bookmarks[$n];
-		$user = $this->wire('user');
-		if(!$user->isSuperuser() && count($bookmark['roles'])) {
-			$allow = false;
-			foreach($bookmark['roles'] as $roleID) {
-				foreach($user->roles as $role) {
-					if($role->id == $roleID) {
-						$allow = true;
-						break;
-					}
-				}
-			}
-			if(!$allow) return false;
-		}
+	public function checkBookmark($bookmarkID = '') {
+		if(!$bookmarkID) $bookmarkID = $this->wire('input')->get('bookmark');
+		if(!$bookmarkID) return null;
+		$bookmarks = $this->getBookmarksInstance();
+		$bookmarkID = $bookmarks->_bookmarkID($bookmarkID);
+		if(!$bookmarkID) return false;
+		$bookmark = $bookmarks->getBookmark($bookmarkID); 
+		if(!$bookmark || !$bookmarks->isBookmarkViewable($bookmark)) return false;
 		$this->sessionClear();
 		$this->set('defaultSelector', $bookmark['selector']);
 		$this->set('defaultSort', $bookmark['sort']);
 		$this->sessionSet('sort', $bookmark['sort']);
 		$this->set('columns', $bookmark['columns']);
-		
-		return $n;
+		$this->headline($this->wire('page')->title . ' - ' . $bookmark['title']);
+		return $bookmarkID;
 	}
 	
 	/**
@@ -1009,7 +1007,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 						// ok, override
 					} else { 
 						$selectors->remove($s);
-						if($value && $showIncludeWarnings) $this->error($this->_("Specified 'include=' mode is not allowed here.")); 
+						if($value && $showIncludeWarnings) {
+							$this->resultNotes[] = $this->_("Specified 'include=' mode is not allowed here.") . " (include=$value)";
+						}
 						$changed = true; 
 					}
 				}
@@ -1039,7 +1039,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 					// include=unpublished is allowed
 				} else if($includeMode == 'unpublished') {
 					// include=unpublished is not allowed
-					if($showIncludeWarnings) $this->error($this->_("Not all specified templates are editable. Only 'include=hidden' is allowed")); 
+					if($showIncludeWarnings) {
+						$this->resultNotes[] = $this->_("Not all specified templates are editable. Only 'include=hidden' is allowed");
+					}
 					$includeSelector->value = 'hidden';
 					$changed = true; 
 				}
@@ -1049,7 +1051,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				// only allow a max include mode of hidden
 				// regardless of edit access
 				if($includeMode != 'hidden') {
-					if($showIncludeWarnings) $this->error($this->_("No templates specified so 'include=hidden' is max allowed include mode"));
+					if($showIncludeWarnings) {
+						$this->resultNotes[] = $this->_("No templates specified so 'include=hidden' is max allowed include mode");
+					}
 					$includeSelector->value = 'hidden';
 					$changed = true; 
 				}
@@ -1783,9 +1787,15 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				"<div id='ProcessListerTable'>$tableOut</div>" . 
 				$pagerOut; 
 
+		if(count($this->resultNotes)) {
+			$notes = array();
+			foreach($this->resultNotes as $note) {
+				$notes[] = wireIconMarkup('warning') . ' ' . $this->wire('sanitizer')->entities1($note);
+			}
+			$out .= "<p id='ProcessListerResultNotes' class='detail'>" . implode('<br />', $notes) . "</p>";
+		}
 		if($this->wire('config')->debug) {
 			$out .= "<p id='ProcessListerSelector' class='notes'>" . $this->wire('sanitizer')->entities($this->finalSelector) . "</p>";
-			//$out .= "<p id='ProcessListerSelector' class='notes'>" . $this->wire('sanitizer')->entities($findSelector) . "</p>";
 		}
 		
 		if(!$this->editOption) {
@@ -1889,9 +1899,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			}
 			if($this->allowBookmarks) {
 				$bookmarks = $this->getBookmarksInstance();
-				if($this->wire('user')->isSuperuser() || count($bookmarks->getBookmarks())) {
-					$out .= $bookmarks->buildBookmarkListForm()->render();
-				}
+				$out .= $bookmarks->buildBookmarkListForm()->render();
 			}
 			$out .= $this->renderExtras(); 
 		}
@@ -2096,7 +2104,27 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	public function ___executeEditBookmark() {
 		if(!$this->allowBookmarks) throw new WireException("Bookmarks are disabled");
-		return $this->getBookmarksInstance()->editBookmark();
+		return $this->getBookmarksInstance()->executeEditBookmark();
+	}
+
+	/**
+	 * Catch-all for bookmarks
+	 * 
+	 * @return string
+	 * @throws Wire404Exception
+	 * @throws WireException
+	 * 
+	 */
+	public function ___executeUnknown() {
+		$bookmarkID = $this->wire('input')->urlSegment1;
+		if(strpos($bookmarkID, 'bm') === 0) {
+			$bookmarks = $this->getBookmarksInstance();
+			$bookmarkID = $bookmarks->_bookmarkID(ltrim($bookmarkID, 'bm'));
+		} else {
+			$bookmarkID = '';
+		}
+		if(!$bookmarkID || !$this->checkBookmark($bookmarkID)) throw new Wire404Exception();
+		return $this->execute();
 	}
 
 	/**
@@ -2123,13 +2151,14 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$user = $this->wire('user');
 			$languageID = $languages && !$user->language->isDefault() ? $user->language->id : '';
 
-			foreach($bookmarks as $n => $bookmark) {
+			foreach($bookmarks as $bookmarkID => $bookmark) {
 				$name = $bookmark['title'];
+				$icon = $bookmark['type'] ? 'user-circle-o' : 'search';
 				if($languageID && !empty($bookmark["title$languageID"])) $name = $bookmark["title$languageID"];
 				$item = array(
-					'id'   => $n,
+					'id'   => $bookmarkID,
 					'name' => $name,
-					'icon' => 'search',
+					'icon' => $icon,
 				);
 				$items[] = $item;
 			}
