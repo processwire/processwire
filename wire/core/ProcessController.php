@@ -291,12 +291,16 @@ class ProcessController extends Wire {
 			}
 		}
 	
-		if($forceFail) return '';
-		if($method === 'executed') return '';
-
-		if(method_exists($process, $method)) return $method; 
-		if(method_exists($process, "___$method")) return $method;
-		if($process->hasHook($method . '()')) return $method;
+		if(!$forceFail) {
+			if($method === 'executed') return '';
+			if(method_exists($process, $method)) return $method;
+			if(method_exists($process, "___$method")) return $method;
+			if($process->hasHook($method . '()')) return $method;
+		}
+	
+		// fallback to the unknown, if there is an unknown (you never know)
+		$method = 'executeUnknown';
+		if(method_exists($process, $method) || method_exists($process, "___$method")) return $method;
 		
 		return '';
 	}

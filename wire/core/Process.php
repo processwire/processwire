@@ -151,6 +151,19 @@ abstract class Process extends WireData implements Module {
 	 */
 	public function ___executed($method) { }
 
+	/*
+	 * Add this method to your Process module if you want a catch-all fallback 
+	 * 
+	 * It should check $input->urlSegment1 for the method that was requested.
+	 * This is commented out here since it is not used by Process modules unless manually added.
+	 * 
+	 * @since 3.0.133
+	 * @return string|array
+	 * 
+	public function ___executeUnknown() {
+	}
+	*/
+
 	/**
 	 * Get a value stored in this Process
 	 * 
