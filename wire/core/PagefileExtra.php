@@ -141,7 +141,8 @@ class PagefileExtra extends WireData {
 	 */
 	public function url($fallback = true) {
 		if(strpos($_SERVER['HTTP_ACCEPT'], 'image/webp') === false) {
-		    $url = $this->pagefile->url();
+		    // return original pagefile URL if browser doesn't support webp
+		    return $this->pagefile->url();
 		} else {
 			if(!$this->exists()) {
 				$this->create(); 
