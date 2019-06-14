@@ -4414,7 +4414,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * $values = $meta->getArray();
 	 * ~~~~~
 	 * 
-	 * #pw-internal
+	 * #pw-advanced
 	 * 
 	 * @param string|bool $key Omit to get the WireData instance or specify property name to get or set. 
 	 * @param null|mixed $value Value to set for given $key or omit if getting a value. 
