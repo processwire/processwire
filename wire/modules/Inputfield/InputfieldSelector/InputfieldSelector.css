@@ -113,10 +113,14 @@
 }
 
 .InputfieldSelector .selector-row .opval input.input-or {
-	width: 1.5%; 
 	margin-left: 0.5%; 
 	display: none; 
 }
+body.AdminThemeDefault .InputfieldSelector .selector-row .opval input.input-or,
+body.AdminThemeReno .InputfieldSelector .selector-row .opval input.input-or {
+	width: 1.5%; 
+}
+
 .InputfieldSelector .selector-row.has-or-value .opval input.input-or,
 .InputfieldSelector .selector-row.has-or-field .opval input.input-or {
 	display: block;

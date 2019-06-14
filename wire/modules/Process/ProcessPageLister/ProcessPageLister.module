@@ -636,7 +636,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			}
 		}
 		
-		$f->addOption('-', '———'); 
+		$f->addOption('-', '———', array('disabled' => 'disabled')); 
 	
 		// custom fields (sort)
 		foreach($fields as $field) {
@@ -662,17 +662,19 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				$_field = $template->fieldgroup->getField($field->name, true); // context
 				if($_field) $field = $_field;
 			}
+			
 			if($useLabels) {
 				$label = $field->getLabel();
 				$desc = $field->name;
-				$f->addOption($field->name, $field->getLabel(), array('data-desc' => $field->name));
 			} else {
 				$label = $field->name;
 				$desc = $field->getLabel();
 			}
+			
 			$attr = array('data-desc' => $desc);
 			$icon = $field->getIcon(true);
 			if($icon) $attr['data-handle'] = wireIconMarkup($icon, 'fw');
+			
 			$f->addOption($field->name, $label, $attr);
 		}
 		
