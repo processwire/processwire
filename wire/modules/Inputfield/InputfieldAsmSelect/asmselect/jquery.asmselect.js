@@ -1,8 +1,8 @@
 /*
- * Alternate Select Multiple (asmSelect) 1.3 - jQuery Plugin
- * http://www.ryancramer.com/projects/asmselect/
+ * Alternate Select Multiple (asmSelect) 1.4 - jQuery Plugin
+ * https://processwire.com
  * 
- * Copyright (c) 2009-2018 by Ryan Cramer - http://www.ryancramer.com
+ * Copyright (c) 2009-2019 by Ryan Cramer - http://www.ryancramer.com
  * 
  * Licensed under the MIT license. 
  *
@@ -51,7 +51,18 @@
 			editClass: 'asmListItemEdit',
 			highlightClass: 'asmHighlight',				// Class given to the highlight <span>
 			deletedClass: 'asmListItemDeleted',
-
+		
+			// parent and children options:
+			// parent: <option value='foo' class='asmParent'>Foo ...</option> 
+			// children: <option value='bar' data-asmParent='foo'>Foo: Bar</option> and so on for more children
+			// note that selecting a parent option does not modify the value of the selection, it only reveals more selectable options
+			// also note options must be in an order in the <select> where the parent comes first, followed by children
+			optionParentClass: 'asmParent',				// Class you will assign to a parent item that has one or more child items
+			optionChildAttr: 'data-asmParent',			// Attribute you will add to child items with its value pointing to the option.asmParent’s value attribute
+			optionParentOpenClass: 'asmParentOpen',		// Assigned automatically: Class for a parent option that has its children visible 
+			optionChildClass: 'asmChild',				// Assigned automatically: Class for an option that has a parent option 
+			optionChildIndent: '&nbsp;&nbsp; ', 		// Indent applied to child options
+			
 			editLink: '', 						// Optional URL options can link to with tag {value} replaced by option value, i.e. /path/to/page/edit?id={$value}
 			editLabel: '<span class="ui-icon ui-icon-extlink"></span>', // Text used in the "edit" link (if editLink is populated)
 			editLinkOnlySelected: true, 				// When true, edit link only appears for items that were already selected
@@ -195,12 +206,78 @@
 				
 				// an item has been selected on the regular select we created
 				// check to make sure it's not an IE screwup, and add it to the list
-
 				if(msie > 0 && msie < 7 && !ieClick) return;
-				var id = $(this).children("option:selected").slice(0,1).attr('rel'); 
+			
+				var $select = $(this);
+				var $option = $select.children("option:selected");
+			
+				// if item is not selectable then do not proceed
+				if(!$option.attr('value').length) return false;
+				
+				if($option.hasClass(options.optionParentClass)) {
+					// an option with asmParent class was selected
+					parentOptionSelected($select, $option);
+					e.stopPropagation();
+					return false;
+				}
+		
+				// add the item
+				var id = $option.slice(0,1).attr('rel'); 
 				addListItem(id); 	
 				ieClick = false; 
 				triggerOriginalChange(id, 'add'); // for use by user-defined callbacks
+			
+				if($option.hasClass(options.optionChildClass)) {
+					// if an option.asmChild was selected, keep the parent selected afterwards		
+					childOptionSelected($select, $option);
+				}
+			}
+		
+			// called by selectChangeEvent when an option.asmParent option is selected to show or hide child options
+			function parentOptionSelected($select, $option) {
+				// an option with asmParent class was selected
+				
+				var $children = $select.children(
+					"option." + options.optionChildClass + 
+					"[" + options.optionChildAttr + "='" + $option.attr('value') + "']"
+				);
+				
+				var parentHTML = $option.html();
+				var openLabel = ' +' + $children.filter(':not(:disabled)').length + ' ⬇';
+
+				if($option.hasClass(options.optionParentOpenClass)) {
+					// an already-open parent option has been clicked
+					hideSelectOptions($children);
+					parentHTML = parentHTML.replace(/\+\d+ ⬇/, '');
+					$option.removeClass(options.optionParentOpenClass).removeAttr('selected');
+				} else {
+					// a closed parent has been clicked
+					$children.each(function() {
+						// indent the child options (if they aren't already)
+						var $child = $(this);
+						var childHTML = $child.html();
+						if(!$child.is(':disabled') && childHTML.indexOf(options.optionChildIndent) !== 0) {
+							$child.html(options.optionChildIndent + childHTML);
+						}
+					});
+					showSelectOptions($children);
+					$select.children(':selected').removeAttr('selected');
+					// collapse an existing parents that are open (behave as accordion)
+					$select.children('.' + options.optionParentOpenClass).each(function() {
+						$(this).attr('selected', 'selected').change(); // trigger close if any existing open
+					});
+					// make the parent selected, encouraging them to click to select a child
+					$option.addClass(options.optionParentOpenClass).attr('selected', 'selected');
+					parentHTML += openLabel;
+				}
+				
+				$option.html(parentHTML);
+			}
+		
+			// called by selectChangeEvent when an option.asmChild option is selected
+			function childOptionSelected($select, $option) {
+				// if an option.asmChild was selected, keep the parent selected afterwards		
+				$select.children("option[value='" + $option.attr(options.optionChildAttr) + "']").attr('selected', 'selected');
 			}
 
 			function selectClickEvent() {
@@ -284,14 +361,31 @@
 
 				if(disabled == undefined) var disabled = false; 
 
-				var $O = $('#' + optionId); 
+				var $O = $('#' + optionId);
+				var data_asmParent = options.optionChildAttr; // data-asmParent attribute
 				var $option = $("<option>" + $O.html() + "</option>")
 					.val($O.val())
 					.attr('rel', optionId);
+				
+				if($O.hasClass(options.optionParentClass)) {
+					$option.addClass(options.optionParentClass);
+				} else if($O.attr(data_asmParent)) {
+					$option.addClass(options.optionChildClass);
+					$option.attr(data_asmParent, $O.attr(data_asmParent));
+					hideSelectOptions($option);
+				}
 
 				if(disabled) disableSelectOption($option); 
 
 				$select.append($option); 
+			}
+			
+			function hideSelectOptions($options) {
+				$options.hide();
+			}
+			
+			function showSelectOptions($options) {
+				$options.show();
 			}
 
 			function selectFirstItem() {

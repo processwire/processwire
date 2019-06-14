@@ -13,7 +13,7 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('asmSelect', __FILE__),
-			'version' => 121,
+			'version' => 122,
 			'summary' => __('Multiple selection, progressive enhancement to select multiple', __FILE__), // Module Summary
 			'permanent' => true, 
 			);

@@ -148,3 +148,6 @@ span.asmFieldsetIndent {
 	font-weight: bold;
 }
 
+option.asmChild {
+	display: none;
+}
