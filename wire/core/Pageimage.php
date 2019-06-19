@@ -617,13 +617,14 @@ class Pageimage extends Pagefile {
 	 *
 	 */
 	public function size($width, $height, $options = array()) {
+		if(!is_array($options)) $options = $this->sizeOptionsToArray($options);
 
 		if($this->wire('hooks')->isHooked('Pageimage::size()')) {
 			$result = $this->__call('size', array($width, $height, $options)); 
 		} else {  
 			$result = $this->___size($width, $height, $options);
 		}
-		
+	
 		$options['_width'] = $width;
 		$options['_height'] = $height;
 		self::$lastSizeOptions = $options;
@@ -648,23 +649,7 @@ class Pageimage extends Pagefile {
 
 		$this->error = '';
 		if($this->ext == 'svg') return $this; 
-
-		if(!is_array($options)) { 
-			if(is_string($options)) {
-				// optionally allow a string to be specified with crop direction, for shorter syntax
-				if(strpos($options, ',') !== false) $options = explode(',', $options); // 30,40
-				$options = array('cropping' => $options); 
-			} else if(is_int($options)) {
-				// optionally allow an integer to be specified with quality, for shorter syntax
-				$options = array('quality' => $options);
-			} else if(is_bool($options)) {
-				// optionally allow a boolean to be specified with upscaling toggle on/off
-				$options = array('upscaling' => $options); 
-			} else { 
-				// unknown options type
-				$options = array();
-			}
-		}
+		if(!is_array($options)) $options = $this->sizeOptionsToArray($options);
 		
 		// originally requested options
 		$requestOptions = $options;
@@ -898,6 +883,25 @@ class Pageimage extends Pagefile {
 		$pageimage->setOriginal($this); 
 
 		return $pageimage; 
+	}
+
+	protected function sizeOptionsToArray($options) {
+		if(is_array($options)) return $options;
+		if(is_string($options)) {
+			// optionally allow a string to be specified with crop direction, for shorter syntax
+			if(strpos($options, ',') !== false) $options = explode(',', $options); // 30,40
+			$options = array('cropping' => $options);
+		} else if(is_int($options)) {
+			// optionally allow an integer to be specified with quality, for shorter syntax
+			$options = array('quality' => $options);
+		} else if(is_bool($options)) {
+			// optionally allow a boolean to be specified with upscaling toggle on/off
+			$options = array('upscaling' => $options);
+		} else {
+			// unknown options type
+			$options = array();
+		}
+		return $options;
 	}
 	
 	/**

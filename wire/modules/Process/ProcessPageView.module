@@ -808,7 +808,7 @@ class ProcessPageView extends Process {
 			if($pageNum > 1 && $page->template->allowPageNum) {
 				$prefix = $this->pageNumPrefix ? $this->pageNumPrefix : $this->wire('config')->pageNumUrlPrefix;
 				if(!$prefix) $prefix = 'page';
-				$url .= "$prefix$pageNum";
+				$url = rtrim($url, '/') . "/$prefix$pageNum";
 				if($page->template->slashPageNum) {
 					// defined setting for trailing slash	
 					if($page->template->slashPageNum == 1) $url .= '/';

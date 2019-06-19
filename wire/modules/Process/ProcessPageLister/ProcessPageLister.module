@@ -690,6 +690,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	protected function getSystemColumns() {
 		$systemColumns = array_keys($this->systemLabels); 
 		$systemColumns = array_merge($systemColumns, array('id', 'name', 'path')); 
+		sort($systemColumns);
 		return $systemColumns; 
 	}
 
