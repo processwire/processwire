@@ -113,6 +113,22 @@ class InputfieldSelect extends Inputfield {
 	}
 
 	/**
+	 * Get or set label for given option value/key (default language)
+	 * 
+	 * @param string|int $key Option value to get or set label for
+	 * @param string|null $label If setting label, specify label to set. If getting, then omit. 
+	 * @return string|bool Returns boolean false if option not found, otherwise returns option label (string).
+	 * @since 3.0.134
+	 * @see InputfieldSelect::optionLanguageLabel()
+	 * 
+	 */
+	public function optionLabel($key, $label = null) {
+		if(!isset($this->options[$key])) return false;
+		if($label !== null) $this->options[$key] = $label;
+		return isset($this->options[$key]) ? $this->options[$key] : null;
+	}
+
+	/**
 	 * Get or set alternative language label(s) 
 	 * 
 	 * @param Language|int|string $language Language object, id or name (required). 
@@ -262,6 +278,114 @@ class InputfieldSelect extends Inputfield {
 		unset($this->options[$value]); 
 		return $this; 
 	}
+
+	/**
+	 * Replace an option already present with the new value (and optionally new label and attributes)
+	 * 
+	 * @param string|int|float $oldValue
+	 * @param string|int|float $newValue
+	 * @param string|null $newLabel Specify string to replace or omit (null) to leave existing label
+	 * @param array|null $newAttributes Specify array to replace, or omit (null) to leave existing attributes
+	 * @return bool True if option was replaced, false if oldValue was not found to replace, 
+	 * @since 3.0.134
+	 * 
+	 */
+	public function replaceOption($oldValue, $newValue, $newLabel = null, $newAttributes = null) {
+		$options = array();
+		$found = false;
+		
+		foreach($this->options as $value => $label) {
+			if($value === $oldValue) {
+				$found = true;
+				$options[$newValue] = ($newLabel === null ? $label : $newLabel);
+				$attributes = is_array($newAttributes) ? $newAttributes : $this->getOptionAttributes($oldValue);
+				unset($this->optionAttributes[$oldValue], $this->optionAttributes[$newValue]);
+				if(!empty($attributes)) $this->setOptionAttributes($newValue, $attributes);
+			} else {
+				$options[$value] = $label;
+			}
+		}
+		
+		if($found) $this->options = $options;
+		
+		return $found;
+	}
+
+	/**
+	 * Insert options before or after existing option
+	 * 
+	 * @param array $options New options to insert [ value => label ]
+	 * @param string|int|null $existingValue Insert before or after option having this value
+	 * @param bool $insertAfter Insert after rather than before? (default=false)
+	 * @return self
+	 * @since 3.0.134
+	 * 
+	 */
+	protected function insertOptions(array $options, $existingValue = null, $insertAfter = false) {
+		$a = array(); 
+		
+		if($existingValue === null || !isset($this->options[$existingValue])) {
+			// existing value isn’t present, so we will prepend or append instead
+			if($insertAfter) {
+				// append new options to end and return
+				$this->addOptions($options);
+				return $this;
+			} else {
+				// prepend to beginning
+				$a = $options;
+			}
+		}
+
+		foreach($this->options as $value => $label) {
+			
+			if($value !== $existingValue) {
+				if(!isset($a[$value])) $a[$value] = $label;
+				continue;
+			}
+
+			// if inserting after, new options will be inserted after this existing option
+			if($insertAfter) $a[$value] = $label;
+		
+			// add the new options
+			foreach($options as $k => $v) {
+				if(isset($a[$k])) unset($a[$k]);
+				$a[$k] = $v;
+			}
+
+			// add existing option back, after the new ones
+			if(!$insertAfter && !isset($a[$value])) $a[$value] = $label; 
+		}
+		
+		$this->options = $a;
+		
+		return $this;
+	}
+
+	/**
+	 * Insert new options before an existing option (or prepend options to beginning)
+	 * 
+	 * @param array $options Associative array of `[ 'value' => 'label' ]` containing new options to add.
+	 * @param string|int|null $existingValue Existing option value to add options before, or omit to add at beginning.
+	 * @return self
+	 * @since 3.0.134
+	 * 
+	 */
+	public function insertOptionsBefore(array $options, $existingValue = null) {
+		return $this->insertOptions($options, $existingValue, false);
+	}
+
+	/**
+	 * Insert new options after an existing option
+	 *
+	 * @param array $options Associative array of `[ 'value' => 'label' ]` containing new options to add.
+	 * @param string|int|null $existingValue Existing option value to add options after, or omit to append at end.
+	 * @return self
+	 * @since 3.0.134
+	 *
+	 */
+	public function insertOptionsAfter(array $options, $existingValue = null) {
+		return $this->insertOptions($options, $existingValue, true);
+	}
 		
 	/**
 	 * Get all options for this Select
@@ -352,6 +476,31 @@ class InputfieldSelect extends Inputfield {
 			if(!empty($attrs['disabled'])) $disabled = true; 
 		}
 		return $disabled;
+	}
+
+	/**
+	 * Get or set option attributes
+	 * 
+	 * This method is a combined getOptionAttributes() and setOptionAttributes(). Use the dedicated get/set
+	 * methods when you need more options. 
+	 * 
+	 * @param string|int $key Option value to get or set attributes for, or omit to get all option attributes.
+	 * @param array|null|bool $attributes Specify array to set attributes, omit to get attributes
+	 * @param bool $append Specify true to append to existing attributes rather than replacing
+	 * @return array Associative array of attributes
+	 * @since 3.0.134
+	 * 
+	 */
+	public function optionAttributes($key = null, $attributes = null, $append = false) {
+		if($key === null) return $this->optionAttributes;
+		if(is_array($attributes)) {
+			if($append) {
+				$this->addOptionAttributes($key, $attributes);
+			} else {
+				$this->setOptionAttributes($key, $attributes);
+			}
+		}
+		return $this->getOptionAttributes($key);
 	}
 	
 	/**
