@@ -169,6 +169,7 @@ class PageFinder extends Wire {
 	protected $sortsAfter = array(); // apply these sorts after pages loaded 
 	protected $reverseAfter = false; // reverse order after load?
 	protected $pageArrayData = array(); // any additional data that should be populated back to any resulting PageArray objects
+	protected $partialMatchOperators = array('%=', '^=', '$=', '%^=', '%$=', '*=');
 	protected $singlesFields = array( // fields that can only be used by themselves (not OR'd with other fields)
 		'has_parent', 
 		'hasParent', 
@@ -2048,6 +2049,7 @@ class PageFinder extends Wire {
 			// the following fields are defined in each iteration here because they may be modified in the loop
 			$table = "pages";
 			$operator = $selector->operator;
+			$isPartialOperator = in_array($operator, $this->partialMatchOperators); 
 			$subfield = '';
 			$IDs = array(); // populated in special cases where we can just match parent IDs
 			$sql = '';
@@ -2073,7 +2075,7 @@ class PageFinder extends Wire {
 			if($isParent || $isChildren || $isPages) {
 				// parent, children, pages
 
-				if(($isPages || $isParent) && (!$subfield || in_array($subfield, array('id', 'path', 'url')))) {
+				if(($isPages || $isParent) && !$isPartialOperator && (!$subfield || in_array($subfield, array('id', 'path', 'url')))) {
 					// match by location (id or path)
 					// convert parent fields like '/about/company/history' to the equivalent ID
 					foreach($values as $k => $v) {
@@ -2104,11 +2106,7 @@ class PageFinder extends Wire {
 								$s = '';
 								if($field === 'children') $finderMethod = 'findParentIDs'; 
 								// inherit include mode from main selector
-								$includeSelector = trim(
-									$selectors->getSelectorByField('include') . ',' . 
-									$selectors->getSelectorByField('status') . ',' . 
-									$selectors->getSelectorByField('check_access'), ','
-								);
+								$includeSelector = $this->getIncludeSelector($selectors);
 							} else if($field === 'children') {
 								$s = 'children.id';
 							} else {
@@ -2174,6 +2172,7 @@ class PageFinder extends Wire {
 				}
 				
 				$isName = $field === 'name' || strpos($field, 'name') === 0; 
+				$isPath = $field === 'path' || $field === 'url';
 
 				if($isName && $operator == '~=') {
 					// handle one or more space-separated full words match to 'name' field in any order
@@ -2183,13 +2182,23 @@ class PageFinder extends Wire {
 						$s .= ($s ? ' AND ' : '') . "$table.$field RLIKE '" . '[[:<:]]' . $word . '[[:>:]]' . "'";
 					}
 
-				} else if($isName && in_array($operator, array('%=', '^=', '$=', '%^=', '%$=', '*='))) {
+				} else if($isName && $isPartialOperator) {
 					// handle partial match to 'name' field
 					$value = $database->escapeStr($sanitizer->pageName($value, Sanitizer::toAscii));
 					if($operator == '^=' || $operator == '%^=') $value = "$value%";
 						else if($operator == '$=' || $operator == '%$=') $value = "%$value";
 						else $value = "%$value%";
 					$s = "$table.$field LIKE '$value'";
+						
+				} else if($isPath && $isPartialOperator) {
+					// partial match of path (used when original selector is parent.path%=...)
+					$tempSelector = trim($this->getIncludeSelector($selectors) . ", $field$operator" . $sanitizer->selectorValue($value), ',');
+					$tempIDs = $sanitizer->intArray($this->wire('pages')->findIDs($tempSelector));
+					if(count($tempIDs)) {
+						$s = "$table.id IN(" . implode(',', $tempIDs) . ')';
+					} else {
+						$s = "$table.id=-1"; // force non-match
+					}
 					
 				} else if(!$database->isOperator($operator)) {
 					throw new PageFinderSyntaxException("Operator '{$operator}' is not supported for '$field'."); 
@@ -2227,6 +2236,22 @@ class PageFinder extends Wire {
 
 		$query->where($SQL); 
 		//$this->nativeWheres[] = $SQL; 
+	}
+
+	/**
+	 * Get the include|status|check_access portions from given Selectors and return selector string for them
+	 * 
+	 * @param Selectors|string $selectors
+	 * @return string
+	 * 
+	 */
+	protected function getIncludeSelector($selectors) {
+		if(!$selectors instanceof Selectors) $selectors = new Selectors($selectors);
+		return trim(
+			$selectors->getSelectorByField('include') . ',' .
+			$selectors->getSelectorByField('status') . ',' .
+			$selectors->getSelectorByField('check_access'), ','
+		);
 	}
 
 	/**
