@@ -244,6 +244,7 @@ var InputfieldSelector = {
 
 		//console.log('changeField'); 
 		var $select = $(this); 
+		var $option = $select.children('option:selected');
 		var field = $select.val();
 		if(!field || field.length == 0) return;
 		if(field == 'toggle-names-labels') return InputfieldSelector.changeFieldToggle($select);
@@ -255,9 +256,9 @@ var InputfieldSelector = {
 		var $hiddenInput = $select.parents('.InputfieldSelector').find('.selector-value'); // .selector-value intentional!
 		var name = $hiddenInput.attr('name'); 
 		var type = $select.attr('data-type'); 
-
+		
 		if(field.match(/\.$/)) {
-			action = 'subfield';
+			action = 'subfield-opval';
 			if(field.indexOf('@') > -1) field = field.substring(1, field.length-1); 
 				else field = field.substring(0, field.length-1); 
 			$row.addClass('has-subfield'); 
@@ -269,31 +270,50 @@ var InputfieldSelector = {
 			$row.children('.subfield').html(''); 
 			$row.removeClass('has-subfield'); 
 		}
+		
+		// subfieldopval action
 
 		var url = './?InputfieldSelector=' + action + '&field=' + field + '&type=' + type + '&name=' + name; 
 		var $spinner = $(InputfieldSelector.spinner); 
 
 		$row.append($spinner); 
-
+		
 		$.get(url, function(data) {	
 			$spinner.remove();
-			var $data = $(data); 
-			$data.hide();
-
-			if(action == 'opval') {
-				var $opval = $row.children('.opval'); 
+			
+			function actionOpval($data) {
+				$data.hide();
+				var $opval = $row.children('.opval');
 				$opval.html('').append($data);
-				$opval.children(':not(.input-or)').fadeIn('fast'); 
+				$opval.children(':not(.input-or)').fadeIn('fast');
 
 				//$data.fadeIn('fast');
 				InputfieldSelector.changeAny($select);
-				var $ac = $opval.find(".input-value-autocomplete"); 
+				var $ac = $opval.find(".input-value-autocomplete");
 				if($ac.length > 0) InputfieldSelector.setupAutocomplete($ac, field, name); 
-			} else {
+			}
+			
+			function actionSubfield($data) {
+				$data.hide();
 				var $subfield = $row.children('.subfield');
-				$subfield.html('').append($data); 
-				$data.fadeIn('fast'); 
+				$subfield.html('').append($data);
+				$data.fadeIn('fast', function() {
+					// if there is a default selected option, select it now
+					//var $option = $subfield.find('.select-subfield-default');
+					//if($option.length) $option.attr('selected', 'selected').parent('select').change();
+				});
 				//$row.children('.subfield').html(data); 	
+			}
+			
+			if(action == 'subfield-opval') {
+				data = data.split('<split>');
+				actionSubfield($(data[0]));
+				actionOpval($(data[1]));
+
+			} else if(action == 'opval') {
+				actionOpval($(data));
+			} else {
+				actionSubfield($(data));
 			}
 
 			InputfieldSelector.normalizeHeightRow($row); 
@@ -429,13 +449,18 @@ var InputfieldSelector = {
 				if(templateID > 0) templateIDs.push(templateID); 
 			}
 
-			if($row.is(".has-subfield")) {
-				var subfield = $row.find(".select-subfield").val();
+			if($row.hasClass('has-subfield')) {
+				var $selectSubfield = $row.find('.select-subfield');
+				var $selectOption = $selectSubfield.children('option:selected');
+				var subfield = $selectSubfield.val();
 				if(subfield.length > 0) { 
 					if(subfield.indexOf('.') > 0) {
 						// fieldName was already specified with subfield
-						if(fieldName.indexOf('@') > -1) fieldName = '@' + subfield; 
-							else fieldName = subfield; 
+						if(fieldName.indexOf('@') > -1) fieldName = '@' + subfield;
+							else fieldName = subfield;
+					} else if($selectOption.hasClass('select-subfield-default')) {
+						// indicates subfield IS the fieldName 
+						fieldName = subfield;
 					} else {
 						// subfield needs to be appended to fieldName
 						fieldName += subfield; 
