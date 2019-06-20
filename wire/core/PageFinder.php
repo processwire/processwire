@@ -2117,7 +2117,8 @@ class PageFinder extends Wire {
 						}
 						$IDs = $finder->$finderMethod(new Selectors(ltrim(
 							"$includeSelector," . 
-							"$s$subfield$operator" . $sanitizer->selectorValue($values), ','
+							"$s$subfield$operator" . $sanitizer->selectorValue($values), 
+							','
 						)));
 						if(!count($IDs)) $IDs[] = -1; // forced non match
 					} else {
@@ -2173,6 +2174,7 @@ class PageFinder extends Wire {
 				
 				$isName = $field === 'name' || strpos($field, 'name') === 0; 
 				$isPath = $field === 'path' || $field === 'url';
+				$isNumChildren = $field === 'num_children' || $field === 'numChildren';
 
 				if($isName && $operator == '~=') {
 					// handle one or more space-separated full words match to 'name' field in any order
@@ -2190,23 +2192,34 @@ class PageFinder extends Wire {
 						else $value = "%$value%";
 					$s = "$table.$field LIKE '$value'";
 						
-				} else if($isPath && $isPartialOperator) {
-					// partial match of path (used when original selector is parent.path%=...)
+				} else if(($isPath && $isPartialOperator) || $isNumChildren) {
+					// match some other property that we need to launch a separate find to determine the IDs
+					// used for partial match of path (used when original selector is parent.path%=...), parent.property, etc.
 					$tempSelector = trim($this->getIncludeSelector($selectors) . ", $field$operator" . $sanitizer->selectorValue($value), ',');
-					$tempIDs = $sanitizer->intArray($this->wire('pages')->findIDs($tempSelector));
+					$tempIDs = $this->wire('pages')->findIDs($tempSelector);
 					if(count($tempIDs)) {
-						$s = "$table.id IN(" . implode(',', $tempIDs) . ')';
+						$s = "$table.id IN(" . implode(',', $sanitizer->intArray($tempIDs)) . ')';
 					} else {
 						$s = "$table.id=-1"; // force non-match
 					}
 					
 				} else if(!$database->isOperator($operator)) {
-					throw new PageFinderSyntaxException("Operator '{$operator}' is not supported for '$field'."); 
+					throw new PageFinderSyntaxException("Operator '$operator' is not supported for '$field'.");
 
 				} else {
-					if($isName) $value = $sanitizer->pageName($value, Sanitizer::toAscii); 
+					$not = false;
+					if($isName) $value = $sanitizer->pageName($value, Sanitizer::toAscii);
+					if($field === 'status' && !ctype_digit("$value")) {
+						// named status
+						$statuses = Page::getStatuses();
+						if(!isset($statuses[$value])) throw new PageFinderSyntaxException("Unknown Page status: '$value'");
+						$value = (int) $statuses[$value];
+						if($operator === '=' || $operator === '!=') $operator = '&'; // bitwise
+						if($operator === '!=') $not = true;
+					}
 					$value = $database->escapeStr($value); 
 					$s = "$table." . $field . $operator . ((ctype_digit("$value") && $field != 'name') ? ((int) $value) : "'$value'");
+					if($not) $s = "NOT ($s)";
 				
 					if($field === 'status' && strpos($operator, '<') === 0 && $value >= Page::statusHidden && count($options['alwaysAllowIDs'])) {
 						// support the 'alwaysAllowIDs' option for specific page IDs when requested but would
@@ -2227,12 +2240,17 @@ class PageFinder extends Wire {
 			}
 
 			if($sql) {
-				if($SQL) $SQL .= " OR ($sql)"; 
-					else $SQL .= "($sql)";
+				if($SQL) {
+					$SQL .= " OR ($sql)";
+				} else {
+					$SQL .= "($sql)";
+				}
 			}
 		}
 
-		if(count($fields) > 1) $SQL = "($SQL)";
+		if(count($fields) > 1) {
+			$SQL = "($SQL)";
+		}
 
 		$query->where($SQL); 
 		//$this->nativeWheres[] = $SQL; 
