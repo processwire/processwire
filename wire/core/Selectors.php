@@ -531,8 +531,15 @@ class Selectors extends WireArray {
 	protected function extractOperator(&$str, array $operatorChars) {
 		$n = 0;
 		$operator = '';
+		$lastOperator = '';
 		while(isset($str[$n]) && in_array($str[$n], $operatorChars) && $n < self::maxOperatorLength) {
 			$operator .= $str[$n]; 
+			if(self::isOperator($operator)) {
+				$lastOperator = $operator;
+			} else if($lastOperator) {
+				$operator = $lastOperator;
+				break;
+			}
 			$n++; 
 		}
 		if($operator) $str = substr($str, $n); 
