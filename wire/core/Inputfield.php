@@ -657,8 +657,12 @@ abstract class Inputfield extends WireData implements Module {
 		} else {
 			$keys = array($key);
 		}
-		
-		$booleanValue = is_bool($value) ? $value : null;
+	
+		if(is_bool($value) && !in_array($key, array('name', 'id', 'class', 'value', 'type'))) {
+			$booleanValue = $value;
+		} else {
+			$booleanValue = null;
+		}
 
 		foreach($keys as $key) {
 			
