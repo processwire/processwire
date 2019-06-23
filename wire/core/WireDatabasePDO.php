@@ -158,6 +158,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function __construct($dsn, $username = null, $password = null, array $driver_options = array()) {
+		parent::__construct();
 		$this->pdoConfig['dsn'] = $dsn; 
 		$this->pdoConfig['user'] = $username;
 		$this->pdoConfig['pass'] = $password; 
