@@ -1774,7 +1774,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			}
 			$this->lastSelector = trim("$this->initValue, $value", ', ');
 			if($this->initTemplate) {
-				$lastTemplates = array($this->initTemplate);
+				$lastTemplates = array($this->initTemplate->id);
 			} else if(strpos($this->lastSelector, 'template=') !== false) {
 				$lastTemplates = array();
 				foreach(new Selectors($this->lastSelector) as $item) {
