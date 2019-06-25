@@ -416,6 +416,7 @@ class Selectors extends WireArray {
 			} else {
 				if(is_array($value)) $value = implode('|', $value);
 				$debug = $this->wire('config')->debug ? "field='$field', value='$value', selector: '$this->selectorStr'" : "";
+				if(empty($operator)) $operator = '[empty]';
 				throw new WireException("Unknown Selector operator: '$operator' -- was your selector value properly escaped? $debug");
 			}
 		}
@@ -659,6 +660,7 @@ class Selectors extends WireArray {
 		$value = '';
 		$lastc = '';
 		$quoteDepth = 0;
+		$inDoubleQuote = false; // applies only if openingQuote is populated and not itself a double quote
 
 		do {
 			if(!isset($str[$n])) break;
@@ -668,10 +670,11 @@ class Selectors extends WireArray {
 			if($openingQuote) {
 				// we are in a quoted value string
 
-				if($c == $closingQuote) { // reference closing quote
+				if($c === $closingQuote && !$inDoubleQuote) { 
+					// closing quote for previously opened quote
 					
-					if($lastc != '\\') {
-						// same quote that opened, and not escaped
+					if($lastc !== '\\') {
+						// same quote that opened, and not escaped or double quoted
 						// means the end of the value
 						
 						if($quoteDepth > 0) {
@@ -684,14 +687,39 @@ class Selectors extends WireArray {
 						}
 
 					} else {
-						// this is an intentionally escaped quote
-						// so remove the escape
+						// this is an intentionally escaped quote, remove the escape
 						$value = rtrim($value, '\\'); 
 					}
 					
-				} else if($c == $openingQuote && $openingQuote != $closingQuote) {
+				} else if($c === $openingQuote && $openingQuote !== $closingQuote) {
 					// another opening quote of the same type encountered while already in a quote
-					$quoteDepth++;
+					if(!$inDoubleQuote) $quoteDepth++;
+					
+				} else if($c === '"') {
+					// double quote char 
+					// not reachable if openingQuote was a double quote
+					if($inDoubleQuote) {
+						// closing a previously opened double quote
+						$inDoubleQuote = false;
+					} else {
+						// potentially applicable double quote
+						list($on, $op) = array($n, '', '');
+						// check if an operator came before the quote
+						while($on > 0 && isset(self::$operatorChars[$str[--$on]])) {
+							$op = self::$operatorChars[$str[$on]] . $op;
+						}
+						// if something valid does prefix the operator, cancel the operator
+						if(!$on || !$this->wire('sanitizer')->fieldName($str[$on])) $op = '';
+						// if an operator came before the quote, and it closes somewhere,
+						// we will allow the embedded double quote
+						if(strlen($op) && self::isOperator($op) && strrpos($str, '"') > $n) {
+							// opening a double quote after an operator
+							$inDoubleQuote = true;
+						} else {
+							// abandon the double quote
+							$c = null;
+						}
+					}
 				}
 
 			} else {
@@ -710,10 +738,14 @@ class Selectors extends WireArray {
 				}
 			}
 
-			$value .= $c; 
-			$lastc = $c;
+			if($c !== null) {
+				$value .= $c;
+				$lastc = $c;
+			}
 
 		} while(++$n);
+		
+		if($inDoubleQuote) $value .= '"'; // close double quote
 		
 		$len = strlen("$value");
 		if($len) {
