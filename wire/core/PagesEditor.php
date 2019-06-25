@@ -1164,6 +1164,8 @@ class PagesEditor extends Wire {
 			if($copy->hasField($field)) $copy->trackChange($field->name);
 		}
 
+		$copy->created = time();
+		$copy->modified = time();
 		$this->pages->cloneReady($page, $copy);
 		$this->cloning++;
 		$options['ignoreFamily'] = true; // skip family checks during clone
