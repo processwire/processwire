@@ -5,7 +5,7 @@
  *
  * Matches selector strings to pages
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  * Hookable methods: 
@@ -162,7 +162,8 @@ class PageFinder extends Wire {
 	protected $start = 0;
 	protected $parent_id = null;
 	protected $templates_id = null;
-	protected $checkAccess = true;
+	protected $checkAccess = true; // becomes false if check_access=0 or include=all
+	protected $includeMode = ''; // include mode if specified (all, unpublished, hidden)
 	protected $getQueryNumChildren = 0; // number of times the function has been called
 	protected $lastOptions = array(); 
 	protected $extraOrSelectors = array(); // one from each field must match
@@ -230,6 +231,7 @@ class PageFinder extends Wire {
 				if(!$not && (is_null($maxStatus) || $selector->value > $maxStatus)) $maxStatus = (int) $selector->value; 
 				
 			} else if($fieldName == 'include' && $selector->operator == '=' && in_array($selector->value, array('hidden', 'all', 'unpublished', 'trash'))) {
+				$this->includeMode = $selector->value;
 				if($selector->value == 'hidden') $options['findHidden'] = true;
 					else if($selector->value == 'unpublished') $options['findUnpublished'] = true;
 					else if($selector->value == 'trash') $options['findTrash'] = true; 
@@ -2259,17 +2261,30 @@ class PageFinder extends Wire {
 	/**
 	 * Get the include|status|check_access portions from given Selectors and return selector string for them
 	 * 
+	 * If given $selectors lacks an include or check_access selector, then it will pull from the
+	 * equivalent PageFinder setting if present in the original initiating selector. 
+	 * 
 	 * @param Selectors|string $selectors
 	 * @return string
 	 * 
 	 */
 	protected function getIncludeSelector($selectors) {
+		
 		if(!$selectors instanceof Selectors) $selectors = new Selectors($selectors);
-		return trim(
-			$selectors->getSelectorByField('include') . ',' .
-			$selectors->getSelectorByField('status') . ',' .
-			$selectors->getSelectorByField('check_access'), ','
-		);
+		$a = array();
+		
+		$include = $selectors->getSelectorByField('include');
+		if(empty($include) && $this->includeMode) $include = "include=$this->includeMode";
+		if($include) $a[] = $include;
+		
+		$status = $selectors->getSelectorByField('status');
+		if(!empty($status)) $a[] = $status;
+		
+		$checkAccess = $selectors->getSelectorByField('check_access');
+		if(empty($checkAccess) && $this->checkAccess === false && $this->includeMode !== 'all') $checkAccess = "check_access=0";
+		if($checkAccess) $a[] = $checkAccess;
+		
+		return implode(', ', $a);
 	}
 
 	/**
