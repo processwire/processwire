@@ -115,10 +115,12 @@ ul.InputfieldFileList li {
 			display: none;
 		}
 	}
+	.InputfieldFileDescription + .InputfieldFileTags {
+		margin-top: 0.5em;
+	}
 	.InputfieldFileSort {
 		display: none !important;
 	}
-	
 }
 
 .langTabsContainer + .InputfieldFileTags {
