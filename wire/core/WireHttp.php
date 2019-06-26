@@ -609,7 +609,11 @@ class WireHttp extends Wire {
 		}
 		
 		if(count($this->headers)) {
-			curl_setopt($curl, CURLOPT_HTTPHEADER, $this->headers);
+			$headers = array();
+			foreach($this->headers as $name => $value) {
+				$headers[] = "$name: $value";
+			}
+			curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
 		}
 		
 		if($method == 'POST') {
