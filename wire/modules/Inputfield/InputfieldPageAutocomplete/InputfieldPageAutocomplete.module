@@ -146,6 +146,8 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 	 *
 	 */
 	public function ___render() {
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
 
 		if($this->maxSelectedItems == 1) $this->useList = false;
 		$out = $this->useList ? $this->renderList() : '';
@@ -160,12 +162,12 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 			// @esrch pr#994 --
 			if(strpos($name, '.')) {
 				list($name, $subname) = explode('.', $name);
-				$name = $this->wire('sanitizer')->fieldName($name);
-				$subname = $this->wire('sanitizer')->fieldName($subname);
+				$name = $sanitizer->fieldName($name);
+				$subname = $sanitizer->fieldName($subname);
 				if($name && $subname) $name .= "-$subname";
 				// -- pr#994
 			} else {
-				$name = $this->wire('sanitizer')->fieldName($name);
+				$name = $sanitizer->fieldName($name);
 			}
 			if($name) $searchField .= ($searchField ? ',' : '') . $name; 
 		}
@@ -195,8 +197,8 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 		
 		$attrs =
 			"data-max='$max' " . 
-			"data-url='" . $this->wire('sanitizer')->entities($url) . "' " . 
-			"data-label='" . $this->wire('sanitizer')->entities($labelField) . "' " . 
+			"data-url='" . $sanitizer->entities($url) . "' " . 
+			"data-label='" . $sanitizer->entities($labelField) . "' " . 
 			"data-search='$searchField' " . 
 			"data-operator='$operator'";
 		
@@ -209,19 +211,20 @@ class InputfieldPageAutocomplete extends Inputfield implements InputfieldHasArra
 					$textValue = $this->labelFieldFormat ? $item->getText($this->labelFieldFormat, true, false) : $item->get($labelField);
 					if(!strlen($textValue)) $textValue = $item->get('title|name');
 					$textValue = strip_tags($textValue);
-					if(strpos($textValue, '&') !== false) $textValue = $this->wire('sanitizer')->unentities($textValue);
-					$textValue = $this->wire('sanitizer')->entities($textValue);
+					if(strpos($textValue, '&') !== false) $textValue = $sanitizer->unentities($textValue);
+					$textValue = $sanitizer->entities($textValue);
 				}
 			}
 			$remove = "<i class='fa fa-fw fa-times-circle InputfieldPageAutocompleteRemove'></i>";
 		}
 		
-		$addingLabel = $this->wire('sanitizer')->entities1($this->_('New item:'));
+		$addingLabel = $sanitizer->entities1($this->_('New item:'));
+		$dataClass = $sanitizer->entities(trim('InputfieldPageAutocompleteData ' . $this->attr('class')));
 		
 		$out .= <<< _OUT
 
 		<p>
-		<input type='hidden' name='{$this->name}[]' id='$id' class='InputfieldPageAutocompleteData' value='$value' $attrs/>
+		<input type='hidden' name='{$this->name}[]' id='$id' class='$dataClass' value='$value' $attrs/>
 		<input type='text' data-parent-input='$id' id='{$id}_input' class='$class' value='$textValue' $disableChars/>
 		<i class='fa fa-fw fa-angle-double-right InputfieldPageAutocompleteStatus'></i>
 		$remove
