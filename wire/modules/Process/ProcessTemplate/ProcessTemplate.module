@@ -2053,9 +2053,9 @@ class ProcessTemplate extends Process {
 		$field->attr('id+name', 'redirectLogin');
 		$field->label = $this->_('What to do when user attempts to view a page and has no access?');
 		$field->description = $this->_("If a user attempts to access a page using this template, and doesn't have access to the page, what should it do?"); // What to do when no access, description
-		$field->addOption(0, $this->_('Show a 404 Page')); 
-		$field->addOption($this->config->loginPageID, sprintf($this->_('Show the Login page: %s'), $this->pages->get($this->config->loginPageID)->url));
-		$field->addOption(-1, $this->_('Redirect to another URL')); 
+		$field->addOption(0, 'A. ' . $this->_('Show a 404 Page')); 
+		$field->addOption($this->config->loginPageID, 'B. ' . sprintf($this->_('Show the Login page: %s'), $this->pages->get($this->config->loginPageID)->url));
+		$field->addOption(-1, 'C. ' . $this->_('Redirect to another URL or render a page by ID')); 
 		if($template->redirectLogin == $this->config->loginPageID) $field->attr('value', $this->config->loginPageID); 
 			else if($template->redirectLogin) $field->attr('value', -1);
 			else $field->attr('value', 0);
@@ -2065,8 +2065,12 @@ class ProcessTemplate extends Process {
 		/** @var InputfieldText $field */
 		$field = $this->modules->get('InputfieldText'); 
 		$field->attr('id+name', 'redirectLoginURL'); 
-		$field->label = $this->_("Enter the URL or page ID you want to redirect to when a user doesn't have access"); 
-		$field->description = $this->_('This field is applicable only if you selected "redirect to another URL" in the field above.');
+		$field->label = $this->_('Login redirect URL or page ID to render'); 
+		$field->description = 
+			$this->_('Enter the URL you want to redirect to OR the page ID you want to render when a user does not have access.') . ' ' . 
+			$this->_('If specifying a page ID, please note the resulting page will be rendered for the user whether they have view permission or not.') . ' ' . 
+			$this->_('This is useful in cases where your login page might itself be access protected.') . ' ' . 
+			$this->_('This setting is applicable only if you selected option “C” in the field above.');
 		if($template->redirectLogin && $template->redirectLogin != $this->config->loginPageID) $field->attr('value', $template->redirectLogin); 
 		$field->collapsed = Inputfield::collapsedNo;
 		$field->notes = $this->_("Optional: In your URL, you can include the tag '{id}' (perhaps as a GET variable), and it will be replaced by the requested page's ID number, if you want it."); // Redirect URL, notes
