@@ -167,7 +167,11 @@ class CommentForm extends Wire implements CommentFormInterface {
 		$this->options['headline'] = "<$h3>" . $this->_('Post Comment') . "</$h3>"; // Form headline
 		$this->options['successMessage'] = "<p class='success'><strong>" . $this->_('Thank you, your submission has been saved.') . "</strong></p>"; 
 		$this->options['pendingMessage'] = "<p class='success pending'><strong>" . $this->_('Your comment has been submitted and will appear once approved by the moderator.') . "</strong></p>"; 
-		$this->options['errorMessage'] = "<p class='error'><strong>" . $this->_('Your submission was not saved due to one or more errors. Please check that you have completed all fields before submitting again.') . "</strong></p>"; 
+		$this->options['errorMessage'] = "<p class='error'><strong>" . $this->_('Your submission was not saved due to one or more errors. Please check that you have completed all fields before submitting again.') . "</strong></p>";
+		
+		if(substr($this->wire('input')->url(), -1) != '/') {
+			$this->options['attrs']['action'] = $page->url;
+		}
 
 		// default labels
 		$this->options['labels']['cite'] = $this->_('Your Name'); 
