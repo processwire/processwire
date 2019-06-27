@@ -203,6 +203,7 @@ class RepeaterPage extends Page {
 		$name = ltrim($name, '-');
 		if($depth > 0) $name = str_repeat('-', $depth) . $name;
 		if($name !== $_name) $this->name = $name;
+		$this->depth = $depth;
 	}
 
 	/**
