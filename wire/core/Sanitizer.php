@@ -417,6 +417,10 @@ class Sanitizer extends Wire {
 		$allowedExtras[] = ' ';
 		$value = $this->nameFilter($value, $allowedExtras, $replacementChar, $beautify, 8192);
 		if($delimeter != ' ') $value = str_replace(' ', $delimeter, $value); 
+		while(strpos($value, "$delimeter$delimeter") !== false) {
+			$value = str_replace("$delimeter$delimeter", $delimeter, $value);
+		}
+		$value = trim($value, $delimeter); 
 		if($isArray) $value = explode($delimeter, $value); 
 		return $value;
 	}
