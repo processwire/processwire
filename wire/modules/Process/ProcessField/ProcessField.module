@@ -1769,12 +1769,8 @@ class ProcessField extends Process implements ConfigurableModule {
 				$cloneFieldName = $this->wire('sanitizer')->fieldName(substr($type, 1));
 				$cloneField = $this->wire('fields')->get($cloneFieldName);
 				if($cloneField) {
-					$this->field = $this->wire('fields')->clone($cloneField, $name);
-					if($this->field) {
-						// cloned
-					} else {
-						throw new WireException("Error cloning $cloneFieldName");
-					}
+					$this->field = $this->cloneField($cloneField, $name); 
+					if(!$this->field) throw new WireException("Error cloning $cloneFieldName");
 				}
 			}
 		}
@@ -1850,24 +1846,19 @@ class ProcessField extends Process implements ConfigurableModule {
 			
 			$cloneField = $this->form->get('_clone_field');
 			$cloneName = $cloneField ? $cloneField->attr('value') : ''; 
-			if($cloneName && $this->isAllowedName($cloneName)) {
-				$clone = $this->fields->clone($this->field);
+			if($cloneName) {
+				$clone = $this->cloneField($this->field, $cloneName);
 				if($clone && $clone->id) {
-					$clone->name = $cloneName; 
-					if($clone->label) $clone->label = $clone->label . ' ' . $this->_('(copy)'); 
 					try {
 						$this->fields->save($clone);
-						$this->message($this->_('Cloned Field') . " - {$this->field->name} => {$clone->name}");
 						if(!count($errors)) {
-							if($clone->type instanceof FieldtypeFieldsetOpen) $clone->set('closeFieldID', null);
 							$this->fieldAdded($clone);
 							$this->wire('session')->message($this->_('You are now editing the field you cloned.'));
 							$this->wire('session')->redirect("./edit?id=$clone->id#basics");
 						}
 					} catch(\Exception $e) {
-						$errors[] = $e->getMessage(); 
+						$errors[] = $e->getMessage();
 					}
-					// $this->listAfterSave = true;
 				} else {
 					$errors[] = ($this->_("Error creating clone of this field") . " - {$this->field->name}");
 				}
@@ -1912,6 +1903,33 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 		
 		return '';
+	}
+
+	/**
+	 * Clone $cloneField to create a new field with given name
+	 * 
+	 * @param Field $cloneField
+	 * @param string $name Name of new field
+	 * @return bool|Field
+	 * 
+	 */
+	protected function cloneField(Field $cloneField, $name) {
+		if(!$this->isAllowedName($name)) return false;
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
+		if($fields->get($name)) return false;
+		$field = $fields->clone($cloneField, $name);
+		if(!$field) return false;
+
+		$field->label = $field->label . ' ' . $this->_('(copy)');
+		$this->message($this->_('Cloned Field') . " - $field->name => $cloneField->name");
+
+		if($field->type instanceof FieldtypeFieldsetOpen && strpos($cloneField->name, '_END') === false) {
+			// handle a cloned fieldset by also cloning its closer
+			$field->set('closeFieldID', null);
+		}
+		
+		return $field;
 	}
 
 	/**
@@ -2384,7 +2402,9 @@ class ProcessField extends Process implements ConfigurableModule {
 	public function ___executeSendTemplatesSave() {
 		
 		if(!$this->field || !$this->field->id) throw new WireException('No field specified');
-		$this->wire('session')->CSRF->validate();
+		/** @var Session $session */
+		$session = $this->wire('session');
+		$session->CSRF->validate();
 	
 		$isFieldset = false;
 		$fields = array($this->field);
