@@ -175,7 +175,13 @@ class ImageInspector extends WireData {
 			'8' => array(90, 0)
 		);
 		$result = array('orientation' => 0, 'rotate' => 0, 'flip' => 0);
-		if(!function_exists('exif_read_data')) return $result;
+		$supportedExifMimeTypes = array('image/jpeg', 'image/tiff'); // hardcoded by PHP
+		$mime = isset($this->info['mime']) ? $this->info['mime'] : 'no';
+
+		if(!function_exists('exif_read_data') || !in_array($mime, $supportedExifMimeTypes)) {
+			return $result;
+		}
+
 		$exif = @exif_read_data($filename, 'IFD0');
 		if(!is_array($exif)
 			|| !isset($exif['Orientation'])
