@@ -1124,7 +1124,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		foreach($caller->wire('fields') as $f) {
 			//if(!($f->flags & Field::flagAutojoin)) continue; 
-			if($f->flags & Field::flagSystem && $f->name != 'title') continue; 
+			if($f->flags & Field::flagSystem && $f->name != 'title' && $f->name != 'email') continue; 
 			if($f->type instanceof FieldtypeFieldsetOpen) continue; 
 			$customOptions[$f->name] = $f->name; 
 		}
