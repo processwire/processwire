@@ -159,6 +159,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 *
 	 */
 	public function __construct() {
+		parent::__construct();
 		if(!$this->wire('page')) return;
 
 		$this->defaultColumns = array('title', 'template', 'parent', 'modified', 'modified_users_id'); 
@@ -539,20 +540,26 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	public function sessionSet($key, $value) {
 		$key = $this->page->name . '_lister_' . $key;
-		if(is_null($value)) $this->session->remove($key);
-			else $this->session->set($key, $value);
+		if(is_null($value)) {
+			$this->session->remove($key);
+		} else {
+			$this->session->set($key, $value);
+		}
 	}
 
 	/**
 	 * Get a Lister session variable
 	 *
 	 * @param string $key
+	 * @param array|string|int $fallback Optional fallback value if session value not present
 	 * @return string|int|array|null
 	 *
 	 */
-	public function sessionGet($key) {
+	public function sessionGet($key, $fallback = null) {
 		$key = $this->page->name . '_lister_' . $key;
-		return $this->session->get($key); 
+		$value = $this->session->get($key); 
+		if($value === null && $fallback !== null) $value = $fallback;
+		return $value;
 	}
 
 	/**
@@ -2027,9 +2034,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$script = '';
 		$regex = '!(Inputfield|Language|Fieldtype|Process|Markup|Jquery)!';
 		$scriptClose = '';
-		$loadedFiles = $this->sessionGet('loadedFiles');
+		$loadedFiles = $this->sessionGet('loadedFiles', array());
 		$loadedFilesAdd = array();
-		$loadedJSConfig = $this->sessionGet('loadedJSConfig');
+		$loadedJSConfig = $this->sessionGet('loadedJSConfig', array());
 		$config = $this->wire('config');
 
 		foreach($config->scripts as $file) {
