@@ -685,6 +685,8 @@ class Pageimage extends Pagefile {
 		$config = $this->wire('config');
 		$debug = $config->debug;
 		$configOptions = $config->imageSizerOptions; 
+		$webpOptions = $config->webpOptions;
+		if(!empty($webpOptions['quality'])) $defaultOptions['webpQuality'] = $webpOptions['quality'];
 		
 		if(!is_array($configOptions)) $configOptions = array();
 		$options = array_merge($defaultOptions, $configOptions, $options); 
@@ -772,11 +774,13 @@ class Pageimage extends Pagefile {
 		
 		$filenameFinal = $this->pagefiles->path() . $basename;
 		$filenameFinalExists = file_exists($filenameFinal);
-		
+
 		if(!empty($options['webpName'])) {
 			$filenameFinalWebp = $this->pagefiles->path() . basename($options['webpName'], '.webp') . '.webp';
+		} else if(!empty($webpOptions['useSrcExt'])) {
+			$filenameFinalWebp = $this->pagefiles->path() . $basename . '.webp'; // file.jpg.webp
 		} else {
-			$filenameFinalWebp = $this->pagefiles->path() . $basenameNoExt . '.webp';
+			$filenameFinalWebp = $this->pagefiles->path() . $basenameNoExt . '.webp'; // file.webp
 		}
 		
 		// force new creation if requested webp copy doesn't exist, (regardless if regular variation exists or not)
@@ -1913,8 +1917,7 @@ class Pageimage extends Pagefile {
 		$webp = $this->extras('webp');
 		if(!$webp) {
 			$webp = new PagefileExtra($this, 'webp');
-			$webp->useSrcUrlOnFail = true; // use this pagefile URL instead if we fail to create a webp
-			$webp->useSrcUrlOnSize = true; // use webp URL only if it results in a smaller file
+			$webp->setArray($this->wire('config')->webpOptions);
 			$this->extras('webp', $webp);
 			$webp->addHookAfter('create', $this, 'hookWebpCreate'); 
 		}
@@ -1945,7 +1948,7 @@ class Pageimage extends Pagefile {
 			$original = $this;
 			$options = array(
 				'allowOriginal' => false, 
-				'webpName' => basename($this->basename(), ".$this->ext"),
+				'webpName' => $webp->useSrcExt ? $this->basename() : basename($this->basename(), ".$this->ext"),
 				'webpOnly' => true
 			);
 			$width = $this->width;

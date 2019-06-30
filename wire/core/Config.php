@@ -40,6 +40,7 @@
  * @property bool $protectCSRF Enables CSRF (cross site request forgery) protection on all PW forms, recommended for security. #pw-group-HTTP-and-input
  * 
  * @property array $imageSizerOptions Options to set image sizing defaults. Please see the /wire/config.php file for all options and defaults. #pw-group-images
+ * @property array $webpOptions Options for webp images. Please see /wire/config.php for all options. #pw-group-images
  * 
  * @property bool $pagefileSecure When used, files in /site/assets/files/ will be protected with the same access as the page. Routines files through a passthrough script. #pw-group-files
  * @property string $pagefileSecurePathPrefix One or more characters prefixed to the pathname of protected file dirs. This should be some prefix that the .htaccess file knows to block requests for. #pw-group-files

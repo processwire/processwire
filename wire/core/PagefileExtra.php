@@ -22,6 +22,7 @@
  * =======================================================================
  * @property bool $useSrcUrlOnFail Use source Pagefile URL if extra image does not exist and cannot be created? (default=false)
  * @property bool $useSrcUrlOnSize Use source Pagefile URL if extra file is larger than source file? (default=false)
+ * @property bool $useSrcExt Use longer filenames that also include the Pagefile’s extension? (default=false)
  *
  * Hookable methods 
  * ================
@@ -64,6 +65,7 @@ class PagefileExtra extends WireData {
 		$this->setExtension($extension);
 		$this->useSrcUrlOnFail = true;
 		$this->useSrcUrlOnSize = false;
+		$this->useSrcExt = false;
 		return parent::__construct();
 	}
 
@@ -117,7 +119,9 @@ class PagefileExtra extends WireData {
 	 */
 	public function filename() {
 		$pathinfo = pathinfo($this->pagefile->filename());
-		$filename = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . '.' . $this->extension;
+		$ext = '.' . $this->extension;
+		if($this->useSrcExt) $ext = '.' . $pathinfo['extension'] . $ext; 
+		$filename = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . $ext;
 		if(empty($this->filenamePrevious)) $this->filenamePrevious = $filename;
 		return $filename;
 	}
@@ -151,7 +155,9 @@ class PagefileExtra extends WireData {
 			$url = $this->pagefile->url();
 		} else {
 			$pathinfo = pathinfo($this->pagefile->url());
-			$url = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . '.' . $this->extension;
+			$ext = '.' . $this->extension;
+			if($this->useSrcExt) $ext = '.' . $pathinfo['extension'] . $ext;
+			$url = $pathinfo['dirname'] . '/' . $pathinfo['filename'] . $ext;
 		}
 		
 		return $url;

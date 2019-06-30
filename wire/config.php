@@ -622,7 +622,6 @@ $config->fileContentTypes = array(
  * #property int quality Image quality, enter a value between 1 and 100, where 100 is highest quality (and largest files)
  * #property float defaultGamma Default gamma of 0.5 to 4.0 or -1 to disable gamma correction (default=2.0)
  * #property bool webpAdd Create a WEBP copy with every new image variation? (default=false)
- * #property int webpQuality Quality setting of 1-100 where higher is better but bigger (default=90)
  * 
  * @var array
  *
@@ -637,7 +636,24 @@ $config->imageSizerOptions = array(
 	'hidpiQuality' => 60, // Same as above quality setting, but specific to hidpi images
 	'defaultGamma' => 2.0, // defaultGamma: 0.5 to 4.0 or -1 to disable gamma correction (default=2.0)
 	'webpAdd' => false, // set this to true, if the imagesizer engines should create a Webp copy with every (new) image variation
-	'webpQuality' => 90, // webpQuality: 1-100 where higher is better but bigger
+	);
+
+/**
+ * Options for webp images
+ * 
+ * #property int quality Quality setting where 1-100 where higher is better but bigger
+ * #property bool useSrcExt Use source file extension in webp filename? (file.jpg.webp rather than file.webp)
+ * #property bool useSrcUrlOnSize Fallback to source file URL when webp file is larger than source?
+ * #property bool useSrcUrlOnFail Fallback to source file URL when webp file fails for some reason?
+ * 
+ * @var array
+ * 
+ */
+$config->webpOptions = array(
+	'quality' => 90, // Quality setting of 1-100 where higher is better but bigger
+	'useSrcExt' => false, // Use source file extension in webp filename? (file.jpg.webp rather than file.webp)
+	'useSrcUrlOnSize' => true, // Fallback to source file URL when webp file is larger than source?
+	'useSrcUrlOnFail' => true, // Fallback to source file URL when webp file fails for some reason?
 	);
 
 /**
