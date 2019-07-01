@@ -536,6 +536,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	static public $loadingStack = array();
 
 	/**
+	 * Page class helper object instances (one of each helper per ProcessWire instance, lazy loaded)
+	 *
+	 * @var array
+	 *
+	 */
+	static protected $helpers = array();
+
+	/**
 	 * Controls the behavior of Page::__isset function (no longer in use)
 	 * 
 	 * @var bool
@@ -4159,25 +4167,27 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
-	 * Return a Page helper class instance that's common among all Page objects in this ProcessWire instance
+	 * Return a Page helper class instance that’s common among all Page (and derived) objects in this ProcessWire instance
 	 * 
-	 * @param $className
+	 * @param string $className
 	 * @return object|PageComparison|PageAccess|PageTraversal
 	 * 
 	 */
 	protected function getHelperInstance($className) {
-		static $helpers = array();
 		$instanceID = $this->wire()->getProcessWireInstanceID();
-		if(!isset($helpers[$instanceID])) {
-			$helpers[$instanceID] = array();
+		if(!isset(self::$helpers[$instanceID])) {
+			// no helpers yet for this ProcessWire instance
+			self::$helpers[$instanceID] = array();
 		}
-		if(!isset($helpers[$instanceID][$className])) {
+		if(!isset(self::$helpers[$instanceID][$className])) {
+			// helper not yet loaded, so load it
 			$nsClassName = __NAMESPACE__ . "\\$className";
 			$helper = new $nsClassName();
 			if($helper instanceof WireFuelable) $this->wire($helper);
-			$helpers[$instanceID][$className] = $helper;
+			self::$helpers[$instanceID][$className] = $helper;
 		} else {
-			$helper = $helpers[$instanceID][$className];
+			// helper already ready to use
+			$helper = self::$helpers[$instanceID][$className];
 		}
 		return $helper;
 	}
