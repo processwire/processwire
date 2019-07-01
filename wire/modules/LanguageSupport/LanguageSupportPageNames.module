@@ -794,18 +794,33 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 *
 	 */
 	public function languageAdded(Page $language) {
+		
+		static $languagesAdded = array();
+		
 		if(!$language->id || $language->name == 'default') return;
-		try {
-			$name = "name" . (int) $language->id; 
-			$status = "status" . (int) $language->id; 
-			$database = $this->wire('database');
-			$database->exec("ALTER TABLE pages ADD $name VARCHAR(" . Pages::nameMaxLength . ") CHARACTER SET ascii"); 
-			$database->exec("ALTER TABLE pages ADD UNIQUE {$name}_parent_id ($name, parent_id)"); 
-			$database->exec("ALTER TABLE pages ADD $status INT UNSIGNED NOT NULL DEFAULT " . Page::statusOn); 
-			
-		} catch(\Exception $e) {
-			$this->error($e->getMessage(), Notice::log); 
+		if($language instanceof Language && $language->isDefault()) return;
+		if(isset($languagesAdded[$language->id])) return;
+		
+		$name = "name" . (int) $language->id;
+		$status = "status" . (int) $language->id;
+		$database = $this->wire('database');
+		$errors = 0;
+		$sqls = array(
+			"Add column $name" => "ALTER TABLE pages ADD $name VARCHAR(" . Pages::nameMaxLength . ") CHARACTER SET ascii",
+			"Add index for $name" => "ALTER TABLE pages ADD UNIQUE {$name}_parent_id ($name, parent_id)",
+			"Add column $status" => "ALTER TABLE pages ADD $status INT UNSIGNED NOT NULL DEFAULT " . Page::statusOn,
+		);
+		
+		foreach($sqls as $label => $sql) {
+			try {
+				$database->exec($sql);
+			} catch(\Exception $e) {
+				$this->error("$label: " . $e->getMessage(), Notice::log);
+				$errors++;
+			}
 		}
+		
+		if(!$errors) $languagesAdded[$language->id] = $language->id;
 	}
 
 	/**
