@@ -62,7 +62,7 @@ class ProcessWire extends Wire {
 	 * Minimum required .htaccess file version
 	 * 
 	 */
-	const htaccessVersion = 300;
+	const htaccessVersion = 301;
 
 	/**
 	 * Status when system is booting

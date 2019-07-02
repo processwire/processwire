@@ -1,22 +1,65 @@
 #################################################################################################
 # START PROCESSWIRE HTACCESS DIRECTIVES
 # @version 3.0
-# @indexVersion 300
+# @htaccessVersion 301
 #################################################################################################
 
+# Upgrading htaccess (or index) version 300 to 301
 # -----------------------------------------------------------------------------------------------
-# 1. Don't show directory indexes, but do follow symbolic links 
-# 500 NOTE: Some cloud hosting companies don't allow +FollowSymLinks. 
-# Uncomment +SymLinksifOwnerMatch and comment +FollowSymLinks if you have 500 errors. 
-# If that doesn't resolve the error, then set it back to +FollowSymLinks. 
+# If your htaccess/index version is 300, upgrade to this version by replacing all of section #15
+# (Access Restrictions). Also take a look at section #9, which you might also consider replacing 
+# if using HTTPS, though it is not required. Following that, optionally review the rest of the 
+# file to see if there are any other changes you also want to apply. When finished, add a line 
+# at the top identical to the "htaccessVersion 301" that you see at the top of this file. This 
+# tells ProcessWire your .htaccess file is up-to-date. If you never customized your original 
+# .htaccess file, then of course you can also just replace it with this one. 
+# 
+# Resolving 500 errors
+# -----------------------------------------------------------------------------------------------
+# Depending on your server, some htaccess rules may not be compatible and result in a 500 error.
+# If you experience this, find all instances of the term "(500)" in this file for suggestions on
+# things you can change to resolve 500 errors.
+#
+# Optional features
+# -----------------------------------------------------------------------------------------------
+# Many of the rules in this .htaccess file are optional and commented out by default. While the
+# defaults are okay for many, you may want to review each section in this .htaccess file for
+# optional rules that you can enable to increase security, speed or best practices. To quickly
+# locate all optional rules, search this file for all instances of "(O)". 
+#
+# If using a load balancer
+# -----------------------------------------------------------------------------------------------
+# If using a load balancer (like those available from AWS) some htaccess rules will need to 
+# change. Search this file for instances of "(L)" for details. 
+#
+
+# -----------------------------------------------------------------------------------------------
+# 1. Apache Options 
+#
+# Note: If you experience a (500) error, it may indicate your host does not allow setting one or
+# more of these options. First try replacing the +FollowSymLinks with +SymLinksifOwnerMatch.
+# If that does not work, try commenting them all out, then uncommenting one at a time to 
+# determine which one is the source of the 500 error. 
 # -----------------------------------------------------------------------------------------------
 
+# Do not show directory indexes (strongly recommended)
 Options -Indexes
+
+# Do not use multiviews
+Options -MultiViews
+
+# Do follow symbolic links
 Options +FollowSymLinks
 # Options +SymLinksifOwnerMatch
 
+# Character encoding: Serve text/html or text/plain as UTF-8
+AddDefaultCharset UTF-8
+
 # -----------------------------------------------------------------------------------------------
-# 2. Let ProcessWire handle 404s
+# 2. ErrorDocument settings: Have ProcessWire handle 404s
+#
+# For options and optimizations, see: (O)
+# https://processwire.com/blog/posts/optimizing-404s-in-processwire/
 # -----------------------------------------------------------------------------------------------
 
 ErrorDocument 404 /index.php
@@ -42,15 +85,18 @@ ErrorDocument 404 /index.php
   # you will need to remove this one if you want to allow external iframes
   Header always append X-Frame-Options SAMEORIGIN 
 
-  # to prevent cross site scripting (IE8+ proprietary)
+  # To prevent cross site scripting (IE8+ proprietary)
   Header set X-XSS-Protection "1; mode=block"
 
-  # prevent mime-based attacks via content sniffing (IE+Chrome)
+  # Optionally (O) prevent mime-based attacks via content sniffing (IE+Chrome)
   # Header set X-Content-Type-Options "nosniff" 
 </IfModule>
 
 # -----------------------------------------------------------------------------------------------
-# 5. Protect ProcessWire system files 
+# 5. Prevent access to various types of files
+#
+# Note that some of these rules are duplicated by RewriteRules or other .htaccess files, as we
+# try to maintain two layers of protection when/where possible. 
 # -----------------------------------------------------------------------------------------------
 
 <FilesMatch "\.(inc|info|info\.json|module|sh|sql)$|^\..*$|composer\.(json|lock)$">
@@ -62,9 +108,18 @@ ErrorDocument 404 /index.php
   </IfModule>
 </FilesMatch>
 
+<FilesMatch "(^#.*#|\.(bak|conf|dist|fla|in[ci]|log|orig|psd|sh|sql|sw[op])|~)$">
+  <IfModule mod_authz_core.c>
+     Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+  </IfModule>
+</FilesMatch>
+
 # -----------------------------------------------------------------------------------------------
 # 6. Override a few PHP settings that can't be changed at runtime (not required)
-# 500 NOTE: Try commenting out this entire section below if getting Apache 500 errors.
+# Note: try commenting out this entire section below if getting Apache (500) errors.
 # -----------------------------------------------------------------------------------------------
 
 <IfModule mod_php5.c>
@@ -80,60 +135,125 @@ ErrorDocument 404 /index.php
 DirectoryIndex index.php index.html index.htm
 
 # -----------------------------------------------------------------------------------------------
-# 8. ProcessWire requires mod_rewrite
+# 8. Enable Apache mod_rewrite (required)
 # -----------------------------------------------------------------------------------------------
 
 <IfModule mod_rewrite.c>
 
   RewriteEngine On
-  AddDefaultCharset UTF-8
-
-  # -----------------------------------------------------------------------------------------------
-  # 9. If you only want to allow HTTPS, uncomment the RewriteCond and RewriteRule lines below.
-  # -----------------------------------------------------------------------------------------------
-  # RewriteCond %{HTTPS} off
-  # RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
   
-  # If using an AWS load balancer, use these two lines below instead of those above:
-  # RewriteCond %{HTTP:X-Forwarded-Proto} =http 
-  # RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  # 8A. Optionally (O) set a rewrite base if rewrites are not working properly on your server.
+  # -----------------------------------------------------------------------------------------------
+  # In addition, if your site directory starts with a "~" you will most likely have to use this.
+  # https://httpd.apache.org/docs/current/mod/mod_rewrite.html#rewritebase
+ 
+  # Examples of RewriteBase (root and subdirectories): 
+  # RewriteBase /
+  # RewriteBase /pw/
+  # RewriteBase /~user/
 
+  
+  # 8B. Set an environment variable so the installer can detect that mod_rewrite is active.
   # -----------------------------------------------------------------------------------------------
-  # 10. Set an environment variable so the installer can detect that mod_rewrite is active.
-  # Note that some web hosts don't support this. If you get a 500 error, you might try 
-  # commenting out this SetEnv line below. 
-  # -----------------------------------------------------------------------------------------------
+  # Note that some web hosts don't support this. If you get a (500) error, try commenting out this 
+  # SetEnv line below. It is okay to remove these lines after ProcessWire installation. 
 
   <IfModule mod_env.c>
     SetEnv HTTP_MOD_REWRITE On
   </IfModule>
 
-  # -----------------------------------------------------------------------------------------------
-  # 11. OPTIONAL: Set a rewrite base if rewrites aren't working properly on your server.
-  # And if your site directory starts with a "~" you will most likely have to use this.
-  # -----------------------------------------------------------------------------------------------
-
-  # RewriteBase /
-  # RewriteBase /pw/
-  # RewriteBase /~user/
 
   # -----------------------------------------------------------------------------------------------
-  # 12. Access Restrictions: Keep web users out of dirs that begin with a period,
+  # 9. Optionally Force HTTPS (O)
+  # -----------------------------------------------------------------------------------------------
+
+  # 9A. To redirect HTTP requests to HTTPS, uncomment the lines below: 
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{HTTPS} !=on
+  # RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+
+  # 9B. If using load balancer/AWS, use the following rather than 9A above: (L)
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{HTTP:X-Forwarded-Proto} =http 
+  # RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+
+  
+  # 9C. If using cPanel AutoSSL or Let's Encrypt webroot you may need to MOVE one of the below
+  # lines after the first RewriteCond in 9A or 9B to allow certificate validation:
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{REQUEST_URI} !^/\.well-known/acme-challenge/
+  # RewriteCond %{REQUEST_URI} !^/\.well-known/cpanel-dcv/[\w-]+$
+  # RewriteCond %{REQUEST_URI} !^/\.well-known/pki-validation/[A-F0-9]{32}\.txt(?:\ Comodo\ DCV)?$
+ 
+  
+  # 9D. Store current scheme in a 'proto' environment variable for later use in this file
+  # -----------------------------------------------------------------------------------------------
+  RewriteCond %{HTTPS} =on
+  RewriteRule ^ - [env=proto:https]
+  RewriteCond %{HTTPS} !=on
+  RewriteRule ^ - [env=proto:http]
+  
+ 
+  # 9E. If using Load balancer/AWS- Use lines below rather than 9D: (L)
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{HTTP:X-Forwarded-Proto} =https 
+  # RewriteRule ^ - [env=proto:https]
+  # RewriteCond %{HTTP:X-Forwarded-Proto} =http 
+  # RewriteRule ^ - [env=proto:http]
+ 
+  
+  # 9F. Optionally (O) tell web browsers to only allow access via Strict-Transport-Security (HSTS)
+  # -----------------------------------------------------------------------------------------------
+  # This forces client-side SSL redirection. Before enabling be absolutely certain you can 
+  # always serve via HTTPS because it becomes non-revokable for the duration of your max-age. 
+  # See link below for details and options (note 'max-age=31536000' is 1-year):
+  # https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Strict-Transport-Security
+  
+  <IfModule mod_headers.c>
+    # Uncomment one (1) line below & adjust as needed to enable Strict-Transport-Security (HSTS):
+    # Header always set Strict-Transport-Security "max-age=31536000;"
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubdomains"
+    # Header always set Strict-Transport-Security "max-age=31536000; preload"
+    # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+  </IfModule>
+
+  # Sections 10 and 11 intentionally omitted
+  
+  # -----------------------------------------------------------------------------------------------
+  # 12. Access Restrictions: Keep web users out of dirs or files that begin with a period,
   # but let services like Lets Encrypt use the webroot authentication method.
   # -----------------------------------------------------------------------------------------------
 
   RewriteRule "(^|/)\.(?!well-known)" - [F]
 
+
   # -----------------------------------------------------------------------------------------------
-  # 13. OPTIONAL: Redirect users to the 'www.' version of the site (uncomment to enable).
-  # For example: http://processwire.com/ would be redirected to http://www.processwire.com/
+  # 13. Optional domain redirects (O)
+  # 
+  # Redirect domain.com to www.domain.com redirect (or www to domain.com redirect). 
+  # If using then uncomment either 13A or 13B, do NOT uncomment both of them or nothing will work.
   # -----------------------------------------------------------------------------------------------
 
+  # 13A. Redirect domain.com and *.domain.com to www.domain.com (do not combine with 13B): 
+  # -----------------------------------------------------------------------------------------------
   # RewriteCond %{HTTP_HOST} !^www\. [NC]
-  # RewriteRule ^ http://www.%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+  # RewriteCond %{SERVER_ADDR} !=127.0.0.1
+  # RewriteCond %{SERVER_ADDR} !=::1
+  # RewriteRule ^ %{ENV:PROTO}://www.%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+ 
+  
+  # 13B. Redirect www.domain.com to domain.com (do not combine with 13A):
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
+  # RewriteRule ^ %{ENV:PROTO}://%1%{REQUEST_URI} [R=301,L]
+
 
   # ----------------------------------------------------------------------------------------------- 
-  # 14. OPTIONAL: Send URLs with non-ASCII name-format characters to 404 page (optimization)
+  # 14. Optionally send URLs with non-ASCII name-format characters to 404 page (optimization).
+  # 
+  # This ensures that ProcessWire does not spend time processing URLs that we know ahead of time
+  # are going to result in 404s. Uncomment lines below to enable. (O)
   # ----------------------------------------------------------------------------------------------- 
 
   # RewriteCond %{REQUEST_URI} "[^-_.a-zA-Z0-9/~]"
@@ -141,49 +261,73 @@ DirectoryIndex index.php index.html index.htm
   # RewriteCond %{REQUEST_FILENAME} !-d
   # RewriteRule ^(.*)$ index.php?it=/http404/ [L,QSA]
 
+
   # -----------------------------------------------------------------------------------------------
-  # 15. Access Restrictions: Protect ProcessWire system files
+  # 15. Access Restrictions: Keep users out of some files and directories
   # -----------------------------------------------------------------------------------------------
 
-  # Allow screenshot files (for install.php only: this 1 line below may be removed after install)
-  RewriteCond %{REQUEST_URI} !(^|/)site-[^/]+/install/[^/]+\.(jpg|jpeg|png|gif)$
+  # Prevent all the following rules from blocking images in site install directories 
+  RewriteCond %{REQUEST_URI} !(^|/)site-[^/]+/install/[^/]+\.(jpg|jpeg|png|gif|webp|svg)$
+  
   # Block access to any htaccess files
-  RewriteCond %{REQUEST_URI} (^|/)\.htaccess$ [NC,OR]
-  # Block access to protected assets directories
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets/(cache|logs|backups|sessions|config|install|tmp)($|/.*$) [OR]
-  # Block acceess to the /site/install/ directory
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/install($|/.*$) [OR]
-  # Block dirs in /site/assets/ dirs that start with a hyphen
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets.*/-.+/.* [OR]
-  # Block access to /wire/config.php, /site/config.php, /site/config-dev.php, and /wire/index.config.php
-  RewriteCond %{REQUEST_URI} (^|/)(wire|site|site-[^/]+)/(config|index\.config|config-dev)\.php$ [OR]
-  # Block access to any PHP-based files in /templates-admin/
-  RewriteCond %{REQUEST_URI} (^|/)(wire|site|site-[^/]+)/templates-admin($|/|/.*\.(php|html?|tpl|inc))$ [OR]
-  # Block access to any PHP or markup files in /site/templates/
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/templates($|/|/.*\.(php|html?|tpl|inc))$ [OR]
-  # Block access to any PHP files in /site/assets/
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets($|/|/.*\.php)$ [OR]
-  # Block access to any PHP files in core or core module directories
-  RewriteCond %{REQUEST_URI} (^|/)wire/(core|modules)/.*\.(php|inc|tpl|module|info\.json)$ [OR]
-  # Block access to any PHP files in /site/modules/
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/modules/.*\.(php|inc|tpl|module|info\.json)$ [OR]
-  # Block access to any software identifying txt files
-  RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|htaccess)\.(txt|md|textile)$ [OR]
+  RewriteCond %{REQUEST_URI} (^|/)(\.htaccess|htaccess\..*)$ [NC,OR]
+  
+  # Block access to various assets directories
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets/(cache|logs|backups|sessions|config|install|tmp)($|/.*$) [NC,OR]
+  
+  # Block access to the /site/install/ directories
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/install($|/.*$) [NC,OR]
+  
+  # Block dirs in /site/assets/dirs that start with a hyphen (see config.pagefileSecure)
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets.*/-.+/.* [NC,OR]
+  
+  # Block access to /wire/config.php, /site/config.php, /site/config-dev.php, /wire/index.config.php, etc.
+  RewriteCond %{REQUEST_URI} (^|/)(wire|site|site-[^/]+)/(config|index\.config|config-dev)\.php$ [NC,OR]
+  
+  # Block access to any PHP-based files in /site/templates-admin/ or /wire/templates-admin/
+  RewriteCond %{REQUEST_URI} (^|/)(wire|site|site-[^/]+)/templates-admin($|/|/.*\.(php|html?|tpl|inc))$ [NC,OR]
+  
+  # Block access to any PHP or markup files in /site/templates/ or /site-*/templates/
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/templates($|/|/.*\.(php|html?|tpl|inc))$ [NC,OR]
+  
+  # Block access to any PHP files within /site/assets/ and further
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets($|/|/.*\.php)$ [NC,OR]
+  
+  # Block access to any PHP, module, inc or info files in core or core modules directories
+  RewriteCond %{REQUEST_URI} (^|/)wire/(core|modules)/.*\.(php|inc|tpl|module|info\.json)$ [NC,OR]
+  
+  # Block access to any PHP, tpl or info.json files in /site/modules/ or /site-*/modules/
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/modules/.*\.(php|inc|tpl|module|info\.json)$ [NC,OR]
+  
+  # Block access to any software identifying txt, markdown or textile files
+  RewriteCond %{REQUEST_URI} (^|/)(COPYRIGHT|INSTALL|README|htaccess)\.(txt|md|textile)$ [NC,OR]
+  
+  # Block potential arbitrary backup files within site directories for things like config
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/(config[^/]*/?|[^/]+\.php.*)$ [NC,OR]
+  
+  # Block access throughout to temporary files ending with tilde created by certain editors
+  RewriteCond %{REQUEST_URI} \.(html?|inc|json|lock|module|php|py|rb|sh|sql|tpl|tmpl|twig)~$ [NC,OR]
+  
+  # Block access to names of potential backup file extensions within wire or site directories
+  RewriteCond %{REQUEST_URI} (^|/)(wire/|site[-/]).+\.(bak|old|sql|sw[op]|(bak|php|sql)[./]+.*)[\d.]*$ [NC,OR]
+  
   # Block all http access to the default/uninstalled site-default directory
   RewriteCond %{REQUEST_URI} (^|/)site-default/
+  
   # If any conditions above match, issue a 403 forbidden
   RewriteRule ^.*$ - [F,L]
 
+
   # PW-PAGENAME
   # ----------------------------------------------------------------------------------------------- 
-  # 16a. Ensure that the URL follows the name-format specification required by PW
+  # 16A. Ensure that the URL follows the name-format specification required by PW
   # See also directive 16b below, you should choose and use either 16a or 16b. 
   # ----------------------------------------------------------------------------------------------- 
 
   RewriteCond %{REQUEST_URI} "^/~?[-_.a-zA-Z0-9/]*$"
   
   # ----------------------------------------------------------------------------------------------- 
-  # 16b. Alternative name-format specification for UTF8 page name support.
+  # 16B. Alternative name-format specification for UTF8 page name support. (O)
   # If used, comment out section 16a above and uncomment the directive below. If you have updated 
   # your $config->pageNameWhitelist make the characters below consistent with that. 
   # ----------------------------------------------------------------------------------------------- 
@@ -201,7 +345,7 @@ DirectoryIndex index.php index.html index.htm
   RewriteCond %{REQUEST_FILENAME} !(favicon\.ico|robots\.txt)
 
   # -----------------------------------------------------------------------------------------------
-  # 18. OPTIONAL: Prevent ProcessWire from attempting to serve images or anything in /site/assets/. 
+  # 18. Optionally (O) prevent PW from attempting to serve images or anything in /site/assets/. 
   # Both of these lines are optional, but can help to reduce server load. However, they
   # are not compatible with the $config->pagefileSecure option (if enabled) and they 
   # may produce an Apache 404 rather than your regular 404. You may uncomment the two lines
@@ -211,18 +355,20 @@ DirectoryIndex index.php index.html index.htm
   # section #2 above that makes ProcessWire the 404 handler. 
   # ----------------------------------------------------------------------------------------------- 
 
-  # RewriteCond %{REQUEST_FILENAME} !\.(jpg|jpeg|gif|png|ico)$ [NC]
+  # RewriteCond %{REQUEST_FILENAME} !\.(jpg|jpeg|gif|png|ico|webp|svg)$ [NC]
   # RewriteCond %{REQUEST_FILENAME} !(^|/)site/assets/
 
   # ----------------------------------------------------------------------------------------------- 
   # 19. Pass control to ProcessWire if all the above directives allow us to this point.
   # For regular VirtualHosts (most installs)
   # ----------------------------------------------------------------------------------------------- 
+  
   RewriteRule ^(.*)$ index.php?it=$1 [L,QSA]
 
   # ----------------------------------------------------------------------------------------------- 
-  # 20. If using VirtualDocumentRoot (500 NOTE): comment out the one above and use this one instead
+  # 20. If using VirtualDocumentRoot (500): comment out the one above and use this one instead
   # ----------------------------------------------------------------------------------------------- 
+  
   # RewriteRule ^(.*)$ /index.php?it=$1 [L,QSA]
 
 </IfModule>

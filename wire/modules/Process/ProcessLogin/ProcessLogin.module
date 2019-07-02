@@ -397,11 +397,11 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$htaccessFile = $this->wire('config')->paths->root . '.htaccess';
 		if(is_readable($htaccessFile)) {
 			$htaccessData = file_get_contents($htaccessFile); 
-			if(!preg_match('/@(?:index|htaccess)Version\s+(\d+)\b/', $htaccessData, $matches) || ((int) $matches[1]) < $htaccessVersion) {	
+			if(!preg_match('/@htaccessVersion\s+(\d+)\b/', $htaccessData, $matches) || ((int) $matches[1]) < $htaccessVersion) {	
 				$this->warning(
-					"Not urgent, but note that your root .htaccess file is not up-to-date with this ProcessWire version - please update it when possible.<br />" .  
-					"<small>To ignore this warning, replace or add the following in the top of your existing .htaccess file:</small> " . 
-					"<span style='font-family: monospace;'># @indexVersion $htaccessVersion</span>", Notice::log | Notice::allowMarkup
+					"Please note that your root .htaccess file is not up-to-date with this ProcessWire version - update it when possible.<br />" .  
+					"<small>To suppress this warning, replace or add the following in the top of your existing .htaccess file:</small> " . 
+					"<span style='font-family: monospace;'># @htaccessVersion $htaccessVersion</span>", Notice::log | Notice::allowMarkup
 					); 
 			}
 		}
