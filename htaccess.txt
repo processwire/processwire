@@ -3,16 +3,22 @@
 # @version 3.0
 # @htaccessVersion 301
 #################################################################################################
-
+#
 # Upgrading htaccess (or index) version 300 to 301
 # -----------------------------------------------------------------------------------------------
-# If your htaccess/index version is 300, upgrade to this version by replacing all of section #15
-# (Access Restrictions). Also take a look at section #9, which you might also consider replacing 
-# if using HTTPS, though it is not required. Following that, optionally review the rest of the 
-# file to see if there are any other changes you also want to apply. When finished, add a line 
-# at the top identical to the "htaccessVersion 301" that you see at the top of this file. This 
-# tells ProcessWire your .htaccess file is up-to-date. If you never customized your original 
-# .htaccess file, then of course you can also just replace it with this one. 
+# If you never modified your previous .htaccess file, then you can simply replace it with this
+# one. If you have modified your .htaccess file, then you will want to copy/paste some updates
+# to the old one instead:
+
+# If your htaccess/index version is 300, upgrade to this version by replacing all of sections #5
+# and #15 (Access Restrictions). Also take a look at section #9, which you might also consider 
+# replacing if using HTTPS, though it is not required. (For instance, HSTS might be worthwhile)
+# 
+# Following that, optionally review the rest of the file to see if there are any other changes 
+# you also want to apply. Sections tagged "(v301)" are new or have significant changes. 
+# 
+# When finished, add a line at the top identical to the "htaccessVersion 301" that you see at 
+# the top of this file. This tells ProcessWire your .htaccess file is up-to-date. 
 # 
 # Resolving 500 errors
 # -----------------------------------------------------------------------------------------------
@@ -33,6 +39,7 @@
 # change. Search this file for instances of "(L)" for details. 
 #
 
+
 # -----------------------------------------------------------------------------------------------
 # 1. Apache Options 
 #
@@ -45,7 +52,7 @@
 # Do not show directory indexes (strongly recommended)
 Options -Indexes
 
-# Do not use multiviews
+# Do not use multiviews (v301)
 Options -MultiViews
 
 # Do follow symbolic links
@@ -55,14 +62,16 @@ Options +FollowSymLinks
 # Character encoding: Serve text/html or text/plain as UTF-8
 AddDefaultCharset UTF-8
 
+
 # -----------------------------------------------------------------------------------------------
-# 2. ErrorDocument settings: Have ProcessWire handle 404s
+# 2. ErrorDocument settings: Have ProcessWire handle 404s 
 #
-# For options and optimizations, see: (O)
+# For options and optimizations (O) see: 
 # https://processwire.com/blog/posts/optimizing-404s-in-processwire/
 # -----------------------------------------------------------------------------------------------
 
 ErrorDocument 404 /index.php
+
 
 # -----------------------------------------------------------------------------------------------
 # 3. Handle request for missing favicon.ico/robots.txt files (no ending quote for Apache 1.3)
@@ -75,6 +84,7 @@ ErrorDocument 404 /index.php
 <Files robots.txt>
   ErrorDocument 404 "The requested file robots.txt was not found.
 </Files>
+
 
 # -----------------------------------------------------------------------------------------------
 # 4. Protect from XSS with Apache headers
@@ -92,14 +102,18 @@ ErrorDocument 404 /index.php
   # Header set X-Content-Type-Options "nosniff" 
 </IfModule>
 
+
 # -----------------------------------------------------------------------------------------------
-# 5. Prevent access to various types of files
+# 5. Prevent access to various types of files (v301)
 #
 # Note that some of these rules are duplicated by RewriteRules or other .htaccess files, as we
 # try to maintain two layers of protection when/where possible. 
 # -----------------------------------------------------------------------------------------------
 
-<FilesMatch "\.(inc|info|info\.json|module|sh|sql)$|^\..*$|composer\.(json|lock)$">
+# 5A. Block access to inc, info, info.json/php, module/php, sh, sql and composer files
+# -----------------------------------------------------------------------------------------------
+
+<FilesMatch "\.(inc|info|info\.(json|php)|module|module\.php|sh|sql)$|^\..*$|composer\.(json|lock)$">
   <IfModule mod_authz_core.c>
     Require all denied
   </IfModule>
@@ -108,7 +122,11 @@ ErrorDocument 404 /index.php
   </IfModule>
 </FilesMatch>
 
-<FilesMatch "(^#.*#|\.(bak|conf|dist|fla|in[ci]|log|orig|psd|sh|sql|sw[op])|~)$">
+
+# 5B. Block bak, conf, dist, ini, log, orig, sh, sql, swo, swp, ~, and more
+# -----------------------------------------------------------------------------------------------
+
+<FilesMatch "(^#.*#|\.(bak|conf|dist|in[ci]|log|orig|sh|sql|sw[op])|~)$">
   <IfModule mod_authz_core.c>
      Require all denied
   </IfModule>
@@ -116,6 +134,7 @@ ErrorDocument 404 /index.php
     Order allow,deny
   </IfModule>
 </FilesMatch>
+
 
 # -----------------------------------------------------------------------------------------------
 # 6. Override a few PHP settings that can't be changed at runtime (not required)
@@ -128,11 +147,13 @@ ErrorDocument 404 /index.php
   php_flag register_globals		off
 </IfModule>
 
+
 # -----------------------------------------------------------------------------------------------
 # 7. Set default directory index files
 # -----------------------------------------------------------------------------------------------
 
 DirectoryIndex index.php index.html index.htm
+
 
 # -----------------------------------------------------------------------------------------------
 # 8. Enable Apache mod_rewrite (required)
@@ -141,6 +162,7 @@ DirectoryIndex index.php index.html index.htm
 <IfModule mod_rewrite.c>
 
   RewriteEngine On
+ 
   
   # 8A. Optionally (O) set a rewrite base if rewrites are not working properly on your server.
   # -----------------------------------------------------------------------------------------------
@@ -156,7 +178,7 @@ DirectoryIndex index.php index.html index.htm
   # 8B. Set an environment variable so the installer can detect that mod_rewrite is active.
   # -----------------------------------------------------------------------------------------------
   # Note that some web hosts don't support this. If you get a (500) error, try commenting out this 
-  # SetEnv line below. It is okay to remove these lines after ProcessWire installation. 
+  # SetEnv line below. 
 
   <IfModule mod_env.c>
     SetEnv HTTP_MOD_REWRITE On
@@ -164,7 +186,7 @@ DirectoryIndex index.php index.html index.htm
 
 
   # -----------------------------------------------------------------------------------------------
-  # 9. Optionally Force HTTPS (O)
+  # 9. Optionally Force HTTPS (O) 
   # -----------------------------------------------------------------------------------------------
 
   # 9A. To redirect HTTP requests to HTTPS, uncomment the lines below: 
@@ -203,7 +225,7 @@ DirectoryIndex index.php index.html index.htm
   # RewriteRule ^ - [env=proto:http]
  
   
-  # 9F. Optionally (O) tell web browsers to only allow access via Strict-Transport-Security (HSTS)
+  # 9F. Tell web browsers to only allow access via HSTS: Strict-Transport-Security (O) (v301)
   # -----------------------------------------------------------------------------------------------
   # This forces client-side SSL redirection. Before enabling be absolutely certain you can 
   # always serve via HTTPS because it becomes non-revokable for the duration of your max-age. 
@@ -218,7 +240,9 @@ DirectoryIndex index.php index.html index.htm
     # Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
   </IfModule>
 
+
   # Sections 10 and 11 intentionally omitted
+ 
   
   # -----------------------------------------------------------------------------------------------
   # 12. Access Restrictions: Keep web users out of dirs or files that begin with a period,
@@ -263,7 +287,10 @@ DirectoryIndex index.php index.html index.htm
 
 
   # -----------------------------------------------------------------------------------------------
-  # 15. Access Restrictions: Keep users out of some files and directories
+  # 15. Access Restrictions (v301)
+  # -----------------------------------------------------------------------------------------------
+  
+  # 15A. Keep http requests out of specific files and directories
   # -----------------------------------------------------------------------------------------------
 
   # Prevent all the following rules from blocking images in site install directories 
@@ -316,6 +343,19 @@ DirectoryIndex index.php index.html index.htm
   
   # If any conditions above match, issue a 403 forbidden
   RewriteRule ^.*$ - [F,L]
+
+ 
+  # 15B. Block archive file types commonly used for backup purposes (O)
+  # -----------------------------------------------------------------------------------------------
+  # This blocks requests for zip, rar, tar, gz, and tgz files that are sometimes left on servers
+  # as backup files, and thus can be problematic for security. This rule blocks those files 
+  # unless they are located within the /site/assets/files/ directory. This is not enabled by 
+  # default since there are many legitimate use cases for these files, so uncomment the lines 
+  # below if you want to enable this.
+
+  # RewriteCond %{REQUEST_URI} \.(zip|rar|tar|gz|tgz)$ [NC]
+  # RewriteCond %{REQUEST_URI} !(^|/)(site|site-[^/]+)/assets/files/\d+/ [NC]
+  # RewriteRule ^.*$ - [F,L]
 
 
   # PW-PAGENAME
