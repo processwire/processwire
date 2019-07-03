@@ -8,8 +8,18 @@
  */
 abstract class SystemUpdate extends Wire {
 
+	/**
+	 * @var SystemUpdater
+	 * 
+	 */
 	protected $updater;
 
+	/**
+	 * Construct
+	 *
+	 * @param SystemUpdater $updater
+	 * 
+	 */
 	public function __construct(SystemUpdater $updater) {
 		$this->updater = $updater;
 	}
@@ -24,10 +34,25 @@ abstract class SystemUpdate extends Wire {
 	 */
 	abstract public function execute();
 
+	/**
+	 * Get update name that appears in notices
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function getName() {
-		$name = str_replace(__NAMESPACE__ . "\\SystemUpdate", "", get_class($this));
-		$name = "Update #$name";
+		$name = "Update #" . $this->getVersion();
 		return $name;
+	}
+
+	/**
+	 * Get update version number
+	 * 
+	 * @return int
+	 * 
+	 */
+	public function getVersion() {
+		return (int) str_replace('SystemUpdate', '', $this->className());
 	}
 
 	public function message($text, $flags = 0) {
@@ -35,9 +60,15 @@ abstract class SystemUpdate extends Wire {
 		$this->updater->message($text, $flags);
 		return $this;
 	}
+	
+	public function warning($text, $flags = 0) {
+		$text = $this->getName() . ": $text";
+		$this->updater->warning($text, $flags);
+		return $this;
+	}
 
 	public function error($text, $flags = 0) {
-		$text = $this->getName() . " ERROR: $text";
+		$text = $this->getName() . ": $text";
 		$this->updater->error($text, $flags);
 		return $this;
 	}

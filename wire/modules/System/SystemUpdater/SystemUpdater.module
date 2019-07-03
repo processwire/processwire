@@ -5,7 +5,7 @@
  * 
  * ProcessWire System Helper Module
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @method coreVersionChange($fromVersion, $toVersion)
@@ -42,6 +42,14 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	protected $numUpdatesApplied = 0;
+
+	/**
+	 * Is an update being applied manually?
+	 * 
+	 * @var bool|int Contains update number when one is being manually applied
+	 * 
+	 */
+	protected $manualVersion = false;
 
 	/**
 	 * Part of the ConfigurableModule interface, sets config data to the module
@@ -159,21 +167,24 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 	 * Save the system version as the given version number
 	 *
 	 * @param int $version
+	 * @return bool
 	 *
 	 */ 
 	public function saveSystemVersion($version) {
+		if($this->manualVersion == $version) return false;
 		$version = (int) $version;
 		$this->wire('config')->systemVersion = $version; 
 		$this->configData['systemVersion'] = $version;
 		$this->configData['coreVersion'] = $this->wire('config')->version;
 		$this->wire('modules')->saveModuleConfigData($this, $this->configData);
 		$this->message("Update #$version: Completed!"); 
+		return true;
 	}
 
 	/**
 	 * Check for an update file in the format: SystemUpdater123 where '123' is the version it upgrades to
 	 *
- 	 * If found, instantiate the class and it's constructor should perform the update or add any hooks necessary to perform the update
+ 	 * If found, instantiate the class and its constructor should perform the update or add any hooks necessary to perform the update
 	 * 
 	 * @param int $version
 	 * @return bool
@@ -181,35 +192,85 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 	 */ 
 	protected function update($version) {
 		
-		require_once(dirname(__FILE__) . '/SystemUpdate.php');
-		
-		$className = 'SystemUpdate' . $version;
-		$filename = $this->config->paths('SystemUpdater') . $className . '.php';
-		$className = wireClassName($className, true);
 		$errorMessage = sprintf('Failed to apply update %d', $version); 
+		$update = null;
 		
-		if(is_file($filename)) {
-			$update = null;
-			try {
-				include($filename); 
-				/** @var SystemUpdate $update */
-				$update = $this->wire(new $className($this)); 
-				$update->message('Initializing update'); 
-				$success = $update->execute();
-				if($success === false) $update->error($errorMessage);
-			} catch(\Exception $e) {
-				$msg = $errorMessage . " - " . $e->getMessage(); 
-				if($update) {
-					$update->error($msg);
-				} else {
-					$this->error($msg);
-				}
-				$success = false;
-			}
-			if(!$success) return false;
+		try {
+			$update = $this->getUpdate($version);
+			if(!$update) return true;
+			$update->message('Initializing update'); 
+			$success = $update->execute();
+			if($success === false) $update->error($errorMessage);
+		} catch(\Exception $e) {
+			$msg = $errorMessage . " - " . $e->getMessage(); 
+			$messenger = $update ? $update : $this;
+			$messenger->error($msg);
+			$success = false;
 		}
 		
-		return true; 
+		return $success;
+	}
+
+	/**
+	 * Get a specific SystemUpdate class instance by version number and return it (without executing it)
+	 * 
+	 * @param int $version Update version number
+	 * @return null|SystemUpdate Returns SystemUpdate instance of available or null if not
+	 * 
+	 */
+	public function getUpdate($version) {
+	
+		$path = dirname(__FILE__) . '/';
+		
+		require_once($path . 'SystemUpdate.php');
+		
+		$className = 'SystemUpdate' . $version;
+		$filename = $path . $className . '.php';
+		
+		if(!is_file($filename)) return null;
+		
+		require_once($filename);
+
+		$className = wireClassName($className, true);
+		
+		/** @var SystemUpdate $update */
+		$update = $this->wire(new $className($this));
+		
+		return $update;
+	}
+
+	/**
+	 * Manually apply a update 
+	 * 
+	 * The system version is not changed when applying an update manually.
+	 * 
+	 * @param int|SystemUpdate $version Update version number or instance of SystemUpdate you want to apply
+	 * @return bool True on success, false on fail
+	 * 
+	 */
+	public function apply($version) {
+		
+		if(is_object($version)) {
+			$update = $version;
+			$version = $update->getVersion();
+		} else {
+			$update = null;
+			$version = (int) $version;
+		}
+		
+		$this->manualVersion = $version;
+		
+		try {
+			if(!$update) $update = $this->getUpdate($version);
+			$success = $update ? $update->execute() : true;
+		} catch(\Exception $e) {
+			$this->error($e->getMessage());
+			$success = false;
+		}
+		
+		$this->manualVersion = false;
+		
+		return $success;
 	}
 
 	/**
@@ -224,6 +285,21 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 		$this->log($text);
 		return parent::message($text, $flags);
 	}
+	
+	/**
+	 * Warning notice
+	 *
+	 * @param string $text
+	 * @param int $flags
+	 * @return SystemUpdater|WireData
+	 *
+	 */
+	public function warning($text, $flags = 0) {
+		$text = "WARNING: $text";
+		$this->log($text);
+		return parent::warning($text, $flags);
+	}
+
 
 	/**
 	 * Error notice
@@ -267,6 +343,7 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 			$f->attr('name', '_log'); 
 			$f->label = $this->_('System Update Log'); 
 			$logContent = $this->wire('sanitizer')->unentities(file_get_contents($logfile)); 
+			$logContent = preg_replace('!<a href=.+?>(.+?)</a>!', '$1', $logContent);
 			$f->value = '<pre>' . $this->wire('sanitizer')->entities($logContent) . '</pre>';
 			$inputfields->add($f); 
 		}
