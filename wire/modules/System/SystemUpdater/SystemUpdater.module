@@ -44,6 +44,14 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 	protected $numUpdatesApplied = 0;
 
 	/**
+	 * Get array of updates that were applied
+	 * 
+	 * @var array Array of update version numbers
+	 * 
+	 */
+	protected $updatesApplied = array();
+
+	/**
 	 * Is an update being applied manually?
 	 * 
 	 * @var bool|int Contains update number when one is being manually applied
@@ -96,6 +104,7 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 			// then already applied updates won't be applied again
 			$this->saveSystemVersion($systemVersion); 
 			$this->numUpdatesApplied++;
+			$this->updatesApplied[] = ($systemVersion-1);
 		}
 
 		if($this->numUpdatesApplied > 0) {
@@ -216,6 +225,7 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 	 * 
 	 * @param int $version Update version number
 	 * @return null|SystemUpdate Returns SystemUpdate instance of available or null if not
+	 * @since 3.0.135
 	 * 
 	 */
 	public function getUpdate($version) {
@@ -246,6 +256,7 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 	 * 
 	 * @param int|SystemUpdate $version Update version number or instance of SystemUpdate you want to apply
 	 * @return bool True on success, false on fail
+	 * @since 3.0.135
 	 * 
 	 */
 	public function apply($version) {
@@ -271,6 +282,33 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 		$this->manualVersion = false;
 		
 		return $success;
+	}
+
+	/**
+	 * Get instance of SystemUpdaterChecks for performing system checks
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return SystemUpdaterChecks
+	 * @since 3.0.135
+	 * 
+	 */
+	public function getChecks() {
+		require_once(dirname(__FILE__) . '/SystemUpdaterChecks.php');
+		$checks = new SystemUpdaterChecks();
+		$this->wire($checks);
+		return $checks;
+	}
+
+	/**
+	 * Get array of updates (update version numbers) that were automatically applied during this request
+	 * 
+	 * @return array
+	 * @since 3.0.135
+	 * 
+	 */
+	public function getUpdatesApplied() {
+		return $this->updatesApplied;
 	}
 
 	/**

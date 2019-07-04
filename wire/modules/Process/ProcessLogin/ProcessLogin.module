@@ -382,98 +382,27 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function ___afterLogin() {
-		if(!$this->user->isSuperuser()) return;
-
-		$indexVersion = ProcessWire::indexVersion; 
-		$htaccessVersion = ProcessWire::htaccessVersion;
-		
-		if(PROCESSWIRE < $indexVersion) {
-			$this->warning(
-				"Not urgent, but note that your root index.php file is not up-to-date with this ProcessWire version - please update it when possible. " . 
-				"<br /><small>Required version: $indexVersion, Found version: " . PROCESSWIRE . "</small>", Notice::log | Notice::allowMarkup
-				); 
-		}
-
-		$htaccessFile = $this->wire('config')->paths->root . '.htaccess';
-		if(is_readable($htaccessFile)) {
-			$htaccessData = file_get_contents($htaccessFile); 
-			if(!preg_match('/@htaccessVersion\s+(\d+)\b/', $htaccessData, $matches) || ((int) $matches[1]) < $htaccessVersion) {	
-				$this->warning(
-					"Please note that your root .htaccess file is not up-to-date with this ProcessWire version - update it when possible.<br />" .  
-					"<small>To suppress this warning, replace or add the following in the top of your existing .htaccess file:</small> " . 
-					"<span style='font-family: monospace;'># @htaccessVersion $htaccessVersion</span>", Notice::log | Notice::allowMarkup
-					); 
-			}
-		}
-
-		// if($this->config->showSecurityWarnings === false) return;
-		// if(is_writable($this->config->paths->root . "site/config.php")) $this->error("Security Warning: /site/config.php is writable and ideally should not be."); 
-		// if(is_writable($this->config->paths->root . "index.php")) $this->error("Security Warning: /index.php is writable and ideally should not be."); 
-		$warningText = $this->_("Security Warning: %s exists and should be deleted as soon as possible."); 
-		if(is_file($this->config->paths->root . "install.php")) $this->error(sprintf($warningText, '/install.php'), Notice::log); 
-
-		$file = $this->config->paths->assets . "active.php";
-		if(!is_file($file)) {
-			$data = "<?php // Do not delete this file. " . 
-				"The existence of this file indicates the site is confirmed active " . 
-				"and first-time use errors may be suppressed. Installed at: " . 
-				"[{$this->config->paths->root}]";
-			file_put_contents($file, $data); 
-		}
-	
-		// warnings about 0666/0777 file permissions
-		if($this->config->chmodWarn && ($this->config->chmodDir == '0777' || $this->config->chmodFile == '0666')) {
-			$warning = 
-				$this->_('Warning, your /site/config.php specifies file permissions that are too loose for many environments:') . '<br />' . 
-				"<span style='font-family:monospace'>" . 
-				"\$config->chmodFile = '{$this->config->chmodFile}';<br />" . 
-				"\$config->chmodDir = '{$this->config->chmodDir}';" . 
-				"</span><br /><i class='fa fa-angle-right'></i> " . 
-				"<a href='https://processwire.com/docs/security/file-permissions/' target='_blank'>" . 
-				$this->_('Read "Securing file permissions" for more details') . "</a><br />" . 
-				"<small class='ui-priority-secondary'>" . 
-				$this->_('To suppress this warning, set $config->chmodWarn = false; in your /site/config.php file.') . 
-				"</small>";
-			$warning = str_replace(array('0666', '0777'), array('<u>0666</u>', '<u>0777</u>'), $warning);
-			$this->warning($warning, Notice::allowMarkup | Notice::log);
-		}
-		
-		if($this->wire('fields')->get('published')) {
-			$this->error("Warning: you have a field named 'published' that conflicts with the page 'published' property. Please rename your field field to something else and update any templates referencing it.");
-		}
-
-		// warning about servers with locales that break UTF-8 strings called by basename
-		// and other file functions, due to a long running PHP bug 
-		if(basename("§") === "") {
-			$example = stripos(PHP_OS, 'WIN') === 0 ? 'en-US' : 'en_US.UTF-8';
-			$localeLabel = $this->_('Your current locale setting is “%s”.') . ' ';
-			$msg = $this->_('Note: your current server locale setting isn’t working as expected with the UTF-8 charset and may cause minor issues.') . ' ';
-			if($this->wire('modules')->isInstalled('LanguageSupport')) {
-				$textdomain = 'wire--modules--languagesupport--languagesupport-module';
-				$locale = __('C', $textdomain);
-				if(empty($locale)) $locale = setlocale(LC_CTYPE, 0); 
-				$msg .= sprintf($localeLabel, $locale);
-				$msg .= sprintf($this->_('Please translate the “C” locale setting for each language to the compatible locale in %s'),
-					'<u>/wire/modules/LanguageSupport/LanguageSupport.module</u>:');
-				foreach($this->wire('languages') as $language) {
-					$url = $this->wire('config')->urls->admin . "setup/language-translator/edit/?language_id=$language->id&" . 
-						"textdomain=$textdomain&" . 
-						"filename=wire/modules/LanguageSupport/LanguageSupport.module";
-					$msg .= "<br />• <a target='_blank' href='$url'>" . $language->get('title|name') . "</a>";
+		if($this->wire('user')->isSuperuser()) {
+			/** @var SystemUpdater $systemUpdater */
+			$systemUpdater = $this->wire('modules')->get('SystemUpdater');
+			if($systemUpdater) { 
+				$updatesApplied = $systemUpdater->getUpdatesApplied();
+				$checks = $systemUpdater->getChecks();
+				$checks->setShowNotices(true);
+				//$checks->setTestAll(true);
+				
+				if(count($updatesApplied)) {
+					$checks->checkWelcome();
+					$this->message(
+						sprintf(
+							$this->_('Skipping after-login system checks because updates were applied (%s)'), 
+							implode(', ', $updatesApplied)
+						),
+						Notice::debug
+					);
+				} else {
+					$checks->execute();
 				}
-				$msg .= "<br /><small>" . 
-					sprintf($this->_('For example, the locale setting for US English might be: %s'), "<strong>$example</strong>") . 
-					"</small>";
-				$this->warning($msg, Notice::allowMarkup);
-			} else {
-				$locale = setlocale(LC_CTYPE, 0);
-				$msg .= 
-					sprintf($localeLabel, $locale) . 
-					sprintf(
-						$this->_('Please add this to your %1$s file (adjust “%2$s” as needed):'), 
-						'<u>/site/config.php</u>', $example
-					) . " <code>setlocale(LC_ALL,'$example');</code>";
-				$this->warning($msg, Notice::allowMarkup);
 			}
 		}
 	}
@@ -699,7 +628,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		
 		/** @var Session $session */
 		$session = $this->wire('session');
-		$session->message($user->name . ' - ' . $this->_("Successful login"));
+		// $session->message($user->name . ' - ' . $this->_("Successful login"));
 		
 		if($this->isAdmin) {
 			$copyVars = $session->getFor($this, 'copyVars');

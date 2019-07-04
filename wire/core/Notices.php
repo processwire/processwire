@@ -58,6 +58,14 @@ abstract class Notice extends WireData {
 	 *
 	 */
 	const allowMarkup = 32;
+
+	/**
+	 * Flag indicates notice should prepend (rather than append) to any existing notices
+	 * 
+	 * @since 3.0.135
+	 * 
+	 */
+	const prepend = 64; 
 	
 	/**
 	 * Create the Notice
@@ -212,7 +220,7 @@ class Notices extends WireArray {
 			$item->flags = $item->flags | Notice::allowMarkup;
 		} else if(is_object($item->text) && $item->text instanceof Wire) {
 			$item->text = "<pre>" . $this->wire('sanitizer')->entities(print_r($item->text, true)) . "</pre>";
-			$item->flags = $item->flag | Notice::allowMarkup;
+			$item->flags = $item->flags | Notice::allowMarkup;
 		} else if(is_object($item->text)) {
 			$item->text = (string) $item->text; 
 		}
@@ -240,7 +248,11 @@ class Notices extends WireArray {
 			if($item->flags & Notice::logOnly) return $this;
 		}
 		
-		return parent::add($item); 
+		if($item->flags & Notice::prepend) {
+			return parent::prepend($item);	
+		} else {
+			return parent::add($item);
+		}
 	}
 	
 	protected function addLog($item) {

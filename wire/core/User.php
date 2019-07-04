@@ -16,6 +16,7 @@
  * @property string|Password $pass Set the user’s password. 
  * @property PageArray $roles Get the roles this user has. 
  * @property Language $language User language, applicable only if LanguageSupport installed.
+ * @property string $admin_theme Admin theme class name
  * 
  * @method bool hasPagePermission($name, Page $page = null) #pw-internal
  * @method bool hasTemplatePermission($name, $template) #pw-internal
