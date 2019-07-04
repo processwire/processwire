@@ -79,7 +79,7 @@ class SystemUpdaterChecks extends Wire {
 			'checkWelcome',
 			'checkIndexFile',
 			'checkHtaccessFile',
-			//'checkOtherHtaccessFiles',
+			'checkOtherHtaccessFiles',
 			'checkInstallerFiles',
 			'checkFilePermissions',
 			'checkPublishedField',
