@@ -1,4 +1,5 @@
-# ProcessWire: Block any PHP files from direct access 
+# Start ProcessWire:pwbphp (install) 
+# Block PHP files from direct access (optional fallback if root .htaccess missing)
 <FilesMatch "\.(php|module|inc)$">
   <IfModule mod_authz_core.c>
     Require all denied
@@ -8,3 +9,4 @@
     Deny from all
   </IfModule>
 </FilesMatch>
+# End ProcessWire:pwbphp

@@ -11,10 +11,11 @@
  * If that file exists, the installer will not run. So if you need to re-run this installer for any
  * reason, then you'll want to delete that file. This was implemented just in case someone doesn't delete the installer.
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo have installer set session name
+ * @todo have installer support enabling debug mode if user chooses it
  * 
  */
 
@@ -322,7 +323,7 @@ class Installer {
 		}
 
 		$this->checkFunction("filter_var", "Filter functions (filter_var)");
-		$this->checkFunction("mysqli_connect", "MySQLi (not required by core, but may be required by some 3rd party modules)");
+		$this->checkFunction("mysqli_connect", "MySQLi (not used by core, but may still be used by some older 3rd party modules)");
 		$this->checkFunction("imagecreatetruecolor", "GD 2.0 or newer"); 
 		$this->checkFunction("json_encode", "JSON support");
 		$this->checkFunction("preg_match", "PCRE support"); 
@@ -334,7 +335,7 @@ class Installer {
 
 		if(function_exists('apache_get_modules')) {
 			if(in_array('mod_rewrite', apache_get_modules())) $this->ok("Found Apache module: mod_rewrite"); 
-				else $this->err("Apache mod_rewrite does not appear to be installed and is required by ProcessWire."); 
+				else $this->err("Apache 'mod_rewrite' module does not appear to be installed and is required by ProcessWire."); 
 		} else {
 			// apache_get_modules doesn't work on a cgi installation.
 			// check for environment var set in htaccess file, as submitted by jmarjie. 
@@ -342,7 +343,11 @@ class Installer {
 			if($mod_rewrite) {
 				$this->ok("Found Apache module (cgi): mod_rewrite");
 			} else {
-				$this->err("Unable to determine if Apache mod_rewrite (required by ProcessWire) is installed. On some servers, we may not be able to detect it until your .htaccess file is place. Please click the 'check again' button at the bottom of this screen, if you haven't already."); 
+				$this->err(
+					"Unable to determine if Apache mod_rewrite (required by ProcessWire) is installed. " . 
+					"On some servers, we may not be able to detect it until your .htaccess file is place. " . 
+					"Please click the 'check again' button at the bottom of this screen, if you haven't already."
+				); 
 			}
 		}
 		
@@ -863,9 +868,10 @@ class Installer {
 			if(is_dir($profile . "files")) $this->profileImportFiles($profile);
 				else $this->mkdir("./site/assets/files/"); 
 			
-			$this->mkdir("./site/assets/cache/"); 
-			$this->mkdir("./site/assets/logs/"); 
-			$this->mkdir("./site/assets/sessions/"); 
+			$this->mkdir("./site/assets/cache/", true, true); 
+			$this->mkdir("./site/assets/logs/", true, true);
+			$this->mkdir("./site/assets/backups/", true, true); 
+			$this->mkdir("./site/assets/sessions/", true, true); 
 			
 		} else {
 			$this->ok("A profile is already imported, skipping..."); 
@@ -890,6 +896,16 @@ class Installer {
 		} else {
 			// they are installing site-default already 
 		}
+
+		// install the site/.htaccess (not really required but potentially useful fallback)
+		$dir = "./site/";
+		$defaultDir = "./site-default/"; 
+		if(is_file($dir . 'htaccess.txt')) {
+			$this->renameFile($dir . 'htaccess.txt', $dir . '.htaccess'); 
+		} else if(is_file($defaultDir . 'htaccess.txt')) {
+			$this->copyFile($defaultDir . 'htaccess.txt', $dir . '.htaccess');
+		}
+		
 		$this->sectionStop();
 		$this->adminAccount();
 	}
@@ -1041,12 +1057,21 @@ class Installer {
 			
 		$this->btn("Continue", 5); 
 	}
-	
+
+	/**
+	 * Get post-install optionally removable items
+	 * 
+	 * @param ProcessWire $wire
+	 * @param bool $getMarkup Get markup of options/form inputs rather than array of items?
+	 * @param bool $removeNow Allow processing of submitted form (via getMarkup) to remove items now?
+	 * @return array|string
+	 * 
+	 */
 	protected function getRemoveableItems($wire, $getMarkup = false, $removeNow = false) {
 
 		$root = dirname(__FILE__) . '/';
-		$isPost = $wire->input->post->remove_items !== null;
-		$postItems = $isPost ? $wire->input->post->remove_items : array();
+		$isPost = $wire->input->post('remove_items') !== null;
+		$postItems = $isPost ? $wire->input->post('remove_items') : array();
 		if(!is_array($postItems)) $postItems = array();
 		$out = '';
 		
@@ -1508,21 +1533,60 @@ class Installer {
 	/**
 	 * Create a directory and assign permission
 	 * 
-	 * @param string $path
-	 * @param bool $showNote
+	 * @param string $path Path to create
+	 * @param bool $showNote Show notification about what was done?
+	 * @param bool $block Add an htaccess file that blocks http access? (default=false)
 	 * @return bool
 	 *
 	 */
-	protected function mkdir($path, $showNote = true) {
+	protected function mkdir($path, $showNote = true, $block = false) {
 		if(self::TEST_MODE) return true;
-		if(is_dir($path) || mkdir($path)) {
+		$path = rtrim($path, '/') . '/';
+		$isDir = is_dir($path);
+		if($isDir || mkdir($path)) {
 			chmod($path, octdec($this->chmodDir));
-			if($showNote) $this->alertOk("Created directory: $path"); 
-			return true; 
+			if($showNote && !$isDir) $this->alertOk("Created directory: $path"); 
+			$result = true;
 		} else {
 			if($showNote) $this->alertErr("Error creating directory: $path"); 
-			return false; 
+			$result = false;
 		}
+		$file = $path . '.htaccess';
+		if($result && $block && !file_exists($file)) {
+			$data = array(
+				'# Start ProcessWire:pwball (install)',
+				'# Block all access (fallback if root .htaccess missing)',
+				'<IfModule mod_authz_core.c>',
+				'  Require all denied',
+				'</IfModule>',
+				'<IfModule !mod_authz_core.c>',
+				'  Order allow,deny',
+				'  Deny from all',
+				'</IfModule>',
+				'# End ProcessWire:pwball',
+			);
+			file_put_contents($file, implode("\n", $data));
+			chmod($file, octdec($this->chmodFile));
+		}
+		return $result;
+	}
+	
+	protected function copyFile($src, $dst) {
+		if(!@copy($src, $dst)) {
+			$this->alertErr("Unable to copy $src => $dst (please copy manually if possible)"); 
+			return false;
+		}
+		chmod($dst, octdec($this->chmodFile));
+		return true;
+	}
+	
+	protected function renameFile($src, $dst) {
+		if(!@rename($src, $dst)) {
+			$this->alertErr("Unable to rename $src => $dst (please rename manually if possible)");
+			return false;
+		}
+		chmod($dst, octdec($this->chmodFile));
+		return true;
 	}
 
 	/**
@@ -1560,10 +1624,17 @@ class Installer {
 
 		closedir($dir);
 		return true; 
-	} 
-	
+	}
+
+	/**
+	 * Get all timezone selections
+	 * 
+	 * @return array
+	 * 
+	 */
 	protected function timezones() {
 		$timezones = timezone_identifiers_list();
+		if(!is_array($timezones)) return array('UTC');
 		$extras = array(
 			'US Eastern|America/New_York',
 			'US Central|America/Chicago',
