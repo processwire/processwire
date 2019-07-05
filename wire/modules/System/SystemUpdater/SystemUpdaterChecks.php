@@ -378,16 +378,16 @@ class SystemUpdaterChecks extends Wire {
 	 */
 	public function checkDebugMode() {
 		if(!$this->wire('config')->debug && !$this->testAll) return true;
-		if($this->showNotices) $this->warning(
+		if($this->showNotices) $this->message('icon-bug '  .
 			$this->_('The site is in debug mode, suitable for sites in development') . 
 			$this->small(
 				sprintf(
 					$this->_('If this is a live/production site, you should disable debug mode in %1$s with: %2$s'), 
 					$this->location('/site/config.php'),
-					$this->code('$config->debug = false;')
+					'<u>$config->debug = false;</u>'
 				)
 			),
-			Notice::allowMarkup
+			Notice::allowMarkup | Notice::anonymous
 		);
 		return true;
 	}
