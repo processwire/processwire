@@ -12,7 +12,7 @@
  * and likewise a value set in $session won't appear in $_SESSION.  It's also good to use this class
  * over the $_SESSION superglobal just in case we ever need to replace PHP's session handling in the future.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  * @see https://processwire.com/api/ref/session/ Session documentation
@@ -122,6 +122,7 @@ class Session extends Wire implements \IteratorAggregate {
 
 	/**
 	 * True if this is a secondary instance of ProcessWire
+	 * 
 	 * @var bool
 	 * 
 	 */
@@ -179,15 +180,7 @@ class Session extends Wire implements \IteratorAggregate {
 		if(!$user || !$user->id) $user = $this->wire('users')->getGuestUser();
 		$this->wire('users')->setCurrentUser($user); 	
 
-		foreach(array('message', 'error', 'warning') as $type) {
-			$items = $this->get($type);
-			if(is_array($items)) foreach($items as $item) {
-				list($text, $flags) = $item;
-				parent::$type($text, $flags);
-			}
-			// $this->remove($type);
-		}
-	
+		if($sessionAllow) $this->wakeupNotices();
 		$this->setTrackChanges(true);
 	}
 
@@ -1098,15 +1091,10 @@ class Session extends Wire implements \IteratorAggregate {
 		// if there are notices, then queue them so that they aren't lost
 		if($this->sessionInit) {
 			$notices = $this->wire('notices');
-			if(count($notices)) foreach($notices as $notice) {
-				if($notice instanceof NoticeWarning) {
-					$noticeType = 'warning';
-				} else if($notice instanceof NoticeError) {
-					$noticeType = 'error';
-				} else {
-					$noticeType = 'message';
+			if(count($notices)) {
+				foreach($notices as $notice) {
+					$this->queueNotice($notice);
 				}
-				$this->queueNotice($notice->text, $noticeType, $notice->flags);
 			}
 		}
 
@@ -1139,22 +1127,71 @@ class Session extends Wire implements \IteratorAggregate {
 	}
 
 	/**
-	 * Queue a notice (message/error) to be shown the next time this session class is instantiated
+	 * Queue notice text to be shown the next time this session class is instantiated
 	 * 
 	 * #pw-internal
 	 * 
 	 * @param string $text
-	 * @param string $type One of "message", "error" or "warning"
+	 * @param string $type One of "messages", "errors" or "warnings"
 	 * @param int $flags
 	 * 
 	 */
-	protected function queueNotice($text, $type, $flags) {
+	protected function queueNoticeText($text, $type, $flags) {
 		if(!$this->sessionInit) return;
-		$items = $this->get($type);
+		$items = $this->getFor('_notices', $type);
 		if(is_null($items)) $items = array();
-		$item = array($text, $flags); 
+		$item = array('text' => $text, 'flags' => $flags); 
 		$items[] = $item;
-		$this->set($type, $items); 
+		$this->setFor('_notices', $type, $items); 
+	}
+
+	/**
+	 * Queue a Notice object to be shown the next time this session class is instantiated
+	 *
+	 * #pw-internal
+	 *
+	 * @param Notice $notice
+	 *
+	 */
+	protected function queueNotice(Notice $notice) {
+		if(!$this->sessionInit) return;
+		$type = $notice->getName();
+		$items = $this->getFor('_notices', $type);
+		if(is_null($items)) $items = array();
+		$items[] = $notice->getArray();
+		$this->setFor('_notices', $type, $items); 
+	}
+
+	/**
+	 * Pull queued notices and convert them to notices for this request
+	 * 
+	 * #pw-internal
+	 * 
+	 */
+	protected function wakeupNotices() {
+
+		/** @var Notices $notices */
+		$notices = $this->wire('notices');
+		if(!$notices) return;
+		
+		$types = array(
+			'messages' => 'NoticeMessage',
+			'errors' => 'NoticeError',
+			'warnings' => 'NoticeWarning',
+		);
+		
+		foreach($types as $type => $className) {
+			$items = $this->getFor('_notices', $type);
+			if(!is_array($items)) continue;
+			
+			foreach($items as $item) {
+				if(!isset($item['text'])) continue;
+				$class = wireClassName($className, true);
+				$notice = $this->wire(new $class(''));
+				$notice->setArray($item);
+				$notices->add($notice);
+			}
+		}
 	}
 
 
@@ -1169,7 +1206,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	public function message($text, $flags = 0) {
-		$this->queueNotice($text, 'message', $flags); 
+		$this->queueNoticeText($text, 'messages', $flags); 
 		return $this;
 	}
 
@@ -1184,7 +1221,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * 
 	 */
 	public function error($text, $flags = 0) {
-		$this->queueNotice($text, 'error', $flags); 
+		$this->queueNoticeText($text, 'errors', $flags); 
 		return $this; 
 	}
 
@@ -1199,7 +1236,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	public function warning($text, $flags = 0) {
-		$this->queueNotice($text, 'warning', $flags);
+		$this->queueNoticeText($text, 'warnings', $flags);
 		return $this;
 	}
 
@@ -1302,9 +1339,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * 
 	 */
 	public function removeNotices() {
-		foreach(array('message', 'error', 'warning') as $type) {
-			$this->remove($type);
-		}
+		$this->removeAllFor('_notices');
 	}
 
 	/**
