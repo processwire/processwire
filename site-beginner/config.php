@@ -29,18 +29,6 @@ if(!defined("PROCESSWIRE")) die();
 /** @var Config $config */
 
 /**
- * Enable debug mode?
- *
- * Debug mode causes additional info to appear for use during dev and debugging.
- * This is almost always recommended for sites in development. However, you should
- * always have this disabled for live/production sites.
- *
- * @var bool
- *
- */
-$config->debug = false;
-
-/**
  * Prepend template file
  *
  * PHP file in /site/templates/ that will be loaded before each page's template file.

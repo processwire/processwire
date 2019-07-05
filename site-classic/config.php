@@ -29,18 +29,6 @@ if(!defined("PROCESSWIRE")) die();
 /** @var Config $config */
 
 /**
- * Enable debug mode?
- *
- * Debug mode causes additional info to appear for use during dev and debugging.
- * This is almost always recommended for sites in development. However, you should
- * always have this disabled for live/production sites.
- *
- * @var bool
- *
- */
-$config->debug = false;
-
-/**
  * Allow core API variables to also be accessed as functions?
  *
  * Recommended. This enables API varibles like $pages to also be accessed as pages(),

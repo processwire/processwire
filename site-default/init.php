@@ -1,5 +1,7 @@
 <?php namespace ProcessWire;
 
+if(!defined("PROCESSWIRE")) die();
+
 /**
  * ProcessWire Bootstrap Initialization
  * ====================================

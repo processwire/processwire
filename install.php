@@ -15,7 +15,6 @@
  * https://processwire.com
  * 
  * @todo have installer set session name
- * @todo have installer support enabling debug mode if user chooses it
  * 
  */
 
@@ -543,11 +542,35 @@ class Installer {
 		$this->sectionStop();
 
 		$this->sectionStart('fa-server HTTP Host Names');
-		$this->p("What host names will this installation run on now and in the future? Please enter one host per line. You may also choose to leave this blank to auto-detect on each request, but we recommend using this whitelist for the best security in production environments."); 
-		$this->p("This field is recommended but not required. You can set this later by editing the file <u>/site/config.php</u> (setting \$config->httpHosts).", "detail"); 
+		$this->p(
+			"What host names will this installation run on now and in the future? Please enter one host per line. " . 
+			"You can also modify this setting later by editing the <code>\$config->httpHosts</code> setting in the <u>/site/config.php</u> file."
+		);
 		$rows = substr_count($values['httpHosts'], "\n") + 2; 
 		$this->textarea('httpHosts', '', $values['httpHosts'], $rows); 
 		$this->sectionStop();
+		
+		$this->sectionStart('fa-bug Debug mode?');
+		$this->p(
+			"When debug mode is enabled, errors and exceptions are visible in ProcessWire’s output. This is helpful when developing a website or testing ProcessWire. " . 
+			"When debug mode is NOT enabled, fatal errors/exceptions halt the request with an ambiguous http 500 error, and non-fatal errors are not shown. " . 
+			"Regardless of debug mode, fatal errors are always logged and always visible to superusers. " . 
+			"Debug mode should not be enabled for live or production sites, but at this stage (installation) it is worthwhile to have it enabled. " 
+		);
+		$noChecked = empty($values['debugMode']) ? "checked='checked'" : "";
+		$yesChecked = empty($noChecked) ? "checked='checked'" : "";
+		$this->p(
+			"<label><input type='radio' name='debugMode' $yesChecked value='1'> <strong>Enabled</strong> " . 
+				"<span class='uk-text-small uk-text-muted'>(recommended while sites are in development or while testing ProcessWire)</span></label><br />" .
+			"<label><input type='radio' name='debugMode' $noChecked value='0'> <strong>Disabled</strong> " . 
+				"<span class='uk-text-small uk-text-muted'>(recommended once a site goes live or becomes publicly accessible)</span></label> " 
+		);
+		$this->p(
+			"You can also enable or disable debug mode at any time by editing the <u>/site/config.php</u> file and setting " .
+			"<code>\$config->debug = true;</code> or <code>\$config->debug = false;</code>"
+		);
+		$this->sectionStop();
+		
 		$this->btn("Continue", 4); 
 		$this->p("Note: After you click the button above, be patient &hellip; it may take a minute.", "detail");
 	}
@@ -570,6 +593,7 @@ class Installer {
 			$values[$field] = $value;
 		}
 
+		// timezone
 		$timezone = (int) $_POST['timezone'];
 		$timezones = $this->timezones();
 		if(isset($timezones[$timezone])) {
@@ -583,6 +607,7 @@ class Installer {
 			$values['timezone'] = 'America/New_York';
 		}
 
+		// http hosts
 		$values['httpHosts'] = array();
 		$httpHosts = trim($_POST['httpHosts']);
 		if(strlen($httpHosts)) {
@@ -594,6 +619,9 @@ class Installer {
 			}
 			$values['httpHosts'] = $httpHosts;
 		}
+		
+		// debug mode
+		$values['debugMode'] = (int) $_POST['debugMode'];
 
 		// db configuration
 		$fields = array('dbUser', 'dbName', 'dbPass', 'dbHost', 'dbPort', 'dbEngine', 'dbCharset');
@@ -821,6 +849,18 @@ class Installer {
 			foreach($values['httpHosts'] as $host) $cfg .= "'$host', ";
 			$cfg = rtrim($cfg, ", ") . ");\n\n";
 		}
+		
+		$cfg .=
+			"\n/**" .
+			"\n * Installer: Debug mode?" .
+			"\n * " . 
+			"\n * When debug mode is true, errors and exceptions are visible. " . 
+			"\n * When false, they are not visible except to superuser and in logs. " . 
+			"\n * Should be true for development sites and false for live/production sites. " . 
+			"\n * " .
+			"\n */" .
+			"\n\$config->debug = " . ($values['debugMode'] ? 'true;' : 'false;') . 
+			"\n\n";
 		
 		if(($fp = fopen("./site/config.php", "a")) && fwrite($fp, $cfg)) {
 			fclose($fp); 
@@ -1052,7 +1092,7 @@ class Installer {
 		
 		$this->sectionStart("fa-bath Cleanup");
 		$this->p("Directories and files listed below are no longer needed and should be removed. If you choose to leave any of them in place, you should delete them before migrating to a production environment.", "detail"); 
-		$this->p($this->getRemoveableItems($wire, true)); 
+		$this->p($this->getRemoveableItems(true)); 
 		$this->sectionStop();
 			
 		$this->btn("Continue", 5); 
@@ -1061,17 +1101,16 @@ class Installer {
 	/**
 	 * Get post-install optionally removable items
 	 * 
-	 * @param ProcessWire $wire
 	 * @param bool $getMarkup Get markup of options/form inputs rather than array of items?
 	 * @param bool $removeNow Allow processing of submitted form (via getMarkup) to remove items now?
 	 * @return array|string
 	 * 
 	 */
-	protected function getRemoveableItems($wire, $getMarkup = false, $removeNow = false) {
+	protected function getRemoveableItems($getMarkup = false, $removeNow = false) {
 
 		$root = dirname(__FILE__) . '/';
-		$isPost = $wire->input->post('remove_items') !== null;
-		$postItems = $isPost ? $wire->input->post('remove_items') : array();
+		$isPost = isset($_POST['remove_items']);
+		$postItems = $isPost ? $_POST['remove_items'] : array();
 		if(!is_array($postItems)) $postItems = array();
 		$out = '';
 		
@@ -1124,7 +1163,7 @@ class Installer {
 						$success = true; 
 					}
 					if($success) {
-						$this->ok("Completed: " . $item['label']); 
+						// $this->ok("Completed: " . $item['label']); 
 					} else {
 						$this->err("Unable to remove $item[file] - please remove manually, as it is no longer needed"); 
 					}
@@ -1136,7 +1175,9 @@ class Installer {
 			}
 		}
 		
+		if(empty($out)) $out = "None found"; 
 		if($getMarkup) return $out; 
+		
 		return $items; 
 	}
 
@@ -1226,22 +1267,36 @@ class Installer {
 		$this->sectionStop();
 
 		$this->sectionStart("fa-life-buoy Complete &amp; Secure Your Installation");
-		$this->getRemoveableItems($wire, false, true); 
+		$this->getRemoveableItems(false, true); 
 
 		$this->ok("Note that future runtime errors are logged to <b>/site/assets/logs/errors.txt</b> (not web accessible).");
-		$this->ok("For more configuration options see <b>/wire/config.php</b> and place any edits in /site/config.php.");
+		$this->ok("For more configuration options see <b>/wire/config.php</b> and place any edits in <u>/site/config.php</u>.");
+		$this->ok("Consider making your <b>/site/config.php</b> file non-writable, and readable only to you and Apache.");
+		$this->ok("View and edit your <b>.htaccess</b> file to force HTTPS, setup redirects, and more.");
+			
 		$this->p(
-			"Please make your <b>/site/config.php</b> file non-writable, and readable only to you and Apache.<br />" . 
-			"<a target='_blank' href='https://processwire.com/docs/security/file-permissions/#securing-your-site-config.php-file'>" . 
-			"How to secure your /site/config.php file <i class='fa fa-angle-right'></i></a>"
+			"<a target='_blank' href='https://processwire.com/docs/security/'>" . 
+			"Lean more about securing your ProcessWire installation <i class='fa fa-angle-right'></i></a>"
 		);
 		$this->sectionStop();
 		
 		if(is_writable("./site/modules/")) wireChmod("./site/modules/", true); 
 
-		$this->sectionStart("fa-coffee Use The Site!");
-		$this->ok("Your admin URL is <a href='./$adminName/'>/$adminName/</a>"); 
-		$this->p("If you'd like, you may change this later by editing the admin page and changing the name.", "detail"); 
+		$this->sectionStart("fa-coffee Get Started!");
+		$this->ok(
+			"Your admin URL is <a target='_blank' href='./$adminName/'>/$adminName/</a>"
+		);
+		$this->ok(
+			"Learn more about ProcessWire in the <a target='_blank' href='https://processwire.com/docs/'>documentation</a> " . 
+			"and <a target='_blank' href='https://processwire.com/api/ref/'>API reference</a>. " 
+		);
+		$this->ok(
+			"Visit our <a target='_blank' href='https://processwire.com/talk/'>support forums</a> for friendly help and discussion."
+		);
+		$this->ok(
+			"<a target='_blank' href='https://processwire.com/community/newsletter/subscribe/'>Subscribe to keep up-to-date</a> " . 
+			"with new versions and important updates."
+		);
 		$this->sectionStop();
 		
 		$this->btn("Login to Admin", 1, 'sign-in', false, true, "./$adminName/"); 
@@ -1261,13 +1316,14 @@ class Installer {
 
 	/**
 	 * @param string $str
+	 * @param string $icon
 	 * 
 	 */
-	protected function alertOk($str) {
+	protected function alertOk($str, $icon = 'check') {
 		if($this->inSection) {
 			$this->ok($str);
 		} else {
-			echo "\n<div class='uk-alert uk-alert-primary'><i class='fa fa-fw fa-check'></i> $str</div>";
+			echo "\n<div class='uk-alert uk-alert-primary'><i class='fa fa-fw fa-$icon'></i> $str</div>";
 		}
 	}
 	
@@ -1337,15 +1393,15 @@ class Installer {
 	 * Report success
 	 * 
 	 * @param string $str
+	 * @param string $icon
 	 * @return bool
 	 *
 	 */
-	protected function ok($str) {
+	protected function ok($str, $icon = 'check') {
 		if(!$this->inSection) {
 			$this->alertOk($str);
 		} else {
-			//echo "\n<li class='ui-state-highlight'><i class='fa fa-check-square-o'></i> $str</li>";
-			echo "\n<div class=''><i class='fa fa-fw fa-check'></i> $str</div>";
+			echo "\n<div class=''><i class='fa fa-fw fa-$icon'></i> $str</div>";
 		}
 		return true; 
 	}
@@ -1366,7 +1422,7 @@ class Installer {
 		if($float) $class .= " uk-float-left";
 		$type = 'submit';
 		if($href) $type = 'button';
-		if($href) echo "<a href='$href'>";
+		if($href) echo "<a href='$href' target='_blank'>";
 		echo "\n<p><button name='step' type='$type' class='ui-button ui-widget ui-state-default $class ui-corner-all' value='$value'>";
 		echo "<span class='ui-button-text'><i class='fa fa-$icon'></i> $label</span>";
 		echo "</button></p>";
