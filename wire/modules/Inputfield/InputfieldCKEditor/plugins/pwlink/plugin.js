@@ -97,10 +97,15 @@
 	function loadIframeLinkPicker(editor) {
 
 		var $in = jQuery("#Inputfield_id"); 
+		var pageID;
 		if($in.length) {
-			var pageID = $in.val();
+			//if($in.hasClass('PageFrontEdit')) {
+			//	var pageID = jQuery("#" + editor.name).closest('.pw-edit').attr('data-page');
+			//} else {
+			pageID = $in.val();
+			//}
 		} else {
-			var pageID = jQuery("#" + editor.name).closest('.Inputfield').attr('data-pid');
+			pageID = jQuery("#" + editor.name).closest('.Inputfield').attr('data-pid');
 		}
 
 		// language support
