@@ -580,7 +580,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	protected function processInput() {
 
-		if($this->input->post('filters') !== null) {
+		$filters = $this->input->post('filters');
+		if($filters !== null && $filters !== 'ignore') {
 			$is = $this->getInputfieldSelector();
 			$is->processInput($this->input->post); 
 			$selector = $this->sessionGet("selector"); 
@@ -589,7 +590,6 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				$this->sessionSet("pageNum", 1); 
 				$this->wire('input')->setPageNum(1);
 			}
-			
 		} 
 
 		if($this->input->post('columns') !== null && !in_array('disableColumns', $this->toggles)) { 

@@ -168,7 +168,7 @@ var ProcessLister = {
 		ProcessLister.spinner.fadeIn('fast'); 
 		
 		var submitData = {
-			filters: refreshAll ? ProcessLister.filters.val() : '',
+			filters: refreshAll ? ProcessLister.filters.val() : 'ignore',
 			columns: $('#lister_columns').val(),
 			sort: $('#lister_sort').val()
 		};
@@ -185,7 +185,9 @@ var ProcessLister = {
 		}
 		
 		if(ProcessLister.refreshRowPageIDs.length > 0) {
-			submitData['row_page_id'] = ProcessLister.refreshRowPageIDs.join(',');
+			var rowPageIDs = ProcessLister.refreshRowPageIDs.join(',');
+			if(rowPageIDs.indexOf(',') === 0) rowPageIDs = rowPageIDs.replace(/^,+/, ''); // ltrim
+			submitData['row_page_id'] = rowPageIDs;
 			ProcessLister.resetTotal = false;
 		}
 
