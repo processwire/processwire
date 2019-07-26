@@ -7,6 +7,21 @@
  * Additional code in comments.js and comments.css accompanies this.
  *
  * Copyright 2016 by Ryan Cramer for ProcessWire
+ * 
+ * @property int $numStars Max number of stars
+ * @property string $star Default star output (can be overridden with HTML)
+ * @property string $starOn Optionally use this star/HTML for ON state
+ * @property string $starOff Optionally use this star/HTML for OFF state
+ * @property string $starOnClass Class for active/on stars
+ * @property string $starOffClass Class for inactive/off stars
+ * @property string $starPartialClass Class for partial (half lit star)
+ * @property string $wrapClass Wrapping element class, required for JS and CSS
+ * @property string $wrapClassInput Wrapping input element class, required for JS and CSS
+ * @property string $countClass Class used for the renderCount() method
+ * @property string $detailsLabel Star details label
+ * @property string $countLabelSingular Single count label
+ * @property string $countLabelPlural Plural count label
+ * @property string $unratedLabel Unrated label
  *
  */
 
@@ -31,8 +46,6 @@ class CommentStars extends WireData {
 
 	/**
 	 * Construct comment stars
-	 *
-	 * @param int $numStars Number of stars max (default=5)
 	 *
 	 */
 	public function __construct() {
@@ -73,13 +86,12 @@ class CommentStars extends WireData {
 		$class = $allowInput ? "$this->wrapClass $this->wrapClassInput" : $this->wrapClass;
 		if(!$this->starOn) $this->starOn = $this->star;
 		if(!$this->starOff) $this->starOff = $this->star;
-		$star = $this->starOff;
 
 		if($allowInput) {
 			$attr = " data-onclass='$this->starOnClass'";
 			if($this->starOn !== $this->starOff) $attr .= " " .
-				"data-on='" . htmlspecialchars($starOn, ENT_QUOTES, 'UTF-8') . "' " .
-				"data-off='" . htmlspecialchars($starOff, ENT_QUOTES, 'UTF-8') . "'";
+				"data-on='" . htmlspecialchars($this->starOn, ENT_QUOTES, 'UTF-8') . "' " .
+				"data-off='" . htmlspecialchars($this->starOff, ENT_QUOTES, 'UTF-8') . "'";
 		} else {
 			$attr = '';
 		}
@@ -103,7 +115,7 @@ class CommentStars extends WireData {
 				// star off
 				$attr = " class='$this->starOffClass'";
 				$star = $this->starOff;
-				$attr = "";
+				// $attr = "";
 			}
 			$out .= "<span$attr data-value='$n'>$star</span>";
 		}

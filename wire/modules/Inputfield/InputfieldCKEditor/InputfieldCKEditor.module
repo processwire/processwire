@@ -3,10 +3,10 @@
 /**
  * ProcessWire Inputfield for CKEditor
  *
- * CKEditor Copyright (C) 2003-2017, CKSource - Frederico Knabben
+ * CKEditor Copyright (C) 2003-2019, CKSource - Frederico Knabben
  * http://ckeditor.com
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool|int $inlineMode ($default=0)
@@ -34,7 +34,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 161, 
+			'version' => 162, 
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
 			'installs' => array('MarkupHTMLPurifier'), 
 			);
@@ -85,7 +85,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 * Version number for CKEditor directory
 	 *
 	 */
-	const CKEDITOR_VERSION = '4.10.1';
+	const CKEDITOR_VERSION = '4.12.1';
 
 	/**
 	 * Instance of MarkupHTMLPurifier module
