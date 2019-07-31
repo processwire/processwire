@@ -10,7 +10,7 @@
  *
  * Provides an alternative listing view for pages using specific templates. 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  * For support of actions, new edit modules, and custom configurable Listers, 
@@ -155,6 +155,14 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	protected $resultNotes = array();
 
 	/**
+	 * Render results during this request?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $renderResults = false;
+
+	/**
 	 * Initalize module config variables
 	 *
 	 */
@@ -275,7 +283,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$modifiedLabel = $this->_('Modified');
 		$publishedLabel = $this->_('Published'); 
 		$modifiedUserLabel = $this->_('Mod By'); 
-		$createdUserLabel = $this->_('Created By'); 
+		$createdUserLabel = $this->_('Created By');
 		$templateLabel = $this->_('Template'); 
 		$statusLabel = $this->_('Status'); 
 		$parentLabel = $this->_('Parent'); 
@@ -288,13 +296,15 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			'status' => $statusLabel, 
 			'template' => $templateLabel,
 			'templates_id' => $templateLabel . ' ' . $idLabel,
-			'modified' => $modifiedLabel,	
+			'modified' => $modifiedLabel,
 			'created' => $createdLabel,
 			'published' => $publishedLabel, 
 			'modified_users_id' => $modifiedUserLabel, 
 			'created_users_id' => $createdUserLabel,
 			'parent' => $parentLabel,
 			'num_children' => $this->_('Num Children'),
+			'url' => 'URL', 
+			'httpUrl' => 'Http URL',
 			));
 
 		$this->statusLabels = array(
@@ -326,13 +336,18 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	public function init() {
 		if(!$this->wire('page')) return;
 		
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		
 		$this->checkSessionBookmark();
 		
 		$columns = $this->sessionGet('columns'); 
 		if($columns) $this->columns = $columns; 
 		$ajax = $this->wire('config')->ajax;
 		
-		if(count($_POST)) $this->processInput();
+		$this->renderResults = $ajax && $input->post('render_results') > 0;
+		
+		if($this->renderResults) $this->processInput();
 
 		if(!$this->template) {
 			$selector = $this->initSelector;
@@ -344,7 +359,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			if(count($template)) $this->set('template', reset($template));
 		}
 
-		if($this->wire('input')->post('reset_total')) {
+		if($input->post('reset_total')) {
 			$this->sessionSet('knownTotal', null);
 		} else {
 			$knownTotal = $this->sessionGet('knownTotal');
@@ -619,11 +634,16 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	public function buildColumnsField() {
 
 		$fields = $this->wire('fields');
-		$systemFields = $this->getSystemColumns();
+		$systemColumns = $this->getSystemColumns();
 		$useLabels = $this->useColumnLabels;
 		$systemLabels = $this->getSystemLabels();
 		$template = $this->template;
 		$customFields = array();
+		$languages = $this->wire('languages'); /** @var Languages $languages */
+		$modules = $this->wire('modules'); /** @var @var Modules $modules */
+		$languagePageNames = $languages && $modules->isInstalled('LanguageSupportPageNames') && method_exists($this, '___executeSave'); 
+		$asmParents = array('name', 'path', 'url', 'httpUrl');
+		$asmParentValueSuffix = ' …';
 		
 		/** @var InputfieldAsmSelect $f */
 		$f = $this->modules->get('InputfieldAsmSelect'); 
@@ -634,12 +654,51 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$f->icon = 'table';
 	
 		// system fields
-		foreach($systemFields as $field) {
+		foreach($systemColumns as $field) {
+			
 			$label = isset($systemLabels[$field]) ? $systemLabels[$field] : $field;
+			$isAsmParent = $languagePageNames && in_array($field, $asmParents);
+			
 			if($useLabels) {
-				$f->addOption($field, $label, array('data-desc' => $field));
+				$label1 = $label;
+				$label2 = $field;
 			} else {
-				$f->addOption($field, $field, array('data-desc' => $label));
+				$label1 = $field;
+				$label2 = $label;
+			}
+			
+			$attrs = array();
+			
+			if($isAsmParent) {
+				$asmParentValue = $field . $asmParentValueSuffix;
+				$value = $asmParentValue;
+				$attrs['class'] = 'asmParent';
+				$label1 .= " $asmParentValueSuffix";
+				$label2 .= " $asmParentValueSuffix";
+				
+			} else {
+				$value = $field;
+			}
+			
+			$attrs['data-desc'] = $label2;
+			
+			$f->addOption($value, $label1, $attrs);
+			
+			if($languagePageNames && $isAsmParent) {
+				$f->addOption("$field", ($useLabels ? $label : $value), array(
+					'data-desc' => ($useLabels ? $value : $label),
+					'data-asmParent' => $value,
+					'class' => 'asmChild',
+				));
+				foreach($languages as $language) {
+					$langLabel = $this->addLanguageLabel($label, $language, true); 
+					$langValue = "$field-$language->name";
+					$f->addOption($langValue, ($useLabels ? $langLabel : $langValue), array(
+						'data-desc' => ($useLabels ? $langValue : $langLabel),
+						'data-asmParent' => $value,
+						'class' => 'asmChild',
+					));
+				}
 			}
 		}
 		
@@ -665,6 +724,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	
 		// custom fields (add)
 		foreach($customFields as $field) {
+			
 			if($template) {
 				$_field = $template->fieldgroup->getField($field->name, true); // context
 				if($_field) $field = $_field;
@@ -696,7 +756,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	protected function getSystemColumns() {
 		$systemColumns = array_keys($this->systemLabels); 
-		$systemColumns = array_merge($systemColumns, array('id', 'name', 'path')); 
+		$systemColumns = array_merge($systemColumns, array('id', 'name', 'path', 'url', 'httpUrl')); 
 		sort($systemColumns);
 		return $systemColumns; 
 	}
@@ -1105,6 +1165,23 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * Append a language label to given $label and return it
+	 * 
+	 * @param string $label
+	 * @param Language$language
+	 * @param bool $showDefault
+	 * @return string
+	 * 
+	 */
+	protected function addLanguageLabel($label, $language, $showDefault = false) {
+		if(!$language) return $label;
+		if($showDefault || !$language->isDefault()) {
+			$label .= ' (' . $language->get('name') . ')';
+		}
+		return $label;
+	}
+
+	/**
 	 * Build the Lister table containing results
 	 *
 	 * @param PageArray $results
@@ -1113,22 +1190,28 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	protected function buildListerTable(PageArray $results) {
 
+		/** @var Languages $languages */
+		$columns = $this->sessionGet('columns');
+		$systemLabels = $this->getSystemLabels();
+		$fields = array();
+		$header = array();
+		
 		/** @var MarkupAdminDataTable $table */
 		$table = $this->modules->get('MarkupAdminDataTable');
 		$table->setSortable(false);
 		$table->setResizable(true);
 		$table->setResponsive($this->responsiveTable);
 		$table->setClass('ProcessListerTable');
-		$columns = $this->sessionGet('columns'); 
+		$table->setEncodeEntities(false);
+		
 		if(!$columns) $columns = $this->columns; 
-		$fields = array();
-		$header = array();
-		$systemLabels = $this->getSystemLabels();
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
 
 		foreach($columns as $key => $name) {
+			
+			// determine if field is specifying different langauge
+			$language = $this->identifyLanguage($name, true);
 			$subname = '';
+			
 			if(strpos($name, '.')) list($name, $subname) = explode('.', $name);
 			$field = $this->template ? $this->template->fieldgroup->getField($name, true) : $this->fields->get($name);
 			if(!$field && $this->template) $field = $this->fields->get($name);
@@ -1136,26 +1219,28 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$label = $field ? $field->getLabel() : '';
 			if(!$label) $label = isset($systemLabels[$name]) ? $systemLabels[$name] : $name;
 			$icon = $field ? $field->getIcon(true) : '';
+			
 			if($subname) {
 				$subfield = $this->fields->get($subname);
-				$label .= ".";
+
 				if($subfield) {
-					$label .= $subfield->getLabel();
+					$label .= '.' . $subfield->getLabel();
 					$subicon = $subfield->getIcon(true);
 					if($subicon) $icon = $subicon;
-				} else if($languages && $field && wireInstanceof($field->type, 'FieldtypeLanguageInterface')) {
-					
-					if(preg_match('/^data(\d+)$/', $subname, $matches)) {
-						$label .= $languages->get((int) $matches[1])->get('title|name');
-					} else {
-						$label .= $subname;
-					}
-			} else {
-					$label .= $subname;
 				}
+
+				if($language) {
+					$label = $this->addLanguageLabel($label, $language);
+				} else if(!$subfield) {
+					$label .= '.' . $subname;
+				}
+			} else if($language) {
+				$label = $this->addLanguageLabel($label, $language);
 			}
+			
 			$label = $this->wire('sanitizer')->entities1($label);
 			$label = str_replace('.', '.<wbr>', $label);
+			
 			if($icon) {
 				// the following code ensures the first word of the label and icon don't get split on separate lines
 				$icon = "<strong>" . wireIconMarkup($icon, 'fw');
@@ -1167,13 +1252,12 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 					$label .= '</strong>';
 				}
 			}
+			
 			$sortKey = $subname ? "$name.$subname" : $name;
 			$header[$key] = "$icon$label<b>$sortKey</b>";
 			$fields[$name] = $field; 
 		}
 
-		$table->setEncodeEntities(false);
-		$table->setSortable(false);
 		$table->headerRow($header); 
 
 		foreach($results as $p) {
@@ -1232,8 +1316,12 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$fullname = $name; 
 		$value = null;
 		$noEntities = false;
+		$language = $languages ? $this->identifyLanguage($name, true) : null;
+	
+		if($language && $language->id == $this->wire('user')->language->id) $language = null;
+		if($language) $languages->setLanguage($language);
 		
-		if(strpos($name, '.')) list($name, $subname) = explode('.', $name); 
+		if(strpos($name, '.')) list($name, $subname) = explode('.', $name, 2); 
 		if($name == 'config' || $subname == 'config') return 'Not allowed';
 		
 		reset($fields); 
@@ -1242,33 +1330,22 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		/** @var Field $field */
 		$field = isset($fields[$name]) ? $fields[$name] : $this->wire('fields')->get($name);
 		$delimiter = isset($this->delimiters[$fullname]) ? $this->delimiters[$fullname] : "<br />";
-		
-		if($languages && $field) {
-			$language = $this->identifyLanguage($field, $subname);
-			if($language) {
-				$value = $this->getLanguageValue($p, $field, $language);
-				$subname = '';
-			}
-		} else if($langPageNames && in_array($name, array('name', 'path', 'url', 'httpUrl'))) { 
-			// multi-language columns requested in non-default language
-			$value = array();
-			foreach($languages as $lang) {
-				$langVal = $this->getLanguageValue($p, $name, $lang);
-				if(empty($langVal)) continue;
-				$value[] = $sanitizer->entities($langVal) . "&nbsp;<span class='detail'>($lang->name)</span>";
-			}
-			$noEntities = true;
-		}
 
-		if($value === null) $value = $p->getFormatted($name);
-		
+		// if parent and subname present, make the parent the page and subname the field
 		if($subname && $name === 'parent') {
-			// if parent and subname present, focus on just the subname value
-			if($value instanceof Page) $value = $value->getFormatted($subname);
-			$name = $subname;
-			$subname = '';
-		}
+			$p = $p->parent();
+			list($name, $subname) = array($subname, ''); 
+			$field = isset($fields[$name]) ? $fields[$name] : $this->wire('fields')->get($name);
+		} 
 		
+		if($languages && $field && $language) {
+			$value = $this->getLanguageValue($p, $field, $language);
+		} else if($langPageNames && $language && in_array($name, array('name', 'path', 'url', 'httpUrl'))) {
+			$value = $this->getLanguageValue($p, $name, $language);
+		}
+	
+		if($value === null) $value = $p->getFormatted($name);
+
 		if(!$subname && ($value instanceof Page || $value instanceof PageArray)) {
 			if($field && $field->get('labelFieldName')) {
 				$subname = $field->get('labelFieldName');
@@ -1383,7 +1460,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 
 		} else if(in_array($name, array('modified_users_id', 'created_users_id'))) {
 			// user field
-			$value = $this->wire('users')->get((int) $value)->name; 
+			$u = $name === 'modified_users_id' ? $p->modifiedUser : $p->createdUser;
+			$value = $u && $u->id ? $u->name : "user_id:" . (int) $value; 
 
 		} else if($name == 'status') {
 			// status
@@ -1405,43 +1483,47 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		}
 	
 		if($isFirstCol) $value = $this->buildListerTableColActions($p, $value);
+		if($language) $languages->unsetLanguage();
 
 		return $value; 
 
 	}
 
 	/**
-	 * Identify language for given field and subname (column name)
+	 * Identify language for given field name / column name
 	 * 
-	 * @param Field $field
-	 * @param string $subname
+	 * Language present as either 'field-de' (de is language name) or 'field.data1234' (1234 is language ID).
+	 * Until LP requires version 3.0.137 or newer of Lister, any changes to this method should also be applied to LP.
+	 * 
+	 * @param string $name
+	 * @param bool $remove Remove language identify from given field name?
 	 * @return Language|null
+	 * @since 3.0.137
 	 * 
 	 */
-	protected function identifyLanguage(Field $field, $subname) {
+	public function identifyLanguage(&$name, $remove = false) {
+		
 		/** @var Languages $languages */
 		$languages = $this->wire('languages');
 		if(!$languages) return null;
+		
 		$language = null;
 		
-		if(ctype_digit(substr($subname, -4))) {
-			// i.e. data1234
-			foreach($languages as $lang) {
-				if(strpos($subname, "$lang->id")) {
-					$id = (int) substr($subname, -1 * strlen("$lang->id"));
-					if($id === $lang->id) {
-						$language = $lang;
-						break;
-					}
-				}
-			}
-		} else {
-			// default language or not a languages field
+		if(strpos($name, '-') && preg_match('/-([-_a-z0-9]+)$/', $name, $matches)) {
+			// i.e. title-de or categories.title-de
+			$language = $languages->get($matches[1]); 
+		} else if(strpos($name, '.data') && preg_match('/\.data(\d+)$/', $name, $matches)) {
+			// i.e. title.data1234 or categories.title.data1234
+			$language = $languages->get((int) $matches[1]); 
 		}
 		
-		if(!wireInstanceOf($field->type, 'FieldtypeLanguageInterface')) return null;
-		if(!$language) $language = $languages->getDefault();
+		//if(!wireInstanceOf($field->type, 'FieldtypeLanguageInterface')) return null;
+		if(!$language || !$language->id) $language = $languages->getDefault();
 		if(!$language || !$language->id) $language = null;
+		
+		if($remove && $language) {
+			$name = str_replace(array("-$language->name", ".data$language->id"), '', $name);
+		}
 		
 		return $language;
 	}
@@ -1875,7 +1957,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	
 		$this->setupOpenPageIDs();
 	
-		if($this->wire('config')->ajax) {
+		if($this->renderResults) {
 			$out = $this->renderResults();
 			if(self::debug) {
 				foreach($this->wire('database')->queryLog() as $n => $item) {
