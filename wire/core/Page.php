@@ -1326,22 +1326,39 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	protected function getFieldSubfieldValue($key) {
-		$value = null;
+		
 		if(!strpos($key, '.')) return null;
-		if($this->outputFormatting()) {
-			// allow limited access to field.subfield properties when output formatting is on
-			// we only allow known custom fields, and only 1 level of subfield
-			list($key1, $key2) = explode('.', $key);
-			$field = $this->getField($key1); 
-			if($field && !($field->flags & Field::flagSystem)) {
-				// known custom field, non-system
-				// if neither is an API var, then we'll allow it
-				if(!$this->wire($key1) && !$this->wire($key2)) $value = $this->getDot("$key1.$key2");
-			}
-		} else {
-			// we allow any field.subfield properties when output formatting is off
+
+		// we allow any field.subfield properties when output formatting is off
+		if(!$this->outputFormatting()) return $this->getDot($key);
+		
+		// allow limited access to field.subfield properties when output formatting is on
+		// we only allow known custom fields, and only 1 level of subfield
+		$keys = explode('.', $key);
+		$key1 = $keys[0];
+		$key2 = $keys[1];
+		$field = $this->getField($key1);
+		
+		if(!$field || ($field->flags & Field::flagSystem)) return null;
+	
+		// test if any parts of key can potentially refer to API variables
+		$api = false;
+		foreach($keys as $k) {
+			if($this->wire($k)) $api = true;
+			if($api) break;
+		}
+		if($api) return null; // do not allow dereference of API variables
+		
+		// get first part of value
+		$value = $this->get($key1);
+		
+		// then get second part of value
+		if($value instanceof WireData) {
+			$value = $value->get($key2);
+		} else if($value instanceof Wire) {
 			$value = $this->getDot($key);
 		}
+		
 		return $value;
 	}
 
