@@ -627,8 +627,9 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param string $method Method name to hook into, NOT including the three preceding underscores. 
+	 * @param string|array $method Method name to hook into, NOT including the three preceding underscores. 
 	 * 	May also be Class::Method for same result as using the fromClass option.
+	 *  May also be array or CSV string of hook definitions to attach multiple to the same $toMethod (since 3.0.137). 
 	 * @param object|null|callable $toObject Object to call $toMethod from,
 	 * 	Or null if $toMethod is a function outside of an object,
 	 * 	Or function|callable if $toObject is not applicable or function is provided as a closure.
@@ -650,8 +651,10 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *     must match, in order to execute hook. Default is null.
 	 *  - `objMatch` (array|null): Selectors object that the current object must match in order to execute hook.
 	 *     Default is null. 
-	 * @return string A special Hook ID that should be retained if you need to remove the hook later
+	 * @return string A special Hook ID that should be retained if you need to remove the hook later.
+	 *  If multiple methods were hooked then it is a CSV string of hook IDs, accepted removeHook method (since 3.0.137). 
 	 * @throws WireException
+	 * @see https://processwire.com/docs/modules/hooks/
 	 *
 	 */
 	public function addHook($method, $toObject, $toMethod = null, $options = array()) {
@@ -682,9 +685,10 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-group-hooks
 	 *
-	 * @param string $method Method to hook in one of the following formats (please omit 3 leading underscores): 
+	 * @param string|array $method Method to hook in one of the following formats (please omit 3 leading underscores): 
 	 *  - `Class::method` - If hooking to *all* object instances of the class. 
 	 *  - `method` - If hooking to a single object instance. 
+	 *  - Since 3.0.137 it may also be multiple methods to hook in CSV string or array. 
 	 * @param object|null|callable $toObject Specify one of the following: 
 	 *  - Object instance to call `$toMethod` from (like `$this`).
 	 *  - Inline function (closure) if providing implemention inline. 
@@ -698,7 +702,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *     rather than $obj->method(). The default type is 'method'.
 	 *  - `priority` (int): A number determining the priority of a hook, where lower numbers are executed before 
 	 *     higher numbers. The default priority is 100. 
-	 * @return string A special Hook ID that should be retained if you need to remove the hook later.
+	 * @return string A special Hook ID (or CSV string of hook IDs) that should be retained if you need to remove the hook later.
+	 * @see https://processwire.com/docs/modules/hooks/
 	 *
 	 */
 	public function addHookBefore($method, $toObject, $toMethod = null, $options = array()) {
@@ -730,9 +735,10 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-group-hooks
 	 *
-	 * @param string $method Method to hook in one of the following formats (please omit 3 leading underscores):
+	 * @param string|array $method Method to hook in one of the following formats (please omit 3 leading underscores):
 	 *  - `Class::method` - If hooking to *all* object instances of the class.
 	 *  - `method` - If hooking to a single object instance.
+	 *  - Since 3.0.137 it may also be multiple methods to hook in CSV string or array. 
 	 * @param object|null|callable $toObject Specify one of the following:
 	 *  - Object instance to call `$toMethod` from (like `$this`).
 	 *  - Inline function (closure) if providing implemention inline.
@@ -746,7 +752,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *     rather than $obj->method(). The default type is 'method'.
 	 *  - `priority` (int): A number determining the priority of a hook, where lower numbers are executed before
 	 *     higher numbers. The default priority is 100.
-	 * @return string A special Hook ID that should be retained if you need to remove the hook later.
+	 * @return string A special Hook ID (or CSV string of hook IDs) that should be retained if you need to remove the hook later.
+	 * @see https://processwire.com/docs/modules/hooks/
 	 *
 	 */
 	public function addHookAfter($method, $toObject, $toMethod = null, $options = array()) {
@@ -778,9 +785,10 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-group-hooks
 	 *
-	 * @param string $property Name of property you want to add, must not collide with existing property or method names:
+	 * @param string|array $property Name of property you want to add, must not collide with existing property or method names:
 	 *  - `Class::property` to add the property to all instances of Class. 
-	 *  - `property` if just adding to a single object instance. 
+	 *  - `property` if just adding to a single object instance.
+	 *  - Since 3.0.137 it may also be multiple properties to hook in CSV string or array. 
 	 * @param object|null|callable $toObject Specify one of the following:
 	 *  - Object instance to call `$toMethod` from (like `$this`).
 	 *  - Inline function (closure) if providing implemention inline.
@@ -790,7 +798,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *   This argument can be sustituted as the 2nd argument when the 2nd argument isn’t needed,
 	 *   or it can be the $options argument. 
 	 * @param array $options Options typically aren't used in this context, but see Wire::addHookBefore() $options if you'd like.
-	 * @return string A special Hook ID that should be retained if you need to remove the hook later.
+	 * @return string A special Hook ID (or CSV string of hook IDs) that should be retained if you need to remove the hook later.
+	 * @see https://processwire.com/docs/modules/hooks/
 	 *
 	 */
 	public function addHookProperty($property, $toObject, $toMethod = null, $options = array()) {
@@ -841,6 +850,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * @param string $method Name of method you want to add, must not collide with existing property or method names:
 	 *  - `Class::method` to add the method to all instances of Class.
 	 *  - `method` to just add to a single object instance.
+	 *  - Since 3.0.137 it may also be multiple methods to hook in CSV string or array. 
 	 * @param object|null|callable $toObject Specify one of the following:
 	 *  - Object instance to call `$toMethod` from (like `$this`).
 	 *  - Inline function (closure) if providing implemention inline.
@@ -850,8 +860,9 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *   This argument can be sustituted as the 2nd argument when the 2nd argument isn’t needed, 
 	 *   or it can be the $options argument. 
 	 * @param array $options Options typically aren't used in this context, but see Wire::addHookBefore() $options if you'd like.
-	 * @return string A special Hook ID that should be retained if you need to remove the hook later.
+	 * @return string A special Hook ID (or CSV string of hook IDs) that should be retained if you need to remove the hook later.
 	 * @since 3.0.16 Added as an alias to addHook() for syntactic clarity, previous versions can use addHook() method with same arguments. 
+	 * @see https://processwire.com/docs/modules/hooks/
 	 *
 	 */
 	public function addHookMethod($method, $toObject, $toMethod = null, $options = array()) {
@@ -882,7 +893,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-group-hooks
 	 *
-	 * @param string|null $hookId ID of hook to remove (ID is returned by the addHook() methods)
+	 * @param string|array|null $hookId ID of hook to remove (ID is returned by the addHook() methods)
+	 *  Since 3.0.137 it may also be an array or CSV string of hook IDs to remove.
 	 * @return $this
 	 *
 	 */

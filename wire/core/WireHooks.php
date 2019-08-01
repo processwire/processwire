@@ -474,18 +474,25 @@ class WireHooks {
 	 * $this->addHook($method, 'function_name'); or $this->addHook($method, 'function_name', $options);
 	 *
 	 * @param Wire $object
-	 * @param string $method Method name to hook into, NOT including the three preceding underscores.
+	 * @param string|array $method Method name to hook into, NOT including the three preceding underscores.
 	 * 	May also be Class::Method for same result as using the fromClass option.
+	 *  May also be array OR CSV string of either of the above to add multiple (since 3.0.137). 
 	 * @param object|null|callable $toObject Object to call $toMethod from,
 	 * 	Or null if $toMethod is a function outside of an object,
 	 * 	Or function|callable if $toObject is not applicable or function is provided as a closure.
 	 * @param string|array $toMethod Method from $toObject, or function name to call on a hook event, or $options array. 
 	 * @param array $options See $defaultHookOptions at the beginning of this class. Optional.
-	 * @return string A special Hook ID that should be retained if you need to remove the hook later
+	 * @return string A special Hook ID that should be retained if you need to remove the hook later.
+	 *  If the $method argument was a CSV string or array of multiple methods to hook, then CSV string of hook IDs 
+	 *  will be returned, and the same CSV string can be used with removeHook() calls. (since 3.0.137). 
 	 * @throws WireException
 	 *
 	 */
 	public function addHook(Wire $object, $method, $toObject, $toMethod = null, $options = array()) {
+		
+		if(is_array($method) || strpos($method, ',') !== false) {
+			return $this->addHooks($object, $method, $toObject, $toMethod, $options);
+		}
 		
 		if(is_array($toMethod)) {
 			// $options array specified as 3rd argument
@@ -673,6 +680,77 @@ class WireHooks {
 		return $id;
 	}
 
+	/**
+	 * Add a hooks to multiple methods at once
+	 *
+	 * This is the same as addHook() except that the $method argument is an array or CSV string of hook definitions.
+	 * See the addHook() method for more detailed info on arguments.
+	 *
+	 * @param Wire $object
+	 * @param array|string $methods Array of one or more strings hook definitions, or CSV string of hook definitions
+	 * @param object|null|callable $toObject
+	 * @param string|array|null $toMethod
+	 * @param array $options
+	 * @return string CSV string of hook IDs that were added
+	 * @throws WireException
+	 * @since 3.0.137
+	 *
+	 */
+	protected function addHooks(Wire $object, $methods, $toObject, $toMethod = null, $options = array()) {
+		
+		if(!is_array($methods)) {
+			// potentially multiple methods defined in a CSV string
+			// could also be a single method with CSV arguments
+			
+			$str = (string) $methods;
+			$argSplit = '|';
+
+			// skip optional useless parenthesis in definition to avoid unnecessary iterations
+			if(strpos($str, '()') !== false) $str = str_replace('()', '', $str); 
+			
+			if(strpos($str, '(') === false) {
+				// If there is a parenthesis then it is multi-method definition without arguments
+				// Example: "Pages::saveReady, Pages::saved" 
+				$methods = explode(',', $str);
+				
+			} else {
+				// Single or multi-method definitions, at least one with arguments
+				// Isolate commas that are for arguments versus comments that separate multiple hook methods: 
+				// Single method example: "Page(template=order)::changed(0:order_status, 1:name=pending)"
+				// Multi method example: "Page(template=order)::changed(0:order_status, 1:name=pending), Page::saved"
+				
+				while(strpos($str, $argSplit) !== false) $argSplit .= '|';
+				$strs = explode('(', $str);
+				
+				foreach($strs as $key => $val) {
+					if(strpos($val, ')') === false) continue;
+					list($a, $b) = explode(')', $val, 2);
+					if(strpos($a, ',') !== false) $a = str_replace(array(', ', ','), $argSplit, $a);
+					$strs[$key] = "$a)$b";
+				}
+				
+				$str = implode('(', $strs);
+				$methods = explode(',', $str);
+				
+				foreach($methods as $key => $method) {
+					if(strpos($method, $argSplit) === false) continue;
+					$methods[$key] = str_replace($argSplit, ', ', $method);
+				}
+			}
+		}
+		
+		$result = array();
+		
+		foreach($methods as $method) {
+			$method = trim($method);
+			$hookID = $this->addHook($object, $method, $toObject, $toMethod, $options);
+			$result[] = $hookID;
+		}
+	
+		$result = implode(',', $result);
+		
+		return $result;
+	}
 
 	/**
 	 * Provides the implementation for calling hooks in ProcessWire
@@ -926,11 +1004,14 @@ class WireHooks {
 	 * }
 	 *
 	 * @param Wire $object
-	 * @param string|null $hookID
+	 * @param string|array|null $hookID Can be single hook ID, array of hook IDs, or CSV string of hook IDs
 	 * @return Wire
 	 *
 	 */
 	public function removeHook(Wire $object, $hookID) {
+		if(is_array($hookID) || strpos($hookID, ',')) {
+			return $this->removeHooks($object, $hookID);
+		}
 		if(!empty($hookID) && strpos($hookID, ':')) {
 			list($hookClass, $priority, $method) = explode(':', $hookID);
 			if(empty($hookClass)) {
@@ -943,6 +1024,23 @@ class WireHooks {
 					unset($this->hookClassMethodCache["$hookClass::$method"]);
 				}
 			}
+		}
+		return $object;
+	}
+
+	/**
+	 * Given a hook ID or multiple hook IDs (in array or CSV string) remove the hooks
+	 * 
+	 * @param Wire $object
+	 * @param array|string $hookIDs
+	 * @return Wire
+	 * @since 3.0.137
+	 * 
+	 */
+	protected function removeHooks(Wire $object, $hookIDs) {
+		if(!is_array($hookIDs)) $hookIDs = explode(',', $hookIDs); 
+		foreach($hookIDs as $hookID) {
+			$this->removeHook($object, $hookID);
 		}
 		return $object;
 	}
