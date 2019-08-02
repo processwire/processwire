@@ -27,6 +27,7 @@
  *
  * @property int $gridSize squared size of the admin thumbnails (default=130)
  * @property string $gridMode Default grid mode in admin, one of "grid", "left" or "list" (default="grid")
+ * @property string $focusMode May be 'on', 'off', or 'zoom'
  * @property array $imageSizerOptions Options to pass along to the ImageSizer class. See /wire/config.php $imageSizerOptions for details.
  * 
  * 
@@ -624,6 +625,11 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		$sanitizer = $this->wire('sanitizer');
 		$thumb = $this->getAdminThumb($pagefile, false);
 		$fileStats = str_replace(' ', '&nbsp;', $pagefile->filesizeStr) . ", {$pagefile->width}&times;{$pagefile->height} ";
+		
+		foreach($pagefile->extras() as $name => $extra) {
+			if($extra->exists()) $fileStats .= " &bull; $extra->filesizeStr $name ($extra->savingsPct)";
+		}
+		
 		// $gridSize = $this->gridSize;
 
 		// <div class='gridImage__overflow' style='width: {$gridSize}px; height: {$gridSize}px'>
@@ -773,8 +779,8 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	
 		if($n) {} // ignore, $n is for hooks
 		$pageID = $pagefile->pagefiles->page->id;
-		$variations = $this->getPagefileVariations($pagefile);
-		$variationCount = count($variations);
+		$variationCount = $pagefile->variations()->count();
+		if($pagefile->webp()->exists()) $variationCount++;
 		$editUrl = $this->getEditUrl($pagefile, $pageID); 
 		$variationUrl = $this->getVariationUrl($pagefile, $id);
 		$buttonClass = $this->themeSettings['buttonClass'];
