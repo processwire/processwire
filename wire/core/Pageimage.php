@@ -101,9 +101,11 @@ class Pageimage extends Pagefile {
 	protected $original = null;
 
 	/**
-	 * Cached result of the getVariations() method
+	 * Cached result of the variations() method
 	 *
-	 * Don't reference this directly, because it won't be loaded unless requested, instead use the getVariations() method
+	 * Don't reference this directly, because it won't be loaded unless requested, instead use the variations() method
+	 * 
+	 * @var PageimageVariations
 	 *
 	 */
 	private $variations = null; 
@@ -1189,6 +1191,19 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
+	 * Get the PageimageVariations helper instancd
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return PageimageVariations
+	 * 
+	 */
+	public function variations() {
+		if($this->variations === null) $this->variations = new PageimageVariations($this);
+		return $this->variations;
+	}
+
+	/**
 	 * Get all size variations of this image
 	 *
 	 * This is useful after a delete of an image (for example). This method can be used to track down all the 
@@ -1198,9 +1213,11 @@ class Pageimage extends Pagefile {
 	 *
 	 * @param array $options Optional, one or more options in an associative array of the following: 
 	 * 	- `info` (bool): when true, method returns variation info arrays rather than Pageimage objects (default=false).
-	 *  - `verbose` (bool): Return verbose array of info. If false, returns only filenames (default=true). 
+	 *  - `verbose` (bool|int): Return verbose array of info. If false, returns only filenames (default=true). 
 	 *     This option does nothing unless the `info` option is true. Also note that if verbose is false, then all options
-	 *     following this one no longer apply (since it is no longer returning width/height info). 
+	 *     following this one no longer apply (since it is no longer returning width/height info).
+	 *     When integer 1, returned info array also includes Pageimage variation options in 'pageimage' index of
+	 *     returned arrays (since 3.0.137).
 	 * 	- `width` (int): only variations with given width will be returned
 	 * 	- `height` (int): only variations with given height will be returned
 	 * 	- `width>=` (int): only variations with width greater than or equal to given will be returned
@@ -1219,97 +1236,7 @@ class Pageimage extends Pagefile {
 	 *
 	 */
 	public function getVariations(array $options = array()) {
-
-		if(!is_null($this->variations) && empty($options)) return $this->variations; 
-		
-		$defaults = array(
-			'info' => false,
-			'verbose' => true, 
-		);
-		
-		$options = array_merge($defaults, $options);
-		if(!$options['verbose'] && !$options['info']) $options['verbose'] = true; // non-verbose only allowed if info==true
-		$variations = $options['info'] ? null : $this->wire(new Pageimages($this->pagefiles->page)); 
-		$dir = new \DirectoryIterator($this->pagefiles->path); 
-		$infos = array();
-
-		// if suffix or noSuffix option contains space, convert it to suffixes or noSuffixes array option
-		foreach(array('suffix', 'noSuffix') as $key) {
-			if(!isset($options[$key])) continue;
-			if(strpos(trim($options['suffix']), ' ') === false) continue;
-			$keyPlural = $key . 'es';
-			$value = isset($options[$keyPlural]) ? $options[$keyPlural] : array();
-			$options[$keyPlural] = array_merge($value, explode(' ', trim($options[$key]))); 
-			unset($options[$key]);
-		}
-
-		foreach($dir as $file) {
-			
-			if($file->isDir() || $file->isDot()) continue; 			
-			
-			$info = $this->isVariation($file->getFilename(), array('verbose' => $options['verbose']));
-			if(!$info) continue; 
-			
-			if($options['info'] && !$options['verbose']) {
-				$infos[] = $info;
-				continue;
-			}
-			
-			$allow = true;
-			
-			foreach($options as $option => $value) {
-				switch($option) {
-					case 'width': $allow = $info['width'] == $value; break;
-					case 'width>=': $allow = $info['width'] >= $value; break;
-					case 'width<=': $allow = $info['width'] <= $value; break;
-					case 'height': $allow = $info['height'] == $value; break;
-					case 'height>=': $allow = $info['height'] >= $value; break;
-					case 'height<=': $allow = $info['height'] <= $value; break;
-					case 'name': $allow = stripos($file->getBasename(), $value) !== false; break;
-					case 'noName': $allow = stripos($file->getBasename(), $value) === false; break;
-					case 'regexName': $allow = preg_match($value, $file->getBasename()); break;
-					case 'suffix': $allow = in_array($value, $info['suffix']); break;
-					case 'noSuffix': $allow = !in_array($value, $info['suffix']); break;
-					case 'suffixes':
-						// any one of given suffixes will allow the variation
-						$allow = false;
-						foreach($value as $suffix) {
-							$allow = in_array($suffix, $info['suffix']);
-							if($allow) break;
-						}
-						break;
-					case 'noSuffixes': 
-						// any one of the given suffixes will disallow the variation
-						$allow = true;
-						foreach($value as $noSuffix) {
-							if(!in_array($noSuffix, $info['suffix'])) continue;
-							$allow = false;
-							break;
-						}
-						break;
-				}
-				if(!$allow) break;
-			}
-			
-			if(!$allow) continue; 
-			
-			if(!empty($options['info'])) {
-				$infos[$file->getBasename()] = $info;
-			} else {
-				$pageimage = clone $this; 
-				$pathname = $file->getPathname();
-				if(DIRECTORY_SEPARATOR != '/') $pathname = str_replace(DIRECTORY_SEPARATOR, '/', $pathname);
-				$pageimage->setFilename($pathname); 
-				$pageimage->setOriginal($this); 
-				$variations->add($pageimage); 
-			}
-		}
-
-		if(!empty($options['info'])) return $infos;
-		
-		if(empty($options)) $this->variations = $variations;
-		
-		return $variations; 
+		return $this->variations()->find($options);
 	}
 
 	/**
@@ -1343,118 +1270,7 @@ class Pageimage extends Pagefile {
 	 * 
 	 */
 	public function ___rebuildVariations($mode = 0, array $suffix = array(), array $options = array()) {
-		
-		$skipped = array();
-		$rebuilt = array();
-		$errors = array();
-		$reasons = array();
-		$options['forceNew'] = true; 
-		
-		foreach($this->getVariations(array('info' => true)) as $info) {
-		
-			$o = $options;
-			unset($o['cropping']); 
-			$skip = false; 
-			$name = $info['name'];
-			
-			if($info['crop'] && !$mode) {
-				// skip crops when mode is 0
-				$reasons[$name] = "$name: Crop is $info[crop] and mode is 0";
-				$skip = true; 
-				
-			} else if(count($info['suffix'])) {
-				// check suffixes 
-				foreach($info['suffix'] as $k => $s) {
-					if($s === 'hidpi') {
-						// allow hidpi to passthru
-						$o['hidpi'] = true;
-					} else if($s == 'is') {
-						// this is a known core suffix that we allow
-					} else if(strpos($s, 'cropx') === 0) {
-						// skip cropx suffix (already known from $info[crop])
-						unset($info['suffix'][$k]);
-						continue; 
-					} else if(strpos($s, 'pid') === 0 && preg_match('/^pid\d+$/', $s)) {
-						// allow pid123 to pass through 
-					} else if(in_array($s, $suffix)) {
-						// suffix is one provided in $suffix argument
-						if($mode == 2) {
-							// mode 2 where $suffix is an exclusion list
-							$skip = true;
-							$reasons[$name] = "$name: Suffix '$s' is one provided in exclusion list (mode==true)";
-						} else {
-							// allowed suffix
-						}
-					} else {
-						// image has suffix not specified in $suffix argument
-						if($mode == 0 || $mode == 1 || $mode == 3) {
-							$skip = true;
-							$reasons[$name] = "$name: Image has suffix '$s' not provided in allowed list: " . implode(', ', $suffix);
-						}
-					}
-				}
-			}
-			
-			if($mode == 4 && ($info['width'] == 0 || $info['height'] == 0)) {
-				// skip images that don't specify both width and height
-				$skip = true;
-			}
-			
-			if($skip) {
-				$skipped[] = $name; 
-				continue; 
-			}
-		
-			// rebuild the variation
-			$o['forceNew'] = true; 
-			$o['suffix'] = $info['suffix'];
-			if(is_file($info['path'])) $this->wire('files')->unlink($info['path'], true); 
-		
-			/*
-			if(!$info['width'] && $info['actualWidth']) {
-				$info['width'] = $info['actualWidth'];
-				$options['nameWidth'] = 0;
-			}
-			if(!$info['height'] && $info['actualHeight']) {
-				$info['height'] = $info['actualHeight'];
-				$options['nameHeight'] = 0;
-			}
-			*/
-			
-			if($info['crop'] && preg_match('/^x(\d+)y(\d+)$/', $info['crop'], $matches)) {
-				// dimensional cropping info contained in filename
-				$cropX = (int) $matches[1];
-				$cropY = (int) $matches[2];
-				$variation = $this->crop($cropX, $cropY, $info['width'], $info['height'], $options);
-
-			} else if($info['crop']) {
-				// direct cropping info contained in filename
-				$options['cropping'] = $info['crop'];
-				$variation = $this->size($info['width'], $info['height'], $options);
-				
-			} else if($this->hasFocus) {
-				// crop to focus area, which the size() method will determine on its own
-				$variation = $this->size($info['width'], $info['height'], $options);
-				
-			} else {
-				// no crop, no focus, just resize
-				$variation = $this->size($info['width'], $info['height'], $options);
-			}
-			
-			if($variation) {
-				if($variation->name != $name) rename($variation->filename(), $info['path']); 
-				$rebuilt[] = $name;
-			} else {
-				$errors[] = $name;
-			}
-		}
-		
-		return array(
-			'rebuilt' => $rebuilt, 
-			'skipped' => $skipped, 
-			'reasons' => $reasons, 
-			'errors' => $errors
-		); 
+		return $this->variations()->rebuild($mode, $suffix, $options);
 	}
 
 	/**
@@ -1488,153 +1304,7 @@ class Pageimage extends Pagefile {
 	 *
 	 */
 	public function ___isVariation($basename, $options = array()) {
-		
-		$defaults = array(
-			'allowSelf' => false, 
-			'verbose' => true, 
-		);
-		
-		if(!is_array($options)) $options = array('allowSelf' => (bool) $options);
-		$options = array_merge($defaults, $options);
-
-		static $level = 0;
-		$variationName = basename($basename);
-		$originalName = $this->basename; 
-		$info = array();
-	
-		// that that everything from the beginning up to the first period is exactly the same
-		// otherwise, they are different source files
-		$test1 = substr($variationName, 0, strpos($variationName, '.'));
-		$test2 = substr($originalName, 0, strpos($originalName, '.')); 
-		if($test1 !== $test2) return false;
-
-		// remove extension from originalName
-		$originalName = basename($originalName, "." . $this->ext());  
-		
-		// if originalName is already a variation filename, remove the variation info from it.
-		// reduce to original name, i.e. all info after (and including) a period
-		if(strpos($originalName, '.') && preg_match('/^([^.]+)\.(?:\d+x\d+|-[_a-z0-9]+)/', $originalName, $matches)) {
-			$originalName = $matches[1];
-		}
-	
-		// if file is the same as the original, then it's not a variation
-		if(!$options['allowSelf'] && $variationName == $this->basename) return false;
-		
-		// if file doesn't start with the original name then it's not a variation
-		if(strpos($variationName, $originalName) !== 0) return false; 
-	
-		// get down to the meat and the base
-		// meat is the part of the filename containing variation info like dimensions, crop, suffix, etc.
-		// base is the part before that, which may include parent meat
-		$pos = strrpos($variationName, '.'); // get extension
-		$ext = substr($variationName, $pos); 
-		$base = substr($variationName, 0, $pos); // get without extension
-		$rpos = strrpos($base, '.'); // get last data chunk after dot
-		if($rpos !== false) {
-			$meat = substr($base, $rpos+1) . $ext; // the part of the filename we're interested in
-			$base = substr($base, 0, $rpos); // the rest of the filename
-			$parent = "$base." . $this->ext();
-		} else {
-			$meat = $variationName;
-			$parent = null;
-		}
-
-		// identify parent and any parent suffixes
-		$suffixAll = array();
-		if($options['verbose']) {
-			while(($pos = strrpos($base, '.')) !== false) {
-				$part = substr($base, $pos + 1);
-				$base = substr($base, 0, $pos);
-				while(($rpos = strrpos($part, '-')) !== false) {
-					$suffixAll[] = substr($part, $rpos + 1);
-					$part = substr($part, 0, $rpos);
-				}
-			}
-		}
-
-		// variation name with size dimensions and optionally suffix
-		$re1 = '/^'  . 
-			'(\d+)x(\d+)' .					// 50x50	
-			'([pd]\d+x\d+|[a-z]{1,2})?' . 	// nw or p30x40 or d30x40
-			'(?:-([-_a-z0-9]+))?' . 		// -suffix1 or -suffix1-suffix2, etc.
-			'\.' . $this->ext() . 			// .jpg
-			'$/';
-	
-		// variation name with suffix only
-		$re2 = '/^' . 						
-			'-([-_a-z0-9]+)' . 				// suffix1 or suffix1-suffix2, etc. 
-			'(?:\.' . 						// optional extras for dimensions/crop, starts with period
-				'(\d+)x(\d+)' .				// optional 50x50	
-				'([pd]\d+x\d+|[a-z]{1,2})?' . // nw or p30x40 or d30x40
-			')?' .
-			'\.' . $this->ext() . 			// .jpg
-			'$/'; 
-
-		// if regex does not match, return false
-		if(preg_match($re1, $meat, $matches)) {
-			// this is a variation with dimensions, return array of info
-			if($options['verbose']) $info = array(
-				'name' => $basename, 
-				'url' => $this->pagefiles->url . $basename, 
-				'path' => $this->pagefiles->path . $basename, 
-				'original' => $originalName . '.' . $this->ext(),
-				'width' => (int) $matches[1],
-				'height' => (int) $matches[2],
-				'crop' => (isset($matches[3]) ? $matches[3] : ''),
-				'suffix' => (isset($matches[4]) ? explode('-', $matches[4]) : array()),
-				);
-
-		} else if(preg_match($re2, $meat, $matches)) {
-		
-			// this is a variation only with suffix
-			if($options['verbose']) $info = array(
-				'name' => $basename, 
-				'url' => $this->pagefiles->url . $basename,
-				'path' => $this->pagefiles->path . $basename, 
-				'original' => $originalName . '.' . $this->ext(),
-				'width' => (isset($matches[2]) ? (int) $matches[2] : 0),
-				'height' => (isset($matches[3]) ? (int) $matches[3] : 0),
-				'crop' => (isset($matches[4]) ? $matches[4] : ''),
-				'suffix' => explode('-', $matches[1]),
-				);
-			
-		} else {
-			return false; 
-		}
-	
-		// if not in verbose mode, just return variation basename
-		if(!$options['verbose']) return $variationName;
-
-		$actualInfo = $this->getImageInfo($info['path']); 
-		$info['actualWidth'] = $actualInfo['width'];
-		$info['actualHeight'] = $actualInfo['height'];
-		$info['hidpiWidth'] = $this->hidpiWidth(0, $info['actualWidth']);
-		$info['hidpiHeight'] = $this->hidpiWidth(0, $info['actualHeight']);
-	
-		if(empty($info['crop'])) {
-			// attempt to extract crop info from suffix
-			foreach($info['suffix'] as $key => $suffix) {
-				if(strpos($suffix, 'cropx') === 0) {
-					$info['crop'] = ltrim($suffix, 'crop'); // i.e. x123y456
-				}
-			}
-		}
-
-		if($parent) {
-			// suffixAll includes all parent suffix in addition to current suffix
-			if(!$level) $info['suffixAll'] = array_unique(array_merge($info['suffix'], $suffixAll)); 
-			// parent property is set with more variation info, when available
-			$level++;
-			$info['parentName'] = $parent; 
-			$info['parent'] = $this->isVariation($parent);
-			$level--;
-		}
-
-		if(!$this->original) {
-			$this->original = $this->pagefiles->get($info['original']);
-		}
-		
-		return $info;
+		return $this->variations()->getInfo($basename, $options);
 	}
 
 	/**
@@ -1649,42 +1319,7 @@ class Pageimage extends Pagefile {
 	 *
 	 */
 	public function removeVariations(array $options = array()) {
-		
-		$defaults = array(
-			'dryRun' => false,
-			'getFiles' => false
-		);
-
-		$variations = $this->getVariations($options);
-		if(!empty($options['dryrun'])) $defaults['dryRun'] = $options['dryrun']; // case insurance
-		$options = array_merge($defaults, $options); // placement after getVariations() intended
-		$deletedFiles = array();
-		
-		/** @var WireFileTools $files */
-		$files = $this->wire('files');
-
-		foreach($variations as $variation) {
-			$filename = $variation->filename;
-			if(!is_file($filename)) continue;
-			if($options['dryRun']) {
-				$success = true;
-			} else {
-				$success = $files->unlink($filename, true);
-			}
-			if($success) $deletedFiles[] = $filename;
-			
-			foreach($this->extras() as $extra) {
-				if($options['dryRun']) {
-					$deletedFiles[] = $extra->filename();
-				} else if($extra->unlink()) {
-					$deletedFiles[] = $extra->filename();
-				}
-			}
-		}
-
-		if(!$options['dryRun']) $this->variations = null;
-		
-		return ($options['dryRun'] || $options['getFiles'] ? $deletedFiles : $this);
+		return $this->variations()->remove($options);
 	}
 
 	/**

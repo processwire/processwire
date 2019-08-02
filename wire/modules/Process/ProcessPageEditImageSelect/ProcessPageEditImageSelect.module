@@ -212,35 +212,45 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function init() {
+	
+		/** @var Config $config */
+		$config = $this->wire('config');
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		/** @var Session $session */
+		$session = $this->wire('session');
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		
 
 		// throw new WireException($this->labels['demoMode']);
-		if($this->config->demo) {
-			if($this->wire('input')->urlSegmentStr != 'variations') {
+		if($config->demo) {
+			if($input->urlSegmentStr != 'variations') {
 				throw new WireException($this->labels['demoMode']);
 			}
 		}
 		
 		$this->modules->get("ProcessPageList");
 	
-		$this->rte = $this->input->get('rte') !== null && $this->input->get('rte') == "0" ? false : true;
-		$id = (int) $this->input->get->id; 
-		$editID = (int) $this->input->get->edit_page_id; 
+		$this->rte = $input->get('rte') !== null && $input->get('rte') == "0" ? false : true;
+		$id = (int) $input->get('id'); 
+		$editID = (int) $input->get('edit_page_id'); 
 		
 		if($editID) {
-			$this->wire('session')->set($this, 'edit_page_id', $editID); 
+			$session->set($this, 'edit_page_id', $editID); 
 		} else {
-			$editID = (int) $this->wire('session')->get($this, 'edit_page_id'); 
+			$editID = (int) $session->get($this, 'edit_page_id'); 
 		}
 		
 		if($editID) {
 			$this->editorPage = $this->wire('pages')->get($editID); 
 			if(!$this->editorPage->editable()) {
 				$this->editorPage = null;
-				$this->wire('session')->remove($this, 'edit_page_id'); 
+				$session->remove($this, 'edit_page_id'); 
 			}
 		}
 	
-		$fieldName = $this->wire('sanitizer')->fieldName($this->wire('input')->get('field')); 
+		$fieldName = $sanitizer->fieldName($input->get('field')); 
 		if($fieldName) {
 			$this->fieldName = $fieldName; // original
 			if(strpos($fieldName, '_repeater') && preg_match('/_repeater\d+$/', $fieldName, $matches)) {
@@ -255,20 +265,21 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		}
 		
 		// if no ID was specified, then retrieive ID from filename path, if it's there
-		if($this->input->get->file && preg_match('{[/,]}', $this->input->get->file)) {
+		$file = $input->get('file');
+		if($file && preg_match('{[/,]}', $file)) {
 			
-			if(preg_match('{(\d+)[/,][^/,]+\.(' . $this->extensions . ')$}iD', $this->input->get->file, $matches)) {
+			if(preg_match('{(\d+)[/,][^/,]+\.(' . $this->extensions . ')$}iD', $file, $matches)) {
 				// ..........ID.../,filename.ext
 				// format: 123/filename.jpg OR 123,filename.jpg
 				// also covers new pagefileSecure URLs
 				$id = (int) $matches[1]; 
 				
-			} else if(preg_match('{(/[\d/]+)/([-_.a-z0-9]+)\.(' . $this->extensions . ')$}iD', $this->input->get->file, $matches)) {
+			} else if(preg_match('{(/[\d/]+)/([-_.a-z0-9]+)\.(' . $this->extensions . ')$}iD', $file, $matches)) {
 				// .................ID........filename........ext
 				// extended asset path format: 1/2/3/filename.jpg
 				$id = PagefilesManager::dirToPageID($matches[1]); 
 
-			} else if(preg_match('{^' . $this->wire('config')->urls->root . '([-_./a-zA-Z0-9]*/)' . $this->wire('config')->pagefileUrlPrefix . '[^/]+\.(' . $this->extensions . ')$}iD', $this->input->get->file, $matches)) {
+			} else if(preg_match('{^' . $config->urls->root . '([-_./a-zA-Z0-9]*/)' . $config->pagefileUrlPrefix . '[^/]+\.(' . $this->extensions . ')$}iD', $file, $matches)) {
 				// .............................../....................path/to/page.........................-?....................filename..........ext
 				// legacy pagefileSecure URL format: /path/to/page/filename.jpg
 				// @todo: does this still need to be here or can it be dropped?
@@ -310,21 +321,20 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			}
 		}
 
-		if($this->input->get->winwidth) $this->maxImageWidth = ((int) $this->input->get->winwidth) - 70; 
-		if($this->maxImageWidth < 400) $this->maxImageWidth = 400; 
-		
-		$this->hidpi = ((int) $this->wire('input')->get('hidpi')) ? true : false;
-		$hidpi = $this->wire('input')->get('hidpi');
+		if($input->get('winwidth')) $this->maxImageWidth = ((int) $input->get('winwidth')) - 70; 
+		if($this->maxImageWidth < 400) $this->maxImageWidth = 400;
+
+		$hidpi = $input->get('hidpi');
 		if($hidpi === null && $this->hidpiDefault) $hidpi = true; 
 		if(!$this->rte) $hidpi = false; // hidpi not applicable outside of RTE mode
 		$this->hidpi = $hidpi ? true : false;
 	
-		if($this->rte) $this->caption = $this->wire('input')->get('caption') ? true : false; 
+		if($this->rte) $this->caption = $input->get('caption') ? true : false; 
 		
 		// original used by InputfieldImage 
-		$original = $this->wire('input')->get('original'); 
+		$original = $input->get('original'); 
 		if($original) {
-			$original = $this->wire('sanitizer')->filename($original);
+			$original = $sanitizer->filename($original);
 			if(is_file($this->page->filesManager()->path . $original)) {
 				$this->original = $original;
 			}
@@ -344,7 +354,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	public function getPageimage($getVariation = false) {
 
 		$images = $this->getImages($this->page);
-		$file = basename($this->input->get->file);
+		$file = basename($this->input->get('file'));
 		$variationFilename = '';
 		
 		if(strpos($file, ',') === false) {
@@ -501,14 +511,14 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			return "<p>$error</p>";
 		}
 
-		if($this->input->get->file) return $this->executeEdit();
+		if($this->input->get('file')) return $this->executeEdit();
 		
 		$images = $this->getImages($this->page, $this->page->fields);
 
 		$out = '';
 
 		if(count($images)) {
-			$winwidth = (int) $this->input->get->winwidth;
+			$winwidth = (int) $this->input->get('winwidth');
 			$in = $this->wire('modules')->get('InputfieldImage'); 
 			$in->adminThumbs = true;
 			
@@ -722,22 +732,28 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	 */
 	public function ___executeEdit() {
 
+	
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		/** @var Config $config */
+		$config = $this->wire('config');
+		
 		$this->checkImageEditPermission();
 
-		if($this->wire('input')->post('submit_crop')) {
+		if($input->post('submit_crop')) {
 			$crop = $this->processCrop();
 			$parts = $this->hidpi ? array('width' => $crop->hidpiWidth()) : array();
 			$this->wire('session')->redirect($this->makeEditURL($crop->basename, $parts)); 
 			return '';
-		} else if($this->wire('input')->post('submit_save_replace')) {
+		} else if($input->post('submit_save_replace')) {
 			return $this->processSave(true); 
-		} else if($this->wire('input')->post('submit_save_copy')) {
+		} else if($input->post('submit_save_copy')) {
 			return $this->processSave(false);
 		}
 	
-		$path = $this->wire('config')->urls->ProcessPageEditImageSelect; 
-		$this->wire('config')->styles->add($path . 'cropper/cropper.min.css');
-		$this->wire('config')->scripts->add($path . 'cropper/cropper.min.js'); 
+		$path = $config->urls('ProcessPageEditImageSelect'); 
+		$config->styles->add($path . 'cropper/cropper.min.css');
+		$config->scripts->add($path . 'cropper/cropper.min.js'); 
 	
 		$labels =& $this->labels;
 		$formClasses = array();
@@ -751,7 +767,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		foreach($icons as $key => $value) {
 			$icons[$key] = "<i class='fa fa-fw fa-$value ui-priority-secondary'></i>";
 		}
-
+	
 		$optionalClasses = array(
 			$this->alignLeftClass => $labels['alignLeft'], 
 			$this->alignRightClass => $labels['alignRight'], 
@@ -762,7 +778,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$cropY = null; 
 		$cropWidth = null; 
 		$cropHeight = null;
-		$isCropped = preg_match_all('/\.(\d+)x(\d+).*?-crop[xy](\d+)[xy](\d+)[-.]/', $this->wire('input')->get('file'), $matches); 
+		$isCropped = preg_match_all('/\.(\d+)x(\d+).*?-crop[xy](\d+)[xy](\d+)[-.]/', $input->get('file'), $matches); 
 		
 		if($isCropped) { // get last coordinates present
 			$cropWidth = (int) array_pop($matches[1]);
@@ -825,25 +841,25 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		);
 		
 		if(!$this->rte && $this->field) {
-			$minWidth = $this->field->minWidth ? (int) $this->field->minWidth : 1;
-			$minHeight = $this->field->minHeight ? (int) $this->field->minHeight : 1;
+			$minWidth = $this->field->get('minWidth') ? (int) $this->field->get('minWidth') : 1;
+			$minHeight = $this->field->get('minHeight') ? (int) $this->field->get('minHeight') : 1;
 		} else {
 			$minWidth = 1; 
 			$minHeight = 1;
 		}
 		
 		// bundle in crop information to image attributes, if specified
-		if($this->wire('input')->get('crop_x')) {
+		if($input->get('crop_x')) {
 			$attrs['data-crop'] =
-				((int) $this->wire('input')->get('crop_x')) . ',' .
-				((int) $this->wire('input')->get('crop_y')) . ',' .
-				((int) $this->wire('input')->get('crop_w')) . ',' .
-				((int) $this->wire('input')->get('crop_h'));
+				((int) $input->get('crop_x')) . ',' .
+				((int) $input->get('crop_y')) . ',' .
+				((int) $input->get('crop_w')) . ',' .
+				((int) $input->get('crop_h'));
 		}
 
 		// determine width/height we will display image at in editor, so that it fits
-		$width = (int) $this->input->get('width'); 
-		$height = (int) $this->input->get('height'); 
+		$width = (int) $input->get('width'); 
+		$height = (int) $input->get('height'); 
 		if(!$width) $width = $this->editWidth; 
 		if(!$width) $width = '';
 		if(!$height) $height = $this->editHeight; 
@@ -860,7 +876,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		// if they aren't already working with a resized image, and it's being scaled down,
 		// then add the 'resized' class to ensure that our RTE 'pwimage' plugin knows to perform the resize
 		// by checking for the 'resized' classname on the image
-		if(basename($this->input->get->file) == $fullname && $originalWidth > $width) $attrs['class'] .= " resized";
+		if(basename($input->get('file')) == $fullname && $originalWidth > $width) $attrs['class'] .= " resized";
 	
 		// if hidpi specified keep it checed
 		$hidpiChecked = $this->hidpi ? " checked='checked'" : "";
@@ -870,7 +886,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$classOptions = '';
 		foreach($optionalClasses as $class => $label) {
 			$labelKey = array_search($label, $labels); 
-			$selected = strpos($this->input->get('class'), $class) !== false ? " selected='selected'" : '';
+			$selected = strpos($input->get('class'), $class) !== false ? " selected='selected'" : '';
 			if($selected) $attrs['class'] .= " $class";
 			$classOptions .= "<option$selected data-label='$labelKey' value='$class'>$label</option>";
 		}
@@ -883,16 +899,16 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		}
 
 		// prepare description (alt)
-		$description = isset($_GET['description']) ? $this->input->get('description') : ''; // $image->description;
+		$description = isset($_GET['description']) ? $input->get('description') : ''; // $image->description;
 		if(strlen($description) > 8192) $description = substr($description, 0, 8192);
 		$description = $this->wire('sanitizer')->entities($description); 
 		
 		// if dealing with a variation size or crop provide the option to link to the original (larger)
 		$linkOriginalChecked = '';
-		if($image->name != $original->name || $this->wire('input')->get('link')) {
+		if($image->name != $original->name || $input->get('link')) {
 			if($image->name != $original->name) $formClasses[] = 'not-original';
-			$imgURL = str_replace($this->wire('config')->urls->root, '/', $original->url);
-			$imgLinkURL = trim($this->wire('input')->get('link'));
+			$imgURL = str_replace($config->urls->root, '/', $original->url);
+			$imgLinkURL = trim($input->get('link'));
 			if($imgLinkURL) {
 				if($imgLinkURL === "1") $imgLinkURL = $imgURL; // if in toggle mode, substitute URL
 				// determine if 'link to original' checkbox should be checked 
@@ -907,7 +923,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$resizeYesChecked = $this->rte ? " checked='checked'" : "";
 		$resizeNoChecked = !$this->rte ? " checked='checked'" : "";
 
-		if($this->field && $this->field->maxFiles == 1) $formClasses[] = 'maxfiles1';
+		if($this->field && $this->field->get('maxFiles') == 1) $formClasses[] = 'maxfiles1';
 			
 		// form attributes
 		$formClasses[] = $isCroppable ? 'croppable' : 'not-croppable';
@@ -1145,7 +1161,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			if($this->original && $this->original != $image2->basename() && $original = $image->pagefiles->get($this->original)) {
 				$fileID = 'file_' . $original->hash; 
 				
-				if($rebuildVariations && $this->field->adminThumbs) {
+				if($rebuildVariations && $this->field->get('adminThumbs')) {
 					// remove original thumbnail
 					/** @var InputfieldImage $inputfield */
 					$inputfield = $this->field->getInputfield($this->page);
@@ -1252,13 +1268,16 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	public function ___executeResize() {
 
 		$this->checkImageEditPermission();
+		
+		/** @var WireInput $input */
+		$input = $this->wire('input');
 
-		$width = (int) $this->input->get('width'); 
-		$class = $this->sanitizer->name($this->input->get->class);
+		$width = (int) $input->get('width'); 
+		$class = $this->sanitizer->name($input->get('class'));
 		$hidpi = $this->hidpi;
-		$json = (int) $this->input->get('json'); // 1 or 0 (for json output mode on or off)
-		$rotate = (int) $this->wire('input')->get('rotate');
-		$flip = $this->wire('input')->get('flip'); 
+		$json = (int) $input->get('json'); // 1 or 0 (for json output mode on or off)
+		$rotate = (int) $input->get('rotate');
+		$flip = $input->get('flip'); 
 		if($flip != 'v' && $flip != 'h') $flip = '';
 		
 		if(strpos($class, 'hidpi') !== false) {
@@ -1355,12 +1374,21 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		if(!$this->page || !$pageimage) throw new WireException("No file provided"); 
 		if(!$this->masterPage->editable()) throw new WireException($this->labels['noAccess']);
+		
+		$cnt = 0;
+		$rows = array();
+		$name = $pageimage->basename();
+		$filesize = $pageimage->filesize();
+		$filesizeStr = wireBytesStr($filesize);
+		$mtime = filemtime($pageimage->filename);
+		$modified = date('Y-m-d H:i:s', $mtime);
+		$url = $pageimage->url() . "?nc=$mtime";
+		$originalLabel = $this->_('Original');
 		$hasEditPermission = $this->wire('user')->hasPermission('page-edit-images', $this->masterPage);
-		
-		$variations = $pageimage->getVariations(array('info' => true));
-		$cnt = count($variations);
-		
+		$variations = $pageimage->getVariations(array('info' => true, 'verbose' => 1));
+		$adminThumbOptions = $this->wire('config')->adminThumbOptions;
 		$delete = $this->wire('input')->post('delete');
+		
 		if(is_array($delete) && count($delete) && $hasEditPermission) {
 			foreach($delete as $name) {
 				if(!isset($variations[$name])) continue; 
@@ -1374,33 +1402,43 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			}
 		}
 		
-		$headline = sprintf(
-				$this->_n('%1$d variation for image %2$s', '%1$d variations for image %2$s', $cnt), 
-				//$cnt, "<a class='preview' href='$pageimage->URL'>$pageimage->basename</a>"
-				$cnt, $pageimage->basename
+		$rows[] = array(
+			'cnt' => $cnt,
+			'url' => $url,
+			'name' => $name,
+			'notes' => array($originalLabel),
+			'width' => $pageimage->width(),
+			'height' => $pageimage->height(),
+			'modified' => $modified,
+			'filesize' => $filesize,
+			'filesizeStr' => $filesizeStr,
+			'deletable' => $hasEditPermission,
+		);
+	
+		foreach($pageimage->extras() as $extra) {
+			if(!file_exists($extra->filename)) continue;
+			$name = $extra->basename();
+			$filesize = $extra->filesize();
+			$filesizeStr = wireBytesStr($filesize);
+			$mtime = filemtime($extra->filename);
+			$modified = date('Y-m-d H:i:s', $mtime);
+			$url = $extra->url() . "?nc=$mtime";
+			$rows[] = array(
+				'cnt' => ++$cnt,
+				'url' => $url,
+				'name' => $name,
+				'notes' => array("$originalLabel ($extra->ext $extra->savingsPct)"),
+				'width' => $pageimage->width(),
+				'height' => $pageimage->height(),
+				'modified' => $modified,
+				'filesize' => $filesize,
+				'filesizeStr' => $filesizeStr,
+				'deletable' => false,
 			);
-		$this->headline($headline); 
-		
-		if(!$cnt) return "<h2>$headline</h2>";
-		
-		$adminThumbOptions = $this->wire('config')->adminThumbOptions;
-		
-		$table = $this->wire('modules')->get('MarkupAdminDataTable'); 
-		$table->setEncodeEntities(false);
-		$table->headerRow(array(
-			'#', 
-			$this->_x('Image', 'th'), 
-			$this->_x('File', 'th'),
-			$this->_x('Size', 'th'),
-			$this->_x('Modified', 'th'),  
-			$this->_x('Notes', 'th'),
-			($hasEditPermission ? "<label><input type='checkbox' id='delete_all' value='1' /></label>" : "&nbsp;")
-		));
-		
-		$cnt = 0;
+		}
 		
 		foreach($variations as $name => $info) {
-			
+		
 			$notes = array();
 			if(in_array('is', $info['suffix'])) $notes[] = $this->_x('Created for placement in textarea', 'notes'); 
 			if(in_array('hidpi', $info['suffix'])) $notes[] = $this->_x('HiDPI/Retina', 'notes'); 
@@ -1432,18 +1470,87 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			$mtime = filemtime($info['path']); 
 			$modified = date('Y-m-d H:i:s', $mtime); 
 			$url = "$info[url]?nc=$mtime";
+		
+			$rows[] = array(
+				'cnt' => ++$cnt, 
+				'url' => $url, 
+				'name' => $name,
+				'notes' => $notes, 
+				'width' => $width,
+				'height' => $height,
+				'modified' => $modified, 
+				'filesize' => $filesize,
+				'filesizeStr' => $filesizeStr, 
+				'deletable' => $hasEditPermission,
+			);
 			
+			/** @var Pageimage $pi */
+			$pi = $info['pageimage'];
+			foreach($pi->extras() as $extra) {
+				if(!file_exists($extra->filename)) continue;
+				$name = $extra->basename();
+				$filesize = $extra->filesize();
+				$filesizeStr = wireBytesStr($filesize);
+				$mtime = filemtime($extra->filename());
+				$modified = date('Y-m-d H:i:s', $mtime);
+				$url = $extra->url() . "?nc=$mtime";
+				
+				$rows[] = array(
+					'cnt' => ++$cnt,
+					'url' => $url,
+					'name' => $name, 
+					'notes' => $notes,
+					'width' => $width,
+					'height' => $height,
+					'modified' => $modified,
+					'filesize' => $filesize,
+					'filesizeStr' => $filesizeStr,
+					'deletable' => false,
+				);
+			}
+		}
+
+		/** @var InputfieldCheckbox $checkbox */
+		$checkbox = $this->wire('modules')->get('InputfieldCheckbox');
+		$checkbox->label = ' ';
+		$checkbox->addClass('delete');
+		$checkbox->attr('id+name', 'delete_all');
+		$checkbox->val(1);
+
+		/** @var MarkupAdminDataTable $table */
+		$table = $this->wire('modules')->get('MarkupAdminDataTable');
+		$table->setEncodeEntities(false);
+		$table->headerRow(array(
+			'#',
+			$this->_x('Image', 'th'),
+			$this->_x('File', 'th'),
+			$this->_x('Size', 'th'),
+			$this->_x('Modified', 'th'),
+			$this->_x('Notes', 'th'),
+			($hasEditPermission ? $checkbox->render() : "&nbsp;")
+		));
+		
+		foreach($rows as $row) {
+			$checkbox->attr('name', 'delete[]');
+			$checkbox->val($row['name']);
+			$checkbox->attr('id', "delete_$row[cnt]"); 
 			$table->row(array(
-				++$cnt, 
-				"<a class='preview' href='$url'><img src='$url' alt='$name' style='max-width: 100px;' /></a>",
-				"<a class='preview' href='$url'>$name</a><br /><span class='detail'>{$width}x{$height}</span>", 
-				"<span style='display: none;'>$filesize</span>$filesizeStr", 
-				$modified, 
-				implode('<br />', $notes),
-				($hasEditPermission ? "<label><input type='checkbox' class='delete' name='delete[]' value='$name' /> &nbsp;</label>" : "&nbsp;")
+				($row['cnt'] ? $row['cnt'] : '&nbsp;'),
+				"<a class='preview' href='$row[url]'><img src='$row[url]' alt='$row[name]' style='max-width: 100px;' /></a>",
+				"<a class='preview' href='$row[url]'>$row[name]</a><br /><span class='detail'>$row[width]x$row[height]</span>",
+				"<span style='display: none;'>$row[filesize]</span>$row[filesizeStr]",
+				$row['modified'],
+				implode('<br />', $row['notes']),
+				//($hasEditPermission ? "<label><input type='checkbox' class='delete' name='delete[]' value='$row[name]' /> &nbsp;</label>" : "&nbsp;")
+				($row['cnt'] && $row['deletable'] ? $checkbox->render() : "&nbsp;")
 			));
 		}
 		
+		$this->headline(sprintf(
+			$this->_n('%1$d variation for image %2$s', '%1$d variations for image %2$s', $cnt),
+			$cnt, $pageimage->basename
+		));
+
 		$varcnt = $this->wire('sanitizer')->entities($this->wire('input')->get('varcnt')); 
 
 		$form = $this->wire('modules')->get('InputfieldForm');
