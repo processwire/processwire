@@ -609,7 +609,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 
 		if($this->input->post('columns') !== null && !in_array('disableColumns', $this->toggles)) { 
 			$columns = array();
-			foreach($this->input->post('columns') as $name) {
+			foreach($this->input->post->array('columns') as $name) {
 				$name = $this->wire('sanitizer')->name($name); 	
 				$columns[] = $name; 
 			}
