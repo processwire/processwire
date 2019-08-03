@@ -140,10 +140,10 @@
  * 
  * ~~~~~
  * {
- *   title: 'Your Module title',
- *   version: 1,
- *   // and so on
+ *   "title": "Your Module title",
+ *   "version": 1
  * }
+ * // and so on
  * ~~~~~
  * 
  * -----------------------------------------------------------------
