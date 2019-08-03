@@ -56,7 +56,17 @@ class MarkupFieldtype extends WireData implements Module {
 	 * @var bool
 	 * 
 	 */
-	protected $renderIsUseless = false; 
+	protected $renderIsUseless = false;
+
+	/**
+	 * Properties that are potentially linkable to source page in markup
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $linkableProperties = array(
+		'name', 'url', 'httpUrl', 'path', 'title',
+	);
 
 	/**
 	 * Construct the MarkupFieldtype
@@ -108,8 +118,8 @@ class MarkupFieldtype extends WireData implements Module {
 						foreach($value as $page) {
 							$v = $page->getFormatted($property);
 							$v = $field->type->markupValue($page, $field, $v);
-							if($page->viewable()) {
-								$a[] = "<a href='$page->url'>$v</a>";
+							if($this->isLinkablePageProperty($page, $property)) {
+								$a[] = "<a href='$page->url'>$property: $v</a>";
 							} else {
 								$a[] = $v;
 							}
@@ -354,6 +364,20 @@ class MarkupFieldtype extends WireData implements Module {
 			$out = $wrapper->renderValue();
 		}
 		return $out; 	
+	}
+
+	/**
+	 * Is the given page property/field name one that should be linked to the source page in output?
+	 * 
+	 * @param Page $page
+	 * @param $property
+	 * @return bool
+	 * 
+	 */
+	protected function isLinkablePageProperty(Page $page, $property) {
+		if(!in_array($property, $this->linkableProperties)) return false;
+		if(!$page->viewable($property)) return false;
+		return true;
 	}
 
 	/**

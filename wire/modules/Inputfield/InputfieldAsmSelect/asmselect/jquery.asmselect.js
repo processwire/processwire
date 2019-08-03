@@ -1,8 +1,8 @@
 /*
- * Alternate Select Multiple (asmSelect) 1.4 - jQuery Plugin
+ * Alternate Select Multiple (asmSelect) 2.0 - jQuery Plugin
  * https://processwire.com
  * 
- * Copyright (c) 2009-2019 by Ryan Cramer - http://www.ryancramer.com
+ * Copyright (c) 2009-2019 by Ryan Cramer
  * 
  * Licensed under the MIT license. 
  *
@@ -14,77 +14,103 @@
 
 		var options = {
 
-			listType: 'ol',						// Ordered list 'ol', or unordered list 'ul'
-			sortable: false, 					// Should the list be sortable?
-			addable: true, 						// Can items be added to selection?
-			deletable: true,					// Can items be removed from selection? 
-			highlight: false,					// Use the highlight feature? 
-			fieldset: false,					// Use fieldset support? (for PW Fieldset types)
-			animate: false,						// Animate the the adding/removing of items in the list?
-			addItemTarget: 'bottom',				// Where to place new selected items in list: top or bottom
-			hideWhenAdded: false,					// Hide the option when added to the list? works only in FF
-			hideWhenEmpty: false,					// Hide the <select> when there are no items available to select? 
-			debugMode: false,					// Debug mode keeps original select visible 
-			jQueryUI: true, 
-			hideDeleted: true,					// Hide items when deleted. If false, items remain but are marked for deletion
-			deletedOpacity: 0.5,					// opacity of deleted item, set to 1.0 to disable opacity adjustment (applicable only if hideDeleted=true)
-			deletedPrepend: '-', 					// Deleted item values are prepended with this character in the form submission (applicable only if hideDeleted=true)
+			// General settings
+			listType: 'ol',                 // Ordered list 'ol', or unordered list 'ul'
+			sortable: false,                // Should the list be sortable?
+			addable: true,                  // Can items be added to selection?
+			deletable: true,                // Can items be removed from selection? 
+			highlight: false,               // Use the highlight feature? 
+			fieldset: false,                // Use fieldset support? (for PW Fieldset types)
+			animate: false,                 // Animate the the adding/removing of items in the list?
+			addItemTarget: 'bottom',        // Where to place new selected items in list: top or bottom
+			hideWhenAdded: false,           // Hide the option when added to the list? works only in FF
+			hideWhenEmpty: false,           // Hide the <select> when there are no items available to select? 
+			debugMode: false,               // Debug mode keeps original select visible 
+			jQueryUI: true,                 // use jQuery UI?  
+			hideDeleted: true,              // Hide items when deleted. If false, items remain but are marked for deletion
+			deletedOpacity: 0.5,            // opacity of deleted item, set to 1.0 to disable opacity adjustment (applicable only if hideDeleted=true)
+			deletedPrepend: '-',            // Deleted item values are prepended with this character in the form submission (applicable only if hideDeleted=true)
+			useSelect2: true,               // use a separate select for unselected child options? (required by Safari)
+			removeWhenAdded: false,         // no longer used (was a separate select that contained removed items)
+			highlightTag: '<span></span>',  // Tag to use for highlight element highlight option is in use
 
-			// sortLabel: '<span class="ui-icon ui-icon-arrowthick-2-n-s"></span>', // sortable handle/icon
+			// Labels
 			sortLabel: '<span class="asmIcon asmIconSort">&#8597;</span>', // sortable handle/icon
-			// removeLabel: '<span class="ui-icon ui-icon-trash">remove</span>', // Text used in the "remove" link
 			removeLabel: '<span class="asmIcon asmIconRemove">&times;</span>', // Text used in the "remove" link
-			highlightAddedLabel: 'Added: ',				// Text that precedes highlight of added item
-			highlightRemovedLabel: 'Removed: ',			// Text that precedes highlight of removed item
+			highlightAddedLabel: 'Added: ',             // Text that precedes highlight of added item
+			highlightRemovedLabel: 'Removed: ',         // Text that precedes highlight of removed item
 
-			containerClass: 'asmContainer',				// Class for container that wraps this widget
-			selectClass: 'asmSelect',				// Class for the newly created <select>
-			optionDisabledClass: 'asmOptionDisabled',		// Class for items that are already selected / disabled
-			listClass: 'asmList',					// Class for the list ($ol)
-			listSortableClass: 'asmListSortable',			// Another class given to the list when it is sortable
-			listItemClass: 'asmListItem',				// Class for the <li> list items
-			listItemLabelClass: 'asmListItemLabel',			// Class for the label text that appears in list items
-			listItemDescClass: 'asmListItemDesc',			// Class for optional description text, set a data-desc attribute on the <option> to use it. May contain HTML.
-			listItemStatusClass: 'asmListItemStatus',		// Class for optional status text, set a data-status attribute on the <option> to use it. May contain HTML.
-			listItemHandleClass: 'asmListItemHandle',	// Class for sort handle
-			removeClass: 'asmListItemRemove',			// Class given to the "remove" link
+			// Classes
+			containerClass: 'asmContainer',             // Class for container that wraps this widget
+			selectClass: 'asmSelect',                   // Class for the newly created <select>
+			optionDisabledClass: 'asmOptionDisabled',   // Class for items that are already selected / disabled
+			listClass: 'asmList',                       // Class for the list ($ol)
+			listSortableClass: 'asmListSortable',       // Another class given to the list when it is sortable
+			listItemClass: 'asmListItem',               // Class for the <li> list items
+			listItemLabelClass: 'asmListItemLabel',     // Class for the label text that appears in list items
+			listItemDescClass: 'asmListItemDesc',       // Class for optional description text, set a data-desc attribute on the <option> to use it. May contain HTML.
+			listItemStatusClass: 'asmListItemStatus',   // Class for optional status text, set a data-status attribute on the <option> to use it. May contain HTML.
+			listItemHandleClass: 'asmListItemHandle',   // Class for sort handle
+			removeClass: 'asmListItemRemove',           // Class given to the "remove" link
 			editClass: 'asmListItemEdit',
-			highlightClass: 'asmHighlight',				// Class given to the highlight <span>
+			highlightClass: 'asmHighlight',             // Class given to the highlight <span>
 			deletedClass: 'asmListItemDeleted',
 		
-			// parent and children options:
-			// parent: <option value='foo' class='asmParent'>Foo ...</option> 
-			// children: <option value='bar' data-asmParent='foo'>Foo: Bar</option> and so on for more children
-			// note that selecting a parent option does not modify the value of the selection, it only reveals more selectable options
-			// also note options must be in an order in the <select> where the parent comes first, followed by children
-			optionParentClass: 'asmParent',				// Class you will assign to a parent item that has one or more child items
-			optionChildAttr: 'data-asmParent',			// Attribute you will add to child items with its value pointing to the option.asmParent’s value attribute
-			optionParentOpenClass: 'asmParentOpen',		// Assigned automatically: Class for a parent option that has its children visible 
-			optionChildClass: 'asmChild',				// Assigned automatically: Class for an option that has a parent option 
-			optionChildIndent: '&nbsp;&nbsp; ', 		// Indent applied to child options
-			
-			editLink: '', 						// Optional URL options can link to with tag {value} replaced by option value, i.e. /path/to/page/edit?id={$value}
+			// Edit option settings
+			editLink: '',  // Optional URL options can link to with tag {value} replaced by option value, i.e. /path/to/page/edit?id={$value}
 			editLabel: '<span class="ui-icon ui-icon-extlink"></span>', // Text used in the "edit" link (if editLink is populated)
-			editLinkOnlySelected: true, 				// When true, edit link only appears for items that were already selected
-			editLinkModal: true,					// Whether the edit link (if used) should be modal or "longclick" for longclick modal only
-			editLinkButtonSelector: 'form button.ui-button:visible' // button selector for finding buttons that should become modal window buttons
-
+			editLinkOnlySelected: true,  // When true, edit link only appears for items that were already selected
+			editLinkModal: true,  // Whether the edit link (if used) should be modal or "longclick" for longclick modal only
+			editLinkButtonSelector: 'form button.ui-button:visible', // button selector for finding buttons that should become modal window buttons
+	
+			// Using parent and child options where parent is selected to reveal child options
+			// -------------------------------------------------------------------------------
+			// 1. Parent option(s) must have a class attribute of 'asmParent'. While optional, I also recommend the label have an 
+			//    ellipsis or something to indicate it is a parent:
+			// 
+			//    <option value='foo' class='asmParent'>Foo …</option> 
+			// 	
+			// 2. Child options must come immediately after parent and have a 'data-asmParent' attribute containing 'value' attribute 
+			//    of parent. While optional, I also recommend the child option include both parent and child label so that the 
+			//    relationship remains clear even after selection, i.e. “Foo > Bar” or “Foo: Bar” or similar:
+			// 	
+			//    <option value='bar' data-asmParent='foo'>Foo: Bar</option>
+			// 	
+			// Please Note:
+			// • Selecting a parent option does not modify the value of the selection, it only reveals more selectable options.
+			// • Up to two levels of parent/child options are supported (more levels may also work but have not been attempted).
+			// • The options below define the settings for parent/child options (most will want to leave as-is):
+			
+			optionParentClass: 'asmParent',         // Class you will assign to a parent item that has one or more child items
+			optionParentIcon: '⬇',                 // UTF-8 down-pointing arrow icon added to select parent options, indicating more options to select
+			optionChildAttr: 'data-asmParent',      // Attribute you will add to child items with its value pointing to the option.asmParent’s value attribute
+			optionParentOpenClass: 'asmParentOpen', // Assigned automatically: Class for a parent option that has its children visible 
+			optionChildClass: 'asmChild',           // Assigned automatically: Class for an option that has a parent option 
+			optionChildIndent: '&nbsp;&nbsp; ',     // Indent applied to child options
+			optionParentLabel: '← Click again to make selection'
+			
 			};
 
 		$.extend(options, customOptions); 
 
 		return this.each(function(index) {
 
-			var $original = $(this); 				// the original select multiple
-			var $container; 					// a container that is wrapped around our widget
-			var $select; 						// the new select we have created
-			var $ol; 						// the list that we are manipulating
-			var buildingSelect = false; 				// is the new select being constructed right now?
-			var ieClick = false;					// in IE, has a click event occurred? ignore if not
-			var ignoreOriginalChangeEvent = false;			// originalChangeEvent bypassed when this is true
-			var fieldsetCloseItems = {};
-			var msie = 0; 
+			var $original = $(this);                // the original select multiple
+			var $container;                         // a container that is wrapped around our widget
+			var $select;                            // the new select we have created
+			var $select2 = null;                    // an extra hidden select for holding non-selected, non-visible options
+			var $ol;                                // the list that we are manipulating
+			var buildingSelect = false;             // is the new select being constructed right now?
+			var ieClick = false;                    // in IE, has a click event occurred? ignore if not
+			var ignoreOriginalChangeEvent = false;  // originalChangeEvent bypassed when this is true
+			var fieldsetCloseItems = {};            // list-item <li> elements in the $select representing '_END' fieldset options
+			var msie = 0;                           // contains the MSIE browser version when MSIE is detected (primarily for MSIE 6 & 7)
+			var $highlightSpan = null;              // active highlight span (is removed when option selected)
 
+			/**
+			 * Initialize an asmSelect
+			 * 
+			 */
 			function init() {
 
 				// initialize the alternate select multiple
@@ -141,18 +167,26 @@
 				if(options.editLinkModal === 'longclick') {
 					$ol.on('longclick', 'a.asmEditLinkModalLongclick', clickEditLink);
 				}
+			
+				// if select2 exists, give it the appropriate attributes, hide it, and place it after the interactive select
+				if($select2 && $select2.length) {
+					$select2.addClass($select.attr('class')).removeClass('asmSelect').attr('id', $select.attr('id') + '-helper').hide();
+					$select.after($select2);
+				}
 			}
 
+			/**
+			 * Make any items in the selected list sortable
+			 * 
+			 * Requires jQuery UI sortables, draggables, droppables
+			 * 
+			 */
 			function makeSortable() {
-
-				// make any items in the selected list sortable
-				// requires jQuery UI sortables, draggables, droppables
 				
 				var fieldsetItems = [];
 
 				$ol.sortable({
 					items: 'li.' + options.listItemClass,
-					// handle: '.' + options.listItemLabelClass,
 					axis: 'y',
 					cancel: 'a.asmEditLinkModalLongclick',
 					update: function(e, ui) {
@@ -172,9 +206,9 @@
 						if(options.jQueryUI) data.item.addClass('ui-state-highlight'); 
 						if(data.item.hasClass('asmFieldsetStart')) {
 							var $next = data.item;
-							var stopName = data.item.find('.asmListItemLabel').text() + '_END';
+							var stopName = data.item.find('.' + options.listItemLabelClass).text() + '_END';
 							do {
-								if($next.find('.asmListItemLabel').text() == stopName) break;
+								if($next.find('.' + options.listItemLabelClass).text() == stopName) break;
 								$next = $next.next('li');
 								if($next.length && !$next.hasClass('ui-sortable-placeholder')) {
 									$next.fadeTo(50, 0.7).slideUp('fast');
@@ -202,14 +236,22 @@
 				}).addClass(options.listSortableClass); 
 			}
 
+			/**
+			 * Event called when an option has been selected on the $select we created
+			 * 
+			 * @param e
+			 * @returns {boolean}
+			 * 
+			 */
 			function selectChangeEvent(e) {
 				
-				// an item has been selected on the regular select we created
 				// check to make sure it's not an IE screwup, and add it to the list
 				if(msie > 0 && msie < 7 && !ieClick) return;
 			
 				var $select = $(this);
 				var $option = $select.children("option:selected");
+				
+				if($highlightSpan && $highlightSpan.length) $highlightSpan.remove();
 			
 				// if item is not selectable then do not proceed
 				if(!$option.attr('value').length) return false;
@@ -232,67 +274,105 @@
 					childOptionSelected($select, $option);
 				}
 			}
-		
-			// called by selectChangeEvent when an option.asmParent option is selected to show or hide child options
+
+			/**
+			 * Called by selectChangeEvent() when an option.asmParent is selected to show/hide child options
+			 * 
+			 * Applicable only if parent/child options are in use
+			 * 
+			 * @param $select
+			 * @param $option
+			 * 
+			 */
 			function parentOptionSelected($select, $option) {
-				// an option with asmParent class was selected
 				
-				var $children = $select.children(
+				var $sel = $select;
+				var isOpenParent = $option.hasClass(options.optionParentOpenClass); // is option an asmParent option that is open?
+				
+				if(options.useSelect2 && !isOpenParent) $sel = getSelect2();
+				
+				var $children = $sel.find(
 					"option." + options.optionChildClass + 
 					"[" + options.optionChildAttr + "='" + $option.attr('value') + "']"
 				);
 				
 				var parentHTML = $option.html();
-				var openLabel = ' +' + $children.filter(':not(:disabled)').length + ' ⬇';
+				var openLabel = ' +' + $children.filter(':not(:disabled)').length + ' ' + options.optionParentIcon;
 
-				if($option.hasClass(options.optionParentOpenClass)) {
+				if(isOpenParent) {
 					// an already-open parent option has been clicked
 					hideSelectOptions($children);
-					parentHTML = parentHTML.replace(/\+\d+ ⬇/, '');
+					parentHTML = parentHTML.replace(/\+\d+ ./, ''); // note the '.' represents the UTF-8 arrow icon
 					$option.removeClass(options.optionParentOpenClass).removeAttr('selected');
 				} else {
 					// a closed parent has been clicked
+					var indent = options.optionChildIndent;
+					if($option.hasClass(options.optionChildClass)) indent += indent; // double indent
 					$children.each(function() {
 						// indent the child options (if they aren't already)
 						var $child = $(this);
 						var childHTML = $child.html();
-						if(!$child.is(':disabled') && childHTML.indexOf(options.optionChildIndent) !== 0) {
-							$child.html(options.optionChildIndent + childHTML);
+						// if(!$child.is(':disabled') && childHTML.indexOf(options.optionChildIndent) !== 0) {
+						if(childHTML.indexOf(options.optionChildIndent) !== 0) {
+							$child.html(indent + childHTML);
 						}
 					});
-					showSelectOptions($children);
-					$select.children(':selected').removeAttr('selected');
-					// collapse an existing parents that are open (behave as accordion)
-					$select.children('.' + options.optionParentOpenClass).each(function() {
-						$(this).attr('selected', 'selected').change(); // trigger close if any existing open
-					});
+					showSelectOptions($children, $option);
+					$select.find(':selected').removeAttr('selected');
+					// collapse any existing parents that are open (behave as accordion)
+					if(!$option.hasClass(options.optionChildClass)) {
+						$select.find('.' + options.optionParentOpenClass).each(function() {
+							$(this).attr('selected', 'selected').change(); // trigger close if any existing open
+						});
+					}
 					// make the parent selected, encouraging them to click to select a child
 					$option.addClass(options.optionParentOpenClass).attr('selected', 'selected');
 					parentHTML += openLabel;
+					var highlightOption = options.highlight;
+					options.highlight = true; // temporarily enable, even if not otherwise enabled
+					setHighlight(null, options.optionParentLabel, true);
+					if(!highlightOption) options.highlight = false; // restore option setting
 				}
-				
+
 				$option.html(parentHTML);
 			}
-		
-			// called by selectChangeEvent when an option.asmChild option is selected
+
+			/**
+			 * Called by selectChangeEvent() when an option.asmChild is selected
+			 * 
+			 * Applicable only if parent/child options are in use
+			 * 
+ 			 * @param $select
+			 * @param $option
+			 * 
+			 */	
 			function childOptionSelected($select, $option) {
 				// if an option.asmChild was selected, keep the parent selected afterwards		
-				$select.children("option[value='" + $option.attr(options.optionChildAttr) + "']").attr('selected', 'selected');
+				$select.find("option[value='" + $option.attr(options.optionChildAttr) + "']").attr('selected', 'selected');
 			}
 
+			/**
+			 * Event called when a <select> is clicked (for IE6)
+			 * 
+			 * @todo is this still necessary in 2019?
+			 * 
+			 */
 			function selectClickEvent() {
-
 				// IE6 lets you scroll around in a select without it being pulled down
 				// making sure a click preceded the change() event reduces the chance
 				// if unintended items being added. there may be a better solution?
-
 				ieClick = true; 
 			}
 
+			/**
+			 * Called when a select or option change event was manually triggered on original select[multiple]
+			 * 
+			 * When such a change event occurs, we rebuild our own visible $select
+			 * 
+			 * @param e
+			 * 
+			 */
 			function originalChangeEvent(e) {
-
-				// select or option change event manually triggered
-				// on the original <select multiple>, so rebuild ours
 
 				if(ignoreOriginalChangeEvent) {
 					ignoreOriginalChangeEvent = false; 
@@ -300,11 +380,13 @@
 				}
 
 				$select.empty();
+				if(options.useSelect2 && $select2) $select2.empty();
 				$ol.empty();
 				buildSelect();
 
 				// opera has an issue where it needs a force redraw, otherwise
 				// the items won't appear until something else forces a redraw
+				// @todo is this still necessary in 2019?
 				if(typeof $.browser != "undefined") {
 					if ($.browser.opera) $ol.hide().fadeIn("fast");
 				}
@@ -312,15 +394,17 @@
 				if(options.fieldset) setupFieldsets();
 			}
 
+			/**
+			 * Build (or rebuild) the <select> we created for the user to select items from
+			 * 
+			 */
 			function buildSelect() {
-
-				// build or rebuild the new select that the user
-				// will select items from
 
 				buildingSelect = true; 
 
 				// add a first option to be the home option / default selectLabel
 				var title = $original.attr('title'); 
+				
 				// number of items that are not disabled
 				var numActive = 0; 
 
@@ -346,88 +430,193 @@
 					}
 				});
 
-				if(!options.debugMode) $original.hide(); // IE6 requires this on every buildSelect()
+				// IE6 requires this on every buildSelect()
+				if(!options.debugMode) $original.hide(); 
+				
 				selectFirstItem();
+				
 				if(options.hideWhenEmpty) { 
 					if(numActive > 0) $select.show(); else $select.hide();
 				}
+				
 				buildingSelect = false; 
 			}
 
+			/**
+			 * Add an <option> to the $select (called only by buildSelect function)
+			 * 
+			 * @param optionId The 'id' attribute of the option element to add
+			 * @param disabled Is the option disabled?
+			 * 
+			 */
 			function addSelectOption(optionId, disabled) {
 
-				// add an <option> to the <select>
-				// used only by buildSelect()
+				if(typeof disabled == "undefined") disabled = false; 
 
-				if(disabled == undefined) var disabled = false; 
-
-				var $O = $('#' + optionId);
-				var data_asmParent = options.optionChildAttr; // data-asmParent attribute
-				var $option = $("<option>" + $O.html() + "</option>")
+				var $O = $('#' + optionId); // option from source select
+				var data_asmParent = options.optionChildAttr; // data-asmParent attribute name
+				var $option = $("<option>" + $O.html() + "</option>") // option for new select
 					.val($O.val())
 					.attr('rel', optionId);
-				
+			
+				// does the option have the asmParent class?
 				if($O.hasClass(options.optionParentClass)) {
 					$option.addClass(options.optionParentClass);
-				} else if($O.attr(data_asmParent)) {
-					$option.addClass(options.optionChildClass);
+				}
+				
+				// copy disabled state if applicable
+				if(disabled) disableSelectOption($option);
+
+				// does source select have a data-asmParent attribute?
+				if($O.attr(data_asmParent)) {
+					// this is an asmChild option that requires a parent selection before appearing
+					
+					// add asmChild class
+					$option.addClass(options.optionChildClass); 
+					
+					// copy the data-asmParent attribute to new option
 					$option.attr(data_asmParent, $O.attr(data_asmParent));
-					hideSelectOptions($option);
+					
+					// check if we should make options hidden until the parent is selected
+					if(options.useSelect2) {
+						
+						// place option in the hidden $select2 rather than $select
+						var $sel2 = getSelect2();
+						$sel2.append($option);
+						
+					} else {
+						// hide the option (not supported by Safari)
+						hideSelectOptions($option);
+						$select.append($option);
+					} 
+					
+				} else {
+					
+					// add option to the select
+					$select.append($option); 
 				}
 
-				if(disabled) disableSelectOption($option); 
-
-				$select.append($option); 
 			}
-			
+
+			/**
+			 * Get the $select2 used for hidden child options that are not currently visible
+			 * 
+			 * If the $select2 does not yet exist, it creates it
+			 * 
+			 */
+			function getSelect2() {
+				// get the select used for hidden options
+				if($select2 && $select2.length) return $select2;
+				$select2 = $('<select></select>');
+				return $select2;
+			}
+
+			/**
+			 * Hide the given <option> elements
+			 * 
+			 * @param $options
+			 * 
+			 */
 			function hideSelectOptions($options) {
-				$options.hide();
-			}
-			
-			function showSelectOptions($options) {
-				$options.show();
+				// hide the given select <option> elements
+				$options.each(function() {
+					var $option = $(this);
+					if(options.useSelect2) {
+						// use separate select to hold non-visible options (default)
+						var $sel2 = getSelect2();
+						$sel2.append($option);
+						if($option.hasClass(options.optionParentOpenClass)) {
+							// if option is a parent, also hide any of its children as well
+							hideSelectOptions($select.children(
+								'option.' + options.optionChildClass + 
+								'[' + options.optionChildAttr + '="' + $option.attr('value') + '"]'
+							)); 
+						}
+					} else {
+						// hide option using HTML5 hidden attribute (not supported by Safari)
+						$option.attr('hidden', 'hidden');
+					}
+				});
 			}
 
+			/**
+			 * Show the given <option> elements
+			 * 
+			 * @param $options The option elements to show
+			 * @param $afterOption Make them start to appear after this option element
+			 * 
+			 */
+			function showSelectOptions($options, $afterOption) {
+				$options.each(function() {
+					var $option = $(this);
+					if(options.useSelect2) {
+						if(typeof $afterOption != "undefined") {
+							$afterOption.after($option);
+							$afterOption = $option;
+						} else {
+							$select.append($option);
+						}
+					} else {
+						$option.removeAttr('hidden');
+					}
+				}); 
+			}
+
+			/**
+			 * Select the first item from the visible $select that we created
+			 * 
+			 */
 			function selectFirstItem() {
-
-				// select the firm item from the regular select that we created
-
 				$select.children(":eq(0)").attr("selected", true); 
 			}
 
+			/**
+			 * Make the given select <option> disabled (indicating it has been selected)
+			 * 
+			 * @param $option
+			 * 
+			 */
 			function disableSelectOption($option) {
 
-				// make an option disabled, indicating that it's already been selected
 				// because safari is the only browser that makes disabled items look 'disabled'
 				// we apply a class that reproduces the disabled look in other browsers
 
 				$option.addClass(options.optionDisabledClass)
 					.attr("selected", false)
 					.attr("disabled", true);
-
+				
 				if(options.hideWhenEmpty) {
 					if($option.siblings('[disabled!=true]').length < 2) $select.hide();
 				}
-
 				if(options.hideWhenAdded) $option.hide();
 				if(msie) $select.hide().show(); // this forces IE to update display
 			}
 
+			/**
+			 * Convert an option[disabled] to be enabled
+			 * 
+			 * @param $option
+			 * 
+			 */
 			function enableSelectOption($option) {
 
-				// given an already disabled select option, enable it
-
-				$option.removeClass(options.optionDisabledClass)
-					.attr("disabled", false);
-
-				if(options.hideWhenEmpty) $select.show(); 
+				$option.removeClass(options.optionDisabledClass).attr("disabled", false);
+				
+				if(options.hideWhenEmpty) $select.show();
 				if(options.hideWhenAdded) $option.show();
 				if(msie) $select.hide().show(); // this forces IE to update display
 			}
 
+			/**
+			 * Add a selected option to the selected list 
+			 * 
+			 * This creates an <li> from an <option> and adds it to the <ol> selected list
+			 *     
+			 * @param optionId The 'id' attribute of the <option> to add to the list
+			 * 
+			 */
 			function addListItem(optionId) {
 
-				// add a new item to the html list
 				var $O = $('#' + optionId); 
 
 				if(!$O) return; // this is the first item, selectLabel
@@ -482,7 +671,6 @@
 					$itemLabel.html($O.html());
 					if($O.attr('data-desc')) $itemDesc.html($O.attr('data-desc')); 
 				}
-
 
 				var $item = $("<li></li>")
 					.attr('rel', optionId)
@@ -547,11 +735,15 @@
 
 			}
 
+			/**
+			 * Reveal an <li> added to the list (called only by addListItem method)
+			 * 
+			 * This is primarily here to manage the animation of the show, if used. 
+			 * 
+			 * @param $item An <li> element
+			 * 
+			 */
 			function addListItemShow($item) {
-
-				// reveal the currently hidden item with optional animation
-				// used only by addListItem()
-
 				if(options.animate && !buildingSelect) {
 					$item.animate({
 						opacity: "show",
@@ -570,23 +762,28 @@
 				}
 			}
 
+			/**
+			 * Remove an <li> item from the HTML <ol> list
+			 * 
+			 * @param optionId The option 'id' attribute that the item represents
+			 * @param bool highlightItem Highlight the item? 
+			 * 
+			 */
 			function dropListItem(optionId, highlightItem) {
 
-				// remove an item from the html list
 				var $O = $('#' + optionId); 
 
 				if(options.hideDeleted) {
 
-					if(highlightItem == undefined) var highlightItem = true; 
+					if(typeof highlightItem == "undefined") highlightItem = true; 
 
 					$O.attr('selected', false); 
 					$item = $ol.children("li[rel=" + optionId + "]");
 
 					dropListItemHide($item); 
-					enableSelectOption($("[rel=" + optionId + "]", options.removeWhenAdded ? $selectRemoved : $select));
+					enableSelectOption($("option[rel=" + optionId + "]"));
 
 					if(highlightItem) setHighlight($item, options.highlightRemovedLabel); 
-
 
 				} else {
 					// deleted item remains in list, but marked for deletion
@@ -606,18 +803,19 @@
 				}
 
 				triggerOriginalChange(optionId, 'drop'); 
-				
 			}
 
+			/**
+			 * Helper for dropListItem() method that removes visible $item <li> with optional animation
+			 * 
+			 * This is primarily here to manage the animation of the remove, if used. 
+			 * 
+			 * @param $item
+			 * 
+			 */
 			function dropListItemHide($item) {
-
-				// remove the currently visible item with optional animation
-				// used only by dropListItem()
-
 				if(options.animate && !buildingSelect) {
-
 					$prevItem = $item.prev("li");
-
 					$item.animate({
 						opacity: "hide",
 						height: "hide"
@@ -631,41 +829,64 @@
 						}); 
 						$item.remove(); 
 					}); 
-					
 				} else {
 					$item.remove(); 
 				}
 			}
 
-			function setHighlight($item, label) {
-
-				// set the contents of the highlight area that appears
-				// directly after the <select> single
-				// fade it in quickly, then fade it out
+			/**
+			 * Set the contents of the highlight area that appears directly after the visible <select>
+			 * 
+			 * This method makes the highlight text fade in quickly, then fade out.
+			 * Applicable only if options.highlight is in use. 
+			 *     
+			 * @param $item
+			 * @param label
+			 * @param bool remain Should highlight text remain until another option is selected? (default=false)
+			 * 
+			 */
+			function setHighlight($item, label, remain) {
 
 				if(!options.highlight) return; 
-
+				if(typeof remain == "undefined") remain = false;
+				
 				$select.next("#" + options.highlightClass + index).remove();
 
-				var $highlight = $("<span></span>")
+				var $highlight = $(options.highlightTag)
 					.hide()
 					.addClass(options.highlightClass)
-					.attr('id', options.highlightClass + index)
-					.html(label + $item.children("." + options.listItemLabelClass).slice(0,1).text()); 
+					.attr('id', options.highlightClass + index);
+				
+				if($item) {
+					$highlight.html(label + $item.children("." + options.listItemLabelClass).slice(0, 1).text());
+				} else {
+					$highlight.html(label); 
+				}
 					
 				$select.after($highlight); 
 
-				$highlight.fadeIn("fast", function() {
-					setTimeout(function() { $highlight.fadeOut("slow", function() {
-						$(this).remove();
-					}); }, 50); 
-				}); 
+				if(remain) {
+					$highlight.fadeIn('fast');
+					$highlightSpan = $highlight;
+				} else {
+					$highlight.fadeIn("fast", function() {
+						setTimeout(function() {
+							$highlight.fadeOut("slow", function() {
+								$(this).remove();
+							});
+						}, 50);
+					});
+				}
 			}
 
+			/**
+			 * Trigger a change event on the original select[multiple] so that other scripts can see the change
+			 * 
+			 * @param optionId The 'id' attribute of the <option> element that is applicable to the change
+			 * @param type The action that occured, one of: 'add', 'drop' or 'sort'
+			 * 
+			 */
 			function triggerOriginalChange(optionId, type) {
-
-				// trigger a change event on the original select multiple
-				// so that other scripts can pick them up
 
 				ignoreOriginalChangeEvent = true; 
 				$option = $("#" + optionId); 
@@ -679,6 +900,17 @@
 				}]); 
 			}
 
+			/**
+			 * Called when an edit link is clicked (requires ProcessWire)
+			 * 
+			 * Handles management of the modal $iframe window for the edit screen.
+			 * Applicable only if the edit options are in use.
+			 * Requires ProcessWire’s modal.js script be laoded from the 'JqueryUI' module.
+			 * 
+			 * @param e
+			 * @returns {boolean}
+			 * 
+			 */
 			function clickEditLink(e) {
 
 				if(!options.editLinkModal) return true; 
@@ -742,22 +974,30 @@
 				}); 
 				return false; 
 			}
-			
+
+			/**
+			 * ProcessWire field fieldset indentation setup
+			 * 
+			 * In ProcessWire asmSelect is often used to manage lists of fields, which can sometimes include fieldset fields.
+			 * When a fieldset is present, there are <option> elements to represent the beginning and ending of the fieldset,
+			 * and option elements that appear within are indented to clarify they are in a fieldset. 
+			 * 
+			 * This method is only called if options.fieldset == true;
+			 * 
+			 */
 			function setupFieldsets() {
 				$ol.find('span.asmFieldsetIndent').remove();
-				var $items = $ol.children('li');
-			
-				$ol.children('li').children('span.asmListItemLabel').each(function() {
+				$ol.children('li').children('span.' + options.listItemLabelClass).each(function() {
 					var $t = $(this);
 					var label = $t.text();
 					if(label.substring(label.length-4) != '_END') return;
 					label = label.substring(0, label.length-4);
-					var $li = $(this).closest('li.asmListItem');
+					var $li = $(this).closest('li.' + options.listItemClass);
 					$li.addClass('asmFieldset asmFieldsetEnd');
 					while(1) {
-						$li = $li.prev('li.asmListItem');
+						$li = $li.prev('li.' + options.listItemClass);
 						if($li.length < 1) break;
-						var $span = $li.children('span.asmListItemLabel'); 
+						var $span = $li.children('span.' + options.listItemLabelClass); 
 						var label2 = $span.text();
 						if(label2 == label) {
 							$li.addClass('asmFieldset asmFieldsetStart');
@@ -768,6 +1008,7 @@
 				});
 			}
 
+			// initialize for this iteration
 			init();
 		});
 	};

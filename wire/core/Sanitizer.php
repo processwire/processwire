@@ -923,10 +923,13 @@ class Sanitizer extends Wire {
 			$value = "$basename.$pathinfo[extension]";
 		}
 		
-		return $this->name($value, $beautify, $maxLength, '_', array(
+		$value = $this->name($value, $beautify, $maxLength, '_', array(
 			'allowAdjacentExtras' => true, // language translation filenames require doubled "--" chars, others may too
-			)
-		); 
+		));
+		
+		while(strpos($value, '..') !== false) $value = str_replace('..', '', $value);
+		
+		return $value;
 	}
 
 	/**

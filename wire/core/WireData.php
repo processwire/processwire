@@ -265,9 +265,13 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 			$keys = array();
 		}
 		if($from->wire($key) !== null) return null; // don't allow API vars to be retrieved this way
-		if($from instanceof WireData) $value = $from->get($key);
-			else if($from instanceof WireArray) $value = $from->getProperty($key);
-			else $value = $from->$key;
+		if($from instanceof WireData) {
+			$value = $from->get($key);
+		} else if($from instanceof WireArray) {
+			$value = $from->getProperty($key);
+		} else {
+			$value = $from->$key;
+		}
 		if(!count($keys)) return $value; // final value
 		if(is_object($value)) {
 			if(count($keys) > 1) {

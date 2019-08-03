@@ -44,7 +44,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 135;
+	const versionRevision = 137;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -760,12 +760,13 @@ class ProcessWire extends Wire {
 	 * Get root path, check it, and optionally auto-detect it if not provided
 	 * 
 	 * @param bool|string $rootPath Root path if already known, in which case we’ll just modify as needed
+	 *   …or specify boolean true to get absolute root path, which disregards any symbolic links to core. 
 	 * @return string
 	 * 
 	 */
-	protected static function getRootPath($rootPath = '') {
+	public static function getRootPath($rootPath = '') {
 		
-		if(strpos($rootPath, '..') !== false) {
+		if($rootPath !== true && strpos($rootPath, '..') !== false) {
 			$rootPath = realpath($rootPath);
 		}
 
@@ -777,7 +778,7 @@ class ProcessWire extends Wire {
 			if(!file_exists($rootPath . 'wire/core/ProcessWire.php')) $rootPath = '';
 		}
 		
-		if(empty($rootPath)) {
+		if(empty($rootPath) || $rootPath === true) {
 			// if unable to determine from script filename, attempt to determine from current file
 			$parts = explode(DIRECTORY_SEPARATOR, __FILE__);
 			$parts = array_slice($parts, 0, -3); // removes "ProcessWire.php", "core" and "wire"

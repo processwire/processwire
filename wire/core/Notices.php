@@ -90,7 +90,7 @@ abstract class Notice extends WireData {
 	}
 	
 	public function set($key, $value) {
-		if($key === 'text' && strpos($value, 'icon-') === 0 && strpos($value, ' ')) {
+		if($key === 'text' && is_string($value) && strpos($value, 'icon-') === 0 && strpos($value, ' ')) {
 			list($icon, $value) = explode(' ', $value, 2);
 			list(,$icon) = explode('-', $icon, 2);
 			$icon = $this->wire('sanitizer')->name($icon);

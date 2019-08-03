@@ -16,7 +16,11 @@
  * @property string $ext Alias of extension
  * @property bool $exists Does the file exist?
  * @property int $filesize Size of file in bytes
+ * @property string $filesizeStr Human readable size of file
  * @property Pagefile|Pageimage $pagefile Source Pageimage object
+ * @property int $savings Bytes saved by this extra
+ * @property string $savingsStr Human readable savings by this extra
+ * @property string $savingsPct Percent savings by this extra
  * 
  * The following properties affect the behavior of the URL-related methods
  * =======================================================================
@@ -109,6 +113,16 @@ class PagefileExtra extends WireData {
 	 */
 	public function filesize() {
 		return (int) @filesize($this->filename());
+	}
+
+	/**
+	 * Return human readable file size string
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function filesizeStr() {
+		return wireBytesStr($this->filesize());
 	}
 
 	/**
@@ -222,6 +236,20 @@ class PagefileExtra extends WireData {
 				break;
 			case 'filesize':	
 				$value = $this->filesize();
+				break;
+			case 'filesizeStr':	
+				$value = $this->filesizeStr();	
+				break;
+			case 'savings':
+				$value = $this->pagefile->filesize() - $this->filesize();
+				break;
+			case 'savingsStr':
+				$value = wireBytesStr($this->pagefile->filesize() - $this->filesize());
+				break;
+			case 'savingsPct':
+				$imageSize = $this->pagefile->filesize();
+				$extraSize = $this->filesize();
+				$value = round((($imageSize - $extraSize) / $imageSize) * 100) . '%';
 				break;
 			case 'url':
 				$value = $this->url();

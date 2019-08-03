@@ -168,6 +168,7 @@ var ProcessLister = {
 		ProcessLister.spinner.fadeIn('fast'); 
 		
 		var submitData = {
+			render_results: 1, 
 			filters: refreshAll ? ProcessLister.filters.val() : 'ignore',
 			columns: $('#lister_columns').val(),
 			sort: $('#lister_sort').val()
