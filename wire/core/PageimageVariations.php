@@ -316,7 +316,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 		$infos = array();
 		$count = 0;
 		
-		if(!$options['info'] && $options['count']) {
+		if(!$options['info'] && !$options['count']) {
 			$variations = $this->wire(new Pageimages($this->pagefiles->page));
 		}
 
@@ -395,7 +395,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 				$pageimage->setOriginal($this->pageimage);
 				if($options['verbose'] === 1) {
 					$info['pageimage'] = $pageimage;
-				} else {
+				} else if($variations) {
 					$variations->add($pageimage);
 				}
 			}
