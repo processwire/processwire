@@ -119,7 +119,7 @@ class MarkupFieldtype extends WireData implements Module {
 							$v = $page->getFormatted($property);
 							$v = $field->type->markupValue($page, $field, $v);
 							if($this->isLinkablePageProperty($page, $property)) {
-								$a[] = "<a href='$page->url'>$property: $v</a>";
+								$a[] = "<a href='$page->url'>$v</a>";
 							} else {
 								$a[] = $v;
 							}
