@@ -490,7 +490,8 @@ class WireHooks {
 	 */
 	public function addHook(Wire $object, $method, $toObject, $toMethod = null, $options = array()) {
 		
-		if(is_array($method) || strpos($method, ',') !== false) {
+		if(empty($options['noAddHooks']) && (is_array($method) || strpos($method, ',') !== false)) {
+			// potentially multiple methods to hook in $method argument
 			return $this->addHooks($object, $method, $toObject, $toMethod, $options);
 		}
 		
@@ -740,6 +741,7 @@ class WireHooks {
 		}
 		
 		$result = array();
+		$options['noAddHooks'] = true; // prevent addHook() from calling addHooks() again
 		
 		foreach($methods as $method) {
 			$method = trim($method);
