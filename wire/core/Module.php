@@ -140,11 +140,12 @@
  * 
  * ~~~~~
  * {
- *   title: 'Your Module title',
- *   version: 1,
- *   // and so on
+ *   "title": "Your Module Title",
+ *   "version": 1
  * }
  * ~~~~~
+ * Note: The example JSON above just shows "title" and "version", but you would
+ * likely add more than that as needed, like shown in the static version above. 
  * 
  * -----------------------------------------------------------------
  *
