@@ -138,12 +138,12 @@ class Pageimage extends Pagefile {
 	protected $error = '';
 
 	/**
-	 * Last Pageimage::size() $options argument
+	 * Last used Pageimage::size() $options argument
 	 * 
 	 * @var array
 	 * 
 	 */
-	static protected $lastSizeOptions = array();
+	protected $sizeOptions = array();
 
 	/**
 	 * Construct a new Pageimage
@@ -174,7 +174,6 @@ class Pageimage extends Pagefile {
 	public function __clone() {
 		$this->imageInfo['width'] = 0; 
 		$this->imageInfo['height'] = 0;
-		$this->extras = array();
 		parent::__clone();
 	}
 
@@ -356,6 +355,23 @@ class Pageimage extends Pagefile {
 		
 		return $this;
 	}
+
+	/**
+	 * Set property
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return Pageimage|WireData
+	 * 
+	 */
+	public function set($key, $value) {
+		if($key === 'sizeOptions' && is_array($value)) {
+			$this->sizeOptions = $value;
+			return $this;
+		} else {
+			return parent::set($key, $value);
+		}
+	}
 	
 	/**
 	 * Get a property from this Pageimage
@@ -425,6 +441,9 @@ class Pageimage extends Pagefile {
 			case 'debugInfo':
 				if(!$this->pageimageDebugInfo) $this->pageimageDebugInfo = new PageimageDebugInfo($this);
 				$value = $this->pageimageDebugInfo;
+				break;
+			case 'sizeOptions':	
+				$value = $this->sizeOptions;
 				break;
 			default: 
 				$value = parent::get($key); 
@@ -626,10 +645,12 @@ class Pageimage extends Pagefile {
 		} else {  
 			$result = $this->___size($width, $height, $options);
 		}
-	
-		$options['_width'] = $width;
-		$options['_height'] = $height;
-		self::$lastSizeOptions = $options;
+
+		if($result) {
+			$options['_width'] = $width;
+			$options['_height'] = $height;
+			$result->set('sizeOptions', $options);
+		}
 		
 		return $result;
 	}
@@ -1572,9 +1593,9 @@ class Pageimage extends Pagefile {
 		/** @var PagefileExtra $webp */
 		$webp = $event->object;
 		$webp->unlink();
-		if($original) {
+		if($original && isset($this->sizeOptions['_width'])) {
 			// we are in an image resized from an original
-			$options = self::$lastSizeOptions;
+			$options = $this->sizeOptions;
 			$width = $options['_width'];
 			$height = $options['_height'];
 		} else {
@@ -1591,7 +1612,9 @@ class Pageimage extends Pagefile {
 		}
 		$options['webpAdd'] = true;
 		$original->size($width, $height, $options);
-		$event->return = empty($this->error); 
+		$error = $this->error;
+		
+		$event->return = empty($error); 
 	}
 	
 	/**

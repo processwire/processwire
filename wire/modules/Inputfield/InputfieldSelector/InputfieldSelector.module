@@ -1187,8 +1187,8 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 					$template = $templates->get($templateID);
 					if(!$template) continue;
 					foreach($this->getParentPages($template) as $p) {
-						if(!$this->wire('user')->hasPermission('page-view', $p)) continue;
-						$info['options'][$p->id] = $p->get('title|path');
+						//if(!$this->wire('user')->hasPermission('page-view', $p)) continue;
+						$info['options'][$p->id] = $p->get('path');
 					}
 				}
 				asort($info['options']);
@@ -2134,11 +2134,15 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	public function getParentPages(Template $template) {
 		
 		$templates = $this->wire('templates');
-		$parentPages = $templates->getParentPages($template);
+		$parentPages = $templates->getParentPages($template, true, Page::statusUnpublished);
 		if($parentPages->count()) return $parentPages;
 		
 		$parentIDs = array();
-		$sql = 'SELECT parent_id FROM pages WHERE pages.templates_id=:templates_id GROUP BY parent_id LIMIT 500';
+		$sql = 
+			'SELECT parent_id FROM pages ' . 
+			'WHERE pages.templates_id=:templates_id ' . 
+			'AND status<' . Page::statusTrash . ' ' . 
+			'GROUP BY parent_id LIMIT 500';
 		$query = $this->wire('database')->prepare($sql);
 		$query->bindValue('templates_id', $template->id, \PDO::PARAM_INT);
 		$query->execute();
@@ -2150,6 +2154,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	
 		$query->closeCursor();
 		$parentPages = count($parentIDs) ? $this->wire('pages')->getById($parentIDs) : new PageArray(); 
+		foreach($parentPages as $parentPage) {
+			if(!$parentPage->viewable(false)) $parentPages->remove($parentPage);
+		}
 		return $parentPages;
 	}
 

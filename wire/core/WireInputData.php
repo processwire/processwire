@@ -95,7 +95,9 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	 */
 	public function __construct(&$input = array(), $lazy = false) {
 		$this->useFuel(false);
-		$this->stripSlashes = get_magic_quotes_gpc();
+		if(version_compare(PHP_VERSION, '5.4.0', '<') && function_exists('get_magic_quotes_gpc')) {
+			$this->stripSlashes = get_magic_quotes_gpc();
+		}
 		if(!empty($input)) {
 			if($lazy) {
 				$this->data = &$input;

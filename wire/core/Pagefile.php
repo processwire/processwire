@@ -99,7 +99,17 @@ class Pagefile extends WireData {
 		$this->set('modified', 0); 
 		$this->set('created', 0); 
 	}
-
+	
+	/**
+	 * Clone Pagefile 
+	 *
+	 * #pw-internal
+	 *
+	 */
+	public function __clone() {
+		$this->extras = array();
+		parent::__clone();
+	}
 
 	/**
 	 * Set the filename associated with this Pagefile.

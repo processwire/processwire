@@ -472,7 +472,8 @@ class Templates extends WireSaveableItems {
 	 * 
 	 * @param Template $template
 	 * @param bool $checkAccess Whether or not to check for user access to do this (default=false).
-	 * @param bool $getAll Specify true to return all possible parents (makes method always return a PageArray)
+	 * @param bool|int $getAll Specify true to return all possible parents (makes method always return a PageArray)
+	 *   Or specify int of maximum allowed `Page::status*` constant for items in returned PageArray (since 3.0.138). 
 	 * @return Page|NullPage|null|PageArray
 	 *
 	 */
@@ -481,6 +482,7 @@ class Templates extends WireSaveableItems {
 		$foundParent = null;
 		$foundParents = $getAll ? $this->wire('pages')->newPageArray() : null;
 		$foundParentQty = 0;
+		$maxStatus = is_int($getAll) && $getAll ? ($getAll * 2) : 0;
 
 		if($template->noShortcut || !count($template->parentTemplates)) return $foundParents;
 		if($template->noParents == -1) {
@@ -502,7 +504,11 @@ class Templates extends WireSaveableItems {
 			// sort=status ensures that a non-hidden page is given preference to a hidden page
 			$include = $checkAccess ? "unpublished" : "all";
 			$selector = "templates_id=$parentTemplate->id, include=$include, sort=status";
-			if(!$getAll) $selector .= ", limit=2";
+			if($maxStatus) {
+				$selector .= ", status<$maxStatus";
+			} else if(!$getAll) {
+				$selector .= ", limit=2";
+			}
 			$parentPages = $this->wire('pages')->find($selector);
 			$numParentPages = count($parentPages);
 
@@ -556,11 +562,13 @@ class Templates extends WireSaveableItems {
 	 * 
 	 * @param Template $template
 	 * @param bool $checkAccess Specify true to exclude parent pages that user doesn't have access to add pages to (default=false)
+	 * @param int $maxStatus Max allowed `Page::status*` constant (default=0 which means not applicable). Since 3.0.138
 	 * @return PageArray
 	 * 
 	 */
-	public function getParentPages(Template $template, $checkAccess = false) {
-		return $this->getParentPage($template, $checkAccess, true);
+	public function getParentPages(Template $template, $checkAccess = false, $maxStatus = 0) {
+		$getAll = $maxStatus ? $maxStatus : true;
+		return $this->getParentPage($template, $checkAccess, $getAll);
 	}
 	
 	/**

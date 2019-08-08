@@ -1308,6 +1308,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$sanitizer = $this->wire('sanitizer');
 		/** @var Languages $languages */
 		$languages = $this->wire('languages');
+		/** @var WireHooks $hooks */
+		$hooks = $this->wire('hooks');
 		
 		if($languages && $p->template->noLang) $languages = null;
 		$langPageNames = $languages && $this->wire('modules')->isInstalled('LanguageSupportPageNames');
@@ -1359,13 +1361,6 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			// count
 			$value = $value->count();
 
-		} else if($field && $field->type && $this->wire('hooks')->isMethodHooked($field->type->className(), 'markupValue')) {
-			// if the markupValue method is hooked, let it have control
-			if($subname == 'data') $subname = '';
-			$value = $field->type->markupValue($p, $field, $value, $subname);
-			// value may be MarkupFieldtype object
-			$value = (string) $value;
-			
 		} else if($value instanceof Page) {
 			// page
 			if($field && $field->type) {
@@ -1410,9 +1405,15 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				$value = '';
 			}
 			
+		} else if($field && $field->type && $hooks->isMethodHooked($field->type->className(), 'markupValue')) {
+			// if the markupValue method is hooked, let it have control
+			if($subname == 'data') $subname = '';
+			$value = $field->type->markupValue($p, $field, $value, $subname);
+			// value may be MarkupFieldtype object
+			$value = (string) $value;
+
 		} else if($value instanceof WireArray) {
 			// WireArray type unknown to Lister
-			$value = $p->getFormatted($name); // markupValue requires formatted value
 			$value = $field->type->markupValue($p, $field, $value, $subname);
 
 		} else if(is_array($value)) {
