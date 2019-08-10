@@ -1270,7 +1270,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 							$inputfield->collapsed = $collapsed;
 							if(count($options) < 2
 								&& ($field->get('parent_id') || $field->get('template_id')) 
-								&& ($field->get('findPagesCode') || $field->get('findPagesSelector'))) {
+								&& ($field->get('findPagesCode') || $field->get('findPagesSelector') || $field->get('findPagesSelect'))) {
 								// see if we can locate options purely with the parent or template
 								$findSelector = array("include=unpublished, limit=500, sort=title, sort=name, ");
 								$parent_ids = $field->get('parent_ids');
@@ -1579,9 +1579,10 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$hasPageListSelect = strpos($field->get('inputfield'), 'PageListSelect') !== false;
 
 		// determine autocomplete state based on field settings and quantity of pages involved
-		if($field->get('findPagesSelector')) {
+		$findPagesSelector = $field->get('findPagesSelector|findPagesSelect');
+		if($findPagesSelector) {
 			// user-specified selector determines which pages match
-			$selector = trim($field->get('findPagesSelector'), ', ');
+			$selector = trim($findPagesSelector, ', ');
 			if(strpos($selector, 'page.') !== false) {
 				// remove page.something impossible reference, if present
 				$selector = preg_replace('/[_a-zA-Z0-9]+[=<>!]+page\.[_a-zA-Z0-9]+[\s,]*/', '', $selector);
