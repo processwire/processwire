@@ -171,6 +171,9 @@ class ProcessTemplate extends Process {
 		if(!$hasFilters) foreach($this->templates as $template) {
 			if($this->session->get('ProcessTemplateFilterSystem')) {
 				if($template->flags & Template::flagSystem) $template->tags .= " " . $this->_x('System', 'tag'); // Tag applied to the group of built-in/system fields
+			} else if ($template->flags & Template::flagSystem) {
+				// continue if current template is system template
+				continue;
 			}
 			if(empty($template->tags)) {
 				$tag = strtolower($untaggedLabel);
