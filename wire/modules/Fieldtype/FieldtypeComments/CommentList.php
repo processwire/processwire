@@ -156,9 +156,12 @@ class CommentList extends Wire implements CommentListInterface {
 		
 		if(empty($out) || strpos($out, '{') === false) return $out;
 		
+		$removals = array(" href=''", ' href=""');
+		
 		foreach($placeholders as $key => $value) {
 			$key = '{' . $key . '}';	
 			if(strpos($out, $key) === false) continue;
+			$value = str_replace(array('{', '}'), ' ', $value);
 			$out = str_replace($key, $value, $out);
 		}
 		
@@ -169,15 +172,27 @@ class CommentList extends Wire implements CommentListInterface {
 			$out = str_replace('{stars}', $this->renderStars($comment), $out);
 		}
 		
-		if(strpos($out, '{url}') !== false) {
-			$out = str_replace('{url}', $comment->getPage()->url() . '#Comment' . $comment->id, $out);
+		if(strpos($out, '{url}') !== false || strpos($out, '{page.url}') !== false) {
+			$page = $comment->getPage();
+			if($page->id && $page->viewable() && !$page->isUnpublished()) {
+				// page has a linkable URL
+				$pageUrl = $page->url();
+				$commentUrl = "$pageUrl#Comment$comment->id";
+			} else {
+				$pageUrl = '';
+				$commentUrl = '';
+			}
+			$out = str_replace(array('{url}', '{page.url}'), array($commentUrl, $pageUrl), $out);
 		}
 		
 		if(strpos($out, '{page.') !== false) {
 			$page = $comment->getPage();
 			$out = str_replace('{page.', '{', $out);
+			$out = preg_replace('/\{[-_a-z0-9]*\.[-_.a-z0-9]*\}/i', '', $out); // remove any others
 			$out = $page->getMarkup($out);
 		}
+	
+		$out = str_replace($removals, '', $out); 
 		
 		return $out;
 	}
