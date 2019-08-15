@@ -61,6 +61,18 @@ class ImageSizerEngineAnimatedGif extends ImageSizerEngine {
 	protected function validTargetImageFormats() {
 		return $this->validSourceImageFormats();
 	}
+	
+	/**
+	 * Get library version string
+	 *
+	 * @return string Returns version string or blank string if not applicable/available
+	 * @since 3.0.138
+	 *
+	 */
+	public function getLibraryVersion() {
+		$gd = gd_info();
+		return isset($gd['GD Version']) ? $gd['GD Version'] : '';
+	}
 
 	/**
 	 * Is GD supported?

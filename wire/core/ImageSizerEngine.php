@@ -486,6 +486,64 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 		return $this->validSourceImageFormats();
 	}
 
+	/**
+	 * Get an array of image file formats this ImageSizerModule can use as source or target
+	 * 
+	 * Unless using the $type argument, returned array contains 'source' and 'target' indexes, 
+	 * each an array of image file types/extensions in uppercase. 
+	 * 
+	 * @param string $type Specify 'source' or 'target' to get just those formats, or omit to get all.
+	 * @return array 
+	 * @since 3.0.138
+	 * 
+	 */
+	public function getSupportedFormats($type = '') {
+		$a = array(
+			'source' => $this->validSourceImageFormats(),
+			'target' => $this->validTargetImageFormats()
+		);
+		return $type && isset($a[$type]) ? $a[$type] : $a;
+	}
+
+	/**
+	 * Get array of information about this engine
+	 * 
+	 * @return array
+	 * @since 3.0.138
+	 * 
+	 */
+	public function getEngineInfo() {
+		
+		$formats = $this->getSupportedFormats();
+		$moduleName = $this->className();
+		$className = $this->className(true);
+
+		if(is_callable("$className::getModuleInfo")) {
+			$moduleInfo = $className::getModuleInfo();
+		} else {
+			$moduleInfo = $this->wire('modules')->getModuleInfoVerbose($className);
+		}
+
+		if(!is_array($moduleInfo)) $moduleInfo = array();
+
+		$info = array(
+			'name' => str_replace('ImageSizerEngine', '', $moduleName),
+			'title' => isset($moduleInfo['title']) ? $moduleInfo['title'] : '',
+			'class' => $moduleName,
+			'summary' => isset($moduleInfo['summary']) ? $moduleInfo['summary'] : '',
+			'author' => isset($moduleInfo['author']) ? $moduleInfo['author'] : '',
+			'moduleVersion' => isset($moduleInfo['version']) ? $moduleInfo['version'] : '',
+			'libraryVersion' => $this->getLibraryVersion(),
+			'priority' => $this->enginePriority,
+			'sources' => $formats['source'],
+			'targets' => $formats['target'],
+			'quality' => $this->quality,
+			'sharpening' => $this->sharpening,
+		);
+
+		return $info;
+	}
+
 	/*************************************************************************************************
 	 * COMMON IMPLEMENTATION METHODS
 	 *
@@ -1981,6 +2039,17 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 	 */
 	public function getConfigData() {
 		return $this->moduleConfigData;
+	}
+
+	/**
+	 * Get library version string
+	 * 
+	 * @return string Returns version string or blank string if not applicable/available
+	 * @since 3.0.138
+	 * 
+	 */
+	public function getLibraryVersion() {
+		return '';
 	}
 
 	/**

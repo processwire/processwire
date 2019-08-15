@@ -135,6 +135,18 @@ class ImageSizerEngineIMagick extends ImageSizerEngine {
 		if($this->supportsFormat('WEBP')) $formats[] = 'WEBP';
 		return $formats;
 	}
+
+	/**
+	 * Get library version string
+	 *
+	 * @return string Returns version string or blank string if not applicable/available
+	 * @since 3.0.138
+	 *
+	 */
+	public function getLibraryVersion() {
+		$a = \Imagick::getVersion();
+		return "$a[versionString] n=$a[versionNumber]";
+	}
 	
 	/**
 	 * Is the given image format supported by this IMagick for source and target? (RJC)
