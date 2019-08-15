@@ -64,7 +64,11 @@
  * @property User $createdUser The user that created this page. Returns a User or a NullUser.
  * @property int $modified_users_id ID of last modified user. #pw-group-system
  * @property User $modifiedUser The user that last modified this page. Returns a User or a NullUser.
- * @property PagefilesManager $filesManager The object instance that manages files for this page. #pw-advanced
+ * @property PagefilesManager $filesManager The object instance that manages files for this page. #pw-group-files
+ * @property string $filesPath Get the disk path to store files for this page, creating it if it does not exist. #pw-group-files
+ * @property string $filesUrl Get the URL to store files for this page, creating it if it does not exist. #pw-group-files
+ * @property bool $hasFilePath Does this page have a disk path for storing files? #pw-group-files
+ * @property bool $hasFiles Does this page have one or more files in its files path? #pw-group-files
  * @property bool $outputFormatting Whether output formatting is enabled or not. #pw-advanced
  * @property int $sort Sort order of this page relative to siblings (applicable when manual sorting is used). #pw-group-system
  * @property int $index Index of this page relative to its siblings, regardless of sort (starting from 0). #pw-group-traversal
@@ -652,7 +656,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 		'editUrl' => 'm',
 		'fieldgroup' => '',
 		'filesManager' => 'm',
+		'filesPath' => 'm',
+		'filesUrl' => 'm',
 		'hasChildren' => 'm',
+		'hasFiles' => 'm',
+		'hasFilesPath' => 'm',
 		'hasLinks' => 't',
 		'hasParent' => 'parents',
 		'hasReferences' => 't',
@@ -4022,7 +4030,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	/**
 	 * Return instance of PagefilesManager specific to this Page
 	 * 
-	 * #pw-group-advanced
+	 * #pw-group-files
 	 *
 	 * @return PagefilesManager
 	 *
@@ -4033,6 +4041,66 @@ class Page extends WireData implements \Countable, WireMatchable {
 		return $this->filesManager; 
 	}
 
+	/**
+	 * Does the page have a files path for storing files?
+	 * 
+	 * This will only check if files path exists, it will not create the path if it’s not already present.
+	 * 
+	 * #pw-group-files
+	 * 
+	 * @return bool
+	 * @since 3.0.138 Earlier versions must use the more verbose PagefilesManager::hasPath($page)
+	 * @see hasFiles(), filesManager()
+	 * 
+	 */
+	public function hasFilesPath() {
+		return PagefilesManager::hasPath($this);
+	}
+
+	/**
+	 * Does the page have a files path and one or more files present in it?
+	 * 
+	 * This will only check if files exist, it will not create the directory if it’s not already present.
+	 * 
+	 * #pw-group-files
+	 * 
+	 * @return bool
+	 * @since 3.0.138 Earlier versions must use the more verbose PagefilesManager::hasFiles($page)
+	 * @see hasFilesPath(), filesPath(), filesManager()
+	 * 
+	 */
+	public function hasFiles() {
+		return PagefilesManager::hasFiles($this); 
+	}
+
+	/**
+	 * Returns the path for files, creating it if it does not yet exist
+	 * 
+	 * #pw-group-files
+	 * 
+	 * @return string
+	 * @since 3.0.138 You can also use the equivalent but more verbose `$page->filesManager()->path()` in any version
+	 * @see filesUrl(), hasFilesPath(), hasFiles(), filesManager()
+	 * 
+	 */
+	public function filesPath() {
+		return $this->filesManager()->path();
+	}
+
+	/**
+	 * Returns the URL for files, creating it if it does not yet exist
+	 * 
+	 * #pw-group-files
+	 * 
+	 * @return string
+	 * @see filesPath(), filesManager()
+	 * @since 3.0.138 You can use the equivalent but more verbose `$page->filesManager()->url()` in any version
+	 * 
+	 */
+	public function filesUrl() {
+		return $this->filesManager()->url();
+	}
+	
 	/**
 	 * Prepare the page and it's fields for removal from runtime memory, called primarily by Pages::uncache()
 	 * 

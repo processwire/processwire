@@ -489,6 +489,7 @@ class PagefilesManager extends Wire {
 		if(!$dir) return false; 
 		$has = false; 
 		while(!$has && ($f = readdir($dir)) !== false) $has = $f !== '..' && $f !== '.';
+		closedir($dir);
 		// while(!$has && ($f = readdir($dir)) !== false) $has = $f !== '..' && $f !== '.' && !$f !== self::metaFileName;
 		return $has; 
 	}
