@@ -81,6 +81,7 @@ if(!function_exists("tabIndent")):
 	 * @param string $str String that needs the tabs
 	 * @param int $numTabs Number of tabs to insert per line (note any existing tabs are left as-is, so indentation is retained)
 	 * @param string $str The provided string but with tabs inserted
+	 * @return string
 	 * @deprecated
 	 *
 	 */

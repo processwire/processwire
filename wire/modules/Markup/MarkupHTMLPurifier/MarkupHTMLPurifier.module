@@ -31,7 +31,7 @@ class MarkupHTMLPurifier extends WireData implements Module {
 		return array(
 			'title' => 'HTML Purifier', 
 			'summary' => 'Front-end to the HTML Purifier library.', 
-			'version' => 492, 
+			'version' => 495, 
 			'singular' => false, 
 			'autoload' => false, 
 			);
@@ -114,16 +114,9 @@ class MarkupHTMLPurifier extends WireData implements Module {
 	 */
 	public function purify($html) {
 		
-		// prepare markup for things that HTMLPurifier doesn't support
-		$hasTel = strpos($html, 'href="tel:') !== false;
-		if($hasTel) $html = str_replace('href="tel:', 'href="tel//:', $html);
-	
 		// purify
 		$html = $this->getPurifier()->purify($html);
 	
-		// finish markup for things that HTMLPurifier doesn't support
-		if($hasTel) $html = str_replace('href="tel//:', 'href="tel:', $html);
-		
 		return $html;
 	}
 
