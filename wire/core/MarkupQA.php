@@ -784,7 +784,7 @@ class MarkupQA extends Wire {
 				if(file_exists($this->page->filesManager()->path() . basename($src))) {
 					// file exists, but we just don't know what it is - leave it alone
 				} else {
-					$this->error("Image file no longer exists: " . basename($src) . ")");
+					$this->error("Image file no longer exists: $src");
 					if($this->page->of()) $value = str_replace($img, '', $value);
 					$info['img_unresolved']++;
 				}
@@ -912,7 +912,7 @@ class MarkupQA extends Wire {
 	 * 
 	 */
 	public function error($text, $flags = 0) {
-		$logText = "$text (page={$this->page->path}, field={$this->field->name})";
+		$logText = "$text (field={$this->field->name}, id={$this->page->id}, path={$this->page->path})";
 		$this->wire('log')->save(self::errorLogName, $logText);
 		/*
 		if($this->wire('modules')->isInstalled('SystemNotifications')) {

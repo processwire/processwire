@@ -37,8 +37,17 @@ class CommentList extends Wire implements CommentListInterface {
 	 *
 	 */
 	protected $comments = null;
-	
+
+	/**
+	 * @var Page
+	 * 
+	 */
 	protected $page;
+
+	/**
+	 * @var Field
+	 * 
+	 */
 	protected $field;
 
 	/**
@@ -61,7 +70,7 @@ class CommentList extends Wire implements CommentListInterface {
 		'downvoteFormat' => '&darr;{cnt}', 
 		'depth' => 0,
 		'replyLabel' => 'Reply',
-		); 
+	); 
 
 	/**
 	 * Construct the CommentList
@@ -92,6 +101,35 @@ class CommentList extends Wire implements CommentListInterface {
 		$this->field = $comments->getField();
 		$this->options['useStars'] = $this->field->get('useStars');
 		$this->options = array_merge($this->options, $options); 
+	}
+
+	/**
+	 * Get or set options
+	 * 
+	 * @param string|null|array $key Use one of the following: 
+	 *  - Omit to get array of all options
+	 *  - Specify option name to get (and omit $value argument) 
+	 *  - Specify option name to set and provide a non-null $value argument
+	 *  - Specify array of one or more [ 'option' => 'value' ] to set and omit $value argument
+	 * @param string|int|bool|null $value When setting an individual option, value should be specified here, otherwise omit
+	 * @return array|string|int|bool|null When getting singe option, value is returned, otherwise array of all options is returned. 
+	 * @since 3.0.138
+	 * 
+	 */
+	public function options($key = null, $value = null) {
+		if($key === null) {
+			return $this->options;
+		} else if(is_array($key)) {
+			$this->options = array_merge($this->options, $key);
+			return $this->options;
+		} else if($value !== null) {
+			$this->options[$key] = $value;
+			return $this->options;
+		} else if(isset($this->options[$key])) { 
+			return $this->options[$key];
+		} else {
+			return null;
+		}
 	}
 
 	/**
@@ -196,15 +234,15 @@ class CommentList extends Wire implements CommentListInterface {
 		
 		return $out;
 	}
-	
+
 	/**
 	 * Render the comment
 	 *
 	 * This is the default rendering for development/testing/demonstration purposes
 	 *
 	 * It may be used for production, but only if it meets your needs already. Typically you'll want to render the comments
-	 * using your own code in your templates. 
-	 *
+	 * using your own code in your templates.
+	 * 
 	 * @param Comment $comment
 	 * @param int $depth Default=0
 	 * @return string
@@ -212,6 +250,25 @@ class CommentList extends Wire implements CommentListInterface {
 	 *
 	 */
 	public function renderItem(Comment $comment, $depth = 0) {
+		if($this->wire('hooks')->isHooked("CommentList::renderItem()")) { 
+			return $this->__call('renderItem', array($comment, $depth));
+		} else {
+			return $this->___renderItem($comment, $depth);
+		}
+	}
+	
+	/**
+	 * Render the comment (hookable version)
+	 * 
+	 * Hookable since 3.0.138
+	 *
+	 * @param Comment $comment
+	 * @param int $depth Default=0
+	 * @return string
+	 * @see CommentArray::render()
+	 *
+	 */
+	protected function ___renderItem(Comment $comment, $depth = 0) {
 
 		$text = $comment->getFormatted('text'); 
 		$cite = $comment->getFormatted('cite'); 

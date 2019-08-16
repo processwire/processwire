@@ -11,6 +11,7 @@
  * @property int $id
  * @property int $parent_id 
  * @property string $text 
+ * @property string|null $textFormatted Text value formatted for output (runtime use only, must be set manually)
  * @property int $sort 
  * @property int $status
  * @property int|null $prevStatus
@@ -140,6 +141,12 @@ class Comment extends WireData {
 	 */
 	protected $pageComments = null;
 
+	/**
+	 * @var string|null
+	 * 
+	 */
+	protected $textFormatted = null;
+
 	/**	
 	 * Construct a Comment and set defaults
 	 *
@@ -197,6 +204,9 @@ class Comment extends WireData {
 			
 		} else if($key == 'prevStatus') {
 			return $this->prevStatus;
+			
+		} else if($key == 'textFormatted') {
+			return $this->textFormatted;
 		}
 
 		return parent::get($key); 
@@ -216,6 +226,8 @@ class Comment extends WireData {
 		$value = $this->get($key); 
 		
 		if($key == 'text') {
+			if($this->textFormatted !== null) return $this->textFormatted;
+			
 			$textformatters = null;
 			// $textformatters = $this->field ? $this->field->textformatters : null; // @todo
 			if(is_array($textformatters) && count($textformatters)) {
@@ -230,8 +242,6 @@ class Comment extends WireData {
 				$value = str_replace("\n\n", "</p><p>", $value);
 				$value = str_replace("\n", "<br />", $value);
 			}
-
-
 			
 		} else if(in_array($key, array('cite', 'email', 'user_agent', 'website'))) {
 			$value = $this->wire('sanitizer')->entities(trim($value));
@@ -242,15 +252,28 @@ class Comment extends WireData {
 
 	public function set($key, $value) {
 
-		if(in_array($key, array('id', 'parent_id', 'status', 'flags', 'pages_id', 'created', 'created_users_id'))) $value = (int) $value; 
-			else if($key == 'text') $value = $this->cleanCommentString($value); 
-			else if($key == 'cite') $value = str_replace(array("\r", "\n", "\t"), ' ', substr(strip_tags($value), 0, 128)); 
-			else if($key == 'email') $value = $this->sanitizer->email($value); 
-			else if($key == 'ip') $value = filter_var($value, FILTER_VALIDATE_IP); 
-			else if($key == 'user_agent') $value = str_replace(array("\r", "\n", "\t"), ' ', substr(strip_tags($value), 0, 255)); 
-			else if($key == 'website') $value = $this->wire('sanitizer')->url($value, array('allowRelative' => false, 'allowQuerystring' => false)); 
-			else if($key == 'upvotes' || $key == 'downvotes') $value = (int) $value; 
-
+		if(in_array($key, array('id', 'parent_id', 'status', 'flags', 'pages_id', 'created', 'created_users_id'))) {
+			$value = (int) $value;
+		} else if($key === 'text') {
+			$value = $this->cleanCommentString($value);
+			$this->textFormatted = null;
+		} else if($key === 'cite') {
+			$value = str_replace(array("\r", "\n", "\t"), ' ', substr(strip_tags($value), 0, 128));
+		} else if($key === 'email') {
+			$value = $this->sanitizer->email($value);
+		} else if($key === 'ip') {
+			$value = filter_var($value, FILTER_VALIDATE_IP);
+		} else if($key === 'user_agent') {
+			$value = str_replace(array("\r", "\n", "\t"), ' ', substr(strip_tags($value), 0, 255));
+		} else if($key === 'website') {
+			$value = $this->wire('sanitizer')->url($value, array('allowRelative' => false, 'allowQuerystring' => false));
+		} else if($key === 'upvotes' || $key === 'downvotes') {
+			$value = (int) $value;
+		} else if($key === 'textFormatted') {
+			$this->textFormatted = $value;
+			return $this;
+		}
+			
 		// save the state so that modules can identify when a comment that was identified as spam 
 		// is then set to not-spam, or when a misidentified 'approved' comment is actually spam
 		if($key == 'status' && $this->loaded) {
