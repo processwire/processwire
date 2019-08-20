@@ -133,7 +133,7 @@ DirectoryIndex index.php index.html index.htm
   # RewriteRule ^ http://www.%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
   # RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
-  # RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
+  # RewriteRule ^(.*)$ http://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 
   # ----------------------------------------------------------------------------------------------- 
   # 14. OPTIONAL: Send URLs with non-ASCII name-format characters to 404 page (optimization)
