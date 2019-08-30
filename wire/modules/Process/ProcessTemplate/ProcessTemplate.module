@@ -103,7 +103,7 @@ class ProcessTemplate extends Process {
 				$this->_('Do not include a file extension.'),
 			'invalidTemplateName' => $this->_('Template name does not match required format.'),
 			'nameAlreadyInUse' => $this->_('The name "%s" is already in use'),
-	);
+		);
 
 		if($this->input->urlSegment1) $this->modules->get("JqueryWireTabs"); 
 		
@@ -769,6 +769,8 @@ class ProcessTemplate extends Process {
 		$f->attr('id+name', '_fieldgroup_fields_changed');
 		$f->attr('value', '');
 		$t->add($f);
+
+		$t->appendMarkup = "<script>$(document).ready(function() { ProcessTemplateInitFields(); });</script>";
 		
 		if(in_array($template->id, $this->wire('config')->userTemplateIDs)) {
 			/** @var ProcessProfile $profile */
@@ -972,7 +974,7 @@ class ProcessTemplate extends Process {
 		
 		foreach($template->fieldgroup as $field) {
 			$field = $template->fieldgroup->getField($field->id, true); // get in context
-			$attrs = $this->getAsmListAttrs($field); 
+			$attrs = $this->getAsmListAttrs($field, true); 
 			$attrs['selected'] = 'selected';
 			$select->addOption($field->id, $field->name, $attrs);
 		}
@@ -982,7 +984,7 @@ class ProcessTemplate extends Process {
 			if(($field->flags & Field::flagPermanent) && !$this->config->advanced) continue; 
 			$name = $field->name; 
 			if($field->flags & Field::flagSystem) $name .= "*";
-			$attrs = $this->getAsmListAttrs($field); 
+			$attrs = $this->getAsmListAttrs($field, false); 
 			$select->addOption($field->id, $name, $attrs); 
 		}
 	
@@ -993,13 +995,14 @@ class ProcessTemplate extends Process {
 	 * Get attributes for the asmSelect fields selection
 	 * 
 	 * @param Field $field
+	 * @param bool|null $hasField Does template currently have this field? (or null if column width adjustment not supported)
 	 * @return array
 	 * 
 	 */
-	public function getAsmListAttrs(Field $field) {
+	public function getAsmListAttrs(Field $field, $hasField = null) {
 		
-		$status = '';
 		$desc = '';
+		$fieldType = '';
 		
 		if(!$field->type instanceof FieldtypeFieldsetClose) {
 			$desc = $field->label;
@@ -1011,19 +1014,31 @@ class ProcessTemplate extends Process {
 				$desc .= '…';
 			}
 
-			$status = str_replace('Fieldtype', '', $field->type);
+			$fieldType = "<span class='fieldType'>" . str_replace('Fieldtype', '', $field->type) . "</span>";
 		}
 	
 		$icons = '';
 		if($field->required) $icons .= "<i class='fa fa-asterisk'></i>";
 		if($field->showIf) $icons .= "<i class='fa fa-question-circle'></i>";
-	
-		$status .= $field->columnWidth > 0 ? ' ' . $field->columnWidth . '%' : ' '; 
-		
+		$icons = "<span class='fieldInfo'>$icons</span>";
+
+		$width = $field->columnWidth > 0 && $field->columnWidth <= 100 ? $field->columnWidth : 100;
+		if($hasField) {
+			$widthLabel = $this->wire('sanitizer')->entities1($this->_('Click and drag to adjust field width'));
+			$columnWidth = "<span class='columnWidth ui-priority-secondary' data-was='$width' data-field='$field->id' title='$widthLabel'>$width%</span>";
+		} else {
+			if($hasField === null) {
+				$widthLabel = '';
+			} else {
+				$widthLabel = $this->wire('sanitizer')->entities1($this->_('Save template before adjusting width of new field'));
+			}
+			$columnWidth = "<span class='columnWidth columnWidthOff ui-priority-secondary' title='$widthLabel'>$width%</span>";
+		}
+
 		$attrs = array(
-			'data-status' => $icons . $status,
-			'data-desc' => $this->wire('sanitizer')->entities($desc)
-			);
+			'data-status' => "$icons $fieldType $columnWidth",
+			'data-desc' => $this->wire('sanitizer')->entities($desc),
+		);
 
 		if($field->icon) {
 			$icon = $field->icon;
@@ -2279,6 +2294,84 @@ class ProcessTemplate extends Process {
 		}
 		
 		return $isUsable ? $fieldset : null;
+	}
+
+	/**
+	 * Save template/fieldgroup/field property (ajax)
+	 * 
+	 * @throws WireException
+	 * 
+	 */
+	public function ___executeSaveProperty() {
+		
+		$input = $this->wire('input');
+		$result = array('success' => true, 'message' => '', 'value' => '');
+		$property = $input->post('property');
+		$error = '';
+		
+		if(!$this->template) {
+			$error = 'No template specified';
+			
+		} else if(!$property) {
+			$error = 'No property specified';
+			
+		} else if($property === 'columnWidth') {
+			$fieldgroup = $this->template->fieldgroup;
+			$fieldId = (int) $input->post('field');
+			$field = $fieldgroup->getFieldContext($fieldId);
+			if(!$field) $field = $this->wire('fields')->get($fieldId);
+			$columnWidth = (int) $input->post('columnWidth');
+			$oldColumnWidth = $field->columnWidth ? $field->columnWidth : 100;
+
+			if($field && $columnWidth != $oldColumnWidth) {
+				$data = $fieldgroup->getFieldContextArray($field->id);
+				$data['columnWidth'] = $columnWidth;
+				$fieldgroup->setFieldContextArray($field->id, $data);
+				$fieldgroup->saveContext();
+				$result['message'] = "Updated columnWidth from $oldColumnWidth to $columnWidth";
+				$result['value'] = $columnWidth;
+			} else if($field) {
+				$result['message'] = 'No changes';
+				$result['value'] = $columnWidth;
+			} else {
+				$error = 'Field not found';
+			}
+			
+		} else if($property === 'fieldgroup_fields') {
+			$ids = $input->post($property);
+			$fieldgroup = $this->template->fieldgroup;
+		
+			if(is_array($ids)) {
+				foreach($ids as $id) {
+					if(!($id = (int) $id)) continue;
+					$id = abs($id); // deleted items have negative values, but we do not delete here
+					if(!$field = $this->fields->get($id)) continue;
+
+					if(!$fieldgroup->has($field)) {
+						continue; // field will be added when they save
+					} else {
+						$field = $fieldgroup->getFieldContext($field->id);
+						$fieldgroup->append($field);
+					}
+				}
+				$fieldgroup->save();
+				$result['message'] = "Updated fieldgroup field order";
+				$result['value'] = $fieldgroup->implode(',', 'id');
+			} else {
+				$error = "Invalid $property value (array required)";
+			}
+			
+		} else {
+			$error = "Unsupported property requested";
+		}
+		
+		if($error) {
+			$result['success'] = false;
+			$result['message'] = $error;
+		}
+	
+		echo json_encode($result);
+		exit;
 	}
 
 	/**

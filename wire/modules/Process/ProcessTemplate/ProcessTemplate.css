@@ -96,3 +96,100 @@ input[disabled=disabled] {
 .pw-init #ProcessTemplateEdit {
 	display: none; 
 }
+
+/*** COLUMN WIDTH RESIZE OPTIONS **********************************************/
+
+.asmListItem {
+	/* prevent selection of text in asmListItem elements */
+	-moz-user-select: none;
+	-khtml-user-select: none;
+	-webkit-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+}
+
+.asmListItem > .asmListItemStatus > .columnWidth:not(.columnWidthOff):hover {
+	/* hover percent item */
+	cursor: pointer;
+	color: #fff;
+	opacity: 1.0;
+	text-decoration: underline;
+}
+.asmListItem > .asmListItemStatus > .columnWidthOff:hover {
+	cursor: not-allowed;
+}
+
+.columnWidthActive,
+.columnWidthActive .asmListItem > .asmListItemStatus > .columnWidth:hover,
+.columnWidthActive .asmListSortable .asmListItemLabel,
+.columnWidthActive .asmListSortable .asmListItemHandle,
+.columnWidthActive .asmListSortable .asmListItemDesc,
+.columnWidthActive .asmListSortable .asmListItemStatus {
+	/* column width active: cursor when column width is being adjusted */
+	cursor: col-resize !important;
+}
+
+.columnWidthActive .asmListItemDesc,
+.columnWidthActive .asmListItemLabel {
+	/* column width active: reduce visibility of other text on the asmListItem */
+	opacity: 0.4;
+}
+
+.asmListItem .columnWidthBar {
+	/* column width progress bar */
+	position: absolute;
+	top: 0;
+	left: 0;
+	width: 100%;
+	height: 100%;
+	background: rgba(0,0,0,0.4);
+}
+
+.asmListItem .columnWidthBar > .columnWidthBarPct {
+	/* column with progress bar: percent indicator */
+	position: absolute;
+	display: inline-block;
+	right: 10px;
+	top: 4px;
+	color: #fff;
+	font-size: 14px;
+}
+
+.asmListItem.rowStart:before {
+	/* caret down to indicate starting column */
+	content: ' ';
+	color: #fff;
+	position: absolute;
+	display: block;
+	right: 45px;
+	top: -1px;
+	width: 0;
+	height: 0;
+	border-left: 5px solid transparent;
+	border-right: 5px solid transparent;
+	border-top: 5px solid rgba(255,255,255,0.7);
+}
+.asmListItem.rowStart.rowError:before {
+	/* error in starting column */
+	border-top: 5px solid red;
+}
+
+.asmListItem.rowStop:not(.rowStart):before {
+	/* caret up to indicate stopping column */
+	content: ' ';
+	color: #fff;
+	position: absolute;
+	display: block;
+	right: 45px;
+	bottom: -1px;
+	width: 0;
+	height: 0;
+	border-left: 5px solid transparent;
+	border-right: 5px solid transparent;
+	border-bottom: 5px solid rgba(0,0,0,0.3);
+}
+.asmListItem.rowStop:not(.rowStart).rowError:before {
+	/* error in stopping column */
+	border-bottom: 5px solid red;
+}
+
