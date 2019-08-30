@@ -299,11 +299,7 @@ class InputfieldToggle extends Inputfield {
 		if(!$f) return "Unable to load Inputfield";
 		$f->val($this->val());
 		
-		$out = $f->render();
-		
-		$out .= "<pre>" . print_r($this->getAllLabels(), true) . "</pre>";
-	
-		return $out;
+		return $f->render();
 	}
 	
 	/**
