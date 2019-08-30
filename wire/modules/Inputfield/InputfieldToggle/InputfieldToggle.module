@@ -1,0 +1,660 @@
+<?php namespace ProcessWire;
+
+/**
+ * Toggle Inputfield
+ * 
+ * An Inputfield for handling an on/off toggle that maintains a boolean value (or null when no selection).
+ * This provides an alternative to a single checkbox field. 
+ * 
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * https://processwire.com
+ *
+ * @property int $labelType
+ * @property int $valueType
+ * @property string $yesLabel Custom yes/on label
+ * @property string $noLabel Custom no/off label
+ * @property string $otherLabel Custom label for optional other value
+ * @property int|bool $useReverse
+ * @property int|bool $useOther
+ * @property bool|int $useVertical
+ * @property int $defaultValue
+ * @property int|string $defaultOption
+ * @property string $inputfieldClass
+ * 
+ * @method InputfieldSelect|InputfieldRadios getInputfield()
+ *
+ */
+class InputfieldToggle extends Inputfield {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Toggle', __FILE__),
+			'summary' => __('A toggle providing similar input capability to a checkbox but much more configurable.', __FILE__),
+			'version' => 1,
+		);
+	}
+
+	// label type constants
+	const labelTypeYes = 0;
+	const labelTypeTrue = 1;
+	const labelTypeOn = 2;
+	const labelTypeEnabled = 3;
+	const labelTypeCustom = 100;
+
+	// value constants
+	const valueNo = 0;
+	const valueYes = 1; 
+	const valueOther = 2;
+	const valueUnknown = '';
+
+	// default or fallback Inputfield clasr
+	const defaultInputfieldClass = 'InputfieldRadios';
+
+	/**
+	 * Array of all label types
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $labelTypes = array(
+		'yes' => self::labelTypeYes,
+		'true' => self::labelTypeOn,
+		'on' => self::labelTypeTrue,
+		'enabled' => self::labelTypeEnabled,
+		'custom' => self::labelTypeCustom,
+	);
+	
+	/**
+	 * Array of all value types
+	 *
+	 * @var array
+	 *
+	 */
+	protected $valueTypes = array(
+		'no' => self::valueNo,
+		'yes' => self::valueYes,
+		'other' => self::valueOther,
+		'unknown' => self::valueUnknown
+	);
+
+	/**
+	 * Deleted Inputfield object for rendering (InputfieldRadios, InputfieldSelect, etc.)
+	 * 
+	 * @var InputfieldSelect|InputfieldRadios Or any that extends them and does not have array value
+	 * 
+	 */
+	protected $inputfield = null;
+
+	/**
+	 * Cached result of a getAllLabels() call
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $allLabels = array();
+
+	/**
+	 * Construct and set default settings
+	 *
+	 */
+	public function __construct() {
+		
+		$this->set('labelType', self::labelTypeYes);
+		$this->set('yesLabel', '✓');
+		$this->set('noLabel', '✗');
+		$this->set('otherLabel', $this->_('?'));
+		$this->set('useOther', 0);
+		$this->set('useReverse', 0);
+		$this->set('useVertical', 0); 
+		$this->set('defaultOption', 'none');
+		$this->set('inputfieldClass', self::defaultInputfieldClass);
+
+		$this->attr('value', self::valueUnknown);
+
+		$languages = $this->wire('languages');
+		if($languages) {
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				$this->set("yesLabel$language", '');
+				$this->set("noLabel$language", '');
+				$this->set("otherLabel$language", '');
+			}
+		}
+		
+		parent::__construct();
+	}
+	
+	/**
+	 * Is the current value empty? (i.e. no selection)
+	 * 
+	 * @return bool
+	 * 
+	 */
+	public function isEmpty() {
+		$value = $this->val();
+		if($value === '') return true;
+		if(is_int($value) && $value > -1) return false;
+		if($value === self::valueOther && $this->useOther) return false;
+		return true;
+	}
+
+	/**
+	 * Sanitize the value to be one ofthe constants: valueYes, valueNo, valueOther, valueUnknown
+	 * 
+	 * @param string|int $value
+	 * @return int|string
+	 * 
+	 */
+	public function sanitizeValue($value) {
+	
+		if($value === null) return self::valueUnknown;
+		if(is_bool($value)) return $value ? self::valueYes  : self::valueNo;
+		
+		$intValue = strlen("$value") && ctype_digit("$value") ? (int) $value : '';
+		$strValue = strtolower("$value");
+		
+		if($intValue === self::valueNo || $intValue === self::valueYes) {
+			$value = $intValue;
+			
+		} else if($intValue === self::valueOther) {
+			$value = $intValue;
+
+		} else if($strValue === 'yes' || $strValue === 'on' || $strValue === 'true') {
+			$value = self::valueYes;
+			
+		} else if($strValue === 'no' || $strValue === 'off' || $strValue === 'false') {
+			$value = self::valueNo;
+
+		} else if($strValue === 'unknown' || $strValue === '') {
+			$value = self::valueUnknown;
+			
+		} else if(is_string($value) && strlen($value)) {
+			// attempt to match to a label
+			$value = null;
+			foreach($this->getAllLabels() as $key => $label) {
+				if(strtolower($label) !== $strValue) continue;
+				list($labelType, $valueType, $languageName) = explode(':', $key);
+				if($labelType || $languageName) {} // ignore
+				$value = $this->valueTypes[$valueType]; 
+				break;
+			}
+			if($value === null) $value = self::valueUnknown;
+			
+		} else {
+			$value = self::valueUnknown; // blank string
+		}
+		
+		return $value;
+	}
+
+	/**
+	 * Set attribute
+	 * 
+	 * @param array|string $key
+	 * @param array|bool|int|string $value
+	 * @return Inputfield
+	 * 
+	 */
+	public function setAttribute($key, $value) {
+		if($key === 'value') $value = $this->sanitizeValue($value);
+		return parent::setAttribute($key, $value);
+	}
+
+	/**
+	 * Get the delegated Inputfield that will be used for rendering selectable options
+	 * 
+	 * @return InputfieldRadios|InputfieldSelect
+	 * 
+	 */
+	public function ___getInputfield() {
+		
+		if($this->inputfield) return $this->inputfield;
+		
+		$class = $this->getSetting('inputfieldClass');
+		if(empty($class)) $class = self::defaultInputfieldClass;
+		
+		$f = $this->wire('modules')->get($class);
+		if(!$f) $f = $this->wire('modules')->get(self::defaultInputfieldClass);
+		
+		$this->addClass($class, 'wrapClass');
+
+		/** @var InputfieldSelect|InputfieldRadios $f */
+		$f->attr('name', $this->attr('name'));
+		$f->attr('id', $this->attr('id'));
+		$f->addClass($this->attr('class'));
+
+		if(!$this->useVertical) {
+			$f->set('optionColumns', 1);
+		}
+		
+		$labels = $this->getLabels($this->labelType);
+
+		if($this->useReverse) {
+			$f->addOption(self::valueNo, $labels['no']);
+			$f->addOption(self::valueYes, $labels['yes']);
+		} else {
+			$f->addOption(self::valueYes, $labels['yes']);
+			$f->addOption(self::valueNo, $labels['no']);
+		}
+
+		if($this->useOther) {
+			$f->addOption(self::valueOther, $labels['other']);
+		}
+		
+		$f->val($this->val());
+		$this->inputfield = $f;
+		
+		return $f;
+	}
+
+	/**
+	 * Render ready
+	 * 
+	 * @param Inputfield|null $parent
+	 * @param bool $renderValueMode
+	 * @return bool
+	 * 
+	 */
+	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+		$f = $this->getInputfield();
+		if($f) $f->renderReady($parent, $renderValueMode);
+		return parent::renderReady($parent, $renderValueMode);
+	}
+
+	/**
+	 * Render value
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function ___renderValue() {
+		$label = $this->getValueLabel($this->attr('value'));
+		$value = $this->wire('sanitizer')->entities1($label); 
+		return $value; 
+	}
+
+	/**
+	 * Render input element(s)
+	 *
+	 * @return string
+	 *
+	 */
+	public function ___render() {
+		
+		$value = $this->val();
+	
+		// check if we should assign a default value
+		$default = $this->getSetting('defaultOption');
+		if($default && ("$value" === self::valueUnknown || !strlen("$value"))) {
+			if($default === 'yes') {
+				$this->val(self::valueYes);
+			} else if($default === 'no') {
+				$this->val(self::valueNo);
+			} else if($default === 'other' && $this->useOther) {
+				$this->val(self::valueOther);
+			}
+		}
+		
+		$f = $this->getInputfield();
+		if(!$f) return "Unable to load Inputfield";
+		$f->val($this->val());
+		
+		$out = $f->render();
+		
+		$out .= "<pre>" . print_r($this->getAllLabels(), true) . "</pre>";
+	
+		return $out;
+	}
+	
+	/**
+	 * Process input
+	 *
+	 * @param WireInputData $input
+	 * @return $this
+	 *
+	 */
+	public function ___processInput(WireInputData $input) {
+
+		$value = $input[$this->name];
+		$intValue = strlen($value) && ctype_digit("$value") ? (int) $value : null;
+
+		if($value === null) {
+			// selection not present in input
+
+		} else if($intValue === self::valueYes || $intValue === self::valueNo) {
+			// yes or no selected
+			$this->val($intValue);
+
+		} else if($intValue === self::valueOther && $this->useOther) {
+			// other selected
+			$this->val($intValue);
+
+		} else if($value === self::valueUnknown) {
+			// no selection (not reachable when using radios)
+			$this->val(self::valueUnknown); 
+
+		} else {
+			// something we don't recognize
+		}
+
+		return $this;
+	}
+	
+	/**
+	 * Get labels for the given label type
+	 *
+	 * @param int $labelType Specify toggle type constant or omit to use configured toggle type. 
+	 * @param Language|int|string|null Language or omit to use current user’s language. (default=null)
+	 * @return array Returned array has these indexes: 
+	 *  `no` (string): No/Off state label
+	 *  `yes` (string): Yes/On state label
+	 *  `other` (string): Other state label
+	 *  `unknown` (string): No selection label
+	 *
+	 */
+	public function getLabels($labelType = null, $language = null) {
+		
+		if($labelType === null) $labelType = $this->labelType;
+
+		/** @var Languages $langauges */
+		$languages = $this->wire('languages');
+		$setLanguage = false;
+		$languageId = '';
+		$yes = '';
+		$no = '';
+
+		if($languages) {
+			/** @var User $user */
+			$user = $this->wire('user');
+			if(empty($language)) {
+				// use current user language
+				$language = $user->language;
+			} else if(is_int($language) || is_string($language)) {
+				// get language from specified language ID or name
+				$language = $languages->get($language);
+			}
+			if($language instanceof Page && $language->id != $user->language->id) {
+				// use other specified language
+				$languages->setLanguage($language);
+				$setLanguage = true;
+			} else {
+				// use current user language
+				$language = $user->language;
+			}
+			$languageId = $language && !$language->isDefault() ? $language->id : '';
+		}
+		
+		switch($labelType) {
+			case self::labelTypeTrue:
+				$yes = $this->_('True');
+				$no = $this->_('False');
+				break;
+			case self::labelTypeOn:
+				$yes = $this->_('On');
+				$no = $this->_('Off');
+				break;
+			case self::labelTypeEnabled:
+				$yes = $this->_('Enabled');
+				$no = $this->_('Disabled');
+				break;
+			case self::labelTypeCustom:	
+				$yes = $languageId ? $this->get("yesLabel$languageId|yesLabel") : $this->yesLabel;
+				$no = $languageId ? $this->get("noLabel$languageId|noLabel") : $this->noLabel;
+				break;
+		}
+	
+		// default (labelTypeYes)
+		if(!strlen($yes)) $yes = $this->_('Yes');
+		if(!strlen($no)) $no = $this->_('No');
+	
+		// other and unknown labels
+		$other = $languageId ? $this->get("otherLabel$languageId|otherLabel") : $this->otherLabel;
+		if(empty($other)) $other = $this->_('Other');
+		$unknown = $this->_('Unknown');
+
+		if($setLanguage && $languages) $languages->unsetLanguage();
+		
+		return array(
+			'no' => $no, 
+			'yes' => $yes, 
+			'other' => $other,
+			'unknown' => $unknown
+		);
+	}
+
+	/**
+	 * Get all possible labels for all label types and all languages
+	 * 
+	 * Returned array of labels (strings) indexed by "labelTypeNum:valueTypeName:languageName"
+	 * 
+	 * @return array
+	 * 
+	 */
+	public function getAllLabels() {
+		
+		if(!empty($this->allLabels)) return $this->allLabels; 
+	
+		/** @var Languages|null $languages */
+		$languages = $this->wire('languages');
+		
+		$all = array();
+		
+		foreach($this->labelTypes as $labelType) {
+			if($languages) {
+				foreach($languages as $language) {
+					foreach($this->getLabels($labelType, $language) as $valueType => $label) {
+						$all["$labelType:$valueType:$language->name"] = $label;
+					}
+				}
+			} else {
+				foreach($this->getLabels($labelType) as $valueType => $label) {
+					$all["$labelType:$valueType:default"] = $label;
+				}
+			}
+		}
+		
+		return $all;
+	}
+
+	/**
+	 * Get the label for the currently set or given value
+	 * 
+	 * @param bool|int|string|null $value Optionally provide value or omit to use currently set value attribute.
+	 * @param int|null $labelType Specify labelType constant or omit for selected label type. 
+	 * @param Language|int|string $language
+	 * @return string Label string
+	 * 
+	 */
+	public function getValueLabel($value = null, $labelType = null, $language = null) {
+		
+		$labels = $this->getLabels($labelType, $language);
+		
+		if($value === null) $value = $this->attr('value');
+		if($value === null || $value === self::valueUnknown) return $labels['unknown'];
+		if(is_bool($value)) return $value ? $labels['yes'] : $labels['no'];
+		
+		if($value === self::valueOther) return $labels['other'];
+		if($value === self::valueYes) return $labels['yes'];
+		if($value === self::valueNo) return $labels['no'];
+		
+		return $labels['unknown'];
+	}
+
+	/**
+	 * Get label used for yes/on option
+	 * 
+	 * @param int|null $labelType Specify labelType constant or omit for selected label type. 
+	 * @param Language|int|string $language
+	 * @return string
+	 * 
+	 */
+	public function getYesLabel($labelType = null, $language = null) {
+		return $this->getValueLabel(self::valueYes, $labelType, $language);
+	}
+
+	/**
+	 * Get label used for no/off option
+	 *
+	 * @param int|null $labelType Specify labelType constant or omit for selected label type.
+	 * @param Language|int|string $language
+	 * @return string
+	 *
+	 */
+	public function getNoLabel($labelType = null, $language = null) {
+		return $this->getValueLabel(self::valueNo, $labelType, $language);
+	}
+
+	/**
+	 * Get label used for 3rd/other option
+	 *
+	 * @param int|null $labelType Specify labelType constant or omit for selected label type.
+	 * @param Language|int|string $language
+	 * @return string
+	 *
+	 */
+	public function getOtherLabel($labelType = null, $language = null) {
+		return $this->getValueLabel(self::valueOther, $labelType, $language);
+	}
+
+	/**
+	 * Get label used for unknown/no-selection option
+	 *
+	 * @param int|null $labelType Specify labelType constant or omit for selected label type.
+	 * @param Language|int|string $language
+	 * @return string
+	 *
+	 */
+	public function getUnknownLabel($labelType = null, $language = null) {
+		return $this->getValueLabel(self::valueUnknown, $labelType, $language);
+	}
+	
+	/**
+	 * Configure Inputfield
+	 *
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigInputfields() {
+		
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+
+		/** @var Languages $languages */
+		$languages = $this->wire('languages');
+
+		$inputfields = parent::___getConfigInputfields();
+		
+		$removals = array('defaultValue');
+		foreach($removals as $name) {
+			$f = $inputfields->getChildByName($name);
+			if($f) $inputfields->remove($f);
+		}
+
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
+		$f->attr('name', 'labelType');
+		$f->label = $this->_('Label type');
+		foreach($this->labelTypes as $labelType) {
+			if($labelType == self::labelTypeCustom) {
+				$label = $this->_('Custom');
+			} else {
+				$label = $this->getYesLabel($labelType) . '/' . $this->getNoLabel($labelType);
+			}
+			$f->addOption($labelType, $label);
+		}
+		$f->attr('value', (int) $this->labelType);
+		$f->columnWidth = 34;
+		$inputfields->add($f);
+		
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
+		$f->attr('name', 'inputfieldClass');
+		$f->label = $this->_('Input type');
+		foreach($modules->findByPrefix('Inputfield') as $name) {
+			if(!wireInstanceOf($name, 'InputfieldSelect')) continue;
+			if(wireInstanceOf($name, 'InputfieldHasArrayValue')) continue;
+			$f->addOption($name, str_replace('Inputfield', '', $name));
+		}
+		$f->val($this->getSetting('inputfieldClass'));
+		$f->columnWidth = 33;
+		$inputfields->add($f);
+
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
+		$f->attr('name', 'useVertical');
+		$f->label = $this->_('Radios');
+		$f->addOption(0, $this->_('Horizontal'));
+		$f->addOption(1, $this->_('Vertical'));
+		$f->val($this->useVertical ? 1 : 0); 
+		$f->columnWidth = 33;
+		$f->showIf = 'inputfieldClass=InputfieldRadios';
+		$inputfields->add($f);
+		
+		$customStates = array(
+			'yesLabel' => $this->_('Yes/On'),
+			'noLabel' => $this->_('No/Off'),
+		);
+
+		/** @var InputfieldText $f */
+		foreach($customStates as $name => $label) {
+			$f = $modules->get('InputfieldText');
+			$f->attr('name', $name);
+			$f->label = sprintf($this->_('Label for “%s” option'), $label);
+			$f->showIf = 'labelType=' . self::labelTypeCustom;
+			$f->attr('value', $this->get($name));
+			$f->columnWidth = 50;
+			if($languages) {
+				$f->useLanguages = true;
+				foreach($languages as $language) {
+					$langValue = $this->get("$name$language");
+					if(!$language->isDefault()) $f->set("value$language", $langValue); 
+				}
+			}
+			$inputfields->add($f);
+		}
+		
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f->attr('name', 'otherLabel');
+		$f->label = sprintf($this->_('Label for 3rd option'));
+		$f->showIf = 'useOther=1';
+		$f->attr('value', $this->get('otherLabel'));
+		$f->columnWidth = 50;
+		if($languages) {
+			$f->useLanguages = true;
+			foreach($languages as $language) {
+				if(!$language->isDefault()) $f->set("value$language", $this->get("otherLabel$language"));
+			}
+		}
+		$inputfields->add($f);
+		
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get('InputfieldCheckbox');
+		$f->attr('name', 'useOther');
+		$f->label = $this->_('Show a 3rd option?');
+		if($this->useOther) $f->attr('checked', 'checked');
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get('InputfieldCheckbox');
+		$f->attr('name', 'useReverse');
+		$f->label = $this->_('Reverse order of yes/no options?');
+		if($this->useReverse) $f->attr('checked', 'checked');
+		$inputfields->add($f);
+	
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
+		$f->attr('name', 'defaultOption'); 
+		$f->label = $this->_('Default selected option');
+		$f->addOption('yes', $this->getYesLabel());
+		$f->addOption('no', $this->getNoLabel());
+		if($this->useOther) $f->addOption('other', $this->getOtherLabel());
+		$f->addOption('none', $this->_('No selection'));
+		$f->optionColumns = 1;
+		$f->attr('value', $this->defaultOption); 
+		$inputfields->add($f);
+		
+		return $inputfields;
+	}
+}

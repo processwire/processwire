@@ -214,7 +214,7 @@ abstract class Inputfield extends WireData implements Module {
 	const skipLabelFor = true;
 	
 	/**
-	 * Don't use a label header element at all (basically, skip the label)
+	 * Don't show a visible header (likewise, do not show the label)
 	 * #pw-group-skipLabel-constants
 	 *
 	 */
@@ -226,6 +226,14 @@ abstract class Inputfield extends WireData implements Module {
 	 *
 	 */
 	const skipLabelBlank = 4;
+
+	/**
+	 * Do not render any markup for the header/label at all 
+	 * #pw-group-skipLabel-constants
+	 * @since 3.0.139
+	 * 
+	 */
+	const skipLabelMarkup = 8;
 
 	/**
 	 * Plain text: no type of markdown or HTML allowed

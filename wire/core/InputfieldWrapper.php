@@ -583,7 +583,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				if(!strlen($label) && $skipLabel !== Inputfield::skipLabelBlank && $inputfield->className() != 'InputfieldWrapper') {
 					$label = $inputfield->attr('name');
 				}
-				if($label || $quietMode) {
+				if(($label || $quietMode) && $skipLabel !== Inputfield::skipLabelMarkup) {
 					$for = $skipLabel || $quietMode ? '' : $inputfield->attr('id');
 					// if $inputfield has a property of entityEncodeLabel with a value of boolean FALSE, we don't entity encode
 					$entityEncodeLabel = $inputfield->getSetting('entityEncodeLabel');
@@ -616,6 +616,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 					} else if(strpos($label, '{class}') !== false) {
 						$label = str_replace('{class}', '', $label); 
 					}
+				} else if($skipLabel === Inputfield::skipLabelMarkup) {
+					// no header and no markup for header
+					$label = '';
 				} else {
 					// no header
 					// $inputfield->addClass('InputfieldNoHeader', 'wrapClass'); 

@@ -13,7 +13,7 @@
  * @property int $template_id
  * @property array $template_ids
  * @property int $parent_id
- * @property string $inputfield
+ * @property string $inputfield Inputfield class used for input
  * @property string $labelFieldName Field name to use for label (note: this will be "." if $labelFieldFormat is in use).
  * @property string $labelFieldFormat Formatting string for $page->getMarkup() as alternative to $labelFieldName
  * @property string $findPagesCode
@@ -22,6 +22,7 @@
  * @property int|bool $addable
  * @property int|bool $allowUnpub
  * @property int $derefAsPage
+ * @property-read string $inputfieldClass Public property alias of protected getInputfieldClass() method
  * @property array $inputfieldClasses
  * 
  * @method string renderAddable()
@@ -311,12 +312,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	}
 	
 	public function getSetting($key) {
+		if($key === 'inputfieldClass') return $this->getInputfieldClass();
 		if($key === 'template_ids') return $this->getTemplateIDs();
 		$value = parent::getSetting($key);
 		if($key === 'template_id' && empty($value)) {
 			$templateIDs = $this->getTemplateIDs();
 			if(!empty($templateIDs)) $value = reset($templateIDs);
-		}
+		} 
 		return $value;
 	}
 
