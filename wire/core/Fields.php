@@ -1047,5 +1047,29 @@ class Fields extends WireSaveableItems {
 	 */
 	public function ___changeTypeReady(Saveable $item, Fieldtype $fromType, Fieldtype $toType) { }
 
+	/**
+	 * Get Fieldtypes compatible (for type change) with given Field
+	 * 
+	 * #pw-internal
+	 *
+	 * @param Field $field
+	 * @return array Array of Fieldtype objects indexed by class name
+	 * @since 3.0.140
+	 *
+	 */
+	public function getCompatibleFieldtypes(Field $field) {
+		$fieldtype = $field->type;
+		if($fieldtype) {
+			// ask fieldtype what is compatible
+			$fieldtypes = $fieldtype->getCompatibleFieldtypes($field);
+			// ensure original is present
+			$fieldtypes->prepend($fieldtype);
+		} else {
+			// allow all
+			$fieldtypes = $this->wire('fieldtypes');
+		}
+		return $fieldtypes;
+	}
+
 }
 

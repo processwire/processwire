@@ -54,6 +54,7 @@
  * @property string $label Primary label text that appears above the input. #pw-group-labels
  * @property string $description Optional description that appears under label to provide more detailed information. #pw-group-labels
  * @property string $notes Optional notes that appear under input area to provide additional notes. #pw-group-labels
+ * @property string $detail Optional text details that appear under notes. @since 3.0.140 #pw-group-labels
  * @property string $icon Optional font-awesome icon name to accompany label (excluding the "fa-") part). #pw-group-labels
  * @property string $requiredLabel Optional custom label to display when missing required value. @since 3.0.98 #pw-group-labels 
  * @property string $head Optional text that appears below label but above description (only used by some Inputfields). #pw-internal
@@ -341,24 +342,25 @@ abstract class Inputfield extends WireData implements Module {
 
 		self::$numInstances++; 
 
-		$this->set('label', ''); 	// primary clickable label
-		$this->set('description', ''); 	// descriptive copy, below label
+		$this->set('label', ''); // primary clickable label
+		$this->set('description', ''); // descriptive copy, below label
 		$this->set('icon', ''); // optional icon name to accompany label
-		$this->set('notes', ''); 	// highlighted descriptive copy, below output of input field
-		$this->set('head', ''); 	// below label, above description
-		$this->set('required', 0); 	// set to 1 to make value required for this field
+		$this->set('notes', ''); // highlighted descriptive copy, below output of input field
+		$this->set('detail', ''); // text details that appear below notes
+		$this->set('head', ''); // below label, above description
+		$this->set('required', 0); // set to 1 to make value required for this field
 		$this->set('requiredIf', ''); // optional conditions to make it required
-		$this->set('collapsed', ''); 	// see the collapsed* constants at top of class (use blank string for unset value)
-		$this->set('showIf', ''); 		// optional conditions selector
-		$this->set('columnWidth', ''); 	// percent width of the field. blank or 0 = 100.
+		$this->set('collapsed', ''); // see the collapsed* constants at top of class (use blank string for unset value)
+		$this->set('showIf', ''); // optional conditions selector
+		$this->set('columnWidth', ''); // percent width of the field. blank or 0 = 100.
 		$this->set('skipLabel', self::skipLabelNo); // See the skipLabel constants
 		$this->set('wrapClass', ''); // optional class to apply to the Inputfield wrapper (contains InputfieldHeader + InputfieldContent)
 		$this->set('headerClass', ''); // optional class to apply to InputfieldHeader wrapper
 		$this->set('contentClass', ''); // optional class to apply to InputfieldContent wrapper
 		$this->set('textFormat', self::textFormatBasic); // format applied to description and notes
 		$this->set('renderValueFlags', 0); // see renderValue* constants, applicable to renderValue mode only
-		$this->set('prependMarkup', '');
-		$this->set('appendMarkup', '');
+		$this->set('prependMarkup', ''); // markup to prepend to Inputfield output
+		$this->set('appendMarkup', ''); // markup to append to Inputfield output
 
 		// default ID attribute if no 'id' attribute set
 		$this->defaultID = $this->className() . self::$numInstances; 

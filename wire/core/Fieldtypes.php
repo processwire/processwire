@@ -10,6 +10,7 @@
  *
  *
  */
+
 class Fieldtypes extends WireArray {
 
 	/**
@@ -19,12 +20,21 @@ class Fieldtypes extends WireArray {
 	protected $preloaded = false;
 
 	/**
-	 * Construct this Fieldtypes object and load all Fieldtype modules 
+	 * Is this the $fieldtypes API var?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $isAPI = false;
+
+	/**
+	 * Construct the $fieldtypes API var (load all Fieldtype modules into it)
 	 *
  	 */
 	public function init() {
-		foreach($this->wire('modules') as $module) {
-			if(strpos($module->className(), 'Fieldtype') === 0) {
+		$this->isAPI = true;
+		foreach($this->wire('modules') as $name => $module) {
+			if(strpos($name, 'Fieldtype') === 0) {
 				// if($module instanceof ModulePlaceholder) $module = $this->wire('modules')->get($module->className());
 				$this->add($module); 
 			}
@@ -37,7 +47,7 @@ class Fieldtypes extends WireArray {
 	 */
 	protected function preload() {
 		if($this->preloaded) return;
-		$debug = $this->wire('config')->debug; 
+		$debug = $this->isAPI && $this->wire('config')->debug; 
 		if($debug) Debug::timer('Fieldtypes.preload'); 
 		foreach($this->data as $key => $module) {
 			if($module instanceof ModulePlaceholder) {
@@ -57,11 +67,13 @@ class Fieldtypes extends WireArray {
 	 *
 	 */
 	public function isValidItem($item) {
-		return $item instanceof Fieldtype || $item instanceof ModulePlaceholder; 
+		if($item instanceof Fieldtype) return true;
+		if($item instanceof ModulePlaceholder && strpos($item->className(), 'Fieldtype') === 0) return true;
+		return false;
 	}
 
 	/**
-	 * Per the WireArray interface, keys must be strings (field names)
+	 * Per the WireArray interface, keys must be strings (fieldtype class names)
 	 * 
 	 * @param string|int $key
 	 * @return bool
@@ -123,7 +135,7 @@ class Fieldtypes extends WireArray {
 
 		if($fieldtype instanceof ModulePlaceholder) {
 			$fieldtype = $this->wire('modules')->get($fieldtype->className()); 			
-			$this->set($key, $fieldtype); 
+			if($fieldtype) $this->set($key, $fieldtype); 
 		}
 
 		return $fieldtype; 

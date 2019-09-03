@@ -52,6 +52,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		'item_description' => "<p class='description'>{out}</p>", 
 		'item_head' => "<h2>{out}</h2>", 
 		'item_notes' => "<p class='notes'>{out}</p>",
+		'item_detail' => "<p class='detail'>{out}</p>", 
 		'item_icon' => "<i class='fa fa-fw fa-{name}'></i> ",
 		'item_toggle' => "<i class='toggle-icon fa fa-fw fa-angle-down' data-to='fa-angle-down fa-angle-right'></i>", 
 		// ALSO: 
@@ -497,8 +498,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				}
 			} else $errors = array();
 		
-			foreach(array('error', 'description', 'head', 'notes') as $property) {
+			foreach(array('error', 'description', 'head', 'notes', 'detail') as $property) {
 				$text = $property == 'error' ? $errorsOut : $inputfield->getSetting($property); 
+				if($property === 'detail' && !is_string($text)) continue; // may not be necessary
 				if(!empty($text) && !$quietMode) {
 					if($entityEncodeText) {
 						$text = $inputfield->entityEncode($text, true);
@@ -514,7 +516,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 					$markup['item_content'] = str_replace($_property, $text, $markup['item_content']);
 				} else if(strpos($markup['item_label'], $_property) !== false) {
 					$markup['item_label'] = str_replace($_property, $text, $markup['item_label']);
-				} else if($text && $property == 'notes') {
+				} else if($text && ($property == 'notes' || $property == 'detail')) {
 					$ffOut .= $text;
 				} else if($text) {
 					$ffOut = $text . $ffOut;
