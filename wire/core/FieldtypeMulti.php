@@ -208,8 +208,10 @@ abstract class FieldtypeMulti extends Fieldtype {
 	public function ___savePageField(Page $page, Field $field) {
 
 		if(!$page->id || !$field->id) return false;
-		
+	
+		/** @var WireDatabasePDO $database */
 		$database = $this->wire('database');
+		$useTransaction = $database->allowTransaction();
 		$values = $page->get($field->name);
 		$schema = array();
 		
@@ -227,11 +229,19 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$values = $this->sleepValue($page, $field, $values); 
 		$table = $database->escapeTable($field->table); 
 		$page_id = (int) $page->id; 
+	
+		// use transaction when possible
+		if($useTransaction) $database->beginTransaction();
 
-		// since we don't manage IDs of existing values for multi fields, we delete the existing data and insert all of it again
-		$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id"); // QA
-		$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT); 
-		$query->execute();
+		try {
+			// since we don't manage IDs of existing values for multi fields, we delete the existing data and insert all of it again
+			$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id"); // QA
+			$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
+			$query->execute();
+		} catch(\Exception $e) {
+			if($useTransaction) $database->rollBack();
+			throw $e;
+		}
 		
 		if(count($values)) {
 
@@ -284,21 +294,24 @@ abstract class FieldtypeMulti extends Fieldtype {
 				$sort++; 	
 			}	
 
-			$sql = rtrim($sql, ", "); 
-			$query = $database->prepare($sql);	
 			try {
+				$query = $database->prepare(rtrim($sql, ", "));	
 				$result = $query->execute();
 			} catch(\Exception $e) {
+				if($useTransaction) $database->rollBack();
 				if($this->wire('config')->allowExceptions) throw $e; // throw original
 				$msg = $e->getMessage();
 				if($this->wire('config')->debug && $this->wire('config')->advanced) $msg .= "\n$sql";
 				throw new WireException($msg); // throw WireException
 			}
 			
-			return $result; 
+		} else {
+			$result = true;
 		}
 
-		return true; 
+		if($useTransaction) $database->commit();
+
+		return $result; 
 	}
 	
 	/**

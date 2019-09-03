@@ -332,7 +332,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function inTransaction() {
-		return $this->pdo()->inTransaction();
+		return (bool) $this->pdo()->inTransaction();
 	}
 
 	/**
@@ -359,6 +359,22 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			$engine = $this->wire('config')->dbEngine;
 		}
 		return strtoupper($engine) === 'INNODB';
+	}
+
+	/**
+	 * Allow a new transaction to begin right now? (i.e. supported and not already in one)
+	 * 
+	 * Returns combined result of supportsTransaction() === true and inTransaction() === false.
+	 * 
+	 * #pw-group-PDO
+	 * 
+	 * @param string $table Optional table that transaction will be for
+	 * @return bool
+	 * @since 3.0.140
+	 * 
+	 */
+	public function allowTransaction($table = '') {
+		return $this->supportsTransaction($table) && !$this->inTransaction();
 	}
 
 	/**
