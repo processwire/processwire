@@ -1,0 +1,427 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Toggle Fieldtype
+ * 
+ * #pw-summary Configurable yes/no, on/off toggle alternative to a checkbox, plus optional “other” option.
+ *
+ * #pw-body =
+ * Toggle fieldtype for “yes/on”, “no/off” and optional “other” state. Unlike
+ * FieldtypeCheckbox, this Fieldtype can differentiate between a selection
+ * of “no” and no-selection (aka unknown state), and it can also optionally
+ * support a selection for “other” (with custom label).
+ * 
+ * When using a selector to find pages matching a particular toggle state,
+ * or when setting values to `$page->your_field`, the following:
+ *
+ * - `0` or `no` or `FieldtypeToggle::valueNo` for no/off selection
+ * - `1` or `yes` or `FieldtypeToggle::valueYes` for yes/on selection
+ * - `2` or `other` or `FieldtypeToggle::valueOther` for other selection (if enabled for field)
+ * - `''` blank string or `unknown` or `FieldtypeToggle::valueUnknown` for “no selection”
+ * 
+ * Please note that `0` and “no selection” are different things (unlike with a checkbox) so
+ * be sure to consider this when finding pages or outputting values. The examples below
+ * include a couple that demonstrate this. 
+ * 
+ * Examples (for field named “featured”):
+ * ~~~~~
+ * // find pages with “yes” selected for “featured”
+ * $items = $pages->find("featured=1");
+ * $items = $pages->find("featured=yes"); 
+ * 
+ * // find pages with “no” selected for “featured”
+ * $items = $pages->find("featured=0");
+ * $items = $pages->find("featured=no"); 
+ * 
+ * // find pages with no selection
+ * $items = $pages->find("featured=''");
+ * $items = $pages->find("featured=unknown");
+ * 
+ * // find pages with yes or no selection
+ * $items = $pages->find("featured=1|0");
+ * $items = $pages->find("featured=yes|no");
+ * 
+ * // find pages with “no” selected, or no selection
+ * $items = $pages->find("featured=''|0"); 
+ * $items = $pages->find("featured=unknown|no"); 
+ * 
+ * // output current value (blank, 0 or 1, or 2 if “other” option available)
+ * // unless you’ve configured it to output custom labels when formatted
+ * echo $page->featured;
+ * 
+ * // determine current setting (assuming labels not overriding values)
+ * if($page->featured === '') {
+ *   // unknown aka no-selection
+ * } else if($page->featured === 0) {
+ *   // no selected
+ * } else if($page->featured === 1) {
+ *   // yes selected
+ * } else if($page->featured === 2) {
+ *   // other selected (if enabled)
+ * }
+ * 
+ * // set value of $page->featured to yes/on
+ * $page->featured = 1; 
+ * ~~~~~
+ * 
+ * #pw-body
+ *
+ * For documentation about the fields used in this class, please see:
+ * /wire/core/Fieldtype.php
+ *
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * https://processwire.com
+ * 
+ *
+ */
+
+class FieldtypeToggle extends Fieldtype {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => __('Toggle (Yes/No)', __FILE__),
+			'version' => 1,
+			'summary' => __('Configurable yes/no, on/off toggle alternative to a checkbox, plus optional “other” option.', __FILE__),
+			'requires' => 'InputfieldToggle',
+		);
+	}
+
+	// value constants
+	const valueNo = 0;
+	const valueYes = 1;
+	const valueOther = 2;
+	const valueUnknown = '';
+
+	// format constants
+	const formatNone = 0;
+	const formatBoolean = 1;
+	const formatString = 2;
+	const formatEntities = 3;
+
+	/**
+	 * Get the blank value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return string
+	 * 
+	 */
+	public function getBlankValue(Page $page, Field $field) {
+		return self::valueUnknown;
+	}
+	
+	/**
+	 * Get the default value
+	 *
+	 * #pw-internal
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return mixed
+	 *
+	 */
+	public function getDefaultValue(Page $page, Field $field) {
+		switch($field->get('defaultOption')) {
+			case 'no': $value = self::valueNo; break;
+			case 'yes': $value = self::valueYes; break;
+			case 'other': $value = self::valueOther; break;
+			default: $value = self::valueUnknown;
+		}
+		return $value;
+	}
+	
+	/**
+	 * Return whether the given value is considered empty or not.
+	 *
+	 * This can be anything that might be present in a selector value and thus is
+	 * typically a string. However, it may be used outside of that purpose so you
+	 * shouldn't count on it being a string.
+	 *
+	 * Example: an integer or text Fieldtype might not consider a "0" to be empty,
+	 * whereas a Page reference would.
+	 *
+	 * #pw-group-finding
+	 *
+	 * @param Field $field
+	 * @param mixed $value
+	 * @return bool
+	 *
+	 */
+	public function isEmptyValue(Field $field, $value) {
+		if($field) {}
+		// 0 is allowed because it represents "no/off" selection
+		if($value === 0 || $value === "0") return false; 
+		if($value === 'unknown' || "$value" === "-1") return true;
+		$value = trim($value, '"\''); 
+		return empty($value);
+	}
+
+	/**
+	 * Sanitize value to 0, 1, 2, '' (blank string), or optionaly given fail value on failure
+	 * 
+	 * @param string|int $value
+	 * @param string $failValue Value to return if we are unable to map to toggle option
+	 * @return int|string
+	 * 
+	 */
+	protected function _sanitizeValue($value, $failValue = self::valueUnknown) {
+		$strValue = strtolower("$value");
+		if($strValue === "0" || $value === false || $strValue === "no" || $strValue === "off") {
+			$value = self::valueNo;
+		} else if($strValue === "1" || $value === true || $strValue === "yes" || $strValue === "on") {
+			$value = self::valueYes;
+		} else if($strValue === "2" || $strValue === "other") {
+			$value = self::valueOther;
+		} else if($value === null || $strValue === '' || $strValue === 'unknown' || $strValue === '-1') {
+			$value = self::valueUnknown;
+		} else {
+			$value = $failValue;
+		}
+		return $value;
+	}
+
+	/**
+	 * Sanitize value for placement on Page object
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int|object|WireArray|string $value
+	 * @return int|object|WireArray|string
+	 * 
+	 */
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		$cleanValue = $this->_sanitizeValue($value, 'fail');
+		if($cleanValue === 'fail') {
+			// if we fail to sanitize here, try to sanitize with InputfieldToggle
+			// which can map toggle labels to toggle values
+			/** @var InputfieldToggle $f */
+			$f = $field->getInputfield($page, $field); 
+			$cleanValue = $f ? $f->sanitizeValue($value) : '';
+		}
+		return $cleanValue;
+	}
+
+	/**
+	 * Return the markup value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int|string|null $value
+	 * @param string $property
+	 *
+	 * @return MarkupFieldtype|string
+	 * 
+	 */
+	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
+		/** @var InputfieldToggle $f */
+		$f = $field->getInputfield($page, $field); 
+		if($value !== null) $f->val($value);
+		if(!$f) return '';
+		return $f->renderValue();
+	}
+
+	/**
+	 * Get the InputfieldToggle instance
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return InputfieldToggle
+	 * 
+	 */
+	public function getInputfield(Page $page, Field $field) {
+		/** @var InputfieldToggle $f */
+		$f = $this->wire('modules')->get('InputfieldToggle');
+		return $f;
+	}
+
+	/**
+	 * Get database schema
+	 * 
+	 * @param Field $field
+	 * @return array
+	 * 
+	 */
+	public function getDatabaseSchema(Field $field) {
+		$schema = parent::getDatabaseSchema($field);
+		$schema['data'] = "tinyint NOT NULL";
+		$schema['keys']['data'] = 'KEY data (data)';
+		return $schema;
+	}
+
+	/**
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param mixed $value
+	 *
+	 * @return DatabaseQuery|DatabaseQuerySelect
+	 * @throws WireException
+	 * 
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		
+		$value = $this->_sanitizeValue($value); // 0, 1, 2 or ''
+		$matchNull = false;
+		
+		if($value === '' && $operator === '=') {
+			// match only no-selection
+			$matchNull = true;
+			
+		} else if($value === '' && $operator === '>') {
+			// match all except no-selection
+			$value = 0;
+			$operator = '>=';
+			
+		} else if($value !== '' && $operator === '!=') {
+			// match value as well as no-selection
+			$matchNull = true;
+		} 
+		
+		if($value === '' && ($operator[0] === '<' || $operator[0] === '>')) {
+			throw new WireException("Operator $operator not supported here for non-value");
+		}
+
+		if($matchNull) {
+			// match non-present (null) rows in selection via left join
+			static $n = 0;
+			$_table = $table . '_tog' . (++$n);
+			$query->leftjoin("$table AS $_table ON $_table.pages_id=pages.id");
+			$where = "$_table.pages_id IS NULL ";
+			if($value !== '') $where .= "OR $_table.data$operator" . ((int) $value);
+			$query->where(trim($where));
+		} else {
+			$query = parent::getMatchQuery($query, $table, $subfield, $operator, $value);
+		}
+		
+		return $query;
+	}
+
+	/**
+	 * Get information used for InputfieldSelector interactive selector builder
+	 *
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 *
+	 */
+	public function ___getSelectorInfo(Field $field, array $data = array()) {
+		/** @var InputfieldToggle $inputfield */
+		$inputfield = $field->getInputfield(new NullPage(), $field);
+		$labels = $inputfield->getLabels();
+		$info = parent::___getSelectorInfo($field, $data);
+		$info['input'] = 'select';
+		$info['options'] = array('1' => $labels['yes'], '0' => $labels['no']); 
+		if($field->get('useOther')) $info['options']['2'] = $labels['other'];
+		$info['options']['""'] = $labels['unknown'];
+		$info['operators'] = array('=', '!=');
+		return $info;
+	}
+
+
+	/**
+	 * Get an array of Fieldtypes that are compatible with this one
+	 *
+	 * This represents the list of Fieldtype modules that the user is allowed to change to from this one.
+	 *
+	 * @param Field $field
+	 * @return Fieldtypes|null
+	 *
+	 */
+	public function ___getCompatibleFieldtypes(Field $field) {
+		if($field) {}
+		$fieldtypes = $this->wire(new Fieldtypes());
+		foreach($this->wire('fieldtypes') as $fieldtype) {
+			if($fieldtype instanceof FieldtypeToggle || $fieldtype instanceof FieldtypeCheckbox) {
+				$fieldtypes->add($fieldtype);
+			}
+		}
+		return $fieldtypes;
+	}
+	
+	/**
+	 * Given an 'awake' value, as set by wakeupValue(), convert the value back to a basic type for storage in database.
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string|int|float|array|object $value
+	 * @return string|int|float|array
+	 * @see Fieldtype::wakeupValue()
+	 *
+	 */
+	public function ___sleepValue(Page $page, Field $field, $value) {
+		if($page && $field) {}
+		return $this->_sanitizeValue($value);
+	}
+	
+	/**
+	 * Format the given value for output and return a string of the formatted value
+	 *
+	 * @param Page $page Page that the value lives on
+	 * @param Field $field Field that represents the value
+	 * @param string|int|object $value The value to format
+	 * @return mixed
+	 *
+	 */
+	public function ___formatValue(Page $page, Field $field, $value) {
+		
+		$value = $this->_sanitizeValue($value);
+		$formatType = (int) $field->get('formatType');
+
+		if($value === '' || $formatType === self::formatNone) {
+			// no formatting, or blank string which always represents no-selection
+		} else if($formatType === self::formatBoolean) {
+			if($value === 0) $value = false;
+			if($value === 1) $value = true;
+			
+		} else if($formatType === self::formatString || $formatType === self::formatEntities) {
+			/** @var InputfieldToggle $f */
+			$f = $field->getInputfield($page, $field);
+			if($f && $f instanceof InputfieldToggle) {
+				$value = $f->getValueLabel($value);
+				if($formatType == self::formatEntities) $value = $f->formatLabel($value, false);
+			} else if($formatType == self::formatEntities) {
+				$value = $this->wire('sanitizer')->entities1($value);
+			}
+		}
+		
+		return $value;
+	}
+	
+	/**
+	 * Get any Inputfields used for configuration of this Fieldtype.
+	 *
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+		$inputfields = parent::___getConfigInputfields($field);
+
+		/** @var InputfieldRadios $f */
+		$f = $this->modules->get('InputfieldRadios'); 
+		$f->attr('name', 'formatType'); 
+		$f->attr('value', (int) $field->get('formatType')); 
+		$f->label = $this->_('What do you want the formatted value of your toggle field to be?'); 
+		$f->icon = 'toggle-on';
+		$f->description = 
+			sprintf($this->_('Select the formatted value returned by %s.'), "`\$page->$field->name`") . ' ' . 
+			$this->_('Please also see the “Input” tab for all of the other Toggle field settings.'); 
+		$f->notes = 
+			'¹ ' . $this->_('For all of the above, no-selection is always represented by a blank string.') . "\n" . 
+			'² ' . $this->_('If a 3rd/other option is enabled, it is represented by integer 2.');
+		$f->detail = 
+			$this->_('When a page’s output formatting is off, the value is always integer 0, 1, 2 (for No, Yes, Other) or a blank string when no selection.');
+		$f->addOption(self::formatNone, $this->_('**Integer:** 0=no, 1=yes (same as no formatting).') . ' ²');
+		$f->addOption(self::formatBoolean, $this->_('**Boolean:** True or false for yes/no states.') . ' ²');
+		$f->addOption(self::formatString, $this->_('**String:** Use text labels configured with “Input” settings.'));
+		$f->addOption(self::formatEntities, $this->_('**Entities:** Same as above (string) but entity encoded for HTML output.')); 
+		$f->attr('value', (int) $field->get('formatType'));
+		$inputfields->add($f); 
+
+		// names of fields in the form that are allowed in fieldgroup/template context
+		return $inputfields;
+	}
+
+}
+
