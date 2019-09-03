@@ -27,6 +27,9 @@ class InputfieldRadios extends InputfieldSelect {
 	}
 
 	public function ___render() {	
+	
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
 
 		$defaults = array(
 			'wbr' => true, 
@@ -58,31 +61,41 @@ class InputfieldRadios extends InputfieldSelect {
 		}
 
 		foreach($options as $key => $value) {
+			
 			$checked = '';
-
-			$id = $this->id . "_" . $this->wire('sanitizer')->name($key); 
-
+			$id = $this->id . "_" . $sanitizer->name($key); 
 			$attrs = $this->getOptionAttributes($key);
+			
+			$inputClass = trim($this->attr('class'));
+			if(isset($attrs['input.class'])) $inputClass .= ' ' . $attrs['input.class'];
+			
 			if($this->isOptionSelected($key)) $checked = " checked='checked'";
 			$disabled = empty($attrs['disabled']) ? "" : " disabled='disabled'";
-			unset($attrs['selected'], $attrs['checked'], $attrs['disabled']); 
+			
+			unset($attrs['selected'], $attrs['checked'], $attrs['disabled'], $attrs['input.class']); 
+			
 			$textClass = $settings['noSelectLabels'] ? 'pw-no-select' : '';
 			if($disabled) $textClass .= ' ui-state-disabled';
+			
 			$attrs = $this->getOptionAttributesString($attrs);
 			if($attrs) $attrs = ' ' . $attrs;
+			
 			$label = $settings['wbr'] ? str_replace(' ', ' !wbr!', $value) : $value;
 			$label = $this->entityEncode($label, Inputfield::textFormatBasic);
 			if($settings['wbr']) $label = str_replace('!wbr!', '<wbr>', $label);
-			$class = trim($this->wire('sanitizer')->entities($this->attr('class')));
+
+			$inputName = $sanitizer->entities($this->attr('name'));
+			$inputValue = $sanitizer->entities($key);
+			$inputClass = trim($sanitizer->entities($inputClass));
 
 			$out .= 
 				"<li$liAttr><label$attrs>" . 
 				"<input$checked$disabled " . 
 				"type='radio' " . 
-				"name='{$this->name}' " . 
+				"name='$inputName' " . 
 				"id='$id' " .
-				"class='$class' " . 
-				"value='" . htmlspecialchars($key, ENT_QUOTES) . "' />" . 
+				"class='$inputClass' " . 
+				"value='$inputValue' />" . 
 				"<span class='$textClass'>$label</span>" . 
 				"</label></li>";
 		}

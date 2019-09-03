@@ -1379,6 +1379,9 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function ___buildEditFormBasics() {
+	
+		/** @var Fields $fields */
+		$fields = $this->wire('fields');
 
 		/** @var InputfieldWrapper $form */
 		$form = $this->wire(new InputfieldWrapper());
@@ -1406,10 +1409,9 @@ class ProcessField extends Process implements ConfigurableModule {
 
 			if(!$this->field->id) $field->description = $this->_("After selecting your field type and saving, you may be presented with additional configuration options specific to the field type you selected."); // Note that appears when adding new field
 
-			if($this->field->type) $fieldtypes = $this->field->type->getCompatibleFieldtypes($this->field);
-				else $fieldtypes = $this->fieldtypes; 
+			$fieldtypes = $fields->getCompatibleFieldtypes($this->field);
 
-			if($fieldtypes && count($fieldtypes)) {
+			if(count($fieldtypes)) {
 				$fieldtypeLabels = array();
 				foreach($fieldtypes as $fieldtype) {
 					/** @var Fieldtype $fieldtype */
@@ -1418,7 +1420,7 @@ class ProcessField extends Process implements ConfigurableModule {
 					$fieldtypeLabels[$label] = $fieldtype;
 				}
 				ksort($fieldtypeLabels);
-				$advanced = $this->config->advanced;
+				$advanced = $this->wire('config')->advanced;
 				foreach($fieldtypeLabels as $label => $fieldtype) {
 					if(!$advanced && $fieldtype->isAdvanced() && $this->field->name != 'title' 
 						&& $field->value != $fieldtype->className()) continue; 
@@ -1430,7 +1432,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			
 			if(!$this->field->id) {
 				$names = array();
-				foreach($this->wire('fields') as $f) {
+				foreach($fields as $f) {
 					if(($f->flags & Field::flagSystem) && !$this->wire('config')->advanced) continue;
 					if(strpos($f->name, '_END')) continue;
 					$names['_' . $f->name] = $f->name;

@@ -596,12 +596,6 @@ class FieldtypeComments extends FieldtypeMulti {
 			foreach($itemsRemoved as $item) {
 				if(!$item->id) continue; 
 				$this->deleteComment($page, $field, $item, 'deleted from savePageField()'); 
-				/*
-				$query = $database->prepare("DELETE FROM `$table` WHERE id=:item_id AND pages_id=:pages_id"); 
-				$query->bindValue(":item_id", $item->id, \PDO::PARAM_INT);
-				$query->bindValue(":pages_id", $page->id, \PDO::PARAM_INT);
-				$query->execute();
-				*/
 			}
 		}
 
@@ -652,21 +646,27 @@ class FieldtypeComments extends FieldtypeMulti {
 				$sql .= "sort=:sort"; 
 				$binds['sort'] = ++$maxSort; 
 			}
-			$query = $database->prepare($sql); 
-			foreach($binds as $k => $v) $query->bindValue(":$k", $v); 
 			try {
+				$query = $database->prepare($sql);
+				foreach($binds as $k => $v) {
+					$query->bindValue(":$k", $v);
+				}
 				$result = $query->execute();
-				if(!$value['id']) {
+				if($result && !$value['id']) {
 					// populate newly added comment ID to Comment object
 					$value['id'] = $database->lastInsertId();
 					foreach($allItems as $item) {
 						if(!$item->id && $item->code === $value['code']) $item->id = $value['id'];
 					}
 				}
+				$error = '';
 			} catch(\Exception $e) {
 				$result = false; 
+				$error = $e->getMessage();
 			}
-			if(!$result) $this->error("Error saving item $value[id] in savePageField", Notice::log);
+			if(!$result) {
+				$this->error("Error saving comment id $value[id]: $error", Notice::log);
+			}
 		}	
 		
 		return true; 

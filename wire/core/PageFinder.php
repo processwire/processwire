@@ -1275,15 +1275,17 @@ class PageFinder extends Wire {
 				$valueArray = $selector->values(true); 
 				$fieldtype = $field->type; 
 				$operator = $selector->operator;
+				if($operator === '<>') $operator = '!=';
 
 				foreach($valueArray as $value) {
 
 					// shortcut for blank value condition: this ensures that NULL/non-existence is considered blank
 					// without this section the query would still work, but a blank value must actually be present in the field
-					$useEmpty = empty($value) || ($value && $operator[0] == '<') || ($value < 0 && $operator[0] == '>');	
+					$isEmptyValue = $fieldtype->isEmptyValue($field, $value);
+					$useEmpty = $isEmptyValue || $operator[0] === '<' || ((int) $value < 0 && $operator[0] === '>');	
 					if($subfield == 'data' && $useEmpty && $fieldtype) { // && !$fieldtype instanceof FieldtypeMulti) {
-						if(empty($value)) $numEmptyValues++;
-						if(in_array($operator, array('=', '!=', '<>', '<', '<=', '>', '>='))) {
+						if($isEmptyValue) $numEmptyValues++;
+						if(in_array($operator, array('=', '!=', '<', '<=', '>', '>='))) {
 							// we only accommodate this optimization for single-value selectors...
 							if($this->whereEmptyValuePossible($field, $selector, $query, $value, $whereFields)) {
 								if(count($valueArray) > 1 && $operator == '=') $whereFieldsType = 'OR';

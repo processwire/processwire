@@ -58,6 +58,17 @@ class FieldtypeCheckbox extends Fieldtype {
 		return $schema;
 	}
 
+	/**
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param mixed $value
+	 *
+	 * @return DatabaseQuery|DatabaseQuerySelect
+	 * @throws WireException
+	 *
+	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
 		if(!empty($value) && ($operator == '!=' || $operator == '<>')) {
 			// allow for matching test_checkbox!=1 since non-checked rows don't appear in database
@@ -83,6 +94,32 @@ class FieldtypeCheckbox extends Fieldtype {
 		$info = parent::___getSelectorInfo($field, $data); 
 		$info['input'] = 'checkbox';
 		return $info; 
+	}
+	
+	/**
+	 * Get an array of Fieldtypes that are compatible with this one
+	 *
+	 * This represents the list of Fieldtype modules that the user is allowed to change to from this one.
+	 *
+	 * @param Field $field
+	 * @return Fieldtypes|null
+	 *
+	 */
+	public function ___getCompatibleFieldtypes(Field $field) {
+		if($field) {}
+		$fieldtypes = $this->wire(new Fieldtypes());
+		$toggleClass = 'FieldtypeToggle';
+		$allowToggle = $this->wire('modules')->isInstalled($toggleClass);
+		
+		foreach($this->wire('fieldtypes') as $fieldtype) {
+			if($fieldtype instanceof FieldtypeCheckbox) {
+				$fieldtypes->add($fieldtype); 
+			} else if($allowToggle && wireInstanceOf($fieldtype, $toggleClass)) {
+				$fieldtypes->add($fieldtype); 
+			}
+		}
+		
+		return $fieldtypes;
 	}
 
 }
