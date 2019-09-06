@@ -9,6 +9,7 @@
  * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
+ * @property int|string $value Integer value when selection is made or blank string when no selection
  * @property int $labelType Label type to use, see the labelType constants (default=labelTypeYes)
  * @property int $valueType Type of value for methods that ask for it (use one of the valueType constants)
  * @property string $yesLabel Custom yes/on label
@@ -91,12 +92,12 @@ class InputfieldToggle extends Inputfield {
 	protected $allLabels = array();
 
 	/**
-	 * Manually added options of [ value => label ]
+	 * Manually added custom options of [ value => label ]
 	 * 
 	 * @var array
 	 * 
 	 */
-	protected $options = array();
+	protected $customOptions = array();
 
 	/**
 	 * Construct and set default settings
@@ -114,6 +115,11 @@ class InputfieldToggle extends Inputfield {
 		$this->set('useDeselect', 0); 
 		$this->set('defaultOption', 'none');
 		$this->set('inputfieldClass', '0');
+	
+		$this->set('settings', array(
+			'inputCheckedClass' => '', 
+			'labelCheckedClass' => '',
+		));
 
 		$this->attr('value', self::valueUnknown);
 
@@ -140,8 +146,8 @@ class InputfieldToggle extends Inputfield {
 		$value = $this->val();
 		if($value === self::valueUnknown) return true;
 		if(is_int($value)) {
-			if($this->hasOptions()) {
-				if(isset($this->options[$value])) return false;
+			if($this->hasCustomOptions()) {
+				if(isset($this->customOptions[$value])) return false;
 			} else {
 				if($value > -1) return false;
 			}
@@ -153,21 +159,28 @@ class InputfieldToggle extends Inputfield {
 	/**
 	 * Sanitize the value to be one ofthe constants: valueYes, valueNo, valueOther, valueUnknown
 	 * 
-	 * @param string|int $value
+	 * @param string|int $value Value to sanitize
+	 * @param bool $getName Get internal name of value rather than value? (default=false)
 	 * @return int|string
 	 * 
 	 */
-	public function sanitizeValue($value) {
+	public function sanitizeValue($value, $getName = false) {
 	
-		if($value === null) return self::valueUnknown;
-		if(is_bool($value)) return $value ? self::valueYes  : self::valueNo;
+		if($value === null) {
+			return $getName ? 'unknown' : self::valueUnknown;
+		}
+		
+		if(is_bool($value)) {
+			if($getName) return $value ? 'yes' : 'no';
+			return $value ? self::valueYes : self::valueNo;
+		}
 		
 		$intValue = strlen("$value") && ctype_digit("$value") ? (int) $value : '';
 		$strValue = strtolower("$value");
 		
-		if($this->hasOptions()) { 
+		if($this->hasCustomOptions()) { 
 			if($intValue !== '') $value = $intValue;
-			$value = isset($this->options[$value]) ? $value : self::valueUnknown;
+			$value = isset($this->customOptions[$value]) ? $value : self::valueUnknown;
 				
 		} else if($intValue === self::valueNo || $intValue === self::valueYes) {
 			$value = $intValue;
@@ -200,6 +213,18 @@ class InputfieldToggle extends Inputfield {
 			$value = self::valueUnknown; // blank string
 		}
 		
+		if($getName && !$this->hasCustomOptions()) {
+			if($value === self::valueUnknown) {
+				$value = 'unknown';
+			} else if($value === self::valueYes) {
+				$value = 'yes';
+			} else if($value === self::valueNo) {
+				$value = 'no';
+			} else if($value === self::valueOther) {
+				$value = 'other';
+			}
+		}
+		
 		return $value;
 	}
 
@@ -228,7 +253,7 @@ class InputfieldToggle extends Inputfield {
 		
 		$class = $this->getSetting('inputfieldClass');
 		if(empty($class) || $class === $this->className()) {
-			if($this->wire('adminTheme') == 'AdminThemeDefault') {
+			if(false && $this->wire('adminTheme') == 'AdminThemeDefault') {
 				// clicking toggles jumps to top of page on AdminThemeDefault for some reason
 				// even if JS click events are canceled, so use radios instead
 				$class = 'InputfieldRadios'; 
@@ -325,10 +350,21 @@ class InputfieldToggle extends Inputfield {
 		} else {
 			$out = $this->renderToggle();
 		}
-	
+
 		// hidden input to indicate presence when no selection is made (like with radios)
-		$out .= "<input type='hidden' name='_{$this->name}_' value='1' />";
 		
+		/** @var InputfieldButton $btn */
+		$button = $this->wire('modules')->get('InputfieldButton');
+		$button->setSecondary(true);
+		$button->val('1');
+		$button->removeAttr('name');
+		
+		$input = $this->wire('modules')->get('InputfieldText');
+		$input->attr('name', "_{$this->name}_");
+		$input->val(1);
+		
+		$out .= "<div class='InputfieldToggleHelper'>" . $input->render() . $button->render() . "</div>";
+
 		return $out;
 	}
 	
@@ -347,11 +383,12 @@ class InputfieldToggle extends Inputfield {
 		
 		foreach($this->getOptions() as $value => $label) {
 			$checked = "$checkedValue" === "$value" ? "checked " : "";
-			$class = $checked ? 'InputfieldToggleChecked' : '';
+			$inputClass = $checked ? 'InputfieldToggleChecked' : '';
+			$labelClass = $checked ? 'InputfieldToggleCurrent' : '';
 			$label = $this->formatLabel($label);
 			$out .= 
-				"<input type='radio' id='{$id}_$value' name='$name' class='$class' value='$value' $checked/>" . 
-                "<label for='{$id}_$value'><span class='pw-no-select'>$label</span></label>";
+				"<input type='radio' id='{$id}_$value' name='$name' class='$inputClass' value='$value' $checked/>" . 
+                "<label for='{$id}_$value' class='$labelClass'><span class='pw-no-select'>$label</span></label>";
 		}
 	
 		return
@@ -376,9 +413,9 @@ class InputfieldToggle extends Inputfield {
 		if($value === null && $input["_{$this->name}_"] === null) {
 			// input was not rendered in the submitted post, so should be ignored
 
-		} else if($this->hasOptions()) {
+		} else if($this->hasCustomOptions()) {
 			// custom options
-			if(isset($this->options[$value])) $this->val($value);
+			if(isset($this->customOptions[$value])) $this->val($value);
 			
 		} else if($intValue === self::valueYes || $intValue === self::valueNo) {
 			// yes or no selected
@@ -530,14 +567,15 @@ class InputfieldToggle extends Inputfield {
 	 */
 	public function getValueLabel($value = null, $labelType = null, $language = null) {
 		
-		if($value !== null && $labelType === null && $this->hasOptions()) {
+		if($value === null) $value = $this->val();
+	
+		if($this->hasCustomOptions()) {
 			// get custom defined option label from addOption() call (API usage only)
-			if(isset($this->options[$value])) return $this->options[$value];
+			return isset($this->customOptions[$value]) ? $this->customOptions[$value] : self::valueUnknown;
 		}
 		
 		$labels = $this->getLabels($labelType, $language);
 		
-		if($value === null) $value = $this->attr('value');
 		if($value === null || $value === self::valueUnknown) return $labels['unknown'];
 		if(is_bool($value)) return $value ? $labels['yes'] : $labels['no'];
 		
@@ -546,54 +584,6 @@ class InputfieldToggle extends Inputfield {
 		if($value === self::valueNo) return $labels['no'];
 		
 		return $labels['unknown'];
-	}
-
-	/**
-	 * Get label used for yes/on option
-	 * 
-	 * @param int|null $labelType Specify labelType constant or omit for selected label type. 
-	 * @param Language|int|string $language
-	 * @return string
-	 * 
-	 */
-	protected function getYesLabel($labelType = null, $language = null) {
-		return $this->getValueLabel(self::valueYes, $labelType, $language);
-	}
-
-	/**
-	 * Get label used for no/off option
-	 *
-	 * @param int|null $labelType Specify labelType constant or omit for selected label type.
-	 * @param Language|int|string $language
-	 * @return string
-	 *
-	 */
-	protected function getNoLabel($labelType = null, $language = null) {
-		return $this->getValueLabel(self::valueNo, $labelType, $language);
-	}
-
-	/**
-	 * Get label used for 3rd/other option
-	 *
-	 * @param int|null $labelType Specify labelType constant or omit for selected label type.
-	 * @param Language|int|string $language
-	 * @return string
-	 *
-	 */
-	protected function getOtherLabel($labelType = null, $language = null) {
-		return $this->getValueLabel(self::valueOther, $labelType, $language);
-	}
-
-	/**
-	 * Get label used for unknown/no-selection option
-	 *
-	 * @param int|null $labelType Specify labelType constant or omit for selected label type.
-	 * @param Language|int|string $language
-	 * @return string
-	 *
-	 */
-	protected function getUnknownLabel($labelType = null, $language = null) {
-		return $this->getValueLabel(self::valueUnknown, $labelType, $language);
 	}
 
 	/**
@@ -622,7 +612,7 @@ class InputfieldToggle extends Inputfield {
 	 */
 	public function getOptions() {
 		// use custom options instead if any have been set from an addOption() call
-		if($this->hasOptions()) return $this->options;
+		if($this->hasCustomOptions()) return $this->customOptions;
 		// use built in toggle options
 		$options = array();
 		$values = $this->useReverse ? array(self::valueNo, self::valueYes) : array(self::valueYes, self::valueNo);
@@ -650,7 +640,7 @@ class InputfieldToggle extends Inputfield {
 			throw new WireException('The addOption() method is not available for FieldtypeToggle');
 		}
 		if($label === null) $label = $value;
-		$this->options[$value] = $label;
+		$this->customOptions[$value] = $label;
 		return $this;
 	}
 
@@ -669,7 +659,7 @@ class InputfieldToggle extends Inputfield {
 	 * 
 	 */
 	public function setOptions(array $options) {
-		$this->options = array();
+		$this->customOptions = array();
 		foreach($options as $key => $value) {
 			$this->addOption($key, $value);
 		}
@@ -682,8 +672,8 @@ class InputfieldToggle extends Inputfield {
 	 * @return bool
 	 * 
 	 */
-	protected function hasOptions() {
-		return !$this->hasFieldtype && count($this->options) > 0;
+	protected function hasCustomOptions() {
+		return count($this->customOptions) > 0;
 	}
 
 	/**
@@ -747,7 +737,7 @@ class InputfieldToggle extends Inputfield {
 			if($labelType == self::labelTypeCustom) {
 				$label = $this->_('Custom');
 			} else {
-				$label = $this->getYesLabel($labelType) . '/' . $this->getNoLabel($labelType);
+				$label = $this->getValueLabel(self::valueYes, $labelType) . '/' . $this->getValueLabel(self::valueNo, $labelType);
 			}
 			$f->addOption($labelType, $label);
 		}
@@ -808,15 +798,17 @@ class InputfieldToggle extends Inputfield {
 		$fieldset->add($f);
 		
 		$customStates = array(
-			'yesLabel' => $this->_('Yes/On'),
-			'noLabel' => $this->_('No/Off'),
+			'yesLabel' => $this->_('yes/on'),
+			'noLabel' => $this->_('no/off'),
 		);
+		
+		$labelFor = $this->_('Label for “%s” option');
 
 		/** @var InputfieldText $f */
 		foreach($customStates as $name => $label) {
 			$f = $modules->get('InputfieldText');
 			$f->attr('name', $name);
-			$f->label = sprintf($this->_('Label for “%s” option'), $label);
+			$f->label = sprintf($labelFor, $label);
 			$f->showIf = 'labelType=' . self::labelTypeCustom;
 			$f->val($this->get($name));
 			$f->columnWidth = 50;
@@ -833,7 +825,7 @@ class InputfieldToggle extends Inputfield {
 		/** @var InputfieldText $f */
 		$f = $modules->get('InputfieldText');
 		$f->attr('name', 'otherLabel');
-		$f->label = sprintf($this->_('Label for 3rd “other” option'));
+		$f->label = sprintf($labelFor, $this->_('other'));
 		$f->showIf = 'useOther=1';
 		$f->val($this->get('otherLabel'));
 		if($languages) {
@@ -849,9 +841,9 @@ class InputfieldToggle extends Inputfield {
 		$f->set('inputfieldClass', $this->inputfieldClass);
 		$f->attr('name', 'defaultOption'); 
 		$f->label = $this->_('Default selected option');
-		$f->addOption('yes', $this->getYesLabel());
-		$f->addOption('no', $this->getNoLabel());
-		if($this->useOther) $f->addOption('other', $this->getOtherLabel());
+		$f->addOption('yes', $this->getValueLabel(self::valueYes));
+		$f->addOption('no', $this->getValueLabel(self::valueNo));
+		if($this->useOther) $f->addOption('other', $this->getValueLabel(self::valueOther));
 		$f->addOption('none', $this->_('No selection'));
 		$f->val($this->defaultOption);
 		$f->addClass('InputfieldToggle', 'wrapClass');
