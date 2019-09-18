@@ -74,12 +74,14 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * @param string $tableName
 	 * @param string $fieldName
 	 * @param string $operator
-	 * @param string $value
+	 * @param string|int|array $value Value to match. Array value support added 3.0.141 (not used by PageFinder)
 	 * @return $this
 	 * @throws WireException If given $operator argument is not implemented here
 	 * 
 	 */
 	public function match($tableName, $fieldName, $operator, $value) {
+		
+		if(is_array($value)) return $this->matchArrayValue($tableName, $fieldName, $operator, $value);
 
 		$database = $this->wire('database');
 		$query = $this->query; 
@@ -144,6 +146,37 @@ class DatabaseQuerySelectFulltext extends Wire {
 		}
 
 		return $this; 
+	}
+
+	/**
+	 * Match when given $value is an array
+	 * 
+	 * Note: PageFinder uses its own array-to-value conversion, so this case applies only to other usages outside PageFinder,
+	 * such as FieldtypeMulti::getLoadQueryWhere()
+	 * 
+	 * @param string $tableName
+	 * @param string $fieldName
+	 * @param string $operator
+	 * @param array $value
+	 * @return $this
+	 * @since 3.0.141
+	 * @throws WireException
+	 * 
+	 */
+	protected function matchArrayValue($tableName, $fieldName, $operator, $value) {
+		if($operator === '~=') {
+			throw new WireException("Operator ~= is not supported for $fieldName with OR value condition");
+		}
+		// convert *= operator to %= to make the query possible (avoiding matchContains method)
+		if($operator === '*=') $operator = '%='; 
+		$query = $this->query;
+		$this->query = $this->wire(new DatabaseQuerySelect());
+		foreach($value as $v) {
+			$this->match($tableName, $fieldName, $operator, "$v");
+		}
+		$query->where(implode(" OR ", $this->query->where));
+		$this->query = $query;
+		return $this;
 	}
 
 	/**
