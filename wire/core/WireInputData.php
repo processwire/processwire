@@ -160,6 +160,36 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	}
 
 	/**
+	 * Set a value 
+	 * 
+	 * @param string $key
+	 * @param string|int|float|array|null $value
+	 * @return $this
+	 * @param array|int|string $options Options not currently used, but available for descending classes or future use
+	 * @since 3.0.141 You can also use __set() or set directly for compatibility with all versions
+	 * 
+	 */
+	public function set($key, $value, $options = array()) {
+		if($options) {} // not currently used by this class
+		$this->__set($key, $value);
+		return $this;
+	}
+
+	/**
+	 * Get a value
+	 * 
+	 * @param string $key
+	 * @param array|int|string $options Options not currently used, but available for descending classes or future use
+	 * @return string|int|float|array|null $value
+	 * @since 3.0.141 You can also get directly or use __get(), both of which are compatible with all versions
+	 * 
+	 */
+	public function get($key, $options = array()) {
+		if($options) {} // not currently used by this class
+		return $this->__get($key);
+	}
+
+	/**
 	 * Clean an array of data
 	 * 
 	 * Removes multi-dimensional arrays and slashes (if applicable) 

@@ -901,6 +901,30 @@ $config->wireInputOrder = 'get post';
  */
 $config->wireInputLazy = false;
 
+/**
+ * Options for setting cookies from $input->cookie()->set(...)
+ * 
+ * Additional details about some of these options can also be found on PHP’s [setcookie](https://www.php.net/manual/en/function.setcookie.php) doc page.
+ * 
+ * #property int age Max age of cookies in seconds or 0 to expire with session (3600=1hr, 86400=1day, 604800=1week, 2592000=30days, etc.)
+ * #property string|null Cookie path or null for PW installation’s root URL (default=null).
+ * #property string|null|bool domain Cookie domain: null for current hostname, true for all subdomains of current domain, domain.com for domain and all subdomains, www.domain.com for www subdomain.
+ * #property bool|null secure Transmit cookies only over secure HTTPS connection? (true, false, or null to auto-detect, using true option for cookies set when HTTPS is active).
+ * #property bool httponly When true, cookie is http/server-side and not visible to JS code in most browsers.
+ * 
+ * @var array
+ * @since 3.0.141
+ * 
+ */
+$config->cookieOptions = array(
+	'age' => 604800, // Max age of cookies in seconds or 0 to expire with session (3600=1hr, 86400=1day, 604800=1week, 2592000=30days, etc.)
+	'path' => null, // Cookie path/URL or null for PW installation’s root URL (default=null).
+	'domain' => null, // Cookie domain: null for current hostname, true for all subdomains of current domain, domain.com for domain and all subdomains, www.domain.com for www subdomain.
+	'secure' => null, // Transmit cookies only over secure HTTPS connection? (true, false, or null to auto-detect, substituting true for cookies set when HTTPS is active).
+	'httponly' => false, // When true, cookie is http/server-side only and not visible to client-side JS code.
+	'fallback' => true, // If set cookie fails (perhaps due to output already sent), attempt to set at beginning of next request? (default=true)
+);
+
 
 /*** 7. DATABASE ********************************************************************************/
 

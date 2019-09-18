@@ -63,8 +63,15 @@ class Session extends Wire implements \IteratorAggregate {
 	 * Fingerprint bitmask: Use user agent (recommended)
 	 *
 	 */
-	const fingerprintUseragent = 8; 
-	
+	const fingerprintUseragent = 8;
+
+	/**
+	 * Suffix applied to challenge cookies
+	 * 
+	 * @since 3.0.141
+	 * 
+	 */
+	const challengeSuffix = '_challenge';
 
 	/**
 	 * Reference to ProcessWire $config object
@@ -198,7 +205,7 @@ class Session extends Wire implements \IteratorAggregate {
 		} else {
 			$name = $this->config->sessionName;
 		}
-		if($checkLogin) $name .= "_challenge";
+		if($checkLogin) $name .= self::challengeSuffix;
 		return !empty($_COOKIE[$name]);
 	}
 
@@ -284,7 +291,8 @@ class Session extends Wire implements \IteratorAggregate {
 
 		// check challenge cookie
 		if($this->config->sessionChallenge) {
-			if(empty($_COOKIE[$sessionName . "_challenge"]) || ($this->get('_user', 'challenge') != $_COOKIE[$sessionName . "_challenge"])) {
+			$cookieName = $sessionName . self::challengeSuffix;
+			if(empty($_COOKIE[$cookieName]) || ($this->get('_user', 'challenge') != $_COOKIE[$cookieName])) {
 				$valid = false; 
 				$reason = "Error: Invalid challenge value";
 			}
@@ -486,6 +494,18 @@ class Session extends Wire implements \IteratorAggregate {
 		} else {
 			return $this->data;
 		}
+	}
+
+	/**
+	 * Get all session variables for given namespace and return associative array
+	 * 
+	 * @param string|Wire $ns
+	 * @return array
+	 * @since 3.0.141 Method added for consistency, but any version can do this with $session->getFor($ns, '');
+	 * 
+	 */
+	public function getAllFor($ns) {
+		return $this->getFor($ns, '');
 	}
 
 	/**
@@ -857,12 +877,12 @@ class Session extends Wire implements \IteratorAggregate {
 
 			if($this->config->sessionChallenge) {
 				// create new challenge
-				$pass = $this->wire(new Password());
-				$challenge = $pass->randomBase64String(32);
+				$rand = new WireRandom();
+				$challenge = $rand->base64(32);
 				$this->set('_user', 'challenge', $challenge); 
 				$secure = $this->config->sessionCookieSecure ? (bool) $this->config->https : false;
 				// set challenge cookie to last 30 days (should be longer than any session would feasibly last)
-				setcookie(session_name() . '_challenge', $challenge, time()+60*60*24*30, '/', 
+				setcookie(session_name() . self::challengeSuffix, $challenge, time()+60*60*24*30, '/', 
 					$this->config->sessionCookieDomain, $secure, true); 
 			}
 
@@ -1055,9 +1075,30 @@ class Session extends Wire implements \IteratorAggregate {
 		if(isset($_COOKIE[$sessionName])) {
 			setcookie($sessionName, '', $time, '/', $this->config->sessionCookieDomain, $secure, true);
 		}
-		if(isset($_COOKIE[$sessionName . "_challenge"])) {
-			setcookie($sessionName . "_challenge", '', $time, '/', $this->config->sessionCookieDomain, $secure, true);
+		if(isset($_COOKIE[$sessionName . self::challengeSuffix])) {
+			setcookie($sessionName . self::challengeSuffix, '', $time, '/', $this->config->sessionCookieDomain, $secure, true);
 		}
+	}
+
+	/**
+	 * Get the names of all cookies managed by Session
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return array
+	 * @since 3.0.141
+	 * 
+	 */
+	public function getCookieNames() {
+		$name = $this->config->sessionName;
+		$nameSecure = $this->config->sessionNameSecure;
+		if(empty($nameSecure)) $nameSecure = $this->config->sessionName . 's';
+		$a = array($name, $nameSecure); 
+		if($this->config->sessionChallenge) {
+			$a[] = $name . self::challengeSuffix;
+			$a[] = $nameSecure . self::challengeSuffix;
+		}
+		return $a;
 	}
 
 	/**

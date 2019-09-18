@@ -301,9 +301,12 @@ class WireInput extends Wire {
 	 *
 	 */
 	public function cookie($key = '', $valid = null, $fallback = null) {
-		if(is_null($this->cookieVars)) $this->cookieVars = $this->wire(new WireInputData($_COOKIE, $this->lazy));
+		if($this->cookieVars === null) {
+			$this->cookieVars = $this->wire(new WireInputDataCookie($_COOKIE, $this->lazy));
+			$this->cookieVars->init();
+		}
 		if(!strlen($key)) return $this->cookieVars;
-		if($valid === null && $fallback === null && !strpos($key, '[]')) return $this->cookieVars->__get($key);
+		if($valid === null && $fallback === null && !strpos($key, '[]')) return $this->cookieVars->get($key);
 		return $this->getValidInputValue($this->cookieVars, $key, $valid, $fallback);
 	}
 
