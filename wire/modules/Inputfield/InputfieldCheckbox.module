@@ -9,7 +9,9 @@
  * @property string $uncheckedValue
  * @property string $label2 Alterate label to display next to checkbox (default=use regular label)
  * @property string $checkboxLabel Same as label2, but used as part of field config rather than API-only config.
+ * @property array $labelAttrs Optional attributes for <label> element that surrounds checkbox (default=[]) @since 3.0.141
  * @property int $autocheck When set to 1, setting value attribute to non-blank/non-zero automatically triggers checked. 
+ * 
  *
  */
 class InputfieldCheckbox extends Inputfield {
@@ -47,6 +49,7 @@ class InputfieldCheckbox extends Inputfield {
 		// alternate label for checkbox (both do the same thing but for different config context)
 		$this->set('label2', ''); // typically specified by API
 		$this->set('checkboxLabel', ''); // typically specified by interactive config
+		$this->set('labelAttrs', array()); // Optional attributes for <label> element that surrounds checkbox (3.0.141+)
 		
 		$languages = $this->wire('languages');
 		if($languages) foreach($languages as $language) {
@@ -93,8 +96,15 @@ class InputfieldCheckbox extends Inputfield {
 			$label = $this->entityEncode($label, Inputfield::textFormatBasic);
 		}
 		
+		$labelAttrs = $this->getSetting('labelAttrs');
+		if(!empty($labelAttrs)) {
+			$labelAttrs = ' ' . $this->getAttributesString($labelAttrs);
+		} else {
+			$labelAttrs = '';
+		}
+		
 		$out = 	
-			"<label><input type='checkbox' " . $this->getAttributesString($attrs) . " />" . 
+			"<label$labelAttrs><input type='checkbox' " . $this->getAttributesString($attrs) . " />" . 
 			"<span class='pw-no-select'>$label</span></label>"; 
 		
 		return $out; 
