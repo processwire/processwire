@@ -792,9 +792,11 @@ class Template extends WireData implements Saveable, Exportable {
 		if(empty($value)) return; 
 
 		if(strpos($value, '/') === false) {
+			// value is basename
 			$value = $this->config->paths->templates . $value;
 
 		} else if(strpos($value, $this->config->paths->root) !== 0) {
+			// value is path outside of our installation root, which we do not accept
 			$value = $this->config->paths->templates . basename($value); 
 		}
 
@@ -878,35 +880,52 @@ class Template extends WireData implements Saveable, Exportable {
 	 */
 	public function filename() {
 
-		if($this->filename) return $this->filename; 
+		/** @var Config $config */
+		$config = $this->wire('config');
+		$path = $config->paths->templates;
+		$ext = '.' . $config->templateExtension;
+		$altFilename = $this->altFilename;
 
-		if(!$this->settings['name']) throw new WireException("Template must be assigned a name before 'filename' can be accessed"); 
+		if(!$this->settings['name']) {
+			throw new WireException("Template must be assigned a name before 'filename' can be accessed");
+		}
 
-		if($this->altFilename) {
-			$altFilename = $this->wire('templates')->path . basename($this->altFilename, "." . $this->config->templateExtension) . "." . $this->config->templateExtension; 
-			$this->filename = $altFilename; 
+		if($altFilename) {
+			$filename = $path . basename($altFilename, $ext) . $ext; 
 		} else {
-			$this->filename = $this->wire('templates')->path . $this->settings['name'] . '.' . $this->config->templateExtension;
+			$filename = $path . $this->settings['name'] . $ext;
 		}
-
-		$isModified = false;
-		$fileExists = $this->filenameExists();
-		
-		if($fileExists) {
-			$modified = filemtime($this->filename);
-			if($modified > $this->modified) {
-				$isModified = true;
-				$this->modified = $modified;
-			}
-			if($isModified || !$this->ns) {
-				// determine namespace
-				$this->ns = $this->wire('files')->getNamespace($this->filename);
-				// tell it to save the template after the request is finished
-				$this->addHookAfter('ProcessWire::finished', $this, 'hookFinished'); 
-			}
+	
+		if($filename !== $this->filename) {
+			// first set of filename, or filename/path has been changed
+			$this->filenameExists = null;
+			$this->filename = $filename;
 		}
 		
-		return $this->filename;
+		if($this->filenameExists === null) { 
+			$this->filenameExists = file_exists($filename);
+			if($this->filenameExists) {
+				// if filename exists, keep track of last modification time
+				$isModified = false;
+				$modified = filemtime($filename);
+				if($modified > $this->modified) {
+					$isModified = true;
+					$this->modified = $modified;
+				}
+				if($isModified || !$this->ns) {
+					// determine namespace
+					$files = $this->wire('files');
+					/** @var WireFileTools $files */
+					$templates = $this->wire('templates');
+					/** @var Templates $templates */
+					$this->ns = $files->getNamespace($filename);
+					$templates->fileModified($this);
+				}
+			}
+		}
+		
+		
+		return $filename;
 	}
 
 	/**
@@ -928,11 +947,11 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 * #pw-group-files
 	 *
-	 * @return string
+	 * @return bool
 	 *	
 	 */
 	public function filenameExists() {
-		if(!is_null($this->filenameExists)) return $this->filenameExists; 
+		if($this->filenameExists !== null) return $this->filenameExists; 
 		$this->filenameExists = file_exists($this->filename()); 
 		return $this->filenameExists; 
 	}

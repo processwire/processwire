@@ -1682,7 +1682,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public function wire($name = '', $value = null, $lock = false) {
 
-		if(is_null($this->_wire)) {
+		if($this->_wire === null) {
 			// this object has not yet been wired! use last known current instance as fallback
 			// note this condition is unsafe in multi-instance mode
 			$wire = ProcessWire::getCurrentInstance();

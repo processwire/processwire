@@ -424,7 +424,7 @@ class ProcessWire extends Wire {
 		$fieldtypes = $this->wire('fieldtypes', new Fieldtypes(), true);
 		$fields = $this->wire('fields', new Fields(), true);
 		$fieldgroups = $this->wire('fieldgroups', new Fieldgroups(), true);
-		$templates = $this->wire('templates', new Templates($fieldgroups, $config->paths->templates), true); 
+		$templates = $this->wire('templates', new Templates($fieldgroups), true); 
 		$pages = $this->wire('pages', new Pages($this), true);
 
 		$this->initVar('fieldtypes', $fieldtypes);
