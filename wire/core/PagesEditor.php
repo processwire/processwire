@@ -395,7 +395,7 @@ class PagesEditor extends Wire {
 	 * @param array $options Optional array with the following optional elements:
 	 * 	- `uncacheAll` (boolean): Whether the memory cache should be cleared (default=true)
 	 * 	- `resetTrackChanges` (boolean): Whether the page's change tracking should be reset (default=true)
-	 * 	- `quiet` (boolean): When true, modified date and modified_users_id won't be updated (default=false)
+	 * 	- `quiet` (boolean): When true, created/modified time+user will use values from $page rather than current user+time (default=false)
 	 *	- `adjustName` (boolean): Adjust page name to ensure it is unique within its parent (default=false)
 	 * 	- `forceID` (integer): Use this ID instead of an auto-assigned on (new page) or current ID (existing page)
 	 * 	- `ignoreFamily` (boolean): Bypass check of allowed family/parent settings when saving (default=false)
@@ -1125,6 +1125,9 @@ class PagesEditor extends Wire {
 		foreach($page->fieldgroup as $field) {
 			if($page->hasField($field->name)) $page->get($field->name);
 		}
+	
+		/** @var User $user */
+		$user = $this->wire('user');
 
 		// clone in memory
 		$copy = clone $page;
@@ -1135,27 +1138,21 @@ class PagesEditor extends Wire {
 		$copy->parent = $parent;
 		$copy->of(false);
 		$copy->set('numChildren', 0);
+		$copy->created = time();
+		$copy->modified = time();
+		
+		if(!isset($options['quiet']) || $options['quiet']) {
+			$options['quiet'] = true;
+			$copy->created_users_id = $user->id;
+			$copy->modified_users_id = $user->id;
+		}
 		
 		// set any properties indicated in options	
 		if(isset($options['set']) && is_array($options['set'])) {
 			foreach($options['set'] as $key => $value) {
 				$copy->set($key, $value);
-			}
-			if(isset($options['set']['modified'])) {
-				$options['quiet'] = true; // allow for modified date to be set
-				if(!isset($options['set']['modified_users_id'])) {
-					// since 'quiet' also allows modified user to be set, make sure that it
-					// is still updated, if not specifically set. 
-					$copy->modified_users_id = $this->wire('user')->id;
-				}
-			}
-			if(isset($options['set']['modified_users_id'])) {
-				$options['quiet'] = true; // allow for modified user to be set
-				if(!isset($options['set']['modified'])) {
-					// since 'quiet' also allows modified tie to be set, make sure that it
-					// is still updated, if not specifically set. 
-					$copy->modified = time();
-				}
+				// quiet option required for setting modified time or user
+				if($key === 'modified' || $key === 'modified_users_id') $options['quiet'] = true; 
 			}
 		}
 
@@ -1164,8 +1161,6 @@ class PagesEditor extends Wire {
 			if($copy->hasField($field)) $copy->trackChange($field->name);
 		}
 
-		$copy->created = time();
-		$copy->modified = time();
 		$this->pages->cloneReady($page, $copy);
 		$this->cloning++;
 		$options['ignoreFamily'] = true; // skip family checks during clone
