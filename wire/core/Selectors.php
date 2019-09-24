@@ -1328,6 +1328,45 @@ class Selectors extends WireArray {
 		
 		return $all ? $matches : $selector;
 	}
+
+	/**
+	 * Get the first selector that uses given field name AND has the given value
+	 *
+	 * Using **$or:** By default this excludes selectors that have fields or values in an OR expression, like "a|b|c".
+	 * So if you specified field "a" it would not be matched. If you wanted it to still match, specify true
+	 * for the $or argument.
+	 *
+	 * Using **$all:** By default only the first matching selector is returned. If you want it to return all
+	 * matching selectors in an array, then specify true for the $all argument. This changes the return value
+	 * to always be an array of Selector objects, or a blank array if no match.
+	 *
+	 * @param string $fieldName Name of field to match
+	 * @param string|int $value Value that must match
+	 * @param bool $or Allow fields and values that appear in OR expressions? (default=false)
+	 * @param bool $all Return an array of all matching Selector objects? (default=false)
+	 * @return Selector|array|null Returns null if field not present in selectors (or blank array if $all mode)
+	 * @since 3.0.142
+	 *
+	 */
+	public function getSelectorByFieldValue($fieldName, $value, $or = false, $all = false) {
+		
+		$selectors = $this->getSelectorByField($fieldName, $or, true); 
+		$matches = array();
+		
+		foreach($selectors as $sel) {
+			/** @var Selector $sel */
+			if($or) {
+				if(in_array($value, $sel->values())) $matches[] = $sel;
+			} else {
+				if($sel->value() == $value) $matches[] = $sel;
+			}
+			if(!$all && count($matches)) break;
+		}
+		
+		if($all) return $matches;
+		
+		return count($matches) ? $matches[0] : null;
+	}
 	
 	public function __debugInfo() {
 		$info = parent::__debugInfo();

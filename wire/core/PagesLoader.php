@@ -347,7 +347,12 @@ class PagesLoader extends Wire {
 		$pages->setTrackChanges(true);
 
 		if($loadPages && $cachePages) {
-			$this->pages->cacher()->selectorCache($selectorString, $options, $pages);
+			if(strpos($selectorString, 'sort=random') !== false) {
+				if($selectors->getSelectorByFieldValue('sort', 'random')) $cachePages = false;
+			}
+			if($cachePages) {
+				$this->pages->cacher()->selectorCache($selectorString, $options, $pages);
+			}
 		}
 
 		if($debug) {
