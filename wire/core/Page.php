@@ -967,7 +967,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function setQuietly($key, $value) {
 		$this->quietMode = true; 
-		parent::setQuietly($key, $value);
+		if(isset($this->settings[$key]) && is_int($value)) {
+			// allow integer-only values in $this->settings to be set directly in quiet mode
+			$this->settings[$key] = $value;
+		} else {
+			parent::setQuietly($key, $value);
+		}
 		$this->quietMode = false;
 		return $this; 
 	}
