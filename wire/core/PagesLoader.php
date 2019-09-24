@@ -343,7 +343,7 @@ class PagesLoader extends Wire {
 		$pages->setTotal($total);
 		$pages->setLimit($limit);
 		$pages->setStart($start);
-		$pages->setSelectors($selectors);
+		$pages->setSelectors($selectorString);
 		$pages->setTrackChanges(true);
 
 		if($loadPages && $cachePages) {
@@ -384,8 +384,15 @@ class PagesLoader extends Wire {
 	 *
 	 * This is functionally similar to the get() method except that its default behavior is to
 	 * filter for access control and hidden/unpublished/etc. states, in the same way that the
-	 * find() method does. You can add an "include=..." to your selector string to bypass.
-	 * This method also accepts an $options arrray, whereas get() does not.
+	 * find() method does. You can add an `include=` to your selector with value `hidden`, 
+	 * `unpublished` or `all` to change this behavior, just like with find(). 
+	 * 
+	 * Unlike the find() method, this method performs a secondary runtime access check by calling 
+	 * `$page->viewable()` with the found $page, and returns a `NullPage` if the page is not
+	 * viewable with that call. In 3.0.142+, an `include=` mode of `all` or `unpublished` will 
+	 * override this, where appropriate.
+	 * 
+	 * This method also accepts an `$options` array, whereas `Pages::get()` does not.
 	 *
 	 * @param string|int|array|Selectors $selector
 	 * @param array|string $options See $options for `Pages::find`
@@ -393,17 +400,42 @@ class PagesLoader extends Wire {
 	 *
 	 */
 	public function findOne($selector, $options = array()) {
+		
 		if(empty($selector)) return $this->pages->newNullPage();
 		if(is_string($options)) $options = Selectors::keyValueStringToArray($options);
+		
 		$defaults = array(
 			'findOne' => true, // find only one page
 			'getTotal' => false, // don't count totals
 			'caller' => 'pages.findOne'
 		);
+		
 		$options = array_merge($defaults, $options);
-		$page = $this->pages->find($selector, $options)->first();
-		if(!$page || !$page->viewable(false)) $page = $this->pages->newNullPage();
-		return $page;
+		$items = $this->pages->find($selector, $options);
+		$page = $items->first();
+		
+		if($page && !$page->viewable(false)) {
+			// page found but is not viewable, check if include mode was specified and would allow the page
+			$selectors = $items->getSelectors();
+			$include = $selectors ? $selectors->getSelectorByField('include') : null;
+			if(!$include) {
+				// there was no “include=” selector present
+				$page = null;
+			} else if($include->value() === 'all') {
+				// allow $page to pass through with include=all mode
+			} else if($include->value() === 'unpublished' && $page->hasStatus(Page::statusUnpublished)) {
+				// check if user would have access without unpublished status
+				$status = $page->status;
+				$page->setQuietly('status', $status & ~Page::statusUnpublished);
+				$viewable = $page->viewable(false);
+				$page->setQuietly('status', $status); // restore
+				if(!$viewable) $page = null;
+			} else {
+				$page = null;
+			}
+		}
+
+		return $page && $page->id ? $page : $this->pages->newNullPage();
 	}
 
 	/**
