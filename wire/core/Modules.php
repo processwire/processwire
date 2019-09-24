@@ -3504,7 +3504,11 @@ class Modules extends WireArray {
 				if($moduleInstance && $moduleInstance instanceof ConfigurableModule) {
 					// re-try because moduleInfo may be temporarily incorrect for this request because of change in moduleInfo format
 					// this is due to reports of ProcessChangelogHooks not getting config data temporarily between 2.6.11 => 2.6.12
-					$this->error("Configurable module check failed for $className, retrying...", Notice::debug);
+					$this->error(
+						"Configurable module check failed for $className. " . 
+						"If this error persists, please do a Modules > Refresh.", 
+						Notice::debug
+					);
 					$useCache = false; 
 				} else {
 					return false;
