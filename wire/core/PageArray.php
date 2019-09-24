@@ -36,7 +36,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	/**
 	 * Reference to the selectors that led to this PageArray, if applicable
 	 *
-	 * @var Selectors
+	 * @var Selectors|string
 	 *
 	 */
 	protected $selectors = null;
@@ -420,12 +420,14 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param Selectors $selectors
+	 * @param Selectors|string $selectors Option to add as string added in 3.0.142
 	 * @return $this
 	 *
 	 */
-	public function setSelectors(Selectors $selectors) {
-		$this->selectors = $selectors; 
+	public function setSelectors($selectors) {
+		if(is_string($selectors) || $selectors instanceof Selectors || $selectors === null) {
+			$this->selectors = $selectors;
+		}
 		return $this;
 	}
 
@@ -440,11 +442,15 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * echo $products->getSelectors(); // outputs the selector above
 	 * ~~~~~
 	 * 
-	 * @return Selectors|null Returns Selectors object if available, or null if not. 
+	 * @param bool $getString Specify true to get selector string rather than Selectors object (default=false) added in 3.0.142
+	 * @return Selectors|string|null Returns Selectors object if available, or null if not. Always return string if $getString argument is true. 
 	 *
 	 */
-	public function getSelectors() {
-		return $this->selectors; 
+	public function getSelectors($getString = false) {
+		if($getString) return (string) $this->selectors;
+		if($this->selectors === null) return null;
+		if(is_string($this->selectors)) $this->selectors = $this->wire(new Selectors($this->selectors));
+		return $this->selectors;
 	}
 
 	/**

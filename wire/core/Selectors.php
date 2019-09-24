@@ -315,7 +315,7 @@ class Selectors extends WireArray {
 	}
 
 	/**
-	 * Is the give string a Selector string?
+	 * Is the given string a Selector string?
 	 *
 	 * #pw-group-static-helpers
 	 *
