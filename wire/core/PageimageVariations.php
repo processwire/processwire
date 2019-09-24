@@ -324,7 +324,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 		// if suffix or noSuffix option contains space, convert it to suffixes or noSuffixes array option
 		foreach(array('suffix', 'noSuffix') as $key) {
 			if(!isset($options[$key])) continue;
-			if(strpos(trim($options['suffix']), ' ') === false) continue;
+			if(strpos(trim($options[$key]), ' ') === false) continue;
 			$keyPlural = $key . 'es';
 			$value = isset($options[$keyPlural]) ? $options[$keyPlural] : array();
 			$options[$keyPlural] = array_merge($value, explode(' ', trim($options[$key])));
