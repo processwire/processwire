@@ -502,10 +502,23 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 *
 	 */
 	public function hookClearCaches(HookEvent $event) {
-		$page = $event->arguments(0);
-		if(is_null($page) || ($page instanceof Page && $page->template == 'admin')) {
-			$this->wire('session')->removeFor($this, 'prnav');
-			$this->wire('session')->message("Cleared the admin theme navigation cache (primary nav)", Notice::debug);
+
+		/** @var Page|User|null $page */
+		$page = $event->arguments(0); 
+		/** @var array $changes */
+		$changes = $event->arguments(1);
+		/** @var User $user */
+		$user = $this->wire('user'); 
+		
+		if($page !== null && !($page instanceof Page)) return;
+		if(!is_array($changes)) $changes = array();
+		
+		if($page === null || $page->template == 'admin' || ($page->id === $user->id && in_array('language', $changes))) {
+			/** @var Session $session */
+			$session = $this->wire('session'); 
+			$session->removeFor($this, 'prnav');
+			$session->removeFor($this, 'sidenav');
+			$session->message("Cleared the admin theme navigation cache (primary nav)", Notice::debug);
 		}
 	}
 
