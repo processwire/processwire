@@ -1756,7 +1756,10 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$data['repeaterFields'] = array();
 		$data['fieldContexts'] = array();
 		
-		foreach($field->get('repeaterFields') as $fid) {
+		$a = $field->get('repeaterFields');
+		if(!is_array($a)) $a = array();
+		
+		foreach($a as $fid) {
 			$f = $this->wire('fields')->get((int) $fid); 
 			if(!$f) continue;
 			$data['repeaterFields'][] = $f->name;
