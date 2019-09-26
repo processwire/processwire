@@ -1435,25 +1435,27 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$keys = explode('|', $multiKey); 
 
 		foreach($keys as $key) {
-			$value = $this->getUnformatted($key);
-			
-			if(is_object($value)) {
-				// like LanguagesPageFieldValue or WireArray
-				$str = trim((string) $value); 
+			$v = $this->getUnformatted($key);
+		
+			if(is_array($v) || $v instanceof WireArray) {
+				// array or WireArray
+				if(!count($v)) continue;
+				
+			} else if(is_object($v)) {
+				// like LanguagesPageFieldValue 
+				$str = trim((string) $v); 
 				if(!strlen($str)) continue; 
 				
-			} else if(is_array($value)) {
-				// array with no items
-				if(!count($value)) continue;
-				
-			} else if(is_string($value)) {
-				$value = trim($value); 
+			} else if(is_string($v)) {
+				$v = trim($v); 
 			}
 			
-			if($value) {
-				if($this->outputFormatting) $value = $this->get($key);
-				if($value) {
-					if($getKey) $value = $key;
+			if($v) {
+				if($this->outputFormatting) {
+					$v = $this->get($key);
+				}
+				if($v) {
+					$value = $getKey ? $key : $v;
 					break;
 				}
 			}
