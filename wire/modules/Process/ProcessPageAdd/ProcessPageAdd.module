@@ -1093,7 +1093,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$this->session->message(
 			sprintf(
 				$this->_('Created page %1$s using template: %2$s'), 
-				$page->parent->url . $page->name, $page->template->name
+				$page->parent->url . $page->name, $page->template->getLabel()
 			)
 		); 
 	}
