@@ -73,7 +73,7 @@ require_once(dirname(__FILE__) . '/PagerNav.php');
  * not necessary to change any of the default options unless you want to change the markup and/or classes used in output. 
  * #pw-body
  *
- * @property int $numPageLinks The number of links that the pagination navigation should have (default=10). #pw-group-general-options
+ * @property int $numPageLinks The number of links that the pagination navigation should have, minimum 5 (default=10). #pw-group-general-options
  * @property array $getVars GET vars that should appear in the pagination, or leave empty and populate $input->whitelist (recommended). #pw-group-general-options
  * @property string $baseUrl The base URL from which the navigation item links will start (default=''). #pw-group-general-options
  * @property null|Page $page The current Page, or leave NULL to autodetect. #pw-group-general-options
@@ -128,7 +128,7 @@ class MarkupPagerNav extends Wire implements Module {
 	 */
 	protected $options = array(
 
-		// number of links that the pagination navigation should have (typically 10) 
+		// number of links that the pagination navigation should have, minimum 5 (typically 10) 
 		'numPageLinks' => 10,	
 
 		// get vars that should appear in the pagination, or leave empty and populate $input->whitelist (preferred)
