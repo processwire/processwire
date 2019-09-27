@@ -1062,6 +1062,9 @@ class Fields extends WireSaveableItems {
 		if($fieldtype) {
 			// ask fieldtype what is compatible
 			$fieldtypes = $fieldtype->getCompatibleFieldtypes($field);
+			if(!$fieldtypes || !$fieldtypes instanceof WireArray) {
+				$fieldtypes = $this->wire(new Fieldtypes());
+			}
 			// ensure original is present
 			$fieldtypes->prepend($fieldtype);
 		} else {
