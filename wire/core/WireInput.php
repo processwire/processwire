@@ -93,6 +93,7 @@ class WireInput extends Wire {
 		'PUT' => 'PUT',
 		'DELETE' => 'DELETE',
 		'OPTIONS' => 'OPTIONS',
+		'PATCH' => 'PATCH',
 	);
 
 	/**
