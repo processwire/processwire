@@ -154,9 +154,11 @@ if($page->process && $page->process != 'ProcessPageView') {
 		if($process) {} // ignore
 
 	} catch(Wire404Exception $e) {
+		$wire->setStatusFailed($e, "404 from $page->process", $page);
 		$wire->error($e->getMessage()); 
 
 	} catch(WirePermissionException $e) {
+		$wire->setStatusFailed($e, "Permission error from $page->process", $page); 
 
 		if($controller && $controller->isAjax()) {
 			$content = $controller->jsonMessage($e->getMessage(), true); 
@@ -170,6 +172,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 		}
 
 	} catch(\Exception $e) {
+		$wire->setStatusFailed($e, "Error from $page->process", $page); 
 		$msg = $e->getMessage(); 
 		if($config->debug) {
 			$msg = $sanitizer->entities($msg);

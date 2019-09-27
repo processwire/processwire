@@ -8,16 +8,16 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  * @method string execute($internal = true)
  * @method string executeExternal()
- * @method ready()
- * @method finished()
- * @method failed(\Exception $e)
+ * @method ready(array $data = array())
+ * @method finished(array $data = array())
+ * @method failed(\Exception $e, $reason = '', $page = null, $url = '')
  * @method sendFile($page, $basename)
- * @method string pageNotFound($page, $url, $triggerReady = false, $reason = '')
+ * @method string pageNotFound($page, $url, $triggerReady = false, $reason = '', \Exception $e = null)
  *
  */
 class ProcessPageView extends Process {
@@ -180,11 +180,11 @@ class ProcessPageView extends Process {
 			}
 
 			try {
-				$this->wire()->setStatus(ProcessWire::statusRender);
 
 				if($this->requestFile) {
-					
+
 					$this->responseType = self::responseTypeFile;
+					$this->wire()->setStatus(ProcessWire::statusDownload, array('downloadFile' => $this->requestFile));
 					$this->sendFile($page, $this->requestFile);
 					
 				} else {
@@ -200,6 +200,8 @@ class ProcessPageView extends Process {
 						}
 						if($contentType) header("Content-Type: $contentType");
 					}
+					
+					$this->wire()->setStatus(ProcessWire::statusRender, array('contentType' => $contentType));
 
 					if($config->ajax) {
 						$this->responseType = self::responseTypeAjax;
@@ -211,11 +213,16 @@ class ProcessPageView extends Process {
 				}
 
 			} catch(Wire404Exception $e) {
-				return $this->pageNotFound($page, $this->requestURL, false, '404 thrown during render');
+				return $this->pageNotFound($page, $this->requestURL, false, '404 thrown during page render', $e);
+			
+			} catch(\Exception $e) {
+				$this->responseType = self::responseTypeError;
+				$this->failed($e, "Thrown during page render", $page); 
+				throw $e; // re-throw non-404 Exceptions
 			}
 
 		} else {
-			return $this->pageNotFound(new NullPage(), $this->requestURL, true, 'requested page resolved to NullPage'); 
+			return $this->pageNotFound(new NullPage(), $this->requestURL, true, 'Requested URL did not resolve to a Page'); 
 		}
 
 		return '';
@@ -238,24 +245,28 @@ class ProcessPageView extends Process {
 		}
 		$this->wire('page', $page);
 		$this->ready();
-		$this->wire()->setStatus(ProcessWire::statusRender);
+		$this->wire()->setStatus(ProcessWire::statusRender, array('contentType' => 'external'));
 		return '';
 	}
 
 	/**
 	 * Hook called when the $page API var is ready, and before the $page is rendered. 
+	 * 
+	 * @param array $data
 	 *
 	 */
-	public function ___ready() { 
-		$this->wire()->setStatus(ProcessWire::statusReady);
+	public function ___ready(array $data = array()) { 
+		$this->wire()->setStatus(ProcessWire::statusReady, $data);
 	}
 
 	/**
 	 * Hook called with the pageview has been finished and output has been sent. Note this is called in /index.php.
+	 * 
+	 * @param array $data
 	 *	
  	 */
-	public function ___finished() { 
-		$this->wire()->setStatus(ProcessWire::statusFinished);
+	public function ___finished(array $data = array()) { 
+		$this->wire()->setStatus(ProcessWire::statusFinished, $data);
 	}
 
 	/**
@@ -264,11 +275,13 @@ class ProcessPageView extends Process {
 	 * Sends a copy of the exception that occurred.
 	 * 
 	 * @param \Exception $e
+	 * @param string $reason
+	 * @param Page|null $page
+	 * @param string $url
 	 *	
  	 */
-	public function ___failed(\Exception $e) { 
-		if($e) {}
-		$this->wire()->setStatus(ProcessWire::statusFailed);
+	public function ___failed(\Exception $e, $reason = '', $page = null, $url = '') { 
+		$this->wire()->setStatusFailed($e, $reason, $page, $url); 
 	}
 
 	/**
@@ -862,12 +875,15 @@ class ProcessPageView extends Process {
 	 * @param string $url The URL that the request originated from (like $_SERVER['REQUEST_URI'] but already sanitized)
 	 * @param bool $triggerReady Whether or not the ready() hook should be triggered (default=false)
 	 * @param string $reason Reason why 404 occurred, for debugging purposes (en text)
+	 * @param WireException|Wire404Exception $exception Exception that was thrown or that indicates details of error
 	 * @throws WireException
 	 * @return string
 	 */
-	protected function ___pageNotFound($page, $url, $triggerReady = false, $reason = '') {
-		if($page || $url || $reason) {} // variables provided for hooks only
+	protected function ___pageNotFound($page, $url, $triggerReady = false, $reason = '', $exception = null) {
+		
+		if(!$exception) $exception = new Wire404Exception($reason); // create but do not throw
 
+		$this->failed($exception, $reason, $page, $url); 
 		$this->responseType = self::responseTypeError; 
 		$config = $this->config;
 		$this->header404();

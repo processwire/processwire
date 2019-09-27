@@ -22,6 +22,7 @@
  *
  * @property bool $ajax If the current request is an ajax (asynchronous javascript) request, this is set to true. #pw-group-runtime
  * @property bool|int $modal If the current request is in a modal window, this is set to a positive number. False if not. #pw-group-runtime
+ * @property bool|int $admin Is current request for logged-in user in admin? True, false, or 0 if not yet known. @since 3.0.142 #pw-group-runtime
  * @property string $httpHost Current HTTP host name. #pw-group-HTTP-and-input
  * @property bool $https If the current request is an HTTPS request, this is set to true. #pw-group-runtime
  * @property string $version Current ProcessWire version string (i.e. "2.2.3") #pw-group-system #pw-group-runtime
@@ -77,6 +78,7 @@
  * @property string $uploadBadExtensions Space separated list of file extensions that are always disallowed from uploads. #pw-group-files
  * 
  * @property string $adminEmail Email address to send fatal error notifications to. #pw-group-system
+ * @property array $adminTemplates Names of templates that ProcessWire should consider exclusive to the admin. #pw-group-system @since 3.0.142
  * 
  * @property string $pageNameCharset Character set for page names, must be 'ascii' (default, lowercase) or 'UTF8' (uppercase). #pw-group-URLs
  * @property string $pageNameWhitelist Whitelist of characters allowed in UTF8 page names. #pw-group-URLs
@@ -152,6 +154,8 @@
  * @property bool $debugMarkupQA Set to true to make the MarkupQA class report verbose debugging messages (to superusers). #pw-internal
  * @property array $markupQA Optional settings for MarkupQA class used by FieldtypeTextarea module. #pw-group-modules
  * @property string|null $pagerHeadTags Populated at runtime to contain `<link rel=prev|next />` tags for document head, after pagination has been rendered by MarkupPagerNav module. #pw-group-runtime 
+ * @property array $statusFiles File inclusions for ProcessWire’s runtime statuses/states. #pw-group-system @since 3.0.142
+ * @property int $status Value of current system status/state corresponding to ProcessWire::status* constants. #pw-internal
  * 
  * @property int $rootPageID Page ID of homepage (usually 1) #pw-group-system-IDs
  * @property int $adminRootPageID Page ID of admin root page #pw-group-system-IDs

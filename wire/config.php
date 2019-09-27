@@ -401,6 +401,7 @@ $config->loginDisabledRoles = array(
  * 
  * Set to false do disable the option for compiled template files. 
  * When set to true, it will be used unless a given template's 'compile' option is set to 0.
+ * This setting also covers system status files like /site/ready.php, /site/init.php, etc. (3.0.142+)
  * 
  * @var bool
  * 
@@ -1417,6 +1418,132 @@ $config->lazyPageChunkSize = 250;
  * 
  */
 
+/**
+ * statusFiles: Optional automatic include files when ProcessWire reaches each status/state
+ *
+ * **Using status/state files:**
+ *
+ * - These files must be located in your /site/ directory, i.e. /site/ready.php.
+ * - If a file does not exist, PW will see that and ignore it.
+ * - For any state/status files that you don’t need, it is preferable to make them
+ *   blank or remove them, so that PW does not have to check if the file exists.
+ * - It is also preferable that included files have the ProcessWire namespace, and it is
+ *   required that a `boot` file (if used) have the Processwire namespace.
+ * - The `init` and `ready` status files are called *after* autoload modules have had their
+ *   corresponding methods (init or ready) called. Use `_init` or `_ready` (with leading
+ *   underscore) as the keys to specify files that should instead be called *before* the state.
+ * - While php files in /site/ are blocked from direct access by the .htaccess file, it’s 
+ *   also a good idea to add `if(!defined("PROCESSWIRE")) die();` at the top of them. 
+ * 
+ * **Status files and available API variables:**
+ *
+ * - Included files receive current available ProcessWire API variables, locally scoped.
+ * - In the `boot` state, only $wire, $hooks, $config, $classLoader API variables are available.
+ * - In the `init` state, all core API variables are available, except for $page.
+ * - In the `ready`, `render`, `download` and `finished` states, all API variables are available.
+ * - In the `failed` state, an unknown set of API variables is available, so use isset() to check.
+ *
+ * **Description of statuses/states:**
+ *
+ * The statuses occur in this order:
+ *
+ * 1. The `boot` status occurs in the ProcessWire class constructor, after PW has initialized its
+ *    class loader, loaded its config files, and initialized its hooks system. One use for this
+ *    state is to add static hooks to methods that might be executed between boot and init, which
+ *    would be missed by the time the init state is reached.
+ *
+ * 2. The `init` status occurs after ProcessWire has loaded all of its core API variables, except
+ *    that the $page API variable has not yet been determined. At this point, all of the autoload
+ *    modules have had their init() methods called as well.
+ * 
+ *    - If you want to target the state right before modules.init() methods are called, (rather
+ *      than after), you can use `initBefore`.
+ *
+ * 3. The `ready` status is similar to the init status except that the current Page is now known,
+ *    and the $page API variable is known and available. The ready file is included after autoload
+ *    modules have had their ready() methods called. 
+ * 
+ *    - If you want to limit your ready file to just be called for front-end (site) requests,
+ *      you can use `readySite`.
+ * 
+ *    - If you want to limit your ready file to just be called for back-end (admin) requests with
+ *      a logged-in user, you can use `readyAdmin`.
+ * 
+ *    - If you want to target the state right before modules.ready() methods are called, (rather 
+ *      than after), you can use `readyBefore`. This is the same as the init state, except that
+ *      the current $page is available. 
+ *
+ * 4. The `render` status occurs when a page is about to be rendered and the status is retained
+ *    until the page has finished rendering. If using a status file for this, in addition to API
+ *    variables, it will also receive a `$contentType` variable that contains the matched content-
+ *    type header, or it may be blank for text/html content-type, or if not yet known. If externally
+ *    bootstrapped it will contain the value “external”.
+ *
+ * 5. The `download` status occurs when a file is about to be sent as a download to the user.
+ *    It occurs *instead* of a render status (rather than in addition to). If using an include file
+ *    for this, in addition to API vars, it will also receive a `$downloadFile` variable containing
+ *    the filename requested to be downloaded (string).
+ *
+ * 6. The `finished` status occurs after the request has been delivered and output sent. ProcessWire
+ *    performs various maintenance tasks during this state.
+ *
+ * 7. The `failed` status occurs when the request has failed due an Exception being thrown.
+ *    In addition to available API vars, it also receives these variables:
+ *    
+ *    - `$exception` (\Exception): The Exception that triggered the failed status, this is most 
+ *       commonly going to be a Wire404Exception, WirePermissionException or WireException.
+ *    - `$reason` (string): Additional text info about error, beyond $exception->getMessage(). 
+ *    - `$failPage` (Page|NullPage): Page where the error occurred
+ * 
+ * **Defining status files:**
+ *
+ * You can define all of the status files at once using an array like the one this documentation
+ * is for, but chances are you want to set one or two rather than all of them. You can do so like
+ * this, after creating /site/boot.php and site/failed.php files (as examples):
+ * ~~~~~
+ * $config->statusFiles('boot', 'boot.php');
+ * $config->statusFiles('failed', 'failed.php');
+ * ~~~~~
+ *
+ * @since 3.0.142
+ * @var array
+ * 
+ * #property string boot File to include for 'boot' state.
+ * #property string init File to include for 'init' state.
+ * #property string initBefore File to include right before 'init' state, before modules.init().
+ * #property string ready File to include for API 'ready' state.
+ * #property string readyBefore File to include right before 'ready'state, before modules.ready().
+ * #property string readySite File to include for 'ready' state on front-end/site only.
+ * #property string readyAdmin File to include for 'ready' state on back-end/admin only. 
+ * #property string download File to include for API 'download' state (sending file to user).
+ * #property string render File to include for the 'render' state (always called before).
+ * #property string finished File to include for the 'finished' state.
+ * #property string failed File to include for the 'failed' state.
+ *
+ */
+$config->statusFiles = array(
+	'boot' => '',
+	'initBefore' => '',
+	'init' => 'init.php',
+	'readyBefore' => '',
+	'ready' => 'ready.php',
+	'readySite' => '',
+	'readyAdmin' => '',
+	'render' => '',
+	'download' => '',
+	'finished' => 'finished.php',
+	'failed' => '',
+);
+
+/**
+ * adminTemplates: Names of templates that ProcessWire should consider exclusive to the admin
+ *
+ * @since 3.0.142
+ * @var array
+ * 
+ */
+$config->adminTemplates = array('admin');
+
 
 /*** 10. RUNTIME ********************************************************************************
  * 
@@ -1449,6 +1576,20 @@ $config->modal = false;
 $config->external = false;
 
 /**
+ * status: Current runtime status (corresponding to ProcessWire::status* constants)
+ *
+ */
+$config->status = 0;
+
+/**
+ * admin: TRUE when current request is for a logged-in user in the admin, FALSE when not, 0 when not yet known
+ * 
+ * @since 3.0.142
+ *
+ */
+$config->admin = 0;
+
+/**
  * cli: This is automatically set to TRUE when PW is booted as a command line (non HTTP) script.
  *
  */
@@ -1459,7 +1600,6 @@ $config->cli = false;
  *
  */
 $config->version = '';
-
 
 /**
  * versionName: This is automatically populated with the current PW version name (i.e. 2.5.0 dev)

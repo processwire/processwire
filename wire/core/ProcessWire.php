@@ -65,40 +65,91 @@ class ProcessWire extends Wire {
 	const htaccessVersion = 301;
 
 	/**
-	 * Status when system is booting
+	 * Status prior to boot (no API variables available)
 	 * 
 	 */
-	const statusBoot = 0;
+	const statusNone = 0;
+
+	/**
+	 * Status when system is booting
+	 * 
+	 * API variables available: $wire, $hooks, $config, $classLoader 
+	 * 
+	 */
+	const statusBoot = 1;
 
 	/**
 	 * Status when system and modules are initializing
+	 * 
+	 * All API variables available except for $page
 	 * 
 	 */
 	const statusInit = 2;
 
 	/**
-	 * Systus when system, $page and API variables are ready
+	 * Status when system, $page and all API variables are ready
+	 * 
+	 * All API variables available
 	 * 
 	 */
 	const statusReady = 4;
 
 	/**
-	 * Status when the current $page’s template file is being rendered
+	 * Status when the current $page’s template file is being rendered, set right before render
+	 * 
+	 * All API variables available
 	 * 
 	 */
 	const statusRender = 8;
 
 	/**
-	 * Status when the request has been fully delivered
+	 * Status when current request will send a file download to client and exit (rather than rendering a page template file)
+	 * 
+	 * All API variables available
 	 * 
 	 */
-	const statusFinished = 16;
+	const statusDownload = 32;
+
+	/**
+	 * Status when the request has been fully delivered
+	 * 
+	 * All API variables available
+	 * 
+	 */
+	const statusFinished = 128;
 
 	/**
 	 * Status when the request failed due to an Exception or 404
 	 * 
+	 * API variables should be checked for availability before using. 
+	 * 
 	 */
-	const statusFailed = 1024; 
+	const statusFailed = 1024;
+
+	/**
+	 * Current status/state
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $status = self::statusNone;
+
+	/**
+	 * Names for each of the system statuses
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $statusNames = array(
+		self::statusNone => '',
+		self::statusBoot => 'boot',
+		self::statusInit => 'init',
+		self::statusReady => 'ready',
+		self::statusRender => 'render',
+		self::statusDownload => 'download',
+		self::statusFinished => 'finished',
+		self::statusFailed => 'failed',
+	);
 
 	/**
 	 * Whether debug mode is on or off
@@ -128,6 +179,14 @@ class ProcessWire extends Wire {
 	protected $pathSave = '';
 
 	/**
+	 * Saved file, for includeFile() method
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $fileSave = '';
+
+	/**
 	 * @var SystemUpdater|null
 	 * 
 	 */
@@ -146,7 +205,6 @@ class ProcessWire extends Wire {
 	 * 
 	 */
 	protected $shutdown = null;
-	
 	
 	/**
 	 * Create a new ProcessWire instance
@@ -260,6 +318,7 @@ class ProcessWire extends Wire {
 		$config->ajax = (isset($_SERVER['HTTP_X_REQUESTED_WITH']) && $_SERVER['HTTP_X_REQUESTED_WITH'] == 'XMLHttpRequest');
 		$config->cli = (!isset($_SERVER['SERVER_SOFTWARE']) && (php_sapi_name() == 'cli' || (isset($_SERVER['argc']) && $_SERVER['argc'] > 0 && is_numeric($_SERVER['argc']))));
 		$config->modal = empty($_GET['modal']) ? false : abs((int) $_GET['modal']); 
+		$config->admin = 0; // 0=not known, determined during ready state
 		
 		$version = self::versionMajor . "." . self::versionMinor . "." . self::versionRevision; 
 		$config->version = $version;
@@ -481,29 +540,127 @@ class ProcessWire extends Wire {
 	 * 
 	 * This also triggers init/ready functions for modules, when applicable.
 	 * 
-	 * @param $status
+	 * @param int $status
+	 * @param array $data Associtaive array of any extra data to pass along to include files as locally scoped vars (3.0.142+)
 	 * 
 	 */
-	public function setStatus($status) {
-		$config = $this->wire('config');
-		// don't re-trigger if this state has already been triggered
-		if($config->status >= $status) return;
-		$config->status = $status;
-		$sitePath = $this->wire('config')->paths->site;
+	public function setStatus($status, array $data = array()) {
 		
+		/** @var Config $config */
+		$config = $this->wire('config');
+		
+		// don’t re-trigger if this state has already been triggered
+		// except that a failed status can be backtracked
+		if($this->status >= $status && $this->status != self::statusFailed) return;
+		
+		$name = isset($this->statusNames[$status]) ? $this->statusNames[$status] : 'unknown';
+		$path = $config->paths->site;
+		$files = $config->statusFiles;
+
+		if($status == self::statusReady || $status == self::statusInit) {
+			// before status include file, i.e. "readyBefore" or "initBefore"
+			$nameBefore = $name . 'Before';
+			$file = empty($files[$nameBefore]) ? null : $path . basename($files[$nameBefore]);
+			if($file !== null) $this->includeFile($file, $data);
+		}
+
+		// set status to config
+		$this->status = $status;
+		$config->status = $status;
+	
+		// call any relevant internal methods
 		if($status == self::statusInit) {
 			$this->init();
-			$this->includeFile($sitePath . 'init.php');
-			
 		} else if($status == self::statusReady) {
+			$config->admin = $this->isAdmin();
 			$this->ready();
 			if($this->debug) Debug::saveTimer('boot', 'includes all boot timers');
-			$this->includeFile($sitePath . 'ready.php');
-			
-		} else if($status == self::statusFinished) {
-			$this->includeFile($sitePath . 'finished.php');
+		} 
+	
+		// after status include file, names like 'init', 'ready', etc.
+		$file = empty($files[$name]) ? null : $path . basename($files[$name]);
+		if($file !== null) $this->includeFile($file, $data);
+
+		if($status == self::statusFinished) {
+			// internal finished always runs after any included finished file
 			$this->finished();
+		} else if($status == self::statusReady) {
+			// additional 'admin' or 'site' options for ready status
+			if(!empty($files['readyAdmin']) && $config->admin === true) {
+				$this->includeFile($path . basename($files['readyAdmin']), $data);
+			} else if(!empty($files['readySite']) && $config->admin === false) {
+				$this->includeFile($path . basename($files['readySite']), $data);
+			}
 		}
+	}
+	
+	/**
+	 * Set internal runtime status to failed, with additional info
+	 * 
+	 * #pw-internal
+	 *
+	 * @param \Exception $e
+	 * @param string $reason
+	 * @param null $page
+	 * @param string $url
+	 * @since 3.0.142
+	 *
+	 */
+	public function setStatusFailed(\Exception $e, $reason = '', $page = null, $url = '') {
+		static $lastException = null;
+		if($lastException === $e) return;
+		if(!$page instanceof Page) $page = new NullPage();
+		$this->setStatus(ProcessWire::statusFailed, array(
+			'exception' => $e,
+			'failPage' => $page,
+			'reason' => $reason,
+			'url' => $url,
+		));
+		$lastException = $e;
+	}
+
+	/**
+	 * Is the current request for a logged-in user within the admin control panel?
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return bool|int Returns boolean true or false, or 0 if not yet able to tell
+	 * @since 3.0.142
+	 * 
+	 */
+	protected function isAdmin() {
+		
+		$config = $this->wire('config');
+		$admin = $config->admin;
+		if(is_bool($admin)) return $admin;
+		$admin = 0;
+		
+		$page = $this->wire('page');
+		if(!$page || !$page->id) return 0;
+		
+		if(in_array($page->template->name, $config->adminTemplates)) {
+			$user = $this->wire('user');
+			if($user) $admin = $user->isLoggedin() ? true : false;
+		} else {
+			$admin = false;
+		}
+
+		return $admin;
+	}
+
+	/**
+	 * Get the current runtime status/state
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param bool $getName Get the name of the status rather than the integer value? (default=false)
+	 * @return int|string
+	 * @since 3.0.142
+	 * 
+	 */
+	public function getStatus($getName = false) {
+		if(!$getName) return $this->status;
+		return isset($this->statusNames[$this->status]) ? $this->statusNames[$this->status] : 'unknown';
 	}
 
 	/**
@@ -558,7 +715,6 @@ class ProcessWire extends Wire {
 			$compiler = new FileCompiler($this->wire('config')->paths->siteModules);
 			$compiler->maintenance();
 		}
-		
 	}
 
 	/**
@@ -589,19 +745,27 @@ class ProcessWire extends Wire {
 	 * File is executed in the directory where it exists.
 	 * 
 	 * @param string $file Full path and filename
+	 * @param array $data Associative array of any extra data to pass along to include file as locally scoped vars
 	 * @return bool True if file existed and was included, false if not.
 	 * 
 	 */
-	protected function includeFile($file) {
+	protected function includeFile($file, array $data = array()) {
 		if(!file_exists($file)) return false;
-		$file = $this->wire('files')->compile($file, array('skipIfNamespace' => true));
+		$this->fileSave = $file; // to prevent any possibility of extract() vars from overwriting
+		$config = $this->wire('config'); /** @var Config $config */
+		if($this->status > self::statusBoot && $config->templateCompile) {
+			$files = $this->wire('files'); /** @var WireFileTools $files */
+			if($files) $this->fileSave = $files->compile($file, array('skipIfNamespace' => true));
+		}
 		$this->pathSave = getcwd();
-		chdir(dirname($file));
+		chdir(dirname($this->fileSave));
+		if(count($data)) extract($data);
 		$fuel = $this->fuel->getArray();
 		extract($fuel);
 		/** @noinspection PhpIncludeInspection */
-		include($file);
+		include($this->fileSave);
 		chdir($this->pathSave);
+		$this->fileSave = '';
 		return true; 
 	}
 	

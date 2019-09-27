@@ -596,6 +596,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 		$files = $this->wire('files');
 
 		foreach($variations as $variation) {
+			/** @var Pageimage $variation */
 			$filename = $variation->filename;
 			if(!is_file($filename)) continue;
 			if($options['dryRun']) {
