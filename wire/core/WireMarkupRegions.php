@@ -19,6 +19,12 @@ class WireMarkupRegions extends Wire {
 	const debug = false;
 
 	/**
+	 * Markup landmark where debug notes should be placed
+	 * 
+	 */
+	const debugLandmark = "<!--PW-REGION-DEBUG-->";
+
+	/**
 	 * @var array
 	 * 
 	 */
@@ -872,10 +878,12 @@ class WireMarkupRegions extends Wire {
 	 * Strip optional tags/comments from given markup
 	 * 
 	 * @param string $markup
+	 * @param bool $debug
 	 * @return string
 	 * 
 	 */
-	public function stripOptional($markup) {
+	public function stripOptional($markup, $debug = false) {
+		static $level = 0;
 		$attrs = array('data-pw-optional', 'pw-optional'); 
 		foreach($attrs as $attrName) {
 			if(strpos($markup, " $attrName") === false) continue;
@@ -884,6 +892,17 @@ class WireMarkupRegions extends Wire {
 				$pos = strpos($markup, $region['html']);
 				if($pos === false) continue;
 				$content = trim($region['region']);
+				if(strpos($content, 'pw-optional') && $level < 10) {
+					// go resursive if pw-optional elements are nested
+					$level++;
+					$nestedContent = trim($this->stripOptional($content, $debug));		
+					$level--;
+					if(strlen($nestedContent) && $nestedContent !== $content) {
+						$html = str_replace($content, $nestedContent, $region['html']); 
+						$markup = str_replace($region['html'], $html, $markup);
+					}
+					$content = $nestedContent;
+				}
 				if(strlen($content)) {
 					// not empty, remove just the pw-optional attribute
 					$open = $region['open'];
@@ -892,6 +911,10 @@ class WireMarkupRegions extends Wire {
 				} else {
 					// empty optional region, can be removed
 					$markup = substr($markup, 0, $pos) . substr($markup, $pos + strlen($region['html']));
+					if($debug) {
+						$optional = '[sm]' . ($level ? "nested (×$level) optional region" : "optional region") . '[/sm]';
+						$this->debugNotes[] = "REMOVED #$region[pwid] $optional"; 
+					}
 				}
 			}
 		}
@@ -1334,8 +1357,7 @@ class WireMarkupRegions extends Wire {
 		
 		$options = array_merge($defaults, $options);
 		$leftoverMarkup = '';
-		$debugLandmark = "<!--PW-REGION-DEBUG-->";
-		$hasDebugLandmark = strpos($htmlDocument, $debugLandmark) !== false;
+		$hasDebugLandmark = strpos($htmlDocument, self::debugLandmark) !== false;
 		$debug = $hasDebugLandmark && $this->wire('config')->debug;
 		$debugTimer = $debug ? Debug::timer() : 0;
 		
@@ -1359,11 +1381,13 @@ class WireMarkupRegions extends Wire {
 		}
 
 		if(!count($regions)) {
-			if($debug) $htmlDocument = str_replace($debugLandmark, "<pre>No regions</pre>$debugLandmark", $htmlDocument);
 			$recursionLevel--;
-			if(!$recursionLevel) {
-				$this->removeRegionTags($htmlDocument);
-				if(strpos($htmlDocument, 'pw-optional')) $htmlDocument = $this->stripOptional($htmlDocument);
+			$this->removeRegionTags($htmlDocument);
+			if($recursionLevel) return 0;
+			if(strpos($htmlDocument, 'pw-optional')) $htmlDocument = $this->stripOptional($htmlDocument, $debug);
+			if($debug) {
+				if(!count($this->debugNotes)) $this->debugNotes[] = 'No regions';
+				$this->populateDebugNotes($htmlDocument, $this->debugNotes, $debugTimer);
 			}
 			return 0;
 		}
@@ -1486,16 +1510,9 @@ class WireMarkupRegions extends Wire {
 					$debugNotes[] = $this->debugNoteStr($s);
 				}
 			}
-			if(!count($debugNotes)) $debugNotes[] = "Nothing found";
-			$debugNotes = "• " . implode("\n• ", $debugNotes);
-			$debugNotes = $this->wire('sanitizer')->entities($debugNotes);
-			$debugNotes .= "\n[sm]" . Debug::timer($debugTimer) . " seconds[/sm]";
-			$debugNotes = str_replace(array('[sm]', '[/sm]'), array('<small style="opacity:0.7">', '</small>'), $debugNotes);
-			$debugNotes = str_replace(array('[b]', '[/b]'), array('<strong>', '</strong>'), $debugNotes);
-			$debugNotes = "<pre class='pw-debug pw-region-debug'>$debugNotes</pre>$debugLandmark";
-			$htmlDocument = str_replace($debugLandmark, $debugNotes, $htmlDocument); 
+			$this->populateDebugNotes($htmlDocument, $debugNotes, $debugTimer); 
 		} else if($hasDebugLandmark) {
-			$htmlDocument = str_replace($debugLandmark, '', $htmlDocument); 
+			$htmlDocument = str_replace(self::debugLandmark, '', $htmlDocument); 
 		}
 		
 		if(count($xregions) && $recursionLevel < 3) {
@@ -1519,10 +1536,25 @@ class WireMarkupRegions extends Wire {
 		
 		$recursionLevel--;
 		
-		if(!$recursionLevel && strpos($htmlDocument, 'pw-optional')) {
-			$htmlDocument = $this->stripOptional($htmlDocument);
+		if(!$recursionLevel) {
+			if($debug) {
+				$this->debugNotes = array();
+				$debugTimer = Debug::timer();
+			}
+			if(strpos($htmlDocument, 'pw-optional')) {
+				// strip optional regions
+				$htmlDocument = $this->stripOptional($htmlDocument, $debug);
+			}
+			if($debug) {
+				// populate any additional debug notes
+				if(count($this->debugNotes)) {
+					$this->populateDebugNotes($htmlDocument, $this->debugNotes, $debugTimer);
+				} else {
+					Debug::timer($debugTimer); // clear
+				}
+			}
 		}
-
+		
 		return $numUpdates; 
 	}
 
@@ -1592,6 +1624,23 @@ class WireMarkupRegions extends Wire {
 		while(strpos($str, '  ') !== false) $str= str_replace('  ', ' ', $str);
 		if($maxLength) $str  = substr($str, 0, $maxLength);
 		return trim($str);
+	}
+
+	protected function renderDebugNotes(array $debugNotes, $debugTimer = null) {
+		if(!count($debugNotes)) $debugNotes[] = "Nothing found";
+		if($debugTimer !== null) $debugNotes[] = '[sm]' . Debug::timer($debugTimer) . ' seconds[/sm]';
+		$out = "• " . implode("\n• ", $debugNotes);
+		$out = $this->wire('sanitizer')->entities($out);
+		$out = str_replace(array('[sm]', '[/sm]'), array('<small style="opacity:0.7">', '</small>'), $out);
+		$out = str_replace(array('[b]', '[/b]'), array('<strong>', '</strong>'), $out);
+		$out = "<pre class='pw-debug pw-region-debug'>$out</pre>" . self::debugLandmark;
+		return $out;
+	}
+	
+	protected function populateDebugNotes(&$markup, $debugNotes = null, $debugTimer = null) {
+		if($debugNotes === null) $debugNotes = $this->debugNotes; 
+		$out = $this->renderDebugNotes($debugNotes, $debugTimer);
+		$markup = str_replace(self::debugLandmark, $out, $markup); 
 	}
 
 }
