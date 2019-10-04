@@ -1,11 +1,26 @@
 
 function initInputfieldAsmSelect($select) {
 	var id = $select.attr('id');
-	if(typeof ProcessWire.config === 'undefined' || typeof ProcessWire.config[id] === "undefined") {
-		var options = { sortable: true };
-	} else {
-		var options = ProcessWire.config[id];
+	
+	// determine options common among all InputfieldAsmSelect instances
+	var options = {};
+	if(typeof ProcessWire.config == 'undefined') {
+		options = { sortable: true };
+		
+	} else if(typeof ProcessWire.config[id] != "undefined") {
+		options = ProcessWire.config[id]; // deprecated/legacy
+		
+	} else if(typeof ProcessWire.config['InputfieldAsmSelect'] != "undefined") {
+		options = ProcessWire.config['InputfieldAsmSelect']; 
+	} 
+
+	// merge options unique to this instance from select.data-asmopt attribute
+	var data = $select.attr('data-asmopt'); 
+	if(typeof data != "undefined") {
+		data = JSON.parse(data); 
+		if(data) jQuery.extend(options, data); 
 	}
+	
 	$select.asmSelect(options); 
 }
 

@@ -7,23 +7,52 @@
  *
  */
 class InputfieldAsmSelect extends InputfieldSelectMultiple implements InputfieldHasArrayValue, InputfieldHasSortableValue {
-
-	protected $asmOptions = array();
-
+	
+	/**
+	 * Module info
+	 *
+	 * @return array
+	 *
+	 */
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('asmSelect', __FILE__),
-			'version' => 200,
+			'version' => 201,
 			'summary' => __('Multiple selection, progressive enhancement to select multiple', __FILE__), // Module Summary
-			'permanent' => true, 
-			);
+			'permanent' => true,
+		);
 	}
-	
+
+
+	/**
+	 * Custom defined AsmSelect options
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $asmOptions = array();
+
+	/**
+	 * Options as specified at init() state (common to all instances)
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $asmDefaults = array();
+
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		$this->set('usePageEdit', 0);
 		parent::__construct();
 	}
 
+	/**
+	 * Init
+	 * 
+	 */
 	public function init() {
 
 		// asmSelect requires jQuery UI, so we enforce it being loaded here
@@ -53,8 +82,18 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 			
 		// cancel the 'size' attribute used by select multiple
 		$this->set('size', null); 
+		
+		$this->config->js('InputfieldAsmSelect', $this->asmOptions);
+		$this->asmDefaults = $this->asmOptions;
 	}
 
+	/**
+	 * Set custom option for AsmSelect
+	 * 
+	 * @param string $key
+	 * @param string|bool $value
+	 * 
+	 */
 	public function setAsmSelectOption($key, $value) {
 		$this->asmOptions[$key] = $value; 
 	}
@@ -90,15 +129,30 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 		$this->config->styles->add($this->config->urls->$class . "$class.css?v=$ver");
 		$this->config->styles->add($this->config->urls->$class . "asmselect/jquery.asmselect.css?v=$ver");
 		
-		$this->config->js($this->id, $this->asmOptions); 
+		// $this->config->js($this->id, $this->asmOptions); // deprecated/legacy
 		
 		return parent::renderReady($parent, $renderValueMode);
 	}
-	
+
+	/**
+	 * Render
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___render() {
-		
+	
+		// compile settings unique to this instance into a JSON encoded data-asmopt attribute
+		$settings = array();
+		foreach($this->asmOptions as $key => $value) {
+			if(!isset($this->asmDefaults[$key]) || $this->asmDefaults[$key] != $value) {
+				$settings[$key] = $value;
+			}
+		}
+		$this->attr('data-asmopt', json_encode($settings));
+
+		// ensure selected options are placed as last in the AsmSelect select output
 		$selectedOptions = $this->attr('value'); 
-		
 		foreach($selectedOptions as $id) {
 			if(!isset($this->options[$id])) continue; 
 			$label = $this->options[$id]; 
@@ -109,6 +163,12 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 		return parent::___render();
 	}
 
+	/**
+	 * Field config
+	 * 
+	 * @return InputfieldWrapper
+	 * 
+	 */
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();
 		if($this->hasFieldtype != 'FieldtypePage' || !$this->hasField) return $inputfields;
@@ -117,7 +177,10 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 		$f->label = $this->_('Link selected pages to page editor?');
 		$f->description = $this->_('When enabled, the selected label(s) will link to edit the selected page.');
 		$f->addOption(0, $this->_('No'));
-		$f->addOption(1, $this->_('Yes (in modal window)'));
+		$f->addOption(1, 
+			$this->_('Yes') . ' ' . 
+			$this->_('(in modal window)')
+		);
 		$f->attr('value', $this->usePageEdit);
 		$f->optionColumns = 1;
 		$f->collapsed = Inputfield::collapsedBlank;
