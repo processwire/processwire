@@ -20,7 +20,7 @@
  * @property string $table Database table used by the field #pw-group-properties
  * @property string $prevTable Previously database table (if field was renamed) #pw-group-properties
  * @property Fieldtype|null $type Fieldtype module that represents the type of this field #pw-group-properties
- * @property Fieldtype $prevFieldtype Previous Fieldtype, of type was changed #pw-group-properties
+ * @property Fieldtype|null $prevFieldtype Previous Fieldtype, if type was changed #pw-group-properties
  * @property int $flags Bitmask of flags used by this field #pw-group-properties
  * @property-read string $flagsStr Names of flags used by this field (readonly) #pw-group-properties
  * @property string $label Text string representing the label of the field #pw-group-properties

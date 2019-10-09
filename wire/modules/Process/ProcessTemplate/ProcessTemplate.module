@@ -2724,7 +2724,7 @@ class ProcessTemplate extends Process {
 				}
 
 				if($isDeleted) {
-					if(($field->flags & Field::flagGlobal) && !$this->template->noGlobal) {
+					if(!$this->template->getConnectedField() && (($field->flags & Field::flagGlobal) && !$this->template->noGlobal)) {
 						$this->error(sprintf($this->_('Field "%s" may not be removed because it is globally required by all fieldgroups'), $field));
 					} else {
 						$removedFields->add($field);

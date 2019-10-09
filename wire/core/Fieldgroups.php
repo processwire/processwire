@@ -467,9 +467,14 @@ class Fieldgroups extends WireSaveableItemsLookup {
 		if(is_null($template)) $template = $this->wire('templates')->get($fieldgroup->name);
 
 		if(($field->flags & Field::flagGlobal) && (!$template || !$template->noGlobal)) {
-			return
-				"Field '$field' may not be removed from fieldgroup '$fieldgroup->name' " . 
-				"because it is globally required (Field::flagGlobal).";
+			if($template && $template->getConnectedField()) {
+				// if template has a 1-1 relationship with a field, noGlobal is not enforced
+				return false;
+			} else {
+				return
+					"Field '$field' may not be removed from fieldgroup '$fieldgroup->name' " .
+					"because it is globally required (Field::flagGlobal).";
+			}
 		}
 
 		if($field->flags & Field::flagPermanent) {

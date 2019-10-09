@@ -7,7 +7,7 @@
  * #pw-body Template objects also maintain several properties which can affect the render behavior of pages using it. 
  * #pw-order-groups identification,manipulation,family,URLs,access,files,cache,page-editor,behaviors,other
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add multi-language option for redirectLogin setting
@@ -108,6 +108,11 @@
  * @property string $tags Optional tags that can group this template with others in the admin templates list. #pw-group-other 
  * @property string $pageLabelField CSV or space separated string of field names to be displayed by ProcessPageList (overrides those set with ProcessPageList config). #pw-group-other
  * @property int|bool $_importMode Internal use property set by template importer when importing #pw-internal
+ * @property int|null $connectedFieldID ID of connected field or null or 0 if not applicable. #pw-internal
+ * 
+ * Hookable methods
+ * 
+ * @method Field|null getConnectedField() Get Field object connected to this field, or null if not applicable. #pw-internal
  * 
  *
  */
@@ -263,6 +268,7 @@ class Template extends WireData implements Saveable, Exportable {
 		'nameLabel' => '', // label for the "name" property of the page (if something other than "Name")
 		'contentType' => '', // Content-type header or index of header from $config->contentTypes
 		'errorAction' => 0, // action to take on save when required field on published page is empty (0=notify,1=restore,2=unpublish)
+		'connectedFieldID' => null, // ID of connected field or null if not applicable
 		'ns' => '', // namespace found in the template file, or blank if not determined
 		); 
 
@@ -700,7 +706,10 @@ class Template extends WireData implements Saveable, Exportable {
 			$this->setIcon($value);
 
 		} else if($key == 'urlSegments') {
-			$this->urlSegments($value); 
+			$this->urlSegments($value);
+			
+		} else if($key == 'connectedFieldID') {
+			parent::set($key, (int) $value);
 			
 		} else {
 			parent::set($key, $value); 
@@ -1190,6 +1199,37 @@ class Template extends WireData implements Saveable, Exportable {
 		}
 		$this->pageLabelField = $label;
 		return $this;
+	}
+
+	/**
+	 * Get Field object connected with this template
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return Field|null Returns Field object or null if not applicable
+	 * @since 3.0.142
+	 * 
+	 */
+	public function ___getConnectedField() {
+		if($this->connectedFieldID) {
+			$field = $this->wire('fields')->get((int) $this->connectedFieldID); 
+		} else {
+			$field = null;
+		}
+		if(!$field) {
+			$fieldName = '';
+			$templateName = $this->name;
+			$prefixes = array('field-', 'field_', 'repeater_');
+			foreach($prefixes as $prefix) {
+				if(strpos($templateName, $prefix) !== 0) continue;
+				list(,$fieldName) = explode($prefix, $templateName, 2);
+				break;
+			}
+			if($fieldName) {
+				$field = $this->wire('fields')->get($fieldName);
+			}
+		}
+		return $field;
 	}
 
 	/**

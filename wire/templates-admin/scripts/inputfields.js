@@ -848,7 +848,11 @@ function InputfieldColumnWidths($target) {
 		}
 		
 		colspacing = $form.attr('data-colspacing');
-		if(typeof colspacing == 'undefined') colspacing = 1;
+		if(typeof colspacing == 'undefined') {
+			colspacing = 1;
+		} else {
+			colspacing = parseInt(colspacing);
+		}
 		
 		// if no borders, we don't worry about keeping heights aligned since they won't be seen
 		useHeights = $form.hasClass('InputfieldFormNoHeights') ? false : true;

@@ -20,7 +20,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -109,11 +109,12 @@ class DatabaseQuerySelectFulltext extends Wire {
 				break;
 
 			case '~=':
+			case '!~=':	
 				$words = preg_split('/[-\s,]/', $value, -1, PREG_SPLIT_NO_EMPTY); 
 				foreach($words as $word) {
 					$len = function_exists('mb_strlen') ? mb_strlen($word) : strlen($word);
 					if(DatabaseStopwords::has($word) || $len < $database->getVariable('ft_min_word_len')) {
-						$this->matchWordLIKE($tableName, $fieldName, $word);
+						$this->matchWordLIKE($tableName, $fieldName, $operator, $word);
 					} else {
 						$this->matchContains($tableName, $fieldName, $operator, $word);
 					}
@@ -192,26 +193,32 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$tableField = "$tableName.$fieldName";
 		$database = $this->wire('database');
 		$v = $database->escapeStr($value); 
+		$not = strpos($operator, '!') === 0;
+		if($not) $operator = ltrim($operator, '!');
 
 		$n = 0; 
 		do {
 			$scoreField = "_score_{$tableName}_{$fieldName}" . (++$n);
 		} while(in_array($scoreField, self::$scoreFields)); 
 		self::$scoreFields[] = $scoreField;
-
-		$query->select("MATCH($tableField) AGAINST('$v') AS $scoreField"); 
+		
+		$match = $not ? 'NOT MATCH' : 'MATCH';
+		$query->select("$match($tableField) AGAINST('$v') AS $scoreField"); 
 		$query->orderby($scoreField . " DESC");
 
-		$partial = $operator != '~=';
+		$partial = $operator != '~=' && $operator != '!~=';
 		$booleanValue = $database->escapeStr($this->getBooleanQueryValue($value, true, $partial));
-		if($booleanValue) $j = "MATCH($tableField) AGAINST('$booleanValue' IN BOOLEAN MODE) "; 
-			else $j = '';
+		if($booleanValue) {
+			$j = "$match($tableField) AGAINST('$booleanValue' IN BOOLEAN MODE) ";
+		} else {
+			$j = '';
+		}
 			
 		if($operator == '^=' || $operator == '$=' || ($operator == '*=' && (!$j || preg_match('/[-\s]/', $v)))) { 
 			// if $operator is a ^begin/$end, or if there are any word separators in a *= operator value
 
 			if($operator == '^=' || $operator == '$=') {
-				$type = 'RLIKE';
+				$type = $not ? 'NOT RLIKE' : 'RLIKE';
 				$v = $database->escapeStr(preg_quote($value)); // note $value not $v
 				$like = "[[:space:]]*(<[^>]+>)*[[:space:]]*"; 
 				if($operator == '^=') {
@@ -221,7 +228,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 				}
 
 			} else {
-				$type = 'LIKE';
+				$type = $not ? 'NOT LIKE' : 'LIKE';
 				$v = $this->escapeLIKE($v); 
 				$like = "%$v%";
 			}
@@ -241,15 +248,17 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 * @param string $tableName
 	 * @param string $fieldName
+	 * @param string $operator
 	 * @param $word
 	 * 
 	 */
-	protected function matchWordLIKE($tableName, $fieldName, $word) {
+	protected function matchWordLIKE($tableName, $fieldName, $operator, $word) {
 		$tableField = "$tableName.$fieldName";
 		$database = $this->wire('database');
 		$v = $database->escapeStr(preg_quote($word)); 
 		$regex = "([[[:blank:][:punct:]]|^)$v([[:blank:][:punct:]]|$)";
-		$where = "($tableField REGEXP '$regex')"; 
+		$type = strpos($operator, '!') === 0 ? 'NOT REGEXP' : 'REGEXP';
+		$where = "($tableField $type '$regex')"; 
 		$this->query->where($where);
 	}
 
