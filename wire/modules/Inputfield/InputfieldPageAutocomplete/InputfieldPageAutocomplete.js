@@ -83,6 +83,7 @@ var InputfieldPageAutocomplete = {
 		}
 
 		$input.one('focus', function() {
+			InputfieldPageAutocomplete.updateIcons($input.closest('.InputfieldContent'));
 			$input.autocomplete({
 				minLength: 2,
 				source: function(request, response) {
@@ -136,12 +137,12 @@ var InputfieldPageAutocomplete = {
 						$t.closest('.InputfieldPageAutocomplete')
 							.find('.InputfieldPageAutocompleteData').val(ui.item.page_id).change();
 						$t.blur();
-						return false;
 					} else {
 						InputfieldPageAutocomplete.pageSelected($ol, ui.item);
 						$t.val('').focus();
-						return false;
 					}
+					event.stopPropagation();
+					return false;
 				}
 
 			}).blur(function() {
@@ -281,6 +282,9 @@ var InputfieldPageAutocomplete = {
 	 * 
 	 */
 	setIconPosition: function($icon, side) {
+		if($icon.hasClass('PageAutocompleteIconHidden')) {
+			$icon.removeClass('PageAutocompleteIconHidden').show();
+		}
 		var iconHeight = $icon.height();
 		if(iconHeight) {
 			var pHeight = $icon.parent().height();
@@ -293,6 +297,7 @@ var InputfieldPageAutocomplete = {
 			}
 		} else {
 			// icon is not visible (in a tab or collapsed field), we'll leave it alone
+			$icon.hide().addClass('PageAutocompleteIconHidden');
 		}
 	},
 
@@ -361,8 +366,19 @@ var InputfieldPageAutocomplete = {
 
 		var $addItems = $('#_' + name + '_add_items'); 
 		if($addItems.size() > 0) $addItems.val(addValue);
-	}
+	},
 
+	updateIcons: function($target) {
+		// update positions of icons that previously were not calculable
+		var $icons = $target.find('.InputfieldPageAutocompleteStatus');
+		$icons.each(function() {
+			InputfieldPageAutocomplete.setIconPosition($(this), 'left');
+		});
+		$icons = $target.find('.InputfieldPageAutocompleteRemove');
+		$icons.each(function() {
+			InputfieldPageAutocomplete.setIconPosition($(this), 'right');
+		}); 
+	}
 
 }; 
 
@@ -388,10 +404,7 @@ $(document).ready(function() {
 	
 	$(document).on('wiretabclick', function(a, $tab) {
 		// update positions of icons that previously were not calculable
-		var $icon = $tab.find('.InputfieldPageAutocompleteStatus');
-		InputfieldPageAutocomplete.setIconPosition($icon, 'left');
-		$icon = $tab.find('.InputfieldPageAutocompleteRemove');
-		InputfieldPageAutocomplete.setIconPosition($icon, 'right');
+		InputfieldPageAutocomplete.updateIcons($tab); 
 	});
 }); 
 
