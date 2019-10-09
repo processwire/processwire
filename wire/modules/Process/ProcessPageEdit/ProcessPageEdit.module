@@ -24,6 +24,8 @@
  * @method void executeSaveTemplate($template = null)
  * @method string executeBookmarks()
  * @method array getViewActions($actions = array(), $configMode = false)
+ * @method array getSubmitActions()
+ * @method bool processSubmitAction($value)
  * @method void processSaveRedirect($redirectUrl)
  * @method InputfieldForm buildForm(InputfieldForm $form)
  * @method InputfieldWrapper buildFormContent()
@@ -584,8 +586,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	protected function renderEdit() {
 		
 		$class = '';
-		$viewable = $this->page->viewable();
-		
+		$numFields = count($this->fields);
 		$out = "<p id='PageIDIndicator' class='$class'>" . ($this->page->id ? $this->page->id : "New") . "</p>";
 	
 		$description = $this->form->getSetting('description');
@@ -594,7 +595,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$this->form->set('description', '');
 		}
 
-		if(!count($this->fields)) { 
+		if(!$numFields) { 
 			/** @var JqueryWireTabs $tabs */
 			$tabs = $this->modules->get('JqueryWireTabs');
 			$this->form->value = $tabs->renderTabList($this->getTabs(), array('id' => 'PageEditTabs')); 
@@ -603,45 +604,25 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$out .= $this->form->render();
 	
 		// buttons with dropdowns
-		if(!$this->requestModal && !count($this->fields)) {
-		
-			$config = $this->config;
-			$file = $config->debug ? 'dropdown.js' : 'dropdown.min.js';
-			$config->scripts->add($config->urls('InputfieldSubmit') . $file);
-			
-			$input = "<input type='hidden' id='after-submit-action' name='_after_submit_action' value='' />";
-			$out = str_replace('</form>', "$input</form>", $out);
-			
-			$out .= 
-				"<ul class='pw-button-dropdown' data-pw-dropdown-input='#after-submit-action' data-my='right top' data-at='right bottom+1'>" .
-				"<li><a data-pw-dropdown-value='exit' href='#'><i class='fa fa-fw fa-close'></i> " . 
-				$this->_('%s + Exit') . "</a></li>";
-			
-			if($viewable) {
-				$out .= 
-					"<li><a data-pw-dropdown-value='view' href='#'><i class='fa fa-fw fa-eye'></i> " . 
-					$this->_('%s + View') . "</a></li>";
-			}
-			
-			if($this->wire('process') == $this && $this->page->id > 1) {
-				$parent = $this->page->parent();
-				if($parent->addable()) {
-					$out .=
-						"<li><a data-pw-dropdown-value='add' href='#'><i class='fa fa-fw fa-plus-circle'></i> " .
-						$this->_('%s + Add New') . "</a></li>";
+		if(!$numFields) {
+			$submitActions = $this->getSubmitActions();
+			if(count($submitActions)) {
+				$config = $this->config;
+				$file = $config->debug ? 'dropdown.js' : 'dropdown.min.js';
+				$config->scripts->add($config->urls('InputfieldSubmit') . $file);
+				$input = "<input type='hidden' id='after-submit-action' name='_after_submit_action' value='' />";
+				$out = str_replace('</form>', "$input</form>", $out);
+				$out .= "<ul class='pw-button-dropdown' data-pw-dropdown-input='#after-submit-action' data-my='right top' data-at='right bottom+1'>";
+				foreach($submitActions as $action) {
+					$icon = empty($action['icon']) ? "" : "<i class='fa fa-fw fa-$action[icon]'></i>";
+					$class = empty($action['class']) ? "after-submit-$action[value]" : $action['class'];
+					$out .= "<li><a class='$class' data-pw-dropdown-value='$action[value]' href='#'>$icon $action[label]</a></li>";
 				}
-				if($parent->numChildren > 1) {
-					$out .=
-						"<li><a data-pw-dropdown-value='next' href='#'><i class='fa fa-fw fa-edit'></i> " .
-						$this->_('%s + Next') . "</a></li>";
-				}
-				
+				$out .= "</ul>";
 			}
-			
-			$out .= "</ul>";
 		}
-
-		if($viewable && !count($this->fields) && !$this->requestModal) {
+		
+		if(!$numFields && !$this->requestModal && $this->page->viewable()) {
 			// this supports code in the buildFormView() method
 			$out .= "<ul id='_ProcessPageEditViewDropdown' class='pw-dropdown-menu pw-dropdown-menu-rounded' data-my='left top' data-at='left top-9'>";
 			foreach($this->getViewActions() as $name => $action) {
@@ -649,10 +630,74 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			}
 			$out .= "</ul>";
 		}
-		
+
 		$out .= "<scr" . "ipt>initPageEditForm();</script>"; // ends up being slightly faster than ready() (or at least appears that way)
 		
 		return $out; 
+	}
+
+	/**
+	 * Get actions for submit button(s)
+	 * 
+	 * Should return array where each item in the array is itself an array like this:
+	 * ~~~~~
+	 * [ 
+	 *   'value' => 'value of action, i.e. view, edit, add, etc.', 
+	 *   'icon' => 'icon name excluding the “fa-” part', 
+	 *   'label' => 'text label where %s is replaced with submit button label',
+	 *   'class' => 'optional class attribute',
+	 * ]
+	 * ~~~~~~
+	 * Array returned by this method is indexed by the 'value', though this is not required for hooks.
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @return array
+	 * @throws WireException
+	 * @since 3.0.142
+	 * @see ___processSubmitAction()
+	 * 
+	 */
+	protected function ___getSubmitActions() {
+		
+		if($this->requestModal) return array();
+		
+		$viewable = $this->page->viewable();
+		$actions = array();
+		
+		$actions['exit'] = array(
+			'value' => 'exit',
+			'icon' => 'close',
+			'label' => $this->_('%s + Exit'),
+			'class' => '',
+		);
+		
+		if($viewable) $actions['view'] = array(
+			'value' => 'view',
+			'icon' => 'eye',
+			'label' => $this->_('%s + View'),
+			'class' => '',
+		);
+		
+		if($this->wire('process') == $this && $this->page->id > 1) {
+			
+			$parent = $this->page->parent();
+			if($parent->addable()) $actions['add'] = array(
+				'value' => 'add',
+				'icon' => 'plus-circle',
+				'label' => $this->_('%s + Add New'),
+				'class' => '',
+			);
+			
+			if($parent->numChildren > 1) $actions['next'] = array(
+				'value' => 'next',
+				'icon' => 'edit',
+				'label' => $this->_('%s + Next'),
+				'class' => '',
+			);
+		}
+	
+		return $actions;
 	}
 
 	/**
@@ -661,9 +706,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * @param Language|int|string|null $language
 	 * @return string
 	 * @throws WireException
+	 * @since 3.0.142 Was protected in previous versions
 	 * 
 	 */
-	protected function getViewUrl($language = null) {
+	public function getViewUrl($language = null) {
 		$url = '';
 		if(!$this->page) throw new WireException('No page yet');
 		if($this->hasLanguagePageNames) {
@@ -687,6 +733,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 	/**
 	 * Get actions for the "View" dropdown
+	 * 
+	 * #pw-hooker
 	 * 
 	 * @param array $actions Actions in case hook wants to populate them
 	 * @param bool $configMode Specify true if retrieving for configuration purposes rather than runtime purposes.
@@ -770,6 +818,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * Get URL (or form action attribute) for editing this page
 	 * 
 	 * @param array $options
+	 *  - `id` (int): Page ID to edit
+	 *  - `modal` (int|string): Modal mode, when applicable
+	 *  - `context` (string): Additional request context string, when applicable
+	 *  - `language` (int|Language|string): Language for editor, if different from user’s language
+	 *  - `field` (string): Only edit field with this name
+	 *  - `fields` (string): CSV string of fields to edit, rather than all fields on apge
+	 *  - `fnsx` (string): Field name suffix, applicable only when field or fields (above) is also set, in specific situations like repeaters
+	 *  - `uploadOnlyMode (string|int): Upload only mode (internal use)
 	 * @return string
 	 * 
 	 */
@@ -2017,18 +2073,42 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			}
 		}
 
-		$submitAction = $this->input->post('_after_submit_action');
 		if($this->redirectUrl) {
 			// non-default redirectUrl overrides after_submit_action
 		} else if($formErrors) {
 			// if there were errors to attend to, stay where we are
-		} else if($submitAction == 'exit') {
+		} else {
+			// after submit action
+			$submitAction = $this->input->post('_after_submit_action');
+			if($submitAction) $this->processSubmitAction($submitAction);
+		}
+
+		$this->processSaveRedirect($this->getRedirectUrl());
+	}
+
+	/**
+	 * Process the given submit action value
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param string $value Value of selected action, i.e. 'exit', 'view', 'add', next', etc.
+	 * @return bool Returns true if value was acted upon or false if not
+	 * @since 3.0.142
+	 * @see ___getSubmitActions(), setRedirectUrl()
+	 * 
+	 */
+	protected function ___processSubmitAction($value) {
+		
+		if($value == 'exit') {
 			$this->setRedirectUrl('../');
-		} else if($submitAction == 'view') {
+			
+		} else if($value == 'view') {
 			$this->setRedirectUrl($this->getViewUrl());
-		} else if($submitAction == 'add') {
+			
+		} else if($value == 'add') {
 			$this->setRedirectUrl("../add/?parent_id={$this->page->parent_id}");
-		} else if($submitAction == 'next') {
+			
+		} else if($value == 'next') {
 			$nextPage = $this->page->next("include=unpublished");
 			if($nextPage->id) {
 				if(!$nextPage->editable()) {
@@ -2044,9 +2124,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			} else {
 				$this->warning($this->_('There is no editable next page to edit.'));
 			}
+			
+		} else {
+			return false;
 		}
-
-		$this->processSaveRedirect($this->getRedirectUrl());
+		
+		return true;
 	}
 
 	/**
@@ -2768,12 +2851,13 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	}
 
 	/**
-	 * Set the next redirect URL
+	 * Called on save requests, sets the next redirect URL for the next request
 	 * 
-	 * @param string $url
+	 * @param string $url URL to redirect to
+	 * @since 3.0.142 Was protected in previous versions
 	 * 
 	 */
-	protected function setRedirectUrl($url) {
+	public function setRedirectUrl($url) {
 		$this->redirectUrl = $url;
 	}
 
@@ -2782,9 +2866,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * 
 	 * @param array $extras Any extra parts you want to add as array of strings like "key=value"
 	 * @return string
+	 * @since 3.0.142 Was protected in previous versions
 	 * 
 	 */
-	protected function getRedirectUrl(array $extras = array()) {
+	public function getRedirectUrl(array $extras = array()) {
 		$url = $this->redirectUrl;
 		if(!strlen($url)) $url = "./?id=$this->id";
 		if($this->requestModal && strpos($url, 'modal=') === false) {
