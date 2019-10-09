@@ -108,6 +108,12 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 * 
 	 */
 	protected $formatted = false;
+
+	/**
+	 * @var Template|null
+	 * 
+	 */
+	protected $fieldsTemplate = null;
 	
 	/**
 	 * Construct a Pagefiles object
@@ -117,6 +123,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 */
 	public function __construct(Page $page) {
 		$this->setPage($page); 
+		parent::__construct();
 	}
 
 	/**
@@ -915,6 +922,44 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	public function formatted($set = null) {
 		if(is_bool($set)) $this->formatted = $set;
 		return $this->formatted;
+	}
+
+	/**
+	 * Get Template object used for Pagefile custom fields, if available (false if not)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return bool|Template
+	 * @since 3.0.142
+	 * 
+	 */
+	public function getFieldsTemplate() {
+		if($this->fieldsTemplate === null) {
+			/** @var Field $field */
+			$field = $this->getField();
+			if($field) {
+				$this->fieldsTemplate = false;
+				/** @var FieldtypeFile $fieldtype */
+				$fieldtype = $field->type;
+				$template = $fieldtype ? $fieldtype->getFieldsTemplate($field) : null;
+				if($template) $this->fieldsTemplate = $template;
+			}
+		}
+		return $this->fieldsTemplate;
+	}
+
+	/**
+	 * Get mock/placeholder Page object used for Pagefile custom fields
+	 * 
+	 * @return Page
+	 * @since 3.0.142
+	 * 
+	 */
+	public function getFieldsPage() {
+		$field = $this->getField();
+		/** @var FieldtypeFile $fieldtype */
+		$fieldtype = $field->type;
+		return $fieldtype->getFieldsPage($field);
 	}
 
 	/**

@@ -87,11 +87,17 @@ ul.InputfieldFileList li .ui-icon {
 	display: none !important; 
 }
 
-ul.InputfieldFileList li .InputfieldFileData {
-	margin-top: 0; 
-	margin-bottom: 0;
-	padding: 1em; 
+ul.InputfieldFileList li {
+	.InputfieldFileData {
+		margin-top: 0;
+		margin-bottom: 0;
+		padding: 1em;
+	}
+	.InputfieldFileData.InputfieldFileFields {
+		padding: 0;
+	}
 }
+
 
 .InputfieldFile.InputfieldItemListCollapse ul.InputfieldFileList li .InputfieldFileData {
 	display: none;

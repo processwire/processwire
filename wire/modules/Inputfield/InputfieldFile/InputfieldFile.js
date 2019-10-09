@@ -338,7 +338,15 @@ $(document).ready(function() {
 							}
 						}
 						
-					}
+						setTimeout(function() {
+							var $inputfields = $markup.find('.Inputfield');
+							if($inputfields.length) {
+								InputfieldsInit($markup.find('.Inputfields'));
+								$inputfields.trigger('reloaded', ['InputfieldFileUpload']);
+							}
+						}, 500); 
+						
+					} // for
 
 					$progressItem.remove();
 					

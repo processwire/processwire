@@ -53,7 +53,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		return array(
 			'title' => __('Images', __FILE__), // Module Title
 			'summary' => __('One or more image uploads (sortable)', __FILE__), // Module Summary
-			'version' => 122,
+			'version' => 123,
 			'permanent' => true,
 		);
 	}
@@ -672,10 +672,12 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 				</div>
 			";
 
-			// @todo move the following to separate method shared by the renderSingle 
 			$ext = $pagefile->ext();
 			$basename = $pagefile->basename(false);
 			$focus = $pagefile->focus();
+
+			$inputfields = $this->getItemInputfields($pagefile);
+			if($inputfields) $additional .= $inputfields->render();
 				
 			$out .= "
 				<div class='ImageData'>
@@ -1062,7 +1064,8 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		//$field->collapsed = Inputfield::collapsedBlank;
 		$field->columnWidth = 50;
 		$fieldset->add($field); 
-		
+	
+		/** @var InputfieldInteger $field */
 		$field = $this->modules->get('InputfieldInteger');
 		$field->attr('name', 'clientQuality');
 		$field->label = $this->_('Client-side resize quality percent for JPEGs');

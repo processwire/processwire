@@ -9,19 +9,20 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
- * 
+ *
+ * @property array $allowFieldtypes Allowed Fieldtype types for custom fields
  * @method string formatValueString(Page $page, Field $field, $value)
  *
  */
 
-class FieldtypeFile extends FieldtypeMulti {
+class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Files', __FILE__),
-			'version' => 105,
+			'version' => 106,
 			'summary' => __('Field that stores one or more files', __FILE__),
 			'permanent' => true,
 		);
@@ -96,11 +97,39 @@ class FieldtypeFile extends FieldtypeMulti {
 	protected $defaultInputfieldClass = '';
 
 	/**
+	 * Default fieldtypes allowed for custom fields
+	 * 
+	 * @var array
+	 *
+	 */
+	protected $defaultAllowFieldtypes = array(
+		'Checkbox',
+		'Datetime',
+		'Email',
+		'FieldsetClose',
+		'FieldsetOpen',
+		'Float',
+		'Integer',
+		'Page',
+		'PageTitle',
+		'PageTitleLanguage',
+		'Text',
+		'TextLanguage',
+		'Textarea',
+		'TextareaLanguage',
+		'Toggle',
+		'URL',
+	);
+
+
+	/**
 	 * Construct
 	 * 
 	 */
 	public function __construct() {
 		$this->defaultInputfieldClass = str_replace('Fieldtype', 'Inputfield', $this->className);
+		if($this->className() === 'FieldtypeFile') $this->allowFieldtypes = $this->defaultAllowFieldtypes;
+		parent::__construct();
 	}
 
 	/**
@@ -214,7 +243,11 @@ class FieldtypeFile extends FieldtypeMulti {
 			if(isset($v['modified'])) $pagefile->modified = $v['modified'];
 			if(isset($v['created'])) $pagefile->created = $v['created'];
 			if(isset($v['tags'])) $pagefile->tags = $v['tags'];
-			if(!empty($v['filedata'])) $pagefile->filedata = json_decode($v['filedata'], true);
+			if(!empty($v['filedata'])) {
+				$filedata = json_decode($v['filedata'], true);
+				unset($filedata['ix']);
+				$pagefile->filedata = $filedata;
+			}
 			$pagefile->setTrackChanges(true); 
 			$pagefiles->add($pagefile); 
 		}
@@ -238,10 +271,12 @@ class FieldtypeFile extends FieldtypeMulti {
 		if(!$value instanceof Pagefiles) return $sleepValue; 
 	
 		foreach($value as $pagefile) {
+			/** @var Pagefile $pagefile */
+			
 			$item = array(
 				'data' => $pagefile->basename, 
 				'description' => $pagefile->description(true), 
-				); 
+			); 
 			
 			$fileSchema = $field->get('fileSchema');
 	
@@ -255,9 +290,12 @@ class FieldtypeFile extends FieldtypeMulti {
 			}
 			
 			if($fileSchema & self::fileSchemaFiledata) {
-				$item['filedata'] = null; 
-				$filedata = $pagefile->filedata;
-				if(!empty($filedata)) $item['filedata'] = json_encode($filedata); 
+				$filedata = $this->sleepFiledata($field, $pagefile);
+				if(empty($filedata)) {
+					$item['filedata'] = null;
+				} else {
+					$item['filedata'] = json_encode($filedata); 
+				}
 			}
 	
 			$sleepValue[] = $item;
@@ -265,8 +303,121 @@ class FieldtypeFile extends FieldtypeMulti {
 		return $sleepValue;
 	}
 
-	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+	/**
+	 * Get the filedata from given $pagefile ready for placement in a sleep value
+	 * 
+	 * @param Field $fileField Field having type FieldtypeFile or FieldtypeImage (or derivative)
+	 * @param Pagefile|Pageimage $pagefile
+	 * @return array Sleep value array
+	 * @since 3.0.142
+	 * 
+	 */
+	protected function sleepFiledata(Field $fileField, Pagefile $pagefile) {
 		
+		$filedata = $pagefile->filedata;
+		$template = $this->getFieldsTemplate($fileField);
+		
+		if(!$template) return $filedata; // custom field template not in use, return filedata as-is
+		if(!is_array($filedata)) $filedata = array();
+
+		$fieldValues = $pagefile->fieldValues; // field values that were loaded
+		$fieldgroup = $template->fieldgroup;
+		$idKeys = array(); // _123 type field ID keys that are populated
+		$mockPage = $this->getFieldsPage($fileField);
+
+		// sleep values from pagefile->fieldValues and place back into filedata
+		foreach($fieldValues as $key => $value) {
+			$field = $fieldgroup->getFieldContext($key);
+			if(!$field) continue;
+			$idKey = "_$field->id";
+			if($value === null) {
+				// null to remove value
+				unset($filedata[$idKey]);
+				continue;
+			}
+			$sleepValue = $field->type->sleepValue($mockPage, $field, $value);
+			if($sleepValue === null) {
+				unset($filedata[$idKey]); 
+			} else {
+				$filedata[$idKey] = $sleepValue;
+				$idKeys[$idKey] = $idKey;
+			}
+		}
+	
+		// check for data that should no longer be here
+		// validate that all field ID keys resolve to fields in the fieldgroup
+		foreach($filedata as $key => $value) {
+			if(isset($idKeys[$key])) continue; // valid, skip
+			if(strpos($key, '_') !== 0) continue; // some other filedata, skip
+			$fieldID = ltrim($key, '_'); 
+			if(!ctype_digit($fieldID)) continue; // not a custom field, skip
+			if($fieldgroup->hasField((int) $fieldID)) continue; // valid, skip
+			unset($filedata[$key]); // at this point, it can be removed
+		}
+
+		// build fieldValues index
+		$index = array();
+		foreach($filedata as $idKey => $value) {
+			$id = ltrim($idKey, '_');
+			if(!ctype_digit($id)) continue;
+			$key = "{$id}_";
+			$indexValue = $this->filedataIndexValue($key, $value);
+			if($indexValue !== null) $index[] = $indexValue;
+		}
+		unset($filedata['ix']);
+		if(count($index)) $filedata['ix'] = implode(' ', $index);
+		
+		return $filedata;
+	}
+
+	/**
+	 * Get indexable value for filedata or null if not one that will be indexed
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return null|string
+	 * 
+	 */
+	protected function filedataIndexValue($key, $value) {
+		
+		$indexValue = null;
+
+		if(is_array($value) && count($value) && !is_array(reset($value))) {
+			$a = array();
+			foreach($value as $k => $v) {
+				if(is_array($v) || !strlen("$v")) continue;
+				$kk = is_int($k) ? $key : "{$key}{$k}_";
+				$v = $this->filedataIndexValue($kk, $v);
+				if($v !== null) $a[] = $v;
+			}
+			if(count($a)) $indexValue = implode(' ', $a);
+
+		} else if(is_int($value)) {
+			// integer index
+			$indexValue = "$key$value";
+
+		} else if(is_string($value) && ctype_alnum($value) && strlen($value) <= 128) {
+			// one word string
+			$indexValue = "$key$value";
+		}
+		
+		return $indexValue;
+	}
+	
+
+	/**
+	 * Export value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|float|int|null|object|string $value
+	 * @param array $options
+	 * @return array|float|int|string
+	 * 
+	 */
+	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
+	
+		/** @var Pagefiles $pagefiles */
 		$pagefiles = $value; 
 		$value = $this->sleepValue($page, $field, $value); 
 		$exportValue = array();
@@ -500,9 +651,32 @@ class FieldtypeFile extends FieldtypeMulti {
 		return $out; 
 	}
 
+	/**
+	 * Get match query
+	 * 
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param mixed $value
+	 * @return DatabaseQuery|DatabaseQuerySelect
+	 * @throws PageFinderSyntaxException
+	 * @throws WireException
+	 * 
+	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		
+		if($subfield && !in_array($subfield, array('data', 'count', 'filedata', 'created', 'modified', 'description', 'tags'))) { 
+			// match custom fields
+			if($this->getMatchQuerySubfield($query, $subfield, $operator, $value)) {
+				// successfully handled
+			} else {
+				// requested subfield does not match what's available
+				throw new PageFinderSyntaxException("Property '$subfield' not recognized in selector: $query->selector"); 
+			}
+		}
 
-		if(in_array($operator, array("*=", "~=", "%=", "^=", "$="))) {
+		if(in_array($operator, array("*=", "~=", "!~=", "%=", "^=", "$="))) {
 			// fulltext match filename or description
 			/** @var DatabaseQuerySelectFulltext $ft */
 			$ft = $this->wire(new DatabaseQuerySelectFulltext($query)); 
@@ -511,15 +685,117 @@ class FieldtypeFile extends FieldtypeMulti {
 		} else {
 			$query = parent::getMatchQuery($query, $table, $subfield, $operator, $value); 
 		}
+		
 		return $query; 
 	}
 
+	/**
+	 * Get match query for custom field selector
+	 * 
+	 * @param DatabaseQuerySelect $query
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param mixed $value
+	 * @return bool
+	 * @throws PageFinderSyntaxException
+	 * 
+	 */
+	protected function getMatchQuerySubfield($query, &$subfield, &$operator, &$value) {
+		
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		$selector = $query->selector;
+		$property = '';
+
+		if($selector && substr_count($selector->field(), '.') > 1) {
+			// field in format field.subfield.property
+			$parts = explode('.', $selector->field());
+			while(count($parts) > 2) $property = array_pop($parts);
+		}
+
+		$field = $this->wire('fields')->get($subfield);
+		$fileField = $query->field;
+		
+		if($fileField && !$fileField->type instanceof FieldtypeFile) $fileField = null;
+		if(!$field || !$fileField) return false;
+
+		$template = $this->getFieldsTemplate($fileField);
+		if(!$template || !$template->fieldgroup->hasField($field)) {
+			throw new PageFinderSyntaxException("Field '$fileField->name' does not have subfield '$field->name'");
+		}
+
+		if($field->type instanceof FieldtypePage) {
+			if($property) {
+				throw new PageFinderSyntaxException("Property '$property' not supported in field '" . $selector->field() . "'");
+			} else if(!ctype_digit("$value") && $sanitizer->pagePathName($value) === $value) {
+				// page path to ID
+				$p = $this->wire('pages')->get($value);
+				if($p->id && $p->viewable(false)) $value = $p->id;
+			}
+		}
+
+		if(($operator === '=' || $operator === '!=') && ctype_alnum("$value") && strlen("$value") <= 128) {
+			// we can match our index value in filedata[ix]
+			$operator = $operator === '=' ? '~=' : '!~=';
+			$value = $property ? "{$field->id}_{$property}_$value" : "{$field->id}_$value";;
+
+		} else if($operator === '=') {
+			$operator = ctype_alnum("$value") ? '~=' : '*='; // ok
+
+		} else if($operator === '!=' && ctype_alnum("$value")) {
+			$operator = '!~='; // ok
+
+		} else if($operator === '~=' || $operator === '!~=' || $operator === '%=' || $operator === '*=') {
+			// ok
+
+		} else {
+			throw new PageFinderSyntaxException("Operator $operator is not supported by $this in selector: $selector");
+		}
+
+		$subfield = 'filedata';
+		
+		return true;
+	}
+
+	/**
+	 * Get selector info
+	 * 
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 * 
+	 */
 	public function ___getSelectorInfo(Field $field, array $data = array()) {
 		$info = parent::___getSelectorInfo($field, $data); 
 		$info['subfields']['data']['label'] = $this->_('filename'); 
+		$template = $this->getFieldsTemplate($field);
+		if($template) {
+			foreach($template->fieldgroup as $f) {
+				$f = $template->fieldgroup->getFieldContext($f);
+				if($f->type instanceof FieldtypePage) {
+					$info['subfields'][$f->name] = array(
+						'name' => $f->name,
+						'label' => $f->getLabel(),
+						'operators' => array('=', '!='),
+						'input' => 'page',
+						'options' => array(),
+					);
+				} else if($f->type instanceof FieldtypeCheckbox || $f->type->className() === 'FieldtypeToggle') {
+					$info['subfields'][$f->name] = $f->type->getSelectorInfo($f, $data); 
+				} else {
+				}
+			}
+		}
 		return $info;
 	}
 
+	/**
+	 * Get database schema
+	 * 
+	 * @param Field $field
+	 * @return array
+	 * 
+	 */
 	public function getDatabaseSchema(Field $field) {
 
 		$database = $this->wire('database');
@@ -745,9 +1021,60 @@ class FieldtypeFile extends FieldtypeMulti {
 	 */
 	public function getLoadQueryAutojoin(Field $field, DatabaseQuerySelect $query) {
 		return null;
-	}  
+	}
 
+	/**
+	 * Return Template used to manage fields for given file field
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Field $field Field having type FieldtypeFile or FieldtypeImage
+	 * @return Template|null Returns Template or null if it does not exist
+	 * @since 3.0.142
+	 * 
+	 */
+	public function getFieldsTemplate(Field $field) {
+		$template = $this->wire('templates')->get('field-' . $field->name);
+		if(!$template) return null;
+		// prepare fieldgroup used by template
+		$fieldgroup = $template->fieldgroup;
+		if($this->className() === 'FieldtypeFile') {
+			$allowFieldtypes = $this->allowFieldtypes;
+		} else {
+			$allowFieldtypes = $this->wire('fieldtypes')->get('FieldtypeFile')->get('allowFieldtypes');
+		}
+		$allowFieldtypes = array_flip($allowFieldtypes);
+		foreach($fieldgroup as $f) {
+			$name = str_replace('Fieldtype', '', $f->type->className());
+			if(!isset($allowFieldtypes[$name])) $fieldgroup->softRemove($f);
+		}
+		return $template;
+	}
+	
+	/**
+	 * Get a mock/placeholder page for using custom fields in files
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Field $field
+	 * @return Page
+	 * @since 3.0.142
+	 * 
+	 */
+	public function getFieldsPage(Field $field) {
+		$page = new Page();
+		$page->template = $this->getFieldsTemplate($field);
+		$page->status = Page::statusOn | Page::statusCorrupted; // corrupted status prevents saving
+		return $page;
+	}
 
+	/**
+	 * Field config
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 * 
+	 */
 	public function ___getConfigInputfields(Field $field) {
 
 		$inputfields = parent::___getConfigInputfields($field);
@@ -889,6 +1216,83 @@ class FieldtypeFile extends FieldtypeMulti {
 		$inputfields->append($f);
 		
 		return $inputfields;
+	}
+
+	/**
+	 * Module config
+	 * 
+	 * @param InputfieldWrapper $inputfields
+	 *
+	 */
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		
+		if($this->className() != 'FieldtypeFile') return;
+		
+		/** @var InputfieldCheckboxes $f */
+		$f = $this->wire('modules')->get('InputfieldCheckboxes');
+		$f->attr('name', 'allowFieldtypes');
+		$f->label = $this->_('Allowed Fieldtype modules for custom fields');
+		$f->description = $this->_('Types with strikethrough are not likely to be 100% compatible.'); 
+		$f->optionColumns = 3;
+		$f->entityEncodeText = false;
+		
+		$moduleNames = $this->wire('modules')->findByPrefix('Fieldtype');
+		ksort($moduleNames);
+		$names = array();
+
+		// types always disallowed
+		$blacklist = array(
+			'File', 
+			'Image', 
+			'Repeater', 
+			'RepeaterMatrix', 
+			'PageTable', 
+			'Options', 
+			'Comments', 
+			'Table'
+		);
+		
+		foreach($moduleNames as $key => $moduleName) {
+			
+			list(,$name) = explode('Fieldtype', $moduleName, 2);
+			$names[$name] = $name;
+			
+			if(in_array($name, $blacklist)) {
+				unset($names[$name]);
+				continue;
+			}
+			
+			if(in_array($name, $this->defaultAllowFieldtypes)) continue; // these are fine
+			
+			// check schema of field by finding an example of one
+			$allow = false;
+			
+			foreach($this->wire('fields') as $field) {
+				// @var Field $field 
+				if($field->type instanceof FieldtypeFile) continue;
+				if(!wireInstanceOf($field->type, $moduleName)) continue;
+				
+				// verify that field DB table is responsible for all data created by the field
+				$schema = $field->type->getDatabaseSchema($field);
+				if(isset($schema['xtra']['all']) && $schema['xtra']['all'] !== true) continue;
+				
+				unset($schema['data'], $schema['pages_id'], $schema['keys'], $schema['xtra']);
+				// if there's not any other schema required by the Fieldtype, it can be supported here
+				if(!count($schema)) $allow = true;
+				break;
+			}
+			if(!$allow) {
+				// indicate with strikethrough potential issue with this type
+				$names[$name] = "<s>$name</s>";
+			}
+		}
+		
+		foreach($names as $key => $name) {
+			$f->addOption($key, $name);
+		}
+		
+		$f->val($this->allowFieldtypes);
+		$inputfields->add($f);
 	}
 
 

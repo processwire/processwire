@@ -1330,10 +1330,10 @@ function InputfieldImage($) {
 		$grid.click(toggleClick);
 		
 		if($target.hasClass('InputfieldImage')) {
-			$target.find('.InputfieldHeader').append($list).append($left).append($grid);
+			$target.children('.InputfieldHeader').append($list).append($left).append($grid);
 			defaultMode = getCookieData($target, 'mode');
 		} else {
-			$(".InputfieldImage .InputfieldHeader", $target).append($list).append($left).append($grid);
+			$(".InputfieldImage > .InputfieldHeader", $target).append($list).append($left).append($grid);
 		}
 
 		if(defaultMode == 'list') {
@@ -2041,6 +2041,13 @@ function InputfieldImage($) {
 							} else {
 								setGridSize($inputfield, size);
 							}
+							setTimeout(function() {
+								var $inputfields = $markup.find('.Inputfield');
+								if($inputfields.length) {
+									InputfieldsInit($markup.find('.Inputfields'));
+									$inputfields.trigger('reloaded', ['InputfieldImageUpload']);
+								}
+							}, 250);
 						}).css("display", "");
 						$markup.addClass('InputfieldFileItemExisting');
 

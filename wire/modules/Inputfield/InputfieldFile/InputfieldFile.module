@@ -30,6 +30,7 @@
  * @method void processInputAddFile($filename)
  * @method void processInputDeleteFile(Pagefile $pagefile)
  * @method bool processInputFile(WireInputData $input, Pagefile $pagefile, $n)
+ * @method bool processItemInputfields(Pagefile $pagefile, InputfieldWrapper $inputfields, $id, WireInputData $input)
  *
  */
 class InputfieldFile extends Inputfield implements InputfieldItemList, InputfieldHasSortableValue {
@@ -38,7 +39,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		return array(
 			'title' => __('Files', __FILE__), // Module Title
 			'summary' => __('One or more file uploads (sortable)', __FILE__), // Module Summary
-			'version' => 125,
+			'version' => 126,
 			'permanent' => true, 
 			);
 	}
@@ -108,6 +109,14 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * 
 	 */
 	protected $labels = array();
+	
+	/**
+	 * Cached value of Fieldgroup used for Pagefile custom fields, as used by getItemInputfields() method
+	 *
+	 * @var Fieldgroup|null|bool Null when not yet known, false when known not applicable, Fieldgroup when known and in use
+	 *
+	 */
+	protected $itemFieldgroup = null;
 
 	/**
 	 * Initialize the InputfieldFile
@@ -477,17 +486,21 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				"<input type='checkbox' name='delete_$id' value='1' title='$deleteLabel' />" . 
 				"<i class='fa fa-fw fa-trash'></i></label>";
 		
-		$out .= 
-			"</p>" . 
-			"<div class='InputfieldFileData description ui-widget-content'>" . 
-			$this->renderItemDescriptionField($pagefile, $id, $n);
+		$description = $this->renderItemDescriptionField($pagefile, $id, $n);
+		$class = 'InputfieldFileData ';
+		$class .= $description ? 'description ui-widget-content' : 'InputfieldFileFields';
 		
-		if(!$this->renderValueMode) $out .= 
-			"<input class='InputfieldFileSort' type='text' name='sort_$id' value='$n' />";
-		
-		$out .= 
-			"</div>";
+		$out .= "</p><div class='$class'>" . $description;
 
+		$inputfields = $this->getItemInputfields($pagefile);
+		if($inputfields) $out .= $inputfields->render();
+		
+		if(!$this->renderValueMode) {
+			$out .= "<input class='InputfieldFileSort' type='text' name='sort_$id' value='$n' />";
+		}
+		
+		$out .= "</div>";
+		
 		return $out; 
 	}
 
@@ -661,6 +674,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			}
 		}
 		
+		$this->getItemInputfields(); // custom fields ready
+		
 		return parent::renderReady($parent, $renderValueMode); 
 	}
 
@@ -748,6 +763,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	}
 
 	/**
+	 * Process input to add a file
+	 * 
 	 * @param string $filename
 	 * @throws WireException
 	 * 
@@ -822,6 +839,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		}
 	}
 
+	/**
+	 * Process input to delete a Pagefile item
+	 * 
+	 * @param Pagefile $pagefile
+	 * 
+	 */
 	protected function ___processInputDeleteFile(Pagefile $pagefile) {
 		$fileLabel = $this->wire('config')->debug ? $pagefile->url() : $pagefile->name;
 		$this->message($this->_("Deleted file:") . " $fileLabel"); // Label that precedes a deleted filename
@@ -829,8 +852,19 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$this->trackChange('value');
 	}
 
+	/**
+	 * Process input for one Pagefile
+	 * 
+	 * @param WireInputData $input
+	 * @param Pagefile $pagefile
+	 * @param int $n
+	 * @return bool
+	 * 
+	 */
 	protected function ___processInputFile(WireInputData $input, Pagefile $pagefile, $n) {
-		
+
+		$saveFields = false; // allow custom Inputfields to be saved?
+		$changed = false; // are there any changes to this file?
 		$id = $this->name . '_' . $pagefile->hash;
 	
 		if($this->uploadOnlyMode) {
@@ -839,8 +873,6 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			if($input->$key === null) return false;
 		}
 		
-		$changed = false; 
-	
 		// replace (currently only used by InputfieldImage)
 		$key = "replace_$id";
 		$replace = $input->$key;
@@ -918,7 +950,14 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				$sort = (int) $sort; 
 				$pagefile->sort = $sort;
 				if($n !== $sort) $changed = true;
+				$saveFields = true;
 			}
+		}
+		
+		if($saveFields) {
+			// save custom Inputfields
+			$inputfields = $this->getItemInputfields($pagefile);
+			if($inputfields && $this->processItemInputfields($pagefile, $inputfields, $id, $input)) $changed = true;
 		}
 
 		if(isset($input['delete_' . $id])) {
@@ -938,6 +977,48 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		return $changed; 
 	}
 
+	/**
+	 * Process custom Inputfields for Pagefile item
+	 * 
+	 * @param Pagefile $pagefile
+	 * @param InputfieldWrapper $inputfields
+	 * @param string $id Pagefile ID string
+	 * @param WireInputData $input
+	 * @return bool True if changes detected, false if not
+	 * @since 3.0.142
+	 * 
+	 */
+	protected function ___processItemInputfields(Pagefile $pagefile, InputfieldWrapper $inputfields, $id, WireInputData $input) {
+		
+		$changed = false;
+		
+		foreach($inputfields->getAll() as $f) {
+			$f->resetTrackChanges(true);
+			$f->processInput($input);
+			if(!$f->isChanged() && !$pagefile->isTemp()) {
+				continue;
+			}
+			$name = str_replace("_$id", '', $f->attr('name'));
+			if($f->getSetting('useLanguages')) {
+				$value = $pagefile->getFieldValue($name);
+				if(is_object($value)) $value->setFromInputfield($f);
+			} else {
+				$value = $f->val();
+			}
+			$pagefile->setFieldValue($name, $value, true);
+			$changed = true;
+		}
+		
+		return $changed;
+	}
+
+	/**
+	 * Process input
+	 * 
+	 * @param WireInputData $input
+	 * @return self
+	 * 
+	 */
 	public function ___processInput(WireInputData $input) {
 		
 		if(is_null($this->value)) $this->value = $this->wire(new Pagefiles($this->wire('page')));
@@ -1080,7 +1161,13 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 *
 	 */
 	protected function allowCollapsedItems() {
-		return $this->descriptionRows == 0 && !$this->useTags && !$this->noCollapseItem;
+		$allow = $this->descriptionRows == 0 && !$this->useTags && !$this->noCollapseItem;
+		if($allow && $this->hasField) {
+			/** @var FieldtypeFile $fieldtype */
+			$fieldtype = $this->hasField->type;
+			if($fieldtype->getFieldsTemplate($this->hasField)) $allow = false;
+		}
+		return $allow;
 	}
 
 	/**
@@ -1092,6 +1179,90 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 */
 	protected function formatExtensions($extensions) {
 		return $this->wire('sanitizer')->entities(str_replace(' ', ', ', trim($extensions)));
+	}
+
+	/**
+	 * Get custom Inputfields for editing given Pagefile 
+	 * 
+	 * @param Pagefile|null $item Specify Pagefile item, or omit to prepare for render ready
+	 * @return bool|InputfieldWrapper
+	 * @since 3.0.142
+	 * 
+	 */
+	public function getItemInputfields(Pagefile $item = null) {
+	
+		/** @var Pagefiles $pagefiles */
+		$value = $this->val();
+		$pagefiles = $value instanceof Pagefile ? $value->pagefiles : $value;
+		
+		if(!$pagefiles instanceof Pagefiles) {
+			// no value present on this Inputfield
+			return false;
+		}
+		
+		if($this->itemFieldgroup === false) {
+			// item fieldgroup already determined not in use
+			return false;
+		}
+	
+		if($this->itemFieldgroup === null) {
+			// item fieldgroup not yet determined
+			$this->itemFieldgroup = false;
+			$template = $pagefiles->getFieldsTemplate();
+			if(!$template) return false;
+			$this->itemFieldgroup = $template->fieldgroup;
+		}
+
+		/** @var Page $page */
+		$page = $pagefiles->getFieldsPage();
+		$id = $item ? ('_' . $this->pagefileId($item)) : '';
+		
+		$inputfields = $this->itemFieldgroup->getPageInputfields($page, $id, '', false); 
+		if(!$inputfields) return false;
+		
+		/** @var Languages|null $languages */
+		$languages = $this->wire('languages');
+
+		foreach($inputfields->getAll() as $f) {
+			
+			if(!$item) {
+				// prepare inputfields for render rather than populating them
+				$f->renderReady();
+				continue;
+			}
+			
+			/** @var Inputfield $f */
+			$name = str_replace($id, '', $f->name);
+			$value = $item ? $item->getFieldValue($name) : null; 
+			if($value === null) continue;
+			
+			if($languages && $f->getSetting('useLanguages') && $value instanceof LanguagesValueInterface) {
+				foreach($languages as $language) {
+					$f->set($language->isDefault() ? "value" : "value$language->id", $value->getLanguageValue($language->id));
+				}
+			} else {
+				$f->val($value);
+			}
+			
+			if($f->className() === 'InputfieldCKEditor') {
+				// CKE does not like being placed in file/image fields.
+				// I'm sure it's possible, but needs more work and debugging, so it's disabled for now.
+				$allow = false;
+			} else {
+				$allow = true;
+			}
+			
+			if(!$allow) {
+				$inputfields->remove($f);
+				$this->prependMarkup =
+					"<p class='ui-state-error-text'>" .
+					sprintf($this->_('Field “%1$s” type “%2$s” is not supported in field “%3$s”'), $f->label, $f->className(), $this->label) .
+					'</p>';
+				$f->getParent()->remove($f);
+			}
+		}
+		
+		return $inputfields;
 	}
 
 	/**

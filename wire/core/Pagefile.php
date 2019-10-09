@@ -12,7 +12,7 @@
  * Pagefile objects are contained by a `Pagefiles` object. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  * @property-read string $url URL to the file on the server.
@@ -23,6 +23,7 @@
  * @property-read string $name Returns the filename without the path, same as the "basename" property.
  * @property-read string $hash Get a unique hash (for the page) representing this Pagefile.
  * @property-read array $tagsArray Get file tags as an array. #pw-group-tags @since 3.0.17
+ * @property-read array $fieldValues Custom field values. #pw-internal @since 3.0.142
  * @property int $sort Sort order in database. #pw-group-other
  * @property string $basename Returns the filename without the path.
  * @property string $description Value of the file’s description field (string), if enabled. Note you can also set this property directly.
@@ -76,6 +77,17 @@ class Pagefile extends WireData {
 	 * 
 	 */
 	protected $filedata = array();
+
+	/**
+	 * Custom field values indexed by field name, loaded on request
+	 * 
+	 * Values here have been run through wakeupValue and sanitizeValue already.
+	 * Prior to that they are stored in $filedata (above). 
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $fieldValues = array();
 
 	/**
 	 * Construct a new Pagefile
@@ -227,6 +239,8 @@ class Pagefile extends WireData {
 				$language = $languages->get((int) $matches[1]); 
 				if($language && $language->id) return $this->setDescription($value, $language); 
 			}
+		} else if($this->setFieldValue($key, $value)) {
+			return $this;
 		}
 
 		return parent::set($key, $value); 
@@ -237,7 +251,6 @@ class Pagefile extends WireData {
 	 * 
 	 * Filedata is any additional data that you want to store with the file’s database record. 
 	 *
-	 *  
 	 * - To get a value, specify just the $key argument. Null is returned if request value is not present. 
 	 * - To get all values, omit all arguments. An associative array will be returned. 
 	 * - To set a value, specify the $key and the $value to set. 
@@ -558,11 +571,120 @@ class Pagefile extends WireData {
 				$value = filemtime($this->filename()); 
 				if(strpos($key, 'Str')) $value = wireDate($this->wire('config')->dateFormat, $value);
 				break;
+			case 'fieldValues':	
+				return $this->fieldValues;
+				break;
+			default:
+				$value = $this->getFieldValue($key);
+				
 		}
 		if(is_null($value)) return parent::get($key); 
 		return $value; 
 	}
 
+	/**
+	 * Get a custom field value
+	 * 
+	 * #pw-internal Most non-core cases should just use get() or direct access rather than this method
+	 * 
+	 * @param string $name
+	 * @param bool|null Get as formatted value? true=yes, false=no, null=use page output formatting setting (default=null)
+	 * @return mixed|null Returns value or null if not present
+	 * @since 3.0.142
+	 * 
+	 */
+	public function getFieldValue($name, $formatted = null) {
+		
+		$field = $this->wire('fields')->get($name);
+		if(!$field) return null;
+		
+		$template = $this->pagefiles->getFieldsTemplate();
+		if(!$template) return null;
+		
+		$fieldgroup = $template->fieldgroup;
+		if(!$fieldgroup->hasField($field)) return null;
+		
+		$field = $fieldgroup->getFieldContext($field); // get in context
+		$fieldtype = $field->type; /** @var Fieldtype $fieldtype */	
+		$fileField = $this->pagefiles->getField(); /** @var Field $fileField */
+		$fileFieldtype = $fileField->type; /** @var FieldtypeFile|FieldtypeImage $fileFieldtype */	
+		$page = $fileFieldtype->getFieldsPage($fileField);
+		
+		if(array_key_exists($name, $this->fieldValues)) {
+			$value = $this->fieldValues[$name];
+		} else {
+			$idKey = "_$field->id";
+			$value = $this->filedata($idKey);
+			if($value !== null) {
+				$value = $fieldtype->wakeupValue($page, $field, $value);
+				$value = $fieldtype->sanitizeValue($page, $field, $value);
+			}
+			$this->fieldValues[$name] = $value;
+			unset($this->filedata[$idKey]); // avoid storing double copies
+		}
+		
+		if($value === null) {
+			$value = $fieldtype->getBlankValue($page, $field);
+			$value = $fieldtype->sanitizeValue($page, $field, $value);
+			$this->fieldValues[$name] = $value;
+		}
+	
+		if($formatted === null) $formatted = $this->page->of();
+		if($formatted) $value = $fieldtype->formatValue($page, $field, $value);
+			
+		return $value;
+	}
+
+	/**
+	 * Set a custom field value
+	 * 
+	 * #pw-internal Most non-core cases should use set() instead
+	 * 
+	 * @param string $name
+	 * @param mixed $value
+	 * @param bool|null $changed Specify true to force track change, false to force no change, or null to auto-detect (default=null)
+	 * @return bool Returns true if value set, or false if not (like if there’s no template defined for the purpose)
+	 * @since 3.0.142
+	 * 
+	 * 
+	 */
+	public function setFieldValue($name, $value, $changed = null) {
+		
+		$template = $this->pagefiles->getFieldsTemplate();
+		if(!$template) return false;
+		
+		$fieldgroup = $template->fieldgroup;
+		if(!$fieldgroup) return false;
+		
+		$field = $fieldgroup->getFieldContext($name);
+		if(!$field) return false;
+		
+		$page = $this->pagefiles->getFieldsPage();
+
+		/** @var Fieldtype $fieldtype */
+		$fieldtype = $field->type;
+		$value = $fieldtype->sanitizeValue($page, $field, $value);
+	
+		if($changed === null && $this->page->trackChanges()) {
+			// detect if a change has taken place
+			$oldValue = $this->getFieldValue($field->name, false);
+			if(is_object($oldValue) && $oldValue instanceof Wire && $oldValue === $value) {
+				// $oldValue and new $value are the same object instance, so ask it if anything has changed
+				$changed = $oldValue->isChanged(); 
+				if($changed) $this->trackChange($field->name);
+			} else if($oldValue != $value) {
+				// $oldValue and new $value differ, record change
+				$this->trackChange($field->name, $oldValue, $value); 
+			}
+		} else if($changed === true) {
+			$this->trackChange($field->name); 
+		}
+	
+		$this->fieldValues[$field->name] = $value;
+
+		return true;
+	}
+	
 	/**
 	 * Hookable no-cache URL
 	 * 
