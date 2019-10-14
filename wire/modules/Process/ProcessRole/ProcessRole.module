@@ -95,8 +95,8 @@ class ProcessRole extends ProcessPageType {
 			'page-create' => $pageEditRequired,
 			'page-publish' => $pageEditRequired, 
 			'page-add' => $this->_('Unlike most other permissions, page-edit permission to a template is not a pre-requisite for this permission.'), 
-			'page-edit' => '',
-			'page-view' => '',
+			'page-edit' => $this->_('Templates with an asterisk (*) are configured for edit-related permissions to also inherit to children and through the page tree, unless/until overridden by a page using a different access controlled template.'),
+			'page-view' => $this->_('This permission is also inherited to children and through the page tree, unless/until overridden by a page using a different access controlled template.'), 
 		);
 		
 	}
@@ -208,7 +208,7 @@ class ProcessRole extends ProcessPageType {
 	 * @param $inputfieldValue
 	 * 
 	 */
-	protected function addPermissionOptions(array $permissions, Inputfield $f, $level = 0, &$inputfieldValue) {
+	protected function addPermissionOptions(array $permissions, Inputfield $f, $level, &$inputfieldValue) {
 		
 		/** @var InputfieldCheckboxes $f */
 		/** @var Role $role */
@@ -255,7 +255,7 @@ class ProcessRole extends ProcessPageType {
 			}
 			if(($parent->name == 'page-edit' || $rootParent->name == 'page-edit') && strpos($name, 'page-') === 0) {
 				if($name == 'page-add' || $name == 'page-create') {
-					$title = $title;
+					// $title = $title;
 				} else {
 					$appliesAllEditable = true; 
 					$title .= $this->renderDetail('(' . $this->_('applies to all editable templates') . ')', 'permission-all-templates');
@@ -464,12 +464,16 @@ class ProcessRole extends ProcessPageType {
 	protected function renderTemplatePermissionCheckbox(Template $template, Permission $permission, $checked) {
 		
 		$disabled = false;
+		$perm = $permission->name;
+		$templateLabel = $template->name;
 		$note = '';
 		
-		if($permission->name == 'page-view' && $this->guestRole->hasPermission('page-view', $template)) {
+		if($perm == 'page-view' && $this->guestRole->hasPermission('page-view', $template)) {
 			$checked = true;
 			$disabled = true;
 			$note = $this->_('(required because inherited from guest role)');
+		} else if($perm == 'page-edit' && !$template->noInherit) {
+			$templateLabel .= '*';
 		}
 		
 		$checked = $checked ? 'checked' : '';
@@ -478,11 +482,11 @@ class ProcessRole extends ProcessPageType {
 		
 		// note: pt=permission+template, tp=template+permission
 		
-		if($permission->name == 'page-add') {
+		if($perm == 'page-add') {
 			$name = "pt_add_$template->id";
-		} else if($permission->name == 'page-create') {
+		} else if($perm == 'page-create') {
 			$name = "pt_create_$template->id";
-		} else if(in_array($permission->name, array('page-edit', 'page-view'))) {
+		} else if($perm == 'page-edit' || $perm == 'page-view') {
 			$name = "pt_{$permission->id}_{$template->id}";
 		} else {
 			$name = '';
@@ -493,7 +497,7 @@ class ProcessRole extends ProcessPageType {
 			$out = 
 				"<label>" .
 					"<input type='checkbox' $checked $disabled name='$name' value='1' class='$class'>" .
-					"$template->name <span class='detail'>$note</span>" .
+					"$templateLabel <span class='detail'>$note</span>" .
 				"</label>";
 		} else {
 			// select add or revoke
@@ -507,11 +511,11 @@ class ProcessRole extends ProcessPageType {
 			$out =
 				"<label class='template-permission-add'>" .
 					"<input type='checkbox' name='add_$name' value='$permission->id' $addChecked class='$class'>" .
-					sprintf($this->_('Add to: %s'), $template->name) . 
+					sprintf($this->_('Add to: %s'), $templateLabel) . 
 				"</label>" . 
 				"<label class='template-permission-revoke'>" .
 					"<input type='checkbox' name='revoke_$name' value='$permission->id' $revokeChecked class='$class'>" .
-					sprintf($this->_('Revoke from: %s'), $template->name) . 
+					sprintf($this->_('Revoke from: %s'), $templateLabel) . 
 				"</label>";
 		}
 		
