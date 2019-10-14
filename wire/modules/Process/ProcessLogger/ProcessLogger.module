@@ -3,7 +3,7 @@
 /**
  * ProcessWire Logger (Logs Viewer)
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  *
@@ -15,7 +15,7 @@ class ProcessLogger extends Process {
 		return array(
 			'title' => __('Logs', __FILE__), 
 			'summary' => __('View and manage system logs.', __FILE__), 
-			'version' => 1, 
+			'version' => 2, 
 			'author' => 'Ryan Cramer', 
 			'icon' => 'tree',
 			'permission' => 'logs-view', 
@@ -50,12 +50,16 @@ class ProcessLogger extends Process {
 		$options['itemLabel2'] = 'when';
 		$options['add'] = false;
 		$options['edit'] = 'view/{name}/';
-		$options['items'] = $this->wire('log')->getLogs(); 
+		$options['items'] = $this->wire('log')->getLogs(true); 
+		$options['sort'] = false;
 		
 		foreach($options['items'] as $key => $item) {
 			$item['when'] = wireRelativeTimeStr($item['modified'], true, false); 
-			if(time() - $item['modified'] > 86400) $item['icon'] = 'file-text-o';
-				else $item['icon'] = 'file-text';
+			if(time() - $item['modified'] > 86400) {
+				$item['icon'] = 'file-text-o';
+			} else {
+				$item['icon'] = 'file-text';
+			}
 			$options['items'][$key] = $item;
 		}
 
@@ -63,6 +67,7 @@ class ProcessLogger extends Process {
 	}
 
 	public function ___execute() {
+		/** @var MarkupAdminDataTable $table */
 		$table = $this->wire('modules')->get('MarkupAdminDataTable'); 
 		$table->setEncodeEntities(false);
 		$table->headerRow(array(
@@ -178,22 +183,27 @@ class ProcessLogger extends Process {
 		} while(1);
 		
 		if($this->wire('config')->ajax) return $this->renderLogAjax($items, $name); 
-		
+	
+		/** @var InputfieldForm $form */
 		$form = $this->wire('modules')->get('InputfieldForm');
+		
+		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
 		$fieldset->attr('id', 'FieldsetTools'); 
 		$fieldset->label = $this->_('Helpers');
 		$fieldset->collapsed = Inputfield::collapsedYes; 
 		$fieldset->icon = 'sun-o';
 		$form->add($fieldset);
-		
+	
+		/** @var InputfieldText $f */
 		$f = $this->wire('modules')->get('InputfieldText'); 
 		$f->attr('name', 'q');
 		$f->label = $this->_('Text Search');
 		$f->icon = 'search';
 		$f->columnWidth = 50; 
-		$fieldset->add($f); 
-		
+		$fieldset->add($f);
+
+		/** @var InputfieldDatetime $f */
 		$f = $this->wire('modules')->get('InputfieldDatetime');
 		$f->attr('name', 'date_from');
 		$f->label = $this->_('Date From'); 
@@ -202,7 +212,8 @@ class ProcessLogger extends Process {
 		$f->datepicker = InputfieldDatetime::datepickerFocus; 
 		$f->attr('placeholder', 'yyyy-mm-dd'); 
 		$fieldset->add($f);
-		
+	
+		/** @var InputfieldDatetime $f */
 		$f = $this->wire('modules')->get('InputfieldDatetime');
 		$f->attr('name', 'date_to');
 		$f->icon = 'calendar';
@@ -211,7 +222,8 @@ class ProcessLogger extends Process {
 		$f->attr('placeholder', 'yyyy-mm-dd'); 
 		$f->datepicker = InputfieldDatetime::datepickerFocus; 
 		$fieldset->add($f);
-		
+	
+		/** @var InputfieldSelect $f */
 		$f = $this->modules->get('InputfieldSelect');
 		$f->attr('name', 'action');
 		$f->label = $this->_('Actions');
@@ -226,7 +238,8 @@ class ProcessLogger extends Process {
 			$f->addOption('add', $this->_('Grow (Add Entry)'));
 			$f->addOption('prune', $this->_('Chop (Prune)'));
 			$f->addOption('delete', $this->_('Burn (Delete)'));
-			
+		
+			/** @var InputfieldInteger $f */
 			$f = $this->wire('modules')->get('InputfieldInteger');
 			$f->attr('name', 'prune_days');
 			$f->label = $this->_('Chop To # Days');
@@ -236,6 +249,7 @@ class ProcessLogger extends Process {
 			$f->showIf = "action=prune";
 			$fieldset->add($f);
 
+			/** @var InputfieldText $f */
 			$f = $this->wire('modules')->get('InputfieldText');
 			$f->attr('name', 'add_text');
 			$f->label = $this->_('New Log Entry');
@@ -243,6 +257,7 @@ class ProcessLogger extends Process {
 			$f->showIf = "action=add";
 			$fieldset->add($f);
 
+			/** @var InputfieldSubmit $f */
 			$f = $this->wire('modules')->get('InputfieldSubmit');
 			$f->value = $this->_('Chop this log file now');
 			$f->icon = 'cut';
@@ -320,9 +335,11 @@ class ProcessLogger extends Process {
 	}
 	
 	protected function renderLog(array $items, $name, $time = 0) {
-		
+	
+		/** @var Sanitizer $sanitizer */
 		$sanitizer = $this->wire('sanitizer');
-		
+	
+		/** @var MarkupAdminDataTable $table */
 		$table = $this->wire('modules')->get('MarkupAdminDataTable');
 		$table->setSortable(false);
 		$table->setEncodeEntities(false);
@@ -354,6 +371,10 @@ class ProcessLogger extends Process {
 				$date = "<i class='fa fa-leaf ProcessLogNew'></i> $date";
 			}
 			
+			if(strpos($entry['text'], '&') !== false) {
+				$entry['text'] = $this->wire('sanitizer')->unentities($entry['text']); 
+			}
+			
 			foreach($entry as $key => $value) {
 				$entry[$key] = $sanitizer->entities($value);
 			}
@@ -362,18 +383,19 @@ class ProcessLogger extends Process {
 			
 			if(count($templateItem) >= 4) {
 				
-				$url = preg_replace('{^https?://[^/]+}', '', $entry['url']);
+				$row[] = $entry['user'];
+				
+				$entry['url'] = preg_replace('{^https?://[^/]+}', '', $entry['url']);
+				$url = $entry['url'];
 				if($url == '/?/') {
 					$url = 2; // array key
 					$entry['url'] = '?';
 				}
-				
-				if(strlen($url) > 50) $url = substr($url, 0, 50) . '&hellip;';
-				$row[] = $entry['user'];
-				$row[$url] = $entry['url'];
+				$urlLabel = $this->formatLogUrlLabel($entry['url']); 
+				$row[$urlLabel] = $url;
 			}
-		
-			$row[] = $entry['text'];
+			
+			$row[] = $this->formatLogText($entry['text'], $name); 
 			
 			$table->row($row);
 		}
@@ -384,10 +406,12 @@ class ProcessLogger extends Process {
 			reset($items);
 			$key = key($items);
 			list($n, $total, $start, $end, $limit) = explode('/', $key);
+			if($n && $end) {} // ignore
 			$entries->import($items);
 			$entries->setLimit($limit);
 			$entries->setStart($start);
 			$entries->setTotal($total);
+			/** @var MarkupPagerNav $pager */
 			$pager = $this->wire('modules')->get('MarkupPagerNav');
 			$options = array('baseUrl' => "../$name/");
 			$pagerOut = $pager->render($entries, $options);
@@ -418,6 +442,111 @@ class ProcessLogger extends Process {
 		
 		return $out; 
 
+	}
+
+	/**
+	 * Format log URL label
+	 * 
+	 * @param string $url
+	 * @return string
+	 * 
+	 */
+	protected function formatLogUrlLabel($url) {
+	
+		if($url === '?') return $url;
+	
+		if(strpos($url, '://') !== false) {
+			$url = preg_replace('{^https?://[^/]+}', '', $url);
+		}
+		
+		$config = $this->wire('config');
+		$rootUrl = $config->urls->root; 
+		$adminUrl = $config->urls->admin;
+		$isAdmin = false;
+		
+		if(strpos($url, $adminUrl) === 0) {
+			$isAdmin = true;
+			$url = substr($url, strlen($adminUrl)); 
+		} else if($rootUrl !== '/' && strpos($url, $rootUrl) === 0) {
+			$url = substr($url, strlen($rootUrl)-1); 
+		}
+		
+		if($isAdmin && strpos($url, 'page/edit/') !== false && preg_match('/[?&]id=(\d+)/', $url, $matches)) {
+			$url = 'page/edit/?id=' . $matches[1];
+		} else if($url === '/http404/') {
+			$url = $this->_('404 not found');
+		}
+			
+		if(strlen($url) > 50) {
+			$url = substr($url, 0, 50) . '&hellip;';
+		}
+		
+		return $url;
+	}
+
+	/**
+	 * Format log line txt
+	 * 
+	 * @param string $text
+	 * @param string $logName
+	 * @return string
+	 * 
+	 */
+	protected function formatLogText($text, $logName = '') {
+		
+		$config = $this->wire('config');
+
+		// shorten paths 
+		foreach(array('site', 'wire') as $name) {
+			if(strpos($text, "/$name/") === false) continue;
+			$path = $config->paths($name);
+			if(strpos($text, $path) !== false) {
+				$text = str_replace($path, "/$name/", $text); 
+			} else {
+				// $text = preg_replace('![-_/\\:a-zA-Z0-9]+/' . $name . '/!', "/$name/", $text); 
+			}
+		}
+		
+		// shorten assumed namespaces
+		if(strpos($text, 'ProcessWire\\') !== false) {
+			$text = str_replace('ProcessWire\\', '', $text); 
+		}
+
+		// formatting of stack traces in errors/exceptions logs
+		if($logName === 'errors' || $logName === 'exceptions') {
+			if(strpos($text, '(line ') && preg_match('/\((line \d+ of [^)]+)\)/', $text, $matches)) {
+				$text = str_replace($matches[0], "<br /><span class='notes'>" . ucfirst($matches[1]) . "</span>", $text);
+			} else if(strpos($text, '(in ') && preg_match('!\((in /[^)]+? line \d+)\)!', $text, $matches)) {
+				$text = str_replace($matches[0], "<br /><span class='notes'>" . ucfirst($matches[1]) . "</span>", $text);
+			}
+			if(strpos($text, ' #0 /')) {
+				list($text, $traces) = explode(' #0 /', $text, 2);
+				$traces = preg_split('! #\d+ /!', $traces);
+				$text .= "<span class='detail'>";
+				foreach($traces as $key => $trace) {
+					$n = $key + 1;
+					$text .= "<br />$n. /$trace";
+				}
+				$text .= "</span>";
+			}
+		}
+	
+		// identify recurring instances
+		if(strpos($text, ' ^+')) {
+			$_text = $text;
+			list($text, $qty) = explode(' ^+', $text, 2);
+			if(ctype_digit($qty)) {
+				$text .= "<br />" .
+					"<span class='detail'>" .
+					sprintf($this->_n('Plus %d ealier duplicate ', 'Plus %d earlier duplicates', $qty), $qty) .
+					"</span>";
+			} else {
+				// oops, restore
+				$text = $_text;
+			}
+		}
+		
+		return $text;
 	}
 
 }

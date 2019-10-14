@@ -11,15 +11,73 @@
  */
 
 class FileLog extends Wire {
-	
-	const defaultChunkSize = 12288; 
-	const debug = false; 
 
-	protected $logFilename = false; 
-	protected $itemsLogged = array(); 
+	/**
+	 * Default size of chunks used for reading from logs
+	 * 
+	 */
+	const defaultChunkSize = 12288;
+
+	/**
+	 * Debug mode used during development of this class
+	 * 
+	 */
+	const debug = false;
+
+	/**
+	 * Chunk size used when reading from logs and not overridden
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $chunkSize = self::defaultChunkSize;
+
+	/**
+	 * Full path to log file or false when not yet set
+	 * 
+	 * @var bool|string
+	 * 
+	 */
+	protected $logFilename = false;
+
+	/**
+	 * Log items saved during this request where array keys are md5 hash of log entries and values ignored
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $itemsLogged = array();
+
+	/**
+	 * Delimiter used in log entries
+	 * 
+	 * @var string
+	 * 
+	 */
 	protected $delimeter = "\t";
+
+	/**
+	 * Maximum allowed line length for a single log line
+	 * 
+	 * @var int
+	 * 
+	 */
 	protected $maxLineLength = 8192;
+
+	/**
+	 * File extension used for log files
+	 * 
+	 * @var string
+	 * 
+	 */
 	protected $fileExtension = 'txt';
+
+	/**
+	 * Path where log files are stored
+	 * 
+	 * @var string
+	 * 
+	 */
 	protected $path = '';
 	
 	/**
@@ -58,52 +116,157 @@ class FileLog extends Wire {
 	protected function cleanStr($str) {
 		$str = str_replace(array("\r\n", "\r", "\n"), ' ', trim($str)); 
 		if(strlen($str) > $this->maxLineLength) $str = substr($str, 0, $this->maxLineLength); 
+		if(strpos($str, ' ^+') !== false) $str = str_replace(' ^=', ' ^ +', $str); // disallowed sequence
 		return $str; 	
 	}
 
 	/**
 	 * Save the given log entry string
 	 * 
-	 * @param $str
-	 * @return bool Success state
+	 * @param string $str
+	 * @param array $options options to modify behavior (Added 3.0.143)
+	 *  - `allowDups` (bool): Allow duplicating same log entry in same runtime/request? (default=true) 
+	 *  - `mergeDups` (int): Merge previous duplicate entries that also appear near end of file? Specify int for bytes from EOF (default=1024) 
+	 *  - `maxTries` (int): If log entry fails to save, maximum times to re-try (default=20) 
+	 *  - `maxTriesDelay` (int): Micro seconds (millionths of a second) to delay between re-tries (default=2000)
+	 * @return bool Success state: true if log written, false if not. 
 	 * 
 	 */
-	public function save($str) {
+	public function save($str, array $options = array()) {
+		
+		$defaults = array(
+			'mergeDups' => 1024,
+			'allowDups' => true, 
+			'maxTries' => 20, 
+			'maxTriesDelay' => 2000, 
+		);
 
-		if(!$this->logFilename) return false; 
-
+		if(!$this->logFilename) return false;
+		
+		$options = array_merge($defaults, $options);
 		$hash = md5($str); 
-
-		// if we've already logged this during this instance, then don't do it again
-		if(in_array($hash, $this->itemsLogged)) return true; 
-
 		$ts = date("Y-m-d H:i:s"); 
 		$str = $this->cleanStr($str);
-		$fp = fopen($this->logFilename, "a");
+		$line = $this->delimeter . $str; // log entry, excluding timestamp
+		$hasLock = false; // becomes true when lock obtained
+		$fp = false; // becomes resource when file is open
 		
-		if($fp) {
-			$trys = 0; 
-			$stop = false;
+		// if we've already logged this during this instance, then don't do it again
+		if(!$options['allowDups'] && isset($this->itemsLogged[$hash])) return true;
 
-			while(!$stop) {
-				if(flock($fp, LOCK_EX)) {
-					fwrite($fp, "$ts{$this->delimeter}$str\n"); 
-					flock($fp, LOCK_UN); 
-					$this->itemsLogged[] = $hash; 
-					$stop = true; 
-				} else {
-					usleep(2000);
-					if($trys++ > 20) $stop = true; 
-				}
-			}
+		// determine write mode		
+		$mode = file_exists($this->logFilename) ? 'a' : 'w';
+		if($mode === 'a' && $options['mergeDups']) $mode = 'r+';
 
-			fclose($fp); 
-			$this->wire('files')->chmod($this->logFilename);
-			return true; 
-		} else {
+		// open the log file
+		for($tries = 0; $tries <= $options['maxTries']; $tries++) {
+			$fp = fopen($this->logFilename, $mode);
+			if($fp) break;
+			// if unable to open for reading/writing, see if we can open for append instead
+			if($mode === 'r+' && $tries > ($options['maxTries'] / 2)) $mode = 'a';
+			usleep($options['maxTriesDelay']);
+		}
+
+		// if unable to open, exit now
+		if(!$fp) return false;
+
+		// obtain a lock
+		for($tries = 0; $tries <= $options['maxTries']; $tries++) {
+			$hasLock = flock($fp, LOCK_EX);
+			if($hasLock) break;
+			usleep($options['maxTriesDelay']);
+		}
+	
+		// if unable to obtain a lock, we cannot write to the log
+		if(!$hasLock) {
+			fclose($fp);
 			return false;
 		}
 
+		// if opened for reading and writing, merge duplicates of $line
+		if($mode === 'r+' && $options['mergeDups']) {
+			// do not repeat the same log entry in the same chunk
+			$chunkSize = is_int($options['mergeDups']) ? $options['mergeDups'] : $this->chunkSize; 
+			fseek($fp, -1 * $chunkSize, SEEK_END);
+			$chunk = fread($fp, $chunkSize); 
+			// check if our log line already appears in the immediate earlier chunk
+			if(strpos($chunk, $line) !== false) {
+				// this log entry already appears 1+ times within the last chunk of the file
+				// remove the duplicates and replace the chunk
+				$chunkLength = strlen($chunk);
+				$this->removeLineFromChunk($line, $chunk, $chunkSize);
+				fseek($fp, 0, SEEK_END);
+				$oldLength = ftell($fp);
+				$newLength = $chunkLength > $oldLength ? $oldLength - $chunkLength : 0;
+				ftruncate($fp, $newLength); 
+				fseek($fp, 0, SEEK_END);
+				fwrite($fp, $chunk);
+			}	
+		} else {
+			// already at EOF because we are appending or creating
+		}
+		
+		// add the log line
+		$result = fwrite($fp, "$ts$line\n");
+		
+		// release the lock and close the file
+		flock($fp, LOCK_UN);
+		fclose($fp);
+		
+		if($result && !$options['allowDups']) $this->itemsLogged[$hash] = true;
+		
+		// if we were creating the file, make sure it has the right permission
+		if($mode === 'w') {
+			$files = $this->wire('files'); /** @var WireFileTools $files */
+			$files->chmod($this->logFilename);
+		}
+		
+		return (int) $result > 0; 
+	}
+
+	/**
+	 * Remove given $line from $chunk and add counter to end of $line indicating quantity that was removed
+	 * 
+	 * @param string $line
+	 * @param string $chunk
+	 * @param int $chunkSize
+	 * @since 3.0.143
+	 * 
+	 */
+	protected function removeLineFromChunk(&$line, &$chunk, $chunkSize) {
+		
+		$qty = 0;
+		$chunkLines = explode("\n", $chunk);
+		
+		foreach($chunkLines as $key => $chunkLine) {
+
+			$x = 1;
+			if($key === 0 && strlen($chunk) >= $chunkSize) continue; // skip first line since it’s likely a partial line
+
+			// check if line appears in this chunk line
+			if(strpos($chunkLine, $line) === false) continue;
+			
+			// check if line also indicates a previous quantity that we should add to our quantity
+			if(strpos($chunkLine, ' ^+') !== false) {
+				list($chunkLine, $n) = explode(' ^+', $chunkLine, 2); 
+				if(ctype_digit($n)) $x += (int) $n;
+			}
+			
+			// verify that these are the same line
+			if(strpos(trim($chunkLine) . "\n", trim($line) . "\n") === false) continue; 
+			
+			// remove the line
+			unset($chunkLines[$key]);
+		
+			// update the quantity
+			$qty += $x;
+		}
+		
+		if($qty) {
+			// append quantity to line, i.e. “^+2” indicating 2 more indentical lines were above
+			$chunk = implode("\n", array_values($chunkLines));
+			$line .= " ^+$qty";
+		}
 	}
 
 	public function size() {
@@ -145,7 +308,7 @@ class FileLog extends Wire {
 	 *
 	 */
 	protected function getChunkArray($chunkNum = 1, $chunkSize = 0, $reverse = true) {
-		if($chunkSize < 1) $chunkSize = self::defaultChunkSize;
+		if($chunkSize < 1) $chunkSize = $this->chunkSize;
 		$lines = explode("\n", $this->getChunk($chunkNum, $chunkSize, $reverse));
 		foreach($lines as $key => $line) {
 			$line = trim($line); 
@@ -165,15 +328,16 @@ class FileLog extends Wire {
 	 * Returned string is automatically adjusted at the beginning and 
 	 * ending to contain only full log lines. 
 	 *
-	 * @param int $chunkNum Current pagination number (default=1)
-	 * @param int $chunkSize Number of bytes to retrieve (default=12288)
+	 * @param int $chunkNum Current chunk/pagination number (default=1, first)
+	 * @param int $chunkSize Number of bytes to retrieve (default=0, which assigns default chunk size of 12288)
 	 * @param bool $reverse True=pull from end of file, false=pull from beginning (default=true)
+	 * @param bool $clean Get a clean chunk that starts at the beginning of a line? (default=true)
 	 * @return string
 	 * 
 	 */
-	protected function getChunk($chunkNum = 1, $chunkSize = 0, $reverse = true) {
+	protected function getChunk($chunkNum = 1, $chunkSize = 0, $reverse = true, $clean = true) {
 
-		if($chunkSize < 1) $chunkSize = self::defaultChunkSize;
+		if($chunkSize < 1) $chunkSize = $this->chunkSize;
 	
 		if($reverse) {
 			$offset = -1 * ($chunkSize * $chunkNum);
@@ -181,7 +345,9 @@ class FileLog extends Wire {
 			$offset = $chunkSize * ($chunkNum-1);
 		}
 		
-		if(self::debug) $this->message("chunkNum=$chunkNum, chunkSize=$chunkSize, offset=$offset, filesize=" . filesize($this->logFilename)); 
+		if(self::debug) {
+			$this->message("chunkNum=$chunkNum, chunkSize=$chunkSize, offset=$offset, filesize=" . filesize($this->logFilename));
+		}
 		
 		$data = '';
 		$totalChunks = $this->getTotalChunks($chunkSize); 
@@ -190,23 +356,27 @@ class FileLog extends Wire {
 		if(!$fp = fopen($this->logFilename, "r")) return $data;
 		
 		fseek($fp, $offset, ($reverse ? SEEK_END : SEEK_SET));
-	
-		// make chunk include up to beginning of first line
-		fseek($fp, -1, SEEK_CUR);
-		while(ftell($fp) > 0) {
-			$chr = fread($fp, 1);
-			if($chr == "\n") break;
-			fseek($fp, -2, SEEK_CUR);
-			$data = $chr . $data;
+
+		if($clean) {
+			// make chunk include up to beginning of first line
+			fseek($fp, -1, SEEK_CUR);
+			while(ftell($fp) > 0) {
+				$chr = fread($fp, 1);
+				if($chr == "\n") break;
+				fseek($fp, -2, SEEK_CUR);
+				$data = $chr . $data;
+			}
+			fseek($fp, $offset, ($reverse ? SEEK_END : SEEK_SET));
 		}
 		
 		// get the big part of the chunk
-		fseek($fp, $offset, ($reverse ? SEEK_END : SEEK_SET));
 		$data .= fread($fp, $chunkSize);
-	
-		// remove last partial line
-		$pos = strrpos($data, "\n"); 
-		if($pos) $data = substr($data, 0, $pos); 
+
+		if($clean) {
+			// remove last partial line
+			$pos = strrpos($data, "\n");
+			if($pos) $data = substr($data, 0, $pos);
+		}
 
 		fclose($fp); 
 		
@@ -221,9 +391,9 @@ class FileLog extends Wire {
 	 * 
 	 */
 	protected function getTotalChunks($chunkSize = 0) {
-		if($chunkSize < 1) $chunkSize = self::defaultChunkSize;
+		if($chunkSize < 1) $chunkSize = $this->chunkSize;
 		$filesize = filesize($this->logFilename); 
-		return ceil($filesize / $chunkSize);
+		return $filesize > 0 ? ceil($filesize / $chunkSize) : 0;
 	}
 
 	/**
@@ -234,7 +404,7 @@ class FileLog extends Wire {
 	 */
 	public function getTotalLines() {
 		
-		if(filesize($this->logFilename) < self::defaultChunkSize) {
+		if(filesize($this->logFilename) < $this->chunkSize) {
 			$data = file($this->logFilename); 
 			return count($data); 
 		}
@@ -243,7 +413,7 @@ class FileLog extends Wire {
 		$totalLines = 0;
 
 		while(!feof($fp)) { 
-			$data = fread($fp, self::defaultChunkSize);
+			$data = fread($fp, $this->chunkSize);
 			$totalLines += substr_count($data, "\n"); 
 		}
 		
@@ -323,7 +493,7 @@ class FileLog extends Wire {
 		$cnt = 0; // number that will be written or returned by this
 		$n = 0; // number total
 		$chunkNum = 0;
-		$totalChunks = $this->getTotalChunks(self::defaultChunkSize); 
+		$totalChunks = $this->getTotalChunks($this->chunkSize); 
 		$stopNow = false;
 		$chunkLineHashes = array();
 		
@@ -516,6 +686,19 @@ class FileLog extends Wire {
 
 	public function setFileExtension($ext) {
 		$this->fileExtension = $ext; 
+	}
+
+	/**
+	 * Get or set the default chunk size used when reading from logs and not overridden by method argument
+	 * 
+	 * @param int $chunkSize Specify chunk size to set, or omit to get
+	 * @return int
+	 * @since 3.0.143
+	 * 
+	 */
+	public function chunkSize($chunkSize = 0) {
+		if($chunkSize > 0) $this->chunkSize = (int) $chunkSize;
+		return $this->chunkSize;
 	}
 }
 

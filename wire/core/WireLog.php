@@ -8,12 +8,11 @@
  * 
  * #pw-summary Enables creation of logs, logging of events, and management of logs. 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @method bool save($name, $text, $options = array())
  * 
- * @todo option to avoid saving same log entry text back-to-back
  * @todo option to disable logs by name
  *
  */
@@ -21,6 +20,14 @@
 class WireLog extends Wire {
 
 	protected $logExtension = 'txt';
+
+	/**
+	 * FileLog instances indexed by filename
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $fileLogs = array();
 
 	/**
 	 * Record an informational or 'success' message in the message log (messages.txt)
@@ -192,28 +199,42 @@ class WireLog extends Wire {
 	 * 
 	 * #pw-group-retrieval
 	 * 
+	 * @param bool $sortNewest Sort by newest to oldest rather than by name? (default=false) Added 3.0.143
 	 * @return array 
 	 * 
 	 */
-	public function getLogs() {
+	public function getLogs($sortNewest = false) {
 		
 		$logs = array();
 		$dir = new \DirectoryIterator($this->wire('config')->paths->logs); 
 		
 		foreach($dir as $file) {
 			if($file->isDot() || $file->isDir()) continue; 
-			if($file->getExtension() != 'txt') continue; 
-			$name = basename($file, '.txt'); 
+			if($file->getExtension() != $this->logExtension) continue; 
+			$name = basename($file, '.' . $this->logExtension); 
 			if($name != $this->wire('sanitizer')->pageName($name)) continue; 
-			$logs[$name] = array(
+			
+			if($sortNewest) {
+				$sortKey = $file->getMTime();
+				while(isset($logs[$sortKey])) $sortKey++;
+			} else {
+				$sortKey = $name;
+			}
+			
+			$logs[$sortKey] = array(
 				'name' => $name,
 				'file' => $file->getPathname(),
 				'size' => $file->getSize(), 
 				'modified' => $file->getMTime(), 
 			);
 		}
+	
+		if($sortNewest) {
+			krsort($logs);
+		} else {
+			ksort($logs);
+		}
 		
-		ksort($logs); 
 		return $logs;	
 	}
 
@@ -448,9 +469,13 @@ class WireLog extends Wire {
 	 * 
 	 */
 	public function getFileLog($name, array $options = array()) {
-		$log = $this->wire(new FileLog($this->getFilename($name)));
-		if(isset($options['delimiter'])) $log->setDelimeter($options['delimiter']);
-			else $log->setDelimeter("\t");
+		$delimiter = isset($options['delimiter']) ? $options['delimiter'] : "\t";
+		$filename = $this->getFilename($name);
+		$key = "$filename$delimiter";
+		if(isset($this->fileLogs[$key])) return $this->fileLogs[$key];
+		$log = $this->wire(new FileLog($filename));
+		$log->setDelimiter($delimiter);
+		$this->fileLogs[$key] = $log;
 		return $log;
 	}
 
