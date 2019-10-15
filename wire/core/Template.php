@@ -608,7 +608,7 @@ class Template extends WireData implements Saveable, Exportable {
 			$this->setFieldgroup($value); 
 			
 		} else if($key == 'filename') {
-			$this->setFilename($value); 
+			$this->filename($value); 
 
 		} else if($key == 'roles') {
 			$this->setRoles($value);
@@ -795,24 +795,11 @@ class Template extends WireData implements Saveable, Exportable {
 	 * Set this template's filename, with or without path
 	 * 
 	 * @param string $value The filename with or without path
+	 * @deprecated Now just using filename() method
 	 *
 	 */
 	protected function setFilename($value) {
-		if(empty($value)) return; 
-
-		if(strpos($value, '/') === false) {
-			// value is basename
-			$value = $this->config->paths->templates . $value;
-
-		} else if(strpos($value, $this->config->paths->root) !== 0) {
-			// value is path outside of our installation root, which we do not accept
-			$value = $this->config->paths->templates . basename($value); 
-		}
-
-		if(file_exists($value)) {
-			$this->filename = $value; 
-			$this->filenameExists = true; 
-		}
+		$this->filename($value);
 	}
 
 	/**
@@ -879,39 +866,56 @@ class Template extends WireData implements Saveable, Exportable {
 	}
 
 	/**
-	 * Return corresponding template filename, including path
+	 * Return corresponding template filename including path, or set template filename
 	 * 
 	 * #pw-group-files
 	 *
+	 * @param string $filename Specify basename or path+basename to set, or omit to get filename. This argument added 3.0.143.
 	 * @return string
 	 * @throws WireException
 	 *	
 	 */
-	public function filename() {
+	public function filename($filename = null) {
 
 		/** @var Config $config */
 		$config = $this->wire('config');
 		$path = $config->paths->templates;
-		$ext = '.' . $config->templateExtension;
-		$altFilename = $this->altFilename;
-
-		if(!$this->settings['name']) {
-			throw new WireException("Template must be assigned a name before 'filename' can be accessed");
-		}
-
-		if($altFilename) {
-			$filename = $path . basename($altFilename, $ext) . $ext; 
-		} else {
-			$filename = $path . $this->settings['name'] . $ext;
-		}
-	
-		if($filename !== $this->filename) {
-			// first set of filename, or filename/path has been changed
-			$this->filenameExists = null;
+		
+		if($filename !== null) {
+			// setting filename
+			if(empty($filename) || !is_string($filename)) {
+				// set to empty
+				$filename = '';
+			} else if(strpos($filename, '/') === false) {
+				// value is basename
+				$filename = $path . $filename;
+			} else if(strpos($filename, $config->paths->root) !== 0) {
+				// value is path outside of our installation root, which we do not accept
+				$filename = $path . basename($filename);
+			}
+			if($filename !== $this->filename) $this->filenameExists = null;
 			$this->filename = $filename;
+			
+		} else if($this->filename) {
+			// get existing filename
+			$filename = $this->filename;
+			
+		} else {
+			// get filename and determine what it is from template settings
+			$ext = '.' . $config->templateExtension;
+			$altFilename = $this->altFilename;
+			if($altFilename) {
+				$filename = $path . basename($altFilename, $ext) . $ext;
+			} else if(!$this->settings['name']) {
+				throw new WireException("Template must be assigned a name before 'filename' can be accessed");
+			} else {
+				$filename = $path . $this->settings['name'] . $ext;
+			}
+			$this->filename = $filename;
+			$this->filenameExists = null;
 		}
 		
-		if($this->filenameExists === null) { 
+		if($this->filenameExists === null && $filename) { 
 			$this->filenameExists = file_exists($filename);
 			if($this->filenameExists) {
 				// if filename exists, keep track of last modification time
@@ -932,7 +936,6 @@ class Template extends WireData implements Saveable, Exportable {
 				}
 			}
 		}
-		
 		
 		return $filename;
 	}
