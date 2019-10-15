@@ -268,6 +268,7 @@ class PagefileExtra extends WireData {
 			case 'extension':
 				$value = $this->extension;
 				break;
+			case 'httpUrl':
 			case 'URL':
 			case 'HTTPURL':
 				$value = str_replace($this->pagefile->url(), $this->url(), $this->pagefile->$key);
