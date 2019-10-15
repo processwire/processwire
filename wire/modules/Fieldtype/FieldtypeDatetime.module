@@ -120,6 +120,7 @@ class FieldtypeDatetime extends FieldtypeText {
 	 *
 	 */
 	public function getInputfield(Page $page, Field $field) {
+		/** @var InputfieldDatetime $inputfield */
 		$inputfield = $this->modules->get('InputfieldDatetime'); 
 		$inputfield->class = $this->className();
 		return $inputfield; 
@@ -142,15 +143,27 @@ class FieldtypeDatetime extends FieldtypeText {
 	 * Sanitize a value assumed to be either a timestamp or in strtotime() compatible format
 	 * 
 	 * @param string|int|\DateTime
-	 * @return int
+	 * @return int|string Returns unix timestamp integer or blank string if empty or invalid value
 	 *
 	 */
 	protected function _sanitizeValue($value) {
-		if(empty($value)) return '';
-		if($value instanceof \DateTime) return $value->getTimestamp();
-		// already a timestamp
-		if(ctype_digit(ltrim($value, '-'))) return (int) $value; 
-		return strtotime($value); 
+		if(empty($value)) {
+			// empty value
+			$value = '';
+		} else if(is_int($value)) {
+			// value okay as-is
+		} else if($value instanceof \DateTime) {
+			// instance of DateTime 
+			$value = $value->getTimestamp();
+		} else if(ctype_digit(ltrim("$value", '-'))) {
+			// already a timestamp
+			$value = (int) $value;
+		} else {
+			// convert date string to time
+			$value = strtotime($value);
+			if($value === false) $value = '';
+		}
+		return $value; 
 	}
 
 	/**
@@ -183,21 +196,66 @@ class FieldtypeDatetime extends FieldtypeText {
 	 * @param string $operator
 	 * @param int|string $value
 	 * @return DatabaseQuerySelect
+	 * @throws WireException if given invalid operator
 	 *
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
-		$value = (int) $this->_sanitizeValue($value); 
-		if($value) $value = date('Y-m-d H:i:s', $value); 
-			else $value = '';
+		
 		$database = $this->wire('database');
-		if($database->isOperator($operator)) {
-			$table = $database->escapeTable($table);
-			$subfield = $database->escapeCol($subfield);
+		$intValue = $this->_sanitizeValue($value);
+		$table = $database->escapeTable($table);
+		$subfield = $subfield ? $database->escapeCol($subfield) : 'data';
+		
+		if(is_string($value) && in_array($operator, array('%=', '^='))) {
+			// partial date string match
+			if(!ctype_digit($value)) {
+				$value = str_replace(array('/', '.'), '-', trim($value));
+			}
+			if(!ctype_digit(str_replace(array('-', ' '), '', $value))) {
+				throw new WireException("Invalid partial date string '$value' (numbers, hyphens and space only)");
+			}
 			$value = $database->escapeStr($value);
-			$query->where("$table.{$subfield}{$operator}'$value'");
-		}
+			$value = $operator === '^=' ? "$value%" : "%$value%";
+			$query->where("$table.$subfield LIKE '$value'");
+			
+		} else if(!$database->isOperator($operator)) {
+			// invalid operator
+			throw new WireException("$this invalid date operator: $operator");
 
+		} else if(is_int($intValue)) {
+			// matching a populated value that successfully converted to unix timestamp
+			$dateString = date('Y-m-d H:i:s', $intValue);
+			if($dateString !== false) {
+				$dateString = $database->escapeStr($dateString); 
+				$query->where("$table.$subfield$operator'$dateString'");
+			}
+			
+		} else {
+			// matching an empty value
+			$minDT = $database->escapeStr(date('Y-m-d H:i:s', 0)); 
+			if(in_array($operator, array('!=', '>', '>='))) {
+				// match NOT empty (!=0, >0)
+				$query->where("$table.$subfield>='$minDT'");
+				
+			} else if(in_array($operator, array('=', '<', '<='))) {
+				// match empty (=0, <0, <=0): match null or value below unix timestamp range
+				// this includes 0000-00-00 when present and used by MySQL version
+				$query->where("$table.$subfield IS NULL OR $table.$subfield<'$minDT'");
+				
+			} else {
+				// unsupported operator
+				throw new WireException("$this operator cannot be used here: $operator"); 
+			}
+		}
+		
 		return $query; 
+	}
+
+	public function ___getSelectorInfo(Field $field, array $data = array()) {
+		$a = parent::___getSelectorInfo($field, $data); 
+		$a['operators'][] = '%=';
+		$a['operators'][] = '^=';
+		return $a;
 	}
 
 	/**
