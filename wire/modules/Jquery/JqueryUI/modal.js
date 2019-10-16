@@ -109,7 +109,11 @@ function pwModalWindowSettings(name) {
 		closeOnEscape: options.closeOnEscape,
 		create: function(event, ui) {
 			if(options.hideOverflow) {
-				parent.jQuery('body').css('overflow', 'hidden');
+				if(typeof parent.jQuery != "undefined") {
+					parent.jQuery('body').css('overflow', 'hidden');
+				} else {
+					parent.document.querySelector('body').style.overflow = 'hidden';
+				}
 			}
 			// replace the jQuery ui close icon with a font-awesome equivalent (for hipdi support)
 			var $widget = jQuery(this).dialog("widget");
