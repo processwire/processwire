@@ -18,7 +18,13 @@ function initInputfieldAsmSelect($select) {
 	var data = $select.attr('data-asmopt'); 
 	if(typeof data != "undefined") {
 		data = JSON.parse(data); 
-		if(data) jQuery.extend(options, data); 
+		if(data) {
+			jQuery.extend(options, data);
+			if(typeof ProcessWire.config != "undefined" && typeof ProcessWire.config[id] == "undefined") {
+				// for classes like Repeater/Matrix that may be looking for this in ProcessWire.config
+				ProcessWire.config[id] = options;
+			}
+		}
 	}
 	
 	$select.asmSelect(options); 
