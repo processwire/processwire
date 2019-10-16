@@ -254,6 +254,10 @@ class PagefileExtra extends WireData {
 			case 'url':
 				$value = $this->url();
 				break;
+			case 'httpUrl':
+			case 'httpURL':	
+				$value = $this->httpUrl();
+				break;
 			case 'filename':
 			case 'pathname':	
 				$value = $this->filename();
