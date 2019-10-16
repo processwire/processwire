@@ -288,7 +288,8 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 			$str = sprintf($this->_('%1$s %2$d of %3$d'), $label, $pageNum, $totalPages); // Page quantity, i.e. Page 1 of 3
 			
 		} else {
-
+			
+			if( $count % $limit > 0 && $start + $limit > $count) $count = $count % $limit; 
 			if($count > $limit) $count = $limit;
 			$end = $start + $count;
 			if($end > $total) $total = $end;
