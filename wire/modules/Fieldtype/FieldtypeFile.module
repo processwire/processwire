@@ -1224,7 +1224,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	 * @param InputfieldWrapper $inputfields
 	 *
 	 */
-	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+	public function ___getModuleConfigInputfields(InputfieldWrapper $inputfields) {
 		
 		if($this->className() != 'FieldtypeFile') return;
 		
