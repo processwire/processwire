@@ -976,7 +976,9 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 				// pagefiles is a default/fallback value from another page and should not be deleted
 				
 			} else if($pagefiles instanceof Pagefiles) {
-				$pagefiles->deleteAll(); 
+				// $pagefiles->removeAll() not used here because it queues delete to $page->save(),
+				// which does not occur when a field is removed from a template
+				foreach($pagefiles as $pagefile) $pagefile->unlink();
 
 			} else if($pagefiles instanceof Pagefile) {
 				$pagefiles->unlink();
