@@ -11,7 +11,7 @@ function initInputfieldAsmSelect($select) {
 		options = ProcessWire.config[id]; // deprecated/legacy
 		
 	} else if(typeof ProcessWire.config['InputfieldAsmSelect'] != "undefined") {
-		options = ProcessWire.config['InputfieldAsmSelect']; 
+		jQuery.extend(options, ProcessWire.config['InputfieldAsmSelect']);
 	} 
 
 	// merge options unique to this instance from select.data-asmopt attribute
