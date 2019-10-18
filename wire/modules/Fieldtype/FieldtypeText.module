@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -19,10 +19,10 @@ class FieldtypeText extends Fieldtype {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Text',
-			'version' => 100,
+			'version' => 101,
 			'summary' => 'Field that stores a single line of text',
 			'permanent' => true, 
-			);
+		);
 	}
 
 	/**
@@ -32,16 +32,6 @@ class FieldtypeText extends Fieldtype {
 	 *
 	 */
 	private $allowTextFormatters = true; 
-
-	/**
-	 * Initialize the Text Fieldtype
-	 *
-	 */
-	public function init() {
-		//$this->set('prependMarkup', ''); 
-		//$this->set('appendMarkup', ''); 
-		parent::init();
-	}
 
 	/**
 	 * Provides a way for descending classes to disable text formatters where they aren't applicable
@@ -57,6 +47,9 @@ class FieldtypeText extends Fieldtype {
 
 	/**
 	 * Return all Fieldtypes derived from FieldtypeText, which we will consider compatible
+	 * 
+	 * @param Field $field
+	 * @return Fieldtypes
 	 *
 	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
@@ -74,6 +67,11 @@ class FieldtypeText extends Fieldtype {
 
 	/**
 	 * Sanitize value for storage
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $value
+	 * @return string
 	 *
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
@@ -82,21 +80,24 @@ class FieldtypeText extends Fieldtype {
 
 	/**
 	 * Format value for output
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $value
+	 * @return string
 	 *
 	 */
 	public function ___formatValue(Page $page, Field $field, $value) {
 
 		$value = (string) $value; 
+		$textformatters = $field->get('textformatters');
 
-		if($this->allowTextFormatters() && is_array($field->textformatters)) {
-			foreach($field->textformatters as $name) {
+		if($this->allowTextFormatters() && is_array($textformatters)) {
+			foreach($textformatters as $name) {
 				if(!$textformatter = $this->wire('modules')->get($name)) continue; 
 				$textformatter->formatValue($page, $field, $value); 
 			}
 		}
-
-		//if(strlen($field->prependMarkup)) $value = $field->prependMarkup . $value; 
-		//if(strlen($field->appendMarkup)) $value .= $field->appendMarkup; 
 
 		return $value; 
 	}
@@ -119,18 +120,30 @@ class FieldtypeText extends Fieldtype {
 
 	/**
 	 * Return the associated Inputfield
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Inputfield
 	 *
 	 */
 	public function getInputfield(Page $page, Field $field) {
-		$inputField = $this->modules->get('InputfieldText'); 
+		$inputField = $this->wire('modules')->get('InputfieldText'); 
 		return $inputField; 
 	}
 
 	/**
 	 * Update a query to match the text with a fulltext index
+	 * 
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param int|string $value
+	 * @return DatabaseQuerySelect
 	 *
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		/** @var DatabaseQuerySelectFulltext $ft */
 		$ft = $this->wire(new DatabaseQuerySelectFulltext($query)); 
 		$ft->match($table, $subfield, $operator, $value); 
 		return $query; 
@@ -138,6 +151,9 @@ class FieldtypeText extends Fieldtype {
 
 	/**
 	 * Return the database schema in specified format
+	 * 
+	 * @param Field $field
+	 * @return array
 	 *
 	 */
 	public function getDatabaseSchema(Field $field) {
@@ -151,54 +167,38 @@ class FieldtypeText extends Fieldtype {
 
 	/**
 	 * Return the fields required to configure an instance of FieldtypeText
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
 	 *
 	 */
 	public function ___getConfigInputfields(Field $field) {
 		$inputfields = parent::___getConfigInputfields($field);
-
 		if($this->allowTextFormatters()) { 
-
-			$textformatters = $this->modules->find("className^=Textformatter"); 
-
+			/** @var Modules $modules */
+			$modules = $this->wire('modules');
+			$textformatters = $modules->findByPrefix('Textformatter'); 
+			
 			if(count($textformatters)) {
-
+				/** @var InputfieldAsmSelect $f */
 				$f = $this->modules->get('InputfieldAsmSelect'); 
-				$f->setAttribute('name', 'textformatters'); 
+				$f->attr('name', 'textformatters'); 
 				$f->label = $this->_('Text Formatters');
 
-				foreach($textformatters as $textformatter) {
-					$info = $textformatter->getModuleInfo();
-					$f->addOption($textformatter->className(), "$info[title]"); 
+				foreach($textformatters as $moduleName) {
+					$info = $modules->getModuleInfo($moduleName);
+					$f->addOption($moduleName, "$info[title]"); 
 				}
 
-				$f->setAttribute('value', is_array($field->textformatters) ? $field->textformatters : array()); 
-
+				$value = $field->get('textformatters');
+				if(!is_array($value)) $value = array();
+				$f->val($value);
 				$f->description = $this->_('If you want to apply any automatic formatting to the field when it is prepared for output, select one or more text formatters above. If you select more than one, drag them into the order they should be applied.'); 
 				$f->notes = $this->_('For plain text fields that will not contain HTML or markup, we recommend selecting the **HTML Entity Encoder** option above.');
 
-				$inputfields->append($f);
+				$inputfields->add($f);
 			}
 		}
-
-		/* decided this doesn't really belong here, but still thinking about it. 
-                $f = $this->modules->get("InputfieldTextarea");  
-                $f->label = 'Prepend Markup/Text'; 
-		$f->attr('name', 'prependMarkup'); 
-                $f->attr('value', $field->prependMarkup); 
-                $f->attr('rows', 3); 
-                $f->description = "If you want the formatted output of this field to be preceded by some markup or text, enter it here.";
-		$f->collapsed = Inputfield::collapsedBlank;
-		$inputfields->append($f); 
-
-                $f = $this->modules->get("InputfieldTextarea");  
-                $f->label = 'Append Markup/Text'; 
-		$f->attr('name', 'appendMarkup'); 
-                $f->attr('value', $field->appendMarkup); 
-                $f->attr('rows', 3); 
-                $f->description = "If you want the formatted output of this field to be followed by some markup or text, enter it here.";
-		$f->collapsed = Inputfield::collapsedBlank;
-		$inputfields->append($f); 
-		*/
 
 		return $inputfields; 
 	}
