@@ -57,8 +57,13 @@ class ProcessList extends Process {
 			if($child->process) {
 				
 				$info = $this->modules->getModuleInfoVerbose($child->process, array('noCache' => true)); 	
-				if($settings['showIcon'] && $info['icon']) {
-					$icon = "<i style='float: right;' class='fa fa-3x fa-fw fa-$info[icon] ui-priority-secondary'></i> ";
+				if($settings['showIcon']) { 
+					$icon = $child->get('page_icon');
+					if(!$icon) $icon = $info['icon'];
+					if($icon) {
+						if(strpos($icon, 'fa-') === 0) list(,$icon) = explode('-', 2);
+						$icon = "<i style='float: right;' class='fa fa-3x fa-fw fa-$icon ui-priority-secondary'></i> ";
+					}
 				}
 				
 				$title = $child->title;
