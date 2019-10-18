@@ -1239,9 +1239,11 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			if($languages && $f->getSetting('useLanguages') && $value instanceof LanguagesValueInterface) {
 				foreach($languages as $language) {
 					$v = $value->getLanguageValue($language->id);
-					if($language->isDefault()) $f->val($v); 
-					$f->set("value$language->id", $v); 
+					if($language->isDefault()) $f->val($v);
+					$f->set("value$language->id", $v);
 				}
+			} else if($f instanceof InputfieldCheckbox) {
+				if($value) $f->attr('checked', 'checked'); 
 			} else {
 				$f->val($value);
 			}
