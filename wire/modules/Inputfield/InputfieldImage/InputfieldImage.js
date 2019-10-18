@@ -914,6 +914,10 @@ function InputfieldImage($) {
 
 		$(document).on("click", function(e) {
 			var $el = $(e.target);
+			if(typeof clickLanguageTabActive != "undefined" && clickLanguageTabActive) {
+				// LanguageTabs dblclick event
+				return;
+			}
 
 			if($el.closest(".InputfieldImageEdit").length) {
 				closeEdit(null, $el.parents(".gridImages"));

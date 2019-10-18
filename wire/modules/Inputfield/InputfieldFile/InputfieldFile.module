@@ -1238,7 +1238,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			
 			if($languages && $f->getSetting('useLanguages') && $value instanceof LanguagesValueInterface) {
 				foreach($languages as $language) {
-					$f->set($language->isDefault() ? "value" : "value$language->id", $value->getLanguageValue($language->id));
+					$v = $value->getLanguageValue($language->id);
+					if($language->isDefault()) $f->val($v); 
+					$f->set("value$language->id", $v); 
 				}
 			} else {
 				$f->val($value);
