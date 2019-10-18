@@ -8,22 +8,26 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
  */
 
-class FieldtypeDatetime extends FieldtypeText {
-
-	const defaultDateOutputFormat = 'Y-m-d'; 
-
+class FieldtypeDatetime extends Fieldtype {
+	
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Datetime',
-			'version' => 104,
+			'version' => 105,
 			'summary' => 'Field that stores a date and optionally time',
-			);
+		);
 	}
+
+	/**
+	 * Default date output format
+	 * 
+	 */
+	const defaultDateOutputFormat = 'Y-m-d'; 
 
 	/**
 	 * Return all predefined PHP date() formats for use as dates
@@ -103,15 +107,6 @@ class FieldtypeDatetime extends FieldtypeText {
 	 *********************************************************************************************************************************/
 
 	/**
-	 * Initlialize this module
-	 *
-	 */
-	public function init() {
-		parent::init();
-		$this->allowTextFormatters(false);
-	}
-
-	/**
 	 * Return the Inputfield used for date/time (InputfieldDatetime)
 	 * 
 	 * @param Page $page
@@ -121,7 +116,7 @@ class FieldtypeDatetime extends FieldtypeText {
 	 */
 	public function getInputfield(Page $page, Field $field) {
 		/** @var InputfieldDatetime $inputfield */
-		$inputfield = $this->modules->get('InputfieldDatetime'); 
+		$inputfield = $this->wire('modules')->get('InputfieldDatetime'); 
 		$inputfield->class = $this->className();
 		return $inputfield; 
 	}
@@ -182,9 +177,32 @@ class FieldtypeDatetime extends FieldtypeText {
 		return $this->wire('datetime')->formatDate($value, $format);
 	}
 
+	/**
+	 * Export value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int $value
+	 * @param array $options
+	 *
+	 * @return array|false|float|int|string
+	 * 
+	 */
 	public function ___exportValue(Page $page, Field $field, $value, array $options = array()) {
 		if(!$value) return '';
 		return date('Y-m-d H:i:s', $value); 
+	}
+	
+	/**
+	 * Return whether the given value is considered empty or not
+	 *
+	 * @param Field $field
+	 * @param mixed $value
+	 * @return bool
+	 *
+	 */
+	public function isEmptyValue(Field $field, $value) {
+		return !strlen($value);
 	}
 
 	/**
@@ -251,10 +269,17 @@ class FieldtypeDatetime extends FieldtypeText {
 		return $query; 
 	}
 
+	/**
+	 * Get selector info
+	 * 
+	 * @param Field $field
+	 * @param array $data
+	 * @return array
+	 * 
+	 */
 	public function ___getSelectorInfo(Field $field, array $data = array()) {
 		$a = parent::___getSelectorInfo($field, $data); 
-		$a['operators'][] = '%=';
-		$a['operators'][] = '^=';
+		$a['operators'] = array('=', '!=', '>', '>=', '<', '<=', '%=', '^='); 
 		return $a;
 	}
 
@@ -268,8 +293,7 @@ class FieldtypeDatetime extends FieldtypeText {
 	public function getDatabaseSchema(Field $field) {
 		$schema = parent::getDatabaseSchema($field); 
 		$schema['data'] = 'datetime NOT NULL';
-		unset($schema['keys']['data_exact']); 
-		$schema['keys']['data'] = 'KEY data (data)'; // wipe out keys from parent
+		$schema['keys']['data'] = 'KEY data (data)'; 
 		return $schema;
 	}
 
@@ -301,6 +325,22 @@ class FieldtypeDatetime extends FieldtypeText {
 		$value = strtotime($value); 
 		if($value === false) $value = '';
 		return $value; 
+	}
+
+	/**
+	 * Get compatible Fieldtypes
+	 * 
+	 * @param Field $field
+	 * @return Fieldtypes
+	 * @throws WireException
+	 *
+	 */
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = $this->wire(new Fieldtypes());
+		foreach($this->wire('fieldtypes') as $fieldtype) {
+			if($fieldtype instanceof FieldtypeDatetime) $fieldtypes->add($fieldtype);
+		}
+		return $fieldtypes;
 	}
 
 	/**
