@@ -85,8 +85,12 @@ var ProcessWireAdminTheme = {
 				// identify active tab and trigger event on it
 				var $activeTab = $tabs.children('.uk-active');
 				if($activeTab.length) {
-					var $activeContent = $($activeTab.find('a').attr('href'));
-					if($activeContent.length) ProcessWireAdminTheme.wireTabClick($activeContent);
+					var href = $activeTab.find('a').attr('href'); 
+					if(href.indexOf('#') === 0) {
+						// href points to an #element id in current document
+						var $activeContent = $(href);
+						if($activeContent.length) ProcessWireAdminTheme.wireTabClick($activeContent);
+					}
 				}
 			}, 500);
 		}
