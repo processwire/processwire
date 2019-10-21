@@ -1375,7 +1375,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		if(!$this->page || !$pageimage) throw new WireException("No file provided"); 
 		if(!$this->masterPage->editable()) throw new WireException($this->labels['noAccess']);
 		
-		$cnt = 0;
+		$cnt = 0; // for id purposes
+		$num = 0; // for display purposes
 		$rows = array();
 		$name = $pageimage->basename();
 		$filesize = $pageimage->filesize();
@@ -1384,6 +1385,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$modified = date('Y-m-d H:i:s', $mtime);
 		$url = $pageimage->url() . "?nc=$mtime";
 		$originalLabel = $this->_('Original');
+		$extraLabel = $this->_('%s of above'); 
 		$hasEditPermission = $this->wire('user')->hasPermission('page-edit-images', $this->masterPage);
 		$variations = $pageimage->getVariations(array('info' => true, 'verbose' => 1));
 		$adminThumbOptions = $this->wire('config')->adminThumbOptions;
@@ -1404,6 +1406,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 		$rows[] = array(
 			'cnt' => $cnt,
+			'num' => $num, 
 			'url' => $url,
 			'name' => $name,
 			'notes' => array($originalLabel),
@@ -1414,7 +1417,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			'filesizeStr' => $filesizeStr,
 			'deletable' => $hasEditPermission,
 		);
-	
+
 		foreach($pageimage->extras() as $extra) {
 			if(!file_exists($extra->filename)) continue;
 			$name = $extra->basename();
@@ -1423,11 +1426,13 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			$mtime = filemtime($extra->filename);
 			$modified = date('Y-m-d H:i:s', $mtime);
 			$url = $extra->url() . "?nc=$mtime";
+			$ext = strtoupper($extra->ext);
 			$rows[] = array(
 				'cnt' => ++$cnt,
+				'num' => "$num <span class='detail'>$ext</span>",
 				'url' => $url,
 				'name' => $name,
-				'notes' => array("$originalLabel ($extra->ext $extra->savingsPct)"),
+				'notes' => array(sprintf($extraLabel, $ext) . " ($extra->savingsPct)"),
 				'width' => $pageimage->width(),
 				'height' => $pageimage->height(),
 				'modified' => $modified,
@@ -1473,6 +1478,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		
 			$rows[] = array(
 				'cnt' => ++$cnt, 
+				'num' => ++$num, 
 				'url' => $url, 
 				'name' => $name,
 				'notes' => $notes, 
@@ -1494,12 +1500,14 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				$mtime = filemtime($extra->filename());
 				$modified = date('Y-m-d H:i:s', $mtime);
 				$url = $extra->url() . "?nc=$mtime";
+				$ext = strtoupper($extra->ext);
 				
 				$rows[] = array(
 					'cnt' => ++$cnt,
+					'num' => "$num <span class='detail'>$ext</span>", 
 					'url' => $url,
 					'name' => $name, 
-					'notes' => $notes,
+					'notes' => array(sprintf($extraLabel, $ext) . " ($extra->savingsPct)"),
 					'width' => $width,
 					'height' => $height,
 					'modified' => $modified,
@@ -1535,7 +1543,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			$checkbox->val($row['name']);
 			$checkbox->attr('id', "delete_$row[cnt]"); 
 			$table->row(array(
-				($row['cnt'] ? $row['cnt'] : '&nbsp;'),
+				(strlen($row['num']) ? $row['num'] : '&nbsp;'),
 				"<a class='preview' href='$row[url]'><img src='$row[url]' alt='$row[name]' style='max-width: 100px;' /></a>",
 				"<a class='preview' href='$row[url]'>$row[name]</a><br /><span class='detail'>$row[width]x$row[height]</span>",
 				"<span style='display: none;'>$row[filesize]</span>$row[filesizeStr]",
@@ -1547,8 +1555,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		}
 		
 		$this->headline(sprintf(
-			$this->_n('%1$d variation for image %2$s', '%1$d variations for image %2$s', $cnt),
-			$cnt, $pageimage->basename
+			$this->_n('%1$d variation for image %2$s', '%1$d variations for image %2$s', $num),
+			$num, $pageimage->basename
 		));
 
 		$varcnt = $this->wire('sanitizer')->entities($this->wire('input')->get('varcnt')); 

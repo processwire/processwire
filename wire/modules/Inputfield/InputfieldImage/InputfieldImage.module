@@ -782,7 +782,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		if($n) {} // ignore, $n is for hooks
 		$pageID = $pagefile->pagefiles->page->id;
 		$variationCount = $pagefile->variations()->count();
-		if($pagefile->webp()->exists()) $variationCount++;
+		// if($pagefile->webp()->exists()) $variationCount++;
 		$editUrl = $this->getEditUrl($pagefile, $pageID); 
 		$variationUrl = $this->getVariationUrl($pagefile, $id);
 		$buttonClass = $this->themeSettings['buttonClass'];
