@@ -779,45 +779,81 @@ function wireBytesStr($bytes, $small = false, $options = array()) {
 
 /**
  * Normalize a class name with or without namespace, or get namespace of class
- * 
- * Default behavior is to return class name without namespace. 
- * 
+ *
+ * Default behavior is to return class name without namespace.
+ *
  * #pw-group-class-helpers
- * 
+ *
  * @param string|object $className Class name or object instance
- * @param bool|int|string $withNamespace Should return value include namespace? (default=false) 
- *  - `false` (bool): Return only class name without namespace (default). 
+ * @param bool|int|string $withNamespace Should return value include namespace? (default=false)
+ *  - `false` (bool): Return only class name without namespace (default).
  *  - `true` (bool): Yes include namespace in returned value.
- *  - `1` (int): Return only namespace (i.e. “ProcessWire”, with no leading or trailing backslashes)
+ *  - `1` (int): Return only namespace (i.e. “ProcessWire”, with no backslashes unless $verbose argument is true)
+ * @param bool $verbose When namespace argument is true or 1, use verbose return value (added 3.0.143). This does the following:
+ *  - If returning class name with namespace, this makes it include a leading backslash, i.e. `\ProcessWire\Wire`
+ *  - If returning namespace only, adds leading backslash, plus trailing backslash if namespace is not root, i.e. `\ProcessWire\`
  * @return string|null Returns string or NULL if namespace-only requested and unable to determine
- * 
+ *
  */
-function wireClassName($className, $withNamespace = false) {
-	
-	if(is_object($className)) $className = get_class($className);
-	$pos = strrpos($className, "\\");
-	
+function wireClassName($className, $withNamespace = false, $verbose = false) {
+
+	$bs = "\\"; // backslash
+
+	if(is_object($className)) {
+		$object = $className;
+		$className = get_class($className);
+	} else {
+		$object = null;
+	}
+
+	$pos = strrpos($className, $bs);
+
 	if($withNamespace === true) {
-		// return class with namespace, substituting ProcessWire namespace if none present
-		if($pos === false && __NAMESPACE__) $className = __NAMESPACE__ . "\\$className";
+		if($object) { 
+			// result of get_class() is already what we want
+		} else if($pos === false && __NAMESPACE__) {
+			// return class with namespace, substituting ProcessWire namespace if none present
+			$className = __NAMESPACE__ . $bs . $className;
+		}
+		if($verbose) {
+			// add leading backslash
+			$className = $bs . ltrim($className, $bs);
+		}
 		
 	} else if($withNamespace === 1) {
 		// return namespace only
 		if($pos !== false) {
-			// there is a namespace
+			// there is a namespace, extract it
 			$className = substr($className, 0, $pos);
+		} else if($object) {
+			// namespace is root
+			$className = $verbose ? $bs : '';
 		} else {
-			// there is no namespace in given className
-			$className = null;
+			// there is no namespace in given className, attempt to detect in ProcessWire or root namespace
+			if(class_exists(__NAMESPACE__ . $bs . $className)) {
+				// class in ProcessWire namespace
+				$className = __NAMESPACE__;
+			} else if(class_exists($bs . $className)) {
+				// class in root namespace
+				$className = '';
+			} else {
+				// unable to determine
+				$className = null;
+			}
 		}
-			
+		if($verbose && $className !== null) {
+			$className = $bs . trim($className, $bs); // leading
+			if(strlen($className) > 1) $className .= $bs; // trailing
+		}
+
 	} else {
-		// return className without namespace
+		// return className without namespace (default behavior)
 		if($pos !== false) $className = substr($className, $pos+1);
 	}
-	
+
 	return $className;
 }
+
 
 /**
  * Does the given class name exist?
@@ -1039,6 +1075,49 @@ function wireCount($value) {
 	if(is_array($value)) return count($value); 
 	if(is_object($value) && $value instanceof \Countable) return count($value);
 	return 1;
+}
+
+/**
+ * Is the given value empty according to ProcessWire standards?
+ * 
+ * This works the same as PHP’s empty() function except for the following: 
+ * 
+ * - It returns true for Countable objects that have 0 items. 
+ * - It considers whitespace-only strings to be empty.
+ * - You cannot pass it an undefined variable without triggering a PHP warning. 
+ * 
+ * ~~~~~
+ * // behavior with Countable objects
+ * $a = new WireArray();
+ * empty($a); // PHP’s function returns false 
+ * wireEmpty($a); // PW’s function returns true
+ * $a->add('item');
+ * wireEmpty($a); // returns false, since there is now an item
+ * 
+ * // behavior with whitespace-only string
+ * $s = '  ';
+ * empty($s); // PHP’s function returns false
+ * wireEmpty($s); // PW’s function returns true
+ * 
+ * // behavior with undefined variable $v
+ * isset($v); // returns false
+ * empty($v); // returns true
+ * wireEmpty($v); // returns true but with PHP’s warning triggered
+ * ~~~~~
+ * 
+ * @param mixed $value Value to test if empty
+ * @return bool
+ * @since 3.0.143
+ * 
+ */
+function wireEmpty($value) {
+	if(empty($value)) return true;
+	if(is_object($value)) {
+		if($value instanceof \Countable && !count($value)) return true;
+	} else if(is_string($value)) {
+		if(!strlen(trim($value))) return true;
+	}
+	return false;
 }
 
 /**
