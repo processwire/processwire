@@ -49,7 +49,7 @@ function InputfieldToggleInit() {
 			$label.removeClass(labelCheckedClass);
 			// if this de-select was the first selection in the request, it's necessary to remove
 			// the checked attribute again a short while later for some reason
-			setTimeout(function() { $input.removeAttr('checked') }, 100);
+			setTimeout(function() { $input.removeAttr('checked').trigger('change'); }, 100);
 		} else {
 			// input was just checked (and wasn't before), so add our checked class to the input
 			$input.attr('checked', 'checked').prop('checked', 'checked');
