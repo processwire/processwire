@@ -691,7 +691,7 @@ var ProcessWireAdminTheme = {
 				width += w;
 				if($lastInputfield && width >= 95) {
 					// finishing out row, update last visible column to include the width of the hidden column
-					lastW += widthHidden;
+					// lastW += widthHidden;
 					if(debug) consoleLog('Updating last visible Inputfield to width=' + lastW, $lastInputfield);
 					ukGridClass(lastW, $lastInputfield);
 					width = 0;
