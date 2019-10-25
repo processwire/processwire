@@ -1452,9 +1452,17 @@ function InputfieldImage($) {
 	
 		// setup default values
 		if(typeof data[name] == "undefined") data[name] = {};
-		if(typeof data[name].size == "undefined") data[name].size = parseInt($inputfield.find('.gridImages').attr('data-size'));
-		if(typeof data[name].listSize == "undefined") data[name].listSize = 23;
-		if(typeof data[name].mode == "undefined") data[name].mode = $inputfield.find('.gridImages').attr('data-gridMode');
+		if(typeof data[name].size == "undefined" || !data[name].size) {
+			data[name].size = parseInt($inputfield.find('.gridImages').attr('data-size'));
+			if(!data[name].size) data[name].size = 130;
+		}
+		if(typeof data[name].listSize == "undefined" || !data[name].listSize) {
+			data[name].listSize = 23;
+		}
+		if(typeof data[name].mode == "undefined" || !data[name].mode) {
+			data[name].mode = $inputfield.find('.gridImages').attr('data-gridMode');
+			if(!data[name].mode) data[name].mode = 'list';
+		}
 		//if(typeof data[name].ragged == "undefined") data[name].ragged = $inputfield.find('.gridImages').attr('data-ragged') ? true : false;
 		
 		if(cookieData == null) cookieData = data; // cache
@@ -1471,8 +1479,7 @@ function InputfieldImage($) {
 			value = data[name][property];
 		}
 		
-		//console.log('getCookieData(' + property + ') ...');
-		//console.log(value);
+		// console.log(name + ' getCookieData(' + property + '): ' + value);
 		
 		return value;
 	}
