@@ -641,11 +641,29 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * ~~~~~
 	 *
 	 * @param string $str 1-2 character operator to test
-	 * @return bool True if it's valid, false if not
+	 * @param bool|null $bitwise NULL=allow all operators, TRUE=allow only bitwise, FALSE=do not allow bitwise (default=NULL) added 3.0.143
+	 * @return bool True if valid, false if not
 	 *
 	 */
-	public function isOperator($str) {
-		return in_array($str, array('=', '<', '>', '>=', '<=', '<>', '!=', '&', '~', '&~', '|', '^', '<<', '>>'), true);
+	public function isOperator($str, $bitwise = null) {
+		
+		$operators = array('=', '<', '>', '>=', '<=', '<>', '!='); 
+		$bitwise = array('&', '~', '&~', '|', '^', '<<', '>>');
+		$len = strlen($str);
+		
+		if($len > 2 || $len < 1) return false;
+		
+		if($bitwise === null) {
+			// allow all operators
+			$operators = array_merge($operators, $bitwise); 
+		} else if($bitwise === true) {
+			// allow only bitwise operators
+			$operators = $bitwise; 
+		} else {
+			// false or unrecognized $bitwise value: allow only regular operators
+		}
+		
+		return in_array($str, $operators, true);
 	}
 
 	/**
