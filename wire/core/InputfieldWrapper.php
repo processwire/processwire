@@ -783,9 +783,10 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 */
 	public function ___renderInputfield(Inputfield $inputfield, $renderValueMode = false) {
 
+		$inputfieldID = $inputfield->attr('id');
 		$collapsed = $inputfield->getSetting('collapsed');
-		$ajaxInputfield = $collapsed == Inputfield::collapsedYesAjax ||
-			($collapsed == Inputfield::collapsedBlankAjax && $inputfield->isEmpty());
+		$ajaxInputfield = $collapsed == Inputfield::collapsedYesAjax || ($collapsed == Inputfield::collapsedBlankAjax && $inputfield->isEmpty());
+		$ajaxHiddenInput = "<input type='hidden' name='processInputfieldAjax[]' value='$inputfieldID' />";
 		$ajaxID = $this->wire('config')->ajax ? $this->wire('input')->get('renderInputfieldAjax') : '';
 		$required = $inputfield->getSetting('required');
 		
@@ -795,6 +796,8 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			$ajaxInputfield = false;
 			if($collapsed == Inputfield::collapsedYesAjax) $inputfield->collapsed = Inputfield::collapsedYes;
 			if($collapsed == Inputfield::collapsedBlankAjax) $inputfield->collapsed = Inputfield::collapsedBlank;
+			// indicate to next processInput that this field can be processed
+			$inputfield->appendMarkup .= $ajaxHiddenInput;
 		}
 
 		$restoreValue = null; // value to restore, if we happen to modify it before render (renderValueMode only)
@@ -824,8 +827,6 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		
 		if($ajaxInputfield) {
 			
-			$inputfieldID = $inputfield->attr('id');
-			
 			if($ajaxID && $ajaxID == $inputfieldID) {
 				// render ajax inputfield
 				$editable = $inputfield->editable();
@@ -833,7 +834,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 					echo $inputfield->renderValue();
 				} else {
 					echo $inputfield->render();
-					echo "<input type='hidden' name='processInputfieldAjax[]' value='$inputfieldID' />";
+					echo $ajaxHiddenInput;
 				}
 				exit;
 				
