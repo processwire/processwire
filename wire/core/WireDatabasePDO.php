@@ -648,14 +648,14 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	public function isOperator($str, $bitwise = null) {
 		
 		$operators = array('=', '<', '>', '>=', '<=', '<>', '!='); 
-		$bitwise = array('&', '~', '&~', '|', '^', '<<', '>>');
+		$bitwiseOperators = array('&', '~', '&~', '|', '^', '<<', '>>');
 		$len = strlen($str);
 		
 		if($len > 2 || $len < 1) return false;
 		
 		if($bitwise === null) {
 			// allow all operators
-			$operators = array_merge($operators, $bitwise); 
+			$operators = array_merge($operators, $bitwiseOperators); 
 		} else if($bitwise === true) {
 			// allow only bitwise operators
 			$operators = $bitwise; 
