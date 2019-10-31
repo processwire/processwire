@@ -538,7 +538,7 @@ class ProcessLogger extends Process {
 			if(ctype_digit($qty)) {
 				$text .= "<br />" .
 					"<span class='detail'>" .
-					sprintf($this->_n('Plus %d ealier duplicate ', 'Plus %d earlier duplicates', $qty), $qty) .
+					sprintf($this->_n('Plus %d earlier duplicate ', 'Plus %d earlier duplicates', $qty), $qty) .
 					"</span>";
 			} else {
 				// oops, restore
