@@ -269,6 +269,7 @@ function ckeInitNormal(editorID) {
 	var $editor = $('#' + editorID);
 	var $parent = $editor.parent();
 	
+	
 	if(typeof ProcessWire.config.InputfieldCKEditor.editors[editorID] != "undefined") {
 		var configName = ProcessWire.config.InputfieldCKEditor.editors[editorID];
 	} else {
@@ -283,9 +284,20 @@ function ckeInitNormal(editorID) {
 		$parent.closest('.ui-tabs, .langTabs').on('tabsactivate', ckeInitTab);
 	} else {
 		// visible CKEditor
-		var editor = CKEDITOR.replace(editorID, ProcessWire.config[configName]);
-		ckeInitEvents(editor);
-		$editor.addClass('InputfieldCKEditorLoaded');
+		var editor;
+		if(typeof ProcessWire.config[configName] != "undefined") {
+			var editor = CKEDITOR.replace(editorID, ProcessWire.config[configName]);
+		} else if(typeof $editor.attr('data-configdata') != "undefined") {
+			// allow for alternate option of config data being passed through a data attribute
+			// useful for some dynamic/ajax situations
+			var configData = JSON.parse($editor.attr('data-configdata'));
+			ProcessWire.config[configName] = configData;
+			var editor = CKEDITOR.replace(editorID, configData);
+		}
+		if(editor) {
+			ckeInitEvents(editor);
+			$editor.addClass('InputfieldCKEditorLoaded');
+		}
 	}
 }
 

@@ -514,7 +514,11 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		//$out = parent::___render() . "<script>CKEDITOR.replace('$this->id', config.$this->configName);</script>";
 		$this->addClass('InputfieldCKEditorNormal');
 		$this->attr('data-configName', $this->configName); 
-		$out = parent::___render() . "<script>config.InputfieldCKEditor.editors.$this->id = '$this->configName';</script>";
+		$out = parent::___render() . 
+			"<script>" . 
+			"ProcessWire.config.InputfieldCKEditor.editors.$this->id = '$this->configName';" .
+			"config.InputfieldCKEditor.editors.$this->id = '$this->configName';" . 
+			"</script>";
 		return $out; 
 	}
 
