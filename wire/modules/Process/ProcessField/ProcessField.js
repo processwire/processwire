@@ -135,5 +135,11 @@ $(document).ready(function() {
 		return false;
 	});
 
+	// update overrides table if anything was changed in a modal
+	$(document).on('pw-modal-closed', 'a', function(e, ui) {
+		if(!$('#tab-overrides').is(':visible')) return;
+		Inputfields.reload('#Inputfield_overrides_table');
+	}); 
+
 
 });

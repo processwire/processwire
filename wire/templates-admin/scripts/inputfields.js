@@ -440,6 +440,7 @@ var Inputfields = {
 		$inputfield = this.inputfield($inputfield);
 		if(!$inputfield.length) return $inputfield;
 		if(typeof highlight == "undefined") highlight = true;
+		var Inputfields = this;
 
 		// locate th Inputfield
 		if($inputfield.hasClass('InputfieldStateCollapsed') || !$inputfield.is(':visible')) {
@@ -447,7 +448,7 @@ var Inputfields = {
 			// Inputfields.toggle() can call Inputfields.focus(), so prevent the focus by adding this class
 			if(!hasNoFocus) $inputfield.addClass('InputfieldNoFocus');
 			this.toggle($inputfield, true, 0, function($in, open, duration) {
-				this.find($inputfield, callback);
+				Inputfields.find($inputfield, callback);
 			});
 			// remove the class we added
 			if(!hasNoFocus) $inputfield.removeClass('InputfieldNoFocus');
@@ -455,12 +456,12 @@ var Inputfields = {
 		}
 
 		var completed = function() {
-			if(highlight) this.highlight($inputfield);
+			if(highlight) Inputfields.highlight($inputfield);
 			if(typeof callback != "undefined") callback($inputfield);
 		}
 
 		setTimeout(function() {
-			if(Inputfields.inView($inputfield)) {
+			if(false && Inputfields.inView($inputfield)) {
 				completed();
 			} else {
 				var properties = {

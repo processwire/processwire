@@ -753,6 +753,8 @@ class ProcessField extends Process implements ConfigurableModule {
 			$this->breadcrumb("./edit?id=" . $this->field->id, $this->field->name);
 			if($this->contextLabel) {
 				$headline .= ' (' . sprintf($this->_('when used with: %s'), $this->contextLabel) . ')';
+			} else if($this->contextNamespace) {
+				$headline .= ' (' . sprintf($this->_('when used with template “%1$s” in context “%2$s”'), $this->fieldgroup->name, $this->contextNamespace) . ')';
 			} else {
 				$headline .= ' (' . sprintf($this->_('when used with template: %s'), $this->fieldgroup->name) . ')';
 			}
@@ -778,7 +780,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 		$out = $this->form->render(); 
 		$out .= $this->renderContextSelect();
-
+		
 		return $out;
 	}
 
@@ -973,27 +975,49 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function ___buildEditForm() {
+	
+	
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		/** @var WireInput $input */
+		$input = $this->wire('input');
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		
+		$isPost = $input->requestMethod('POST');
 
 		// optional context fieldgroup
+		$fieldgroup_id = (int) $input->post('fieldgroup_id');
+		if(!$fieldgroup_id && !$isPost) $fieldgroup_id = (int) $input->get('fieldgroup_id');
+	
+		/*
 		if($this->input->post->fieldgroup_id) $fieldgroup_id = (int) $this->input->post->fieldgroup_id; 
 			else if($this->input->get->fieldgroup_id && !count($_POST)) $fieldgroup_id = (int) $this->input->get->fieldgroup_id; 
 			else $fieldgroup_id = 0;
+		*/
 		
 		if($fieldgroup_id) {
 			// optional namespace for context fieldgroup
-			if($this->input->post('_context_namespace')) $contextNamespace = $this->input->post('_context_namespace');
-				else if($this->input->get('context_namespace') && !count($_POST)) $contextNamespace = $this->input->get('context_namespace');
-				else $contextNamespace = '';
+			$contextNamespace = '';
+			if($input->post('_context_namespace')) {
+				$contextNamespace = $input->post('_context_namespace');
+			} else if($input->get('context_namespace') && !$isPost) {
+				$contextNamespace = $input->get('context_namespace');
+			}
 			if($contextNamespace) {
-				$contextNamespace = $this->wire('sanitizer')->fieldName($contextNamespace);
+				$contextNamespace = $sanitizer->fieldName($contextNamespace);
 				$this->contextNamespace = $contextNamespace;
 			}	
 		}
-		if($this->input->post('_context_label')) $contextLabel = $this->input->post('_context_label');
-			else if($this->input->get('context_label')) $contextLabel = $this->input->get('context_label');
-			else $contextLabel = '';
+
+		$contextLabel = '';
+		if($input->post('_context_label')) {
+			$contextLabel = $input->post('_context_label');
+		} else if($input->get('context_label')) {
+			$contextLabel = $this->input->get('context_label');
+		}
 		if(strlen($contextLabel)) {
-			$contextLabel = $this->wire('sanitizer')->entities($contextLabel);
+			$contextLabel = $sanitizer->entities($sanitizer->text($contextLabel));
 			$this->contextLabel = $contextLabel;
 		}
 		
@@ -1003,9 +1027,9 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get('InputfieldForm');
+		$form = $modules->get('InputfieldForm');
 		$form->attr('id+name', 'ProcessFieldEdit'); 
-		$form->attr('action', 'save'); 
+		$form->attr('action', 'save?id=' . $this->field->id); 
 		$form->attr('method', 'post'); 
 		$form->addClass('InputfieldFormFocusFirst');
 		$this->form = $form;
@@ -1041,24 +1065,24 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 
 		/** @var InputfieldHidden $field */
-		$field = $this->modules->get('InputfieldHidden');
+		$field = $modules->get('InputfieldHidden');
 		$field->attr('name', 'id'); 
 		$field->attr('value', $this->field->id); 
 		$form->add($field); 
 
 		if($this->fieldgroup) {
-			$field = $this->modules->get('InputfieldHidden');
+			$field = $modules->get('InputfieldHidden');
 			$field->attr('name', 'fieldgroup_id'); 
 			$field->attr('value', $this->fieldgroup->id); 
 			$form->add($field);
 			if($this->contextNamespace) {
-				$field = $this->modules->get('InputfieldHidden');
+				$field = $modules->get('InputfieldHidden');
 				$field->attr('name', '_context_namespace');
 				$field->attr('value', $this->contextNamespace);
 				$form->add($field);
 			}
 			if($this->contextLabel) {
-				$field = $this->modules->get('InputfieldHidden');
+				$field = $modules->get('InputfieldHidden');
 				$field->attr('name', '_context_label');
 				$field->attr('value', $this->contextLabel);
 				$form->add($field);
@@ -1066,17 +1090,17 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 	
 		/** @var InputfieldSubmit $field */
-		$field = $this->modules->get('InputfieldSubmit');
+		$field = $modules->get('InputfieldSubmit');
 		$field->attr('value', $this->labels['save']); 
 		$field->attr('name', 'submit_save_field'); 
 		$field->showInHeader();
 		$form->add($field); 
 
-		if($this->wire('input')->get('process_template')) {
+		if($input->get('process_template')) {
 			// ProcessTemplate has loaded the field editor in a modal window
 			// so we add a cancel button that asmSelect will recognize for it's modal
 			/** @var InputfieldButton $field */
-			$field = $this->modules->get('InputfieldButton');
+			$field = $modules->get('InputfieldButton');
 			$field->attr('id+name', 'modal_cancel_button'); 
 			$field->attr('value', $this->_x('Cancel', 'button'));
 			$field->setSecondary();
@@ -1084,15 +1108,34 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 			// contains the asm list item status, populated by JS
 			/** @var InputfieldHidden $field */
-			$field = $this->modules->get('InputfieldHidden');
+			$field = $modules->get('InputfieldHidden');
 			$field->attr('id+name', 'asmListItemStatus'); 
 			$field->attr('class', 'asmListItemStatus');
-			$field->attr('data-tpl', "<span class='ui-priority-secondary'>" . str_replace('Fieldtype', '', $this->field->type) . "</span> %"); // % gets replaced with live percent
+			$field->attr('data-tpl', 
+				"<span class='ui-priority-secondary'>" . 
+				str_replace('Fieldtype', '', $this->field->type) . 
+				"</span> %"); // % gets replaced with live percent
 			$field->attr('value', '');
 			$form->append($field); 
 		}
 		
-
+		$focus = $input->get('focus');
+		if($focus) {
+			$focus = $sanitizer->fieldName($focus);
+			if($focus === 'label') $focus = 'field_label';
+			$field = $focus ? $form->getChildByName($focus) : null;
+			if($field) {
+				$id = $field->id; //$field->name == $field->id ? "Inputfield_$field->name" : $field->id;
+				$form->appendMarkup .=
+					"<script>" . 
+					"jQuery(document).ready(function() { " . 
+						//"Inputfields.show($('#$id')); " .
+						"Inputfields.find('#$id'); " . 
+					"});" . 
+					"</script>";
+			}
+		}
+		
 		return $form; 
 	}
 
@@ -1103,9 +1146,12 @@ class ProcessField extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected function ___buildEditFormContext($form) {
-		
+	
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
 		$allChanges = array();
 		$fieldgroups = $this->fieldgroup ? array($this->fieldgroup) : $this->wire('fieldgroups'); 
+		$allowAddSettings = !$this->fieldgroup && !$this->contextNamespace; // whether settings can be added here
 		
 		foreach($fieldgroups as $fieldgroup) {
 			/** @var Fieldgroup $fieldgroup */
@@ -1115,15 +1161,20 @@ class ProcessField extends Process implements ConfigurableModule {
 			if(!$fieldgroup->hasFieldContext($field->name, $this->contextNamespace)) continue; 	
 			$allChanges[$fieldgroup->name] = $this->getContextChanges($form, $field, $fieldgroup);
 		}
-		
-		if(!count($allChanges) && !$this->wire('config')->advanced) return;
-		
+	
+		// exit now if there are no context change and none are allowed to be added
+		if(!count($allChanges) && !$allowAddSettings) return;
+	
+		/** @var InputfieldWrapper $tab */
 		$tab = $this->wire(new InputfieldWrapper());
 		$tab->attr('title', $this->_('Overrides'));
+		$tab->attr('id', 'tab-overrides');
 		$tab->attr('class', 'WireTab');
 		$form->add($tab); 
-		
-		$f = $this->wire('modules')->get('InputfieldMarkup');
+	
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldMarkup');
+		$f->attr('name', 'overrides_table');
 		$f->description = $this->_('The following settings are overridden for this field by the indicated template(s). Check the box to the right of any row to remove the setting override (restoring the original value).');
 		$f->icon = 'exchange';
 		if($this->fieldgroup) {
@@ -1134,65 +1185,126 @@ class ProcessField extends Process implements ConfigurableModule {
 			}
 		} else {
 			$f->label = $this->_('Setting overrides by template'); 
-			$f->notes = $this->_('To edit an override setting or override other settings, edit any template and click the field name in the fields list.');
+			$f->notes = $this->_('To edit an override setting or override other settings, edit any template and click the field name in the fields list.') . ' ';
+			if(count($allChanges)) $f->notes .= $this->_('You may also click links above to edit in context, but note that any changes you make here will NOT be reflected in the table above until you save or reload this page.') . ' ';
+			$f->notes .= $this->_('To adjust what settings are allowed for overrides, see the field below.');
 		}
 		$tab->add($f);
 
 		if(count($allChanges)) {
-			/** @var MarkupAdminDataTable $table */
-			$table = $this->wire('modules')->get('MarkupAdminDataTable');
-			$table->setEncodeEntities(false);
-			$table->setSortable(false);
-			$header = array();
-			if(!$this->fieldgroup) $header[] = $this->_x('Template', 'context-thead');
-			$header[] = $this->_x('Setting', 'context-thead');
-			$header[] = $this->_x('Original', 'context-thead');
-			$header[] = $this->_x('Override', 'context-thead');
-			$header[] = "<i class='fa fa-fw fa-lg fa-trash override-select-all'></i>";
-			$table->headerRow($header);
-
-			$sanitizer = $this->wire('sanitizer');
-			$lastFieldgroupName = '';
-			$this->wire('modules')->get('JqueryUI')->use('modal');
-
-			foreach($allChanges as $fieldgroupName => $changes) {
-				$fieldgroup = $this->wire('fieldgroups')->get($fieldgroupName);
-				foreach($changes as $key => $change) {
-					$a = $fieldgroupName;
-					// $a = "<a class='pw-modal' data-buttons='#Inputfield_submit_save_field' data-autoclose='1' " . 
-					//	"href='./edit?id={$this->field->id}&fieldgroup_id=$fieldgroup->id'>$fieldgroupName</a>";
-					$fieldgroupLabel = $fieldgroupName == $lastFieldgroupName ? '' : $a;
-					$row = array();
-					if(!$this->fieldgroup) $row[] = $fieldgroupLabel;
-					$row[] = $sanitizer->entities($change['label']);
-					$row[] = "<del>" . $sanitizer->entities($change['originalValue']) . "</del>";
-					$row[] = $sanitizer->entities($change['value']);
-					$row[] = "<input type='checkbox' name='_remove_context[]' value='$fieldgroup->id:$key' />";
-					$options = $fieldgroupLabel ? array('separator' => true) : array();
-					$table->row($row, $options);
-					$lastFieldgroupName = $fieldgroupName;
-				}
-			}
-
+			$table = $this->buildEditFormContextTable($allChanges);
 			$f->value = $table->render();
 		} else {
 			$f->value = '<p>' . $this->_('There are currently no settings being overridden by template.') . '</p>';
 			$f->collapsed = Inputfield::collapsedYes;
 		}
 	
-		// allow the following configuration only for advanced mode
-		if(!$this->wire('config')->advanced) return;
+		if($allowAddSettings) $this->buildEditFormAllowedContexts($form, $tab); 
+	}
+
+	/**
+	 * Build the overrides list table
+	 * 
+	 * @param array $allChanges
+	 * @return MarkupAdminDataTable
+	 * 
+	 */
+	protected function buildEditFormContextTable(array $allChanges) {
+	
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
 		
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
+		
+		/** @var InputfieldCheckbox $checkbox */
+		$checkbox = $modules->get('InputfieldCheckbox');
+		$checkbox->attr('name', '_remove_context[]');
+		$checkbox->attr('id', '_remove_context');
+		$checkbox->checkboxOnly = true;
+		
+		/** @var MarkupAdminDataTable $table */
+		$table = $modules->get('MarkupAdminDataTable');
+		$table->setEncodeEntities(false);
+		$table->setSortable(false);
+		$header = array();
+		if(!$this->fieldgroup) $header[] = $this->_x('Template', 'context-thead');
+		$header[] = $this->_x('Setting', 'context-thead');
+		$header[] = $this->_x('Changes', 'context-thead');
+		$header[] = "<i class='fa fa-lg fa-trash override-select-all'></i>";
+		$table->headerRow($header);
+
+		/** @var JqueryUI $jQueryUI */
+		$jQueryUI = $modules->get('JqueryUI');
+		$jQueryUI->use('modal');
+		
+		$textTools = $sanitizer->getTextTools();
+		$allowModalEdit = !$this->fieldgroup && !$this->contextNamespace && !$this->input->get('modal');
+
+		foreach($allChanges as $fieldgroupName => $changes) {
+			$fieldgroup = $this->wire('fieldgroups')->get($fieldgroupName);
+
+			foreach($changes as $key => $change) {
+				$ns = empty($change['ns']) ? '' : substr($change['ns'], 3);
+				if($allowModalEdit) {
+					$url = "./edit?id={$this->field->id}&fieldgroup_id=$fieldgroup->id&focus=$change[name]";
+					if($ns) $url .= "&context_namespace=$ns";
+					$fieldgroupLabel = "<a class='pw-modal' data-buttons='#Inputfield_submit_save_field' data-autoclose='1' href='$url'>$fieldgroupName</a>";
+				} else {
+					$fieldgroupLabel = $fieldgroupName;
+				}
+				$row = array();
+				$settingLabel = $change['label'];
+				$newValue = $change['value'];
+				$originalValue = $change['originalValue'];
+
+				if($ns) {
+					// use of $change[ns] rather than $ns is intentional so that $key is NS_foo.bar
+					if(strpos($key, $change['ns']) !== 0) $key = $change['ns'] . '.' . $key; 
+					$fieldgroupLabel .= " <span class='detail'>($ns)</span>";
+				}
+
+				$checkbox->attr('value', "$fieldgroup->id:$key");
+			
+				if(!$this->fieldgroup) $row[] = $fieldgroupLabel;
+				
+				$row[] = $sanitizer->entities($settingLabel);
+				$row[] = "<span class='pw-diff'>" . $textTools->diffMarkup($originalValue, $newValue, array('split' => '[^\d\w]+')) . "</span>";
+				$row[] = $checkbox->render();
+				
+				$options = $fieldgroupLabel ? array('separator' => true) : array();
+				$table->row($row, $options);
+			}
+		}
+		
+		return $table;
+	}
+
+	/**
+	 * Build the "allow contexts" Inputfield
+	 * 
+	 * @param InputfieldForm $form
+	 * @param InputfieldWrapper $tab
+	 * 
+	 */
+	protected function buildEditFormAllowedContexts(InputfieldForm $form, InputfieldWrapper $tab) {
+
 		$labels = $this->labels;
-		
+
 		/** @var InputfieldCheckboxes $field */
 		$field = $this->modules->get('InputfieldCheckboxes');
 		$field->attr('name', 'allowContexts');
-		$field->label = $this->_('Allowed overrides');
+		$field->label = $this->_('Settings allowed to override by template');
 		$field->icon = 'sliders';
 		$field->description =
 			$this->_('Checked settings will appear as configuration options when editing this field within the context of a particular template.') . ' ' .
-			$this->_('**Warning:** doing this for settings beyond those specified by the module author may not always work, or may cause problems.');
+			$this->_('**WARNING:** enabling settings beyond those specified by the Fieldtype/Inputfield module may not always work, or may cause problems.') . ' ' .
+			$this->_('As a result, we recommend testing any modifications to these settings in a non-production (development) environment first.');
+		$field->notes =
+			$this->_('Please Note:') . ' ' .
+			$this->_('Settings in **bold** are those that the Fieldtype/Inputfield module has designated as always allowed for override.') . ' ' .
+			$this->_('Other settings may or may not work for context overrides.') . ' ' . 
+			$this->_('You should un-check any settings you find do not work, or otherwise cause problems.');
 		$field->table = true;
 		$field->thead = "$labels[label]|$labels[name]|$labels[type]";
 
@@ -1200,6 +1312,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			'fieldtypeConfig' => $this->_('Details:'),
 			'inputfieldConfig' => $this->_('Input:')
 		);
+		
 		$exclusions = array(
 			'collapsed',
 			'showIf',
@@ -1230,10 +1343,12 @@ class ProcessField extends Process implements ConfigurableModule {
 				if(in_array($name, $exclusions) || strpos($name, 'theme') === 0) continue;
 				if($f instanceof InputfieldWrapper || $f instanceof InputfieldMarkup || $f instanceof InputfieldHidden) continue;
 				$typeName = str_replace('Inputfield', '', $f->className());
-				$label = str_replace('|', ' ', "$tabLabel $f->label") .
+				$settingLabel = str_replace('|', ' ', "$tabLabel $f->label");
+				$label = $settingLabel .
 					"| [span.detail] $name [/span] " .
 					"| [span.detail] $typeName [/span]";
 				if(in_array($name, $alwaysSelected)) {
+					$label = str_replace($settingLabel, "[strong]" . $settingLabel . "[/strong]", $label);
 					$field->addOption($name, $label, array('checked' => 'checked', 'disabled' => 'disabled'));
 					$allowContexts[] = $name;
 				} else {
@@ -1242,37 +1357,10 @@ class ProcessField extends Process implements ConfigurableModule {
 				}
 			}
 		}
-		
+
 		$field->attr('value', $allowContexts);
 		if($qty) $tab->append($field);
 	}
-
-	/*
-	protected function ___buildEditFormContextFieldgroup($form) {
-		if(!$this->fieldgroup) return;
-		$changes = $this->getContextChanges($form, $this->field, $this->fieldgroup);
-		
-		$tab = new InputfieldWrapper();
-		$tab->attr('title', $this->_('Overrides'));
-		$tab->attr('class', 'WireTab');
-		$form->add($tab); 
-		
-		$f = $this->wire('modules')->get('InputfieldCheckboxes');
-		$f->label = $this->_('Remove context overrides');
-		$f->table = true; 
-		$f->thead = 
-			$this->_x('Remove setting', 'context-thead') . '|' .
-			$this->_x('Original', 'context-thead') . '|' . 
-			$this->_x('Override', 'context-thead'); 
-		$f->description = sprintf($this->_('The following settings are overriding the original field settings when this field is used in the context of the "%s" template.'), $this->fieldgroup->name); // Context description
-		$f->description .= ' ' . $this->_('To remove any of the overridden values (and restore the original field value) check the box next to each setting you want to remove/restore.'); // Context description 2
-		$tab->add($f);
-		
-		foreach($changes as $key => $change) {
-			$f->addOption($key, "$change[label]|$change[originalValue]|$change[value]");
-		}
-	}
-	*/
 
 	/**
 	 * Add Fieldtype and Inputfield custom fields to the form 
@@ -1737,9 +1825,13 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	public function ___executeSave() {
 
-		$this->buildEditForm();
-
-		if(!$this->input->post->submit_save_field) {
+		$form = $this->buildEditForm();
+	
+		if($this->input->get('reloadInputfieldAjax') === 'Inputfield_overrides_table') {
+			return $form->render();
+		}
+		
+		if(!$this->input->post('submit_save_field')) {
 			$this->session->redirect("./"); 
 		}
 
@@ -1750,7 +1842,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 		$isNew = !$this->field->id;
 
-		if($this->input->post->delete && $this->input->post->delete == $this->field->id && $this->field->numFieldgroups() == 0) {
+		if($this->input->post('delete') && $this->input->post('delete') == $this->field->id && $this->field->numFieldgroups() == 0) {
 			$this->session->CSRF->validate();
 			$this->session->message($this->_('Deleted field') . " - {$this->field->name}"); // Message after deleting a field, followed by field name
 			$this->fields->delete($this->field); 
@@ -2007,6 +2099,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	protected function saveInputfields(InputfieldWrapper $wrapper) {
 
+		/** @var Languages $languages */
 		$languages = $this->wire('languages');
 	
 		foreach($wrapper->children() as $inputfield) {
@@ -2023,16 +2116,16 @@ class ProcessField extends Process implements ConfigurableModule {
 
 			// see /core/Fieldtype.php for the inputfields that initiate the autojoin and global flags
 			if($name == 'autojoin') {
-				if(!$this->input->post->autojoin) $this->field->flags = $this->field->flags & ~Field::flagAutojoin; 
+				if(!$this->input->post('autojoin')) $this->field->flags = $this->field->flags & ~Field::flagAutojoin; 
 					else $this->field->flags = $this->field->flags | Field::flagAutojoin;
 				continue; 
 
 			} else if($name == 'global') {
-				if(!$this->input->post->global) $this->field->flags = $this->field->flags & ~Field::flagGlobal; 
+				if(!$this->input->post('global')) $this->field->flags = $this->field->flags & ~Field::flagGlobal; 
 					else $this->field->flags = $this->field->flags | Field::flagGlobal;
 				continue; 
 			} else if($name == 'system' && $this->config->advanced) {
-				if(!$this->input->post->system) {
+				if(!$this->input->post('system')) {
 					$this->field->flags = $this->field->flags | Field::flagSystemOverride;
 					$this->field->flags = $this->field->flags & ~Field::flagSystem;
 				} else {
@@ -2040,7 +2133,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				}
 				continue; 
 			} else if($name == 'permanent' && $this->config->advanced) {
-				if(!$this->input->post->permanent) $this->field->flags = $this->field->flags & ~Field::flagPermanent; 
+				if(!$this->input->post('permanent')) $this->field->flags = $this->field->flags & ~Field::flagPermanent; 
 					else $this->field->flags = $this->field->flags | Field::flagPermanent;
 				continue; 
 			}
@@ -2052,7 +2145,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			if($name == 'field_label') $name = 'label';
 			if($name == 'id' && $this->field->id) continue;
 			if($name == 'send_templates') continue;
-			if($this->field->send_templates) unset($this->field->send_templates); // value was previously getting stored
+			if($this->field->get('send_templates')) $this->field->__unset('send_templates'); // value was previously getting stored
 			if($name == 'useRoles') $value = (bool) ((int) $value);
 		
 			// if adding new field or existing name has changed, check that its an allowed name
@@ -2128,13 +2221,87 @@ class ProcessField extends Process implements ConfigurableModule {
 
 	/**
 	 * Saves the submitted checkboxes from the "Overrides" tab
-	 * 
+	 *
 	 */
 	protected function saveRemoveOverrides() {
+
 		$removeContext = $this->wire('input')->post('_remove_context');
 		if(empty($removeContext)) return;
+
 		$contextArrays = array();
 		$fieldgroups = array();
+
+		foreach($removeContext as $value) {
+			// FYI: "<input type='checkbox' name='_remove_context[]' value='$fieldgroup->id:$key' />"
+
+			$ns = '';
+			list($fieldgroupID, $property) = explode(':', $value);
+			$fieldgroupID = (int) $fieldgroupID;
+
+			// check for namespace (when there is no $this->contextNamespace)
+			if(strpos($property, 'NS_') === 0 && strpos($property, '.')) {
+				list($ns, $property) = explode('.', $property, 2);
+				if(strpos($property, '.') !== false) list($property,) = explode('.', $property, 2);
+			}
+
+			if(isset($fieldgroups[$fieldgroupID])) {
+				$fieldgroup = $fieldgroups[$fieldgroupID];
+			} else {
+				$fieldgroup = $this->wire('fieldgroups')->get((int) $fieldgroupID);
+				if(!$fieldgroup) continue;
+				$fieldgroups[$fieldgroup->id] = $fieldgroup;
+			}
+
+			if(isset($contextArrays[$fieldgroup->id])) {
+				// use previously loaded version
+				$contextArray = $contextArrays[$fieldgroup->id];
+			} else {
+				$contextArray = $fieldgroup->getFieldContextArray($this->field->id);
+			}
+
+			if($ns && isset($contextArray[$ns])) {
+				// narrrow in on namespace portion
+				$context = &$contextArray[$ns];
+			} else {
+				$context = &$contextArray;
+			}
+
+			if(strpos($property, 'flagsAdd-') === 0 || strpos($property, 'flagsDel-') === 0) {
+				// special handling of flags bitmask removals
+				list($flagType, $flag) = explode('-', $property);
+				$flag = (int) $flag;
+				if(isset($context[$flagType])) $context[$flagType] = $context[$flagType] & ~$flag;
+			} else {
+				// remove property
+				unset($context[$property]);
+			}
+
+			$this->message($this->_('Removed context override') . " (template=$fieldgroup->name, property=$property)");
+
+			// cache for if this comes up in another iteration
+			$contextArrays[$fieldgroup->id] = $contextArray;
+		}
+
+		foreach($contextArrays as $fieldgroupID => $contextArray) {
+			$fieldgroup = $fieldgroups[$fieldgroupID];
+			//$fieldgroup->setFieldContextArray($this->field->id, $contextArray, $this->contextNamespace);
+			$fieldgroup->setFieldContextArray($this->field->id, $contextArray);
+			$fieldgroup->saveContext();
+		}
+	}
+
+	/**
+	 * Saves the submitted checkboxes from the "Overrides" tab
+	 * 
+	 */
+	protected function xsaveRemoveOverrides() {
+		
+		$removeContext = $this->wire('input')->post('_remove_context');
+		if(empty($removeContext)) return;
+		
+		$contextArrays = array();
+		$fieldgroups = array();
+		
 		foreach($removeContext as $value) {
 			// FYI: "<input type='checkbox' name='_remove_context[]' value='$fieldgroup->id:$key' />"
 			list($fieldgroupID, $property) = explode(':', $value);
@@ -2145,24 +2312,33 @@ class ProcessField extends Process implements ConfigurableModule {
 				if(!$fieldgroup) continue;
 				$fieldgroups[$fieldgroup->id] = $fieldgroup;
 			}
+
 			if(isset($contextArrays[$fieldgroup->id])) {
+				// use previously loaded version
 				$contextArray = $contextArrays[$fieldgroup->id];
 			} else {
 				$contextArray = $fieldgroup->getFieldContextArray($this->field->id);
 			}
 			if(strpos($property, 'flagsAdd-') === 0 || strpos($property, 'flagsDel-') === 0) {
+				// special handling of flags bitmask removals
 				list($flagType, $flag) = explode('-', $property);
 				$flag = (int) $flag;
 				if(isset($contextArray[$flagType])) $contextArray[$flagType] = $contextArray[$flagType] & ~$flag;
 			} else {
 				unset($contextArray[$property]);
 			}
+			
 			$this->message($this->_('Removed context override') . " (template=$fieldgroup->name, property=$property)");
+			
+			// cache for if this comes up in another iteration
 			$contextArrays[$fieldgroup->id] = $contextArray;
 		}
+		
 		foreach($contextArrays as $fieldgroupID => $contextArray) {
 			$fieldgroup = $fieldgroups[$fieldgroupID];
+			//$fieldgroup->setFieldContextArray($this->field->id, $contextArray, $this->contextNamespace);
 			$fieldgroup->setFieldContextArray($this->field->id, $contextArray);
+			
 			$fieldgroup->saveContext();
 		}
 	}
@@ -2183,8 +2359,8 @@ class ProcessField extends Process implements ConfigurableModule {
 			->add(new Breadcrumb('./', $this->labels['fields']))
 			->add(new Breadcrumb("./edit?id={$this->field->id}", $this->field->name)); 
 
-		if(!$this->input->get->type) $this->session->redirect('./'); 
-		$newType = $this->wire('sanitizer')->name($this->input->get->type); 
+		if(!$this->input->get('type')) $this->session->redirect('./'); 
+		$newType = $this->wire('sanitizer')->name($this->input->get('type')); 
 		$newType = $this->wire('fieldtypes')->get($newType); 
 		if(!$newType) $this->session->redirect('./'); 
 
@@ -2232,12 +2408,12 @@ class ProcessField extends Process implements ConfigurableModule {
 	public function ___executeSaveChangeType() {
 		$this->buildEditForm();
 
-		if(!$this->field || !$this->input->post->confirm_type) {
+		if(!$this->field || !$this->input->post('confirm_type')) {
 			$this->message($this->_("Field type change aborted")); 
 			$this->session->redirect('./'); 
 		}
 
-		$type = $this->wire('sanitizer')->name($this->input->post->confirm_type); 
+		$type = $this->wire('sanitizer')->name($this->input->post('confirm_type')); 
 		if($type = $this->fieldtypes->get($type)) {
 			$this->session->CSRF->validate();
 			$this->message($this->_("Field type changed")); 
@@ -2511,6 +2687,7 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		$fieldOriginal = $this->wire('fields')->get($field->id);
 		$changes = array();
+		$isInContext = $this->fieldgroup || $this->contextNamespace; 
 
 		$labels = array(
 			'on' => $this->_('On'),
@@ -2538,14 +2715,28 @@ class ProcessField extends Process implements ConfigurableModule {
 			Field::flagAccessAPI => 'flagsDelAccessAPI',
 			Field::flagAccessEditor =>'flagsDelAccessEditor',
 		);
+	
+		// flatten namespaced to follow same formats others, but with key/name as NS_foo.bar
+		foreach($contextArray as $key => $value) {
+			if(strpos($key, 'NS_') === 0 && is_array($value)) {
+				foreach($value as $k => $v) {
+					$contextArray["$key.$k"] = $v;
+					unset($contextArray[$key]); 
+				}
+			}
+		}
 
 		foreach($contextArray as $key => $value) {
+			$ns = '';
 			$name = $key;
-			$formFieldName = $key;
+			if(strpos($key, '.')) list($ns, $name) = explode('.', $key, 2);
+			$formFieldName = $name;
 			if($formFieldName == 'label') $formFieldName = 'field_label';
 			$formField = $form->getChildByName($formFieldName);
-			$originalValue = $fieldOriginal->$key;
+			$originalValue = $fieldOriginal->$name;
+			
 			if($formField) {
+				// if($isInContext) $formField->set('themeColor', 'primary');
 				if($formField instanceof InputfieldSelect) {
 					$options = $formField->getOptions();
 					if(is_array($value)) foreach($value as $k => $v) {
@@ -2563,6 +2754,7 @@ class ProcessField extends Process implements ConfigurableModule {
 					$originalValue = $originalValue ? $labels['on'] : $labels['off'];
 				}
 			}
+			
 			if(is_array($value) && ($key == 'viewRoles' || $key == 'editRoles')) {
 				foreach($value as $k => $v) {
 					$v = $this->wire('roles')->get((int) $v);
@@ -2570,6 +2762,7 @@ class ProcessField extends Process implements ConfigurableModule {
 					if($v) $value[$k] = $roleName;
 				}
 			}
+			
 			if(is_array($originalValue) && ($key == 'viewRoles' || $key == 'editRoles')) {
 				foreach($originalValue as $k => $v) {
 					$v = $this->wire('roles')->get((int) $v);
@@ -2577,6 +2770,7 @@ class ProcessField extends Process implements ConfigurableModule {
 					if($v) $originalValue[$k] = $roleName;
 				}
 			}
+			
 			$valueStr = $value;
 			$originalValueStr = $originalValue;
 			if(is_array($originalValueStr)) $originalValueStr = implode(', ', $originalValueStr);
@@ -2585,6 +2779,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				$originalValueStr = ((int) $originalValue) ? $labels['on'] : $labels['off'];
 				$valueStr = ((int) $value) ? $labels['on'] : $labels['off'];
 			}
+			
 			$originalValueStr = str_replace('|', ' ', $originalValueStr);
 			$valueStr = str_replace('|', ' ', $valueStr);
 			$change = array(
@@ -2592,6 +2787,11 @@ class ProcessField extends Process implements ConfigurableModule {
 				"value" => $valueStr,
 				"originalValue" => $originalValueStr
 			);
+			if($ns) {
+				$change['ns'] = $ns;
+			} else if($this->contextNamespace) {
+				$change['ns'] = 'NS_' . $this->contextNamespace;
+			}
 
 			if(isset($labels[$key])) {
 				$label = $labels[$key];
@@ -2621,6 +2821,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			$change["label"] = $label;
 			$changes[$key] = $change;
 		}
+		
 		return $changes;
 	}
 

@@ -104,3 +104,16 @@ body.modal #fieldgroupContext {
 .pw-init #ProcessFieldEdit {
 	display: none;
 }
+
+span.pw-diff {
+	color: #999;
+}
+
+ins {
+	color: green;
+	background: transparent;
+	font-weight: bold;
+}
+del {
+	color: red
+}
