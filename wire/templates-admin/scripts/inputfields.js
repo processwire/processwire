@@ -1,13 +1,750 @@
 /**
- * inputfields.js - JS specific to behavior of ProcessWire inputfields.
+ * inputfields.js - JS specific to behavior of ProcessWire Inputfield forms. 
  * 
- * For other admin theme developers: you do not need to include this file in your admin theme
- * unless you want to (and it's better not to). Instead you should direct your admin theme to
- * load this exact file: $config->urls->root . 'wire/templates-admin/scripts/inputfields.js';
+ * REQUIREMENTS
+ * ============
+ *  - ProcessWire or a module that uses its Inputfield Forms
+ *  - One or more form.InputfieldForm elements
+ *  - jQuery is used throughout 
+ * 
+ * PUBLIC API (3.0.144+)
+ * ==========
+ * Note: any 'f' below arguments may be an Inputfield $element, "#id" string, ".class" string or field name.
+ * Many of the functions also support extra arguments such as a callback function, see Inputfields variable
+ * definition for more details on arguments. For functions that show “…” as the arguments, see the full 
+ * function definition for details. 
+ * 
+ * - Inputfields.open(f): Open the given Inputfield if not already open.
+ * - Inputfields.close(f): Close the given Inputfield if not already closed. 
+ * - Inputfields.toggle(f): Find and toggle the open/closed state of given Inputfield. 
+ * - Inputfields.find(f): Find and highlight the given Inputfield (at any depth, in any tab). 
+ * - Inputfields.focus(f): Find the given Inputfield and focus its input element (at any depth, in any tab).
+ * - Inputfields.highlight(f): Temporarily highlight the given Inputfield with a background color. 
+ * - Inputfields.reload(f): Force given Inputfield to reload via ajax (if supported).
+ * - Inputfields.redraw(…): Redraw Inputfields after a visibility or width change. 
+ * - Inputfields.inView(f): Is the Inputfield currently in the user’s viewable area?
+ * - Inputfields.hidden(f): Does the given Inputfield currently have a hidden state?
+ * - Inputfields.changed(f): Has given Inputfield changed? (or use 2nd argument to set)
+ * - Inputfields.columnWidth(f): Get the column width percent of Inputfield (between 1-100) 
+ * - Inputfields.columnWidth(f, w): Set the column width percent of Inputfield, where w is percent width between 1-100.
+ * - Inputfields.name(f): Get the name of the given Inputfield
+ * - Inputfields.label(f): Get the text label of the given Inputfield
+ * - Inputfields.input(f): Get the input element(s) within the given Inputfield
+ * - Inputfields.insertBefore(f, ff): Insert Inputfield 'f' before Inputfield 'ff'.
+ * - Inputfields.insertAfter(f, ff): Insert Inputfield 'f' after Inputfield 'ff'.
+ * - Inputfields.init(target): Manually initialize all .Inputfield elements within target.
+ *   Calling init() is only necessary for Inputfields not present during page load. 
+ * - This file also contains lots of other functions, but they are not part of the public API. 
+ * 
+ * CLASSES
+ * =======
+ * Form classes:
+ * - InputfieldForm: Class assigned to all Inputfield forms.
+ * - InputfieldFormConfirm: Form that will warn the user if they attempt to navigate away before submit.
+ * - InputfieldFormSubmitted: Class assigned to form when the submit button has been pressed. 
+ * - InputfieldFormFocusFirst: Class assigned to form that should focus the first field. 
+ * - InputfieldFormNoDependencies: Form with dependencies disabled.
+ * - InputfieldFormNoWidths: Form with column widths disabled (or handled elsewhere).
+ * - InputfieldFormNoHeights: Form where matching of column heights is disabled (or handled elsewhere).
+ * - InputfieldFormNoFocus: Form where automatic focus of first field is specificallyl disabled. 
+ * - nosubmit: Internal class assigned when submit of form is temporarily disabled due to other events.
+ *     
+ * Form field (Inputfield) classes:    
+ * - Inputfield: Assigned to all Inputfield elements.
+ * - Inputfield[Type]: Class where [Type] is replaced by Inputfield type, i.e. "Radios", "Select", etc.
+ * - InputfieldWrapper: Assigned to Inputfields that can contain other Inputfield elements. 
+ * - InputfieldStateHidden: Item that is current in a hidden state (not visible to user).
+ * - InputfieldStateRequired: Item that requires a value in at least one of its inputs. 
+ * - InputfieldStateChanged: Item that has changed. 
+ * - InputfieldStateShowIf: Item that contains a show-if dependency via a 'data-show-if' attribute.
+ * - InputfieldStateRequiredIf: Item that contains a required-if dependency via a 'data-required-if' attribute.
+ * - InputfieldStateCollapsed: Item that is collapsed and must be clicked to be opened. 
+ * - InputfieldStateWasCollapsed: Item that was previously collapsed. 
+ * - InputfieldStateToggling: Item that is currently between an open and collapsed state. 
+ * - InputfieldColumnWidth: Item that has some column width smaller than 100%. 
+ * - InputfieldColumnWidthFirst: Item that has column width < 100% and is the first in a row of columns.
+ * - InputfieldColumnWidthFirstTmp: Temporary/runtime class for column width used internally.
+ * - InputfieldNoFocus: Item that should not have its input element automatically focused. 
+ * - InputfieldAjaxLoading: Item that is currently loading from an ajax request. 
+ * - InputfieldIgnoreChanges: Item that should not be tracked for changes to value.
+ * - InputfieldHasUpload: Item that has a file upload input within it. 
+ * - InputfieldIsOffset: Item that is offset from others (not supported by all admin themes). 
+ * - InputfieldRepeaterItem: Item that represents a Repeater item. 
+ * - collapsed9: Item that is not collapsible (always open). 
+ * - collapsed10: Item that is collapsed and dynamically loaded by AJAX when opened.
+ * - collapsed11: Item that is collapsed only when blank, and dynamically loaded by AJAX when opened.
+ * 
+ * Children of Inputfield elements have these classes:
+ * - InputfieldHeader: Assigned to the header of an Inputfield, typically the <label> element. Always visible.
+ * - InputfieldHeaderHidden: When paired with InputfieldHeader classs, indicate header is hidden.
+ * - InputfieldStateToggle: Assigned to element that toggles open/collapsed state (typically InputfieldHeader). 
+ * - InputfieldContent: Assigned to the content of the Inputfield, wraps any <input> elements. Hidden when collapsed.
+ *     
+ * Other classes:
+ * - Inputfields: Class <ul> or other element that contains .Inputfield children. 
+ * - body.InputfieldColumnWidthsInit: Class assigned to body element when column widths initialized. 
+ * - i.toggle-icon: Assigned to icon that also works as an .InputfieldStateToggle element. 
+ * - maxColHeightSpacer: Used internally for aligning the height of a row of columns, when applicable. 
+ * 
+ * EVENTS
+ * ======
+ * Dependency events:
+ * - showInputfield: Inputfield is shown as a result of field dependencies, triggered on document element, receives $inputfield as argument.
+ * - hideInputfield: Inputfield is hidden as a result of field dependencies, triggered on document element, receives $inputfield as argument.
+ * 
+ * Visibility events: 
+ * - openReady: Called right before Inputfield is opened, triggered on .Inputfield element. 
+ * - opened: Called after Inputfield is opened, triggered on .Inputfield element.
+ * - closeReady: Called before Inputfield is closed/collapsed, triggered on .Inputfield element.
+ * - closed: Called after Inputfield is closed/collapsed, triggered on .Inputfield element.
+ * - reload: Can be triggered on an .Inputfield element to force it to reload via ajax (where supported). 
+ * - reloaded: Triggered on an .Inputfield element after it has reloaded via ajax. 
+ * - resized: Triggered on an .Inputfield element after something has caused it to resize. 
+ * - columnWidth: Triggered on .Inputfield when an API call to set column width, receives width percent after event argument.
+ * 
+ * Other events:
+ * - AjaxUploadDone: Triggered on an .Inputfield element after a file has been ajax-uploaded within it. 
+ * 
+ * ATTRIBUTES
+ * ==========
+ * Form attributes:
+ * - data-colspacing: form elements may have a "data-colspacing" attribute with a 0 or 1 value that indicates space between Inputfield columns. 
+ * - data-confirm: form.InputfieldFormConfirm elements have this attribute with an alert message to display when appropriate. 
+ * - data-uploading: form elements may have this to indicate a message shown when an action can abort a file that is uploading.
+ * 
+ * Inputfield attributes:
+ * - data-show-if: Contains the selector for a "show if" condition when Inputfield has InputfieldStateShowIf class.
+ * - data-required-if: Contains the selector for a "required if" condition when Inputfield has InputfieldStateRequiredIf class.
+ * - data-colwidth: Contains the specified column width for the field (percentage) if Inputfield has an InputfieldColumnWidth class.
+ * - data-original-width: Used internally to remember the original value of data-colwidth when dependencies change the equation.
+ * - id: The Inputfield elements can have an "id" attribute of "wrap_Inputfield_[name]" where [name] is the input name.
+ *   This is only the case if a different "id" attribute has not been specifically assigned to it. 
  *
  */
 
-var InputfieldDebugMode = false;
+/**
+ * Inputfields public API variable 
+ * 
+ * ProcessWire 3.0.144+
+ * 
+ */
+var Inputfields = {
+
+	/**
+	 * Are we currently in debug mode?
+	 * 
+	 */
+	debug: false,
+
+	/**
+	 * Are we currently processing dependencies?
+	 * 
+	 */
+	processingIfs: false,
+
+	/**
+	 * Initialize all Inputfields located within $target
+	 *
+	 * @param $target
+	 *
+	 */
+	init: function($target) {
+		InputfieldsInit($target);
+	},
+
+	/**
+	 * Toggle the given $inputfield open or closed
+	 *
+	 * Also triggers these events on $inputfield: openReady, closeReady, opened, closed
+	 *
+	 * @param object|string $inputfield Inputfield to toggle, or some element within it, or field name
+	 * @param bool open Boolean true to open, false to close, or null (or omit) for opposite of current state (default=opposite of current state)
+	 * @param int duration How many milliseconds for animation? (default=100)
+	 * @param function callback Optional function to call upon completion, receives Inputfield object, open and duration as arguments (default=none)
+	 * @returns Returns Inputfield element
+	 *
+	 */
+	toggle: function($inputfield, open, duration, callback) {
+		
+		$inputfield = this.inputfield($inputfield);
+		if(!$inputfield.length) return $inputfield;
+
+		var $header = $inputfield.children('.InputfieldHeader, .ui-widget-header');
+		var $content = $inputfield.children('.InputfieldContent, .ui-widget-content');
+		var $toggleIcon = $header.find('.toggle-icon');
+		var isCollapsed = $inputfield.hasClass("InputfieldStateCollapsed");
+		var Inputfields = this;
+
+		if($inputfield.hasClass('InputfieldAjaxLoading')) return $inputfield;
+		if($inputfield.hasClass('InputfieldStateToggling')) return $inputfield;
+
+		if(typeof open == "undefined" || open === null) open = isCollapsed;
+		if(typeof duration == "undefined") duration = 100;
+
+		function completed() {
+			if(typeof callback != "undefined") callback($inputfield, open, duration);
+		}
+
+		function toggled() {
+			// jQuery seems to add overflow:hidden, and this interferes with outline CSS property on Inputfields
+			if($inputfield.css('overflow') == 'hidden') $inputfield.css('overflow', '');
+			$toggleIcon.toggleClass($toggleIcon.attr('data-to')); // data-to=classes to toggle
+			$inputfield.removeClass('InputfieldStateToggling');
+			Inputfields.redraw($inputfield, 500); 
+			// setTimeout('InputfieldColumnWidths()', 500);
+			completed();
+		}
+
+		function opened() {
+			$inputfield.trigger('opened');
+			if($inputfield.hasClass('InputfieldColumnWidth')) {
+				$inputfield.children('.InputfieldContent').show();
+			}
+			if(!$inputfield.hasClass('InputfieldNoFocus')) {
+				Inputfields.focus($inputfield);
+			}
+			toggled();
+		}
+
+		function closed() {
+			if($inputfield.css('overflow') == 'hidden') $inputfield.css('overflow', '');
+			$inputfield.trigger('closed');
+			if($inputfield.hasClass('InputfieldColumnWidth')) {
+				$inputfield.children('.InputfieldContent').hide();
+			}
+			toggled();
+		}
+
+		// check if we need to open parent inputfields first
+		if(open && !$inputfield.is(':visible')) {
+			// if Inputfield is in a non-visible tab, open the tab
+			var $tabContent = $inputfield.parents('.InputfieldWrapper').last();
+			if($tabContent.length && !$tabContent.is(':visible')) {
+				var $tabButton = jQuery('#_' + $tabContent.attr('id'));
+				if($tabButton.length) {
+					$tabContent.show();
+					setTimeout(function() { $tabButton.click(); }, 25);
+				}
+			}
+			// inputfield is not visible likely due to parents being hidden
+			var $collapsedParent = $inputfield.closest('.InputfieldStateCollapsed:not([id=' + $inputfield.attr('id') + '])');
+			if($collapsedParent.length) {
+				Inputfields.toggle($collapsedParent, true, duration, function($in) {
+					Inputfields.toggle($in, true, duration, callback);
+				});
+			}
+		}
+
+		// if open requested and inputfield already open, no action is needed
+		if(open && !isCollapsed) {
+			completed();
+			return $inputfield;
+		}
+
+		// if close requested and inputfield already closed, no action is needed
+		if(!open && isCollapsed) {
+			completed();
+			return $inputfield;
+		}
+
+		// if ajax loaded, force InputfieldStates() click handler to open this one
+		if(isCollapsed && ($inputfield.hasClass('collapsed10') || $inputfield.hasClass('collapsed11'))) {
+			$toggleIcon.click();
+			return $inputfield;
+		}
+
+		// handle either open or close
+		if(open && isCollapsed) {
+			$inputfield.addClass('InputfieldStateToggling').trigger('openReady');
+			$inputfield.toggleClass('InputfieldStateCollapsed', duration, opened);
+		} else if(!open && !isCollapsed) {
+			$inputfield.addClass('InputfieldStateToggling').trigger('closeReady');
+			$inputfield.toggleClass('InputfieldStateCollapsed', duration, closed);
+		}
+		
+		return $inputfield;
+	},
+
+	/**
+	 * Open a collapsed Inputfield
+	 *
+	 * @param $inputfield
+	 * @param duration Optional number of milliseconds for animation or 0 for none (default=100)
+	 * @param function callback Optional function to call upon completion, receives Inputfield object as argument (default=none)
+	 * @return Inputfield
+	 *
+	 */
+	open: function($inputfield, duration, callback) {
+		return this.toggle($inputfield, true, duration);
+	},
+
+	/**
+	 * Close/collapse an open Inputfield
+	 *
+	 * @param $inputfield
+	 * @param duration Optional number of milliseconds for animation or 0 for none (default=100)
+	 * @param function callback Optional function to call upon completion, receives Inputfield object as argument (default=none)
+	 * @return Inputfield
+	 *
+	 */
+	close: function($inputfield, duration, callback) {
+		return this.toggle($inputfield, false, duration);
+	},
+
+	/**
+	 * Show a currently hidden Inputfield 
+	 * 
+	 * @param $inputfield
+	 * @return Returns the Inputfield element
+	 * 
+	 */
+	show: function($inputfield) {
+		$inputfield = this.inputfield($inputfield);
+		if(!this.hidden($inputfield)) return $inputfield; // already visible
+		$inputfield.removeClass('InputfieldStateHidden').show(); 
+		jQuery(document).trigger('showInputfield', $inputfield);
+		this.redraw(null, 50);
+		return $inputfield;
+	},
+
+	/**
+	 * Hide a currently visible Inputfield
+	 *
+	 * @param $inputfield
+	 * @return Returns the Inputfield element
+	 *
+	 */
+	hide: function($inputfield) {
+		$inputfield = this.inputfield($inputfield);
+		if(this.hidden($inputfield)) return $inputfield;
+		$inputfield.addClass('InputfieldStateHidden').hide();
+		jQuery(document).trigger('hideInputfield', $inputfield);
+		this.redraw(null, 50);
+		return $inputfield;
+	},
+	
+	/**
+	 * Redraw Inputfield elements within $target element, adjusting any widths as necessary
+	 * 
+	 * @param $target Target within this element or omit for all Inputfields in document
+	 * @param int $delay Optionally delay this many ms (default=0)
+	 *
+	 */
+	redraw: function($target, delay) {
+		if(typeof delay == "undefined") delay = 0;
+		setTimeout(function() {
+			if(typeof $target != "undefined" && $target && $target.length) {
+				if($target.hasClass('Inputfield')) $target = $target.closest('Inputfields');
+				InputfieldColumnWidths($target);
+				// jQuery(document).trigger('redrawInputfields', $target);
+			} else {
+				InputfieldColumnWidths();
+				// jQuery(document).trigger('redrawInputfields', null);
+			}
+			jQuery(window).resize(); // trigger for FormBuilder or similar
+		}, delay);
+	},
+
+	/**
+	 * Reload an Inputfield with an ajax request (when/where supported)
+	 *
+	 * @param $inputfield
+	 * @param function callback Optional function to call upon completion
+	 * @return Returns the Inputfield element
+	 *
+	 */
+	reload: function($inputfield, callback) {
+		$inputfield = this.inputfield($inputfield);
+		if($inputfield.length) {
+			if(typeof callback != "undefined") $inputfield.one('reloaded', callback);
+			$inputfield.trigger('reload');
+		}
+		return $inputfield;
+	},
+
+	/**
+	 * Focus the Inputfield
+	 *
+	 * If the Inputfield is not visible, this method will track it down and reveal it.
+	 * If the Inputfield is collapsed, this method will open it.
+	 * If the Inputfield has an input that can be focused, it will be focused.
+	 *
+	 * @param $inputfield
+	 * @param function callback Optional function to call upon completion
+	 * @return Returns the Inputfield element
+	 *
+	 */
+	focus: function($inputfield, callback) {
+		
+		$inputfield = this.inputfield($inputfield);
+		if(!$inputfield.length) return $inputfield;
+		var Inputfields = this;
+
+		if($inputfield.hasClass('InputfieldStateCollapsed') || !$inputfield.is(':visible')) {
+			Inputfields.toggle($inputfield, true, 0, function($in, open, duration) {
+				Inputfields.focus($in, callback);
+			});
+			return $inputfield;
+		}
+
+		var $input;
+		var focused = false;
+		var showOnly = false;
+
+		if($inputfield.hasClass('InputfieldNoFocus')) {
+			// class indicates does not support focusing
+			showOnly = true;
+		}
+
+		if(showOnly) {
+			$input = jQuery([]);
+		} else {
+			// find input element within Inputfield
+			$input = $inputfield.find(":input:visible:enabled:not(button):not(.InputfieldNoFocus):first");
+			// do not attempt to focus absolute positioned inputs or button elements
+			if($input.css('position') == 'absolute' || $input.is('button')) $input = jQuery([]);
+		}
+
+		if($input.length) {
+			var t = $input.attr('type');
+			if($input.is('textarea') || t == 'text' || t == 'email' || t == 'url' || t == 'number') {
+				$input.focus();
+				focused = true;
+			}
+		}
+
+		if(focused) {
+			if(typeof callback != "undefined") callback($inputfield);
+		} else {
+			// item could not be directly focused, see if we can make make it visible 
+			Inputfields.find($inputfield, false, callback);
+		}
+		
+		return $inputfield;
+	},
+
+	/**
+	 * Find the Inputfield and put it in view and open it (if not already)
+	 *
+	 * If the Inputfield is not visible, this method will track it down and reveal it.
+	 * If the Inputfield is collapsed, this method will open it.
+	 *
+	 * @param $inputfield
+	 * @param bool highlight Highlight temporily once found? (default=true)
+	 * @param function callback Optional function to call upon completion
+	 * @return Returns the Inputfield element
+	 *
+	 */
+	find: function($inputfield, highlight, callback) {
+		
+		$inputfield = this.inputfield($inputfield);
+		if(!$inputfield.length) return $inputfield;
+		if(typeof highlight == "undefined") highlight = true;
+
+		// locate th Inputfield
+		if($inputfield.hasClass('InputfieldStateCollapsed') || !$inputfield.is(':visible')) {
+			var hasNoFocus = $inputfield.hasClass('InputfieldNoFocus');
+			// Inputfields.toggle() can call Inputfields.focus(), so prevent the focus by adding this class
+			if(!hasNoFocus) $inputfield.addClass('InputfieldNoFocus');
+			this.toggle($inputfield, true, 0, function($in, open, duration) {
+				this.find($inputfield, callback);
+			});
+			// remove the class we added
+			if(!hasNoFocus) $inputfield.removeClass('InputfieldNoFocus');
+			return $inputfield;
+		}
+
+		var completed = function() {
+			if(highlight) this.highlight($inputfield);
+			if(typeof callback != "undefined") callback($inputfield);
+		}
+
+		setTimeout(function() {
+			if(Inputfields.inView($inputfield)) {
+				completed();
+			} else {
+				var properties = {
+					scrollTop: $inputfield.offset().top - 10
+				};
+				var options = {
+					duration: 100,
+					complete: completed
+				};
+				// scroll to Inputfield
+				jQuery('html, body').animate(properties, options);
+			}
+		}, 100); 
+		
+		return $inputfield;
+	},
+
+	/**
+	 * Highlight an Inputfield
+	 *
+	 * @param $inputfield
+	 * @param duration Optionally specify how long to highlight for in ms? (default=1000, 0=forever)
+	 * @param cls Optional class to use as highlight class
+	 * @return Inputfield
+	 *
+	 */
+	highlight: function($inputfield, duration, cls) {
+		$inputfield = this.inputfield($inputfield);
+		if(typeof cls == "undefined") {
+			cls = $inputfield.hasClass('InputfieldIsHighlight') ? 'InputfieldIsPrimary' : 'InputfieldIsHighlight';
+		}
+		if(typeof duration == "undefined") {
+			duration = 1000;
+		}
+		$inputfield.addClass(cls);
+		if(duration > 0) {
+			setTimeout(function() {
+				$inputfield.removeClass(cls);
+			}, duration);
+		}
+		return $inputfield;
+	},
+
+	/**
+	 * Is the Inputfield currently viewable in the user’s viewable area?
+	 * 
+	 * @param $inputfield
+	 * @return bool
+	 * 
+	 */
+	inView: function($inputfield) {
+		$inputfield = this.inputfield($inputfield);
+		if(!$inputfield.is(':visible')) return false;
+		var pageTop = jQuery(window).scrollTop();
+		var pageBottom = pageTop + jQuery(window).height();
+		var inputTop = $inputfield.offset().top;
+		var inputBottom = inputTop + $inputfield.height();
+		var inView = ((inputTop <= pageBottom) && (inputBottom >= pageTop));
+		// var fullyInView = ((pageTop < inputTop) && (pageBottom > inputBottom));
+		return inView;
+	},
+
+	/**
+	 * Get or set column width (perentage) of Inputfield
+	 * 
+	 * Triggers a 'columnWidth' event on Inputfield element, function receives the width to set as an argument. 
+	 * 
+ 	 * @param $inputfield
+	 * @param int value Optionally specify a width to set between 10 and 100 (percent)
+	 * @returns {number}|{object} Returns Inputfield when setting width or current width (percent) when getting
+	 * 
+	 */	
+	columnWidth: function($inputfield, value) {
+		
+		$inputfield = this.inputfield($inputfield);
+		if(!$inputfield.length) return 0;
+		
+		if(typeof value != "undefined" && value) {
+			// set width
+			if(value > 100 || value < 1) value = 100;
+			if(value < 100 && !$inputfield.hasClass('InputfieldColumnWidth')) {
+				$inputfield.addClass('InputfieldColumnWidth');
+			}
+			var w = this.columnWidth($inputfield);
+			if(w != value) {
+				if(!$inputfield.attr('data-original-width')) {
+					// remember original width, if there was one
+					$inputfield.attr('data-original-width', w);
+				}
+				$inputfield.attr('data-colwidth', value);
+				// delegate actual setting of width to event handler 
+				$inputfield.trigger('columnWidth', value);
+			}
+			return $inputfield;
+			
+		} else {
+			// get width
+			if(!$inputfield.hasClass('InputfieldColumnWidth')) return 100;
+			var pct = $inputfield.attr('data-colwidth'); // colwidth tracked when NoWidths mode enabled
+			if(typeof pct == "undefined" || !pct.length) {
+				var style = $inputfield.attr('style');
+				if(typeof style == "undefined" || !style) return 100;
+				pct = parseInt(style.match(/width:\s*(\d+)/i)[1]);
+			} else {
+				pct = parseInt(pct);
+			}
+			// store the original width in another attribute, in case it is needed later 
+			if(!$inputfield.attr('data-original-width')) {
+				$inputfield.attr('data-original-width', pct);
+			}
+			if(pct < 1) pct = 100;
+			return pct;
+		}
+	},
+
+	/**
+	 * Does the given Inputfield have a hidden state?
+	 * 
+	 * Note: if you want to hide an Inputfield, use the hide() method
+	 * 
+	 * @param $inputfield
+	 * @return bool
+	 * 
+	 */
+	hidden: function($inputfield) {
+		$inputfield = this.inputfield($inputfield);
+		return $inputfield.hasClass('InputfieldStateHidden');
+	},
+	
+	/**
+	 * Get or set the changed state of the Inputfield
+	 *
+	 * @param $inputfield
+	 * @param bool value Specify true to indicate as changed, false if not. Or omit to only get current changed state.
+	 * @return bool
+	 *
+	 */
+	changed: function($inputfield, value) {
+		$inputfield = this.inputfield($inputfield);
+		if($inputfield.hasClass('InputfieldIgnoreChanges')) return false;
+		var changed = $inputfield.hasClass('InputfieldStateChanged');
+		if(typeof value == "undefined") return changed;
+		if(value && !changed) {
+			$inputfield.addClass('InputfieldStateChanged').trigger('change');
+			return true;
+		} else if(changed) {
+			$inputfield.removeClass('InputfieldStateChanged');
+			return false;
+		}
+	},
+
+	/**
+	 * Get name attribute for given inputfield
+	 * 
+	 * @param $inputfield
+	 * @returns string
+	 * 
+	 */
+	name: function($inputfield) {
+		$inputfield = this.inputfield($inputfield);
+		if(!$inputfield.length) return '';
+		var name = $inputfield.attr('data-name');
+		if(typeof name != "undefined" && name && name.length) return name;
+		name = '';
+		var id = $inputfield.prop('id');
+		if(id.indexOf('wrap_Inputfield_') === 0) {
+			name = id.replace('wrap_Inputfield_', '');
+		} else if(id.indexOf('wrap_') === 0) {
+			name = id.substring(5); 
+		} else {
+			var classes = $inputfield.attr('class').split(' '); 
+			for(var n = 0; n < classes.length; n++) {
+				if(classes[n].indexOf('Inputfield_') !== 0) continue;
+				name = classes[n].substring(11);
+				break;
+			}
+		}
+		if(name.length) $inputfield.attr('data-name', name); 
+		return name;
+	},
+
+	/**
+	 * Get header label for given Inputfield
+	 * 
+	 * @param $inputfield
+	 * @return string
+	 * 
+	 */
+	label: function($inputfield) {
+		$inputfield = this.inputfield($inputfield);
+		if(!$inputfield.length) return '';
+		var label = $inputfield.attr('data-label');
+		if(typeof label != "undefined" && label && label.length) return label;
+		var $header = $inputfield.children('.InputfieldHeader');
+		if(!$header.length) return '';
+		label = $header.text();
+		if(label.length) label = jQuery.trim(label);
+		return label;
+	}, 
+	
+	/**
+	 * Get the input element(s) for the current Inputfield
+	 * 
+	 * @param $inputfield
+	 * 
+	 */
+	input: function($inputfield) {
+
+		var $input = jQuery([]);
+		$inputfield = this.inputfield($inputfield);
+		if(!$inputfield.length) return $input;
+		
+		var $header = $inputfield.children('.InputfieldHeader');
+		var attrFor = $header.attr('for');
+		
+		if(attrFor) {
+			$input = $inputfield.find(':input[id="' + attrFor + '"]'); 	
+			if($input.length) return $input;
+		}
+		
+		var name = this.name($inputfield); 
+		if(name.length) $input = $inputfield.find(':input[name="' + name + '"]');
+
+		return $input;
+	},
+
+	/**
+	 * Move an Inputfield by inserting it before another
+	 * 
+	 * @param $insertInputfield Inputfield to move
+	 * @param $beforeInputfield Move before this Inputfield
+	 * @returns Inputfield
+	 * 
+	 */
+	insertBefore: function($insertInputfield, $beforeInputfield) {
+		$insertInputfield = this.inputfield($insertInputfield);
+		$beforeInputfield = this.inputfield($beforeInputfield);
+		$beforeInputfield.before($insertInputfield);
+		return $insertInputfield;
+	},
+
+	/**
+	 * Move an Inputfield by inserting it after another
+	 *
+	 * @param $insertInputfield Inputfield to move
+	 * @param $afterInputfield Move after this Inputfield
+	 * @returns Inputfield
+	 *
+	 */
+	insertAfter: function($insertInputfield, $afterInputfield) {
+		$insertInputfield = this.inputfield($insertInputfield);
+		$afterInputfield = this.inputfield($afterInputfield);
+		$afterInputfield.after($insertInputfield);
+		return $insertInputfield;
+	}, 
+
+	/**
+	 * Ensure given argument resolves to an .Inputfield element and return it
+	 *
+	 * @param $inputfield
+	 * @returns object
+	 *
+	 */
+	inputfield: function($inputfield) {
+		if(typeof $inputfield == "string") {
+			if($inputfield.indexOf('#') !== 0 && $inputfield.indexOf('.') !== 0) {
+				var $in = jQuery(':input[name=' + $inputfield + ']');
+				if(!$in.length) $in = jQuery(':input[id=' + $inputfield + ']'); 
+				if(!$in.length) $in = jQuery(':input[name="' + $inputfield + '[]"]'); // array name
+				$inputfield = $in;
+			} else {
+				$inputfield = jQuery($inputfield)
+			}
+		}
+		if(!$inputfield.length) return jQuery([]); // empty jQuery object (length=0)
+		if(!$inputfield.hasClass('Inputfield')) {
+			$inputfield = $inputfield.closest('.Inputfield');
+		}
+		return $inputfield;
+	}
+	
+};
+
+/*******************************************************************************************/
 
 /**
  * Console logging for For debug mode
@@ -17,14 +754,8 @@ var InputfieldDebugMode = false;
  */
 function consoleLog(note) {
 	// uncomment the line below to enable debugging console
-	if(InputfieldDebugMode) console.log(note);
+	if(Inputfields.debug) console.log(note);
 }
-
-/**
- * Whether Inputfield Depedendencies are currently processing
- *
- */
-var InputfieldDependenciesProcessing = false;
 
 /******************************************************************************************
  * Setup Inputfield dependencies, to be called once at document.ready
@@ -34,11 +765,12 @@ var InputfieldDependenciesProcessing = false;
  */
 function InputfieldDependencies($target) {
 	var $ = jQuery;
+	// var allConditions = {};
 	
-	if(InputfieldDependenciesProcessing) return;
+	if(Inputfields.processingIfs) return;
 	
 	if(typeof $target == "undefined") {
-		var $target = $(".InputfieldForm:not(.InputfieldFormNoDependencies)");
+		$target = $(".InputfieldForm:not(.InputfieldFormNoDependencies)");
 	} else if($target.hasClass('InputfieldForm')) {
 		if($target.hasClass('InputfieldFormNoDependencies')) return;
 	} else {
@@ -282,12 +1014,12 @@ function InputfieldDependencies($target) {
 	 */
 	function inputfieldChange(conditions, $fieldToShow) {
 
-		InputfieldDependenciesProcessing = true;
+		Inputfields.processingIfs = true;
 		
 		// Name of the field contained by $fieldToShow
 		var fieldNameToShow = $fieldToShow.attr('id').replace(/wrap_Inputfield_/, '');
 
-		if(InputfieldDebugMode) {
+		if(Inputfields.debug) {
 			consoleLog('-------------------------------------------------------------------');
 			consoleLog('Field "' + fieldNameToShow + '" detected a change to a dependency field! Beginning dependency checks...');
 		}
@@ -303,7 +1035,7 @@ function InputfieldDependencies($target) {
 			// current condition we are checking in this iteration 
 			var condition = conditions[c];
 
-			if(InputfieldDebugMode) {
+			if(Inputfields.debug) {
 				consoleLog('----');
 				consoleLog('Start Dependency ' + c);
 				consoleLog('Condition type: ' + condition.type);
@@ -435,10 +1167,8 @@ function InputfieldDependencies($target) {
 
 		if(show) {
 			consoleLog('Determined that field "' + fieldNameToShow + '" should be visible.');
-			if($fieldToShow.is('.InputfieldStateHidden')) {
-				// field is hidden so show/fade in
-				$fieldToShow.removeClass('InputfieldStateHidden').show(); // fadeIn();
-				$(document).trigger('showInputfield', $fieldToShow);
+			if(Inputfields.hidden($fieldToShow)) {
+				Inputfields.show($fieldToShow);
 				numVisibilityChanges++;
 				consoleLog('Field is now visible.');
 			} else {
@@ -447,13 +1177,12 @@ function InputfieldDependencies($target) {
 		} else {
 			consoleLog('Determined that field "' + fieldNameToShow + '" should be hidden.');
 			// hide it
-			if(!$fieldToShow.is('.InputfieldStateHidden')) {
-				$fieldToShow.addClass('InputfieldStateHidden').hide();
-				$(document).trigger('hideInputfield', $fieldToShow);
+			if(Inputfields.hidden($fieldToShow)) {
+				consoleLog('Field is already hidden.');
+			} else {
+				Inputfields.hide($fieldToShow);
 				consoleLog('Field is now hidden.');
 				numVisibilityChanges++;
-			} else {
-				consoleLog('Field is already hidden.');
 			}
 			if(required) {
 				consoleLog('Field is required but cancelling that since it is not visible.');
@@ -472,11 +1201,10 @@ function InputfieldDependencies($target) {
 
 		if(numVisibilityChanges > 0) {
 			consoleLog(numVisibilityChanges + ' visibility changes were made.');
-			InputfieldColumnWidths();
-			$(window).resize(); // trigger for FormBuilder or similar
+			// Inputfields.redraw(0);
 		}
 
-		InputfieldDependenciesProcessing = false;
+		Inputfields.processingIfs = false;
 
 	} // END inputfieldChange()
 	
@@ -509,6 +1237,8 @@ function InputfieldDependencies($target) {
 		consoleLog('-------------------------------------------------------------------');
 		consoleLog('Analyzing "' + conditionType + '" selector: ' + selector);
 
+		var fieldNameToShow = $fieldToShow.attr('id').replace('wrap_Inputfield_', ''); 
+		
 		// separate each key=value component in the selector to parts array
 		var parts = selector.match(/(^|,)([^,]+)/g);
 
@@ -541,7 +1271,7 @@ function InputfieldDependencies($target) {
 			//	consoleLog('Error: subfield with OR condition not supported');
 			// }
 
-			if(InputfieldDebugMode) {
+			if(Inputfields.debug) {
 				consoleLog("Field: " + field);
 				if (subfield.length) consoleLog("Subfield: " + subfield);
 				consoleLog("Operator: " + operator);
@@ -559,6 +1289,9 @@ function InputfieldDependencies($target) {
 				values = [ trimParseValue([value]) ];
 			}
 
+			var op = operator === '=' ? '==' : operator;
+			var info = 'if(' + fields.join('|') + ' ' + op + ' ' + values.join('|') + ') ' + conditionType + ' ' + fieldNameToShow;
+
 			// build the condition
 			var condition = {
 				'type': conditionType,
@@ -567,7 +1300,8 @@ function InputfieldDependencies($target) {
 				'subfield': subfield, // @todo determine if this is needed anymore
 				'operator': operator,
 				'value': value,
-				'values': values  // if multiple
+				'values': values,  // if multiple
+				'info': info
 			};
 
 			// append to conditions array
@@ -606,6 +1340,8 @@ function InputfieldDependencies($target) {
 			}
 		}
 		
+		// allConditions[fieldNameToShow] = conditions;
+
 		return conditions;
 	}
 
@@ -628,13 +1364,13 @@ function InputfieldDependencies($target) {
 
 	/*** Start InputfieldDependencies *************************************************/
 
-	InputfieldDependenciesProcessing = true; 
+	Inputfields.processingIfs = true; 
 	$target.each(function() {
 		$(this).find(".InputfieldStateShowIf, .InputfieldStateRequiredIf").each(function() {
 			setupDependencyField($(this));
 		});
 	});
-	InputfieldDependenciesProcessing = false;
+	Inputfields.processingIfs = false;
 }
 
 
@@ -660,12 +1396,12 @@ function InputfieldColumnWidths($target) {
 	 *
 	 */
 	function getWidth($item) {
-		if($item.is(".InputfieldStateHidden")) return 0;
+		if($item.hasClass('InputfieldStateHidden')) return 0;
 		var pct = $item.attr('data-colwidth'); // colwidth tracked when NoWidths mode enabled
 		if(typeof pct ==  "undefined" || !pct.length) {
 			var style = $item.attr('style');
 			if(typeof style == "undefined" || !style) return $item.width();
-			var pct = parseInt(style.match(/width:\s*(\d+)/i)[1]);
+			pct = parseInt(style.match(/width:\s*(\d+)/i)[1]);
 		} else {
 			pct = parseInt(pct);
 		}
@@ -734,21 +1470,22 @@ function InputfieldColumnWidths($target) {
 		// find all columns in this row that aren't hidden
 		// note that $items excludes $firstItem
 		var $items = $firstItem.nextUntil('.InputfieldColumnWidthFirst', '.InputfieldColumnWidth:not(.InputfieldStateHidden)');
+		var firstItemHidden = $firstItem.hasClass('InputfieldStateHidden');
 
 		// initalize rowWidth with the width of the first item
-		var rowWidth = $firstItem.is(".InputfieldStateHidden") ? 0 : getWidth($firstItem);
-
-		var $item = $firstItem.is(".InputfieldStateHidden") ? null : $firstItem;
+		var rowWidth = firstItemHidden ? 0 : getWidth($firstItem);
+		var $item = firstItemHidden ? null : $firstItem;
 		var itemWidth = $item == null ? 0 : rowWidth;
 		var numItems = $items.length;
+		var $leadItem;
 
-		if($firstItem.is(".InputfieldStateHidden")) {
+		if(firstItemHidden) {
 			numItems--;
 			// item that leads the list, even though it may not be the first (first could be hidden)
-			var $leadItem = $items.eq(0);
+			$leadItem = $items.eq(0);
 		} else {
 			// lead item is first item
-			var $leadItem = $firstItem; 
+			$leadItem = $firstItem; 
 		}
 
 		if(useHeights) {
@@ -780,7 +1517,7 @@ function InputfieldColumnWidths($target) {
 
 		if(useHeights) {
 			// ensure that all columns in the same row share the same height
-			if(InputfieldDebugMode) {
+			if(Inputfields.debug) {
 				var lab = $leadItem.find("label").text();
 				consoleLog('maxColHeight: ' + lab + ' = ' + maxColHeight);
 			}
@@ -792,16 +1529,19 @@ function InputfieldColumnWidths($target) {
 				});
 			}
 		}
+		
+		var originalWidth = 0;
+		var leftoverWidth = 0;
 
 		// if the current rowWidth is less than the full width, expand the last item as needed to fill the row
 		if(rowWidth < maxRowWidth) {
 			consoleLog("Expand width of row because rowWidth < maxRowWidth (" + rowWidth + " < " + maxRowWidth + ')');
-			var leftoverWidth = (maxRowWidth - rowWidth);
+			leftoverWidth = (maxRowWidth - rowWidth);
 			consoleLog('leftoverWidth: ' + leftoverWidth);
 			itemWidth = itemWidth + leftoverWidth;
-			if($item == null && !$firstItem.is(".InputfieldStateHidden")) $item = $firstItem;
+			if($item == null && !firstItemHidden) $item = $firstItem;
 			if($item) {
-				var originalWidth = getOriginalWidth($item);
+				originalWidth = getOriginalWidth($item);
 				// if the determined width is still less than the original width, then use the original width instead
 				if(originalWidth > 0 && itemWidth < originalWidth) itemWidth = originalWidth;
 				setWidth($item, itemWidth, true);
@@ -810,7 +1550,7 @@ function InputfieldColumnWidths($target) {
 		} else if(rowWidth > maxRowWidth) {
 			// reduce width of row
 			consoleLog("Reduce width of row because rowWidth > maxRowWidth (" + rowWidth + " > " + maxRowWidth + ')');
-			if(!$firstItem.is(".InputfieldStateHidden")) $items = $firstItem.add($items); // $items.add($firstItem);
+			if(!firstItemHidden) $items = $firstItem.add($items); // $items.add($firstItem);
 			rowWidth = 0;
 			$items.each(function() {
 				// restore items in row to original width
@@ -820,14 +1560,14 @@ function InputfieldColumnWidths($target) {
 				rowWidth += itemWidth;
 			});
 			// reduce width of last item as needed
-			var leftoverWidth = maxRowWidth - rowWidth;
+			leftoverWidth = maxRowWidth - rowWidth;
 			itemWidth += leftoverWidth;
-			var originalWidth = getOriginalWidth($item);
+			originalWidth = getOriginalWidth($item);
 			if(originalWidth > 0 && itemWidth < originalWidth) itemWidth = originalWidth;
 			setWidth($item, itemWidth, false);
 		}
 
-		if($firstItem.is(".InputfieldStateHidden")) {
+		if(firstItemHidden) {
 			// If the first item is not part of the row, setup a temporary class to let the 
 			// $leadItem behave in the same way as the first item
 			$leadItem.addClass("InputfieldColumnWidthFirstTmp");
@@ -875,6 +1615,10 @@ function InputfieldColumnWidths($target) {
 	} else if(!$('body').hasClass('InputfieldColumnWidthsInit')) {
 		// initialize monitoring events on first run
 		$('body').addClass('InputfieldColumnWidthsInit');
+		$(document).on('columnWidth', '.Inputfield', function(e, w) {
+			setWidth($inputfield, w, $(this));
+			return false;
+		}); 
 
 		/*
 		var changeTimeout = null;
@@ -933,55 +1677,14 @@ function InputfieldFormBeforeUnloadEvent(e) {
  * If the Inputfield is not visible, this method will track it down and reveal it. 
  * If the Inputfield is collapsed, this method will open it. 
  * If the Inputfield has an input that can be focused, it will be focused. 
+ * If the Inputfield does not support focus, it will just be ensured to be visible.
  * 
  * @param $inputfield
+ * @param function completedCallback Optional callback function to call at completion (since 3.0.144)
  * 
  */
-function InputfieldFocus($inputfield) {
-
-	if(!$inputfield.hasClass('Inputfield')) $inputfield = $inputfield.closest('.Inputfield');
-	if(!$inputfield.length) return;
-
-	if($inputfield.hasClass('InputfieldStateCollapsed') || !$inputfield.is(':visible')) {
-		InputfieldToggle($inputfield, true, 0, function($in, open, duration) {
-			InputfieldFocus($in);
-		});
-		return;
-	}
-
-	var focused = false;
-	if($inputfield.hasClass('InputfieldNoFocus')) {
-		// does not support focusing
-	} else {
-		var $input = $inputfield.find(":input:visible:enabled:not(button):not(.InputfieldNoFocus):first");
-		if($input.length) {
-			if($input.css('position') == 'absolute' || $input.is('button')) {
-				// do not attempt to focus absolute positioned inputs or button elements
-			} else {
-				var t = $input.attr('type');
-				if($input.is('textarea') || t == 'text' || t == 'email' || t == 'url' || t == 'number') {
-					$input.focus();
-					focused = true;
-				}
-			}
-		}
-	}
-
-	if(!focused) {
-		// item could not be directly focused, see if we can make make it visible 
-		var pageTop = jQuery(window).scrollTop();
-		var pageBottom = pageTop + jQuery(window).height();
-		var inputTop = $inputfield.offset().top;
-		var inputBottom = inputTop + $inputfield.height();
-		var inView = ((inputTop <= pageBottom) && (inputBottom >= pageTop));
-		// var fullyInView = ((pageTop < inputTop) && (pageBottom > inputBottom));
-		if(!inView) setTimeout(function() {
-			// if the browser couldn't focus the inputfield, at least show where it is
-			jQuery('html, body').animate({
-				scrollTop: $inputfield.offset().top - 10
-			}, 100);
-		}, 100); 
-	}
+function InputfieldFocus($inputfield, completedCallback) {
+	Inputfields.focus($inputfield, completedCallback); 
 }
 
 /**
@@ -990,106 +1693,14 @@ function InputfieldFocus($inputfield) {
  * Also triggers these events on $inputfield: openReady, closeReady, opened, closed
  * 
  * @param $inputfield Inputfield to toggle, or some element within it
- * @param open Boolean true to open, false to close, or null for opposite of current state
+ * @param open Boolean true to open, false to close, or null (or omit) for opposite of current state (default=opposite of current state)
  * @param duration How many milliseconds for animation? (default=100)
- * @param completedCallback Optional function to call upon completion, given $inputfield as argument
- * @returns {boolean}
+ * @param completedCallback Optional function to call upon completion, receives 3 arguments: $inputfield, open and duration 
+ * @returns Returns Inputfield element
  * 
  */
 function InputfieldToggle($inputfield, open, duration, completedCallback) {
-	
-	if(!$inputfield.length) return;
-	if(!$inputfield.hasClass('Inputfield')) $inputfield = $inputfield.closest('.Inputfield');
-	
-	var $header = $inputfield.children('.InputfieldHeader, .ui-widget-header');
-	var $content = $inputfield.children('.InputfieldContent, .ui-widget-content');
-	var $toggleIcon = $header.find('.toggle-icon');
-	var isCollapsed = $inputfield.hasClass("InputfieldStateCollapsed");
-	
-	if($inputfield.hasClass('InputfieldAjaxLoading')) return false;
-	if($inputfield.hasClass('InputfieldStateToggling')) return false;
-	
-	if(typeof open == "undefined" || open === null) var open = isCollapsed;
-	if(typeof duration == "undefined") var duration = 100;
-	
-	function completed() {
-		if(typeof completedCallback != "undefined") completedCallback($inputfield, open, duration);
-	}
-	
-	function toggled() {
-		// jQuery seems to add overflow:hidden, and this interferes with outline CSS property on Inputfields
-		if($inputfield.css('overflow') == 'hidden') $inputfield.css('overflow', '');
-		$toggleIcon.toggleClass($toggleIcon.attr('data-to')); // data-to=classes to toggle
-		$inputfield.removeClass('InputfieldStateToggling');
-		setTimeout('InputfieldColumnWidths()', 500);
-		completed();
-	}
-
-	function opened() {
-		$inputfield.trigger('opened');
-		if($inputfield.hasClass('InputfieldColumnWidth')) {
-			$inputfield.children('.InputfieldContent').show();
-		}
-		if(!$inputfield.hasClass('InputfieldNoFocus')) InputfieldFocus($inputfield);
-		toggled();
-	}
-
-	function closed() {
-		if($inputfield.css('overflow') == 'hidden') $inputfield.css('overflow', '');
-		$inputfield.trigger('closed');
-		if($inputfield.hasClass('InputfieldColumnWidth')) {
-			$inputfield.children('.InputfieldContent').hide();
-		}
-		toggled();
-	}
-
-	// check if we need to open parent inputfields first
-	if(open && !$inputfield.is(':visible')) {
-		// if Inputfield is in a non-visible tab, open the tab
-		var $tabContent = $inputfield.parents('.InputfieldWrapper').last();
-		if($tabContent.length && !$tabContent.is(':visible')) {
-			var $tabButton = jQuery('#_' + $tabContent.attr('id'));
-			if($tabButton.length) {
-				$tabContent.show();
-				setTimeout(function() { $tabButton.click(); }, 25);
-			}
-		}
-		// inputfield is not visible likely due to parents being hidden
-		var $collapsedParent = $inputfield.closest('.InputfieldStateCollapsed');
-		if($collapsedParent.length) {
-			InputfieldToggle($collapsedParent, true, duration, function($in) {
-				InputfieldToggle($in, true, duration, completedCallback);
-			});
-			// InputfieldToggle($collapsedParent, true, 0);
-		}
-	}
-
-	// if open requested and inputfield already open, no action is needed
-	if(open && !isCollapsed) {
-		completed();
-		return;
-	}
-	
-	// if close requested and inputfield already closed, no action is needed
-	if(!open && isCollapsed) {
-		completed();
-		return;
-	}
-
-	// if ajax loaded, force InputfieldStates() click handler to open this one
-	if(isCollapsed && ($inputfield.hasClass('collapsed10') || $inputfield.hasClass('collapsed11'))) {
-		$toggleIcon.click();
-		return;
-	}
-
-	// handle either open or close
-	if(open && isCollapsed) {
-		$inputfield.addClass('InputfieldStateToggling').trigger('openReady');
-		$inputfield.toggleClass('InputfieldStateCollapsed', duration, opened);
-	} else if(!open && !isCollapsed) {
-		$inputfield.addClass('InputfieldStateToggling').trigger('closeReady');
-		$inputfield.toggleClass('InputfieldStateCollapsed', duration, closed);
-	}
+	Inputfields.toggle($inputfield, open, duration, completedCallback); 	
 }
 
 /**
@@ -1100,7 +1711,7 @@ function InputfieldToggle($inputfield, open, duration, completedCallback) {
  * 
  */
 function InputfieldOpen($inputfield, duration) {
-	InputfieldToggle($inputfield, true, duration);
+	Inputfields.toggle($inputfield, true, duration);
 }
 
 /**
@@ -1111,7 +1722,7 @@ function InputfieldOpen($inputfield, duration) {
  * 
  */
 function InputfieldClose($inputfield, duration) {
-	InputfieldToggle($inputfield, false, duration);
+	Inputfields.toggle($inputfield, false, duration);
 }
 
 /*****************************************************************************************************
@@ -1170,12 +1781,13 @@ function InputfieldStates($target) {
 		var ajaxURL = $parent.children('input').attr('value');
 		if(typeof ajaxURL == "undefined" || ajaxURL.length < 1) return false;
 		var $spinner = null;
+		var $header;
 		
 		if(isTab) {
-			var $header = $('#_' + $li.attr('id')); // WireTab
+			$header = $('#_' + $li.attr('id')); // WireTab
 			headerHighlightEffect($header, $li);
 		} else {
-			var $header = $li.children(".InputfieldHeader");
+			$header = $li.children(".InputfieldHeader");
 			$spinner = $("<i class='fa fa-spin fa-spinner'></i>");
 			$spinner.css('margin-left', '0.5em');
 			$header.append($spinner);
@@ -1277,7 +1889,7 @@ function InputfieldStates($target) {
 			
 		if(isCollapsed || wasCollapsed || isIcon) {
 			$li.addClass('InputfieldStateWasCollapsed'); // this class only used here
-			InputfieldToggle($li, null, duration);
+			Inputfields.toggle($li, null, duration);
 		} else {
 			// Inputfield not collapsible unless toggle icon clicked, so pulsate the toggle icon and focus any inputs
 			if(typeof jQuery.ui != 'undefined') {
@@ -1288,7 +1900,7 @@ function InputfieldStates($target) {
 					$icon.css('color', color1);
 				});
 			}
-			InputfieldFocus($li);
+			Inputfields.focus($li);
 		}
 
 		return false;
@@ -1454,7 +2066,7 @@ function InputfieldRequirements($target) {
 	// show tab that input[required] is in, via @Toutouwai 
 	jQuery(':input[required]', $target).on('invalid', function() {
 		var $input = jQuery(this);
-		InputfieldFocus(jQuery(this));
+		Inputfields.focus($input);
 	});
 }
 
@@ -1555,6 +2167,7 @@ jQuery(document).ready(function($) {
 			InputfieldColumnWidths();
 		});
 		$(document).on('heightChanged', '.InputfieldColumnWidth', function() {
+			// deprecated, no longer used (?)
 			InputfieldColumnWidths();
 		});
 	}

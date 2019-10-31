@@ -862,6 +862,7 @@ class WireTextTools extends Wire {
 	 * @param array $oldArray
 	 * @param array $newArray
 	 * @return array
+	 * @since 3.0.144
 	 * 
 	 */
 	protected function diffArray(array $oldArray, array $newArray) {
@@ -923,6 +924,7 @@ class WireTextTools extends Wire {
 	 *  - `entityEncode` (bool): Entity encode values, other than added ins/del tags? (default=true)
 	 *  - `split` (string): Regex used to split strings for parts to diff (default=`\s+`)
 	 * @return string
+	 * @since 3.0.144
 	 * 
 	 */
 	public function diffMarkup($old, $new, array $options = array()) {

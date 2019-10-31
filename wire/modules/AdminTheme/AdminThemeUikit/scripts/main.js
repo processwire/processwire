@@ -831,6 +831,10 @@ var ProcessWireAdminTheme = {
 		$(document).on('reloaded', function() { initFormMarkup($(this)) }); // function() intentional
 		$(document).on('hideInputfield', showHideInputfield);
 		$(document).on('showInputfield', showHideInputfield);
+		$(document).on('columnWidth', '.Inputfield', function(e, width) {
+			ukGridClass(width, $(this)); 
+			return false;
+		}); 
 
 		$('body').addClass('InputfieldColumnWidthsInit');
 		initFormMarkup();
