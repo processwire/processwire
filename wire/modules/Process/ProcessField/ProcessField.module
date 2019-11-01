@@ -375,6 +375,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			ksort($fieldsByTag);
 			foreach($fieldsByTag as $tag => $fields) {
 				ksort($fields);
+				/** @var InputfieldMarkup $f */
 				$f = $this->modules->get('InputfieldMarkup');
 				$f->entityEncodeLabel = false;
 				$f->label = $caseTags[$tag];
@@ -407,7 +408,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->value = $this->labels['manage-tags'];
 		//$button->setSecondary();
 		$out .= $button->render();
-	
+
 		$button = $this->modules->get('InputfieldButton');
 		$button->id = 'import_button';
 		$button->href = "./import/";
@@ -424,7 +425,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$button->setSecondary();
 		$out .= $button->render();
 
-		if($this->input->nosave) {
+		if($this->input->get('nosave')) {
 			$session->removeFor($this, 'filterTemplate');
 			$session->removeFor($this, 'filterFieldtype');
 			$session->removeFor($this, 'filterShowSystem');
@@ -1129,7 +1130,6 @@ class ProcessField extends Process implements ConfigurableModule {
 				$form->appendMarkup .=
 					"<script>" . 
 					"jQuery(document).ready(function() { " . 
-						//"Inputfields.show($('#$id')); " .
 						"Inputfields.find('#$id'); " . 
 					"});" . 
 					"</script>";
@@ -1186,7 +1186,6 @@ class ProcessField extends Process implements ConfigurableModule {
 		} else {
 			$f->label = $this->_('Setting overrides by template'); 
 			$f->notes = $this->_('To edit an override setting or override other settings, edit any template and click the field name in the fields list.') . ' ';
-			if(count($allChanges)) $f->notes .= $this->_('You may also click links above to edit in context, but note that any changes you make here will NOT be reflected in the table above until you save or reload this page.') . ' ';
 			$f->notes .= $this->_('To adjust what settings are allowed for overrides, see the field below.');
 		}
 		$tab->add($f);
@@ -2687,7 +2686,7 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		$fieldOriginal = $this->wire('fields')->get($field->id);
 		$changes = array();
-		$isInContext = $this->fieldgroup || $this->contextNamespace; 
+		// $isInContext = $this->fieldgroup || $this->contextNamespace; 
 
 		$labels = array(
 			'on' => $this->_('On'),

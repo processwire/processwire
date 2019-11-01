@@ -143,6 +143,12 @@ var Inputfields = {
 	processingIfs: false,
 
 	/**
+	 * Default duration (in MS) for certain visual animations
+	 * 
+	 */
+	defaultDuration: 0,
+
+	/**
 	 * Initialize all Inputfields located within $target
 	 *
 	 * @param $target
@@ -179,7 +185,7 @@ var Inputfields = {
 		if($inputfield.hasClass('InputfieldStateToggling')) return $inputfield;
 
 		if(typeof open == "undefined" || open === null) open = isCollapsed;
-		if(typeof duration == "undefined") duration = 100;
+		if(typeof duration == "undefined") duration = this.defaultDuration;
 
 		function completed() {
 			if(typeof callback != "undefined") callback($inputfield, open, duration);
@@ -256,10 +262,20 @@ var Inputfields = {
 		// handle either open or close
 		if(open && isCollapsed) {
 			$inputfield.addClass('InputfieldStateToggling').trigger('openReady');
-			$inputfield.toggleClass('InputfieldStateCollapsed', duration, opened);
+			if(duration && jQuery.ui) {
+				$inputfield.toggleClass('InputfieldStateCollapsed', duration, opened);
+			} else {
+				$inputfield.removeClass('InputfieldStateCollapsed');
+				opened();
+			}
 		} else if(!open && !isCollapsed) {
 			$inputfield.addClass('InputfieldStateToggling').trigger('closeReady');
-			$inputfield.toggleClass('InputfieldStateCollapsed', duration, closed);
+			if(duration && jQuery.ui) {
+				$inputfield.toggleClass('InputfieldStateCollapsed', duration, closed);
+			} else {
+				$inputfield.addClass('InputfieldStateCollapsed');
+				closed();
+			}
 		}
 		
 		return $inputfield;
@@ -415,7 +431,7 @@ var Inputfields = {
 
 		if(focused) {
 			if(typeof callback != "undefined") callback($inputfield);
-		} else {
+		} else if(!this.inView($inputfield)) {
 			// item could not be directly focused, see if we can make make it visible 
 			Inputfields.find($inputfield, false, callback);
 		}
