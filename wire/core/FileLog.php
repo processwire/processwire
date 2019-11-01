@@ -126,7 +126,8 @@ class FileLog extends Wire {
 	 * @param string $str
 	 * @param array $options options to modify behavior (Added 3.0.143)
 	 *  - `allowDups` (bool): Allow duplicating same log entry in same runtime/request? (default=true) 
-	 *  - `mergeDups` (int): Merge previous duplicate entries that also appear near end of file? Specify int for bytes from EOF (default=1024) 
+	 *  - `mergeDups` (int): Merge previous duplicate entries that also appear near end of file?
+	 *     To enable, specify int for quantity of bytes to consider from EOF, value of 1024 or higher (default=0, disabled) 
 	 *  - `maxTries` (int): If log entry fails to save, maximum times to re-try (default=20) 
 	 *  - `maxTriesDelay` (int): Micro seconds (millionths of a second) to delay between re-tries (default=2000)
 	 * @return bool Success state: true if log written, false if not. 
@@ -135,7 +136,7 @@ class FileLog extends Wire {
 	public function save($str, array $options = array()) {
 		
 		$defaults = array(
-			'mergeDups' => 1024,
+			'mergeDups' => 0,
 			'allowDups' => true, 
 			'maxTries' => 20, 
 			'maxTriesDelay' => 2000, 
@@ -186,7 +187,8 @@ class FileLog extends Wire {
 		// if opened for reading and writing, merge duplicates of $line
 		if($mode === 'r+' && $options['mergeDups']) {
 			// do not repeat the same log entry in the same chunk
-			$chunkSize = is_int($options['mergeDups']) ? $options['mergeDups'] : $this->chunkSize; 
+			$chunkSize = (int) $options['mergeDups']; 
+			if($chunkSize < 1024) $chunkSize = 1024;
 			fseek($fp, -1 * $chunkSize, SEEK_END);
 			$chunk = fread($fp, $chunkSize); 
 			// check if our log line already appears in the immediate earlier chunk
