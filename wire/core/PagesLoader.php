@@ -135,7 +135,7 @@ class PagesLoader extends Wire {
 			if($selector === '/' || $selector === 'path=/') $selector = 1;
 			
 			// if selector begins with a slash, then we'll assume it's referring to a path
-			if($selector[0] == '/') $selector = "path=$selector";
+			if(is_string($selector) && $selector[0] == '/') $selector = "path=$selector";
 			
 			if(strpos($selector, ",") === false && strpos($selector, "|") === false) {
 				// there is just one param. Lets see if we can find a shortcut. 
