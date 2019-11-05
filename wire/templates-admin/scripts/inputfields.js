@@ -1098,6 +1098,8 @@ function InputfieldDependencies($target) {
 					consoleLog("Unable to locate field: " + conditionField);
 					continue;
 				}
+				
+				var $inputfield = $field.closest('.Inputfield');
 
 				// value of the dependency field we are checking (if not already populated above)
 				if (value === null) {
@@ -1123,9 +1125,12 @@ function InputfieldDependencies($target) {
 				if (typeof value == 'object') {
 					// object, convert to array
 					values = jQuery.makeArray(value);
-				} else if (typeof value == 'array') {
+				} else if(typeof value == 'array') {
 					// array, already
 					values = value;
+				} else if(typeof value == "string" && $inputfield.hasClass('InputfieldPage') && value.indexOf(',') > -1 && value.match(/^[,0-9]+$/)) {
+					// CSV string of page IDs
+					values = value.split(',');
 				} else {
 					// string: single value array
 					values[0] = value;

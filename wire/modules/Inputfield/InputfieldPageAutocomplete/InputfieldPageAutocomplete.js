@@ -331,8 +331,25 @@ var InputfieldPageAutocomplete = {
 		$ol.append($li);
 
 		InputfieldPageAutocomplete.rebuildInput($ol); 
-
+		InputfieldPageAutocomplete.triggerChange($ol);
 	},
+
+	/**
+	 * Trigger change event
+	 * 
+	 * @param $item Any element within the autocomplete Inputfield
+	 * 
+	 */
+	triggerChange: function($item) {
+		var $input;
+		if($item.hasClass('InputfieldPageAutocompleteData')) {
+			$input = $item;
+		} else {
+			if(!$item.hasClass('Inputfield')) $item = $item.closest('.Inputfield');
+			$input = $item.find('.InputfieldPageAutocompleteData')
+		}
+		$input.trigger('change');
+	}, 
 
 	/**
 	 * Rebuild the CSV values present in the hidden input[text] field
@@ -398,7 +415,8 @@ $(document).ready(function() {
 		var $ol = $li.parent(); 
 		var id = $li.children(".itemValue").text();
 		$li.remove();
-		InputfieldPageAutocomplete.rebuildInput($ol); 
+		InputfieldPageAutocomplete.rebuildInput($ol);
+		InputfieldPageAutocomplete.triggerChange($ol);
 		return false; 
 	});
 	
