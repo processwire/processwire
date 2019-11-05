@@ -184,23 +184,28 @@
 			function makeSortable() {
 				
 				var fieldsetItems = [];
+				
+				var sortableUpdate = function($ul, e, data) {
+					var $option = $('#' + data.item.attr('rel'));
+					var updatedOptionId = $option.attr('id');
+
+					$ul.children("li").each(function(n) {
+						$option = $('#' + $(this).attr('rel'));
+						$original.append($option);
+					});
+
+					if(updatedOptionId) {
+						triggerOriginalChange(updatedOptionId, 'sort');
+					}
+				}
 
 				$ol.sortable({
 					items: 'li.' + options.listItemClass,
 					axis: 'y',
 					cancel: 'a.asmEditLinkModalLongclick',
-					update: function(e, ui) {
-
-						var updatedOptionId;
-						$option = $('#' + ui.item.attr('rel')); 
-						updatedOptionId = $option.attr('id'); 
-
-						$(this).children("li").each(function(n) {
-							$option = $('#' + $(this).attr('rel')); 
-							$original.append($option); 
-						}); 
-
-						if(updatedOptionId) triggerOriginalChange(updatedOptionId, 'sort'); 
+					update: function(e, data) {
+						if(data.item.hasClass('asmFieldsetStart')) return;
+						sortableUpdate(jQuery(this), e, data);
 					},
 					start: function(e, data) {
 						if(options.jQueryUI) data.item.addClass('ui-state-highlight'); 
@@ -229,8 +234,11 @@
 								$item.slideDown('fast').fadeTo('fast', 1.0); 
 							}
 							fieldsetItems = [];
+							setupFieldsets();
+							sortableUpdate(jQuery(this), e, data);
+						} else {
+							setupFieldsets();
 						}
-						setupFieldsets();
 					}
 
 				}).addClass(options.listSortableClass); 
