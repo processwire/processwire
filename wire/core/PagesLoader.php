@@ -116,41 +116,55 @@ class PagesLoader extends Wire {
 		
 		$value = false;
 		$filter = empty($options['findAll']);
-		
-		if(is_array($selector)) {
+	
+		if(is_string($selector)) {
+			$selector = trim($selector, ', ');
+			if(ctype_digit($selector)) {
+				// normalize to page ID (int)
+				$selector = (int) $selector;
+			} else if($selector === '/' || $selector === 'path=/') {
+				// normalize selectors that indicate homepage to just be ID 1
+				$selector = (int) $this->wire('config')->rootPageID;
+			} else if($selector[0] == '/') {
+				// if selector begins with a slash, it is referring to a path
+				$selector = "path=$selector";
+			}
+		}
 
+		if(is_array($selector)) {
+			// array that is .... not associative .................. not selector array ........ consists of only numbers
 			if(ctype_digit(implode('', array_keys($selector))) && !is_array(reset($selector)) && ctype_digit(implode('', $selector))) {
-				// if given a regular array of page IDs, we delegate that to getById() method, but with access/visibility control
+				// regular array of page IDs, we delegate that to getById() method, but with access/visibility control
+				foreach($selector as $k => $v) $selector[$k] = (int) $v;
 				$value = $this->getById($selector, $loadOptions);
 				$filter = true;
 			}
 
 		} else if(is_int($selector)) {
-			
+			// page ID integer
 			$value = $this->getById(array($selector), $loadOptions);
 			
-		} else if(is_string($selector) || is_int($selector)) {
-			
-			// normalize selectors that indicate homepage to just be ID 1
-			if($selector === '/' || $selector === 'path=/') $selector = 1;
-			
-			// if selector begins with a slash, then we'll assume it's referring to a path
-			if($selector[0] == '/') $selector = "path=$selector";
-			
-			if(strpos($selector, ",") === false && strpos($selector, "|") === false) {
-				// there is just one param. Lets see if we can find a shortcut. 
-				if(ctype_digit("$selector") || strpos($selector, "id=") === 0) {
-					// if selector is just a number, or a string like "id=123" then we're going to do a shortcut
-					$s = str_replace("id=", '', $selector);
-					if(ctype_digit(str_replace('|', '', "$s"))) {
-						$a = explode('|', $s);
-						foreach($a as $k => $v) $a[$k] = (int) $v;
-						$value = $this->getById($a, $loadOptions);
-					}
-				} else if(!Selectors::stringHasOperator($selector)) {
-					if($this->wire('sanitizer')->pageNameUTF8($selector) === $selector) {
-						$selector = "name=$selector";
-					}
+		} else if(is_string($selector) && strpos($selector, ',') === false) {
+			// there is just one “key=value” or “value” selector
+			if(strpos($selector, 'id=') === 0) {
+				// string like id=123 or id=123|456|789
+				$s = substr($selector, 3); // skip over 'id='
+				if(ctype_digit($s)) {
+					// id=123
+					$value = $this->getById((int) $s, $loadOptions);
+				} else if(strpos($selector, '|') && ctype_digit(str_replace('|', '', $s))) {
+					// id=123|456|789
+					$a = explode('|', $s);
+					foreach($a as $k => $v) $a[$k] = (int) $v;
+					$value = $this->getById($a, $loadOptions);
+				}
+			} else if(!Selectors::stringHasOperator($selector)) {
+				// no operator indicates this is just referring to a page name
+				$sanitizer = $this->wire('sanitizer');
+				if($sanitizer->pageNameUTF8($selector) === $selector) {
+					// sanitized value consistent with a page name
+					// optimize selector rather than determining value here
+					$selector = 'name=' . $sanitizer->selectorValue($selector);
 				}
 			}
 		}
@@ -500,7 +514,7 @@ class PagesLoader extends Wire {
 	 * - Specify false for 'findTemplates' so this method doesn't have to look them up. Potential speed optimization if you have few autojoin fields globally.
 	 * - Note that if you specify false for 'findTemplates' the pageClass is assumed to be 'Page' unless you specify something different for the 'pageClass' option.
 	 *
-	 * @param array|WireArray|string $_ids Array of IDs or CSV string of IDs
+	 * @param array|WireArray|string|int $_ids Array of page IDs, comma or pipe-separated string of IDs, or single page ID (string or int)
 	 * @param Template|array|null $template Specify a template to make the load faster, because it won't have to attempt to join all possible fields... just those used by the template.
 	 *	Optionally specify an $options array instead, see the method notes above.
 	 * @param int|null $parent_id Specify a parent to make the load faster, as it reduces the possibility for full table scans.
@@ -552,8 +566,16 @@ class PagesLoader extends Wire {
 
 		if(is_string($_ids)) {
 			// convert string of IDs to array
-			if(strpos($_ids, '|') !== false) $_ids = explode('|', $_ids);
-			else $_ids = explode(",", $_ids);
+			$_ids = trim($_ids, '|, ');
+			if(ctype_digit($_ids)) {
+				$_ids = array((int) $_ids); // single ID: "123"
+			} else if(strpos($_ids, '|')) {
+				$_ids = explode('|', $_ids); // pipe-separated IDs: "123|456|789"
+			} else if(strpos($_ids, ',')) {
+				$_ids = explode(',', $_ids); // comma-separated IDs: "123,456,789"
+			} else {
+				$_ids = array(); // unrecognized ID string: fail
+			}
 		} else if(is_int($_ids)) {
 			$_ids = array($_ids);
 		}
@@ -571,9 +593,15 @@ class PagesLoader extends Wire {
 		// sanitize ids and determine which pages we can pull from cache
 		foreach($_ids as $key => $id) {
 
-			$key = (int) $key;
-			$id = (int) $id;
+			if(!is_int($id)) {
+				$id = trim($id);
+				if(!ctype_digit($id)) continue;
+				$id = (int) $id;
+			}
+			
 			if($id < 1) continue;
+			
+			$key = (int) $key;
 			
 			if($options['getOne'] && is_object($options['page'])) {
 				// single page that will be populated directly
