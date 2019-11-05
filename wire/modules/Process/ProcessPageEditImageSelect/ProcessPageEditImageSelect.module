@@ -1546,7 +1546,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				(strlen($row['num']) ? $row['num'] : '&nbsp;'),
 				"<a class='preview' href='$row[url]'><img src='$row[url]' alt='$row[name]' style='max-width: 100px;' /></a>",
 				"<a class='preview' href='$row[url]'>$row[name]</a><br /><span class='detail'>$row[width]x$row[height]</span>",
-				"<span style='display: none;'>$row[filesize]</span>$row[filesizeStr]",
+				"<span style='display: none;'>$row[filesize] </span>$row[filesizeStr]",
 				$row['modified'],
 				implode('<br />', $row['notes']),
 				//($hasEditPermission ? "<label><input type='checkbox' class='delete' name='delete[]' value='$row[name]' /> &nbsp;</label>" : "&nbsp;")

@@ -448,7 +448,7 @@ class ProcessTemplate extends Process {
 		$row["{$numPages} "] = "$numPagesLink"; // space is required to make it work
 		
 		$mod = $template->modified; 
-		$row[] = $mod > 0 ? "<span style='display: none;'>$mod</span>" . wireRelativeTimeStr($mod) : '';
+		$row[] = $mod > 0 ? "<span style='display: none;'>$mod </span>" . wireRelativeTimeStr($mod) : '';
 		$row[] = $notes;
 		
 		return $row; 
