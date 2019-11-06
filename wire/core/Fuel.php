@@ -10,7 +10,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @property ProcessWire $wire
@@ -37,6 +37,9 @@
  * @property Config $config
  * @property Fuel $fuel
  * @property WireProfilerInterface $profiler 
+ * @property WireFileTools $files
+ * @property WireMailTools $mail
+ * @property WireDateTime $datetime
  *
  */
 class Fuel implements \IteratorAggregate {
@@ -65,6 +68,17 @@ class Fuel implements \IteratorAggregate {
 	 */
 	protected $requiredInterfaces = array(
 		'profiler' => 'WireProfilerInterface'
+	);
+
+	/**
+	 * The most common API variable names, those likely to be called multiple times in any request
+	 * 
+	 * @var array
+	 * 
+	 */
+	static protected $commonNames = array(
+		'page' => 1, 'pages' => 1, 'session' => 1, 'input' => 1, 'sanitizer' => 1, 'config' => 1, 
+		'user' => 1, 'users' => 1, 'fields' => 1, 'templates' => 1, 'database' => 1, 'modules' => 1,
 	);
 	
 	/**
@@ -110,6 +124,10 @@ class Fuel implements \IteratorAggregate {
 	public function __get($key) {
 		return isset($this->data[$key]) ? $this->data[$key] : null;
 	}
+	
+	public function get($key) {
+		return isset($this->data[$key]) ? $this->data[$key] : null;
+	}
 
 	public function getIterator() {
 		return new \ArrayObject($this->data); 
@@ -119,4 +137,7 @@ class Fuel implements \IteratorAggregate {
 		return $this->data; 
 	}
 	
+	public static function isCommon($name) {
+		return isset(self::$commonNames[$name]); 
+	}
 }

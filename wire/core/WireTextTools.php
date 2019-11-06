@@ -502,6 +502,7 @@ class WireTextTools extends Wire {
 		$tests = array();
 		$punctuationChars = $this->getPunctuationChars();
 		$endSentenceChars = $this->getPunctuationChars(true);
+		$endSentenceChars[] = ':';
 
 		if($options['keepFormatTags']) {
 			$options['keepTags'] = array_merge($options['keepTags'], array(

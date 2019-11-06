@@ -767,6 +767,19 @@ class PageFinder extends Wire {
 					// allow any Fieldtype that is an instance of given one, or extends it
 					if(!wireInstanceOf($f->type, $fieldtype) 
 						&& ($fieldtypeLang === null || !wireInstanceOf($f->type, $fieldtypeLang))) continue;
+					/** potential replacement for the above 2 lines
+					if($f->type->className() === $fieldName) {
+						// always allowed
+					} else if(!wireInstanceOf($f->type, $fieldtype) && ($fieldtypeLang === null || !wireInstanceOf($f->type, $fieldtypeLang))) {
+						// this field’s type does not extend the one we are looking for
+						continue;
+					} else {
+						// looks good, but now check operators
+						$selectorInfo = $f->type->getSelectorInfo($f);
+						// if operator used in selector is not an allowed one, then skip over this field
+						if(!in_array($selector->operator(), $selectorInfo['operators'])) continue;
+					}
+					*/
 					
 				} else {
 					// only allow given Fieldtype
@@ -1979,11 +1992,11 @@ class PageFinder extends Wire {
 			throw new PageFinderSyntaxException("Operator '$selector->operator' is not supported for path or url unless: 1) non-multi-language; 2) you install the PagePaths module."); 
 		}
 
-		if($selector->value == '/') {
+		$selectorValue = $selector->value;
+		if($selectorValue === '/') {
 			$parts = array();
 			$query->where("pages.id=1");
 		} else {
-			$selectorValue = $selector->value;
 			if(is_array($selectorValue)) {
 				// only the PagePaths module can perform OR value searches on path/url
 				if($langNames) {
@@ -1997,7 +2010,7 @@ class PageFinder extends Wire {
 			$part = $database->escapeStr($this->wire('sanitizer')->pageName(array_pop($parts), Sanitizer::toAscii)); 
 			$sql = "pages.name='$part'";
 			if($langNames) foreach($langNames as $name) $sql .= " OR pages.$name='$part'";
-			$query->where($sql); 
+			$query->where("($sql)"); 
 			if(!count($parts)) $query->where("pages.parent_id=1");
 		}
 

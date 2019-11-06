@@ -20,6 +20,8 @@ require_once(__DIR__ . '/boot.php');
  * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
+ * @property Fuel $fuel
+ * 
  * @method init()
  * @method ready()
  * @method finished()
@@ -734,8 +736,9 @@ class ProcessWire extends Wire {
 	}
 	
 	public function __get($key) {
-		if($key == 'shutdown') return $this->shutdown;
-		if($key == 'instanceID') return $this->instanceID;
+		if($key === 'fuel') return $this->fuel;
+		if($key === 'shutdown') return $this->shutdown;
+		if($key === 'instanceID') return $this->instanceID;
 		return parent::__get($key);
 	}
 
