@@ -93,9 +93,10 @@
  * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
- * @link http://processwire.com/api/variables/sanitizer/ Offical $sanitizer API variable Documentation
+ * @link https://processwire.com/api/variables/sanitizer/ Offical $sanitizer API variable Documentation
  * 
  * @method array($value, $sanitizer = null, array $options = array())
+ * @method array testAll($value)
  *
  */
 
@@ -3710,11 +3711,11 @@ class Sanitizer extends Wire {
 	 * 
 	 * #pw-group-other
 	 * 
-	 * @param $value
+	 * @param mixed $value
 	 * @return array
 	 * 
 	 */
-	public function testAll($value) {
+	public function ___testAll($value) {
 		$sanitizers = array(
 			'alpha',
 			'alphanumeric',
@@ -3723,6 +3724,8 @@ class Sanitizer extends Wire {
 			'bit',
 			'bool',
 			'camelCase',
+			'chars',
+			'checkbox',
 			'date',
 			'digits',
 			'email',
@@ -3731,8 +3734,10 @@ class Sanitizer extends Wire {
 			'entities1',
 			'entitiesMarkdown',
 			'fieldName',
+			'fieldSubfield',
 			'filename',
 			'float',
+			'httpUrl',
 			'hyphenCase',
 			'int',
 			'intArray',
