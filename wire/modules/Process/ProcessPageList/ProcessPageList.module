@@ -186,7 +186,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		if($this->openPage->id && $this->speed > 50) $this->speed = floor($this->speed / 2);
 		$this->page = $pages->get("id=" . ($this->id > 0 ? $this->id : 1) . ", status<" . Page::statusMax); 
 
-		if(!$this->page) throw new Wire404Exception("Unable to load page {$this->id}"); 
+		if(!$this->page) throw new Wire404Exception("Unable to load page {$this->id}", Wire404Exception::codeSecondary); 
 		if(!$this->page->listable()) throw new WirePermissionException("You don't have access to list page {$this->page->url}"); 
 		$this->page->setOutputFormatting(false);
 

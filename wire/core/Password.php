@@ -5,10 +5,13 @@
  * Class to hold combined password/salt info. Uses Blowfish when possible.
  * Specially used by FieldtypePassword.
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
- * @method setPass($value)
+ * @method setPass($value) Protected internal use method
+ * @property string $salt
+ * @property string $hash
+ * @property-write string $pass
  *
  */
 

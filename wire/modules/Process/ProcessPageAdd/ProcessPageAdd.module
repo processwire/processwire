@@ -487,8 +487,12 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		if(!$this->parent_id) return $this->renderChooseTemplate();
 
 		$this->parent = $this->pages->get((int) $this->parent_id); 
-		if(!$this->parent->id) throw new Wire404Exception("Unable to load parent page $this->parent_id"); 
-		if(!$this->isAllowedParent($this->parent, true, $this->template)) throw new WireException($this->errors('string')); 
+		if(!$this->parent->id) {
+			throw new Wire404Exception("Unable to load parent page $this->parent_id", Wire404Exception::codeSecondary);
+		}
+		if(!$this->isAllowedParent($this->parent, true, $this->template)) {
+			throw new WireException($this->errors('string'));
+		}
 
 		if(count($this->parent->template->childTemplates) == 1) {
 			// only one type of template is allowed for the parent

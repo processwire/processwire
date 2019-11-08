@@ -2216,7 +2216,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		} else {
 			$bookmarkID = '';
 		}
-		if(!$bookmarkID || !$this->checkBookmark($bookmarkID)) throw new Wire404Exception();
+		if(!$bookmarkID || !$this->checkBookmark($bookmarkID)) {
+			throw new Wire404Exception('Unknown Lister action', Wire404Exception::codeNonexist);
+		}
 		return $this->execute();
 	}
 

@@ -79,10 +79,10 @@
  * @method WireFileTools files() Access the $files API variable as a function.  #pw-group-api-helpers
  * @method WireCache|string|array|PageArray|null cache($name = '', $expire = null, $func = null) Access the $cache API variable as a function.  #pw-group-api-helpers
  * @method Languages|Language|NullPage|null languages($name = '') Access the $languages API variable as a function.  #pw-group-api-helpers
- * @method WireInput|WireInputData|array|string|int|null input($type = '', $key = '', $sanitizer = '') Access the $input API variable as a function.  #pw-group-api-helpers
+ * @method WireInput|WireInputData|WireInputDataCookie|array|string|int|null input($type = '', $key = '', $sanitizer = '') Access the $input API variable as a function.  #pw-group-api-helpers
  * @method WireInputData|string|int|array|null inputGet($key = '', $sanitizer = '') Access the $input->get() API variable as a function.  #pw-group-api-helpers
  * @method WireInputData|string|int|array|null inputPost($key = '', $sanitizer = '') Access the $input->post() API variable as a function.  #pw-group-api-helpers
- * @method WireInputData|string|int|array|null inputCookie($key = '', $sanitizer = '') Access the $input->cookie() API variable as a function.  #pw-group-api-helpers
+ * @method WireInputDataCookie|string|int|array|null inputCookie($key = '', $sanitizer = '') Access the $input->cookie() API variable as a function.  #pw-group-api-helpers
  * 
  */
 
@@ -437,7 +437,15 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *
 	 */ 
 	public function __call($method, $arguments) {
-		$hooks = $this->wire('hooks');
+		if(empty($arguments) && Fuel::isCommon($method)) { 
+			// faster version of _callWireAPI for when conditions allow
+			if($this->_wire && !method_exists($this, "___$method")) {
+				// get a common API var with no arguments as method call more quickly 
+				$val = $this->_wire->fuel($method);
+				if($val !== null) return $val;
+			}
+		}
+		$hooks = $this->wire('hooks'); /** @var WireHooks $hooks */
 		if($hooks) {
 			$result = $hooks->runHooks($this, $method, $arguments);
 			if(!$result['methodExists'] && !$result['numHooksRun']) {
@@ -465,15 +473,17 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 		if(!$var) return false;
 		// requested method maps to an API variable
 		$result = array('return' => null);
-		$funcName = 'wire' . ucfirst($method);
-		if(__NAMESPACE__) $funcName = __NAMESPACE__ . "\\$funcName";
-		if(count($arguments) && function_exists($funcName)) {
-			// a function exists with this API var name
-			$wire = ProcessWire::getCurrentInstance();
-			// ensure function call maps to this PW instance
-			if($wire !== $this->_wire) ProcessWire::setCurrentInstance($this->_wire);
-			$result['return'] = call_user_func_array($funcName, $arguments);
-			if($wire !== $this->_wire) ProcessWire::setCurrentInstance($wire);
+		if(count($arguments)) {
+			$funcName = 'wire' . ucfirst($method);
+			if(__NAMESPACE__) $funcName = __NAMESPACE__ . "\\$funcName";
+			if(function_exists($funcName)) {
+				// a function exists with this API var name
+				$wire = ProcessWire::getCurrentInstance();
+				// ensure function call maps to this PW instance
+				if($wire !== $this->_wire) ProcessWire::setCurrentInstance($this->_wire);
+				$result['return'] = call_user_func_array($funcName, $arguments);
+				if($wire !== $this->_wire) ProcessWire::setCurrentInstance($wire);
+			}
 		} else {
 			// if no arguments provided, just return API var
 			$result['return'] = $var;

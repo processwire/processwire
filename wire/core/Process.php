@@ -108,7 +108,11 @@ abstract class Process extends WireData implements Module {
 	 * 
 	 */
 	private $_viewVars = array();
-	
+
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() { }
 
 	/**
@@ -324,6 +328,9 @@ abstract class Process extends WireData implements Module {
 	 */
 	public function ___upgrade($fromVersion, $toVersion) {
 		// any code needed to upgrade between versions
+		if($fromVersion && $toVersion && false === true) {
+			throw new WireException('Uncallable exception for phpdoc');
+		}
 	}
 
 	/**
@@ -352,13 +359,18 @@ abstract class Process extends WireData implements Module {
 		$name = $this->wire('sanitizer')->pageName($name);
 		if(!strlen($name)) $name = strtolower(preg_replace('/([A-Z])/', '-$1', str_replace('Process', '', $this->className()))); 
 		$adminPage = $this->wire('pages')->get($this->wire('config')->adminRootPageID); 
-		if($parent instanceof Page) $parent = $parent; // nice
-			else if(ctype_digit("$parent")) $parent = $this->wire('pages')->get((int) $parent); 
-			else if(strpos($parent, '/') !== false) $parent = $this->wire('pages')->get($parent); 
-			else if($parent) $parent = $adminPage->child("include=all, name=" . $this->wire('sanitizer')->pageName($parent)); 
+		if($parent instanceof Page) {
+			// already have what we  need
+		} else if(ctype_digit("$parent")) {
+			$parent = $this->wire('pages')->get((int) $parent);
+		} else if(strpos($parent, '/') !== false) {
+			$parent = $this->wire('pages')->get($parent);
+		} else if($parent) {
+			$parent = $adminPage->child("include=all, name=" . $this->wire('sanitizer')->pageName($parent));
+		}
 		if(!$parent || !$parent->id) $parent = $adminPage; // default
 		$page = $parent->child("include=all, name=$name"); // does it already exist?
-		if($page->id && $page->process == $this) return $page; // return existing copy
+		if($page->id && "$page->process" == "$this") return $page; // return existing copy
 		$page = $this->wire('pages')->newPage();
 		$page->template = $template ? $template : 'admin';
 		$page->name = $name; 
@@ -389,7 +401,7 @@ abstract class Process extends WireData implements Module {
 		if(!$moduleID) return 0;
 		$n = 0; 
 		foreach($this->wire('pages')->find("process=$moduleID, include=all") as $page) {
-			if($page->process != $this) continue; 
+			if("$page->process" != "$this") continue; 
 			$page->process = null;
 			$this->message(sprintf($this->_('Trashed Page: %s'), $page->path)); 
 			$this->wire('pages')->trash($page);
@@ -408,7 +420,7 @@ abstract class Process extends WireData implements Module {
 	 * #pw-internal @todo work on documenting this method further
 	 * 
 	 * @param array $options For descending classes to modify behavior (see $defaults in method)
-	 * @return string rendered JSON string
+	 * @return string|array rendered JSON string or array if `getArray` option is true. 
 	 * @throws Wire404Exception if getModuleInfo() doesn't specify useNavJSON=true;
 	 * 
 	 */
@@ -431,7 +443,9 @@ abstract class Process extends WireData implements Module {
 		
 		$options = array_merge($defaults, $options); 
 		$moduleInfo = $this->modules->getModuleInfo($this); 
-		if(empty($moduleInfo['useNavJSON'])) throw new Wire404Exception();
+		if(empty($moduleInfo['useNavJSON'])) {
+			throw new Wire404Exception('No JSON nav available', Wire404Exception::codeSecondary);
+		}
 		
 		$page = $this->wire('page');
 		$data = array(

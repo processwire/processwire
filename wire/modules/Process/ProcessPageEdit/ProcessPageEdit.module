@@ -390,7 +390,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		if(!$id) {
 			$this->session->redirect('./bookmarks/');
-			throw new Wire404Exception($this->noticeUnknown); // Init error: no page provided
+			throw new Wire404Exception($this->noticeUnknown, Wire404Exception::codeSecondary); // Init error: no page provided
 		}
 
 		$this->page = $this->loadPage($id); 

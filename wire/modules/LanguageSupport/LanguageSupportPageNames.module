@@ -415,7 +415,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		if($event) {}
 		if($this->force404) {
 			$this->force404 = false; // prevent another 404 on the 404 page
-			throw new Wire404Exception();
+			throw new Wire404Exception('Not available in requested language', Wire404Exception::codeLanguage);
 			// $page = $event->wire('page');		
 			// if(!$page || ($page->id != $event->wire('config')->http404PageID)) {
 			//	throw new Wire404Exception();

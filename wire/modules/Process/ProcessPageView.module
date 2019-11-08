@@ -162,7 +162,9 @@ class ProcessPageView extends Process {
 			$_page = $page;
 			$page = $this->checkAccess($page); 
 			if(!$page || $_page->id == $config->http404PageID) {
-				return $this->pageNotFound($_page, $this->requestURL, true, 'access not allowed');
+				$s = 'access not allowed';
+				$e = new Wire404Exception($s, Wire404Exception::codePermission);
+				return $this->pageNotFound($_page, $this->requestURL, true, $s, $e);
 			}
 			
 			if(!$this->delayRedirects) {
@@ -851,10 +853,10 @@ class ProcessPageView extends Process {
 
 		// use the static hasPath first to make sure this page actually has a files directory
 		// this ensures one isn't automatically created when we call $page->filesManager->path below
-		if(!PagefilesManager::hasPath($page)) throw new Wire404Exception($err);
+		if(!PagefilesManager::hasPath($page)) throw new Wire404Exception($err, Wire404Exception::codeFile);
 
 		$filename = $page->filesManager->path() . $basename; 
-		if(!is_file($filename)) throw new Wire404Exception($err);
+		if(!is_file($filename)) throw new Wire404Exception($err, Wire404Exception::codeFile);
 
 		if($page->isPublic()) {
 			// deprecated, only necessary for method 2 in checkRequestFile
@@ -881,7 +883,10 @@ class ProcessPageView extends Process {
 	 */
 	protected function ___pageNotFound($page, $url, $triggerReady = false, $reason = '', $exception = null) {
 		
-		if(!$exception) $exception = new Wire404Exception($reason); // create but do not throw
+		if(!$exception) {
+			// create exception but do not throw
+			$exception = new Wire404Exception($reason, Wire404Exception::codeNonexist); 
+		}
 
 		$this->failed($exception, $reason, $page, $url); 
 		$this->responseType = self::responseTypeError; 
