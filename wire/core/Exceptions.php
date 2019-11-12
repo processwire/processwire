@@ -74,6 +74,14 @@ class Wire404Exception extends WireException {
 	 *
 	 */
 	const codeFile = 4044;
+
+	/**
+	 * 404 is a result of a front-end wire404() function call
+	 * 
+	 * #pw-internal
+	 * 
+	 */
+	const codeFunction = 4045;
 	
 	/**
 	 * Anonymous 404 with no code provided 

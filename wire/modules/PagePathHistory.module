@@ -6,21 +6,21 @@
  * Keeps track of past URLs where pages have lived and automatically 301 redirects
  * to the new location whenever the past URL is accessed. 
  *
- * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
  * @method upgrade($fromVersion, $toVersion)
+ * @property int $minimumAge
  * 
  *
  */
 
-class PagePathHistory extends WireData implements Module {
+class PagePathHistory extends WireData implements Module, ConfigurableModule {
 
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Path History', 
-			'version' => 4, 
+			'version' => 5, 
 			'summary' => "Keeps track of past URLs where pages have lived and automatically redirects (301 permament) to the new location whenever the past URL is accessed.",
 			'singular' => true, 
 			'autoload' => true, 
@@ -54,6 +54,15 @@ class PagePathHistory extends WireData implements Module {
 	 * 
 	 */
 	protected $version = 0;
+
+	/**
+	 * Construct
+	 * 
+	 */
+	public function __construct() {
+		parent::__construct();
+		$this->set('minimumAge', self::minimumAge); 
+	}
 
 	/**
 	 * Initialize the hooks
@@ -484,11 +493,11 @@ class PagePathHistory extends WireData implements Module {
 
 		/** @var Page $page */
 		$page = $event->arguments[0];
-		if($page->template == 'admin') return;
-		if($this->wire('pages')->cloning) return;
-		$age = time() - $page->created; 
-		if($age < self::minimumAge) return;
+		/** @var Languages $languages */
 		$languages = $this->getLanguages();
+
+		$age = time() - $page->created;
+		if($page->template == 'admin' || $this->wire('pages')->cloning || $age < $this->minimumAge) return;
 
 		// note that the paths we store have no trailing slash
 		
@@ -546,14 +555,29 @@ class PagePathHistory extends WireData implements Module {
 	 */
 	public function hookPageNotFound(HookEvent $event) {
 	
-		
-		$page = $event->arguments(0); 
+		/** @var Page $page */
+		$page = $event->arguments(0);
+		/** @var Wire404Exception $exception */
+		$exception = $event->arguments(4); 
 
 		// If there is a page object set, then it means the 404 was triggered
 		// by the user not having access to it, or by the $page's template 
 		// throwing a 404 exception. In either case, we don't want to do a 
 		// redirect if there is a $page since any 404 is intentional there.
-		if($page && $page->id) return; 
+		if($page && $page->id) {
+			// it did resolve to a Page: maybe a front-end 404
+			if(!$exception) {
+				// pageNotFound was called without an Exception
+				return;
+			} else if($exception->getCode() == Wire404Exception::codeFunction) {
+				// the wire404() function was called: allow PagePathHistory
+			} else if($exception->getMessage() === "1") {
+				// also allow PagePathHistory to operate when: throw new WireException(true);
+			} else {
+				// likely user didn't have access or intentional 404 that should not redirect
+				return;
+			} 
+		}
 		
 		$languages = $this->getLanguages();
 		if($languages) {
@@ -785,6 +809,24 @@ class PagePathHistory extends WireData implements Module {
 			$message = $messagePrefix . $message;
 			$error ? $this->error($message) : $this->message($message);
 		}
+	}
+
+	/**
+	 * Module config
+	 * 
+	 * @param InputfieldWrapper $inputfields
+	 * 
+	 */
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		/** @var InputfieldInteger $f */
+		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f->attr('name', 'minimumAge');
+		$f->label = $this->_('Minimum age (seconds)');
+		$f->description = $this->_('Start recording history for a page this many seconds after it has been created. At least 2 or more seconds recommended.');
+		$f->notes = sprintf($this->_('Default: %s'), self::minimumAge);
+		$f->val((int) $this->minimumAge);
+		$f->required = true;
+		$inputfields->add($f);
 	}
 
 }
