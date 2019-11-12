@@ -1575,7 +1575,8 @@ class Modules extends WireArray {
 	 * 
 	 * By default this method returns module class names matching the given prefix. 
 	 * To instead retrieve instantiated (ready-to-use) modules, specify boolean true
-	 * for the second argument. 
+	 * for the second argument. Regardless of `$load` argument all returned arrays
+	 * are indexed by module name.
 	 * 
 	 * ~~~~~
 	 * // Retrieve array of all Textformatter module names
@@ -1586,27 +1587,31 @@ class Modules extends WireArray {
 	 * ~~~~~
 	 * 
 	 * @param string $prefix Specify prefix, i.e. "Process", "Fieldtype", "Inputfield", etc.
-	 * @param bool|int $load Specify one of the following:
+	 * @param bool|int $load Specify one of the following (all indexed by module name):
 	 *  - Boolean true to return array of instantiated modules.
 	 *  - Boolean false to return array of module names (default).
 	 *  - Integer 1 to return array of module info for each matching module.
 	 *  - Integer 2 to return array of verbose module info for each matching module. 
+	 *  - Integer 3 to return array of Module or ModulePlaceholder objects (whatever current state is). Added 3.0.147.
 	 * @return array Returns array of module class names or Module objects. In either case, array indexes are class names.
 	 * 
 	 */
 	public function findByPrefix($prefix, $load = false) {
 		$results = array();
-		foreach($this as $key => $value) {
-			$className = wireClassName($value->className(), false);
-			if(strpos($className, $prefix) !== 0) continue;
-			if($load === 1) {
-				$results[$className] = $this->getModuleInfo($className); 
-			} else if($load === 2) {
-				$results[$className] = $this->getModuleInfoVerbose($className); 
+		foreach($this as $moduleName => $value) {
+			if(stripos($moduleName, $prefix) !== 0) continue;
+			if($load === false) {
+				$results[$moduleName] = $moduleName;
 			} else if($load === true) {
-				$results[$className] = $this->getModule($className);
+				$results[$moduleName] = $this->getModule($moduleName);
+			} else if($load === 1) {
+				$results[$moduleName] = $this->getModuleInfo($moduleName); 
+			} else if($load === 2) {
+				$results[$moduleName] = $this->getModuleInfoVerbose($moduleName);
+			} else if($load === 3) {
+				$results[$moduleName] = $value;
 			} else {
-				$results[$className] = $className;
+				$results[$moduleName] = $moduleName;
 			}
 		}
 		return $results;
@@ -1889,7 +1894,7 @@ class Modules extends WireArray {
 		$this->add($module); 
 		unset($this->installable[$class]);
 		
-		// note: the module's install is called here because it may need to know it's module ID for installation of permissions, etc. 
+		// note: the module's install is called here because it may need to know its module ID for installation of permissions, etc. 
 		if(method_exists($module, '___install') || method_exists($module, 'install')) {
 			try {
 				/** @var _Module $module */
