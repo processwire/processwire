@@ -199,6 +199,21 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$initFields[$className] = 1; 
 	}
 	 */
+	
+	/**
+	 * Get class name to use Field objects of this type (must be class that extends Field class)
+	 *
+	 * Return blank if default class (Field) should be used.
+	 *
+	 * @param array $a Field data from DB (if needed)
+	 * @return string Return class name or blank to use default Field class
+	 * @since 3.0.147
+	 *
+	 */
+	public function getFieldClass(array $a = array()) {
+		require_once(dirname(__FILE__) . '/RepeaterField.php');
+		return 'RepeaterField';
+	}
 
 	/**
 	 * Get the class used for repeater Page objects

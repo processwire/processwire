@@ -616,7 +616,7 @@ class Field extends WireData implements Saveable, Exportable {
 
 		} else if(is_string($type)) {
 			$typeStr = $type;
-			$fieldtypes = $this->wire('fieldtypes');
+			$fieldtypes = $this->wire('fieldtypes'); /** @var Fieldtypes $fieldtypes */
 			if(!$type = $fieldtypes->get($type)) {
 				$this->error("Fieldtype '$typeStr' does not exist");
 				return $this;

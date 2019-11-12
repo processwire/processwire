@@ -49,10 +49,11 @@ class Fieldtypes extends WireArray {
 		if($this->preloaded) return;
 		$debug = $this->isAPI && $this->wire('config')->debug; 
 		if($debug) Debug::timer('Fieldtypes.preload'); 
-		foreach($this->data as $key => $module) {
+		$modules = $this->wire('modules'); /** @var Modules $modules */
+		foreach($this->data as $moduleName => $module) {
 			if($module instanceof ModulePlaceholder) {
-				$fieldtype = $this->wire('modules')->get($module->className()); 
-				$this->data[$key] = $fieldtype; 
+				$fieldtype = $modules->getModule($moduleName); 
+				$this->data[$moduleName] = $fieldtype; 
 			}
 		}
 		if($debug) Debug::saveTimer('Fieldtypes.preload'); 
@@ -130,11 +131,12 @@ class Fieldtypes extends WireArray {
 		if(strpos($key, 'Fieldtype') !== 0) $key = "Fieldtype" . ucfirst($key); 
 
 		if(!$fieldtype = parent::get($key)) {
-			$fieldtype = $this->wire('modules')->get($key); 
+			$fieldtype = $this->wire('modules')->getModule($key); 
+			if($fieldtype) $this->set($key, $fieldtype);
 		}
 
 		if($fieldtype instanceof ModulePlaceholder) {
-			$fieldtype = $this->wire('modules')->get($fieldtype->className()); 			
+			$fieldtype = $this->wire('modules')->getModule($fieldtype->className()); 			
 			if($fieldtype) $this->set($key, $fieldtype); 
 		}
 

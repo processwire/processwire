@@ -43,6 +43,25 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	abstract public function makeBlankItem();
 
 	/**
+	 * Make an item and populate with given data
+	 * 
+	 * @param array $a Associative array of data to populate
+	 * @return Saveable|Wire
+	 * @throws WireException
+	 * @since 3.0.147
+	 * 
+	 */
+	public function makeItem(array $a = array()) {
+		$item = $this->makeBlankItem();
+		$this->wire($item);
+		foreach($a as $key => $value) {
+			$item->$key = $value;
+		}
+		$item->resetTrackChanges(true);
+		return $item;
+	}
+
+	/**
 	 * Return the name of the table that this DAO stores item records in
 	 * 
 	 * @return string
@@ -163,6 +182,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 */
 	protected function ___load(WireArray $items, $selectors = null) {
 
+		/** @var WireDatabasePDO $database */
 		$database = $this->wire('database');
 		$sql = $this->getLoadQuery($selectors)->getQuery();
 		
@@ -170,21 +190,20 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		$query->execute();
 		
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-			$item = $this->makeBlankItem();
-			$this->wire($item);
-			foreach($row as $field => $value) {
-				if($field == 'data') {
-					if($value) $value = $this->decodeData($value);
-					else continue;
+			if(isset($row['data'])) {
+				if($row['data']) {
+					$row['data'] = $this->decodeData($row['data']);
+				} else {
+					unset($row['data']);
 				}
-				$item->$field = $value;
 			}
-			$item->setTrackChanges(true);
-			$items->add($item);
+			$item = $this->makeItem($row);
+			if($item) $items->add($item);
 		}
+		
 		$query->closeCursor();
-			
 		$items->setTrackChanges(true); 
+		
 		return $items; 
 	}
 

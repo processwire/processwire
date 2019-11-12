@@ -156,6 +156,45 @@ class Fields extends WireSaveableItems {
 	}
 
 	/**
+	 * Make an item and populate with given data
+	 *
+	 * @param array $a Associative array of data to populate
+	 * @return Saveable|Wire
+	 * @throws WireException
+	 * @since 3.0.147
+	 *
+	 */
+	public function makeItem(array $a = array()) {
+		
+		if(empty($a['type'])) return parent::makeItem($a);
+		
+		/** @var Fieldtypes $fieldtypes */
+		$fieldtypes = $this->wire('fieldtypes');
+		if(!$fieldtypes) return parent::makeItem($a);
+		
+		/** @var Fieldtype $fieldtype */
+		$fieldtype = $fieldtypes->get($a['type']);
+		if(!$fieldtype) return parent::makeItem($a);
+		
+		$class = $fieldtype->getFieldClass($a);
+		if(empty($class) || $class === 'Field') return parent::makeItem($a);
+		
+		if(strpos($class, "\\") === false) $class = wireClassName($class, true);
+		if(!class_exists($class)) return parent::makeItem($a);
+		
+		$field = new $class();
+		$this->wire($field);
+		
+		foreach($a as $key => $value) {
+			$field->$key = $value;
+		}
+		
+		$field->resetTrackChanges(true);
+		
+		return $field;
+	}
+
+	/**
 	 * Per WireSaveableItems interface, return all available Field instances
 	 * 
 	 * #pw-internal
