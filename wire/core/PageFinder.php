@@ -171,6 +171,7 @@ class PageFinder extends Wire {
 	protected $reverseAfter = false; // reverse order after load?
 	protected $pageArrayData = array(); // any additional data that should be populated back to any resulting PageArray objects
 	protected $partialMatchOperators = array('%=', '^=', '$=', '%^=', '%$=', '*=');
+	protected $finalSelectors = null; // Fully parsed final selectors
 	protected $singlesFields = array( // fields that can only be used by themselves (not OR'd with other fields)
 		'has_parent', 
 		'hasParent', 
@@ -1426,6 +1427,7 @@ class PageFinder extends Wire {
 		}
 		
 		$this->postProcessQuery($query); 
+		$this->finalSelectors = $selectors;
 		
 		return $query; 
 	}
@@ -2888,6 +2890,21 @@ class PageFinder extends Wire {
 		}
 
 		return false;
+	}
+
+	/**
+	 * Get the fully parsed/final selectors used in the last find() operation
+	 * 
+	 * Should only be called after a find() or findIDs() operation, otherwise returns null. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return Selectors|null
+	 * @since 3.0.146
+	 * 
+	 */
+	public function getSelectors() {
+		return $this->finalSelectors;
 	}
 }
 

@@ -49,6 +49,14 @@ class PagesLoader extends Wire {
 	protected $totalPagesLoaded = 0;
 
 	/**
+	 * Last used instance of PageFinder
+	 * 
+	 * @var PageFinder|null
+	 * 
+	 */
+	protected $lastPageFinder = null;
+
+	/**
 	 * Debug mode for pages class
 	 * 
 	 * @var bool
@@ -359,6 +367,7 @@ class PagesLoader extends Wire {
 		$pages->setStart($start);
 		$pages->setSelectors($selectorString);
 		$pages->setTrackChanges(true);
+		$this->lastPageFinder = $pageFinder; 
 
 		if($loadPages && $cachePages) {
 			if(strpos($selectorString, 'sort=random') !== false) {
@@ -1228,6 +1237,17 @@ class PagesLoader extends Wire {
 	 */
 	public function getTotalPagesLoaded() {
 		return $this->totalPagesLoaded;
+	}
+
+	/**
+	 * Get last used instance of PageFinder (for debugging purposes)
+	 * 
+	 * @return PageFinder|null
+	 * @since 3.0.146
+	 * 
+	 */
+	public function getLastPageFinder() {
+		return $this->lastPageFinder;
 	}
 	
 }
