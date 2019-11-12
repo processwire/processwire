@@ -21,6 +21,7 @@ require_once($dirname . "/CommentStars.php");
 require_once($dirname . "/CommentArray.php"); 
 require_once($dirname . "/CommentList.php"); 
 require_once($dirname . "/CommentForm.php"); 
+require_once($dirname . "/CommentField.php"); 
 
 /**
  * ProcessWire Comments Fieldtype
@@ -106,6 +107,10 @@ class FieldtypeComments extends FieldtypeMulti {
 		if(!$inputfield) return null; 
 		$inputfield->set('class', $this->className());
 		return $inputfield; 
+	}
+	
+	public function getFieldClass(array $a = array()) {
+		return 'CommentField';
 	}
 
 	/**
