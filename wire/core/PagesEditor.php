@@ -916,25 +916,97 @@ class PagesEditor extends Wire {
 	}
 
 	/**
-	 * Sets a new Page status and saves the page, optionally recursive with the children, grandchildren, and so on.
+	 * Silently add status flag to a Page and save
+	 * 
+	 * This action does not update the Page modified date. 
+	 * It updates the status for both the given instantiated Page object and the value in the DB. 
+	 * 
+	 * @param Page $page 
+	 * @param int $status Use Page::status* constants
+	 * @return bool
+	 * @since 3.0.147
+	 * @see PagesEditor::setStatus(), PagesEditor::removeStatus()
+	 * 
+	 */
+	public function addStatus(Page $page, $status) {
+		if(!$page->hasStatus($status)) $page->addStatus($status);
+		return $this->savePageStatus($page, $status) > 0;
+	}
+
+	/**
+	 * Silently remove status flag from a Page and save
+	 * 
+	 * This action does not update the Page modified date.
+	 * It updates the status for both the given instantiated Page object and the value in the DB. 
+	 * 
+	 * @param Page $page
+	 * @param int $status Use Page::status* constants
+	 * @return bool
+	 * @since 3.0.147
+	 * @see PagesEditor::setStatus(), PagesEditor::addStatus(), PagesEditor::saveStatus()
+	 * 
+	 */
+	public function removeStatus(Page $page, $status) {
+		if($page->hasStatus($status)) $page->removeStatus($status);
+		return $this->savePageStatus($page, $status, false, true) > 0; 
+	}
+
+	/**
+	 * Silently save whatever the given Page’s status currently is
+	 * 
+	 * This action does not update the Page modified date.
+	 * 
+	 * @param Page $page
+	 * @return bool
+	 * @since 3.0.147
+	 * 
+	 */
+	public function saveStatus(Page $page) {
+		return $this->savePageStatus($page, $page->status) > 0;
+	}
+
+	/**
+	 * Add or remove a Page status and commit to DB, optionally recursive with the children, grandchildren, and so on.
 	 *
 	 * While this can be performed with other methods, this is here just to make it fast for internal/non-api use.
 	 * See the trash and restore methods for an example.
+	 * 
+	 * This action does not update the Page modified date. If given a Page or PageArray, also note that it does not update
+	 * the status properties of those instantiated Page objects, it only updates the DB value. 
+	 * 
+	 * #pw-internal Please use addStatus() or removeStatus() instead, unless you need to perform a recursive add/remove status.
 	 *
 	 * @param int|array|Page|PageArray $pageID Page ID, Page, array of page IDs, or PageArray
-	 * @param int $status Status per flags in Page::status* constants. Status will be OR'd with existing status, unless $remove option is set.
-	 * @param bool $recursive Should the status descend into the page's children, and grandchildren, etc?
-	 * @param bool $remove Should the status be removed rather than added?
+	 * @param int $status Status per flags in Page::status* constants. Status will be OR'd with existing status, unless $remove is used. 
+	 * @param bool $recursive Should the status descend into the page's children, and grandchildren, etc? (default=false)
+	 * @param bool|int $remove Should the status be removed rather than added? Use integer 2 to overwrite (default=false)
 	 * @return int Number of pages updated
 	 *
 	 */
 	public function savePageStatus($pageID, $status, $recursive = false, $remove = false) {
 
-		$status = (int) $status;
-		$sql = $remove ? "status & ~$status" : "status|$status";
+		/** @var WireDatabasePDO $database */
 		$database = $this->wire('database');
 		$rowCount = 0;
 		$multi = is_array($pageID) || $pageID instanceof PageArray;
+		$status = (int) $status;
+		
+		if($status < 0 || $status > Page::statusMax) {
+			throw new WireException("status must be between 0 and " . Page::statusMax);
+		}
+
+		$sql = "UPDATE pages SET status=";
+	
+		if($remove === 2) {
+			// overwrite status (internal/undocumented)
+			$sql .= "status=$status";
+		} else if($remove) {
+			// remove status
+			$sql .= "status & ~$status";
+		} else {
+			// add status
+			$sql .= "status|$status";
+		}
 		
 		if($multi && $recursive) {
 			// multiple page IDs combined with recursive option, must be handled individually
@@ -952,14 +1024,14 @@ class PagesEditor extends Wire {
 				if($id > 0) $ids[$id] = $id;
 			}
 			if(!count($ids)) $ids[] = 0;
-			$query = $database->prepare("UPDATE pages SET status=$sql WHERE id IN(" . implode(',', $ids) . ")");
+			$query = $database->prepare("$sql WHERE id IN(" . implode(',', $ids) . ")");
 			$database->execute($query);
 			return $query->rowCount();
 			
 		} else {
 			// single page ID or Page object
 			$pageID = (int) "$pageID";
-			$query = $database->prepare("UPDATE pages SET status=$sql WHERE id=:page_id");
+			$query = $database->prepare("$sql WHERE id=:page_id");
 			$query->bindValue(":page_id", $pageID, \PDO::PARAM_INT);
 			$database->execute($query);
 			$rowCount = $query->rowCount();
@@ -974,7 +1046,7 @@ class PagesEditor extends Wire {
 			$parentID = array_shift($parentIDs);
 
 			// update all children to have the same status
-			$query = $database->prepare("UPDATE pages SET status=$sql WHERE parent_id=:parent_id");
+			$query = $database->prepare("$sql WHERE parent_id=:parent_id");
 			$query->bindValue(":parent_id", $parentID, \PDO::PARAM_INT);
 			$database->execute($query);
 			$rowCount += $query->rowCount();
@@ -1228,26 +1300,47 @@ class PagesEditor extends Wire {
 	}
 
 	/**
-	 * Update page modification time to now (or the given modification time)
+	 * Update page modified/created/published time to now (or given time)
 	 * 
 	 * @param Page|PageArray|array $pages May be Page, PageArray or array of page IDs (integers)
-	 * @param null|int|string $modified Omit to update to now, or specify unix timestamp or strtotime() recognized time string
-	 * @throws WireException if given invalid format for $modified argument or failed database query
+	 * @param null|int|string $time Omit (null) to update to now, or specify unix timestamp or strtotime() recognized time string
+	 * @param string $type Date type to update, one of 'modified', 'created' or 'published' (default='modified') Added 3.0.147
+	 * @throws WireException|\PDOException if given invalid format for $modified argument or failed database query
 	 * @return bool True on success, false on fail
 	 * 
 	 */
-	public function touch($pages, $modified = null) {
+	public function touch($pages, $time = null, $type = 'modified') {
+		
+		/** @var WireDatabasePDO $database */
+		$database = $this->wire('database');
 		
 		$ids = array();
+	
+		// ensure $col property is created in this method and not copied directly from $type
+		if($type === 'modified') {
+			$col = 'modified';
+		} else if($type === 'created') {
+			$col = 'created';
+		} else if($type === 'published') {
+			$col = 'published';
+		} else {
+			throw new WireException("Unrecognized date type '$type' for Pages::touch()");
+		}
 		
 		if($pages instanceof Page) {
 			$ids[] = (int) $pages->id;
-		} else {
+			
+		} else if(WireArray::iterable($pages)) {
 			foreach($pages as $page) {
 				if(is_int($page)) {
+					// page ID integer
 					$ids[] = (int) $page;
 				} else if($page instanceof Page) {
+					// Page object
 					$ids[] = (int) $page->id;
+				} else if(ctype_digit("$page")) {
+					// Page ID string
+					$ids[] = (int) "$page";
 				} else {
 					// invalid
 				}
@@ -1256,23 +1349,26 @@ class PagesEditor extends Wire {
 		
 		if(!count($ids)) return false;
 		
-		$sql = 'UPDATE pages SET modified=';
-		if(is_null($modified)) {
+		$sql = "UPDATE pages SET $col=";
+		
+		if(is_null($time)) {
 			$sql .= 'NOW() ';
-		} else if(is_int($modified) || ctype_digit($modified)) {
-			$modified = (int) $modified;
-			$sql .= ':modified ';
-		} else if(is_string($modified)) {
-			$modified = strtotime($modified);
-			if(!$modified) throw new WireException("Unrecognized time format provided to Pages::touch()");
-			$sql .= ':modified ';
+			
+		} else if(is_int($time) || ctype_digit($time)) {
+			$time = (int) $time;
+			$sql .= ':time';
+			
+		} else if(is_string($time)) {
+			$time = strtotime($time);
+			if(!$time) throw new WireException("Unrecognized time format provided to Pages::touch()");
+			$sql .= ':time';
 		}
 		
 		$sql .= 'WHERE id IN(' . implode(',', $ids) . ')';
-		$query = $this->wire('database')->prepare($sql);
-		if(strpos($sql, ':modified')) $query->bindValue(':modified', date('Y-m-d H:i:s', $modified));
+		$query = $database->prepare($sql);
+		if(strpos($sql, ':time')) $query->bindValue(':time', date('Y-m-d H:i:s', $time));
 		
-		return $this->wire('database')->execute($query);
+		return $database->execute($query);
 	}
 
 	/**
