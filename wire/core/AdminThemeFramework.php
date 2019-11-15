@@ -651,6 +651,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 
 			$text = $notice->text;
 			$allowMarkup = $notice->flags & Notice::allowMarkup;
+			$groupByType = $options['groupByType'] && !($notice->flags & Notice::noGroup) && !($notice instanceof NoticeError); 
 			
 			if($allowMarkup) {
 				// leave $text alone
@@ -695,7 +696,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 				'{text}' => $text,
 			);
 			
-			if($options['groupByType']) {
+			if($groupByType) {
 				if(!isset($noticesArray[$noticeType])) $noticesArray[$noticeType] = array();
 				$noticesArray[$noticeType][] = $replacements;
 			} else {
