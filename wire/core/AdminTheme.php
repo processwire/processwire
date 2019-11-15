@@ -130,8 +130,10 @@ abstract class AdminTheme extends WireData implements Module {
 		$config = $this->wire('config');
 		/** @var Session $session */
 		$session = $this->wire('session');
+		/** @var User $user */
+		$user = $this->wire('user');
 		/** @var string $adminTheme */
-		$adminTheme = $this->wire('user')->admin_theme; 
+		$adminTheme = $user->admin_theme; 
 
 		if($adminTheme) {
 			// there is user specified admin theme
@@ -146,14 +148,14 @@ abstract class AdminTheme extends WireData implements Module {
 		// adjust $config adminThumbOptions[scale] for auto detect when requested
 		$o = $config->adminThumbOptions; 
 		if($o && isset($o['scale']) && $o['scale'] === 1) {
-			$o['scale'] = $session->hidpi ? 0.5 : 1.0; 
+			$o['scale'] = $session->get('hidpi') ? 0.5 : 1.0; 
 			$config->adminThumbOptions = $o;
 		}
 
 		$config->js('modals', $config->modals); 
-		
-		if($session->hidpi) $this->addBodyClass('hidpi-device');
-		if($session->touch) $this->addBodyClass('touch-device'); 
+
+		if($session->get('hidpi')) $this->addBodyClass('hidpi-device');
+		if($session->get('touch')) $this->addBodyClass('touch-device'); 
 		
 		$this->addBodyClass($this->className());
 	}

@@ -291,7 +291,7 @@ class User extends Page {
 	 * 
 	 * #pw-hooker
 	 *
-	 * @param string $name Permission name
+	 * @param string|Permission $name Permission name
 	 * @param Template|int|string $template Template object, name or ID
 	 * @return bool
 	 * @throws WireException

@@ -150,6 +150,11 @@ class WireMail extends WireData implements WireMailInterface {
 	protected function sanitizeEmail($email) {
 		if(!strlen($email)) return '';
 		$email = strtolower(trim($email)); 
+		if(strpos($email, ':') && preg_match('/^(.+):\d+$/', $email, $matches)) {
+			// sending email in particular might sometimes be auto-generated from hostname
+			// so remove trailing port, i.e. ':8888', if present since it will not validate
+			$email = $matches[1]; 
+		}
 		$clean = $this->wire('sanitizer')->email($email); 
 		if($email !== $clean) {
 			throw new WireException("Invalid email address: " . $this->wire('sanitizer')->entities($email));
