@@ -73,6 +73,14 @@ abstract class Notice extends WireData {
 	 * 
 	 */
 	const anonymous = 65536;
+
+	/**
+	 * Indicate notice should not group/collapse with others of the same type (when supported by admin theme)
+	 * 
+	 * @since 3.0.147
+	 * 
+	 */
+	const noGroup = 131072;
 	
 	/**
 	 * Create the Notice
