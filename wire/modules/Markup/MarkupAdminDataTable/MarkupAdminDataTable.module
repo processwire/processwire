@@ -5,12 +5,12 @@
  * 
  * @method string render()
  * 
- * @property array $headerRow
- * @property array $footerRow
- * @property array $rows
- * @property array $rowClasses
- * @property array $rowAttrs
- * @property array $actions
+ * @property-read array $headerRow
+ * @property-read array $footerRow
+ * @property-read array $rows
+ * @property-read array $rowClasses
+ * @property-read array $rowAttrs
+ * @property-read array $actions
  * @property bool $encodeEntities
  * @property bool $sortable
  * @property bool $resizable
@@ -108,6 +108,19 @@ class MarkupAdminDataTable extends ModuleJS {
 		$this->set('id', '');
 		
 		parent::init();
+	}
+
+	/**
+	 * Get property
+	 * 
+	 * @param string $key
+	 * @return mixed|null
+	 * 
+	 */
+	public function get($key) {
+		if($key === 'rows' || $key === 'headerRow' || $key === 'footerRow') return $this->$key;
+		if($key === 'rowClasses' || $key === 'rowAttrs' || $key === 'actions') return $this->$key;
+		return parent::get($key);
 	}
 
 	/**
