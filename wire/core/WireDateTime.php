@@ -598,10 +598,9 @@ class WireDateTime extends Wire {
 			$minutes = 0;
 		}
 
-		if($seconds > 0 && !in_array('seconds', $options['exclude'])) {
+		if(($seconds > 0 || empty($times)) && !in_array('seconds', $options['exclude'])) {
 			$key = $seconds === 1 ? 'second' : 'seconds';
 			$times[$key] = $seconds;
-			
 		} else {
 			$seconds = 0;
 		}
