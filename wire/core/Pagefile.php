@@ -24,7 +24,6 @@
  * @property-read string $hash Get a unique hash (for the page) representing this Pagefile.
  * @property-read array $tagsArray Get file tags as an array. #pw-group-tags @since 3.0.17
  * @property-read array $fieldValues Custom field values. #pw-internal @since 3.0.142
- * @property int $sort Sort order in database. #pw-group-other
  * @property string $basename Returns the filename without the path.
  * @property string $description Value of the file’s description field (string), if enabled. Note you can also set this property directly.
  * @property string $tags Value of the file’s tags field (string), if enabled. #pw-group-tags
