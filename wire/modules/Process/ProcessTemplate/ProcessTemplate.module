@@ -163,14 +163,16 @@ class ProcessTemplate extends Process {
 
 		$out = $this->getListFilterForm()->render() . "\n<div id='ProcessTemplateList'>\n";
 		$templatesByTag = array();
-		$untaggedLabel = $this->_('Untagged');
-		$hasFilters = $this->session->get('ProcessTemplateFilterField');
+		$untaggedLabel = $this->_('Untagged'); // Tag applied to untagged fields
+		$systemLabel = $this->_x('System', 'tag'); // Tag applied to the group of built-in/system fields
+		$hasFilters = $this->session->getFor($this, 'filterField');
+		$showSystem = $this->session->getFor($this, 'filterSystem');
 		$collapsedTags = array();
 		$caseTags = array(); // indexed by lowercase version of tag
 
 		if(!$hasFilters) foreach($this->templates as $template) {
-			if($this->session->get('ProcessTemplateFilterSystem')) {
-				if($template->flags & Template::flagSystem) $template->tags .= " " . $this->_x('System', 'tag'); // Tag applied to the group of built-in/system fields
+			if($showSystem && ($template->flags & Template::flagSystem)) {
+				$template->tags .= " $systemLabel";
 			}
 			if(empty($template->tags)) {
 				$tag = strtolower($untaggedLabel);
@@ -201,12 +203,14 @@ class ProcessTemplate extends Process {
 			ksort($templatesByTag);
 			foreach($templatesByTag as $tag => $templates) {
 				ksort($templates);
+				$table = $this->getListTable($templates);
+				if(!count($table->rows)) continue;
 				/** @var InputfieldMarkup $f */
 				$f = $this->modules->get('InputfieldMarkup');
 				$f->entityEncodeLabel = false;
 				$f->label = $caseTags[$tag];
 				$f->icon = 'tags';
-				$f->value = $this->getListTable($templates)->render();
+				$f->value = $table->render();
 				if(in_array($tag, $collapsedTags)) $f->collapsed = Inputfield::collapsedYes; 
 				$form->add($f);
 			}
@@ -243,8 +247,8 @@ class ProcessTemplate extends Process {
 		$out .= $button->render();
 
 		if($this->input->get('nosave')) {
-			$this->session->remove('ProcessTemplateFilterSystem');
-			$this->session->remove('ProcessTemplateFilterField');
+			$this->session->removeFor($this, 'filterSystem');
+			$this->session->removeFor($this, 'filterField');
 		}
 
 		return $out;
@@ -285,9 +289,9 @@ class ProcessTemplate extends Process {
 		}	
 		if($input->get('filter_field') !== null) {
 			$filterField = $this->sanitizer->name($input->get('filter_field')); 
-			$this->session->set('ProcessTemplateFilterField', $filterField);
+			$this->session->setFor($this, 'filterField', $filterField);
 		} else {
-			$filterField = $this->session->get('ProcessTemplateFilterField');
+			$filterField = $this->session->getFor($this, 'filterField');
 		}
 		$field->attr('value', $filterField); 
 		$field->collapsed = $filterField ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
@@ -310,16 +314,20 @@ class ProcessTemplate extends Process {
 			$field->icon = 'gear';
 			if($input->get('system') !== null) {
 				$filterSystem  = (int) $input->get('system'); 
-				$this->session->set('ProcessTemplateFilterSystem', $filterSystem);
+				$this->session->setFor($this, 'filterSystem', $filterSystem);
 			} else {
-				$filterSystem = (int) $this->session->get('ProcessTemplateFilterSystem');
+				$filterSystem = (int) $this->session->getFor($this, 'filterSystem');
 			}
 			$field->attr('value', $filterSystem); 
 			$field->collapsed = $filterSystem ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
 			$fieldset->add($field); 
-		} else $filterSystem = 0;
+		} else {
+			$filterSystem = 0;
+		}
 
-		if($filterSystem || $filterField) $fieldset->collapsed = Inputfield::collapsedNo;
+		if($filterSystem || $filterField) {
+			$fieldset->collapsed = Inputfield::collapsedNo;
+		}
 
 		return $form;
 	}
@@ -408,8 +416,8 @@ class ProcessTemplate extends Process {
 				)
 			);
 
-		$filterField = $this->session->get('ProcessTemplateFilterField');
-		$filterSystem = $this->session->get('ProcessTemplateFilterSystem');
+		$filterField = $this->session->getFor($this, 'filterField');
+		$filterSystem = $this->session->getFor($this, 'filterSystem');
 
 		if($template->flags & Template::flagSystem) {
 			if(!$filterSystem && !$filterField) return array();
