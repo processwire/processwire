@@ -43,9 +43,6 @@ var InputfieldPageName = {
 		// convert whitespace to dash
 		name = name.replace(/\s+/g, '-') 
 	
-		// convert multiple dashes or dots to single
-		name = name.replace(/--+/g, '-'); 
-	
 		// convert multiple dots to single
 		name = name.replace(/\.\.+/g, '.'); 
 	
@@ -53,7 +50,10 @@ var InputfieldPageName = {
 		name = name.replace(/(\.-|-\.)/g, '-'); 
 	
 		// remove leading or trailing dashes, underscores and dots
-		name = name.replace(/(^[-_.]+|[-_.]+$)/g, ''); 
+		name = name.replace(/(^[-_.]+|[-_.]+$)/g, '');
+		
+		// convert multiple dashes or dots to single
+		name = name.replace(/--+/g, '-');
 
 		// make sure it's not too long
 		// if(name.length > 128) name = name.substring(0, 128); 
