@@ -87,7 +87,9 @@ var ProcessWireAdmin = {
 			}
 		}).on('click', '.ui-button', function() {
 			$(this).removeClass("ui-state-default").addClass("ui-state-active"); // .effect('highlight', {}, 100); 
-		}).on('click', 'a > button', function() {
+		});
+		/*
+		.on('click', 'a > button', function() {
 			var $a = $(this).parent();
 			var target = $a.attr('target');
 			if(typeof target != "undefined" && target == '_blank') {
@@ -97,6 +99,7 @@ var ProcessWireAdmin = {
 				window.location = $a.attr('href');
 			}
 		});
+		*/
 	},
 
 	/**
