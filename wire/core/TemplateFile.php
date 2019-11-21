@@ -235,7 +235,7 @@ class TemplateFile extends WireData {
 	}
 	
 	/**
-	 * Render the template -- execute it and return it's output
+	 * Render the template -- execute it and return its output
 	 *
 	 * @return string The output of the Template File
 	 * @throws WireException if template file doesn't exist

@@ -25,6 +25,7 @@ class NotificationArray extends WireArray {
 	 */
 	public function __construct(Page $page) {
 		$this->page = $page; 
+		parent::__construct();
 	}
 
 	/**
@@ -42,7 +43,7 @@ class NotificationArray extends WireArray {
 	 * Add a Notification instance to this NotificationArray
 	 * 
 	 * @param Notification $item
-	 * @return $this
+	 * @return self|NotificationArray|WireArray
 	 * 
 	 */
 	public function add($item) {

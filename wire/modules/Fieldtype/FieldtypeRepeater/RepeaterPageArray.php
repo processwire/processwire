@@ -31,6 +31,7 @@ class RepeaterPageArray extends PageArray {
 	public function __construct(Page $parent, Field $field) {
 		$this->setParent($parent);
 		$this->setField($field); 
+		parent::__construct();
 	}
 
 	public function setParent(Page $parent) { $this->parent = $parent; }
@@ -60,7 +61,8 @@ class RepeaterPageArray extends PageArray {
 	 *
 	 */
 	public function getNewItem() {
-
+		/** @var FieldtypeRepeater $fieldtype */
+		$fieldtype = $this->field->type;
 		$page = null;
 		$of = $this->parent->of(false); 
 
@@ -74,7 +76,7 @@ class RepeaterPageArray extends PageArray {
 
 		if(is_null($page)) { 
 			// no ready item available, get a new one
-			$page = $this->field->type->getBlankRepeaterPage($this->parent, $this->field); 
+			$page = $fieldtype->getBlankRepeaterPage($this->parent, $this->field); 
 			$this->add($page);
 		} else {
 			$this->trackChange('add');

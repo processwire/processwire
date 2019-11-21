@@ -124,11 +124,13 @@ class SystemNotifications extends WireData implements Module {
 	protected function testProgressNotification() {
 		
 		$session = $this->wire('session');
+		/** @var NotificationArray $notifications */
 		$notifications = $this->wire('user')->notifications();
 
 		if($this->wire('input')->get('test_progress')) {
 			// start new progress bar notification
-			
+		
+			/** @var Notification $notification */	
 			$notification = $this->wire('user')->notifications()->message('Testing progress bar notification');
 			$notification->progress = 0; 
 			$notification->flag('annoy');
@@ -431,6 +433,7 @@ class SystemNotifications extends WireData implements Module {
 				if($type == 'message') $title = sprintf($this->_n('%d new message', '%d new messages', $qty), $qty);
 					else if($type == 'warning') $title = sprintf($this->_n('%d new warning', '%d new warnings', $qty), $qty);
 					else if($type == 'error') $title = sprintf($this->_n('%d new error', '%d new errors', $qty), $qty); 
+					else $title = '';
 				$icon = $this->get("icon" . ucfirst($type)); 
 				$out .= 'Notifications._ghost({"id":"","title":"' . $title . '","icon":"' . $icon . '","flagNames":"' . $type . ' notice"});';
 			}
@@ -475,7 +478,8 @@ class SystemNotifications extends WireData implements Module {
 		if($notice instanceof NoticeWarning || ($notice->flags & Notice::warning)) $type = 'warning';
 			else if($notice instanceof NoticeError) $type = 'error';
 			else $type = 'message';
-
+		
+		/** @var NotificationArray $notifications */	
 		$notifications = $this->wire('user')->notifications();
 		if(!$notifications) return false;
 		
@@ -520,12 +524,16 @@ class SystemNotifications extends WireData implements Module {
 
 	/**
 	 * Adds automatic notification for every 404
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hook404(HookEvent $event) {
 
+		/** @var Page $page */
 		$page = $event->arguments(0);	
 		$url = $event->arguments(1); 
+		/** @var User $user */
 		$user = $this->getSystemUser();
 		if(!$user->id) return;
 		
@@ -541,7 +549,8 @@ class SystemNotifications extends WireData implements Module {
 		}
 		if(empty($referer)) $referer = "unknown";
 		if(empty($useragent)) $useragent = "unknown";
-		
+	
+		/** @var NotificationArray $notifications */
 		$notifications = $user->notifications();
 		$notification = $notifications->warning(sprintf($this->_('404 occurred: %s'), $url)); 
 		$notification->expires = 30; 
@@ -559,6 +568,8 @@ class SystemNotifications extends WireData implements Module {
 
 	/**
 	 * Creates a notifications() method with the user
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookUserNotifications(HookEvent $event) {
@@ -573,11 +584,14 @@ class SystemNotifications extends WireData implements Module {
 
 	/**
 	 * Automatic notification for logins
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookLogin(HookEvent $event) {
 		$user = $this->getSystemUser();
 		if(!$user->id) return;
+		/** @var NotificationArray $notifications */
 		$notifications = $user->notifications();
 
 		$loginUser = $event->return;
@@ -611,6 +625,7 @@ class SystemNotifications extends WireData implements Module {
 		$user = $this->getSystemUser();
 		if(!$user->id) return;
 		$logoutUser = $event->arguments(0);
+		/** @var NotificationArray $notifications */
 		$notifications = $user->notifications(); 
 		$notifications->message(sprintf($this->_('User logged out: %s'), $logoutUser->name));
 		$notifications->save();
@@ -619,7 +634,7 @@ class SystemNotifications extends WireData implements Module {
 	/**
 	 * Return the user that receives system notifications
 	 * 
-	 * @return null
+	 * @return User
 	 * 
 	 */
 	public function getSystemUser() {
@@ -708,6 +723,7 @@ class SystemNotifications extends WireData implements Module {
 		$times = $this->wire('cache')->get($processKey);
 		if($times) {
 			list($created, $modified) = explode(':', $times); 
+			if($modified) {} // unused
 			$value = $created . ":" . time();
 		} else {
 			$value = time() . ":" . time();
@@ -761,6 +777,7 @@ class SystemNotifications extends WireData implements Module {
 	protected function checkProcessKey($processKey) {
 		
 		list($prefix, $className, $pageID, $userID, $windowName) = explode('.', $processKey);
+		if($userID) {} // unused
 		
 		// locate all currently active processKeys editing $page
 		$processKeys = $this->wire('cache')->get("$prefix.$className.$pageID.*");
@@ -774,6 +791,7 @@ class SystemNotifications extends WireData implements Module {
 			
 			list($created, $modified) = explode(":", $times); 	
 			list($_prefix, $_className, $_pageID, $_userID, $_windowName) = explode('.', $_processKey);
+			if($modified || $_prefix || $_className || $_pageID) {} // unused
 			$recordNotify = false;
 			
 			if($_userID == $this->wire('user')->id) {

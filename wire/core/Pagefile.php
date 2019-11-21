@@ -1214,6 +1214,18 @@ class Pagefile extends WireData {
 	}
 
 	/**
+	 * Ensures that isset() and empty() work for dynamic class properties
+	 *
+	 * @param string $key
+	 * @return bool
+	 *
+	 */
+	public function __isset($key) {
+		if(parent::__isset($key)) return true;
+		return $this->get($key) !== null;
+	}
+
+	/**
 	 * Debug info
 	 * 
 	 * @return array

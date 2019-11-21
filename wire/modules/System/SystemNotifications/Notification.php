@@ -13,6 +13,7 @@
  * @property int $created  datetime created (unix timestamp)
  * @property int $modified  datetime created (unix timestamp)
  * @property int $qty  quantity of times this notification has been repeated
+ * @property array $flagNames Notification flag names
  * 
  * data encoded vars, all optional
  * ===============================
@@ -114,7 +115,7 @@ class Notification extends WireData {
 		
 	}
 
-	/**
+	/*
 	 * Fluent interface methods
 	 * 
 	 */
@@ -189,7 +190,7 @@ class Notification extends WireData {
 	 *
 	 * @param string|int $name Flag to set
 	 * @param bool $add True to add flag, false to remove
-	 * @return this
+	 * @return self
 	 *
 	 */
 	public function setFlag($name, $add = true) {
@@ -222,8 +223,8 @@ class Notification extends WireData {
 	/**
 	 * Add the given flag name(s) (shortcut for setFlag)
 	 * 
-	 * @param $name One or more space-separated flag names
-	 * @return this
+	 * @param string $name One or more space-separated flag names
+	 * @return self
 	 * 
 	 */
 	public function addFlag($name) {
@@ -233,8 +234,8 @@ class Notification extends WireData {
 	/**
 	 * Remove the given flag name(s) (shortcut for setFlag)
 	 * 
-	 * @param $name One or more space-separated flag names
-	 * @return this
+	 * @param string $name One or more space-separated flag names
+	 * @return self
 	 * 
 	 */
 	public function removeFlag($name) {
@@ -246,7 +247,7 @@ class Notification extends WireData {
 	 * 
 	 * @param string $names space separated string of flag names
 	 * @param bool $add True to add, false to remove
-	 * @return $this
+	 * @return self
 	 * 
 	 */
 	public function setFlags($names, $add = true) {
@@ -284,7 +285,7 @@ class Notification extends WireData {
 	 * 
 	 * @param string $key
 	 * @param mixed $value
-	 * @return this
+	 * @return self|Notification|WireData
 	 *
 	 */
 	public function set($key, $value) {

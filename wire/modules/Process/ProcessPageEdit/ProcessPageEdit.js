@@ -22,10 +22,13 @@ function initPageEditForm() {
 		$("#ProcessPageEdit").submit();
 	}); 
 
+	/*
 	$(document).on('click', '#AddPageBtn', function() {
 		// prevent Firefox from sending two requests for same click
 		return false;
-	}).on('click', 'button[type=submit]', function(e) {
+	}); 
+	*/
+	$(document).on('click', 'button[type=submit]', function(e) {
 		// alert user when they try to save and an upload is in progress
 		if($('body').hasClass('pw-uploading')) {
 			return confirm($('#ProcessPageEdit').attr('data-uploading')); 

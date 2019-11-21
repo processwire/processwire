@@ -722,7 +722,7 @@ function InputfieldRepeater($) {
 				var $deleteControl = $delete.clone(true);
 				var $collapseControl = $t.find('.toggle-icon');
 				$controls.prepend($collapseControl);
-				if(allowSettings) {
+				if($t.closest('.InputfieldRepeater').hasClass('InputfieldRepeaterHasSettings')) { // intentionally not using allowSettings var
 					var $settingsToggle = $("<i class='fa fa-gear InputfieldRepeaterSettingsToggle ui-priority-secondary'></i>")
 						.attr('title', cfg.labels.settings); 
 					$controls.prepend($settingsToggle);
