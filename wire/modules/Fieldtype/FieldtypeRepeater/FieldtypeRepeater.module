@@ -700,6 +700,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	public function getBlankRepeaterPage(Page $page, Field $field) {
+		if($this->deletePageField === $field->get('parent_id')) $this->deletePageField = 0;
 		$parent = $this->getRepeaterPageParent($page, $field); 
 		$class = $this->getPageClass();
 		$readyPage = $this->wire(new $class());
