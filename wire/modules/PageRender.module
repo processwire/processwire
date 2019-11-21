@@ -350,28 +350,50 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
-	 * Return a string with the rendered output of this Page (per it's Template)
+	 * Return a string with the rendered output of this Page from its template file
 	 *
-	 * If the page's template has caching enabled, then this method will return a cached page render, when valid, 
-	 * or save a new cache. Caches are only saved on guest users. 
-	 *
-	 * #param array|string options Array of options, or filename (string) to render. Options [all optional] may be: 
-	 * 	forceBuildCache: If true, the cache will be re-created for this page, regardless of whether it's expired or not. (default=false)
-	 *	allowCache: Allow cache to be used when template settings ask for it. (default=true)
-	 *	filename: Filename to render, optionally relative to /site/templates/. Absolute paths must resolve somewhere in PW's install. (default=blank)
-	 *	prependFile: Filename to prepend to output, must be in /site/templates/. (default=$config->prependTemplateFile)
-	 * 	prependFiles: Array of additional filenames to prepend to output, must be relative to /site/templates/ (default=array($page->template->prependFile))
-	 *	appendFile: Filename to append to output, must be in /site/templates/. (default=$config->appendTemplateFile)
-	 * 	appendFiles: Array of additional filenames to append to output, must be relative to /site/templates/ (default=array($page->template->appendFile))
-	 *	pageStack: An array of pages, when recursively rendering. Used internally. You can examine it but not change it. 
+	 * This method provides the implementation for `$page->render()` and you sould only call this method as `render()` from Page objects. 
+	 * You may optionally specify 1-2 arguments to the method. The first argument may be an array of options OR filename (string) to render. 
+	 * If specifying a filename in the first argument, you can optionally specify the $options array as the 2nd argument. 
+	 * If using the options argument, you may specify your own variables to pass along to your template file, and those values will be
+	 * available in a variable named `$options` within the scope of the template file (see examples below).
+	 * 
+	 * In addition, the following options are present and recognized by the core:
+	 * 
+	 * 	- `forceBuildCache` (bool): If true, the cache will be re-created for this page, regardless of whether it’s expired or not. (default=false)
+	 *	- `allowCache` (bool): Allow cache to be used when template settings ask for it. (default=true)
+	 *	- `filename` (string): Filename to render, optionally relative to /site/templates/. Absolute paths must resolve somewhere in PW’s install. (default=blank)
+	 *	- `prependFile` (string): Filename to prepend to output, must be in /site/templates/.
+	 * 	- `prependFiles` (array): Array of additional filenames to prepend to output, must be relative to /site/templates/.
+	 *	- `appendFile` (string): Filename to append to output, must be in /site/templates/.
+	 * 	- `appendFiles` (array): Array of additional filenames to append to output, must be relative to /site/templates/.
+	 *	- `pageStack` (array): An array of pages, when recursively rendering. Used internally. You can examine it but not change it. 
+	 * 
+	 * Note that the prepend and append options above have default values that come values configured in `$config` or the Template object. 
 	 *	
-	 * #param array $options 
-	 *	If you specified a filename for the first option, you may use the options array mentioned above as 2nd argument.
-	 * 	This $options array will also be passed to the template as variable $options. Given that, you may add additional
-	 *	variables of your own names to $options as needed for communication with the template, if it suits your need. 
+	 * ~~~~~
+	 * // regular page render call
+	 * $output = $page->render();
 	 *
+	 * // render using given file (in /site/templates/) 
+	 * $output = $page->render('basic-page.php'); 
+	 * 
+	 * // render while passing in custom variables
+	 * $output = $page->render([
+	 *   'firstName' => 'Ryan',
+	 *   'lastName' => 'Cramer' 
+	 * ]); 
+	 * 
+	 * // in your template file, you can access the passed-in variables like this:
+	 * echo "<p>Full name: $options[firstName] $options[lastName]</p>";
+	 * ~~~~~
+	 *
+	 * Note: If the page’s template has caching enabled, then this method will return a cached page render (when available)
+	 * or save a new cache. Caches are only saved on guest users.
+	 * 
+	 * 
 	 * @param HookEvent $event
-	 * @throws WirePermissionException|WireException
+	 * @throws WirePermissionException|Wire404Exception|WireException
 	 *
 	 */
 	public function ___renderPage($event) {
