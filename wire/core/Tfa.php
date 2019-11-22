@@ -35,6 +35,15 @@
  * @property int $codeLength Required length for authentication code (default=6)
  * @property int $codeExpire Codes expire after this many seconds (default=180)
  * @property int $codeType Type of TFA code to use, see codeType constants (default=0, which is Tfa::codeTypeDigits)
+ * @property string $startUrl URL we are operating from (default='./')
+ * @property array $formAttrs Form <form> element attributes
+ * @property array $inputAttrs Code <input> element attributes
+ * @property string $inputLabel Label for code <input> element
+ * @property array $submitAttrs Submit button attributes
+ * @property string $submitLabel Label for submit button
+ * @property bool $showCancel Show a cancel link under authentication code form? (default=true)
+ * @property string $cancelLabel Label to use for Cancel link (default='Cancel', translatable)
+ * 
  * 
  * @method bool start($name, $pass)
  * @method InputfieldForm buildAuthCodeForm()
@@ -80,7 +89,42 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		if(!$this->wire('fields')->get($this->userFieldName)) $this->install();
 		if($this->className() != 'Tfa') $this->initHooks();
 		$this->set('codeExpire', 180);
+		$this->set('startUrl', './');
+		$this->set('formAttrs', array('id' => 'ProcessLoginForm'));
+		$this->set('inputAttrs', array('id' => 'login_name', 'autofocus' => 'autofocus'));
+		$this->set('inputLabel', $this->_('Authentication Code'));
+		$this->set('submitAttrs', array('id' => 'Inputfield_login_submit'));
+		$this->set('submitLabel', '');
+		$this->set('showCancel', true);
+		$this->set('cancelLabel', $this->_('Cancel'));
 		parent::__construct();
+	}
+
+	/**
+	 * Get the start URL and optionally append query string
+	 * 
+	 * @param string $queryString
+	 * @return string
+	 * 
+	 */
+	protected function url($queryString = '') {
+		$url = $this->startUrl;
+		if(empty($queryString)) return $url;
+		$queryString = ltrim($queryString, '?&');
+		$url .= (strpos($url, '?') === false ? '?' : '&');
+		$url .= $queryString;
+		return $url;
+	}
+
+	/**
+	 * Redirect to URL
+	 * 
+	 * @param string $url
+	 * 
+	 */
+	protected function redirect($url) {
+		if(strpos($url, '/') === false) $url = $this->url($url);
+		$this->session->redirect($url, false);
 	}
 
 	/**
@@ -130,10 +174,10 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		// at this point user has successfully authenticated with given name and pass
 		if($tfaModule->startUser($user, $settings)) {
 			$key = $this->getSessionKey(true);
-			$session->redirect("./?$this->keyName=$key"); 
+			$this->redirect("$this->keyName=$key"); 
 		} else {
 			$this->error($this->_('Error creating or sending authentication code'));
-			$session->redirect('./');
+			$this->redirect($this->startUrl);
 		}
 		
 		return false; // note: statement cannot be reached due to redirects above
@@ -191,8 +235,8 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function isValidUserCode(User $user, $code, array $settings) {
-		if($user && $code && $settings) {} // ignore
-		throw new WireException('Modules should not call this method');
+		if($user && $code && $settings) throw new WireException('Modules should not call this method');
+		return false;
 	}
 
 	/**
@@ -278,8 +322,8 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	protected function getSessionKey($reset = false) {
 		$key = $this->sessionGet('key');
 		if(empty($key) || $reset) {
-			$pass = new Password();
-			$key = $pass->randomAlnum(20);
+			$rand = new WireRandom();
+			$key = $rand->alphanumeric(20);
 			$this->sessionSet('key', $key);
 		}
 		return $key;
@@ -304,28 +348,44 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		
 		/** @var InputfieldForm $form */
 		$form = $modules->get('InputfieldForm');
+		foreach($this->formAttrs as $name => $value) {
+			$form->attr($name, $value);
+		}
 		
-		$form->attr('action', "./?$this->keyName=" . $this->getSessionKey(true));
-		$form->attr('id', 'ProcessLoginForm');
+		$form->attr('action', $this->url($this->keyName . '=' . $this->getSessionKey(true)));
 
 		/** @var InputfieldText $f */
 		$f = $modules->get('InputfieldText');
+		foreach($this->inputAttrs as $name => $value) {
+			$f->attr($name, $value);
+		}
 		$f->attr('name', 'tfa_code');
-		$f->attr('id', 'login_name');
-		$f->label = $this->_('Authentication Code');
+		$f->label = $this->inputLabel; // Authentication code
 		$f->attr('required', 'required');
 		$f->collapsed = Inputfield::collapsedNever;
 		$form->add($f);
 
 		/** @var InputfieldSubmit $f */
 		$f = $modules->get('InputfieldSubmit');
+		foreach($this->submitAttrs as $name => $value) {
+			$f->attr($name, $value);
+		}
 		$f->attr('name', 'tfa_submit');
-		$f->attr('id', 'Inputfield_login_submit');
+		if($this->submitLabel) $f->val($this->submitLabel);
 		$form->add($f);
 
-		$form->appendMarkup = 
-			"<p><a href='./'>" . $this->_('Cancel') . "</a></p>" . 
+		if($this->showCancel) {
+			$cancelUrl = $this->url();
+			$cancelLabel = $this->sanitizer->entities1($this->cancelLabel);
+			$form->appendMarkup .= "<p><a href='$cancelUrl'>$cancelLabel</a></p>";
+		}
+	
+		/*
+		 * replaced with input autofocus attribute
+		$form->appendMarkup .= 
 			"<script>if(typeof jQuery!='undefined') jQuery(document).ready(function(){jQuery('#login_name').focus();});</script>";
+		*/
+		
 		$this->authCodeForm = $form;
 
 		return $form;
@@ -423,7 +483,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 				return $user;
 			} else {
 				// not likely for login to fail here, since they were already authenticated before
-				$session->redirect('./');
+				$this->redirect($this->startUrl);
 			}
 		} else {
 			// failed validation
@@ -433,7 +493,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 				$this->error($this->_('Invalid code'));
 			}
 			// will ask them to try again
-			$session->redirect("./?$this->keyName=" . $this->getSessionKey());
+			$this->redirect("$this->keyName=" . $this->getSessionKey());
 		}
 
 		return false;
@@ -532,7 +592,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 */
 	protected function sessionReset($redirectURL = '') {
 		$this->wire('session')->removeAllFor($this->keyName);
-		if($redirectURL) $this->wire('session')->redirect($redirectURL);
+		if($redirectURL) $this->redirect($redirectURL);
 		return false;
 	}
 	
@@ -823,6 +883,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$tfaTitle = $modules->getModuleInfoProperty($this, 'title');
 		$settings = $this->getUserSettings($user);
 		$enabled = $this->enabledForUser($user, $settings);
+		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->label = $tfaTitle;
 		$fieldset->showIf = "$this->userFieldName=" . $this->className();
