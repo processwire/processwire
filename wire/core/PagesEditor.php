@@ -924,7 +924,7 @@ class PagesEditor extends Wire {
 	 * @param Page $page 
 	 * @param int $status Use Page::status* constants
 	 * @return bool
-	 * @since 3.0.147
+	 * @since 3.0.146
 	 * @see PagesEditor::setStatus(), PagesEditor::removeStatus()
 	 * 
 	 */
@@ -942,7 +942,7 @@ class PagesEditor extends Wire {
 	 * @param Page $page
 	 * @param int $status Use Page::status* constants
 	 * @return bool
-	 * @since 3.0.147
+	 * @since 3.0.146
 	 * @see PagesEditor::setStatus(), PagesEditor::addStatus(), PagesEditor::saveStatus()
 	 * 
 	 */
@@ -958,7 +958,7 @@ class PagesEditor extends Wire {
 	 * 
 	 * @param Page $page
 	 * @return bool
-	 * @since 3.0.147
+	 * @since 3.0.146
 	 * 
 	 */
 	public function saveStatus(Page $page) {

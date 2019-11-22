@@ -848,7 +848,7 @@ class Pages extends Wire {
 	 *
 	 * @param Page|PageArray|array $pages May be Page, PageArray or array of page IDs (integers).
 	 * @param null|int|string $time Omit (null) to update to now, or specify unix timestamp or strtotime() recognized time string
-	 * @param string $type Date type to update, one of 'modified', 'created' or 'published' (default='modified') Added 3.0.147
+	 * @param string $type Date type to update, one of 'modified', 'created' or 'published' (default='modified') Added 3.0.146
 	 * @throws WireException|\PDOException if given invalid format for $modified argument or failed database query
 	 * @return bool True on success, false on fail
 	 * @since 3.0.0

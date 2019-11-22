@@ -276,6 +276,8 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 		$limit = $options['limit'] > -1 ? $options['limit'] : $this->getLimit();
 		$total = $options['total'] > -1 ? $options['total'] : $this->getTotal();
 		
+		if($count > $total) $total = $count;
+		
 		if(empty($total) && !empty($options['zeroLabel'])) {
 			
 			$str = $options['zeroLabel'];

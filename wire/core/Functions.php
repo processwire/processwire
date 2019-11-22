@@ -1221,7 +1221,7 @@ function wireRegion($key, $value = null) {
  * 
  * @param string $message Optional message to send to Exception message argument (not used in output by default)
  * @throws Wire404Exception
- * @since 3.0.147
+ * @since 3.0.146
  * 
  */
 function wire404($message = '') {

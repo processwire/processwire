@@ -820,7 +820,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 * @param array $a Field data from DB (if needed)
 	 * @return string Return class name or blank to use default Field class
-	 * @since 3.0.147
+	 * @since 3.0.146
 	 * 
 	 */
 	public function getFieldClass(array $a = array()) {

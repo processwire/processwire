@@ -1592,7 +1592,7 @@ class Modules extends WireArray {
 	 *  - Boolean false to return array of module names (default).
 	 *  - Integer 1 to return array of module info for each matching module.
 	 *  - Integer 2 to return array of verbose module info for each matching module. 
-	 *  - Integer 3 to return array of Module or ModulePlaceholder objects (whatever current state is). Added 3.0.147.
+	 *  - Integer 3 to return array of Module or ModulePlaceholder objects (whatever current state is). Added 3.0.146.
 	 * @return array Returns array of module class names or Module objects. In either case, array indexes are class names.
 	 * 
 	 */
