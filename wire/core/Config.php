@@ -293,7 +293,7 @@ class Config extends WireData {
 			if(substr($url, -1) !== '/' && strpos($url, '?') === false && strpos($url, '#') === false) $url .= '/';
 		}
 		
-		if(!empty($path)) $this->paths->set($for, $dir);
+		if(!empty($dir)) $this->paths->set($for, $dir);
 		if(!empty($url)) $this->urls->set($for, $url);
 		
 		return $this;
