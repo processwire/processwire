@@ -7,7 +7,7 @@
  * primary concern and you are using an opcode cache. PLEASE DO NOT EDIT THIS
  * FILE, changes will be overwritten the next time the script is run.
  *
- * @version 4.11.0
+ * @version 4.12.0
  *
  * @warning
  *      You must *not* include any other HTML Purifier files before this file,
@@ -39,7 +39,7 @@
  */
 
 /*
-    HTML Purifier 4.11.0 - Standards Compliant HTML Filtering
+    HTML Purifier 4.12.0 - Standards Compliant HTML Filtering
     Copyright (C) 2006-2008 Edward Z. Yang
 
     This library is free software; you can redistribute it and/or
@@ -78,12 +78,12 @@ class HTMLPurifier
      * Version of HTML Purifier.
      * @type string
      */
-    public $version = '4.11.0';
+    public $version = '4.12.0';
 
     /**
      * Constant with version of HTML Purifier.
      */
-    const VERSION = '4.11.0';
+    const VERSION = '4.12.0';
 
     /**
      * Global configuration object.
@@ -1810,7 +1810,7 @@ class HTMLPurifier_Config
      * HTML Purifier's version
      * @type string
      */
-    public $version = '4.11.0';
+    public $version = '4.12.0';
 
     /**
      * Whether or not to automatically finalize
@@ -3984,7 +3984,7 @@ class HTMLPurifier_Encoder
 
         $len = strlen($str);
         for ($i = 0; $i < $len; $i++) {
-            $in = ord($str{$i});
+            $in = ord($str[$i]);
             $char .= $str[$i]; // append byte to char
             if (0 == $mState) {
                 // When mState is zero we expect either a US-ASCII character
@@ -6081,9 +6081,9 @@ class HTMLPurifier_HTMLModule
      * @param string $element Name of element to add
      * @param string|bool $type What content set should element be registered to?
      *              Set as false to skip this step.
-     * @param string $contents Allowed children in form of:
+     * @param string|HTMLPurifier_ChildDef $contents Allowed children in form of:
      *              "$content_model_type: $content_model"
-     * @param array $attr_includes What attribute collections to register to
+     * @param array|string $attr_includes What attribute collections to register to
      *              element?
      * @param array $attr What unique attributes does the element define?
      * @see HTMLPurifier_ElementDef:: for in-depth descriptions of these parameters.
@@ -12640,7 +12640,7 @@ class HTMLPurifier_AttrDef_HTML_Bool extends HTMLPurifier_AttrDef
 {
 
     /**
-     * @type bool
+     * @type string
      */
     protected $name;
 
@@ -12650,7 +12650,7 @@ class HTMLPurifier_AttrDef_HTML_Bool extends HTMLPurifier_AttrDef
     public $minimized = true;
 
     /**
-     * @param bool $name
+     * @param bool|string $name
      */
     public function __construct($name = false)
     {
@@ -14631,7 +14631,7 @@ class HTMLPurifier_ChildDef_Custom extends HTMLPurifier_ChildDef
     protected function _compileRegex()
     {
         $raw = str_replace(' ', '', $this->dtd_regex);
-        if ($raw{0} != '(') {
+        if ($raw[0] != '(') {
             $raw = "($raw)";
         }
         $el = '[#a-zA-Z0-9_.-]+';
@@ -18989,7 +18989,12 @@ class HTMLPurifier_Lexer_DOMLex extends HTMLPurifier_Lexer
         }
 
         set_error_handler(array($this, 'muteErrorHandler'));
-        $doc->loadHTML($html, $options);
+        // loadHTML() fails on PHP 5.3 when second parameter is given
+        if ($options) {
+            $doc->loadHTML($html, $options);
+        } else {
+            $doc->loadHTML($html);
+        }
         restore_error_handler();
 
         $body = $doc->getElementsByTagName('html')->item(0)-> // <html>
@@ -21161,7 +21166,7 @@ class HTMLPurifier_TagTransform_Font extends HTMLPurifier_TagTransform
         if (isset($attr['size'])) {
             // normalize large numbers
             if ($attr['size'] !== '') {
-                if ($attr['size']{0} == '+' || $attr['size']{0} == '-') {
+                if ($attr['size'][0] == '+' || $attr['size'][0] == '-') {
                     $size = (int)$attr['size'];
                     if ($size < -2) {
                         $attr['size'] = '-2';
