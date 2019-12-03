@@ -606,7 +606,8 @@ $config->fileContentTypes = array(
 	'jpg' => 'image/jpeg',
 	'jpeg' => 'image/jpeg',
 	'png' => 'image/x-png',
-	'svg' => 'image/svg+xml'
+	'svg' => 'image/svg+xml',
+	'webp' => 'image/webp'
 	);
 
 
