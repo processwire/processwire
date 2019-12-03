@@ -40,7 +40,7 @@ class Wire404Exception extends WireException {
 	const codeNonexist = 404;
 	
 	/**
-	 * 404 is a result of a resource that might exist but there is there is no access
+	 * 404 is a result of a resource that might exist but there is no access
 	 * 
 	 * Similar to a WirePermissionException except always still a 404 externally
 	 * 

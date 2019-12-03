@@ -54,7 +54,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 	 * 
 	 * This method is also here to implement the Countable interface. 
 	 * 
-	 * @param array $options See options for find() emthod
+	 * @param array $options See options for find() method
 	 * @return int
 	 * 
 	 */

@@ -1277,7 +1277,7 @@ abstract class Inputfield extends WireData implements Module {
 	/**
 	 * Process input for this Inputfield directly from the POST (or GET) variables 
 	 * 
-	 * This method should pull the value from the given `$input` ragument, sanitize/validate it, and 
+	 * This method should pull the value from the given `$input` argument, sanitize/validate it, and 
 	 * populate it to the `value` attribute of this Inputfield. 
 	 * 
 	 * Inputfield modules should implement this method if the built-in one here doesn't solve their need.
