@@ -2192,7 +2192,12 @@ function InputfieldImage($) {
 					var message;
 
 					if(extensions.indexOf(extension) == -1) {
-						message = extension + ' is a invalid file extension, please use one of:  ' + extensions;
+						if(typeof ProcessWire.config.InputfieldFile.labels['bad-ext'] != "undefined") {
+							message = ProcessWire.config.InputfieldFile.labels['bad-ext'];
+							message = message.replace('EXTENSIONS', extensions);
+						} else {
+							message = extension + ' is a invalid file extension, please use one of:  ' + extensions;
+						}
 						$errorParent.append(errorItem(message, files[i].name));
 
 					} else if(!useClientResize && files[i].size > maxFilesize && maxFilesize > 2000000) {
@@ -2200,8 +2205,12 @@ function InputfieldImage($) {
 						// There might (not sure though) be some issues to get that value so don't want to overvalidate here -apeisa
 						var filesizeKB = toKilobyte(files[i].size),
 							maxFilesizeKB = toKilobyte(maxFilesize);
-
-						message = 'Filesize ' + filesizeKB + ' kb is too big. Maximum allowed is ' + maxFilesizeKB + ' kb';
+						if(typeof ProcessWire.config.InputfieldFile.labels['too-big'] != "undefined") {
+							message = ProcessWire.config.InputfieldFile.labels['too-big'];
+							message = message.replace('MAX_KB', maxFilesizeKB);
+						} else {
+							message = 'Filesize ' + filesizeKB + ' kb is too big. Maximum allowed is ' + maxFilesizeKB + ' kb';
+						}
 						$errorParent.append(errorItem(message, files[i].name));
 						
 					} else if(typeof xhr != "undefined") {

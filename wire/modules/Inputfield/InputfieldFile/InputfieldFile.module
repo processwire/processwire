@@ -636,6 +636,10 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	}
 
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+		
+		/** @var Config $config */
+		$config = $this->wire('config');
+		
 		$this->addClass('InputfieldNoFocus', 'wrapClass');
 		if(!$renderValueMode) $this->addClass('InputfieldHasUpload', 'wrapClass');
 		
@@ -644,7 +648,6 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$this->addClass('InputfieldFileHasTags', 'wrapClass');
 			if($this->useTags >= FieldtypeFile::useTagsPredefined && $this->hasField) {
 				// predefined tags
-				$config = $this->wire('config');
 				$fieldName = $this->hasField->name;
 				$jsName = "InputfieldFileTags_$fieldName";
 				$allowUserTags = $this->useTags & FieldtypeFile::useTagsNormal;
@@ -672,6 +675,15 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			} else {
 				// regular tags text input
 			}
+		}
+		
+		$data = $config->js('InputfieldFile');
+		if(!is_array($data)) $data = array();
+		if(empty($data['labels'])) $data['labels'] = array();
+		if(empty($data['labels']['bad-ext'])) {
+			$data['labels']['bad-ext'] = $this->_('Unsupported file extension, please use only: EXTENSIONS');
+			$data['labels']['too-big'] = $this->_('File is too big - maximum allowed size is MAX_KB kb');
+			$config->js('InputfieldFile', $data); 
 		}
 		
 		$this->getItemInputfields(); // custom fields ready
