@@ -284,6 +284,7 @@ _OUT;
 	 */
 	protected function getAjaxUrl() {
 
+		$pipe = '%7C'; // encoded pipe "|"
 		$selector = $this->findPagesSelector; 	
 
 		if($this->parent_id) {
@@ -297,7 +298,7 @@ _OUT;
 		}
 
 		if(count($this->template_ids)) {
-			$selector .= ",templates_id=" . implode('|', $this->template_ids);
+			$selector .= ",templates_id=" . implode($pipe, $this->template_ids);
 		} else if($this->template_id) {
 			$selector .= ",templates_id={$this->template_id}";
 		}
@@ -332,6 +333,9 @@ _OUT;
 			$selector .= "&format_name=$name";
 		}
 		$selector .= "&get=" . $this->labelFieldName;
+
+		// replace any pipes with encoded version
+		if(strpos($selector, '|') !== false) $selector = str_replace('|', $pipe, $selector);
 		
 		return $this->config->urls->admin . "page/search/for?" . $selector;
 	}
