@@ -139,6 +139,14 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	protected $finalSelector = '';
 
 	/**
+	 * Final selector string after being fully parsed by PageFinder (used only in debug mode)
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $finalSelectorParsed = '';
+
+	/**
 	 * IDs of pages that should appear open automatically
 	 * 
 	 * May be set by GET variable 'open' or by openPageIDs setting. 
@@ -994,8 +1002,14 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function validateSelector($selector) {
-		
+	
+		/** @var User $user */
 		$user = $this->wire('user');
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
+		/** @var Pages $pages */
+		$pages = $this->wire('pages');
+		
 		$showIncludeWarnings = $this->showIncludeWarnings; // whether to show warning message about removed include modes
 		
 		if($user->isSuperuser()) {
@@ -1015,6 +1029,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		/** @var Selectors $selectors */
 		$selectors = $this->wire(new Selectors($selector));
 		$templates = array();
+		$parents = array();
 		$changed = false;
 		$templateSelector = null;
 		$includeSelector = null;
@@ -1027,6 +1042,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			foreach($fields as $key => $name) {
 				$fields[$key] = strtolower($name); 
 			}
+			
+			$firstField = reset($fields);
 			
 			if(in_array('check_access', $fields) || in_array('checkaccess', $fields)) {
 				if(!$this->allowIncludeAll) { 
@@ -1041,7 +1058,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				
 				foreach($values as $key => $value) {
 					
-					$value = $this->wire('sanitizer')->templateName($value); 
+					$value = $sanitizer->templateName($value); 
 					if(ctype_digit("$value")) $value = (int) $value;
 					$template = $this->wire('templates')->get($value); 	
 					
@@ -1064,7 +1081,19 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 					}
 				}
 				$templateSelector = $s; 
+				
 			} 
+			
+			if(($firstField === 'parent' || $firstField === 'parent.id') && count($fields) == 1) {
+				foreach($values as $value) {
+					if(ctype_digit("$value")) {
+						$parent = $pages->get((int) $value);
+					} else {
+						$parent = $pages->get($sanitizer->selectorValue($value));
+					}
+					if($parent->id) $parents[] = $parent;
+				}
+			}
 			
 			if(in_array('include', $fields)) {
 				
@@ -1098,11 +1127,24 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				// user specified 1 or more templates
 				$numEditable = 0;
 				// determine how many templates are editable
-				$test = $this->wire('pages')->newPage();
-				foreach($templates as $template) {
-					$test->template = $template;
-					$test->id = 999; // required (any ID number works)
-					if($test->editable()) $numEditable++;
+				$test = $pages->newPage();
+				$test->id = 999; // required (any ID number works)
+				if(count($parents)) {
+					foreach($templates as $template) {
+						$test->template = $template;
+						foreach($parents as $parent) {
+							$test->parent = $parent;
+							if($test->editable()) {
+								$numEditable++;
+								break;
+							}
+						}
+					}
+				} else {
+					foreach($templates as $template) {
+						$test->template = $template;
+						if($test->editable()) $numEditable++;
+					}
 				}
 				// if all specified templates are editable, include=unpublished is allowed
 				if($numEditable == count($templates)) {
@@ -1802,7 +1844,13 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 
 		try {
 			$options = array('allowCustom' => true);
-			$results = $selector ? $this->wire('pages')->find($selector, $options) : $this->wire('pages')->newPageArray();
+			/** @var Pages $pages */
+			$pages = $this->wire('pages');
+			$results = $selector ? $pages->find($selector, $options) : $pages->newPageArray();
+			$this->finalSelector = $results->getSelectors(true);
+			if($this->wire('config')->debug && $this->wire('config')->advanced) {
+				$this->finalSelectorParsed = (string) $pages->loader()->getLastPageFinder()->getSelectors();
+			}
 			
 		} catch(\Exception $e) {
 			$this->error($e->getMessage());
@@ -1833,6 +1881,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
  	 *
 	 */
 	protected function ___renderResults($selector = null) {
+		
+		/** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire('sanitizer');
 
 		if(is_null($selector)) $selector = $this->getSelector();
 		if(!count($this->columns)) $this->columns = $this->defaultColumns; 
@@ -1883,12 +1934,21 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		if(count($this->resultNotes)) {
 			$notes = array();
 			foreach($this->resultNotes as $note) {
-				$notes[] = wireIconMarkup('warning') . ' ' . $this->wire('sanitizer')->entities1($note);
+				$notes[] = wireIconMarkup('warning') . ' ' . $sanitizer->entities1($note);
 			}
 			$out .= "<p id='ProcessListerResultNotes' class='detail'>" . implode('<br />', $notes) . "</p>";
 		}
 		if($this->wire('config')->debug) {
-			$out .= "<p id='ProcessListerSelector' class='notes'>" . $this->wire('sanitizer')->entities($this->finalSelector) . "</p>";
+			$out .= "<p id='ProcessListerSelector' class='notes'>"; 
+			if($this->finalSelectorParsed && $this->finalSelector != $this->finalSelectorParsed) {
+				// selector was modified after being parsed by PageFinder
+				$out .= 
+					"<strong>1:</strong> " . $sanitizer->entities($this->finalSelector) . "<br />" . 
+					"<strong>2:</strong> " . $sanitizer->entities($this->finalSelectorParsed);
+			} else {
+				$out .= $sanitizer->entities($this->finalSelector); 
+			}
+			$out .= "</p>";
 		}
 		
 		if(!$this->editOption) {
