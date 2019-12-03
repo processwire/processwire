@@ -429,12 +429,16 @@ class PageTraversal {
 			
 		} else {
 			$row = reset($rows);
-			$result = $pages->getById(array($row['id']), array(
-				'template' => $page->wire('templates')->get($row['templates_id']),
-				'parent_id' => $row['parent_id'],
-				'getOne' => true,
-				'cache' => $page->loaderCache
-			));
+			if($row && !empty($row['id'])) {
+				$result = $pages->getById(array($row['id']), array(
+					'template' => $page->wire('templates')->get($row['templates_id']),
+					'parent_id' => $row['parent_id'],
+					'getOne' => true,
+					'cache' => $page->loaderCache
+				));
+			} else {
+				$result = $pages->newNullPage();
+			}
 		}
 		
 		return $result;
