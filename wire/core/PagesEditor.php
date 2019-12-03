@@ -1315,6 +1315,12 @@ class PagesEditor extends Wire {
 		$database = $this->wire('database');
 		
 		$ids = array();
+		
+		if($time === 'modified' || $time === 'created' || $time === 'published') {
+			// time argument was omitted and type supplied here instead
+			$type = $time;	
+			$time = null;
+		}
 	
 		// ensure $col property is created in this method and not copied directly from $type
 		if($type === 'modified') {

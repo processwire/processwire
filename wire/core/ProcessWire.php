@@ -24,7 +24,7 @@ require_once(__DIR__ . '/boot.php');
  * 
  * @method init()
  * @method ready()
- * @method finished()
+ * @method finished(array $data)
  * 
  * 
  */
@@ -113,7 +113,7 @@ class ProcessWire extends Wire {
 	const statusDownload = 32;
 
 	/**
-	 * Status when the request has been fully delivered
+	 * Status when the request has been fully delivered (but before a redirect)
 	 * 
 	 * All API variables available
 	 * 
@@ -543,7 +543,7 @@ class ProcessWire extends Wire {
 	 * This also triggers init/ready functions for modules, when applicable.
 	 * 
 	 * @param int $status
-	 * @param array $data Associtaive array of any extra data to pass along to include files as locally scoped vars (3.0.142+)
+	 * @param array $data Associative array of any extra data to pass along to include files as locally scoped vars (3.0.142+)
 	 * 
 	 */
 	public function setStatus($status, array $data = array()) {
@@ -567,6 +567,7 @@ class ProcessWire extends Wire {
 		}
 
 		// set status to config
+		$prevStatus = $this->status;
 		$this->status = $status;
 		$config->status = $status;
 	
@@ -585,7 +586,9 @@ class ProcessWire extends Wire {
 
 		if($status == self::statusFinished) {
 			// internal finished always runs after any included finished file
-			$this->finished();
+			$data['prevStatus'] = $prevStatus;
+			$data['maintenance'] = true;
+			$this->finished($data);
 		} else if($status == self::statusReady) {
 			// additional 'admin' or 'site' options for ready status
 			if(!empty($files['readyAdmin']) && $config->admin === true) {
@@ -694,15 +697,26 @@ class ProcessWire extends Wire {
 	/**
 	 * Hookable ready for anyone that wants to hook when the request is finished
 	 * 
+	 * @param array $data Additional data for hooks (3.0.147+ only):
+	 *  - `maintenance` (bool): Allow maintenance to run? (default=true)
+	 *  - `prevStatus` (int): Previous status before finished status (render, download or failed).
+	 *  - `redirectUrl` (string): Contains redirect URL only if request ending with redirect (not present otherwise). 
+	 *  - `redirectType` (int): Contains redirect type 301 or 302, only if requestUrl property is also present.
+	 * 
 	 * #pw-hooker
 	 *
 	 */
-	protected function ___finished() {
+	protected function ___finished(array $data = array()) {
 		
 		$config = $this->wire('config');
 		$session = $this->wire('session');
 		$cache = $this->wire('cache'); 
 		$profiler = $this->wire('profiler');
+		
+		if($data) {} // data for hooks
+	
+		// if a hook cancelled maintenance then exit early 
+		if(isset($data['maintenance']) && $data['maintenance'] === false) return;
 		
 		if($session) $session->maintenance();
 		if($cache) $cache->maintenance();
