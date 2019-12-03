@@ -2984,10 +2984,16 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	public function setupHeadline() {
 
 		$titlePage = null;
+		$page = $this->page;
 		
-		if($this->page && $this->page->id) {
-			$page = $this->page;
+		if($page && $page->id) {
 			$title = $page->get('title');
+			if(is_object($title) && !strlen("$title") && wireInstanceOf($title, 'LanguagesPageFieldValue')) {
+				/** @var LanguagesPageFieldValue $title */
+				$title = $title->getNonEmptyValue($page->name);
+			} else {
+				$title = (string) $title;
+			}
 			if(empty($title)) {
 				if($this->wire('pages')->names()->isUntitledPageName($page->name)) {
 					$title = $page->template->getLabel();
@@ -2995,6 +3001,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$title = $page->get('name');
 				}
 			}
+			if(empty($title)) $title = $page->name;
 		} else if($this->parent && $this->parent->id) {
 			$titlePage = $this->parent;
 			$title = rtrim($this->parent->path, '/') . '/[...]';
@@ -3004,6 +3011,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		}
 
 		$browserTitle = sprintf($this->_('Edit Page: %s'), $title);
+		$headline = '';
 
 		if($this->field) {
 			if(count($this->fields) == 1) {
@@ -3019,10 +3027,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			
 		} else if($titlePage) {
 			$headline = $titlePage->get('title|name');
-			
-		} else {
-			$headline = $title;
 		}
+	
+		if(empty($headline)) $headline = $title;
 
 		$this->headline($headline);
 		$this->browserTitle($browserTitle);
