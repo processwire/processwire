@@ -1196,7 +1196,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	/**
 	 * Record a Notice, internal use (contains the code for message, warning and error methods)
 	 * 
-	 * @param string $text|array|Wire Title of notice
+	 * @param string|array|Wire $text Title of notice
 	 * @param int $flags Flags bitmask
 	 * @param string $name Name of container
 	 * @param string $class Name of Notice class
