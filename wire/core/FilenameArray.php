@@ -106,8 +106,8 @@ class FilenameArray implements \IteratorAggregate, \Countable {
 	 * 
 	 */
 	public function remove($filename) {
-		$key = array_search($filename, $this->data); 
-		if($key !== false) unset($this->data[$key]); 
+		$key = $this->getKey($filename); 
+		unset($this->data[$key]); 
 		return $this; 
 	}
 
