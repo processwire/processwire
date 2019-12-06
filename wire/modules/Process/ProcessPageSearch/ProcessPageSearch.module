@@ -361,7 +361,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			if(strpos($name, ',')) {
 				$name = $sanitizer->names($name, ',', array('_', '.'));
 			} else {
-				$name = $sanitizer->pageName($name); // note: switch to pageName over fieldName to support "." 
+				$name = $sanitizer->fieldSubfield($name, 2); 
 			}
 
 			if(!$name) continue; 
