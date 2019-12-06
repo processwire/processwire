@@ -69,8 +69,11 @@ class ProcessTemplate extends Process {
 	 */
 	public function init() {
 
-		$this->moduleInfo = self::getModuleInfo();
-		$this->headline($this->moduleInfo['title']); 
+		$process = $this->wire('process');
+		if("$process" === "$this") {
+			$this->moduleInfo = self::getModuleInfo();
+			$this->headline($this->moduleInfo['title']);
+		}
 
 		if(isset($_POST['id'])) {
 			$this->id = (int) $_POST['id']; 
