@@ -54,6 +54,7 @@
  * @property string $inputClass
  * @property string $checkboxClass
  * @property string $lastSelector
+ * @property int $maxSelectOptions If quantity of select options exceeds this number, use autocomplete instead for Page reference fields (since 3.0.148)
  *
  *
  */
@@ -217,6 +218,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$this->setting('timeFormat', $this->_('H:i')); // time format
 		$this->setting('timePlaceholder', $this->_('hh:mm')); // time format placeholder (what users see)
 		$this->setting('maxUsers', 20); // text input rather than select used when useres qty is greater than this
+		$this->setting('maxSelectOptions', 100); // if quantity of pages meets or exceeds this number, use autocomplete for Page reference fields
 		
 
 		parent::__construct();
@@ -1571,12 +1573,14 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 * If yes, then the selector string to find pages is returned. 
 	 *
 	 * @param Field $field
-	 * @param int $threshold If determined selectable quantity is <= this number, function will return blank.
+	 * @param int $threshold If determined selectable quantity is <= this number, function will return blank. (default=-1 to use configured maxSelectOptions)
 	 * @param bool $checkQuantity 
 	 * @return string Selector string. Blank string means don't use autocomplete. 
 	 *
 	 */
-	protected function useAutocomplete(Field $field, $threshold = 100, $checkQuantity = true) {
+	protected function useAutocomplete(Field $field, $threshold = -1, $checkQuantity = true) {
+		
+		if($threshold === -1) $threshold = (int) $this->maxSelectOptions;
 
 		//$selectorInfo = $this->getSelectorInfo($field);
 		if(!$field->type instanceof FieldtypePage) return ''; 
@@ -1674,7 +1678,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			return json_encode($data); 
 		}
 
-		if(!$selector) $selector = $this->useAutocomplete($field, 100, false); 
+		if(!$selector) $selector = $this->useAutocomplete($field, $this->maxSelectOptions, false); 
 
 		if(!$selector) {
 			$data['error'] = "Field '$field->name' does not require autocomplete";
