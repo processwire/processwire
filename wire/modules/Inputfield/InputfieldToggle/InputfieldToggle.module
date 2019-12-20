@@ -175,7 +175,7 @@ class InputfieldToggle extends Inputfield {
 			return $value ? self::valueYes : self::valueNo;
 		}
 		
-		$intValue = strlen("$value") && ctype_digit("$value") ? (int) $value : '';
+		$intValue = strlen("$value") && ctype_digit("$value") ? (int) "$value" : '';
 		$strValue = strtolower("$value");
 		
 		if($this->hasCustomOptions()) { 
