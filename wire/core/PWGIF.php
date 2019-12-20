@@ -404,7 +404,7 @@ class PWGIFIMAGE {
 		$extLen++;
 		switch($b) {
 			case 0xF9: // Graphic Control
-				$b = ord($data{1});
+				$b = ord($data[1]);
 				$this->m_disp   = ($b & 0x1C) >> 2;
 				$this->m_bUser  = ($b & 0x02) ? true : false;
 				$this->m_bTrans = ($b & 0x01) ? true : false;
