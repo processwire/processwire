@@ -288,7 +288,7 @@ class Notices extends WireArray {
 	protected function addLog($item) {
 		/** @var Notice $item */
 		$text = $item->text;
-		if($item->flags & Notice::allowMarkup && strpos($text, '&') !== false) {
+		if(strpos($text, '&') !== false) {
 			$text = $this->wire('sanitizer')->unentities($text);
 		}
 		if($this->wire('config')->debug && $item->class) $text .= " ($item->class)"; 
