@@ -30,6 +30,14 @@ class WireLog extends Wire {
 	protected $fileLogs = array();
 
 	/**
+	 * Names of logs that have been temporary silenced for this request
+	 * 
+	 * @var array Keys are log names, values are irrelevant
+	 * 
+	 */
+	protected $disabled = array();
+
+	/**
 	 * Record an informational or 'success' message in the message log (messages.txt)
 	 * 
 	 * ~~~~~
@@ -111,13 +119,15 @@ class WireLog extends Wire {
 	 */
 	public function ___save($name, $text, $options = array()) {
 		
+		if(isset($this->disabled[$name]) || isset($this->disabled['*'])) return false;
+		
 		$defaults = array(
 			'showUser' => true,
 			'showURL' => true,
 			'user' => null, 
 			'url' => '', // URL to show (default=blank, auto-detect)
 			'delimiter' => "\t",
-			);
+		);
 		
 		$options = array_merge($defaults, $options);
 		// showURL option was previously named showPage
@@ -477,6 +487,34 @@ class WireLog extends Wire {
 		$log->setDelimiter($delimiter);
 		$this->fileLogs[$key] = $log;
 		return $log;
+	}
+
+	/**
+	 * Disable the given log name temporarily so that save() calls do not record entries during this request
+	 * 
+	 * @param string $name Log name or specify '*' to disable all
+	 * @return self
+	 * @since 3.0.148
+	 * @see WireLog::enable()
+	 * 
+	 */
+	public function disable($name) {
+		if(!empty($name)) $this->disabled[$name] = true;
+		return $this;
+	}
+
+	/**
+	 * Enable a previously disabled log
+	 *
+	 * @param string $name Log name or specify '*' to reverse a previous disable('*') call. 
+	 * @return self
+	 * @since 3.0.148
+	 * @see WireLog::disable()
+	 *
+	 */
+	public function enable($name) {
+		unset($this->disabled[$name]); 
+		return $this;
 	}
 
 }
