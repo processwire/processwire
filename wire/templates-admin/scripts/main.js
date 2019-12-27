@@ -455,7 +455,7 @@ if(typeof ProcessWire != "undefined") {
 	 * Confirmation dialog
 	 * 
 	 * ~~~~~
-	 * if(ProcessWire.confirm('Send this message now?', function() {
+	 * ProcessWire.confirm('Send this message now?', function() {
 	 *   // user clicked Ok
 	 * }, function() {
 	 *   // user clicked Cancel
