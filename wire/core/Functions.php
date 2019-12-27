@@ -694,12 +694,14 @@ function wireIconMarkupFile($filename, $class = '') {
  *  - `decimal_point` (string|null): Decimal point character, or null to detect from locale (default=null). 
  *  - `thousands_sep` (string|null): Thousands separator, or null to detect from locale (default=null). 
  *  - `small` (bool): If no $small argument was specified, you can optionally specify it in this $options array.
+ *  - `type` (string): To force return value as specific type, specify one of: bytes, kilobytes, megabytes, gigabytes; or just: b, k, m, g. (3.0.148+ only)
  * @return string
  * 
  */
 function wireBytesStr($bytes, $small = false, $options = array()) {
 	
 	$defaults = array(
+		'type' => '',
 		'decimals' => 0, 
 		'decimal_point' => null,
 		'thousands_sep' => null,
@@ -714,19 +716,20 @@ function wireBytesStr($bytes, $small = false, $options = array()) {
 	
 	$options = array_merge($defaults, $options);
 	$locale = array();
+	$type = empty($options['type']) ? '' : strtolower(substr($options['type'], 0, 1));
 	
 	// determine size value and units label	
-	if($bytes < 1024) {
+	if($bytes < 1024 || $type === 'b') {
 		$val = $bytes;
 		if($small) {
 			$label = $val > 0 ? __('B', __FILE__) : ''; // bytes
 		} else {
 			$label = __('bytes', __FILE__);
 		}
-	} else if($bytes < 1000000) {
+	} else if($bytes < 1000000 || $type === 'k') {
 		$val = $bytes / 1024;
 		$label = __('kB', __FILE__); // kilobytes
-	} else if($bytes < 1073741824) {
+	} else if($bytes < 1073741824 || $type === 'm') {
 		$val = $bytes / 1024 / 1024;
 		$label = __('MB', __FILE__); // megabytes
 	} else { 

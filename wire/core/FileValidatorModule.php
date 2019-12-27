@@ -10,7 +10,7 @@
  * 3. Copy the getModuleInfo() method out of this class and update as appropriate.
  * 4. Implement an isValidFile($filename) method, and you are done. 
  * 
- * EXAMPLE: /site/modules/FileValidatorSVG.module
+ * EXAMPLE: /site/modules/FileValidatorHTML.module
  * 
  * class FileValidatorHTML extends FileValidatorModule {
  *     public static function getModuleInfo() {
