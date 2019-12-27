@@ -138,11 +138,15 @@ class LanguageTranslator extends Wire {
 		foreach($translations as $hash => $translation) {
 			if(!strlen($translation['text'])) unset($translations[$hash]); 
 		}
+		if(strpos($file, "\\") !== false && strpos($file, "\\" . basename($file))) {
+			// file has MS-DOS style slashes and they are not escapes, convert to unix
+			$file = str_replace("\\", '/', $file);
+		}
 		return array(
 			'file' => $file, 
 			'textdomain' => $textdomain, 
 			'translations' => $translations
-			);
+		);
 	}
 
 	/**
@@ -257,9 +261,13 @@ class LanguageTranslator extends Wire {
 	 */
 	protected function textdomainString($textdomain) {
 
-		if(is_string($textdomain) && (strpos($textdomain, DIRECTORY_SEPARATOR) !== false || strpos($textdomain, '/') !== false)) $textdomain = $this->filenameToTextdomain($textdomain); // @werker #424
-			else if(is_object($textdomain)) $textdomain = $this->objectToTextdomain($textdomain); 
-			else $textdomain = strtolower($textdomain); 
+		if(is_string($textdomain) && (strpos($textdomain, DIRECTORY_SEPARATOR) !== false || strpos($textdomain, '/') !== false)) {
+			$textdomain = $this->filenameToTextdomain($textdomain); // @werker #424
+		} else if(is_object($textdomain)) {
+			$textdomain = $this->objectToTextdomain($textdomain);
+		} else {
+			$textdomain = strtolower($textdomain);
+		}
 
 		// just in case there is an extension on it, remove it 
 		if(strpos($textdomain, '.')) $textdomain = basename($textdomain, '.json'); 
