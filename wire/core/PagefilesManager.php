@@ -519,7 +519,19 @@ class PagefilesManager extends Wire {
 			$publicPath = $path . $page->id . '/';
 			$securePath = $path . $securePrefix . $page->id . '/';
 		}
+		/* @todo 3.0.150:
+		$filesPublic = true;
+		if(!$page->isPublic()) {
+			// page not publicly viewable to all, check if files are public or not
+			if($config->pagefileSecure) {
+				$filesPublic = false;
+			} else if($page->template && $page->template->pagefileSecure) {
+				$filesPublic = false; // 3.0.150+
+			}
+		}
 
+		if($filesPublic) {
+		*/
 		if($page->isPublic() || !$config->pagefileSecure) {
 			// use the public path, renaming a secure path to public if it exists
 			if(is_dir($securePath) && !is_dir($publicPath)) {

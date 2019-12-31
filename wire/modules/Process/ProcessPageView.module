@@ -365,6 +365,7 @@ class ProcessPageView extends Process {
 		$numParts = substr_count($it, '/');
 		if($numParts > $config->maxUrlDepth) return null;
 
+		// if($this->isSecurePagefileUrl($it)) { // @todo replace next line with this in 3.0.150
 		if($config->pagefileSecure) {
 			$page = $this->checkRequestFile($it);
 			if(is_object($page)) {
@@ -945,6 +946,38 @@ class ProcessPageView extends Process {
 	public function setDelayRedirects($delayRedirects) {
 		$this->delayRedirects = $delayRedirects ? true : false;
 	}
+	
+	/**
+	 * Are secure pagefiles possible on this system and url?
+	 *
+	 * @param string $url
+	 * @return bool
+	 * @todo enable in 3.0.150
+	 *
+	protected function isSecurePagefileUrl($url) {
+		$config = $this->wire('config');
+
+		// if URL does not start from root, prepend root
+		if(strpos($url, $config->urls->root) !== 0) $url = $config->urls->root . ltrim($url, '/');
+
+		// if URL is not pointing to the files structure, then this is not a files URL
+		if(strpos($url, $config->urls->files) !== 0) return false;
+
+		// pagefileSecure option is enabled and URL pointing to files
+		if($config->pagefileSecure) return true;
+	
+		// check if any templates allow pagefileSecure option
+		$allow = false;
+		foreach($this->wire('templates') as $template) {
+			if(!$template->pagefileSecure) continue;
+			$allow = true;
+			break;
+		}
+	
+		// if at least one template supports pagefileSecure option we will return true here
+		return $allow;
+	}
+	*/
 
 }
 

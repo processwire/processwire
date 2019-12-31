@@ -29,6 +29,7 @@
  * @method int sendFile($filename, array $options = array(), array $headers = array())
  * @method string download($fromURL, $toFile, array $options = array())
  * 
+ * @todo add proxy server support (3.0.150+)
  *
  */
 

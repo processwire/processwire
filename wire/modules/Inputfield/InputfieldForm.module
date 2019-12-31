@@ -265,6 +265,7 @@ class InputfieldForm extends InputfieldWrapper {
 				} // $fields
 		
 				$processNow = $numFieldsMatched > 0;
+				// @todo 3.0.150: if($processNow) $child->set('showIfSkipped', false); // https://processwire.com/talk/topic/22130-forced-10-inputfield-dependency-issues/
 				if(!$processNow) break;
 
 				if(self::debug) $this->debugNote("$child->name ($child->label) - matched: showIf($selector)");

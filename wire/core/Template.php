@@ -81,6 +81,7 @@
  * @property int|bool $noAppendTemplateFile Disabe automatic append of $config->appendTemplateFile (if in use).  #pw-group-files
  * @property string $prependFile File to prepend to template file (separate from $config->prependTemplateFile).  #pw-group-files
  * @property string $appendFile File to append to template file (separate from $config->appendTemplateFile).  #pw-group-files
+ * @property bool $pagefileSecure Use secure pagefiles for pages using this template? (3.0.150+) #pw-group-files
  * 
  * Page Editor
  * 
@@ -263,6 +264,7 @@ class Template extends WireData implements Saveable, Exportable {
 		'noAppendTemplateFile' => 0, // disable automatic inclusion of $config->appendTemplateFile
 		'prependFile' => '', // file to prepend (relative to /site/templates/)
 		'appendFile' => '', // file to append (relative to /site/templates/)
+		'pagefileSecure' => false, // secure files connected with page? (3.0.150+)
 		'tabContent' => '', 	// label for the Content tab (if different from 'Content')
 		'tabChildren' => '', 	// label for the Children tab (if different from 'Children')
 		'nameLabel' => '', // label for the "name" property of the page (if something other than "Name")
