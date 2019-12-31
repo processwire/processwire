@@ -182,6 +182,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	public function ___install() {
 		
 		$table = self::dbTableName;
+		$charset = $this->wire('config')->dbCharset;
 
 		$sql = 	"CREATE TABLE `$table` (" . 
 				"id CHAR(32) NOT NULL, " . 
@@ -195,7 +196,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 				"INDEX (pages_id), " . 
 				"INDEX (user_id), " . 
 				"INDEX (ts) " . 
-				") ENGINE=InnoDB DEFAULT CHARSET=utf8";
+				") ENGINE=InnoDB DEFAULT CHARSET=$charset";
 
 		$this->database->query($sql); 
 	}
