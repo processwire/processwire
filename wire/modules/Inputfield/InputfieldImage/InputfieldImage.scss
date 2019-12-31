@@ -709,7 +709,7 @@ $focusPointCircleSize: 40px;
 			top: 0;
 			left: 0;
 			float: left;
-			background: initial;
+			background: none; // initial
 			display: block;
 			height: auto !important;
 			width: 23%; 
@@ -728,7 +728,7 @@ $focusPointCircleSize: 40px;
 				-ms-transform: none;
 				transform: none;
 				width: 100%;
-				max-width: 100% important;
+				max-width: 100% !important;
 				height: initial !important;
 				cursor: move;
 			}
@@ -783,7 +783,7 @@ $focusPointCircleSize: 40px;
 			}
 		}
 		&:hover .gridImage__inner {
-			background: initial;
+			background: none; // initial;
 		}
 
 		.InputfieldImageEdit {
@@ -883,7 +883,7 @@ $focusPointCircleSize: 40px;
 				padding: 0;
 
 				img {
-					width: 100% important;
+					width: 100% !important;
 					height: auto !important;
 				}
 				
