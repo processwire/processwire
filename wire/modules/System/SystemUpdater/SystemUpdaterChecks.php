@@ -168,7 +168,8 @@ class SystemUpdaterChecks extends Wire {
 				return false;
 			}
 		} else {
-			if($this->showNotices) $this->warning($this->fileNotFoundLabel($htaccessFile));
+			// if .htaccess not present then this is likely an IIS or other not-offically supported server software
+			// if($this->showNotices) $this->warning($this->fileNotFoundLabel($htaccessFile));
 			return false;
 		}
 		
