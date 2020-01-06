@@ -1,5 +1,7 @@
 <?php namespace ProcessWire;
 
+echo 'yep';
+
 /**
  * ProcessWire Bootstrap
  *
