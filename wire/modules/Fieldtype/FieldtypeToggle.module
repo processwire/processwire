@@ -121,16 +121,7 @@ class FieldtypeToggle extends Fieldtype {
 	 *
 	 */
 	public function getDefaultValue(Page $page, Field $field) {
-		if($page->template && !($field->flags & Field::flagFieldgroupContext)) {
-			$field = $page->template->fieldgroup->getFieldContext($field->id);
-		}
-		switch($field->get('defaultOption')) {
-			case 'no': $value = self::valueNo; break;
-			case 'yes': $value = self::valueYes; break;
-			case 'other': $value = self::valueOther; break;
-			default: $value = self::valueUnknown;
-		}
-		return $value;
+		return self::valueUnknown;
 	}
 	
 	/**
