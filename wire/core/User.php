@@ -470,7 +470,7 @@ class User extends Page {
 	 *
 	 */
 	public function editUrl($options = array()) {
-		return str_replace('/page/edit/', '/access/users/edit/', parent::editUrl());
+		return str_replace('/page/edit/', '/access/users/edit/', parent::editUrl($options));
 	}
 
 	/**
