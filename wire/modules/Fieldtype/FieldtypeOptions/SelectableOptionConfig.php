@@ -60,7 +60,9 @@ class SelectableOptionConfig extends Wire {
 	protected function process(Inputfield $inputfield) {
 
 		$value = $this->wire('input')->post('_options');
-		if($this->wire('process') != 'ProcessField' || !$this->wire('user')->isSuperuser()) return;
+		$user = $this->wire('user'); /** @var User $user */
+		$process = $this->wire('process'); /** @var Process @process */
+		if($process != 'ProcessField' || (!$user->isSuperuser() && !$user->hasPermission('field-admin'))) return;
 		$ns = "$this$this->field"; // namespace for session
 
 		if(!is_null($value)) {
