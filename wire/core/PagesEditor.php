@@ -1362,12 +1362,12 @@ class PagesEditor extends Wire {
 			
 		} else if(is_int($time) || ctype_digit($time)) {
 			$time = (int) $time;
-			$sql .= ':time';
+			$sql .= ':time ';
 			
 		} else if(is_string($time)) {
 			$time = strtotime($time);
 			if(!$time) throw new WireException("Unrecognized time format provided to Pages::touch()");
-			$sql .= ':time';
+			$sql .= ':time ';
 		}
 		
 		$sql .= 'WHERE id IN(' . implode(',', $ids) . ')';
