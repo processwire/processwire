@@ -10,7 +10,7 @@
  *
  */
 
-class NullField extends Field {
+class NullField extends Field implements WireNull {
 	public function get($key) {
 		if($key == 'id') return 0;
 		if($key == 'name') return '';

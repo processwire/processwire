@@ -328,6 +328,12 @@ interface WirePageEditor {
 }
 
 /**
+ * Interface shared by all ProcessWire Null objects
+ *
+ */
+interface WireNull { }
+
+/**
  * Interface that indicates the object supports its items being paginated
  * 
  */

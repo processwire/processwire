@@ -1087,6 +1087,7 @@ function wireCount($value) {
  * 
  * - It returns true for Countable objects that have 0 items. 
  * - It considers whitespace-only strings to be empty.
+ * - It considers WireNull objects (like NullPage or any others) to be empty (3.0.149+).
  * - You cannot pass it an undefined variable without triggering a PHP warning. 
  * 
  * ~~~~~
@@ -1117,6 +1118,7 @@ function wireEmpty($value) {
 	if(empty($value)) return true;
 	if(is_object($value)) {
 		if($value instanceof \Countable && !count($value)) return true;
+		if($value instanceof WireNull) return true; // 3.0.149+
 	} else if(is_string($value)) {
 		if(!strlen(trim($value))) return true;
 	}

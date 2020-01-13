@@ -32,7 +32,7 @@
  *
  */
 
-class NullPage extends Page {
+class NullPage extends Page implements WireNull {
 	/**
 	 * #pw-internal
 	 * 
