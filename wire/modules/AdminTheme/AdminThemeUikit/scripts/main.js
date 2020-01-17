@@ -352,6 +352,7 @@ var ProcessWireAdminTheme = {
 				close: function(event, ui) {
 				},
 				source: function(request, response) {
+					if(request.term === $input.attr('data-help-term')) request.term = 'help';
 					var url = $input.parents('form').attr('data-action') + '?q=' + request.term;
 					$.getJSON(url, function(data) {
 						var len = data.matches.length;
@@ -394,7 +395,9 @@ var ProcessWireAdminTheme = {
 				}
 			}).focus(function() {
 				// $(this).siblings('label').find('i').hide(); // hide icon
+				setTimeout(function() { $input.attr('placeholder', $input.attr('data-help-note')); }, 1250); 
 			}).blur(function() {
+				$input.attr('placeholder', '');
 				// $status.text('');
 				// $(this).siblings('label').find('i').show(); // show icon
 			});

@@ -6,6 +6,8 @@ if(!defined("PROCESSWIRE")) die();
 /** @var AdminThemeUikit $adminTheme */
 
 $searchURL = $urls->admin . 'page/search/live/';
+$helpTerm = $this->_('help'); // Localized term to type for help (3+ chars)
+$helpNote = $this->_('Try “help”'); // Short instruction (with your translated help term)
 
 if($adminTheme->isEditor): ?>
 <form class='pw-search-form' data-action='<?php echo $searchURL; ?>' action='<?php echo $searchURL; ?>' method='get'>
@@ -18,7 +20,7 @@ if($adminTheme->isEditor): ?>
 				<?php echo $adminTheme->renderIcon('spinner fa-spin'); ?>
 			</span>	
 		</span>
-		<input type='text' class='pw-search-input uk-input uk-form-width-medium' name='q'>
+		<input type='text' class='pw-search-input uk-input uk-form-width-medium' name='q' data-help-term='<?php echo $helpTerm;?>' data-help-note='<?php echo $helpNote;?>'>
 	</div>
 	<input class='uk-hidden' type='submit' name='search' value='Search' />
 	<input type='hidden' name='show_options' value='1' />
