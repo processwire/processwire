@@ -3,7 +3,7 @@
 /**
  * Inputfields and processing for Select Options Fieldtype
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -43,7 +43,8 @@ class SelectableOptionConfig extends Wire {
 	 */
 	public function __construct(Field $field, InputfieldWrapper $inputfields) {
 		$this->field = $field;
-		$this->fieldtype = $field->type; 
+		$fieldtype = $field->type; /** @var FieldtypeOptions $fieldtype */
+		$this->fieldtype = $fieldtype; 
 		$this->inputfields = $inputfields; 
 		$this->manager = $this->fieldtype->manager; 
 	}
@@ -200,16 +201,17 @@ class SelectableOptionConfig extends Wire {
 		$inputfields->add($f);
 		$this->process($f); 
 
-		if($options->count() && $field->inputfieldClass && $f = $modules->get($field->inputfieldClass)) {
+		$inputfieldClass = $field->get('inputfieldClass');
+		if($options->count() && $inputfieldClass && $f = $modules->get($inputfieldClass)) {
 			$f->attr('name', 'initValue'); 
 			$f->label = $this->_('What options do you want pre-selected? (if any)'); 
 			$f->collapsed = Inputfield::collapsedBlank;
-			$f->description = sprintf($this->_('This field also serves as a preview of your selected input type (%s) and options.'), $field->inputfieldClass); 
+			$f->description = sprintf($this->_('This field also serves as a preview of your selected input type (%s) and options.'), $inputfieldClass); 
 			foreach($options as $option) {
 				$f->addOption($option->id, $option->title); 
 			}
-			$f->attr('value', $field->initValue); 
-			if(!$this->field->required && !$this->field->requiredIf) {
+			$f->attr('value', $field->get('initValue')); 
+			if(!$field->required && !$field->requiredIf) {
 				$f->notes = $this->_('Please note: your selections here do not become active unless a value is *always* required for this field. See the "required" option on the Input tab of your field settings.');
 			} else {
 				$f->notes = $this->_('This feature is active since a value is always required.'); 

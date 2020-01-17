@@ -1197,7 +1197,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * Record a Notice, internal use (contains the code for message, warning and error methods)
 	 * 
 	 * @param string|array|Wire $text Title of notice
-	 * @param int $flags Flags bitmask
+	 * @param int|string $flags Flags bitmask or space separated string of flag names
 	 * @param string $name Name of container
 	 * @param string $class Name of Notice class
 	 * @return $this
@@ -1230,12 +1230,13 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * #pw-group-notices
 	 *
 	 * @param string|array|Wire $text Text to include in the notice
-	 * @param int|bool $flags Optional flags to alter default behavior: 
+	 * @param int|bool|string $flags Optional flags to alter default behavior: 
 	 *  - `Notice::debug` (constant): Indicates notice should only be shown when debug mode is active.
 	 *  - `Notice::log` (constant): Indicates notice should also be logged.
 	 *  - `Notice::logOnly` (constant): Indicates notice should only be logged.
 	 *  - `Notice::allowMarkup` (constant): Indicates notice should allow the use of HTML markup tags.
 	 *  - `true` (boolean): Shortcut for the `Notice::log` constant.
+	 *  - In 3.0.149+ you may also specify a space-separated string of flag names.
 	 * @return $this
 	 * @see Wire::messages(), Wire::warning(), Wire::error()
 	 *
@@ -1260,12 +1261,13 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * #pw-group-notices
 	 *
 	 * @param string|array|Wire $text Text to include in the notice
-	 * @param int|bool $flags Optional flags to alter default behavior:
+	 * @param int|bool|string $flags Optional flags to alter default behavior:
 	 *  - `Notice::debug` (constant): Indicates notice should only be shown when debug mode is active.
 	 *  - `Notice::log` (constant): Indicates notice should also be logged.
 	 *  - `Notice::logOnly` (constant): Indicates notice should only be logged.
 	 *  - `Notice::allowMarkup` (constant): Indicates notice should allow the use of HTML markup tags.
 	 *  - `true` (boolean): Shortcut for the `Notice::log` constant.
+	 *  - In 3.0.149+ you may also specify a space-separated string of flag names.
 	 * @return $this
 	 * @see Wire::warnings(), Wire::message(), Wire::error()
 	 *
@@ -1292,12 +1294,13 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * #pw-group-notices
 	 *
 	 * @param string|array|Wire $text Text to include in the notice
-	 * @param int|bool $flags Optional flags to alter default behavior:
+	 * @param int|bool|string $flags Optional flags to alter default behavior:
 	 *  - `Notice::debug` (constant): Indicates notice should only be shown when debug mode is active.
 	 *  - `Notice::log` (constant): Indicates notice should also be logged.
 	 *  - `Notice::logOnly` (constant): Indicates notice should only be logged.
 	 *  - `Notice::allowMarkup` (constant): Indicates notice should allow the use of HTML markup tags.
 	 *  - `true` (boolean): Shortcut for the `Notice::log` constant.
+	 *  - In 3.0.149+ you may also specify a space-separated string of flag names.
 	 * @return $this
 	 * @see Wire::errors(), Wire::message(), Wire::warning()
 	 *

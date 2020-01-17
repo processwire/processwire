@@ -439,10 +439,11 @@ class ProcessWire extends Wire {
 			Debug::timer('boot'); 
 			Debug::timer('boot.load'); 
 		}
-
+		
+		$notices = new Notices();
 		$this->wire('urls', $config->urls); // shortcut API var
 		$this->wire('log', new WireLog(), true); 
-		$this->wire('notices', new Notices(), true); 
+		$this->wire('notices', $notices, true); 
 		$this->wire('sanitizer', new Sanitizer()); 
 		$this->wire('datetime', new WireDateTime());
 		$this->wire('files', new WireFileTools());
@@ -520,6 +521,7 @@ class ProcessWire extends Wire {
 		// populate admin URL before modules init()
 		$config->urls->admin = $config->urls->root . ltrim($pages->getPath($config->adminRootPageID), '/');
 
+		$notices->init();
 		if($this->debug) Debug::saveTimer('boot.load', 'includes all boot.load timers');
 		$this->setStatus(self::statusInit);
 	}
