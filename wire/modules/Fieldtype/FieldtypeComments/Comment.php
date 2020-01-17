@@ -5,7 +5,7 @@
  *
  * Class that contains an individual comment.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $id
@@ -27,7 +27,12 @@
  * @property string $subcode 
  * @property int $upvotes 
  * @property int $downvotes 
- * @property int $stars 
+ * @property int $stars
+ * @property-read Comment|null $parent Parent comment when depth is enabled or null if no parent (since 3.0.149)
+ * @property-read CommentArray $parents All parent comments (since 3.0.149)
+ * @property-read CommentArray $children Immediate child comments (since 3.0.149)
+ * @property-read int $depth Current comment depth (since 3.0.149)
+ * @property-read bool $loaded True when comment is fully loaded from DB (since 3.0.149)
  *
  */
 
@@ -172,6 +177,13 @@ class Comment extends WireData {
 		$this->set('stars', 0);
 	}
 
+	/**
+	 * Get property
+	 * 
+	 * @param string $key
+	 * @return mixed
+	 * 
+	 */
 	public function get($key) {
 		
 		if($key == 'user' || $key == 'createdUser') {
@@ -189,6 +201,9 @@ class Comment extends WireData {
 			
 		} else if($key == 'parent') {
 			return $this->parent();
+
+		} else if($key == 'parents') {
+			return $this->parents();
 			
 		} else if($key == 'children') {
 			return $this->children();
@@ -207,6 +222,12 @@ class Comment extends WireData {
 			
 		} else if($key == 'textFormatted') {
 			return $this->textFormatted;
+			
+		} else if($key == 'depth') {
+			return $this->depth();
+			
+		} else if($key === 'loaded') {
+			return $this->loaded;
 		}
 
 		return parent::get($key); 
@@ -250,6 +271,14 @@ class Comment extends WireData {
 		return $value; 
 	}
 
+	/**
+	 * Set property
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return self|WireData
+	 * 
+	 */
 	public function set($key, $value) {
 
 		if(in_array($key, array('id', 'parent_id', 'status', 'flags', 'pages_id', 'created', 'created_users_id'))) {
@@ -284,6 +313,11 @@ class Comment extends WireData {
 			$value = (int) $value;
 			if($value < 1) $value = 0;
 			if($value > 5) $value = 5; 
+		}
+		
+		if($key == 'parent_id' && parent::get('parent_id') != $value) {
+			// reset a cached parent value, if present
+			$this->_parent = null; 
 		}
 
 		return parent::set($key, $value); 
@@ -355,25 +389,70 @@ class Comment extends WireData {
 	public function gravatar($rating = 'g', $imageset = 'mm', $size = 80) {
 		return self::getGravatar($this->email, $rating, $imageset, $size); 
 	}
-	
+
+	/**
+	 * Set Page that this Comment belongs to
+	 * 
+	 * @param Page $page
+	 * 
+	 */
 	public function setPage(Page $page) {
 		$this->page = $page; 
 	}
-	
+
+	/**
+	 * Set Field that this Comment belongs to
+	 * 
+	 * @param Field $field
+	 * 
+	 */
 	public function setField(Field $field) {
 		$this->field = $field; 
 	}
-	
+
+	/**
+	 * Get Page that this Comment belongs to
+	 * 
+	 * @return null|Page
+	 * 
+	 */
 	public function getPage() { 
 		return $this->page;
 	}
 
+	/**
+	 * Get Field that this Comment belongs to
+	 * 
+	 * @return null|CommentField
+	 * 
+	 */
 	public function getField() { 
 		return $this->field;
 	}
-	
+
+	/**
+	 * Set whether Comment is fully loaded and ready for use
+	 * 
+	 * To get loaded state access the $loaded property of the Comment object. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param bool $loaded
+	 * 
+	 */
 	public function setIsLoaded($loaded) {
 		$this->loaded = $loaded ? true : false;
+	}
+	
+	/**
+	 * Get current comment depth
+	 * 
+	 * @return int
+	 * @since 3.0.149
+	 * 
+	 */
+	public function depth() {
+		return count($this->parents());
 	}
 
 	/**
@@ -384,11 +463,10 @@ class Comment extends WireData {
 	 */
 	public function parent() {
 		if(!is_null($this->_parent)) return $this->_parent;
-		$field = $this->getField();	
-		if(!$field->depth) return null;
 		$parent_id = $this->parent_id; 
 		if(!$parent_id) return null;
-		$comments = $this->getPage()->get($field->name);
+		$field = $this->getField();
+		$comments = $this->getPage()->get($field->name); // no getPageComments() call intentional
 		$parent = null;
 		foreach($comments as $c) {
 			if($c->id != $parent_id) continue;
@@ -400,6 +478,25 @@ class Comment extends WireData {
 	}
 
 	/**
+	 * Get CommentArray of all parent comments for this one 
+	 * 
+	 * Order is closest parent to furthest parent
+	 * 
+	 * @return CommentArray
+	 * @since 3.0.149
+	 * 
+	 */
+	public function parents() {
+		$parents = $this->getPageComments()->makeNew();
+		$parent = $this->parent();
+		while($parent && $parent->id) {
+			$parents->add($parent);
+			$parent = $parent->parent();
+		}
+		return $parents;
+	}
+
+	/**
 	 * Return children comments, if applicable
 	 * 
 	 * @return CommentArray
@@ -407,10 +504,11 @@ class Comment extends WireData {
 	 */
 	public function children() {
 		/** @var CommentArray $comments */
-		$comments = $this->getPageComments();
-		$children = $comments->makeNew();
+		// $comments = $this->getPageComments();
 		$page = $this->getPage();
 		$field = $this->getField();
+		$comments = $this->getPage()->get($field->name);
+		$children = $comments->makeNew();
 		if($page) $children->setPage($this->getPage());
 		if($field) $children->setField($this->getField()); 
 		$id = $this->id; 
@@ -422,7 +520,40 @@ class Comment extends WireData {
 	}
 
 	/**
-	 * Get array that holds all the comments for the current Page/Field
+	 * Does this comment have the given child comment?
+	 * 
+	 * @param int|Comment $comment Comment or Comment ID
+	 * @param bool $recursive Check all descending children recursively? Use false to check only direct children. (default=true)
+	 * @return bool
+	 * @since 3.0.149
+	 * 
+	 */
+	public function hasChild($comment, $recursive = true) {
+		
+		$id = $comment instanceof Comment ? $comment->id : (int) $comment;
+		$has = false;
+		$children = $this->children();
+	
+		// direct children
+		foreach($children as $child) {
+			if($child->id == $id) $has = true;
+			if($has) break;
+		}	
+	
+		if($has || !$recursive) return $has;
+	
+		// recursive children
+		foreach($children as $child) {
+			/** @var Comment $child */
+			if($child->hasChild($id, true)) $has = true;
+			if($has) break;
+		}
+		
+		return $has;
+	}	
+
+	/**
+	 * Get CommentArray that holds all the comments for the current Page/Field
 	 * 
 	 * #pw-internal
 	 * 
@@ -431,11 +562,31 @@ class Comment extends WireData {
 	 * 
 	 */
 	public function getPageComments($autoDetect = true) {
-		if($autoDetect && !$this->pageComments) {
-			$field = $this->getField();
-			$this->pageComments = $this->getPage()->get($field->name);
+		
+		$pageComments = $this->pageComments;
+		$page = $this->getPage();
+		$field = $this->getField();
+		
+		if($pageComments && $autoDetect) {
+			// check if the CommentsArray doesn't share the same Page/Field as the Comment
+			// this could be the case if CommentsArray was from search results rather than Page value
+			$pageCommentsPage = $pageComments->getPage();
+			$pageCommentsField = $pageComments->getField();
+			if($page && $pageCommentsPage && "$page" !== "$pageCommentsPage") {
+				$pageComments = null;
+			} else if($field && $pageCommentsField && "$field" !== "$pageCommentsField") {
+				$pageComments = null;
+			}
 		}
-		return $this->pageComments;
+		
+		if(!$pageComments && $autoDetect) {
+			if($page && $field) {
+				$pageComments = $page->get($field->name);
+				$this->pageComments = $pageComments;
+			}
+		}
+		
+		return $pageComments;
 	}
 
 	/**
@@ -507,6 +658,8 @@ class Comment extends WireData {
 
 	/**
 	 * Return URL to edit comment
+	 * 
+	 * @return string
 	 * 
 	 */
 	public function editUrl() {

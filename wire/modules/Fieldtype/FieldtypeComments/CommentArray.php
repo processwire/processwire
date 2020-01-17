@@ -324,6 +324,29 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 		parent::trackAdd($item, $key);
 		if(!$item->getPageComments(false)) $item->setPageComments($this);
 	}
+
+	/**
+	 * Does this CommentArray have the given Comment (or comment ID)?
+	 * 
+	 * Note: this method is very specific in purpose, accepting only a Comment object or ID. 
+	 * You can use the has() method for more flexibility.
+	 * 
+	 * @param Comment|int $comment
+	 * @return bool
+	 * @since 3.0.149
+	 * @see WireArray::has()
+	 * 
+	 */
+	public function hasComment($comment) {
+		$commentID = $comment instanceof Comment ? $comment->id : (int) $comment;
+		$has = false;
+		foreach($this as $item) {
+			if($item->id !== $commentID) continue;
+			$has = true;
+			break;
+		}
+		return $has;	
+	}
 }
 
 

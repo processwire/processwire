@@ -1289,7 +1289,6 @@ class FieldtypeComments extends FieldtypeMulti {
 			$pageID = $row['pages_id'];
 			if(isset($commentPages[$pageID])) {
 				$page = $commentPages[$pageID];
-				$comment->setPage($commentPages[$pageID]); 
 			} else {
 				$page = $this->wire('pages')->get((int) $pageID);
 				$commentPages[$page->id] = $page; 
