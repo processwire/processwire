@@ -68,6 +68,7 @@
 			padding: 4px 10px 4px 0;
 			border-bottom: 1px solid #ddd;
 			vertical-align: top;
+			line-height: 1.8;
 		}
 		
 		th {
@@ -94,6 +95,11 @@
 		padding-top: 0;
 	}
 	
+	.CommentInput {
+		max-width: 80%;
+	}
+	
+	
 	.CommentChangedIcon {
 		display: none;
 	}
@@ -110,15 +116,31 @@
 	
 	.CommentVotes {
 		label {
-			margin-right: 1em;
+			margin-right: 5px;
 		}
 		.CommentUpvotes span {
 			font-weight: bold;
 			color: green;
+			margin-right: 2px;
 		}
 		.CommentDownvotes span {
 			font-weight: bold;
 			color: red;
+			margin-right: 2px;
+		}
+	}
+	
+	.CommentID {
+		font-weight: normal;
+		color: #333;
+	}
+	
+	.CommentWhere {
+		small {
+			margin-right: 2px;
+		}
+		input {
+			width: 80px;
 		}
 	}
 	
@@ -153,7 +175,7 @@
 			textarea {
 				font-size: 1em;
 				width: 100%;
-				min-height: 15em;
+				min-height: 18em;
 				margin-top: 1em;
 				margin-bottom: 1em;
 			}
@@ -174,13 +196,14 @@
 
 		.CommentTextOverflow {
 			overflow-y: scroll;
-			max-height: 15em;
+			max-height: 18em;
 		}
 
 	}
 	
 	label.CommentStatus {
 		white-space: nowrap;
+		display: inline-block;
 	}
 
 	&.CommentItemStatus999 {

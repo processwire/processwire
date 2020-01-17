@@ -38,6 +38,20 @@ $(document).ready(function() {
 			$text.addClass('CommentTextOverflow'); 
 		}
 	});
+
+	/*
+	// for cite, email and website editor inputs (@todo)
+	$("a.CommentToggleSiblings").click(function() {
+		$(this).siblings().each(function() {
+			var $item = $(this);
+			if($item.attr('hidden')) {
+				$item.attr('hidden', false);
+			} else {
+				$item.attr('hidden', true);
+			}
+		});
+	}); 
+	*/
 	
 	$("#CommentLimitSelect").change(function() {
 		window.location = './?limit=' + parseInt($(this).val());
