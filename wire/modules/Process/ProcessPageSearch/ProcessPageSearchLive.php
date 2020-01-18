@@ -1115,23 +1115,25 @@ class ProcessPageSearchLive extends Wire {
 		$group = '';
 		$groups = array();
 		$totals = array();
-		$icon = wireIconMarkup('angle-right');
+		$counts = array();
+		$btn = $this->modules->get('InputfieldButton'); /** @var InputfieldButton $btn */
+		$btn->aclass = "$prefix-view-all";
 	
 		foreach($items as $item) {
 			if($item['group'] != $group) {
 				$group = $item['group'];
 				$groups[$group] = ''; 
 			}
+			$counts[$group] = isset($counts[$group]) ? $counts[$group] + 1 : 1;
 			if(empty($totals[$group]) && isset($item['n'])) {
 				list(, $total) = explode('/', $item['n']);
 				$totals[$group] = (int) $total;
 			}
 			if($item['name'] === 'view-all') {
 				if($pagination) continue;
-				$groupLabel = $this->wire('sanitizer')->entities($group);
-				$groups[$group] .= 
-					"<p><a class='$prefix-view-all' href='$item[url]'>" . 
-					"$item[title] $icon $groupLabel (" . $totals[$group] . ")</a></p>";
+				$btn->href = $item['url'];
+				$btn->value = "$item[title] > $group (" . $totals[$group] . ")";
+				$groups[$group] .= $btn->render();
 			} else {
 				$groups[$group] .= $this->renderItem($item, $prefix) . '<hr />';
 			}
@@ -1139,7 +1141,7 @@ class ProcessPageSearchLive extends Wire {
 		
 		$totalGroups = array();
 		foreach($groups as $group => $content) {
-			$total = $totals[$group];
+			$total = empty($totals[$group]) ? $counts[$group] : (int) $totals[$group];
 			$totalGroups["$group ($total)"] = $content;
 			unset($groups[$group]); 
 		}
