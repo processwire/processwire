@@ -42,8 +42,11 @@ class SystemUpdate17 extends SystemUpdate {
 	public function update() {
 		
 		if(!$this->isApache()) {
-			$this->warning('Update skipped because Apache not detected'); 
-			$this->warning('Please see the details URL below on how to apply this update manually');
+			$this->warning(
+				"Update skipped because Apache not detected. " . 
+				"Please <a href='$this->detailsUrl' target='_blank'>see this post</a> for details on how to apply this update manually.",
+				Notice::allowMarkup | Notice::noGroup
+			);
 			return true;
 		}
 	
