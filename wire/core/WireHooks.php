@@ -1024,13 +1024,16 @@ class WireHooks {
 		if(is_array($hookID) || strpos($hookID, ',')) {
 			return $this->removeHooks($object, $hookID);
 		}
-		if(!empty($hookID) && strpos($hookID, ':')) {
+		if(!empty($hookID) && substr_count($hookID, ':') === 2) {
+			// local hook ID ":100.0:methodName" or static hook ID "ClassName:100.0:methodName"
 			list($hookClass, $priority, $method) = explode(':', $hookID);
 			if(empty($hookClass)) {
+				// local hook
 				$localHooks = $object->getLocalHooks();
 				unset($localHooks[$method][$priority]);
 				$object->setLocalHooks($localHooks);
 			} else {
+				// static hook
 				unset($this->staticHooks[$hookClass][$method][$priority]);
 				if(empty($this->staticHooks[$hookClass][$method])) {
 					unset($this->hookClassMethodCache["$hookClass::$method"]);
