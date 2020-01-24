@@ -44,14 +44,14 @@ class FieldtypeModule extends Fieldtype {
 
 	public function sanitizeValue(Page $page, Field $field, $value) {
 		if(!$value) return $this->getBlankValue($page, $field);
-		if($field->instantiateModule) return $value instanceof Module ? $value : $this->modules->get($value); 
+		if($field->get('instantiateModule')) return $value instanceof Module ? $value : $this->modules->get($value); 
 		if(ctype_digit("$value")) return $this->modules->getModuleClass((int) $value); 
 		return $this->modules->getModuleID($value) ? $value : $this->getBlankValue($page, $field);
 	}
 
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 		if(empty($value)) return $this->getBlankValue($page, $field);
-		if($field->instantiateModule) return $this->wire('modules')->get($value); 
+		if($field->get('instantiateModule')) return $this->wire('modules')->get($value); 
 		return $this->wire('modules')->getModuleClass((int) $value); 
 	}
 
@@ -65,32 +65,39 @@ class FieldtypeModule extends Fieldtype {
 	}
 
 	public function getInputfield(Page $page, Field $field) {
+	
+		/** @var Modules $modules */
+		$modules = $this->wire('modules');
 
-		$inputfieldClass = $field->inputfieldClass ? $field->inputfieldClass : 'InputfieldSelect';
-		$inputfield = $this->modules->get($inputfieldClass); 
+		$inputfieldClass = $field->get('inputfieldClass');
+		$inputfieldClass = $inputfieldClass ? $inputfieldClass : 'InputfieldSelect';
+		
+		/** @var InputfieldSelect $inputfield */
+		$inputfield = $modules->get($inputfieldClass); 
 		if(!$inputfield) $inputfield = $this->modules->get('InputfieldSelect'); 
 
 		$inputfield->attr('name', $field->name); 
 		$inputfield->class = $this->className();
-		//if($inputfieldClass == 'InputfieldSelect') $inputfield->addOption(0, ''); 
 		$options = array();
 
-		foreach($this->modules as $module) {
+		foreach($modules as $module) {
 			$found = false; 
-			$parents = wireClassParents("$module"); 
-			if($field->moduleTypes) foreach($field->moduleTypes as $moduleType) {
+			$ns = $this->modules->getModuleNamespace($module);
+			$parents = wireClassParents($ns ? "$ns$module" : "$module"); 
+			$moduleTypes = $field->get('moduleTypes');
+			if($moduleTypes) foreach($moduleTypes as $moduleType) {
 				if(in_array($moduleType, $parents)) { 
-				//if(strpos("$module", $moduleType) === 0) {
 					$found = true; 
 					break;
 				}
 			}
 			if(!$found) continue; 
-			if($field->labelField == 'title') {
-				$info = $this->wire('modules')->getModuleInfo($module);
+			$labelField = $field->get('labelField');
+			if($labelField === 'title') {
+				$info = $modules->getModuleInfo($module);
 				$label = !empty($info['title']) ? $info['title'] : (string) $module;
-			} else if($field->labelField == 'title-summary') {
-				$info = $this->wire('modules')->getModuleInfoVerbose($module);
+			} else if($labelField === 'title-summary') {
+				$info = $modules->getModuleInfoVerbose($module);
 				$label = !empty($info['title']) ? $info['title'] : (string) $module;
 				if(!empty($info['summary'])) $label .= " [span.detail] • " . $info['summary'] . ' [/span]';
 			} else {
@@ -122,9 +129,9 @@ class FieldtypeModule extends Fieldtype {
 	public function ___getConfigInputfields(Field $field) {
 
 		$inputfields = parent::___getConfigInputfields($field); 
-		$moduleTypes = array();
 		$lastType = '';
 
+		/** @var InputfieldCheckboxes $f */
 		$f = $this->modules->get("InputfieldCheckboxes"); 
 		$f->attr('name', 'moduleTypes'); 
 		
@@ -140,14 +147,17 @@ class FieldtypeModule extends Fieldtype {
 			$lastType = $moduleType; 
 		}
 
-		$f->attr('value', is_array($field->moduleTypes) ? $field->moduleTypes : array()); 
+		$moduleTypes = $field->get('moduleTypes');
+		if(!is_array($moduleTypes)) $moduleTypes = array();
+		
+		$f->attr('value', $moduleTypes);
 		$f->label = $this->_('Module Types');
 		$f->description = $this->_('Check all of the module types that may be selectable in this field.');
 		$inputfields->append($f); 
 
 		$f = $this->modules->get("InputfieldCheckbox"); 
 		$f->attr('name', 'instantiateModule'); 
-		$f->attr('value', (int) $field->instantiateModule);
+		$f->attr('value', (int) $field->get('instantiateModule'));
 		$f->label = $this->_('Make this field an instance of the selected module?'); 
 		$f->description = $this->_('If checked, the field value will be an actual instance of the selected module. If not checked, the field value will be a string containing the class name of the module.'); // instantiate module description
 		$inputfields->add($f); 
@@ -158,7 +168,7 @@ class FieldtypeModule extends Fieldtype {
 		$f->addOption('', $this->_('Name')); 
 		$f->addOption('title', $this->_('Title'));
 		$f->addOption('title-summary', $this->_('Title and summary'));
-		$f->attr('value', $field->labelField); 
+		$f->attr('value', $field->get('labelField')); 
 		$f->columnWidth = 50; 
 		$inputfields->add($f); 
 
@@ -168,7 +178,7 @@ class FieldtypeModule extends Fieldtype {
 		$f->addOption('', $this->_('Select')); 
 		$f->addOption('InputfieldRadios', $this->_('Radios')); 
 		$f->columnWidth = 50;
-		$f->attr('value', $field->inputfieldClass);
+		$f->attr('value', $field->get('inputfieldClass'));
 		$inputfields->add($f); 
 		
 		$f = $this->modules->get('InputfieldCheckbox');
