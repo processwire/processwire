@@ -5,7 +5,7 @@
  *
  * Provides implementation for Page comparison functions.
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -13,30 +13,74 @@
 class PageComparison {
 
 	/** 
-	 * Does this page have the specified status number or template name? 
+	 * Is this page of the given type? (status, template, etc.)
  	 *
- 	 * See status flag constants at top of Page class
-	 *
 	 * @param Page $page
-	 * @param int|string|Selectors $status Status number or Template name or selector string/object
+	 * @param int|string|array|Selectors|Page|Template $status One of the following: 
+	 *  - Status expressed as int (using Page::status* constants) 
+	 *  - Status expressed as string/name, i.e. "hidden" (3.0.150+)
+	 *  - Template name, indicating page type
+	 *  - Page or Template object (3.0.150+)
+	 *  - Selector string or Selectors object that must match
+	 *  - Array of any of the above where all have to match (3.0.150+)
 	 * @return bool
 	 *
 	 */
 	public function is(Page $page, $status) {
+	
+		$is = false;
+		
+		if(is_string($status) && ctype_digit($status)) {
+			$status = (int) $status;
+		}
 
 		if(is_int($status)) {
-			return ((bool) ($page->status & $status)); 
+			// status flag integer
+			$is = $page->status & $status; 
+			
+		} else if(is_object($status)) {
+			// Page, Template or Selectors object
+			if($status instanceof Page && $status->id === $page->id) {
+				$is = true;
+			} else if($status instanceof Template && "$page->template" === "$status") {
+				$is = true;
+			} else if($status instanceof Selectors || $status instanceof Selector) {
+				$is = $page->matches($status);
+			}
+			
+		} else if(is_array($status)) {
+			// array where all items have to match an is() call
+			$n = 0;
+			foreach($status as $val) {
+				if(is_array($val)) break; // no multi-dimensional
+				if($this->is($page, $val)) $n++;
+			}
+			if($n && count($status) === $n) $is = true;
 
-		} else if(is_string($status) && $page->wire('sanitizer')->name($status) == $status) {
-			// valid template name or status name
-			if($page->template->name == $status) return true; 
+		} else if(is_string($status) && $page->wire('sanitizer')->name($status) === $status) {
+			// name string (status name or template name)
+			$statuses = Page::getStatuses();
+			if(isset($statuses[$status])) {
+				// status name
+				$is = $page->status & $statuses[$status];
+
+			} else if("$page->template" === $status) {
+				// template name
+				$is = true;
+			}
+			
+		} else if(is_string($status) && strpos($status, 'Page::status') === 0) {
+			// literal constant name in string
+			$status = __NAMESPACE__ . "\\$status";
+			$status = constant($status);
+			$is = $page->status & $status; 
 
 		} else if($page->matches($status)) { 
 			// Selectors object or selector string
-			return true; 
+			$is = true; 
 		}
 
-		return false;
+		return $is;
 	}
 
 	/**
@@ -62,15 +106,25 @@ class PageComparison {
 
 		// if only given a key argument, we will be returning a boolean
 		if($yes === '' && $no === '') list($yes, $no) = array(true, false);
+		
+		if(is_string($key)) $key = trim($key);
 
 		if(is_bool($key) || is_int($key)) {
 			// boolean or int
 			$val = $key;
 			$action = empty($val) ? $no : $yes;
-		} else if(ctype_digit("$key")) {
-			// integer or string value of Wire object
-			$val = (int) $key;
+		} else if(is_array($key)) {
+			// PHP array 
+			$val = $key;
+			$action = count($val) ? $no : $yes;
+		} else if(ctype_digit(ltrim("$key", '-'))) {
+			// integer or string value of digits, or Wire instance string value of digits
+			$val = (int) "$key";
 			$action = empty($val) ? $no : $yes;
+		} else if(is_string($key) && wireEmpty($key)) {
+			// empty string
+			$val = $key;
+			$action = $no;
 		} else if(!ctype_alnum("$key") && Selectors::stringHasOperator($key)) {
 			// selector string
 			$val = $page->matches($key) ? 1 : 0;
@@ -78,7 +132,7 @@ class PageComparison {
 		} else {
 			// field name or other format string accepted by $page->get()
 			$val = $page->get($key);
-			$action = empty($val) || ($val instanceof WireArray && !$val->count()) || $val instanceof NullPage ? $no : $yes;
+			$action = wireEmpty($val) ? $no : $yes;
 		}
 
 		if(is_string($action)) {

@@ -398,6 +398,7 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 *
 	 */
 	public function has($key) {
+		if(isset($this->data[$key])) return true; // optimization
 		return ($this->get($key) !== null); 
 	}
 

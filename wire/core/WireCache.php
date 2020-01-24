@@ -324,7 +324,7 @@ class WireCache extends Wire {
 	 * @param int|string|null $expire
 	 * @param callable $func
 	 * @return bool|string
-	 * @since Version 2.5.28
+	 * @since 2.5.28
 	 * 
 	 */
 	protected function renderCacheValue($name, $expire, $func) {
@@ -897,7 +897,7 @@ class WireCache extends Wire {
 	 *
 	 * @param array $data
 	 * @return PageArray
-	 * @since Version 2.5.28
+	 * @since 2.5.28
 	 *
 	 */
 	protected function arrayToPageArray(array $data) {
@@ -924,7 +924,7 @@ class WireCache extends Wire {
 	 * @param PageArray $items
 	 * @return array
 	 * @throws WireException
-	 * @since Version 2.5.28
+	 * @since 2.5.28
 	 *
 	 */
 	protected function pageArrayToArray(PageArray $items) {
