@@ -495,6 +495,23 @@ abstract class Fieldtype extends WireData implements Module {
 	}
 
 	/**
+	 * Is given value one that should cause the DB row(s) to be deleted rather than saved?
+	 * 
+	 * Not applicable to Fieldtypes that override the savePageField() method with their own
+	 * implementation, unless they also use this method. 
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param mixed $value
+	 * @return bool
+	 * @since 3.0.150
+	 * 
+	 */
+	public function isDeleteValue(Page $page, Field $field, $value) {
+		return $value === $this->getBlankValue($page, $field); 
+	}
+
+	/**
 	 * Return whether the given value is considered empty or not.
 	 * 
 	 * This can be anything that might be present in a selector value and thus is
@@ -1132,8 +1149,10 @@ abstract class Fieldtype extends WireData implements Module {
 		$database = $this->wire('database');
 		$value = $page->get($field->name);
 
-		// if the value is the same as the default, then remove the field from the database because it's redundant
-		if($value === $this->getBlankValue($page, $field)) return $this->deletePageField($page, $field); 
+		// if the value is one that should be deleted, then remove the field from the database because it's redundant
+		if($this->isDeleteValue($page, $field, $value)) {
+			return $this->deletePageField($page, $field);
+		}
 
 		$value = $this->sleepValue($page, $field, $value); 
 
