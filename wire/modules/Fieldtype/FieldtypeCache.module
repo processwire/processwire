@@ -8,7 +8,7 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -26,7 +26,7 @@ class FieldtypeCache extends Fieldtype {
 			'title' => 'Cache',
 			'version' => 102,
 			'summary' => 'Caches the values of other fields for fewer runtime queries. Can also be used to combine multiple text fields and have them all be searchable under the cached field name.'
-			);
+		);
 	}
 
 	public function getDatabaseSchema(Field $field) {
@@ -55,6 +55,7 @@ class FieldtypeCache extends Fieldtype {
 	}
 
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		/** @var DatabaseQuerySelectFulltext $ft */
 		$ft = $this->wire(new DatabaseQuerySelectFulltext($query)); 
 		$ft->match($table, $subfield, $operator, $value); 
 		return $query; 
@@ -62,7 +63,7 @@ class FieldtypeCache extends Fieldtype {
 
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 
-		if(!$value || $field->cacheDisabled) return $field->cacheFields;
+		if(!$value || $this->cacheDisabled($field)) return $this->cacheFields($field); 
 		$value = json_decode($value, true); 
 		if(!is_array($value)) $value = array($value);
 
@@ -75,12 +76,12 @@ class FieldtypeCache extends Fieldtype {
 			$v = $f->type->wakeupValue($page, $field, $v); 
 			if(!$page->__isset($name)) $page->setFieldValue($name, $v, false); 
 		}
-		return $field->cacheFields;
+		return $this->cacheFields($field); 
 	}
 
 	public function ___sleepValue(Page $page, Field $field, $value) {
 		$value = array(); // we don't care what value gets passed in here
-		foreach($field->cacheFields as $name) {
+		foreach($this->cacheFields($field) as $name) {
 			$f = $this->fields->get($name); 
 			if($f) $value[$name] = $f->type->sleepValue($page, $f, $page->get($name)); 
 		}
@@ -93,11 +94,11 @@ class FieldtypeCache extends Fieldtype {
 
 	public function ___savePageField(Page $page, Field $field) {
 	
-		if($field->cacheDisabled) return true; 
+		if($this->cacheDisabled($field)) return true; 
 
 		// set to an array of the cache fields if there is nothing in the field
 		// this is just to make sure that it's populated with something
-		if(!$page->get($field->name)) $page->set($field->name, $field->cacheFields); 
+		if(!$page->get($field->name)) $page->set($field->name, $this->cacheFields($field));
 
 		// ensure that the cache gets updated on every page save
 		$page->trackChange($field->name); 
@@ -162,10 +163,31 @@ class FieldtypeCache extends Fieldtype {
 		return $numPages; 
 	}
 
+	/**
+	 * @param Field $field
+	 * @return array
+	 * 
+	 */
+	protected function cacheFields(Field $field) {
+		$cacheFields = $field->get('cacheFields');
+		if(!is_array($cacheFields)) $cacheFields = array();
+		return $cacheFields;
+	}
+
+	/**
+	 * @param Field $field
+	 * @return bool
+	 * 
+	 */
+	protected function cacheDisabled(Field $field) {
+		return (bool) $field->get('cacheDisabled');
+	}
+
 	public function ___getConfigInputfields(Field $field) {
 
 		$inputfields = parent::___getConfigInputfields($field);
-		
+	
+		/** @var InputfieldAsmSelect $select */
 		$select = $this->modules->get("InputfieldAsmSelect"); 
 		$select->attr('name', 'cacheFields'); 
 		$select->label = 'Fields to cache';
@@ -180,9 +202,10 @@ class FieldtypeCache extends Fieldtype {
 			if($f->flags & Field::flagAutojoin) $label .= " (autojoin)";
 			$select->addOption($f->name, $label); 
 		}
-		$select->attr('value', is_array($field->cacheFields) ? $field->cacheFields : array()); 
+		$select->attr('value', $this->cacheFields($field)); 
 		$inputfields->append($select);
 
+		/** @var InputfieldCheckbox $checkbox */
 		$checkbox = $this->modules->get("InputfieldCheckbox"); 
 		$checkbox->attr('name', '_regenerateCache');
 		$checkbox->attr('value', 1); 
@@ -196,13 +219,13 @@ class FieldtypeCache extends Fieldtype {
 			"one or more templates before using this cache generation/regeneration tool.";
 
 		$checkbox->notes = "The cache currently contains data from " . $this->getNumPagesCached($field) . " pages.";
-		if($this->input->post->_regenerateCache) $this->regenerateCache($field); 
+		if($this->input->post('_regenerateCache')) $this->regenerateCache($field); 
 		$inputfields->append($checkbox); 
 
 		$checkbox = $this->modules->get("InputfieldCheckbox"); 
 		$checkbox->attr('name', 'cacheDisabled');
 		$checkbox->attr('value', 1); 
-		$checkbox->attr('checked', $field->cacheDisabled ? 'checked' : ''); 
+		$checkbox->attr('checked', $this->cacheDisabled($field) ? 'checked' : ''); 
 		$checkbox->label = "Disable Cache?";
 		$checkbox->description = "Temporarily disable the cache for testing, debugging, etc.";
 		$inputfields->append($checkbox); 
