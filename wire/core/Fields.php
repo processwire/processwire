@@ -114,6 +114,12 @@ class Fields extends WireSaveableItems {
 	protected $tagList = null;
 
 	/**
+	 * @var FieldsTableTools|null
+	 * 
+	 */
+	protected $tableTools = null;
+
+	/**
 	 * Construct
 	 *
 	 */
@@ -181,7 +187,8 @@ class Fields extends WireSaveableItems {
 		
 		if(strpos($class, "\\") === false) $class = wireClassName($class, true);
 		if(!class_exists($class)) return parent::makeItem($a);
-		
+	
+		/** @var Field $field */
 		$field = new $class();
 		$this->wire($field);
 		
@@ -1111,6 +1118,20 @@ class Fields extends WireSaveableItems {
 			$fieldtypes = $this->wire('fieldtypes');
 		}
 		return $fieldtypes;
+	}
+
+	/**
+	 * Get FieldsIndexTools instance
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return FieldsTableTools
+	 * @since 3.0.150
+	 * 
+	 */
+	public function tableTools() {
+		if($this->tableTools === null) $this->tableTools = $this->wire(new FieldsTableTools());
+		return $this->tableTools;
 	}
 
 }

@@ -1135,7 +1135,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 * @param Page $page Page object to save. 
 	 * @param Field $field Field to retrieve from the page. 
 	 * @return bool True on success, false on DB save failure.
-	 * @throws WireException
+	 * @throws WireException|\PDOException|WireDatabaseException
 	 *
 	 */
 	public function ___savePageField(Page $page, Field $field) {
@@ -1200,7 +1200,18 @@ abstract class Fieldtype extends WireData implements Module {
 		}
 		
 		$query = $database->prepare($sql);
-		$result = $query->execute();
+		
+		try {
+			$result = $query->execute();
+			
+		} catch(\PDOException $e) {
+			if($e->getCode() == 23000) {
+				$message = sprintf($this->_('Value not allowed for field “%2$s” because it is already in use'), $field->name);
+				throw new WireDatabaseException($message, $e->getCode(), $e);
+			} else {
+				throw $e;
+			}
+		}
 
 		return $result; 
 	}

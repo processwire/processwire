@@ -35,6 +35,7 @@
  * @property array|null $orderByCols Columns that WireArray values are sorted by (default=null), Example: "sort" or "-created". #pw-internal
  * @property int|null $paginationLimit Used by paginated WireArray values to indicate limit to use during load. #pw-internal
  * @property array $allowContexts Names of settings that are custom configured to be allowed for context. #pw-group-properties
+ * @property bool|int|null $flagUnique Non-empty value indicates request for, or presence of, Field::flagUnique flag. #pw-internal
  *
  * Common Inputfield properties that Field objects store:  
  * @property int|bool|null $required Whether or not this field is required during input #pw-group-properties
@@ -56,6 +57,7 @@ class Field extends WireData implements Saveable, Exportable {
 
 	/**
 	 * Field should be automatically joined to the page at page load time
+	 * 
 	 * #pw-group-flags
 	 *
 	 */
@@ -63,6 +65,7 @@ class Field extends WireData implements Saveable, Exportable {
 
 	/**
 	 * Field used by all fieldgroups - all fieldgroups required to contain this field
+	 * 
 	 * #pw-group-flags
 	 *
 	 */
@@ -70,6 +73,7 @@ class Field extends WireData implements Saveable, Exportable {
 
 	/**
 	 * Field is a system field and may not be deleted, have it's name changed, or be converted to non-system
+	 * 
 	 * #pw-group-flags
 	 *
 	 */
@@ -77,6 +81,7 @@ class Field extends WireData implements Saveable, Exportable {
 
 	/**
 	 * Field is permanent in any fieldgroups/templates where it exists - it may not be removed from them
+	 * 
 	 * #pw-group-flags
 	 *
 	 */
@@ -84,6 +89,7 @@ class Field extends WireData implements Saveable, Exportable {
 
 	/**
 	 * Field is access controlled
+	 * 
 	 * #pw-group-flags
 	 *
 	 */
@@ -93,6 +99,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 * If field is access controlled, this flag says that values are still front-end API accessible
 	 * 
 	 * Without this flag, non-viewable values are made blank when output formatting is ON.
+	 * 
 	 * #pw-group-flags
 	 * 
 	 */
@@ -102,13 +109,28 @@ class Field extends WireData implements Saveable, Exportable {
 	 * If field is access controlled and user has no edit access, they can still view in the editor (if they have view permission)
 	 * 
 	 * Without this flag, non-editable values are simply not shown in the editor at all.
+	 * 
 	 * #pw-group-flags
 	 * 
 	 */
-	const flagAccessEditor = 128; 
+	const flagAccessEditor = 128;
+
+	/**
+	 * Field requires that the same value is not repeated more than once in its table 'data' column (when supported by Fieldtype)
+	 * 
+	 * When this flag is set and there is a non-empty $flagUnique property on the field, then it indicates a unique index 
+	 * is currently present. When only this flag is present (no property), it indicates a request to remove the index and flag. 
+	 * When only the property is present (no flag), it indicates a pending request to add unique index and flag. 
+	 * 
+	 * #pw-group-flags
+	 * @since 3.0.150
+	 * 
+	 */
+	const flagUnique = 256;
 
 	/**
 	 * Field has been placed in a runtime state where it is contextual to a specific fieldgroup and is no longer saveable
+	 * 
 	 * #pw-group-flags
 	 *
 	 */
@@ -116,6 +138,7 @@ class Field extends WireData implements Saveable, Exportable {
 
 	/**
 	 * Set this flag to override system/permanent flags if necessary - once set, system/permanent flags can be removed, but not in the same set().
+	 * 
 	 * #pw-group-flags
 	 *
 	 */
@@ -123,6 +146,7 @@ class Field extends WireData implements Saveable, Exportable {
 
 	/**
 	 * Prefix for database tables
+	 * 
 	 * #pw-internal
 	 * 
 	 */
