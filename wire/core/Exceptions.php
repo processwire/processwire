@@ -8,7 +8,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -17,7 +17,29 @@
  * Generic ProcessWire exception
  *
  */
-class WireException extends \Exception {}
+class WireException extends \Exception {
+	/**
+	 * Replace previously set message
+	 * 
+	 * @param string $message
+	 * @since 3.0.150
+	 * 
+	 */
+	protected function setMessage($message) {
+		$this->message = $message;
+	}
+
+	/**
+	 * Replace previously set code
+	 * 
+	 * @param int $code
+	 * @since 3.0.150
+	 * 
+	 */
+	protected function setCode($code) {
+		$this->code = $code;
+	}
+}
 
 /**
  * Thrown when access to a resource is not allowed
