@@ -2068,7 +2068,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					}
 
 				} catch(\Exception $e) {
-					$this->error($e->getMessage());
+					$show = true;
+					$message = $e->getMessage();
+					foreach($this->errors('all') as $error) {
+						if(strpos($error, $message) === false) continue;
+						$show = false;
+						break;
+					}
+					if($show) $this->error($message);
 				}
 			}
 		}
