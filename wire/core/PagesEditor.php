@@ -685,7 +685,10 @@ class PagesEditor extends Wire {
 				try {
 					$field->type->savePageField($page, $field);
 				} catch(\Exception $e) {
-					$error = sprintf($this->_('Error saving field "%s"'), $name) . ' - ' . $e->getMessage();
+					$label = $field->getLabel();
+					$message = $e->getMessage();
+					if(strpos($message, $label) !== false) $label = $name;
+					$error = sprintf($this->_('Error saving field "%s"'), $label) . ' — ' . $message;
 					$this->trackException($e, true, $error);
 					if($this->wire('database')->inTransaction()) throw $e;
 				}

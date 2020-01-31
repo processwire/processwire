@@ -3,7 +3,7 @@
 /**
  * RepeaterPage represents an individual repeater page item
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -12,13 +12,17 @@ class RepeaterPage extends Page {
 
 	/**
 	 * Page instance that has this repeater item on it
+	 * 
+	 * @var Page|null
 	 *
 	 */
 	protected $forPage = null;		
 
 	/**
 	 * Field instance that contains this repeater item
-	 *
+	 * 
+	 * @var Field|null
+	 * 
 	 */
 	protected $forField = null;
 	
@@ -95,24 +99,40 @@ class RepeaterPage extends Page {
 
 	/**
 	 * Return the field that this repeater item belongs to
+	 * 
+	 * Returns null only if $forField has not been set and cannot be determined from any other
+	 * properties of this page. Meaning null return value is not likely.
 	 *
-	 * @return Field
+	 * @return Field|null 
 	 *
 	 */
 	public function getForField() {
-		if(!is_null($this->forField)) return $this->forField;
+		if($this->forField !== null) return $this->forField;
 
+		// auto-detect forField from its location
 		$grandparent = $this->parent()->parent();
 		$grandparentName = $grandparent->name;
 		$prefix = FieldtypeRepeater::fieldPageNamePrefix;  // for-field-
+		$forField = null;
+		$fields = $this->wire('fields'); /** @var Fields $fields */
 
 		if(strpos($grandparentName, $prefix) === 0) {
 			// determine field from grandparent name in format: for-field-1234
 			$forID = (int) substr($grandparentName, strlen($prefix));
-			$this->forField = $this->wire('fields')->get($forID); 
+			$forField = $fields->get($forID); 
+		} else {
+			// page must exist somewhere outside the expected location, so use template
+			// name as a secondary way to identify what the field is
+			$template = $this->template;
+			if($template && strpos($template->name, FieldtypeRepeater::templateNamePrefix) === 0) {
+				list(,$fieldName) = explode(FieldtypeRepeater::templateNamePrefix, $template->name, 2);
+				$forField = $fields->get($fieldName);
+			}
 		}
-
-		return $this->forField;
+		
+		if($forField) $this->forField = $forField;
+		
+		return $forField;
 	}
 
 	/**
