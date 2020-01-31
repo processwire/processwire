@@ -62,4 +62,7 @@
 .pw-search-list .pw-wiretabs-item {
 	padding-top: 1em;
 }
+.pw-search-item .pw-search-subtitle {
+	opacity: 0.6;
+}
 

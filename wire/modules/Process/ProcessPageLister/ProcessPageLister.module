@@ -1262,26 +1262,33 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			if(!$label) $label = isset($systemLabels[$name]) ? $systemLabels[$name] : $name;
 			$icon = $field ? $field->getIcon(true) : '';
 			
+			$sep1 = '~~';
+			$sep2 = '&nbsp;&gt; ';
+			$label = str_replace($sep1, ' ', $label);
+			
 			if($subname) {
 				$subfield = $this->fields->get($subname);
 
 				if($subfield) {
-					$label .= '.' . $subfield->getLabel();
+					$sublabel = $subfield->getLabel();
+					$sublabel = str_replace($sep1, ' ', $sublabel);
+					if(!$sublabel) $sublabel = $subname;
+					$label .= $sep1 . $sublabel;
 					$subicon = $subfield->getIcon(true);
 					if($subicon) $icon = $subicon;
+				} else {
+					$label .= $sep1 . $subname;
 				}
 
 				if($language) {
 					$label = $this->addLanguageLabel($label, $language);
-				} else if(!$subfield) {
-					$label .= '.' . $subname;
 				}
 			} else if($language) {
 				$label = $this->addLanguageLabel($label, $language);
 			}
 			
 			$label = $this->wire('sanitizer')->entities1($label);
-			$label = str_replace('.', '.<wbr>', $label);
+			$label = str_replace($sep1, "$sep2<wbr>", $label);
 			
 			if($icon) {
 				// the following code ensures the first word of the label and icon don't get split on separate lines
@@ -1293,6 +1300,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				} else {
 					$label .= '</strong>';
 				}
+			} else if($subname) {
+				$label = "<strong>" . str_replace($sep2, "$sep2</strong>", $label); 
 			}
 			
 			$sortKey = $subname ? "$name.$subname" : $name;
