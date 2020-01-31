@@ -22,7 +22,7 @@ class InputfieldEmail extends InputfieldText {
 		$this->setAttribute('name', 'email'); 
 		parent::__construct();
 		$this->setAttribute('type', 'email'); 
-		$this->setAttribute('maxlength', 512); 
+		$this->setAttribute('maxlength', 250); 
 		$this->setAttribute('size', 0); 
 		$this->set('confirm', 0); // when 1, two inputs will appear and both must match
 		$this->set('confirmLabel', $this->_('Confirm')); 
@@ -54,15 +54,45 @@ class InputfieldEmail extends InputfieldText {
 	}
 
 	public function ___processInput(WireInputData $input) {
+
+		$field = $this->hasField;
+		$fieldtype = $field ? $field->type : $this->hasFieldtype; /** @var FieldtypeEmail $fieldtype */
+		$page = $this->hasPage;
+		$errors = array();
+		$valuePrevious = $this->val();
+		
 		parent::___processInput($input);
+		
+		$value = $this->val();
+		$changed = strtolower($value) !== strtolower($valuePrevious);
+		
 		if($this->confirm) {
-			$value1 = $this->attr('value');
-			$value2 = $this->wire('sanitizer')->email($input["_{$this->name}_confirm"]); 
-			if((strlen($value1) || strlen($value2)) && strtolower($value1) !== strtolower($value2)) {
-				$this->attr('value', '');
-				$this->error($this->_('The emails you entered did not match, please enter again'));
+			$value2 = $this->wire('sanitizer')->email($input["_{$this->name}_confirm"]);
+			if((strlen($value) || strlen($value2)) && strtolower($value) !== strtolower($value2)) {
+				$errors[] = $this->_('The emails you entered did not match, please enter again');
 			}
 		}
+		
+		if($changed && $value && $field && $page && $field->hasFlag(Field::flagUnique)) {
+			$fields = $this->wire('fields'); /** @var Fields $fields */
+			$pageId = $fields->tableTools()->valueExists($this->hasField, $value);
+			if($pageId != $page->id) {
+				$errors[] = sprintf($this->_('Email “%s” is already in use, please use a different one'), $value);
+			}
+		}
+		
+		if($fieldtype && $fieldtype instanceof FieldtypeEmail) {
+			$max = $fieldtype->getMaxEmailLength();
+			if(strlen($value) > $max) {
+				$errors[] = sprintf($this->_('Email exceeded max allowed length of %d characters'), $max);
+			}
+		}
+
+		if(count($errors)) {
+			foreach($errors as $error) $this->error($error);
+			$this->val($valuePrevious);
+		}
+
 		return $this;
 	}
 
