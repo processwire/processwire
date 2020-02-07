@@ -11,6 +11,8 @@
  * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
  * 
+ * @todo allow for more integer types (tiny, small, medium, big) and unsigned option
+ * 
  */
 
 class FieldtypeInteger extends Fieldtype {
@@ -38,11 +40,15 @@ class FieldtypeInteger extends Fieldtype {
 	}
 	
 	public function isEmptyValue(Field $field, $value) {
-		if(($value === "0" || $value === 0) && $field->zeroNotEmpty) {
+		if(($value === "0" || $value === 0) && $field->get('zeroNotEmpty')) {
 			// when zeroNotEmpty option is set, we don't count a literal "0" is being a blank value
 			return false;
 		}
 		return empty($value); 
+	}
+	
+	public function isDeleteValue(Page $page, Field $field, $value) {
+		return $this->isEmptyValue($field, $value); 
 	}
 
 	public function getBlankValue(Page $page, Field $field) {
@@ -107,6 +113,7 @@ class FieldtypeInteger extends Fieldtype {
 	}
 
 	public function getInputfield(Page $page, Field $field) {
+		/** @var InputfieldInteger $inputfield */
 		$inputfield = $this->modules->get('InputfieldInteger'); 
 		$inputfield->class = $this->className();
 		return $inputfield; 
@@ -120,6 +127,8 @@ class FieldtypeInteger extends Fieldtype {
 	
 	public function ___getConfigInputfields(Field $field) {
 		$inputfields = parent::___getConfigInputfields($field); 
+		
+		/** @var InputfieldRadios $f */
 		$f = $this->wire('modules')->get('InputfieldRadios'); 
 		$f->label = $this->_('Are blank and 0 equivalent?'); 
 		$f->description = $this->_('This affects how ProcessWire matches pages during database find operations.') . ' ' . 
@@ -129,15 +138,16 @@ class FieldtypeInteger extends Fieldtype {
 		$f->attr('name', 'zeroNotEmpty'); 
 		$f->addOption(0, $this->_('Yes - Blank and 0 are equivalent'));
 		$f->addOption(1, $this->_('No - Blank and 0 have different meanings')); 
-		$f->attr('value', (int) $field->zeroNotEmpty);
+		$f->attr('value', (int) $field->get('zeroNotEmpty'));
 		$inputfields->add($f); 
-		
+	
+		/** @var InputfieldInteger $f */
 		$f = $this->wire('modules')->get('InputfieldInteger');
 		$f->attr('name', 'defaultValue');
 		$f->label = $this->_('Default value'); 
 		$f->description = $this->_('This value is assigned as the default for this field on newly created pages. It does not affect existing pages.');
 		$f->collapsed = Inputfield::collapsedBlank;
-		$f->attr('value', strlen($field->defaultValue) ? (int) $field->defaultValue : ''); 
+		$f->attr('value', strlen($field->get('defaultValue')) ? (int) $field->get('defaultValue') : ''); 
 		$inputfields->add($f);
 		
 		return $inputfields; 
