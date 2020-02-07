@@ -1110,7 +1110,7 @@ $config->moduleCompile = true;
  * @var string
  *
  */
-$config->moduleServiceURL = 'http://modules.processwire.com/export-json/';
+$config->moduleServiceURL = 'https://modules.processwire.com/export-json/';
 
 /**
  * Modules service API key
