@@ -293,8 +293,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * @return string
 	 * 
 	 */
-	protected function pagefileId(Pagefile $pagefile) {
-		return $this->name . "_" . $pagefile->hash; 
+	protected function pagefileId(Pagefile $pagefile, $repeaterstring = '') {
+
+		return $this->name . "_" . $repeaterstring . $pagefile->hash; 
 	}
 
 	/**
@@ -1227,7 +1228,15 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 
 		/** @var Page $page */
 		$page = $pagefiles->getFieldsPage();
-		$id = $item ? ('_' . $this->pagefileId($item)) : '';
+
+
+		$contextpage = wire('pages')->get(wire('input')->id);
+		if (in_array(get_class($contextpage), ['ProcessWire\RepeaterPage', 'ProcessWire\RepeaterMatrixPage'])) {
+			$repeaterstring = "repeater".$contextpage->id."_";
+		} else {
+			$repeaterstring = "";
+		}
+		$id = $item ? ('_' . $this->pagefileId($item, $repeaterstring)) : '';
 		
 		$inputfields = $this->itemFieldgroup->getPageInputfields($page, $id, '', false); 
 		if(!$inputfields) return false;
