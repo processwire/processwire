@@ -1395,6 +1395,26 @@ class Field extends WireData implements Saveable, Exportable {
 	}
 
 	/**
+	 * Get URL to edit field in the admin
+	 * 
+	 * @param array|bool|string $options Specify array of options, string for find option, or bool for http option.
+	 *  - `find` (string): Name of field to find in editor form 
+	 *  - `http` (bool): True to force inclusion of scheme and hostname
+	 * @return string
+	 * @since 3.0.151
+	 * 
+	 */
+	public function editUrl($options = array()) {
+		if(is_string($options)) $options = array('find' => $options);
+		if(is_bool($options)) $options = array('http' => $options);
+		if(!is_array($options)) $options = array();
+		$url = $this->wire('config')->urls(empty($options['http']) ? 'admin' : 'httpAdmin');
+		$url .= "setup/field/edit?id=$this->id";
+		if(!empty($options['find'])) $url .= '#find-' . $this->wire('sanitizer')->fieldName($options['find']);
+		return $url;
+	}
+
+	/**
 	 * debugInfo PHP 5.6+ magic method
 	 *
 	 * This is used when you print_r() an object instance.
