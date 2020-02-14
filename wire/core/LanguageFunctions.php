@@ -82,6 +82,18 @@
  * // providing a note via PHP comment to the person doing translation
  * echo __('Welcome friend!'); // A friendly welcome message for new users
  * 
+ * // CHANGING EXISTING TRANSLATIONS (3.0.151+) -----------------------------------------
+ *
+ * // In ProcessWire 3.0.151+ you can change existing phrases without automatically
+ * // abandoning the translations for them. To use, include both new and old phrase.
+ * // Specify PHP array (bracket syntax required) with 2+ phrases you accept translations
+ * // for where the first is the newest/current text to translate. This array replaces
+ * // the $text argument of this function.
+ * __([ 'New text', 'Old text' ]);
+ *
+ * // The above can also be used with _x() and _n() calls as well.
+ * _x([ 'Canada Goose', 'Canadian Goose' ], 'bird'); 
+ * 
  * // ADVANCED EXAMPLES (3.0.125+) -------------------------------------------------------
  * 
  * // using the entityEncode option
@@ -103,12 +115,13 @@
  * __(true, [
  *   // would apply only to a _x('Search', 'nav'); call (context)
  *   'Search' => [ 'Buscar', 'nav' ]
- * ]); 
+ * ]);
+ * 
  * ~~~~~~
  * 
  * #pw-group-translation
  * 
- * @param string|bool $text Text for translation.
+ * @param string|array|bool $text Text for translation.
  * @param string|array $textdomain Textdomain for the text, may be class name, filename, or something made up by you. 
  *   If omitted, a debug backtrace will attempt to determine it automatically.
  * @param string|bool|array $context Name of context - DO NOT USE with this function for translation as it will not be parsed for translation. 
@@ -124,17 +137,24 @@ function __($text, $textdomain = null, $context = '') {
 		'translations' => array(), // fallback translations to use when live translation not available ['Original text' => 'Translated text']
 		'_useLimit' => null, // internal use: use limit argument for debug_backtrace call
 	);
-	if($text === true) {
-		// set and get options
-		if(is_array($textdomain)) {
-			// translations specified as array in $textdomain argument
-			$context = $textdomain;
-			$textdomain = 'translations';
+	$textArray = false;
+	if(!is_string($text)) {
+		if($text === true) {
+			// set and get options
+			if(is_array($textdomain)) {
+				// translations specified as array in $textdomain argument
+				$context = $textdomain;
+				$textdomain = 'translations';
+			}
+			// merge existing translations if specified
+			if($textdomain == 'translations' && is_array($context)) $context = array_merge($options['translations'], $context);
+			if($context !== '') $options[$textdomain] = $context;
+			return $options[$textdomain];
+			
+		} else if(is_array($text)) {
+			$textArray = $text;	
+			$text = reset($textArray);
 		}
-		// merge existing translations if specified
-		if($textdomain == 'translations' && is_array($context)) $context = array_merge($options['translations'], $context);
-		if($context !== '') $options[$textdomain] = $context;
-		return $options[$textdomain];
 	}
 	if(!wire('languages') || (!$language = wire('user')->language) || !$language->id) {
 		// multi-language not installed or not available
@@ -165,7 +185,22 @@ function __($text, $textdomain = null, $context = '') {
 		// common translation
 		$textdomain = 'wire/modules/LanguageSupport/LanguageTranslator.php';
 	}
-	$value = $language->translator()->getTranslation($textdomain, $text, $context);
+	if($textArray) {
+		$value = null;
+		foreach($textArray as $n => $t) {
+			$tr = $language->translator()->getTranslation($textdomain, $t, $context);
+			if(!$n && $language->isDefault()) {
+				$value = strlen($tr) ? $tr : $t;
+				break; // default language, do not use alternates
+			}
+			if($t === $tr || !strlen($tr)) continue; // if not translated, start over
+			$value = $tr;
+			break;
+		}
+		if($value === null) $value = $text;
+	} else {
+		$value = $language->translator()->getTranslation($textdomain, $text, $context);
+	}
 	$encode = $options['entityEncode'];
 	if($value === "=") {
 		// translated value should be same as source value

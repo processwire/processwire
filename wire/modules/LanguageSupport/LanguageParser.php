@@ -7,7 +7,7 @@
  *
  * Return the results by calling $parser->getUntranslated() and $parser->getComments();
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  *
@@ -40,6 +40,14 @@ class LanguageParser extends Wire {
 	protected $untranslated = array();
 
 	/**
+	 * Array of phrase alternates, indexed by source phrase
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $alternates = array();
+
+	/**
 	 * Total number of phrases found
 	 *
 	 */
@@ -57,6 +65,18 @@ class LanguageParser extends Wire {
 		$this->textdomain = $this->translator->filenameToTextdomain($file); 
 		$this->translator->loadTextdomain($this->textdomain); 
 		$this->execute($file); 
+	}
+
+	/**
+	 * Get phrase alternates
+	 * 
+	 * @param string $hash Specify phrase hash to get alternates or omit to get all alternates
+	 * @return array
+	 * 
+	 */
+	public function getAlternates($hash = '') {
+		if(empty($hash)) return $this->alternates;
+		return isset($this->alternates[$hash]) ? $this->alternates[$hash] : array();
 	}
 
 	/**
@@ -85,6 +105,9 @@ class LanguageParser extends Wire {
 
 	/**
  	 * Given a hash, return the untranslated text associated with it
+	 * 
+	 * @param string $hash
+	 * @return string|bool Returns untranslated text (string) on success or boolean false if not available
 	 *
 	 */
 	public function getTextFromHash($hash) { 
@@ -92,7 +115,9 @@ class LanguageParser extends Wire {
 	}
 
 	/**
-	 * Begin parsing
+	 * Begin parsing given file
+	 * 
+	 * @param string $file
 	 *
 	 */
 	protected function execute($file) {
@@ -114,11 +139,72 @@ class LanguageParser extends Wire {
 	}
 
 	/**
-	 * Run regex's on file contents to locate all translation functions
+	 * Find text array values and place in alternates
+	 * 
+	 * This method also converts the __(['a','b','c']) array calls to single value calls like __('a')
+	 * as a pre-parser for all parsers that follow it, so they do not need to be * aware of array values 
+	 * for translation calls. 
+	 * 
+	 * @param string $data
+	 * 
+	 */
+	protected function findArrayTranslations(&$data) {
+		
+		if(!strpos($data, '_([')) return;
+		
+		$regex = 
+			'/((?:->_|\b__|\b_n|\b_x)\(\[\s*)' . // "->_([" or "__([" or "_n([" or "_x(["
+			'([\'"])(.+?)(?<!\\\\)\\2' . // 'text1'
+			'([^\]]*?\])\s*' . // , 'text2', 'text3' ]"
+			'([^)]*\))/m'; // and the remainder of the function call
+
+		$funcTypes = array('->_(' => '>', '__(' => '_', '_n(' => 'n', '_x(' => 'x');
+		
+		if(!preg_match_all($regex, $data, $m)) return;
+			
+		foreach($m[0] as $key => $find) {
+			
+			$func = trim(str_replace('[', '', $m[1][$key])); // "->_([" or "__([" or "_n([" or "_x(["
+			$funcType = isset($funcTypes[$func]) ? $funcTypes[$func] : '_';
+			$quote = $m[2][$key]; // single quote or double quote ['"]
+			$text1 = $m[3][$key]; // first text in array
+			$textArrayStr = trim($m[4][$key], ' ,[]'); // the other text phrases in the array (CSV and quoted)
+			$theRest = $m[5][$key]; // remainder of function call, i.e. ", __FILE__)" or ", 'context-str'"
+			$context = '';
+
+			$trimRest = ltrim($theRest, ', '); 
+			if($funcType === 'x' && (strpos($trimRest, '"') === 0 || strpos($trimRest, "'") === 0)) {
+				if(preg_match('/^([\'"])(.+?)(?<!\\\\)\\1/', $trimRest, $matches)) {
+					$context = $matches[2];
+				}
+			}
+			
+			// Convert from: "__(['a', 'b', 'c'])" to "__('a')" and remember 'b' and 'c' alternates
+			$replace = $func . $quote . $text1 . $quote . $theRest;
+			$data = str_replace($find, $replace, $data);
+			$text1 = $this->unescapeText($text1);
+			
+			// Given string "'b', 'c'" convert to array and place in alternates
+			if(preg_match_all('/(^|,\s*)([\'"])(.+?)(?<!\\\\)\\2/', $textArrayStr, $matches)) {
+				$hash1 = $this->getTextHash($text1, $context); 
+				if(!isset($this->alternates[$hash1])) $this->alternates[$hash1] = array();
+				foreach($matches[3] as $text) {
+					$text2 = $this->unescapeText($text);
+					$hash2 = $this->getTextHash($text, $context); 
+					$this->alternates[$hash1][$hash2] = $text2;
+				}
+			}
+		}
+	}
+
+	/**
+	 * Run regexes on file contents to locate all translation functions
+	 * 
+	 * @param string $file
+	 * @return array
 	 *
 	 */
 	protected function parseFile($file) { 
-
 
 		$matches = array(
 			1 => array(), 	// $this->_('text'); 
@@ -130,6 +216,7 @@ class LanguageParser extends Wire {
 		if(!is_file($file)) return $matches; 
 
 		$data = file_get_contents($file); 
+		$this->findArrayTranslations($data);
 
 		// Find $this->_('text') style matches
 		preg_match_all(	'/(>_)\(\s*' .				// $this->_( 
@@ -162,6 +249,11 @@ class LanguageParser extends Wire {
 
 	/**
 	 * Build the match abstracted away from the preg_match result
+	 * 
+	 * @param array $m
+	 * @param int $key
+	 * @param string $text
+	 * @return array
 	 *	
 	 */
 	protected function buildMatch(array $m, $key, $text) {
@@ -195,18 +287,17 @@ class LanguageParser extends Wire {
 
 	/**
 	 * Process the match and populate $this->untranslated and $this->comments
+	 * 
+	 * @param array $match
 	 *
 	 */
 	protected function processMatch(array $match) { 
 
-		$text = $match['text'];
+		$text = $this->unescapeText($match['text']);
 		$tail = $match['tail'];
 		$context = $match['context'];
 		$plural = $match['plural'];	
 		$comments = '';
-
-		// replace any escaped characters with non-escaped versions
-		if(strpos($text, '\\') !== false) $text = str_replace(array('\\"', '\\\'', '\\$', '\\'), array('"', "'", '$', '\\'), $text); 
 
 		// get the translation for $text in $context
 		$translation = $this->translator->getTranslation($this->textdomain, $text, $context);
@@ -241,6 +332,36 @@ class LanguageParser extends Wire {
 
 		// save the comments indexed to the hash
 		if($comments) $this->comments[$hash] = $comments; 
+	}
+
+	/**
+	 * Replace any escaped characters with non-escaped versions
+	 * 
+	 * @param string $text
+	 * @return string
+	 * 
+	 */
+	protected function unescapeText($text) {
+		if(strpos($text, '\\') !== false) {
+			$text = str_replace(array('\\"', '\\\'', '\\$', '\\'), array('"', "'", '$', '\\'), $text);
+		}
+		return $text;
+	}
+
+	/**
+	 * Get hash for given text + context
+	 * 
+	 * @param string $text
+	 * @param string $context
+	 * @return string
+	 * 
+	 */
+	protected function getTextHash($text, $context) {
+		$translation = $this->translator->getTranslation($this->textdomain, $text, $context); // get the translation for $text in $context
+		if($translation == $text) $translation = ''; // if translation == $text then that means no translation was found, make $translation blank
+		$hash = $this->translator->setTranslation($this->textdomain, $text, $translation, $context);
+		if(!$hash) $hash = $text;
+		return $hash;
 	}
 
 }

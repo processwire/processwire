@@ -194,6 +194,7 @@ class ProcessLanguage extends ProcessPageType {
 		$translationUrl = $this->translationUrl(); 
 		/** @var Pagefile $pagefile */
 		$pagefile = $event->arguments[0]; 
+		/** @var Language $page */
 		$page = $pagefile->get('page'); 
 		
 		if($pagefile->ext() == 'csv') {
@@ -215,25 +216,37 @@ class ProcessLanguage extends ProcessPageType {
 		$total = count($translations); 
 		$parser = $this->wire(new LanguageParser($page->translator, $pathname));
 		$untranslated = $parser->getUntranslated();
+		$alternates = $parser->getAlternates();
 		$numPending = 0;
 		$numAbandoned = 0;
+		$numFallback = 0;
 
 		foreach($untranslated as $hash => $text) {
 			if(!isset($translations[$hash]) || !strlen($translations[$hash]['text'])) $numPending++;
 		}
 
 		foreach($translations as $hash => $translation) {
-			if(!isset($untranslated[$hash])) $numAbandoned++;
+			if(isset($untranslated[$hash])) continue;
+			$numAbandoned++;
+			if($page->isDefault()) continue;
+			foreach($alternates as $srcHash => $values) {
+				if(isset($values[$hash]) && isset($untranslated[$srcHash])) {
+					$numFallback++;
+					$numAbandoned--;
+					break;
+				}
+			}
 		}
 
 		$total += $numAbandoned; 
 		$message = sprintf($this->_n("%d phrase", "%d phrases", $total), $total);
 
-		if($numAbandoned || $numPending) {
-			$message .= " <span class='ui-state-error-text'>(";
-			if($numAbandoned) $message .= sprintf($this->_('%d abandoned'), $numAbandoned); 
-			if($numPending) $message .= ($numAbandoned ? ', ' : '') . sprintf($this->_('%d blank'), $numPending); 
-			$message .= ")</span>";
+		if($numAbandoned || $numPending || $numFallback) {
+			$a = array();
+			if($numAbandoned) $a[] = sprintf($this->_('%d abandoned'), $numAbandoned);
+			if($numPending) $a[] = sprintf($this->_('%d blank'), $numPending);
+			if($numFallback) $a[] = sprintf($this->_('%d fallback'), $numFallback);
+			$message = " <span class='ui-state-error-text'>(" . implode(' / ', $a) . ")</span>";
 		}
 
 		$editLabel = $this->_x('Edit', 'edit-language-file'); 

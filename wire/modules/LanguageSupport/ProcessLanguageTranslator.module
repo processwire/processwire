@@ -5,7 +5,7 @@
  *
  * This is the process assigned to the processwire/setup/language-translator/ page.
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  * 
@@ -38,6 +38,14 @@ class ProcessLanguageTranslator extends Process {
 	 *
 	 */
 	protected $untranslated = array();
+
+	/**
+	 * Alternate translations indexed by hash-key
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $alternates = array(); 
 
 	/**
 	 * Optional comment labels for translations indexed by hash.
@@ -367,8 +375,8 @@ class ProcessLanguageTranslator extends Process {
 		return false;
 	}
 
-	protected function executeEditField($hash, $untranslated, $translated) {
-		
+	protected function executeEditField($hash, $untranslated, $translated, $alternates) {
+
 		/** @var InputfieldText $field */
 
 		if(strlen($untranslated) < 128) {
@@ -396,6 +404,21 @@ class ProcessLanguageTranslator extends Process {
 				}
 			} else if(trim($comment) != trim($untranslated)) {
 				$field->notes = $comment;
+			}
+		}
+
+		if($this->language && !$this->language->isDefault()) {
+			foreach($alternates as $altText => $altTranslation) {
+				if(empty($altText) || empty($altTranslation)) continue;
+				$field->placeholder = $altTranslation;
+				$field->notes = trim(
+					"$field->notes\n" .
+					sprintf(
+						$this->_('Fallback: when untranslated, the text “%1$s” is used, which is translated from “%2$s”.'),
+						$altTranslation, $altText
+					)
+				);
+				break;
 			}
 		}
 
@@ -434,14 +457,15 @@ class ProcessLanguageTranslator extends Process {
 		$fieldset->attr('id+name', 'abandoned_fieldset');
 		$fieldset->description = $this->_('The following unused translations were found. This means that the original untranslated text was either changed or deleted. It is recommended that you delete abandoned translations unless you need to keep them to copy/paste to a new translation.');
 		$fieldset->collapsed = Inputfield::collapsedYes;
-
 		$n = 0;
+		
 		foreach($translations as $hash => $translation) {
 
 			// if the hash still exists in the untranslated phrases, then it is not abandoned
 			if(isset($this->untranslated[$hash])) continue;
 			if(!isset($translation['text'])) $translation['text'] = '';
-
+			if(!$this->isAbandonedHash($hash)) continue;
+			
 			$n++;
 			/** @var InputfieldCheckbox $field */
 			$field = $this->modules->get("InputfieldCheckbox");
@@ -450,6 +474,7 @@ class ProcessLanguageTranslator extends Process {
 			$field->description = !strlen($translation['text']) ? $this->_('[empty]') : $translation['text'];
 			$field->label = $this->_('Delete?'); // Checkbox label
 			$field->icon = 'trash-o';
+			
 			$fieldset->add($field);
 		}
 
@@ -509,7 +534,14 @@ class ProcessLanguageTranslator extends Process {
 
 		foreach($this->untranslated as $hash => $untranslated) {
 			$translated = isset($translations[$hash]) ? $translations[$hash]['text'] : '';
-			$form->add($this->executeEditField($hash, $untranslated, $translated));
+			$alternates = array();
+			if(isset($this->alternates[$hash])) {
+				foreach($this->alternates[$hash] as $altHash => $altText) {
+					if(!isset($translations[$altHash])) continue;
+					$alternates[$altText] = $translations[$altHash]['text'];
+				}
+			}
+			$form->add($this->executeEditField($hash, $untranslated, $translated, $alternates));
 		}
 
 		$this->executeEditAbandoned($translations, $form);
@@ -618,6 +650,7 @@ class ProcessLanguageTranslator extends Process {
 		$parser = new LanguageParser($this->translator, $file);
 		$this->comments = $parser->getComments();
 		$this->untranslated = $parser->getUntranslated();
+		$this->alternates = $parser->getAlternates();
 		return $parser->getNumFound();
 	}
 
@@ -755,6 +788,32 @@ class ProcessLanguageTranslator extends Process {
 		}
 
 		return $files;
+	}
+
+	/**
+	 * Is the given translation hash abandoned?
+	 * 
+	 * @param string $hash
+	 * @return bool
+	 * @since 3.0.151
+	 * 
+	 */
+	protected function isAbandonedHash($hash) {
+		// if the hash still exists in the untranslated phrases, then it is not abandoned
+		if(isset($this->untranslated[$hash])) return false;
+		if($this->language && $this->language->isDefault()) return true;
+		$abandoned = true;
+
+		foreach($this->alternates as $srcHash => $values) {
+			if(isset($values[$hash]) && isset($this->untranslated[$srcHash])) {
+				// $text = $this->untranslated[$srcHash];
+				// $notes = "Currently used as fallback translation for: " . $text;
+				$abandoned = false;
+				break;
+			}
+		}
+		
+		return $abandoned;
 	}
 }
 
