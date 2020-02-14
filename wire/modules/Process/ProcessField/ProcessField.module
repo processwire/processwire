@@ -1242,6 +1242,7 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		foreach($allChanges as $fieldgroupName => $changes) {
 			$fieldgroup = $this->wire('fieldgroups')->get($fieldgroupName);
+			$n = 0;
 
 			foreach($changes as $key => $change) {
 				$ns = empty($change['ns']) ? '' : substr($change['ns'], 3);
@@ -1264,6 +1265,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				}
 
 				$checkbox->attr('value', "$fieldgroup->id:$key");
+				$checkbox->attr('id', '_remove_context' . ($n++));
 			
 				if(!$this->fieldgroup) $row[] = $fieldgroupLabel;
 				
@@ -2288,60 +2290,6 @@ class ProcessField extends Process implements ConfigurableModule {
 			$fieldgroup->saveContext();
 		}
 	}
-
-	/**
-	 * Saves the submitted checkboxes from the "Overrides" tab
-	 * 
-	 */
-	protected function xsaveRemoveOverrides() {
-		
-		$removeContext = $this->wire('input')->post('_remove_context');
-		if(empty($removeContext)) return;
-		
-		$contextArrays = array();
-		$fieldgroups = array();
-		
-		foreach($removeContext as $value) {
-			// FYI: "<input type='checkbox' name='_remove_context[]' value='$fieldgroup->id:$key' />"
-			list($fieldgroupID, $property) = explode(':', $value);
-			if(isset($fieldgroups[$fieldgroupID])) {
-				$fieldgroup = $fieldgroups[$fieldgroupID];
-			} else {
-				$fieldgroup = $this->wire('fieldgroups')->get((int) $fieldgroupID);
-				if(!$fieldgroup) continue;
-				$fieldgroups[$fieldgroup->id] = $fieldgroup;
-			}
-
-			if(isset($contextArrays[$fieldgroup->id])) {
-				// use previously loaded version
-				$contextArray = $contextArrays[$fieldgroup->id];
-			} else {
-				$contextArray = $fieldgroup->getFieldContextArray($this->field->id);
-			}
-			if(strpos($property, 'flagsAdd-') === 0 || strpos($property, 'flagsDel-') === 0) {
-				// special handling of flags bitmask removals
-				list($flagType, $flag) = explode('-', $property);
-				$flag = (int) $flag;
-				if(isset($contextArray[$flagType])) $contextArray[$flagType] = $contextArray[$flagType] & ~$flag;
-			} else {
-				unset($contextArray[$property]);
-			}
-			
-			$this->message($this->_('Removed context override') . " (template=$fieldgroup->name, property=$property)");
-			
-			// cache for if this comes up in another iteration
-			$contextArrays[$fieldgroup->id] = $contextArray;
-		}
-		
-		foreach($contextArrays as $fieldgroupID => $contextArray) {
-			$fieldgroup = $fieldgroups[$fieldgroupID];
-			//$fieldgroup->setFieldContextArray($this->field->id, $contextArray, $this->contextNamespace);
-			$fieldgroup->setFieldContextArray($this->field->id, $contextArray);
-			
-			$fieldgroup->saveContext();
-		}
-	}
-
 
 	/**	
 	 * Executed when a field type change is requested and provides an informative confirmation form
