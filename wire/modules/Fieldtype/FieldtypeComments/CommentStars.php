@@ -52,9 +52,9 @@ class CommentStars extends WireData {
 		foreach(self::$defaults as $key => $value) {
 			$this->set($key, $value);
 		}
-		$this->set('countLabelSingular', $this->_('%1$s (%2$s rating)'));
-		$this->set('countLabelPlural', $this->_('%1$s (%2$s ratings)'));
-		$this->set('unratedLabel', $this->_('not yet rated'));
+		if(!strlen($this->countLabelSingular)) $this->set('countLabelSingular', $this->_('%1$s (%2$s rating)'));
+		if(!strlen($this->countLabelPlural)) $this->set('countLabelPlural', $this->_('%1$s (%2$s ratings)'));
+		if(!strlen($this->unratedLabel)) $this->set('unratedLabel', $this->_('not yet rated'));
 	}
 
 	/**

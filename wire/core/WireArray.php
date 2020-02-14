@@ -825,6 +825,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 */
 	public function getRandom($num = 1, $alwaysArray = false) {
 		$items = $this->makeNew(); 
+		if($num < 1) return $items;
 		$count = $this->count();
 		if(!$count) {
 			if($num == 1 && !$alwaysArray) return null;
