@@ -448,23 +448,26 @@ var Inputfields = {
 	 * @param $inputfield
 	 * @param bool highlight Highlight temporily once found? (default=true)
 	 * @param function callback Optional function to call upon completion
+	 * @param int level Recursion level (do not specify, for internal use only)
 	 * @return Returns the Inputfield element
 	 *
 	 */
-	find: function($inputfield, highlight, callback) {
+	find: function($inputfield, highlight, callback, level) {
 		
 		$inputfield = this.inputfield($inputfield);
 		if(!$inputfield.length) return $inputfield;
 		if(typeof highlight == "undefined") highlight = true;
-		var Inputfields = this;
+		if(typeof level == "undefined") level = 0;
 
-		// locate th Inputfield
+		// locate the Inputfield
 		if($inputfield.hasClass('InputfieldStateCollapsed') || !$inputfield.is(':visible')) {
 			var hasNoFocus = $inputfield.hasClass('InputfieldNoFocus');
 			// Inputfields.toggle() can call Inputfields.focus(), so prevent the focus by adding this class
 			if(!hasNoFocus) $inputfield.addClass('InputfieldNoFocus');
 			this.toggle($inputfield, true, 0, function($in, open, duration) {
-				Inputfields.find($inputfield, callback);
+				if(level > 9) return;
+				var timeout = level > 0 ? 10 * level : 0;
+				setTimeout(function() { Inputfields.find($inputfield, highlight, callback, level + 1); }, timeout); 
 			});
 			// remove the class we added
 			if(!hasNoFocus) $inputfield.removeClass('InputfieldNoFocus');
@@ -757,7 +760,42 @@ var Inputfields = {
 			$inputfield = $inputfield.closest('.Inputfield');
 		}
 		return $inputfield;
-	}
+	},
+
+	/**
+	 * Execute find, focus or highlight action from URL fragment/hash
+	 * 
+	 * #find-field_name
+	 * #focus-field_name
+	 * #highlight-field_name
+	 * 
+	 * @param hash
+	 * @since 3.0.151
+	 * 
+	 */
+	hashAction: function(hash) {
+		
+		var pos, action, name;
+		
+		if(hash.indexOf('#') === 0) hash = hash.substring(1);
+		pos = hash.indexOf('-');
+		if(pos < 3 || hash.length < pos + 2) return;
+		if(jQuery('#' + hash).length) return; // maps to existing element ID attribute
+		
+		action = hash.substring(0, pos);
+		name = hash.substring(pos + 1);
+		
+		if(action === 'find') {
+			Inputfields.find(name);
+		} else if(action === 'focus') {
+			Inputfields.focus(name);
+		} else if(action === 'highlight') {
+			Inputfields.highlight(name);
+		} else {
+			// some other action we do not recognize
+		}
+	},
+	
 	
 };
 
@@ -2192,6 +2230,10 @@ jQuery(document).ready(function($) {
 			// deprecated, no longer used (?)
 			InputfieldColumnWidths();
 		});
+	}
+
+	if(window.location.hash) {
+		Inputfields.hashAction(window.location.hash.substring(1));
 	}
 
 	/*

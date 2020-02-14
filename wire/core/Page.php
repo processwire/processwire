@@ -3295,9 +3295,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * #pw-group-urls
 	 * 
-	 * @param array|bool $options Specify boolean true to force URL to include scheme and hostname, or use $options array:
+	 * @param array|bool|string $options Specify true for http option, specify name of field to find (3.0.151+), or use $options array:
 	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
 	 *  - `language` (Language|bool): Optionally specify Language to start editor in, or boolean true to force current user language.
+	 *  - `find` (string): Name of field to find in the editor (3.0.151+)
 	 * @return string URL for editing this page
 	 * 
 	 */
@@ -3327,6 +3328,18 @@ class Page extends WireData implements \Countable, WireMatchable {
 		}
 		$append = $this->wire('session')->getFor($this, 'appendEditUrl'); 
 		if($append) $url .= $append;
+
+		if($options) {
+			if(is_string($options)) {
+				$find = $options;
+			} else if(is_array($options) && !empty($options['find'])) {
+				$find = $options['find'];
+			} else $find = '';
+			if($find && strpos($url, '#') === false) {
+				$url .= '#find-' . $this->wire('sanitizer')->fieldName($find);
+			}
+		}
+			
 		return $url;
 	}
 
