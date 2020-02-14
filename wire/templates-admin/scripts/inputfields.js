@@ -1967,18 +1967,21 @@ function InputfieldStates($target) {
 	});
 
 	 // Make the first field in any form have focus, if it is a text field that is blank
-	// $('#content .InputfieldForm:not(.InputfieldNoFocus):not(.InputfieldFormNoFocus)')
-	$('#content .InputfieldFormFocusFirst:not(.InputfieldFormNoFocus)')
-		.find('input[type=text]:enabled:first:not(.hasDatepicker):not(.InputfieldNoFocus)').each(function() {
-			var $t = $(this);
-			// jump to first input, if it happens to be blank
-			if($t.val()) return;
-			// avoid jumping to inputs that fall "below the fold"
-			if($t.offset().top < $(window).height()) {
-				window.setTimeout(function () {
-					if($t.is(":visible")) $t.focus();
-				}, 250);
-			}
+	var $focusInputs = $('input.InputfieldFocusFirst'); // input elements only
+	if(!$focusInputs.length) {
+		$focusInputs = $('#content .InputfieldFormFocusFirst:not(.InputfieldFormNoFocus)')
+			.find('input[type=text]:enabled:first:not(.hasDatepicker):not(.InputfieldNoFocus)');
+	}
+	if($focusInputs.length) $focusInputs.each(function() {
+		var $t = $(this);
+		// jump to first input, if it happens to be blank
+		if($t.val()) return;
+		// avoid jumping to inputs that fall "below the fold"
+		if($t.offset().top < $(window).height()) {
+			window.setTimeout(function () {
+				if($t.is(":visible")) $t.focus();
+			}, 250);
+		}
 	});
 
 	// confirm changed forms that user navigates away from before submitting

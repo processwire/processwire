@@ -8,10 +8,12 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $allowForgot Whether the ProcessForgotPassword module is installed.
+ * @property bool $allowEmail Whether or not email login is allowed. 
+ * @property string $emailField Field name used for email login (when enabled). 
  * @property array $tfaRecRoleIDs Role IDs where admin prompts/recommends them to enable TFA.
  * 
  * @method void beforeLogin() #pw-hooker
@@ -23,9 +25,11 @@
  * @method string renderLoginForm() #pw-hooker
  * @method InputfieldForm buildLoginForm() #pw-hooker
  * @method void login($name, $pass) #pw-hooker
- * @method void loginFailed($name) #pw-hooker
+ * @method void loginFailed($name, $message = '') #pw-hooker
  * @method void loginSuccess(User $user) #pw-hooker
  * @method array getBeforeLoginVars() #pw-hooker
+ * 
+ * @todo add option to select roles allowed to login here (when template is admin)
  * 
  *
  */
@@ -107,11 +111,21 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	protected $tfaLoginSuccess = false;
 
 	/**
+	 * Cached value from useEmailLogin method
+	 * 
+	 * @var bool|null
+	 * 
+	 */
+	protected $useEmailLogin = null;
+
+	/**
 	 * Construct
 	 * 
 	 */
 	public function __construct() {
 		$this->set('tfaRecRoleIDs', array());
+		$this->set('allowEmail', false);
+		$this->set('emailField', 'email');
 		parent::__construct();
 	}
 
@@ -122,10 +136,38 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	public function init() {
 
 		$this->id = isset($_GET['id']) ? (int) $_GET['id'] : '';  // id no longer used as anything but a toggle (on/off)
-		$this->allowForgot = $this->modules->isInstalled('ProcessForgotPassword'); 
+		$this->set('allowForgot', $this->modules->isInstalled('ProcessForgotPassword')); 
 		$this->isAdmin = $this->wire('page')->template == 'admin';
+		$this->useEmailLogin = $this->useEmailLogin();
 
 		return parent::init();
+	}
+
+	/**
+	 * Use login by email?
+	 * 
+	 * @return bool
+	 * @since 3.0.151
+	 * 
+	 */
+	public function useEmailLogin() {
+		
+		if(is_bool($this->useEmailLogin)) return $this->useEmailLogin;
+		
+		if(!$this->allowEmail) return false;
+		if(!$this->emailField) return false;
+		
+		/** @var Field $field */
+		$field = $this->fields->get($this->emailField); 
+		if(!$field) return false;
+		if(!$field->type instanceof FieldtypeEmail) return false;
+		if(!$field->hasFlag(Field::flagUnique)) return false;
+	
+		/** @var Template $template */
+		$template = $this->templates->get($this->config->userTemplateID); 
+		if(!$template || !$template->hasField($field)) return false;
+		
+		return true;
 	}
 
 	/**
@@ -227,6 +269,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		} else if($input->get('forgot') && $this->allowForgot) {
 			/** @var ProcessForgotPassword $process */
 			$process = $this->modules->get("ProcessForgotPassword");
+			if($this->useEmailLogin()) $process->askEmail = true;
 			return $process->execute();
 		}
 		
@@ -239,8 +282,9 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			$this->beforeLogin();
 			return $this->renderLoginForm();
 		}
-		
-		$name = $this->wire('sanitizer')->pageName($this->nameField->attr('value'));
+	
+		// at this point login form has been submitted
+		$name = $this->getLoginName();
 		$pass = substr($this->passField->attr('value'), 0, 128);
 
 		if(!$name || !$pass) return $this->renderLoginForm();
@@ -257,6 +301,54 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->login($name, $pass);
 
 		return $this->renderLoginForm();
+	}
+
+	/**
+	 * Get login username (whether email or name used)
+	 * 
+	 * @return string|bool
+	 * @since 3.0.151
+	 * 
+	 */
+	protected function getLoginName() {
+		
+		$value = $this->nameField->attr('value');
+		if(!strlen($value)) return false;
+		
+		if(!$this->useEmailLogin()) {
+			return $this->sanitizer->pageName($value);
+		}
+		
+		// at this point we are dealing with an email login
+		$value = strtolower($this->sanitizer->email($value));
+		if(empty($value)) return false;
+		
+		$error = $this->_('Login is not supported for that email address.');
+		$items = $this->users->find("include=all, $this->emailField=" . $this->sanitizer->selectorValue($value)); 
+		
+		if(!$items->count()) {
+			// fail: no matches
+			$this->loginFailed($value);
+			return false;
+			
+		} else if($items->count() > 1) {
+			// fail: more than one match
+			if($this->config->debug) $error .= ' (not unique)';
+			$this->loginFailed($value, $error);
+			return false;
+		} 
+		
+		// success: single match
+		$user = $items->first();
+		
+		if($user->status > Page::statusHidden) {
+			// hidden, unpublished, trash
+			if($this->config->debug) $error .= ' (inactive)';
+			$this->loginFailed($value, $error);
+			return false;
+		}
+		
+		return $user->name;
 	}
 
 	/**
@@ -415,10 +507,16 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	protected function ___buildLoginForm() {
 
-		$this->nameField = $this->modules->get('InputfieldText');
-		$this->nameField->set('label', $this->_('Username')); // Login form: username field label
+		if($this->useEmailLogin()) {
+			$this->nameField = $this->modules->get('InputfieldEmail');
+			$this->nameField->set('label', $this->_('Email')); // Login form: email field label
+		} else {
+			$this->nameField = $this->modules->get('InputfieldText');
+			$this->nameField->set('label', $this->_('Username')); // Login form: username field label
+		}
 		$this->nameField->attr('id+name', 'login_name'); 
 		$this->nameField->attr('class', $this->className() . 'Name');
+		$this->nameField->addClass('InputfieldFocusFirst');
 		$this->nameField->collapsed = Inputfield::collapsedNever;
 
 		$this->passField = $this->modules->get('InputfieldText');
@@ -611,11 +709,13 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	/**
 	 * Hook called on login fail
 	 * 
-	 * @param $name
+	 * @param string $name
+	 * @param string $message Specify only to override default error message (since 3.0.151)
 	 * 
 	 */
-	protected function ___loginFailed($name) {
-		$this->error("$name - " . $this->_("Login failed"));
+	protected function ___loginFailed($name, $message = '') {
+		if(empty($message)) $message = "$name - " . $this->_('Login failed'); 
+		$this->error($message);
 	}
 
 	/**
@@ -672,6 +772,23 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
+	
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios'); 
+		$f->attr('name', 'allowEmail'); 
+		$f->label = $this->_('Login type'); 
+		$f->addOption(0, $this->_('User name'));
+		$f->addOption(1, $this->_('Email address'));
+		$f->icon = 'sign-in';
+		$f->val((int) $this->allowEmail);
+		$emailField = $this->fields->get($this->emailField); /** @var Field $field */
+		if($emailField && !$emailField->hasFlag(Field::flagUnique)) {
+			$f->notes = sprintf(
+				$this->_('To use email login, you must [enable the “unique” setting](%s) for your email field.'),
+				$emailField->editUrl('flagUnique')
+			);
+		}
+		$inputfields->add($f);
 	
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset');
