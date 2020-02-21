@@ -1706,17 +1706,7 @@ class Sanitizer extends Wire {
 				// if a scheme was added above (for filter_var validation) and it's not required, remove it
 				$value = str_replace('http://', '', $value);
 			}
-		} else if($scheme == 'tel') {
-			// tel: scheme is not supported by filter_var 
-			if(!preg_match('/^tel:\+?\d+$/', $value)) {
-				$value = str_replace(' ', '', $value);
-				/** @noinspection PhpUnusedLocalVariableInspection */
-				list($tel, $num) = explode(':', $value);
-				$value = 'tel:';
-				if(strpos($num, '+') === 0) $value .= '+';
-				$value .= preg_replace('/[^\d]/', '', $num);
-			}
-		} else {
+		} else if($scheme !== 'tel') {
 			// URL already has a scheme
 			$value = $this->filterValidateURL($value, $options);
 		}
@@ -1737,6 +1727,16 @@ class Sanitizer extends Wire {
 			}
 			$domainPath = $this->text($domainPath, $textOptions);
 			$value = $domainPath . (strlen($queryString) ? "?$queryString" : "");
+		}
+		
+		if($scheme === 'tel' && !preg_match('/^tel:\+?\d+$/', $value)) {
+			// tel: scheme is not supported by filter_var 
+			$value = str_replace(' ', '', $value);
+			/** @noinspection PhpUnusedLocalVariableInspection */
+			list($tel, $num) = explode(':', $value);
+			$value = 'tel:';
+			if(strpos($num, '+') === 0) $value .= '+';
+			$value .= preg_replace('/[^\d]/', '', $num);
 		}
 
 		if(!strlen($value)) return '';
