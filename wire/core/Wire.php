@@ -1537,7 +1537,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-group-translation
 	 *
-	 * @param string $text Text string to translate
+	 * @param string|array $text Text string to translate (or array in 3.0.151 also supported)
 	 * @return string
 	 *
 	 */
@@ -1552,7 +1552,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 * #pw-group-translation
 	 * 
-	 * @param string $text Text for translation. 
+	 * @param string|array $text Text for translation. 
 	 * @param string $context Name of context
 	 * @return string Translated text or original text if translation not available.
 	 *
