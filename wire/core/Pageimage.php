@@ -24,7 +24,7 @@
  * ~~~~~
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  * @property-read int $width Width of image, in pixels.
@@ -480,7 +480,11 @@ class Pageimage extends Pagefile {
 				} else {
 					$info = @getimagesize($this->filename);
 				}
-				if($info) {
+				if((!$info || empty($info[0])) && !empty($this->sizeOptions['_width'])) {
+					// on fail, fallback to size options that were requested for the image (if available)
+					$imageInfo['width'] = $this->sizeOptions['_width'];
+					$imageInfo['height'] = $this->sizeOptions['_height'];
+				} else if($info) {
 					$imageInfo['width'] = $info[0];
 					$imageInfo['height'] = $info[1];
 				}
@@ -565,6 +569,9 @@ class Pageimage extends Pagefile {
 	 * 
 	 * // Output thumbnail
 	 * echo "<img src='$thumb->url' />";
+	 * 
+	 * // Create image of size predefined in $config->imageSizes (3.0.151+)
+	 * $photo = $image->size('landscape'); 
 	 * ~~~~~
 	 * 
 	 * **About the $options argument**
@@ -625,8 +632,8 @@ class Pageimage extends Pagefile {
 	 * #pw-group-common
 	 * #pw-hooks
 	 *
-	 * @param int $width Target width of new image
-	 * @param int $height Target height of new image
+	 * @param int|string $width Target width of new image or (3.0.151+) specify prefined image size name
+	 * @param int|array $height Target height of new image or (3.0.151+) options array if no height argument needed
 	 * @param array|string|int $options Array of options to override default behavior: 
 	 *  - Specify `array` of options as indicated in the section above. 
 	 *  - Or you may specify type `string` containing "cropping" value.
@@ -636,8 +643,21 @@ class Pageimage extends Pagefile {
 	 *  If the specified dimensions/options are the same as the original, then the original will be returned.
 	 *
 	 */
-	public function size($width, $height, $options = array()) {
-		if(!is_array($options)) $options = $this->sizeOptionsToArray($options);
+	public function size($width, $height = 0, $options = array()) {
+		
+		if(is_array($height)) {
+			$options = $height;
+			$height = 0;
+		}
+		
+		if(!is_array($options)) {
+			$options = $this->sizeOptionsToArray($options);
+		}
+		
+		if(is_string($width) && $width && !ctype_digit($width)) {
+			// named image size
+			return $this->sizeName($width, $options);
+		}
 
 		if($this->wire('hooks')->isHooked('Pageimage::size()')) {
 			$result = $this->__call('size', array($width, $height, $options)); 
@@ -944,6 +964,31 @@ class Pageimage extends Pagefile {
 	public function hidpiSize($width, $height, $options = array()) {
 		$options['hidpi'] = true; 
 		return $this->size($width, $height, $options); 
+	}
+
+	/**
+	 * Return image of size indicated by predefined setting
+	 * 
+	 * Settings for predefined sizes can be specified in `$config->imageSizes` array. 
+	 * Each named item in this array must contain at least 'width' and 'height, but can also
+	 * contain any other option from the `Pageimage::size()` argument `$options`. 
+	 * 
+	 * @param string $name Image size name
+	 * @param array $options Optionally add or override options defined for size. 
+	 * @return Pageimage
+	 * @since 3.0.151
+	 * @throws WireException If given a $name that is not present in $config->imageSizes
+	 * 
+	 */
+	public function sizeName($name, array $options = array()) {
+		$sizes = $this->wire('config')->imageSizes; 
+		if(!isset($sizes[$name])) throw new WireException("Unknown image size '$name' (not in \$config->imageSizes)"); 
+		$size = $sizes[$name];
+		$options = array_merge($size, $options);
+		unset($options['width'], $options['height']); 
+		if(!isset($size['width'])) $size['width'] = 0;
+		if(!isset($size['height'])) $size['height'] = 0;
+		return $this->size((int) $size['width'], (int) $size['height'], $options);
 	}
 
 	/**

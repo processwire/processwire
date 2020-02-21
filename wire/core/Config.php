@@ -40,6 +40,7 @@
  * 
  * @property bool $protectCSRF Enables CSRF (cross site request forgery) protection on all PW forms, recommended for security. #pw-group-HTTP-and-input
  * 
+ * @property array $imageSizes Predefined image sizes (and options) indexed by name. See /wire/config.php for example. (3.0.151+) #pw-group-images
  * @property array $imageSizerOptions Options to set image sizing defaults. Please see the /wire/config.php file for all options and defaults. #pw-group-images
  * @property array $webpOptions Options for webp images. Please see /wire/config.php for all options. #pw-group-images
  * 
@@ -135,6 +136,7 @@
  * @property bool $logIP Include IP address in logs, when applicable? #pw-group-admin
  * @property string $defaultAdminTheme Default admin theme: AdminThemeDefault or AdminThemeReno #pw-group-admin
  * @property string $fatalErrorHTML HTML used for fatal error messages in HTTP mode. #pw-group-system
+ * @property int $fatalErrorCode HTTP code to send on fatal error (typically 500 or 503). #pw-group-system
  * @property array $modals Settings for modal windows #pw-group-admin
  * @property array $preloadCacheNames Cache names to preload at beginning of request #pw-group-system
  * @property bool $allowExceptions Allow Exceptions to propagate? (default=false, specify true only if you implement your own exception handler) #pw-group-system
