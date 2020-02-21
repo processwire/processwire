@@ -10,7 +10,7 @@
  * do so after you have installed the site, as the installer is not informed
  * of any changes made in this file. 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  * @version 3.0
@@ -29,7 +29,7 @@ $rootPath = __DIR__;
 if(DIRECTORY_SEPARATOR != '/') $rootPath = str_replace(DIRECTORY_SEPARATOR, '/', $rootPath);
 $composerAutoloader = $rootPath . '/vendor/autoload.php'; // composer autoloader
 if(file_exists($composerAutoloader)) require_once($composerAutoloader);
-if(!class_exists("ProcessWire", false)) require_once("$rootPath/wire/core/ProcessWire.php");
+if(!class_exists("ProcessWire\\ProcessWire", false)) require_once("$rootPath/wire/core/ProcessWire.php");
 $config = ProcessWire::buildConfig($rootPath);
 
 if(!$config->dbName) {
