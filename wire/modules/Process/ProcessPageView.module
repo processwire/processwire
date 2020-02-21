@@ -272,17 +272,17 @@ class ProcessPageView extends Process {
 	}
 
 	/**
-	 * Hook called when the pageview failed to finish due to an exception.
+	 * Hook called when the pageview failed to finish due to an Exception or Error.
 	 *
-	 * Sends a copy of the exception that occurred.
+	 * Sends a copy of the throwable that occurred.
 	 * 
-	 * @param \Exception $e
+	 * @param \Throwable $e Exception or Error
 	 * @param string $reason
 	 * @param Page|null $page
 	 * @param string $url
 	 *	
  	 */
-	public function ___failed(\Exception $e, $reason = '', $page = null, $url = '') { 
+	public function ___failed($e, $reason = '', $page = null, $url = '') { 
 		$this->wire()->setStatusFailed($e, $reason, $page, $url); 
 	}
 

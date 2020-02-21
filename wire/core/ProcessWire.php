@@ -606,24 +606,27 @@ class ProcessWire extends Wire {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param \Exception $e
+	 * @param \Throwable $e Exception or Error
 	 * @param string $reason
 	 * @param null $page
 	 * @param string $url
 	 * @since 3.0.142
 	 *
 	 */
-	public function setStatusFailed(\Exception $e, $reason = '', $page = null, $url = '') {
-		static $lastException = null;
-		if($lastException === $e) return;
+	public function setStatusFailed($e, $reason = '', $page = null, $url = '') {
+		static $lastThrowable = null;
+		if($lastThrowable === $e) return;
+		$isException = $e instanceof \Exception;
 		if(!$page instanceof Page) $page = new NullPage();
 		$this->setStatus(ProcessWire::statusFailed, array(
-			'exception' => $e,
+			'throwable' => $e, 
+			'exception' => $isException ? $e : null,
+			'error' => $isException ? null : $e, 
 			'failPage' => $page,
 			'reason' => $reason,
 			'url' => $url,
 		));
-		$lastException = $e;
+		$lastThrowable = $e;
 	}
 
 	/**

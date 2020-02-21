@@ -217,11 +217,16 @@ class WireShutdown extends Wire {
 	 */
 	protected function sendErrorMessage($message, $why, $useHTML) {
 		
-		$this->sendExistingOutput();
+		$hadOutput = $this->sendExistingOutput();
+		if($hadOutput) echo "\n\n";
+
+		if($this->config && $this->config->debug) {
+			$message = $this->seasonErrorMessage($message);
+		}
 		
 		// return text-only error
 		if(!$useHTML) {
-			echo "\n\n$message\n\n$why\n\n";
+			echo "$message\n\n$why\n\n";
 			return;
 		}
 
@@ -236,13 +241,54 @@ class WireShutdown extends Wire {
 		), $html);
 		
 		// make a prettier looking debug backtrace, when applicable
-		$html = preg_replace('!(<br[^>]*>\s*)(#\d+\s+[^<]+)!is', '$1<code>$2</code>', $html);
+		$style = 'font-family:monospace;font-size:14px';
+		$html = preg_replace('!(<br[^>]*>\s*)(#\d+\s+[^<]+)!is', '$1<span style="' . $style . '">$2</span>', $html);
 		
 		// reference original file rather than compiled version, when applicable
 		$html = str_replace('assets/cache/FileCompiler/site/', '', $html);
+	
+		// remove unnecessary stack trace label
+		$html = str_replace('Stack trace:<', '<', $html);
+	
+		// remove portions of path that are not needed in this output
+		$rootPath = str_replace('/wire/core/', '/', dirname(__FILE__) . '/');
+		$rootPath2 = $this->config ? $this->config->paths->root : '';
+		$html = str_replace($rootPath, '/', $html); 
+		if($rootPath2 && $rootPath2 != $rootPath) $html = str_replace($rootPath2, '/', $html); 
+	
+		// underline filenames
+		$html = preg_replace('!(\s)/([^\s:(]+?)\.(php|module|inc)!', '$1<u>$2.$3</u>', $html);
 		
+		// improving spacing between filename and line number (123)
+		$html = str_replace('</u>(', '</u> (', $html);
+		
+		// ProcessWire namespace is assumed so does not need to add luggage to output
+		$html = str_replace('ProcessWire\\', '', $html);
+	
 		// output the error message
-		echo "\n\n$html\n\n";
+		echo "$html\n\n";
+	}
+
+	/**
+	 * Provide additional seasoning for error message during debug mode output
+	 * 
+	 * @param string $message
+	 * @return string
+	 * 
+	 */
+	protected function seasonErrorMessage($message) {
+		
+		$spices = array(
+			'Oops', 'Darn', 'Dangit', 'Oh no', 'Ah snap', 'So sorry', 'Well well',
+			'Ouch', 'Arrgh', 'Umm', 'Snapsicles', 'Oh snizzle', 'Look', 'What the',
+			'Uff da', 'Yikes', 'Aw shucks', 'Oye', 'Rats', 'Hmm', 'Yow', 'Not again',
+			'Look out', 'Hey now', 'Breaking news', 'Excuse me', 
+		);
+		
+		$spice = $spices[array_rand($spices)];
+		$message = "{$spice}… $message";
+		
+		return $message;
 	}
 
 	/**
@@ -254,13 +300,21 @@ class WireShutdown extends Wire {
 	 * @param bool $useHTML Output for a web browser?
 	 * 
 	 */
-	protected function sendError500($message, $useHTML) {
+	protected function sendFatalError($message, $useHTML) {
 		
+		include_once(dirname(__FILE__) . '/WireHttp.php');
+		$http = new WireHttp();
+		$codes = $http->getHttpCodes();
+		$code = (int) $this->config ? $this->config->fatalErrorCode : 500;
+		if(!isset($codes[$code])) $code = 500;
+
 		if($useHTML) {
-			header("HTTP/1.1 500 Internal Server Error");
+			header("HTTP/1.1 $code " . $codes[$code]);
 			$message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
 			// file that error message will be output in, when available
-			$file = $this->config->paths->templates . 'errors/500.html';
+			$path = $this->config->paths->templates;
+			$file = $path . "errors/$code.html";
+			if(!file_exists($file) && $code !== 500) $file = $path . "errors/500.html";
 		} else {
 			$file = '';
 		}
@@ -279,33 +333,72 @@ class WireShutdown extends Wire {
 	/**
 	 * Send any existing output while removing PHP’s error message from it (to avoid duplication)
 	 * 
+	 * @return bool Returns true if there was existing output, false if not
+	 * 
 	 */
 	protected function sendExistingOutput() {
-		
+	
+		/*
 		$files = TemplateFile::getRenderStack();
-		if(!count($files)) return;
+		if(!count($files)) {
+			// existing output (if present) is not from a template file being rendered
+			return false;
+		}
+		*/
 		
-		$out = ob_get_clean();
-		if(!strlen($out)) return;
+		$out = ob_get_level() ? ob_get_clean() : '';
+		if(!strlen(trim($out))) return false;
 		
-		// if error message isn't in existing output, then reutrn as-is
-		if(empty($this->error['message']) || strpos($out, $this->error['message']) === false) {
+		// if error message isn't in existing output, then return as-is
+		if(empty($this->error['message'])) { 
 			echo $out;
-			return;
+			return true;
 		}
 
+		// encode message the same way that PHP does by default
+		$message = htmlspecialchars($this->error['message'], ENT_COMPAT | ENT_HTML401, ini_get('default_charset'), false);
+		
+		if(strpos($out, $message) !== false) {
+			// encoded message present in output
+		} else if(strpos($out, $this->error['message']) !== false) {
+			// non-encoded message present in output
+			$message = $this->error['message']; 
+		} else {
+			// error message not present in output
+			echo $out;
+			return true;
+		}
+
+		// generate a unique token placeholder for message
 		$token = '';
 		do {
 			$token .= 'xPW' . mt_rand() . 'SD';
 		} while(strpos($out, $token) !== false);
 		
 		// replace error message with token
-		$out = str_replace($this->error['message'], $token, $out);
+		$out = str_replace($message, $token, $out);
 		
 		// replace anything else on the same line as the PHP error (error type, file, line-number)
 		$out = preg_replace('/([\r\n]|^)[^\r\n]+' . $token . '[^\r\n]*/', '', $out);
+
+		// ensure certain tags that could interfere with error message output are closed
+		$tags = array(
+			'<pre>' => '</pre>',
+			'<pre ' => '</pre>',
+			'<table>' => '</table>',
+			'<table ' => '</table>',
+		);
+		foreach($tags as $openTag => $closeTag) {
+			$openPos = strripos($out, $openTag);
+			if($openPos === false) continue;
+			$closePos = strripos($out, $closeTag); 
+			if($closePos && $closePos > $openPos) continue;
+			$out .= $closeTag;
+		}
 		
 		echo $out;
+		
+		return $out === $token ? false : true;
 	}
 
 	/**
@@ -393,7 +486,7 @@ class WireShutdown extends Wire {
 			$message = $this->amendErrorMessage($message);
 			$this->sendErrorMessage($message, $why, $useHTML);
 		} else {
-			$this->sendError500($who, $useHTML);
+			$this->sendFatalError($who, $useHTML);
 		}
 
 		return true;
@@ -405,6 +498,7 @@ class WireShutdown extends Wire {
 	 */
 	public function shutdownExternal() {
 		if(error_get_last()) return;
+		/** @var ProcessPageView $process */
 		$process = $this->wire('process');
 		if($process == 'ProcessPageView') $process->finished();
 	}
