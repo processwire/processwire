@@ -927,6 +927,16 @@ $config->cookieOptions = array(
 	'fallback' => true, // If set cookie fails (perhaps due to output already sent), attempt to set at beginning of next request? (default=true)
 );
 
+/**
+ * Allow Multi-Dimensional Arrays in $input API var?
+ * 
+ * This option allows the overriding of WireInputData's standard option to strip multidimensional
+ * arrays when using the $input API
+ * 
+ * @var bool
+ * 
+ */
+$config->wireInputMultiDimensional = false;
 
 /*** 7. DATABASE ********************************************************************************/
 
