@@ -258,17 +258,21 @@ class PagePermissions extends WireData implements Module {
 		if($page->className() != 'User') $page = $this->wire('users')->get($page->id);
 		if(!$page || $page instanceof NullPage) return false;
 	
-		if($user->id === $page->id && !$user->isGuest() && $user->hasPermission('profile-edit')) {
+		if($user->id === $page->id && !$user->isGuest()) {
 			// user is the same as the page being edited or viewed
-			if($process == 'ProcessProfile') {
+			if($process == 'ProcessProfile' && $user->hasPermission('profile-edit')) {
 				// user editing themself in ProcssProfile
 				return true;
-			} else if($this->wire('page') && $this->wire('page')->process == 'ProcessProfile') {
+			} else if($this->wire('page') && $this->wire('page')->process == 'ProcessProfile' && $user->hasPermission('profile-edit')) {
 				// user editing themself in ProcessProfile, when process not yet established
 				return true;
-			} else if($process == 'ProcessPageView' && $config->pagefileSecure && $options['viewable']) {
+			} else if($process == 'ProcessPageView' && $options['viewable']) {
 				// user is viewing a file that is part of their User page when pagefileSecure mode active
-				return $process->getResponseType() == ProcessPageView::responseTypeFile;
+				if ($process->getResponseType() === ProcessPageView::responseTypeFile)
+					return $config->pagefileSecure;
+				
+				// user is viewing their own User page
+				return true;
 			}
 		}
 
