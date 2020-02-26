@@ -201,7 +201,7 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	protected function cleanArray(array $a) {
 		$clean = array();
 		foreach($a as $key => $value) {
-			if(!wire('config')->wireInputMultiDimensional) &&
+			if(!wire('config')->wireInputMultiDimensional &&
 				is_array($value)) continue; // we only allow one dimensional arrays
 			if(is_string($value) && $this->stripSlashes) $value = stripslashes($value);
 			$clean[$key] = $value;
