@@ -114,7 +114,7 @@ class PWPNG {
 			'channels' => $ct,
 			'bits' => $bpc,
 			'dp' => $dp,
-			'palette' => utf8_encode($pal),
+			'palette' => (function_exists('utf8_encode') ? utf8_encode($pal) : $pal),
 			'trans' => $trns,
 			'alpha' => $ct >= 4 ? true : false,
 			'interlace' => $interlaced,
