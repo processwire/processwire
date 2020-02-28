@@ -136,10 +136,6 @@ class InputfieldText extends Inputfield {
 			$attrs['value'] = $this->initValue; 
 		}
 
-		if($this->required && $this->requiredAttr && !$this->getSetting('showIf') && !$this->getSetting('requiredIf')) {
-			$attrs['required'] = 'required';
-		}
-
 		if(isset($attrs['minlength'])) {
 			// convert minlength attr to a data-minlength attr, since minlength doesn't have wide browser support
 			if($attrs['minlength'] > 0) $attrs['data-minlength'] = $attrs['minlength'];
@@ -277,23 +273,6 @@ class InputfieldText extends Inputfield {
 	public function ___getConfigInputfields() {
 		
 		$inputfields = parent::___getConfigInputfields();
-
-		/** @var InputfieldCheckbox $required */
-		$required = $inputfields->getChildByName('required');
-		
-		if($required) {
-			$required->set('columnWidth', 50);
-			/** @var InputfieldCheckbox $field */
-			$field = $this->modules->get('InputfieldCheckbox');
-			$field->attr('name', 'requiredAttr');
-			$field->label = $this->_('Also use HTML5 “required” attribute?');
-			$field->showIf = "required=1, showIf='', requiredIf=''";
-			$field->description = $this->_('Use only on fields *always* visible to the user.');
-			$field->icon = 'html5';
-			$field->columnWidth = 50;
-			if($this->requiredAttr) $field->attr('checked', 'checked');
-			$required->getParent()->insertAfter($field, $required);
-		}
 
 		/** @var InputfieldInteger $field */
 		$field = $this->modules->get('InputfieldInteger');
