@@ -5,7 +5,7 @@
  *
  * Matches selector strings to pages
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  * Hookable methods: 
@@ -82,7 +82,14 @@ class PageFinder extends Wire {
 		 * Return parent IDs rather than page IDs? (requires that returnVerbose is false)
 		 * 
 		 */
-		'returnParentIDs' => false, 
+		'returnParentIDs' => false,
+		
+		/**
+		 * Return [ page_id => template_id ] IDs array? (cannot be combined with other 'return*' options)
+		 * @since 3.0.152
+		 *
+		 */
+		'returnTemplateIDs' => false,
 
 		/**
 		 * When true, only the DatabaseQuery object is returned by find(), for internal use. 
@@ -374,6 +381,7 @@ class PageFinder extends Wire {
 	 *     template ID and score. When false, returns only an array of page IDs. True is required by most usage from
 	 *     Pages class. False is only for specific cases. 
 	 *  - `returnParentIDs` (bool): Return parent IDs only? (default=false, requires that 'returnVerbose' option is false).
+	 *  - `returnTemplateIDs` (bool): Return [pageID => templateID] array? [3.0.152+ only] (default=false, cannot be combined with other 'return*' options).
 	 *  - `allowCustom` (bool): Whether or not to allow _custom='selector string' type values (default=false). 
 	 *  - `useSortsAfter` (bool): When true, PageFinder may ask caller to perform sort manually in some cases (default=false). 
 	 * @return array|DatabaseQuerySelect
@@ -460,6 +468,10 @@ class PageFinder extends Wire {
 						}
 						$row['score'] = $score; // @todo do we need this anymore?
 						$matches[] = $row;
+						
+					} else if($options['returnTemplateIDs']) {
+						$matches[(int) $row['id']] = (int) $row['templates_id'];
+
 					} else {
 						$matches[] = (int) $row['id']; 
 					}
@@ -528,6 +540,22 @@ class PageFinder extends Wire {
 	public function findParentIDs($selectors, $options = array()) {
 		$options['returnVerbose'] = false;
 		$options['returnParentIDs'] = true;
+		return $this->find($selectors, $options);
+	}
+
+	/**
+	 * Find template ID for each page — returns array of template IDs indexed by page ID
+	 * 
+	 * @param Selectors|string|array $selectors Selectors object, selector string or selector array
+	 * @param array $options
+	 * @return array 
+	 * @since 3.0.152
+	 * 
+	 */
+	public function findTemplateIDs($selectors, $options = array()) {
+		$options['returnVerbose'] = false;
+		$options['returnParentIDs'] = false;
+		$options['returnTemplateIDs'] = true;
 		return $this->find($selectors, $options);
 	}
 
@@ -1161,8 +1189,10 @@ class PageFinder extends Wire {
 		
 		if($options['returnVerbose']) {
 			$columns = array('pages.id', 'pages.parent_id', 'pages.templates_id');
-		} else if($options['returnParentIDs']) { 
+		} else if($options['returnParentIDs']) {
 			$columns = array('pages.parent_id AS id');
+		} else if($options['returnTemplateIDs']) {
+			$columns = array('pages.id', 'pages.templates_id');
 		} else {
 			$columns = array('pages.id');
 		}
