@@ -4133,7 +4133,7 @@ class Modules extends WireArray {
 	}
 
 	/**
-	 * Is the given namespace a unique recognized module namespace? If yes, returns the path to it. If not, returns boolean false;
+	 * Is the given namespace a unique recognized module namespace? If yes, returns the path to it. If not, returns boolean false.
 	 * 
 	 * #pw-internal
 	 * 

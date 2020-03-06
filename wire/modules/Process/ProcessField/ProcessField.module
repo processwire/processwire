@@ -1265,7 +1265,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				}
 
 				$checkbox->attr('value', "$fieldgroup->id:$key");
-				$checkbox->attr('id', '_remove_context' . ($n++));
+				$checkbox->attr('id', '_remove_context_' . $fieldgroup->id . '_' . ($n++));
 			
 				if(!$this->fieldgroup) $row[] = $fieldgroupLabel;
 				

@@ -955,15 +955,19 @@ class Pageimage extends Pagefile {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param $width
-	 * @param $height
+	 * @param int|string $width
+	 * @param int|array $height
 	 * @param array $options See options in size() method. 
 	 * @return Pageimage
 	 *
 	 */
 	public function hidpiSize($width, $height, $options = array()) {
-		$options['hidpi'] = true; 
-		return $this->size($width, $height, $options); 
+		if(is_array($height)) {
+			$height['hidpi'] = true;
+		} else {
+			$options['hidpi'] = true;
+		}
+		return $this->size($width, $height, $options);
 	}
 
 	/**
