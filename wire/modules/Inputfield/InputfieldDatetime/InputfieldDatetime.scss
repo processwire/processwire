@@ -12,6 +12,7 @@
 	}
 	.ui-datepicker-inline {
 		padding-bottom: 0.5em;
+		font-size: 14px; 
 	}
 }
 
@@ -67,5 +68,26 @@ a.pw-ui-datepicker-trigger {
 input.InputfieldDatetimeDatepicker {
 	position: relative;
 	z-index: 10;
+}
+
+input.InputfieldDatetimeDatepicker2 {
+	// inline datepicker, do not show <input> element
+	display: none;
+}
+
+.InputfieldDatetime {
+	input[type=date],
+	input[type=time] {
+		width: auto;
+	}
+}
+.InputfieldDatetime.InputfieldDatetimeMulti {
+	// date and time represented by separate (multiple) inputs
+	input, select {
+		margin-bottom: 4px; // for when they stack
+	}
+	select {
+		width: auto;
+	}
 }
 

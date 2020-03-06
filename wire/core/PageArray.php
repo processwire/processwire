@@ -165,6 +165,23 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	public function makeBlankItem() {
 		return $this->wire('pages')->newPage();
 	}
+	
+	/**
+	 * Creates a new blank instance of this PageArray, for internal use.
+	 *
+	 * #pw-internal
+	 *
+	 * @return PageArray
+	 *
+	 */
+	public function makeNew() {
+		$class = get_class($this);
+		/** @var PageArray $newArray */
+		$newArray = $this->wire(new $class());
+		// $newArray->finderOptions($this->finderOptions());
+		if($this->lazyLoad) $newArray->_lazy(true);
+		return $newArray;
+	}
 
 	/**
 	 * Import the provided pages into this PageArray.
@@ -651,12 +668,12 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param array $options
+	 * @param array|null $options Specify array to set or omit this argument to get
 	 * @return array
 	 * 
 	 */
-	public function finderOptions(array $options = array()) {
-		$this->finderOptions = $options;
+	public function finderOptions($options = null) {
+		if(is_array($options)) $this->finderOptions = $options;
 		return $this->finderOptions;
 	}
 
