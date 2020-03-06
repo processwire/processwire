@@ -13,7 +13,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -41,6 +41,30 @@ class WireClassLoader {
 	protected $extensions = array(
 		'.php',
 	);
+	
+	/**
+	 * Class name prefixes to paths
+	 *
+	 * @var array Indexed by prefix, values are arrays of paths
+	 *
+	 */
+	protected $prefixes = array();
+
+	/**
+	 * Class name suffixes to paths
+	 * 
+	 * @var array Indexed by suffix, values are arrays of paths
+	 * 
+	 */
+	protected $suffixes = array();
+
+	/**
+	 * True when finding file, string when file found, false when not active
+	 * 
+	 * @var string|bool
+	 * 
+	 */
+	protected $findFile = false;
 
 	/**
 	 * @var array
@@ -74,6 +98,19 @@ class WireClassLoader {
 	}
 
 	/**
+	 * Normalize a path
+	 * 
+	 * @param string $path
+	 * @return string
+	 * @since 3.0.152
+	 * 
+	 */
+	protected function path($path) {
+		if(DIRECTORY_SEPARATOR !== '/') $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
+		return rtrim($path, '/') . '/';
+	}
+
+	/**
 	 * Add a recognized file extension for PHP files
 	 * 
 	 * Note: ".php" is already assumed, so does not need to be added.
@@ -86,6 +123,36 @@ class WireClassLoader {
 	public function addExtension($ext) {
 		if(strpos($ext, '.') !== 0) $ext = ".$ext";
 		if(!in_array($ext, $this->extensions)) $this->extensions[] = $ext;
+	}
+
+	/**
+	 * Map a class suffix to a path
+	 * 
+	 * This is used as a helper/fallback and class is not required to be in given path,
+	 * but the path will be added as another to check when not found in namespace path(s).
+	 * 
+	 * @param string $suffix Case sensitive suffix specific to class name (not namespace). 
+	 * @param string $path
+	 * 
+	 */
+	public function addSuffix($suffix, $path) {
+		if(!isset($this->suffixes[$suffix])) $this->suffixes[$suffix] = array();
+		if(!empty($path) && is_dir($path)) $this->suffixes[$suffix][] = $this->path($path);
+	}
+	
+	/**
+	 * Map a class prefix to a path
+	 * 
+	 * This is used as a helper/fallback and class is not required to be in given path,
+	 * but the path will be added as another to check when not found in namespace path(s).
+	 *
+	 * @param string $prefix Case sensitive prefix specific to class name (not namespace). 
+	 * @param string $path
+	 *
+	 */
+	public function addPrefix($prefix, $path) {
+		if(!isset($this->suffixes[$prefix])) $this->prefixes[$prefix] = array();
+		if(!empty($path) && is_dir($path)) $this->prefixes[$prefix][] = $this->path($path);
 	}
 
 	/**
@@ -103,8 +170,7 @@ class WireClassLoader {
 	 */
 	public function addNamespace($namespace, $path) {
 		if(!isset(self::$namespaces[$namespace])) self::$namespaces[$namespace] = array();
-		if(DIRECTORY_SEPARATOR !== '/') $path = str_replace(DIRECTORY_SEPARATOR, '/', $path);
-		$path = rtrim($path, '/') . '/';
+		$path = $this->path($path);
 		if(!in_array($path, self::$namespaces[$namespace])) self::$namespaces[$namespace][] = $path;
 	}
 
@@ -145,6 +211,22 @@ class WireClassLoader {
 			unset(self::$namespaces[$namespace]);
 		}
 	}
+	
+	/**
+	 * Find filename for given class name (primarily for API testing/debugging purposes)
+	 *
+	 * @param string $className Class name with namespace
+	 * @return bool|string Returns file on success or boolean false when not found
+	 * @since 3.0.152
+	 *
+	 */
+	public function findClassFile($className) {
+		$this->findFile = true;
+		$this->loadClass($className);
+		$file = is_string($this->findFile) ? $this->findFile : false;
+		$this->findFile = false;
+		return $file;
+	}
 
 	/**
 	 * Load the file for the given class
@@ -160,11 +242,12 @@ class WireClassLoader {
 		static $levelHistory = array();
 		$level++;
 		
-		if(is_null($this->modules)) {
-			if($this->wire) $this->modules = $this->wire->wire('modules');
+		if($this->modules === null && $this->wire) {
+			$this->modules = $this->wire->wire('modules');
 		}
-		if(is_null($this->debug)) {
-			if($this->wire) $this->debug = $this->wire->wire('config')->debug;
+		
+		if($this->debug === null && $this->wire) {
+			$this->debug = $this->wire->wire('config')->debug;
 		}
 		
 		if($this->debug) {
@@ -183,7 +266,6 @@ class WireClassLoader {
 			$parts = explode("\\", $className);
 			$name = array_pop($parts);
 			$namespace = implode("\\", $parts);
-			$_namespace = $namespace; // original and unmodified namespace
 		} else {
 			$_parts = array();
 			if(strpos($className, "\\") !== false) {
@@ -201,6 +283,9 @@ class WireClassLoader {
 		if($this->modules && $this->modules->isModule($className)) {
 			if($this->modules->includeModule($name)) {
 				// success, and Modules class just included it
+				if($this->findFile === true) {
+					$this->findFile = $this->modules->getModuleFile($name); 
+				}
 				if($this->debug) {
 					$this->debugLog[$_className] = "Handled by modules loader" . $levelHistoryStr;
 					array_pop($levelHistory);
@@ -218,32 +303,19 @@ class WireClassLoader {
 		if($namespace) {
 			$paths = self::$namespaces[$namespace];
 			$dir = count($_parts) ? implode('/', array_reverse($_parts)) . '/' : '';
-			foreach($this->extensions as $ext) {
-				foreach($paths as $path) {
-					$file = "$path$dir$name$ext";
-					if(is_file($file)) {
-						$found = $file;
-						break;
-					}
-				}
-				if($found) break;
-			}
+			$found = $this->findClassInPaths($name, $paths, $dir); 
 		}
 	
 		if(!$found && $this->modules && $_namespace) {
+			// if namespace is for a known module, see if we can find a file in that module’s directory
+			// with the same name as the request class
+			// @todo psr-4 support for these
 			$path = $this->modules->getNamespacePath($_namespace);
-			if($path) {
-				// if namespace is for a known module, see if we can find a file in that module's directory
-				// with the same name as the request class
-				// @todo psr-4 support for these
-				foreach($this->extensions as $ext) {
-					$file = "$path$name$ext";
-					if(is_file($file)) {
-						$found = $file;
-						break;
-					}
-				}
-			}
+			if($path) $found = $this->findClassInPaths($name, $path); 
+		}
+		
+		if(!$found && (!empty($this->prefixes) || !empty($this->suffixes))) {
+			$found = $this->findInPrefixSuffixPaths($name);
 		}
 		
 		if($found) {
@@ -253,12 +325,83 @@ class WireClassLoader {
 				$file = $this->wire ? str_replace($this->wire->wire('config')->paths->root, '/', $found) : $found;
 				$this->debugLog[$_className] = $file . $levelHistoryStr;
 			}
+			if($this->findFile === true && $level === 1) {
+				$this->findFile = $found;
+			}
 		} else if($this->debug) {
 			$this->debugLog[$_className] = "Unable to locate file for this class" . $levelHistoryStr;
 		}
 		
 		$level--;
 		if($this->debug) array_pop($levelHistory);
+	}
+
+	/**
+	 * Find class file among given paths and return full pathname to file if found
+	 *
+	 * @param string $name Class name without namespace
+	 * @param string|array $paths Path(s) to check
+	 * @param string $dir Optional directory string to append to each path, must not start with slash but must end with slash, i.e. "dir/"
+	 * @return string|bool Returns full path+filename when found or boolean false when not found
+	 * @since 3.0.152
+	 *
+	 */
+	protected function findClassInPaths($name, $paths, $dir = '') {
+		$found = false;
+		if(!is_array($paths)) $paths = array($paths);
+		foreach($paths as $path) {
+			foreach($this->extensions as $ext) {
+				$file = "$path$dir$name$ext";
+				if(!is_file($file)) continue;
+				$found = $file;
+				break;
+			}
+			if($found) break;
+		}
+		return $found;
+	}
+
+	/**
+	 * Check prefix and suffix definition paths for given class name and return file if found
+	 * 
+	 * @param string $name Class name without namespace
+	 * @return bool|string Returns filename on success or boolean false if not found
+	 * @since 3.0.152
+	 * 
+	 */
+	protected function findInPrefixSuffixPaths($name) {
+		$found = false;
+		
+		foreach(array('prefixes', 'suffixes') as $type) {
+			
+			foreach($this->$type as $fix => $paths) {
+				
+				// if class exactly matches prefix/suffix, it is the full class name and not allowed
+				if($name === $fix || empty($fix)) continue; 
+				
+				// determine where the prefix/suffix appears in the class name
+				$pos = strpos($name, $fix);
+				
+				// prefix/suffix does not appear in class name
+				if($pos === false) continue; 
+				
+				if($type === 'prefixes') {
+					// prefixes: class name must begin with prefix
+					if($pos !== 0) continue; 
+				} else {
+					// suffixes: class name must end with suffix
+					if(substr($name, -1 * strlen($fix)) !== $fix) continue; 
+				}
+				
+				// if still here then we have a class name that matches a prefix/suffix, check if in path
+				$found = $this->findClassInPaths($name, $paths);
+				if($found) break;
+			}
+			
+			if($found) break;
+		}
+		
+		return $found;
 	}
 
 	/**
