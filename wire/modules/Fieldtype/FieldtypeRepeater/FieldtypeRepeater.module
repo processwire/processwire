@@ -1068,7 +1068,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$parent = $repeaterParent->child('name=' . self::repeaterPageNamePrefix . $page->id . ', include=all');
 		if($parent->id) return $parent;
 
-		$parent = $this->wire('pages')->newPage(array('template' => $repeaterParent->template));
+		$parent = $this->wire('pages')->newPage($repeaterParent->template);
 		$parent->parent = $repeaterParent; 
 		$parent->name = self::repeaterPageNamePrefix . $page->id;
 		$parent->title = $page->name;
@@ -1112,7 +1112,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$parent = $repeatersRootPage->child("name=$parentName, include=all"); 
 
 		if(!$parent->id) {
-			$parent = $this->wire('pages')->newPage(array('template' => $repeatersRootPage->template));
+			$parent = $this->wire('pages')->newPage($repeatersRootPage->template);
 			$parent->parent = $repeatersRootPage; 
 			$parent->name = $parentName;
 			$parent->title = $field->name; 
@@ -1935,7 +1935,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$page = $adminRoot->child("name=repeaters, template=admin, include=all"); 
 		
 		if(!$page->id) {
-			$page = $pages->newPage(array('template' => 'admin'));
+			$page = $pages->newPage('admin');
 			$page->parent = $adminRoot;
 			$page->status = Page::statusHidden | Page::statusLocked | Page::statusSystemID;
 			$page->name = 'repeaters';

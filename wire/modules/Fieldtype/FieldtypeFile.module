@@ -1064,8 +1064,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	 * 
 	 */
 	public function getFieldsPage(Field $field) {
-		$page = new Page();
-		$page->template = $this->getFieldsTemplate($field);
+		$page = $this->wire('pages')->newPage($this->getFieldsTemplate($field));
 		$page->status = Page::statusOn | Page::statusCorrupted; // corrupted status prevents saving
 		return $page;
 	}

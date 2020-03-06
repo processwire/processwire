@@ -691,9 +691,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		$parent = $this->wire('pages')->get($parent_id); 
 
-		$test = $this->wire('pages')->newPage(array(
-			'template' => $this->wire('templates')->get($template_id)
-		));
+		$test = $this->wire('pages')->newPage($template_id); 
 		$test->parent = $parent; 
 		$test->id = -1; // prevents permissions check from failing
 
@@ -877,12 +875,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			}
 
 			// create a new page
-			$page = $this->wire('pages')->newPage();
-			$page->template = $template_id; 
-			$page->parent = $parent; 
-			$page->title = trim($title); 
-			$page->sort = $sort++;
-			$page->id = -1; // prevents the permissions check from failing
+			$page = $this->wire('pages')->newPage(array(
+				'template' => $template_id,
+				'parent' => $parent, 
+				'title' => trim($title), 
+				'sort' => $sort++,
+				'id' => -1, // prevents the permissions check from failing
+			));
 
 			// on first iteration perform a page-context access check
 			if(!$n && (!$parent->addable($page) || !$page->publishable())) {

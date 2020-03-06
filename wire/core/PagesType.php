@@ -274,17 +274,29 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 		$pageClass = $page->className();
 		if($this->pageClass && $pageClass === $this->pageClass) return true;
 		$valid = false;
+		
 		foreach($this->templates as $template) {
 			/** @var Template $template */
 			if($template->pageClass) {
 				// template specifies a class 
-				if($template->pageClass === $pageClass) $valid = true;
-			} else {
+				if($template->pageClass === $pageClass) {
+					$valid = true;
+				} else if(wireInstanceOf($page, $template->pageClass)) {
+					$valid = true;
+				}
+			} else if($pageClass === 'Page') {
 				// template specifies NO Page class, which implies "Page" as a class name is valid
-				if($pageClass === 'Page') $valid = true;
+				$valid = true;
+			} else {
+				// page has some other class name
+				$className = $template->getPageClass();
+				if(wireClassName($className) === $pageClass || wireInstanceOf($page, $className)) {
+					$valid = true;
+				}
 			}
 			if($valid) break;	
 		}
+		
 		return $valid;
 	}
 
@@ -588,8 +600,13 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 * 
 	 */
 	public function getPageClass() {
+		if($this->template) {
+			if($this->pageClass && !$this->template->pageClass) {
+				$this->template->pageClass = $this->pageClass;
+			}
+			return $this->template->getPageClass(false);
+		}
 		if($this->pageClass) return $this->pageClass;
-		if($this->template && $this->template->pageClass) return $this->template->pageClass;
 		return 'Page';
 	}
 

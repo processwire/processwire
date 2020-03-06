@@ -519,7 +519,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 				$template = $this->wire('templates')->get((int) $field->get('template_id'));
 				$parent = $this->wire('pages')->get((int) $parent_id); 
 				if($template && $parent->id) {
-					$result = $this->wire('pages')->newPage(array('template' => $template));
+					$result = $this->wire('pages')->newPage($template);
 					$result->parent = $parent; 
 					$result->title = $value; 
 					$result->name = $this->wire('sanitizer')->pageNameUTF8($value); 

@@ -48,7 +48,7 @@
  * 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
  * This file is licensed under the MIT license
@@ -68,6 +68,7 @@
  * @property string $files Site-specific files: /site/assets/files/
  * @property string $tmp Temporary files: /site/assets/tmp/ #pw-group-paths-only
  * @property string $sessions Session files: /site/assets/sessions/ #pw-group-paths-only
+ * @property string $classes Site-specific class files: /site/classes/ #pw-group-paths-only
  *
  * The following properties are only in $config->urls
  * ==================================================

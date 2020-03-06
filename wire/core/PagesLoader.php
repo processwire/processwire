@@ -267,10 +267,15 @@ class PagesLoader extends Wire {
 		$profilerEvent = $profiler ? $profiler->start("$caller($selectorString)", "Pages") : null;
 		
 		if(($lazy || $findIDs) && strpos($selectorString, 'limit=') === false) $options['getTotal'] = false;
-		
-		if($lazy || $findIDs === 1) {
-			$pagesIDs = $pageFinder->findIDs($selectors, $options);
+	
+		if($lazy) {
+			// [ pageID => templateID ]
+			$pagesIDs = $pageFinder->findTemplateIDs($selectors, $options); 
+		} else if($findIDs === 1) {
+			// [ pageID ]
+			$pagesIDs = $pageFinder->findIDs($selectors, $options); 
 		} else {
+			// [ [ 'id' => 3, 'templates_id' => 2, 'parent_id' => 1 ]
 			$pagesInfo = $pageFinder->find($selectors, $options);
 		}
 		
@@ -292,9 +297,16 @@ class PagesLoader extends Wire {
 			$loadPages = false;
 			$cachePages = false;
 			$template = null;
+			$templatesByID = array();
 
-			foreach($pagesIDs as $id) {
-				$page = $this->pages->newPage();
+			foreach($pagesIDs as $id => $templateID) {
+				if(isset($templatesByID[$templateID])) {
+					$template = $templatesByID[$templateID];
+				} else {
+					$template = $this->wire('templates')->get($templateID);
+					$templatesByID[$templateID] = $template;
+				}
+				$page = $this->pages->newPage($template);
 				$page->_lazy($id);
 				$page->loaderCache = false;
 				$pages->add($page);
@@ -302,6 +314,7 @@ class PagesLoader extends Wire {
 
 			$pages->setDuplicateChecking(true);
 			if(count($pagesIDs)) $pages->_lazy(true);
+			unset($template, $templatesByID);
 
 		} else if($findIDs) {
 			
@@ -553,6 +566,9 @@ class PagesLoader extends Wire {
 			'pageArrayClass' => 'PageArray',
 			'caller' => '', 
 		);
+	
+		/** @var Templates $templates */
+		$templates = $this->wire('templates');
 
 		if(is_array($template)) {
 			// $template property specifies an array of options
@@ -570,7 +586,7 @@ class PagesLoader extends Wire {
 
 		if(!is_null($template) && !is_object($template)) {
 			// convert template string or id to Template object
-			$template = $this->wire('templates')->get($template);
+			$template = $templates->get($template);
 		}
 
 		if(is_string($_ids)) {
@@ -696,7 +712,7 @@ class PagesLoader extends Wire {
 		foreach($idsByTemplate as $templates_id => $ids) {
 
 			if($templates_id && (!$template || $template->id != $templates_id)) {
-				$template = $this->wire('templates')->get($templates_id);
+				$template = $templates->get($templates_id);
 			}
 
 			if($template) {
@@ -748,25 +764,8 @@ class PagesLoader extends Wire {
 			$database->execute($stmt);
 
 			$class = $options['pageClass'];
-			if(empty($class)) {
-				if($template) {
-					$class = ($template->pageClass && wireClassExists($template->pageClass)) ? $template->pageClass : 'Page';
-				} else {
-					$class = 'Page';
-				}
-			}
+			if(empty($class)) $class = $template ? $template->getPageClass() : __NAMESPACE__ . "\\Page";
 
-			$_class = wireClassName($class, true);
-			if($class != 'Page' && !wireClassExists($_class)) {
-				if(class_exists("\\$class")) {
-					$_class = "\\$class";
-				} else {
-					$this->error("Class '$class' for Pages::getById() does not exist", Notice::log);
-					$class = 'Page';
-					$_class = wireClassName($class, true);
-				}
-			}
-		
 			// page to populate, if provided in 'getOne' mode
 			/** @var Page|null $_page */
 			$_page = $options['getOne'] && $options['page'] && $options['page'] instanceof Page ? $options['page'] : null;
@@ -781,9 +780,11 @@ class PagesLoader extends Wire {
 						$page->set('template', $template ? $template : $row['templates_id']);
 					} else {
 						// create new Page object
+						$pageTemplate = $template ? $template : $templates->get((int) $row['templates_id']); 
+						$pageClass = empty($options['pageClass']) && $pageTemplate ? $pageTemplate->getPageClass() : $class; 
 						$page = $this->pages->newPage(array(
-							'pageClass' => $_class,
-							'template' => $template ? $template : $row['templates_id'],
+							'pageClass' => $pageClass,
+							'template' => $pageTemplate ? $pageTemplate : $row['templates_id'],
 						));
 					}
 					unset($row['templates_id']);
@@ -902,7 +903,7 @@ class PagesLoader extends Wire {
 			if($languageID) $languages->unsetLanguage();
 			return $path;
 
-		} else if($id == $homepageID && $languages && !$languageID) {
+		} else if($id === $homepageID && $languages && !$languageID) {
 			// default language in multi-language environment, let $page handle it since there is additional 
 			// hooked logic there provided by LanguageSupportPageNames
 			$page = $this->pages->get($homepageID);

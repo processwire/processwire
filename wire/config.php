@@ -143,6 +143,25 @@ $config->useFunctionsAPI = false;
 $config->useMarkupRegions = false;
 
 /**
+ * Use custom page classes? Specify boolean true to enable. 
+ *
+ * When enabled, if a class with name "[TemplateName]Page" (in ProcessWire namespace) exists
+ * in /site/classes/[TemplateName]Page.php, and it extends ProcessWire’s Page class, then the 
+ * Page will be created with that class rather than the default Page class. For instance, 
+ * template “home” would look for a class named “HomePage” and template "blog-post" (or 
+ * "blog_post") would look for a class named “BlogPostPage” (file: BlogPostPage.php). 
+ * 
+ * If you create a file named /site/classes/DefaultPage.php with a DefaultPage class within
+ * it (that extends Page), then it will be used for all pages that would otherwise use the 
+ * `Page` class. 
+ * 
+ * @var bool|string
+ * @since 3.0.152
+ *
+ */
+$config->usePageClasses = false;
+
+/**
  * Disable all HTTPS requirements?
  * 
  * Use this option only for development or staging environments, on sites where you are 

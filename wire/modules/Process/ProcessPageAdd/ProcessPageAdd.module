@@ -832,9 +832,10 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			}
 			if($this->template) {
 				// dummy edit page for examination by InputfieldPageName
-				$editPage = $this->wire('pages')->newPage();
-				$editPage->parent = $this->parent;
-				$editPage->template = $this->template;
+				$editPage = $this->wire('pages')->newPage(array(
+					'template' => $this->template,
+					'parent' => $this->parent,
+				));
 				$field->editPage = $editPage;
 			}
 		}
@@ -1043,12 +1044,10 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			// if not specified in get variable, next check parent template for setting
 			$nameFormat = $nameFormatTemplate;
 		}
-		$class = $template->pageClass ? $template->pageClass : 'Page';
 		$page = $this->wire('pages')->newPage(array(
-			'pageClass' => $class,
-			'template' => $template
+			'template' => $template,
+			'parent' => $parent,
 		)); 
-		$page->parent = $parent; 
 		$this->wire('pages')->setupNew($page); 
 		if(!strlen($page->name)) return false;
 		if(!$this->isAllowedTemplate($template)) return false; 
@@ -1127,7 +1126,8 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	 */
 	protected function ___processInput(InputfieldForm $form) {
 
-		$this->page = $this->wire('pages')->newPage(); // must exist before processInput for language hooks
+		$template = $this->template; 
+		$this->page = $this->wire('pages')->newPage($template ? $template : array()); // must exist before processInput for language hooks
 		$form->processInput($this->input->post);
 
 		/** @var InputfieldPageName $nameField */
@@ -1139,7 +1139,6 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			return false; 
 		}
 
-		$template = $this->template; 
 		if(is_null($template)) { 
 			/** @var InputfieldSelect $templateField */
 			$templateField = $form->getChildByName('template');

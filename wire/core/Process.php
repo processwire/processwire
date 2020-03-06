@@ -13,7 +13,7 @@
  * Please be sure to see the `Module` interface for full details on methods you can specify in a Process module. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
  * This file is licensed under the MIT license
@@ -371,8 +371,7 @@ abstract class Process extends WireData implements Module {
 		if(!$parent || !$parent->id) $parent = $adminPage; // default
 		$page = $parent->child("include=all, name=$name"); // does it already exist?
 		if($page->id && "$page->process" == "$this") return $page; // return existing copy
-		$page = $this->wire('pages')->newPage();
-		$page->template = $template ? $template : 'admin';
+		$page = $this->wire('pages')->newPage($template ? $template : 'admin');
 		$page->name = $name; 
 		$page->parent = $parent; 
 		$page->process = $this;

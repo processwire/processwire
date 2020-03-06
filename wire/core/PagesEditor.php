@@ -75,12 +75,7 @@ class PagesEditor extends Wire {
 			if(!$template) throw new WireException("Unknown template");
 		}
 
-		$pageClass = wireClassName($template->pageClass ? $template->pageClass : 'Page', true);
-
-		$page = $this->pages->newPage(array(
-			'template' => $template,
-			'pageClass' => $pageClass
-		));
+		$page = $this->pages->newPage($template); 
 		$page->parent = $parent;
 
 		$exceptionMessage = "Unable to add new page using template '$template' and parent '{$page->parent->path}'.";

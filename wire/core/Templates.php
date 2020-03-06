@@ -42,6 +42,14 @@ class Templates extends WireSaveableItems {
 	protected $fileModTemplates = array();
 
 	/**
+	 * Cached template ID to page class names (for getPageClass method)
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $pageClassNames = array();
+
+	/**
 	 * Construct the Templates
 	 *
 	 * @param Fieldgroups $fieldgroups Reference to the Fieldgroups
@@ -532,7 +540,7 @@ class Templates extends WireSaveableItems {
 			if($checkAccess) {
 				if($parentPage->id) {
 					// single defined parent
-					$p = $this->wire('pages')->newPage(array('template' => $template));
+					$p = $this->wire('pages')->newPage($template);
 					if(!$parentPage->addable($p)) continue;
 				} else {
 					// multiple possible parents
@@ -546,7 +554,7 @@ class Templates extends WireSaveableItems {
 		}
 		
 		if($checkAccess && $getAll && $foundParents && $foundParents->count()) {
-			$p = $this->wire('pages')->newPage(array('template' => $template));
+			$p = $this->wire('pages')->newPage($template);
 			foreach($foundParents as $parentPage) {
 				if(!$parentPage->addable($p)) $foundParents->remove($parentPage);
 			}
@@ -572,6 +580,87 @@ class Templates extends WireSaveableItems {
 		return $this->getParentPage($template, $checkAccess, $getAll);
 	}
 	
+	/**
+	 * Get class name to use for pages using given Template
+	 * 
+	 * Note that value can be different from the `$template->pageClass` property, since it is determined at runtime.
+	 * If it is different, then it is at least a class that extends the one defined by pageClass. 
+	 *
+	 * @param Template $template
+	 * @param bool $withNamespace Include namespace? (default=true)
+	 * @return string Returned class name includes namespace
+	 * @since 3.0.152
+	 *
+	 */
+	public function getPageClass(Template $template, $withNamespace = true) {
+
+		if(isset($this->pageClassNames[$template->id])) {
+			// use cached value when present
+			$pageClass = $this->pageClassNames[$template->id];
+			if(!$withNamespace) $pageClass = wireClassName($pageClass, false);
+			return $pageClass;
+		}
+
+		$corePageClass = __NAMESPACE__ . "\\Page";
+		
+		// first check for class defined with Template 'pageClass' setting
+		$pageClass = $template->pageClass;
+
+		if($pageClass && $pageClass !== 'Page') {
+			// page has custom class assignment in its template
+			$nsPageClass = wireClassName($pageClass, true);
+			// is this custom class available for instantiation?
+			if(class_exists($nsPageClass)) {
+				// class is available for use and has a namespace
+				$pageClass = $nsPageClass;
+			} else if(class_exists("\\$pageClass") && wireInstanceOf("\\$pageClass", $corePageClass)) {
+				// class appears to be available in root namespace and it extends PW’s Page class (legacy)
+				$pageClass = "\\$pageClass";
+			} else {
+				// class is not available for instantiation
+				$pageClass = '';
+			}
+		}
+	
+		$config = $this->wire('config');
+		$usePageClasses = $config->usePageClasses;
+
+		if(empty($pageClass) || $pageClass === 'Page') {
+			// if no custom Page class available, use default Page class with namespace
+			if($usePageClasses) {
+				// custom classes enabled
+				if(!isset($this->pageClassNames[0])) {
+					// index 0 holds cached default page class
+					$defaultPageClass = __NAMESPACE__ . "\\DefaultPage";
+					if(!class_exists($defaultPageClass) || !wireInstanceOf($defaultPageClass, $corePageClass)) {
+						$defaultPageClass = $corePageClass;
+					}
+					$this->pageClassNames[0] = $defaultPageClass;
+				}
+				$pageClass = $this->pageClassNames[0];
+			} else {
+				$pageClass = $corePageClass;
+			}
+		}
+
+		// determine if custom class available (3.0.152+)
+		if($usePageClasses) {
+			// generate a CamelCase name + 'Page' from template name, i.e. 'blog-post' => 'BlogPostPage'
+			$className = ucwords(str_replace(array('-', '_', '.'), ' ', $template->name));
+			$className = __NAMESPACE__ . "\\" . str_replace(' ', '', $className) . 'Page';
+			if(class_exists($className) && wireInstanceOf($className, $corePageClass)) {
+				$pageClass = $className;
+			}
+		}
+
+		if($template->id) $this->pageClassNames[$template->id] = $pageClass;
+		
+		if(!$withNamespace) $pageClass = wireClassName($pageClass, false);
+
+		return $pageClass;
+	}
+
+
 	/**
 	 * Set a Permission for a Template for and specific Role
 	 * 

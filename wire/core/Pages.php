@@ -1239,30 +1239,43 @@ class Pages extends Wire {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param array $options Optionally specify array of any of the following:
-	 *   - `pageClass` (string): Class to use for Page object (default='Page').
-	 *   - `template` (Template|id|string): Template to use. 
-	 *   - Plus any other Page properties or fields you want to set at this time
+	 * @param array|string|Template $options Optionally specify array of any of the following:
+	 *  - `template` (Template|id|string): Template to use via object, ID or name. 
+	 *  - `pageClass` (string): Class to use for Page. If not specified, default is from template setting, or 'Page' if no template.
+	 *  - Any other Page properties or fields you want to set (parent, name, title, etc.). Note that most page fields will need to
+	 *    have a `template` set first, so make sure to include it in your options array when providing other fields.
+	 *  - In PW 3.0.152+ you may specify the Template object, name or ID instead of an $options array. 
 	 * @return Page
 	 *
 	 */
-	public function newPage(array $options = array()) {
-		$class = 'Page';
-		if(!empty($options['pageClass'])) $class = $options['pageClass'];
-		if(isset($options['template'])) {
+	public function newPage($options = array()) {
+		if(!is_array($options)) {
+			if(is_object($options) && $options instanceof Template) {
+				$options = array('template' => $options); 
+			} else if($options && (is_string($options) || is_int($options))) {
+				$options = array('template' => $options); 
+			} else {
+				$options = array();
+			}
+		}
+		if(!empty($options['pageClass'])) {
+			$class = $options['pageClass'];
+		} else {
+			$class = 'Page';
+		}
+		if(!empty($options['template'])) {
 			$template = $options['template'];
 			if(!is_object($template)) {
 				$template = empty($template) ? null : $this->wire('templates')->get($template);
 			}
-			if($template && empty($options['pageClass']) && $template->pageClass) {
-				$class = $template->pageClass;
-				if(!wireClassExists($class)) $class = 'Page';
-			}	
+			if($template && empty($options['pageClass'])) {
+				$class = $template->getPageClass();
+			}
 		} else {
 			$template = null;
 		}
 		
-		$class = wireClassName($class, true);
+		if(strpos($class, "\\") === false) $class = wireClassName($class, true);
 		$page = $this->wire(new $class($template));
 		if(!$page instanceof Page) $page = $this->wire(new Page($template));
 		

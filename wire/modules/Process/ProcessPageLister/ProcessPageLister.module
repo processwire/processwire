@@ -1127,11 +1127,10 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				// user specified 1 or more templates
 				$numEditable = 0;
 				// determine how many templates are editable
-				$test = $pages->newPage();
-				$test->id = 999; // required (any ID number works)
 				if(count($parents)) {
 					foreach($templates as $template) {
-						$test->template = $template;
+						$test = $pages->newPage($template);
+						$test->id = 999; // required (any ID number works)
 						foreach($parents as $parent) {
 							$test->parent = $parent;
 							if($test->editable()) {
@@ -1142,7 +1141,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 					}
 				} else {
 					foreach($templates as $template) {
-						$test->template = $template;
+						$test = $pages->newPage($template);
+						$test->id = 999; // required (any ID number works)
 						if($test->editable()) $numEditable++;
 					}
 				}

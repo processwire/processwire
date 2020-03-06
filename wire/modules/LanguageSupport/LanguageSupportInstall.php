@@ -36,9 +36,8 @@ class LanguageSupportInstall extends Wire {
 		if(!$setupPage->id) throw new WireException("Unable to locate {$adminPage->path}setup/"); 
 
 		// create the languages parent page
-		$languagesPage = $this->wire(new Page()); 
+		$languagesPage = $this->wire('pages')->newPage('admin');
 		$languagesPage->parent = $setupPage; 
-		$languagesPage->template = $this->templates->get('admin'); 
 		$languagesPage->process = $this->modules->get('ProcessLanguage'); // INSTALL ProcessLanguage module
 		$this->message("Installed ProcessLanguage"); 
 		$languagesPage->name = 'languages';
@@ -50,6 +49,7 @@ class LanguageSupportInstall extends Wire {
 		
 
 		// create the fieldgroup to be used by the language template
+		/** @var Fieldgroup $fieldgroup */
 		$fieldgroup = $this->wire(new Fieldgroup()); 
 		$fieldgroup->name = LanguageSupport::languageTemplateName;
 		$fieldgroup->add($this->fields->get('title'));
@@ -59,6 +59,7 @@ class LanguageSupportInstall extends Wire {
 		$this->addFilesFields($fieldgroup);
 
 		// create the template used by Language pages
+		/** @var Template $template */
 		$template = $this->wire(new Template());	
 		$template->name = LanguageSupport::languageTemplateName;
 		$template->fieldgroup = $fieldgroup; 
@@ -89,9 +90,8 @@ class LanguageSupportInstall extends Wire {
 		$this->message("Created Default Language Page: {$default->path}"); 
 
 		// create the translator page and process
-		$translatorPage = $this->wire(new Page()); 
+		$translatorPage = $this->wire('pages')->newPage('admin');
 		$translatorPage->parent = $setupPage; 
-		$translatorPage->template = $this->templates->get('admin'); 
 		$translatorPage->status = Page::statusHidden | Page::statusSystem; 
 		$translatorPage->process = $this->modules->get('ProcessLanguageTranslator'); // INSTALL ProcessLanguageTranslator
 		$this->message("Installed ProcessLanguageTranslator"); 
@@ -142,10 +142,15 @@ class LanguageSupportInstall extends Wire {
 		$this->message("Language Support Installed! Click to the 'Setup' menu to begin defining languages."); 
 
 	}
-	
+
+	/**
+	 * @param Fieldgroup $fieldgroup
+	 * 
+	 */
 	public function addFilesFields($fieldgroup) {
 		
 		// create the 'language_files_site' field used by the 'language' fieldgroup
+		/** @var FieldtypeFile $field */
 		$field = $this->wire('fields')->get('language_files_site');
 		if(!$field) {
 			$field = $this->wire(new Field());

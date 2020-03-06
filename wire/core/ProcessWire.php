@@ -258,8 +258,13 @@ class ProcessWire extends Wire {
 		$this->fuel = new Fuel();
 		$this->fuel->set('wire', $this, true);
 
+		/** @var WireClassLoader $classLoader */
 		$classLoader = $this->wire('classLoader', new WireClassLoader($this), true);
 		$classLoader->addNamespace((strlen(__NAMESPACE__) ? __NAMESPACE__ : "\\"), PROCESSWIRE_CORE_PATH);
+
+		if($config->usePageClasses) {
+			$classLoader->addSuffix('Page', $config->paths->classes);
+		}
 
 		$this->wire('hooks', new WireHooks($this, $config), true);
 
@@ -1101,6 +1106,7 @@ class ProcessWire extends Wire {
 		$cfg['paths'] = clone $cfg['urls'];
 		$cfg['paths']->set('root', $rootPath . '/');
 		$cfg['paths']->data('sessions', $cfg['paths']->assets . "sessions/");
+		$cfg['paths']->data('classes', $cfg['paths']->site . "classes/");
 
 		// Styles and scripts are CSS and JS files, as used by the admin application.
 	 	// But reserved here if needed by other apps and templates.
