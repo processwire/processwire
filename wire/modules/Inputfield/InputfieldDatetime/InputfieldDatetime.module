@@ -124,7 +124,7 @@ class InputfieldDatetime extends Inputfield {
 	 * @var InputfieldDatetimeType[]
 	 * 
 	 */
-	static protected $inputTypes = array();
+	protected $inputTypes = array();
 	
 	
 	/**
@@ -199,7 +199,9 @@ class InputfieldDatetime extends Inputfield {
 	 */
 	public function getInputTypes() {
 		
-		if(count(self::$inputTypes)) return self::$inputTypes;
+		if(count($this->inputTypes)) {
+			return $this->inputTypes;
+		}
 		
 		$path = dirname(__FILE__) . '/';
 		require_once($path . 'InputfieldDatetimeType.php');
@@ -212,10 +214,10 @@ class InputfieldDatetime extends Inputfield {
 			/** @var InputfieldDatetimeType $type */
 			$type = $this->wire(new $className($this));
 			$name = $type->getTypeName();
-			self::$inputTypes[$name] = $type;
+			$this->inputTypes[$name] = $type;
 		}
 		
-		return self::$inputTypes;
+		return $this->inputTypes;
 	}
 
 	/**
