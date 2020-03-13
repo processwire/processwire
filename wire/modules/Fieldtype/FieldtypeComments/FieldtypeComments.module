@@ -28,10 +28,13 @@ require_once($dirname . "/CommentField.php");
  *
  * A field that stores user posted comments for a single Page. 
  * 
- * @method mixed updateComment(Page $page, $field, Comment $comment, array $properties)
- * @method commentDeleted(Page $page, Field $field, Comment $comment, $notes = '') #pw-hooker
- * @method commentApproved(Page $page, Field $field, Comment $comment, $notes = '') #pw-hooker
- * @method commentUnapproved(Page $page, Field $field, Comment $comment, $notes = '') #pw-hooker
+ * @method mixed updateComment(Page $page, $field, Comment $comment, array $properties) Update an existing comment
+ * @method void commentDeleted(Page $page, Field $field, Comment $comment, $notes = '') #pw-hooker
+ * @method void commentApproved(Page $page, Field $field, Comment $comment, $notes = '') #pw-hooker
+ * @method void commentUnapproved(Page $page, Field $field, Comment $comment, $notes = '') #pw-hooker
+ * @method void commentAddReady(Page $page, Field $field, Comment $comment) #pw-hooker
+ * @method void commentAdded(Page $page, Field $field, Comment $comment) #pw-hooker
+ * 
  *
  */
 class FieldtypeComments extends FieldtypeMulti {
@@ -212,8 +215,7 @@ class FieldtypeComments extends FieldtypeMulti {
 				'created_users_id' => $comment->created_users_id, 
 				'ip' => $comment->ip, 
 				'user_agent' => $comment->user_agent, 
-				); 
-			
+			); 
 
 			if($schemaVersion > 0) $a['website'] = $comment->website;
 			if($schemaVersion > 1) {
@@ -359,7 +361,6 @@ class FieldtypeComments extends FieldtypeMulti {
 		$no = $this->wire(new CommentNotifications($page, $field)); 
 		$no->sendAdminNotificationEmail($comment); 
 		$this->commentMaintenance($field);
-
 	}
 
 	/**
@@ -661,7 +662,10 @@ class FieldtypeComments extends FieldtypeMulti {
 					// populate newly added comment ID to Comment object
 					$value['id'] = $database->lastInsertId();
 					foreach($allItems as $item) {
-						if(!$item->id && $item->code === $value['code']) $item->id = $value['id'];
+						if(!$item->id && $item->code === $value['code']) {
+							$item->id = $value['id'];
+							$this->commentAdded($page, $field, $item); 
+						}
 					}
 				}
 				$error = '';
@@ -1392,6 +1396,36 @@ class FieldtypeComments extends FieldtypeMulti {
 	}
 
 	/**
+	 * Get parent comments for given Comment
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 * @return CommentArray
+	 * @since 3.0.153
+	 * 
+	 */
+	public function getCommentParents(Page $page, Field $field, Comment $comment) {
+		
+		/** @var CommentArray $parents */
+		$parents = $this->wire(new CommentArray());
+		$parents->setPage($page);
+		$parents->setField($field);
+		
+		if(!$comment->parent_id) return $parents;
+		
+		$parent = $comment;
+		
+		do {
+			$parent = $this->getCommentByID($page, $field, $parent->parent_id); 
+			if(!$parent || !$parent->id || $parents->has($parent)) break;
+			$parents->add($parent); 
+		} while($parent->parent_id > 0);
+	
+		return $parents;
+	}
+
+	/**
 	 * Given an array of data, convert it to a Comment object
 	 * 
 	 * @param $page
@@ -1467,6 +1501,117 @@ class FieldtypeComments extends FieldtypeMulti {
 	}
 
 	/**
+	 * Add new comment
+	 * 
+	 * Requires a new Comment object with no id, that has all its required field populated and validated
+	 * and is ready to add. Note that the `sort` property is assigned automatically if not specified in Comment.
+	 * 
+	 * The primary reason to use this method is if you want to add a comment without loading all the other
+	 * comments on a given Page. 
+	 * 
+	 * Note: if you are hooking this method, comments can also be added by the savePageField method
+	 * 
+	 * @param Page $page Page where comments field exists
+	 * @param Field $field Comments field
+	 * @param Comment $comment New comment to add
+	 * @param bool $send Send comment for automatic approval filtering and email notifications?
+	 *  - `true` if comment was just submitted now from user input and filtering should apply, notifications sent, etc.
+	 *  - `false` if you are importing comments and NO filtering should be applied, NO notifications sent, etc.
+	 * @return bool Returns true on success, false on fail
+	 * @throws WireException if given a Comment object that is not ready to add
+	 * @since 3.0.153
+	 * 
+	 */
+	public function addComment(Page $page, Field $field, Comment $comment, $send) {
+		
+		if($comment->id) {
+			throw new WireException("Comment already has an ID (not a new comment)");
+		} else if($comment->getPage() && $comment->getPage()->id != $page->id) {
+			throw new WireException("Comment is already assigned to a different Page"); 
+		} else if($comment->getField() && $comment->getField()->id != $field->id) {
+			throw new WireException("Comment is already assigned to a different Field"); 
+		}
+
+		/** @var WireDatabasePDO $database */
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->table);
+		$sets = array('pages_id=:pages_id');
+		$binds = array('pages_id' => (int) $page->id);
+		$nextSort = $this->getMaxSort($page, $field) + 1;
+		$comment->quiet(!$send); 
+
+		if(!$comment->sort) $comment->sort = $nextSort;
+		
+		$this->commentAddReady($page, $field, $comment); 
+	
+		/** @var CommentArray $commentArray */
+		$commentArray = $this->wire(new CommentArray());
+		$commentArray->setPage($page);
+		$commentArray->setField($field); 
+		$commentArray->add($comment);
+
+		// convert CommentArray to sleep value array
+		$value = $this->sleepValue($page, $field, $commentArray);
+		if(!count($value)) return false;
+		
+		// use just first item, since only 1 comment
+		$value = $value[0]; 
+	
+		// determine all values to set
+		foreach(array_keys($value) as $key) {
+			if($key == 'id') continue;
+			
+			$v = $value[$key];
+			$col = $database->escapeCol($key);
+			
+			if($v === null && ($key === 'code' || $key === 'subcode')) {
+				// 'code' and 'subcode' allow null
+				$sets[] = "$col=NULL";
+			} else {
+				$sets[] = "$col=:$col";
+				$binds[$col] = $v;
+			}
+		}
+		
+		$tries = 0;
+		$maxTries = 10;
+
+		do {
+			try {
+				$error = '';
+				$sql = "INSERT INTO `$table` SET " . implode(', ', $sets);
+				$query = $database->prepare($sql);
+				foreach($binds as $k => $v) {
+					$query->bindValue(":$k", $v);
+				}
+				$result = $query->execute();
+				if($result) $comment->id = $database->lastInsertId();
+			} catch(\Exception $e) {
+				$result = false;
+				$error = $e->getMessage();
+				if($e->getCode() == 23000) {
+					// colliding index, maybe race condition, see if increasing sort solves it
+					if($binds['sort'] == $nextSort) $nextSort++;
+					$binds['sort'] = $nextSort;
+				}
+			}
+		} while(!$result && ++$tries < $maxTries);
+		
+		if($result && $comment->id) {
+			// the $page->data() call used so load not triggered, only returns comments if already loaded
+			$comments = $page->data($field->name);
+			// add to loaded CommentArray for page, but only if it is already loaded in memory
+			if($comments && $comments instanceof CommentArray) $comments->add($comment); 
+			$this->commentAdded($page, $field, $comment);
+		} else {
+			$error = "Error adding new comment on page $page field $field->name for $comment->email: $error";
+			$this->error($error, Notice::superuser | Notice::log);
+		}
+		
+		return $result;
+	}
+
+	/**
 	 * Delete a given comment
 	 *
 	 * @param Page $page
@@ -1504,6 +1649,98 @@ class FieldtypeComments extends FieldtypeMulti {
 		}
 		
 		return $result;
+	}
+
+	/**
+	 * Get max 'sort' value for comments field
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return int
+	 * @since 3.0.153
+	 * 
+	 */
+	protected function getMaxSort(Page $page, Field $field) {
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->getTable());
+		$sql = "SELECT MAX(sort) FROM `$table` WHERE pages_id=:pages_id";
+		$query = $database->prepare($sql);
+		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+		$value = (int) $query->fetchColumn();
+		$query->closeCursor();
+		return $value; 
+	}
+
+	/**
+	 * Get number of comments for Page, optionally limited by specific $options
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array $options 
+	 *  - `status` (int): Specify Comment::status* constant to include only this status
+	 *  - `minStatus` (int): Specify Comment::status* constant to include only comments with at least this status
+	 *  - `maxStatus` (int): Specify Comment::status* constant or include only comments up to this status
+	 *  - `parent` (int|Comment): Specify parent comment ID, 0 for root-only, or omit for no parent limitation
+	 *  - `minCreated` (int): Minimum created unix timestamp
+	 *  - `maxCreated` (int): Maximum created unix timestamp
+	 *  - `stars` (int): Number of stars to match (1-5)
+	 *  - `minStars` (int): Minimum number of stars to match (1-5)
+	 *  - `maxStars` (int): Maximum number of stars to match (1-5)
+	 * @return int
+	 * @since 3.0.153
+	 * 
+	 */
+	public function getNumComments(Page $page, Field $field, array $options = array()) {
+		
+		$defaults = array(
+			'status' => null,
+			'minStatus' => null, 
+			'maxStatus' => null, 
+			'parent' => null,
+			'minCreated' => null,
+			'maxCreated' => null,
+			'stars' => null,
+			'minStars' => null,
+			'maxStars' => null,
+		);
+		
+		$options = array_merge($defaults, $options);
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->getTable());
+		$sql = "SELECT COUNT(*) FROM `$table` WHERE pages_id=:page "; 
+		$binds = array(':page' => $page->id); 
+		
+		$cols = array(
+			'status' => 'status=:status',
+			'minStatus' => 'status>=:minStatus', 
+			'maxStatus' => 'status<=:maxStatus', 
+			'parent' => 'parent_id=:parent',
+			'minCreated' => 'created>=:minCreated',
+			'maxCreated' => 'created<=:maxCreated',
+			'stars' => 'stars=:stars',
+			'minStars' => 'stars>=:minStars',
+			'maxStars' => 'stars<=:maxStars',
+		);
+		
+		foreach($cols as $name => $stmt) {
+			$value = $options[$name];
+			if($value === null) continue;
+			if($name === 'parent' && $value instanceof Comment) $value = $value->id;
+			$sql .= "AND $stmt ";
+			$binds[":$name"] = (int) $value;
+		}
+		
+		$query = $database->prepare($sql);
+		foreach($binds as $key => $value) {
+			$query->bindValue($key, $value, \PDO::PARAM_INT);
+		}
+		
+		$query->execute();
+		$numComments = (int) $query->fetchColumn();
+		$query->closeCursor();
+		
+		return $numComments;
 	}
 
 	/**
@@ -1584,6 +1821,32 @@ class FieldtypeComments extends FieldtypeMulti {
 	 *
 	 */
 	public function ___commentUnapproved(Page $page, Field $field, Comment $comment, $notes = '') {
+	}
+
+	/**
+	 * Hook called when new comment about to be added to DB
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 * 
+	 */
+	public function ___commentAddReady(Page $page, Field $field, Comment $comment) {
+	}
+
+	/**
+	 * Hook called when new comment has successfully been added to DB
+	 *
+	 * #pw-hooker
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment $comment
+	 *
+	 */
+	public function ___commentAdded(Page $page, Field $field, Comment $comment) {
 	}
 
 	/**
@@ -1950,6 +2213,6 @@ class FieldtypeComments extends FieldtypeMulti {
 		$options['test'] = true;
 		return $options;
 	}
-
+	
 }
 

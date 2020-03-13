@@ -111,7 +111,7 @@ class Comment extends WireData {
 	/**
 	 * Field this comment is for
 	 * 
-	 * @var null|Field
+	 * @var null|Field|CommentField
 	 * 
 	 */
 	protected $field = null;
@@ -423,7 +423,7 @@ class Comment extends WireData {
 	/**
 	 * Get Field that this Comment belongs to
 	 * 
-	 * @return null|CommentField
+	 * @return null|Field|CommentField
 	 * 
 	 */
 	public function getField() { 
@@ -487,6 +487,7 @@ class Comment extends WireData {
 	 * 
 	 */
 	public function parents() {
+		if(!$this->parent_id) return $this->wire(new CommentArray());
 		$parents = $this->getPageComments()->makeNew();
 		$parent = $this->parent();
 		while($parent && $parent->id) {
@@ -507,7 +508,7 @@ class Comment extends WireData {
 		// $comments = $this->getPageComments();
 		$page = $this->getPage();
 		$field = $this->getField();
-		$comments = $this->getPage()->get($field->name);
+		$comments = $page->get($field->name);
 		$children = $comments->makeNew();
 		if($page) $children->setPage($this->getPage());
 		if($field) $children->setField($this->getField()); 
@@ -517,6 +518,36 @@ class Comment extends WireData {
 			if($comment->parent_id == $id) $children->add($comment);
 		}
 		return $children;
+	}
+
+	/**
+	 * Return number of children (replies) for this comment
+	 * 
+	 * ~~~~~
+	 * $qty = $comment->numChildren([ 'minStatus' => Comment::statusApproved ]); 
+	 * ~~~~~
+	 * 
+	 * @param array $options Limit return value by specific properties (below):
+	 *  - `status` (int): Specify Comment::status* constant to include only this status
+	 *  - `minStatus` (int): Specify Comment::status* constant to include only comments with at least this status
+	 *  - `maxStatus` (int): Specify Comment::status* constant or include only comments up to this status
+	 *  - `minCreated` (int): Minimum created unix timestamp
+	 *  - `maxCreated` (int): Maximum created unix timestamp
+	 *  - `stars` (int): Number of stars to match (1-5)
+	 *  - `minStars` (int): Minimum number of stars to match (1-5)
+	 *  - `maxStars` (int): Maximum number of stars to match (1-5)
+	 * @return int
+	 * @since 3.0.153
+	 * 
+	 */
+	public function numChildren(array $options = array()) {
+		$options['parent'] = $this->id;
+		$field = $this->getField();
+		if(!$field) return null;
+		/** @var FieldtypeComments $fieldtype */
+		$fieldtype = $field->type;
+		if(!$fieldtype) return 0;
+		return $fieldtype->getNumComments($this->getPage(), $field, $options); 
 	}
 
 	/**

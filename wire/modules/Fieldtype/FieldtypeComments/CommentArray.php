@@ -135,7 +135,8 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	/**
 	 * Return instance of CommentList object
 	 * 
-	 * @param array $options See CommentList::$options for details
+	 * @param array $options See CommentList::$options for details, plus: 
+	 *  - `className` (string): PHP class name to use for CommentList (default='CommentList')
 	 * @return CommentList
 	 *
 	 */
@@ -148,14 +149,21 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 				'useStars' => $field->get('useStars'),
 				'depth' => $field->get('depth'),
 				'dateFormat' => $field->get('dateFormat'),
+				'className' => 'CommentList',
 			);
 		} else {
 			$defaults = array(
-				'dateFormat' => 'relative'
+				'dateFormat' => 'relative',
+				'className' => 'CommentList',
 			);
 		}
 		$options = array_merge($defaults, $options);
-		return $this->wire(new CommentList($this, $options)); 	
+		$file = __DIR__ . '/' . $options['className'] . '.php';
+		$className = wireClassName($options['className'], true);
+		if(!class_exists($className) && is_file($file)) include_once($file); 
+		unset($options['className']); 
+		
+		return $this->wire(new $className($this, $options)); 	
 	}
 
 	/**
@@ -167,8 +175,20 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	 * 
 	 */
 	public function getCommentForm(array $options = array()) {
-		if(!$this->page) throw new WireException("You must set a page to this CommentArray before using it i.e. \$ca->setPage(\$page)"); 
-		return $this->wire(new CommentForm($this->page, $this, $options)); 
+		$defaults = array(
+			'className' => 'CommentForm',
+			'depth' => ($this->field ? (int) $this->field->get('depth') : 0)
+		);
+		$options = array_merge($defaults, $options);
+		if(!$this->page) {
+			throw new WireException("You must set a page to this CommentArray before using it i.e. \$ca->setPage(\$page)");
+		}
+		$file = __DIR__ . '/' . $options['className'] . '.php';
+		$className = wireClassName($options['className'], true);
+		if(!class_exists($className) && is_file($file)) include_once($file);
+		unset($options['className']); 
+		
+		return $this->wire(new $className($this->page, $this, $options)); 
 	}
 
 	/**
@@ -184,7 +204,7 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	/**
 	 * Set the Field that these comments are on 
 	 * 
-	 * @param Field $field
+	 * @param CommentField|Field $field
 	 *
 	 */ 
 	public function setField(Field $field) {
@@ -204,7 +224,7 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	/**
 	 * Get the Field that these comments are on
 	 * 
-	 * @return Field
+	 * @return CommentField|Field
 	 *
 	 */
 	public function getField() {

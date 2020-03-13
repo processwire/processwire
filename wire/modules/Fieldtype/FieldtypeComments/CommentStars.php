@@ -12,6 +12,7 @@
  * @property string $star Default star output (can be overridden with HTML)
  * @property string $starOn Optionally use this star/HTML for ON state
  * @property string $starOff Optionally use this star/HTML for OFF state
+ * @property string $starClass Class for stars whether on or off
  * @property string $starOnClass Class for active/on stars
  * @property string $starOffClass Class for inactive/off stars
  * @property string $starPartialClass Class for partial (half lit star)
@@ -32,6 +33,7 @@ class CommentStars extends WireData {
 		'star' => '★', // this may be overridden with HTML (icons for instance)
 		'starOn' => '', // optionally use separate star for ON...
 		'starOff' => '', // ...and OFF
+		'starClass' => 'CommentStar', // applies to both on and off
 		'starOnClass' => 'CommentStarOn', // class assigned to active/on stars
 		'starOffClass' => 'CommentStarOff', // class assigned to inactive/off stars
 		'starPartialClass' => 'CommentStarPartial',
@@ -88,7 +90,7 @@ class CommentStars extends WireData {
 		if(!$this->starOff) $this->starOff = $this->star;
 
 		if($allowInput) {
-			$attr = " data-onclass='$this->starOnClass'";
+			$attr = "data-onclass='$this->starOnClass' data-offclass='$this->starOffClass'";
 			if($this->starOn !== $this->starOff) $attr .= " " .
 				"data-on='" . htmlspecialchars($this->starOn, ENT_QUOTES, 'UTF-8') . "' " .
 				"data-off='" . htmlspecialchars($this->starOff, ENT_QUOTES, 'UTF-8') . "'";
@@ -96,28 +98,32 @@ class CommentStars extends WireData {
 			$attr = '';
 		}
 
-		$out = "<span class='$class'$attr>";
+		$out = "<span class='$class' $attr>";
 
 		for($n = 1; $n <= $this->numStars; $n++) {
 			if($n <= $stars) {
 				// full star on
 				$star = $this->starOn;
-				$attr = " class='$this->starOnClass'";
+				$attr = "class='$this->starClass $this->starOnClass'";
 			} else if(is_float($stars) && $n > $stars && $n < $stars + 1) {
 				// partial star on
-				$star = "<span class='$this->starOffClass'>$this->starOff</span>";
+				$star = "<span class='$this->starClass $this->starOffClass'>$this->starOff</span>";
 				if(preg_match('/^\d+[^\d]+(\d+)$/', round($stars, 2), $matches)) {
 					if(strlen($matches[1]) == 1) $matches[1] .= '0';
-					$star .= "<span class='$this->starOnClass' style='width:$matches[1]%;'>$this->starOn</span>";
+					$star .= "<span class='$this->starClass $this->starOnClass' style='width:$matches[1]%;'>$this->starOn</span>";
 				}
-				$attr = " class='$this->starPartialClass'";
+				$attr = "class='$this->starClass $this->starPartialClass'";
 			} else {
 				// star off
-				$attr = " class='$this->starOffClass'";
+				$attr = "class='$this->starClass $this->starOffClass'";
 				$star = $this->starOff;
-				// $attr = "";
 			}
-			$out .= "<span$attr data-value='$n'>$star</span>";
+			if($allowInput) {
+				// add tooltip indicating number of stars
+				$starChars = "$n: " . str_repeat('★ ', $n);
+				$attr .= " title='$starChars'";
+			}
+			$out .= "<span $attr data-value='$n'>$star</span>";
 		}
 
 		$out .= "</span>";
