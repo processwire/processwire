@@ -78,16 +78,24 @@ class PagesLoaderCache extends Wire {
 	 *
 	 * Note: does not remove pages from selectorCache. Call uncacheAll to do that.
 	 *
-	 * @param Page $page Page to uncache
+	 * @param Page|int $page Page to uncache or ID of page (prior to 3.0.153 only Page object was accepted)
 	 * @param array $options Additional options to modify behavior:
 	 *   - `shallow` (bool): By default, this method also calls $page->uncache(). To prevent call to $page->uncache(), set 'shallow' => true.
 	 * @return bool True if page was uncached, false if it didn't need to be
 	 *
 	 */
-	public function uncache(Page $page, array $options = array()) {
-		if(empty($options['shallow'])) $page->uncache();
-		if(isset($this->pageIdCache[$page->id])) {
-			unset($this->pageIdCache[$page->id]);
+	public function uncache($page, array $options = array()) {
+		if($page instanceof Page) {
+			$pageId = $page->id; 
+		} else {
+			$pageId = is_int($page) ? $page : (int) "$page"; 
+			$page = isset($this->pageIdCache[$pageId]) ? $this->pageIdCache[$pageId] : null;
+		}
+		if(empty($options['shallow']) && $page) {
+			$page->uncache();
+		}
+		if(isset($this->pageIdCache[$pageId])) {
+			unset($this->pageIdCache[$pageId]);
 			return true;
 		} else {
 			return false;

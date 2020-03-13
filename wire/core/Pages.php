@@ -1004,7 +1004,7 @@ class Pages extends Wire {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param Page|PageArray|null $page Page to uncache, or omit to uncache all.
+	 * @param Page|PageArray|int|null $page Page to uncache, PageArray of pages to uncache, ID of page to uncache (3.0.153+), or omit to uncache all.
 	 * @param array $options Additional options to modify behavior: 
 	 *   - `shallow` (bool): By default, this method also calls $page->uncache(). To prevent that call, set this to true. 
 	 * @return int Number of pages uncached
@@ -1014,7 +1014,7 @@ class Pages extends Wire {
 		$cnt = 0;
 		if(is_null($page)) {
 			$cnt = $this->cacher->uncacheAll(null, $options);
-		} else if($page instanceof Page) {
+		} else if($page instanceof Page || is_int($page)) {
 			if($this->cacher->uncache($page, $options)) $cnt++;
 		} else if($page instanceof PageArray) {
 			foreach($page as $p) {
