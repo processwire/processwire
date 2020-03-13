@@ -1659,9 +1659,13 @@ class Pageimage extends Pagefile {
 			$height = 0;
 		}
 		$options['webpAdd'] = true;
-		$original->size($width, $height, $options);
-		$error = $this->error;
+		try {
+			$original->size($width, $height, $options);
+		} catch(\Exception $e) {
+			$this->error = ($this->error ? "$this->error - " : "") . $e->getMessage();
+		}
 		
+		$error = $this->error;
 		$event->return = empty($error); 
 	}
 	
