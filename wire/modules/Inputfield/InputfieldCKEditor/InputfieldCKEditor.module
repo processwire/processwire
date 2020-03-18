@@ -465,19 +465,9 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		static $plugins = array();
 		if(count($plugins) && !$create) return $plugins; 
 		
-		$config = $this->wire('config');
-		$class = $this->className();
 		$plugins = array();
-
-		$paths = array(
-			$config->paths->$class . "plugins/",
-			$config->paths->siteModules . "$class/plugins/",
-		);
-		
-		$urls = array(
-			$config->urls->$class . "plugins/",
-			$config->urls->siteModules . "$class/plugins/",
-		);
+		$paths = $this->getPluginPaths();
+		$urls = $this->getPluginUrls();
 
 		foreach($paths as $key => $path) {
 			
@@ -504,6 +494,33 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		}
 
 		return $plugins; 
+	}
+
+	/**
+	 * Get all paths where to look for plugins
+	 * Can be hooked to easily add custom plugins to your system.
+	 * @return array
+	 */
+	public function ___getPluginPaths() {
+		$config = $this->wire('config');
+		$class = $this->className();
+		return array(
+			$config->paths->$class . "plugins/",
+			$config->paths->siteModules . "$class/plugins/",
+		);
+	}
+
+	/**
+	 * Return plugin folder urls
+	 * @return array
+	 */
+	protected function getPluginUrls() {
+		$urls = [];
+		$config = $this->wire('config');
+		foreach($this->getPluginPaths() as $path) {
+			$urls[] = str_replace($config->paths->root, $config->urls->root, $path);
+		}
+		return $urls;
 	}
 
 	/**
