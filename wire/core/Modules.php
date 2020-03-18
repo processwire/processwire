@@ -697,8 +697,7 @@ class Modules extends WireArray {
 				if(!$this->wire('page')->is($func)) $load = false;
 			} else {
 				// anonymous function
-				if(!is_callable($func)) $load = false;
-					else if(!$func()) $load = false;
+				$load = is_callable($func) && $func();
 			}
 
 			if($load) {
