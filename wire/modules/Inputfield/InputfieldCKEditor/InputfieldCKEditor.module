@@ -467,14 +467,14 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		
 		$plugins = array();
 		$paths = $this->getPluginPaths();
-		$urls = $this->getPluginUrls();
+		$files = $this->wire('files');
 
-		foreach($paths as $key => $path) {
+		foreach($paths as $path) {
+			$url = $files->url($path);
 			
 			if(!file_exists($path)) {
 				if($create) {
-					$url = $urls[$key];
-					if($this->wire('files')->mkdir($path, true)) {
+					if($files->mkdir($path, true)) {
 						$this->message("Created new CKEditor external plugins directory: $url"); 	
 					} else {
 						$this->warning("The CKEditor external plugins directory does not exist: $url - Please create it when/if you want to install external plugins.");
@@ -488,8 +488,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 				$basename = $dir->getBasename();
 				$file = "$path$basename/plugin.js";
 				if(!file_exists($file)) continue;
-				$url = $urls[$key] . "$basename/plugin.js";
-				$plugins[$basename] = $url;
+				$plugins[$basename] = $url."$basename/plugin.js";
 			}
 		}
 
@@ -508,19 +507,6 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			$config->paths->$class . "plugins/",
 			$config->paths->siteModules . "$class/plugins/",
 		);
-	}
-
-	/**
-	 * Return plugin folder urls
-	 * @return array
-	 */
-	protected function getPluginUrls() {
-		$urls = [];
-		$config = $this->wire('config');
-		foreach($this->getPluginPaths() as $path) {
-			$urls[] = str_replace($config->paths->root, $config->urls->root, $path);
-		}
-		return $urls;
 	}
 
 	/**
