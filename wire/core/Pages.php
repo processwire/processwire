@@ -217,15 +217,15 @@ class Pages extends Wire {
 	 * 
 	 * @param string|int|array|Selectors $selector Specify selector (standard usage), but can also accept page ID or array of page IDs.
 	 * @param array|string $options One or more options that can modify certain behaviors. May be associative array or "key=value" selector string.
-	 *  - `findOne` (boolean): Apply optimizations for finding a single page (default=false).
-	 *  - `findAll` (boolean): Find all pages with no exclusions, same as "include=all" option (default=false). 
-	 *  - `findIDs` (boolean|int): Specify 1 to return array of only page IDs, or true to return verbose array (default=false).
-	 *  - `getTotal` (boolean): Whether to set returning PageArray's "total" property (default=true, except when findOne=true).
-	 *  - `loadPages` (boolean): Whether to populate the returned PageArray with found pages (default=true). 
+	 *  - `findOne` (bool): Apply optimizations for finding a single page (default=false).
+	 *  - `findAll` (bool): Find all pages with no exclusions, same as "include=all" option (default=false). 
+	 *  - `findIDs` (bool|int): 1 to get array of page IDs, true to return verbose array, 2 to return verbose array with all cols in 3.0.153+. (default=false).
+	 *  - `getTotal` (bool): Whether to set returning PageArray's "total" property (default=true, except when findOne=true).
+	 *  - `loadPages` (bool): Whether to populate the returned PageArray with found pages (default=true). 
 	 *	   The only reason why you'd want to change this to false would be if you only needed the count details from 
 	 *	   the PageArray: getTotal(), getStart(), getLimit, etc. This is intended as an optimization for $pages->count().
 	 * 	   Does not apply if $selector argument is an array. 
-	 *  - `cache` (boolean): Allow caching of selectors and loaded pages? (default=true). Also sets loadOptions[cache].
+	 *  - `cache` (bool): Allow caching of selectors and loaded pages? (default=true). Also sets loadOptions[cache].
 	 *  - `allowCustom` (boolean): Allow use of _custom="another selector" in given $selector? For specific uses. (default=false)
 	 *  - `caller` (string): Optional name of calling function, for debugging purposes, i.e. "pages.count" (default=blank).
 	 *  - `include` (string): Optional inclusion mode of 'hidden', 'unpublished' or 'all'. (default=none). Typically you would specify this 
@@ -342,7 +342,7 @@ class Pages extends Wire {
 	 * @param string|array|Selectors $selector Selector to find page IDs. 
 	 * @param array|bool $options Options to modify behavior. 
 	 *  - `verbose` (bool): Specify true to make return value array of associative arrays, each with verbose info. 
-	 *  - The verbose option above can also be specified by providing boolean true as the $options argument.
+	 *  - The verbose option above can also be specified as alternative to the $options argument.
 	 *  - See `Pages::find()` $options argument for additional options. 
 	 * @return array Array of page IDs, or in verbose mode: array of arrays, each with id, parent_id and templates_id keys.
 	 * @since 3.0.46
@@ -350,13 +350,20 @@ class Pages extends Wire {
 	 */
 	public function findIDs($selector, $options = array()) {
 		$verbose = false;
-		if($options === true) $verbose = true;
-		if(!is_array($options)) $options = array();
+		if(!is_array($options)) {
+			// verbose option specified in $options array
+			$verbose = $options;
+			$options = array();
+		}
 		if(isset($options['verbose'])) {
 			$verbose = $options['verbose'];
 			unset($options['verbose']);
 		}
-		$options['findIDs'] = $verbose ? true : 1;
+		if($verbose === 2 || $verbose === '*') {
+			$options['findIDs'] = 2;
+		} else {
+			$options['findIDs'] = $verbose ? true : 1;
+		}
 		/** @var array $ids */
 		$ids = $this->find($selector, $options);
 		return $ids;
@@ -389,7 +396,29 @@ class Pages extends Wire {
 	public function get($selector, $options = array()) {
 		return $this->loader->get($selector, $options); 
 	}
-	
+
+	/**
+	 * Is there any page that matches the given $selector in the system? (with no exclusions)
+	 *
+	 * - This can be used as an “exists” or “getID” type of method.
+	 * - Returns ID of first matching page if any exist, or 0 if none exist (returns array if `$verbose` is true). 
+	 * - Like with the `get()` method, no pages are excluded, so an `include=all` is not necessary in selector.
+	 * - If you need to quickly check if something exists, this method is preferable to using a count() or get().
+	 *
+	 * When `$verbose` option is used, an array is returned instead. Verbose return array includes page `id`, 
+	 * `parent_id` and `templates_id` indexes.
+	 *
+	 * @param string|int|array|Selectors $selector
+	 * @param bool $verbose Return verbose array with page id, parent_id, templates_id rather than just page id? (default=false)
+	 * @return array|int
+	 * @since 3.0.153
+	 * @see Pages::count(), Pages::get()
+	 *
+	 */
+	public function has($selector, $verbose = false) {
+		return $this->loader->has($selector, $verbose); 
+	}
+
 	/**
 	 * Save a page object and its fields to database.
 	 *
