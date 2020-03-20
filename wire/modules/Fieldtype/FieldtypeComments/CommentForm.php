@@ -148,7 +148,7 @@ class CommentForm extends Wire implements CommentFormInterface {
 			'text' => null,
 		),
 
-		// whether or not eht preset values above will be changeable by the user
+		// whether or not the preset values above will be changeable by the user
 		// applies only for preset values that are not null. 
 		'presetsEditable' => false,
 
