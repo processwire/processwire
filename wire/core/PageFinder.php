@@ -92,6 +92,13 @@ class PageFinder extends Wire {
 		'returnTemplateIDs' => false,
 
 		/**
+		 * Return all columns from pages table (cannot be combined with other 'return*' options)
+		 * @since 3.0.153
+		 * 
+		 */
+		'returnAllCols' => false, 
+
+		/**
 		 * When true, only the DatabaseQuery object is returned by find(), for internal use. 
 		 * 
 		 */
@@ -382,6 +389,7 @@ class PageFinder extends Wire {
 	 *     Pages class. False is only for specific cases. 
 	 *  - `returnParentIDs` (bool): Return parent IDs only? (default=false, requires that 'returnVerbose' option is false).
 	 *  - `returnTemplateIDs` (bool): Return [pageID => templateID] array? [3.0.152+ only] (default=false, cannot be combined with other 'return*' options).
+	 *  - `returnAllCols` (bool): Return [pageID => [ all columns ]] array? [3.0.153+ only] (default=false, cannot be combined with other 'return*' options).
 	 *  - `allowCustom` (bool): Whether or not to allow _custom='selector string' type values (default=false). 
 	 *  - `useSortsAfter` (bool): When true, PageFinder may ask caller to perform sort manually in some cases (default=false). 
 	 * @return array|DatabaseQuerySelect
@@ -468,6 +476,9 @@ class PageFinder extends Wire {
 						}
 						$row['score'] = $score; // @todo do we need this anymore?
 						$matches[] = $row;
+
+					} else if($options['returnAllCols']) {
+						$matches[(int) $row['id']] = $row;
 						
 					} else if($options['returnTemplateIDs']) {
 						$matches[(int) $row['id']] = (int) $row['templates_id'];
@@ -526,6 +537,21 @@ class PageFinder extends Wire {
 	 */
 	public function findIDs($selectors, $options = array()) {
 		$options['returnVerbose'] = false; 
+		return $this->find($selectors, $options); 
+	}
+
+	/**
+	 * Returns array of arrays with all columns in pages table indexed by page ID
+	 * 
+	 * @param Selectors|string|array $selectors Selectors object, selector string or selector array
+	 * @param array $options
+	 * @return array|DatabaseQuerySelect
+	 * @since 3.0.153
+	 * 
+	 */
+	public function findVerboseIDs($selectors, $options = array()) {
+		$options['returnVerbose'] = false;
+		$options['returnAllCols'] = true;
 		return $this->find($selectors, $options); 
 	}
 	
@@ -1186,8 +1212,10 @@ class PageFinder extends Wire {
 		// $this->extraJoins = array();
 		$database = $this->wire('database');
 		$this->preProcessSelectors($selectors, $options);
-		
-		if($options['returnVerbose']) {
+	
+		if($options['returnAllCols']) {
+			$columns = array('pages.*');
+		} else if($options['returnVerbose']) {
 			$columns = array('pages.id', 'pages.parent_id', 'pages.templates_id');
 		} else if($options['returnParentIDs']) {
 			$columns = array('pages.parent_id AS id');
