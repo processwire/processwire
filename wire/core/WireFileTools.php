@@ -1347,15 +1347,21 @@ class WireFileTools extends Wire {
 	/**
 	 * Convert local/server disk path to URL
 	 * 
+	 * http parameter can be one of the following:
+	 * 		false: relative url
+	 * 		true: http/https (current setting of $config->https)
+	 * 		https: force https
+	 * 		http: force http
+	 * 
 	 * @param string $path Server disk path to dir or file that maps somewhere within web document root
-	 * @param bool $http Return full URL with scheme and hostname? (default=false)
+	 * @param mixed $http Return full URL with scheme and hostname? (default=false)
 	 * @return string
 	 * @throws WireException If given path outside document root
 	 * @since 3.0.154
 	 * 
 	 * 
 	 */
-	public function pathToUrl($path, $http = false) {
+	public function url($path, $http = false) {
 		
 		$config = $this->wire('config'); /** @var Config $config */
 		$rootPath = $config->paths->root;
@@ -1386,9 +1392,14 @@ class WireFileTools extends Wire {
 		}
 
 		$url = substr($path, strlen($rootPath) - 1) . $trailer;
-		
-		if($http) {
+		if($http === true) {
 			$url = ($config->https ? 'https://' : 'http://') . $config->httpHost . $url;
+		}
+		elseif(strtolower($http) === 'https') {
+			$url = 'https://' . $config->httpHost . $url;
+		}
+		elseif(strtolower($http) === 'http') {
+			$url = 'http://' . $config->httpHost . $url;
 		}
 	
 		return $url;
@@ -1407,7 +1418,7 @@ class WireFileTools extends Wire {
 	 * @since 3.0.154
 	 * 
 	 */
-	public function urlToPath($url) {
+	public function path($url) {
 	
 		$config = $this->wire('config'); /** @var Config $config */
 		$rootPath = $config->paths->root;
@@ -1417,10 +1428,10 @@ class WireFileTools extends Wire {
 			// URL has scheme and hostname, validate that it is local and convert to “/url”
 			$a = parse_url($url); 
 			if($a === false || empty($a['host']) || !isset($a['path'])) {
-				throw new WireException('Cannot convert invalid URL to path');
+				throw new WireException('Cannot convert invalid URL to local path');
 			}
 			if(!in_array($a['host'], $config->httpHosts)) {
-				throw new WireException('External URL cannot convert to local path');
+				throw new WireException('Cannot convert external URL to local path');
 			}
 			$url = $a['path'];	
 		}
