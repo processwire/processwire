@@ -1880,8 +1880,6 @@ function InputfieldStates($target) {
 				});
 				if(isTab) {
 					$header.effect('highlight', 500);
-				} else {
-					$header.click();
 				}
 			}, 500);
 		}, 'html');
@@ -1934,6 +1932,7 @@ function InputfieldStates($target) {
 		var isCollapsed = $li.hasClass("InputfieldStateCollapsed"); 
 		var wasCollapsed = $li.hasClass("InputfieldStateWasCollapsed");
 		var duration = 100;
+		var isAjax = $li.hasClass('collapsed10') || $li.hasClass('collapsed11');
 	
 		if(!$li.length) return;
 		if($li.hasClass('InputfieldAjaxLoading')) return false;
@@ -1943,24 +1942,16 @@ function InputfieldStates($target) {
 			if(typeof data.duration != "undefined") duration = data.duration;
 		}
 
-		if(isCollapsed && ($li.hasClass('collapsed10') || $li.hasClass('collapsed11'))) {
+		if(isCollapsed && isAjax) {
 			if(InputfieldStateAjaxClick($li)) return false;
 		}
-			
+		
 		if(isCollapsed || wasCollapsed || isIcon) {
 			$li.addClass('InputfieldStateWasCollapsed'); // this class only used here
 			Inputfields.toggle($li, null, duration);
 		} else {
-			// Inputfield not collapsible unless toggle icon clicked, so pulsate the toggle icon and focus any inputs
-			if(typeof jQuery.ui != 'undefined') {
-				var color1 = $icon.css('color');
-				var color2 = $li.children('.InputfieldHeader, .ui-widget-header').css('color'); 
-				$icon.css('color', color2);
-				$icon.effect('pulsate', 300, function () {
-					$icon.css('color', color1);
-				});
-			}
-			Inputfields.focus($li);
+			// Inputfield not collapsible unless toggle icon clicked
+			$icon.click();
 		}
 
 		return false;
