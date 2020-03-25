@@ -162,6 +162,7 @@ class Paths extends WireData {
 		static $_http = null;
 		if($key === 'root') return $this->_root;
 		$http = '';
+		$altKey = '';
 		if(is_object($key)) {
 			$key = "$key";
 		} else if(strpos($key, 'http') === 0) {
@@ -172,14 +173,18 @@ class Paths extends WireData {
 				if($httpHost) $_http = "$scheme://$httpHost";
 			}
 			$http = $_http;
-			$key = substr($key, 4);
-			$key[0] = strtolower($key[0]);
+			$key = substr($key, 4); // httpTemplates => Templates
+			$altKey = $key; // no lowercase conversion (useful for keys like module names, i.e. 'ProcessPageEdit')
+			$key[0] = strtolower($key[0]);  // first character lowercase: Templates => templates
 		}
 		if($key === 'root') {
 			$value = $http . $this->_root;
 		} else {
 			$value = parent::get($key);
-			if($value === null || !strlen($value)) return $value;
+			if($value === null || !strlen($value)) {
+				if($altKey) $value = parent::get($altKey);
+				if(empty($value)) return $value;
+			}
 			$pos = strpos($value, '//');
 			if($pos !== false && ($pos === 0 || ($pos > 0 && $value[$pos-1] === ':'))) {
 				// fully qualified URL
