@@ -171,6 +171,12 @@ var Inputfields = {
 	 *
 	 */
 	toggle: function($inputfield, open, duration, callback) {
+		var Inputfields = this;
+		if($inputfield.length > 1) {
+			$inputfield.each(function(i, el) {
+				Inputfields.toggle($(el), open, duration, callback);
+			});
+		}
 		
 		$inputfield = this.inputfield($inputfield);
 		if(!$inputfield.length) return $inputfield;
