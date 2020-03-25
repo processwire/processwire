@@ -636,7 +636,7 @@ class PagePermissions extends WireData implements Module {
 	/**
 	 * Return whether or not given page in Trash is listable
 	 * 
-	 * @param null $page Page, or specify null for a general "trash is listable" request
+	 * @param Page|null $page Page, or specify null for a general "trash is listable" request
 	 * @return bool
 	 * 
 	 */	
@@ -825,7 +825,7 @@ class PagePermissions extends WireData implements Module {
 	}
 
 	/**
-	 * Checks that a parent is addable within the context of it's template (i.e. has page-create for the template)
+	 * Checks that a parent is addable within the context of its template (i.e. has page-create for the template)
 	 *
 	 * When this function is called, it has already been determined that the user has page-add permission.
 	 * So this is just narrowing down to make sure they have access on a template. 

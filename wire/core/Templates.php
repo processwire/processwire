@@ -23,12 +23,16 @@ class Templates extends WireSaveableItems {
 
 	/**
 	 * Reference to all the Fieldgroups
+	 * 
+	 * @var Fieldgroups
 	 *
 	 */
 	protected $fieldgroups = null; 
 
 	/**
 	 * WireArray of all Template instances
+	 * 
+	 * @var TemplatesArray
 	 *
 	 */
 	protected $templatesArray;
@@ -80,6 +84,30 @@ class Templates extends WireSaveableItems {
 	 */
 	public function getAll() {
 		return $this->templatesArray;
+	}
+
+	/**
+	 * Make an item and populate with given data
+	 * 
+	 * #pw-internal
+	 *
+	 * @param array $a Associative array of data to populate
+	 * @return Saveable|Wire
+	 * @since 3.0.146
+	 *
+	 */
+	public function makeItem(array $a = array()) {
+
+		/** @var Template $item */
+		$template = $this->wire(new Template());
+		$template->loaded(false);
+		foreach($a as $key => $value) {
+			$template->set($key, $value);
+		}
+		$template->loaded(true);
+		$template->resetTrackChanges(true);
+		
+		return $template;
 	}
 
 	/**

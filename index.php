@@ -50,7 +50,7 @@ $wire = null;
 try { 
 	// Bootstrap ProcessWire's core and make the API available with $wire
 	$wire = new ProcessWire($config);
-	$process = $wire->modules->get('ProcessPageView');
+	$process = $wire->modules->get('ProcessPageView'); /** @var ProcessPageView $process */
 	$wire->wire('process', $process); 
 	echo $process->execute($config->internal);
 	$config->internal ? $process->finished() : extract($wire->wire('all')->getArray());

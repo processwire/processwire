@@ -821,7 +821,7 @@ class WireFileTools extends Wire {
 	 * @param string $filename Filename to write to
 	 * @param string|mixed $contents Contents to write to file
 	 * @param int $flags Flags to modify behavior:
-	 *  - `FILE_APPEND` (constant): Append to file if it already exists .
+	 *  - `FILE_APPEND` (constant): Append to file if it already exists.
 	 *  - `LOCK_EX` (constant): Acquire exclusive lock to file while writing.
 	 * @return int|bool Number of bytes written or boolean false on fail 
 	 * @throws WireException if given invalid $filename (since 3.0.118)
@@ -1342,6 +1342,106 @@ class WireFileTools extends Wire {
 	 */
 	public function currentPath() {
 		return $this->unixDirName(getcwd());
+	}
+
+	/**
+	 * Convert local/server disk path to URL
+	 * 
+	 * @param string $path Server disk path to dir or file that maps somewhere within web document root
+	 * @param bool $http Return full URL with scheme and hostname? (default=false)
+	 * @return string
+	 * @throws WireException If given path outside document root
+	 * @since 3.0.154
+	 * 
+	 * 
+	 */
+	public function pathToUrl($path, $http = false) {
+		
+		$config = $this->wire('config'); /** @var Config $config */
+		$rootPath = $config->paths->root;
+		$rootUrl = $config->urls->root;
+		$trailer = rtrim($path, '/\\') !== $path ? '/' : '';
+		$path = $this->unixFileName($path);
+		$validPath = true;
+		
+		if(!$trailer && is_dir($path)) $trailer = '/';
+		
+		if($rootUrl !== '/') {
+			// make root path exclude installation root subdirectory
+			$rootPath = substr($rootPath, 0, -1 * strlen($rootUrl)) . '/';
+		}
+		
+		if(strpos($path, $rootPath) !== 0) {
+			// check if a document root path alias is in use
+			if(isset($_SERVER['DOCUMENT_ROOT'])) {
+				$rootPath = $this->unixDirName($_SERVER['DOCUMENT_ROOT']);
+				$validPath = strpos($path, $rootPath) === 0;
+			} else {
+				$validPath = false;
+			}
+		}
+		
+		if(!$validPath) {
+			throw new WireException('Path must be somewhere within web document root');
+		}
+
+		$url = substr($path, strlen($rootPath) - 1) . $trailer;
+		
+		if($http) {
+			$url = ($config->https ? 'https://' : 'http://') . $config->httpHost . $url;
+		}
+	
+		return $url;
+	}
+
+	/**
+	 * Convert URL to local/server disk path 
+	 * 
+	 * When site is running within a subdirectory like /pw/, a leading slash in given `$url` refers to
+	 * document root, while no leading slash in $url refers to PW installation root. If site is not
+	 * running from a subdirectory, then it makes no difference as the result would be the same. 
+	 * 
+	 * @param string $url 
+	 * @return string
+	 * @throws WireException If given invalid URL or URL with non-local hostname
+	 * @since 3.0.154
+	 * 
+	 */
+	public function urlToPath($url) {
+	
+		$config = $this->wire('config'); /** @var Config $config */
+		$rootPath = $config->paths->root;
+		$rootUrl = $config->urls->root;
+		
+		if(strpos($url, '://') || strpos($url, '//') === 0) {
+			// URL has scheme and hostname, validate that it is local and convert to “/url”
+			$a = parse_url($url); 
+			if($a === false || empty($a['host']) || !isset($a['path'])) {
+				throw new WireException('Cannot convert invalid URL to path');
+			}
+			if(!in_array($a['host'], $config->httpHosts)) {
+				throw new WireException('External URL cannot convert to local path');
+			}
+			$url = $a['path'];	
+		}
+		
+		if($rootUrl === '/') {
+			// site is running from root of hostname, so this is easy
+			$path = $rootPath . ltrim($url, '/');
+			
+		} else if(strpos($url, '/') === 0) {
+			// site in subdirectory and url begins with slash, so use path from document root
+			$path = substr($rootPath, 0, -1 * strlen($rootUrl)) . $url;
+			
+		} else {
+			// site in subdirectory, no leading slash, so relative to PW’s rootPath
+			$path = $rootPath . $url;
+		}
+
+		// ensure directories end with a trailing slash
+		if(substr($path, -1) !== '/' && is_dir($path)) $path .= '/';
+		
+		return $path;
 	}
 
 }

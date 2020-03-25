@@ -207,12 +207,12 @@ class HookEvent extends WireData {
 	 * $event->removeHook(null); 
 	 * ~~~~~
 	 * 
-	 * @param string|null $hookId
+	 * @param string|HookEvent|null $hookId
 	 * @return HookEvent|WireData $this
 	 * 
 	 */
 	public function removeHook($hookId) {
-		if(empty($hookId)) {
+		if(empty($hookId) || $hookId === $this) {
 			if($this->object && $this->id) {
 				$this->object->removeHook($this->id);
 			}
