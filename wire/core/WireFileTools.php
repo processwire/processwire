@@ -1395,6 +1395,115 @@ class WireFileTools extends Wire {
 	}
 
 	/**
+	 * Is path absolute?
+	 * Thx to Nette Framework: https://github.com/nette/utils/blob/354fb50b20d58896bc0f3c9841da85405d278192/src/Utils/FileSystem.php#L149
+	 * @return bool
+	 */
+	public static function isAbsolute(string $path) {
+		return (bool) preg_match('#([a-z]:)?[/\\\\]|[a-z][a-z0-9+.-]*://#Ai', $path);
+	}
+
+	/**
+	 * Is the given string a directory (or is it a file)?
+	 * 
+	 * This does NOT check if the directory exists!
+	 * If you want to check if the directory exists use PHP's is_dir()
+	 * 
+	 * @param string Path to check
+	 * @return bool
+	 */
+	public function isDir($str) {
+		return !$this->isFile($str);
+	}
+
+	/**
+	 * Is the given string a file (or is it a directory)?
+	 * 
+	 * This does NOT check if the file exists!
+	 * If you want to check if the file exists use PHP's is_file()
+	 * 
+	 * @param string Path to check
+	 * @return bool
+	 */
+	public function isFile($str) {
+		return !!$this->pathinfo($str)->extension;
+	}
+
+	/**
+	 * Get result of pathinfo and wrap it as WireData so that you don't need
+	 * to check for the existance of a property.
+	 * 
+	 * Usage:
+	 * echo $files->pathinfo(__FILE__)->extension;
+	 * 
+	 * @param string Path to file
+	 * @return WireData
+	 */
+	public function pathinfo($str) {
+		$info = $this->wire(new WireData()); /** @var WireData */
+		$info->setArray(pathinfo($str));
+		return $info;
+	}
+
+	/**
+	 * Always return an absolute disk path
+	 * 
+	 * By default this returns FALSE if the file or directory does not exist.
+	 * You can modify this behaviour by setting the second parameter to FALSE.
+	 * 
+	 * @param string $str
+	 * @param bool $mustExist
+	 * @return string|false
+	 */
+	public function path($str, $mustExist = true) {
+		if(!$str) return false; // early exit if no string
+
+		// remove linebreaks on the string
+		// this is handy when using user-input from textareas
+		$str = str_replace(["\n","\r"], "", $str);
+
+		$config = $this->wire('config'); /** @var Config $config */
+		$str = Paths::normalizeSeparators($str);
+
+		// check for relative paths in the string
+		if(strpos($str, "./") !== false) return false;
+
+		// we dont allow dots at the end of the string
+		if(substr($str, -1) === '.') return false;
+
+		// we got a relative path so we prepend the root path
+		if(!$this->isAbsolute($str)) $str = $config->paths->root.$str;
+		
+		// we got an absolute path!
+		// if it is a directory force trailing slash
+		if($this->isDir($str)) {
+			if($mustExist AND !is_dir($str)) return false;
+			return rtrim($str, "/")."/";
+		}
+
+		// we got a file
+		if($mustExist AND !is_file($str)) return false;
+		return $str;
+	}
+
+	/**
+	 * Given any file or directory string this will return an URL ready for use
+	 * in any frontend output, eg <script src=...> <img src=...> <link href=...>
+	 * @param string $str
+	 * @param bool $mustExist
+	 * @return string|false
+	 */
+	public function url($str, $mustExist = true) {
+		$str = $this->path($str, $mustExist); // normalize string
+		if(!$str) return false;
+		$config = $this->wire('config'); /** @var Config $config */
+
+		// if we dont find the rootpath in the string it is outside of pw
+		if(strpos($str, $config->paths->root) === false) return false;
+		return str_replace($config->paths->root, $config->urls->root, $str);
+	}
+
+	/**
 	 * Convert URL to local/server disk path 
 	 * 
 	 * When site is running within a subdirectory like /pw/, a leading slash in given `$url` refers to
