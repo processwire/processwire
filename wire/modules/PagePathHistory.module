@@ -764,7 +764,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 				"path VARCHAR($len) NOT NULL, " . 
 				"pages_id INT UNSIGNED NOT NULL, " .
 				"language_id INT UNSIGNED DEFAULT 0, " . // v2
-				"created TIMESTAMP NOT NULL, " . 
+				"created TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, " . 
 				"PRIMARY KEY path (path), " . 
 				"INDEX pages_id (pages_id), " . 
 				"INDEX created (created) " . 

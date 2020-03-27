@@ -61,9 +61,9 @@
  * @property int $published Unix timestamp of when the page was published. #pw-group-common #pw-group-date-time #pw-group-system
  * @property string $publishedStr Date/time when the page was published (formatted date/time string). #pw-group-date-time
  * @property int $created_users_id ID of created user. #pw-group-system
- * @property User $createdUser The user that created this page. Returns a User or a NullUser.
+ * @property User $createdUser The user that created this page. Returns a User or a NullPage.
  * @property int $modified_users_id ID of last modified user. #pw-group-system
- * @property User $modifiedUser The user that last modified this page. Returns a User or a NullUser.
+ * @property User $modifiedUser The user that last modified this page. Returns a User or a NullPage.
  * @property PagefilesManager $filesManager The object instance that manages files for this page. #pw-group-files
  * @property string $filesPath Get the disk path to store files for this page, creating it if it does not exist. #pw-group-files
  * @property string $filesUrl Get the URL to store files for this page, creating it if it does not exist. #pw-group-files
@@ -588,7 +588,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @var User|null
 	 * 
 	 */
-	protected $createdUser = null;
+	protected $_createdUser = null;
 
 	/**
 	 * Cached User that last modified the page
@@ -596,7 +596,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @var User|null
 	 * 
 	 */
-	protected $modifiedUser = null;
+	protected $_modifiedUser = null;
 
 	/**
 	 * Page-specific settings which are either saved in pages table, or generated at runtime.
@@ -1176,18 +1176,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 				break;
 			case 'modifiedUser':
 			case 'createdUser':
-				if(!$this->$key) {
-					$_key = str_replace('User', '', $key) . '_users_id';
-					$u = $this->wire('user');
-					if($this->settings[$_key] == $u->id) {
-						$this->set($key, $u); // prevent possible recursion loop
-					} else {
-						$u = $this->wire('users')->get((int) $this->settings[$_key]);
-						$this->set($key, $u);
-					}
-				}
-				$value = $this->$key; 
-				if($value) $value->of($this->of());
+				$value = $this->getUser($key);
+				if($value->id) $value->of($this->of());
 				break;
 			case 'urlSegment':
 				// deprecated, but kept for backwards compatibility
@@ -2148,12 +2138,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$user = $this->wire('users')->get($this->wire('config')->superUserPageID);
 		}
 
-		if($userType == 'created') {
+		if(strpos($userType, 'created') === 0) {
 			$field = 'created_users_id';
-			$this->createdUser = $user; 
-		} else if($userType == 'modified') {
+			$this->_createdUser = $user; 
+		} else if(strpos($userType, 'modified') === 0) {
 			$field = 'modified_users_id';
-			$this->modifiedUser = $user;
+			$this->_modifiedUser = $user;
 		} else {
 			throw new WireException("Unknown user type in Page::setUser(user, type)"); 
 		}
@@ -2162,6 +2152,46 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if($existingUserID != $user->id) $this->trackChange($field, $existingUserID, $user->id); 
 		$this->settings[$field] = $user->id; 
 		return $this; 	
+	}
+
+	/**
+	 * Get page’s created or modified user
+	 * 
+	 * @param string $userType One of 'created' or 'modified'
+	 * @return User|NullPage
+	 * 
+	 */
+	protected function getUser($userType) {
+		
+		if($userType === 'created' || strpos($userType, 'created') === 0) {
+			$userType = 'created';
+		} else if($userType === 'modified' || strpos($userType, 'modified') === 0) {
+			$userType = 'modified';
+		} else {
+			return new NullPage();
+		}
+		
+		$property = '_' . $userType . 'User';
+		$user = $this->$property;
+		
+		// if we already have the user, return it now
+		if($user) return $user;
+		
+		$key = $userType . '_users_id';
+		$uid = (int) $this->settings[$key];
+		if(!$uid) return new NullPage();
+		
+		if($uid === (int) $this->wire('user')->id) {
+			// ok use current user $user
+			$user = $this->wire('user');
+		} else {
+			// get user
+			$user = $this->wire('users')->get($uid);
+		}
+		
+		$this->$property = $user; // cache to _createdUser or _modifiedUser
+		
+		return $user;
 	}
 
 	/**
@@ -4275,7 +4305,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * Return a Page helper class instance that’s common among all Page (and derived) objects in this ProcessWire instance
 	 * 
 	 * @param string $className
-	 * @return object|PageComparison|PageAccess|PageTraversal
+	 * @return object|PageComparison|PageAccess|PageTraversal|PageFamily
 	 * 
 	 */
 	protected function getHelperInstance($className) {
@@ -4299,7 +4329,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 
 	/**
 	 * @return PageComparison
-	 *
+	 * 
 	 */
 	protected function comparison() {
 		return $this->getHelperInstance('PageComparison');
@@ -4320,6 +4350,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 	protected function traversal() {
 		return $this->getHelperInstance('PageTraversal');
 	}
+	
+	/**
+	 * @return PageFamily
+	 * 
+	 * Coming soon
+	 *
+	protected function family() {
+		return $this->getHelperInstance('PageFamily');
+	}
+	 */
 
 	/**
 	 * Return a translation array of all: status name => status number
