@@ -478,7 +478,7 @@ class FieldtypeComments extends FieldtypeMulti {
 					CREATE TABLE `{$table}_votes` (
 					`comment_id` int unsigned NOT NULL,
 					`vote` tinyint NOT NULL, 
-					`created` TIMESTAMP NOT NULL, 
+					`created` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
 					`ip` VARCHAR(15) NOT NULL default '', 
 					`user_id` int unsigned NOT NULL default 0, 
 					PRIMARY KEY (`comment_id`, `ip`, `vote`), 
@@ -1032,7 +1032,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * ~~~~
 	 *
 	 * @param string|null $selectorString Selector string with query
-	 * @param Field|string Optional Field object. If omitted, then it will be determined automatically. 
+	 * @param CommentField|string Optional Field object. If omitted, then it will be determined automatically. 
 	 * @param array $options
 	 *  - `count` (bool): Return a total count rather than a CommentArray? (default=false)
 	 * @return CommentArray|int
@@ -1048,11 +1048,9 @@ class FieldtypeComments extends FieldtypeMulti {
 		);
 		$options = array_merge($defaults, $options);
 		if($field !== null) {
-			if($selectorString instanceof Field || Selectors::stringHasSelector($field)) {
+			if($selectorString instanceof Field || (is_string($field) && Selectors::stringHasSelector($field))) {
 				// arguments are reversed
-				$s = $selectorString;
-				$selectorString = $field;
-				$field = $s;
+				list($selectorString, $field) = array($field, $selectorString);
 			}
 			if(is_string($field)) $field = $this->wire('fields')->get($field);
 		}
@@ -1099,8 +1097,8 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		$table = $database->escapeTable($field->getTable());
 		
-		$selectQuery->select("$table.*")->from($table)->where('id>0');
-		$countQuery->select('COUNT(*)')->from($table)->where('id>0');
+		$selectQuery->select("$table.*")->from($table)->where("$table.id>0");
+		$countQuery->select('COUNT(*)')->from($table)->where("$table.id>0");
 	
 		/** @var Selectors $selectors */
 		$selectors = $selectorString instanceof Selectors ? $selectorString : $this->wire(new Selectors($selectorString));
@@ -1207,25 +1205,35 @@ class FieldtypeComments extends FieldtypeMulti {
 				} else {
 					$colName = 'data';
 				}
-				/** @var Field $field */
-				$field = $this->wire('fields')->get($fieldName);
-				if(!$field) continue;
-				$fieldTable = $field->getTable();
-				if(!$database->isOperator($operator)) $operator = '=';
-				if(count($values) > 1) {
-					$ors = array();
-					foreach($values as $v) {
-						$ft = $fieldTable . $cnt;
-						$leftJoins[] = "$fieldTable AS $ft ON $ft.pages_id=$table.pages_id AND $ft.$colName$operator:cnt$cnt";
-						$binds["cnt$cnt"] = $v;
-						$ors[] = "$ft.$colName IS NOT NULL";
-						$cnt++;
-					}
-					$wheres[] = '(' . implode(' OR ', $ors) . ')';
+				
+				if($fieldName === 'parent_id' || $fieldName === 'templates_id') {
+					$ids = array();
+					foreach($values as $id) $ids[] = (int) $id;
+					$ids = implode(',', $ids);
+					$joinTable = "pages_$fieldName";
+					$joins[] = "pages AS $joinTable ON $joinTable.$fieldName IN($ids) AND $table.pages_id=$joinTable.id";
+					
 				} else {
-					$ft = $fieldTable . $cnt;
-					$joins[] = "$fieldTable AS $ft ON $ft.pages_id=$table.pages_id AND $ft.$colName$operator:cnt$cnt";
-					$binds["cnt$cnt"] = $value;
+					/** @var Field $f */
+					$f = $this->wire('fields')->get($fieldName);
+					if(!$f) continue;
+					$fieldTable = $f->getTable();
+					if(!$database->isOperator($operator)) $operator = '=';
+					if(count($values) > 1) {
+						$ors = array();
+						foreach($values as $v) {
+							$ft = $fieldTable . $cnt;
+							$leftJoins[] = "$fieldTable AS $ft ON $ft.pages_id=$table.pages_id AND $ft.$colName$operator:cnt$cnt";
+							$binds["cnt$cnt"] = $v;
+							$ors[] = "$ft.$colName IS NOT NULL";
+							$cnt++;
+						}
+						$wheres[] = '(' . implode(' OR ', $ors) . ')';
+					} else {
+						$ft = $fieldTable . $cnt;
+						$joins[] = "$fieldTable AS $ft ON $ft.pages_id=$table.pages_id AND $ft.$colName$operator:cnt$cnt";
+						$binds["cnt$cnt"] = $value;
+					}
 				}
 			}
 		}
