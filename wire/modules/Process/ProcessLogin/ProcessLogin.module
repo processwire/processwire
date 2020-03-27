@@ -12,7 +12,7 @@
  * https://processwire.com
  * 
  * @property bool $allowForgot Whether the ProcessForgotPassword module is installed.
- * @property bool $allowEmail Whether or not email login is allowed. 
+ * @property bool|int $allowEmail Whether or not email login is allowed (0|false=off, 1|true=Yes, 2=Yes or name also allowed)
  * @property string $emailField Field name used for email login (when enabled). 
  * @property array $tfaRecRoleIDs Role IDs where admin prompts/recommends them to enable TFA.
  * 
@@ -28,8 +28,7 @@
  * @method void loginFailed($name, $message = '') #pw-hooker
  * @method void loginSuccess(User $user) #pw-hooker
  * @method array getBeforeLoginVars() #pw-hooker
- * 
- * @todo add option to select roles allowed to login here (when template is admin)
+ * @method array getLoginLinks() #pw-hooker
  * 
  *
  */
@@ -40,20 +39,20 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		return array(
 			'title' => 'Login',
 			'summary' => 'Login to ProcessWire',
-			'version' => 107,
+			'version' => 108,
 			'permanent' => true,
 			'permission' => 'page-view',
 		);
 	}
 
 	/**
-	 * @var Inputfield
+	 * @var InputfieldText|InputfieldEmail
 	 * 
 	 */
 	protected $nameField;
 	
 	/**
-	 * @var Inputfield
+	 * @var InputfieldText
 	 *
 	 */
 	protected $passField;
@@ -119,6 +118,37 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	protected $useEmailLogin = null;
 
 	/**
+	 * Custom labels that override defaults, indexed by label name
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $customLabels = array();
+
+	/**
+	 * Login name as submitted (after sanitize)
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $submitLoginName = '';
+
+	/**
+	 * Configurable markup for this module
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $customMarkup = array(
+		'error' => '<p class="ui-state-error-text">{out}</p>', 
+		'login-link' => '<a href="{url}">{out}</a>',
+		'login-links' => '<p class="pw-login-links">{out}</p>', 
+		'login-links-split' => ' <br />',
+		'forgot-icon' => '', // in constructor
+		'home-icon' => '', // in constructor
+	);
+
+	/**
 	 * Construct
 	 * 
 	 */
@@ -126,6 +156,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->set('tfaRecRoleIDs', array());
 		$this->set('allowEmail', false);
 		$this->set('emailField', 'email');
+		$this->customMarkup['forgot-icon'] = wireIconMarkup('question-circle', 'fw');
+		$this->customMarkup['home-icon'] = wireIconMarkup('home', 'fw'); 
 		parent::__construct();
 	}
 
@@ -144,15 +176,65 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * Get or set named label text
+	 * 
+	 * @param string $name Label name
+	 * @param null|string $value Specify value to replace label with custom value at runtime, otherwise omit
+	 * @return string
+	 * @since 3.0.154
+	 * 
+	 */
+	public function labels($name, $value = null) {
+		if($value !== null) $this->customLabels[$name] = $value; 
+		if(isset($this->customLabels[$name])) return $this->customLabels[$name];
+		switch($name) { // alpha order
+			case 'continue': $label = $this->_('Continue'); break;
+			case 'edit-profile': $label = $this->_('Edit Profile'); break;
+			case 'email': $label = $this->_('Email'); break; // Email input label
+			case 'email-not-supported': $label = $this->_('Login is not supported for that email address.'); break;
+			case 'fail-cookie': $label = $this->_('Cookie check failed: please enable cookies to login.'); break;
+			case 'fail-javascript': $label = $this->_('Javascript check failed: please enable Javascript to login.'); break;
+			case 'forgot-password': $label = $this->_('Forgot your password?'); break;
+			case 'invalid-name': $label = $this->_('Invalid login name'); break;
+			case 'login': $label = $this->_('Login'); break; // Login submit button label
+			case 'login-failed': $label = $this->_('Login failed'); break;
+			case 'login-headline': $label = $this->_x('Login', 'headline'); break; // Login form headline
+			case 'logged-in': $label = $this->_('You are logged in.'); break;
+			case 'logged-out': $label = $this->_('You have logged out'); break;
+			case 'password': $label = $this->_('Password'); break; // Password input label
+			case 'username': $label = $this->_('Username'); break; // Username input label
+			case 'username-or-email': $label = $this->_('Username or Email'); break; // Name/email input label
+			default: $label = "Unknown label name: $name";
+		}
+		return $label;
+	}
+
+	/**
+	 * Get or set custom markup
+	 * 
+	 * @param string $name
+	 * @param null|string $value
+	 * @return string
+	 * @since 3.0.154
+	 * 
+	 */
+	public function markup($name, $value = null) {
+		if($value !== null) $this->customMarkup[$name] = $value;
+		return isset($this->customMarkup[$name]) ? $this->customMarkup[$name] : "Unknown markup name: $name";
+	}
+
+	/**
 	 * Use login by email?
 	 * 
-	 * @return bool
+	 * Returns false if no, int 1 of yes, int 2 if either email or name allowed
+	 * 
+	 * @return bool|int 
 	 * @since 3.0.151
 	 * 
 	 */
 	public function useEmailLogin() {
 		
-		if(is_bool($this->useEmailLogin)) return $this->useEmailLogin;
+		if($this->useEmailLogin !== null) return $this->useEmailLogin;
 		
 		if(!$this->allowEmail) return false;
 		if(!$this->emailField) return false;
@@ -167,7 +249,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$template = $this->templates->get($this->config->userTemplateID); 
 		if(!$template || !$template->hasField($field)) return false;
 		
-		return true;
+		return (int) $this->allowEmail;
 	}
 
 	/**
@@ -238,7 +320,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 				$this->afterLoginRedirect($this->loginURL);
 			}
 			if($input->get('layout')) return ''; // blank placeholder page option for admin themes
-			$this->message($this->_("You are logged in.")); 
+			$this->message($this->labels('logged-in')); 
 			if($this->isAdmin && $user->hasPermission('page-edit') && !$input->get('login')) {
 				$this->afterLoginRedirect();
 			}
@@ -268,7 +350,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			
 		} else if($input->get('forgot') && $this->allowForgot) {
 			/** @var ProcessForgotPassword $process */
-			$process = $this->modules->get("ProcessForgotPassword");
+			$process = $this->modules->get('ProcessForgotPassword');
 			if($this->useEmailLogin()) $process->askEmail = true;
 			return $process->execute();
 		}
@@ -315,15 +397,31 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$value = $this->nameField->attr('value');
 		if(!strlen($value)) return false;
 		
-		if(!$this->useEmailLogin()) {
-			return $this->sanitizer->pageName($value);
+		$originalValue = $value;
+		
+		if(!$this->useEmailLogin() || !strpos($value, '@')) {
+			$value = $this->sanitizer->pageName($value);
+			$this->submitLoginName = $value;
+			if($originalValue !== $value && strtolower($originalValue) !== $value) {
+				// if sanitizer changed anything about the value (other than case) do not accept it
+				$this->loginFailed($value, $this->labels('invalid-name'));
+				$value = false;
+			}
+			return $value;
 		}
 		
 		// at this point we are dealing with an email login
 		$value = strtolower($this->sanitizer->email($value));
+		$this->submitLoginName = $value;
 		if(empty($value)) return false;
 		
-		$error = $this->_('Login is not supported for that email address.');
+		if(strtolower($originalValue) !== $value) {
+			// if sanitizer changed anything about the email (not likely) do not accept it
+			$this->loginFailed($value, $this->labels('invalid-name'));
+			return false;
+		}
+		
+		$error = $this->labels('email-not-supported');
 		$items = $this->users->find("include=all, $this->emailField=" . $this->sanitizer->selectorValue($value)); 
 		
 		if(!$items->count()) {
@@ -354,8 +452,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	/**
 	 * Perform login and redirect on success
 	 * 
-	 * @param $name
-	 * @param $pass
+	 * @param string $name
+	 * @param string $pass
 	 * @return bool Returns false on fail, performs redirect on success
 	 * 
 	 */
@@ -374,7 +472,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			$this->afterLoginRedirect('./'); 
 			
 		} else {
-			$this->loginFailed($name); 
+			$this->loginFailed($this->submitLoginName ? $this->submitLoginName : $name); 
 		}
 		
 		return false;
@@ -389,7 +487,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			$url = $this->logoutURL;
 		} else if($this->isAdmin || $this->wire('page')->template == 'admin') {
 			$url = $this->config->urls->admin;
-			$this->message($this->_("You have logged out"));
+			$this->message($this->labels('logged-out'));
 		} else {
 			$url = "./?logout=2";
 		}
@@ -436,7 +534,6 @@ class ProcessLogin extends Process implements ConfigurableModule {
 					$installSessionDB = true;
 					$error = "Session path $path does not exist and we are unable to create it.";
 				}
-				
 			} 
 			
 			if(!is_writable($path)) {
@@ -506,21 +603,27 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected function ___buildLoginForm() {
+		
+		$useEmailLogin = $this->useEmailLogin();
+		$nameInputType = 'InputfieldText';
+		$nameInputLabel = $this->labels('username'); // Login form: username field label
 
-		if($this->useEmailLogin()) {
-			$this->nameField = $this->modules->get('InputfieldEmail');
-			$this->nameField->set('label', $this->_('Email')); // Login form: email field label
-		} else {
-			$this->nameField = $this->modules->get('InputfieldText');
-			$this->nameField->set('label', $this->_('Username')); // Login form: username field label
+		if($useEmailLogin === 1) {
+			$nameInputType = 'InputfieldEmail';
+			$nameInputLabel = $this->labels('email'); // Login form: email field label
+		} else if($useEmailLogin === 2) {
+			$nameInputLabel = $this->labels('username-or-email'); // Login form: username OR email field label
 		}
+	
+		$this->nameField = $this->modules->get($nameInputType);
+		$this->nameField->label = $nameInputLabel;
 		$this->nameField->attr('id+name', 'login_name'); 
 		$this->nameField->attr('class', $this->className() . 'Name');
 		$this->nameField->addClass('InputfieldFocusFirst');
 		$this->nameField->collapsed = Inputfield::collapsedNever;
 
 		$this->passField = $this->modules->get('InputfieldText');
-		$this->passField->set('label', $this->_('Password')); // Login form: password field label
+		$this->passField->set('label', $this->labels('password')); // Login form: password field label
 		$this->passField->attr('id+name', 'login_pass'); 
 		$this->passField->attr('type', 'password'); 
 		$this->passField->attr('class', $this->className() . 'Pass');
@@ -528,7 +631,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 
 		$this->submitField = $this->modules->get('InputfieldSubmit');
 		$this->submitField->attr('name', 'login_submit'); 
-		$this->submitField->attr('value', $this->_('Login')); // Login form: submit login button 
+		$this->submitField->attr('value', $this->labels('login')); // Login form: submit login button 
 		
 		$this->form = $this->modules->get('InputfieldForm');
 
@@ -563,11 +666,10 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		}
 
 		$s = 'script';
-		$class = "class=ui-state-error-text";
-		$jsError = $this->_('Javascript check failed: please enable Javascript to login.');
-		$cookieError = $this->_('Cookie check failed: please enable cookies to login.');
-		$this->form->prependMarkup .= "<$s>if(!navigator.cookieEnabled) document.write('<p $class>$cookieError</p>');</$s>";
-		if($this->isAdmin) $this->form->prependMarkup .= "<no$s><p $class>$jsError</p></no$s>";
+		$jsError = str_replace('{out}', $this->labels('fail-javascript'), $this->markup('error'));
+		$cookieError = str_replace(array('{out}', "'"), array($this->labels('fail-cookie'), '"'), $this->markup('error'));
+		$this->form->prependMarkup .= "<$s>if(!navigator.cookieEnabled) document.write('$cookieError');</$s>";
+		if($this->isAdmin) $this->form->prependMarkup .= "<no$s>$jsError</no$s>";
 
 		return $this->form; 
 	}
@@ -591,17 +693,13 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			// render login form
 			if($this->isAdmin) $this->setCacheHeaders();
 			// note the space after 'Login ' is intentional to separate it from the Login button for translation purposes
-			$this->headline($this->_('Login ')); // Headline for login form page
+			$this->headline($this->labels('login-headline')); // Headline for login form page
 			$this->passField->attr('value', '');
 			$out = $this->form->render();
-			$links = '';
-			if($this->allowForgot) {
-				$links .= "<div><a href='./?forgot=1'><i class='fa fa-question-circle'></i> " . $this->_("Forgot your password?") . "</a></div>"; // Forgot password link text
+			$links = $this->getLoginLinks();
+			if(count($links)) {
+				$out .= str_replace('{out}', implode($this->markup('login-links-split'), $links), $this->markup('login-links'));
 			}
-			$home = $this->pages->get("/"); 
-			$links .= "<div><a href='{$home->url}'><i class='fa fa-home'></i> {$home->title}</a></div>";
-			if($links) $out .= "<p>$links</p>";
-			
 			if(!$this->wire('modules')->isInstalled('InputDetect')) {
 				/** @var Config $config */
 				$config = $this->wire('config');
@@ -613,21 +711,49 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * Get array of links to display under login form
+	 * 
+	 * Each item in returned array must be entire `<a>` tag for link
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @return array
+	 * @since 3.0.154
+	 * 
+	 */
+	protected function ___getLoginLinks() {
+		$links = array();
+		$markup = $this->markup('login-link');
+		if($this->allowForgot) {
+			$icon = $this->markup('forgot-icon');
+			$label = $this->labels('forgot-password');
+			$links['forgot'] = str_replace(array('{url}', '{out}'), array('./?forgot=1', "$icon $label"), $markup);
+		}
+		$home = $this->pages->get('/');
+		$icon = $this->markup('home-icon');
+		$links['home'] = str_replace(array('{url}', '{out}'), array($home->url, "$icon $home->title"), $markup); 
+		return $links;
+	}
+
+	/**
 	 * Output that appears if there is nowhere to redirect to after login
 	 * 
 	 * Called only if login originated from the actual login page, OR if user does not have page-edit permission
 	 * and thus can’t browse around in the admin. 
 	 * 
+	 * This method is not often used since it’s more common and recommended to redirect after login. 
+	 * 
 	 * @return string
 	 * 
 	 */
 	protected function ___afterLoginOutput() {
+		/** @var InputfieldButton $btn */
 		$btn = $this->wire('modules')->get('InputfieldButton');
 		if($this->wire('user')->hasPermission('profile-edit')) {
-			$btn->value = $this->_('Edit Profile');
+			$btn->value = $this->labels('edit-profile');
 			$btn->href = $this->config->urls->admin . 'profile/';
 		} else {
-			$btn->value = $this->_('Continue');
+			$btn->value = $this->labels('continue');
 			$btn->href = $this->wire('config')->urls->root;
 		}
 		return "<p>" . $btn->render() . "</p>";
@@ -641,6 +767,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	protected function ___afterLoginRedirect($url = '') {
 		$url = $this->afterLoginURL($url);
+		/** @var Session $session */
 		$session = $this->wire('session');
 		$session->removeFor($this, 'beforeLoginVars');
 		$session->removeFor($this, 'beforeLoginChecks');
@@ -660,6 +787,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	public function ___afterLoginURL($url = '') {
 		
 		if(empty($url)) {
+			/** @var User $user */
 			$user = $this->wire('user');
 			if($this->loginURL) {
 				$url = $this->loginURL;
@@ -714,7 +842,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected function ___loginFailed($name, $message = '') {
-		if(empty($message)) $message = "$name - " . $this->_('Login failed'); 
+		if(empty($message)) $message = "$name - " . $this->labels('login-failed'); 
 		$this->error($message);
 	}
 
@@ -728,7 +856,6 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		
 		/** @var Session $session */
 		$session = $this->wire('session');
-		// $session->message($user->name . ' - ' . $this->_("Successful login"));
 		
 		if($this->isAdmin) {
 			$copyVars = $session->getFor($this, 'copyVars');
@@ -779,6 +906,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$f->label = $this->_('Login type'); 
 		$f->addOption(0, $this->_('User name'));
 		$f->addOption(1, $this->_('Email address'));
+		$f->addOption(2, $this->_('Either'));
 		$f->icon = 'sign-in';
 		$f->val((int) $this->allowEmail);
 		$emailField = $this->fields->get($this->emailField); /** @var Field $field */
