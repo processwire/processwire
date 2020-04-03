@@ -292,6 +292,22 @@ class WireShutdown extends Wire {
 	}
 
 	/**
+	 * Send fatal error http header and return error code sent
+	 * 
+	 * @return int
+	 * 
+	 */
+	protected function sendFatalHeader() {
+		include_once(dirname(__FILE__) . '/WireHttp.php');
+		$http = new WireHttp();
+		$codes = $http->getHttpCodes();
+		$code = (int) ($this->config ? $this->config->fatalErrorCode : 500);
+		if(!isset($codes[$code])) $code = 500;
+		header("HTTP/1.1 $code " . $codes[$code]);
+		return $code;
+	}
+
+	/**
 	 * Send a 500 internal server error
 	 * 
 	 * This is a public fatal error that doesn’t reveal anything specific.
@@ -302,14 +318,8 @@ class WireShutdown extends Wire {
 	 */
 	protected function sendFatalError($message, $useHTML) {
 		
-		include_once(dirname(__FILE__) . '/WireHttp.php');
-		$http = new WireHttp();
-		$codes = $http->getHttpCodes();
-		$code = (int) $this->config ? $this->config->fatalErrorCode : 500;
-		if(!isset($codes[$code])) $code = 500;
-
 		if($useHTML) {
-			header("HTTP/1.1 $code " . $codes[$code]);
+			$code = $this->sendFatalHeader();
 			$message = htmlspecialchars($message, ENT_QUOTES, 'UTF-8');
 			// file that error message will be output in, when available
 			$path = $this->config->paths->templates;
@@ -484,6 +494,7 @@ class WireShutdown extends Wire {
 		if($why) {
 			$why = $this->labels['shown-because'] . " $why $who";
 			$message = $this->amendErrorMessage($message);
+			$this->sendFatalHeader();
 			$this->sendErrorMessage($message, $why, $useHTML);
 		} else {
 			$this->sendFatalError($who, $useHTML);
