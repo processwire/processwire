@@ -937,7 +937,7 @@ class WireFileTools extends Wire {
 		}
 
 		// render file and return output
-		$t = new TemplateFile();
+		$t = $this->wire(new TemplateFile()); /** @var TemplateFile $t */
 		$t->setThrowExceptions($options['throwExceptions']);
 		$t->setFilename($filename);
 

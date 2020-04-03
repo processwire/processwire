@@ -131,7 +131,8 @@ class CommentListCustom extends CommentList {
 		$out = $parent_id ? '' : $this->renderCheckActions();
 		$comments = $this->options['depth'] > 0 ? $this->getReplies($parent_id) : $this->comments;
 		foreach($comments as $comment) {
-			$out .= $this->renderItem($comment, $depth);
+			$this->comment = $comment;
+			$out .= $this->renderItem($comment, array('depth' => $depth));
 		}
 		if($out) {
 			$class = implode(' ', $this->getCommentListClasses($parent_id));
@@ -152,13 +153,19 @@ class CommentListCustom extends CommentList {
 	 * Render the comment 
 	 *
 	 * @param Comment $comment
-	 * @param int $depth Default=0
+	 * @param array|int $options Options array 
 	 * @return string
 	 * @see CommentArray::render()
 	 *
 	 */
-	protected function ___renderItem(Comment $comment, $depth = 0) {
+	protected function ___renderItem(Comment $comment, $options = array()) {
+		
+		$defaults = array(
+			'depth' => is_int($options) ? $options : 0, 
+			'placeholders' => array(),
+		);
 
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
 		$text = $comment->getFormatted('text');
 		$cite = $comment->getFormatted('cite');
 		$created = wireDate($this->options['dateFormat'], $comment->created);
@@ -180,7 +187,7 @@ class CommentListCustom extends CommentList {
 			$cite = str_replace(array('{href}', '{cite}'), array($website, $cite), $this->markup['website']);
 		}
 
-		$sublist = $this->options['depth'] > 0 ? $this->renderList($comment->id, $depth+1) : '';
+		$sublist = $this->options['depth'] > 0 ? $this->renderList($comment->id, $options['depth']+1) : '';
 
 		if($this->options['usePermalink']) {
 			$permalink = $comment->getPage()->httpUrl;
@@ -191,7 +198,7 @@ class CommentListCustom extends CommentList {
 			$permalink = str_replace(array('{href}', '{label}'), array($permalink, $label), $this->markup['permalink']);
 		}
 
-		if($this->options['depth'] > 0 && $depth < $this->options['depth']) {
+		if($this->options['depth'] > 0 && $options['depth'] < $this->options['depth']) {
 			$label = $this->_('Reply');
 			$reply = str_replace(array('{id}', '{label}'), array($comment->id, $label), $this->markup['reply']);
 		}
@@ -223,7 +230,11 @@ class CommentListCustom extends CommentList {
 			'sublist' => $sublist,
 		);
 
-		$itemMarkup = $depth ? $this->markup['subitem'] : $this->markup['item'];
+		if(count($options['placeholders'])) {
+			$placeholders = array_merge($placeholders, $options['placeholders']); 
+		}
+		
+		$itemMarkup = $options['depth'] ? $this->markup['subitem'] : $this->markup['item'];
 		if(empty($itemMarkup)) $itemMarkup = $this->markup['item'];
 		$out = $this->populatePlaceholders($comment, $itemMarkup, $placeholders);
 

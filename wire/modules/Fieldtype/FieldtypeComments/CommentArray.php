@@ -31,36 +31,6 @@ class CommentArray extends PaginatedArray implements WirePaginatable {
 	protected $field = null;
 
 	/**
-	 * Total number of comments, including those here and others that aren't, but may be here in pagination.
-	 * 
-	 * @var int
-	 * 
-	 */
-	protected $numTotal = 0;
-
-	/**
-	 * If this CommentArray is a partial representation of a larger set, this will contain the max number 
-	 * of comments allowed to be present/loaded in the CommentArray at once.
-	 *
-	 * May vary from count() when on the last page of a result set.
-	 * As a result, paging routines should refer to their own itemsPerPage rather than count().
-	 * Applicable for paginated result sets. This number is not enforced for adding items to this CommentArray.
-	 *
-	 * @var int
-	 * 
-	 */
-	protected $numLimit = 0;
-
-	/**
-	 * If this CommentArray is a partial representation of a larger set, this will contain the starting result 
-	 * number if previous results preceded it.
-	 *
-	 * @var int
-	 * 
-	 */
-	protected $numStart = 0;
-
-	/**
 	 * Per the WireArray interface, is the item a Comment
 	 * 
 	 * @param Wire|Comment $item

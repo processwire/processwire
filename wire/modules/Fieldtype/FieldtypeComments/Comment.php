@@ -33,6 +33,7 @@
  * @property-read CommentArray $children Immediate child comments (since 3.0.149)
  * @property-read int $depth Current comment depth (since 3.0.149)
  * @property-read bool $loaded True when comment is fully loaded from DB (since 3.0.149)
+ * @property-read int $numChildren Number of children with no exclusions. See and use numChildren() method for more options. (since 3.0.154)
  *
  */
 
@@ -152,6 +153,12 @@ class Comment extends WireData {
 	 */
 	protected $textFormatted = null;
 
+	/**
+	 * @var int|null
+	 * 
+	 */
+	protected $numChildren = null;
+
 	/**	
 	 * Construct a Comment and set defaults
 	 *
@@ -228,6 +235,9 @@ class Comment extends WireData {
 			
 		} else if($key === 'loaded') {
 			return $this->loaded;
+			
+		} else if($key === 'numChildren') {
+			return $this->numChildren();
 		}
 
 		return parent::get($key); 
@@ -300,6 +310,9 @@ class Comment extends WireData {
 			$value = (int) $value;
 		} else if($key === 'textFormatted') {
 			$this->textFormatted = $value;
+			return $this;
+		} else if($key === 'numChildren') {
+			$this->numChildren = (int) $value; 
 			return $this;
 		}
 			
@@ -541,13 +554,16 @@ class Comment extends WireData {
 	 * 
 	 */
 	public function numChildren(array $options = array()) {
+		if(empty($options) && $this->numChildren !== null) return $this->numChildren;
 		$options['parent'] = $this->id;
 		$field = $this->getField();
 		if(!$field) return null;
 		/** @var FieldtypeComments $fieldtype */
 		$fieldtype = $field->type;
 		if(!$fieldtype) return 0;
-		return $fieldtype->getNumComments($this->getPage(), $field, $options); 
+		$numChildren = $fieldtype->getNumComments($this->getPage(), $field, $options); 
+		if(empty($options)) $this->numChildren = $numChildren;
+		return $numChildren;
 	}
 
 	/**

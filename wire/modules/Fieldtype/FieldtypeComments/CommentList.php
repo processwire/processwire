@@ -41,6 +41,14 @@ class CommentList extends Wire implements CommentListInterface {
 	protected $comments = null;
 
 	/**
+	 * Current comment being rendered (or last one rendered) 
+	 * 
+	 * @var Comment|null
+	 * 
+	 */
+	protected $comment = null;
+
+	/**
 	 * @var Page
 	 * 
 	 */
@@ -169,7 +177,16 @@ class CommentList extends Wire implements CommentListInterface {
 		$commentID = (int) $commentID; 
 		$admin = $this->options['admin'];
 		$replies = array();
-		foreach($this->comments as $c) {
+		$comments = $this->comments;
+		if($commentID && $comments->data('selectors') && $this->comment && $this->comment->id == $commentID) {
+			// comment originated from a find()
+			/** @var FieldtypeComments $fieldtype */
+			$fieldtype = $this->field->type;
+			$comments = $fieldtype->find("parent_id=$commentID"); 
+		} else {
+			$comments = $this->comments;
+		}
+		foreach($comments as $c) {
 			if($c->parent_id != $commentID) continue;
 			if(!$admin && $c->status < Comment::statusApproved) continue;
 			$replies[] = $c;
@@ -244,7 +261,8 @@ class CommentList extends Wire implements CommentListInterface {
 		if(!count($comments)) return $out;
 		
 		foreach($comments as $comment) {
-			$out .= $this->renderItem($comment, $depth);
+			$this->comment = $comment;
+			$out .= $this->renderItem($comment, array('depth' => $depth));
 		}
 		
 		if(!$out) return '';
@@ -326,16 +344,17 @@ class CommentList extends Wire implements CommentListInterface {
 	 * using your own code in your templates.
 	 * 
 	 * @param Comment $comment
-	 * @param int $depth Default=0
+	 * @param array $options
 	 * @return string
 	 * @see CommentArray::render()
 	 *
 	 */
-	public function renderItem(Comment $comment, $depth = 0) {
+	public function renderItem(Comment $comment, $options = array()) {
+		if(is_int($options)) $options = array('depth' => $options);
 		if($this->wire('hooks')->isHooked("CommentList::renderItem()")) { 
-			return $this->__call('renderItem', array($comment, $depth));
+			return $this->__call('renderItem', array($comment, $options));
 		} else {
-			return $this->___renderItem($comment, $depth);
+			return $this->___renderItem($comment, $options);
 		}
 	}
 	
@@ -345,13 +364,19 @@ class CommentList extends Wire implements CommentListInterface {
 	 * Hookable since 3.0.138
 	 *
 	 * @param Comment $comment
-	 * @param int $depth Default=0
+	 * @param array|int $options Options array 
 	 * @return string
 	 * @see CommentArray::render()
 	 *
 	 */
-	protected function ___renderItem(Comment $comment, $depth = 0) {
+	protected function ___renderItem(Comment $comment, $options = array()) {
+		
+		$defaults = array(
+			'depth' => is_int($options) ? $options : 0,
+			'placeholders' => array(),
+		);
 
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
 		$text = $comment->getFormatted('text'); 
 		$cite = $comment->getFormatted('cite'); 
 
@@ -370,6 +395,9 @@ class CommentList extends Wire implements CommentListInterface {
 			'created' => $created, 
 			'gravatar' => $gravatar
 		);
+		if(count($options['placeholders'])) {
+			$placeholders = array_merge($placeholders, $options['placeholders']);
+		}
 		
 		if(empty($this->options['commentHeader'])) {
 			$header = "<span class='CommentCite'>$cite</span> <small class='CommentCreated'>$created</small> ";
@@ -381,7 +409,8 @@ class CommentList extends Wire implements CommentListInterface {
 
 		$footer = $this->populatePlaceholders($comment, $this->options['commentFooter'], $placeholders); 
 		$liClass = '';
-		$replies = $this->options['depth'] > 0 ? $this->renderList($comment->id, $depth+1) : ''; 
+		$replies = $this->options['depth'] > 0 ? $this->renderList($comment->id, $options['depth']+1) : ''; 
+		
 		if($replies) $liClass .= ' CommentHasReplies';
 		if($comment->status == Comment::statusPending) {
 			$liClass .= ' CommentStatusPending';
@@ -406,7 +435,7 @@ class CommentList extends Wire implements CommentListInterface {
 			$permalink = '';
 		}
 
-		if($this->options['depth'] > 0 && $depth < $this->options['depth']) {
+		if($this->options['depth'] > 0 && $options['depth'] < $this->options['depth']) {
 			$numReplies = isset($this->numReplies[$comment->id]) ? $this->numReplies[$comment->id] : 0;	
 			if($replies && $numReplies && $this->options['useRepliesLink']) {
 				$repliesLabel = ($numReplies == 1 ? $this->options['repliesLabelOne'] : $this->options['repliesLabelMulti']);

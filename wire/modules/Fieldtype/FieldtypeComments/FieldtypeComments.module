@@ -1278,10 +1278,12 @@ class FieldtypeComments extends FieldtypeMulti {
 		$selectQuery->orderby(implode(',', $sorts));
 		$selectQuery->limit("$start,$limit"); 
 
+		/** @var CommentArray $comments */
 		$comments = $this->wire(new CommentArray());
 		$comments->setField($field);
 		$comments->setStart($start);
 		$comments->setLimit($limit);
+		$comments->data('selectors', $selectors); // only present on CommentArray from find()
 
 		$sql = $selectQuery->getQuery();
 		$query = $database->prepare($sql);
@@ -1353,8 +1355,8 @@ class FieldtypeComments extends FieldtypeMulti {
 	/**
 	 * Given a comment code or subcode, return the associated comment ID or 0 if it doesn't exist
 	 * 
-	 * @param $page
-	 * @param $field
+	 * @param Page|int $page
+	 * @param Field|string $field
 	 * @param $code
 	 * @return Comment|null
 	 * 
@@ -1380,26 +1382,34 @@ class FieldtypeComments extends FieldtypeMulti {
 	/**
 	 * Get a comment by ID or NULL if not found
 	 * 
-	 * @param $page
-	 * @param $field
-	 * @param $id
+	 * @param Page|int|null $page Provide Page object or ID, or null to auto-detect Page
+	 * @param Field|string $field Field object or name
+	 * @param int $id Comment ID
 	 * @return Comment|null
 	 * 
 	 */
 	public function getCommentByID($page, $field, $id) {
-		if(!is_object($page)) $page = $this->wire('pages')->get((int) $page);
-		if(!$page->id) return null;
 		if(empty($id)) return null;
-		if(!is_object($field)) $field = $this->wire('fields')->get($this->wire('sanitizer')->fieldName($field));
+		if($page && !is_object($page)) {
+			$page = $this->wire('pages')->get((int) $page);
+			if(!$page->id) return null;
+		}
+		if(!is_object($field) && $field) {
+			$field = $this->wire('fields')->get($this->wire('sanitizer')->fieldName($field));
+		}
 		if(!$field || !$field->type instanceof FieldtypeComments) return null;
 		$table = $field->getTable();
-		$sql = "SELECT * FROM `$table` WHERE id=:id AND pages_id=:pageID";
+		$sql = "SELECT * FROM `$table` WHERE id=:id ";
+		if($page) $sql .= "AND pages_id=:pageID";
 		$query = $this->wire('database')->prepare($sql);
 		$query->bindValue(':id', (int) $id, \PDO::PARAM_INT); 
-		$query->bindValue(':pageID', $page->id, \PDO::PARAM_INT);
+		if($page) $query->bindValue(':pageID', $page->id, \PDO::PARAM_INT);
 		if(!$query->execute()) return null;
 		if(!$query->rowCount()) return null;
 		$data = $query->fetch(\PDO::FETCH_ASSOC);
+		if(!$page) {
+			$page = $this->wire('pages')->get((int) $data['pages_id']); 
+		}	
 		return $this->makeComment($page, $field, $data); 
 	}
 
