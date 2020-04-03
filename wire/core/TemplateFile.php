@@ -3,13 +3,19 @@
 /**
  * ProcessWire TemplateFile
  *
- * A template file that will be loaded and executed as PHP, and it's output returned
+ * A template file that will be loaded and executed as PHP and its output returned.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
- * @property bool $halt
+ * @property bool $halt Set to true to halt during render, or use method $this->halt();
+ * @property-read string $filename Primary file to render.
+ * @property-read array $prependFilename Optional file name(s) used for prepend.
+ * @property-read array $appendFilename Optional file name(s) used for append.
+ * @property-read string $currentFilename Current file being rendered (whether primary, prepend, append).
+ * @property-read bool $trim Whether or not leading/trailing whitespace is trimmed from output (3.0.154+).
  * @method string render()
+ * @method bool fileFailed($filename, \Exception $e)
  *
  */
 
@@ -17,6 +23,8 @@ class TemplateFile extends WireData {
 
 	/**
 	 * The full path and filename to the PHP template file
+	 * 
+	 * @var string
 	 *
 	 */
 	protected $filename;
@@ -31,18 +39,24 @@ class TemplateFile extends WireData {
 
 	/**
 	 * Optional filenames that are prepended to the render
+	 * 
+	 * @var array
 	 *
 	 */
 	protected $prependFilename = array();
 
 	/**
 	 * Optional filenames that are appended to the render
+	 * 
+	 * @var array
 	 *
 	 */
 	protected $appendFilename = array(); 
 
 	/**
 	 * The saved directory location before render() was called
+	 * 
+	 * @var string
 	 *
 	 */
 	protected $savedDir;
@@ -50,9 +64,10 @@ class TemplateFile extends WireData {
 	/**
 	 * Directory to change to before rendering
 	 * 
-	 * If not set, it will change to the directory that the $filename is in
+	 * If not set, it will change to the directory that the $filename is in.
+	 * If false, no directories will be changed. 
 	 * 
-	 * @var null|string
+	 * @var null|string|bool
 	 * 
 	 */
 	protected $chdir = null;
@@ -66,7 +81,9 @@ class TemplateFile extends WireData {
 	protected $savedInstance; 
 	
 	/**
-	 * Throw exceptions when files don't exist?
+	 * Throw exception when main template file doesn’t exist?
+	 * 
+	 * @var bool
 	 * 
 	 */
 	protected $throwExceptions = true;
@@ -92,6 +109,22 @@ class TemplateFile extends WireData {
 	 * 
 	 */
 	protected $profiler = null;
+
+	/**
+	 * Return value from rendered file
+	 * 
+	 * @var null|mixed
+	 * 
+	 */
+	protected $returnValue = null;
+
+	/**
+	 * Trim leading/trailing whitespace from rendered output?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $trim = true;
 
 	/**
 	 * Stack of files that are currently being rendered
@@ -181,13 +214,36 @@ class TemplateFile extends WireData {
 		}
 	}
 
+	/**
+	 * Call this with boolean false to disable exceptions when file doesn’t exist
+	 *
+	 * @param bool $throwExceptions
+	 *
+	 */
+	public function setThrowExceptions($throwExceptions) {
+		$this->throwExceptions = $throwExceptions ? true : false;
+	}
+
+	/**
+	 * Set whether rendered output should have leading/trailing whitespace trimmed
+	 * 
+	 * By default whitespace is trimmed so you would call `$templateFile->setTrim(false);` to disable.
+	 * 
+	 * @param bool $trim
+	 * @since 3.0.154
+	 * 
+	 */
+	public function setTrim($trim) {
+		$this->trim = (bool) $trim;
+	}
 
 	/**
 	 * Set the directory to temporarily change to during rendering
 	 * 
 	 * If not set, it changes to the directory that $filename is in. 
+	 * To disable TemplateFile from changing any directories, set to false (3.0.154+).
 	 * 
-	 * @param string $chdir
+	 * @param string|bool $chdir
 	 * 
 	 */
 	public function setChdir($chdir) {
@@ -214,101 +270,213 @@ class TemplateFile extends WireData {
 	}
 
 	/**
-	 * Start profiling a render
-	 * 
-	 * @param string $filename
-	 * 
-	 */
-	protected function start($filename) {
-		if($this->profiler) {
-			$f = str_replace($this->wire('config')->paths->root, '/', $filename);
-			$this->profilerEvent = $this->profiler->start($f, $this);
-		}
-	}
-
-	/**
-	 * Stop profiling a render
-	 * 
-	 */
-	protected function stop() {
-		if($this->profilerEvent) $this->profiler->stop($this->profilerEvent);
-	}
-	
-	/**
-	 * Render the template -- execute it and return its output
+	 * Render the template: execute it and return its output
 	 *
 	 * @return string The output of the Template File
-	 * @throws WireException if template file doesn't exist
+	 * @throws WireException|\Exception Throws WireException if file not exist + any exceptions thrown by included file(s)
 	 *
 	 */
 	public function ___render() {
+		
+		/** @noinspection PhpIncludeInspection */
 
 		if(!$this->filename) return '';
+		
 		if(!file_exists($this->filename)) {
-			$error = "Template file does not exist: '$this->filename'";
+			$error = "Template file does not exist: $this->filename";
 			if($this->throwExceptions) throw new WireException($error);
 			$this->error($error); 
 			return '';
 		}
 
-		// ensure that wire() functions in template file map to correct ProcessWire instance
-		$this->savedInstance = ProcessWire::getCurrentInstance();
-		ProcessWire::setCurrentInstance($this->wire());
-
-		$this->profiler = $this->wire('profiler');
-		$this->savedDir = getcwd();	
-
-		if($this->chdir) {
-			chdir($this->chdir);
-		} else {
-			chdir(dirname($this->filename));
-		}
-		
+		$this->renderReady(); 
+	
+		// make API variables available to PHP file
 		$fuel = array_merge($this->getArray(), self::$globals); // so that script can foreach all vars to see what's there
 		extract($fuel); 
 		ob_start();
-		
-		foreach($this->prependFilename as $_filename) {
-			if($this->halt) break;
-			if($this->profiler) $this->start($_filename);
-			$this->setCurrentFilename($_filename);
-			/** @noinspection PhpIncludeInspection */
-			require($_filename);
-			if($this->profiler) $this->stop();
-			$this->setCurrentFilename('');
+	
+		try {
+			// include prepend files
+			foreach($this->prependFilename as $_filename) {
+				if($this->halt) break;
+				$this->fileReady($_filename);
+				require($_filename);
+				$this->fileFinished();
+			}
+		} catch(\Exception $e) {
+			if($this->fileFailed($this->currentFilename, $e)) throw $this->renderFailed($e);
 		}
 		
-		if($this->profiler) $this->start($this->filename);
 		if($this->halt) {
-			$returnValue = 0;
+			// if prepend file indicates we should halt, then do not render next file
+			$this->returnValue = 0;
 		} else {
-			$this->setCurrentFilename($this->filename);
-			/** @noinspection PhpIncludeInspection */
-			$returnValue = require($this->filename);
-			$this->setCurrentFilename('');
+			// include main file to render
+			try {
+				$this->fileReady($this->filename);
+				$this->returnValue = require($this->filename);
+				$this->fileFinished();
+			} catch(\Exception $e) {
+				if($this->fileFailed($this->filename, $e)) throw $this->renderFailed($e);
+			}
 		}
-		if($this->profiler) $this->stop();
-		
-		foreach($this->appendFilename as $_filename) {
-			if($this->halt) break;
-			if($this->profiler) $this->start($_filename);
-			$this->setCurrentFilename($_filename);
-			/** @noinspection PhpIncludeInspection */
-			require($_filename);
-			if($this->profiler) $this->stop();
-			$this->setCurrentFilename('');
+	
+		try {
+			// include append files
+			foreach($this->appendFilename as $_filename) {
+				if($this->halt) break;
+				$this->fileReady($_filename);
+				require($_filename);
+				$this->fileFinished();
+			}
+		} catch(\Exception $e) {
+			if($this->fileFailed($this->currentFilename, $e)) throw $this->renderFailed($e);
 		}
 		
-		$out = "\n" . ob_get_contents() . "\n";
+		$out = ob_get_contents();
 		ob_end_clean();
-
-		if($this->savedDir) chdir($this->savedDir); 
-		ProcessWire::setCurrentInstance($this->savedInstance);
 		
-		$out = trim($out); 
-		if(!strlen($out) && !$this->halt && $returnValue && $returnValue !== 1) return $returnValue;
+		$this->renderFinished();
+
+		if($this->trim) $out = trim($out); 
+		
+		if(!strlen($out) && !$this->halt && $this->returnValue && $this->returnValue !== 1) {
+			return $this->returnValue;
+		}
 		
 		return $out;
+	}
+
+	/**
+	 * Prepare to nclude specific file (whether prepend, main or append)
+	 * 
+	 * @param string $filename
+	 * @since 3.0.154
+	 * 
+	 */
+	protected function fileReady($filename) {
+		$this->currentFilename = $filename;
+		if($this->profiler) {
+			$f = str_replace($this->wire('config')->paths->root, '/', $filename);
+			$this->profilerEvent = $this->profiler->start($f, $this);
+		}
+		self::pushRenderStack($filename);
+	}
+
+	/**
+	 * Clean up after include specific file
+	 * 
+	 * @since 3.0.154
+	 * 
+	 */
+	protected function fileFinished() {
+		$this->currentFilename = '';
+		if($this->profiler && $this->profilerEvent) {
+			$this->profiler->stop($this->profilerEvent);
+		}
+		self::popRenderStack();
+	}
+	
+	/**
+	 * Called when render of specific file failed with Exception
+	 *
+	 * #pw-hooker
+	 *
+	 * @param string $filename
+	 * @param \Exception $e
+	 * @return bool True if Exception $e should be thrown, false if it should be ignored
+	 * @since 3.0.154
+	 *
+	 */
+	protected function ___fileFailed($filename, \Exception $e) {
+		$this->fileFinished();
+		if($e || $filename) {} // ignore
+		return true;
+	}
+
+
+	/**
+	 * Prepare to render
+	 * 
+	 * Called right before render about to start
+	 * 
+	 * @since 3.0.154
+	 * 
+	 */
+	protected function renderReady() {
+		
+		// ensure that wire() functions in template file map to correct ProcessWire instance
+		$this->savedInstance = ProcessWire::getCurrentInstance();
+		ProcessWire::setCurrentInstance($this->wire());
+		
+		$this->profiler = $this->wire('profiler');
+	
+		if($this->chdir !== false) {
+			$cwd = getcwd();
+
+			if($this->chdir) {
+				$chdir = $this->chdir;
+			} else {
+				$chdir = dirname($this->filename);
+			}
+
+			if($chdir === $cwd) {
+				// already in required directory
+				$this->savedDir = '';
+			} else {
+				// change to new directory
+				$this->savedDir = $cwd;
+				chdir($chdir);
+			}
+		}
+	}
+
+	/**
+	 * Cleanup after render
+	 * 
+	 * @since 3.0.154
+	 * 
+	 */
+	protected function renderFinished() {
+		
+		if($this->currentFilename) {
+			$this->fileFinished();
+		}
+		
+		if($this->savedDir && $this->chdir !== false) {
+			chdir($this->savedDir);
+		}
+		
+		ProcessWire::setCurrentInstance($this->savedInstance);
+	}
+
+	/**
+	 * Called when overall render failed
+	 * 
+	 * @param \Exception $e
+	 * @return \Exception
+	 * @since 3.0.154
+	 * 
+	 */
+	protected function renderFailed(\Exception $e) {
+		$this->renderFinished();
+		return $e; 
+	}
+
+	/**
+	 * Set the current filename being rendered
+	 *
+	 * @param string $filename
+	 * @deprecated Moved to fileReady() and fileFinished()
+	 *
+	 */
+	protected function setCurrentFilename($filename) {
+		if(strlen($filename)) {
+			$this->fileReady($filename);
+		} else {
+			$this->fileFinished();
+		}
 	}
 
 	/**
@@ -329,46 +497,31 @@ class TemplateFile extends WireData {
 	 *	
 	 */
 	public function get($property) {
-		if($property == 'filename') return $this->filename; 
-		if($property == 'appendFilename') return $this->appendFilename; 
-		if($property == 'prependFilename') return $this->prependFilename; 
-		if($property == 'halt') return $this->halt;
+		if($property === 'filename') return $this->filename; 
+		if($property === 'appendFilename' || $property === 'appendFilenames') return $this->appendFilename; 
+		if($property === 'prependFilename' || $property === 'prependFilenames') return $this->prependFilename;
+		if($property === 'currentFilename') return $this->currentFilename; 
+		if($property === 'halt') return $this->halt;
+		if($property === 'trim') return $this->trim;
 		if($value = parent::get($property)) return $value; 
 		if(isset(self::$globals[$property])) return self::$globals[$property];
 		return null;
 	}
-	
+
+	/**
+	 * Set a property
+	 * 
+	 * @param string $property
+	 * @param mixed $value
+	 * @return $this|WireData
+	 * 
+	 */
 	public function set($property, $value) {
-		if($property == 'halt') {
+		if($property === 'halt') {
 			$this->halt($value);
 			return $this;
 		}
 		return parent::set($property, $value);
-	}
-
-	/**
-	 * Call this with boolean false to disable exceptions when file doesn't exist
-	 * 
-	 * @param bool $throwExceptions
-	 * 
-	 */
-	public function setThrowExceptions($throwExceptions) {
-		$this->throwExceptions = $throwExceptions ? true : false;
-	}
-	
-	/**
-	 * Set the current filename being rendered
-	 *
-	 * @param $filename
-	 *
-	 */
-	protected function setCurrentFilename($filename) {
-		$this->currentFilename = $filename;
-		if(strlen($filename)) {
-			self::pushRenderStack($filename);
-		} else {
-			self::popRenderStack();
-		}
 	}
 
 	/**
@@ -409,7 +562,9 @@ class TemplateFile extends WireData {
 	}
 
 	/**
-	 * The string value of a TemplateFile is it's PHP template filename OR it's class name if no filename is set
+	 * The string value of a TemplateFile is its PHP template filename OR its class name if no filename is set
+	 * 
+	 * @return string
 	 *	
 	 */
 	public function __toString() {
@@ -436,96 +591,5 @@ class TemplateFile extends WireData {
 		return $this;
 	}
 	
-	/**
-	 * Hookable version of translation functions, $this->_(), $this->_x(), $this->_n()
-	 *
-	 * #pw-hooker
-	 *
-	 * @param string $text
-	 * @param array $options Additional options:
-	 *  - `file` (string): Filename where text appears
-	 *  - `context` (string): Context string
-	 *  - `textPlural` (string): Plural version of text, if provided
-	 *  - `count` (int): Quantity for plural, if plural provided
-	 * @return string
-	 *
-	protected function ___translate($text, array $options = array()) {
-		if(!empty($options['count']) && !empty($options['textPlural'])) {
-			$textdomain = $this->currentFilename ? $this->currentFilename : $this;
-			return _n($text, $options['textPlural'], $options['count'], $textdomain);
-		}
-		return $text;
-	}
-	 */
-
-	/**
-	 * Translate the given text string into the current language if available.
-	 *
-	 * If not available, or if the current language is the native language, then it returns the text as is.
-	 * 
-	 * #pw-group-translation
-	 *
-	 * @param string $text Text string to translate
-	 * @return string
-	 *
-	public function _($text) {
-		if($this->wire('hooks')->isHooked('TemplateFile::translate()')) {
-			// delegate to hooked translate() method if there are hooks
-			$options = array('file' => $this->currentFilename);
-			$_text = $this->translate($text, $options);
-			if($_text != $text) return $_text;
-		}
-		// map to textdomain of file being rendered
-		if($this->currentFilename) return __($text, $this->currentFilename);
-		return parent::_($text);
-	}
-	 */
-
-	/**
-	 * Perform a language translation in a specific context
-	 *
-	 * Used when to text strings might be the same in English, but different in other languages.
-	 * 
-	 * #pw-group-translation
-	 *
-	 * @param string $text Text for translation.
-	 * @param string $context Name of context
-	 * @return string Translated text or original text if translation not available.
-	 *
-	public function _x($text, $context) {
-		if($this->wire('hooks')->isHooked('TemplateFile::translate()')) {
-			// delegate to hooked translate() method if there are hooks
-			$options = array('file' => $this->currentFilename, 'context' => $context);
-			$_text = $this->translate($text, $options);
-			if($_text != $text) return $_text;
-		}
-		// map to textdomain of file being rendered
-		if($this->currentFilename) return _x($text, $context, $this->currentFilename);
-		return parent::_x($text, $context);
-	}
-	 */
-
-	/**
-	 * Perform a language translation with singular and plural versions
-	 *
-	 * #pw-group-translation
-	 *
-	 * @param string $textSingular Singular version of text (when there is 1 item).
-	 * @param string $textPlural Plural version of text (when there are multiple items or 0 items).
-	 * @param int $count Quantity used to determine whether singular or plural.
-	 * @return string Translated text or original text if translation not available.
-	 *
-	public function _n($textSingular, $textPlural, $count) {
-		if($this->wire('hooks')->isHooked('TemplateFile::translate()')) {
-			// delegate to hooked translate() method if there are hooks
-			$options = array('file' => $this->currentFilename, 'textPlural' => $textPlural, 'count' => $count);
-			$_text = $this->translate($textSingular, $options);
-			if($_text != $textSingular && $_text != $textPlural) return $_text;
-		}
-		// map to textdomain of file being rendered
-		if($this->currentFilename) return _n($textSingular, $textPlural, $count, $this->currentFilename);
-		return parent::_n($textSingular, $textPlural, $count);
-	}
-	 */
 }
 
