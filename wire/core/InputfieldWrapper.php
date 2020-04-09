@@ -758,8 +758,27 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			} else if(strpos($markupItemContent, '{class}') !== false) {
 				$markupItemContent = str_replace('{class}', '', $markupItemContent); 
 			}
-			if($inputfield->className() != 'InputfieldWrapper') $ffOut = str_replace('{out}', $ffOut, $markupItemContent); 
-			$out .= str_replace(array('{attrs}', '{out}'), array(trim($attrs), $label . $ffOut), $markup['item']); 
+
+			if($inputfield->className() != 'InputfieldWrapper') {
+				$vars = $this->getContentVars($inputfield, [
+					'out' => $ffOut,
+					'markup' => $markupItemContent,
+				]);
+				$ffOut = str_replace('{out}', $vars['out'], $vars['markup']);
+			}
+
+			$vars = $this->getItemVars($inputfield, [
+				'attrs' => $attrs,
+				'label' => $label,
+				'out' => $ffOut,
+				'markup' => $markup['item'],
+			]);
+			$out .= str_replace(
+				array('{attrs}', '{out}'),
+				array(trim($vars['attrs']), $vars['label'] . $vars['out']),
+				$vars['markup']
+			); 
+
 			$lastInputfield = $inputfield;
 		} // foreach($children as $inputfield)
 
@@ -779,6 +798,22 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		}
 
 		return $out; 
+	}
+
+	/**
+	 * Make variables used for rendering InputfieldContent hookable
+	 * @return array
+	 */
+	public function ___getContentVars(Inputfield $inputfield, array $vars) {
+		return $vars;
+	}
+
+	/**
+	 * Make variables used for rendering the Inputfield hookable
+	 * @return array
+	 */
+	public function ___getItemVars(Inputfield $inputfield, array $vars) {
+		return $vars;
 	}
 
 	/**
