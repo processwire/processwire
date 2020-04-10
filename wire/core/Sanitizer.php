@@ -2970,7 +2970,7 @@ class Sanitizer extends Wire {
 	 */
 	public function date($value, $format = null, array $options = array()) {
 		$defaults = array(
-			'returnFormat' => $format, // date format to return in, if different from $dateFormat
+			'returnFormat' => $format, // date format to return in, if different from $format
 			'min' => '', // Minimum date allowed (in $dateFormat format, or a unix timestamp) 
 			'max' => '', // Maximum date allowed (in $dateFormat format, or a unix timestamp)
 			'default' => null, // Default value, if date didn't resolve
@@ -2978,13 +2978,14 @@ class Sanitizer extends Wire {
 		);
 		$options = array_merge($defaults, $options);
 		$datetime = $this->wire('datetime');
+		$iso8601 = 'Y-m-d H:i:s';
 		$_value = trim($value); // original value string
 		if(empty($value)) return $options['default'];
 		if(!is_string($value) && !is_int($value)) $value = $this->string($value);
 		if(ctype_digit("$value")) {
 			// value is in unix timestamp format
 			// make sure it resolves to a valid date
-			$value = strtotime(date('Y-m-d H:i:s', (int) $value));
+			$value = strtotime(date($iso8601, (int) $value));
 		} else {
 			/** @var WireDateTime $datetime */
 			$value = $datetime->stringToTimestamp($value, $format); 

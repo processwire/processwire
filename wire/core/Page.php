@@ -61,9 +61,9 @@
  * @property int $published Unix timestamp of when the page was published. #pw-group-common #pw-group-date-time #pw-group-system
  * @property string $publishedStr Date/time when the page was published (formatted date/time string). #pw-group-date-time
  * @property int $created_users_id ID of created user. #pw-group-system
- * @property User $createdUser The user that created this page. Returns a User or a NullPage.
+ * @property User|NullPage $createdUser The user that created this page. Returns a User or a NullPage.
  * @property int $modified_users_id ID of last modified user. #pw-group-system
- * @property User $modifiedUser The user that last modified this page. Returns a User or a NullPage.
+ * @property User|NullPage $modifiedUser The user that last modified this page. Returns a User or a NullPage.
  * @property PagefilesManager $filesManager The object instance that manages files for this page. #pw-group-files
  * @property string $filesPath Get the disk path to store files for this page, creating it if it does not exist. #pw-group-files
  * @property string $filesUrl Get the URL to store files for this page, creating it if it does not exist. #pw-group-files

@@ -628,6 +628,59 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Does the given column exist in given table? 
+	 * 
+	 * ~~~~~
+	 * // Standard usage:
+	 * if($database->columnExists('pages', 'name')) {
+	 *   echo "The pages table has a 'name' column";
+	 * }
+	 * 
+	 * // You can also bundle table and column together:
+	 * if($database->columnExists('pages.name')) {
+	 *   echo "The pages table has a 'name' column";
+	 * }
+	 * 
+	 * $exists = $database->columnExists('pages', 'name', true); 
+	 * if($exists) {
+	 *   // associative array with indexes: Name, Type, Null, Key, Default, Extra
+	 *   echo "The pages table has a 'name' column and here is verbose info: ";
+	 *   print_r($exists); 
+	 * }
+	 * ~~~~~
+	 *
+	 * #pw-group-custom
+	 * 
+	 * @param string $table Specify table name (or table and column name in format "table.column").
+	 * @param string $column Specify column name (or omit or blank string if already specified in $table argument). 
+	 * @param bool $getInfo Return array of column info (with type info, etc.) rather than boolean?
+	 * @return bool|array
+	 * @since 3.0.154
+	 * @throws WireDatabaseException
+	 * 
+	 */
+	public function columnExists($table, $column = '', $getInfo = false) {
+		if(empty($column)) {
+			if(!strpos($table, '.')) throw new WireDatabaseException('No column specified');
+			list($table, $column) = explode('.', $table, 2);
+		}
+		$exists = false;
+		$table = $this->escapeTable($table);
+		try {
+			$query = $this->prepare("SHOW COLUMNS FROM `$table` WHERE Field=:column");
+			$query->bindValue(':column', $column, \PDO::PARAM_STR);
+			$query->execute();
+			$numRows = (int) $query->rowCount();
+			if($numRows) $exists = $getInfo ? $query->fetch(\PDO::FETCH_ASSOC) : true;
+			$query->closeCursor();
+		} catch(\Exception $e) {
+			// most likely given table does not exist
+			$exists = false;
+		}
+		return $exists;
+	}
+
+	/**
 	 * Is the given string a database comparison operator?
 	 * 
 	 * #pw-group-custom
