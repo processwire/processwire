@@ -43,6 +43,14 @@ abstract class FieldtypeMulti extends Fieldtype {
 	protected static $getMatchQueryCount = 0;
 
 	/**
+	 * Do we currently have a locked table?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $lockedTable = false;
+
+	/**
 	 * Modify the default schema provided by Fieldtype to include a 'sort' field, and integrate that into the primary key.
 	 * 
 	 * @param Field $field
@@ -619,18 +627,11 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$hasInserts = false;
 		$sort = null;
 		$numSaved = 0;
-		$locked = false;
 		
 		// sleep the values for storage
 		$sleepValue = $this->sleepValue($page, $field, $value);
 
-		try {
-			// attempt lock if possible
-			if($database->exec("LOCK TABLES `$table` WRITE")); 
-			$locked = true;
-		} catch(\Exception $e) {
-			// nothing ever happened, it's all just stories
-		}
+		$this->lockForWriting($field);
 	
 		if(isset($schema['sort'])) {
 			// determine if there are any INSERTs and what the next sort value(s) should be
@@ -642,12 +643,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 			}
 			if($hasInserts) {
 				// determine max sort value for new items inserted
-				$sql = "SELECT MAX(sort) FROM `$table` WHERE pages_id=:pages_id";
-				$query = $database->prepare($sql);
-				$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
-				$query->execute();
-				$sort = (int) $query->fetchColumn();
-				$query->closeCursor();
+				$sort = $this->getMaxColumnValue($page, $field, 'sort');
 			}
 		}
 	
@@ -692,16 +688,78 @@ abstract class FieldtypeMulti extends Fieldtype {
 				$this->error($e->getMessage(), $this->wire('user')->isSuperuser() ? Notice::logOnly : Notice::log);
 			}
 		}
-		
-		if($locked) {
-			try {
-				$database->exec("UNLOCK TABLES");
-			} catch(\Exception $e) {
-				// indeed there is no thing here
-			}
-		}
+	
+		$this->unlockForWriting();
 
 		return $numSaved;
+	}
+
+	/**
+	 * Lock field table for writing
+	 * 
+	 * @param Field $field
+	 * @return bool
+	 * 
+	 */
+	protected function lockForWriting(Field $field) {
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->getTable());
+		$locked = false;
+		try {
+			// attempt lock if possible
+			if($database->exec("LOCK TABLES `$table` WRITE")) {
+				$this->lockedTable = true;
+				$locked = true;
+			}
+		} catch(\Exception $e) {
+			// ignore
+		}
+		
+		return $locked;
+	}
+
+	/**
+	 * Unlock for writing
+	 * 
+	 * @return bool
+	 * 
+	 */
+	protected function unlockForWriting() {
+		$result = false;
+		if($this->lockedTable) try {
+			$this->wire('database')->exec("UNLOCK TABLES");
+			$this->lockedTable = false;
+			$result = true;
+		} catch(\Exception $e) {
+			// ignore
+		}
+		return $result;
+	}
+
+	/**
+	 * Get max value of column for given Page and Field
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $column
+	 * @return int|mixed
+	 * @throws WireException
+	 * @since 3.0.154
+	 * 
+	 */
+	protected function getMaxColumnValue(Page $page, Field $field, $column) {
+		// determine max sort value for new items inserted
+		/** @var WireDatabasePDO $database */
+		$database = $this->wire('database'); 
+		$table = $database->escapeTable($field->getTable());
+		$column = $database->escapeCol($column);
+		$sql = "SELECT MAX($column) FROM `$table` WHERE pages_id=:pages_id";
+		$query = $database->prepare($sql);
+		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$query->execute();
+		$value = $query->fetchColumn();
+		$query->closeCursor();
+		return $value;
 	}
 
 	/**
