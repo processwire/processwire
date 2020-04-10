@@ -740,6 +740,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		} else {
 			$this->message($message); 
 		}
+		
+		$pagefile->createdUser = $this->wire('user');
+		$pagefile->modifiedUser = $this->wire('user');
 	}
 	
 	protected function fileAddedGetMarkup(Pagefile $pagefile, $n) {

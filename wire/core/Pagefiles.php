@@ -771,7 +771,8 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 			if(!$isTemp) return false; // if not a temp file, we can exit now
 			if(!$checkDeletable) return $isTemp; // if not checking deletable, we can exit now
 		}
-		
+
+		$user = $this->wire('user');
 		$now = time();
 		$session = $this->wire('session');
 		$pageID = $this->page ? $this->page->id : 0;
@@ -803,6 +804,8 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 			// set temporary status to true
 			$pagefile->created = Pagefile::createdTemp;
 			$pagefile->modified = $now; 
+			$pagefile->createdUser = $user;
+			$pagefile->modifiedUser = $user;
 			//                          mtime                  atime
 			@touch($pagefile->filename, Pagefile::createdTemp, $now);
 			$isTemp = true;
@@ -815,6 +818,8 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 			// set temporary status to false
 			$pagefile->created = $now;
 			$pagefile->modified = $now; 
+			$pagefile->createdUser = $user;
+			$pagefile->modifiedUser = $user;
 			@touch($pagefile->filename, $now);
 			$isTemp = false;
 			

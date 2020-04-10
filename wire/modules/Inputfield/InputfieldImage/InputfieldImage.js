@@ -2315,6 +2315,7 @@ function InputfieldImage($) {
 			initInputfield($inputfield);
 			initUploadHTML5($inputfield);
 			//console.log('InputfieldImage reloaded');
+			Inputfields.init($inputfield);
 		}).on('wiretabclick', function(e, $newTab, $oldTab) {
 			$newTab.find(".InputfieldImage").each(function() {
 				initInputfield($(this));

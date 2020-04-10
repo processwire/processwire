@@ -59,7 +59,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	const fileSchemaTags = 1; 
 
 	/**
-	 * File schema is configured to support 'created' date (flag)
+	 * File schema is configured to support 'created' and 'modified' dates (flag)
 	 *
 	 */
 	const fileSchemaDate = 2;
@@ -69,6 +69,12 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	 *
 	 */
 	const fileSchemaFiledata = 4;
+
+	/**
+	 * File schema is configured to store 'filesize' and created/modified users (flag)
+	 * 
+	 */
+	const fileSchemaFilesize = 8;
 
 	/**
 	 * Flag for useTags: tags off/disabled
@@ -87,6 +93,14 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	 * 
 	 */
 	const useTagsPredefined = 8;
+	
+	/**
+	 * Auto-update non-present settings in DB during wakeup?
+	 * 
+	 * @since 3.0.154 for enabling true when in development
+	 *
+	 */
+	const autoUpdateOnWakeup = false;
 
 	/**
 	 * Default class for Inputfield object used, auto-generated at construct
@@ -221,6 +235,35 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	}
 
 	/**
+	 * @param Page $page
+	 * @param Field $field
+	 * @return array|null
+	 * 
+	 */
+	public function ___loadPageField(Page $page, Field $field) {
+		
+		$n = 0;
+		$retry = false;
+		$result = null;
+		
+		do {
+			try {
+				$result = parent::___loadPageField($page, $field);
+			} catch(\PDOException $e) {
+				// retry to apply new schema (this can eventually be removed)
+				$fileSchema = (int) $field->get('fileSchema');
+				// 42S22=Column not found
+				if($e->getCode() !== '42S22' || $n > 0 || !($fileSchema & self::fileSchemaFilesize)) throw $e; 
+				$field->set('fileSchema', $fileSchema & ~self::fileSchemaFilesize);
+				$this->getDatabaseSchema($field); 
+				$retry = true;
+			}
+		} while($retry && ++$n < 2); 
+		
+		return $result;
+	}
+
+	/**
 	 * Given a raw value (value as stored in DB), return the value as it would appear in a Page object
  	 *
 	 * @param Page $page
@@ -236,26 +279,61 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		if(empty($value)) return $pagefiles; 
 	
 		if(!is_array($value) || array_key_exists('data', $value)) $value = array($value); 
-		foreach($value as $v) {
-			if(empty($v['data'])) continue; 
-			$pagefile = $this->getBlankPagefile($pagefiles, $v['data']); 
-			$pagefile->description(true, $v['description']); 
-			if(isset($v['modified'])) $pagefile->modified = $v['modified'];
-			if(isset($v['created'])) $pagefile->created = $v['created'];
-			if(isset($v['tags'])) $pagefile->tags = $v['tags'];
-			if(!empty($v['filedata'])) {
-				$filedata = json_decode($v['filedata'], true);
-				unset($filedata['ix']);
-				$pagefile->filedata = $filedata;
-			}
-			$pagefile->setTrackChanges(true); 
-			$pagefiles->add($pagefile); 
+		
+		foreach($value as $a) {
+			if(empty($a['data'])) continue;
+			$this->wakeupFile($page, $field, $pagefiles, $a);
 		}
 	
 		$pagefiles->resetTrackChanges(true); 
+		
 		return $pagefiles;  
 	}
 
+	/**
+	 * Wakeup individual file converting array of data to Pagefile and adding it to Pagefiles
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Pagefiles $pagefiles
+	 * @param array $a Data from DB to create Pagefile from
+	 * @return Pagefile The Pagefile object that was added
+	 * 
+	 */
+	protected function wakeupFile(Page $page, Field $field, Pagefiles $pagefiles, array $a) {
+
+		$pagefile = $this->getBlankPagefile($pagefiles, $a['data']);
+		$pagefile->description(true, $a['description']);
+	
+		$columns = array('modified', 'created', 'tags', 'modified_users_id', 'created_users_id'); 
+		
+		foreach($columns as $column) {
+			if(isset($a[$column])) $pagefile->set($column, $a[$column]);
+		}
+		
+		if(!empty($a['filedata'])) {
+			$filedata = json_decode($a['filedata'], true);
+			unset($filedata['ix']);
+			$pagefile->filedata = $filedata;
+		}
+
+		$pagefile->isNew(false);
+		$pagefile->setTrackChanges(true);
+		$pagefiles->add($pagefile);
+	
+		if(!empty($a['filesize'])) {
+			// @todo 
+			// $pagefile->setQuietly('filesize', (int) $a['filesize']);
+		} else if(((int) $field->get('fileSchema')) & self::fileSchemaFilesize) {
+			// populate file size into DB row
+			if(self::autoUpdateOnWakeup) {
+				$this->saveFileCols($page, $field, $pagefile, array('filesize' => $pagefile->filesize()));
+			}
+		}
+		
+		return $pagefile;
+	}
+	
 	/**
 	 * Given an 'awake' value, as set by wakeupValue, convert the value back to a basic type for storage in DB. 
 	 *              
@@ -272,35 +350,74 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	
 		foreach($value as $pagefile) {
 			/** @var Pagefile $pagefile */
-			
-			$item = array(
-				'data' => $pagefile->basename, 
-				'description' => $pagefile->description(true), 
-			); 
-			
-			$fileSchema = $field->get('fileSchema');
-	
-			if($fileSchema & self::fileSchemaDate) { 
-				$item['modified'] = date('Y-m-d H:i:s', $pagefile->modified);
-				$item['created'] = date('Y-m-d H:i:s', $pagefile->created);
-			}
-	
-			if($fileSchema & self::fileSchemaTags) {
-				$item['tags'] = $pagefile->tags;
-			}
-			
-			if($fileSchema & self::fileSchemaFiledata) {
-				$filedata = $this->sleepFiledata($field, $pagefile);
-				if(empty($filedata)) {
-					$item['filedata'] = null;
-				} else {
-					$item['filedata'] = json_encode($filedata); 
-				}
-			}
-	
+			$item = $this->sleepFile($page, $field, $pagefile);
 			$sleepValue[] = $item;
 		}
 		return $sleepValue;
+	}
+
+	/**
+	 * Convert individual Pagefile to array for storage in DB
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Pagefile $pagefile
+	 * @return array
+	 * 
+	 */
+	protected function sleepFile(Page $page, Field $field, Pagefile $pagefile) {
+		
+		if($page) {} // ignore
+		
+		$isNew = $pagefile->isNew();
+		$isChanged = $pagefile->isChanged();
+		
+		if($isNew) {
+			$pagefile->createdUser = $this->wire('user');
+			$pagefile->created = time();
+		}
+		
+		if($isChanged || $isNew) {
+			$changes = array_flip($pagefile->getChanges());
+			unset($changes['hash'], $changes['sort'], $changes['modified'], $changes['modified_users_id']); 
+			if($isNew || count($changes)) {
+				$pagefile->modifiedUser = $this->wire('user');
+				$pagefile->modified = time();
+			}
+		}
+		
+		$item = array(
+			'data' => $pagefile->basename,
+			'description' => $pagefile->description(true),
+		);
+
+		$fileSchema = (int) $field->get('fileSchema');
+
+		if($fileSchema & self::fileSchemaDate) {
+			$item['modified'] = date('Y-m-d H:i:s', $pagefile->modified);
+			$item['created'] = date('Y-m-d H:i:s', $pagefile->created);
+		}
+
+		if($fileSchema & self::fileSchemaFilesize) {
+			$item['filesize'] = $pagefile->filesize(true);
+			$item['modified_users_id'] = (int) $pagefile->modified_users_id;
+			$item['created_users_id'] = (int) $pagefile->created_users_id;
+		}
+
+		if($fileSchema & self::fileSchemaTags) {
+			$item['tags'] = $pagefile->tags;
+		}
+
+		if($fileSchema & self::fileSchemaFiledata) {
+			$filedata = $this->sleepFiledata($field, $pagefile);
+			if(empty($filedata)) {
+				$item['filedata'] = null;
+			} else {
+				$item['filedata'] = json_encode($filedata);
+			}
+		}
+
+		return $item;
 	}
 
 	/**
@@ -665,20 +782,71 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	 * 
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+	
+		$field = $query->field; 
+		$schema = $this->getDatabaseSchema($field); 
+		$compareType = Selectors::getOperators(array('valueType' => 'compareType', 'operator' => $operator)); 
+		$isFindOperator = $compareType & Selector::compareTypeFind;
+		$isInvalidOperator = false;
+		$isInvalidSubfield = false;
 		
-		if($subfield && !in_array($subfield, array('data', 'count', 'filedata', 'created', 'modified', 'description', 'tags'))) { 
-			// match custom fields
-			if($this->getMatchQuerySubfield($query, $subfield, $operator, $value)) {
-				// successfully handled
+		unset($schema['keys'], $schema['xtra']);
+		
+		if($subfield) {
+			if($subfield === 'created' || $subfield === 'modified') {
+				// created or modified date
+				if($isFindOperator) {
+					$isInvalidOperator = true;
+				} else if(ctype_digit(ltrim("$value", "-"))) {
+					$value = date('Y-m-d H:i:s', (int) $value);
+				} else {
+					$value = new \DateTime($value);
+					$value = $value->format('Y-m-d H:i:s');
+				}
+
+			} else if($subfield === 'modified_users_id' || $subfield === 'created_users_id') {
+				if($isFindOperator) {
+					$isInvalidOperator = true;
+				} else if(ctype_digit("$value")) {
+					$value = (int) $value;
+				} else {
+					$value = $this->wire('users')->get('name=' . $this->wire('sanitizer')->pageName($value))->id;
+					if(!$value) {
+						$operator = '=';
+						$value = -1;
+					}
+				}
+				
+			} else if($subfield === 'count') {
+				// count match
+				if($isFindOperator) $isInvalidOperator = true;
+				$value = (int) $value;
+				
+			} else if(isset($schema[$subfield])) {
+				// subfield is a column native to table
+				$useInt = stripos($schema[$subfield], 'int') === 0;
+				$useFloat = !$useInt && stripos($schema[$subfield], 'float') === 0;
+				if(($useInt || $useFloat) && $isFindOperator) $isInvalidOperator = true; 
+				if($useInt) $value = (int) $value;
+				if($useFloat) $value = (float) $value;
+				
+			} else if($this->getMatchQuerySubfield($query, $subfield, $operator, $value)) {
+				// match custom fields, successfully handled
+				
 			} else {
-				// requested subfield does not match what's available
-				throw new PageFinderSyntaxException("Property '$subfield' not recognized in selector: $query->selector"); 
+				// requested subfield does not match what’s available
+				$isInvalidSubfield = true;
 			}
 		}
+	
+		if($isInvalidSubfield) {
+			throw new PageFinderSyntaxException("Property '$subfield' not recognized in: $query->selector");
+			
+		} else if($isInvalidOperator) {
+			throw new PageFinderSyntaxException("Invalid operator '$operator' for: $field->name.$subfield");
 
-		if(in_array($operator, array("*=", "~=", "!~=", "%=", "^=", "$="))) {
-			// fulltext match filename or description
-			/** @var DatabaseQuerySelectFulltext $ft */
+		} else if($isFindOperator) {
+			/** @var DatabaseQuerySelectFulltext $ft Fulltext match filename or description */
 			$ft = $this->wire(new DatabaseQuerySelectFulltext($query)); 
 			$ft->match($table, $subfield, $operator, $value); 
 
@@ -800,7 +968,6 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 
 		$database = $this->wire('database');
 		$schema = parent::getDatabaseSchema($field);
-		$table = $database->escapeTable($field->table); 
 		$maxLen = $database->getMaxIndexLength();
 
 		$schema['data'] = "varchar($maxLen) NOT NULL";
@@ -808,159 +975,175 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		$schema['modified'] = "datetime"; 
 		$schema['created'] = "datetime";
 		$schema['filedata'] = "mediumtext"; 
+		$schema['filesize'] = "int"; // 3.0.154+
+		$schema['created_users_id'] = 'int unsigned not null default 0'; // 3.0.154+
+		$schema['modified_users_id'] = 'int unsigned not null default 0'; // 3.0.154+
 		$schema['keys']['description'] = 'FULLTEXT KEY description (description)';
 		$schema['keys']['filedata'] = 'FULLTEXT KEY filedata (filedata)'; 
 		$schema['keys']['modified'] = 'index (modified)'; 
 		$schema['keys']['created'] = 'index (created)';
+		$schema['keys']['filesize'] = 'index (filesize)'; // 3.0.154+
 		
-		if($field->id && !($field->get('fileSchema') & self::fileSchemaFiledata)) {
-			// permanently add new 'filedata' column to schema
-			$addFiledata = false;
-			if($field->flags & Field::flagFieldgroupContext) $field = $this->wire('fields')->get($field->name);
-
-			try {
-				$query = $database->prepare("SHOW COLUMNS FROM `$table` WHERE Field='filedata'");
-				$query->execute();
-				$numRows = (int) $query->rowCount();
-				$query->closeCursor();
-
-				if($numRows) {
-					$field->set('fileSchema', $field->get('fileSchema') | self::fileSchemaFiledata);
-					$field->save();
-				} else {
-					$addFiledata = true;
-				}
-			} catch(\Exception $e) {
-				// intentionally blank
+		if($field->id) {
+			if($field->flags & Field::flagFieldgroupContext) {
+				$field = $this->wire('fields')->get($field->name);
 			}
-
-			if($addFiledata) try {
-				$database->exec("ALTER TABLE `{$table}` ADD `filedata` $schema[filedata]");
-				$database->exec("ALTER TABLE `{$table}` ADD " . $schema['keys']['filedata']);
-				$field->set('fileSchema', $field->get('fileSchema') | self::fileSchemaFiledata);
+			$fileSchema1 = (int) $field->get('fileSchema'); 
+			$fileSchema2 = $this->updateDatabaseSchema($field, $schema, $fileSchema1);
+			if($fileSchema1 !== $fileSchema2) {
+				// update fileSchema flags
+				$field->set('fileSchema', $fileSchema2);
 				$field->save();
-				$this->message("Added filedata to DB schema for '{$field->name}'", Notice::log);
+			}
+		}
+		
+		return $schema;
+	}
+	
+	/**
+	 * Check and update database schema according to current version and features
+	 * 
+	 * @param Field $field
+	 * @param array $schema Updated directly
+	 * @param int $fileSchema The fileSchema version flags integer
+	 * @return int Updated fileSchema flags integer
+	 * @since 3.0.154
+	 * 
+	 */
+	protected function updateDatabaseSchema(Field $field, array &$schema, $fileSchema) {
 
-			} catch(\Exception $e) {
+		$contextField = $field; 
+		if($field->flags & Field::flagFieldgroupContext) $field = $this->wire('fields')->get($field->name);
 
-				$query = $database->prepare("SHOW COLUMNS FROM `$table` WHERE Field='filedata'");
-				$query->execute();
-				$numRows = (int) $query->rowCount();
-				$query->closeCursor();
+		/** @var WireDatabasePDO $database */
+		$database = $this->wire('database');
+		$table = $database->escapeTable($field->table);
 
-				if($numRows) {
-					$field->set('fileSchema', $field->get('fileSchema') | self::fileSchemaFiledata);
-					$field->save();
-				} else {
-					$this->error("Error adding created/modified to '{$field->name}' schema", Notice::log);
-					unset($schema['filedata'], $schema['keys']['filedata']); 
-				}
+		$hasFilesize = $fileSchema & self::fileSchemaFilesize;
+		$hasFiledata = $fileSchema & self::fileSchemaFiledata;
+		$hasDate = $fileSchema & self::fileSchemaDate;
+		$hasTags = $fileSchema & self::fileSchemaTags;
+		$useTags = $field->get('useTags') || $contextField->get('useTags');
+
+		// Filesize update (3.0.154): Adds 'filesize', 'created_users_id', 'modified_users_id' columns
+		if(!$hasFilesize) {
+			$columns = array('filesize', 'created_users_id', 'modified_users_id');
+			$numErrors = 0;
+			foreach($columns as $column) {
+				if(!$this->addColumn($field, $column, $schema)) $numErrors++;
+				if($numErrors) break;
+			}
+			if(!$numErrors) {
+				$fileSchema = $fileSchema | self::fileSchemaFilesize;
 			}
 		}
 
-		if($field->id && !($field->get('fileSchema') & self::fileSchemaDate)) {
-			// permanently add new 'modified' and 'created' column to file schema
-			$addDates = false;
-			if($field->flags & Field::flagFieldgroupContext) $field = $this->wire('fields')->get($field->name);
+		// Filedata update: adds 'filedata' column
+		if(!$hasFiledata && $this->addColumn($field, 'filedata', $schema)) {
+			$fileSchema = $fileSchema | self::fileSchemaFiledata;
+		}
 
-			try {
-				$query = $database->prepare("SHOW COLUMNS FROM `$table` WHERE Field='modified'"); 
-				$query->execute();
-				$numRows = (int) $query->rowCount();
-				$query->closeCursor();
-				
-				if($numRows) {
-					$field->set('fileSchema', $field->get('fileSchema') | self::fileSchemaDate); 
-					$field->save();
-				} else {
-					$addDates = true; 
-				}
-			} catch(\Exception $e) {
-				// intentionally blank
-			}
-
-			if($addDates) try {
-				$database->exec("ALTER TABLE `{$table}` ADD `modified` $schema[modified]");
-				$database->exec("ALTER TABLE `{$table}` ADD `created` $schema[created]");
-				$database->exec("ALTER TABLE `{$table}` ADD " . $schema['keys']['modified']); 
-				$database->exec("ALTER TABLE `{$table}` ADD " . $schema['keys']['created']); 
-				$field->set('fileSchema', $field->get('fileSchema') | self::fileSchemaDate); 
-				$field->save();
-				$date = date('Y-m-d H:i:s'); 
-				$query = $database->prepare("UPDATE `$table` SET created=:created, modified=:modified"); 
+		// Date update: Adds 'modified', 'created' columns
+		if(!$hasDate) {
+			$numErrors = 0;
+			if(!$this->addColumn($field, 'created', $schema)) $numErrors++;
+			if(!$numErrors && !$this->addColumn($field, 'modified', $schema)) $numErrors++;
+			if(!$numErrors) {
+				$fileSchema = $fileSchema | self::fileSchemaDate;
+				// now populate initial dates
+				$date = date('Y-m-d H:i:s');
+				$query = $database->prepare("UPDATE `{$table}` SET created=:created, modified=:modified");
 				$query->bindValue(":created", $date);
-				$query->bindValue(":modified", $date); 
-				$query->execute();
-				$this->message("Added created/modified to DB schema for '{$field->name}'", Notice::log); 
-				
-			} catch(\Exception $e) {
-				
-				$query = $database->prepare("SHOW COLUMNS FROM `$table` WHERE Field='modified'"); 
-				$query->execute();
-				$numRows = (int) $query->rowCount();
-				$query->closeCursor();
-				
-				if($numRows) {
-					$field->set('fileSchema', $field->get('fileSchema') | self::fileSchemaDate); 
-					$field->save();
-				} else {
-					$this->error("Error adding created/modified to '{$field->name}' schema", Notice::log); 
+				$query->bindValue(":modified", $date);
+				try {
+					$query->execute();
+					$this->message("Populated initial created/modified dates for '{$field->name}'", Notice::log);
+				} catch(\Exception $e) {
+					$this->error("Error populating created/modified dates to '{$field->name}'", Notice::log);
 				}
-			
 			}
 		}
-
-		$tagsAction = null; // null=no change; 1=add tags, 0=remove tags
-		$schemaTags = 'varchar(250) NOT NULL'; 
-		$schemaTagsIndex = 'FULLTEXT KEY tags (tags)'; 
-
-		if($field->get('useTags') && !($field->get('fileSchema') & self::fileSchemaTags)) {
-			$tagsAction = 'add';
-		} else if(!$field->get('useTags') && ($field->get('fileSchema') & self::fileSchemaTags)) {
-			$tagsAction = 'remove';
-		}
-
-		if($tagsAction === 'add') {
+	
+		// Tags update: adds 'tags' column
+		$schemaTags = 'varchar(250) NOT NULL';
+		$schemaTagsIndex = 'FULLTEXT KEY tags (tags)';
+		if($useTags && !$hasTags) {
 			// add tags field
-			try {
-				$query = $database->prepare("SHOW COLUMNS FROM `$table` WHERE Field='tags'"); 
-				$query->execute();
-				$numRows = (int) $query->rowCount();
-				$query->closeCursor();
-			} catch(\Exception $e) {
-				// probably in a clone, we can ignore and skip over any further changes
-				$numRows = 1; 
-			}
-
-			if(!$numRows) try {
+			if($database->columnExists($table, 'tags')) {
+				// congrats
+				$fileSchema = $fileSchema | self::fileSchemaTags;
+			} else try {
 				$database->exec("ALTER TABLE `{$table}` ADD tags $schemaTags");
-				$database->exec("ALTER TABLE `{$table}` ADD $schemaTagsIndex"); 
-				$field->set('fileSchema', $field->get('fileSchema') | self::fileSchemaTags); 
-				$field->save();
-				$this->message("Added tags to DB schema for '{$field->name}'", Notice::log); 
+				$database->exec("ALTER TABLE `{$table}` ADD $schemaTagsIndex");
+				$this->message("Added tags to DB schema for '{$field->name}'", Notice::log);
+				$fileSchema = $fileSchema | self::fileSchemaTags;
 			} catch(\Exception $e) {
-				$this->error("Error adding tags to '{$field->name}' schema", Notice::log); 
+				$this->error("Error adding tags to '{$field->name}' schema", Notice::log);
 			}
 
-		} else if($tagsAction === 'remove') {
+		} else if(!$useTags && $hasTags) {
 			// remove tags field
+			$fileSchema = $fileSchema & ~self::fileSchemaTags;
+			/*
 			try {
-				$database->exec("ALTER TABLE `{$table}` DROP INDEX tags"); 
-				$database->exec("ALTER TABLE `{$table}` DROP tags"); 
-				$field->set('fileSchema', $field->get('fileSchema') & ~self::fileSchemaTags);
-				$field->save();
-				$this->message("Dropped tags from DB schema for '{$field->name}'", Notice::log); 
+				$database->exec("ALTER TABLE `{$table}` DROP INDEX tags");
+				$database->exec("ALTER TABLE `{$table}` DROP tags");
+				$this->message("Dropped tags from DB schema for '{$field->name}'", Notice::log);
+				$fileSchema = $fileSchema & ~self::fileSchemaTags;
 			} catch(\Exception $e) {
-				$this->error("Error dropping tags from '{$field->name}' schema", Notice::log); 
+				$this->error("Error dropping tags from '{$field->name}' schema", Notice::log);
 			}
+			*/
 		}
 
-		if($field->get('fileSchema') & self::fileSchemaTags) { 
+		if($fileSchema & self::fileSchemaTags) {
 			$schema['tags'] = $schemaTags;
 			$schema['keys']['tags'] = $schemaTagsIndex;
 		}
+		
+		return $fileSchema;
+	}
 
-		return $schema;
+	/**
+	 * Adds a column
+	 * 
+	 * @param Field $field
+	 * @param string $column
+	 * @param array $schema Schema array
+	 * @return bool
+	 * @throws WireException
+	 * 
+	 */
+	protected function addColumn(Field $field, $column, array &$schema) {
+		
+		/** @var WireDatabasePDO $database */
+		$database = $this->wire('database');
+		
+		if($database->columnExists($field->table, $column)) return true;
+		
+		if(!isset($schema[$column])) throw new WireException("Missing schema for $field->name.$column"); 
+		
+		$table = $database->escapeTable($field->table);
+		
+		try {
+			$result = $database->exec("ALTER TABLE `{$table}` ADD `$column` $schema[$column]");
+			if($result) { 
+				if(isset($schema['keys'][$column])) {
+					$database->exec("ALTER TABLE `{$table}` ADD " . $schema['keys'][$column]);
+				}
+				$this->message("Added '$column' to DB schema for '$field->name'", Notice::log | Notice::debug);
+			}
+		} catch(\Exception $e) {
+			if($database->columnExists($table, $column)) {
+				$result = true; 
+			} else {
+				$this->error("Error adding '$column' to '{$field->name}' schema", Notice::log);
+				unset($schema[$column], $schema['keys'][$column]);
+				$result = false;
+			}
+		}
+		
+		return $result;
 	}
 
 
@@ -1067,6 +1250,128 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		$page = $this->wire('pages')->newPage($this->getFieldsTemplate($field));
 		$page->status = Page::statusOn | Page::statusCorrupted; // corrupted status prevents saving
 		return $page;
+	}
+
+	/**
+	 * Save a single Pagefile to DB
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Pagefile $pagefile
+	 * @param array $columns Update only these column names (for existing Pagefile only)
+	 * @return bool
+	 * @throws WireException
+	 * @since 3.0.154
+	 * 
+	 */
+	public function saveFile(Page $page, Field $field, Pagefile $pagefile, array $columns = array()) {
+		
+		$item = $this->sleepFile($page, $field, $pagefile);
+		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$table = $database->escapeTable($field->getTable());
+		$sets = array();
+		$binds = array(':pages_id' => $page->id);
+		$isNew = $pagefile->isNew();
+		$columns = !$isNew && count($columns) ? array_flip($columns) : null;
+	
+		if($pagefile->formatted()) { 
+			if(!$columns || isset($columns['filedata']) || isset($columns['description'])) {
+				throw new WireException("Cannot save formatted Pagefile: $pagefile");
+			}
+		}
+		
+		foreach($item as $key => $value) {
+			if($columns && !isset($columns[$key])) continue;
+			$sets[] = "$key=:$key" ;
+			$binds[":$key"] = $value;
+		}
+		
+		$sets = implode(', ', $sets);
+		
+		if($isNew) {
+			$sql = "INSERT INTO $table SET pages_id=:pages_id, sort=:sort, $sets";
+			$binds[":sort"] = $this->getMaxColumnValue($page, $field, 'sort');
+		} else {
+			$sql = "UPDATE $table SET $sets WHERE pages_id=:pages_id AND data=:name";
+			$binds[':name'] = $pagefile->name;
+		}
+		
+		$query = $database->prepare($sql);
+		
+		foreach($binds as $key => $value) {
+			if($value === null) {
+				$type = \PDO::PARAM_NULL;
+			} else if(is_int($value)) {
+				$type = \PDO::PARAM_INT; 
+			} else {
+				$type = \PDO::PARAM_STR;
+			}
+			$query->bindValue($key, $value, $type);
+		}
+		
+		$result = $query->execute() ? $query->rowCount() : 0;
+		if($isNew && $result) $pagefile->isNew(false);
+		
+		return (bool) $result;
+	}
+
+	/**
+	 * Specify specific columns and values to update for Pagefile 
+	 * 
+	 * This update is performed quietly, not updating 'modified' or 'modified_users_id' 
+	 * unless specified in given data array $a. 
+	 * 
+	 * This method cannot be used to update 'description' or 'filedata' properties, 
+	 * and it will not save for Pagefile entries not already in the DB. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Pagefile $pagefile
+	 * @param array $a Associative array of column names and values
+	 * @return bool
+	 * @throws WireException
+	 * @since 3.0.154
+	 * 
+	 */
+	public function saveFileCols(Page $page, Field $field, Pagefile $pagefile, array $a) {
+		
+		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$table = $database->escapeTable($field->getTable());
+		$schema = $this->getDatabaseSchema($field);
+		$binds = array(':pid' => $page->id, ':name' => $pagefile->name);
+		$sets = array();
+		
+		if($pagefile->isNew()) {
+			throw new WireException("Cannot saveFileCols() on “new” Pagefile $pagefile");
+		}
+		
+		if(empty($a) || !$page->id || !($field->type instanceof FieldtypeFile)) return false;
+		
+		foreach($a as $col => $value) {
+			if(!isset($schema[$col])) {
+				throw new WireException("Unknown column '$col' for field $field->name");
+			} else if($col === 'filedata' || strpos($col, 'description') === 0) {
+				throw new WireException("Column '$col' cannot be saved with $this::saveFileCols()");
+			} 
+			$sets[] = "$col=:$col";
+			$binds[":$col"] = $value;
+		}
+		
+		$sql = "UPDATE $table SET " . implode(', ', $sets) . " where pages_id=:pid AND data=:name";
+		$query = $database->prepare($sql);
+		
+		foreach($binds as $key => $value) {
+			$query->bindValue($key, $value);
+		}
+		
+		$result = $query->execute() ? $query->rowCount() : 0;
+		
+		return (bool) $result;
+		
 	}
 
 	/**

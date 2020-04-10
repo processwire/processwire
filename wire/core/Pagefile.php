@@ -12,7 +12,7 @@
  * Pagefile objects are contained by a `Pagefiles` object. 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  * @property-read string $url URL to the file on the server.
@@ -40,6 +40,10 @@
  * @property Page $page The Page object that this file is part of. #pw-group-other
  * @property Field $field The Field object that this file is part of. #pw-group-other
  * @property array $filedata
+ * @property int $created_users_id ID of user that added/uploaded the file or 0 if not known (3.0.154+). #pw-group-other
+ * @property int $modified_users_id ID of user that last modified the file or 0 if not known (3.0.154+). #pw-group-other
+ * @property User|NullPage $createdUser User that added/uploaded the file or NullPage if not known (3.0.154)+. #pw-group-other
+ * @property User|NullPage $modifiedUser User that last modified the file or NullPage if not known (3.0.154)+. #pw-group-other
  * 
  * @method void install($filename)
  * @method string httpUrl()
@@ -89,6 +93,30 @@ class Pagefile extends WireData {
 	protected $fieldValues = array();
 
 	/**
+	 * Created user (populated only on rquest)
+	 *
+	 * @var User|null
+	 *
+	 */
+	protected $_createdUser = null;
+
+	/**
+	 * Modifed user (populated only on request)
+	 *
+	 * @var User|null
+	 *
+	 */
+	protected $_modifiedUser = null;
+
+	/**
+	 * Is this a brand new Pagefile rather than one loaded from DB?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $_isNew = true;
+
+	/**
 	 * Construct a new Pagefile
 	 * 
 	 * ~~~~~
@@ -108,7 +136,10 @@ class Pagefile extends WireData {
 		$this->set('tags', ''); 
 		$this->set('formatted', false); // has an output formatter been run on this Pagefile?
 		$this->set('modified', 0); 
-		$this->set('created', 0); 
+		$this->set('created', 0);
+		$this->set('filesize', 0); 
+		$this->set('created_users_id', 0);
+		$this->set('modified_users_id', 0);
 	}
 	
 	/**
@@ -119,11 +150,17 @@ class Pagefile extends WireData {
 	 */
 	public function __clone() {
 		$this->extras = array();
+		$this->set('filesize', 0);
+		$this->set('created_users_id', 0);
+		$this->set('modified_users_id', 0);
+		$this->_createdUser = null;
+		$this->_modifiedUser = null;
+		$this->isNew(true);
 		parent::__clone();
 	}
 
 	/**
-	 * Set the filename associated with this Pagefile.
+	 * Set the filename associated with this Pagefile
 	 *
 	 * No need to call this as it's already called from the constructor. 
 	 * This exists so that Pagefile/Pageimage descendents can create cloned variations, if applicable. 
@@ -137,7 +174,10 @@ class Pagefile extends WireData {
 
 		$basename = basename($filename); 
 
-		if(DIRECTORY_SEPARATOR != '/') $filename = str_replace('\\' . $basename, '/' . $basename, $filename); // To correct issue with XAMPP in Windows
+		if(DIRECTORY_SEPARATOR != '/') {
+			// To correct issue with XAMPP in Windows
+			$filename = str_replace('\\' . $basename, '/' . $basename, $filename); 
+		}
 	
 		if($basename != $filename && strpos($filename, $this->pagefiles->path()) !== 0) {
 			$this->install($filename); 
@@ -198,6 +238,7 @@ class Pagefile extends WireData {
 		
 		$this->wire('files')->chmod($destination);
 		$this->changed('file');
+		$this->isNew(true);
 		parent::set('basename', $basename);
 	}
 
@@ -215,20 +256,32 @@ class Pagefile extends WireData {
 	 */
 	public function set($key, $value) {
 		
-		if($key == 'basename') {
+		if($key === 'basename') {
 			$value = $this->pagefiles->cleanBasename($value, false);
-		} else if($key == 'description') {
+		} else if($key === 'description') {
 			return $this->setDescription($value);
-		} else if($key == 'modified') {
+		} else if($key === 'modified') {
 			$value = ctype_digit("$value") ? (int) $value : strtotime($value);
-		} else if($key == 'created') {
+		} else if($key === 'created') {
 			$value = ctype_digit("$value") ? (int) $value : strtotime($value);
-		} else if($key == 'tags') {
+		} else if($key === 'created_users_id' || $key === 'createdUser') { 
+			$this->setUser($value, 'created');
+			return $this;
+		} else if($key === 'modified_users_id' || $key === 'modifiedUser') {
+			$this->setUser($value, 'modified');
+			return $this;
+		} else if($key === 'tags') {
 			$this->tags($value);
 			return $this;
-		} else if($key == 'filedata') {
+		} else if($key === 'filedata') {
 			if(is_array($value)) $this->filedata($value);
 			return $this;	
+		} else if($key === 'filesize') {
+			$value = (int) $value; 
+			if(empty($this->data['filesize'])) {
+				$this->data['filesize'] = $value;
+				return $this;
+			}
 		}
 		
 		if(strpos($key, 'description') === 0 && preg_match('/^description(\d+)$/', $value, $matches)) {
@@ -243,6 +296,64 @@ class Pagefile extends WireData {
 		}
 
 		return parent::set($key, $value); 
+	}
+
+	/**
+	 * Set user that created or modified this file
+	 * 
+	 * #pw-internal 
+	 * 
+	 * @param User|int|string|true $user Specify user object, name, ID, or boolean true for current user
+	 * @param $type 'created' or 'modified'
+	 * @since 3.0.154
+	 * 
+	 */
+	protected function setUser($user, $type) {
+		$id = 0;
+		if($user === true) $user = $this->wire('user');
+		if(is_object($user)) {
+			if($user instanceof NullPage) {
+				$id = 0;
+			} else if($user instanceof User) {
+				$id = $user->isGuest() ? 0 : $user->id;
+			}
+		} else if(is_int($user)) {
+			$id = $user;
+		} else if(ctype_digit($user)) {
+			$id = (int) $user;
+		} else if(is_string($user)) {
+			$name = $this->wire('sanitizer')->pageName($user);
+			$user = $name ? $this->wire('users')->get("name=$name") : null; 
+			$id = $user && $user->id ? $user->id : 0;
+		}
+		if($id < 0) $id = 0;
+		if(strpos($type, 'created') === 0) {
+			$this->_createdUser = ($id && $user instanceof User ? $user : null);
+			parent::set('created_users_id', $id); 
+		} else if(strpos($type, 'modified') === 0) {
+			$this->_modifiedUser = ($id && $user instanceof User ? $user : null);
+			parent::set('modified_users_id', $id); 
+		}
+	}
+
+	/**
+	 * Get created/modified user 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $type One of 'created' or 'modified'
+	 * @return User|NullPage
+	 * @since 3.0.154
+	 * 
+	 */
+	protected function getUser($type) {
+		$type = strpos($type, 'created') === 0 ? 'created' : 'modified';
+		$key = $type === 'created' ? '_createdUser' : '_modifiedUser';
+		if(!$this->$key) {
+			$id = (int) parent::get($type . '_users_id');
+			$this->$key = $id ? $this->wire('users')->get($id) : new NullPage(); 
+		}
+		return $this->$key;
 	}
 
 	/**
@@ -550,7 +661,7 @@ class Pagefile extends WireData {
 			case 'created':
 				$value = parent::get($key); 
 				if(empty($value)) {
-					$value = filemtime($this->filename()); 
+					$value = $this->filemtime();
 					parent::set($key, $value); 
 				}
 				break;
@@ -559,16 +670,25 @@ class Pagefile extends WireData {
 				$value = parent::get(str_replace('Str', '', $key));
 				$value = wireDate($this->wire('config')->dateFormat, $value);
 				break;
+			case 'created_users_id':	
+			case 'modified_users_id':	
+				$value = (int) parent::get($key);
+				break;
+			case 'createdUser':	
+			case 'modifiedUser':	
+				$value = $this->getUser($key);
+				break;
 			case 'fileData':
 			case 'filedata':
 				$value = $this->filedata();
 				break;
 			case 'mtime':
-			case 'mtimeStr':
 			case 'filemtime':	
-			case 'filemtimeStr':	
-				$value = filemtime($this->filename()); 
-				if(strpos($key, 'Str')) $value = wireDate($this->wire('config')->dateFormat, $value);
+				$value = $this->filemtime();
+				break;
+			case 'mtimeStr':
+			case 'filemtimeStr':
+				$value = wireDate($this->wire('config')->dateFormat, $this->filemtime());
 				break;
 			case 'fieldValues':	
 				return $this->fieldValues;
@@ -694,7 +814,7 @@ class Pagefile extends WireData {
 	 * 
 	 */
 	public function ___noCacheURL($http = false) {
-		return ($http ? $this->httpUrl() : $this->url()) . '?nc=' . @filemtime($this->filename());
+		return ($http ? $this->httpUrl() : $this->url()) . '?nc=' . $this->filemtime();
 	}
 
 	/**
@@ -1026,13 +1146,29 @@ class Pagefile extends WireData {
 	}
 
 	/**
+	 * Get last modified time of file
+	 * 
+	 * @param bool $reset 
+	 * @return int Unix timestamp
+	 * @since 3.0.154
+	 * 
+	 */
+	public function filemtime($reset = false) {
+		if($reset) {} // @todo
+		return (int) @filemtime($this->filename());
+	}
+
+	/**
 	 * Returns the filesize in number of bytes.
 	 *
+	 * @param bool $reset 
 	 * @return int
 	 *
 	 */
-	public function filesize() {
-		return @filesize($this->filename()); 
+	public function filesize($reset = false) {
+		if($reset) {} // @todo
+		$filesize = (int) @filesize($this->filename());
+		return $filesize;
 	}
 
 	/**
@@ -1158,7 +1294,8 @@ class Pagefile extends WireData {
 	 *
 	 */
 	public function ___changed($what, $old = null, $new = null) {
-		if(in_array($what, array('description', 'tags', 'file'))) {
+		if(in_array($what, array('description', 'tags', 'file', 'filedata'))) {
+			$this->setUser(true, 'modified');
 			$this->set('modified', time()); 
 			$this->pagefiles->trackChange('item');
 		}
@@ -1195,6 +1332,20 @@ class Pagefile extends WireData {
 	}
 
 	/**
+	 * Get or set “new” status of the Pagefile
+	 * 
+	 * This is true with a Pagefile that was created during this request and not loaded from DB.
+	 * 
+	 * @param bool|null $set
+	 * @return bool
+	 * 
+	 */
+	public function isNew($set = null) {
+		if(is_bool($set)) $this->_isNew = $set;
+		return $this->_isNew;
+	}
+
+	/**
 	 * Get all extras, add an extra, or get an extra
 	 * 
 	 * #pw-internal
@@ -1211,6 +1362,67 @@ class Pagefile extends WireData {
 			$this->extras[$name] = $value;
 		}
 		return isset($this->extras[$name]) ? $this->extras[$name] : null;
+	}
+
+	/**
+	 * Save this Pagefile independently of the Page it lives on
+	 * 
+	 * @return bool
+	 * @throws WireException
+	 * @since 3.0.154
+	 * 
+	 */
+	public function save() {
+		/** @var FieldtypeFile $fieldtype */
+		$fieldtype = $this->field->type;
+		return $fieldtype->saveFile($this->page, $this->field, $this);
+	}
+
+	/**
+	 * Replace file with another
+	 * 
+	 * Should be followed up with a save() to ensure related properties are also committed to DB.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $filename File to replace current one with
+	 * @param bool $move Move given $filename rather than copy? (default=true)
+	 * @return bool
+	 * @throws WireException
+	 * @since 3.0.154
+	 * 
+	 */
+	public function replaceFile($filename, $move = true) {
+		
+		/** @var WireFileTools $files */
+		$files = $this->wire('files');
+		if(!is_file($filename) || !is_readable($filename)) return false;
+		if($move && !is_writable($filename)) $move = false;
+		
+		$srcFile = $filename;
+		$dstFile = $this->filename();
+		$tmpFile = dirname($dstFile) . '/.' . basename($dstFile) . '.tmp'; 
+		
+		if(file_exists($tmpFile)) $files->unlink($tmpFile);
+		
+		$files->rename($dstFile, $tmpFile); 
+		
+		if($move) {
+			$result = $files->rename($srcFile, $dstFile);
+		} else {
+			$result = $files->copy($srcFile, $dstFile); 
+		}
+
+		if(!$result) {
+			$files->rename($tmpFile, $dstFile);
+			return false;
+		}
+		
+		$files->unlink($tmpFile);
+		$this->filesize(true);
+		$this->filemtime(true);
+		
+		return true;
 	}
 
 	/**
@@ -1242,6 +1454,8 @@ class Pagefile extends WireData {
 			'tags' => $this->tags, 
 			'created' => $this->createdStr,
 			'modified' => $this->modifiedStr,
+			'created_users_id' => $this->created_users_id,
+			'modified_users_id' => $this->modified_users_id,
 			'filemtime' => $this->mtimeStr,
 			'filedata' => $filedata,
 		);
