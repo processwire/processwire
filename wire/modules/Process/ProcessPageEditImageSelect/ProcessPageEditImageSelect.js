@@ -37,7 +37,7 @@ function setupProcessSave(fieldName, fileID, isNew) {
 	var finished = false;
 	var $inputfield = parent.jQuery('#wrap_Inputfield_' + fieldName);
 	if(!$inputfield.length) {
-		$inputfield = parent.jQuery('#' + fileID).closest('.Inputfield');
+		$inputfield = parent.jQuery('#' + fileID).closest('.InputfieldImage');
 	}
 	$inputfield.trigger('reload');
 	parent.jQuery('.Inputfield').on('reloaded', function() {

@@ -1159,6 +1159,8 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 			// replace original image
 			
 			if($this->original && $this->original != $image2->basename() && $original = $image->pagefiles->get($this->original)) {
+				/** @var Pageimage $original */	
+				
 				$fileID = 'file_' . $original->hash; 
 				
 				if($rebuildVariations && $this->field->get('adminThumbs')) {
@@ -1174,12 +1176,24 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 						}
 					}
 				}
+
 				
 				// replace original image
-				$target = $path . $this->original;
-				$this->wire('files')->unlink($target); 
-				$this->wire('files')->rename($image2->filename(), $target);
-				
+				if($original->replaceFile($image2->filename())) {
+					$original->modified = time();
+					$original->modifiedUser = $this->wire('user');
+					/** @var FieldtypeFile $fieldtype */
+					$fieldtype = $this->field->type;
+					$fieldtype->saveFileCols($this->page, $this->field, $original, array(
+						'filesize' => $original->filesize(),
+						'modified' => $original->modified,
+						'modified_users_id' => $original->modified_users_id,
+						'width' => $original->width(),
+						'height' => $original->height(),
+						'ratio' => $original->ratio(),
+					));
+				}
+			
 				$this->wire('pages')->uncacheAll();	
 				$page = $this->wire('pages')->get($this->page->id); 
 				/** @var Pageimages $value */

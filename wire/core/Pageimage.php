@@ -41,6 +41,7 @@
  * @property-read string $alt Convenient alias for the 'description' property, unless overridden (since 3.0.125).
  * @property-read string $src Convenient alias for the 'url' property, unless overridden (since 3.0.125).
  * @property-read PagefileExtra $webp Access webp version of image (since 3.0.132)
+ * @property-read float $ratio Image ratio where 1.0 is square, >1 is wider than tall, >2 is twice as wide as well, <1 is taller than wide, etc. (since 3.0.154+)
  *
  * Properties inherited from Pagefile
  * ==================================
@@ -444,12 +445,30 @@ class Pageimage extends Pagefile {
 			case 'sizeOptions':	
 				$value = $this->sizeOptions;
 				break;
+			case 'ratio':
+				$value = $this->ratio();
+				break;
 			default: 
 				$value = parent::get($key); 
 		}
 		return $value; 
 	}
 
+	/**
+	 * Set image info (internal use)
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param array $info
+	 * 
+	 */
+	public function setImageInfo(array $info) {
+		// width and height less than 0 indicate percentage rather than pixels
+		if(isset($info['width']) && $info['width'] < 0) $info['width'] = abs($info['width']) . '%';
+		if(isset($info['height']) && $info['height'] < 0) $info['height'] = abs($info['height']) . '%';
+		$this->imageInfo = array_merge($this->imageInfo, $info);
+	}
+	
 	/**
 	 * Gets the image information with PHP’s getimagesize function and caches the result
 	 * 
@@ -462,35 +481,32 @@ class Pageimage extends Pagefile {
 	 */
 	public function getImageInfo($reset = false) {
 
-		if($reset) $checkImage = true; 
-			else if($this->imageInfo['width']) $checkImage = false; 
-			else $checkImage = true; 
-		
 		$imageInfo = $this->imageInfo;
 		$filename = is_string($reset) && file_exists($reset) ? $reset : ''; 
-
-		if($checkImage || $filename) { 
-			if($this->ext == 'svg') {
-				$info = $this->getImageInfoSVG($filename);
-				$imageInfo['width'] = $info['width'];
-				$imageInfo['height'] = $info['height'];
-			} else {
-				if($filename) {
-					$info = @getimagesize($filename);
-				} else {
-					$info = @getimagesize($this->filename);
-				}
-				if((!$info || empty($info[0])) && !empty($this->sizeOptions['_width'])) {
-					// on fail, fallback to size options that were requested for the image (if available)
-					$imageInfo['width'] = $this->sizeOptions['_width'];
-					$imageInfo['height'] = $this->sizeOptions['_height'];
-				} else if($info) {
-					$imageInfo['width'] = $info[0];
-					$imageInfo['height'] = $info[1];
-				}
-			}
-			if(!$filename) $this->imageInfo = $imageInfo;
+	
+		if(!$reset && $imageInfo['width'] && !$filename) {
+			return $imageInfo;
 		}
+
+		if($this->ext == 'svg') {
+			$imageInfo = array_merge($imageInfo, $this->getImageInfoSVG($filename));
+		} else {
+			if($filename) {
+				$info = @getimagesize($filename);
+			} else {
+				$info = @getimagesize($this->filename);
+			}
+			if((!$info || empty($info[0])) && !empty($this->sizeOptions['_width'])) {
+				// on fail, fallback to size options that were requested for the image (if available)
+				$imageInfo['width'] = $this->sizeOptions['_width'];
+				$imageInfo['height'] = $this->sizeOptions['_height'];
+			} else if($info) {
+				$imageInfo['width'] = $info[0];
+				$imageInfo['height'] = $info[1];
+			}
+		}
+		
+		if(!$filename) $this->imageInfo = $imageInfo;
 
 		return $imageInfo; 
 	}
@@ -1260,6 +1276,24 @@ class Pageimage extends Pagefile {
 	}
 
 	/**
+	 * Get ratio of width divided by height
+	 * 
+	 * @return float
+	 * @since 3.0.154
+	 * 
+	 */
+	public function ratio() {
+		$width = $this->width();
+		$height = $this->height();
+		if($width === $height) return 1.0;
+		$ratio = $width / $height;
+		$ratio = round($ratio, 2);
+		if($ratio > 99.99) $ratio = 99.99; // max allowed width>height ratio
+		if($ratio < 0.01) $ratio = 0.01; // min allowed height>width ratio
+		return $ratio;
+	}
+
+	/**
 	 * Get the PageimageVariations helper instancd
 	 * 
 	 * #pw-internal
@@ -1686,6 +1720,27 @@ class Pageimage extends Pagefile {
 		$extras['webp'] = $this->webp();
 		return $extras;
 	}
+	
+	/**
+	 * Replace file with another
+	 *
+	 * Should be followed up with a save() to ensure related properties are also committed to DB.
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $filename File to replace current one with
+	 * @param bool $move Move given $filename rather than copy? (default=true)
+	 * @return bool
+	 * @throws WireException
+	 * @since 3.0.154
+	 *
+	 */
+	public function replaceFile($filename, $move = true) {
+		if(!parent::replaceFile($filename, $move)) return false;
+		$this->getImageInfo(true);
+		return true;
+	}
+
 
 	/**
 	 * Basic debug info
