@@ -72,6 +72,36 @@
 abstract class Selector extends WireData {
 
 	/**
+	 * Comparison type: Exact (value equals this or value does not equal this)
+	 * 
+	 */
+	const compareTypeExact = 1;
+
+	/**
+	 * Comparison type: Sort (matches based on how it would sort among given value)
+	 * 
+	 */
+	const compareTypeSort = 2;
+
+	/**
+	 * Comparison type: Find (text value is found within another text value)
+	 * 
+	 */
+	const compareTypeFind = 4;
+
+	/**
+	 * Comparison type: Like (text value is like another, combined with compareTypeFind)
+	 * 
+	 */
+	const compareTypeLike = 8; 
+
+	/**
+	 * Comparison type: Bitwise 
+	 *
+	 */
+	const compareTypeBitwise = 16;
+	
+	/**
 	 * Given a field name and value, construct the Selector. 
 	 *
 	 * If the provided $field is an array or pipe "|" separated string, Selector may match any of them (OR field condition)
@@ -306,6 +336,17 @@ abstract class Selector extends WireData {
 	}
 
 	/**
+	 * What type of comparson does Selector perform?
+	 *
+	 * @return int Returns a Selector::compareType* constant or 0 if not defined
+	 * @since 3.0.154
+	 *
+	 */
+	public static function getCompareType() {
+		return 0;
+	}
+
+	/**
 	 * Does $value1 match $value2?
 	 *
 	 * @param mixed $value1 Dynamic comparison value
@@ -487,6 +528,7 @@ abstract class Selector extends WireData {
  */
 class SelectorEqual extends Selector {
 	public static function getOperator() { return '='; }
+	public static function getCompareType() { return Selector::compareTypeExact; }
 	protected function match($value1, $value2) { return $this->evaluate($value1 == $value2); }
 }
 
@@ -496,6 +538,7 @@ class SelectorEqual extends Selector {
  */
 class SelectorNotEqual extends Selector {
 	public static function getOperator() { return '!='; }
+	public static function getCompareType() { return Selector::compareTypeExact; }
 	protected function match($value1, $value2) { return $this->evaluate($value1 != $value2); }
 }
 
@@ -505,6 +548,7 @@ class SelectorNotEqual extends Selector {
  */
 class SelectorGreaterThan extends Selector { 
 	public static function getOperator() { return '>'; }
+	public static function getCompareType() { return Selector::compareTypeSort; }
 	protected function match($value1, $value2) { return $this->evaluate($value1 > $value2); }
 }
 
@@ -514,6 +558,7 @@ class SelectorGreaterThan extends Selector {
  */
 class SelectorLessThan extends Selector { 
 	public static function getOperator() { return '<'; }
+	public static function getCompareType() { return Selector::compareTypeSort; }
 	protected function match($value1, $value2) { return $this->evaluate($value1 < $value2); }
 }
 
@@ -523,6 +568,7 @@ class SelectorLessThan extends Selector {
  */
 class SelectorGreaterThanEqual extends Selector { 
 	public static function getOperator() { return '>='; }
+	public static function getCompareType() { return Selector::compareTypeSort; }
 	protected function match($value1, $value2) { return $this->evaluate($value1 >= $value2); }
 }
 
@@ -532,6 +578,7 @@ class SelectorGreaterThanEqual extends Selector {
  */
 class SelectorLessThanEqual extends Selector { 
 	public static function getOperator() { return '<='; }
+	public static function getCompareType() { return Selector::compareTypeSort; }
 	protected function match($value1, $value2) { return $this->evaluate($value1 <= $value2); }
 }
 
@@ -541,6 +588,7 @@ class SelectorLessThanEqual extends Selector {
  */
 class SelectorContains extends Selector { 
 	public static function getOperator() { return '*='; }
+	public static function getCompareType() { return Selector::compareTypeFind; }
 	protected function match($value1, $value2) { return $this->evaluate(stripos($value1, $value2) !== false); }
 }
 
@@ -548,7 +596,8 @@ class SelectorContains extends Selector {
  * Same as SelectorContains but serves as operator placeholder for SQL LIKE operations
  *
  */
-class SelectorContainsLike extends SelectorContains { 
+class SelectorContainsLike extends SelectorContains {
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
 	public static function getOperator() { return '%='; }
 }
 
@@ -558,6 +607,7 @@ class SelectorContainsLike extends SelectorContains {
  */
 class SelectorContainsWords extends Selector { 
 	public static function getOperator() { return '~='; }
+	public static function getCompareType() { return Selector::compareTypeFind; }
 	protected function match($value1, $value2) { 
 		$hasAll = true; 
 		$words = preg_split('/[-\s]/', $value2, -1, PREG_SPLIT_NO_EMPTY);
@@ -575,6 +625,7 @@ class SelectorContainsWords extends Selector {
  */
 class SelectorStarts extends Selector { 
 	public static function getOperator() { return '^='; }
+	public static function getCompareType() { return Selector::compareTypeFind; }
 	protected function match($value1, $value2) { return $this->evaluate(stripos(trim($value1), $value2) === 0); }
 }
 
@@ -584,6 +635,7 @@ class SelectorStarts extends Selector {
  */
 class SelectorStartsLike extends SelectorStarts {
 	public static function getOperator() { return '%^='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
 }
 
 /**
@@ -592,6 +644,7 @@ class SelectorStartsLike extends SelectorStarts {
  */
 class SelectorEnds extends Selector { 
 	public static function getOperator() { return '$='; }
+	public static function getCompareType() { return Selector::compareTypeFind; }
 	protected function match($value1, $value2) { 
 		$value2 = trim($value2); 
 		$value1 = substr($value1, -1 * strlen($value2));
@@ -605,6 +658,7 @@ class SelectorEnds extends Selector {
  */
 class SelectorEndsLike extends SelectorEnds {
 	public static function getOperator() { return '%$='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
 }
 
 /**
@@ -613,6 +667,7 @@ class SelectorEndsLike extends SelectorEnds {
  */
 class SelectorBitwiseAnd extends Selector { 
 	public static function getOperator() { return '&'; }
+	public static function getCompareType() { return Selector::compareTypeBitwise; }
 	protected function match($value1, $value2) { return $this->evaluate(((int) $value1) & ((int) $value2)); }
 }
 
