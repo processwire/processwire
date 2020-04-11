@@ -5,7 +5,9 @@
  *
  * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
  *  
- * Look for errors at shutdown and log them, plus echo the error if the page is editable
+ * Look for errors at shutdown and log them, plus echo the error to superusers.
+ * The error message will also be sent in debug mode, on fresh installations
+ * and before the superuser’s first ever login.
  *
  * https://processwire.com
  *
@@ -475,7 +477,7 @@ class WireShutdown extends Wire {
 		// otherwise $why will NOT be populated with anything
 		if($config->debug) {
 			$why = $this->labels['debug-mode'] . " (\$config->debug = true; => /site/config.php).";
-		} else if(!$useHTML) {
+		} else if(!$useHTML && $user && $user->isSuperuser()) {
 			$why = $this->labels['cli-mode'];
 		} else if($user && $user->isSuperuser()) {
 			$why = $this->labels['you-superuser'];
