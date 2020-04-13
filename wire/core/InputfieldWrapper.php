@@ -459,26 +459,32 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * 
 	 * @param Inputfield $inputfield
 	 * @param array $markup
+	 * @param array $classes
 	 * @since 3.0.144
 	 * 
 	 */
-	private function attributeInputfield(Inputfield $inputfield, &$markup) {
+	private function attributeInputfield(Inputfield $inputfield, &$markup, &$classes) {
 		
 		$inputfieldClass = $inputfield->className();
-		$markupTemplate = array('attr' => array(), 'wrapAttr' => array()); 
-		$classParents = $this->classParents($inputfield);
-		$classParents[] = $inputfieldClass;
+		$markupTemplate = array('attr' => array(), 'wrapAttr' => array(), 'set' => array());
+		$markupKeys = array($inputfieldClass, "name=$inputfield->name", "id=$inputfield->id");
 		$classKeys = array('class', 'wrapClass', 'headerClass', 'contentClass');
-		$classes = array();
+		$addClasses = array();
 		$attr = array();
 		$wrapAttr = array();
+		$sets = array();
+
+		foreach($markupKeys as $key) {
+			if(isset($markup[$key])) $markup = array_merge($markup, $markup[$key]);
+			if(isset($classes[$key])) $classes = array_merge($classes, $classes[$key]);
+		}
 		
-		foreach($classParents as $classParent) {
-			if(!isset($markup[$classParent])) continue;
-			$markupParent = array_merge($markupTemplate, $markup[$classParent]);
+		foreach(array_merge($this->classParents($inputfield), $markupKeys) as $key) {
+			if(!isset($markup[$key])) continue;
+			$markupParent = array_merge($markupTemplate, $markup[$key]);
 			foreach($classKeys as $classKey) {
 				if(!empty($markupParent[$classKey])) {
-					$classes[$classKey] = $markupParent[$classKey];
+					$addClasses[$classKey] = $markupParent[$classKey];
 				}
 			}
 			foreach($markupParent['attr'] as $k => $v) {
@@ -486,6 +492,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			}
 			foreach($markupParent['wrapAttr'] as $k => $v) {
 				$wrapAttr[$k] = $v;
+			}
+			foreach($markupParent['set'] as $k => $v) {
+				$sets[$k] = $v;
 			}
 		}
 
@@ -495,8 +504,11 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		foreach($wrapAttr as $attrName => $attrVal) {
 			$inputfield->wrapAttr($attrName, $attrVal);
 		}
-		foreach($classes as $classKey => $class) {
+		foreach($addClasses as $classKey => $class) {
 			$inputfield->addClass($class, $classKey);
+		}
+		foreach($sets as $setName => $setVal) {
+			$inputfield->set($setName, $setVal); 
 		}
 	}
 
@@ -546,10 +558,9 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 				}
 				if($skip && !empty($parents)) continue;
 			}
-				
-			$inputfieldClass = $inputfield->className();
-			$markup = isset($_markup[$inputfieldClass]) ? array_merge($_markup, $_markup[$inputfieldClass]) : $_markup; 
-			$classes = isset($_classes[$inputfieldClass]) ? array_merge($_classes, $_classes[$inputfieldClass]) : $_classes; 
+			
+			list($markup, $classes) = array($_markup, $_classes);
+			$this->attributeInputfield($inputfield, $markup, $classes);
 			
 			$renderValueMode = $this->getSetting('renderValueMode'); 
 			$collapsed = (int) $inputfield->getSetting('collapsed'); 
@@ -560,7 +571,6 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			if($collapsed == Inputfield::collapsedHidden) continue; 
 			if($collapsed == Inputfield::collapsedNoLocked || $collapsed == Inputfield::collapsedYesLocked) $renderValueMode = true;
 
-			$this->attributeInputfield($inputfield, $_markup);
 			$ffOut = $this->renderInputfield($inputfield, $renderValueMode);
 			if(!strlen($ffOut)) continue;
 			$collapsed = (int) $inputfield->getSetting('collapsed');  // retrieve again after render
@@ -610,11 +620,11 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			// The inputfield classname is always used in its wrapping element
 			$ffAttrs = array(
 				'class' => str_replace(
-						array('{class}', '{name}'), 
-						array($inputfield->className(), $inputfield->attr('name')
-						), 
-						$classes['item'])
-					);
+					array('{class}', '{name}'), 
+					array($inputfield->className(), $inputfield->attr('name')
+				), 
+				$classes['item'])
+			);
 			if($inputfield instanceof InputfieldItemList) $ffAttrs['class'] .= " InputfieldItemList";
 			if($collapsed) $ffAttrs['class'] .= " collapsed$collapsed";
 

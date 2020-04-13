@@ -466,12 +466,15 @@ abstract class Inputfield extends WireData implements Module {
 	 *
 	 */ 
 	public function get($key) {	
-		if($key == 'label' && !parent::get('label')) {
+		if($key === 'label') { 
+			$value = parent::get('label');
+			if(strlen($value)) return $value;
 			if($this->skipLabel & self::skipLabelBlank) return '';
 			return $this->attributes['name']; 
 		}
-		if($key == 'attributes') return $this->attributes; 
-		if($key == 'parent') return $this->parent; 
+		if($key === 'name' || $key === 'value' || $key === 'id') return $this->getAttribute($key);
+		if($key === 'attributes') return $this->attributes; 
+		if($key === 'parent') return $this->parent; 
 		if(($value = $this->wire($key)) !== null) return $value; 
 		if(array_key_exists($key, $this->attributes)) return $this->attributes[$key]; 
 		return parent::get($key); 
