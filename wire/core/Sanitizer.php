@@ -459,7 +459,7 @@ class Sanitizer extends Wire {
 		if(ctype_alpha($value) && strlen($value) <= $maxLength) return $value; // simple 1-word attributes
 
 		// remove any non ":_a-zA-Z" characters from beginning of attribute name
-		while(strpos(":_$this->alphaASCII", substr($value, 0, 1)) === false && strlen($value)) {
+		while(strlen($value) && strpos(":_$this->alphaASCII", substr($value, 0, 1)) === false) {
 			$value = substr($value, 1); 
 		}
 		
