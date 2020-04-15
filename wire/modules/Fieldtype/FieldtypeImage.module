@@ -98,10 +98,14 @@ class FieldtypeImage extends FieldtypeFile {
 		
 		if(!$hasDimensions) {
 			$numErrors = 0;
-			$columns = array('width', 'height', 'ratio');
-			foreach($columns as $column) {
-				if(!$this->addColumn($field, $column, $schema)) $numErrors++;
-				if($numErrors) break;
+			if($this->wire('database')->tableExists($field->getTable())) {
+				$columns = array('width', 'height', 'ratio');
+				foreach($columns as $column) {
+					if(!$this->addColumn($field, $column, $schema)) $numErrors++;
+					if($numErrors) break;
+				}
+			} else {
+				// new field being created that is getting initial schema to create table
 			}
 			if(!$numErrors) {
 				$fileSchema = $fileSchema | self::fileSchemaDimensions;

@@ -174,7 +174,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 				$this->message(
 					$this->_('Settings have not yet been committed.') . "<br /><small>" . 
 					$this->_('Please review the settings on this page and save once more (even if you do not change anything) to confirm you accept them.') . "</small>", 
-					Notice::allowMarkup); 
+					Notice::allowMarkup | Notice::noGroup); 
 			}
 		}
 
@@ -1024,6 +1024,13 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		$hasDate = $fileSchema & self::fileSchemaDate;
 		$hasTags = $fileSchema & self::fileSchemaTags;
 		$useTags = $field->get('useTags') || $contextField->get('useTags');
+		
+		if(!$hasFilesize || !$hasFiledata || !$hasDate || !$hasTags) {
+			if(!$database->tableExists($table)) {
+				// new field being created, getting initial schema to create table
+				return $fileSchema;
+			}
+		}
 
 		// Filesize update (3.0.154): Adds 'filesize', 'created_users_id', 'modified_users_id' columns
 		if(!$hasFilesize) {
@@ -1137,7 +1144,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 			if($database->columnExists($table, $column)) {
 				$result = true; 
 			} else {
-				$this->error("Error adding '$column' to '{$field->name}' schema", Notice::log);
+				$this->error("Error adding '$column' to '{$field->name}' schema", Notice::log | Notice::debug);
 				unset($schema[$column], $schema['keys'][$column]);
 				$result = false;
 			}
