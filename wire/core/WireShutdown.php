@@ -475,7 +475,7 @@ class WireShutdown extends Wire {
 		// otherwise $why will NOT be populated with anything
 		if($config->debug) {
 			$why = $this->labels['debug-mode'] . " (\$config->debug = true; => /site/config.php).";
-		} else if(!$useHTML) {
+		} else if($config->cli) {
 			$why = $this->labels['cli-mode'];
 		} else if($user && $user->isSuperuser()) {
 			$why = $this->labels['you-superuser'];
