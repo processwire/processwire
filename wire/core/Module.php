@@ -332,7 +332,7 @@
  * to support the module from one version to another. The previous known version ($fromVersion) and new
  * version ($toVersion) are provided as arguments.
  * 
- * If implemented, uninstall() methods typically are defined hookable as `public function ___upgrade(...)`. 
+ * If implemented, upgrade() methods typically are defined hookable as `public function ___upgrade(...)`. 
  * If the upgrade cannot proceed for some reason, this method should throw a `WireException`. 
  * 
  * 
