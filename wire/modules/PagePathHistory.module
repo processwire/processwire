@@ -164,7 +164,11 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		$database = $this->wire('database');
 		$table = self::dbTableName;
 		$path = $this->wire('sanitizer')->pagePathName('/' . trim($path, '/'), Sanitizer::toAscii);
-		if($this->wire('pages')->count("path=$path")) return false;
+		
+		$selector = "path=$path";
+		if($this->wire('modules')->isInstalled('PagePaths')) $selector .= ", id!=$page->id";
+		if($this->wire('pages')->count($selector)) return false; 
+		
 		$language = $this->getLanguage($language);
 
 		$sql = "INSERT INTO $table SET path=:path, pages_id=:pages_id, created=NOW()";
