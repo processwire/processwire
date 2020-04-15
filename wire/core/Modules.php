@@ -2078,6 +2078,9 @@ class Modules extends WireArray {
 
 		$filename = $this->installable[$class];
 		$basename = basename($filename); 
+		
+		/** @var WireFileTools $fileTools */
+		$fileTools = $this->wire('files'); 
 
 		// double check that $class is consistent with the actual $basename	
 		if($basename === "$class.module" || $basename === "$class.module.php") {
@@ -2134,7 +2137,7 @@ class Modules extends WireArray {
 						continue; 
 					}
 					if($file->isDir()) {
-						$dirs[] = $file->getPathname();
+						$dirs[] = $fileTools->unixDirName($file->getPathname());
 						continue; 
 					}
 					if(in_array($file->getBasename(), $files)) continue; // skip known files
