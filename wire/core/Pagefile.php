@@ -368,7 +368,7 @@ class Pagefile extends WireData {
 	 * - To unset, specify boolean false (or null) for $key, and the name of the property to unset as $value. 
 	 * - To unset, you can also get all values, unset it from the retuned array, and set the array back. 
 	 * 
-	 * #pw-internal
+	 * #pw-group-manipulation
 	 * 
 	 * @param string|array|false|null $key Specify array to set all file data, or key (string) to set or get a property,
 	 *  Or specify boolean false to remove key specified by $value argument.

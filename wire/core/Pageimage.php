@@ -977,7 +977,7 @@ class Pageimage extends Pagefile {
 	 * @return Pageimage
 	 *
 	 */
-	public function hidpiSize($width, $height, $options = array()) {
+	public function hidpiSize($width, $height = 0, $options = array()) {
 		if(is_array($height)) {
 			$height['hidpi'] = true;
 		} else {
