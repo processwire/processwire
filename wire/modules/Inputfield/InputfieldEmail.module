@@ -76,7 +76,7 @@ class InputfieldEmail extends InputfieldText {
 		if($changed && $value && $field && $page && $field->hasFlag(Field::flagUnique)) {
 			$fields = $this->wire('fields'); /** @var Fields $fields */
 			$pageId = $fields->tableTools()->valueExists($this->hasField, $value);
-			if($pageId != $page->id) {
+			if($pageId && $pageId != $page->id) {
 				$errors[] = sprintf($this->_('Email “%s” is already in use, please use a different one'), $value);
 			}
 		}
