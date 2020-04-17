@@ -257,9 +257,10 @@ class LanguageTranslator extends Wire {
 	 *
 	 * @param string|object $textdomain
 	 * @return string
+	 * @since 3.0.154 was protected in prior versions
 	 *
 	 */
-	protected function textdomainString($textdomain) {
+	public function textdomainString($textdomain) {
 
 		if(is_string($textdomain) && (strpos($textdomain, DIRECTORY_SEPARATOR) !== false || strpos($textdomain, '/') !== false)) {
 			$textdomain = $this->filenameToTextdomain($textdomain); // @werker #424
