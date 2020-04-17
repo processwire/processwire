@@ -10,7 +10,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -42,6 +42,25 @@ class Debug {
 	static protected $savedTimerNotes = array();
 
 	/**
+	 * Use hrtime()?
+	 * 
+	 * @var null|bool
+	 * 
+	 */
+	static protected $useHrtime = null;
+
+	/**
+	 * Timer precision (digits after decimal)
+	 * 
+	 * @var int
+	 * 
+	 */
+	static protected $timerSettings = array(
+		'precision' => 4, 
+		'useHrtime' => null,
+	);
+
+	/**
 	 * Measure time between two events
 	 *
 	 * First call should be to $key = Debug::timer() with no params, or provide your own key that's not already been used
@@ -58,24 +77,58 @@ class Debug {
 	 *
 	 */
 	static public function timer($key = '', $reset = false) {
+		
+		if(self::$timerSettings['useHrtime'] === null) {
+			self::$timerSettings['useHrtime'] = function_exists("\\hrtime");
+		}
+		
 		// returns number of seconds elapsed since first call
 		if($reset && $key) self::removeTimer($key);
 
 		if(!$key || !isset(self::$timers[$key])) {
 			// start new timer
-			$startTime = -microtime(true);
+			$startTime = self::$timerSettings['useHrtime'] ? hrtime(true) : -microtime(true);
 			if(!$key) {
 				$key = (string) $startTime; 
 				while(isset(self::$timers[$key])) $key .= "0";
 			}
 			self::$timers[(string) $key] = $startTime; 
 			$value = $key; 
+			
 		} else {
-			// return existing timer
-			$value = number_format(self::$timers[$key] + microtime(true), 4);
+			// finish a timer
+			if(self::$timerSettings['useHrtime']) {
+				// return existing hrtime timer
+				$value = ((hrtime(true) - self::$timers[$key]) / 1e+6) / 1000;
+			} else {
+				// return existing microtime timer
+				$value = self::$timers[$key] + microtime(true);
+			}
+			if(self::$timerSettings['precision']) {
+				$value = number_format($value, self::$timerSettings['precision']);
+			}
 		}
-
+		
 		return $value; 
+	}
+
+	/**
+	 * Get or set timer setting
+	 * 
+	 * ~~~~~~
+	 * // Example of changing precision to 2
+	 * Debug::timerSetting('precision', 2); 
+	 * ~~~~~~
+	 * 
+	 * @param string $key
+	 * @param mixed|null $value
+	 * @return mixed
+	 * @since 3.0.154
+	 * 
+	 */
+	static public function timerSetting($key, $value = null) {
+		if($value !== null) self::$timerSettings[$key] = $value;
+		return self::$timerSettings[$key];
 	}
 
 	/**
@@ -95,7 +148,7 @@ class Debug {
 		if($note) self::$savedTimerNotes[$key] = $note; 
 		return true; 
 	}
-
+	
 	/**
 	 * Return the time recorded in the saved timer $key
 	 * 
