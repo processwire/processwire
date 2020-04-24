@@ -572,9 +572,11 @@ class PageTraversal {
 	 *
 	 * You can specify an `$options` argument to this method with any of the following:
 	 *
-	 * - `pageNum` (int|string): Specify pagination number, or "+" for next pagination, or "-" for previous pagination.
-	 * - `urlSegmentStr` (string): Specify a URL segment string to append.
-	 * - `urlSegments` (array): Specify array of URL segments to append (may be used instead of urlSegmentStr).
+	 * - `pageNum` (int|string|bool): Specify pagination number, "+" for next pagination, "-" for previous pagination, or true for current.
+	 * - `urlSegmentStr` (string|bool): Specify a URL segment string to append, or true (3.0.155+) for current. 
+	 * - `urlSegments` (array|bool): Specify regular array of URL segments to append (may be used instead of urlSegmentStr). 
+	 *    Specify boolean true for current URL segments (3.0.155+). 
+	 *    Specify associative array (in 3.0.155+) to make both keys and values part of the URL segment string.  
 	 * - `data` (array): Array of key=value variables to form a query string.
 	 * - `http` (bool): Specify true to make URL include scheme and hostname (default=false).
 	 * - `language` (Language): Specify Language object to return URL in that Language.
@@ -625,9 +627,30 @@ class PageTraversal {
 		$sanitizer = $page->wire('sanitizer');
 		$language = null;
 		$url = null;
+		
+		if($options['urlSegments'] === true || $options['urlSegmentStr'] === true) {
+			$options['urlSegments'] = $page->wire('input')->urlSegments();
+		}
+		
+		if($options['pageNum'] === true) {
+			$options['pageNum'] = $page->wire('input')->pageNum();
+		}
 
 		if(count($options['urlSegments'])) {
-			$options['urlSegmentStr'] = implode('/', $options['urlSegments']);
+			$str = '';
+			if(is_string($options['urlSegments'][0])) {
+				// associative array converts to key/value style URL segments
+				foreach($options['urlSegments'] as $key => $value) {
+					$str .= "$key/$value/";
+					if(is_int($key)) $str = '';
+					if($str === '') break;
+				}
+			}
+			if(strlen($str)) {
+				$options['urlSegmentStr'] = rtrim($str, '/');
+			} else {
+				$options['urlSegmentStr'] = implode('/', $options['urlSegments']);
+			}
 		}
 
 		if($options['language'] && $page->wire('modules')->isInstalled('LanguageSupportPageNames')) {
@@ -653,7 +676,7 @@ class PageTraversal {
 
 		if(is_string($options['urlSegmentStr']) && strlen($options['urlSegmentStr'])) {
 			$url = rtrim($url, '/') . '/' . $sanitizer->pagePathNameUTF8(trim($options['urlSegmentStr'], '/'));
-			if($template->slashUrlSegments === '' || $template->slashUrlSegments) $url .= '/';
+			if($template->slashUrlSegments > -1) $url .= '/';
 		}
 
 		if($options['pageNum']) {

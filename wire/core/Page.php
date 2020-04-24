@@ -3145,10 +3145,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * ## $options argument
 	 * 
 	 * You can specify an `$options` argument to this method with any of the following:
-	 * 
-	 * - `pageNum` (int|string): Specify pagination number, or "+" for next pagination, or "-" for previous pagination.
-	 * - `urlSegmentStr` (string): Specify a URL segment string to append.
-	 * - `urlSegments` (array): Specify array of URL segments to append (may be used instead of urlSegmentStr).
+	 *
+	 * - `pageNum` (int|string|bool): Specify pagination number, "+" for next pagination, "-" for previous pagination, 
+	 *    or boolean true (3.0.155+) for current.
+	 * - `urlSegmentStr` (string|bool): Specify a URL segment string to append, or true (3.0.155+) for current.
+	 * - `urlSegments` (array|bool): Specify array of URL segments to append (may be used instead of urlSegmentStr), 
+	 *    or boolean true (3.0.155+) for current. Specify associative array to use keys and values in order (3.0.155+). 
 	 * - `data` (array): Array of key=value variables to form a query string.
 	 * - `http` (bool): Specify true to make URL include scheme and hostname (default=false).
 	 * - `language` (Language): Specify Language object to return URL in that Language.
