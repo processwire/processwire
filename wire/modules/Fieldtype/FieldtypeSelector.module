@@ -29,7 +29,7 @@ class FieldtypeSelector extends Fieldtype {
 
 	public function getInputfield(Page $page, Field $field) {
 		$inputfield = $this->wire('modules')->get('InputfieldSelector'); 
-		$inputfield->initValue = $field->initValue; 
+		$inputfield->initValue = $field->get('initValue'); 
 		return $inputfield; 
 	}	
 
@@ -52,7 +52,7 @@ class FieldtypeSelector extends Fieldtype {
 	}
 
 	public function ___sleepValue(Page $page, Field $field, $value) {
-		$initValue = trim($field->initValue);
+		$initValue = trim($field->get('initValue'));
 		if(strlen($initValue) && strpos($value, $initValue) === 0) {
 			$value = trim(substr($value, strlen($initValue)+1), ', '); 
 		}
@@ -61,16 +61,20 @@ class FieldtypeSelector extends Fieldtype {
 
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 		$value = parent::___wakeupValue($page, $field, $value); 
-		$initValue = trim($field->initValue);
+		$initValue = trim($field->get('initValue'));
 		if(strlen($initValue) && strpos($value, $initValue) === false) {
 			$value = "$initValue, $value";
 		}
 		return $value; 
 	}
+	
 	/**
-	* Return the database schema in specified format
-	*
-	*/
+	 * Return the database schema in specified format
+	 * 
+	 * @param Field $field
+	 * @return array
+	 *
+	 */
 	public function getDatabaseSchema(Field $field) {
 		$schema = parent::getDatabaseSchema($field);
 		$len = $this->wire('database')->getMaxIndexLength();
@@ -82,9 +86,17 @@ class FieldtypeSelector extends Fieldtype {
 
 	/**
 	 * Update a query to match the text with a fulltext index
+	 * 
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param string $operator
+	 * @param mixed $value
+	 * @return DatabaseQuery|DatabaseQuerySelect
 	 *
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		/** @var DatabaseQuerySelectFulltext $ft */
 		$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
 		$ft->match($table, $subfield, $operator, $value);
 		return $query;
@@ -98,7 +110,7 @@ class FieldtypeSelector extends Fieldtype {
 		$f->label = $this->_('Initial Selector Value'); 
 		$f->description = $this->_('Enter an initial selector string that will be used as the enforced starting point for any selectors generated from this field. Any pages matching the user selector will be bound within the selector you enter here.'); 
 		$f->notes = $this->_('Example: template=product'); 
-		$f->attr('value', $field->initValue ? $field->initValue : ''); 
+		$f->attr('value', $field->get('initValue') ? $field->get('initValue') : ''); 
 		$inputfields->add($f); 
 
 		return $inputfields; 	
