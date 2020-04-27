@@ -253,7 +253,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 			unset($info['parent'], $info['parentName'], $info['suffixAll']);
 		}
 
-		if(!$this->pageimage->original && $info['original']) {
+		if(!$this->pageimage->__isset('original') && $info['original']) {
 			$original = $this->pagefiles->get($info['original']);
 			if($original) $this->pageimage->setOriginal($original);
 		}

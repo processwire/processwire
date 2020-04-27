@@ -1741,6 +1741,10 @@ class Pageimage extends Pagefile {
 		return true;
 	}
 
+	public function __isset($key) {
+		if($key === 'original') return $this->original !== null;
+		return parent::__isset($key);
+	}
 
 	/**
 	 * Basic debug info
