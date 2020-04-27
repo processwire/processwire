@@ -378,15 +378,28 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 *
 	 */
 	public function ___formatValue(Page $page, Field $field, $value) {
-		if($field->get('allowUnpub')) return $value; 
 
 		// remove unpublished pages for front-end formatted output
 		if($value instanceof Page) {
-			if($value->hasStatus(Page::statusUnpublished)) $value = $this->getBlankValue($page, $field); 
-
-		} else if($value instanceof PageArray) {
+			if($value->hasStatus(Page::statusUnpublished)) {
+				$value = $this->getBlankValue($page, $field);
+			}
+		} else if($value instanceof PageArray && $field->get('allowUnpub')) {
+			// unpublished pages are allowed, so if any are present, create new
+			// formatted value that excludes the unpublished pages 
+			$hasUnpublished = false;
 			foreach($value as $item) {
-				if($item->hasStatus(Page::statusUnpublished)) $value->remove($item); 
+				$hasUnpublished = $item->hasStatus(Page::statusUnpublished);
+				if($hasUnpublished) break;
+			}
+			if($hasUnpublished) {
+				$items = $this->getBlankValue($page, $field); 
+				$items->setTrackChanges(false);
+				foreach($value as $item) {
+					if(!$item->hasStatus(Page::statusUnpublished)) $items->add($item); 	
+				}
+				$items->resetTrackChanges(true);
+				$value = $items;
 			}
 		}
 
