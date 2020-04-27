@@ -138,7 +138,7 @@ class FieldtypeImage extends FieldtypeFile {
 			
 			$item['width'] = (int) $info['width'];
 			$item['height'] = (int) $info['height'];
-			$item['ratio'] = $pagefile->ratio;
+			$item['ratio'] = number_format($pagefile->ratio, 2, '.', '');
 		}
 		
 		return $item;
