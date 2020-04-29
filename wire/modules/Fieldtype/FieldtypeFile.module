@@ -374,7 +374,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		
 		if($isNew) {
 			$pagefile->createdUser = $this->wire('user');
-			$pagefile->created = time();
+			if(!$pagefile->isTemp()) $pagefile->created = time();
 		}
 		
 		if($isChanged || $isNew) {
@@ -382,7 +382,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 			unset($changes['hash'], $changes['sort'], $changes['modified'], $changes['modified_users_id']); 
 			if($isNew || count($changes)) {
 				$pagefile->modifiedUser = $this->wire('user');
-				$pagefile->modified = time();
+				if(!$pagefile->isTemp()) $pagefile->modified = time();
 			}
 		}
 		
