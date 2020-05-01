@@ -289,6 +289,31 @@ class Selectors extends WireArray {
 	}
 
 	/**
+	 * Return array of other characters that have meaning in a selector outside of operators
+	 * 
+	 * #pw-group-static-helpers
+	 * 
+	 * @return array
+	 * @since 3.0.156
+	 * 
+	 */
+	static public function getReservedChars() {
+		return array(
+			'or' => '|', // title|body=foo, summary=bar|baz
+			'not' => '!', // !body*=suchi tobiko
+			'separator' => ',', // foo=bar, bar=baz
+			'match-same-1' => '@', // @foo.bar=123, @foo.baz=456
+			'quote-value' => '"', // foo="bar"
+			'or-group-open' => '(', // id>0, (title=foo), (body=bar)
+			'or-group-close' => ')', 
+			'sub-selector-open' => '[', // foo=[bar>0, baz%=text]
+			'sub-selector-close' => ']', 
+			'api-var-open' => '[', // [page], [page.id], [user.id], etc. 
+			'api-var-close' => ']', 
+		);
+	}
+
+	/**
 	 * Return a string indicating the type of operator that it is, or false if not an operator
 	 * 
 	 * @param string $operator Operator to check
