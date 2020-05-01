@@ -93,7 +93,8 @@ class InputfieldForm extends InputfieldWrapper {
 	}
 
 	public function ___render() {
-		
+
+		$markup = self::getMarkup();
 		$classes = self::getClasses();
 		if(!empty($classes['form'])) $this->addClass($classes['form']); 
 
@@ -118,7 +119,7 @@ class InputfieldForm extends InputfieldWrapper {
 		}
 
 		$description = $this->getSetting('description'); 
-		if($description) $description = "\n<h2>" . $this->entityEncode($description) . "</h2>"; 
+		if($description) $description = str_replace('{out}', $this->entityEncode($description), $markup['item_head']); 
 		
 		$attrStr = $this->getAttributesString($attrs); 
 

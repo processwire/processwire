@@ -664,7 +664,7 @@ class SystemNotifications extends WireData implements Module {
 			$field->label = 'Notifications';
 			$field->type = $fieldtype; 
 			$field->collapsed = Inputfield::collapsedBlank;
-			$field->flags = Field::flagSystem | Field::flagPermanent;
+			$field->flags = Field::flagSystem;
 			$field->save();
 		}
 		$fieldgroup = $this->wire('fieldgroups')->get('user'); 

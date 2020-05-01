@@ -80,6 +80,7 @@ class PagePaths extends WireData implements Module {
 	 * 
 	 */
 	public function hookModulesRefresh(HookEvent $event) {
+		if($event) {} // ignore
 		if($this->getLanguages()) {
 			$this->wire('session')->warning(
 				$this->_('Please uninstall the Core > PagePaths module (it is not compatible with LanguageSupportPageNames)')
@@ -89,6 +90,8 @@ class PagePaths extends WireData implements Module {
 
 	/**
 	 * Hook called when a page is moved or renamed
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageMoved(HookEvent $event) {
@@ -99,6 +102,8 @@ class PagePaths extends WireData implements Module {
 
 	/**
 	 * When a page is deleted
+	 * 
+	 * @param HookEvent $event
 	 *
 	 */
 	public function hookPageDeleted(HookEvent $event) {
@@ -164,7 +169,7 @@ class PagePaths extends WireData implements Module {
 		$table = self::dbTableName;
 		$alias = "$table$n";
 		$value = $selector->value;
-		$joinType = $selector->not ? 'leftjoin' : 'join';
+		// $joinType = $selector->not ? 'leftjoin' : 'join';
 
 		$query->join("$table AS $alias ON pages.id=$alias.pages_id"); 
 
@@ -188,6 +193,7 @@ class PagePaths extends WireData implements Module {
 				$error = "NOT mode isn't yet supported with path/url and '$selector->operator' operator";
 				throw new PageFinderSyntaxException($error);
 			}
+			/** @var DatabaseQuerySelectFulltext $ft */
 			$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
 			$ft->match($alias, 'path', $selector->operator, trim($value, '/'));
 		}
@@ -265,7 +271,8 @@ class PagePaths extends WireData implements Module {
 				") ENGINE=$engine DEFAULT CHARSET=$charset";
 
 		$database->query($sql); 
-		$numUpdated = $this->updatePagePath(1, '/'); 
+		$numUpdated = $this->updatePagePath(1, '/');
+		if($numUpdated) {} // ignore
 	}
 
 	/**
