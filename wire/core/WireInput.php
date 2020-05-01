@@ -393,7 +393,7 @@ class WireInput extends Wire {
 	 * 
 	 * - If given a wildcard string, it will return the first matching URL segment. For example,
 	 *   the wildcard string `foo-*` would match the first URL segment to begin with “foo-”, 
-	 *   so any of these segments would match & be returned: `foo-bar`, `foo-12345`, foo-baz123`. 
+	 *   so any of these segments would match & be returned: `foo-bar`, `foo-12345`, `foo-baz123`. 
 	 *   A wildcard string of `*bar` would match anything ending with “bar”, i.e. it would match
 	 *   and return `foo-bar`, `foobar`, `baz_123bar`, etc.
 	 * 
@@ -410,7 +410,7 @@ class WireInput extends Wire {
 	 * - If you want to focus any of the above options upon a URL segment at a specific index,
 	 *   then you can append the index number to the method name. For example, if you want it to
 	 *   just focus on URL segment #1, then call `$input->urlSegment1(…)`, or for URL segment #2
-	 *   yoyu would call `$input-urlSegment2(…)`, and so on. 
+	 *   you would call `$input->urlSegment2(…)`, and so on. 
 	 * 
 	 * Please also note the following about URL segments: 
 	 *   

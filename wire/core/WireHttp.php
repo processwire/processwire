@@ -588,9 +588,13 @@ class WireHttp extends Wire {
 		$timeout = isset($options['timeout']) ? (float) $options['timeout'] : $this->getTimeout();
 		$proxy = '';
 		
-		if(!empty($options['proxy'])) $proxy = $options['proxy'];
-			else if(isset($options['curl']) && !empty($options['curl']['http']['proxy'])) $proxy = $options['curl']['http']['proxy'];
-			else if(isset($options['http']) && !empty($options['http']['proxy'])) $proxy = $options['http']['proxy'];
+		if(!empty($options['proxy'])) {
+			$proxy = $options['proxy'];
+		} else if(isset($options['curl']) && !empty($options['curl']['http']['proxy'])) {
+			$proxy = $options['curl']['http']['proxy'];
+		} else if(isset($options['http']) && !empty($options['http']['proxy'])) {
+			$proxy = $options['http']['proxy'];
+		}
 
 		$curl = curl_init();
 
@@ -662,6 +666,21 @@ class WireHttp extends Wire {
 		});
 
 		curl_setopt($curl, CURLOPT_URL, $url); 
+		
+		// custom CURL options provided in $options array
+		if(!empty($options['curl']) && !empty($options['curl']['setopt'])) {
+			$setopts = $options['curl']['setopt']; 
+		} else if(!empty($options['curl_setopt'])) {
+			$setopts = $options['curl_setopt'];
+		} else {
+			$setopts = null;
+		}
+		if(is_array($setopts)) {
+			foreach($setopts as $opt => $optVal) {
+				curl_setopt($curl, $opt, $optVal); 
+			}
+		}
+		
 		$result = curl_exec($curl);
 
 		if($result === false) {
