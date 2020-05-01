@@ -51,6 +51,7 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	 *
 	 */
 	public function __construct() {
+		parent::__construct();
 		$this->set('select', array()); 
 		$this->set('join', array()); 
 		$this->set('from', array()); 
