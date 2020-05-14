@@ -245,7 +245,7 @@ class ISEAG_GIFDecoder {
                 $this->GIF_buffer->setSize($i);
                 return 0;
             }
-            $this->GIF_buffer [$i] = ord ( $this->GIF_stream { $this->GIF_bfseek++ } );
+            $this->GIF_buffer [$i] = ord ( $this->GIF_stream [ $this->GIF_bfseek++ ] );
         }
         return 1;
     }
