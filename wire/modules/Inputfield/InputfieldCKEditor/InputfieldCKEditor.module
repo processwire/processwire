@@ -569,7 +569,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			$configData = $this->wire('modules')->getModuleConfigData('ProcessPageEditLink');
 			$targets = isset($configData['targetOptions']) ? $configData['targetOptions'] : '_blank';
 			$targets = explode("\n", $targets);
-			foreach($targets as $k => $v) $targets[$k] = trim($v);
+			foreach($targets as $k => $v) $targets[$k] = trim(trim($v), '+');
 			self::$purifier->set('Attr.AllowedFrameTargets', $targets); // allow links opened in new window/tab
 			self::$purifier->set('Attr.EnableID', $enableID); // for anchor plugin use of id and name attributes
 			$value = self::$purifier->purify($value); 
