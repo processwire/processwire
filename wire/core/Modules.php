@@ -1517,6 +1517,7 @@ class Modules extends WireArray {
 	 * 
 	 * @param string $file
 	 * @param string $moduleName
+	 * @return bool
 	 * 
 	 */
 	protected function includeModuleFile($file, $moduleName) {
@@ -1528,11 +1529,11 @@ class Modules extends WireArray {
 		if($wire1 !== $wire2) {
 			// multi-instance is active, don't autoload module if class already exists
 			// first do a fast check, which should catch any core modules 
-			if(class_exists(__NAMESPACE__ . "\\$moduleName", false)) return;
+			if(class_exists(__NAMESPACE__ . "\\$moduleName", false)) return true;
 			// next do a slower check, figuring out namespace
 			$ns = $this->getModuleNamespace($moduleName, array('file' => $file));
 			$className = trim($ns, "\\") . "\\$moduleName";
-			if(class_exists($className, false)) return;
+			if(class_exists($className, false)) return true;
 			// if this point is reached, module is not yet in memory in either instance
 			// temporarily set the $wire instance to 2nd instance during include()
 			ProcessWire::setCurrentInstance($wire2);
@@ -1543,11 +1544,15 @@ class Modules extends WireArray {
 
 		if($file) {
 			/** @noinspection PhpIncludeInspection */
-			include_once($file);
+			$success = @include_once($file);
+		} else {
+			$success = false;
 		}
 	
 		// set instance back, if multi-instance
 		if($wire1 !== $wire2) ProcessWire::setCurrentInstance($wire1);
+		
+		return (bool) $success;
 	}
 
 	/**
@@ -5053,11 +5058,14 @@ class Modules extends WireArray {
 	 */
 	public function compile($moduleName, $file = '', $namespace = null) {
 		
+		static $allowCompile = null;
+		if($allowCompile === null) $allowCompile = $this->wire('config')->moduleCompile;
+		
 		// if not given a file, track it down
 		if(empty($file)) $file = $this->getModuleFile($moduleName);
 
 		// don't compile when module compilation is disabled
-		if(!$this->wire('config')->moduleCompile) return $file;
+		if(!$allowCompile) return $file;
 	
 		// don't compile core modules
 		if(strpos($file, $this->coreModulesDir) !== false) return $file;
