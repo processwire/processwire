@@ -28,6 +28,12 @@ class PagesEditor extends Wire {
 	 */
 	protected $pages;
 
+	/**
+	 * Construct
+	 * 
+	 * @param Pages $pages
+	 *
+	 */
 	public function __construct(Pages $pages) {
 		$this->pages = $pages;
 
@@ -642,14 +648,18 @@ class PagesEditor extends Wire {
 
 		// update children counts for current/previous parent
 		if($isNew) {
+			// new page
 			$page->parent->numChildren++;
-		} else {
-			if($page->parentPrevious && $page->parentPrevious->id != $page->parent->id) {
-				$page->parentPrevious->numChildren--;
-				$page->parent->numChildren++;
-			}
+			
+		} else if($page->parentPrevious && $page->parentPrevious->id != $page->parent->id) {
+			// parent changed
+			$page->parentPrevious->numChildren--;
+			$page->parent->numChildren++;
 		}
-
+	
+		// save any needed updates to pages_parents table
+		$this->pages->parents()->save($page);
+		
 		// if page hasn't changed, don't continue further
 		if(!$page->isChanged() && !$isNew) {
 			$this->pages->debugLog('save', '[not-changed]', true);
@@ -731,30 +741,6 @@ class PagesEditor extends Wire {
 		// operations can be access controlled. 
 		if($isNew || $page->parentPrevious || $page->templatePrevious) $this->wire(new PagesAccess($page));
 
-		// lastly determine whether the pages_parents table needs to be updated for the find() cache
-		// and call upon $this->saveParents where appropriate. 
-		if($page->parentPrevious && $page->numChildren > 0) {
-			// page is moved and it has children
-			$this->saveParents($page->id, $page->numChildren);
-			if($page->parent->numChildren == 1) $this->saveParents($page->parent_id, $page->parent->numChildren);
-
-		} else if(($page->parentPrevious && $page->parent->numChildren == 1) ||
-			($isNew && $page->parent->numChildren == 1) ||
-			($page->_forceSaveParents)) {
-			// page is moved and is the first child of it's new parent
-			// OR page is NEW and is the first child of it's parent
-			// OR $page->_forceSaveParents is set (debug/debug, can be removed later)
-			$this->saveParents($page->parent_id, $page->parent->numChildren);
-			
-		} else if($page->parentPrevious && $page->parent->numChildren > 1 && $page->parent->parent_id > 1) {
-			$this->saveParents($page->parent->parent_id, $page->parent->parent->numChildren);
-		}
-
-		if($page->parentPrevious && $page->parentPrevious->numChildren == 0) {
-			// $page was moved and it's previous parent is now left with no children, this ensures the old entries get deleted
-			$this->saveParents($page->parentPrevious->id, 0);
-		}
-
 		// trigger hooks
 		if(empty($options['noHooks'])) {
 			$this->pages->saved($page, $changes, $changesValues);
@@ -770,6 +756,47 @@ class PagesEditor extends Wire {
 
 		return true;
 	}
+	
+	/**
+	 * TBD Identify if parent changed and call saveParentsTable() where appropriate
+	 *
+	 * @param Page $page Page to save parent(s) for
+	 * @param bool $isNew If page is newly created during this save this should be true, otherwise false
+	 *
+	protected function savePageParent(Page $page, $isNew) {
+		
+		if($page->parentPrevious || $page->_forceSaveParents || $isNew) {
+			$this->pages->parents()->rebuild($page);
+		}
+		
+		// saveParentsTable option is always true unless manually disabled from a hook
+		if($page->parentPrevious && !$isNew && $page->numChildren > 0) {
+			// existing page was moved and it has children
+			if($page->parent->numChildren == 1) {
+				// first child of new parent
+				$this->pages->parents()->rebuildPage($page->parent);
+			} else {
+				$this->pages->parents()->rebuildPage($page);
+			}
+
+		} else if(($page->parentPrevious && $page->parent->numChildren == 1) ||
+			($isNew && $page->parent->numChildren == 1) ||
+			($page->_forceSaveParents)) {
+			// page is moved and is the first child of its new parent
+			// OR page is NEW and is the first child of its parent
+			// OR $page->_forceSaveParents is set (debug/debug, can be removed later)
+			$this->pages->parents()->rebuildPage($page->parent);
+
+		} else if($page->parentPrevious && $page->parent->numChildren > 1 && $page->parent->parent_id > 1) {
+			$this->pages->parents()->rebuildPage($page->parent->parent);
+		}
+
+		if($page->parentPrevious && $page->parentPrevious->numChildren == 0) {
+			// $page was moved and its previous parent is now left with no children, this ensures the old entries get deleted
+			$this->pages->parents()->rebuild($page->parentPrevious->id);
+		}
+	}
+	 */
 	
 	/**
 	 * Save just a field from the given page as used by Page::save($field)
@@ -842,75 +869,6 @@ class PagesEditor extends Wire {
 		$this->pages->debugLog('saveField', "$page:$field", $return);
 		
 		return $return;
-	}
-
-	/**
-	 * Save references to the Page's parents in pages_parents table, as well as any other pages affected by a parent change
-	 *
-	 * Any pages_id passed into here are assumed to have children
-	 *
-	 * @param int $pages_id ID of page to save parents from
-	 * @param int $numChildren Number of children this Page has
-	 * @param int $level Recursion level, for debugging.
-	 * @return bool
-	 *
-	 */
-	protected function saveParents($pages_id, $numChildren, $level = 0) {
-
-		$pages_id = (int) $pages_id;
-		if(!$pages_id) return false;
-		$database = $this->wire('database');
-
-		$query = $database->prepare("DELETE FROM pages_parents WHERE pages_id=:pages_id");
-		$query->bindValue(':pages_id', $pages_id, \PDO::PARAM_INT);
-		$query->execute();
-
-		if(!$numChildren) return true;
-
-		$insertSql = '';
-		$id = $pages_id;
-		$cnt = 0;
-		$query = $database->prepare("SELECT parent_id FROM pages WHERE id=:id");
-
-		do {
-			if($id < 2) break; // home has no parent, so no need to do that query
-			$query->bindValue(":id", $id, \PDO::PARAM_INT);
-			$query->execute();
-			list($id) = $query->fetch(\PDO::FETCH_NUM);
-			$id = (int) $id;
-			if($id < 2) break; // no need to record 1 for every page, since it is assumed
-			$insertSql .= "($pages_id, $id),";
-			$cnt++;
-
-		} while(1);
-
-		if($insertSql) {
-			$sql = 
-				'INSERT INTO pages_parents (pages_id, parents_id) ' . 
-				'VALUES' . rtrim($insertSql, ',') . ' ' . 
-				'ON DUPLICATE KEY UPDATE parents_id=VALUES(parents_id)';
-			$database->exec($sql);
-		}
-
-		// find all children of $pages_id that themselves have children
-		$sql = 	
-			"SELECT pages.id, COUNT(children.id) AS numChildren " .
-			"FROM pages " .
-			"JOIN pages AS children ON children.parent_id=pages.id " .
-			"WHERE pages.parent_id=:pages_id " .
-			"GROUP BY pages.id ";
-
-		$query = $database->prepare($sql);
-		$query->bindValue(':pages_id', $pages_id, \PDO::PARAM_INT);
-		$database->execute($query);
-
-		/** @noinspection PhpAssignmentInConditionInspection */
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-			$this->saveParents($row['id'], $row['numChildren'], $level+1);
-		}
-		$query->closeCursor();
-
-		return true;
 	}
 
 	/**
@@ -1137,13 +1095,11 @@ class PagesEditor extends Wire {
 		/** @var PagesAccess $access */
 		$access = $this->wire(new PagesAccess());
 		$access->deletePage($page);
+	
+		// delete entirely from pages_parents table
+		$this->pages->parents()->delete($page);
 
 		$database = $this->wire('database');
-
-		$query = $database->prepare("DELETE FROM pages_parents WHERE pages_id=:page_id");
-		$query->bindValue(":page_id", $page->id, \PDO::PARAM_INT);
-		$query->execute();
-
 		$query = $database->prepare("DELETE FROM pages WHERE id=:page_id LIMIT 1"); // QA
 		$query->bindValue(":page_id", $page->id, \PDO::PARAM_INT);
 		$query->execute();
@@ -1174,12 +1130,18 @@ class PagesEditor extends Wire {
 	 *
 	 */
 	public function _clone(Page $page, Page $parent = null, $recursive = true, $options = array()) {
+		
+		$defaults = array(
+			'forceID' => 0, 
+			'set' => array(), 
+			'recursionLevel' => 0, // recursion level (internal use only)
+		);
 
 		if(is_string($options)) $options = Selectors::keyValueStringToArray($options);
-		if(!isset($options['recursionLevel'])) $options['recursionLevel'] = 0; // recursion level
+		$options = array_merge($defaults, $options);
 		if($parent === null) $parent = $page->parent; 
 
-		if(isset($options['set']) && isset($options['set']['name']) && strlen($options['set']['name'])) {
+		if(count($options['set']) && !empty($options['set']['name'])) {
 			$name = $options['set']['name'];
 		} else {
 			$name = $this->pages->names()->uniquePageName(array(
@@ -1201,24 +1163,24 @@ class PagesEditor extends Wire {
 
 		// clone in memory
 		$copy = clone $page;
-		$copy->setQuietly('_cloning', $page);
-		$copy->id = isset($options['forceID']) ? (int) $options['forceID'] : 0;
 		$copy->setIsNew(true);
+		$copy->of(false);
+		$copy->setQuietly('_cloning', $page);
+		$copy->setQuietly('id', $options['forceID'] > 1 ? (int) $options['forceID'] : 0);
+		$copy->setQuietly('numChildren', 0);
+		$copy->setQuietly('created', time());
+		$copy->setQuietly('modified', time());
 		$copy->name = $name;
 		$copy->parent = $parent;
-		$copy->of(false);
-		$copy->set('numChildren', 0);
-		$copy->created = time();
-		$copy->modified = time();
 		
 		if(!isset($options['quiet']) || $options['quiet']) {
 			$options['quiet'] = true;
-			$copy->created_users_id = $user->id;
-			$copy->modified_users_id = $user->id;
+			$copy->setQuietly('created_users_id', $user->id);
+			$copy->setQuietly('modified_users_id', $user->id);
 		}
 		
 		// set any properties indicated in options	
-		if(isset($options['set']) && is_array($options['set'])) {
+		if(count($options['set'])) {
 			foreach($options['set'] as $key => $value) {
 				$copy->set($key, $value);
 				// quiet option required for setting modified time or user
@@ -1261,32 +1223,39 @@ class PagesEditor extends Wire {
 		if($page->numChildren && $recursive) {
 			$start = 0;
 			$limit = 200;
+			$numChildrenCopied = 0;
 			do {
 				$children = $page->children("include=all, start=$start, limit=$limit");
 				$numChildren = $children->count();
 				foreach($children as $child) {
 					/** @var Page $child */
-					$this->pages->clone($child, $copy, true, array('recursionLevel' => $options['recursionLevel'] + 1));
+					$childCopy = $this->pages->clone($child, $copy, true, array(
+						'recursionLevel' => $options['recursionLevel'] + 1,
+					));
+					if($childCopy->id) $numChildrenCopied++;
 				}
 				$start += $limit;
 				$this->pages->uncacheAll();
 			} while($numChildren);
+			$copy->setQuietly('numChildren', $numChildrenCopied); 
 		}
 
 		$copy->parentPrevious = null;
+		$copy->setQuietly('_cloning', null);
 
-		// update pages_parents table, only when at recursionLevel 0 since pagesParents is already recursive
-		if($recursive && $options['recursionLevel'] === 0) {
-			$this->saveParents($copy->id, $copy->numChildren);
-		}
-		
 		if($options['recursionLevel'] === 0) {
+			// update pages_parents table, only when at recursionLevel 0 since parents()->rebuild() already descends 
+			if($copy->numChildren) {
+				$copy->setIsNew(true);
+				$this->pages->parents()->rebuild($copy);
+				$copy->setIsNew(false);
+			}
+			// update sort
 			if($copy->parent()->sortfield() == 'sort') {
 				$this->sortPage($copy, $copy->sort, true);
 			}
 		}
 
-		$copy->setQuietly('_cloning', null);
 		$copy->of($of);
 		$page->of($of);
 		$page->meta()->copyTo($copy->id); 

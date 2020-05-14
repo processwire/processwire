@@ -807,6 +807,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$this->_meta = null;
 		foreach($this->template->fieldgroup as $field) {
 			$name = $field->name; 
+			if(!$field->type) continue;
 			if(!$field->type->isAutoload() && !isset($this->data[$name])) continue; // important for draft loading
 			$value = $this->get($name); 
 			// no need to clone non-objects, as they've already been cloned
@@ -966,14 +967,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function setQuietly($key, $value) {
-		$this->quietMode = true; 
 		if(isset($this->settings[$key]) && is_int($value)) {
 			// allow integer-only values in $this->settings to be set directly in quiet mode
 			$this->settings[$key] = $value;
 		} else {
+			$this->quietMode = true; 
 			parent::setQuietly($key, $value);
+			$this->quietMode = false;
 		}
-		$this->quietMode = false;
 		return $this; 
 	}
 

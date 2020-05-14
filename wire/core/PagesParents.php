@@ -12,7 +12,7 @@
  * 
  * ~~~~~~
  * // Rebuild the entire pages_parents table
- * $numRows = $pages->parents()->rebuild();
+ * $numRows = $pages->parents()->rebuildAll();
  * ~~~~~~
  *
  * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
@@ -39,16 +39,6 @@ class PagesParents extends Wire {
 	protected $debug = false;
 
 	/**
-	 * Page parent IDs excluded from pages_parents table
-	 * 
-	 * Set via $config->parentsTableExcludeIDs
-	 * 
-	 * @var array
-	 * 
-	 */
-	protected $excludeIDs = array();
-
-	/**
 	 * Construct
 	 *
 	 * @param Pages $pages
@@ -57,13 +47,6 @@ class PagesParents extends Wire {
 	public function __construct(Pages $pages) {
 		$this->pages = $pages;
 		$this->debug = $pages->debug();
-		
-		$excludeIDs = $pages->wire('config')->parentsTableExcludeIDs;
-		if(is_array($excludeIDs)) {
-			foreach($excludeIDs as $id) {
-				$this->excludeIDs[$id] = $id; 
-			}
-		}
 	}
 	
 	/**
@@ -492,45 +475,134 @@ class PagesParents extends Wire {
 		return $a;	
 	}
 
-	/**
-	 * Rebuild pages_parents index for given page (and any children)
+	/** 
+	 * Check if saved page needs any pages_parents updates and perform them when applicable
 	 * 
+	 * @param Page $page
+	 * @return int Number of rows updated
+	 * 
+	 */
+	public function save(Page $page) {
+		
+		$numRows = 0;
+		
+		// homepage not maintained in pages_parents table
+		// pages being cloned are not maintained till clone operation finishes
+		if($page->id < 2 || $page->_cloning || !$page->parent) return 0;
+		
+		// first check if page parents need any updates
+		if($page->isNew()) {
+			// newly added page
+			if($page->parent->numChildren === 1) {
+				// first time parent gets added to pages_parents
+				$numRows += $this->rebuild($page->parent);
+			}
+		} else if($page->parentPrevious && $page->parentPrevious->id != $page->parent->id) {
+			// existing page with parent changed
+			if($page->parentPrevious->numChildren === 0) {
+				// parent no longer has children and doesn’t need entry
+				$numRows += $this->delete($page->parentPrevious);
+			}
+			if($page->parent->numChildren === 1) {
+				// first time parent gets added to pages_parents
+				$numRows += $this->rebuild($page->parent);
+			}
+		}
+		
+		return $numRows;
+	}
+
+	/**
+	 * Rebuild pages_parents table for given page 
+	 * 
+	 * This descends into both parents, and children that are themselves parents,
+	 * and this method already calls the rebuildBranch() method when appropriate.
+	 *
 	 * @param Page $page
 	 * @return int
 	 * @since 3.0.156
-	 * 
+	 *
 	 */
-	public function rebuildPage(Page $page) {
-		
-		$pages_id = (int) $page->id; 
+	public function rebuild(Page $page) {
+
+		$pages_id = (int) $page->id;
 		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
 		$inserts = array();
 		$rowCount = 0;
-		$exclude = false;
-		
-		if($page->id < 2) return 0;
-		if(!$page->_cloning && !$page->isNew()) $this->clearPage($page);
+
+		if(!$page->isNew()) $this->clear($page);
+
+		// if page has no children it does not need pages_parents entries
 		if(!$page->numChildren) return 0;
-		
+
+		// identify parents to store for $page
 		foreach($page->parents() as $parent) {
 			$parents_id = (int) $parent->id;
 			if($parents_id < 2) break;
 			$inserts[] = "$pages_id,$parents_id";
-			$exclude = isset($this->excludeIDs[$parents_id]); 
-			if($exclude) break;
 		}
-		
-		if($exclude) return 0;
 
 		if(count($inserts)) {
+			// if parents found to insert, rebuild parents of $page
 			$inserts = implode('),(', $inserts);
 			$query = $database->prepare("INSERT INTO pages_parents (pages_id, parents_id) VALUES($inserts)");
 			$query->execute();
 			$rowCount += $query->rowCount();
 		}
+
+		// rebuild parents within page’s children
+		$rowCount += $this->rebuildBranch($page->id);
+
+		return $rowCount;
+	}
+
+	/**
+	 * Rebuild pages_parents branch starting at $fromParent and into all descendents
+	 * 
+	 * @param Page|int $fromParent From parent Page or ID
+	 * @return int Number of rows inserted
+	 * 
+	 */
+	public function rebuildBranch($fromParent) {
+		return $this->rebuildAll($fromParent); 
+	}
+
+	/**
+	 * Rebuild pages_parents table entirely or from branch starting with a parent branch
+	 * 
+	 * @param int|Page $fromParent Specify parent ID or page to rebuild from that parent, or omit to rebuild all
+	 * @return int Number of rows inserted
+	 * @since 3.0.156
+	 * 
+	 */
+	public function rebuildAll($fromParent = null) {
+
+		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$inserts = array();
+		$parents = $this->findParentIDs($fromParent ? $fromParent : -2); // find parents within children
+		$rowCount = 0; 
+	
+		foreach($parents as $pages_id => $parents_id) {
+			if(isset($this->excludeIDs[$parents_id])) continue;
+			$inserts[] = "$pages_id,$parents_id";
+			while(isset($parents[$parents_id])) {
+				$parents_id = $parents[$parents_id];
+				$inserts[] = "$pages_id,$parents_id";
+			}
+		}
 		
-		if(!isset($this->excludeIDs[$page->id])) {
-			$rowCount += $this->rebuild($page->id); 
+		if(count($parents)) {
+			$where = $fromParent ? 'WHERE pages_id IN(' . implode(',', array_keys($parents)) . ')' : '';
+			$sql = "DELETE FROM pages_parents $where";
+			$database->exec($sql);
+		}
+	
+		if(count($inserts)) {
+			$inserts = array_unique($inserts);
+			$inserts = implode('),(', $inserts);
+			$query = $database->prepare("INSERT INTO pages_parents (pages_id, parents_id) VALUES($inserts)");
+			$query->execute();
+			$rowCount = $query->rowCount();
 		}
 		
 		return $rowCount;
@@ -538,13 +610,13 @@ class PagesParents extends Wire {
 
 	/**
 	 * Clear page from pages_parents index
-	 * 
+	 *
 	 * @param Page|int $page
 	 * @return int
 	 * @since 3.0.156
-	 * 
+	 *
 	 */
-	public function clearPage($page) {
+	public function clear($page) {
 		$pages_id = (int) "$page";
 		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
 		$query = $database->prepare("DELETE FROM pages_parents WHERE pages_id=:id");
@@ -556,160 +628,128 @@ class PagesParents extends Wire {
 	}
 
 	/**
-	 * Rebuild pages_parents table entirely or from branch starting with a parent
-	 * 
-	 * @param int|Page $fromParent Specify parent ID or page to rebuild from that parent, or omit to rebuild all
-	 * @return int Number of rows inserted
+	 * Delete page entirely from pages_parents table (both as page and parent)
+	 *
+	 * @param Page|int $page
+	 * @return int
 	 * @since 3.0.156
-	 * 
+	 *
 	 */
-	public function rebuild($fromParent = null) {
-
+	public function delete($page) {
+		$pages_id = (int) "$page";
 		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
-		$inserts = array();
-		$parents = $this->findParentIDs($fromParent ? $fromParent : -2); 
-	
-		foreach($parents as $pages_id => $parents_id) {
-			if(isset($this->excludeIDs[$parents_id])) continue;
-			$inserts[] = "$pages_id,$parents_id";
-			while(isset($parents[$parents_id])) {
-				$parents_id = $parents[$parents_id];
-				$inserts[] = "$pages_id,$parents_id";
-			}
-		}
-		
-		$inserts = array_unique($inserts);
-		$where = $fromParent ? 'WHERE pages_id IN(' . implode(',', array_keys($parents)) . ')' : '';
-		$database->exec("DELETE FROM pages_parents $where");
-
-		$inserts = implode('),(', $inserts);
-		$query = $database->prepare("INSERT INTO pages_parents (pages_id, parents_id) VALUES($inserts)");
+		$sql = "DELETE FROM pages_parents WHERE pages_id=:pages_id OR parents_id=:parents_id";
+		$query = $database->prepare($sql);
+		$query->bindValue(':pages_id', $pages_id, \PDO::PARAM_INT);
+		$query->bindValue(':parents_id', $pages_id, \PDO::PARAM_INT);
 		$query->execute();
-		$rowCount = $query->rowCount();
-		
-		return $rowCount;
+		$cnt = $query->rowCount();
+		$query->closeCursor();
+		return $cnt;
 	}
 
 	/**
-	 * Rebuild pages_parents table (deprecated original version replaced by rebuild method, here for reference only)
-	 *
-	 * Save references to the Page's parents in pages_parents table, as well as any other pages affected by a parent change
+	 * Tests a page and returns verbose details about what was found
+	 * 
+	 * For debugging/development purposes to make sure pages_parents 
+	 * is working as intended. 
 	 * 
 	 * #pw-internal
-	 *
-	 * @param int|Page $pages_id ID of page to save parents from
-	 * @param int|bool $hasChildren Does this page have children? Specify true or quantity of children.
-	 * @param array $options
-	 *  - `debug` (bool): Return debug info array? (default=false)
-	 *  - `skipIDs` (array): if pages_id has a parent matching any of these then do not save pages_parents table data for it.
-	 *  - `level` (int): Recursion level (internal use)
-	 * @return int|array Returns number of records inserted or array when debug option specified
-	 * @deprecated
-	 *
+	 * 
+	 * @param Page $page
+	 * @return array
+	 * 
 	 */
-	private function saveParents($pages_id, $hasChildren, array $options = array()) {
-
-		$defaults = array(
-			'level' => 0, // recursion level
-			'skipIDs' => array(),
-			'parentsIDs' => array(), // internal recursive use only
-			'debug' => false,
-		);
-
-		$options = array_merge($defaults, $options);
-		$pages_id = (int) "$pages_id";
-		$config = $this->wire('config'); /** @var Config $config */
+	public function pageTests(Page $page) {
+		
+		$id = (int) "$page";
+		$path = $page->path;
 		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
-		$debug = $options['debug'] ? array() : false;
-		$parentsIDs = empty($options['parentsIDs']) ? array() : $options['parentsIDs'];
-		if($debug !== false && !$options['level']) $debug = array('debug' => "saveParentsTable($pages_id)");
-
-		if(!$pages_id) return $debug === false ? 0 : $debug;
-
-		$skipIDs = $config->parentsTableExcludeIDs;
-		$skipIDs = is_array($skipIDs) ? array_merge($skipIDs, $options['skipIDs']) : $options['skipIDs'];
-		$skipIDs = empty($skipIDs) ? array() : array_flip($skipIDs); // flip for isset() use
-
-		$sql = "DELETE FROM pages_parents WHERE pages_id=:pages_id ";
-
-		if(!$options['level'] && count($skipIDs)) {
-			$parentsIDs = array();
-			foreach($skipIDs as $id) $parentsIDs[] = (int) $id;
-			$sql .= 'OR (pages_id>0 AND parents_id IN(' . implode(',', $parentsIDs) . '))';
-		}
-
-		$query = $database->prepare($sql);
-		$query->bindValue(':pages_id', $pages_id, \PDO::PARAM_INT);
-		$query->execute();
-		$query->closeCursor();
-
-		// if page has no children, then there is nothing further to do
-		if(!$hasChildren) return $debug === false ? 0 : $debug;
-
-		$skip = false;
-		$inserts = array();
-
-		if(empty($parentsIDs)) {
-			$parentsIDs = $this->getParents($pages_id, array(
-				'column' => 'id', // get value of id column only
-				'noHome' => true // exclude homepage
-			));
-		}
-
-		foreach($parentsIDs as $parent_id) {
-			$parent_id = (int) $parent_id;
-			$skip = isset($skipIDs[$parent_id]);
-			if($skip) break;
-			$inserts[] = "$pages_id,$parent_id";
-			if($debug !== false) $debug[] = $parent_id;
-		}
-
-		if($skip) return $debug === false ? 0 : $debug;
-
-		$numInserts = count($inserts);
-
-		if($numInserts) {
-			$sql =
-				'INSERT INTO pages_parents (pages_id, parents_id) ' .
-				'VALUES(' . implode('),(', $inserts) . ') ' .
-				'ON DUPLICATE KEY UPDATE parents_id=VALUES(parents_id)';
-			$database->exec($sql);
-		}
-
-		// find all children of $pages_id that themselves have children
-		$sql =
-			"SELECT pages.id, pages.name, COUNT(children.id) AS numChildren " .
-			"FROM pages " .
-			"JOIN pages AS children ON children.parent_id=pages.id " .
-			"WHERE pages.parent_id=:pages_id " .
-			"GROUP BY pages.id ";
-
-		$query = $database->prepare($sql);
-		$query->bindValue(':pages_id', $pages_id, \PDO::PARAM_INT);
-		$database->execute($query);
-		$rows = array();
-
-		/** @noinspection PhpAssignmentInConditionInspection */
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) $rows[] = $row;
-		$query->closeCursor();
-
-		if(count($rows)) {
-			array_unshift($parentsIDs, $pages_id);
-			$options['parentsIDs'] = $parentsIDs;
-			$options['level']++;
-			foreach($rows as $row) {
-				$result = $this->saveParents($row['id'], $row['numChildren'], $options);
-				if($debug === false) {
-					$numInserts += $result;
-				} else {
-					$debug["parents-of-$row[id]"] = $result;
+		
+		$tests = array(
+			'query-for-parents-of-page' => array(
+				'notes' => "Query DB for parents of $path. Result will exclude homepage.", 
+				'query' => "SELECT parents_id FROM pages_parents WHERE pages_id=$id",
+				'timer' => '',
+				'count' => 0, 
+				'pages' => array(),
+				'type' => 'database.query',
+			),
+			'query-for-pages-having-parent' => array(
+				'notes' => "Query DB for pages having parent $path. Result will exclude pages that are not themselves parents.", 
+				'query' => "SELECT pages_id FROM pages_parents WHERE parents_id=$id",
+				'timer' => '',
+				'count' => 0,
+				'pages' => array(),
+				'type' => 'database.query',
+			),
+			'pages-find-descendents' => array(
+				'notes' => "Use \$pages->find() with selector to find all descendents of $path with no exclusions.",
+				'query' => "has_parent=$id, sort=parent_id, sort=id, include=all", 
+				'timer' => '',
+				'count' => 0, 
+				'pages' => array(),
+				'type' => 'pages.find',
+			),
+			'page-children-descendents' => array(
+				'notes' => "Use recursive \$page->children() to manually reproduce result from previous test (the two should match)", 
+				'query' => "include=all, sort=id", 
+				'timer' => '',
+				'count' => 0, 
+				'pages' => array(),
+				'type' => 'descendents',
+			),
+		);
+		
+		foreach($tests as $key => $test) {
+			$timer = Debug::timer();
+			if($test['type'] === 'database.query') {
+				$query = $database->prepare($test['query']);
+				$query->execute();
+				$test['count'] = $query->rowCount();
+				while($value = $query->fetchColumn()) {
+					$test['pages'][] = "$value: " . $this->pages->getPath($value);
 				}
+				$query->closeCursor();
+				
+			} else if($test['type'] === 'pages.find') {
+				$this->pages->uncacheAll();
+				$items = $this->pages->find($test['query']); 
+				$test['count'] = $items->count(); 
+				$test['pages'] = $items->explode("{id}: {path}");
+				
+			} else if($test['type'] === 'descendents') {
+				$this->pages->uncacheAll();
+				$items = $this->descendents($page, $test['query']); 
+				$test['count'] = $items->count(); 
+				$test['pages'] = $items->explode("{id}: {path}");
 			}
-			$options['level']--;
+			
+			$test['timer'] = Debug::timer($timer);
+			$tests[$key] = $test;
 		}
-
-		return $debug === false ? $numInserts : $debug;
+		
+		return $tests;
 	}
 
-	
+	/**
+	 * Find descendents of $page by going recursive rather than using pages_parents table (for testing)
+	 * 
+	 * @param Page $page
+	 * @param string $selector
+	 * @return PageArray
+	 * 
+	 */
+	protected function descendents(Page $page, $selector = 'include=all') {
+		$children = new PageArray();
+		foreach($page->children($selector) as $child) {
+			$children->add($child); 
+			if(!$child->numChildren) continue;
+			foreach($this->descendents($child, $selector) as $item) {
+				$children->add($item);
+			}
+		}
+		return $children;
+	}
+
 }
