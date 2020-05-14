@@ -963,7 +963,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$sort = $input->$key;
 			if($sort !== null) {
 				$sort = (int) $sort; 
-				$pagefile->sort = $sort;
+				$pagefile->set('sort', $sort);
 				if($n !== $sort) $changed = true;
 				$saveFields = true;
 			}
@@ -982,6 +982,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		} else if(!$this->isAjax && !$this->overwrite && $pagefile->isTemp() && $sort !== null) {
 			// if page saved with temporary items when not ajax, those temporary items become non-temp
 			$pagefile->isTemp(false);
+			// @todo should the next statement instead be this below?
+			// if($this->maxFiles > 0) while(count($this->value) > $this->>maxFiles) { ... } ?
 			if($this->maxFiles == 1) while(count($this->value) > 1) {
 				$item = $this->value->first();
 				$this->value->remove($item);

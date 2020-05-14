@@ -279,7 +279,7 @@ class FieldtypeDatetime extends Fieldtype {
 	 */
 	public function ___getSelectorInfo(Field $field, array $data = array()) {
 		$a = parent::___getSelectorInfo($field, $data); 
-		$a['operators'] = array('=', '!=', '>', '>=', '<', '<=', '%=', '^='); 
+		$a['operators'] = array('=', '!=', '>', '>=', '<', '<=', '%=', '^=', '=""', '!=""'); 
 		return $a;
 	}
 
