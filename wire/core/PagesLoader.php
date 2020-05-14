@@ -584,25 +584,27 @@ class PagesLoader extends Wire {
 	 * - Like with the `get()` method, no pages are excluded, so an `include=all` is not necessary in selector.
 	 * - If you need to quickly check if something exists, this method is preferable to using a count() or get().
 	 *
-	 * When `$verbose` option is used, an array is returned instead. Verbose return array includes page `id`,
-	 * `parent_id` and `templates_id` indexes.
+	 * When `$verbose` option is used, an array is returned instead. Verbose return array includes all columns
+	 * from the matching row in the pages table. 
 	 * 
 	 * @param string|int|array|Selectors $selector
 	 * @param bool $verbose Return verbose array with all pages columns rather than just page id? (default=false)
+	 * @param array $options Additional options to pass in find() $options argument (not currently applicable)
 	 * @return array|int
 	 * @since 3.0.153
 	 * 
 	 */
-	public function has($selector, $verbose = false) {
-		
-		$options = array(
+	public function has($selector, $verbose = false, array $options = array()) {
+	
+		$defaults = array(
 			'findOne' => true, // find only one page
 			'findAll' => true, // no exclusions
-			'findIDs' => $verbose ? 2 : 1, // 1=find IDs, true=find verbose all cols
+			'findIDs' => $verbose ? 2 : 1, // 2=all cols, 1=IDs only
 			'getTotal' => false, // don't count totals
 			'caller' => 'pages.has',
 		);
-	
+
+		$options = count($options) ? array_merge($defaults, $options) : $defaults;
 		if(empty($selector)) return $verbose ? array() : 0;
 
 		if((is_string($selector) || is_int($selector)) && !$verbose) {
@@ -654,6 +656,7 @@ class PagesLoader extends Wire {
 	 * - Note that if you specify false for 'findTemplates' the pageClass is assumed to be 'Page' unless you specify something different for the 'pageClass' option.
 	 *
 	 * @param array|WireArray|string|int $_ids Array of page IDs, comma or pipe-separated string of IDs, or single page ID (string or int)
+	 *  or in 3.0.156+ array of associative arrays where each in format: [ 'id' => 123, 'templates_id' => 456 ]
 	 * @param Template|array|null $template Specify a template to make the load faster, because it won't have to attempt to join all possible fields... just those used by the template.
 	 *	Optionally specify an $options array instead, see the method notes above.
 	 * @param int|null $parent_id Specify a parent to make the load faster, as it reduces the possibility for full table scans.
@@ -686,6 +689,9 @@ class PagesLoader extends Wire {
 	
 		/** @var Templates $templates */
 		$templates = $this->wire('templates');
+		/** @var WireDatabasePDO $database */
+		$database = $this->wire('database');
+		$idsByTemplate = array();
 
 		if(is_array($template)) {
 			// $template property specifies an array of options
@@ -734,11 +740,21 @@ class PagesLoader extends Wire {
 
 		// sanitize ids and determine which pages we can pull from cache
 		foreach($_ids as $key => $id) {
-
+			
 			if(!is_int($id)) {
-				$id = trim($id);
-				if(!ctype_digit($id)) continue;
-				$id = (int) $id;
+				if(is_array($id)) {
+					if(!isset($id['id'])) continue;
+					$tid = isset($id['templates_id']) ? (int) $id['templates_id'] : 0;
+					$id = (int) $id['id'];
+					if($tid) {
+						if(!isset($idsByTemplate[$tid])) $idsByTemplate[$tid] = array();
+						$idsByTemplate[$tid][] = $id;
+					}
+				} else {
+					$id = trim($id);
+					if(!ctype_digit($id)) continue;
+					$id = (int) $id;
+				}
 			}
 			
 			if($id < 1) continue;
@@ -787,10 +803,10 @@ class PagesLoader extends Wire {
 			return $pages;
 		}
 
-		$database = $this->wire('database');
-		$idsByTemplate = array();
 
-		if(is_null($template) && $options['findTemplates']) {
+		if(count($idsByTemplate)) {
+			// ok
+		} else if($template === null && $options['findTemplates']) {
 
 			// template was not defined with the function call, so we determine
 			// which templates are used by each of the pages we have to load
@@ -817,7 +833,7 @@ class PagesLoader extends Wire {
 			}
 			$query->closeCursor();
 
-		} else if(is_null($template)) {
+		} else if($template === null) {
 			// no template provided, and autojoin not needed (so we don't need to know template)
 			$idsByTemplate = array(0 => $ids);
 
@@ -1320,6 +1336,29 @@ class PagesLoader extends Wire {
 			$query->closeCursor();
 		}
 		return $this->nativeColumns;	
+	}
+
+	/**
+	 * Get value of of a native column in pages table for given page ID
+	 *
+	 * @param int|Page $id Page ID
+	 * @param string $column
+	 * @return int|string|bool Returns int/string value on success or boolean false if no matching row
+	 * @since 3.0.156
+	 * @throws \PDOException|WireException
+	 *
+	 */
+	public function getNativeColumnValue($id, $column) {
+		$id = (is_object($id) ? (int) "$id" : (int) $id);
+		if($id < 1) return false;
+		$database = $this->wire('database');
+		if($database->escapeCol($column) !== $column) throw new WireException("Invalid column name: $column");
+		$query = $database->prepare("SELECT `$column` FROM pages WHERE id=:id");
+		$query->bindValue(':id', $id, \PDO::PARAM_INT);
+		$query->execute();
+		$value = $query->fetchColumn();
+		$query->closeCursor();
+		return $value;
 	}
 
 	/**
