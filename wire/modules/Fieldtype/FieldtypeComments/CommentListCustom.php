@@ -131,6 +131,7 @@ class CommentListCustom extends CommentList {
 		$out = $parent_id ? '' : $this->renderCheckActions();
 		$comments = $this->options['depth'] > 0 ? $this->getReplies($parent_id) : $this->comments;
 		foreach($comments as $comment) {
+			if(!$this->allowRenderItem($comment)) continue;
 			$this->comment = $comment;
 			$out .= $this->renderItem($comment, array('depth' => $depth));
 		}

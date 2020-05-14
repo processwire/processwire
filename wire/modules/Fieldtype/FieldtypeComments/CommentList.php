@@ -61,6 +61,12 @@ class CommentList extends Wire implements CommentListInterface {
 	protected $field;
 
 	/**
+	 * @var bool|null
+	 * 
+	 */
+	protected $editable = null;
+
+	/**
 	 * Default options that may be overridden from constructor
 	 *
 	 */
@@ -175,7 +181,6 @@ class CommentList extends Wire implements CommentListInterface {
 	public function getReplies($commentID) {
 		if(is_object($commentID)) $commentID = $commentID->id; 
 		$commentID = (int) $commentID; 
-		$admin = $this->options['admin'];
 		$replies = array();
 		$comments = $this->comments;
 		if($commentID && $comments->data('selectors') && $this->comment && $this->comment->id == $commentID) {
@@ -188,7 +193,7 @@ class CommentList extends Wire implements CommentListInterface {
 		}
 		foreach($comments as $c) {
 			if($c->parent_id != $commentID) continue;
-			if(!$admin && $c->status < Comment::statusApproved) continue;
+			if(!$this->allowRenderItem($c)) continue;
 			$replies[] = $c;
 		}
 		$this->numReplies[$commentID] = count($replies); 
@@ -261,6 +266,7 @@ class CommentList extends Wire implements CommentListInterface {
 		if(!count($comments)) return $out;
 		
 		foreach($comments as $comment) {
+			if(!$this->allowRenderItem($comment)) continue;
 			$this->comment = $comment;
 			$out .= $this->renderItem($comment, array('depth' => $depth));
 		}
@@ -333,6 +339,19 @@ class CommentList extends Wire implements CommentListInterface {
 		$out = str_replace($removals, '', $out); 
 		
 		return $out;
+	}
+	
+	/**
+	 * Allow comment to be rendered in list?
+	 *
+	 * @param Comment $comment
+	 * @return bool
+	 *
+	 */
+	protected function allowRenderItem(Comment $comment) {
+		if($this->editable === null) $this->editable = $this->options['admin'] && $this->page->editable();
+		if($this->editable || $comment->status >= Comment::statusApproved) return true;
+		return false;
 	}
 
 	/**
