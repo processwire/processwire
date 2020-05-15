@@ -1909,18 +1909,262 @@ class Sanitizer extends Wire {
 	 *
 	 * @param string|array $value String value to sanitize (assumed to be UTF-8), 
 	 *   or in 3.0.127+ you may use an array and it will be sanitized to an OR value string. 
-	 * @param array|int $options Options to modify behavior: 
+	 * @param array|int $options Options to modify behavior. Note version 1 supports only `maxLength` and `useQuotes` options.
+	 *   - `version` (int): Version 1 or 2 (default=2). Version 2 available in 3.0.156+. Note option is remembered between calls.
 	 *   - `maxLength` (int): Maximum number of allowed characters (default=100). This may also be specified instead of $options array.
 	 *   - `useQuotes` (bool): Allow selectorValue() function to add quotes if it deems them necessary? (default=true)
+	 *   - All following options are only supported in version 2 (available in 3.0.156+): 
+	 *   - `allowArray` (bool): Allow arrays to convert to OR-strings? If false, only 1st item in arrays is used. (default=true)
+	 *   - `operator` (string): Operator being used in selector, optionally apply for operator-specific filtering. 
+	 *   - `emptyValue` (string): Value to return if selector reduced to blank. Optionally use this to return something 
+	 *      that could never match, or return something for you to evaluate yourself, like boolean false. (default=blank string)
+	 *   - `blacklist` (array): Additional characters you want to disallow. (default=[])
+	 *   - `whitelist` (array): Characters that are in default blacklist that you still want to allow. (default=[])
+	 *   - `quotelist` (array): Additional characters that should always trigger quoted value. (default=[])
 	 *   - If an integer is specified for $options, it is assumed to be the maxLength value. 
-	 * @return string Value ready to be used as the value component in a selector string. 
+	 * @return string|int|bool|mixed Value ready to be used as the value component in a selector string. 
+	 *   Always returns string unless you specify something different for 'emptyValue' option.
 	 * 
 	 */
 	public function selectorValue($value, $options = array()) {
 		
+		static $version = 2;
+		
+		if(is_int($options)) {
+			$options = array('maxLength' => $options);
+		} else if(!is_array($options)) {
+			$options = array();
+		}
+		
+		if(isset($options['version'])) $version = (int) $options['version'];
+		
+		return $version > 1 ? $this->selectorValueV2($value, $options) : $this->selectorValueV1($value, $options);
+	}
+
+	/**
+	 * Wrapper for selectorValueV2() when it receives an array
+	 * 
+	 * @param array $value
+	 * @param array $options See options for selectorValue()
+	 * @return string Always returns string unless you specify something different for 'emptyValue'
+	 * 
+	 */
+	protected function selectorValueArray(array $value, $options = array()) {
+		$a = array();
+		$allowArray = isset($options['allowArray']) ? $options['allowArray'] : true;
+		if(count($value) < 2 || !$allowArray) {
+			// if array has 1 or 0 items, or arrays not allowed, return only first item in array
+			$value = reset($value);
+			$value = $this->string($value);
+			return $this->selectorValueV2($value, $options);
+		}
+		$options['useQuotes'] = true; // must be allowed to use quotes when needed in OR condition
+		foreach($value as $v) {
+			$v = $this->selectorValueV2($v, $options);
+			if(!strlen($v)) $v = '""'; // required blank value in OR condition
+			$a[] = $v;
+		}
+		return implode('|', $a);
+	}
+
+	/**
+	 * Sanitize selector value (version 2, 3.0.156+)
+	 * 
+	 * This version is a little more thorough and has more options than version 1. 
+	 *
+	 * @param string|array $value
+	 * @param array $options
+	 * @return bool|mixed|string Always returns string unless you specify something different for 'emptyValue'
+	 *
+	 */
+	protected function selectorValueV2($value, $options = array()) {
+		
+		// characters we remove from selector strings
+		$blacklist = array(
+			'"', "\\0", "\\", "`", "|", '=', '*', '%', '~', '^', '$', '#',
+			'<', '>', '[', ']', '{', '}', "\r", "\n", "\t", 
+		);
+	
+		// characters that trigger quotes around selector value
+		$quotelist = array(
+			"'", ",", "!", ":", ";", "(", ")", 
+		);
+	
 		$defaults = array(
+			'allowArray' => true, 
 			'maxLength' => 100, 
-			'useQuotes' => true, 
+			'maxBytes' => 400,
+			'useQuotes' => true,
+			'emptyValue' => '',
+			'quoteEmpty' => false, 
+			'operator' => '', 
+			'whitelist' => array(),
+			'blacklist' => $blacklist,
+			'quotelist' => $quotelist, 
+		);
+
+		// if given an array, convert to an OR selector string
+		if(is_array($value)) return $this->selectorValueArray($value, $options);
+
+		// append rather than replace blacklist and quotelist
+		if(!empty($options['blacklist'])) $options['blacklist'] = array_merge($blacklist, $options['blacklist']);
+		if(!empty($options['quotelist'])) $options['quotelist'] = array_merge($quotelist, $options['quotelist']);
+	
+		// prepare options and settings
+		$options = array_merge($defaults, $options);
+		$useQuotes = $options['useQuotes'];
+		$hadQuotes = false;
+		$maxLength = $options['maxLength'];
+		$maxBytes = $options['maxBytes'];
+		$emptyValue = $options['emptyValue'];
+		$blacklist = $options['blacklist'];
+		$quotelist = $options['quotelist'];
+		$op = $options['operator'];
+		
+		if($emptyValue === '' && $options['quoteEmpty']) $emptyValue = '""';
+		
+		// identify any operator-specific blacklist items
+		if($op && (strpos($op, '~') !== false || strpos($op, '*') !== false)) {
+			$blacklist[] = '@'; // @ not supported by fulltext match/against in InnoDB
+		}
+	
+		if(count($options['whitelist'])) {
+			// remove from blacklist that which is present in whitelist		
+			$blacklist = array_diff($blacklist, $options['whitelist']);
+			// add to quotelist that which is present in both whitelist and blacklist
+			$quotelist = array_merge($quotelist, array_intersect($options['whitelist'], $options['blacklist'])); 
+		}
+	
+		// ensure value is a string that is trimmed of whitespace
+		if(!is_string($value)) $value = $this->string($value);
+		$value = trim($value);
+		if(!strlen($value)) return $emptyValue; 
+	
+		// check if value is already in quotes
+		if($value[0] === '"' || $value[0] === "'") {
+			$hadQuotes = substr($value, -1) === $value[0] ? $value[0] : false;
+		}
+	
+		// replace any characters in the blacklist (and not in whitelist) with space
+		$value = str_replace($blacklist, ' ', $value);
+	
+		// test if any of the above resulted in an empty value and exit early if so
+		$value = trim($value);
+		if(!strlen($value)) return $emptyValue;
+
+		// remove other types of whtiespace
+		$whitespace = $this->getWhitespaceArray(false);
+		$value = trim(str_replace($whitespace, ' ', $value));
+		if(!strlen($value)) return $emptyValue;
+
+		if($value[0] == "'") { 
+			// value starts with single quote/apostrophe
+			if(substr($value, -1) === "'") {
+				// value starts and ends with single quote/apostrophe, remove them
+				$value = trim($value, "' "); 
+			} else {
+				// value only starts with single quote/apostrophe
+				$value = ltrim($value, "' "); 
+				// note: it’s okay if value ends with an apostrophe if it does not start with one
+			}
+		}
+
+		// selector value is limited to a maximum length (in characters)
+		if($maxLength > 0 && strlen($value) > $maxLength) {
+			if($this->multibyteSupport) {
+				if(mb_strlen($value) > $maxLength) {
+					$value = mb_substr($value, 0, $maxLength, 'UTF-8');
+				}
+			} else {
+				$value = substr($value, 0, $maxLength);
+			}
+		}
+	
+		// selector value limited by maximum bytes 
+		if($maxBytes > 0 && strlen($value) > $maxBytes) { 
+			if($this->multibyteSupport) {
+				$len = mb_strlen($value);
+				while(strlen($value) > $maxBytes) {
+					$len--;
+					$value = mb_substr($value, 0, $len);
+				}
+			} else {
+				$value = substr($value, 0, $maxBytes);
+			}	
+		}
+
+		// see if we can avoid the preg_match and do a quick filter
+		if(!ctype_alnum(str_replace(array(',', ' ', '-', '_', '/', '.', "'"), '', $value))) {
+			// value needs more filtering, replace all non-alphanumeric, non-single-quote and space chars
+			// See: http://php.net/manual/en/regexp.reference.unicode.php
+			// See: http://www.regular-expressions.info/unicode.html
+			$value = preg_replace('/[^[:alnum:]\pL\pN\pP\pM\p{S} \'\/]/u', ' ', $value); 
+
+			// replace multiple space characters in sequence with just 1
+			$value = preg_replace('/\s\s+/u', ' ', $value); 
+		}
+
+		// reductions and replacements
+		$reductions = array('..' => '.', './' => ' ', '  ' => ' ', '--' => '-');
+		foreach($reductions as $f => $r) {
+			while(strpos($value, $f) !== false) $value = str_replace($f, $r, $value);
+		}
+		
+		$value = trim($value); // trim any kind of whitespace
+		$value = trim($value, '+, '); // chars to remove from begin and end 
+
+		// RETURN NOW if quotes are disallowed or value is empty		
+		if(!strlen($value)) return $emptyValue;
+		if(!$useQuotes) {
+			return $hadQuotes && strpos($value, $hadQuotes) === false ? "$hadQuotes$value$hadQuotes" : $value;
+		}
+
+		// if value started quoted, we keep it quoted, otherwise we determine if it needs them
+		$needsQuotes = $hadQuotes ? true : false;
+	
+		if(!$needsQuotes) {
+			// see if any always-quote character triggers are present
+			foreach($quotelist as $char) {
+				if(strpos($value, $char) === false) continue;
+				$needsQuotes = true;
+				break;
+			}
+		}
+		
+		if(!$needsQuotes) {
+			// check if string begins or ends with allowed chars that are non-alphanumeric, non-slash
+			$a = substr($value, 0, 1);
+			$b = substr($value, -1);
+			if(!ctype_alnum($a) && $a !== '/') {
+				// starts with non-alphanumeric character that is not a slash (not a beginning of path)
+				$needsQuotes = true;
+			} else if(!ctype_alnum($b) && $b !== '/') {
+				// ends with non-alphanumeric character that is not a slash (not an ending of path)
+				$needsQuotes = true;
+			} else if($a === '/') {
+				// if not a path then we prefer it quoted
+				$needsQuotes = !ctype_alnum(str_replace(array('/', '-', '_', '.'), '', $value));
+			}
+		}
+		
+		if($needsQuotes) $value = '"' . $value . '"';
+		
+		return $value;
+	}
+
+	/**
+	 * Sanitize selector value (original, version 1) 
+	 * 
+	 * @param $value
+	 * @param array $options
+	 * @return bool|mixed|string
+	 * 
+	 */
+	protected function selectorValueV1($value, $options = array()) {
+
+		$defaults = array(
+			'maxLength' => 100,
+			'useQuotes' => true,
 		);
 
 		if(is_int($options)) {
@@ -1929,7 +2173,7 @@ class Sanitizer extends Wire {
 			$options = array();
 		}
 		$options = array_merge($defaults, $options);
-	
+
 		// if given an array, convert to an OR selector string
 		if(is_array($value)) {
 			$a = array();
@@ -1940,11 +2184,11 @@ class Sanitizer extends Wire {
 			}
 			return implode('|', $a);
 		}
-		
+
 		if(!is_string($value)) $value = $this->string($value);
-		$value = trim($value); 
+		$value = trim($value);
 		$quoteChar = '"';
-		$needsQuotes = false; 
+		$needsQuotes = false;
 		$maxLength = $options['maxLength'];
 
 		if($options['useQuotes']) {
@@ -1962,6 +2206,9 @@ class Sanitizer extends Wire {
 
 			// if commas are present, then the selector needs to be quoted
 			if(strpos($value, ',') !== false) $needsQuotes = true;
+		
+			// values with parenthesis should preferably be quoted
+			if(strpos($value, '(') !== false || strpos($value, ')') !== false) $needsQuotes = true;
 
 			// disallow double quotes -- remove any if they are present
 			if(strpos($value, '"') !== false) $value = str_replace('"', '', $value);
@@ -1969,14 +2216,14 @@ class Sanitizer extends Wire {
 
 		// selector value is limited to 100 chars
 		if(strlen($value) > $maxLength) {
-			if($this->multibyteSupport) $value = mb_substr($value, 0, $maxLength, 'UTF-8'); 
-				else $value = substr($value, 0, $maxLength); 
+			if($this->multibyteSupport) $value = mb_substr($value, 0, $maxLength, 'UTF-8');
+			else $value = substr($value, 0, $maxLength);
 		}
 
 		// disallow some characters in selector values
 		// @todo technically we only need to disallow at begin/end of string
 		$value = str_replace(array('*', '~', '`', '$', '^', '|', '<', '>', '=', '[', ']', '{', '}'), ' ', $value);
-	
+
 		// disallow greater/less than signs, unless they aren't forming a tag
 		// if(strpos($value, '<') !== false) $value = preg_replace('/<[^>]+>/su', ' ', $value); 
 
@@ -1984,29 +2231,29 @@ class Sanitizer extends Wire {
 		$value = str_replace(array("\r", "\n", "#", "%"), ' ', $value);
 
 		// see if we can avoid the preg_matches and do a quick filter
-		$test = str_replace(array(',', ' ', '-'), '', $value); 
+		$test = str_replace(array(',', ' ', '-'), '', $value);
 
 		if(!ctype_alnum($test)) {
-		
+
 			// value needs more filtering, replace all non-alphanumeric, non-single-quote and space chars
 			// See: http://php.net/manual/en/regexp.reference.unicode.php
 			// See: http://www.regular-expressions.info/unicode.html
-			$value = preg_replace('/[^[:alnum:]\pL\pN\pP\pM\p{S} \'\/]/u', ' ', $value); 
+			$value = preg_replace('/[^[:alnum:]\pL\pN\pP\pM\p{S} \'\/]/u', ' ', $value);
 
 			// replace multiple space characters in sequence with just 1
-			$value = preg_replace('/\s\s+/u', ' ', $value); 
+			$value = preg_replace('/\s\s+/u', ' ', $value);
 		}
 
 		$value = trim($value); // trim any kind of whitespace
 		$value = trim($value, '+,'); // chars to remove from begin and end 
-		if(strpos($value, '!') !== false) $needsQuotes = true; 
-		
+		if(strpos($value, '!') !== false) $needsQuotes = true;
+
 		if(!$needsQuotes && $options['useQuotes'] && strlen($value)) {
-			$a = substr($value, 0, 1); 
-			$b = substr($value, -1); 
+			$a = substr($value, 0, 1);
+			$b = substr($value, -1);
 			if((!ctype_alnum($a) && $a != '/') || (!ctype_alnum($b) && $b != '/')) $needsQuotes = true;
 		}
-		if($needsQuotes) $value = $quoteChar . $value . $quoteChar; 
+		if($needsQuotes && $options['useQuotes']) $value = $quoteChar . $value . $quoteChar;
 		return $value;
 
 	}
