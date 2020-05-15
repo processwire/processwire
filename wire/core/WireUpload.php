@@ -417,13 +417,13 @@ class WireUpload extends Wire {
 	public function validateFilename($value, $extensions = array()) {
 		$value = basename($value);
 		if($value[0] == '.') return false; // no hidden files
-		if($this->lowercase) $value = function_exists('mb_strtolower') ? mb_strtolower($value) : strtolower($value);
 		$value = $this->wire('sanitizer')->filename($value, Sanitizer::translate); 
+		if($this->lowercase) $value = strtolower($value);
 		$value = trim($value, "_");
 		if(!strlen($value)) return false;
 
 		$p = pathinfo($value);
-		if(!isset($p['extension'])) return false;
+		if(empty($p['extension'])) return false;
 		$extension = strtolower($p['extension']);
 		$basename = basename($p['basename'], ".$extension"); 
 		// replace any dots in the basename with underscores
@@ -431,7 +431,7 @@ class WireUpload extends Wire {
 		$value = "$basename.$extension";
 
 		if(count($extensions)) {
-			if(!in_array($extension, $extensions)) $value = false;
+			if(!in_array($extension, $extensions, true)) $value = false;
 		}
 
 		return $value;
@@ -454,13 +454,13 @@ class WireUpload extends Wire {
 		$error = '';
 		$filename = $this->getTargetFilename($filename); 
 		$_filename = $filename;
-		$filename = $this->validateFilename($filename);
+		$filename = $this->validateFilename($filename, $this->validExtensions);
 		
-		if(!$filename && $this->name) {
+		if(($filename === false || !strlen($filename)) && $this->name) {
 			// if filename doesn't validate, generate filename based on field name
 			$ext = pathinfo($_filename, PATHINFO_EXTENSION);
 			$filename = $this->name . ".$ext";
-			$filename = $this->validateFilename($filename);
+			$filename = $this->validateFilename($filename, $this->validExtensions);
 			$this->overwrite = false;
 		}
 		
