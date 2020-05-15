@@ -785,7 +785,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	
 		$field = $query->field; 
 		$schema = $this->getDatabaseSchema($field); 
-		$compareType = Selectors::getOperators(array('valueType' => 'compareType', 'operator' => $operator)); 
+		$compareType = Selectors::getOperators(array('getValueType' => 'compareType', 'operator' => $operator)); 
 		$isFindOperator = $compareType & Selector::compareTypeFind;
 		$isInvalidOperator = false;
 		$isInvalidSubfield = false;

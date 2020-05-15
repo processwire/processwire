@@ -237,12 +237,13 @@ class Selectors extends WireArray {
 		$selectorTypes = self::$selectorTypes;
 		
 		if(!empty($options['operator'])) {
-			$selectorTypes = array($selectorTypes[$options['operator']]);
+			$selectorTypes = array($options['operator'] => $selectorTypes[$options['operator']]);
 		}
 		
 		foreach($selectorTypes as $operator => $typeName) {
 			$className = __NAMESPACE__ . "\\$typeName";
 			if($compareType) {
+				/** @var Selector $className */
 				if(!($className::getCompareType() & $options['compareType'])) continue;
 			}
 			if($valueType === 'class') {
