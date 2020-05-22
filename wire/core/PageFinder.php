@@ -2416,8 +2416,8 @@ class PageFinder extends Wire {
 					$s = '';
 					foreach(explode(' ', $value) as $n => $word) {
 						$word = $sanitizer->pageName($word, Sanitizer::toAscii); 
-						$bindKey = $query->bindValueGetKey($word);
-						$s .= ($s ? ' AND ' : '') . "$table.$field RLIKE '" . '[[:<:]]' . $bindKey . '[[:>:]]' . "'";
+						$bindKey = $query->bindValueGetKey('[[:<:]]' . $word . '[[:>:]]');
+						$s .= ($s ? ' AND ' : '') . "$table.$field RLIKE $bindKey";
 					}
 
 				} else if($isName && $isPartialOperator) {
