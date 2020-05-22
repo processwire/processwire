@@ -43,7 +43,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		'created',
 		'modified',
 		'published',
-		);
+	);
 
 
 	/**	
@@ -758,7 +758,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			'path',
 			'url',
 			'sort',
-			);
+		);
 
 		$database = $this->wire('database');
 		
@@ -813,20 +813,29 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 				}
 			}
 
-			$value = $database->escapeStr($value); 
 			$subfield = $database->escapeCol($subfield);
 
 			if($operator == '!=') {
 				$t = $database->escapeTable($query->field->getTable());
-				$where = 
-					"SELECT COUNT(*) FROM $t " . 
-					"WHERE $t.pages_id=pages.id " . 
-					"AND " . ($idstr ? "$t.$subfield IN($value)" : "$t.$subfield='$value'");
+				$where = "SELECT COUNT(*) FROM $t WHERE $t.pages_id=pages.id ";
+				if($idstr) {
+					$value = explode(',', $value); 
+					$value = array_map('intval', $value); 
+					$value = implode(',', $value);
+					$where .= "AND $t.$subfield IN($value)"; 
+				} else {
+					$bindKey = $query->bindValueGetKey($value);
+					$where .= "AND $t.$subfield=$bindKey";
+				}
 				$query->where("($where)=0");
 			} else if($operator == '=' && $idstr) {
+				$value = explode(',', $value);
+				$value = array_map('intval', $value);
+				$value = implode(',', $value);
 				$query->where("($table.{$subfield} IN($value))"); 
 			} else {
-				$query->where("($table.{$subfield}{$operator}'$value')"); 
+				$bindKey = $query->bindValueGetKey($value);
+				$query->where("($table.{$subfield}{$operator}$bindKey)"); 
 			}
 
 		} else if($this->getMatchQueryNative($query, $table, $subfield, $operator, $value)) {
@@ -894,9 +903,8 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$table = $database->escapeTable($table);
 		$table2 = "_fieldtypepage" . (++$n);
 		$subfield = $database->escapeCol($subfield);
-
-		$value = $database->escapeStr($value); 
-		$query->join("pages AS $table2 ON $table2.$subfield$operator'$value'"); 
+		$bindKey = $query->bindValueGetKey($value); 
+		$query->join("pages AS $table2 ON $table2.$subfield$operator$bindKey"); 
 		$query->where("($table.data=$table2.id)"); 
 
 		return true; 

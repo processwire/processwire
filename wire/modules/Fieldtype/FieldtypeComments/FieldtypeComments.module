@@ -1265,13 +1265,16 @@ class FieldtypeComments extends FieldtypeMulti {
 		}
 
 		// COUNT
-		$query = $database->prepare($countQuery->getQuery());
+		$sql = $countQuery->getQuery();
+		$query = $database->prepare($sql);
 		foreach($binds as $key => $value) {
 			$query->bindValue(":$key", $value);
 		}
+		$countQuery->copyBindValuesTo($query); // populate from $countQuery to $query
 		$query->execute();
 		list($total) = $query->fetch(\PDO::FETCH_NUM);
 		$total = (int) $total;
+		$query->closeCursor();
 		if($options['count']) return $total;
 
 		// SELECT
@@ -1290,6 +1293,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		foreach($binds as $key => $value) {
 			$query->bindValue(":$key", $value); 
 		}
+		$selectQuery->copyBindValuesTo($query); // populate from $selectQuery to $query
 		$query->execute();
 		$commentPages = array();
 

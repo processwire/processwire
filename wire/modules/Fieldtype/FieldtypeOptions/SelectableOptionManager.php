@@ -28,6 +28,14 @@ class SelectableOptionManager extends Wire {
 	protected $useLanguages = false;
 
 	/**
+	 * Cache of loaded options
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $optionsCache = array();
+
+	/**
 	 * Options removed that have not yet been deleted
 	 * 
 	 * Populated after a call to $this->setOptions() with the $allowDelete argument false.
@@ -92,7 +100,13 @@ class SelectableOptionManager extends Wire {
 	 *
 	 */
 	public function getOptions(Field $field, array $filters = array()) {
-
+		
+		$hasFilters = count($filters) > 0;
+		
+		if(isset($this->optionsCache[$field->id]) && !$hasFilters) {
+			return $this->optionsCache[$field->id];
+		}
+		
 		$defaults = array(
 			'id' => array(),
 			'title' => array(),
@@ -175,6 +189,8 @@ class SelectableOptionManager extends Wire {
 		}
 		
 		$options->resetTrackChanges();
+		
+		if(!$hasFilters) $this->optionsCache[$field->id] = $options; 
 
 		return $options;
 	}
@@ -543,6 +559,8 @@ class SelectableOptionManager extends Wire {
 	 *
 	 */
 	public function updateOptions(Field $field, $options) {
+		
+		unset($this->optionsCache[$field->id]); 
 
 		$database = $this->wire('database');
 		$sql = "UPDATE " . self::optionsTable . " SET sort=:sort, title=:title, `value`=:value ";
@@ -596,6 +614,7 @@ class SelectableOptionManager extends Wire {
 	 *
 	 */
 	public function deleteOptions(Field $field, $options) {
+		unset($this->optionsCache[$field->id]); 
 		$ids = array();
 		foreach($options as $option) {
 			if(!$option instanceof SelectableOption) continue;
@@ -616,6 +635,7 @@ class SelectableOptionManager extends Wire {
 	 */
 	public function deleteOptionsByID(Field $field, array $ids) {
 
+		unset($this->optionsCache[$field->id]); 
 		$database = $this->wire('database');
 		$table = $database->escapeTable($field->getTable());
 		$cleanIDs = array();
@@ -663,6 +683,8 @@ class SelectableOptionManager extends Wire {
 		
 		// options that have pre-assigned IDs
 		$optionsByID = array();
+
+		unset($this->optionsCache[$field->id]);
 
 		// determine if any added options already have IDs
 		foreach($options as $option) {

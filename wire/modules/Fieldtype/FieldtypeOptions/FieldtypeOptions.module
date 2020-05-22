@@ -345,9 +345,13 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 			$database = $this->wire('database'); 
 			$t = $database->escapeTable($query->field->getTable());
 			$s = $database->escapeCol($subfield); 
-			$v = $database->escapeStr($value); 
-			$query->where("(SELECT COUNT(*) FROM $t WHERE $t.pages_id=pages.id AND $t.$s='$v')=0");
-			$query->parentQuery->where("($table.data IS NULL OR $table.$s!='$v')");
+			
+			$bindKey = $query->bindValueGetKey($value);
+			$query->where("(SELECT COUNT(*) FROM $t WHERE $t.pages_id=pages.id AND $t.$s=$bindKey)=0");
+			
+			$bindKey = $query->parentQuery->bindValueGetKey($value);
+			$query->parentQuery->where("($table.data IS NULL OR $table.$s!=$bindKey)");
+			
 			return $query;
 		}
 		
