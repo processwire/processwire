@@ -241,7 +241,58 @@ DirectoryIndex index.php index.html index.htm
   </IfModule>
 
 
-  # Sections 10 and 11 intentionally omitted
+  # Section 10 intentionally omitted for future use
+ 
+  # -----------------------------------------------------------------------------------------------
+  # 11. Nuisance blocking/firewall
+  # -----------------------------------------------------------------------------------------------
+  # None of these are enabled by default, but are here for convenience when the need arises.
+  # Review and uncomment as needed. For more complete firewall (and more overhead), the 7G firewall
+  # (or latest version) is worth considering, see: https://perishablepress.com/7g-firewall/
+  # -----------------------------------------------------------------------------------------------
+ 
+  # 11A. Block via IP addresses
+  # -----------------------------------------------------------------------------------------------
+  # Note that IP addresses here are examples only and should be replaced with actual IPs.
+  
+  # Block single IP address
+  # Deny from 111.222.333.444
+  
+  # Block multiple IP addresses
+  # Deny from 111.222.333.444 44.33.22.11
+  
+  # Block IP address ranges (999.88.*, 99.88.77.*, 1.2.3.*)
+  # Deny from 999.888 99.88.77 1.2.3
+  
+  # 11B. Block via request URI (matches strings anywhere in request URL)
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{REQUEST_URI} (bad-word|wp-admin|wp-content) [NC]
+  # RewriteRule .* - [F,L]
+	  
+  # 11B. Block via user agent strings (matches strings anywhere in user-agent)
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{HTTP_USER_AGENT} (bad-bot|mean-bot) [NC]
+  # RewriteRule .* - [F,L]  
+  
+  # 11C. Block via remote hosts 
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{REMOTE_HOST} (bad-host|annoying-host) [NC]
+  # RewriteRule .* - [F,L]
+  
+  # 11D. Block via HTTP referrer (matches anywhere in referrer URL)
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{HTTP_REFERER} (bad-referrer|gross-referrer) [NC]
+  # RewriteRule .* - [F,L]
+  
+  # 11E. Block unneeded request methods (only if you do not need them)
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{REQUEST_METHOD} ^(connect|debug|delete|move|put|trace|track) [NC]
+  # RewriteRule .* - [F,L]  
+  
+  # 11F. Limit file upload size from Apache (i.e. 10240000=10 MB, adjust as needed)
+  # -----------------------------------------------------------------------------------------------
+  # LimitRequestBody 10240000
+  
  
   
   # -----------------------------------------------------------------------------------------------
@@ -309,19 +360,22 @@ DirectoryIndex index.php index.html index.htm
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets.*/-.+/.* [NC,OR]
   
   # Block access to /wire/config.php, /site/config.php, /site/config-dev.php, /wire/index.config.php, etc.
-  RewriteCond %{REQUEST_URI} (^|/)(wire|site|site-[^/]+)/(config|index\.config|config-dev)\.php$ [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)(wire|site|site-[^/]+)/(config|index\.config|config-dev)\.php($|/) [NC,OR]
   
   # Block access to any PHP-based files in /site/templates-admin/ or /wire/templates-admin/
-  RewriteCond %{REQUEST_URI} (^|/)(wire|site|site-[^/]+)/templates-admin($|/|/.*\.(php|html?|tpl|inc))$ [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)(wire|site|site-[^/]+)/templates-admin($|/|/.*\.(php|html?|tpl|inc))($|/) [NC,OR]
   
   # Block access to any PHP or markup files in /site/templates/ or /site-*/templates/
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/templates($|/|/.*\.(php|html?|tpl|inc))$ [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/templates($|/|/.*\.(php|html?|tpl|inc))($|/) [NC,OR]
+  
+  # Block access to any files in /site/classes/ or /site-*/classes/
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/classes($|/.*) [NC,OR]
   
   # Block access to any PHP files within /site/assets/ and further
-  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets($|/|/.*\.php)$ [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/assets($|/|/.*\.ph(p|ps|tml|p[0-9]))($|/) [NC,OR]
   
   # Block access to any PHP, module, inc or info files in core or core modules directories
-  RewriteCond %{REQUEST_URI} (^|/)wire/(core|modules)/.*\.(php|inc|tpl|module|info\.json)$ [NC,OR]
+  RewriteCond %{REQUEST_URI} (^|/)wire/(core|modules)/.*\.(php|inc|tpl|module|info\.json)($|/) [NC,OR]
   
   # Block access to any PHP, tpl or info.json files in /site/modules/ or /site-*/modules/
   RewriteCond %{REQUEST_URI} (^|/)(site|site-[^/]+)/modules/.*\.(php|inc|tpl|module|info\.json)$ [NC,OR]
