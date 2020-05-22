@@ -576,46 +576,54 @@ class WireTextTools extends Wire {
 			if($pos) $tests[] = $pos;
 		}
 
-		// if we didn't find any place to truncate, just return exact truncated string
-		if(!count($tests)) {
-			return trim($str, $options['trim']) . $options['more'];
-		}
-
-		// we found somewhere to truncate, so truncate at the longest one possible
-		if($options['maximize']) {
-			sort($tests);
-		} else {
-			rsort($tests);
-		}
-
-		// process our tests
-		do {
-			$pos = array_pop($tests);
-			$result = trim($this->substr($str, 0, $pos + 1));
-			$lastChar = $this->substr($result, -1);
-			$result = rtrim($result, $options['trim']);
-
-			if($type === 'sentence' || $type === 'block') {
-				// good to go with result as is
-			} else if(in_array($lastChar, $endSentenceChars)) {
-				// good, end with sentence ending punctuation
-			} else if(in_array($lastChar, $punctuationChars)) {
-				$trims = ' ';
-				foreach($punctuationChars as $c) {
-					if($this->strpos($options['noTrim'], $c) !== false) continue;
-					if(in_array($c, $endSentenceChars)) continue;
-					$trims .= $c;
-				}
-				$result = rtrim($result, $trims) . $options['more'];
+		if(count($tests)) {
+			// we found somewhere to truncate, so truncate at the longest one possible
+			if($options['maximize']) {
+				sort($tests);
 			} else {
-				$result .= $options['more'];
+				rsort($tests);
 			}
 
-		} while(!strlen($result) && count($tests));
+			// process our tests
+			do {
+				$pos = array_pop($tests);
+				$result = trim($this->substr($str, 0, $pos + 1));
+				$lastChar = $this->substr($result, -1);
+				$result = rtrim($result, $options['trim']);
 
-		// make sure we didn't break any HTML tags as a result of truncation
-		if(strlen($result) && count($options['keepTags']) && strpos($result, '<') !== false) {
-			$result = $this->fixUnclosedTags($result);
+				if($type === 'sentence' || $type === 'block') {
+					// good to go with result as is
+				} else if(in_array($lastChar, $endSentenceChars)) {
+					// good, end with sentence ending punctuation
+				} else if(in_array($lastChar, $punctuationChars)) {
+					$trims = ' ';
+					foreach($punctuationChars as $c) {
+						if($this->strpos($options['noTrim'], $c) !== false) continue;
+						if(in_array($c, $endSentenceChars)) continue;
+						$trims .= $c;
+					}
+					$result = rtrim($result, $trims) . $options['more'];
+				} else {
+					$result .= $options['more'];
+				}
+
+			} while(!strlen($result) && count($tests));
+
+			// make sure we didn't break any HTML tags as a result of truncation
+			if(strlen($result) && count($options['keepTags']) && strpos($result, '<') !== false) {
+				$result = $this->fixUnclosedTags($result);
+			}
+		} else {
+			// if we didn't find any place to truncate, just return exact truncated string
+			$result = trim($str, $options['trim']) . $options['more'];
+		}
+		
+		if(strlen($options['more'])) {
+			// remove any duplicated more strings
+			$more = $options['more'];
+			while(strpos($result, "$more$more") !== false) {
+				$result = str_replace("$more$more", "$more", $result); 
+			}
 		}
 		
 		return $result;

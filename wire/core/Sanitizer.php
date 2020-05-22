@@ -1227,7 +1227,7 @@ class Sanitizer extends Wire {
 	 * - `inCharset` (string): input character set (default="UTF-8").
 	 * - `outCharset` (string): output character set (default="UTF-8").
 	 * @return string
-	 * @see Sanitizer::textarea()
+	 * @see Sanitizer::textarea(), Sanitizer::line()
 	 *
 	 */
 	public function text($value, $options = array()) {
@@ -1394,7 +1394,7 @@ class Sanitizer extends Wire {
 	 * @param string $value String value to sanitize
 	 * @param array $options Options to modify default behavior
 	 * - `maxLength` (int): maximum characters allowed, or 0=no max (default=16384 or 16kb).
-	 * - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*3 or 48kb).
+	 * - `maxBytes` (int): maximum bytes allowed (default=0, which implies maxLength*4 or 64kb).
 	 * - `stripTags` (bool): strip markup tags? (default=true).
 	 * - `stripMB4` (bool): strip emoji and other 4-byte UTF-8? (default=false).
 	 * - `stripIndents` (bool): Remove indents (space/tabs) at the beginning of lines? (default=false). Since 3.0.105
@@ -1430,6 +1430,70 @@ class Sanitizer extends Wire {
 		}
 		
 		return $value;
+	}
+
+	/**
+	 * Sanitize any string of text to single line, no HTML, and no specific max-length (unless given)
+	 *
+	 * This is the same as the text() sanitizer but does not impose a maximum character length (or
+	 * byte length) unless given one in the `$maxLength` argument. This is useful in cases where the
+	 * text sanitizer’s built in 255 character max length (1020 max bytes) is not enough, or when you
+	 * want to specify a max length as part of the method arguments.
+	 *
+	 * Please note that like with the text sanitizer, the max length refers to a maximum number of
+	 * characters, not bytes. The maxBytes is automatically set to the maxLength * 4, or can be
+	 * specifically set via the `maxBytes` option.
+	 *
+	 * #pw-group-strings
+	 *
+	 * @param string $value String to sanitize
+	 * @param int|array $maxLength Maximum length in characters, omit (0) for no max-length, or substitute $options array
+	 * @param array $options Options to modify behavior, see text() sanitizer for all options.
+	 * @return string
+	 * @see Sanitizer::text(), Sanitizer::lines()
+	 * @since 3.0.157
+	 *
+	 */
+	public function line($value, $maxLength = 0, array $options = array()) {
+		if(is_array($maxLength)) {
+			$options = $maxLength;
+			if(!isset($options['maxLength'])) $options['maxLength'] = 0;
+		} else {
+			$options['maxLength'] = $maxLength;
+		}
+		return $this->text($value, $options);
+	}
+
+	/**
+	 * Sanitize input string as multi-line text, no HTML tags, and no specific max length (unless given)
+	 * 
+	 * This is the same as the textarea() sanitizer but does not impose a maximum character length (or
+	 * byte length) unless given one in the `$maxLength` argument. This is useful in cases where the
+	 * textarea sanitizer’s built in 16kb character max length (64kb max bytes) is not enough, or when you
+	 * want to specify a max length as part of the method arguments.
+	 *
+	 * Please note that like with the textarea sanitizer, the max length refers to a maximum number of
+	 * characters, not bytes. The maxBytes is automatically set to the maxLength * 4, or can be
+	 * specifically set via the `maxBytes` option. 
+	 *
+	 * #pw-group-strings
+	 *
+	 * @param string $value String value to sanitize
+	 * @param int|array $maxLength Maximum length in characters, omit (0) for no max-length, or substitute $options array
+	 * @param array $options Options to modify behavior, see textarea() sanitizer for all options. 
+	 * @return string
+	 * @see Sanitizer::textarea(), Sanitizer::purify(), Sanitizer::line()
+	 * @since 3.0.157
+	 *
+	 */
+	public function lines($value, $maxLength = 0, $options = array()) {
+		if(is_array($maxLength)) {
+			$options = $maxLength;
+			if(!isset($options['maxLength'])) $options['maxLength'] = 0;
+		} else {
+			$options['maxLength'] = $maxLength;
+		}
+		return $this->textarea($value, $options);
 	}
 
 	/**
@@ -2878,6 +2942,27 @@ class Sanitizer extends Wire {
 	}
 
 	/**
+	 * Truncate string to given maximum length without breaking words and with no added visible extras
+	 *
+	 * This is a shortcut to the truncate() sanitizer, sanitizing to nearest word with the `more` option 
+	 * disabled and the `collapseLinesWith` set to 1 space (rather than ellipsis). 
+	 * 
+	 * @param string $str String to truncate
+	 * @param int|array $maxLength Maximum allowed length in characters, or substitute $options argument here
+	 * @param array $options See options for truncate() method or specify `type` option (word, punctuation, sentence, block).
+	 * @return string
+	 * @since 3.0.157
+	 * 
+	 */
+	public function trunc($str, $maxLength = 300, $options = array()) {
+		if(is_array($maxLength)) $options = $maxLength;
+		if(!isset($options['type'])) $options['type'] = 'word';
+		if(!isset($options['more'])) $options['more'] = '';
+		if(!isset($options['collapseLinesWith'])) $options['collapseLinesWith'] = ' ';
+		return $this->getTextTools()->truncate($str, $maxLength, $options);
+	}
+
+	/**
 	 * Removes 4-byte UTF-8 characters (like emoji) that produce error with with MySQL regular “UTF8” encoding
 	 * 
 	 * Returns the same value type that it is given. If given something other than a string or array, it just
@@ -3616,21 +3701,40 @@ class Sanitizer extends Wire {
 	 * #pw-group-numbers
 	 *
 	 * @param array|string|mixed $value Accepts an array or CSV string. If given something else, it becomes first value in array.
-	 * @param array $options Optional options (see `Sanitizer::array()` and `Sanitizer::int()` methods for options), plus these two: 
+	 * @param array|bool $options Optional options (see `Sanitizer::array()` and `Sanitizer::int()` methods for options), plus these two: 
 	 * 	- `min` (int): Minimum allowed value (default=0)
 	 * 	- `max` (int): Maximum allowed value (default=PHP_INT_MAX)
+	 *  - `strict` (bool): Remove rather than convert any values that are not all digits or fall outside min/max range? (default=false) Since 3.0.157+
+	 *  - You may specify boolean true for $options argument to use just the `strict` option. (3.0.157+)
 	 * @return array Array of integers
 	 *
 	 */
-	public function intArray($value, array $options = array()) {
+	public function intArray($value, $options = array()) {
+		if(is_bool($options)) {
+			$options = array('strict' => $options);
+		} else if(!is_array($options)) {
+			$options = array();
+		}
 		if(!is_array($value)) {
 			$value = $this->___array($value, null, $options);
 		}
 		$clean = array();
+		$strict = isset($options['strict']) ? $options['strict'] : false;
 		foreach($value as $k => $v) {
-			$clean[$k] = $this->int($v, $options);
+			if($strict) {
+				$isInt = is_int($v);
+				$isStr = !$isInt && is_string($v); 
+				if(!$isInt && !$isStr) continue;
+				if($isStr && !ctype_digit($v)) continue;
+				if($v === '') continue;
+				$vBefore = (int) $v;
+				$vAfter = $this->int($v, $options);
+				if($vBefore === $vAfter) $clean[] = $vAfter;
+			} else {
+				$clean[] = $this->int($v, $options);
+			}
 		}
-		return array_values($clean);
+		return $clean;
 	}
 
 	/**
