@@ -47,19 +47,26 @@
 class DatabaseQuerySelect extends DatabaseQuery {
 
 	/**
+	 * DB cache setting from $config
+	 * 
+	 * @var null
+	 * 
+	 */
+	static $dbCache = null;
+
+	/**
 	 * Setup the components of a SELECT query
 	 *
 	 */
 	public function __construct() {
 		parent::__construct();
-		$this->set('select', array()); 
-		$this->set('join', array()); 
-		$this->set('from', array()); 
-		$this->set('leftjoin', array()); 
-		$this->set('where', array()); 
-		$this->set('orderby', array()); 
-		$this->set('groupby', array()); 
-		$this->set('limit', array()); 
+		$this->addQueryMethod('select', 'SELECT ', ', ');
+		$this->addQueryMethod('from', " \nFROM `", '`,`', '` ');
+		$this->addQueryMethod('join', " \nJOIN ", " \nJOIN ");
+		$this->addQueryMethod('leftjoin', " \nLEFT JOIN ", " \nLEFT JOIN ");
+		$this->addQueryMethod('orderby', " \nORDER BY ", ",");
+		$this->addQueryMethod('groupby', " \nGROUP BY ", ',');
+		$this->addQueryMethod('limit', " \nLIMIT ", ',');
 		$this->set('comment', ''); 
 	}
 
@@ -69,15 +76,16 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	 */
 	public function getQuery() {
 
-		$sql = 	
-			$this->getQuerySelect() . 
-			$this->getQueryFrom() . 
-			$this->getQueryJoin($this->join, "JOIN") . 
-			$this->getQueryJoin($this->leftjoin, "LEFT JOIN") . 
-			$this->getQueryWhere() . 
-			$this->getQueryGroupby() . 
-			$this->getQueryOrderby() . 
-			$this->getQueryLimit(); 
+		$sql = trim(	
+			$this->getQueryMethod('select') . 
+			$this->getQueryMethod('from') . 
+			$this->getQueryMethod('join') . 
+			$this->getQueryMethod('leftjoin') . 
+			$this->getQueryMethod('where') . 
+			$this->getQueryMethod('groupby') . 
+			$this->getQueryMethod('orderby') . 
+			$this->getQueryMethod('limit')
+		) . ' ';
 
 		if($this->get('comment') && $this->wire('config')->debug) {
 			// NOTE: PDO thinks ? and :str param identifiers in /* comments */ are real params
@@ -90,7 +98,7 @@ class DatabaseQuerySelect extends DatabaseQuery {
 	}
 
 	/**
-	 * Add an 'order by' element to the query
+	 * Add an ORDER BY section to the query
 	 *
 	 * @param string|array $value
 	 * @param bool $prepend Should the value be prepended onto the existing value? default is to append rather than prepend.
@@ -125,10 +133,20 @@ class DatabaseQuerySelect extends DatabaseQuery {
 		return $this; 
 	}
 
+	/**
+	 * Get SELECT portion of SQL 
+	 * 
+	 * @return string
+	 * 
+	 */
 	protected function getQuerySelect() {
+		
+		if(self::$dbCache === null) {
+			self::$dbCache = $this->wire('config')->dbCache === false ? false : true;
+		}
 
-		$sql = '';
 		$select = $this->select; 
+		$sql = '';
 
 		// ensure that an SQL_CALC_FOUND_ROWS request comes first
 		while(($key = array_search("SQL_CALC_FOUND_ROWS", $select)) !== false) {
@@ -136,36 +154,17 @@ class DatabaseQuerySelect extends DatabaseQuery {
 			unset($select[$key]); 
 		}
 		if(!$sql) $sql = "SELECT ";
-
-		// $config->dbCache option for debugging purposes
-		if($this->wire('config')->dbCache === false) $sql .= "SQL_NO_CACHE "; 
-
-		foreach($select as $s) $sql .= "$s,";
-		$sql = rtrim($sql, ",") . " "; 
-		return $sql;
+		if(self::$dbCache === false) $sql .= "SQL_NO_CACHE "; 
+		
+		return $sql . implode(',', $select) . ' ';
 	}
 
-	protected function getQueryFrom() {
-		$sql = "\nFROM ";
-		foreach($this->from as $s) $sql .= "`$s`,";	
-		$sql = rtrim($sql, ",") . " "; 
-		return $sql; 
-	}
-
-	protected function getQueryJoin(array $join, $type) {
-		$sql = '';
-		foreach($join as $s) $sql .= "\n$type $s ";
-		return $sql;
-	}
-
-	protected function getQueryOrderby() {
-		if(!count($this->orderby)) return '';
-		$sql = "\nORDER BY ";
-		foreach($this->orderby as $s) $sql .= "$s,";
-		$sql = rtrim($sql, ",") . " ";
-		return $sql;
-	}
-
+	/**
+	 * Get GROUP BY section of SQL
+	 * 
+	 * @return string
+	 * 
+	 */
 	protected function getQueryGroupby() {
 		if(!count($this->groupby)) return '';
 		$sql = "\nGROUP BY ";
@@ -186,23 +185,31 @@ class DatabaseQuerySelect extends DatabaseQuery {
 			foreach($having as $n => $h) {
 				if($n > 0) $sql .= " AND ";
 				$sql .= $h;
-				
 			}
 		}
 
-		$sql = rtrim($sql, ",") . " ";
-
-
-		return $sql;
+		return rtrim($sql, ",") . " ";
 	}
 
+	/**
+	 * Get LIMIT section of SQL
+	 * 
+	 * @return string
+	 * 
+	 */
 	protected function getQueryLimit() {
 		if(!count($this->limit)) return '';
 		$limit = $this->limit; 
-		$sql = "\nLIMIT " . reset($limit) . " ";
-		return $sql; 
+		$limit = reset($limit);
+		if(strpos($limit, ',') !== false) {
+			list($start, $limit) = explode(',', $limit);
+			$start = (int) trim($start);
+			$limit = (int) trim($limit); 
+			$limit = "$start,$limit";
+		} else {
+			$limit = (int) $limit;
+		}
+		return "\nLIMIT $limit ";
 	}
-
-	
 }
 

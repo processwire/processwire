@@ -18,7 +18,12 @@
  * 
  * @property array $where
  * @property array $bindValues
- * @property array $bindIndex 
+ * @property array $bindKeys
+ * @property array $bindOptions
+ * @property string $query
+ * @property string $sql
+ * 
+ * @method $this where($sql, array $params = array())
  *
  */
 abstract class DatabaseQuery extends WireData {
@@ -40,20 +45,21 @@ abstract class DatabaseQuery extends WireData {
 	 * 
 	 */
 	protected $bindTypes = array();
+	
+	/**
+	 * @var array
+	 *
+	 */
+	protected $bindKeys = array();
 
 	/**
-	 * Index of bound values per originating method (deprecated)
+	 * Method names for building DB queries
 	 * 
-	 * Indexed by originating method, with values as the bound parameter names as in $bindValues.
-	 * This is populated by the setupBindValues() method. The purpose of this is for one part of
-	 * one query is imported to another, the appropriate bound values are also imported. This is
-	 * deprecated because it does not work if values are bound independently of `$q->where()`, etc. 
-	 * 
-	 * @var array 
+	 * @var array
 	 * 
 	 */
-	protected $bindIndex = array();
-	
+	protected $queryMethods = array();
+
 	/**
 	 * @var int
 	 * 
@@ -64,8 +70,17 @@ abstract class DatabaseQuery extends WireData {
 	 * @var int
 	 * 
 	 */
-	static $uniq = 0;
+	protected $keyNum = 0;
 
+	/**
+	 * @var array
+	 * 
+	 */
+	protected $bindOptions = array(
+		'prefix' => 'pw', // prefix for auto-generated keys
+		'global' => false // globally unique among all bind keys in all instances?
+	);
+	
 	/**
 	 * @var int
 	 * 
@@ -79,7 +94,44 @@ abstract class DatabaseQuery extends WireData {
 	public function __construct() {
 		self::$numInstances++;
 		$this->instanceNum = self::$numInstances;
+		$this->addQueryMethod('where', " \nWHERE ", " \nAND ");
 		parent::__construct();
+	}
+
+	/**
+	 * Add a query method
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $name
+	 * @param string $prepend Prepend first statement with this
+	 * @param string $split Split multiple statements with this
+	 * @param string $append Append this to last statement (if needed)
+	 * @since 3.0.157
+	 * 
+	 */
+	protected function addQueryMethod($name, $prepend = '', $split = '', $append = '') {
+		$this->queryMethods[$name] = array($prepend, $split, $append);
+		$this->set($name, array());
+	}
+	
+	/**
+	 * Get or set a bind option
+	 *
+	 * @param string|bool $optionName One of 'prefix' or 'global', boolean true to get/set all 
+	 * @param null|int|string|array $optionValue Omit when getting, Specify option value to set, or array when setting all
+	 * @return string|int|array
+	 * @since 3.0.157
+	 *
+	 */
+	public function bindOption($optionName, $optionValue = null) {
+		if($optionName === true) {
+			if(is_array($optionValue)) $this->bindOptions = array_merge($this->bindOptions, $optionValue);
+			return $this->bindOptions;
+		} else if($optionValue !== null) {
+			$this->bindOptions[$optionName] = $optionValue;
+		}
+		return isset($this->bindOptions[$optionName]) ? $this->bindOptions[$optionName] : null;
 	}
 
 	/**
@@ -94,35 +146,57 @@ abstract class DatabaseQuery extends WireData {
 	public function bindValue($key, $value, $type = null) {
 		if(strpos($key, ':') !== 0) $key = ":$key";
 		$this->bindValues[$key] = $value; 
+		$this->bindKeys[$key] = $key;
 		if($type !== null) $this->setBindType($key, $type);
 		return $this; 
 	}
+
+	/**
+	 * Bind value and get unique key that refers to it in one step
+	 * 
+	 * @param string|int|float $value
+	 * @param null|int|string $type
+	 * @return string
+	 * @since 3.0.157
+	 * 
+	 */
+	public function bindValueGetKey($value, $type = null) {
+		$key = $this->getUniqueBindKey(array('value' => $value)); 
+		$this->bindValue($key, $value, $type);
+		return $key;
+	}
 	
 	/**
-	 * Bind multiple parameter values
+	 * Get or set multiple parameter values
 	 *
 	 * #pw-internal
 	 *
-	 * @param array $bindValues
-	 * @return $this
+	 * @param array|null $bindValues Omit to get or specify array to set
+	 * @return $this|array Returns array when getting or $this when setting
 	 * @since 3.0.156
 	 *
 	 */
-	public function bindValues(array $bindValues) {
-		foreach($bindValues as $key => $value) {
-			$this->bindValue($key, $value);
+	public function bindValues($bindValues = null) {
+		if(is_array($bindValues)) {
+			foreach($bindValues as $key => $value) {
+				$this->bindValue($key, $value);
+			}
+			return $this;
+		} else {
+			return $this->bindValues;
 		}
-		return $this;
 	}
 
 	/**
 	 * Set bind type
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param string $key
 	 * @param int|string $type
 	 * 
 	 */
-	protected function setBindType($key, $type) {
+	public function setBindType($key, $type) {
 		
 		if(is_int($type) || ctype_digit("$type")) {
 			$this->bindTypes[$key] = (int) $type;
@@ -140,91 +214,213 @@ abstract class DatabaseQuery extends WireData {
 	}
 
 	/**
+	 * Get or set all bind types
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param array|null $bindTypes Omit to get, or specify associative array of [ ":bindKey" => int ] to set
+	 * @return array|$this Returns array when getting or $this when setting
+	 * @since 3.0.157
+	 * 
+	 */
+	public function bindTypes($bindTypes = null) {
+		if(is_array($bindTypes)) {
+			$this->bindTypes = array_merge($this->bindTypes, $bindTypes); // set
+			return $this;
+		} 
+		return $this->bindTypes; // get
+	}
+
+	/**
 	 * Get a unique key to use for bind value
 	 * 
-	 * @param string $key Preferred bind key or prefix, or omit to auto-generate
+	 * Note if you given a `key` option, it will only be used if it is determined unique,
+	 * otherwise it’ll auto-generate one. When using your specified key, it is the only
+	 * option that applies, unless it is not unique and the method has to auto-generate one.
+	 * 
+	 * @param array $options 
+	 *  - `key` (string): Preferred bind key, or omit (blank) to auto-generate (digit only keys not accepted)
+	 *  - `value` (string|int): Value to use as part of the generated key
+	 *  - `prefix` (string): Prefix to override default
+	 *  - `global` (bool): Require globally unique among all instances?
 	 * @return string Returns bind key/name in format ":name" (with leading colon)
 	 * @since 3.0.156
 	 * 
 	 */
-	public function getUniqueBindKey($key = '') {
-		$key = ltrim($key, ':');
-		if(!ctype_alnum(str_replace('_', '', $key))) {
-			$key = $this->wire('database')->escapeCol($key);
+	public function getUniqueBindKey(array $options = array()) {
+		
+		static $alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+		
+		if(empty($options['key'])) {
+			// auto-generate key
+			$key = ':';
+			$prefix = (isset($options['prefix']) ? $options['prefix'] : $this->bindOptions['prefix']);
+			$value = isset($options['value']) ? $options['value'] : null;
+			$global = isset($options['global']) ? $options['global'] : $this->bindOptions['global'];
+			
+			if($global) $key .= $prefix . $this->instanceNum;
+			
+			if($value !== null) {
+				if(is_int($value)) {
+					$key .= "int";
+				} else if(is_string($value)) {
+					$key .= "str";
+				} else if(is_array($value)) {
+					$key .= "arr";
+				} else {
+					$key .= "oth";
+				}
+			} else if($prefix && !$global) {
+				$key .= $prefix;
+			}
+		
+			$k = $key;
+			$n = 0;
+			while(isset($this->bindKeys[$key])) {
+				$key = $k . (isset($alpha[$n]) ? $alpha[$n] : $n);
+				$n++;
+			}
+			
+		} else {
+			// provided key, make sure it is valid and unique
+			$key = ltrim($options['key'], ':');
+			if(!ctype_alnum(str_replace('_', '', $key))) $key = $this->wire('database')->escapeCol($key);
+			if(empty($key) || ctype_digit($key) || isset($this->bindKeys[":$key"])) {
+				// if key is not valid, then auto-generate one instead
+				unset($options['key']);
+				$key = $this->getUniqueBindKey($options);
+			} else {
+				$key = ":$key";
+			}
 		}
-		if(!strlen($key) || ctype_digit($key[0])) $key = "pwbk$key";
-		do {
-			$name = ':' . $key . '_' . $this->instanceNum . '_' . (++self::$uniq);
-		} while(isset($this->bindValues[$name])); 
-		return $name;
+		
+		$this->bindKeys[$key] = $key;
+		
+		return $key;
 	}
 
 	/**
-	 * Get bound parameter values (or populate to given query)
+	 * Get bind values, with options
 	 * 
-	 * - If given a string for $options argument it assumed to be the `method` option. 
 	 * - If given a \PDOStatement or DatabaseQuery, it is assumed to be the `query` option. 
+	 * - When copying, you may prefer to use the copyBindValuesTo() method instead (more readable).
 	 * 
 	 * Note: The $options argument was added in 3.0.156, prior to this it was a $method argument, 
-	 * which is the same as the `method` option (string). 
+	 * which was never used so has been removed. 
 	 * 
 	 * @param string|\PDOStatement|DatabaseQuery|array $options Optionally specify an option:
-	 *  - `method` (string): Get bind values just for this DatabaseQuery method name (default='') deprecated
-	 *  - `query` (\PDOStatement|DatabaseQuery): Populate bind values to this query object (default=null)
-	 * @return array Associative array in format [ ":column" => "value" ] where each "value" is int, string or NULL. 
+	 *  - `query` (\PDOStatement|DatabaseQuery): Copy bind values to this query object (default=null)
+	 *  - `count` (bool): Get a count of values rather than array of values (default=false) 3.0.157+
+	 *  - `inSQL` (string): Only get bind values referenced in this given SQL statement
+	 * @return array|int Returns one of the following:
+	 *  - Associative array in format [ ":column" => "value" ] where each "value" is int, string or NULL. 
+	 *  - if `count` option specified as true then it returns a count of values instead. 
 	 * 
 	 */
 	public function getBindValues($options = array()) {
 		
 		$defaults = array(
-			'method' => is_string($options) ? $options : '',
 			'query' => is_object($options) ? $options : null, 
+			'count' => false,
+			'inSQL' => '', 
 		);
 		
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
 		$query = $options['query'];
-		$method = $options['method'];
+		$bindValues = $this->bindValues;
 		
-		if($method) {
-			if(!isset($this->bindIndex[$method])) return array();
-			$names = isset($this->bindIndex[$method]) ? $this->bindIndex[$method] : array();
-			$values = array();
-			foreach($names as $name) {
-				$name = ':' . ltrim($name, ':');
-				$values[$name] = $this->bindValues[$name];
+		if(!empty($options['inSQL'])) {
+			foreach(array_keys($bindValues) as $bindKey) {
+				if(strpos($options['inSQL'], $bindKey) === false) unset($bindValues[$bindKey]);
 			}
-		} else {
-			$values = $this->bindValues;
+		}
+	
+		if(is_object($query)) {
+			if($query instanceof \PDOStatement) {
+				foreach($bindValues as $k => $v) {
+					$type = isset($this->bindTypes[$k]) ? $this->bindTypes[$k] : $this->pdoParamType($v);
+					$query->bindValue($k, $v, $type);
+				}
+			} else if($query instanceof DatabaseQuery && $query !== $this) {
+				$query->bindValues($bindValues);
+				$query->bindTypes($this->bindTypes);
+			}
 		}
 		
-		if($query && $query instanceof \PDOStatement) {
-			foreach($values as $k => $v) {
-				$type = $this->pdoParamType($v);
-				$query->bindValue($k, $v, $type);
-			}
-		} else if($query && $query instanceof DatabaseQuery && $query !== $this) {
-			$query->bindValues($values);
-		}
-		
-		return $values;	
+		return $options['count'] ? count($bindValues) : $bindValues;	
 	}
 
+	/**
+	 * Copy bind values from this query to another given DatabaseQuery or \PDOStatement
+	 * 
+	 * This is a more readable interface to the getBindValues() method and does the same 
+	 * thing as passing a DatabaseQuery or PDOStatement to the getBindValues() method. 
+	 * 
+	 * @param DatabaseQuery|\PDOStatement $query
+	 * @param array $options Additional options
+	 *  - `inSQL` (string): Only copy bind values that are referenced in given SQL string
+	 * @return int Number of bind values that were copied
+	 * @since 3.0.157
+	 * 
+	 */
+	public function copyBindValuesTo($query, array $options = array()) {
+		$options['query'] = $query;
+		if(!isset($options['count'])) $options['count'] = true;
+		return $this->getBindValues($options);
+	}
+
+	/**
+	 * Copy queries from this DatabaseQuery to another DatabaseQuery 
+	 * 
+	 * If you want to copy bind values you should also call copyBindValuesTo($query) afterwards.
+	 * 
+	 * @param DatabaseQuery $query Query to copy data to
+	 * @param array $methods Optionally specify the names of methods to copy, otherwise all are copied
+	 * @return int Total items copied
+	 * @since 3.0.157
+	 * 
+	 */
+	public function copyTo(DatabaseQuery $query, array $methods = array()) {
+		
+		$numCopied = 0;
+		if($query === $this) return 0;
+		if(!count($methods)) $methods = array_keys($this->queryMethods); 
+		
+		foreach($methods as $method) {
+			if($method === 'bindValues') continue;
+			$fromValues = $this->$method; // array
+			if(!is_array($fromValues)) continue; // nothing to import
+			$toValues = $query->$method; 
+			if(!is_array($toValues)) continue; // query does not have this method
+			$query->set($method, array_merge($toValues, $fromValues)); 
+			$numCopied += count($fromValues);
+		}
+		
+		return $numCopied;
+	}
+	
 	/**
 	 * Enables calling the various parts of a query as functions for a fluent interface.
 	 * 
 	 * Examples (all in context of DatabaseQuerySelect): 
+	 * ~~~~~
+	 * $query->select("id")->from("mytable")->orderby("name"); 
+	 * ~~~~~
+	 * To bind one or more named parameters, specify associative array as second argument: 
+	 * ~~~~~
+	 * $query->where("name=:name", [ ':name' => $page->name ]); 
+	 * ~~~~~
+	 * To bind one or more implied parameters, use question marks and specify regular array:
+	 * ~~~~~
+	 * $query->where("name=?, id=?", [ $page->name, $page->id ]);
+	 * ~~~~~
+	 * When there is only one implied parameter, specifying an array is optional:
+	 * ~~~~~
+	 * $query->where("name=?", $page->name); 
+	 * ~~~~~
 	 * 
-	 *   $query->select("id")->from("mytable")->orderby("name"); 
-	 * 
-	 * To bind parameters, specify associative array as second argument: 
-	 * 
-	 *   $query->where("name=:name", [ ':name' => $page->name ]); 
-	 * 
-	 * To import query/method and bound values from another DatabaseQuery: 
-	 * 
-	 *   $query->select($anotherQuery); 
-	 * 
-	 * The "select" may be any method supported by the class. 
+	 * The "select" or "where" methods above may be any method supported by the class. 
+	 * Implied parameters (using "?") was added in 3.0.157. 
 	 * 
 	 * @param string $method
 	 * @param array $args
@@ -233,27 +429,30 @@ abstract class DatabaseQuery extends WireData {
 	 */
 	public function __call($method, $args) {
 		
-		if(!$this->has($method)) return parent::__call($method, $args); 
-		if(empty($args[0])) return $this;
-		
-		$curValue = $this->get($method); 
-		$value = $args[0]; 
-	
+		// if(!$this->has($method)) return parent::__call($method, $args);
+		if(!isset($this->queryMethods[$method])) return parent::__call($method, $args);
+		if(!count($args)) return $this;
+		$curValue = $this->get($method);
 		if(!is_array($curValue)) $curValue = array();
-		if(empty($value)) return $this;
+		$value = $args[0];
 		
 		if(is_object($value) && $value instanceof DatabaseQuery) {
 			// if we've been given another DatabaseQuery, load from its $method
+			// note that if using bindValues you should also copy them separately
+			// behavior deprecated in 3.l0.157+, please use the copyTo() method instead
+			/** @var DatabaseQuery $query */
 			$query = $value;
-			$value = $query->$method; 
+			$value = $query->$method; // array
 			if(!is_array($value) || !count($value)) return $this; // nothing to import
-			$params = $query->getBindValues($method);
-		} else {
-			$params = isset($args[1]) && is_array($args[1]) ? $args[1] : null;
-		}
-		
-		if(!empty($params)) {
-			$this->methodBindValues($value, $params, $method);
+			
+		} else if(is_string($value)) {
+			// value is SQL string, number or array
+			$params = isset($args[1]) ? $args[1] : null;
+			if($params !== null && !is_array($params)) $params = array($params);
+			if(is_array($params) && count($params)) $value = $this->methodBindValues($value, $params);
+			
+		} else if(!empty($args[1])) {
+			throw new WireException("Argument error in $this::$method('string required here when using bind values', [ bind values ])"); 
 		}
 		
 		if(is_array($value)) {
@@ -268,41 +467,63 @@ abstract class DatabaseQuery extends WireData {
 	}
 
 	/**
-	 * Setup bound parameters for the given SQL provided to method call
+	 * Setup bind params for the given SQL provided to method call
 	 * 
 	 * This is only used when params are provided as part of a method call like: 
-	 * $query->where("foo=:bar", [ ":bar" => "baz" ]); 
+	 * ~~~~~
+	 * $query->where("foo=:bar", [ ":bar" => "baz" ]); // named
+	 * $query->where("foo=?", [ "baz" ]);  // implied
+	 * ~~~~~
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param string|array $sql
-	 * @param array $values Associative array of bound values
-	 * @param string $method Method name that the bound values are for
+	 * @param string $sql
+	 * @param array $values Bind values
+	 * @return string
+	 * @throws WireException
 	 * 
 	 */
-	protected function methodBindValues(&$sql, array $values, $method) {
+	protected function methodBindValues($sql, array $values) {
+		
+		$numImplied = 0;
+		$numNamed = 0;
+		$_sql = $sql;
+		
+		if(!is_string($sql)) {
+			throw new WireException('methodBindValues requires a string for $sql argument');
+		}
 		
 		foreach($values as $name => $value) {
-			$name = ':' . ltrim($name, ':');
-			
-			if(isset($this->bindValues[$name])) {
-				// bind key already in use, use a different unique one instead
-				$newName = $this->getUniqueBindKey($name); 
-				if(is_array($sql)) {
-					foreach($sql as $k => $v) {
-						if(strpos($v, $name) === false) continue;
-						$sql[$k] = preg_replace('/' . $name . '\b/', $newName, $v);
-					}
-				} else if(strpos($sql, $name) !== false) {
-					$sql = preg_replace('/' . $name . '\b/', $newName, $sql);
+			if(is_int($name)) {
+				// implied parameter 
+				$numImplied++;
+				if(strpos($sql, '?') === false) {
+					throw new WireException("No place for given param $name in: $_sql"); 
 				}
-				$name = $newName;
+				do {
+					$name = $this->getUniqueBindKey(array('value' => $value));
+				} while(strpos($sql, $name) !== false); // highly unlikely, but just in case
+				list($a, $b) = explode('?', $sql, 2);
+				$sql = $a . $name . $b;
+				
+			} else {
+				// named parameter
+				$numNamed++;
+				if(strpos($name, ':') !== 0) $name = ":$name";
+				if(strpos($sql, $name) === false) {
+					throw new WireException("Param $name not found in: $_sql"); 
+				}
 			}
-			
 			$this->bindValue($name, $value);
-			if(!isset($this->bindIndex[$method])) $this->bindIndex[$method] = array();
-			$this->bindIndex[$method][] = $name;
 		}
+		
+		if($numImplied && strpos($sql, '?') !== false) {
+			throw new WireException("Missing implied “?” param in: $_sql"); 
+		} else if($numImplied && $numNamed) {
+			throw new WireException("You may not mix named and implied params in: $_sql"); 
+		}
+		
+		return $sql;
 	}
 
 	/**
@@ -321,13 +542,15 @@ abstract class DatabaseQuery extends WireData {
 	 */
 	public function __get($key) {
 		
-		if($key === 'query') {
+		if($key === 'query' || $key === 'sql') {
 			return $this->getQuery();
 		} else if($key === 'bindValues') {
 			return $this->bindValues;
-		} else if($key === 'bindIndex') {
-			return $this->bindIndex;
-		} 
+		} else if($key === 'bindOptions') {
+			return $this->bindOptions;
+		} else if($key === 'bindKeys') {
+			return $this->bindKeys;
+		}
 		
 		return parent::__get($key); 
 	}
@@ -340,6 +563,7 @@ abstract class DatabaseQuery extends WireData {
 	 * @internal
 	 * @param DatabaseQuery $query
 	 * @return $this
+	 * @deprecated
 	 *
 	 */
 	public function merge(DatabaseQuery $query) {
@@ -356,16 +580,50 @@ abstract class DatabaseQuery extends WireData {
 	abstract public function getQuery();
 
 	/**
-	 * Get the WHERE portion of the query
+	 * Return generated SQL for entire query or specific method
+	 *
+	 * @param string $method Optionally specify method name to get SQL for
+	 * @return string
+	 * @since 3.0.157
 	 *
 	 */
+	public function getSQL($method = '') {
+		return $method ? $this->getQueryMethod($method) : $this->getQuery();
+	}
+
+	/**
+	 * Return the generated SQL for specific query method
+	 *
+	 * @param string $method Specify method name to get SQL for
+	 * @return string
+	 * @since 3.0.157
+	 *
+	 */
+	public function getQueryMethod($method) {
+		
+		if(!$method) return $this->getQuery();
+		if(!isset($this->queryMethods[$method])) return '';
+		$methodName = 'getQuery' . ucfirst($method);
+		if(method_exists($this, $methodName)) return $this->$methodName();
+		
+		list($prepend, $split, $append) = $this->queryMethods[$method]; 
+		$values = $this->$method;
+		if(!is_array($values) || !count($values)) return '';
+		$sql = $prepend . implode($split, $values) . $append;
+		
+		return $sql;	
+	}
+
+	/**
+	 * Get the WHERE portion of the query
+	 * 
 	protected function getQueryWhere() {
-		if(!count($this->where)) return '';
 		$where = $this->where; 
-		$sql = "\nWHERE " . array_shift($where) . " ";
-		foreach($where as $s) $sql .= "\nAND $s ";
+		if(!count($where)) return '';
+		$sql = "\nWHERE " . implode(" \nAND ", $where)  . " ";
 		return $sql;
 	}
+	 */
 
 	/**
 	 * Prepare and return a PDOStatement
