@@ -331,7 +331,9 @@ abstract class DatabaseQuery extends WireData {
 		
 		if(!empty($options['inSQL'])) {
 			foreach(array_keys($bindValues) as $bindKey) {
-				if(strpos($options['inSQL'], $bindKey) === false) unset($bindValues[$bindKey]);
+				if(!preg_match('/' . $bindKey . '\b/', $options['inSQL'])) {
+					unset($bindValues[$bindKey]);
+				}
 			}
 		}
 	
