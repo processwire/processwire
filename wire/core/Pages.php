@@ -440,8 +440,12 @@ class Pages extends Wire {
 	 *
 	 * #pw-group-retrieval
 	 *
-	 * @param array|string|WireArray $ids Array of page IDs, comma or pipe-separated string of page IDs, or single page ID (string or int)
-	 * @param array $options Options to affect behavior. The 'template' and 'parent' options are recommended when you have this info available.
+	 * @param array|string|WireArray $ids Any one of the following:
+	 *  - Single page ID (string or int)
+	 *  - Array of page IDs
+	 *  - Comma or pipe-separated string of page IDs
+	 *  - Array of associative arrays having id and templates_id: [ [ 'id' => 1, 'templates_id' => 2], [ 'id' => 3, 'templates_id' => 4 ] ]
+	 * @param array $options Options to affect behavior. The 'template' option is recommended when you have this info available.
 	 * - `template` (Template|int|string): Template object, name or ID to use for loaded pages. (default=null)
 	 * - `parent` (Page|int|string): Parent Page object, ID, or path to use for loaded pages. (default=null)
 	 * - `cache` (bool): Place loaded pages in memory cache? (default=true)

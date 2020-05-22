@@ -811,15 +811,16 @@ class PagesLoader extends Wire {
 			// template was not defined with the function call, so we determine
 			// which templates are used by each of the pages we have to load
 
-			$sql = "SELECT id, templates_id FROM pages WHERE ";
-
+			$sql = 'SELECT id, templates_id FROM pages';
 			if($idCnt == 1) {
-				$sql .= "id=" . (int) reset($ids);
+				$query = $database->prepare("$sql WHERE id=:id");
+				$query->bindValue(':id', (int) reset($ids), \PDO::PARAM_INT); 
 			} else {
-				$sql .= "id IN(" . implode(",", $ids) . ")";
+				$ids = array_map('intval', $ids);
+				$sql = "$sql WHERE id IN(" . implode(',', $ids) . ")";
+				$query = $database->prepare($sql);
 			}
 
-			$query = $database->prepare($sql);
 			$result = $database->execute($query);
 			if($result) {
 				/** @noinspection PhpAssignmentInConditionInspection */
@@ -858,16 +859,19 @@ class PagesLoader extends Wire {
 			$query = $this->wire(new DatabaseQuerySelect());
 			$sortfield = $template ? $template->sortfield : '';
 			$joinSortfield = empty($sortfield) && $options['joinSortfield'];
+			
+			// note that "false AS isLoaded" triggers the setIsLoaded() function in Page intentionally
+			$select = 'false AS isLoaded, pages.templates_id AS templates_id, pages.*, ';
+			if($joinSortfield) {
+				$select .= 'pages_sortfields.sortfield, ';
+			}
+			if($options['getNumChildren']) {
+				$select .= "\n(SELECT COUNT(*) FROM pages AS children WHERE children.parent_id=pages.id) AS numChildren";
+			}
 
-			$query->select(
-				// note that "false AS isLoaded" triggers the setIsLoaded() function in Page intentionally
-				"false AS isLoaded, pages.templates_id AS templates_id, pages.*, " .
-				($joinSortfield ? 'pages_sortfields.sortfield, ' : '') .
-				($options['getNumChildren'] ? '(SELECT COUNT(*) FROM pages AS children WHERE children.parent_id=pages.id) AS numChildren' : '')
-			);
-
+			$query->select(rtrim($select, ', '));
+			$query->from('pages');
 			if($joinSortfield) $query->leftjoin('pages_sortfields ON pages_sortfields.pages_id=pages.id');
-			$query->groupby('pages.id');
 
 			if($options['autojoin'] && $this->autojoin) {
 				foreach($fields as $field) {
@@ -886,13 +890,27 @@ class PagesLoader extends Wire {
 					$query->leftjoin("$table ON $table.pages_id=pages.id"); // QA
 				}
 			}
+			
+			if(count($ids) > 1) {
+				$ids = array_map('intval', $ids);
+				$query->where('pages.id IN(' . implode(',', $ids) . ')');
+			} else {
+				$id = reset($ids);
+				$query->where('pages.id=:id');
+				$query->bindValue(':id', (int) $id, \PDO::PARAM_INT);
+			}
 
-			if(!is_null($parent_id)) $query->where("pages.parent_id=" . (int) $parent_id);
-			if($template) $query->where("pages.templates_id=" . ((int) $template->id)); // QA
+			if(!is_null($parent_id)) {
+				$query->where('pages.parent_id=:parent_id');
+				$query->bindValue(':parent_id', (int) $parent_id, \PDO::PARAM_INT);
+			}
+			
+			if($template) {
+				$query->where('pages.templates_id=:templates_id');
+				$query->bindValue(':templates_id', (int) $template->id, \PDO::PARAM_INT);
+			}
 
-			$query->where("pages.id IN(" . implode(',', $ids) . ") "); // QA
-			$query->from("pages");
-
+			$query->groupby('pages.id');
 			$stmt = $query->prepare();
 			$database->execute($stmt);
 
@@ -1327,7 +1345,7 @@ class PagesLoader extends Wire {
 	public function getNativeColumns() {
 		if(empty($this->nativeColumns)) {
 			$query = $this->wire('database')->prepare("SELECT * FROM pages WHERE id=:id");
-			$query->bindValue(':id', $this->wire('config')->rootPageID);
+			$query->bindValue(':id', $this->wire('config')->rootPageID, \PDO::PARAM_INT);
 			$query->execute();
 			$row = $query->fetch(\PDO::FETCH_ASSOC);
 			foreach(array_keys($row) as $colName) {
