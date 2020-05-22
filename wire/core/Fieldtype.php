@@ -984,16 +984,18 @@ abstract class Fieldtype extends WireData implements Module {
 
 		if(!$page->id || !$field->id) return null;
 
+		/** @var WireDatabasePDO $database */
 		$database = $this->wire('database');
-		$page_id = (int) $page->id; 
 		$schema = $this->getDatabaseSchema($field);
 		$table = $database->escapeTable($field->table);
 		$value = null;
 		$stmt = null;
-		
+	
+		/** @var DatabaseQuerySelect $query */
 		$query = $this->wire(new DatabaseQuerySelect());
 		$query = $this->getLoadQuery($field, $query); 
-		$query->where("$table.pages_id='$page_id'"); 
+		$bindKey = $query->bindValueGetKey($page->id); 
+		$query->where("$table.pages_id=$bindKey"); 
 		$query->from($table); 
 
 		try {
@@ -1159,12 +1161,14 @@ abstract class Fieldtype extends WireData implements Module {
 		$page_id = (int) $page->id; 
 		$table = $database->escapeTable($field->table); 
 		$schema = array();
+		$bindValues = array(':page_id' => $page_id);
 
 		if(is_array($value)) { 
 
 			$sql1 = "INSERT INTO `$table` (pages_id";
-			$sql2 = "VALUES('$page_id'";
+			$sql2 = "VALUES(:page_id";
 			$sql3 = "ON DUPLICATE KEY UPDATE ";
+			$n = 0;
 
 			foreach($value as $k => $v) {
 				$k = $database->escapeCol($k);
@@ -1175,8 +1179,9 @@ abstract class Fieldtype extends WireData implements Module {
 					if(empty($schema)) $schema = $this->getDatabaseSchema($field); 
 					$sql2 .= isset($schema[$k]) && stripos($schema[$k], ' DEFAULT NULL') ? ",NULL" : ",''";
 				} else {
-					$v = $database->escapeStr($v);
-					$sql2 .= ",'$v'";
+					$bindKey = ':v' . (++$n);
+					$bindValues[$bindKey] = $v;
+					$sql2 .= ",$bindKey";
 				}
 				
 				$sql3 .= "`$k`=VALUES(`$k`), ";
@@ -1189,17 +1194,24 @@ abstract class Fieldtype extends WireData implements Module {
 			if(is_null($value)) {
 				// check if schema explicitly allows NULL
 				$schema = $this->getDatabaseSchema($field); 
-				$value = isset($schema['data']) && stripos($schema['data'], ' DEFAULT NULL') ? "NULL" : "''";
+				$null = isset($schema['data']) && stripos($schema['data'], ' DEFAULT NULL') ? "NULL" : "''";
+				$sql = "INSERT INTO `$table` (pages_id, data) VALUES(:page_id, $null) ";	
 			} else {
-				$value = "'" . $database->escapeStr($value) . "'";
+				$bindValues[":value"] = $value;
+				$sql = "INSERT INTO `$table` (pages_id, data) VALUES(:page_id, :value) ";	
 			}
-
-			$sql = 	"INSERT INTO `$table` (pages_id, data) " . 
-					"VALUES('$page_id', $value) " . 
-					"ON DUPLICATE KEY UPDATE data=VALUES(data)";	
+			
+			$sql .= 'ON DUPLICATE KEY UPDATE data=VALUES(data)';
 		}
 		
 		$query = $database->prepare($sql);
+		foreach($bindValues as $bindKey => $bindValue) {
+			if(is_int($bindValue)) {
+				$query->bindValue($bindKey, $bindValue, \PDO::PARAM_INT);
+			} else {
+				$query->bindValue($bindKey, $bindValue);
+			}
+		}
 		
 		try {
 			$result = $query->execute();

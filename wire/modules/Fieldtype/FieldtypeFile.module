@@ -1025,7 +1025,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		$hasTags = $fileSchema & self::fileSchemaTags;
 		$useTags = $field->get('useTags') || $contextField->get('useTags');
 		
-		if(!$hasFilesize || !$hasFiledata || !$hasDate || !$hasTags) {
+		if(!$hasFilesize || !$hasFiledata || !$hasDate) { 
 			if(!$database->tableExists($table)) {
 				// new field being created, getting initial schema to create table
 				return $fileSchema;

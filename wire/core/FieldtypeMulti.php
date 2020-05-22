@@ -348,15 +348,17 @@ abstract class FieldtypeMulti extends Fieldtype {
 
 		if(!$page->id || !$field->id) return null;
 
+		/** @var WireDatabasePDO $database */
 		$database = $this->wire('database');
-		$page_id = (int) $page->id;
 		$schema = $this->getDatabaseSchema($field);
 		$table = $database->escapeTable($field->table);
 		$stmt = null;
 
+		/** @var DatabaseQuerySelect $query */
 		$query = $this->wire(new DatabaseQuerySelect());
 		$query = $this->getLoadQuery($field, $query);
-		$query->where("$table.pages_id='$page_id'");
+		$bindKey = $query->bindValueGetKey($page->id); 
+		$query->where("$table.pages_id=$bindKey");
 		$query->from($table);
 		
 		try {
@@ -862,20 +864,22 @@ abstract class FieldtypeMulti extends Fieldtype {
 				(in_array($operator, array('>', '>=')) && $value < 0) ||
 				(in_array($operator, array('=', '>=')) && !$value)) {
 				// allow for possible zero values	
-				$query->where("(num_$t{$operator}$value OR num_$t IS NULL)"); // QA
+				$bindKey = $query->bindValueGetKey($value);
+				$query->where("(num_$t{$operator}$bindKey OR num_$t IS NULL)"); // QA
 			} else {
 				// non zero values
-				$query->where("num_$t{$operator}$value"); // QA
+				$bindKey = $query->bindValueGetKey($value);
+				$query->where("num_$t{$operator}$bindKey"); // QA
 			}
 
 			// only allow matches using templates with the requested field
 			$templates = $field->getTemplates();
 			if(count($templates)) {
-				$sql = 'pages.templates_id IN(';
+				$ids = array();
 				foreach($templates as $template) {
-					$sql .= ((int) $template->id) . ',';
+					$ids[] = (int) $template->id;
 				}
-				$sql = rtrim($sql, ',') . ')';
+				$sql = 'pages.templates_id IN(' . implode(',', $ids) . ')'; // QA
 			} else {
 				$sql = 'pages.templates_id=0';
 			}
