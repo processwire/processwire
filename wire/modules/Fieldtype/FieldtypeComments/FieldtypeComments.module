@@ -74,7 +74,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Comments', __FILE__),
-			'version' => 107,
+			'version' => 108,
 			'summary' => __('Field that stores user posted comments for a single Page', __FILE__),
 			'installs' => array('InputfieldCommentsAdmin'),
 			);
@@ -196,6 +196,8 @@ class FieldtypeComments extends FieldtypeMulti {
 		$sleepValue = array();
 		if(!$value instanceof CommentArray) return $sleepValue; 
 		$schemaVersion = $field->get('schemaVersion');
+		$sanitizer = $this->wire('sanitizer'); /** @var Sanitizer $sanitizer */
+		$maxIdxLen = $this->wire('database')->getMaxIndexLength();
 
 		foreach($value as $comment) {
 
@@ -209,12 +211,12 @@ class FieldtypeComments extends FieldtypeMulti {
 				'id' => $comment->id, 
 				'status' => $comment->status, 
 				'data' => $comment->text, 
-				'cite' => $comment->cite, 
-				'email' => $comment->email, 
+				'cite' => $sanitizer->maxLength($comment->cite, 128, 128 * 3), 
+				'email' => $sanitizer->maxLength($comment->email, 128, 128 * 3), 
 				'created' => $comment->created, 
 				'created_users_id' => $comment->created_users_id, 
-				'ip' => $comment->ip, 
-				'user_agent' => $comment->user_agent, 
+				'ip' => $sanitizer->maxLength($comment->ip, 15), 
+				'user_agent' => $sanitizer->maxLength($comment->user_agent, $maxIdxLen, $maxIdxLen * 3), 
 			); 
 
 			if($schemaVersion > 0) $a['website'] = $comment->website;
@@ -1578,6 +1580,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		// use just first item, since only 1 comment
 		$value = $value[0]; 
+		$value['sort'] = $nextSort;
 	
 		// determine all values to set
 		foreach(array_keys($value) as $key) {
@@ -1674,7 +1677,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	}
 
 	/**
-	 * Get max 'sort' value for comments field
+	 * Get max 'sort' value for comments field or -1 if no rows
 	 * 
 	 * @param Page $page
 	 * @param Field $field
@@ -1689,7 +1692,8 @@ class FieldtypeComments extends FieldtypeMulti {
 		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->execute();
-		$value = (int) $query->fetchColumn();
+		$value = $query->fetchColumn();
+		$value = $value === null ? -1 : (int) $value;
 		$query->closeCursor();
 		return $value; 
 	}
