@@ -935,16 +935,73 @@ abstract class Fieldtype extends WireData implements Module {
 	
 
 	/**
-	 * Return trimmed database schema array of any parts that aren't needed for data loading
+	 * Trim and/or filter database schema
+	 * 
+	 * Returns schema with all native columns and schema settings removed,
+	 * leaving just the custom columns for the schema, optionally filtered
+	 * by given $options array. 
 	 * 
 	 * #pw-internal
 	 * 
-	 * @param array $schema
+	 * @param array $schema Schema from getDatabaseSchema() call (not verbose schema)
+	 * @param array $options Additional options (since 3.0.158)
+	 *  - `trimMeta` (bool): Trim meta data from schema, like 'keys' and 'xtra'? (default=true)
+	 *  - `trimDefault` (bool): Trim default columns from schema, like 'pages_id' and 'sort'? (default=true)
+	 *  - `findDefaultNULL` (bool): When true, return all columns that specify NULL as their default. 
+	 *  - `findAutoIncrement` (bool): When true, return all columns that specify AUTO_INCREMENT.
+	 *  - `findType` (string): Return all columns that match the given column type (i.e. "int", "varchar", "text")
+	 *     Precede types like "int" or "text" with "*" to match all of type (i.e. "*int" matches "tinyint", "int", etc.)
 	 * @return array
 	 *
 	 */
-	public function trimDatabaseSchema(array $schema) {
-		unset($schema['pages_id'], $schema['keys'], $schema['xtra'], $schema['sort']); 
+	public function trimDatabaseSchema(array $schema, array $options = array()) {
+		
+		$defaults = array(
+			'trimMeta' => true, 
+			'trimDefault' => true, // trim default columns (like pages_id and sort) from result?
+			'findType' => '',
+			'findAutoIncrement' => false,
+			'findDefaultNULL' => false,
+		);
+		
+		$options = array_merge($defaults, $options);
+
+		if($options['trimMeta']) unset($schema['keys'], $schema['xtra']); 
+		if($options['trimDefault']) unset($schema['pages_id'], $schema['sort']); 
+		
+		$findType = $options['findType'] ? strtolower(trim($options['findType'], '*')) : false; // find in column type
+		$findAllType = $findType && $findType !== $options['findType']; // find all variations of findType
+		$useFind = $findType || $options['findAutoIncrement'] || $options['findDefaultNULL'];
+	
+		// exit early if no finds are requested
+		if(!$useFind) return $schema;
+		
+		foreach($schema as $colName => $colSchema) {
+			$match = null;
+			$colSchema = strtolower($colSchema) . ' ';
+			list($colType, $colMeta) = explode(' ', $colSchema, 2);
+			
+			if($options['findAutoIncrement'] && $match !== false) {
+				$match = strpos($colMeta, 'auto_increment') !== false;
+			}
+			
+			if($options['findDefaultNULL'] && $match !== false) {
+				$match = strpos($colMeta, 'default null') !== false;
+			}
+			
+			if($findType && $match !== false && strpos($colType, $findType) !== false) {
+				if($colType === $findType || strpos($colType, "$findType ") === 0 || strpos($colType, "$findType(") === 0) {
+					$match = true; // exact match
+				} else if($findAllType && strpos($colType, $findType) === 0) {
+					$match = true; // partial match at front, i.e. "int" matching integer
+				} else if($findAllType && preg_match('/^[a-z]*' . $findType . '\b/i', $colType)) {
+					$match = true; // partial match at rear, i.e. "int" matching "tinyint", "smallint", "mediumint", etc.
+				}
+			}
+			
+			if(!$match) unset($schema[$colName]); 
+		}
+		
 		return $schema; 
 	}
 
@@ -1046,6 +1103,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___loadPageFieldFilter(Page $page, Field $field, $selector) {
+		if(false) throw new WireException(); // a gift for the ide
 		$this->setLoadPageFieldFilters($field, $selector);
 		$value = $this->loadPageField($page, $field);
 		$this->setLoadPageFieldFilters($field, null);
@@ -1418,6 +1476,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___install() {
+		if(false) throw new WireException(); // an offering for phpstorm
 		return true; 
 	}
 
@@ -1460,6 +1519,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 */
 	public function ___upgrade($fromVersion, $toVersion) {
 		// any code needed to upgrade between versions
+		if($fromVersion && $toVersion && false) throw new WireException(); // to make the ide stop complaining
 	}
 
 	/**
