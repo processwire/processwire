@@ -77,7 +77,8 @@ abstract class DatabaseQuery extends WireData {
 	 * 
 	 */
 	protected $bindOptions = array(
-		'prefix' => 'pw', // prefix for auto-generated keys
+		'prefix' => 'pw', // prefix for auto-generated global keys
+		'suffix' => 'X', // 1-character suffix for auto-generated keys
 		'global' => false // globally unique among all bind keys in all instances?
 	);
 	
@@ -249,12 +250,11 @@ abstract class DatabaseQuery extends WireData {
 	 */
 	public function getUniqueBindKey(array $options = array()) {
 		
-		static $alpha = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
-		
 		if(empty($options['key'])) {
 			// auto-generate key
 			$key = ':';
 			$prefix = (isset($options['prefix']) ? $options['prefix'] : $this->bindOptions['prefix']);
+			$suffix = isset($option['suffix']) && $options['suffix'] ? $options['suffix'] : $this->bindOptions['suffix'];
 			$value = isset($options['value']) ? $options['value'] : null;
 			$global = isset($options['global']) ? $options['global'] : $this->bindOptions['global'];
 			
@@ -262,30 +262,33 @@ abstract class DatabaseQuery extends WireData {
 			
 			if($value !== null) {
 				if(is_int($value)) {
-					$key .= "int";
+					$key .= "i";
 				} else if(is_string($value)) {
-					$key .= "str";
+					$key .= "s";
 				} else if(is_array($value)) {
-					$key .= "arr";
+					$key .= "a";
 				} else {
-					$key .= "oth";
+					$key .= "o";
 				}
 			} else if($prefix && !$global) {
 				$key .= $prefix;
+			} else {
+				$key .= "v";
 			}
-		
-			$k = $key;
+			
 			$n = 0;
-			while(isset($this->bindKeys[$key])) {
-				$key = $k . (isset($alpha[$n]) ? $alpha[$n] : $n);
-				$n++;
+			$k = $key;
+			$key = $k . '0' . $suffix;
+			
+			while(isset($this->bindKeys[$key]) && ++$n) {
+				$key = $k . $n . $suffix;
 			}
 			
 		} else {
-			// provided key, make sure it is valid and unique
-			$key = ltrim($options['key'], ':');
+			// provided key, make sure it is valid and unique (this part is not typically used)
+			$key = ltrim($options['key'], ':') . 'X';
 			if(!ctype_alnum(str_replace('_', '', $key))) $key = $this->wire('database')->escapeCol($key);
-			if(empty($key) || ctype_digit($key) || isset($this->bindKeys[":$key"])) {
+			if(empty($key) || ctype_digit($key[0]) || isset($this->bindKeys[":$key"])) {
 				// if key is not valid, then auto-generate one instead
 				unset($options['key']);
 				$key = $this->getUniqueBindKey($options);
@@ -331,7 +334,9 @@ abstract class DatabaseQuery extends WireData {
 		
 		if(!empty($options['inSQL'])) {
 			foreach(array_keys($bindValues) as $bindKey) {
-				if(!preg_match('/' . $bindKey . '\b/', $options['inSQL'])) {
+				if(strpos($options['inSQL'], $bindKey) === false) {
+					unset($bindValues[$bindKey]);
+				} else if(!preg_match('/' . $bindKey . '\b/', $options['inSQL'])) {
 					unset($bindValues[$bindKey]);
 				}
 			}
@@ -577,9 +582,30 @@ abstract class DatabaseQuery extends WireData {
 
 	/** 
 	 * Generate the SQL query based on everything set in this DatabaseQuery object
+	 * 
+	 * @return string
 	 *
 	 */
 	abstract public function getQuery();
+
+	/**
+	 * Get SQL query with bind params populated for debugging purposes (not to be used as actual query)
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function getDebugQuery() {
+		$sql = $this->getQuery();
+		$suffix = $this->bindOptions['suffix'];
+		foreach($this->bindValues as $bindKey => $bindValue) {
+			if($bindKey[strlen($bindKey)-1] === $suffix) {
+				$sql = str_replace($bindKey, $bindValue);
+			} else {
+				$sql = preg_replace('/' . $bindKey . '\b/', $bindValue, $sql);
+			}
+		}
+		return $sql;
+	}
 
 	/**
 	 * Return generated SQL for entire query or specific method

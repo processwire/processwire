@@ -126,8 +126,9 @@ class FieldsTableTools extends Wire {
 				// remove requested
 				if($uniqueIndexName === $requireIndexName) {
 					// remove the unique index
+					$sql = "ALTER TABLE $table DROP INDEX `$requireIndexName`";
 					try {
-						$result = $database->exec("ALTER TABLE $table DROP INDEX `$requireIndexName`");
+						$result = $database->exec($sql) !== false;
 						if($result) $action = 'remove';
 					} catch(\Exception $e) {
 						$result = false;
@@ -144,7 +145,7 @@ class FieldsTableTools extends Wire {
 			$col = $database->escapeCol($col);
 			$sql = "ALTER TABLE $table ADD UNIQUE `$requireIndexName` (`$col`)";
 			try {
-				$result = $database->exec($sql);
+				$result = $database->exec($sql) !== false;
 				if($result) $action = 'add';
 			} catch(\Exception $e) {
 				$action = 'remove';
