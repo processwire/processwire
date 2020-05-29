@@ -61,7 +61,11 @@ abstract class AdminThemeFramework extends AdminTheme {
 	public function __construct() {
 		parent::__construct();
 		$this->set('useAsLogin', false);
+	}
+	
+	public function wired() {
 		$this->sanitizer = $this->wire('sanitizer');
+		parent::wired();
 	}
 
 	/**

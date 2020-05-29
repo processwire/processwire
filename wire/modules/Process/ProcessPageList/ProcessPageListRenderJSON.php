@@ -10,16 +10,15 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 
 	protected $systemIDs = array();
 	
-	public function __construct(Page $page, PageArray $children) {
-
-		parent::__construct($page, $children);
-
+	public function wired() {
+		$config = $this->config;
 		$this->systemIDs = array(
-			$this->config->http404PageID,
-			$this->config->adminRootPageID,
-			$this->config->trashPageID,
-			$this->config->loginPageID,
+			$config->http404PageID,
+			$config->adminRootPageID,
+			$config->trashPageID,
+			$config->loginPageID,
 		);
+		parent::wired();
 	}
 
 	public function renderChild(Page $page) {

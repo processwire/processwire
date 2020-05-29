@@ -314,7 +314,8 @@ class ProcessModule extends Process {
 		
 		if($this->input->post('clear_file_compiler')) {
 			$this->session->CSRF->validate();
-			$compiler = new FileCompiler($this->wire('config')->paths->siteModules); 
+			/** @var FileCompiler $compiler */
+			$compiler = $this->wire(new FileCompiler($this->wire('config')->paths->siteModules)); 
 			$compiler->clearCache(true);
 			$this->session->message($this->_('Cleared file compiler cache'));
 			$this->session->redirect('./');

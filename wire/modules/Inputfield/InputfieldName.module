@@ -2,6 +2,8 @@
 
 /**
  * An Inputfield for handling ProcessWire "name" fields
+ * 
+ * @property string $sanitizeMethod
  *
  */
 class InputfieldName extends InputfieldText {
@@ -33,7 +35,12 @@ class InputfieldName extends InputfieldText {
 	}
 
 	protected function setAttributeValue($value) {
-		$value = call_user_func(array($this->wire('sanitizer'), $this->sanitizeMethod), $value); 
+		$sanitizeMethod = $this->sanitizeMethod; 
+		if($this->isWired()) {
+			$value = call_user_func(array($this->wire('sanitizer'), $sanitizeMethod), $value);
+		} else {
+			$value = wire('sanitizer')->$sanitizeMethod($value);
+		}
 		return $value; 
 	}
 

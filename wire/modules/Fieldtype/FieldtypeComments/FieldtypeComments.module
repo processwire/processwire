@@ -80,7 +80,7 @@ class FieldtypeComments extends FieldtypeMulti {
 			);
 	}
 	
-	public function __construct() {
+	public function wired() {
 		if($this->wire('config')->ajax) {
 			$this->addHookBefore('Page::render', $this, 'checkVoteAction');
 		}
@@ -2007,7 +2007,7 @@ class FieldtypeComments extends FieldtypeMulti {
 			$result = false;
 			$this->error($e->getMessage());
 		}
-		if($result) try {
+		if($result !== false) try {
 			$database->exec("DROP TABLE `{$table}_votes`"); // QA
 		} catch(\Exception $e) {
 			// ok to ignore, as table may not exist

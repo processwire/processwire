@@ -29,6 +29,10 @@ abstract class ProcessPageListRender extends Wire {
 		$this->children = $children;
 		$this->start = 0;
 		$this->limit = 0;
+		parent::__construct();
+	}
+	
+	public function wired() {
 		$this->superuser = $this->wire('user')->isSuperuser();
 		$this->actionLabels = array(
 			'edit' => $this->_('Edit'), 	// Edit page action
@@ -49,6 +53,7 @@ abstract class ProcessPageListRender extends Wire {
 		$this->actions = $this->wire(new ProcessPageListActions());
 		$this->actions->setActionLabels($this->actionLabels);
 		$this->numChildrenHook = $this->wire('hooks')->isMethodHooked($this, 'getNumChildren');
+		parent::wired();
 	}
 	
 	public function setOption($key, $value) {

@@ -37,8 +37,12 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		require_once($path . 'SelectableOption.php');
 		require_once($path . 'SelectableOptionArray.php');
 		require_once($path . 'SelectableOptionManager.php');	
-		$this->manager = $this->wire(new SelectableOptionManager());
 		parent::__construct();
+	}
+	
+	public function wired() {
+		$this->manager = $this->wire(new SelectableOptionManager());
+		parent::wired();
 	}
 
 	/**

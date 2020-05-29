@@ -27,8 +27,7 @@ class JqueryCore extends ModuleJS {
 	 */
 	const devMode = false;
 
-	
-	public function __construct() {
+	public function wired() {
 		$this->addComponents(array(
 			'core-dev' => 'jquery-1.11.1.js',
 			'latest' => 'jquery-1.11.1.js',
@@ -39,16 +38,18 @@ class JqueryCore extends ModuleJS {
 			'longclick' => 'jquery.longclick.min.js',
 			'simulate' => 'jquery.simulate.min.js',
 			'xregexp' => 'xregexp.js', // no "min.js" intended
-			));
+		));
 		$info = self::getModuleInfo();
-		$this->config->scripts->prepend($this->config->urls->JqueryCore . "JqueryCore.js?v=$info[version]");
+		$config = $this->config;
+		$config->scripts->prepend($config->urls('JqueryCore') . "JqueryCore.js?v=$info[version]");
 	}
 
 	public function ___use($name) {
 		if($name == 'latest') {
 			$info = self::getModuleInfo();
-			$this->config->scripts->remove($this->config->urls->JqueryCore . "JqueryCore.js?v=$info[version]");
-			$this->config->scripts->prepend($this->config->urls->JqueryCore . $this->components['latest']); 
+			$url = $this->config->urls('JqueryCore');
+			$this->config->scripts->remove($url . "JqueryCore.js?v=$info[version]");
+			$this->config->scripts->prepend($url . $this->components['latest']); 
 			return $this; 
 		}
 		return parent::___use($name); 

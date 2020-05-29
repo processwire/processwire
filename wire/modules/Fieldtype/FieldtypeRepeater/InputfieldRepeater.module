@@ -344,7 +344,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				$inputfields = $this->getRepeaterItemInputfields($page);
 				$isLoaded = true;
 			} else {
-				$inputfields = new InputfieldWrapper(); // non loaded
+				$inputfields = $this->wire(new InputfieldWrapper()); // non loaded
 				$isLoaded = false;
 			}
 			$inputfields->set('useDependencies', false);

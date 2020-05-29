@@ -101,7 +101,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * Label displayed when a value is required but missing
 	 *
 	 */
-	protected $requiredLabel = '';
+	protected $requiredLabel = 'Missing required value';
 
 	/**
 	 * Whether or not column width is handled internally
@@ -117,26 +117,42 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 */
 	public function __construct() {
 		parent::__construct();
- 		$this->children = new InputfieldsArray(); 
+		$this->children = new InputfieldsArray();
 		$this->set('skipLabel', Inputfield::skipLabelFor); 
-		$this->requiredLabel = $this->_('Missing required value');
-		$columnWidthSpacing = $this->wire('config')->inputfieldColumnWidthSpacing; 
-		$columnWidthSpacing = is_null($columnWidthSpacing) ? 1 : (int) $columnWidthSpacing; 
-		$this->set('columnWidthSpacing', $columnWidthSpacing); 
 		$this->set('useDependencies', true); // whether or not to use consider field dependencies during processing
-		// allow optional override of any above settings with a $config->InputfieldWrapper array. 
-		$settings = $this->wire('config')->InputfieldWrapper; 
-		if(is_array($settings)) foreach($settings as $key => $value) {
-			if($key == 'requiredLabel') {
-				$this->requiredLabel = $value;
-			} else if($key == 'useColumnWidth') {
-				$this->useColumnWidth = $value;
-			} else {
-				$this->set($key, $value);
-			}
-		}
 		$this->set('renderValueMode', false); 
 		$this->set('quietMode', false); // suppress label, description and notes
+		$this->set('columnWidthSpacing', 0);
+	}
+	
+	public function wired() {
+		
+		/** @var Config $config */
+		$config = $this->wire('config');
+		
+		$this->wire($this->children);
+		$this->requiredLabel = $this->_('Missing required value');
+		
+		$columnWidthSpacing = $config->inputfieldColumnWidthSpacing;
+		$columnWidthSpacing = is_null($columnWidthSpacing) ? 1 : (int) $columnWidthSpacing;
+		if($columnWidthSpacing > 0) $this->set('columnWidthSpacing', $columnWidthSpacing);
+	
+		$columnWidthSpacing = null;
+		$settings = $config->InputfieldWrapper;
+		
+		if(is_array($settings)) {
+			foreach($settings as $key => $value) {
+				if($key == 'requiredLabel') {
+					$this->requiredLabel = $value;
+				} else if($key == 'useColumnWidth') {
+					$this->useColumnWidth = $value;
+				} else {
+					$this->set($key, $value);
+				}
+			}
+		}
+		
+		parent::wired();
 	}
 
 	/**

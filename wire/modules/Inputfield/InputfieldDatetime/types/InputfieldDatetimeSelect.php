@@ -70,7 +70,7 @@ class InputfieldDatetimeSelect extends InputfieldDatetimeType {
 	public function render() {
 
 		$name = $this->getAttribute('name');
-		$value = $this->getAttribute('value');
+		$value = (int) $this->getAttribute('value');
 		$valueYear = $value ? date('Y', $value) : 0;
 		$yearLock = $this->getSetting('yearLock');
 		$format = $this->getSetting('dateSelectFormat');

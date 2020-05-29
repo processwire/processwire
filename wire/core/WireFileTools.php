@@ -1187,7 +1187,8 @@ class WireFileTools extends Wire {
 		} else {
 			$f = '';
 		}
-		$compiler = new FileCompiler(dirname($file), $options);
+		/** @var FileCompiler $compiler */
+		$compiler = $this->wire(new FileCompiler(dirname($file), $options));
 		$compiledFile = $compiler->compile(basename($file));
 		if($f) $compiled[$f] = $compiledFile;
 		return $compiledFile;

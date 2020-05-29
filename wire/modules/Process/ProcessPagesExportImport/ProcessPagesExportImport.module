@@ -103,11 +103,14 @@ class ProcessPagesExportImport extends Process {
 	 * 
 	 */
 	protected function buildForm($tab = '') {
-		
+	
+		/** @var Modules $modules */
 		$modules = $this->wire('modules');
 		$modules->get('JqueryWireTabs'); 
+		/** @var User $user */
 		$user = $this->wire('user');
-		
+	
+		/** @var InputfieldForm $form */
 		$form = $modules->get('InputfieldForm');
 		$form->attr('id', 'ProcessPagesExportImport');
 		$form->attr('method', 'post'); 
@@ -131,21 +134,25 @@ class ProcessPagesExportImport extends Process {
 	 * 
 	 */
 	protected function buildImportTab() {
-		
+	
+		/** @var Modules $modules */
 		$modules = $this->wire('modules');
 
-		$tab = new InputfieldWrapper();
+		/** @var InputfieldWrapper $tab */
+		$tab = $this->wire(new InputfieldWrapper());
 		$tab->attr('id+name', 'tab_import');
 		$tab->attr('title', $this->_('Import'));
 		$tab->addClass('WireTab');
-	
+
+		/** @var InputfieldTextarea $f */
 		$f = $modules->get('InputfieldTextarea'); 
 		$f->name = 'import_json';
 		$f->label = $this->_('Import from JSON string'); 
 		$f->icon = 'scissors';
 		$f->description = $this->_('Paste in the JSON string previously exported from this tool.'); 
 		$tab->add($f);
-	
+
+		/** @var InputfieldFile $f */
 		$f = $modules->get('InputfieldFile');
 		$f->name = 'import_zip';
 		$f->label = $this->_('Import from ZIP file upload') . " (experimental)";
@@ -159,6 +166,7 @@ class ProcessPagesExportImport extends Process {
 		$f->destinationPath = $this->exportImport->getExportPath();
 		$tab->add($f);
 
+		/** @var InputfieldSubmit $f */
 		$f = $modules->get('InputfieldSubmit');
 		$f->attr('name', 'submit_import');
 		$f->val($this->_('Continue')); 
@@ -180,7 +188,7 @@ class ProcessPagesExportImport extends Process {
 		/** @var WireInput $input */
 		$input = $this->wire('input');
 
-		/** @var InputfieldWrapper $importTab */
+		/** @var InputfieldWrapper|InputfieldForm $importTab */
 		$importTab = $this->buildForm('import');
 	
 		$submitCommit = $input->post('submit_commit_import') ? true : false;
@@ -544,7 +552,7 @@ class ProcessPagesExportImport extends Process {
 				$fieldset->add($f);
 			}
 		} else {
-			$fieldset = new InputfieldWrapper();
+			$fieldset = $this->wire(new InputfieldWrapper());
 		}
 		
 		if($numFatalItems) $a['_noCommit'] = true;
@@ -910,7 +918,7 @@ class ProcessPagesExportImport extends Process {
 
 		$modules = $this->wire('modules');
 		
-		$tab = new InputfieldWrapper();
+		$tab = $this->wire(new InputfieldWrapper());
 		$tab->attr('id+name', 'tab_export');
 		$tab->attr('title', $this->_('Export'));
 		$tab->addClass('WireTab');

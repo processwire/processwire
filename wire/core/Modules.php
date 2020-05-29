@@ -312,7 +312,11 @@ class Modules extends WireArray {
 	public function __construct($path) {
 		parent::__construct();
 		$this->addPath($path); 
+	}
+	
+	public function wired() {
 		$this->coreModulesDir = '/' . $this->wire('config')->urls->data('modules');
+		parent::wired();
 	}
 
 	/**
@@ -5091,7 +5095,8 @@ class Modules extends WireArray {
 	
 		// compile if necessary
 		if($compile) {
-			$compiler = new FileCompiler(dirname($file));
+			/** @var FileCompiler $compiler */
+			$compiler = $this->wire(new FileCompiler(dirname($file)));
 			$compiledFile = $compiler->compile(basename($file));
 			if($compiledFile) $file = $compiledFile;
 		}

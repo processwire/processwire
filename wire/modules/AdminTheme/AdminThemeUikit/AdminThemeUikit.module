@@ -97,6 +97,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			'dl' => 'uk-description-list uk-description-list-divider',
 		));
 		
+	}
+	
+	public function wired() {
+		parent::wired();
 		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax'); 
 	}
 	

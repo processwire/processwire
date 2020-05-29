@@ -93,6 +93,7 @@ class PagefilesManager extends Wire {
 	 *
 	 */
 	public function __construct(Page $page) {
+		$page->wire($this);
 		$this->init($page); 
 	}
 

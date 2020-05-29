@@ -775,6 +775,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 
 		// fieldset for TFA settings
 		$fieldset = new InputfieldWrapper();
+		$this->wire($fieldset);
 		$settings = $this->getUserSettings($user);
 		if(!$this->enabledForUser($user, $settings)) {
 			$this->getUserSettingsInputfields($user, $fieldset, $settings);

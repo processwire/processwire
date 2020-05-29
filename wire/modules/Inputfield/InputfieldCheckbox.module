@@ -53,12 +53,16 @@ class InputfieldCheckbox extends Inputfield {
 		$this->set('checkboxLabel', ''); // typically specified by interactive config
 		$this->set('labelAttrs', array()); // Optional attributes for <label> element that surrounds checkbox (3.0.141+)
 		
+		parent::__construct();
+	}
+	
+	public function wired() {
+		/** @var Languages $languages */
 		$languages = $this->wire('languages');
 		if($languages) foreach($languages as $language) {
-			if(!$language->isDefault()) $this->set("checkboxLabel$language", ""); 
+			if(!$language->isDefault()) $this->set("checkboxLabel$language", "");
 		}
-
-		parent::__construct();
+		parent::wired();
 	}
 
 	/**

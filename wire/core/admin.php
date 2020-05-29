@@ -136,6 +136,7 @@ if($page->process && $page->process != 'ProcessPageView') {
 		}
 
 		$controller = new ProcessController(); 
+		$wire->wire($controller);
 		$controller->setProcessName($page->process); 
 		$initFile = $config->paths->adminTemplates . 'init.php'; 
 		if(is_file($initFile)) {

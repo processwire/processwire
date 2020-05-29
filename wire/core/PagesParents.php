@@ -538,8 +538,7 @@ class PagesParents extends Wire {
 		// identify parents to store for $page
 		foreach($page->parents() as $parent) {
 			$parents_id = (int) $parent->id;
-			if($parents_id < 2) break;
-			$inserts[] = "$pages_id,$parents_id";
+			if($parents_id > 1) $inserts[] = "$pages_id,$parents_id";
 		}
 
 		if(count($inserts)) {

@@ -298,7 +298,11 @@ class WireDataDB extends WireData implements \Countable {
 	 * 
 	 */
 	public function table($tableName = '') {
-		if($tableName !== '') $this->table = strtolower($this->wire('database')->escapeTable($tableName));
+		if($tableName === '') return $this->table;
+		if(!ctype_alnum(str_replace('_', '', $tableName))) {
+			$tableName = preg_replace('/[^_a-zA-Z0-9]/', '_', $tableName);
+		}
+		$this->table = strtolower($tableName);
 		return $this->table;
 	}
 

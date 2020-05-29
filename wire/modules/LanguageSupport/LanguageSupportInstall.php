@@ -290,7 +290,7 @@ class LanguageSupportInstall extends Wire {
 	public function getModuleConfigInputfields() {
 		$install = $this->_('Click to install:') . ' ';
 
-		$form = new InputfieldWrapper();
+		$form = $this->wire(new InputfieldWrapper());
 		$names = array(
 			'LanguageSupportFields',
 			'LanguageSupportPageNames',

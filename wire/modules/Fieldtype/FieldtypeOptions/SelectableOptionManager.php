@@ -45,11 +45,12 @@ class SelectableOptionManager extends Wire {
 	 */
 	protected $removedOptionIDs = array();
 	
-	public function __construct() {
+	public function wired() {
 		if($this->wire('modules')->isInstalled('LanguageSupportFields')) {
-			$this->useLanguages = true; 
+			$this->useLanguages = true;
 			$this->addHookAfter('Languages::updated', $this, 'updateLanguages');
 		}
+		parent::wired();
 	}
 
 	/**

@@ -12,13 +12,14 @@ class JqueryUI extends ModuleJS {
 		);
 	}
 	
-	public function __construct() {
+	public function wired() {
 		$debug = $this->wire('config')->debug;
 		$this->addComponents(array(
 			'modal' => $debug ? 'modal.js' : 'modal.min.js',
 			'panel' => $debug ? 'panel.js' : 'panel.min.js', 
 			'touch' => 'touch.js' 
-			));
+		));
+		parent::wired();
 	}
 	
 	public function init() {

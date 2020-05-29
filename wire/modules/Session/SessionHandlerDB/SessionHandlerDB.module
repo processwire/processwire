@@ -34,6 +34,8 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 
 	/**
 	 * Quick reference to database
+	 * 
+	 * @var WireDatabasePDO
 	 *
 	 */
 	protected $database; 
@@ -44,11 +46,15 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	 */
 	public function __construct() {
 		parent::__construct();
-		$this->database = $this->wire('database');
 		$this->set('useIP', 0); // track IP address?
 		$this->set('useUA', 0); // track user agent?
 		$this->set('noPS', 0); // disallow parallel sessions per user
 		$this->set('lockSeconds', 50); // max number of seconds to wait to obtain DB row lock
+	}
+	
+	public function wired() {
+		$this->database = $this->wire('database');
+		parent::wired();
 	}
 	
 	public function init() {
@@ -172,7 +178,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$table = self::dbTableName; 
 		$seconds = (int) $seconds; 
 		$sql = "DELETE FROM `$table` WHERE ts < DATE_SUB(NOW(), INTERVAL $seconds SECOND)";
-		return $this->database->exec($sql);
+		return $this->database->exec($sql) !== false;
 	}
 
 	/**

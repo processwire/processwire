@@ -153,6 +153,10 @@ class InputfieldToggle extends Inputfield {
 
 		$this->attr('value', self::valueUnknown);
 
+		parent::__construct();
+	}
+	
+	public function wired() {
 		$languages = $this->wire('languages');
 		if($languages) {
 			foreach($languages as $language) {
@@ -162,8 +166,7 @@ class InputfieldToggle extends Inputfield {
 				$this->set("otherLabel$language", '');
 			}
 		}
-		
-		parent::__construct();
+		parent::wired();
 	}
 	
 	/**

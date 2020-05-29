@@ -191,7 +191,7 @@ class InputfieldCommentsAdmin extends Inputfield implements InputfieldItemList {
 			$this->commentIDsToNumbers[$comment->id] = ++$n;
 		}
 		
-		$fieldset = new InputfieldWrapper();
+		$fieldset = new InputfieldWrapper(); // wired
 		$this->wire($fieldset);
 		
 		$n = 0;

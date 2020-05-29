@@ -77,8 +77,9 @@ class Fuel implements \IteratorAggregate {
 	 * 
 	 */
 	static protected $commonNames = array(
-		'page' => 1, 'pages' => 1, 'session' => 1, 'input' => 1, 'sanitizer' => 1, 'config' => 1, 
-		'user' => 1, 'users' => 1, 'fields' => 1, 'templates' => 1, 'database' => 1, 'modules' => 1,
+		'page' => 1, 'pages' => 1, 'session' => 1, 'input' => 1, 'sanitizer' => 1, 
+		'config' => 1, 'user' => 1, 'users' => 1, 'fields' => 1, 'templates' => 1, 
+		'database' => 1, 'modules' => 1, 'hooks' => 1,
 	);
 	
 	/**

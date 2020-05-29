@@ -1134,7 +1134,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		
 		try {
 			$result = $database->exec("ALTER TABLE `{$table}` ADD `$column` $schema[$column]");
-			if($result) { 
+			if($result !== false) { 
 				if(isset($schema['keys'][$column])) {
 					$database->exec("ALTER TABLE `{$table}` ADD " . $schema['keys'][$column]);
 				}
@@ -1299,7 +1299,8 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		
 		if($isNew) {
 			$sql = "INSERT INTO $table SET pages_id=:pages_id, sort=:sort, $sets";
-			$binds[":sort"] = $this->getMaxColumnValue($page, $field, 'sort');
+			$sort = $this->getMaxColumnValue($page, $field, 'sort', -1);
+			$binds[":sort"] = ++$sort;
 		} else {
 			$sql = "UPDATE $table SET $sets WHERE pages_id=:pages_id AND data=:name";
 			$binds[':name'] = $pagefile->name;

@@ -340,17 +340,17 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * 
 	 */
 	public function __construct() {
-		
 		$this->set('useBookmarks', false);
 		$this->set('viewAction', 'this');
-		
+		return parent::__construct();
+	}
+	
+	public function wired() {
 		if($this->wire('process') instanceof WirePageEditor) {
 			// keep existing process, which may be building on top of this one
 		} else {
 			$this->wire('process', $this);
 		}
-		
-		return parent::__construct();
 	}
 
 	/**
@@ -3083,6 +3083,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	public function getModuleConfigInputfields(array $data) {
 		
 		$inputfields = new InputfieldWrapper();
+		$this->wire($inputfields); 
 		
 		$f = $this->wire('modules')->get('InputfieldRadios');
 		$f->name = 'viewAction'; 

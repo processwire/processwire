@@ -123,33 +123,43 @@ class FileCompiler extends Wire {
 	 * 
 	 */
 	public function __construct($sourcePath, array $options = array()) {
-		
 		$this->options = array_merge($this->options, $options);
-		$globalOptions = $this->wire('config')->fileCompilerOptions; 
+		if(strpos($sourcePath, '..') !== false) $sourcePath = realpath($sourcePath);
+		if(DIRECTORY_SEPARATOR != '/') $sourcePath = str_replace(DIRECTORY_SEPARATOR, '/', $sourcePath);
+		$this->sourcePath = rtrim($sourcePath, '/') . '/';
+	}
+
+	/**
+	 * Wired to instance
+	 * 
+	 */
+	public function wired() {
 		
+		/** @var Config $config */
+		$config = $this->wire('config');
+		$globalOptions = $config->fileCompilerOptions;
+
 		if(is_array($globalOptions)) {
 			$this->globalOptions = array_merge($this->globalOptions, $globalOptions);
 		}
-		
+
 		if(!empty($this->globalOptions['extensions'])) {
 			$this->extensions = $this->globalOptions['extensions'];
 		}
-		
+
 		if(empty($this->globalOptions['cachePath'])) {
-			$this->cachePath = $this->wire('config')->paths->cache . $this->className() . '/';
+			$this->cachePath = $config->paths->cache . $this->className() . '/';
 		} else {
 			$this->cachePath = rtrim($this->globalOptions['cachePath'], '/') . '/';
 		}
-		
+
 		if(!strlen(__NAMESPACE__)) {
 			// when PW compiled without namespace support
 			$this->options['skipIfNamespace'] = false;
 			$this->options['namespace'] = true;
 		}
-		
-		if(strpos($sourcePath, '..') !== false) $sourcePath = realpath($sourcePath);
-		if(DIRECTORY_SEPARATOR != '/') $sourcePath = str_replace(DIRECTORY_SEPARATOR, '/', $sourcePath);
-		$this->sourcePath = rtrim($sourcePath, '/') . '/';
+
+		parent::wired();
 	}
 
 	/**
@@ -159,6 +169,7 @@ class FileCompiler extends Wire {
 	 * 
 	 */
 	protected function init() {
+		if(!$this->isWired()) $this->wired();
 		
 		static $preloaded = false;
 		$config = $this->wire('config');

@@ -161,6 +161,7 @@ class Pageimage extends Pagefile {
 	public function __construct(Pagefiles $pagefiles, $filename) {
 
 		if(!$pagefiles instanceof Pageimages) throw new WireException("Pageimage::__construct requires instance of Pageimages"); 
+		$pagefiles->wire($this);
 		$this->pageimages = $pagefiles; 
 		parent::__construct($pagefiles, $filename); 
 	}

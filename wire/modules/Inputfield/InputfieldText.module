@@ -38,8 +38,6 @@ class InputfieldText extends Inputfield {
 	/**
 	 * Construct
 	 * 
-	 * @throws WireException
-	 * 
 	 */
 	public function __construct() {
 		parent::__construct();
@@ -54,13 +52,17 @@ class InputfieldText extends Inputfield {
 		$this->set('stripTags', false); // strip tags from input?
 		$this->set('noTrim', false);
 		$this->set('showCount', self::showCountNone);
-
+	}
+	
+	public function wired() {
 		// if multi-language, support placeholders for each language
+		/** @var Languages $languages */
 		$languages = $this->wire('languages');
 		if($languages) foreach($languages as $language) {
 			// set to blank value so that Field::getInputfield() will recogize this setting is for InputfieldText 
 			if(!$language->isDefault()) $this->set("placeholder$language", '');
 		}
+		parent::wired();
 	}
 
 	/**

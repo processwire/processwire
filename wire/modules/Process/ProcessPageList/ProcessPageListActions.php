@@ -28,13 +28,14 @@ class ProcessPageListActions extends Wire {
 		'extras' => "<i class='fa fa-angle-right'></i>", 
 	);
 	
-	public function __construct() { 
+	public function wired() {
 		$this->superuser = $this->wire('user')->isSuperuser();
-		$settings = $this->wire('config')->ProcessPageList; 
+		$settings = $this->wire('config')->ProcessPageList;
 		if(is_array($settings) && isset($settings['extrasLabel'])) {
 			$this->actionLabels['extras'] = $settings['extrasLabel'];
 		}
-	}
+		parent::wired();
+	}	
 
 	public function setActionLabels(array $actionLabels) {
 		$this->actionLabels = array_merge($this->actionLabels, $actionLabels);

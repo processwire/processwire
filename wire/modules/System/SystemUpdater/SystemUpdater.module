@@ -150,7 +150,8 @@ class SystemUpdater extends WireData implements Module, ConfigurableModule {
 			// clear FileCompiler cache
 			$config = $this->wire('config');
 			if($config->templateCompile || $config->moduleCompile) {
-				$compiler = new FileCompiler($this->wire('config')->paths->templates);
+				/** @var FileCompiler $compiler */
+				$compiler = $this->wire(new FileCompiler($this->wire('config')->paths->templates));
 				$compiler->clearCache(true);
 				$this->message($this->_('Cleared file compiler cache')); 
 			}
