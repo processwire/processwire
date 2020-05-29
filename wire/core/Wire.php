@@ -124,7 +124,11 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *
 	 */
 	private $_instanceNum = 0;
-
+	
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {}
 
 	/**
@@ -1586,7 +1590,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	/**
 	 * ProcessWire instance
 	 *
-	 * @var ProcessWire|null
+	 * @var ProcessWire|bool|null
 	 *
 	 */
 	protected $_wire = null;
@@ -1594,16 +1598,18 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	/**
 	 * Set the current ProcessWire instance for this object (PW 3.0)
 	 * 
-	 * Specify no arguments to get, or specify a ProcessWire instance to set.
-	 * 
 	 * #pw-internal
 	 *
 	 * @param ProcessWire $wire
 	 *
 	 */
 	public function setWire(ProcessWire $wire) {
+		$wired = $this->_wire;
+		if($wired === $wire) return;
 		$this->_wire = $wire;
+		if($wired) return;
 		$this->getInstanceNum();
+		$this->wired();
 	}
 
 	/**
@@ -1617,7 +1623,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *
 	 */
 	public function getWire() {
-		return $this->_wire;
+		return $this->_wire ? $this->_wire : null;
 	}
 
 	/**
@@ -1695,18 +1701,18 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public function wire($name = '', $value = null, $lock = false) {
 
-		if($this->_wire === null) {
+		if($this->_wire) {
+			// this instance is wired
+			$wire = $this->_wire;
+		} else {
 			// this object has not yet been wired! use last known current instance as fallback
 			// note this condition is unsafe in multi-instance mode
 			$wire = ProcessWire::getCurrentInstance();
 			if(!$wire) return null;
-			
-			// For live hunting objects that are using the fallback, uncomment the following:
-			// echo "<hr /><p>Non-wired object: '$name' in " . get_class($this) . ($value ? " (value=$value)" : "") . "</p>";
-			// echo "<pre>" . print_r(debug_backtrace(), true) . "</pre>";
-		} else {
-			// this instance is wired
-			$wire = $this->_wire;
+			if($name && $this->_wire === null) {
+				$this->_wire = false; // false prevents this from being called another time for this object
+				$wire->_objectNotWired($this, $name, $value);
+			}
 		}
 
 		if(is_object($name)) {
@@ -1742,6 +1748,38 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 		
 		return $value;
 	}
+
+	/**
+	 * Initialization called when object injected with ProcessWire instance (aka “wired”)
+	 *
+	 * - Can be used for any constructor-type initialization that depends on API vars.
+	 * - Called automatically when object is “wired”, do not call it on your own.
+	 * - Expects to be called only once per object instance.
+	 * - Typically called after `__construct()` but before any other method calls.
+	 * - Please note: If object is never “wired” then this method will not be called!
+	 *
+	 * ~~~~~
+	 * class Test extends Wire {
+	 *   function wired() { 
+	 *     echo "Wired to ProcessWire instance: "; 
+	 *     echo $this->wire()->getProcessWireInstanceID();
+	 *   }
+	 * }
+	 *
+	 * // objects in ProcessWire are “wired” like this:
+	 * $o = new Test();
+	 * $this->wire($o); // outputs "ProcessWire instance: n"
+	 *
+	 * // or on one line, like this…
+	 * $this->wire(new Test()); // outputs "ProcessWire instance: n"
+	 * ~~~~~
+	 *
+	 * #pw-internal
+	 *
+	 * @since 3.0.158
+	 *
+	 */
+	public function wired() { }
 
 	/**
 	 * Get an object property by direct reference or NULL if it doesn't exist

@@ -1481,8 +1481,9 @@ $config->lazyPageChunkSize = 250;
  * Uncomment and paste into /site/config.php if you want to use this
  * 
  * $config->InputfieldWrapper = array(
- *	'useDependencies' => true,
- * 	'requiredLabel' => 'Missing required value', 
+ *   'useDependencies' => true,
+ *   'requiredLabel' => 'Missing required value', 
+ *   'columnWidthSpacing' => 0, 
  *	);
  * 
  */
@@ -1680,6 +1681,8 @@ $config->versionName = '';
  * column width spacing for inputfields: used by some admin themes to communicate to InputfieldWrapper
  * 
  * Value is null, 0, or 1 or higher. This should be kept at null in this file. 
+ * 
+ * This can also be specified with $config->InputfieldWrapper('columnWidthSpacing', 0); (3.0.158+)
  *
  */
 $config->inputfieldColumnWidthSpacing = null;

@@ -733,12 +733,14 @@ class ProcessWire extends Wire {
 		if($profiler) $profiler->maintenance();
 
 		if($config->templateCompile) {
-			$compiler = new FileCompiler($this->wire('config')->paths->templates);
+			$compiler = new FileCompiler($config->paths->templates);
+			$this->wire($compiler);
 			$compiler->maintenance();
 		}
 		
 		if($config->moduleCompile) {
-			$compiler = new FileCompiler($this->wire('config')->paths->siteModules);
+			$compiler = new FileCompiler($config->paths->siteModules);
+			$this->wire($compiler);
 			$compiler->maintenance();
 		}
 	}
@@ -795,7 +797,16 @@ class ProcessWire extends Wire {
 		$this->fileSave = '';
 		return true; 
 	}
-	
+
+	/**
+	 * Call method
+	 * 
+	 * @param string $method
+	 * @param array $arguments
+	 * @return mixed
+	 * @throws WireException
+	 * 
+	 */
 	public function __call($method, $arguments) {
 		if(method_exists($this, "___$method")) return parent::__call($method, $arguments); 
 		$value = $this->__get($method);
@@ -815,6 +826,35 @@ class ProcessWire extends Wire {
 	public function fuel($name = '') {
 		if(empty($name)) return $this->fuel;
 		return $this->fuel->$name;
+	}
+
+	/**
+	 * Called if any Wire-derived object makes API calls before being wired
+	 * 
+	 * This is for debugging purposes only and is not called unless `ProcessWire::objectNotWired` is hooked. 
+	 * It is called only once per non-wired object. Uncomment code within to use. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Wire $obj Object that accessed API var without being assigned ProcessWire instance
+	 * @param string|Wire The $name argument that was passed to $obj->wire($name, $value)
+	 * @param mixed $value The $value argument passed to $object->wire($name, $value)
+	 * @since 3.0.158
+	 * 
+	 */
+	public function _objectNotWired(Wire $obj, $name, $value) { 
+		// Uncomment code below to enable (use in admin)
+		/*
+		if(is_string($name) && $this->wire($name)) {
+			$msg = $obj->className() . " accessed API var \$$name before being wired";
+			$this->warning("$msg\n" . Debug::backtrace(array(
+				'limit' => 2, 
+				'getString' => true,
+				'getCnt' => false,
+				'getFile' => 'basename',
+			)));
+		}
+		*/
 	}
 	
 	/*** MULTI-INSTANCE *************************************************************************************/
