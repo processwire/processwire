@@ -154,6 +154,7 @@
  * @property bool $cli This is automatically set to TRUE when PW is booted as a command line (non HTTP) script. #pw-group-runtime
  * @property string $versionName This is automatically populated with the current PW version name (i.e. 2.5.0 dev) #pw-group-runtime
  * @property int $inputfieldColumnWidthSpacing Used by some admin themes to commmunicate to InputfieldWrapper at runtime. #pw-internal
+ * @property array InputfieldWrapper Settings specific to InputfieldWrapper class #pw-internal
  * @property bool $debugMarkupQA Set to true to make the MarkupQA class report verbose debugging messages (to superusers). #pw-internal
  * @property array $markupQA Optional settings for MarkupQA class used by FieldtypeTextarea module. #pw-group-modules
  * @property string|null $pagerHeadTags Populated at runtime to contain `<link rel=prev|next />` tags for document head, after pagination has been rendered by MarkupPagerNav module. #pw-group-runtime 

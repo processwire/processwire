@@ -12,6 +12,12 @@
  * 
  * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
+ * 
+ * ~~~~~
+ * $timer = Debug::startTimer();
+ * execute_some_code();
+ * $elapsed = Debug::stopTimer($timer);
+ * ~~~~~
  *
  */
 
@@ -50,14 +56,26 @@ class Debug {
 	static protected $useHrtime = null;
 
 	/**
+	 * Key of last started timer
+	 * 
+	 * @var string
+	 * 
+	 */
+	static protected $lastTimerKey = '';
+
+	/**
 	 * Timer precision (digits after decimal)
 	 * 
 	 * @var int
 	 * 
 	 */
 	static protected $timerSettings = array(
+		'useMS' => false, // use milliseconds?
 		'precision' => 4, 
+		'precisionMS' => 1,
 		'useHrtime' => null,
+		'suffix' => '',
+		'suffixMS' => 'ms',
 	);
 
 	/**
@@ -78,38 +96,94 @@ class Debug {
 	 */
 	static public function timer($key = '', $reset = false) {
 		
-		if(self::$timerSettings['useHrtime'] === null) {
-			self::$timerSettings['useHrtime'] = function_exists("\\hrtime");
-		}
-		
 		// returns number of seconds elapsed since first call
 		if($reset && $key) self::removeTimer($key);
 
 		if(!$key || !isset(self::$timers[$key])) {
-			// start new timer
-			$startTime = self::$timerSettings['useHrtime'] ? hrtime(true) : -microtime(true);
-			if(!$key) {
-				$key = (string) $startTime; 
-				while(isset(self::$timers[$key])) $key .= "0";
-			}
-			self::$timers[(string) $key] = $startTime; 
-			$value = $key; 
-			
+			$value = self::startTimer($key);
 		} else {
-			// finish a timer
-			if(self::$timerSettings['useHrtime']) {
-				// return existing hrtime timer
-				$value = ((hrtime(true) - self::$timers[$key]) / 1e+6) / 1000;
-			} else {
-				// return existing microtime timer
-				$value = self::$timers[$key] + microtime(true);
-			}
-			if(self::$timerSettings['precision']) {
-				$value = number_format($value, self::$timerSettings['precision']);
-			}
+			$value = self::stopTimer($key, null, false);
 		}
 		
 		return $value; 
+	}
+
+	/**
+	 * Start a new timer
+	 * 
+	 * @param string $key Optionally specify name for new timer
+	 * @return string
+	 * 
+	 */
+	static public function startTimer($key = '') {
+		
+		if(self::$timerSettings['useHrtime'] === null) {
+			self::$timerSettings['useHrtime'] = function_exists("\\hrtime");
+		}
+
+		$startTime = self::$timerSettings['useHrtime'] ? hrtime(true) : -microtime(true);
+		
+		if($key === '') {
+			$key = (string) $startTime;
+			while(isset(self::$timers[$key])) $key .= "0";
+		}
+		
+		$key = (string) $key;
+		
+		self::$timers[$key] = $startTime;
+		self::$lastTimerKey = $key;
+		
+		return $key;
+	}
+
+	/**
+	 * Get elapsed time for given timer and stop
+	 * 
+	 * @param string $key Timer key returned by startTimer(), or omit for last started timer
+	 * @param null|int|string $option Specify override precision (int), suffix (string), or "ms" for milliseconds and suffix.
+	 * @param bool $clear Also clear the timer? (default=true)
+	 * @return string
+	 * @since 3.0.158
+	 * 
+	 */
+	static public function stopTimer($key = '', $option = null, $clear = true) {
+	
+		if(empty($key) && self::$lastTimerKey) $key = self::$lastTimerKey;
+		if(!isset(self::$timers[$key])) return '';
+
+		$value = self::$timers[$key];
+		$useMS = $option === 'ms' || (self::$timerSettings['useMS'] && $option !== 's');
+		$suffix = $useMS ? self::$timerSettings['suffixMS'] : self::$timerSettings['suffix'];
+		$precision = $useMS ? self::$timerSettings['precisionMS'] : self::$timerSettings['precision'];
+		
+		if(self::$timerSettings['useHrtime']) {
+			// existing hrtime timer
+			$value = ((hrtime(true) - $value) / 1e+6) / 1000;
+		} else {
+			// existing microtime timer
+			$value = $value + microtime(true);
+		}
+		
+		if($option === null) {
+			// no option specified
+		} else if(is_int($option)) {
+			// precision override
+			$precision = $option;
+		} else if(is_string($option)) {
+			// suffix specified
+			$suffix = $option;
+		}
+		
+		if($useMS) {
+			$value = round($value * 1000, $precision);
+		} else {
+			$value = number_format($value, $precision);
+		}
+		
+		if($clear) self::removeTimer($key);
+		if($suffix) $value .= $suffix;
+		
+		return $value;
 	}
 
 	/**
@@ -138,15 +212,14 @@ class Debug {
 	 * 
 	 * @param string $key
 	 * @param string $note Optional note to include in getSavedTimer
-	 * @return bool Returns false if timer didn't exist in the first place
+	 * @return bool|string Returns elapsed time, or false if timer didn't exist
 	 *
 	 */
 	static public function saveTimer($key, $note = '') {
 		if(!isset(self::$timers[$key])) return false;
-		self::$savedTimers[$key] = self::timer($key); 
-		self::removeTimer($key); 
+		self::$savedTimers[$key] = self::stopTimer($key); 
 		if($note) self::$savedTimerNotes[$key] = $note; 
-		return true; 
+		return self::$savedTimers[$key]; 
 	}
 	
 	/**
@@ -206,6 +279,17 @@ class Debug {
 	static public function removeAll() {
 		self::$timers = array();
 	}
+	
+	/**
+	 * Get all active timers in array with timer name (key) and start time (value)
+	 *
+	 * @return array
+	 * @since 3.0.158
+	 *
+	 */
+	static public function getAll() {
+		return self::$timers;
+	}
 
 	/**
 	 * Return a backtrace array that is simpler and more PW-specific relative to PHP’s debug_backtrace
@@ -222,6 +306,8 @@ class Debug {
 			'flags' => DEBUG_BACKTRACE_PROVIDE_OBJECT, // flags for PHP debug_backtrace method
 			'showHooks' => false, // show internal methods for hook calls?
 			'getString' => false, // get newline separated string rather than array?
+			'getCnt' => true, // get index number count (for getString only)
+			'getFile' => true,  // get filename? true, false or 'basename'
 			'maxCount' => 10, // max size for arrays
 			'maxStrlen' => 100, // max length for strings
 			'maxDepth' => 5, // max allowed recursion depth when converting variables to strings
@@ -340,11 +426,16 @@ class Debug {
 				if($argStr === '[]') $argStr = '';
 			}
 
+			if($options['getFile'] === 'basename') $file = basename($file);
+			
 			$call = "$class$type$function($argStr)";
 			$file = "$file:$trace[line]";
 			
 			if($options['getString']) {
-				$result[] = "$cnt. $file » $call";
+				$str = '';
+				if($options['getCnt']) $str .= "$cnt. ";
+				$str .= "$file » $call";
+				$result[] = $str;
 			} else {
 				$result[] = array(
 					'file' => $file,
