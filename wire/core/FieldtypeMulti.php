@@ -200,29 +200,28 @@ abstract class FieldtypeMulti extends Fieldtype {
 		}
 		return $values; 
 	}
-
+	
 	/**
 	 * Per the Fieldtype interface, Save the given Field from the given Page to the database
 	 *
 	 * Because the number of values may have changed, this method plays it safe and deletes all the old values
-	 * and reinserts them as new. 
+	 * and reinserts them as new.
 	 *
 	 * @param Page $page
 	 * @param Field $field
 	 * @return bool
-	 * @throws \Exception|WireException on failure
+	 * @throws \PDOException|WireException|WireDatabaseQueryException on failure
 	 *
 	 */
 	public function ___savePageField(Page $page, Field $field) {
 
 		if(!$page->id || !$field->id) return false;
-	
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+
+		$database = $this->wire('database'); /** @var WireDatabasePDO $database */
+		$config = $this->wire('config'); /** @var Config $config */
 		$useTransaction = $database->allowTransaction();
 		$values = $page->get($field->name);
-		$schema = array();
-		
+
 		if(is_object($values)) {
 			if(!$values->isChanged() && !$page->isChanged($field->name)) return true;
 		} else if(!$page->isChanged($field->name)) {
@@ -234,10 +233,12 @@ abstract class FieldtypeMulti extends Fieldtype {
 			return $this->savePageFieldRows($page, $field, $values);
 		}
 
-		$values = $this->sleepValue($page, $field, $values); 
-		$table = $database->escapeTable($field->table); 
-		$page_id = (int) $page->id; 
-	
+		$values = $this->sleepValue($page, $field, $values);
+		$table = $database->escapeTable($field->table);
+		$page_id = (int) $page->id;
+		$schema = $this->getDatabaseSchema($field);
+		$useSort = isset($schema['sort']); 
+
 		// use transaction when possible
 		if($useTransaction) $database->beginTransaction();
 
@@ -248,80 +249,107 @@ abstract class FieldtypeMulti extends Fieldtype {
 			$query->execute();
 		} catch(\Exception $e) {
 			if($useTransaction) $database->rollBack();
-			throw $e;
+			if($config->allowExceptions) throw $e; // throw original
+			throw new WireDatabaseQueryException($e->getMessage(), $e->getCode(), $e);
 		}
 		
-		if(count($values)) {
-
-			// get first value to find key definition
-			$value = reset($values); 
-
-			// if the first value is not an associative (key indexed) array, then force it to be with 'data' as the key.
-			// this is to allow for this method to be able to save fields that have more than just a 'data' field,
-			// even though most instances will probably just use only the data field
-
-			if(is_array($value)) {
-				$keys = array_keys($value); 
-				foreach($keys as $k => $v) $keys[$k] = $database->escapeTableCol($v); 
-			} else {
-				$keys = array('data'); 
-			}
-
-			$sql = "INSERT INTO `$table` (pages_id, sort, `" . implode('`, `', $keys) . "`) VALUES";
-			$sort = 0; 	
-
-			// cycle through the values to generate the query
-			foreach($values as $value) {
-				$sql .= "($page_id, $sort, ";
-
-				// if the value is not an associative array, then force it to be one
-				if(!is_array($value)) $value = array('data' => $value); 
-
-				// cycle through the keys, which represent DB fields (i.e. data, description, etc.) and generate the insert query
-				foreach($keys as $key) {
-					$v = isset($value[$key]) ? $value[$key] : null;
-					if(is_null($v)) {
-						// value is NULL, determine how to handle it
-						if(empty($schema)) $schema = $this->getDatabaseSchema($field); 
-						$useNULL = false;
-						if(isset($schema[$key])) {
-							if(stripos($schema[$key], ' DEFAULT NULL')) {
-								// use the default NULL value
-								$useNULL = true;
-							} else if(stripos($schema[$key], ' AUTO_INCREMENT')) {
-								// potentially a primary key, some SQL modes require NULL (rather than blank) for auto increment
-								$useNULL = true;
-							}
-						}
-						$sql .= $useNULL ? "NULL, " : "'', ";
-					} else {
-						$sql .= "'" . $database->escapeStr("$v") . "', ";
-					}
-				}
-				$sql = rtrim($sql, ", ") . "), ";
-				$sort++; 	
-			}	
-
-			try {
-				$query = $database->prepare(rtrim($sql, ", "));	
-				$result = $query->execute();
-			} catch(\Exception $e) {
-				if($useTransaction) $database->rollBack();
-				if($this->wire('config')->allowExceptions) throw $e; // throw original
-				$msg = $e->getMessage();
-				if($this->wire('config')->debug && $this->wire('config')->advanced) $msg .= "\n$sql";
-				throw new WireException($msg); // throw WireException
-			}
-			
-		} else {
-			$result = true;
+		if(!count($values)) {
+			// no values to insert, exit early
+			if($useTransaction) $database->commit();
+			return true;
 		}
 
-		if($useTransaction) $database->commit();
+		// if the first value is not an associative (key indexed) array, then force it to be with 'data' as the key.
+		// this is to allow for this method to be able to save fields that have more than just a 'data' field,
+		// even though most instances will probably just use only the data field
 
-		return $result; 
-	}
+		$value = reset($values); // first value to find definitions
+		if(is_array($value)) {
+			unset($value['pages_id'], $value['sort']); // likely not present, but just in case
+			$keys = array_keys($value);
+			foreach($keys as $k => $v) $keys[$k] = $database->escapeTableCol($v);
+		} else {
+			$keys = array('data');
+		}
 	
+		// $keys is just the columns unique to the Fieldtype
+		// whereas $cols is same as keys except it also has pages_id and sort
+
+		$cols = array('pages_id');
+		if($useSort) $cols[] = 'sort';
+		foreach($keys as $col) $cols[] = $col;
+		$intCols = $this->trimDatabaseSchema($schema, array('findType' => '*int', 'trimDefault' => false)); 
+		$nullers = false;
+
+		$sql = "INSERT INTO `$table` (`" . implode('`, `', $cols) . "`) VALUES(:" . implode(', :', $cols) . ")";
+		$query = $database->prepare($sql);
+		$query->bindValue(':pages_id', $page_id, \PDO::PARAM_INT);
+		$sort = 0;
+		$result = true;
+		$exception = false;
+
+		// cycle through the values to generate the query
+		foreach($values as $value) {
+			
+			if($useSort) {
+				$query->bindValue(':sort', $sort, \PDO::PARAM_INT);
+			}
+
+			// if the value is not an associative array, then force it to be one
+			if(!is_array($value)) {
+				$value = array('data' => $value);
+			}
+
+			// cycle through the keys, which represent DB fields (i.e. data, description, etc.) and generate the insert query
+			foreach($keys as $key) {
+				$val = isset($value[$key]) ? $value[$key] : null;
+				
+				if($val === null) {
+					// null column
+					// some SQL modes require NULL for auto_increment primary key (rather than blank)
+					if(isset($schema[$key]) && $nullers === false) $nullers = array_merge(
+						$this->trimDatabaseSchema($schema, array('findDefaultNULL' => true)),
+						$this->trimDatabaseSchema($schema, array('findAutoIncrement' => true))
+					);
+					if($nullers && isset($nullers[$key])) {
+						$query->bindValue(":$key", null, \PDO::PARAM_NULL); 
+					} else {
+						$query->bindValue(":$key", '');
+					}
+					
+				} else if(isset($intCols[$key])) {
+					// integer column
+					$query->bindValue(":$key", (int) $val, \PDO::PARAM_INT); 
+					
+				} else {
+					// string column
+					$query->bindValue(":$key", $val); 
+				}
+			}
+			
+			try {
+				$result = $query->execute();
+			} catch(\Exception $e) {
+				$exception = $e;
+			}
+			
+			if($exception) break;
+
+			$sort++;
+		}
+	
+		if($exception) {
+			/** @var \PDOException $exception */
+			if($useTransaction) $database->rollBack();
+			if($config->allowExceptions) throw $exception; // throw original
+			throw new WireDatabaseQueryException($exception->getMessage(), $exception->getCode(), $exception); 
+		} else {
+			if($useTransaction) $database->commit();
+		}
+
+		return $result;
+	}
+
 	/**
 	 * Load the given page field from the database table and return the value.
 	 *
@@ -638,14 +666,17 @@ abstract class FieldtypeMulti extends Fieldtype {
 		if(isset($schema['sort'])) {
 			// determine if there are any INSERTs and what the next sort value(s) should be
 			// this is because "pages_id,sort" are generally a unique index with FieldtypeMulti
+			$maxSort = 0; 
 			foreach($sleepValue as $v) {
 				if(!is_array($v)) continue;
 				$id = isset($v[$primaryKey]) ? $v[$primaryKey] : 0;
 				if(!$id) $hasInserts = true;
+				if(isset($v['sort']) && $v['sort'] > $maxSort) $maxSort = $v['sort'];
 			}
 			if($hasInserts) {
 				// determine max sort value for new items inserted
-				$sort = $this->getMaxColumnValue($page, $field, 'sort');
+				$sort = $this->getMaxColumnValue($page, $field, 'sort', -1);
+				if($maxSort > $sort) $sort = $maxSort;
 			}
 		}
 	
@@ -709,7 +740,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$locked = false;
 		try {
 			// attempt lock if possible
-			if($database->exec("LOCK TABLES `$table` WRITE")) {
+			if($database->exec("LOCK TABLES `$table` WRITE") !== false) {
 				$this->lockedTable = true;
 				$locked = true;
 			}
@@ -739,18 +770,18 @@ abstract class FieldtypeMulti extends Fieldtype {
 	}
 
 	/**
-	 * Get max value of column for given Page and Field
+	 * Get max value of column for given Page and Field or boolean false (or specified $noValue) if no rows present
 	 * 
 	 * @param Page $page
 	 * @param Field $field
 	 * @param string $column
-	 * @return int|mixed
+	 * @param int|bool $noValue Return this value if there are no rows to count from (default=false)
+	 * @return int|bool|mixed
 	 * @throws WireException
 	 * @since 3.0.154
 	 * 
 	 */
-	protected function getMaxColumnValue(Page $page, Field $field, $column) {
-		// determine max sort value for new items inserted
+	protected function getMaxColumnValue(Page $page, Field $field, $column, $noValue = false) {
 		/** @var WireDatabasePDO $database */
 		$database = $this->wire('database'); 
 		$table = $database->escapeTable($field->getTable());
@@ -761,6 +792,8 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$query->execute();
 		$value = $query->fetchColumn();
 		$query->closeCursor();
+		if($value === null) return $noValue;
+		if(!is_int($value) && ctype_digit(ltrim($value, '-'))) $value = (int) $value;
 		return $value;
 	}
 
