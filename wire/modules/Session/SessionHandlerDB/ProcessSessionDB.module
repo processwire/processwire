@@ -102,6 +102,9 @@ class ProcessSessionDB extends Process {
 			while($row) {
 				
 				list($user_id, $pages_id, $ip, $ua, $ts) = $row; 
+				
+				$pages_id = (int) $pages_id;
+				$user_id = (int) $user_id;
 
 				if(isset($userNames[$user_id])) {
 					$userName = $userNames[$user_id]; 
@@ -109,7 +112,7 @@ class ProcessSessionDB extends Process {
 				} else {
 					$user = $this->wire('users')->get($user_id);
 					$userName = $user && $user->id ? $user->name : '.';
-					$userNames[$user_id] = $userName;
+					if($userName !== '.') $userNames[$user_id] = $userName;
 				}
 
 				if(isset($pagePaths[$pages_id])) {
@@ -118,7 +121,7 @@ class ProcessSessionDB extends Process {
 				} else {
 					$page = $this->wire('pages')->get($pages_id);
 					$pagePath = $page->id ? $page->path : '.';
-					$pagePaths[$pages_id] = $pagePath;
+					if($pagePath !== '.') $pagePaths[$pages_id] = $pagePath;
 				}
 
 				$tr = array(wireRelativeTimeStr($ts), $userName, $pagePath);

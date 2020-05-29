@@ -7,25 +7,26 @@
  * It provides the interface and some basic functions. For an example, see:
  * /wire/modules/Session/SessionHandlerDB/SessionHandlerDB.module
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
- *
  *
  */
 
 abstract class WireSessionHandler extends WireData implements Module {
 
 	/**
-	 * Initialize the save handler
+	 * Initialize the save handler when $modules sets the current instance
 	 *
 	 */
-	public function __construct() {
-		$this->addHookBefore('Session::init', $this, 'attach'); 
-		register_shutdown_function('session_write_close'); 
+	public function wired() {
+		if(!$this->sessionExists()) {
+			$this->addHookBefore('Session::init', $this, 'attach');
+			register_shutdown_function('session_write_close');
+		}
 	}
 
 	/**
-	 * Initailize the module, may not be needed here but required for module interface
+	 * Initailize, called when module configuration has been populated
 	 *
 	 */
 	public function init() { }
@@ -35,14 +36,14 @@ abstract class WireSessionHandler extends WireData implements Module {
 	 *
 	 */
 	public function attach() {
-		session_set_save_handler(	
+		session_set_save_handler(
 			array($this, 'open'),
 			array($this, 'close'),
 			array($this, 'read'),
 			array($this, 'write'),
 			array($this, 'destroy'),
 			array($this, 'gc')
-			);
+		);
 	}
 
 	/**
@@ -54,6 +55,7 @@ abstract class WireSessionHandler extends WireData implements Module {
 	 *
 	 */
 	public function open($path, $name) {
+		if($name && $path) {} // ignore
 		return true; 
 	}
 
@@ -102,6 +104,18 @@ abstract class WireSessionHandler extends WireData implements Module {
 	 *
 	 */
 	abstract public function gc($seconds);
+
+	/**
+	 * Does a session currently exist? (i.e. already one started)
+	 * 
+	 * @return bool
+	 * @since 3.0.158
+	 * 
+	 */
+	public function sessionExists() {
+		if(function_exists("\\session_status")) return session_status() === PHP_SESSION_ACTIVE;
+		return session_id() !== '';
+	}
 
 	/**
 	 * Tells the Modules API to only instantiate one instance of this module
