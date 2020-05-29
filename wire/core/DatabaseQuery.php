@@ -120,7 +120,8 @@ abstract class DatabaseQuery extends WireData {
 	 * Get or set a bind option
 	 *
 	 * @param string|bool $optionName One of 'prefix' or 'global', boolean true to get/set all 
-	 * @param null|int|string|array $optionValue Omit when getting, Specify option value to set, or array when setting all
+	 * @param null|int|string|array $optionValue Omit when getting, Specify option value to set, or array when setting
+	 *     all
 	 * @return string|int|array
 	 * @since 3.0.157
 	 *
@@ -597,9 +598,11 @@ abstract class DatabaseQuery extends WireData {
 	public function getDebugQuery() {
 		$sql = $this->getQuery();
 		$suffix = $this->bindOptions['suffix'];
+		$database = $this->wire('database');
 		foreach($this->bindValues as $bindKey => $bindValue) {
+			if(is_string($bindValue)) $bindValue = $database->quote($bindValue);
 			if($bindKey[strlen($bindKey)-1] === $suffix) {
-				$sql = str_replace($bindKey, $bindValue);
+				$sql = str_replace($bindKey, $bindValue, $sql);
 			} else {
 				$sql = preg_replace('/' . $bindKey . '\b/', $bindValue, $sql);
 			}
