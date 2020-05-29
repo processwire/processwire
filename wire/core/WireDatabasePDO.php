@@ -52,6 +52,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	/**
 	 * Instance of PDO
 	 * 
+	 * @var \PDO
+	 * 
 	 */
 	protected $pdo = null;
 
@@ -178,6 +180,14 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$config = $this->wire('config');
 		$this->stripMB4 = $config->dbStripMB4 && strtolower($config->dbEngine) != 'utf8mb4';
 		$this->queryLogMax = (int) $config->dbQueryLogMax;
+		if($config->debug && $this->pdo) {
+			// custom PDO statement for debug mode
+			$this->debugMode = true;
+			$this->pdo->setAttribute(
+				\PDO::ATTR_STATEMENT_CLASS, 
+				array(__NAMESPACE__ . "\\WireDatabasePDOStatement", array($this))
+			);
+		}
 		$sqlModes = $config->dbSqlModes;
 		if(is_array($sqlModes)) {
 			// ["5.7.0" => "remove:mode1,mode2/add:mode3"]
@@ -217,8 +227,6 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 				$this->pdoConfig['pass'],
 				$this->pdoConfig['options']
 			);
-			// custom PDO statement for later maybe
-			// $this->pdo->setAttribute(\PDO::ATTR_STATEMENT_CLASS,array(__NAMESPACE__.'\WireDatabasePDOStatement',array($this)));
 		}
 		if(!$this->init) $this->_init();
 		return $this->pdo;
@@ -437,8 +445,16 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			$note = $driver_options; 
 			$driver_options = array();
 		}
-		if($this->debugMode) $this->queryLog($statement, $note); 
-		return $this->pdo()->prepare($statement, $driver_options);
+		$pdoStatement = $this->pdo()->prepare($statement, $driver_options);
+		if($this->debugMode) {
+			if($pdoStatement instanceof WireDatabasePDOStatement) {
+				/** @var WireDatabasePDOStatement $pdoStatement */
+				$pdoStatement->setDebugNote($note);
+			} else {
+				$this->queryLog($statement, $note);
+			}
+		}
+		return $pdoStatement;
 	}
 
 	/**
@@ -567,26 +583,25 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 * @param string $sql Query (string) to log
 	 * @param string $note Any additional debugging notes about the query
-	 * @return array|bool Returns query log array, or boolean true if you've logged a query
+	 * @return array|bool|int Returns query log array, boolean true if added, boolean false if not
 	 * 
 	 */
 	public function queryLog($sql = '', $note = '') {
 		if(empty($sql)) return $this->queryLog;
-		if($this->debugMode) {
-			if(count($this->queryLog) > $this->queryLogMax) {
-				if(isset($this->queryLog['error'])) {
-					$qty = (int) $this->queryLog['error'];
-				} else {
-					$qty = 0;
-				}
-				$qty++;
-				$this->queryLog['error'] = "$qty additional queries omitted because \$config->dbQueryLogMax = $this->queryLogMax";
+		if(!$this->debugMode) return false;
+		if(count($this->queryLog) > $this->queryLogMax) {
+			if(isset($this->queryLog['error'])) {
+				$qty = (int) $this->queryLog['error'];
 			} else {
-				$this->queryLog[] = $sql . ($note ? " -- $note" : "");
-				return true;
+				$qty = 0;
 			}
+			$qty++;
+			$this->queryLog['error'] = "$qty additional queries omitted because \$config->dbQueryLogMax = $this->queryLogMax";
+			return false;
+		} else {
+			$this->queryLog[] = $sql . ($note ? " -- $note" : "");
+			return true;
 		}
-		return false;
 	}
 
 	/**
@@ -1002,14 +1017,3 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 }
 
-/**
- * custom PDOStatement for later maybe
- *
-class WireDatabasePDOStatement extends \PDOStatement {
-	protected $database;
-	protected function __construct(WireDatabasePDO $database) {
-		$this->database = $database;
-		// $database->message($this->queryString);
-	}
-}
- */
