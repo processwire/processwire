@@ -160,18 +160,19 @@ class PageTraversal {
 	 * Return this page's parent pages, or the parent pages matching the given selector.
 	 *
 	 * @param Page $page
-	 * @param string|array $selector Optional selector string to filter parents by
+	 * @param string|array|bool $selector Optional selector string to filter parents by or boolean true for reverse order
 	 * @return PageArray
 	 *
 	 */
 	public function parents(Page $page, $selector = '') {
 		$parents = $page->wire('pages')->newPageArray();
 		$parent = $page->parent();
+		$method = $selector === true ? 'add' : 'prepend';
 		while($parent && $parent->id) {
-			$parents->prepend($parent); 	
+			$parents->$method($parent); 	
 			$parent = $parent->parent();
 		}
-		return strlen($selector) ? $parents->filter($selector) : $parents; 
+		return !is_bool($selector) && strlen($selector) ? $parents->filter($selector) : $parents; 
 	}
 
 	/**

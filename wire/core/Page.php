@@ -2409,7 +2409,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * Return this page’s parent pages, or the parent pages matching the given selector.
 	 * 
 	 * This method returns all parents of this page, in order. If a selector is specified, they
-	 * will be filtered by the selector. 
+	 * will be filtered by the selector. By default, parents are returned in breadcrumb order. 
+	 * In 3.0.158+ if you specify boolean true for selector argument, then it will return parents 
+	 * in reverse order (closest to furthest).
 	 * 
 	 * ~~~~~
 	 * // Render breadcrumbs 
@@ -2421,11 +2423,15 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * // Return all parents, excluding the homepage
 	 * $parents = $page->parents("template!=home"); 
 	 * ~~~~~
+	 * ~~~~~
+	 * // Return parents in reverse order (closest to furthest, 3.0.158+)
+	 * $parents = $page->parents(true); 
+	 * ~~~~~
 	 * 
 	 * #pw-group-common
 	 * #pw-group-traversal
 	 *
-	 * @param string|array $selector Optional selector string to filter parents by.
+	 * @param string|array|bool $selector Optional selector string to filter parents by or boolean true for reverse order
 	 * @return PageArray All parent pages, or those matching the given selector. 
 	 *
 	 */
