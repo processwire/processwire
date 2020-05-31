@@ -727,11 +727,20 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		if($this->allowForgot) {
 			$icon = $this->markup('forgot-icon');
 			$label = $this->labels('forgot-password');
-			$links['forgot'] = str_replace(array('{url}', '{out}'), array('./?forgot=1', "$icon $label"), $markup);
+			$links['forgot'] = str_replace(
+				array('{url}', '{out}'), 
+				array('./?forgot=1', "$icon $label"), 
+				$markup
+			);
 		}
 		$home = $this->pages->get('/');
 		$icon = $this->markup('home-icon');
-		$links['home'] = str_replace(array('{url}', '{out}'), array($home->url, "$icon $home->title"), $markup); 
+		$label = $home->getFormatted('title');
+		$links['home'] = str_replace(
+			array('{url}', '{out}'), 
+			array($home->url, "$icon $label"), 
+			$markup
+		); 
 		return $links;
 	}
 
