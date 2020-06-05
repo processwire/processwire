@@ -16,3 +16,19 @@ ul.Inputfields .InputfieldSubmit {
 	clear: both; 
 }
 
+#wrap_tfa_remember {
+	border: none;
+	outline: none;
+	padding: 0;
+}
+#wrap_tfa_remember .InputfieldHeader {
+	display: none;
+}
+#wrap_tfa_remember .InputfieldContent {
+	padding: 0 0 20px 0;
+}
+
+.ProcessLogin #ProcessLoginForm.tfa {
+	width: 300px;
+}
+

@@ -19,8 +19,39 @@ require_once(__DIR__ . '/boot.php');
  * 
  * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
- * 
+ *
+ * Default API vars (A-Z) 
+ * ======================
+ * @property AdminTheme|AdminThemeFramework|null $adminTheme
+ * @property WireCache $cache
+ * @property Config $config
+ * @property WireDatabasePDO $database
+ * @property WireDateTime $datetime
+ * @property Fieldgroups $fieldgroups
+ * @property Fields $fields
+ * @property Fieldtypes $fieldtypes
+ * @property WireFileTools $files
  * @property Fuel $fuel
+ * @property WireHooks $hooks
+ * @property WireInput $input
+ * @property Languages $languages (present only if LanguageSupport installed)
+ * @property WireLog $log
+ * @property WireMailTools $mail
+ * @property Modules $modules
+ * @property Notices $notices
+ * @property Page $page
+ * @property Pages $pages
+ * @property Permissions $permissions
+ * @property Process|ProcessPageView $process
+ * @property WireProfilerInterface $profiler
+ * @property Roles $roles
+ * @property Sanitizer $sanitizer
+ * @property Session $session
+ * @property Templates $templates
+ * @property Paths $urls
+ * @property User $user
+ * @property Users $users
+ * @property ProcessWire $wire
  * 
  * @method init()
  * @method ready()
@@ -164,9 +195,6 @@ class ProcessWire extends Wire {
 	/**
 	 * Fuel manages ProcessWire API variables
 	 * 
-	 * This will replace the static $fuel from the Wire class in PW 3.0.
-	 * Currently it is just here as a placeholder.
-	 *
 	 * @var Fuel|null
 	 *
 	 */
@@ -446,9 +474,9 @@ class ProcessWire extends Wire {
 		}
 		
 		$notices = new Notices();
+		$this->wire('notices', $notices, true); // first so any API var can send notices
 		$this->wire('urls', $config->urls); // shortcut API var
-		$this->wire('log', new WireLog(), true); 
-		$this->wire('notices', $notices, true); 
+		$this->wire('log', new WireLog(), true);
 		$this->wire('sanitizer', new Sanitizer()); 
 		$this->wire('datetime', new WireDateTime());
 		$this->wire('files', new WireFileTools());
@@ -760,11 +788,20 @@ class ProcessWire extends Wire {
 		$this->wire($key, $value, $lock);
 		return $this;
 	}
-	
+
+	/**
+	 * Get API var directly
+	 * 
+	 * @param string $key
+	 * @return mixed
+	 * 
+	 */
 	public function __get($key) {
 		if($key === 'fuel') return $this->fuel;
 		if($key === 'shutdown') return $this->shutdown;
 		if($key === 'instanceID') return $this->instanceID;
+		$value = $this->fuel->get($key);
+		if($value !== null) return $value;
 		return parent::__get($key);
 	}
 

@@ -818,17 +818,7 @@ class WireRandom extends Wire {
 		} else {
 			// for password use, slower
 			$rawLength = (int) ($requiredLength * 3 / 4 + 1);
-
-			// mcrypt_create_iv 
-			if((!$valid || $test) && function_exists('mcrypt_create_iv') && !defined('PHALANGER')) {
-				// @operator added for PHP 7.1 which throws deprecated notice on this function call
-				$buffer = @mcrypt_create_iv($rawLength, MCRYPT_DEV_URANDOM);
-				if($buffer) $valid = true;
-				if($test) $tests['mcrypt_create_iv'] = $buffer;
-			} else if($test) {
-				$tests['mcrypt_create_iv'] = '';
-			}
-
+			
 			// PHP7 random_bytes
 			if((!$valid || $test) && function_exists('random_bytes')) {
 				try {
@@ -840,6 +830,16 @@ class WireRandom extends Wire {
 				if($test) $tests['random_bytes'] = $buffer;
 			} else if($test) {
 				$tests['random_bytes'] = '';
+			}
+
+			// mcrypt_create_iv 
+			if((!$valid || $test) && function_exists('mcrypt_create_iv') && !defined('PHALANGER')) {
+				// @operator added for PHP 7.1 which throws deprecated notice on this function call
+				$buffer = @mcrypt_create_iv($rawLength, MCRYPT_DEV_URANDOM);
+				if($buffer) $valid = true;
+				if($test) $tests['mcrypt_create_iv'] = $buffer;
+			} else if($test) {
+				$tests['mcrypt_create_iv'] = '';
 			}
 
 			// openssl_random_pseudo_bytes

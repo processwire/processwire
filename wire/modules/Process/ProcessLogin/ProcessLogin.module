@@ -15,6 +15,8 @@
  * @property bool|int $allowEmail Whether or not email login is allowed (0|false=off, 1|true=Yes, 2=Yes or name also allowed)
  * @property string $emailField Field name used for email login (when enabled). 
  * @property array $tfaRecRoleIDs Role IDs where admin prompts/recommends them to enable TFA.
+ * @property int $tfaRememberDays Allow user to remember their browser and bypass TFA for this many days (-1=no limit, 0=disabled)
+ * @property array $tfaRememberFingerprints Means by which to fingerprint user’s browser
  * 
  * @method void beforeLogin() #pw-hooker
  * @method void afterLogin() #pw-hooker
@@ -154,6 +156,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	public function __construct() {
 		$this->set('tfaRecRoleIDs', array());
+		$this->set('tfaRememberDays', 90);
+		$this->set('tfaRememberFingerprints', array('agentVL', 'accept', 'scheme', 'host'));
 		$this->set('allowEmail', false);
 		$this->set('emailField', 'email');
 		$this->customMarkup['forgot-icon'] = wireIconMarkup('question-circle', 'fw');
@@ -336,6 +340,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		if(count($tfas)) {
 			$tfa = new Tfa();
 			$this->wire($tfa);
+			$tfa->rememberDays = $this->tfaRememberDays;
+			$tfa->rememberFingerprints = $this->tfaRememberFingerprints;
 		}
 		
 		if($tfa && $tfa->active()) {
@@ -735,7 +741,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		}
 		$home = $this->pages->get('/');
 		$icon = $this->markup('home-icon');
-		$label = $home->getFormatted('title');
+		$label = $this->wire()->sanitizer->entities($home->getUnformatted('title'));
 		$links['home'] = str_replace(
 			array('{url}', '{out}'), 
 			array($home->url, "$icon $label"), 
@@ -952,6 +958,40 @@ class ProcessLogin extends Process implements ConfigurableModule {
 				$f->addOption($role->id, $role->name);
 			}
 			$f->attr('value', $this->get('tfaRecRoleIDs'));
+			$fieldset->add($f);
+		
+			/** @var InputfieldInteger $f */
+			$f = $modules->get('InputfieldInteger'); 
+			$f->attr('name', 'tfaRememberDays'); 
+			$f->label = $this->_('Allow users the option to skip code entry when their browser/location is remembered?');
+			$f->description = $this->_('Enter the number of days that browser/location will be remembered or 0 to disable.'); 
+			$f->attr('value', (int) $this->tfaRememberDays); 
+			$fieldset->add($f);
+		
+			$fingerprints = array(
+				'agent' => $this->_('User agent (browser, platform, and versions of each)'),
+				'agentVL' => $this->_('Non-versioned user agent (browser and platform, but no versions—less likely to change often)'),
+				'accept' => $this->_('Accept header (content types user’s browser accepts)'),
+				'scheme' => $this->_('Current request scheme whether HTTP or HTTPS'),
+				'host' => $this->_('Server hostname (value of $config->httpHost)'),
+				'ip' => $this->_('User’s IP address (REMOTE_ADDR)'),
+				'fwip' => $this->_('User’s forwarded or client IP address (HTTP_X_FORWARDED_FOR or HTTP_CLIENT_IP)'),
+			);
+		
+			/** @var InputfieldCheckboxes $f */
+			$f = $modules->get('InputfieldCheckboxes'); 
+			$f->attr('name', 'tfaRememberFingerprints'); 
+			$f->label = $this->_('Do not allow user to skip code entry when any of these properties change'); 
+			$f->description = 
+				$this->_('Changes to password, name, email, or a random cookie in the user’s browser, will always require code entry at login.') . ' ' . 
+				$this->_('In addition, changes to any checked items below will also require code entry at login.') . ' ' . 
+				$this->_('These properties form a fingerprint of the user’s browser beyond the random cookie that we set.'); 	
+			$f->notes = $this->_('This setting only applies when the option to remember browser/location is enabled.'); 
+			foreach($fingerprints as $name => $label) {
+				$f->addOption($name, $label);
+			}
+			$f->showIf = 'tfaRememberDays!=0';
+			$f->attr('value', $this->tfaRememberFingerprints);
 			$fieldset->add($f);
 			
 		} else {
