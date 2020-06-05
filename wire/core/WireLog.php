@@ -259,6 +259,7 @@ class WireLog extends Wire {
 	 * 
 	 */
 	public function getFilename($name) {
+		$name = strtolower($name); 
 		if($name !== $this->wire('sanitizer')->pageName($name)) {
 			throw new WireException("Log name must contain only [-_.a-z0-9] with no extension");
 		}

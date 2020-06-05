@@ -25,7 +25,7 @@ if(!defined("PROCESSWIRE")) die();
  * Note that if your site may be accessed at either domain.com OR www.domain.com, then you'll
  * want to include entries for both, pointing to the same /site-domain/ directory. 
  * 
- * Each /site/ dir has it's own /site/config.php file that should be pointing to a separate
+ * Each /site/ dir has its own /site/config.php file that should be pointing to a separate
  * database. You shouldn't have two different /site/ dirs sharing the same database. 
  *
  */

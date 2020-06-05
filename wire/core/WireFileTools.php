@@ -993,7 +993,7 @@ class WireFileTools extends Wire {
 
 		// add .php extension if filename doesn't already have an extension
 		if($options['autoExtension'] && !strrpos(basename($filename), '.')) {
-			$filename .= "." . $options['autoExtension'];
+			$filename .= '.' . $options['autoExtension'];
 		}
 
 		if(strpos($filename, '..') !== false) {
@@ -1034,10 +1034,15 @@ class WireFileTools extends Wire {
 		// include the file
 		TemplateFile::pushRenderStack($filename); 
 		$func = $options['func'];
-		if($func == 'require') require($filename);
-			else if($func == 'require_once') require_once($filename);
-			else if($func == 'include_once') include_once($filename);
-			else include($filename);
+		if($func === 'require') {
+			require($filename);
+		} else if($func === 'require_once') {
+			require_once($filename);
+		} else if($func === 'include_once') {
+			include_once($filename);
+		} else {
+			include($filename);
+		}
 		TemplateFile::popRenderStack();
 
 		return true;

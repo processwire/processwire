@@ -3239,7 +3239,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function url($options = null) {
 		if($options !== null) return $this->traversal()->urlOptions($this, $options);
-		$url = rtrim($this->wire('config')->urls->root, "/") . $this->path();
+		$url = rtrim($this->wire('config')->urls->root, '/') . $this->path();
 		if($this->template->slashUrls === 0 && $this->settings['id'] > 1) $url = rtrim($url, '/'); 
 		return $url;
 	}

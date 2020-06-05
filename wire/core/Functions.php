@@ -723,8 +723,10 @@ function wireBytesStr($bytes, $small = false, $options = array()) {
 		$val = $bytes;
 		if($small) {
 			$label = $val > 0 ? __('B', __FILE__) : ''; // bytes
+		} else if($val == 1) {
+			$label = __('byte', __FILE__); // singular 1-byte
 		} else {
-			$label = __('bytes', __FILE__);
+			$label = __('bytes', __FILE__); // plural 2+ bytes (or 0 bytes)
 		}
 	} else if($bytes < 1000000 || $type === 'k') {
 		$val = $bytes / 1024;
