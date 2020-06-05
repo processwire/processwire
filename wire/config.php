@@ -293,27 +293,43 @@ $config->sessionChallenge = true;
 /**
  * Use session fingerprint?
  * 
- * Should login sessions be tied to IP and user agent?
- * IP fingerprinting may be problematic on dynamic IPs. 
- * Below are the possible values: 
+ * Should login sessions also be tied to a fingerprint of the browser?
+ * Fingerprinting can be based upon browser-specific headers and/or
+ * IP addresses. But note that IP fingerprinting will be problematic on 
+ * dynamic IPs.
  * 
- * 	0 or false: Fingerprint off
- * 	1 or true: Fingerprint on with default/recommended setting (currently 10). 
- * 	2: Fingerprint only the remote IP
- * 	4: Fingerprint only the forwarded/client IP (can be spoofed)
- * 	8: Fingerprint only the useragent
- * 	10: Fingerprint the remote IP and useragent (default)
- * 	12: Fingerprint the forwarded/client IP and useragent
- * 	14: Fingerprint the remote IP, forwarded/client IP and useragent (all). 
+ * Predefined settings:
  * 
- * If using fingerprint in an environment where the user’s 
- * IP address may change during the session, you should
- * fingerprint only the useragent, or disable fingerprinting.
+ * - 0 or false: Fingerprint off
+ * - 1 or true: Fingerprint on with default setting (remote IP & useragent)
+ * 
+ * Custom settings:
+ * 
+ * - 2: Remote IP
+ * - 4: Forwarded/client IP (can be spoofed)
+ * - 8: Useragent
+ * - 16: Accept header
+ * 
+ * To use the custom settings above, select one or more of those you want 
+ * to fingerprint, note the numbers, and use them like in the examples:
+ * ~~~~~~ 
+ * // to fingerprint just remote IP
+ * $config->sessionFingerprint = 2; 
+ * 
+ * // to fingerprint remote IP and useragent: 
+ * $config->sessionFingerprint = 2 | 8;
+ * 
+ * // to fingerprint remote IP, useragent and accept header:
+ * $config->sessionFingerprint = 2 | 8 | 16; 
+ * ~~~~~~
+ * 
+ * If using fingerprint in an environment where the user’s IP address may 
+ * change during the session, you should fingerprint only the useragent 
+ * and/or accept header, or disable fingerprinting.
  *
- * If using fingerprint with an AWS load balancer, you should 
- * use one of the options that uses the “client IP” rather than 
- * the “remote IP”, fingerprint only the useragent, or disable 
- * fingerprinting.
+ * If using fingerprint with an AWS load balancer, you should use one of 
+ * the options that uses the “client IP” rather than the “remote IP”, 
+ * fingerprint only useragent and/or accept header, or disable fingerprinting.
  * 
  * @var int
  *

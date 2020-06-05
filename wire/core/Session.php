@@ -64,6 +64,14 @@ class Session extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	const fingerprintUseragent = 8;
+	
+	/**
+	 * Fingerprint bitmask: Use “accept” content-types header
+	 *
+	 * @since 3.0.159
+	 *
+	 */
+	const fingerprintAccept = 16;
 
 	/**
 	 * Suffix applied to challenge cookies
@@ -346,23 +354,33 @@ class Session extends Wire implements \IteratorAggregate {
 	/**
 	 * Generate a session fingerprint
 	 *
-	 * If the `$mode` argument is omitted, the mode is pulled from `$config->sessionFingerprint`. If using the
-	 * mode argument, specify one of the following: 
+	 * If the `$mode` argument is omitted, the mode is pulled from `$config->sessionFingerprint`. 
+	 * If using the mode argument, specify one of the following:
 	 * 
-	 *  - 0 or false: Fingerprint nothing.
-	 *  - 1 or true: Fingerprint on with default/recommended setting (currently 10).
-	 *  - 2: Fingerprint only the remote IP.
-	 *  - 4: Fingerprint only the forwarded/client IP (can be spoofed).
-	 *  - 8: Fingerprint only the useragent.
-	 *  - 10: Fingerprint the remote IP and useragent (default).
-	 *  - 12: Fingerprint the forwarded/client IP and useragent.
-	 *  - 14: Fingerprint the remote IP, forwarded/client IP and useragent (all).
-	 * 
-	 * If using fingerprint in an environment where the user’s IP address may change during the session, you should
-	 * fingerprint only the useragent, or disable fingerprinting.
-	 * 
-	 * If using fingerprint with an AWS load balancer, you should use one of the options that uses the “client IP” 
-	 * rather than the “remote IP”, fingerprint only the useragent, or disable fingerprinting. 
+	 * - 2: Remote IP
+	 * - 4: Forwarded/client IP (can be spoofed)
+	 * - 8: Useragent
+	 * - 16: Accept header
+	 *
+	 * To use the custom `$mode` settings above, select one or more of those you want
+	 * to fingerprint, note the numbers, and determine the `$mode` like this:
+	 * ~~~~~~
+	 * // to fingerprint just remote IP
+	 * $mode = 2;
+	 *
+	 * // to fingerprint remote IP and useragent:
+	 * $mode = 2 | 8;
+	 *
+	 * // to fingerprint remote IP, useragent and accept header:
+	 * $mode = 2 | 8 | 16;
+	 * ~~~~~~
+	 * If using fingerprint in an environment where the user’s IP address may
+	 * change during the session, you should fingerprint only the useragent
+	 * and/or accept header, or disable fingerprinting.
+	 *
+	 * If using fingerprint with an AWS load balancer, you should use one of
+	 * the options that uses the “client IP” rather than the “remote IP”,
+	 * fingerprint only useragent and/or accept header, or disable fingerprinting.
 	 * 
 	 * #pw-internal
 	 * 
@@ -377,9 +395,9 @@ class Session extends Wire implements \IteratorAggregate {
 		$useFingerprint = $mode === null ? $this->config->sessionFingerprint : $mode;
 		
 		if(!$useFingerprint) return false;
-
-		if(is_bool($useFingerprint) || $useFingerprint == 1) {
-			// default (boolean true)
+		
+		if($useFingerprint === true || $useFingerprint === 1 || $useFingerprint === "1") {
+			// default (boolean true or int 1)
 			$useFingerprint = self::fingerprintRemoteAddr | self::fingerprintUseragent;
 			if($debug) $debugInfo[] = 'default';
 		}
@@ -399,6 +417,11 @@ class Session extends Wire implements \IteratorAggregate {
 		if($useFingerprint & self::fingerprintUseragent) {
 			$fingerprint .= isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : '';
 			if($debug) $debugInfo[] = 'useragent';
+		}
+		
+		if($useFingerprint & self::fingerprintAccept) {
+			$fingerprint .= isset($_SERVER['HTTP_ACCEPT']) ? $_SERVER['HTTP_ACCEPT'] : '';
+			if($debug) $debugInfo[] = 'accept';
 		}
 		
 		if($debug) {
