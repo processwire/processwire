@@ -1,14 +1,14 @@
 <?php namespace ProcessWire;
 
 /**
- * WireInputDataCookie class represents the $input->cookie API variable
+ * Provides methods for managing cookies via the $input->cookie API variable
  * 
- * #pw-summary Enables setting and getting cookies from the ProcessWire API using $input->cookie.
+ * #pw-summary Enables getting, setting and removing cookies from the ProcessWire API using `$input->cookie`.
  * 
  * #pw-body =
  * 
  * - Whether getting or setting, cookie values are always strings.
- * - Values retrieved from `$input->cookie` are user input (like PHP’s $_COOKIE) and should be sanitized and validated.
+ * - Values retrieved from `$input->cookie` are user input (like PHP’s $_COOKIE) and need to be sanitized and validated by you.
  * - When removing/unsetting cookies, the path, domain, secure, and httponly options must be the same as when the cookie was set,
  *   as a result, it’s good to have these things predefined in `$config->cookieOptions` rather than setting during runtime.
  * - Note that this class does not manage PW’s session cookies. 
@@ -41,21 +41,22 @@
  * $config->cookieOptions = [
  * 
  *   // Max age of cookies in seconds or 0 to expire with session 
- *   // 3600=1hr, 86400=1day, 604800=1week, 2592000=30days, etc.
+ *   // 3600=1 hour, 86400=1 day, 604800=1 week, 2592000=30 days, etc.
  *   'age' => 604800,
  * 
  *   // Cookie path/URL or null for PW installation’s root URL 
  *   'path' => null,
  * 
  *   // Cookie domain: null for current hostname, true for all subdomains of current domain, 
- *   // domain.com for domain and all subdomains, www.domain.com for www subdomain.
+ *   // domain.com for domain and all subdomains (same as true), www.domain.com for www subdomain
+ *   // and additional hosts off www subdomain (i.e. dev.www.domain.com)
  *   'domain' => null,
  * 
  *   // Transmit cookies only over secure HTTPS connection? 
  *   // Specify true, false, or null to auto-detect (uses true for cookies set when HTTPS).
  *   'secure' => null,
  * 
- *   // Make cookies accessible by HTTP only? 
+ *   // Make cookies accessible by HTTP (ProcessWire/PHP) only? 
  *   // When true, cookie is http/server-side only and not visible to client-side JS code.
  *   'httponly' => false,
  * 
@@ -66,7 +67,7 @@
  * ~~~~~
  * 
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  */ 
@@ -89,6 +90,7 @@ class WireInputDataCookie extends WireInputData {
 	 */
 	protected $defaultOptions = array(
 		'age' => 0, 
+		'expire' => null, 
 		'path' => null,
 		'domain' => null,
 		'secure' => null,
@@ -98,13 +100,14 @@ class WireInputDataCookie extends WireInputData {
 
 	/**
 	 * Cookie options specifically set at runtime
+	 * 
 	 * @var array
 	 * 
 	 */
 	protected $options = array();
 
 	/**
-	 * Cookie names not be allowed to be removed
+	 * Cookie names not allowed to be set or removed (i.e. session cookies)
 	 * 
 	 * @var array
 	 * 
@@ -149,6 +152,22 @@ class WireInputDataCookie extends WireInputData {
 	 * - Specify string for $key (and omit $value) to get the value of one option.
 	 * - Specify both $key and $value arguments to set one option.
 	 * - Specify associative array for $key (and omit $value) to set multiple options.
+	 * 
+	 * Options you can get or set: 
+	 * 
+	 * - `age` (int): Max age of cookies in seconds or 0 to expire with session. For example: 3600=1 hour, 86400=1 day,
+	 *    604800=1 week, 2592000=30 days, etc. (default=0, expire with session)
+	 * - `expire` (int|string): If you prefer to use an expiration date rather than the `age` option, specify a unix timestamp (int),
+	 *    ISO-8601 date string, or any date string recognized by PHP’s strtotime(), like "2020-11-03" or +1 WEEK", etc. (default=null).
+	 *    Please note the expire option was added in 3.0.159, previous versions should use the `age` option only.
+	 * - `path` (string|null): Cookie path/URL or null for PW installation’s root URL. (default=null)
+	 * - `secure` (bool|null): Transmit cookies only over secure HTTPS connection? Specify true or false, or use null to auto-detect,
+	 *    which uses true for cookies set when HTTPS is detected. (default=null)
+	 * - `httponly` (bool): When true, cookie is visible to PHP/ProcessWire only and not visible to client-side JS code. (default=false)
+	 * - `fallback` (bool): If set cookie fails (perhaps due to output already sent), attempt to set at beginning of next request? (default=true)
+	 * - `domain` (string|bool|null): Cookie domain, specify one of the following: `null` or blank string for current hostname [default],
+	 *    boolean `true` for all subdomains of current domain, `domain.com` for domain.com and *.domain.com [same as true], `www.domain.com`
+	 *    for www subdomain and and hostnames off of it, like dev.www.domain.com. (default=null, current hostname)
 	 *
 	 * @param string|array|null $key
 	 * @param string|array|int|float|null $value
@@ -195,17 +214,58 @@ class WireInputDataCookie extends WireInputData {
 	}
 	
 	/**
+	 * Get a cookie value
+	 * 
+	 * Gets a previously set cookie value or null if cookie not present or expired.
+	 * Cookies are a type of user input, so always sanitize (and validate where appropriate) any values. 
+	 * 
+	 * ~~~~~
+	 * $val = $input->cookie->foo;
+	 * $val = $input->cookie->get('foo'); // same as above
+	 * $val = $input->cookie->text('foo'); // get and use text sanitizer
+	 * ~~~~~
+	 * 
+	 * @param string $key Name of cookie to get
+	 * @param array|int|string $options Options not currently used, but available for descending classes or future use
+	 * @return string|int|float|array|null $value
+	 *
+	 */
+	public function get($key, $options = array()) {
+		return parent::get($key, $options); 
+	}
+	
+	/**
 	 * Set a cookie (optionally with options)
+	 * 
+	 * The defaults or previously set options from an `options()` method call are used for any `$options` not specified.
+	 * 
+	 * ~~~~~
+	 * $input->cookie->foo = 'bar'; // set with default options (expires with session)
+	 * $input->cookie->set('foo', 'bar'); // same as above
+	 * $input->cookie->set('foo', bar', 86400); // expire after 86400 seconds (1 day)
+	 * $input->cookie->set('foo', 'bar', [ // set with options
+	 *   'age' => 86400, 
+	 *   'path' => $page->url,
+	 *   'httponly' => true, 
+	 * ]); 
+	 * ~~~~~
 	 *
 	 * @param string $key Cookie name
 	 * @param string $value Cookie value
-	 * @param array|int|string $options Optionally specify max age in seconds (int) or array with any of the following options:
-	 * - `age` (int): Max age of cookies in seconds or 0 to expire with session (3600=1hr, 86400=1day, 604800=1week, 2592000=30days, etc.)
-	 * - `path` (string|null): Cookie path/URL or null for PW installation’s root URL.
-	 * - `domain` (string|bool|null): Cookie domain: null for current hostname, true for all subdomains of current domain, domain.com for domain and all subdomains, www.domain.com for www subdomain.
-	 * - `secure` (bool|null): Transmit cookies only over secure HTTPS connection? (true, false, or null to auto-detect, substituting true for cookies set when HTTPS is active).
-	 * - `httponly` (bool): When true, cookie is http/server-side only and not visible to client-side JS code.
-	 * - `fallback` (bool): If set cookie fails (perhaps due to output already sent), attempt to set at beginning of next request?
+	 * @param array|int|string $options Specify int for `age` option, string for `expire` option, or array for multiple options:
+	 * - `age` (int): Max age of cookies in seconds or 0 to expire with session. For example: 3600=1 hour, 86400=1 day,
+	 *    604800=1 week, 2592000=30 days, etc. (default=0, expire with session)
+	 * - `expire` (int|string): If you prefer to use an expiration date rather than the `age` option, specify a unix timestamp (int),
+	 *    ISO-8601 date string, or any date string recognized by PHP’s strtotime(), like "2020-11-03" or +1 WEEK", etc. (default=null).
+	 *    Please note the expire option was added in 3.0.159, previous versions should use the `age` option only.
+	 * - `path` (string|null): Cookie path/URL or null for PW installation’s root URL. (default=null)
+	 * - `secure` (bool|null): Transmit cookies only over secure HTTPS connection? Specify true or false, or use null to auto-detect,
+	 *    which uses true for cookies set when HTTPS is detected. (default=null)
+	 * - `httponly` (bool): When true, cookie is visible to PHP/ProcessWire only and not visible to client-side JS code. (default=false)
+	 * - `fallback` (bool): If set cookie fails (perhaps due to output already sent), attempt to set at beginning of next request? (default=true)
+	 * - `domain` (string|bool|null): Cookie domain, specify one of the following: `null` or blank string for current hostname [default],
+	 *    boolean `true` for all subdomains of current domain, `domain.com` for domain.com and *.domain.com [same as true], `www.domain.com`
+	 *    for www subdomain and and hostnames off of it, like dev.www.domain.com. (default=null, current hostname)
 	 * @return $this
 	 * @since 3.0.141 
 	 *
@@ -217,9 +277,16 @@ class WireInputDataCookie extends WireInputData {
 			return $this;
 		}
 		
-		if(!is_array($options) && ctype_digit("$options")) {
-			$age = (int) $options;
-			$options = array('age' => $age); 
+		if(!is_array($options)) { 
+			if(is_int($options) || ctype_digit("$options")) {
+				$age = (int) $options;
+				$options = array('age' => $age);
+			} else if(!empty($options) && is_string($options)) {
+				$expire = $options;
+				$options = array('expire' => $expire);
+			} else {
+				$options = array();
+			}
 		}
 		
 		$this->setCookie($key, $value, $options);
@@ -228,39 +295,93 @@ class WireInputDataCookie extends WireInputData {
 	}
 
 	/**
-	 * Set a cookie (internal)
-	 * 
-	 * @param string $key
-	 * @param string|array|int|float $value
-	 * @param array $options Optionally override options from $config->cookieOptions and any previously set from an options() call:
-	 * - `age` (int): Max age of cookies in seconds or 0 to expire with session (3600=1hr, 86400=1day, 604800=1week, 2592000=30days, etc.)
-	 * - `path` (string|null): Cookie path/URL or null for PW installation’s root URL.
-	 * - `domain` (string|bool|null): Cookie domain: null for current hostname, true for all subdomains of current domain, domain.com for domain and all subdomains, www.domain.com for www subdomain.
-	 * - `secure` (bool|null): Transmit cookies only over secure HTTPS connection? (true, false, or null to auto-detect, substituting true for cookies set when HTTPS is active).
-	 * - `httponly` (bool): When true, cookie is http/server-side only and not visible to client-side JS code.
-	 * - `fallback` (bool): If set cookie fails (perhaps due to output already sent), attempt to set at beginning of next request? 
-	 * @return bool
+	 * Remove a cookie value by name
+	 *
+	 * @param string $key Name of cookie variable to remove value for
+	 * @return WireInputDataCookie|WireInputData|$this
 	 *
 	 */
-	protected function setCookie($key, $value, array $options) {
+	public function remove($key) {
+		return parent::remove($key);
+	}
+
+	/**
+	 * Remove all cookies (other than those required for current session)
+	 *
+	 * @return $this|WireInputData
+	 *
+	 */
+	public function removeAll() {
+		foreach($this as $key => $value) {
+			$this->offsetUnset($key);
+		}
+		return $this;
+	}
+
+	/**
+	 * Set a cookie with options and return success state
+	 * 
+	 * This is the same as the `set()` mehod except for the following: 
+	 * 
+	 *  - It returns a boolean (success state) rather than reference to $this.
+	 *  - An $options array argument is required.
+	 *  - It does not accept a max age in place of $options argument. 
+	 *
+	 * #pw-internal
+	 * 
+	 * @param string $key Name of cookie to set
+	 * @param string|array|int|float $value Value to place in cookie
+	 * @param array $options Optionally override options from $config->cookieOptions and any previously set from an options() call:
+	 * - `age` (int): Max age of cookies in seconds or 0 to expire with session. For example: 3600=1 hour, 86400=1 day,
+	 *    604800=1 week, 2592000=30 days, etc. (default=0, expire with session)
+	 * - `expire` (int|string): If you prefer to use an expiration date rather than the `age` option, specify a unix timestamp (int), 
+	 *    ISO-8601 date string, or any date string recognized by PHP’s strtotime(), like "2020-11-03" or +1 WEEK", etc. (default=null).
+	 *    Please note the expire option was added in 3.0.159, previous versions should use the `age` option only. 
+	 * - `path` (string|null): Cookie path/URL or null for PW installation’s root URL. (default=null)
+	 * - `secure` (bool|null): Transmit cookies only over secure HTTPS connection? Specify true or false, or use null to auto-detect, 
+	 *    which uses true for cookies set when HTTPS is detected. (default=null)
+	 * - `httponly` (bool): When true, cookie is visible to PHP/ProcessWire only and not visible to client-side JS code. (default=false)
+	 * - `fallback` (bool): If set cookie fails (perhaps due to output already sent), attempt to set at beginning of next request? (default=true)
+	 * - `domain` (string|bool|null): Cookie domain, specify one of the following: `null` or blank string for current hostname [default],
+	 *    boolean `true` for all subdomains of current domain, `domain.com` for domain.com and *.domain.com [same as true], `www.domain.com` 
+	 *    for www subdomain and and hostnames off of it, like dev.www.domain.com. (default=null)
+	 * @return bool Returns true on success or false if cookie could not be set in this request and has been queued for next request
+	 * @since 3.0.159
+	 *
+	 */
+	public function setCookie($key, $value, array $options) {
 		
 		/** @var Config $config */
 		$config = $this->wire('config');
 		$options = array_merge($this->defaultOptions, $config->cookieOptions, $this->options, $options);
-		
-		$expires = $options['age'] ? time() + (int) $options['age'] : 0;
+	
 		$path = $options['path'] === null || $options['path'] === true ? $config->urls->root : $options['path'];
 		$secure = $options['secure'] === null ? (bool) $config->https : (bool) $options['secure'];
 		$httponly = (bool) $options['httponly'];
 		$domain = $options['domain'];
 		$remove = $value === null;
+		$expires = null;
+		
+		if(!empty($options['expire'])) {
+			if(is_string($options['expire']) && !ctype_digit($options['expire'])) {
+				$expires = strtotime($options['expire']);
+			} else {
+				$expires = (int) $options['expire'];
+			}
+		}
+		
+		if(empty($expires)) {
+			$expires = $options['age'] ? time() + (int) $options['age'] : 0;
+		}
 		
 		if(!$this->allowSetCookie($key)) return false;
 
 		// determine what to use for the domain argument
 		if($domain === null) {
-			// use current http host
-			$domain = $config->httpHost;
+			// use current/origin http host only
+			// http://www.faqs.org/rfcs/rfc6265.html - 4.1.2.3.
+			// “If the server omits the Domain attribute, the user agent will return the cookie only to the origin server.”
+			$domain = '';
 		} else if($domain === true) {
 			// allow all subdomains off current domain
 			$parts = explode('.', $config->httpHost);
@@ -318,20 +439,6 @@ class WireInputDataCookie extends WireInputData {
 		if(empty($this->skipCookies)) $this->skipCookies = $this->wire('session')->getCookieNames();
 		return in_array($name, $this->skipCookies) ? false : true;
 	}
-
-	/**
-	 * Remove all cookies (other than those required for current session)
-	 * 
-	 * @return $this|WireInputData
-	 * 
-	 */
-	public function removeAll() {
-		foreach($this as $key => $value) {
-			$this->offsetUnset($key);
-		}
-		return $this;
-	}
-
 }
 
 

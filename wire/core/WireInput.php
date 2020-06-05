@@ -286,7 +286,45 @@ class WireInput extends Wire {
 	/**
 	 * Retrieve a named COOKIE variable value or all COOKIE variables
 	 * 
-	 * Always sanitize (and validate where appropriate) any values from user input.
+	 * Please see the [cookie API reference page](https://processwire.com/api/ref/wire-input-data-cookie/) for 
+	 * additional documentation on how to get and set cookies and cookie options. 
+	 * 
+	 * ~~~~~
+	 * // setting cookies
+	 * $input->cookie->foo = 'bar'; // set with default options (expires with session)
+	 * $input->cookie->set('foo', 'bar'); // same as above
+	 * $input->cookie->set('foo', bar', 86400); // expire after 86400 seconds (1 day)
+	 * $input->cookie->set('foo', 'bar', [ 'age' => 86400, 'path' => $page->url ]); 
+	 * 
+	 * // getting cookies
+	 * $val = $input->cookie->foo;
+	 * $val = $input->cookie->get('foo'); // same as above
+	 * $val = $input->cookie->text('foo'); // get and use text sanitizer
+	 * 
+	 * // removing cookies
+	 * $input->cookie->remove('foo'); 
+	 * 
+	 * // getting cookie options
+	 * $array = $input->cookie->options();
+	 * print_r($array); // see all options
+	 * 
+	 * // setting cookie options (to use in next $input->cookie->set call)
+	 * $input->cookie->options('age', 86400); // set default age to 1 day
+	 * $input->cookie->options([ // set multiple options
+	 *   'age' => 86400, 
+	 *   'path' => $page->url, 
+	 *   'domain' => 'www.domain.com',
+	 * ]); 
+	 * 
+	 * // setting default options (in /site/config.php):
+	 * $config->cookieOptions = [
+	 *   'age' => 604800, // 1 week
+	 *   'httponly' => true, // make visible to PHP but not JS
+	 *    // and so on
+	 * ]; 
+	 * ~~~~~
+	 * 
+	 * Cookies are a form of user input, so always sanitize (and validate where appropriate) any values. 
 	 * 
 	 * The following optional features are available in ProcessWire version 3.0.125 and newer:
 	 *
