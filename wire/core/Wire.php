@@ -5,11 +5,11 @@
  * 
  * #pw-summary Wire is the base class for most ProcessWire classes and modules. 
  * #pw-body = 
- * Wire derived classes have a `$this->wire()` method that provides access to ProcessWire's API variables.
+ * Wire derived classes have a `$this->wire()` method that provides access to ProcessWire’s API variables.
  * API variables can also be accessed as local properties in most cases. Wire also provides basic methods 
  * for tracking changes and managing runtime notices specific to the instance. 
  * 
- * Wire derived classes can specify which methods are "hookable" by precending the method name with 
+ * Wire derived classes can specify which methods are “hookable” by precending the method name with 
  * 3 underscores like this: `___myMethod()`. Other classes can then hook either before or after that method, 
  * modifying arguments or return values. Several other hook methods are also provided for Wire derived 
  * classes that are hooking into others. 
@@ -19,70 +19,80 @@
  * #pw-summary-changes Methods to support tracking and retrieval of changes made to the object.
  * #pw-summary-hooks Methods for managing hooks for an object instance or class. 
  * 
- * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-use-constants
  * 
  * @property string $className #pw-internal
- * @property ProcessWire $wire #pw-internal
- * @property Database $db #pw-internal
+ * 
+ * API variables accessible as properties (unless $useFuel has been set to false):
+ * 
+ * @property AdminTheme|AdminThemeFramework|null $adminTheme #pw-internal
+ * @property WireCache $cache #pw-internal
+ * @property Config $config #pw-internal
  * @property WireDatabasePDO $database #pw-internal
- * @property Session $session  #pw-internal
- * @property Notices $notices #pw-internal
- * @property Sanitizer $sanitizer #pw-internal
+ * @property Database $db #pw-internal deprecated
+ * @property WireDateTime $datetime #pw-internal
+ * @property Fieldgroups $fieldgroups #pw-internal
  * @property Fields $fields #pw-internal
  * @property Fieldtypes $fieldtypes #pw-internal
- * @property Fieldgroups $fieldgroups #pw-internal
- * @property Templates $templates #pw-internal
- * @property Pages $pages #pw-internal
- * @property Page $page #pw-internal
- * @property Process $process #pw-internal
- * @property Modules $modules #pw-internal
- * @property Permissions $permissions #pw-internal
- * @property Roles $roles #pw-internal
- * @property Users $users #pw-internal
- * @property User $user #pw-internal
- * @property WireCache $cache #pw-internal
- * @property WireInput $input #pw-internal
- * @property Languages $languages If LanguageSupport installed #pw-internal
- * @property Config $config #pw-internal
+ * @property WireFileTools $files #pw-internal
  * @property Fuel $fuel #pw-internal
  * @property WireHooks $hooks #pw-internal
- * @property WireDateTime $datetime #pw-internal
+ * @property WireInput $input #pw-internal
+ * @property Languages $languages (present only if LanguageSupport installed) #pw-internal
+ * @property WireLog $log #pw-internal
  * @property WireMailTools $mail #pw-internal
- * @property WireFileTools $files #pw-internal
+ * @property Modules $modules #pw-internal
+ * @property Notices $notices #pw-internal
+ * @property Page $page #pw-internal
+ * @property Pages $pages #pw-internal
+ * @property Permissions $permissions #pw-internal
+ * @property Process|ProcessPageView $process #pw-internal
+ * @property WireProfilerInterface $profiler #pw-internal
+ * @property Roles $roles #pw-internal
+ * @property Sanitizer $sanitizer #pw-internal
+ * @property Session $session #pw-internal
+ * @property Templates $templates #pw-internal
+ * @property Paths $urls #pw-internal
+ * @property User $user #pw-internal
+ * @property Users $users #pw-internal
+ * @property ProcessWire $wire #pw-internal
+ * 
+ * The following map API variables to function names and apply only if another function in the class does not 
+ * already have the same name, which would override. All defined API variables can be accessed as functions 
+ * that return the API variable, whether documented below or not. 
+ *
+ * @method WireCache|string|array|PageArray|null cache($name = '', $expire = null, $func = null) Access the $cache API variable as a function.  #pw-group-api-helpers
+ * @method Config|mixed config($key = '', $value = null) Access the $config API variable as a function. #pw-group-api-helpers
+ * @method WireDatabasePDO database() Access the $database API variable as a function.  #pw-group-api-helpers
+ * @method WireDateTime|string|int datetime($format = '', $value = '') Access the $datetime API variable as a function.  #pw-group-api-helpers
+ * @method Field|Fields|null fields($name = '') Access the $fields API variable as a function.  #pw-group-api-helpers
+ * @method WireFileTools files() Access the $files API variable as a function.  #pw-group-api-helpers
+ * @method WireInput|WireInputData|WireInputDataCookie|array|string|int|null input($type = '', $key = '', $sanitizer = '') Access the $input API variable as a function.  #pw-group-api-helpers
+ * @method WireInputDataCookie|string|int|array|null inputCookie($key = '', $sanitizer = '') Access the $input->cookie() API variable as a function.  #pw-group-api-helpers
+ * @method WireInputData|string|int|array|null inputGet($key = '', $sanitizer = '') Access the $input->get() API variable as a function.  #pw-group-api-helpers
+ * @method WireInputData|string|int|array|null inputPost($key = '', $sanitizer = '') Access the $input->post() API variable as a function.  #pw-group-api-helpers
+ * @method Languages|Language|NullPage|null languages($name = '') Access the $languages API variable as a function.  #pw-group-api-helpers
+ * @method Modules|Module|ConfigurableModule|null modules($name = '') Access the $modules API variable as a function. #pw-group-api-helpers
+ * @method Page|Mixed page($key = '', $value = null) Access the $page API variable as a function. #pw-group-api-helpers
+ * @method Pages|PageArray|Page|NullPage pages($selector = '') Access the $pages API variable as a function. #pw-group-api-helpers
+ * @method Permissions|Permission|PageArray|null|NullPage permissions($selector = '') Access the $permissions API variable as a function.  #pw-group-api-helpers
+ * @method Roles|Role|PageArray|null|NullPage roles($selector = '') Access the $roles API variable as a function.  #pw-group-api-helpers
+ * @method Sanitizer|string|int|array|null|mixed sanitizer($name = '', $value = '') Access the $sanitizer API variable as a function.  #pw-group-api-helpers
+ * @method Session|mixed session($key = '', $value = null) Access the $session API variable as a function.  #pw-group-api-helpers
+ * @method Templates|Template|null templates($name = '') Access the $templates API variable as a function. #pw-group-api-helpers
+ * @method User|mixed user($key = '', $value = null) Access the $user API variable as a function. #pw-group-api-helpers
+ * @method Users|PageArray|User|mixed users($selector = '') Access the $users API variable as a function. #pw-group-api-helpers
+ * 
+ * Other standard hookable methods
  * 
  * @method changed(string $what, $old = null, $new = null) See Wire::___changed()
  * @method log($str = '', array $options = array()) See Wire::___log()
  * @method callUnknown($method, $arguments) See Wire::___callUnknown()
  * @method Wire trackException(\Exception $e, $severe = true, $text = null)
  * 
- * The following map API variables to function names and apply only if another function in the class does not 
- * already have the same name, which would override. All defined API variables can be accessed as functions 
- * that return the API variable, whether documented below or not. 
- * 
- * @method Pages|PageArray|Page|NullPage pages($selector = '') Access the $pages API variable as a function. #pw-group-api-helpers
- * @method Page|Mixed page($key = '', $value = null) Access the $page API variable as a function. #pw-group-api-helpers
- * @method Config|mixed config($key = '', $value = null) Access the $config API variable as a function. #pw-group-api-helpers
- * @method Modules|Module|ConfigurableModule|null modules($name = '') Access the $modules API variable as a function. #pw-group-api-helpers
- * @method User|mixed user($key = '', $value = null) Access the $user API variable as a function. #pw-group-api-helpers
- * @method Users|PageArray|User|mixed users($selector = '') Access the $users API variable as a function. #pw-group-api-helpers
- * @method Session|mixed session($key = '', $value = null) Access the $session API variable as a function.  #pw-group-api-helpers
- * @method Field|Fields|null fields($name = '') Access the $fields API variable as a function.  #pw-group-api-helpers
- * @method Templates|Template|null templates($name = '') Access the $templates API variable as a function. #pw-group-api-helpers
- * @method WireDatabasePDO database() Access the $database API variable as a function.  #pw-group-api-helpers
- * @method Permissions|Permission|PageArray|null|NullPage permissions($selector = '') Access the $permissions API variable as a function.  #pw-group-api-helpers
- * @method Roles|Role|PageArray|null|NullPage roles($selector = '') Access the $roles API variable as a function.  #pw-group-api-helpers
- * @method Sanitizer|string|int|array|null|mixed sanitizer($name = '', $value = '') Access the $sanitizer API variable as a function.  #pw-group-api-helpers
- * @method WireDateTime|string|int datetime($format = '', $value = '') Access the $datetime API variable as a function.  #pw-group-api-helpers
- * @method WireFileTools files() Access the $files API variable as a function.  #pw-group-api-helpers
- * @method WireCache|string|array|PageArray|null cache($name = '', $expire = null, $func = null) Access the $cache API variable as a function.  #pw-group-api-helpers
- * @method Languages|Language|NullPage|null languages($name = '') Access the $languages API variable as a function.  #pw-group-api-helpers
- * @method WireInput|WireInputData|WireInputDataCookie|array|string|int|null input($type = '', $key = '', $sanitizer = '') Access the $input API variable as a function.  #pw-group-api-helpers
- * @method WireInputData|string|int|array|null inputGet($key = '', $sanitizer = '') Access the $input->get() API variable as a function.  #pw-group-api-helpers
- * @method WireInputData|string|int|array|null inputPost($key = '', $sanitizer = '') Access the $input->post() API variable as a function.  #pw-group-api-helpers
- * @method WireInputDataCookie|string|int|array|null inputCookie($key = '', $sanitizer = '') Access the $input->cookie() API variable as a function.  #pw-group-api-helpers
  * 
  */
 
@@ -412,8 +422,9 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 		if(method_exists($this, $method)) {
 			return $this->_callMethod($method, $arguments);
 		}
+		/** @var WireHooks $hooks */
 		$hooks = $this->wire('hooks');
-		if($hooks->isMethodHooked($this, $method)) {
+		if($hooks && $hooks->isMethodHooked($this, $method)) {
 			$result = $hooks->runHooks($this, $method, $arguments);
 			return $result['return'];
 		} else {
@@ -597,6 +608,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *
 	 */
 	static public function isHooked($method, Wire $instance = null) {
+		/** @var ProcessWire $wire */
 		$wire = $instance ? $instance->wire() : ProcessWire::getCurrentInstance();
 		if($instance) return $instance->wire('hooks')->hasHook($instance, $method);
 		return $wire->hooks->isHooked($method);
@@ -1212,9 +1224,10 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 		$class = wireClassName($class, true);
 		$notice = $this->wire(new $class($text, $flags));
 		$notice->class = $this->className();
-		if(is_null($this->_notices[$name])) $this->_notices[$name] = $this->wire(new Notices());
-		$this->wire('notices')->add($notice);
-		if(!($notice->flags & Notice::logOnly)) $this->_notices[$name]->add($notice);
+		if($this->_notices[$name] === null) $this->_notices[$name] = $this->wire(new Notices());
+		$notices = $this->wire('notices'); /** @var Notices $notices */
+		if($notices) $notices->add($notice); // system wide
+		if(!($notice->flags & Notice::logOnly)) $this->_notices[$name]->add($notice); // local only
 		return $this; 
 	}
 
@@ -1704,6 +1717,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 		if($this->_wire) {
 			// this instance is wired
 			$wire = $this->_wire;
+			// quick exit when _wire already set and not getting/setting API var
+			if($name === '') return $wire;
 		} else {
 			// this object has not yet been wired! use last known current instance as fallback
 			// note this condition is unsafe in multi-instance mode
@@ -1794,18 +1809,18 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public function __get($name) {
 
-		if($name == 'wire') return $this->wire();
-		if($name == 'fuel') return $this->wire('fuel');
-		if($name == 'className') return $this->className();
+		if($name === 'wire') return $this->wire();
+		if($name === 'fuel') return $this->wire('fuel');
+		if($name === 'className') return $this->className();
 
 		if($this->useFuel()) {
 			$value = $this->wire($name);
 			if($value !== null) return $value; 
 		}
 
-		$hooks = $this->wire('hooks');
+		$hooks = $this->wire('hooks'); /** @var WireHooks $hooks */
 		if($hooks && $hooks->isHooked($name)) { // potential property hook
-			$result = $this->runHooks($name, array(), 'property');
+			$result = $hooks->runHooks($this, $name, array(), 'property');
 			return $result['return'];
 		}
 
