@@ -2169,9 +2169,13 @@ class Sanitizer extends Wire {
 		}
 
 		// reductions and replacements
-		$reductions = array('..' => '.', './' => ' ', '  ' => ' ', '--' => '-');
+		$reductions = array('..' => '.', './' => ' ', '  ' => ' ');
 		foreach($reductions as $f => $r) {
-			while(strpos($value, $f) !== false) $value = str_replace($f, $r, $value);
+			if(strpos($value, $f) === false) continue;
+			if(in_array($f, $options['whitelist'])) continue;
+			do {
+				$value = str_replace($f, $r, $value);
+			} while(strpos($value, $f) !== false);
 		}
 		
 		$value = trim($value); // trim any kind of whitespace

@@ -307,6 +307,13 @@ class ProcessPageView extends Process {
 		// did URL end with index.php|htm|html? If so we might redirect if a page matches without it. 
 		$indexRedirect = false;
 		
+		// options for $sanitizer->selectorValue() call		
+		$selectorValueOptions = array(
+			'maxLength' => 2048,
+			'maxBytes' => 6144,
+			'allowArray' => false,
+		);
+		
 		/** @var string $shit Dirty URL */
 		/** @var string $it Clean URL */
 		
@@ -388,7 +395,7 @@ class ProcessPageView extends Process {
 			$this->pageNum = (int) $matches[2]; 
 			$page = null;
 		} else { 
-			$spit = $sanitizer->selectorValue($it, 2048);
+			$spit = $sanitizer->selectorValue($it, $selectorValueOptions);
 			$page = $pages->get("path=$spit, status<" . Page::statusMax); 
 		}
 
@@ -413,7 +420,7 @@ class ProcessPageView extends Process {
 			$spit = $sanitizer->pageNameUTF8($trit);
 			if($trit === $spit) {
 				// one segment off root
-				$spit = $sanitizer->selectorValue($spit, 2048);
+				$spit = $sanitizer->selectorValue($spit, $selectorValueOptions);
 				$page = $pages->get("name=$spit, status=" . Page::statusUnique);
 				if($page->id && $page->viewable()) {
 					$this->redirectURL = $page->url;
@@ -437,7 +444,7 @@ class ProcessPageView extends Process {
 			$urlSegment = substr($it, $pos);
 			$urlSegments[$cnt] = $urlSegment; 
 			$it = substr($it, 0, $pos); // $it no longer includes the urlSegment
-			$selector = "path=" . $sanitizer->selectorValue($it, 2048) . ", status<" . Page::statusMax;
+			$selector = "path=" . $sanitizer->selectorValue($it, $selectorValueOptions) . ", status<" . Page::statusMax;
 			$page = $pages->get($selector);
 			$cnt++; 
 		}

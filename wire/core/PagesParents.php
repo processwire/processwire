@@ -499,6 +499,8 @@ class PagesParents extends Wire {
 			}
 		} else if($page->parentPrevious && $page->parentPrevious->id != $page->parent->id) {
 			// existing page with parent changed
+			$this->rebuildAll();
+			/*
 			if($page->parentPrevious->numChildren === 0) {
 				// parent no longer has children and doesn’t need entry
 				$numRows += $this->delete($page->parentPrevious);
@@ -507,6 +509,7 @@ class PagesParents extends Wire {
 				// first time parent gets added to pages_parents
 				$numRows += $this->rebuild($page->parent);
 			}
+			*/
 		}
 		
 		return $numRows;
