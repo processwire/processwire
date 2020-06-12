@@ -519,7 +519,11 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 				/** @var Tfa $module */
 				$module = $this->wire()->modules->getModule($autoType);
 				if($module) {
-					$module->autoEnableUser($user);
+					if($module->autoEnableSupported($user)) {
+						$module->autoEnableUser($user);
+					} else {
+						$module = null;
+					}
 				}
 			}
 		}
