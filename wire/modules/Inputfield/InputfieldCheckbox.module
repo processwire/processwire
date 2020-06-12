@@ -40,6 +40,7 @@ class InputfieldCheckbox extends Inputfield {
 	 * 
 	 */
 	public function __construct() {
+		
 		$this->set('checkedValue', self::checkedValueDefault); 
 		$this->checkedValueIsLabel = false; // cancel line above
 		$this->set('uncheckedValue', self::uncheckedValueDefault); 
@@ -54,13 +55,23 @@ class InputfieldCheckbox extends Inputfield {
 		$this->set('labelAttrs', array()); // Optional attributes for <label> element that surrounds checkbox (3.0.141+)
 		
 		parent::__construct();
+
+		// Use an undefined skipLabel setting so we can detect when to apply a custom default in ___render()
+		// according to runtime conditions (placement after parent::__construct() is required)
+		$this->set('skipLabel', -1); 
 	}
-	
+
+	/**
+	 * Wired to ProcessWire instance
+	 * 
+	 */
 	public function wired() {
 		/** @var Languages $languages */
 		$languages = $this->wire('languages');
-		if($languages) foreach($languages as $language) {
-			if(!$language->isDefault()) $this->set("checkboxLabel$language", "");
+		if($languages) {
+			foreach($languages as $language) {
+				if(!$language->isDefault()) $this->set("checkboxLabel$language", "");
+			}
 		}
 		parent::wired();
 	}
@@ -72,7 +83,6 @@ class InputfieldCheckbox extends Inputfield {
 	public function init() {
 		parent::init();
 		$this->attr('checked', ''); 
-		//$this->set('skipLabel', Inputfield::skipLabelFor); // tell InputfieldWrapper not to use a 'for' attribute with it's autogen'd <label>
 	}
 
 	/**
@@ -82,64 +92,59 @@ class InputfieldCheckbox extends Inputfield {
 	 * 
 	 */
 	public function ___render() {
-		$label = '';
+
+		/** @var User $user */
 		$user = $this->wire('user');
 		
+		// label placed to the right of the checkbox
+		$checkboxLabel = '';
+		
 		if(!$this->checkboxOnly) {
-			if($user->language) $label = $this->getSetting("checkboxLabel$user->language");
-			if(!$label) $label = $this->getSetting("checkboxLabel");
-			if(!$label && $this->checkedValueIsLabel) $label = $this->checkedValue;
-			if(!$label) $label = $this->getSetting('label2');
-			$label = trim($label);
+			// we will be displaying a label next to the checkbox
+			if($user->language) $checkboxLabel = $this->getSetting("checkboxLabel$user->language");
+			if(!$checkboxLabel) $checkboxLabel = $this->getSetting("checkboxLabel");
+			if(!$checkboxLabel && $this->checkedValueIsLabel) $checkboxLabel = $this->checkedValue;
+			if(!$checkboxLabel) $checkboxLabel = $this->getSetting('label2');
+			$checkboxLabel = trim($checkboxLabel);
+		}
+
+		if($this->getSetting('skipLabel') === -1) {
+			// nothing has modified the skipLabel setting so apply an automatic setting
+			if($checkboxLabel || $this->description) {
+				$this->set('skipLabel', Inputfield::skipLabelFor); 
+			} else {
+				$this->set('skipLabel', Inputfield::skipLabelHeader);
+			}
 		}
 		
-		$this->set('skipLabel', $this->description || $label ? Inputfield::skipLabelFor : Inputfield::skipLabelHeader);
-		if(!$label && !$this->checkboxOnly) $label = $this->label;
+		if(!$checkboxLabel && !$this->checkboxOnly) {
+			$checkboxLabel = $this->label;
+		}
 		
-		// TBA: if($this->uncheckedValue) return $this->renderRadio();
+		$checkboxAttrs = $this->getAttributes();
+		$checkboxAttrs['value'] = $this->checkedValue; 
+		unset($checkboxAttrs['type']); 
+		$checkboxAttrs = $this->getAttributesString($checkboxAttrs);
 		
-		$attrs = $this->getAttributes();
-		$attrs['value'] = $this->checkedValue; 
-		
-		if(strlen($label) && $this->getSetting('entityEncodeLabel') !== false) {
-			$label = $this->entityEncode($label, Inputfield::textFormatBasic);
+		if(strlen($checkboxLabel)) { 
+			if($this->getSetting('entityEncodeLabel') !== false) {
+				$checkboxLabel = $this->entityEncode($checkboxLabel, Inputfield::textFormatBasic);
+			}
+			$checkboxLabel = "<span class='pw-no-select'>$checkboxLabel</span>";
 		}
 		
 		$labelAttrs = $this->getSetting('labelAttrs');
-		if(!empty($labelAttrs)) {
-			$labelAttrs = ' ' . $this->getAttributesString($labelAttrs);
-		} else {
-			$labelAttrs = '';
-		}
+		$labelAttrs = empty($labelAttrs) ? '' : ' ' . $this->getAttributesString($labelAttrs);
 		
-		$out = 	"<label$labelAttrs><input type='checkbox' " . $this->getAttributesString($attrs) . " />";
-		if(strlen($label)) $out .= "<span class='pw-no-select'>$label</span>";
-		$out .= "</label>"; 
+		$out = 	
+			"<label$labelAttrs>" . 
+				"<input type='checkbox' $checkboxAttrs />" . 
+				$checkboxLabel . 
+			"</label>"; 
 		
 		return $out; 
 	}
 	
-	/* TBA: May move to be a separate 'toggle' Inputfield, keeping for reference
-	public function ___renderRadio() {
-
-		$attrs = $this->getAttributes();
-
-		$attrs['value'] = $this->checkedValue; 
-		$attrs['checked'] = $this->attr('value') == $this->checkedValue ? 'checked' : '';
-		if(empty($attrs['checked'])) unset($attrs['checked']); 
-		$label = $this->entityEncode($this->checkedValue);
-		$out = "\n<label><input type='radio' " . $this->getAttributesString($attrs) . " /> $label</label> "; 
-
-		$attrs['value'] = $this->uncheckedValue; 
-		$attrs['checked'] = $this->attr('value') == $this->uncheckedValue ? 'checked' : '';
-		if(empty($attrs['checked'])) unset($attrs['checked']); 
-		$label = $this->entityEncode($this->uncheckedValue);
-		$out .= "\n<label><input type='radio' " . $this->getAttributesString($attrs) . " /> $label</label> "; 
-
-		return $out; 
-	}
-	*/
-
 	/**
 	 * Render value only
 	 * 
@@ -240,7 +245,6 @@ class InputfieldCheckbox extends Inputfield {
 	 * 
 	 */
 	public function isEmpty() {
-		// return $this->attr('value') != $this->checkedValue; 
 		return !$this->checked();
 	}
 
@@ -255,6 +259,7 @@ class InputfieldCheckbox extends Inputfield {
 
 		$value = $input[$this->name];
 		$checked = $this->isChecked();
+		
 		if(!empty($value)) {
 			if(!$checked) $this->trackChange('value', $this->uncheckedValue, $this->checkedValue); 
 			parent::attr('checked', 'checked'); 
