@@ -17,6 +17,8 @@
  * @property array $tfaRecRoleIDs Role IDs where admin prompts/recommends them to enable TFA.
  * @property int $tfaRememberDays Allow user to remember their browser and bypass TFA for this many days (-1=no limit, 0=disabled)
  * @property array $tfaRememberFingerprints Means by which to fingerprint user’s browser
+ * @property string $tfaAutoType Auto-enable type, aka module name (default='')
+ * @property array $tfaAutoRoleIDs Auto-enable for these role IDs, or blank for all roles. Applies only if $tfaAutoType selected (default=[])
  * 
  * @method void beforeLogin() #pw-hooker
  * @method void afterLogin() #pw-hooker
@@ -158,6 +160,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->set('tfaRecRoleIDs', array());
 		$this->set('tfaRememberDays', 90);
 		$this->set('tfaRememberFingerprints', array('agentVL', 'accept', 'scheme', 'host'));
+		$this->set('tfaAutoEnableType', ''); 
+		$this->set('tfaAutoEnableRoleIDs', array());
 		$this->set('allowEmail', false);
 		$this->set('emailField', 'email');
 		$this->customMarkup['forgot-icon'] = wireIconMarkup('question-circle', 'fw');
@@ -311,12 +315,9 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	public function ___execute() {
 	
-		/** @var Session $session */
-		$session = $this->wire('session');
-		/** @var WireInput $input */
-		$input = $this->wire('input');
-		/** @var User $user */
-		$user = $this->wire('user');
+		$session = $this->wire()->session;
+		$input = $this->wire()->input;
+		$user = $this->wire()->user;
 		
 		if($user->isLoggedin()) {
 			
@@ -335,14 +336,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			$session->redirect('../');
 		}
 		
-		$tfa = null;	
-		$tfas = $this->wire('modules')->findByPrefix('Tfa');
-		if(count($tfas)) {
-			$tfa = new Tfa();
-			$this->wire($tfa);
-			$tfa->rememberDays = $this->tfaRememberDays;
-			$tfa->rememberFingerprints = $this->tfaRememberFingerprints;
-		}
+		$tfa = $this->getTfa();
 		
 		if($tfa && $tfa->active()) {
 			// two factor authentication
@@ -389,6 +383,26 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->login($name, $pass);
 
 		return $this->renderLoginForm();
+	}
+
+	/**
+	 * Get Tfa instance or null if not applicable
+	 * 
+	 * @return null|Tfa
+	 * @since 3.0.160
+	 * 
+	 */
+	public function getTfa() {
+		$tfa = null;
+		$tfas = $this->wire()->modules->findByPrefix('Tfa');
+		if(!count($tfas)) return $tfa;
+		$tfa = new Tfa();
+		$this->wire($tfa);
+		$tfa->rememberDays = $this->tfaRememberDays;
+		$tfa->rememberFingerprints = $this->tfaRememberFingerprints;
+		$tfa->autoType = $this->tfaAutoType && $this->tfaAutoType !== '0' ? $this->tfaAutoType : '';
+		$tfa->autoRoleIDs = $this->tfaAutoRoleIDs;
+		return $tfa;
 	}
 
 	/**
@@ -464,8 +478,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function ___login($name, $pass) {
-		/** @var Session $session */
-		$session = $this->wire('session');
+		
+		$session = $this->wire()->session;
 		
 		if($name && $pass) {
 			$loginUser = $session->login($name, $pass);
@@ -870,7 +884,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	protected function ___loginSuccess(User $user) {
 		
 		/** @var Session $session */
-		$session = $this->wire('session');
+		$session = $this->wire()->session;
 		
 		if($this->isAdmin) {
 			$copyVars = $session->getFor($this, 'copyVars');
@@ -942,10 +956,46 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		
 		if(count($tfaModules)) {
 			$items = array();
+			$autos = array();
 			foreach($tfaModules as $name) {
 				$items[] = "[$name](" . $modules->getModuleEditUrl($name) . ")";
+				/** @var Tfa $tfaModule */
+				$tfaModule = $modules->getModule($name, array('noCache' => true, 'noInit' => true)); 
+				if($tfaModule && $tfaModule->autoEnableSupported()) $autos[$name] = $modules->getModuleInfoProperty($name, 'title');
 			}
 			$fieldset->description = $this->_('Found the following Tfa modules:') . ' ' . implode(', ', $items);
+			
+			if(count($autos)) {
+				$forceLabel = $this->_('Force two-factor authentication');
+				/** @var InputfieldRadios $f */
+				$f = $modules->get('InputfieldRadios');
+				$f->attr('name', 'tfaAutoType');
+				$f->label = $forceLabel . ' - ' . $this->_x('Type', 'Module name/type');
+				$f->description = $this->_('When a Tfa module is selected here, it will be enabled automatically (at login) for users that are not using two-factor authentication.');
+				$f->addOption('0', $this->_('Disabled'));
+				foreach($autos as $name => $title) {
+					$f->addOption($name, "$title ($name)");
+				}
+				$f->icon = 'gavel';
+				$f->val($this->tfaAutoType ? $this->tfaAutoType : '0');
+				$fieldset->add($f);
+
+				/** @var InputfieldCheckboxes $f */
+				$f = $modules->get('InputfieldCheckboxes');
+				$f->attr('name', 'tfaAutoRoleIDs');
+				$f->label = $forceLabel . ' - ' . $this->_x('Roles', 'Roles selection'); 
+				$f->description = $this->_('Check roles to force two-factor authentication for, or leave all unchecked to force for ALL roles (when/where possible).');
+				foreach($this->wire('roles') as $role) {
+					if($role->name == 'guest') continue;
+					$f->addOption($role->id, $role->name);
+				}
+				$f->icon = 'gavel';
+				$f->attr('value', $this->get('tfaAutoRoleIDs'));
+				$f->showIf = 'tfaAutoType!=0';
+				$f->collapsed = Inputfield::collapsedBlank;
+				$fieldset->add($f);
+			}
+			
 			/** @var InputfieldCheckboxes $f */
 			$f = $modules->get('InputfieldCheckboxes');
 			$f->attr('name', 'tfaRecRoleIDs');
@@ -958,14 +1008,19 @@ class ProcessLogin extends Process implements ConfigurableModule {
 				$f->addOption($role->id, $role->name);
 			}
 			$f->attr('value', $this->get('tfaRecRoleIDs'));
+			$f->collapsed = Inputfield::collapsedBlank;
 			$fieldset->add($f);
+	
 		
 			/** @var InputfieldInteger $f */
 			$f = $modules->get('InputfieldInteger'); 
 			$f->attr('name', 'tfaRememberDays'); 
 			$f->label = $this->_('Allow users the option to skip code entry when their browser/location is remembered?');
-			$f->description = $this->_('Enter the number of days that browser/location will be remembered or 0 to disable.'); 
+			$f->description = 
+				$this->_('This presents users with a “Remember this computer?” option on the code entry screen at login.') . ' ' . 
+				$this->_('Enter the number of days that a user’s browser/location can be remembered for, or 0 to disable.'); 
 			$f->attr('value', (int) $this->tfaRememberDays); 
+			$f->icon = 'unlock-alt';
 			$fieldset->add($f);
 		
 			$fingerprints = array(
@@ -992,6 +1047,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			}
 			$f->showIf = 'tfaRememberDays!=0';
 			$f->attr('value', $this->tfaRememberFingerprints);
+			$f->icon = 'lock';
 			$fieldset->add($f);
 			
 		} else {
