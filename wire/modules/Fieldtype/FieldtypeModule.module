@@ -155,13 +155,15 @@ class FieldtypeModule extends Fieldtype {
 		$f->description = $this->_('Check all of the module types that may be selectable in this field.');
 		$inputfields->append($f); 
 
+		/** @var InputfieldCheckbox $f */
 		$f = $this->modules->get("InputfieldCheckbox"); 
 		$f->attr('name', 'instantiateModule'); 
-		$f->attr('value', (int) $field->get('instantiateModule'));
 		$f->label = $this->_('Make this field an instance of the selected module?'); 
 		$f->description = $this->_('If checked, the field value will be an actual instance of the selected module. If not checked, the field value will be a string containing the class name of the module.'); // instantiate module description
+		if($field->get('instantiateModule')) $f->attr('checked', 'checked'); 
 		$inputfields->add($f); 
 
+		/** @var InputfieldRadios $f */
 		$f = $this->modules->get('InputfieldRadios'); 
 		$f->label = $this->_('Options Label'); 
 		$f->attr('name', 'labelField'); 
@@ -170,8 +172,9 @@ class FieldtypeModule extends Fieldtype {
 		$f->addOption('title-summary', $this->_('Title and summary'));
 		$f->attr('value', $field->get('labelField')); 
 		$f->columnWidth = 50; 
-		$inputfields->add($f); 
+		$inputfields->add($f);
 
+		/** @var InputfieldRadios $f */
 		$f = $this->modules->get('InputfieldRadios'); 
 		$f->label = $this->_('Input Type'); 
 		$f->attr('name', 'inputfieldClass'); 
@@ -180,14 +183,16 @@ class FieldtypeModule extends Fieldtype {
 		$f->columnWidth = 50;
 		$f->attr('value', $field->get('inputfieldClass'));
 		$inputfields->add($f); 
-		
+	
+		/** @var InputfieldCheckbox $f */
 		$f = $this->modules->get('InputfieldCheckbox');
 		$f->label = $this->_('Show a “None” option?');
 		$f->attr('name', 'showNoneOption');
-		$f->attr('value', (int) $field->get('showNoneOption'));
+		if($field->get('showNoneOption')) $f->attr('checked', 'checked'); 
 		$f->showIf = 'inputfieldClass=InputfieldRadios';
 		$inputfields->add($f);
-		
+	
+		/** @var InputfieldRadios $f */
 		$f = $this->modules->get('InputfieldRadios');
 		$f->attr('name', 'blankType');
 		$f->label = $this->_('Blank value type');
@@ -195,6 +200,7 @@ class FieldtypeModule extends Fieldtype {
 		$f->addOption('zero', 'Integer 0');
 		$f->addOption('false', 'Boolean false');
 		$f->addOption('placeholder', 'ModulePlaceholder instance');
+		$f->attr('value', $field->get('blankType')); 
 		$inputfields->add($f);
 
 		return $inputfields; 			
