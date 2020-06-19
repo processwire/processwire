@@ -605,15 +605,17 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		foreach($words as $word) {
 			$w = $this->escapeAGAINST($word);
-			$pregWord = preg_quote($w);
+			$pregWord = preg_quote($w, '!');
 			if(stripos($value, "+$word*")) {
-				$booleanValues[] = "+$w*"; 
+				$booleanValues[] = "+$w*";
 			} else if(stripos($value, "+$word") && preg_match('!\+' . $pregWord . '\b!i', $value)) {
 				$booleanValues[] = "+$w";
 			} else if(stripos($value, "-$word*")) {
 				$booleanValues[] = "-$w*";
 			} else if(stripos($value, "-$word") && preg_match('!-' . $pregWord . '\b!i', $value)) {
-				$booleanValues[] = "-$w"; 
+				$booleanValues[] = "-$w";
+			} else if(stripos($value, "$word*") && preg_match('!\b' . $pregWord . '\*!i', $value)) {
+				$booleanValues[] = "$w*";
 			} else {
 				$booleanValues[] = $w; // optional
 			}

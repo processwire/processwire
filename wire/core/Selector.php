@@ -59,7 +59,7 @@
  * - `SelectorContainsExpand` (3.0.160)
  * - `SelectorContainsMatch` (3.0.160)
  * - `SelectorContainsMatchExpand` (3.0.160)
- * - `SelectorContainsAdvance3d` (3.0.160)
+ * - `SelectorContainsAdvanced` (3.0.160)
  * - `SelectorStarts`
  * - `SelectorStartsLike`
  * - `SelectorEnds`
@@ -1017,7 +1017,7 @@ class SelectorContainsAdvanced extends SelectorContains {
 	public static function getLabel() { return __('Advanced text search', __FILE__); }
 	public static function getDescription() {
 		return 
-			__('Match values with commands: +Word MUST appear, -Word MUST NOT appear, and unprefixed Word MAY appear (at least one matches).', __FILE__) . ' ' . 
+			__('Match values with commands: +Word MUST appear, -Word MUST NOT appear, and unprefixed Word may appear.', __FILE__) . ' ' . 
 			__('Add asterisk for partial match: Bar* or +Bar* matches bar, barn, barge; while -Bar* prevents matching them.') . ' ' . 
 			__('Use quotes to match phrases: +"Must Match", -"Must Not Match", or "May Match".'); 
 	}
