@@ -8,7 +8,7 @@
  * This file provides the base implementation for a Selector, as well as implementation
  * for several actual Selector types under the main Selector class. 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  * #pw-summary Selector maintains a single selector consisting of field name, operator, and value.
@@ -49,11 +49,23 @@
  * - `SelectorContains`
  * - `SelectorContainsLike`
  * - `SelectorContainsWords`
+ * - `SelectorContainsWordsPartial` (3.0.160+)
+ * - `SelectorContainsWordsLive` (3.0.160)
+ * - `SelectorContainsWordsLike` (3.0.160)
+ * - `SelectorContainsWordsExpand` (3.0.160)
+ * - `SelectorContainsAnyWords` (3.0.160)
+ * - `SelectorContainsAnyWordsPartial` (3.0.160)
+ * - `SelectorContainsAnyWordsLike` (3.0.160)
+ * - `SelectorContainsExpand` (3.0.160)
+ * - `SelectorContainsMatch` (3.0.160)
+ * - `SelectorContainsMatchExpand` (3.0.160)
+ * - `SelectorContainsAdvance3d` (3.0.160)
  * - `SelectorStarts`
  * - `SelectorStartsLike`
  * - `SelectorEnds`
  * - `SelectorEndsLike`
  * - `SelectorBitwiseAnd`
+ * 
  * 
  * #pw-body
  * 
@@ -100,6 +112,24 @@ abstract class Selector extends WireData {
 	 *
 	 */
 	const compareTypeBitwise = 16;
+
+	/**
+	 * Comparison type: Expand (value can be expanded to include other results when supported)
+	 * 
+	 */
+	const compareTypeExpand = 32;
+	
+	/**
+	 * Comparison type: Command (value can contain additional commands interpreted by the Selector)
+	 *
+	 */
+	const compareTypeCommand = 64;
+	
+	/**
+	 * Comparison type: Database (Selector is only applicable for database-driven comparisons)
+	 *
+	 */
+	const compareTypeDatabase = 128;
 	
 	/**
 	 * Given a field name and value, construct the Selector. 
@@ -116,15 +146,8 @@ abstract class Selector extends WireData {
 	 */
 	public function __construct($field, $value) {
 
-		$not = false; 
-		if(!is_array($field) && isset($field[0]) && $field[0] == '!') {
-			$not = true; 
-			$field = ltrim($field, '!'); 
-		}
-
-		$this->set('field', $field); 	
-		$this->set('value', $value); 
-		$this->set('not', $not); 
+		$this->setField($field);
+		$this->setValue($value);
 		$this->set('group', null); // group name identified with 'group_name@' before a field name
 		$this->set('quote', ''); // if $value in quotes, this contains either: ', ", [, {, or (, indicating quote type (set by Selectors class)
 		$this->set('forceMatch', null); // boolean true to force match, false to force non-match
@@ -242,10 +265,11 @@ abstract class Selector extends WireData {
 	 * 
 	 */
 	public function get($key) {
-		if($key == 'operator') return $this->operator();
-		if($key == 'str') return $this->__toString();
-		if($key == 'values') return $this->values();
-		if($key == 'fields') return $this->fields();
+		if($key === 'operator') return $this->operator();
+		if($key === 'str') return $this->__toString();
+		if($key === 'values') return $this->values();
+		if($key === 'fields') return $this->fields();
+		if($key === 'label') return $this->getLabel();
 		return parent::get($key); 
 	}
 
@@ -269,6 +293,25 @@ abstract class Selector extends WireData {
 			throw new WireException("Unknown type '$type' specified to getField()");
 		}
 		return $field;
+	}
+
+	/**
+	 * Set field or fields
+	 * 
+	 * @param string|array $field
+	 * @return self
+	 * @since 3.0.160
+	 * 
+	 */
+	public function setField($field) {
+		if(is_array($field)) $field = implode('|', $field);
+		$field = (string) $field;
+		$not = strpos($field, '!') === 0;
+		if($not) $field = ltrim($field, '!');
+		if(strpos($field, '|') !== false) $field = explode('|', $field);
+		parent::set('field', $field);
+		parent::set('not', $not);
+		return $this;
 	}
 
 	/**
@@ -303,6 +346,19 @@ abstract class Selector extends WireData {
 	}
 
 	/**
+	 * Set selector value(s)
+	 * 
+	 * @param string|int|array|mixed $value
+	 * @return self
+	 * @since 3.0.160
+	 * 
+	 */
+	public function setValue($value) {
+		parent::set('value', $value);
+		return $this;
+	}
+
+	/**
 	 * Set a property of the Selector
 	 * 
 	 * @param string $key
@@ -311,9 +367,9 @@ abstract class Selector extends WireData {
 	 * 
 	 */
 	public function set($key, $value) {
-		if($key == 'fields') return parent::set('field', $value);
-		if($key == 'values') return parent::set('value', $value); 
-		if($key == 'operator') {
+		if($key === 'fields' || $key === 'field') return $this->setField($value);
+		if($key === 'values' || $key === 'value') return $this->setValue($value);
+		if($key === 'operator') {
 			$this->error("You cannot set the operator on a Selector: $this");
 			return $this;
 		}
@@ -344,6 +400,17 @@ abstract class Selector extends WireData {
 	 */
 	public static function getCompareType() {
 		return 0;
+	}
+	
+	/**
+	 * Get label that describes this Selector
+	 *
+	 * @return string
+	 * @since 3.0.160
+	 *
+	 */
+	public static function getLabel() {
+		return '';
 	}
 
 	/**
@@ -447,6 +514,33 @@ abstract class Selector extends WireData {
 		if($this->not) return !$matches; 
 		return $matches; 
 	}
+	
+	/**
+	 * Sanitize field name
+	 *
+	 * @param string|array $fieldName
+	 * @return string|array
+	 * @todo This needs testing and then to be used by this class
+	 *
+	 */
+	protected function sanitizeFieldName($fieldName) {
+		if(strpos($fieldName, '|') !== false) {
+			$fieldName = explode('|', $fieldName);
+		}
+		if(is_array($fieldName)) {
+			$fieldNames = array();
+			foreach($fieldName as $name) {
+				$name = $this->sanitizeFieldName($name);
+				if($name !== '') $fieldNames[] = $name;
+			}
+			return $fieldNames;
+		}
+		$fieldName = trim($fieldName, '. ');
+		if($fieldName === '') return $fieldName;
+		if(ctype_alnum($fieldName)) return $fieldName;
+		if(ctype_alnum(str_replace(array('.', '_'), '', $fieldName))) return $fieldName;
+		return '';
+	}
 
 	/**
 	 * The string value of Selector is always the selector string that it originated from
@@ -498,6 +592,7 @@ abstract class Selector extends WireData {
 		return $info;
 	}
 
+
 	/**
 	 * Add all individual selector types to the runtime Selectors
 	 * 
@@ -505,20 +600,40 @@ abstract class Selector extends WireData {
 	 *
 	 */
 	static public function loadSelectorTypes() { 
-		Selectors::addType(SelectorEqual::getOperator(), 'SelectorEqual'); 
-		Selectors::addType(SelectorNotEqual::getOperator(), 'SelectorNotEqual'); 
-		Selectors::addType(SelectorGreaterThan::getOperator(), 'SelectorGreaterThan'); 
-		Selectors::addType(SelectorLessThan::getOperator(), 'SelectorLessThan'); 
-		Selectors::addType(SelectorGreaterThanEqual::getOperator(), 'SelectorGreaterThanEqual'); 
-		Selectors::addType(SelectorLessThanEqual::getOperator(), 'SelectorLessThanEqual'); 
-		Selectors::addType(SelectorContains::getOperator(), 'SelectorContains'); 
-		Selectors::addType(SelectorContainsLike::getOperator(), 'SelectorContainsLike'); 
-		Selectors::addType(SelectorContainsWords::getOperator(), 'SelectorContainsWords'); 
-		Selectors::addType(SelectorStarts::getOperator(), 'SelectorStarts'); 
-		Selectors::addType(SelectorStartsLike::getOperator(), 'SelectorStartsLike'); 
-		Selectors::addType(SelectorEnds::getOperator(), 'SelectorEnds'); 
-		Selectors::addType(SelectorEndsLike::getOperator(), 'SelectorEndsLike'); 
-		Selectors::addType(SelectorBitwiseAnd::getOperator(), 'SelectorBitwiseAnd'); 
+		$types = array(
+			'Equal',
+			'NotEqual',
+			'GreaterThan',
+			'LessThan',
+			'GreaterThanEqual',
+			'LessThanEqual',
+			'Contains',
+			'ContainsLike',
+			'ContainsWords',
+			'ContainsWordsPartial',
+			'ContainsWordsLive',
+			'ContainsWordsLike',
+			'ContainsWordsExpand',
+			'ContainsAnyWords',
+			'ContainsAnyWordsPartial',
+			'ContainsAnyWordsLike',
+			'ContainsExpand',
+			'ContainsMatch',
+			'ContainsMatchExpand',
+			'ContainsAdvanced',
+			'Starts',
+			'StartsLike',
+			'Ends',
+			'EndsLike',
+			'BitwiseAnd',
+		);
+		foreach($types as $type) {
+			$class = "Selector$type";
+			/** @var Selector $className */
+			$className = __NAMESPACE__ . "\\$class";
+			$operator = $className::getOperator();
+			Selectors::addType($operator, $class);
+		}
 	}
 }
 
@@ -529,6 +644,10 @@ abstract class Selector extends WireData {
 class SelectorEqual extends Selector {
 	public static function getOperator() { return '='; }
 	public static function getCompareType() { return Selector::compareTypeExact; }
+	public static function getLabel() { return __('Equals', __FILE__); }
+	public static function getDescription() { 
+		return __('Given value is exactly the same as value compared to.', __FILE__); 
+	}
 	protected function match($value1, $value2) { return $this->evaluate($value1 == $value2); }
 }
 
@@ -539,6 +658,10 @@ class SelectorEqual extends Selector {
 class SelectorNotEqual extends Selector {
 	public static function getOperator() { return '!='; }
 	public static function getCompareType() { return Selector::compareTypeExact; }
+	public static function getLabel() { return __('Not equals', __FILE__); }
+	public static function getDescription() {
+		return __('Given value is not exactly the same as value compared to.', __FILE__);
+	}
 	protected function match($value1, $value2) { return $this->evaluate($value1 != $value2); }
 }
 
@@ -549,6 +672,10 @@ class SelectorNotEqual extends Selector {
 class SelectorGreaterThan extends Selector { 
 	public static function getOperator() { return '>'; }
 	public static function getCompareType() { return Selector::compareTypeSort; }
+	public static function getLabel() { return __('Greater than', __FILE__); }
+	public static function getDescription() {
+		return __('Given value is greater than compared value.', __FILE__);
+	}
 	protected function match($value1, $value2) { return $this->evaluate($value1 > $value2); }
 }
 
@@ -559,6 +686,10 @@ class SelectorGreaterThan extends Selector {
 class SelectorLessThan extends Selector { 
 	public static function getOperator() { return '<'; }
 	public static function getCompareType() { return Selector::compareTypeSort; }
+	public static function getLabel() { return __('Less than', __FILE__); }
+	public static function getDescription() {
+		return __('Given value is less than compared value.', __FILE__);
+	}
 	protected function match($value1, $value2) { return $this->evaluate($value1 < $value2); }
 }
 
@@ -569,6 +700,10 @@ class SelectorLessThan extends Selector {
 class SelectorGreaterThanEqual extends Selector { 
 	public static function getOperator() { return '>='; }
 	public static function getCompareType() { return Selector::compareTypeSort; }
+	public static function getLabel() { return __('Greater than or equal', __FILE__); }
+	public static function getDescription() {
+		return __('Given value is greater than or equal to compared value.', __FILE__);
+	}
 	protected function match($value1, $value2) { return $this->evaluate($value1 >= $value2); }
 }
 
@@ -579,6 +714,10 @@ class SelectorGreaterThanEqual extends Selector {
 class SelectorLessThanEqual extends Selector { 
 	public static function getOperator() { return '<='; }
 	public static function getCompareType() { return Selector::compareTypeSort; }
+	public static function getLabel() { return __('Less than or equal', __FILE__); }
+	public static function getDescription() {
+		return __('Given value is less than or equal to compared value.', __FILE__);
+	}
 	protected function match($value1, $value2) { return $this->evaluate($value1 <= $value2); }
 }
 
@@ -589,7 +728,27 @@ class SelectorLessThanEqual extends Selector {
 class SelectorContains extends Selector { 
 	public static function getOperator() { return '*='; }
 	public static function getCompareType() { return Selector::compareTypeFind; }
-	protected function match($value1, $value2) { return $this->evaluate(stripos($value1, $value2) !== false); }
+	public static function getLabel() { return __('Contains phrase', __FILE__); }
+	public static function getDescription() {
+		return __('Given phrase or word appears in value compared to.', __FILE__);
+	}
+	protected function match($value1, $value2) { 
+		$matches = stripos($value1, $value2) !== false && preg_match('/\b' . preg_quote($value2) . '/i', $value1); 
+		return $this->evaluate($matches);
+	}
+}
+
+/**
+ * Same as SelectorContains but query expansion when used for database searching
+ * 
+ */
+class SelectorContainsExpand extends SelectorContains {
+	public static function getOperator() { return '*+='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeDatabase; }
+	public static function getLabel() { return __('Contains phrase + expand', __FILE__); }
+	public static function getDescription() {
+		return __('Given phrase, word or related terms appear in value compared to.', __FILE__);
+	}
 }
 
 /**
@@ -599,23 +758,300 @@ class SelectorContains extends Selector {
 class SelectorContainsLike extends SelectorContains {
 	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
 	public static function getOperator() { return '%='; }
+	public static function getLabel() { return __('Contains text like', __FILE__); }
+	public static function getDescription() {
+		return __('Given text appears in compared value, without regard to word boundaries.', __FILE__);
+	}
+	protected function match($value1, $value2) { return $this->evaluate(stripos($value1, $value2) !== false); }
 }
 
 /**
- * Selector that matches one string value that happens to have all of it's words present in another string value (regardless of individual word location)
+ * Selector that matches one string value that happens to have all of its words present in another string value (regardless of individual word location)
  *
  */
 class SelectorContainsWords extends Selector { 
 	public static function getOperator() { return '~='; }
 	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getLabel() { return __('Contains entire words', __FILE__); }
+	public static function getDescription() {
+		return __('All given whole words appear in compared value, in any order.', __FILE__);
+	}
 	protected function match($value1, $value2) { 
 		$hasAll = true; 
-		$words = preg_split('/[-\s]/', $value2, -1, PREG_SPLIT_NO_EMPTY);
+		$words = $this->wire()->sanitizer->wordsArray($value2); 
 		foreach($words as $key => $word) if(!preg_match('/\b' . preg_quote($word) . '\b/i', $value1)) {
 			$hasAll = false;
 			break;
 		}
 		return $this->evaluate($hasAll); 
+	}
+}
+
+/**
+ * Selector that matches all given words in whole or in part starting with
+ *
+ */
+class SelectorContainsWordsPartial extends Selector {
+	public static function getOperator() { return '~*='; }
+	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getLabel() { return __('Contains words partial', __FILE__); }
+	public static function getDescription() {
+		return __('All given partial and whole words appear in compared value, in any order. Partial matches from beginning of words.', __FILE__);
+	}
+	protected function match($value1, $value2) {
+		$hasAll = true;
+		$words = $this->wire()->sanitizer->wordsArray($value2); 
+		foreach($words as $key => $word) {
+			if(!preg_match('/\b' . preg_quote($word) . '/i', $value1)) {
+				$hasAll = false;
+				break;
+			}
+		}
+		return $this->evaluate($hasAll);
+	}
+}
+
+/**
+ * Selector that matches entire words except for last word, which must start with
+ * 
+ * Useful in matching "live" search results where someone is typing and last word may be partial.
+ *
+ */
+class SelectorContainsWordsLive extends Selector {
+	public static function getOperator() { return '~~='; }
+	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getLabel() { return __('Contains words live', __FILE__); }
+	public static function getDescription() {
+		return __('All given whole words—and at least partial last word—appear in compared value, in any order.', __FILE__);
+	}
+	protected function match($value1, $value2) {
+		$hasAll = true;
+		$words = $this->wire()->sanitizer->wordsArray($value2); 
+		$lastWord = array_pop($words);
+		foreach($words as $key => $word) {
+			if(!preg_match('/\b' . preg_quote($word) . '\b/i', $value1)) {
+				// full-word match
+				$hasAll = false;
+				break;
+			}
+		}
+		// last word only needs to match beginning of word
+		$hasAll = $hasAll && preg_match('\b' . preg_quote($lastWord) . '/i', $value1);
+		return $this->evaluate($hasAll);
+	}
+}
+
+/**
+ * Selector that matches partial words at either beginning or ending
+ * 
+ */
+class SelectorContainsWordsLike extends Selector {
+	public static function getOperator() { return '~%='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
+	public static function getLabel() { return __('Contains words like', __FILE__); }
+	public static function getDescription() {
+		return __('All given partial or whole words appear in compared value (in any order) without regard to word boundaries.', __FILE__);
+	}
+	protected function match($value1, $value2) {
+		$hasAll = true;
+		$words = $this->wire()->sanitizer->wordsArray($value2); 
+		foreach($words as $key => $word) {
+			if(stripos($value1, $word) === false) {
+				$hasAll = false;
+				break;
+			}
+		}
+		return $this->evaluate($hasAll);
+	}
+}
+
+/**
+ * Selector that matches all words with query expansion
+ *
+ */
+class SelectorContainsWordsExpand extends SelectorContainsWords {
+	public static function getOperator() { return '~+='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand; }
+	public static function getLabel() { return __('Contains words + expand', __FILE__); }
+	public static function getDescription() {
+		return __('All given whole words appear in compared value (in any order) and expand to match related values.', __FILE__);
+	}
+}
+
+/**
+ * Selector that has any of the given whole words (only 1 needs to match)
+ *
+ */
+class SelectorContainsAnyWords extends Selector {
+	public static function getOperator() { return '~|='; }
+	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getLabel() { return __('Contains any words', __FILE__); }
+	protected function match($value1, $value2) {
+		$hasAny = false;
+		$words = $this->wire()->sanitizer->wordsArray($value2);
+		foreach($words as $key => $word) {
+			if(stripos($value1, $word) !== false) {
+				if(preg_match('!\b' . preg_quote($word) . '\b!i', $value1)) {
+					$hasAny = true;
+					break;
+				}
+			}
+		}
+		return $this->evaluate($hasAny);
+	}
+	public static function getDescription() {
+		return __('Any of the given whole words appear in compared value.', __FILE__);
+	}
+}
+
+/**
+ * Selector that has any of the given partial words (starting with, only 1 needs to match)
+ *
+ */
+class SelectorContainsAnyWordsPartial extends Selector {
+	public static function getOperator() { return '~|*='; }
+	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getLabel() { return __('Contains any partial words', __FILE__); }
+	protected function match($value1, $value2) {
+		$hasAny = false;
+		$words = $this->wire()->sanitizer->wordsArray($value2);
+		foreach($words as $key => $word) {
+			if(stripos($value1, $word) !== false) {
+				if(preg_match('!\b' . preg_quote($word) . '!i', $value1)) {
+					$hasAny = true;
+					break;
+				}
+			}
+		}
+		return $this->evaluate($hasAny);
+	}
+	public static function getDescription() {
+		return __('Any of the given partial or whole words appear in compared value. Partial matches from beginning of words.', __FILE__);
+	}
+}
+
+/**
+ * Selector that has any words like any of those given (only 1 needs to match)
+ *
+ */
+class SelectorContainsAnyWordsLike extends Selector {
+	// public static function getOperator() { return '%|='; }
+	public static function getOperator() { return '~|%='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
+	public static function getLabel() { return __('Contains any words like', __FILE__); }
+	public static function getDescription() {
+		return __('Any of the given partial or whole words appear in compared value, without regard to word boundaries.', __FILE__);
+	}
+	protected function match($value1, $value2) {
+		$hasAny = false;
+		$words = $this->wire()->sanitizer->wordsArray($value2);
+		foreach($words as $key => $word) {
+			if(stripos($value1, $word) !== false) {
+				$hasAny = true;
+				break;
+			}
+		}
+		return $this->evaluate($hasAny);
+	}
+}
+
+/**
+ * Selector that uses standard MySQL MATCH/AGAINST behavior with implied DB-score sorting
+ *
+ * This selector is only useful for database $pages->find() queries. 
+ *
+ */
+class SelectorContainsMatch extends SelectorContainsAnyWords {
+	public static function getOperator() { return '**='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeDatabase; }
+	public static function getLabel() { return __('Contains match', __FILE__); }
+	public static function getDescription() {
+		return __('Any or all of the given words match compared value using default database logic and score.', __FILE__);
+	}
+}
+
+/**
+ * Selector that uses standard MySQL MATCH/AGAINST behavior with implied DB-score sorting
+ *
+ * This selector is only useful for database $pages->find() queries. 
+ *
+ */
+class SelectorContainsMatchExpand extends SelectorContainsMatch {
+	public static function getOperator() { return '**+='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeDatabase; }
+	public static function getLabel() { return __('Contains match + expand', __FILE__); }
+	public static function getDescription() {
+		return SelectorContainsMatch::getDescription() . ' ' . __('Plus, expands to include potentially related results.', __FILE__);
+	}
+}
+
+/**
+ * Selector for advanced text searches that interprets specific search commands
+ * 
+ * - `foo` Optional word has no prefix.
+ * - `+foo` Required word has a "+" prefix.
+ * - `+foo*` Required words starting with "foo" (i.e. "fool", "foobar", etc.) has "+" prefix and "*" wildcard suffix.
+ * - `-bar` Disallowed word has a "-" prefix.
+ * - `-bar*` Disallowed words starting with "bar" (i.e. "barn", "barbell", etc.) has "-" prefix and "*" wildcard suffix.
+ * - `"foo bar baz"` Optional phrase surrounded in quotes.
+ * - `+"foo bar baz"` Required phrase with "+" prefix followed by double-quoted value. 
+ * - `-"foo bar baz"` Disallowed phrase with "-" prefix followed by double-quoted value. 
+ * 
+ * Note that to designate a phrase, it must be in "double quotes" (not 'single quotes'). 
+ *
+ */
+class SelectorContainsAdvanced extends SelectorContains {
+	public static function getOperator() { return '#='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeCommand; }
+	public static function getLabel() { return __('Advanced text search', __FILE__); }
+	public static function getDescription() {
+		return 
+			__('Match values with commands: +Word MUST appear, -Word MUST NOT appear, and unprefixed Word MAY appear (at least one matches).', __FILE__) . ' ' . 
+			__('Add asterisk for partial match: Bar* or +Bar* matches bar, barn, barge; while -Bar* prevents matching them.') . ' ' . 
+			__('Use quotes to match phrases: +"Must Match", -"Must Not Match", or "May Match".'); 
+	}
+	protected function match($value1, $value2) {
+		$fail = false;
+		$numOptionalMatch = 0;
+		$commandMatches = array(
+			'+' => array(),
+			'-' => array(),
+			'?' => array(), 
+		);
+		if(strpos($value2, '"') !== false && preg_match_all('![-+]?"([^"]+)"!', $value2, $matches)) {
+			// find all quoted phrases
+			foreach($matches[0] as $key => $fullMatch) {
+				$command = strpos($fullMatch, '"') === 0 ? '?' : substr($value2, 0, 1);
+				$phrase = trim($matches[1][$key]);
+				if(strlen($phrase)) $commandMatches[$command][] = $phrase;
+				$value2 = str_replace($fullMatch, ' ', $value2);
+			}
+		}
+		$words = $this->wire()->sanitizer->wordsArray($value2);
+		foreach($words as $key => $word) {
+			$command = substr($word, 0, 1); 
+			$word = ltrim($word, '-+'); 
+			if($command !== '+' && $command !== '-') $command = '?';
+			$commandMatches[$command][] = $word;
+		}
+		foreach($commandMatches as $command => $items) {
+			foreach($items as $item) {
+				$partial = substr($item, -1) === '*';
+				if($partial) $item = rtrim($item, '*');
+				$re = '!\b' . preg_quote($item) . ($partial ? '!i' : '\b!i');
+				if($command === '+') {
+					if(!preg_match($re, $value1)) $fail = true;
+				} else if($command === '-') {
+					if(preg_match($re, $value1)) $fail = true;
+				} else {
+					if(stripos($value1, $item) !== false) $numOptionalMatch++;
+				}
+				if($fail) break;
+			}
+			if($fail) break;
+		}
+		if(!$fail && count($commandMatches['?']) && !$numOptionalMatch) $fail = true;
+		return $this->evaluate(!$fail);
 	}
 }
 
@@ -626,7 +1062,13 @@ class SelectorContainsWords extends Selector {
 class SelectorStarts extends Selector { 
 	public static function getOperator() { return '^='; }
 	public static function getCompareType() { return Selector::compareTypeFind; }
-	protected function match($value1, $value2) { return $this->evaluate(stripos(trim($value1), $value2) === 0); }
+	public static function getLabel() { return __('Starts with', __FILE__); }
+	public static function getDescription() {
+		return __('Given word or phrase appears at beginning of compared value.', __FILE__);
+	}
+	protected function match($value1, $value2) { 
+		return $this->evaluate(stripos(trim($value1), $value2) === 0); 
+	}
 }
 
 /**
@@ -636,6 +1078,10 @@ class SelectorStarts extends Selector {
 class SelectorStartsLike extends SelectorStarts {
 	public static function getOperator() { return '%^='; }
 	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
+	public static function getLabel() { return __('Starts like', __FILE__); }
+	public static function getDescription() {
+		return __('Given text appears at beginning of compared value, without regard for word boundaries.', __FILE__);
+	}
 }
 
 /**
@@ -645,6 +1091,10 @@ class SelectorStartsLike extends SelectorStarts {
 class SelectorEnds extends Selector { 
 	public static function getOperator() { return '$='; }
 	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getLabel() { return __('Ends with', __FILE__); }
+	public static function getDescription() {
+		return __('Given word or phrase appears at end of compared value.', __FILE__);
+	}
 	protected function match($value1, $value2) { 
 		$value2 = trim($value2); 
 		$value1 = substr($value1, -1 * strlen($value2));
@@ -659,6 +1109,10 @@ class SelectorEnds extends Selector {
 class SelectorEndsLike extends SelectorEnds {
 	public static function getOperator() { return '%$='; }
 	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
+	public static function getLabel() { return __('Ends like', __FILE__); }
+	public static function getDescription() {
+		return __('Given text appears at end of compared value, without regard for word boundaries.', __FILE__);
+	}
 }
 
 /**
@@ -668,6 +1122,10 @@ class SelectorEndsLike extends SelectorEnds {
 class SelectorBitwiseAnd extends Selector { 
 	public static function getOperator() { return '&'; }
 	public static function getCompareType() { return Selector::compareTypeBitwise; }
+	public static function getLabel() { return __('Bitwise AND', __FILE__); }
+	public static function getDescription() {
+		return __('Given integer value matches bitwise AND with compared integer value.', __FILE__);
+	}
 	protected function match($value1, $value2) { return $this->evaluate(((int) $value1) & ((int) $value2)); }
 }
 
