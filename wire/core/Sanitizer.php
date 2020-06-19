@@ -3624,18 +3624,19 @@ class Sanitizer extends Wire {
 	 */
 
 	/**
-	 * Sanitize array or CSV string to array of strings
+	 * Sanitize array or CSV string to array of values, optionally sanitized by given method
 	 *
-	 * If string specified, string delimiter may be pipe ("|"), or comma (","), unless overridden with the 'delimiter'
-	 * or 'delimiters' option. 
+	 * If given a string, delimiter may be pipe ("|"), or comma (","), unless overridden with the `delimiter`
+	 * or `delimiters` options. 
 	 * 
 	 * #pw-group-arrays
 	 *
 	 * @param array|string|mixed $value Accepts an array or CSV string. If given something else, it becomes first item in array.
 	 * @param string $sanitizer Optional Sanitizer method to apply to items in the array (default=null, aka none).
 	 * @param array $options Optional modifications to default behavior:
-	 * 	`maxItems` (int): Maximum items allowed in array (default=0, which means no limit)  
-	 * 	The following options are only used if the provided $value is a string: 
+	 * 	- `maxItems` (int): Maximum items allowed in each array (default=0, which means no limit)
+	 *  - `maxDepth` (int): Max nested array depth (default=0, which means no nesting allowed) Since 3.0.160
+	 * 	- The following options are only used if the provided $value is a string: 
 	 * 	- `delimiter` (string): Single delimiter to use to identify CSV strings. Overrides the 'delimiters' option when specified (default=null)
 	 * 	- `delimiters` (array): Delimiters to identify CSV strings. First found delimiter will be used, default=array("|", ",")
 	 * 	- `enclosure` (string): Enclosure to use for CSV strings (default=double quote, i.e. ")
@@ -3644,15 +3645,24 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function ___array($value, $sanitizer = null, array $options = array()) {
+		
+		static $depth = 0;
+		
 		$defaults = array(
+			'maxItems' => 0,
+			'maxDepth' => 0, 
 			'delimiter' => null, 
 			'delimiters' => array('|', ','),
 			'enclosure' => '"', 
-			'maxItems' => 0, 
 		);
+
 		$options = array_merge($defaults, $options);
-		if(!is_array($value)) {
-			if(is_null($value)) return array();
+		$clean = array();
+		
+		if($value === null) {
+			return array();
+			
+		} else if(!is_array($value)) {
 			if(is_object($value)) {
 				// value is object: convert to string or array
 				if(method_exists($value, '__toString')) {
@@ -3679,20 +3689,39 @@ class Sanitizer extends Wire {
 			}
 			if(!is_array($value)) $value = array($value);
 		}
-		if($options['maxItems']) {
-			if(count($value) > $options['maxItems']) $value = array_slice($value, 0, abs($options['maxItems']));	
+
+		$depth++;
+		foreach($value as $k => $v) {
+			if(!is_array($v)) continue;
+			if($depth <= $options['maxDepth']) {
+				// sanitize nested array recursively
+				$value[$k] = $this->array($v, $sanitizer, $options); 
+			} else {
+				// remove nested array
+				unset($value[$k]);
+			}
 		}
-		$clean = array();
-		if(!is_null($sanitizer)) {
+		$depth--;
+		
+		if($options['maxItems'] && count($value) > $options['maxItems']) {
+			$value = array_slice($value, 0, abs($options['maxItems']));	
+		}
+		
+		if($sanitizer) {
 			if(!method_exists($this, $sanitizer) && !method_exists($this, "___$sanitizer")) {
 				throw new WireException("Unknown sanitizer method: $sanitizer");
 			}
 			foreach($value as $k => $v) {
-				$clean[$k] = $this->$sanitizer($v);
+				if($options['maxDepth'] > 0 && is_array($v)) {
+					$clean[$k] = $v; // array already sanitized by recursive call
+				} else {
+					$clean[$k] = $this->$sanitizer($v);
+				}
 			}
 		} else {
 			$clean = $value;
 		}
+		
 		return array_values($clean);
 	}
 	
@@ -3816,6 +3845,266 @@ class Sanitizer extends Wire {
 		}
 
 		return $data;
+	}
+
+	/**
+	 * Given a potentially multi-dimensional array, return a flat 1-dimensional array
+	 * 
+	 * #pw-group-arrays
+	 * 
+	 * @param array $value
+	 * @param array $options
+	 *  - `preserveKeys` (bool): Preserve associative array keys where possible? (default=false)
+	 *  - `maxDepth` (int): Max depth of nested arrays to flatten into value, after which they are discarded (default=0).
+	 *     The default value of 0 removes any nested arrays, so specify 1 or higher to include them. 
+	 * @return array
+	 * @since 3.0.160
+	 * 
+	 */
+	public function flatArray($value, $options = array()) {
+		
+		static $depth = 0;
+		
+		$defaults = array(
+			'preserveKeys' => is_bool($options) ? $options : false,
+			'maxDepth' => 0,
+		);
+		
+		if(!is_array($value)) return array($value);
+	
+		$flat = array();
+		$isFlat = true;
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		$preserveKeys = $options['preserveKeys'];
+		
+		foreach($value as $key => $val) {
+			if(is_array($val)) $isFlat = false;
+			if(!$isFlat) break;
+		}	
+		
+		if($isFlat) return $preserveKeys ? $value : array_values($value);
+		
+		$depth++;
+		
+		foreach($value as $key => $val) {
+			
+			$hasStringKey = $preserveKeys && is_string($key);
+			
+			if(!is_array($val)) {
+				// not an array value
+				if($hasStringKey) {
+					// associative key
+					list($n, $kk) = array(0, $key);
+					// this while loop likely is not needed
+					while(isset($flat[$kk])) $kk = "$key-" . (++$n);
+					$flat[$kk] = $val;
+				} else {
+					// integer key
+					$flat[] = $val;
+				}
+				continue;
+			}
+	
+			/** @var array $val At this point val is known to be an array */
+			
+			if($depth > $options['maxDepth']) {
+				// skip over arrays when when we are at the max recursion depth
+				continue;
+			}
+			
+			if(!$preserveKeys) {
+				// if keys are not preserved then we can take a shortcut
+				$flat = array_merge($flat, $this->flatArray($val, $options));
+				continue;
+			}
+		
+			// array value with preserved keys
+			foreach($this->flatArray($val, $options) as $k => $v) {
+				if(is_int($k) || ctype_digit("$k")) {
+					// integer keys in nested array
+					$k = (int) $k;
+					if($hasStringKey) {
+						// parent array is associative and preserveKeys is true
+						do {
+							$kk = "$key.$k"; // parent key + incrementing child key
+							$k++;
+						} while(isset($flat[$kk]) || isset($value[$kk]));
+						$flat[$kk] = $v;
+					} else {
+						// parent array is non-associative
+						$flat[] = $v;
+					}
+				} else if(isset($value[$k]) || isset($flat[$k])) {
+					// associative key already exists
+					// create new key that marries parent and child keys
+					$n = -1;
+					do {
+						$kk = $key . '.' . $k;
+						// no match on first-round, start incrementing
+						if($n > -1) $kk .= '-' . $n; 
+						$n++;
+					} while(isset($value[$kk]) || isset($flat[$kk])); 
+					$flat[$kk] = $v;
+				} else {
+					// associative key that is not already taken
+					$flat[$k] = $v;
+				}
+			}
+		}
+
+		$depth--;
+		
+		return $flat;
+	}
+
+	/**
+	 * Return array of all words in given value (excluding punctuation and other non-word characters)
+	 * 
+	 * #pw-group-arrays
+	 *
+	 * @param string|array $value String containing words
+	 * @param array $options
+	 *  - `keepNumberFormat` (bool): Keep minus/comma/period in numbers rather than splitting into words? (default=false)
+	 *  - `keepUnderscore` (bool): Keep hyphenated words? (default=false)
+	 *  - `keepHyphen` (bool): Keep hyphenated words? (default=false)
+	 *  - `minWordLength` (int): Minimum word length (default=1)
+	 *  - `maxWordLength` (int): Maximum word length (default=80)
+	 *  - `maxWords` (int): Maximum number of words allowed (default=0, no limit)
+	 *  - `stripTags` (bool): Strip markup tags so they don’t contribute to returned word list? (default=true)
+	 * @return array
+	 * @since 3.0.160
+	 *
+	 */
+	public function wordsArray($value, array $options = array()) {
+
+		$defaults = array(
+			'minWordLength' => 1,
+			'maxWordLength' => 80,
+			'maxWords' => 0,
+			'keepHyphen' => false, 
+			'keepUnderscore' => false, 
+			'keepNumberFormat' => true, 
+			'stripTags' => true,
+			'getString' => false,
+		);
+
+		$options = array_merge($defaults, $options);
+		$minLength = (int) $options['minWordLength'];
+		$maxLength = (int) $options['maxWordLength'];
+		$replacements = array();
+		$replacementPrefix = 'REP';
+		$hasReplacements = false;
+		
+		if(is_array($value)) {
+			$value = $this->flatArray($value);
+			$value = implode(' ', $value);
+		} else if(!is_string($value)) {
+			$value = $this->string($value);
+		}
+	
+		// prevents non-bracketed tag names from also becoming words
+		if($options['stripTags']) $value = strip_tags($value);
+		
+		if(!strlen($value)) return array();
+		
+		if($options['keepNumberFormat']) {
+			$replacements = $this->wordsArrayNumberReplacements($value, $replacementPrefix);
+			$hasReplacements = count($replacements);
+		}
+		
+		// https://www.php.net/manual/en/regexp.reference.unicode.php
+		// pZ=Separator (line, paragraph or space)
+		// pS=Symbol (all)
+		// pC=Other (control, format, surrogate)
+		// p{Pd}=Dash punctuation
+		// pP=Punctuation (all)
+		$splitWith = '.,;/\\\\*:+<>\s\pZ\pS\pC';
+		if($options['keepHyphen']) {
+			// allow hyphen but not en-dash or em-dash
+			$splitWith .= '–—'; 
+		} else {
+			// split on all types of dash and hyphen
+			$splitWith .= '\p{Pd}'; 
+		}
+		if(!$options['keepUnderscore']) $splitWith .= '_';
+		$regex = '!\pP*[' . $splitWith . ']\pP*!u';
+		$words = preg_split($regex, "$value ", -1, PREG_SPLIT_NO_EMPTY);
+
+		if($words === false) {
+			$words = array();
+		} else if($options['maxWords'] && count($words) > $options['maxWords']) {
+			$words = array_slice($words, 0, $options['maxWords']);
+		}
+	
+		foreach($words as $key => $word) {
+			if($hasReplacements && strpos($word, $replacementPrefix) !== false) {
+				$words[$key] = str_replace(array_keys($replacements), array_values($replacements), $word);
+			}
+			$length = $this->multibyteSupport ? mb_strlen($word) : strlen($word);
+			if($length < $minLength || $length > $maxLength) {
+				unset($words[$key]);
+			}
+		}
+		
+		return $words;
+	}
+
+	/**
+	 * Identify decimals, minus signs and commas in numbers, replace them, and return the replacements array
+	 * 
+	 * @param string $value
+	 * @param string $prefix
+	 * @return array
+	 * 
+	 */
+	protected function wordsArrayNumberReplacements(&$value, $prefix = 'REP') {
+		
+		// keep floating point, negative, or thousands-separator numbers together
+		$replacements = array();
+		$hasPeriod = strpos($value, '.') !== false;
+		$hasComma = strpos($value, ',') !== false;
+		$hasHyphen = strpos($value, '-') !== false;
+		$hasMinus = $hasHyphen || strpos($value, '−') !== false;
+		$hasNumber = ($hasPeriod || $hasComma || $hasHyphen) && preg_match('![-.,]\d!', $value); 
+		
+		if(!$hasNumber) return array();
+		
+		if($hasPeriod && preg_match_all('!(\b|\d*)\.(\d+)\b!', $value, $matches)) {
+			// keep floating point numbers together
+			list($n, $decimal) = array(0, "0{$prefix}DEC0X");
+			while(strpos($value, $decimal) !== false && ++$n) $decimal = "{$n}{$prefix}DEC{$n}X";
+			foreach($matches[1] as $key => $n1) {
+				$n2 = $matches[2][$key];
+				$value = str_replace("$n1.$n2", "{$n1}$decimal{$n2}", $value);
+			}
+			$replacements[$decimal] = '.';
+		}
+		
+		if($hasMinus && preg_match_all('!([-−])(\d+)!', $value, $matches)) {
+			// prevent negative numbers from losing their minus sign
+			list($n, $minus) = array(0, "0{$prefix}MIN0");
+			while(strpos($value, $minus) !== false && ++$n) $minus = "{$n}{$prefix}MIN{$n}";
+			foreach($matches[2] as $key => $digits) {
+				$sign = $matches[1][$key];
+				$minusKey = $sign === '-' ? "{$minus}D" : "{$minus}M";
+				$value = str_replace("$sign$digits", " $minusKey$digits", $value);
+				$replacements[$minusKey] = $sign;
+			}
+		}
+		
+		if($hasComma && preg_match_all('!(\d*,)(\d+)!', $value, $matches)) {
+			// keep commas that appear around digits
+			list($n, $comma) = array(0, "0{$prefix}COM0");
+			while(strpos($value, $comma) !== false && ++$n) $comma = "{$n}{$prefix}COM{$n}";
+			foreach($matches[1] as $key => $digits1) {
+				$digits1 = rtrim($digits1, ',');
+				$digits2 = $matches[2][$key];
+				$value = str_replace("$digits1,$digits2", "$digits1{$comma}$digits2", $value);
+				$replacements[$comma] = ',';
+			}
+		}
+		
+		return $replacements;
 	}
 
 	/**
