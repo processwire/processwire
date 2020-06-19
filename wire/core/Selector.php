@@ -403,13 +403,24 @@ abstract class Selector extends WireData {
 	}
 	
 	/**
-	 * Get label that describes this Selector
+	 * Get short label that describes this Selector
 	 *
 	 * @return string
 	 * @since 3.0.160
 	 *
 	 */
 	public static function getLabel() {
+		return '';
+	}
+	
+	/**
+	 * Get longer description that describes this Selector
+	 *
+	 * @return string
+	 * @since 3.0.160
+	 *
+	 */
+	public static function getDescription() {
 		return '';
 	}
 

@@ -1176,8 +1176,8 @@ class Selectors extends WireArray {
 	 *  - `operator` (string): Return info for only this operator. When specified, only value is returned (default='').
 	 *  - `compareType` (int): Return only operators matching given `Selector::compareType*` constant (default=0).
 	 *  - `getIndexType` (string): Index type to use in returned array: 'operator', 'className' or 'class' (default='class')
-	 *  - `getValueType` (string): Value type to use in returned array: 'operator', 'class', 'className', 'label', 'compareType', 'verbose' (default='operator').
-	 *     If 'verbose' option used then assoc array returned for each operator containing 'class', 'className', 'operator', 'compareType', 'label'.
+	 *  - `getValueType` (string): Value type to use in returned array: 'operator', 'class', 'className', 'label', 'description', 'compareType', 'verbose' (default='operator').
+	 *     If 'verbose' option used then assoc array returned for each operator containing 'class', 'className', 'operator', 'compareType', 'label', 'description'.
 	 * @return array|string|int Returned array where both keys and values are operators (or values are requested 'valueType' option)
 	 *   If 'operator' option specified, return value is string, int or array (requested 'valueType'), and there is no indexType.
 	 * @since 3.0.154
@@ -1215,6 +1215,8 @@ class Selectors extends WireArray {
 				$value = $className;
 			} else if($valueType === 'label') {
 				$value = $className::getLabel();
+			} else if($valueType === 'description') {
+				$value = $className::getDescription();
 			} else if($valueType === 'compareType') {
 				$value = $className::getCompareType();
 			} else if($valueType === 'verbose') {
@@ -1224,6 +1226,7 @@ class Selectors extends WireArray {
 					'className' => $className,
 					'compareType' => $className::getCompareType(),
 					'label' => $className::getLabel(),
+					'description' => $className::getDescription(), 
 				);
 			} else {
 				$value = $operator;

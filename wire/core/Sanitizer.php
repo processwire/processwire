@@ -4381,6 +4381,7 @@ class Sanitizer extends Wire {
 			'fieldName',
 			'fieldSubfield',
 			'filename',
+			'flatArray',
 			'float',
 			'httpUrl',
 			'hyphenCase',
@@ -4428,6 +4429,7 @@ class Sanitizer extends Wire {
 			'valid',
 			'validate',
 			'varName',
+			'wordsArray',
 		);
 		$results = array();
 		foreach($sanitizers as $method) {
