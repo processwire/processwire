@@ -711,9 +711,7 @@ abstract class Fieldtype extends WireData implements Module {
 
 		$table = $database->escapeTable($table); 
 		$subfield = $database->escapeCol($subfield);
-		$quoteValue = $database->quote($value); 
-
-		$query->where("{$table}.{$subfield}{$operator}$quoteValue"); // QA
+		$query->where("{$table}.{$subfield}{$operator}?", $value); // QA
 		return $query; 
 	}
 

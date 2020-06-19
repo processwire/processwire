@@ -346,7 +346,7 @@ class PagesLoader extends Wire {
 			// [ pageID => [ all pages columns ] ]
 			$pagesInfo = $pageFinder->findVerboseIDs($selectors, $options);
 		} else {
-			// [ [ 'id' => 3, 'templates_id' => 2, 'parent_id' => 1 ]
+			// [ [ 'id' => 3, 'templates_id' => 2, 'parent_id' => 1, 'score' => 1.123 ]
 			$pagesInfo = $pageFinder->find($selectors, $options);
 		}
 		
@@ -398,13 +398,16 @@ class PagesLoader extends Wire {
 			$parent_id = $pageFinder->getParentID();
 			$idsSorted = array();
 			$idsByTemplate = array();
+			$scores = array();
 
 			// organize the pages by template ID
 			foreach($pagesInfo as $page) {
-				$tpl_id = $page['templates_id'];
+				$tpl_id = (int) $page['templates_id'];
+				$id = (int) $page['id'];
 				if(!isset($idsByTemplate[$tpl_id])) $idsByTemplate[$tpl_id] = array();
-				$idsByTemplate[$tpl_id][] = $page['id'];
-				$idsSorted[] = $page['id'];
+				$idsByTemplate[$tpl_id][] = $id;
+				$idsSorted[] = $id;
+				if(!empty($page['score'])) $scores[$id] = (float) $page['score'];
 			}
 
 			if(count($idsByTemplate) > 1) {
@@ -440,6 +443,12 @@ class PagesLoader extends Wire {
 			
 			$sortsAfter = $pageFinder->getSortsAfter();
 			if(count($sortsAfter)) $pages->sort($sortsAfter);
+			
+			if(count($scores)) {
+				foreach($pages as $page) {
+					if(isset($scores[$page->id])) $page->setQuietly('_pfscore', $scores[$page->id]); 
+				}
+			}
 
 		} else {
 			$pages = $this->pages->newPageArray($loadOptions);

@@ -495,7 +495,9 @@ class ProcessWire extends Wire {
 	
 		/** @var WireCache $cache */
 		$cache = $this->wire('cache', new WireCache(), true); 
-		$cache->preload($config->preloadCacheNames); 
+		$cacheNames = $config->preloadCacheNames;
+		if($database->getEngine() === 'innodb') $cacheNames[] = 'InnoDB.stopwords';
+		$cache->preload($cacheNames); 
 		
 		$modules = null;
 		try { 		

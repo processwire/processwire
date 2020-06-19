@@ -913,8 +913,8 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		} else if($operator === '!=' && ctype_alnum("$value")) {
 			$operator = '!~='; // ok
 
-		} else if($operator === '~=' || $operator === '!~=' || $operator === '%=' || $operator === '*=') {
-			// ok
+		} else if(Selectors::getSelectorByOperator($operator, 'compareType') & Selector::compareTypeFind) {
+			// ok, text finding operators
 
 		} else {
 			throw new PageFinderSyntaxException("Operator $operator is not supported by $this in selector: $selector");

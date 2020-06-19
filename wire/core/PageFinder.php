@@ -639,7 +639,7 @@ class PageFinder extends Wire {
 							$score += $v;
 							unset($row[$k]);
 						}
-						$row['score'] = $score; // @todo do we need this anymore?
+						$row['score'] = $score;
 						$matches[] = $row;
 
 					} else if($options['returnAllCols']) {
@@ -2298,7 +2298,9 @@ class PageFinder extends Wire {
 			// the following fields are defined in each iteration here because they may be modified in the loop
 			$table = "pages";
 			$operator = $selector->operator;
-			$isPartialOperator = in_array($operator, array('%=', '^=', '$=', '%^=', '%$=', '*=')); 
+			$compareType = $selectors::getSelectorByOperator($operator, 'compareType');
+			$isPartialOperator = ($compareType & Selector::compareTypeFind); 
+
 			$subfield = '';
 			$IDs = array(); // populated in special cases where we can just match parent IDs
 			$sql = '';
@@ -3054,7 +3056,10 @@ class PageFinder extends Wire {
 		
 		/** @var PageFinder $finder */
 		$finder = $this->wire(new PageFinder());
-		$ids = $finder->findIDs($ownerSelectors);
+		$ids = array();
+		foreach($finder->findIDs($ownerSelectors) as $id) {
+			$ids[] = (int) $id;
+		}
 		
 		if($this->isRepeaterFieldtype($ownerField->type)) {
 			// Repeater

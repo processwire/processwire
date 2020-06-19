@@ -123,6 +123,14 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	protected $variableCache = array();
 
 	/**
+	 * Cached InnoDB stopwords (keys are the stopwords and values are irrelevant)
+	 * 
+	 * @var array|null Becomes array once loaded
+	 * 
+	 */
+	protected $stopwordCache = null;
+
+	/**
 	 * Create a new PDO instance from ProcessWire $config API variable
 	 * 
 	 * If you need to make other PDO connections, just instantiate a new WireDatabasePDO (or native PDO)
@@ -767,6 +775,42 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Is given word a fulltext stopword to the current database engine?
+	 * 
+	 * @param string $word
+	 * @return bool
+	 * @since 3.0.160
+	 * 
+	 */
+	public function isStopword($word) {
+		
+		if($this->engine === 'myisam') {
+			return DatabaseStopwords::has($word);
+		}
+			
+		if($this->stopwordCache === null && $this->engine === 'innodb') {
+			$cache = $this->wire()->cache;
+			$stopwords = null;
+			if($cache) {
+				$stopwords = $cache->get('InnoDB.stopwords');
+				if($stopwords) $stopwords = explode(',', $stopwords);
+			}
+			if(!$stopwords) {
+				$query = $this->prepare('SELECT value FROM INFORMATION_SCHEMA.INNODB_FT_DEFAULT_STOPWORD');
+				$query->execute();
+				$stopwords = $query->fetchAll(\PDO::FETCH_COLUMN, 0);
+				$query->closeCursor();
+				if($cache) $cache->save('InnoDB.stopwords', implode(',', $stopwords), WireCache::expireDaily);
+			}
+			$this->stopwordCache = array_flip($stopwords);
+		}
+		
+		if(!$this->stopwordCache) return false;
+		
+		return isset($this->stopwordCache[strtolower($word)]);
+	}
+
+	/**
 	 * Sanitize a table name for _a-zA-Z0-9
 	 * 
 	 * #pw-group-sanitization
@@ -928,6 +972,28 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		list($varName, $value) = $query->fetch(\PDO::FETCH_NUM);
 		$this->variableCache[$name] = $value;
 		return $value;
+	}
+
+	/**
+	 * Get current database engine (lowercase) 
+	 * 
+	 * @return string
+	 * @since 3.0.160
+	 * 
+	 */
+	public function getEngine() {
+		return $this->engine;
+	}
+
+	/**
+	 * Get current database charset (lowercase)
+	 * 
+	 * @return string
+	 * @since 3.0.160
+	 * 
+	 */
+	public function getCharset() {
+		return $this->charset;
 	}
 
 	/**

@@ -129,15 +129,27 @@ class WireDatabasePDOStatement extends \PDOStatement {
 	 * 
 	 * @param array|null $input_parameters
 	 * @return bool
+	 * @throws \PDOException
 	 * 
 	 */
 	public function execute($input_parameters = NULL) {
 	
 		$timer = Debug::startTimer();
-		$result = parent::execute($input_parameters);
+		$exception = null;
+		
+		try {
+			$result = parent::execute($input_parameters);
+		} catch(\PDOException $e) {
+			$exception = $e;
+			$result = false;
+		}
+		
 		$timer = Debug::stopTimer($timer, 'ms');
 		
-		if(!$this->database) return $result;
+		if(!$this->database) {
+			if($exception) throw $exception;
+			return $result;
+		}
 		
 		if(is_array($input_parameters)) {
 			foreach($input_parameters as $key => $value) {
@@ -146,6 +158,7 @@ class WireDatabasePDOStatement extends \PDOStatement {
 		}
 	
 		$debugNote = trim("$this->debugNote [$timer]");
+		if($exception) $debugNote .= ' FAIL SQLSTATE[' . $exception->getCode() . ']';
 		
 		if($this->debugParamsQty) {
 			$sql = $this->queryString;
@@ -167,6 +180,8 @@ class WireDatabasePDOStatement extends \PDOStatement {
 		} else {
 			$this->database->queryLog($this->queryString, $debugNote); 
 		}
+		
+		if($exception) throw $exception;
 		
 		return $result;
 	}
