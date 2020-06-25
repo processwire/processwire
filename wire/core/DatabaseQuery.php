@@ -624,7 +624,7 @@ abstract class DatabaseQuery extends WireData {
 	/**
 	 * Return the generated SQL for specific query method
 	 *
-	 * @param string $method Specify method name to get SQL for
+	 * @param string $method Specify method name to get SQL for, or blank string for entire query
 	 * @return string
 	 * @since 3.0.157
 	 *
@@ -633,13 +633,19 @@ abstract class DatabaseQuery extends WireData {
 		
 		if(!$method) return $this->getQuery();
 		if(!isset($this->queryMethods[$method])) return '';
-		$methodName = 'getQuery' . ucfirst($method);
-		if(method_exists($this, $methodName)) return $this->$methodName();
 		
-		list($prepend, $split, $append) = $this->queryMethods[$method]; 
-		$values = $this->$method;
-		if(!is_array($values) || !count($values)) return '';
-		$sql = $prepend . implode($split, $values) . $append;
+		$methodName = 'getQuery' . ucfirst($method);
+		
+		if(method_exists($this, $methodName)) {
+			$sql = $this->$methodName();
+		} else {
+			list($prepend, $split, $append) = $this->queryMethods[$method];
+			$values = $this->$method;
+			if(!is_array($values) || !count($values)) return '';
+			$sql = trim(implode($split, $values)); 
+			if(!strlen($sql) || $sql === trim($split)) return '';
+			$sql = $prepend . $sql . $append;
+		}
 		
 		return $sql;	
 	}
