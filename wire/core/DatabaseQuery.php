@@ -641,7 +641,11 @@ abstract class DatabaseQuery extends WireData {
 		} else {
 			list($prepend, $split, $append) = $this->queryMethods[$method];
 			$values = $this->$method;
-			if(!is_array($values) || !count($values)) return '';
+			if(!is_array($values)) return ''; 
+			foreach($values as $key => $value) {
+				if(!strlen(trim($value))) unset($values[$key]); // remove any blank values
+			}
+			if(!count($values)) return '';
 			$sql = trim(implode($split, $values)); 
 			if(!strlen($sql) || $sql === trim($split)) return '';
 			$sql = $prepend . $sql . $append;
