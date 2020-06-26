@@ -78,7 +78,8 @@
  * @property string|null $group Group name for this selector (if field was prepended with a "group_name@"). #pw-group-properties
  * @property string $quote Type of quotes value was in, or blank if it was not quoted. One of: '"[{( #pw-group-properties
  * @property-read string $str String value of selector, i.e. “a=b”. #pw-group-properties
- * @property null|bool $forceMatch When boolean, it forces match (true) or non-match (false). (default=null) #pw-group-properties
+ * @property null|bool $forceMatch When boolean, forces match (true) or force non-match (false). (default=null) #pw-group-properties
+ * @property array $altOperators Alternate operators to use when primary fails match, supported only by compareTypeFind. Since 3.0.161 (default=[]) #pw-group-properties
  * 
  */
 abstract class Selector extends WireData {
@@ -148,9 +149,11 @@ abstract class Selector extends WireData {
 
 		$this->setField($field);
 		$this->setValue($value);
+		$this->set('not', false); 
 		$this->set('group', null); // group name identified with 'group_name@' before a field name
 		$this->set('quote', ''); // if $value in quotes, this contains either: ', ", [, {, or (, indicating quote type (set by Selectors class)
 		$this->set('forceMatch', null); // boolean true to force match, false to force non-match
+		parent::set('altOperators', array()); // optional alternate operators
 	}
 
 	/**
@@ -373,6 +376,14 @@ abstract class Selector extends WireData {
 			$this->error("You cannot set the operator on a Selector: $this");
 			return $this;
 		}
+		if($key === 'altOperators') {
+			if(!is_array($value)) $value = array();
+			$operator = $this->operator();
+			foreach($value as $k => $v) {
+				// don’t allow current operator to be an altOperator
+				if($operator === $v) unset($value[$k]); 
+			}
+		}
 		return parent::set($key, $value); 
 	}
 
@@ -524,6 +535,25 @@ abstract class Selector extends WireData {
 		if(is_bool($forceMatch)) $matches = $forceMatch;
 		if($this->not) return !$matches; 
 		return $matches; 
+	}
+
+	/**
+	 * Copy all data from this selector to another
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Selector $selector
+	 * @since 3.0.161
+	 * 
+	 */
+	public function copyTo(Selector $selector) {
+		$selector->setField($this->field); 
+		$selector->setValue($this->value);
+		$selector->not = $this->not;
+		if($this->group) $selector->group = $this->group; 
+		if($this->quote) $selector->quote = $this->quote;
+		if(is_bool($this->forceMatch)) $selector->forceMatch = $this->forceMatch;
+		if(count($this->altOperators)) $selector->altOperators = $this->altOperators;
 	}
 	
 	/**
@@ -767,8 +797,8 @@ class SelectorContainsExpand extends SelectorContains {
  *
  */
 class SelectorContainsLike extends SelectorContains {
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
 	public static function getOperator() { return '%='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
 	public static function getLabel() { return __('Contains text like', __FILE__); }
 	public static function getDescription() {
 		return __('Given text appears in compared value, without regard to word boundaries.', __FILE__);
@@ -1019,49 +1049,79 @@ class SelectorContainsAdvanced extends SelectorContains {
 		return 
 			__('Match values with commands: +Word MUST appear, -Word MUST NOT appear, and unprefixed Word may appear.', __FILE__) . ' ' . 
 			__('Add asterisk for partial match: Bar* or +Bar* matches bar, barn, barge; while -Bar* prevents matching them.') . ' ' . 
-			__('Use quotes to match phrases: +"Must Match", -"Must Not Match", or "May Match".'); 
+			__('Use quotes to match phrases: +(Must Match), -(Must Not Match), or (May Match).'); 
 	}
-	protected function match($value1, $value2) {
-		$fail = false;
-		$numOptionalMatch = 0;
-		$commandMatches = array(
-			'+' => array(),
-			'-' => array(),
-			'?' => array(), 
-		);
-		if(strpos($value2, '"') !== false && preg_match_all('![-+]?"([^"]+)"!', $value2, $matches)) {
+
+	/**
+	 * Return array of advanced search commands from given value
+	 * 
+	 * @param string $value
+	 * @return array
+	 * 
+	 */
+	public function valueToCommands($value) {
+		$commands = array();
+		$hasQuotes = strrpos($value, '"') || strrpos($value, '”') || strrpos($value, ')') || strrpos($value, '}');
+		$substr = function_exists('\\mb_substr') ? '\\mb_substr' : '\\substr';
+		$re = '/[-+]?("[^"]+"|\([^)]+\))\*?/';
+		if($hasQuotes && preg_match_all($re, $value, $matches)) {
 			// find all quoted phrases
 			foreach($matches[0] as $key => $fullMatch) {
-				$command = strpos($fullMatch, '"') === 0 ? '?' : substr($value2, 0, 1);
-				$phrase = trim($matches[1][$key]);
-				if(strlen($phrase)) $commandMatches[$command][] = $phrase;
-				$value2 = str_replace($fullMatch, ' ', $value2);
+				$type = substr($fullMatch, 0, 1);
+				$partial = substr($fullMatch, -1) === '*';
+				if($type !== '+' && $type !== '-') $type = '';
+				$phrase = $matches[1][$key];
+				$phrase = trim($phrase, $substr($phrase, 0, 1) . $substr($phrase, -1)); // remove quotes
+				$phrase = str_replace('+', '', trim($phrase, '-')); 
+				if(strpos($phrase, '-') !== false) $phrase = preg_replace('/([^\w\d])-(.)/', '$1 $2', $phrase); 
+				$value = str_replace($fullMatch, ' ', $value);
+				while(strpos($phrase, '  ') !== false) $phrase = str_replace('  ', ' ', $phrase);
+				if(!strlen($phrase)) continue;
+				$phrase = str_replace('"', '', $phrase);
+				$query = $type . '"' . $phrase . '"' . ($partial ? '*' : ''); 
+				$a = array('type' => $type, 'value' => $phrase, 'query' => $query, 'partial' => $partial, 'phrase' => true);
+				$commands[] = $a;
 			}
 		}
-		$words = $this->wire()->sanitizer->wordsArray($value2);
+		$words = $this->wire()->sanitizer->wordsArray($value, array(
+			'keepChars' => array('+', '-', '*')
+		));
 		foreach($words as $key => $word) {
-			$command = substr($word, 0, 1); 
-			$word = ltrim($word, '-+'); 
-			if($command !== '+' && $command !== '-') $command = '?';
-			$commandMatches[$command][] = $word;
+			$type = substr($word, 0, 1);
+			$partial = substr($word, -1) === '*';
+			if($type !== '+' && $type !== '-') $type = '';
+			$word = trim($word, '+-*');
+			$query = $type . $word . ($partial ? '*' : ''); 
+			$a = array('type' => $type, 'value' => $word, 'query' => $query, 'partial' => $partial, 'phrase' => false);
+			$commands[] = $a;
 		}
-		foreach($commandMatches as $command => $items) {
-			foreach($items as $item) {
-				$partial = substr($item, -1) === '*';
-				if($partial) $item = rtrim($item, '*');
-				$re = '!\b' . preg_quote($item) . ($partial ? '!i' : '\b!i');
-				if($command === '+') {
-					if(!preg_match($re, $value1)) $fail = true;
-				} else if($command === '-') {
-					if(preg_match($re, $value1)) $fail = true;
-				} else {
-					if(stripos($value1, $item) !== false) $numOptionalMatch++;
-				}
-				if($fail) break;
+		return $commands;
+	}
+	
+	protected function match($value1, $value2) {
+		$fail = false;
+		$numMatch = 0;
+		$numOptional = 0; 
+		$commands = $this->valueToCommands($value2);
+		foreach($commands as $command) {
+			$re = '/\b' . preg_quote($command['value']) . ($command['partial'] ? '' : '\b') . '/i';
+			$match = preg_match($re, $value1);
+			if($command['type'] === '+') {
+				// value must be present (+)
+				if(!$match) $fail = true;
+				if(!$fail) $numMatch++;
+			} else if($command['type'] === '-') {
+				// value must not be present (-)
+				if($match) $fail = true;
+				if(!$fail) $numMatch++;
+			} else { 
+				// value may be present (blank type)
+				if($match) $numMatch++;
+				$numOptional++;
 			}
 			if($fail) break;
 		}
-		if(!$fail && count($commandMatches['?']) && !$numOptionalMatch) $fail = true;
+		if(!$fail && $numOptional && !$numMatch) $fail = true;
 		return $this->evaluate(!$fail);
 	}
 }
