@@ -2051,7 +2051,7 @@ class Sanitizer extends Wire {
 	
 		// characters that trigger quotes around selector value
 		$quotelist = array(
-			"'", ",", "!", ":", ";", "(", ")", 
+			"'", ",", "!", ":", ";", "(", ")", "*", "+", 
 		);
 	
 		$defaults = array(
@@ -2088,8 +2088,15 @@ class Sanitizer extends Wire {
 		if($emptyValue === '' && $options['quoteEmpty']) $emptyValue = '""';
 		
 		// identify any operator-specific blacklist items
-		if($op && (strpos($op, '~') !== false || strpos($op, '*') !== false)) {
+		if($op && (strpos($op, '~') !== false || strpos($op, '*') !== false) || strpos($op, '#') !== false) {
 			$blacklist[] = '@'; // @ not supported by fulltext match/against in InnoDB
+			if($op === '#=') {
+				// advanced search operator allows command characters
+				foreach(array('*', '+', '(', ')', '"') as $c) {
+					$k = array_search($c, $blacklist);
+					if($k !== false) unset($blacklist[$k]);
+				}
+			}
 		}
 	
 		if(count($options['whitelist'])) {
@@ -3965,8 +3972,9 @@ class Sanitizer extends Wire {
 	 * @param string|array $value String containing words
 	 * @param array $options
 	 *  - `keepNumberFormat` (bool): Keep minus/comma/period in numbers rather than splitting into words? (default=false)
-	 *  - `keepUnderscore` (bool): Keep hyphenated words? (default=false)
+	 *  - `keepUnderscore` (bool): Keep underscores as part of words? (default=false)
 	 *  - `keepHyphen` (bool): Keep hyphenated words? (default=false)
+	 *  - `keepChars` (array): Specify any of these to also keep as part of words ['.', ',', ';', '/', '*', ':', '+', '<', '>', '_', '-' ] (default=[])
 	 *  - `minWordLength` (int): Minimum word length (default=1)
 	 *  - `maxWordLength` (int): Maximum word length (default=80)
 	 *  - `maxWords` (int): Maximum number of words allowed (default=0, no limit)
@@ -3983,6 +3991,7 @@ class Sanitizer extends Wire {
 			'maxWords' => 0,
 			'keepHyphen' => false, 
 			'keepUnderscore' => false, 
+			'keepChars' => array(),
 			'keepNumberFormat' => true, 
 			'stripTags' => true,
 			'getString' => false,
@@ -3993,7 +4002,6 @@ class Sanitizer extends Wire {
 		$maxLength = (int) $options['maxWordLength'];
 		$replacements = array();
 		$replacementPrefix = 'REP';
-		$hasReplacements = false;
 		
 		if(is_array($value)) {
 			$value = $this->flatArray($value);
@@ -4004,29 +4012,35 @@ class Sanitizer extends Wire {
 	
 		// prevents non-bracketed tag names from also becoming words
 		if($options['stripTags']) $value = strip_tags($value);
+		if($options['keepHyphen']) $options['keepChars'][] = '-';
+		if($options['keepUnderscore']) $options['keepChars'][] = '_';
 		
 		if(!strlen($value)) return array();
 		
 		if($options['keepNumberFormat']) {
 			$replacements = $this->wordsArrayNumberReplacements($value, $replacementPrefix);
-			$hasReplacements = count($replacements);
 		}
 		
+		if(count($options['keepChars'])) {
+			$n = 0;
+			foreach($options['keepChars'] as $c) {
+				if(strpos($value, $c) === false) continue;
+				do {
+					$token = "$n{$replacementPrefix}CHR$n";
+				} while(strpos($value, $token) !== false && ++$n); 
+				$value = str_replace($c, $token, $value);
+				$replacements[$token] = $c;
+			}
+		}
+	
 		// https://www.php.net/manual/en/regexp.reference.unicode.php
 		// pZ=Separator (line, paragraph or space)
 		// pS=Symbol (all)
 		// pC=Other (control, format, surrogate)
 		// p{Pd}=Dash punctuation
 		// pP=Punctuation (all)
-		$splitWith = '.,;/\\\\*:+<>\s\pZ\pS\pC';
-		if($options['keepHyphen']) {
-			// allow hyphen but not en-dash or em-dash
-			$splitWith .= '–—'; 
-		} else {
-			// split on all types of dash and hyphen
-			$splitWith .= '\p{Pd}'; 
-		}
-		if(!$options['keepUnderscore']) $splitWith .= '_';
+
+		$splitWith = '.,;/*:+<>\s\pZ\pS\pC\p{Pd}\\\\';
 		$regex = '!\pP*[' . $splitWith . ']\pP*!u';
 		$words = preg_split($regex, "$value ", -1, PREG_SPLIT_NO_EMPTY);
 
@@ -4035,14 +4049,22 @@ class Sanitizer extends Wire {
 		} else if($options['maxWords'] && count($words) > $options['maxWords']) {
 			$words = array_slice($words, 0, $options['maxWords']);
 		}
-	
+
+		$hasReplacements = count($replacements);
+		$keepChars = $hasReplacements && count($options['keepChars']) ? implode('', $options['keepChars']) : '';
+		
 		foreach($words as $key => $word) {
 			if($hasReplacements && strpos($word, $replacementPrefix) !== false) {
-				$words[$key] = str_replace(array_keys($replacements), array_values($replacements), $word);
+				$word = str_replace(array_keys($replacements), array_values($replacements), $word);
+				$words[$key] = $word;
 			}
 			$length = $this->multibyteSupport ? mb_strlen($word) : strlen($word);
 			if($length < $minLength || $length > $maxLength) {
+				// remove any words that are outside the min/max length requirements
 				unset($words[$key]);
+			} else if($keepChars !== '') {
+				// remove any words that consist only of keepChars
+				if(!strlen(trim($word, $keepChars))) unset($words[$key]);
 			}
 		}
 		
