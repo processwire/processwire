@@ -173,6 +173,11 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 				}
 			} else if($field->name === 'tfa_type') {
 				$passRequiredInputfields[] = $inputfield;
+				if(!$inputfield->val()) {
+					// initialize manually so it can add hooks (it just does some visual/wording tweaks)
+					$tfa = $this->wire(new Tfa()); /** @var Tfa $tfa */
+					$tfa->init(); 
+				}
 			}
 			
 			$fieldset->add($inputfield); 
