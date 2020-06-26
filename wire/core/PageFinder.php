@@ -327,6 +327,14 @@ class PageFinder extends Wire {
 	protected $finalSelectors = null; // Fully parsed final selectors
 
 	/**
+	 * Number of Selector objects that have alternate operators
+	 * 
+	 * @var int
+	 * 
+	 */
+	protected $numAltOperators = 0;
+
+	/**
 	 * Fields that can only be used by themselves (not OR'd with other fields)
 	 * 
 	 * @var array
@@ -684,12 +692,44 @@ class PageFinder extends Wire {
 		} else {
 			$this->total = count($matches);
 		}
+	
+		if(!$this->total && $this->numAltOperators) {
+			// check if any selectors provided alternate operators to try
+			$matches = $this->findAlt($selectors, $options, $matches); 
+		}
 
 		$this->lastOptions = $options; 
 		
 		if($this->reverseAfter) $matches = array_reverse($matches);
 
 		return $matches; 
+	}
+
+	/**
+	 * Perform an alternate/fallback find when first fails to match and alternate operators available
+	 * 
+	 * @param Selectors $selectors
+	 * @param array $options
+	 * @param array $matches
+	 * @return array
+	 * 
+	 */
+	protected function findAlt($selectors, $options, $matches) {
+		// check if any selectors provided alternate operators to try
+		$numAlts = 0;
+		foreach($selectors as $key => $selector) {
+			$altOperators = $selector->altOperators;
+			if(!count($altOperators)) continue;
+			$altOperator = array_shift($altOperators);
+			$sel = Selectors::getSelectorByOperator($altOperator);
+			if(!$sel) continue;
+			$selector->copyTo($sel);
+			$selectors[$key] = $sel;
+			$numAlts++;
+		}
+		if(!$numAlts) return $matches;
+		$this->numAltOperators = 0;
+		return $this->___find($selectors, $options);
 	}
 	
 	/**
@@ -1377,6 +1417,7 @@ class PageFinder extends Wire {
 		$joins = array();
 		$database = $this->wire('database');
 		$this->preProcessSelectors($selectors, $options);
+		$this->numAltOperators = 0;
 	
 		if($options['returnAllCols']) {
 			$columns = array('pages.*');
@@ -1418,6 +1459,7 @@ class PageFinder extends Wire {
 			$fields = is_array($fields) ? $fields : array($fields); 
 			if(count($fields) > 1) $fields = $this->arrangeFields($fields); 
 			$field1 = reset($fields); // first field including optional subfield
+			$this->numAltOperators += count($selector->altOperators);
 
 			// TODO Make native fields and path/url multi-field and multi-value aware
 			if($field1 === 'sort' && $selector->operator === '=') {
