@@ -207,7 +207,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function init() {
-		if($this->className() != 'Tfa') $this->initHooks();
+		$this->initHooks();
 	}
 	
 	/**
@@ -1192,9 +1192,13 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	protected function initHooks() {
-		$this->addHookBefore('InputfieldForm::render', $this, 'hookInputfieldFormRender');
-		$this->addHookBefore('InputfieldForm::processInput', $this, 'hookBeforeInputfieldFormProcess');
-		$this->addHookAfter('InputfieldForm::processInput', $this, 'hookAfterInputfieldFormProcess');
+		if($this->className() === 'Tfa') {
+			$this->addHookBefore('InputfieldForm::render', $this, 'hookInputfieldFormRender');
+		} else {
+			$this->addHookBefore('InputfieldForm::render', $this, 'hookInputfieldFormRender');
+			$this->addHookBefore('InputfieldForm::processInput', $this, 'hookBeforeInputfieldFormProcess');
+			$this->addHookAfter('InputfieldForm::processInput', $this, 'hookAfterInputfieldFormProcess');
+		}
 	}
 	
 	/**
@@ -1319,7 +1323,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		$inputfields = $event->object;
 		
 		// if form does not have a “tfa_type” field, then exit
-		$inputfield = $inputfields->getChildByName($this->userFieldName); 
+		$inputfield = $inputfields->getChildByName($this->userFieldName);
 		if(!$inputfield) return;
 		
 		/** @var InputfieldRadios $inputfield */
@@ -1877,14 +1881,11 @@ class RememberTfa extends Wire {
 	public function ___getFingerprintArray() {
 		
 		$agent = isset($_SERVER['HTTP_USER_AGENT']) ?  $_SERVER['HTTP_USER_AGENT'] : 'noagent';
-		
-		if(isset($_SERVER['HTTP_X_FORWARDED_FOR'])) {
-			$fwip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-		} else if(isset($_SERVER['HTTP_CLIENT_IP'])) {
-			$fwip = $_SERVER['HTTP_CLIENT_IP'];
-		} else {
-			$fwip = 'nofwip';
-		}
+	
+		$fwip = '';
+		if(isset($_SERVER['HTTP_X_FORWARDED_FOR'])) $fwip .= $_SERVER['HTTP_X_FORWARDED_FOR'];
+		if(isset($_SERVER['HTTP_CLIENT_IP'])) $fwip .= ' ' . $_SERVER['HTTP_CLIENT_IP'];
+		if(empty($fwip)) $fwip = 'nofwip';
 		
 		$fingerprints = array(
 			'agent' => $agent,
