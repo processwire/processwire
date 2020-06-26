@@ -241,10 +241,11 @@ class Selectors extends WireArray {
 			}
 			$group = $this->extractGroup($str); 	
 			$field = $this->extractField($str); 
-			$operator = $this->extractOperator($str, self::getOperatorChars());
+			$operators = $this->extractOperators($str);
+			$operator = array_shift($operators);
 			$value = $this->extractValue($str, $quote); 
 
-			if($this->parseVars && $quote == '[' && $this->valueHasVar($value)) {
+			if($this->parseVars && $quote === '[' && $this->valueHasVar($value)) {
 				// parse an API variable property to a string value
 				$v = $this->parseValue($value); 
 				if($v !== null) {
@@ -258,6 +259,7 @@ class Selectors extends WireArray {
 				if(!is_null($group)) $selector->group = $group; 
 				if($quote) $selector->quote = $quote; 
 				if($not) $selector->not = true; 
+				if(count($operators)) $selector->altOperators = $operators;
 				$this->add($selector); 
 			}
 		}
@@ -323,6 +325,8 @@ class Selectors extends WireArray {
 	 * @param string $str
 	 * @param array $operatorChars
 	 * @return string
+	 * @deprecated Replaced by extractOperators()
+	 * @todo this method can be removed once confirmed nothing else uses it
 	 *
 	 */
 	protected function extractOperator(&$str, array $operatorChars) {
@@ -341,6 +345,52 @@ class Selectors extends WireArray {
 		}
 		if($operator) $str = substr($str, $n); 
 		return $operator; 
+	}
+	
+	/**
+	 * Given a string starting with an operator, return that operator, and remove it from $str.
+	 *
+	 * @param string $str
+	 * @return array
+	 *
+	 */
+	protected function extractOperators(&$str) {
+		
+		$n = 0;
+		$operator = '';
+		$lastOperator = '';
+		$operators = array();
+		$operatorChars = self::getOperatorChars();
+	
+		while(isset($str[$n]) && isset($operatorChars[$str[$n]])) {
+			$operator .= $str[$n];
+			if(self::isOperator($operator)) {
+				$lastOperator = $operator;
+			} else if($lastOperator) {
+				$operators[$lastOperator] = $lastOperator;
+				$lastOperator = '';
+				$operator = $str[$n];
+			}
+			$n++; 
+		}
+		
+		if($lastOperator) {
+			$operators[$lastOperator] = $lastOperator;
+		}
+		
+		if(count($operators)) {
+			$str = substr($str, $n);
+		}
+		
+		if($operator && !isset($operators[$lastOperator])) {
+			if(self::isOperator($operator)) {
+				$operators[$operator] = $operator;
+			} else {
+				throw new WireException("Unrecognized operator: $operator"); 
+			}
+		}
+		
+		return $operators;
 	}
 
 	/**
@@ -710,7 +760,17 @@ class Selectors extends WireArray {
 			}
 			if(!$selector->matches($value)) {
 				$matches = false;
-				break;
+				// attempt any alternate operators, if present
+				foreach($selector->altOperators as $altOperator) {
+					$altSelector = self::getSelectorByOperator($altOperator); 
+					if(!$altSelector) continue;
+					$this->wire($altSelector);
+					$selector->copyTo($altSelector);
+					$matches = $altSelector->matches($value);
+					if($matches) break;
+				}
+				// if neither selector nor altSelectors match then stop
+				if(!$matches) break;
 			}
 		}
 		
