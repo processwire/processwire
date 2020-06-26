@@ -567,7 +567,7 @@ class Field extends WireData implements Saveable, Exportable {
 		// populate import data
 		foreach($changes as $key => $change) {
 			$this->errors('clear all');
-			$this->set($key, $data[$key]);
+			if(isset($data[$key])) $this->set($key, $data[$key]);
 			if(!empty($data['errors'][$key])) {
 				$error = $data['errors'][$key];
 				// just in case they switched it to an array of multiple errors, convert back to string

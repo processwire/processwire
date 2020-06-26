@@ -77,7 +77,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 160;
+	const versionRevision = 161;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -358,6 +358,7 @@ class ProcessWire extends Wire {
 		$version = self::versionMajor . "." . self::versionMinor . "." . self::versionRevision; 
 		$config->version = $version;
 		$config->versionName = trim($version . " " . self::versionSuffix);
+		$config->moduleServiceKey .= str_replace('.', '', $version);
 		
 		// $config->debugIf: optional setting to determine if debug mode should be on or off
 		if($config->debugIf && is_string($config->debugIf)) {

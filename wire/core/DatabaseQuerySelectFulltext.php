@@ -24,6 +24,7 @@
  * https://processwire.com
  * 
  * @property-read $tableField
+ * @method array getWordAlternates($word)
  *
  * 
  *
@@ -516,11 +517,11 @@ class DatabaseQuerySelectFulltext extends Wire {
 		// **+= Contains match + expand
 		
 		$tableField = $this->tableField();
-		$not = strpos($this->operator, '!') === 0;
 		$scoreField = $this->getScoreFieldName();
+		$expand = strpos($this->operator, '+') !==  false; 
 		
 		// standard MATCH/AGAINST with optional query expansion
-		$words = $this->words($value, array('indexable' => true));
+		$words = $this->words($value, array('indexable' => true, 'alternates' => $expand));
 		$againstValue = $this->escapeAGAINST(implode(' ', $words));
 		
 		if(!count($words) || !strlen(trim($againstValue))) {
@@ -529,9 +530,9 @@ class DatabaseQuerySelectFulltext extends Wire {
 			return;
 		}
 		
-		$match = $not ? 'NOT MATCH' : 'MATCH';
+		$match = $this->not ? 'NOT MATCH' : 'MATCH';
 		$bindKey = $this->query->bindValueGetKey($againstValue);
-		$againstType = strpos($this->operator, '+') ? 'WITH QUERY EXPANSION' : '';
+		$againstType = $expand ? 'WITH QUERY EXPANSION' : '';
 		$where = "$match($tableField) AGAINST($bindKey $againstType)";
 		$this->query->select("$where AS $scoreField");
 		$this->query->where($where); 
@@ -740,11 +741,21 @@ class DatabaseQuerySelectFulltext extends Wire {
 			'minWordLength' => 1, // minimum allowed length or true for ft_min_word_len
 			'stopwords' => true, // allow stopwords
 			'indexable' => false, // include only indexable words?
+			'alternates' => false, // include alternate versions of words?
 		);
 		
 		$options = count($options) ? array_merge($defaults, $options) : $defaults;
 		if($options['minWordLength'] === true) $options['minWordLength'] = (int) $this->database->getVariable('ft_min_word_len');
 		$words = $this->wire()->sanitizer->wordsArray($value, $options);
+		
+		if($options['alternates']) {
+			foreach($words as $word) {
+				$alts = $this->getWordAlternates($word);
+				foreach($alts as $alt) {
+					if(!in_array($alt, $words)) $words[] = $alt;
+				}
+			}
+		}
 	
 		if($options['indexable']) {
 			foreach($words as $key => $word) {
@@ -814,5 +825,24 @@ class DatabaseQuerySelectFulltext extends Wire {
 		} while(isset(self::$scoreFields[$scoreField]));
 		self::$scoreFields[$scoreField] = 1;
 		return $scoreField;
+	}
+
+	/**
+	 * Get other variations of given word to search (such as plural, singular, etc.)
+	 * 
+	 * Method is currently used by the **+= operator but will be also added 
+	 * to ~~= and ~+= operators shortly.
+	 * 
+	 * This method is for hooks to implement. 
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param string $word
+	 * @return array
+	 * 
+	 */
+	public function ___getWordAlternates($word) {
+		if($word) {}
+		return array();
 	}
 }
