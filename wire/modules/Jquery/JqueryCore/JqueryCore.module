@@ -20,18 +20,12 @@ class JqueryCore extends ModuleJS {
 			'autoload' => false
 			);
 	}
-
-	/**
-	 * Set devMode to true in order to test/develop with newer versions of jQuery
-	 * 
-	 */
-	const devMode = false;
-
+	
 	public function wired() {
 		$this->addComponents(array(
-			'core-dev' => 'jquery-1.11.1.js',
-			'latest' => 'jquery-1.11.1.js',
-			'migrate-dev' => 'jquery-migrate-1.2.1.js',
+			'core-dev' => 'dev/JqueryCore.js?v=1.11.1',
+			'migrate-dev' => 'dev/jquery-migrate-1.4.1.js',
+			'latest' => 'dev/JqueryCore.js',
 			'cookie' => 'jquery.cookie.js',
 			'iframe-resizer' => 'iframe-resizer.min.js',
 			'iframe-resizer-frame' => 'iframe-resizer-frame.min.js', 
@@ -41,7 +35,14 @@ class JqueryCore extends ModuleJS {
 		));
 		$info = self::getModuleInfo();
 		$config = $this->config;
-		$config->scripts->prepend($config->urls('JqueryCore') . "JqueryCore.js?v=$info[version]");
+		$url = $this->config->urls('JqueryCore');
+		$this->loadScripts = false;
+		if($config->debug === 'dev') {
+			$config->scripts->prepend($url . $this->components['migrate-dev']);
+			$config->scripts->prepend($url . $this->components['core-dev']); 
+		} else {
+			$config->scripts->prepend($url . "JqueryCore.js?v=$info[version]");
+		}
 	}
 
 	public function ___use($name) {
@@ -54,21 +55,4 @@ class JqueryCore extends ModuleJS {
 		}
 		return parent::___use($name); 
 	}	
-
-	/**
-	 * Initialize JqueryCore
-	 * 
-	 */
-	public function init() {
-		
-		if(self::devMode) {
-			$this->use('core-dev');
-			$this->use('migrate-dev');
-			$this->loadStyles = false;
-			$this->loadScripts = false;
-		}
-		
-		parent::init();
-	
-	}
 }
