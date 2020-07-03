@@ -1187,6 +1187,33 @@ class Sanitizer extends Wire {
 		if($headerName) $value = trim(preg_replace('/[^-_a-zA-Z0-9]/', '-', trim($value, ':')), '-'); 
 		return $value;
 	}
+	
+	/**
+	 * Return first word in given string
+	 *
+	 * #pw-group-strings
+	 *
+	 * @param string $value String containing one or more words
+	 * @param array $options Options to adjust behavior: 
+	 *  - `keepNumbers` (bool): Allow numbers as return value? (default=true)
+	 *  - `keepNumberFormat` (bool): Keep minus/comma/period in numbers rather than splitting into words? Also requires keepNumbers==true. (default=false)
+	 *  - `keepUnderscore` (bool): Keep underscores as part of words? (default=false)
+	 *  - `keepHyphen` (bool): Keep hyphenated words? (default=false)
+	 *  - `keepChars` (array): Specify any of these to also keep as part of words ['.', ',', ';', '/', '*', ':', '+', '<', '>', '_', '-' ] (default=[])
+	 *  - `minWordLength` (int): Minimum word length (default=1)
+	 *  - `maxWordLength` (int): Maximum word length (default=80)
+	 *  - `stripTags` (bool): Strip markup tags so they don’t contribute to returned word? (default=true)
+	 * @return string
+	 * @see Sanitizer::wordsArray()
+	 * @since 3.0.162
+	 *
+	 */
+	public function word($value, array $options = array()) {
+		if(!is_string($value)) $value = $this->string($value);
+		$options['maxWords'] = 1;
+		$a = $this->wordsArray($value, $options);
+		return count($a) ? reset($a) : '';
+	}
 
 	/**
 	 * Sanitize short string of text to single line without HTML
@@ -2435,13 +2462,16 @@ class Sanitizer extends Wire {
 			'allow' => array('a', 'strong', 'em', 'code', 's', 'span', 'u', 'small', 'i'),
 			'disallow' => array(),
 			'linkMarkup' => '<a href="{url}" rel="noopener noreferrer nofollow" target="_blank">{text}</a>',
+			'escapableChars' => array('*', '[', ']', '(', ')', '`', '_', '~'), // for basic markdown or brackets modes
 		);
 
 		if($options === true || (is_int($options) && $options > 0)) $defaults['fullMarkdown'] = $options;
 		if(!is_array($options)) $options = array();
-		$options = array_merge($defaults, $options); 
+		$options = array_merge($defaults, $options);
+		$findReplace = array();
 
 		if($options['fullMarkdown']) {
+			// full markdown
 			
 			$markdown = $this->wire('modules')->get('TextformatterMarkdownExtra');
 			if(is_int($options['fullMarkdown'])) {
@@ -2452,6 +2482,12 @@ class Sanitizer extends Wire {
 			$markdown->format($str);
 			
 		} else {
+			// basic (inline) markdown
+			
+			if(strpos($str, '\\') !== false) {
+				// allow certain escaped markdown characters to be ignored by our regexps i.e. "\*" or "\[", etc.
+				$findReplace = $this->getTextTools()->findReplaceEscapeChars($str, $options['escapableChars']); 
+			}
 
 			$str = $this->entities($str, $options['flags'], $options['encoding'], $options['doubleEncode']);
 
@@ -2507,9 +2543,13 @@ class Sanitizer extends Wire {
 			if(count($reps)) $str = str_replace(array_keys($reps), array_values($reps), $str);
 		}
 		
+		if(count($findReplace)) {
+			$str = str_replace(array_keys($findReplace), array_values($findReplace), $str);
+		}
+		
 		return $str;
 	}
-
+	
 	/**
 	 * Remove entity encoded characters from a string. 
 	 * 
@@ -3971,7 +4011,8 @@ class Sanitizer extends Wire {
 	 *
 	 * @param string|array $value String containing words
 	 * @param array $options
-	 *  - `keepNumberFormat` (bool): Keep minus/comma/period in numbers rather than splitting into words? (default=false)
+	 *  - `keepNumbers` (bool): Keep number-only words in return value? (default=true)
+	 *  - `keepNumberFormat` (bool): Keep minus/comma/period in numbers rather than splitting into words? Also requires keepNumbers==true. (default=false)
 	 *  - `keepUnderscore` (bool): Keep underscores as part of words? (default=false)
 	 *  - `keepHyphen` (bool): Keep hyphenated words? (default=false)
 	 *  - `keepChars` (array): Specify any of these to also keep as part of words ['.', ',', ';', '/', '*', ':', '+', '<', '>', '_', '-' ] (default=[])
@@ -3990,11 +4031,11 @@ class Sanitizer extends Wire {
 			'maxWordLength' => 80,
 			'maxWords' => 0,
 			'keepHyphen' => false, 
-			'keepUnderscore' => false, 
-			'keepChars' => array(),
+			'keepUnderscore' => false,
+			'keepNumbers' => true,
 			'keepNumberFormat' => true, 
+			'keepChars' => array(),
 			'stripTags' => true,
-			'getString' => false,
 		);
 
 		$options = array_merge($defaults, $options);
@@ -4017,7 +4058,10 @@ class Sanitizer extends Wire {
 		
 		if(!strlen($value)) return array();
 		
-		if($options['keepNumberFormat']) {
+		if(!$options['keepNumbers']) {
+			$options['keepNumberFormat'] = false;
+			if(!ctype_alpha($value)) $value = preg_replace('/\d+[-–\d,. ]*/', ' ', $value);
+		} else if($options['keepNumberFormat']) {
 			$replacements = $this->wordsArrayNumberReplacements($value, $replacementPrefix);
 		}
 		
@@ -4044,30 +4088,48 @@ class Sanitizer extends Wire {
 		$regex = '!\pP*[' . $splitWith . ']\pP*!u';
 		$words = preg_split($regex, "$value ", -1, PREG_SPLIT_NO_EMPTY);
 
-		if($words === false) {
-			$words = array();
-		} else if($options['maxWords'] && count($words) > $options['maxWords']) {
-			$words = array_slice($words, 0, $options['maxWords']);
-		}
-
+		if($words === false) $words = array();
+		
 		$hasReplacements = count($replacements);
 		$keepChars = $hasReplacements && count($options['keepChars']) ? implode('', $options['keepChars']) : '';
+		$numWords = 0;
 		
 		foreach($words as $key => $word) {
+			if(!strlen(trim($word))) {
+				unset($words[$key]); 
+				continue;
+			}
+			if($options['maxWords'] && $numWords >= $options['maxWords']) {
+				unset($words[$key]);
+				continue;
+			}
 			if($hasReplacements && strpos($word, $replacementPrefix) !== false) {
 				$word = str_replace(array_keys($replacements), array_values($replacements), $word);
 				$words[$key] = $word;
+			}
+			if(!$options['keepNumbers'] && ctype_digit($word)) {
+				// remove numbers
+				unset($words[$key]); 
+				continue;
 			}
 			$length = $this->multibyteSupport ? mb_strlen($word) : strlen($word);
 			if($length < $minLength || $length > $maxLength) {
 				// remove any words that are outside the min/max length requirements
 				unset($words[$key]);
-			} else if($keepChars !== '') {
+				continue;
+			} else if($keepChars !== '' && !strlen(trim($word, $keepChars))) {
 				// remove any words that consist only of keepChars
-				if(!strlen(trim($word, $keepChars))) unset($words[$key]);
+				unset($words[$key]);
+				continue;
 			}
+			$numWords++;
 		}
 		
+		if($options['maxWords'] && count($words) > $options['maxWords']) {
+			// may be impossible to reach but here as a backup
+			$words = array_slice($words, 0, $options['maxWords']); 
+		}
+
 		return $words;
 	}
 
