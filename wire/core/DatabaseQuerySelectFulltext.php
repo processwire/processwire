@@ -24,7 +24,6 @@
  * https://processwire.com
  * 
  * @property-read $tableField
- * @method array getWordAlternates($word)
  *
  * 
  *
@@ -76,6 +75,20 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected $not = false;
 
 	/**
+	 * Cached minimum word length
+	 * 
+	 * @var int|null
+	 * 
+	 */
+	protected $minWordLength = null;
+
+	/**
+	 * @var array
+	 * 
+	 */
+	static protected $scoreCnts = array();
+
+	/**
 	 * Method names to operators they handle
 	 *
 	 * @var array
@@ -87,20 +100,12 @@ class DatabaseQuerySelectFulltext extends Wire {
 		'matchPhraseExpand' => array('*+='),
 		'matchRegular' => array('**=', '**+='),
 		'matchStartEnd' => array('^=', '$='),
-		'matchWords' => array('~=', '~+=', '~*=', '~~=', '~|=', '~|*='),
+		'matchWords' => array('~=', '~+=', '~*=', '~~=', '~|=', '~|*=', '~|+='),
 		'matchLikeWords' => array('~%=', '~|%='),
 		'matchLikePhrase' => array('%='),
 		'matchLikeStartEnd' => array('%^=', '%$='),
 		'matchCommands' => array('#='), 
 	);
-
-	/**
-	 * Keep track of field names used for scores so that the same one isn't ever used more than once
-	 *
-	 * @var array
-	 *
-	 */
-	static $scoreFields = array();
 
 	/**
 	 * Construct
@@ -152,7 +157,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * @return string
  	 *
 	 */
-	protected function escapeLIKE($str) {
+	protected function escapeLike($str) {
 		return str_replace(array('%', '_'), array('\\%', '\\_'), $str);
 	}
 
@@ -165,7 +170,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * @return string
 	 *
 	 */
-	protected function escapeAGAINST($str) {
+	protected function escapeAgainst($str) {
 		$str = str_replace(array('@', '+', '-', '*', '~', '<', '>', '(', ')', ':', '"', '&', '|', '=', '.'), ' ', $str);
 		while(strpos($str, '  ')) $str = str_replace('  ', ' ', $str);
 		return $str;
@@ -281,11 +286,14 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 */
 	protected function matchLikePhrase($value) {
 		$likeType = $this->not ? 'NOT LIKE' : 'LIKE';
-		$this->query->where("$this->tableField $likeType ?", '%' . $this->escapeLIKE($value) . '%');
+		$this->query->where("$this->tableField $likeType ?", '%' . $this->escapeLike($value) . '%');
 	}
 
 	/**
-	 * Match starts-with or ends-with using only LIKE 
+	 * Match starts-with or ends-with using only LIKE (no match/against index)
+	 * 
+	 * Does not ignore whitespace, closing tags or punctutation at start/end the way that the
+	 * matchStartEnd() method does, so this can be used to perform more literal start/end matches.
 	 * 
 	 * @param string $value
 	 * 
@@ -293,9 +301,9 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected function matchLikeStartEnd($value) {
 		$likeType = $this->not ? 'NOT LIKE' : 'LIKE';
 		if(strpos($this->operator, '^') !== false) {
-			$this->query->where("$this->tableField $likeType ?", $this->escapeLIKE($value) . '%');
+			$this->query->where("$this->tableField $likeType ?", $this->escapeLike($value) . '%');
 		} else {
-			$this->query->where("$this->tableField $likeType ?", '%' . $this->escapeLIKE($value));
+			$this->query->where("$this->tableField $likeType ?", '%' . $this->escapeLike($value));
 		}
 	}
 
@@ -318,7 +326,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$wheres = array(); // used only in $any mode
 		
 		foreach($words as $word) {
-			$word = $this->escapeLIKE($word);
+			$word = $this->escapeLike($word);
 			if(!strlen($word)) continue;
 			if($any) {
 				$bindKey = $this->query->getUniqueBindKey();
@@ -351,13 +359,14 @@ class DatabaseQuerySelectFulltext extends Wire {
 		// ~~=  Contains all words live (all full words + partial last word)
 		// ~|=  Contains any full words
 		// ~|*= Contains any partial words
+		// ~|+= Contains any words + expand
 
 		$tableField = $this->tableField();
 		$operator = $this->operator;
 		$required = strpos($operator, '|') === false;
 		$partial = strpos($operator, '*') !== false;
 		$partialLast = $operator === '~~=';
-		$expand = $operator === '~+=';
+		$expand = strpos($operator, '+') !== false;
 		$matchType = $this->not ? 'NOT MATCH' : 'MATCH';
 		$scoreField = $this->getScoreFieldName();
 		$matchAgainst = '';
@@ -365,12 +374,23 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$data = $this->getBooleanModeWords($value, array(
 			'required' => $required, 
 			'partial' => $partial, 
-			'partialLast' => $partialLast
+			'partialLast' => $partialLast,
+			'partialLess' => ($partial || $expand),
+			'alternates' => $expand, 
 		));
 	
 		if($expand) {
-			$bindKey = $this->query->bindValueGetKey($this->escapeAGAINST($data['value']));
+			if(!empty($data['booleanValue'])) {
+				// ensure full matches are above expanded matches
+				$preScoreField = $this->getScoreFieldName(); 
+				$bindKey = $this->query->bindValueGetKey($data['booleanValue']);
+				$this->query->select("$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) + 111.1 AS $preScoreField");
+				$this->query->orderby("$preScoreField DESC");
+			}
+			$bindValue = trim($data['value'] . ' ' . implode(' ', $data['altWords'])); 
+			$bindKey = $this->query->bindValueGetKey($this->escapeAgainst($bindValue));
 			$matchAgainst = "$matchType($tableField) AGAINST($bindKey WITH QUERY EXPANSION)";
+			
 		} else if(!empty($data['booleanValue'])) {
 			$bindKey = $this->query->bindValueGetKey($data['booleanValue']);
 			$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
@@ -387,7 +407,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 			$wheres = array();
 			$likeType = $this->not ? 'NOT RLIKE' : 'RLIKE';
 			foreach($data['likeWords'] as $word) {
-				$word = $this->escapeLIKE($word);
+				$word = $this->escapeLike($word);
 				if(!strlen($word)) continue;
 				$likeValue = '([[:blank:]]|[[:punct:]]|[[:space:]]|>|^)' . preg_quote($word);
 				if($partial || ($partialLast && $word === $data['lastWord'])) {
@@ -478,31 +498,63 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 */
 	protected function matchPhraseExpand($value) {
 		
-		// *+= phrase match with query expansion: use MATCH/AGAINST and confirm with LIKE
-		
 		$tableField = $this->tableField();
 		$not = strpos($this->operator, '!') === 0;
+		$matchType = $not ? "\nNOT MATCH" : "\nMATCH";
 		$words = $this->words($value, array('indexable' => true));
-		$againstValue = $this->escapeAGAINST(implode(' ', $words));
-		$wheres = array();
+		$wordsAlternates = array();
 		
-		if(count($words) && strlen($againstValue)) {
-			// use MATCH/AGAINST as pre-filter
-			$match = $not ? 'NOT MATCH' : 'MATCH';
-			$bindKey = $this->query->bindValueGetKey($againstValue);
-			$matchAgainst = "$match($tableField) AGAINST($bindKey WITH QUERY EXPANSION)";
-			$scoreField = $this->getScoreFieldName();
-			$wheres[] = $matchAgainst;
-			$this->query->select("$matchAgainst AS $scoreField");
-			$this->query->orderby("$scoreField DESC");
+		// BOOLEAN PHRASE: full phrase matches come before expanded matches
+		$scoreField = $this->getScoreFieldName();
+		$againstValue = '+"' . $this->escapeAgainst($value) . '*"';
+		$bindKey = $this->query->bindValueGetKey($againstValue);
+		$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
+		$this->query->select("$matchAgainst + 333.3 AS $scoreField");
+		$this->query->orderby("$scoreField DESC");
+		
+		if(!count($words)) {
+			// no words to work with for query expansion (not likely, unless stopwords or too-short)
+			$this->query->where($matchAgainst);
+			return;
 		}
 		
-		$likeType = $not ? 'NOT RLIKE' : 'RLIKE';
-		$likeValue = '([[:blank:]]|[[:punct:]]|[[:space:]]|>|^)' . preg_quote($value);
-		$bindKey = $this->query->bindValueGetKey($likeValue);
-		$wheres[] = "($tableField $likeType $bindKey)";
+		// BOOLEAN WEIGHTED WORDS: word matches above query expansion matches
+		$againstValue = '';
+		$scoreField = $this->getScoreFieldName();
+		foreach($words as $word) {
+			$wordAlternates = array();
+			foreach($this->getWordAlternates($word) as $w) {
+				if($w === $word || !$this->isIndexableWord($w)) continue; 
+				$wordAlternates[$w] = $w; // alternates for just this word
+				$wordsAlternates[$w] = $w; // alternates for all words
+			}
+			$word = $this->escapeAgainst($word);
+			// full word match carries more weight than partial or alternate word match,
+			// but at least one must be there in order to have a good score
+			$againstValue .= "+(";
+			$againstValue .= ">$word $word*"; 
+			if(count($wordAlternates)) {
+				$againstValue .= ' ' . $this->escapeAgainst(implode(' ', $wordAlternates));
+			}
+			$wordRoot = $this->getWordRoot($word); 
+			if($wordRoot && $wordRoot !== $word) {
+				$againstValue .= ' ' . $this->escapeAgainst($wordRoot) . '*';
+			}
+			$againstValue .= ") ";
+		}
+		$bindKey = $this->query->bindValueGetKey(trim($againstValue));
+		$this->query->select("$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) + 222.2 AS $scoreField");
+		$this->query->orderby("$scoreField DESC");
 		
-		$this->query->where(implode(' OR ', $wheres)); 
+		// QUERY EXPANSION: regular match/against words with query expansion
+		$words = array_unique(array_merge($words, $wordsAlternates));	
+		$againstValue = $this->escapeAgainst(implode(' ', $words));
+		$bindKey = $this->query->bindValueGetKey($againstValue);
+		$matchAgainst = "$matchType($tableField) AGAINST($bindKey WITH QUERY EXPANSION)";
+		$scoreField = $this->getScoreFieldName();
+		$this->query->where($matchAgainst);
+		$this->query->select("$matchAgainst AS $scoreField");
+		$this->query->orderby("$scoreField DESC");
 	}
 
 	/**
@@ -517,12 +569,30 @@ class DatabaseQuerySelectFulltext extends Wire {
 		// **+= Contains match + expand
 		
 		$tableField = $this->tableField();
-		$scoreField = $this->getScoreFieldName();
-		$expand = strpos($this->operator, '+') !==  false; 
+		$expand = strpos($this->operator, '+') !== false;
+		$matchType = $this->not ? 'NOT MATCH' : 'MATCH';
+
+		if($expand) {
+			// boolean mode query for sorting purposes
+			$scoreField = $this->getScoreFieldName();
+			$data = $this->getBooleanModeWords($value, array(
+				'partialLess' => true, 
+				'required' => false,
+				'alternates' => true, 
+			));
+			if(!empty($data['booleanValue'])) {
+				$againstValue = $data['booleanValue'];
+				$bindKey = $this->query->bindValueGetKey($againstValue);
+				$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
+				$this->query->select("$matchAgainst + 111.1 AS $scoreField");
+				$this->query->orderby("$scoreField DESC");
+			}
+		}
 		
 		// standard MATCH/AGAINST with optional query expansion
+		$scoreField = $this->getScoreFieldName();
 		$words = $this->words($value, array('indexable' => true, 'alternates' => $expand));
-		$againstValue = $this->escapeAGAINST(implode(' ', $words));
+		$againstValue = $this->escapeAgainst(implode(' ', $words));
 		
 		if(!count($words) || !strlen(trim($againstValue))) {
 			// query contains no indexbale words: force non-match
@@ -530,17 +600,19 @@ class DatabaseQuerySelectFulltext extends Wire {
 			return;
 		}
 		
-		$match = $this->not ? 'NOT MATCH' : 'MATCH';
 		$bindKey = $this->query->bindValueGetKey($againstValue);
 		$againstType = $expand ? 'WITH QUERY EXPANSION' : '';
-		$where = "$match($tableField) AGAINST($bindKey $againstType)";
+		$where = "$matchType($tableField) AGAINST($bindKey $againstType)";
 		$this->query->select("$where AS $scoreField");
 		$this->query->where($where); 
 		$this->query->orderby("$scoreField DESC");
 	}
 
 	/**
-	 * Match phrase at start or end of field value
+	 * Match phrase at start or end of field value (also uses fulltext index when possible)
+	 * 
+	 * Ignores whitespace, punctuation and opening/closing tags, enabling it to match 
+	 * start/end words or phrases surrounded by non-word characters.
 	 * 
 	 * @param $value
 	 * 
@@ -552,15 +624,27 @@ class DatabaseQuerySelectFulltext extends Wire {
 	
 		$tableField = $this->tableField();
 		$not = strpos($this->operator, '!') === 0;
+		$matchStart = strpos($this->operator, '^') !== false;
+		$againstValue = '';
+		
 		
 		$words = $this->words($value, array('indexable' => true));
-		$againstValue = count($words) ? $this->escapeAGAINST(implode(' ', $words)) : '';
+		if(count($words)) {
+			if($matchStart) {
+				$lastWord = $this->escapeAgainst(array_pop($words));
+				$againstValue = count($words) ? '+' . $this->escapeAgainst(implode(' +', $words)) : '';
+				$againstValue = trim("$againstValue +$lastWord*"); // 'partial*' match last word
+			} else {
+				array_shift($words); // skip first word since '*partial' match not possible with fulltext
+				$againstValue = count($words) ? '+' . $this->escapeAgainst(implode(' +', $words)) : '';
+			}
+		}
 	
 		if(strlen($againstValue)) {
 			// use MATCH/AGAINST to pre-filter before RLIKE when possible
 			$bindKey = $this->query->bindValueGetKey($againstValue);
 			$match = $not ? 'NOT MATCH' : 'MATCH';
-			$matchAgainst = "$match($tableField) AGAINST($bindKey)";
+			$matchAgainst = "$match($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
 			$scoreField = $this->getScoreFieldName();
 			$this->query->select("$matchAgainst AS $scoreField");
 			$this->query->where($matchAgainst);
@@ -570,7 +654,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$likeType = $not ? 'NOT RLIKE' : 'RLIKE';
 		$likeValue = preg_quote($value);
 		
-		if(strpos($this->operator, '^') !== false) {
+		if($matchStart) {
 			// starts with phrase, [optional non-visible html or whitespace] plus query text
 			$likeValue = '^[[:space:]]*(<[^>]+>)*[[:space:]]*' . $likeValue;
 		} else {
@@ -608,23 +692,29 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 *  - `required` (bool): Are given words required in the query? (default=true)
 	 *  - `partial` (bool): Is it okay to match a partial value? i.e. can "will" match "willy" (default=false)
 	 *  - `partialLast` (bool): Use partial only for last word? (default=null, auto-detect)
+	 *  - `partialLess` (bool): Weight partial match words less than full word match? (default=false)
 	 *  - `phrase` (bool): Is entire $value a full phrase to match? (default=auto-detect)
 	 *  - `useStopwords` (bool): Allow inclusion of stopwords? (default=null, auto-detect)
+	 *  - `alternates` (bool): Get word alternates? (default=null, auto-detect)
 	 * @return string|array Value provided to the function with boolean operators added, or verbose array.
 	 *
 	 */
 	protected function getBooleanModeWords($value, array $options = array()) {
 		
+		$expand = strpos($this->operator, '+') !== false;
+		
 		$defaults = array(
 			'required' => true, 
 			'partial' => false, 
 			'partialLast' => ($this->operator === '~~=' || $this->operator === '^='),
+			'partialLess' => false,
 			'useStopwords' => true,
+			'alternates' => $expand,
 		);
 
 		$options = array_merge($defaults, $options);
 		$minWordLength = (int) $this->database->getVariable('ft_min_word_len');
-		$value = $this->escapeAGAINST($value);
+		$value = $this->escapeAgainst($value);
 		$booleanValues = array();
 		$partial = $options['partial'] ? '*' : '';
 		$required = $options['required'] ? '+' : '';
@@ -634,34 +724,54 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$stopWords = array();
 		$shortWords = array();
 		$likeWords = array();
+		$altWords = array();
 
 		// get all words
-		$words = $this->words($value);
+		$allWords = $this->words($value);
 	
 		if($options['partialLast']) {
 			// treat last word separately (partial last word for live or starts-with searches)
 			// only last word is partial
-			$lastWord = end($words);
+			$lastWord = end($allWords);
 			$partial = '';
 		}
 		
 		// iterate through all words to build boolean query values
-		foreach($words as $key => $word) {
+		foreach($allWords as $key => $word) {
+			
 			$length = strlen($word);
-			if(!$length) continue;
+			if(!$length || isset($booleanValues[$word])) continue;
 			
 			if($this->isStopword($word)) {
 				// handle stop-word
 				$stopWords[$word] = $word;
-				if($useStopwords) $booleanValues[$word] = $word . $partial;
+				if($useStopwords) $booleanValues[$word] = "$word*";
+				continue; // do nothing further with stopwords
+				
 			} else if($length < $minWordLength) {
 				// handle too-short word
-				$booleanValues[$word] = $required . $word . $partial;
+				$booleanValues[$word] = $required . "$word*";
 				$shortWords[$word] = $word;
+				continue; // do nothing further with short words
+				
+			} else if($options['partialLess']) {
+				// handle regular word and match full word (more weight), or partial word (less weight)
+				$booleanValues[$word] = $required . "(>$word $word*)";
+				$goodWords[$word] = $word;
+				
 			} else {
 				// handle regular word
 				$booleanValues[$word] = $required . $word . $partial;
 				$goodWords[$word] = $word;
+			}
+			
+			if($options['alternates']) {
+				$booleanValue = $booleanValues[$word];
+				$alternates = $this->getBooleanModeAlternateWords($word, $booleanValue, $minWordLength, $options);
+				if($booleanValue !== $booleanValues[$word]) {
+					$booleanValues[$word] = $booleanValue;
+					$altWords = array_merge($altWords, $alternates);
+				}
 			}
 		}
 		
@@ -689,18 +799,87 @@ class DatabaseQuerySelectFulltext extends Wire {
 		}
 	
 		return array(
-			'value' => trim(implode(' ', $words)), 
+			'value' => trim(implode(' ', $allWords)), 
 			'booleanValue' => trim(implode(' ', $booleanValues)),
 			'booleanWords' => $booleanValues,
 			'likeWords' => $likeWords,
-			'allWords' => $words,
+			'allWords' => $allWords,
 			'goodWords' => $goodWords,
 			'badWords' => $badWords, 
 			'stopWords' => $stopWords, 
 			'shortWords' => $shortWords, 
+			'altWords' => $altWords, 
 			'lastWord' => $lastWord, 
 			'minWordLength' => $minWordLength, 
 		);
+	}
+
+	/**
+	 * Helper for getBooleanModeWords to handle population of alternate words in boolean value
+	 * 
+	 * @param string $word Word to find alternates for
+	 * @param string &$booleanValue Existing boolean value which will be updated
+	 * @param int $minWordLength
+	 * @param array $options
+	 * @return array
+	 * @since 3.0.162
+	 * 
+	 */
+	protected function getBooleanModeAlternateWords($word, &$booleanValue, $minWordLength, array $options) {
+
+		$required = strpos($booleanValue, '+') === 0 ? '+' : '';
+		$alternateWords = $this->getWordAlternates($word);
+		$rootWord = $this->getWordRoot($word);
+		
+		if($rootWord) {
+			if(!in_array($rootWord, $alternateWords)) {
+				$alternateWords[] = $rootWord;
+			} else {
+				$rootWord = '';
+			}
+		}
+		
+		$alternateWords = array_unique($alternateWords);
+
+		// prepare alternate words for inclusion in boolean value and remove any that aren’t indexable
+		foreach($alternateWords as $key => $alternateWord) {
+			$alternateWord = $this->escapeAgainst($alternateWord);
+			$length = $this->strlen($alternateWord);
+
+			if($alternateWord === $rootWord && $length > 1) {
+				// root word is always partial match. weight less if there are other alternates to match
+				$less = count($alternateWords) > 1 && !empty($options['partialLess']) ? '<' : '';
+				$alternateWords[$key] = $less . $alternateWord . '*';
+				if($length >= $minWordLength && $length >= 3) $alternateWords[] = $less . $alternateWord;
+
+			} else if($length < $minWordLength || $this->isStopword($alternateWord)) {
+				// alternate word not indexable, remove it
+				unset($alternateWords[$key]);
+
+			} else {
+				// replace with escaped version
+				$alternateWords[$key] = $alternateWord;
+			}
+		}
+		
+		if(!count($alternateWords)) return array();
+
+		// rebuild boolean value to include alternates: "+(word word)" or "+word" or ""
+		if($required) $booleanValue = ltrim($booleanValue, '+');
+		
+		// remove parens from boolean value, if present
+		$booleanValue = trim($booleanValue, '()');
+		
+		// assign higher weight to existing first word, if not already
+		if($booleanValue && strpos($booleanValue, '>') !== 0) $booleanValue = ">$booleanValue";
+		
+		// append alternate words
+		$booleanValue = trim($booleanValue . ' ' . implode(' ', $alternateWords));
+		
+		// package boolean value into parens and optional "+" prefix (indicating required)
+		$booleanValue = "$required($booleanValue)";
+		
+		return $alternateWords;
 	}
 
 	/**
@@ -802,9 +981,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 */
 	protected function isIndexableWord($word) {
-		static $minWordLength = null;
-		// note: ft_min_word_len is automatically changed to InnoDB’s equivalent when applicable
-		if($minWordLength === null) $minWordLength = (int) $this->database->getVariable('ft_min_word_len');
+		$minWordLength = $this->getMinWordLength();
 		if($minWordLength && $this->strlen($word) < $minWordLength) return false;
 		if($this->isStopword($word)) return false;
 		return true;
@@ -818,31 +995,50 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 */
 	protected function getScoreFieldName() {
-		$n = 0;
-		do {
-			$scoreField = "_score_{$this->tableName}_{$this->fieldName}" . (++$n);
-			// $locateField = "_locate_{$tableName}_{$fieldName}$n";
-		} while(isset(self::$scoreFields[$scoreField]));
-		self::$scoreFields[$scoreField] = 1;
-		return $scoreField;
+		$key = $this->tableName . '_' . $this->fieldName;
+		self::$scoreCnts[$key] = isset(self::$scoreCnts[$key]) ? self::$scoreCnts[$key] + 1 : 0;
+		return '_score_' . $key . self::$scoreCnts[$key];
+	}
+	
+	/**
+	 * Get minimum allowed indexable word length
+	 *
+	 * @return int
+	 *
+	 */
+	protected function getMinWordLength() {
+		// note: ft_min_word_len is automatically changed to InnoDB’s equivalent when applicable
+		if($this->minWordLength !== null) return $this->minWordLength;
+		$this->minWordLength = (int) $this->database->getVariable('ft_min_word_len');
+		return $this->minWordLength;
 	}
 
 	/**
-	 * Get other variations of given word to search (such as plural, singular, etc.)
-	 * 
-	 * Method is currently used by the **+= operator but will be also added 
-	 * to ~~= and ~+= operators shortly.
-	 * 
-	 * This method is for hooks to implement. 
-	 * 
-	 * #pw-hooker
+	 * Get other variations of given word to search (such as plural, singular, lemmas, etc.)
 	 * 
 	 * @param string $word
+	 * @param int|null $minLength Minimum length for returned words
 	 * @return array
 	 * 
 	 */
-	public function ___getWordAlternates($word) {
+	protected function getWordAlternates($word, $minLength = null) {
+		if($minLength === null) $minLength = $this->getMinWordLength();
+		return $this->wire()->sanitizer->getTextTools()->getWordAlternates($word, array(
+			'operator' => $this->operator, 
+			'lowercase' => true, 
+			'minLength' => $minLength,
+		));
+	}
+
+	/**
+	 * Get root of word (currently not implemented)
+	 * 
+	 * @param string $word
+	 * @return string
+	 * 
+	 */
+	protected function getWordRoot($word) {
 		if($word) {}
-		return array();
+		return '';
 	}
 }
