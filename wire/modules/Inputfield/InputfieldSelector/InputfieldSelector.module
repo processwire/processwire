@@ -356,39 +356,41 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 */
 	public function setup() {
 
-		$this->operators = array(
-			'=' => $this->_('Equals'), 
-			'!=' => $this->_('Not Equals'), 
-			'>' => $this->_('Greater Than'),
-			'<' => $this->_('Less Than'),
-			'>=' => $this->_('Greater Than or Equal'),
-			'<=' => $this->_('Less Than or Equal'),
-			'%=' => $this->_('Contains Text'),
-			'*=' => $this->_('Contains Phrase'),
-			'~=' => $this->_('Contains Words'),
-			'^=' => $this->_('Starts With'),
-			'$=' => $this->_('Ends With'),
-			'!%=' => $this->_('Does Not Contain Text'), 
-			'!*=' => $this->_('Does Not Contain Phrase'), 
-			'!~=' => $this->_('Does Not Contain Words'),
-			'!^=' => $this->_('Does Not Start With'),
-			'!$=' => $this->_('Does Not End With'),
-			'.=' => $this->_('Ascending By'), 
-			'.=-' => $this->_('Descending By'), 
+		$notLabel = $this->_('Not: %s'); 
+		$findOperators = array();
+		$findNotOperators = array();
+		
+		$operators = Selectors::getOperators(array(
+			'getIndexType' => 'operator',
+			'getValueType' => 'verbose',
+		));
+		
+		foreach($operators as $operator => $info) {
+			$this->operators[$operator] = $info['label'];
+			if($info['compareType'] & Selector::compareTypeFind) {
+				$findOperators[$operator] = $info['label'];
+				$findNotOperators["!$operator"] = sprintf($notLabel, $info['label']);
+			}
+		}
+		
+		$this->operators = array_merge($this->operators, $findNotOperators, array(
+			'.=' => $this->_('Ascending By'),
+			'.=-' => $this->_('Descending By'),
 			'@=' => $this->_('Has'),
 			'@!=' => $this->_('Does Not Have'),
-			'#=' => $this->_('Matches'),
-			'#!=' => $this->_('Does Not Match'),
-			'=""' => $this->_('Is Empty'), 
-			'!=""' => $this->_('Is Not Empty'), 
-			);
+			'=""' => $this->_('Is Empty'),
+			'!=""' => $this->_('Is Not Empty'),
+			//'#=' => $this->_('Matches'),
+			//'#!=' => $this->_('Does Not Match'),
+		));
 
 		// operators by input type
 		// this is a backup and/or for system fields, as these may also be specified
 		// with fieldtype's getSelectorInfo() method, which takes precedence
 		$this->operatorsByType = array(
 			'name' => array('=', '!=', '%='), 
-			'text' => array('%=', '!%=', '*=', '!*=', '~=', '!~=', '^=', '!^=', '$=', '!$=', '=', '!=', '=""', '!=""'), 
+			// 'text' => array('%=', '!%=', '*=', '!*=', '~=', '!~=', '^=', '!^=', '$=', '!$=', '=', '!=', '=""', '!=""'),
+			'text' => array_merge($findOperators, array('=', '!=', '<', '<=', '>', '>='), $findNotOperators), 
 			'autocomplete' => array('=', '!='), 
 			'number' => array('=', '!=', '<', '>', '<=', '>=', '=""', '!=""'), 
 			'datetime' => array('=', '!=', '<', '>', '<=', '>='), 
@@ -402,7 +404,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	
 		// chars that are trimmed off operators before being used	
 		// enables different contexts for the same operator
-		$this->operatorTrimChars = '.@#';
+		$this->operatorTrimChars = '.@';
 	
 		$templates = array();
 		foreach($this->wire('templates') as $template) {

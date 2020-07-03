@@ -474,6 +474,7 @@ var InputfieldSelector = {
 			var op = $op.val(); 
 			var $value = $op.next('.input-value'); 
 			var value = $value.val();
+			var fieldPrefix = '';
 
 			if(op && op.indexOf('"') > -1) {
 				// handle: 'is empty' or 'is not empty' operators
@@ -483,24 +484,33 @@ var InputfieldSelector = {
 				$value.removeAttr('disabled');
 			}
 
+			if(op.indexOf('!') === 0 && op !== '!=') {
+				fieldPrefix = '!';
+				op = op.substring(1);
+			}
+			
 			if(typeof value != "undefined") if(value.length) {
 				
 				if($value.hasClass("input-value-subselect") && InputfieldSelector.valueHasOperator(value)) {
 					// value needs to be identified as a sub-selector
 					value = '[' + value + ']';
 
-				} else if(value.indexOf(',') > -1 && fieldName != '_custom') {
+				// } else if(value.indexOf(',') > -1 && fieldName != '_custom') {
+				} else if(fieldName != '_custom') {
 					// value needs to be quoted
 					if(value.indexOf('"') > -1) { 
-						if(value.indexOf("'") == -1) value = "'" + value + "'"; 
-							else value = '"' + value.replace(/"/g, '') + '"'; // remove quote
-					} else {
+						if(value.indexOf("'") === -1) {
+							value = "'" + value + "'";
+						} else {
+							value = '"' + value.replace(/"/g, '') + '"'; // remove quote
+						}
+					} else if(!value.match(/^[-_a-zA-Z0-9]*$/)) {
 						value = '"' + value + '"'; 
 					}
 				}
 			}
 
-			var testField = ',' + fieldName + '~' + op + '~'; 
+			var testField = ',' + fieldPrefix + fieldName + '~' + op + '~'; 
 			var testValue = '~' + op + '~' + value + ','; 
 			var mayOrValue = value && value.length > 0 && test.indexOf(testField) > -1; 
 			var mayOrField = value && value.length > 0 && test.indexOf(testValue) > -1; 
@@ -526,6 +536,7 @@ var InputfieldSelector = {
 			}
 
 			selectors[n++] = {
+				not: fieldPrefix === '!',
 				field: fieldName, 
 				operator: op, 
 				value: value,
@@ -535,11 +546,11 @@ var InputfieldSelector = {
 				useOrField: useOrField,
 				isOrGroup: isOrGroup,
 				checkbox: $orCheckbox
-				};
+			};
 
 			if(mayOrField || mayOrValue) showOrNotes = true; 
-			test += ',' + fieldName + '~' + op + '~' + value + ',';
-			selector += ',' + fieldName + op + value; // this gets rebuilt later, but is here for querying
+			test += ',' + fieldPrefix + fieldName + '~' + op + '~' + value + ',';
+			selector += ',' + fieldPrefix + fieldName + op + value; // this gets rebuilt later, but is here for querying
 
 		}); // each row
 
@@ -621,6 +632,7 @@ var InputfieldSelector = {
 					selector += s.field + '="' + $.trim(s.value) + '"';
 				}
 			} else {
+				if(s.not) selector += '!';
 				selector += s.field + s.operator + $.trim(s.value); 
 			}
 		}
