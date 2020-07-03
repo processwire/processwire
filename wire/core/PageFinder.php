@@ -642,8 +642,10 @@ class PageFinder extends Wire {
 					
 					if($options['returnVerbose']) {
 						// determine score for this row
-						$score = 0;
-						foreach($row as $k => $v) if(strpos($k, '_score') === 0) {
+						$score = 0.0;
+						foreach($row as $k => $v) if(strpos($k, '_score_') === 0) {
+							$v = (float) $v; 
+							if($v === 111.1 || $v === 222.2 || $v === 333.3) continue; // signal scores of non-match
 							$score += $v;
 							unset($row[$k]);
 						}

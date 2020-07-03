@@ -446,7 +446,8 @@ class PagesLoader extends Wire {
 			
 			if(count($scores)) {
 				foreach($pages as $page) {
-					if(isset($scores[$page->id])) $page->setQuietly('_pfscore', $scores[$page->id]); 
+					$score = isset($scores[$page->id]) ? $scores[$page->id] : 0; 
+					$page->setQuietly('_pfscore', $score); 
 				}
 			}
 

@@ -109,6 +109,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			$pageNumUrlPrefix = $this->get("pageNumUrlPrefix$language"); 
 			if($pageNumUrlPrefix) $pageNumUrlPrefixes[] = $pageNumUrlPrefix;
 			$fields->setNative("name$language"); 
+			$fields->setNative("status$language"); 
 		}
 		if(count($pageNumUrlPrefixes)) {
 			$pageNumUrlPrefixes[] = $config->pageNumUrlPrefix; // original/fallback prefix
