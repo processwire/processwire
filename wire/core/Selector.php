@@ -131,6 +131,12 @@ abstract class Selector extends WireData {
 	 *
 	 */
 	const compareTypeDatabase = 128;
+
+	/**
+	 * Comparison type: Fulltext index required when used with database queries
+	 *
+	 */
+	const compareTypeFulltext = 256;
 	
 	/**
 	 * Given a field name and value, construct the Selector. 
@@ -658,6 +664,7 @@ abstract class Selector extends WireData {
 			'ContainsAnyWords',
 			'ContainsAnyWordsPartial',
 			'ContainsAnyWordsLike',
+			'ContainsAnyWordsExpand',
 			'ContainsExpand',
 			'ContainsMatch',
 			'ContainsMatchExpand',
@@ -686,9 +693,7 @@ class SelectorEqual extends Selector {
 	public static function getOperator() { return '='; }
 	public static function getCompareType() { return Selector::compareTypeExact; }
 	public static function getLabel() { return __('Equals', __FILE__); }
-	public static function getDescription() { 
-		return __('Given value is exactly the same as value compared to.', __FILE__); 
-	}
+	public static function getDescription() { return __('Given value is the same as value compared to.', __FILE__); }
 	protected function match($value1, $value2) { return $this->evaluate($value1 == $value2); }
 }
 
@@ -700,9 +705,7 @@ class SelectorNotEqual extends Selector {
 	public static function getOperator() { return '!='; }
 	public static function getCompareType() { return Selector::compareTypeExact; }
 	public static function getLabel() { return __('Not equals', __FILE__); }
-	public static function getDescription() {
-		return __('Given value is not exactly the same as value compared to.', __FILE__);
-	}
+	public static function getDescription() { return __('Given value is not the same as value compared to.', __FILE__); }
 	protected function match($value1, $value2) { return $this->evaluate($value1 != $value2); }
 }
 
@@ -714,9 +717,7 @@ class SelectorGreaterThan extends Selector {
 	public static function getOperator() { return '>'; }
 	public static function getCompareType() { return Selector::compareTypeSort; }
 	public static function getLabel() { return __('Greater than', __FILE__); }
-	public static function getDescription() {
-		return __('Given value is greater than compared value.', __FILE__);
-	}
+	public static function getDescription() { return __('Compared value is greater than given value.', __FILE__); }
 	protected function match($value1, $value2) { return $this->evaluate($value1 > $value2); }
 }
 
@@ -728,9 +729,7 @@ class SelectorLessThan extends Selector {
 	public static function getOperator() { return '<'; }
 	public static function getCompareType() { return Selector::compareTypeSort; }
 	public static function getLabel() { return __('Less than', __FILE__); }
-	public static function getDescription() {
-		return __('Given value is less than compared value.', __FILE__);
-	}
+	public static function getDescription() { return __('Compared value is less than given value.', __FILE__); }
 	protected function match($value1, $value2) { return $this->evaluate($value1 < $value2); }
 }
 
@@ -742,9 +741,7 @@ class SelectorGreaterThanEqual extends Selector {
 	public static function getOperator() { return '>='; }
 	public static function getCompareType() { return Selector::compareTypeSort; }
 	public static function getLabel() { return __('Greater than or equal', __FILE__); }
-	public static function getDescription() {
-		return __('Given value is greater than or equal to compared value.', __FILE__);
-	}
+	public static function getDescription() { return __('Compared value is greater than or equal to given value.', __FILE__); }
 	protected function match($value1, $value2) { return $this->evaluate($value1 >= $value2); }
 }
 
@@ -756,9 +753,7 @@ class SelectorLessThanEqual extends Selector {
 	public static function getOperator() { return '<='; }
 	public static function getCompareType() { return Selector::compareTypeSort; }
 	public static function getLabel() { return __('Less than or equal', __FILE__); }
-	public static function getDescription() {
-		return __('Given value is less than or equal to compared value.', __FILE__);
-	}
+	public static function getDescription() { return __('Compared value is less than or equal to given value.', __FILE__); }
 	protected function match($value1, $value2) { return $this->evaluate($value1 <= $value2); }
 }
 
@@ -768,28 +763,58 @@ class SelectorLessThanEqual extends Selector {
  */
 class SelectorContains extends Selector { 
 	public static function getOperator() { return '*='; }
-	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
 	public static function getLabel() { return __('Contains phrase', __FILE__); }
-	public static function getDescription() {
-		return __('Given phrase or word appears in value compared to.', __FILE__);
-	}
+	public static function getDescription() { return SelectorContains::buildDescription('phrase fulltext'); }
 	protected function match($value1, $value2) { 
 		$matches = stripos($value1, $value2) !== false && preg_match('/\b' . preg_quote($value2) . '/i', $value1); 
 		return $this->evaluate($matches);
+	}
+
+	/**
+	 * Build description from predefined keys for SelectorContains* classes
+	 * 
+	 * @param array|string $keys
+	 * @return string
+	 * 
+	 */
+	public static function buildDescription($keys) {
+		$a = array();
+		if(!is_array($keys)) $keys = explode(' ', $keys);
+		foreach($keys as $key) {
+			switch($key) {
+				case 'text': $a[] = __('Given text appears in value compared to.', __FILE__); break;
+				case 'phrase': $a[] = __('Given phrase or word appears in value compared to.', __FILE__); break;
+				case 'phrase-start': $a[] = __('Given word or phrase appears at beginning of compared value.', __FILE__); break;
+				case 'phrase-end': $a[] = __('Given word or phrase appears at end of compared value.', __FILE__); break;
+				case 'expand': $a[] = __('Expand to include potentially related terms and word variations.', __FILE__); break;
+				case 'words-all': $a[] = __('All given words appear in compared value, in any order.', __FILE__); break;
+				case 'words-any': $a[] = __('Any given words appear in compared value, in any order.', __FILE__); break;
+				case 'words-match': $a[] = __('Any given words match against compared value.', __FILE__); break;
+				case 'words-whole': $a[] = __('Matches whole words.', __FILE__); break;
+				case 'words-partial': $a[] = __('Matches whole or partial words.', __FILE__); break;
+				case 'words-partial-any': $a[] = __('Partial matches anywhere within words.', __FILE__); break;
+				case 'words-partial-begin': $a[] = __('Partial matches from beginning of words.', __FILE__); break;
+				case 'words-partial-last': $a[] = __('Partial matches last word in given value.', __FILE__); break;
+				case 'fulltext': $a[] = __('Uses “fulltext” index.', __FILE__); break;
+				case 'like': $a[] = __('Matches using “like”.', __FILE__); break;
+				case 'like-words': $a[] = __('Matches without regard to word boundaries (using “like”).', __FILE__); break;
+				default: $a[] = "UNKNOWN:$key";
+			}
+		}
+		return implode(' ', $a);
 	}
 }
 
 /**
  * Same as SelectorContains but query expansion when used for database searching
- * 
+ *
  */
 class SelectorContainsExpand extends SelectorContains {
 	public static function getOperator() { return '*+='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeDatabase; }
-	public static function getLabel() { return __('Contains phrase + expand', __FILE__); }
-	public static function getDescription() {
-		return __('Given phrase, word or related terms appear in value compared to.', __FILE__);
-	}
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeDatabase | Selector::compareTypeFulltext; }
+	public static function getLabel() { return __('Contains phrase expand', __FILE__); }
+	public static function getDescription() { return SelectorContains::buildDescription('phrase expand fulltext'); }
 }
 
 /**
@@ -800,9 +825,7 @@ class SelectorContainsLike extends SelectorContains {
 	public static function getOperator() { return '%='; }
 	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
 	public static function getLabel() { return __('Contains text like', __FILE__); }
-	public static function getDescription() {
-		return __('Given text appears in compared value, without regard to word boundaries.', __FILE__);
-	}
+	public static function getDescription() { return SelectorContains::buildDescription('phrase like'); }
 	protected function match($value1, $value2) { return $this->evaluate(stripos($value1, $value2) !== false); }
 }
 
@@ -812,11 +835,9 @@ class SelectorContainsLike extends SelectorContains {
  */
 class SelectorContainsWords extends Selector { 
 	public static function getOperator() { return '~='; }
-	public static function getCompareType() { return Selector::compareTypeFind; }
-	public static function getLabel() { return __('Contains entire words', __FILE__); }
-	public static function getDescription() {
-		return __('All given whole words appear in compared value, in any order.', __FILE__);
-	}
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getLabel() { return __('Contains all words', __FILE__); }
+	public static function getDescription() { return SelectorContains::buildDescription('words-all words-whole fulltext'); }
 	protected function match($value1, $value2) { 
 		$hasAll = true; 
 		$words = $this->wire()->sanitizer->wordsArray($value2); 
@@ -834,16 +855,36 @@ class SelectorContainsWords extends Selector {
  */
 class SelectorContainsWordsPartial extends Selector {
 	public static function getOperator() { return '~*='; }
-	public static function getCompareType() { return Selector::compareTypeFind; }
-	public static function getLabel() { return __('Contains words partial', __FILE__); }
-	public static function getDescription() {
-		return __('All given partial and whole words appear in compared value, in any order. Partial matches from beginning of words.', __FILE__);
-	}
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getLabel() { return __('Contains all partial words', __FILE__); }
+	public static function getDescription() { return SelectorContains::buildDescription('words-all words-partial words-partial-begin fulltext'); }
 	protected function match($value1, $value2) {
 		$hasAll = true;
 		$words = $this->wire()->sanitizer->wordsArray($value2); 
 		foreach($words as $key => $word) {
 			if(!preg_match('/\b' . preg_quote($word) . '/i', $value1)) {
+				$hasAll = false;
+				break;
+			}
+		}
+		return $this->evaluate($hasAll);
+	}
+}
+
+/**
+ * Selector that matches partial words at either beginning or ending
+ *
+ */
+class SelectorContainsWordsLike extends Selector {
+	public static function getOperator() { return '~%='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
+	public static function getLabel() { return __('Contains all words like', __FILE__); }
+	public static function getDescription() { return SelectorContains::buildDescription('words-all words-partial words-partial-any like'); }
+	protected function match($value1, $value2) {
+		$hasAll = true;
+		$words = $this->wire()->sanitizer->wordsArray($value2);
+		foreach($words as $key => $word) {
+			if(stripos($value1, $word) === false) {
 				$hasAll = false;
 				break;
 			}
@@ -860,11 +901,9 @@ class SelectorContainsWordsPartial extends Selector {
  */
 class SelectorContainsWordsLive extends Selector {
 	public static function getOperator() { return '~~='; }
-	public static function getCompareType() { return Selector::compareTypeFind; }
-	public static function getLabel() { return __('Contains words live', __FILE__); }
-	public static function getDescription() {
-		return __('All given whole words—and at least partial last word—appear in compared value, in any order.', __FILE__);
-	}
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getLabel() { return __('Contains all words live', __FILE__); }
+	public static function getDescription() { return SelectorContains::buildDescription('words-all words-partial-last fulltext'); }
 	protected function match($value1, $value2) {
 		$hasAll = true;
 		$words = $this->wire()->sanitizer->wordsArray($value2); 
@@ -883,40 +922,14 @@ class SelectorContainsWordsLive extends Selector {
 }
 
 /**
- * Selector that matches partial words at either beginning or ending
- * 
- */
-class SelectorContainsWordsLike extends Selector {
-	public static function getOperator() { return '~%='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
-	public static function getLabel() { return __('Contains words like', __FILE__); }
-	public static function getDescription() {
-		return __('All given partial or whole words appear in compared value (in any order) without regard to word boundaries.', __FILE__);
-	}
-	protected function match($value1, $value2) {
-		$hasAll = true;
-		$words = $this->wire()->sanitizer->wordsArray($value2); 
-		foreach($words as $key => $word) {
-			if(stripos($value1, $word) === false) {
-				$hasAll = false;
-				break;
-			}
-		}
-		return $this->evaluate($hasAll);
-	}
-}
-
-/**
  * Selector that matches all words with query expansion
  *
  */
 class SelectorContainsWordsExpand extends SelectorContainsWords {
 	public static function getOperator() { return '~+='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand; }
-	public static function getLabel() { return __('Contains words + expand', __FILE__); }
-	public static function getDescription() {
-		return __('All given whole words appear in compared value (in any order) and expand to match related values.', __FILE__);
-	}
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeFulltext; }
+	public static function getLabel() { return __('Contains all words expand', __FILE__); }
+	public static function getDescription() { return SelectorContains::buildDescription('words-all words-whole expand fulltext'); }
 }
 
 /**
@@ -925,8 +938,9 @@ class SelectorContainsWordsExpand extends SelectorContainsWords {
  */
 class SelectorContainsAnyWords extends Selector {
 	public static function getOperator() { return '~|='; }
-	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
 	public static function getLabel() { return __('Contains any words', __FILE__); }
+	public static function getDescription() { return SelectorContains::buildDescription('words-any words-whole fulltext'); }
 	protected function match($value1, $value2) {
 		$hasAny = false;
 		$words = $this->wire()->sanitizer->wordsArray($value2);
@@ -940,9 +954,6 @@ class SelectorContainsAnyWords extends Selector {
 		}
 		return $this->evaluate($hasAny);
 	}
-	public static function getDescription() {
-		return __('Any of the given whole words appear in compared value.', __FILE__);
-	}
 }
 
 /**
@@ -951,8 +962,9 @@ class SelectorContainsAnyWords extends Selector {
  */
 class SelectorContainsAnyWordsPartial extends Selector {
 	public static function getOperator() { return '~|*='; }
-	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
 	public static function getLabel() { return __('Contains any partial words', __FILE__); }
+	public static function getDescription() { return SelectorContains::buildDescription('words-any words-partial words-partial-begin fulltext'); }
 	protected function match($value1, $value2) {
 		$hasAny = false;
 		$words = $this->wire()->sanitizer->wordsArray($value2);
@@ -966,9 +978,6 @@ class SelectorContainsAnyWordsPartial extends Selector {
 		}
 		return $this->evaluate($hasAny);
 	}
-	public static function getDescription() {
-		return __('Any of the given partial or whole words appear in compared value. Partial matches from beginning of words.', __FILE__);
-	}
 }
 
 /**
@@ -976,13 +985,10 @@ class SelectorContainsAnyWordsPartial extends Selector {
  *
  */
 class SelectorContainsAnyWordsLike extends Selector {
-	// public static function getOperator() { return '%|='; }
 	public static function getOperator() { return '~|%='; }
 	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
 	public static function getLabel() { return __('Contains any words like', __FILE__); }
-	public static function getDescription() {
-		return __('Any of the given partial or whole words appear in compared value, without regard to word boundaries.', __FILE__);
-	}
+	public static function getDescription() { return SelectorContains::buildDescription('words-any words-partial words-partial-any like'); }
 	protected function match($value1, $value2) {
 		$hasAny = false;
 		$words = $this->wire()->sanitizer->wordsArray($value2);
@@ -997,6 +1003,43 @@ class SelectorContainsAnyWordsLike extends Selector {
 }
 
 /**
+ * Selector that matches any words with query expansion
+ *
+ */
+class SelectorContainsAnyWordsExpand extends SelectorContainsAnyWords {
+	public static function getOperator() { return '~|+='; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeFulltext; }
+	public static function getLabel() { return __('Contains any words expand', __FILE__); }
+	public static function getDescription() { return SelectorContains::buildDescription('words-any expand fulltext'); }
+	protected function match($value1, $value2) {
+		$hasAny = false;
+		$textTools = $this->wire()->sanitizer->getTextTools();
+		$words = $this->wire()->sanitizer->wordsArray($value2);
+		foreach($words as $word) {
+			if(stripos($value1, $word) !== false && preg_match('/\b' . preg_quote($word) . '\b/i', $value1)) {
+				$hasAny = true;
+				break;
+			}
+			$stem = $textTools->getWordStem($word);
+			if($stem && stripos($value1, $stem) !== false && preg_match('/\b' . preg_quote($stem) . '/i', $value1)) {
+				$hasAny = true;
+				break;
+			}
+			$alternates = $textTools->getWordAlternates($word); 
+			foreach($alternates as $alternate) {
+				if(stripos($value1, $alternate) && preg_match('/\b' . preg_quote($alternate) . '\b/i', $value1)) {
+					$hasAny = true;
+					break;
+				}
+			}
+			if($hasAny) break;
+		}
+		return $this->evaluate($hasAny);
+	}
+}
+
+
+/**
  * Selector that uses standard MySQL MATCH/AGAINST behavior with implied DB-score sorting
  *
  * This selector is only useful for database $pages->find() queries. 
@@ -1004,11 +1047,9 @@ class SelectorContainsAnyWordsLike extends Selector {
  */
 class SelectorContainsMatch extends SelectorContainsAnyWords {
 	public static function getOperator() { return '**='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeDatabase; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeDatabase | Selector::compareTypeFulltext; }
 	public static function getLabel() { return __('Contains match', __FILE__); }
-	public static function getDescription() {
-		return __('Any or all of the given words match compared value using default database logic and score.', __FILE__);
-	}
+	public static function getDescription() { return SelectorContains::buildDescription('words-match words-whole fulltext'); }
 }
 
 /**
@@ -1019,11 +1060,9 @@ class SelectorContainsMatch extends SelectorContainsAnyWords {
  */
 class SelectorContainsMatchExpand extends SelectorContainsMatch {
 	public static function getOperator() { return '**+='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeDatabase; }
-	public static function getLabel() { return __('Contains match + expand', __FILE__); }
-	public static function getDescription() {
-		return SelectorContainsMatch::getDescription() . ' ' . __('Plus, expands to include potentially related results.', __FILE__);
-	}
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeDatabase | Selector::compareTypeFulltext; }
+	public static function getLabel() { return __('Contains match expand', __FILE__); }
+	public static function getDescription() { return SelectorContains::buildDescription('words-match words-whole expand fulltext'); }
 }
 
 /**
@@ -1043,7 +1082,7 @@ class SelectorContainsMatchExpand extends SelectorContainsMatch {
  */
 class SelectorContainsAdvanced extends SelectorContains {
 	public static function getOperator() { return '#='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeCommand; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeCommand | Selector::compareTypeFulltext; }
 	public static function getLabel() { return __('Advanced text search', __FILE__); }
 	public static function getDescription() {
 		return 
@@ -1132,11 +1171,9 @@ class SelectorContainsAdvanced extends SelectorContains {
  */
 class SelectorStarts extends Selector { 
 	public static function getOperator() { return '^='; }
-	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
 	public static function getLabel() { return __('Starts with', __FILE__); }
-	public static function getDescription() {
-		return __('Given word or phrase appears at beginning of compared value.', __FILE__);
-	}
+	public static function getDescription() { return SelectorContains::buildDescription('phrase-start fulltext'); }
 	protected function match($value1, $value2) { 
 		return $this->evaluate(stripos(trim($value1), $value2) === 0); 
 	}
@@ -1150,9 +1187,7 @@ class SelectorStartsLike extends SelectorStarts {
 	public static function getOperator() { return '%^='; }
 	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
 	public static function getLabel() { return __('Starts like', __FILE__); }
-	public static function getDescription() {
-		return __('Given text appears at beginning of compared value, without regard for word boundaries.', __FILE__);
-	}
+	public static function getDescription() { return SelectorContains::buildDescription('phrase-start like'); }
 }
 
 /**
@@ -1161,11 +1196,9 @@ class SelectorStartsLike extends SelectorStarts {
  */
 class SelectorEnds extends Selector { 
 	public static function getOperator() { return '$='; }
-	public static function getCompareType() { return Selector::compareTypeFind; }
+	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
 	public static function getLabel() { return __('Ends with', __FILE__); }
-	public static function getDescription() {
-		return __('Given word or phrase appears at end of compared value.', __FILE__);
-	}
+	public static function getDescription() { return SelectorContains::buildDescription('phrase-end fulltext'); }
 	protected function match($value1, $value2) { 
 		$value2 = trim($value2); 
 		$value1 = substr($value1, -1 * strlen($value2));
@@ -1181,9 +1214,7 @@ class SelectorEndsLike extends SelectorEnds {
 	public static function getOperator() { return '%$='; }
 	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
 	public static function getLabel() { return __('Ends like', __FILE__); }
-	public static function getDescription() {
-		return __('Given text appears at end of compared value, without regard for word boundaries.', __FILE__);
-	}
+	public static function getDescription() { return SelectorContains::buildDescription('phrase-end like'); }
 }
 
 /**

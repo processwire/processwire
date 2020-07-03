@@ -383,9 +383,17 @@ class Selectors extends WireArray {
 		}
 		
 		if($operator && !isset($operators[$lastOperator])) {
-			if(self::isOperator($operator)) {
-				$operators[$operator] = $operator;
-			} else {
+			$fail = true;
+			if(!count($operators)) {
+				// check if operator has a typo we can fix
+				$op = self::isOperator($operator, true);
+				if($op) {
+					$operators[$op] = $op;
+					$str = substr($str, $n);
+					$fail = false;
+				}
+			}
+			if($fail) {
 				throw new WireException("Unrecognized operator: $operator"); 
 			}
 		}
@@ -1235,7 +1243,7 @@ class Selectors extends WireArray {
 	 * @param array $options
 	 *  - `operator` (string): Return info for only this operator. When specified, only value is returned (default='').
 	 *  - `compareType` (int): Return only operators matching given `Selector::compareType*` constant (default=0).
-	 *  - `getIndexType` (string): Index type to use in returned array: 'operator', 'className' or 'class' (default='class')
+	 *  - `getIndexType` (string): Index type to use in returned array: 'operator', 'className', 'class', or 'none' (default='class')
 	 *  - `getValueType` (string): Value type to use in returned array: 'operator', 'class', 'className', 'label', 'description', 'compareType', 'verbose' (default='operator').
 	 *     If 'verbose' option used then assoc array returned for each operator containing 'class', 'className', 'operator', 'compareType', 'label', 'description'.
 	 * @return array|string|int Returned array where both keys and values are operators (or values are requested 'valueType' option)
@@ -1291,14 +1299,20 @@ class Selectors extends WireArray {
 			} else {
 				$value = $operator;
 			}
-			if($indexType === 'class') {
+			if($indexType === 'none') {
+				$key = '';
+			} else if($indexType === 'class') {
 				$key = $typeName;
 			} else if($indexType === 'className') {
 				$key = $className;
 			} else {
 				$key = $operator;
 			}
-			$operators[$key] = $value;
+			if($key === '') {
+				$operators[] = $value;
+			} else {
+				$operators[$key] = $value;
+			}
 		}
 
 		if(!empty($options['operator'])) return reset($operators);
@@ -1400,12 +1414,18 @@ class Selectors extends WireArray {
 	 * #pw-group-static-helpers
 	 *
 	 * @param string $operator
-	 * @return bool
+	 * @param bool $returnOperator Return the operator rather than bool? When true, corrects minor typos, like mixed up
+	 *   order, returning correct found operator string if possible, false otherwise. Added 3.0.162. (default=false)
+	 * @return bool|string
 	 * @since 3.0.108
 	 *
 	 */
-	static public function isOperator($operator) {
-		return self::getOperatorType($operator, true);
+	static public function isOperator($operator, $returnOperator = false) {
+		$is = self::getOperatorType($operator, true);
+		if(!$returnOperator || strlen($operator) < 3) return $is;
+		if($is) return $operator;
+		$op = strrev(trim($operator, '=')) . '=';
+		return self::getOperatorType($op, true) ? $op : false;
 	}
 
 	/**
