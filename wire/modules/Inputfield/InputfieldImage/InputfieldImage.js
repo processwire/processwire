@@ -208,7 +208,8 @@ function InputfieldImage($) {
 		if(checked) {
 			$items.prop("checked", "checked").change();
 		} else {
-			$items.removeAttr("checked").change();
+			// $items.removeAttr("checked").change(); // JQM
+			$items.prop("checked", false).change();
 		}
 	}
 
@@ -217,10 +218,11 @@ function InputfieldImage($) {
 	 *
 	 */
 	function updateGrid($inputfield) {
+		var $gridImages;
 		if(typeof $inputfield == "undefined") {
-			var $gridImages = $(".gridImages");
+			$gridImages = $(".gridImages");
 		} else {
-			var $gridImages = $inputfield.find(".gridImages");
+			$gridImages = $inputfield.find(".gridImages");
 		}
 		$gridImages.each(function() {
 			var $grid = $(this),
@@ -237,8 +239,9 @@ function InputfieldImage($) {
 		var narrowItems = [];
 		var mediumItems = [];
 		var wideItems = [];
-		var ni = 0, mi = 0, wi = 0;
+		var n = 0, ni = 0, mi = 0, wi = 0;
 		var $inputfields;
+		var $item;
 	
 		if(typeof $inputfield == "undefined") {
 			$inputfields = $(".InputfieldImage.Inputfield");
@@ -249,7 +252,7 @@ function InputfieldImage($) {
 		$inputfields.removeClass('InputfieldImageNarrow InputfieldImageMedium InputfieldImageWide');
 		
 		$inputfields.each(function() {
-			var $item = $(this);
+			$item = $(this);
 			var width = $item.width();
 			if(width < 1) return;
 			if(width <= 500) {
@@ -264,16 +267,16 @@ function InputfieldImage($) {
 			}
 		});
 		
-		for(var n = 0; n < ni; n++) {
-			var $item = narrowItems[n];	
+		for(n = 0; n < ni; n++) {
+			$item = narrowItems[n];	
 			$item.addClass('InputfieldImageNarrow');
 		}
-		for(var n = 0; n < mi; n++) {
-			var $item = mediumItems[n];
+		for(n = 0; n < mi; n++) {
+			$item = mediumItems[n];
 			$item.addClass('InputfieldImageMedium');
 		}
-		for(var n = 0; n < wi; n++) {
-			var $item = wideItems[n];
+		for(n = 0; n < wi; n++) {
+			$item = wideItems[n];
 			$item.addClass('InputfieldImageWide');
 		}
 	}
@@ -397,7 +400,7 @@ function InputfieldImage($) {
 			if(typeof focusStr == "undefined") {
 				if(focusData !== null) return focusData;
 				var $input = $edit.find('.InputfieldImageFocus');
-				var focusStr = $input.val();
+				focusStr = $input.val();
 			}
 			
 			var a = focusStr.split(' ');
@@ -685,7 +688,7 @@ function InputfieldImage($) {
 	 *
 	 */
 	function getFocusZoomPosition4GridviewSquare(focusPercent, sourceDimPX, gridViewPX, zoomPercent, scale, smallestSidePX) {
-		var sourceDimPX = sourceDimPX * scale;                 // is used to later get the position in pixel
+		sourceDimPX = sourceDimPX * scale;                 // is used to later get the position in pixel
 		var gridViewPercent = gridViewPX / sourceDimPX * 100;  // get percent of the gridViewBox in regard to the current image side size (width|height)
 		var adjustPercent = gridViewPercent / 2;               // is used to calculate position from the circle center point to [left|top] percent
 		var posPercent = focusPercent - adjustPercent;         // get adjusted position in percent
@@ -1125,11 +1128,12 @@ function InputfieldImage($) {
 	 * 
 	 */
 	function setGridSizeItem($item, gridSize, ragged, focus) {
+		var $img;
 		
 		if($item.hasClass('gridImage__overflow')) {
-			var $img = $item.children('img');	
+			$img = $item.children('img');	
 		} else if($item.is('img')) {
-			var $img = $item;
+			$img = $item;
 			$item = $img.closest('.gridImage__overflow');
 		} else {
 			return;
@@ -1174,17 +1178,18 @@ function InputfieldImage($) {
 			
 		} else if(zoom > 0 && $item.closest('.InputfieldImageFocusZoom').length && !gridSliding) { 
 			// focus with zoom
+			var maxHeight, maxWidth;
 			if(w >= h) {
-				var maxHeight = '100%';
-				var maxWidth = 'none';
+				maxHeight = '100%';
+				maxWidth = 'none';
 				if(w == dataW) {
 					// scale full dimensions proportionally to gridSize
 					h = gridSize;	
 					w = (h / dataH) * dataW
 				}
 			} else {
-				var maxHeight = 'none';
-				var maxWidth = '100%';
+				maxHeight = 'none';
+				maxWidth = '100%';
 				if(h == dataH) {
 					// scale full dimensions proportionally to gridSize
 					w = gridSize;
@@ -1237,7 +1242,7 @@ function InputfieldImage($) {
 			$img.removeAttr('width').attr('height', gridSize);
 		}
 
-		var w = $img.width();
+		w = $img.width();
 		// if(!w) w = $img.attr('data-w');
 
 		if(w) {
@@ -1448,7 +1453,7 @@ function InputfieldImage($) {
 		var data = cookieData ? cookieData : $.cookie('InputfieldImage');
 		var value = null;	
 
-		if(!data) var data = {};
+		if(!data) data = {};
 	
 		// setup default values
 		if(typeof data[name] == "undefined") data[name] = {};

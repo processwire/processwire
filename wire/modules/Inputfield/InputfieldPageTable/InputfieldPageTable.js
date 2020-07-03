@@ -176,8 +176,9 @@ $(document).ready(function() {
 	
 	$(document).on('click', '.InputfieldPageTableOrphansAll', function() {
 		var $checkboxes = $(this).closest('.InputfieldPageTableOrphans').find('input'); 
-		if($checkboxes.eq(0).is(":checked")) $checkboxes.removeAttr('checked'); 
-			else $checkboxes.attr('checked', 'checked'); 
+		// if($checkboxes.eq(0).is(":checked")) $checkboxes.removeAttr('checked');  // JQM
+		//	else $checkboxes.attr('checked', 'checked'); // JQM
+		$checkboxes.prop('checked', ($checkboxes.eq(0).is(':checked') ? false : true));
 		return false;
 	}); 
 }); 

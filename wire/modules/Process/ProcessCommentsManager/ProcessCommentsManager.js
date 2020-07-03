@@ -76,9 +76,11 @@ $(document).ready(function() {
 	$("#CommentCheckAll").click(function() {
 		var $items = $(".CommentCheckbox");
 		if($(this).is(":checked")) {
-			$items.attr('checked', 'checked');
+			// $items.attr('checked', 'checked'); // JQM
+			$items.prop('checked', true);
 		} else {
-			$items.removeAttr('checked');
+			// $items.removeAttr('checked'); // JQM
+			$items.prop('checked', false);
 		}
 		$items.each(function() {
 			commentCheckboxClicked($(this));

@@ -146,12 +146,13 @@
 
 				if(options.sortable) makeSortable();
 
+				/*
 				if(typeof $.browser != "undefined" && typeof $.browser.msie != "undefined") {
 					msie = $.browser.msie ? $.browser.version : 0;
 				}
-
 				if(msie > 0 && msie < 8) $ol.css('display', 'inline-block'); // Thanks Matthew Hutton
-				
+				*/
+
 				if(options.fieldset) {
 					setupFieldsets();
 					$original.children('option').each(function() {
@@ -311,7 +312,8 @@
 					// an already-open parent option has been clicked
 					hideSelectOptions($children);
 					parentHTML = parentHTML.replace(/\+\d+ ./, ''); // note the '.' represents the UTF-8 arrow icon
-					$option.removeClass(options.optionParentOpenClass).removeAttr('selected');
+					// $option.removeClass(options.optionParentOpenClass).removeAttr('selected');
+					$option.removeClass(options.optionParentOpenClass).prop('selected', false);
 				} else {
 					// a closed parent has been clicked
 					var indent = options.optionChildIndent;
@@ -326,15 +328,18 @@
 						}
 					});
 					showSelectOptions($children, $option);
-					$select.find(':selected').removeAttr('selected');
+					// $select.find(':selected').removeAttr('selected');
+					$select.find(':selected').prop('selected', false);
 					// collapse any existing parents that are open (behave as accordion)
 					if(!$option.hasClass(options.optionChildClass)) {
 						$select.find('.' + options.optionParentOpenClass).each(function() {
-							$(this).attr('selected', 'selected').change(); // trigger close if any existing open
+							// $(this).attr('selected', 'selected').change(); // trigger close if any existing open
+							$(this).prop('selected', true).change(); // trigger close if any existing open
 						});
 					}
 					// make the parent selected, encouraging them to click to select a child
-					$option.addClass(options.optionParentOpenClass).attr('selected', 'selected');
+					// $option.addClass(options.optionParentOpenClass).attr('selected', 'selected');
+					$option.addClass(options.optionParentOpenClass).prop('selected', true);
 					parentHTML += openLabel;
 					var highlightOption = options.highlight;
 					options.highlight = true; // temporarily enable, even if not otherwise enabled
@@ -356,7 +361,8 @@
 			 */	
 			function childOptionSelected($select, $option) {
 				// if an option.asmChild was selected, keep the parent selected afterwards		
-				$select.find("option[value='" + $option.attr(options.optionChildAttr) + "']").attr('selected', 'selected');
+				// $select.find("option[value='" + $option.attr(options.optionChildAttr) + "']").attr('selected', 'selected');
+				$select.find("option[value='" + $option.attr(options.optionChildAttr) + "']").prop('selected', true);
 			}
 
 			/**
@@ -575,7 +581,8 @@
 			 * 
 			 */
 			function selectFirstItem() {
-				$select.children(":eq(0)").attr("selected", true); 
+				// $select.children(":eq(0)").attr("selected", true);
+				$select.children(":eq(0)").prop("selected", true); 
 			}
 
 			/**
@@ -589,9 +596,8 @@
 				// because safari is the only browser that makes disabled items look 'disabled'
 				// we apply a class that reproduces the disabled look in other browsers
 
-				$option.addClass(options.optionDisabledClass)
-					.attr("selected", false)
-					.attr("disabled", true);
+				// $option.addClass(options.optionDisabledClass).attr("selected", false).attr("disabled", true);
+				$option.addClass(options.optionDisabledClass).prop("selected", false).prop("disabled", true);
 				
 				if(options.hideWhenEmpty) {
 					if($option.siblings('[disabled!=true]').length < 2) $select.hide();
@@ -708,7 +714,8 @@
 
 				if(!buildingSelect) {
 					if($O.is(":selected")) return; // already have it
-					$O.attr('selected', true); 
+					// $O.attr('selected', true);
+					$O.prop('selected', true); 
 				}
 
 				if(options.addItemTarget == 'top' && !buildingSelect) {
@@ -785,7 +792,8 @@
 
 					if(typeof highlightItem == "undefined") highlightItem = true; 
 
-					$O.attr('selected', false); 
+					// $O.attr('selected', false);
+					$O.prop('selected', false); 
 					$item = $ol.children("li[rel=" + optionId + "]");
 
 					dropListItemHide($item); 

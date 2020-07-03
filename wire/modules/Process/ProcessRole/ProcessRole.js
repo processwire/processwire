@@ -37,7 +37,8 @@ function ProcessRoleUpdatePermissions(init, $checkbox) {
 			}
 			
 		} else {
-			$children.find("input.global-permission:not(:disabled)").removeAttr('checked');
+			// $children.find("input.global-permission:not(:disabled)").removeAttr('checked'); // JQM
+			$children.find("input.global-permission:not(:disabled)").prop('checked', false);
 			init ? $children.hide() : $children.fadeOut();
 			$row.removeClass('permission-checked');
 			if($row.hasClass('permission-page-edit')) {
@@ -52,18 +53,23 @@ function ProcessRoleUpdatePermissions(init, $checkbox) {
 $(document).ready(function() {
 
 	var $pageView = $("#Inputfield_permissions_36"); 
-	if(!$pageView.is(":checked")) $pageView.attr('checked', 'checked'); 
+	if(!$pageView.is(":checked")) {
+		// $pageView.attr('checked', 'checked'); // JQM
+		$pageView.prop('checked', true);
+	}
 
 	ProcessRoleUpdatePermissions(true, null);
 	
 	$("#wrap_Inputfield_permissions").on("click", "input.global-permission, label.checkbox-disabled", function(e) {
+		
+		var $label, $checkbox;
 	
 		if($(this).is("label")) {
-			var $label = $(this);
-			var $checkbox = $label.children("input");
+			$label = $(this);
+			$checkbox = $label.children("input");
 		} else {
-			var $checkbox = $(this);
-			var $label = $checkbox.parent();
+			$checkbox = $(this);
+			$label = $checkbox.parent();
 		}
 		
 		var alertText = $label.attr('data-alert');
@@ -79,7 +85,7 @@ $(document).ready(function() {
 		}
 	
 		if($(this).is("input")) {
-			var $checkbox = $(this);
+			$checkbox = $(this);
 			setTimeout(function() {
 				ProcessRoleUpdatePermissions(false, $checkbox);
 			}, 100);

@@ -78,7 +78,7 @@ var InputfieldPageAutocomplete = {
 		$icon.attr('data-class', $icon.attr('class')); 
 
 		function isAddAllowed() {
-			var allowed = $('#_' + id.replace('Inputfield_', '') + '_add_items').size() > 0;
+			var allowed = $('#_' + id.replace('Inputfield_', '') + '_add_items').length > 0;
 			return allowed;
 		}
 
@@ -173,6 +173,7 @@ var InputfieldPageAutocomplete = {
 				$icon.attr('class', $icon.attr('data-class'));
 
 			}).keydown(function(event) {
+				var $addNote;
 				if(event.keyCode == 13) {
 					// prevents enter from submitting the form
 					event.preventDefault();
@@ -192,9 +193,9 @@ var InputfieldPageAutocomplete = {
 							$value.val(page.page_id);
 							$("#_" + id.replace('Inputfield_', '') + '_add_items').val(page.label);
 							$input.addClass('added_item').blur();
-							var $addNote = $note.siblings(".InputfieldPageAutocompleteNoteAdd");
+							$addNote = $note.siblings(".InputfieldPageAutocompleteNoteAdd");
 							if(!$addNote.length) {
-								var $addNote = $("<div class='notes InputfieldPageAutocompleteNote InputfieldPageAutocompleteNoteAdd'></div>");
+								$addNote = $("<div class='notes InputfieldPageAutocompleteNote InputfieldPageAutocompleteNoteAdd'></div>");
 								$note.after($addNote);
 							}
 							$addNote.text($note.attr('data-adding') + ' ' + page.label);
@@ -214,7 +215,7 @@ var InputfieldPageAutocomplete = {
 
 				if(numAdded && noList) {
 					// some other key after an item already added, so remove added item info for potential new one
-					var $addNote = $note.siblings(".InputfieldPageAutocompleteNoteAdd");
+					$addNote = $note.siblings(".InputfieldPageAutocompleteNoteAdd");
 					var $addText = $("#_" + id.replace('Inputfield_', '') + '_add_items');
 					if($addNote.length && $addText.val() != $(this).val()) {
 						// added value has changed
@@ -365,8 +366,8 @@ var InputfieldPageAutocomplete = {
 		var max = parseInt($input.attr('data-max'));
 
 		var $children = $ol.children(':not(.itemTemplate)');
-		if(max > 0 && $children.size() > max) { 
-			while($children.size() > max) $children = $children.slice(1); 
+		if(max > 0 && $children.length > max) { 
+			while($children.length > max) $children = $children.slice(1); 
 			$ol.children(':not(.itemTemplate)').replaceWith($children);
 		}
 	
@@ -382,7 +383,7 @@ var InputfieldPageAutocomplete = {
 		$input.val(value);
 
 		var $addItems = $('#_' + name + '_add_items'); 
-		if($addItems.size() > 0) $addItems.val(addValue);
+		if($addItems.length > 0) $addItems.val(addValue);
 	},
 
 	updateIcons: function($target) {

@@ -388,7 +388,7 @@ function ProcessTemplate() {
 	function setupAccessTab() {
 		
 		var redirectLoginClick = function() {
-			if($("#redirectLogin_-1:checked").size() > 0) $("#wrap_redirectLoginURL").slideDown();
+			if($("#redirectLogin_-1:checked").length > 0) $("#wrap_redirectLoginURL").slideDown();
 			else $("#wrap_redirectLoginURL").hide();
 		}
 
@@ -408,7 +408,8 @@ function ProcessTemplate() {
 					}
 				});
 
-				$("input.viewRoles").attr('checked', 'checked');
+				// $("input.viewRoles").attr('checked', 'checked'); // JQM
+				$('input.viewRoles').prop('checked', true);
 
 			} else {
 
@@ -431,14 +432,15 @@ function ProcessTemplate() {
 				$("#wrap_guestSearchable").hide();
 				$("#useRolesYes").slideDown();
 				$("#wrap_useRoles > label").click();
-				$("input.viewRoles").attr('checked', 'checked');
+				// $("input.viewRoles").attr('checked', 'checked'); // JQM
+				$("input.viewRoles").prop('checked', true);
 			} else {
 				$("#useRolesYes").slideUp();
 				$("#accessOverrides:visible").slideUp();
 			}
 		});
 
-		if($("#useRoles_0:checked").size() > 0) {
+		if($("#useRoles_0:checked").length > 0) {
 			$("#useRolesYes").hide();
 			$("#accessOverrides").hide();
 		}
@@ -466,9 +468,11 @@ function ProcessTemplate() {
 
 				if($t.is(":checked")) {
 					numChecked++;
-					$createRoles.removeAttr('disabled');
+					// $createRoles.removeAttr('disabled'); // JQM
+					$createRoles.prop('disabled', false);
 				} else {
-					$createRoles.removeAttr('checked').attr('disabled', 'disabled');
+					// $createRoles.removeAttr('checked').attr('disabled', 'disabled'); // JQM
+					$createRoles.prop('checked', false).prop('disabled', true);
 				}
 			});
 

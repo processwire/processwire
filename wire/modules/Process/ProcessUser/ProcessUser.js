@@ -5,13 +5,15 @@ $(document).ready(function() {
 		// hide fields that aren't necessary ehre
 		$("#wrap_Inputfield_pass").hide(); 	
 		$("#wrap_Inputfield_email").hide();	
-		$("#wrap_Inputfield_roles input").attr('disabled', 'disabled');
+		// $("#wrap_Inputfield_roles input").attr('disabled', 'disabled'); // JQM
+		$("#wrap_Inputfield_roles input").prop('disabled', true);
 		//$("#wrap_submit_save").remove();
 	}
 
 	var $guestRole = $("#Inputfield_roles_37"); 
-	if($guestRole.size() > 0 && !$guestRole.is(":checked")) {
-		$guestRole.attr('checked', 'checked'); 
+	if($guestRole.length > 0 && !$guestRole.is(":checked")) {
+		// $guestRole.attr('checked', 'checked'); // JQM
+		$guestRole.prop('checked', true); 
 	}
 	
 	$("#wrap_Inputfield_roles").find("input[type=checkbox]").each(function() {

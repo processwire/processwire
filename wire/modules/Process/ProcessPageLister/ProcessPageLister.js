@@ -57,7 +57,7 @@ var ProcessLister = {
 		}); 
 
 		$("#ProcessListerActionsForm").find('script').remove(); // to prevent from running twice after being WireTabbed
-		if(ProcessLister.lister.size() > 0) ProcessLister.lister.WireTabs({ items: $(".WireTab") });
+		if(ProcessLister.lister.length > 0) ProcessLister.lister.WireTabs({ items: $(".WireTab") });
 
 
 		$("#_ProcessListerRefreshTab").html("<i class='fa fa-fw fa-refresh ui-priority-secondary'></i>")

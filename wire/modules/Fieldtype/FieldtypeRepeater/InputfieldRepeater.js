@@ -81,12 +81,14 @@ function InputfieldRepeater($) {
 			var $checkbox = $item.find('#delete_repeater' + pageID);
 
 			if($checkbox.is(":checked")) {
-				$checkbox.removeAttr('checked');
+				// $checkbox.removeAttr('checked'); // JQM
+				$checkbox.prop('checked', false);
 				$header.removeClass('ui-state-error').addClass('ui-state-default');
 				//if($parent.is('.InputfieldStateCollapsed')) $parent.toggleClass('InputfieldStateCollapsed', 100);
 				$item.removeClass('InputfieldRepeaterDeletePending');
 			} else {
-				$checkbox.attr('checked', 'checked');
+				// $checkbox.attr('checked', 'checked'); // JQM
+				$checkbox.prop('checked', true);
 				$header.removeClass('ui-state-default').addClass('ui-state-error');
 				if(!$item.hasClass('InputfieldStateCollapsed')) {
 					$header.find('.toggle-icon').click();
@@ -427,13 +429,14 @@ function InputfieldRepeater($) {
 		var $items = $repeater.children('.InputfieldContent').children('.Inputfields').children('.InputfieldRepeaterItem');
 		if(!$items.length) return false;
 		var $item = $items.eq(0);
+		var label, selector;
 		
 		if($item.hasClass('InputfieldStateCollapsed')) {
-			var label = ProcessWire.config.InputfieldRepeater.labels.openAll;
-			var selector = '.InputfieldStateCollapsed';
+			label = ProcessWire.config.InputfieldRepeater.labels.openAll;
+			selector = '.InputfieldStateCollapsed';
 		} else {
-			var label = ProcessWire.config.InputfieldRepeater.labels.collapseAll;
-			var selector = '.InputfieldRepeaterItem:not(.InputfieldStateCollapsed)';
+			label = ProcessWire.config.InputfieldRepeater.labels.collapseAll;
+			selector = '.InputfieldRepeaterItem:not(.InputfieldStateCollapsed)';
 		}
 		ProcessWire.confirm(label, function() {
 			$items.filter(selector).each(function() {
@@ -745,17 +748,18 @@ function InputfieldRepeater($) {
 	 * 
 	 */
 	function initRepeater($this) {
+		var $inputfields, $inputfieldRepeater, isItem;
 
 		if($this.hasClass('InputfieldRepeaterItem')) {
 			// single repeater item
-			var $inputfields = $this;
-			var $inputfieldRepeater = $this.closest('.InputfieldRepeater');
-			var isItem = true;
+			$inputfields = $this;
+			$inputfieldRepeater = $this.closest('.InputfieldRepeater');
+			isItem = true;
 		} else {
 			// enter repeater
-			var $inputfields = $this.find('.Inputfields:eq(0)');
-			var $inputfieldRepeater = $this;
-			var isItem = false;
+			$inputfields = $this.find('.Inputfields:eq(0)');
+			$inputfieldRepeater = $this;
+			isItem = false;
 		}
 
 		if($inputfields.hasClass('InputfieldRepeaterInit')) return;

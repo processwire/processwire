@@ -154,9 +154,11 @@ function pwModalWindowSettings(name) {
  */
 function pwModalWindow(href, options, size) {
 	
+	var $iframe, url;
+	
 	// destory any existing pw-modals that aren't currently open
 	for(var n = 0; n <= pwModalWindows.length; n++) {
-		var $iframe = pwModalWindows[n]; 	
+		$iframe = pwModalWindows[n]; 	
 		if($iframe == null) continue; 
 		if($iframe.dialog('isOpen')) continue;
 		$iframe.dialog('destroy').remove();
@@ -164,15 +166,15 @@ function pwModalWindow(href, options, size) {
 	}
 
 	if(href.indexOf('modal=') > 0) {
-		var url = href; 
+		url = href; 
 	} else {
-		var url = href + (href.indexOf('?') > -1 ? '&' : '?') + 'modal=1';
+		url = href + (href.indexOf('?') > -1 ? '&' : '?') + 'modal=1';
 	}
-	var $iframe = jQuery('<iframe class="pw-modal-window" frameborder="0" src="' + url + '"></iframe>');
+	$iframe = jQuery('<iframe class="pw-modal-window" frameborder="0" src="' + url + '"></iframe>');
 	$iframe.attr('id', 'pw-modal-window-' + (pwModalWindows.length+1));
 	pwModalWindows[pwModalWindows.length] = $iframe;
 	
-	if(typeof size == "undefined" || size.length == 0) var size = 'large';
+	if(typeof size == "undefined" || size.length == 0) size = 'large';
 	var settings = pwModalWindowSettings(size);
 	
 	if(settings == null) {

@@ -10,7 +10,8 @@ jQuery(document).ready(function($) {
 		if(e.shiftKey) {
 			var start = $checkboxes.index(this);
 			var end = $checkboxes.index(lastChecked);
-			$checkboxes.slice(Math.min(start,end), Math.max(start,end)+ 1).attr('checked', lastChecked.checked);
+			// $checkboxes.slice(Math.min(start,end), Math.max(start,end)+ 1).attr('checked', lastChecked.checked); // JQM
+			$checkboxes.slice(Math.min(start,end), Math.max(start,end)+ 1).prop('checked', lastChecked.checked ? true : false);
 		}
 		lastChecked = this;
 	});

@@ -108,7 +108,8 @@ $(document).ready(function() {
 	// setup access control tab
 	$("#viewRoles_37").click(function() {
 		// if guest has view, then all have view
-		if($(this).is(":checked")) $("input.viewRoles").attr('checked', 'checked');
+		// if($(this).is(":checked")) $("input.viewRoles").attr('checked', 'checked'); // JQM
+		if($(this).is(":checked")) $("input.viewRoles").prop('checked', true);
 	});
 	$("input.viewRoles:not(#viewRoles_37)").click(function() {
 		// prevent unchecking 'view' for other roles when 'guest' role is checked
@@ -118,7 +119,8 @@ $(document).ready(function() {
 	$("input.editRoles:not(:disabled)").click(function() {
 		if($(this).is(":checked")) {
 			// if editable is checked, then viewable must also be checked
-			$(this).closest('tr').find("input.viewRoles").attr('checked', 'checked'); 
+			// $(this).closest('tr').find("input.viewRoles").attr('checked', 'checked'); // JQM
+			$(this).closest('tr').find("input.viewRoles").prop('checked', true); 
 		}
 	}); 
 
@@ -126,10 +128,12 @@ $(document).ready(function() {
 	$(".override-select-all").click(function() {
 		var $checkboxes = $(this).closest('table').find("input[type=checkbox]");
 		if($(this).hasClass('override-checked')) {
-			$checkboxes.removeAttr('checked');
+			// $checkboxes.removeAttr('checked'); // JQM
+			$checkboxes.prop('checked', false);
 			$(this).removeClass('override-checked'); 
 		} else {
-			$checkboxes.attr('checked', 'checked');
+			// $checkboxes.attr('checked', 'checked'); // JQM
+			$checkboxes.prop('checked', true);
 			$(this).addClass('override-checked');
 		}
 		return false;

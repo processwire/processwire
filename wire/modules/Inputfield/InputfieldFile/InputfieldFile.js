@@ -14,8 +14,13 @@ $(document).ready(function() {
 		// enable double-click to delete all
 		var $input = $(this).find('input'); 
 		var $items = $(this).parents('.InputfieldFileList').find('.InputfieldFileDelete input');
-		if($input.is(":checked")) $items.removeAttr('checked').change();
-			else $items.attr('checked', 'checked').change();
+		if($input.is(":checked")) {
+			// $items.removeAttr('checked').change(); // JQM
+			$items.prop('checked', false).change(); 
+		} else {
+			// $items.attr('checked', 'checked').change(); // JQM
+			$items.prop('checked', true).change(); 
+		}
 		return false; 
 	}); 
 
@@ -219,7 +224,7 @@ $(document).ready(function() {
 			var dropArea = $this.get(0);
 			var $fileList = $this.find(".InputfieldFileList"); 
 
-			if($fileList.size() < 1) {
+			if($fileList.length < 1) {
 				$fileList = $("<ul class='InputfieldFileList InputfieldFileListBlank'></ul>");
 				$this.prepend($fileList); 
 				$this.parent('.Inputfield').addClass('InputfieldFileEmpty'); 
@@ -293,7 +298,7 @@ $(document).ready(function() {
 
 							if(r.replace) {
 								var $child = $this.find('.InputfieldFileList').children('li:eq(0)');
-								if($child.size() > 0) $child.slideUp('fast', function() { $child.remove(); });
+								if($child.length > 0) $child.slideUp('fast', function() { $child.remove(); });
 							}
                            
 							// ie10 file field stays populated, this fixes that

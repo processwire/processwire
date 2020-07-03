@@ -58,7 +58,7 @@ function CommentFormStars() {
 		if(typeof offClass == "undefined") offClass = 'CommentStarOff';
 		
 		if(typeof starOn != "undefined") {
-			var starOff = $parent.attr('data-off');
+			starOff = $parent.attr('data-off');
 			starOn = decodeEntities(starOn);
 			starOff = decodeEntities(starOff);
 		} else {
@@ -225,7 +225,8 @@ function CommentFormCookies() {
 	$form.find(".CommentFormCite input").val(values[0]);
 	$form.find(".CommentFormEmail input").val(values[1]);
 	$form.find(".CommentFormWebsite input").val(values[2]);
-	$form.find(".CommentFormNotify :input[value='" + values[3] + "']").attr('checked', 'checked');
+	// $form.find(".CommentFormNotify :input[value='" + values[3] + "']").attr('checked', 'checked'); // JQM
+	$form.find(".CommentFormNotify :input[value='" + values[3] + "']").prop('checked', true);
 }
 
 /**

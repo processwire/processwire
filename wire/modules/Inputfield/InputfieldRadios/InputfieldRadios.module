@@ -63,7 +63,10 @@ class InputfieldRadios extends InputfieldSelect {
 		foreach($options as $key => $value) {
 			
 			$checked = '';
-			$id = $this->id . "_" . $sanitizer->name($key); 
+
+			$id = $sanitizer->name($key); 
+			if(!strlen(trim($id, '_'))) $id = trim(base64_encode($key), '=/.');
+			$id = $this->id . '_' . $id;
 			$attrs = $this->getOptionAttributes($key);
 			
 			$inputClass = trim($this->attr('class'));

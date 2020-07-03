@@ -17,7 +17,7 @@ $(document).ready(function() {
 		var val = $t.val();
 		var showPublish = false; 
 		if($t.is("select")) {
-			var $option = $t.find("option[value=" + val + "]"); 
+			var $option = $t.find("option[value='" + val + "']"); 
 			if($option.attr('data-publish') === '1') showPublish = true; 	
 		} else {
 			showPublish = $t.attr('data-publish') === '1'; 
@@ -75,7 +75,7 @@ $(document).ready(function() {
 	// we hide language tabs/inputs when such a template is selected
 	if($(".langTabs").length) {
 		$("#template").change(function() {
-			var $option = $(this).find("option[value=" + $(this).val() + "]");
+			var $option = $(this).find("option[value='" + $(this).val() + "']");
 			if(parseInt($option.attr('data-nolang')) > 0) {
 				hideLanguageTabs();
 			} else {
@@ -87,7 +87,8 @@ $(document).ready(function() {
 	$(".InputfieldPageName .LanguageSupport input[type=text]").on('blur', function() {
 		if($(this).val().length == 0) return;
 		var $checkbox = $(this).next('label').children('input'); 
-		if(!$checkbox.is(":checked")) $checkbox.attr('checked', 'checked');
+		// if(!$checkbox.is(":checked")) $checkbox.attr('checked', 'checked'); // JQM
+		if(!$checkbox.is(":checked")) $checkbox.prop('checked', true);
 	});
 
 });

@@ -59,9 +59,11 @@ function setupExecuteVariations() {
 
 	$(document).on('click', 'input#delete_all', function(event) {
 		if($(this).is(":checked")) {
-			$("input.delete").attr('checked', 'checked');
+			// $("input.delete").attr('checked', 'checked'); // JQM
+			$("input.delete").prop('checked', true);
 		} else {
-			$("input.delete").removeAttr('checked');
+			// $("input.delete").removeAttr('checked'); // JQM
+			$("input.delete").prop('checked', false);
 		}
 		event.stopPropagation();
 	});
@@ -118,13 +120,15 @@ function setupSelectedImage() {
 			if((h >= maxHeight || w >= maxWidth) && $form.hasClass('croppable')) {
 				w = maxWidth;
 				h = maxHeight;
-				$("#selected_image_link").removeAttr('checked');
+				// $("#selected_image_link").removeAttr('checked'); // JQM
+				$("#selected_image_link").prop('checked', false);
 				$link.hide();
 			} else {
 				if(!$link.is(":visible")) {
 					$link.fadeIn();
 					if($link.attr('data-was-checked') == 1) {
-						$link.attr('checked', 'checked');
+						// $link.attr('checked', 'checked'); // JQM
+						$link.prop('checked', true);
 					}
 				}
 			}
@@ -171,8 +175,10 @@ function setupSelectedImage() {
 						if(!$form.hasClass('rte')) {
 							var $resizeYes = $("#selected_image_resize_yes");
 							if (!$resizeYes.is(":checked")) {
-								$resizeYes.attr('checked', 'checked');
-								$("#selected_image_resize_no").removeAttr('checked');
+								// $resizeYes.attr('checked', 'checked'); // JQM
+								$resizeYes.prop('checked', true);
+								// $("#selected_image_resize_no").removeAttr('checked'); // JQM
+								$("#selected_image_resize_no").prop('checked', false);
 							}
 						}
 					}
