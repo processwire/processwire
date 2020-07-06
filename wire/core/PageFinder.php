@@ -1585,6 +1585,7 @@ class PageFinder extends Wire {
 						$q = $this->wire(new DatabaseQuerySelect());
 					}
 
+					/** @var PageFinderDatabaseQuerySelect $q */
 					$q->set('field', $field); // original field if required by the fieldtype
 					$q->set('group', $group); // original group of the field, if required by the fieldtype
 					$q->set('selector', $selector); // original selector if required by the fieldtype
@@ -3213,4 +3214,15 @@ class PageFinder extends Wire {
 		throw new PageFinderSyntaxException($message); 
 	}
 }
+
+/**
+ * Typehinting class for DatabaseQuerySelect object passed to Fieldtype::getMatchQuery()
+ *
+ * @property Field $field Original field
+ * @property string $group Original group of the field
+ * @property Selector $selector Original Selector object
+ * @property Selectors $selectors Original Selectors object
+ * @property DatabaseQuerySelect $parentQuery Parent database query
+ */
+abstract class PageFinderDatabaseQuerySelect extends DatabaseQuerySelect { }
 

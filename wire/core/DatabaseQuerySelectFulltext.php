@@ -37,7 +37,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	const maxQueryValueLength = 500;
 
 	/**
-	 * @var DatabaseQuerySelect
+	 * @var DatabaseQuerySelect|PageFinderDatabaseQuerySelect
 	 *
 	 */
 	protected $query;
@@ -67,7 +67,9 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected $method = '';
 
 	/**
-	 * Is it a NOT operator?
+	 * Is it a NOT operator? 
+	 * 
+	 * This is not used by PageFinder originating queries, which handles NOT internally.
 	 * 
 	 * @var bool
 	 * 
@@ -81,6 +83,22 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 */
 	protected $minWordLength = null;
+
+	/**
+	 * Allow adding 'ORDER BY' to query?
+	 * 
+	 * @var bool|null 
+	 * 
+	 */
+	protected $allowOrder = null;
+
+	/**
+	 * Allow fulltext searches to fallback to LIKE searches to match stopwords?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $allowStopwords = true;
 
 	/**
 	 * @var array
@@ -110,10 +128,11 @@ class DatabaseQuerySelectFulltext extends Wire {
 	/**
 	 * Construct
 	 *
-	 * @param DatabaseQuerySelect $query
+	 * @param DatabaseQuerySelect|PageFinderDatabaseQuerySelect $query
 	 *
 	 */
 	public function __construct(DatabaseQuerySelect $query) {
+		$query->wire($this);
 		$this->query = $query;
 	}
 
@@ -146,6 +165,40 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 */
 	protected function tableField() {
 		return "$this->tableName.$this->fieldName";
+	}
+
+	/**
+	 * Get or set whether or not 'ORDER BY' statements are allowed to be added
+	 * 
+	 * @param null|bool $allow Specify bool to set or omit to get
+	 * @return bool|null Returns bool when known or null when not yet known
+	 * @since 3.0.162
+	 * 
+	 */
+	public function allowOrder($allow = null) {
+		if($allow !== null) $this->allowOrder = $allow ? true : false;
+		return $this->allowOrder;
+	}
+
+	/**
+	 * Get or set whether fulltext searches can fallback to LIKE searches to match stopwords
+	 *
+	 * @param null|bool $allow Specify bool to set or omit to get
+	 * @return bool
+	 * @since 3.0.162
+	 *
+	 */
+	public function allowStopwords($allow = null) {
+		if($allow !== null) $this->allowStopwords = $allow ? true : false;
+		return $this->allowStopwords;
+	}
+
+	/**
+	 * @return string
+	 * 
+	 */
+	protected function matchType() {
+		return "\n  " . ($this->not ? 'NOT MATCH' : 'MATCH');
 	}
 
 	/**
@@ -204,11 +257,19 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		$this->tableName = $this->database->escapeTable($tableName); 
 		$this->fieldName = $this->database->escapeCol($fieldName);
+		$allowOrder = true;
 		
 		if(strpos($operator, '!') === 0 && $operator !== '!=') {
 			$this->not = true;
 			$operator = ltrim($operator, '!');
+		} else {
+			// disable orderby statements when calling object will be negating whatever we do
+			$selector = $this->query->selector;
+			if($selector && $selector instanceof Selector && $selector->not) $allowOrder = false;
 		}
+
+		// if allowOrder has not been specifically set, then set value now
+		if($this->allowOrder === null) $this->allowOrder = $allowOrder; 
 		
 		$this->operator = $operator;
 		
@@ -275,7 +336,8 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 *
 	 */
 	protected function matchEquals($value) {
-		$this->query->where("$this->tableField$this->operator?", $value);
+		$op = $this->wire()->database->escapeOperator($this->operator, WireDatabasePDO::operatorTypeComparison); 
+		$this->query->where("$this->tableField$op?", $value);
 	}
 
 	/**
@@ -367,9 +429,10 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$partial = strpos($operator, '*') !== false;
 		$partialLast = $operator === '~~=';
 		$expand = strpos($operator, '+') !== false;
-		$matchType = $this->not ? 'NOT MATCH' : 'MATCH';
+		$matchType = $this->matchType();
 		$scoreField = $this->getScoreFieldName();
 		$matchAgainst = '';
+		$wheres = array();
 		
 		$data = $this->getBooleanModeWords($value, array(
 			'required' => $required, 
@@ -378,18 +441,27 @@ class DatabaseQuerySelectFulltext extends Wire {
 			'partialLess' => ($partial || $expand),
 			'alternates' => $expand, 
 		));
-	
+		
+		if(empty($data['value'])) {
+			// query contains no indexable words: force non-match
+			//$this->query->where('1>2');
+			//return;
+			// TEST OUT: title|summary~|+=beer
+		}
+
 		if($expand) {
-			if(!empty($data['booleanValue'])) {
+			if(!empty($data['booleanValue']) && $this->allowOrder) {
 				// ensure full matches are above expanded matches
 				$preScoreField = $this->getScoreFieldName(); 
 				$bindKey = $this->query->bindValueGetKey($data['booleanValue']);
 				$this->query->select("$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) + 111.1 AS $preScoreField");
 				$this->query->orderby("$preScoreField DESC");
 			}
-			$bindValue = trim($data['value'] . ' ' . implode(' ', $data['altWords'])); 
-			$bindKey = $this->query->bindValueGetKey($this->escapeAgainst($bindValue));
-			$matchAgainst = "$matchType($tableField) AGAINST($bindKey WITH QUERY EXPANSION)";
+			if(!empty($data['matchValue'])) {
+				$bindValue = trim($data['matchValue']); 
+				$bindKey = $this->query->bindValueGetKey($this->escapeAgainst($bindValue));
+				$matchAgainst = "$matchType($tableField) AGAINST($bindKey WITH QUERY EXPANSION)";
+			}
 			
 		} else if(!empty($data['booleanValue'])) {
 			$bindKey = $this->query->bindValueGetKey($data['booleanValue']);
@@ -397,16 +469,26 @@ class DatabaseQuerySelectFulltext extends Wire {
 		}
 		
 		if($matchAgainst) {
-			$this->query->where($matchAgainst);
-			$this->query->select("$matchAgainst AS $scoreField");
-			$this->query->orderby("$scoreField DESC");
+			$wheres[] = $matchAgainst;
+			// $this->query->where($matchAgainst);
+			if($this->allowOrder) {
+				$this->query->select("$matchAgainst AS $scoreField");
+				$this->query->orderby("$scoreField DESC");
+			}
+		} else if(!$this->allowStopwords) {
+			// no match possible
+			// $this->query->where('1>2'); 
+			$wheres[] = '1>2';
 		}
 		
 		if(!empty($data['likeWords'])) {
 			// stopwords or words that were too short to use fulltext index
-			$wheres = array();
 			$likeType = $this->not ? 'NOT RLIKE' : 'RLIKE';
+			$orLikes = array();
+			$andLikes = array();
 			foreach($data['likeWords'] as $word) {
+				$isStopword = isset($data['stopWords'][$word]);
+				if($isStopword && !$this->allowStopwords) continue;
 				$word = $this->escapeLike($word);
 				if(!strlen($word)) continue;
 				$likeValue = '([[:blank:]]|[[:punct:]]|[[:space:]]|>|^)' . preg_quote($word);
@@ -416,13 +498,28 @@ class DatabaseQuerySelectFulltext extends Wire {
 					// match to word-end
 					$likeValue .= '([[:blank:]]|[[:punct:]]|[[:space:]]|<|$)';
 				}
-				$bindKey = $this->query->bindValueGetKey($likeValue); 
-				$wheres[] = "($tableField $likeType $bindKey)";
+				$bindKey = $this->query->bindValueGetKey($likeValue);
+				$likeWhere = "($tableField $likeType $bindKey)";
+				if(!$required || ($isStopword && $expand)) {
+					$orLikes[] = $likeWhere;
+				} else {
+					$andLikes[] = $likeWhere;
+				}
 			}
-			if(count($wheres)) {
-				$and = $required ? ' AND ' : ' OR ';
-				$this->query->where(implode($and, $wheres)); 
+			$whereLike = '';
+			if(count($orLikes)) {
+				$whereLike .= '(' . implode(' OR ', $orLikes) . ')';
+				if(count($andLikes)) $whereLike .= $required ? ' AND ' : ' OR ';
 			}
+			if(count($andLikes)) {
+				$whereLike .= implode(' AND ', $andLikes);
+			}
+			if($whereLike) $wheres[] = $whereLike;
+		}
+		
+		if(count($wheres)) {
+			$and = $required ? ' AND ' : ' OR ';
+			$this->query->where('(' . implode($and, $wheres) . ')');
 		}
 	}
 
@@ -435,7 +532,6 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected function matchPhrase($value) {
 		
 		$tableField = $this->tableField();
-		$not = strpos($this->operator, '!') === 0;
 		$likeValue = '';
 		$words = $this->words($value);
 		$lastWord = count($words) > 1 ? array_pop($words) : '';
@@ -460,10 +556,10 @@ class DatabaseQuerySelectFulltext extends Wire {
 		if($lastWord !== '' || !strlen($againstValue)) {
 			// match entire phrase with LIKE as secondary qualifier that includes last word
 			// so that we can perform a partial match on the last word only. This is necessary
-			// because we can’t use partial match qualifiers in or out of quoted phrases
-			// if word is indexable let it contribute to final score
+			// because we can’t use partial match qualifiers in or out of quoted phrases.
 			$lastWord = strlen($lastWord) ? $this->escapeAgainst($lastWord) : '';
 			if(strlen($lastWord) && $this->isIndexableWord($lastWord)) {
+				// if word is indexable let it contribute to final score
 				// expand the againstValue to include the last word as a required partial match
 				$againstValue = trim("$againstValue +$lastWord*");
 			}
@@ -473,19 +569,22 @@ class DatabaseQuerySelectFulltext extends Wire {
 		if(strlen($againstValue)) {
 			// use MATCH/AGAINST
 			$bindKey = $this->query->bindValueGetKey($againstValue);
-			$match = $not ? 'NOT MATCH' : 'MATCH';
-			$matchAgainst = "$match($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
-			$scoreField = $this->getScoreFieldName();
-			$this->query->select("$matchAgainst AS $scoreField");
+			$matchType = $this->matchType();
+			$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
 			$this->query->where($matchAgainst);
-			$this->query->orderby("$scoreField DESC");
+		
+			if($this->allowOrder) {
+				$scoreField = $this->getScoreFieldName();
+				$this->query->select("$matchAgainst AS $scoreField");
+				$this->query->orderby("$scoreField DESC");
+			}
 		}
 
 		if(strlen($likeValue)) {
 			// LIKE is used as a secondary qualifier to MATCH/AGAINST so that it is
 			// performed only on rows already identified from FULLTEXT index, unless 
 			// no MATCH/AGAINST could be created due to stopwords or too-short words
-			$likeType = $not ? 'NOT RLIKE' : 'RLIKE';
+			$likeType = $this->not ? 'NOT RLIKE' : 'RLIKE';
 			$this->query->where("($tableField $likeType ?)", $likeValue);
 		}
 	}
@@ -499,8 +598,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected function matchPhraseExpand($value) {
 		
 		$tableField = $this->tableField();
-		$not = strpos($this->operator, '!') === 0;
-		$matchType = $not ? "\nNOT MATCH" : "\nMATCH";
+		$matchType = $this->matchType();
 		$words = $this->words($value, array('indexable' => true));
 		$wordsAlternates = array();
 		
@@ -509,8 +607,11 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$againstValue = '+"' . $this->escapeAgainst($value) . '*"';
 		$bindKey = $this->query->bindValueGetKey($againstValue);
 		$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
-		$this->query->select("$matchAgainst + 333.3 AS $scoreField");
-		$this->query->orderby("$scoreField DESC");
+		
+		if($this->allowOrder) {
+			$this->query->select("$matchAgainst + 333.3 AS $scoreField");
+			$this->query->orderby("$scoreField DESC");
+		}
 		
 		if(!count($words)) {
 			// no words to work with for query expansion (not likely, unless stopwords or too-short)
@@ -542,19 +643,26 @@ class DatabaseQuerySelectFulltext extends Wire {
 			}
 			$againstValue .= ") ";
 		}
-		$bindKey = $this->query->bindValueGetKey(trim($againstValue));
-		$this->query->select("$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) + 222.2 AS $scoreField");
-		$this->query->orderby("$scoreField DESC");
+		
+		if($this->allowOrder && strlen($againstValue)) {
+			$bindKey = $this->query->bindValueGetKey(trim($againstValue));
+			$this->query->select("$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) + 222.2 AS $scoreField");
+			$this->query->orderby("$scoreField DESC");
+		}
 		
 		// QUERY EXPANSION: regular match/against words with query expansion
 		$words = array_unique(array_merge($words, $wordsAlternates));	
 		$againstValue = $this->escapeAgainst(implode(' ', $words));
 		$bindKey = $this->query->bindValueGetKey($againstValue);
 		$matchAgainst = "$matchType($tableField) AGAINST($bindKey WITH QUERY EXPANSION)";
-		$scoreField = $this->getScoreFieldName();
 		$this->query->where($matchAgainst);
+		
+		$scoreField = $this->getScoreFieldName();
 		$this->query->select("$matchAgainst AS $scoreField");
-		$this->query->orderby("$scoreField DESC");
+		
+		if($this->allowOrder) {
+			$this->query->orderby("$scoreField DESC");
+		}
 	}
 
 	/**
@@ -570,9 +678,9 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		$tableField = $this->tableField();
 		$expand = strpos($this->operator, '+') !== false;
-		$matchType = $this->not ? 'NOT MATCH' : 'MATCH';
+		$matchType = $this->matchType();
 
-		if($expand) {
+		if($expand && $this->allowOrder) {
 			// boolean mode query for sorting purposes
 			$scoreField = $this->getScoreFieldName();
 			$data = $this->getBooleanModeWords($value, array(
@@ -595,7 +703,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$againstValue = $this->escapeAgainst(implode(' ', $words));
 		
 		if(!count($words) || !strlen(trim($againstValue))) {
-			// query contains no indexbale words: force non-match
+			// query contains no indexable words: force non-match
 			if(strlen($value)) $this->query->where('1>2');
 			return;
 		}
@@ -603,9 +711,11 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$bindKey = $this->query->bindValueGetKey($againstValue);
 		$againstType = $expand ? 'WITH QUERY EXPANSION' : '';
 		$where = "$matchType($tableField) AGAINST($bindKey $againstType)";
-		$this->query->select("$where AS $scoreField");
-		$this->query->where($where); 
-		$this->query->orderby("$scoreField DESC");
+		$this->query->where($where);
+		if($this->allowOrder) {
+			$this->query->select("$where AS $scoreField");
+			$this->query->orderby("$scoreField DESC");
+		}
 	}
 
 	/**
@@ -623,7 +733,6 @@ class DatabaseQuerySelectFulltext extends Wire {
 		// $=   Ends with
 	
 		$tableField = $this->tableField();
-		$not = strpos($this->operator, '!') === 0;
 		$matchStart = strpos($this->operator, '^') !== false;
 		$againstValue = '';
 		
@@ -643,15 +752,17 @@ class DatabaseQuerySelectFulltext extends Wire {
 		if(strlen($againstValue)) {
 			// use MATCH/AGAINST to pre-filter before RLIKE when possible
 			$bindKey = $this->query->bindValueGetKey($againstValue);
-			$match = $not ? 'NOT MATCH' : 'MATCH';
-			$matchAgainst = "$match($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
+			$matchType = $this->matchType();
+			$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
 			$scoreField = $this->getScoreFieldName();
-			$this->query->select("$matchAgainst AS $scoreField");
 			$this->query->where($matchAgainst);
-			$this->query->orderby("$scoreField DESC");
+			if($this->allowOrder) {
+				$this->query->select("$matchAgainst AS $scoreField");
+				$this->query->orderby("$scoreField DESC");
+			}
 		}
 
-		$likeType = $not ? 'NOT RLIKE' : 'RLIKE';
+		$likeType = $this->not ? 'NOT RLIKE' : 'RLIKE';
 		$likeValue = preg_quote($value);
 		
 		if($matchStart) {
@@ -677,11 +788,14 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$scoreField = $this->getScoreFieldName();
 		$against = $this->getBooleanModeCommands($text);
 		$bindKey = $this->query->bindValueGetKey($against);
-		$matchAgainst = "MATCH($tableField) AGAINST($bindKey IN BOOLEAN MODE) ";
-		$select = "$matchAgainst AS $scoreField ";
-		$this->query->select($select);
-		$this->query->orderby("$scoreField DESC");
+		$matchType = $this->matchType();
+		$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE) ";
 		$this->query->where($matchAgainst);
+		if($this->allowOrder) {
+			$select = "$matchAgainst AS $scoreField ";
+			$this->query->select($select);
+			$this->query->orderby("$scoreField DESC");
+		}
 	}
 
 	/**
@@ -745,7 +859,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 			if($this->isStopword($word)) {
 				// handle stop-word
 				$stopWords[$word] = $word;
-				if($useStopwords) $booleanValues[$word] = "$word*";
+				if($useStopwords && $partial) $booleanValues[$word] = "<$word*";
 				continue; // do nothing further with stopwords
 				
 			} else if($length < $minWordLength) {
@@ -756,7 +870,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 				
 			} else if($options['partialLess']) {
 				// handle regular word and match full word (more weight), or partial word (less weight)
-				$booleanValues[$word] = $required . "(>$word $word*)";
+				$booleanValues[$word] = $required ? "+(>$word $word*)" : "$word*";
 				$goodWords[$word] = $word;
 				
 			} else {
@@ -771,6 +885,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 				if($booleanValue !== $booleanValues[$word]) {
 					$booleanValues[$word] = $booleanValue;
 					$altWords = array_merge($altWords, $alternates);
+					$allWords = array_merge($allWords, $altWords);
 				}
 			}
 		}
@@ -780,6 +895,16 @@ class DatabaseQuerySelectFulltext extends Wire {
 			$lastRequired = isset($stopWords[$lastWord]) ? '' : $required;
 			$booleanValues[$lastWord] = $lastRequired . $lastWord . '*';
 		}
+		
+		if($useStopwords && !$required && count($stopWords) && count($goodWords)) {
+			// increase weight of non-stopwords
+			foreach($goodWords as $word) {
+				$booleanWord = $booleanValues[$word];
+				if(!in_array($booleanWord[0], array('(', '+', '<', '>', '-', '~', '"'))) {
+					$booleanValues[$word] = ">$booleanWord";
+				}
+			}
+		}
 
 		$badWords = array_merge($stopWords, $shortWords);
 		
@@ -787,7 +912,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 			$numOkayWords = count($goodWords) + count($shortWords);
 			foreach($stopWords as $word) {
 				$likeWords[$word] = $word;
-				if($numOkayWords) {
+				if($numOkayWords && isset($booleanValues[$word])) {
 					// make word non-required in boolean query
 					$booleanValues[$word] = ltrim($booleanValues[$word], '+'); 
 				} else {
@@ -800,6 +925,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	
 		return array(
 			'value' => trim(implode(' ', $allWords)), 
+			'matchValue' => trim(implode(' ', $goodWords) . ' ' . implode(' ', $altWords)), // indexable words only
 			'booleanValue' => trim(implode(' ', $booleanValues)),
 			'booleanWords' => $booleanValues,
 			'likeWords' => $likeWords,
@@ -840,6 +966,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		}
 		
 		$alternateWords = array_unique($alternateWords);
+		$booleanWords = $alternateWords;
 
 		// prepare alternate words for inclusion in boolean value and remove any that aren’t indexable
 		foreach($alternateWords as $key => $alternateWord) {
@@ -848,21 +975,24 @@ class DatabaseQuerySelectFulltext extends Wire {
 
 			if($alternateWord === $rootWord && $length > 1) {
 				// root word is always partial match. weight less if there are other alternates to match
-				$less = count($alternateWords) > 1 && !empty($options['partialLess']) ? '<' : '';
-				$alternateWords[$key] = $less . $alternateWord . '*';
-				if($length >= $minWordLength && $length >= 3) $alternateWords[] = $less . $alternateWord;
+				$less = count($booleanWords) > 1 && !empty($options['partialLess']) ? '<' : '';
+				$booleanWords[$key] = $less . $alternateWord . '*';
+				if($length >= $minWordLength && $length >= 3) $booleanWords[] = $less . $alternateWord;
+				unset($alternateWords[$key]); 
 
 			} else if($length < $minWordLength || $this->isStopword($alternateWord)) {
 				// alternate word not indexable, remove it
 				unset($alternateWords[$key]);
+				unset($booleanWords[$key]);
 
 			} else {
 				// replace with escaped version
 				$alternateWords[$key] = $alternateWord;
+				$booleanWords[$key] = $alternateWord;
 			}
 		}
 		
-		if(!count($alternateWords)) return array();
+		if(!count($booleanWords)) return array();
 
 		// rebuild boolean value to include alternates: "+(word word)" or "+word" or ""
 		if($required) $booleanValue = ltrim($booleanValue, '+');
@@ -874,7 +1004,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		if($booleanValue && strpos($booleanValue, '>') !== 0) $booleanValue = ">$booleanValue";
 		
 		// append alternate words
-		$booleanValue = trim($booleanValue . ' ' . implode(' ', $alternateWords));
+		$booleanValue = trim($booleanValue . ' ' . implode(' ', $booleanWords));
 		
 		// package boolean value into parens and optional "+" prefix (indicating required)
 		$booleanValue = "$required($booleanValue)";

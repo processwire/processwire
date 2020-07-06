@@ -21,6 +21,10 @@
  */
 class WireDatabasePDO extends Wire implements WireDatabase {
 
+	const operatorTypeComparison = 0;
+	const operatorTypeBitwise = 1;
+	const operatorTypeAny = 2;
+
 	/**
 	 * Log of all queries performed in this instance
 	 *
@@ -88,6 +92,22 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	protected $charset = '';
+
+	/**
+	 * Regular comparison operators 
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $comparisonOperators = array('=', '<', '>', '>=', '<=', '<>', '!=');
+
+	/**
+	 * Bitwise comparison operators
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $bitwiseOperators = array('&', '~', '&~', '|', '^', '<<', '>>');
 
 	/**
 	 * Substitute variable names according to engine as used by getVariable() method
@@ -749,46 +769,69 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * ~~~~~
 	 *
 	 * @param string $str 1-2 character operator to test
-	 * @param bool|null $bitwise NULL=allow all operators, TRUE=allow only bitwise, FALSE=do not allow bitwise (default=NULL) added 3.0.143
+	 * @param bool|null|int $operatorType Specify a WireDatabasePDO::operatorType* constant (3.0.162+), or any one of the following (3.0.143+): 
+	 *  - `NULL`: allow all operators (default value if not specified)
+	 *  - `FALSE`: allow only comparison operators
+	 *  - `TRUE`: allow only bitwise operators
+	 * @param bool $get Return the operator rather than true, when valid? (default=false) Added 3.0.162
 	 * @return bool True if valid, false if not
 	 *
 	 */
-	public function isOperator($str, $bitwise = null) {
+	public function isOperator($str, $operatorType = self::operatorTypeAny, $get = false) {
 		
-		$operators = array('=', '<', '>', '>=', '<=', '<>', '!='); 
-		$bitwiseOperators = array('&', '~', '&~', '|', '^', '<<', '>>');
 		$len = strlen($str);
 		
 		if($len > 2 || $len < 1) return false;
 		
-		if($bitwise === null) {
+		if($operatorType === null || $operatorType === self::operatorTypeAny) {
 			// allow all operators
-			$operators = array_merge($operators, $bitwiseOperators); 
-		} else if($bitwise === true) {
+			$operators = array_merge($this->comparisonOperators, $this->bitwiseOperators); 
+			
+		} else if($operatorType === true || $operatorType === self::operatorTypeBitwise) {
 			// allow only bitwise operators
-			$operators = $bitwise; 
+			$operators = $this->bitwiseOperators; 
+			
 		} else {
-			// false or unrecognized $bitwise value: allow only regular operators
+			// self::operatorTypeComparison
+			$operators = $this->comparisonOperators;
 		}
-		
-		return in_array($str, $operators, true);
+	
+		if($get) {
+			$key = array_search($str, $operators, true);
+			return $key === false ? false : $operators[$key];
+		} else {
+			return in_array($str, $operators, true);
+		}
 	}
 
 	/**
-	 * Is given word a fulltext stopword to the current database engine?
+	 * Is given word a fulltext stopword for database engine?
 	 * 
 	 * @param string $word
+	 * @param string $engine DB engine ('myisam' or 'innodb') or omit for current engine
 	 * @return bool
 	 * @since 3.0.160
 	 * 
 	 */
-	public function isStopword($word) {
-		
-		if($this->engine === 'myisam') {
-			return DatabaseStopwords::has($word);
-		}
-			
-		if($this->stopwordCache === null && $this->engine === 'innodb') {
+	public function isStopword($word, $engine = '') {
+		$engine = $engine === '' ? $this->engine : strtolower($engine);
+		if($engine === 'myisam') return DatabaseStopwords::has($word);
+		if($this->stopwordCache === null) $this->getStopwords($engine, true);
+		return isset($this->stopwordCache[strtolower($word)]);
+	}
+
+	/**
+	 * Get all fulltext stopwords for database engine
+	 * 
+	 * @param string $engine Specify DB engine of "myisam" or "innodb" or omit for current DB engine
+	 * @param bool $flip Return flipped array where stopwords are array keys rather than values? for isset() use (default=false)
+	 * @return array
+	 * 
+	 */
+	public function getStopwords($engine = '', $flip = false) {
+		$engine = $engine === '' ? $this->engine : strtolower($engine);
+		if($engine === 'myisam') return DatabaseStopwords::getAll();
+		if($this->stopwordCache === null) { //  && $engine === 'innodb') {
 			$cache = $this->wire()->cache;
 			$stopwords = null;
 			if($cache) {
@@ -804,10 +847,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			}
 			$this->stopwordCache = array_flip($stopwords);
 		}
-		
-		if(!$this->stopwordCache) return false;
-		
-		return isset($this->stopwordCache[strtolower($word)]);
+		return $flip ? $this->stopwordCache : array_keys($this->stopwordCache);
 	}
 
 	/**
@@ -852,6 +892,20 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		if(strpos($str, '.') === false) return $this->escapeTable($str); 
 		list($table, $col) = explode('.', $str); 
 		return $this->escapeTable($table) . '.' . $this->escapeCol($col);
+	}
+
+	/**
+	 * Sanitize comparison operator
+	 * 
+	 * @param string $operator
+	 * @param bool|int|null $operatorType Specify a WireDatabasePDO::operatorType* constant (default=operatorTypeComparison)
+	 * @param string $default Default/fallback operator to return if given one is not valid (default='=')
+	 * @return string
+	 * 
+	 */
+	public function escapeOperator($operator, $operatorType = self::operatorTypeComparison, $default = '=') {
+		$operator = $this->isOperator($operator, $operatorType, true); 
+		return $operator ? $operator : $default;
 	}
 
 	/**

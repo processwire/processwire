@@ -577,7 +577,6 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$table = $database->escapeTable($table);
 		// note the Fulltext class can handle non-text values as well (when using non-partial text matching operators)
 		$ft = new DatabaseQuerySelectFulltext($query);
-		$this->wire($ft);
 		$ft->match($table, $col, $operator, $value);
 		return $query;
 	}
@@ -861,7 +860,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 	 *
 	 * Possible template method: If overridden, children should NOT call this parent method. 
 	 *
-	 * @param DatabaseQuerySelect $query
+	 * @param PageFinderDatabaseQuerySelect $query
 	 * @param string $table The table name to use
 	 * @param string $subfield Name of the field (typically 'data', unless selector explicitly specified another)
 	 * @param string $operator The comparison operator
@@ -878,12 +877,14 @@ abstract class FieldtypeMulti extends Fieldtype {
 		$database = $this->wire('database'); 
 		$table = $database->escapeTable($table);
 
-		if($subfield === 'count' && (empty($value) || ctype_digit(ltrim("$value", '-'))) 
-			&& in_array($operator, array("=", "!=", ">", "<", ">=", "<="))) {
+		if($subfield === 'count' 
+			&& (empty($value) || ctype_digit(ltrim("$value", '-'))) 
+			&& $database->isOperator($operator, WireDatabasePDO::operatorTypeComparison)) {
 
 			$value = (int) $value;
 			$t = $table . "_" . $n;
 			$c = $database->escapeTable($this->className()) . "_" . $n;
+			$operator = $database->escapeOperator($operator); 
 
 			$query->select("$t.num_$t AS num_$t");
 			$query->leftjoin(

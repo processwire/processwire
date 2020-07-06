@@ -13,7 +13,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
  */
@@ -41,17 +41,31 @@ class FieldSelectorInfo extends Wire {
 	 * CSV keywords from schema mapped to input types to auto-determine input type from schema
 	 *
 	 */
-	protected $schemaToInput = array(); 
+	protected $schemaToInput = array();
 
-
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 
+		$ftNops = array();
+		$ftOps = Selectors::getOperators(array(
+			'compareType' => Selector::compareTypeFind,
+			'getValueType' => 'operator',
+			'getIndexType' => 'none',
+		));
+		
+		foreach($ftOps as $op) {
+			$ftNops[] = "!$op";
+		}
+		
 		$this->operators = array(
 			'number' => array('=', '!=', '>', '<', '>=', '<=', '=""', '!=""'),
-			'text' => array('=', '!=', '%=', '^=', '$=', '=""', '!=""'),
-			'fulltext' => array('%=', '*=', '~=', '^=', '$=', '=', '!=', '=""', '!=""', '!%=', '!*=', '!~=', '!^=', '!$='),
+			'text' => array('=', '!=', '%=', '%^=', '%$=', '=""', '!=""'),
+			'fulltext' => array_merge($ftOps, array('=', '!=', '=""', '!=""'), $ftNops),
 			'select' => array('=', '!=')
-			);
+		);
 
 		$this->infoTemplate = array(
 			// name of the field
@@ -68,7 +82,7 @@ class FieldSelectorInfo extends Wire {
 			'options' => array(), 
 			// if field has subfields, this contains array of all above, indexed by subfield name (blank if not applicable)
 			'subfields' => array(), 
-			);
+		);
 
 		$this->schemaToInput = array(
 			'TEXT,TINYTEXT,MEDIUMTEXT,LONGTEXT,VARCHAR,CHAR' => 'text', 
@@ -76,8 +90,7 @@ class FieldSelectorInfo extends Wire {
 			'DATE' => 'date', 
 			'INT,DECIMAL,FLOAT,DOUBLE' => 'number',
 			'ENUM,SET' => 'select',
-			);
-
+		);
 	}
 
 	/**
@@ -187,21 +200,19 @@ class FieldSelectorInfo extends Wire {
 	 *
 	 */
 	public function getOperatorLabels() {
-		if(empty($this->operatorLabels)) $this->operatorLabels = array(
-			'=' => $this->_('Equals'),
-			'!=' => $this->_('Not Equals'),
-			'>' => $this->_('Greater Than'),
-			'<' => $this->_('Less Than'),
-			'>=' => $this->_('Greater Than or Equal'),
-			'<=' => $this->_('Less Than or Equal'),
-			'%=' => $this->_('Contains Text'),
-			'*=' => $this->_('Contains Phrase'),
-			'~=' => $this->_('Contains Words'),
-			'^=' => $this->_('Starts With'),
-			'$=' => $this->_('Ends With'),
-			'=""' => $this->_('Is Empty'),
-			'!=""' => $this->_('Is Not Empty')
-			);
+		if(!empty($this->operatorLabels)) return $this->operatorLabels;
+		$this->operatorLabels = Selectors::getOperators(array(
+			'getIndexType' => 'operator',
+			'getValueType' => 'label', 
+		));
+		$this->operatorLabels['=""'] = $this->_('Is Empty');
+		$this->operatorLabels['!=""'] = $this->_('Is Not Empty');
+		foreach($this->operators as $operator) {
+			if(isset($this->operatorLabels[$operator])) continue; 
+			if(strpos($operator, '!') !== 0) continue;
+			$op = ltrim($operator, '!'); 
+			$this->operatorLabels[$operator] = sprintf($this->_('Not: %s'), $this->operatorLabels[$op]); 
+		}
 		return $this->operatorLabels;
 	}
 }

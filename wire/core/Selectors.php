@@ -357,24 +357,34 @@ class Selectors extends WireArray {
 	protected function extractOperators(&$str) {
 		
 		$n = 0;
+		$not = false;
 		$operator = '';
 		$lastOperator = '';
 		$operators = array();
 		$operatorChars = self::getOperatorChars();
 	
 		while(isset($str[$n]) && isset($operatorChars[$str[$n]])) {
-			$operator .= $str[$n];
+			$c = $str[$n];
+			if($operator === '!' && $c !== '=') {
+				// beginning of operator negation that’s not "!="
+				$not = true;
+				$operator = ltrim($operator, '!');
+			}
+			$operator .= $c;
 			if(self::isOperator($operator)) {
 				$lastOperator = $operator;
 			} else if($lastOperator) {
+				if($not) $lastOperator = "!$lastOperator";
 				$operators[$lastOperator] = $lastOperator;
 				$lastOperator = '';
-				$operator = $str[$n];
+				$operator = $c;
+				$not = false;
 			}
 			$n++; 
 		}
 		
 		if($lastOperator) {
+			if($not) $lastOperator = "!$lastOperator";
 			$operators[$lastOperator] = $lastOperator;
 		}
 		
@@ -383,11 +393,14 @@ class Selectors extends WireArray {
 		}
 		
 		if($operator && !isset($operators[$lastOperator])) {
+			// leftover characters in $operator, maybe from operator in wrong order
 			$fail = true;
 			if(!count($operators)) {
 				// check if operator has a typo we can fix
+				// isOperator with 2nd argument true allows for and corrects some order mixups
 				$op = self::isOperator($operator, true);
 				if($op) {
+					if($not) $op = "!$op";
 					$operators[$op] = $op;
 					$str = substr($str, $n);
 					$fail = false;
@@ -809,26 +822,28 @@ class Selectors extends WireArray {
 	 * Extract and return operator from end of field name, as used by selector arrays
 	 * 
 	 * @param string $field
-	 * @return bool|string
+	 * @return array
 	 * 
 	 */
-	protected function getOperatorFromField(&$field) {
-		$operator = '=';
+	protected function getOperatorsFromField(&$field) {
+		
 		$operators = array_keys(self::$selectorTypes);
 		$operatorsStr = implode('', $operators);
-		$op = substr($field, -1);
-		if(strpos($operatorsStr, $op) !== false) {
-			// extract operator from $field
+		$c = substr($field, -1);
+		if(ctype_alnum($c)) return array('=');
+
+		$op = '';
+		while(strpos($operatorsStr, $c) !== false && strlen($field)) {
+			$op = $c . $op;
 			$field = substr($field, 0, -1);
-			$op2 = substr($field, -1);
-			if(strpos($operatorsStr, $op2) !== false) {
-				$field = substr($field, 0, -1);
-				$op = $op2 . $op;
-			}
-			$operator = $op;
-			$field = trim($field);
+			$c = substr($field, -1); 
 		}
-		return $operator;
+		
+		if(empty($op)) return array('='); 
+		
+		$operators = $this->extractOperators($op);
+		
+		return $operators;
 	}
 
 	/**
@@ -863,6 +878,7 @@ class Selectors extends WireArray {
 				foreach($data as $k => $v) {
 					$s = $this->makeSelectorArrayItem($k, $v);
 					$selector1 = $this->create($s['field'], $s['operator'], $s['value']);
+					if(!empty($s['altOperators'])) $selector1->altOperators = $s['altOperators'];
 					$selector2 = $this->create("or$groupCnt", "=", $selector1);
 					$selector2->quote = '(';
 					$this->add($selector2);
@@ -888,6 +904,7 @@ class Selectors extends WireArray {
 				if($s['not']) $selector->not = true;
 				if($s['group']) $selector->group = $s['group'];
 				if($s['quote']) $selector->quote = $s['quote'];
+				if(!empty($s['altOperators'])) $selector->altOperators = $s['altOperators'];
 				
 				$this->add($selector);
 			}
@@ -910,7 +927,7 @@ class Selectors extends WireArray {
 		$sanitize = 'selectorValue';
 		$fields = array();
 		$values = array();
-		$operator = '=';
+		$operators = array('=');
 		$whitelist = null;
 		$not = false;
 		$group = '';
@@ -947,7 +964,7 @@ class Selectors extends WireArray {
 			if(isset($data['sanitizer']) && !isset($data['sanitize'])) $data['sanitize'] = $data['sanitizer']; // allow alternate
 			if(isset($data['sanitize'])) $sanitize = $sanitizer->fieldName($data['sanitize']);
 
-			if(!empty($data['operator'])) $operator = $data['operator'];
+			if(!empty($data['operator'])) $operators = $this->extractOperators($data['operator']);
 			if(!empty($data['not'])) $not = (bool) $data['not'];
 
 			// may use either 'group' or 'or' to specify or-group
@@ -982,7 +999,7 @@ class Selectors extends WireArray {
 			// Non-verbose selector, where $key is the field name and $data is the value
 			// The $key field name may have an optional operator appended to it
 		
-			$operator = $this->getOperatorFromField($key);
+			$operators = $this->getOperatorsFromField($key);
 			$_fields = strpos($key, '|') ? explode('|', $key) : array($key);
 			$_values = is_array($data) ? $data : array($data);
 			
@@ -997,6 +1014,7 @@ class Selectors extends WireArray {
 			
 			if(count($data) == 4) {
 				list($field, $operator, $value, $_sanitize) = $data;
+				$operators = $this->extractOperators($operator); 
 				if(is_array($_sanitize)) {
 					$whitelist = $_sanitize;
 				} else {
@@ -1005,10 +1023,11 @@ class Selectors extends WireArray {
 
 			} else if(count($data) == 3) {
 				list($field, $operator, $value) = $data;
+				$operators = $this->extractOperators($operator);
 				
 			} else if(count($data) == 2) {
 				list($field, $value) = $data;
-				$operator = $this->getOperatorFromField($field);
+				$operators = $this->getOperatorsFromField($field);
 			}
 		
 			if(is_array($field)) {
@@ -1024,8 +1043,10 @@ class Selectors extends WireArray {
 		}
 	
 		// make sure operator is valid
-		if(!isset(self::$selectorTypes[$operator])) {
-			throw new WireException("Unrecognized selector operator '$operator'");
+		foreach($operators as $operator) {
+			if(!isset(self::$selectorTypes[$operator])) {
+				throw new WireException("Unrecognized selector operator '$operator'");
+			}
 		}
 	
 		// determine field(s)
@@ -1088,7 +1109,8 @@ class Selectors extends WireArray {
 		return array(
 			'field' => count($fields) > 1 ? $fields : reset($fields), 
 			'value' => count($values) > 1 ? $values : reset($values), 
-			'operator' => $operator, 
+			'operator' => array_shift($operators), 
+			'altOperators' => $operators,
 			'not' => $not,
 			'group' => $group,
 			'quote' => $quote, 

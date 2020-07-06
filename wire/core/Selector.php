@@ -1020,11 +1020,6 @@ class SelectorContainsAnyWordsExpand extends SelectorContainsAnyWords {
 				$hasAny = true;
 				break;
 			}
-			$stem = $textTools->getWordStem($word);
-			if($stem && stripos($value1, $stem) !== false && preg_match('/\b' . preg_quote($stem) . '/i', $value1)) {
-				$hasAny = true;
-				break;
-			}
 			$alternates = $textTools->getWordAlternates($word); 
 			foreach($alternates as $alternate) {
 				if(stripos($value1, $alternate) && preg_match('/\b' . preg_quote($alternate) . '\b/i', $value1)) {

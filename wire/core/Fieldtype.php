@@ -693,7 +693,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 * #pw-group-finding
 	 *
-	 * @param DatabaseQuerySelect $query
+	 * @param PageFinderDatabaseQuerySelect $query
 	 * @param string $table The table name to use
 	 * @param string $subfield Name of the subfield (typically 'data', unless selector explicitly specified another)
 	 * @param string $operator The comparison operator
@@ -711,6 +711,7 @@ abstract class Fieldtype extends WireData implements Module {
 
 		$table = $database->escapeTable($table); 
 		$subfield = $database->escapeCol($subfield);
+		$operator = $database->escapeOperator($operator, WireDatabasePDO::operatorTypeComparison); 
 		$query->where("{$table}.{$subfield}{$operator}?", $value); // QA
 		return $query; 
 	}

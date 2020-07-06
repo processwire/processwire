@@ -134,7 +134,7 @@ class FieldtypeText extends Fieldtype {
 	/**
 	 * Update a query to match the text with a fulltext index
 	 * 
-	 * @param DatabaseQuerySelect $query
+	 * @param PageFinderDatabaseQuerySelect $query
 	 * @param string $table
 	 * @param string $subfield
 	 * @param string $operator
@@ -143,8 +143,7 @@ class FieldtypeText extends Fieldtype {
 	 *
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
-		/** @var DatabaseQuerySelectFulltext $ft */
-		$ft = $this->wire(new DatabaseQuerySelectFulltext($query)); 
+		$ft = new DatabaseQuerySelectFulltext($query); 
 		$ft->match($table, $subfield, $operator, $value); 
 		return $query; 
 	}
