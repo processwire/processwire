@@ -771,7 +771,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	/**
 	 * Get match query
 	 * 
-	 * @param DatabaseQuerySelect $query
+	 * @param DatabaseQuerySelect|PageFinderDatabaseQuerySelect $query
 	 * @param string $table
 	 * @param string $subfield
 	 * @param string $operator
@@ -789,6 +789,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		$isFindOperator = $compareType & Selector::compareTypeFind;
 		$isInvalidOperator = false;
 		$isInvalidSubfield = false;
+		$originalOperator = $operator; 
 		
 		unset($schema['keys'], $schema['xtra']);
 		
@@ -837,6 +838,12 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 				// requested subfield does not match what’s available
 				$isInvalidSubfield = true;
 			}
+		}
+		
+		if($operator !== $originalOperator) {
+			// operator can change above (i.e. getMatchQuerySubfield)
+			$compareType = Selectors::getOperators(array('getValueType' => 'compareType', 'operator' => $operator));
+			$isFindOperator = $compareType & Selector::compareTypeFind;
 		}
 	
 		if($isInvalidSubfield) {
