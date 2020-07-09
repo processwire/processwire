@@ -1289,7 +1289,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 					$this->setWebpAdd($value);
 					break;
 				case 'webpOnly':
-					$this->webpOnly = (bool) $value;
+					$this->setWebpOnly($value);
 					break;
 				case 'cropping':
 					$this->setCropping($value);
