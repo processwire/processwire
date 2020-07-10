@@ -28,7 +28,7 @@
  * @method void upgrade($fromVersion, $toVersion)
  * @method Page installPage($name = '', $parent = null, $title = '', $template = 'admin', $extras = array()) #pw-internal
  * @method int uninstallPage() #pw-internal
- * @method string executeNavJSON(array $options = array()) #pw-internal @todo
+ * @method string|array executeNavJSON(array $options = array()) #pw-internal @todo
  * @method void ready()
  * @method void setConfigData(array $data)
  * @method void executed($methodName) Hook called after a method has been executed in the Process

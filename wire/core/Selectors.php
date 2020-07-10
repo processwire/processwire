@@ -1290,7 +1290,17 @@ class Selectors extends WireArray {
 		$selectorTypes = self::$selectorTypes;
 
 		if(!empty($options['operator'])) {
-			$selectorTypes = array($options['operator'] => $selectorTypes[$options['operator']]);
+			$operator = $options['operator'];
+			if($operator[0] === '!' && $operator !== '!=') {
+				// negated operator
+				$operator = ltrim($operator, '!');
+			}
+			if(!isset($selectorTypes[$operator])) {
+				// operator does not exist
+				if($valueType === 'compareType') return 0;
+				return $valueType === 'verbose' ? array() : '';
+			}
+			$selectorTypes = array($operator => $selectorTypes[$operator]);
 		}
 
 		foreach($selectorTypes as $operator => $typeName) {

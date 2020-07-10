@@ -137,6 +137,41 @@ abstract class Selector extends WireData {
 	 *
 	 */
 	const compareTypeFulltext = 256;
+
+	/**
+	 * Comparison type: Perform phrase match (1+ words in order)
+	 */
+	const compareTypePhrase = 512;
+
+	/**
+	 * Comparison type: Match as words independent of order (opposite of phrase)
+	 * 
+	 */
+	const compareTypeWords = 1024;
+
+	/**
+	 * Comparison type: Partial matches allowed, such as partial words or phrases
+	 * 
+	 */
+	const compareTypePartial = 2048;
+
+	/**
+	 * Comparison type: If multiple items in query, ANY of them may match 
+	 * 
+	 */
+	const compareTypeAny = 4096;
+
+	/**
+	 * Comparison type: If multiple items in query, ALL of them may match
+	 *
+	 */
+	const compareTypeAll = 8192;
+
+	/**
+	 * Comparison type: Matches at boundary (start or end)
+	 * 
+	 */
+	const compareTypeBoundary = 16384; 
 	
 	/**
 	 * Given a field name and value, construct the Selector. 
@@ -418,6 +453,33 @@ abstract class Selector extends WireData {
 	public static function getCompareType() {
 		return 0;
 	}
+
+	/*
+	public static function getCompareTypeArray() {
+		$types = array(
+			self::compareTypeExact => 'exact',
+			self::compareTypeSort => 'sort',
+			self::compareTypeFind => 'find',
+			self::compareTypeLike => 'like',
+			self::compareTypeBitwise => 'bitwise',
+			self::compareTypeExpand => 'expand',
+			self::compareTypeCommand => 'command',
+			self::compareTypeDatabase => 'database',
+			self::compareTypeFulltext => 'fulltext',
+			self::compareTypePhrase => 'phrase',
+			self::compareTypeWords => 'words',
+			self::compareTypePartial => 'partial',
+			self::compareTypeAny => 'any',
+			self::compareTypeAll => 'all',
+			self::compareTypeBoundary => 'boundary',
+		);
+		$compareType = self::getCompareType();
+		$compareTypes = array();
+		foreach($types as $flag => $type) {
+			if($compareType & $flag; 
+		}
+	}
+	*/
 	
 	/**
 	 * Get short label that describes this Selector
@@ -763,7 +825,13 @@ class SelectorLessThanEqual extends Selector {
  */
 class SelectorContains extends Selector { 
 	public static function getOperator() { return '*='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypePartial |
+			Selector::compareTypePhrase | 
+			Selector::compareTypeFulltext;
+	}
 	public static function getLabel() { return __('Contains phrase', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('phrase fulltext'); }
 	protected function match($value1, $value2) { 
@@ -812,7 +880,15 @@ class SelectorContains extends Selector {
  */
 class SelectorContainsExpand extends SelectorContains {
 	public static function getOperator() { return '*+='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeDatabase | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypePartial |
+			Selector::compareTypePhrase | 
+			Selector::compareTypeExpand | 
+			Selector::compareTypeDatabase | 
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Contains phrase expand', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('phrase expand fulltext'); }
 }
@@ -823,7 +899,13 @@ class SelectorContainsExpand extends SelectorContains {
  */
 class SelectorContainsLike extends SelectorContains {
 	public static function getOperator() { return '%='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypePartial |
+			Selector::compareTypePhrase |
+			Selector::compareTypeLike;
+	}
 	public static function getLabel() { return __('Contains text like', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('phrase like'); }
 	protected function match($value1, $value2) { return $this->evaluate(stripos($value1, $value2) !== false); }
@@ -835,7 +917,13 @@ class SelectorContainsLike extends SelectorContains {
  */
 class SelectorContainsWords extends Selector { 
 	public static function getOperator() { return '~='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAll |
+			Selector::compareTypeWords | 
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Contains all words', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-all words-whole fulltext'); }
 	protected function match($value1, $value2) { 
@@ -855,7 +943,14 @@ class SelectorContainsWords extends Selector {
  */
 class SelectorContainsWordsPartial extends Selector {
 	public static function getOperator() { return '~*='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAll |
+			Selector::compareTypePartial |
+			Selector::compareTypeWords | 
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Contains all partial words', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-all words-partial words-partial-begin fulltext'); }
 	protected function match($value1, $value2) {
@@ -877,7 +972,14 @@ class SelectorContainsWordsPartial extends Selector {
  */
 class SelectorContainsWordsLike extends Selector {
 	public static function getOperator() { return '~%='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAll |
+			Selector::compareTypePartial |
+			Selector::compareTypeWords |
+			Selector::compareTypeLike;
+	}
 	public static function getLabel() { return __('Contains all words like', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-all words-partial words-partial-any like'); }
 	protected function match($value1, $value2) {
@@ -901,7 +1003,14 @@ class SelectorContainsWordsLike extends Selector {
  */
 class SelectorContainsWordsLive extends Selector {
 	public static function getOperator() { return '~~='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAll | 
+			Selector::compareTypeWords |
+			Selector::compareTypePartial |
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Contains all words live', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-all words-partial-last fulltext'); }
 	protected function match($value1, $value2) {
@@ -927,7 +1036,14 @@ class SelectorContainsWordsLive extends Selector {
  */
 class SelectorContainsWordsExpand extends SelectorContainsWords {
 	public static function getOperator() { return '~+='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAll |
+			Selector::compareTypeWords |
+			Selector::compareTypeExpand | 
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Contains all words expand', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-all words-whole expand fulltext'); }
 }
@@ -938,7 +1054,13 @@ class SelectorContainsWordsExpand extends SelectorContainsWords {
  */
 class SelectorContainsAnyWords extends Selector {
 	public static function getOperator() { return '~|='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAny | 
+			Selector::compareTypeWords |
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Contains any words', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-any words-whole fulltext'); }
 	protected function match($value1, $value2) {
@@ -962,7 +1084,14 @@ class SelectorContainsAnyWords extends Selector {
  */
 class SelectorContainsAnyWordsPartial extends Selector {
 	public static function getOperator() { return '~|*='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAny |
+			Selector::compareTypePartial | 
+			Selector::compareTypeWords |
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Contains any partial words', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-any words-partial words-partial-begin fulltext'); }
 	protected function match($value1, $value2) {
@@ -986,7 +1115,14 @@ class SelectorContainsAnyWordsPartial extends Selector {
  */
 class SelectorContainsAnyWordsLike extends Selector {
 	public static function getOperator() { return '~|%='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAny |
+			Selector::compareTypePartial |
+			Selector::compareTypeWords | 
+			Selector::compareTypeLike;
+	}
 	public static function getLabel() { return __('Contains any words like', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-any words-partial words-partial-any like'); }
 	protected function match($value1, $value2) {
@@ -1008,7 +1144,14 @@ class SelectorContainsAnyWordsLike extends Selector {
  */
 class SelectorContainsAnyWordsExpand extends SelectorContainsAnyWords {
 	public static function getOperator() { return '~|+='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAny |
+			Selector::compareTypeWords | 
+			Selector::compareTypeExpand | 
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Contains any words expand', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-any expand fulltext'); }
 	protected function match($value1, $value2) {
@@ -1042,7 +1185,14 @@ class SelectorContainsAnyWordsExpand extends SelectorContainsAnyWords {
  */
 class SelectorContainsMatch extends SelectorContainsAnyWords {
 	public static function getOperator() { return '**='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeDatabase | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAny | 
+			Selector::compareTypeWords | 
+			Selector::compareTypeDatabase | 
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Contains match', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-match words-whole fulltext'); }
 }
@@ -1055,7 +1205,15 @@ class SelectorContainsMatch extends SelectorContainsAnyWords {
  */
 class SelectorContainsMatchExpand extends SelectorContainsMatch {
 	public static function getOperator() { return '**+='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeExpand | Selector::compareTypeDatabase | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAny |
+			Selector::compareTypeWords | 
+			Selector::compareTypeExpand | 
+			Selector::compareTypeDatabase | 
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Contains match expand', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('words-match words-whole expand fulltext'); }
 }
@@ -1077,7 +1235,15 @@ class SelectorContainsMatchExpand extends SelectorContainsMatch {
  */
 class SelectorContainsAdvanced extends SelectorContains {
 	public static function getOperator() { return '#='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeCommand | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAny | 
+			Selector::compareTypeWords |
+			Selector::compareTypePhrase |
+			Selector::compareTypeCommand | 
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Advanced text search', __FILE__); }
 	public static function getDescription() {
 		return 
@@ -1166,7 +1332,14 @@ class SelectorContainsAdvanced extends SelectorContains {
  */
 class SelectorStarts extends Selector { 
 	public static function getOperator() { return '^='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getCompareType() { 
+		return 
+			Selector::compareTypeFind |
+			Selector::compareTypeAll |
+			Selector::compareTypePhrase |
+			Selector::compareTypeBoundary | 
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Starts with', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('phrase-start fulltext'); }
 	protected function match($value1, $value2) { 
@@ -1180,7 +1353,14 @@ class SelectorStarts extends Selector {
  */
 class SelectorStartsLike extends SelectorStarts {
 	public static function getOperator() { return '%^='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
+	public static function getCompareType() {
+		return
+			Selector::compareTypeFind |
+			Selector::compareTypeAll |
+			Selector::compareTypePhrase |
+			Selector::compareTypeBoundary |
+			Selector::compareTypeLike; 
+	}
 	public static function getLabel() { return __('Starts like', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('phrase-start like'); }
 }
@@ -1191,7 +1371,14 @@ class SelectorStartsLike extends SelectorStarts {
  */
 class SelectorEnds extends Selector { 
 	public static function getOperator() { return '$='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeFulltext; }
+	public static function getCompareType() {
+		return
+			Selector::compareTypeFind |
+			Selector::compareTypeAll |
+			Selector::compareTypePhrase |
+			Selector::compareTypeBoundary |
+			Selector::compareTypeFulltext; 
+	}
 	public static function getLabel() { return __('Ends with', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('phrase-end fulltext'); }
 	protected function match($value1, $value2) { 
@@ -1207,7 +1394,14 @@ class SelectorEnds extends Selector {
  */
 class SelectorEndsLike extends SelectorEnds {
 	public static function getOperator() { return '%$='; }
-	public static function getCompareType() { return Selector::compareTypeFind | Selector::compareTypeLike; }
+	public static function getCompareType() {
+		return
+			Selector::compareTypeFind |
+			Selector::compareTypeAll |
+			Selector::compareTypePhrase |
+			Selector::compareTypeBoundary |
+			Selector::compareTypeLike; 
+	}
 	public static function getLabel() { return __('Ends like', __FILE__); }
 	public static function getDescription() { return SelectorContains::buildDescription('phrase-end like'); }
 }
