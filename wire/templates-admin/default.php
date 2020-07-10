@@ -8,8 +8,19 @@
  *
  */
 
+/** @var Config $config */
+/** @var User $user */
+/** @var WireInput $input */
+/** @var Modules $modules */
+/** @var Page $page */
+/** @var Sanitizer $sanitizer */
+/** @var Notices $notices */
+
+if(!defined("PROCESSWIRE")) die();
+
+/** @var ProcessPageSearch $pps */
 $searchForm = $user->hasPermission('page-edit') ? $modules->get('ProcessPageSearch')->renderSearchForm() : '';
-$bodyClass = $input->get->modal ? 'modal' : '';
+$bodyClass = $input->get('modal') ? 'modal' : '';
 if(!isset($content)) $content = '';
 
 $config->styles->prepend($config->urls->adminTemplates . "styles/main.css?v=4"); 
@@ -62,7 +73,7 @@ if(!$browserTitle) $browserTitle = __(strip_tags($page->get('title|name')), __FI
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 
-	<title><?php echo $browserTitle; ?></title>
+	<title><?php echo $sanitizer->entities1($browserTitle); ?></title>
 
 	<script type="text/javascript">
 		<?php
@@ -131,9 +142,9 @@ if(!$browserTitle) $browserTitle = __(strip_tags($page->get('title|name')), __FI
 	<div id="content" class="content fouc_fix">
 		<div class="container">
 
-			<?php if(trim($page->summary)) echo "<h2>{$page->summary}</h2>"; ?>
+			<?php if(trim($page->get('summary'))) echo "<h2>" . $page->get('summary') . "</h2>"; ?>
 
-			<?php if($page->body) echo $page->body; ?>
+			<?php if($page->get('body')) echo $page->get('body'); ?>
 
 			<?php echo $content?>
 

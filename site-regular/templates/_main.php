@@ -53,7 +53,7 @@ urls()->set('jquery', 'wire/modules/Jquery/JqueryCore/JqueryCore.js');
 	<!-- MAIN CONTENT -->
 	<main id='main' class='uk-container uk-margin uk-margin-large-bottom'>
 		<?php if(page()->parent->id > $home->id) echo ukBreadcrumb(page(), [ 'class' => 'uk-visible@m' ]); ?>
-		<div class='uk-grid-large' uk-grid>
+		<div class='uk-grid uk-grid-large' uk-grid>
 			<div id='content' class='uk-width-expand'>
 				<h1 id='content-head' class='uk-margin-small-top'>
 					<?=page()->get('headline|title')?>
@@ -79,7 +79,7 @@ urls()->set('jquery', 'wire/modules/Jquery/JqueryCore/JqueryCore.js');
 	<!-- FOOTER -->
 	<footer class='uk-section uk-section-secondary'>
 		<div id='footer' class='uk-container'>
-			<div uk-grid>
+			<div class='uk-grid' uk-grid>
 				<div class='uk-width-1-3@m uk-flex-last@m uk-text-center'>
 					<form class='uk-search uk-search-default' action='<?=pages()->get('template=search')->url?>' method='get'>
 						<button type='submit' class='uk-search-toggle uk-search-icon-flip' uk-search-icon></button>

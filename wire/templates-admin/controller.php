@@ -10,4 +10,6 @@
  *
  */ 
 
+/** @var Config $config  */
+if(!defined("PROCESSWIRE")) die();
 require($config->paths->core . "admin.php"); 

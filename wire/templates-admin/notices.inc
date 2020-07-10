@@ -1,4 +1,10 @@
 <?php namespace ProcessWire;
+
+/** @var Notices $notices */
+/** @var Config $config */
+
+if(!defined("PROCESSWIRE")) die();
+
 ?><ul id='notices' class='ui-widget'>
 <?php
 

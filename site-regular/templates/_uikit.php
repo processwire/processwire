@@ -943,7 +943,7 @@ function ukComment(Comment $comment) {
 
 	$out = "
 		<article id='Comment$comment->id' class='$classes uk-comment uk-comment-primary' data-comment='$comment->id'>
-			<header class='uk-comment-header uk-grid-medium uk-flex-middle' uk-grid>
+			<header class='uk-comment-header uk-grid uk-grid-medium uk-flex-middle' uk-grid>
 				$gravatar				
 				<div class='uk-width-expand'>
 					<h4 class='uk-comment-title uk-margin-remove'>$cite</h4>
