@@ -3819,7 +3819,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function isLoaded($fieldName = null) {
-		if($fieldName) return parent::get($fieldName) !== null;
+		if($fieldName) {
+			if($this->hasField($fieldName)) return isset($this->data[$fieldName]); 
+			return parent::get($fieldName) !== null;
+		}
 		return $this->isLoaded; 
 	}
 
