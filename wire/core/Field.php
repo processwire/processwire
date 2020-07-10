@@ -36,6 +36,7 @@
  * @property int|null $paginationLimit Used by paginated WireArray values to indicate limit to use during load. #pw-internal
  * @property array $allowContexts Names of settings that are custom configured to be allowed for context. #pw-group-properties
  * @property bool|int|null $flagUnique Non-empty value indicates request for, or presence of, Field::flagUnique flag. #pw-internal
+ * @property Fieldgroup|null $_contextFieldgroup Fieldgroup field is in context for or null if not in context. #pw-internal
  *
  * Common Inputfield properties that Field objects store:  
  * @property int|bool|null $required Whether or not this field is required during input #pw-group-properties
@@ -671,6 +672,43 @@ class Field extends WireData implements Saveable, Exportable {
 	 */
 	public function getFieldtype() {
 		return $this->type; 
+	}
+
+	/**
+	 * Get this field in context of a Page/Template
+	 * 
+	 * #pw-group-retrieval
+	 * 
+	 * @param Page|Template|Fieldgroup|string $for Specify Page, Template, or template name string
+	 * @param string $namespace Optional namespace (internal use)
+	 * @param bool $has Return boolean rather than Field to check if context exists? (default=false)
+	 * @return Field|bool
+	 * @since 3.0.162
+	 * @see Fieldgroup::getFieldContext(), Field::hasContext()
+	 * 
+	 */
+	public function getContext($for, $namespace = '', $has = false) {
+		/** @var Fieldgroup|null $fieldgroup */
+		$fieldgroup = null;
+		if(is_string($for)) {
+			$for = $this->wire()->templates->get($for);
+		}
+		if($for instanceof Page) {
+			/** @var Page $context */
+			$template = $for instanceof NullPage ? null : $for->template;
+			if(!$template) throw new WireException('Page must have template to get context');
+			$fieldgroup = $template->fieldgroup;
+		} else if($for instanceof Template) {
+			/** @var Template $context */
+			$fieldgroup = $for->fieldgroup;
+		} else if($for instanceof Fieldgroup) {
+			$fieldgroup = $for;
+		}
+		if(!$fieldgroup) throw new WireException('Cannot get Fieldgroup for field context'); 
+		
+		if($has) return $fieldgroup->hasFieldContext($this->id, $namespace);
+
+		return $fieldgroup->getFieldContext($this->id, $namespace);
 	}
 
 	/**

@@ -424,7 +424,7 @@ class Fields extends WireSaveableItems {
 
 		$field_id = (int) $field->id;
 		$fieldgroup_id = (int) $fieldgroup->id; 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 
 		$newValues = $field->getArray();
 		$oldValues = $fieldOriginal->getArray();
@@ -502,13 +502,12 @@ class Fields extends WireSaveableItems {
 		// if there is something in data, then JSON encode it. If it's empty then make it null.
 		$data = count($data) ? wireEncodeJSON($data, true) : null;
 
-		if(is_null($data)) {
-			$data = 'NULL';
+		$query = $database->prepare('UPDATE fieldgroups_fields SET data=:data WHERE fields_id=:field_id AND fieldgroups_id=:fieldgroup_id');
+		if(empty($data)) {
+			$query->bindValue(':data', null, \PDO::PARAM_NULL); 
 		} else {
-			$data = "'" . $this->wire('database')->escapeStr($data) . "'";
+			$query->bindValue(':data', $data, \PDO::PARAM_STR); 
 		}
-		
-		$query = $database->prepare("UPDATE fieldgroups_fields SET data=$data WHERE fields_id=:field_id AND fieldgroups_id=:fieldgroup_id"); // QA
 		$query->bindValue(':field_id', $field_id, \PDO::PARAM_INT);
 		$query->bindValue(':fieldgroup_id', $fieldgroup_id, \PDO::PARAM_INT); 
 		$result = $query->execute();

@@ -266,6 +266,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 
 		if($useFieldgroupContext && $value) {
 			$value->flags = $value->flags | Field::flagFieldgroupContext;
+			$value->setQuietly('_contextFieldgroup', $this); 
 		}
 
 		return $value; 
