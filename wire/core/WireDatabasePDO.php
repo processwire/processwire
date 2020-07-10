@@ -17,6 +17,7 @@
  * #pw-summary All database operations in ProcessWire are performed via this PDO-style database class.
  * 
  * @method void unknownColumnError($column) #pw-internal
+ * @property bool $debugMode
  *
  */
 class WireDatabasePDO extends Wire implements WireDatabase {
@@ -494,9 +495,12 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * #pw-group-PDO
 	 * 
 	 * @param string $statement
-	 * @param array|string $driver_options Driver options array or you may specify $note here
+	 * @param array|string|bool $driver_options Optionally specify one of the following: 
+	 *  - Boolean true for WireDatabasePDOStatement rather than PDOStatement (also assumed when debug mode is on) 3.0.162+
+	 *  - Driver options array 
+	 *  - or you may specify the $note argument here
 	 * @param string $note Debug notes to save with query in debug mode
-	 * @return \PDOStatement
+	 * @return \PDOStatement|WireDatabasePDOStatement
 	 * @link http://php.net/manual/en/pdo.prepare.php
 	 * 
 	 */
@@ -504,6 +508,10 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		if(is_string($driver_options)) {
 			$note = $driver_options; 
 			$driver_options = array();
+		} else if($driver_options === true) {
+			$driver_options = array(
+				\PDO::ATTR_STATEMENT_CLASS => array(__NAMESPACE__ . "\\WireDatabasePDOStatement", array($this))
+			);
 		}
 		$pdoStatement = $this->pdo()->prepare($statement, $driver_options);
 		if($this->debugMode) {
@@ -985,7 +993,8 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function __get($key) {
-		if($key == 'pdo') return $this->pdo();
+		if($key === 'pdo') return $this->pdo();
+		if($key === 'debugMode') return $this->debugMode;
 		return parent::__get($key);
 	}
 
