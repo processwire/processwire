@@ -897,7 +897,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			$session->removeFor($this, 'copyVars');
 		}
 			
-		if(count($this->tfaRecRoleIDs) && !$this->tfaLoginSuccess) {
+		if(!$user->hasTfa() && count($this->tfaRecRoleIDs) && !$this->tfaLoginSuccess) {
 			// determine if Tfa module is installed and user has role requiring Tfa
 			$requireTfa = false;
 			if(count($this->wire('modules')->findByPrefix('Tfa'))) {
