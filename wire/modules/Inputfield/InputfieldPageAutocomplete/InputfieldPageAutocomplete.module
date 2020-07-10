@@ -373,7 +373,6 @@ _OUT;
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();
 
-		$recommended = $this->_('Recommended');
 		/** @var InputfieldRadios $field */
 		$field = $this->modules->get('InputfieldRadios');
 		$field->setAttribute('name', 'operator');
@@ -381,12 +380,17 @@ _OUT;
 		$field->description = $this->_("The search operator that is used in the API when performing autocomplete matches.");
 		$field->notes = $this->_("If you aren't sure what you want here, leave it set at the default: *="); 
 		$field->required = false;
-		$field->addOption('*=', '`*= ` ' . $this->_("Contains phrase or partial word (using fulltext index) - Recommended")); 
-		$field->addOption('%=', '`%= ` ' . $this->_("Contains phrase or partial word (using LIKE)") . " - $recommended");
-		$field->addOption('~=', '`~= ` ' . $this->_("Contains all the [full] words, in any order")); 
-		$field->addOption('^=', '`^= ` ' . $this->_("Starts with word/phrase")); 
-		$field->addOption('$=', '`$= ` ' . $this->_("Ends with word/phrase")); 
-		$field->addOption('=', '` = ` ' . $this->_("Equals [exact]")); 
+		$operators = Selectors::getOperators(array(
+			'compareType' => Selector::compareTypeFind, 
+			'getIndexType' => 'operator', 
+			'getValueType' => 'verbose', 
+		));
+		foreach($operators as $operator => $info) {
+			if($operator === '#=') continue;
+			$opLabel = str_replace('*', '\*', $operator); 
+			$field->addOption($operator, "`$opLabel` **$info[label]** — $info[description]"); 
+		}
+		$field->addOption('=', "`=` **" . SelectorEqual::getLabel() . "** — " . SelectorEqual::getDescription());
 		$field->attr('value', $this->operator);
 		$field->collapsed = Inputfield::collapsedNo; 
 		$inputfields->add($field);

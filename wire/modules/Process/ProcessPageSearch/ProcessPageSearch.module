@@ -159,21 +159,12 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 * 
 	 */
 	static public function getOperators() {
-		$f = __FILE__; 
-		$anyOrder = __('(in any order)', $f); 
-		return array(
-			'=' => 	__('Equals', $f),
-			'!=' =>	__('Does not equal', $f),
-			'>' => 	__('Greater than', $f),
-			'>=' =>	__('Greater than or equal to', $f),
-			'<' => 	__('Less than', $f),
-			'<=' =>	__('Less than or equal to', $f),
-			'*=' =>	__('Contains phrase or partial word', $f) . '*',
-			'%=' =>	__('Contains phrase/word using LIKE', $f) . '*',
-			'~=' =>	__('Contains all the words', $f) . ' ' . $anyOrder,
-			'^=' =>	__('Starts with', $f) . '*',
-			'$=' =>	__('Ends with', $f) . '*',
-			);
+		$operators = Selectors::getOperators(array(
+			'getIndexType' => 'operator',	
+			'getValueType' => 'label',
+		));
+		unset($operators['#=']); // maybe later
+		return $operators;
 	}
 
 	/**
@@ -245,7 +236,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$lister->initSelector = $initSelector;
 			$lister->defaultSelector = $defaultSelector;
 			$lister->defaultSort = 'relevance';
-			$lister->limit = $this->resultLimit; 
+			$lister->set('limit', $this->resultLimit); 
 			$lister->preview = false; 
 			$lister->columns = $this->getDisplayFields();
 			return $lister->execute();
@@ -860,7 +851,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		// deetermine which operator (if any) is present in $q
 		foreach($operators as $operator => $description) {
 			if(strpos($q, $operator) === false) continue;
-			if(!preg_match('/^([^=%$*<>~^:]+)' . $operator . '([^=%$*<>~^:]+)$/', $q, $matches)) continue;
+			if(!preg_match('/^([^=%$*+<>~^:]+)' . $operator . '([^=%$*+<>~^:]+)$/', $q, $matches)) continue;
 			if($operator === '=') $operator = '?'; // operator to be determined on factors search text
 			if($operator === '==') $operator = '=';
 			$type = $sanitizer->name($matches[1]);
@@ -875,13 +866,13 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			// operator was not present, only query text was, so use default operator
 			$operator = $this->operator;
 		}
-		$input->get->operator = $operator;
+		$input->get->set('operator', $operator);
 
 		if(strpos($type, '.')) {
 			// type with property/field
 			list($type, $field) = explode('.', $type, 2);
 			$field = $this->wire('sanitizer')->fieldName(trim($field));
-			$input->get->field = $field;
+			$input->get->set('field', $field);
 		} else {
 			$field = '';
 		}
@@ -889,12 +880,12 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		if($type == 'pages') {
 			// okay
 		} else if($type == 'trash') {
-			$input->get->trash = 1;
+			$input->get->set('trash', 1);
 		} else if($type) {
 			$template = $type ? $this->wire('templates')->get($type) : '';
 			if($template) {
 				// defined template
-				$input->get->template = $template->name;
+				$input->get->set('template', $template->name);
 			} else {
 				// some other non-page type
 				$redirectUrl = $this->wire('page')->url . 'live/' .
@@ -1345,12 +1336,19 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 
 	public function getModuleConfigInputfields(array $data) {
 
+		$adminLiveSearchLabel = $this->_('Admin live search');
 		$inputfields = $this->wire(new InputfieldWrapper());
 		$modules = $this->wire('modules');
 		$textFields = array();
 		$allSearchTypes = array('pages', 'trash', 'modules');
-		$textOperators = array('%=', '~=', '*=', '^=', '=');
-		$allOperators = self::getOperators();
+		// $textOperators = array('%=', '~=', '*=', '~*=', '~~=', '~%=', '~|=', '~|*=', '^=', '=');
+		$textOperators = Selectors::getOperators(array(
+			'compareType' => Selector::compareTypeFind,
+			'getIndexType' => 'operator',
+			'getValueType' => 'label',
+		)); 
+		$textOperators['='] = SelectorEqual::getLabel();
+		unset($textOperators['#=']);
 		
 		if(!isset($data['searchTypesOrder'])) $data['searchTypesOrder'] = array();
 		if(!isset($data['noSearchTypes'])) $data['noSearchTypes'] = array();
@@ -1377,9 +1375,10 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$allSearchTypes[$name] = $name;
 			if(!in_array($name, $searchTypesOrder)) $searchTypesOrder[] = $name;
 		}
-		
+	
+		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset'); 
-		$fieldset->label = $this->_('Admin live search'); 
+		$fieldset->label = $adminLiveSearchLabel; 
 		$fieldset->icon = 'search';
 		$inputfields->add($fieldset);
 
@@ -1413,6 +1412,13 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$f->attr('value', $noSearchTypes);
 		$fieldset->add($f);
 		
+		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $modules->get('InputfieldFieldset');
+		$fieldset->label = $adminLiveSearchLabel . ' ' . $this->_('(settings for pages type)'); 
+		$fieldset->icon = 'search';
+		$fieldset->themeOffset = 'm';
+		$inputfields->add($fieldset);
+		
 		$f = $modules->get('InputfieldAsmSelect');
 		$f->attr('name', 'searchFields2');
 		$f->label = $this->_('Page fields to search');
@@ -1442,12 +1448,9 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$f->attr('value', isset($data['operator']) ? $data['operator'] : self::defaultOperator);
 		$f->label = $this->_('Default search operator for single and partial word searches');
 		$f->columnWidth = 50;
-		foreach($textOperators as $operator) {
-			$label = $allOperators[$operator];
+		foreach($textOperators as $operator => $label) {
 			$f->addOption($operator, "$operator $label");
 		}
-		$partialLabel = '*' . $this->_('Indicates support of partial word matches'); 
-		$f->notes = $partialLabel;
 		$fieldset->append($f);
 		
 		$f = $modules->get("InputfieldSelect");
@@ -1455,11 +1458,9 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$f->attr('value', isset($data['operator2']) ? $data['operator2'] : '~=');
 		$f->label = $this->_('Default search operator for multi-word (phrase) searches');
 		$f->columnWidth = 50;
-		foreach($textOperators as $operator) {
-			$label = $allOperators[$operator];
+		foreach($textOperators as $operator => $label) {
 			$f->addOption($operator, "$operator $label");
 		}
-		$f->notes = $partialLabel;
 		$fieldset->append($f);
 		
 		// displayField: no longer used, except if user lacks page-lister permission
