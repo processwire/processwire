@@ -16,7 +16,7 @@
  * An Inputfield is typically associated with a Fieldtype module when used for ProcessWire fields. 
  * Most Inputfields can also be used on their own. 
  *
- * #pw-order-groups attribute-methods,attribute-properties,settings,traversal,labels,appearance,behavior,other,output,input,states
+ * #pw-order-groups attribute-methods,attribute-properties,settings,traversal,labels,appearance,uikit,behavior,other,output,input,states
  * #pw-use-constants
  * #pw-summary Inputfield is the base class for modules that collect user input for fields.
  * #pw-summary-attribute-properties These properties are retrieved or manipulated via the attribute methods above.
@@ -25,6 +25,7 @@
  * #pw-summary-skipLabel-constants Constants allowed for the `Inputfield::skipLabel` property.
  * #pw-summary-renderValue-constants Options for `Inputfield::renderValueFlags` property, applicable `Inputfield::renderValue()` method call.
  * #pw-summary-module Methods primarily of interest during module development. 
+ * #pw-summary-uikit Settings for Inputfields recognized and used by AdminThemeUikit. 
  * 
  * #pw-body =
  * ~~~~~
@@ -81,7 +82,15 @@
  * @method string|Inputfield showIf($showIf = null) Get or set showIf selector property via method. @since 3.0.110 #pw-group-appearance
  * @method int|Inputfield columnWidth($columnWidth = null) Get or set columnWidth property via method. @since 3.0.110 #pw-group-appearance
  * @method int|Inputfield skipLabel($skipLabel = null) Get or set the skipLabel constant property via method. @since 3.0.110 #pw-group-appearance
- * 
+ *
+ * UIKIT THEME 
+ * ===========
+ * @property bool|string $themeOffset Offset/margin for Inputfield, one of 's', 'm', or 'l'. #pw-group-uikit
+ * @property string $themeBorder Border style for Inputfield, one of 'none', 'card', 'hide' or 'line'. #pw-group-uikit
+ * @property string $themeInputSize Input size height/font within Inputfield, one of 's', 'm', or 'l'. #pw-group-uikit
+ * @property string $themeInputWidth Input width for text-type inputs, one of 'xs', 's', 'm', 'l', or 'f' (for full-width). #pw-group-uikit
+ * @property string $themeColor Color theme for Inputfield, one of 'primary', 'secondary', 'warning', 'danger', 'success', 'highlight', 'none'. #pw-group-uikit
+ * @property bool $themeBlank Makes <input> element display with no minimal container / no border when true. #pw-group-uikit
  * 
  * SETTINGS & BEHAVIOR
  * ===================
