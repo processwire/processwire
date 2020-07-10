@@ -6,8 +6,8 @@ if(!defined("PROCESSWIRE")) die();
 /** @var AdminThemeUikit $adminTheme */
 
 $searchURL = $urls->admin . 'page/search/live/';
-$helpTerm = $this->_('help'); // Localized term to type for help (3+ chars)
-$helpNote = $this->_('Try “help”'); // Short instruction (with your translated help term)
+$helpTerm = $adminTheme->getLabel('search-help'); // Localized term to type for help (3+ chars)
+$helpNote = $adminTheme->getLabel('search-tip'); 
 
 if($adminTheme->isEditor): ?>
 <form class='pw-search-form' data-action='<?php echo $searchURL; ?>' action='<?php echo $searchURL; ?>' method='get'>

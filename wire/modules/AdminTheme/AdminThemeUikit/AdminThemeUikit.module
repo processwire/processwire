@@ -261,6 +261,13 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * 
 	 * This updates the Inputfield classes and settings for Uikit. 
 	 * 
+	 * - themeBorder: none, hide, card, line
+	 * - themeOffset: s, m, l
+	 * - themeInputSize: s, m, l
+	 * - themeInputWidth: xs, s, m, l, f
+	 * - themeColor: primary, secondary, warning, danger, success, highlight, none
+	 * - themeBlank: no input borders, true or false
+	 * 
 	 * @param HookEvent $event
 	 * 
 	 */

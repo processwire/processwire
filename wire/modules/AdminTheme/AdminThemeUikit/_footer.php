@@ -12,7 +12,7 @@ if(!defined("PROCESSWIRE")) die();
 <!-- FOOTER -->
 <footer id='pw-footer' class='uk-margin'>
 	<div class='pw-container uk-container uk-container-expand'>
-		<div uk-grid>
+		<div class='uk-grid' uk-grid>
 			<div class='uk-width-1-3@m uk-flex-last@m uk-text-right@m uk-text-center'>
 				<div id='pw-uk-debug-toggle' class='uk-text-small'></div>
 			</div>	
@@ -24,7 +24,7 @@ if(!defined("PROCESSWIRE")) die();
 						<?php 
 						echo $config->versionName . ' <!--v' . $config->systemVersion . '--> &copy; ' . date("Y");
 						if($adminTheme->isEditor && $config->advanced) {
-							echo "<br />" . $adminTheme->renderNavIcon('flask') . $this->_('Advanced Mode'); 
+							echo "<br />" . $adminTheme->renderNavIcon('flask') . $adminTheme->getLabel('advanced-mode'); 
 						}
 						?>
 					</small>	

@@ -166,6 +166,25 @@ abstract class AdminTheme extends WireData implements Module {
 	}
 
 	/**
+	 * Get predefined translated label by key for labels shared among admin themes
+	 * 
+	 * @param string $key
+	 * @param string $val Value to return if label not available
+	 * @return string
+	 * @since 3.0.162
+	 * 
+	 */
+	public function getLabel($key, $val = '') {
+		switch($key) {
+			case 'search-help': return $this->_('help'); // Localized term to type for search-engine help (3+ chars) 
+			case 'search-tip': return $this->_('Try “help”'); // // Search tip (indicating your translated “help” term)
+			case 'advanced-mode': return $this->_('Advanced Mode');
+			case 'debug': return $this->_('Debug'); 
+		}
+		return $val;
+	}
+
+	/**
 	 * Returns true if this admin theme is the one that will be used for this request
 	 *
 	 */
