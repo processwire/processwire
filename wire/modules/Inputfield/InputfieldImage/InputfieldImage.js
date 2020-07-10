@@ -1981,7 +1981,7 @@ function InputfieldImage($) {
 				function updateProgress(evt) {
 					if(typeof evt != "undefined") {
 						if(!evt.lengthComputable) return;
-						$progressBar.attr("value", parseInt((evt.loaded / evt.total) * 100));
+						$progressBar.val(parseInt((evt.loaded / evt.total) * 100));
 					}
 					$('body').addClass('pw-uploading');
 					$spinner.css('display', 'block');
