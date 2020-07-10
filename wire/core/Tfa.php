@@ -81,6 +81,8 @@
  * 
  */
 class Tfa extends WireData implements Module, ConfigurableModule {
+	
+	const userFieldName = 'tfa_type';
 
 	/**
 	 * Name used for GET variable when TFA is active
@@ -99,12 +101,12 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	protected $authCodeForm = null;
 
 	/**
-	 * Prefix for field names on user template to store TFA data
+	 * Name of field carrying Tfa type selection on user template
 	 * 
 	 * @var string
 	 * 
 	 */
-	protected $userFieldName = 'tfa_type';
+	protected $userFieldName = self::userFieldName;
 
 	/**
 	 * Default settings
@@ -160,6 +162,7 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function wired() {
+		// @todo convert to getLabel() switch and make defaults (above) blank
 		$this->setArray(array(
 			'cancelLabel' =>
 				$this->_('Cancel'),
@@ -497,6 +500,11 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		} else {
 			$user = $this->getUser();
 			if($user) $module = $user->get($this->userFieldName);
+		}
+		
+		if($module && is_string($module)) {
+			// if field returned module name rather than instance (field settings)
+			$module = $this->wire()->modules->getModule($module);
 		}
 		
 		if($module && !$module instanceof Tfa) $module = null;
@@ -923,7 +931,8 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 			// if it doesn't support it without user, then exit now
 			if(!$this->autoEnableSupported()) return false;
 			// if support is present and user already has it enabled, we can assume support
-			$userModuleName = $this->get($this->userFieldName);
+			$userModule = $this->get($this->userFieldName);
+			$userModuleName = is_object($userModule) ? $userModule->className() : $userModule;
 			if($userModuleName === $this->className()) return true;
 			// if user has some other Tfa module present, then not supported right now
 		}
@@ -948,7 +957,8 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	public function autoEnableUser(User $user, array $settings = array()) {
 
 		$moduleName = $this->className();
-		$userModuleName = $user->get($this->userFieldName);
+		$userModule = $user->get($this->userFieldName);
+		$userModuleName = is_object($userModule) ? $userModule->className() : $userModule;
 
 		if($userModuleName === $moduleName) {
 			return; // already enabled for user
@@ -1126,26 +1136,60 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 	 * This method is okay to call from a base Tfa class instance, and is useful for determining
 	 * whether the user has Tfa enabled.
 	 * 
+	 * In many cases it is preferable to accessing $user->tfa_type directly because is doesn’t 
+	 * trigger Tfa module to load and attach hooks. In addition, it accounts for the case where
+	 * user has selected a Tfa module but has not yet configured it. 
+	 * 
+	 * #pw-internal This method may move elsewhere, so call $user->hasTfa() instead.
+	 * 
 	 * @param User $user
-	 * @return string Returns Tfa module name or blank string if Tfa not enabled for user
-	 * @since 3.0.160
-	 * @todo determine if this method is really needed before moving to public API
+	 * @return string|Tfa Returns Tfa module name, module instance (if required), or boolean false if Tfa not enabled for user
+	 * @param bool|Tfa|string $getInstance Return Tfa module instance rather than name? 
+	 *   Note: returned instance may not be fully initialized. If you need fully initialized, use return value of 
+	 *   $user->tfa_type after getting a non-empty return value from this method. 
+	 * @since 3.0.162
 	 *
 	 */
-	protected function getUserTfaType(User $user) {
-		$moduleName = $user->get($this->userFieldName);
-		if(empty($moduleName)) return '';
-		if($moduleName === $this->className()) {
-			$module = $this;
-		} else {
-			$module = $this->wire()->modules->getModule($moduleName, array(
+	public static function getUserTfaType(User $user, $getInstance = false) {
+
+		$moduleName = '';
+		$module = null;
+		$fieldName = self::userFieldName;
+		$field = $user->wire()->fields->get($fieldName); 
+		
+		if(!$field || !$field->type) {
+			// Tfa not yet enabled in system
+			return false;
+		}
+		
+		if($user->isLoaded($fieldName)) {
+			$module = $user->get($fieldName);
+			if(empty($module)) return false;
+			if(!is_object($module)) list($moduleName, $module) = array($module, null);
+		}
+		
+		if(!$module && !$moduleName) {
+			/** @var FieldtypeModule $fieldtype */
+			$fieldtype = $field->type;
+			$moduleID = $fieldtype->___loadPageField($user, $field);
+			if(!$moduleID) return false;
+			$moduleName = $user->wire()->modules->getModuleClass($moduleID);
+			if(!$moduleName) return false;
+		}
+		
+		if(!$module) {
+			$module = $user->wire()->modules->getModule($moduleName, array(
 				'noInit' => true,
 				'noCache' => true,
 			));
-			if(!$module) return '';
 		}
+		
+		if(!$module || !$module instanceof Tfa) return false;
+		
 		$settings = $module->getUserSettings($user);
-		return $module->enabledForUser($user, $settings) ? $moduleName : '';
+		if(!$module->enabledForUser($user, $settings)) return false;
+		
+		return $getInstance ? $module : $moduleName; 
 	}
 
 	/**
