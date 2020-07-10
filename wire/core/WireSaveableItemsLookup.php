@@ -100,6 +100,9 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 	 * Should the given item key/field be saved in the database?
 	 *
 	 * Template method used by ___save()
+	 * 
+	 * @param string $key
+	 * @return bool
 	 *
 	 */
 	protected function saveItemKey($key) {
@@ -117,7 +120,10 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 	 */
 	public function ___save(Saveable $item) {
 
-		if(!$item instanceof HasLookupItems) throw new WireException($this->className() . "::save() requires an item that implements HasLookupItems interface"); 
+		if(!$item instanceof HasLookupItems) {
+			$class = $this->className();
+			throw new WireException("$class::save() requires an item that implements HasLookupItems interface");
+		}
 	
 		$database = $this->wire('database'); 	
 		$lookupTable = $database->escapeTable($this->getLookupTable());

@@ -232,25 +232,27 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	public function ___save(Saveable $item) {
 
 		$blank = $this->makeBlankItem();
-		if(!$item instanceof $blank) throw new WireException("WireSaveableItems::save(item) requires item to be of type '" . $blank->className() . "'"); 
+		
+		if(!$item instanceof $blank) {
+			$className = $blank->className();
+			throw new WireException("WireSaveableItems::save(item) requires item to be of type: $className");
+		}
 
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 		$table = $database->escapeTable($this->getTable());
 		$sql = "`$table` SET ";
 		$id = (int) $item->id;
 		$this->saveReady($item); 
 		$data = $item->getTableData();
+		$binds = array();
 
 		foreach($data as $key => $value) {
 			if(!$this->saveItemKey($key)) continue; 
-			if($key == 'data') {
-				if(is_array($value)) {
-					$value = $this->encodeData($value); 
-				} else $value = '';
-			}
+			if($key === 'data') $value = is_array($value) ? $this->encodeData($value) : '';
 			$key = $database->escapeTableCol($key);
-			$value = $database->escapeStr("$value"); 
-			$sql .= "`$key`='$value', ";
+			$bindKey = $database->escapeCol($key);
+			$binds[":$bindKey"] = $value; 
+			$sql .= "`$key`=:$bindKey, ";
 		}
 
 		$sql = rtrim($sql, ", "); 
@@ -258,15 +260,21 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		if($id) {
 			
 			$query = $database->prepare("UPDATE $sql WHERE id=:id");
+			foreach($binds as $key => $value) {
+				$query->bindValue($key, $value); 
+			}
 			$query->bindValue(":id", $id, \PDO::PARAM_INT);
 			$result = $query->execute();
 			
 		} else {
 			
 			$query = $database->prepare("INSERT INTO $sql"); 
+			foreach($binds as $key => $value) {
+				$query->bindValue($key, $value); 
+			}
 			$result = $query->execute();
 			if($result) {
-				$item->id = $database->lastInsertId();
+				$item->id = (int) $database->lastInsertId();
 				$this->getAll()->add($item);
 				$this->added($item);
 			}
