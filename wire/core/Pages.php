@@ -8,7 +8,7 @@
  *
  * This is the most used object in the ProcessWire API. 
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  * @link http://processwire.com/api/variables/pages/ Offical $pages Documentation
@@ -49,10 +49,13 @@
  * @method added(Page $page) Hook called when a new page has been added. 
  * @method moved(Page $page) Hook called when a page has been moved from one parent to another. 
  * @method templateChanged(Page $page) Hook called when a page template has been changed. 
+ * @method trashReady(Page $page) Hook called when a page is about to be moved to the trash.
  * @method trashed(Page $page) Hook called when a page has been moved to the trash. 
  * @method restored(Page $page) Hook called when a page has been moved OUT of the trash. 
- * @method deleteReady(Page $page) Hook called just before a page is deleted. 
- * @method deleted(Page $page) Hook called after a page has been deleted. 
+ * @method deleteReady(Page $page, array $options) Hook called just before a page is deleted. 
+ * @method deleted(Page $page, array $options) Hook called after a page has been deleted. 
+ * @method deleteBranchReady(Page $page, array $options) Hook called before a branch of pages deleted, on initiating page only. 
+ * @method deletedBranch(Page $page, array $options, $numDeleted) Hook called after branch of pages deleted, on initiating page only.
  * @method cloneReady(Page $page, Page $copy) Hook called just before a page is cloned. 
  * @method cloned(Page $page, Page $copy) Hook called after a page has been successfully cloned. 
  * @method renamed(Page $page) Hook called after a page has been successfully renamed. 
@@ -1677,6 +1680,18 @@ class Pages extends Wire {
 		}
 	}
 
+
+	/**
+	 * Hook called when a Page is about to be trashed
+	 * 
+	 * @param Page $page
+	 * @since 3.0.163
+	 * 
+	 */
+	public function ___trashReady(Page $page) {
+		if($page) {} // ignore
+	}
+	
 	/**
 	 * Hook called when a page has been moved to the trash
 	 * 
@@ -1733,9 +1748,11 @@ class Pages extends Wire {
 	 * #pw-hooker
 	 * 
 	 * @param Page $page Page that is about to be deleted. 
+	 * @param array $options Options passed to delete method (since 3.0.163)
 	 *
 	 */
-	public function ___deleteReady(Page $page) {
+	public function ___deleteReady(Page $page, array $options = array()) {
+		if($options) {} // ignore
 		foreach($this->types as $manager) {
 			if($manager->hasValidTemplate($page)) $manager->deleteReady($page);
 		}
@@ -1747,16 +1764,52 @@ class Pages extends Wire {
 	 * #pw-hooker
 	 * 
 	 * @param Page $page Page that was deleted
+	 * @param array $options Options passed to delete method (since 3.0.163)
 	 *
 	 */
-	public function ___deleted(Page $page) { 
-		$this->log("Deleted page", $page); 
+	public function ___deleted(Page $page, array $options = array()) { 
+		if($options) {}
+		if(empty($options['_deleteBranch'])) $this->log("Deleted page", $page); 
 		/** @var WireCache $cache */
 		$cache = $this->wire('cache');
 		$cache->maintenance($page);
 		foreach($this->types as $manager) {
 			if($manager->hasValidTemplate($page)) $manager->deleted($page);
 		}
+	}
+	
+	/**
+	 * Hook called before a branch of pages is about to be deleted, called on root page of branch only
+	 *
+	 * Note: this is called only on deletions that had 'recursive' option true and 1+ children.
+	 *
+	 * #pw-hooker
+	 *
+	 * @param Page $page Page that was deleted
+	 * @param array $options Options passed to delete method
+	 * @since 3.0.163
+	 *
+	 */
+	public function ___deleteBranchReady(Page $page, array $options) {
+		if($page && $options) {}
+	}
+	
+	/**
+	 * Hook called after a a branch of pages has been deleted, called on root page of branch only
+	 * 
+	 * Note: this is called only on deletions that had 'recursive' option true and 1+ children. 
+	 *
+	 * #pw-hooker
+	 *
+	 * @param Page $page Page that was the root of the branch
+	 * @param array $options Options passed to delete method
+	 * @param int $numDeleted Number of pages deleted
+	 * @since 3.0.163
+	 *
+	 */
+	public function ___deletedBranch(Page $page, array $options, $numDeleted) {
+		if($page && $options) {}
+		$this->log("Deleted branch with $numDeleted page(s)", $page);
 	}
 
 	/**

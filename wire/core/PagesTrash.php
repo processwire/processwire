@@ -5,7 +5,7 @@
  *
  * Implements page trash/restore/empty methods of the $pages API variable
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -45,9 +45,12 @@ class PagesTrash extends Wire {
 			throw new WireException("This page (id=$page->id) may not be placed in the trash");
 		}
 		
-		if(!$trash = $this->pages->get($this->config->trashPageID)) {
+		$trash = $this->pages->get($this->config->trashPageID);
+		if(!$trash->id) {
 			throw new WireException("Unable to load trash page defined by config::trashPageID");
 		}
+		
+		$this->pages->trashReady($page);
 		
 		$page->addStatus(Page::statusTrash);
 		
