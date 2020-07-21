@@ -4556,7 +4556,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * usual Page load and save operations. This is primarily for internal core use, but may be 
 	 * useful for other specific non-core purposes as well. 
 	 * 
-	 * Note that this meta data is completely free-form and has no connection to ProcessWire fields. 
+	 * Note that this data is tied to the page where you call it.
+	 * Meta data is completely free-form and has no connection to ProcessWire fields. 
 	 * Values for meta data must be basic PHP types, whether arrays, strings, numbers, etc. Please do
 	 * not use objects for meta values at this time.
 	 * 
