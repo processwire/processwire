@@ -267,7 +267,7 @@ $config->sessionExpireSeconds = 86400;
  *   if($session->hasCookie()) return true;
  * 
  *   // if URL is an admin URL, allow session (replace /processwire/ with your admin URL)
- *   if(strpos($_SERVER['REQUEST_URI'], '/processwire/) === 0) return true;
+ *   if(strpos($_SERVER['REQUEST_URI'], '/processwire/') === 0) return true;
  * 
  *   // otherwise disallow session
  *   return false;
