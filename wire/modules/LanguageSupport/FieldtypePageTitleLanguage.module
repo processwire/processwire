@@ -50,8 +50,8 @@ class FieldtypePageTitleLanguage extends FieldtypeTextLanguage implements Fieldt
 	}
 	
 	public function getInputfield(Page $page, Field $field) {
-		$inputField = $this->modules->get('InputfieldPageTitle');
-		return $inputField;
+		$inputfield = $this->modules->get('InputfieldPageTitle');
+		return $inputfield;
 	}
 
 }

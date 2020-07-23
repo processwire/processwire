@@ -182,7 +182,7 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 
 		$description = $page->get($this->itemDescriptionField); 
 		$description = $description === null ? '' : $this->ent1($this->truncateDescription($description)); 
-		$description = '<![CDATA[' . $description . ']]';
+		$description = '<![CDATA[' . $description . ']]>';
 
 		$out = 
 			"\t<item>\n" .
@@ -390,7 +390,7 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 				$f1->addOption($field->name); 
 				$f2->addOption($field->name); 
 
-			} else if($field->type instanceof FieldtypeDate) {
+			} else if($field->type instanceof FieldtypeDatetime) {
 				$f3->addOption($field->name); 
 			}
 		}

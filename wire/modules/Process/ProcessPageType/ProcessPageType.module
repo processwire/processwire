@@ -79,8 +79,8 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	 */
 	public function init() {
 		
-		$this->config->scripts->add($this->config->urls->ProcessPageType . 'ProcessPageType.js'); 
-		$this->config->styles->add($this->config->urls->ProcessPageType . 'ProcessPageType.css');
+		$this->config->scripts->add($this->config->urls('ProcessPageType') . 'ProcessPageType.js'); 
+		$this->config->styles->add($this->config->urls('ProcessPageType') . 'ProcessPageType.css');
 
 		$this->pages = $this->wire($this->page->name); 
 		
@@ -88,7 +88,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			// $this->error("Unable to find API variable named '{$this->page->name}' (of type: PagesType)", Notice::debug); 
 			$this->pages = $this->wire('pages'); 
 		}
-		
+	
 		if($this->pages instanceof PagesType) {
 			$this->template = $this->pages->getTemplate();
 		}
@@ -332,6 +332,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	public function ___executeAdd() {
 		$pageTitle = $this->page->get('title|name');
 		$this->breadcrumb('../', $pageTitle); 
+		/** @var ProcessPageAdd $editor */
 		$editor = $this->getEditor("ProcessPageAdd"); 
 		$editor->template = $this->template;
 		try {

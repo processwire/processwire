@@ -330,6 +330,7 @@ class WireUpload extends Wire {
 		$extension = strtolower($pathInfo['extension']);
 
 		if(in_array($extension, $this->badExtensions)) return false;
+		if(strpos($extension, 'php') === 0) return false;
 		if(in_array($extension, $this->validExtensions)) return true; 
 		
 		return false; 
