@@ -1168,7 +1168,7 @@ class WireTextTools extends Wire {
 			if($charKey !== false) {
 				// replace escaped char with placeholder ($glue)
 				$glue = $gluePrefix . $charKey . $glueSuffix;
-				$escapes[$glue] = $options['keepEscapePrefix'] ? $escapePrefix . $char : $char;
+				$escapes[$glue] = $options['restoreEscape'] ? $escapePrefix . $char : $char;
 				$str .= $glue . $part;
 			} else if($options['unescapeUnknown']) {
 				// unescape unknown escape char
