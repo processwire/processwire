@@ -25,7 +25,7 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 
 	/**
 	 * Sanitize value for storage
-	 * 
+	 *
 	 * @param Page $page
 	 * @param Field $field
 	 * @param LanguagesValueInterface|string $value
@@ -33,25 +33,40 @@ class FieldtypeTextLanguage extends FieldtypeText implements FieldtypeLanguageIn
 	 *
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
+
 		if(is_object($value) && $value instanceof LanguagesPageFieldValue) {
 			// great, already what we wanted
-		} else {
-			// convert it to a LanguagesPageFieldValue
-			$pageValue = $page->data($field->name); // raw unformatted value, with no load possible
-			if(!$pageValue instanceof LanguagesPageFieldValue) {
-				$pageValue = new LanguagesPageFieldValue($page, $field, $pageValue); // #98
-			}
-			if(is_array($value)) {
-				$pageValue->importArray($value); 
-			} else {
-				$user = $this->wire('user');
-				$language = $user ? $user->language : null;
-				if($language) $pageValue->setLanguageValue($language->id, (string) $value); 
-			}
-			$value = $pageValue; 
+			return $value;
 		}
-		return $value; 
+
+		// convert it to a LanguagesPageFieldValue
+		$pageValue = $page->data($field->name); // raw unformatted value, with no load possible
+
+		if(!$pageValue instanceof LanguagesPageFieldValue) {
+			$pageValue = new LanguagesPageFieldValue($page, $field, $pageValue); // #98
+		}
+
+		if(is_array($value)) {
+			$pageValue->importArray($value);
+			return $pageValue;
+		}
+
+		$user = $this->wire()->user;
+		$language = $user ? $user->language : null;
+		$template = $page->template;
+
+		if(!$language) return $pageValue;
+
+		if($template && $template->noLang) {
+			$languages = $this->wire()->languages;
+			$pageValue->setLanguageValue($languages->getDefault()->id, (string) $value);
+		} else {
+			$pageValue->setLanguageValue($language->id, (string) $value);
+		}
+
+		return $pageValue;
 	}
+
 
 	/**
 	 * Return the database schema in specified format

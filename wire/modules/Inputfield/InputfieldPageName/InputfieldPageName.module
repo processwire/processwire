@@ -165,16 +165,22 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 		$url = '';
 		$out = '';
 		$box = '';
-		$user = $this->wire('user');
-		$languages = $this->wire('languages');
-		$sanitizer = $this->wire('sanitizer');
+		$user = $this->wire()->user;
+		$languages = $this->wire()->languages;
+		$sanitizer = $this->wire()->sanitizer;
 		$editable = $this->attr('disabled') ? false : true; 
-	
-		if($this->editPage && $this->editPage->template->noLang) $languages = false;
-		if($editable && $languages && $this->hasLanguagePageNames && !$languages->editable($user->language)) $editable = false;
+		$template = $this->editPage ? $this->editPage->template : null;
+		$noLang = $template && $template->noLang; 
 		
 		if($this->parentPage) {
-			$url = $this->parentPage->path;
+			if($noLang && $languages && !$user->language->isDefault()) {
+				// if noLang active for page edited by non-default user, ensure we use default language url
+				$languages->setDefault();
+				$url = $this->parentPage->path;
+				$languages->unsetDefault();
+			} else {
+				$url = $this->parentPage->path;
+			}
 			if($this->hasLanguagePageNames && $this->parentPage->id == $this->wire('config')->rootPageID) {
 				if($user->language->isDefault()) {
 					$parentName = $this->parentPage->name;
@@ -182,6 +188,9 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 				}
 			}
 		}
+
+		if($noLang) $languages = false;
+		if($editable && $languages && $this->hasLanguagePageNames && !$languages->editable($user->language)) $editable = false;
 
 		if($this->languageSupportLabel) {
 

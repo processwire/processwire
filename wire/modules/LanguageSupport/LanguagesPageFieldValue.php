@@ -222,14 +222,24 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 *
 	 */
 	public function __toString() {
-		return $this->wire('hooks')->isHooked('LanguagesPageFieldValue::getStringValue()') ? $this->__call('getStringValue', array()) : $this->___getStringValue();
+		if($this->wire('hooks')->isHooked('LanguagesPageFieldValue::getStringValue()')) {
+			return $this->__call('getStringValue', array());
+		} else {
+			return $this->___getStringValue();
+		}	
 	}
 
 	protected function ___getStringValue() {
-		$language = $this->wire('user')->language; 	
+		
+		$template = $this->page->template;
+		$language = $this->wire()->user->language; 	
 		$defaultValue = (string) $this->data[$this->defaultLanguagePageID];
-		if(!$language || !$language->id || $language->isDefault()) return $defaultValue; 
+		
+		if(!$language || !$language->id || $language->isDefault()) return $defaultValue;
+		if($template && $template->noLang) return $defaultValue;
+
 		$languageValue = (string) (empty($this->data[$language->id]) ? '' : $this->data[$language->id]); 
+		
 		if(!strlen($languageValue)) {
 			// value is blank
 			if($this->field) { 
@@ -239,6 +249,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 				}
 			}
 		}
+		
 		return $languageValue; 
 	}
 

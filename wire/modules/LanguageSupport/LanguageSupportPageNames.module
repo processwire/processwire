@@ -353,6 +353,11 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	public function getPagePath(Page $page, Language $language) {
 
 		$isDefault = $language->isDefault();
+		
+		if(!$isDefault && $page->template && $page->template->noLang) {
+			$language = $this->wire()->languages->getDefault();
+			$isDefault = true;
+		}
 
 		if($page->id == 1) {
 			// special case: homepage
@@ -685,9 +690,9 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	public function hookPagePath(HookEvent $event) {
 		/** @var Page $page */
 		$page = $event->object; 
-		if($page->template == 'admin') return;
-		$language = $this->wire('user')->get('language'); 
-		if(!$language) $language = $this->wire('languages')->get('default'); 
+		if($page->template->name == 'admin') return;
+		$language = $this->wire()->user->language;
+		if(!$language) $language = $this->wire()->languages->getDefault();
 		$event->return = $this->getPagePath($page, $language); 
 	}
 
