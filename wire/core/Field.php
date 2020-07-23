@@ -712,6 +712,22 @@ class Field extends WireData implements Saveable, Exportable {
 	}
 
 	/**
+	 * Does this field have context settings for given Page/Template?
+	 *
+	 * #pw-group-retrieval
+	 *
+	 * @param Page|Template|Fieldgroup|string $for Specify Page, Template, or template name string
+	 * @param string $namespace Optional namespace (internal use)
+	 * @return Field|bool
+	 * @since 3.0.163
+	 * @see Field::getContext()
+	 *
+	 */
+	public function hasContext($for, $namespace = '') {
+		return $this->getContext($for, $namespace, true);
+	}
+
+	/**
 	 * Set the roles that are allowed to view or edit this field on pages.
 	 *
 	 * Applicable only if the `Field::flagAccess` is set to this field's flags.
