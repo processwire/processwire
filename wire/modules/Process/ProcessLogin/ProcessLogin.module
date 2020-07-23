@@ -160,8 +160,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$this->set('tfaRecRoleIDs', array());
 		$this->set('tfaRememberDays', 90);
 		$this->set('tfaRememberFingerprints', array('agentVL', 'accept', 'scheme', 'host'));
-		$this->set('tfaAutoEnableType', ''); 
-		$this->set('tfaAutoEnableRoleIDs', array());
+		$this->set('tfaAutoType', ''); 
+		$this->set('tfaAutoRoleIDs', array());
 		$this->set('allowEmail', false);
 		$this->set('emailField', 'email');
 		$this->customMarkup['forgot-icon'] = wireIconMarkup('question-circle', 'fw');
@@ -946,119 +946,148 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			);
 		}
 		$inputfields->add($f);
+		$inputfields->add($this->getTfaConfigInputfields());
+	}
+
+	/**
+	 * Get Inputfields to configure Tfa settings
+	 * 
+	 * @param array $data
+	 * @return InputfieldFieldset
+	 * @since 3.0.163
+	 * 
+	 */
+	public function getTfaConfigInputfields(array $data = array()) {
+		
+		$defaults = array(
+			'tfaAutoType' => $this->tfaAutoType,
+			'tfaAutoRoleIDs' => $this->tfaAutoRoleIDs, 
+			'tfaRecRoleIDs' => $this->tfaRecRoleIDs,
+			'tfaRememberDays' => $this->tfaRememberDays,
+			'tfaRememberFingerprints' => $this->tfaRememberFingerprints,
+		);
 	
+		$data = array_merge($defaults, $data);
+		$modules = $this->wire()->modules;
+		$items = array();
+		$autos = array();
+		
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset');
+		$fieldset->attr('id', 'tfaConfigFieldset');
 		$fieldset->label = $this->_('Two-factor authentication');
 		$fieldset->icon = 'user-secret';
-		$inputfields->add($fieldset);
-		$tfaModules = $modules->findByPrefix('Tfa');
-		
-		if(count($tfaModules)) {
-			$items = array();
-			$autos = array();
-			foreach($tfaModules as $name) {
-				$items[] = "[$name](" . $modules->getModuleEditUrl($name) . ")";
-				/** @var Tfa $tfaModule */
-				$tfaModule = $modules->getModule($name, array('noCache' => true, 'noInit' => true)); 
-				if($tfaModule && $tfaModule->autoEnableSupported()) $autos[$name] = $modules->getModuleInfoProperty($name, 'title');
-			}
-			$fieldset->description = $this->_('Found the following Tfa modules:') . ' ' . implode(', ', $items);
-			
-			if(count($autos)) {
-				$forceLabel = $this->_('Force two-factor authentication');
-				/** @var InputfieldRadios $f */
-				$f = $modules->get('InputfieldRadios');
-				$f->attr('name', 'tfaAutoType');
-				$f->label = $forceLabel . ' - ' . $this->_x('Type', 'Module name/type');
-				$f->description = $this->_('When a Tfa module is selected here, it will be enabled automatically (at login) for users that are not using two-factor authentication.');
-				$f->addOption('0', $this->_('Disabled'));
-				foreach($autos as $name => $title) {
-					$f->addOption($name, "$title ($name)");
-				}
-				$f->icon = 'gavel';
-				$f->val($this->tfaAutoType ? $this->tfaAutoType : '0');
-				$fieldset->add($f);
+		$fieldset->appendMarkup =
+			"<p><a target='_blank' href='https://modules.processwire.com/categories/tfa/'>" .
+			$this->_('Tfa modules in the ProcessWire modules directory') . ' ' .
+			wireIconMarkup('external-link') . "</a></p>";
 
-				/** @var InputfieldCheckboxes $f */
-				$f = $modules->get('InputfieldCheckboxes');
-				$f->attr('name', 'tfaAutoRoleIDs');
-				$f->label = $forceLabel . ' - ' . $this->_x('Roles', 'Roles selection'); 
-				$f->description = $this->_('Check roles to force two-factor authentication for, or leave all unchecked to force for ALL roles (when/where possible).');
-				foreach($this->wire('roles') as $role) {
-					if($role->name == 'guest') continue;
-					$f->addOption($role->id, $role->name);
-				}
-				$f->icon = 'gavel';
-				$f->attr('value', $this->get('tfaAutoRoleIDs'));
-				$f->showIf = 'tfaAutoType!=0';
-				$f->collapsed = Inputfield::collapsedBlank;
-				$fieldset->add($f);
+		$tfaModules = $modules->findByPrefix('Tfa');
+
+		if(!count($tfaModules)) {
+			$fieldset->description = $this->_('To configure this you must first install one or more Tfa modules and then return here.');
+			$fieldset->collapsed = Inputfield::collapsedYes;
+			return $fieldset;
+		}
+		
+		foreach($tfaModules as $name) {
+			$items[] = "[$name](" . $modules->getModuleEditUrl($name) . ")";
+			/** @var Tfa $tfaModule */
+			$tfaModule = $modules->getModule($name, array('noCache' => true, 'noInit' => true));
+			if($tfaModule && $tfaModule->autoEnableSupported()) {
+				$autos[$name] = $modules->getModuleInfoProperty($name, 'title');
 			}
-			
+		}
+		
+		$fieldset->description = 
+			$this->_('Found the following Tfa modules:') . ' ' . implode(', ', $items) . ' ' . 
+			$this->_('(click to configure)');
+
+		if(count($autos)) {
+			$forceLabel = $this->_('Force two-factor authentication');
+			/** @var InputfieldRadios $f */
+			$f = $modules->get('InputfieldRadios');
+			$f->attr('name', 'tfaAutoType');
+			$f->label = $forceLabel . ' - ' . $this->_x('Type', 'Module name/type');
+			$f->description = $this->_('When a Tfa module is selected here, it will be enabled automatically (at login) for users that are not using two-factor authentication.');
+			$f->addOption('0', $this->_('Disabled'));
+			foreach($autos as $name => $title) {
+				$f->addOption($name, "$title ($name)");
+			}
+			$f->icon = 'gavel';
+			$f->val(!empty($data['tfaAutoType']) ? $data['tfaAutoType'] : '0');
+			$fieldset->add($f);
+
 			/** @var InputfieldCheckboxes $f */
 			$f = $modules->get('InputfieldCheckboxes');
-			$f->attr('name', 'tfaRecRoleIDs');
-			$f->icon = 'gears';
-			$f->label = $this->_('Strongly suggest two-factor authentication for these roles');
-			$f->description = 
-				$this->_('After logging in to the admin, ProcessWire will prompt users in the roles you select here to use two-factor authentication for their accounts.');
+			$f->attr('name', 'tfaAutoRoleIDs');
+			$f->label = $forceLabel . ' - ' . $this->_x('Roles', 'Roles selection');
+			$f->description = $this->_('Check roles to force two-factor authentication for, or leave all unchecked to force for ALL roles (when/where possible).');
 			foreach($this->wire('roles') as $role) {
 				if($role->name == 'guest') continue;
 				$f->addOption($role->id, $role->name);
 			}
-			$f->attr('value', $this->get('tfaRecRoleIDs'));
+			$f->icon = 'gavel';
+			$f->attr('value', $data['tfaAutoRoleIDs']);
+			$f->showIf = 'tfaAutoType!=0';
 			$f->collapsed = Inputfield::collapsedBlank;
 			$fieldset->add($f);
-	
-		
-			/** @var InputfieldInteger $f */
-			$f = $modules->get('InputfieldInteger'); 
-			$f->attr('name', 'tfaRememberDays'); 
-			$f->label = $this->_('Allow users the option to skip code entry when their browser/location is remembered?');
-			$f->description = 
-				$this->_('This presents users with a “Remember this computer?” option on the code entry screen at login.') . ' ' . 
-				$this->_('Enter the number of days that a user’s browser/location can be remembered for, or 0 to disable.'); 
-			$f->attr('value', (int) $this->tfaRememberDays); 
-			$f->icon = 'unlock-alt';
-			$fieldset->add($f);
-		
-			$fingerprints = array(
-				'agent' => $this->_('User agent (browser, platform, and versions of each)'),
-				'agentVL' => $this->_('Non-versioned user agent (browser and platform, but no versions—less likely to change often)'),
-				'accept' => $this->_('Accept header (content types user’s browser accepts)'),
-				'scheme' => $this->_('Current request scheme whether HTTP or HTTPS'),
-				'host' => $this->_('Server hostname (value of $config->httpHost)'),
-				'ip' => $this->_('User’s IP address (REMOTE_ADDR)'),
-				'fwip' => $this->_('User’s forwarded or client IP address (HTTP_X_FORWARDED_FOR or HTTP_CLIENT_IP)'),
-			);
-		
-			/** @var InputfieldCheckboxes $f */
-			$f = $modules->get('InputfieldCheckboxes'); 
-			$f->attr('name', 'tfaRememberFingerprints'); 
-			$f->label = $this->_('Do not allow user to skip code entry when any of these properties change'); 
-			$f->description = 
-				$this->_('Changes to password, name, email, or a random cookie in the user’s browser, will always require code entry at login.') . ' ' . 
-				$this->_('In addition, changes to any checked items below will also require code entry at login.') . ' ' . 
-				$this->_('These properties form a fingerprint of the user’s browser beyond the random cookie that we set.'); 	
-			$f->notes = $this->_('This setting only applies when the option to remember browser/location is enabled.'); 
-			foreach($fingerprints as $name => $label) {
-				$f->addOption($name, $label);
-			}
-			$f->showIf = 'tfaRememberDays!=0';
-			$f->attr('value', $this->tfaRememberFingerprints);
-			$f->icon = 'lock';
-			$fieldset->add($f);
-			
-		} else {
-			$fieldset->description = $this->_('To configure this you must first install one or more Tfa modules and then return here.');
 		}
+
+		/** @var InputfieldCheckboxes $f */
+		$f = $modules->get('InputfieldCheckboxes');
+		$f->attr('name', 'tfaRecRoleIDs');
+		$f->icon = 'gears';
+		$f->label = $this->_('Strongly suggest two-factor authentication for these roles');
+		$f->description =
+			$this->_('After logging in to the admin, ProcessWire will prompt users in the roles you select here to use two-factor authentication for their accounts.');
+		foreach($this->wire('roles') as $role) {
+			if($role->name == 'guest') continue;
+			$f->addOption($role->id, $role->name);
+		}
+		$f->attr('value', $data['tfaRecRoleIDs']);
+		$f->collapsed = Inputfield::collapsedBlank;
+		$fieldset->add($f);
+
+		/** @var InputfieldInteger $f */
+		$f = $modules->get('InputfieldInteger');
+		$f->attr('name', 'tfaRememberDays');
+		$f->label = $this->_('Allow users the option to skip code entry when their browser/location is remembered?');
+		$f->description =
+			$this->_('This presents users with a “Remember this computer?” option on the code entry screen at login.') . ' ' .
+			$this->_('Enter the number of days that a user’s browser/location can be remembered for, or 0 to disable.');
+		$f->attr('value', (int) $data['tfaRememberDays']);
+		$f->icon = 'unlock-alt';
+		$fieldset->add($f);
+
+		$fingerprints = array(
+			'agent' => $this->_('User agent (browser, platform, and versions of each)'),
+			'agentVL' => $this->_('Non-versioned user agent (browser and platform, but no versions—less likely to change often)'),
+			'accept' => $this->_('Accept header (content types user’s browser accepts)'),
+			'scheme' => $this->_('Current request scheme whether HTTP or HTTPS'),
+			'host' => $this->_('Server hostname (value of $config->httpHost)'),
+			'ip' => $this->_('User’s IP address (REMOTE_ADDR)'),
+			'fwip' => $this->_('User’s forwarded or client IP address (HTTP_X_FORWARDED_FOR or HTTP_CLIENT_IP)'),
+		);
+
+		/** @var InputfieldCheckboxes $f */
+		$f = $modules->get('InputfieldCheckboxes');
+		$f->attr('name', 'tfaRememberFingerprints');
+		$f->label = $this->_('Do not allow user to skip code entry when any of these properties change');
+		$f->description =
+			$this->_('Changes to password, name, email, or a random cookie in the user’s browser, will always require code entry at login.') . ' ' .
+			$this->_('In addition, changes to any checked items below will also require code entry at login.') . ' ' .
+			$this->_('These properties form a fingerprint of the user’s browser beyond the random cookie that we set.');
+		$f->notes = $this->_('This setting only applies when the option to remember browser/location is enabled.');
+		foreach($fingerprints as $name => $label) {
+			$f->addOption($name, $label);
+		}
+		$f->showIf = 'tfaRememberDays!=0';
+		$f->attr('value', $data['tfaRememberFingerprints']);
+		$f->icon = 'lock';
+		$fieldset->add($f);
 		
-		$fieldset->appendMarkup = 
-			"<p><a target='_blank' href='https://modules.processwire.com/categories/tfa/'>" . 
-			$this->_('Tfa modules in the ProcessWire modules directory') . ' ' . 
-			wireIconMarkup('external-link') . "</a></p>";
-	
+		return $fieldset;
 	}
 
 }

@@ -19,6 +19,8 @@
  * @method string nameChangedWarning(Page $page, $namePrevious)
  * 
  * @property bool|int $noAutoPublish Disable automatic publishing?
+ * @property-write Template $template
+ * @property-write int $parent_id
  *
  */
 
