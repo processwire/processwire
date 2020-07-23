@@ -1008,10 +1008,14 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	protected function ___processItemInputfields(Pagefile $pagefile, InputfieldWrapper $inputfields, $id, WireInputData $input) {
 		
 		$changed = false;
+		$inputfields->resetTrackChanges(true);
+		$inputfields->processInput($input);
 		
 		foreach($inputfields->getAll() as $f) {
-			$f->resetTrackChanges(true);
-			$f->processInput($input);
+			/** @var Inputfield $f */
+			foreach($f->getErrors(true) as $error) {
+				$f->error("$this->label ($pagefile->name): $error");
+			}
 			if(!$f->isChanged() && !$pagefile->isTemp()) {
 				continue;
 			}
