@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  * @method string execute($internal = true)
@@ -698,14 +698,26 @@ class ProcessPageView extends Process {
 	 */
 	protected function checkAccess($page) {
 
+		$user = $this->wire()->user;
+		
 		if($this->requestFile) {
 			// if a file was requested, we still allow view even if page doesn't have template file
 			if($page->viewable(false)) return $page; 
 			// if($page->editable()) return $page;
 			if($this->checkAccessDelegated($page)) return $page; 
-			if($page->status < Page::statusUnpublished && $this->wire('user')->hasPermission('page-view', $page)) return $page;
+			if($page->status < Page::statusUnpublished && $user->hasPermission('page-view', $page)) return $page;
+			
 		} else if($page->viewable()) {
 			return $page;
+			
+		} else if($page->parent_id && $page->parent->template->name === 'admin' && $page->parent->viewable()) {
+			// check for special case in admin when Process::executeSegment() collides with page name underneath
+			// example: a role named "edit" is created and collides with ProcessPageType::executeEdit()
+			$input = $this->wire()->input;
+			if($user->isLoggedin() && $page->editable() && !strlen($input->urlSegmentStr())) {
+				$input->setUrlSegment(1, $page->name);
+				return $page->parent;
+			}
 		}
 
 		$accessTemplate = $page->getAccessTemplate();
@@ -713,7 +725,7 @@ class ProcessPageView extends Process {
 		$requestPage = $page;
 
 		if($redirectLogin) {
-			$config = $this->wire('config');
+			$config = $this->wire()->config;
 			$disallowIDs = array($config->trashPageID); // don't allow login redirect for these pages
 			if($page->id && in_array($page->id, $disallowIDs)) {
 				$page = null;
@@ -729,7 +741,7 @@ class ProcessPageView extends Process {
 			}
 			
 			// in case anything needs to know the originally requested login page
-			$this->wire('session')->setFor('ProcessPageView', 'loginRequestPageID', $requestPage->id);
+			$this->wire()->session->setFor('ProcessPageView', 'loginRequestPageID', $requestPage->id);
 			
 		} else {
 			$page = null;
