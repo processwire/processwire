@@ -188,14 +188,18 @@ DirectoryIndex index.php index.html index.htm
   # -----------------------------------------------------------------------------------------------
   # 9. Optionally Force HTTPS (O) 
   # -----------------------------------------------------------------------------------------------
+  # Note that on some web hosts you may need to replace %{HTTPS} with %{ENV:HTTPS} in order
+  # for it to work (in sections 9A and 9D below). If on a load balancer or proxy setup, you will
+  # likely need to use 9B rather than 9A, and 9E rather than 9D.  
+  # -----------------------------------------------------------------------------------------------
 
-  # 9A. To redirect HTTP requests to HTTPS, uncomment the lines below: 
+  # 9A. To redirect HTTP requests to HTTPS, uncomment the lines below (also see note above):
   # -----------------------------------------------------------------------------------------------
   # RewriteCond %{HTTPS} !=on
   # RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
 
 
-  # 9B. If using load balancer/AWS, use the following rather than 9A above: (L)
+  # 9B. If using load balancer/AWS or behind proxy, use the following rather than 9A above: (L)
   # -----------------------------------------------------------------------------------------------
   # RewriteCond %{HTTP:X-Forwarded-Proto} =http 
   # RewriteRule (.*) https://%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
@@ -209,7 +213,7 @@ DirectoryIndex index.php index.html index.htm
   # RewriteCond %{REQUEST_URI} !^/\.well-known/pki-validation/[A-F0-9]{32}\.txt(?:\ Comodo\ DCV)?$
  
   
-  # 9D. Store current scheme in a 'proto' environment variable for later use in this file
+  # 9D. Store current scheme in a 'proto' environment variable for later use
   # -----------------------------------------------------------------------------------------------
   RewriteCond %{HTTPS} =on
   RewriteRule ^ - [env=proto:https]
@@ -217,7 +221,7 @@ DirectoryIndex index.php index.html index.htm
   RewriteRule ^ - [env=proto:http]
   
  
-  # 9E. If using Load balancer/AWS- Use lines below rather than 9D: (L)
+  # 9E. If using load balancer/AWS or behind proxy, use lines below rather than 9D: (L)
   # -----------------------------------------------------------------------------------------------
   # RewriteCond %{HTTP:X-Forwarded-Proto} =https 
   # RewriteRule ^ - [env=proto:https]
