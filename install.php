@@ -786,11 +786,22 @@ class Installer {
 	 */
 	protected function dbSaveConfigFile(array $values) {
 
-		if(self::TEST_MODE) return true; 
+		if(self::TEST_MODE) return true;
+		
+		$file = __FILE__; 
+		$time = time();
+		$host = empty($values['httpHosts']) ? '' : implode(',', $values['httpHosts']);
 
-		$salt = md5(mt_rand() . microtime(true)); 
-
-		$cfg = 	"\n/**" . 
+		if(function_exists('random_bytes')) {
+			$authSalt = sha1(random_bytes(random_int(40, 128)));
+			$tableSalt = sha1(random_int(0, 65535) . "$host$file$time"); 
+		} else {
+			$authSalt = md5(mt_rand() . microtime(true));
+			$tableSalt = md5(mt_rand() . "$host$file$time"); 
+		}
+		
+		$cfg =
+			"\n/**" . 
 			"\n * Installer: Database Configuration" . 
 			"\n * " . 
 			"\n */" . 
@@ -807,11 +818,23 @@ class Installer {
 			"\n" . 
 			"\n/**" . 
 			"\n * Installer: User Authentication Salt " . 
-			"\n * " . 
-			"\n * Must be retained if you migrate your site from one server to another" . 
+			"\n * " .
+			"\n * This value was randomly generated for your system on " . date('Y/m/d') . "." . 
+			"\n * This should be kept as private as a password and never stored in the database." . 
+			"\n * Must be retained if you migrate your site from one server to another." . 
+			"\n * Do not change this value, or user passwords will no longer work." .
 			"\n * " . 
 			"\n */" . 
-			"\n\$config->userAuthSalt = '$salt'; " . 
+			"\n\$config->userAuthSalt = '$authSalt'; " .
+			"\n" . 
+			"\n * Installer: Table Salt (General Purpose) " .
+			"\n * " .
+			"\n * Use this rather than userAuthSalt when a hashing salt is needed for non user " .
+			"\n * authentication purposes. Like with userAuthSalt, you should never change " . 
+			"\n * this value or it may break internal system comparisons that use it. " . 
+			"\n * " .
+			"\n */" . 
+			"\n\$config->tableSalt = '$tableSalt'; " .
 			"\n" . 
 			"\n/**" . 
 			"\n * Installer: File Permission Configuration" . 

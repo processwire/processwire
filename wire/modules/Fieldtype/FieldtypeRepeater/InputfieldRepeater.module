@@ -389,8 +389,8 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 
 			$wrap = $this->wire('modules')->get('InputfieldFieldset'); 
 			$wrap->addClass('InputfieldRepeaterItem InputfieldNoFocus');
-			$wrap->entityEncodeLabel = false;
 			if(!$isPost) {
+				$wrap->entityEncodeLabel = false;
 				$wrap->label =
 					"<span class='InputfieldRepeaterItemLabel'>" .
 					$this->entityEncode($this->renderRepeaterLabel($label, ++$cnt, $page)) .

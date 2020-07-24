@@ -1753,7 +1753,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 	/**
 	 * Same as getMarkup() except returned value is plain text
 	 * 
-	 * Returned value is entity encoded, unless $entities argument is false. 
+	 * If no `$entities` argument is provided, returned value is entity encoded when output formatting 
+	 * is on, and not entity encoded when output formatting is off.
 	 * 
 	 * #pw-advanced
 	 * 
@@ -1769,12 +1770,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 		$length = strlen($value);
 		if(!$length) return '';
 		$options = array(
-			'entities' => (is_null($entities) ? $this->outputFormatting() : (bool) $entities)
+			'entities' => ($entities === null ? $this->outputFormatting() : (bool) $entities)
 		);
 		if($oneLine) {
-			$value = $this->wire('sanitizer')->markupToLine($value, $options);
+			$value = $this->wire()->sanitizer->markupToLine($value, $options);
 		} else {
-			$value = $this->wire('sanitizer')->markupToText($value, $options);
+			$value = $this->wire()->sanitizer->markupToText($value, $options);
 		}
 		// if stripping tags from non-empty value made it empty, just indicate that it was markup and length
 		if(!strlen(trim($value))) $value = "markup($length)";

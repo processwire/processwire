@@ -1566,7 +1566,7 @@ class Sanitizer extends Wire {
 		}
 
 		// remove entities
-		$value = $this->wire('sanitizer')->unentities($value);
+		$value = $this->unentities($value);
 
 		if(strpos($value, '<') !== false) {
 			// tag replacements before strip_tags()
