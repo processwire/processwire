@@ -1,9 +1,12 @@
 <?php namespace ProcessWire;
 
 /**
- * Class ProcessModuleInstall
+ * Installation helper for ProcessModule
  * 
  * Provides methods for internative module installation for ProcessModule
+ * 
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * https://processwire.com
  * 
  */
 
@@ -29,16 +32,30 @@ class ProcessModuleInstall extends Wire {
 	 * This primarily checks that needed dirs are writable and ZipArchive is available.
 	 *
 	 * @param bool $notify Specify true to make it queue the relevant reason/error message if upload/download not supported. (default=false)
+	 * @param string $type One of 'upload' or 'download' or omit for general check
 	 * @return bool
 	 *
 	 */
-	public function canUploadDownload($notify = true) {
+	public function canUploadDownload($notify = true, $type = '') {
+		$config = $this->wire()->config;
+		if($type) {
+			$a = $config->moduleInstall;
+			$allow = is_array($a) && isset($a[$type]) ? $a[$type] : false;
+			if($allow === 'debug' && !$config->debug) $allow = false;
+			if(!$allow) {
+				if($notify) $this->error(
+					sprintf($this->_('Module install option “%s”'), $type) . ' - ' . 
+					$this->installDisabledLabel($type)
+				);
+				return false;
+			}
+		}
 		$can = true;
-		if(!is_writable($this->config->paths->cache)) {
+		if(!is_writable($config->paths->cache)) {
 			if($notify) $this->error($this->_('Make sure /site/assets/cache/ directory is writeable for PHP.'));
 			$can = false;
 		}
-		if(!is_writable($this->config->paths->siteModules)) {
+		if(!is_writable($config->paths->siteModules)) {
 			if($notify) $this->error($this->_('Make sure your site modules directory (/site/modules/) is writeable for PHP.'));
 			$can = false;
 		}
@@ -48,6 +65,40 @@ class ProcessModuleInstall extends Wire {
 		}
 
 		return $can;
+	}
+
+	/**
+	 * Module upload allowed? 
+	 * 
+	 * @param bool $notify
+	 * @return bool
+	 * 
+	 * 
+	 */
+	public function canInstallFromFileUpload($notify = true) {
+		return $this->canUploadDownload($notify, 'upload');
+	}
+
+	/**
+	 * Module download from URL allowed?
+	 *
+	 * @param bool $notify
+	 * @return bool
+	 *
+	 */
+	public function canInstallFromDownloadUrl($notify = true) {
+		return $this->canUploadDownload($notify, 'download');
+	}
+
+	/**
+	 * Module install/upgrade from directory allowed?
+	 *
+	 * @param bool $notify
+	 * @return bool
+	 *
+	 */
+	public function canInstallFromDirectory($notify = true) {
+		return $this->canUploadDownload($notify, 'directory');
 	}
 
 	/**
@@ -347,7 +398,7 @@ class ProcessModuleInstall extends Wire {
 	 */
 	public function uploadModule($inputName = 'upload_module', $destinationDir = '') {
 
-		if(!$this->canUploadDownload()) {
+		if(!$this->canInstallFromFileUpload()) {
 			$this->error($this->_('Unable to complete upload'));
 			return false;
 		}
@@ -381,16 +432,18 @@ class ProcessModuleInstall extends Wire {
 	/**
 	 * Given a URL to a ZIP file, download it, unzip it, and move to /site/modules/[ModuleName]
 	 *
-	 * @param $url
+	 * @param string $url Download URL
 	 * @param string $destinationDir Optional destination path for files (omit to auto-determine)
+	 * @param string $type Specify type of 'download' or 'directory'
 	 * @return bool|string Returns destinationDir on success, false on failure.
 	 *
 	 */
-	public function downloadModule($url, $destinationDir = '') {
-		
-		if(!$this->canUploadDownload()) {
-			$this->error($this->_('Unable to complete download'));
-			return false;
+	public function downloadModule($url, $destinationDir = '', $type = 'download') {
+
+		if($type === 'directory') {
+			if(!$this->canInstallFromDirectory()) return false;
+		} else {
+			if(!$this->canInstallFromDownloadUrl()) return false;
 		}
 
 		if(!preg_match('{^https?://}i', $url)) {
@@ -424,7 +477,61 @@ class ProcessModuleInstall extends Wire {
 
 		return $success ? $destinationDir : false; 
 	}
-	
+
+	/**
+	 * Download module from URL
+	 *
+	 * @param string $url
+	 * @param string $destinationDir
+	 * @return bool|string
+	 * @since 3.0.162
+	 *
+	 */
+	public function downloadModuleFromUrl($url, $destinationDir = '') {
+		return $this->downloadModule($url, $destinationDir, 'download'); 
+	}
+
+	/**
+	 * Download module from directory 
+	 * 
+	 * @param string $url
+	 * @param string $destinationDir
+	 * @return bool|string
+	 * @since 3.0.162
+	 * 
+	 */
+	public function downloadModuleFromDirectory($url, $destinationDir = '') {
+		return $this->downloadModule($url, $destinationDir, 'directory');
+	}
+
+	/**
+	 * Return label to indicate option is disabled and how to enable it 
+	 * 
+	 * @param string $type
+	 * @return string
+	 * @since 3.0.162
+	 * 
+	 */
+	public function installDisabledLabel($type) {
+		$config = $this->wire()->config;
+		$a = $config->moduleInstall;
+		$debug = !empty($a[$type]) && $a[$type] === 'debug';
+		$opt1 = "`\$config->moduleInstall('$type', true);` " . $this->_('to enable always');
+		$opt2 = "`\$config->debug = true;` " . $this->_('temporarily');
+		$opt3 = "`\$config->moduleInstall('$type', 'debug');` " . $this->_('to enable in debug mode only');
+		$file = $config->urls->site . 'config.php';
+		$inst = $this->_('To enable, edit file %1$s and specify: %2$s …or… %3$s');
+		if($debug) {
+			return
+				$this->_('This install option is configured to be available only in debug mode.') . ' ' .
+				sprintf($inst, "$file", "\n$opt2", "\n$opt1");
+			
+		} else {
+			return
+				$this->_('This install option is currently disabled.') . ' ' . 
+				sprintf($inst, "$file", "\n$opt1", "\n$opt3");
+		}
+	}
 
 }
 

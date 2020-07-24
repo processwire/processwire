@@ -6,7 +6,7 @@ $(document).ready(function() {
 		var $btn = $(".install_" + name + ":visible"); 
 		var disabled = $btn.attr('disabled'); 	
 	
-		if($btn.size()) {	
+		if($btn.length) {	
 			$btn.effect('highlight', 1000);
 		} else {
 			var color = $(this).css('color'); 
@@ -52,7 +52,8 @@ $(document).ready(function() {
 	});
 	
 	$("#Inputfield_new_seconds").change(function() {
-		$(this).parents('form').submit();
+		$('#submit_check').removeAttr('hidden').click();
+		$(this).closest('form').submit();
 	}); 
 	
 	$("#wrap_upload_module").removeClass('InputfieldItemList'); 

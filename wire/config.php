@@ -1189,7 +1189,30 @@ $config->moduleServiceURL = 'https://modules.processwire.com/export-json/';
  * @var string
  *
  */
-$config->moduleServiceKey = (__NAMESPACE__ ? 'pw300' : 'pw280');
+$config->moduleServiceKey = 'pw301';
+
+/**
+ * Allowed module installation options (in admin)
+ * 
+ * Module installation options you want to be available from the admin Modules > Install tab. 
+ * For any of the options below, specify boolean `true` to allow, `false` to disallow, or 
+ * specify string `'debug'` to allow only when ProcessWire is in debug mode. 
+ * 
+ * - `directory`: Allow installation or upgrades from ProcessWire modules directory?
+ * - `upload`: Allow installation by file upload?
+ * - `download`: Allow installation by file download from URL?
+ * 
+ * @todo consider whether the 'directory' option should also be limited to 'debug' only.
+ * 
+ * @var array
+ * @since 3.0.163
+ * 
+ */
+$config->moduleInstall = array(
+	'directory' => true, // allow install from ProcessWire modules directory? 
+	'upload' => 'debug', // allow install by module file upload?
+	'download' => 'debug', // allow install by download from URL?
+);
 
 /**
  * Substitute modules

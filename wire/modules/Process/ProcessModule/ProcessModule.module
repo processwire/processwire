@@ -11,7 +11,7 @@
  * This version also lifts several pieces of code from Soma's Modules Manager
  * specific to the parts involved with downloading modules from the directory.
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add support for module configuration inputfields with useLanguages option
@@ -32,7 +32,7 @@ class ProcessModule extends Process {
 		return array(
 			'title' => __('Modules', __FILE__), // getModuleInfo title          
 			'summary' => __('List, edit or install/uninstall modules', __FILE__), // getModuleInfo summary
-			'version' => 118, 
+			'version' => 119, 
 			'permanent' => true, 
 			'permission' => 'module-admin', 
 			'useNavJSON' => true,
@@ -121,6 +121,16 @@ class ProcessModule extends Process {
 	 */
 	protected $numFound = 0;
 	
+	/**
+	 * @var ProcessModuleInstall|null
+	 *
+	 */
+	protected $installer = null;
+
+	/**
+	 * Construct
+	 *
+	 */
 	public function __construct() {
 		$this->labels['download'] = $this->_('Download'); 
 		if($this->input->get('update')) {
@@ -132,6 +142,7 @@ class ProcessModule extends Process {
 		$this->labels['module_information'] = $this->_x("Module Information", 'edit');
 		$this->labels['download_now'] = $this->_('Download Now');
 		$this->labels['download_dir'] = $this->_('Add Module From Directory');
+		$this->labels['add_manually'] = $this->_('Add Module Manually');
 		$this->labels['upload'] = $this->_('Upload');
 		$this->labels['upload_zip'] = $this->_('Add Module From Upload');
 		$this->labels['download_zip'] = $this->_('Add Module From URL');
@@ -156,6 +167,14 @@ class ProcessModule extends Process {
 		require(dirname(__FILE__) . '/ProcessModuleInstall.php'); 
 	}
 
+	/**
+	 * @return ProcessModuleInstall
+	 * 
+	 */
+	public function installer() {
+		if($this->installer === null) $this->installer = $this->wire(new ProcessModuleInstall());
+		return $this->installer;
+	}
 
 	/**
 	 * Format a module version number from 999 to 9.9.9
@@ -515,100 +534,151 @@ class ProcessModule extends Process {
 		$select->addOption(2419200, $this->_('Within the last month')); 
 		$select->required = true; 
 		$select->attr('value', $newSeconds);
+	
+		/** @var InputfieldSubmit $btn */
+		$btn = $this->modules->get('InputfieldSubmit');
+		$btn->attr('hidden', 'hidden');
+		$btn->attr('name', 'submit_check');
+		$btn->textFormat = Inputfield::textFormatNone;
+		$btn->icon = 'check';
+		$btn->value = ' ';
+		$btn->setSmall(true);
+		$btn->setSecondary(true);
+		$btn = "<button type='submit' id='submit_check' name='submit_check' value='1' hidden>&nbsp;</button>";
 		
 		/** @var InputfieldMarkup $markup */
 		$markup = $this->modules->get('InputfieldMarkup');
 		$markup->icon = 'lightbulb-o';
-		$markup->value = $select->render() . $this->renderListTable($newModulesArray, false, false, true, true);
+		$markup->value = $select->render() . ' ' . $btn . $this->renderListTable($newModulesArray, false, false, true, true);
 		$markup->label = $this->_('Recently Found and Installed Modules');
-		$tab->add($markup); 
+		$tab->add($markup);
 		
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->modules->get('InputfieldFieldset');
 		$fieldset->label = $this->labels['download_dir'];
 		$fieldset->icon = 'cloud-download';
-		//if($this->wire('input')->post('new_seconds')) $fieldset->collapsed = Inputfield::collapsedYes; 
-		/** @var InputfieldName $f */
-		$f = $this->modules->get('InputfieldName');
-		$f->attr('id+name', 'download_name');
-		$f->label = $this->_('Module Class Name');
-		$f->description = 
-			$this->_('You may browse the modules directory and locate the module you want to download and install.') . ' ' . 
-			sprintf(
-				$this->_('Type or paste in the class name for the module you want to install, then click the “%s” button to proceed.'), 
-				$this->labels['get_module_info']
-			);
-		$f->notes = $this->_('The modules directory is located at [modules.processwire.com](http://modules.processwire.com)'); 
-		$f->attr('placeholder', $this->_('ModuleClassName')); // placeholder
-		$f->required = false; 
-		$fieldset->add($f);
-	
-		/** @var InputfieldSubmit $f */
-		$f = $this->modules->get('InputfieldSubmit');
-		$f->attr('id+name', 'download');
-		$f->value = $this->labels['get_module_info'];
-		$f->icon = $fieldset->icon;
-		$fieldset->add($f);
 		$tab->add($fieldset);
+		//if($this->wire('input')->post('new_seconds')) $fieldset->collapsed = Inputfield::collapsedYes; 
+		
+		if($this->installer()->canInstallFromDirectory(false)) {
+			/** @var InputfieldName $f */
+			$f = $this->modules->get('InputfieldName');
+			$f->attr('id+name', 'download_name');
+			$f->label = $this->_('Module Class Name');
+			$f->description =
+				$this->_('You may browse the modules directory and locate the module you want to download and install.') . ' ' .
+				sprintf(
+					$this->_('Type or paste in the class name for the module you want to install, then click the “%s” button to proceed.'),
+					$this->labels['get_module_info']
+				);
+			$f->notes = sprintf($this->_('The modules directory is located at %s'), '[modules.processwire.com](https://modules.processwire.com)');
+			$f->attr('placeholder', $this->_('ModuleClassName')); // placeholder
+			$f->required = false;
+			$fieldset->add($f);
+			
+			/** @var InputfieldSubmit $f */
+			$f = $this->modules->get('InputfieldSubmit');
+			$f->attr('id+name', 'download');
+			$f->value = $this->labels['get_module_info'];
+			$f->icon = $fieldset->icon;
+			$fieldset->add($f);
+		} else {
+			$fieldset->description = $this->installer()->installDisabledLabel('directory');
+			$fieldset->collapsed = Inputfield::collapsedYes;
+		}
 	
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->modules->get('InputfieldFieldset');
 		$fieldset->label = $this->labels['download_zip'];
 		$fieldset->icon = 'download';
 		$fieldset->collapsed = Inputfield::collapsedYes;
+		$tab->add($fieldset);
 		$trustNote = $this->_('Be absolutely certain that you trust the source of the ZIP file.'); 
 	
-		/** @var InputfieldURL $f */
-		$f = $this->modules->get('InputfieldURL');
-		$f->attr('id+name', 'download_zip_url');
-		$f->label = $this->_('Module ZIP file URL');
-		$f->description = $this->_('Download a ZIP file containing a module. If you download a module that is already installed, the installed version will be overwritten with the newly downloaded version.'); 
-		$f->notes = $trustNote; 
-		$f->attr('placeholder', $this->_('http://domain.com/ModuleName.zip')); // placeholder
-		$f->required = false;
-		$fieldset->add($f);
-
-		/** @var InputfieldSubmit $f */
-		$f = $this->modules->get('InputfieldSubmit');
-		$f->attr('id+name', 'download_zip');
-		$f->value = $this->labels['download'];
-		$f->icon = $fieldset->icon;
-		$fieldset->add($f);
-		$tab->add($fieldset);
+		if($this->installer()->canInstallFromDownloadUrl(false)) {
+			/** @var InputfieldURL $f */
+			$f = $this->modules->get('InputfieldURL');
+			$f->attr('id+name', 'download_zip_url');
+			$f->label = $this->_('Module ZIP file URL');
+			$f->description = $this->_('Download a ZIP file containing a module. If you download a module that is already installed, the installed version will be overwritten with the newly downloaded version.');
+			$f->notes = $trustNote;
+			$f->attr('placeholder', $this->_('http://domain.com/ModuleName.zip')); // placeholder
+			$f->required = false;
+			$fieldset->add($f);
+			
+			/** @var InputfieldSubmit $f */
+			$f = $this->modules->get('InputfieldSubmit');
+			$f->attr('id+name', 'download_zip');
+			$f->value = $this->labels['download'];
+			$f->icon = $fieldset->icon;
+			$fieldset->add($f);
+		} else {
+			$fieldset->description = $this->installer()->installDisabledLabel('download'); 
+		}
 	
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $this->modules->get('InputfieldFieldset'); 
 		$fieldset->label = $this->labels['upload_zip'];
 		$fieldset->icon = 'upload';
 		$fieldset->collapsed = Inputfield::collapsedYes;
-		
-		/** @var InputfieldFile $f */
-		$f = $this->modules->get('InputfieldFile');
-		$f->extensions = 'zip';
-		$f->maxFiles = 1; 
-		$f->descriptionRows = 0;
-		$f->overwrite = true; 
-		$f->attr('id+name', 'upload_module');
-		$f->label = $this->_('Module ZIP File');
-		$f->description = $this->_('Upload a ZIP file containing module file(s). If you upload a module that is already installed, it will be overwritten with the one you upload.'); 
-		$f->notes = $trustNote; 
-		$f->required = false;
-		$f->noCustomButton = true;
-		$fieldset->add($f);
-		$f = $this->modules->get('InputfieldSubmit');
-		$f->attr('id+name', 'upload');
-		$f->value = $this->labels['upload'];
-		$f->icon = $fieldset->icon;
-		$fieldset->add($f);
 		$tab->add($fieldset);
 	
+		if($this->installer()->canInstallFromFileUpload(false)) {
+			/** @var InputfieldFile $f */
+			$f = $this->modules->get('InputfieldFile');
+			$f->extensions = 'zip';
+			$f->maxFiles = 1;
+			$f->descriptionRows = 0;
+			$f->overwrite = true;
+			$f->attr('id+name', 'upload_module');
+			$f->label = $this->_('Module ZIP File');
+			$f->description = $this->_('Upload a ZIP file containing module file(s). If you upload a module that is already installed, it will be overwritten with the one you upload.');
+			$f->notes = $trustNote;
+			$f->required = false;
+			$f->noCustomButton = true;
+			$fieldset->add($f);
+			$f = $this->modules->get('InputfieldSubmit');
+			$f->attr('id+name', 'upload');
+			$f->value = $this->labels['upload'];
+			$f->icon = $fieldset->icon;
+			$fieldset->add($f);
+		} else {
+			$fieldset->description = $this->installer()->installDisabledLabel('upload'); 
+		}
+
 		/** @var InputfieldFieldset $fieldset */
+		$fieldset = $this->modules->get('InputfieldFieldset');
+		$fieldset->attr('id', 'fieldset_check_new'); 
+		$fieldset->label = $this->labels['add_manually'];
+		$fieldset->icon = 'plug';
+		$fieldset->collapsed = Inputfield::collapsedYes; 
+		$tab->add($fieldset);
+	
+		/** @var InputfieldMarkup $markup */
+		$markup = $this->modules->get('InputfieldMarkup');
+		$fieldset->add($markup); 
+		$moduleNameLabel = $this->_('ModuleName'); // Example module class/directory name
+		$moduleNameDir = $this->wire()->config->urls->siteModules . $moduleNameLabel . '/';
+		$instructions = array(
+			sprintf($this->_('1. Copy a module’s files into a new directory %s on the server.'), "<u>$moduleNameDir</u>") . ' * ',
+			sprintf($this->_('2. Click the “%s” button below, which will find the new module.'), $this->labels['reset']),
+			sprintf($this->_('3. Locate and click the “%s” button next to the new module.'), $this->labels['install_btn']) 
+		);
+		$markup->value = '<p>' . implode('</p><p>', $instructions) . '</p>';
+		$markup->notes = '* ' . sprintf(
+			$this->_('Replace “%s” with the actual module name, which is typically its PHP class name.'), 
+			$moduleNameLabel
+		); 
+
+		/** @var InputfieldFieldset $fieldset */
+		/*
 		$fieldset = $this->modules->get('InputfieldFieldset');
 		$fieldset->attr('id', 'fieldset_check_new'); 
 		$fieldset->label = $this->labels['reset'];
 		$fieldset->description = $this->_('If you have placed new modules in /site/modules/ yourself, click this button to find them.');
 		$fieldset->collapsed = Inputfield::collapsedYes; 
 		$fieldset->icon = 'refresh';
+		*/
 		
 		/** @var InputfieldButton $submit */
 		$submit = $this->modules->get('InputfieldButton');
@@ -617,7 +687,7 @@ class ProcessModule extends Process {
 		$submit->showInHeader();
 		$submit->attr('name', 'reset');
 		$submit->attr('value', $this->labels['reset']);
-		$submit->icon = $fieldset->icon;
+		$submit->icon = 'refresh';
 		$fieldset->add($submit);
 		$tab->add($fieldset);
 
@@ -1009,6 +1079,11 @@ class ProcessModule extends Process {
 		} else {
 			$warnings[] = $this->_('This module has no download URL specified and must be installed manually.');
 		}
+		
+		if(!$this->installer()->canInstallFromDirectory(false)) {
+			$installable = false;
+			$markup->notes = trim($markup->notes . ' ' . $this->installer()->installDisabledLabel('directory'));
+		}
 
 		foreach($warnings as $warning) {
 			$table->row(array($this->_x('Please Note', 'install-table'), "<strong class='ui-state-error-text'> $warning</strong>"));
@@ -1073,9 +1148,8 @@ class ProcessModule extends Process {
 		if(!$className) throw new WireException("No class name specified");
 
 		$destinationDir = $this->wire('config')->paths->siteModules . $className . '/';
-		$install = $this->wire(new ProcessModuleInstall());
 		
-		$completedDir = $install->downloadModule($url, $destinationDir);
+		$completedDir = $this->installer()->downloadModule($url, $destinationDir);
 		if($completedDir) {
 			return $this->buildDownloadSuccessForm($className)->render();
 		} else {
@@ -1158,15 +1232,13 @@ class ProcessModule extends Process {
 	
 	public function ___executeUpload($inputName = '') {
 		if(!$inputName) throw new WireException("This URL may not be accessed directly"); 
-		$install = $this->wire(new ProcessModuleInstall());
-		$install->uploadModule($inputName);
+		$this->installer()->uploadModule($inputName);
 		$this->session->redirect('./?reset=1'); 
 	}
 	
 	public function ___executeDownloadURL($url = '') {
 		if(!$url) throw new WireException("This URL may not be accessed directly");
-		$install = $this->wire(new ProcessModuleInstall());
-		$install->downloadModule($url);
+		$this->installer()->downloadModuleFromUrl($url);
 		$this->session->redirect('./?reset=1'); 
 	}
 

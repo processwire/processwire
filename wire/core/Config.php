@@ -130,6 +130,7 @@
  * @property string $moduleServiceKey API key for modules web service #pw-group-modules
  * @property bool $moduleCompile Allow use of compiled modules? #pw-group-modules
  * @property array $wireMail Default WireMail module settings. #pw-group-modules
+ * @property array $moduleInstall Admin module install options you allow. #pw-group-modules
  * 
  * @property array $substituteModules Associative array with names of substitute modules for when requested module doesn't exist #pw-group-modules
  * @property array $logs Additional core logs to keep #pw-group-admin
