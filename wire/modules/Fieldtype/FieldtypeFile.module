@@ -1371,7 +1371,9 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 				throw new WireException("Unknown column '$col' for field $field->name");
 			} else if($col === 'filedata' || strpos($col, 'description') === 0) {
 				throw new WireException("Column '$col' cannot be saved with $this::saveFileCols()");
-			} 
+			} else if($col === 'created' || $col === 'modified') {
+				if(ctype_digit("$value")) $value = date('Y-m-d H:i:s', (int) $value);
+			}
 			$sets[] = "$col=:$col";
 			$binds[":$col"] = $value;
 		}
