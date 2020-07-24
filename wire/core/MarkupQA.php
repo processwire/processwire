@@ -547,7 +547,7 @@ class MarkupQA extends Wire {
 					// linked page is in trash, we won't update it but we'll produce a warning
 					$this->linkWarning("$path => $livePath (" . $this->_('it is in the trash') . ')');
 					continue;
-				} else if(strpos($livePath, $adminPath) !== false) {
+				} else if(strpos($livePath, $adminPath) === 0) {
 					// do not update paths that point in admin
 					$this->linkWarning("$path => $livePath (" . $this->_('points to the admin') . ')');
 					continue;
