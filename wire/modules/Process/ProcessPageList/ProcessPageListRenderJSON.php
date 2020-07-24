@@ -4,12 +4,26 @@ require_once(dirname(__FILE__) . '/ProcessPageListRender.php');
 
 /**
  * JSON implementation of the Page List rendering
+ * 
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * https://processwire.com
+ * 
  *
  */
 class ProcessPageListRenderJSON extends ProcessPageListRender {
 
+	/**
+	 * System page IDs used in this class
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected $systemIDs = array();
-	
+
+	/**
+	 * Wired to ProcessWire
+	 * 
+	 */
 	public function wired() {
 		$config = $this->config;
 		$this->systemIDs = array(
@@ -21,6 +35,13 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		parent::wired();
 	}
 
+	/**
+	 * Render page/child
+	 * 
+	 * @param Page $page
+	 * @return array
+	 * 
+	 */
 	public function renderChild(Page $page) {
 
 		$outputFormatting = $page->outputFormatting;
@@ -33,9 +54,13 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 
 		if(in_array($page->id, $this->systemIDs)) {
 			$type = 'System';
-			if($page->id == $this->config->http404PageID) $label = $this->_('404 Page Not Found'); // Label for '404 Page Not Found' page in PageList // Overrides page title if used
-			else if($page->id == $this->config->adminRootPageID) $label = $this->_('Admin'); // Label for 'Admin' page in PageList // Overrides page title if used
-			else if($page->id == $this->config->trashPageID && isset($this->actionLabels['trash'])) $label = $this->actionLabels['trash']; // Label for 'Trash' page in PageList // Overrides page title if used
+			if($page->id == $this->config->http404PageID) {
+				$label = $this->_('404 Page Not Found'); // Label for '404 Page Not Found' page in PageList // Overrides page title if used
+			} else if($page->id == $this->config->adminRootPageID) {
+				$label = $this->_('Admin'); // Label for 'Admin' page in PageList // Overrides page title if used
+			} else if($page->id == $this->config->trashPageID && isset($this->actionLabels['trash'])) {
+				$label = $this->actionLabels['trash']; // Label for 'Trash' page in PageList // Overrides page title if used
+			}
 			// if label is not overridden by a language pack, make $label blank to use the page title instead
 			if(in_array($label, array('Trash', 'Admin', '404 Page Not Found'))) $label = '';
 		}
@@ -112,11 +137,17 @@ class ProcessPageListRenderJSON extends ProcessPageListRender {
 		return $a;
 	}
 
+	/**
+	 * Render page list JSON
+	 * 
+	 * @return string|array
+	 * 
+	 */
 	public function render() {
 
 		$children = array();
 		$extraPages = array(); // pages forced to bottom of list
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$idTrash = $config->trashPageID;
 		$id404 = $config->http404PageID;
 

@@ -3,6 +3,9 @@
 /**
  * Base class for Page List rendering
  * 
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * https://processwire.com
+ * 
  * @method array getPageActions(Page $page)
  * @method string getPageLabel(Page $page, array $options = array())
  * @method int getNumChildren(Page $page, $selector = null) For hooks only, do not call directly
@@ -10,20 +13,101 @@
  */
 abstract class ProcessPageListRender extends Wire {
 
+	/**
+	 * @var Page
+	 * 
+	 */
 	protected $page;
-	protected $children;
-	protected $start;
-	protected $limit;
-	protected $pageLabelField = 'title';
-	protected $actionLabels = array();
-	protected $actionTips = array();
-	protected $superuser = false;
-	protected $actions = null;
-	protected $options = array();
-	protected $useTrash = false;
-	protected $qtyType = '';
-	protected $numChildrenHook = false; // is ProcessPageListRender::numChildren() hooked?
 
+	/**
+	 * @var PageArray
+	 * 
+	 */
+	protected $children;
+
+	/**
+	 * @var int
+	 * 
+	 */
+	protected $start;
+
+	/**
+	 * @var int
+	 * 
+	 */
+	protected $limit;
+
+	/**
+	 * @var string Default page label field
+	 * 
+	 */
+	protected $pageLabelField = 'title';
+
+	/**
+	 * @var array
+	 * 
+	 */
+	protected $actionLabels = array();
+
+	/**
+	 * @var array
+	 * 
+	 */
+	protected $actionTips = array();
+
+	/**
+	 * @var bool
+	 * 
+	 */
+	protected $superuser = false;
+
+	/**
+	 * @var ProcessPageListActions|null
+	 * 
+	 */
+	protected $actions = null;
+
+	/**
+	 * @var array
+	 * 
+	 */
+	protected $options = array();
+
+	/**
+	 * @var bool Use trash?
+	 * 
+	 */
+	protected $useTrash = false;
+
+	/**
+	 * @var string Quantity type
+	 * 
+	 */
+	protected $qtyType = '';
+
+	/**
+	 * @var bool is ProcessPageListRender::numChildren() hooked?
+	 * 
+	 */
+	protected $numChildrenHook = false;
+
+	/**
+	 * @var array Field names for page list labels and versions they should translate to
+	 * 
+	 */
+	protected $translateFields = array(
+		'created' => 'createdStr', 
+		'modified' => 'modifiedStr', 
+		'published' => 'publishedStr',
+	);
+
+	/**
+	 * Construct
+	 *
+	 * @param Page $page
+	 * @param PageArray $children
+	 * 
+	 */
 	public function __construct(Page $page, PageArray $children) {
 		$this->page = $page;
 		$this->children = $children;
@@ -31,21 +115,25 @@ abstract class ProcessPageListRender extends Wire {
 		$this->limit = 0;
 		parent::__construct();
 	}
-	
+
+	/**
+	 * Wired to ProcessWire instance
+	 * 
+	 */
 	public function wired() {
 		$this->superuser = $this->wire('user')->isSuperuser();
 		$this->actionLabels = array(
-			'edit' => $this->_('Edit'), 	// Edit page action
-			'view' => $this->_('View'), 	// View page action
-			'add' => $this->_('New'), 	// New page action
-			'move' => $this->_('Move'),	// Move page action
-			'empty' => $this->_('Empty'),	// Empty trash page action
-			'pub' => $this->_('Pub'),	// Publish page action
-			'unpub' => $this->_('Unpub'),	// Unpublish page action
+			'edit' => $this->_('Edit'), // Edit page action
+			'view' => $this->_('View'), // View page action
+			'add' => $this->_('New'), // New page action
+			'move' => $this->_('Move'), // Move page action
+			'empty' => $this->_('Empty'), // Empty trash page action
+			'pub' => $this->_('Pub'), // Publish page action
+			'unpub' => $this->_('Unpub'), // Unpublish page action
 			'hide' => $this->_('Hide'), // Hide page action
 			'unhide' => $this->_('Unhide'), // Unhide page action
 			'lock' => $this->_('Lock'), // Lock page action
-			'unlock' => $this->_('Unlock'),  // Unlock page action
+			'unlock' => $this->_('Unlock'), // Unlock page action
 			'trash' => $this->_('Trash'), // Trash page action
 			'restore' => $this->_('Restore'), // Restore from trash action
 		);
@@ -55,41 +143,99 @@ abstract class ProcessPageListRender extends Wire {
 		$this->numChildrenHook = $this->wire('hooks')->isMethodHooked($this, 'getNumChildren');
 		parent::wired();
 	}
-	
+
+	/**
+	 * Set option
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return $this
+	 * 
+	 */
 	public function setOption($key, $value) {
 		$this->options[$key] = $value;
 		return $this;
 	}
-	
+
+	/**
+	 * Get option
+	 * 
+	 * @param string $key
+	 * @return mixed|null
+	 * 
+	 */
 	public function getOption($key) {
 		return isset($this->options[$key]) ? $this->options[$key] : null;
 	}
 
+	/**
+	 * Set pagination start
+	 * 
+	 * @param int $n
+	 * 
+	 */
 	public function setStart($n) {
 		$this->start = (int) $n;
 	}
 
+	/**
+	 * Set pagination limit
+	 *
+	 * @param int $n
+	 *
+	 */
 	public function setLimit($n) {
 		$this->limit = (int) $n;
 	}
 
+	/**
+	 * Set action label by name
+	 * 
+	 * @param string $key
+	 * @param string $value
+	 * 
+	 */
 	public function setLabel($key, $value) {
 		$this->actionLabels[$key] = $value;
 	}
-	
+
+	/**
+	 * Set whether to use trash
+	 * 
+	 * @param bool $useTrash
+	 * 
+	 */
 	public function setUseTrash($useTrash) {
 		$this->useTrash = (bool) $useTrash;
 		$this->actions->setUseTrash($this->getUseTrash());
 	}
 
+	/**
+	 * Set the default page label field/format
+	 * 
+	 * @param string $pageLabelField
+	 * 
+	 */
 	public function setPageLabelField($pageLabelField) {
 		$this->pageLabelField = $pageLabelField;
 	}
-	
+
+	/**
+	 * Set the quantity type
+	 * 
+	 * @param string $qtyType
+	 * 
+	 */
 	public function setQtyType($qtyType) {
 		$this->qtyType = $qtyType;
 	}
-	
+
+	/**
+	 * Get the ProcessPageListActions instance
+	 * 
+	 * @return null|ProcessPageListActions
+	 * 
+	 */
 	public function actions() {
 		return $this->actions;
 	}
@@ -117,104 +263,188 @@ abstract class ProcessPageListRender extends Wire {
 	 */
 	public function ___getPageLabel(Page $page, array $options = array()) {
 
-		$value = '';
+		$sanitizer = $this->wire()->sanitizer;
 
 		if(strpos($this->pageLabelField, '!') === 0) {
 			// exclamation forces this one to be used, rather than template-specific one
-			$pageLabelField = ltrim($this->pageLabelField, '!');
+			$label = trim(ltrim($this->pageLabelField, '!'));
 		} else {
 			// if the page's template specifies a pageLabelField, use that, if pageLabelField doesn't start with "!" as override
-			$pageLabelField = trim($page->template->pageLabelField);
+			$label = trim($page->template->pageLabelField);
+			// otherwise use the one specified with this instance
+			if(!strlen($label)) $label = $this->pageLabelField;
 		}
-
-		// otherwise use the one specified with this instance
-		if(!strlen($pageLabelField)) $pageLabelField = $this->pageLabelField;
-
-		$bracket1 = strpos($pageLabelField, '{'); 
 		
-		if($bracket1 !== false && $bracket1 < strpos($pageLabelField, '}')) {
+		if(!strlen($label)) $label = 'name';
+		
+		$icon = $this->getPageLabelIconMarkup($page, $label); // must be called
+		if(!empty($options['noIcon'])) $icon = '';
+		
+		while(strpos($label, '  ') !== false) $label = str_replace('  ', ' ', $label);
+		
+		$bracket1 = strpos($label, '{'); 
+		
+		if($bracket1 !== false && $bracket1 < strpos($label, '}')) {
 			// predefined format string
-			$icon = $page->getIcon();
-			if($icon) $pageLabelField = str_replace(array("fa-$icon", "icon-$icon", "  "), array('', '', ' '), $pageLabelField);
-			if(!empty($options['noIcon'])) $icon = '';
 			// adjust string so that it'll work on a single line, without the markup in it
-			$value = $page->getText($pageLabelField, true, true);
-			// if(strpos($value, '</li>')) $value = preg_replace('!</li>\s*<li[^>]*>!', ', ', $value); 
-			// $value = trim($this->wire('sanitizer')->entities($value));
-
+			$value = $page->getText($label, true, true); // oneLine=true, entities=true
 		} else {
-			
-			// CSV or space-separated field or fields
-			$icon = empty($options['noTags']) ? $page->getIcon() : '';
-
-			// convert to array
-			if(strpos($pageLabelField, ' ')) $fields = explode(' ', $pageLabelField);
-				else $fields = array($pageLabelField);
-
-			foreach($fields as $field) {
-
-				if(strpos($field, ".")) {
-					list($field, $subfield) = explode(".", $field);
-
-				} else if(strpos($field, 'icon-') === 0 || strpos($field, 'fa-') === 0) {
-					// skip over icons, which we now pull directly from page
-					continue;
-
-				} else {
-					$subfield = '';
-				}
-
-				$v = $page->get($field);
-
-				if($subfield && is_object($v)) {
-					if($v instanceof WireArray && count($v)) $v = $v->first();
-					if($v instanceof Page) {
-						$v = $v->getFormatted($subfield); // @esrch PR #965
-					} else if($v instanceof Template && $subfield == 'label') {
-						$v = $v->getLabel();
-					} else if($v instanceof Wire) {
-						$v = $v->$subfield;
-					} else {
-						// unknown
-						$v = (string) $v;
-					}
-
-				} else if(($field == 'created' || $field == 'modified' || $field == 'published') && ctype_digit("$v")) {
-					$v = date($this->wire('config')->dateFormat, (int) $v);
-				}
-
-				if(!strlen("$v")) continue;
-
-				if(empty($options['noTags'])) $value .= "<span class='label_$field'>";
-					else if(strlen($value)) $value .= ", ";
-				$value .= htmlspecialchars(strip_tags("$v"), ENT_QUOTES, "UTF-8", false);
-				if(empty($options['noTags'])) $value .= "</span>";
-			}
+			// space delimited list of fields
+			$value = $this->getPageLabelDelimited($page, $label, $options);
 		}
 
-		if($icon) {
-			$icon = $this->wire('sanitizer')->name($icon);
-			$icon = "<i class='icon fa fa-fw fa-$icon'></i>";
-		} else {
-			$icon = '';
+		if(!strlen($value)) {
+			$value = $sanitizer->entities($page->getUnformatted("title|name"));
 		}
-
-		if(!strlen($value)) $value = $this->wire('sanitizer')->entities($page->getUnformatted("title|name"));
 		
 		if(!empty($options['noTags']) && strpos($value, '<') !== false) {
+			// legacy code, appears to be impossible to reach
 			$value = strip_tags($value);
 		}
 
 		return $icon . trim($value);
 	}
 
+	/**
+	 * Get page label icon and modify $label to remove existing icon references
+	 * 
+	 * @param Page $page
+	 * @param string $label 
+	 * @return string
+	 * @since 3.0.163
+	 * 
+	 */
+	protected function getPageLabelIconMarkup(Page $page, &$label) {
+		
+		$icon = $page->getIcon();
+
+		// remove any existing icon references in label
+		if(strpos($label, 'fa-') !== false || strpos($label, 'icon-') !== false) {
+			if(preg_match_all('/\b(?:fa|icon)-([-a-z0-9]+)(?:\s*|\b)/', $label, $matches)) {
+				foreach($matches[0] as $key => $iconFull) {
+					// allow first icon reference to be used if there isn't already one
+					if(!$icon) $icon = $matches[1][$key];
+					$label = str_replace($iconFull, '', $label);
+				}
+			}
+		}
+		
+		if($icon) {
+			if(!ctype_alnum($icon) && !ctype_alnum(str_replace('-', '', $icon))) {
+				$icon = $this->wire()->sanitizer->name($icon);
+			}
+			$icon = "<i class='icon fa fa-fw fa-$icon'></i>";
+		}
+		
+		return $icon;
+	}
+
+	/**
+	 * Get page label when label format is space delimited 
+	 * 
+	 * @param Page $page
+	 * @param string $label
+	 * @param array $options
+	 * @return string
+	 * @since 3.0.163
+	 * 
+	 */
+	protected function getPageLabelDelimited(Page $page, $label, array $options) {
+		$value = '';
+		
+		// convert to array
+		if(strpos($label, ' ')) {
+			$fields = explode(' ', $label);
+		} else {
+			$fields = array($label);
+		}
+
+		foreach($fields as $field) {
+
+			$field = trim($field);
+
+			if(!strlen($field)) {
+				continue;
+
+			} else if(strpos($field, ".")) {
+				list($field, $subfield) = explode(".", $field);
+				if(isset($this->translateFields[$subfield])) $subfield = $this->translateFields[$subfield];
+
+			} else if(strpos($field, 'icon-') === 0 || strpos($field, 'fa-') === 0) {
+				// skip over icons, which we now pull directly from page
+				continue;
+
+			} else {
+				$subfield = '';
+			}
+
+			if(isset($this->translateFields[$field])) $field = $this->translateFields[$field];
+
+			$v = $page->get($field);
+
+			if($subfield && is_object($v)) {
+				if($v instanceof WireArray && count($v)) $v = $v->first();
+				if($v instanceof Page) {
+					$v = $v->getFormatted($subfield); // @esrch PR #965
+				} else if($v instanceof Template && $subfield == 'label') {
+					$v = $v->getLabel();
+				} else if($v instanceof Wire) {
+					$v = $v->$subfield;
+				} else {
+					// unknown
+					$v = (string) $v;
+				}
+			}
+
+			if(!strlen("$v")) continue;
+
+			if(empty($options['noTags'])) {
+				$value .= "<span class='label_$field'>";
+			} else if(strlen($value)) {
+				$value .= ", ";
+			}
+
+			$value .= htmlspecialchars(strip_tags("$v"), ENT_QUOTES, "UTF-8", false);
+
+			if(empty($options['noTags'])) $value .= "</span>";
+		}
+		
+		return $value;
+	}
+
+	/**
+	 * Render child item in page list
+	 * 
+	 * @param Page $page
+	 * @return array
+	 * 
+	 */
 	abstract public function renderChild(Page $page);
+
+	/**
+	 * Render page list
+	 * 
+	 * @return string|array
+	 * 
+	 */
 	abstract public function render();
 
+	/**
+	 * Get the name of this renderer (i.e. 'JSON')
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function getRenderName() {
 		return str_replace('ProcessPageListRender', '', $this->className());
 	}
 
+	/**
+	 * Get URL to view more
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function getMoreURL() {
 		if($this->limit && ($this->numChildren($this->page, 1) > ($this->start + $this->limit))) {
 			$start = $this->start + $this->limit;
@@ -222,11 +452,23 @@ abstract class ProcessPageListRender extends Wire {
 		}
 		return '';
 	}
-	
+
+	/**
+	 * Get children pages
+	 * 
+	 * @return PageArray
+	 * 
+	 */
 	public function getChildren() {
 		return $this->children;
 	}
-	
+
+	/**
+	 * Get whether or not to use trash
+	 * 
+	 * @return bool
+	 * 
+	 */
 	public function getUseTrash() {
 		return $this->useTrash; 
 	}
