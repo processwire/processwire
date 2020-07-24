@@ -929,7 +929,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			foreach($contentTab as $inputfield) {
 				if(!$tabOpen && $inputfield->className == 'InputfieldFieldsetTabOpen') {
 					// open new tab
-					$tabViewable = $this->page->viewable($inputfield->attr('name'));
+					$showable = $this->isTrash ? 'editable' : 'viewable';
+					$tabViewable = $this->page->$showable($inputfield->attr('name'));
 					if($this->isPost) {
 						// only remove non-visible tabs when in post/save mode, for proper processInput()
 						if(!$tabViewable) $contentTab->remove($inputfield);
