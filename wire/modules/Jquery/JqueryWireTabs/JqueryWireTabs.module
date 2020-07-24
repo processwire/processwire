@@ -18,7 +18,7 @@ class JqueryWireTabs extends ModuleJS implements ConfigurableModule {
 		return array(
 			'title' => __('jQuery Wire Tabs Plugin', __FILE__),
 			'summary' => __('Provides a jQuery plugin for generating tabs in ProcessWire.', __FILE__),
-			'version' => 109,
+			'version' => 110,
 			'permanent' => true, 
 		);
 	}
@@ -45,9 +45,10 @@ class JqueryWireTabs extends ModuleJS implements ConfigurableModule {
 				'title' => '{tip}',
 			), 
 		);
-	
+
+		$config = $this->wire()->config;
 		$className = 'JqueryWireTabs';
-		$settings = $this->wire('config')->get($className); 
+		$settings = $config->get($className); 
 		
 		if(is_array($settings)) {
 			$settings = array_merge($defaults, $settings);
@@ -56,8 +57,12 @@ class JqueryWireTabs extends ModuleJS implements ConfigurableModule {
 		}
 		
 		$this->loadStyles = $settings['loadStyles'];
+
+		/** @var JqueryCore $jQueryCore */
+		$jQueryCore = $this->wire()->modules->get('JqueryCore');
+		$jQueryCore->use('cookie');
 		
-		$this->wire('config')->js($className, $settings);
+		$config->js($className, $settings);
 		
 		parent::init();
 	}

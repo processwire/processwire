@@ -55,6 +55,8 @@ function _checkForHttpHostError(Config $config) {
 		$valid = true; 
 	} else if(isset($_SERVER['SERVER_NAME']) && $httpHost === strtolower($_SERVER['SERVER_NAME'])) {
 		$valid = true; 
+	} else if(in_array($httpHost, $config->httpHosts)) {
+		$valid = true; 
 	}
 
 	if(!$valid) $config->error(
@@ -204,7 +206,8 @@ if($ajax) {
 	ob_end_clean();
 }
 
-$config->js(array('httpHost', 'httpHosts'), true); 
+// config properties that should be mirrored to ProcessWire.config.property in JS
+$config->js(array('httpHost', 'httpHosts', 'https'), true); 
 
 if($controller && $controller->isAjax()) {
 	if(empty($content) && count($notices)) $content = $controller->jsonMessage($notices->last()->text); 

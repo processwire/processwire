@@ -123,7 +123,7 @@
 				if($a.length > 0) {
 					$a.click(tabClick); 
 				} else {
-					var $a = $("<a></a>")
+					$a = $("<a></a>")
 						.attr('href', '#' + href)
 						.attr('id', '_' + href) // ID equal to tab content ID, but preceded with underscore
 						.html(title)
@@ -208,14 +208,13 @@
 			}
 
 			function setTabCookie(value) {
-				document.cookie = options.cookieName + '=' + options.requestID + '-' + escape(value);
+				jQuery.cookie(options.cookieName, options.requestID + '-' + value); 
 			}
 	
 			function getTabCookie() {
-				var regex = new RegExp('(?:^|;)\\s?' + options.cookieName + '=' + options.requestID + '-(.*?)(?:;|$)','i');
-				var match = document.cookie.match(regex);	
-				match = match ? match[1] : '';
-				return match;
+				var value = jQuery.cookie(options.cookieName); 
+				if(!value || value.indexOf(options.requestID + '-') !== 0) return '';
+				return value.substring(options.requestID.length + 1); 
 			}
 
 			init(); 
