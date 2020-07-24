@@ -967,6 +967,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 *  - `getURL` (bool): Return only the URL? (default=false)
 	 *  - `getNative` (bool): Return only the ProcessWire brand logo? (default=false)
 	 *  - `alt` (string): Alt attribute for <img> tag (default=auto)
+	 *  - `height` (string): Height style to use for SVG images (default='')
 	 * @return string
 	 * 
 	 */
@@ -981,10 +982,12 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			'getURL' => false, 
 			'getNative' => false,
 			'alt' => '',
+			'height' => '',
 		);
 	
 		$options = array_merge($defaults, $options);
 		$logoURL = $this->get('logoURL');
+		$svg = false;
 		
 		if(empty($logoURL) || $options['getNative'] || strpos($logoURL, '//') !== false) {
 			$native = true;
@@ -993,6 +996,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$logoURL = $config->urls->root . ltrim($logoURL, '/');
 			$logoURL = $sanitizer->entities($logoURL);
 			$native = false;
+			$svg = strtolower(pathinfo($logoURL, PATHINFO_EXTENSION)) === 'svg';
 		}
 		
 		if($options['getURL']) return $logoURL;
@@ -1002,7 +1006,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$alt = "ProcessWire $config->version";
 		}
 		$class = 'pw-logo ' . ($native ? 'pw-logo-native' : 'pw-logo-custom');
-		$img = "<img class='$class' src='$logoURL' alt='$alt' />";
+		$attr = "class='$class' src='$logoURL' alt='$alt' ";
+		if($svg && $options['height']) $attr .= "style='height:$options[height]' ";
+		$img = "<img $attr/>";
 		
 		return $img;
 	}

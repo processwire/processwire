@@ -9,12 +9,14 @@ if(!defined("PROCESSWIRE")) die();
 /** @var Config $config */
 /** @var Notices $notices */
 
+$logoOptions = array('height' => '40px');
+
 ?>
 <div id='pw-mastheads'>
 	<header id='pw-masthead-mobile' class='pw-masthead uk-hidden uk-background-muted'>
 		<div class='pw-container uk-container uk-container-expand<?php if(!$adminTheme->isLoggedIn) echo ' uk-text-center'; ?>'>
 				<a href='<?php echo $adminTheme->isLoggedIn ? $config->urls->admin : $config->urls->root; ?>' class='pw-logo-link'>
-					<?php echo $adminTheme->getLogo(); ?>
+					<?php echo $adminTheme->getLogo($logoOptions); ?>
 				</a>
 		</div>	
 	</header>
@@ -23,7 +25,7 @@ if(!defined("PROCESSWIRE")) die();
 			<nav class='uk-navbar uk-navbar-container uk-navbar-transparent' uk-navbar>
 				<div class='uk-navbar-left'>
 					<a class="pw-logo-link uk-logo uk-margin-right" href='<?php echo $adminTheme->isLoggedIn ? $config->urls->admin : $config->urls->root; ?>'>
-						<?php echo $adminTheme->getLogo(); ?>
+						<?php echo $adminTheme->getLogo($logoOptions); ?>
 					</a>
 					<?php if($adminTheme->isLoggedIn): ?>
 					<ul class='uk-navbar-nav pw-primary-nav'>
