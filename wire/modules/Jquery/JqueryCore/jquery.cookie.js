@@ -6,7 +6,9 @@
  * http://www.opensource.org/licenses/mit-license.php
  * http://www.gnu.org/licenses/gpl.html
  * 
- * Updates added by Ryan (2016) to support getting/setting cookie values that are objects. 
+ * Updates added by Ryan/RJC (2016) to support getting/setting cookie values that are objects. 
+ * Updates added by Ryan/RJC (2020) to add SameSite suppport.
+ * Updates added by Ryan/RJC (2020) to make options.secure default to ProcessWire.config.https (when present). 
  *
  */
 
@@ -65,6 +67,11 @@ jQuery.cookie = function(name, value, options) {
 			// added by RJC for object value cookie support
 			value = 'JSON' + JSON.stringify(value); 
 		}
+		if(typeof ProcessWire != 'undefined') { 
+			if(typeof options.secure == 'undefined' && typeof ProcessWire.config.https != 'undefined') {
+				options.secure = ProcessWire.config.https; // added by Ryan to serve as default 
+			}
+		}
         var expires = '';
         if (options.expires && (typeof options.expires == 'number' || options.expires.toUTCString)) {
             var date;
@@ -81,8 +88,9 @@ jQuery.cookie = function(name, value, options) {
         // in the packed version for some reason...
         var path = options.path ? '; path=' + (options.path) : '';
         var domain = options.domain ? '; domain=' + (options.domain) : '';
+		var samesite = options.samesite ? '; SameSite=' + (options.samesite) : '; SameSite=Lax'; // RJC (Lax, Strict or None)
         var secure = options.secure ? '; secure' : '';
-        document.cookie = [name, '=', encodeURIComponent(value), expires, path, domain, secure].join('');
+        document.cookie = [name, '=', encodeURIComponent(value), expires, path, domain, samesite, secure].join('');
     } else { // only name given, get cookie
         var cookieValue = null;
         if (document.cookie && document.cookie != '') {
