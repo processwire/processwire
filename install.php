@@ -826,7 +826,8 @@ class Installer {
 			"\n * " . 
 			"\n */" . 
 			"\n\$config->userAuthSalt = '$authSalt'; " .
-			"\n" . 
+			"\n" .
+			"\n/**" . 
 			"\n * Installer: Table Salt (General Purpose) " .
 			"\n * " .
 			"\n * Use this rather than userAuthSalt when a hashing salt is needed for non user " .
