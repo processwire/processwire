@@ -333,14 +333,14 @@ class FieldtypeFieldsetOpen extends Fieldtype {
 		// avoid ending up in infinite loop, since FieldtypeFieldsetClose extends this
 		if($this instanceof FieldtypeFieldsetClose) return;
 		// rename the _END field to match this one
-		$fields = $this->wire('fields');
+		$fields = $this->wire()->fields;
+		$oldName = $prevName . self::fieldsetCloseIdentifier;
+		$newName = $field->name . self::fieldsetCloseIdentifier;
 		$closer = $this->getFieldsetCloseField($field); 
-		if(!$closer) {
-			$closer = $fields->get($prevName . self::fieldsetCloseIdentifier);
-			if($closer) {
-				$closer->name = $field->name . self::fieldsetCloseIdentifier;
-				$fields->save($closer);
-			}
+		if(!$closer) $closer = $fields->get($oldName);
+		if($closer && $closer->name != $newName) {
+			$closer->name = $newName;
+			$fields->save($closer);
 		}
 		parent::___renamedField($field, $prevName); 
 	}

@@ -19,6 +19,7 @@
  * @property string $name Name of field  #pw-group-properties
  * @property string $table Database table used by the field #pw-group-properties
  * @property string $prevTable Previously database table (if field was renamed) #pw-group-properties
+ * @property string $prevName Previously used name (if field was renamed), 3.0.164+ #pw-group-properties
  * @property Fieldtype|null $type Fieldtype module that represents the type of this field #pw-group-properties
  * @property Fieldtype|null $prevFieldtype Previous Fieldtype, if type was changed #pw-group-properties
  * @property int $flags Bitmask of flags used by this field #pw-group-properties
@@ -179,18 +180,26 @@ class Field extends WireData implements Saveable, Exportable {
 	protected $prevTable;
 
 	/**
-	 * A specifically set table name by setTable() for override purposes
+	 * If the field name changed, this is the previous name
 	 * 
 	 * @var string
 	 * 
 	 */
-	protected $setTable = '';
+	protected $prevName = '';
 
 	/**
 	 * If the field type changed, this is the previous fieldtype so that it can be changed at save time
 	 *
 	 */
 	protected $prevFieldtype;
+	
+	/**
+	 * A specifically set table name by setTable() for override purposes
+	 *
+	 * @var string
+	 *
+	 */
+	protected $setTable = '';
 
 	/**
 	 * Accessed properties, becomes array when set to true, null when set to false
@@ -268,6 +277,9 @@ class Field extends WireData implements Saveable, Exportable {
 			return $this->setFieldtype($value);
 		} else if($key == 'prevTable') {
 			$this->prevTable = $value;
+			return $this;
+		} else if($key == 'prevName') {
+			$this->prevName = $value;
 			return $this;
 		} else if($key == 'prevFieldtype') {
 			$this->prevFieldtype = $value;
@@ -389,6 +401,7 @@ class Field extends WireData implements Saveable, Exportable {
 			else if($key == 'editRoles') return $this->editRoles;
 			else if($key == 'table') return $this->getTable();
 			else if($key == 'prevTable') return $this->prevTable;
+			else if($key == 'prevName') return $this->prevName;
 			else if($key == 'prevFieldtype') return $this->prevFieldtype;
 			else if(isset($this->settings[$key])) return $this->settings[$key];
 			else if($key == 'icon') return $this->getIcon(true);
@@ -616,7 +629,10 @@ class Field extends WireData implements Saveable, Exportable {
 				throw new WireException("You may not change the name of field '{$this->settings['name']}' because it is a system field.");
 			}
 			$this->trackChange('name');
-			if($this->settings['name']) $this->prevTable = $this->getTable(); // so that Fields can perform a table rename
+			if($this->settings['name']) {
+				$this->prevName = $this->settings['name'];
+				$this->prevTable = $this->getTable(); // so that Fields can perform a table rename
+			}
 		}
 
 		$this->settings['name'] = $name;
@@ -1481,6 +1497,7 @@ class Field extends WireData implements Saveable, Exportable {
 		$info['flags'] = $info['flags'] ? "$this->flagsStr ($info[flags])" : "";
 		$info = array_merge($info, parent::__debugInfo());
 		if($this->prevTable) $info['prevTable'] = $this->prevTable;
+		if($this->prevName) $info['prevName'] = $this->prevName;
 		if($this->prevFieldtype) $info['prevFieldtype'] = (string) $this->prevFieldtype;
 		if(!empty($this->trackGets)) $info['trackGets'] = $this->trackGets;
 		if($this->useRoles) {

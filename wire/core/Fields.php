@@ -266,8 +266,12 @@ class Fields extends WireSaveableItems {
 				$database->exec("RENAME TABLE `$prevTable` TO `tmp_$table`"); // QA
 				$database->exec("RENAME TABLE `tmp_$table` TO `$table`"); // QA
 			}
-			$item->type->renamedField($item, str_replace(Field::tablePrefix, '', $prevTable));
 			$item->prevTable = '';
+		}
+		
+		if(!$isNew && $item->prevName && $item->prevName != $item->name) {
+			$item->type->renamedField($item, $item->prevName);
+			$item->prevName = '';
 		}
 
 		if($item->prevFieldtype && $item->prevFieldtype->name != $item->type->name) {
