@@ -484,7 +484,7 @@ var InputfieldSelector = {
 				$value.removeAttr('disabled');
 			}
 
-			if(op.indexOf('!') === 0 && op !== '!=') {
+			if(op && op.indexOf('!') === 0 && op !== '!=') {
 				fieldPrefix = '!';
 				op = op.substring(1);
 			}
