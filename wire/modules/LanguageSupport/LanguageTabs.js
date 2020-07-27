@@ -177,11 +177,14 @@ function unhideLanguageTabs() {
  * document.ready
  * 
  */
-jQuery(document).ready(function() { 
+jQuery(document).ready(function($) { 
 	$(document).on('click', '.langTabsToggle', toggleLanguageTabs);
 	$(document).on('dblclicklangtab', '.langTabs a', dblclickLanguageTab);
 	$(document).on('reloaded', '.Inputfield', function() {
-		setupLanguageTabs($(this));
+		var $inputfield = $(this);
+		setTimeout(function() {
+			setupLanguageTabs($inputfield);
+		}, 100);
 	});
 	$(document).on('AjaxUploadDone', '.InputfieldHasFileList .InputfieldFileList', function() {
 		setupLanguageTabs($(this));
