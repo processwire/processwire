@@ -2755,9 +2755,14 @@ class ProcessTemplate extends Process {
 					$badFieldsets[$field->name . '_END'] = $field;
 				}
 			}
-			
-			foreach($badFieldsets as $field) {
-				$this->error(sprintf($this->_('Error with placement of fieldset/tab "%s" - please fix and save again'), $field->name));
+		
+			if(count($badFieldsets)) {
+				foreach($badFieldsets as $field) {
+					$this->error(sprintf($this->_('Error with placement of fieldset/tab "%s" - please fix and save again'), $field->name));
+				}
+				/** @var FieldtypeFieldsetOpen $fieldset */
+				$fieldset = $this->wire()->fieldtypes->get('FieldtypeFieldsetOpen');
+				if($fieldset->checkFieldgroupFieldsets($this->template->fieldgroup)) $saveFieldgroup = true;
 			}
 		}
 
@@ -2921,6 +2926,7 @@ class ProcessTemplate extends Process {
 		$removeIds = $this->wire('input')->get('fields'); 
 		if(empty($removeIds)) $this->session->redirect('./');
 		$removeIds = explode(',', $removeIds); 
+		$removeFields = array();
 
 		$fieldgroup = $this->template->fieldgroup; 
 		$this->wire('processHeadline', sprintf($this->_('Remove Fields from Template: %s'), $this->template->name)); 
@@ -2939,9 +2945,20 @@ class ProcessTemplate extends Process {
 		$checkboxes->icon = 'times-circle';
 		$checkboxes->attr('name', 'remove_fields'); 
 		$checkboxes->description = $this->_("You have asked to remove one or more fields from the template. This will result in data associated with the fields below being permanently deleted. If the fields that are removed contain a lot of data, it may take time for this operation to complete after you confirm and submit this form. Please confirm that you understand this and want to delete the field(s) by checking the boxes below.");
-
+		
 		foreach($fieldgroup as $field) {
-			if(!in_array($field->id, $removeIds)) continue; 
+			if(!in_array($field->id, $removeIds)) continue;
+			$removeFields[$field->id] = $field;
+			if($field->type instanceof FieldtypeFieldsetClose) {
+				$opener = $field->type->getFieldsetOpenField($field);
+				if($opener && $fieldgroup->hasField($opener) && !in_array($opener->id, $removeIds)) {
+					unset($removeFields[$field->id]); 
+					$removeFields[$opener->id] = $opener;
+				}
+			}
+		}
+
+		foreach($removeFields as $field) {
 			$checkboxes->addOption($field->id, sprintf($this->_('Remove field "%1$s" from template "%2$s"'), $field->name, $this->template->name)); 
 		}
 
