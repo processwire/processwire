@@ -821,6 +821,8 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 * 
 	 */
 	protected function renderFileActionSelect(Pagefile $pagefile, $id) {
+
+		if(!$this->useImageEditor) return '';
 	
 		static $hooked = null; 
 		
@@ -1309,6 +1311,11 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	
 		/** @var Sanitizer $sanitizer */
 		$sanitizer = $this->wire('sanitizer');
+		$page = $this->hasPage;
+	
+		if($page && $page->id) { 
+			if(!$this->wire()->user->hasPermission('page-edit-images', $page)) $this->useImageEditor = 0;
+		}
 		
 		parent::___processInput($input);
 		
@@ -1387,6 +1394,8 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	 * 
 	 */
 	protected function processFileAction(Pageimage $pagefile, $action, $label) {
+
+		if(!$this->useImageEditor) return null;
 		
 		$success = null;
 		$showSuccess = true; 

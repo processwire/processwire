@@ -70,6 +70,16 @@ $focusPointCircleSize: 40px;
 	list-style: none;
 }
 
+.gridImage .gridImage__overflow, // grid view(s)
+.InputfieldImageEditAll .gridImage .gridImage__overflow img, // list view
+.InputfieldImageEdit__image { // clicked image in editor in grid view
+	// the following creates a checkerboard pattern (for seeing transparency)
+	background-color: #fefefe;
+	background-image: linear-gradient(45deg, #cbcbcb 25%, transparent 25%, transparent 75%, #cbcbcb 75%, #cbcbcb), linear-gradient(45deg, #cbcbcb 25%, transparent 25%, transparent 75%, #cbcbcb 75%, #cbcbcb);
+	background-size: 16px 16px;
+	background-position: 0 0, 8px 8px;
+}
+
 // An individual image grid item
 .gridImage {
 	list-style: none;
@@ -95,11 +105,6 @@ $focusPointCircleSize: 40px;
 		height: 100%;
 		overflow: hidden;
 		position: relative;
-		// the following creates a checkerboard pattern (for seeing transparency)
-		background-color: #fefefe;
-		background-image: linear-gradient(45deg, #cbcbcb 25%, transparent 25%, transparent 75%, #cbcbcb 75%, #cbcbcb), linear-gradient(45deg, #cbcbcb 25%, transparent 25%, transparent 75%, #cbcbcb 75%, #cbcbcb);
-		background-size: 16px 16px;
-		background-position: 0 0, 8px 8px;
 
 		& > img {
 			position: absolute;
