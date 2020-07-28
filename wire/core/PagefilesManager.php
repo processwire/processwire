@@ -619,8 +619,7 @@ class PagefilesManager extends Wire {
 				if(!$key) continue; // first item, likely a filename, skip it
 				break; // not first item means end of ID sequence
 			}
-			$id = ltrim($part, '0'); // remove leading 0 and dash
-			$pageID = $id . $pageID; 
+			$pageID = $part  . $pageID; 
 		}
 
 		return (int) $pageID; 

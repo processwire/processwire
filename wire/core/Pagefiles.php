@@ -946,7 +946,7 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 				$this->fieldsTemplate = false;
 				/** @var FieldtypeFile $fieldtype */
 				$fieldtype = $field->type;
-				$template = $fieldtype ? $fieldtype->getFieldsTemplate($field) : null;
+				$template = $fieldtype && $fieldtype instanceof FieldtypeFile ? $fieldtype->getFieldsTemplate($field) : null;
 				if($template) $this->fieldsTemplate = $template;
 			}
 		}
