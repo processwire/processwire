@@ -1165,7 +1165,11 @@ class Tfa extends WireData implements Module, ConfigurableModule {
 		if($user->isLoaded($fieldName)) {
 			$module = $user->get($fieldName);
 			if(empty($module)) return false;
-			if(!is_object($module)) list($moduleName, $module) = array($module, null);
+			if(is_object($module)) {
+				$moduleName = $module->className();
+			} else {
+				list($moduleName, $module) = array($module, null);
+			}
 		}
 		
 		if(!$module && !$moduleName) {
