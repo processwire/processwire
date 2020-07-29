@@ -1861,9 +1861,11 @@ select.uk-form-width-xsmall {
   text-align: center;
   /* 9 */
   text-decoration: none;
-  text-transform: capitalize;
   transition: 0.1s ease-in-out;
   transition-property: color, background-color, border-color;
+}
+html[lang=en] .uk-button {
+  text-transform: capitalize;
 }
 .uk-button:not(:disabled) {
   cursor: pointer;
@@ -13491,7 +13493,6 @@ body .ui-tooltip {
   text-align: center;
   /* 9 */
   text-decoration: none;
-  text-transform: capitalize;
   transition: 0.1s ease-in-out;
   transition-property: color, background-color, border-color;
   background-color: #3eb998;
@@ -13500,6 +13501,9 @@ body .ui-tooltip {
   color: #fff;
   font-size: 16px;
   border-radius: 4px;
+}
+html[lang=en] .ui-button {
+  text-transform: capitalize;
 }
 .ui-button.ui-priority-secondary,
 .ui-button.ui-state-default.ui-priority-secondary,
