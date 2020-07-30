@@ -202,13 +202,28 @@ class FieldtypeDatetime extends Fieldtype {
 	 *
 	 */
 	public function isEmptyValue(Field $field, $value) {
-		return !strlen($value);
+		
+		if(is_object($value) && $value instanceof Selector) {
+			// PageFinder is asking if it should let this Fieldtype handle the operator/value
+			// combination with potential empty value present in a Selector
+			$selector = $value;
+			$op = substr($selector->operator, 0, 1);
+			// tell PageFinder we will handle greater-than/less-than conditions in our getMatchQuery()
+			if($op === '>' || $op === '<') return true;
+		}
+		
+		// note: 0000-00-00 intentionally returns true, which is what $value is when PageFinder is testing
+		// whether the Fieldtype recognizes an empty ISO-8601 date that it will convert to matching null
+		
+		$value = trim($value, '-0 ');
+		
+		return !strlen($value); 
 	}
 
 	/**
 	 * Match a date/time value in the database, as used by PageFinder
 	 * 
-	 * @param DatabaseQuerySelect $query
+	 * @param PageFinderDatabaseQuerySelect $query
 	 * @param string $table
 	 * @param string $subfield
 	 * @param string $operator
@@ -219,10 +234,11 @@ class FieldtypeDatetime extends Fieldtype {
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
 		
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$intValue = $this->_sanitizeValue($value);
 		$table = $database->escapeTable($table);
 		$subfield = $subfield ? $database->escapeCol($subfield) : 'data';
+		$minDT = '1000-01-01 00:00:00'; // $maxDT = '9999-12-31 23:59:59';
 		
 		if(is_string($value) && in_array($operator, array('%=', '^='))) {
 			// partial date string match
@@ -232,9 +248,9 @@ class FieldtypeDatetime extends Fieldtype {
 			if(!ctype_digit(str_replace(array('-', ' '), '', $value))) {
 				throw new WireException("Invalid partial date string '$value' (numbers, hyphens and space only)");
 			}
-			$value = $database->escapeStr($value);
+			$value = str_replace(array('%', '_'), '', $value);
 			$value = $operator === '^=' ? "$value%" : "%$value%";
-			$query->where("$table.$subfield LIKE '$value'");
+			$query->where("$table.$subfield LIKE ?", $value);
 			
 		} else if(!$database->isOperator($operator)) {
 			// invalid operator
@@ -244,21 +260,19 @@ class FieldtypeDatetime extends Fieldtype {
 			// matching a populated value that successfully converted to unix timestamp
 			$dateString = date('Y-m-d H:i:s', $intValue);
 			if($dateString !== false) {
-				$dateString = $database->escapeStr($dateString); 
-				$query->where("$table.$subfield$operator'$dateString'");
+				$query->where("$table.$subfield$operator?", $dateString);
 			}
 			
 		} else {
 			// matching an empty value
-			$minDT = $database->escapeStr(date('Y-m-d H:i:s', 0)); 
 			if(in_array($operator, array('!=', '>', '>='))) {
 				// match NOT empty (!=0, >0)
-				$query->where("$table.$subfield>='$minDT'");
+				$query->where("$table.$subfield>=?", $minDT);
 				
 			} else if(in_array($operator, array('=', '<', '<='))) {
 				// match empty (=0, <0, <=0): match null or value below unix timestamp range
 				// this includes 0000-00-00 when present and used by MySQL version
-				$query->where("$table.$subfield IS NULL OR $table.$subfield<'$minDT'");
+				$query->where("$table.$subfield IS NULL OR $table.$subfield<?", $minDT);
 				
 			} else {
 				// unsupported operator

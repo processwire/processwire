@@ -521,6 +521,16 @@ abstract class Fieldtype extends WireData implements Module {
 	 * Example: an integer or text Fieldtype might not consider a "0" to be empty,
 	 * whereas a Page reference would. 
 	 * 
+	 * This method is primarily used by the PageFinder::whereEmptyValuePossible()
+	 * method to determine whether to include non-present (null) rows. 
+	 * 
+	 * 3.0.164+: If given a Selector object for $value, PageFinder is proposing 
+	 * handling the empty-value match condition internally rather than calling
+	 * the Fieldtype’s getMatchQuery() method. Return true if this Fieldtype would
+	 * prefer to handle the match, or false if not. Fieldtype modules do not need
+	 * to consider this unless they want to override the default empty value match
+	 * behavior in PageFinder::whereEmptyValuePossible().
+	 * 
 	 * #pw-group-finding
 	 * 
 	 * @param Field $field

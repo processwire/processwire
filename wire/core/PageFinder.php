@@ -1790,14 +1790,15 @@ class PageFinder extends Wire {
 		// look in table that has no pages_id relation back to pages, using the LEFT JOIN / IS NULL trick
 		// OR check for blank value as defined by the fieldtype
 		
+		static $tableCnt = 0;
+	
+		$ft = $field->type;
 		$operator = $selector->operator; 
 		$database = $this->wire('database');
-		static $tableCnt = 0;
 		$table = $database->escapeTable($field->table);
 		$tableAlias = $table . "__blank" . (++$tableCnt);
-		$blankValue = $field->type->getBlankValue(new NullPage(), $field);
+		$blankValue = $ft->getBlankValue(new NullPage(), $field);
 		$blankIsObject = is_object($blankValue); 
-		if($blankIsObject) $blankValue = '';
 		$whereType = 'OR';
 		$sql = '';
 		$operators = array(
@@ -1808,29 +1809,42 @@ class PageFinder extends Wire {
 			'>' => '<=', 
 			'>=' => '<'
 		);
+		
+		if($blankIsObject) $blankValue = '';
 		if(!isset($operators[$operator])) return false; 
 		if($selector->not) $operator = $operators[$operator]; // reverse
-		
-		if($operator == '=') {
+
+		// ask Fieldtype if it would prefer to handle matching this empty value selector
+		if($ft->isEmptyValue($field, $selector)) {
+			// fieldtype will handle matching the selector in its getMatchQuery
+			return false;
+
+		} else if(($operator === '=' || $operator === '!=') && $ft->isEmptyValue($field, $value) && $ft->isEmptyValue($field, '0000-00-00')) {
+			// matching empty in date, datetime, timestamp column with equals or not-equals condition
+			// non-presence of row is required in order to match empty/blank (in MySQL 8.x)
+			$is = $operator === '=' ? 'IS' : 'IS NOT';
+			$sql = "$tableAlias.pages_id $is NULL ";
+
+		} else if($operator === '=') {
 			// equals
 			// non-presence of row is equal to value being blank
 			$bindKey = $query->bindValueGetKey($blankValue);
-			if($field->type->isEmptyValue($field, $value)) {
+			if($ft->isEmptyValue($field, $value)) {
 				$sql = "$tableAlias.pages_id IS NULL OR ($tableAlias.data=$bindKey";
 			} else {
 				$sql = "($tableAlias.data=$bindKey";
 			}
-			if($value !== "0" && $blankValue !== "0" && !$field->type->isEmptyValue($field, "0")) {
+			if($value !== "0" && $blankValue !== "0" && !$ft->isEmptyValue($field, "0")) {
 				// if zero is not considered an empty value, exclude it from matching
 				// if the search isn't specifically for a "0"
 				$sql .= " AND $tableAlias.data!='0'";
 			}
 			$sql .= ")";
 			
-		} else if($operator == '!=' || $operator == '<>') {
+		} else if($operator === '!=' || $operator === '<>') {
 			// not equals
 			// $whereType = 'AND';
-			if($value === "0" && !$field->type->isEmptyValue($field, "0")) {
+			if($value === "0" && !$ft->isEmptyValue($field, "0")) {
 				// may match rows with no value present
 				$sql = "$tableAlias.pages_id IS NULL OR ($tableAlias.data!='0'";
 				
@@ -1840,7 +1854,7 @@ class PageFinder extends Wire {
 			} else {
 				$bindKey = $query->bindValueGetKey($blankValue);
 				$sql = "$tableAlias.pages_id IS NOT NULL AND ($tableAlias.data!=$bindKey";
-				if($blankValue !== "0" && !$field->type->isEmptyValue($field, "0")) {
+				if($blankValue !== "0" && !$ft->isEmptyValue($field, "0")) {
 					$sql .= " OR $tableAlias.data='0'";
 				}
 			}
@@ -1848,7 +1862,7 @@ class PageFinder extends Wire {
 			
 		} else if($operator == '<' || $operator == '<=') {
 			// less than 
-			if($value > 0 && $field->type->isEmptyValue($field, "0")) {
+			if($value > 0 && $ft->isEmptyValue($field, "0")) {
 				// non-rows can be included as counting for 0
 				$bindKey = $query->bindValueGetKey($value);
 				$sql = "$tableAlias.pages_id IS NULL OR $tableAlias.data$operator$bindKey";
@@ -1857,7 +1871,7 @@ class PageFinder extends Wire {
 				return false; 
 			}
 		} else if($operator == '>' || $operator == '>=') {
-			if($value < 0 && $field->type->isEmptyValue($field, "0")) {
+			if($value < 0 && $ft->isEmptyValue($field, "0")) {
 				// non-rows can be included as counting for 0
 				$bindKey = $query->bindValueGetKey($value);
 				$sql = "$tableAlias.pages_id IS NULL OR $tableAlias.data$operator$bindKey";
