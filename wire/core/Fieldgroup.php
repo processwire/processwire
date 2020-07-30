@@ -41,6 +41,8 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 
 	/**
 	 * Any fields that were removed from this instance are noted so that Fieldgroups::save() can delete unused data
+	 * 
+	 * @var FieldsArray|null
 	 *
 	 */
 	protected $removedFields = null;

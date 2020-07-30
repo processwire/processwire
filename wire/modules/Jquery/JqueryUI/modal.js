@@ -207,7 +207,7 @@ function pwModalWindow(href, options, size) {
 	function updateWindowSize() {
 		var width = jQuery(window).width();
 		var height = jQuery(window).height();
-		if(width == lastWidth && height == lastHeight) return;
+		if((width == lastWidth && height == lastHeight) || !$iframe.hasClass('ui-dialog-content')) return;
 		var _size = size;
 		if(width <= 960 && size != 'full' && size != 'large') _size = 'large';
 		if(width <= 700 && size != 'full') _size = 'full';

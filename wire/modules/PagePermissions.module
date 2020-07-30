@@ -558,7 +558,7 @@ class PagePermissions extends WireData implements Module {
 		} else if($user->isSuperuser()) {
 			// superuser always allowed
 			$viewable = true;
-		} else if($page->process) {
+		} else if($page->hasField('process') && $page->get('process')) {
 			// delegate access to permissions defined with Process module
 			$viewable = $this->processViewable($page);
 		} else if($page instanceof User && !$user->isGuest() && ($user->hasPermission('user-admin') || $page->id === $user->id)) {
