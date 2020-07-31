@@ -390,11 +390,18 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		}
 
 		// if historical parent path differs from page’s current parent path, include it
-		if($parentPath !== '/' && $parentPath != $page->parent()->path()) {
-			$parent = $this->wire('pages')->get("/$parentPath");
+		if($parentPath === '' || $parentPath === '/') {
+			// historial parent is root/home
+		} else if($parentPath === trim($page->parent()->path(), '/')) {
+			// historial parent is the same as current parent
+		} else if($parentPath === trim($page->path(), '/')) {
+			// historial parent is the page itself
+		} else {
+			// historial parent may be one we want to check
+			$parent = $this->wire()->pages->get("/$parentPath");
 			if(!$parent->id) $parent = $this->getPage($parentPath);
 			// if parent from path is different from current page parent, include in our list of parents to check
-			if($parent->id > 1 && $parent->id != $page->parent_id) {
+			if($parent->id > 1 && $parent->id != $page->parent_id && $parent->id != $page->id) {
 				$checkParents[] = $parent;
 			}
 		}
@@ -506,8 +513,9 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		// note that the paths we store have no trailing slash
 		
 		if($languages) {
+			$parent = $page->parent();
 			$parentPrevious = $page->parentPrevious;
-			if($parentPrevious && $parentPrevious->id == $page->parent()->id) $parentPrevious = null;
+			if($parentPrevious && $parentPrevious->id == $parent->id) $parentPrevious = null;
 			foreach($languages as $language) {
 				/** @var Language $language */
 				if($language->isDefault()) continue;
