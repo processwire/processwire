@@ -1208,7 +1208,7 @@ class WireTextTools extends Wire {
 	 * 
 	 */
 	public function substr($str, $start, $length = null) {
-		return $this->mb ? mb_substr($str, $start, $length) : substr($start, $start, $length);
+		return $this->mb ? mb_substr($str, $start, $length) : substr($str, $start, $length);
 	}
 
 	/**
