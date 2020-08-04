@@ -225,6 +225,83 @@ class Sanitizer extends Wire {
 	);
 
 	/**
+	 * Sanitizer method names (A-Z) and type(s) they return 
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $sanitizers = array(
+		'alpha' => 's',
+		'alphanumeric' => 's',
+		'array' => 'a',
+		'attrName' => 's',
+		'bit' => 'i',
+		'bool' => 'b',
+		'camelCase' => 's',
+		'chars' => 's',
+		'checkbox' => 'b',
+		'date' => 'ins',
+		'digits' => 's',
+		'email' => 's',
+		'emailHeader' => 's',
+		'entities' => 's',
+		'entities1' => 's',
+		'entitiesMarkdown' => 's',
+		'fieldName' => 's',
+		'fieldSubfield' => 's',
+		'filename' => 's',
+		'flatArray' => 'a',
+		'float' => 'f',
+		'httpUrl' => 's',
+		'hyphenCase' => 's',
+		'int' => 'i',
+		'intArray' => 'a',
+		'intSigned' => 'i',
+		'intUnsigned' => 'i',
+		'kebabCase' => 's',
+		'markupToLine' => 's',
+		'markupToText' => 's',
+		'max' => 'fi',
+		'maxBytes' => 's',
+		'maxLength' => 'afis',
+		'minLength' => 's',
+		'min' => 'fi',
+		'minArray' => 'a',
+		'name' => 's',
+		'names' => 'as',
+		'normalizeWhitespace' => 's',
+		'pageName' => 's',
+		'pageNameTranslate' => 's',
+		'pageNameUTF8' => 's',
+		'pagePathName' => 's',
+		'pagePathNameUTF8' => 's',
+		'pascalCase' => 's',
+		'path' => 'bs',
+		'purify' => 's',
+		'range' => 'fi',
+		'reduceWhitespace' => 's',
+		'removeMB4' => 'ams',
+		'removeNewlines' => 's',
+		'removeWhitespace' => 's',
+		'sanitize' => 'm',
+		'selectorField' => 's',
+		'selectorValue' => 's',
+		'snakeCase' => 's',
+		'string' => 's',
+		'templateName' => 's',
+		'text' => 's',
+		'textarea' => 's',
+		'trim' => 's',
+		'truncate' => 's',
+		'unentities' => 's',
+		'url' => 's',
+		'valid' => 'b',
+		'validate' => 'm',
+		'varName' => 's',
+		'wordsArray' => 'a',
+	);
+
+	/**
 	 * Construct the sanitizer
 	 *
 	 */
@@ -454,7 +531,8 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	public function attrName($value, $maxLength = 255) {
-		
+	
+		$value = $this->string($value);
 		$value = trim($value); // force as trimmed string
 		if(ctype_alpha($value) && strlen($value) <= $maxLength) return $value; // simple 1-word attributes
 
@@ -542,6 +620,7 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	public function fieldSubfield($value, $limit = 1) {
+		$value = $this->string($value);
 		if(!strlen($value)) return '';
 		if(!strpos($value, '.')) return $this->fieldName($value);
 		$parts = array();
@@ -612,6 +691,7 @@ class Sanitizer extends Wire {
 	 */
 	public function pageName($value, $beautify = false, $maxLength = 128, array $options = array()) {
 	
+		$value = $this->string($value);
 		if(!strlen($value)) return '';
 		
 		$defaults = array(
@@ -716,7 +796,8 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function pageNameUTF8($value, $maxLength = 128) {
-		
+	
+		$value = $this->string($value);
 		if(!strlen($value)) return '';
 		
 		// if UTF8 module is not enabled then delegate this call to regular pageName sanitizer
@@ -1010,10 +1091,13 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function pagePathName($value, $beautify = false, $maxLength = 1024) {
-	
+
+		$value = $this->string($value);
 		$extras = array('/', '-', '_', '.');
 		$options = array('allowedExtras' => $extras);
 		$charset = $this->wire('config')->pageNameCharset;
+		
+		if(!strlen($value)) return '';
 	
 		if($charset === 'UTF8' && $beautify === self::toAscii) {
 			// convert UTF8 to punycode when applicable
@@ -1077,6 +1161,8 @@ class Sanitizer extends Wire {
 	 */
 	public function pagePathNameUTF8($value) {
 		if($this->wire('config')->pageNameCharset !== 'UTF8') return $this->pagePathName($value);
+		$value = $this->string($value);
+		if(!strlen($value)) return '';
 		$parts = explode('/', $value);
 		foreach($parts as $n => $part) {
 			$parts[$n] = $this->pageName($part, self::okUTF8);
@@ -1559,6 +1645,7 @@ class Sanitizer extends Wire {
 
 		$options = array_merge($defaults, $options);
 		$newline = $options['newline'];
+		$value = $this->string($value);
 
 		if(strpos($value, "\r") !== false) {
 			// normalize newlines
@@ -2469,6 +2556,7 @@ class Sanitizer extends Wire {
 		if(!is_array($options)) $options = array();
 		$options = array_merge($defaults, $options);
 		$findReplace = array();
+		$str = $this->string($str);
 
 		if($options['fullMarkdown']) {
 			// full markdown
@@ -2661,6 +2749,7 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function removeNewlines($str, $replacement = ' ') {
+		$str = $this->string($str);
 		return str_replace(array("\r\n", "\r", "\n"), $replacement, $str);
 	}
 
@@ -2694,6 +2783,7 @@ class Sanitizer extends Wire {
 		} else {
 			$options = array_merge($defaults, $options);
 		}
+		$str = $this->string($str);
 		if($options['html'] && strpos($str, '&') === false) $options['html'] = false;
 		$whitespace = $this->getWhitespaceArray($options['html']); 
 		foreach($options['allow'] as $c) {
@@ -2818,7 +2908,8 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	public function trim($str, $chars = '') {
-	
+
+		$str = $this->string($str);
 		$tt = $this->getTextTools();
 		$len = $tt->strlen($str);
 		if(!$len) return $str;
@@ -2989,6 +3080,7 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function truncate($str, $maxLength = 300, $options = array()) {
+		$str = $this->string($str);
 		return $this->getTextTools()->truncate($str, $maxLength, $options);
 	}
 
@@ -3006,6 +3098,7 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	public function trunc($str, $maxLength = 300, $options = array()) {
+		$str = $this->string($str);
 		if(is_array($maxLength)) $options = $maxLength;
 		if(!isset($options['type'])) $options['type'] = 'word';
 		if(!isset($options['more'])) $options['more'] = '';
@@ -3168,6 +3261,7 @@ class Sanitizer extends Wire {
 		);
 		
 		$options = array_merge($defaults, $options);
+		$value = $this->string($value);
 		$allow = $options['allow'] . ($options['allowUnderscore'] ? '_' : ''); 
 		$needsWork = true;
 		
@@ -3307,7 +3401,9 @@ class Sanitizer extends Wire {
 	 *
 	 */
 	public function string($value, $sanitizer = null) {
-		if(is_object($value)) {
+		if(is_string($value)) {
+			if($sanitizer === null) return $value;
+		} else if(is_object($value)) {
 			if(method_exists($value, '__toString')) {
 				$value = (string) $value;
 			} else {
@@ -3319,12 +3415,14 @@ class Sanitizer extends Wire {
 			$value = $value ? "1" : "";
 		} else if(is_array($value)) {
 			$value = "array-" . count($value);
-		} else if(!is_string($value)) {
+		} else {
 			$value = (string) $value;
 		}
-		if(!is_null($sanitizer) && is_string($sanitizer) && (method_exists($this, $sanitizer) || method_exists($this, "___$sanitizer"))) {
-			$value = $this->$sanitizer($value);
-			if(!is_string($value)) $value = (string) $value;
+		if($sanitizer && is_string($sanitizer)) { 
+			if(method_exists($this, $sanitizer) || method_exists($this, "___$sanitizer")) {
+				$value = $this->$sanitizer($value);
+				if(!is_string($value)) $value = (string) $value;
+			}
 		}
 		return $value;
 	}
@@ -3362,7 +3460,7 @@ class Sanitizer extends Wire {
 		$options = array_merge($defaults, $options);
 		$datetime = $this->wire('datetime');
 		$iso8601 = 'Y-m-d H:i:s';
-		$_value = trim($value); // original value string
+		$_value = trim($this->string($value)); // original value string
 		if(empty($value)) return $options['default'];
 		if(!is_string($value) && !is_int($value)) $value = $this->string($value);
 		if(ctype_digit("$value")) {
@@ -4445,81 +4543,30 @@ class Sanitizer extends Wire {
 	 * 
 	 */
 	public function ___testAll($value) {
-		$sanitizers = array(
-			'alpha',
-			'alphanumeric',
-			'array',
-			'attrName',
-			'bit',
-			'bool',
-			'camelCase',
-			'chars',
-			'checkbox',
-			'date',
-			'digits',
-			'email',
-			'emailHeader',
-			'entities',
-			'entities1',
-			'entitiesMarkdown',
-			'fieldName',
-			'fieldSubfield',
-			'filename',
-			'flatArray',
-			'float',
-			'httpUrl',
-			'hyphenCase',
-			'int',
-			'intArray',
-			'intSigned',
-			'intUnsigned',
-			'kebabCase',
-			'markupToLine',
-			'markupToText',
-			'max',
-			'maxBytes',
-			'maxLength',
-			'minLength',
-			'min',
-			'minArray',
-			'name',
-			'names',
-			'normalizeWhitespace',
-			'pageName',
-			'pageNameTranslate',
-			'pageNameUTF8',
-			'pagePathName',
-			'pagePathNameUTF8',
-			'pascalCase',
-			'path',
-			'purify',
-			'range',
-			'reduceWhitespace',
-			'removeMB4',
-			'removeNewlines',
-			'removeWhitespace',
-			'sanitize',
-			'selectorField',
-			'selectorValue',
-			'snakeCase',
-			'string',
-			'templateName',
-			'text',
-			'textarea',
-			'trim',
-			'truncate',
-			'unentities',
-			'url',
-			'valid',
-			'validate',
-			'varName',
-			'wordsArray',
-		);
 		$results = array();
-		foreach($sanitizers as $method) {
-			$results[$method] = $this->$method($value);
+		$fails = array();
+		foreach($this->sanitizers as $method => $types) {
+			$v = $this->$method($value);
+			$results[$method] = $v;
+			if(strpos($types, 'm') !== false) continue; // allows any type (m=mixed)
+			$type = strtolower(gettype($v));
+			$type = $type[0] === 'd' ? 'f' : $type[0];
+			if(strpos($types, $type) === false) $fails[$method] = "$type!=$types";
 		}
+		if(count($fails)) $results['FAILS'] = $fails;
 		return $results;
+	}
+
+	/**
+	 * Get all sanitizer method names and optionally types they return
+	 * 
+	 * @param bool $getReturnTypes Get array where method names are keys and values are return types?
+	 * @return array
+	 * @since 3.0.165
+	 * 
+	 */
+	public function getAll($getReturnTypes = false) {
+		return $getReturnTypes ? $this->sanitizers : array_keys($this->sanitizers); 
 	}
 
 	/**
