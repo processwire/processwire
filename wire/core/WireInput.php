@@ -1391,7 +1391,6 @@ class WireInput extends Wire {
 		} else if(is_string($valid)) {
 			// sanitizer "name" or multiple "name1,name2,name3" specified for $valid argument
 			$cleanValue = $this->sanitizeValue($valid, $value, ($forceArray || is_array($fallback)));
-			if(empty($value) && $fallback !== null) $cleanValue = $fallback;
 
 		} else if(is_array($valid)) {
 			// whitelist provided for $valid argument
@@ -1474,30 +1473,64 @@ class WireInput extends Wire {
 	 */
 	protected function sanitizeValue($method, $value, $getArray) {
 		
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
-		//$values = is_array($value) ? $value : ($value === null ? array() : array($value));
-		$values = is_array($value) ? $value : array($value);
-		$methods = strpos($method, ',') === false ? array($method) : explode(',', $method);
-		$cleanValues = array();
+		$sanitizer = $this->wire()->sanitizer;
+		$sanitizers = $sanitizer->getAll(true);
+		$methods = array();
 		
-		foreach($values as $value) {
-			foreach($methods as $method) {
-				$method = trim($method);
-				if(empty($method)) continue;
-				if($sanitizer->methodExists($method)) {
-					$value = $sanitizer->sanitize($value, $method); 
-				} else {
-					throw new WireException("Unknown sanitizer method: $method");
-				}
+		foreach(explode(',', $method) as $name) {
+			$name = trim($name);
+			if(empty($name)) continue;
+			if(!isset($sanitizers[$name])) throw new WireException("Unknown sanitizer '$method'"); 
+			$methods[$name] = $sanitizers[$name]; // value is return type(s)
+		}
+	
+		$lastReturnType = end($methods); 
+		if(!$getArray) {
+			if($lastReturnType === 'a') {
+				$getArray = true; // array return value implied
+			} else if(strpos($lastReturnType, 'a') !== false) {
+				$getArray = 1; // array return value possible
 			}
-			$cleanValues[] = $value;
 		}
 		
-		$cleanValue = $getArray ? $cleanValues : reset($cleanValues);
-		if($cleanValue === false) $cleanValue = null;
+		foreach($methods as $methodName => $returnType) {
+			
+			$methodName = trim($methodName);
+			if(empty($methodName)) continue;
+			
+			if(is_array($value)) {
+				// array value
+				if(!count($value)) {
+					// nothing to do with value
+					$value = array();
+				} else if($getArray && strpos($returnType, 'a') === false) {
+					// sanitize array with sanitizer that does not do arrays, 1 item at a time
+					$a = array();
+					foreach($value as $v) {
+						$cv = $sanitizer->sanitize($v, $methodName);
+						if($cv !== null) $a[] = $cv;
+					}
+					$value = $a;
+				} else if($getArray) {
+					// sanitizer that can handle arrays
+					$value = $sanitizer->sanitize($value, $methodName);
+				} else {
+					// sanitizer does not do arrays, reduce to 1st array item
+					$value = reset($value);
+					$value = $sanitizer->sanitize($value, $methodName);
+				}
+				
+			} else {
+				// non-array value
+				$value = $sanitizer->sanitize($value, $methodName);
+			}
+		}
 		
-		return $cleanValue; 
+		if($getArray === true && !is_array($value)) {
+			$value = array($value);
+		}
+		
+		return $value; 
 	}
 
 
