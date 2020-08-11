@@ -572,7 +572,7 @@ class WireInput extends Wire {
 
 		if($get < 0) {
 			// retrieve from end
-			$get = abs($get);
+			$get = abs($get) + 1; // array reverse resets the index to 0 based
 			$urlSegments = array_reverse($this->urlSegments);
 			return isset($urlSegments[$get]) ? $urlSegments[$get] : '';
 		}
