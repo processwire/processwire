@@ -14,6 +14,7 @@ jQuery(document).ready(function($) {
 		var $scores = $wrapScores.children();
 		var requirements = $wrapScores.attr('data-requirements').split(' ');
 		var minlength = parseInt($input.attr('data-minlength'));
+		var inputOldEvent;
 		var options = {
 			banMode: $input.attr('data-banMode'),
 			strengthScaleFactor: parseFloat($input.attr('data-factor')),
@@ -21,13 +22,14 @@ jQuery(document).ready(function($) {
 		};
 
 		if($inputOld.length) {
-			$input.attr('disabled', 'disabled'); 
-			$inputOld.on('keyup', function() {
+			$input.attr('disabled', 'disabled');
+			inputOldEvent = function() {
 				if($(this).val().length > 0) {
-					$inputOld.off('keyup');
+					$inputOld.off('keyup input change blur', inputOldEvent);
 					$input.removeAttr('disabled');
 				}
-			}); 
+			};
+			$inputOld.on('keyup input change blur', inputOldEvent);
 		}
 		
 		if($confirm.length) $confirm.attr('disabled', 'disabled');
@@ -46,25 +48,26 @@ jQuery(document).ready(function($) {
 					var fail = false;
 					var requirement = requirements[n];
 					var $requirement = $inputfield.find('.pass-require-' + requirement);
+					var re;
 					
 					if(requirement == 'letter') {
-						var re = XRegExp("\\p{L}"); 
+						re = XRegExp("\\p{L}"); 
 						if(!re.test(val)) fail = true;
 					} else if(requirement == 'upper') {
-						var re = XRegExp("\\p{Lu}"); 
+						re = XRegExp("\\p{Lu}"); 
 						if(!re.test(val)) fail = true;
 					} else if(requirement == 'lower') {
-						var re = XRegExp("\\p{Ll}");
+						re = XRegExp("\\p{Ll}");
 						if(!re.test(val)) fail = true;
 					} else if(requirement == 'digit') {
-						var re = XRegExp("\\p{N}");
+						re = XRegExp("\\p{N}");
 						if(!re.test(val)) fail = true;
 					} else if(requirement == 'other') {
-						var re = XRegExp("\\p{P}");
+						re = XRegExp("\\p{P}");
 						var rx = XRegExp("\\p{S}");
 						if(!re.test(val) && !rx.test(val)) fail = true;
 					} else if(requirement == 'space') {
-						var re = XRegExp("\\p{Z}");
+						re = XRegExp("\\p{Z}");
 						if(!re.test(val)) fail = true;
 					} else if(requirement == 'minlength') {
 						if(len < minlength) fail = true; 
