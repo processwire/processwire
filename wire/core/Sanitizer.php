@@ -234,6 +234,7 @@ class Sanitizer extends Wire {
 		'alpha' => 's',
 		'alphanumeric' => 's',
 		'array' => 'a',
+		'arrayVal' => 'a',
 		'attrName' => 's',
 		'bit' => 'i',
 		'bool' => 'b',
@@ -256,6 +257,7 @@ class Sanitizer extends Wire {
 		'hyphenCase' => 's',
 		'int' => 'i',
 		'intArray' => 'a',
+		'intArrayVal' => 'a',
 		'intSigned' => 'i',
 		'intUnsigned' => 'i',
 		'kebabCase' => 's',
@@ -3776,15 +3778,19 @@ class Sanitizer extends Wire {
 	 * 
 	 * #pw-group-arrays
 	 *
-	 * @param array|string|mixed $value Accepts an array or CSV string. If given something else, it becomes first item in array.
-	 * @param string $sanitizer Optional Sanitizer method to apply to items in the array (default=null, aka none).
+	 * @param array|string|mixed $value Accepts an array or CSV string. 
+	 *   If given something else, it becomes first item in array.
+	 * @param string|array $sanitizer Sanitizer method to apply to items in the array or omit/null for none,
+	 *   or in 3.0.165+ optionally substitute the $options argument here instead (default=null).
 	 * @param array $options Optional modifications to default behavior:
 	 * 	- `maxItems` (int): Maximum items allowed in each array (default=0, which means no limit)
 	 *  - `maxDepth` (int): Max nested array depth (default=0, which means no nesting allowed) Since 3.0.160
+	 * 	- `sanitizer` (string): Optionally specify sanitizer as option rather than argument (default='') Since 3.0.165
 	 * 	- The following options are only used if the provided $value is a string: 
+	 *  - `csv` (bool): Allow conversion of delimited string to array? (default=true) Since 3.0.165
 	 * 	- `delimiter` (string): Single delimiter to use to identify CSV strings. Overrides the 'delimiters' option when specified (default=null)
 	 * 	- `delimiters` (array): Delimiters to identify CSV strings. First found delimiter will be used, default=array("|", ",")
-	 * 	- `enclosure` (string): Enclosure to use for CSV strings (default=double quote, i.e. ")
+	 * 	- `enclosure` (string): Enclosure to use for CSV strings (default=double quote, i.e. `"`)
 	 * @return array
 	 * @throws WireException if an unknown $sanitizer method is given
 	 *
@@ -3796,11 +3802,16 @@ class Sanitizer extends Wire {
 		$defaults = array(
 			'maxItems' => 0,
 			'maxDepth' => 0, 
+			'csv' => true,
 			'delimiter' => null, 
 			'delimiters' => array('|', ','),
 			'enclosure' => '"', 
+			'sanitizer' => null, 
 		);
-
+		
+		if(is_array($sanitizer) && empty($options)) list($options, $sanitizer) = array($sanitizer, null);
+		if(empty($sanitizer) && !empty($options['sanitizer'])) $sanitizer = $options['sanitizer'];
+		
 		$options = array_merge($defaults, $options);
 		$clean = array();
 		
@@ -3816,7 +3827,7 @@ class Sanitizer extends Wire {
 					$value = array(get_class($value));
 				}
 			}
-			if(is_string($value)) {
+			if(is_string($value) && $options['csv']) {
 				// value is string
 				$hasDelimiter = null;
 				$delimiters = is_null($options['delimiter']) ? $options['delimiters'] : array($options['delimiter']);
@@ -3832,7 +3843,9 @@ class Sanitizer extends Wire {
 					$value = array($value);
 				}
 			}
-			if(!is_array($value)) $value = array($value);
+			if(!is_array($value)) {
+				$value = array($value);
+			}	
 		}
 
 		$depth++;
@@ -3840,7 +3853,7 @@ class Sanitizer extends Wire {
 			if(!is_array($v)) continue;
 			if($depth <= $options['maxDepth']) {
 				// sanitize nested array recursively
-				$value[$k] = $this->array($v, $sanitizer, $options); 
+				$value[$k] = $this->___array($v, $sanitizer, $options); 
 			} else {
 				// remove nested array
 				unset($value[$k]);
@@ -3869,9 +3882,37 @@ class Sanitizer extends Wire {
 		
 		return array_values($clean);
 	}
+
+	/**
+	 * Simply sanitize value to array with no conversions
+	 * 
+	 * This is the same as the `array()` sanitizer except that it does not attempt to convert 
+	 * delimited/csv strings to arrays. Meaning, a delimited string would simply become an array
+	 * with the first item being that delimited string. 
+	 * 
+	 * @param mixed $value
+	 * @param array $options
+	 * 	- `maxItems` (int): Maximum items allowed in each array (default=0, which means no limit)
+	 *  - `maxDepth` (int): Max nested array depth (default=0, which means no nesting allowed)
+	 * 	- `sanitizer` (string): Optionally specify sanitizer method name to apply to items (default='')
+	 * @return array
+	 * @throws WireException
+	 * @since 3.0.165
+	 * 
+	 */
+	public function arrayVal($value, $options = array()) {
+		$defaults = array(
+			'maxItems' => 0, 
+			'maxDepth' => 0,
+			'sanitizer' => is_string($options) ? $options : null,
+			'csv' => false,
+		);
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		return $this->___array($value, $options);
+	}
 	
 	/**
-	 * Sanitize array or CSV string to array of unsigned integers (or signed if specified $min is less than 0)
+	 * Sanitize array or CSV string to array of unsigned integers (or signed integers if specified $min is less than 0)
 	 *
 	 * If string specified, string delimiter may be comma (","), or pipe ("|"), or you may override with the 'delimiter' option.
 	 * 
@@ -3883,7 +3924,14 @@ class Sanitizer extends Wire {
 	 * 	- `min` (int): Minimum allowed value (default=0)
 	 * 	- `max` (int): Maximum allowed value (default=PHP_INT_MAX)
 	 *  - `strict` (bool): Remove rather than convert any values that are not all digits or fall outside min/max range? (default=false) Since 3.0.157+
+	 * 	- `maxItems` (int): Maximum items allowed in each array (default=0, which means no limit)
+	 *  - `maxDepth` (int): Max nested array depth (default=0, which means no nesting allowed) Since 3.0.160
 	 *  - You may specify boolean true for $options argument to use just the `strict` option. (3.0.157+)
+	 * 	- The following options are only used if the provided $value is a string:
+	 *  - `csv` (bool): Allow conversion of delimited string to array? (default=true) Since 3.0.165
+	 * 	- `delimiter` (string): Single delimiter to use to identify CSV strings. Overrides the 'delimiters' option when specified (default=null)
+	 * 	- `delimiters` (array): Delimiters to identify CSV strings. First found delimiter will be used, default=array("|", ",")
+	 * 	- `enclosure` (string): Enclosure to use for CSV strings (default=double quote, i.e. `"`)
 	 * @return array Array of integers
 	 *
 	 */
@@ -3913,6 +3961,39 @@ class Sanitizer extends Wire {
 			}
 		}
 		return $clean;
+	}
+
+	/**
+	 * Sanitize array to be all unsigned integers with no conversions
+	 * 
+	 * This is the same as the `intArray()` method except for the following: 
+	 * 
+	 *  - The `csv` delimited string conversion option is disabled by default.
+	 *  - The `strict` option default is true, meaning non-integer numbers or those outside allowed range 
+	 *    are removed rather than converted. 
+	 *
+	 * #pw-group-arrays
+	 * #pw-group-numbers
+	 *
+	 * @param array|string|mixed $value Accepts an array or CSV string. If given something else, it becomes first value in array.
+	 * @param array|bool $options Options to modify behavior or specify bool for `strict` option:
+	 * 	- `min` (int): Minimum allowed value (default=0)
+	 * 	- `max` (int): Maximum allowed value (default=PHP_INT_MAX)
+	 * 	- `maxItems` (int): Maximum items allowed in each array (default=0, which means no limit)
+	 *  - `maxDepth` (int): Max nested array depth (default=0, which means no nesting allowed) Since 3.0.160
+	 *  - `strict` (bool): Remove rather than convert any values that are not all digits or fall outside min/max range? (default=true) 
+	 *     Note that this default for the strict option is different from the one on the intArray() method. 
+	 * @return array Array of integers
+	 * @since 3.0.165
+	 *
+	 */
+	public function intArrayVal($value, $options = array()) {
+		$defaults = array(
+			'strict' => is_bool($options) ? $options : true,
+			'csv' => false,
+		);
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		return $this->intArray($value, $options);
 	}
 
 	/**
