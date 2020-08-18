@@ -580,6 +580,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		if(!$pos) {
 			// there still may be region related stuff that needs to be removed like <region> tags
 			$markupRegions->removeRegionTags($html);
+			$html = $markupRegions->stripOptional($html);
 			return;
 		}
 		
