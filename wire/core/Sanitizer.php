@@ -2548,7 +2548,7 @@ class Sanitizer extends Wire {
 			'encoding' => 'UTF-8',
 			'doubleEncode' => true,
 			'allowBrackets' => false, // allow [bracket] tags?
-			'allow' => array('a', 'strong', 'em', 'code', 's', 'span', 'u', 'small', 'i'),
+			'allow' => array('a', 'strong', 'em', 'code', 's', 'span', 'u', 'small', 'i', 'br'),
 			'disallow' => array(),
 			'linkMarkup' => '<a href="{url}" rel="noopener noreferrer nofollow" target="_blank">{text}</a>',
 			'escapableChars' => array('*', '[', ']', '(', ')', '`', '_', '~'), // for basic markdown or brackets modes
@@ -2580,13 +2580,13 @@ class Sanitizer extends Wire {
 			}
 
 			$str = $this->entities($str, $options['flags'], $options['encoding'], $options['doubleEncode']);
-
+			
 			if(strpos($str, '](') && in_array('a', $options['allow']) && !in_array('a', $options['disallow'])) {
 				// link
 				$linkMarkup = str_replace(array('{url}', '{text}'), array('$2', '$1'), $options['linkMarkup']);
-				$str = preg_replace('/\[(.+?)\]\(([^)]+)\)/', $linkMarkup, $str);
+				$str = preg_replace('/\[([^\]]+)\]\(([^)]+)\)/', $linkMarkup, $str);
 			}
-
+			
 			if(strpos($str, '**') !== false && in_array('strong', $options['allow']) && !in_array('strong', $options['disallow'])) {
 				// strong
 				$str = preg_replace('/\*\*(.*?)\*\*/', '<strong>$1</strong>', $str);
@@ -2608,34 +2608,69 @@ class Sanitizer extends Wire {
 			}
 		}
 
-		if($options['allowBrackets'] && strpos($str, '[/')) {
-			// support [bracketed] inline-level tags, optionally with id "#" or class "." attributes (ascii-only)
-			// example: [span.detail]some text[/span] or [strong#someid.someclass]text[/strong] or [em.class1.class2]text[/em]
-			$tags = implode('|', $options['allow']);
-			$reps = array();
-			if(preg_match_all('!\[(' . $tags . ')((?:[.#][-_a-zA-Z0-9]+)*)\](.*?)\[/\\1\]!', $str, $matches)) {
-				foreach($matches[0] as $key => $full) {
-					$tag = $matches[1][$key];
-					$attr = $matches[2][$key];
-					$text = $matches[3][$key];
-					if(in_array($tag, $options['disallow']) || $tag == 'a') continue;
-					$class = '';
-					$id = '';
-					if(strlen($attr)) {
-						foreach(explode('.', $attr) as $c) {
-							if(strpos($c, '#') !== false) list($c, $id) = explode('#', $c, 2);
-							if(!empty($c)) $class .= "$c ";
-						}
-					}
-					$reps[$full] = "<$tag" . ($id ? " id='$id'" : '') . ($class ? " class='$class'" : '') . ">$text</$tag>";
-				}
-			}
-			if(count($reps)) $str = str_replace(array_keys($reps), array_values($reps), $str);
+		if($options['allowBrackets']) {
+			$str = $this->bracketTagsToHtml($str, $options);
 		}
 		
 		if(count($findReplace)) {
 			$str = str_replace(array_keys($findReplace), array_values($findReplace), $str);
 		}
+		
+		return $str;
+	}
+
+	/**
+	 * Convert HTML bracket tags [tag]...[/tag] to HTML - helper method for entitiesMarkdown()
+	 * 
+	 * @param string $str String containing bracket tags, should be entity encoded ahead of time
+	 * @param array $options
+	 * @return string
+	 * 
+	 */
+	protected function bracketTagsToHtml($str, array $options) {
+
+		if(strpos($str, '[') === false || strpos($str, ']') === false) return $str;
+		
+		if(empty($options['allow'])) return $str;
+
+		if(!isset($options['disallow'])) $options['disallow'] = array();
+
+		// bracket tags that require no closing bracket
+		$singletons = array('br', 'hr', 'wbr');
+		foreach($singletons as $tag) {
+			if(strpos($str, "[$tag") === false) continue;
+			if(!in_array($tag, $options['allow'])) continue;
+			if(in_array($tag, $options['disallow'])) continue;
+			$str = str_replace(array("[$tag]", "[$tag/]", "[$tag /]"), "<$tag />", $str);
+		}
+	
+		// all other bracket tags require a closing bracket
+		if(!strpos($str, '[/')) return $str;
+		
+		// support [bracketed] inline-level tags, optionally with id "#" or class "." attributes (ascii-only)
+		// example: [span.detail]some text[/span] or [strong#someid.someclass]text[/strong] or [em.class1.class2]text[/em]
+		$tags = implode('|', $options['allow']);
+		$reps = array();
+		
+		if(preg_match_all('!\[(' . $tags . ')((?:[.#][-_a-zA-Z0-9]+)*)\](.*?)\[/\\1\]!', $str, $matches)) {
+			foreach($matches[0] as $key => $full) {
+				$tag = $matches[1][$key];
+				$attr = $matches[2][$key];
+				$text = $matches[3][$key];
+				if(in_array($tag, $options['disallow']) || $tag == 'a') continue;
+				$class = '';
+				$id = '';
+				if(strlen($attr)) {
+					foreach(explode('.', $attr) as $c) {
+						if(strpos($c, '#') !== false) list($c, $id) = explode('#', $c, 2);
+						if(!empty($c)) $class .= "$c ";
+					}
+				}
+				$reps[$full] = "<$tag" . ($id ? " id='$id'" : '') . ($class ? " class='$class'" : '') . ">$text</$tag>";
+			}
+		}
+		
+		if(count($reps)) $str = str_replace(array_keys($reps), array_values($reps), $str);
 		
 		return $str;
 	}
