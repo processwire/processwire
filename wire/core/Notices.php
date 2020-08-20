@@ -124,6 +124,14 @@ abstract class Notice extends WireData {
 	const persist = 2097152;
 
 	/**
+	 * Allow parsing of basic/inline markdown and bracket markup per $sanitizer->entitiesMarkdown()
+	 * 
+	 * @since 3.0.165
+	 * 
+	 */
+	const allowMarkdown = 4194304;
+
+	/**
 	 * Flag integers to flag names
 	 * 
 	 * @var array
@@ -136,6 +144,7 @@ abstract class Notice extends WireData {
 		self::log => 'log',
 		self::logOnly => 'logOnly',
 		self::allowMarkup => 'allowMarkup',
+		self::allowMarkdown => 'allowMarkdown',
 		self::anonymous => 'anonymous',
 		self::noGroup => 'noGroup',
 		self::login => 'login',
@@ -263,11 +272,15 @@ abstract class Notice extends WireData {
 	 * 
 	 */
 	protected function flagNames($flags = null, $getString = false) {
-		if($flags === null) return self::$flagNames;
-		if(!is_int($flags)) return '';
-		$flagNames = array();
-		foreach(self::$flagNames as $flag => $flagName) {
-			if($flags & $flag) $flagNames[$flag] = $flagName;
+		if($flags === null) {
+			$flagNames = self::$flagNames;
+		} else if(!is_int($flags)) {
+			$flagNames = array();
+		} else {
+			$flagNames = array();
+			foreach(self::$flagNames as $flag => $flagName) {
+				if($flags & $flag) $flagNames[$flag] = $flagName;
+			}
 		}
 		return $getString ? implode(' ', $flagNames) : $flagNames;	
 	}
@@ -507,10 +520,15 @@ class Notices extends WireArray {
 			$item->text = "<pre>" . trim(print_r($this->sanitizeArray($text), true)) . "</pre>";
 			$item->flags = $item->flags | Notice::allowMarkup;
 		} else if(is_object($text) && $text instanceof Wire) {
-			$item->text = "<pre>" . $this->wire('sanitizer')->entities(print_r($text, true)) . "</pre>";
+			$item->text = "<pre>" . $this->wire()->sanitizer->entities(print_r($text, true)) . "</pre>";
 			$item->flags = $item->flags | Notice::allowMarkup;
 		} else if(is_object($text)) {
 			$item->text = (string) $text;
+		} 
+		if($item->hasFlag('allowMarkdown')) {
+			$item->text = $this->wire()->sanitizer->entitiesMarkdown($text, array('allowBrackets' => true)); 
+			$item->addFlag('allowMarkup');
+			$item->removeFlag('allowMarkdown'); 
 		}
 	}
 
