@@ -22,43 +22,91 @@ class FieldtypeEmail extends FieldtypeText {
 			'summary' => 'Field that stores an e-mail address',
 		);
 	}
-	
+
+	/**
+	 * Get max email address length
+	 * 
+	 * @return int
+	 * 
+	 */
 	public function getMaxEmailLength() {
-		return $this->wire('database')->getMaxIndexLength();
+		return $this->wire()->database->getMaxIndexLength();
 	}
 
+	/**
+	 * Get Inputfield module for this Fieldtype
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return InputfieldEmail
+	 * 
+	 */
 	public function getInputfield(Page $page, Field $field) {
 		/** @var InputfieldEmail $inputfield */
-		$inputfield = $this->modules->get('InputfieldEmail'); 
-		$inputfield->class = $this->className();
+		$inputfield = $this->wire()->modules->get('InputfieldEmail'); 
+		$inputfield->addClass($this->className());
 		return $inputfield; 
 	}
 
+	/**
+	 * Sanitize value for page
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $value
+	 * @return string
+	 * 
+	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
 		if(strlen($value) > $this->getMaxEmailLength()) return '';
-		return $this->wire('sanitizer')->email($value);
+		return $this->wire()->sanitizer->email($value);
 	}
 
+	/**
+	 * Get database schema for field
+	 * 
+	 * @param Field $field
+	 * @return array
+	 * 
+	 */
 	public function getDatabaseSchema(Field $field) {
 		$len = $this->getMaxEmailLength();
 		$schema = parent::getDatabaseSchema($field); 
 		$schema['data'] = "varchar($len) NOT NULL default ''";
 		
 		if($field->hasFlag(Field::flagUnique) != (bool) $field->flagUnique) {
-			$fields = $this->wire('fields'); /** @var Fields $fields */
-			$fields->tableTools()->checkUniqueIndex($field); 
+			if($this->wire()->getStatus() >= ProcessWire::statusReady) {
+				$fields = $this->wire()->fields;
+				$fields->tableTools()->checkUniqueIndex($field);
+			}
 		}
 		
 		return $schema;
 	}
-	
+
+	/**
+	 * Is given value one that doesn’t need to be stored in DB?
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param mixed $value
+	 * @return bool
+	 * 
+	 */
 	public function isDeleteValue(Page $page, Field $field, $value) {
 		return empty($value);
 	}
-	
+
+	/**
+	 * Advanced configuration for field
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 * 
+	 */
 	public function ___getConfigAdvancedInputfields(Field $field) {
 		$inputfields = parent::___getConfigAdvancedInputfields($field);
-		$fields = $this->wire('fields'); /** @var Fields $fields */
+		$fields = $this->wire()->fields;
 		$f = $fields->tableTools()->getUniqueIndexInputfield($field); 
 		$inputfields->prepend($f);
 		return $inputfields;
