@@ -2,8 +2,19 @@
 
 /**
  * Inputfield for floating point numbers
+ * 
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * https://processwire.com
  *
  * @property int $precision
+ * @property string $inputType Input type to use, one of "text" or "number"
+ * @property int|float $min
+ * @property int|float $max
+ * @property int|float|string $step
+ * @property int $size
+ * @property string $placeholder
+ * @property int|float $initValue Initial/default value (when used as independent Inputfield)
+ * @property int|float|string $defaultValue Initial/default value (when used with FieldtypeInteger)
  * 
  */
 
@@ -13,76 +24,130 @@ class InputfieldFloat extends InputfieldInteger {
 		return array(
 			'title' => __('Float', __FILE__), // Module Title
 			'summary' => __('Floating point number with precision', __FILE__), // Module Summary
-			'version' => 103,
+			'version' => 104,
 			'permanent' => true, 
-			);
+		);
 	}
 
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		$this->set('precision', 2); 
 		parent::__construct();
 	}
 
+	/**
+	 * Module init
+	 * 
+	 */
 	public function init() {
 		parent::init();
 		$this->attr('step', 'any'); // HTML5 attr required to support decimals with 'number' types
 	}
 
-	protected function sanitizeValue($value) {
-		if(!is_float($value) && !is_int($value)) {
-			$value = FieldtypeFloat::strToFloat((string) $value);
-		}
-		$precision = $this->precision; 
-		if(is_null($precision)) $precision = FieldtypeFloat::getPrecision($value); 
-		return strlen("$value") ? round((float) $value, $precision) : '';
+	/**
+	 * Get configured precision setting, or if given a value, precision of the value
+	 * 
+	 * @param float|string|null $value
+	 * @return int|string Returns integer of precision or blank string if none defined
+	 * 
+	 */
+	protected function getPrecision($value = null) {
+		if($value !== null) return FieldtypeFloat::getPrecision($value);
+		$precision = $this->precision;
+		return $precision === null || $precision === '' ? '' : (int) $precision;
 	}
 
 	/**
-	 * Returns true if number is in valid range, false if not
-	 *
-	 * Overriding the function from InputfieldInteger to ensure float types (rather than int types) are used
+	 * Sanitize value 
 	 * 
-	 * @param float $value
-	 * @return bool
+	 * @param float|string $value
+	 * @return float|string
+	 * 
+	 */
+	protected function sanitizeValue($value) {
+		if(!strlen("$value")) return '';
+		if(!is_float($value) && !is_int($value)) {
+			$value = $this->wire()->sanitizer->float($value, array('blankValue' => ''));
+			if(!strlen("$value")) return '';
+		}
+		$precision = $this->precision;
+		if($precision === null || $precision === '') {
+			$precision = FieldtypeFloat::getPrecision($value);
+		}
+		return round((float) $value, $precision);
+	}
+	
+	/**
+	 * Typecast value to float, override from InputfieldInteger
+	 *
+	 * @param string|int|float $value
+	 * @return int
 	 *
 	 */
-	protected function isInRange($value) {
-		$inRange = true;
-		$min = $this->attr('min');
-		$max = $this->attr('max');
-		if(strlen("$value")) {
-			if(strlen("$min") && ((float) $value) < ((float) $min)) {
-				$inRange = false;
-			}
-			if(strlen("$max") && ((float) $value) > ((float) $max)) {
-				$inRange = false;
-			}
-		}
-		return $inRange;
+	protected function typeValue($value) {
+		return (float) $value;
 	}
 
 	/**
-	 * Override method from Inputfield to properly handle HTML5 number values
+	 * Override method from Inputfield to convert local specific decimals for input[type=number]
 	 * 
 	 * @param array $attributes
 	 * @return string
 	 * 
 	 */
 	public function getAttributesString(array $attributes = null) {
-		if($attributes && $attributes['type'] === 'number' && is_float($attributes['value'])) {
-			if(strlen("$attributes[value]") && !ctype_digit(str_replace('.', '', $attributes['value']))) {
+		if($attributes && $attributes['type'] === 'number') { 
+			$value = isset($attributes['value']) ? $attributes['value'] : null;
+			if(is_float($value) && strlen("$value") && !ctype_digit(str_replace('.', '', $value))) {
+				// float value is using a non "." as decimal point, needs conversion because
 				// the HTML5 number input type requires "." as the decimal
-				$locale = localeconv();
-				$decimal = $locale['decimal_point'];
-				if($decimal !== '.' && strpos("$attributes[value]", $decimal) !== false) {
-					$parts = explode($decimal, $attributes['value'], 2);
-					if(count($parts) == 2) {
-						$attributes['value'] = implode('.', $parts);
-					}
-				}
+				$attributes['value'] = $this->localeConvertValue($value); 
 			}
 		}
 		return parent::getAttributesString($attributes);
+	}
+
+	/**
+	 * Convert floats with non "." decimal points to use "." decimal point according to locale
+	 * 
+	 * @param float|string $value
+	 * @return string|float Returns string representation of float when value was converted
+	 * 
+	 */
+	protected function localeConvertValue($value) {
+		if(!strlen("$value")) return $value; 
+		if(ctype_digit(str_replace('.', '', $value))) return $value;
+		$locale = localeconv();
+		$decimal = $locale['decimal_point'];
+		if($decimal === '.' || strpos($value, $decimal) === false) return $value;
+		$parts = explode($decimal, $value, 2);
+		$value = implode('.', $parts);
+		return $value;
+	}
+
+	/**
+	 * Inputfield config
+	 * 
+	 * @return InputfieldWrapper
+	 * 
+	 */
+	public function getConfigInputfields() {
+		$inputfields = parent::getConfigInputfields();
+		if($this->hasFieldtype === false) {
+			/** @var InputfieldInteger $f */
+			$f = $this->wire()->modules->get('InputfieldInteger');
+			$f->attr('name', 'precision');
+			$f->label = $this->_('Number of decimal digits to round to');
+			$f->attr('value', $this->precision);
+			$f->attr('size', 8);
+			$inputfields->add($f);
+		} else {
+			// precision is configured with FieldtypeFloat
+		}
+		return $inputfields;
 	}
 
 }
