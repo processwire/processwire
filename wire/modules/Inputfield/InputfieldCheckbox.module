@@ -2,11 +2,14 @@
 
 /**
  * An Inputfield for handling a single checkbox
+ * 
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * https://processwire.com
  *
  * Note: if you want a checkbox already checked, you need to add a setAttribute('checked', 'checked'); 
  * 
- * @property string $checkedValue
- * @property string $uncheckedValue
+ * @property string $checkedValue Value when checked (default=1)
+ * @property string $uncheckedValue Value when not checked (default='', blank string)
  * @property string $label2 Alterate label to display next to checkbox (default=use regular label)
  * @property string $checkboxLabel Same as label2, but used as part of field config rather than API-only config.
  * @property bool $checkboxOnly Show only the checkbox without label text next to it? (default=false) @since 3.0.144
@@ -23,10 +26,19 @@ class InputfieldCheckbox extends Inputfield {
 			'summary' => __('Single checkbox toggle', __FILE__), // Module Summary
 			'version' => 106,
 			'permanent' => true, 
-			);
+		);
 	}
 
-	const checkedValueDefault = 1; 
+	/**
+	 * Default checked value
+	 * 
+	 */
+	const checkedValueDefault = 1;
+
+	/**
+	 * Default unchecked value
+	 * 
+	 */
 	const uncheckedValueDefault = '';
 
 	/**
@@ -66,8 +78,7 @@ class InputfieldCheckbox extends Inputfield {
 	 * 
 	 */
 	public function wired() {
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		if($languages) {
 			foreach($languages as $language) {
 				if(!$language->isDefault()) $this->set("checkboxLabel$language", "");
@@ -93,8 +104,7 @@ class InputfieldCheckbox extends Inputfield {
 	 */
 	public function ___render() {
 
-		/** @var User $user */
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
 		
 		// label placed to the right of the checkbox
 		$checkboxLabel = '';
@@ -152,15 +162,15 @@ class InputfieldCheckbox extends Inputfield {
 	 * 
 	 */
 	public function ___renderValue() {
-		$value = $this->attr('value');
+		$value = $this->val();
 		if($value != self::uncheckedValueDefault && $value != $this->uncheckedValue) {
-			$value = $this->wire('sanitizer')->entities($this->checkedValue); 
+			$value = $this->wire()->sanitizer->entities($this->checkedValue); 
 			$value = $value === "1" ? $this->_('Checked') : $value;
-			$value = "<i class='fa fa-check-square-o'></i> $value";
+			$value = wireIconMarkup('check-square-o') . " $value";
 		} else {
-			$value = $this->wire('sanitizer')->entities($this->uncheckedValue);
+			$value = $this->wire()->sanitizer->entities($this->uncheckedValue);
 			$value = empty($value) ? $this->_('Not checked') : $value;
-			$value = "<i class='fa fa-square-o'></i> $value";
+			$value = wireIconMarkup('square-o') . " $value";
 		}
 		return $value; 
 	}
@@ -175,7 +185,7 @@ class InputfieldCheckbox extends Inputfield {
 	 */
 	public function setAttribute($key, $value) {
 
-		if($key == 'value' && $value && "$value" !== "$this->uncheckedValue") {
+		if($key === 'value' && $value && "$value" !== "$this->uncheckedValue") {
 			if("$value" !== (string) self::checkedValueDefault) {
 				$this->checkedValue = $value; 
 				$this->checkedValueIsLabel = false;
@@ -187,8 +197,18 @@ class InputfieldCheckbox extends Inputfield {
 		return parent::setAttribute($key, $value); 
 	}
 
+	/**
+	 * Set property
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return InputfieldCheckbox|Inputfield
+	 * 
+	 */
 	public function set($key, $value) {
-		if($key == 'checkedValue' && $value != self::checkedValueDefault) $this->checkedValueIsLabel = true; 
+		if($key === 'checkedValue' && $value != self::checkedValueDefault) {
+			$this->checkedValueIsLabel = true;
+		}
 		return parent::set($key, $value); 
 	}
 
@@ -282,10 +302,10 @@ class InputfieldCheckbox extends Inputfield {
 	public function ___getConfigInputfields() {
 
 		$inputfields = parent::___getConfigInputfields();
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
-		
-		$f = $this->wire('modules')->get('InputfieldText'); 
+		$languages = $this->wire()->languages;
+	
+		/** @var InputfieldText $f */
+		$f = $this->wire()->modules->get('InputfieldText'); 
 		$f->attr('name', 'checkboxLabel'); 
 		$f->label = $this->_('Checkbox label');
 		$f->description = $this->_('If you want to have separate field and checkbox labels, specify the label that will appear next to the checkbox here.');
@@ -300,9 +320,10 @@ class InputfieldCheckbox extends Inputfield {
 		}
 		$inputfields->add($f); 
 
+		// if working with fieldtype, no additional settings are applicable
 		if($this->hasFieldtype) return $inputfields;
 
-		$f = $this->wire('modules')->get('InputfieldText');
+		$f = $this->wire()->modules->get('InputfieldText');
 		$f->attr('name', 'checkedValue');
 		$f->attr('value', $this->checkedValue);
 		$f->label = $this->_('Checked Value');
@@ -311,7 +332,7 @@ class InputfieldCheckbox extends Inputfield {
 		$f->required = true; 
 		$inputfields->add($f);
 
-		$f = $this->wire('modules')->get('InputfieldText');
+		$f = $this->wire()->modules->get('InputfieldText');
 		$f->attr('name', 'uncheckedValue');
 		$f->attr('value', "$this->uncheckedValue");
 		$f->label = $this->_('Unchecked Value');
