@@ -335,6 +335,14 @@ class PageFinder extends Wire {
 	protected $numAltOperators = 0;
 
 	/**
+	 * Cached value from supportsLanguagePageNames() method
+	 * 
+	 * @var null|bool 
+	 * 
+	 */
+	protected $supportsLanguagePageNames = null;
+
+	/**
 	 * Fields that can only be used by themselves (not OR'd with other fields)
 	 * 
 	 * @var array
@@ -849,6 +857,8 @@ class PageFinder extends Wire {
 					$this->preProcessSelectors($_selectors, $options);
 					/** @var Selectors $_selectors */
 					foreach($_selectors as $s) $selectors->add($s);
+				} else {
+					// use of _custom has not been specifically allowed
 				}
 				
 			} else if($field === 'sort') {
@@ -2106,7 +2116,7 @@ class PageFinder extends Wire {
 
 			} else if($fields->isNative($value) && !$subValue && $pages->loader()->isNativeColumn($value)) {
 				// sort by a native field (with no subfield)
-				if($value == 'name' && $language && !$language->isDefault()  && $this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
+				if($value == 'name' && $language && !$language->isDefault()  && $this->supportsLanguagePageNames()) {
 					// substitute language-specific name field when LanguageSupportPageNames is active and language is not default
 					$value = "if(pages.name$language!='', pages.name$language, pages.name)";
 				} else {
@@ -2163,9 +2173,7 @@ class PageFinder extends Wire {
 					if($this->wire('fields')->isNative($subValue) && $pages->loader()->isNativeColumn($subValue)) {
 						$query->leftjoin("pages AS $tableAlias2 ON $tableAlias.data=$tableAlias2.$idColumn");
 						$value = "$tableAlias2.$subValue";
-						if($subValue == 'name' && $language && !$language->isDefault()
-							&& $this->wire('modules')->isInstalled('LanguageSupportPageNames')
-						) {
+						if($subValue == 'name' && $language && !$language->isDefault() && $this->supportsLanguagePageNames()) {
 							// append language ID to 'name' when performing sorts within another language and LanguageSupportPageNames in place
 							$value = "if($value$language!='', $value$language, $value)";
 						}
@@ -2248,12 +2256,14 @@ class PageFinder extends Wire {
 	 */ 
 	protected function ___getQueryJoinPath(DatabaseQuerySelect $query, $selector) {
 		
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
+		$modules = $this->wire()->modules;
+		$sanitizer = $this->wire()->sanitizer;
 
 		// determine whether we will include use of multi-language page names
-		if($this->modules->isInstalled('LanguageSupportPageNames') && count($this->wire('languages'))) {
+		if($this->supportsLanguagePageNames()) {
 			$langNames = array();
-			foreach($this->wire('languages') as $language) {
+			foreach($this->wire()->languages as $language) {
 				if(!$language->isDefault()) $langNames[$language->id] = "name" . (int) $language->id;
 			}
 			if(!count($langNames)) $langNames = null;
@@ -2261,9 +2271,9 @@ class PageFinder extends Wire {
 			$langNames = null;
 		}
 
-		if($this->modules->isInstalled('PagePaths') && !$langNames) {
+		if($modules->isInstalled('PagePaths') && !$langNames) {
 			// @todo add support to PagePaths module for LanguageSupportPageNames
-			$pagePaths = $this->modules->get('PagePaths');
+			$pagePaths = $modules->get('PagePaths');
 			/** @var PagePaths $pagePaths */
 			$pagePaths->getMatchQuery($query, $selector); 
 			return;
@@ -2286,9 +2296,13 @@ class PageFinder extends Wire {
 					$this->syntaxError("OR value support of 'path' or 'url' requires core PagePaths module");
 				}
 			}
-			if($langNames) $selectorValue = $this->wire('modules')->get('LanguageSupportPageNames')->updatePath($selectorValue); 
+			if($langNames) {
+				/** @var LanguageSupportPageNames $module */
+				$module = $modules->getModule('LanguageSupportPageNames');
+				if($module) $selectorValue = $module->updatePath($selectorValue);
+			}
 			$parts = explode('/', rtrim($selectorValue, '/')); 
-			$part = $this->sanitizer->pageName(array_pop($parts), Sanitizer::toAscii); 
+			$part = $sanitizer->pageName(array_pop($parts), Sanitizer::toAscii); 
 			$bindKey = $query->bindValueGetKey($part);
 			$sql = "pages.name=$bindKey";
 			if($langNames) {
@@ -2308,7 +2322,7 @@ class PageFinder extends Wire {
 		/** @noinspection PhpAssignmentInConditionInspection */
 		while($n = count($parts)) {
 			$n = (int) $n;
-			$part = $this->sanitizer->pageName(array_pop($parts), Sanitizer::toAscii); 
+			$part = $sanitizer->pageName(array_pop($parts), Sanitizer::toAscii); 
 			if(strlen($part)) {
 				$alias = "parent$n";
 				//$query->join("pages AS $alias ON ($lastAlias.parent_id=$alias.id AND $alias.name='$part')");
@@ -2529,6 +2543,14 @@ class PageFinder extends Wire {
 					$this->syntaxError("Operator '$operator' is not supported for '$field'.");
 					$s = '';
 
+				} else if($this->isModifierField($field)) {
+					$this->syntaxError("Modifier '$field' is not allowed here");
+					$s = '';
+
+				} else if(!$this->pagesColumnExists($field)) {
+					$this->syntaxError("Field '$field' is not a known field, column or selector modifier"); 
+					$s = '';
+					
 				} else {
 					$not = false;
 					if($isName) $value = $sanitizer->pageName($value, Sanitizer::toAscii);
@@ -2945,6 +2967,113 @@ class PageFinder extends Wire {
 	 */
 	protected function isRepeaterFieldtype(Fieldtype $fieldtype) {
 		return wireInstanceOf($fieldtype, 'FieldtypeRepeater'); 
+	}
+
+	/**
+	 * Is given field name a modifier that does not directly refer to a field or column name?
+	 * 
+	 * @param string $name
+	 * @return string Returns normalized modifier name if a modifier or boolean false if not
+	 * 
+	 */
+	protected function isModifierField($name) {
+		
+		$alternates = array(
+			'checkAccess' => 'check_access',
+			'getTotal' => 'get_total',
+			'hasParent' => 'has_parent',
+		);
+		
+		$modifiers = array(
+			'include',
+			'_custom',
+			'limit',
+			'start',
+			'check_access',
+			'get_total',
+			'count', 
+			'has_parent',
+		);
+		
+		if(isset($alternates[$name])) return $alternates[$name];
+		$key = array_search($name, $modifiers); 
+		if($key === false) return false;
+		
+		return $modifiers[$key];
+	}
+
+	/**
+	 * Does the given column name exist in the 'pages' table?
+	 * 
+	 * @param string $name
+	 * @return bool
+	 * 
+	 */
+	protected function pagesColumnExists($name) {
+		
+		if(isset(self::$pagesColumns['all'][$name])) {
+			return self::$pagesColumns['all'][$name];
+		}
+		
+		$instanceID = $this->wire()->getProcessWireInstanceID();
+		
+		if(!isset(self::$pagesColumns[$instanceID])) {
+			self::$pagesColumns[$instanceID] = array();
+			if($this->supportsLanguagePageNames()) {
+				foreach($this->wire()->languages as $language) {
+					if($language->isDefault()) continue;
+					self::$pagesColumns[$instanceID]["name$language->id"] = true;
+					self::$pagesColumns[$instanceID]["status$language->id"] = true;
+				}
+			}
+		}
+		
+		if(isset(self::$pagesColumns[$instanceID][$name])) {
+			return self::$pagesColumns[$instanceID][$name]; 
+		}
+		
+		self::$pagesColumns[$instanceID][$name] = $this->wire()->database->columnExists('pages', $name);
+		
+		return self::$pagesColumns[$instanceID][$name];
+	}
+
+	/**
+	 * Data and cache used by the pagesColumnExists method 
+	 * 
+	 * @var array
+	 * 
+	 */
+	static private $pagesColumns = array(
+		// 'instance ID' => [ ... ]
+		'all' => array( // available in all instances
+			'id' => true,
+			'parent_id' => true,
+			'templates_id' => true,
+			'name' => true,
+			'status' => true,
+			'modified' => true,
+			'modified_users_id' => true,
+			'created' => true,
+			'created_users_id' => true,
+			'published' => true, 
+			'sort' => true, 
+		),
+	);
+
+	/**
+	 * Are multi-language page names supported?
+	 * 
+	 * @return bool
+	 * @since 3.0.165
+	 * 
+	 */
+	protected function supportsLanguagePageNames() {
+		if($this->supportsLanguagePageNames === null) {
+			$languages = $this->wire()->languages;
+			$modules = $this->wire()->modules;
+			$this->supportsLanguagePageNames = $languages && $modules->isInstalled('LanguageSupportPageNames'); 
+		}
+		return $this->supportsLanguagePageNames;
 	}
 	
 	/**

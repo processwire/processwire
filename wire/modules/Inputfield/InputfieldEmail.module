@@ -62,7 +62,7 @@ class InputfieldEmail extends InputfieldText {
 	}
 
 	/**
-	 * Render the seoondary “Confirm” email input 
+	 * Render the secondary “Confirm” email input 
 	 * 
 	 * @param array $attrs
 	 * @return string
