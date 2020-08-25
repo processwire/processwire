@@ -630,7 +630,7 @@ class WireHttp extends Wire {
 		} else if($method == 'HEAD') {
 			curl_setopt($curl, CURLOPT_NOBODY, true); 
 		} else {
-			curl_setopt($curl, CURLOPT_HTTPGET, true);
+			curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $method);
 		}
 	
 		if($proxy) curl_setopt($curl, CURLOPT_PROXY, $proxy);
