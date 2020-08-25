@@ -625,8 +625,6 @@ class WireHttp extends Wire {
 		
 		if($method == 'POST') {
 			curl_setopt($curl, CURLOPT_POST, true);
-		} else if($method == 'PUT') {
-			curl_setopt($curl, CURLOPT_PUT, true);
 		} else if($method == 'HEAD') {
 			curl_setopt($curl, CURLOPT_NOBODY, true); 
 		} else {
