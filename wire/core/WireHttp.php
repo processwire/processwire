@@ -276,7 +276,7 @@ class WireHttp extends Wire {
 	 * 
 	 */
 	public function __construct() {
-		$this->hasCURL = function_exists('curl_init') && !ini_get('safe_mode') && !ini_get('open_basedir');
+		$this->hasCURL = function_exists('curl_init') && !ini_get('safe_mode');
 		$this->hasFopen = ini_get('allow_url_fopen');
 		$this->resetRequest();
 		$this->resetResponse();
@@ -600,7 +600,9 @@ class WireHttp extends Wire {
 
 		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $timeout);
 		curl_setopt($curl, CURLOPT_TIMEOUT, $timeout);
-		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+		if (!ini_get('open_basedir')) {
+			curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
+		}
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($curl, CURLOPT_USERAGENT, $this->getUserAgent());
 
