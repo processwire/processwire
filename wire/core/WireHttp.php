@@ -641,7 +641,7 @@ class WireHttp extends Wire {
 				if(strlen($content)) $url .= (strpos($url, '?') === false ? '?' : '&') . $content;
 			}
 		} else if(!empty($this->rawData)) {
-			if($method === 'POST') {
+			if(in_array($method, array('POST', 'PUT', 'DELETE', 'PATCH'))) {
 				curl_setopt($curl, CURLOPT_POSTFIELDS, $this->rawData);
 			} else {
 				throw new WireException("Raw data option with CURL not supported for $method"); 
