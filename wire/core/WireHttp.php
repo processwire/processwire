@@ -634,7 +634,7 @@ class WireHttp extends Wire {
 		if($proxy) curl_setopt($curl, CURLOPT_PROXY, $proxy);
 		
 		if(!empty($this->data)) {
-			if($method === 'POST') {
+			if(in_array($method, array('POST', 'PUT', 'DELETE', 'PATCH'))) {
 				curl_setopt($curl, CURLOPT_POSTFIELDS, $this->data);
 			} else {
 				$content = http_build_query($this->data);
