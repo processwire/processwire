@@ -1267,6 +1267,34 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	}
 
 	/**
+	 * Given a Page and file basename, return the Pagefile object if file is found for Page
+	 * 
+	 * The returned Pagefile will have a `field` property that reveals the Field it is from. 
+	 * 
+	 * @param Page $page
+	 * @param string $basename
+	 * @return Pagefile|null
+	 * 
+	 */
+	public function getPagefile(Page $page, $basename) {
+		$pagefile = null;
+		foreach($page->template->fieldgroup as $field) {
+			if(!($field->type instanceof FieldtypeFile)) continue;
+			$pagefiles = $page->get($field->name);
+			if($pagefiles instanceof Pagefile) {
+				if($pagefiles->basename() === $basename) $pagefile = $pagefiles;
+			} else if($pagefiles instanceof Pagefiles) {
+				foreach($pagefiles as $f) {
+					if($f->basename() === $basename) $pagefile = $f;
+					if($pagefile) break;
+				}
+			}
+			if($pagefile) break;
+		}
+		return $pagefile;
+	}
+
+	/**
 	 * Save a single Pagefile to DB
 	 * 
 	 * #pw-internal
