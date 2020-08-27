@@ -496,6 +496,27 @@ class PagefilesManager extends Wire {
 	}
 
 	/**
+	 * Does given Page have the given file? Checks in a silent manner, not creating anything.
+	 * 
+	 * @param Page $page
+	 * @param string $file Filename (basename) excluding path
+	 * @param bool $getPathname Return the full pathname to the file (rather than true) if it exists? (default=false)
+	 * @return bool|string
+	 * @since 3.0.166
+	 * 
+	 */
+	static public function hasFile(Page $page, $file, $getPathname = false) {
+		$path = self::_path($page); 
+		if(!is_dir($path)) return false;
+		$file = basename($file);
+		$file = str_replace(array('\\', '/', '..'), '', $file);
+		$pathname = $path . $file;
+		if(!file_exists($pathname)) return false;
+		if($getPathname) return $pathname;
+		return true;
+	}
+
+	/**
 	 * Get the files path for a given page (whether it exists or not).
 	 * 
 	 * #pw-group-static
