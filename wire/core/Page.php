@@ -4140,6 +4140,31 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
+	 * Does Page have given filename in its files directory?
+	 *
+	 * @param string $file File basename or verbose hash
+	 * @param array $options
+	 *  - `getPathname` (bool): Get full path + filename when would otherwise return boolean true? (default=false)
+	 *  - `getPagefile` (bool): Get Pagefile object when would otherwise return boolean true? (default=false)
+	 * @return bool|string
+	 * @since 3.0.166
+	 *
+	 */
+	public function hasFile($file, array $options = array()) {
+		$defaults = array(
+			'getPathname' => false,
+			'getPagefile' => false,
+		);
+		$file = basename($file);
+		$options = array_merge($defaults, $options);
+		$hasFile = PagefilesManager::hasFile($this, $file, $options['getPathname']);
+		if($hasFile && $options['getPagefile']) {
+			$hasFile = $this->wire()->fieldtypes->FieldtypeFile->getPagefile($this, $file);
+		}
+		return $hasFile;
+	}
+
+	/**
 	 * Returns the path for files, creating it if it does not yet exist
 	 * 
 	 * #pw-group-files
