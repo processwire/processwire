@@ -1539,7 +1539,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		// prevent storage of value if it was filtered when loaded
 		if(!empty($selector)) $this->__unset($key);
 		
-		if(is_object($value) && $value instanceof Wire) $value->resetTrackChanges(true);
+		if(is_object($value) && $value instanceof Wire && !$value instanceof Page) $value->resetTrackChanges(true);
 		if($track) $this->setTrackChanges(true); 
 	
 		$value = $this->formatFieldValue($field, $value);
@@ -3077,9 +3077,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function resetTrackChanges($trackChanges = true) {
-		parent::resetTrackChanges($trackChanges); 
+		parent::resetTrackChanges($trackChanges);
 		foreach($this->data as $key => $value) {
-			if(is_object($value) && $value instanceof Wire && $value !== $this) $value->resetTrackChanges($trackChanges); 
+			if(is_object($value) && $value instanceof Wire && !$value instanceof Page) {
+				$value->resetTrackChanges($trackChanges);
+			}
 		}
 		return $this; 
 	}
@@ -4178,7 +4180,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 			foreach($this->template->fieldgroup as $field) {
 				$value = parent::get($field->name);
 				if($value != null && is_object($value)) {
-					if(method_exists($value, 'uncache') && $value !== $this) $value->uncache(); 
 					parent::set($field->name, null); 
 					if(isset($this->wakeupNameQueue[$field->name])) unset($this->wakeupNameQueue[$field->name]); 
 				}
