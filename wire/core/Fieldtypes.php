@@ -5,8 +5,68 @@
  *
  * #pw-summary Maintains a collection of Fieldtype modules.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
+ *
+ * @property FieldtypeCheckbox $FieldtypeCheckbox
+ * @property FieldtypeCheckbox $checkbox
+ * 
+ * @property FieldtypeComments|null $FieldtypeComments
+ * @property FieldtypeComments|null $comments
+ * 
+ * @property FieldtypeDatetime $FieldtypeDatetime
+ * @property FieldtypeDatetime $datetime
+ * 
+ * @property FieldtypeEmail $FieldtypeEmail
+ * @property FieldtypeEmail $email
+ * 
+ * @property FieldtypeFile $file
+ * @property FieldtypeFile $FieldtypeFile
+ * 
+ * @property FieldtypeFloat $FieldtypeFloat
+ * @property FieldtypeFloat $float
+ * 
+ * @property FieldtypeImage $FieldtypeImage
+ * @property FieldtypeImage $image
+ * 
+ * @property FieldtypeInteger $FieldtypeInteger
+ * @property FieldtypeInteger $integer
+ * 
+ * @property FieldtypeModule $FieldtypeModule
+ * @property FieldtypeModule $module
+ * 
+ * @property FieldtypeOptions|null $FieldtypeOptions
+ * @property FieldtypeOptions|null $options
+ * 
+ * @property FieldtypePage $FieldtypePage
+ * @property FieldtypePage $page
+ * 
+ * @property FieldtypePageTable $FieldtypePageTable
+ * @property FieldtypePageTable $pageTable
+ * 
+ * @property FieldtypePageTitle $FieldtypePageTitle
+ * @property FieldtypePageTitle $pageTitle
+ * 
+ * @property FieldtypePassword $FieldtypePassword
+ * @property FieldtypePassword $password
+ * 
+ * @property FieldtypeRepeater|null $FieldtypeRepeater
+ * @property FieldtypeRepeater|null $repeater
+ * 
+ * @property FieldtypeSelector|null $FieldtypeSelector
+ * @property FieldtypeSelector|null $selector
+ * 
+ * @property FieldtypeText $FieldtypeText
+ * @property FieldtypeText $text
+ * 
+ * @property FieldtypeTextarea $FieldtypeTextarea
+ * @property FieldtypeTextarea $textarea
+ * 
+ * @property FieldtypeToggle|null $FieldtypeToggle
+ * @property FieldtypeToggle|null $toggle
+ * 
+ * @property FieldtypeURL $FieldtypeURL
+ * @property FieldtypeURL $URL
  *
  *
  */
@@ -131,12 +191,12 @@ class Fieldtypes extends WireArray {
 		if(strpos($key, 'Fieldtype') !== 0) $key = "Fieldtype" . ucfirst($key); 
 
 		if(!$fieldtype = parent::get($key)) {
-			$fieldtype = $this->wire('modules')->getModule($key); 
+			$fieldtype = $this->wire()->modules->getModule($key); 
 			if($fieldtype) $this->set($key, $fieldtype);
 		}
 
 		if($fieldtype instanceof ModulePlaceholder) {
-			$fieldtype = $this->wire('modules')->getModule($fieldtype->className()); 			
+			$fieldtype = $this->wire()->modules->getModule($fieldtype->className()); 			
 			if($fieldtype) $this->set($key, $fieldtype); 
 		}
 
