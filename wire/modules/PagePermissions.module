@@ -266,7 +266,7 @@ class PagePermissions extends WireData implements Module {
 			} else if($this->wire('page') && $this->wire('page')->process == 'ProcessProfile') {
 				// user editing themself in ProcessProfile, when process not yet established
 				return true;
-			} else if($process == 'ProcessPageView' && $config->pagefileSecure && $options['viewable']) {
+			} else if($process == 'ProcessPageView' && $page->secureFiles() && $options['viewable']) {
 				// user is viewing a file that is part of their User page when pagefileSecure mode active
 				return $process->getResponseType() == ProcessPageView::responseTypeFile;
 			}
@@ -482,6 +482,28 @@ class PagePermissions extends WireData implements Module {
 	}
 
 	/**
+	 * Is given file viewable?
+	 * 
+	 * It is assumed that you have already determined the Page is viewable. 
+	 *
+	 * @param Page $page
+	 * @param Pagefile|string $pagefile
+	 * @return bool|null Returns bool, or null if not known
+	 * @since 3.0.166
+	 *
+	 */
+	protected function fileViewable(Page $page, $pagefile) {
+		if($this->wire()->user->isSuperuser()) return true;
+		if(!$pagefile instanceof Pagefile) {
+			$pagefile = $page->hasFile(basename($pagefile), array('getPagefile' => true));
+			if(!$pagefile) return null;
+		}
+		$field = $pagefile->field;
+		if(!$field) return null;
+		return $this->fieldViewable($page, $field, false);
+	}
+
+	/**
 	 * Is the given field editable by the current user in their user profile?
 	 *
 	 * @param Field|string $name Field or Field name
@@ -511,6 +533,11 @@ class PagePermissions extends WireData implements Module {
 	 * - Optionally specify Language object or language name as first argument to check if viewable 
 	 *   in that language (requires LanguageSupportPageNames module).
 	 * - Optionally specify boolean false as first or second argument to bypass template filename check.
+	 * - Optionally specify a Pagefile object or file basename to check if file is viewable. (3.0.166+)
+	 * 
+	 * Returns boolean true or false. If given a Pagefile or file basename, it can also return null if
+	 * the Page itself is viewable but the file did not map to something we recognize as access controlled,
+	 * like a file basename that isn’t present in any file fields on the page. 
 	 *
 	 * @param HookEvent $event
 	 *
@@ -520,11 +547,12 @@ class PagePermissions extends WireData implements Module {
 		/** @var Page $page */
 		$page = $event->object; 
 		$viewable = true; 
-		$user = $this->wire('user'); 
+		$user = $this->wire()->user; 
 		$arg0 = $event->arguments(0); 
 		$arg1 = $event->arguments(1);
 		$field = null; // field name or Field object, if specified as arg0
-		$checkFile = true; // return false if template filename doesn't exist
+		$checkTemplateFile = true; // return false if template filename doesn't exist
+		$pagefile = null;
 		$status = $page->status;
 
 		// allow specifying User instance as argument 0 
@@ -533,16 +561,21 @@ class PagePermissions extends WireData implements Module {
 			if($arg0 instanceof User) {
 				// user specified
 				$user = $arg0;
+			} else if($arg0 instanceof Pagefile || (is_string($arg0) && strpos($arg0, '.'))) {
+				// Pagefile or file basename 
+				$pagefile = $arg0;
+				$checkTemplateFile = false;
 			} else if($arg0 instanceof Field || is_string($arg0)) {
 				// field name, Field object or language name specified
 				// @todo: prevent possible collision of field name and language name
 				$field = $arg0;
-				$checkFile = false;
+				$checkTemplateFile = false;
 			} 
 		} 
+		
 		if($arg0 === false || $arg1 === false) {
 			// bypass template filename check
-			$checkFile = false;
+			$checkTemplateFile = false;
 		}
 
 		// if page has corrupted status, this need not affect viewable access
@@ -552,7 +585,7 @@ class PagePermissions extends WireData implements Module {
 		if($status >= Page::statusUnpublished) {
 			// unpublished pages are not viewable, but see override below this if/else statement
 			$viewable = false;
-		} else if(!$page->template || ($checkFile && !$page->template->filenameExists())) {
+		} else if(!$page->template || ($checkTemplateFile && !$page->template->filenameExists())) {
 			// template file does not exist
 			$viewable = false;
 		} else if($user->isSuperuser()) {
@@ -574,11 +607,13 @@ class PagePermissions extends WireData implements Module {
 
 		// if the page is editable by the current user, force it to be viewable (if not viewable due to being unpublished)
 		if(!$viewable && !$user->isGuest() && ($status & Page::statusUnpublished)) {
-			if($page->editable() && (!$checkFile || $page->template->filenameExists())) $viewable = true; 
+			if($page->editable() && (!$checkTemplateFile || $page->template->filenameExists())) $viewable = true; 
 		}
 		
 		if($field && $viewable) {
 			$viewable = $this->fieldViewable($page, $field, false);
+		} else if($pagefile && $viewable) {
+			$viewable = $this->fileViewable($page, $pagefile); 
 		}
 
 		$event->return = $viewable;

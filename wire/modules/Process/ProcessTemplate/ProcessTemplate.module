@@ -684,6 +684,7 @@ class ProcessTemplate extends Process {
 		$t->add($this->buildEditFormAccess($template)); 
 		$overrides = $this->buildEditFormAccessOverrides($template);
 		if($overrides) $t->add($overrides);
+		$t->add($this->buildEditFormAccessFiles($template));
 		$form->add($t); 
 
 		$t = $this->wire(new InputfieldWrapper());
@@ -1246,6 +1247,7 @@ class ProcessTemplate extends Process {
 		$form = $this->wire(new InputfieldWrapper());
 		/** @var Languages|null $languages */
 		$languages = $this->wire('languages');
+		$advanced = $this->wire()->config->advanced;
 
 		// --------------------
 
@@ -1392,7 +1394,7 @@ class ProcessTemplate extends Process {
 		$field->attr('name', 'noChangeTemplate');
 		$field->label = $this->_("Don't allow pages to change their template?");
 		$field->description = $this->_("When checked, pages using this template will be unable to change to another template."); // noChangeTemplate option, description
-		if($this->wire('config')->advanced) $field->notes = 'API: $template->noChangeTemplate = 1; // ' . $label0; 
+		if($advanced) $field->notes = 'API: $template->noChangeTemplate = 1; // ' . $label0; 
 
 		$field->attr('value', 1);
 		if($template->noChangeTemplate) {
@@ -1409,7 +1411,7 @@ class ProcessTemplate extends Process {
 		$field->attr('name', 'noUnpublish');
 		$field->label = $this->_("Don't allow unpublished pages");
 		$field->description = $this->_("When checked, pages using this template may only exist in a published state and may not be unpublished."); // noUnpublish option, description
-		if($this->wire('config')->advanced) $field->notes = 'API: $template->noUnpublish = 1; // ' . $label0; 
+		if($advanced) $field->notes = 'API: $template->noUnpublish = 1; // ' . $label0; 
 
 		$field->attr('value', 1);
 		if($template->noUnpublish) {
@@ -1426,7 +1428,7 @@ class ProcessTemplate extends Process {
 		$field->attr('name', 'allowChangeUser');
 		$field->label = $this->_("Allow the 'created user' to be changed on pages?");
 		$field->description = $this->_("When checked, pages using this template will have an option to change the 'created by user' (for superusers only). It will also enable the \$page->createdUser or \$page->created_users_id fields to be saved via the API."); // allowChangeUser option, description
-		if($this->wire('config')->advanced) $field->notes = 'API: $template->allowChangeUser = 1; // ' . $label0; 
+		if($advanced) $field->notes = 'API: $template->allowChangeUser = 1; // ' . $label0; 
 
 		$field->attr('value', 1);
 		if($template->allowChangeUser) {
@@ -1443,7 +1445,7 @@ class ProcessTemplate extends Process {
 		$field->attr('name', 'noMove');
 		$field->label = $this->_("Don't allow pages to be moved?");
 		$field->description = $this->_("If you want to prevent pages using this template from being moved (changing parent) then check this box."); // noMove option, description
-		if($this->wire('config')->advanced) $field->notes = 'API: $template->noMove = 1; // ' . $label0;
+		if($advanced) $field->notes = 'API: $template->noMove = 1; // ' . $label0;
 
 		$field->attr('value', 1);
 		if($template->noMove) {
@@ -1461,7 +1463,7 @@ class ProcessTemplate extends Process {
 			$field->attr('name', 'noLang');
 			$field->label = $this->_("Disable multi-language support for this template?");
 			$field->description = $this->_("When checked, pages using this template will only use the default language.");
-			if($this->wire('config')->advanced) $field->notes = 'API: $template->noLang = 1; // ' . $label0; 
+			if($advanced) $field->notes = 'API: $template->noLang = 1; // ' . $label0; 
 
 			$field->attr('value', 1);
 			if($template->noLang) {
@@ -2128,8 +2130,38 @@ class ProcessTemplate extends Process {
 		$field->attr('value', $template->noInherit ? 1 : 0);
 		$fieldset->add($field);
 
-
 		return $form; 
+	}
+
+	/**
+	 * Build the "pagefileSecure" field for the "access" tab
+	 * 
+	 * @param Template $template
+	 * @return InputfieldRadios
+	 * 
+	 */
+	protected function buildEditFormAccessFiles(Template $template) {
+
+		/** @var InputfieldRadios $f */
+		$f = $this->modules->get('InputfieldRadios');
+		$f->attr('id+name', 'pagefileSecure');
+		$f->label = $this->_('Prevent direct access to file assets owned by pages using this template?');
+		$f->icon = 'download';
+		$f->description =
+			$this->_('When direct access to a file in [u]/site/assets/files/[/u] is blocked, ProcessWire can manage delivery of the file, rather than Apache.') . ' ' .
+			$this->_('This enables the file to be access controlled in the same manner as the page that owns it, while still using the original file URL.') . ' ' .
+			$this->_('Note that it takes more overhead to deliver a file this way, so only choose the “Yes always” option if you need it.');
+		$f->notes =
+			$this->_('Always test that the access control is working how you expect by attempting to access the protected file(s) in your browser.') . ' ' .
+			$this->_('Do this for when you expect to have access (logged-in) and when you do not (logged-out).');
+		$f->addOption(0, $this->_('No') . ' ' . 
+			'[span.detail] ' . $this->_('(uses site-wide configuration instead)') . ' [/span]');
+		$f->addOption(1, $this->_('Yes when page is unpublished, in the trash, or not publicly accessible'));
+		$f->addOption(2, $this->_('Yes always, regardless of page status or access control'));
+		$f->val((int) $template->pagefileSecure);
+		if(!$template->pagefileSecure) $f->collapsed = Inputfield::collapsedYes;
+		
+		return $f;
 	}
 
 	/**
@@ -2455,6 +2487,9 @@ class ProcessTemplate extends Process {
 		$template->altFilename = basename($form->get('altFilename')->attr('value'), "." . $config->templateExtension);
 		$template->guestSearchable = (int) $form->get('guestSearchable')->attr('value');
 		$template->noInherit = (int) $form->get('noInherit')->attr('value') ? 1 : 0;
+		
+		$pagefileSecurePrev = (int) $template->pagefileSecure;
+		$template->pagefileSecure = (int) $input->post('pagefileSecure');
 
 		$pageLabelField = $form->get('pageLabelField')->attr('value');
 		if(strpos($pageLabelField, '{') !== false && strpos($pageLabelField, '}')) {
@@ -2665,6 +2700,23 @@ class ProcessTemplate extends Process {
 				}
 			}
 			unset($cloneTemplateName, $_cloneTemplateName);
+		}
+	
+		// change to the pagefileSecure setting
+		if($pagefileSecurePrev !== $template->pagefileSecure) {
+			$findSelector = "templates_id=$template->id, include=all";
+			$qty = $this->wire()->pages->count($findSelector);
+			if($qty < 1000) {
+				$qty = $template->checkPagefileSecure();
+				$this->message(sprintf($this->_('Renamed %d page file path(s) for change to secure files option'), $qty), Notice::noGroup);
+			} else {
+				$this->warning(
+					sprintf($this->_('Your change to the secure files option will be applied as file/image fields on each of the %d affected pages are accessed.'), $qty) . ' ' . 
+					$this->_('Note that this may take some time. To apply to all now, execute the following API code from a template file:') . ' ' . 
+					"`\$templates->get('$template->name')->checkPagefileSecure();`",
+					Notice::noGroup
+				); 
+			}
 		}
 
 		if(!$redirectUrl) $redirectUrl = "edit?id={$template->id}";

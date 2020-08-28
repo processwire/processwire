@@ -29,7 +29,7 @@ class ProcessPageView extends Process {
 			'version' => 104, 
 			'permanent' => true, 
 			'permission' => 'page-view',
-			);
+		);
 	}
 
 	/**
@@ -372,8 +372,7 @@ class ProcessPageView extends Process {
 		$numParts = substr_count($it, '/');
 		if($numParts > $config->maxUrlDepth) return null;
 
-		// if($this->isSecurePagefileUrl($it)) { // @todo replace next line with this in 3.0.150
-		if($config->pagefileSecure) {
+		if($this->pagefileSecurePossible($it)) {
 			$page = $this->checkRequestFile($it);
 			if(is_object($page)) {
 				$this->responseType = self::responseTypeFile;
@@ -482,10 +481,8 @@ class ProcessPageView extends Process {
 	 */
 	protected function checkRequestFile(&$it) {
 	
-		/** @var Config $config */
-		$config = $this->wire('config');
-		/** @var Pages $pages */
-		$pages = $this->wire('pages');
+		$config = $this->wire()->config;
+		$pages = $this->wire()->pages;
 		
 		// request with url to root (applies only if site runs from subdirectory)
 		$itRoot = rtrim($config->urls->root, '/') . $it;
@@ -501,11 +498,14 @@ class ProcessPageView extends Process {
 				$idPath = trim($matches[1], '/');
 				$file = trim($matches[2], '.');
 				
+				if(!strpos($file, '.')) return $pages->newNullPage();
+				
 				if(!ctype_digit("$idPath")) {
 					// extended paths where id separated by slashes, i.e. 1/2/3/4
 					if($config->pagefileExtendedPaths) {
 						// allow extended paths
 						$idPath = str_replace('/', '', $matches[1]); 
+						if(!ctype_digit("$idPath")) return $pages->newNullPage();
 					} else {
 						// extended paths not allowed
 						return $pages->newNullPage();
@@ -525,7 +525,7 @@ class ProcessPageView extends Process {
 						return $pages->newNullPage();
 						
 					} else if(!preg_match('/^[a-zA-Z0-9][-_a-zA-Z0-9]+$/', $subdir)) {
-						// subdirectory nat in expected format  
+						// subdirectory not in expected format  
 						return $pages->newNullPage();
 					}
 					
@@ -702,6 +702,7 @@ class ProcessPageView extends Process {
 		
 		if($this->requestFile) {
 			// if a file was requested, we still allow view even if page doesn't have template file
+			if($page->viewable($this->requestFile) === false) return null;
 			if($page->viewable(false)) return $page; 
 			// if($page->editable()) return $page;
 			if($this->checkAccessDelegated($page)) return $page; 
@@ -863,29 +864,37 @@ class ProcessPageView extends Process {
 	 * If the page is public, then it just does a 301 redirect to the file.
 	 * 
 	 * @param Page $page
-	 * @param string $basename
+	 * @param string $basename 
+	 * @param array $options
 	 * @throws Wire404Exception
 	 *
 	 */
-	protected function ___sendFile($page, $basename) {
+	protected function ___sendFile($page, $basename, array $options = array()) {
 
 		$err = 'File not found';
 
-		// use the static hasPath first to make sure this page actually has a files directory
-		// this ensures one isn't automatically created when we call $page->filesManager->path below
-		if(!PagefilesManager::hasPath($page)) throw new Wire404Exception($err, Wire404Exception::codeFile);
-
-		$filename = $page->filesManager->path() . $basename; 
-		if(!is_file($filename)) throw new Wire404Exception($err, Wire404Exception::codeFile);
-
-		if($page->isPublic()) {
-			// deprecated, only necessary for method 2 in checkRequestFile
-			$this->wire('session')->redirect($page->filesManager->url() . $basename); 
-
-		} else {
-			$options = array('exit' => false);
-			wireSendFile($filename, $options);
+		if(!$page->hasFilesPath()) {
+			throw new Wire404Exception($err, Wire404Exception::codeFile);
 		}
+
+		$filename = $page->filesPath() . $basename; 
+		
+		if(!file_exists($filename)) {
+			throw new Wire404Exception($err, Wire404Exception::codeFile);
+		}
+	
+		if(!$page->secureFiles()) {
+			// if file is not secured, redirect to it
+			// (potentially deprecated, only necessary for method 2 in checkRequestFile)
+			$this->wire()->session->redirect($page->filesManager->url() . $basename);
+			return;
+		}
+
+		// options for WireHttp::sendFile
+		$defaults = array('exit' => false);
+		$options = array_merge($defaults, $options);
+		
+		$this->wire()->files->send($filename, $options);
 	}
 
 	/**
@@ -971,10 +980,11 @@ class ProcessPageView extends Process {
 	 *
 	 * @param string $url
 	 * @return bool
-	 * @todo enable in 3.0.150
+	 * @since 3.0.166
 	 *
-	protected function isSecurePagefileUrl($url) {
-		$config = $this->wire('config');
+	 */
+	protected function pagefileSecurePossible($url) {
+		$config = $this->wire()->config;
 
 		// if URL does not start from root, prepend root
 		if(strpos($url, $config->urls->root) !== 0) $url = $config->urls->root . ltrim($url, '/');
@@ -987,7 +997,7 @@ class ProcessPageView extends Process {
 	
 		// check if any templates allow pagefileSecure option
 		$allow = false;
-		foreach($this->wire('templates') as $template) {
+		foreach($this->wire()->templates as $template) {
 			if(!$template->pagefileSecure) continue;
 			$allow = true;
 			break;
@@ -996,7 +1006,6 @@ class ProcessPageView extends Process {
 		// if at least one template supports pagefileSecure option we will return true here
 		return $allow;
 	}
-	*/
 
 }
 

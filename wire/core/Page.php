@@ -4108,6 +4108,26 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
+	 * Does this Page use secure Pagefiles?
+	 * 
+	 * See also `$template->pagefileSecure` and `$config->pagefileSecure` which determine the return value. 
+	 *
+	 * #pw-group-files
+	 *
+	 * @return bool|null Returns boolean true if yes, false if no, or null if not known
+	 * @since 3.0.166
+	 *
+	 */
+	public function secureFiles() {
+		if($this->wire()->config->pagefileSecure && !$this->isPublic()) return true;
+		if(!$this->template) return null;
+		$value = $this->template->pagefileSecure;
+		if($value < 1) return false; // 0: disabled
+		if($value > 1) return true; // 2: files always secure
+		return !$this->isPublic(); // 1: secure only if page not public
+	}
+
+	/**
 	 * Does the page have a files path for storing files?
 	 * 
 	 * This will only check if files path exists, it will not create the path if it’s not already present.
