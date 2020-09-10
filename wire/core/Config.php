@@ -154,6 +154,7 @@
  * @property bool $internal This is automatically set to FALSE when PW is externally bootstrapped. #pw-group-runtime
  * @property bool $external This is automatically set to TRUE when PW is externally bootstrapped. #pw-internal
  * @property bool $cli This is automatically set to TRUE when PW is booted as a command line (non HTTP) script. #pw-group-runtime
+ * @property string $serverProtocol Current server protocol, one of: HTTP/1.1, HTTP/1.0, HTTP/2, or HTTP/2.0. #pw-group-runtime #since 3.0.166
  * @property string $versionName This is automatically populated with the current PW version name (i.e. 2.5.0 dev) #pw-group-runtime
  * @property int $inputfieldColumnWidthSpacing Used by some admin themes to commmunicate to InputfieldWrapper at runtime. #pw-internal
  * @property array InputfieldWrapper Settings specific to InputfieldWrapper class #pw-internal
@@ -192,6 +193,22 @@ class Config extends WireData {
 	 * 
 	 */
 	const debugVerbose = 2;
+
+	/**
+	 * Get config property
+	 * 
+	 * @param string $key
+	 * @return string|array|int|bool|object|callable|null
+	 * 
+	 */
+	public function get($key) {
+		$value = parent::get($key);
+		if($value === null) {
+			// runtime properties
+			if($key === 'serverProtocol') $value = $this->serverProtocol();
+		}
+		return $value;
+	}
 
 	/**
 	 * Get URL for requested resource or module
@@ -647,6 +664,21 @@ class Config extends WireData {
 	public function installedBefore($date) {
 		if(!ctype_digit("$date")) $date = strtotime($date);
 		return $this->installed < $date; 
+	}
+
+	/**
+	 * Get current server protocol (for example: "HTTP/1.1")
+	 * 
+	 * This can be accessed by property `$config->serverProtocol`
+	 * 
+	 * @return string
+	 * @since 3.0.166
+	 * 
+	 */
+	protected function serverProtocol() {
+		$protos = array('HTTP/1.1', 'HTTP/1.0', 'HTTP/2', 'HTTP/2.0');
+		$proto = isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.1';
+		return $protos[(int) array_search($proto, $protos, true)];
 	}
 	
 	/**
