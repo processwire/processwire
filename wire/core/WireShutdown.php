@@ -303,7 +303,7 @@ class WireShutdown extends Wire {
 		$codes = $http->getHttpCodes();
 		$code = (int) ($this->config ? $this->config->fatalErrorCode : 500);
 		if(!isset($codes[$code])) $code = 500;
-		header("HTTP/1.1 $code " . $codes[$code]);
+		$http->sendStatusHeader($code); 
 		return $code;
 	}
 

@@ -119,7 +119,7 @@ function __($text, $textdomain = null, $context = '') {
 			// multiple translations accepted for text, with 1st being newest
 			$textArray = $text;
 			$text = reset($textArray);
-		} else if($text === true) {
+		} else if($text === true && $textdomain !== null) {
 			// setting (or getting) custom option
 			list($option, $values) = array($textdomain, $context);
 			if($option === 'replacements' || $option === 'translations') {
@@ -135,8 +135,10 @@ function __($text, $textdomain = null, $context = '') {
 				return __(true, 'translations', $option);
 			} else {
 				// set and get other options
-				if($context !== '') $options[$option] = $values;
-				return isset($options[$option]) ? $options[$option] : null;
+				if($option === 'encode') $option = 'entityEncode'; // supported alias
+				$currentValue = isset($options[$option]) ? $options[$option] : null; // existing value is returned even when setting
+				if($values !== '' && $values !== $currentValue) $options[$option] = $values;
+				return $currentValue;
 			}
 		} else if(is_object($text)) {
 			$text = (string) $text;

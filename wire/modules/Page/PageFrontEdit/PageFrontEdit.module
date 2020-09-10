@@ -993,9 +993,11 @@ class PageFrontEdit extends WireData implements Module {
 				$data['error'] = "Failed CSRF check";	
 			}
 		}
-	
-		header("Content-type: application/json");
-		header("HTTP/1.1 200 OK");
+
+		$http = new WireHttp();
+		$this->wire($http);
+		$http->sendHeader("Content-type: application/json");
+		$http->sendStatusHeader(200);
 		echo json_encode($data);
 		exit;
 	}

@@ -126,7 +126,11 @@ class MarkupAdminDataTable extends ModuleJS {
 	/**
 	 * Set the header row for the table
 	 * 
-	 * @param array $a Array of header row labels (strings)
+	 * Given $a array may be either array of labels (strings) or any of the array items may
+	 * be an array, in which case index 0 is the label and index 1 is a class attribute to use 
+	 * for the th element.
+	 * 
+	 * @param array $a Array of header row labels 
 	 * @return $this
 	 * 
 	 */

@@ -939,7 +939,10 @@ class ProcessPageView extends Process {
 	 */
 	protected function header404() {
 		static $n = 0;
-		if(!$n) header("HTTP/1.1 404 Page Not Found"); 
+		if($n) return;
+		$http = new WireHttp();
+		$this->wire($http);
+		$http->sendStatusHeader(404);
 		$n++;
 	}
 
