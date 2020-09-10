@@ -464,6 +464,8 @@ class WireTextTools extends Wire {
 	 */
 	function truncate($str, $maxLength, $options = array()) {
 
+		$ent = __(true, 'entityEncode', false);
+
 		$defaults = array(
 			'type' => 'word', // word, punctuation, sentence, or block
 			'maximize' => true, // include as much as possible within the type and maxLength (false=include as little as possible)
@@ -480,6 +482,8 @@ class WireTextTools extends Wire {
 			'noEndSentence' => $this->_('Mr. Mrs. Ms. Dr. Hon. PhD. i.e. e.g.'), // When in sentence type, words that do not end the sentence (space-separated)
 		);
 
+		if($ent) __(true, 'entityEncode', $ent);
+		
 		if(!strlen($str)) return '';
 
 		if(is_string($options) && ctype_alpha($options)) {
@@ -711,11 +715,13 @@ class WireTextTools extends Wire {
 	 * 
 	 */
 	public function getPunctuationChars($sentence = false) {
+		$ent = __(true, 'entityEncode', false);
 		if($sentence) {
 			$s = $this->_('. ? !'); // Sentence ending punctuation characters (must be space-separated)
 		} else {
 			$s = $this->_(', : . ? ! “ ” „ " – -- ( ) [ ] { } « »'); // All punctuation characters (must be space-separated)
 		}
+		if($ent) __(true, 'entityEncode', $ent);
 		return explode(' ', $s); 
 	}
 
