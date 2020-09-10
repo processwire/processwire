@@ -742,7 +742,8 @@ class WireHttp extends Wire {
 
 		$this->setHeader('content-length', strlen($content));
 
-		$request = "$method $path$query HTTP/1.0\r\nHost: $host\r\n";
+		$proto = $this->wire()->config->serverProtocol;
+		$request = "$method $path$query $proto\r\nHost: $host\r\n";
 
 		foreach($this->headers as $key => $value) {
 			$request .= "$key: $value\r\n";
@@ -1489,7 +1490,7 @@ class WireHttp extends Wire {
 	 *  - `reset` (bool): Reset/clear headers that were set to WireHttp after sending? (default=false)
 	 *  - `headers` (array): Array [ name => value ] of headers to send, or omit to use headers set to WireHttp instance (default=[])
 	 *  - `httpCode` (int): HTTP status code to send or omit for none (default=0, aka don’t send)
-	 *  - `httpVersion` (string): HTTP version string (default='1.1')
+	 *  - `httpVersion` (string): HTTP version string like "1.1" (default=version string pulled from current server protcol)
 	 *  - `replacements` (array): Associative array of [ find => replace ] strings to replace values in headers, i.e. `[ '{filesize}' => 12345 ]` (default=[])
 	 * @return array Returns the headers that were sent (with duplicates removed, replacements processed, and lowercase header names)
 	 * @throws WireException If given an unrecognized `$option['status']` code
@@ -1497,23 +1498,30 @@ class WireHttp extends Wire {
 	 * 
 	 */
 	public function sendHeaders(array $options = array()) {
+		
 		$defaults = array(
 			'reset' => false, 
 			'headers' => array(), 
 			'httpCode' => 0, 
-			'httpVersion' => '1.1',
+			'httpVersion' => '',
 			'replacements' => array(),
 		);
+		
 		$options = array_merge($defaults, $options);
 		$headers = empty($options['headers']) ? $this->headers : $options['headers'];
 		$httpCode = (int) $options['httpCode'];
+		
 		if(!$httpCode && isset($headers['httpcode'])) { 
 			if(ctype_digit($headers['httpcode'])) $httpCode = (int) $headers['httpcode'];
 		}
+		
 		if($httpCode > 0) {
 			if(!isset($this->httpCodes[$httpCode])) throw new WireException("Unrecognized http status code: $httpCode"); 
-			$this->sendHeader("HTTP/$options[httpVersion] $httpCode " . $this->httpCodes[$httpCode]);
+			$proto = empty($options['httpVersion']) ? $this->wire()->config->serverProtocol : $options['httpVersion'];
+			if(!strpos($proto, '/')) $proto = "HTTP/$proto";
+			$this->sendHeader("$proto $httpCode " . $this->httpCodes[$httpCode]);
 		}
+		
 		$a = array();
 		foreach($headers as $key => $value) {
 			$key = strtolower($key);
@@ -1523,10 +1531,13 @@ class WireHttp extends Wire {
 			}
 			$a[$key] = $value;
 		}
+		
 		foreach($a as $key => $value) {
 			$this->sendHeader($key, $value); 
 		}
+		
 		if($options['reset'] && $headers === $this->headers) $this->headers = array();
+		
 		return $a;
 	}
 
@@ -1546,6 +1557,25 @@ class WireHttp extends Wire {
 		} else {
 			header("$name: $value"); 
 		}
+	}
+
+	/**
+	 * Send an HTTP status header
+	 * 
+	 * @param int|string $status Status code (i.e. '200') or code and text (i.e. '200 OK')
+	 * @since 3.0.166
+	 * 
+	 */
+	public function sendStatusHeader($status) {
+		if(ctype_digit("$status")) {
+			$statusText = isset($this->httpCodes[(int) $status]) ? $this->httpCodes[(int) $status] : '';
+			$status = "$status $statusText";
+		}
+		if(stripos($status, 'HTTP/') !== 0) {
+			$proto = $this->wire()->config->serverProtocol;
+			$status = "$proto $status";
+		}
+		$this->sendHeader($status); 
 	}
 
 	/**
