@@ -30,8 +30,8 @@ function initInputfieldAsmSelect($select) {
 	$select.asmSelect(options); 
 }
 
-$(document).ready(function() {
-	$(".InputfieldAsmSelect select[multiple=multiple]").each(function() {
+jQuery(document).ready(function($) {
+	$(".InputfieldAsmSelect select[multiple]").each(function() {
 		initInputfieldAsmSelect($(this));
 	}); 
 	$(document).on('reloaded', '.InputfieldAsmSelect, .InputfieldPage', function() {
@@ -39,7 +39,7 @@ $(document).ready(function() {
 		if($t.hasClass('InputfieldPage')) $t = $t.find('.InputfieldAsmSelect');
 		if(!$t.length) return;
 		if($t.find('.asmList').length) return;
-		$(this).find("select[multiple=multiple]").each(function() {
+		$(this).find("select[multiple]").each(function() {
 			initInputfieldAsmSelect($(this));
 		});
 	});
