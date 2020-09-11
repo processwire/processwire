@@ -1038,6 +1038,42 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Get MySQL/MariaDB version
+	 * 
+	 * Example return values:
+	 *
+	 *  - 5.7.23
+	 *  - 10.1.34-MariaDB
+	 * 
+	 * @return string
+	 * @since 3.0.166
+	 * 
+	 */
+	public function getVersion() {
+		return $this->getVariable('version', true, false); 
+	}
+	
+	/**
+	 * Get the regular expression engine used by database
+	 * 
+	 * Returns one of 'ICU' (MySQL 8.0.4+) or 'HenrySpencer' (earlier versions and MariaDB)
+	 * 
+	 * @return string
+	 * @since 3.0.166
+	 * @todo this will need to be updated when/if MariaDB adds version that uses ICU engine
+	 * 
+	 */
+	public function getRegexEngine() {
+		$version = $this->getVersion();
+		$name = 'MySQL';
+		if(strpos($version, '-')) list($version, $name) = explode('-', $version, 2);
+		if(strpos($name, 'mariadb') === false) {
+			if(version_compare($version, '8.0.4', '>=')) return 'ICU';
+		}
+		return 'HenrySpencer';
+	}
+
+	/**
 	 * Get current database engine (lowercase) 
 	 * 
 	 * @return string
