@@ -5,13 +5,14 @@
  *
  * @see /wire/core/SessionHandler.php
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int|bool $useIP Track IP address?
  * @property int|bool $useUA Track user agent?
  * @property int|bool $noPS Prevent more than one session per logged-in user?
  * @property int $lockSeconds Max number of seconds to wait to obtain DB row lock.
+ * @property int $retrySeconds Seconds after which to retry after a lock fail.
  *
  */
 
@@ -23,7 +24,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 			'version' => 5, 
 			'summary' => "Installing this module makes ProcessWire store sessions in the database rather than the file system. Note that this module will log you out after install or uninstall.",
 			'installs' => array('ProcessSessionDB')
-			);
+		);
 	}
 
 	/**
@@ -50,6 +51,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$this->set('useUA', 0); // track user agent?
 		$this->set('noPS', 0); // disallow parallel sessions per user
 		$this->set('lockSeconds', 50); // max number of seconds to wait to obtain DB row lock
+		$this->set('retrySeconds', 30); // seconds after which to retry on a lock fail
 	}
 	
 	public function wired() {
@@ -60,7 +62,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	public function init() {
 		parent::init();
 		// keeps session active
-		$this->wire('session')->set($this, 'ts', time());
+		$this->wire()->session->setFor($this, 'ts', time());
 		if($this->noPS) $this->addHookAfter('Session::loginSuccess', $this, 'hookLoginSuccess');
 	}
 
@@ -77,10 +79,22 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$database = $this->database;
 		$data = '';
 		
-		$query = $database->prepare("SELECT GET_LOCK(:id, :seconds)"); 
+		$query = $database->prepare('SELECT GET_LOCK(:id, :seconds)');
 		$query->bindValue(':id', $id);
 		$query->bindValue(':seconds', $this->lockSeconds, \PDO::PARAM_INT);
 		$database->execute($query);
+		$locked = $query->fetchColumn();
+		$query->closeCursor();
+	
+		if(!$locked) {
+			// 0: attempt timed out (for example, because another client has previously locked the name)
+			// null: error occurred (such as running out of memory or the thread was killed with mysqladmin kill)
+			$this->wire()->shutdown->setFatalErrorResponse(array(
+				'code' => 429, // http status 429: Too Many Requests (RFC 6585)
+				'headers' => array("Retry-After: $this->retrySeconds"),
+			));
+			throw new WireException("Unable to obtain lock for session (retry in {$this->retrySeconds}s)", 429);
+		}
 		
 		$query = $database->prepare("SELECT data FROM `$table` WHERE id=:id");
 		$query->bindValue(':id', $id);
@@ -90,6 +104,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 			$data = $query->fetchColumn();
 			if(empty($data)) $data = '';
 		}
+		
 		$query->closeCursor();
 			
 		return $data; 
@@ -158,12 +173,13 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	 *
 	 */
 	public function destroy($id) {
+		$config = $this->wire()->config;
 		$table = self::dbTableName;
 		$database = $this->database;
 		$query = $database->prepare("DELETE FROM `$table` WHERE id=:id"); 
 		$query->execute(array(":id" => $id));
-		$secure = $this->wire('config')->sessionCookieSecure ? (bool) $this->config->https : false;
-		setcookie(session_name(), '', time()-42000, '/', $this->config->sessionCookieDomain, $secure, true);
+		$secure = $config->sessionCookieSecure ? (bool) $config->https : false;
+		setcookie(session_name(), '', time()-42000, '/', $config->sessionCookieDomain, $secure, true);
 		return true; 
 	}
 
@@ -224,18 +240,20 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	 */
 	public function getModuleConfigInputfields(array $data) {
 
+		$modules = $this->wire()->modules; 
 		$form = $this->wire(new InputfieldWrapper());
 
 		// check if their DB table is the latest version
-		$query = $this->wire('database')->query("SHOW COLUMNS FROM " . self::dbTableName . " WHERE field='ip'"); 
+		$query = $this->database->query("SHOW COLUMNS FROM " . self::dbTableName . " WHERE field='ip'"); 
 		if(!$query->rowCount()) {
-			$this->wire('modules')->error("DB format changed - You must uninstall this module and re-install before configuring."); 
+			$modules->error("DB format changed - You must uninstall this module and re-install before configuring."); 
 			return $form;
 		}
 
 		$description = $this->_('Checking this box will enable the data to be displayed in your admin sessions list.');
 
-		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get('InputfieldCheckbox'); 
 		$f->attr('name', 'useIP'); 
 		$f->attr('value', 1);
 		$f->attr('checked', empty($data['useIP']) ? '' : 'checked'); 
@@ -243,7 +261,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$f->description = $description;
 		$form->add($f);
 
-		$f = $this->wire('modules')->get('InputfieldCheckbox'); 
+		$f = $modules->get('InputfieldCheckbox'); 
 		$f->attr('name', 'useUA'); 
 		$f->attr('value', 1);
 		$f->attr('checked', empty($data['useUA']) ? '' : 'checked'); 
@@ -252,13 +270,25 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$f->description = $description;
 		$form->add($f);
 
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f = $modules->get('InputfieldCheckbox');
 		$f->attr('name', 'noPS');
 		$f->attr('value', 1);
 		$f->attr('checked', empty($data['noPS']) ? '' : 'checked');
 		$f->label = $this->_('Disallow parallel sessions?');
 		$f->notes = $this->_('When enabled, successful login expires all other sessions for that user on other devices/browsers.');
 		$f->description = $this->_('Checking this box will allow only one single session for a logged-in user at a time.');
+		$form->add($f);
+
+		/** @var InputfieldInteger $f */
+		$f = $modules->get('InputfieldInteger'); 
+		$f->attr('name', 'lockSeconds'); 
+		$f->attr('value', $this->lockSeconds);
+		$f->label = $this->_('Session lock timeout (seconds)'); 
+		$f->description = sprintf(
+			$this->_('If a DB lock for the session cannot be obtained in this many seconds, a “%s” error will be sent, telling the client to retry again in %d seconds.'), 
+			$this->_('429: Too Many Requests'), 
+			30
+		); 
 		$form->add($f);
 
 		if(ini_get('session.gc_probability') == 0) {
@@ -312,7 +342,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	 */
 	public function getNumSessions($seconds = 300) {
 		$sql = "SELECT count(*) FROM " . self::dbTableName . " WHERE ts > :ts";
-		$query = $this->wire('database')->prepare($sql);
+		$query = $this->database->prepare($sql);
 		$query->bindValue(':ts', date('Y-m-d H:i:s', (time() - $seconds)));
 		$query->execute();
 		list($numSessions) = $query->fetch(\PDO::FETCH_NUM); 
@@ -341,7 +371,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 				"WHERE ts > DATE_SUB(NOW(), INTERVAL $seconds SECOND) " . 
 				"ORDER BY ts DESC LIMIT $limit";
 		
-		$query = $this->wire('database')->prepare($sql); 
+		$query = $this->database->prepare($sql); 
 		$query->execute();
 	
 		$sessions = array();
@@ -364,9 +394,9 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	 */
 	public function getSessionData($sessionID) {
 		$sql = "SELECT * FROM " . self::dbTableName . " WHERE id=:id";
-		$query = $this->wire('database')->prepare($sql);
+		$query = $this->database->prepare($sql);
 		$query->bindValue(':id', $sessionID); 
-		$this->wire('database')->execute($query);
+		$this->database->execute($query);
 		if(!$query->rowCount()) return array();
 		$row = $query->fetch(\PDO::FETCH_ASSOC) ;
 		$sess = $_SESSION; // save
@@ -381,7 +411,6 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	 * 
 	 * @param int $fromVersion
 	 * @param int $toVersion
-	 * @throws WireException
 	 * 
 	 */
 	public function ___upgrade($fromVersion, $toVersion) {
@@ -389,7 +418,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		// if(version_compare($fromVersion, "0.0.5", "<") && version_compare($toVersion, "0.0.4", ">")) {
 		if($fromVersion <= 4 && $toVersion >= 5) {	
 			$table = self::dbTableName;
-			$database = $this->wire('database');
+			$database = $this->database;
 			$sql = "ALTER TABLE $table MODIFY data MEDIUMTEXT NOT NULL";
 			$query = $database->prepare($sql);
 			$query->execute();
@@ -408,7 +437,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		/** @var User $user */
 		$user = $event->arguments(0);
 		$table = self::dbTableName;
-		$query = $this->wire('database')->prepare("DELETE FROM `$table` WHERE user_id=:user_id AND id!=:id");
+		$query = $this->database->prepare("DELETE FROM `$table` WHERE user_id=:user_id AND id!=:id");
 		$query->bindValue(':id', session_id()); 
 		$query->bindValue(':user_id', $user->id, \PDO::PARAM_INT);  
 		$query->execute();
