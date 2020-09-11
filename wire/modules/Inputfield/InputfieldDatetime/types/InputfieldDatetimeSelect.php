@@ -165,7 +165,7 @@ class InputfieldDatetimeSelect extends InputfieldDatetimeType {
 			'day' => (int) $input[$name . '__d'],
 		);
 
-		if(!strlen(trim("$a[month]$a[day]$a[year]"))) {
+		if(!strlen(trim("$a[month]$a[day]$a[year]", "0"))) {
 			// empty value
 			$this->setAttribute('value', '');
 			return '';
