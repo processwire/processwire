@@ -52,6 +52,7 @@ require_once(__DIR__ . '/boot.php');
  * @property User $user
  * @property Users $users
  * @property ProcessWire $wire
+ * @property WireShutdown $shutdown
  * 
  * @method init()
  * @method ready()
@@ -77,7 +78,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 165;
+	const versionRevision = 166;
 
 	/**
 	 * Version suffix string (when applicable)
