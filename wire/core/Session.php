@@ -120,6 +120,14 @@ class Session extends Wire implements \IteratorAggregate {
 	protected $sessionAllow = null;
 
 	/**
+	 * Instance of custom session handler module, when in use (null when not)
+	 * 
+	 * @var WireSessionHandler|null
+	 * 
+	 */
+	protected $sessionHandler = null;
+
+	/**
 	 * Name of key/index within $_SESSION where PW keeps its session data
 	 * 
 	 * @var string
@@ -1486,5 +1494,22 @@ class Session extends Wire implements \IteratorAggregate {
 		if(is_null($this->CSRF)) $this->CSRF = $this->wire(new SessionCSRF());
 		return $this->CSRF; 
 	}
+	
+	/**
+	 * Get or set current session handler instance (WireSessionHandler)
+	 *
+	 * #pw-internal
+	 *
+	 * @param WireSessionHandler|null $sessionHandler Specify only when setting, omit to get session handler. 
+	 * @return null|WireSessionHandler Returns WireSessionHandler instance, or…
+	 *   returns null when session handler is not yet known or is PHP (file system)
+	 * @since 3.0.166
+	 *
+	 */
+	public function sessionHandler(WireSessionHandler $sessionHandler = null) {
+		if($sessionHandler) $this->sessionHandler = $sessionHandler;
+		return $this->sessionHandler;
+	}
+
 
 }
