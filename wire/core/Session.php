@@ -112,6 +112,14 @@ class Session extends Wire implements \IteratorAggregate {
 	protected $sessionInit = false;
 
 	/**
+	 * Are sessions allowed?
+	 * 
+	 * @var bool|null
+	 * 
+	 */
+	protected $sessionAllow = null;
+
+	/**
 	 * Name of key/index within $_SESSION where PW keeps its session data
 	 * 
 	 * @var string
@@ -155,7 +163,7 @@ class Session extends Wire implements \IteratorAggregate {
 	public function __construct(ProcessWire $wire) {
 
 		$wire->wire($this);
-		$this->config = $wire->wire('config'); 
+		$this->config = $wire->wire()->config;
 		$this->sessionKey = $this->className();
 		
 		$instanceID = $wire->getProcessWireInstanceID();
@@ -178,6 +186,8 @@ class Session extends Wire implements \IteratorAggregate {
 		} else {
 			$sessionAllow = true;
 		}
+		
+		$this->sessionAllow = $sessionAllow;
 		
 		if($sessionAllow) {
 			$this->init();
@@ -228,7 +238,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 */
 	public function ___init() {
 
-		if($this->sessionInit) return;
+		if($this->sessionInit || !$this->sessionAllow) return;
 		if(!$this->config->sessionName) return;
 		$this->sessionInit = true;
 
@@ -1147,15 +1157,29 @@ class Session extends Wire implements \IteratorAggregate {
 	 * ~~~~~
 	 * 
 	 * @param string $url URL to redirect to
-	 * @param bool $http301 Should this be a permanent (301) redirect? (default=true). If false, it is a 302 temporary redirect.
+	 * @param bool|int $status Specify true for 301 permanent redirect, false for 302 temporary redirect, or 
+	 *   in 3.0.166+ you can also specify the status code (integer) rather than boolean. 
+	 *   Default is 301 (permanent). 
 	 *
 	 */
-	public function ___redirect($url, $http301 = true) {
+	public function ___redirect($url, $status = 301) {
+		
+		$page = $this->wire()->page;
+
+		if($status === true || "$status" === "301" || "$status" === "1") {
+			$status = 301;
+		} else if($status === false || "$status" === "302" || "$status" === "0") {
+			$status = 302;
+		} else {
+			$status = (int) $status;
+			// if invalid redirect http status code, fallback to 302
+			if($status < 300 || $status > 399) $status = 302;
+		}
 
 		// if there are notices, then queue them so that they aren't lost
 		if($this->sessionInit) {
-			$notices = $this->wire('notices');
-			if(count($notices)) {
+			$notices = $this->wire()->notices;
+			if($notices && count($notices)) {
 				foreach($notices as $notice) {
 					$this->queueNotice($notice);
 				}
@@ -1163,22 +1187,50 @@ class Session extends Wire implements \IteratorAggregate {
 		}
 
 		// perform the redirect
-		$page = $this->wire('page');
 		if($page) {
-			// ensure ProcessPageView is properly closed down
-			$process = $this->wire('modules')->get('ProcessPageView'); 
-			$process->setResponseType(ProcessPageView::responseTypeRedirect); 
-			$process->finished();
-			// retain modal=1 get variables through redirects (this can be moved to a hook later)
-			if($page->template == 'admin' && $this->wire('input')->get('modal') && strpos($url, '//') === false) {
-				if(!strpos($url, 'modal=')) $url .= (strpos($url, '?') !== false ? '&' : '?') . 'modal=1'; 
+			$process = $this->wire()->process; 
+			if("$process" !== "ProcessPageView") {
+				$process = $this->wire()->modules->get('ProcessPageView');
+			}
+			/** @var ProcessPageView $process */
+			if($process) {
+				// ensure ProcessPageView is properly closed down
+				$process->setResponseType(ProcessPageView::responseTypeRedirect);
+				$process->finished();
+				// retain modal=1 get variables through redirects (this can be moved to a hook later)
+				$input = $this->wire()->input;
+				if($page->template == 'admin' && $input && $input->get('modal') && strpos($url, '//') === false) {
+					if(!strpos($url, 'modal=')) $url .= (strpos($url, '?') !== false ? '&' : '?') . 'modal=1';
+				}
 			}
 		}
-		$statusData = array('redirectUrl' => $url, 'redirectType' => ($http301 ? 301 : 302)); 
-		$this->wire()->setStatus(ProcessWire::statusFinished, $statusData);
-		if($http301) header("HTTP/1.1 301 Moved Permanently");
-		header("Location: $url");
+		
+		$this->wire()->setStatus(ProcessWire::statusFinished, array(
+			'redirectUrl' => $url,
+			'redirectType' => $status, 
+		));
+		
+		// note for 302 redirects we send no header other than 'Location: url'
+		$http = new WireHttp();
+		$this->wire($http);
+		if($status != 302) $http->sendStatusHeader($status);
+		$http->sendHeader("Location: $url");
+		
 		exit(0);
+	}
+
+	/**
+	 * Perform a temporary (302) redirect
+	 * 
+	 * This is an alias of `$session->redirect($url, false);` that sends only the
+	 * location header, which translates to a 302 redirect. 
+	 * 
+	 * @param string $url
+	 * @since 3.0.166 
+	 * 
+	 */
+	public function location($url) {
+		$this->redirect($url, false); 
 	}
 
 	/**
