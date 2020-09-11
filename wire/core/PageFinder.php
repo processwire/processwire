@@ -2504,12 +2504,11 @@ class PageFinder extends Wire {
 					$s = '';
 					foreach(explode(' ', $value) as $n => $word) {
 						$word = $sanitizer->pageName($word, Sanitizer::toAscii);
-						$mySQL8 = false; // @todo add version check
-						if($mySQL8) {
-							// confirm the statement below works in MySQL 8.x because "\\b" has
-							// very different regex meaning between 8.x and versions prior to it 
+						if($database->getRegexEngine() === 'ICU') {
+							// MySQL 8.0.4+ uses ICU regex engine where "\\b" is used for word boundary
 							$bindKey = $query->bindValueGetKey("\\b$word\\b");
 						} else {
+							// this Henry Spencer regex engine syntax works only in MySQL 8.0.3 and prior
 							$bindKey = $query->bindValueGetKey('[[:<:]]' . $word . '[[:>:]]');
 						}
 						$s .= ($s ? ' AND ' : '') . "$table.$field RLIKE $bindKey";
