@@ -324,10 +324,10 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * 
 	 */
 	protected $otherCorePageClasses = array(
-		'User',	
-		'Role',
-		'Permission',
-		'Language'
+		'User',	'UserPage',
+		'Role', 'RolePage',
+		'Permission', 'PermissionPage',
+		'Language', 'LanguagePage',
 	);
 	
 	/***********************************************************************************************************************

@@ -894,13 +894,18 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		/** @var array $extraData */
 		$extraData = $event->return; 
 		
-		$alwaysActiveTypes = array('User', 'Role', 'Permission', 'Language'); 
+		$alwaysActiveTypes = array(
+			'User', 'UserPage', 
+			'Role', 'RolePage', 
+			'Permission', 'PermissionPage', 
+			'Language', 'LanguagePage',
+		); 
 		$pageNameCharset = $this->wire('config')->pageNameCharset;
 		$isCloning = $pages->editor()->isCloning();
 		
 		if(!is_array($extraData)) $extraData = array();
 		
-		foreach($this->wire('languages') as $language) {
+		foreach($this->wire()->languages as $language) {
 			
 			if($language->isDefault()) continue; 
 			$language_id = (int) $language->id; 

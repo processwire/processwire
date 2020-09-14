@@ -606,7 +606,7 @@ class PageTraversal {
 	 */
 	public function urlOptions(Page $page, $options = array()) {
 
-		$config = $page->wire('config');
+		$config = $page->wire()->config;
 		$template = $page->template;
 
 		$defaults = array(
@@ -615,7 +615,7 @@ class PageTraversal {
 			'data' => array(),
 			'urlSegmentStr' => is_string($options) ? $options : '',
 			'urlSegments' => array(),
-			'language' => is_object($options) && $options instanceof Page && $options->className() === 'Language' ? $options : null,
+			'language' => is_object($options) && wireInstanceOf($options, 'Language') ? $options : null,
 		);
 
 		if(empty($options)) {
@@ -625,7 +625,7 @@ class PageTraversal {
 		}
 
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
-		$sanitizer = $page->wire('sanitizer');
+		$sanitizer = $page->wire()->sanitizer;
 		$language = null;
 		$url = null;
 		
