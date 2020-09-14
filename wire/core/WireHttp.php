@@ -276,7 +276,7 @@ class WireHttp extends Wire {
 	 * 
 	 */
 	public function __construct() {
-		$this->hasCURL = function_exists('curl_init') && !ini_get('safe_mode') && !ini_get('open_basedir');
+		$this->hasCURL = function_exists('curl_init') && !ini_get('safe_mode'); // && !ini_get('open_basedir');
 		$this->hasFopen = ini_get('allow_url_fopen');
 		$this->resetRequest();
 		$this->resetResponse();
@@ -586,6 +586,7 @@ class WireHttp extends Wire {
 		$this->resetResponse();
 		$this->lastSendType = 'curl';
 		$timeout = isset($options['timeout']) ? (float) $options['timeout'] : $this->getTimeout();
+		$postMethods = array('POST', 'PUT', 'DELETE', 'PATCH'); // methods for CURLOPT_POSTFIELDS
 		$proxy = '';
 		
 		if(!empty($options['proxy'])) {
@@ -600,9 +601,10 @@ class WireHttp extends Wire {
 
 		curl_setopt($curl, CURLOPT_CONNECTTIMEOUT, $timeout);
 		curl_setopt($curl, CURLOPT_TIMEOUT, $timeout);
-		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
 		curl_setopt($curl, CURLOPT_RETURNTRANSFER, true);
 		curl_setopt($curl, CURLOPT_USERAGENT, $this->getUserAgent());
+		
+		if(!ini_get('open_basedir')) curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
 
 		if(version_compare(PHP_VERSION, '5.6') >= 0) {
 			// CURLOPT_SAFE_UPLOAD value is default true (setopt not necessary)
@@ -621,27 +623,28 @@ class WireHttp extends Wire {
 			curl_setopt($curl, CURLOPT_HTTPHEADER, $headers);
 		}
 		
-		if($method == 'POST') {
+		if($method === 'POST') {
 			curl_setopt($curl, CURLOPT_POST, true);
-		} else if($method == 'PUT') {
-			curl_setopt($curl, CURLOPT_PUT, true);
-		} else if($method == 'HEAD') {
+		} else if($method === 'GET') {
+			curl_setopt($curl, CURLOPT_HTTPGET, true);
+		} else if($method === 'HEAD') {
 			curl_setopt($curl, CURLOPT_NOBODY, true); 
 		} else {
-			curl_setopt($curl, CURLOPT_HTTPGET, true);
+			curl_setopt($curl, CURLOPT_CUSTOMREQUEST, $method);
 		}
+		// note: CURLOPT_PUT removed because it also requires CURLOPT_INFILE and CURLOPT_INFILESIZE.
 	
 		if($proxy) curl_setopt($curl, CURLOPT_PROXY, $proxy);
 		
 		if(!empty($this->data)) {
-			if($method === 'POST') {
+			if(in_array($method, $postMethods)) {
 				curl_setopt($curl, CURLOPT_POSTFIELDS, $this->data);
 			} else {
 				$content = http_build_query($this->data);
 				if(strlen($content)) $url .= (strpos($url, '?') === false ? '?' : '&') . $content;
 			}
 		} else if(!empty($this->rawData)) {
-			if($method === 'POST') {
+			if(in_array($method, $postMethods)) {
 				curl_setopt($curl, CURLOPT_POSTFIELDS, $this->rawData);
 			} else {
 				throw new WireException("Raw data option with CURL not supported for $method"); 
