@@ -205,7 +205,13 @@ class Config extends WireData {
 		$value = parent::get($key);
 		if($value === null) {
 			// runtime properties
-			if($key === 'serverProtocol') $value = $this->serverProtocol();
+			if($key === 'serverProtocol') {
+				$value = $this->serverProtocol();
+			} else if($key === 'tableSalt') {
+				$value = parent::get('installed');
+				if(!$value) $value = @filemtime($this->paths->assets . 'active.php'); 
+				$this->data['tableSalt'] = $value;
+			}
 		}
 		return $value;
 	}
