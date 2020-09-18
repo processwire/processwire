@@ -2104,10 +2104,13 @@ class PageFinder extends Wire {
 		foreach($values as $value) {
 
 			$fc = substr($value, 0, 1); 
-			$lc = substr($value, -1); 
+			$lc = substr($value, -1);
+			$descending = $fc == '-' || $lc == '-';
 			$value = trim($value, "-+"); 
 			$subValue = '';
 			// $terValue = ''; // not currently used, here for future use
+			
+			if($this->lastOptions['reverseSort']) $descending = !$descending;
 
 			if(strpos($value, ".")) {
 				list($value, $subValue) = explode(".", $value, 2); // i.e. some_field.title
@@ -2186,8 +2189,15 @@ class PageFinder extends Wire {
 				}
 
 				$query->leftjoin("$table AS $tableAlias ON $tableAlias.pages_id=pages.$idColumn");
+				
+				$customValue = $field->type->getMatchQuerySort($field, $query, $tableAlias, $subValue, $descending);
+				
+				if(!empty($customValue)) {
+					// Fieldtype handled it: boolean true (handled by Fieldtype) or string to add to orderby
+					if(is_string($customValue)) $query->orderby($customValue, true);
+					$value = false;
 
-				if($subValue === 'count') {
+				} else if($subValue === 'count') {
 					if($this->isRepeaterFieldtype($field->type)) {
 						// repeaters have a native count column that can be used for sorting
 						$value = "$tableAlias.count";
@@ -2212,7 +2222,7 @@ class PageFinder extends Wire {
 					} else if($subValue == 'parent') {
 						$query->leftjoin("pages AS $tableAlias2 ON $tableAlias.data=$tableAlias2.$idColumn");
 						$value = "$tableAlias2.name";
-						
+
 					} else {
 						$subValueField = $this->fields->get($subValue);
 						if($subValueField) {
@@ -2237,13 +2247,13 @@ class PageFinder extends Wire {
 					$value = "$tableAlias." . ($subValue ? $subValue : "data"); ; 
 				}
 			}
-		
-			$descending = $fc == '-' || $lc == '-';
-			if($this->lastOptions['reverseSort']) $descending = !$descending;
-			if($descending) {
-				$query->orderby("$value DESC", true);
-			} else {
-				$query->orderby("$value", true);
+	
+			if(is_string($value) && strlen($value)) {
+				if($descending) {
+					$query->orderby("$value DESC", true);
+				} else {
+					$query->orderby("$value", true);
+				}
 			}
 		}
 	}
