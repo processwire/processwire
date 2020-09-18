@@ -1580,5 +1580,33 @@ class ProcessModule extends Process {
 		
 		return $form->render();
 	}
+
+	/**
+	 * URL to redirect to after non-authenticated user is logged-in, or false if module does not support
+	 *
+	 * When supported, module should gather any input GET vars and URL segments that it recognizes,
+	 * sanitize them, and return a URL for that request. ProcessLogin will redirect to the returned URL
+	 * after user has successfully authenticated.
+	 *
+	 * If module does not support this, or only needs to support an integer 'id' GET var, then this
+	 * method can return false.
+	 *
+	 * @param Page $page
+	 * @return bool|string
+	 * @sine 3.0.167
+	 *
+	 */
+	public static function getAfterLoginUrl(Page $page) {
+		$url = $page->url();
+		$action = $page->wire()->input->urlSegmentStr;
+		$name = $page->wire()->input->get->fieldName('name'); 
+		if($action === 'edit' && $name && $page->wire()->modules->isInstalled($name)) {
+			$url .= "edit?name=$name";
+			$collapse = (int) $page->wire()->input->get('collapse_info'); 
+			if($collapse) $url .= "&collapse_info=$collapse";
+		}
+		return $url;
+	}
+	
 }
 

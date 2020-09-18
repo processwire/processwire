@@ -2877,6 +2877,64 @@ class ProcessField extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * URL to redirect to after non-authenticated user is logged-in, or false if module does not support
+	 *
+	 * @param Page $page
+	 * @return bool|string
+	 * @sine 3.0.167
+	 *
+	 */
+	public static function getAfterLoginUrl(Page $page) {
+		$sanitizer = $page->wire()->sanitizer;
+		$input = $page->wire()->input;
+		$segment = $input->urlSegment1;
+		$data = array();
+		if(empty($segment)) {
+			$data = array(
+				'templates_id' => (int) $input->get('templates_id'),
+				'fieldtype' => $input->get->name('fieldtype'),
+				'show_system' => (int) $input->get('show_system'),
+				'nosave' => (int) $input->get('nosave'),
+				'fieldgroup_id' => (int) $input->get('fieldgroup_id'),
+			);
+		} else if($segment === 'tags') {
+			$data = array(
+				'edit_tag' => $input->get->name('edit_tag'), 
+			);
+		} else if($segment === 'edit') {
+			$data = array(
+				'id' => (int) $input->get('id'),
+				'context_namespace' => $input->get->fieldName('context_namespace'), 
+				'context_label' => $input->get->text('context_label'),
+				'process_template' => (int) $input->get('process_template'),
+				'focus' => $input->get->fieldName('focus'),
+				'modal' => (int) $input->get('modal'),
+				'fieldgroup_id' => (int) $input->get('fieldgroup_id'),
+			);
+			if(!empty($data['context_label'])) $data['context_label'] = urlencode($data['context_label']);
+		} else if($segment === 'changeType' || $segment === 'change-type') {
+			$data = array(
+				'id' => (int) $input->get('id'),
+				'type' => $input->get->name('type'),
+			);
+		} else if($segment === 'sendTemplates' || $segment === 'send-templates') {
+			$templates = array();
+			foreach(explode(',', (string) $input->get('templates')) as $value) {
+				if(!empty($value)) $templates[] = $sanitizer->fieldName($value);
+			}
+			$data = array(
+				'id' => (int) $input->get('id'),
+				'templates' => implode(',', $templates),
+			);
+		} else if($segment === 'import' || $segment === 'export') {
+			// ok, no query string
+		} else {
+			$segment = '';
+		}
+		return $page->url() . $segment . (count($data) ? '?' . implode('&', $data) : '');
+	}
+
+	/**
 	 * Build a form allowing configuration of this Module
 	 * 
 	 * @param array $data
