@@ -297,7 +297,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	/**
 	 * Update a database query for finding values from this Fieldtype
 	 * 
-	 * @param DatabaseQuerySelect $query
+	 * @param PageFinderDatabaseQuerySelect $query
 	 * @param string $table
 	 * @param string $subfield
 	 * @param string $operator
@@ -360,6 +360,33 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		}
 		
 		return parent::getMatchQuery($query, $table, $subfield, $operator, $value); 
+	}
+
+	/**
+	 * Get or update query to sort by given $field or $subfield
+	 *
+	 * Return false if this Fieldtype does not have built-in sort logic and PageFinder should handle it.
+	 * Return string of query to add to ORDER BY statement, or boolean true if method added it already.
+	 *
+	 * #pw-internal
+	 *
+	 * @param Field $field
+	 * @param DatabaseQuerySelect $query
+	 * @param string $table
+	 * @param string $subfield
+	 * @param bool $desc
+	 * @return bool|string
+	 * @since 3.0.167
+	 *
+	 */
+	public function getMatchQuerySort(Field $field, $query, $table, $subfield, $desc) {
+		// FieldtypeOptions uses an separate table for option values/labels
+		if(empty($subfield)) return false;
+		$table2 = "_sort_options_$field->name" . ($subfield ? "_$subfield" : '');
+		$bindKey = $query->bindValueGetKey($field->id, \PDO::PARAM_INT);
+		$query->leftjoin("fieldtype_options AS $table2 ON $table2.fields_id=$bindKey AND $table.data=$table2.option_id");
+		$query->orderby("$table2.$subfield " . ($desc ? 'DESC' : ''), true);
+		return true;
 	}
 
 	/**
