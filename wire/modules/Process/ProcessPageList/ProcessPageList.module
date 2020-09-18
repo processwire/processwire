@@ -645,6 +645,34 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		$bookmarks = $this->getPageBookmarks();
 		return $bookmarks->editBookmarks();
 	}
+	
+	/**
+	 * URL to redirect to after non-authenticated user is logged-in, or false if module does not support
+	 *
+	 * @param Page $page
+	 * @return bool|string
+	 * @sine 3.0.167
+	 *
+	 */
+	public static function getAfterLoginUrl(Page $page) {
+		$url = $page->url();
+		$input = $page->wire()->input;
+		list($s1, $s2) = array($input->urlSegment1, $input->urlSegment2); 
+		if(ctype_digit($s2) && ($s1 === 'id' || $s1 === 'open')) {
+			return $url . "$s1/" . (int) $s2; // i.e. /id/123 or /open/456
+		} else {
+			$intVars = array('limit', 'start', 'lang', 'open', 'id', 'n');
+			$data = array();
+			foreach($intVars as $name) {
+				$value = (int) $input->get($name);
+				if($value > 0) $data[$name] = $value;
+			}
+			$render = $input->get->name('render');
+			if($render) $data['render'] = strtoupper($render);
+			if(count($data)) $url .= "?" . implode('&', $data); 
+		}
+		return $url;
+	}
 
 	/**
 	 * Build a form allowing configuration of this Module

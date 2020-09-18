@@ -3072,6 +3072,42 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		}
 	}
 
+	/**
+	 * URL to redirect to after non-authenticated user is logged-in, or false if module does not support
+	 *
+	 * @param Page $page
+	 * @return bool|string
+	 * @sine 3.0.167
+	 *
+	 */
+	public static function getAfterLoginUrl(Page $page) {
+		$sanitizer = $page->wire()->sanitizer;
+		$input = $page->wire()->input;
+		if($input->urlSegmentStr === 'bookmarks') return $page->url . 'bookmarks/';
+		$qs = array(
+			'id' => (int) $input->get('id'),
+			'language' => (int) $input->get('language'),
+			'template' => (int) $input->get('template'), // used by executeTemplate() only
+			'uploadOnlyMode' => (int) $input->get('uploadOnlyMode'),
+			'fnsx' => $input->get->fieldName('fnsx'),
+			'context' => $input->get->name('context'), 
+			'field' => $input->get->fieldName('field'), 
+			'fields' => array(),
+		);
+		if($input->urlSegmentStr === 'template') {
+			return "$page->url?id=$qs[id]&template=$qs[template]";
+		}
+		if($input->get('fields')) {
+			foreach(explode(',', $input->get('fields')) as $value) {
+				$qs['fields'] .= ($qs['fields'] ? ',' : '') . $sanitizer->fieldName($value);
+			}
+		}
+		$a = array();
+		foreach($qs as $name => $value) {
+			if(!empty($value)) $a[] = "$name=$value";
+		}
+		return "$page->url?" . implode('&', $a);
+	}
 
 	/**
 	 * Module config
