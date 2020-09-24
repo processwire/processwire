@@ -1420,6 +1420,85 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	}
 
 	/**
+	 * Check file extensions for given field and return array of validity information 
+	 * 
+	 * @param Field|Inputfield $field
+	 * @param array $validateExtensions Extensions to require validation for, or omit for default. 
+	 * @return array Returns associative array with the following:
+	 *  - `valid` (array): valid extensions, including those that have been whitelisted or are covered by FileValidator modules.
+	 *  - `invalid` (array): extensions that are potentially bad and have not been whitelisted or covered by a FileValidator module. 
+	 *  - `whitelist` (array): previously invalid extensions that have been manually whitelisted.
+	 *  - `validators` (array): Associative array of [ 'ext' => [ 'FileValidatorModule' ] ] showing what’s covered by FileValidator modules.
+	 * @throws WireException
+	 * @since 3.0.167
+	 * 
+	 */
+	public function getValidFileExtensions($field, array $validateExtensions = array()) {
+		
+		if(!$field instanceof Field && !$field instanceof Inputfield) {
+			throw new WireException("This method requires a Field or Inputfield object"); 
+		}
+
+		if(empty($validateExtensions)) {
+			$validateExtensions = array('svg');
+		} else {
+			foreach($validateExtensions as $key => $ext) {
+				$validateExtensions[$key] = strtolower(trim($ext));
+			}
+		}
+
+		$extensions = array();
+		$badExtensions = array();
+		$whitelistExtensions = array();
+		$extensionsStr = $field->get('extensions'); 
+		$okExtensions = $field->get('okExtensions');
+		$validators = array();
+		
+		if(!is_array($okExtensions)) $okExtensions = array();
+		
+		$extensionsStr = trim(str_replace(array("\n", ",", "."), ' ', $extensionsStr));
+		
+		foreach(explode(' ', $extensionsStr) as $ext) {
+			$ext = strtolower(trim($ext));
+			if(!strlen($ext)) continue;
+			$extensions[$ext] = $ext; 
+		}
+
+		foreach($extensions as $ext) {
+			// check if extension requires a FileValidator
+			if(!in_array($ext, $validateExtensions)) continue;
+			
+			// if extension was manually whitelisted, then accept it as valid
+			if(in_array($ext, $okExtensions, true)) {
+				$whitelistExtensions[$ext] = $ext;
+				continue;
+			}
+
+			// if a module validates extension then good
+			$moduleNames = $this->wire()->sanitizer->validateFile("test.$ext", array(
+				'dryrun' => true, 
+				'getArray' => true
+			));
+			
+			if(count($moduleNames)) {
+				$validators[$ext] = $moduleNames;
+				continue;
+			}
+			
+			// if extension has no validator then remove it from valid list and add to the naughty list
+			unset($extensions[$ext]);
+			$badExtensions[$ext] = $ext;
+		}
+		
+		return array(
+			'valid' => $extensions, // valid extensions, including those that have been whitelisted
+			'invalid' => $badExtensions, // extensions that are potentially bad and have not been whitelisted
+			'whitelist' => $whitelistExtensions, // previously invalid extensions that have been whitelisted
+			'validators' => $validators, // file validators in use indexed by file extension
+		);
+	}
+
+	/**
 	 * Field config
 	 * 
 	 * @param Field $field
@@ -1429,7 +1508,9 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	public function ___getConfigInputfields(Field $field) {
 
 		$inputfields = parent::___getConfigInputfields($field);
-
+		$extensionInfo = $this->getValidFileExtensions($field);
+		$fileValidatorsUrl = 'https://modules.processwire.com/categories/file-validator/';
+		
 		// extensions
 		/** @var InputfieldTextarea $f */
 		$f = $this->modules->get('InputfieldTextarea');
@@ -1438,8 +1519,41 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		$f->attr('rows', 3); 
 		$f->label = $this->_('Valid File Extensions');
 		$f->description = $this->_('Enter all file extensions allowed by this upload field. Separate each extension by a space. No periods or commas. This field is not case sensitive.'); // Valid file extensions description
+		if(count($extensionInfo['invalid']) && !$this->wire()->input->is('POST')) {
+			foreach($extensionInfo['invalid'] as $ext) {
+				$error = sprintf(
+					$this->_('File extension %s must be removed, whitelisted, or have a [file validator](%s) module installed.'),
+					strtoupper($ext),
+					$fileValidatorsUrl
+				);
+				$this->error($error, Notice::allowMarkdown | Notice::noGroup);
+			}
+		}
 		$inputfields->append($f);
 
+		if(count($extensionInfo['invalid']) || count($extensionInfo['whitelist'])) {
+			/** @var array $okExtensions */
+			$badExtensions = array_merge($extensionInfo['invalid'], $extensionInfo['whitelist']); 
+			ksort($badExtensions);
+			/** @var InputfieldCheckboxes $f Whitelisted file extensions */
+			$f = $this->modules->get('InputfieldCheckboxes');
+			$f->attr('name', 'okExtensions');
+			$f->label = $this->_('File extensions to allow without validation (whitelist)');
+			$f->icon = 'warning';
+			foreach($badExtensions as $ext) $f->addOption($ext);
+			$f->description =
+				sprintf(
+					$this->_('These file extensions need a [file validator module](%s) installed. Unchecked extensions have been disabled for safety.'),
+					$fileValidatorsUrl
+				) . ' ' .
+				$this->_('To ignore and allow the file extension without file validation, check the box next to it (not recommended).') . ' ' . 
+				$this->_('If you don’t need an extension, please remove it from your valid file extensions list.'); 
+			$f->attr('value', $extensionInfo['whitelist']);
+			$inputfields->add($f);
+		} else {
+			$field->set('okExtensions', array());
+		}
+		
 		// max files
 		/** @var InputfieldInteger $f */
 		$f = $this->modules->get('InputfieldInteger');

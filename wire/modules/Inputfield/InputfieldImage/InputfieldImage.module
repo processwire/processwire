@@ -9,6 +9,7 @@
  * Accessible Properties
  *
  * @property string $extensions Space separated list of allowed image extensions (default="JPG JPEG GIF PNG")
+ * @property array $okExtensions Array of manually whitelisted extensions, for instance [ 'SVG' ] must be manually whitelisted if allowed. (default=[])
  * @property int|string $maxWidth Max width for uploaded images, larger will be sized down (default='')
  * @property int|string $maxHeight Max height for uploaded images, larger will be sized down (default='')
  * @property float $maxSize Maximum number of megapixels for client-side resize, i.e. 1.7 is ~1600x1000, alt. to maxWidth/maxHeight (default=0).
@@ -320,8 +321,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		if(substr($attrs['name'], -1) != ']') $attrs['name'] .= '[]';
 		$attrStr = $this->getAttributesString($attrs);
 
-		$extensions = $this->extensions;
-		if($this->unzip && !$this->maxFiles) $extensions .= ' zip';
+		$extensions = $this->getAllowedExtensions();
 		$formatExtensions = $this->formatExtensions($extensions);
 		$chooseLabel = $this->labels['choose-file'];
 		
@@ -388,7 +388,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		
 		/** @var Pageimage $pagefile */
 		
-		if($pagefile->ext() == 'svg') {
+		if($pagefile->ext() === 'svg') {
 			parent::___fileAdded($pagefile);
 			return;
 		}

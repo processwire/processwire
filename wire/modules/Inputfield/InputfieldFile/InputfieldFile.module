@@ -4,6 +4,7 @@
  * An Inputfield for handling file uploads
  *
  * @property string $extensions Allowed file extensions, space separated
+ * @property array $okExtensions File extensions that are whitelisted if any in $extensions are problematic. (3.0.167+)
  * @property int $maxFiles Maximum number of files allowed
  * @property int $maxFilesize Maximum file size
  * @property bool $useTags Whether or not tags are enabled
@@ -119,6 +120,14 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	protected $itemFieldgroup = null;
 
 	/**
+	 * Cached result from FieldtypeFile::getValidFileExtension()
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $extensionsInfo = array();
+
+	/**
 	 * Initialize the InputfieldFile
 	 *
 	 */
@@ -128,6 +137,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		// note: these two fields originate from FieldtypeFile. 
 		// Initializing them here ensures this Inputfield has the values set automatically.
 		$this->set('extensions', '');
+		$this->set('okExtensions', array()); // manually whitelisted problematic extensions
 		$this->set('maxFiles', 0); 
 		$this->set('maxFilesize', 0); 
 		$this->set('useTags', 0);
@@ -588,9 +598,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		unset($attrs['value']); 
 		if(substr($attrs['name'], -1) != ']') $attrs['name'] .= '[]';
 
-		$extensions = $this->extensions;
-		if($this->unzip && !$this->maxFiles) $extensions .= ' zip';
-		$formatExtensions = $this->formatExtensions($extensions);
+		$extensions = $this->getAllowedExtensions();
+		$formatExtensions = $this->formatExtensions();
 		$chooseLabel = $this->labels['choose-file'];
 		$dragDropLabel = $this->labels['drag-drop'];
 		$attrStr = $this->getAttributesString($attrs);
@@ -635,6 +644,14 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		return $out; 
 	}
 
+	/**
+	 * Render ready
+	 * 
+	 * @param Inputfield|null $parent
+	 * @param bool $renderValueMode
+	 * @return bool
+	 * 
+	 */
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 		
 		/** @var Config $config */
@@ -691,6 +708,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		return parent::renderReady($parent, $renderValueMode); 
 	}
 
+	/**
+	 * Render Inputfield input
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___render() {
 		if(!$this->extensions) $this->error($this->_('No file extensions are defined for this field.')); 
 		$numItems = wireCount($this->value);
@@ -704,7 +727,13 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		}
 		return $this->renderList($this->value) . $this->renderUpload($this->value);
 	}
-	
+
+	/**
+	 * Render Inputfield value
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___renderValue() {
 		$this->renderValueMode = true; 
 		$out = $this->render();
@@ -712,17 +741,25 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		return $out; 
 	}
 
+	/**
+	 * File added hook
+	 * 
+	 * @param Pagefile $pagefile
+	 * @throws WireException
+	 * 
+	 */
 	protected function ___fileAdded(Pagefile $pagefile) {
 		if($this->noUpload) return;
+		$sanitizer = $this->wire()->sanitizer;
 		
-		$isValid = $this->wire('sanitizer')->validateFile($pagefile->filename(), array(
+		$isValid = $sanitizer->validateFile($pagefile->filename(), array(
 			'pagefile' => $pagefile
 		));
 		
 		if($isValid === false) {
-			$errors = $this->wire('sanitizer')->errors('clear array');
+			$errors = $sanitizer->errors('clear array');
 			throw new WireException(
-				$this->_('File failed validation') . 
+				"$pagefile->basename - " . $this->_('File failed validation') . 
 				(count($errors) ? ": " . implode(', ', $errors) : "")
 			);
 		} else if($isValid === null) {
@@ -744,7 +781,15 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$pagefile->createdUser = $this->wire('user');
 		$pagefile->modifiedUser = $this->wire('user');
 	}
-	
+
+	/**
+	 * Get markup for added file
+	 * 
+	 * @param Pagefile $pagefile
+	 * @param int $n
+	 * @return string
+	 * 
+	 */
 	protected function fileAddedGetMarkup(Pagefile $pagefile, $n) {
 		return $this->renderItemWrap($this->renderItem($pagefile, $this->pagefileId($pagefile), $n));	
 	}
@@ -1077,7 +1122,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 					$ul->setExtractArchives(true); 
 				}
 
-				$ul->setValidExtensions(explode(' ', trim($this->extensions))); 
+				$ul->setValidExtensions($this->getAllowedExtensions(true));
 
 				foreach($ul->execute() as $filename) {
 					$this->processInputAddFile($filename); 
@@ -1194,12 +1239,56 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	/**
 	 * Format list of file extensions for output with upload field
 	 *
-	 * @param string $extensions
+	 * @param array|string $extensions
 	 * @return string
 	 *
 	 */
-	protected function formatExtensions($extensions) {
-		return $this->wire('sanitizer')->entities(str_replace(' ', ', ', trim($extensions)));
+	protected function formatExtensions($extensions = '') {
+		$sanitizer = $this->wire()->sanitizer;
+		$badExtensions = array();
+		if(empty($extensions)) {
+			$info = $this->getExtensionsInfo();
+			$extensions = $info['valid'];
+			$badExtensions = $info['invalid'];
+		} else if(is_string($extensions)) {
+			while(strpos($extensions, '  ') !== false) $extensions = str_replace('  ', ' ', $extensions);
+			$extensions = explode(' ', trim($extensions)); 
+		}
+		$out = $sanitizer->entities(implode(', ', $extensions));
+		if(count($badExtensions)) {
+			if($out) $out .= ', ';
+			$out .= '<s>' . $sanitizer->entities(implode(', ', $badExtensions)) . '</s>'; 
+		}
+		return $out;
+	}
+	
+	/**
+	 * Get allowed file extensions
+	 * 
+	 * @param bool $getArray
+	 * @return array|string
+	 * @since 3.0.167
+	 * 
+	 */
+	protected function getAllowedExtensions($getArray = false) {
+		$info = $this->getExtensionsInfo();
+		$extensions = $info['valid'];
+		if($this->unzip && !$this->maxFiles) if(!in_array('zip', $extensions)) $extensions[] = 'zip';
+		return $getArray ? $extensions : implode(' ', $extensions);
+	}
+
+	/**
+	 * Get extensions info (see FieldtypeFile::getValidFileExtensions)
+	 * 
+	 * @return array
+	 * @since 3.0.167
+	 * 
+	 */
+	protected function getExtensionsInfo() {
+		if(empty($this->extensionsInfo)) {
+			$this->extensionsInfo = $this->wire()->fieldtypes->FieldtypeFile->getValidFileExtensions($this);
+		}
+		return $this->extensionsInfo;
 	}
 
 	/**
