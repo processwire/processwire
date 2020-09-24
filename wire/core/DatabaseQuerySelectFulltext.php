@@ -533,37 +533,53 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		$tableField = $this->tableField();
 		$likeValue = '';
+		$useLike = false;
 		$words = $this->words($value);
 		$lastWord = count($words) > 1 ? array_pop($words) : '';
-		$numWords = count($words);
-		$numGoodWords = 0;
+		$badWords = array();
+		$goodWords = array();
 		
 		foreach($words as $word) {
-			if(!$this->isStopword($word)) $numGoodWords++;
-		}
-	
-		if($numGoodWords === 0) {
-			// 0 non-stopwords to search: do not use match/against
-			$againstValue = '';
-		} else if($numWords === 1) {
-			// 1 word search: non-quoted word only, partial match
-			$againstValue = '+' . $this->escapeAgainst(reset($words)) . '*';
-		} else {
-			// 2+ words and at least one is good (non-stopword), use quoted phrase 
-			$againstValue = '+"' . $this->escapeAgainst(implode(' ', $words)) . '"'; 
+			if($this->isIndexableWord($word)) {
+				$goodWords[$word] = $word;
+			} else {
+				$badWords[$word] = $word;
+			}
 		}
 		
-		if($lastWord !== '' || !strlen($againstValue)) {
+		if(count($badWords)) $useLike = true;
+
+		if(!count($goodWords)) {
+			// 0 good words to search: do not use match/against
+			$againstValue = '';
+		} else if(count($goodWords) === 1) {
+			// 1 word left: non-quoted word only, partial match if no last word
+			$word = reset($goodWords);
+			$againstValue = '+' . $this->escapeAgainst($word);
+			if($lastWord === '') $againstValue .= '*';
+		} else if(!count($badWords)) {
+			// no bad words, okay to match all in phrase format
+			$againstValue = '+"' . $this->escapeAgainst(implode(' ', $words)) . '"'; 
+		} else {
+			// combination of good and bad words, match the good words in any order
+			// and let the LIKE match them as a phrase
+			$againstValue = $this->escapeAgainst(implode(' ', $goodWords));
+			$useLike = true;
+		}
+		
+		if($useLike || $lastWord !== '' || !strlen($againstValue)) {
 			// match entire phrase with LIKE as secondary qualifier that includes last word
 			// so that we can perform a partial match on the last word only. This is necessary
 			// because we can’t use partial match qualifiers in or out of quoted phrases.
 			$lastWord = strlen($lastWord) ? $this->escapeAgainst($lastWord) : '';
-			if(strlen($lastWord) && $this->isIndexableWord($lastWord)) {
+			if(strlen($lastWord) && !$this->isStopword($lastWord)) {
 				// if word is indexable let it contribute to final score
 				// expand the againstValue to include the last word as a required partial match
 				$againstValue = trim("$againstValue +$lastWord*");
 			}
-			$likeValue = '([[:blank:]]|[[:punct:]]|[[:space:]]|>|^)' . preg_quote($value);
+			$likeValue = preg_quote($value);
+			$likeValue = str_replace(' ', '[- ]+', $likeValue); // space can also match hyphen
+			$likeValue = '([[:blank:]]|[[:punct:]]|[[:space:]]|>|^)' . $likeValue;
 		}
 		
 		if(strlen($againstValue)) {
@@ -602,10 +618,38 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$words = $this->words($value, array('indexable' => true));
 		$wordsAlternates = array();
 		
-		// BOOLEAN PHRASE: full phrase matches come before expanded matches
+		$phraseWords = $this->words($value); // including non-indexable
+		$lastPhraseWord = array_pop($phraseWords);
 		$scoreField = $this->getScoreFieldName();
-		$againstValue = '+"' . $this->escapeAgainst($value) . '*"';
-		$bindKey = $this->query->bindValueGetKey($againstValue);
+		$againstValues = array();
+		
+		// BOOLEAN PHRASE: full phrase matches come before expanded matches
+		if(count($phraseWords)) {
+			$phrases = array();
+			$phrase = array();
+			foreach($phraseWords as $word) {
+				if($this->isIndexableWord($word)) {
+					$phrase[] = $word;
+				} else {
+					if(count($phrase)) {
+						$phrases[] = $phrase;
+						$phrase = array();
+					}
+					$againstValues[] = $this->escapeAgainst($word) . '*';
+				}
+			}
+			if(count($phrase)) $phrases[] = $phrase;
+			if(count($phrases)) {
+				foreach($phrases as $phrase) {
+					$phraseStr = $this->escapeAgainst(implode(' ', $phrase));
+					if(count($phrase) > 1) $phraseStr = '"' . $phraseStr . '"';
+					$againstValues[] = "+$phraseStr";
+				}
+			}
+		}
+		
+		$againstValues[] = ($this->isIndexableWord($lastPhraseWord) ? '+' : '') . $this->escapeAgainst($lastPhraseWord) . '*';
+		$bindKey = $this->query->bindValueGetKey(implode(' ', $againstValues));
 		$matchAgainst = "$matchType($tableField) AGAINST($bindKey IN BOOLEAN MODE)";
 		
 		if($this->allowOrder) {
@@ -822,27 +866,42 @@ class DatabaseQuerySelectFulltext extends Wire {
 			'partial' => false, 
 			'partialLast' => ($this->operator === '~~=' || $this->operator === '^='),
 			'partialLess' => false,
-			'useStopwords' => true,
+			'useStopwords' => null,
+			'useShortwords' => null, 
 			'alternates' => $expand,
 		);
 
 		$options = array_merge($defaults, $options);
 		$minWordLength = (int) $this->database->getVariable('ft_min_word_len');
+		$originalValue = $value;
 		$value = $this->escapeAgainst($value);
 		$booleanValues = array();
 		$partial = $options['partial'] ? '*' : '';
 		$required = $options['required'] ? '+' : '';
 		$useStopwords = is_bool($options['useStopwords']) ? $options['useStopwords'] : $partial === '*';
+		$useShortwords = is_bool($options['useShortwords']) ? $options['useShortwords'] : $partial === '*';
 		$lastWord = null;
 		$goodWords = array();
 		$stopWords = array();
 		$shortWords = array();
 		$likeWords = array();
 		$altWords = array();
-
+		$joinWords = array();
+		$joiners = array('->', '-', '.', '_', ':');
+		
 		// get all words
 		$allWords = $this->words($value);
-	
+
+		foreach(explode(' ', $originalValue) as $word) {
+			foreach($joiners as $joiner) {
+				if(strpos($word, $joiner)) {
+					$joinWords[$word] = $word;
+					$likeWords[$word] = $word;
+					break;
+				}
+			}
+		}
+
 		if($options['partialLast']) {
 			// treat last word separately (partial last word for live or starts-with searches)
 			// only last word is partial
@@ -860,12 +919,14 @@ class DatabaseQuerySelectFulltext extends Wire {
 				// handle stop-word
 				$stopWords[$word] = $word;
 				if($useStopwords && $partial) $booleanValues[$word] = "<$word*";
+				if($required) $likeWords[$word] = $word;
 				continue; // do nothing further with stopwords
 				
 			} else if($length < $minWordLength) {
 				// handle too-short word
-				$booleanValues[$word] = $required . "$word*";
 				$shortWords[$word] = $word;
+				if($useShortwords && $partial) $booleanValues[$word] = "$word*";
+				if($required) $likeWords[$word] = $word;
 				continue; // do nothing further with short words
 				
 			} else if($options['partialLess']) {
@@ -892,7 +953,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		if(strlen($lastWord)) {
 			// only last word allowed to be a partial match word
-			$lastRequired = isset($stopWords[$lastWord]) ? '' : $required;
+			$lastRequired = isset($stopWords[$lastWord]) || isset($shortWords[$lastWord]) ? '' : $required;
 			$booleanValues[$lastWord] = $lastRequired . $lastWord . '*';
 		}
 		
@@ -925,6 +986,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	
 		return array(
 			'value' => trim(implode(' ', $allWords)), 
+			'originalValue' => $originalValue,
 			'matchValue' => trim(implode(' ', $goodWords) . ' ' . implode(' ', $altWords)), // indexable words only
 			'booleanValue' => trim(implode(' ', $booleanValues)),
 			'booleanWords' => $booleanValues,
@@ -935,6 +997,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 			'stopWords' => $stopWords, 
 			'shortWords' => $shortWords, 
 			'altWords' => $altWords, 
+			'joinWords' => $joinWords,
 			'lastWord' => $lastWord, 
 			'minWordLength' => $minWordLength, 
 		);
@@ -1104,6 +1167,19 @@ class DatabaseQuerySelectFulltext extends Wire {
 	}
 
 	/**
+	 * Is word too short for fulltext index?
+	 * 
+	 * @param string $word
+	 * @return bool
+	 * 
+	 */
+	protected function isShortword($word) {
+		$minWordLength = $this->getMinWordLength();
+		if($minWordLength && $this->strlen($word) < $minWordLength) return true;
+		return false;
+	}
+
+	/**
 	 * Is given word not a stopword and long enough to be indexed?
 	 * 
 	 * @param string $word
@@ -1111,8 +1187,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 */
 	protected function isIndexableWord($word) {
-		$minWordLength = $this->getMinWordLength();
-		if($minWordLength && $this->strlen($word) < $minWordLength) return false;
+		if($this->isShortword($word)) return false;
 		if($this->isStopword($word)) return false;
 		return true;
 	}
