@@ -24,6 +24,7 @@ require_once(__DIR__ . '/boot.php');
  * ======================
  * @property AdminTheme|AdminThemeFramework|null $adminTheme
  * @property WireCache $cache
+ * @property WireClassLoader $classLoader
  * @property Config $config
  * @property WireDatabasePDO $database
  * @property WireDateTime $datetime

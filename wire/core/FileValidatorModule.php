@@ -94,7 +94,7 @@ abstract class FileValidatorModule extends WireData implements Module {
 	protected $_pagefile = null;
 
 	/**
-	 * Is the given file valid? (this is the method mdoules should implement)
+	 * Is the given file valid? (this is the method modules should implement)
 	 * 
 	 * This method should return:
 	 * 	- boolean TRUE if file is valid
@@ -118,7 +118,7 @@ abstract class FileValidatorModule extends WireData implements Module {
 	 * FileValidator modules should not implement this method, as it only serves as a front-end to isValid()
 	 * for logging purposes. 
 	 * 
-	 * @param $filename
+	 * @param string $filename
 	 * @return bool|int Returns TRUE if valid, FALSE if not, or integer 1 if valid as a result of sanitization.
 	 * 
 	 */

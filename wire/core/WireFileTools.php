@@ -5,7 +5,7 @@
  * 
  * #pw-summary Helpers for working with files and directories. 
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  * @method bool include($filename, array $vars = array(), array $options = array())
@@ -825,6 +825,7 @@ class WireFileTools extends Wire {
 	 *  - `LOCK_EX` (constant): Acquire exclusive lock to file while writing.
 	 * @return int|bool Number of bytes written or boolean false on fail 
 	 * @throws WireException if given invalid $filename (since 3.0.118)
+	 * @see WireFileTools::fileGetContents()
 	 * 
 	 */
 	public function filePutContents($filename, $contents, $flags = 0) {
@@ -832,6 +833,33 @@ class WireFileTools extends Wire {
 		$result = file_put_contents($filename, $contents, $flags); 
 		if($result !== false) $this->chmod($filename);
 		return $result;
+	}
+
+	/**
+	 * Get contents of file
+	 * 
+	 * This is the same as PHP’s `file_get_contents()` except that the arguments are simpler and 
+	 * it may be preferable to use this in ProcessWire for future cases where the file system may be 
+	 * abstracted from the installation.
+	 * 
+	 * @param string $filename Full path and filename to read
+	 * @param int $offset The offset where the reading starts on the original stream. Negative offsets count from the end of the stream.
+	 * @param int $maxlen Maximum length of data read. The default is to read until end of file is reached.
+	 * @return bool|string Returns the read data (string) or boolean false on failure.
+	 * @since 3.0.167
+	 * @see WireFileTools::filePutContents()
+	 * 
+	 */
+	public function fileGetContents($filename, $offset = 0, $maxlen = 0) {
+		if($offset && $maxlen) {
+			return file_get_contents($filename, false, null, $offset, $maxlen); 
+		} else if($offset) {
+			return file_get_contents($filename, false, null, $offset); 
+		} else if($maxlen) {
+			return file_get_contents($filename, false, null, 0, $maxlen); 
+		} else {
+			return file_get_contents($filename);
+		}
 	}
 
 	/**
