@@ -928,18 +928,27 @@ class WireInput extends Wire {
 	 * 
 	 * #pw-group-URLs
 	 * 
-	 * @param bool $withQueryString Include the query string as well? (if present, default=false)
+	 * @param array|bool $options Specify `withQueryString` (bool) option, or in 3.0.167+ you can also use an options array: 
+	 *  - `withQueryString` (bool): Include the query string as well? (if present, default=false)
+	 *  - `page` (Page): Page object to use, if different from $page (default=$page)
 	 * @return string
 	 * @see WireInput::httpUrl(), Page::url()
 	 * 
 	 */
-	public function url($withQueryString = false) {
+	public function url($options = array()) {
+		
+		$defaults = array(
+			'withQueryString' => is_bool($options) ? $options : false,
+			'page' => $this->wire('page'), 
+		);
 
-		$url = '';
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		
 		/** @var Page $page */
-		$page = $this->wire('page'); 
+		$page = $options['page'];
 		$config = $this->wire('config');
 		$sanitizer = $this->wire('sanitizer');
+		$url = '';
 		
 		if($page && $page->id) {
 			// pull URL from page
@@ -982,7 +991,7 @@ class WireInput extends Wire {
 			}
 		}
 		
-		if($withQueryString) {
+		if($options['withQueryString']) {
 			$queryString = $this->queryString();
 			if(strlen($queryString)) {
 				$url .= "?$queryString";
@@ -1010,13 +1019,15 @@ class WireInput extends Wire {
 	 * 
 	 * #pw-group-URLs
 	 * 
-	 * @param bool $withQueryString Include the query string? (default=false) 
+	 * @param array|bool $options Specify `withQueryString` (bool) option, or in 3.0.167+ you can also use an options array:
+	 *  - `withQueryString` (bool): Include the query string as well? (if present, default=false)
+	 *  - `page` (Page): Page object to use, if different from $page (default=$page)
 	 * @return string
 	 * @see WireInput::url(), Page::httpUrl()
 	 * 
 	 */
-	public function httpUrl($withQueryString = false) {
-		return $this->httpHostUrl() . $this->url($withQueryString);
+	public function httpUrl($options = array()) {
+		return $this->httpHostUrl() . $this->url($options);
 	}
 
 	/**
@@ -1024,13 +1035,15 @@ class WireInput extends Wire {
 	 * 
 	 * See httpUrl() method for argument and usage details. 
 	 * 
-	 * @param bool $withQueryString
+	 * @param array|bool $options Specify `withQueryString` (bool) option, or in 3.0.167+ you can also use an options array:
+	 *  - `withQueryString` (bool): Include the query string as well? (if present, default=false)
+	 *  - `page` (Page): Page object to use, if different from $page (default=$page)
 	 * @return string
 	 * @see WireInput::httpUrl()
 	 * 
 	 */
-	public function httpsUrl($withQueryString = false) {
-		return $this->httpHostUrl(true) . $this->url($withQueryString);
+	public function httpsUrl($options = array()) {
+		return $this->httpHostUrl(true) . $this->url($options);
 	}
 
 	/**
@@ -1282,10 +1295,182 @@ class WireInput extends Wire {
 	 * 
 	 * @param array $overrides Optional assoc array for overriding or adding GET params
 	 * @return string Returns the unsanitized query string
+	 * @see WireInput::queryStringClean()
 	 * 
 	 */
 	public function queryString($overrides = array()) {
 		return $this->get()->queryString($overrides);
+	}
+
+	/**
+	 * Return a cleaned query string that was part of this request, or blank if none
+	 * 
+	 * Note: it is recommended that you always specify $options with this method as the defaults 
+	 * may or may not be consistent with your needs. 
+	 * 
+	 * #pw-group-URLs
+	 * 
+	 * @param array $options
+	 *  - `values` (array): Optional associative array of [name=value] to use in query string rather than current GET vars. (default=[])
+	 *  - `overrides` (array): Array of values to override or add to current request values. (default=[])
+	 *  - `validNames` (array): Only include query string variables with these names, and omit any others. (default=[])
+	 *  - `maxItems` (int): Maximum number of variables/items to include in the query string or 0 for no max. (default=20)
+	 *  - `maxLength` (int): Max overall length of returned query string or 0 for no max. (default=1024)
+	 *  - `maxNameLength` (int): Max length of any “name” in the “name=value” portion of a query string or 0 for no max. (default=50)
+	 *  - `maxValueLength` (int): Max length of any “value” in the “name=value” portion of a query string or 0 for no max. (default=255)
+	 *  - `maxArrayDepth` (int): Maximum depth for arrays, or 0 to disallow arrays. (default=0)
+	 *  - `maxArrayItems` (int): Maximum number of items allowed in arrays or 0 for no max. (default=20)
+	 *  - `associative` (bool): Allow associative arrays? (default=false)
+	 *  - `sanitizeName` (string): Sanitize query string variable names with this sanitizer method or blank to ignore. (default='fieldName')
+	 *  - `sanitizeValue` (string): Sanitize query string variable values with this sanitizer method or blank to ignore. (default='line')
+	 *  - `sanitizeRemove` (bool): Remove any variables from query string that are changed as the result of sanitization? (default=true)
+	 *  - `entityEncode` (bool): Should returned query string be entity encoded for HTML output? (default=true)
+	 *  - `encType` (int): Use PHP_QUERY_RFC3986 for spaces encoded to '%20' or PHP_QUERY_RFC1738 for spaces as '+'. (default=PHP_QUERY_RFC3986)
+	 *  - `separator` (string): Character(s) that separate each “name=value” in query string. (default='&')
+	 * @return string
+	 * @since 3.0.167
+	 * 
+	 */
+	public function queryStringClean(array $options = array()) {
+		
+		$defaults = array(
+			'values' => array(),
+			'overrides' => array(),
+			'validNames' => array(), 
+			'maxItems' => 20, 
+			'maxLength' => 1024, // max overall length
+			'maxNameLength' => 50,
+			'maxValueLength' => 255,
+			'allowArrays' => false, 
+			'maxArrayDepth' => 0, 
+			'maxArrayItems' => 20,
+			'sanitizeName' => 'fieldName',
+			'sanitizeValue' => 'line',
+			'sanitizeRemove' => true, 
+			'entityEncode' => true, 
+			'encType' => PHP_QUERY_RFC3986, // Spaces are '%20', for '+' use PHP_QUERY_RFC1738
+			'separator' => '&',
+		);
+		
+		$options = array_merge($defaults, $options);
+		$values = empty($options['values']) ? $this->get()->getArray() : $options['values'];
+		$sanitizer = $this->wire()->sanitizer;
+		$separator = $options['separator'];
+		$maxArrayDepth = $options['maxArrayDepth'];
+		
+		if(count($options['overrides'])) {
+			$values = array_merge($values, $options['overrides']); 
+		}
+	
+		// only allow specific names/keys from the array
+		if(!empty($options['validNames'])) {
+			$a = array();
+			foreach($values as $name => $value) {
+				if(in_array($name, $options['validNames'], true)) $a[$name] = $value;
+			}
+			$values = $a;
+		}
+	
+		// limit to a max quantity of items
+		if($options['maxItems'] && count($values) > $options['maxItems']) {
+			$values = array_slice($values, 0, $options['maxItems']);
+		}
+	
+		// sanitize or remove arrays
+		foreach($values as $name => $value) {
+			if(!is_array($value)) continue;
+			if($options['allowArrays']) {
+				$a = $sanitizer->arrayVal($value, array(
+					'maxItems' => $options['maxArrayItems'],
+					'maxDepth' => $maxArrayDepth, 
+					'sanitizer' => $options['sanitizeValue'], 
+					'keySanitizer' => $options['sanitizeName'],
+				));
+				if($options['sanitizeRemove'] && $a != $value) {
+					unset($values[$name]);
+				} else {
+					$values[$name] = $a;
+				}
+			} else {
+				unset($values[$name]); 
+			}
+		}
+
+		// sanitize names
+		if($options['sanitizeName'] || $options['maxNameLength']) {
+			$method = $options['sanitizeName'];
+			$max = $options['maxNameLength'];
+			$a = array();
+			foreach($values as $name => $value) {
+				$newName = $method ? $sanitizer->$method($name) : $name;
+				if($max && strlen($newName) > $max) {
+					$newName = substr($newName, 0, $max);
+				}
+				if($newName === $name) {
+					$a[$name] = $value;
+				} else if(!$options['sanitizeRemove']) {
+					$a[$newName] = $value;
+				}
+			}
+			$values = $a;
+		}
+	
+		// sanitize values
+		if($options['sanitizeValue'] || $options['maxValueLength']) {
+			$method = $options['sanitizeValue'];
+			$max = $options['maxValueLength'];
+			$a = array();
+			foreach($values as $name => $value) {
+				if(is_array($value) && $options['allowArrays']) {
+					// arrays already handled earlier
+					$a[$name] = $value;
+					continue;
+				} 
+				$newValue = $method ? $sanitizer->$method($value) : $value;
+				if($max && strlen($newValue) > $max) {
+					$newValue = substr($newValue, 0, $max);
+				}
+				if($newValue === $value) {
+					$a[$name] = $value;
+				} else if(!$options['sanitizeRemove']) {
+					$a[$name] = $newValue;
+				}
+			}
+			$values = $a;
+		}
+		
+		if(!count($values)) return '';
+	
+		// prevent double encoding if an encoded & was provided in $options
+		if(strtolower($separator) === '&amp;' && $options['entityEncode']) {
+			$separator = '&';
+		}
+
+		// build the query string
+		$queryString = http_build_query($values, '', $separator, $options['encType']);
+		
+		// %5Bfoobar%5D => [foobar]
+		// if(strpos($queryString, '%5D=')) {
+		//	$queryString = preg_replace('/%5B([-_.a-zA-Z0-9]+)%5D=/', '[$1]=', $queryString);
+		// }
+	
+		// entity encode if requested
+		if($options['entityEncode']) {
+			$queryString = $sanitizer->entities($queryString);
+			$separator = $sanitizer->entities($separator);
+		}
+	
+		// if query string exceeds max allowed length then truncate it
+		if($options['maxLength'] && strlen($queryString) > $options['maxLength']) { 
+			while(strlen($queryString) > $options['maxLength'] && strpos($queryString, $separator)) {
+				$a = explode($separator, $queryString);
+				array_pop($a);
+				$queryString = implode($separator, $queryString);
+			}
+			if(strlen($queryString) > $options['maxLength']) $queryString = '';
+		}
+		
+		return $queryString;
 	}
 
 	/**
