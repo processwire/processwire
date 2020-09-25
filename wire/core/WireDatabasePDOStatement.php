@@ -178,7 +178,7 @@ class WireDatabasePDOStatement extends \PDOStatement {
 		
 		if(is_array($input_parameters)) {
 			foreach($input_parameters as $key => $value) {
-				$this->setDebugParam($key, $value);
+				if(is_string($key)) $this->setDebugParam($key, $value);
 			}
 		}
 	
