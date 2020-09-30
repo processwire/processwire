@@ -203,19 +203,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		}
 		
 		if(!$renderValueMode && $this->value instanceof Pageimages) {
-			$page = $this->hasPage;
-			if(!$page || !$page->id) {
-				$process = $this->wire('process');
-				if($process instanceof WirePageEditor) {
-					$page = $process->getPage();
-				} else {
-					$page = new NullPage();
-				}
-			}
-			if(wireClassExists('RepeaterPage')) {
-				/** @var RepeaterPage $page */
-				while(wireInstanceOf($page, 'RepeaterPage')) $page = $page->getForPage();
-			}
+			$page = $this->getRootHasPage();
 			if($page->id && $this->wire('user')->hasPermission('page-edit-images', $page)) {
 				$modules->get('JqueryUI')->use('modal');
 			} else {
@@ -1243,6 +1231,24 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 		return $tooltip;
 	}
 
+	/**
+	 * Get the root "hasPage" being edited
+	 * 
+	 * @return NullPage|Page
+	 * @since 3.0.168
+	 * 
+	 */
+	protected function getRootHasPage() {
+		$page = $this->hasPage;
+		if(!$page || !$page->id) {
+			$process = $this->wire()->process;
+			$page = $process instanceof WirePageEditor ? $process->getPage() : new NullPage();
+		}
+		if(wireClassExists('RepeaterPage')) { /** @var RepeaterPage $page */
+			while(wireInstanceOf($page, 'RepeaterPage')) $page = $page->getForPage();
+		}
+		return $page;
+	}
 
 	/**
 	 * Build data for the tooltip that appears above the thumbnails
@@ -1311,7 +1317,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 	
 		/** @var Sanitizer $sanitizer */
 		$sanitizer = $this->wire('sanitizer');
-		$page = $this->hasPage;
+		$page = $this->getRootHasPage();
 	
 		if($page && $page->id) { 
 			if(!$this->wire()->user->hasPermission('page-edit-images', $page)) $this->useImageEditor = 0;
