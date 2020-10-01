@@ -2927,7 +2927,7 @@ class Sanitizer extends Wire {
 	}
 
 	/**
-	 * Trim of all known UTF-8 whitespace types (or given chars) from beginning and ending of string
+	 * Trim off all known UTF-8 whitespace types (or given chars) from beginning and ending of string
 	 * 
 	 * Like PHP’s trim() but works with multibyte strings and recognizes all types of UTF-8 whitespace
 	 * as well as HTML whitespace entities. This method also optionally accepts an array for $chars argument
@@ -2939,33 +2939,44 @@ class Sanitizer extends Wire {
 	 * #pw-group-strings
 	 * 
 	 * @param string $str
-	 * @param string|array $chars Characters to trim or omit (blank string) for all known whitespace (including UTF-8) and HTML-entity whitespace. 
+	 * @param string|array $chars Array or string of chars to trim, or omit (blank string) for all whitespace (includes UTF-8 and HTML-entity whitespace too). 
+	 * @param string $method Trim method, one of "trim" (both), "rtrim" (right-only) or "ltrim" (left-only). Or just "t", "r", "l" is also fine. 3.0.168+
 	 * @return string
 	 * @since 3.0.124
 	 * 
 	 */
-	public function trim($str, $chars = '') {
+	public function trim($str, $chars = '', $method = 'trim') {
 
 		$str = $this->string($str);
 		$tt = $this->getTextTools();
 		$len = $tt->strlen($str);
-		if(!$len) return $str;
-		if(is_array($chars) && !count($chars)) $chars = '';
+		
+		if(!$len) return '';
+
+		$method = strtoupper($method[0]);  // T, R or L
 		$trims = array();
+		$str2 = '';
+		
+		if(is_array($chars) && !count($chars)) $chars = '';
 
 		// setup trim
 		if($chars === '') {
 			// default whitespace characters
 			$trims = $this->getWhitespaceArray(true);
 			// let PHP default whitespace trim run first
-			$str = trim($str);
+			switch($method) {
+				case 'R': $str = rtrim($str); break;
+				case 'L': $str = ltrim($str); break;
+				default: $str = trim($str); break;
+			}
+			$str2 = $str; // remember what it looked like here in $str2
 			
 		} else {
 			// user-specified characters
 			if(is_array($chars)) {
 				$trims = $chars;
 			} else {
-				for($n = 0; $n < $tt->strlen($str); $n++) {
+				for($n = 0; $n < $tt->strlen($chars); $n++) {
 					$trim = $tt->substr($chars, $n, 1);
 					$trimLen = $tt->strlen($trim);
 					if($trimLen) $trims[] = $trim;
@@ -2990,15 +3001,17 @@ class Sanitizer extends Wire {
 				// at this point we know the trim character is present somewhere in the string
 				$trimLen = $tt->strlen($trim);
 				
-				// while this trim character matches at beginning of string, remove it
-				while($trimPos === 0) {
-					$str = $tt->substr($str, $trimLen);
-					$trimPos = $tt->strpos($str, $trim);
-					$numRemovedStart++;
+				// while this trim character matches at beginning of string, remove it (left trim)
+				if($method !== 'R') {
+					while($trimPos === 0) {
+						$str = $tt->substr($str, $trimLen);
+						$trimPos = $tt->strpos($str, $trim);
+						$numRemovedStart++;
+					}
 				}
 				
-				// trim from end
-				if($trimPos > 0) do {
+				// trim from end (right trim)
+				if($trimPos > 0 && $method !== 'L') do {
 					$x = 0; // qty removed only in this do/while iteration
 					$trimPos = $tt->strrpos($str, $trim);
 					if($trimPos === false) break;
@@ -3018,6 +3031,16 @@ class Sanitizer extends Wire {
 			$strLen = $tt->strlen($str);
 			
 		} while($numRemovedStart + $numRemovedEnd > 0 && $strLen > 0);
+	
+		// if a default behavior trim and $str was modified by trimming UTF-8 or entities
+		// whitespaces then follow-up with a regular PHP trim, just in case
+		if($chars === '' && $str !== $str2) {
+			switch($method) {
+				case 'R': $str = rtrim($str); break;
+				case 'L': $str = ltrim($str); break;
+				default: $str = trim($str); break;
+			}
+		}
 		
 		return $str;
 	}
