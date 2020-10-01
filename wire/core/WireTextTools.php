@@ -463,6 +463,8 @@ class WireTextTools extends Wire {
 	 *
 	 */
 	function truncate($str, $maxLength, $options = array()) {
+		
+		if(!strlen($str)) return '';
 
 		$ent = __(true, 'entityEncode', false);
 
@@ -484,8 +486,6 @@ class WireTextTools extends Wire {
 
 		if($ent) __(true, 'entityEncode', $ent);
 		
-		if(!strlen($str)) return '';
-
 		if(is_string($options) && ctype_alpha($options)) {
 			$defaults['type'] = $options;
 			$options = array();
@@ -595,7 +595,7 @@ class WireTextTools extends Wire {
 				$pos = array_pop($tests);
 				$result = trim($this->substr($str, 0, $pos + 1));
 				$lastChar = $this->substr($result, -1);
-				$result = rtrim($result, $options['trim']);
+				$result = $this->rtrim($result, $options['trim']);
 
 				if($type === 'sentence' || $type === 'block') {
 					// good to go with result as is
@@ -608,7 +608,7 @@ class WireTextTools extends Wire {
 						if(in_array($c, $endSentenceChars)) continue;
 						$trims .= $c;
 					}
-					$result = rtrim($result, $trims) . $options['more'];
+					$result = $this->rtrim($result, $trims) . $options['more'];
 				} else {
 					$result .= $options['more'];
 				}
@@ -621,7 +621,7 @@ class WireTextTools extends Wire {
 			}
 		} else {
 			// if we didn't find any place to truncate, just return exact truncated string
-			$result = trim($str, $options['trim']) . $options['more'];
+			$result = $this->trim($str, $options['trim']) . $options['more'];
 		}
 		
 		if(strlen($options['more'])) {
@@ -1398,7 +1398,39 @@ class WireTextTools extends Wire {
 	 */
 	public function trim($str, $chars = '') {
 		if(!$this->mb) return $chars === '' ? trim($str) : trim($str, $chars);
-		return $this->wire('sanitizer')->trim($str, $chars);
+		return $this->wire()->sanitizer->trim($str, $chars);
+	}
+
+	/**
+	 * Strip whitespace (or other characters) from the beginning of string only (aka left trim)
+	 *
+	 * #pw-group-PHP-function-alternates
+	 *
+	 * @param string $str
+	 * @param string $chars Omit for default
+	 * @return string
+	 * @since 3.0.168
+	 *
+	 */
+	public function ltrim($str, $chars = '') {
+		if(!$this->mb) return $chars === '' ? ltrim($str) : ltrim($str, $chars);
+		return $this->wire()->sanitizer->trim($str, $chars, 'ltrim');
+	}
+	
+	/**
+	 * Strip whitespace (or other characters) from the end of string only (aka right trim)
+	 *
+	 * #pw-group-PHP-function-alternates
+	 *
+	 * @param string $str
+	 * @param string $chars Omit for default
+	 * @return string
+	 * @since 3.0.168
+	 *
+	 */
+	public function rtrim($str, $chars = '') {
+		if(!$this->mb) return $chars === '' ? rtrim($str) : rtrim($str, $chars);
+		return $this->wire()->sanitizer->trim($str, $chars, 'rtrim');
 	}
 	
 
