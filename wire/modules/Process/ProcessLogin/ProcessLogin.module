@@ -22,7 +22,8 @@
  * 
  * @method void beforeLogin() #pw-hooker
  * @method void afterLogin() #pw-hooker
- * @method void executeLogout() #pw-hooker
+ * @method string executeLogout() #pw-hooker
+ * @method string executeLoggedOut() #pw-hooker
  * @method string afterLoginOutput() #pw-hooker
  * @method void afterLoginRedirect($url = '') #pw-hooker
  * @method string afterLoginURL($url = '') #pw-hooker
@@ -33,6 +34,7 @@
  * @method void loginSuccess(User $user) #pw-hooker
  * @method array getBeforeLoginVars() #pw-hooker
  * @method array getLoginLinks() #pw-hooker
+ * @method string renderLoginLinks() #pw-hooker
  * 
  *
  */
@@ -332,8 +334,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 			// fallback if nothing set
 			return $this->afterLoginOutput();
 			
-		} else if($this->wire('input')->urlSegmentStr() === 'logout') {
-			$session->redirect('../');
+		} else if($input->urlSegmentStr() === 'logout') {
+			$session->location('../');
 		}
 		
 		$tfa = $this->getTfa();
@@ -470,6 +472,61 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * Determine the after login URL and page, then populate to session to pick up after login
+	 * 
+	 * @since 3.0.167
+	 * 
+	 */
+	protected function determineAfterLoginUrl() {
+		
+		$input = $this->wire()->input;
+		$session = $this->wire()->session;
+		
+		// if we’ve already done this then exit early
+		if($session->getFor($this, 'afterLoginPageId') !== null) return;
+	
+		// ProcessPageView sets a loginRequestPageID variable to its session
+		// this is the ID of the page that access control blocked and sent user to login
+		$requestPageId = (int) $session->getFor('ProcessPageView', 'loginRequestPageID');
+		if(!$requestPageId || $requestPageId === $this->wire()->page->id) return;
+		
+		// load the requested page
+		$requestPage = $this->wire()->pages->get($requestPageId);
+		if(!$requestPage->id) {
+			$session->setFor($this, 'afterLoginPageId', 0);
+			return;
+		}
+		
+		if($requestPage->process) {
+			// admin: this is likely an admin page with a Process module
+			$process = (string) $requestPage->process;
+			if(!$process || $process === "ProcessLogin") return;
+			$className = $this->wire()->modules->getModuleClass($process, true);
+			if(!$className || !class_exists($className)) return;
+			$url = call_user_func_array("$className::getAfterLoginUrl", array($requestPage));
+		} else {
+			// front-end
+			$url = '';
+		}
+
+		if(empty($url)) {
+			$url = $session->getFor('ProcessPageView', 'loginRequestURL');
+		} else {
+			// common integer GET vars in admin to identify if present and not already in $url
+			foreach(array('id', 'modal') as $name) {
+				$value = $input->get($name);
+				if($value === null || !ctype_digit("$value")) continue; // not an integer
+				if(preg_match('/[&?]' . $name . '=/', $url)) continue; // already present
+				$url .= (strpos($url, '?') ? '&' : '?') . "$name=" . ((int) $value);
+			}
+		}
+		
+		// set what we found to session
+		$session->setFor($this, 'afterLoginUrl', $url);
+		$session->setFor($this, 'afterLoginPageId', $requestPage->id);
+	}
+
+	/**
 	 * Perform login and redirect on success
 	 * 
 	 * @param string $name
@@ -500,19 +557,21 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	
 	/**
 	 * Log the user out
+	 * 
+	 * @return string
 	 *
 	 */
 	public function ___executeLogout() {
 		if($this->logoutURL) {
 			$url = $this->logoutURL;
 		} else if($this->isAdmin || $this->wire('page')->template == 'admin') {
-			$url = $this->config->urls->admin;
-			$this->message($this->labels('logged-out'));
+			$url = $this->config->urls->admin . './?loggedout=1';
 		} else {
 			$url = "./?logout=2";
 		}
 		$this->session->logout();
 		$this->session->redirect($url, false);
+		return '';
 	}
 
 
@@ -526,15 +585,18 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		
 		/** @var Session $session */
 		$session = $this->wire('session');
-	
+		
 		$beforeLoginVars = $this->getBeforeLoginVars();
 		$session->setFor($this, 'beforeLoginVars', $beforeLoginVars);
-
-		// any remaining checks only if currently in the admin
-		if(!$this->isAdmin) return;
+		
+		// check if Process module provides an after login URL that it wants us to use
+		$this->determineAfterLoginUrl();
 		
 		// if checks already completed don't run them again
 		if($session->getFor($this, 'beforeLoginChecks')) return;
+
+		// any remaining checks only if currently in the admin
+		if(!$this->isAdmin) return;
 		
 		if(	ini_get('session.save_handler') == 'files' 
 			&& !$this->wire('modules')->isInstalled('SessionHandlerDB')
@@ -796,10 +858,13 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	protected function ___afterLoginRedirect($url = '') {
 		$url = $this->afterLoginURL($url);
-		/** @var Session $session */
-		$session = $this->wire('session');
+		$session = $this->wire()->session;
 		$session->removeFor($this, 'beforeLoginVars');
 		$session->removeFor($this, 'beforeLoginChecks');
+		$session->removeFor($this, 'afterLoginUrl');
+		$session->removeFor($this, 'afterLoginPageId');
+		$session->removeFor('ProcessPageView', 'loginRequestPageID');
+		$session->removeFor('ProcessPageView', 'loginRequestURL');
 		$session->redirect($url, false);
 	}
 
@@ -815,32 +880,42 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 */
 	public function ___afterLoginURL($url = '') {
 		
+		$session = $this->wire()->session;
+		$afterLoginUrl = $session->getFor($this, 'afterLoginUrl');
+		$id = (int) $session->getFor($this, 'afterLoginPageId'); 
+		
+		if($afterLoginUrl) {
+			$page = $id ? $this->wire()->pages->get($id) : new NullPage();
+			if(!$page->id || $page->viewable()) return $afterLoginUrl;
+		}
+		
 		if(empty($url)) {
-			/** @var User $user */
-			$user = $this->wire('user');
+			$user = $this->wire()->user;
 			if($this->loginURL) {
 				$url = $this->loginURL;
 			} else if($this->isAdmin && $user->isLoggedin() && $user->hasPermission('page-edit')) {
-				if($this->id || $this->wire('process') !== $this->className()) {
+				if($this->id || ((string) $this->wire()->process) !== $this->className()) {
 					$url = './';	
 				} else {
-					$url = $this->wire('config')->urls->admin . 'page/';
+					$url = $this->wire()->config->urls->admin . 'page/';
 				}
 			} else {
 				$url = './';
 			}
 		}
 		
-		$beforeLoginVars = $this->wire('session')->getFor($this, 'beforeLoginVars'); 
+		$beforeLoginVars = $session->getFor($this, 'beforeLoginVars'); 
 		if(!is_array($beforeLoginVars)) $beforeLoginVars = array();
 		if(!isset($beforeLoginVars['login'])) $beforeLoginVars['login'] = 1;
-		$url .= (strpos($url, '?') ? '&' : '?');
+		$a = array();
 		foreach($beforeLoginVars as $name => $value) {
 			if(strpos($url, "?$name=") !== false || strpos($url, "&$name=") !== false) continue; // skip if overridden
-			if(!is_int($value)) $value = $this->wire('sanitizer')->entities($value);
-			$url .= "$name=$value&";
+			$a[$name] = $value;
 		}
-		$url = rtrim($url, '&');
+		if(count($a)) {
+			$url .= strpos($url, '?') !== false ? '&' : '?';
+			$url .= http_build_query($a);
+		}
 		
 		return $url;
 	}
@@ -855,11 +930,11 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function ___getBeforeLoginVars() {
-		$session = $this->wire('session');
+		$session = $this->wire()->session;
 		$vars = $session->getFor($this, 'beforeLoginVars'); 
 		if(!is_array($vars)) $vars = array();
-		$id = $this->wire('input')->get('id');
-		if($id !== null) $vars['id'] = $this->wire('sanitizer')->intUnsigned($id);
+		$id = $this->wire()->input->get('id');
+		if($id !== null) $vars['id'] = $this->wire()->sanitizer->intUnsigned($id);
 		return $vars;
 	}
 
