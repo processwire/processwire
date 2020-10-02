@@ -2095,6 +2095,7 @@ class Sanitizer extends Wire {
 	 *   - `useQuotes` (bool): Allow selectorValue() function to add quotes if it deems them necessary? (default=true)
 	 *   - All following options are only supported in version 2 (available in 3.0.156+): 
 	 *   - `allowArray` (bool): Allow arrays to convert to OR-strings? If false, only 1st item in arrays is used. (default=true)
+	 *   - `allowSpace` (bool): Allow spaces? False to remove or true to allow (default=true) 3.0.168+
 	 *   - `operator` (string): Operator being used in selector, optionally apply for operator-specific filtering. 
 	 *   - `emptyValue` (string): Value to return if selector reduced to blank. Optionally use this to return something 
 	 *      that could never match, or return something for you to evaluate yourself, like boolean false. (default=blank string)
@@ -2172,6 +2173,7 @@ class Sanitizer extends Wire {
 	
 		$defaults = array(
 			'allowArray' => true, 
+			'allowSpace' => true,
 			'maxLength' => 100, 
 			'maxBytes' => 400,
 			'useQuotes' => true,
@@ -2241,7 +2243,7 @@ class Sanitizer extends Wire {
 
 		// remove other types of whtiespace
 		$whitespace = $this->getWhitespaceArray(false);
-		$value = trim(str_replace($whitespace, ' ', $value));
+		$value = trim(str_replace($whitespace, ($options['allowSpace'] ? ' ' : ''), $value));
 		if(!strlen($value)) return $emptyValue;
 
 		if($value[0] == "'") { 
