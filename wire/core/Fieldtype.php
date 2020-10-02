@@ -708,7 +708,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 * @param string $subfield Name of the subfield (typically 'data', unless selector explicitly specified another)
 	 * @param string $operator The comparison operator
 	 * @param mixed $value The value to find
-	 * @return DatabaseQuery $query
+	 * @return PageFinderDatabaseQuerySelect|DatabaseQuerySelect $query
 	 * @throws WireException
 	 *
 	 */

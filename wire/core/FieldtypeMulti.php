@@ -865,7 +865,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 	 * @param string $subfield Name of the field (typically 'data', unless selector explicitly specified another)
 	 * @param string $operator The comparison operator
 	 * @param mixed $value The value to find
-	 * @return DatabaseQuery $query
+	 * @return PageFinderDatabaseQuerySelect|DatabaseQuerySelect $query
 	 *
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
