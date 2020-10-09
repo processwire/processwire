@@ -4266,6 +4266,7 @@ class Sanitizer extends Wire {
 	 *  - `keepNumberFormat` (bool): Keep minus/comma/period in numbers rather than splitting into words? Also requires keepNumbers==true. (default=false)
 	 *  - `keepUnderscore` (bool): Keep underscores as part of words? (default=false)
 	 *  - `keepHyphen` (bool): Keep hyphenated words? (default=false)
+	 *  - `keepApostrophe` (bool): Keep apostrophe as part of words? (default=true) 3.0.168+
 	 *  - `keepChars` (array): Specify any of these to also keep as part of words ['.', ',', ';', '/', '*', ':', '+', '<', '>', '_', '-' ] (default=[])
 	 *  - `minWordLength` (int): Minimum word length (default=1)
 	 *  - `maxWordLength` (int): Maximum word length (default=80)
@@ -4283,6 +4284,7 @@ class Sanitizer extends Wire {
 			'maxWords' => 0,
 			'keepHyphen' => false, 
 			'keepUnderscore' => false,
+			'keepApostrophe' => true,
 			'keepNumbers' => true,
 			'keepNumberFormat' => true, 
 			'keepChars' => array(),
@@ -4306,6 +4308,11 @@ class Sanitizer extends Wire {
 		if($options['stripTags']) $value = strip_tags($value);
 		if($options['keepHyphen']) $options['keepChars'][] = '-';
 		if($options['keepUnderscore']) $options['keepChars'][] = '_';
+	
+		// option to let apostrophe be a word separator
+		if(!$options['keepApostrophe']) {
+			$value = str_replace(array("'", "’"), ' ', $value);
+		}
 		
 		if(!strlen($value)) return array();
 		
