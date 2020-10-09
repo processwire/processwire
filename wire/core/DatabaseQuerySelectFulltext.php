@@ -491,12 +491,12 @@ class DatabaseQuerySelectFulltext extends Wire {
 				if($isStopword && !$this->allowStopwords) continue;
 				$word = $this->escapeLike($word);
 				if(!strlen($word)) continue;
-				$likeValue = '([[:blank:]]|[[:punct:]]|[[:space:]]|>|^)' . preg_quote($word);
 				if($partial || ($partialLast && $word === $data['lastWord'])) {
 					// just match partial word from beginning
+					$likeValue = $this->rlikeValue($word);
 				} else {
 					// match to word-end
-					$likeValue .= '([[:blank:]]|[[:punct:]]|[[:space:]]|<|$)';
+					$likeValue = $this->rlikeValue($word, array('partial' => false));
 				}
 				$bindKey = $this->query->bindValueGetKey($likeValue);
 				$likeWhere = "($tableField $likeType $bindKey)";
@@ -577,9 +577,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 				// expand the againstValue to include the last word as a required partial match
 				$againstValue = trim("$againstValue +$lastWord*");
 			}
-			$likeValue = preg_quote($value);
-			$likeValue = str_replace(' ', '[- ]+', $likeValue); // space can also match hyphen
-			$likeValue = '([[:blank:]]|[[:punct:]]|[[:space:]]|>|^)' . $likeValue;
+			$likeValue = $this->rlikeValue($value); 
 		}
 		
 		if(strlen($againstValue)) {
@@ -807,14 +805,13 @@ class DatabaseQuerySelectFulltext extends Wire {
 		}
 
 		$likeType = $this->not ? 'NOT RLIKE' : 'RLIKE';
-		$likeValue = preg_quote($value);
 		
 		if($matchStart) {
 			// starts with phrase, [optional non-visible html or whitespace] plus query text
-			$likeValue = '^[[:space:]]*(<[^>]+>)*[[:space:]]*' . $likeValue;
+			$likeValue = $this->rlikeValue($value, array('start' => true)); 
 		} else {
 			// ends with phrase, [optional punctuation and non-visible HTML/whitespace]
-			$likeValue .= '[[:space:]]*[[:punct:]]*[[:space:]]*(<[^>]+>)*[[:space:]]*$';
+			$likeValue = $this->rlikeValue($value, array('end' => true)); 
 		}
 
 		$this->query->where("($tableField $likeType ?)", $likeValue);
@@ -1110,6 +1107,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		$defaults = array(
 			'keepNumberFormat' => false, 
+			'keepApostrophe' => false, 
 			'minWordLength' => 1, // minimum allowed length or true for ft_min_word_len
 			'stopwords' => true, // allow stopwords
 			'indexable' => false, // include only indexable words?
@@ -1141,6 +1139,70 @@ class DatabaseQuerySelectFulltext extends Wire {
 		
 		return $words; 
 	}
+
+	/**
+	 * Prepare a word or phrase for use in an RLIKE statement
+	 * 
+	 * @param string $value
+	 * @param array $options
+	 * @return string
+	 * 
+	 */
+	protected function rlikeValue($value, array $options = array()) {
+		
+		$defaults = array(
+			'start' => false, 
+			'end' => false,
+			'partial' => true, // partial match at end of 
+		);
+		
+		$options = array_merge($defaults, $options);
+		
+		// consider hyphen and space the same for matching purposes (must be before preg_quote)
+		$value = str_replace('-', ' ', $value);
+	
+		// escape characters used in regular expressions
+		$likeValue = preg_quote($value);
+		
+		if(strpos($likeValue, "'") !== false || strpos($likeValue, "’") !== false) {
+			// match either straight or curly apostrophe
+			$likeValue = preg_replace('/[\'’]+/', '(\'|’)', $likeValue);
+			// if word ends with apostrophe then apostrophe is optional
+			$likeValue = rtrim(str_replace("('|’) ", "('|’)? ", "$likeValue "));
+		}
+
+		if(strpos($likeValue, ' ') !== false) {
+			// collapse multiple spaces to just one
+			while(strpos($likeValue, '  ') !== false) $likeValue = str_replace('  ', ' ', $likeValue);
+			// hyphen/space can match space or hyphen in any quantity
+			$likeValue = str_replace(' ', '[- ]+', $likeValue);
+		}
+		
+		if($options['start']) {
+			// given value must match at beginning
+			$likeValue = '^[[:space:]]*(<[^>]+>)*[[:space:]]*' . $likeValue;
+			
+		} else if($options['end']) {
+			// given value must match at end
+			$likeValue .= '[[:space:]]*[[:punct:]]*[[:space:]]*(<[^>]+>)*[[:space:]]*$';
+			
+		} else {
+			// given value can match at beginning of any word boundary in value
+			if($this->wire()->database->getRegexEngine() === 'ICU') {
+				list($a, $b) = array("\\b", "\\b"); 
+			} else {
+				list($a, $b) = array('[[:<:]]', '[[:>:]]'); 
+			}
+
+			$likeValue = "($a|[[:blank:]]|[[:punct:]]|[[:space:]]|^|[-]|>|‘|“|„|«|‹|¿|¡)" . $likeValue;
+			
+			// if not doing partial matching then must also end at word boundary
+			if(!$options['partial']) $likeValue .= "($b|[[:blank:]]|[[:punct:]]|[[:space:]]|$|[-]|<|’|”|»|›)";
+		}
+
+		return $likeValue;
+	}
+	
 	/**
 	 * @param string $value
 	 * @return int
