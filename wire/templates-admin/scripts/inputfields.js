@@ -1375,17 +1375,24 @@ function InputfieldDependencies($target) {
 
 				// locate the dependency inputfield
 				var $inputfield = $("#Inputfield_" + f);
-				if ($inputfield.length == 0) {
+				if($inputfield.length == 0) {
 					consoleLog("Unable to find inputfield by: #Inputfield_" + f); 
 					$inputfield = $("#" + f);
 					if($inputfield.length == 0) consoleLog("Unable to find inputfield by: #" + f); 
 				}
 
 				// if the dependency inputfield isn't found, locate its wrapper..
-				if ($inputfield.length == 0) {
+				if($inputfield.length == 0) {
 					// use any inputs within the wrapper
 					$inputfield = $("#wrap_Inputfield_" + f).find(":input");
 					if($inputfield.length == 0) consoleLog("Unable to find inputfield by: #wrap_Inputfield_" + f + " :input");
+				}
+				
+				// if the dependency inputfield isn't found, locate its wrapper..
+				if($inputfield.length == 0) {
+					// use any inputs within the wrapper
+					$inputfield = $("#wrap_" + f).find(":input");
+					if($inputfield.length == 0) consoleLog("Unable to find inputfield by: #wrap_" + f + " :input");
 				}
 
 				// attach change event to dependency inputfield
