@@ -29,7 +29,6 @@ upgrade.php
 .sass-cache/*
 *.css.map
 wire/modules/AdminTheme/AdminThemeDefault/styles/sass/*.css
-composer.lock
 *.min.min.js
 wire/modules/Inputfield/InputfieldDatetime/timepicker/i18n/*.min.js
 wire/modules/Inputfield/InputfieldDatetime/jquery-ui-timepicker-addon.min.js
