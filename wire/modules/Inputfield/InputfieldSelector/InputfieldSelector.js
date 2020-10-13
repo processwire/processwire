@@ -237,10 +237,8 @@ var InputfieldSelector = {
 	 * 
 	 * This function initiates an ajax request to get the operator and value (opval) portion of the row.
 	 * 
-	 * @param $select
-	 * 
 	 */
-	changeField: function($select) {
+	changeField: function() {
 
 		//console.log('changeField'); 
 		var $select = $(this); 
@@ -496,7 +494,7 @@ var InputfieldSelector = {
 					value = '[' + value + ']';
 
 				// } else if(value.indexOf(',') > -1 && fieldName != '_custom') {
-				} else if(fieldName != '_custom') {
+				} else if(fieldName != '_custom' && op.indexOf('"') < 0) {
 					// value needs to be quoted
 					if(value.indexOf('"') > -1) { 
 						if(value.indexOf("'") === -1) {
@@ -649,7 +647,8 @@ var InputfieldSelector = {
 			}
 			var $counter = $preview.siblings('.selector-counter'); 
 			if($counter.length > 0 && !$counter.is('.selector-counter-disabled')) {
-				$counter.html(InputfieldSelector.spinner).fadeIn('fast'); 
+				$counter.html(InputfieldSelector.spinner).fadeIn('fast');
+				InputfieldSelector.selector = selector;
 				$.post('./?InputfieldSelector=test&name=' + $hiddenInput.attr('name'), { selector: selector }, function(data) {
 					$counter.hide();
 					$counter.html(data); 

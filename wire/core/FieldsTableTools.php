@@ -223,13 +223,11 @@ class FieldsTableTools extends Wire {
 		if($checking) return;
 		
 		$col = 'data';
-		$session = $this->wire('session');
-		if($verbose && !$session) return;
 
 		// is unique index requested?
 		$useUnique = (bool) $field->get('flagUnique');
 		
-		// ise unique index already present?
+		// is unique index already present?
 		$hasUnique = (bool) $field->hasFlag(Field::flagUnique);
 		
 		if($useUnique === $hasUnique) return;
@@ -243,33 +241,34 @@ class FieldsTableTools extends Wire {
 			$qty = $this->deleteEmptyRows($field, $col);
 			
 			if($qty && $verbose) {
-				$session->message(sprintf($this->_('Deleted %d empty row(s) for field %s'), $qty, $field->name));
+				$this->message(sprintf($this->_('Deleted %d empty row(s) for field %s'), $qty, $field->name));
 			}
 			
 			$result = $this->setUniqueIndex($field, true);
 			
 			if($result === false && $verbose) {
+				$pageEditUrl = $this->wire()->config->urls->admin . 'page/edit/?id=';
 				$msg = $this->_('Unique index cannot be added yet because there are already non-unique row(s) present:') . ' ';
 				$rows = $this->findDuplicateRows($field, array('verbose' => true, 'column' => $col));
 				foreach($rows as $row) {
 					$ids = array();
 					foreach($row['rows'] as $a) {
-						$ids[] = $a['pages_id'];
+						$ids[] = '[' . $a['pages_id'] . '](' . $pageEditUrl . $a['pages_id'] . ')';
 					}
-					$msg .= "\n• $row[value] — " . 
+					$msg .= "[br]• $row[value] — " . 
 						sprintf($this->_('Appears %d times'), $row['count']) . ' ' . 
-						sprintf($this->_('(pages: %s)'), implode(', ', $ids)) . ' ';
+						sprintf($this->_('(page IDs: %s)'), implode(', ', $ids)) . ' ';
 				}
-				$session->error($msg, Notice::noGroup);
+				$this->error($msg, Notice::noGroup | Notice::allowMarkdown);
 				
 			} else if($result && $verbose) {
-				$session->message($this->_('Added unique index'));
+				$this->message($this->_('Added unique index') . " ($field->name)", Notice::noGroup);
 			}
 
 		} else if($hasUnique && !$useUnique) {
 			// remove unique index
 			$result = $this->setUniqueIndex($field, false);
-			if($result && $verbose) $session->message($this->_('Removed unique index'));
+			if($result && $verbose) $this->message($this->_('Removed unique index') . " ($field->name)", Notice::noGroup);
 		}
 	
 		$checking = false;

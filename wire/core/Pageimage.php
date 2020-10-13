@@ -848,7 +848,7 @@ class Pageimage extends Pagefile {
 		// create a new resize if it doesn't already exist or forceNew option is set
 		if(!$filenameFinalExists && !file_exists($this->filename())) {
 			// no original file exists to create variation from 
-			$this->error = "Original image does not exist to create size variation";
+			$this->error = "Original image does not exist to create size variation: " . $this->url();
 			
 		} else if(!$filenameFinalExists || $options['forceNew']) {
 

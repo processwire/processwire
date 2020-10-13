@@ -1,11 +1,16 @@
 <?php namespace ProcessWire;
 
 /**
- * An Inputfield for handling E-Mail addresses
+ * An Inputfield for handling email addresses
  * 
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * https://processwire.com
+ *
  * @property int $confirm Specify 1 to make it include a second input for confirmation
  * @property string $confirmLabel label to accompany second input
  * @property int maxlength Max length of email address (default=512)
+ * 
+ * @method string renderConfirm(array $attrs)
  *
  */
 class InputfieldEmail extends InputfieldText {
@@ -15,9 +20,13 @@ class InputfieldEmail extends InputfieldText {
 			'title' => __('Email', __FILE__), // Module Title
 			'version' => 101,
 			'summary' => __('E-Mail address in valid format', __FILE__) // Module Summary
-			);
+		);
 	}
 
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		$this->setAttribute('name', 'email'); 
 		parent::__construct();
@@ -29,30 +38,70 @@ class InputfieldEmail extends InputfieldText {
 		$this->set('value2', '');
 	}
 
+	/**
+	 * Render input
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___render() {
-		if(!$this->label || $this->label == $this->name) $this->label = $this->_('E-Mail'); // label headline when no default specified
-		if($this->confirm && count($this->getErrors())) $this->attr('value', '');
-		$attrs = $this->getAttributes();
-		$out = "<input " . $this->getAttributesString($attrs) . " />"; 
-		if($this->confirm) {
-			foreach(array('id', 'name') as $key) {
-				if(isset($attrs[$key])) $attrs[$key] = '_' . $attrs[$key] . '_confirm';
-			}
-			$attrs['aria-label'] = $this->confirmLabel;
-			$attrs['placeholder'] = $this->confirmLabel;
-			$out .= "<div style='margin-top: 0.5em;'><input " . $this->getAttributesString($attrs) . " /></div>";
+		
+		if(!$this->label || $this->label === $this->attr('name')) {
+			$this->label = $this->_('E-Mail'); // label headline when no default specified
 		}
+		
+		if($this->confirm && count($this->getErrors())) $this->val('');
+		
+		$attrs = $this->getAttributes();
+		
+		$out = "<input " . $this->getAttributesString($attrs) . " />"; 
+		
+		if($this->confirm) $out .= $this->renderConfirm($attrs); 
+		
 		return $out; 
 	}
 
+	/**
+	 * Render the secondary “Confirm” email input 
+	 * 
+	 * @param array $attrs
+	 * @return string
+	 * 
+	 */
+	protected function ___renderConfirm(array $attrs) {
+		
+		foreach(array('id', 'name') as $key) {
+			if(isset($attrs[$key])) $attrs[$key] = '_' . $attrs[$key] . '_confirm';
+		}
+		
+		$attrs['aria-label'] = $this->confirmLabel;
+		$attrs['placeholder'] = $this->confirmLabel;
+		
+		return "<div style='margin-top:0.5em'><input " . $this->getAttributesString($attrs) . " /></div>";
+	}
+
+	/**
+	 * Set attribute value
+	 * 
+	 * @param string $value
+	 * @return string
+	 * 
+	 */
 	protected function setAttributeValue($value) {
 		if(strlen($value)) { 
-			$value = $this->wire('sanitizer')->email($value); 	
-			if(!$value) $this->error($this->_("Please enter a valid e-mail address")); // Error message when email address is invalid
+			$value = $this->wire()->sanitizer->email($value); 	
+			if(!strlen($value)) $this->error($this->_("Please enter a valid e-mail address")); // Error message when email address is invalid
 		}
 		return $value; 
 	}
 
+	/**
+	 * Process input 
+	 * 
+	 * @param WireInputData $input
+	 * @return $this
+	 * 
+	 */
 	public function ___processInput(WireInputData $input) {
 
 		$field = $this->hasField;
@@ -60,6 +109,7 @@ class InputfieldEmail extends InputfieldText {
 		$page = $this->hasPage;
 		$errors = array();
 		$valuePrevious = $this->val();
+		$name = $this->attr('name');
 		
 		parent::___processInput($input);
 		
@@ -67,15 +117,15 @@ class InputfieldEmail extends InputfieldText {
 		$changed = strtolower($value) !== strtolower($valuePrevious);
 		
 		if($this->confirm) {
-			$value2 = $this->wire('sanitizer')->email($input["_{$this->name}_confirm"]);
+			$value2 = $this->wire()->sanitizer->email($input["_{$name}_confirm"]);
 			if((strlen($value) || strlen($value2)) && strtolower($value) !== strtolower($value2)) {
 				$errors[] = $this->_('The emails you entered did not match, please enter again');
 			}
 		}
 		
 		if($changed && $value && $field && $page && $field->hasFlag(Field::flagUnique)) {
-			$fields = $this->wire('fields'); /** @var Fields $fields */
-			$pageId = $fields->tableTools()->valueExists($this->hasField, $value);
+			$fields = $this->wire()->fields;
+			$pageId = $fields->tableTools()->valueExists($field, $value);
 			if($pageId && $pageId != $page->id) {
 				$errors[] = sprintf($this->_('Email “%s” is already in use, please use a different one'), $value);
 			}
@@ -96,17 +146,24 @@ class InputfieldEmail extends InputfieldText {
 		return $this;
 	}
 
+	/**
+	 * Field config
+	 * 
+	 * @return InputfieldWrapper
+	 * 
+	 */
 	public function ___getConfigInputfields() {
+		
 		$inputfields = parent::___getConfigInputfields();
-
 		$skips = array('stripTags', 'pattern'); 
+		
 		foreach($skips as $name) {
 			$f = $inputfields->get($name);
 			if($f) $inputfields->remove($f);
 		}
 
 		/** @var InputfieldCheckbox $f */
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f = $this->wire()->modules->get('InputfieldCheckbox');
 		$f->attr('name', 'confirm');
 		$f->label = $this->_('Confirm email address?');
 		$f->description = $this->_('When checked, two email inputs will appear and the user will have to enter their email address twice to confirm it. This helps reduce the possibility of typos.');
@@ -114,6 +171,7 @@ class InputfieldEmail extends InputfieldText {
 		$f->collapsed = $this->confirm ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
 		if($this->confirm) $f->attr('checked', 'checked');
 		$inputfields->add($f);
+		
 		return $inputfields;	
 	}
 

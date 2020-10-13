@@ -942,7 +942,7 @@ class WireFileTools extends Wire {
 		$t->setFilename($filename);
 
 		foreach($vars as $key => $value) {
-			$t->set($key, $value);
+			$t->data($key, $value);
 		}
 		
 		return $t->render();

@@ -294,8 +294,8 @@ class PagesNames extends Wire {
 			$format = empty($options['format']) ? '' : $options['format'];
 		}
 		
-		/** @var Languages|null $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
+		$sanitizer = $this->wire()->sanitizer;
 		
 		$options = array_merge($defaults, $options);
 		if(!strlen($format)) $format = $this->defaultPageNameFormat($page);
@@ -354,7 +354,7 @@ class PagesNames extends Wire {
 			$name = wireDate($format);
 			$formatType = 'date';
 
-		} else if($this->wire('sanitizer')->fieldName($format) === $format) {
+		} else if($sanitizer->fieldName($format) === $format) {
 			// single field name or predefined string
 			// this can also return null, which falls back to if() statement below
 			$name = (string) $page->getUnformatted($format);
@@ -395,8 +395,7 @@ class PagesNames extends Wire {
 
 		if(strlen($name) > $this->nameMaxLength) $name = $this->adjustNameLength($name);
 		
-		$utf8 = $this->wire('config')->pageNameCharset === 'UTF8';
-		$sanitizer = $this->wire('sanitizer');
+		$utf8 = $this->wire()->config->pageNameCharset === 'UTF8';
 		$name = $utf8 ? $sanitizer->pageNameUTF8($name) : $sanitizer->pageName($name, Sanitizer::translate);
 		
 		if($language) $languages->unsetLanguage();

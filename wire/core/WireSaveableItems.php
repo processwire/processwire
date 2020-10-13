@@ -105,37 +105,48 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 			// nothing provided, load all assumed
 			return $query; 
 		}
+	
+		// Note: ProcessWire core does not appear to ever reach this point as the
+		// core does not use selectors to load any of its WireSaveableItems
 
 		$functionFields = array(
 			'sort' => '', 
 			'limit' => '', 
 			'start' => '',
-			);
+		);
 		
 		$item = $this->makeBlankItem();
 		$fields = array_keys($item->getTableData());
 
 		foreach($selectors as $selector) {
 
-			if(!$database->isOperator($selector->operator)) 
-				throw new WireException("Operator '{$selector->operator}' may not be used in {$this->className}::load()"); 
-
-			if(in_array($selector->field, $functionFields)) {
-				$functionFields[$selector->field] = $selector->value; 
-				continue; 
+			if(!$database->isOperator($selector->operator)) {
+				throw new WireException("Operator '$selector->operator' may not be used in {$this->className}::load()");
+			}
+			
+			if(isset($functionFields[$selector->field])) {
+				$functionFields[$selector->field] = $selector->value;
+				continue;
 			}
 
 			if(!in_array($selector->field, $fields)) {
-				throw new WireException("Field '{$selector->field}' is not valid for {$this->className}::load()");
+				throw new WireException("Field '$selector->field' is not valid for {$this->className}::load()");
 			}
 
 			$selectorField = $database->escapeTableCol($selector->field); 
-			$value = $database->escapeStr($selector->value); 
-			$query->where("{$selectorField}{$selector->operator}'$value'"); // QA
+			$query->where("$selectorField$selector->operator?", $selector->value); // QA
 		}
 
-		if($functionFields['sort'] && in_array($functionFields['sort'], $fields)) $query->orderby("$functionFields[sort]");
-		if($functionFields['limit']) $query->limit(($functionFields['start'] ? ((int) $functionFields['start']) . "," : '') . $functionFields['limit']); 
+		$sort = $functionFields['sort'];
+		if($sort && in_array($sort, $fields)) {
+			$query->orderby($database->escapeCol($sort));
+		}
+		
+		$limit = (int) $functionFields['limit'];
+		if($limit) {
+			$start = $functionFields['start'];
+			$query->limit(($start ? ((int) $start) . ',' : '') . $limit);
+		}
 
 		return $query; 
 

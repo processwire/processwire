@@ -51,6 +51,7 @@
  * @property int $timeInputSelect jQuery UI timeSelect type (requires datepicker)—specify 1 to use a `<select>` for time input, or 0 to use a slider (default=0)
  * @property string $dateInputFormat Date input format to use, see WireDateTime::$dateFormats (default='Y-m-d')
  * @property string $timeInputFormat Time input format to use, see WireDateTime::$timeFormats (default='')
+ * @property string $placeholder Placeholder attribute text
  * 
  * Properties specific to "html" input type
  * ========================================
