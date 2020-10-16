@@ -754,7 +754,7 @@ class ProcessLanguageTranslator extends Process {
 			}
 
 			// files containing __(file-not-translatable) anywhere are non-translatable
-			if($found && $pathname !== __FILE__ && strpos($text, '__' . '(file-not-translatable)') !== false) $found = false;
+			if($found && $pathname !== __FILE__ && strpos($text, '__(file-not-translatable)') !== false) $found = false;
 
 			if($found) {
 				$pathname = str_replace($root, '/', $pathname);
