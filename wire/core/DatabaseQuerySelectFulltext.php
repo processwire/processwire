@@ -489,7 +489,6 @@ class DatabaseQuerySelectFulltext extends Wire {
 			foreach($data['likeWords'] as $word) {
 				$isStopword = isset($data['stopWords'][$word]);
 				if($isStopword && !$this->allowStopwords) continue;
-				$word = $this->escapeLike($word);
 				if(!strlen($word)) continue;
 				if($partial || ($partialLast && $word === $data['lastWord'])) {
 					// just match partial word from beginning
@@ -884,7 +883,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		$likeWords = array();
 		$altWords = array();
 		$joinWords = array();
-		$joiners = array('->', '-', '.', '_', ':');
+		$joiners = array('->', '-', '.', ':');
 		
 		// get all words
 		$allWords = $this->words($value);
