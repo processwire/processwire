@@ -149,7 +149,7 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 	public function addTab(Inputfield $inputfield, Language $language) {
 		$settings = $this->getSettings();
 		$liClasses = array();
-		$aClasses = array('langTab' . $language->id);
+		$aClasses = array('langTabLink', 'langTab' . $language->id);
 		$title = $language->get($this->tabField);
 		if(empty($title)) $title = $language->get('name');
 		$title = $this->wire('sanitizer')->entities1($title);

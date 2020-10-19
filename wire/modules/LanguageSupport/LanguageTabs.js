@@ -57,7 +57,7 @@ function setupLanguageTabs($form) {
 			$parent.prev('.InputfieldHeader').append($span);
 		}
 		
-		var $links = $this.find('a');
+		var $links = $this.find('a.langTabLink');
 		var timeout = null;
 		var $note = $parent.find('.langTabsNote');
 		
@@ -179,7 +179,7 @@ function unhideLanguageTabs() {
  */
 jQuery(document).ready(function($) { 
 	$(document).on('click', '.langTabsToggle', toggleLanguageTabs);
-	$(document).on('dblclicklangtab', '.langTabs a', dblclickLanguageTab);
+	$(document).on('dblclicklangtab', 'a.langTabLink', dblclickLanguageTab);
 	$(document).on('reloaded', '.Inputfield', function() {
 		var $inputfield = $(this);
 		setTimeout(function() {
