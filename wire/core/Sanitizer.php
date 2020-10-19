@@ -1812,7 +1812,7 @@ class Sanitizer extends Wire {
 
 		// separate scheme+domain+path from query string temporarily
 		if(strpos($value, '?') !== false) {
-			list($domainPath, $queryString) = explode('?', $value);
+			list($domainPath, $queryString) = explode('?', $value, 2);
 			if(!$options['allowQuerystring']) $queryString = '';
 		} else {
 			$domainPath = $value;
@@ -1835,9 +1835,10 @@ class Sanitizer extends Wire {
 			// restore characters allowed in domain/path
 			$domainPath = str_replace(array('%2F', '%3A'), array('/', ':'), $domainPath);
 			// restore value that is now FILTER_SANITIZE_URL compatible
-			$value = $domainPath . (strlen($queryString) ? "?$queryString" : "");
 			$pathIsEncoded = true;
 		}
+		
+		$value = $domainPath . (strlen($queryString) ? "?$queryString" : "");
 
 		// this filter_var sanitizer just removes invalid characters that don't appear in domains or paths
 		$value = filter_var($value, FILTER_SANITIZE_URL);
