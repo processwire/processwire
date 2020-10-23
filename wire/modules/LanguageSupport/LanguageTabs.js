@@ -61,6 +61,12 @@ function setupLanguageTabs($form) {
 		var timeout = null;
 		var $note = $parent.find('.langTabsNote');
 		
+		if(!$links.length) {
+			$links = $this.find('a[data-lang]'); // fallback if missing langTabLink class
+			if(!$links.length) $links = $this.find('a');
+			$links.addClass('langTabLink');
+		}
+		
 		$links.on('mouseover', function() {
 			if(timeout) clearTimeout(timeout);
 			if($parent.width() < 500) return;
