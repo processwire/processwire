@@ -2066,6 +2066,33 @@ class ProcessField extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * Compare two diff context arrays and return the differences
+	 * 
+	 * @param array $a1
+	 * @param array $a2
+	 * @return array
+	 * 
+	 */
+	protected function diffContextArray(array $a1, array $a2) {
+		$diff = array();
+		foreach($a1 as $k => $v) {
+			if(is_array($v)) {
+				if(!isset($a2[$k]) || !is_array($a2[$k])) {
+					$diff[$k] = $v;
+				} else {
+					$_diff = $this->diffContextArray($v, $a2[$k]);
+					if(count($_diff)) $diff[$k] = $_diff;
+				}
+			} else if(!array_key_exists($k, $a2)) {
+				$diff[$k] = $v;
+			} else if($a2[$k] !== $v) {
+				$diff[$k] = $v;
+			}
+		}
+		return $diff;
+	}
+
+	/**
 	 * Save field in the context of a fieldgroup only
 	 *
 	 */
@@ -2077,7 +2104,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			$this->fields->saveFieldgroupContext($this->field, $this->fieldgroup, $this->contextNamespace); 
 			$this->saveRemoveOverrides();
 			$newContextArray = $this->fieldgroup->getFieldContextArray($this->field->id); 
-			$diffContextArray = array_diff_assoc($newContextArray, $oldContextArray); 
+			$diffContextArray = $this->diffContextArray($newContextArray, $oldContextArray); 
 			if(count($diffContextArray)) {
 				$this->fieldChangedContext($this->field, $this->fieldgroup, $diffContextArray); 
 			}
