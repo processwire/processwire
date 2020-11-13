@@ -1070,8 +1070,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 			// check if the field is corrupted
 			$isCorrupted = false;
 			if(is_object($value) && $value instanceof PageFieldValueInterface) {
+				// value indicates it is already formatted, so would corrupt the page for saving
 				if($value->formatted()) $isCorrupted = true;
 			} else if($this->outputFormatting) {
+				// check if value is modified by being formatted
 				$result = $field->type->_callHookMethod('formatValue', array($this, $field, $value));
 				if($result != $value) $isCorrupted = true; 
 			}
@@ -1783,9 +1785,49 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 
 	/**
-	 * Get the unformatted value of a field, regardless of output formatting state
+	 * Set the unformatted value of a field, regardless of current output formatting state
 	 * 
-	 * When a page's output formatting state is off, `$page->get('property')` or `$page->property` will
+	 * Use this when setting an unformatted value to a page that has (or might have) output formatting enabled. 
+	 * This will save you the steps of checking the output formatting state, turning it off, setting the value,
+	 * and turning it back on again (if it was on). Note that the output formatting distinction matters for some
+	 * field types and not others, just depending on the case—this method is safe to use either way.
+	 * 
+	 * Make sure you do not use this to set an already formatted value to a Page (like some text that has been 
+	 * entity encoded). This method skips over some of the checks that might otherwise flag the page as corrupted. 
+	 * 
+	 * ~~~~~
+	 * // good usage
+	 * $page->setUnformatted('title', 'This & That'); 
+	 * 
+	 * // bad usage
+	 * $page->setUnformatted('title', 'This &amp; That'); 
+	 * ~~~~~
+	 * 
+	 * #pw-advanced
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @return self
+	 * @since 3.0.169
+	 * @throws WireException if given an object value that indicates it is already formatted. 
+	 * @see Page::getUnformatted(), Page::of(), Page::setOutputFormatting(), Page::outputFormatting()
+	 * 
+	 */
+	public function setUnformatted($key, $value) {
+		if(is_object($value) && $value instanceof PageFieldValueInterface && $value->formatted()) {
+			throw new WireException("Cannot use formatted-value with Page::setUnformatted($key, formatted-value);");
+		}
+		$outputFormatting = $this->outputFormatting;
+		if($outputFormatting) $this->setOutputFormatting(false);
+		$this->set($key, $value);
+		if($outputFormatting) $this->setOutputFormatting(true);
+		return $this;
+	}
+
+	/**
+	 * Get the unformatted value of a field, regardless of current output formatting state
+	 * 
+	 * When a page’s output formatting state is off, `$page->get('property')` or `$page->property` will
 	 * produce the same result as this method call. 
 	 * 
 	 * ~~~~~
@@ -1797,7 +1839,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 * @param string $key Field or property name to retrieve
 	 * @return mixed
-	 * @see Page::getFormatted(), Page::of()
+	 * @see Page::getFormatted(), Page::of(), Page::setOutputFormatting(), Page::outputFormatting()
 	 *
 	 */
 	public function getUnformatted($key) {
