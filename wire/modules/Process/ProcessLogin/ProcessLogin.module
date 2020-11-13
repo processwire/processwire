@@ -422,7 +422,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$originalValue = $value;
 		
 		if(!$this->useEmailLogin() || !strpos($value, '@')) {
-			$value = $this->sanitizer->pageName($value);
+			$value = $this->sanitizer->pageNameUTF8($value);
 			$this->submitLoginName = $value;
 			if($originalValue !== $value && strtolower($originalValue) !== $value) {
 				// if sanitizer changed anything about the value (other than case) do not accept it
