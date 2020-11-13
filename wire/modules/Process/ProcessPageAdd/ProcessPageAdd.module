@@ -496,6 +496,13 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			throw new WireException($this->errors('string'));
 		}
 
+		if($this->parent->template->name === 'admin' && $this->wire()->page->id != $this->parent->id) {
+			$process = $this->parent->process;
+			if($process && wireInstanceOf($process, 'ProcessPageType')) {
+				$this->wire()->session->location($this->parent->url . 'add/');
+			}
+		} 
+
 		if(count($this->parent->template->childTemplates) == 1) {
 			// only one type of template is allowed for the parent
 			$childTemplates = $this->parent->template->childTemplates;
