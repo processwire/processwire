@@ -931,6 +931,7 @@ class WireInput extends Wire {
 	 * @param array|bool $options Specify `withQueryString` (bool) option, or in 3.0.167+ you can also use an options array: 
 	 *  - `withQueryString` (bool): Include the query string as well? (if present, default=false)
 	 *  - `page` (Page): Page object to use, if different from $page (default=$page)
+	 *  - `pageNum` (int): Override current pagination number with this one, 1 to exclude pageNum, 0 for no override (default=0). 3.0.169+
 	 * @return string
 	 * @see WireInput::httpUrl(), Page::url()
 	 * 
@@ -940,6 +941,7 @@ class WireInput extends Wire {
 		$defaults = array(
 			'withQueryString' => is_bool($options) ? $options : false,
 			'page' => $this->wire('page'), 
+			'pageNum' => 0, 
 		);
 
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
@@ -954,7 +956,7 @@ class WireInput extends Wire {
 			// pull URL from page
 			$url = $page->url();
 			$segmentStr = $this->urlSegmentStr();
-			$pageNum = $this->pageNum();
+			$pageNum = $options['pageNum'] > 0 ? (int) $options['pageNum'] : $this->pageNum();
 			if(strlen($segmentStr) || $pageNum > 1) {
 				if($segmentStr) $url = rtrim($url, '/') . '/' . $segmentStr;
 				if($pageNum > 1) $url = rtrim($url, '/') . '/' . $this->pageNumStr($pageNum); 
@@ -1465,7 +1467,7 @@ class WireInput extends Wire {
 			while(strlen($queryString) > $options['maxLength'] && strpos($queryString, $separator)) {
 				$a = explode($separator, $queryString);
 				array_pop($a);
-				$queryString = implode($separator, $queryString);
+				$queryString = implode($separator, $a);
 			}
 			if(strlen($queryString) > $options['maxLength']) $queryString = '';
 		}
