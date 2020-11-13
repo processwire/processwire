@@ -479,9 +479,15 @@ abstract class FieldtypeMulti extends Fieldtype {
 			
 			foreach($filters as $selector) {
 				// @todo add support for OR values of $col or $value
-				$col = $sanitizer->fieldName($selector->field);
+				$col = $selector->field;
 				$op = $selector->operator;
 				$value = $selector->value;
+			
+				if(is_array($col)) {
+					foreach($col as $k => $v) $col[$k] = $sanitizer->fieldName($v);
+				} else {
+					$col = $sanitizer->fieldName($col);
+				}
 				
 				if($col === 'sort') {
 					$desc = strpos($value, '-') === 0 ? '-' : '';

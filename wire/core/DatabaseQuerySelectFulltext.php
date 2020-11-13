@@ -49,10 +49,20 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected $tableName = '';
 
 	/**
+	 * Current field/column name
+	 * 
 	 * @var $fieldName
 	 *
 	 */
 	protected $fieldName = '';
+
+	/**
+	 * All field/column names (if more than one)
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $fieldNames = array();
 
 	/**
 	 * @var string
@@ -256,7 +266,6 @@ class DatabaseQuerySelectFulltext extends Wire {
 	public function match($tableName, $fieldName, $operator, $value) {
 		
 		$this->tableName = $this->database->escapeTable($tableName); 
-		$this->fieldName = $this->database->escapeCol($fieldName);
 		$allowOrder = true;
 		
 		if(strpos($operator, '!') === 0 && $operator !== '!=') {
@@ -281,7 +290,22 @@ class DatabaseQuerySelectFulltext extends Wire {
 		if(!$this->method) {
 			throw new WireException("Unimplemented operator in $this::match()");
 		}
+		
+		if(is_array($fieldName) && count($fieldName) < 2) {
+			$fieldName = reset($fieldName);
+		}
 
+		if(is_array($fieldName)) {
+			$this->matchArrayFieldName($fieldName, $value);
+		} else {
+			$this->matchFieldName($fieldName, $value);
+		}
+		
+		return $this;
+	}
+	
+	protected function matchFieldName($fieldName, $value) {
+		$this->fieldName = $this->database->escapeCol($fieldName);
 		if(is_array($value)) {
 			$this->matchArrayValue($value);
 		} else {
@@ -289,8 +313,28 @@ class DatabaseQuerySelectFulltext extends Wire {
 			$method = $this->method;
 			if(strlen($value)) $this->$method($value);
 		}
+	}
+
+	/**
+	 * Match when given $fieldName is an array
+	 *
+	 * @param array $fieldNames
+	 * @param mixed $value
+	 * @since 3.0.169
+	 *
+	 */
+	protected function matchArrayFieldName(array $fieldNames, $value) {
+		$query = $this->query;
+		$this->query = $this->wire(new DatabaseQuerySelect());
+		$this->query->bindOption(true, $query->bindOption(true));
 		
-		return $this;
+		foreach($fieldNames as $fieldName) {
+			$this->matchFieldName($fieldName, $value);
+		}
+		
+		$query->where('(' . implode(') OR (', $this->query->where) . ')');
+		$this->query->copyBindValuesTo($query);
+		$this->query = $query;
 	}
 
 	/**
