@@ -34,6 +34,7 @@
  * @property-read int $depth Current comment depth (since 3.0.149)
  * @property-read bool $loaded True when comment is fully loaded from DB (since 3.0.149)
  * @property-read int $numChildren Number of children with no exclusions. See and use numChildren() method for more options. (since 3.0.154)
+ * @property-read User $createdUser User that created the comment
  *
  */
 

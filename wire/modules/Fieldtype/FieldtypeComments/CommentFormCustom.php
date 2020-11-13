@@ -111,20 +111,20 @@ class CommentFormCustom extends CommentForm {
 					<label class='{notify.input.label.class}'>
 						<input class='{notify.input.class}' type='radio' name='{notify.input.name}' checked='checked' value='{notify.input.off.value}' /> 
 						{notify.input.off.label}
-					<label>	
+					</label>	
 					
 					{if.notify.replies}
 					<label class='{notify.input.label.class}'>
 						<input class='{notify.input.class}' type='radio' name='{notify.input.name}' value='{notify.input.replies.value}' /> 
 						{notify.input.replies.label}
-					<label>	
+					</label>	
 					{endif.notify.replies}
 					
 					{if.notify.all}
 					<label class='{notify.input.label.class}'>
 						<input class='{notify.input.class}' type='radio' name='{notify.input.name}' value='{notify.input.all.value}' /> 
 						{notify.input.all.label}
-					<label>	
+					</label>	
 					{endif.notify.all}
 				</p>	
 				{endif.notify}
