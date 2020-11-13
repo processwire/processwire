@@ -2248,7 +2248,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 * @return ProcessPageListerBookmarks
 	 * 
 	 */
-	protected function getBookmarksInstance() {
+	public function getBookmarksInstance() {
 		static $bookmarks = null;
 		if(is_null($bookmarks)) {
 			require_once(dirname(__FILE__) . '/ProcessPageListerBookmarks.php');
