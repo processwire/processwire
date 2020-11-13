@@ -162,7 +162,7 @@ steps outlined above:
      But we might also do something more like append some navigation 
      under the body copy or prepend a photo... the sky is the limit. 
 
-     $content = "<img src='/photo.jpg'>" . $page->body;
+     $content = "<img src='/photo.jpg' alt='…'>" . $page->body;
 
      Our search.php template file for example, populates $content with 
      a list of search results. 
