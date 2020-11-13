@@ -20,6 +20,7 @@
  * https://processwire.com/about/license/mit/
  * 
  * @method string|array execute()
+ * @method string|array executeUnknown() Called when urlSegment matches no execute[Method], only if implemented.
  * @method Process headline(string $headline)
  * @method Process browserTitle(string $title)
  * @method Process breadcrumb(string $href, string $label)
