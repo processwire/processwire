@@ -1444,6 +1444,7 @@ abstract class Inputfield extends WireData implements Module {
 		$field = $this->modules->get("InputfieldSelect"); 
 		$field->attr('name', 'collapsed'); 
 		$field->label = $this->_('Presentation'); 
+		$field->icon = 'eye-slash';
 		$field->description = $this->_("How should this field be displayed in the editor?");
 		$field->addOption(self::collapsedNo, $this->_('Open'));
 		$field->addOption(self::collapsedNever, $this->_('Open + Cannot be closed'));
@@ -1485,6 +1486,7 @@ abstract class Inputfield extends WireData implements Module {
 		$field->label = sprintf($this->_('Column width (%d%%)'), $value);
 		$field->icon = 'arrows-h';
 		$field->attr('id+name', 'columnWidth'); 
+		$field->addClass('columnWidthInput');
 		$field->attr('type', 'text');
 		$field->attr('maxlength', 4); 
 		$field->attr('size', 4); 
