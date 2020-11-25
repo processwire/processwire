@@ -72,6 +72,14 @@ class ProcessCommentsManager extends Process {
 	protected $statusTranslations = array();
 
 	/**
+	 * Translated flags 
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $notifyFlagsTranslations = array();
+
+	/**
 	 * Number of comments to show per page
 	 *
 	 */
@@ -111,6 +119,11 @@ class ProcessCommentsManager extends Process {
 			Comment::statusPending => $this->_('Pending'),
 			Comment::statusSpam => $this->_('Spam'),
 			Comment::statusDelete => $this->_('Delete')
+		);
+		$this->notifyFlagsTranslations = array(
+			0 => $this->_('No'), 
+			Comment::flagNotifyAll => $this->_('All'),
+			Comment::flagNotifyReply => $this->_('Replies'), 
 		);
 		$this->labelAll = $this->_('All'); 
 	}
@@ -357,6 +370,23 @@ class ProcessCommentsManager extends Process {
 				$numChanged++;
 				$properties['status'] = $comment->status;
 			}
+		
+			$notify = $input->post("CommentNotify{$comment->id}"); 
+			if($field->useNotify && ctype_digit($notify)) {
+				$notify = (int) $notify;
+				if($notify === 0 && $comment->flags) {
+					if($comment->flags & Comment::flagNotifyAll) $comment->flags = $comment->flags & ~Comment::flagNotifyAll;
+					if($comment->flags & Comment::flagNotifyReply) $comment->flags = $comment->flags & ~Comment::flagNotifyReply;
+					if($comment->flags & Comment::flagNotifyConfirmed) $comment->flags = $comment->flags & ~Comment::flagNotifyConfirmed;
+					$properties['flags'] = $comment->flags;
+				} else if($notify === Comment::flagNotifyAll && !($comment->flags & Comment::flagNotifyAll)) {
+					$comment->flags = $comment->flags | Comment::flagNotifyAll;
+					$properties['flags'] = $comment['flags'];
+				} else if($notify === Comment::flagNotifyReply) {
+					$comment->flags = $comment->flags | Comment::flagNotifyReply;
+					$properties['flags'] = $comment['flags'];
+				}
+			}
 			
 			$changePage = null;
 			if($allowChangePage) {
@@ -476,6 +506,7 @@ class ProcessCommentsManager extends Process {
 		
 		$outs = array(
 			'status' => '',
+			'notify' => '',
 			'website' => '',
 			'stars' => '',
 			'votes' => '',
@@ -509,6 +540,7 @@ class ProcessCommentsManager extends Process {
 			'replyTo' => $this->_('Reply to %s'),
 			'stars' => $this->_('Stars'),
 			'votes' => $this->_('Votes'),
+			'notify' => $this->_('Notify'), 
 			'commentId' => $this->_('Comment ID'), 
 		);
 
@@ -627,6 +659,24 @@ class ProcessCommentsManager extends Process {
 					"</label> " .
 				"</td>" .
 			"</tr>";
+
+		if($field->useNotify) {
+			foreach($this->notifyFlagsTranslations as $flag => $label) {
+				$checked = false;
+				if($flag && $comment->flags & $flag) {
+					$checked = true; // All or Replies
+				} else if(!$flag && !($comment->flags & 2) && !($comment->flags & 4) && !($comment->flags & 8)) {
+					$checked = true; // None
+				}	
+				$checked = $checked ? "checked='checked' " : '';
+				$outs['notify'] .=
+					"<label class='CommentNotify'>" .
+						"<input class='$classes[radio]' type='radio' name='CommentNotify$id' value='$flag' $checked/>&nbsp;" .
+						"<small>$label</small>" .
+					"</label>&nbsp; ";
+			}
+			$outs['notify'] = "<tr><th>$labels[notify]</th><td>$outs[notify]</td></tr>";
+		}
 		
 		if($parent) {
 			$a = $sanitizer->entities($parent->cite) . " <a href='$urls[parent]'>$parent->id</a>";
@@ -645,6 +695,14 @@ class ProcessCommentsManager extends Process {
 				"</a>" .
 			"</p>";
 
+		/** @var FieldtypeComments $fieldtype */
+		// $fieldtype = $field->type;
+		// $who = $fieldtype->getNotifyEmails($page, $field, $comment); 
+		// $text .= "<pre>" . htmlentities(print_r($who, true)) . "</pre>";
+		$numRows = 0;
+		foreach($outs as $out) if(!empty($out)) $numRows++;
+		$contentClass = 'CommentContent';
+		if($numRows >= 7) $contentClass .= ' CommentContentLarge';
 
 		$out =
 			"<div class='CommentItem ui-helper-clearfix CommentItemStatus$comment->status'>" . 
@@ -669,6 +727,7 @@ class ProcessCommentsManager extends Process {
 						"<th>$labels[status]</th>" .
 						"<td class='CommentStatus'>$outs[status]</td>" .
 					"</tr>" .
+					$outs['notify'] . 
 					"<tr>" . 
 						"<th>$labels[date]</th>" . 
 						"<td>$values[date] <span class='detail'>$values[dateRelative]</span></td>" . 
@@ -695,7 +754,7 @@ class ProcessCommentsManager extends Process {
 					$outs['votes'] . 
 					$outs['where'] . 
 				"</table>" .
-				"<div class='CommentContent'>" .
+				"<div class='$contentClass'>" .
 					"$outs[reply]" .
 					"<div class='CommentText'>$text</div>" .
 					"$outs[children]" .
