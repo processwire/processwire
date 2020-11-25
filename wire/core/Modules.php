@@ -591,6 +591,8 @@ class Modules extends WireArray {
 	 * @param Module $module
 	 * @param array $options
 	 *  - `clearSettings` (bool): When true, module settings will be cleared when appropriate to save space. (default=true)
+	 *  - `configOnly` (bool): When true, module init() method NOT called, but config data still set (default=false) 3.0.169+
+	 *  - `configData` (array): Extra config data merge with module’s config data (default=[]) 3.0.169+
 	 *  - `throw` (bool): When true, exceptions will be allowed to pass through. (default=false)
 	 * @return bool True on success, false on fail
 	 * @throws \Exception Only if the `throw` option is true. 
@@ -610,7 +612,8 @@ class Modules extends WireArray {
 		
 		// if the module is configurable, then load its config data
 		// and set values for each before initializing the module
-		$this->setModuleConfigData($module);
+		$extraConfigData = isset($options['configData']) ? $options['configData'] : null;
+		$this->setModuleConfigData($module, null, $extraConfigData);
 		
 		$moduleName = wireClassName($module, false);
 		$moduleID = isset($this->moduleIDs[$moduleName]) ? $this->moduleIDs[$moduleName] : 0;
@@ -619,7 +622,7 @@ class Modules extends WireArray {
 			$this->checkModuleVersion($module);
 		}
 		
-		if(method_exists($module, 'init')) {
+		if(method_exists($module, 'init') && empty($options['configOnly'])) {
 			
 			if($this->debug) {
 				$debugKey = $this->debugTimerStart("initModule($moduleName)"); 
@@ -1228,11 +1231,13 @@ class Modules extends WireArray {
 	 * 
 	 *  - `noPermissionCheck` (bool): Specify true to disable module permission checks (and resulting exception). (default=false)
 	 *  - `noInstall` (bool): Specify true to prevent a non-installed module from installing from this request. (default=false)
-	 *  - `noInit` (bool): Specify true to prevent the module from being initialized. (default=false)
+	 *  - `noInit` (bool): Specify true to prevent the module from being initialized or configured. (default=false). See `configOnly` as alternative.
 	 *  - `noSubstitute` (bool): Specify true to prevent inclusion of a substitute module. (default=false)
 	 *  - `noCache` (bool): Specify true to prevent module instance from being cached for later getModule() calls. (default=false)
 	 *  - `noThrow` (bool): Specify true to prevent exceptions from being thrown on permission or fatal error. (default=false)
 	 *  - `returnError` (bool): Return an error message (string) on error, rather than null. (default=false)
+	 *  - `configOnly` (bool): Populate module config data but do not call its init() method. (default=false) 3.0.169+. Alternative to `noInit`.
+	 *  - `configData` (array): Associative array of additional config data to populate to module. (default=[]) 3.0.169+
 	 * 
 	 * If the module is not installed, but is installable, it will be installed, instantiated, and initialized.
 	 * If you don't want that behavior, call `$modules->isInstalled('ModuleName')` as a condition first, OR specify 
@@ -1249,6 +1254,8 @@ class Modules extends WireArray {
 	
 		$module = null;
 		$needsInit = false;
+		$noInit = !empty($options['noInit']); // force cancel of Module::init() call?
+		$initOptions = array(); // options for initModule() call
 		$error = '';
 		
 		if(empty($key)) {
@@ -1332,13 +1339,28 @@ class Modules extends WireArray {
 			}
 		}
 
+		if($needsInit && $noInit) {
+			// forced cancel of init() call
+			$needsInit = false; 
+		}
+		
+		if(!$needsInit && (!empty($options['configData']) || !empty($options['configOnly']))) {
+			// if config data was supplied in options then we have to init()
+			$needsInit = true;
+			if(!empty($options['configData'])) $initOptions['configData'] = $options['configData'];
+			// if forced noInit then tell initModule() to only config and not call Module::init()
+			if($noInit || !empty($options['configOnly'])) $initOptions['configOnly'] = true;
+		}
+
 		// skip autoload modules because they have already been initialized in the load() method
 		// unless they were just installed, in which case we need do init now
-		if($needsInit && empty($options['noInit'])) {
-			// if the module is configurable, then load it's config data
+		if($needsInit) {
+			// if the module is configurable, then load its config data
 			// and set values for each before initializing the module
+			$initOptions['clearSettings'] = false;
+			$initOptions['throw'] = true;
 			try {
-				if(!$this->initModule($module, array('clearSettings' => false, 'throw' => true))) {
+				if(!$this->initModule($module, $initOptions)) {
 					return empty($options['returnError']) ? null : "Module '$module' failed init";
 				}
 			} catch(\Exception $e) {
@@ -3690,15 +3712,17 @@ class Modules extends WireArray {
 	 * Otherwise it will populate the properties individually. 
 	 *
 	 * @param Module $module
-	 * @param array $data Configuration data (key = value), or omit if you want it to retrieve the config data for you.
+	 * @param array|null $data Configuration data [key=value], or omit/null if you want it to retrieve the config data for you.
+	 * @param array|null $extraData Additional runtime configuration data to merge (default=null) 3.0.169+
 	 * @return bool True if configured, false if not configurable
 	 * 
 	 */
-	protected function setModuleConfigData(Module $module, $data = null) {
+	protected function setModuleConfigData(Module $module, $data = null, $extraData = null) {
 
 		$configurable = $this->isConfigurable($module); 
 		if(!$configurable) return false;
 		if(!is_array($data)) $data = $this->getConfig($module);
+		if($extraData !== null && is_array($extraData)) $data = array_merge($data, $extraData);
 
 		$nsClassName = $module->className(true);
 		$moduleName = $module->className(false);

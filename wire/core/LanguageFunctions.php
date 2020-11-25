@@ -313,7 +313,7 @@ function wireLangEntityEncode($value = '') {
 }
 
 /**
- * Set predefined fallbaack translation values
+ * Set predefined fallback translation values
  * 
  * These predefined translations are used when an existing translation is
  * not available, enabling you to provide translations programmatically.
