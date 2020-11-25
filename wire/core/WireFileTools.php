@@ -825,7 +825,7 @@ class WireFileTools extends Wire {
 	 *
 	 */
 	public function send($filename, array $options = array(), array $headers = array()) {
-		$defaults = array('limitPath' => false, 'throw' => true);
+		$defaults = array('limitPath' => $this->wire()->getStatus() === 32, 'throw' => true);
 		$options = array_merge($defaults, $options);
 		if($filename && !$this->allowPath($filename, $options['limitPath'], $options['throw'])) return 0;
 		$http = new WireHttp();

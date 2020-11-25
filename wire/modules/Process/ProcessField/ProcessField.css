@@ -1,4 +1,4 @@
-#columnWidth {
+.columnWidthInput {
 	float: left; 
 	margin-right: 1em; 
 	margin-bottom: 1em; 
@@ -12,7 +12,7 @@
 	top: 3px; 
 }
 
-#wrap_columnWidth p.notes {
+.InputfieldColumnWidthSlider + p.notes {
 	clear: both; 
 }
 

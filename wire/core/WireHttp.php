@@ -1296,7 +1296,7 @@ class WireHttp extends Wire {
 	 *
 	 * @param string|bool $filename Filename to send (or boolean false if sending $options[data] rather than file)
 	 * @param array $options Options that you may pass in:
-	 *   - `exit` (bool): Halt program executation after file send (default=true).
+	 *   - `exit` (bool): Halt program execution after file send (default=true).
 	 *   - `partial` (bool): Allow use of partial downloads via HTTP_RANGE requests? Since 3.0.131 (default=true)
 	 *   - `forceDownload` (bool|null): Whether file should force download (default=null, i.e. let content-type header decide).
 	 *   - `downloadFilename` (string): Filename you want the download to show on user's computer, or omit to use existing.
