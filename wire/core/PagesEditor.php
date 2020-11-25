@@ -1548,7 +1548,7 @@ class PagesEditor extends Wire {
 	 * @param HookEvent $event
 	 * 
 	 */
-	protected function hookFieldtypeSleepValueStripMB4(HookEvent $event) {
+	public function hookFieldtypeSleepValueStripMB4(HookEvent $event) {
 		$event->return = $this->wire('sanitizer')->removeMB4($event->return); 
 	}
 }

@@ -3178,27 +3178,39 @@ class Sanitizer extends Wire {
 	 * #pw-group-strings
 	 * 
 	 * @param string|array $value String or array containing strings
+	 * @param array $options Options to modify behavior, 3.0.169+ only:
+	 *  - `replaceWith` (string): Replace MB4+ characters with this character, may not be blank (default='�')
+	 *  - `version` (int): Replacement method version (default=2)
 	 * @return string|array|mixed 
 	 * 
 	 */
-	public function removeMB4($value) {
-		if(empty($value)) return $value;
+	public function removeMB4($value, array $options = array()) {
+		$defaults = array(
+			'replaceWith' => "\xEF\xBF\xBD", // Default unicode replacement character: U+FFFD aka �
+			'version' => 2, 
+		);
+		$options = array_merge($defaults, $options);
+		if($options['replaceWith'] === '') $options['replaceWidth'] = $defaults['replaceWith'];
 		if(is_array($value)) {
+			if(!count($value)) return array();
 			// process array recursively, looking for strings to convert
 			foreach($value as $key => $val) {
-				if(empty($val)) continue;
-				if(is_string($val) || is_array($val)) $value[$key] = $this->removeMB4($val);
+				if(is_string($val) || is_array($val)) $value[$key] = $this->removeMB4($val, $options);
 			}
 		} else if(is_string($value)) {
-			if(strlen($value) > 3 && max(array_map('ord', str_split($value))) >= 240) {
-				// string contains 4-byte characters
-				$regex =
-					'!(?:' .
-					'\xF0[\x90-\xBF][\x80-\xBF]{2}' .
-					'|[\xF1-\xF3][\x80-\xBF]{3}' .
-					'|\xF4[\x80-\x8F][\x80-\xBF]{2}' .
-					')!s';
-				$value = preg_replace($regex, '', $value);
+			if($options['version'] >= 2) {
+				$value = preg_replace('/[\x{10000}-\x{10FFFF}]/u', $options['replaceWith'], $value);
+			} else {
+				if(strlen($value) > 3 && max(array_map('ord', str_split($value))) >= 240) {
+					// string contains 4-byte characters
+					$regex =
+						'!(?:' .
+						'\xF0[\x90-\xBF][\x80-\xBF]{2}' .
+						'|[\xF1-\xF3][\x80-\xBF]{3}' .
+						'|\xF4[\x80-\x8F][\x80-\xBF]{2}' .
+						')!s';
+					$value = preg_replace($regex, $options['replaceWith'], $value);
+				}
 			}
 		} else {
 			// not a string or an array, leave as-is
@@ -4807,9 +4819,10 @@ class Sanitizer extends Wire {
 		$extension = strtolower(pathinfo($filename, PATHINFO_EXTENSION));
 		$validatorNames = array();
 		$validatorResults = array();
-		$isValid = null;
 		$getArray = $options['getArray'];
 		$dryrun = $options['dryrun'] || !empty($options['dryRun']);
+		$numFailed = 0;
+		$numPassed = 0;
 
 		if(!strlen($extension) || (!$dryrun && !is_file($filename))) {
 			return $getArray ? array() : null;
@@ -4857,23 +4870,33 @@ class Sanitizer extends Wire {
 				// true (bool): file is valid as-is
 				// 1 (int): file is valid as a result of sanitization
 				// in either case, continue on to the next applicable FileValidator module
-				continue;
+				$numPassed++;
+				
+			} else {
+				// at this point we’ve determined file is not valid
+				$numFailed++;
+
+				// move errors to Sanitizer class so they can be retrieved
+				foreach($validator->errors('clear array') as $error) {
+					$this->wire()->log->error($error);
+					$this->error($error);
+				}
+
+				// unless we are returning an array of results, we can stop now for invalid files
+				if(!$getArray) break;
 			}
-		
-			// at this point we’ve determined file is not valid
-			$isValid = false;
-			
-			// move errors to Sanitizer class so they can be retrieved
-			foreach($validator->errors('clear array') as $error) {
-				$this->wire()->log->error($error);
-				$this->error($error);
-			}
-		
-			// unless we are returning an array of results, we can stop now for invalid files
-			if(!$getArray) break;
 		}
+	
+		// return array result of all validations
+		if($getArray) return $validatorResults;
 		
-		return $getArray ? $validatorResults : $isValid;
+		// return null if no validators could be used
+		if(!$numPassed && !$numFailed) return null;
+
+		// if passsed 1+ validators and failed 0, return true
+		if($numPassed > 0 && $numFailed === 0) return true;
+		
+		return false;
 	}
 
 	/**********************************************************************************************************************
