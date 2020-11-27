@@ -15,6 +15,7 @@
  * @property string $fromEmail
  * @property int $notifySpam
  * @property int $useNotify See Comment::flagNotify* constants
+ * @property bool|int $useNotifyText Include comment text in notification emails?
  * @property int|bool $useAkismet
  * @property int $deleteSpamDays
  * @property int $depth

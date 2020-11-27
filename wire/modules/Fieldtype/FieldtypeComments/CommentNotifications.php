@@ -9,7 +9,7 @@ class CommentNotifications extends Wire {
 	protected $page;
 
 	/**
-	 * @var Field
+	 * @var CommentField
 	 * 
 	 */
 	protected $field;
@@ -429,25 +429,52 @@ class CommentNotifications extends Wire {
 	 */
 	public function ___sendNotificationEmail(Comment $comment, $email, $subcode) {
 		
+		$showText = (bool) $this->field->useNotifyText;
+		$sanitizer = $this->wire()->sanitizer;
 		$page = $comment->getPage();
-		$title = $page->get('title|name'); 
+		$title = $sanitizer->text($page->getUnformatted('title|path')); 
+		$cite = $sanitizer->text($comment->cite); 
 		$url = $page->httpUrl . "#Comment$comment->id";
-		$unsubURL = $page->httpUrl . "?comment_success=unsub&subcode=$subcode";
+		$unsubUrl = $page->httpUrl . "?comment_success=unsub&subcode=$subcode";
+		$text = $showText ? $sanitizer->textarea($comment->text) : ''; 
+		$textHTML = $showText ? $comment->getFormattedCommentText() : '';
 		$subject = $this->_('New comment posted:') . " $title"; // Email subject
-		$body = $this->_('Posted at: %s') . "\n"; 
-		$body .= sprintf($this->_('Posted by: %s'), $this->wire('sanitizer')->name($comment->cite)) . "\n";
-		$bodyHTML = "<p>" . nl2br(sprintf($body, "<a href='$url'>$page->title</a>")) . "</p>";
-		$body = sprintf($body, $page->title) . "\n" . sprintf($this->_('URL: %s'), $url); 
-		$footer = $this->_('Disable Notifications');
-		$body .= "\n\n$footer: $unsubURL";	
-		$bodyHTML .= "<p><a href='$unsubURL'>$footer</a></p>";
+		$postedAtLabel = $this->_('Posted at: %s');
+		$postedByLabel = $this->_('Posted by: %s');
+		$unsubLabel = $this->_('Unsubscribe from these notifications'); 
+		$viewLabel = $this->_('View or reply'); 
 		
+		$body = 
+			sprintf($postedAtLabel, $title) . "\n" . 
+			sprintf($postedByLabel, $cite) . "\n\n" . 
+			($showText ? "$text\n\n" : "") . 
+			"$viewLabel: $url\n\n" . 
+			"$unsubLabel: $unsubUrl\n\n";
+
+		$url = $sanitizer->entities($url);
+		$cite = $sanitizer->entities($cite);
+		$title = $sanitizer->entities($title);
+		$unsubUrl = $sanitizer->entities($unsubUrl);
+		$titleLink = "<a href='$url'>$title</a>";
+		$div = "<div style='padding:10px 20px;border:1px solid #eee'>";
+		
+		$bodyHTML = 
+			"<html><head><title>$title</title><head><body>" . 
+			"<p><em>" . sprintf($this->_('Posted at %s by %s'), $titleLink, $cite) . "</em></p>" . 
+			($showText ? "\n$div<p>$textHTML</p></div>" : '') . 
+			"\n<p><a href='$url'>$viewLabel</a></p>" .
+			"\n<p>&nbsp;</p>" . 
+			"\n<hr />" . 
+			"\n<p><small><a href='$unsubUrl'>$unsubLabel</a></small></p>" . 
+			"</body></html>";
+			
 		$mail = $this->wire('mail')->new();
 		$mail->to($email)->subject($subject)->body($body)->bodyHTML($bodyHTML);
 		$fromEmail = $this->getFromEmail();
 		if($fromEmail) $mail->from($fromEmail);
 		
 		$result = $mail->send();
+		
 		if($result) {
 			$this->wire('log')->message("Sent comment notification email to $email"); 
 		} else {

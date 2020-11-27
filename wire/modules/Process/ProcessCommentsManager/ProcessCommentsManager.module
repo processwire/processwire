@@ -611,10 +611,14 @@ class ProcessCommentsManager extends Process {
 				"</label>&nbsp; ";
 		}
 
-		if($page->editable()) $text = 
-			"<div class='CommentTextEditable' id='CommentText$id' data-textarea-class='$classes[textarea]'>" . 
-				"<p>$text <a class='CommentTextEdit' href='#'>$icons[edit]&nbsp;$labels[edit]</a></p>" . 
-			"</div>";
+		if($page->editable()) {
+			$text =
+				"<div class='CommentTextEditable' id='CommentText$id' data-textarea-class='$classes[textarea]'>" .
+					"<p>$text <a class='CommentTextEdit' href='#'>$icons[edit]&nbsp;$labels[edit]</a></p>" .
+				"</div>";
+		} else {
+			$text = "<p>$text</p>";
+		}
 	
 		if($allowPageChange) $outs['page'] =
 			"<span class='detail ui-priority-secondary'>Page #</span>&nbsp;" .

@@ -109,20 +109,20 @@ class CommentFormCustom extends CommentForm {
 						<span class='{notify.label.span.class}'>{notify.label}</span>
 					</label> 
 					<label class='{notify.input.label.class}'>
-						<input class='{notify.input.class}' type='radio' name='{notify.input.name}' checked='checked' value='{notify.input.off.value}' /> 
+						<input class='{notify.input.class}' type='radio' name='{notify.input.name}' checked='checked' value='{notify.input.off.value}' {notify.input.off.checked}/> 
 						{notify.input.off.label}
 					</label>	
 					
 					{if.notify.replies}
 					<label class='{notify.input.label.class}'>
-						<input class='{notify.input.class}' type='radio' name='{notify.input.name}' value='{notify.input.replies.value}' /> 
+						<input class='{notify.input.class}' type='radio' name='{notify.input.name}' value='{notify.input.replies.value}' {notify.input.replies.checked}/> 
 						{notify.input.replies.label}
 					</label>	
 					{endif.notify.replies}
 					
 					{if.notify.all}
 					<label class='{notify.input.label.class}'>
-						<input class='{notify.input.class}' type='radio' name='{notify.input.name}' value='{notify.input.all.value}' /> 
+						<input class='{notify.input.class}' type='radio' name='{notify.input.name}' value='{notify.input.all.value}' {notify.input.all.checked}/> 
 						{notify.input.all.label}
 					</label>	
 					{endif.notify.all}
@@ -272,10 +272,13 @@ class CommentFormCustom extends CommentForm {
 			'{notify.input.name}' => 'notify',
 			'{notify.input.off.value}' => '0',
 			'{notify.input.off.label}' => $labels['notifyOff'],
+			'{notify.input.off.checked}' => ($this->options['notifyDefault'] == 0 ? 'checked ' : ''),
 			'{notify.input.replies.value}' => '2',
 			'{notify.input.replies.label}' => $labels['notifyReplies'],
+			'{notify.input.replies.checked}' => ($this->options['notifyDefault'] == 2 ? 'checked ' : ''),
 			'{notify.input.all.value}' => '4',
 			'{notify.input.all.label}' => $labels['notifyAll'],
+			'{notify.input.all.checked}' => ($this->options['notifyDefault'] == 4 ? 'checked ' : ''),
 		);
 
 		$ifs = array(

@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -74,10 +74,10 @@ class FieldtypeComments extends FieldtypeMulti {
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Comments', __FILE__),
-			'version' => 108,
+			'version' => 109,
 			'summary' => __('Field that stores user posted comments for a single Page', __FILE__),
 			'installs' => array('InputfieldCommentsAdmin'),
-			);
+		);
 	}
 	
 	public function wired() {
@@ -119,7 +119,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	/**
 	 * Update a query to match the text with a fulltext index
 	 * 
-	 * @param DatabaseQuerySelect $query
+	 * @param PageFinderDatabaseQuerySelect $query
 	 * @param string $table
 	 * @param string $subfield
 	 * @param string $operator
@@ -297,17 +297,15 @@ class FieldtypeComments extends FieldtypeMulti {
 	protected function checkCommentCodes(Comment $comment) {
 		// assign code and subcode
 		if(!$comment->code || !$comment->subcode) {
-			$pass = $this->wire(new Password());
+			$rand = new WireRandom();
 			if(!strlen($comment->code)) {
 				// code: visible to admin only
-				$code = $pass->randomBase64String(128, true);
-				$code = substr($this->wire('sanitizer')->fieldName($code), 0, 128);
+				$code = $rand->alphanumeric(128);
 				$comment->code = $code;
 			}
 			if(!strlen($comment->subcode)) {
 				// subcode: may be visible to commenter
-				$subcode = $pass->randomBase64String(40, true);
-				$subcode = substr($this->wire('sanitizer')->fieldName($subcode), 0, 40);
+				$subcode = $rand->alphanumeric(40);
 				$comment->subcode = $subcode;
 			}
 		}
@@ -324,7 +322,9 @@ class FieldtypeComments extends FieldtypeMulti {
 	 */ 
 	protected function checkNewComment(Page $page, Field $field, Comment $comment) {
 
+		if($page) {} // ignore
 		if($comment->id || $comment->quiet()) return;
+		$comment->isNew = true;
 		
 		$this->checkCommentCodes($comment);
 		
@@ -340,7 +340,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		if($comment->status != Comment::statusSpam) {
 			if($field->get('moderate') == self::moderateNone) {
 				$comment->status = Comment::statusApproved; 
-				$this->commentApproved($page, $field, $comment, 'New comment approved / moderation is off'); 
+				$comment->approvalNote = 'New comment approved / moderation is off';
 
 			} else if($field->get('moderate') == self::moderateNew && $comment->email) {
 				$database = $this->wire('database');
@@ -352,17 +352,12 @@ class FieldtypeComments extends FieldtypeMulti {
 				$numApproved = (int) $query->fetchColumn();
 					
 				if($numApproved > 0) {
+					$cite = $this->wire('sanitizer')->text($comment->cite); 
 					$comment->status = Comment::statusApproved;
-					$cite = $this->wire('sanitizer')->name($comment->cite); 
-					$this->commentApproved($page, $field, $comment, "New comment auto-approved because user '$cite' has other approved comments"); 
+					$comment->approvalNote = "New comment auto-approved because user '$cite' has other approved comments";
 				}
 			}
 		}
-
-		require_once(dirname(__FILE__) . '/CommentNotifications.php'); 
-		$no = $this->wire(new CommentNotifications($page, $field)); 
-		$no->sendAdminNotificationEmail($comment); 
-		$this->commentMaintenance($field);
 	}
 
 	/**
@@ -794,6 +789,18 @@ class FieldtypeComments extends FieldtypeMulti {
 		$f->addOption(Comment::flagNotifyReply, $this->_('Users can receive email notifications of replies to their comment only'));
 		$f->addOption(Comment::flagNotifyAll, $this->_('Users can receive email notifications for all new comments on the page'));
 		$f->attr('value', (int) $field->get('useNotify'));
+		$f->columnWidth = 50;
+		$fieldset->append($f);
+		
+		$name = 'useNotifyText';
+		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f->attr('name', $name);
+		$f->attr('value', 1);
+		if($field->$name) $f->attr('checked', 'checked');
+		$f->label = $this->_('Allow comment text in notifications?');
+		$f->description = $this->_('When checked, the entire comment text will also appear in the notification emails, rather than just a link to it.');
+		$f->columnWidth = 50;
+		$f->showIf = 'useNotify>0';
 		$fieldset->append($f);
 
 		// ---------------------------------------
@@ -1065,6 +1072,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$intColumns = array(
 			'id', 
 			'status', 
+			'flags',
 			'created', 
 			'pages_id', 
 			'parent_id', 
@@ -1148,6 +1156,23 @@ class FieldtypeComments extends FieldtypeMulti {
 				} else if($operator === '!=') {
 					$wheres[] = "($table.$f!=0 OR $table.$f IS NOT NULL)";
 				}
+				
+			} else if($f === 'flags') {
+				if(!is_array($value)) $value = array($value);
+				$whereFlags = array();
+				if(!in_array($operator, array('=', '!=', '&'))) {
+					throw new WireException("Operator $operator not supported for comment flags");
+				}
+				foreach($value as $flag) {
+					$intFlag = (int) $flag;
+					if($operator === '!=') {
+						$whereFlags[] = "(NOT $table.flags & $intFlag)";
+					} else {
+						$whereFlags[] = "($table.flags & $intFlag)";
+					}
+				}
+				$andOr = $operator === '!=' ? ' AND ' : ' OR ';
+				$wheres[] = '(' . implode($andOr, $whereFlags) . ')';
 
 			} else if(in_array($f, $intColumns)) {
 				if(!$database->isOperator($operator)) $operator = '=';
@@ -1798,42 +1823,20 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		$this->wire('log')->message("Approved comment $comment->id - $notes"); 
 		
-		if($field->get('useNotify')) {
-			
-			$emails = array();
-			foreach($page->get($field->name) as $c) {
-				
-				if($c->status < Comment::statusApproved) continue; 
-				if($c->id == $comment->id) continue; 
-				if(strtolower($c->email) == strtolower($comment->email)) continue; 
-				
-				/*
-				 * @todo this should be ready to use, but needs more testing before enabling it
-				 * 
-				if($c->flags & Comment::flagNotifyConfirmed) {
-					// notifications have been confirmed by double opt-in
-				} else {
-					continue;
-				}
-				*/
-				if($c->flags & Comment::flagNotifyAll) {
-					if($c->subcode) $emails[strtolower($c->email)] = $c->subcode;
-				} else if(($c->flags & Comment::flagNotifyReply) && $comment->parent_id == $c->id) {
-					if($c->subcode) $emails[strtolower($c->email)] = $c->subcode;
-				}
-			}
-			
-			// emails array contains email address => subcode to send notifications to
-			if(count($emails)) {
-				require_once(dirname(__FILE__) . '/CommentNotifications.php'); 	
-				$no = $this->wire(new CommentNotifications($page, $field)); 
-				foreach($emails as $email => $subcode) {
-					$no->sendNotificationEmail($comment, $email, $subcode);
-				}
+		if(!$field->get('useNotify')) return;
+		$emails = $this->getNotifyEmails($page, $field, $comment); 
+
+		// emails array contains email address => subcode to send notifications to
+		if(count($emails)) {
+			require_once(dirname(__FILE__) . '/CommentNotifications.php'); 	
+			$no = $this->wire(new CommentNotifications($page, $field)); 
+			foreach($emails as $email => $data) {
+				$subcode = $data['subcode'];
+				$no->sendNotificationEmail($comment, $email, $subcode);
 			}
 		}
 	}
-	
+
 
 	/**
 	 * Hook called when a comment goes from approved to pending or spam
@@ -1860,6 +1863,11 @@ class FieldtypeComments extends FieldtypeMulti {
 	 * 
 	 */
 	public function ___commentAddReady(Page $page, Field $field, Comment $comment) {
+		if($page && $field) {} // ignore
+		$text = $comment->text; 
+		if(strtolower($this->wire()->config->dbEngine) !== 'utf8mb4') {
+			$comment->text = $this->wire()->sanitizer->removeMB4($text, array('replaceWith' => ' ')); 
+		}
 	}
 
 	/**
@@ -1873,6 +1881,89 @@ class FieldtypeComments extends FieldtypeMulti {
 	 *
 	 */
 	public function ___commentAdded(Page $page, Field $field, Comment $comment) {
+		require_once(dirname(__FILE__) . '/CommentNotifications.php');
+		$no = $this->wire(new CommentNotifications($page, $field));
+		$no->sendAdminNotificationEmail($comment);
+		$this->commentMaintenance($field);
+
+		if($comment->status == Comment::statusApproved || $comment->status == Comment::statusFeatured) {
+			$this->commentApproved($page, $field, $comment, $comment->approvalNote);
+		}
+	}
+	
+	/**
+	 * Get emails (and other data) of people that should be notified for a given Page’s comments
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment|null $comment
+	 * @return array
+	 * @throws WireException
+	 * @since 3.0.169
+	 *
+	 */
+	public function getNotifyEmails(Page $page, Field $field, Comment $comment = null) {
+
+		if(!$field->get('useNotify')) return array();
+
+		$emails = array();
+		$database = $this->wire()->database;
+		$table = $database->escapeTable($field->table);
+
+		$sql =
+			"SELECT id, cite, flags, email, subcode " . 
+			"FROM `$table` " .
+			"WHERE pages_id=:pages_id " .
+			"AND status>0 " .
+			"AND ((flags & 2) OR (flags & 4) OR (flags & 8)) " . // 2=replies, 4=all, 8=confirmed
+			"AND id!=:id " .
+			"AND email!=:email " .
+			"ORDER BY created DESC";
+
+		$query = $database->prepare($sql);
+		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+		$query->bindValue(':id', ($comment ? $comment->id : 0), \PDO::PARAM_INT);
+		$query->bindValue(':email', ($comment ? strtolower($comment->email) : ''), \PDO::PARAM_STR);
+		$query->execute();
+
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$id = (int) $row['id'];
+			$flags = (int) $row['flags'];
+			$subcode = $row['subcode'];
+			$email = strtolower($row['email']);
+
+			if(empty($subcode)) continue;
+
+			/*
+			 * @todo this should be ready to use, but needs more testing before enabling it
+			 * 
+			if($flags & Comment::flagNotifyConfirmed) {
+				// notifications have been confirmed by double opt-in
+			} else {
+				continue;
+			}
+			*/
+
+			if($flags & Comment::flagNotifyAll) {
+				// OK
+			} else if(($flags & Comment::flagNotifyReply) && $comment && $comment->parent_id == $id) {
+				// OK
+			} else {
+				continue; // SKIP
+			}
+
+			$emails[$email] = array(
+				'id' => $id,
+				'email' => $email,
+				'cite' => $row['cite'],
+				'subcode' => $subcode,
+				'flags' => $flags,
+			);
+		}
+
+		$query->closeCursor();
+
+		return $emails;
 	}
 
 	/**

@@ -169,6 +169,9 @@ class CommentForm extends Wire implements CommentFormInterface {
 		// When a comment is saved to a page, avoid updating the modified time/user
 		'quietSave' => false,
 	
+		// default value for the notify option (when used)
+		'notifyDefault' => 0, 
+	
 		// interial use: have options been initialized and are ready to use?
 		'_ready' => false, 
 
@@ -786,6 +789,7 @@ class CommentForm extends Wire implements CommentFormInterface {
 		if(!$this->commentsField->useNotify) return '';
 		$out = '';
 		$tag = $this->options['inputWrapTag'];
+		$notifyDefault = (int) $this->options['notifyDefault'];
 		
 		$options = array();
 		
@@ -808,16 +812,25 @@ class CommentForm extends Wire implements CommentFormInterface {
 		foreach($classes as $key => $value) {
 			$classes[$key] = $value ? " class='" . trim($value) . "'" : "";
 		}
+	
+		$checked = "checked='checked' ";
+		$checkedNotify = array(
+			0 => ($notifyDefault === 0 ? $checked : ''),
+			Comment::flagNotifyAll => ($notifyDefault === Comment::flagNotifyAll ? $checked : ''),
+			Comment::flagNotifyReply => ($notifyDefault === Comment::flagNotifyReply ? $checked : ''), 
+		);
 		
 		if(count($options)) {
+			$checked = $checkedNotify[0];
 			$out = 
 				"\n\t<$tag$classes[notify]>" . 
 				"\n\t\t<label$classes[label]><span$classes[labelSpan]>" . $this->labels('notify') . "</span></label> " . 
-				"\n\t\t<label$classes[radioLabel]><input$classes[radioInput] type='radio' name='notify' checked='checked' value='0' /> " . $this->labels('notifyOff') . "</label> ";
+				"\n\t\t<label$classes[radioLabel]><input$classes[radioInput] type='radio' name='notify' value='0' $checked/> " . $this->labels('notifyOff') . "</label> ";
 			
 			foreach($options as $value => $label) {
+				$checked = $checkedNotify[(int)$value];
 				$label = str_replace(' ', '&nbsp;', $label); 
-				$out .= "\n\t\t<label$classes[radioLabel]><input$classes[radioInput] type='radio' name='notify' value='$value' /> $label</label> ";
+				$out .= "\n\t\t<label$classes[radioLabel]><input$classes[radioInput] type='radio' name='notify' value='$value' $checked/> $label</label> ";
 			}
 			$out .= "\n\t</$tag>";
 		}

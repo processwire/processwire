@@ -28,6 +28,8 @@
  * @property int $upvotes 
  * @property int $downvotes 
  * @property int $stars
+ * @property null|bool $isNew Was this comment added in this request? (since 3.0.169)
+ * @property null|string $approvalNote Runtime approval note for newly added comment, internal use (since 3.0.169)
  * @property-read Comment|null $parent Parent comment when depth is enabled or null if no parent (since 3.0.149)
  * @property-read CommentArray $parents All parent comments (since 3.0.149)
  * @property-read CommentArray $children Immediate child comments (since 3.0.149)
@@ -149,10 +151,20 @@ class Comment extends WireData {
 	protected $pageComments = null;
 
 	/**
+	 * Cache of comment text for getformattedCommentText method
+	 * 
 	 * @var string|null
 	 * 
 	 */
-	protected $textFormatted = null;
+	protected $formattedCommentText = null;
+
+	/**
+	 * Cache of options for getformattedCommentText method
+	 * 
+	 * @var array|null
+	 * 
+	 */
+	protected $formattedCommentOptions = null;
 
 	/**
 	 * @var int|null
@@ -194,44 +206,44 @@ class Comment extends WireData {
 	 */
 	public function get($key) {
 		
-		if($key == 'user' || $key == 'createdUser') {
+		if($key === 'user' || $key === 'createdUser') {
 			if(!$this->created_users_id) return $this->users->get($this->config->guestUserPageID); 
 			return $this->users->get($this->created_users_id); 
 
-		} else if($key == 'gravatar') {
+		} else if($key === 'gravatar') {
 			return $this->gravatar();
 		
-		} else if($key == 'page') {
+		} else if($key === 'page') {
 			return $this->getPage();
 
-		} else if($key == 'field') {
+		} else if($key === 'field') {
 			return $this->getField();
 			
-		} else if($key == 'parent') {
+		} else if($key === 'parent') {
 			return $this->parent();
 
-		} else if($key == 'parents') {
+		} else if($key === 'parents') {
 			return $this->parents();
 			
-		} else if($key == 'children') {
+		} else if($key === 'children') {
 			return $this->children();
 			
-		} else if($key == 'url') {
+		} else if($key === 'url') {
 			return $this->url();
 			
-		} else if($key == 'httpUrl' || $key == 'httpURL') {
+		} else if($key === 'httpUrl' || $key == 'httpURL') {
 			return $this->httpUrl();
 			
-		} else if($key == 'editUrl' || $key == 'editURL') {
+		} else if($key === 'editUrl' || $key == 'editURL') {
 			return $this->editUrl();
 			
-		} else if($key == 'prevStatus') {
+		} else if($key === 'prevStatus') {
 			return $this->prevStatus;
 			
-		} else if($key == 'textFormatted') {
-			return $this->textFormatted;
+		} else if($key === 'textFormatted') {
+			return $this->getFormattedCommentText();
 			
-		} else if($key == 'depth') {
+		} else if($key === 'depth') {
 			return $this->depth();
 			
 		} else if($key === 'loaded') {
@@ -249,37 +261,91 @@ class Comment extends WireData {
 	 * 
 	 * Note that we won't apply this to get() when $page->outputFormatting is active
 	 * in order for backwards compatibility with older installations. 
-	 * 
-	 * @param $key
+	 *
+	 * @param string $key One of: text, cite, email, user_agent, website
+	 * @param array $options
 	 * @return mixed|null|Page|string
 	 * 
 	 */
-	public function getFormatted($key) {
-		$value = $this->get($key); 
+	public function getFormatted($key, array $options = array()) {
+		$value = trim($this->get($key)); 
+		$sanitizer = $this->wire()->sanitizer;
 		
-		if($key == 'text') {
-			if($this->textFormatted !== null) return $this->textFormatted;
-			
-			$textformatters = null;
-			// $textformatters = $this->field ? $this->field->textformatters : null; // @todo
-			if(is_array($textformatters) && count($textformatters)) {
-				// output formatting with specified textformatters
-				foreach($textformatters as $name) {
-					if(!$textformatter = $this->wire('modules')->get($name)) continue;
-					$textformatter->formatValue($this->page, $this->field, $value);
-				}
-			} else {
-				// default output formatting
-				$value = $this->wire('sanitizer')->entities(trim($value));
-				$value = str_replace("\n\n", "</p><p>", $value);
-				$value = str_replace("\n", "<br />", $value);
-			}
-			
+		if($key === 'text') {
+			$value = $this->getFormattedCommentText($options);
 		} else if(in_array($key, array('cite', 'email', 'user_agent', 'website'))) {
-			$value = $this->wire('sanitizer')->entities(trim($value));
+			$value = $sanitizer->entities($value);
+		} else if(is_string($value)) {
+			$value = $sanitizer->entities1($value);
 		}
 		
 		return $value; 
+	}
+
+	/**
+	 * Get comment text as formatted string
+	 * 
+	 * Note that the default options behavior is to return comment text with paragraphs split by `</p><p>`
+	 * but without the first `<p>` and last `</p>` since it is assumed these will be the markup you wrap
+	 * the comment in. If you want it to include the wrapping `<p>…</p>` tags then specify true for the
+	 * `wrapParagraph` option in the `$options` argument. 
+	 * 
+	 * @param array $options
+	 *  - `useParagraphs` (bool): Convert newlines to paragraphs? (default=true)
+	 *  - `wrapParagraph` (bool): Use wrapping <p>…</p> tags around return value? (default=false)
+	 *  - `useLinebreaks` (bool): Convert single newlines to <br> tags? (default=true)
+	 * @return string
+	 * @since 3.0.169
+	 * 
+	 */
+	public function getFormattedCommentText(array $options = array()) {
+		
+		$defaults = array(
+			'useParagraphs' => true,
+			'wrapParagraph' => false,
+			'useLinebreaks' => true,
+		);
+		
+		$options = array_merge($defaults, $options);
+		
+		if($this->formattedCommentText !== null) { 
+			if($this->formattedCommentOptions === null || $options == $this->formattedCommentOptions) {
+				return $this->formattedCommentText;
+			}
+		}
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$value = trim($this->get('text')); 
+		$textformatters = null;
+		
+		// $textformatters = $this->field ? $this->field->textformatters : null; // @todo
+		
+		if(is_array($textformatters) && count($textformatters)) {
+			// output formatting with specified textformatters (@todo)
+			// NOT CURRENTLY ACTIVE
+			$value = strip_tags($value);
+			foreach($textformatters as $name) {
+				if(!$textformatter = $this->wire('modules')->get($name)) continue;
+				$textformatter->formatValue($this->page, $this->field, $value);
+			}
+		} else {
+			// default output formatting
+			$value = $sanitizer->entities($value);
+			while(strpos($value, "\n\n\n") !== false) $value = str_replace("\n\n\n", "\n\n", $value);
+			if($options['useParagraphs']) {
+				$value = str_replace("\n\n", "</p><p>", $value);
+			}
+			if($options['wrapParagraph']) {
+				$value = "<p>$value</p>";
+			}
+			$linebreak = $options['useLinebreaks'] ? "<br />" : " ";
+			$value = str_replace("\n", $linebreak, $value);
+		}
+		
+		$this->formattedCommentText = $value;
+		$this->formattedCommentOptions = $options;
+
+		return $value;
 	}
 
 	/**
@@ -296,7 +362,12 @@ class Comment extends WireData {
 			$value = (int) $value;
 		} else if($key === 'text') {
 			$value = $this->cleanCommentString($value);
-			$this->textFormatted = null;
+			$this->formattedCommentText = null;
+			$this->formattedCommentOptions = null;
+		} else if($key === 'textFormatted') {
+			$this->formattedCommentText = $value;
+			$this->formattedCommentOptions = null;
+			return $this;
 		} else if($key === 'cite') {
 			$value = str_replace(array("\r", "\n", "\t"), ' ', substr(strip_tags($value), 0, 128));
 		} else if($key === 'email') {
@@ -309,9 +380,6 @@ class Comment extends WireData {
 			$value = $this->wire('sanitizer')->url($value, array('allowRelative' => false, 'allowQuerystring' => false));
 		} else if($key === 'upvotes' || $key === 'downvotes') {
 			$value = (int) $value;
-		} else if($key === 'textFormatted') {
-			$this->textFormatted = $value;
-			return $this;
 		} else if($key === 'numChildren') {
 			$this->numChildren = (int) $value; 
 			return $this;
