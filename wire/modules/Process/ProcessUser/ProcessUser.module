@@ -6,7 +6,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $maxAjaxQty
@@ -107,9 +107,10 @@ class ProcessUser extends ProcessPageType {
 	 */
 	public function hookListerExecute($event) {
 		
-		$role = (int) $this->wire('session')->get($this, 'listerRole');
+		$role = (int) $this->wire()->session->getFor($this, 'listerRole');
 		if(!$role) return;
-	
+
+		/** @var ProcessPageLister $lister */
 		$lister = $event->object;
 		$defaultSelector = $lister->defaultSelector;
 		if(strpos($defaultSelector, 'roles=') !== false) {
@@ -132,25 +133,25 @@ class ProcessUser extends ProcessPageType {
 		
 		$settings = parent::getListerSettings($lister, $selector);
 		$selector = '';
-		$role = (int) $this->wire('input')->get('roles');
-		$user = $this->wire('user');
-		$session = $this->wire('session');
+		$role = (int) $this->wire()->input->get('roles');
+		$user = $this->wire()->user;
+		$session = $this->wire()->session;
 		$ajax = $this->wire('config')->ajax;
 
 		if($role) {
 			$lister->resetLister();
-			$session->set($this, 'listerRole', $role);
+			$session->setFor($this, 'listerRole', $role);
 		} else if(!$ajax) {
-			if((int) $session->get($this, 'listerRole') > 0) {
+			if((int) $session->getFor($this, 'listerRole') > 0) {
 				$lister->resetLister();
-				$session->set($this, 'listerRole', 0);
+				$session->setFor($this, 'listerRole', 0);
 			}
 		} else {
-			$role = $session->get($this, 'listerRole');
+			$role = $session->getFor($this, 'listerRole');
 		}
 
 		if(!$role && !$user->isSuperuser()) {
-			$userAdminAll = $this->wire('permissions')->get('user-admin-all');
+			$userAdminAll = $this->wire()->permissions->get('user-admin-all');
 			if($userAdminAll->id && !$user->hasPermission($userAdminAll)) {
 				// system has user-admin-all permission, and user doesn't have it
 				// so limit them only to the permission user-admin-[role] roles that they have assigned
@@ -162,8 +163,9 @@ class ProcessUser extends ProcessPageType {
 					if($rolePage->id) $roles[] = $rolePage->id;
 				}
 				// allow them to view users that only have guest role
-				$guestRoleID = $this->wire('config')->guestUserRolePageID;
-				$guestUserID = $this->wire('config')->guestUserPageID;
+				$config = $this->wire()->config;
+				$guestRoleID = $config->guestUserRolePageID;
+				$guestUserID = $config->guestUserPageID;
 				$selector .= ", id!=$guestUserID, roles=(roles.count=1, roles=$guestRoleID)";
 				if(count($roles)) {
 					$selector .= ", roles=(roles=" . implode('|', $roles) . ")"; // string of | separated role IDs
@@ -174,6 +176,7 @@ class ProcessUser extends ProcessPageType {
 		$settings['initSelector'] .= $selector;
 		$settings['defaultSelector'] = "name%=, roles=" . ($role ? $role : '');
 		$settings['delimiters'] = array('roles' => ', ');
+		$settings['allowBookmarks'] = true;
 
 		return $settings;
 	}
@@ -287,8 +290,10 @@ class ProcessUser extends ProcessPageType {
 	 * 
 	 */
 	public function hookGetSelectablePages($event) {
-		if($event->object->attr('name') != 'roles') return;
-		$suRoleID = $this->wire('config')->superUserRolePageID;
+		/** @var InputfieldPage $inputfield */
+		$inputfield = $event->object;
+		if($inputfield->attr('name') != 'roles') return;
+		$suRoleID = $this->wire()->config->superUserRolePageID;
 		foreach($event->return as $role) {
 			if($role->id == $suRoleID) $event->return->remove($role);
 		}

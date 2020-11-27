@@ -31,7 +31,7 @@
  * @method string pagePathName($varName) Sanitize to what could be a valid page path in ProcessWire
  * @method string email($varName) Sanitize email address, converting to blank if invalid
  * @method string emailHeader($varName) Sanitize string for use in an email header
- * @method string text($varName) Sanitize to single line of text up to 255 characters (1024 bytes max), HTML markup is removed
+ * @method string text($varName, $options = array()) Sanitize to single line of text up to 255 characters (1024 bytes max), HTML markup is removed
  * @method string textarea($varName) Sanitize to multi-line text up to 16k characters (48k bytes), HTML markup is removed
  * @method string url($varName) Sanitize to a valid URL, or convert to blank if it can't be sanitized
  * @method string selectorField($varName) Sanitize a field name for use in a selector string

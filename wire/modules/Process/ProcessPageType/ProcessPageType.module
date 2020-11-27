@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  * 
  * @property array $showFields Names of fields to show in the main list table  (default=['name'])
@@ -63,6 +63,14 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	protected $lister = null;
 
 	/**
+	 * Requested Lister bookmark ID (when applicable)
+	 * 
+	 * @var string|null|bool
+	 * 
+	 */
+	protected $listerBookmarkID = '';
+
+	/**
 	 * Construct
 	 * 
 	 */
@@ -115,9 +123,10 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	 */
 	protected function initLister() {
 		
-		if(!$this->useLister()) return;
+		if(!$this->useLister() || $this->lister) return;
 		
 		// init lister, but only if executing an action that will use it
+		$modules = $this->wire()->modules;
 		$segment = $this->wire('input')->urlSegment1;
 		$user = $this->wire('user');
 		$listerSegments = array(
@@ -129,13 +138,31 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			'save',
 			'edit-bookmark',
 		);
-		if(empty($segment) || in_array($segment, $listerSegments) && $user->hasPermission('page-lister')) {
-			if($this->wire('modules')->isInstalled('ProcessPageListerPro')) {
-				$this->lister = $this->wire('modules')->get('ProcessPageListerPro');
+		
+		if(strpos($segment, 'bm') === 0 && preg_match('/^bm[0-9O]+$/', $segment)) {
+			// bookmark ID, i.e. users/bm42O1604139292
+			$bookmarkID = $segment;
+		} else {
+			$bookmarkID = '';
+		}
+		
+		if(empty($segment) || $bookmarkID || in_array($segment, $listerSegments)) { 
+			if(!$user->hasPermission('page-lister')) return;
+			if($modules->isInstalled('ProcessPageListerPro')) {
+				$this->lister = $modules->get('ProcessPageListerPro');
+				if($this->lister && method_exists($this->lister, 'isValid') && !$this->lister->isValid()) {
+					$this->lister = null;
+				}
 			}
-			if((!$this->lister || !$this->lister->isValid()) && $this->wire('modules')->isInstalled('ProcessPageLister')) {
-				$this->lister = $this->wire('modules')->get('ProcessPageLister');
+			if(!$this->lister && $modules->isInstalled('ProcessPageLister')) {
+				$this->lister = $modules->get('ProcessPageLister');
 			}
+		}
+		
+		if($this->lister && $bookmarkID) {
+			$bookmarks = $this->lister->getBookmarksInstance();
+			$bookmarkID = $bookmarks->_bookmarkID(ltrim($bookmarkID, 'bm'));
+			$this->listerBookmarkID = $this->lister->checkBookmark($bookmarkID);
 		}
 	}
 	
@@ -146,6 +173,24 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 	public function ___executeActions() { return $this->getLister()->executeActions(); }
 	public function ___executeSave() { return $this->getLister()->executeSave(); }
 	public function ___executeEditBookmark() { return $this->getLister()->executeEditBookmark(); }
+
+	/**
+	 * Catch-all for bookmarks
+	 *
+	 * @return string
+	 * @throws Wire404Exception
+	 * @throws WireException
+	 *
+	 */
+	public function ___executeUnknown() {
+		$lister = null;
+		if($this->useLister()) {
+			$this->initLister();
+			$lister = $this->getLister();
+			if($lister && $this->listerBookmarkID) return $lister->executeUnknown();
+		}
+		throw new Wire404Exception("Unknown action", Wire404Exception::codeNonexist);
+	}
 
 	/**
 	 * Main execution method, delegated to listing items in this page type
@@ -259,7 +304,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			'delimiters' => array(),
 			'allowSystem' => true,
 			'allowIncludeAll' => true,
-			'allowBookmarks' => false, 
+			'allowBookmarks' => true, 
 			'showIncludeWarnings' => false,
 			'toggles' => array('collapseFilters'),
 		);
