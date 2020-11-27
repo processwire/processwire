@@ -1314,7 +1314,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * #pw-group-retrieval-and-traversal
  	 *  
 	 * @param array $options Options to modify behavior (3.0.169+)
-	 *  - `getWrappers` (bool): Also include InputfieldWrapper objects? (default=false) 3.0.169+
+	 *  - `withWrappers` (bool): Also include InputfieldWrapper objects? (default=false) 3.0.169+
 	 * @return InputfieldWrapper
 	 *
 	 */
@@ -1322,7 +1322,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		$all = $this->wire(new InputfieldsArray());
 		foreach($this->children() as $child) {
 			if($child instanceof InputfieldWrapper) {
-				if(!empty($options['getWrappers'])) $all->add($child);
+				if(!empty($options['withWrappers'])) $all->add($child);
 				foreach($child->getAll($options) as $c) {
 					$all->add($c); 
 				}

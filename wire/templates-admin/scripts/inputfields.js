@@ -1908,10 +1908,13 @@ function InputfieldStates($target) {
 		var config = ProcessWire.config;
 	} 
 	if(typeof config !== "undefined" && config.debug) {
-		$('label.InputfieldHeader > i.toggle-icon', $target).hover(function() {
+		$('.InputfieldHeader > i.toggle-icon', $target).hover(function() {
 			var $label = $(this).parent('label');
 			if($label.length == 0) return;
-			var text = $label.attr('for').replace(/^Inputfield_/, '');
+			var forId = $label.attr('for');
+			if(!forId) forId = $label.parent().attr('id');
+			if(!forId) return;
+			var text = forId.replace(/^Inputfield_|wrap_Inputfield_|wrap_/, '');
 			if(text.length) {
 				var $tip = $("<small class='InputfieldNameTip ui-priority-secondary'>&nbsp;" + text + "&nbsp;</small>");
 				$tip.css('float', 'right');
