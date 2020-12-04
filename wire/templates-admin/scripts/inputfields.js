@@ -993,15 +993,21 @@ function InputfieldDependencies($target) {
 
 			var _conditionValue = new String(condition.values[i]); // original
 			var conditionValue = trimValue(_conditionValue.replace(/\s/g, '_')); // spaces converted to "_"
-			consoleLog('conditionValue: ' + conditionValue);
-			var fieldID = "#Inputfield_" + conditionField + "_" + conditionValue;
+			var fieldID = "#Inputfield_" + conditionField + "_" + conditionValue; // i.e. "Inputfield_mycheckbox_1"
+			
 			$field = $(fieldID);
-			var inputType = $field.attr('type');
+			if(!$field.length) {
+				fieldID = '#' + conditionField + "_" + conditionValue; // i.e. "mycheckbox_1" (alternate)
+				$field = $(fieldID);
+			}
+
+			consoleLog('Required condition value: ' + conditionValue);
 
 			if($field.length) {
-				consoleLog("Found " + inputType + " via value " + fieldID);
 				// found a matching checkbox/radio field
+				var inputType = $field.attr('type');
 				var val = '';
+				consoleLog("Found " + inputType + " via value " + fieldID);
 				if($field.is(":checked")) {
 					// checkbox or radio IS checked
 					val = $field.val();
@@ -1370,7 +1376,7 @@ function InputfieldDependencies($target) {
 			// attach change event handler to all applicable fields
 			for(var fn = 0; fn < fields.length; fn++) {
 				
-				var fieldAndSubfield = extractFieldAndSubfield(fields[fn]); 
+				fieldAndSubfield = extractFieldAndSubfield(fields[fn]); 
 				var f = fieldAndSubfield.field;
 
 				// locate the dependency inputfield
