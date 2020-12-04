@@ -1645,6 +1645,7 @@ class Modules extends WireArray {
 				$results[$moduleName] = $moduleName;
 			}
 		}
+		ksort($results);
 		return $results;
 	}
 
