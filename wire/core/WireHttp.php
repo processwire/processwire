@@ -1838,7 +1838,7 @@ class WireHttp extends Wire {
 	 * @param $errcontext
 	 * 
 	 */
-	public function _errorHandler($errno, $errstr, $errfile, $errline, $errcontext) {
+	public function _errorHandler($errno, $errstr, $errfile = '', $errline = 0, $errcontext = array()) {
 		if($errfile || $errline || $errcontext) {} // ignore
 		$this->error[] = "$errno: $errstr";
 	}
