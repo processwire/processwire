@@ -325,6 +325,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 */
 	protected function matchArrayFieldName(array $fieldNames, $value) {
 		$query = $this->query;
+		$query->bindOption('global', true);
 		$this->query = $this->wire(new DatabaseQuerySelect());
 		$this->query->bindOption(true, $query->bindOption(true));
 		
@@ -332,7 +333,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 			$this->matchFieldName($fieldName, $value);
 		}
 		
-		$query->where('(' . implode(') OR (', $this->query->where) . ')');
+		$query->where('((' . implode(') OR (', $this->query->where) . '))');
 		$this->query->copyBindValuesTo($query);
 		$this->query = $query;
 	}
@@ -358,6 +359,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		// if($this->operator === '*=') $this->operator = '%='; 
 		
 		$query = $this->query;
+		$query->bindOption('global', true);
 		$this->query = $this->wire(new DatabaseQuerySelect());
 		$this->query->bindOption(true, $query->bindOption(true)); 
 		$method = $this->method;
@@ -368,7 +370,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 		}
 		
 		// @todo need to get anything else from substitute query?
-		$query->where('(' . implode(') OR (', $this->query->where) . ')');
+		$query->where('((' . implode(') OR (', $this->query->where) . '))');
 		$this->query->copyBindValuesTo($query);
 		$this->query = $query;
 	}
