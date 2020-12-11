@@ -364,7 +364,7 @@ class WireHttp extends Wire {
 	 * @param string $url URL to request (including http:// or https://)
 	 * @param mixed $data Array of data to send (if not already set before) or raw data to send
 	 * @param array $options Optional options to modify default behavior, see the send() method for details. 
-	 * @return bool|array False on failure or Arrray with ResponseHeaders on success.
+	 * @return bool|array False on failure or Array with ResponseHeaders on success.
 	 * @see WireHttp::send(), WireHttp::post(), WireHttp::get()
 	 *
 	 */

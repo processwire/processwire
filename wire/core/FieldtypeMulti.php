@@ -478,7 +478,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 			$query->data('_table', $table);
 			
 			foreach($filters as $selector) {
-				// @todo add support for OR values of $col or $value
+				
 				$col = $selector->field;
 				$op = $selector->operator;
 				$value = $selector->value;

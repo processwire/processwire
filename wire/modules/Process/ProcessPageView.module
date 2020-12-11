@@ -1008,7 +1008,7 @@ class ProcessPageView extends Process {
 		}
 
 		// options for WireHttp::sendFile
-		$defaults = array('exit' => false);
+		$defaults = array('exit' => false, 'limitPath' => $page->filesPath());
 		$options = array_merge($defaults, $options);
 		
 		$this->wire()->files->send($filename, $options);

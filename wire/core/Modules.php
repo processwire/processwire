@@ -3861,7 +3861,7 @@ class Modules extends WireArray {
 		$query->bindValue(":data", $json, \PDO::PARAM_STR);
 		$query->bindValue(":id", (int) $id, \PDO::PARAM_INT); 
 		$result = $query->execute();
-		$this->log("Saved module '$moduleName' config data");
+		// $this->log("Saved module '$moduleName' config data");
 		
 		return $result;
 	}

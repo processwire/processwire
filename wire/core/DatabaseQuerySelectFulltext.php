@@ -350,10 +350,12 @@ class DatabaseQuerySelectFulltext extends Wire {
 	 * 
 	 */
 	protected function matchArrayValue(array $value) {
-		
+	
+		/*
 		if(strpos($this->operator, '~') !== false) {
 			throw new WireException("Operator $this->operator is not supported for $this->fieldName with OR value condition");
 		}
+		*/
 		
 		// convert *= operator to %= to make the query possible (avoiding matchContains method)
 		// if($this->operator === '*=') $this->operator = '%='; 
