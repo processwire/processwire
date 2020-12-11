@@ -1509,16 +1509,21 @@ class FieldtypeComments extends FieldtypeMulti {
 	 */
 	public function ___updateComment(Page $page, $field, Comment $comment, array $properties) {
 		if(!count($properties)) return false;
+		
 		$commentID = $comment->id; 
-		if(!is_object($field)) $field = $this->wire('fields')->get($this->wire('sanitizer')->fieldName($field)); 
+		$database = $this->wire()->database;
+		$sanitizer = $this->wire()->sanitizer;
+		$fields = $this->wire()->fields;
+		
+		if(!is_object($field)) $field = $fields->get($sanitizer->fieldName($field)); 
 		if(!$field instanceof Field) return false;
-		$table = $this->wire('database')->escapeTable($field->getTable());
+		$table = $database->escapeTable($field->getTable());
 		$sql = "UPDATE `$table` SET ";
 		$values = array();
 		foreach($properties as $property => $value) {
 			$comment->set($property, $value); 
-			$property = $this->wire('sanitizer')->fieldName($property); 
-			$property = $this->wire('database')->escapeCol($property); 
+			$property = $sanitizer->fieldName($property); 
+			$property = $database->escapeCol($property); 
 			if($property == 'text') $property = 'data';
 			if(is_null($value) && ($property == 'code' || $property == 'subcode')) {
 				$sql .= "`$property`=NULL, ";
@@ -1528,20 +1533,23 @@ class FieldtypeComments extends FieldtypeMulti {
 			}
 		}
 		$sql = rtrim($sql, ', ') . " WHERE id=:commentID AND pages_id=:pageID";
-		$query = $this->wire('database')->prepare($sql); 
+		$query = $database->prepare($sql); 
 		$query->bindValue(':commentID', $commentID, \PDO::PARAM_INT);
 		$query->bindValue(':pageID', $page->id, \PDO::PARAM_INT); 
 		foreach($values as $property => $value) {
 			$query->bindValue(":$property", $value); 
 		}
-		$this->wire('pages')->saveFieldReady($page, $field);
 		try {
+			$this->triggerPageFieldSaveReady($page, $field);
 			$result = $query->execute();
-			$this->wire('pages')->savedField($page, $field); 
+			$this->triggerPageFieldSaved($page, $field);
 		} catch(\Exception $e) {
 			$result = false;
-			if($this->wire('config')->debug) $this->error($e->getMessage(), Notice::log); 
-				else $this->wire('log')->error($e->getMessage()); 
+			if($this->wire()->config->debug) {
+				$this->error($e->getMessage(), Notice::log);
+			} else {
+				$this->wire()->log->error($e->getMessage());
+			}
 		}
 		if($result) { 
 			$this->checkExistingComment($page, $field, $comment); 
@@ -1587,6 +1595,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$sets = array('pages_id=:pages_id');
 		$binds = array('pages_id' => (int) $page->id);
 		$nextSort = $this->getMaxSort($page, $field) + 1;
+		$approved = $comment->isApproved();
 		$comment->quiet(!$send); 
 
 		if(!$comment->sort) $comment->sort = $nextSort;
@@ -1602,6 +1611,8 @@ class FieldtypeComments extends FieldtypeMulti {
 		// convert CommentArray to sleep value array
 		$value = $this->sleepValue($page, $field, $commentArray);
 		if(!count($value)) return false;
+		
+		if($approved) $this->triggerPageFieldSaveReady($page, $field); 
 		
 		// use just first item, since only 1 comment
 		$value = $value[0]; 
@@ -1653,6 +1664,7 @@ class FieldtypeComments extends FieldtypeMulti {
 			// add to loaded CommentArray for page, but only if it is already loaded in memory
 			if($comments && $comments instanceof CommentArray) $comments->add($comment); 
 			$this->commentAdded($page, $field, $comment);
+			if($approved) $this->triggerPageFieldSaved($page, $field); 
 		} else {
 			$error = "Error adding new comment on page $page field $field->name for $comment->email: $error";
 			$this->error($error, Notice::superuser | Notice::log);
@@ -1673,25 +1685,28 @@ class FieldtypeComments extends FieldtypeMulti {
 	 */
 	public function deleteComment(Page $page, Field $field, Comment $comment, $notes = '') {
 		
+		$approved = $comment->isApproved();
+		$database = $this->wire()->database;
+		
 		if($field->get('depth') > 0) {
 			foreach($comment->children() as $child) {
 				$this->deleteComment($page, $field, $child); 
 			}
 		}
 		
-		$table = $this->wire('database')->escapeTable($field->getTable());
+		$table = $database->escapeTable($field->getTable());
 		$sql = "DELETE FROM `$table` WHERE id=:id AND pages_id=:pages_id";
-		$query = $this->wire('database')->prepare($sql); 
+		$query = $database->prepare($sql); 
 		$query->bindValue(':id', $comment->id, \PDO::PARAM_INT);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$comments = $page->get($field->name); 
 		
 		try {
-			$this->wire('pages')->saveFieldReady($page, $field); 
+			if($approved) $this->triggerPageFieldSaveReady($page, $field);
 			$result = $query->execute();
 			if($comments) $comments->remove($comment); 
 			$this->commentDeleted($page, $field, $comment, $notes); 
-			$this->wire('pages')->savedField($page, $field); 
+			if($approved) $this->triggerPageFieldSaved($page, $field);
 			
 		} catch(\Exception $e) {
 			$this->error($e->getMessage()); 
@@ -1792,6 +1807,32 @@ class FieldtypeComments extends FieldtypeMulti {
 		$query->closeCursor();
 		
 		return $numComments;
+	}
+	
+	/**
+	 * Trigger hooks for Pages::saveFieldReady() and pages::savePageOrFieldReady()
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 *
+	 */
+	protected function triggerPageFieldSaveReady(Page $page, Field $field) {
+		$pages = $this->wire()->pages;
+		$pages->saveFieldReady($page, $field);
+		$pages->savePageOrFieldReady($page, $field->name);
+	}
+
+	/**
+	 * Trigger hooks for Pages::savedField() and pages::savedPageOrField()
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * 
+	 */
+	protected function triggerPageFieldSaved(Page $page, Field $field) {
+		$pages = $this->wire()->pages;
+		$pages->savedField($page, $field); 
+		$pages->savedPageOrField($page, array($field->name)); 
 	}
 
 	/**
