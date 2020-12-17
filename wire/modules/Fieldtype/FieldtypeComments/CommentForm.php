@@ -607,23 +607,24 @@ class CommentForm extends Wire implements CommentFormInterface {
 	 * 
 	 */
 	protected function renderFormNormal($id, $class, $attrs, $labels, $inputValues) {
+		$inputWrapTag = $this->options['inputWrapTag'];
 		$form = 
 			"\n<form id='{$id}_form' class='$class CommentFormNormal' action='$attrs[action]#$id' method='$attrs[method]'>" .
-			"\n\t<p class='CommentFormCite {$id}_cite'>" .
+			"\n\t<$inputWrapTag class='CommentFormCite {$id}_cite'>" .
 			"\n\t\t<label for='{$id}_cite'>$labels[cite]</label>" .
 			"\n\t\t<input type='text' name='cite' class='required' required='required' id='{$id}_cite' value='$inputValues[cite]' maxlength='128' />" .
-			"\n\t</p>" .
-			"\n\t<p class='CommentFormEmail {$id}_email'>" .
+			"\n\t</$inputWrapTag>" .
+			"\n\t<$inputWrapTag class='CommentFormEmail {$id}_email'>" .
 			"\n\t\t<label for='{$id}_email'>$labels[email]</label>" .
 			"\n\t\t<input type='text' name='email' class='required email' required='required' id='{$id}_email' value='$inputValues[email]' maxlength='255' />" .
-			"\n\t</p>";
+			"\n\t</$inputWrapTag>";
 
 		if($this->commentsField && $this->commentsField->useWebsite && $this->commentsField->schemaVersion > 0) {
 			$form .=
-				"\n\t<p class='CommentFormWebsite {$id}_website'>" .
+				"\n\t<$inputWrapTag class='CommentFormWebsite {$id}_website'>" .
 				"\n\t\t<label for='{$id}_website'>$labels[website]</label>" .
 				"\n\t\t<input type='text' name='website' class='website' id='{$id}_website' value='$inputValues[website]' maxlength='255' />" .
-				"\n\t</p>";
+				"\n\t</$inputWrapTag>";
 		}
 
 		if($this->commentsField->useStars && $this->commentsField->schemaVersion > 5) {
@@ -636,11 +637,11 @@ class CommentForm extends Wire implements CommentFormInterface {
 				$starsNote = '';
 			}
 			$form .=
-				"\n\t<p class='$starsClass {$id}_stars' data-note='$starsNote'>" .
+				"\n\t<$inputWrapTag class='$starsClass {$id}_stars' data-note='$starsNote'>" .
 				($labels['stars'] ? "\n\t\t<label for='{$id}_stars'>$labels[stars]</label>" : "") .
 				"\n\t\t<input type='number' name='stars' id='{$id}_stars' value='$inputValues[stars]' min='0' max='5' />" .
 				"\n\t\t" . $commentStars->render(0, true) .
-				"\n\t</p>";
+				"\n\t</$inputWrapTag>";
 		}
 
 		// do we need to show the honeypot field?
@@ -649,22 +650,22 @@ class CommentForm extends Wire implements CommentFormInterface {
 			$honeypotLabel = isset($labels[$honeypot]) ? $labels[$honeypot] : '';
 			$honeypotValue = isset($inputValues[$honeypot]) ? $inputValues[$honeypot] : '';
 			$form .=
-				"\n\t<p class='CommentFormHP {$id}_hp'>" .
+				"\n\t<$inputWrapTag class='CommentFormHP {$id}_hp'>" .
 				"\n\t\t<label for='{$id}_$honeypot'>$honeypotLabel</label>" .
 				"\n\t\t<input type='text' id='{$id}_$honeypot' name='$honeypot' value='$honeypotValue' size='3' />" .
-				"\n\t</p>";
+				"\n\t</$inputWrapTag>";
 		}
 
 		$form .=
-			"\n\t<p class='CommentFormText {$id}_text'>" .
+			"\n\t<$inputWrapTag class='CommentFormText {$id}_text'>" .
 			"\n\t\t<label for='{$id}_text'>$labels[text]</label>" .
 			"\n\t\t<textarea name='text' class='required' required='required' id='{$id}_text' rows='$attrs[rows]' cols='$attrs[cols]'>$inputValues[text]</textarea>" .
-			"\n\t</p>" . 
+			"\n\t</$inputWrapTag>" . 
 			$this->renderNotifyOptions() . 
-			"\n\t<p class='CommentFormSubmit {$id}_submit'>" .
+			"\n\t<$inputWrapTag class='CommentFormSubmit {$id}_submit'>" .
 			"\n\t\t<button type='submit' name='{$id}_submit' id='{$id}_submit' value='1'>$labels[submit]</button>" .
 			"\n\t\t<input type='hidden' name='page_id' value='{$this->page->id}' />" .
-			"\n\t</p>" .
+			"\n\t</$inputWrapTag>" .
 			"\n</form>";
 		
 		return $form; 
