@@ -1412,12 +1412,12 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___replacePageField(Page $src, Page $dst, Field $field) {
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->table);
 		$this->emptyPageField($dst, $field); 
 		// move the data
 		$sql = "UPDATE `$table` SET pages_id=:dstID WHERE pages_id=:srcID";
-		$query = $this->wire('database')->prepare($sql);
+		$query = $database->prepare($sql);
 		$query->bindValue(':dstID', (int) $dst->id);
 		$query->bindValue(':srcID', (int) $src->id);
 		$result = $query->execute();
@@ -1442,7 +1442,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 */
 	public function ___deleteTemplateField(Template $template, Field $field) {
-		return $this->wire('fields')->deleteFieldDataByTemplate($field, $template); 
+		return $this->wire()->fields->deleteFieldDataByTemplate($field, $template); 
 	}
 
 	/**
@@ -1521,7 +1521,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 * 
 	 * #pw-group-other
 	 * 
-	 * @throws WireException Should throw an Exception if uninstsall can't be completed.
+	 * @throws WireException Should throw an Exception if uninstall can't be completed.
 	 *
 	 */
 	public function ___uninstall() {

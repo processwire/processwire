@@ -18,7 +18,7 @@
  * @property int $maxWidth Maximum layout width in pixels, or 0 for no max (default=1600).
  * @property bool|int $groupNotices Whether or not notices should be grouped by type
  * @property string $inputSize Size for input/select elements. One of "s" for small, "m" for medium (default), or "l" for large. 
- * @property bool|int $noGrid When true, do not use uk-width classes for Inputfields (use CSS percentages instead). 
+ * @property bool|int $ukGrid When true, use uk-width classes for Inputfields (rather than CSS percentages). 
  * 
  * 
  */
@@ -81,8 +81,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('maxWidth', 1600); 
 		$this->set('groupNotices', true);
 		$this->set('inputSize', 'm'); // m=medium (default), s=small, l=large
-		$this->set('noGrid', false); 
-		
+		$this->set('ukGrid', false); 
 		$this->setClasses(array(
 			'input' => 'uk-input',
 			'input-small' => 'uk-input uk-form-small',
@@ -150,7 +149,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			}
 		}
 		
-		if($this->noGrid) {
+		if(!$this->ukGrid) {
 			$this->addClass('body', 'AdminThemeUikitNoGrid'); 
 		}
 		
@@ -285,7 +284,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$isWrapper = $inputfield instanceof InputfieldWrapper && !$isFieldset && !$isMarkup;
 		$ukWidthClass = 'uk-width-1-1';
 		$globalInputSize = $this->get('inputSize');
-		$noGrid = $this->get('noGrid');
+		$ukGrid = $this->get('ukGrid');
 		$themeColor = '';
 		$themeBorder = '';
 		$themeOffset = '';
@@ -309,7 +308,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			return; // no further settings needed for button
 		}
 
-		if(!$noGrid) {
+		if($ukGrid) {
 			$ukWidthClass = $this->getUkWidthClass($columnWidth, $widths); 
 			if($ukWidthClass) $wrapClasses[] = $ukWidthClass;
 		}
