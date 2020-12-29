@@ -312,6 +312,7 @@ class InputfieldCheckbox extends Inputfield {
 		$f->notes = $this->_('If not specified, the field label will be used instead.'); 
 		$f->attr('value', $this->getSetting('checkboxLabel')); 
 		$f->icon = 'check-square';
+		$f->collapsed = Inputfield::collapsedBlank;
 		if($languages) {
 			$f->useLanguages = true; 
 			foreach($languages as $language) {

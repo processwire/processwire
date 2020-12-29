@@ -1387,6 +1387,30 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 */
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();
+		
+		if($this->hasFieldtype === false) {
+			/** @var InputfieldText $f */
+			$f = $this->modules->get('InputfieldText');
+			$f->attr('name', 'extensions');
+			$f->label = $this->_('Allowed file extensions for upload'); 
+			$f->description = $this->_('One or more file extensions separated by a space.');
+			$value = $this->getSetting('extensions');
+			if(empty($value)) $value = 'pdf jpg jpeg png gif doc docx csv xls xlsx ppt pptx';
+			$value = explode(' ', $value);
+			foreach($value as $k => $v) $value[$k] = trim($v, '. '); 
+			$f->val(implode(' ', $value));
+			$inputfields->add($f);
+			
+			/** @var InputfieldInteger $f */
+			$f = $this->modules->get('InputfieldInteger');
+			$f->attr('name', 'maxFiles');
+			$f->attr('value', (int) $this->getSetting('maxFiles'));
+			$f->attr('size', 4);
+			$f->label = $this->_('Maximum files allowed');
+			$f->description = $this->_('0=No limit');
+			$f->collapsed = Inputfield::collapsedBlank;
+			$inputfields->add($f); 
+		}
 	
 		/** @var InputfieldCheckbox $f */
 		$f = $this->modules->get("InputfieldCheckbox"); 

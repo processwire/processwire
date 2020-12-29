@@ -3073,6 +3073,17 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	}
 
 	/**
+	 * Are we processing a submitted page edit form in this request?
+	 * 
+	 * @return bool
+	 * @since 3.0.170
+	 * 
+	 */
+	public function isSubmit() {
+		return $this->isPost;
+	}
+
+	/**
 	 * URL to redirect to after non-authenticated user is logged-in, or false if module does not support
 	 *
 	 * @param Page $page

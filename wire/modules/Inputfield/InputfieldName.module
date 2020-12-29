@@ -18,7 +18,7 @@ class InputfieldName extends InputfieldText {
 	}
 
 	public function __construct() {
-		$this->sanitizeMethod = 'name'; // method from sanitizer to use for value sanitization
+		$this->set('sanitizeMethod', 'name'); // method from sanitizer to use for value sanitization
 		parent::__construct();
 	}
 
@@ -31,7 +31,7 @@ class InputfieldName extends InputfieldText {
 		$this->set('required', true); 
 		$this->label = $this->_('Name'); // default field label
 		$this->description = $this->_('Any combination of letters (a-z), numbers (0-9) and underscores (no spaces).'); // default field description
-		$this->sanitizeMethod = 'name'; // method from sanitizer to use for value sanitization
+		$this->set('sanitizeMethod', 'name'); // method from sanitizer to use for value sanitization
 	}
 
 	protected function setAttributeValue($value) {

@@ -42,6 +42,7 @@ class PageFrontEditConfig extends ModuleConfig {
 		$fieldset->attr('id+name', 'inlineSettings');
 		$inputfields->add($fieldset);
 
+		/** @var InputfieldCheckboxes $f */
 		$f = $this->wire('modules')->get('InputfieldCheckboxes');
 		$f->name = 'inlineEditFields';
 		$f->icon = 'cube';
@@ -57,7 +58,8 @@ class PageFrontEditConfig extends ModuleConfig {
 		}
 		// $f->attr('value', $this->inlineEditFields);
 		$fieldset->add($f);
-		
+
+		/** @var InputfieldRadios $f */
 		$f = $this->wire('modules')->get('InputfieldRadios');
 		$f->name = 'inlineLimitPage';
 		$f->label = $this->_('Option A: editor scope');
@@ -73,6 +75,7 @@ class PageFrontEditConfig extends ModuleConfig {
 		$fieldset2->collapsed = Inputfield::collapsedYes;
 		$fieldset->add($fieldset2);
 
+		/** @var InputfieldRadios $f */
 		$f = $this->modules->get('InputfieldRadios');
 		$f->name = 'buttonLocation';
 		$f->label = $this->_('Buttons location');
@@ -101,7 +104,7 @@ class PageFrontEditConfig extends ModuleConfig {
 	
 	public function fieldHelpInputfields(InputfieldWrapper $fieldset, Field $field) {
 		
-		$moreLabel = $this->_('More') . " [i.fa.fa-angle-right][/i]";
+		$moreLabel = $this->_('More');
 		
 		$module = $this->wire('modules')->get('PageFrontEdit');
 		$fieldset->description = $this->editHelpText;

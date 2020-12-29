@@ -156,9 +156,9 @@ InputfieldWrapper::setMarkup($markup);
 
 if(!$config->get('InputfieldWrapper')) $config->set('InputfieldWrapper', array());
 
-if($adminTheme->noGrid) {
-	$config->InputfieldWrapper('useColumnWidth', 2); // 2=use both style='width:%' and data-colwidth attributes
-} else {
+if($adminTheme->ukGrid) {
 	$config->InputfieldWrapper('useColumnWidth', false); 
+} else {
+	$config->InputfieldWrapper('useColumnWidth', 2); // 2=use both style='width:%' and data-colwidth attributes
 }
 

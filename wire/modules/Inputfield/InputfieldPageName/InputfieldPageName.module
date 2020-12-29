@@ -326,6 +326,17 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 
 		return $fields;
 	}
+
+	/**
+	 * Get default replacements setting
+	 * 
+	 * @return array
+	 * @since 3.0.170
+	 * 
+	 */
+	public static function getDefaultReplacements() {
+		return self::$defaultReplacements;
+	}
 }
 
 function InputfieldPageName_saveModuleConfigData(HookEvent $event) {
