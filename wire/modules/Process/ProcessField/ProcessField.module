@@ -29,7 +29,8 @@
  * @method buildEditFormCustom(InputfieldForm $form)
  * @method InputfieldWrapper buildEditFormDelete()
  * @method InputfieldWrapper buildEditFormBasics()
- * @method InputfieldWrapper buildEditFormInfo()
+ * @method InputfieldWrapper buildEditFormInfo() Deprecated, hook buildEditFormActions() instead.
+ * @method InputfieldWrapper buildEditFormActions()
  * @method InputfieldWrapper buildEditFormAdvanced()
  * 
  * @method void fieldAdded(Field $field)
@@ -1054,10 +1055,14 @@ class ProcessField extends Process implements ConfigurableModule {
 				}
 			}
 			if(!$this->fieldgroup) {
-				$info = $this->buildEditFormInfo();
-				if(count($info)) $form->add($info);
+				if($this->hasHook('buildEditFormInfo()')) {
+					$actions = $this->buildEditFormInfo(); // for legacy hooks
+				} else {
+					$actions = $this->buildEditFormActions();
+				}
+				if(count($actions)) $form->add($actions);
 				$this->buildEditFormContext($form);
-				$form->add($this->buildEditFormDelete());
+				// $form->add($this->buildEditFormDelete());
 			} else {
 				if($accessTab) $form->add($accessTab);
 				$this->buildEditFormContext($form);
@@ -1428,26 +1433,20 @@ class ProcessField extends Process implements ConfigurableModule {
 	/**
 	 * Add a delete tab to the form
 	 * 
-	 * @return InputfieldWrapper
+	 * @return InputfieldCheckbox
 	 *
 	 */
 	protected function ___buildEditFormDelete() {
 
 		$deleteLabel = $this->_('Delete field');
 
-		/** @var InputfieldWrapper $form */
-		$form = $this->wire(new InputfieldWrapper());
-		$form->attr('id', 'delete');
-		$form->attr('class', 'WireTab');
-		//$form->head = $deleteLabel;
-		$form->attr('title', $this->_x('Delete', 'tab')); 
-
 		/** @var InputfieldCheckbox $field */
 		$field = $this->modules->get('InputfieldCheckbox');
 		$field->label = $deleteLabel;
-		$field->icon = 'times-circle';
+		$field->icon = 'trash-o';
 		$field->attr('id+name', "delete"); 
 		$field->attr('value', $this->field->id); 
+		$field->collapsed = Inputfield::collapsedYes;
 
 		if($this->field->id && $this->field->numFieldgroups() == 0) {
 			$field->description = $this->_("This field is not in use and is safe to delete.");
@@ -1455,10 +1454,8 @@ class ProcessField extends Process implements ConfigurableModule {
 			$field->attr('disabled', 'disabled'); 
 			$field->description = $this->_("This field may not be deleted because it is in use by one or more templates."); 
 		}
-
-		$form->add($field);
-
-		return $form;
+		
+		return $field;
 	}
 
 	/**
@@ -1468,24 +1465,55 @@ class ProcessField extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function ___buildEditFormBasics() {
+		
+		$isNew = !$this->field || !$this->field->id;
 	
 		/** @var Fields $fields */
 		$fields = $this->wire('fields');
+		/** @var Languages|null $languages */
+		$languages = $this->wire('languages');
+		$languageFields = array();
+		$adminTheme = $this->wire()->adminTheme;
+		$legacyTheme = !$adminTheme || in_array($adminTheme->className(), array('AdminThemeDefault', 'AdminThemeReno'));
 
 		/** @var InputfieldWrapper $form */
 		$form = $this->wire(new InputfieldWrapper());
 		$form->attr('id', 'basics');
 		$form->attr('class', 'WireTab');
-		$form->attr('title', $this->_x('Basics', 'tab')); 
+		$form->attr('title', $this->_x('Basics', 'tab'));
+		
+		/** @var InputfieldPageTitle $field */
+		$field = $this->modules->get('InputfieldPageTitle');
+		$field->attr('id+name', 'field_label');
+		$field->label = $this->labels['label'];
+		$field->attr('value', $this->field->label);
+		$field->required = true;
+		$field->class .= ' asmListItemDesc'; // for modal to populate parent asmSelect desc field with this value (recognized by jquery.asmselect.js)
+		// $field->detail = $this->_([ 'Label that appears above the field input.', 'This is the label that appears above the entry field. If left blank, the name will be used instead.' ]); // Description for 'field label'
+		$field->columnWidth = $languages ? 100 : 33;
+		$field->icon = 'tag';
+		$field->nameField = 'name';
+		$field->nameDelimiter = '_';
+		$labelField = $field;
+		$form->add($field);
+		$languageFields[] = $field;
 
 		if($this->fieldgroup) { 	
 			// ok
+			$field->columnWidth = 100;
 
 		} else {
 			/** @var InputfieldName $field */
 			$field = $this->modules->get('InputfieldName');
+			$field->attr('name', 'name');
 			$field->attr('value', $this->field->name); 
-			$field->description = $this->_("Use only ASCII letters (a-z A-Z), numbers (0-9) or underscores.");
+			$field->description = '';
+			// $field->detail = $this->_([ 'Use only ASCII letters (a-z A-Z), numbers (0-9) or underscores.' ]);
+			$field->columnWidth = $languages ? 50 : 33;
+			$field->pattern = '^[_a-zA-Z][_a-zA-Z0-9]*$';
+			$field->placeholder = 'a-z A-Z 0-9 _';
+			$field->icon = 'code';
+			$nameField = $field;
 			$form->add($field); 
 
 			/** @var InputfieldSelect $field */
@@ -1493,10 +1521,15 @@ class ProcessField extends Process implements ConfigurableModule {
 			$field->label = $this->labels['type'];
 			$field->attr('name', 'type'); 
 			$field->required = true; 
-			if($this->field->type) $field->attr('value', $this->field->type->name); 
-				else $field->addOption('', ''); 
+			$field->columnWidth = $languages ? 50 : 34;
+			$field->icon = 'database';
+			if($this->field->type) {
+				$field->attr('value', $this->field->type->name);
+			} else {
+				$field->addOption('', '');
+			}
 
-			if(!$this->field->id) $field->description = $this->_("After selecting your field type and saving, you may be presented with additional configuration options specific to the field type you selected."); // Note that appears when adding new field
+			// if($isNew) $form->description = $this->_("After selecting your field type and saving, you may be presented with additional configuration options specific to the field type you selected."); // Note that appears when adding new field
 
 			$fieldtypes = $fields->getCompatibleFieldtypes($this->field);
 
@@ -1519,7 +1552,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				$field->addOption($this->field->type->name, $this->field->type->longName); 
 			}
 			
-			if(!$this->field->id) {
+			if($isNew) {
 				$names = array();
 				foreach($fields as $f) {
 					if(($f->flags & Field::flagSystem) && !$this->wire('config')->advanced) continue;
@@ -1529,22 +1562,15 @@ class ProcessField extends Process implements ConfigurableModule {
 				$field->addOption($this->_('Clone existing field'), $names);
 			}
 
+			$typeField = $field;
 			$form->add($field); 
+			
+			if($legacyTheme) {
+				$labelField->columnWidth = 100;
+				$nameField->columnWidth = 100;
+				$typeField->columnWidth = 100;
+			}
 		}
-
-		/** @var Languages|null $languages */
-		$languages = $this->wire('languages');
-		$languageFields = array();
-
-		/** @var InputfieldText $field */
-		$field = $this->modules->get('InputfieldText');
-		$field->attr('id+name', 'field_label'); 
-		$field->label = $this->labels['label'];
-		$field->attr('value', $this->field->label); 
-		$field->class .= ' asmListItemDesc'; // for modal to populate parent asmSelect desc field with this value (recognized by jquery.asmselect.js)
-		$field->description = $this->_("This is the label that appears above the entry field. If left blank, the name will be used instead."); // Description for 'field label'
-		$form->add($field);
-		$languageFields[] = $field;
 
 		/** @var InputfieldTextarea $field */
 		$field = $this->modules->get('InputfieldTextarea');
@@ -1552,7 +1578,9 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->attr('name', 'description'); 
 		$field->attr('value', $this->field->description); 
 		$field->attr('rows', 3); 
-		$field->description = $this->_("Additional information describing this field and/or instructions on how to enter the content."); // Description for 'field description'
+		$field->icon = 'align-left';
+		$field->description = $this->_('Description appears here and looks like this.'); 
+		$field->detail = $this->_("Additional information describing this field and/or instructions on how to enter the content."); // Description for 'field description'
 		$field->collapsed = Inputfield::collapsedBlank;
 		$form->add($field);
 		$languageFields[] = $field;
@@ -1562,6 +1590,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->attr('name', 'notes');
 		$field->attr('value', $this->field->notes);
 		$field->attr('rows', 3);
+		$field->icon = 'sticky-note';
 		$field->description = $this->_("Usage notes or additional information that appears beneath the input."); // Description for 'field notes'
 		$field->notes = $this->_('Notes appear here and look like this.');
 		$field->collapsed = Inputfield::collapsedBlank;
@@ -1577,17 +1606,31 @@ class ProcessField extends Process implements ConfigurableModule {
 				$field->set("value{$language->id}", $this->field->get("$name{$language->id}")); 
 			}
 		}
+		
+		/** @var InputfieldIcon $field */
+		$field = $this->modules->get("InputfieldIcon");
+		$field->attr('name', 'icon');
+		$field->attr('value', $this->field->icon);
+		$field->icon = 'puzzle-piece';
+		$field->label = $this->_('Icon');
+		$field->description = $this->_('If you want to associate an icon with the field, select an icon below. Click the "Show all icons" link for visual selection.'); // Description for field tags
+		$field->collapsed = Inputfield::collapsedBlank;
+		$form->add($field);
 
 		return $form;
 	}
 
+	protected function ___buildEditFormInfo() { // legacy name (left for hooks)
+		return $this->buildEditFormActions();
+	}
+	
 	/**
 	 * Build the 'Info' field shown in the Field Edit form
 	 * 
 	 * @return InputfieldWrapper
 	 *
 	 */
-	protected function ___buildEditFormInfo() {
+	protected function ___buildEditFormActions() {
 
 		/** @var InputfieldWrapper $form */
 		$form = $this->wire(new InputfieldWrapper());
@@ -1607,6 +1650,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field = $this->modules->get('InputfieldCheckboxes');
 		$field->attr('name', 'send_templates'); 	
 		$field->label = $this->_('Add or remove field from templates'); 
+		$field->collapsed = Inputfield::collapsedYes;
 		if(count($inTemplates)) {
 			$field->description = $this->_('This field is in use on the checked templates below.') . ' ';
 		} else {
@@ -1675,6 +1719,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->description = $this->_('Check the field for unused data or other possible optimizations. If any issues are found, you will have the opportunity to correct them from the Alert tab after saving.');
 		$field->collapsed = Inputfield::collapsedBlank;
 		$form->add($field);
+		
+		$form->add($this->buildEditFormDelete());
 
 		return $form; 
 	}
@@ -1689,8 +1735,9 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 		if($this->field->type instanceof FieldtypeFieldsetOpen) return null;
 
-		/** @var Config $config */
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
+		$adminTheme = $this->wire()->adminTheme;
+		$checkboxClass = $adminTheme ? $this->wire()->adminTheme->getClass('input-checkbox') : '';
 
 		/** @var InputfieldWrapper $tab */
 		$tab = $this->wire(new InputfieldWrapper());
@@ -1732,8 +1779,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		$editRoles = $this->field->editRoles;
 		$guestRole = $this->wire('roles')->get($config->guestUserRolePageID);
 		$guestHasView = in_array($guestRole->id, $viewRoles);
-
-		foreach($this->wire('roles') as $role) {
+	
+		foreach($this->wire()->roles as $role) {
 			/** @var Role $role */
 			if($role->id == $config->superUserRolePageID) continue;
 			$label = $role->name;
@@ -1741,9 +1788,9 @@ class ProcessField extends Process implements ConfigurableModule {
 			if($role->id == $guestRole->id) $label .= ' <span class="detail">' . $this->_('(everyone)') . "</span>";
 			$table->row(array(
 				$label,
-				("<input type='checkbox' id='viewRoles_$role->id' class='viewRoles' name='viewRoles[]' value='$role->id' " .
+				("<input type='checkbox' id='viewRoles_$role->id' class='viewRoles $checkboxClass' name='viewRoles[]' value='$role->id' " .
 					(in_array($role->id, $viewRoles) || $guestHasView ? $checked : '') . " />"),
-				("<input type='checkbox' id='editRoles_$role->id' class='editRoles' name='editRoles[]'  value='$role->id' " .
+				("<input type='checkbox' id='editRoles_$role->id' class='editRoles $checkboxClass' name='editRoles[]'  value='$role->id' " .
 					(in_array($role->id, $editRoles) ? $checked : '') . " " . ($editable ? '' : $disabled) . " />")
 			));
 		}
@@ -1790,33 +1837,23 @@ class ProcessField extends Process implements ConfigurableModule {
 		/** @var InputfieldWrapper $form */
 		$form->attr('id', 'advanced');
 		$form->attr('class', 'WireTab');
-		//$form->head = $this->_('Advanced options'); // Section header for 'Advanced'
-		$form->attr('title', $this->_x('Advanced', 'tab')); 
-
-		/** @var InputfieldIcon $field */
-		$field = $this->modules->get("InputfieldIcon");
-		$field->attr('name', 'icon');
-		$field->attr('value', $this->field->icon);
-		$field->icon = 'puzzle-piece';
-		$field->label = $this->_('Icon');
-		$field->description = $this->_('If you want to associate an icon with the field, select an icon below. Click the "Show all icons" link for visual selection.'); // Description for field tags
-		//$field->collapsed = Inputfield::collapsedBlank;
-		$form->prepend($field); 
-
+		$form->attr('title', $this->_x('Advanced', 'tab'));
+		
 		/** @var InputfieldText $field */
-		$field = $this->modules->get("InputfieldText"); 
-		$field->attr('name', 'tags'); 
-		$field->attr('value', $this->field->getTags(true)); 
+		$field = $this->modules->get("InputfieldText");
+		$field->attr('name', 'tags');
+		$field->attr('value', $this->field->getTags(true));
 		$field->icon = 'tags';
 		$field->label = $this->labels['tags'];
 		$field->description = $this->_('If you want to visually group this field with others in the fields list, enter a one-word tag. Enter the same tag on other fields you want to group with. To specify multiple tags, separate each with a space. Use of tags may be worthwhile if your site has a large number of fields.'); // Description for field tags
-		$field->notes = $this->_('Each tag must be one word (underscores are okay).') . ' ' . 
+		$field->notes = $this->_('Each tag must be one word (underscores are okay).') . ' ' .
 			'[' . $this->labels['manage-tags'] . '](./tags/)';
 		$field->collapsed = Inputfield::collapsedBlank;
 		$form->prepend($field);
 
 		$this->wire('modules')->get('JqueryUI')->use('selectize');
-		
+
+
 		return $form;
 	}
 
