@@ -1,7 +1,11 @@
 <?php namespace ProcessWire;
 
 /**
- * An Inputfield for handling Page Titles. Exists primarily for it's javascript. 
+ * An Inputfield for handling Page Titles. Exists primarily for its javascript. 
+ * 
+ * @property string $nameField
+ * @property string $nameDelimiter
+ * @property array $nameReplacements
  *
  */
 class InputfieldPageTitle extends InputfieldText {
@@ -11,6 +15,34 @@ class InputfieldPageTitle extends InputfieldText {
 			'summary' => __('Handles input of Page Title and auto-generation of Page Name (when name is blank)', __FILE__), // Module Summary
 			'version' => 102,
 			'permanent' => true, 
-			);
+		);
+	}
+	
+	public function __construct() {
+		$this->set('nameField', ''); 
+		$this->set('nameDelimiter', '');
+		$this->set('nameReplacements', array());
+		parent::__construct();
+	}
+	
+	protected function setupCustom() {
+		$this->wrapAttr('data-name-field', $this->nameField);
+		$this->wrapAttr('data-name-delimiter', $this->nameDelimiter);
+		$this->addClass('InputfieldPageTitleCustom', 'wrapClass');
+		$jsConfig = $this->wire()->config->js($this->className());
+		if(!empty($jsConfig) && !empty($jsConfig['replacements'])) return;
+		$replacements = $this->nameReplacements;
+		if(empty($replacements)) {
+			$replacements = $this->wire()->modules->getConfig('InputfieldPageName', 'replacements');
+			if(empty($replacements)) $replacements = InputfieldPageName::getDefaultReplacements();
+		}
+		$this->wire()->config->js($this->className(), array(
+			'replacements' => $replacements,
+		));
+	}
+	
+	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
+		if($this->nameField) $this->setupCustom();
+		return parent::renderReady($parent, $renderValueMode);
 	}
 }
