@@ -612,7 +612,7 @@ class ProcessTemplate extends Process {
 		$field->collapsed = count($templateFiles) ? Inputfield::collapsedYes : Inputfield::collapsedNo; 
 		$form->append($field); 
 
-		$form->append($this->buildEditFormImport(true)); 
+		$form->append($this->buildEditFormActionsImportFieldgroup()); 
 
 		/** @var InputfieldSubmit $field */
 		$field = $this->modules->get('InputfieldSubmit');
@@ -734,18 +734,18 @@ class ProcessTemplate extends Process {
 
 		$t = $this->wire(new InputfieldWrapper());
 		$t->attr('class', 'WireTab'); 
-		$t->attr('title', $this->_x('Import', 'tab'));
-		// $t->head = $this->_('Import fields from another template');
-		$t->add($this->buildEditFormImport());
+		$t->attr('title', $this->_x('Actions', 'tab'));
+		$t->add($this->buildEditFormActions($template));
 		$form->add($t);
 
+		/*
 		$t = $this->wire(new InputfieldWrapper());
 		$t->attr('title', $this->_x('Delete', 'tab'));
 		$t->attr('id', 'WireTabDelete'); 
-		// $t->head = $this->_('Delete template');
 		$t->attr('class', 'WireTab'); 
 		$t->add($this->buildEditFormDelete($template)); 
 		$form->add($t); 	
+		*/
 
 		// --------------------
 
@@ -802,7 +802,7 @@ class ProcessTemplate extends Process {
 		$f = $this->modules->get('InputfieldText');
 		$f->attr('name', 'templateLabel');
 		$f->attr('value', $template->label);
-		$f->icon = 'barcode';
+		$f->icon = 'tag';
 		$f->label = $this->_x('Label', 'field-label');
 		$f->description = $this->_('An optional label to describe this template.');
 		$f->collapsed = Inputfield::collapsedBlank;
@@ -810,6 +810,17 @@ class ProcessTemplate extends Process {
 			$f->useLanguages = true;
 			foreach($languages as $language) $f->set('value' . $language->id, $template->get('label' . $language->id));
 		}
+		$t->add($f);
+		
+		$icon = $template->getIcon(true);
+		/** @var InputfieldIcon  $f */
+		$f = $this->modules->get("InputfieldIcon");
+		$f->attr('name', 'pageLabelIcon');
+		$f->attr('value', $icon);
+		$f->icon = $icon ? $icon : 'puzzle-piece';
+		$f->label = $this->_('Icon');
+		$f->description = $this->_('Select an icon that will be associated with this template and pages using this template (in the admin).');
+		$f->collapsed = Inputfield::collapsedBlank;
 		$t->add($f);
 		
 		if($this->numPages > 0 && version_compare(PHP_VERSION, '5.3.8') >= 0) {
@@ -862,10 +873,11 @@ class ProcessTemplate extends Process {
 
 		/** @var InputfieldCheckbox $field */
 		$field = $this->modules->get('InputfieldCheckbox');
-		$field->label = $this->_('Confirm deletion'); 
+		$field->label = $this->_('Delete template');
 		$field->attr('id+name', "delete"); 
 		$field->attr('value', $template->id); 
-		$field->icon = 'times-circle';
+		$field->icon = 'trash-o';
+		$field->collapsed = Inputfield::collapsedYes;
 
 		$fieldgroup = $this->wire('fieldgroups')->get($template->name); 
 		$numFieldgroupTemplates = 0;
@@ -876,24 +888,28 @@ class ProcessTemplate extends Process {
 			}
 		}
 
-		$description = $this->_('This template may not be deleted');
+		$nopeLabel = $this->_('This template may not be deleted');
+		$naLabel = $this->_('Not available for reason listed below');
 
 		if($template->flags & Template::flagSystem) {
-			$field->description = $description;
-			$field->notes = $this->_('System templates cannot be deleted'); 
+			$field->label2 = $naLabel;
+			$field->notes = $nopeLabel . ' - ' . $this->_('System templates cannot be deleted'); 
 			$field->attr('disabled', 'disabled'); 
 
 		} else if($this->numPages > 0) {
-			$field->description = $description; 
-			$field->notes = sprintf($this->_n('Template is used by 1 page', 'Template is used by %d pages', $this->numPages), $this->numPages); // Template can't be deleted because it's in use
+			$field->label2 = $naLabel; 
+			$field->notes = $nopeLabel . ' - ' . 
+				sprintf($this->_n('Template is used by 1 page', 'Template is used by %d pages', $this->numPages), $this->numPages); // Template can't be deleted because it's in use
 			$field->attr('disabled', 'disabled'); 
 
 		} else if($numFieldgroupTemplates > 0) {
-			$field->description = $description; 
-			$field->notes = sprintf($this->_n("This template's fieldgroup is used by 1 other template", "This template's fieldgroup is used by %d other templates", $numFieldgroupTemplates), $numFieldgroupTemplates); // Template can't be deleted because it's fieldgroup is in use
+			$field->label2 = $naLabel; 
+			$field->notes = $nopeLabel . ' - ' . 
+				sprintf($this->_n("This template's fieldgroup is used by 1 other template", "This template's fieldgroup is used by %d other templates", $numFieldgroupTemplates), $numFieldgroupTemplates); // Template can't be deleted because it's fieldgroup is in use
 			$field->attr('disabled', 'disabled'); 
 
 		} else {
+			$field->label2 = $this->_('Confirm deletion'); 
 			$field->description = $this->_('Note that deleting the template only removes it from the database, it does not delete the template file on disk.'); // Note about template files not being deleted
 		}
 
@@ -1063,36 +1079,80 @@ class ProcessTemplate extends Process {
 	}
 	
 	/**  
-	 * Build the "import" tab for edit form
+	 * Build the "Actions" tab for edit form
 	 * 
-	 * @param bool $collapsed
+	 * @param Template $template
 	 * @return InputfieldWrapper
 	 * 
 	 */
-	protected function buildEditFormImport($collapsed = false) {
+	protected function buildEditFormActions(Template $template) {
 
 		/** @var InputfieldWrapper $form */
 		$form = $this->wire(new InputfieldWrapper());
-
-		/** @var InputfieldSelect $field */
-		$field = $this->modules->get("InputfieldSelect"); 
-		$field->label = $this->_('Duplicate fields used by another template'); 
-		$field->description = $this->_('If you want to duplicate fields used by another template, select it here. Fields already present in this template will be left alone.'); // Duplicate fields, description
-		$field->icon = 'cube';
-		$field->attr('id+name', 'import_fieldgroup'); 
-		$field->addOption(''); 
-		$field->attr('value', ''); 
-		if($collapsed) $field->collapsed = Inputfield::collapsedYes;
-
-		foreach($this->fieldgroups->find("sort=name") as $fieldgroup) {
-			$template = $this->templates->get($fieldgroup->name); 	
-			if($template && ($template->flags & Template::flagSystem) && !$this->config->advanced) continue; 
-			if($this->template && $fieldgroup->name == $this->template->name) continue; 
-			$field->addOption($fieldgroup->name); 
+		
+		if(!($template->flags & Template::flagSystem)) {
+			/** @var InputfieldName $field */
+			$field = $this->modules->get("InputfieldName");
+			$field->label = $this->_('Rename template');
+			$field->description = $this->_('The name used to refer to this template. This is also the default filename of the template file (with .php extension) in /site/templates/.') . ' '; // Rename template, description
+			$field->icon = 'code';
+			$field->required = false;
+			if(basename($template->filename, '.php') == $template->name) {
+				if(is_writable($template->filename)) {
+					$field->description .= $this->_('The template filename is writable and will be renamed as well.'); // Rename template, filename writable, description
+				} else {
+					$field->description .= $this->_('The template file is not writable so you will have to rename it manually (instructions will be provided after you save).'); // Rename template, filename not writable, description
+				}
+			}
+			$field->notes = $this->labels['templateNameFormat'];
+			$field->attr('id+name', 'rename');
+			$field->attr('value', $template->name);
+			$field->collapsed = Inputfield::collapsedYes;
+			$form->append($field);
 		}
 
-		$form->add($field); 
+		// --------------------
+
+		/** @var InputfieldText $field */
+		$field = $this->modules->get("InputfieldText");
+		$field->attr('id+name', 'clone_template');
+		$field->label = $this->_('Duplicate/clone this template');
+		$field->description = $this->_('Enter the name of the new template you want to create. The clone will be created when you save. If your templates directory is writable and the template has a file, it will also be cloned.'); // Clone template, description
+		$field->notes = $this->labels['templateNameFormat'];
+		$field->collapsed = Inputfield::collapsedYes;
+		$field->icon = 'clone';
+		$form->append($field);
+
+		// --------------------
+
+		$form->add($this->buildEditFormActionsImportFieldgroup()); 
+		$form->add($this->buildEditFormDelete($template));
+		
 		return $form;
+	}
+
+	/**
+	 * @return InputfieldSelect
+	 * 
+	 */
+	protected function buildEditFormActionsImportFieldgroup() {
+		/** @var InputfieldSelect $field */
+		$field = $this->modules->get("InputfieldSelect");
+		$field->label = $this->_('Copy fields from another template');
+		$field->description = $this->_('If you want to copy fields used by another template, select it here. Fields already present in this template will be left alone.'); // Duplicate fields, description
+		$field->icon = 'cube';
+		$field->attr('id+name', 'import_fieldgroup');
+		$field->addOption('');
+		$field->attr('value', '');
+		$field->collapsed = Inputfield::collapsedYes;
+
+		foreach($this->fieldgroups->find("sort=name") as $fieldgroup) {
+			$template = $this->templates->get($fieldgroup->name);
+			if($template && ($template->flags & Template::flagSystem) && !$this->config->advanced) continue;
+			if($this->template && $fieldgroup->name == $this->template->name) continue;
+			$field->addOption($fieldgroup->name);
+		}
+		return $field;
 	}
 
 	/**
@@ -1305,37 +1365,6 @@ class ProcessTemplate extends Process {
 		// --------------------
 
 
-		if(!($template->flags & Template::flagSystem)) { 
-			$field = $this->modules->get("InputfieldName"); 
-			$field->label = $this->_('Rename Template');
-			$field->description = $this->_('The name used to refer to this template. This is also the default filename of the template file (with .php extension) in /site/templates/.') . ' '; // Rename template, description
-			if(basename($template->filename, '.php') == $template->name) {
-				 if(is_writable($template->filename)) {
-					 $field->description .= $this->_('The template filename is writable and will be renamed as well.'); // Rename template, filename writable, description
-				 } else {
-					 $field->description .= $this->_('The template file is not writable so you will have to rename it manually (instructions will be provided after you save).'); // Rename template, filename not writable, description
-				 }
-			}
-			$field->notes = $this->labels['templateNameFormat'];
-			$field->attr('id+name', 'rename'); 
-			$field->attr('value', $template->name); 
-			$field->collapsed = Inputfield::collapsedYes;
-			$form->append($field); 
-		}
-
-		// --------------------
-
-		$field = $this->modules->get("InputfieldText"); 
-		$field->attr('id+name', 'clone_template');
-		$field->label = $this->_('Duplicate/clone this template?');
-		$field->description = $this->_('Enter the name of the new template you want to create. The clone will be created when you save. If your templates directory is writable and the template has a file, it will also be cloned.'); // Clone template, description
-		$field->notes = $this->labels['templateNameFormat'];
-		$field->collapsed = Inputfield::collapsedYes; 
-		$field->icon = 'clone';
-		$form->append($field);
-		
-		// --------------------
-	
 		/** @var InputfieldRadios $field */
 		$field = $this->modules->get('InputfieldRadios');
 		$field->attr('id+name', 'errorAction');
@@ -1352,17 +1381,6 @@ class ProcessTemplate extends Process {
 	
 		$pageLabelField = $template->pageLabelField; 
 		$icon = $template->getIcon(true);
-
-		$field = $this->modules->get("InputfieldIcon");
-		$field->attr('name', 'pageLabelIcon');
-		$field->attr('value', $icon); 
-		$field->icon = $icon ? $icon : 'puzzle-piece';
-		$field->label = $this->_('Icon');
-		$field->description = $this->_('Select an icon that will be associated with this template and pages using this template (in the admin).'); 
-		$form->append($field);
-		
-		// --------------------
-		
 		if($icon) $pageLabelField = str_replace($icon, '', $pageLabelField); 
 
 		/** @var InputfieldText $field */
@@ -1371,6 +1389,7 @@ class ProcessTemplate extends Process {
 		$field->label = $this->_('List of fields to display in the admin Page List');
 		$field->description = $this->_("Enter one or more field names assigned to this template to display in the admin Page List when listing pages using this template. If left blank, the fields specified on the ProcessPageList module configuration will be used instead. Field names should be separated by a space and/or comma. Blank fields will be ignored."); // Page list fields, description
 		$field->description .= ' ' . $this->_('You may also use your own format (and any additional punctuation/characters) by specifying field names in brackets, i.e. {name}, {categories.title}, etc.'); // Page list fields, description 2
+		$field->icon = 'list';
 		$notes = 'name, ';
 		foreach($template->fields as $f) if(!$f->type instanceof FieldtypeFieldsetOpen) $notes .= $f->name . ", ";
 		$field->notes = $this->_('You may enter one or more of these fields:') . ' ' . rtrim($notes, ", ") . ". ";
@@ -1655,6 +1674,7 @@ class ProcessTemplate extends Process {
 		$field = $this->modules->get('InputfieldAsmSelect'); 
 		$field->attr('name', 'childTemplates'); 
 		$field->label = $this->_('Allowed template(s) for children');
+		$field->icon = 'indent';
 		$field->description = $this->_('Select the template(s) that will be allowed for children of pages using this template. Use this only if you specifically want to restrict placement of pages using this template.'); // childTemplates option, description
 		$field->description .= ' ' . $this->_("If none are selected then any are allowed, within the user's access limits. An example usage could be a 'news-list' template that is only allowed to have children using 'news-item' or 'press-release' templates."); // childTemplates option, notes
 
@@ -1697,6 +1717,7 @@ class ProcessTemplate extends Process {
 		$field->label = $this->_('Allowed template(s) for parents');
 		$field->description = $this->_("Select the template(s) that will be allowed as parents for pages using this template. Use this only if you specifically want to restrict placement of pages using this template."); // parentTemplates option, description
 		$field->description .= ' ' . $this->_("If none are selected then any parent template is allowed, within the user's access limits. An example usage could be an 'employee' template that is only allowed to have a parent page using a 'company-directory' template."); // parentTemplates option, notes
+		$field->icon = 'dedent';
 
 		$hasConflicts = false;
 		$hasSuccess = false;
@@ -1874,6 +1895,7 @@ class ProcessTemplate extends Process {
 		$field = $this->modules->get('InputfieldRadios'); 
 		$field->attr('name', 'slashUrls'); 
 		$field->label = $this->_('Should page URLs end with a slash?');
+		$field->icon = 'eye-slash';
 		$field->addOption(1, $this->labels['Yes']); 
 		if($template->name != 'admin') $field->addOption(0, $this->labels['No']); 
 		$field->description = $this->_("If 'Yes', pages using this template will always have URLs that end with a trailing slash '/'. And if the page is loaded from a URL without the slash, it will be redirected to it. If you select 'No', the non-slashed version will be enforced instead. Note that this setting does not enforce this behavior on URL segments or page numbers, only actual page URLs. If you don't have a preference, it is recommended that you leave this set to 'Yes'."); // URLs end with slash, description
@@ -1887,6 +1909,7 @@ class ProcessTemplate extends Process {
 		$field = $this->modules->get('InputfieldRadios'); 
 		$field->attr('name', 'https'); 
 		$field->label = $this->_('Scheme/Protocol');
+		$field->icon = 'shield';
 		$field->addOption(0, $this->_('HTTP or HTTPS')); 
 		$field->addOption(1, $this->_('HTTPS only (SSL encrypted)')); 
 		$field->addOption(-1, $this->_('HTTP only'));
@@ -2173,9 +2196,11 @@ class ProcessTemplate extends Process {
 	 */
 	protected function buildEditFormAccessRoles(Template $template = null) {
 
+		$adminTheme = $this->wire()->adminTheme;
+		$checkboxClass = $adminTheme ? $this->wire()->adminTheme->getClass('input-checkbox') : '';
 		$roles = $this->pages->get($this->config->rolesPageID)->children(); 
 		$checked = "checked='checked' ";
-		$disabled = "<input type='checkbox' disabled='disabled' />";
+		$disabled = "<input class='$checkboxClass' type='checkbox' disabled='disabled' />";
 
 		/** @var InputfieldMarkup $field */
 		$field = $this->modules->get("InputfieldMarkup"); 
@@ -2211,10 +2236,14 @@ class ProcessTemplate extends Process {
 
 			$table->row(array(
 				$label,
-				("<input type='checkbox' id='roles_{$role->id}' class='viewRoles' name='roles[]' value='{$role->id}' " . ($template->roles->has($role) ? $checked : '') . " />"), 
-				($editable ? ("<input type='checkbox' class='editRoles' name='editRoles[]' value='{$role->id}' " . (in_array($role->id, $template->editRoles) ? $checked : '') . " />") : $disabled), 
-				($editable ? ("<input type='checkbox' class='createRoles' name='createRoles[]' value='{$role->id}' " . (in_array($role->id, $template->createRoles) ? $checked : '') . " />") : $disabled),
-				($editable ? ("<input type='checkbox' class='addRoles' name='addRoles[]' value='{$role->id}' " . (in_array($role->id, $template->addRoles) ? $checked : '') . " />") : $disabled)
+				("<input type='checkbox' id='roles_$role->id' class='viewRoles $checkboxClass' name='roles[]' value='$role->id' " . 
+					($template->roles->has($role) ? $checked : '') . " />"), 
+				($editable ? ("<input type='checkbox' class='editRoles $checkboxClass' name='editRoles[]' value='$role->id' " . 
+					(in_array($role->id, $template->editRoles) ? $checked : '') . " />") : $disabled), 
+				($editable ? ("<input type='checkbox' class='createRoles $checkboxClass' name='createRoles[]' value='$role->id' " . 
+					(in_array($role->id, $template->createRoles) ? $checked : '') . " />") : $disabled),
+				($editable ? ("<input type='checkbox' class='addRoles $checkboxClass' name='addRoles[]' value='$role->id' " . 
+					(in_array($role->id, $template->addRoles) ? $checked : '') . " />") : $disabled)
 				));
 		}
 
