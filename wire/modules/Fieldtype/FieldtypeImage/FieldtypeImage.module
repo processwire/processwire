@@ -68,7 +68,7 @@ class FieldtypeImage extends FieldtypeFile {
 	 * @return string
 	 * 
 	 */
-	protected function getDefaultFileExtensions() {
+	public function getDefaultFileExtensions() {
 		return "gif jpg jpeg png";
 	}
 	

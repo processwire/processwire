@@ -85,6 +85,12 @@ class Modules extends WireArray {
 	const flagsNoUserConfig = 32;
 
 	/**
+	 * Module where no file could be located
+	 * 
+	 */
+	const flagsNoFile = 64;
+
+	/**
 	 * Filename for module info cache file
 	 *
 	 */
@@ -1256,6 +1262,7 @@ class Modules extends WireArray {
 		$needsInit = false;
 		$noInit = !empty($options['noInit']); // force cancel of Module::init() call?
 		$initOptions = array(); // options for initModule() call
+		$find = false; // try to find new location of module file?
 		$error = '';
 		
 		if(empty($key)) {
@@ -1320,9 +1327,26 @@ class Modules extends WireArray {
 				if(!$module) $error = "Module '$key' not installed and install failed";
 			} else {
 				$error = "Module '$key' is not present or listed as installable";
+				$find = true;
 			}
 		} else {
 			$error = "Module '$key' is not present and not installable (noInstall=true)";
+			$find = true;
+		}
+		
+		if(!$module && $find) {
+			// This is reached if module has moved elsewhere in file system, like from:
+			// site/modules/ModuleName.module to site/modules/ModuleName/ModuleName.module
+			// Code below tries to find the file to keep it working, but modules need Refresh.
+			try {
+				if($this->includeModule($key)) {
+					$module = $this->newModule($key);
+				}
+			} catch(\Exception $e) {
+				if(empty($options['noThrow'])) throw $e;
+				$error .= ($error ? " - " : "Module '$key' - ") . $e->getMessage();
+				return empty($options['returnError']) ? null : $error;
+			}
 		}
 		
 		if(!$module) {
@@ -1463,32 +1487,28 @@ class Modules extends WireArray {
 	public function includeModule($module, $file = '') {
 
 		$className = '';
+		$moduleName = '';
 		
 		if(is_string($module)) {
-			$className = $module;
+			$moduleName = ctype_alnum($module) ? $module : wireClassName($module);
+			$className = wireClassName($module, true);
 		} else if(is_object($module)) {
 			if($module instanceof ModulePlaceholder) {
-				$className = $module->className();
+				$moduleName = $module->className();
+				$className = $module->className(true);
 			} else if($module instanceof Module) {
 				return true; // already included
 			}
 		} else {
-			$className = $this->getModuleClass($module);
+			$moduleName = $this->getModuleClass($module, false);
+			$className = $this->getModuleClass($module, true);
 		}
 		
 		if(!$className) return false;
-		
-		if(class_exists($className, false)) {
-			// already included
-			return true; 
-		}
+
+		// already included
+		if(class_exists($className, false)) return true;
 	
-		// determine if namespace was requested with module
-		$namespace = wireClassName($className, 1);
-	
-		// moduleName is className without namespace
-		$moduleName = $namespace === null ? $className : wireClassName($className, false);
-		
 		// attempt to retrieve module
 		$module = parent::get($moduleName);
 		
@@ -1497,23 +1517,47 @@ class Modules extends WireArray {
 			if(!$module instanceof Module) $module = false;
 
 		} else if($moduleName) {
-			// unable to retrieve module, may be an uninstalled module
+			// This is reached for any of the following:
+			// 1. an uninstalled module
+			// 2. an installed module that has changed locations
+			// 3. a module outside the \ProcessWire\ namespace
+			// 4. a module that does not exist
+			$fast = true;
 			if(!$file) {
+				// determine module file, if not already provided to the method
 				$file = $this->getModuleFile($moduleName, array('fast' => true));
-				if(!$file) $file = $this->getModuleFile($moduleName, array('fast' => false));
+				if(!$file) {
+					$fast = false;
+					$file = $this->getModuleFile($moduleName, array('fast' => false));
+				}
+				// still can't figure out what file is? fail
+				if(!$file) return false;
 			}
-			if($file) {
-				$this->includeModuleFile($file, $moduleName);
-				// now check to see if included file resulted in presence of module class
-				if(class_exists($className)) {
-					$module = true; 
-				} else {
-					if(!$namespace) $namespace = $this->getModuleNamespace($moduleName, array('file' => $file));
-					$nsClassName = trim($namespace, "\\") . "\\$moduleName";
-					if(class_exists($nsClassName, false)) {
-						// successful include module
-						$module = true;
+			
+			if(!$this->includeModuleFile($file, $moduleName)) {
+				// module file failed to include(), try to identify and include file again
+				if($fast) {
+					$filePrev = $file;
+					$file = $this->getModuleFile($moduleName, array('fast' => false));
+					if($file && $file !== $filePrev) {
+						$this->includeModuleFile($file, $moduleName);
 					}
+				} else {
+					// we already tried this earlier, no point in doing it again
+				}
+			}
+			
+			// now check to see if included file resulted in presence of module class
+			if(class_exists($className)) {
+				// module in ProcessWire namespace
+				$module = true;
+			} else {
+				// module in root namespace or some other namespace
+				$namespace = $this->getModuleNamespace($moduleName, array('file' => $file));
+				$className = trim($namespace, "\\") . "\\$moduleName";
+				if(class_exists($className, false)) {
+					// successful include module
+					$module = true;
 				}
 			}
 		}
@@ -1523,6 +1567,7 @@ class Modules extends WireArray {
 			return true; 
 			
 		} else if(!$module) {
+			// darn
 			return false;
 			
 		} else if($module instanceof ModulePlaceholder) {
@@ -1624,7 +1669,7 @@ class Modules extends WireArray {
 	 *  - Integer 1 to return array of module info for each matching module.
 	 *  - Integer 2 to return array of verbose module info for each matching module. 
 	 *  - Integer 3 to return array of Module or ModulePlaceholder objects (whatever current state is). Added 3.0.146.
-	 * @return array Returns array of module class names or Module objects. In either case, array indexes are class names.
+	 * @return array Returns array of module class names, module info arrays, or Module objects. In all cases, array indexes are class names.
 	 * 
 	 */
 	public function findByPrefix($prefix, $load = false) {
@@ -2343,6 +2388,22 @@ class Modules extends WireArray {
 		$flags = (int) $flags; 
 		$this->moduleFlags[$id] = $flags;
 		return $flags; 
+	}
+
+	/**
+	 * Does module have flag?
+	 *
+	 * #pw-internal
+	 *
+	 * @param int|string|Module $class Module ID, class name or instance
+	 * @param int $flag
+	 * @return bool 
+	 * @since 3.0.170
+	 *
+	 */
+	public function hasFlag($class, $flag) {
+		$flags = $this->getFlags($class);
+		return $flags === false ? false : ($flags & $flag);
 	}
 
 	/**
@@ -3116,7 +3177,8 @@ class Modules extends WireArray {
 	 * @param string|Module $moduleName
 	 * @param array $options
 	 * 	- `file` (string): Known module path/file, as an optimization.
-	 * 	- `noCache` (bool): Specify true to force reload namespace info directly from module file.
+	 * 	- `noCache` (bool): Specify true to force reload namespace info directly from module file. (default=false)
+	 *  - `noLoad` (bool): Specify true to prevent loading of file for namespace discovery. (default=false) Added 3.0.170
 	 * @return null|string Returns namespace, or NULL if unable to determine. Namespace is ready to use in a string (i.e. has trailing slashes)
 	 * 
 	 */
@@ -3124,6 +3186,7 @@ class Modules extends WireArray {
 		
 		$defaults = array(
 			'file' => null,
+			'noLoad' => false, 
 			'noCache' => false,
 		);
 		
@@ -3161,7 +3224,9 @@ class Modules extends WireArray {
 			return null;
 		}
 
-		$namespace = $this->getFileNamespace($options['file']);
+		if(empty($options['noLoad'])) {
+			$namespace = $this->getFileNamespace($options['file']);
+		}
 			
 		return $namespace;
 	}
@@ -3176,7 +3241,7 @@ class Modules extends WireArray {
 	 * 
 	 */
 	public function getFileNamespace($file) {
-		$namespace = $this->wire('files')->getNamespace($file); 
+		$namespace = $this->wire()->files->getNamespace($file); 
 		if($namespace !== "\\") $namespace = "\\" . trim($namespace, "\\") . "\\";
 		return $namespace; 
 	}
@@ -3344,13 +3409,15 @@ class Modules extends WireArray {
 	 * @param string|Module $class Module class name or object instance
 	 * @param array|bool $options Options to modify default behavior:
 	 * 	- `getURL` (bool): Specify true if you want to get the URL rather than file path (default=false). 
-	 * 	- `fast` (bool): Specify true as optimization to omit file_exists() checks (default=false). 
+	 * 	- `fast` (bool): Specify true to omit file_exists() checks (default=false). 
+	 *  - `guess` (bool): Manufacture/guess a module location if one cannot be found (default=false) 3.0.170+
 	 * 	- Note: If you specify a boolean for the $options argument, it is assumed to be the $getURL property.
 	 * @return bool|string Returns string of module file, or false on failure. 
 	 * 
 	 */
 	public function getModuleFile($class, $options = array()) {
 
+		$config = $this->wire()->config;
 		$className = $class;
 		if(is_bool($options)) $options = array('getURL' => $options);
 		if(!isset($options['getURL'])) $options['getURL'] = false;
@@ -3372,7 +3439,7 @@ class Modules extends WireArray {
 		
 		if(!$hasDuplicate) {
 			// see if we can determine it from already stored paths
-			$path = $this->wire('config')->paths->$moduleName;
+			$path = $config->paths->$moduleName;
 			if($path) {
 				$file = $path . $moduleName . ($this->moduleFileExts[$moduleName] === 2 ? '.module.php' : '.module');
 				if(!$options['fast'] && !file_exists($file)) $file = false;
@@ -3388,18 +3455,16 @@ class Modules extends WireArray {
 		if(!$file) {
 			$dupFile = $this->duplicates()->getCurrent($moduleName);
 			if($dupFile) {
-				$rootPath = $this->wire('config')->paths->root;
+				$rootPath = $config->paths->root;
 				$file = rtrim($rootPath, '/') . $dupFile;
 				if(!file_exists($file)) {
-					// module in use may have been deleted, find the next available one that exist
+					// module in use may have been deleted, find the next available one that exists
 					$file = '';
 					$dups = $this->duplicates()->getDuplicates($moduleName); 
 					foreach($dups['files'] as $pathname) {
 						$pathname = rtrim($rootPath, '/') . $pathname;
-						if(file_exists($pathname)) {
-							$file = $pathname;
-							break;
-						}
+						if(file_exists($pathname)) $file = $pathname;
+						if($file) break;
 					}
 				}
 			}
@@ -3407,7 +3472,7 @@ class Modules extends WireArray {
 		
 		if(!$file) {
 			// see if it's a predefined core type that can be determined from the type
-			// this should only come into play if something has gone wrong with the modules loader
+			// this should only come into play if module has moved or had a load error
 			foreach($this->coreTypes as $typeName) {
 				if(strpos($moduleName, $typeName) !== 0) continue;
 				$checkFiles = array(
@@ -3416,15 +3481,28 @@ class Modules extends WireArray {
 					"$typeName/$moduleName.module",
 					"$typeName/$moduleName.module.php",
 				);
-				$path1 = $this->wire('config')->paths->modules;
+				$path1 = $config->paths->modules;
 				foreach($checkFiles as $checkFile) {
 					$file1 = $path1 . $checkFile;
-					if(is_file($file1)) {
-						$file = $file1;
-						break;
-					}
+					if(file_exists($file1)) $file = $file1;
+					if($file) break;
 				}
 				if($file) break;
+			}
+			if(!$file) {
+				// check site modules
+				$checkFiles = array(
+					"$moduleName/$moduleName.module",
+					"$moduleName/$moduleName.module.php",
+					"$moduleName.module",
+					"$moduleName.module.php",
+				);
+				$path1 = $config->paths->siteModules;
+				foreach($checkFiles as $checkFile) {
+					$file1 = $path1 . $checkFile;
+					if(file_exists($file1)) $file = $file1;
+					if($file) break;
+				}
 			}
 		}
 
@@ -3447,10 +3525,15 @@ class Modules extends WireArray {
 				$file = false;
 			}
 		}
+		
+		if(!$file && !empty($options['guess'])) {
+			// make a guess about where module would be if we had been able to find it
+			$file = $config->paths->siteModules . "$moduleName/$moduleName.module";
+		}
 
 		if($file) {
 			if(DIRECTORY_SEPARATOR != '/') $file = str_replace(DIRECTORY_SEPARATOR, '/', $file);
-			if($options['getURL']) $file = str_replace($this->wire('config')->paths->root, '/', $file);
+			if($options['getURL']) $file = str_replace($config->paths->root, '/', $file);
 		}
 
 		return $file;
@@ -4479,6 +4562,98 @@ class Modules extends WireArray {
 		return $errors;
 	}
 
+	/**
+	 * Find modules that are missing their module file on the file system
+	 * 
+	 * Return value is array: 
+	 * ~~~~~
+	 * [ 
+	 *   'ModuleName' => [ 
+	 *     'id' => 123, 
+	 *     'name' => 'ModuleName', 
+	 *     'file' => '/path/to/expected/file.module'
+	 *   ],
+	 *   'ModuleName' => [
+	 *     ...
+	 *   ]
+	 * ];
+	 * ~~~~~
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return array
+	 * @since 3.0.170
+	 * 
+	 */
+	public function findMissingModules() {
+
+		$missing = array();
+		$unflags = array();
+		
+		$sql = "SELECT id, class FROM modules WHERE flags & :flagsNoFile ORDER BY class";
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':flagsNoFile', self::flagsNoFile, \PDO::PARAM_INT);
+		$query->execute();
+		
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			
+			$class = $row['class'];
+			
+			$file = $this->getModuleFile($class, array('fast' => true));
+			
+			if($file && file_exists($file)) {
+				$unflags[] = $class;
+				continue;
+			}
+			
+			$fileAlt = $this->getModuleFile($class, array('fast' => false));
+			
+			if($fileAlt) {
+				$file = $fileAlt;
+				if(file_exists($file)) continue;
+			}	
+			
+			if(!$file) {
+				$file = $this->getModuleFile($class, array('fast' => true, 'guess' => true));
+			}
+			
+			$missing[$class] = array(
+				'id' => $row['id'],
+				'name' => $class,
+				'file' => $file,
+			);
+		}
+	
+		foreach($unflags as $name) {
+			$this->setFlag($name, self::flagsNoFile, false);
+		}
+		
+		return $missing;
+	}
+
+	/**
+	 * Remove entry for module from modules table 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string|int $class Module class or ID
+	 * @return bool
+	 * @since 3.0.170
+	 * 
+	 */
+	public function removeModuleEntry($class) {
+		$database = $this->wire()->database;
+		if(ctype_digit("$class")) {
+			$query = $database->prepare('DELETE FROM modules WHERE id=:id LIMIT 1'); 
+			$query->bindValue(':id', (int) $class, \PDO::PARAM_INT);
+		} else {
+			$query = $database->prepare('DELETE FROM modules WHERE class=:class LIMIT 1');
+			$query->bindValue(':class', $class, \PDO::PARAM_STR);
+		}
+		$result = $query->execute() ? $query->rowCount() > 0 : false;
+		$query->closeCursor();
+		return $result;	
+	}
 
 	/**
 	 * Given a module version number, format it in a consistent way as 3 parts: 1.2.3 
@@ -4575,9 +4750,17 @@ class Modules extends WireArray {
 	/**
 	 * Clear the module information cache
 	 * 
+	 * @param bool|null $showMessages Specify false to suppress messages, true to report them, or null to auto-detect 
+	 * 
 	 */
-	protected function clearModuleInfoCache() {
-	
+	protected function clearModuleInfoCache($showMessages = null) {
+		
+		$cache = $this->wire()->cache;
+		$versionChanges = array();
+		$newModules = array();
+		$moveModules = array();
+		$missModules = array();
+
 		// record current module versions currently in moduleInfo
 		$moduleVersions = array();
 		foreach($this->moduleInfoCache as $id => $moduleInfo) {
@@ -4586,13 +4769,12 @@ class Modules extends WireArray {
 			} else {
 				$moduleVersions[$id] = $moduleInfo['version'];
 			}
-			// $moduleVersions[$id] = $moduleInfo['version'];
 		}
 	
 		// delete the caches
-		$this->wire('cache')->delete(self::moduleInfoCacheName);
-		$this->wire('cache')->delete(self::moduleInfoCacheVerboseName);
-		$this->wire('cache')->delete(self::moduleInfoCacheUninstalledName);
+		$cache->delete(self::moduleInfoCacheName);
+		$cache->delete(self::moduleInfoCacheVerboseName);
+		$cache->delete(self::moduleInfoCacheUninstalledName);
 		
 		$this->moduleInfoCache = array();
 		$this->moduleInfoCacheVerbose = array();
@@ -4601,43 +4783,93 @@ class Modules extends WireArray {
 		// save new moduleInfo cache
 		$this->saveModuleInfoCache();
 
-		$versionChanges = array();
-		$newModules = array();
 		// compare new moduleInfo versions with the previous ones, looking for changes
 		foreach($this->moduleInfoCache as $id => $moduleInfo) {
+			$moduleName = $moduleInfo['name'];
 			if(!isset($moduleVersions[$id])) {
-				$newModules[] = $moduleInfo['name']; 
+				if(isset($this->moduleIDs[$moduleName])) {
+					$moveModules[] = $moduleName;
+				} else {
+					$newModules[] = $moduleName;
+				}
 				continue;
 			}
 			if($moduleVersions[$id] != $moduleInfo['version']) {
 				$fromVersion = $this->formatVersion($moduleVersions[$id]);
 				$toVersion = $this->formatVersion($moduleInfo['version']);
-				$versionChanges[] = "$moduleInfo[name]: $fromVersion => $toVersion";
+				$versionChanges[] = "$moduleName: $fromVersion => $toVersion";
 				$this->modulesLastVersions[$id] = $moduleVersions[$id];
-				if(strpos($moduleInfo['name'], 'Fieldtype') === 0) {
+				if(strpos($moduleName, 'Fieldtype') === 0) {
 					// apply update now, to Fieldtype modules only (since they are loaded differently)
-					$this->getModule($moduleInfo['name']);
+					$this->getModule($moduleName);
 				}
 			}
 		}
-	
-		// report on any changes
-		if(count($newModules)) {
-			$this->message(
-				sprintf($this->_n('Detected %d new module: %s', 'Detected %d new modules: %s', count($newModules)), 
-					count($newModules), '<pre>' . implode("\n", $newModules)) . '</pre>', 
-				Notice::allowMarkup);
-		}
-		if(count($versionChanges)) {
-			$this->message(
-				sprintf($this->_n('Detected %d module version change', 'Detected %d module version changes', 
-					count($versionChanges)), count($versionChanges)) . 
-				' (' . $this->_('will be applied the next time each module is loaded') . '):' . 
-				'<pre>' . implode("\n", $versionChanges) . '</pre>', 
-				Notice::allowMarkup | Notice::debug);
+		
+		foreach($this->moduleIDs as $moduleName => $moduleID) {
+			if(isset($this->moduleInfoCache[$moduleID])) {
+				// module is present in moduleInfo
+				if($this->hasFlag($moduleID, self::flagsNoFile)) {
+					$file = $this->getModuleFile($moduleName, array('fast' => false)); 
+					if($file) {
+						// remove flagsNoFile if file is found
+						$this->setFlag($moduleID, self::flagsNoFile, false);
+					}
+				}
+			} else {
+				// module is missing moduleInfo
+				$file = $this->getModuleFile($moduleName, array('fast' => false)); 
+				if(!$file) {
+					$file = $this->getModuleFile($moduleName, array('fast' => true, 'guess' => true)); 
+					// add flagsNoFile if file cannot be located
+					$missModules[] = "$moduleName => $file";
+					$this->setFlag($moduleID, self::flagsNoFile, true);
+				}
+			}	
 		}
 		
 		$this->updateModuleVersionsCache();
+		
+		if($showMessages === null) {
+			$user = $this->wire()->user;
+			$showMessages = ($user && $user->isSuperuser()) || $this->wire()->process == 'ProcessModule';
+		}
+		
+		// report detected changes
+		$sanitizer = $this->wire()->sanitizer;
+		$reports = array(
+			array(
+				'label' => $this->_('Found %d new module(s):'),
+				'items' => $newModules, 
+			),
+			/*
+			array(
+				'label' => $this->_('Found %d moved module(s):'),
+				'items' => $moveModules, 
+			),
+			*/
+			array(
+				'label' => $this->_('Found %d module(s) missing file:'),
+				'items' => $missModules,
+			),
+			array(
+				'label' => $this->_('Found %d module version changes (applied when module is loaded):'), 
+				'items' => $versionChanges,
+			),
+		);
+		
+		foreach($reports as $report) {
+			if(!count($report['items'])) continue;
+			if($showMessages) $this->message(
+				$sanitizer->entities1(sprintf($report['label'], count($report['items']))) . 
+				'<pre>' . $sanitizer->entities(implode("\n", $report['items'])) . '</pre>',
+				Notice::allowMarkup | Notice::noGroup
+			);
+			$this->log(
+				sprintf($report['label'], count($report['items'])) . ' ' . 
+				implode(', ', $report['items'])
+			);
+		}
 	}
 
 	/**

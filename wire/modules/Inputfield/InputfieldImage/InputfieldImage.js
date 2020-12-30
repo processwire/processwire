@@ -359,9 +359,12 @@ function InputfieldImage($) {
 			.magnificPopup(options);
 
 		// move all of the .ImageData elements to the edit panel
-		$edit.find(".InputfieldImageEdit__edit")
-			.attr("data-current", $el.attr("id"))
+		var $editEdit = $edit.find(".InputfieldImageEdit__edit");
+		$editEdit.attr("data-current", $el.attr("id"))
 			.append($el.find(".ImageData").children().not(".InputfieldFileSort"));
+		
+		// trigger image edit event (rpsallis)
+		$editEdit.find('.Inputfield').trigger('image-edit');
 	}
 
 	/**

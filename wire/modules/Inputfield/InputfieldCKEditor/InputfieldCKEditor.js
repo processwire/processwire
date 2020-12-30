@@ -332,6 +332,16 @@ $(document).ready(function() {
 		return false;
 	});
 
+	$(document).on('image-edit', '.InputfieldCKEditor', function() {
+		// re-initialize CKE when image-edit event triggers (from InputfieldImage.js) via rpsallis
+		var $editor = $(this).find('.InputfieldCKEditorNormal');
+		$editor.each(function() {
+			var editorID = $(this).attr('id');
+			if(typeof CKEDITOR.instances[editorID] !== 'undefined') CKEDITOR.instances[editorID].destroy();
+			ckeInitNormal(editorID);
+		});
+	});
+
 	/**
 	 * Inline editors
 	 * 
