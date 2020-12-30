@@ -1137,23 +1137,53 @@ class WireFileTools extends Wire {
 		$namespace = "\\"; // root namespace, if no namespace found
 		
 		if($fileIsContents) {
-			$data = $file;
+			$data = trim($file);
 		} else {
-			$data = file_get_contents($file);
+			$data = trim(file_get_contents($file));
 			if($data === false) return $namespace;
 		}
-		
+
 		// if there's no "namespace" keyword in the file, it's not declaring one
 		$namespacePos = strpos($data, 'namespace');
 		if($namespacePos === false) return $namespace;
 
-		// if file doesn't start with an opening PHP tag, then it's not going to have a namespace declaration
-		$phpOpen = strpos($data, '<' . '?');
-		if($phpOpen !== 0) return $namespace;
-	
 		// quick optimization for common ProcessWire namespace usage
 		if(strpos($data, '<' . '?php namespace ProcessWire;') === 0) return 'ProcessWire';
+
+		// if file doesn't start with an opening PHP tag, then it's not going to have a namespace declaration
+		$phpOpen = strpos($data, '<' . '?');
+		if($phpOpen !== 0) {
+			// file does not begin with opening php tag	
+			// note: this fails for PHP files executable on their own (like shell scripts)
+			return $namespace;
+		}
 	
+		// get everything that appears before "namespace" keyword
+		$head = substr($data, 0, $namespacePos);
+		$headPrev = $head;
+		
+		// declare(...); is the one statement allowed to appear before namespace in PHP files
+		if(strpos($head, 'declare')) {
+			$head = preg_replace('/declare[ ]*\(.+?\)[ ]*;\s*/s', '', $head);
+		}
+
+		// single line comment(s) appear before namespace
+		if(strpos($head, '//') !== false) { 
+			$head = preg_replace('!//.*!', '', $head);
+		}
+		
+		// single or multi-line comments before namespace
+		if(strpos($head, '/' . '*') !== false) {
+			$head = preg_replace('!/\*.*\*/!s', '', $head);
+		}
+		
+		// replace cleaned up head in data
+		if($head !== $headPrev) {
+			$data = str_replace($headPrev, $head, $data);
+		}
+
+		$namespacePos = strpos($data, 'namespace'); // get fresh position
+		if($namespacePos === false) return $namespace; // was likely in a comment
 		$test = substr($data, 0, $namespacePos-1);
 		$test = trim(str_replace(array('<' . '?php', '<' . '?', "\n", "\r", "\t", " "), "", $test));
 		if(!strlen($test)) {
