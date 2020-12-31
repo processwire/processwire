@@ -1276,10 +1276,21 @@ class Modules extends WireArray {
 				return empty($options['returnError']) ? null : "Unable to find module ID $moduleID";
 			}
 		} else {
+			$moduleID = 0;
 			$key = wireClassName($key, false);
 		}
 		
 		$module = parent::get($key);
+		
+		if(!$module && !$moduleID) {
+			// make non case-sensitive for module name ($key)
+			$lowerKey = strtolower($key);
+			foreach(array_keys($this->moduleIDs) as $className) {
+				if(strtolower($className) !== $lowerKey) continue;
+				$module = parent::get($className);
+				break;
+			}
+		}
 		
 		if(!$module) { 
 			if(empty($options['noSubstitute'])) {

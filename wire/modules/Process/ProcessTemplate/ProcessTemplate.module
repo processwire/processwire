@@ -2197,7 +2197,7 @@ class ProcessTemplate extends Process {
 	protected function buildEditFormAccessRoles(Template $template = null) {
 
 		$adminTheme = $this->wire()->adminTheme;
-		$checkboxClass = $adminTheme ? $this->wire()->adminTheme->getClass('input-checkbox') : '';
+		$checkboxClass = $adminTheme ? $adminTheme->getClass('input-checkbox') : '';
 		$roles = $this->pages->get($this->config->rolesPageID)->children(); 
 		$checked = "checked='checked' ";
 		$disabled = "<input class='$checkboxClass' type='checkbox' disabled='disabled' />";
