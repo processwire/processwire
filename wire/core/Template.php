@@ -110,6 +110,7 @@
  * @property string $pageLabelField CSV or space separated string of field names to be displayed by ProcessPageList (overrides those set with ProcessPageList config). #pw-group-other
  * @property int|bool $_importMode Internal use property set by template importer when importing #pw-internal
  * @property int|null $connectedFieldID ID of connected field or null or 0 if not applicable. #pw-internal
+ * @property string $editUrl URL to edit template, for administrator. #pw-internal
  * 
  * Hookable methods
  * 
@@ -310,14 +311,15 @@ class Template extends WireData implements Saveable, Exportable {
 	 */
 	public function get($key) {
 
-		if($key == 'filename') return $this->filename();
-		if($key == 'fields') $key = 'fieldgroup';
-		if($key == 'fieldgroup') return $this->fieldgroup; 
-		if($key == 'fieldgroupPrevious') return $this->fieldgroupPrevious; 
-		if($key == 'roles') return $this->getRoles();
-		if($key == 'cacheTime') $key = 'cache_time'; // for camel case consistency
-		if($key == 'icon') return $this->getIcon();
-		if($key == 'urlSegments') return $this->urlSegments();
+		if($key === 'filename') return $this->filename();
+		if($key === 'fields') $key = 'fieldgroup';
+		if($key === 'fieldgroup') return $this->fieldgroup; 
+		if($key === 'fieldgroupPrevious') return $this->fieldgroupPrevious; 
+		if($key === 'roles') return $this->getRoles();
+		if($key === 'cacheTime') $key = 'cache_time'; // for camel case consistency
+		if($key === 'icon') return $this->getIcon();
+		if($key === 'urlSegments') return $this->urlSegments();
+		if($key === 'editUrl') return $this->editUrl();
 
 		return isset($this->settings[$key]) ? $this->settings[$key] : parent::get($key); 
 	}
@@ -1450,6 +1452,18 @@ class Template extends WireData implements Saveable, Exportable {
 			}
 		}
 		return $field;
+	}
+
+	/**
+	 * URL to edit template settings (for administrator)
+	 * 
+	 * @param bool $http Full http/https URL?
+	 * @return string
+	 * @since 3.0.170
+	 * 
+	 */
+	public function editUrl($http = false) {
+		return $this->wire()->config->urls($http ? 'httpAdmin' : 'admin') . "setup/template/edit?id=$this->id";
 	}
 
 	/**

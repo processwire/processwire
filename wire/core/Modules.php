@@ -4808,7 +4808,7 @@ class Modules extends WireArray {
 			if($moduleVersions[$id] != $moduleInfo['version']) {
 				$fromVersion = $this->formatVersion($moduleVersions[$id]);
 				$toVersion = $this->formatVersion($moduleInfo['version']);
-				$versionChanges[] = "$moduleName: $fromVersion => $toVersion";
+				$versionChanges[] = "$fromVersion => $toVersion: $moduleName";
 				$this->modulesLastVersions[$id] = $moduleVersions[$id];
 				if(strpos($moduleName, 'Fieldtype') === 0) {
 					// apply update now, to Fieldtype modules only (since they are loaded differently)
@@ -4864,7 +4864,7 @@ class Modules extends WireArray {
 				'items' => $missModules,
 			),
 			array(
-				'label' => $this->_('Found %d module version changes (applied when module is loaded):'), 
+				'label' => $this->_('Found %d module version changes (applied when each module is loaded):'), 
 				'items' => $versionChanges,
 			),
 		);
