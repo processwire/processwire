@@ -141,6 +141,55 @@ class Templates extends WireSaveableItems {
 	}
 
 	/**
+	 * Add and save new template (and fieldgroup) with given name and return it
+	 * 
+	 * @param string $name
+	 * @param array $properties Any additional properties to add to template
+	 * @return Template
+	 * @throws WireException if given invalid template name or template already exists
+	 * @since 3.0.170
+	 * 
+	 */
+	public function add($name, array $properties = array()) {
+		
+		if(!is_string($name)) {
+			throw new WireException("You must specify the template name to add"); 
+		}
+		
+		$saniName = $this->wire()->sanitizer->templateName($name);
+		
+		if(empty($saniName)) {
+			throw new WireException("Invalid template name: $name"); 
+		}
+		
+		$name = $saniName;
+		$template = $this->get($name);
+		
+		if($template) {
+			throw new WireException("Template '$name' cannot be added because it already exists");
+		}
+	
+		$fieldgroups = $this->wire()->fieldgroups;
+		$fieldgroup = $fieldgroups->get($name);
+		
+		if(!$fieldgroup) {
+			$fieldgroup = new Fieldgroup();
+			$this->wire($fieldgroup);
+			$fieldgroup->name = $name;
+			$fieldgroups->save($fieldgroup);
+		}
+		
+		$template = new Template();
+		$this->wire($template);
+		$template->name = $name;
+		$template->fieldgroup = $fieldgroup;
+		foreach($properties as $key => $value) $template->set($key, $value);
+		$this->save($template);
+		
+		return $template;
+	}
+
+	/**
 	 * Get a template by name or ID
 	 * 
 	 * Given a template ID or name, return the matching template or NULL if not found.
@@ -294,6 +343,54 @@ class Templates extends WireSaveableItems {
 		return $item;
 	}
 
+	/**
+	 * Rename given template (and its fieldgroup, and file, when possible)
+	 * 
+	 * Given template must have its previous 'name' still present, and new name provided in $name
+	 * argument to this method. 
+	 * 
+	 * @param Template $template
+	 * @param string $name New name to use
+	 * @since 3.0.170
+	 * @throws WireException if rename cannot be completed
+	 * 
+	 */
+	public function rename(Template $template, $name) {
+		
+		$config = $this->wire()->config;
+		$saniName = $this->wire()->sanitizer->templateName($name);
+		
+		if(empty($saniName)) throw new WireException("Invalid template name: $name");
+	
+		$name = $saniName;
+		$basename = "$template->name.$config->templateExtension";
+		$filename = $template->filenameExists() ? $template->filename() : '';
+		$fieldgroup = $template->fieldgroup;
+		$t = $this->get($name);
+		
+		if($t && $t instanceof Template && $t->id != $template->id) {
+			throw new WireException("Template '$name' already exists");
+		}
+		
+		if($fieldgroup->name === $template->name) {
+			// rename fieldgroup too
+			$fg = $this->wire()->fieldgroups->get($name);
+			if($fg && $fg->id != $fieldgroup->id) throw new WireException("Fieldgroup '$name' already exists"); 
+			$fieldgroup->name = $name;
+			$this->wire()->fieldgroups->save($fieldgroup);
+		}
+		
+		$template->name = $name;
+		$this->save($template);
+		
+		if($filename && basename($filename) === $basename) { 
+			$newFilename = $config->paths->templates . $name . $config->templateExtension;
+			if(is_readable($filename) && is_writable($filename) && !file_exists($newFilename)) {
+				// rename file
+				$this->wire()->files->rename($filename, $newFilename);
+			}
+		}
+	}
 
 	/**
 	 * Return the number of pages using the provided Template
