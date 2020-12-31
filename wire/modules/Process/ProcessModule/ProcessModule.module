@@ -319,18 +319,6 @@ class ProcessModule extends Process {
 			}
 		}
 		
-		if($input->post('remove')) {
-			$session->CSRF->validate();
-			$removeName = $input->post('remove');
-			foreach($modules->findMissingModules() as $missingInfo) {
-				if($removeName !== $missingInfo['name']) continue;
-				$modules->removeModuleEntry($missingInfo['name']); 
-				$this->message($this->_('Removed module from database') . ' - ' . $missingInfo['name']);
-				break;
-			}
-			$session->redirect('./'); 
-		}
-		
 		if($input->post('download') && $input->post('download_name')) {
 			$session->CSRF->validate();
 			return $this->downloadConfirm($input->post('download_name'));
@@ -551,7 +539,10 @@ class ProcessModule extends Process {
 			$rootPath = $this->wire()->config->paths->root;
 			foreach($missing as $name => $item) {
 				$missingArray[$name] = $modules->isInstalled($name);
-				$missingFiles[$name] = $this->_('Missing file:') . ' ' . str_replace($rootPath, '/', $item['file']);
+				$missingFiles[$name] = sprintf(
+					$this->_('Missing module file(s) in: %s'),  
+					dirname(str_replace($rootPath, '/', $item['file'])) . '/'
+				);
 			}
 			$tab = $this->wire(new InputfieldWrapper());
 			$tab->attr('id', 'tab_missing_modules');
@@ -561,12 +552,11 @@ class ProcessModule extends Process {
 
 			$markup = $modules->get('InputfieldMarkup');
 			$markup->value = $this->renderListTable($missingArray, array(
-				'allowRemove' => true,
 				'allowInstall' => false,
 				'allowType' => true,
 				'summaries' => $missingFiles,
 			));
-			$markup->label = $this->_('Modules in database that are not found on the file system');
+			$markup->label = $this->_('Modules in database that are not found on the file system. Click any module name below for options to fix.');
 			$markup->icon = 'warning';
 			$tab->add($markup);
 			$form->add($tab);
@@ -780,7 +770,6 @@ class ProcessModule extends Process {
 	 *  `allowClasses` (bool) Whether to show module class names (default=false)
 	 *  `allowType` (bool): Whether to show if module is site or core (default=false)
 	 *  `allowInstall` (bool): Whether or not install is allowed (default=true)
-	 *  `allowRemove` (bool): Allow remove from database? (default=false) for missing entries
 	 *  `summaries` (array): Replacement summary info indexed by module name (default=[])
 	 * @return string
 	 * 
@@ -794,7 +783,6 @@ class ProcessModule extends Process {
 			'allowClasses' => false,
 			'allowType' => false,
 			'allowInstall' => true, 
-			'allowRemove' => false, 
 			'summaries' => array(), 
 		);
 	
@@ -850,7 +838,7 @@ class ProcessModule extends Process {
 			$class = $configurable ? 'ConfigurableModule' : '';
 			if(!empty($info['permanent'])) $class .= ($class ? ' ' : '') . 'PermanentModule';
 			if($class) $title = "<span class='$class'>$title</span>";
-			$version = $this->formatVersion(isset($info['version']) ? $info['version'] : 0);
+			$version = empty($info['version']) ? '?' : $this->formatVersion($info['version']);
 			if($options['allowType']) $version .= "<br /><small class='ModuleClass ui-priority-secondary'>" . ($info['core'] ? $this->labels['core'] : $this->labels['site']) . "</small>";
 			if(!empty($options['summaries'][$name])) $info['summary'] = $options['summaries'][$name];
 			$summary = empty($info['summary']) ? '' : $sanitizer->entities1($info['summary']);
@@ -939,16 +927,6 @@ class ProcessModule extends Process {
 						"<span class='ui-button-text'><i class='fa fa-cog'></i> " . $this->_x('Settings', 'button') . "</span></button>"; // Text for 'Settings' button
 				}
 			}
-			
-			if($options['allowRemove']) $buttons .=
-				"<button type='submit' name='remove' data-remove='$name' " .
-					"class='remove_$name ui-state-default ui-priority-secondary ui-button' " .
-					"value='$name' onclick=\"$confirmDeleteJS\">" .
-					"<span class='ui-button-text'>" .
-						"<i class='fa fa-trash-o'></i> " .
-						$this->_x('Remove from database', 'button') .
-					"</span>" .
-				"</button>";
 
 			if($buttons) $buttons = "<small class='buttons'>$buttons</small>";
 			
@@ -1392,28 +1370,40 @@ class ProcessModule extends Process {
 	 */
 	protected function renderEdit($moduleName, $moduleInfo) {
 
+		$wire = $this->wire();
+		$adminTheme = $wire->adminTheme;
+		$languages = $wire->languages;
+		$sanitizer = $wire->sanitizer;
+		$modules = $wire->modules;
+		$session = $wire->session;
+		$config = $wire->config;
+		$input = $wire->input;
+
 		$out = ''; 
-		$moduleId = $this->modules->getModuleID($moduleName); 
-		$languages = $this->wire('languages');
-		$submitSave = $this->input->post('submit_save_module');
+		$moduleId = $modules->getModuleID($moduleName); 
+		$submitSave = $input->post('submit_save_module');
 		$collapseInfo = '';
-		if($submitSave || $this->wire('input')->get('collapse_info') || $this->wire('input')->get('modal')) {
+		
+		if($submitSave || $input->get('collapse_info') || $input->get('modal')) {
 			$collapseInfo = '&collapse_info=1';
 		}
+		
 		if(!$moduleId) {
 			$this->error("Unknown module"); 
-			$this->session->redirect('./'); 
+			$session->redirect('./'); 
 			return '';
 		}
-		if($this->wire('input')->get('refresh') == $moduleName) {
-			$this->wire('modules')->resetCache();
-			$this->session->redirect("./edit?name=$moduleName$collapseInfo");
+		
+		if($input->get('refresh') == $moduleName) {
+			$modules->resetCache();
+			$session->redirect("./edit?name=$moduleName$collapseInfo");
 			return '';
 		}
+		
 		$sinfo = self::getModuleInfo();
-		$flags = $this->modules->getFlags($moduleName);
+		$flags = $modules->getFlags($moduleName);
 		$allowDisabledFlag = 
-			($this->wire('config')->debug && $this->wire('config')->advanced && ($flags & Modules::flagsAutoload)) ||
+			($config->debug && $config->advanced && ($flags & Modules::flagsAutoload)) ||
 			($flags & Modules::flagsDisabled);
 
 		$this->breadcrumb('./', $sinfo['title']); 
@@ -1421,16 +1411,20 @@ class ProcessModule extends Process {
 		$this->browserTitle(sprintf($this->_('Module: %s'), $moduleInfo['title'])); 
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get("InputfieldForm"); 
+		$form = $modules->get("InputfieldForm"); 
 		$form->attr('id', 'ModuleEditForm'); 
 		$form->attr('action', "edit?name=$moduleName$collapseInfo"); 
 		$form->attr('method', 'post'); 
 
-		$dependents = $this->modules->getRequiredBy($moduleName, true); 
-		$requirements = $this->modules->getRequires($moduleName, false, true); 
+		$dependents = $modules->getRequiredBy($moduleName, true); 
+		$requirements = $modules->getRequires($moduleName, false, true); 
 		$dependentsStr = '';
 		$requirementsStr = '';
-		foreach($dependents as $name) $dependentsStr .= ($dependentsStr ? ', ' : '') . "<a href='./edit?name=$name'>$name</a>";
+		
+		foreach($dependents as $name) {
+			$dependentsStr .= ($dependentsStr ? ', ' : '') . "<a href='./edit?name=$name'>$name</a>";
+		}
+		
 		foreach($requirements as $name) {
 			if(preg_match('/^([^<>!=]+)([<>!=]+.*)$/', $name, $matches)) {
 				$name = $matches[1];
@@ -1444,10 +1438,11 @@ class ProcessModule extends Process {
 		}
 		
 		// identify duplicates
-		$duplicates = $this->modules->duplicates()->getDuplicates($moduleName); 
+		$duplicates = $modules->duplicates()->getDuplicates($moduleName); 
+		
 		if(count($duplicates['files'])) {
 			/** @var InputfieldRadios $field */
-			$field = $this->modules->get('InputfieldRadios'); 
+			$field = $modules->get('InputfieldRadios'); 
 			$field->attr('name', '_use_duplicate');
 			$field->label = $this->_('Module file to use'); 
 			$field->icon = 'files-o';
@@ -1459,45 +1454,79 @@ class ProcessModule extends Process {
 			$form->add($field); 
 		}
 		
-		$fields = $this->wire('modules')->getModuleConfigInputfields($moduleName, $form); 
+		$fields = $modules->getModuleConfigInputfields($moduleName, $form); 
 		if($fields) {
 			foreach($fields as $field) {
 				$form->add($field);
 			}
 		}
+		
+		$filename = $modules->getModuleFile($moduleName, array('guess' => true, 'fast' => false));
+		$filenameUrl = str_replace($config->paths->root, $config->urls->root, $filename);
+		$filenameExists = file_exists($filename);
+		$filenameNote = '';
 
-		// uninstall checkbox
-		$field = $this->modules->get("InputfieldCheckbox"); 
-		$field->attr('id+name', 'uninstall'); 
-		$field->attr('value', $moduleName); 
-		$field->collapsed = Inputfield::collapsedYes; 
-		$field->icon = 'times-circle';
-		$field->label = $this->_x("Uninstall", 'checkbox');
+		if($filenameExists) {
+			// Uninstall checkbox
+			/** @var InputfieldCheckbox $field Uninstall checkbox */
+			$field = $modules->get("InputfieldCheckbox");
+			$field->attr('id+name', 'uninstall');
+			$field->attr('value', $moduleName);
+			$field->collapsed = Inputfield::collapsedYes;
+			$field->icon = 'times-circle';
+			$field->label = $this->_x("Uninstall", 'checkbox');
 
-		$reason = $this->modules->isUninstallable($moduleName, true); 
-		$uninstallable = $reason === true; 
+			$reason = $modules->isUninstallable($moduleName, true);
+			$uninstallable = $reason === true;
 
-		if($uninstallable) {
-			$field->description = $this->_("Uninstall this module? After uninstalling, you may remove the modules files from the server if it is not in use by any other modules."); // Uninstall field description
-			if(count($moduleInfo['installs'])) {
-				$uninstalls = $this->wire('modules')->getUninstalls($moduleName);
-				if(count($uninstalls)) $field->notes = $this->_("This will also uninstall other modules") . " - " . implode(', ', $uninstalls); // Text that precedes a list of modules that are also uninstalled
+			if($uninstallable) {
+				$field->description = $this->_("Uninstall this module? After uninstalling, you may remove the modules files from the server if it is not in use by any other modules."); // Uninstall field description
+				if(count($moduleInfo['installs'])) {
+					$uninstalls = $modules->getUninstalls($moduleName);
+					if(count($uninstalls)) {
+						$field->notes = $this->_("This will also uninstall other modules") . " - " . implode(', ', $uninstalls); // Text that precedes a list of modules that are also uninstalled
+					}
+				}
+
+			} else {
+				$field->attr('disabled', 'disabled');
+				$field->label .= " " . $this->_("(Disabled)");
+				$field->description = $this->_("Can't uninstall module") . " - " . $reason; // Text that precedes a reason why the module can't be uninstalled
+				$dependents2 = $modules->getRequiresForUninstall($moduleName);
+				if(count($dependents2)) {
+					$field->notes = $this->_("You must first uninstall other modules") . " - " . implode(', ', $dependents2); // Text that precedes a list of modules that must be uninstalled first
+				}
 			}
 
-		} else {
-			$field->attr('disabled', 'disabled');
-			$field->label .= " " . $this->_("(Disabled)"); 
-			$field->description = $this->_("Can't uninstall module") . " - " . $reason; // Text that precedes a reason why the module can't be uninstalled
-			$dependents2 = $this->modules->getRequiresForUninstall($moduleName); 
-			if(count($dependents2)) $field->notes = $this->_("You must first uninstall other modules") . " - " . implode(', ', $dependents2); // Text that precedes a list of modules that must be uninstalled first
-		}
+			$form->add($field);
 
-		$form->append($field); 
+		} else {
+			// Delete from datasbase checkbox
+			$uninstallable = false;
+			$filenameUrl = dirname($filenameUrl) . '/'; 
+			$filenameNote =
+				"<div class='ui-state-error-text'>" .
+					wireIconMarkup('warning') . ' ' .
+					$this->_('module file not found') .
+				"</div>";
+			$warning =
+				sprintf($this->_('Module “%s” exists in database but not on the file system.'), $moduleName) . ' ' .
+				sprintf($this->_('Consider placing the module files in %s or removing the module from the database.'), $filenameUrl);
+			$moduleInfo['summary'] = $warning;
+			if(!$input->requestMethod('POST')) $this->warning($warning, Notice::allowMarkup | Notice::noGroup);
+
+			/** @var InputfieldCheckbox $field */
+			$field = $modules->get('InputfieldCheckbox');
+			$field->attr('name', 'remove_db');
+			$field->label = $this->_('Remove this module from the database?');
+			$field->value = $moduleName;
+			$form->add($field);
+		}
 
 		// submit button
 		if(count($form->children)) {
 			/** @var InputfieldSubmit $field */
-			$field = $this->modules->get("InputfieldSubmit"); 
+			$field = $modules->get("InputfieldSubmit"); 
 			$field->attr('name', 'submit_save_module'); 
 			$field->showInHeader();
 			$field->addActionValue('exit', sprintf($this->_('%s + Exit'), $field->attr('value')), 'times');
@@ -1507,11 +1536,10 @@ class ProcessModule extends Process {
 			$this->message($this->_("This module doesn't have any fields to configure")); 
 		}
 	
-		$data = null;
 		if($languages && $fields) {
 			// multi-language support for Inputfield with useLanguages==true
 			// we populate the language values from module config data so module doesn't have to do this
-			$data = $this->modules->getModuleConfigData($moduleName);
+			$data = $modules->getModuleConfigData($moduleName);
 			foreach($fields->getAll() as $field) {
 				if(!$field->getSetting('useLanguages')) continue;
 				foreach($languages as $language) {
@@ -1521,13 +1549,15 @@ class ProcessModule extends Process {
 					$field->set("value$language->id", $data[$name]);
 				}
 			}
+		} else {
+			$data = null;
 		}
-
+		
 		// check for submitted form
 		if($submitSave) {
 
-			if(is_null($data)) $data = $this->modules->getModuleConfigData($moduleName);
-			$form->processInput($this->input->post); 
+			if(is_null($data)) $data = $modules->getModuleConfigData($moduleName);
+			$form->processInput($input->post); 
 			$updatedNames = array();
 			
 			if(wireCount($fields)) foreach($fields->getAll() as $field) {
@@ -1551,100 +1581,150 @@ class ProcessModule extends Process {
 				}
 			}
 		
-			if($uninstallable && $this->input->post('uninstall') === $moduleName) {
-				$this->modules->uninstall($moduleName); 	
-				$this->session->message($this->_("Uninstalled Module") . " - $moduleName"); // Message shown before the name of a module that was just uninstalled
-				$redirectURL = './?uninstalled=1'; 
+			if($uninstallable && $input->post('uninstall') === $moduleName) {
+				$modules->uninstall($moduleName);
+				$session->message($this->_("Uninstalled Module") . " - $moduleName"); // Message shown before the name of a module that was just uninstalled
+				$redirectURL = './?uninstalled=1';
+				
+			} else if(!$filenameExists && $input->post('remove_db') === $moduleName) {
+				$modules->removeModuleEntry($moduleName);
+				$session->message($this->_('Removed module from database') . " - $moduleName");
+				$redirectURL = './?deleted=1';
+				
 			} else {
-				$this->modules->saveModuleConfigData($moduleName, $data);
+				$modules->saveModuleConfigData($moduleName, $data);
 				$updatedNames = count($updatedNames) ? ' (' . implode(', ', $updatedNames) . ')' : '';
 				$this->message($this->_("Saved Module") . " - $moduleName $updatedNames"); // Message shown before the name of a module that was just saved
-				$redirectURL = $submitSave == 'exit' ? './' : "./edit?name=$moduleName$collapseInfo"; 
+				$redirectURL = $submitSave === 'exit' ? './' : "./edit?name=$moduleName$collapseInfo"; 
+				
 				if($allowDisabledFlag) {
 					// module is autoload and has an option to diable
-					if($this->input->post('_flags_disabled')) {
+					if($input->post('_flags_disabled')) {
 						// add disabled flag
-						if(!($flags & Modules::flagsDisabled)) $this->modules->setFlag($moduleName, Modules::flagsDisabled, true);
+						if(!($flags & Modules::flagsDisabled)) $modules->setFlag($moduleName, Modules::flagsDisabled, true);
 					} else {
 						// remove disabled flag
-						if($flags & Modules::flagsDisabled) $this->modules->setFlag($moduleName, Modules::flagsDisabled, false); 
+						if($flags & Modules::flagsDisabled) $modules->setFlag($moduleName, Modules::flagsDisabled, false); 
 					}
 				}
 				
 				if(count($duplicates['files'])) {
 					$file = $form->getChildByName('_use_duplicate')->attr('value');
 					if($file != $duplicates['using'] && in_array($file, $duplicates['files'])) {
-						$this->modules->duplicates()->setUseDuplicate($moduleName, $file);
-						$this->message("Updated $moduleName to use file: $file", Notice::debug);
+						$modules->duplicates()->setUseDuplicate($moduleName, $file);
+						$this->message(sprintf($this->_('Updated module %1$s to use file: %2$s'), $moduleName, $file), Notice::debug);
 						$redirectURL .= "&refresh=$moduleName";
 					}
 				}
 			}
 			
-			$this->wire('session')->redirect($redirectURL);
+			$session->redirect($redirectURL);
 		}
 
 		// entity encode module info since it's turned off in our table
 		foreach($moduleInfo as $key => $value) {
 			if(!is_string($value)) continue; 
-			$moduleInfo[$key] = $this->wire('sanitizer')->entities1($value);
+			$moduleInfo[$key] = $sanitizer->entities1($value);
 		}
 	
 		$version = $this->formatVersion($moduleInfo['version']);
-		$filename = str_replace($this->wire('config')->paths->root, '/', $this->wire('modules')->getModuleFile($moduleName)); 
+		
 		if(!$moduleInfo['core']) {
 			$version .= " - <a href='./?update=$moduleName'>" . $this->_('check for updates') . "</a>"; 
 		}
 
 		$hooksStr = $this->renderModuleHooks($moduleName); 	
 		
-		// build a table that displays module info
-		/** @var MarkupAdminDataTable $table */
-		$table = $this->modules->get("MarkupAdminDataTable"); 
+		/** @var MarkupAdminDataTable $table Build a table that displays module info */
+		$table = $modules->get("MarkupAdminDataTable"); 
 		$table->setResponsive(false);
 		$table->setEncodeEntities(false); 
 		$table->setSortable(false);
-		$table->row(array($this->_x('Title', 'edit'), $moduleInfo['title'])); 
-		$table->row(array($this->_x('Class', 'edit'), $moduleName));
-		$table->row(array($this->_x('File', 'edit'), str_replace('/', 
-			// this sillyness allows for multi-line wrapping without the appearance of space.
-			// someone please tell me if there is a better way to do this. I suspect there is, so
-			// will leave it out here in the open rather hide it in ProcessModule.css
-			'<span style="display:inline-block;width:1px;overflow:hidden;"> </span>/', $filename))); 
+		$table->row(array($this->_x('Title', 'edit'), $sanitizer->entities($moduleInfo['title']))); 
+		$table->row(array($this->_x('Class', 'edit'), $sanitizer->entities($moduleName)));
+		$table->row(array($this->_x('File', 'edit'), 
+			str_replace('/', 
+				// this sillyness allows for multi-line wrapping without the appearance of space.
+				// someone please tell me if there is a better way to do this. I suspect there is, so
+				// will leave it out here in the open rather hide it in ProcessModule.css
+				'<span style="display:inline-block;width:1px;overflow:hidden;"> </span>/', 
+				(substr($filenameUrl, -1) === '/' ? "$filenameUrl&hellip;" : $filenameUrl)
+			) . $filenameNote
+		)); 
 	
-		if($this->wire('config')->debug) {
-			if($moduleInfo['namespace'] === '') $namespace = "\\" . __NAMESPACE__ . ' ' . $this->_('(default namespace)'); 
-				else if($moduleInfo['namespace'] === "\\") $namespace = $this->_('None (root namespace)');
-				else $namespace = $moduleInfo['namespace'];
-			$table->row(array($this->_x('Namespace', 'edit'), $namespace)); 
+		if($config->debug) {
+			if($moduleInfo['namespace'] === '') {
+				$namespace = "\\" . __NAMESPACE__ . ' ' . $this->_('(default namespace)');
+			} else if($moduleInfo['namespace'] === "\\") {
+				$namespace = $this->_('None (root namespace)');
+			} else {
+				$namespace = $moduleInfo['namespace'];
+			}
+			if(!empty($namespace)) {
+				$table->row(array($this->_x('Namespace', 'edit'), $namespace));
+			}
 			$table->row(array($this->_x('ID', 'edit'), $moduleId)); 
 		}
-		$table->row(array($this->_x('Version', 'edit'), $version)); 
-		if(!empty($moduleInfo['created'])) $table->row(array($this->labels['installed_date'], wireRelativeTimeStr($moduleInfo['created'])));
-		if(!empty($moduleInfo['author'])) $table->row(array($this->_x('Author', 'edit'), $moduleInfo['author'])); 
-		$table->row(array($this->_x('Summary', 'edit'), $moduleInfo['summary'])); 
-		if($requirementsStr) $table->row(array($this->_x('Requires', 'edit'), $requirementsStr)); 
-		if($dependentsStr) $table->row(array($this->_x('Required By', 'edit'), $dependentsStr)); 
-		if(!empty($moduleInfo['permission'])) $table->row(array($this->_x('Required Permission', 'edit'), $moduleInfo['permission']));
-		if($hooksStr) $table->row(array($this->_x('Hooks To', 'edit'), $hooksStr)); 
-		if(!empty($moduleInfo['href'])) $table->row(array($this->_x('More Information', 'edit'), "<a class='label' href='$moduleInfo[href]'>$moduleInfo[href]</a>"));
+	
+		if(!empty($moduleInfo['version'])) {
+			$table->row(array($this->_x('Version', 'edit'), $version));
+		}
+		
+		if(!empty($moduleInfo['created'])) {
+			$table->row(array($this->labels['installed_date'], $sanitizer->entities(wireRelativeTimeStr($moduleInfo['created']))));
+		}
+		
+		if(!empty($moduleInfo['author'])) {
+			$table->row(array($this->_x('Author', 'edit'), $moduleInfo['author']));
+		}
+	
+		if(!empty($moduleInfo['summary'])) {
+			$table->row(array($this->_x('Summary', 'edit'), $moduleInfo['summary']));
+		}
+		
+		if($requirementsStr) {
+			$table->row(array($this->_x('Requires', 'edit'), $requirementsStr));
+		}
+		
+		if($dependentsStr) {
+			$table->row(array($this->_x('Required By', 'edit'), $dependentsStr));
+		}
+		
+		if(!empty($moduleInfo['permission'])) {
+			$table->row(array($this->_x('Required Permission', 'edit'), $moduleInfo['permission']));
+		}
+		
+		if($hooksStr) {
+			$table->row(array($this->_x('Hooks To', 'edit'), $hooksStr));
+		}
+		
+		if(!empty($moduleInfo['href'])) {
+			$table->row(array($this->_x('More Information', 'edit'), "<a target='_blank' class='label' href='$moduleInfo[href]'>$moduleInfo[href]</a>"));
+		}
 		
 		if($allowDisabledFlag) {
-			$checked = $flags & Modules::flagsDisabled ? " checked='checked'" : "";
+			$checkboxClass = $adminTheme ? $adminTheme->getClass('input-checkbox') : '';
+			$checked = ($flags & Modules::flagsDisabled ? " checked='checked'" : "");
 			$table->row(array($this->_x('Debug', 'edit'), 
-				"<label class='checkbox'><input type='checkbox' name='_flags_disabled' value='1' $checked /> " . 
-				$this->_('Autoload disabled?') . " <span class='detail'>" . 
-				$this->_('Be careful, checking this box can break the module or your site. Use for temporary testing only.') . "</span></label>"));
+				"<label class='checkbox'>" . 
+					"<input class='$checkboxClass' type='checkbox' name='_flags_disabled' value='1' $checked /> " . 
+					$this->_('Autoload disabled?') . ' ' .  
+					"<span class='detail'>" . 
+						$this->_('Be careful, checking this box can break the module or your site. Use for temporary testing only.') . 
+					"</span>" . 
+				"</label>"
+			));
 		}
 
-		$field = $this->modules->get("InputfieldMarkup"); 
+		/** @var InputfieldMarkup $field */
+		$field = $modules->get("InputfieldMarkup"); 
 		$field->attr('id', 'ModuleInfo'); 
 		$field->attr('value', $table->render()); 
 		$field->label = $this->labels['module_information'];
 		$field->icon = 'info-circle';
 		if($collapseInfo) $field->collapsed = Inputfield::collapsedYes;
 		$form->prepend($field); 
-
+		
 		$out .= $form->render();
 
 		return $out; 
