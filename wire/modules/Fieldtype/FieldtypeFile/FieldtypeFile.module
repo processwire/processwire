@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  * @property array $allowFieldtypes Allowed Fieldtype types for custom fields
@@ -22,7 +22,7 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Files', __FILE__),
-			'version' => 106,
+			'version' => 107,
 			'summary' => __('Field that stores one or more files', __FILE__),
 			'permanent' => true,
 		);
@@ -181,9 +181,16 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		return $inputfield;
 	}
 
+	/**
+	 * Get compatible Fieldtypes
+	 * 
+	 * @param Field $field
+	 * @return Fieldtypes
+	 * 
+	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
 		$fieldtypes = $this->wire(new Fieldtypes());
-		foreach($this->wire('fieldtypes') as $fieldtype) {
+		foreach($this->wire()->fieldtypes as $fieldtype) {
 			if($fieldtype instanceof FieldtypeFile) $fieldtypes->add($fieldtype); 
 		}
 		return $fieldtypes; 
@@ -520,7 +527,6 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		
 		return $indexValue;
 	}
-	
 
 	/**
 	 * Export value
@@ -623,7 +629,16 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		return $description;
 	}
 
+	/**
+	 * Get blank value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Pagefiles
+	 * 
+	 */
 	public function getBlankValue(Page $page, Field $field) {
+		/** @var Pagefiles $pagefiles */
 		$pagefiles = $this->wire(new Pagefiles($page));
 		$pagefiles->setField($field); 
 		$pagefiles->setTrackChanges(true); 
@@ -644,6 +659,15 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		return $this->wire(new Pagefile($pagefiles, $filename)); 
 	}
 
+	/**
+	 * Sanitize value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param mixed $value
+	 * @return Pagefiles
+	 * 
+	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
 		if($value instanceof Pagefiles) return $value; 
 		$pagefiles = $page->getUnformatted($field->name); 
@@ -750,7 +774,16 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		
 		return $value; 
 	}
-	
+
+	/**
+	 * Format value when output format is string
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Pagefiles $value
+	 * @return string
+	 * 
+	 */
 	protected function ___formatValueString(Page $page, Field $field, $value) {
 		if($page) {} // ignore
 		$out = '';
@@ -1160,7 +1193,14 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		return $result;
 	}
 
-
+	/**
+	 * Delete field from page
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool
+	 * 
+	 */
 	public function ___deletePageField(Page $page, Field $field) {
 
 		// if($this->config->debug) $this->message("deletePageField, Page:$page, Field:$field"); 
@@ -1194,6 +1234,13 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		
 	}
 
+	/**
+	 * Delete field
+	 * 
+	 * @param Field $field
+	 * @return bool
+	 * 
+	 */
 	public function ___deleteField(Field $field) {
 		// delete files not necessary since deletePageField would have been called for all instances before this could be called
 		return parent::___deleteField($field); 
@@ -1206,8 +1253,36 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	 * Subclasses can override with their own string of file extensions
 	 *
 	 */
-	protected function getDefaultFileExtensions() {
+	public function getDefaultFileExtensions() {
 		return "pdf doc docx xls xlsx gif jpg jpeg png";
+	}
+
+	/**
+	 * Get default Inputfield class name
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return string
+	 * @since 3.0.170
+	 * 
+	 */
+	public function getDefaultInputfieldClass() {
+		return $this->defaultInputfieldClass;
+	}
+
+	/**
+	 * Get allowable Fieldtypes for custom fields
+	 *
+	 * #pw-internal
+	 *
+	 * @param bool $getDefaults Get the default setting instead?
+	 * @return array
+	 * @since 3.0.170
+	 *
+	 */
+	public function getAllowFieldtypes($getDefaults = false) {
+		if($getDefaults) return $this->defaultAllowFieldtypes;
+		return $this->allowFieldtypes;
 	}
 
 	/**
@@ -1506,183 +1581,22 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	 * 
 	 */
 	public function ___getConfigInputfields(Field $field) {
-
 		$inputfields = parent::___getConfigInputfields($field);
-		$extensionInfo = $this->getValidFileExtensions($field);
-		$fileValidatorsUrl = 'https://modules.processwire.com/categories/file-validator/';
-		
-		// extensions
-		/** @var InputfieldTextarea $f */
-		$f = $this->modules->get('InputfieldTextarea');
-		$f->attr('name', 'extensions'); 
-		$f->attr('value', $field->get('extensions') ? $field->get('extensions') : $this->getDefaultFileExtensions()); 
-		$f->attr('rows', 3); 
-		$f->label = $this->_('Valid File Extensions');
-		$f->description = $this->_('Enter all file extensions allowed by this upload field. Separate each extension by a space. No periods or commas. This field is not case sensitive.'); // Valid file extensions description
-		if(count($extensionInfo['invalid']) && !$this->wire()->input->is('POST')) {
-			foreach($extensionInfo['invalid'] as $ext) {
-				$error = sprintf(
-					$this->_('File extension %s must be removed, whitelisted, or have a [file validator](%s) module installed.'),
-					strtoupper($ext),
-					$fileValidatorsUrl
-				);
-				$this->error($error, Notice::allowMarkdown | Notice::noGroup);
-			}
-		}
-		$inputfields->append($f);
-
-		if(count($extensionInfo['invalid']) || count($extensionInfo['whitelist'])) {
-			/** @var array $okExtensions */
-			$badExtensions = array_merge($extensionInfo['invalid'], $extensionInfo['whitelist']); 
-			ksort($badExtensions);
-			/** @var InputfieldCheckboxes $f Whitelisted file extensions */
-			$f = $this->modules->get('InputfieldCheckboxes');
-			$f->attr('name', 'okExtensions');
-			$f->label = $this->_('File extensions to allow without validation (whitelist)');
-			$f->icon = 'warning';
-			foreach($badExtensions as $ext) $f->addOption($ext);
-			$f->description =
-				sprintf(
-					$this->_('These file extensions need a [file validator module](%s) installed. Unchecked extensions have been disabled for safety.'),
-					$fileValidatorsUrl
-				) . ' ' .
-				$this->_('To ignore and allow the file extension without file validation, check the box next to it (not recommended).') . ' ' . 
-				$this->_('If you don’t need an extension, please remove it from your valid file extensions list.'); 
-			$f->attr('value', $extensionInfo['whitelist']);
-			$inputfields->add($f);
-		} else {
-			$field->set('okExtensions', array());
-		}
-		
-		// max files
-		/** @var InputfieldInteger $f */
-		$f = $this->modules->get('InputfieldInteger');
-		$f->attr('name', 'maxFiles'); 
-		$f->attr('value', (int) $field->get('maxFiles')); 
-		$f->attr('size', 4);
-		$f->label = $this->_('Maximum files allowed');
-		$f->description = $this->_('0=No limit'); 
-		$f->collapsed = Inputfield::collapsedBlank;
-		$inputfields->append($f); 
-	
-		// output format
-		/** @var InputfieldRadios $f */
-		$f = $this->modules->get('InputfieldRadios'); 
-		$f->attr('name', 'outputFormat'); 
-		$f->label = $this->_('Formatted value'); 
-		$f->description = $this->_('Select the type of value you want this field to provide when accessed from the API on the front-end of your site.'); 
-		$f->notes = $this->_('When output formatting is off, the value is always an array (WireArray).'); 
-		$f->addOption(self::outputFormatAuto, $this->_('Automatic (single item or null when max files set to 1, array of items otherwise)')); 
-		$f->addOption(self::outputFormatArray, $this->_('Array of items'));
-		$f->addOption(self::outputFormatSingle, $this->_('Single item (null if empty)')); 
-		$f->addOption(self::outputFormatString, $this->_('Rendered string of text (that you provide)')); 
-		$f->attr('value', (int) $field->get('outputFormat')); 
-		$f->collapsed = Inputfield::collapsedBlank;
-		$inputfields->add($f);
-	
-		// output string
-		/** @var InputfieldText $f */
-		$f = $this->modules->get('InputfieldText');
-		$f->attr('name', 'outputString');
-		$f->label = $this->_('Rendered string of text');
-		$f->attr('placeholder', "i.e. <a href='{url}'>{description}</a>");
-		$f->attr('value', $field->get('outputString') ? $field->get('outputString') : '');
-		$f->description = $this->_('Provide the rendered string of text you want to output as the value of this field. If the field contains multiple items, this string will be rendered multiple times. If the field contains no items, a blank string will be used.');
-		$f->notes = $this->_('You may use any of the following tags:') . ' {url}, {description}, {tags}';
-		$f->showIf = "outputFormat=" . self::outputFormatString;
-		$inputfields->add($f);
-
-		// default value page
-		/** @var InputfieldPageListSelect $f */
-		$f = $this->modules->get('InputfieldPageListSelect'); 
-		$f->attr('name', 'defaultValuePage'); 
-		$f->label = $this->_('Default value (when empty)'); 
-		$f->description = $this->_('Optionally select a page that will contain the default value (in this same field). You may wish to create a page specifically for this purpose.'); 
-		$f->attr('value', (int) $field->get('defaultValuePage')); 
-		$f->collapsed = $field->get('defaultValuePage') ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
-		$inputfields->add($f); 
-	
-		// textformatters
-		/** @var InputfieldAsmSelect $f */
-		$f = $this->modules->get('InputfieldAsmSelect');
-		$f->setAttribute('name', 'textformatters');
-		$f->label = $this->_('Text formatters (for file descriptions)');
-		$f->description = $this->_('Select one or more text formatters (and their order) that will be applied to the file description when output formatting is active. The HTML Entity Encoder is recommended as a minimum.'); 
-
-		foreach($this->wire('modules') as $module) {
-			$className = $module->className();
-			if(strpos($className, 'Textformatter') !== 0) continue; 
-			$info = $this->wire('modules')->getModuleInfo($module); 
-			$f->addOption($className, "$info[title]");
-		}
-		
-		if(!is_array($field->get('textformatters'))) {
-			$field->set('textformatters', $field->get('entityEncode') ? array('TextformatterEntities') : array());
-		}
-		$f->attr('value', $field->get('textformatters')); 
-		$inputfields->add($f); 
-
-		// entity encode (deprecated)
-		/** @var InputfieldHidden $f */
-		$f = $this->modules->get("InputfieldHidden");
-		$f->attr('name', 'entityEncode');
-		$f->attr('value', '');
-		if($field->get('entityEncode')) $f->attr('checked', 'checked');
-		$inputfields->append($f);
-		$field->set('entityEncode', null);
-
-		// use tags
-		/** @var InputfieldRadios $f */
-		$f = $this->modules->get("InputfieldRadios"); 
-		$f->attr('name', 'useTags');
-		$f->label = $this->_('Use Tags?');
-		$f->description = $this->_('When enabled, the field will also contain an option for tags in addition to the description.'); // Use tags description
-		$f->icon = 'tags';
-		$predefinedLabel = $this->_('User selects from list of predefined tags');
-		$f->addOption(self::useTagsOff, $this->_('Tags disabled'));
-		$f->addOption(self::useTagsNormal, $this->_('User enters tags by text input'));
-		$f->addOption(self::useTagsPredefined, $predefinedLabel);
-		$f->addOption(self::useTagsNormal | self::useTagsPredefined, $predefinedLabel . ' + ' . $this->_('can input their own')); 
-		$f->attr('value', (int) $field->get('useTags')); 
-		if(!$f->attr('value')) $f->collapsed = Inputfield::collapsedYes;
-		$inputfields->append($f); 
-	
-		/** @var InputfieldTextarea $f */
-		$f = $this->modules->get('InputfieldText'); 
-		$f->attr('name', 'tagsList'); 
-		$f->label = $this->_('Predefined tags');
-		$f->description = $this->_('Enter tags separated by a space. Tags may contain letters, digits, underscores or hyphens.');
-		$f->icon = 'tags';
-		$f->attr('value', $field->get('tagsList'));
-		$f->showIf = 'useTags>1';
-		$inputfields->append($f); 
-
-		// inputfield class
-		/** @var InputfieldSelect $f */
-		$f = $this->modules->get('InputfieldSelect');
-		$f->attr('name', 'inputfieldClass');
-		$f->label = $this->_('Inputfield Type');
-		$f->description = $this->_('The type of field that will be used to collect input.');
-		$f->notes = $this->_('Change this only if instructed to do so by 3rd party Inputfield module instructions.');
-		$f->required = true;
-		$baseClass = $this->defaultInputfieldClass;
-		
-		foreach($this->wire('modules')->findByPrefix('Inputfield') as $fm) {
-			if($baseClass == 'InputfieldFile' && strpos($fm, 'InputfieldImage') === 0) continue;
-			if("$fm" == $baseClass || is_subclass_of(__NAMESPACE__ . "\\$fm", __NAMESPACE__ . "\\$baseClass")) {
-				$f->addOption("$fm", str_replace("Inputfield", '', "$fm"));
-			}
-		}
-		
-		$inputfieldClass = $field->get('inputfieldClass');
-		$f->attr('value', $inputfieldClass ? $inputfieldClass : $this->defaultInputfieldClass);
-		$f->collapsed = $inputfieldClass && $inputfieldClass != $this->defaultInputfieldClass ? Inputfield::collapsedNo : Inputfield::collapsedYes; 
-		
-		$inputfields->append($f);
-		
-		return $inputfields;
+		return $this->fieldtypeConfiguration()->getConfigInputfields($field, $inputfields);
 	}
 
+	/**
+	 * Field advanced config
+	 *
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigAdvancedInputfields(Field $field) {
+		$inputfields = parent::___getConfigAdvancedInputfields($field);
+		return $this->fieldtypeConfiguration()->getConfigAdvancedInputfields($field, $inputfields);
+	}
+	
 	/**
 	 * Module config
 	 * 
@@ -1690,77 +1604,17 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	 *
 	 */
 	public function ___getModuleConfigInputfields(InputfieldWrapper $inputfields) {
-		
 		if($this->className() != 'FieldtypeFile') return;
-		
-		/** @var InputfieldCheckboxes $f */
-		$f = $this->wire('modules')->get('InputfieldCheckboxes');
-		$f->attr('name', 'allowFieldtypes');
-		$f->label = $this->_('Allowed Fieldtype modules for custom fields');
-		$f->description = $this->_('Types with strikethrough are not likely to be 100% compatible.'); 
-		$f->optionColumns = 3;
-		$f->entityEncodeText = false;
-		
-		$moduleNames = $this->wire('modules')->findByPrefix('Fieldtype');
-		ksort($moduleNames);
-		$names = array();
-
-		// types always disallowed
-		$blacklist = array(
-			'File', 
-			'Image', 
-			'Repeater', 
-			'RepeaterMatrix', 
-			'PageTable', 
-			'Options', 
-			'Comments', 
-			'Table'
-		);
-		
-		foreach($moduleNames as $key => $moduleName) {
-			
-			list(,$name) = explode('Fieldtype', $moduleName, 2);
-			$names[$name] = $name;
-			
-			if(in_array($name, $blacklist)) {
-				unset($names[$name]);
-				continue;
-			}
-			
-			if(in_array($name, $this->defaultAllowFieldtypes)) continue; // these are fine
-			
-			// check schema of field by finding an example of one
-			$allow = false;
-			
-			foreach($this->wire('fields') as $field) {
-				// @var Field $field 
-				if($field->type instanceof FieldtypeFile) continue;
-				if(!wireInstanceOf($field->type, $moduleName)) continue;
-				
-				// verify that field DB table is responsible for all data created by the field
-				$schema = $field->type->getDatabaseSchema($field);
-				if(isset($schema['xtra']['all']) && $schema['xtra']['all'] !== true) continue;
-				
-				unset($schema['data'], $schema['pages_id'], $schema['keys'], $schema['xtra']);
-				// if there's not any other schema required by the Fieldtype, it can be supported here
-				if(!count($schema)) $allow = true;
-				break;
-			}
-			if(!$allow) {
-				// indicate with strikethrough potential issue with this type
-				$names[$name] = "<s>$name</s>";
-			}
-		}
-		
-		foreach($names as $key => $name) {
-			$f->addOption($key, $name);
-		}
-		
-		$f->val($this->allowFieldtypes);
-		$inputfields->add($f);
+		$this->fieldtypeConfiguration()->getModuleConfigInputfields($inputfields);
 	}
 
-
-
+	/**
+	 * @return FieldtypeFileConfiguration
+	 * 
+	 */
+	protected function fieldtypeConfiguration() {
+		require_once(__DIR__ . '/config.php');
+		return new FieldtypeFileConfiguration($this);
+	}
 }
 

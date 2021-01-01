@@ -1387,72 +1387,10 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 */
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();
-		
-		if($this->hasFieldtype === false) {
-			/** @var InputfieldText $f */
-			$f = $this->modules->get('InputfieldText');
-			$f->attr('name', 'extensions');
-			$f->label = $this->_('Allowed file extensions for upload'); 
-			$f->description = $this->_('One or more file extensions separated by a space.');
-			$value = $this->getSetting('extensions');
-			if(empty($value)) $value = 'pdf jpg jpeg png gif doc docx csv xls xlsx ppt pptx';
-			$value = explode(' ', $value);
-			foreach($value as $k => $v) $value[$k] = trim($v, '. '); 
-			$f->val(implode(' ', $value));
-			$inputfields->add($f);
-			
-			/** @var InputfieldInteger $f */
-			$f = $this->modules->get('InputfieldInteger');
-			$f->attr('name', 'maxFiles');
-			$f->attr('value', (int) $this->getSetting('maxFiles'));
-			$f->attr('size', 4);
-			$f->label = $this->_('Maximum files allowed');
-			$f->description = $this->_('0=No limit');
-			$f->collapsed = Inputfield::collapsedBlank;
-			$inputfields->add($f); 
-		}
-	
-		/** @var InputfieldCheckbox $f */
-		$f = $this->modules->get("InputfieldCheckbox"); 
-		$f->attr('name', 'unzip'); 
-		$f->attr('value', 1); 
-		$f->setAttribute('checked', $this->unzip ? 'checked' : ''); 
-		$f->label = $this->_('Decompress ZIP files?');
-		$f->description = $this->_("If checked, ZIP archives will be decompressed and all valid files added as uploads (if supported by the hosting environment). Max files must be set to 0 (no max) in order for ZIP uploads to be functional."); // Decompress ZIP files description
-		$f->collapsed = Inputfield::collapsedBlank;
-		$inputfields->append($f);
-		
-		$f = $this->modules->get("InputfieldCheckbox");
-		$f->attr('name', 'overwrite');
-		$f->label = $this->_('Overwrite existing files?');
-		$f->description = $this->_('If checked, a file uploaded with the same name as an existing file will replace the existing file (description and tags will remain). If not checked, uploaded filenames will be renamed to be unique.'); // Overwrite description
-		$f->notes = $this->_('Please note that when this option is enabled, AJAX-uploaded files are saved with the page immediately at upload, rather than when you click "save". As a result, you may wish to leave this option unchecked unless you have a specific need for it.'); // Overwrite notes
-		if($this->overwrite) $f->attr('checked', 'checked');
-		$f->collapsed = Inputfield::collapsedBlank;
-		$inputfields->append($f);
-
-		$f = $this->modules->get("InputfieldInteger"); 
-		$f->attr('name', 'descriptionRows'); 
-		$f->attr('value', $this->descriptionRows !== null ? (int) $this->descriptionRows : 1); 
-		//$f->minValue = 0; 
-		//$f->maxValue = 30; 
-		$f->label = $this->_('Number of rows for description field?');
-		$f->description = $this->_("Enter the number of rows available for the file description field, or enter 0 to not have a description field."); // Number of rows description
-		$inputfields->append($f); 
-		
-		if($this->wire('languages') && $this->descriptionRows >= 1) {
-			$f = $this->modules->get("InputfieldCheckbox"); 
-			$f->attr('name', 'noLang'); 
-			$f->attr('value', 1); 
-			$f->setAttribute('checked', $this->noLang ? 'checked' : ''); 
-			$f->label = $this->_('Disable multi-language descriptions?');
-			$f->description = $this->_('By default, descriptions are multi-language when you have Language Support installed. If you want to disable multi-language descriptions, check this box.'); // Disable multi-language description
-			$inputfields->append($f); 
-		}
-		
+		require_once(__DIR__ . '/config.php');
+		$configuration = new InputfieldFileConfiguration();
+		$this->wire($configuration);
+		$configuration->getConfigInputfields($this, $inputfields);
 		return $inputfields; 	
 	}
-
-
-
 }

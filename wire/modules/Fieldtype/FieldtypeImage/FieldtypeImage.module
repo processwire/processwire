@@ -227,21 +227,28 @@ class FieldtypeImage extends FieldtypeFile {
 		
 		return $value; 	
 	}
-
+	
 	/**
 	 * Get Inputfields to configure fields using this Fieldtype
+	 *
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+		$inputfields = parent::___getConfigInputfields($field);
+		return $inputfields;
+	}
+
+	/**
+	 * Get Inputfields to advanced configure fields using this Fieldtype
 	 * 
 	 * @param Field $field
 	 * @return InputfieldWrapper
 	 * 
 	 */
-	public function ___getConfigInputfields(Field $field) {
-
-		$inputfields = parent::___getConfigInputfields($field);
-		$f = $inputfields->get('outputString'); 
-		$f->attr('placeholder', "i.e. <img src='{url}' alt='{description}' />");
-		$f->notes .= ", {width}, {height}";
-		
+	public function ___getConfigAdvancedInputfields(Field $field) {
+		$inputfields = parent::___getConfigAdvancedInputfields($field);
 		return $inputfields; 
 	}
 

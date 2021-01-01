@@ -658,6 +658,8 @@ class ProcessTemplate extends Process {
 	 *
 	 */
 	protected function ___buildEditForm(Template $template) {
+		
+		$input = $this->wire()->input;
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
@@ -665,7 +667,7 @@ class ProcessTemplate extends Process {
 		$form->attr('action', "save"); 
 		$form->attr('method', 'post'); 
 
-		if(!is_file($template->filename) && !count($this->input->post)) {
+		if(!is_file($template->filename) && !count($input->post) && !$input->get('modal')) {
 			$this->message(sprintf($this->_('Pages using this template are not viewable because the template file (%s) does not exist [no-file].'), $template->name . '.' . $this->config->templateExtension)); 
 		}
 
@@ -985,11 +987,23 @@ class ProcessTemplate extends Process {
 
 		// if this template isn't defining it's fields, then just show what it's using
 		if($template->fieldgroup->name != $template->name) return $this->buildEditFormShowFields($template); 
+	
+		if(strpos($template->name, 'field-') === 0) {
+			list(,$fieldName) = explode('-', $template->name, 2);
+			$forField = $this->wire()->fields->get($fieldName);
+		} else {
+			$forField = null;
+		}
 
 		/** @var InputfieldAsmSelect $select */
 		$select = $this->modules->get('InputfieldAsmSelect'); 
 		$select->label = $this->_x('Fields', 'field-label');
-		$select->description = $this->_('Define the fields that are used by this template. You may also drag and drop fields to the desired order or [create a new field](../field/add).'); // Fields definition, description
+	
+		if($forField) {
+			$select->description = sprintf($this->_('Define the custom fields for “%s”. It is not necessary to configure anything else here.'), $forField->name);
+		} else {
+			$select->description = $this->_('Define the fields that are used by this template. You may also drag and drop fields to the desired order or [create a new field](../field/add).'); // Fields definition, description
+		}
 		$select->icon = 'cube';
 		$select->attr('name', 'fieldgroup_fields'); 
 		$select->attr('id', 'fieldgroup_fields'); 
