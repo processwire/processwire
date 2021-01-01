@@ -13,6 +13,7 @@
  * https://processwire.com
  *
  * @property array $allowFieldtypes Allowed Fieldtype types for custom fields
+ * @property string $defaultFileExtensions
  * @method string formatValueString(Page $page, Field $field, $value)
  *
  */
@@ -144,6 +145,11 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 		$this->defaultInputfieldClass = str_replace('Fieldtype', 'Inputfield', $this->className);
 		if($this->className() === 'FieldtypeFile') $this->allowFieldtypes = $this->defaultAllowFieldtypes;
 		parent::__construct();
+	}
+	
+	public function get($key) {
+		if($key === 'defaultFileExtensions') return $this->getDefaultFileExtensions();
+		return parent::get($key);
 	}
 
 	/**
@@ -1253,7 +1259,9 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 	 * Subclasses can override with their own string of file extensions
 	 *
 	 */
-	public function getDefaultFileExtensions() {
+	protected function getDefaultFileExtensions() {
+		// note: this method is not public because other modules are implementing it
+		// access $fieldtype->defaultFileExtensions to get the value instead
 		return "pdf doc docx xls xlsx gif jpg jpeg png";
 	}
 

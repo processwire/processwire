@@ -57,7 +57,7 @@ class FieldtypeFileConfiguration extends Wire {
 		$f = $modules->get('InputfieldTextarea');
 		$f->attr('name', 'extensions');
 		$value = $field->get('extensions');
-		if(!$value) $value = $fieldtype->getDefaultFileExtensions();
+		if(!$value) $value = $fieldtype->get('defaultFileExtensions');
 		$f->attr('value', $value);
 		$f->attr('rows', 3);
 		$f->label = $this->_('Allowed file extensions');
