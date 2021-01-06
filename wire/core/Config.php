@@ -163,6 +163,7 @@
  * @property string|null $pagerHeadTags Populated at runtime to contain `<link rel=prev|next />` tags for document head, after pagination has been rendered by MarkupPagerNav module. #pw-group-runtime 
  * @property array $statusFiles File inclusions for ProcessWire’s runtime statuses/states. #pw-group-system @since 3.0.142
  * @property int $status Value of current system status/state corresponding to ProcessWire::status* constants. #pw-internal
+ * @property null|bool $disableUnknownMethodException Disable the “Method does not exist or is not callable in this context” exception. (default=null) #pw-internal
  * 
  * @property int $rootPageID Page ID of homepage (usually 1) #pw-group-system-IDs
  * @property int $adminRootPageID Page ID of admin root page #pw-group-system-IDs

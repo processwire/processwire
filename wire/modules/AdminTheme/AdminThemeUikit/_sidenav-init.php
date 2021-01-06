@@ -25,6 +25,7 @@ if(strpos($mainURL, 'layout=')) {
 	$mainURL .= (strpos($mainURL, '?') ? '&' : '?') . 'layout=sidenav-main';
 }
 $mainURL = $sanitizer->entities($mainURL);
+$themeURL = $adminTheme->url();
 
 // pane definition iframes
 $panes = array(
@@ -49,7 +50,7 @@ $panes = array(
 	<meta http-equiv="X-UA-Compatible" content="IE=edge,chrome=1">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	
-	<link rel="stylesheet" href="<?php echo $config->urls->adminTemplates; ?>layout/source/stable/layout-default.css">
+	<link rel="stylesheet" href="<?php echo $themeURL; ?>layout/source/stable/layout-default.css">
 	
 	<?php require(__DIR__ . '/_head.php'); ?>
 	
@@ -76,8 +77,8 @@ $panes = array(
 		}
 	</style>
 	
-	<script src="<?php echo $config->urls->adminTemplates; ?>layout/source/stable/jquery.layout.js"></script>
-	<script src="<?php echo $config->urls->adminTemplates; ?>layout/source/stable/plugins/jquery.layout.state.js"></script>
+	<script src="<?php echo $themeURL; ?>layout/source/stable/jquery.layout.js"></script>
+	<script src="<?php echo $themeURL; ?>layout/source/stable/plugins/jquery.layout.state.js"></script>
 </head>
 <body class='pw-layout-sidenav-init'>	
 

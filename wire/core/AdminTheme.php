@@ -10,10 +10,12 @@
  * This file is licensed under the MIT license. 
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int|string $version Current admin theme version
+ * @property string $url URL to admin theme
+ * @property string $path Disk path to admin theme
  * 
  * @method void install()
  * @method void uninstall()
@@ -156,13 +158,54 @@ abstract class AdminTheme extends WireData implements Module {
 
 		if($session->get('hidpi')) $this->addBodyClass('hidpi-device');
 		if($session->get('touch')) $this->addBodyClass('touch-device'); 
-		
+
 		$this->addBodyClass($this->className());
 	}
 
+	/**
+	 * Get property
+	 * 
+	 * @param string $key
+	 * @return int|mixed|null|string
+	 * 
+	 */
 	public function get($key) {
-		if($key == 'version') return $this->version;
+		if($key === 'version') return $this->version;
+		if($key === 'url') return $this->url();
+		if($key === 'path') return $this->path();
 		return parent::get($key); 
+	}
+	
+	/**
+	 * Get URL to this admin theme
+	 *
+	 * @return string
+	 * @since 3.0.171
+	 *
+	 */
+	public function url() {
+		return $this->wire()->config->urls($this->className());
+	}
+
+	/**
+	 * Get disk path to this admin theme
+	 * 
+	 * @return string
+	 * @since 3.0.171
+	 * 
+	 */
+	public function path() {
+		$config = $this->wire()->config;
+		$path = $config->paths($this->className());
+		if(empty($path)) {
+			$class = $this->className();
+			$path = $config->paths->modules . "AdminTheme/$class/";
+			if(!is_dir($path)) {
+				$path = $config->paths->siteModules . "$class/";
+				if(!is_dir($path)) $path = __DIR__;
+			}
+		}
+		return $path;
 	}
 
 	/**
@@ -189,7 +232,8 @@ abstract class AdminTheme extends WireData implements Module {
 	 *
 	 */
 	public function isCurrent() {
-		return $this->wire('adminTheme') === $this; 
+		$adminTheme = $this->wire()->adminTheme;
+		return $adminTheme && $adminTheme->className() === $this->className();
 	}
 
 	/**

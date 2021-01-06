@@ -13,7 +13,7 @@
 /** @var Modules $modules */
 /** @var Notices $notices */
 /** @var Page $page */
-/** @var Process $process */
+/** @var Process $proc;ess */
 /** @var Sanitizer $sanitizer */
 /** @var WireInput $input */
 /** @var Paths $urls */
@@ -29,7 +29,7 @@ if(!isset($content)) $content = '';
 	/* this intentionally on a separate line */ ?>">
 <head>
 	<?php 
-	include($config->paths->adminTemplates . '_head.php');
+	include(__DIR__ . '/_head.php');
 	echo $adminTheme->renderExtraMarkup('head'); 
 	?>
 </head>

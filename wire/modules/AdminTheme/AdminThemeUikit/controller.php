@@ -11,5 +11,5 @@ if(!defined("PROCESSWIRE")) die();
  * This file need not be present in new admin themes, and will eventually be removed from this theme.
  *
  */ 
-
+/** @var Config $config */
 require($config->paths->core . "admin.php"); 

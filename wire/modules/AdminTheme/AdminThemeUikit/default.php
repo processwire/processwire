@@ -30,17 +30,17 @@ if($adminTheme->isModal) {
 
 if($layout === 'sidenav-init' || $layout === 'sidenav-tree-init') {
 	// sidenav main loader
-	include($config->paths->adminTemplates . "_sidenav-init.php");
+	include(__DIR__ . "/_sidenav-init.php");
 	
 } else if($layout === 'sidenav-side') {
 	// sidenav sidebar pane
 	$adminTheme->addBodyClass("pw-layout-sidenav-side");
-	include($config->paths->adminTemplates . "_sidenav-side.php");
+	include(__DIR__ . "/_sidenav-side.php");
 
 } else if($layout === 'sidenav-tree') {
 	// sidenav tree pane
 	$adminTheme->addBodyClass("pw-layout-sidenav-tree");
-	include($config->paths->adminTemplates . "_sidenav-tree.php");
+	include(__DIR__ . "/_sidenav-tree.php");
 	
 } else {
 	// main markup file
@@ -50,6 +50,6 @@ if($layout === 'sidenav-init' || $layout === 'sidenav-tree-init') {
 	} else if($layout != 'modal') {
 		$layout = '';
 	}
-	include($config->paths->adminTemplates . "_main.php");
+	include(__DIR__ . "/_main.php");
 }
 

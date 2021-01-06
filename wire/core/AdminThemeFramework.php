@@ -4,7 +4,13 @@
  * AdminTheme Framework
  * 
  * The methods in this class may eventually be merged to AdminTheme.php, 
- * but are isolated to this class during development. 
+ * but are isolated to this class during development.
+ * 
+ * This file is licensed under the MIT license.
+ * https://processwire.com/about/license/mit/
+ * 
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * https://processwire.com
  *
  * @property bool $isSuperuser
  * @property bool $isEditor
@@ -65,6 +71,8 @@ abstract class AdminThemeFramework extends AdminTheme {
 	
 	public function wired() {
 		$this->sanitizer = $this->wire('sanitizer');
+		$user = $this->wire()->user;
+		$this->isLoggedIn = $user && $user->isLoggedin();
 		parent::wired();
 	}
 
@@ -95,13 +103,12 @@ abstract class AdminThemeFramework extends AdminTheme {
 	public function init() {
 		
 		$user = $this->wire('user');
-		if(!$user->isLoggedin() && $this->useAsLogin) $this->setCurrent();
+		if(!$this->isLoggedIn && $this->useAsLogin) $this->setCurrent();
 		parent::init();
 		
 		// if this is not the current admin theme, exit now so no hooks are attached
 		if(!$this->isCurrent()) return;
 
-		$this->isLoggedIn = $user->isLoggedin();
 		$this->isSuperuser = $this->isLoggedIn && $user->isSuperuser();
 		$this->isEditor = $this->isLoggedIn && ($this->isSuperuser || $user->hasPermission('page-edit'));
 		$this->includeInitFile();
@@ -119,7 +126,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 */
 	public function includeInitFile() {
 		$config = $this->wire('config');
-		$initFile = $config->paths->adminTemplates . 'init.php';
+		$initFile = $this->path() . 'init.php';
 		if(file_exists($initFile)) {
 			if(strpos($initFile, $config->paths->site) === 0) {
 				// admin themes in /site/modules/ may be compiled

@@ -153,6 +153,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$this->addClass('body', 'AdminThemeUikitNoGrid'); 
 		}
 		
+		if($this->className() !== 'AdminThemeUikit') {
+			$this->addBodyClass('AdminThemeUikit');
+		}
+		
 		$session->removeFor('Page', 'appendEditUrl');
 		/** @var JqueryUI $jqueryUI */
 		$jqueryUI = $modules->get('JqueryUI');
@@ -990,7 +994,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		
 		if(empty($logoURL) || $options['getNative'] || strpos($logoURL, '//') !== false) {
 			$native = true;
-			$logoURL = $config->urls($this->className()) . self::logo;
+			$logoURL = $this->url() . self::logo;
 		} else {
 			$logoURL = $config->urls->root . ltrim($logoURL, '/');
 			$logoURL = $sanitizer->entities($logoURL);
@@ -1021,6 +1025,28 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public function getLogoURL() {
 		return $this->getLogo(array('getURL' => true));
 	}
+	
+	/**
+	 * Get URL to this admin theme
+	 *
+	 * @return string
+	 * @since 3.0.171
+	 *
+	 */
+	public function url() {
+		return $this->wire()->config->urls->modules . 'AdminTheme/AdminThemeUikit/';
+	}
+	
+	/**
+	 * Get disk path to this admin theme
+	 *
+	 * @return string
+	 * @since 3.0.171
+	 *
+	 */
+	public function path() {
+		return __DIR__ . '/';
+	}
 
 	/**
 	 * Get the primary Uikit CSS file to use
@@ -1037,9 +1063,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			if(strpos($cssURL, '//') === false) $cssURL = $config->urls->root . ltrim($cssURL, '/');
 			return $this->wire('sanitizer')->entities($cssURL);
 		} else if(self::dev && strpos(__FILE__, '/wire/modules/') === false) {
-			return $config->urls->adminTemplates . 'uikit/custom/pw.css?v=' . $version;
+			return $this->url() . 'uikit/custom/pw.css?v=' . $version;
 		} else {
-			return $config->urls->adminTemplates . 'uikit/dist/css/uikit.pw.min.css?v=' . $version;
+			return $this->url() . 'uikit/dist/css/uikit.pw.min.css?v=' . $version;
 		}
 	}
 	

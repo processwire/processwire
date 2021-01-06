@@ -6,7 +6,7 @@
  * This file is designed for inclusion by /site/templates/admin.php template and all the variables 
  * it references are from your template namespace. 
  *
- * Copyright 2018 by Ryan Cramer
+ * Copyright 2021 by Ryan Cramer
  * 
  * @var Config $config
  * @var User $user
@@ -18,6 +18,7 @@
  * @var Sanitizer $sanitizer
  * @var Session $session
  * @var Notices $notices
+ * @var AdminTheme $adminTheme
  * 
  *
  */
@@ -99,6 +100,12 @@ function _checkForMaxInputVars(WireInput $input) {
 	}
 }
 
+// fallback theme if one not already present
+if(empty($adminTheme)) {
+	$adminTheme = $modules->get($config->defaultAdminTheme ? $config->defaultAdminTheme : 'AdminThemeUikit');
+	if(empty($adminTheme)) $adminTheme = $modules->get('AdminThemeUikit');
+	if($adminTheme) $wire->wire('adminTheme', $adminTheme);
+}
 
 // notify superuser if there is an http host error
 if($user->isSuperuser()) _checkForHttpHostError($config); 
@@ -214,7 +221,11 @@ if($controller && $controller->isAjax()) {
 	echo $content; 
 } else {
 	if(!strlen($content)) $content = '<p>' . __('The process returned no content.') . '</p>';
-	$adminThemeFile = $config->paths->adminTemplates . 'default.php';
+	if($adminTheme) {
+		$adminThemeFile = $adminTheme->path() . 'default.php';
+	} else {
+		$adminThemeFile = $config->paths->adminTemplates . 'default.php';
+	}
 	if(strpos($adminThemeFile, $config->paths->site) === 0) {
 		// @todo determine if compilation needed
 		$adminThemeFile = $wire->files->compile($adminThemeFile);
