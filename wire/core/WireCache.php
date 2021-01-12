@@ -449,8 +449,8 @@ class WireCache extends Wire {
 			$data = json_encode($data);
 			if($data === false) throw new WireException("Unable to encode array data for cache: $name"); 
 		} else if(is_string($data) && $this->looksLikeJSON($data)) {
-			// ensure potentailly already encoded JSON text remains as text when cache is awakened
-			$data = array('WireCache' => $data); 
+			// ensure potentially already encoded JSON text remains as text when cache is awakened
+			$data = json_encode(array('WireCache' => $data)); 
 		}
 		
 		if(is_null($data)) $data = '';
