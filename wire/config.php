@@ -790,7 +790,7 @@ $config->fileCompilerOptions = array(
 	'chmodDir' => '',  // mode to use for created directories, i.e. "0755"
 	'exclusions' => array(), // exclude filenames or paths that start with any of these
 	'extensions' => array('php', 'module', 'inc'), // file extensions we compile
-	'cachePath' => $config->paths->cache . 'FileCompiler/', // path where compiled files are stored
+	'cachePath' => '', // path where compiled files are stored, or blank for $config->paths->cache . 'FileCompiler/'
 	);
 
 /**
