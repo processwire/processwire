@@ -252,6 +252,21 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$f->notes = $this->_('Depths are zero-based, meaning a depth of 3 allows depths 0, 1, 2 and 3.');
 		$f->notes .= ' ' . $this->_('Depth can be accessed from a repeater page item via `$item->depth`.');
 		$f->icon = 'indent';
+		$f->columnWidth = 50;
+		$inputfields->add($f);
+	
+		/** @var InputfieldToggle $f */
+		$f = $this->wire()->modules->get('InputfieldToggle'); 
+		$f->attr('name', 'familyFriendly');
+		$f->label = $this->_('Use family-friendly item depth?'); 
+		$f->description = 
+			$this->_('This setting makes the admin page editor treat item depth as a parent/child relationship.') . ' ' . 
+			$this->_('This means that moving/sorting an item includes child items too.') . ' ' . 
+			$this->_('It also prevents a child item from being dragged to have a depth that exceeds its parent by more than 1.'); 
+		$f->val((int) $field->get('familyFriendly'));
+		$f->icon = 'indent';
+		$f->showIf = 'repeaterDepth>1';
+		$f->columnWidth = 50;
 		$inputfields->add($f);
 
 		// -------------------------------------------------

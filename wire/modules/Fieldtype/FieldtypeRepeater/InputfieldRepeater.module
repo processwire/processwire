@@ -5,12 +5,13 @@
  *
  * Maintains a collection of fields that are repeated for any number of times.
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $repeaterMaxItems
  * @property int $repeaterMinItems
  * @property int $repeaterDepth
+ * @property bool|int $familyFriendly
  * @property bool $accordionMode
  * @property bool $singleMode
  * 
@@ -25,7 +26,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Repeats fields from another template. Provides the input for FieldtypeRepeater.', __FILE__), // Module Summary
-			'version' => 106,
+			'version' => 107,
 			'requires' => 'FieldtypeRepeater',
 			);
 	}
@@ -100,6 +101,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$this->set('repeaterMaxItems', 0);
 		$this->set('repeaterMinItems', 0); 
 		$this->set('repeaterDepth', 0);
+		$this->set('familyFriendly', 0); 
 		$this->set('accordionMode', false);
 		$this->set('singleMode', false); 
 	}
@@ -290,7 +292,11 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		// get field label in user's language if available
 		$label = $this->field->getLabel();
 		if(!$label) $label = ucfirst($this->field->name); 
-
+		
+		if((int) $this->repeaterDepth > 1 && (int) $this->familyFriendly) {
+			$this->addClass('InputfieldRepeaterFamilyFriendly', 'wrapClass'); 
+		}
+		
 		// remember which repeater items are open (as stored in cookie), when enabled
 		$openIDs = array();
 		if((int) $this->field->get('rememberOpen')) {
@@ -371,7 +377,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				if($this->repeaterDepth > 0) {
 					$depth = $this->wire('modules')->get('InputfieldHidden');
 					$depth->attr('id+name', "depth_repeater{$page->id}");
-					$depth->class = 'InputfieldRepeaterDepth';
+					$depth->addClass('InputfieldRepeaterItemDepth', 'wrapClass');
 					$depth->label = $this->_('Depth');
 					$depthValue = $page->getDepth();
 					$depth->attr('value', $depthValue);
@@ -405,6 +411,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$wrap->wrapAttr('data-type', $itemType);
 			$wrap->wrapAttr('data-typeName', $itemTypeName);
 			$wrap->wrapAttr('data-fnsx', "_repeater$page->id");  // fnsx=field name suffix
+			$wrap->wrapAttr('data-depth', $depth ? $depth->val() : '0'); 
 			//$wrap->wrapAttr('data-editorPage', $this->page->id);
 			//$wrap->wrapAttr('data-parentPage', $page->parent->id);
 			$wrap->wrapAttr('data-editUrl', $page->editUrl()); // if needed by any Inputfields within like InputfieldFile/InputfieldImage
