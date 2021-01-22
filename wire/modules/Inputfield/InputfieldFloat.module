@@ -6,7 +6,8 @@
  * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com
  *
- * @property int $precision
+ * @property int $precision Decimals precision 
+ * @property int $digits Total digits, for when used in decimal mode (default=0)
  * @property string $inputType Input type to use, one of "text" or "number"
  * @property int|float $min
  * @property int|float $max
@@ -35,6 +36,7 @@ class InputfieldFloat extends InputfieldInteger {
 	 */
 	public function __construct() {
 		$this->set('precision', 2); 
+		$this->set('digits', 0);
 		parent::__construct();
 	}
 
@@ -69,7 +71,9 @@ class InputfieldFloat extends InputfieldInteger {
 	 */
 	protected function sanitizeValue($value) {
 		if(!strlen("$value")) return '';
-		if(!is_float($value) && !is_int($value)) {
+		if($this->digits > 0) {
+			return is_numeric("$value") ? (string) $value : '';
+		} else if(!is_float($value) && !is_int($value)) {
 			$value = $this->wire()->sanitizer->float($value, array('blankValue' => ''));
 			if(!strlen("$value")) return '';
 		}
@@ -92,7 +96,7 @@ class InputfieldFloat extends InputfieldInteger {
 	}
 
 	/**
-	 * Override method from Inputfield to convert local specific decimals for input[type=number]
+	 * Override method from Inputfield to convert locale specific decimals for input[type=number]
 	 * 
 	 * @param array $attributes
 	 * @return string
@@ -101,10 +105,12 @@ class InputfieldFloat extends InputfieldInteger {
 	public function getAttributesString(array $attributes = null) {
 		if($attributes && $attributes['type'] === 'number') { 
 			$value = isset($attributes['value']) ? $attributes['value'] : null;
-			if(is_float($value) && strlen("$value") && !ctype_digit(str_replace('.', '', $value))) {
-				// float value is using a non "." as decimal point, needs conversion because
-				// the HTML5 number input type requires "." as the decimal
-				$attributes['value'] = $this->localeConvertValue($value); 
+			if(is_float($value) || is_string($value)) {
+				if(strlen("$value") && !ctype_digit(str_replace('.', '', ltrim($value, '-')))) {
+					// float value is using a non "." as decimal point, needs conversion because
+					// the HTML5 number input type requires "." as the decimal
+					$attributes['value'] = $this->localeConvertValue($value);
+				}
 			}
 		}
 		return parent::getAttributesString($attributes);
@@ -119,7 +125,7 @@ class InputfieldFloat extends InputfieldInteger {
 	 */
 	protected function localeConvertValue($value) {
 		if(!strlen("$value")) return $value; 
-		if(ctype_digit(str_replace('.', '', $value))) return $value;
+		if(ctype_digit(str_replace('.', '', ltrim($value, '-')))) return $value;
 		$locale = localeconv();
 		$decimal = $locale['decimal_point'];
 		if($decimal === '.' || strpos($value, $decimal) === false) return $value;
