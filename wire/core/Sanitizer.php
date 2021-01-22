@@ -3759,6 +3759,7 @@ class Sanitizer extends Wire {
 	 * 	- `blankValue` (null|int|string|float): Value to return (whether float or non-float) if provided $value is an empty non-float (default=0.0)
 	 * 	- `min` (float|null): Minimum allowed value, excluding blankValue (default=null)
 	 * 	- `max` (float|null): Maximum allowed value, excluding blankValue (default=null)
+	 *  - `getString (bool): Return a string rather than float value? (default=false) added 3.0.171
 	 * @return float
 	 * 
 	 */
@@ -3770,6 +3771,7 @@ class Sanitizer extends Wire {
 			'blankValue' => 0.0, // Value to return (whether float or non-float) if provided $value is an empty non-float (default=0.0)
 			'min' => null, // Minimum allowed value (excluding blankValue)
 			'max' => null, // Maximum allowed value (excluding blankValue)
+			'getString' => false, // Return a string rather than float value?
 		);
 		
 		$options = array_merge($defaults, $options);
@@ -3816,7 +3818,7 @@ class Sanitizer extends Wire {
 				}
 
 			} else {
-				$value = preg_replace('/[^0-9]/', '', $str);
+				if(!ctype_digit("$value")) $value = preg_replace('/[^0-9]/', '', $str);
 			}
 
 			if($pos !== null) {
@@ -3827,13 +3829,15 @@ class Sanitizer extends Wire {
 					preg_replace('/[^0-9]/', '', substr($str, $pos + 1));
 			}
 
-			$value = floatval($prepend . $value);
+			$value = $prepend . $value;
+			if(!$options['getString']) $value = floatval($value);
 		}
 		
-		if(!is_float($value)) $value = (float) $value;
-		if(!is_null($options['min']) && $value < $options['min']) $value = $options['min'];
-		if(!is_null($options['max']) && $value > $options['max']) $value = $options['max'];
-		if(!is_null($options['precision'])) $value = round($value, (int) $options['precision'], (int) $options['mode']);
+		if(!$options['getString'] && !is_float($value)) $value = (float) $value;
+		if(!is_null($options['min']) && ((float) $value) < ((float) $options['min'])) $value = $options['min'];
+		if(!is_null($options['max']) && ((float) $value) > ((float) $options['max'])) $value = $options['max'];
+		if(!is_null($options['precision'])) $value = round((float) $value, (int) $options['precision'], (int) $options['mode']);
+		if($options['getString']) $value = "$value";
 		
 		return $value;
 	}
