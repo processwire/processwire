@@ -46,6 +46,7 @@
  * @method bool deleteTemplateField(Template $template, Field $field)
  * @method Field cloneField(Field $field)
  * @method void renamedField(Field $field, $prevName) 
+ * @method void savedField(Field $field)
  * @method void install()
  * @method void uninstall()
  * 
@@ -1472,6 +1473,19 @@ abstract class Fieldtype extends WireData implements Module {
 	 */
 	public function ___renamedField(Field $field, $prevName) {
 		if($field && $prevName) {}
+	}
+
+	/**
+	 * Called when Field using this Fieldtype has been saved 
+	 * 
+	 * This is primarily so that Fieldtype modules can identify when their fields are 
+	 * saved without having to add a hook to the $fields API var. 
+	 * 
+	 * @param Field $field
+	 * @since 3.0.171
+	 * 
+	 */
+	public function ___savedField(Field $field) {
 	}
 
 	/**

@@ -300,6 +300,8 @@ class Fields extends WireSaveableItems {
 			}	
 		}
 		
+		if($item->type) $item->type->savedField($item);
+		
 		$this->getTags('reset');
 
 		return true; 
