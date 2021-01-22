@@ -409,6 +409,10 @@ $focusPointCircleSize: 40px;
 		display: block;
 	}
 
+	&__core {
+	  margin-bottom: 0.5em;
+	}
+	
 	&__inner {
 		position: relative;
 		display: flex;
