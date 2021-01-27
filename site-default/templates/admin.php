@@ -11,5 +11,5 @@
  * but remember to leave the require() statement below at the end.
  * 
  */
-
-require($config->paths->adminTemplates . 'controller.php'); 
+/** @var Config $config */
+require($config->paths->core . "admin.php"); 
