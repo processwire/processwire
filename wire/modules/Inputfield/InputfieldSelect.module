@@ -6,11 +6,15 @@
  * Serves as the base for Inputfields that provide selection of options (whether single or multi).
  * As a result, this class includes functionality for, and checks for both single-and-multi selection values. 
  * Sublcasses will want to override the render method, but it's not necessary to override processInput().
- * Subclasses that select multiple values should implement the InputfieldHasArrayValue interface. 
+ * Subclasses that select multiple values should implement the InputfieldHasArrayValue interface.
  * 
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * https://processwire.com
+ *
  * @property string|int $defaultValue
  * @property array|string $options Get or set options, array of [value => label], or use options string. 
  * @property array $optionAttributes 
+ * @property bool $valueAddOption If value attr set from API (only) that is not an option, add it as an option? (default=false) 3.0.171+
  *
  */
 class InputfieldSelect extends Inputfield {
@@ -55,6 +59,7 @@ class InputfieldSelect extends Inputfield {
 	public function __construct() {
 		parent::__construct();
 		$this->set('defaultValue', ''); 
+		$this->set('valueAddOption', false); 
 	}
 
 	/**
@@ -71,6 +76,7 @@ class InputfieldSelect extends Inputfield {
 	 */
 	public function addOption($value, $label = null, array $attributes = null) {
 		if(is_null($label) || (is_string($label) && !strlen($label))) $label = $value; 
+		if(isset($this->options[$value])) unset($this->options[$value]); 
 		$this->options[$value] = $label; 	
 		if(!is_null($attributes)) $this->optionAttributes[$value] = $attributes; 
 		return $this; 
@@ -737,6 +743,10 @@ class InputfieldSelect extends Inputfield {
 	 *
 	 */
 	public function ___processInput(WireInputData $input) {
+	
+		// disable valueAddOption temporarily to prevent it from applying to user input
+		$valueAddOption = $this->valueAddOption;
+		if($valueAddOption) $this->valueAddOption = false;
 
 		parent::___processInput($input); 	
 
@@ -767,6 +777,7 @@ class InputfieldSelect extends Inputfield {
 
 		$this->setAttribute('value', $value); 
 		$this->checkDefaultValue();
+		if($valueAddOption) $this->valueAddOption = $valueAddOption;
 
 		return $this; 
 	}
@@ -826,7 +837,7 @@ class InputfieldSelect extends Inputfield {
 	 * 
 	 */
 	public function setAttribute($key, $value) {
-		if($key == 'value') {
+		if($key === 'value') {
 			if(is_object($value) || (is_string($value) && strpos($value, '|'))) {
 				$value = (string) $value;
 				if($this instanceof InputfieldHasArrayValue) {
@@ -837,6 +848,20 @@ class InputfieldSelect extends Inputfield {
 					// ok
 				} else {
 					$value = reset($value); 
+				}
+			}
+			if($this->valueAddOption) { 
+				// add option(s) for any value set from API
+				if(is_array($value)) {
+					foreach($value as $v) {
+						if(!$this->isOption($v)) {
+							if(strlen($v)) $this->addOption($v);
+						}
+					}
+				} else {
+					if(strlen($value) && !$this->isOption($value)) {
+						$this->addOption($value);
+					}
 				}
 			}
 		}
