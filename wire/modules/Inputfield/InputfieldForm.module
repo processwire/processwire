@@ -2,17 +2,20 @@
 
 /**
  * InputfieldForm: An Inputfield for containing form elements
- * 
- * 
+ *
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * https://processwire.com
+ *
  * @property string $prependMarkup Optional markup to prepend to the form output
  * @property string $appendMarkup Optional markup to append to the form output
  * @property bool $protectCSRF Set to false to disable automatic CSRF protection
  * @property int $columnWidthSpacing Optionally set the column width spacing (pixels)
  * @property string $description Optionally set a description headline for the form
- * @property string $confirmText Confirmation text that precedes list of changes (when class InputfieldFormConfirm is
- *     active)
+ * @property string $confirmText Confirmation text that precedes list of changes when class InputfieldFormConfirm is active
  * @property string $method Form method attribute (default="post")
  * @property string $action Form action attribute (default="./")
+ * 
+ * @method void renderOrProcessReady($type) Hook called before form render or process (3.0.171+)
  * 
  * Optional classes: 
  * =================
@@ -77,6 +80,18 @@ class InputfieldForm extends InputfieldWrapper {
 
 	const debug = false; // set to true to enable debug mode for field dependencies
 
+	/**
+	 * WireInputData provided to processInput() method
+	 * 
+	 * @var WireInputData|null
+	 * 
+	 */	
+	protected $_processInputData = null;
+
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		$this->set('protectCSRF', true); 
 		parent::__construct();
@@ -88,12 +103,16 @@ class InputfieldForm extends InputfieldWrapper {
 		$this->set('confirmText', $this->_('There are unsaved changes:'));
 	}
 
-	protected function debugNote($note) {
-		if(self::debug) $this->message($note); 
-	}
-
+	/**
+	 * Render form
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___render() {
 
+		if($this->hasHook('renderOrProcessReady()')) $this->renderOrProcessReady('render');
+		
 		$markup = self::getMarkup();
 		$classes = self::getClasses();
 		if(!empty($classes['form'])) $this->addClass($classes['form']); 
@@ -149,10 +168,24 @@ class InputfieldForm extends InputfieldWrapper {
 		return $out; 
 	}
 
+	/**
+	 * Process input
+	 * 
+	 * @param WireInputData $input
+	 * @return InputfieldWrapper
+	 * 
+	 */
 	public function ___processInput(WireInputData $input) {
+		
+		$this->_processInputData = $input;
+		if($this->hasHook('renderOrProcessReady()')) $this->renderOrProcessReady('process');
 	
 		$this->getErrors(true); // reset
-		if($this->getSetting('protectCSRF') && $this->attr('method') == 'post') $this->wire('session')->CSRF->validate(); // throws exception if invalid
+		
+		if($this->getSetting('protectCSRF') && strtolower($this->attr('method')) === 'post') {
+			$this->wire()->session->CSRF->validate(); // throws exception if invalid
+		}
+		
 		$result = parent::___processInput($input); 		
 		
 		$delayedChildren = $this->_getDelayedChildren(true); 
@@ -544,6 +577,36 @@ class InputfieldForm extends InputfieldWrapper {
 		return $submit ? $submit : false;
 	}
 	 */
+	
+	/**
+	 * For internal debugging purposes
+	 *
+	 * @param $note
+	 *
+	 */
+	protected function debugNote($note) {
+		if(self::debug) $this->message($note);
+	}
 
+	/**
+	 * Return WireInputData provided to processInput() method or null if not yet applicable
+	 * 
+	 * @return WireInputData|null
+	 * @since 3.0.171
+	 * 
+	 */
+	public function getInput() {
+		return $this->_processInputData;
+	}
+
+	/**
+	 * Hook called right before form is rendered or processed
+	 * 
+	 * @param string $type One of 'render' or 'process'
+	 * @since 3.0.171
+	 * 
+	 */
+	protected function ___renderOrProcessReady($type) {
+	}
 }
 
