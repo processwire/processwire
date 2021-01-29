@@ -10,7 +10,7 @@
  * in order to save resources. As a result, anything iterating through these Modules should check to make sure it's not a ModulePlaceholder
  * before using it. If it's a ModulePlaceholder, then the real Module can be instantiated/retrieved by $modules->get($className).
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Loads and manages all modules in ProcessWire. 
@@ -29,7 +29,7 @@
  * @todo Move all module information methods to a ModulesInfo class
  * @todo Move all module loading methods to a ModulesLoad class
  * 
- * @method void refresh() Refresh the cache that stores module files by recreating it
+ * @method void refresh($showMessages = false) Refresh the cache that stores module files by recreating it
  * @method null|Module install($class, $options = array())
  * @method bool|int delete($class)
  * @method bool uninstall($class)
@@ -4284,14 +4284,14 @@ class Modules extends WireArray {
 	 * This forces the modules file and information cache to be re-created. 
 	 * 
 	 * #pw-group-manipulation
+	 * 
+	 * @param bool $showMessages Show notification messages about what was found? (default=false) 3.0.172+
 	 *
 	 */
-	public function ___refresh() {
-		if($this->wire('config')->systemVersion < 6) {
-			return;
-		}
+	public function ___refresh($showMessages = false) {
+		if($this->wire()->config->systemVersion < 6) return;
 		$this->refreshing = true;
-		$this->clearModuleInfoCache();
+		$this->clearModuleInfoCache($showMessages);
 		$this->loadModulesTable();
 		foreach($this->paths as $path) $this->findModuleFiles($path, false); 
 		foreach($this->paths as $path) $this->load($path);
@@ -4300,10 +4300,10 @@ class Modules extends WireArray {
 	}
 
 	/**
-	 * Alias of refresh method for backwards compatibility
+	 * Alias of refresh() method for backwards compatibility
 	 * 
 	 * #pw-internal
-	 *
+	 * 
 	 */
 	public function resetCache() {
 		$this->refresh();
@@ -4761,10 +4761,10 @@ class Modules extends WireArray {
 	/**
 	 * Clear the module information cache
 	 * 
-	 * @param bool|null $showMessages Specify false to suppress messages, true to report them, or null to auto-detect 
+	 * @param bool|null $showMessages Specify true to show message notifications
 	 * 
 	 */
-	protected function clearModuleInfoCache($showMessages = null) {
+	protected function clearModuleInfoCache($showMessages = false) {
 		
 		$cache = $this->wire()->cache;
 		$versionChanges = array();
@@ -4840,11 +4840,6 @@ class Modules extends WireArray {
 		}
 		
 		$this->updateModuleVersionsCache();
-		
-		if($showMessages === null) {
-			$user = $this->wire()->user;
-			$showMessages = ($user && $user->isSuperuser()) || $this->wire()->process == 'ProcessModule';
-		}
 		
 		// report detected changes
 		$sanitizer = $this->wire()->sanitizer;
