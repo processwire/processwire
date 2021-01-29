@@ -74,7 +74,6 @@
  *
  * TO-DO
  * =====
- * @todo Add a getCopy method that does a getById($id, array('cache' => false) ?
  * @todo Update saveField to accept array of field names as an option. 
  *
  */
@@ -118,7 +117,7 @@ class Pages extends Wire {
 	 * 
 	 */
 	protected $loader;
-
+	
 	/**
 	 * @var PagesEditor
 	 * 
@@ -150,6 +149,12 @@ class Pages extends Wire {
 	protected $parents;
 
 	/**
+	 * @var PagesRaw
+	 *
+	 */
+	protected $raw;
+
+	/**
 	 * Array of PagesType managers
 	 * 
 	 * @var PagesType[]
@@ -171,6 +176,7 @@ class Pages extends Wire {
 		$this->cacher = $this->wire(new PagesLoaderCache($this));
 		$this->trasher = null;
 		$this->editor = null;
+		$this->raw = null;
 	}
 	
 	/**
@@ -352,6 +358,7 @@ class Pages extends Wire {
 	 * @param array|bool|int|string $options Options to modify behavior. 
 	 *  - `verbose` (bool|int|string): Specify true to make return value array of associative arrays, each with id, parent_id, templates_id. 
 	 *    Specify integer `2` or string `*` to return verbose array of associative arrays, each with all columns from pages table. 
+	 *  - `indexed` (bool): Index by page ID? (default=false) Added 3.0.172
 	 *  - The verbose option above can also be specified as alternative to the $options argument.
 	 *  - See `Pages::find()` $options argument for additional options. 
 	 * @return array Array of page IDs, or in verbose mode: array of arrays, each with id, parent_id and templates_id keys.
@@ -376,7 +383,79 @@ class Pages extends Wire {
 		}
 		/** @var array $ids */
 		$ids = $this->find($selector, $options);
+		if(!empty($options['indexed'])) {
+			$a = array();
+			foreach($ids as $value) {
+				$id = $verbose ? $value['id'] : $value;
+				$a[$id] = $value;
+			}
+			$ids = $a;
+		}
 		return $ids;
+	}
+	
+	/**
+	 * Find pages and return raw data from them in a PHP array 
+	 * 
+	 * Note that the data returned from this method is raw and unformatted, directly
+	 * as it exists in the database. In most cases you should use `$pages->find()` instead,
+	 * but this method provides a convenient alternative for some cases. 
+	 * 
+	 * The `$selector` argument can any page-finding selector that you would provide
+	 * to a regular `$pages->find()` call. The most interesting stuff relates to the 
+	 * `$field` argument though, which is what the rest of this section looks at: 
+	 * 
+	 * If you omit the `$field` argument, it will return all data for the found pages in 
+	 * an array where the keys are the page IDs and the values are associative arrays 
+	 * containing all of the page’s raw field and property values indexed by name…
+	 * ~~~~~
+	 * $a = $pages->findRaw("template=blog"); 
+	 * ~~~~~
+	 * …but findRaw() is more useful for cases where you want to retrieve specific things 
+	 * without having to load the entire page (or its data). Below are a few examples of
+	 * how you can do this. 
+	 * 
+	 * If you provide a string (field name) for `$field`, then it will return an array with
+	 * the values of the `data` column of that field. The `$field` can also be the name of 
+	 * a native pages table property like `id` or `name`. 
+	 * ~~~~~
+	 * $a = $pages->findRaw("template=blog", "title"); 
+	 * ~~~~~
+	 * The above would return an array of blog page titles indexed by page ID. If you 
+	 * provide an array for `$field` then it will return an array for each page, where each
+	 * of those arrays is indexed by the field names you requested.
+	 * ~~~~~
+	 * $a = $pages->findRaw("template=blog", [ "title", "date" ]); 
+	 * ~~~~~
+	 * You may specify field name(s) like `field.subfield` to retrieve a specific column/subfield.
+	 * When it comes to Page references or Repeaters, the subfield can also be the name of a field 
+	 * that exists on the Page reference or repeater pages. 
+	 * ~~~~~
+	 * $a = $pages->findRaw("template=blog", [ "title", "categories.title" ]); 
+	 * ~~~~~
+	 * You can also use this format below to retrieve multiple subfields from one field:
+	 * ~~~~~
+	 * $a = $pages->findRaw("template=blog", [ "title", "categories" => [ "id", "title" ] ]); 
+	 * ~~~~~
+	 * You may specify wildcard field name(s) like `field.*` to return all columns for `field`. 
+	 * This retrieves all columns from the field’s table. This is especially useful with fields
+	 * like Table or Combo that might have several different columns: 
+	 * ~~~~~
+	 * $a = $pages->findRaw("template=villa", "rates_table.*" ); 
+	 * ~~~~~
+	 * 
+	 * #pw-advanced
+	 * #pw-group-retrieval
+	 *
+	 * @param string|array|Selectors|int $selector Page matching selector or page ID
+	 * @param string|array|Field $field Name of field/property to get, or array of them, or omit to get all (default='')
+	 * @param array $options 
+	 * @return array
+	 * @since 3.0.172
+	 *
+	 */
+	public function findRaw($selector, $field = '', $options = array()) {
+		return $this->raw()->find($selector, $field, $options); 
 	}
 
 	/**
@@ -407,6 +486,58 @@ class Pages extends Wire {
 		return $this->loader->get($selector, $options); 
 	}
 	
+	/**
+	 * Get single page and return raw data in an associative array
+	 *
+	 * Note that the data returned from this method is raw and unformatted, directly as it exists in the database. 
+	 * In most cases you should use `$pages->get()` instead, but this method is a convenient alternative for some cases. 
+	 *
+	 * Please see the documentation for the `$pages->findRaw()` method, which all applies to this method as well.
+	 * The biggest difference is that this method returns data for just 1 page, unlike `$pages->findRaw()` which can
+	 * return data for many pages at once. 
+	 * 
+	 * #pw-advanced
+	 *
+	 * @param string|array|Selectors|int $selector Page matching selector or page ID
+	 * @param string|array|Field $field Name of field/property to get, or array of them, or omit to get all (default='')
+	 * @param array $options
+	 * @return array
+	 *
+	 */
+	public function getRaw($selector, $field = '', $options = array()) {
+		return $this->raw()->get($selector, $field, $options);
+	}
+	
+	/**
+	 * Get a fresh, non-cached copy of a Page from the database
+	 *
+	 * This method is the same as `$pages->get()` except that it skips over all memory caches when loading a Page.
+	 * Meaning, if the Page is already in memory, it doesn’t use the one in memory and instead reloads from the DB.
+	 * Nor does it place the Page it loads in any memory cache. Use this method to load a fresh copy of a page
+	 * that you might need to compare to an existing loaded copy, or to load a copy that won’t be seen or touched
+	 * by anything in ProcessWire other than your own code.
+	 *
+	 * ~~~~~
+	 * $p1 = $pages->get(1234);
+	 * $p2 = $pages->get($p1->path);
+	 * $p1 === $p2; // true: same Page instance
+	 *
+	 * $p3 = $pages->getFresh($p1);
+	 * $p1 === $p3; // false: same Page but different instance
+	 * ~~~~~
+	 *
+	 * #pw-advanced
+	 *
+	 * @param Page|string|array|Selectors|int $selectorOrPage Specify Page to get copy of, selector or ID
+	 * @param array $options Options to modify behavior
+	 * @return Page|NullPage
+	 * @since 3.0.172
+	 *
+	 */
+	public function getFresh($selectorOrPage, $options = array()) {
+		return $this->loader()->getFresh($selectorOrPage, $options);
+	}
+
 	/**
 	 * Get one ID of page matching given selector with no exclusions, like get() but returns ID rather than a Page
 	 *
@@ -1560,6 +1691,18 @@ class Pages extends Wire {
 	public function parents() {
 		if(!$this->parents) $this->parents = $this->wire(new PagesParents($this));
 		return $this->parents;
+	}
+
+	/**
+	 * @return PagesRaw
+	 * @since 3.0.172
+	 *
+	 * #pw-internal
+	 *
+	 */
+	public function raw() {
+		if(!$this->raw) $this->raw = $this->wire(new PagesRaw($this));
+		return $this->raw;
 	}
 
 	/**

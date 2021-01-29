@@ -351,7 +351,7 @@ class ProcessModule extends Process {
 		}
 
 		if($input->get('reset') == 1) {
-			$modules->resetCache();
+			$modules->refresh(true);
 			$this->message(sprintf($this->_('Modules cache refreshed (%d modules)'), count($modules)));
 			$edit = $input->get->fieldName('edit');
 			$duplicates = $modules->duplicates()->getDuplicates();
@@ -1227,7 +1227,7 @@ class ProcessModule extends Process {
 		}
 		
 		$this->session->CSRF->validate();
-		$this->modules->resetCache();
+		$this->modules->refresh();
 
 		$url = $this->session->get('ProcessModuleDownloadURL');
 		$className = $this->session->get('ProcessModuleClassName');
@@ -1395,7 +1395,7 @@ class ProcessModule extends Process {
 		}
 		
 		if($input->get('refresh') == $moduleName) {
-			$modules->resetCache();
+			$modules->refresh();
 			$session->redirect("./edit?name=$moduleName$collapseInfo");
 			return '';
 		}
