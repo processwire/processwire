@@ -368,7 +368,7 @@ class Languages extends PagesType {
 	 * - If you call with no arguments, it returns the current user language, same as `$user->language`, but using this
 	 *   method may be preferable in some contexts, depending on how your IDE understands API calls. 
 	 * 
-	 * @param string $name Specify language name (or ID) to get a specific language, or omit to get current language
+	 * @param string|int $name Specify language name (or ID) to get a specific language, or omit to get current language
 	 * @return Language|NullPage|null
 	 * @since 3.0.127 
 	 * 
@@ -747,10 +747,25 @@ class Languages extends PagesType {
 	 * 
 	 */
 	public function __get($key) {
-		if($key == 'tabs') return $this->wire('modules')->get('LanguageSupport')->getLanguageTabs();
-		if($key == 'default') return $this->getDefault();
-		if($key == 'support') return $this->wire('modules')->get('LanguageSupport');
+		if($key === 'tabs') return $this->wire()->modules->get('LanguageSupport')->getLanguageTabs();
+		if($key === 'default') return $this->getDefault();
+		if($key === 'support') return $this->wire()->modules->get('LanguageSupport');
 		return parent::__get($key);
+	}
+	
+	/**
+	 * Get language or property
+	 * 
+	 * (method repeated here for return value documentation purposes only)
+	 * 
+	 * #pw-internal
+	 *
+	 * @param int|string $key
+	 * @return Language|NullPage|null|mixed
+	 *
+	 */
+	public function get($key) {
+		return parent::get($key);
 	}
 
 	/**

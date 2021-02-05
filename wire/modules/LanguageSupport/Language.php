@@ -125,7 +125,9 @@ class Language extends Page {
 	 * See the `Languages::setLocale()` method for full details.
 	 * 
 	 * @param int $category Optional category (default=LC_ALL)
+	 * @return string|bool Returns the locale that was set or boolean false if requested locale cannot be set.
 	 * @see Languages::setLocale()
+	 * 
 	 * 
 	 */
 	public function setLocale($category = LC_ALL) {
