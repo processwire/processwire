@@ -5,12 +5,36 @@
  *
  * Manages the table for the sortfield property for Page children.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  */
 
 class PagesSortfields extends Wire {
+
+	/**
+	 * Get sortfield for given Page from DB
+	 * 
+	 * @param int|Page $page Page or page ID
+	 * @return string
+	 * @since 3.0.172
+	 * 
+	 */
+	public function get($page) {
+		$pageId = $page instanceof Page ? $page->id : (int) $page;
+		$sql = 'SELECT sortfield FROM pages_sortfields WHERE pages_id=:id';
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':id', $pageId, \PDO::PARAM_INT);
+		$query->execute();
+		if($query->rowCount()) {
+			$sortfield = $query->fetchColumn();
+			$sortfield = $this->decode($sortfield); 
+		} else {
+			$sortfield = '';
+		}
+		$query->closeCursor();
+		return $sortfield;
+	}
 
 	/**
 	 * Save the sortfield for a given Page

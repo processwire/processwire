@@ -333,6 +333,86 @@ class Pages extends Wire {
 	}
 
 	/**
+	 * Find pages and specify which fields to join (overriding configured autojoin settings)
+	 * 
+	 * This is a useful optimization when you know exactly which fields you will be using from the returned
+	 * pages and you want to have their values joined into the page loading query to reduce overhead. Note
+	 * that this overrides the configured autojoin settings in ProcessWire fields. 
+	 * 
+	 * If a particular page in the returned set of pages was already loaded before this method call,
+	 * then the one already in memory will be used rather than this method loading another copy of it. 
+	 * 
+	 * ~~~~~
+	 * // 1. Example of loading blog posts where we want to join title, date, summary:
+	 * $posts = $pages->findJoin("template=blog-post", [ 'title', 'date', 'summary' ]); 
+	 * 
+	 * // 2. You can also specify the join fields as a CSV string:
+	 * $posts = $pages->findJoin("template=blog-post", 'title, date, summary'); 
+	 * 
+	 * // 3. You can also use the join functionality on a regular $pages->find() by specifying 
+	 * // property 'join' or 'field' in the selector. The words 'join' and 'field' are aliases
+	 * // of each other here, just in case you have an existing field with one of those names. 
+	 * // Otherwise, use whichever makes more sense to you. The following examples demonstrate
+	 * // this and all do exactly the same thing as examples 1 and 2 above:
+	 * $posts = $pages->find("template=blog-post, join=title|date|summary");
+	 * $posts = $pages->find("template=blog-post, field=title|date|summary");
+	 * $posts = $pages->find("template=blog-post, join=title, join=date, join=summary");
+	 * $posts = $pages->find("template=blog-post, field=title, field=date, field=summary");
+	 *
+	 * // 4. Let’s say you want to load pages with NO autojoin fields, here is how.  
+	 * // The following loads all blog-post pages and prevents ANY fields from being joined,
+	 * // even if they are configured to be autojoin in ProcessWire:
+	 * $posts = $pages->findJoin("template=blog-post", false);
+	 * $posts = $pages->find("template=blog-post, join=none"); // same as above
+	 * ~~~~~
+	 * 
+	 * #pw-group-retrieval
+	 * 
+	 * @param string|array|Selectors $selector
+	 * @param array|string|bool $joinFields Array or CSV string of field names to autojoin, or false to join none.
+	 * @param array $options
+	 * @return PageArray
+	 * @since 3.0.172
+	 * 
+	 */
+	public function findJoin($selector, $joinFields, $options = array()) {
+		
+		$fields = $this->wire()->fields;
+	
+		if($joinFields === false) {
+			$name = 'none';
+			while($fields->get($name)) $name .= 'X';
+			$joinFields = array($name);
+		} else if(empty($joinFields)) {
+			$joinFields = array();
+		} else if(!is_array($joinFields)) {
+			$joinFields = (string) $joinFields;
+			if(strpos($joinFields, ',') !== false) {
+				$joinFields = explode(',', $joinFields);
+			} else if(strpos($joinFields, '|') !== false) {
+				$joinFields = explode('|', $joinFields);
+			} else {
+				$joinFields = array($joinFields);
+			}
+		}
+		
+		foreach($joinFields as $key => $name) {
+			if(is_int($name) || ctype_digit($name)) {
+				$field = $fields->get($name);
+				if(!$field) continue;
+				$name = $field->name;
+			} else if(strpos($name, '.') !== false) {
+				list($name,) = explode('.', $name, 2); // subfields not allowed
+			}
+			$joinFields[$key] = trim($name);
+		}
+		
+		$options['joinFields'] = $joinFields;
+		
+		return $this->find($selector, $options);
+	}
+
+	/**
 	 * Like find() except returns array of IDs rather than Page objects
 	 * 
 	 * - This is a faster method to use when you only need to know the matching page IDs. 
@@ -401,46 +481,40 @@ class Pages extends Wire {
 	 * as it exists in the database. In most cases you should use `$pages->find()` instead,
 	 * but this method provides a convenient alternative for some cases. 
 	 * 
-	 * The `$selector` argument can any page-finding selector that you would provide
+	 * The `$selector` argument can be any page-finding selector that you would provide
 	 * to a regular `$pages->find()` call. The most interesting stuff relates to the 
 	 * `$field` argument though, which is what the rest of this section looks at: 
 	 * 
 	 * If you omit the `$field` argument, it will return all data for the found pages in 
 	 * an array where the keys are the page IDs and the values are associative arrays 
-	 * containing all of the page’s raw field and property values indexed by name…
-	 * ~~~~~
-	 * $a = $pages->findRaw("template=blog"); 
-	 * ~~~~~
-	 * …but findRaw() is more useful for cases where you want to retrieve specific things 
-	 * without having to load the entire page (or its data). Below are a few examples of
-	 * how you can do this. 
+	 * containing all of each page raw field and property values indexed by name…
+	 * `$a = $pages->findRaw("template=blog");` …but findRaw() is more useful for cases 
+	 * where you want to retrieve specific things without having to load the entire page 
+	 * (or its data). Below are a few examples of how you can do this. 
 	 * 
-	 * If you provide a string (field name) for `$field`, then it will return an array with
-	 * the values of the `data` column of that field. The `$field` can also be the name of 
-	 * a native pages table property like `id` or `name`. 
 	 * ~~~~~
+	 * // If you provide a string (field name) for `$field`, then it will return an 
+	 * // array with the values of the `data` column of that field. The `$field` can 
+	 * // also be the name of a native pages table property like `id` or `name`. 
 	 * $a = $pages->findRaw("template=blog", "title"); 
-	 * ~~~~~
-	 * The above would return an array of blog page titles indexed by page ID. If you 
-	 * provide an array for `$field` then it will return an array for each page, where each
-	 * of those arrays is indexed by the field names you requested.
-	 * ~~~~~
+	 * 
+	 * // The above would return an array of blog page titles indexed by page ID. If 
+	 * // you provide an array for `$field` then it will return an array for each page, 
+	 * // where each of those arrays is indexed by the field names you requested.
 	 * $a = $pages->findRaw("template=blog", [ "title", "date" ]); 
-	 * ~~~~~
-	 * You may specify field name(s) like `field.subfield` to retrieve a specific column/subfield.
-	 * When it comes to Page references or Repeaters, the subfield can also be the name of a field 
-	 * that exists on the Page reference or repeater pages. 
-	 * ~~~~~
+	 * 
+	 * // You may specify field name(s) like `field.subfield` to retrieve a specific 
+	 * // column/subfield. When it comes to Page references or Repeaters, the subfield 
+	 * // can also be the name of a field that exists on the Page reference or repeater. 
 	 * $a = $pages->findRaw("template=blog", [ "title", "categories.title" ]); 
-	 * ~~~~~
-	 * You can also use this format below to retrieve multiple subfields from one field:
-	 * ~~~~~
+	 * 
+	 * // You can also use this format below to get multiple subfields from one field:
 	 * $a = $pages->findRaw("template=blog", [ "title", "categories" => [ "id", "title" ] ]); 
-	 * ~~~~~
-	 * You may specify wildcard field name(s) like `field.*` to return all columns for `field`. 
-	 * This retrieves all columns from the field’s table. This is especially useful with fields
-	 * like Table or Combo that might have several different columns: 
-	 * ~~~~~
+	 * 
+	 * // You may specify wildcard field name(s) like `field.*` to return all columns 
+	 * // for `field`. This retrieves all columns from the field’s table. This is 
+	 * // especially useful with fields like Table or Combo that might have several 
+	 * // different columns: 
 	 * $a = $pages->findRaw("template=villa", "rates_table.*" ); 
 	 * ~~~~~
 	 * 

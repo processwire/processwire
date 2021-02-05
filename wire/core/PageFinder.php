@@ -96,7 +96,19 @@ class PageFinder extends Wire {
 		 * @since 3.0.153
 		 * 
 		 */
-		'returnAllCols' => false, 
+		'returnAllCols' => false,
+
+		/**
+		 * Additional options when when 'returnAllCols' option is true
+		 * @since 3.0.172 
+		 * 
+		 */
+		'returnAllColsOptions' => array(
+			'joinFields' => array(), // names of additional fields to join
+			'joinSortfield' => false, // include 'sortfield' in returned columns? (joined from pages_sortfields table)
+			'getNumChildren' => false, // include 'numChildren' in returned columns? (sub-select from pages table)
+			'unixTimestamps' => false, // return dates as unix timestamps?
+		),
 
 		/**
 		 * When true, only the DatabaseQuery object is returned by find(), for internal use. 
@@ -594,7 +606,7 @@ class PageFinder extends Wire {
 	 *  - `getTotalType` (string): Method to use to get total, specify 'count' or 'calc' (default='calc').
 	 *  - `returnQuery` (bool): When true, only the DatabaseQuery object is returned by find(), for internal use. (default=false)
 	 *  - `loadPages` (bool): This is an optimization used by the Pages::find() method, but we observe it here as we
-	 *     may be able to apply  some additional optimizations in certain cases. For instance, if loadPages=false, then
+	 *     may be able to apply some additional optimizations in certain cases. For instance, if loadPages=false, then
 	 *     we can skip retrieval of IDs and omit sort fields. (default=true)
 	 *  - `stopBeforeID` (int): Stop loading pages once a page matching this ID is found. Page having this ID will be
 	 *     excluded as well (default=0).
@@ -781,13 +793,27 @@ class PageFinder extends Wire {
 	 * 
 	 * @param Selectors|string|array $selectors Selectors object, selector string or selector array
 	 * @param array $options
+	 *  - `joinFields` (array): Names of additional fields to join (default=[]) 3.0.172+
+	 *  - `joinSortfield` (bool): Include 'sortfield' in returned columns? Joined from pages_sortfields table. (default=false) 3.0.172+
+	 *  - `getNumChildren` (bool): Include 'numChildren' in returned columns? Calculated in query. (default=false) 3.0.172+
+	 *  - `unixTimestamps` (bool): Return created/modified/published dates as unix timestamps rather than ISO-8601? (default=false) 3.0.172+
 	 * @return array|DatabaseQuerySelect
 	 * @since 3.0.153
 	 * 
 	 */
 	public function findVerboseIDs($selectors, $options = array()) {
+		$hasCustomOptions = count($options) > 0;
 		$options['returnVerbose'] = false;
 		$options['returnAllCols'] = true;
+		$options['returnAllColsOptions'] = $this->defaultOptions['returnAllColsOptions'];
+		if($hasCustomOptions) {
+			// move some from $options into $options['returnAllColsOptions']
+			foreach($options['returnAllColsOptions'] as $name => $default) {
+				if(!isset($options[$name])) continue;
+				$options['returnAllColsOptions'][$name] = $options[$name];
+				unset($options[$name]);
+			}
+		}
 		return $this->find($selectors, $options); 
 	}
 	
@@ -1454,11 +1480,42 @@ class PageFinder extends Wire {
 		$subqueries = array();
 		$joins = array();
 		$database = $this->database;
+		$autojoinTables = array();
 		$this->preProcessSelectors($selectors, $options);
 		$this->numAltOperators = 0;
+		
+		/** @var DatabaseQuerySelect $query */
+		$query = $this->wire(new DatabaseQuerySelect());
+		if(!empty($options['bindOptions'])) {
+			foreach($options['bindOptions'] as $k => $v) $query->bindOption($k, $v);
+		}
 	
 		if($options['returnAllCols']) {
-			$columns = array('pages.*');
+			$opts = $this->defaultOptions['returnAllColsOptions'];
+			if(!empty($options['returnAllColsOptions'])) $opts = array_merge($opts, $options['returnAllColsOptions']);
+			$columns = array('pages.*'); 
+			if($opts['unixTimestamps']) {
+				$columns[] = 'UNIX_TIMESTAMP(pages.created) AS created';
+				$columns[] = 'UNIX_TIMESTAMP(pages.modified) AS modified';
+				$columns[] = 'UNIX_TIMESTAMP(pages.published) AS published';
+			}
+			if($opts['joinSortfield']) {
+				$columns[] = 'pages_sortfields.sortfield AS sortfield';
+				$query->leftjoin('pages_sortfields ON pages_sortfields.pages_id=pages.id');
+			}
+			if($opts['getNumChildren']) {
+				$query->select('(SELECT COUNT(*) FROM pages AS children WHERE children.parent_id=pages.id) AS numChildren');
+			}
+			if(!empty($opts['joinFields'])) {
+				foreach($opts['joinFields'] as $joinField) {
+					$joinField = $this->wire()->fields->get($joinField);
+					if(!$joinField || !$joinField instanceof Field) continue;
+					$joinTable = $database->escapeTable($joinField->getTable());
+					if(!$joinTable || !$joinField->type) continue;
+					if(!$joinField->type->getLoadQueryAutojoin($joinField, $query)) continue;
+					$autojoinTables[$joinTable] = $joinTable; // added at end if not already joined
+				}
+			}
 		} else if($options['returnVerbose']) {
 			$columns = array('pages.id', 'pages.parent_id', 'pages.templates_id');
 		} else if($options['returnParentIDs']) {
@@ -1469,11 +1526,6 @@ class PageFinder extends Wire {
 			$columns = array('pages.id');
 		}
 
-		/** @var DatabaseQuerySelect $query */
-		$query = $this->wire(new DatabaseQuerySelect());
-		if(!empty($options['bindOptions'])) {
-			foreach($options['bindOptions'] as $k => $v) $query->bindOption($k, $v);
-		}
 		$query->select($columns);
 		$query->from("pages"); 
 		$query->groupby($options['returnParentIDs'] ? 'pages.parent_id' : 'pages.id');
@@ -1714,6 +1766,11 @@ class PageFinder extends Wire {
 		foreach($joins as $j) {
 			$joinType = $j['joinType']; 
 			$query->$joinType("$j[table] AS $j[tableAlias] ON $j[tableAlias].pages_id=pages.id AND ($j[join])"); 
+		}
+		
+		foreach($autojoinTables as $table) {
+			if(isset($fieldCnt[$table])) continue; // already joined
+			$query->leftjoin("$table ON $table.pages_id=pages.id");
 		}
 	
 		if(count($sortSelectors)) {

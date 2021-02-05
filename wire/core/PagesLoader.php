@@ -65,6 +65,14 @@ class PagesLoader extends Wire {
 	protected $debug = false;
 
 	/**
+	 * Page instance ID
+	 * 
+	 * @var int
+	 * 
+	 */
+	static protected $pageInstanceID = 0;
+
+	/**
 	 * Construct
 	 * 
 	 * @param Pages $pages
@@ -265,23 +273,29 @@ class PagesLoader extends Wire {
 	 *
 	 * @param string|int|array|Selectors $selector Specify selector (standard usage), but can also accept page ID or array of page IDs.
 	 * @param array|string $options Optional one or more options that can modify certain behaviors. May be assoc array or key=value string.
-	 *	- findOne: boolean - apply optimizations for finding a single page
-	 *  - findAll: boolean - find all pages with no exclusions (same as include=all option)
-	 *  - findIDs: boolean|int - true=return array of [id, template_id, parent_id], or 1=return just page IDs, 2=return all columns (3.0.153+). 
-	 *	- getTotal: boolean - whether to set returning PageArray's "total" property (default: true except when findOne=true)
-	 *  - cache: boolean - Allow caching of selectors and pages loaded (default=true). Also sets loadOptions[cache]. 
-	 *  - allowCustom: boolean - Whether to allow use of "_custom=new selector" in selectors (default=false). 
-	 *  - lazy: boolean - makes find() return Page objects that don't have any data populated to them (other than id and template). 
-	 *	- loadPages: boolean - whether to populate the returned PageArray with found pages (default: true).
-	 *		The only reason why you'd want to change this to false would be if you only needed the count details from
-	 *		the PageArray: getTotal(), getStart(), getLimit, etc. This is intended as an optimization for Pages::count().
-	 * 		Does not apply if $selectorString argument is an array.
-	 *  - caller: string - optional name of calling function, for debugging purposes, i.e. pages.count
-	 * 	- include: string - Optional inclusion mode of 'hidden', 'unpublished' or 'all'. Default=none. Typically you would specify this
-	 * 		directly in the selector string, so the option is mainly useful if your first argument is not a string.
+	 *	- `findOne` (bool): Apply optimizations for finding a single page.
+	 *  - `findAll` (bool): Find all pages with no exclusions (same as include=all option).
+	 *  - `findIDs` (bool|int): Makes method return raw array rather than PageArray, specify one of the following:
+	 *      • `true` (bool): return array of [ [id, templates_id, parent_id] ] for each page.
+	 *      • `1` (int): Return just array of just page IDs, [id, id, id]
+	 *      • `2` (int): Return all pages table columns in associative array for each page (3.0.153+).
+	 *      • `3` (int): Same as 2 + dates are unix timestamps + has 'pageArray' key w/blank PageArray for pagination info (3.0.172+).
+	 *      • `4` (int): Same as 3 + return PageArray instead if one is available in cache (3.0.172+).
+	 *	- `getTotal` (bool): Whether to set returning PageArray's "total" property (default: true except when findOne=true)
+	 *  - `cache` (bool): Allow caching of selectors and pages loaded (default=true). Also sets loadOptions[cache]. 
+	 *  - `allowCustom` (bool): Whether to allow use of "_custom=new selector" in selectors (default=false). 
+	 *  - `lazy` (bool): Makes find() return Page objects that don't have any data populated to them (other than id and template). 
+	 *	- `loadPages` (bool): Whether to populate the returned PageArray with found pages (default: true).
+	 *	   The only reason why you'd want to change this to false would be if you only needed the count details from
+	 *	   the PageArray: getTotal(), getStart(), getLimit, etc. This is intended as an optimization for Pages::count().
+	 * 	   Does not apply if $selectorString argument is an array.
+	 *  - `caller` (string): Name of calling function, for debugging purposes, i.e. pages.count
+	 * 	- `include` (string): Inclusion mode of 'hidden', 'unpublished' or 'all'. Default=none. Typically you would specify this
+	 * 	   directly in the selector string, so the option is mainly useful if your first argument is not a string.
 	 *  - `stopBeforeID` (int): Stop loading pages once page matching this ID is found (default=0).
 	 *  - `startAfterID` (int): Start loading pages once page matching this ID is found (default=0).
-	 * 	- loadOptions: array - Optional assoc array of options to pass to getById() load options.
+	 * 	- `loadOptions` (array): Assoc array of options to pass to getById() load options. (does not apply when 'findIds' > 3). 
+	 *  - `joinFields` (array): Names of fields to autojoin, or empty array to join none; overrides field autojoin settings (default=null) 3.0.172+
 	 * @return PageArray|array
 	 *
 	 */
@@ -295,10 +309,12 @@ class PagesLoader extends Wire {
 		$lazy = empty($options['lazy']) ? false : true;
 		$findIDs = isset($options['findIDs']) ? $options['findIDs'] : false;
 		$debug = $this->debug && !$lazy;
+		$allowShortcuts = $loadPages && !$lazy && (!$findIDs || $findIDs === 4); 
+		$joinFields = isset($options['joinFields']) ? $options['joinFields'] : array();
 		$cachePages = isset($options['cache']) ? (bool) $options['cache'] : true;
 		if(!$cachePages && !isset($loadOptions['cache'])) $loadOptions['cache'] = false;
 		
-		if($loadPages && !$lazy && !$findIDs) {
+		if($allowShortcuts) {
 			$pages = $this->findShortcut($selector, $options, $loadOptions);
 			if($pages) return $pages;
 		}
@@ -316,11 +332,29 @@ class PagesLoader extends Wire {
 		}
 
 		$selectorString = is_string($selector) ? $selector : (string) $selectors;
+
+		// check whether the joinFields option will be used
+		if(!$lazy && !$findIDs) {
+			$fields = $this->wire()->fields;
+			// support the joinFields option when selector contains 'field=a|b|c' or 'join=a|b|c'
+			foreach(array('field', 'join') as $name) {
+				if(strpos($selectorString, "$name=") === false || $fields->get($name)) continue; 
+				foreach($selectors as $selector) {
+					if($selector->field() !== $name) continue;
+					$joinFields = array_merge($joinFields, $selector->values());
+					$selectors->remove($selector);
+				}
+			}
+			if(count($joinFields)) {
+				unset($options['include']); // because it was moved into $selectors earlier
+				return $this->findMin($selectors, array_merge($options, array('joinFields' => $joinFields)));
+			}
+		} 
 		
 		// see if this has been cached and return it if so
-		if($loadPages && !$findIDs && !$lazy) {
+		if($allowShortcuts) {
 			$pages = $this->pages->cacher()->getSelectorCache($selectorString, $options);
-			if(!is_null($pages)) {
+			if($pages !== null) {
 				if($debug) $this->pages->debugLog('find', $selectorString, $pages . ' [from-cache]');
 				return $pages;
 			}
@@ -339,12 +373,23 @@ class PagesLoader extends Wire {
 		if($lazy) {
 			// [ pageID => templateID ]
 			$pagesIDs = $pageFinder->findTemplateIDs($selectors, $options); 
+			
 		} else if($findIDs === 1) {
 			// [ pageID ]
 			$pagesIDs = $pageFinder->findIDs($selectors, $options);
+			
 		} else if($findIDs === 2) {
 			// [ pageID => [ all pages columns ] ]
 			$pagesInfo = $pageFinder->findVerboseIDs($selectors, $options);
+			
+		} else if($findIDs === 3 || $findIDs === 4) {
+			// [ pageID => [ all pages columns + sortfield + dates as unix timestamps ],
+			// 'pageArray' => PageArray(blank but with pagination info populated) ] ]
+			$options['joinSortfield'] = true;
+			$options['getNumChildren'] = true;
+			$options['unixTimestamps'] = true;
+			$pagesInfo = $pageFinder->findVerboseIDs($selectors, $options);
+			
 		} else {
 			// [ [ 'id' => 3, 'templates_id' => 2, 'parent_id' => 1, 'score' => 1.123 ]
 			$pagesInfo = $pageFinder->find($selectors, $options);
@@ -391,7 +436,8 @@ class PagesLoader extends Wire {
 			
 			$loadPages = false;
 			$cachePages = false;
-			$pages = $this->pages->newPageArray($loadOptions); // only for hooks to see
+			// PageArray for hooks or for findIDs==3 option
+			$pages = $this->pages->newPageArray($loadOptions); 
 
 		} else if($loadPages) {
 			// parent_id is null unless a single parent was specified in the selectors
@@ -496,11 +542,159 @@ class PagesLoader extends Wire {
 			'options' => $options
 		));
 		
-		if($findIDs) return $findIDs === 1 ? $pagesIDs : $pagesInfo;
+		if($findIDs) {
+			if($findIDs === 3 || $findIDs === 4) $pagesInfo['pageArray'] = $pages;
+			return $findIDs === 1 ? $pagesIDs : $pagesInfo;
+		}
 
 		return $pages;
 	}
+
+	/**
+	 * Minimal find for reduced or delayed overload in some circumstances
+	 * 
+	 * This combines the page finding and page loading operation into a single operation
+	 * and single query, unlike a regular find() which finds matching page IDs in one 
+	 * query and then loads them in a separate query. As a result this method does not
+	 * need to call the getByIds() method to load pages, as it is able to load them itself. 
+	 * 
+	 * This strategy may eventually replace the “find() + getByIds()” strategy, but for the
+	 * moment is only used when the `$pages->find()` method specifies `field=name` in 
+	 * the selector. In that selector, `name` can be any field name, or group of them, i.e.
+	 * `title|date|summary`, or a non-existing field like `none` to specify that no fields 
+	 * should be autojoin (for fastest performance). 
+	 * 
+	 * Note that while this might reduce overhead in some cases, it can also increase the 
+	 * overall request time if you omit fields that are actually used on the resulting pages.
+	 * For instance, if the `title` field is an autojoin field (as it is by default), and 
+	 * we do a `$pages->find('template=blog-post, field=none');` and then render a list of
+	 * blog post titles, then we have just increased overhead because PW would have to 
+	 * perform a separate query to load each blog-post page’s title. On the other hand, if 
+	 * we render a list of blog post titles with date and summary, and the date and summary 
+	 * fields are not configured as autojoin fields, then we can specify all those that we 
+	 * use in our rendered list to greatly improve performance, like this: 
+	 * `$pages->find('template=blog-post, field=title|date|summary');`.
+	 * 
+	 * While this method combines what find() and getById() do in one query, there does not
+	 * appear to be any overhead benefit when the two strategies are dealing with identical
+	 * conditions, like the same autojoin fields. 
+	 * 
+	 * @param string|array|Selectors $selector
+	 * @param array $options
+	 *  - `cache` (bool): Allow pulling from and saving results to cache? (default=true)
+	 *  - `joinFields` (array): Names of fields to also join into the page load
+	 * @return PageArray
+	 * @throws WireException
+	 * @since 3.0.172
+	 * 
+	 */
+	protected function findMin($selector, array $options = array()) {
+
+		$useCache = isset($options['cache']) ? $options['cache'] : true;
+		$templates = $this->wire()->templates;
+		$languages = $this->wire()->languages;
+		$languageIds = array();
+		$templatesById = array();
+		
+		if($languages) foreach($languages as $language) $languageIds[$language->id] = $language->id;
+		
+		$options['findIDs'] = $useCache ? 4 : 3;
+		$joinFields = isset($options['joinFields']) ? $options['joinFields'] : array();
+		$rows = $this->find($selector, $options);
+		
+		// if PageArray was already available in cache, return it now
+		if($rows instanceof PageArray) return $rows;
 	
+		/** @var PageArray $pageArray */
+		$pageArray = $rows['pageArray'];
+		$pageArray->setTrackChanges(false);
+		unset($rows['pageArray']);
+
+		foreach($rows as $row) {
+			
+			$page = $useCache ? $this->pages->getCache($row['id']) : null;
+			$tid = (int) $row['templates_id'];
+			
+			if($page) {
+				$pageArray->add($page);
+				continue;
+			}
+		
+			if(isset($templatesById[$tid])) {
+				$template = $templatesById[$tid]; 
+			} else {
+				$template = $templates->get($tid);
+				if(!$template) continue;
+				$templatesById[$tid] = $template;
+			}
+			
+			$sortfield = $template->sortfield;
+			if(empty($sortfield) && isset($row['sortfield'])) $sortfield = $row['sortfield'];
+			
+			$set = array(
+				'pageClass' => $template->getPageClass(),
+				'isLoaded' => false,
+				'id' => $row['id'],
+				'template' => $template,
+				'parent_id' => $row['parent_id'],
+				'sortfield' => $sortfield,
+			);
+		
+			unset($row['templates_id'], $row['parent_id'], $row['id'], $row['sortfield']);
+			
+			$page = $this->pages->newPage($set);
+			$page->instanceID = ++self::$pageInstanceID;
+			
+			if($languages) {
+				foreach($languageIds as $id) {
+					$key = "name$id";
+					if(isset($row[$key]) && strpos($row[$key], 'xn-') === 0) {
+						$page->setName($row[$key], $key);
+						unset($row[$key]);
+					}
+				}
+			}
+
+			foreach($row as $key => $value) {
+				if(strpos($key, '__')) {
+					$page->setFieldValue($key, $value, false);
+				} else {
+					$page->setForced($key, $value);
+				}
+			}
+
+			// set blank values where joinField didn't appear on page row 
+			foreach($joinFields as $joinField) {
+				if(isset($row["{$joinField}__data"])) continue;
+				if(!$template->fieldgroup->hasField($joinField)) continue;
+				$field = $page->getField($joinField);
+				if(!$field || !$field->type) continue;
+				$blankValue = $field->type->getBlankValue($page, $field);
+				$page->setFieldValue($field->name, $blankValue, false);
+			}
+
+			$page->setIsLoaded(true);
+			$page->setIsNew(false);
+			$page->resetTrackChanges(true);
+			$page->setOutputFormatting($this->outputFormatting);
+			$this->totalPagesLoaded++;
+
+			$pageArray->add($page);
+			
+			if($useCache) $this->pages->cache($page);
+		}
+
+		$pageArray->resetTrackChanges(true);
+		
+		if($useCache) {
+			$selectorString = $pageArray->getSelectors(true);
+			$this->pages->cacher()->selectorCache($selectorString, $options, $pageArray);
+		}
+
+		return $pageArray;
+	}
+
+
 	/**
 	 * Like find() but returns only the first match as a Page object (not PageArray)
 	 *
@@ -695,8 +889,6 @@ class PagesLoader extends Wire {
 	 *
 	 */
 	public function getById($_ids, $template = null, $parent_id = null) {
-
-		static $instanceID = 0;
 
 		$options = array(
 			'cache' => true,
@@ -970,7 +1162,7 @@ class PagesLoader extends Wire {
 					unset($row['templates_id']);
 					foreach($row as $key => $value) $page->set($key, $value);
 					if($options['cache'] === false) $page->loaderCache = false;
-					$page->instanceID = ++$instanceID;
+					$page->instanceID = ++self::$pageInstanceID;
 					$page->setIsLoaded(true);
 					$page->setIsNew(false);
 					$page->resetTrackChanges(true);
@@ -1337,6 +1529,26 @@ class PagesLoader extends Wire {
 		if(!isset($options['loadOptions']['cache'])) $options['loadOptions']['cache'] = false;
 		$selector = $selectorOrPage instanceof Page ? $selectorOrPage->id : $selectorOrPage;
 		return $this->get($selector, $options);
+	}
+
+	/**
+	 * Load total number of children from DB for given page
+	 * 
+	 * @param int|Page $page Page or Page ID
+	 * @return int
+	 * @throws WireException
+	 * @since 3.0.172
+	 * 
+	 */
+	public function getNumChildren($page) {
+		$pageId = $page instanceof Page ? $page->id : (int) $page;
+		$sql = 'SELECT COUNT(*) FROM pages WHERE parent_id=:id';
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':id', $pageId, \PDO::PARAM_INT);
+		$query->execute();
+		$numChildren = (int) $query->fetchColumn(); 
+		$query->closeCursor();
+		return $numChildren;
 	}
 	
 	/**

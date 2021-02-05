@@ -157,6 +157,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 				$_default = $language; // backup plan
 			} else {
 				$numOtherLanguages++;
+				PageProperties::$languageProperties["name$language->id"] = array('name', $language->id);
+				PageProperties::$languageProperties["status$language->id"] = array('status', $language->id);
 			}
 		}
 		

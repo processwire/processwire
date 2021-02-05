@@ -8,7 +8,7 @@
  * 1. Providing get/set access to the Page's properties
  * 2. Accessing the related hierarchy of pages (i.e. parents, children, sibling pages)
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Class used by all Page objects in ProcessWire.
@@ -319,34 +319,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 	const statusMax = 9999999;
 	
 	/**
-	 * Status string shortcuts, so that status can be specified as a word
-	 * 
-	 * See also: self::getStatuses() method. 
-	 * 
-	 * @var array
-	 * 
-	 */
-	static protected $statuses = array(
-		'reserved' => self::statusReserved,
-		'locked' => self::statusLocked,
-		'systemID' => self::statusSystemID,
-		'system' => self::statusSystem,
-		'unique' => self::statusUnique,
-		'draft' => self::statusDraft,
-		'flagged' => self::statusFlagged, 
-		'internal' => self::statusInternal,
-		'temp' => self::statusTemp,
-		'hidden' => self::statusHidden,
-		'unpublished' => self::statusUnpublished,
-		'trash' => self::statusTrash,
-		'deleted' => self::statusDeleted,
-		'systemOverride' => self::statusSystemOverride, 
-		'corrupted' => self::statusCorrupted, 
-		'max' => self::statusMax,
-		'on' => self::statusOn,
-		);
-
-	/**
 	 * The Template this page is using (object)
 	 *
 	 * @var Template|null
@@ -541,14 +513,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 	static public $loadingStack = array();
 
 	/**
-	 * Page class helper object instances (one of each helper per ProcessWire instance, lazy loaded)
-	 *
-	 * @var array
-	 *
-	 */
-	static protected $helpers = array();
-
-	/**
 	 * Controls the behavior of Page::__isset function (no longer in use)
 	 * 
 	 * @var bool
@@ -566,14 +530,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	protected $pageNum = 1; 
-
-	/**
-	 * Reference to main config, optimization so that get() method doesn't get called
-	 * 
-	 * @var Config|null
-	 *
-	 */
-	protected $config = null; 
 
 	/**
 	 * When true, exceptions won't be thrown when values are set before templates
@@ -626,144 +582,6 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	protected $_meta = null;
-
-	/**
-	 * Properties that can be accessed, mapped to method of access (excluding custom fields of course)
-	 * 
-	 * Keys are base property name, values are one of:
-	 *  - [methodName]: method name that it maps to ([methodName]=actual method name)
-	 *  - "s": property name is accessible in $this->settings using same key
-	 *  - "p": Property name maps to same property name in $this
-	 *  - "m": Property name maps to same method name in $this
-	 *  - "n": Property name maps to same method name in $this, but may be overridden by custom field
-	 *  - "t": Property name maps to PageTraversal method with same name, if not overridden by custom field
-	 *  - [blank]: needs additional logic to be handled ([blank]='')
-	 * 
-	 * @var array
-	 * 
-	 */
-	static $baseProperties = array(
-		'accessTemplate' => 'getAccessTemplate',
-		'addable' => 'm',
-		'child' => 'm',
-		'children' => 'm',
-		'created' => 's', 
-		'createdStr' => '',
-		'createdUser' => '',
-		'created_users_id' => 's', 
-		'deletable' => 'm',
-		'deleteable' => 'm',
-		'editable' => 'm',
-		'editUrl' => 'm',
-		'fieldgroup' => '',
-		'filesManager' => 'm',
-		'filesPath' => 'm',
-		'filesUrl' => 'm',
-		'hasChildren' => 'm',
-		'hasFiles' => 'm',
-		'hasFilesPath' => 'm',
-		'hasLinks' => 't',
-		'hasParent' => 'parents',
-		'hasReferences' => 't',
-		'httpUrl' => 'm',
-		'id' => 's',
-		'index' => 'n',
-		'instanceID' => 'p',
-		'isHidden' => 'm',
-		'isLoaded' => 'm',
-		'isLocked' => 'm',
-		'isNew' => 'm',
-		'isPublic' => 'm',
-		'isTrash' => 'm',
-		'isUnpublished' => 'm',
-		'links' => 'n',
-		'listable' => 'm',
-		'modified' => 's',
-		'modifiedStr' => '',
-		'modifiedUser' => '',
-		'modified_users_id' => 's',
-		'moveable' => 'm',
-		'name' => 's',
-		'namePrevious' => 'p',
-		'next' => 'm',
-		'numChildren' => 's',
-		'numParents' => 'm',
-		'numDescendants' => 'm',
-		'numLinks' => 't',
-		'numReferences' => 't',
-		'output' => 'm',
-		'outputFormatting' => 'p',
-		'parent' => 'm',
-		'parent_id' => '',
-		'parentPrevious' => 'p',
-		'parents' => 'm',
-		'path' => 'm',
-		'prev' => 'm',
-		'publishable' => 'm',
-		'published' => 's',
-		'publishedStr' => '',
-		'quietMode' => 'p',
-		'references' => 'n',
-		'referencing' => 't',
-		'render' => '',
-		'rootParent' => 'm',
-		'siblings' => 'm',
-		'sort' => 's',
-		'sortable' => 'm',
-		'sortfield' => 's',
-		'status' => 's',
-		'statusPrevious' => 'p',
-		'statusStr' => '',
-		'template' => 'p',
-		'templates_id' => '',
-		'templatePrevious' => 'p',
-		'trashable' => 'm',
-		'url' => 'm',
-		'urls' => 'm',
-		'viewable' => 'm'
-	);
-
-	/**
-	 * Alternate names accepted for base properties
-	 * 
-	 * Keys are alternate property name and values are base property name
-	 * 
-	 * @var array
-	 * 
-	 */
-	static $basePropertiesAlternates = array(
-		'createdUserID' => 'created_users_id', 
-		'createdUsersID' => 'created_users_id',
-		'created_user_id' => 'created_users_id',
-		'editURL' => 'editUrl',
-		'fields' => 'fieldgroup',
-		'has_parent' => 'hasParent',
-		'httpURL' => 'httpUrl',
-		'modifiedUserID' => 'modified_users_id',
-		'modifiedUsersID' => 'modified_users_id',
-		'modified_user_id' => 'modified_users_id',
-		'num_children' => 'numChildren',
-		'numChildrenVisible' => 'hasChildren',
-		'numVisibleChildren' => 'hasChildren',
-		'of' => 'outputFormatting',
-		'out' => 'output',
-		'parentID' => 'parent_id',
-		'subpages' => 'children',
-		'template_id' => 'templates_id',
-		'templateID' => 'templates_id',
-		'templatesID' => 'templates_id',
-	);
-
-	/**
-	 * Method alternates/aliases (alias => actual)
-	 * 
-	 * @var array
-	 * 
-	 */
-	static $baseMethodAlternates = array(
-		'descendants' => 'find',
-		'descendant' => 'findOne',
-	);
 
 	/**
 	 * Create a new page in memory. 
@@ -849,12 +667,14 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function set($key, $value) {
 		
-		if(isset(self::$basePropertiesAlternates[$key])) $key = self::$basePropertiesAlternates[$key];
+		if(isset(PageProperties::$basePropertiesAlternates[$key])) $key = PageProperties::$basePropertiesAlternates[$key];
 
-		if(($key == 'id' || $key == 'name') && $this->settings[$key] && $value != $this->settings[$key]) 
-			if(	($key == 'id' && (($this->settings['status'] & Page::statusSystem) || ($this->settings['status'] & Page::statusSystemID))) ||
-				($key == 'name' && (($this->settings['status'] & Page::statusSystem)))) {
-					throw new WireException("You may not modify '$key' on page '{$this->path}' because it is a system page"); 
+		if($this->isLoaded && ($key === 'id' || $key === 'name') && $this->settings[$key] && $value != $this->settings[$key]) {
+			$sys = $this->settings['status'] & Page::statusSystem;
+			$sysID = $this->settings['status'] & Page::statusSystemID;
+			if(($key === 'id' && ($sys || $sysID)) || ($key === 'name' && $sys)) {
+				throw new WireException("You may not modify '$key' on page #$this->id ($this->path) because it is a system page");
+			}
 		}
 
 		switch($key) {
@@ -865,7 +685,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			case 'sort': 
 			case 'numChildren': 
 				$value = (int) $value; 
-				if($this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value); 
+				if($this->isLoaded && $this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value);
 				$this->settings[$key] = $value; 
 				break;
 			case 'status':
@@ -904,16 +724,16 @@ class Page extends WireData implements \Countable, WireMatchable {
 			case 'created': 
 			case 'modified':
 			case 'published':
-				if(is_null($value)) $value = 0;
-				if(!ctype_digit("$value")) $value = strtotime($value); 
+				if($value === null) $value = 0;
+				if($value && !ctype_digit("$value")) $value = strtotime($value); 
 				$value = (int) $value; 
-				if($this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value); 
+				if($this->isLoaded && $this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value); 
 				$this->settings[$key] = $value;
 				break;
 			case 'created_users_id':
 			case 'modified_users_id':
 				$value = (int) $value;
-				if($this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value); 
+				if($this->isLoaded && $this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value); 
 				$this->settings[$key] = $value; 
 				break;
 			case 'createdUser':
@@ -922,8 +742,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 				break;
 			case 'sortfield':
 				if($this->template && $this->template->sortfield) break;
-				$value = $this->wire('pages')->sortfields()->decode($value); 
-				if($this->settings[$key] != $value) $this->trackChange($key, $this->settings[$key], $value); 
+				$value = $this->wire()->pages->sortfields()->decode($value); 
+				if($this->isLoaded && $this->settings[$key] != $value) $this->trackChange($key, $this->settings[$key], $value); 
 				$this->settings[$key] = $value; 
 				break;
 			case 'isLoaded': 
@@ -942,9 +762,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 				$this->loaderCache = (bool) $value;	
 				break;
 			default:
-				if(strpos($key, 'name') === 0 && ctype_digit(substr($key, 5)) && $this->wire('languages')) {
-					// i.e. name1234
-					$this->setName($value, $key);
+				if(isset(PageProperties::$languageProperties[$key])) {
+					list($property, $languageId) = PageProperties::$languageProperties[$key];
+					if($property === 'name') {
+						$this->setName($value, $languageId); // i.e. name1234
+					} else if($property === 'status') {
+						parent::set($key, (int) $value); // i.e. status1234
+					}
 				} else {
 					if($this->quietMode && !$this->template) return parent::set($key, $value);
 					$this->setFieldValue($key, $value, $this->isLoaded);
@@ -1027,7 +851,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 		}
 
 		// check if the given key resolves to a Field or not
-		if(!$field = $this->getField($key)) {
+		$field = $this->getField($key);
+		if(!$field) {
 			// not a known/saveable field, let them use it for runtime storage
 			$valPrevious = parent::get($key);	
 			if($valPrevious !== null && is_null(parent::get("-$key")) && $valPrevious !== $value) {
@@ -1038,7 +863,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		}
 
 		// if a null value is set, then ensure the proper blank type is set to the field
-		if(is_null($value)) {
+		if($value === null) {
 			return parent::set($key, $field->type->getBlankValue($this, $field)); 
 		}
 
@@ -1140,9 +965,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(is_int($this->lazyLoad) && $this->lazyLoad && $key != 'id') $this->_lazy(true);
 
 		if(is_array($key)) $key = implode('|', $key);
-		if(isset(self::$basePropertiesAlternates[$key])) $key = self::$basePropertiesAlternates[$key];
-		if(isset(self::$baseProperties[$key])) {
-			$type = self::$baseProperties[$key];
+		if(isset(PageProperties::$basePropertiesAlternates[$key])) {
+			$key = PageProperties::$basePropertiesAlternates[$key];
+		}
+		if(isset(PageProperties::$baseProperties[$key])) {
+			$type = PageProperties::$baseProperties[$key];
 			if($type === 'p') {
 				// local property
 				return $this->$key;
@@ -1501,7 +1328,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			}
 		}
 
-		if(!is_null($value) && empty($selector)) {
+		if($value !== null && empty($selector)) {
 			// if the non-filtered value is already loaded, return it 
 			return $this->formatFieldValue($field, $value);
 		}
@@ -1524,7 +1351,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$value = $field->type->_callHookMethod('loadPageField', array($this, $field));
 		}
 		
-		if(is_null($value)) {
+		if($value === null) {
 			$value = $field->type->getDefaultValue($this, $field);
 		} else {
 			$value = $field->type->_callHookMethod('wakeupValue', array($this, $field, $value)); 
@@ -1934,8 +1761,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 			} else {
 				return $this->get($method);
 			}
-		} else if(isset(self::$baseMethodAlternates[$method])) { 
-			return call_user_func_array(array($this, self::$baseMethodAlternates[$method]), $arguments);
+		} else if(isset(PageProperties::$baseMethodAlternates[$method])) { 
+			return call_user_func_array(array($this, PageProperties::$baseMethodAlternates[$method]), $arguments);
 		} else {
 			return parent::___callUnknown($method, $arguments);
 		}
@@ -1961,6 +1788,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-manipulation
 	 * 
 	 * @param int|array|string Status value, array of status names or values, or status name string.
+	 * @return self
 	 * @see Page::addStatus(), Page::removeStatus()
 	 *
 	 */
@@ -1979,8 +1807,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 				foreach($value as $v) {
 					if(is_int($v) || ctype_digit("$v")) { // integer
 						$status = $status | ((int) $v);
-					} else if(is_string($v) && isset(self::$statuses[$v])) { // string (status name)
-						$status = $status | self::$statuses[$v];
+					} else if(is_string($v) && isset(PageProperties::$statuses[$v])) { // string (status name)
+						$status = $status | PageProperties::$statuses[$v];
 					}
 				}
 				if($status) $value = $status; 
@@ -2006,6 +1834,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			// example: uncache method polls filesManager
 			$this->filesManager = null; 
 		}
+		return $this;
 	}
 
 	/**
@@ -2032,27 +1861,30 @@ class Page extends WireData implements \Countable, WireMatchable {
 	public function setName($value, $language = null) {
 		
 		$key = 'name';
-		$charset = $this->wire('config')->pageNameCharset;
-		$sanitizer = $this->wire('sanitizer');
-		
-		if($language) {
-			// update $key to contain language ID when applicable
-			$languages = $this->wire('languages');
-			if($languages) {
-				if(!is_object($language)) {
-					if(strpos($language, 'name') === 0) $language = (int) substr($language, 4);
-					$language = $languages->get($language);
-					if(!$language || !$language->id || $language->isDefault()) $language = '';
-				}
-				if(!$language) return $this;
-				$key .= $language->id;
-			}
-			$existingValue = $this->get($key);
-		} else {
-			$existingValue = isset($this->settings[$key]) ? $this->settings[$key] : '';
-		}
+		$charset = $this->wire()->config->pageNameCharset;
+		$sanitizer = $this->wire()->sanitizer;
 	
 		if($this->isLoaded) {
+			if(is_int($language)) {
+				$key .= $language;
+				$existingValue = $this->get($key);
+			} else if($language && $language !== 'name') {
+				// update $key to contain language ID when applicable
+				$languages = $this->wire()->languages;
+				if($languages) {
+					if(!is_object($language)) {
+						if(strpos($language, 'name') === 0) $language = (int) substr($language, 4);
+						$language = $languages->getLanguage($language);
+						if(!$language || !$language->id || $language->isDefault()) $language = '';
+					}
+					if(!$language) return $this;
+					$key .= $language->id;
+				}
+				$existingValue = $this->get($key);
+			} else {
+				$existingValue = isset($this->settings[$key]) ? $this->settings[$key] : '';
+			}
+	
 			// name is being set after page has already been loaded
 			if($charset === 'UTF8') {
 				// UTF8 page names allowed but decoding not allowed
@@ -2082,11 +1914,18 @@ class Page extends WireData implements \Countable, WireMatchable {
 			} else {
 				// regular ascii page name while page is loading, do nothing to it
 			}
+			if($language) {
+				if(ctype_digit("$language")) {
+					$key = "name$language";
+				} else if(is_string($language)) {
+					$key = $language; // i.e. name1234
+				}
+			}	
 		}
 		
 		if($key === 'name') {
 			$this->settings[$key] = $value;
-		} else if($this->quietMode) {
+		} else if($this->quietMode || !$this->isLoaded) {
 			parent::set($key, $value);
 		} else {
 			$this->setFieldValue($key, $value, $this->isLoaded); // i.e. name1234
@@ -2354,7 +2193,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function numChildren($selector = null) {
-		if(!$this->settings['numChildren'] && is_null($selector)) return $this->settings['numChildren']; 
+		if(!$this->settings['numChildren'] && $selector === null) return 0;
 		return $this->traversal()->numChildren($this, $selector); 
 	}
 
@@ -3443,7 +3282,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function sortfield() {
 		$sortfield = $this->template ? $this->template->sortfield : '';
-		if(!$sortfield) $sortfield = $this->sortfield;
+		if(!$sortfield) $sortfield = $this->settings['sortfield'];
 		if(!$sortfield) $sortfield = 'sort';
 		return $sortfield;
 	}
@@ -3703,7 +3542,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function hasStatus($status) {
-		if(is_string($status) && isset(self::$statuses[$status])) $status = self::$statuses[$status]; 
+		if(is_string($status) && isset(PageProperties::$statuses[$status])) {
+			$status = PageProperties::$statuses[$status];
+		}
 		return (bool) ($this->status & $status);
 	}
 
@@ -3729,10 +3570,11 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function addStatus($statusFlag) {
-		if(is_string($statusFlag) && isset(self::$statuses[$statusFlag])) $statusFlag = self::$statuses[$statusFlag]; 
+		if(is_string($statusFlag) && isset(PageProperties::$statuses[$statusFlag])) {
+			$statusFlag = PageProperties::$statuses[$statusFlag];
+		}
 		$statusFlag = (int) $statusFlag; 
-		$this->setStatus($this->status | $statusFlag); 
-		return $this;
+		return $this->setStatus($this->status | $statusFlag); 
 	}
 
 	/** 
@@ -3758,14 +3600,13 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function removeStatus($statusFlag) {
-		if(is_string($statusFlag) && isset(self::$statuses[$statusFlag])) $statusFlag = self::$statuses[$statusFlag]; 
+		if(is_string($statusFlag) && isset(PageProperties::$statuses[$statusFlag])) {
+			$statusFlag = PageProperties::$statuses[$statusFlag];
+		}
 		$statusFlag = (int) $statusFlag; 
 		$override = $this->settings['status'] & Page::statusSystemOverride; 
 		if($statusFlag == Page::statusSystem || $statusFlag == Page::statusSystemID) {
-			if(!$override) throw new WireException(
-				"You may not remove the 'system' status from a page unless it also has system override " . 
-				"status (Page::statusSystemOverride)"
-			); 
+			if(!$override) throw new WireException('Cannot remove statusSystem from page without statusSystemOverride');
 		}
 		$this->status = $this->status & ~$statusFlag; 
 		return $this;
@@ -3802,7 +3643,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	public function is($status) {
-		if(is_string($status) && isset(self::$statuses[$status])) $status = self::$statuses[$status]; 
+		if(is_string($status) && isset(PageProperties::$statuses[$status])) {
+			$status = PageProperties::$statuses[$status];
+		}
 		return $this->comparison()->is($this, $status);
 	}
 
@@ -3955,23 +3798,10 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function status($value = false, $status = null) {
-		if(!is_bool($value)) {
-			$this->setStatus($value);
-			return $this;
-		}
-		if(is_null($status)) $status = $this->status; 
+		if($value !== true) return $this->setStatus($value);
+		if($status === null) $status = $this->status; 
 		if($value === false) return $status; 
-		$names = array();
-		$remainder = $status;
-		foreach(self::$statuses as $name => $value) {
-			if($value <= self::statusOn || $value >= self::statusMax) continue;
-			if($status & $value) {
-				$names[$value] = $name;
-				$remainder = $remainder & ~$value;
-			}
-		}
-		if($remainder > 1) $names[$remainder] = "unknown-$remainder";
-		return $names; 
+		return PageProperties::statusToNames($status);
 	}
 
 	/**
@@ -4288,8 +4118,8 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if($this->isLoaded) {
 			return $this->get($key) !== null;
 		} else {
-			if(isset(self::$baseProperties[$key])) return true;
-			if(isset(self::$basePropertiesAlternates[$key])) return true;
+			if(isset(PageProperties::$baseProperties[$key])) return true;
+			if(isset(PageProperties::$basePropertiesAlternates[$key])) return true;
 			if($this->hasField($key)) return true;
 			return false;
 		}
@@ -4407,24 +4237,24 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * Return a Page helper class instance that’s common among all Page (and derived) objects in this ProcessWire instance
 	 * 
 	 * @param string $className
-	 * @return object|PageComparison|PageAccess|PageTraversal|PageFamily
+	 * @return object|PageComparison|PageAccess|PageTraversal
 	 * 
 	 */
 	protected function getHelperInstance($className) {
 		$instanceID = $this->wire()->getProcessWireInstanceID();
-		if(!isset(self::$helpers[$instanceID])) {
+		if(!isset(PageProperties::$helpers[$instanceID])) {
 			// no helpers yet for this ProcessWire instance
-			self::$helpers[$instanceID] = array();
+			PageProperties::$helpers[$instanceID] = array();
 		}
-		if(!isset(self::$helpers[$instanceID][$className])) {
+		if(!isset(PageProperties::$helpers[$instanceID][$className])) {
 			// helper not yet loaded, so load it
 			$nsClassName = __NAMESPACE__ . "\\$className";
 			$helper = new $nsClassName();
 			if($helper instanceof WireFuelable) $this->wire($helper);
-			self::$helpers[$instanceID][$className] = $helper;
+			PageProperties::$helpers[$instanceID][$className] = $helper;
 		} else {
 			// helper already ready to use
-			$helper = self::$helpers[$instanceID][$className];
+			$helper = PageProperties::$helpers[$instanceID][$className];
 		}
 		return $helper;
 	}
@@ -4454,7 +4284,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	}
 	
 	/**
-	 * @return PageFamily
+	 * return PageFamily
 	 * 
 	 * Coming soon
 	 *
@@ -4474,7 +4304,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 *
 	 */
 	static public function getStatuses() {
-		return self::$statuses;
+		return PageProperties::$statuses;
 	}
 
 	/**
