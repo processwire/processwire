@@ -1255,6 +1255,8 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	/**
 	 * Given an Inputfield name, return the child Inputfield or NULL if not found.
 	 * 
+	 * This traverses all children recursively to find the requested Inputfield. 
+	 * 
 	 * This is the same as the `InputfieldWrapper::get()` method except that it can
 	 * only return Inputfield or null, and has no crossover with other settings, 
 	 * properties or API variables. 
@@ -1278,6 +1280,37 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			if($inputfield) break;
 		}
 		return $inputfield;
+	}
+
+	/**
+	 * Shorter alias of getChildByName()
+	 * 
+	 * #pw-group-retrieval-and-traversal
+	 * 
+	 * @param string $name
+	 * @return Inputfield|null
+	 * @since 3.0.172
+	 * 
+	 */
+	public function getByName($name) {
+		return $this->getChildByName($name);
+	}
+
+	/**
+	 * Get value of Inputfield by name
+	 * 
+	 * This traverses all children recursively to find the requested Inputfield,
+	 * and get the value attribute from it. A value of null is returned if the 
+	 * Inputfield cannot be found. 
+	 * 
+	 * @param string $name
+	 * @return string|int|float|bool|array|object|null
+	 * @since 3.0.172
+	 * 
+	 */
+	public function getValueByName($name) {
+		$inputfield = $this->getChildByName($name);
+		return $inputfield ? $inputfield->val() : null;
 	}
 
 	/**
