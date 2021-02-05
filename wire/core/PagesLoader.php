@@ -588,7 +588,7 @@ class PagesLoader extends Wire {
 	 * @since 3.0.172
 	 * 
 	 */
-	protected function findMin($selector, array $options = array()) {
+	public function findMin($selector, array $options = array()) {
 
 		$useCache = isset($options['cache']) ? $options['cache'] : true;
 		$templates = $this->wire()->templates;
