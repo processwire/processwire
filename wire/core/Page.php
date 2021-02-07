@@ -816,7 +816,12 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function setForced($key, $value) {
-		return parent::set($key, $value); 
+		if(isset($this->settings[$key])) {
+			$this->settings[$key] = $value;
+		} else {
+			parent::set($key, $value);
+		}
+		return $this;
 	}
 
 	/**
