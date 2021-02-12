@@ -22,6 +22,8 @@
  *
  * HTML Purifier by: http://htmlpurifier.org
  * ProcessWire module by Ryan Cramer
+ * 
+ * @method void initConfig(\HTMLPurifier_Config $settings, \HTMLPurifier_HTMLDefinition $def)
  *
  */
 
@@ -31,17 +33,27 @@ class MarkupHTMLPurifier extends WireData implements Module {
 		return array(
 			'title' => 'HTML Purifier', 
 			'summary' => 'Front-end to the HTML Purifier library.', 
-			'version' => 495, 
+			'version' => 496, 
 			'singular' => false, 
 			'autoload' => false, 
-			);
+		);
 	}
 
 	/**
 	 * HTML Purifier settings
+	 * 
+	 * @var \HTMLPurifier_Config|null
 	 *
 	 */
-	protected $settings = null; 
+	protected $settings = null;
+
+	/**
+	 * HTML Purifier Raw HTML definition
+	 * 
+	 * @var \HTMLPurifier_HTMLDefinition|null
+	 * 
+	 */
+	protected $def = null;
 
 	/**
 	 * Cached instance of HTMLPurifier
@@ -68,30 +80,74 @@ class MarkupHTMLPurifier extends WireData implements Module {
 		$this->settings->set('Attr.AllowedRel', array('nofollow'));
 		$this->settings->set('HTML.DefinitionID', 'html5-definitions');
 		$this->settings->set('HTML.DefinitionRev', 1);
-		if($def = $this->settings->maybeGetRawHTMLDefinition()) {
-			$def->addElement('figure', 'Block', 'Optional: (figcaption, Flow) | (Flow, figcaption) | Flow', 'Common');
-			$def->addElement('figcaption', 'Inline', 'Flow', 'Common');
+		$this->def = $this->settings->maybeGetRawHTMLDefinition();
+		if($this->def) {
+			$this->def->addElement('figure', 'Block', 'Optional: (figcaption, Flow) | (Flow, figcaption) | Flow', 'Common');
+			$this->def->addElement('figcaption', 'Inline', 'Flow', 'Common');
+			$this->initConfig($this->settings, $this->def); 
 		}
 	}
 
 	/**
+	 * Method to allow hooks to further initialize HTMLPurifier config/settings
+	 * 
+	 * ~~~~~
+	 * $wire->addHook('MarkupHTMLPurifier::initSettings', function($event) {
+	 *   $def = $event->arguments(1); 
+	 *   $def->addAttribute('a', 'data-ext', 'Text');
+	 * }); 
+	 * ~~~~~
+	 * 
+	 * @param \HTMLPurifier_Config $settings
+	 * @param \HTMLPurifier_HTMLDefinition $def
+	 * @since 3.0.173
+	 * 
+	 */
+	protected function ___initConfig($settings, $def) { }
+	
+	/**
 	 * Return the cache path used by HTML Purifier
+	 * 
+	 * @param bool $create Create if not exists?
+	 * @return string
 	 *
 	 */
-	protected function getCachePath()  {
-		$cachePath = $this->wire('config')->paths->cache . $this->className() . '/';
-		if(!is_dir($cachePath)) $this->wire('files')->mkdir($cachePath); 
+	protected function getCachePath($create = true)  {
+		$cachePath = $this->wire()->config->paths->cache . $this->className() . '/';
+		if($create && !is_dir($cachePath)) $this->wire()->files->mkdir($cachePath); 
 		return $cachePath;
+	}
+
+	/**
+	 * Clear the HTML Purifier cache
+	 * 
+	 * @since 3.0.173
+	 * 
+	 */
+	public function clearCache() {
+		$cachePath = $this->getCachePath(false);
+		if(is_dir($cachePath)) $this->wire()->files->rmdir($cachePath, true); 
 	}
 
 	/**
 	 * Return the current settings
 	 *
-	 * @return \HTMLPurifier_Config
+	 * @return \HTMLPurifier_Config|null
 	 *
 	 */
 	public function getConfig() {
 		return $this->settings; 
+	}
+
+	/**
+	 * Get HTML Purifier raw HTML definition
+	 * 
+	 * @return \HTMLPurifier_HTMLDefinition|null
+	 * @since 3.0.173
+	 * 
+	 */
+	public function getDef() {
+		return $this->def;
 	}
 
 	/**
