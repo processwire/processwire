@@ -109,6 +109,18 @@ class PagesRawFinder extends Wire {
 	 * 
 	 */
 	protected $nativeFields = array();
+	
+	/**
+	 * @var array
+	 * 
+	 */
+	protected $parentFields = array();
+
+	/**
+	 * @var array
+	 * 
+	 */
+	protected $childrenFields = array();
 
 	/**
 	 * @var array
@@ -194,6 +206,34 @@ class PagesRawFinder extends Wire {
 		$this->ids = null;
 		
 		if(empty($field)) {
+			// check if field specified in selector instead
+			$field = array();
+			$multi = false;
+			$fields = $this->wire()->fields;
+			if(!$selector instanceof Selectors) {
+				$selector = new Selectors($selector); 
+				$this->wire($selector);
+			}
+			foreach($selector as $item) {
+				$name = $item->field();
+				if($name !== 'field' && $name !== 'join' && $name !== 'fields') continue;
+				if($name !== 'fields' && $fields->get($name)) continue;
+				$value = $item->value;
+				if(is_array($value)) {
+					$field = array_merge($field, $value);
+				} else if($value === 'all') {
+					$this->getAll = true;
+				} else {
+					$field[] = $value;
+				}
+				$selector->remove($item);
+				if($name === 'fields') $multi = true;
+			}
+			$this->selector = $selector;
+			if(!$multi && count($field) === 1) $field = reset($field);
+		}
+		
+		if(empty($field)) {
 			$this->getAll = true;
 			
 		} else if(is_string($field) && strpos($field, ',') !== false) {
@@ -277,30 +317,37 @@ class PagesRawFinder extends Wire {
 	protected function splitFields() {
 		
 		$fields = $this->wire()->fields;
+		$fails = array();
 
 		// split request fields into custom fields and native (pages table) fields
 		foreach($this->requestFields as $key => $fieldName) {
 			
 			if(empty($fieldName)) continue;
 			if(is_string($fieldName)) $fieldName = trim($fieldName);
+			
 			$colName = '';
 			$dotCol = false;
+			$fieldObject = null;
+			$fullName = $fieldName;
 			
 			if($fieldName === '*') {
 				// get all (not yet supported)
-				$fieldObject = null;
 				
 			} else if($fieldName instanceof Field) {
 				// Field object
 				$fieldObject = $fieldName;
 				
 			} else if(is_array($fieldName)) {
-				// Array where [ 'field' => [ 'subfield'' ]] 
+				// Array where [ 'field' => [ 'subfield' ]] 
 				$colName = $fieldName; // array
 				$fieldName = $key;
-				$fieldObject = isset($this->customFields[$fieldName]) ? $this->customFields[$fieldName] : null;
-				if(!$fieldObject) $fieldObject = $fields->get($fieldName);
-				if(!$fieldObject) continue;
+				if($fieldName === 'parent' || $fieldName === 'children') {
+					// passthru
+				} else {
+					$fieldObject = isset($this->customFields[$fieldName]) ? $this->customFields[$fieldName] : null;
+					if(!$fieldObject) $fieldObject = $fields->get($fieldName);
+					if(!$fieldObject) continue;
+				}
 				
 			} else if(is_int($fieldName) || ctype_digit("$fieldName")) {
 				// Field ID
@@ -315,15 +362,28 @@ class PagesRawFinder extends Wire {
 					list($fieldName, $colName) = explode('[', $fieldName, 2); 
 					$colName = rtrim($colName, ']');
 				}
-				$fieldObject = isset($this->customFields[$fieldName]) ? $this->customFields[$fieldName] : null;
-				if(!$fieldObject) $fieldObject = $fields->get($fieldName);
+				if($fieldName === 'parent' || $fieldName === 'children') {
+					// passthru
+				} else {
+					$fieldObject = isset($this->customFields[$fieldName]) ? $this->customFields[$fieldName] : null;
+					if(!$fieldObject) $fieldObject = $fields->get($fieldName);
+				}
 				
 			} else {
 				// something we do not recognize
+				$fails[] = $fieldName;
 				continue;
 			}
 			
-			if($fieldObject instanceof Field) {
+			if($fieldName === 'parent') {
+				// @todo not yet supported
+				$this->parentFields[$fullName] = array($fieldName, $colName);
+				
+			} else if($fieldName === 'children') {
+				// @todo not yet supported
+				$this->childrenFields[$fullName] = array($fieldName, $colName);
+
+			} else if($fieldObject instanceof Field) {
 				$this->customFields[$fieldName] = $fieldObject;
 				if(!empty($colName)) {
 					$colNames = is_array($colName) ? $colName : array($colName);
@@ -340,6 +400,8 @@ class PagesRawFinder extends Wire {
 				$this->nativeFields[$fieldName] = $fieldName;
 			}
 		}
+		
+		if(count($fails)) $this->unknownFieldsException($fails); 
 	}
 
 	/**
@@ -350,6 +412,7 @@ class PagesRawFinder extends Wire {
 		
 		$this->ids = array();
 		$allNatives = array();
+		$fails = array();
 		
 		foreach($this->findIDs($this->selector, '*') as $row) {
 			$id = (int) $row['id'];
@@ -365,7 +428,7 @@ class PagesRawFinder extends Wire {
 		if(!count($this->values)) return;
 		
 		if($this->getAll) $this->nativeFields = $allNatives;
-
+		
 		// native columns we will populate into $values
 		$getNatives = array();
 
@@ -388,8 +451,11 @@ class PagesRawFinder extends Wire {
 				$getNatives[$colName] = $colName;
 			} else {
 				// fieldName is not a known field or pages column
+				$fails[] = "$fieldName";
 			}
 		}
+		
+		if(count($fails)) $this->unknownFieldsException($fails, 'column/field');
 
 		if(count($getNatives)) {
 			// remove any native data that is present but was not requested
@@ -730,5 +796,11 @@ class PagesRawFinder extends Wire {
 			$this->ids = explode(',', $this->ids);
 		}
 		return $this->ids;
+	}
+
+	protected function unknownFieldsException(array $fieldNames, $context = '') {
+		if($context) $context = " $context";
+		$s = "Unknown$context name(s) for findRaw: " . implode(', ', $fieldNames);
+		throw new WireException($s);
 	}
 }

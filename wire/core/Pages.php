@@ -516,6 +516,10 @@ class Pages extends Wire {
 	 * // especially useful with fields like Table or Combo that might have several 
 	 * // different columns: 
 	 * $a = $pages->findRaw("template=villa", "rates_table.*" ); 
+	 * 
+	 * // If you prefer, you can specify the field name(s) in the selector (3.0.173+): 
+	 * $a = $pages->findRaw("template=blog, field=title");
+	 * $a = $pages->findRaw("template=blog, field=title|categories.title"); 
 	 * ~~~~~
 	 * 
 	 * #pw-advanced
@@ -523,6 +527,7 @@ class Pages extends Wire {
 	 *
 	 * @param string|array|Selectors|int $selector Page matching selector or page ID
 	 * @param string|array|Field $field Name of field/property to get, or array of them, or omit to get all (default='')
+	 *   Note: this argument may also be specified in the $selector argument as "field=foo" or "field=foo|bar|baz" (3.0.173+).
 	 * @param array $options 
 	 * @return array
 	 * @since 3.0.172
