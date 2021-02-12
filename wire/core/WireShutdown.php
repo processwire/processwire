@@ -8,6 +8,8 @@
  * Look for errors at shutdown and log them, plus echo the error if the page is editable
  *
  * https://processwire.com
+ * 
+ * @method void fatalError(array $error)
  *
  */
 
@@ -472,6 +474,15 @@ class WireShutdown extends Wire {
 	}
 
 	/**
+	 * Hook called when fatal error received by shutdown()
+	 * 
+	 * @param array $error
+	 * @since 3.0.173
+	 * 
+	 */
+	protected function ___fatalError($error) { }
+
+	/**
 	 * Shutdown function registered with PHP
 	 * 
 	 * @return bool
@@ -484,6 +495,7 @@ class WireShutdown extends Wire {
 		if(!$error) return true;
 		if(!in_array($error['type'], $this->fatalTypes)) return true;
 		
+		if(empty($this->error)) $this->fatalError($error);
 		$this->error = $error; 
 		$this->prepareLabels();
 		$config = $this->config;
