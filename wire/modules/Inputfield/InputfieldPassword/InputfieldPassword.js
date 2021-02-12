@@ -168,6 +168,25 @@ jQuery(document).ready(function($) {
 			}
 			if($on) $on.addClass('on').siblings('.on').removeClass('on');
 		});
+		
+		var $passMask = $inputfield.find('.pass-mask');
+		if($passMask.length) {
+			var $passMaskShow = $passMask.find('.pass-mask-show');
+			var $passMaskHide = $passMask.find('.pass-mask-hide');
+			$passMaskHide.hide();
+			$passMaskShow.on('click', function(e) {
+				$(this).hide();
+				$passMaskHide.show();
+				$inputfield.find('input[type=password]').prop('type', 'text').addClass('pass-unmask');
+				return false;
+			});
+			$passMaskHide.hide().on('click', function(e) {
+				$(this).hide();
+				$passMaskShow.show();
+				$inputfield.find('input.pass-unmask').prop('type', 'password').removeClass('pass-unmask');
+				return false;
+			});
+		}
 	});
 
 	// accommodate issue where Firefox auto-populates remembered password when it shouldn't
