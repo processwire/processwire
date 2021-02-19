@@ -100,8 +100,41 @@ $config->debugTools = array(
  * Enable ProcessWire advanced development mode?
  * 
  * Turns on additional options in ProcessWire Admin that aren't applicable in all instances.
- * Be careful with this as some options configured in advanced mode cannot be removed once
- * set (at least not without going directly into the database). 
+ * Be careful with this as some options configured in advanced mode (like system statuses) 
+ * cannot be removed once set (at least not without going directly into the database). Below 
+ * is a summary of what enabling advanced mode adds/changes:
+ * 
+ * Fields (Setup > Fields):
+ * 
+ * - Enables "system" and "permanent" flags as checkboxes on the Advanced tab when editing a field. 
+ * - Makes the admin Setup > Fields dropdown show all fields, including system fields.
+ * - Enables creation of new fields using types only allowed in advanced mode. 
+ * - Enables cloning of system fields. 
+ * - Enables showing of System templates when selecting templates to add field to (Actions tab). 
+ * 
+ * Templates (Setup > Templates): 
+ * 
+ * - Makes the admin Setup > Templates dropdown show all templates, including system templates.
+ * - On the Basics tab, enables you to select a Fieldgroup independent of the Template. 
+ * - Enables you to add "Permanent" flagged fields to a template. 
+ * - When editing a template, makes it show a "System" tab with ability to assign system flag, 
+ *   predefined page class name, cancel of global status, setting to make the "name" field appear 
+ *   in the Content tab of the page editor, option to make page deletions bypass the trash, and 
+ *   option to disable the Settings tab in the page editor.
+ * - Enables you to copy fields from another Fieldgroup maintained by a system template. 
+ * - Makes the "Advanced" tab show API examples with the Inputfield notes.
+ * 
+ * Page Editor:
+ *
+ * - Enables showing of "Object type" Page class name on Settings tab Info fields.
+ * - Enables you to select System or SystemID status for a Page on the Settings tab Status field.
+ * - Enables some template changes for superuser that go beyond configured Family settings.
+ * 
+ * Other:
+ *
+ * - In Modules, enables disable of autoload state for existing autoload module, for debug purposes.
+ * - In Lister, paired with debug mode, shows a fully parsed selector under the Lister table.
+ * - Shows an "Advanced mode" label in the footer of the admin theme. 
  * 
  * #notes Recommended mode is false, except occasionally during ProcessWire core or module development.
  * @var bool
