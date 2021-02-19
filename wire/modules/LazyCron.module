@@ -70,7 +70,7 @@
  *
  */
 
-class LazyCron extends WireData implements Module, ConfigurableModule {
+class LazyCron extends WireData implements Module {
 
 	public static function getModuleInfo() {
 		return array(
