@@ -376,10 +376,48 @@ class Modules extends WireArray {
 		$this->setTrackChanges(false);
 		$this->loadModuleInfoCache();
 		$this->loadModulesTable();
+		if(!empty($this->autoloadOrders)) $this->preloadModules();
 		foreach($this->paths as $path) {
 			$this->load($path);
 		}
 		$this->modulesTableCache = array(); // clear out data no longer needed
+	}
+
+	/**
+	 * Include site preload modules
+	 * 
+	 * Preload modules load before all other modules, including core modules. In order 
+	 * for a module to be a preload module, it must meet the following conditions:
+	 * 
+	 * - Module info `autoload` value is integer of 10000 or greater, i.e. `[ 'autoload' => 10000 ]`
+	 * - Module info `singular` value must be non-empty, i.e. `[ 'singular' => true ]`
+	 * - Module file is located in: /site/modules/ModuleName/ModuleName.module.php 
+	 * - Module cannot load any other modules at least until ready() method called. 
+	 * - Module cannot have any `requires` dependencies to any other modules. 
+	 * 
+	 * Please note the above is specifically stating that the module must be in its 
+	 * own “site/ModuleName/” directory and have the “.module.php” extension. Using 
+	 * just the “.module” extension is not supported for preload modules. 
+	 * 
+	 * @since 3.0.173
+	 * 
+	 */
+	protected function preloadModules() {
+		if(!isset($this->paths[1])) return;
+		arsort($this->autoloadOrders);
+		foreach($this->autoloadOrders as $moduleName => $order) {
+			if($order < 10000) break;
+			if(!isset($this->moduleIDs[$moduleName])) continue;
+			$moduleID = $this->moduleIDs[$moduleName];
+			if(!isset($this->moduleInfoCache[$moduleID])) continue;
+			$info = $this->moduleInfoCache[$moduleID];
+			if(empty($info['singular'])) continue;
+			$file = $this->paths[1] . "$moduleName/$moduleName.module.php";
+			if(!file_exists($file) || !$this->includeModuleFile($file, $moduleName)) continue;
+			$className = $info['namespace'] . $moduleName;
+			$module = $this->newModule($className, $moduleName);
+			if($module) parent::set($moduleName, $module);
+		}
 	}
 
 	/**
@@ -530,12 +568,15 @@ class Modules extends WireArray {
 	 * Given a class name, return the constructed module
 	 * 
 	 * @param string $className Module class name
+	 * @param string $moduleName Optional module name only (no namespace)
 	 * @return Module|null
 	 *
 	 */
-	protected function newModule($className) {
-		$moduleName = wireClassName($className, false);
-		$className = wireClassName($className, true);
+	protected function newModule($className, $moduleName = '') {
+		if(!$moduleName) {
+			$moduleName = wireClassName($className, false);
+			$className = wireClassName($className, true);
+		}
 		$debugKey = $this->debug ? $this->debugTimerStart("newModule($moduleName)") : null;
 		if(!class_exists($className, false)) $this->includeModule($moduleName);
 		if(!class_exists($className, false)) {
@@ -782,7 +823,7 @@ class Modules extends WireArray {
 	 */
 	protected function loadModulesTable() {
 		$this->autoloadOrders = array();
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		// we use SELECT * so that this select won't be broken by future DB schema additions
 		// Currently: id, class, flags, data, with created added at sysupdate 7
 		$query = $database->prepare("SELECT * FROM modules ORDER BY class", "modules.loadModulesTable()"); // QA
@@ -817,13 +858,14 @@ class Modules extends WireArray {
 			
 			if($autoload && !empty($this->moduleInfoCache[$moduleID]['autoload'])) {
 				$autoload = $this->moduleInfoCache[$moduleID]['autoload'];
-				if(is_int($autoload) && $autoload > 1) {
+				$disabled = $flags & self::flagsDisabled;
+				if(is_int($autoload) && $autoload > 1 && !$disabled) {
 					// autoload specifies an order > 1, indicating it should load before others
 					$this->autoloadOrders[$class] = $autoload;
 				}
 			}
 			
-			unset($row['data']); // info we don't want stored in modulesTableCache
+			unset($row['data'], $row['created']); // info we don't want stored in modulesTableCache
 			$this->modulesTableCache[$class] = $row;
 		}
 		
@@ -1039,7 +1081,12 @@ class Modules extends WireArray {
 			} else if($autoload) {
 				$this->includeModuleFile($pathname, $basename);
 				if(!($info['flags'] & self::flagsDisabled)) {
-					$module = $this->refreshing ? parent::get($basename) : null;
+					$module = null;
+					if($this->refreshing) {
+						$module = parent::get($basename);
+					} else if(isset($this->autoloadOrders[$basename]) && $this->autoloadOrders[$basename] >= 10000) {
+						$module = parent::get($basename); // preloaded module
+					} 
 					if(!$module) $module = $this->newModule($basename);
 				}
 			}
