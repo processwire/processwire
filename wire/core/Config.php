@@ -8,7 +8,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Holds ProcessWire configuration settings as defined in /wire/config.php and /site/config.php. 
@@ -435,11 +435,23 @@ class Config extends WireData {
 	 *
 	 */
 	protected $jsFields = array();
+	
+	/**
+	 * Values $config->jsConfig()
+	 *
+	 * @var array
+	 *
+	 */
+	protected $jsData = array();
 
 	/**
 	 * Set or retrieve a config value to be shared with javascript
 	 * 
-	 * Values are set to the Javascript variable `ProcessWire.config[key]`. 
+	 * Values are set to the Javascript variable `ProcessWire.config[key]`.
+	 * 
+	 * Note: In ProcessWire 3.0.173+ when setting new values, it is preferable to use 
+	 * `$config->jsConfig()` instead, unless your intended use is to share an 
+	 * existing $config property with JS. 
 	 * 
 	 * 1. Specify a $key and $value to set a JS config value. 
 	 *
@@ -483,6 +495,7 @@ class Config extends WireData {
 			foreach($this->jsFields as $field) {
 				$data[$field] = $this->get($field); 
 			}
+			$data = array_merge($data, $this->jsData);
 			return $data; 
 
 		} else if(is_null($value)) {
@@ -496,6 +509,7 @@ class Config extends WireData {
 				return $a;
 			} else {
 				// return value for just one key
+				if(isset($this->jsData[$key])) return $this->jsData[$key];
 				return in_array($key, $this->jsFields) ? $this->get($key) : null;
 			}
 			
@@ -518,6 +532,56 @@ class Config extends WireData {
 
 		$this->jsFields[] = $key; 
 		return parent::set($key, $value); 
+	}
+
+	/**
+	 * Set or retrieve a config value exclusive to Javascript (ProcessWire.config)
+	 *
+	 * Values are set to the Javascript variable `ProcessWire.config[key]`.
+	 * 
+	 * Unlike `$config->js()`, values get or set are exclusive to JS config only. 
+	 * 
+	 * Values set with this method can be retrieved via `$config->js()` or `$config->jsConfig()`,
+	 * but they cannot be retrieved from $config->['key'] or $config->get('key').
+	 * 
+	 * If setting a new property for the JS config it is recommended that you use this
+	 * method rather than $config->js() in ProcessWire 3.0.173+. If backwards compatibility
+	 * is needed then you should still use $config->js().
+	 *
+	 * 1. Specify a $key and $value to set a JS config value.
+	 *
+	 * 2. Specify only a $key and omit the $value in order to retrieve an existing set value.
+	 *
+	 * 3. Specify no params to retrieve in array of all existing set values.
+	 *
+	 * ~~~~~
+	 * // Set a property from PHP
+	 * $config->jsConfig('mySettings', [
+	 *   'foo' => 'bar',
+	 *   'bar' => 123,
+	 * ]);
+	 *
+	 * // Get a property (from PHP)
+	 * $mySettings = $config->jsConfig('mySettings');
+	 * ~~~~~
+	 * ~~~~~
+	 * // Get a property (from Javascript):
+	 * var mySettings = ProcessWire.config.mySettings;
+	 * console.log(mySettings.foo);
+	 * console.log(mySettings.bar);
+	 * ~~~~~
+	 *
+	 * @param string $key Name of property to get or set or omit to return all data
+	 * @param mixed|null $value Specify value to set or omit (null) to get
+	 * @return mixed|null|array|self Returns null if $key not found, value when getting, self when setting, or array when getting all
+	 * @since 3.0.173
+	 *
+	 */
+	public function jsConfig($key = null, $value = null) {
+		if($key === null) return $this->jsData; // get all
+		if($value === null) return isset($this->jsData[$key]) ? $this->jsData[$key] : null; // get property
+		$this->jsData[$key] = $value; // set property
+		return $this;
 	}
 	
 	/**
