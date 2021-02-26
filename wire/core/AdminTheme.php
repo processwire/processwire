@@ -115,50 +115,101 @@ abstract class AdminTheme extends WireData implements Module {
 	public function init() { 
 		self::$numAdminThemes++;
 		
-		$info = $this->wire('modules')->getModuleInfo($this);
+		$info = $this->wire()->modules->getModuleInfo($this);
 		$this->version = $info['version'];
+		$page = $this->wire()->page;
 
 		// if module has been called when it shouldn't (per the 'autoload' conditional)
 		// then module author probably forgot the right 'autoload' string, so this 
 		// serves as secondary stopgap to keep this module from loading when it shouldn't.
-		if(!$this->wire('page') || $this->wire('page')->template != 'admin') return;
+		if(!$page || $page->template->name !== 'admin') return;
 		
-		if(self::$numAdminThemes > 1 && !$this->wire('fields')->get('admin_theme')) $this->install();
+		if(self::$numAdminThemes > 1 && !$this->wire()->fields->get('admin_theme')) $this->install();
 
 		// if admin theme has already been set, then no need to continue
 		if($this->wire('adminTheme')) return; 
 
-		/** @var Config $config */
-		$config = $this->wire('config');
-		/** @var Session $session */
-		$session = $this->wire('session');
-		/** @var User $user */
-		$user = $this->wire('user');
-		/** @var string $adminTheme */
-		$adminTheme = $user->admin_theme; 
+		$config = $this->wire()->config;
+		$user = $this->wire()->user;
+		$adminTheme = $user->admin_theme; /** @var string $adminTheme */
+		$isCurrent = false;
 
 		if($adminTheme) {
 			// there is user specified admin theme
 			// check if this is the one that should be used
-			if($adminTheme == $this->className()) $this->setCurrent();
+			if($adminTheme == $this->className()) {
+				$isCurrent = true;
+				$this->setCurrent();
+			}
 			
-		} else if($this->wire('config')->defaultAdminTheme == $this->className()) {
+		} else if($config->defaultAdminTheme == $this->className()) {
 			// there is no user specified admin theme, so use this one
+			$isCurrent = true;
 			$this->setCurrent();
 		}
+		
+		if($isCurrent) $this->initConfig();
+	}
 
+	/**
+	 * Initialize configuration properties and JS config for when this is current admin theme
+	 * 
+	 * @since 3.0.173
+	 * 
+	 */
+	protected function initConfig() {
+		
+		$config = $this->wire()->config;
+		$user = $this->wire()->user;
+		$session = $this->wire()->session;
+		$page = $this->wire()->page;
+		$urls = $config->urls;
+		
 		// adjust $config adminThumbOptions[scale] for auto detect when requested
-		$o = $config->adminThumbOptions; 
+		$o = $config->adminThumbOptions;
 		if($o && isset($o['scale']) && $o['scale'] === 1) {
-			$o['scale'] = $session->get('hidpi') ? 0.5 : 1.0; 
+			$o['scale'] = $session->get('hidpi') ? 0.5 : 1.0;
 			$config->adminThumbOptions = $o;
 		}
 
-		$config->js('modals', $config->modals); 
+		$config->jsConfig('urls', array(
+			'root' => $urls->root,
+			'admin' => $urls->admin,
+			'modules' => $urls->modules,
+			'core' => $urls->core,
+			'files' => $urls->files,
+			'templates' => $urls->templates,
+			'adminTemplates' => $urls->adminTemplates,
+		));
 
+		$config->js('modals', true); // share at render time
+		$config->jsConfig('debug', $config->debug); 
+		
+		if($user) {
+			$userInfo = array(
+				'id' => $user->id,
+				'name' => $user->name,
+				'roles' => array(),
+			);
+			$roles = $user->isLoggedin() ? $user->roles : null;
+			$guestRoleID = $config->guestUserRolePageID;
+			if($roles) foreach($roles as $role) {
+				if($role->id !== $guestRoleID) $userInfo['roles'][] = $role->name;
+			}
+			$config->jsConfig('user', $userInfo);
+		}
+		
+		if($page) {
+			$config->jsConfig('page', array(
+				'id' => $page->id,
+				'name' => $page->name,
+				'process' => (string) $page->process,
+			));
+		}
+		
 		if($session->get('hidpi')) $this->addBodyClass('hidpi-device');
-		if($session->get('touch')) $this->addBodyClass('touch-device'); 
-
+		if($session->get('touch')) $this->addBodyClass('touch-device');
+		
 		$this->addBodyClass($this->className());
 	}
 

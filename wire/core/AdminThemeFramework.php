@@ -293,32 +293,10 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 *
 	 */
 	public function getHeadJS() {
-
-		/** @var Config $config */
-		$config = $this->wire('config');
-		
-		/** @var Paths $urls */
-		$urls = $config->urls;
-
-		/** @var array $jsConfig */
-		$jsConfig = $config->js();
-		$jsConfig['debug'] = $config->debug;
-
-		$jsConfig['urls'] = array(
-			'root' => $urls->root,
-			'admin' => $urls->admin,
-			'modules' => $urls->modules,
-			'core' => $urls->core,
-			'files' => $urls->files,
-			'templates' => $urls->templates,
-			'adminTemplates' => $urls->adminTemplates,
-		);
-
-		$out =
-			"var ProcessWire = { config: " . wireEncodeJSON($jsConfig, true, $config->debug) . " }; " .
+		$config = $this->wire()->config;
+		return
+			"var ProcessWire = { config: " . wireEncodeJSON($config->js(), true, $config->debug) . " }; " .
 			"var config = ProcessWire.config;\n"; // legacy support
-
-		return $out;
 	}
 
 
