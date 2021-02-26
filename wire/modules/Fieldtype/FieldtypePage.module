@@ -9,7 +9,7 @@
  * /wire/core/Fieldtype.php
  * /wire/core/FieldtypeMulti.php
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -19,10 +19,10 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Reference',
-			'version' => 105,
+			'version' => 106,
 			'summary' => 'Field that stores one or more references to ProcessWire pages',
 			'permanent' => true, 
-			);
+		);
 	}
 
 	const derefAsPageArray = 0; 
@@ -105,6 +105,18 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	public function isAutoload() {
 		return true; 
 	}
+	
+	/**
+	 * Get class name to use Field objects of this type (must be class that extends Field class)
+	 *
+	 * @param array $a Field data from DB (if needed)
+	 * @return string Return class name or blank to use default Field class
+	 *
+	 */
+	public function getFieldClass(array $a = array()) {
+		if($a) {} // ignore
+		return 'PageField';
+	}
 
 	/**
 	 * Return an InputfieldPage of the type configured
@@ -121,6 +133,24 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	}
 
 	/**
+	 * Per the Fieldtype interface, Save the given Field from the given Page to the database
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool
+	 * @throws \PDOException|WireException|WireDatabaseQueryException on failure
+	 *
+	 */
+	public function ___savePageField(Page $page, Field $field) {
+		$value = $page->get($field->name);
+		if($value instanceof PageArray) {
+			if($value->data('filters')) throw new WireException('Filtered value is not saveable'); 
+			if($value->getLimit()) throw new WireException('Paginated value is not saveable');
+		}
+		return parent::___savePageField($page, $field);
+	}
+
+	/**
 	 * Given a raw value (value as stored in DB), return the value as it would appear in a Page object
 	 *
 	 * @param Page $page
@@ -134,91 +164,148 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if($field->hasContext($page)) $field = $field->getContext($page);
 
 		$template = null;
-		$template_ids = self::getTemplateIDs($field);
-		$derefAsPage = $field->get('derefAsPage');
+		$templateIds = self::getTemplateIDs($field);
 		$allowUnpub = $field->get('allowUnpub');
-	
-		if(count($template_ids) == 1) {
-			// we only use $template optimization if only one template selected
-			$template = $this->wire('templates')->get(reset($template_ids));
-		}
-		
-		// handle $value if it's blank, Page, or PageArray
-		if($derefAsPage > 0) {
-			// value will ultimately be a single Page
-			if(!$value) return $this->getBlankValue($page, $field); 
-		
-			// if it's already a Page, then we're good: return it
-			if($value instanceof Page) return $value; 	
-		
-			// if it's a PageArray and should be a Page, determine what happens next
-			if($value instanceof PageArray) {
-				// if there's a Page in there, return the first one
-				if(count($value) > 0) return $value->first();
-		
-				// it's an empty array, so return whatever our default is
-				return $this->getBlankValue($page, $field); 
+		$pagination = array('limit' => null, 'start' => null, 'total' => null);
+		$filters = null; /** @var Selectors|null $filters */
+
+		if(is_array($value)) {
+			// see if pagination and filter data are populated from FieldtypeMulti
+			if(isset($value['_pagination_limit'])) {
+				foreach(array_keys($pagination) as $key) {
+					$valueKey = "_pagination_$key";
+					$pagination[$key] = isset($value[$valueKey]) ? $value[$valueKey] : 0;
+					unset($value[$valueKey]);
+				}
 			}
-		
-		} else {
-			// value will ultimately be multiple pages
-		
-			// if it's already a PageArray, great, just return it
-			if($value instanceof PageArray) return $value; 
-		
-			// setup our default/blank value 
-			$pageArray = $this->getBlankValue($page, $field); 
-		
-			// if $value is blank, then return our default/blank value
-			if(empty($value)) return $pageArray; 
+			if(isset($value['_filters'])) {
+				$filters = count($value['_filters']) ? $value['_filters'] : null;
+				unset($value['_filters']);
+			}
 		}
 		
-		// if we made it this far, then we know that the value was not empty
-		// so it's going to need to be populated from one type to the target type
-		
-		// we're going to be dealing with $value as an array this point forward
-		// this is for compatibility with the Pages::getById function
-		if(!is_array($value)) $value = array($value); 
-		// $value = $this->validatePageIDs($page, $value); 
-		
-		if(isset($value['_filters'])) {
-			$filters = $value['_filters'];
-			unset($value['_filters']);
-			if(!count($filters)) $filters = null;
+		if(count($templateIds) == 1) {
+			// we only use $template optimization if only one template selected
+			$template = $this->wire()->templates->get(reset($templateIds));
+		}
+
+		if($field->get('derefAsPage') > 0) {
+			// configured to return single Page, NullPage or false
+			return $this->wakeupValueSingle($page, $field, $template, $value);
+		}
+
+		if($value instanceof PageArray) {
+			$pageArray = $value;
 		} else {
-			$filters = null;
+			if(!is_array($value)) $value = $this->wakeupValueToArray($value);
+			if(count($value)) {
+				$pageArray = $this->wire()->pages->getById($value, $template); 
+			} else {
+				$pageArray = $this->getBlankValue($page, $field); 
+			}
 		}
 		
-		if($derefAsPage > 0) {
-			// we're going to return a single page, NullPage or false
-			$pg = false;
+		if(!$allowUnpub) {
+			// remove any pages that have an unpublished status
+			foreach($pageArray as $p) {
+				// note: these removals can affect pagination accuracy
+				if($p->status >= Page::statusUnpublished) $pageArray->remove($p);
+			}
+		}
+		
+		if($pagination['limit'] !== null) {
+			$pageArray->setLimit($pagination['limit']);
+			$pageArray->setStart($pagination['start']);
+			$pageArray->setTotal($pagination['total']);
+		}
+		
+		if($filters !== null) $pageArray->data('filters', $filters);
+	
+		$pageArray->resetTrackChanges(); 
+		
+		return $pageArray; 
+	}
+
+	/**
+	 * Wakeup given string or int value to an array
+	 * 
+	 * @param string|int $value
+	 * @return array
+	 * @since 3.0.173
+	 * 
+	 */
+	protected function wakeupValueToArray($value) {
+		if(strpos($value, '|') !== false) {
+			$value = explode('|', $value);
+		} else if(strpos($value, ',') !== false) {
+			$value = explode(',', $value);
+		} else if(ctype_digit($value)) {
+			$value = ((int) $value) > 0 ? array((int) $value) : array();
+		} else {
+			$value = array();
+		}
+		foreach($value as $k => $v) {
+			if(ctype_digit("$v")) {
+				$value[$k] = (int) $v;
+			} else {
+				unset($value[$k]); 
+			}
+		}
+		return $value;
+	}
+
+	/**
+	 * Wakeup single page field value (when derefAsPage>0)
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Template|null $template
+	 * @param array|int|PageArray|Page|null|bool $value
+	 * @return bool|Page|PageArray
+	 * @since 3.0.173
+	 * 
+	 */
+	protected function wakeupValueSingle(Page $page, Field $field, $template, $value) {
+		
+		$pageValue = false;
+		
+		// value will ultimately be a single Page
+		if(empty($value)) {
+			// empty value 
+
+		} else if($value instanceof Page) {
+			// already a Page
+			$pageValue = $value;
+
+		} else if($value instanceof PageArray) {
+			// it's a PageArray and should be a Page
+			if($value->count()) {
+				// if there's a Page in there, get just the first one
+				$pageValue = $value->first();
+			}
+			
+		} else {
+			// array or other
+			if(!is_array($value)) {
+				$value = ctype_digit("$value") ? array((int) $value) : array();
+			}
+
 			if(count($value)) {
 				// get the first value in a PageArray, using $template and parent for optimization
-				$pageArray = $this->wire('pages')->getById(array((int) reset($value)), $template); 
-				if(count($pageArray)) $pg = $pageArray->first();
+				$pageArray = $this->wire()->pages->getById(array((int) reset($value)), $template);
+				if($pageArray->count()) $pageValue = $pageArray->first();
 			}
-		
-			if($pg && $pg->status >= Page::statusUnpublished && !$allowUnpub) $pg = false; 
-			if(!$pg) $pg = $this->getBlankValue($page, $field); 
-		
-			return $pg; 
-		
-		} else {
-			// we're going to return a PageArray
-			if(!count($value)) return $this->getBlankValue($page, $field); 
-			if($filters) {
-				$filters->add(new SelectorEqual('id', $value));
-				$finder = $this->pages->getPageFinder();
-				$value = $finder->findIDs($filters);
-			}
-			$pageArray = $this->wire('pages')->getById($value, $template); 
-			foreach($pageArray as $pg) {
-				// remove any pages that have an unpublished status
-				if($pg->status >= Page::statusUnpublished && !$allowUnpub) $pageArray->remove($pg); 
-			}
-			$pageArray->resetTrackChanges(); 
-			return $pageArray; 
 		}
+
+		if($pageValue && $pageValue->status >= Page::statusUnpublished && !$field->get('allowUnpub')) {
+			$pageValue = false;
+		}
+		
+		if(!$pageValue || !$pageValue->id) {
+			$pageValue = $this->getBlankValue($page, $field);
+		}
+
+		return $pageValue;
 	}
 
 	/**
@@ -724,6 +811,92 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 		return $pageArray; 
 	}
+	
+	/**
+	 * Return the query used for loading all parts of the data from this field.
+	 *
+	 * #pw-group-loading
+	 *
+	 * @param Field|PageField $field
+	 * @param DatabaseQuerySelect $query
+	 * @return DatabaseQuerySelect
+	 * @throws WireException
+	 *
+	 */
+	public function getLoadQuery(Field $field, DatabaseQuerySelect $query) {
+		
+		$query = parent::getLoadQuery($field, $query);
+		$filters = $query->data('_filters');  /** @var Selectors $filters */
+	
+		// this method implementation only applies if filters are in use
+		if(!$filters || !count($filters)) return $query;
+		
+		$hasInclude = false;
+		$hasTemplate = false;
+		$hasParent = false;
+		$hasLimit = false;
+		
+		foreach($filters as $selector) {
+			$f = $selector->field();
+			if($f === 'limit') {
+				$hasLimit = $selector->value();
+				$filters->remove($selector);
+			} else if($f === 'start') {
+				$filters->remove($selector);
+			} else if($f === 'include') {
+				$hasInclude = $selector->value();
+			} else if($f === 'template' || $f === 'templates_id') {
+				$hasTemplate = $selector->value();
+			} else if($f === 'parent' || $f === 'parent_id') {
+				$hasParent = $selector->value();
+			}
+		}
+		
+		if($hasLimit && !$field->allowUnpub) {
+			$fieldTable = $field->getTable();
+			$pagesTable = 'pages_' . $fieldTable;
+			$unpublished = Page::statusUnpublished;
+			$query->join("pages AS $pagesTable ON $pagesTable.id=$fieldTable.data AND $pagesTable.status<$unpublished");
+			// $query->where("$pagesTable.status<$unpublished"); 
+		}
+	
+		if(!count($filters)) {
+			// if removal of start/limit filters resulted in no other filters, exit now
+			return $query;
+		}
+		
+		if((!$hasTemplate || !$hasParent) && $field instanceof PageField) {
+			// use configured template and parent data to better narrow in on filtered results
+			$data = $field->getTemplateAndParentIds();
+			if(!$hasTemplate) {
+				$templateIds = $data['templateIds'];
+				if(count($templateIds)) $filters->add(new SelectorEqual('templates_id', $templateIds));
+			}
+			if(!$hasParent) {
+				$parentIds = $data['parentIds'];
+				if(count($parentIds)) $filters->add(new SelectorEqual('parent_id', $parentIds));
+			}
+		}
+	
+		if(!$hasInclude) {
+			if($field->get('allowUnpub')) {
+				$filters->add(new SelectorEqual('include', 'unpublished'));
+			} else {
+				$filters->add(new SelectorEqual('include', 'hidden'));
+			}
+		}
+	
+		$pageIds = $this->wire()->pages->findIDs($filters);
+		
+		if(count($pageIds)) {
+			$table = $this->wire()->database->escapeTable($field->table);
+			$query->where("$table.data IN(" . implode(',', $pageIds) . ")"); 
+		} else {
+			$query->where('1>2'); 
+		}
+		
+		return $query;
+	}
 
 	/**
 	 * Apply a where condition to a load query (used by getLoadQuery method)
@@ -737,7 +910,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 *
 	 */
 	protected function getLoadQueryWhere(Field $field, DatabaseQuerySelect $query, $col, $operator, $value) {
-		// cancel the default behavior since Page fields filter from the wakeupValue method instead
+		// cancel the default behavior since Page fields filter from getLoadQuery() instead
 		return $query;
 	}
 
@@ -1583,3 +1756,4 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 
 }
 
+require_once(__DIR__ . '/PageField.php');

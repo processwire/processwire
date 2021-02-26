@@ -422,7 +422,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		if((int) $query->data('_limit') > 0) {
 			// accommodate paginated value by collecting and passing in pagination details from $query
 			// determine total number of results
-			$query->select('COUNT(*) as _total');
+			$query->set('select', array('COUNT(*) as _total'));
 			$query->set('limit', array()); // clear
 			$query->set('orderby', array()); // clear
 			$stmt = $query->prepare();
@@ -476,6 +476,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 			$query->data('_schema', $schema);
 			$query->data('_field', $field);
 			$query->data('_table', $table);
+			$query->data('_filters', $filters);
 			
 			foreach($filters as $selector) {
 				
@@ -520,7 +521,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		if(empty($orderByCols)) {
 			// if there are no orderByCols defined, pagination & sorting not supported
 			// default sort for FieldtypeMulti fields is by column 'sort'
-			$query->orderby('sort');
+			$query->orderby("$table.sort");
 
 		} else {
 			// one or more orderByCols is defined, enabling sorting and potential pagination
