@@ -882,6 +882,8 @@ function wireClassName($className, $withNamespace = false, $verbose = false) {
  * }
  * ~~~~~
  * 
+ * #pw-group-class-helpers
+ * 
  * @param string|object $className
  * @param bool $withClass Include class name in returned namespace? (default=false)
  * @param bool $strict Return array of namespaces if multiple match? (default=false)
