@@ -521,7 +521,11 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			$inputfield->checkboxName = "status" . $language->id; 
 			$inputfield->checkboxValue = 1; 
 			$inputfield->checkboxLabel = $checkboxLabel;
-			if($page->id > 0) $inputfield->checkboxChecked = $page->get($inputfield->checkboxName) > 0; 
+			if($page->id > 0) {
+				$inputfield->checkboxChecked = $page->get($inputfield->checkboxName) > 0;
+			} else if($inputfield->parentPage) {
+				$inputfield->checkboxChecked = $inputfield->parentPage->get($inputfield->checkboxName) > 0;
+			}
 			if(!$editable) $inputfield->attr('disabled', 'disabled');
 			$out .= $inputfield->render();
 		}

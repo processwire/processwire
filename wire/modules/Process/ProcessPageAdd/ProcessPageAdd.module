@@ -835,10 +835,6 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		
 		/** @var Languages $languages */
 		if($languages && $this->parent && $this->parent_id > 0) {
-			foreach($languages as $language) {
-				if($language->isDefault()) continue;
-				$field->checkboxChecked = $this->parent->get("status$language") ? true : false;
-			}
 			if($this->template) {
 				// dummy edit page for examination by InputfieldPageName
 				$editPage = $this->wire('pages')->newPage(array(

@@ -200,9 +200,11 @@ class InputfieldPageName extends InputfieldName implements ConfigurableModule {
 				$name = $sanitizer->entities($this->checkboxName); 
 				$value = $sanitizer->entities($this->checkboxValue); 
 				$label = $sanitizer->entities($this->checkboxLabel); 
+				$adminTheme = $this->wire()->adminTheme;
+				$checkboxClass = $adminTheme ? $adminTheme->getClass('input-checkbox') : '';
 				$box = 
 					"<label class='checkbox detail'>" . 
-					"<input type='checkbox' name='$name{$this->checkboxSuffix}' value='$value'$checked$disabled /> $label" . 
+					"<input type='checkbox' class='$checkboxClass' name='$name{$this->checkboxSuffix}' value='$value'$checked$disabled /> $label" . 
 					"</label>";
 			}
 
