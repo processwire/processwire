@@ -264,6 +264,10 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 				// if given a Pagefile rather than a Pagefiles, use the Pagefiles instead
 				$value = $value->pagefiles; 
 			}
+			if($value instanceof Pagefiles) {
+				$page = $value->page;
+				if($page && $page->template->noLang) $this->noLang = true;
+			}
 		}
 		return parent::setAttribute($key, $value);
 	}

@@ -119,8 +119,10 @@ class HookEvent extends WireData {
 	 */
 	public function argumentsByName($n = '') {
 
-		$names = $this->getArgumentNames();
 		$arguments = $this->arguments();
+		if(isset($arguments[$n])) return $arguments[$n]; 
+		
+		$names = $this->getArgumentNames();
 
 		if($n) {
 			$key = array_search($n, $names); 
@@ -220,6 +222,22 @@ class HookEvent extends WireData {
 		} else {
 			return parent::removeHook($hookId);
 		}
+	}
+
+	/**
+	 * Get
+	 * 
+	 * @param object|string $key
+	 * @return mixed|null
+	 * 
+	 */
+	public function get($key) {
+		$value = parent::get($key);
+		if($value === null && !ctype_digit("$key") && array_key_exists($key, $this->data['arguments'])) {
+			// allow named arguments to be accessed from get()
+			$value = $this->data['arguments'][$key];
+		}
+		return $value;
 	}
 
 	/**
