@@ -311,7 +311,16 @@ class DatabaseQuerySelectFulltext extends Wire {
 		} else {
 			$value = $this->value($value);
 			$method = $this->method;
-			if(strlen($value)) $this->$method($value);
+			if(strlen($value)) {
+				$this->$method($value);
+			} else {
+				// empty value
+				if($this->not || $this->operator === '!=') {
+					$this->matchIsNotEmpty();
+				} else {
+					$this->matchIsEmpty();
+				}
+			}
 		}
 	}
 
@@ -386,6 +395,22 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected function matchEquals($value) {
 		$op = $this->wire()->database->escapeOperator($this->operator, WireDatabasePDO::operatorTypeComparison); 
 		$this->query->where("$this->tableField$op?", $value);
+	}
+
+	/**
+	 * Match is an empty empty string, null or not present
+	 * 
+	 */
+	protected function matchIsEmpty() {
+		$this->query->where("($this->tableField='' OR $this->tableField IS NULL)");
+	}
+
+	/**
+	 * Match is present, not null and not an empty string
+	 * 
+	 */
+	protected function matchIsNotEmpty() {
+		$this->query->where("($this->tableField IS NOT NULL AND $this->tableField!='')");
 	}
 
 	/**
