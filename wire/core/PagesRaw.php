@@ -130,6 +130,12 @@ class PagesRawFinder extends Wire {
 
 	/**
 	 * @var array
+	 * 
+	 */
+	protected $runtimeFields = array();
+
+	/**
+	 * @var array
 	 *
 	 */
 	protected $customCols = array();
@@ -167,6 +173,14 @@ class PagesRawFinder extends Wire {
 	 * 
 	 */
 	protected $getAll = false;
+
+	/**
+	 * Get/join the pages_paths table?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $getPaths = false;
 
 	/**
 	 * IDs of pages to find, becomes array once known
@@ -250,7 +264,13 @@ class PagesRawFinder extends Wire {
 			$this->getMultiple = false;
 		}
 
-		if(!$this->getAll) {
+		if($this->getAll) {
+			if($this->wire()->modules->isInstalled('PagePaths')) {
+				$this->getPaths = true;
+				$this->runtimeFields['url'] = 'url';
+				$this->runtimeFields['path'] = 'path';
+			}
+		} else {
 			// split request fields into nativeFields and customFields
 			$this->splitFields();
 		}
@@ -284,7 +304,7 @@ class PagesRawFinder extends Wire {
 		$this->init($selector, $field, $options);
 		
 		// requested native pages table fields/properties
-		if(count($this->nativeFields) || $this->getAll) {
+		if(count($this->nativeFields) || $this->getAll || $this->getPaths) {
 			// one or more native pages table column(s) requested
 			$this->findNativeFields();
 		}
@@ -383,6 +403,14 @@ class PagesRawFinder extends Wire {
 				// @todo not yet supported
 				$this->childrenFields[$fullName] = array($fieldName, $colName);
 
+			} else if($fullName === 'url' || $fullName === 'path') {
+				if($this->wire()->modules->isInstalled('PagePaths')) {
+					$this->runtimeFields[$fullName] = $fullName;
+					$this->getPaths = true;
+				} else {
+					$fails[] = "Property '$fullName' requires the PagePaths module be installed";
+				}
+
 			} else if($fieldObject instanceof Field) {
 				$this->customFields[$fieldName] = $fieldObject;
 				if(!empty($colName)) {
@@ -413,6 +441,10 @@ class PagesRawFinder extends Wire {
 		$this->ids = array();
 		$allNatives = array();
 		$fails = array();
+		$rootUrl = $this->wire()->config->urls->root;
+		$templates = $this->wire()->templates;
+		$templatesById = array();
+		$getPaths = $this->getPaths;
 		
 		foreach($this->findIDs($this->selector, '*') as $row) {
 			$id = (int) $row['id'];
@@ -456,17 +488,33 @@ class PagesRawFinder extends Wire {
 		}
 		
 		if(count($fails)) $this->unknownFieldsException($fails, 'column/field');
-
-		if(count($getNatives)) {
-			// remove any native data that is present but was not requested
-			foreach($this->values as $id => $row) {
-				foreach($row as $colName => $value) {
-					if(!isset($getNatives[$colName])) {
-						unset($this->values[$id][$colName]);
+		
+		if(!count($getNatives) && !$getPaths) return;
+		
+		// remove any native data that is present but was not requested and populate any runtime fields 
+		foreach($this->values as $id => $row) {
+			$templateId = (int) $row['templates_id'];
+			foreach($row as $colName => $value) {
+				if($getPaths && $colName === 'path') {
+					// populate path and/or url runtime properties 
+					if(!isset($templatesById[$templateId])) $templatesById[$templateId] = $templates->get($templateId);
+					$template = $templatesById[$templateId]; /** @var Template $template */
+					$slash = $template->slashUrls ? '/' : '';
+					$path = strlen($value) && $value !== '/' ? "$value$slash" : '';
+					if(isset($this->runtimeFields['url'])) {
+						$this->values[$id]['url'] = $rootUrl . $path;
 					}
+					if(isset($this->runtimeFields['path'])) {
+						$this->values[$id]['path'] = "/$path";
+					} else {
+						unset($this->values[$id]['path']); 
+					}
+				} else if(!isset($getNatives[$colName])) {
+					unset($this->values[$id][$colName]);
 				}
 			}
 		}
+	
 	}
 
 	/**
@@ -730,6 +778,7 @@ class PagesRawFinder extends Wire {
 		$options = array_merge($this->options, $options); 
 		$options['verbose'] = $verbose;
 		$options['indexed'] = true;
+		$options['joinPath'] = $this->getPaths;
 	
 		// if selector was just a page ID, return it in an id indexed array
 		if(is_int($selector) || (is_string($selector) && ctype_digit($selector))) {
@@ -754,14 +803,29 @@ class PagesRawFinder extends Wire {
 
 		// convert selector to CSV string of page IDs
 		$selector = implode(',', array_map('intval', $selector));
-	
+		
+		$selects = array();
+		$joins = array();
+		$wheres = array("id IN($selector)");
+		
 		if($verbose === '*') {
 			// get all columns
-			$sql = "SELECT * FROM pages WHERE id IN($selector)";
+			$selects[] = 'pages.*';
 		} else {
 			// get just base columns
-			$sql = "SELECT id, templates_id, parent_id FROM pages WHERE id IN($selector)";
+			$selects = array('pages.id', 'pages.templates_id', 'pages.parent_id'); 
 		}
+		
+		if($this->getPaths) {
+			$selects[] = 'pages_paths.path AS path';
+			$joins[] = 'LEFT JOIN pages_paths ON pages_paths.pages_id=pages.id';
+		}
+
+		$sql = 
+			"SELECT " . implode(', ', $selects) . " " . 
+			"FROM pages " .
+			(count($joins) ? implode(' ', $joins) . " " : '') . 
+			"WHERE " . implode(' ', $wheres);
 		
 		$query = $this->wire()->database->prepare($sql);
 		$query->execute();

@@ -106,6 +106,7 @@ class PageFinder extends Wire {
 		'returnAllColsOptions' => array(
 			'joinFields' => array(), // names of additional fields to join
 			'joinSortfield' => false, // include 'sortfield' in returned columns? (joined from pages_sortfields table)
+			'joinPath' => false, // include the 'path' in returned columns (joined from pages_paths table, requires PagePaths module)
 			'getNumChildren' => false, // include 'numChildren' in returned columns? (sub-select from pages table)
 			'unixTimestamps' => false, // return dates as unix timestamps?
 		),
@@ -1505,6 +1506,13 @@ class PageFinder extends Wire {
 			}
 			if($opts['getNumChildren']) {
 				$query->select('(SELECT COUNT(*) FROM pages AS children WHERE children.parent_id=pages.id) AS numChildren');
+			}
+			if($opts['joinPath']) {
+				if(!$this->wire()->modules->isInstalled('PagePaths')) {
+					throw new PageFinderException('Requested option for URL or path (joinPath) requires the PagePaths module be installed'); 
+				}
+				$columns[] = 'pages_paths.path AS path';
+				$query->leftjoin('pages_paths ON pages_paths.pages_id=pages.id'); 
 			}
 			if(!empty($opts['joinFields'])) {
 				foreach($opts['joinFields'] as $joinField) {
