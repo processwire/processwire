@@ -196,7 +196,7 @@ class ProcessPageView extends Process {
 
 		if(!$this->delayRedirects) {
 			$this->checkProtocol($page);
-			if($this->redirectURL) $this->wire()->session->redirect($this->redirectURL);
+			if($this->redirectURL) $this->redirect($this->redirectURL);
 		}
 
 		$this->wire('page', $page);
@@ -205,7 +205,7 @@ class ProcessPageView extends Process {
 
 		if($this->delayRedirects) {
 			$this->checkProtocol($page);
-			if($this->redirectURL) $this->wire()->session->redirect($this->redirectURL);
+			if($this->redirectURL) $this->redirect($this->redirectURL);
 		}
 
 		try {
@@ -285,8 +285,15 @@ class ProcessPageView extends Process {
 
 			$this->setResponseType(self::responseTypeNoPage);
 		}
+	
+		// did a path hook require a redirect for trailing slash (vs non-trailing slash)?
+		$redirect = $hooks->getPathHookRedirect();
+		if($redirect) {
+			$this->redirect($config->urls->root . ltrim($redirect, '/'));
+		}
 		
-		$this->pathHooksReturnValue = false; // no longer applicable
+		$this->pathHooksReturnValue = false; // no longer applicable once this line reached
+		$hooks->allowPathHooks(false); // no more path hooks allowed
 		
 		if($page && $page->id && $page->id !== $page404->id && $page instanceof Page) {
 			// one of the path hooks set the page
@@ -899,7 +906,7 @@ class ProcessPageView extends Process {
 		$config = $this->wire()->config;
 		$disallowIDs = array($config->trashPageID); // don't allow login redirect for these pages
 		$loginRequestURL = $this->redirectURL;
-		$loginPageID = $this->wire()->config->loginPageID;
+		$loginPageID = $config->loginPageID;
 		$requestPage = $page;
 		$session = $this->wire()->session;
 		$input = $this->wire()->input;
@@ -1107,7 +1114,7 @@ class ProcessPageView extends Process {
 		if(!$page->secureFiles()) {
 			// if file is not secured, redirect to it
 			// (potentially deprecated, only necessary for method 2 in checkRequestFile)
-			$this->wire()->session->redirect($page->filesManager->url() . $basename);
+			$this->redirect($page->filesManager->url() . $basename);
 			return;
 		}
 
@@ -1197,6 +1204,23 @@ class ProcessPageView extends Process {
 		$this->wire($http);
 		$http->sendStatusHeader(404);
 		$n++;
+	}
+
+	/**
+	 * Perform redirect
+	 * 
+	 * @param string $url
+	 * @param bool $permanent
+	 * 
+	 */
+	protected function redirect($url, $permanent = true) {
+		$session = $this->wire()->session;
+		$this->setResponseType(self::responseTypeRedirect);
+		if($permanent) {
+			$session->redirect($url);
+		} else {
+			$session->location($url);
+		}
 	}
 
 	/**

@@ -154,6 +154,14 @@ class WireHooks {
 	protected $allowPathHooks = true;
 
 	/**
+	 * Populated when a path hook requires a redirect
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $pathHookRedirect = '';
+
+	/**
 	 * @var ProcessWire
 	 * 
 	 */
@@ -1067,7 +1075,9 @@ class WireHooks {
 		$pathHook = $this->pathHooks[$id];
 		$matchPath = $pathHook['match']; 
 		$requestPath = $arguments[0];
+		$slashed = substr($requestPath, -1) === '/' && strlen($requestPath) > 1;
 		$filterFail = false;
+		$regexDelim = ''; // populated only for user-specified regex
 	
 		// first pre-filter the requestPath against any words matchPath (filters)
 		foreach($pathHook['filters'] as $filter) {
@@ -1080,29 +1090,56 @@ class WireHooks {
 	
 		if(strpos('!@#%', $matchPath[0]) !== false) {
 			// already in delimited regex format
+			$regexDelim = $matchPath[0];
 		} else {
 			// needs to be in regex format
 			if(strpos($matchPath, '/') === 0) $matchPath = "^$matchPath";
-			$matchPath = "!$matchPath$!";
+			$matchPath = "#$matchPath$#";
 		}
-		
+
 		if(strpos($matchPath, ':') && strpos($matchPath, '(') !== false) {
-			// named arguments converted to named PCRE capture groups
-			$matchPath = preg_replace('!\(([-_a-z0-9]+):!i', '(?P<$1>', $matchPath);
+			// named arguments in format “(name: value)” converted to named PCRE capture groups
+			$matchPath = preg_replace('#\(([-_a-z0-9]+):#i', '(?P<$1>', $matchPath);
 		}
 		
+		if(strpos($matchPath, '{') !== false) {
+			// named arguments in format “{name}” converted to named PCRE capture groups
+			// note that the match pattern of any URL segment is assumed for this case
+			$matchPath = preg_replace('#\{([_a-z][-_a-z0-9]*)\}#i', '(?P<$1>[^/]+)', $matchPath); 
+		}
+
 		if(!preg_match($matchPath, $requestPath, $matches)) {
 			// if match fails, try again with trailing slash state reversed
-			if(substr($requestPath, -1) === '/') {
-				$requestPath = rtrim($requestPath, '/');
+			if($slashed) {
+				$requestPath2 = rtrim($requestPath, '/');
 			} else {
-				$requestPath .= '/';
+				$requestPath2 = "$requestPath/";
 			}
-			if(!preg_match($matchPath, $requestPath, $matches)) return false;
+			if(!preg_match($matchPath, $requestPath2, $matches)) return false;
 		}
 		
+		// check on trailing slash
+		if(strpos($matchPath, '/?') === false) {
+			// either slash or no-slash is required, depending on whether match pattern ends with one
+			$slashRequired = substr(rtrim($pathHook['match'], $regexDelim . '$)+'), -1) === '/';
+			$this->pathHookRedirect = '';
+			if($slashRequired && !$slashed) {
+				// trailing slash required and not present
+				$this->pathHookRedirect = $requestPath . '/';
+				return false;
+			} else if(!$slashRequired && $slashed) {
+				// lack of trailing slash required and one is present
+				$this->pathHookRedirect = rtrim($requestPath, '/');
+				return false;
+			}
+		}
+		
+		// success: at this point the requestPath has matched
+		$arguments['path'] = $arguments[0];
+
 		foreach($matches as $key => $value) {
-			if($key !== 0) $arguments[$key] = $value; 
+			// populate requested arguments
+			if($key !== 0) $arguments[$key] = $value;
 		}
 		
 		return true;
@@ -1252,6 +1289,17 @@ class WireHooks {
 	public function allowPathHooks($allow = null) {
 		if($allow !== null) $this->allowPathHooks = (bool) $allow;
 		return $this->allowPathHooks;
+	}
+
+	/**
+	 * Return redirect URL required by an applicable path hook, or blank otherwise
+	 * 
+	 * @return string
+	 * @since 3.0.173
+	 * 
+	 */
+	public function getPathHookRedirect() {
+		return $this->pathHookRedirect;
 	}
 
 	/**
