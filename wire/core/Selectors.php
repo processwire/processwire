@@ -31,7 +31,7 @@ require_once(PROCESSWIRE_CORE_PATH . "Selector.php");
  * @link https://processwire.com/api/selectors/ Official Selectors Documentation
  * @method Selector[] getIterator()
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo Move static helper methods to dedicated API var/class so this class can be more focused
@@ -1600,6 +1600,148 @@ class Selectors extends WireArray {
 	}
 
 	/**
+	 * Does given selector have given field (and optionally operator and/or value)?
+	 * 
+	 * #pw-group-static-helpers
+	 * 
+	 * @param string|array|Selectors $selectors Selector string, array or Selectors object to look in
+	 * @param string|array $fieldName Field name string to match or array of them to match any one of them
+	 * @param array $options
+	 *  - `verbose` (bool): Return associative array with verbose result? See return value. (default=false)
+	 *  - `operator` (string): Require this operator (default='' for any) 
+	 *  - `value` (string|int): Require this value (default=null for any)
+	 *  - `remove` (bool): Remove matched Selector from Selectors returned in verbose result? (default=false)
+	 * @return array|bool True of has field, false if not, or array with the following if 'verbose' option requested:
+	 *  - `result` (bool): Did it match (true or false)
+	 *  - `selector` (Selector|null): Selector object that matched (only if result is true)
+	 *  - `selectors` (Selectors|null): Selectors object that was analyzed or null if not needed
+	 *  - `field` (string): Field name that matched
+	 *  - `operator` (string): Operator that matched
+	 *  - `value` (string|null): Value that matched or null if not applicable
+	 * @since 3.0.174
+	 * 
+	 */
+	static public function selectorHasField($selectors, $fieldName, array $options = array()) { 
+		
+		$defaults = array(
+			'operator' => '', // require this operator
+			'value' => null, // require this value
+			'verbose' => false, // return verbose information?
+			'remove' => false, // remove matched Selector from Selectors (when/if applicable)
+		);
+		
+		$result = array(
+			'result' => false, // true if field found, false if not
+			'selectors' => null,  // Selectors object when used
+			'selector' => null, // first Selector that matched
+			'field' => '', // field name that matched
+			'operator' => '', // operator that matched
+			'value' => null, // value that matched or null if not applicable
+		);
+
+		$options = count($options) ? array_merge($defaults, $options) : $defaults;
+		$fail = false;
+		
+		if(is_array($selectors)) {
+			$selectors = new Selectors($selectors);
+			
+		} else if(is_string($selectors)) {
+			if(is_array($fieldName)) {
+				foreach($fieldName as $key => $name) {
+					if(strpos($selectors, $name) === false) unset($fieldName[$key]);
+				}
+				$count = count($fieldName);
+				$fail = $count === 0;
+				if($count === 1) $fieldName = reset($fieldName); // simplify 1-item array to string
+			} else if(strpos($selectors, $fieldName) === false) {
+				$fail = true;
+			}
+			
+		} else if(!$selectors instanceof Selectors) {
+			$fail = true;
+		}
+		
+		if($fail) {
+			return ($options['verbose'] ? $result : $result['result']);
+		}
+		
+		if(!$selectors instanceof Selectors) {
+			$selectors = new Selectors($selectors);
+		}
+		
+		/** @var Selectors $selectors */
+		foreach($selectors as $selector) {
+			
+			if($options['operator'] && $selector->operator() !== $options['operator']) continue;
+			
+			$field = $selector->field;
+		
+			// require specific field or one of array of fields to match
+			if(is_string($field)) {
+				// field is string
+				if(is_array($fieldName)) {
+					// find field in fieldName array
+					if(!in_array($field, $fieldName)) continue;
+				} else {
+					// both field and fieldName are strings
+					if($field !== $fieldName) continue;
+				}
+			} else if(is_array($field)) {
+				// field is array
+				if(is_array($fieldName)) {
+					// both field and fieldName are arrays
+					$has = false;
+					foreach($fieldName as $name) {
+						$has = in_array($name, $field) ? $name : false;
+						if($has) break;
+					}
+					if(!$has) continue;
+					$field = $has;
+				} else {
+					// find fieldName in field array
+					$key = array_search($fieldName, $field);
+					if($key === false) continue;
+					$field = $field[$key];
+				}
+			} else {
+				// field in unrecognized format (should not be reachable)
+				continue;
+			}
+			
+			if($options['value'] !== null) {
+				// require specific value to match
+				$value = $selector->value;
+				if(is_array($value)) {
+					if(!in_array($options['value'], $value)) continue;
+					// match success
+					$result['value'] = $options['value'];
+				} else {
+					if("$value" !== "$options[value]") continue;
+					// match success
+					$result['value'] = $value;
+				}
+			} else {
+				// match success
+				$result['value'] = $selector->value;
+			}
+			
+			if($options['remove']) $selectors->remove($selector);
+			
+			$result = array_merge($result, array(
+				'result' => true, 
+				'selectors' => $selectors, 
+				'selector' => $selector, 
+				'field' => $field, 
+				'operator' => $selector->operator(), 
+			));
+			
+			break;
+		}
+		
+		return ($options['verbose'] ? $result : $result['result']);
+	}
+
+	/**
 	 * Simple "a=b, c=d" selector-style string conversion to associative array, for fast/simple needs
 	 *
 	 * - The only supported operator is "=".
@@ -1614,7 +1756,7 @@ class Selectors extends WireArray {
 	 * @return array
 	 *
 	 */
-	public static function keyValueStringToArray($s) {
+	static public function keyValueStringToArray($s) {
 
 		if(strpos($s, '~~COMMA') !== false) $s = str_replace('~~COMMA', '', $s);
 		if(strpos($s, '~~EQUAL') !== false) $s = str_replace('~~EQUAL', '', $s);
@@ -1651,7 +1793,7 @@ class Selectors extends WireArray {
 	 * @return string
 	 *
 	 */
-	public static function arrayToKeyValueString($a) {
+	static public function arrayToKeyValueString($a) {
 		$s = '';
 		foreach($a as $key => $value) {
 			if(strpos($value, ',') !== false) $value = str_replace(array(',,', ','), ',,', $value);
