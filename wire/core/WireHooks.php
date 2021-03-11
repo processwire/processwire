@@ -830,11 +830,12 @@ class WireHooks {
 		$filterPath = trim(str_replace(array('-', '_', '.'), '/', $path), '/'); 
 		foreach(explode('/', $filterPath) as $filter) {
 			// identify any non-regex portions to use as pre-filters before using regexes
+			// @todo see if this can be improved further to include slash positions
 			if(ctype_alnum($filter) && strlen($filter) > 1) $filters[] = $filter;
 		}
 		$this->pathHooks[$id] = array(
 			'match' => $path,
-			'filters' => array(),
+			'filters' => $filters,
 		);
 		return $id; 
 	}
@@ -964,8 +965,9 @@ class WireHooks {
 				}
 				
 				if($this->allowPathHooks && isset($this->pathHooks[$hook['id']])) {
-					if(!$this->allowRunPathHook($hook, $arguments)) continue;
+					$allowRunPathHook = $this->allowRunPathHook($hook['id'], $arguments);
 					$this->removeHook($object, $hook['id']); // once only
+					if(!$allowRunPathHook) continue;
 					$useHookReturnValue = true;
 				}
 
@@ -1063,22 +1065,23 @@ class WireHooks {
 	 * regular and regex matches and populating parenthesized portions to arguments
 	 * that will appear in the HookEvent.
 	 * 
-	 * @param array $hook
+	 * @param string $id Hook ID
 	 * @param array $arguments
 	 * @return bool
 	 * @since 3.0.173
 	 * 
 	 */
-	protected function allowRunPathHook(array $hook, array &$arguments) {
+	protected function allowRunPathHook($id, array &$arguments) {
 		
-		$id = $hook['id'];
 		$pathHook = $this->pathHooks[$id];
 		$matchPath = $pathHook['match']; 
 		$requestPath = $arguments[0];
 		$slashed = substr($requestPath, -1) === '/' && strlen($requestPath) > 1;
 		$filterFail = false;
 		$regexDelim = ''; // populated only for user-specified regex
-	
+		$pageNum = $this->wire->wire()->input->pageNum();
+		$pageNumArgument = 0;
+		
 		// first pre-filter the requestPath against any words matchPath (filters)
 		foreach($pathHook['filters'] as $filter) {
 			if(strpos($requestPath, $filter) !== false) continue;
@@ -1095,6 +1098,17 @@ class WireHooks {
 			// needs to be in regex format
 			if(strpos($matchPath, '/') === 0) $matchPath = "^$matchPath";
 			$matchPath = "#$matchPath$#";
+		}
+	
+		if(strpos($matchPath, '{pageNum}') !== false) {
+			// the {pageNum} named argument maps to $input->pageNum. remove the {pageNum} argument
+			// from the match path since it is handled differently from other named arguments
+			$matchPath = str_replace(array('/{pageNum}/', '/{pageNum}'), '/', $matchPath);
+			$pathHook['match'] = str_replace(array('/{pageNum}/', '/{pageNum}'), '/', $pathHook['match']); 
+			$pageNumArgument = $pageNum;
+		} else if($pageNum > 1) {
+			// hook does not handle pagination numbers above 1
+			return false;
 		}
 
 		if(strpos($matchPath, ':') && strpos($matchPath, '(') !== false) {
@@ -1136,6 +1150,7 @@ class WireHooks {
 		
 		// success: at this point the requestPath has matched
 		$arguments['path'] = $arguments[0];
+		if($pageNumArgument) $arguments['pageNum'] = $pageNumArgument;
 
 		foreach($matches as $key => $value) {
 			// populate requested arguments
@@ -1270,12 +1285,40 @@ class WireHooks {
 	/**
 	 * Return whether or not any path hooks are pending
 	 *
-	 * @return int
+	 * @param string $requestPath Optionally provide request path to determine if any might match (3.0.174+)
+	 * @return bool
 	 * @since 3.0.173
 	 *
 	 */
-	public function hasPathHooks() {
+	public function hasPathHooks($requestPath = '') {
+		// first pre-filter the requestPath against any words matchPath (filters)
+		if(strlen($requestPath)) return $this->filterPathHooks($requestPath, true);
 		return count($this->pathHooks) > 0;
+	}
+
+	/**
+	 * Return path hooks that have potential to match given request path
+	 * 
+	 * @param string $requestPath
+	 * @param bool $has Specify true to change return value to boolean as to whether any can match (default=false)
+	 * @return array|bool
+	 * @since 3.0.174
+	 * 
+	 */
+	public function filterPathHooks($requestPath, $has = false) {
+		$pathHooks = array();
+		foreach($this->pathHooks as $id => $pathHook) {
+			$fail = false;
+			foreach($pathHook['filters'] as $filter) {
+				$fail = strpos($requestPath, $filter) === false;
+				if($fail) break;
+			}
+			if(!$fail) {
+				$pathHooks[$id] = $pathHook;
+				if($has) break;
+			}
+		}
+		return $has ? count($pathHooks) > 0 : $pathHooks;
 	}
 
 	/**

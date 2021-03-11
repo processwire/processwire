@@ -226,12 +226,19 @@ class ProcessPageView extends Process {
 			}
 
 		} catch(Wire404Exception $e) {
-			return $this->pageNotFound($page, $this->requestPath, false, '404 thrown during page render', $e);
+			// 404 exception
+			return $this->renderNoPage(array(
+				'reason404' => '404 thrown during page render',
+				'exception404' => $e, 
+				'page' => $page, 
+				'ready' => true, // let it know ready state already executed
+			));
 
 		} catch(\Exception $e) {
+			// other exception (re-throw non 404 exceptions)
 			$this->responseType = self::responseTypeError;
 			$this->failed($e, "Thrown during page render", $page);
-			throw $e; // re-throw non-404 Exceptions
+			throw $e; 
 		}
 
 		return '';
@@ -240,31 +247,71 @@ class ProcessPageView extends Process {
 	/**
 	 * Render when no page mapped to request URL
 	 * 
+	 * @param array $options
 	 * @return array|bool|false|string
 	 * @throws WireException
 	 * @since 3.0.173
 	 * 
 	 */
-	protected function renderNoPage() {
-	
+	protected function renderNoPage(array $options = array()) {
+		
+		$defaults = array(
+			'allow404' => true, // allow 404 to be thrown?
+			'reason404' => 'Requested URL did not resolve to a Page',
+			'exception404' => null, 
+			'ready' => false, // are we executing from the API ready state?
+			'page' => $this->http404Page(), // potential Page object (default is 404 page)
+		);
+		
+		$options = count($options) ? array_merge($defaults, $options) : $defaults;
 		$config = $this->wire()->config;
 		$hooks = $this->wire()->hooks;
+		$input = $this->wire()->input; 
+		$requestPath = $this->requestPath;
+		$setPageNum = 0;
+		$pageNumSegment = '';
 		$page = null;
 		$out = false;
-		$page404 = $this->http404Page();
+		
 		$this->setResponseType(self::responseTypeNoPage);
-		$this->wire('page', $page404);
+		
+		if($this->pageNum > 0 && $this->pageNumPrefix !== null) {
+			// there is a pagination segment present in the request path
+			$slash = substr($requestPath, -1) === '/' ? '/' : '';
+			$requestPath = rtrim($requestPath, '/');
+			$pageNumSegment = $this->pageNumPrefix . $this->pageNum;
+			if(substr($requestPath, -1 * strlen($pageNumSegment)) === $pageNumSegment) {
+				// remove pagination segment from request path
+				$requestPath = substr($requestPath, 0, -1 * strlen($pageNumSegment));
+				$setPageNum = $this->pageNum;
+				// disallow specific "/page1" in URL as it is implied by the lack of pagination segment
+				if($setPageNum === 1) $this->redirect($config->urls->root . ltrim($requestPath, '/'));
+				// enforce no trailing slashes for pagination numbers
+				if($slash) $this->redirect($config->urls->root . ltrim($requestPath, '/') . $pageNumSegment);
+				$input->setPageNum($this->pageNum);
+			} else {
+				// not a pagination segment
+				// add the slash back to restore requestPath
+				$requestPath .= $slash;
+				$pageNumSegment = '';
+			}
+		}
+		
+		if(!$options['ready']) $this->wire('page', $options['page']);
 
 		// run up to 2 times, once before ready state and once after
 		for($n = 1; $n <= 2; $n++) {
+			
+			// only run once if already in ready state
+			if($options['ready']) $n = 2;
 
 			// call ready() on 2nd iteration only, allows for ready hooks to set $page
-			if($n === 2) $this->ready(); 
+			if($n === 2 && !$options['ready']) $this->ready();
 			
 			if(!$hooks->hasPathHooks()) continue;
 
 			$this->setResponseType(self::responseTypePathHook);
-			$out = $this->pathHooks($this->requestPath, $out);
+			$out = $this->pathHooks($requestPath, $out);
 		
 			// allow for pathHooks() $event->return to persist between init and ready states
 			// this makes it possible for ready() call to examine $event->return from init() call
@@ -281,7 +328,7 @@ class ProcessPageView extends Process {
 			}
 
 			// first hook that determines the $page wins
-			if($page && $page->id && $page->id !== $page404->id) break;
+			if($page && $page->id && $page->id !== $options['page']->id) break;
 
 			$this->setResponseType(self::responseTypeNoPage);
 		}
@@ -289,13 +336,17 @@ class ProcessPageView extends Process {
 		// did a path hook require a redirect for trailing slash (vs non-trailing slash)?
 		$redirect = $hooks->getPathHookRedirect();
 		if($redirect) {
-			$this->redirect($config->urls->root . ltrim($redirect, '/'));
+			// path hook suggests a redirect for proper URL format
+			$url = $config->urls->root . ltrim($redirect, '/');
+			// if present, add pagination segment back into URL
+			if($pageNumSegment) $url = rtrim($url, '/') . "/$pageNumSegment";
+			$this->redirect($url);
 		}
 		
 		$this->pathHooksReturnValue = false; // no longer applicable once this line reached
 		$hooks->allowPathHooks(false); // no more path hooks allowed
 		
-		if($page && $page->id && $page->id !== $page404->id && $page instanceof Page) {
+		if($page && $page->id && $page instanceof Page && $page->id !== $options['page']->id) {
 			// one of the path hooks set the page
 			$this->wire('page', $page);
 			return $this->renderPage($page); 
@@ -303,7 +354,15 @@ class ProcessPageView extends Process {
 
 		if($out === false) {
 			// hook failed to handle request
-			return $this->pageNotFound(new NullPage(), $this->requestPath, false, 'Requested URL did not resolve to a Page');
+			if($setPageNum > 1) $input->setPageNum(1);
+			if($options['allow404']) {
+				$page = $options['page'];
+				// hooks to pageNotFound() method may expect NullPage rather than 404 page
+				if($page->id == $config->http404PageID) $page = $this->wire(new NullPage()); 
+				$out = $this->pageNotFound($page, $this->requestPath, false, $options['reason404'], $options['exception404']);
+			} else {
+				$out = false;
+			}
 			
 		} else if($out === true) {
 			// hook silently handled the request
@@ -1350,7 +1409,7 @@ class ProcessPageView extends Process {
 			}
 		} else {
 			$prefix = $config->pageNumUrlPrefix;
-			if(strlen($prefix)) $retrnValue[$prefix] = $prefix;
+			if(strlen($prefix)) $returnValue[$prefix] = $prefix;
 		}
 		
 		return $returnValue;
