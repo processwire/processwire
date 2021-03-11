@@ -520,6 +520,20 @@ class Pages extends Wire {
 	 * // If you prefer, you can specify the field name(s) in the selector (3.0.173+): 
 	 * $a = $pages->findRaw("template=blog, field=title");
 	 * $a = $pages->findRaw("template=blog, field=title|categories.title"); 
+	 * 
+	 * // Specify “objects=1” in selector to use objects rather than associative arrays 
+	 * // for pages and fields (3.0.174+):
+	 * $a = $pages->findRaw("template=blog, field=title|categories.title, objects=1"); 
+	 * 
+	 * // Specify “entities=1” to entity encode all string values:
+	 * $a = $pages->findRaw("template=blog, field=title|summary, entities=1");
+	 * 
+	 * // Specify “entities=field” or “entities=field1|field2” to entity encode just 
+	 * // the specific fields that you name (3.0.174+): 
+	 * $a = $pages->findRaw("template=blog, entities=title|summary"); 
+	 * 
+	 * // If you prefer, options can also be enabled this way (3.0.174+):
+	 * $a = $pages->findRaw("template=blog, options=objects|entities"); 
 	 * ~~~~~
 	 * 
 	 * #pw-advanced
@@ -528,7 +542,9 @@ class Pages extends Wire {
 	 * @param string|array|Selectors|int $selector Page matching selector or page ID
 	 * @param string|array|Field $field Name of field/property to get, or array of them, or omit to get all (default='')
 	 *   Note: this argument may also be specified in the $selector argument as "field=foo" or "field=foo|bar|baz" (3.0.173+).
-	 * @param array $options 
+	 * @param array $options Options to adjust behavior (may also be specified in selector, i.e. “objects=1, entities=foo|bar”)
+	 *  - `objects` (bool): Use objects rather than associative arrays? (default=false) 3.0.174+
+	 *  - `entities` (bool|array): Entity encode string values? True or 1 to enable, or specify array of field names. (default=false) 3.0.174+
 	 * @return array
 	 * @since 3.0.172
 	 *

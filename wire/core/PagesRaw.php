@@ -32,7 +32,9 @@ class PagesRaw extends Wire {
 	 * @param string|array|Selectors $selector
 	 * @param string|Field|int|array $field Field/property name to get or array of them (or omit to get all)
 	 * @param array $options See options for Pages::find
-	 *  - `indexed` (bool): Index by page ID? (default=false)
+	 *  - `objects` (bool): Use objects rather than associative arrays? (default=false)
+	 *  - `entities` (bool|array): Entity encode string values? True, or specify array of field names. (default=false)
+	 *  - `indexed` (bool): Index by page ID? (default=true)
 	 * @return array
 	 * @since 3.0.172
 	 *
@@ -49,7 +51,9 @@ class PagesRaw extends Wire {
 	 *
 	 * @param string|array|Selectors $selector
 	 * @param string|Field|int|array $field Field/property name to get or array of them (or omit to get all)
-	 * @param array $options See options for Pages::find
+	 * @param array|bool $options See options for Pages::find
+	 *  - `objects` (bool): Use objects rather than associative arrays? (default=false)
+	 *  - `entities` (bool|array): Entity encode string values? True, or specify array of field names. (default=false)
 	 *  - `indexed` (bool): Index by page ID? (default=false)
 	 * @return array
 	 * @since 3.0.172
@@ -89,6 +93,8 @@ class PagesRawFinder extends Wire {
 	 */
 	protected $defaults = array(
 		'indexed' => true,
+		'objects' => false, 
+		'entities' => false, 
 		'findOne' => false,
 	);
 
@@ -97,6 +103,12 @@ class PagesRawFinder extends Wire {
 	 * 
 	 */
 	protected $selector = '';
+
+	/**
+	 * @var bool
+	 * 
+	 */
+	protected $selectorIsPageIDs = false;
 
 	/**
 	 * @var array
@@ -207,6 +219,9 @@ class PagesRawFinder extends Wire {
 	 * 
 	 */
 	protected function init($selector, $field, $options) {
+		
+		$fields = $this->wire()->fields;
+		$selectorString = '';
 
 		$this->selector = $selector;
 		$this->options = array_merge($this->defaults, $options);
@@ -218,17 +233,25 @@ class PagesRawFinder extends Wire {
 		$this->getMultiple = true;
 		$this->getAll = false;
 		$this->ids = null;
+	
+		if(is_array($selector)) {
+			$val = reset($selector);
+			$key = key($selector);
+			if(ctype_digit("$key") && ctype_digit("$val")) $this->selectorIsPageIDs = true;
+		} else {
+			$selectorString = (string) $selector;
+		}
 		
-		if(empty($field)) {
+		if(empty($field) && !$this->selectorIsPageIDs) {
 			// check if field specified in selector instead
 			$field = array();
 			$multi = false;
-			$fields = $this->wire()->fields;
 			if(!$selector instanceof Selectors) {
 				$selector = new Selectors($selector); 
 				$this->wire($selector);
 			}
 			foreach($selector as $item) {
+				if(!$item instanceof SelectorEqual) continue;
 				$name = $item->field();
 				if($name !== 'field' && $name !== 'join' && $name !== 'fields') continue;
 				if($name !== 'fields' && $fields->get($name)) continue;
@@ -274,6 +297,37 @@ class PagesRawFinder extends Wire {
 			// split request fields into nativeFields and customFields
 			$this->splitFields();
 		}
+		
+		// detect 'objects' and 'entities' options in selector
+		$optionsValues = array();
+		foreach(array('objects', 'entities', 'options') as $name) {
+			if($this->selectorIsPageIDs) continue;
+			if($selectorString && strpos($selectorString, "$name=") === false) continue;
+			if($fields->get($name)) continue; // if maps to a real field then ignore
+			$result = Selectors::selectorHasField($this->selector, $name, array(
+				'operator' => '=',
+				'verbose' => true,
+				'remove' => true,
+			));
+			$value = $result['value'];
+			if($result['result'] && $value && !isset($options[$name])) {
+				if($name === 'options') {
+					if(is_string($value)) $optionsValues[] = $value;
+					if(is_array($value)) $optionsValues = array_merge($optionsValues, $value);
+				} else if(is_array($value)) {
+					$this->options[$name] = array();
+					foreach($value as $v) $this->options[$name][$v] = $v;
+				} else if(!ctype_digit("$value")) {
+					$this->options[$name] = $value; 
+				} else {
+					$this->options[$name] = (bool) ((int) $value);
+				}
+			}
+			if(!empty($result['selectors'])) $this->selector = $result['selectors'];
+		}
+		foreach(array('objects', 'entities') as $name) {
+			if(in_array($name, $optionsValues)) $this->options[$name] = true;
+		}
 	}
 
 	/**
@@ -300,6 +354,9 @@ class PagesRawFinder extends Wire {
 	 *
 	 */
 	public function find($selector, $field = '', $options = array()) {
+		
+		static $level = 0;
+		$level++;
 
 		$this->init($selector, $field, $options);
 		
@@ -324,6 +381,18 @@ class PagesRawFinder extends Wire {
 		if(!$this->options['indexed']) {
 			$this->values = array_values($this->values);
 		}
+		
+		if($this->options['entities']) {
+			if($this->options['objects'] || $level === 1) {
+				$this->entities($this->values);
+			}
+		}
+
+		if($this->options['objects']) {
+			$this->objects($this->values);
+		}
+	
+		$level--;
 
 		return $this->values;
 	}
@@ -839,6 +908,50 @@ class PagesRawFinder extends Wire {
 		$query->closeCursor();
 		
 		return $rows;
+	}
+
+	/**
+	 * Convert associative arrays to objects
+	 * 
+	 * @param array $values
+	 * 
+	 */
+	protected function objects(&$values) {
+		foreach(array_keys($values) as $key) {
+			$value = $values[$key];
+			if(!is_array($value)) continue;
+			reset($value);
+			if(is_int(key($value))) continue;
+			$this->objects($value);
+			$values[$key] = (object) $value;
+		}
+	}
+
+	/**
+	 * Apply entity encoding to all strings in given value, recursively
+	 * 
+	 * @param mixed $value
+	 * 
+	 */
+	protected function entities(&$value) {
+		$prefix = ''; // populate for testing only
+		if(is_string($value)) {
+			// entity-encode
+			$value = $prefix . htmlentities($value, ENT_QUOTES, 'UTF-8');
+		} else if(is_array($value)) {
+			// iterate and go recursive
+			foreach(array_keys($value) as $key) {
+				if(is_array($value[$key])) {
+					$this->entities($value[$key]);
+				} else if(is_string($value[$key])) {
+					if($this->options['entities'] === true || $this->options['entities'] === $key || isset($this->options['entities'][$key])) {
+						$value[$key] = $prefix . htmlentities($value[$key], ENT_QUOTES, 'UTF-8');
+					} 
+				}
+			}
+		} else {
+			// leave as-is
+		}
 	}
 
 	/**
