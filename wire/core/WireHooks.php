@@ -82,7 +82,13 @@ class WireHooks {
 	 * @var array
 	 * 
 	 */
-	protected $pathHooks = array();
+	protected $pathHooks = array(
+		// 'HookID' => [
+		//    'match' => '/foo/bar/{baz}/(.+)/', 
+		//    'filters' => [ 0 => '/foo/', 2 => '/bar/' ], 
+		//   ], ... 
+		// ]
+	);
 
 	/**
 	 * A cache of all hook method/property names for an optimization.
@@ -823,20 +829,51 @@ class WireHooks {
 	 * 
 	 */
 	protected function addPathHook(Wire $object, $path, $toObject, $toMethod, $options = array()) {
-		if(!$this->allowPathHooks) throw new WireException('Path hooks must be attached during init or ready states');
+		
+		if(!$this->allowPathHooks) {
+			throw new WireException('Path hooks must be attached during init or ready states');
+		}
+		
 		$method = 'ProcessPageView::pathHooks';
 		$id = $this->addHook($object, $method, $toObject, $toMethod, $options); 
 		$filters = array();
-		$filterPath = trim(str_replace(array('-', '_', '.'), '/', $path), '/'); 
-		foreach(explode('/', $filterPath) as $filter) {
-			// identify any non-regex portions to use as pre-filters before using regexes
-			// @todo see if this can be improved further to include slash positions
-			if(ctype_alnum($filter) && strlen($filter) > 1) $filters[] = $filter;
+		$path = trim($path);
+		$pathParts = explode('/', trim($path, '/'));
+		
+		foreach($pathParts as $index => $filter) {
+
+			// see if it is alphanumeric, other than dash or underscore
+			if(!ctype_alnum($filter) && !ctype_alnum(str_replace(array('-', '_'), '', $filter))) {
+				// likely a regex pattern or named argument, see if we can use some from beginning
+				$filterNew = '';
+				for($n = 0; $n < strlen($filter); $n++) {
+					$test = substr($filter, 0, $n+1);
+					if(!ctype_alnum($test)) break;
+					$filterNew = $test;
+				}
+				if(!strlen($filterNew)) continue;
+				$filter = $filterNew;
+			}
+			
+			// test the filter to see which one will match
+			$pos = false;
+			foreach(array("/$filter/", "/$filter", "$filter/") as $test) {
+				$pos = strpos($path, $test); 
+				if($pos === false) continue;
+				$filter = $test;
+				break;
+			}
+	
+			// ensure array index 0 only ever refers to match at beginning
+			$key = $pos === 0 && $index === 0 ? 0 : $index + 1;
+			$filters[$key] = $filter;
 		}
+		
 		$this->pathHooks[$id] = array(
 			'match' => $path,
-			'filters' => $filters,
+			'filters' => $filters, 
 		);
+		
 		return $id; 
 	}
 
@@ -1074,22 +1111,25 @@ class WireHooks {
 	protected function allowRunPathHook($id, array &$arguments) {
 		
 		$pathHook = $this->pathHooks[$id];
-		$matchPath = $pathHook['match']; 
 		$requestPath = $arguments[0];
-		$slashed = substr($requestPath, -1) === '/' && strlen($requestPath) > 1;
 		$filterFail = false;
-		$regexDelim = ''; // populated only for user-specified regex
-		$pageNum = $this->wire->wire()->input->pageNum();
-		$pageNumArgument = 0;
 		
 		// first pre-filter the requestPath against any words matchPath (filters)
-		foreach($pathHook['filters'] as $filter) {
-			if(strpos($requestPath, $filter) !== false) continue;
-			$filterFail = true;
-			break;
+		foreach($pathHook['filters'] as $key => $filter) {
+			$pos = strpos($requestPath, $filter); 
+			if($pos === false || ($key === 0 && $pos !== 0)) $filterFail = true;
+			if($filterFail) break;
 		}
 		
 		if($filterFail) return false;
+		
+		// at this point the path hook passed pre-filters and might match
+		
+		$pageNum = $this->wire->wire()->input->pageNum();
+		$slashed = substr($requestPath, -1) === '/' && strlen($requestPath) > 1;
+		$matchPath = $pathHook['match'];
+		$regexDelim = ''; // populated only for user-specified regex
+		$pageNumArgument = 0; // populate in $arguments when {pageNum} present in match pattern
 	
 		if(strpos('!@#%', $matchPath[0]) !== false) {
 			// already in delimited regex format
@@ -1099,12 +1139,13 @@ class WireHooks {
 			if(strpos($matchPath, '/') === 0) $matchPath = "^$matchPath";
 			$matchPath = "#$matchPath$#";
 		}
-	
+
 		if(strpos($matchPath, '{pageNum}') !== false) {
 			// the {pageNum} named argument maps to $input->pageNum. remove the {pageNum} argument
 			// from the match path since it is handled differently from other named arguments
-			$matchPath = str_replace(array('/{pageNum}/', '/{pageNum}'), '/', $matchPath);
-			$pathHook['match'] = str_replace(array('/{pageNum}/', '/{pageNum}'), '/', $pathHook['match']); 
+			$find = array('/{pageNum}/', '/{pageNum}', '{pageNum}');
+			$matchPath = str_replace($find, '/', $matchPath);
+			$pathHook['match'] = str_replace($find, '/', $pathHook['match']); 
 			$pageNumArgument = $pageNum;
 		} else if($pageNum > 1) {
 			// hook does not handle pagination numbers above 1
