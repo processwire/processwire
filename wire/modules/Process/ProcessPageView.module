@@ -311,7 +311,12 @@ class ProcessPageView extends Process {
 			if(!$hooks->hasPathHooks()) continue;
 
 			$this->setResponseType(self::responseTypePathHook);
-			$out = $this->pathHooks($requestPath, $out);
+			
+			try {
+				$out = $this->pathHooks($requestPath, $out);
+			} catch(Wire404Exception $e) {
+				$out = false;
+			}
 		
 			// allow for pathHooks() $event->return to persist between init and ready states
 			// this makes it possible for ready() call to examine $event->return from init() call
