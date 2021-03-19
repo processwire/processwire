@@ -34,7 +34,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 163, 
+			'version' => 164, 
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
 			'installs' => array('MarkupHTMLPurifier'), 
 			);
@@ -85,7 +85,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	 * Version number for CKEditor directory
 	 *
 	 */
-	const CKEDITOR_VERSION = '4.14.0';
+	const CKEDITOR_VERSION = '4.16.0';
 
 	/**
 	 * Instance of MarkupHTMLPurifier module
@@ -303,7 +303,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			'contentsCss' => $contentsCss,
 			'extraAllowedContent' => $this->extraAllowedContent,
 			'extraPlugins' => implode(',', $extraPlugins),
-			'removePlugins' => $this->removePlugins,
+			'removePlugins' => trim(rtrim($this->removePlugins, ', ') . ',exportpdf', ','),
 			'toolbar' => $this->toolbarStringToArray($this->toolbar),
 			'format_tags' => rtrim($this->formatTags, '; '),
 			'language' => $this->_x('en', 'language-pack'), // CKEditor default language pack to use
