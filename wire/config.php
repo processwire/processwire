@@ -887,6 +887,8 @@ $config->protectCSRF = true;
  * To use this, your template settings (under the URL tab) must take advantage of it. Only change this
  * number if you need more (or fewer) URL segments for some reason.
  * 
+ * Do not change this number below 3, as the admin requires up to 3 URL segments.
+ * 
  * @var int
  *
  */
