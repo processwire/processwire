@@ -644,7 +644,7 @@ class WireShutdown extends Wire {
 		if(empty($emailSubject)) $emailSubject = $this->labels['email-subject'];
 		
 		$emailBody = $this->fatalErrorResponse['emailBody'];
-		if(empty($emailSubject)) $emailBody = self::defaultEmailBody;
+		if(empty($emailBody)) $emailBody = self::defaultEmailBody;
 		
 		$message = str_replace("\t", "\n", $message);
 		
