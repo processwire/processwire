@@ -1365,7 +1365,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 		if($text !== null) {
 			if($text === true) $text = $msg;
 			$severe ? $this->error($text) : $this->warning($text);
-			if(strpos($text, $msg) === false) $msg = "$text - $msg";
+			if(strlen($msg) && strpos($text, $msg) === false) $msg = "$text - $msg";
 		}
 		if(in_array('exceptions', $config->logs) && $log) {
 			$msg .= " (in " . str_replace($config->paths->root, '/', $e->getFile()) . " line " . $e->getLine() . ")";

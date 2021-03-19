@@ -1308,7 +1308,7 @@ abstract class Fieldtype extends WireData implements Module {
 			
 		} catch(\PDOException $e) {
 			if($e->getCode() == 23000) {
-				$message = sprintf($this->_('Value not allowed for field “%2$s” because it is already in use'), $field->name);
+				$message = sprintf($this->_('Value not allowed for field “%s” because it is already in use'), $field->name);
 				throw new WireDatabaseException($message, $e->getCode(), $e);
 			} else {
 				throw $e;
