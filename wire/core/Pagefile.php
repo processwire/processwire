@@ -1294,7 +1294,7 @@ class Pagefile extends WireData {
 	 *
 	 */
 	public function ___changed($what, $old = null, $new = null) {
-		if(in_array($what, array('description', 'tags', 'file', 'filedata'))) {
+		if(in_array($what, array('description', 'tags', 'file', 'filedata')) || array_key_exists($what, $this->fieldValues)) {
 			$this->setUser(true, 'modified');
 			$this->set('modified', time()); 
 			$this->pagefiles->trackChange('item');
