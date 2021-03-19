@@ -954,7 +954,6 @@ $config->pageNameCharset = 'ascii';
 /**
  * If 'pageNameCharset' is 'UTF8' then specify the whitelist of allowed characters here
  * 
- * To allow any characters, you can make this blank, however using a whitelist is strongly recommended.
  * Please note this whitelist is only used if pageNameCharset is 'UTF8'. 
  * 
  * @var string
