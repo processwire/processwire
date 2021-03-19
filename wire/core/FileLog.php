@@ -405,6 +405,8 @@ class FileLog extends Wire {
 	 * 
 	 */
 	public function getTotalLines() {
+
+		if(!is_readable($this->logFilename)) return 0;
 		
 		if(filesize($this->logFilename) < $this->chunkSize) {
 			$data = file($this->logFilename); 
