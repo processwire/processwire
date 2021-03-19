@@ -682,7 +682,7 @@ class Pageimage extends Pagefile {
 			$result = $this->___size($width, $height, $options);
 		}
 
-		if($result) {
+		if($result && $result !== $this) {
 			$options['_width'] = $width;
 			$options['_height'] = $height;
 			$result->set('sizeOptions', $options);
