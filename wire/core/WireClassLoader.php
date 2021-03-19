@@ -151,7 +151,7 @@ class WireClassLoader {
 	 *
 	 */
 	public function addPrefix($prefix, $path) {
-		if(!isset($this->suffixes[$prefix])) $this->prefixes[$prefix] = array();
+		if(!isset($this->prefixes[$prefix])) $this->prefixes[$prefix] = array();
 		if(!empty($path) && is_dir($path)) $this->prefixes[$prefix][] = $this->path($path);
 	}
 
