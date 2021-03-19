@@ -2057,7 +2057,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		} else if($userType === 'modified' || strpos($userType, 'modified') === 0) {
 			$userType = 'modified';
 		} else {
-			return new NullPage();
+			return $this->wire(new NullPage());
 		}
 		
 		$property = '_' . $userType . 'User';
@@ -2068,15 +2068,19 @@ class Page extends WireData implements \Countable, WireMatchable {
 		
 		$key = $userType . '_users_id';
 		$uid = (int) $this->settings[$key];
-		if(!$uid) return new NullPage();
-		
-		if($uid === (int) $this->wire('user')->id) {
+		if(!$uid) return $this->wire(new NullPage());
+	
+		$u = $this->wire()->user;
+		if($u && $uid === $u->id) {
 			// ok use current user $user
-			$user = $this->wire('user');
+			$user = $u;
 		} else {
 			// get user
-			$user = $this->wire('users')->get($uid);
+			$users = $this->wire()->users;
+			if($users) $user = $users->get($uid);
 		}
+		
+		if(!$user) $user = $this->wire(new NullPage());
 		
 		$this->$property = $user; // cache to _createdUser or _modifiedUser
 		
