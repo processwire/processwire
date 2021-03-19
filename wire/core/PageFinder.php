@@ -15,6 +15,9 @@
  * @method string getQueryAllowedTemplatesWhere(DatabaseQuerySelect $query, $where)
  * @method void getQueryJoinPath(DatabaseQuerySelect $query, $selector)
  * @method bool|Field getQueryUnknownField($fieldName, array $data);
+ * 
+ * @property string $includeMode
+ * @property bool $checkAccess
  *
  */
 
@@ -392,6 +395,12 @@ class PageFinder extends Wire {
 	// protected $extraSubSelectors = array(); // subselectors that are added in after getQuery()
 	// protected $extraJoins = array();
 	// protected $nativeWheres = array(); // where statements for native fields, to be reused in subselects where appropriate.
+	
+	public function __get($key) {
+		if($key === 'includeMode') return $this->includeMode;
+		if($key === 'checkAccess') return $this->checkAccess; 
+		return parent::__get($key);
+	}
 
 	/**
 	 * Initialize new find operation and prepare options
@@ -1687,6 +1696,7 @@ class PageFinder extends Wire {
 					$q->set('selector', $selector); // original selector if required by the fieldtype
 					$q->set('selectors', $selectors); // original selectors (all) if required by the fieldtype
 					$q->set('parentQuery', $query);
+					$q->set('pageFinder', $this);
 					$q->bindOption('global', true); // ensures bound value key are globally unique
 					$q->bindOption('prefix', 'pf'); // pf=PageFinder
 					
@@ -3469,6 +3479,7 @@ class PageFinder extends Wire {
  * @property Selector $selector Original Selector object
  * @property Selectors $selectors Original Selectors object
  * @property DatabaseQuerySelect $parentQuery Parent database query
+ * @property PageFinder $pageFinder PageFinder instance that initiated the query
  */
 abstract class PageFinderDatabaseQuerySelect extends DatabaseQuerySelect { }
 

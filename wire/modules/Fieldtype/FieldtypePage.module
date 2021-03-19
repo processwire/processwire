@@ -1092,7 +1092,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 * 
 	 * Note: $field->findPagesCode is not implemented and thus not supported here. 
 	 *
-	 * @param DatabaseQuerySelect $query
+	 * @param DatabaseQuerySelect|PageFinderDatabaseQuerySelect $query
 	 * @param string $table
 	 * @param string $subfield
 	 * @param string $operator
@@ -1103,18 +1103,35 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 */
 	protected function getMatchQueryCustom($query, $table, $subfield, $operator, $value) {
 		
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$field = $query->field;
 		$group = $query->group;
 		$table = $database->escapeTable($table);
-		$selector = 'include=hidden, '; // @todo should $selector include check_access=0 or even include=all? 
 		$pageFinder = $this->wire(new PageFinder());
 		$pageFinderOptions = array('getTotal' => false);
-		$value = $this->wire('sanitizer')->selectorValue($value);
+		$value = $this->wire()->sanitizer->selectorValue($value);
 		$findPagesSelector = $field->get('findPagesSelector');
 		if(empty($findPagesSelector)) $findPagesSelector = $field->get('findPagesSelect');
 		$parent_id = $field->get('parent_id');
 		$template_ids = self::getTemplateIDs($field, true);
+		$selector = ''; 
+		
+		if($query->pageFinder) {
+			$pf = $query->pageFinder;
+			$pfo = $pf->getOptions();
+			if(empty($pfo['findAll']) === true) {
+				$selector = "include=all, $selector";
+			} else if($pf->includeMode) {
+				$selector = "include=$pf->includeMode, $selector";
+			} else {
+				$selector = "include=hidden, $selector";
+			}
+			if($pf->checkAccess === false) {
+				$selector = "check_access=0, $selector";
+			}
+		} else {
+			$selector = "include=hidden, $selector";
+		}
 
 		if(in_array($subfield, $this->nativeNames)) {
 			// fine then, we can handle that here when needed (like !=)
@@ -1125,8 +1142,10 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		}
 
 		if($findPagesSelector) {
-			// remove the existing include=hidden, only if selector specifies a different include=something
-			if(strpos($findPagesSelector, 'include=') !== false) $selector = '';
+			// remove the existing include=hidden|all|unpublished, only if selector specifies a different include=something
+			if(strpos($findPagesSelector, 'include=') !== false) {
+				$selector = preg_replace('/include=[a-z]+,/', '', $selector);
+			}
 			$selector .= $findPagesSelector . ", ";
 			if(strpos($selector, 'page.') !== false) {
 				// remove any page.property from selector as it won't be applicable during a getMatchQuery
