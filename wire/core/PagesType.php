@@ -594,6 +594,8 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	/**
 	 * Get the PHP class name used by Page objects of this type
 	 * 
+	 * If returned class is not namespaced then `ProcessWire` namespace can be assumed. 
+	 * 
 	 * #pw-group-family
 	 * 
 	 * @return string
@@ -604,7 +606,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 			if($this->pageClass && !$this->template->pageClass) {
 				$this->template->pageClass = $this->pageClass;
 			}
-			return $this->template->getPageClass(false);
+			return $this->template->getPageClass(true);
 		}
 		if($this->pageClass) return $this->pageClass;
 		return 'Page';

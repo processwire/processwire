@@ -36,6 +36,14 @@ class Users extends PagesType {
 	protected $guestUser = null;
 
 	/**
+	 * Validated custom page class cache for getPageClass method
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $validPageClass = '';
+
+	/**
 	 * Construct
 	 * 
 	 * @param ProcessWire $wire
@@ -134,13 +142,31 @@ class Users extends PagesType {
 	 * 
 	 */
 	public function newUser() {
-		$template = $this->wire('templates')->get('user');
-		$pageClass = $template ? $template->getPageClass(false) : 'User';
-		if($pageClass !== 'User' && strpos($pageClass, 'User') === false) $pageClass = 'User';
-		return $this->wire('pages')->newPage(array(
+		return $this->wire()->pages->newPage(array(
 			'template' => 'user',
-			'pageClass' => $pageClass 
+			'pageClass' => $this->getPageClass()
 		));
+	}
+
+	/**
+	 * Get the PHP class name used by Page objects of this type
+	 *
+	 * #pw-internal
+	 *
+	 * @return string
+	 *
+	 */
+	public function getPageClass() {
+		$pageClass = parent::getPageClass();
+		if($pageClass !== 'User' && $pageClass !== 'ProcessWire\User' && $pageClass !== $this->validPageClass) {
+			if(wireInstanceOf($pageClass, 'User')) {
+				$this->validPageClass = $pageClass;
+			} else {
+				$this->error("Class '$pageClass' disregarded because it does not extend 'User'"); 
+				$pageClass = 'User';
+			}
+		}
+		return $pageClass;
 	}
 	
 	/**
