@@ -742,6 +742,9 @@ class Config extends WireData {
 	 * 
 	 * This can be accessed by property `$config->serverProtocol`
 	 * 
+	 * #pw-group-tools
+	 * #pw-group-runtime
+	 * 
 	 * @return string
 	 * @since 3.0.166
 	 * 
@@ -751,9 +754,108 @@ class Config extends WireData {
 		$proto = isset($_SERVER['SERVER_PROTOCOL']) ? $_SERVER['SERVER_PROTOCOL'] : 'HTTP/1.1';
 		return $protos[(int) array_search($proto, $protos, true)];
 	}
+
+	/**
+	 * Current unsanitized request URL
+	 * 
+	 * - This is an alternative to `$input->url()` that’s available prior to API ready state.
+	 * - Useful if you need to know request URL from /site/config.php or other boot file.
+	 * - Returned value does not include query string, if present. 
+	 * - Returned value includes installation subdirectory, if present. 
+	 * 
+	 * ~~~~~
+	 * if($config->requestUrl() === '/products/2021/') {
+	 *   // current request URL is exactly “/products/2021/”
+	 * }
+	 * if($config->requestUrl('/products/2021/')) {
+	 *   // current request matches “/products/2021/” somewhere in URL
+	 * }
+	 * ~~~~~
+	 * 
+	 * #pw-group-tools
+	 * #pw-group-runtime
+	 *
+	 * @param string $match Optionally return URL only if some part matches this string (default='')
+	 * @return string Returns URL string or blank string if $match argument used and doesn’t match.
+	 * @since 3.0.175
+	 * 
+	 */
+	public function requestUrl($match = '') {
+		if(empty($_SERVER['REQUEST_URI'])) return '';
+		$url = $_SERVER['REQUEST_URI'];
+		if(strpos($url, '?') !== false) list($url,) = explode('?', $url, 2);
+		if($match && strpos($url, $match) === false) $url = '';
+		return $url;
+	}
+
+	/**
+	 * Current unsanitized request path (URL sans ProcessWire installation subdirectory, if present)
+	 * 
+	 * This excludes any subdirectories leading to ProcessWire installation root, if present.
+	 * Useful if you need to know request path from /site/config.php or other boot file.
+	 * 
+	 * ~~~~~
+	 * if(strpos($config->requestPath(), '/processwire/') === 0) {
+	 *   // current request path starts with “/processwire/”
+	 * }
+	 * if($config->requestPath('/processwire/')) {
+	 *   // the text “/processwire/” appears somewhere in current request path
+	 * }
+	 * ~~~~~
+	 * 
+	 * #pw-group-tools
+	 * #pw-group-runtime
+	 *
+	 * @param string $match Optionally return path only if some part matches this string (default='')
+	 * @return string|bool Returns path string or blank string if $match argument used and doesn’t match.
+	 * @since 3.0.175
+	 *
+	 */
+	public function requestPath($match = '') {
+		$url = $this->requestUrl();
+		$rootUrl = $this->urls->root;
+		if($rootUrl !== '/' && strpos($url, $rootUrl) === 0) {
+			$path = substr($url, strlen($rootUrl) - 1);
+		} else {
+			$path = $url;
+		}
+		if($match && strpos($path, $match) === false) $path = '';
+		return $path;
+	}
+
+	/**
+	 * Current request method
+	 * 
+	 * This is an alternative to `$input->requestMethod()` that’s available prior to API ready state.
+	 * Useful if you need to match request method from /site/config.php or other boot file.
+	 * 
+	 * ~~~~~
+	 * if($config->requestMethod('post')) { 
+	 *   // request method is POST
+	 * }
+	 * if($config->requestMethod() === 'GET') {
+	 *   // request method is GET
+	 * }
+	 * ~~~~~
+	 * 
+	 * #pw-group-tools
+	 * #pw-group-runtime
+	 * 
+	 * @param string $match Return boolean true if request method equals this (false if not), not case sensitive (default='')
+	 * @return string|bool Returns one of GET, POST, HEAD, PUT, DELETE, OPTIONS, PATCH or boolean if $match argument used
+	 * @since 3.0.175
+	 * 
+	 */
+	public function requestMethod($match = '') {
+		$methods = array('GET', 'POST', 'HEAD', 'PUT', 'DELETE', 'OPTIONS', 'PATCH');
+		$method = isset($_SERVER['REQUEST_METHOD']) ? strtoupper($_SERVER['REQUEST_METHOD']) : '';
+		$key = array_search($method, $methods);
+		$method = $key === false ? 'GET' : $methods[$key];
+		return ($match ? strtoupper($match) === $method : $method);
+	}
 	
 	/**
-	 * Set the current ProcessWire instance for this object (PW 3.0)
+	 * Set the current ProcessWire instance for this object
 	 *
 	 * #pw-internal
 	 *
