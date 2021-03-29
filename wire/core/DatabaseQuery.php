@@ -10,7 +10,7 @@
  * of what other methods/objects have done to it. It also means being able
  * to build a complex query without worrying about correct syntax placement.
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  * This file is licensed under the MIT license
@@ -672,7 +672,7 @@ abstract class DatabaseQuery extends WireData {
 	 * 
 	 */
 	public function prepare() {
-		$query = $this->wire('database')->prepare($this->getQuery()); 
+		$query = $this->wire()->database->prepare($this->getQuery()); 
 		foreach($this->bindValues as $key => $value) {
 			$type = isset($this->bindTypes[$key]) ? $this->bindTypes[$key] : $this->pdoParamType($value);
 			$query->bindValue($key, $value, $type); 
@@ -701,22 +701,54 @@ abstract class DatabaseQuery extends WireData {
 	/**
 	 * Execute the query with the current database handle
 	 * 
-	 * @return \PDOStatement
+	 * @param array $options
+	 *  - `throw` (bool): Throw exceptions? (default=true)
+	 *  - `maxTries` (int): Max times to retry if connection lost during query. (default=3)
+	 *  - `returnQuery` (bool): Return PDOStatement query? If false, returns bool result of execute. (default=true)
+	 * @return \PDOStatement|bool
 	 * @throws WireDatabaseQueryException|\PDOException
 	 *
 	 */
-	public function execute() {
-		$database = $this->wire('database');
-		try { 
-			$query = $this->prepare();
-			$query->execute();
-		} catch(\Exception $e) {
-			$msg = $e->getMessage();
-			if(stripos($msg, 'MySQL server has gone away') !== false) $database->closeConnection();
-			if($this->wire('config')->allowExceptions) throw $e; // throw original
-			throw new WireDatabaseQueryException($msg, $e->getCode(), $e); 
+	public function execute(array $options = array()) {
+		
+		$defaults = array(
+			'throw' => true, 
+			'maxTries' => 3, 
+			'returnQuery' => true,
+		);
+	
+		$options = array_merge($defaults, $options);
+		$numTries = 0;
+		
+		do {
+			$retry = false;
+			$exception = null;
+			$result = false;
+			$query = null;
+			
+			try {
+				$query = $this->prepare();
+				$result = $query->execute();
+			} catch(\PDOException $e) {
+				$msg = $e->getMessage();
+				$code = (int) $e->getCode();
+				$retry = $code === 2006 || stripos($msg, 'MySQL server has gone away') !== false;
+				if($retry && $numTries < $options['maxTries']) {
+					$this->wire()->database->closeConnection(); // note: it reconnects automatically
+					$numTries++;
+				} else {
+					$exception = $e;
+					$retry = false;
+				}
+			}
+		} while($retry);
+		
+		if($exception && $options['throw']) {
+			if($this->wire()->config->allowExceptions) throw $exception; // throw original
+			throw new WireDatabaseQueryException($exception->getMessage(), $exception->getCode(), $exception);
 		}
-		return $query;
+		
+		return $options['returnQuery'] ? $query : $result;
 	}
 
 }
