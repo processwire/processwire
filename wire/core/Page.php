@@ -967,7 +967,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	public function get($key) {
 
 		// if lazy load pending, load the page now
-		if(is_int($this->lazyLoad) && $this->lazyLoad && $key != 'id') $this->_lazy(true);
+		if($this->lazyLoad && $key !== 'id' && is_int($this->lazyLoad)) $this->_lazy(true);
 
 		if(is_array($key)) $key = implode('|', $key);
 		if(isset(PageProperties::$basePropertiesAlternates[$key])) {
@@ -1041,33 +1041,48 @@ class Page extends WireData implements \Countable, WireMatchable {
 			
 			default:
 				if($key && isset($this->settings[(string)$key])) return $this->settings[$key];
-				if($key === 'meta' && !$this->wire('fields')->get('meta')) return $this->meta(); // always WireDataDB
-				
-				// populate a formatted string with {tag} vars
-				if(strpos($key, '{') !== false && strpos($key, '}')) return $this->getMarkup($key);
+				if($key === 'meta' && !$this->wire()->fields->get('meta')) return $this->meta(); // always WireDataDB
 			
-				// populate a markup requested field like '_fieldName_'
-				if(strpos($key, '_') === 0 && substr($key, -1) == '_' && !$this->wire('fields')->get($key)) {
-					if($this->wire('sanitizer')->fieldName($key) == $key) return $this->renderField(substr($key, 1, -1));
-				}
+				if(!ctype_alnum("$key")) {
+					// populate a formatted string with {tag} vars
+					if(strpos($key, '{') !== false && strpos($key, '}')) return $this->getMarkup($key);
 
-				if(($value = $this->getFieldFirstValue($key)) !== null) return $value; 
-				if(($value = $this->getFieldValue($key)) !== null) return $value;
-				
-				// if there is a selector, we'll assume they are using the get() method to get a child
-				if(Selectors::stringHasOperator($key)) return $this->child($key);
+					// populate a markup requested field like '_fieldName_'
+					$ulpos = strpos($key, '_'); 
+					if($ulpos === 0 && substr($key, -1) === '_' && !$this->wire()->fields->get($key)) {
+						if($this->wire()->sanitizer->fieldName($key) == $key) return $this->renderField(substr($key, 1, -1));
+					}
 
-				// check if it's a field.subfield property
-				if(strpos($key, '.') && ($value = $this->getFieldSubfieldValue($key)) !== null) return $value; 
-				
-				if(strpos($key, '_OR_')) {
-					// convert '_OR_' to '|'
-					$value = $this->getFieldFirstValue(str_replace('_OR_', '|', $key)); 
-					if($value !== null) return $value; 
+					if(strpos($key, '|') !== false) {
+						$value = $this->getFieldFirstValue($key);
+						if($value !== null) return $value; 
+					}
+					
+					$value = $this->getFieldValue($key); 
+					if($value !== null) return $value;
+
+					// if there is a selector, we'll assume they are using the get() method to get a child
+					if(Selectors::stringHasOperator($key)) return $this->child($key);
+
+					// check if it's a field.subfield property
+					if(strpos($key, '.')) {
+						$value = $this->getFieldSubfieldValue($key);
+						if($value !== null) return $value;
+					}
+					if($ulpos !== false && strpos($key, '_OR_')) {
+						// convert '_OR_' to '|'
+						$value = $this->getFieldFirstValue(str_replace('_OR_', '|', $key));
+						if($value !== null) return $value;
+					}
+				} else {
+					$value = $this->getFieldValue($key);
+					if($value !== null) return $value;
 				}
 
 				// optionally let a hook look at it
-				if($this->wire('hooks')->isHooked('Page::getUnknown()')) $value = $this->getUnknown($key);
+				if($this->wire()->hooks->isHooked('Page::getUnknown()')) {
+					$value = $this->getUnknown($key);
+				}
 		}
 
 		return $value; 
@@ -1173,23 +1188,29 @@ class Page extends WireData implements \Countable, WireMatchable {
 		
 		// allow limited access to field.subfield properties when output formatting is on
 		// we only allow known custom fields, and only 1 level of subfield
-		$keys = explode('.', $key);
-		$key1 = $keys[0];
-		$key2 = $keys[1];
-		$field = $this->getField($key1);
+		list($key1, $key2) = explode('.', $key, 2);
 		
-		if(!$field || ($field->flags & Field::flagSystem)) return null;
-	
 		// test if any parts of key can potentially refer to API variables
 		$api = false;
-		foreach($keys as $k) {
+		foreach(explode('.', $key2) as $k) {
 			if($this->wire($k)) $api = true;
 			if($api) break;
 		}
+		
 		if($api) return null; // do not allow dereference of API variables
+		
+		if(isset(PageProperties::$traversalReturnTypes[$key1])) { 
+			if(PageProperties::$traversalReturnTypes[$key1] === PageProperties::typePage) {
+				return $this->$key1()->get($key2);
+			}
+		}
+
+		$field = $this->getField($key1);
+		if(!$field || ($field->flags & Field::flagSystem)) return null;
 		
 		// get first part of value
 		$value = $this->get($key1);
+		if($value === null) return null;
 		
 		// then get second part of value
 		if($value instanceof WireData) {
