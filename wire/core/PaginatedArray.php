@@ -156,7 +156,7 @@ class PaginatedArray extends WireArray implements WirePaginatable {
 	 * 
 	 * #pw-group-other
 	 * 
-	 * @return int
+	 * @return bool
 	 * @since 3.0.120
 	 * 
 	 */
