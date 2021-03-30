@@ -88,7 +88,13 @@ class Comment extends WireData {
 	 * Flag to indicate author of this comment wants notifications and request confirmed by double opt in
 	 *
 	 */
-	const flagNotifyConfirmed = 8; 
+	const flagNotifyConfirmed = 8;
+
+	/**
+	 * Flag to indicate comment is queued for notifications to be sent later by 3rd party implementation
+	 * 
+	 */
+	const flagNotifyQueue = 16;
 
 	/**
 	 * Max bytes that a Comment may use

@@ -1,5 +1,11 @@
 <?php namespace ProcessWire;
 
+/**
+ *
+ * @method int sendAdminNotificationEmail(Comment $comment)
+ * @method int sendNotificationEmail(Comment $comment, $email, $subcode, array $options = array())
+ * 
+ */
 class CommentNotifications extends Wire {
 
 	/**
@@ -13,6 +19,14 @@ class CommentNotifications extends Wire {
 	 * 
 	 */
 	protected $field;
+
+	/**
+	 * WireMail mailer module name to use
+	 * 
+	 * @var string
+	 * 
+	 */
+	protected $mailer = '';
 
 	/*
 	 * FYI
@@ -34,6 +48,25 @@ class CommentNotifications extends Wire {
 		$this->field = $field;
 	}
 
+	/**
+	 * Set name of WireMail module to use for sending notifications
+	 * 
+	 * @param string $mailer
+	 * 
+	 */
+	public function setMailer($mailer) {
+		$this->mailer = $mailer;
+	}
+
+	/**
+	 * @return WireMail
+	 * 
+	 */
+	public function newMail() {
+		$options = array();
+		if($this->mailer) $options['module'] = $this->mailer;
+		return $this->wire()->mail->new($options);
+	}
 
 	/**
 	 * Send notification email to specified admin to review the comment
@@ -144,7 +177,7 @@ class CommentNotifications extends Wire {
 
 		$emails = $this->parseEmails($field->get('notificationEmail')); 	
 		if(count($emails)) {
-			$mail = $this->wire('mail')->new();
+			$mail = $this->newMail();
 			foreach($emails as $email) $mail->to($email);
 			$mail->subject($subject)->body($body)->bodyHTML($bodyHTML);
 			$fromEmail = $this->getFromEmail();
@@ -422,63 +455,100 @@ class CommentNotifications extends Wire {
 	 * Send a user (not admin) notification email
 	 * 
 	 * @param Comment $comment
-	 * @param string $email
-	 * @param string $subcode
+	 * @param string|array $email
+	 * @param string $subcode Subscribe/unsubscribe code or blank string if not in use
+	 * @param array $options
 	 * @return int
 	 * 
 	 */
-	public function ___sendNotificationEmail(Comment $comment, $email, $subcode) {
-		
-		$showText = (bool) $this->field->useNotifyText;
-		$sanitizer = $this->wire()->sanitizer;
+	public function ___sendNotificationEmail(Comment $comment, $email, $subcode, array $options = array()) {
+
 		$page = $comment->getPage();
-		$title = $sanitizer->text($page->getUnformatted('title|path')); 
-		$cite = $sanitizer->text($comment->cite); 
-		$url = $page->httpUrl . "#Comment$comment->id";
-		$unsubUrl = $page->httpUrl . "?comment_success=unsub&subcode=$subcode";
-		$text = $showText ? $sanitizer->textarea($comment->text) : ''; 
-		$textHTML = $showText ? $comment->getFormattedCommentText() : '';
-		$subject = $this->_('New comment posted:') . " $title"; // Email subject
-		$postedAtLabel = $this->_('Posted at: %s');
-		$postedByLabel = $this->_('Posted by: %s');
-		$unsubLabel = $this->_('Unsubscribe from these notifications'); 
-		$viewLabel = $this->_('View or reply'); 
+		$sanitizer = $this->wire()->sanitizer;
+		$title = $sanitizer->text($page->getUnformatted('title|path'));
+		$cite = $sanitizer->text($comment->cite);
+		$showText = isset($options['showText']) ? (bool) $options['showText'] : (bool) $this->field->useNotifyText;
+		$emails = is_array($email) ? $email : array($email);
+		
+		$defaults = array(
+			'postedAtLabel' => sprintf($this->_('Posted at: %s'), $title), 
+			'postedByLabel' => sprintf($this->_('Posted by: %s'), $cite),
+			'postedAtByLabel' => $this->_('Posted at %s by %s'),
+			'viewLabel' => $this->_('View or reply'), 
+			'showText' => $showText, 
+			'url' => $page->httpUrl . "#Comment$comment->id",
+			'unsubLabel' => $this->_('Unsubscribe from these notifications'), 
+			'unsubUrl' => (strlen($subcode) ? $page->httpUrl . "?comment_success=unsub&subcode=$subcode" : ''),
+			'subject' => $this->_('New comment posted:') . " $title", // Email subject
+			'text' => $showText ? $sanitizer->textarea($comment->text) : '', 
+			'textHTML' => $showText ? $comment->getFormattedCommentText() : '',
+			'divStyle' => "padding:10px 20px;border:1px solid #eee",
+			'ccEmails' => array(),
+			'bccEmails' => array(), 
+			'fromEmail' => $this->getFromEmail(),
+			'replyToEmail' => '', 
+		);
+		
+		$options = array_merge($defaults, $options);
+		$unsubUrl = $options['unsubUrl'];
 		
 		$body = 
-			sprintf($postedAtLabel, $title) . "\n" . 
-			sprintf($postedByLabel, $cite) . "\n\n" . 
-			($showText ? "$text\n\n" : "") . 
-			"$viewLabel: $url\n\n" . 
-			"$unsubLabel: $unsubUrl\n\n";
+			$options['postedAtLabel'] . "\n" .
+			$options['postedByLabel'] . "\n" .
+			($showText ? "$options[text]\n\n" : "") . 
+			"$options[viewLabel]: $options[url]\n\n" . 
+			"---\n" . 
+			(strlen($unsubUrl) ? "$options[unsubLabel]: $options[unsubUrl]\n\n" : "$options[unsubLabel]\n\n");
 
-		$url = $sanitizer->entities($url);
+		$url = $sanitizer->entities($options['url']);
 		$cite = $sanitizer->entities($cite);
 		$title = $sanitizer->entities($title);
 		$unsubUrl = $sanitizer->entities($unsubUrl);
 		$titleLink = "<a href='$url'>$title</a>";
-		$div = "<div style='padding:10px 20px;border:1px solid #eee'>";
 		
 		$bodyHTML = 
 			"<html><head><title>$title</title><head><body>" . 
 			"<p><em>" . sprintf($this->_('Posted at %s by %s'), $titleLink, $cite) . "</em></p>" . 
-			($showText ? "\n$div<p>$textHTML</p></div>" : '') . 
-			"\n<p><a href='$url'>$viewLabel</a></p>" .
+			($showText ? "\n<div style='$options[divStyle]'><p>$options[textHTML]</p></div>" : '') . 
+			"\n<p><a href='$url'>$options[viewLabel]</a></p>" .
 			"\n<p>&nbsp;</p>" . 
 			"\n<hr />" . 
-			"\n<p><small><a href='$unsubUrl'>$unsubLabel</a></small></p>" . 
+			"\n<p><small>" . 
+				(strlen($unsubUrl) ? "<a href='$unsubUrl'>$options[unsubLabel]</a>" : "$options[unsubLabel]") . 
+			"</small></p>" . 
 			"</body></html>";
-			
-		$mail = $this->wire('mail')->new();
-		$mail->to($email)->subject($subject)->body($body)->bodyHTML($bodyHTML);
-		$fromEmail = $this->getFromEmail();
-		if($fromEmail) $mail->from($fromEmail);
+		
+		/** @var WireMail $mail */
+		$mail = $this->newMail();
+		$mail->to($emails)
+			->subject($options['subject'])
+			->body($body)
+			->bodyHTML($bodyHTML);
+
+		if($options['fromEmail']) {
+			$mail->from($options['fromEmail']);
+		}
+		
+		if($options['replyToEmail']) {
+			$mail->replyTo($options['replyToEmail']);
+		}
+		
+		if($options['ccEmails'] && is_array($options['ccEmails'])) {
+			$mail->header('cc', implode(',', $options['ccEmails']));
+			$emails = array_merge($emails, $options['ccEmails']); 
+		}
+		
+		if($options['bccEmails'] && is_array($options['bccEmails'])) {
+			$mail->header('bcc', implode(',', $options['bccEmails']));
+			$emails = array_merge($emails, $options['ccEmails']); 
+		}
 		
 		$result = $mail->send();
 		
 		if($result) {
-			$this->wire('log')->message("Sent comment notification email to $email"); 
+			$this->wire()->log->message("Sent comment notification email to " . implode(', ', $emails)); 
 		} else {
-			$this->wire('log')->error("Failed sending comment notification to $email"); 
+			$this->wire()->log->error("Failed sending comment notification to " . implode(', ', $emails)); 
 		}
 		
 		return $result;
@@ -508,7 +578,7 @@ class CommentNotifications extends Wire {
 		$body .= "\n\n$footer: $confirmURL";
 		$bodyHTML .= "<p><strong><a href='$confirmURL'>$footer</a></strong></p>";
 
-		$mail = $this->wire('mail')->new();
+		$mail = $this->newMail();
 		$mail->to($email)->subject($subject)->body($body)->bodyHTML($bodyHTML);
 		$fromEmail = $this->getFromEmail();
 		if($fromEmail) $mail->from($fromEmail);

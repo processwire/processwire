@@ -861,7 +861,7 @@ class CommentForm extends Wire implements CommentFormInterface {
 
 		/** @var Comment $comment */
 		$comment = $this->wire(new Comment()); 
-		$comment->user_agent = $_SERVER['HTTP_USER_AGENT']; 
+		$comment->user_agent = isset($_SERVER['HTTP_USER_AGENT']) ? $_SERVER['HTTP_USER_AGENT'] : ''; 
 		$comment->ip = $this->wire('session')->getIP();
 		$comment->created_users_id = $this->user->id; 
 		//$comment->sort = count($this->comments)+1; 
@@ -872,7 +872,13 @@ class CommentForm extends Wire implements CommentFormInterface {
 			if($parent) {
 				// validate that depth is in allowed limit
 				$parents = $this->commentsField->getCommentParents($this->page, $comment); 
-				if($parents->count() >= $maxDepth) $comment->parent_id = 0;
+				if($parents->count() >= $maxDepth) {
+					if($parent->parent_id) {
+						$comment->parent_id = $parent->parent_id;
+					} else {
+						$comment->parent_id = 0;
+					}
+				}
 			} else {
 				// parent does not exist on this page
 				$comment->parent_id = 0;

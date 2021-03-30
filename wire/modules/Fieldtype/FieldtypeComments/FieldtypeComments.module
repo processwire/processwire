@@ -34,6 +34,7 @@ require_once($dirname . "/CommentField.php");
  * @method void commentUnapproved(Page $page, Field $field, Comment $comment, $notes = '') #pw-hooker
  * @method void commentAddReady(Page $page, Field $field, Comment $comment) #pw-hooker
  * @method void commentAdded(Page $page, Field $field, Comment $comment) #pw-hooker
+ * @method int sendNotifyEmails(Page $page, Field $field, Comment $comment, array $emailsData)
  * 
  *
  */
@@ -1864,16 +1865,16 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		$this->wire('log')->message("Approved comment $comment->id - $notes"); 
 		
-		if(!$field->get('useNotify')) return;
-		$emails = $this->getNotifyEmails($page, $field, $comment); 
+		if(!$field->get('useNotify')) return; // notifications not in use
+		if($comment->flags & Comment::flagNotifyQueue) return; // comment queued for 3rd party notifications
+		
+		$emailsData = $this->getNotifyEmails($page, $field, $comment); 
 
 		// emails array contains email address => subcode to send notifications to
-		if(count($emails)) {
-			require_once(dirname(__FILE__) . '/CommentNotifications.php'); 	
-			$no = $this->wire(new CommentNotifications($page, $field)); 
-			foreach($emails as $email => $data) {
-				$subcode = $data['subcode'];
-				$no->sendNotificationEmail($comment, $email, $subcode);
+		if(count($emailsData)) {
+			$qty = $this->sendNotifyEmails($page, $field, $comment, $emailsData);
+			if($qty > 0) {
+				// emails sent
 			}
 		}
 	}
@@ -1922,8 +1923,7 @@ class FieldtypeComments extends FieldtypeMulti {
 	 *
 	 */
 	public function ___commentAdded(Page $page, Field $field, Comment $comment) {
-		require_once(dirname(__FILE__) . '/CommentNotifications.php');
-		$no = $this->wire(new CommentNotifications($page, $field));
+		$no = $this->commentNotifications($page, $field); 
 		$no->sendAdminNotificationEmail($comment);
 		$this->commentMaintenance($field);
 
@@ -2005,6 +2005,31 @@ class FieldtypeComments extends FieldtypeMulti {
 		$query->closeCursor();
 
 		return $emails;
+	}
+	
+	/**
+	 * Get emails (and other data) of people that should be notified for a given Page’s comments
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param Comment|null $comment
+	 * @param array $emailsData
+	 * @return int
+	 * @since 3.0.175
+	 *
+	 */
+	public function ___sendNotifyEmails(Page $page, Field $field, Comment $comment, array $emailsData) {
+		
+		$no = $this->commentNotifications($page, $field); 
+		$cnt = 0;
+		
+		foreach($emailsData as $data) {
+			$subcode = $data['subcode'];
+			$email = $data['email']; 
+			$cnt += $no->sendNotificationEmail($comment, $email, $subcode);
+		}
+		
+		return $cnt;
 	}
 
 	/**
@@ -2370,6 +2395,24 @@ class FieldtypeComments extends FieldtypeMulti {
 		$options = parent::getImportValueOptions($field);
 		$options['test'] = true;
 		return $options;
+	}
+
+	/**
+	 * Get instance of CommentNotifications class
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return CommentNotifications
+	 * @since 3.0.175
+	 * 
+	 */
+	public function commentNotifications(Page $page, Field $field) {
+		require_once(dirname(__FILE__) . '/CommentNotifications.php');
+		$no = new CommentNotifications($page, $field);
+		$this->wire($no);
+		return $no;
 	}
 	
 }
