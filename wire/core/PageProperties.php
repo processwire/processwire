@@ -16,6 +16,9 @@
 
 abstract class PageProperties {
 	
+	const typePage = 1;
+	const typePageArray = 2;
+	
 	/**
 	 * Page class helper object instances (one of each helper per ProcessWire instance, lazy loaded)
 	 *
@@ -188,6 +191,24 @@ abstract class PageProperties {
 	public static $baseMethodAlternates = array(
 		'descendants' => 'find',
 		'descendant' => 'findOne',
+	);
+
+	/**
+	 * Method/property return types
+	 * 
+	 * @var array
+	 * @since 3.0.175
+	 * 
+	 */
+	public static $traversalReturnTypes = array(
+		'parent' => self::typePage,
+		'rootParent' => self::typePage,
+		'child' => self::typePage,
+		'next' => self::typePage,
+		'prev' => self::typePage,
+		'children' => self::typePageArray,
+		'parents' => self::typePageArray,
+		'siblings' => self::typePageArray,
 	);
 
 	/**
