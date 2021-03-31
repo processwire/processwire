@@ -3,7 +3,7 @@
 /**
  * ProcessWire shutdown handler
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  *  
  * Look for errors at shutdown and log them, plus echo the error if the page is editable
  *
@@ -43,10 +43,13 @@ class WireShutdown extends Wire {
 	 * 
 	 * - `code` (int): Fatal error http status code (0=use $config->fatalErrorCode instead)
 	 * - `headers` (array): Any additional headers to include in fatal error, in format [ "Header-Name: Header-Value" ]
-	 * - `adminEmail` (string): Administrator email address to send error to (overrides $config->adminEmail)
-	 * - `fromEmail` (string): From email address for email to administrator (default=same as adminEmail)
+	 * - `emailTo` (string): Administrator email address to send error to (default is $config->adminEmail)
+	 * - `emailFrom` (string): From email address for email to administrator (default=$config->wireMail['from'])
+	 * - `emailFromName` (string): From name for email to administrator (default=$config->wireMail['fromName'])
 	 * - `emailSubject` (string): Override email subject (default=use built-in translatable subject) 
 	 * - `emailBody` (string): Override default email body (text-only). Should have {url}, {user} and {message} placeholders.
+	 * - `emailBodyHTML` (string): Override default email body (HTML-only). Should have {url}, {user} and {message} placeholders.
+	 * - `emailModule` (string): Name of WireMail module to use, leave blank for automatic, or 'WireMail' to force default.
 	 * - `words` (array): Spicy but calming words to prepend to visible error messages. 
 	 * 
 	 * @var array
@@ -55,10 +58,13 @@ class WireShutdown extends Wire {
 	protected $fatalErrorResponse = array(
 		'code' => 0,
 		'headers' => array(),
-		'adminEmail' => '',
-		'fromEmail' => '',
+		'emailTo' => '',
+		'emailFrom' => '',
+		'emailFromName' => '',
 		'emailSubject' => '',
 		'emailBody' => '',
+		'emailBodyHTML' => '',
+		'emailModule' => '', 
 		'words' => array(), 
 	);
 
@@ -96,8 +102,8 @@ class WireShutdown extends Wire {
 	 * Default email body for emailed fatal errors
 	 * 
 	 */
-	const defaultEmailBody = "URL: {url}\nUser: {user}\n\n{message}";
-
+	const defaultEmailBody = "URL: {url}\nUser: {user}\nVersion: {version}\n\n{message}";
+	
 	/**
 	 * Construct and register shutdown function
 	 * 
@@ -117,15 +123,20 @@ class WireShutdown extends Wire {
 	 * @param array $options
 	 *  - `code` (int): http code to send, or omit to use default (500)
 	 *  - `headers` (array): Optional additional headers to send, in format [ "Header-Name: Header-Value" ]
-	 *  - `adminEmail` (string): Administrator email address to send error to (overrides $config->adminEmail)
-	 *  - `fromEmail` (string): From email address for email to administrator (default=same as adminEmail)
+	 *  - `emailTo` (string): Administrator email address to send error to (default=$config->adminEmail)
+	 *  - `emailFrom` (string): From email address for email to administrator (default=$config->wireMail['from'])
+	 *  - `emailFromName` (string): From “name” for email to administrator (default=$config->wireMail['fromName'])
 	 *  - `emailSubject` (string): Override email subject (default=use built-in translatable subject) 
 	 *  - `emailBody` (string): Override default email body (text-only). Should have {url}, {user} and {message} placeholders.
+	 *  - `emailModule` (string): Name of WireMail module to use or leave blank for automatic.
 	 *  - `words` (array): Spicy but calming words to prepend to visible error messages. 
 	 * @since 3.0.166
 	 * 
 	 */
 	public function setFatalErrorResponse(array $options) {
+		// account for renamed properties so that older property names continue to work
+		if(!empty($options['adminEmail']) && empty($options['emailTo'])) $options['emailTo'] = $options['adminEmail'];
+		if(!empty($options['fromEmail']) && empty($options['emailFrom'])) $options['emailFrom'] = $options['fromEmail']; 
 		$this->fatalErrorResponse = array_merge($this->fatalErrorResponse, $options);
 	}
 
@@ -276,6 +287,7 @@ class WireShutdown extends Wire {
 		
 		// return text-only error
 		if(!$useHTML) {
+			$message = $this->simplifyErrorMessageText($message);
 			echo "$message\n\n$why\n\n";
 			return;
 		}
@@ -290,33 +302,61 @@ class WireShutdown extends Wire {
 			htmlspecialchars($why, ENT_QUOTES, "UTF-8", false)
 		), $html);
 		
+		$html = $this->simplifyErrorMessageHTML($html);
+		
+		// output the error message
+		echo "$html\n\n";
+	}
+
+	/**
+	 * Simplify error message HTML for output (inclusive of simplifyErrorMessageText also)
+	 * 
+	 * @param string $html
+	 * @return string
+	 * @since 3.0.175
+	 * 
+	 */
+	protected function simplifyErrorMessageHTML($html) {
 		// make a prettier looking debug backtrace, when applicable
 		$style = 'font-family:monospace;font-size:14px';
 		$html = preg_replace('!(<br[^>]*>\s*)(#\d+\s+[^<]+)!is', '$1<span style="' . $style . '">$2</span>', $html);
 		
+		$html = $this->simplifyErrorMessageText($html);
+
+		// underline filenames
+		$html = preg_replace('!(\s)/([^\s:(]+?)\.(php|module|inc)!', '$1<u>$2.$3</u>', $html);
+
+		// improving spacing between filename and line number (123)
+		$html = str_replace('</u>(', '</u> (', $html);
+
+		// ProcessWire namespace is assumed so does not need to add luggage to output
+		$html = str_replace('ProcessWire\\', '', $html);
+		
+		return $html;
+	}
+
+	/**
+	 * Simplify error message to remove unnecessary or redundant information
+	 * 
+	 * @param string $text
+	 * @return string
+	 * @since 3.0.175
+	 * 
+	 */
+	protected function simplifyErrorMessageText($text) {
 		// reference original file rather than compiled version, when applicable
-		$html = str_replace('assets/cache/FileCompiler/site/', '', $html);
-	
+		$text = str_replace('assets/cache/FileCompiler/site/', '', $text);
+
 		// remove unnecessary stack trace label
-		$html = str_replace('Stack trace:<', '<', $html);
-	
+		$text = str_replace(array('Stack trace:<', 'Stack trace:'), array('<', ''), $text);
+
 		// remove portions of path that are not needed in this output
 		$rootPath = str_replace('/wire/core/', '/', dirname(__FILE__) . '/');
 		$rootPath2 = $this->config ? $this->config->paths->root : '';
-		$html = str_replace($rootPath, '/', $html); 
-		if($rootPath2 && $rootPath2 != $rootPath) $html = str_replace($rootPath2, '/', $html); 
-	
-		// underline filenames
-		$html = preg_replace('!(\s)/([^\s:(]+?)\.(php|module|inc)!', '$1<u>$2.$3</u>', $html);
+		$text = str_replace($rootPath, '/', $text);
+		if($rootPath2 && $rootPath2 != $rootPath) $text = str_replace($rootPath2, '/', $text);
 		
-		// improving spacing between filename and line number (123)
-		$html = str_replace('</u>(', '</u> (', $html);
-		
-		// ProcessWire namespace is assumed so does not need to add luggage to output
-		$html = str_replace('ProcessWire\\', '', $html);
-	
-		// output the error message
-		echo "$html\n\n";
+		return $text;
 	}
 
 	/**
@@ -630,36 +670,101 @@ class WireShutdown extends Wire {
 	 */
 	protected function sendFatalEmail($url, $userName, $message) {
 		
-		$mail = $this->wire()->mail;
-		if(!$mail) return false;
+		$settings = $this->config ? $this->config->wireMail : array(); 
+		$options = array();
+		$user = $this->wire()->user;
+		$version = $this->config ? $this->config->versionName : '';
 		
-		$adminEmail = $this->fatalErrorResponse['adminEmail'];
-		if(empty($adminEmail) && $this->config) $adminEmail = $this->config->adminEmail;
-		if(empty($adminEmail)) return false;
+		if(!$this->wire()->mail || empty($message)) return false;
 		
-		$fromEmail = $this->fatalErrorResponse['fromEmail'];
-		if(empty($fromEmail)) $fromEmail = $adminEmail;
+		$emailTo = $this->fatalErrorResponse['emailTo'];
+		if(empty($emailTo) && $this->config) $emailTo = $this->config->adminEmail;
+		if(empty($emailTo)) return false;
+		if($user && $user->email === $emailTo) return false; // don't send email to admin user that saw error message
+		
+		$emailFrom = $this->fatalErrorResponse['emailFrom'];
+		if(empty($emailFrom) && !empty($settings['from'])) $emailFrom = $settings['from'];
+		
+		$emailFromName = $this->fatalErrorResponse['emailFromName'];
+		if(empty($emailFromName) && !empty($settings['fromName'])) $emailFromName = $settings['fromName'];
+		if(empty($emailFromName)) $emailFromName = 'ProcessWire';
 		
 		$emailSubject = $this->fatalErrorResponse['emailSubject'];
 		if(empty($emailSubject)) $emailSubject = $this->labels['email-subject'];
+		if(strpos($emailSubject, '{host}') === false && $this->config) $emailSubject .= " - {host}";
+		if($this->config) $emailSubject = str_replace('{host}', $this->config->httpHost, $emailSubject);
 		
+		$emailModule = $this->fatalErrorResponse['emailModule'];
+		if(!empty($emailModule)) {
+			if($emailModule !== 'WireMail') {
+				$modules = $this->wire()->modules;
+				if(!$modules || !$modules->isInstalled($emailModule)) $emailModule = '';
+			}
+			if($emailModule) $options['module'] = $emailModule;
+		}
+
 		$emailBody = $this->fatalErrorResponse['emailBody'];
 		if(empty($emailBody)) $emailBody = self::defaultEmailBody;
-		
-		$message = str_replace("\t", "\n", $message);
-		
+
+		$message = $this->amendErrorMessage($message);
+		$message = $this->seasonErrorMessage($message);
+
 		$emailBody = str_replace(
-			array('{url}', '{user}', '{message}'), 
-			array($url, $userName, $message), 
+			array('{url}', '{user}', '{message}', '{version}'),
+			array($url, $userName, str_replace("\t", "\n", $message), $version),
 			$emailBody
 		);
-	
+
+		$emailBodyHTML = $this->fatalErrorResponse['emailBodyHTML'];
+		if(empty($emailBodyHTML)) {
+			$emailBodyHTML = $this->config ? $this->config->fatalErrorHTML : '';
+			if($emailBodyHTML) {
+				// use configured runtime fatal error HTML for email, replacing the {why}
+				$why = "User: {user}";
+				if($this->config) $why .= ", Version: {version}"; 
+				$emailBodyHTML = str_replace('{why}', $why, $emailBodyHTML);
+				$emailBodyHTML .= "<p><a href='{url}'>{url}</a></p>";
+			} else {
+				// convert text-only body to HTML
+				$emailBodyHTML = trim(htmlspecialchars($emailBody, ENT_QUOTES, "UTF-8"));
+				$emailBodyHTML = "<p>" . nl2br(str_replace("\n\n", "</p><p>", $emailBodyHTML)) . "</p>";
+			}
+		}
+
+		$messageHTML = $message;
+		if(strpos($message, '&') !== false) {
+			$messageHTML = html_entity_decode($message, ENT_QUOTES, "UTF-8");
+		}
+		$emailBodyHTML = str_replace(
+			array('{url}', '{user}', '{message}', '{version}'),
+			array(
+				htmlentities($url, ENT_QUOTES, "UTF-8"),
+				htmlentities($userName, ENT_QUOTES, "UTF-8"),
+				nl2br(htmlentities($messageHTML, ENT_QUOTES, "UTF-8")),
+				htmlentities($version, ENT_QUOTES, "UTF-8"), 
+			),
+			$emailBodyHTML
+		);
+
+		$emailBody = $this->simplifyErrorMessageText($emailBody);
+		$emailBodyHTML = $this->simplifyErrorMessageHTML($emailBodyHTML);
+		$emailBodyHTML = str_replace("\t", " ", $emailBodyHTML);
+		while(strpos($emailBodyHTML, '  ') !== false) $emailBodyHTML = str_replace('  ', ' ', $emailBodyHTML);
+		
+		if($emailBodyHTML && stripos($emailBodyHTML, "</html>") === false) {
+			$emailBodyHTML = 
+				"<!DOCTYPE html><html><head>" . 
+				"<meta http-equiv='content-type' content='text/html; charset=utf-8' /></head>" . 
+				"<body>$emailBodyHTML</body></html>";
+		}
+		
 		try {
-			$sent = $mail->to($adminEmail)
-				->from($fromEmail)
-				->subject($emailSubject)
-				->body($emailBody)
-				->send();
+			$mail = $this->wire()->mail->___new($options);
+			$mail->to($emailTo)->subject($emailSubject)->body($emailBody);
+			if(!empty($emailBodyHTML)) $mail->bodyHTML($emailBodyHTML);
+			if($emailFrom) $mail->from($emailFrom);
+			if($emailFromName) $mail->fromName($emailFromName);
+			$sent = $mail->send();
 		} catch(\Exception $e) {
 			$sent = false;
 		}
