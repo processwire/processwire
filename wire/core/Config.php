@@ -122,6 +122,7 @@
  * @property int $dbQueryLogMax Maximum number of queries WireDatabasePDO will log in memory, when debug mode is enabled (default=1000). #pw-group-database
  * @property string $dbInitCommand Database init command, for PDO::MYSQL_ATTR_INIT_COMMAND. Note placeholder {charset} gets replaced with $config->dbCharset. #pw-group-database
  * @property bool $dbStripMB4 When dbEngine is not utf8mb4 and this is true, we will attempt to remove 4-byte characters (like emoji) from inserts when possible. Note that this adds some overhead. #pw-group-database
+ * @property array|null $dbReader Configuration values for read-only database connection (if available). 3.0.175+ #pw-group-database
  * 
  * @property array $pageList Settings specific to Page lists. #pw-group-modules
  * @property array $pageEdit Settings specific to Page editors. #pw-group-modules
@@ -770,21 +771,46 @@ class Config extends WireData {
 	 * if($config->requestUrl('/products/2021/')) {
 	 *   // current request matches “/products/2021/” somewhere in URL
 	 * }
+	 * if($config->requestUrl([ 'foo', 'bar', 'baz' ])) {
+	 *   // current request has one or more of 'foo', 'bar', 'baz' in the URL
+	 * }
 	 * ~~~~~
 	 * 
 	 * #pw-group-tools
 	 * #pw-group-runtime
 	 *
-	 * @param string $match Optionally return URL only if some part matches this string (default='')
+	 * @param string|array $match Optionally return URL only if some part matches given string(s) (default='')
+	 * @param string $get Specify 'path' to get and/or match path, 'query' to get and/or match query string, or omit for URL (default='')
 	 * @return string Returns URL string or blank string if $match argument used and doesn’t match.
 	 * @since 3.0.175
 	 * 
 	 */
-	public function requestUrl($match = '') {
+	public function requestUrl($match = '', $get = '') {
 		if(empty($_SERVER['REQUEST_URI'])) return '';
 		$url = $_SERVER['REQUEST_URI'];
-		if(strpos($url, '?') !== false) list($url,) = explode('?', $url, 2);
-		if($match && strpos($url, $match) === false) $url = '';
+		$query = '';
+		if(strpos($url, '?') !== false) {
+			list($url, $query) = explode('?', $url, 2);
+		}
+		if($get === 'query') {
+			$url = $query;
+		} else if($get === 'path') {
+			$rootUrl = $this->urls->root;
+			if($rootUrl !== '/' && strpos($url, $rootUrl) === 0) {
+				$url = substr($url, strlen($rootUrl) - 1);
+			}
+		}
+		if(!strlen($url)) return '';
+		if(is_array($match)) {
+			$found = false;
+			foreach($match as $m) {
+				if(strpos($url, $m) !== false) $found = true;
+				if($found) break;
+			}
+			if(count($match) && !$found) $url = '';
+		} else if(strlen($match)) {
+			if(strpos($url, $match) === false) $url = '';
+		}
 		return $url;
 	}
 
@@ -801,26 +827,21 @@ class Config extends WireData {
 	 * if($config->requestPath('/processwire/')) {
 	 *   // the text “/processwire/” appears somewhere in current request path
 	 * }
+	 * if($config->requestPath([ 'foo', 'bar', 'baz' ])) {
+	 *   // current request has one or more of 'foo', 'bar', 'baz' in the path
+	 * }
 	 * ~~~~~
 	 * 
 	 * #pw-group-tools
 	 * #pw-group-runtime
 	 *
-	 * @param string $match Optionally return path only if some part matches this string (default='')
-	 * @return string|bool Returns path string or blank string if $match argument used and doesn’t match.
+	 * @param string|array $match Optionally return path only if some part matches given string(s) (default='')
+	 * @return string Returns path string or blank string if $match argument used and doesn’t match.
 	 * @since 3.0.175
 	 *
 	 */
 	public function requestPath($match = '') {
-		$url = $this->requestUrl();
-		$rootUrl = $this->urls->root;
-		if($rootUrl !== '/' && strpos($url, $rootUrl) === 0) {
-			$path = substr($url, strlen($rootUrl) - 1);
-		} else {
-			$path = $url;
-		}
-		if($match && strpos($path, $match) === false) $path = '';
-		return $path;
+		return $this->requestUrl($match, 'path');
 	}
 
 	/**
@@ -836,13 +857,17 @@ class Config extends WireData {
 	 * if($config->requestMethod() === 'GET') {
 	 *   // request method is GET
 	 * }
+	 * $method = $config->requestMethod([ 'POST', 'get' ]);
+	 * if($method) {
+	 *   // method is either 'POST' or 'GET'
+	 * }
 	 * ~~~~~
 	 * 
 	 * #pw-group-tools
 	 * #pw-group-runtime
 	 * 
-	 * @param string $match Return boolean true if request method equals this (false if not), not case sensitive (default='')
-	 * @return string|bool Returns one of GET, POST, HEAD, PUT, DELETE, OPTIONS, PATCH or boolean if $match argument used
+	 * @param string|array $match Return found method if request method equals one given (blank if not), not case sensitive (default='')
+	 * @return string Returns one of GET, POST, HEAD, PUT, DELETE, OPTIONS, PATCH, OTHER or blank string if no match
 	 * @since 3.0.175
 	 * 
 	 */
@@ -850,7 +875,16 @@ class Config extends WireData {
 		$methods = array('GET', 'POST', 'HEAD', 'PUT', 'DELETE', 'OPTIONS', 'PATCH');
 		$method = isset($_SERVER['REQUEST_METHOD']) ? strtoupper($_SERVER['REQUEST_METHOD']) : '';
 		$key = array_search($method, $methods);
-		$method = $key === false ? 'GET' : $methods[$key];
+		$method = $key === false ? 'OTHER' : $methods[$key];
+		if(is_array($match)) {
+			$found = '';
+			foreach($match as $m) {
+				$m = strtoupper($m);
+				if($m === $method) $found = $method;
+				if($found) break;
+			}
+			return $found;
+		}
 		return ($match ? strtoupper($match) === $method : $method);
 	}
 	
