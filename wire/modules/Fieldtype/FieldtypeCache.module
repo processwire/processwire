@@ -73,7 +73,7 @@ class FieldtypeCache extends Fieldtype {
 				$this->error("Field '$name' referenced by '$field' does not exist."); 
 				continue; 
 			}
-			$v = $f->type->wakeupValue($page, $field, $v); 
+			$v = $f->type->wakeupValue($page, $f, $v); 
 			if(!$page->__isset($name)) $page->setFieldValue($name, $v, false); 
 		}
 		return $this->cacheFields($field); 
