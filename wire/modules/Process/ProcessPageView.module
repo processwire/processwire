@@ -227,6 +227,7 @@ class ProcessPageView extends Process {
 
 		} catch(Wire404Exception $e) {
 			// 404 exception
+			TemplateFile::clearAll();
 			return $this->renderNoPage(array(
 				'reason404' => '404 thrown during page render',
 				'exception404' => $e, 
