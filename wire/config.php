@@ -294,13 +294,13 @@ $config->sessionExpireSeconds = 86400;
  * automatically enabled. 
  *
  * ~~~~~
- * $config->sessionAllow = function($session) {
+ * $config->sessionAllow = function($session) use($config) {
  * 
  *   // if there is a session cookie, a session is likely already in use so keep it going
  *   if($session->hasCookie()) return true;
  * 
  *   // if URL is an admin URL, allow session (replace /processwire/ with your admin URL)
- *   if(strpos($_SERVER['REQUEST_URI'], '/processwire/) === 0) return true;
+ *   if(strpos($config->requestPath(), '/processwire/) === 0) return true;
  * 
  *   // otherwise disallow session
  *   return false;
@@ -1189,7 +1189,59 @@ $config->dbQueryLogMax = 500;
  */
 $config->dbStripMB4 = false;
 
-
+/**
+ * Optional settings for read-only “reader” database connection 
+ * 
+ * All `$config->db*` settings above are for a read/write database connection. You can 
+ * optionally maintain a separate read-only database connection to reduce costs and 
+ * allow for further database scalability. Use of this feature requires an environment 
+ * that supports a separate read-only database connection to the same database used by the
+ * read/write connection. When enabled, ProcessWire will direct all non-writing queries to 
+ * the read-only connection, while queries that write to the database are directed to the
+ * read/write connection. 
+ * 
+ * Specify one or more existing `$config->db*` settings in the array to use that value for
+ * the read-only connection. To enable a separate read-only database connection, this array
+ * must contain at minimum a `host` or `socket` entry. Beyond that, values not present in 
+ * this array will be pulled from the existing `$config->db*` settings. Note, when specifying
+ * settings in this array, omit the `db` prefix and use lowercase for the first letter. For
+ * example, use `host` rather than `dbHost`, `name` rather than `dbName`, etc.
+ * 
+ * When using this feature, you may want to exclude your admin from it, as the admin is an
+ * environment that's designed for both read and write, so there's less reason to maintain
+ * separate read-only and read/write connections in the admin. See the examples below.
+ * 
+ * For more details see: https://processwire.com/blog/posts/pw-3.0.175/
+ * 
+ * ~~~~~
+ * // allow read-only database connection always…
+ * $config->dbReader = [ 
+ *   'host' => 'readonly.mydb.domain.com' 
+ * ];
+ * 
+ * // …or, use read-only connection only if not in the admin…
+ * if(!$config->requestPath('/processwire/')) {
+ *   $config->dbReader = [ 'host' => 'readonly.mydb.domain.com' ];
+ * }
+ *
+ * // …or limit read-only to GET requests, exclude admin and contact page… 
+ * $skipPaths = [ '/processwire/', '/contact/' ];
+ * if($config->requestMethod('GET') && !$config->requestPath($skipPaths)) {
+ *   $config->dbReader = [ 'host' => 'readonly.mydb.domain.com' ];
+ * }
+ * ~~~~~
+ * 
+ * @var array
+ * @since 3.0.175
+ * @see https://processwire.com/blog/posts/pw-3.0.175/
+ *
+ */
+$config->dbReader = array(
+	// 'host' => 'readonly.mydb.domain.com',
+	// 'port' => 3306, 
+	// 'name' => 'mydb',
+	// …etc., though most likely you will only need 'host' entry to setup a reader
+);
 
 /*** 8. MODULES *********************************************************************************/
 
