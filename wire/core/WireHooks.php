@@ -839,6 +839,7 @@ class WireHooks {
 		$filters = array();
 		$path = trim($path);
 		$pathParts = explode('/', trim($path, '/'));
+		$key = null;
 		
 		foreach($pathParts as $index => $filter) {
 
@@ -868,6 +869,9 @@ class WireHooks {
 			$key = $pos === 0 && $index === 0 ? 0 : $index + 1;
 			$filters[$key] = $filter;
 		}
+	
+		// trailing slash on last filter is optional
+		if($key !== null) $filters[$key] = rtrim($filters[$key], '/');
 		
 		$this->pathHooks[$id] = array(
 			'match' => $path,
