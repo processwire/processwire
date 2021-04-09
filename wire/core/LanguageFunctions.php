@@ -111,7 +111,7 @@ function __($text, $textdomain = null, $context = '') {
 	$textArray = false;
 	$encode = $options['entityEncode'];
 	$user = wire('user');
-	$language = $user ? $user->language : null; /** @var Language $language */
+	$language = $user ? $user->get('language') : null; /** @var Language $language */
 
 	if(!is_string($text)) {
 		// getting/setting options or translating with multiple phrases accepted

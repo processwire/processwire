@@ -669,7 +669,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if(ctype_digit("$key")) return null;
 		$item = null;
 		foreach($this->data as $wire) {
-			if(is_object($wire)) { 
+			if(is_object($wire) && $wire instanceof Wire) { 
 				if($wire->$key === $value) {
 					$item = $wire; 
 					break;
