@@ -925,11 +925,11 @@ class WireTextTools extends Wire {
 	 * @param WireData|object|array $vars Object or associative array to pull replacement values from.
 	 * @param array $options Array of optional changes to default behavior, including:
 	 * 	- `tagOpen` (string): The required opening tag character(s), default is '{'
-	 *	- `tagClose` (string): The optional closing tag character(s), default is '}'
-	 *	- `recursive` (bool): If replacement value contains tags, populate those too? (default=false)
-	 *	- `removeNullTags` (bool): If a tag resolves to a NULL, remove it? If false, tag will remain. (default=true)
-	 *	- `entityEncode` (bool): Entity encode the values pulled from $vars? (default=false)
-	 *	- `entityDecode` (bool): Entity decode the values pulled from $vars? (default=false)
+	 *  - `tagClose` (string): The optional closing tag character(s), default is '}'
+	 *  - `recursive` (bool): If replacement value contains tags, populate those too? (default=false)
+	 *  - `removeNullTags` (bool): If a tag resolves to a NULL, remove it? If false, tag will remain. (default=true)
+	 *  - `entityEncode` (bool): Entity encode the values pulled from $vars? (default=false)
+	 *  - `entityDecode` (bool): Entity decode the values pulled from $vars? (default=false)
 	 *  - `allowMarkup` (bool): Allow markup to appear in populated variables? (default=true)
 	 * @return string String with tags populated.
 	 * @since 3.0.126 Use wirePopulateStringTags() function for older versions
