@@ -440,12 +440,20 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 				// get images that are possibly in a repeater
 				$repeaterValue = $page->get($field->name); 
 				if($repeaterValue instanceof Page) $repeaterValue = array($repeaterValue); 
-				if($repeaterValue) foreach($repeaterValue as $p) {
-					$images = $this->getImages($p, $p->fields, $level+1); 
-					if(!count($images)) continue; 
-					$allImages = array_merge($allImages, $images);
-					$numImages += count($images); 
-					$numImageFields++;
+				if($repeaterValue) {
+					foreach($repeaterValue as $p) {
+						$images = $this->getImages($p, $p->fields, $level + 1);
+						if(!count($images)) continue;
+						foreach($images as $image) {
+							$parentFields = $image->get('_parentFields');
+							if(!is_array($parentFields)) $parentFields = array();
+							array_unshift($parentFields, $field); 
+							$image->setQuietly('_parentFields', $parentFields); 
+						}
+						$allImages = array_merge($allImages, $images);
+						$numImages += count($images);
+						$numImageFields++;
+					}
 				}
 				continue; 
 			}
@@ -463,8 +471,11 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		}
 
 		if(!$level) {
-			if(!$numImageFields) $this->message($this->_("There are no image fields on this page. Choose another page to select images from.")); // Message when page has no image fields
-				else if(!$numImages) $this->message($this->_("There are no images present on this page. Upload an image, or select images from another page."));  // Message when page has no images
+			if(!$numImageFields) {
+				$this->message($this->_("There are no image fields on this page. Choose another page to select images from.")); // Message when page has no image fields
+			} else if(!$numImages) {
+				$this->message($this->_("There are no images present on this page. Upload an image, or select images from another page."));  // Message when page has no images
+			}
 		}
 
 		return $allImages; 
@@ -505,6 +516,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 	public function ___execute() {
 
 		if($this->config->demo) throw new WireException("Sorry, image editing functions are disabled in demo mode"); 
+		
 		if(!$this->page) {
 			$error = "No page provided";
 			$this->error($error);
@@ -512,20 +524,38 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		}
 
 		if($this->input->get('file')) return $this->executeEdit();
-		
+	
+		$sanitizer = $this->wire()->sanitizer;
+		$modules = $this->wire()->modules;
 		$images = $this->getImages($this->page, $this->page->fields);
 
 		$out = '';
 
 		if(count($images)) {
-			$winwidth = (int) $this->input->get('winwidth');
-			$in = $this->wire('modules')->get('InputfieldImage'); 
-			$in->adminThumbs = true;
-			
+			$winwidth = (int) $this->wire()->input->get('winwidth');
+			$in = $modules->get('InputfieldImage'); /** @var InputfieldImage $in */
+			$in->set('adminThumbs', true);
+			$lastFieldLabel = '';
+			$numImageFields = 0;
+
 			foreach($images as $image) {
+				/** @var PageImage $image */
+				$fieldLabels = array();
+				$parentFields = $image->get('_parentFields');
+				if(!is_array($parentFields)) $parentFields = array();
+				foreach($parentFields as $parentField) {
+					$fieldLabels[] = $parentField->getLabel();
+				}
+				$fieldLabels[] = $image->field->getLabel();
+				$fieldLabel = implode(' > ', $fieldLabels);
+				if($fieldLabel != $lastFieldLabel) {
+					$numImageFields++;
+					$out .= "\n\t<li class='select_images_field_label detail'>" . $sanitizer->entities($fieldLabel) . "</li>";
+				}
+				$lastFieldLabel = $fieldLabel;
 				if($this->noThumbs) {
 					$width = $image->width();
-					$alt = $this->wire('sanitizer')->entities1($image->description); 
+					$alt = $sanitizer->entities1($image->description); 
 					if($width > $this->maxImageWidth) $width = $this->maxImageWidth;
 					$img = "<img src='$image->URL' width='$width' alt=\"$alt\" />";
 				} else {
@@ -533,22 +563,24 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 					$info = $in->getAdminThumb($image); 
 					$img = $info['markup'];
 				}
-				$out .= "\n\t<li><a href='./edit?file={$image->page->id},{$image->basename}" . 
+				$out .= 
+					"\n\t<li><a href='./edit?file={$image->page->id},{$image->basename}" . 
 					"&amp;modal=1&amp;id={$this->page->id}&amp;winwidth=$winwidth'>$img</a></li>";
 			}
 
 			$class = $this->noThumbs ? "" : "thumbs";
+			if($numImageFields > 1) $class = trim("$class multifield"); 
 			$out = "\n<ul id='select_images' class='$class'>$out\n</ul>";
 
 		}
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get("InputfieldForm");
+		$form = $modules->get("InputfieldForm");
 		$form->action = "./"; 
 		$form->method = "get";
 
 		/** @var InputfieldPageListSelect $field */
-		$field = $this->modules->get("InputfieldPageListSelect"); 
+		$field = $modules->get("InputfieldPageListSelect"); 
 		$field->label = $this->_("Images on Page:") . ' ' . $this->page->get("title") . " (" . $this->page->path . ")"; // Headline for page selection, precedes current page title/url
 		$field->description = $this->_("If you would like to select images from another page, select the page below."); // Instruction on how to select another page
 		$field->attr('id+name', 'page_id'); 
@@ -563,18 +595,20 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		if(count($imageFields)) {
 			$imageFieldNames = implode(',', array_keys($imageFields)); 
 			/** @var InputfieldButton $btn */
-			$btn = $this->modules->get('InputfieldButton');
+			$btn = $modules->get('InputfieldButton');
 			$uploadOnlyMode = "$this->page" === "$this->editorPage" ? 1 : 2;
 			$btn->href = "../edit/?modal=1&id={$this->page->id}&fields=$imageFieldNames&uploadOnlyMode=$uploadOnlyMode";
 			$btn->value = $this->_('Upload Image');
 			$btn->addClass('upload pw-modal-button pw-modal-button-visible'); 
 			$btn->icon = 'upload';
 			$changes = $this->wire('input')->get('changes'); 
-			if($changes) foreach(explode(',', $changes) as $name) {
-				$name = $this->wire('sanitizer')->fieldName($name); 
-				$field = $this->wire('fields')->get($name); 
-				if(!$field) continue;
-				$out .= "<script>refreshPageEditField('$name');</script>";
+			if($changes) {
+				foreach(explode(',', $changes) as $name) {
+					$name = $sanitizer->fieldName($name);
+					$field = $this->wire()->fields->get($name);
+					if(!$field) continue;
+					$out .= "<script>refreshPageEditField('$name');</script>";
+				}
 			}
 		} else $btn = null;
 

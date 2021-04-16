@@ -36,6 +36,17 @@
 		opacity: 0.9;
 	}
 
+.select_images_field_label {
+	display: none;
+}
+#select_images.multifield .select_images_field_label {
+	display: block;
+	clear: both;
+	padding-bottom: 5px; 
+}
+#select_images.multifield > li + li.select_images_field_label {
+	padding-top: 10px;
+}
 
 #selected_image,
 #selected_image_container {
