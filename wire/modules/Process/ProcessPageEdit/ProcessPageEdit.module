@@ -27,6 +27,7 @@
  * @method array getSubmitActions()
  * @method bool processSubmitAction($value)
  * @method void processSaveRedirect($redirectUrl)
+ * @method void deletedPage($page, $redirectUrl, $trashed = false)
  * @method InputfieldForm buildForm(InputfieldForm $form)
  * @method InputfieldWrapper buildFormContent()
  * @method InputfieldWrapper buildFormChildren()
@@ -587,7 +588,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$class = '';
 		$numFields = count($this->fields);
-		$out = "<p id='PageIDIndicator' class='$class'>" . ($this->page->id ? $this->page->id : "New") . "</p>";
+		// $out = "<p id='PageIDIndicator' class='$class'>" . ($this->page->id ? $this->page->id : "New") . "</p>";
+		$out = "<p id='PageIDIndicator' class='$class'>{$this->page->id}</p>";
 	
 		$description = $this->form->getSetting('description');
 		if($description) { 
@@ -2436,24 +2438,26 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 *
 	 */
 	protected function deletePage() {
+		
+		$page = $this->page;
 
-		if(!$this->page->trashable(true)) {
+		if(!$page->trashable(true)) {
 			$this->error($this->_('This page is not deleteable')); 
 			return false; 
 		}
 
-		$afterDeleteRedirect = $this->config->urls->admin . "page/?open={$this->parent->id}";
-		if($this->wire('page')->process != $this->className()) $afterDeleteRedirect = "../";
-		$pagePath = $this->page->path();
+		$redirectUrl = $this->wire()->config->urls->admin . "page/?open={$this->parent->id}";
+		if($this->wire()->page->process != $this->className()) $redirectUrl = "../";
+		$pagePath = $page->path();
 
-		if(($this->isTrash || $this->page->template->noTrash) && $this->page->deleteable()) {
-			$this->session->message(sprintf($this->_('Deleted page: %s'), $pagePath)); // Page deleted message
-			$this->pages->delete($this->page, true); 
-			$this->session->redirect($afterDeleteRedirect); 
+		if(($this->isTrash || $page->template->noTrash) && $page->deleteable()) {
+			$this->wire()->session->message(sprintf($this->_('Deleted page: %s'), $pagePath)); // Page deleted message
+			$this->pages->delete($page, true); 
+			$this->deletedPage($page, $redirectUrl, false);
 
-		} else if($this->pages->trash($this->page)) {
-			$this->session->message(sprintf($this->_('Moved page to trash: %s'), $pagePath)); // Page moved to trash message
-			$this->session->redirect($afterDeleteRedirect); 
+		} else if($this->pages->trash($page)) {
+			$this->wire()->session->message(sprintf($this->_('Moved page to trash: %s'), $pagePath)); // Page moved to trash message
+			$this->deletedPage($page, $redirectUrl, true);
 			
 		} else { 
 			$this->error($this->_('Unable to move page to trash')); // Page can't be moved to the trash error
@@ -2461,6 +2465,20 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		}
 		
 		return true;
+	}
+
+	/**
+	 * Called after a page has been deleted or trashed, performs redirect 
+	 *
+	 * @param Page $page Page that was deleted or trashed
+	 * @param string $redirectUrl URL that should be redirected to
+	 * @param bool $trashed True if page was trashed rather than deleted
+	 * @since 3.0.173
+	 * 
+	 */
+	protected function ___deletedPage($page, $redirectUrl, $trashed = false) {
+		if($page || $trashed) {} // ignore
+		$this->wire()->session->location($redirectUrl); 
 	}
 	
 	/**
