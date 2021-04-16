@@ -453,7 +453,7 @@ DirectoryIndex index.php index.html index.htm
   # section #2 above that makes ProcessWire the 404 handler. 
   # ----------------------------------------------------------------------------------------------- 
 
-  # RewriteCond %{REQUEST_FILENAME} !\.(jpg|jpeg|gif|png|ico|webp|svg)$ [NC]
+  # RewriteCond %{REQUEST_URI} !\.(jpg|jpeg|gif|png|ico|webp|svg)$ [NC]
   # RewriteCond %{REQUEST_FILENAME} !(^|/)site/assets/
 
   # ----------------------------------------------------------------------------------------------- 
