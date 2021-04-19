@@ -608,6 +608,7 @@ class PagesLoader extends Wire {
 		/** @var PageArray $pageArray */
 		$pageArray = $rows['pageArray'];
 		$pageArray->setTrackChanges(false);
+		$paginationTotal = $pageArray->getTotal();
 		unset($rows['pageArray']);
 
 		foreach($rows as $row) {
@@ -684,6 +685,7 @@ class PagesLoader extends Wire {
 			if($useCache) $this->pages->cache($page);
 		}
 
+		$pageArray->setTotal($paginationTotal);
 		$pageArray->resetTrackChanges(true);
 		
 		if($useCache) {
