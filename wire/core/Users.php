@@ -168,6 +168,37 @@ class Users extends PagesType {
 		}
 		return $pageClass;
 	}
+
+	/**
+	 * Set admin theme for all users having role
+	 * 
+	 * @param AdminTheme|string $adminTheme Admin theme instance or class/module name
+	 * @param Role $role
+	 * @return int Number of users set for admin theme
+	 * @throws WireException
+	 * @since 3.0.176
+	 * 
+	 */
+	public function setAdminThemeByRole($adminTheme, Role $role) {
+		if(strpos("$adminTheme", 'AdminTheme') !== 0) throw new WireException('Invalid admin theme');
+		$moduleId = $this->wire()->modules->getModuleID($adminTheme); 
+		if(!$moduleId) throw new WireException('Unknown admin theme');
+		$userTemplateIds = implode('|', $this->wire()->config->userTemplateIDs);
+		$userIds = $this->wire()->pages->findIDs("templates_id=$userTemplateIds, roles=$role, include=all");
+		if(!count($userIds)) return 0;
+		$field = $this->wire()->fields->get('admin_theme');
+		$table = $field->getTable();
+		$sql = "INSERT INTO `$table` (pages_id, data) VALUES(:pages_id, :data) ON DUPLICATE KEY UPDATE pages_id=VALUES(pages_id), data=VALUES(data)";
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':data', (int) $moduleId, \PDO::PARAM_INT);
+		$qty = 0;
+		foreach($userIds as $userId) {
+			$query->bindValue(':pages_id', $userId, \PDO::PARAM_INT);
+			$query->execute();
+			$qty++;
+		}
+		return $qty;
+	}
 	
 	/**
 	 * Hook called just before a user is saved
