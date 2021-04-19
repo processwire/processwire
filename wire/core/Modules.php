@@ -2206,7 +2206,7 @@ class Modules extends WireArray {
 	public function ___delete($class) {
 
 		$class = $this->getModuleClass($class); 
-		$success = false;
+		$success = true;
 		$reason = $this->isDeleteable($class, true); 
 		if($reason !== true) throw new WireException($reason); 
 		$siteModulesPath = $this->wire('config')->paths->siteModules;
@@ -2289,11 +2289,11 @@ class Modules extends WireArray {
 			
 			if(!$inRoot && !$numOtherModules && !$numLinks) {
 				// the modulePath had no other modules or directories in it, so we can delete it entirely
-				$success = wireRmdir($path, true); 
+				$success = $fileTools->rmdir($path, true); 
 				if($success) {
 					$this->message("Removed directory: $path", Notice::debug);
 					if(is_dir($backupPath)) {
-						if(wireRmdir($backupPath, true)) $this->message("Removed directory: $backupPath", Notice::debug); 
+						if($fileTools->rmdir($backupPath, true)) $this->message("Removed directory: $backupPath", Notice::debug); 
 					}
 					$files = array();
 				} else {
@@ -2306,15 +2306,14 @@ class Modules extends WireArray {
 		foreach($files as $file) {
 			$file = "$path/$file";
 			if(!file_exists($file)) continue;
-			if($this->wire('files')->unlink($file, $siteModulesPath)) {
+			if($fileTools->unlink($file, $siteModulesPath)) {
 				$this->message("Removed file: $file", Notice::debug);
 			} else {
 				$this->error("Unable to remove file: $file", Notice::debug);
 			}
 		}
 		
-		if($success) $this->log("Deleted module '$class'"); 
-			else $this->error("Failed to delete module '$class'"); 
+		$this->log("Deleted module '$class'");
 		
 		return $success; 
 	}
