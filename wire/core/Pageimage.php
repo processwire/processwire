@@ -1580,7 +1580,7 @@ class Pageimage extends Pagefile {
 		$original = null;
 		$replacements = array();
 		$properties = array(
-			'url', 'httpUrl', 'URL', 'HTTPURL',
+			'url', 'src', 'httpUrl', 'URL', 'HTTPURL',
 			'description', 'alt', 'tags', 'ext', 'class',
 			'width', 'height', 'hidpiWidth', 'hidpiHeight',
 		);
