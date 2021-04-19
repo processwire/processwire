@@ -255,10 +255,22 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			'options' => $options,
 		);
 
-		if(!empty($reader) && (!empty($reader['host']) || !empty($reader['socket']))) {
-			$reader['dsn'] = self::dsn(array_merge($dsnArray, $reader));
-			$reader = array_merge($data, $reader);
-			$data['reader'] = $reader;
+		if(!empty($reader)) { 
+			if(isset($reader['host']) || isset($reader['socket'])) {
+				// single reader
+				$reader['dsn'] = self::dsn(array_merge($dsnArray, $reader));
+				$reader = array_merge($data, $reader);
+				$data['reader'] = $reader;
+			} else {
+				// multiple readers
+				$readers = array();
+				foreach($reader as $r) {
+					if(empty($r['host']) && empty($r['socket'])) continue;
+					$r['dsn'] = self::dsn(array_merge($dsnArray, $r));
+					$readers[] = array_merge($data, $r);
+				}
+				$data['reader'] = $readers;
+			}
 		}
 
 		$database = new WireDatabasePDO($data);
@@ -337,12 +349,22 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	public function __construct($dsn, $username = null, $password = null, array $driver_options = array()) {
 		parent::__construct();
 		if(is_array($dsn) && isset($dsn['dsn'])) {
+			// configuration data provided in $dsn argument array
 			if($username !== null && empty($dsn['user'])) $dsn['user'] = $username;
 			if($password !== null && empty($dsn['pass'])) $dsn['pass'] = $password;
 			if(!isset($dsn['options'])) $dsn['options'] = $driver_options;
 			$this->pdoConfig = array_merge($this->pdoConfig, $dsn);
-			if(!empty($this->pdoConfig['reader']['dsn'])) $this->reader['has'] = true;
+			if(!empty($this->pdoConfig['reader'])) {
+				if(!empty($this->pdoConfig['reader']['dsn'])) {
+					// single reader
+					$this->reader['has'] = true;
+				} else if(!empty($this->pdoConfig['reader'][0]['dsn'])) {
+					// multiple readers
+					$this->reader['has'] = true;
+				}
+			}
 		} else {
+			// configuration data in direct arguments
 			$this->pdoConfig['dsn'] = $dsn;
 			$this->pdoConfig['user'] = $username;
 			$this->pdoConfig['pass'] = $password;
@@ -462,20 +484,42 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 */
 	protected function pdoReader() {
 		if(!$this->allowReader()) return $this->pdoWriter();
-		if(!$this->reader['pdo']) {
-			$this->reader['init'] = false;
-			$pdo = new \PDO(
-				$this->pdoConfig['reader']['dsn'],
-				$this->pdoConfig['reader']['user'],
-				$this->pdoConfig['reader']['pass'],
-				$this->pdoConfig['reader']['options']
-			);
-			$this->reader['pdo'] = $pdo;
-			$this->_init($pdo);
-		} else {
+		
+		if($this->reader['pdo']) {
 			$pdo = $this->reader['pdo'];
+			$this->pdoLast = $pdo;
+			return $pdo;
 		}
+		
+		$this->reader['init'] = false;
+		$lastException = null;
+		
+		if(isset($this->pdoConfig['reader']['dsn'])) {
+			// just one reader
+			$readers = array($this->pdoConfig['reader']);
+		} else {
+			// randomly select a reader
+			$readers = $this->pdoConfig['reader'];
+			shuffle($readers);
+		}
+		
+		do {
+			// try readers till we find one that gives us a connection
+			$reader = array_shift($readers);
+			try {
+				$pdo = new \PDO($reader['dsn'], $reader['user'], $reader['pass'], $reader['options']);
+			} catch(\PDOException $e) {
+				$pdo = null;
+				$lastException = $e;
+			}
+		} while(!$pdo && count($readers));
+		
+		if(!$pdo) throw $lastException;
+		
+		$this->reader['pdo'] = $pdo;
+		$this->_init($pdo);
 		$this->pdoLast = $pdo;
+		
 		return $pdo;
 	}
 	
