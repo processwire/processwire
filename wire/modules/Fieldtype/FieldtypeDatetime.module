@@ -378,12 +378,12 @@ class FieldtypeDatetime extends Fieldtype {
 		$f->icon = 'calendar';
 		$f->addOption('', $this->_('None'));
 		$f->columnWidth = 50;
-		$date = strtotime('2016-04-08 5:10:02 PM');
+		$date = strlen(date('jn')) < 4 ? time() : strtotime('2016-04-08 5:10:02 PM');
 		$found = false;
 		foreach($wdt->getDateFormats() as $format) {
 			$dateFormatted = $wdt->formatDate($date, $format); 	
 			if($format == 'U') $dateFormatted .= " " . $this->_('(unix timestamp)');
-			$f->addOption($format, $dateFormatted); 
+			$f->addOption($format, "$dateFormatted [$format]"); 
 			if(!$found && strpos($field->get('dateOutputFormat'), $format) !== false) {
 				$f->attr('value', $format); 
 				$found = true; 
@@ -403,7 +403,7 @@ class FieldtypeDatetime extends Fieldtype {
 		$dateOutputFormat = $field->get('dateOutputFormat');
 		foreach($wdt->getTimeFormats() as $format) {
 			$timeFormatted = $wdt->formatDate($date, $format); 	
-			$f->addOption($format, $timeFormatted); 
+			$f->addOption($format, "$timeFormatted [$format]"); 
 			if(strpos($dateOutputFormat, $format) !== false) {
 				list(,$test) = explode($format, $dateOutputFormat);
 				if(!strlen($test)) $f->attr('value', $format);
