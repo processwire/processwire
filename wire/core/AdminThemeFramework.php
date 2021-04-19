@@ -773,29 +773,54 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 * 
 	 */
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		$modules = $this->wire()->modules;
+		$input = $this->wire()->input; 
+		$roles = $this->wire()->roles;
 
 		/** @var InputfieldCheckbox $f */
-		$f = $this->modules->get('InputfieldCheckbox'); 
+		$f = $modules->get('InputfieldCheckbox'); 
 		$f->name = 'useAsLogin';
 		$f->label = $this->_('Use this admin theme for login screen?');
 		$f->description = $this->_('When checked, this admin theme will be used on the user login screen.');
 		$f->icon = 'sign-in';
-		$f->collapsed = Inputfield::collapsedBlank;
+		$f->columnWidth = 50;
 		if($this->get('useAsLogin')) $f->attr('checked', 'checked');
 		$inputfields->add($f);
 		
-		if($f->attr('checked') && $this->input->requestMethod('GET')) {
+		if($f->attr('checked') && $input->requestMethod('GET')) {
+			$themes = $modules->findByPrefix('AdminTheme');
 			$class = $this->className();
-			foreach($this->modules->findByPrefix('AdminTheme') as $name) {
-				if($name == $class) continue;
-				$cfg = $this->modules->getConfig($name);
+			foreach($themes as $name) {
+				if($name === $class) continue;
+				$cfg = $modules->getConfig($name);
 				if(!empty($cfg['useAsLogin'])) {
 					unset($cfg['useAsLogin']);
-					$this->modules->saveConfig($name, $cfg);
+					$modules->saveConfig($name, $cfg);
 					$this->message("Removed 'useAsLogin' setting from $name", Notice::debug);
 				}
 			}
 		}
+		
+		/** @var InputfieldSelect $f */
+		$f = $modules->get('InputfieldSelect');
+		$f->name = '_setAdminThemeRoleId'; 
+		$f->label = $this->_('Change users to this admin theme');
+		$f->description = $this->_('Select user role to update matching users to this admin theme.'); 
+		$f->columnWidth = 50;
+		$f->icon = 'users';
+		foreach($roles as $role) {
+			if($role->name === 'guest') continue;
+			$f->addOption($role->id, sprintf($this->_('Role: %s'), $role->name));
+		}
+		$inputfields->add($f);
+		
+		$roleId = (int) $input->post('_setAdminThemeRoleId');
+		$role = $roleId ? $roles->get($roleId) : null;
+		if($role) {
+			$n = $this->wire()->users->setAdminThemeByRole($this, $role); 
+			$this->message(sprintf($this->_('Set %d user(s) to have this admin theme'), $n), Notice::noGroup);
+		}
 	}
+
 }
 
