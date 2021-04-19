@@ -1229,6 +1229,14 @@ $config->dbStripMB4 = false;
  * if($config->requestMethod('GET') && !$config->requestPath($skipPaths)) {
  *   $config->dbReader = [ 'host' => 'readonly.mydb.domain.com' ];
  * }
+ * 
+ * // to have PW randomly select from multiple DB readers, nest the arrays (3.0.176+)
+ * // if a connection fails, PW will try another randomly till it finds one that works
+ * $config->dbReader = [
+ *   [ 'host' => 'mydb1.domain.com' ],
+ *   [ 'host' => 'mydb2.domain.com' ],
+ *   [ 'host' => 'mydb3.domain.com' ],
+ * ];
  * ~~~~~
  * 
  * @var array

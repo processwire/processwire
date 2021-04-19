@@ -2829,6 +2829,9 @@ class Modules extends WireArray {
 	 *  - `useNavJSON` (bool): whether the Process module provides JSON navigation
 	 *  - `permissionMethod` (string|callable): method to call to determine permission
 	 *  - `page` (array): definition of page to create for Process module
+	 *
+	 * On error, an `error` index in returned array contains error message. You can also identify errors 
+	 * such as a non-existing module by the returned module info having an `id` index of `0`
 	 * 
 	 * ~~~~~
 	 * // example of getting module info
@@ -2849,7 +2852,9 @@ class Modules extends WireArray {
 	 *  - `verbose` (bool): Makes the info also include verbose properties, which are otherwise blank. (default=false)
 	 *  - `minify` (bool): Remove non-applicable and properties that match defaults? (default=false, or true when getting `all`)
 	 *  - `noCache` (bool): prevents use of cache to retrieve the module info. (default=false)
-	 * @return array Associative array of module information
+	 * @return array Associative array of module information. 
+	 *  - On error, an `error` index is also populated with an error message. 
+	 *  - When requesting a module that does not exist its `id` value will be `0` and its `name` will be blank.
 	 * @see Modules::getModuleInfoVerbose()
 	 * @todo move all getModuleInfo methods to their own ModuleInfo class and break this method down further.
 	 *	
