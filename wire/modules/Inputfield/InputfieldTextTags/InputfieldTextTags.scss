@@ -1,0 +1,33 @@
+$tag-background-color: #f0f3f7;
+$tag-border-color: #cbd7e3;
+$tag-border-colors: #b1c3d4 #cbd7e3 #cbd7e3 #cbd7e3;
+
+.InputfieldTextTags {
+	label.pw-hidden {
+		display: none;
+	}
+	input.InputfieldTextTagsSelect:not(.selectized),
+	input.InputfieldTextTagsInput:not(.selectized) {
+		color: $tag-background-color;
+	}
+}
+
+.Inputfield {
+	.selectize-input {
+		border: 1px solid $tag-border-colors;
+		border-color: $tag-border-colors;
+		box-shadow: none;
+	}
+	.selectize-control .selectize-input.has-items > div {
+		background: $tag-background-color;
+		white-space: nowrap;
+		border: 1px solid $tag-border-color;
+		border-radius: 3px;
+		a.remove {
+			color: #555;
+		}
+	}
+	.selectize-input:not(.has-items) {
+		background: $tag-background-color;
+	}
+}
