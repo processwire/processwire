@@ -516,7 +516,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		} else if($saveTag) {
 			// save tag
 			$tagFields = $sanitizer->names($input->post('tag_fields'));
-			$renameTag = $input->post->fieldName('rename_tag');
+			$renameTag = $input->post->templateName('rename_tag');
 			$isCollapsed = (int) $input->post('tag_collapsed');
 			$removeTag = '';
 			if($renameTag && $renameTag != $saveTag) {
@@ -1487,7 +1487,6 @@ class ProcessField extends Process implements ConfigurableModule {
 		$field->attr('id+name', 'field_label');
 		$field->label = $this->labels['label'];
 		$field->attr('value', $this->field->label);
-		$field->required = true;
 		$field->class .= ' asmListItemDesc'; // for modal to populate parent asmSelect desc field with this value (recognized by jquery.asmselect.js)
 		// $field->detail = $this->_([ 'Label that appears above the field input.', 'This is the label that appears above the entry field. If left blank, the name will be used instead.' ]); // Description for 'field label'
 		$field->columnWidth = $languages ? 100 : 33;
@@ -1838,10 +1837,17 @@ class ProcessField extends Process implements ConfigurableModule {
 		$form->attr('id', 'advanced');
 		$form->attr('class', 'WireTab');
 		$form->attr('title', $this->_x('Advanced', 'tab'));
-		
-		/** @var InputfieldText $field */
-		$field = $this->modules->get("InputfieldText");
+	
+		$tags = array();
+		foreach($this->wire()->fields->getTags() as $tagKey => $tagValue) {
+			$tags[strtolower($tagKey)] = $tagValue;
+		}
+		ksort($tags);
+		/** @var InputfieldTextTags $field */
+		$field = $this->modules->getInstall("InputfieldTextTags");
 		$field->attr('name', 'tags');
+		$field->allowUserTags = true;
+		if(count($tags)) $field->setTagsList($tags);
 		$field->attr('value', $this->field->getTags(true));
 		$field->icon = 'tags';
 		$field->label = $this->labels['tags'];
@@ -1850,9 +1856,6 @@ class ProcessField extends Process implements ConfigurableModule {
 			'[' . $this->labels['manage-tags'] . '](./tags/)';
 		$field->collapsed = Inputfield::collapsedBlank;
 		$form->prepend($field);
-
-		$this->wire('modules')->get('JqueryUI')->use('selectize');
-
 
 		return $form;
 	}
@@ -2984,7 +2987,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		} else if($segment === 'sendTemplates' || $segment === 'send-templates') {
 			$templates = array();
 			foreach(explode(',', (string) $input->get('templates')) as $value) {
-				if(!empty($value)) $templates[] = $sanitizer->fieldName($value);
+				if(!empty($value)) $templates[] = $sanitizer->templateName($value);
 			}
 			$data = array(
 				'id' => (int) $input->get('id'),
