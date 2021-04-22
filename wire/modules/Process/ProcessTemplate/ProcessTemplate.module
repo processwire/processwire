@@ -106,6 +106,12 @@ class ProcessTemplate extends Process {
 				$this->_('Do not include a file extension.'),
 			'invalidTemplateName' => $this->_('Template name does not match required format.'),
 			'nameAlreadyInUse' => $this->_('The name "%s" is already in use'),
+			'name' => $this->_('Name'), 
+			'label' => $this->_('Label'), 
+			'type'  => $this->_('Type'), 
+			'tags' => $this->_('Tags'), 
+			'manageTags' => $this->_('Manage tags'), 
+			'templates' => $this->_('Templates'),
 		);
 
 		if($this->input->urlSegment1) $this->modules->get("JqueryWireTabs"); 
@@ -170,21 +176,22 @@ class ProcessTemplate extends Process {
 		$systemLabel = $this->_x('System', 'tag'); // Tag applied to the group of built-in/system fields
 		$hasFilters = $this->session->getFor($this, 'filterField');
 		$showSystem = $this->session->getFor($this, 'filterSystem');
-		$collapsedTags = array();
 		$caseTags = array(); // indexed by lowercase version of tag
+		$collapsedTags = $this->wire()->modules->getConfig($this, 'collapsedTags'); 
+		if(!is_array($collapsedTags)) $collapsedTags = array();
 
 		if(!$hasFilters) foreach($this->templates as $template) {
 			if($showSystem && ($template->flags & Template::flagSystem)) {
 				$template->tags .= " $systemLabel";
 			}
-			if(empty($template->tags)) {
+			if(!strlen($template->tags)) {
 				$tag = strtolower($untaggedLabel);
 				if(!isset($templatesByTag[$tag])) $templatesByTag[$tag] = array();
 				$templatesByTag[$tag][$template->name] = $template;
 				$caseTags[$tag] = $untaggedLabel;
 				continue; 
 			}
-			$tags = explode(' ', trim($template->tags));
+			$tags = $template->getTags();
 			foreach($tags as $tag) {
 				if(empty($tag)) continue; 
 				$caseTag = ltrim($tag, '-');
@@ -1325,16 +1332,16 @@ class ProcessTemplate extends Process {
 
 		// --------------------
 
-		/** @var InputfieldText $field */
-		$field = $this->modules->get("InputfieldText"); 
+		/** @var InputfieldTextTags $field */
+		$field = $this->modules->get('InputfieldTextTags'); 
 		$field->attr('name', 'tags'); 
 		$field->attr('value', $template->tags); 
 		$field->label = $this->_('Tags');
 		$field->icon = 'tags';
+		$field->allowUserTags = true;
+		$field->setTagsList($this->wire()->templates->getTags());
 		$field->description = $this->_('If you want to visually group this template with others in the templates list, enter a one-word tag. Enter the same tag on other templates you want to group with. To specify multiple tags, separate each with a space. Use of tags may be worthwhile if your site has a large number of templates.'); // Description for field tags
-		$field->notes = 
-			$this->_('Each tag must be one word (hyphenation is okay).') . " " . 
-			$this->_('To make a tag collapsed in the templates list, prepend a hyphen to it, like this: -hello');
+		$field->notes = $this->_('Each tag must be one word (hyphenation is okay).') . ' [' . $this->labels['manageTags'] . '](./tags/)';
 		$form->add($field); 
 
 		// --------------------
@@ -3245,6 +3252,163 @@ class ProcessTemplate extends Process {
 		
 		return $form->render();
 	}
+	
+	/**
+	 * Handle the “Manage Tags” actions
+	 *
+	 * @return string
+	 *
+	 */
+	public function ___executeTags() {
+
+		$input = $this->wire()->input;
+		$modules = $this->wire()->modules;
+		$templates = $this->wire()->templates;
+		$sanitizer = $this->wire()->sanitizer;
+		$form = $modules->get('InputfieldForm'); /** @var InputfieldForm $form */
+
+		$out = '';
+		$labels = $this->labels;
+		$headline = $labels['tags'];
+		$this->headline($headline);
+		$this->breadcrumb('../', $labels['templates']);
+
+		$templateNamesByTag = $templates->getTags(true);
+		$editTag = $input->get->name('edit_tag');
+		$saveTag = $input->post->name('save_tag');
+
+		$tags = array();
+		foreach(array_keys($templateNamesByTag) as $tag) {
+			$tags[$tag] = $tag;
+		}
+		
+		$collapsedTags = $modules->getConfig($this, 'collapsedTags');
+		if(!is_array($collapsedTags)) $collapsedTags = array();
+
+		if($editTag) {
+			// edit which fields are assigned to tag
+			$this->breadcrumb('./', $headline);
+			$this->headline("$labels[tag] - " . (isset($tags[$editTag]) ? $tags[$editTag] : $editTag));
+
+			/** @var InputfieldName $f */
+			$f = $modules->get('InputfieldName');
+			$f->attr('name', 'rename_tag');
+			$f->attr('value', isset($tags[$editTag]) ? $tags[$editTag] : $editTag);
+			$f->collapsed = Inputfield::collapsedYes;
+			$f->addClass('InputfieldIsSecondary', 'wrapClass');
+			$f->icon = 'tag';
+			$form->add($f);
+
+			/** @var InputfieldCheckboxes $f */
+			$f = $modules->get('InputfieldCheckboxes');
+			$f->attr('name', 'tag_templates');
+			$f->label = $this->_('Select all templates that should have this tag');
+			$f->table = true;
+			$f->icon = 'cubes';
+			$f->thead = "$labels[name]|$labels[label]|$labels[tags]";
+			$value = array();
+			foreach($templates as $template) {
+				/** @var Field $field */
+				if($template->flags & Template::flagSystem) continue;
+				$templateTags = $template->getTags();
+				$templateLabel = str_replace('|', ' ', $template->label);
+				$f->addOption($template->name, "**$template->name**|$templateLabel|" . implode(', ', $templateTags));
+				if(isset($templateTags[$editTag])) $value[] = $template->name;
+			}
+			$f->attr('value', $value);
+			$form->add($f);
+
+			/** @var InputfieldCheckbox */
+			$f = $modules->get('InputfieldCheckbox');
+			$f->attr('name', 'tag_collapsed');
+			$f->label = $this->_('Display as collapsed in templates list?');
+			if(in_array($editTag, $collapsedTags)) $f->attr('checked', 'checked');
+			$form->add($f);
+
+			/** @var InputfieldHidden $f */
+			$f = $modules->get('InputfieldHidden');
+			$f->attr('name', 'save_tag');
+			$f->attr('value', $editTag);
+			$form->appendMarkup = "<p class='detail'>" . wireIconMarkup('trash-o') . ' ' .
+				$this->_('To delete this tag, remove all templates from it.') . "</p>";
+			$form->add($f);
+
+		} else if($saveTag) {
+			// save tag
+			$tagTemplates = $sanitizer->names($input->post('tag_templates'));
+			$renameTag = $input->post->templateName('rename_tag');
+			$isCollapsed = (int) $input->post('tag_collapsed');
+			$removeTag = '';
+			if($renameTag && $renameTag != $saveTag) {
+				$removeTag = $saveTag;
+				$saveTag = $renameTag;
+			}
+			foreach($templates as $template) {
+				/** @var Template $template */
+				if($removeTag && $template->hasTag($removeTag)) {
+					$template->removeTag($removeTag);
+				}
+				if(in_array($template->name, $tagTemplates)) {
+					// template should have the given tag
+					if($template->hasTag($saveTag)) continue;
+					$template->addTag($saveTag);
+					$this->message(sprintf($this->_('Added tag “%1$s” to template: %2$s'), $saveTag, $template->name));
+				} else if($template->hasTag($saveTag)) {
+					// template should not have the given tag
+					$template->removeTag($saveTag);
+					$this->message(sprintf($this->_('Removed tag “%1$s” from template: %2$s'), $saveTag, $template->name));
+				}
+				if($template->isChanged('tags')) $template->save();
+			}
+			$_collapsedTags = $collapsedTags;
+			if($isCollapsed) {
+				if(!in_array($saveTag, $collapsedTags)) $collapsedTags[] = $saveTag;
+			} else {
+				$key = array_search($saveTag, $collapsedTags);
+				if($key !== false) unset($collapsedTags[$key]);
+			}
+			if($collapsedTags !== $_collapsedTags) {
+				$modules->saveConfig($this, 'collapsedTags', $collapsedTags);
+			}
+			$this->wire()->session->redirect('./');
+			return '';
+
+		} else {
+			// list defined tags
+			$out .= "<p class='description'>" . $this->_('Tags enable you to create collections of templates for listing.') . "</p>";
+			/** @var MarkupAdminDataTable $table */
+			$table = $modules->get('MarkupAdminDataTable');
+			$table->setSortable(false);
+			$table->setEncodeEntities(false);
+			$table->headerRow(array($labels['name'], $labels['templates']));
+
+			foreach($tags as $key => $tag) {
+				$table->row(array(
+					$tag => "./?edit_tag=$tag",
+					implode(', ', $templateNamesByTag[$tag])
+				));
+			}
+
+			if(count($tags)) $out .= $table->render();
+
+			$form->attr('method', 'get');
+			/** @var InputfieldName $f */
+			$f = $modules->get('InputfieldName');
+			$f->attr('name', 'edit_tag');
+			$f->label = $this->_('Add new tag');
+			$f->icon = 'tag';
+			$f->addClass('InputfieldIsSecondary', 'wrapClass');
+			$form->add($f);
+		}
+
+		$f = $modules->get('InputfieldSubmit');
+		$form->add($f);
+		$out .= $form->render();
+
+		return $out;
+	}
+
+
 
 	/**
 	 * Search for items containing $text and return an array representation of them
