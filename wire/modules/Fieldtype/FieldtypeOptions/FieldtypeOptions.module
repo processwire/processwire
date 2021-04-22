@@ -177,7 +177,13 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 			
 		} else if(is_int($value) || (is_string($value) && ctype_digit("$value"))) {
 			// assumed to be an option ID
-			$value = $this->manager->getOptionsByID($field, array((int) $value)); 
+			$value = $this->manager->getOptionsByID($field, array((int) $value));
+			
+		} else if(is_string($value) && $field->get('inputfieldClass') === 'InputfieldTextTags') {
+			/** @var InputfieldTextTags $inputfield */
+			$inputfield = $this->wire()->modules->getModule('InputfieldTextTags', array('noInit' => true)); 
+			$value = $inputfield->tagStringToArray($value);
+			$value = $this->manager->getOptions($field, array('id' => $value));
 			
 		} else if(is_string($value)) {
 			// may be option 'title' (first) or option 'value' (second)

@@ -156,6 +156,7 @@ class SelectableOptionConfig extends Wire {
 
 		$labelSingle = $this->_('Single value');
 		$labelMulti = $this->_('Multiple values');
+		$labelSortable = $this->_('Multiple sortable values');
 
 		$f = $modules->get('InputfieldSelect');
 		$f->attr('name', 'inputfieldClass');
@@ -167,15 +168,17 @@ class SelectableOptionConfig extends Wire {
 			if($module instanceof ModulePlaceholder) {
 				$module = $modules->getModule($module->className(), array('noInit' => true));
 			}
-			if($module instanceof InputfieldSelect) {
+			if($module instanceof InputfieldSelect || $module instanceof InputfieldHasSelectableOptions) {
 				$name = str_replace('Inputfield', '', $module->className());
-				if($module instanceof InputfieldSelectMultiple) {
+				if($module instanceof InputfieldHasSortableValue) {
+					$name .= " ($labelSortable)";
+				} else if($module instanceof InputfieldSelectMultiple) {
 					$name .= " ($labelMulti)";
 				} else {
 					$name .= " ($labelSingle)";
 				}
 				$f->addOption($module->className(), $name);
-			}
+			} 
 		}
 		$value = $field->get('inputfieldClass');
 		if(!$value) $value = 'InputfieldSelect';
@@ -210,7 +213,9 @@ class SelectableOptionConfig extends Wire {
 			foreach($options as $option) {
 				$f->addOption($option->id, $option->title); 
 			}
-			$f->attr('value', $field->get('initValue')); 
+			$initValue = $field->get('initValue');
+			if($f instanceof InputfieldHasArrayValue && !is_array($initValue) && !empty($initValue)) $initValue = explode(' ', $initValue);
+			$f->attr('value', $initValue);
 			if(!$field->required && !$field->requiredIf) {
 				$f->notes = $this->_('Please note: your selections here do not become active unless a value is *always* required for this field. See the "required" option on the Input tab of your field settings.');
 			} else {
