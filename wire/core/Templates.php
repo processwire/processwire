@@ -785,6 +785,35 @@ class Templates extends WireSaveableItems {
 		return $pageClass;
 	}
 
+	/**
+	 * Get all tags used by templates
+	 * 
+	 * @param bool $getTemplateNames Get arrays of template names for each tag? (default=false)
+	 * @return array
+	 * @since 3.0.176
+	 * 
+	 */
+	public function getTags($getTemplateNames = false) {
+		$tags = array();
+		foreach($this as $template) {
+			/** @var Template $template */
+			$templateTags = $template->tags;
+			if(empty($templateTags)) continue;
+			$templateTags = explode(' ', $templateTags);
+			foreach($templateTags as $tag) {
+				if(empty($tag)) continue;
+				if($getTemplateNames) {
+					if(!isset($tags[$tag])) $tags[$tag] = array();
+					$tags[$tag][$template->name] = $template->name;
+				} else {
+					$tags[$tag] = $tag;
+				}
+			}
+		}
+		ksort($tags);
+		return $tags;
+	}
+
 
 	/**
 	 * Set a Permission for a Template for and specific Role

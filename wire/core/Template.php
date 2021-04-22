@@ -106,7 +106,7 @@
  * Other
  * 
  * @property int $compile Set to 1 to enable compilation, 2 to compile file and included files, 3 for auto, or 0 to disable.  #pw-group-other
- * @property string $tags Optional tags that can group this template with others in the admin templates list. #pw-group-other 
+ * @property string $tags Optional tags that can group this template with others in the admin templates list. #pw-group-tags
  * @property string $pageLabelField CSV or space separated string of field names to be displayed by ProcessPageList (overrides those set with ProcessPageList config). #pw-group-other
  * @property int|bool $_importMode Internal use property set by template importer when importing #pw-internal
  * @property int|null $connectedFieldID ID of connected field or null or 0 if not applicable. #pw-internal
@@ -1376,6 +1376,75 @@ class Template extends WireData implements Saveable, Exportable {
 	 */
 	public function getPageClass($withNamespace = true) {
 		return $this->wire('templates')->getPageClass($this, $withNamespace);
+	}
+
+	/**
+	 * Get tags array
+	 * 
+	 * #pw-group-tags
+	 * 
+	 * @return array
+	 * @since 3.0.176
+	 * 
+	 */
+	public function getTags() {
+		$tags = array();
+		foreach(explode(' ', $this->tags) as $tag) {
+			if(!strlen($tag)) continue;
+			$tags[$tag] = $tag;
+		}
+		return $tags;
+	}
+
+	/**
+	 * Does this template have given tag?
+	 * 
+	 * #pw-group-tags
+	 *
+	 * @param string $tag
+	 * @return bool
+	 * @since 3.0.176
+	 *
+	 */
+	public function hasTag($tag) {
+		$tags = $this->getTags();
+		return isset($tags[$tag]); 
+	}
+
+	/**
+	 * Add tag
+	 * 
+	 * #pw-group-tags
+	 * 
+	 * @param string $tag
+	 * @return $this
+	 * @since 3.0.176
+	 * 
+	 */
+	public function addTag($tag) {
+		$tags = $this->getTags();
+		if(isset($tags[$tag])) return $this;
+		$tags[$tag] = $tag;
+		$this->set('tags', implode(' ', $tags));
+		return $this;
+	}
+
+	/**
+	 * Remove tag
+	 * 
+	 * #pw-group-tags
+	 * 
+	 * @param string $tag
+	 * @return self
+	 * @since 3.0.176
+	 * 
+	 */
+	public function removeTag($tag) {
+		$tags = $this->getTags();
+		if(!isset($tags[$tag])) return $this;
+		unset($tags[$tag]); 
+		$this->set('tags', implode(' ', $tags)); 
+		return $this;
 	}
 
 	/**
