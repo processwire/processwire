@@ -125,7 +125,7 @@ class InputfieldTextarea extends InputfieldText {
 	 * Process input
 	 * 
 	 * @param WireInputData $input
-	 * @return $this
+	 * @return self|Inputfield
 	 * 
 	 */
 	public function ___processInput(WireInputData $input) {
@@ -175,6 +175,7 @@ class InputfieldTextarea extends InputfieldText {
 		$inputfields->remove($inputfields->getChildByName('pattern')); // pattern is not applicable to textarea
 		//if($this->hasFieldtype !== false) $inputfields->remove($inputfields->get('maxlength')); 
 
+		/** @var InputfieldInteger $field */
 		$field = $this->modules->get('InputfieldInteger'); 
 		$field->setAttribute('name', 'rows'); 
 		$field->label = $this->_('Rows');

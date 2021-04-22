@@ -17,7 +17,7 @@
  * @property bool $valueAddOption If value attr set from API (only) that is not an option, add it as an option? (default=false) 3.0.171+
  *
  */
-class InputfieldSelect extends Inputfield {
+class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOptions {
 
 	/**
 	 * Options specific to this Select
@@ -80,6 +80,21 @@ class InputfieldSelect extends Inputfield {
 		$this->options[$value] = $label; 	
 		if(!is_null($attributes)) $this->optionAttributes[$value] = $attributes; 
 		return $this; 
+	}
+
+	/**
+	 * Add selectable option with label, optionally for specific language
+	 * 
+	 * @param string|int $value
+	 * @param string $label
+	 * @param Language|null $language
+	 * @return $this
+	 * @since 3.0.176
+	 * 
+	 */
+	public function addOptionLabel($value, $label, $language = null) {
+		$this->optionLanguageLabel($language, $value, $label); 
+		return $this;
 	}
 
 	/**

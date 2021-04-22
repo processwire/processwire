@@ -250,7 +250,7 @@ class FieldtypeTextareaHelper extends Wire {
 		$editURL = $this->wire('config')->urls->admin . "setup/field/edit?id=$field->id";
 		$modulesURL = $this->wire('config')->urls->admin . "module/";
 		$inputfieldClass = $field->get('inputfieldClass');
-		$findURL = "http://modules.processwire.com/search/?q=$inputfieldClass";
+		$findURL = "https://processwire.com/search/?q=$inputfieldClass&t=Modules";
 		$tab = '<br /> &nbsp; &nbsp; &nbsp;';
 
 		$note =
