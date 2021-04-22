@@ -712,7 +712,7 @@ class InputfieldTextTags extends Inputfield
 		$fieldset->icon = 'tags';
 		$inputfields->prepend($fieldset);
 		
-		if($this->hasFieldtype && $this->hasFieldtype != 'FieldtypeText') {
+		if($this->hasFieldtype && "$this->hasFieldtype" !== 'FieldtypeText') {
 			$fieldset->description = $this->_('There are currently no configurable settings.');
 			return $inputfields;
 		}
