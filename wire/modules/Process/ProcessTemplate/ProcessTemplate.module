@@ -23,7 +23,7 @@
  *
  */
 
-class ProcessTemplate extends Process {
+class ProcessTemplate extends Process implements ConfigurableModule {
 
 	/** @var InputfieldForm */
 	protected $form; 
@@ -179,6 +179,9 @@ class ProcessTemplate extends Process {
 		$caseTags = array(); // indexed by lowercase version of tag
 		$collapsedTags = $this->wire()->modules->getConfig($this, 'collapsedTags'); 
 		if(!is_array($collapsedTags)) $collapsedTags = array();
+		foreach($collapsedTags as $key => $tag) {
+			$collapsedTags[$key] = strtolower($tag);
+		}
 
 		if(!$hasFilters) foreach($this->templates as $template) {
 			if($showSystem && ($template->flags & Template::flagSystem)) {
@@ -205,7 +208,6 @@ class ProcessTemplate extends Process {
 				if(!isset($caseTags[$tag])) $caseTags[$tag] = $caseTag; 
 			}
 		}
-
 		$tagCnt = count($templatesByTag);
 		if($tagCnt > 1) {
 			/** @var InputfieldWrapper $form */
@@ -238,6 +240,13 @@ class ProcessTemplate extends Process {
 		$button->icon = 'plus-circle';
 		$button->addClass('add_template_button'); 
 		$button->showInHeader();
+		$out .= $button->render();
+		
+		$button = $this->modules->get('InputfieldButton');
+		$button->id = 'tags_button';
+		$button->href = './tags/';
+		$button->icon = 'tags';
+		$button->value = $this->labels['manageTags'];
 		$out .= $button->render();
 
 		$button = $this->modules->get('InputfieldButton');
@@ -3509,6 +3518,14 @@ class ProcessTemplate extends Process {
 
 		return $result;
 	}
+	
+	/**
+	 * Build a form allowing configuration of this Module
+	 *
+	 * @param InputfieldWrapper $inputfields
+	 *
+	 */
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) { }
 
 }
 

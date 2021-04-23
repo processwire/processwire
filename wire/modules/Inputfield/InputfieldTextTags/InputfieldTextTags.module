@@ -22,7 +22,9 @@
  * ~~~~~
  * 
  * @property array|string $tagsList Array of tags [ 'tag' => 'label' ], or newline separated string of "tag=label", or use addTag() to populate.
- * @property int|bool $allowUserTags Allow user-entered tags? 
+ * @property int|bool $allowUserTags Allow user-entered tags?
+ * @property int|bool $closeAfterSelect Close select dropdown box after user makes selection? 
+ * @property string $delimiter One of 's' (for space ' '), 'p' (for pipe '|') or 'c' (for comma).
  * @property string $value
  * @property-read array $arrayValue
  *
@@ -51,6 +53,8 @@ class InputfieldTextTags extends Inputfield
 	public function __construct() {
 		$this->set('tagsList', array());
 		$this->set('allowUserTags', 0);
+		$this->set('closeAfterSelect', 1);
+		$this->set('delimiter', 's'); 
 		parent::__construct();
 	}
 
@@ -168,7 +172,7 @@ class InputfieldTextTags extends Inputfield
 		$tagString = trim($tagString);
 		$tagArray = array();
 		if(!strlen($tagString)) return $tagArray;
-		$a = explode(' ', $tagString); 
+		$a = explode($this->delimiter(), $tagString); 
 		foreach($a as $key => $tag) {
 			$tag = trim("$tag");
 			if(!strlen($tag)) continue;
@@ -188,7 +192,7 @@ class InputfieldTextTags extends Inputfield
 	 * 
 	 */
 	public function tagArrayToString(array $tagArray) {
-		return trim(implode(' ', $tagArray)); 
+		return trim(implode($this->delimiter(), $tagArray)); 
 	}
 
 	/**
@@ -497,20 +501,25 @@ class InputfieldTextTags extends Inputfield
 		
 		$config = $this->wire()->config;
 		$class = $this->className();
+		
+		$opts = array(
+			'allowUserTags' => $this->allowUserTags,
+			'closeAfterSelect' => $this->closeAfterSelect,
+			'delimiter' => $this->delimiter(),
+		);
 
 		if($this->hasField) {
 			// page editor
-			$name = $class . '_' . $this->hasField->name . '__tags';
-			$data = $config->$name ? $config->$name : array();
+			$cfgName = $class . '_' . $this->hasField->name . '__tags';
+			$data = $config->$cfgName ? $config->$cfgName : array();
 			$data = array_unique(array_merge($data, $tags));
-			$config->js($name, $data);
-			$attrs['data-cfgname'] = $name;
+			$config->js($cfgName, $data);
+			$opts['cfgName'] = $cfgName;
 		} else {
 			// other usages
-			$attrs['data-cfgname'] = '';
-			$attrs['data-tags'] = json_encode($tags, JSON_UNESCAPED_UNICODE); 
+			$opts['tags'] = $tags;
 		}
-		
+		$attrs['data-opts'] = json_encode($opts, JSON_UNESCAPED_UNICODE); 
 		$attrs['class'] = trim(implode(' ', $classes));
 		$attrs['value'] = $this->encodeNumericTags($this->val());
 		if(empty($attrs['type'])) $attrs['type'] = 'text';
@@ -565,7 +574,7 @@ class InputfieldTextTags extends Inputfield
 		foreach($tags as $key => $tag) {
 			if(ctype_digit("$tag")) $tags[$key] = "_$tag";
 		}
-		return $getArray ? $tags : implode(' ', $tags);
+		return $getArray ? $tags : implode($this->delimiter(), $tags);
 	}
 
 	/**
@@ -590,7 +599,7 @@ class InputfieldTextTags extends Inputfield
 				}
 			}
 		}
-		return trim(implode(' ', $tags));
+		return trim(implode($this->delimiter(), $tags));
 	}
 
 	/**
@@ -639,7 +648,7 @@ class InputfieldTextTags extends Inputfield
 	 * ~~~~~
 	 * $field = $fields->get('tags'); // tags field using FieldtypeText
 	 * $tags = $page->get('tags'); // page value (string of tags, i.e. "foo bar baz")
-	 * $labels = InputfieldTextTags::tagsLabels($field, $tags);
+	 * $labels = InputfieldTextTags::tagsArray($field, $tags);
 	 * foreach($labels as $tag => $label) {
 	 *   echo "<li>$tag: $label</li>";
 	 * }
@@ -652,7 +661,7 @@ class InputfieldTextTags extends Inputfield
 	 * @return array
 	 *
 	 */
-	public static function tagsLabels(Field $field, $tags = null) {
+	public static function tagsArray(Field $field, $tags = null) {
 		if(is_string($tags) && !strlen($tags)) return array();
 		/** @var InputfieldTextTags $inputfield */
 		$inputfield = $field->wire()->modules->getModule('InputfieldTextTags', array('noInit' => true));
@@ -689,6 +698,21 @@ class InputfieldTextTags extends Inputfield
 		return $labels;
 	}
 
+	/**
+	 * Get or set delimiter
+	 * 
+	 * @param bool $getName
+	 * @return string
+	 * 
+	 */
+	protected function delimiter($getName = false) {
+		$ds = array('s' => ' ', 'c' => ',', 'p' => '|');
+		$d = $this->delimiter;
+		if($getName) return $d;
+		if(isset($ds[$d])) return $ds[$d]; 
+		if(in_array($d, $ds)) return $d;
+		return ' ';
+	}
 
 	/**
 	 * Config
@@ -717,19 +741,12 @@ class InputfieldTextTags extends Inputfield
 			return $inputfields;
 		}
 	
-		/** @var InputfieldToggle $f */
-		$f = $modules->get('InputfieldToggle');
-		$f->attr('name', 'allowUserTags'); 
-		$f->label = $this->_('Allow user to enter their own tags?'); 
-		$f->val($this->allowUserTags);
-		$fieldset->add($f);
-	
 		/** @var InputfieldTextarea $f */
 		$f = $modules->get('InputfieldTextarea');
 		$f->attr('name', 'tagsList');
 		$f->label = $this->label = $this->_('Predefined tags');
 		$f->description = $this->_('Enter predefined tags, 1 per line. To define separate tag and label, specify `tag=label` on the line.');
-		$f->notes = $this->_('Tags may not contain whitespace but labels can.');
+		$f->notes = $this->_('Tags may not contain the delimiter selected below but labels can.');
 		$f->val($this->tagsListArrayToString($this->tagsList));
 		if($languages) {
 			$f->description .= ' ' . $this->_('To define separate labels per-language, re-enter each tag (with label) for each language.');
@@ -740,6 +757,34 @@ class InputfieldTextTags extends Inputfield
 		}
 		$fieldset->add($f);
 		
+		/** @var InputfieldToggle $f */
+		$f = $modules->get('InputfieldToggle');
+		$f->attr('name', 'allowUserTags');
+		$f->label = $this->_('Allow user to enter their own tags?');
+		$f->val($this->allowUserTags);
+		$f->columnWidth = 33; 
+		$fieldset->add($f);
+		
+		/** @var InputfieldToggle $f */
+		$f = $modules->get('InputfieldToggle');
+		$f->attr('name', 'closeAfterSelect');
+		$f->label = $this->_('Close dropdown after each selection is made');
+		$f->columnWidth = 34; 
+		$f->val($this->closeAfterSelect);
+		$fieldset->add($f);
+
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios'); 
+		$f->attr('name', 'delimiter');
+		$f->label = $this->_('Tag delimiter');
+		$f->addOption('s', $this->_('Space'));
+		$f->addOption('c', $this->_('Comma'));
+		$f->addOption('p', $this->_('Pipe'));
+		$f->optionColumns = 1;
+		$f->columnWidth = 33; 
+		$f->val($this->delimiter(true));
+		$fieldset->add($f);
+	
 		return $inputfields;
 	}
 	
