@@ -305,7 +305,16 @@ class Session extends Wire implements \IteratorAggregate {
 			}
 		}
 
-		@session_start();
+        $options = [];
+        $cookie_samesite = $this->config->sessionCookieSamesite ?: 'Lax';
+        if (PHP_VERSION_ID < 70300) {
+            $cookie_path = ini_get('session.cookie_path') ?: '/';
+            $options['cookie_path'] = "{$cookie_path}; SameSite={$cookie_samesite}";
+        } else {
+            $options['cookie_samesite'] = $cookie_samesite;
+        }
+
+		@session_start($options);
 
 		if(!empty($this->data)) {
 			foreach($this->data as $key => $value) $this->set($key, $value);
