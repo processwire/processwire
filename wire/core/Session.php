@@ -305,7 +305,7 @@ class Session extends Wire implements \IteratorAggregate {
 			}
 		}
 		
-		$options = [];
+		$options = array();
 		$cookie_samesite = $this->config->sessionCookieSamesite ?: 'Lax';
 		if (PHP_VERSION_ID < 70300) {
 			$cookie_path = ini_get('session.cookie_path') ?: '/';
@@ -1180,7 +1180,7 @@ class Session extends Wire implements \IteratorAggregate {
 		$path = $path ?: '/';
 		
 		$samesite = $samesite ? ucfirst(strtolower($samesite)) : 'Lax';
-		if (!in_array($samesite, ['Strict', 'Lax', 'None'], true)) {
+		if (!in_array($samesite, array('Strict', 'Lax', 'None'), true)) {
 			$samesite = 'Lax';
 		} elseif ($samesite === 'None') {
 			$secure = true;
