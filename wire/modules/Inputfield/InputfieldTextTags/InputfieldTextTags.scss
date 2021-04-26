@@ -10,6 +10,9 @@ $tag-border-colors: #b1c3d4 #cbd7e3 #cbd7e3 #cbd7e3;
 	input.InputfieldTextTagsInput:not(.selectized) {
 		color: $tag-background-color;
 	}
+	.InputfieldPageAdd {
+		display: none; // handled internally
+	}
 }
 
 .Inputfield {

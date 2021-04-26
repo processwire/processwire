@@ -22,6 +22,7 @@
  * ~~~~~
  * 
  * @property array|string $tagsList Array of tags [ 'tag' => 'label' ], or newline separated string of "tag=label", or use addTag() to populate.
+ * @property string $tagsUrl Remote URL to find tags from, must have a '{q}' in it somewhere, which will be replaced with the query. 
  * @property int|bool $allowUserTags Allow user-entered tags?
  * @property int|bool $closeAfterSelect Close select dropdown box after user makes selection? 
  * @property string $delimiter One of 's' (for space ' '), 'p' (for pipe '|') or 'c' (for comma).
@@ -39,10 +40,18 @@ class InputfieldTextTags extends Inputfield
 		return array(
 			'title' => __('Text Tags', __FILE__), // Module Title
 			'summary' => __('Enables input of user entered tags or selection of predefined tags.', __FILE__), // Module Summary
-			'version' => 1,
+			'version' => 2,
 			'icon' => 'tags',
 		);
 	}
+
+	/**
+	 * Tags set in 'value' attribute that were not in predefined list
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $addedTags = array();
 	
 	/**
 	 * Construct
@@ -52,6 +61,7 @@ class InputfieldTextTags extends Inputfield
 	 */
 	public function __construct() {
 		$this->set('tagsList', array());
+		$this->set('tagsUrl', '');
 		$this->set('allowUserTags', 0);
 		$this->set('closeAfterSelect', 1);
 		$this->set('delimiter', 's'); 
@@ -103,6 +113,8 @@ class InputfieldTextTags extends Inputfield
 			if($key === 'tagsList') return $this->setTagsList($value);
 			list(,$languageId) = explode('tagsList', $key, 2);
 			return $this->setTagsList($value, (int) $languageId); 
+		} else if($key === 'allowUserTags' || $key === 'closeAfterSelect') {
+			$value = (int) $value;
 		}
 		return parent::set($key, $value);
 	}
@@ -401,7 +413,7 @@ class InputfieldTextTags extends Inputfield
 		if(!$language && $this->wire()->langauges) $language = $this->wire()->user->language;
 		$tags = $this->getTagsList($language);
 		if(isset($tags[$tag])) return $tags[$tag];
-		if($this->allowUserTags) return $tag;
+		if($this->allowUserTags()) return $tag;
 		return '';
 	}
 	
@@ -480,7 +492,7 @@ class InputfieldTextTags extends Inputfield
 		$language = $this->wire()->user->language;
 		$tags = $this->getTagsList($language && $language->id ? $language : null);
 		$classes = array();
-		$classes[] = count($tags) ? 'InputfieldTextTagsSelect' : 'InputfieldTextTagsInput';
+		$classes[] = count($tags) || $this->tagsUrl ? 'InputfieldTextTagsSelect' : 'InputfieldTextTagsInput';
 
 		if($this->allowUserTags) {
 			$value = $this->tagStringToArray($this->val());
@@ -503,9 +515,10 @@ class InputfieldTextTags extends Inputfield
 		$class = $this->className();
 		
 		$opts = array(
-			'allowUserTags' => $this->allowUserTags,
+			'allowUserTags' => $this->allowUserTags(),
 			'closeAfterSelect' => $this->closeAfterSelect,
 			'delimiter' => $this->delimiter(),
+			'tagsUrl' => $this->tagsUrl,
 		);
 
 		if($this->hasField) {
@@ -519,6 +532,7 @@ class InputfieldTextTags extends Inputfield
 			// other usages
 			$opts['tags'] = $tags;
 		}
+		
 		$attrs['data-opts'] = json_encode($opts, JSON_UNESCAPED_UNICODE); 
 		$attrs['class'] = trim(implode(' ', $classes));
 		$attrs['value'] = $this->encodeNumericTags($this->val());
@@ -556,6 +570,10 @@ class InputfieldTextTags extends Inputfield
 		$val = $this->val();
 		$value = $this->validateValue($val);
 		if($val !== $value) $this->val($value);
+		if($this->isPageField() && count($this->addedTags)) {
+			$input['_' . $this->attr('name') . '_add_items'] = implode("\n", $this->addedTags);
+			$this->addedTags = array();
+		}
 		return $this;
 	}
 
@@ -587,19 +605,32 @@ class InputfieldTextTags extends Inputfield
 	 *
 	 */
 	protected function validateValue($tags) {
-		if(!is_array($tags)) {
-			$tags = $this->tagStringToArray($tags);
-		}
-		if(!$this->allowUserTags) {
-			$validTags = $this->getTagsList();
-			foreach(array_keys($tags) as $tag) {
-				if(!isset($validTags[$tag])) {
+		
+		$sanitizer = $this->wire()->sanitizer;
+		
+		if(!is_array($tags)) $tags = $this->tagStringToArray($tags);
+		
+		$allowUserTags = $this->allowUserTags();
+		$isPageField = $this->isPageField();
+		$validTags = $this->getTagsList();
+		$delimiter = $this->delimiter();
+		
+		foreach(array_keys($tags) as $tag) {
+			if(!isset($validTags[$tag])) {
+				if(!$allowUserTags && ($isPageField || !$this->tagsUrl)) {
 					unset($tags[$tag]);
 					$this->error(sprintf($this->_('Removed invalid tag value: %s'), $tag));
+				} else {
+					$tag = $sanitizer->text($tag);
+					$label = $tag;
+					if(strpos($tag, $delimiter)) $tag = str_replace($delimiter, '-', $tag);
+					$this->addedTags[$tag] = $label;
+					if($isPageField) unset($tags[$tag]); // handled by processInput()
 				}
 			}
 		}
-		return trim(implode($this->delimiter(), $tags));
+		
+		return trim(implode($delimiter, $tags));
 	}
 
 	/**
@@ -701,17 +732,57 @@ class InputfieldTextTags extends Inputfield
 	/**
 	 * Get or set delimiter
 	 * 
-	 * @param bool $getName
+	 * @param bool $getName Get delimiter name rather than character?
 	 * @return string
 	 * 
 	 */
 	protected function delimiter($getName = false) {
 		$ds = array('s' => ' ', 'c' => ',', 'p' => '|');
-		$d = $this->delimiter;
+		// $d = $this->delimiter;
+		$d = $this->isPageField() ? 'p' : $this->delimiter;
 		if($getName) return $d;
 		if(isset($ds[$d])) return $ds[$d]; 
 		if(in_array($d, $ds)) return $d;
 		return ' ';
+	}
+
+	/**
+	 * Are we collecting input for a Page field?
+	 * 
+	 * @return bool|Field|Inputfield
+	 * 
+	 */
+	protected function isPageField() {
+		if($this->hasField && $this->hasFieldtype instanceof FieldtypePage) {
+			return $this->hasField;
+		} else if($this->hasInputfield && $this->hasInputfield instanceof InputfieldPage) {
+			return $this->hasInputfield;
+		} else {
+			return false;
+		}
+	}
+
+	/**
+	 * Are we collecting input for a text field?
+	 * 
+	 * @return bool
+	 * 
+	 */
+	protected function isTextField() {
+		$fieldtype = $this->hasFieldtype;
+		return (!$fieldtype || "$fieldtype" === 'FieldtypeText');
+	}
+
+	/**
+	 * Allow user-entered tags? (considering Page field 'addable' context when applicable)
+	 * 
+	 * @return bool
+	 * 
+	 */
+	protected function allowUserTags() {
+		$pageField = $this->isPageField();
+		if($pageField) return (bool) $pageField->get('addable');
+		return (bool) $this->allowUserTags;
 	}
 
 	/**
@@ -723,12 +794,13 @@ class InputfieldTextTags extends Inputfield
 	 * 
 	 */
 	public function ___getConfigInputfields() {
-		
+
 		$moduleInfo = self::getModuleInfo();
 		$modules = $this->wire()->modules;
-		$inputfields = $this->hasFieldtype ? new InputfieldWrapper() : parent::___getConfigInputfields();
+		$inputfields = parent::___getConfigInputfields();
 		$languages = $this->wire()->languages;
-		
+		$isTextField = $this->isTextField();
+
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->attr('name', '_tags_settings');
@@ -736,54 +808,97 @@ class InputfieldTextTags extends Inputfield
 		$fieldset->icon = 'tags';
 		$inputfields->prepend($fieldset);
 		
-		if($this->hasFieldtype && "$this->hasFieldtype" !== 'FieldtypeText') {
-			$fieldset->description = $this->_('There are currently no configurable settings.');
-			return $inputfields;
+		if($isTextField) {
+			/** @var InputfieldTextarea $f */
+			$f = $modules->get('InputfieldTextarea');
+			$f->attr('name', 'tagsList');
+			$f->label = $this->label = $this->_('Predefined tags list');
+			$f->description = $this->_('Enter predefined tags, 1 per line. To define separate tag and label, specify `tag=label` on the line.');
+			$f->notes = $this->_('Tags may not contain the delimiter selected below but labels can.');
+			$f->val($this->tagsListArrayToString($this->tagsList));
+			if($languages) {
+				$f->description .= ' ' . $this->_('To define separate labels per-language, re-enter each tag (with label) for each language.');
+				$f->useLanguages = true;
+				foreach($languages as $language) {
+					if(!$language->isDefault()) $f->set("value$language", $this->tagsListArrayToString($this->get("tagsList$language")));
+				}
+			}
+			$fieldset->add($f);
+			
+		} else {
+			/** @var InputfieldHidden $f */
+			$f = $modules->get('InputfieldHidden');
+			$f->attr('name', 'tagsList');
+			$f->val('');
+			$fieldset->add($f);
+		}
+		
+		if($isTextField) {
+			/** @var InputfieldText $f */
+			$exampleUrl = $this->wire()->config->urls->httpRoot . 'find-tags/?q={q}';
+			$f = $modules->get('InputfieldText');
+			$f->attr('name', 'tagsUrl');
+			$f->label = $this->_('Predefined tags URL');
+			$f->description =
+				$this->_('When you enter a URL, it will be queried for tags matching user input in auto-complete fashion.') . ' ' .
+				$this->_('Use this instead of the “predefined tags list” above when the quantity of selectable tags is larger than is practical to list individually.') . ' ' .
+				$this->_('The given URL must contain the placeholder `{q}` in it somewhere, which will be replaced with the text the user types.') . ' ' .
+				$this->_('You will also have to define a URL handler like in the example shown below.');
+			$f->appendMarkup =
+				"<p class='description'>" . sprintf($this->_('URL handler example in %s for URL: %s'), '<u>/site/init.php</u>', "<u>$exampleUrl</u>") . '</p>' .
+				"<pre style='margin:0'><code>" .
+				'$wire->addHook("/find-tags/", function($e) { ' .
+				"\n  " . '$q = $e->input->get("q", "text,selectorValue");' .
+				"\n  " . 'if(strlen($q) < 3) return [];' .
+				"\n  " . 'return $e->pages->find("parent=/categories/, title%=$q")->explode("title");' .
+				"\n});" .
+				"</code></pre>" .
+				"<p class='description'>" . $this->_('This example finds titles from pages to use as tags, but you may use whatever data source you want.') . "</p>";
+			$f->val($this->tagsUrl);
+			$f->collapsed = Inputfield::collapsedBlank;
+			$fieldset->add($f);
+		} else {
+			/** @var InputfieldHidden $f */
+			$f = $modules->get('InputfieldHidden');
+			$f->attr('name', 'tagsUrl');
+			$f->val('');
+			$fieldset->add($f);
 		}
 	
-		/** @var InputfieldTextarea $f */
-		$f = $modules->get('InputfieldTextarea');
-		$f->attr('name', 'tagsList');
-		$f->label = $this->label = $this->_('Predefined tags');
-		$f->description = $this->_('Enter predefined tags, 1 per line. To define separate tag and label, specify `tag=label` on the line.');
-		$f->notes = $this->_('Tags may not contain the delimiter selected below but labels can.');
-		$f->val($this->tagsListArrayToString($this->tagsList));
-		if($languages) {
-			$f->description .= ' ' . $this->_('To define separate labels per-language, re-enter each tag (with label) for each language.');
-			$f->useLanguages = true;
-			foreach($languages as $language) {
-				if(!$language->isDefault()) $f->set("value$language", $this->tagsListArrayToString($this->get("tagsList$language")));
-			}
+		if($isTextField) {
+			/** @var InputfieldToggle $f */
+			$f = $modules->get('InputfieldToggle');
+			$f->attr('name', 'allowUserTags');
+			$f->label = $this->_('Allow user to enter their own tags?');
+			$f->val($this->allowUserTags);
+			$fieldset->add($f);
+		} else {
+			/** @var InputfieldHidden $f */
+			$f = $modules->get('InputfieldHidden');
+			$f->attr('name', 'allowUserTags');
+			$f->val('0');
+			$fieldset->add($f);
 		}
-		$fieldset->add($f);
-		
-		/** @var InputfieldToggle $f */
-		$f = $modules->get('InputfieldToggle');
-		$f->attr('name', 'allowUserTags');
-		$f->label = $this->_('Allow user to enter their own tags?');
-		$f->val($this->allowUserTags);
-		$f->columnWidth = 33; 
-		$fieldset->add($f);
-		
+			
 		/** @var InputfieldToggle $f */
 		$f = $modules->get('InputfieldToggle');
 		$f->attr('name', 'closeAfterSelect');
-		$f->label = $this->_('Close dropdown after each selection is made');
-		$f->columnWidth = 34; 
+		$f->label = $this->_('Close dropdown after each selection is made?');
 		$f->val($this->closeAfterSelect);
 		$fieldset->add($f);
 
-		/** @var InputfieldRadios $f */
-		$f = $modules->get('InputfieldRadios'); 
-		$f->attr('name', 'delimiter');
-		$f->label = $this->_('Tag delimiter');
-		$f->addOption('s', $this->_('Space'));
-		$f->addOption('c', $this->_('Comma'));
-		$f->addOption('p', $this->_('Pipe'));
-		$f->optionColumns = 1;
-		$f->columnWidth = 33; 
-		$f->val($this->delimiter(true));
-		$fieldset->add($f);
+		if($isTextField) {
+			/** @var InputfieldRadios $f */
+			$f = $modules->get('InputfieldRadios');
+			$f->attr('name', 'delimiter');
+			$f->label = $this->_('Tag delimiter');
+			$f->addOption('s', $this->_('Space'));
+			$f->addOption('c', $this->_('Comma'));
+			$f->addOption('p', $this->_('Pipe'));
+			$f->optionColumns = 1;
+			$f->val($this->delimiter(true));
+			$fieldset->add($f);
+		}
 	
 		return $inputfields;
 	}

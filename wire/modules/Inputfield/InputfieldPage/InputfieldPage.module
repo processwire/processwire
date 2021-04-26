@@ -509,6 +509,9 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		$inputfield = $this->wire()->modules->get($this->getInputfieldClass());
 		if(!$inputfield) return null;
 		
+		$inputfield->set('hasField', $this->hasField);
+		$inputfield->set('hasInputfield', $this);
+		
 		$page = $this->page;
 		$input = $this->wire()->input;
 		$process = $this->wire()->process;
@@ -721,7 +724,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		if(!$inputfield) return '';
 		$key = "_{$this->name}_add_items";
 
-		if($inputfield instanceof InputfieldHasArrayValue) {
+		if($inputfield instanceof InputfieldHasArrayValue || $inputfield instanceof InputfieldSupportsArrayValue) {
 			// multi value
 			$description = $this->_('Enter the titles of the items you want to add, one per line. They will be created and added to your selection when you save the page.');
 			$input = "<textarea id='$key' name='$key' rows='5'></textarea>";
@@ -732,7 +735,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		}
 
 		$notes = sprintf($this->_('New pages will be added to %s'), $parent->path);
-		$label ="<i class='fa fa-plus-circle'></i> " . $this->_('Create New'); 
+		$label = wireIconMarkup('plus-circle', 'fw') . $this->_('Create New'); 
 
 		$out = 	
 			"<div class='InputfieldPageAdd'>" . 	
@@ -1275,7 +1278,8 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		if($inputfield) {
 			// tell it it's under control of a parent, regardless of whether this one is hasFieldtype true or not.
 			$info = $this->modules->getModuleInfo($inputfield);
-			$inputfield->hasFieldtype = true; 
+			$inputfield->hasFieldtype = $this->hasFieldtype ? $this->hasFieldtype : true; 
+			$inputfield->hasInputfield = $this;
 			/** @var InputfieldFieldset $fieldset */
 			$fieldset = $this->modules->get('InputfieldFieldset');
 			$n = 0;

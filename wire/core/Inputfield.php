@@ -3,7 +3,7 @@
 /**
  * ProcessWire Inputfield - base class for Inputfield modules.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  * An Inputfield for an actual form input field widget, and this is provided as the base class
@@ -101,6 +101,7 @@
  * @property null|bool|Fieldtype $hasFieldtype The Fieldtype using this Inputfield, or boolean false when known not to have a Fieldtype, or null when not known. #pw-group-other
  * @property null|Field $hasField The Field object associated with this Inputfield, or null when not applicable or not known. #pw-group-other
  * @property null|Page $hasPage The Page object associated with this Inputfield, or null when not applicable or not known. #pw-group-other
+ * @property null|Inputfield $hasInputfield If this Inputfield is owned/managed by another (other than parent/child relationship), it may be set here. 3.0.176+ #pw-group-other 
  * @property bool|null $useLanguages When multi-language support active, can be set to true to make it provide inputs for each language, where supported (default=false). #pw-group-behavior
  * @property null|bool|int $entityEncodeLabel Set to boolean false to specifically disable entity encoding of field header/label (default=true). #pw-group-output
  * @property null|bool $entityEncodeText Set to boolean false to specifically disable entity encoding for other text: description, notes, etc. (default=true). #pw-group-output
