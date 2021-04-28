@@ -32,6 +32,8 @@
  * - Inputfields.input(f): Get the input element(s) within the given Inputfield
  * - Inputfields.insertBefore(f, ff): Insert Inputfield 'f' before Inputfield 'ff'.
  * - Inputfields.insertAfter(f, ff): Insert Inputfield 'f' after Inputfield 'ff'.
+ * - Inputfields.startSpinner(f): Start spinner for Inputfield.
+ * - Inputfields.stopSpinner(f): Stop spinner for Inputfield. 
  * - Inputfields.init(target): Manually initialize all .Inputfield elements within target.
  *   Calling init() is only necessary for Inputfields not present during page load. 
  * - This file also contains lots of other functions, but they are not part of the public API. 
@@ -619,6 +621,49 @@ var Inputfields = {
 			if(pct < 1) pct = 100;
 			return pct;
 		}
+	},
+
+	/**
+	 * Start a spinner for Inputfield
+	 *
+	 * @param $inputfield
+	 *
+	 */
+	startSpinner: function($inputfield) {
+		
+		$inputfield = this.inputfield($inputfield);
+		if(!$inputfield.length) return;
+
+		var id = $inputfield.attr('id') + '-spinner';
+		var $spinner = $('#' + id);
+		var $header = $inputfield.children('.InputfieldHeader');
+		
+		if(!$spinner.length) {
+			$spinner = $("<i class='InputfieldSpinner fa fa-spin fa-spinner'></i>");
+			$spinner.attr('id', id);
+		}
+		
+		$spinner.css({ 
+			float: 'right',
+			marginRight: '30px',
+			marginTop: '3px'
+		});
+		
+		$header.append($spinner.hide());
+		$spinner.fadeIn();
+	},
+
+	/**
+	 * Stop a spinner for Inputfield
+	 *
+	 * @param $inputfield
+	 *
+	 */
+	stopSpinner: function($inputfield) {
+		$inputfield = this.inputfield($inputfield);
+		if(!$inputfield.length) return;
+		var $spinner = $('#' + $inputfield.attr('id') + '-spinner');
+		if($spinner.length) $spinner.fadeOut('fast', function() { $spinner.remove(); }); 
 	},
 
 	/**
