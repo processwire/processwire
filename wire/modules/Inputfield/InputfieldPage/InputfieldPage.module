@@ -242,7 +242,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		
 		if($findPagesSelector) { 
 			$selector = $findPagesSelector; 
-			if($editPage && $editPage->id) $selector = self::getFindPagesSelector($editPage, $selector); 
+			if($editPage && $editPage->id) $selector = self::populateFindPagesSelector($editPage, $selector); 
 			if(!$page->matches($selector)) {
 				// failed in-memory check, attempt $page->count() check...
 				$selector .= ", id=$page->id";
@@ -366,7 +366,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		} else if($findPagesSelector) { 
 			// a find() selector
 			$instance = $this->processInputMode ? $this : null;
-			$selector = self::getFindPagesSelector($page, $findPagesSelector, $instance);
+			$selector = self::populateFindPagesSelector($page, $findPagesSelector, $instance);
 			$children = $pages->find($selector); 
 
 		} else if($this->findPagesCode) {
@@ -420,7 +420,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	 * @return string
 	 *
 	 */
-	protected static function getFindPagesSelector(Page $page, $selector, $inputfield = null) {
+	protected static function populateFindPagesSelector(Page $page, $selector, $inputfield = null) {
 	
 		// if an $inputfield is passed in, then we want to retrieve dependent values directly
 		// from the form, rather than from the $page
@@ -457,6 +457,85 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 		}
 		
 		return $selector; 
+	}
+
+	/**
+	 * Create a page finding selector from all configured properties
+	 * 
+	 * @param array $options
+	 * @return string|array
+	 * 
+	 */
+	public function createFindPagesSelector(array $options = array()) {
+		
+		$defaults = array(
+			'page' => null, // optional $page for context (for selectors where it might matter)
+			'findRaw' => false, // include properties only recognized by $pages->findRaw()?
+			'getArray' => false, // return array rather than string?
+		);
+		
+		$options = array_merge($defaults, $options);
+		
+		$id = $this->getSetting('parent_id');
+		if($id) {
+			if(is_array($id)) $id = implode('|', $id);
+			$selector['parent_id'] = $id;
+		}
+
+		$ids = $this->getTemplateIDs();
+		if(count($ids)) {
+			$selector['templates_id'] = implode('|', $ids);
+		} else {
+			$id = $this->getSetting('template_id');
+			if(is_array($id)) $id = implode('|', $id);
+			if($id) $selector['templates_id'] = $id;
+		}
+		
+		$findPagesCode = $this->getSetting('findPagesCode');
+		if(strlen($findPagesCode) && $options['page'] && empty($selector['parent_id'])) {
+			// via teppokoivula: use findPagesCode to return single parent page
+			$parent = $this->findPagesCode($options['page']);
+			if($parent instanceof Page) $selector['parent_id'] = $parent->id;
+		}
+		
+		$s = $this->getSetting('findPagesSelector');
+		if(!strlen($s)) $s = $this->getSetting('findPagesSelect');
+		if(strlen($s)) {
+			if($options['page']) $s = self::populateFindPagesSelector($options['page'], $s, $this);
+			// @todo getstring vs getarray
+			$selector['selector'] = $s;
+		}
+
+		if($this->getSetting('allowUnpub')) {
+			$selector['include'] = 'unpublished';
+		} else {
+			$selector['include'] = 'hidden';
+		}
+
+		if($options['findRaw']) {
+			$labelFieldName = $this->getSetting('labelFieldName');
+			$labelFieldFormat = $this->getSetting('labelFieldFormat');
+			if(strlen($labelFieldFormat) && $labelFieldName === '.') {
+				// @todo find raw does not support labelFieldFormat
+				$selector['field'] = "$labelFieldFormat";
+			} else if($labelFieldName) {
+				$selector['field'] = $labelFieldName == '.' ? "name" : "$labelFieldName";
+			} else {
+				$selector['field'] = 'title';
+			}
+		}
+		
+		if($options['getArray']) return $selector;
+		
+		$a = array();
+		$operatorChars = Selectors::getOperatorChars();
+		foreach($selector as $key => $value) {
+			$v = substr($value, 0, 1);
+			$operator = strlen($v) && isset($operatorChars[$v]) ? '' : '='; // omit operator if already in $value
+			$a[] = "$key$operator$value";
+		}
+		
+		return implode(', ', $a);
 	}
 
 	/**
@@ -521,8 +600,11 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		$inputfield->attr('name', $this->attr('name')); 
 		$inputfield->attr('id', $this->attr('id')); 
-		$inputfield->label = $this->getSetting('label');
-		$inputfield->description = $this->getSetting('description');
+		$keys = array('label', 'description', 'notes', 'detail');
+		foreach($keys as $key) {
+			$value = $this->getSetting($key);
+			if(strlen($value)) $inputfield->set($key, $value);
+		}
 		
 		$collapsed = $this->getSetting('collapsed');
 		if($collapsed == Inputfield::collapsedYesAjax || 
@@ -539,8 +621,31 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 				}
 			}
 		}
+		
+		$value = $this->attr('value');
+		$valueArray = array();
+		if($value instanceof Page) {
+			$valueArray[$value->id] = $value;
+		} else if($value instanceof PageArray) {
+			foreach($value as $v) {
+				$valueArray[$v->id] = $v;
+			}
+		}
+		
+		if($inputfield instanceof InputfieldSupportsPageSelector && $inputfield->setPageSelector('') !== false) {
+			// Inputfield has ability to find pages with a selector
+			
+			$selector = $this->createFindPagesSelector(array('page' => $page));
+			$inputfield->setPageSelector($selector);
+			
+			if($inputfield instanceof InputfieldHasSelectableOptions) {
+				foreach($valueArray as $p) {
+					$inputfield->addOption($p->id, $this->getPageLabel($p));
+				}
+			}
 
-		if(method_exists($inputfield, 'addOption') || $inputfield instanceof InputfieldHasSelectableOptions) {
+		} else if(method_exists($inputfield, 'addOption') || $inputfield instanceof InputfieldHasSelectableOptions) {
+			// All selectable options types
 			
 			$children = $this->getSelectablePages($page);
 			
@@ -552,6 +657,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			}
 			
 		} else {
+			// InputfieldPageAutocomplete or similar (older style InputfieldSupportsPageSelector)
 			
 			$parent_id = $this->getSetting('parent_id');
 			$template_id = $this->getSetting('template_id');
@@ -575,7 +681,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			if(!empty($template_ids)) $inputfield->set('template_ids', $template_ids);
 			
 			if($findPagesSelector) {
-				$inputfield->set('findPagesSelector', self::getFindPagesSelector($page, $findPagesSelector)); 
+				$inputfield->set('findPagesSelector', self::populateFindPagesSelector($page, $findPagesSelector)); 
 			}
 			
 			if(strlen($labelFieldFormat) && $labelFieldName === '.') {
@@ -587,19 +693,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			}				
 		}
 
-		$value = $this->attr('value'); 
 		if($value instanceof Page) {
 			$inputfield->attr('value', $value->id); // derefAsPage
-		} else if($value instanceof PageArray) {
-			$valueArray = array();
-			foreach($value as $v) {
-				$valueArray[] = $v->id;
-				// $inputfield->attr('value', $v->id); // derefAsPageArray
-			}
-			$inputfield->attr('value', $valueArray);
+		} else {
+			$inputfield->attr('value', array_keys($valueArray));
 		}
 
-		// pass long any relevant configuration items
+		// pass along any relevant configuration items
 		foreach($this->data as $key => $value) {
 			if(in_array($key, array('value', 'collapsed')) || array_key_exists($key, self::$defaultConfig)) continue; 
 			if($key == 'required' && empty($this->data['defaultValue'])) continue; // for default value support with InputfieldSelect
@@ -1280,6 +1380,10 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			$info = $this->modules->getModuleInfo($inputfield);
 			$inputfield->hasFieldtype = $this->hasFieldtype ? $this->hasFieldtype : true; 
 			$inputfield->hasInputfield = $this;
+			if($inputfield instanceof InputfieldSupportsPageSelector) {
+				$exampleSelector = $this->createFindPagesSelector();
+				$inputfield->setPageSelector($exampleSelector);
+			}
 			/** @var InputfieldFieldset $fieldset */
 			$fieldset = $this->modules->get('InputfieldFieldset');
 			$n = 0;
