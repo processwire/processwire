@@ -24,23 +24,26 @@
  * @property array|string $tagsList Array of tags [ 'tag' => 'label' ], or newline separated string of "tag=label", or use addTag() to populate.
  * @property string $tagsUrl Remote URL to find tags from, must have a '{q}' in it somewhere, which will be replaced with the query. 
  * @property int|bool $allowUserTags Allow user-entered tags?
- * @property int|bool $closeAfterSelect Close select dropdown box after user makes selection? 
+ * @property int|bool $closeAfterSelect Close select dropdown box after user makes selection?
+ * @property bool|int $useAjax
  * @property string $delimiter One of 's' (for space ' '), 'p' (for pipe '|') or 'c' (for comma).
  * @property string $value
  * @property-read array $arrayValue
+ * @property string|null $pageSelector
  *
  * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  */
-class InputfieldTextTags extends Inputfield 
-	implements InputfieldHasTextValue, InputfieldSupportsArrayValue, InputfieldHasSelectableOptions, InputfieldHasSortableValue {
+class InputfieldTextTags extends Inputfield implements 
+	InputfieldHasTextValue, InputfieldSupportsArrayValue, InputfieldSupportsPageSelector, 
+	InputfieldHasSelectableOptions, InputfieldHasSortableValue {
 
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Text Tags', __FILE__), // Module Title
 			'summary' => __('Enables input of user entered tags or selection of predefined tags.', __FILE__), // Module Summary
-			'version' => 2,
+			'version' => 3,
 			'icon' => 'tags',
 		);
 	}
@@ -65,6 +68,7 @@ class InputfieldTextTags extends Inputfield
 		$this->set('allowUserTags', 0);
 		$this->set('closeAfterSelect', 1);
 		$this->set('delimiter', 's'); 
+		parent::set('useAjax', false); // parent and boolean intentional
 		parent::__construct();
 	}
 
@@ -113,7 +117,7 @@ class InputfieldTextTags extends Inputfield
 			if($key === 'tagsList') return $this->setTagsList($value);
 			list(,$languageId) = explode('tagsList', $key, 2);
 			return $this->setTagsList($value, (int) $languageId); 
-		} else if($key === 'allowUserTags' || $key === 'closeAfterSelect') {
+		} else if($key === 'allowUserTags' || $key === 'closeAfterSelect' || $key === 'useAjax') {
 			$value = (int) $value;
 		}
 		return parent::set($key, $value);
@@ -468,10 +472,6 @@ class InputfieldTextTags extends Inputfield
 		/** @var JqueryUI $jQueryUI */
 		$jQueryUI = $this->wire()->modules->get('JqueryUI');
 		$jQueryUI->use('selectize');
-		$config = $this->wire()->config;
-		$url = $config->urls($this->className());
-		$config->scripts->add($url . 'InputfieldTextTags.js');
-		$config->styles->add($url . 'InputfieldTextTags.css');
 		$this->addClass('InputfieldNoFocus', 'wrapClass');
 		return parent::renderReady($parent, $renderValueMode);
 	}
@@ -486,13 +486,26 @@ class InputfieldTextTags extends Inputfield
 	 */
 	public function ___render() {
 		
+		$config = $this->wire()->config;
+		$tagsUrl = $this->useAjax() ? $this->tagsUrl : '';
+
+		if($tagsUrl && strpos($tagsUrl, '://') === false) {
+			if(strpos($tagsUrl, '//') === 0) {
+				$tagsUrl = ($config->https ? 'https:' : 'http:') . $tagsUrl;
+			} else if(strpos($tagsUrl, '/') === 0) {
+				$tagsUrl = $config->urls->httpRoot . ltrim($tagsUrl, '/');
+			} else {
+				$tagsUrl = $config->urls->httpRoot . $tagsUrl;
+			}
+		}
+		
 		$attrs = $this->getAttributes();
 		unset($attrs['class']);
 		
 		$language = $this->wire()->user->language;
 		$tags = $this->getTagsList($language && $language->id ? $language : null);
 		$classes = array();
-		$classes[] = count($tags) || $this->tagsUrl ? 'InputfieldTextTagsSelect' : 'InputfieldTextTagsInput';
+		$classes[] = count($tags) || $tagsUrl ? 'InputfieldTextTagsSelect' : 'InputfieldTextTagsInput';
 
 		if($this->allowUserTags) {
 			$value = $this->tagStringToArray($this->val());
@@ -511,14 +524,14 @@ class InputfieldTextTags extends Inputfield
 			$tags[$tag] = $label;
 		}
 		
-		$config = $this->wire()->config;
 		$class = $this->className();
 		
 		$opts = array(
 			'allowUserTags' => $this->allowUserTags(),
 			'closeAfterSelect' => $this->closeAfterSelect,
+			'createOnBlur' => $this->allowUserTags() && $this->isTextField(), 
 			'delimiter' => $this->delimiter(),
-			'tagsUrl' => $this->tagsUrl,
+			'tagsUrl' => $tagsUrl,
 		);
 
 		if($this->hasField) {
@@ -571,6 +584,7 @@ class InputfieldTextTags extends Inputfield
 		$value = $this->validateValue($val);
 		if($val !== $value) $this->val($value);
 		if($this->isPageField() && count($this->addedTags)) {
+			// populate POST var recognized by InputfieldPage
 			$input['_' . $this->attr('name') . '_add_items'] = implode("\n", $this->addedTags);
 			$this->addedTags = array();
 		}
@@ -607,26 +621,29 @@ class InputfieldTextTags extends Inputfield
 	protected function validateValue($tags) {
 		
 		$sanitizer = $this->wire()->sanitizer;
-		
-		if(!is_array($tags)) $tags = $this->tagStringToArray($tags);
-		
 		$allowUserTags = $this->allowUserTags();
 		$isPageField = $this->isPageField();
 		$validTags = $this->getTagsList();
 		$delimiter = $this->delimiter();
 		
+		if(!is_array($tags)) $tags = $this->tagStringToArray($tags);
+
 		foreach(array_keys($tags) as $tag) {
-			if(!isset($validTags[$tag])) {
-				if(!$allowUserTags && ($isPageField || !$this->tagsUrl)) {
-					unset($tags[$tag]);
-					$this->error(sprintf($this->_('Removed invalid tag value: %s'), $tag));
-				} else {
-					$tag = $sanitizer->text($tag);
-					$label = $tag;
-					if(strpos($tag, $delimiter)) $tag = str_replace($delimiter, '-', $tag);
-					$this->addedTags[$tag] = $label;
-					if($isPageField) unset($tags[$tag]); // handled by processInput()
-				}
+			if(isset($validTags[$tag])) {
+				// tag is known/valid
+			} else if($isPageField && $this->tagsUrl && ctype_digit(ltrim($tag, '_'))) {
+				// tag is page ID from ajax: will be validated by InputfieldPage
+			} else if(!$allowUserTags && ($isPageField || !$this->tagsUrl)) {
+				// user tags not allowed
+				unset($tags[$tag]);
+				$this->error(sprintf($this->_('Removed invalid tag value: %s'), $tag));
+			} else {
+				// newly added tag
+				$tag = $sanitizer->text($tag);
+				$label = $tag;
+				if(strpos($tag, $delimiter) !== false) $tag = str_replace($delimiter, '-', $tag);
+				$this->addedTags[$tag] = $label;
+				if($isPageField) unset($tags[$tag]); // stuffed into addedTags which is handled by processInput()
 			}
 		}
 		
@@ -665,6 +682,25 @@ class InputfieldTextTags extends Inputfield
 	 */
 	public function addOptionLabel($value, $label, $language = null) {
 		return $this->addTag($value, $label, $language);
+	}
+
+	/**
+	 * Set page selector 
+	 * 
+	 * For InputfieldSupportsPageSelector interface
+	 * 
+	 * @param string $selector
+	 * @return bool Returns boolean false if page selector not supported for current settings
+	 * 
+	 */
+	public function setPageSelector($selector) {
+		if($this->hasInputfield) {
+			if(!$this->hasInputfield->getSetting('useAjax')) return false;
+			if(!strlen($this->tagsUrl)) $this->tagsUrl = $this->hasInputfield->getSetting('tagsUrl');
+		} 
+		if(!strlen($this->tagsUrl) || !$this->useAjax()) return false;
+		if(strlen($selector)) $this->pageSelector = $selector;
+		return true;
 	}
 	
 	/**
@@ -738,7 +774,6 @@ class InputfieldTextTags extends Inputfield
 	 */
 	protected function delimiter($getName = false) {
 		$ds = array('s' => ' ', 'c' => ',', 'p' => '|');
-		// $d = $this->delimiter;
 		$d = $this->isPageField() ? 'p' : $this->delimiter;
 		if($getName) return $d;
 		if(isset($ds[$d])) return $ds[$d]; 
@@ -769,6 +804,7 @@ class InputfieldTextTags extends Inputfield
 	 * 
 	 */
 	protected function isTextField() {
+		if($this->hasInputfield) return wireInstanceOf($this->hasInputfield, 'InputfieldText');
 		$fieldtype = $this->hasFieldtype;
 		return (!$fieldtype || "$fieldtype" === 'FieldtypeText');
 	}
@@ -786,6 +822,24 @@ class InputfieldTextTags extends Inputfield
 	}
 
 	/**
+	 * Is ajax mode enabled?
+	 * 
+	 * @return bool
+	 * 
+	 */
+	protected function useAjax() {
+		if(!is_bool($this->useAjax)) {
+			// integer value for useAjax indicates it has gone through a save or been set and is trustworthy
+			return (bool) $this->useAjax;
+		}
+		$hasTagsList = count($this->tagsList); 
+		$hasTagsUrl = strlen($this->tagsUrl);
+		if($hasTagsList && !$hasTagsUrl) return false;
+		if($hasTagsUrl && !$hasTagsList) return true;
+		return (bool) $this->useAjax; 
+	}
+
+	/**
 	 * Config
 	 * 
 	 * #pw-internal
@@ -800,6 +854,7 @@ class InputfieldTextTags extends Inputfield
 		$inputfields = parent::___getConfigInputfields();
 		$languages = $this->wire()->languages;
 		$isTextField = $this->isTextField();
+		$isPageField = $this->isPageField();
 
 		/** @var InputfieldFieldset $fieldset */
 		$fieldset = $modules->get('InputfieldFieldset');
@@ -807,24 +862,54 @@ class InputfieldTextTags extends Inputfield
 		$fieldset->label = $moduleInfo['title'];
 		$fieldset->icon = 'tags';
 		$inputfields->prepend($fieldset);
+
+		if($isTextField) {
+			/** @var InputfieldRadios $f */
+			$f = $modules->get('InputfieldRadios');
+			$f->attr('name', 'useAjax');
+			$f->label = $this->_('Selectable options/tags source');
+			$f->addOption(0, $this->_('Specify them here'));
+			$f->addOption(1, $this->_('Load from URL you specify (ajax)'));
+			$f->val((int) $this->useAjax());
+			$fieldset->add($f);
+		} else if($isPageField) {
+			/** @var InputfieldToggle $f */
+			$f = $modules->get('InputfieldToggle');
+			$f->attr('name', 'useAjax');
+			$f->label = $this->_('Use ajax options/pages?');
+			$f->description = 
+				$this->_('When enabled, it will behave like an auto-complete where the user starts typing and it queries a URL for matching pages.') . ' ' . 
+				$this->_('You will also have to provide a “Ajax URL” (shown below when “Yes” selected) to perform the query. Working example code is included.') . ' ' . 
+				$this->_('When not enabled, all selectable options will be populated at runtime.');
+			$f->notes = $this->_('Using ajax options/pages is useful when potential quantity of selectable pages is large.') . ' ' . 
+				$this->_('Consider it when there are several hundred or thousands (or more) of pages that can be selected.');
+			$f->val((int) $this->useAjax());
+			$fieldset->add($f);
+		} else {
+			/** @var InputfieldHidden $f */
+			$f = $modules->get('InputfieldHidden');
+			$f->attr('name', 'useAjax');
+			$f->val(0);
+			$fieldset->add($f);
+		}
 		
 		if($isTextField) {
 			/** @var InputfieldTextarea $f */
 			$f = $modules->get('InputfieldTextarea');
 			$f->attr('name', 'tagsList');
-			$f->label = $this->label = $this->_('Predefined tags list');
-			$f->description = $this->_('Enter predefined tags, 1 per line. To define separate tag and label, specify `tag=label` on the line.');
+			$f->label = $this->label = $this->_('Predefined options/tags list');
+			$f->description = $this->_('Enter predefined tags, 1 per line. To define separate value and label for the tag, specify `value=label` on the line.');
 			$f->notes = $this->_('Tags may not contain the delimiter selected below but labels can.');
 			$f->val($this->tagsListArrayToString($this->tagsList));
+			$f->showIf = 'useAjax=0';
 			if($languages) {
-				$f->description .= ' ' . $this->_('To define separate labels per-language, re-enter each tag (with label) for each language.');
+				$f->description .= ' ' . $this->_('To define separate labels per-language, re-enter each tag `value=label` for each language, where the `value` is the same for each while the `label` differs.');
 				$f->useLanguages = true;
 				foreach($languages as $language) {
 					if(!$language->isDefault()) $f->set("value$language", $this->tagsListArrayToString($this->get("tagsList$language")));
 				}
 			}
 			$fieldset->add($f);
-			
 		} else {
 			/** @var InputfieldHidden $f */
 			$f = $modules->get('InputfieldHidden');
@@ -833,29 +918,62 @@ class InputfieldTextTags extends Inputfield
 			$fieldset->add($f);
 		}
 		
-		if($isTextField) {
+		if($isTextField || $isPageField) {
 			/** @var InputfieldText $f */
-			$exampleUrl = $this->wire()->config->urls->httpRoot . 'find-tags/?q={q}';
+			$examplePath = "find-$this->name";
+			$exampleUrl = "/$examplePath/?q={q}";
+			$exampleDescription = 
+				sprintf($this->_('URL handler example in file %s for URL %s'), '<code>/site/init.php</code>', "<code>$exampleUrl</code>") . ' — ' . 
+				$this->_('Copy and paste this URL into the field above if you want to use the example below.');
+			
+			$exampleNotes = '';
 			$f = $modules->get('InputfieldText');
 			$f->attr('name', 'tagsUrl');
-			$f->label = $this->_('Predefined tags URL');
+			$f->label = $this->_('Ajax URL');
 			$f->description =
-				$this->_('When you enter a URL, it will be queried for tags matching user input in auto-complete fashion.') . ' ' .
-				$this->_('Use this instead of the “predefined tags list” above when the quantity of selectable tags is larger than is practical to list individually.') . ' ' .
+				$this->_('When you enter a URL, it will be queried for items matching user input in auto-complete fashion.') . ' ' .
 				$this->_('The given URL must contain the placeholder `{q}` in it somewhere, which will be replaced with the text the user types.') . ' ' .
-				$this->_('You will also have to define a URL handler like in the example shown below.');
-			$f->appendMarkup =
-				"<p class='description'>" . sprintf($this->_('URL handler example in %s for URL: %s'), '<u>/site/init.php</u>', "<u>$exampleUrl</u>") . '</p>' .
-				"<pre style='margin:0'><code>" .
-				'$wire->addHook("/find-tags/", function($e) { ' .
-				"\n  " . '$q = $e->input->get("q", "text,selectorValue");' .
-				"\n  " . 'if(strlen($q) < 3) return [];' .
-				"\n  " . 'return $e->pages->find("parent=/categories/, title%=$q")->explode("title");' .
-				"\n});" .
-				"</code></pre>" .
-				"<p class='description'>" . $this->_('This example finds titles from pages to use as tags, but you may use whatever data source you want.') . "</p>";
+				$this->_('You may specify a full http/https URL, or a relative URL.') . ' ' . 
+				$this->_('If you specify a relative URL (without scheme/host), the current scheme, host and root URL will be prepended to it at runtime.') . ' ' .  
+				$this->_('You will also have to define a URL handler like in the example shown below.') . ' ' . 
+				sprintf($this->_('The URL path `%s` is just an example, feel free to replace it with whatever you want.'), "/$examplePath/");
+			if($isTextField) {
+				$exampleCode = 
+					'$wire->addHook("/' . $examplePath . '/", function($e) { ' .
+					"\n  " . '$q = $e->input->get("q", "text,selectorValue");' .
+					"\n  " . 'if(strlen($q) < 3) return []; ' .
+					"\n  " . 'return array_values($e->pages->findRaw("parent=/tags/, title%=$q, field=title"));' . 
+					"\n});";
+				$exampleNotes = $this->_('This example finds titles from pages to use as tags, but you may use whatever data source you want.');
+			} else {
+				$selector = '';
+				$hasInputfield = $this->hasInputfield;
+				if($hasInputfield && $hasInputfield instanceof InputfieldPage) $selector = $hasInputfield->createFindPagesSelector();
+				if(!strlen($selector)) $selector = $this->_('your page finding selector here');
+				$exampleCode =
+					'$wire->addHook("/' . $examplePath . '/", function($e) { ' .
+					"\n  " . '$q = $e->input->get("q", "text,selectorValue");' .
+					"\n  " . 'if(strlen($q) < 3) return [];' .
+					"\n  " . '$selector = "' . $selector . ', title%=$q";' .         
+					"\n  " . '$fields = [ "id" => "value", "title" => "label" ]; ' . 
+					"\n  " . 'return array_values($e->pages->findRaw($selector, $fields));' .
+					"\n});";
+			}
+			$f->appendMarkup .=
+				"<p class='description'>$exampleDescription</p>" .
+				"<pre style='margin:0'><code>$exampleCode</code></pre>" . 
+				($exampleNotes ? "<p class='description'>$exampleNotes</p>" : "");
+			
+			if($isPageField) $f->appendMarkup .= 
+				"<p class='description'>" . 
+				$this->_('Please note that if you change your “Selectable pages” or “Label field” settings, you will also have to update your URL handler code for it.') . 
+				"</p>"; 
+				
 			$f->val($this->tagsUrl);
-			$f->collapsed = Inputfield::collapsedBlank;
+			if($this->tagsUrl && $this->useAjax() && strpos($this->tagsUrl, '{q}') === false) {
+				$f->error($this->_('The placeholder “{q}” is required somewhere in your Ajax URL.')); 
+			}
+			$f->showIf = 'useAjax=1';
 			$fieldset->add($f);
 		} else {
 			/** @var InputfieldHidden $f */
@@ -889,12 +1007,14 @@ class InputfieldTextTags extends Inputfield
 
 		if($isTextField) {
 			/** @var InputfieldRadios $f */
+			$singleWordLabel = $this->_('(for single-word tags)'); 
+			$multiWordLabel = $this->_('(for multi-word tags)');
 			$f = $modules->get('InputfieldRadios');
 			$f->attr('name', 'delimiter');
 			$f->label = $this->_('Tag delimiter');
-			$f->addOption('s', $this->_('Space'));
-			$f->addOption('c', $this->_('Comma'));
-			$f->addOption('p', $this->_('Pipe'));
+			$f->addOption('s', $this->_('Space') . " [span.detail] $singleWordLabel [/span]");
+			$f->addOption('c', $this->_('Comma') . " [span.detail] $multiWordLabel [/span]");
+			$f->addOption('p', $this->_('Pipe') . " [span.detail] $multiWordLabel [/span]");
 			$f->optionColumns = 1;
 			$f->val($this->delimiter(true));
 			$fieldset->add($f);

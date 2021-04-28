@@ -10,7 +10,7 @@ function InputfieldTextTags($parent) {
 		openOnFocus: true, // Show the dropdown immediately when the control receives focus.
 		closeAfterSelect: true, // If true, the dropdown will be closed after a selection is made.
 		copyClassesToDropdown: false,
-		createOnBlur: true, // If true, when user exits the field (clicks outside of input), a new option is created and selected (if create setting is enabled).
+		createOnBlur: false, // If true, when user exits the field (clicks outside of input), a new option is created and selected (if create setting is enabled).
 		selectOnTab: true, // If true, the tab key will choose the currently selected item.
 		maxItems: null, // The max number of items the user can select. 1 makes the control mono-selection, null allows an unlimited number of items.
 		create: function(input) {
@@ -27,6 +27,7 @@ function InputfieldTextTags($parent) {
 		var options = defaults;
 		options.delimiter = o.delimiter;
 		options.closeAfterSelect = o.closeAfterSelect;
+		options.createOnBlur = o.createOnBlur; 
 		options.persist = false;
 		$input.selectize(options);
 	}
@@ -49,6 +50,7 @@ function InputfieldTextTags($parent) {
 			allowUserTags: o.allowUserTags,
 			delimiter: o.delimiter,
 			closeAfterSelect: o.closeAfterSelect,
+			createOnBlur: o.createOnBlur,
 			persist: true,
 			valueField: 'value',
 			labelField: 'label',
@@ -89,10 +91,14 @@ function InputfieldTextTags($parent) {
 			options.load = function(query, callback) {
 				if(!query.length) return callback();
 				var tagsUrl = o.tagsUrl.replace('{q}', encodeURIComponent(query));
+				Inputfields.startSpinner($select);
 				jQuery.ajax({
 					url: tagsUrl,
 					type: 'GET',
-					error: function() { callback() },
+					error: function() {
+						Inputfields.stopSpinner($select);
+						callback(); 
+					},
 					success: function(items) { 
 						for(var n = 0; n < items.length; n++) {
 							var item = items[n];
@@ -105,7 +111,8 @@ function InputfieldTextTags($parent) {
 								items[n] = { value: item, label: item };
 							}
 						}
-						callback(items) 
+						Inputfields.stopSpinner($select);
+						callback(items);
 					}
 				});
 			}
