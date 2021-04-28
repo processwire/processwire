@@ -481,7 +481,8 @@ abstract class Inputfield extends WireData implements Module {
 			if(strlen($value)) return $value;
 			if($this->skipLabel & self::skipLabelBlank) return '';
 			return $this->attributes['name']; 
-		}
+		} 
+		if($key === 'description' || $key === 'notes') return parent::get($key);
 		if($key === 'name' || $key === 'value' || $key === 'id') return $this->getAttribute($key);
 		if($key === 'attributes') return $this->attributes; 
 		if($key === 'parent') return $this->parent; 
