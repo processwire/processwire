@@ -31,6 +31,7 @@ class PagesRaw extends Wire {
 	 *
 	 * @param string|array|Selectors $selector
 	 * @param string|Field|int|array $field Field/property name to get or array of them (or omit to get all)
+	 *  - Optionally use associative array to rename fields in returned value, i.e. `['title' => 'label']` returns 'title' as 'label' in return value.
 	 * @param array $options See options for Pages::find
 	 *  - `objects` (bool): Use objects rather than associative arrays? (default=false)
 	 *  - `entities` (bool|array): Entity encode string values? True, or specify array of field names. (default=false)
@@ -145,6 +146,14 @@ class PagesRawFinder extends Wire {
 	 * 
 	 */
 	protected $runtimeFields = array();
+
+	/**
+	 * Fields to rename in returned value, i.e. [ 'title' => 'label' ]
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $renameFields = array();
 
 	/**
 	 * @var array
@@ -278,8 +287,19 @@ class PagesRawFinder extends Wire {
 			$this->requestFields = explode(',', $field);
 			
 		} else if(is_array($field)) {
-			// one or more fields requested in array, we wil return an array for each page
-			$this->requestFields = $field;
+			// one or more fields requested in array, we will return an array for each page
+			$requestFields = array();
+			$renameFields = array();
+			foreach($field as $key => $value) {
+				if(is_string($key) && !ctype_digit($key) && !is_array($value)) {
+					$requestFields[] = $key;
+					$renameFields[$key] = $value;
+				} else {
+					$requestFields[] = $value;
+				}
+			}
+			$this->requestFields = $requestFields;
+			$this->renameFields = $renameFields;
 			
 		} else {
 			// one field requested in string or Field object
@@ -345,6 +365,11 @@ class PagesRawFinder extends Wire {
 	 *
 	 * - You may request field name(s) like `field.*` to return all columns/subfields for `field`,
 	 *   in this case, an associative array value will be returned for each page.
+	 * 
+	 * - If you specify an associative array for the $field argument, you can optionally rename 
+	 *   fields in returned value. For example, if you wanted to get the 'title' field but return 
+	 *   it as a field named 'headline' in the return value, you would specify the array 
+	 *   `[ 'title' => 'headline' ]` for the $field argument. (3.0.176+)
 	 *
 	 * @param string|array|Selectors $selector
 	 * @param string|Field|int|array $field Field/property name or array of of them
@@ -381,6 +406,10 @@ class PagesRawFinder extends Wire {
 		if(!$this->options['indexed']) {
 			$this->values = array_values($this->values);
 		}
+		
+		if(count($this->renameFields)) {
+			$this->renames($this->values);
+		}	
 		
 		if($this->options['entities']) {
 			if($this->options['objects'] || $level === 1) {
@@ -951,6 +980,29 @@ class PagesRawFinder extends Wire {
 			}
 		} else {
 			// leave as-is
+		}
+	}
+
+	/**
+	 * Rename fields on request
+	 * 
+	 * @param array $values
+	 * @since 3.0.167
+	 * 
+	 */
+	protected function renames(&$values) {
+		foreach($values as $key => $value) {
+			if(!is_array($value)) continue;
+			foreach($value as $k => $v) {
+				if(is_array($v)) $this->renames($v);
+				if(isset($this->renameFields[$k])) {
+					unset($values[$key][$k]);
+					$name = $this->renameFields[$k];
+				} else {
+					$name = $k;
+				}
+				$values[$key][$name] = $v;
+			}
 		}
 	}
 

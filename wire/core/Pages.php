@@ -511,6 +511,10 @@ class Pages extends Wire {
 	 * // You can also use this format below to get multiple subfields from one field:
 	 * $a = $pages->findRaw("template=blog", [ "title", "categories" => [ "id", "title" ] ]); 
 	 * 
+	 * // You can optionally rename fields in the returned value like this below, which
+	 * // asks the 'title' field to have the name 'headline' in return value (3.0.176+):
+	 * $a = $pages->findRaw("template=blog", [ "title" => "headline" ]); 
+	 * 
 	 * // You may specify wildcard field name(s) like `field.*` to return all columns 
 	 * // for `field`. This retrieves all columns from the field’s table. This is 
 	 * // especially useful with fields like Table or Combo that might have several 
