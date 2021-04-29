@@ -25,9 +25,11 @@
  * @property string $tagsUrl Remote URL to find tags from, must have a '{q}' in it somewhere, which will be replaced with the query. 
  * @property int|bool $allowUserTags Allow user-entered tags?
  * @property int|bool $closeAfterSelect Close select dropdown box after user makes selection?
+ * @property int $maxItems Max selectable items, 0 for no limit, 1 for single-select mode, or 2+ to limit selection to that number.
  * @property bool|int $useAjax
  * @property string $delimiter One of 's' (for space ' '), 'p' (for pipe '|') or 'c' (for comma).
  * @property string $value
+ * @property string $placeholder Placeholder string to show when no options selected. 
  * @property-read array $arrayValue
  * @property string|null $pageSelector
  *
@@ -43,7 +45,7 @@ class InputfieldTextTags extends Inputfield implements
 		return array(
 			'title' => __('Text Tags', __FILE__), // Module Title
 			'summary' => __('Enables input of user entered tags or selection of predefined tags.', __FILE__), // Module Summary
-			'version' => 3,
+			'version' => 4,
 			'icon' => 'tags',
 		);
 	}
@@ -68,7 +70,9 @@ class InputfieldTextTags extends Inputfield implements
 		$this->set('allowUserTags', 0);
 		$this->set('closeAfterSelect', 1);
 		$this->set('delimiter', 's'); 
+		$this->set('maxItems', 0);
 		parent::set('useAjax', false); // parent and boolean intentional
+		$this->setAttribute('placeholder', '');
 		parent::__construct();
 	}
 
@@ -83,7 +87,9 @@ class InputfieldTextTags extends Inputfield implements
 		$languages = $this->wire()->languages;
 		if($languages) {
 			foreach($languages as $language) {
-				if(!$language->isDefault()) $this->set("tagsList$language->id", array());
+				if($language->isDefault()) continue;
+				$this->set("tagsList$language->id", array());
+				parent::set("placeholder$language->id", '');
 			}
 		}
 	}
@@ -117,10 +123,29 @@ class InputfieldTextTags extends Inputfield implements
 			if($key === 'tagsList') return $this->setTagsList($value);
 			list(,$languageId) = explode('tagsList', $key, 2);
 			return $this->setTagsList($value, (int) $languageId); 
-		} else if($key === 'allowUserTags' || $key === 'closeAfterSelect' || $key === 'useAjax') {
+		} else if($key === 'allowUserTags' || $key === 'closeAfterSelect' || $key === 'useAjax' || $key === 'maxItems') {
 			$value = (int) $value;
 		}
 		return parent::set($key, $value);
+	}
+	
+	/**
+	 * Get all attributes in an associative array
+	 *
+	 * @return array
+	 *
+	 */
+	public function getAttributes() {
+		$attrs = parent::getAttributes();
+		if(!empty($attrs['placeholder'])) {
+			// placeholder attribute, languages support
+			list($languages, $language) = array($this->wire()->languages, $this->wire()->user->language);
+			if($languages && "$language" && !$language->isDefault()) {
+				$placeholder = parent::get("placeholder$language->id");
+				if(strlen($placeholder)) $attrs['placeholder'] = $placeholder;
+			}
+		}
+		return $attrs;
 	}
 
 	/**
@@ -531,6 +556,7 @@ class InputfieldTextTags extends Inputfield implements
 			'closeAfterSelect' => $this->closeAfterSelect,
 			'createOnBlur' => $this->allowUserTags() && $this->isTextField(), 
 			'delimiter' => $this->delimiter(),
+			'maxItems' => $this->maxItems,
 			'tagsUrl' => $tagsUrl,
 		);
 
@@ -625,8 +651,13 @@ class InputfieldTextTags extends Inputfield implements
 		$isPageField = $this->isPageField();
 		$validTags = $this->getTagsList();
 		$delimiter = $this->delimiter();
+		$maxItems = (int) $this->maxItems;
 		
 		if(!is_array($tags)) $tags = $this->tagStringToArray($tags);
+		
+		if($maxItems > 0) {
+			while(count($tags) > $maxItems) array_pop($tags);
+		}
 
 		foreach(array_keys($tags) as $tag) {
 			if(isset($validTags[$tag])) {
@@ -646,7 +677,7 @@ class InputfieldTextTags extends Inputfield implements
 				if($isPageField) unset($tags[$tag]); // stuffed into addedTags which is handled by processInput()
 			}
 		}
-		
+	
 		return trim(implode($delimiter, $tags));
 	}
 
@@ -906,7 +937,8 @@ class InputfieldTextTags extends Inputfield implements
 				$f->description .= ' ' . $this->_('To define separate labels per-language, re-enter each tag `value=label` for each language, where the `value` is the same for each while the `label` differs.');
 				$f->useLanguages = true;
 				foreach($languages as $language) {
-					if(!$language->isDefault()) $f->set("value$language", $this->tagsListArrayToString($this->get("tagsList$language")));
+					if($language->isDefault()) continue;
+					$f->set("value$language", $this->tagsListArrayToString($this->get("tagsList$language")));
 				}
 			}
 			$fieldset->add($f);
@@ -997,7 +1029,7 @@ class InputfieldTextTags extends Inputfield implements
 			$f->val('0');
 			$fieldset->add($f);
 		}
-			
+	
 		/** @var InputfieldToggle $f */
 		$f = $modules->get('InputfieldToggle');
 		$f->attr('name', 'closeAfterSelect');
@@ -1019,7 +1051,34 @@ class InputfieldTextTags extends Inputfield implements
 			$f->val($this->delimiter(true));
 			$fieldset->add($f);
 		}
+		
+		/** @var InputfieldInteger $f */
+		$f = $modules->get('InputfieldInteger');
+		$f->attr('name', 'maxItems');
+		$f->label = $this->_('Max tags/options');
+		$f->description =
+			$this->_('Use 0 for no limit or enter the max number of options/tags the user may select or input.') . ' ' .
+			$this->_('Note that entering 1 makes the input appear more like a select than a text input.');
+		$f->val($this->maxItems);
+		$fieldset->add($f);
 	
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
+		$f->attr('name', 'placeholder');
+		$f->label = $this->_('Placeholder text');
+		$f->val($this->attr('placeholder'));
+		$f->description = $this->_('Optional placeholder text that appears in the field when blank.');
+		$f->collapsed = Inputfield::collapsedBlank;
+		if($languages) {
+			$f->useLanguages = true;
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				$value = $this->getSetting("placeholder$language");
+				if($value !== null) $f->set("value$language", $value);
+			}
+		}
+		$fieldset->add($f);
+
 		return $inputfields;
 	}
 	

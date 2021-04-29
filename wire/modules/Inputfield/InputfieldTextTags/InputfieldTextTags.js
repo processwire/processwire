@@ -1,9 +1,11 @@
 function InputfieldTextTags($parent) {
 
-	if(typeof $parent === "undefined") $parent = $('.InputfieldForm');
+	if(typeof $parent === "undefined") $parent = jQuery('.InputfieldForm');
+	
+	var pluginsMulti = [ 'remove_button', 'drag_drop' ];
+	var pluginsSingle = []; 
 	
 	var defaults = {
-		plugins: [ 'remove_button', 'drag_drop' ],
 		delimiter: ' ',
 		persist: true, // If false, items created by the user will not show up as available options once they are unselected.
 		submitOnReturn: false,
@@ -29,6 +31,8 @@ function InputfieldTextTags($parent) {
 		options.closeAfterSelect = o.closeAfterSelect;
 		options.createOnBlur = o.createOnBlur; 
 		options.persist = false;
+		options.maxItems = (o.maxItems > 0 ? o.maxItems : null);
+		options.plugins = (o.maxItems === 1 ? pluginsSingle : pluginsMulti);
 		$input.selectize(options);
 	}
 
@@ -51,6 +55,8 @@ function InputfieldTextTags($parent) {
 			delimiter: o.delimiter,
 			closeAfterSelect: o.closeAfterSelect,
 			createOnBlur: o.createOnBlur,
+			maxItems: (o.maxItems > 0 ? o.maxItems : null),
+			plugins: (o.maxItems === 1 ? pluginsSingle : pluginsMulti),
 			persist: true,
 			valueField: 'value',
 			labelField: 'label',
@@ -126,14 +132,14 @@ function InputfieldTextTags($parent) {
 
 	if($inputs.length) {
 		$inputs.each(function() {
-			$input = $(this);
+			$input = jQuery(this);
 			initInput($input);
 		});
 	}
 
 	if($selects.length) {
 		$selects.each(function() {
-			var $select = $(this);
+			var $select = jQuery(this);
 			initSelect($select);
 		}); 
 	}
