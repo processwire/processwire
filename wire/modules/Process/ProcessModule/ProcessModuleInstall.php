@@ -302,7 +302,7 @@ class ProcessModuleInstall extends Wire {
 					$this->message(sprintf($this->_('Extracted: %s'), $f));
 				}
 			} else {
-				$this->message(sprintf($this->_n('Extracted %d file', 'Extracted %d files', $qty)));
+				$this->message(sprintf($this->_n('Extracted %d file', 'Extracted %d files', $qty), $qty));
 			}
 
 		} catch(\Exception $e) {
