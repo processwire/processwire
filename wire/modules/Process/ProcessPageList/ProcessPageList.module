@@ -459,6 +459,12 @@ class ProcessPageList extends Process implements ConfigurableModule {
 	 * 
 	 */
 	public function ___find($selectorString, Page $page) {
+		if($page->id === $this->wire()->config->trashPageID && !preg_match('/\bsort=/', $selectorString)) {
+			$sortfield = $page->sortfield();
+			if(!$sortfield || $sortfield === 'sort') {
+				$selectorString = trim("$selectorString,sort=-modified", ',');
+			}
+		}
 		return $page->children($selectorString); 
 	}
 
