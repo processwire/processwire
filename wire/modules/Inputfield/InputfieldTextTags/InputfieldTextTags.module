@@ -239,7 +239,7 @@ class InputfieldTextTags extends Inputfield implements
 	/**
 	 * Given tags string or array, return array of [ 'tag' => 'label' ]
 	 * 
-	 * Public API usages likely would prefer the static tagsLabels() method instead. 
+	 * Public API usages likely would prefer the static InputfieldTextTags::tagsArray() method instead. 
 	 * 
 	 * #pw-internal
 	 * 
