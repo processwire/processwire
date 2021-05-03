@@ -1770,6 +1770,7 @@ class Sanitizer extends Wire {
 			'allowSchemes' => array(),
 			'disallowSchemes' => array('file', 'javascript'),
 			'requireScheme' => true,
+			'reduceScheme' => false, // reduce "scheme://" to "scheme:" in return value? (internal use only)
 			'convertEncoded' => true, 
 			'encodeSpace' => false, 
 			'stripTags' => true,
@@ -1805,8 +1806,18 @@ class Sanitizer extends Wire {
 				if($options['throw']) throw new WireException($error);
 				$this->error($error);
 				$value = str_ireplace(array("$scheme:///", "$scheme://"), '', $value);
-			} else if($_scheme !== $scheme) {
-				$value = str_replace("$_scheme://", "$scheme://", $value); // lowercase scheme
+			} else {
+				if(strpos($value, '://') === false && stripos($value, "$_scheme:") === 0) {
+					// URL is in "scheme:value" format
+					if(!in_array($scheme, array('http', 'https', 'ftp', 'tel', 'mailto'))) {
+						// add scheme in "scheme://" format temporarily so filter_var won’t throw it out
+						$value = "$scheme://" . substr($value, strlen("$_scheme:"));
+						$options['reduceScheme'] = true;
+					}
+				}
+				if($_scheme !== $scheme) {
+					$value = str_replace("$_scheme://", "$scheme://", $value); // lowercase scheme
+				}
 			}
 		}
 
@@ -1938,6 +1949,11 @@ class Sanitizer extends Wire {
 		
 		if($options['encodeSpace'] && strpos($value, ' ')) {
 			$value = str_replace(' ', '%20', $value);
+		}
+		
+		if($options['reduceScheme']) {
+			list($scheme, $value) = explode('://', $value, 2);
+			$value = "$scheme:$value";
 		}
 		
 		return $value;
