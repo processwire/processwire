@@ -9,7 +9,7 @@
  * if(!$page->viewable()) { echo "sorry you can't view this"; }
  * ...and so on...
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * Optional special permissions that are optional (by default, not installed):
@@ -318,6 +318,9 @@ class PagePermissions extends WireData implements Module {
 	}
 	
 	public function userViewable(Page $page, array $options = array()) {
+		$user = $this->wire()->user;
+		// user viewing themself
+		if($user->id === $page->id && $user->hasPermission('page-view', $page)) return true;
 		$options['viewable'] = true; 
 		return $this->userEditable($page, $options); 
 	}
@@ -399,7 +402,7 @@ class PagePermissions extends WireData implements Module {
 			$name = $_name;
 			$field = $this->wire('fields')->get($name);
 		}
-		if($field) {
+		if($field && $field instanceof Field) {
 			// delegate to Field::viewable method
 			return $field->useRoles ? $field->viewable($page) : true;
 		} else if($this->wire($name)) {
@@ -431,7 +434,7 @@ class PagePermissions extends WireData implements Module {
 		if(!is_string($name)) return false; 
 		if(!strlen($name)) return true; 
 
-		if($name == 'id' && ($page->status & Page::statusSystemID)) return false; 
+		if($name === 'id' && ($page->status & Page::statusSystemID)) return false; 
 
 		$user = $this->wire('user'); 
 
@@ -441,12 +444,12 @@ class PagePermissions extends WireData implements Module {
 			}
 		}
 		
-		if($name == 'template' || $name == 'templates_id') {
+		if($name === 'template' || $name === 'templates_id') {
 			if($page->template->noChangeTemplate) return false;
 			if(!$user->hasPermission('page-template', $page)) return false; 
 		}
 		
-		if($name == 'name') {
+		if($name === 'name') {
 			// if page has no name (and not homepage), then it needs one, so it is allowed
 			if($page->id > 1 && !strlen($page->name)) return true; 
 			// if page is not yet published, user with page-edit can still change name
@@ -455,16 +458,16 @@ class PagePermissions extends WireData implements Module {
 			return $user->hasPermission('page-rename', $page);
 		}
 
-		if($name == 'parent' || $name == 'parent_id') {
+		if($name === 'parent' || $name === 'parent_id') {
 			if($page->template->noMove) return false; 
 			if(!$user->hasPermission('page-move', $page)) return false; 
 		}
 
-		if($name == 'sortfield') {
+		if($name === 'sortfield') {
 			if(!$user->hasPermission('page-sort', $page)) return false; 
 		}
 
-		if($name == 'roles') {
+		if($name === 'roles') {
 			if(!$user->hasPermission('user-admin')) return false; 
 		}
 		
