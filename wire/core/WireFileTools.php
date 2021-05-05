@@ -5,7 +5,7 @@
  * 
  * #pw-summary Helpers for working with files and directories. 
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  * @method bool include($filename, array $vars = array(), array $options = array())
@@ -52,7 +52,9 @@ class WireFileTools extends Wire {
 				$parentPath = substr($path, 0, strrpos(rtrim($path, '/'), '/'));
 				if(!is_dir($parentPath) && !$this->mkdir($parentPath, true, $chmod)) return false;
 			}
-			if(!@mkdir($path)) return false;
+			if(!@mkdir($path)) {
+				return $this->filesError(__FUNCTION__, "Unable to mkdir $path");
+			}
 		}
 		$this->chmod($path, false, $chmod);
 		return true;
@@ -113,7 +115,11 @@ class WireFileTools extends Wire {
 			}
 		}
 		
-		return @rmdir($path);
+		if(@rmdir($path)) {
+			return true;
+		} else {
+			return $this->filesError(__FUNCTION__, "Unable to rmdir: $path", $options);
+		}
 	}
 
 
@@ -152,11 +158,13 @@ class WireFileTools extends Wire {
 
 		if(is_null($chmod)) {
 			// default: pull values from PW config
-			$chmodFile = $this->wire('config')->chmodFile;
-			$chmodDir = $this->wire('config')->chmodDir;
+			$chmodFile = $this->wire()->config->chmodFile;
+			$chmodDir = $this->wire()->config->chmodDir;
 		} else {
 			// optional, manually specified string
-			if(!is_string($chmod)) throw new WireException("chmod must be specified as a string like '0755'");
+			if(!is_string($chmod)) {
+				$this->filesException(__FUNCTION__, "chmod must be specified as a string like '0755'");
+			}
 			$chmodFile = $chmod;
 			$chmodDir = $chmod;
 		}
@@ -288,8 +296,8 @@ class WireFileTools extends Wire {
 	 * - This method requires a full pathname to a file to unlink and does not 
 	 *   accept any kind of relative path traversal. 
 	 * 
-	 * - This method will only unlink files in /site/assets/ if you specify `true` 
-	 *   for the `$limitPath` option (recommended).
+	 * - This method will be limited to unlink files only in /site/assets/ if you 
+	 *   specify `true` for the `$limitPath` option (recommended).
 	 * 
 	 * @param string $filename
 	 * @param string|bool $limitPath Limit only to files within some starting path? (default=false) 
@@ -312,14 +320,13 @@ class WireFileTools extends Wire {
 		
 		if(!is_file($filename) && !is_link($filename)) {
 			// only files or links (that exist) can be deleted
-			return false;
+			return $this->filesError(__FUNCTION__, "Given filename is not a file or link: $filename");
 		}
 		
 		if(@unlink($filename)) {
 			return true;
 		} else {
-			if($throw) throw new WireException("Unable to unlink file $filename");
-			return false;
+			return $this->filesError(__FUNCTION__, "Unable to unlink file: $filename", $throw);
 		}
 	}
 
@@ -334,6 +341,8 @@ class WireFileTools extends Wire {
 	 *  - `limitPath` (bool|string|array): Limit renames to within this path, or boolean TRUE for site/assets, or FALSE to disable (default=false).
 	 *  - `throw` (bool): Throw WireException with verbose details on error? (default=false)
 	 *  - `chmod` (bool): Adjust permissions to be consistent with $config after rename? (default=true)
+	 *  - `copy` (bool): Use copy-then-delete method rather than a file system rename. (default=false) 3.0.178+
+	 *  - `retry` (bool): Retry with 'copy' method if regular rename files, applies only if copy option is false. (default=true) 3.0.178+
 	 *  - If given a bool or string for $options the `limitPath` option is assumed. 
 	 * @return bool True on success, false on fail (or WireException if throw option specified). 
 	 * @throws WireException If error occurs and $throw argument was true.
@@ -346,6 +355,8 @@ class WireFileTools extends Wire {
 			'limitPath' => false,
 			'throw' => false, 
 			'chmod' => true, 
+			'copy' => false, 
+			'retry' => true,
 		);
 		
 		if(!is_array($options)) $options = array('limitPath' => $options);
@@ -359,36 +370,79 @@ class WireFileTools extends Wire {
 		try {
 			$this->allowPath($oldName, $options['limitPath'], true);
 		} catch(\Exception $e) {
-			if($options['throw']) throw new WireException("Rename oldName path invalid: " . $e->getMessage());
-			return false;
+			return $this->filesError(__FUNCTION__, '$oldName path invalid: ' . $e->getMessage(), $options);
 		}
 		
 		try {
 			$this->allowPath($newName, $options['limitPath'], true);
 		} catch(\Exception $e) {
-			if($options['throw']) throw new WireException("Rename newName path invalid: " . $e->getMessage());
-			return false;
+			return $this->filesError(__FUNCTION__, 'Rename $newName path invalid: ' . $e->getMessage(), $options);
 		}
 		
 		if(!file_exists($oldName)) {
-			if($options['throw']) throw new WireException("Rename given pathname (oldName) that does not exist: $oldName");
-			return false;
+			return $this->filesError(__FUNCTION__, 'Given pathname ($oldName) that does not exist: ' . $oldName, $options);
 		}
 		
 		if(file_exists($newName)) {
-			if($options['throw']) throw new WireException("Rename to pathname (newName) that already exists: $newName");
-			return false;
+			return $this->filesError(__FUNCTION__, 'Rename to pathname ($newName) that already exists: ' . $newName, $options);
 		}
-		
-		if(!rename($oldName, $newName)) {
-			if($options['throw']) throw new WireException("Rename failed: $oldName => $newName");
+
+		if($options['copy']) {
+			// will use recursive copy method only
+			$success = false; 
+		} else if($options['retry']) {
+			// consider any error/warnings from rename a non-event since we can retry
+			$success = @rename($oldName, $newName); 
+		} else {
+			// use real rename only
+			$success = rename($oldName, $newName);
 		}
 	
-		if($options['chmod']) {
-			$this->chmod($newName);
+		if(!$success && ($options['retry'] || $options['copy'])) {
+			$opt = array(
+				'limitPath' => $options['limitPath'],
+				'throw' => $options['throw'],
+			);
+			if($this->copy($oldName, $newName, $opt)) {
+				$success = true;
+				if(is_dir($oldName)) {
+					if(!$this->rmdir($oldName, true, $opt)) {
+						$this->filesError(__FUNCTION__, 'Unable to rmdir source ($oldName): ' . $oldName);
+					}
+				} else {
+					if(!$this->unlink($oldName, $opt['limitPath'], $opt['throw'])) {
+						$this->filesError(__FUNCTION__, 'Unable to unlink source ($oldName): ' . $oldName);
+					}
+				}
+			}
+		}
+	
+		if($success) {
+			if($options['chmod']) $this->chmod($newName);
+		} else {
+			$this->filesError(__FUNCTION__, "Failed: $oldName => $newName", $options);
 		}
 		
-		return true;
+		return $success;
+	}
+
+	/**
+	 * Rename by first copying files to destination and then deleting source files
+	 * 
+	 * The operation is considered successful so long as the source files were able to be copied to the destination.
+	 * If source files cannot be deleted afterwards, the warning is logged, plus a warning notice is also shown when in debug mode.
+	 * 
+	 * @param string $oldName Old pathname, must be full disk path.
+	 * @param string $newName New pathname, must be full disk path OR can be basename to assume same path as $oldName.
+	 * @param array $options See options for rename() method
+	 * @return bool
+	 * @throws WireException
+	 * @since 3.0.178
+	 * 
+	 */
+	public function renameCopy($oldName, $newName, $options = array()) {
+		$options['copy'] = true;
+		return $this->rename($oldName, $newName, $options);
 	}
 	
 	/**
@@ -424,34 +478,31 @@ class WireFileTools extends Wire {
 				$allow = $this->allowPath($pathname, $dir, false);
 				if($allow) break; // found one that is allowed
 			}
-			if(!$allow && $throw) {
-				throw new WireException("Given pathname is not within any of the paths allowed by limitPath");
+			if(!$allow) {
+				$this->filesError(__FUNCTION__, "Given pathname is not within any of the paths allowed by limitPath", $throw);
 			}
 			return $allow;
 			
 		} else if($limitPath === true) {
 			// default limitPath
-			$limitPath = $this->wire('config')->paths->assets;
+			$limitPath = $this->wire()->config->paths->assets;
 			
 		} else if($limitPath === false) {
 			// no limitPath in use	
 			
 		} else if(empty($limitPath) || !is_string($limitPath)) { 
 			// invalid limitPath argument (wrong type or path does not exist)
-			if($throw) throw new WireException("Invalid type for limitPath argument");
-			return false;
+			return $this->filesError(__FUNCTION__, "Invalid type for limitPath argument", $throw);
 			
 		} else if(!is_dir($limitPath)) {
-			if($throw) throw new WireException("$limitPath (limitPath) does not exist");
-			return false;
+			return $this->filesError(__FUNCTION__, "$limitPath (limitPath) does not exist", $throw);
 		}
 			
 		if($limitPath !== false) try {
 			// if limitPath can't pass allowPath then neither can $pathname
 			$this->allowPath($limitPath, false, true);
 		} catch(\Exception $e) {
-			if($throw) throw new WireException("Validating limitPath reported: " . $e->getMessage());
-			return false;
+			return $this->filesError(__FUNCTION__, "Validating limitPath reported: " . $e->getMessage(), $throw, $e); 
 		}
 		
 		if(DIRECTORY_SEPARATOR != '/') {
@@ -466,32 +517,27 @@ class WireFileTools extends Wire {
 		if(!strlen(trim($testname, '/.')) || substr_count($testname, '/') < 2) {
 			// do not allow paths that consist of nothing but slashes and/or dots
 			// and do not allow paths off root or lacking absolute path reference
-			if($throw) throw new WireException("pathname not allowed: $pathname");
-			return false; 
+			return $this->filesError(__FUNCTION__, "pathname not allowed: $pathname", $throw);
 		}
 		
 		if(strpos($pathname, '..') !== false) {
 			// not allowed to traverse anywhere
-			if($throw) throw new WireException('pathname may not traverse “../”');
-			return false;
+			return $this->filesError(__FUNCTION__, 'pathname may not traverse “../”', $throw);
 		}
 		
 		if(strpos($pathname, '.') === 0 || empty($pathname)) {
-			if($throw) throw new WireException('pathname may not begin with “.”');
-			return false;
+			return $this->filesError(__FUNCTION__, 'pathname may not begin with “.”', $throw);
 		}
 
 		$pos = strpos($pathname, '//');
 		if($pos !== false && $pos !== strpos($this->wire('config')->paths->assets, '//')) {
 			// URLs or accidental extra slashes not allowed, unless they also appear in a known safe system path
-			if($throw) throw new WireException('pathname may not contain double slash “//”');
-			return false;
+			return $this->filesError(__FUNCTION__, 'pathname may not contain double slash “//”', $throw);
 		}
 
 		if($limitPath !== false && strpos($pathname, $limitPath) !== 0) {
 			// disallow paths that do not begin with limitPath (i.e. /path/to/public_html/site/assets/)
-			if($throw) throw new WireException("Given pathname is not within $limitPath (limitPath)");
-			return false;
+			return $this->filesError(__FUNCTION__, "Given pathname is not within $limitPath (limitPath)", $throw);
 		}
 		
 		return true;
@@ -500,33 +546,40 @@ class WireFileTools extends Wire {
 	/**
 	 * Return a new temporary directory/path ready to use for files
 	 * 
-	 * The directory will be automatically removed after a set period of time (default=120s)
+	 * - The temporary directory will be automatically removed at the end of the request.
+	 * - Temporary directories are not http accessible. 
+	 * - If you call this with the same non-empty `$name` argument more than once in the 
+	 *   same request, the same `WireTempDir` instance will be returned. 
 	 * 
 	 * #pw-advanced
 	 * 
 	 * ~~~~~
-	 * $td = $files->tempDir('hello-world'); 
-	 * $path = (string) $td; // or use $td->get();
+	 * $tempDir = $files->tempDir(); 
+	 * $path = $tempDir->get(); // or use $td->get();
 	 * file_put_contents($path . 'some-file.txt', 'Hello world'); 
 	 * ~~~~~
 	 *
-	 * @param Object|string $name Provide the object that needs the temp dir, or name your own string
-	 * @param array|int $options Options array to modify default behavior:
-	 *  - `maxAge` (integer): Maximum age of temp dir files in seconds (default=120)
-	 *  - `basePath` (string): Base path where temp dirs should be created. Omit to use default (recommended).
-	 *  - Note: if you specify an integer for $options, then 'maxAge' is assumed.
-	 * @return WireTempDir If you typecast return value to a string, it is the temp dir path (with trailing slash).
+	 * @param Object|string $name Any one of the following: (default='')
+	 *  - Omit this argument for auto-generated name, 3.0.175+ 
+	 *  - Name/word that you specify using fieldName format, i.e. [_a-zA-Z0-9].
+	 *  - Object instance that needs the temp dir.
+	 * @param array|int $options Deprecated argument. Call `WireTempDir` methods if you need more options.
+	 * @return WireTempDir Returns a WireTempDir instance. If you typecast return value to a string, 
+	 *    it is the temp dir path (with trailing slash).
 	 * @see WireTempDir
 	 *
 	 */
-	public function tempDir($name, $options = array()) {
+	public function tempDir($name = '', $options = array()) {
 		static $tempDirs = array();
-		if(isset($tempDirs[$name])) return $tempDirs[$name];
+		if($name && isset($tempDirs[$name])) return $tempDirs[$name];
 		if(is_int($options)) $options = array('maxAge' => $options);
 		$basePath = isset($options['basePath']) ? $options['basePath'] : '';
-		$tempDir = new WireTempDir($name, $basePath);
+		$tempDir = new WireTempDir();
+		$this->wire($tempDir);
+		if(isset($options['remove']) && $options['remove'] === false) $tempDir->setRemove(false);
+		$tempDir->init($name, $basePath); 
 		if(isset($options['maxAge'])) $tempDir->setMaxAge($options['maxAge']);
-		$tempDirs[$name] = $tempDir;
+		if($name) $tempDirs[$name] = $tempDir;
 		return $tempDir;
 	}
 
@@ -630,17 +683,17 @@ class WireFileTools extends Wire {
 
 		$dst = rtrim($dst, '/' . DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR;
 
-		if(!class_exists('\ZipArchive')) throw new WireException("PHP's ZipArchive class does not exist");
-		if(!is_file($file)) throw new WireException("ZIP file does not exist");
+		if(!class_exists('\ZipArchive')) $this->filesException(__FUNCTION__, "PHP's ZipArchive class does not exist");
+		if(!is_file($file)) $this->filesException(__FUNCTION__, "ZIP file does not exist");
 		if(!is_dir($dst)) $this->mkdir($dst, true);
 
 		$names = array();
-		$chmodFile = $this->wire('config')->chmodFile;
-		$chmodDir = $this->wire('config')->chmodDir;
+		$chmodFile = $this->wire()->config->chmodFile;
+		$chmodDir = $this->wire()->config->chmodDir;
 
 		$zip = new \ZipArchive();
 		$res = $zip->open($file);
-		if($res !== true) throw new WireException("Unable to open ZIP file, error code: $res");
+		if($res !== true) $this->filesException(__FUNCTION__, "Unable to open ZIP file, error code: $res");
 
 		for($i = 0; $i < $zip->numFiles; $i++) {
 			$name = $zip->getNameIndex($i);
@@ -728,21 +781,22 @@ class WireFileTools extends Wire {
 			$zip = $options['zip']; // ZipArchive instance
 
 		} else if(is_string($zipfile)) {
-			if(!class_exists('\ZipArchive')) throw new WireException("PHP's ZipArchive class does not exist");
+			if(!class_exists('\ZipArchive')) $this->filesException(__FUNCTION__, "PHP's ZipArchive class does not exist");
 			$options = array_merge($defaults, $options);
 			$zippath = dirname($zipfile);
-			if(!is_dir($zippath)) throw new WireException("Path for ZIP file ($zippath) does not exist");
-			if(!is_writable($zippath)) throw new WireException("Path for ZIP file ($zippath) is not writable");
-			if(empty($files)) throw new WireException("Nothing to add to ZIP file $zipfile");
-			if(is_file($zipfile) && $options['overwrite'] && !$this->unlink($zipfile)) throw new WireException("Unable to overwrite $zipfile");
+			if(!is_dir($zippath)) $this->filesException(__FUNCTION__, "Path for ZIP file ($zippath) does not exist");
+			if(!is_writable($zippath)) $this->filesException(__FUNCTION__, "Path for ZIP file ($zippath) is not writable");
+			if(empty($files)) $this->filesException(__FUNCTION__, "Nothing to add to ZIP file $zipfile");
+			if(is_file($zipfile) && $options['overwrite'] && !$this->unlink($zipfile)) $this->filesException(__FUNCTION__, "Unable to overwrite $zipfile");
 			if(!is_array($files)) $files = array($files);
 			if(!is_array($options['exclude'])) $options['exclude'] = array($options['exclude']);
 			$recursive = false;
 			$zip = new \ZipArchive();
-			if($zip->open($zipfile, \ZipArchive::CREATE) !== true) throw new WireException("Unable to create ZIP: $zipfile");
+			if($zip->open($zipfile, \ZipArchive::CREATE) !== true) $this->filesException(__FUNCTION__, "Unable to create ZIP: $zipfile");
 
 		} else {
-			throw new WireException("Invalid zipfile argument");
+			$this->filesException(__FUNCTION__, "Invalid zipfile argument");
+			return array(); // not reachable
 		}
 
 		$dir = strlen($options['dir']) ? rtrim($options['dir'], '/') . '/' : '';
@@ -833,7 +887,7 @@ class WireFileTools extends Wire {
 		try {
 			$result = $http->sendFile($filename, $options, $headers);
 		} catch(\Exception $e) {
-			if($options['throw']) throw $e;
+			$this->filesError(__FUNCTION__, $e->getMessage(), $options, $e);
 			$result = 0;
 		}
 		return $result;	
@@ -858,7 +912,11 @@ class WireFileTools extends Wire {
 	public function filePutContents($filename, $contents, $flags = 0) {
 		$this->allowPath($filename, false, true);
 		$result = file_put_contents($filename, $contents, $flags); 
-		if($result !== false) $this->chmod($filename);
+		if($result === false) {
+			$this->filesError(__FUNCTION__, "Unable to write: $filename");
+		} else {
+			$this->chmod($filename);
+		}
 		return $result;
 	}
 
@@ -925,7 +983,7 @@ class WireFileTools extends Wire {
 	 */
 	public function render($filename, array $vars = array(), array $options = array()) {
 
-		$paths = $this->wire('config')->paths;
+		$paths = $this->wire()->config->paths;
 		$defaults = array(
 			'defaultPath' => $paths->templates,
 			'autoExtension' => 'php',
@@ -952,7 +1010,7 @@ class WireFileTools extends Wire {
 		if(!$options['allowDotDot'] && strpos($filename, '..')) {
 			// make path relative to /site/templates/ if filename is not an absolute path
 			$error = 'Filename may not have ".."';
-			if($options['throwExceptions']) throw new WireException($error);
+			if($options['throwExceptions']) $this->filesException(__FUNCTION__, $error);
 			$this->error($error);
 			return false;
 		}
@@ -976,7 +1034,7 @@ class WireFileTools extends Wire {
 			if(!$allowed) {
 				$error = "Filename $filename is not in an allowed path." ;
 				$error .= ' Paths: ' . implode("\n", $options['allowedPaths']) . '';
-				if($options['throwExceptions']) throw new WireException($error);
+				if($options['throwExceptions']) $this->filesException(__FUNCTION__, $error);
 				$this->error($error);
 				return false;
 			}
@@ -1055,13 +1113,13 @@ class WireFileTools extends Wire {
 			// if backtrack/relative components, convert to real path
 			$_filename = $filename;
 			$filename = realpath($filename);
-			if($filename === false) throw new WireException("File does not exist: $_filename");
+			if($filename === false) $this->filesException(__FUNCTION__, "File does not exist: $_filename");
 		}
 		
 		$filename = $this->unixFileName($filename);
 
 		if(strpos($filename, '//') !== false) {
-			throw new WireException("File is not allowed (double-slash): $filename");
+			$this->filesException(__FUNCTION__, "File is not allowed (double-slash): $filename");
 		}
 
 		if(strpos($filename, './') !== 0) {
@@ -1077,10 +1135,10 @@ class WireFileTools extends Wire {
 			foreach($options['allowedPaths'] as $path) {
 				if($this->fileInPath($filename, $path)) $allowed = true;
 			}
-			if(!$allowed) throw new WireException("File is not in an allowed path: $filename");
+			if(!$allowed) $this->filesException(__FUNCTION__, "File is not in an allowed path: $filename");
 		}
 
-		if(!file_exists($filename)) throw new WireException("File does not exist: $filename");
+		if(!file_exists($filename)) $this->filesException(__FUNCTION__, "File does not exist: $filename");
 
 		// extract all API vars
 		$fuel = array_merge($this->wire('fuel')->getArray(), $vars);
@@ -1434,5 +1492,64 @@ class WireFileTools extends Wire {
 	public function currentPath() {
 		return $this->unixDirName(getcwd());
 	}
+
+	/**
+	 * Report/log/throw an error
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $method
+	 * @param string $msg
+	 * @param bool|array $throw Throw exception? May be boolean or array with 'throw' index containing boolean.
+	 * @param \Exception|null $e Previous exception, if applicable
+	 * @return bool Always returns boolean false (so it can be used in error return statements)
+	 * @throws WireFilesException
+	 * @since 3.0.178
+	 * 
+	 */
+	public function filesError($method, $msg, $throw = false, $e = null) {
+		if(is_array($throw)) $throw = isset($throw['throw']) ? $throw['throw'] : false;
+		$msg = "$method: $msg";
+		$this->log($msg, array('name' => 'files-errors'));
+		if($throw) {
+			if($e) throw new WireFilesException($msg, $e->getCode(), $e);
+			throw new WireFilesException($msg);
+		} else if($this->wire()->config->debug) {
+			$this->warning($msg, Notice::debug);
+		}
+		return false;
+	}
+
+	/**
+	 * Throw a files exception
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $method
+	 * @param string $msg
+	 * @param \Exception|null $e
+	 * @throws WireFilesException
+	 * @since 3.0.178
+	 * 
+	 */
+	public function filesException($method, $msg, $e = null) {
+		$this->filesError($method, $msg, true, $e);
+	}
+	
+	/**
+	 * Log a message for this class
+	 *
+	 * #pw-internal
+	 *
+	 * @param string $str Text to log, or omit to return the `$log` API variable.
+	 * @param array $options Optional extras to include, see Wire::___log()
+	 * @return WireLog
+	 *
+	 */
+	public function ___log($str = '', array $options = array()) {
+		if(empty($options['name'])) $options['name'] = 'files';
+		return parent::___log($str, $options);
+	}
+
 
 }
