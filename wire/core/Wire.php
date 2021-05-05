@@ -19,7 +19,7 @@
  * #pw-summary-changes Methods to support tracking and retrieval of changes made to the object.
  * #pw-summary-hooks Methods for managing hooks for an object instance or class. 
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-use-constants
@@ -187,7 +187,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public static function setFuel($name, $value, $lock = false) {
 		$wire = ProcessWire::getCurrentInstance();
-		if($wire->wire('log')) $wire->wire('log')->deprecatedCall();
+		$log = $wire->wire()->log;
+		if($log) $log->deprecatedCall();
 		$wire->fuel()->set($name, $value, $lock);
 	}
 
@@ -205,7 +206,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public static function getFuel($name = '') {
 		$wire = ProcessWire::getCurrentInstance();
-		if($wire->wire('log')) $wire->wire('log')->deprecatedCall();
+		$log = $wire->wire()->log;
+		if($log) $log->deprecatedCall();
 		if(empty($name)) return $wire->fuel();	
 		return $wire->fuel()->$name;
 	}
@@ -222,7 +224,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public static function getAllFuel() {
 		$wire = ProcessWire::getCurrentInstance();
-		if($wire->wire('log')) $wire->wire('log')->deprecatedCall();
+		$log = $wire->wire()->log;
+		if($log) $log->deprecatedCall();
 		return $wire->fuel();	
 	}
 
@@ -240,7 +243,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public function fuel($name = '') {
 		$wire = $this->wire();
-		if($wire->wire('log')) $wire->wire('log')->deprecatedCall();
+		$log = $wire->wire()->log;
+		if($log) $log->deprecatedCall();
 		return $wire->fuel($name);
 	}
 	
@@ -262,7 +266,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *
 	 */
 	public function useFuel($useFuel = null) {
-		if(!is_null($useFuel)) $this->useFuel = $useFuel ? true : false;
+		if($useFuel !== null) $this->useFuel = $useFuel ? true : false;
 		return $this->useFuel;
 	}
 
@@ -1359,8 +1363,8 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * 
 	 */
 	public function ___trackException(\Exception $e, $severe = true, $text = null) {
-		$config = $this->wire('config');
-		$log = $this->wire('log');
+		$config = $this->wire()->config;
+		$log = $this->wire()->log;
 		$msg = $e->getMessage();
 		if($text !== null) {
 			if($text === true) $text = $msg;
@@ -1371,7 +1375,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 			$msg .= " (in " . str_replace($config->paths->root, '/', $e->getFile()) . " line " . $e->getLine() . ")";
 			$log->save('exceptions', $msg);
 		}
-		if($severe && $this->wire('config')->allowExceptions) {
+		if($severe && $config->allowExceptions) {
 			throw $e; // re-throw, if requested
 		}
 		return $this;
@@ -1485,26 +1489,38 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public function messages($options = array()) {
 		if(!is_array($options)) $options = explode(' ', strtolower($options)); 
-		if(in_array('errors', $options)) $type = 'errors'; 
-			else if(in_array('warnings', $options)) $type = 'warnings';
-			else $type = 'messages';
+		if(in_array('errors', $options)) {
+			$type = 'errors';
+		} else if(in_array('warnings', $options)) {
+			$type = 'warnings';
+		} else {
+			$type = 'messages';
+		}
 		$clear = in_array('clear', $options); 
 		if(in_array('all', $options)) {
 			// get all of either messages, warnings or errors (either in or out of this object instance)
-			$value = $this->wire(new Notices());
-			foreach($this->wire('notices') as $notice) {
+			$notices = $this->wire()->notices; 
+			$value = $this->wire(new Notices()); /** @var Notices $value */
+			foreach($notices as $notice) {
 				if($notice->getName() != $type) continue;
 				$value->add($notice);
-				if($clear) $this->wire('notices')->remove($notice); // clear global
+				if($clear) $notices->remove($notice); // clear global
 			}
 			if($clear) $this->_notices[$type] = null; // clear local
 		} else {
 			// get messages, warnings or errors specific to this object instance
-			$value = is_null($this->_notices[$type]) ? $this->wire(new Notices()) : $this->_notices[$type];
-			if(in_array('first', $options)) $value = $clear ? $value->shift() : $value->first();
-				else if(in_array('last', $options)) $value = $clear ? $value->pop() : $value->last(); 
-				else if($clear) $this->_notices[$type] = null;
-			if($clear && $value) $this->wire('notices')->removeItems($value); // clear from global notices
+			/** @var Notices $value */
+			$value = $this->_notices[$type] === null ? $this->wire(new Notices()) : $this->_notices[$type];
+			if(in_array('first', $options)) {
+				$value = $clear ? $value->shift() : $value->first();
+			} else if(in_array('last', $options)) {
+				$value = $clear ? $value->pop() : $value->last();
+			} else if($clear) {
+				$this->_notices[$type] = null;
+			}
+			if($clear && $value) {
+				$this->wire()->notices->removeItems($value); // clear from global notices
+			}
 		}
 		if(in_array('array', $options) || in_array('string', $options)) {
 			if($value instanceof Notice) {
@@ -1543,7 +1559,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 *
 	 */
 	public function ___log($str = '', array $options = array()) {
-		$log = $this->wire('log');
+		$log = $this->wire()->log;
 		if($log && strlen($str)) {
 			if(isset($options['name'])) {
 				$name = $options['name'];
@@ -1755,7 +1771,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 				}
 				$value = $name; // return the provided instance
 			} else {
-				throw new WireException("Wire::wire(\$o) expected WireFuelable for \$o and was given " . get_class($name));
+				throw new WireException('Wire::wire($o) expected WireFuelable for $o and was given ' . get_class($name));
 			}
 
 		} else if($value !== null) {

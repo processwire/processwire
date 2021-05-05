@@ -139,6 +139,14 @@ class WireDatabaseQueryException extends WireException {}
 class WireCSRFException extends WireException {}
 
 /**
+ * Thrown when fatal error from $files API var (or related) occurs
+ * 
+ * @since 3.0.178
+ *
+ */
+class WireFilesException extends WireException {}
+
+/**
  * Thrown when a requested Process or Process method is requested that doesn’t exist
  *
  */
