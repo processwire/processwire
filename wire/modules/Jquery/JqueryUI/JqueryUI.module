@@ -12,6 +12,8 @@ class JqueryUI extends ModuleJS {
 		);
 	}
 	
+	protected $filesLoaded = array();
+	
 	public function wired() {
 		$debug = $this->wire('config')->debug;
 		$this->addComponents(array(
@@ -24,43 +26,108 @@ class JqueryUI extends ModuleJS {
 	
 	public function init() {
 		parent::init();
-		if($this->wire('session')->touch) $this->use('touch'); 
+		if($this->wire()->session->touch) $this->use('touch'); 
 	}
 
+	/**
+	 * Load/use a component 
+	 * 
+	 * Available components:
+	 *  - modal: modal window support
+	 *  - panel: slide-out panel support
+	 *  - touch: jQuery UI Touch Punch
+	 *  - vex: Vex dialog library
+	 *  - selectize: Selectize input elements without theme
+	 *  - selectize.default: Selectize input with default theme
+	 *  - selectize.legacy: Selectize input with legacy theme
+	 *  - selectize.bootstrap2: Selectize input with bootstrap2 theme
+	 *  - selectize.bootstrap3: Selectize input with bootstrap3 theme
+	 * 
+	 * @param string $name 
+	 * @return $this|ModuleJS
+	 * 
+	 */
 	public function ___use($name) {
 		if($name == 'panel') {
 			// also add stylesheet when panel component requested
 			$this->config->styles->add($this->config->urls('JqueryUI') . "panel.css");
 		} else if($name == 'vex') {
-			// custom loader for vex
-			static $vexLoaded = false;
-			if($vexLoaded) return $this;
-			$vexLoaded = true;
-			$config = $this->wire('config');
-			$url = $config->urls('JqueryUI') . 'vex/';
-			$config->styles->add($url . 'css/vex.css');
-			$config->styles->add($url . 'styles/vex-theme-default.css');
-			$config->scripts->add($url . 'scripts/vex.combined.min.js');
-			$adminTheme = $this->wire('adminTheme');
-			if($adminTheme) $adminTheme->addExtraMarkup('head',
-				"<script>" .
-				"vex.defaultOptions.className='vex-theme-default';" .
-				"vex.dialog.buttons.YES.text='" . __('Ok', 'common') . "';" . // Yes/Ok button text for Confirm dialog
-				"vex.dialog.buttons.NO.text='" . __('Cancel', 'common') . "';" . // No/Cancel button text for Confirm dialog
-				"</script>"
-			);
+			$this->useVex();
 			return $this;
-		} else if($name == 'selectize') {
-			static $selectizeLoaded = false;	
-			if($selectizeLoaded) return $this;
-			$selectizeLoaded = true;
-			$config = $this->wire('config');
-			$url = $config->urls('JqueryUI') . 'selectize/';
-			$config->styles->add($url . 'css/selectize.css');
-			$config->scripts->add($url . 'js/standalone/selectize.' . ($config->debug ? 'js' : 'min.js')); 
+		} else if(strpos($name, 'selectize') === 0) {
+			$this->useSelectize($name);
 			return $this;	
 		}
 		return parent::___use($name);
+	}
+
+	/**
+	 * Get URL to JqueryUI module
+	 * 
+	 * @param string $name
+	 * @return string
+	 * 
+	 */
+	protected function url($name = '') {
+		return $this->wire()->config->urls('JqueryUI') . ($name ? "$name/" : "");
+	}
+
+	/**
+	 * Load/use VEX component
+	 * 
+	 */
+	protected function useVex() {
+		if(isset($this->filesLoaded['vex-css'])) return;
+		$config = $this->wire()->config;
+		$url = $this->url('vex');
+		$fileCSS = $url . 'css/vex.css';
+		$this->filesLoaded['vex-css'] = $fileCSS;
+		$config->styles->add($fileCSS);
+		$config->styles->add($url . 'styles/vex-theme-default.css');
+		$config->scripts->add($url . 'scripts/vex.combined.min.js');
+		$adminTheme = $this->wire()->adminTheme;
+		if($adminTheme) $adminTheme->addExtraMarkup('head',
+			"<script>" .
+			"vex.defaultOptions.className='vex-theme-default';" .
+			"vex.dialog.buttons.YES.text='" . __('Ok', 'common') . "';" . // Yes/Ok button text for Confirm dialog
+			"vex.dialog.buttons.NO.text='" . __('Cancel', 'common') . "';" . // No/Cancel button text for Confirm dialog
+			"</script>"
+		);
+	}
+
+	/**
+	 * Load/use selectize component
+	 * 
+	 * @param string $name One of 'selectize', 'selectize.default', 'selectize.legacy', 'selectize.bootstrap2', 'selectize.bootstrap3'
+	 * 
+	 */
+	protected function useSelectize($name = '') {
+		
+		$theme = '';
+		if(strpos($name, '.')) list(,$theme) = explode('.', $name, 2); // i.e. 'selectize.default'
+		
+		$config = $this->wire()->config;
+		$url = $this->url('selectize');
+		$fileCSS = $url . "css/selectize" . ($theme ? ".$theme" : "") . ".css";
+		$fileJS = $url . 'js/standalone/selectize.' . ($config->debug ? 'js' : 'min.js');
+		
+		if(isset($this->filesLoaded['selectize-css'])) { 
+			if($this->filesLoaded['selectize-css'] === $fileCSS) {
+				$fileCSS = ''; // file already added
+			} else {
+				$config->styles->remove($this->filesLoaded['selectize-css']); // replace
+			}
+		}
+		
+		if($fileCSS) {
+			$config->styles->add($fileCSS);
+			$this->filesLoaded['selectize-css'] = $fileCSS;
+		}
+		
+		if(!isset($this->fileLoaded['selectize-js'])) {
+			$config->scripts->add($fileJS);
+			$this->filesLoaded['selectize-js'] = $fileJS;
+		}
 	}
 
 
