@@ -167,14 +167,18 @@ class Permissions extends PagesType {
 			'page-edit-images' => $this->_('Use the image editor to manipulate (crop, resize, etc.) images'),
 			'page-rename' => $this->_('Change the name of published pages they are allowed to edit'),
 			'user-admin-all' => $this->_('Administer users in any role (except superuser)'),
+			'user-view-all' => $this->_('User can view users in any role (including superuser)'),
+			'user-view-self' => $this->_('User can view themself (when not already by other permission)')
 		);
 
-		foreach($this->wire('roles') as $role) {
-			if($role->name == 'guest' || $role->name == 'superuser') continue;
+		foreach($this->wire()->roles as $role) {
+			if($role->name === 'guest') continue;
+			$a["user-view-$role->name"] = sprintf($this->_('View users in role: %s'), $role->name); 
+			if($role->name === 'superuser') continue;
 			$a["user-admin-$role->name"] = sprintf($this->_('Administer users in role: %s'), $role->name);
 		}
-
-		$languages = $this->wire('languages');
+		
+		$languages = $this->wire()->languages;
 		if($languages) {
 			$label = $this->_('Edit fields on a page in language: %s');
 			$alsoLabel = $this->_('(also required to create or delete pages)');

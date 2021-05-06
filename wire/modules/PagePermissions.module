@@ -239,14 +239,13 @@ class PagePermissions extends WireData implements Module {
 	 */
 	public function userEditable(Page $page, array $options = array()) {
 		
-		/** @var User $user */
-		$user = $this->wire('user');
-		
 		/** @var Process|ProcessProfile|ProcessPageView|ProcessUser|ProcessPageList|ProcessPageLister $process */
-		$process = $this->wire('process');
 		
-		/** @var Config $config */
-		$config = $this->wire('config');
+		$user = $this->wire()->user;
+		$process = $this->wire()->process;
+		$processName = (string) $process;
+		$config = $this->wire()->config;
+		$guestRoleID = $config->guestUserRolePageID;
 		
 		$defaults = array(
 			'viewable' => false, // specify true if method is being used to determine viewable state
@@ -255,26 +254,58 @@ class PagePermissions extends WireData implements Module {
 		$options = count($options) ? array_merge($defaults, $options) : $defaults;
 	
 		if(!$page->id) return false;
-		if($page->className() != 'User') $page = $this->wire('users')->get($page->id);
+		
+		if(!$page instanceof User) { 
+			$template = $this->wire()->templates->get('user');
+			if($page->className() !== $template->getPageClass(false)) {
+				$page = $this->wire()->users->get($page->id);
+			}
+		}
+		
 		if(!$page || $page instanceof NullPage) return false;
 	
-		if($user->id === $page->id && !$user->isGuest() && $user->hasPermission('profile-edit')) {
+		if($user->id === $page->id && $user->isLoggedin()) {
 			// user is the same as the page being edited or viewed
-			if($process == 'ProcessProfile') {
-				// user editing themself in ProcssProfile
+			$wirePage = $this->wire()->page;
+			$wireProcessName = $wirePage ? "$wirePage->process" : '';
+
+			if(($processName === 'ProcessProfile' || $wireProcessName === 'ProcessProfile') && $user->hasPermission('profile-edit')) {
+				// user editing themself in ProcessProfile
 				return true;
-			} else if($this->wire('page') && $this->wire('page')->process == 'ProcessProfile') {
-				// user editing themself in ProcessProfile, when process not yet established
+			}
+			if($options['viewable'] && $user->hasPermission('user-view-self')) {
+				// user requests to view themselves
 				return true;
-			} else if($process == 'ProcessPageView' && $page->secureFiles() && $options['viewable']) {
-				// user is viewing a file that is part of their User page when pagefileSecure mode active
-				return $process->getResponseType() == ProcessPageView::responseTypeFile;
 			}
 		}
 
-		// if the current process is something other than ProcessUser, they don't have permission
-		if(!$options['viewable']) {
-			if($process != 'ProcessUser' && (!$process instanceof ProcessPageList) && (!$process instanceof ProcessPageLister)) {
+		if($options['viewable']) {
+			// perform viewable checks rather than editable checks
+			if($page->template->useRoles && $user->hasPermission('page-view', $page)) {
+				// access permission provided by page-view permission configured directly (not inherited) on user template
+				if($user->isLoggedin()) return true;
+			}
+			if($user->hasPermission('user-view-all')) {
+				// user-view-all permission is similar to page-view on the user template but can also be assigned to guest role
+				return true;
+			}
+			if($page->isSuperuser()) {
+				// if superuser role is present then view permission cannot be provided by any other user-view-[role]
+				return $user->isSuperuser() || $user->hasPermission('user-view-superuser');
+			}
+			// check for match between user-view-[role] permission and roles of user being requested
+			$userViewable = false;
+			foreach($page->roles as $role) {
+				// check for "user-view-[roleName]" permissions
+				if($role->id == $guestRoleID) continue;
+				if($user->hasPermission("user-view-$role->name")) $userViewable = true;
+				if($userViewable) break;
+			}
+			if($userViewable) return true;
+			
+		} else {
+			// if the current process is something other than ProcessUser, they don't have permission
+			if($processName !== 'ProcessUser' && (!$process instanceof ProcessPageList) && (!$process instanceof ProcessPageLister)) {
 				return false;
 			}
 		}
@@ -284,12 +315,12 @@ class PagePermissions extends WireData implements Module {
 
 		// if the user page being edited has a superuser role, and the current user doesn't,
 		// never let them edit regardless of any other permissions
-		$superuserRole = $this->wire('roles')->get($config->superUserRolePageID);
+		$superuserRole = $this->wire()->roles->get($config->superUserRolePageID);
 		if($page->roles->has($superuserRole) && !$user->roles->has($superuserRole)) return false;
 
 		// if we reach this point then check if there are more granular user-admin permissions available
 		// special permissions: user-admin-all, and user-admin-[role]
-		$userAdminAll = $this->wire('permissions')->get('user-admin-all');
+		$userAdminAll = $this->wire()->permissions->get('user-admin-all');
 		
 		// if there are no special permissions, then let them through
 		if(!$userAdminAll->id) return true;
@@ -299,7 +330,6 @@ class PagePermissions extends WireData implements Module {
 
 		// there are role-specific permissions in the system, and user must have appropriate one to edit
 		$userEditable = false;
-		$guestRoleID = $config->guestUserRolePageID;
 		$n = 0;
 		foreach($page->roles as $role) {
 			$n++;
@@ -316,7 +346,16 @@ class PagePermissions extends WireData implements Module {
 		
 		return false;
 	}
-	
+
+	/**
+	 * Returns whether the given user ($page) is viewable by the current user
+	 * 
+	 * @param User|Page $page
+	 * @param array $options
+	 * @return bool
+	 * @throws WireException
+	 * 
+	 */
 	public function userViewable(Page $page, array $options = array()) {
 		$user = $this->wire()->user;
 		// user viewing themself
@@ -597,7 +636,7 @@ class PagePermissions extends WireData implements Module {
 		} else if($page->hasField('process') && $page->get('process')) {
 			// delegate access to permissions defined with Process module
 			$viewable = $this->processViewable($page);
-		} else if($page instanceof User && !$user->isGuest() && ($user->hasPermission('user-admin') || $page->id === $user->id)) {
+		} else if($page instanceof User) { // && !$user->isGuest() && ($user->hasPermission('user-admin') || $page->id === $user->id)) {
 			// user administrator or user viewing themself
 			$viewable = $this->userViewable($page); 
 		} else if(!$user->hasPermission("page-view", $page)) {
