@@ -25,7 +25,7 @@ class PWPNG {
 	public function loadFile($lpszFileName) {
 		// READ FILE
 		if(!($fh = @fopen($lpszFileName, 'rb'))) {
-			$this->Error('Can\'t open image file: '.$file);
+			$this->Error('Can\'t open image file: '.basename($lpszFileName));
 			return false;
 		}
 		$ret = (false === $this->_parsepngstream($fh, basename($lpszFileName))) ? false : true;
@@ -59,6 +59,7 @@ class PWPNG {
 			$colspace = 'Indexed';
 		} else {
 			$this->Error('Unknown color type: '.$file);
+			$colspace = '';
 		}
 		if(ord($this->_readstream($f, 1)) != 0) $this->Error('Unknown compression method: '.$file);
 		if(ord($this->_readstream($f, 1)) != 0) $this->Error('Unknown filter method: '.$file);
@@ -114,7 +115,7 @@ class PWPNG {
 			'channels' => $ct,
 			'bits' => $bpc,
 			'dp' => $dp,
-			'palette' => utf8_encode($pal),
+			'palette' => (function_exists('utf8_encode') ? utf8_encode($pal) : $pal),
 			'trans' => $trns,
 			'alpha' => $ct >= 4 ? true : false,
 			'interlace' => $interlaced,
@@ -131,7 +132,7 @@ class PWPNG {
 			$s = fread($f, $n);
 			if($s === false) {
 				$this->Error('Error while reading stream');
-				return;
+				return '';
 			}
 			$n -= strlen($s);
 			$res .= $s;
