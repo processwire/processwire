@@ -725,7 +725,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			case 'modified':
 			case 'published':
 				if($value === null) $value = 0;
-				if($value && !ctype_digit("$value")) $value = strtotime($value); 
+				if($value && !ctype_digit("$value")) $value = $this->wire()->datetime->strtotime($value); 
 				$value = (int) $value; 
 				if($this->isLoaded && $this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value); 
 				$this->settings[$key] = $value;

@@ -2603,8 +2603,17 @@ class PageFinder extends Wire {
 					
 				} else if(in_array($field, array('created', 'modified', 'published'))) {
 					// prepare value for created, modified or published date fields
-					if(!ctype_digit($value)) $value = strtotime($value); 
-					$value = date('Y-m-d H:i:s', $value); 
+					if(!ctype_digit($value)) {
+						$value = $this->wire()->datetime->strtotime($value); 
+					}
+					if(empty($value)) {
+						$value = null;
+						if($operator === '>' || $operator === '=>') {
+							$value = $field === 'published' ? '1000-01-01 00:00:00' : '1970-01-01 00:00:01';
+						}
+					} else {
+						$value = date('Y-m-d H:i:s', $value);
+					}
 					
 				} else if(in_array($field, array('id', 'parent_id', 'templates_id', 'sort'))) {
 					$value = (int) $value; 
@@ -2676,10 +2685,14 @@ class PageFinder extends Wire {
 						if($operator === '=' || $operator === '!=') $operator = '&'; // bitwise
 						if($operator === '!=') $not = true;
 					}
-					if(ctype_digit("$value") && $field != 'name') $value = (int) $value;
-					$bindKey = $query->bindValueGetKey($value);
-					$s = "$table.$field" . $operator . $bindKey;
-					if($not) $s = "NOT ($s)";
+					if($value === null) {
+						$s = "$table.$field " . ($not ? 'IS NOT NULL' : 'IS NULL'); 
+					} else {
+						if(ctype_digit("$value") && $field != 'name') $value = (int) $value;
+						$bindKey = $query->bindValueGetKey($value);
+						$s = "$table.$field" . $operator . $bindKey;
+						if($not) $s = "NOT ($s)";
+					}
 				
 					if($field === 'status' && strpos($operator, '<') === 0 && $value >= Page::statusHidden && count($options['alwaysAllowIDs'])) {
 						// support the 'alwaysAllowIDs' option for specific page IDs when requested but would

@@ -347,7 +347,8 @@ class InputfieldDatetime extends Inputfield {
 				$value = (int) $value;
 			} else if(strlen($value) > 8 && $value[4] === '-' && $value[7] === '-' && ctype_digit(substr($value, 0, 4))) {
 				// ISO-8601, i.e. 2010-04-08 02:48:00
-				$value = strtotime($value); 
+				$value = $this->wire()->datetime->strtotime($value); 
+				if(!$value) $value = '';
 			} else {
 				$value = $this->getInputType()->sanitizeValue($value);
 			}

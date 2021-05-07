@@ -555,12 +555,12 @@ class WireFileTools extends Wire {
 	 * 
 	 * ~~~~~
 	 * $tempDir = $files->tempDir(); 
-	 * $path = $tempDir->get(); // or use $td->get();
+	 * $path = $tempDir->get(); 
 	 * file_put_contents($path . 'some-file.txt', 'Hello world'); 
 	 * ~~~~~
 	 *
 	 * @param Object|string $name Any one of the following: (default='')
-	 *  - Omit this argument for auto-generated name, 3.0.175+ 
+	 *  - Omit this argument for auto-generated name, 3.0.178+ 
 	 *  - Name/word that you specify using fieldName format, i.e. [_a-zA-Z0-9].
 	 *  - Object instance that needs the temp dir.
 	 * @param array|int $options Deprecated argument. Call `WireTempDir` methods if you need more options.

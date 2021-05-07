@@ -417,6 +417,37 @@ class WireDateTime extends Wire {
 		return $value;
 	}
 
+	/**
+	 * Parse about any English textual datetime description into a Unix timestamp using PHP’s strtotime()
+	 * 
+	 * This function behaves the same as PHP’s version except that it optionally accepts an `$options` array 
+	 * and lets you specify the return value for empty or zeroed dates like 0000-00-00. If given a zerod date
+	 * then it returns null by default (rather than throwing an error as PHP8 does). 
+	 * 
+	 * @param string $str Date/time string 
+	 * @param array|int $options Options to modify behavior, or specify int for the `baseTimestamp` option. 
+	 *  - `emptyReturnValue` (int|null|false): Value to return for empty or zero-only date strings (default=null)
+	 *  - `baseTimestamp` (int|null): The timestamp which is used as a base for the calculation of relative dates.
+	 * @return false|int|null
+	 * @see https://www.php.net/manual/en/function.strtotime.php
+	 * @since 3.0.178
+	 * 
+	 */
+	function strtotime($str, $options = array()) {
+		$defaults = array(
+			'emptyReturnValue' => null, 
+			'baseTimestamp' => null,
+		);
+		if(is_int($options)) $defaults['baseTimestamp'] = $options; 
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		$str = trim($str);
+		if(empty($str)) return $options['emptyReturnValue'];
+		if(strpos($str, '00') === 0) {
+			$test = trim(preg_replace('/[^\d]/', '', $str), '0');
+			if(!strlen($test)) return $options['emptyReturnValue'];
+		}
+		return strtotime($str, $options['baseTimestamp']); 
+	}
 
 
 	/**
