@@ -320,6 +320,10 @@ class PagesNames extends Wire {
 			$name = trim((string) $page->title);
 			$formatType = 'field';
 			
+		} else if($format === 'id' && $page->id) {
+			// page ID, when it is known
+			$name = (string) $page->id; 
+			
 		} else if($format === 'random') {
 			// globally unique randomly generated page name
 			$name = $this->uniqueRandomPageName();
