@@ -20,7 +20,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Path History', 
-			'version' => 5, 
+			'version' => 6, 
 			'summary' => "Keeps track of past URLs where pages have lived and automatically redirects (301 permament) to the new location whenever the past URL is accessed.",
 			'singular' => true, 
 			'autoload' => true, 
@@ -213,6 +213,27 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		$query->closeCursor();
 		
 		return $cnt;
+	}
+	
+	/**
+	 * Delete all path history for a given Page or for all pages
+	 * 
+	 * @param Page|true $page If value of this param is boolean true (rather than Page), all paths for all pages are cleared
+	 * @throws WireException if param $page is not of expected type (true or Page)
+	 * @since 3.0.178
+	 *
+	 */
+	public function deleteAllPathHistory($page) {
+		$database = $this->wire()->database;
+		if($page === true) {
+			$database->exec('DELETE FROM ' . self::dbTableName);
+		} else if($page instanceof Page && $page->id) {
+			$query = $database->prepare('DELETE FROM ' . self::dbTableName . ' WHERE pages_id=:pages_id');
+			$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
+			$query->execute();
+		} else {
+			throw new WireException("Invalid param: instance of Page or boolean true expected");
+		}
 	}
 	
 	/**
@@ -830,8 +851,10 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		$modules = $this->wire()->modules;
+		
 		/** @var InputfieldInteger $f */
-		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f = $modules->get('InputfieldInteger');
 		$f->attr('name', 'minimumAge');
 		$f->label = $this->_('Minimum age (seconds)');
 		$f->description = $this->_('Start recording history for a page this many seconds after it has been created. At least 2 or more seconds recommended.');
@@ -839,6 +862,40 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		$f->val((int) $this->minimumAge);
 		$f->required = true;
 		$inputfields->add($f);
+		
+		$query = $this->wire()->database->query('SELECT COUNT(*) FROM ' . self::dbTableName);
+		$numPaths = (int) $query->fetchColumn();
+		$query->closeCursor();
+
+		if($numPaths) {
+			$input = $this->wire()->input;
+			$deleteNow = $input->post('_deleteAll') && $input->post('_deleteAllConfirm') === "$numPaths";
+			
+			if($deleteNow) {
+				$this->deleteAllPathHistory(true);
+				$inputfields->message(sprintf($this->_('Deleted %d historical page paths'), $numPaths));
+				$numPaths = 0;
+			}
+
+			/** @var InputfieldCheckbox $f */
+			$f = $modules->get('InputfieldCheckbox');
+			$f->attr('name', '_deleteAll');
+			$f->attr('value', 1);
+			$f->label = $this->_('Delete all page path history?');
+			$f->description = sprintf($this->_('There are currently %d historical page paths in the database.'), $numPaths);
+			$f->collapsed = Inputfield::collapsedYes;
+			$inputfields->add($f);
+
+			/** @var InputfieldCheckbox $f */
+			$f = $modules->get('InputfieldCheckbox');
+			$f->attr('name', '_deleteAllConfirm');
+			$f->attr('value', 1);
+			$f->label = $this->_('Are you sure?');
+			$f->description = $this->_('This information is used for automatic redirects and more. It cannot be recovered once deleted. Check the box to confirm you really want to do this.');
+			$f->showIf = '_deleteAll=1';
+			$f->val($numPaths);
+			$inputfields->add($f);
+		}
 	}
 
 }
