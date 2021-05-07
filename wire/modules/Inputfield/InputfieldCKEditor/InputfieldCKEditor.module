@@ -34,7 +34,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 164, 
+			'version' => 165, 
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
 			'installs' => array('MarkupHTMLPurifier'), 
 			);
@@ -535,7 +535,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$value = $this->purifyValue($this->attr('value')); 
 
 		$out = 	
-			"<div id='{$this->id}_ckeditor' class='InputfieldCKEditorInline InputfieldCKEditorInlineEditor' data-configName='$this->configName'>$value</div>" . 
+			"<div id='{$this->id}_ckeditor' class='InputfieldCKEditorInline InputfieldCKEditorInlineEditor' tabindex='0' data-configName='$this->configName'>$value</div>" . 
 			"<input type='hidden' name='$this->name' id='$this->id' value='" . self::PLACEHOLDER_TEXT . "' />";
 
 		return $out; 
