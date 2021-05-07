@@ -906,6 +906,7 @@ class WireHttp extends Wire {
 		
 		$this->resetResponse();
 		$fromURL = str_replace(' ', '%20', $fromURL);
+		$setopts = null;
 		$proxy = '';
 		
 		if(!empty($options['proxy'])) $proxy = $options['proxy'];
@@ -921,6 +922,16 @@ class WireHttp extends Wire {
 		curl_setopt($curl, CURLOPT_FILE, $fp); // write curl response to file
 		curl_setopt($curl, CURLOPT_FOLLOWLOCATION, true);
 		if($proxy) curl_setopt($curl, CURLOPT_PROXY, $proxy);
+
+		// custom CURL options provided in $options array
+		if(!empty($options['curl']) && !empty($options['curl']['setopt'])) {
+			$setopts = $options['curl']['setopt'];
+		} else if(!empty($options['curl_setopt'])) {
+			$setopts = $options['curl_setopt'];
+		}
+		if(is_array($setopts)) {
+			curl_setopt_array($curl, $options['curl']);
+		}
 		
 		$result = curl_exec($curl);
 		if($result) $this->httpCode = curl_getinfo($curl, CURLINFO_HTTP_CODE);
