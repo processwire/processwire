@@ -993,6 +993,125 @@ class WireTextTools extends Wire {
 
 		return $str; 
 	}
+	
+	/**
+	 * Populate placeholders in string with sanitizers applied to populated values
+	 * 
+	 * These placeholders accept one or more sanitizer names as part `{placeholder}` in the format `{placeholder:sanitizers}`,
+	 * where `placeholder` is the name of a variable accessible from `$data` argument and `sanitizers` is the name of a 
+	 * sanitizer method or a CSV string of sanitizer methods. Placeholders with any whitespace are ignored.
+	 * 
+	 * #pw-internal 
+	 * 
+	 * ~~~~~
+	 * $tools = $sanitizer->getTextTools();
+	 * $data = [ 'name' => 'John <Bob> Smith', 'age' => 46.5 ];
+	 * 
+	 * $str = "My name is {name:camelCase}, my age is {age:int}";
+	 * echo $tools->placeholderSanitizers($str, $data); // outputs: My name is johnBobSmith, my age is 46
+	 * 
+	 * $str = "My name is {name:removeWhitespace,entities}, my age is {age:float}";
+	 * echo $tools->placeholderSanitizers($str, $data); // outputs: My name is John&lt;Bob&gt;Smith, my age is 46.5
+	 * 
+	 * $str = "My name is {name:text,word}, my age is {age:digits}";
+	 * echo $tools->placeholderSanitizers($str, $data); // outputs: My name is John, my age is 465
+	 * ~~~~~
+	 * 
+	 * @param string $str
+	 * @param array|WireData|WireInputData 
+	 * @param array $options
+	 * @return string
+	 * @throws WireException
+	 * @since 3.0.178
+	 * @todo currently 'protected' for later use
+	 *
+	 */
+	protected function placeholderSanitizers($str, $data, array $options = array()) {
+		
+
+		$defaults = array(
+			'tagOpen' => '{', 
+			'tagClose' => '}', 
+			'sanitizersBefore' => array('string'), // sanitizers to apply before requested ones
+			'sanitizersAfter' => array(), // sanitizers to apply after requested ones
+			'sanitizersDefault' => array('text'), // defaults if only {var} is presented without {var:sanitizer}
+		);
+		
+
+		$options = array_merge($defaults, $options);
+		$sanitizer = $this->wire()->sanitizer;
+		$dataIsArray = is_array($data);
+		$replacements = array();
+		$parts = array();
+		
+		if(strpos($str, $options['tagOpen']) === false || !strpos($str, $options['tagClose'])) return $str;
+		
+		if(!is_array($data) && !$data instanceof WireData && !$data instanceof WireInputData) {
+			throw new WireException('$data argument must be associative array, WireData or WireInputData');
+		}
+	
+		list($tagOpen, $tagClose) = array(preg_quote($options['tagOpen']), preg_quote($options['tagClose'])); 
+		
+		$regex = '/OPEN([-_.a-z0-9]+)(:[_,a-z0-9]+CLOSE|CLOSE)/i';
+		$regex = str_replace(array('OPEN', 'CLOSE'), array($tagOpen, $tagClose), $regex); 
+		if(!preg_match_all($regex, $str, $matches)) return $str;
+
+		foreach($matches[0] as $key => $placeholder) {
+			$varName = $matches[1][$key];
+			$sanitizers = trim($matches[2][$key], ':}');
+			$sanitizers = strlen($sanitizers) ? explode(',', $sanitizers) : array();
+			if(!count($sanitizers)) $sanitizers = $options['sanitizersDefault'];
+			if($dataIsArray) {
+				/** @var array $data */
+				$value = isset($data[$varName]) ? $data[$varName] : null;
+			} else {
+				/** @var WireData|WireInputData $data */
+				$value = $data->get($varName);
+			}
+			$n = 0;
+			foreach(array($options['sanitizersBefore'], $sanitizers, $options['sanitizersAfter']) as $methods) {
+				foreach($methods as $method) {
+					if(!$sanitizer->methodExists($method)) throw new WireException("Unknown sanitizer method: $method");
+					$value = $sanitizer->sanitize($value, $method);
+					$n++;
+				}
+			}
+			if(!$n) $value = $placeholder;
+			$replacements[] = array($placeholder, $value);
+		}
+
+		// piece it back together manually so values in $data cannot introduce more placeholders
+		foreach($replacements as $item) {
+			list($placeholder, $value) = $item;
+			list($before, $after) = explode($placeholder, $str, 2);
+			$parts[] = $before . $value;
+			$str = $after;
+		}
+
+		return implode('', $parts) . $str;
+	}
+
+	/**
+	 * Populate placeholders with optional sanitizers in a selector string
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $selectorString
+	 * @param array|WireData|WireInputData
+	 * @param array $options
+	 * @return string
+	 * @throws WireException
+	 * @since 3.0.178
+	 * @todo currently 'protected' for later use
+	 * 
+	 */
+	protected function placeholderSelector($selectorString, $data, array $options = array()) {
+		if(!isset($options['sanitizersBefore'])) $options['sanitizersBefore'] = array();
+		if(!isset($options['sanitizersAfter'])) $options['sanitizersAfter'] = array();
+		$options['sanitizersBefore'][] = 'text';
+		$options['sanitizersAfter'][] = 'selectorValue';
+		return $this->placeholderSanitizers($selectorString, $data, $options);
+	}
 
 	/**
 	 * Given two arrays, return array of the changes with 'ins' and 'del' keys
