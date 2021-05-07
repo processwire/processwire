@@ -18,6 +18,7 @@
  * @property bool|string $isModal
  * @property bool|int $useAsLogin
  * @method array getUserNavArray()
+ * @method array getPrimaryNavArray()
  *
  */
 abstract class AdminThemeFramework extends AdminTheme {
@@ -374,7 +375,7 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 * @return array
 	 *
 	 */
-	public function getPrimaryNavArray() {
+	public function ___getPrimaryNavArray() {
 
 		$items = array();
 		$config = $this->wire('config');
