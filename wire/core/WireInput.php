@@ -21,7 +21,7 @@
  * @property array|string[] $urlSegments Retrieve all URL segments (array). This requires url segments are enabled on the template of the requested page. You can turn it on or off under the url tab when editing a template. #pw-group-URL-segments
  * @property WireInputData $post POST variables
  * @property WireInputData $get GET variables
- * @property WireInputData $cookie COOKIE variables
+ * @property WireInputDataCookie $cookie COOKIE variables
  * @property WireInputData $whitelist Whitelisted variables
  * @property int $pageNum Current page number (where 1 is first) #pw-group-URLs
  * @property string $urlSegmentsStr String of current URL segments, separated by slashes, i.e. a/b/c  #pw-internal

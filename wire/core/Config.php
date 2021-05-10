@@ -62,6 +62,7 @@
  * @property string $sessionNameSecure Session name when on HTTPS. Used when the sessionCookieSecure option is enabled (default). When blank (default), it will assume sessionName + 's'. #pw-group-session
  * @property bool|int $sessionCookieSecure Use secure cookies when on HTTPS? When enabled, separate sessions will be maintained for HTTP vs. HTTPS. Good for security but tradeoff is login session may be lost when switching (default=1 or true). #pw-group-session
  * @property null|string $sessionCookieDomain Domain to use for sessions, which enables a session to work across subdomains, or NULL to disable (default/recommended). #pw-group-session
+ * @property string $sessionCookieSameSite Cookie “SameSite” value for sessions - “Lax” (default) or “Strict”. (3.0.178+) #pw-group-session
  * @property bool|callable $sessionAllow Are sessions allowed? Typically boolean true, unless provided a callable function that returns boolean. See /wire/config.php for an example.  #pw-group-session
  * @property int $sessionExpireSeconds How many seconds of inactivity before session expires? #pw-group-session
  * @property bool $sessionChallenge Should login sessions have a challenge key? (for extra security, recommended) #pw-group-session

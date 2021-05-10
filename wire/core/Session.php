@@ -305,7 +305,18 @@ class Session extends Wire implements \IteratorAggregate {
 			}
 		}
 		
-		@session_start();
+		$options = array();
+		$cookieSameSite = $this->sessionCookieSameSite();
+		
+		if(PHP_VERSION_ID < 70300) {
+			$cookiePath = ini_get('session.cookie_path');
+			if(empty($cookiePath)) $cookiePath = '/';
+			$options['cookie_path'] = "$cookiePath; SameSite=$cookieSameSite";
+		} else {
+			$options['cookie_samesite'] = $cookieSameSite;
+		}
+
+		@session_start($options);
 		
 		if(!empty($this->data)) {
 			foreach($this->data as $key => $value) $this->set($key, $value);
@@ -937,8 +948,16 @@ class Session extends Wire implements \IteratorAggregate {
 				$this->set('_user', 'challenge', $challenge); 
 				$secure = $this->config->sessionCookieSecure ? (bool) $this->config->https : false;
 				// set challenge cookie to last 30 days (should be longer than any session would feasibly last)
-				setcookie(session_name() . self::challengeSuffix, $challenge, time()+60*60*24*30, '/', 
-					$this->config->sessionCookieDomain, $secure, true); 
+				$this->setCookie(
+					session_name() . self::challengeSuffix,
+					$challenge,
+					time() + 60*60*24*30,
+					'/',
+					$this->config->sessionCookieDomain,
+					$secure,
+					true,
+					$this->config->sessionCookieSameSite
+				);
 			}
 
 			if($this->config->sessionFingerprint) { 
@@ -947,7 +966,7 @@ class Session extends Wire implements \IteratorAggregate {
 			}
 
 			$this->wire('user', $user); 
-			$this->get('CSRF')->resetAll();
+			$this->CSRF()->resetAll();
 			$this->loginSuccess($user); 
 			$fail = false;
 
@@ -1120,19 +1139,78 @@ class Session extends Wire implements \IteratorAggregate {
 	}
 
 	/**
+	 * Add a SetCookie response header
+	 *
+	 * @param string $name
+	 * @param string|null|false $value
+	 * @param int $expires
+	 * @param string $path
+	 * @param string|null $domain
+	 * @param bool $secure
+	 * @param bool $httponly
+	 * @param string $samesite One of 'Strict', 'Lax', 'None'
+	 * @return bool
+	 * @since 3.0.178
+	 * 
+	 */
+	protected function setCookie($name, $value, $expires = 0, $path = '/', $domain = null, $secure = false, $httponly = false, $samesite = 'Lax') {
+		
+		if(empty($path)) $path = '/';
+	
+		$samesite = $this->sessionCookieSameSite($samesite);
+		
+		if($samesite === 'None') $secure = true;
+
+		if(PHP_VERSION_ID < 70300) {
+			return setcookie($name, $value, $expires, "$path; SameSite=$samesite", $domain, $secure, $httponly);
+		}
+
+		// PHP 7.3+ supports $options array
+		return setcookie($name, $value, array(
+			'expires' => $expires,
+			'path' => $path,
+			'domain' => $domain,
+			'secure' => $secure,
+			'httponly' => $httponly,
+			'samesite' => $samesite,
+		));
+	}
+
+
+	/**
 	 * Remove all cookies used by the session
 	 * 
 	 */
 	protected function removeCookies() {
 		$sessionName = session_name();
+		$challengeName = $sessionName . self::challengeSuffix;
 		$time = time() - 42000;
+		$domain = $this->config->sessionCookieDomain;
 		$secure = $this->config->sessionCookieSecure ? (bool) $this->config->https : false;
+		$samesite = $this->sessionCookieSameSite();
+		
 		if(isset($_COOKIE[$sessionName])) {
-			setcookie($sessionName, '', $time, '/', $this->config->sessionCookieDomain, $secure, true);
+			$this->setCookie($sessionName, '', $time, '/', $domain, $secure, true, $samesite);
 		}
-		if(isset($_COOKIE[$sessionName . self::challengeSuffix])) {
-			setcookie($sessionName . self::challengeSuffix, '', $time, '/', $this->config->sessionCookieDomain, $secure, true);
+		
+		if(isset($_COOKIE[$challengeName])) {
+			$this->setCookie($challengeName, '', $time, '/', $domain, $secure, true, $samesite);
 		}
+	}
+
+	/**
+	 * Get 'SameSite' value for session cookie
+	 * 
+	 * @param string|null $value
+	 * @return string
+	 * @since 3.0.178
+	 * 
+	 */
+	protected function sessionCookieSameSite($value = null) {
+		$samesite = $value === null ? $this->config->sessionCookieSameSite : $value;
+		$samesite = empty($samesite) ? 'Lax' : ucfirst(strtolower($samesite));
+		if(!in_array($samesite, array('Strict', 'Lax', 'None'), true)) $samesite = 'Lax';
+		return $samesite;
 	}
 
 	/**

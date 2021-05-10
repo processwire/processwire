@@ -56,6 +56,11 @@
  *   // Specify true, false, or null to auto-detect (uses true for cookies set when HTTPS).
  *   'secure' => null,
  * 
+ *   // Cookie SameSite value: When set to “Lax” cookies are preserved on GET requests to this site
+ *   // originated from external links. May also be “Strict” or “None”. The 'secure' option is
+ *   // required for “None”. Default value is “Lax”. Available in PW 3.0.178+.
+ *   'samesite' => 'Lax',
+ * 
  *   // Make cookies accessible by HTTP (ProcessWire/PHP) only? 
  *   // When true, cookie is http/server-side only and not visible to client-side JS code.
  *   'httponly' => false,
@@ -95,6 +100,7 @@ class WireInputDataCookie extends WireInputData {
 		'domain' => null,
 		'secure' => null,
 		'httponly' => false, 
+		'samesite' => 'Lax',
 		'fallback' => true,
 	);
 
@@ -340,6 +346,7 @@ class WireInputDataCookie extends WireInputData {
 	 * - `path` (string|null): Cookie path/URL or null for PW installation’s root URL. (default=null)
 	 * - `secure` (bool|null): Transmit cookies only over secure HTTPS connection? Specify true or false, or use null to auto-detect, 
 	 *    which uses true for cookies set when HTTPS is detected. (default=null)
+	 * - `samesite` (string): SameSite value, one of 'Lax' (default), 'Strict' or 'None'. (default='Lax') 3.0.178+
 	 * - `httponly` (bool): When true, cookie is visible to PHP/ProcessWire only and not visible to client-side JS code. (default=false)
 	 * - `fallback` (bool): If set cookie fails (perhaps due to output already sent), attempt to set at beginning of next request? (default=true)
 	 * - `domain` (string|bool|null): Cookie domain, specify one of the following: `null` or blank string for current hostname [default],
@@ -351,8 +358,7 @@ class WireInputDataCookie extends WireInputData {
 	 */
 	public function setCookie($key, $value, array $options) {
 		
-		/** @var Config $config */
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$options = array_merge($this->defaultOptions, $config->cookieOptions, $this->options, $options);
 	
 		$path = $options['path'] === null || $options['path'] === true ? $config->urls->root : $options['path'];
@@ -361,6 +367,13 @@ class WireInputDataCookie extends WireInputData {
 		$domain = $options['domain'];
 		$remove = $value === null;
 		$expires = null;
+		$samesite = $options['samesite'] ? ucfirst(strtolower($options['samesite'])) : 'Lax';
+		
+		if($samesite === 'None') {
+			$secure = true;
+		} else if(!in_array($samesite, array('Lax', 'Strict', 'None'), true)) {
+			$samesite = 'Lax';
+		}
 		
 		if(!empty($options['expire'])) {
 			if(is_string($options['expire']) && !ctype_digit($options['expire'])) {
@@ -395,11 +408,22 @@ class WireInputDataCookie extends WireInputData {
 		if($remove) list($value, $expires) = array('', 1); 
 
 		// set the cookie
-		$result = setcookie($key, $value, $expires, $path, $domain, $secure, $httponly);
+		if(PHP_VERSION_ID < 70300) {
+			$result = setcookie($key, $value, $expires, "$path; SameSite=$samesite", $domain, $secure, $httponly);
+		} else {
+			$result = setcookie($key, $value, array(
+				'expires' => $expires,
+				'path' => $path,
+				'domain' => $domain,
+				'secure' => $secure,
+				'httponly' => $httponly,
+				'samesite' => $samesite,
+			));
+		}
 
 		if($result === false && $options['fallback']) {
 			// output must have already started, set at construct on next request
-			$this->wire('session')->setFor($this, $key, $value);
+			$this->wire()->session->setFor($this, $key, $value);
 		}
 
 		if($remove) {

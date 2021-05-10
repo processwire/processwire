@@ -179,7 +179,24 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		$query = $database->prepare("DELETE FROM `$table` WHERE id=:id"); 
 		$query->execute(array(":id" => $id));
 		$secure = $config->sessionCookieSecure ? (bool) $config->https : false;
-		setcookie(session_name(), '', time()-42000, '/', $config->sessionCookieDomain, $secure, true);
+		$expires = time() - 42000;
+		$samesite = $config->sessionCookieSameSite ? ucfirst(strtolower($config->sessionCookieSameSite)) : 'Lax';
+		
+		if($samesite === 'None') $secure = true;
+		
+		if(PHP_VERSION_ID < 70300) {
+			setcookie(session_name(), '', $expires, "/; SameSite=$samesite", $config->sessionCookieDomain, $secure, true);
+		} else {
+			setcookie(session_name(), '', array(
+				'expires' => $expires,
+				'path' => '/',
+				'domain' => $config->sessionCookieDomain,
+				'secure' => $secure,
+				'httponly' => true,
+				'samesite' => $samesite
+			));
+		}
+		
 		return true; 
 	}
 

@@ -421,6 +421,25 @@ $config->sessionCookieSecure = 1;
 $config->sessionCookieDomain = null;
 
 /**
+ * Cookie “SameSite” value for sessions - “Lax” (default) or “Strict”
+ *
+ * - `Lax`: The session cookie will be sent along with the GET requests initiated by third party website.
+ *    This ensures an existing session on this site is maintained when clicking to it from another site.
+ * 
+ * - `Strict`: The session cookie will not be sent along with requests initiated by third party websites.
+ *    If user already has a login session on this site, it won’t be recognized when clicking from another
+ *    site to this one. 
+ * 
+ * The default/recommended value is `Lax`.
+ * 
+ * @var string
+ * @since 3.0.178
+ * @see https://www.php.net/manual/en/session.configuration.php#ini.session.cookie-samesite
+ *
+ */
+$config->sessionCookieSameSite = 'Lax';
+
+/**
  * Number of session history entries to record.
  *
  * When enabled (with a value > 0) a history of pageviews will be recorded in the
@@ -1020,6 +1039,7 @@ $config->wireInputLazy = false;
  * #property int age Max age of cookies in seconds or 0 to expire with session (3600=1hr, 86400=1day, 604800=1week, 2592000=30days, etc.)
  * #property string|null Cookie path or null for PW installation’s root URL (default=null).
  * #property string|null|bool domain Cookie domain: null for current hostname, true for all subdomains of current domain, domain.com for domain and all subdomains, www.domain.com for www subdomain.
+ * #property string samesite When set to “Lax” cookies are preserved on GET requests to this site originated from external links. May also be 'Strict' or 'None' ('secure' option required for 'None'). 3.0.178+
  * #property bool|null secure Transmit cookies only over secure HTTPS connection? (true, false, or null to auto-detect, using true option for cookies set when HTTPS is active).
  * #property bool httponly When true, cookie is http/server-side and not visible to JS code in most browsers.
  * 
@@ -1032,6 +1052,7 @@ $config->cookieOptions = array(
 	'path' => null, // Cookie path/URL or null for PW installation’s root URL (default=null).
 	'domain' => null, // Cookie domain: null for current hostname, true for all subdomains of current domain, domain.com for domain and all subdomains, www.domain.com for www subdomain.
 	'secure' => null, // Transmit cookies only over secure HTTPS connection? (true, false, or null to auto-detect, substituting true for cookies set when HTTPS is active).
+	'samesite' => 'Lax', // When set to “Lax” cookies are preserved on GET requests to this site originated from external links. May also be 'Strict' or 'None' ('secure' option required for 'None'). 
 	'httponly' => false, // When true, cookie is http/server-side only and not visible to client-side JS code.
 	'fallback' => true, // If set cookie fails (perhaps due to output already sent), attempt to set at beginning of next request? (default=true)
 );
