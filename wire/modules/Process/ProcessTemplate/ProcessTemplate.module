@@ -3297,7 +3297,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		if($editTag) {
 			// edit which fields are assigned to tag
 			$this->breadcrumb('./', $headline);
-			$this->headline("$labels[tag] - " . (isset($tags[$editTag]) ? $tags[$editTag] : $editTag));
+			$this->headline("$labels[tags] - " . (isset($tags[$editTag]) ? $tags[$editTag] : $editTag));
 
 			/** @var InputfieldName $f */
 			$f = $modules->get('InputfieldName');
