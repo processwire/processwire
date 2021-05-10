@@ -3357,7 +3357,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 				if($removeTag && $template->hasTag($removeTag)) {
 					$template->removeTag($removeTag);
 				}
-				if(in_array($template->name, $tagTemplates)) {
+				if(is_array($tagTemplates) && in_array($template->name, $tagTemplates)) {
 					// template should have the given tag
 					if($template->hasTag($saveTag)) continue;
 					$template->addTag($saveTag);
