@@ -148,7 +148,13 @@ var Inputfields = {
 	 * Are we currently toggling collapsed state or visibility?
 	 * 
  	 */	
-	toggling: false, 
+	toggling: false,
+
+	/**
+	 * Toggle behavior (0=standard, 1=consistent)
+	 * 
+ 	 */	
+	toggleBehavior: 0, 
 
 	/**
 	 * Default duration (in MS) for certain visual animations
@@ -306,6 +312,28 @@ var Inputfields = {
 		}
 		
 		return $inputfield;
+	},
+
+	/**
+	 * Toggle all given $inputfields open or closed
+	 *
+	 * Also triggers these events on each $inputfield: openReady, closeReady, opened, closed
+	 *
+	 * @param object $inputfields jQuery object of one or more Inputfields or selector string that matches Inputfields
+	 * @param bool open Boolean true to open, false to close, or null (or omit) for opposite of current state (default=opposite of current state)
+	 * @param int duration How many milliseconds for animation? (default=100)
+	 * @param function callback Optional function to call upon completion, receives Inputfield object, open and duration as arguments (default=none)
+	 * @returns Returns jQuery object of Inputfields 
+	 * @since 3.0.178
+	 *
+	 */
+	toggleAll: function($inputfields, open, duration, callback) {
+		if(typeof $inputfields === "string") $inputfields = jQuery($inputfields);
+		var Inputfields = this;
+		$($inputfields.get().reverse()).each(function(i, el) {
+			Inputfields.toggle($(el), open, duration, callback);
+		});
+		return $inputfields;
 	},
 
 	/**
@@ -2028,7 +2056,7 @@ function InputfieldStates($target) {
 				});
 				if(isTab) {
 					$header.effect('highlight', 500);
-				} else {
+				} else if(Inputfields.toggleBehavior < 1) {
 					$header.click();
 				}
 			}, 500);
@@ -2085,6 +2113,7 @@ function InputfieldStates($target) {
 		var isCollapsed = $li.hasClass("InputfieldStateCollapsed"); 
 		var wasCollapsed = $li.hasClass("InputfieldStateWasCollapsed");
 		var duration = 100;
+		var isAjax = $li.hasClass('collapsed10') || $li.hasClass('collapsed11');
 	
 		if(!$li.length) return;
 		if($li.hasClass('InputfieldAjaxLoading')) return false;
@@ -2094,13 +2123,16 @@ function InputfieldStates($target) {
 			if(typeof data.duration != "undefined") duration = data.duration;
 		}
 
-		if(isCollapsed && ($li.hasClass('collapsed10') || $li.hasClass('collapsed11'))) {
+		if(isCollapsed && isAjax) {	
 			if(InputfieldStateAjaxClick($li)) return false;
 		}
 			
 		if(isCollapsed || wasCollapsed || isIcon) {
 			$li.addClass('InputfieldStateWasCollapsed'); // this class only used here
 			Inputfields.toggle($li, null, duration);
+		} else if(Inputfields.toggleBehavior === 1) {
+			// open/close implied by header label click
+			$icon.click();
 		} else {
 			// Inputfield not collapsible unless toggle icon clicked, so pulsate the toggle icon and focus any inputs
 			if(typeof jQuery.ui != 'undefined') {

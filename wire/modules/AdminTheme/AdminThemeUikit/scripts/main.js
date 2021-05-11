@@ -840,6 +840,7 @@ var ProcessWireAdminTheme = {
 		}); 
 
 		$('body').addClass('InputfieldColumnWidthsInit');
+		Inputfields.toggleBehavior = ProcessWire.config.adminTheme.toggleBehavior;
 		initFormMarkup();
 	},
 

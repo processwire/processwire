@@ -19,6 +19,7 @@
  * @property bool|int $groupNotices Whether or not notices should be grouped by type
  * @property string $inputSize Size for input/select elements. One of "s" for small, "m" for medium (default), or "l" for large. 
  * @property bool|int $ukGrid When true, use uk-width classes for Inputfields (rather than CSS percentages). 
+ * @property int $toggleBehavior (0=Standard, 1=Consistent)
  * 
  * @method string getUikitCSS()
  * 
@@ -78,6 +79,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('layout', '');
 		$this->set('noBorderTypes', array()); // 'InputfieldCKEditor' is a good one for this
 		$this->set('logoAction', 0); 
+		$this->set('toggleBehavior', 0);
 		$this->set('userLabel', '{Name}'); 
 		$this->set('userAvatar', 'icon.user-circle'); 
 		$this->set('maxWidth', 1600); 
@@ -1091,11 +1093,13 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 *
 	 */
 	public function getHeadJS() {
-	
-		$data = $this->wire('config')->js('adminTheme');
+
+		$config = $this->wire()->config;
+		$data = $config->js('adminTheme');
 		if(!is_array($data)) $data = array();
 		$data['logoAction'] = (int) $this->logoAction;
-		$this->wire('config')->js('adminTheme', $data);
+		$data['toggleBehavior'] = (int) $this->toggleBehavior; 
+		$config->js('adminTheme', $data);
 		
 		return parent::getHeadJS();
 	}

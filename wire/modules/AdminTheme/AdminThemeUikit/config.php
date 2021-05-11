@@ -320,7 +320,25 @@ class AdminThemeUikitConfigHelper extends Wire {
 		}
 		$f->attr('value', $adminTheme->offsetTypes);
 		$fieldset->add($f);
-
+		
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
+		$f->attr('name', 'toggleBehavior');
+		$f->label = $this->_('Inputfield label toggle behavior'); 
+		$f->icon = 'eye-slash';
+		$f->description = 
+			$this->_('Inputfield elements in ProcessWire can have an open or closed state.') . ' ' . 
+			$this->_('This setting determines what happens when a user clicks any Inputfield label, which appears as a header above the input.') . ' ' . 
+			$this->_('The “Standard” option makes a click of a label on an open Inputfield focus the input element, a standard HTML form behavior.') . ' ' . 
+			$this->_('While a click of a closed Inputfield label will open and then focus the Inputfield (and close it when clicked again).') . ' ' . 
+			$this->_('The “Consistent” option makes the Inputfield label always behave consistently as an open/close toggle, regardless of what state the Inputfield is in.');
+		$f->notes = $this->_('Regardless of what setting you choose, the toggle icon in the upper right of each Inputfield always toggles the open/closed state.'); 
+		$f->addOption(0, $this->_('Standard'));
+		$f->addOption(1, $this->_('Consistent')); 
+		$f->optionColumns = 1;
+		$f->val($adminTheme->toggleBehavior); 
+		$fieldset->add($f);	
+		
 		/** @var InputfieldCheckboxes $f */
 		/*
 		$f = $modules->get('InputfieldCheckbox');
