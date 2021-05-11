@@ -20,6 +20,8 @@
  * @property string $inputSize Size for input/select elements. One of "s" for small, "m" for medium (default), or "l" for large. 
  * @property bool|int $ukGrid When true, use uk-width classes for Inputfields (rather than CSS percentages). 
  * 
+ * @method string getUikitCSS()
+ * 
  * 
  */
 class AdminThemeUikit extends AdminThemeFramework implements Module, ConfigurableModule {
@@ -990,30 +992,42 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	
 		$options = array_merge($defaults, $options);
 		$logoURL = $this->get('logoURL');
+		$logoQS = '';
 		$svg = false;
 		
 		if(empty($logoURL) || $options['getNative'] || strpos($logoURL, '//') !== false) {
 			$native = true;
 			$logoURL = $this->url() . self::logo;
 		} else {
+			if(strpos($logoURL, '?')) list($logoURL, $logoQS) = explode('?', $logoURL, 2);
 			$logoURL = $config->urls->root . ltrim($logoURL, '/');
 			$logoURL = $sanitizer->entities($logoURL);
 			$native = false;
 			$svg = strtolower(pathinfo($logoURL, PATHINFO_EXTENSION)) === 'svg';
 		}
 		
-		if($options['getURL']) return $logoURL;
-	
 		$alt = $options['alt'];
-		if(empty($alt) && $this->wire('user')->isLoggedin()) {
+		if(empty($alt) && $this->wire()->user->isLoggedin()) {
 			$alt = "ProcessWire $config->version";
 		}
-		$class = 'pw-logo ' . ($native ? 'pw-logo-native' : 'pw-logo-custom');
-		$attr = "class='$class' src='$logoURL' alt='$alt' ";
-		if($svg && $options['height']) $attr .= "style='height:$options[height]' ";
-		$img = "<img $attr/>";
 		
-		return $img;
+		$class = 'pw-logo ' . ($native ? 'pw-logo-native' : 'pw-logo-custom');
+		$attr = "class='$class' alt='$alt' ";
+
+		if($svg) {
+			if($options['height']) $attr .= "style='height:$options[height]' ";
+			if(strpos($logoQS, 'uk-svg') === 0) {
+				// if logo has "?uk-svg" query string, add uk-svg attribute which makes it styleable via CSS/LESS (PR#77)
+				$attr .= 'uk-svg ';
+				$logoQS = str_replace(array('uk-svg&', 'uk-svg'), '', $logoQS);
+			}
+		}
+		
+		if($logoQS) $logoURL .= '?' . $sanitizer->entities($logoQS);
+		
+		$img = "<img src='$logoURL' $attr/>";
+		
+		return $options['getURL'] ? $logoURL : $img;
 	}
 
 	/**
@@ -1052,9 +1066,10 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * Get the primary Uikit CSS file to use
 	 * 
 	 * @return string
+	 * @since 3.0.178 Was not hookable in prior versions
 	 * 
 	 */
-	public function getUikitCSS() {
+	public function ___getUikitCSS() {
 		$config = $this->wire('config');
 		$cssURL = $this->get('cssURL');
 		$moduleInfo = self::getModuleInfo();

@@ -111,7 +111,8 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$f->label = $this->_('Logo image file');
 		$f->description = $defaultFileDesc;
 		$f->notes = $defaultFileNote .
-			$this->_('File should be PNG, GIF, JPG or SVG, on transparent background, and at least 100px in both dimensions.');
+			$this->_('File should be PNG, GIF, JPG or SVG, on transparent background, and at least 100px in both dimensions.') . ' ' . 
+			sprintf($this->_('If using SVG, you may optionally append “?uk-svg” to URL to make it add the [uk-svg](%s) attribute.'), 'https://getuikit.com/docs/svg');  
 		$f->collapsed = Inputfield::collapsedBlank;
 		$f->icon = 'file-image-o';
 		$fieldset->add($f);
