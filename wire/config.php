@@ -1032,6 +1032,26 @@ $config->wireInputOrder = 'get post';
 $config->wireInputLazy = false;
 
 /**
+ * Maximum depth for input variables accessed from $input
+ * 
+ * A value of 1 (or less) means only single dimensional arrays are allowed. For instance, `$a['foo']`
+ * would be allowed (since it is one dimension), but `$a['foo']['bar']` would not because it is 
+ * multi-dimensional to a depth of 2.
+ * 
+ * A value of 2 or higher enables multi-dimensional arrays to that depth. For instance, a value of 2 
+ * would allow `$a['foo']['bar']` and a value of 3 or higher would enable `$a['foo']['bar']['baz']`.
+ * 
+ * Note: if your use case requires multi-dimensional input arrays and you do not have control over
+ * this setting (like if you are a 3rd party module author), or are using a version of PW prior to 
+ * 3.0.178 you can always still access multi-dimensional arrays directly from `$_GET` or `$_POST`. 
+ *
+ * @var int
+ * @since 3.0.178
+ * 
+ */
+$config->wireInputArrayDepth = 1;
+
+/**
  * Options for setting cookies from $input->cookie()->set(...)
  * 
  * Additional details about some of these options can also be found on PHP’s [setcookie](https://www.php.net/manual/en/function.setcookie.php) doc page.

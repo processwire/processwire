@@ -92,6 +92,7 @@
  * @property int $maxUrlDepth Maximum URL/path slashes (depth) for request URLs. (Min=10, Max=60) #pw-group-URLs
  * @property string $wireInputOrder Order that variables with the $input API var are handled when you access $input->var. #pw-group-HTTP-and-input
  * @property bool $wireInputLazy Specify true for $input API var to load input data in a lazy fashion and potentially use less memory. Default is false. #pw-group-HTTP-and-input
+ * @property int $wireInputArrayDepth Maximum multi-dimensional array depth for input variables accessed from $input or 1 to only allow single dimension arrays. (3.0.178+). #pw-group-HTTP-and-input
  * @property array $cookieOptions Options for setting cookies from $input->cookie #pw-group-HTTP-and-input
  * 
  * @property bool $advanced Special mode for ProcessWire system development. Not recommended for regular site development or production use. #pw-group-system

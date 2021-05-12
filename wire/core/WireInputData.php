@@ -330,19 +330,43 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 	/**
 	 * Clean an array of data
 	 * 
-	 * Removes multi-dimensional arrays and slashes (if applicable) 
+	 * Support multi-dimensional arrays consistent with `$config->wireInputArrayDepth` 
+	 * setting (3.0.178+) and remove slashes if applicable/necessary. 
 	 * 
 	 * @param array $a
 	 * @return array
 	 * 
 	 */
 	protected function cleanArray(array $a) {
+		static $depth = 1;
+
+		$maxDepth = (int) $this->wire()->config->wireInputArrayDepth;
+		if($maxDepth < 1) $maxDepth = 1;
+		
 		$clean = array();
+		
 		foreach($a as $key => $value) {
-			if(is_array($value)) continue; // we only allow one dimensional arrays
-			if(is_string($value) && $this->stripSlashes) $value = stripslashes($value);
-			$clean[$key] = $value;
+			if(is_array($value)) {
+				if($depth >= $maxDepth) {
+					// max dimension reached
+					$value = null; 
+				} else {
+					// allow another dimension
+					$depth++;
+					$value = $this->cleanArray($value);
+					$depth--;
+					// empty arrays not possible in input vars past 1st dimension
+					if(!count($value)) $value = null; 
+				}
+			} else if(is_string($value)) {
+				if($this->stripSlashes) $value = stripslashes($value);
+			}
+			
+			if($value !== null) {
+				$clean[$key] = $value;
+			}
 		}
+		
 		return $clean;
 	}
 
