@@ -409,6 +409,11 @@ $focusPointCircleSize: 40px;
 		display: block;
 	}
 
+	&__core {
+		// when both description and custom fields are present, this prevents them from having no margin between them
+		margin-bottom: 0.5em;
+	}
+
 	&__inner {
 		position: relative;
 		display: flex;
