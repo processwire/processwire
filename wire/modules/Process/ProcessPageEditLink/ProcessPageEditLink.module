@@ -24,7 +24,7 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		return array(
 			'title' => 'Page Edit Link',          
 			'summary' => 'Provides a link capability as used by some Fieldtype modules (like rich text editors).', 
-			'version' => 108, 
+			'version' => 109, 
 			'permanent' => true, 
 			'permission' => 'page-edit',
 			'icon' => 'link', 
@@ -152,6 +152,9 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 			$currentValue = '';
 		}
 
+		$currentText = $this->wire()->input->get('text');
+		$currentText = $currentText === null ? '' : $this->wire()->sanitizer->text($currentText);
+
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get("InputfieldForm"); 
 		$form->attr('id', 'ProcessPageEditLinkForm');
@@ -163,7 +166,17 @@ class ProcessPageEditLink extends Process implements ConfigurableModule {
 		$fieldset = $this->wire(new InputfieldWrapper());
 		$fieldset->attr('title', $this->_('Link')); 
 		$fieldset->addClass('WireTab');
-		$form->add($fieldset); 
+		$form->add($fieldset);
+
+		if($currentText) {
+			/** @var InputfieldText $field */
+			$field = $this->modules->get("InputfieldText");
+			$field->label = $this->_('Link text');
+			$field->icon = 'pencil-square';
+			$field->attr('id+name', 'link_text');
+			$field->val($currentText);
+			$fieldset->add($field);
+		}
 
 		/** @var InputfieldPageAutocomplete $field */
 		$field = $this->modules->get("InputfieldPageAutocomplete"); 

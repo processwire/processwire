@@ -172,6 +172,13 @@
 				modalUrl += '&anchors[]=' + encodeURIComponent(anchors[n].id); 
 			}
 		}
+
+		// set link text
+		var linkText = ($existingLink && $existingLink.text().length) ? $existingLink.text() : selectionText;
+
+		if(nodeName !== 'img' && linkText.length) {
+			modalUrl += '&text=' + encodeURIComponent(linkText);
+		}
 	
 		// labels
 		var insertLinkLabel = ProcessWire.config.InputfieldCKEditor.pwlink.label;
@@ -184,7 +191,10 @@
 			var $i = $iframe.contents();
 			var $a = jQuery(jQuery("#link_markup", $i).text());
 			if($a.attr('href') && $a.attr('href').length) {
-				$a.html(selectionText);
+				// $a.html(selectionText);
+				if(!$a.text().length) {
+					$a.html(selectionText);
+				}
 				var html = jQuery("<div />").append($a).html();
 				editor.insertHtml(html);
 			}

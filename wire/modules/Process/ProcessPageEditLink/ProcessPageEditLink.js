@@ -21,8 +21,9 @@ $(document).ready(function() {
 
 	var $fileSelect = $("#link_page_file"); 
 	var $anchorSelect = $("#link_page_anchor");
-	var $linkPageURL = $("#link_page_url_input"); 
-	
+	var $linkPageURL = $("#link_page_url_input");
+	var $linkText = $("#link_text");
+
 	$linkPageURL.val($("#link_page_url").val()); // copy from hidden 
 
 	function populateFileSelect(selectedPageData) {
@@ -152,7 +153,11 @@ $(document).ready(function() {
 			var val = $("<div />").text($linkTitle.val()).html();
 			$link.attr('title', val); 
 		}
-		
+
+		if($linkText.length && $linkText.val().length) {
+			$link.text($linkText.val());
+		}
+
 		var $linkRel = $("#link_rel"); 
 		if($linkRel.length && $linkRel.val().length) {
 			$link.attr('rel', $linkRel.val()); 
@@ -307,10 +312,12 @@ $(document).ready(function() {
 	
 	setTimeout(function() {
 		$linkPageURL.change();
+		$linkText.change();
 	}, 250); 
 	
 	$(":input").change(updateLinkPreview);
-	$("#link_title").keydown(function(event) { updateLinkPreview(); }); 
+	$("#link_title").keydown(function(event) { updateLinkPreview(); });
+	$linkText.keyup(function(event) { updateLinkPreview(); });
 
 	// when header is clicked, open up the pageList right away
 	$(".InputfieldInteger .InputfieldHeader").click(function() {
