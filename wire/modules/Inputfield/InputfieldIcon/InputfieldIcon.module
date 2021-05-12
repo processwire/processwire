@@ -12,25 +12,39 @@ class InputfieldIcon extends Inputfield {
 		return array(
 			'title' => __('Icon', __FILE__), // Module Title
 			'summary' => __('Select an icon', __FILE__), // Module Summary
-			'version' => 2,
+			'version' => 3,
 		);
 	}
 	
 	const prefix = 'fa-';
 	
 	protected $options = array();
-	
+
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		parent::__construct();
-		$this->options = file(dirname(__FILE__) . '/icons.inc', FILE_IGNORE_NEW_LINES); 
+		$this->options = file(__DIR__ . '/icons.inc', FILE_IGNORE_NEW_LINES); 
 		$this->set('prefixValue', true); // should value attr always start with prefix? (externally)
 	}
-	
+
+	/**
+	 * Init
+	 * 
+	 */
 	public function init() {
 		parent::init();
 		$this->icon = 'puzzle-piece';
 	}
-	
+
+	/**
+	 * Render
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___render() {
 		$out = '';
 		$attrs = $this->getAttributes();
@@ -38,27 +52,35 @@ class InputfieldIcon extends Inputfield {
 		if($value && strpos($value, self::prefix) !== 0) $value = self::prefix . $value;
 		if($value) $this->icon = $value;
 		unset($attrs['value']);
-		$out .= "\n<select " . $this->getAttributesString($attrs) . ">";
-		if(!$this->getSetting('required')) $out .= "\n\t<option value=''></option>";
+		$out .= "<select " . $this->getAttributesString($attrs) . ">";
+		if(!$this->getSetting('required')) $out .= "<option value=''></option>";
 		foreach($this->options as $option) {
 			$option = trim($option); 
 			$selected = $value == $option ? " selected='selected'" : "";
 			$label = ucfirst(substr($option, 3)); 
 			$label = str_replace('-', ' ', $label); 
-			$out .= "\n\t<option$selected value='$option'>$label</option>";
+			$out .= "<option$selected value='$option'>$label</option>";
 		}
-		$out .= "</select>&nbsp;&nbsp;";
+		$out .= "</select>&nbsp;";
 		$out .=
-			"<i class='fa fa-angle-right ui-priority-secondary'></i>&nbsp;" . 
-			"<a class='InputfieldIconShowAll' target='_blank' href='#'>" . 
+			"<i class='fa fa-fw fa-angle-right ui-priority-secondary'></i>" . 
+			"<a class='InputfieldIconShowAll' href='#'>" . 
 			"<small>" . $this->_('Show All Icons') . "</small></a>" . 
 			"<div class='InputfieldIconAll'></div>";
 		return $out;
 
 	}
-	
+
+	/**
+	 * Set attribute
+	 * 
+	 * @param array|string $key
+	 * @param array|bool|int|string $value
+	 * @return Inputfield
+	 * 
+	 */
 	public function setAttribute($key, $value) {
-		if($key == 'value' && !empty($value)) {
+		if($key === 'value' && !empty($value)) {
 			if(strpos($value, self::prefix) !== 0) $value = self::prefix . $value;
 			$index = array_search($value, $this->options);
 			if(is_int($index)) {
@@ -69,9 +91,16 @@ class InputfieldIcon extends Inputfield {
 		}
 		return parent::setAttribute($key, $value); 
 	}
-	
+
+	/**
+	 * Get attribute
+	 * 
+	 * @param string $key
+	 * @return bool|mixed|null|string
+	 * 
+	 */
 	public function getAttribute($key) {
-		if($key == 'value') {
+		if($key === 'value') {
 			$value = parent::getAttribute($key);
 			if(empty($value)) return $value;
 			if($this->getSetting('prefixValue')) {

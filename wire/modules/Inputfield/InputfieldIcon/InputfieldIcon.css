@@ -1,0 +1,60 @@
+.InputfieldIconAll { 
+	overflow: visible !important; 
+	margin-top: 12px; 
+	text-align: justify; 
+}
+.InputfieldIconAll .fa.fw { 
+	padding: 7px 6px; 
+	font-size: 16px !important; 
+	transition: all 0.16s; 
+	min-width: 34px; 
+	text-align: center; 
+	backface-visibility: hidden; 
+	background: white; 
+}
+.fa.fw:hover { 
+	background: #E2E9EF; 
+	cursor: pointer;
+	border-radius: 3px; 
+}
+.fa.fw.on { 
+	background: #d52978; 
+	color: white; 
+	border-radius: 3px; 
+}
+.fa.fw:active { 
+	animation: 0.16s zoomIcon 0.3s forwards; 
+	z-index: 200; 
+}
+.fa.fw::after { 
+	content: attr(title); 
+	color: inherit; 
+	position: absolute; 
+	top: 100%; 
+	margin-top: -3px; 
+	font-size: 4px; 
+	letter-spacing: 0; 
+	left: 0; 
+	right: 0; 
+	padding-bottom: 2px; 
+	backface-visibility: hidden; 
+	opacity: 0; 
+	transition: opacity 0.4s cubic-bezier(0.895, 0.030, 0.685, 0.220); 
+}
+.fa.fw:active::after { 
+	background: #E2E9EF; 
+	opacity: 1; 
+	pointer-events: none; 
+}
+
+@keyframes zoomIcon {
+	0% {
+		transform: scale(1);
+	}
+	100% {
+		transform: scale(4);
+		color: inherit;
+		background: #E2E9EF;
+		pointer-events: none;
+	}
+}
