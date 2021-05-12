@@ -224,6 +224,12 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 *
 	 */
 	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
+		$inputfieldClass = $field->get('inputfieldClass');
+		if($inputfieldClass && $value instanceof WireArray) {
+			// render single value rather than list of them when input only accepts 1 selection
+			$interfaces = wireClassImplements($inputfieldClass);
+			if(!in_array('InputfieldHasArrayValue', $interfaces)) $value = $value->first();
+		}
 		if(empty($property)) $property = 'title';
 		return parent::___markupValue($page, $field, $value, $property); 
 	}
