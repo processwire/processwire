@@ -580,6 +580,8 @@ class PageTraversal {
 	 *    Specify associative array (in 3.0.155+) to make both keys and values part of the URL segment string.  
 	 * - `data` (array): Array of key=value variables to form a query string.
 	 * - `http` (bool): Specify true to make URL include scheme and hostname (default=false).
+	 * - `scheme` (string): Like the http option, makes URL include scheme and hostname, but you specify scheme with this, i.e. 'https' (3.0.178+)
+	 * - `host` (string): Hostname to force use of, i.e. 'world.com' or 'hello.world.com'. The 'http' option is implied when host specified. (3.0.178+)
 	 * - `language` (Language): Specify Language object to return URL in that Language.
 	 *
 	 * You can also specify any of the following for `$options` as shortcuts:
@@ -611,6 +613,8 @@ class PageTraversal {
 
 		$defaults = array(
 			'http' => is_bool($options) ? $options : false,
+			'scheme' => '', 
+			'host' => '', 
 			'pageNum' => is_int($options) || (is_string($options) && in_array($options, array('+', '-'))) ? $options : 1,
 			'data' => array(),
 			'urlSegmentStr' => is_string($options) ? $options : '',
@@ -704,13 +708,22 @@ class PageTraversal {
 			$url .= '?' . $query;
 		}
 
-		if($options['http']) {
-			switch($template->https) {
+		if($options['scheme']) {
+			$scheme = strtolower($options['scheme']);
+			if(strpos($scheme, '://') === false) $scheme .= '://';
+			if($scheme === 'https://' && $config->noHTTPS) $scheme = 'http://';
+			$host = $options['host'] ? $options['host'] : $config->httpHost;
+			$url = "$scheme$host$url";
+			
+		} else if($options['http'] || $options['host']) {
+			$mode = $config->noHTTPS ? -1 : $template->https; 
+			switch($mode) {
 				case -1: $scheme = 'http'; break;
 				case 1: $scheme = 'https'; break;
 				default: $scheme = $config->https ? 'https' : 'http';
 			}
-			$url = "$scheme://" . $page->wire('config')->httpHost . $url;
+			$host = $options['host'] ? $options['host'] : $config->httpHost;
+			$url = "$scheme://$host$url";
 		}
 
 		return $url;

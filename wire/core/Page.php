@@ -3076,6 +3076,9 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * - `data` (array): Array of key=value variables to form a query string.
 	 * - `http` (bool): Specify true to make URL include scheme and hostname (default=false).
 	 * - `language` (Language): Specify Language object to return URL in that Language.
+	 * - `host` (string): Force hostname to use, i.e. 'world.com' or 'hello.world.com'. The 'http' option is implied. (3.0.178+)
+	 * - `scheme` (string): Like http option, makes URL have scheme+hostname, but you specify scheme here, i.e. 'https' (3.0.178+)
+	 *    Note that if you specify scheme of 'https' and $config->noHTTPS is true, the 'http' scheme will still be used.
 	 * 
 	 * You can also specify any of the following for `$options` as shortcuts:
 	 * 
@@ -3217,21 +3220,20 @@ class Page extends WireData implements \Countable, WireMatchable {
 	public function httpUrl($options = array()) {
 		$template = $this->template;
 		if(!$template) return '';
-		/** @var Config $config */
-		$config = $this->wire('config');
+		if(is_array($options)) unset($options['http']);
+		if($options === true || $options === false) $options = array();
+		$url = $this->url($options);
+		if(strpos($url, '://')) return $url;
+		$config = $this->wire()->config;
 		$mode = $template->https;
 		if($mode > 0 && $config->noHTTPS) $mode = 0;
 		switch($mode) {
-			case -1: $protocol = 'http'; break;
-			case 1: $protocol = 'https'; break;
-			default: $protocol = $config->https ? 'https' : 'http';
+			case -1: $scheme = 'http'; break;
+			case 1: $scheme = 'https'; break;
+			default: $scheme = $config->https ? 'https' : 'http';
 		}
-		if(is_array($options)) {
-			unset($options['http']);
-		} else if(is_bool($options)) {
-			$options = array();
-		}
-		return "$protocol://" . $config->httpHost . $this->url($options);
+		$url = "$scheme://$config->httpHost$url";
+		return $url;
 	}
 
 	/**
