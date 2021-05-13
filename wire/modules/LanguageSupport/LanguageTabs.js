@@ -85,6 +85,7 @@ function setupLanguageTabs($form) {
 			} else {
 				$closeItem.removeClass('LanguageSupportCurrent');
 				$openItem.addClass('LanguageSupportCurrent');
+				$a.trigger('clicklangtab', [ $openItem, $closeItem ]);
 			}
 			// uikit tab (beta 34+) also requires a click on the <li> element
 			if($a.closest('ul.uk-tab').length) $a.closest('li').click();
