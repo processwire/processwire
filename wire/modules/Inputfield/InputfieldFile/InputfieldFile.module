@@ -304,11 +304,12 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 * Get the unique 'id' attribute for the given Pagefile
 	 * 
 	 * @param Pagefile $pagefile
+	 * @param string $context Optional context string (like for repeaters) 3.0.178+
 	 * @return string
 	 * 
 	 */
-	protected function pagefileId(Pagefile $pagefile) {
-		return $this->name . "_" . $pagefile->hash; 
+	protected function pagefileId(Pagefile $pagefile, $context = '') {
+		return $this->name . "_" . $context . $pagefile->hash; 
 	}
 
 	/**
@@ -1327,10 +1328,19 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$this->itemFieldgroup = $template->fieldgroup;
 		}
 
+		if($item) {
+			$page = $pagefiles->getPage();
+			if($page && method_exists($page, 'getForPage') && wireInstanceOf($page, 'RepeaterPage')) {
+				$id = '_' . $this->pagefileId($item, "repeater{$page->id}_");
+			} else {
+				$id = '_' . $this->pagefileId($item);
+			}
+		} else {
+			$id = '';
+		}
+
 		/** @var Page $page */
 		$page = $pagefiles->getFieldsPage();
-		$id = $item ? ('_' . $this->pagefileId($item)) : '';
-		
 		$inputfields = $this->itemFieldgroup->getPageInputfields($page, $id, '', false); 
 		if(!$inputfields) return false;
 		
