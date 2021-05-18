@@ -288,6 +288,7 @@ class Modules extends WireArray {
 		'permissions',
 		'searchable', 
 		'page',
+		// 'languages',
 		);
 
 	/**
@@ -2928,7 +2929,9 @@ class Modules extends WireArray {
 			// verbose mode only: this is set to the module filename (from PW installation root), false when it can't be found, null when it hasn't been determined
 			'file' => null, 
 			// verbose mode only: this is set to true when the module is a core module, false when it's not, and null when it's not determined
-			'core' => null, 
+			'core' => null,
+			// verbose mode only: any translations supplied with the module
+			// 'languages' => null,
 			
 			// other properties that may be present, but are optional, for Process modules:
 			// 'nav' => array(), // navigation definition: see Process.php
@@ -3446,10 +3449,9 @@ class Modules extends WireArray {
 		if(is_array($this->configData[$id])) {
 			$data = $this->configData[$id];
 		} else {
-			// first verify that module doesn't have a config file
-			$configurable = $this->isConfigurable($className);
-			if(!$configurable) return $emptyReturn;
-			$database = $this->wire('database');
+			$configable = $this->isConfigable($className);
+			if(!$configable) return $emptyReturn;
+			$database = $this->wire()->database;
 			$query = $database->prepare("SELECT data FROM modules WHERE id=:id", "modules.getConfig($className)"); // QA
 			$query->bindValue(":id", (int) $id, \PDO::PARAM_INT);
 			$query->execute();
@@ -3602,7 +3604,7 @@ class Modules extends WireArray {
 	}
 
 	/**
-	 * Is the given module configurable?
+	 * Is the given module interactively configurable?
 	 * 
 	 * This method can be used to simply determine if a module is configurable (yes or no), or more specifically
 	 * how it is configurable. 
@@ -3836,6 +3838,34 @@ class Modules extends WireArray {
 		
 		return $result;
 	}
+	
+
+	/**
+	 * Indicates whether module accepts config settings, whether interactively or API only
+	 * 
+	 * - Returns false if module does not accept config settings. 
+	 * - Returns integer `30` if module accepts config settings but is not interactively configurable.
+	 * - Returns true, int or string if module is interactively configurable, see `Modules::isConfigurable()` return values.
+	 * 
+	 * @param string|Module $class
+	 * @param bool $useCache
+	 * @return bool|int|string
+	 * @since 3.0.179
+	 *
+	 */
+	public function isConfigable($class, $useCache = true) {
+		if(is_object($class)) {
+			if($class instanceof ConfigModule) {
+				$result = 30;
+			} else {
+				$result = $this->isConfigurable($class, $useCache);
+			}
+		} else {
+			$result = $this->isConfigurable($class, $useCache);
+			if(!$result && wireInstanceOf($class, 'ConfigModule')) $result = 30;
+		}
+		return $result;
+	}
 
 	/**
 	 * Alias of isConfigurable() for backwards compatibility
@@ -3865,7 +3895,7 @@ class Modules extends WireArray {
 	 */
 	protected function setModuleConfigData(Module $module, $data = null, $extraData = null) {
 
-		$configurable = $this->isConfigurable($module); 
+		$configurable = $this->isConfigable($module); 
 		if(!$configurable) return false;
 		if(!is_array($data)) $data = $this->getConfig($module);
 		if($extraData !== null && is_array($extraData)) $data = array_merge($data, $extraData);
