@@ -26,6 +26,7 @@
  * @method void changedType(Saveable $item, Fieldtype $fromType, Fieldtype $toType) #pw-hooker
  * @method void changeTypeReady(Saveable $item, Fieldtype $fromType, Fieldtype $toType) #pw-hooker
  * @method bool|Field clone(Field $item, $name = '') Clone a field and return it or return false on fail. 
+ * @method array getTags($getFieldNames = false) Get tags for all fields (3.0.179+) #pw-advanced
  *
  */
 
@@ -601,7 +602,8 @@ class Fields extends WireSaveableItems {
 		if($exception) {
 			$this->error("Field type change failed. Database reports: $error"); 
 			$database->exec("DROP TABLE `$table2`"); // QA
-			if($exception) $this->trackException($exception, true); 
+			$severe = $this->wire()->process != 'ProcessField';
+			if($exception) $this->trackException($exception, $severe); 
 			return false; 
 		}
 
@@ -926,13 +928,15 @@ class Fields extends WireSaveableItems {
 	 * - If you specify "reset" for the `$getFields` argument it returns a blank array and resets 
 	 *   internal tags cache.
 	 * 
+	 * #pw-advanced
+	 * 
 	 * @param bool|string $getFieldNames Specify true to return associative array where keys are tags and values are field names
 	 *   …or specify the string "reset" to force getTags() to reset its cache, forcing it to reload on the next call. 
-	 * @return array 
-	 * @since 3.0.106
+	 * @return array Both keys and values are tags in return value
+	 * @since 3.0.106 + made hookable in 3.0.179
 	 * 
 	 */
-	public function getTags($getFieldNames = false) {
+	public function ___getTags($getFieldNames = false) {
 		
 		if($getFieldNames === 'reset') {
 			$this->tagList = null;

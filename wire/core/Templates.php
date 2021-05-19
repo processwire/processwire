@@ -17,6 +17,7 @@
  * @method array getExportData(Template $template) Export Template data for external use. #pw-advanced
  * @method array setImportData(Template $template, array $data) Given an array of Template export data, import it to the given Template. #pw-advanced
  * @method void fileModified(Template $template) Hook called when a template detects that its file has been modified. #pw-hooker
+ * @method array getTags($getTemplateNames = false) Get tags for all templates (3.0.179+) #pw-advanced
  *
  */
 class Templates extends WireSaveableItems {
@@ -789,11 +790,11 @@ class Templates extends WireSaveableItems {
 	 * Get all tags used by templates
 	 * 
 	 * @param bool $getTemplateNames Get arrays of template names for each tag? (default=false)
-	 * @return array
-	 * @since 3.0.176
+	 * @return array In return value both key and value are the tag
+	 * @since 3.0.176 + hookable in 3.0.179
 	 * 
 	 */
-	public function getTags($getTemplateNames = false) {
+	public function ___getTags($getTemplateNames = false) {
 		$tags = array();
 		foreach($this as $template) {
 			/** @var Template $template */
