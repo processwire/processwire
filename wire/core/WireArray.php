@@ -539,6 +539,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 *
 	 */
 	public function get($key) {
+		$match = null;
 
 		// if an object was provided, get its key
 		if(is_object($key)) {
@@ -566,28 +567,45 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		}
 
 		// check if the index is set and return it if so
-		if(isset($this->data[$key])) return $this->data[$key]; 
+		if(isset($this->data[$key])) return $this->data[$key];
 
-		// check if key contains a selector
-		if(Selectors::stringHasSelector($key)) {
-			$item = $this->findOne($key);
-			if($item === false) $item = null;
-			return $item;
-		}
+		// check if key contains something other than numbers, letters, underscores, hyphens
+		if(!ctype_alnum("$key") && !ctype_alnum(strtr("$key", '-_', 'ab'))) {
+			
+			// check if key contains a selector
+			if(Selectors::stringHasSelector($key)) {
+				$item = $this->findOne($key);
+				if($item === false) $item = null;
+				return $item;
+			}
+
+			if(strpos($key, '{') !== false && strpos($key, '}')) {
+				// populate a formatted string with {tag} vars
+				return wirePopulateStringTags($key, $this);
+			}
+
+			// check if key is requesting a property array: i.e. "name[]"
+			if(strpos($key, '[]') !== false && substr($key, -2) == '[]') {
+				return $this->explode(substr($key, 0, -2));
+			}
 		
-		if(strpos($key, '{') !== false && strpos($key, '}')) {
-			// populate a formatted string with {tag} vars
-			return wirePopulateStringTags($key, $this);
-		}
-	
-		// check if key is requesting a property array: i.e. "name[]"
-		if(strpos($key, '[]') !== false && substr($key, -2) == '[]') {
-			return $this->explode(substr($key, 0, -2));
+			// check if key is asking for first match in "a|b|c"
+			if(strpos($key, '|') !== false) {
+				$numericKeys = $this->usesNumericKeys();
+				foreach(explode('|', $key) as $k) {
+					if(isset($this->data[$k])) {
+						$match = $this->data[$k];
+					} else if($numericKeys) {
+						$match = $this->getItemThatMatches('name', $k);
+					}
+					if($match) break;
+				}
+				return $match;
+			}
 		}
 
 		// if the WireArray uses numeric keys, then it's okay to
 		// match a 'name' field if the provided key is a string
-		$match = null;
 		if(is_string($key) && $this->usesNumericKeys()) {
 			$match = $this->getItemThatMatches('name', $key);
 		}
