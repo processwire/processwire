@@ -9,6 +9,8 @@
  * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  * 
+ * FIELD CONFIGURATION
+ * ===================
  * @property bool|int $inlineMode ($default=0)
  * @property bool|int $usePurifier (default=0)
  * @property bool|int $useACF (default=1)
@@ -26,10 +28,14 @@
  * @property int $assetPageID
  * @property string $configName
  * 
+ * MODULE CONFIGURATION
+ * ====================
+ * @property array $extraPluginsDirs Extra plugins directories, see addExtraPluginsDir() method. 3.0.179+
+ * 
  *
  */
 
-class InputfieldCKEditor extends InputfieldTextarea {
+class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 
 	public static function getModuleInfo() {
 		return array(
@@ -138,6 +144,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		$this->set('contentsInlineCss', ''); 
 		$this->set('stylesSet', ''); 
 		$this->set('extraPlugins', explode(',', self::EXTRA_PLUGINS)); 
+		$this->set('extraPluginsDirs', array()); // module config only
 		$this->set('removePlugins', self::REMOVE_PLUGINS); 
 		$this->set('extraAllowedContent', self::EXTRA_ALLOWED_CONTENT); 
 		$this->set('formatTags', self::FORMAT_TAGS); 
@@ -456,7 +463,7 @@ class InputfieldCKEditor extends InputfieldTextarea {
 	/**
 	 * Locate all external plugins and return array of name => file
 	 *
-	 * @param bool $create Create necessary paths that don't exist. (default=false)
+	 * @param bool $create Create necessary paths that don't exist? Does not apply to $extraPluginDirs. (default=false)
 	 * @return array of plugin name => filename
 	 *
 	 */
@@ -464,8 +471,9 @@ class InputfieldCKEditor extends InputfieldTextarea {
 		
 		static $plugins = array();
 		if(count($plugins) && !$create) return $plugins; 
-		
-		$config = $this->wire('config');
+	
+		$files = $this->wire()->files;
+		$config = $this->wire()->config;
 		$class = $this->className();
 		$plugins = array();
 
@@ -478,13 +486,20 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			$config->urls->$class . "plugins/",
 			$config->urls->siteModules . "$class/plugins/",
 		);
+		
+		foreach($this->extraPluginsDirs as $dir) {
+			$dir = trim($files->unixDirName($dir), '/');
+			if(strlen($dir) < 3 || !is_dir($config->paths->root . $dir)) continue;
+			$paths[] = $config->paths->root . "$dir/";
+			$urls[] = $config->urls->root . "$dir/"; 
+		}
 
 		foreach($paths as $key => $path) {
 			
 			if(!file_exists($path)) {
 				if($create) {
 					$url = $urls[$key];
-					if($this->wire('files')->mkdir($path, true)) {
+					if($files->mkdir($path, true)) {
 						$this->message("Created new CKEditor external plugins directory: $url"); 	
 					} else {
 						$this->warning("The CKEditor external plugins directory does not exist: $url - Please create it when/if you want to install external plugins.");
@@ -734,6 +749,62 @@ class InputfieldCKEditor extends InputfieldTextarea {
 			break;
 		}
 		return $is;
+	}
+
+	/**
+	 * Add an extra plugins dir available to all CKEditor instances
+	 * 
+	 * Add an extra plugins dir, relative to ProcessWire installation root. An example could be 
+	 * `/site/modules/MyModule/plugins/`. Dir should have one or more directories within it having 
+	 * CKEditor plugins, which are identified by the presence of a plugin.js file in a directory,
+	 * for example `/site/modules/MyModule/plugins/foobar/plugin.js` for a plugin named 'foobar'. 
+	 * Please note that the `/foobar/` portion of the example directory would NOT be in the dir 
+	 * specified to this method. 
+	 * 
+	 * Note the dir added from this method is saved to the CKEditor module configuration and thus
+	 * is present for all future CKEditor instances, whether in this request or another. It will
+	 * remain until removed by removeExtraPluginsDir(). 
+	 * 
+	 * ~~~~~
+	 * $f = $modules->get('InputfieldCKEditor');
+	 * $f->addExtraPluginsDir('/site/modules/MyModule/plugins/'); 
+	 * ~~~~~
+	 * 
+	 * @param string $dir 
+	 * @since 3.0.179
+	 * @see InputfieldCKEditor::removeExtraPluginsDir()
+	 * 
+	 */
+	public function addExtraPluginsDir($dir) {
+		$dirs = $this->extraPluginsDirs; 
+		if(!is_array($dirs)) $dirs = array();
+		if(in_array($dir, $dirs)) return;
+		$dirs[] = $dir;
+		$this->extraPluginsDirs = $dirs;
+		$this->wire()->modules->saveConfig($this, 'extraPluginsDirs', $dirs);
+	}
+
+	/**
+	 * Remove an extra plugins dir for all CKEditor instances
+	 * 
+	 * ~~~~~
+	 * $f = $modules->get('InputfieldCKEditor');
+	 * $f->removeExtraPluginsDir('/site/modules/MyModule/plugins/'); 
+	 * ~~~~~
+	 * 
+	 * @param string $dir Dir relative to PW installation root, i.e. /site/modules/MyModule/plugins/
+	 * @since 3.0.179
+	 * @see InputfieldCKEditor::addExtraPluginsDir()
+	 * 
+	 */
+	public function removeExtraPluginsDir($dir) {
+		$dirs = $this->extraPluginsDirs;
+		if(!is_array($dirs)) return;
+		$key = array_search($dir, $dirs, true);
+		if($key === false) return;
+		unset($dirs[$key]);
+		$this->extraPluginsDirs = $dirs;
+		$this->wire()->modules->saveConfig($this, 'extraPluginsDirs', $dirs);
 	}
 
 	/*
