@@ -49,7 +49,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * Default logo image file (relative to this dir)
 	 * 
 	 */
-	const logo = 'uikit/custom/images/pw-mark.png';
+	const logo = 'uikit-pw/images/pw-mark.png';
 
 	/**
 	 * sidenavType: primary navigation on left sidebar
@@ -1054,6 +1054,21 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	}
 	
 	/**
+	 * Convert absolute path to relative url and optionally add cache buster
+	 * @param string $file
+	 * @param bool $timestamp
+	 * @return string
+	 */
+	public function toUrl($file, $timestamp = true) {
+		if(!is_file($file)) return;
+		$file = Paths::normalizeSeparators($file);
+		$config = $this->wire()->config;
+		$url = str_replace($config->paths->root, $config->urls->root, $file);
+		if($timestamp) $url .= "?m=".filemtime($file);
+		return $url;
+	}
+	
+	/**
 	 * Get disk path to this admin theme
 	 *
 	 * @return string
@@ -1072,18 +1087,82 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * 
 	 */
 	public function ___getUikitCSS() {
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$cssURL = $this->get('cssURL');
-		$moduleInfo = self::getModuleInfo();
-		$version = $moduleInfo['version'];
+		$path = $config->paths($this);
 		if($cssURL) {
-			if(strpos($cssURL, '//') === false) $cssURL = $config->urls->root . ltrim($cssURL, '/');
+			// a custom css URL was set in the themes config
+			if(strpos($cssURL, '//') === false) {
+				$cssURL = $config->urls->root . ltrim($cssURL, '/');
+			}
 			return $this->wire('sanitizer')->entities($cssURL);
-		} else if(self::dev && strpos(__FILE__, '/wire/modules/') === false) {
-			return $this->url() . 'uikit/custom/pw.css?v=' . $version;
 		} else {
-			return $this->url() . 'uikit/dist/css/uikit.pw.min.css?v=' . $version;
+			// no custom CSS was set
+			// we use either the core CSS or parse a new one
+			$coreCSS = $path."uikit-pw/pw.min.css";
+			$conf = $config->paths->site."config.php";
+			$admin = $config->paths->templates."admin.less";
+			$customCSS = $config->paths->assets."admin.min.css";
+			$compiled = is_file($customCSS) ? $customCSS : $coreCSS;
+			
+			// check if we need to recompile the theme
+			$recompile = false;
+			if(self::dev OR $config->recompile) $recompile = true;
+			elseif(is_file($admin) AND filemtime($admin) > filemtime($compiled)){
+				$recompile = true;
+			}
+			elseif(filemtime($conf) > filemtime($compiled)) $recompile = true;
+			
+			if($recompile) {
+				try {
+					// prepare parser
+					$less = $this->wire()->modules->get('Less');
+					$parser = $less->parser(['compress' => true]);
+					
+					// parse style and append admin.less if it exists
+					$parser->parseFile($this->getStyle());
+					if(is_file($admin)) $parser->parseFile($admin);
+					
+					// create CSS and save it
+					$compileTo = self::dev ? $coreCSS : $customCSS;
+					$file = $less->save($compileTo, $parser->getCss());
+					return $this->toUrl($file->path);
+				} catch (\Throwable $th) {
+					$this->warning($th->getMessage());
+				}
+			}
+			if(is_file($customCSS)) return $this->toUrl($customCSS);
+			return $this->toUrl($coreCSS);
 		}
+	}
+	
+	/**
+	 * Get style to use
+	 * 
+	 * Use $config->adminStyle to set the style
+	 * Default = "reno" (uikit-pw/styles/reno.less)
+	 * 
+	 * $config->adminStyle can either be a path to a less file or the name
+	 * of a file located in the uikit-pw/styles/ folder (like reno or rock)
+	 * 
+	 * @return string
+	 */
+	public function getStyle() {
+		$config = $this->wire()->config;
+		$path = $config->paths($this)."uikit-pw/styles/";
+		$default = $path."reno.less";
+		if($config->adminStyle) {
+			if(is_file($config->adminStyle)) {
+				return Paths::normalizeSeparators($config->adminStyle);
+			}
+			$style = $path.$config->adminStyle.".less";
+			if(!is_file($style)) {
+				$this->warning("Style $style not found");
+				return $default;
+			}
+			return $style;
+		}
+		return $default;
 	}
 	
 	/**
