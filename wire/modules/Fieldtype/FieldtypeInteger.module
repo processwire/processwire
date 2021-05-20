@@ -35,7 +35,9 @@ class FieldtypeInteger extends Fieldtype {
 	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
 		$fieldtypes = parent::___getCompatibleFieldtypes($field); 
+		$hasDecimal = $this->wire()->modules->isInstalled('FieldtypeDecimal');
 		foreach($fieldtypes as $type) {
+			if($hasDecimal && wireInstanceOf($type, 'FieldtypeDecimal')) continue;
 			if(!$type instanceof FieldtypeInteger && !$type instanceof FieldtypeFloat && $type != 'FieldtypeText') {
 				$fieldtypes->remove($type); 
 			}
