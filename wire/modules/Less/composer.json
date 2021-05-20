@@ -1,0 +1,5 @@
+{
+    "require": {
+        "wikimedia/less.php": "^3.1"
+    }
+}
