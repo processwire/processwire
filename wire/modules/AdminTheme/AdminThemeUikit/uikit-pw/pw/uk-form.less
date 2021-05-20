@@ -1,0 +1,46 @@
+// because Uikit's uk-form-small excludes inputs having size attributes
+.uk-form-small:not(textarea):not([multiple]) { // :not([size]) {
+  height: @form-small-height;
+  padding-left: @form-small-padding-horizontal;
+  padding-right: @form-small-padding-horizontal;
+}
+
+// because Uikit's uk-form-large excludes inputs having size attributes
+.uk-form-large:not(textarea):not([multiple]) { // :not([size]) {
+  height: @form-large-height;
+  padding-left: @form-large-padding-horizontal;
+  padding-right: @form-large-padding-horizontal;
+}
+
+// attempt to cover entire form when from has class InputfieldFormSmallInputs
+.InputfieldFormSmallInputs {
+  input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=button]):not([type=submit]):not([type=range]):not(.uk-form-large):not(.uk-form-medium),
+  select:not([multiple]):not(.uk-form-large):not(.uk-form-medium) {
+    font-size: @form-small-font-size;
+    height: @form-small-height;
+    padding-left: @form-small-padding-horizontal;
+    padding-right: @form-small-padding-horizontal;
+  }
+  textarea:not(.uk-form-large):not(.uk-form-medium) {
+    font-size: @form-small-font-size;
+    padding-left: @form-small-padding-horizontal;
+    padding-right: @form-small-padding-horizontal;
+  }
+}
+
+// attempt to cover entire form when from has class InputfieldFormLargeInputs
+.InputfieldFormLargeInputs {
+  input:not([type=checkbox]):not([type=radio]):not([type=hidden]):not([type=button]):not([type=submit]):not([type=range]):not(.uk-form-small):not(.uk-form-medium),
+  select:not([multiple]):not(.uk-form-small):not(.uk-form-medium) {
+    font-size: @form-large-font-size;
+    height: @form-large-height;
+    padding-left: @form-large-padding-horizontal;
+    padding-right: @form-large-padding-horizontal;
+  }
+  textarea:not(.uk-form-small):not(.uk-form-medium) {
+    font-size: @form-large-font-size;
+    padding-left: @form-large-padding-horizontal;
+    padding-right: @form-large-padding-horizontal;
+  }
+
+}

@@ -1,0 +1,68 @@
+/*** InputfieldImage ************************************************/
+
+
+.InputfieldImage:not(.InputfieldStateCollapsed) {
+
+  > .InputfieldContent {
+    padding-top: 1px;
+    .gridImage {
+      box-shadow: none;
+      border: @pw-inputfield-border;
+    }
+
+    ul.gridImages {
+      margin-top: 0;
+    }
+
+    ul.InputfieldImageErrors {
+      margin: 0;
+    }
+
+  }
+
+  .InputfieldContent .InputfieldImageEdit .InputfieldImageEdit__edit,
+  &.InputfieldImageEditAll .InputfieldContent {
+    .gridImage .ImageData .InputfieldImageEdit__name,
+    .InputfieldImageEdit__name {
+      font-size: @global-font-size;
+      margin: @global-small-margin 0;
+    }
+    .gridImage--delete .ImageData .InputfieldImageEdit__name {
+      margin: 5px 0 0 0;
+    }
+  }
+  .InputfieldImageEdit__core {
+    label:not(.pw-hidden):not(.LanguageSupportLabel) {
+      display: block;
+    }
+    input {
+      display: block;
+      width: 100%;
+    }
+  }
+  .InputfieldImageEdit__buttons {
+    margin-top: 0;
+  }
+}
+
+// file/image upload buttons
+.InputfieldFileUpload,
+.InputfieldImageUpload {
+  .InputMask.ui-button {
+    // the "choose file" button
+    .uk-button-default();
+    &:hover {
+      .uk-button-primary();
+    }
+    .ui-button-text {
+      line-height: @button-line-height;
+    }
+  }
+}
+
+@-moz-document url-prefix() {
+  // Firefox only: avoids random outlines elsewhere in the layout when in grid modes
+  .InputfieldImage > .InputfieldContent {
+    overflow: hidden;
+  }
+}

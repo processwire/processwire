@@ -1,0 +1,194 @@
+// ProcessWire dropdown menus
+
+@pw-dropdown-color: @dropdown-color;
+@pw-dropdown-background: @dropdown-background;
+@pw-dropdown-nav-item-color: @dropdown-nav-item-color;
+@pw-dropdown-nav-item-hover-color: @dropdown-nav-item-hover-color;
+@pw-dropdown-nav-item-hover-background: @pw-dropdown-background;
+@pw-dropdown-separator-color: @global-muted-background;
+@pw-dropdown-highlight-color: @global-color;
+@pw-dropdown-highlight-background-color: @dropdown-background;
+@pw-dropdown-header-color: lighten(@dropdown-color, 20%); 
+@pw-dropdown-nav-font-size: @dropdown-nav-font-size;
+@pw-dropdown-nav-icon-color: @dropdown-color;
+@pw-dropdown-box-shadow: @dropdown-box-shadow;
+@pw-dropdown-min-width: @dropdown-min-width;
+
+@pw-dropdown-line-height: 1.1em;
+@pw-dropdown-list-padding-vertical: 10px;
+@pw-dropdown-list-padding-horizontal: 0;
+@pw-dropdown-item-padding-vertical: 0.5em;
+@pw-dropdown-item-padding-horizontal: @dropdown-padding;
+@pw-dropdown-list-border-radius: 0;
+
+.ui-menu {
+  // A ProcessWire mashup of Uikit dropdown and jQuery ui-menu
+  background: @pw-dropdown-background;
+  padding: @pw-dropdown-list-padding-vertical @pw-dropdown-list-padding-horizontal;
+  min-width: @pw-dropdown-min-width;
+  font-size: @pw-dropdown-nav-font-size;
+  line-height: @pw-dropdown-line-height;
+  box-shadow: @pw-dropdown-box-shadow;
+  border-radius: @pw-dropdown-list-border-radius;
+  display: none;
+  border: none;
+  
+  .uk-nav-header {
+    // when there is an item that serves as a headline for a group in the list
+    padding: @pw-dropdown-item-padding-vertical @pw-dropdown-item-padding-horizontal;
+    color: @pw-dropdown-header-color;
+  }
+  
+  .pw-has-items-icon {
+    // indicates tertiary (or further) nav items are present
+    float: right;
+    margin-top: 4px;
+  }
+
+  .ui-menu-item {
+    
+    min-width: @pw-dropdown-min-width;
+    border: none;
+    
+    &.separator {
+      margin-top: 0.25em;
+    }
+
+    &:first-child {
+      // for when .separator is the first item in the list (no add button)
+      margin-top: 0;
+    }
+
+    &.separator:not(.highlight) {
+      border-top: 1px solid @pw-dropdown-separator-color !important;
+      padding-top: 0.25em;
+    }
+    
+    &.add + .ui-menu-item.separator {
+      margin-top: 0;
+      border-top: none !important;
+    }
+
+    i.fa {
+      margin-right: 8px;
+      color: @pw-dropdown-nav-icon-color;
+    }
+
+    a {
+      color: @pw-dropdown-nav-item-color;
+      padding: @pw-dropdown-item-padding-vertical @pw-dropdown-item-padding-horizontal;
+      border: none;
+      border-radius: 0;
+      margin: 0 !important;
+      cursor: pointer;
+      white-space: nowrap;
+
+      i.fa {
+        margin-left: -2px;
+        //padding-left: 5px;
+        color: @pw-dropdown-nav-icon-color;
+      }
+
+      &.uk-active,
+      &.on {
+        color: @pw-dropdown-nav-item-hover-color;
+        background: @pw-dropdown-nav-item-hover-background;
+      }
+
+      &:hover,
+      &.ui-state-focus,
+      &.ui-state-active {
+        color: @pw-dropdown-nav-item-hover-color;
+        background: @pw-dropdown-nav-item-hover-background;
+      }
+
+      .ui-menu-icon {
+        // we use font-awesome icons instead
+        display: none;
+      }
+
+      small {
+        color: lighten(@global-muted-color, 10%) !important;
+      }
+    }
+
+    .ui-menu.navJSON {
+      // ajax-loaded tertiary level nav usually to list items like templates, fields, etc.
+      // border-left: 1px solid lighten(@pw-dropdown-background-color, 5%);
+      display: none; 
+      border: none;
+      box-shadow: @pw-dropdown-box-shadow;
+      border-radius: @pw-dropdown-list-border-radius;
+      font-size: @pw-dropdown-nav-font-size;
+
+      .ui-menu-item:not(.add):not(.highlight) {
+        line-height: @pw-dropdown-line-height;
+        font-size: @pw-dropdown-nav-font-size;
+
+        a {
+          padding-top: 0;
+          padding-bottom: 0;
+        }
+
+        &:first-child {
+          padding-top: 0.5em;
+        }
+
+        &:last-child {
+          padding-bottom: 0.5em;
+        }
+      }
+
+      .ui-menu-item.add,
+      .ui-menu-item.highlight {
+        a {
+          border-bottom: 1px solid @pw-dropdown-separator-color;
+          //color: @pw-dropdown-highlight-color;
+          //background: @pw-dropdown-highlight-background-color;
+          &:hover {
+            //background: @pw-dropdown-highlight-background-color;
+          }
+        }
+
+      }
+
+      .ui-menu-item.highlight:not(.separator) {
+        margin-top: 0.25em;
+      }
+
+      .ui-menu-item.add + .ui-menu-item:not(.add):not(.separator),
+      .ui-menu-item.highlight + .ui-menu-item:not(.highlight) {
+        padding-top: 0.3em;
+      }
+
+      &.length0 { // 0 items, no padding necessary at bottom
+        padding-bottom: 0;
+      }
+    }
+  }
+}
+
+// shorter variant has reduced line-height, as used for ajax search results
+.pw-dropdown-menu-shorter {
+  padding-top: @pw-dropdown-list-padding-vertical * 2;
+  padding-bottom: @pw-dropdown-list-padding-vertical * 2;
+
+  .ui-menu-item a {
+    padding-top: 0;
+    padding-bottom: 0;
+  }
+  .uk-nav-divider {
+    margin-top: @pw-dropdown-list-padding-vertical * 2;
+  }
+  .ui-menu-item:last-child a {
+    margin-bottom: @pw-dropdown-item-padding-vertical;
+  }
+}
+
+.pw-user-nav > li > a > img {
+  border-radius: 50%;
+  margin: 0 4px 0 0;
+  width: 30px;
+  height: 30px;
+  vertical-align: top;
+}

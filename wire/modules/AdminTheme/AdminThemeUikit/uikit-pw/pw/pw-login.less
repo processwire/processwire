@@ -1,0 +1,59 @@
+body.pw-guest {
+  #pw-masthead {
+    display: none;
+  }
+  #pw-masthead-mobile {
+    display: block !important;
+  }
+  #pw-content-head {
+    display: none;
+  }
+  #pw-content-body {
+    text-align: center;
+  }
+  .pw-notices {
+    > li > .uk-container {
+      text-align: center;
+    }
+    .notice-remove {
+      display: none;
+    }
+  }
+  hr {
+    display: none;
+  }
+  footer {
+    display: none;
+  }
+}
+// login screen, shown only when no user is logged in
+.ProcessLogin {
+  #ProcessLoginForm {
+    width: 250px;
+    margin: 0 auto;
+    #wrap_login_name,
+    #wrap_login_pass,
+    #wrap_Inputfield_login_submit {
+      width: 250px;
+      outline: none;
+      padding: 0;
+      margin: 0 !important;
+      .InputfieldHeader {
+        padding: 0;
+        margin: 0;
+        font-weight: normal;
+      }
+      input {
+        text-align: center;
+      }
+    }
+    #wrap_Inputfield_login_submit {
+      display: inline-block;
+      margin: 0 auto !important;
+      .ui-button {
+        margin: 0;
+      }
+    }
+  }
+}
+

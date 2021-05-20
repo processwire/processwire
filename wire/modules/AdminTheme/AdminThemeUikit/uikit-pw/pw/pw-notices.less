@@ -1,0 +1,93 @@
+.pw-notices {
+  list-style: none;
+  padding-left: 0;
+  margin: 3px 0;
+  li {
+    list-style: none;
+    padding-left: 0;
+    padding-right: 0 !important;
+    margin: 3px 0;
+  }
+  .pw-notice-remove,
+  .notice-remove {
+    float: right;
+    color: @global-color;
+    margin-left: 10px;
+  }
+  .uk-alert-primary {
+    .notice-remove {
+      color: @text-primary-color;
+    }
+  }
+  .uk-alert-warning {
+    .notice-remove {
+      color: @text-warning-color;
+    }
+  }
+  .uk-alert-danger {
+    .notice-remove {
+      color: @text-danger-color;
+    }
+    a {
+      color: @inverse-global-color;
+    }
+  }
+  .pw-notice-group-toggle {
+    font-size: @global-small-font-size;
+    text-transform: uppercase;
+    font-weight: bold;
+    &:hover {
+      text-decoration: none;
+    }
+  }
+}
+
+.pw-layout-sidenav-tree,
+.pw-layout-sidenav-tree-alt {
+  .pw-notices {
+    margin-top: 0;
+    > li:first-child {
+      margin-top: 0;
+    }
+  }
+}
+
+// SystemNotifications module
+#NotificationList {
+  > li {
+    padding-top: 10px;
+    padding-bottom: 10px;
+  }
+  .NoticeMessage {
+    border-color: #ddd;
+  }
+  > li > div > p {
+    position: relative;
+    margin: 0;
+  }
+  .NotificationRemove {
+    top: 3px;
+  }
+  .NotificationText > *:last-child {
+    margin-bottom: 0;
+  }
+}
+
+#NotificationBug {
+  &.NoticeError {
+    background: @global-danger-background;
+  }
+  &.NoticeWarning {
+    background: darken(@global-warning-background, 20%);
+  }
+}
+
+body .ProDraftsNotice {
+  background: @background-muted-background;
+  margin-top: -3px !important; // consistent with ".pw-notices li" above
+  padding-top: 15px;
+  padding-bottom: 15px;
+  border-top: 1px solid darken(@background-muted-background, 5%); 
+  .uk-text-small();
+}
+

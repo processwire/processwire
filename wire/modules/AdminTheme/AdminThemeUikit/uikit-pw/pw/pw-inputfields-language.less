@@ -1,0 +1,51 @@
+/*** Language Tabs **********************************************************/
+
+.Inputfields .langTabsContainer {
+  .pw-description,
+  .description {
+    margin: 0;
+  }
+  .pw-notes,
+  .notes {
+    margin: 0;
+  }
+  .langTabs {
+    position: relative;
+    > .uk-tab {
+      margin: 0;
+      margin-bottom: @pw-tabs-margin-bottom;
+      &::before {
+        border-bottom: none;
+      }
+      li {
+        padding-left: 5px;
+        &:first-child {
+          padding-left: 0;
+        }
+      }
+      a {
+        font-size: @pw-tiny-font-size;
+      }
+    }
+    .LanguageSupportLabel {
+      display: none;
+    }
+    .LanguageSupport {
+      display: none;
+    }
+    .LanguageSupportCurrent {
+      display: block;
+      margin: 0;
+      //margin: 10px 0 0 0;
+    }
+  }
+  .InputfieldFileDescription.LanguageSupport {
+    padding-top: @pw-tabs-margin-bottom;
+  }
+}
+
+.langTabsOff .LanguageSupport {
+  // when language tabs closed, showing all languages stacked
+  margin-bottom: @global-small-margin;
+}
+

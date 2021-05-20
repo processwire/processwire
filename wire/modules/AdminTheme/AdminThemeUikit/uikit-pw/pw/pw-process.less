@@ -1,0 +1,73 @@
+// Tweaks for specific ProcessWire “Process” modules
+
+// ProcessPageEditImageSelect
+.ProcessPageEditImageSelect {
+  #selected_image_settings {
+    // ProcessPageEditImageSelect form
+    margin-top: 0;
+    
+    #selected_image_pixels,
+    #crop_coordinates,
+    #wrap_description {
+      input {
+        line-height: @form-small-height;
+        font-size: @global-small-font-size;
+        padding-left: @form-padding-horizontal;
+        padding-right: @form-padding-horizontal;
+      }
+    }
+    #selected_image_checkboxes {
+      line-height: @form-line-height;
+    }
+    #action_icons span {
+      margin-right: 3px;
+      padding: 8px 9px;
+      &:hover {
+        background: @background-primary-background;
+      }
+    }
+  }
+  #ProcessPageEditImageSelect > form {
+    margin-top: 1px;
+    margin-right: 1px;
+    margin-left: 1px;
+  }
+  #wrap_info {
+    margin-top: 0;
+  }
+
+}
+
+// ProcessModule
+.ProcessModule .modules_section {
+  > h2 {
+    // ProcessModule
+    margin-top: @global-medium-margin;
+    margin-bottom: 0;
+  }
+  > .pw-table-responsive {
+    margin-top: 0;
+    margin-bottom: @global-medium-margin;
+  }
+}
+
+// ProcessField
+.ProcessField {
+  #fieldgroupContextSelect {
+    // don't show context select since it is redundant
+    display: none;
+  }
+
+  .Inputfield_columnWidth .InputfieldColumnWidthSlider {
+    // column width slider when configuring Inputfield visibility in ProcessField.module
+    // this visually centers it with the percent input floated to the left of it
+    top: 14px;
+  }
+}
+
+.ProcessPageEdit.modal {
+  form#ProcessPageEdit.ProcessPageEditSingleField {
+    margin-top: -20px;
+  }
+}
+

@@ -1,0 +1,18 @@
+/*
+@offcanvas-bar-background:                      @global-muted-background;
+@offcanvas-bar-color-mode:                      dark;
+
+.hook-offcanvas-bar() {
+  color: @global-color;
+  a {
+    color: @global-color;
+    &:hover {
+      color: @pw-link-hover-color;
+    }
+  }
+}
+
+.hook-offcanvas-overlay() {
+  backround: rgba(0,0,0,0.5) !important;
+}
+*/

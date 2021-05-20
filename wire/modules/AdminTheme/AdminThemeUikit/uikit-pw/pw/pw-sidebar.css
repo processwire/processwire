@@ -1,0 +1,41 @@
+.pw-sidebar-nav > li {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  padding: 5px 0;
+}
+.pw-sidebar-nav > li:first-child {
+  border-top: none;
+}
+.pw-sidebar-nav > li a {
+  white-space: nowrap;
+}
+.pw-sidebar-nav > li .pw-nav-add,
+.pw-sidebar-nav > li .pw-nav-dup,
+.pw-sidebar-nav > li .highlight {
+  border: none;
+  background: rgba(255, 255, 255, 0.05);
+  padding-left: 9px;
+  margin: 2px 0 2px -10px;
+}
+.pw-sidebar-nav > li .pw-nav-add + li,
+.pw-sidebar-nav > li .pw-nav-dup + li,
+.pw-sidebar-nav > li .highlight + li {
+  border-top: none;
+}
+.pw-sidebar-nav > li .separator {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-color: rgba(166, 166, 166, 0.2);
+}
+.pw-sidebar-nav > li > ul > li {
+  border-top: 1px solid rgba(255, 255, 255, 0.2);
+  border-color: rgba(166, 166, 166, 0.2);
+  padding: 3px 0;
+}
+.pw-sidebar-nav > li > ul > li:first-child {
+  border-top: none;
+}
+.pw-sidebar-nav > li > ul > li a {
+  padding-right: 6px;
+}
+.pw-sidebar-nav > li > ul > li small {
+  opacity: 0.6;
+}

@@ -1,0 +1,169 @@
+// Miscellaneous 
+@base-h1-font-size: @global-xlarge-font-size;
+@base-h1-line-height: 1.3;
+@base-h2-font-size: @global-large-font-size;
+@base-h2-line-height: 1.4;
+@base-h3-font-size: @global-medium-font-size;
+@base-h3-line-height: 1.4;
+@base-h4-font-size: @global-font-size;
+@base-h4-line-height: 1.4;
+
+@base-code-padding-horizontal: 0;
+@base-code-padding-vertical: 0;
+@base-code-background: none;
+
+@pw-masthead-height: 80px; // note: must also be updated in _masthead.php "data-pw-height" attribute 
+@navbar-nav-item-height: @pw-masthead-height;
+
+html, body {
+  background: @pw-body-background;
+}
+
+// box-sizing
+*, *:before, *:after {
+  // Note: Uikit overrides this in some cases
+  -moz-box-sizing: border-box;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+
+em {
+  color: inherit;
+}
+
+/*
+// removed because it causes horiz scrollbar at small mobile widths
+#pw-mastheads {
+  position: relative;
+}
+*/
+#pw-masthead,
+#pw-masthead-mobile {
+  height: @pw-masthead-height;
+}
+#pw-masthead-mobile {
+  line-height: @pw-masthead-height - 2px;
+}
+.pw-logo {
+  max-height: 50px; 
+}
+
+.pw-nav-icon {
+  margin-right: 5px !important;
+}
+
+.pw-user-nav .fa-lg {
+  // user icon in masthead
+  position: relative;
+  top: 2px;
+}
+
+// debug info from /wire/templates-admin/debug.inc
+#debug {
+  padding: @global-small-margin;
+  display: none;
+}
+
+// Pop-out panel for PageList, PageView, debug, etc. 
+body .pw-panel-container {
+  .pw-panel-button.ui-button {
+    // background: @global-primary-background;
+    background: @pw-body-background;
+    padding: 3px 12px 3px 15px !important; 
+    small.ui-button-text {
+      > span {
+        display: none;
+        // font-size: @global-small-font-size;
+        // line-height: @global-small-font-size;
+        // text-transform: uppercase;
+      }
+    }
+    i.fa {
+      transform: rotate(-90deg);
+      color: @global-link-color;
+      font-size: 20px;
+      position: relative;
+      bottom: -4px;
+    }
+  }
+}
+
+// make breadcrumb separators lighter
+.uk-breadcrumb>:nth-child(n+2):not(.uk-first-column)::before {
+  color: lighten(@global-muted-color, 25%);
+}
+
+// modal window
+body.modal {
+  #main {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  &.modal-inline #main {
+    // modal-inline means parent window is already providing left/right padding
+    padding-left: 0;
+    padding-right: 0;
+  }
+  .InputfieldForm {
+    margin-top: @global-margin;
+  }
+}
+
+body.pw-layout-sidenav {
+  .pw-container {
+    padding-left: 20px;
+    padding-right: 20px;
+  }
+  #pw-masthead {
+    .pw-logo {
+      height: 40px;
+    }
+    .uk-navbar-nav > li > a {
+      height: 60px;
+    }
+    .uk-breadcrumb {
+      margin-left: @global-margin;
+    }
+  }
+}
+
+body.pw-layout-sidenav-side {
+  #pw-sidenav-bar {
+    padding-top: 0 !important;
+  }
+}
+
+// search box in upper right corner
+.pw-search-input {
+  // left padding to allow space for search icon
+  padding-left: 30px;
+}
+
+#offcanvas-nav .pw-search-form {
+  .uk-inline,
+  .pw-search-input {
+    width: 100%;
+  }
+}
+
+.WireTabs,
+#ProcessPageEdit #PageEditTabs {
+  // drop any margin between tabs and whatever is next
+  // this probably is only appropriate with the default Uikit tabs styling
+  margin-bottom: @pw-tabs-margin-bottom;
+}
+
+// ProcessPageEditImageSelect crop settings
+#selected_image_settings {
+  .input_pixels {
+    width: 80px;
+    line-height: 20px;
+  }
+  #selected_image_resize {
+    top: 12px;
+  }
+  button {
+    margin-bottom: 10px;
+    margin-top: 4px;
+  }
+}

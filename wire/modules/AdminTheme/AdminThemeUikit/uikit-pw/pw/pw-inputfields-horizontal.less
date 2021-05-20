@@ -1,0 +1,66 @@
+/*** Horizontal forms (future use, not currently used) ***********************************/
+
+.uk-form-horizontal {
+  > .Inputfields {
+    border-top: @pw-inputfield-border;
+    margin-top: 0;
+  }
+  .Inputfields,
+  .InputfieldWrapper {
+    display: block;
+    list-style: none;
+    padding-left: 0;
+  }
+  .InputfieldWrapper + .InputfieldSubmit {
+    clear: both !important;
+    display: block !important;
+    margin-top: 50px;
+  }
+  *:not(.InputfieldContent) {
+    .Inputfield {
+      clear: both;
+    }
+    .InputfieldWrapper > .Inputfields {
+      display: block;
+      list-style: none;
+      padding-left: 0;
+      > .Inputfield {
+        display: block;
+        list-style: none;
+        width: 100% !important;
+        padding-left: 0;
+        margin: @pw-inputfield-margin 0;
+        border: none;
+
+        > .InputfieldHeader {
+          background: none;
+          border: none;
+          padding: 0;
+          min-height: @global-line-height;
+          i.toggle-icon {
+            display: none !important;
+          }
+        }
+
+        > .InputfieldContent {
+          padding: 5px 0 0 0;
+          background: none;
+          > p:first-child {
+            padding-top: 4px;
+          }
+        }
+        &.InputfieldStateCollapsed {
+          > .InputfieldHeader {
+            margin-bottom: @pw-inputfield-margin;
+          }
+          > .InputfieldContent {
+            display: block;
+            height: 1px;
+            overflow: hidden !important;
+          }
+        }
+      }
+    }
+  }
+}
+

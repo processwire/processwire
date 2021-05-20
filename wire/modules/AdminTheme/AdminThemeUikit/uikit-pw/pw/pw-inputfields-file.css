@@ -1,0 +1,101 @@
+.InputfieldFileList {
+  list-style: none;
+  padding-left: 0;
+  margin-left: 0;
+}
+.InputfieldFileList > li {
+  list-style: none;
+  margin-top: 0;
+}
+.InputfieldFileList .InputfieldFileItem {
+  /*BORDER
+    border: @pw-inputfield-border;
+    */
+}
+.InputfieldFileList .InputfieldFileItem .ui-widget-content {
+  border: none;
+}
+/*  
+.InputfieldItemList {
+  
+  .InputfieldItemHeader {
+    // file or repeater item header 
+    border: none;
+    background: $item-header-bg;
+    color: $item-header-color;
+    padding: 0.5em;
+    cursor: move;
+    font-weight: $normal-weight;
+
+    a {
+      // link in file or repeater item header 
+      color: $item-header-color; 
+    }
+
+    &:hover {
+      // file or repeater item header in hover state 
+      background: $item-header-hover-bg;
+      color: $item-header-hover-color;
+      border: none;
+
+      a {
+        color: $item-header-hover-color;
+      }
+    }
+
+    .ui-icon {
+      margin-top: 3px;
+    }
+
+    &.ui-state-error {
+      // deleted item state 
+      text-decoration: line-through;
+      background: $error-bg;
+      border: none;
+    }
+  }
+
+  .InputfieldItemList {
+    // nested item list 
+    .InputfieldItemHeader:not(:hover):not(.ui-state-error) {
+      // lighten up nested item list headers use a different color 
+      background: $ui-state-default-bg;
+      color: $ui-state-default-color;
+    }
+  }
+}
+*/
+/*
+.InputfieldItemList:not(.InputfieldStateCollapsed) > .InputfieldHeader,
+.InputfieldFieldset:not(.InputfieldStateCollapsed) > .InputfieldHeader,
+.InputfieldFieldsetOpen:not(.InputfieldStateCollapsed) > .InputfieldHeader,
+.InputfieldItemList > .InputfieldHeader + .InputfieldContent,
+.InputfieldFieldset > .InputfieldHeader + .InputfieldContent,
+.InputfieldFieldsetOpen > .InputfieldHeader + .InputfieldContent {
+  // Inputfields containing other items get a different background color 
+  background: transparentize($subtle-bg, 0.2);
+}
+
+.hasLangTabs:not(.InputfieldStateCollapsed) > .InputfieldHeader,
+.InputfieldItemList:not(.InputfieldStateCollapsed) > .InputfieldHeader,
+.InputfieldFieldset:not(.InputfieldStateCollapsed):not(.InputfieldRepeaterItem) > .InputfieldHeader,
+.InputfieldFieldsetOpen:not(.InputfieldStateCollapsed) > .InputfieldHeader {
+  background: transparentize($subtle-bg, 0.5);
+  background: -moz-linear-gradient(top, transparentize($subtle-bg, 0.8) 0%, transparentize($subtle-bg, 0.2) 100%); // FF3.6+ 
+  background: -webkit-linear-gradient(top, transparentize($subtle-bg, 0.8) 0%, transparentize($subtle-bg, 0.2) 100%); // Chrome10+,Safari5.1+ 
+  background: -o-linear-gradient(top, transparentize($subtle-bg, 0.8) 0%, transparentize($subtle-bg, 0.2) 100%); // Opera11.10+ 
+  background: -ms-linear-gradient(top, transparentize($subtle-bg, 0.8) 0%, transparentize($subtle-bg, 0.2) 100%); // IE10+ 
+  background: linear-gradient(top, transparentize($subtle-bg, 0.8) 0%, transparentize($subtle-bg, 0.2) 100%); // W3C 
+}
+
+.InputfieldItemList .InputfieldItemList:not(.InputfieldStateCollapsed) > .InputfieldHeader,
+.InputfieldItemList .InputfieldItemList > .InputfieldHeader + .InputfieldContent {
+  // unless the item is already a nested item list, then we are a little mroe subtle with it 
+  background: transparentize($subtle-bg, 0.6);
+}
+
+.InputfieldItemList > .InputfieldHeader + .InputfieldContent.ui-state-hover {
+  // drag n drop upload 
+  background: darken($subtle-bg, 5%);
+}
+*/

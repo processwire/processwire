@@ -1,0 +1,51 @@
+/*** Buttons *****************************************************************/
+
+.InputfieldSubmit,
+.InputfieldButton {
+  display: inline;
+  width: auto !important;
+  background: none !important;
+  .InputfieldHeader {
+    // no need for a header with buttons 
+    display: none;
+  }
+  .InputfieldContent {
+    // we don't need any extra visual furniture for buttons 
+    display: inline;
+    padding: 0;
+    margin: 0;
+    background: none;
+    border: none;
+    outline: none;
+    .ui-button {
+      display: inline;
+    }
+  }
+}
+
+.Inputfields {
+  // make sure buttons start on a new row (rarely necessary)
+  .Inputfield:not(.InputfieldSubmit):not(.InputfieldButton) + .InputfieldButton,
+  .Inputfield:not(.InputfieldSubmit):not(.InputfieldButton) + .InputfieldSubmit {
+    clear: left;
+  }
+}
+
+.pw-content .ui-button {
+  // margin between buttons
+  margin-left: 0;
+  margin-right: @pw-inputfield-button-margin;
+}
+
+#pw-content-head-buttons {
+  // reverse margin between buttons when in content-head
+  .ui-button {
+    margin-left: @pw-inputfield-button-margin;
+    margin-right: 0;
+  }
+}
+
+a.InputfieldButtonLink:hover {
+  text-decoration: none;
+}
+

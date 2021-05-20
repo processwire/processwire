@@ -1,0 +1,45 @@
+/*** AsmSelect **************************************************************/
+
+.asmContainer {
+  margin-bottom: @global-small-margin;
+}
+.Inputfields .InputfieldAsmSelect .asmListItem {
+  line-height: @global-line-height;
+  .asmListItemHandle {
+    top: 7px;
+  }
+  .asmListItemRemove {
+    line-height: @global-line-height;
+    i {
+      top: 3px;
+    }
+  }
+}
+
+.InputfieldForm .Inputfields .InputfieldPageAutocomplete,
+.InputfieldForm .Inputfields .InputfieldPageListSelectMultiple {
+  ol {
+    list-style: none;
+    padding: 0;
+
+    > li {
+      list-style: none;
+      line-height: @global-line-height;
+      i {
+        top: 7px;
+      }
+    }
+
+    .itemRemove {
+      top: 3px;
+      i {
+        top: 0;
+      }
+    }
+  }
+
+  .ui-autocomplete-input {
+    padding-left: 25px;
+  }
+}
+

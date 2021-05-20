@@ -1,0 +1,32 @@
+// Styles specific to mobile presentation
+
+// hamburger toggle icon that appears at mobile resolutions
+#offcanvas-toggle {
+  position: absolute;
+  top: 23px;
+  right: 20px;
+}
+
+// if size causes masthead to break, hide the primary navbar
+#pw-masthead.pw-masthead-broken {
+  .pw-primary-nav {
+    display: none;
+  }
+}
+
+@media screen and (max-width: @breakpoint-small-max) {
+  // make the top submit buttons no longer float right when at small viewport sizes
+  #pw-content-head-buttons {
+    margin-bottom: @global-margin;
+    button,
+    .pw-button-dropdown-wrap {
+      float: none;
+    }
+  }
+}
+
+@media screen and (max-width: 767px) {
+  body:not(.pw-ready) #pw-masthead > * {
+    display: none;
+  }
+}

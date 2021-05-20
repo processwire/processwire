@@ -1,0 +1,55 @@
+body.pw-guest #pw-masthead {
+  display: none;
+}
+body.pw-guest #pw-masthead-mobile {
+  display: block !important;
+}
+body.pw-guest #pw-content-head {
+  display: none;
+}
+body.pw-guest #pw-content-body {
+  text-align: center;
+}
+body.pw-guest .pw-notices > li > .uk-container {
+  text-align: center;
+}
+body.pw-guest .pw-notices .notice-remove {
+  display: none;
+}
+body.pw-guest hr {
+  display: none;
+}
+body.pw-guest footer {
+  display: none;
+}
+.ProcessLogin #ProcessLoginForm {
+  width: 250px;
+  margin: 0 auto;
+}
+.ProcessLogin #ProcessLoginForm #wrap_login_name,
+.ProcessLogin #ProcessLoginForm #wrap_login_pass,
+.ProcessLogin #ProcessLoginForm #wrap_Inputfield_login_submit {
+  width: 250px;
+  outline: none;
+  padding: 0;
+  margin: 0 !important;
+}
+.ProcessLogin #ProcessLoginForm #wrap_login_name .InputfieldHeader,
+.ProcessLogin #ProcessLoginForm #wrap_login_pass .InputfieldHeader,
+.ProcessLogin #ProcessLoginForm #wrap_Inputfield_login_submit .InputfieldHeader {
+  padding: 0;
+  margin: 0;
+  font-weight: normal;
+}
+.ProcessLogin #ProcessLoginForm #wrap_login_name input,
+.ProcessLogin #ProcessLoginForm #wrap_login_pass input,
+.ProcessLogin #ProcessLoginForm #wrap_Inputfield_login_submit input {
+  text-align: center;
+}
+.ProcessLogin #ProcessLoginForm #wrap_Inputfield_login_submit {
+  display: inline-block;
+  margin: 0 auto !important;
+}
+.ProcessLogin #ProcessLoginForm #wrap_Inputfield_login_submit .ui-button {
+  margin: 0;
+}

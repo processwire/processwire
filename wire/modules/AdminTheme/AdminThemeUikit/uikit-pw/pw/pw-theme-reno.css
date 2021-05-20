@@ -1,0 +1,14 @@
+#pw-masthead {
+  background-color: #1C2836;
+}
+.uk-navbar-nav li,
+.uk-navbar-nav li a {
+  color: #fff;
+}
+ul.pw-dropdown-menu {
+  background-color: #e2e9ef;
+}
+ul.pw-dropdown-menu > li.ui-menu-item,
+ul.pw-dropdown-menu > li.ui-menu-item > a {
+  color: #354b60;
+}
