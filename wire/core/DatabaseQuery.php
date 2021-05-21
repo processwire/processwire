@@ -601,7 +601,7 @@ abstract class DatabaseQuery extends WireData {
 		foreach($this->bindValues as $bindKey => $bindValue) {
 			if(is_string($bindValue)) $bindValue = $database->quote($bindValue);
 			if($bindKey[strlen($bindKey)-1] === $suffix) {
-				$sql = str_replace($bindKey, $bindValue, $sql);
+				$sql = strtr($sql, array($bindKey => $bindValue));
 			} else {
 				$sql = preg_replace('/' . $bindKey . '\b/', $bindValue, $sql);
 			}

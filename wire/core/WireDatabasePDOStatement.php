@@ -188,11 +188,7 @@ class WireDatabasePDOStatement extends \PDOStatement {
 		if($this->debugParamsQty) {
 			$sql = $this->queryString;
 			if(count($this->debugParams)) {
-				$sql = str_replace(
-					array_keys($this->debugParams), 
-					array_values($this->debugParams), 
-					$sql
-				);
+				$sql = strtr($sql, $this->debugParams); 
 			}
 			if(count($this->debugParamsPCRE)) {
 				$sql = preg_replace(
