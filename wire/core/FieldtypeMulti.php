@@ -520,8 +520,10 @@ abstract class FieldtypeMulti extends Fieldtype {
 		
 		if(empty($orderByCols)) {
 			// if there are no orderByCols defined, pagination & sorting not supported
-			// default sort for FieldtypeMulti fields is by column 'sort'
-			$query->orderby("$table.sort");
+			// default sort for FieldtypeMulti fields is by column 'sort', if schema supports it
+			if (isset($schema['sort'])) {
+				$query->orderby("$table.sort");
+			}
 
 		} else {
 			// one or more orderByCols is defined, enabling sorting and potential pagination
