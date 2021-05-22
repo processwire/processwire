@@ -407,10 +407,12 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$this->operatorTrimChars = '.@';
 	
 		$templates = array();
-		foreach($this->wire('templates') as $template) {
+		$initTemplates = $this->getTemplatesFromInitValue($this->initValue);
+		foreach($this->wire()->templates as $template) {
 			if(($template->flags & Template::flagSystem) && !$this->allowSystemTemplates) {
 				continue; 
 			}
+			if(count($initTemplates) && !in_array($template->id, $initTemplates)) continue;
 			$label = $template->getLabel();
 			if($label != $template->name) $label .= " ($template->name)";
 			$templates[$template->id] = $label;
