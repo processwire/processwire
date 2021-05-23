@@ -695,8 +695,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		if($value instanceof Page) {
 			$inputfield->attr('value', $value->id); // derefAsPage
-		} else {
+		} else if($inputfield instanceof InputfieldPageListSelect) {
+			if($value instanceof PageArray) $value = $value->first();
+			$inputfield->attr('value', $value);
+		} else if($inputfield instanceof InputfieldHasArrayValue || $inputfield instanceof InputfieldSupportsArrayValue) {
 			$inputfield->attr('value', array_keys($valueArray));
+		} else {
+			$inputfield->attr('value', $value);
 		}
 
 		// pass along any relevant configuration items
@@ -967,6 +972,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 					$newValue = null;
 				}
 			}
+		}
+		
+		if($this->derefAsPage < 1 && $newValue instanceof Page) {
+			// i.e. value from a PageListSelect (single) when using PageArray value
+			$newValuePage = $newValue;
+			$newValue = $pages->newPageArray();
+			$newValue->add($newValuePage);
 		}
 
 		$this->setAttribute('value', $newValue); 

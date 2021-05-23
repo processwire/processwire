@@ -75,6 +75,14 @@ class InputfieldPageListSelect extends Inputfield implements InputfieldPageListS
 		$this->value = (int) $this->value; 
 		return $this; 
 	}
+
+	public function setAttribute($key, $value) {
+		if($key === 'value') {
+			if(is_array($value)) $value = array_shift($value);
+			$value = (int) "$value"; // Page, string or int
+		}
+		return parent::setAttribute($key, $value);
+	}
 	
 	public function isEmpty() {
 		return ((int) $this->attr('value')) < 1;
