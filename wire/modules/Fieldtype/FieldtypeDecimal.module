@@ -96,10 +96,7 @@ class FieldtypeDecimal extends Fieldtype {
 	public function getInputfield(Page $page, Field $field) {
 		/** @var InputfieldFloat $inputfield */
 		$inputfield = $this->wire()->modules->get('InputfieldFloat');
-		$precision = (int) $field->get('precision');
-		if($field->get('inputType') === 'number' && $precision > 0) {
-			$inputfield->attr('step', '.' . ($precision > 1 ? str_repeat('0', $precision - 1) : '') . '1');
-		}
+		$inputfield->precision = $field->get('precision');
 		return $inputfield;
 	}
 
@@ -237,7 +234,7 @@ class FieldtypeDecimal extends Fieldtype {
 
 		/** @var FieldtypeInteger $ft */
 		$ft = $this->wire()->fieldtypes->FieldtypeInteger;
-		
+
 		// use the same 'zeroNotEmpty' setting as FieldtypeInteger
 		$f = $ft->___getConfigInputfields($field)->getChildByName('zeroNotEmpty');
 		if($f) $inputfields->add($f);
