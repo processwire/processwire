@@ -1416,6 +1416,22 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			}
 		}
 
+		foreach($inputfields as $f) {
+			if($f->attr('name') != 'visibility') continue; 
+			/** @var InputfieldSelect $field */
+			$field = $this->modules->get("InputfieldSelect"); 
+			$field->attr('name', 'skipLabel'); 
+			$field->label = $this->_('Skip Label'); 
+			$field->icon = 'eye-slash';
+			$field->description = $this->_("Should the label for this fieldset be hidden in the editor?");
+			$field->addOption(self::skipLabelNo, $this->_('Never, show the fieldset name if empty'));
+			$field->addOption(self::skipLabelBlank, $this->_('Hide only if blank'));
+			$field->addOption(self::skipLabelHeader, $this->_('Yes, hide the header markup'));
+			$field->addOption(self::skipLabelMarkup, $this->_('Yes, hide all the header/label markup'));
+			$field->attr('value', (int) $this->skipLabel); 
+			$f->append($field); 
+		}
+
 		return $inputfields;
 	}
 
