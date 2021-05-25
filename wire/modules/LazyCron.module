@@ -70,7 +70,6 @@
  * https://processwire.com
  *
  *
- *
  */
 
 class LazyCron extends WireData implements Module {
