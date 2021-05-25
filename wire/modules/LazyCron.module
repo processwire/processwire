@@ -120,6 +120,13 @@ class LazyCron extends WireData implements Module {
 	);
 
 	/**
+	 * Path to the lockfile
+	 * @var string
+	 *
+	 */
+	protected $lockfile = '';
+	
+	/**
 	 * Indicator if the LazyCron.cache file has to be written
 	 * @var bool 
 	 */
@@ -168,26 +175,30 @@ class LazyCron extends WireData implements Module {
 	 *
 	 */
 	public function afterPageView(HookEvent $e) {
+		/** @var ProcessPageView $process */
+		$process = $e->object;
 		// don't execute cron now if this is anything other than a normal response
-		$responseType = $e->object->getResponseType();
+		$responseType = $process->getResponseType();
 		if($responseType != ProcessPageView::responseTypeNormal) return;
 
-		$filename = $this->config->paths->cache . "LazyCron.cache";
-		$lockfile = $this->config->paths->cache . "LazyCronLock.cache";
-
-		if(is_file($lockfile)) {
+		$files = $this->wire()->files;
+		$cachePath = $this->wire()->config->paths->cache;
+		$filename = $cachePath . 'LazyCron.cache';
+		$this->lockfile = $cachePath . 'LazyCronLock.cache';
+		
+		if(is_file($this->lockfile)) {
 			// other LazyCron process potentially running
-			if(filemtime($lockfile) < (time() - 3600)) {
+			if(filemtime($this->lockfile) < (time() - 3600)) {
 				// expired lock file, some fatal error must have occurred during last LazyCron run
-				$this->wire('files')->unlink($lockfile);
+				$this->removeLockfile();
 			} else {
 				// skip running this time as an active lock file exists
 				return;
 			}
 		}
 
-		if(!file_put_contents($lockfile, time(), LOCK_EX)) {
-			$this->error("Unable to write lock file: $lockfile", Notice::logOnly);
+		if(!$files->filePutContents($this->lockfile, time(), LOCK_EX)) {
+			$this->error("Unable to write lock file: $this->lockfile", Notice::logOnly);
 			return;
 		}
 
@@ -196,7 +207,7 @@ class LazyCron extends WireData implements Module {
 
 			// file is probably locked, so skip it this time
 			if($filedata === false) {
-				$this->wire('files')->unlink($lockfile);
+				$this->removeLockfile();
 				return;
 			}
 		} else {
@@ -204,17 +215,20 @@ class LazyCron extends WireData implements Module {
 			$filedata = false;
 		}
 
+		$shutdown = $this->wire()->shutdown;
+		if($shutdown) $shutdown->addHook('fatalError', $this, 'hookFatalError');
+		
 		// run timed hooks (e.g. everyMinute)
 		$this->runTimeHooks($filedata);
 		
 		// run functions that hook LazyCron::cron 
 		$this->runCronHooks($filedata);
 
-		if($this->writeFile && file_put_contents($filename, implode("\n", $this->timesToWrite), LOCK_EX)) {
-			if($this->config->chmodFile) @chmod($filename, octdec($this->config->chmodFile));
+		if($this->writeFile) {
+			$files->filePutContents($filename, implode("\n", $this->timesToWrite), LOCK_EX);
 		}
 
-		$this->wire('files')->unlink($lockfile);
+		$this->removeLockfile();
 	}
 
 	/**
@@ -249,6 +263,31 @@ class LazyCron extends WireData implements Module {
 			$this->timesToWrite[$seconds] = $lasttime;
 			$n++;
 		}
+	}
+
+	/**
+	 * Remove lock file
+	 *
+	 */
+	protected function removeLockfile() {
+		if(!$this->lockfile || !is_readable($this->lockfile)) return;
+		$files = $this->wire()->files;
+		if($files) {
+			$files->unlink($this->lockfile, false, false);
+		} else {
+			unlink($this->lockfile); // might be impossible to reach 
+		}
+	}
+
+	/**
+	 * Hook to WireShutdown::fatalError
+	 *
+	 * @param HookEvent $e
+	 *
+	 */
+	public function hookFatalError(HookEvent $e) {
+		$this->removeLockfile();
+		$e->removeHook(null); // remove self
 	}
 	
 	//--------------------------------------------------------------
