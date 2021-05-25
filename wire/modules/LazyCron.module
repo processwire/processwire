@@ -676,4 +676,17 @@ class LazyCron extends WireData implements Module {
 
 	public function ___cron($pattern, $seconds) {}
 
+	/**
+	 * Uninstall
+	 *
+	 */
+	public function ___uninstall() {
+		$files = $this->wire()->files;
+		$cachePath = $this->wire()->config->paths->cache;
+		$file = $cachePath . 'LazyCron.cache';
+		if(is_file($file)) $files->unlink($file, true, false);
+		$file = $cachePath . 'LazyCronLock.cache';
+		if(is_file($file)) $files->unlink($file, true, false);
+	}
+
 }
