@@ -40,3 +40,16 @@ Then you can easily set the main color in `/site/templates/admin.less`:
 ```
 
 You can modify ANY variable of the style here including all UIkit variables like `@global-font-family` or `@global-margin` etc...
+
+## Core theme development
+
+If you want to work on the core theme or update the uikit version simply set the class constant `AdminThemeUikit::dev` to `true`. The theme will then recompile the CSS on every page load. To upgrade uikit to the latest version do this:
+
+```sh
+cd /path/to/AdminThemeUikit
+rm -r uikit
+git clone https://github.com/uikit/uikit.git uikit
+rm -rf uikit/.* uikit/build uikit/dist/css uikit/tests uikit/*.json uikit/*.lock uikit/*.md
+```
+
+Then set back the `dev` constant to `false` and commit your changes as needed.
