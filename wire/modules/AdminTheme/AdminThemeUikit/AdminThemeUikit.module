@@ -1107,7 +1107,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			
 			// check if we need to recompile the theme
 			$recompile = false;
-			if(self::dev OR $config->recompile) $recompile = true;
+			if(self::dev OR $config->recompile OR !file_exists($compiled)) {
+				$recompile = true;
+			}
 			elseif(is_file($admin) AND filemtime($admin) > filemtime($compiled)){
 				$recompile = true;
 			}
@@ -1121,7 +1123,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 					
 					// parse style and append admin.less if it exists
 					$parser->parseFile($this->getStyle());
-					if(is_file($admin)) $parser->parseFile($admin);
+					
+					// add admin.less to the style unless DEV is enabled
+					if(!self::dev AND is_file($admin)) $parser->parseFile($admin);
 					
 					// create CSS and save it
 					$compileTo = self::dev ? $coreCSS : $customCSS;
@@ -1151,6 +1155,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$config = $this->wire()->config;
 		$path = $config->paths($this)."uikit-pw/styles/";
 		$default = $path."reno.less";
+		if(self::dev) return $default;
 		if($config->adminStyle) {
 			if(is_file($config->adminStyle)) {
 				return Paths::normalizeSeparators($config->adminStyle);
