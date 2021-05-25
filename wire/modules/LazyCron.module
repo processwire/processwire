@@ -4,44 +4,46 @@
  * ProcessWire LazyCron Module
  * ===========================
  *
- * Provides hooks that are automatically executed at various intervals. 
- * It is called 'lazy' because it's triggered by a pageview, so it's accuracy 
- * executing at specific times will depend upon how may pageviews your site gets. 
+ * Provides hooks that are automatically executed at various intervals.
+ * It is called 'lazy' because it's triggered by a pageview, so it's accuracy
+ * executing at specific times will depend upon how may pageviews your site gets.
  * So when a specified time is triggered, it's guaranteed to have been that length
- * of time OR longer. This is fine for most cases. 
+ * of time OR longer. This is fine for most cases.
  * But here's how you make it NOT lazy:
- * 
- * Setup a real CRON job to pull a page from your site once per minute. 
+ *
+ * Setup a real CRON job to pull a page from your site once per minute.
  * Here is an example of a command that you could schedule to execute once per
  * minute:
- * 
+ *
  * wget --quiet --no-cache -O - http://www.your-site.com > /dev/null
- * 
- * 
- * USAGE IN YOUR MODULES: 
+ *
+ * This module is compatible with ProcessWire 2.1 only.
+ *
+ *
+ * USAGE IN YOUR MODULES:
  * ----------------------
  *
  * // In your own module or template, add the function you want executed:
  * public function myFunc(HookEvent $e) { echo "30 Minutes have passed!"; }
- * 
- * // Then add the hook to it in your module's init() function:
- * $this->addHook('LazyCron::every30Minutes', $this, 'myFunc'); 
  *
- * 
- * PROCEDURAL USAGE (i.e. in templates): 
+ * // Then add the hook to it in your module's init() function:
+ * $this->addHook('LazyCron::every30Minutes', $this, 'myFunc');
+ *
+ *
+ * PROCEDURAL USAGE (i.e. in templates):
  * -------------------------------------
- * 
+ *
  * // create your hook function
  * function myHook(HookEvent $e) { echo "30 Minutes have passed!"; }
- * 
- * // add a hook to it:
- * $wire->addHook('LazyCron::every30Minutes', null, 'myFunc'); 
  *
- * 
+ * // add a hook to it:
+ * $wire->addHook('LazyCron::every30Minutes', null, 'myFunc');
+ *
+ *
  * FUNCTIONS YOU CAN HOOK:
  * -----------------------
  *
- * every30Seconds  
+ * every30Seconds
  * everyMinute
  * every2Minutes
  * every3Minutes
@@ -62,10 +64,11 @@
  * everyWeek
  * every2Weeks
  * every4Weeks
- * 
- * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * cron
+ *
+ * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
  * https://processwire.com
+ *
  *
  *
  */
@@ -74,43 +77,43 @@ class LazyCron extends WireData implements Module {
 
 	public static function getModuleInfo() {
 		return array(
-			'title' => 'Lazy Cron', 
-			'version' => 103, 
-			'summary' => 
-				"Provides hooks that are automatically executed at various intervals. " . 
-				"It is called 'lazy' because it's triggered by a pageview, so the interval " . 
-				"is guaranteed to be at least the time requested, rather than exactly the " . 
-				"time requested. This is fine for most cases, but you can make it not lazy " . 
-				"by connecting this to a real CRON job. See the module file for details. ", 
+			'title' => 'Lazy Cron',
+			'version' => 110,
+			'summary' =>
+				"Provides hooks that are automatically executed at various intervals. " .
+				"It is called 'lazy' because it's triggered by a pageview, so the interval " .
+				"is guaranteed to be at least the time requested, rather than exactly the " .
+				"time requested. This is fine for most cases, but you can make it not lazy " .
+				"by connecting this to a real CRON job. See the module file for details. ",
 			'href' => 'https://processwire.com/api/modules/lazy-cron/',
-			'permanent' => false, 
-			'singular' => true, 
-			'autoload' => true, 
+			'permanent' => false,
+			'singular' => true,
+			'autoload' => true,
 		);
 	}
 
 	/**
-	 * Hookable time functions that we are allowing indexed by number of seconds. 
+	 * Hookable time functions that we are allowing indexed by number of seconds.
 	 *
 	 */
 	protected $timeFuncs = array(
 		30 => 'every30Seconds',
-		60 => 'everyMinute',	
+		60 => 'everyMinute',
 		120 => 'every2Minutes',
 		180 => 'every3Minutes',
 		240 => 'every4Minutes',
-		300 => 'every5Minutes', 
+		300 => 'every5Minutes',
 		600 => 'every10Minutes',
 		900 => 'every15Minutes',
 		1800 => 'every30Minutes',
-		2700 => 'every45Minutes', 
+		2700 => 'every45Minutes',
 		3600 => 'everyHour',
 		7200 => 'every2Hours',
 		14400 => 'every4Hours',
 		21600 => 'every6Hours',
 		43200 => 'every12Hours',
 		86400 => 'everyDay',
-		172800 => 'every2Days',	
+		172800 => 'every2Days',
 		345600 => 'every4Days',
 		604800 => 'everyWeek',
 		1209600 => 'every2Weeks',
@@ -118,144 +121,496 @@ class LazyCron extends WireData implements Module {
 	);
 
 	/**
-	 * @var string
-	 * 
+	 * Indicator if the LazyCron.cache file has to be written
+	 * @var bool 
 	 */
-	protected $lockfile = '';
+	protected $writeFile = false;
 
+	/**
+	 * List
+	 * @var array 
+	 */
+	protected $timesToWrite = array();
+	
 	/**
 	 * Initialize the hooks
 	 *
 	 */
 	public function init() {
-		$this->addHookAfter('ProcessPageView::finished', $this, 'afterPageView'); 
+		if($this->canRunLazyCron()) {
+			$this->addHookAfter('ProcessPageView::finished', $this, 'afterPageView');
+		}
 	}
 
 	/**
-	 * Function triggered after every page view. 
- 	 *
-	 * This is intentionally scheduled after the page has been delivered so 
-	 * that the cron jobs don't slow down the pageview. 
-	 * 
-	 * @param HookEvent $e
+	 * Check if we should run the lazycron actions.
+	 *
+	 * When the configuration for `lazyCronQueryParam` is set, we should trigger LazyCron only when that query parameter is set.
+	 *
+	 * @return bool
+	 * @throws WireException
+	 */
+	private function canRunLazyCron()
+	{
+		// if the configuration is not set, it can be executed lazily
+		if(!$this->config->lazyCronQueryParam) {
+			return true;
+		}
+
+		// if the configuration is set, return true if the query parameter is set
+		return (bool) $this->input->get($this->config->lazyCronQueryParam);
+	}
+
+	/**
+	 * Function triggered after every page view.
+	 *
+	 * This is intentionally scheduled after the page has been delivered so
+	 * that the cron jobs don't slow down the pageview.
 	 *
 	 */
 	public function afterPageView(HookEvent $e) {
-
-		/** @var ProcessPageView $process */
-		$process = $e->object;
 		// don't execute cron now if this is anything other than a normal response
-		$responseType = $process->getResponseType();
+		$responseType = $e->object->getResponseType();
 		if($responseType != ProcessPageView::responseTypeNormal) return;
 
-		$files = $this->wire()->files;
-		$cachePath = $this->wire()->config->paths->cache;
-		$time = time();
-		$filename = $cachePath . 'LazyCron.cache'; 
-		$this->lockfile = $cachePath . 'LazyCronLock.cache'; 
-		$times = array();
-		$writeFile = false;
+		$filename = $this->config->paths->cache . "LazyCron.cache";
+		$lockfile = $this->config->paths->cache . "LazyCronLock.cache";
 
-		if(is_file($this->lockfile)) {
+		if(is_file($lockfile)) {
 			// other LazyCron process potentially running
-			if(filemtime($this->lockfile) < (time() - 3600)) {
+			if(filemtime($lockfile) < (time() - 3600)) {
 				// expired lock file, some fatal error must have occurred during last LazyCron run
-				$this->removeLockfile();
+				$this->wire('files')->unlink($lockfile);
 			} else {
 				// skip running this time as an active lock file exists
 				return;
 			}
 		}
 
-		if(!$files->filePutContents($this->lockfile, time(), LOCK_EX)) {
-			$this->error("Unable to write lock file: $this->lockfile", Notice::logOnly); 
+		if(!file_put_contents($lockfile, time(), LOCK_EX)) {
+			$this->error("Unable to write lock file: $lockfile", Notice::logOnly);
 			return;
 		}
-		
+
 		if(is_file($filename)) {
-			$filedata = file($filename, FILE_IGNORE_NEW_LINES); 
+			$filedata = file($filename, FILE_IGNORE_NEW_LINES);
 
 			// file is probably locked, so skip it this time
 			if($filedata === false) {
-				$this->removeLockfile();
-				return; 
+				$this->wire('files')->unlink($lockfile);
+				return;
 			}
 		} else {
 			// file does not exist
 			$filedata = false;
 		}
 
-		$shutdown = $this->wire()->shutdown;
-		if($shutdown) $shutdown->addHook('fatalError', $this, 'hookFatalError');
+		// run timed hooks (e.g. everyMinute)
+		$this->runTimeHooks($filedata);
+		
+		// run functions that hook LazyCron::cron 
+		$this->runCronHooks($filedata);
 
-		if($filedata) {
-			$n = 0;
-			foreach($this->timeFuncs as $seconds => $func) {
-				$lasttime = (int) (isset($filedata[$n]) ? $filedata[$n] : $time);
+		if($this->writeFile && file_put_contents($filename, implode("\n", $this->timesToWrite), LOCK_EX)) {
+			if($this->config->chmodFile) @chmod($filename, octdec($this->config->chmodFile));
+		}
+
+		$this->wire('files')->unlink($lockfile);
+	}
+
+	/**
+	 * Run the timed interval functions.  
+	 * 
+	 * @param array|false $filedata
+	 */
+	private function runTimeHooks($filedata)
+	{
+		$time = time();
+
+		$n = 0;
+		foreach($this->timeFuncs as $seconds => $func) {
+			if($filedata) {
+				$lasttime = (int)(isset($filedata[$n]) ? $filedata[$n] : $time);
 				$elapsedTime = $time - $lasttime;
-				if(empty($filedata[$n]) || $elapsedTime >= $seconds) {
-					try {
-						$this->$func($elapsedTime);
-					} catch(\Exception $e) {
-						$this->error($e->getMessage(), Notice::logOnly); 
-					}
-					$lasttime = $time;
-					$writeFile = true;
-				}
-				$times[$seconds] = $lasttime;
-				$n++;	
 			}
-		} else {
-			// file does not exist
-			$writeFile = true;
-			foreach($this->timeFuncs as $seconds => $func) {
+			else {
+				$elapsedTime = 0;
+			}
+			
+			if(empty($filedata[$n]) || $elapsedTime >= $seconds) {
 				try {
-					$this->$func(0);
+					$this->$func($elapsedTime);
 				} catch(\Exception $e) {
-					$this->error($e->getMessage(), Notice::logOnly); 
+					$this->error($e->getMessage(), Notice::logOnly);
 				}
-				$times[$seconds] = $time;
+				$lasttime = $time;
+				$this->writeFile = true;
+			}
+			
+			$this->timesToWrite[$seconds] = $lasttime;
+			$n++;
+		}
+	}
+	
+	//--------------------------------------------------------------
+	// methods for LazyCron::cron()
+	//--------------------------------------------------------------
+
+	/**
+	 * Run LazyCron hooks that were added via LazyCron::cron(* * * * *)
+	 * In LazyCron.cache:  add lines that contain <pattern>:<lastExecuted>
+	 *
+	 * @param array|false $filedata
+	 * @throws WireException
+	 */
+	private function runCronHooks($filedata)
+	{
+		// get hooks that registered to LazyCron::cron() 
+		$registeredCronHooks = $this->hooks->getHooks($this, 'cron');
+		$lastExecutionTimes = $this->getLastCronExecutionTimes($filedata);
+		$time = time();
+
+		foreach ($registeredCronHooks as $hook) {
+			$args = $hook['options']['argMatch'];
+
+			if($args) {
+				$calledCronPattern = $args[0];
+				$cronPattern = trim($calledCronPattern, '"\'');
+
+				$exists = isset($lastExecutionTimes[$cronPattern]);
+				// if it does not exist, assume it was last executed a minute ago, so if
+				// the pattern matches the current minute, we can already execute it
+				$lastExecuted = $exists ? (int) $lastExecutionTimes[$cronPattern] : $time - 60;
+								
+				$nextExecutionTime = $this->getNextCronRuntime($cronPattern, $lastExecuted);
+				
+				if(!$exists) {
+					// persist timestamp into file when a pattern is executed for the first time
+					$lastExecutionTimes[$cronPattern] = $lastExecuted;
+
+					$this->writeFile = true;
+				}
+				
+				if($nextExecutionTime <= $time) {
+					// execute the function for this pattern
+					$elapsedTime = $exists ? $time - $lastExecuted : 0;
+					
+					$this->cron($cronPattern, $elapsedTime);
+
+					$lastExecutionTimes[$cronPattern] = $time;
+					
+					$this->writeFile = true;
+				}
+			}
+		}
+		
+		// write $lastExecutionTimes back to file
+		foreach ($lastExecutionTimes as $pattern => $time) {
+			$this->timesToWrite[$pattern] = sprintf("%s:%s", $pattern, $time);
+		}
+	}
+
+	/**
+	 * Return a key-value pair where the key is a cron pattern and the value the last execution time
+	 * @param array $filedata
+	 */
+	private function getLastCronExecutionTimes($filedata)
+	{
+		$filedataLength = count($filedata);
+		$timeLength = count($this->timeFuncs);
+		$executionTimes = [];
+		
+		// skip the first $timeLength lines, because they are reserved for the timeFuncs
+		for($i=$timeLength; $i<$filedataLength; $i++) {
+			$line = empty($filedata[$i]) ? '' : $filedata[$i];
+			if(empty($line)) {
+				continue;
+			}
+			
+			$line = explode(':', $filedata[$i]);
+			$line = array_map('trim', $line);
+			
+			list($pattern, $time) = $line;
+			$executionTimes[$pattern] = (int) $time;
+		}
+		
+		return $executionTimes;
+	}
+
+	/**
+	 * Get the next runtime for a given cron pattern.
+	 *
+	 * Given a valid cron pattern, this function will determine when the next execution time for this pattern should be.
+	 *
+	 * @param string $cronPattern
+	 * @param int $lastRuntime
+	 * @throws WireException
+	 */
+	public function getNextCronRuntime($cronPattern, $lastRuntime=null) {
+		$lastRuntime = $lastRuntime ?: time();
+		
+		// strip seconds from $lastRuntime
+		$lastRuntime -= date('s', $lastRuntime);
+
+		// if no other constraint is given, next Runtime is in one minute
+		$nextRuntime = strtotime('+1 minute', $lastRuntime);
+
+		// get possible time slots from pattern 
+		$timeSlots = $this->getPossibleTimeSlots($cronPattern);
+		$timeSlotInfo = array(
+			array('n', $timeSlots['n']),
+			array('j', $timeSlots['j']),
+			array('G', $timeSlots['G']),
+			array('i', $timeSlots['i'])
+		);
+
+		foreach ($timeSlotInfo as $idx => $info) {
+			$c = $info[0];
+			$slots = $info[1];
+
+			$time = date($c, $nextRuntime);
+			// trim leading 0 from minutes
+			if($c === 'i') $time = ltrim($time, '0');
+			if($c === 'j') $slots = $this->addWeekdaySlots($slots, $nextRuntime, $timeSlots['w']);
+
+			// if there is a wildcard every slots works
+			if(in_array('*', $slots)) {
+				continue;
+			}
+
+			// if there is no slot bigger than $time add more to the next bigger time
+			if($time > max($slots)) {
+				$previousC = $timeSlotInfo[max(0, $idx-1)][0];
+				$nextRuntime = $this->overflowDateInRuntime($nextRuntime, $previousC);
+
+				// todo: remove code duplication (next 3 lines repeated before)
+				$time = date($c, $nextRuntime);
+				if($c === 'i') $time = ltrim($time, '0');
+				if($c === 'j') $slots = $this->addWeekdaySlots($slots, $nextRuntime, $timeSlots['w']);
+			}
+
+			// set $i to first slot >= time
+			for($i=0; $slots[$i] < $time; $i++) {
+				if($i > count($slots)) {
+					throw new WireException('Can not find a match for the given CRON pattern');
+				}
+			}
+
+			// get difference between next slot and time 
+			$diff = ((int) $slots[$i] - (int) $time);
+
+			while($diff > 0) {
+				$nextRuntime = $this->overflowDateInRuntime($nextRuntime, $c);
+				$diff--;
 			}
 		}
 
-		if($writeFile) { 
-			$files->filePutContents($filename, implode("\n", $times), LOCK_EX);
-		}
-
-		$this->removeLockfile();
+		return $nextRuntime;
 	}
 
 	/**
-	 * Remove lock file
+	 * Given a cron pattern, this function returns all the possible numeric values for each cron pattern part. (Todo: Is that understandable?)
 	 * 
+	 * If any numeric value would be possible a '*' is returned to save some cpu cycles.
+	 * 
+	 * **Simple example:**
+	 * Pattern "1 1 1 1 1" would return
+	 * 		[
+	 * 		    'i' => [1]
+	 *		    'G' => [1]
+	 *		    'j' => [1]
+	 *		    'n' => [1]
+	 *		    'w' => [1]
+	 * 		]
+	 * 
+	 * **More advanced example:**
+	 * Pattern "*\/15 1-5,15 * 1 1" would return
+	 * 		[
+	 *			'i' => [0,15,30,45]
+	 *			'G' => [1,2,3,4,5,15]
+	 *			'j' => ['*']
+	 *			'n' => [1]
+	 *			'w' => [1]
+	 *		]
+	 * 
+	 * @param string $cronPattern
 	 */
-	protected function removeLockfile() {
-		if(!$this->lockfile || !is_readable($this->lockfile)) return;
-		$files = $this->wire()->files;
-		if($files) {
-			$files->unlink($this->lockfile, false, false);
-		} else {
-			unlink($this->lockfile); // might be impossible to reach 
+	protected function getPossibleTimeSlots($cronPattern) {
+		// cron pattern to date format character matching 
+		$formatCharacters = array(
+			'i' => array( 'min' => 0, 'max' => 59 ),
+			'G' => array( 'min' => 0, 'max' => 23 ),
+			'j' => array( 'min' => 1, 'max' => 31 ),
+			'n' => array( 'min' => 1, 'max' => 12 ),
+			'w' => array( 'min' => 0, 'max' => 6 ),
+		);
+
+		// Split cronPattern by space
+		$cronPattern = explode( ' ', $cronPattern );
+
+		/// set date() format character as key for $cronPattern, sort by time jumps 	
+		$cronPattern = array_combine( array_keys( $formatCharacters ), $cronPattern );
+
+		// initialize array with character as key and empty array as value 
+		$timeslots = array_fill_keys( array_keys( $formatCharacters ), array() );
+
+		// Foreach part of cronPattern:
+		//   [$c stands for the date()-character, $v for the value in the pattern at that position]  
+		foreach($cronPattern as $c => &$v) {
+			// comma separated values (eg. 5,10,15) are each treated as separate parts
+			$v = explode( ',', $v);
+
+			// Foreach part we now check all possible values 
+			foreach ( $v as $v1) {
+				// Do preg_replace with callbacks to get time slots
+				$t = preg_replace_callback_array(
+				// Regex
+					array(
+						// *  or a step value, e.g. */5
+						'/^\*(?:\/(\d+))?$/' => function($match) use ($formatCharacters, $c) {
+							$min = $formatCharacters[$c]['min'];
+							$max = $formatCharacters[$c]['max'];
+							$step = isset($match[1]) ? $match[1] : 1;
+
+							if($step == 1) {
+								return '*';
+							}
+
+							// all values possible
+							return join(',', range($min, $max, $step));
+						},
+
+						// single number, e.g. 5
+						'/^\d+$/' => function($match) {
+							return $match[0];
+						},
+
+						// a range, e.g. 5-10  (can also include a step value)
+						'/^(\d+)\-(\d+)(?:\/(\d+))?$/' => function($match) {
+							$step = isset($match[3]) ? $match[3] : 1;
+
+							return join(',', range($match[1], $match[2], $step));
+						}
+					),
+
+					// search in $v1
+					$v1
+				);
+
+				// convert string to array
+				$t = explode(',', $t);
+
+				// and merge with timeslots
+				$timeslots[$c] = array_merge($timeslots[$c], $t);
+			}
+
+			sort($timeslots[$c]);
 		}
+
+		return $timeslots;
 	}
 
 	/**
-	 * Hook to WireShutdown::fatalError
+	 * When the weekday cron part is set, add those weekdays as possible slots.
 	 * 
-	 * @param HookEvent $e
-	 * 
+	 * Given some day slots (array containing values of 1 to 31 or a *)
+	 * and time slots for some weekdays (array with value from 0 to 6 (sun-sat))
+	 * add the matching days to the time slot.
+	 *
+	 * @param array $slots The currently available day-timeslots
+	 * @param int $runtime The currently estimated runtime
+	 * @param array $weekdaySlots Timeslots for weekdays
+	 *
+	 * @return array
 	 */
-	public function hookFatalError(HookEvent $e) {
-		$this->removeLockfile();
-		$e->removeHook(null); // remove self
+	private function addWeekdaySlots( $slots, $runtime, $weekdaySlots) {
+		if(in_array('*', $weekdaySlots)) {
+			return $slots;
+		}
+		if(in_array('*', $slots)) {
+			$pos = array_search('*', $slots);
+
+			unset($slots[$pos]);
+		}
+
+		$month = date('n', $runtime);
+		$year = date('Y', $runtime);
+		// $daysInMonth = cal_days_in_month( 0, $month, $year); // this would need ext-calendar
+		$daysInMonth = date('t', mktime(0, 0, 0, $month, 1, $year));
+		
+		for($i=1; $i<=$daysInMonth; $i++) {
+			$w = date('w', strtotime("$year-$month-$i"));
+			if(in_array($w, $weekdaySlots)) {
+				$slots[] = $i;
+			}
+		}
+
+		sort($slots);
+
+		return $slots;
 	}
+
+	/**
+	 * Given a date and any of the date format characters i, G, j, n or w this will
+	 * increase the value at that character and reset all smaller parts of the date to 0.
+	 *
+	 * i: minute with leading 0 (00 - 59) [there's no character for minute without leading 0]
+	 * G: hour in 24 hour format (0-23)
+	 * j: day of month (1-31)
+	 * n: month of the year (1-12)
+	 * w: numeric day of the week (0[sunday] - 6[saturday])
+	 *
+	 * @param $runTime
+	 * @param $character
+	 *
+	 * @return int
+	 */
+	protected function overflowDateInRuntime($runTime, $character)
+	{
+		list($year, $month, $day, $hour, $minute, $dayOfWeek) = explode(' ', date('Y n j G i w', $runTime));
+		$minute = (int) ltrim($minute, '0');
+
+		switch($character) {
+			case 'i':
+				$minute++;
+				break;
+			case 'G':
+				$minute = 0;
+				$hour++;
+				break;
+			case 'j':
+				$minute = 0;
+				$hour = 0;
+				$day++;
+				break;
+			case 'n':
+				$minute = 0;
+				$hour = 0;
+				$day = 1;
+				$month++;
+				break;
+			case 'w':
+				$minute = 0;
+				$hour = 0;
+				$day += (7 - (int) $dayOfWeek);
+				break;
+		}
+
+		$date = new \DateTime();
+		$date->setTimestamp($runTime);
+		$date->setDate($year, $month, $day);
+		$date->setTime($hour, $minute);
+
+		return $date->getTimestamp();
+	}
+
 
 	/**
 	 * One or more of the following functions is called if the given interval has passed.
 	 *
 	 * You can hook into any of these functions and your hook will be called at the given interval.
 	 *
- 	 * @param int $seconds The number of seconds that have actually elapsed. Most likely not useful, but provided just in case.
+	 * @param int $seconds The number of seconds that have actually elapsed. Most likely not useful, but provided just in case.
 	 *
 	 */
 
@@ -280,18 +635,7 @@ class LazyCron extends WireData implements Module {
 	public function ___everyWeek($seconds) { }
 	public function ___every2Weeks($seconds) { }
 	public function ___every4Weeks($seconds) { }
-	
-	/**
-	 * Uninstall
-	 * 
-	 */
-	public function ___uninstall() {
-		$files = $this->wire()->files;
-		$cachePath = $this->wire()->config->paths->cache;
-		$file = $cachePath . 'LazyCron.cache';
-		if(is_file($file)) $files->unlink($file, true, false);
-		$file = $cachePath . 'LazyCronLock.cache';
-		if(is_file($file)) $files->unlink($file, true, false);
-	}
+
+	public function ___cron($pattern, $seconds) {}
 
 }
