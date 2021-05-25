@@ -53,3 +53,5 @@ rm -rf uikit/.* uikit/build uikit/dist/css uikit/tests uikit/*.json uikit/*.lock
 ```
 
 Then set back the `dev` constant to `false` and commit your changes as needed.
+
+If you want/need to work on a style othern than `reno` set the `style` class constant as needed.

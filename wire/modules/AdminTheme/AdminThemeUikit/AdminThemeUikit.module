@@ -62,6 +62,11 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * 
 	 */
 	const sidenavTypeTree = 1;
+	
+	/**
+	 * Default admin style to use when dev = true
+	 */
+	const style = 'reno';
 
 	/**
 	 * Construct and establish default module config settings
@@ -1154,7 +1159,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public function getStyle() {
 		$config = $this->wire()->config;
 		$path = $config->paths($this)."uikit-pw/styles/";
-		$default = $path."reno.less";
+		$default = $path.self::style.".less";
 		if(self::dev) return $default;
 		if($config->adminStyle) {
 			if(is_file($config->adminStyle)) {
