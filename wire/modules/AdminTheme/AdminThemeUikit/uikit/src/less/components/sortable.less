@@ -1,0 +1,90 @@
+// Name:            Sortable
+// Description:     Component to create sortable grids and lists
+//
+// Component:       `uk-sortable`
+//
+// Sub-objects:     `uk-sortable-drag`
+//                  `uk-sortable-placeholder`
+//                  `uk-sortable-handle`
+//
+// Modifiers:       `uk-sortable-empty`
+//
+// States:          `uk-drag`
+//
+// ========================================================================
+
+
+// Variables
+// ========================================================================
+
+@sortable-dragged-z-index:                      @global-z-index + 50;
+
+@sortable-placeholder-opacity:                  0;
+
+@sortable-empty-height:                         50px;
+
+
+/* ========================================================================
+   Component: Sortable
+ ========================================================================== */
+
+.uk-sortable {
+    position: relative;
+    .hook-sortable;
+}
+
+/*
+ * Remove margin from the last-child
+ */
+
+.uk-sortable > :last-child { margin-bottom: 0; }
+
+
+/* Drag
+ ========================================================================== */
+
+.uk-sortable-drag {
+    position: fixed !important;
+    z-index: @sortable-dragged-z-index !important;
+    pointer-events: none;
+    .hook-sortable-drag;
+}
+
+
+/* Placeholder
+ ========================================================================== */
+
+.uk-sortable-placeholder {
+    opacity: @sortable-placeholder-opacity;
+    pointer-events: none;
+    .hook-sortable-placeholder;
+}
+
+
+/* Empty modifier
+ ========================================================================== */
+
+.uk-sortable-empty {
+    min-height: @sortable-empty-height;
+    .hook-sortable-empty;
+}
+
+
+/* Handle
+ ========================================================================== */
+
+/* Hover */
+.uk-sortable-handle:hover { cursor: move; }
+
+
+
+// Hooks
+// ========================================================================
+
+.hook-sortable-misc;
+
+.hook-sortable() {}
+.hook-sortable-drag() {}
+.hook-sortable-placeholder() {}
+.hook-sortable-empty() {}
+.hook-sortable-misc() {}
