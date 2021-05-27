@@ -1092,7 +1092,19 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		
 		$settings = $config->AdminThemeUikit; 
 		if(!is_array($settings)) $settings = array();
-		if(self::upgrade) $settings['upgrade'] = true;
+		
+		if(self::upgrade) {
+			$settings['upgrade'] = true;
+			$settings['replacements'] = array('../pw/images/' => 'images/');
+		} else {
+			if(empty($settings['customCssFile'])) $settings['customCssFile'] = '/site/assets/admin.css';
+			$path = 'wire/modules/AdminTheme/AdminThemeUikit/uikit-pw/images/';
+			$back = str_repeat('../', substr_count(trim($settings['customCssFile'], '/'), '/'));
+			$settings['replacements'] = array(
+				'url(../pw/images/' => "url($back$path",
+				'url("../pw/images/' => "url(\"$back$path"
+			);
+		}
 		
 		$css = new AdminThemeUikitCss($this, $settings);
 		

@@ -11,6 +11,7 @@
  * @property string $defaultStyle Default style (default='reno')
  * @property string $defaultCssFile Core CSS file to create when upgrading (relative to module root)
  * @property string $styleDir Directory where base .less files are located (relative to module root)
+ * @property array $replacements Array of [find=>replace] for compiled CSS file.
  * 
  * @property string $configPhpHash Hash used internally to detect changes to $config->AdminThemeUikit settings.
  * @property string $configPhpName Name of property in $config that holds custom settings (default='AdminThemeUikit').
@@ -66,6 +67,7 @@ class AdminThemeUikitCss extends WireData {
 			'customCssFile' => '/site/assets/admin.css',
 			'configPhpName' => $this->adminTheme->className(),
 			'configPhpHash' => $this->adminTheme->get('configPhpHash'),
+			'replacements' => array(),
 		);
 	}
 	
@@ -104,7 +106,7 @@ class AdminThemeUikitCss extends WireData {
 			$cssFile = $this->customFile($this->customCssFile, 'css');
 			if(!$cssFile) return $this->getDefaultCssFile();
 			$cssTime = is_file($cssFile) ? (int) filemtime($cssFile) : 0;
-			$recompile = $lessTime > $cssTime || $this->configPhpSettingsChanged();
+			$recompile = $this->recompile || $lessTime > $cssTime || $this->configPhpSettingsChanged();
 		}
 
 		if($recompile) try {
@@ -113,7 +115,7 @@ class AdminThemeUikitCss extends WireData {
 			$less->setOption('compress', $this->compress);
 			$less->addFile($this->getAdminLessFile());
 			$less->addFiles($lessFiles);
-			$options = array('replacements' => array('../pw/images/' => 'images/'));
+			$options = array('replacements' => $this->replacements); 
 			if(!$less->saveCss($cssFile, $options)) throw new WireException("Compile error: $cssFile");
 			$this->message(sprintf($this->_('Compiled: %s'), $cssFile), Notice::noGroup);
 			$cssTime = filemtime($cssFile);
