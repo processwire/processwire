@@ -40,7 +40,7 @@
  * 
  * @property bool $protectCSRF Enables CSRF (cross site request forgery) protection on all PW forms, recommended for security. #pw-group-HTTP-and-input
  * 
- * @property array $imageSizes Predefined image sizes (and options) indexed by name. See /wire/config.php for example. (3.0.151+) #pw-group-images
+ * @property array $imageSizes Predefined image sizes (and options) indexed by name. See /wire/config.php for example. #pw-group-images @since 3.0.151
  * @property array $imageSizerOptions Options to set image sizing defaults. Please see the /wire/config.php file for all options and defaults. #pw-group-images
  * @property array $webpOptions Options for webp images. Please see /wire/config.php for all options. #pw-group-images
  * 
@@ -62,7 +62,7 @@
  * @property string $sessionNameSecure Session name when on HTTPS. Used when the sessionCookieSecure option is enabled (default). When blank (default), it will assume sessionName + 's'. #pw-group-session
  * @property bool|int $sessionCookieSecure Use secure cookies when on HTTPS? When enabled, separate sessions will be maintained for HTTP vs. HTTPS. Good for security but tradeoff is login session may be lost when switching (default=1 or true). #pw-group-session
  * @property null|string $sessionCookieDomain Domain to use for sessions, which enables a session to work across subdomains, or NULL to disable (default/recommended). #pw-group-session
- * @property string $sessionCookieSameSite Cookie “SameSite” value for sessions - “Lax” (default) or “Strict”. (3.0.178+) #pw-group-session
+ * @property string $sessionCookieSameSite Cookie “SameSite” value for sessions - “Lax” (default) or “Strict”. #pw-group-session @since 3.0.178
  * @property bool|callable $sessionAllow Are sessions allowed? Typically boolean true, unless provided a callable function that returns boolean. See /wire/config.php for an example.  #pw-group-session
  * @property int $sessionExpireSeconds How many seconds of inactivity before session expires? #pw-group-session
  * @property bool $sessionChallenge Should login sessions have a challenge key? (for extra security, recommended) #pw-group-session
@@ -92,7 +92,7 @@
  * @property int $maxUrlDepth Maximum URL/path slashes (depth) for request URLs. (Min=10, Max=60) #pw-group-URLs
  * @property string $wireInputOrder Order that variables with the $input API var are handled when you access $input->var. #pw-group-HTTP-and-input
  * @property bool $wireInputLazy Specify true for $input API var to load input data in a lazy fashion and potentially use less memory. Default is false. #pw-group-HTTP-and-input
- * @property int $wireInputArrayDepth Maximum multi-dimensional array depth for input variables accessed from $input or 1 to only allow single dimension arrays. (3.0.178+). #pw-group-HTTP-and-input
+ * @property int $wireInputArrayDepth Maximum multi-dimensional array depth for input variables accessed from $input or 1 to only allow single dimension arrays. #pw-group-HTTP-and-input @since 3.0.178
  * @property array $cookieOptions Options for setting cookies from $input->cookie #pw-group-HTTP-and-input
  * 
  * @property bool $advanced Special mode for ProcessWire system development. Not recommended for regular site development or production use. #pw-group-system
@@ -124,7 +124,7 @@
  * @property int $dbQueryLogMax Maximum number of queries WireDatabasePDO will log in memory, when debug mode is enabled (default=1000). #pw-group-database
  * @property string $dbInitCommand Database init command, for PDO::MYSQL_ATTR_INIT_COMMAND. Note placeholder {charset} gets replaced with $config->dbCharset. #pw-group-database
  * @property bool $dbStripMB4 When dbEngine is not utf8mb4 and this is true, we will attempt to remove 4-byte characters (like emoji) from inserts when possible. Note that this adds some overhead. #pw-group-database
- * @property array|null $dbReader Configuration values for read-only database connection (if available). 3.0.175+ #pw-group-database
+ * @property array|null $dbReader Configuration values for read-only database connection (if available). #pw-group-database @since 3.0.175
  * 
  * @property array $pageList Settings specific to Page lists. #pw-group-modules
  * @property array $pageEdit Settings specific to Page editors. #pw-group-modules
@@ -138,7 +138,8 @@
  * @property array $substituteModules Associative array with names of substitute modules for when requested module doesn't exist #pw-group-modules
  * @property array $logs Additional core logs to keep #pw-group-admin
  * @property bool $logIP Include IP address in logs, when applicable? #pw-group-admin
- * @property string $defaultAdminTheme Default admin theme: AdminThemeDefault or AdminThemeReno #pw-group-admin
+ * @property string $defaultAdminTheme Default admin theme: AdminThemeUikit, AdminThemeDefault or AdminThemeReno. #pw-group-admin
+ * @property array $AdminThemeUikit Settings specific to AdminThemeUikit module (see this setting in /wire/config.php). #pw-group-admin @since 3.0.179
  * @property string $fatalErrorHTML HTML used for fatal error messages in HTTP mode. #pw-group-system
  * @property int $fatalErrorCode HTTP code to send on fatal error (typically 500 or 503). #pw-group-system
  * @property array $modals Settings for modal windows #pw-group-admin
@@ -147,17 +148,17 @@
  * @property bool $usePoweredBy Use the x-powered-by header? Set to false to disable. #pw-group-system
  * @property bool $useFunctionsAPI Allow most API variables to be accessed as functions? (see /wire/core/FunctionsAPI.php) #pw-group-system
  * @property bool $useMarkupRegions Enable support for front-end markup regions? #pw-group-system
- * @property bool $usePageClasses Use custom Page classes in `/site/classes/[TemplateName]Page.php`? #pw-group-system #since 3.0.152
+ * @property bool $usePageClasses Use custom Page classes in `/site/classes/[TemplateName]Page.php`? #pw-group-system @since 3.0.152
  * @property int $lazyPageChunkSize Chunk size for for $pages->findMany() calls. #pw-group-system
  * 
  * @property string $userAuthSalt Salt generated at install time to be used as a secondary/non-database salt for the password system. #pw-group-session
  * @property string $userAuthHashType Default is 'sha1' - used only if Blowfish is not supported by the system. #pw-group-session
- * @property string $tableSalt #pw-group-system Additional hash for other (non-authentication) purposes, present only on installations start from 3.0.164+. #pw-group-system
+ * @property string $tableSalt Additional hash for other (non-authentication) purposes. #pw-group-system @since 3.0.164
  * 
  * @property bool $internal This is automatically set to FALSE when PW is externally bootstrapped. #pw-group-runtime
  * @property bool $external This is automatically set to TRUE when PW is externally bootstrapped. #pw-internal
  * @property bool $cli This is automatically set to TRUE when PW is booted as a command line (non HTTP) script. #pw-group-runtime
- * @property string $serverProtocol Current server protocol, one of: HTTP/1.1, HTTP/1.0, HTTP/2, or HTTP/2.0. #pw-group-runtime #since 3.0.166
+ * @property string $serverProtocol Current server protocol, one of: HTTP/1.1, HTTP/1.0, HTTP/2, or HTTP/2.0. #pw-group-runtime @since 3.0.166
  * @property string $versionName This is automatically populated with the current PW version name (i.e. 2.5.0 dev) #pw-group-runtime
  * @property int $inputfieldColumnWidthSpacing Used by some admin themes to commmunicate to InputfieldWrapper at runtime. #pw-internal
  * @property array InputfieldWrapper Settings specific to InputfieldWrapper class #pw-internal
