@@ -21,7 +21,7 @@ $formAction = htmlentities($formAction, ENT_QUOTES, "UTF-8");
 		var config = ProcessWire.config;
 	</script>
 
-	<link type='text/css' href='wire/modules/AdminTheme/AdminThemeUikit/uikit/dist/css/uikit.pw.min.css' rel='stylesheet' />
+	<link type='text/css' href='wire/modules/AdminTheme/AdminThemeUikit/uikit-pw/pw.min.css' rel='stylesheet' />
 	<link type='text/css' href='wire/templates-admin/styles/AdminTheme.css' rel='stylesheet' />
 	<link type='text/css' href='wire/templates-admin/styles/font-awesome/css/font-awesome.min.css' rel='stylesheet' />
 	
@@ -50,7 +50,7 @@ $formAction = htmlentities($formAction, ENT_QUOTES, "UTF-8");
 		<header id='pw-masthead-mobile' class='pw-masthead uk-background-muted'>
 			<div class='pw-container uk-container uk-container-center'>
 				<a href='https://processwire.com' target='_blank' class='pw-logo-link'>
-					<img class='pw-logo pw-logo-native' src='wire/modules/AdminTheme/AdminThemeUikit/uikit/custom/images/pw-mark.png' alt='' />
+					<img class='pw-logo pw-logo-native' src='wire/modules/AdminTheme/AdminThemeUikit/uikit-pw/images/pw-mark.png' alt='' />
 				</a>
 			</div>	
 		</header>	

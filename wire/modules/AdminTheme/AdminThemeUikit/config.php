@@ -219,6 +219,9 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$fieldset2 = $modules->get('InputfieldFieldset');
 		$fieldset2->label = $this->_('Advanced');
 		$fieldset2->collapsed = Inputfield::collapsedBlank;
+		$fieldset2->description = 
+			$this->_('Most advanced settings are available from the `$config->AdminThemeUikit` settings array.') . ' ' . 
+			$this->_('You can find it in /wire/config.php. Copy to your /site/config.php file to modify it.');
 		$fieldset->add($fieldset2);
 
 		/** @var InputfieldText $f */
@@ -227,10 +230,12 @@ class AdminThemeUikitConfigHelper extends Wire {
 		$f->attr('value', $adminTheme->get('cssURL'));
 		$f->label = $this->_('Primary CSS file');
 		$f->description = $defaultFileDesc . ' ' .
-			$this->_('We do not recommend changing this unless you are an admin theme developer.');
+			$this->_('We do not recommend changing this unless you are an admin theme developer.') . ' ' . 
+			$this->_('Warning: this will override custom `$config->AdminThemeUikit` settings, base style and custom styles.'); 
 		$f->notes = $defaultFileNote . " " .
 			"[uikit.pw.css](" . $modules->wire('config')->urls('AdminThemeUikit') . "uikit/dist/css/uikit.pw.css)";
 		$f->icon = 'file-code-o';
+		$f->collapsed = Inputfield::collapsedBlank;
 		$fieldset2->add($f);
 
 		/** @var InputfieldFieldset $fieldset */

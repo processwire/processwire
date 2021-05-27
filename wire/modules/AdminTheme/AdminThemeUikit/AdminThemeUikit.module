@@ -20,6 +20,7 @@
  * @property string $inputSize Size for input/select elements. One of "s" for small, "m" for medium (default), or "l" for large. 
  * @property bool|int $ukGrid When true, use uk-width classes for Inputfields (rather than CSS percentages). 
  * @property int $toggleBehavior (0=Standard, 1=Consistent)
+ * property string $configPhpHash Hash used internally to detect changes to $config->AdminThemeUikit settings.
  * 
  * @method string getUikitCSS()
  * 
@@ -30,10 +31,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 31,
+			'version' => 32,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
-			'requires' => 'ProcessWire>=3.0.100'
 		); 
 	}
 
@@ -46,10 +46,16 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	const dev = false;
 
 	/**
+	 * Set to true when upgrading Uikit version
+	 * 
+	 */
+	const upgrade = false;
+
+	/**
 	 * Default logo image file (relative to this dir)
 	 * 
 	 */
-	const logo = 'uikit/custom/images/pw-mark.png';
+	const logo = 'uikit-pw/images/pw-mark.png';
 
 	/**
 	 * sidenavType: primary navigation on left sidebar
@@ -86,6 +92,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('groupNotices', true);
 		$this->set('inputSize', 'm'); // m=medium (default), s=small, l=large
 		$this->set('ukGrid', false); 
+		$this->set('configPhpHash', '');
 		$this->setClasses(array(
 			'input' => 'uk-input',
 			'input-small' => 'uk-input uk-form-small',
@@ -104,7 +111,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	
 	public function wired() {
 		parent::wired();
-		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax'); 
+		$this->addHookAfter('InputfieldSelector::ajaxReady', $this, 'hookInputfieldSelectorAjax');
 	}
 	
 	/**
@@ -1065,25 +1072,31 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	}
 
 	/**
-	 * Get the primary Uikit CSS file to use
+	 * Get the primary Uikit CSS URL to use
 	 * 
 	 * @return string
 	 * @since 3.0.178 Was not hookable in prior versions
 	 * 
 	 */
 	public function ___getUikitCSS() {
-		$config = $this->wire('config');
-		$cssURL = $this->get('cssURL');
-		$moduleInfo = self::getModuleInfo();
-		$version = $moduleInfo['version'];
-		if($cssURL) {
-			if(strpos($cssURL, '//') === false) $cssURL = $config->urls->root . ltrim($cssURL, '/');
-			return $this->wire('sanitizer')->entities($cssURL);
-		} else if(self::dev && strpos(__FILE__, '/wire/modules/') === false) {
-			return $this->url() . 'uikit/custom/pw.css?v=' . $version;
-		} else {
-			return $this->url() . 'uikit/dist/css/uikit.pw.min.css?v=' . $version;
+
+		$config = $this->wire()->config;
+		$cssUrl = $this->get('cssURL');
+		
+		if($cssUrl) { // a custom css URL was set in the theme config
+			if(strpos($cssUrl, '//') === false) $cssUrl = $config->urls->root . ltrim($cssUrl, '/');
+			return $this->wire()->sanitizer->entities($cssUrl);
 		}
+		
+		require_once(__DIR__ . '/AdminThemeUikitCss.php');
+		
+		$settings = $config->AdminThemeUikit; 
+		if(!is_array($settings)) $settings = array();
+		if(self::upgrade) $settings['upgrade'] = true;
+		
+		$css = new AdminThemeUikitCss($this, $settings);
+		
+		return $css->getCssFile();
 	}
 	
 	/**
