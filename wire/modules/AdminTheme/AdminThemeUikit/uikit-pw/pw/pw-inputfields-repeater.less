@@ -1,0 +1,82 @@
+
+@pw-inputfield-repeater-background: @pw-inputfield-background;
+@pw-inputfield-repeater-background-none: @pw-inputfield-background-none;
+
+.Inputfields .InputfieldRepeater {
+  
+  &:not(.InputfieldIsColor):not(.InputfieldNoBorder) {
+    background: @pw-inputfield-repeater-background;
+
+    > .InputfieldHeader,
+    > .InputfieldContent {
+      background: @pw-inputfield-repeater-background;
+    }
+    > .InputfieldContent {
+      > .Inputfields {
+        background: @pw-inputfield-repeater-background;
+      }
+    }
+  }
+
+  .InputfieldContent {
+    .InputfieldRepeaterItem {
+      margin: 4px 0;
+
+      > .InputfieldHeader {
+        border: none;
+        background: @global-primary-background;
+        color: @global-inverse-color;
+        outline: @pw-inputfield-border;
+        outline-color: @global-primary-background;
+
+        a {
+          color: @global-inverse-color;
+          cursor: pointer;
+          line-height: @global-line-height;
+
+          &:hover {
+            background: lighten(@global-primary-background, 10%);
+            color: @global-inverse-color;
+            border: none;
+          }
+
+          .InputfieldRepeaterItemControls {
+            line-height: @global-line-height;
+            padding-top: 4px;
+          }
+
+        }
+
+        i.toggle-icon {
+          color: @global-inverse-color;
+        }
+
+        &.ui-state-error {
+          text-decoration: line-through;
+          background: @global-danger-background;
+          color: @global-inverse-color;
+          border: none;
+          outline-color: @global-danger-background;
+        }
+      }
+
+      > .InputfieldContent {
+        outline: @pw-inputfield-border;
+        padding: 0;
+        background: @pw-inputfield-repeater-background-none;
+
+        .Inputfields > .InputfieldNoBorder {
+          // the global NoBorder padding 0 doesn't work when in a repeater item, so we add it back here
+          .InputfieldContent {
+            padding: @pw-inputfield-content-padding;
+          }
+          .InputfieldHeader {
+            padding: @pw-inputfield-header-padding;
+          }
+        }
+      }
+
+    }
+  }
+}
+

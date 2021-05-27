@@ -1,0 +1,15 @@
+@tab-item-border-width: 2px;
+@tab-item-active-background: #fff; // not part of Uikit
+
+.hook-tab() {
+  margin-bottom: @pw-tabs-margin-bottom;
+  margin-left: 0;
+  &::before {
+    left: 0;
+  }
+}
+
+.uk-tab > li.uk-active {
+  background: @tab-item-active-background;
+}
+

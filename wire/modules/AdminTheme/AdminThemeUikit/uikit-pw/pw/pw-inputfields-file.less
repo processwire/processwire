@@ -1,0 +1,64 @@
+.InputfieldFile {
+  > .InputfieldContent {
+    // prevent margin
+    padding-top: 1px;
+  }
+  .InputfieldFileList .hasLangTabs .InputfieldFileDescription.LanguageSupport {
+    padding-top: @pw-tabs-margin-bottom;
+  }
+}
+
+.InputfieldFileList {
+  list-style: none;
+  padding-left: 0;
+  margin-left: 0;
+  
+  > li {
+    list-style: none;
+    margin-top: 0;
+    border: none;
+  
+    > .InputfieldItemHeader {
+      border: none;
+      background: @global-primary-background;
+      color: @global-inverse-color;
+      a {
+        color: @global-inverse-color;
+      }
+      &:hover {
+        // file or repeater item header in hover state 
+        background: lighten(@global-primary-background, 5%);
+      }
+      &.ui-state-error {
+        // deleted item state 
+        text-decoration: line-through;
+        background: @global-danger-background;
+      }
+    }
+    
+    > .InputfieldFileData {
+      background: @global-background;
+      border: @pw-inputfield-border; 
+      border-top: none;
+    }
+  }
+}
+
+// style when dragging in a file
+.Inputfields {
+  .Inputfield.pw-drag-in-file {
+    > .InputfieldHeader,
+    > .InputfieldContent {
+      border: none;
+      background: @pw-inputfield-drag-in-file-background;
+    }
+  }
+}
+
+// tags input
+.Inputfields .Inputfield .selectize-input input {
+  // avoid the defined height
+  height: auto;
+}
+
+

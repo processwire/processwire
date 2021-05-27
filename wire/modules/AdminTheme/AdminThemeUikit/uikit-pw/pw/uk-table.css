@@ -1,0 +1,4 @@
+.uk-table > tbody > tr > th {
+  vertical-align: top;
+  text-transform: none;
+}

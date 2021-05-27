@@ -1,0 +1,358 @@
+@pw-page-list-text-color: @global-color;
+@pw-page-list-muted-text-color: @global-muted-color;
+
+@pw-page-list-link-color: @global-color;
+@pw-page-list-link-active-color: @global-link-color;
+@pw-page-list-link-hover-color: @global-link-hover-color;
+@pw-page-list-link-open-color: @global-link-color;
+@pw-page-list-link-open-background-color: none;
+@pw-page-list-link-open-text-decoration: none;
+
+@pw-page-list-icon-color: lighten(@pw-page-list-link-color, 10%);
+@pw-page-list-status-icon-color: @pw-page-list-muted-text-color;
+
+@pw-page-list-line-height: 1.6em;
+@pw-page-list-padding: 4px 3px 4px 3px;
+@pw-page-list-padding-small: 2px 3px 2px 5px;
+@pw-page-list-indent: 1.5em;
+@pw-page-list-indent-small: 0.75em;
+
+@pw-page-list-item-border: 1px solid lighten(#eee, 2%);
+@pw-page-list-item-hover-border-color: #eee;
+@pw-page-list-item-hover-background: inherit;
+@pw-page-list-item-open-border-color: lighten(#ddd, 3%);
+@pw-page-list-item-open-background: lighten(@background-muted-background, 3%); // #ffe;
+
+@pw-page-list-action-link-color: @global-inverse-color;
+@pw-page-list-action-link-background-color: @global-link-color;
+@pw-page-list-action-link-hover-color: @global-inverse-color;
+@pw-page-list-action-link-hover-background-color: @global-link-hover-color;
+@pw-page-list-action-link-font-size: @pw-tiny-font-size;
+@pw-page-list-action-link-font-weight: bold;
+@pw-page-list-action-link-padding: 2px 6px;
+@pw-page-list-action-link-margin: 0 3px 0 0;
+@pw-page-list-action-link-border-radius: 3px;
+
+@pw-page-list-toggle-closed-color: #bbb;
+@pw-page-list-toggle-open-color: #999;
+
+.PageListRoot > .PageList .PageList {
+  margin-left: @pw-page-list-indent;
+}
+.PageListRoot > .PageListRootHidden > .PageList {
+  margin-left: 0;
+}
+
+.PageList {
+  
+  /**
+   * Actions: like the "|edit|view|new" in the PageList
+   *
+   */
+
+  .PageListStatusIcon {
+    color: @pw-page-list-muted-text-color;
+    font-size: @pw-icon-font-size;
+  }
+
+  .PageListActions,
+  .PageListerActions {
+    position: relative;
+    top: -1px;
+    padding-left: 0;
+    line-height: 1.4;
+  }
+  
+  .ProcessListerTable tr.open {
+    // background-color: @background-muted-background;
+    background: linear-gradient(to right, #fff 0%, @background-muted-background 100%);
+    > td:first-child {
+      // padding-left: 10px !important;
+      a.actions_toggle {
+        color: @global-link-hover-color;
+      }
+    }
+  }
+
+  .PageListActions,
+  .PageListerActions {
+    > li {
+      border: none;
+      padding: 0;
+      //padding: 0 1px;
+      margin: @pw-page-list-action-link-margin;
+    }
+  }
+
+
+  .PageListActions a,
+  .PageListerActions a,
+  .PageListMoveNote a {
+    /* action links */
+    color: @pw-page-list-action-link-color;
+    border-radius: @pw-page-list-action-link-border-radius;
+    background: @pw-page-list-action-link-background-color;
+    padding: @pw-page-list-action-link-padding;
+    font-size: @pw-page-list-action-link-font-size;
+    font-weight: @pw-page-list-action-link-font-weight;
+    line-height: 1.4;
+    text-transform: none;
+    display: inline-block;
+  }
+  .PageListerActions a {
+    margin-left: -1px;
+    &.PageExtras {
+      opacity: 0.7;
+    }
+  }
+
+  .PageListActions a:hover,
+  .PageListerActions a:hover,
+  .PageListMoveNote a:hover {
+    /* action links hovered */
+    color: @pw-page-list-action-link-hover-color;
+    background: @pw-page-list-action-link-hover-background-color;
+    text-decoration: none;
+  }
+
+  .PageListMoveNote {
+    cursor: move;
+  }
+
+  .PageListActionMore a {
+    margin-top: 0.25em;
+  }
+
+  .PageListSelectName {
+    margin-right: 0.5em;
+    i {
+      margin-right: 0.25em;
+    }
+  }
+
+
+  /**
+   * PageListItem
+   *
+   */
+
+  .PageListItem {
+
+    padding: @pw-page-list-padding;
+    border-bottom: @pw-page-list-item-border;
+    
+    &:hover {
+      border-color: @pw-page-list-item-hover-border-color;
+      background: @pw-page-list-item-hover-background;
+    }
+    
+    &.PageListItemOpen {
+      border-color: @pw-page-list-item-open-border-color;
+      background: @pw-page-list-item-open-background;
+    }
+    
+    &.PageListSortItem {
+      background: #ffd;
+    }
+    
+    > a.PageListPage {
+      line-height: @pw-page-list-line-height;
+      color: @pw-page-list-link-color;
+      opacity: 1.0;
+
+      &:active {
+        color: @pw-page-list-link-active-color;
+      }
+      
+      &:before {
+        content: " ";
+        font-family: fontAwesome;
+        color: #ccc;
+        margin-right: 4px;
+      }
+      
+      i {
+        /* icon */
+        padding: 0 0.25em 0 0;
+        color: @pw-page-list-icon-color;
+
+        &.PageListStatusIcon {
+          color: @pw-page-list-status-icon-color;
+        }
+      }
+    }
+    
+    .PageListNumChildren {
+      font-size: 13px;
+      color: @pw-page-list-muted-text-color;
+    }
+
+    > a.PageListPage:hover,
+    &.PageListItemHover > a.PageListPage {
+      color: @pw-page-list-link-hover-color;
+      text-decoration: none;
+      i {
+        text-decoration: none;
+      }
+    }
+
+    .PageListLoading {
+      top: 5px;
+    }
+  }
+  
+  .PageListItemOpen,
+  .PageListItemOpen.PageListItemHover {
+    > a.PageListPage,
+    > a.PageListPage:hover {
+      color: @pw-page-list-link-open-color;
+      background-color: @pw-page-list-link-open-background-color;
+      text-decoration: @pw-page-list-link-open-text-decoration;
+    }
+  }
+
+  .PageListStatusHidden {
+    > a.PageListPage {
+      opacity: 0.6;
+    }
+  }
+
+  .PageListStatusTemp:not(.PageListItemOpen) {
+    > a.PageListPage {
+      opacity: 0.3;
+    }
+  }
+
+  .PageListPlaceholderItem {
+    border: none;
+    padding: 0;
+  }
+
+  .PageListPagination {
+    .uk-pagination();
+  }
+}
+
+// pagination in page lists
+.PageList > .uk-pagination {
+  margin: 5px 0 0 0;
+  
+  li {
+    font-size: @pw-page-list-action-link-font-size;
+    margin: @pw-page-list-action-link-margin;
+    padding: 0;
+    &.uk-disabled {
+      padding-left: 5px;
+      padding-right: 5px;
+    }
+  }
+  
+  a {
+    padding: @pw-page-list-action-link-padding;
+    padding-left: 9px;
+    padding-right: 9px;
+    border-radius: @pw-page-list-action-link-border-radius;
+  }
+  
+ .PageListLoading {
+   display: inline-block;
+ }
+}
+
+.PageListSelectHeader .PageListActions {
+  padding-left: 4px;
+}
+
+// smaller version of page list for narrow widths
+body.pw-narrow-width {
+  .PageListRoot > .PageList .PageList {
+    margin-left: @pw-page-list-indent-small;
+  }
+  .PageList .PageListItem {
+    padding: @pw-page-list-padding-small;
+  }
+}
+
+// tree menus
+.uk-nav a,
+.pw-dropdown-menu a {
+  .PageListStatusUnpublished {
+    text-decoration: line-through;
+  }
+
+  .PageListStatusHidden {
+    opacity: 0.5;
+  }
+
+  .PageListStatusNotEditable {
+    cursor: not-allowed;
+  }
+}
+
+// applies only to normal (non-narrow) versions of page list
+body:not(.pw-narrow-width) {
+ 
+  // page list open/close icons
+  .PageList .PageListItem {
+
+    &.PageListItemOpen.PageListHasChildren > a.PageListPage:before {
+      //content: "–";
+      //top: -2px;
+      content: "\f107";
+      //content: "\f0dd";
+      font-family: fontAwesome;
+      position: relative;
+      color: @pw-page-list-toggle-open-color;
+      //top: -3px;
+      left: 2px;
+      left: 1px;
+      font-size: 14px;
+      line-height: 12px;
+      width: 10px;
+      display: inline-block;
+    }
+
+    &.PageListHasChildren:not(.PageListItemOpen) > a.PageListPage:before {
+      //content: '+';
+      //top: -2px;
+      content: "\f105";
+      //content: "\f0da";
+      font-family: fontAwesome;
+      color: @pw-page-list-toggle-closed-color;
+      line-height: 12px;
+      position: relative;
+      left: 3px;
+      top: -1px;
+      font-size: 14px;
+      width: 10px;
+      display: inline-block;
+    }
+
+    &.PageListNoChildren > a.PageListPage:before {
+      font-family: fontAwesome;
+      content: " ";
+      font-size: 14px;
+      line-height: 12px;
+      width: 10px;
+      overflow: hidden;
+      display: inline-block;
+    }
+  }
+  
+  /*
+  // angle icon that appears before PageListActions
+  .PageList {
+    .PageListActions,
+    .PageListerActions {
+      > li:first-child:before,
+      &.PageListerActions:before {
+        content: "\203A";
+        margin-right: 3px;
+        margin-left: -1px;
+        color: @pw-page-list-muted-text-color;
+      }
+    }
+  }
+  */
+
+}

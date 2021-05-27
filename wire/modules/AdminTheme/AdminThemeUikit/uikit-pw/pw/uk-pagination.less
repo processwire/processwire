@@ -1,0 +1,29 @@
+/*
+@pagination-item-color:                         @global-inverse-color;
+*/
+
+@pagination-margin-horizontal:                  4px;
+@pagination-item-hover-color:                   @global-inverse-color;
+@pagination-item-active-color:                  @global-inverse-color;
+
+.hook-pagination-item() {
+  background: @global-muted-background;
+  padding: 2px 11px;
+}
+.hook-pagination-item-hover() {
+  background: @global-primary-background;
+}
+.hook-pagination-item-active() {
+  &, a {
+    background: @global-primary-background;
+    color: @global-inverse-color;
+  }
+}
+.hook-pagination-item-disabled() {
+  padding-left: 0;
+  padding-right: 0;
+  color: @global-muted-color;
+  background: none;
+}
+
+

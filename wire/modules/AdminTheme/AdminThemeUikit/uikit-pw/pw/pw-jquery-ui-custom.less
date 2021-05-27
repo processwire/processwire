@@ -1,0 +1,652 @@
+// Theme specific jQuery UI overrides and additions
+
+// general
+@pw-ui-widget-link-color: @global-link-color;
+@pw-ui-widget-link-hover-color: @global-link-hover-color;
+@pw-ui-widget-overlay-background: @global-secondary-background;
+
+// states
+@pw-ui-state-default-color: @global-inverse-color;
+@pw-ui-state-default-background: @global-primary-background;
+@pw-ui-state-hover-color: @pw-ui-state-default-color;
+@pw-ui-state-hover-background: lighten(@pw-ui-state-default-background, 5%);
+
+// buttons
+@pw-button-font-size: @button-font-size;
+@pw-button-small-font-size: @pw-tiny-font-size; 
+@pw-button-border-radius: 4px;
+@pw-button-background: @button-primary-background;
+@pw-button-color: @button-primary-color;
+@pw-button-hover-background: @button-primary-hover-background;
+@pw-button-hover-color: @button-primary-hover-color;
+@pw-button-secondary-background: lighten(@pw-button-background, 7%);
+@pw-button-secondary-color: @pw-button-color;
+@pw-button-secondary-hover-background: @pw-button-background;
+@pw-button-secondary-hover-color: @pw-button-color;
+
+// accordion
+@pw-accordion-header-background: @global-primary-background;
+@pw-accordion-header-color: @global-inverse-color;
+
+// progressbar
+@pw-progress-background: lighten(@progress-bar-background, 20%);
+@pw-progress-bar-background: @progress-bar-background;
+@pw-progress-bar-color: @global-inverse-color;
+
+// dialog windows
+@pw-dialog-titlebar-background: @background-muted-background;
+@pw-dialog-titlebar-color: @global-color;
+@pw-dialog-titlebar-height: @global-line-height;
+@pw-dialog-buttonpane-background: @background-muted-background;
+
+// sliders
+@pw-slider-range-background: @global-primary-background;
+@pw-slider-background: lighten(@pw-slider-range-background, 35%);
+@pw-slider-height: 8px; // recommended 
+
+// tooltips
+@pw-tooltip-padding: 10px 20px;
+@pw-tooltip-color: @global-inverse-color;
+@pw-tooltip-background: @global-color;
+@pw-tooltip-border: 2px solid @global-inverse-color;
+@pw-tooltip-box-shadow: 0 0 7px @global-color;
+
+// datepicker
+@pw-datepicker-background: @background-secondary-background;
+@pw-datepicker-color: @global-inverse-color;
+@pw-datepicker-link-color: @global-link-color;
+@pw-datepicker-title-color: @global-inverse-color;
+@pw-datepicker-border: 1px solid lighten(@pw-datepicker-background, 8%);
+@pw-datepicker-th-color: @global-inverse-color;
+@pw-datepicker-nav-arrow-color: lighten(@pw-datepicker-background, 25%);
+@pw-datepicker-nav-arrow-hover-color: @global-link-color;
+@pw-datepicker-td-background: none;
+@pw-datepicker-td-hover-background: lighten(@pw-datepicker-background, 8%);
+@pw-datepicker-td-hover-border: 1px solid lighten(@pw-datepicker-background, 8%);
+@pw-datepicker-td-color: @global-inverse-color;
+@pw-datepicker-td-hover-color: @global-inverse-color;
+@pw-datepicker-td-border: 1px solid @pw-datepicker-background;
+@pw-datepicker-td-current-border: 1px solid lighten(@pw-datepicker-background, 8%);
+@pw-datepicker-box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+
+.ui-widget {
+  font-size: @global-font-size;
+}
+
+/****************************************************************
+ * ui-icon
+ * 
+ * Note that PW no longer uses ui-icons, so these apply
+ * only to addons that might still be using them. 
+ *
+ */
+
+.ui-icon {
+  float: left;
+  margin-right: 2px;
+}
+
+.ui-state-default .ui-icon,
+.ui-state-hover .ui-icon,
+.ui-state-highlight .ui-icon,
+.ui-state-error .ui-icon {
+  // use white icons
+  background-image: url(images/ui-icons_ffffff_256x240.png);
+}
+
+/****************************************************************
+ * asmSelect and related
+ *
+ */
+
+.pw-content {
+  .ui-widget-content a {
+    color: @pw-ui-widget-link-color;
+  }
+
+  li.ui-state-default,
+  .ui-widget-content li.ui-state-default {
+    background: @pw-ui-state-default-background; 
+    border-color: @pw-ui-state-default-background; 
+    color: @pw-ui-state-default-color; 
+  }
+  li.ui-state-default a,
+  .ui-widget-content li.ui-state-default a {
+    color: @pw-ui-state-default-color; 
+  }
+  li.ui-state-hover,
+  .ui-widget-content li.ui-state-hover {
+    background: @pw-ui-state-hover-background; 
+    border-color: @pw-ui-state-hover-background; 
+    color: @pw-ui-state-hover-color;
+  }
+  li.ui-state-hover a,
+  .ui-widget-content li.ui-state-hover a {
+    color: @pw-ui-state-hover-color;
+  }
+}
+
+/****************************************************************
+ * ui-accordion
+ *
+ */
+
+.ui-accordion.ui-widget {
+  .ui-accordion-header {
+    padding-left: 1.5em;
+    background: @pw-accordion-header-background;
+    border: none;
+    border-radius: 0;
+    &, h1, h2, h3, h4, a {
+      color: @pw-accordion-header-color;
+      > a {
+        color: @pw-accordion-header-color;
+      }
+    }
+  }
+  .ui-accordion-content {
+    margin-top: 0;
+    padding-left: @global-small-margin;
+    padding-right: @global-small-margin;
+    border-radius: 0;
+    border: @global-border;
+  }
+}
+
+/****************************************************************
+ * highlight and error states
+ *
+ */
+
+.ui-state-highlight,
+.ui-widget-content .ui-state-highlight,
+.ui-widget-header .ui-state-highlight {
+  color: @alert-primary-color;
+  background: @alert-primary-background;
+  &:not(:input) {
+    border: none;
+  }
+}
+
+.ui-state-error,
+.ui-widget-content .ui-state-error {
+  background: @alert-danger-background;
+  color: @alert-danger-color;
+  &:not(:input) {
+    border: none;
+  }
+}
+
+/****************************************************************
+ * ui-dialog
+ *
+ */
+
+// modal dialog windows
+.ui-dialog {
+  border: none;
+  padding: 0;
+
+  .ui-dialog-titlebar {
+    margin: 0;
+    background: @pw-dialog-titlebar-background;
+    border: none;
+    color: @pw-dialog-titlebar-color;
+    border-radius: 0;
+    line-height: @pw-dialog-titlebar-height;
+
+    .ui-button {
+      color: @pw-dialog-titlebar-color;
+      border: none;
+      background: none;
+      outline: none;
+      padding: 0 1.5em;
+      top: 9px;
+      line-height: @pw-dialog-titlebar-height;
+      .ui-button-text {
+        display: none;
+      }
+    }
+  }
+
+  .ui-dialog-buttonpane {
+    background: @pw-dialog-buttonpane-background;
+    border: none;
+    padding: 1px 8px 1px 8px;
+  }
+
+  .ui-dialog-content {
+    padding: 0;
+    max-width: 100%; // prevents safari overflow 
+  }
+
+}
+
+.ui-widget-overlay {
+  background: @pw-ui-widget-overlay-background;
+}
+
+/****************************************************************
+ * ui-button
+ *
+ */
+
+.ui-button,
+.ui-button.ui-state-default,
+.ui-button.ui-state-hover {
+  white-space: nowrap;
+  .uk-button();
+  .uk-button-primary();
+  background: @pw-button-background;
+  color: @pw-button-color;
+  font-size: @pw-button-font-size;
+  border-radius: @pw-button-border-radius;
+  
+  &.ui-priority-secondary {
+    background: @pw-button-secondary-background;
+    color: @pw-button-secondary-color;
+    opacity: 1.0;
+  }
+}
+small .ui-button,
+small .ui-button.ui-state-default,
+small .ui-button.ui-state-hover {
+  // smaller buttons
+  font-size: @pw-button-small-font-size;
+  line-height: 30px;
+  padding: 0 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.ui-button {
+  span.ui-button-text {
+    padding: 0;
+ }
+ 
+  // hovered button
+  &:hover,
+  &.ui-state-hover {
+    cursor: pointer;
+    background-color: @pw-button-hover-background;
+    color: @pw-button-hover-color;
+   
+    // hovered secondary button
+    &.ui-priority-secondary {
+      background: @pw-button-secondary-hover-background;
+      color: @pw-button-secondary-hover-color;
+    }
+  }
+ 
+  // active button
+  &.ui-state-active {
+    // not yet used
+  }
+
+  // two buttons next to eachother
+  & + .ui-button {
+    margin-left: @global-small-margin;
+  }
+}
+
+// button with wrapping <a> tag
+a > .ui-button {
+  text-decoration: none;
+}
+
+// button followed by a no-margin div with wrapping a tag
+div + a > .ui-button {
+  margin-top: @global-margin;
+}
+
+// buttons with dropdown, consist of two .ui-buttons right next to each other: main + toggle
+button.ui-button.pw-button-dropdown-main {
+  // main button
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  margin-right: 0 !important;
+}
+
+button.ui-button.pw-button-dropdown-toggle {
+  // toggle button
+  outline: none !important;
+  margin-left: 0 !important;
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  border-left: 1px solid rgba(255,255,255,0.5); // line separating main and toggle 
+  padding-left: 8px;
+  padding-right: 8px;
+}
+
+/****************************************************************
+ * ui-slider
+ *
+ */
+  
+.ui-slider .ui-slider-range,
+.ui-widget .ui-slider .ui-slider-range,
+.ui-widget-content .ui-slider .ui-slider-range {
+  background: @pw-slider-range-background;
+  // remove padding added to Inputfields that was getting inherited here 
+  padding: 0;
+}
+
+.ui-slider,
+.ui-slider-horizontal {
+  background: @pw-slider-background;
+}
+
+.ui-slider-horizontal {
+  height: @pw-slider-height;
+  border: none;
+  .ui-slider-handle {
+    top: -5px;
+  }
+}
+
+.ui-slider-horizontal,
+.ui-slider-range {
+  border-radius: 4px;
+}
+
+.ui-slider .ui-slider-handle {
+  border-width: 0;
+  outline: none;
+  border: none;
+  width: 17px;
+  height: 21px;
+  background-color: transparent;
+  background: url(images/slider_handles.png) 0 0 no-repeat;
+}
+
+body.hidpi-device .ui-slider .ui-slider-handle {
+  // higher res slider for hidpi
+  background: url(images/slider_handles2x.png) 0 0 no-repeat;
+  background-size: 34px 21px;
+}
+
+/****************************************************************
+ * ui-tooltip
+ *
+ */
+
+.ui-tooltip {
+  padding: @pw-tooltip-padding;
+  color: @pw-tooltip-color;
+  box-shadow: @pw-tooltip-box-shadow;
+  background: @pw-tooltip-background;
+  border: @pw-tooltip-border;
+}
+
+a.pw-tooltip:hover,
+a.tooltip:hover {
+  border: none;
+  background: inherit;
+  cursor: help;
+}
+
+
+/****************************************************************
+ * ui-progressbar
+ *
+ */
+
+.ui-progressbar {
+  // progressbar primarily used by the PW core for file uploads
+  border: none;
+  padding: 0;
+  background: @pw-progress-background;
+  margin-top: 1px;
+  border-radius: 0;
+
+  .ui-progressbar-value {
+    background: @pw-progress-bar-background;
+    color: @pw-progress-bar-color;
+    margin: 0;
+    border: none;
+    border-radius: 0;
+    span {
+      font-weight: normal;
+      padding-right: @global-small-margin;
+    }
+  }
+}
+
+/*****************************************************************
+ * ui-datepicker and timepicker
+ *
+ * Pulled from Renobird's AdminThemeReno 
+ *
+ */
+
+.ui-datepicker {
+  
+  font-size: @global-small-font-size;
+  z-index: 100;
+  min-width: 260px;
+  padding: 10px;
+  border: none;
+  border-radius: 3px;
+  box-shadow: @pw-datepicker-box-shadow;
+  background: @pw-datepicker-background;
+  color: @pw-datepicker-color;
+
+  table {
+    table-layout: fixed;
+    margin: 0 0 15px 0;
+    th {
+      color: @pw-datepicker-th-color;
+      font-weight: normal;
+    }
+    td {
+      padding: 0;
+      width: 14.25%;
+      a {
+        padding: 0.6em 0;
+      }
+      .ui-state-default {
+        background: @pw-datepicker-td-background;
+        text-align: center;
+        border: @pw-datepicker-td-border;
+        border-radius: 3px;
+        line-height: 1.2em;
+        color: @pw-datepicker-td-color;
+
+        &:hover {
+          background: @pw-datepicker-td-hover-background;
+          border: @pw-datepicker-td-hover-border;
+          color: @pw-datepicker-td-hover-color;
+        }
+      }
+      
+      .ui-state-highlight,
+      .ui-state-highlight:hover {
+        border: @pw-datepicker-td-hover-border;
+        background: @pw-datepicker-td-hover-background;
+        color: @pw-datepicker-td-hover-color;
+      }
+      
+      .ui-state-active,
+      .ui-state-active:hover {
+        background: @pw-datepicker-link-color;
+        border-color: @pw-datepicker-link-color;
+        color: @pw-datepicker-color;
+      }
+
+    }
+  } // table
+
+  .ui-datepicker-title {
+    color: @pw-datepicker-title-color;
+    .ui-datepicker-month {
+      margin-right: 3px; 
+    }
+  }
+
+  .ui-widget-content {
+    border: none;
+  }
+
+  .ui-datepicker-header {
+    background: none;
+    border-radius: 0;
+    border-width: 0 0 1px 0;
+    border-bottom: @pw-datepicker-border;
+    padding: 0 0 0.8em 0;
+    margin: 0 0 0.5em 0;
+    line-height: 1;
+  }
+
+  .ui-datepicker-next {
+    right: 0;
+    background: none;
+    font-weight: normal;
+    color: @pw-datepicker-nav-arrow-color;
+    & .ui-icon {
+      display: none;
+    }
+    &:before {
+      position: absolute;
+      top: 2px;
+      right: 0;
+      font-size: 1.4em;
+      content: "\f138";
+      font-family: fontAwesome;
+      margin: 0 5px 0 0;
+    }
+    &.ui-datepicker-next-hover {
+      border: none;
+      top: 2px;
+      right: 0;
+      color: @pw-datepicker-link-color;
+      cursor: pointer;
+    }
+  }
+
+  .ui-datepicker-prev {
+    left: 0;
+    background: none;
+    font-weight: normal;
+    color: @pw-datepicker-nav-arrow-color;
+    & .ui-icon {
+      display: none;
+    }
+    &:before {
+      position: absolute;
+      top: 2px;
+      left: 0;
+      font-size: 1.4em;
+      content: "\f137";
+      font-family: fontAwesome;
+      margin: 0 5px 0 0;
+    }
+    &.ui-datepicker-prev-hover {
+      border: none;
+      top: 2px;
+      left: 0;
+      color: @pw-datepicker-nav-arrow-hover-color;
+      cursor: pointer;
+    }
+  }
+
+
+  button.ui-datepicker-current {
+    color: @pw-datepicker-color;
+    background: lighten(@pw-datepicker-background, 20%);
+    border-color: lighten(@pw-datepicker-background, 20%);
+    font-size: 1em;
+    &:before {
+      content: "\f017";
+      font-family: fontAwesome;
+      margin: 0 5px 0 0;
+    }
+  }
+
+  button.ui-datepicker-close {
+    background: @background-primary-background;
+    border-color: @background-primary-background;
+    color: @global-inverse-color;
+    font-weight: normal;
+    transition: all 150ms ease-in;
+    font-size: 1em;
+    &:hover {
+      background: @global-link-color;
+      border-color: @global-link-color;
+    }
+    &:before {
+      content: "\f058";
+      font-family: fontAwesome;
+      margin: 0 5px 0 0;
+    }
+  }
+
+  .ui-slider,
+  .ui-slider-horizontal {
+    background: lighten(@pw-datepicker-background, 20%);
+  }
+
+  // TIMEPICKER 
+  .ui-timepicker-div {
+    padding: 15px 0 15px 0 !important;
+    border-top: 1px solid lighten(@pw-datepicker-background, 6%);
+    border-bottom: 1px solid lighten(@pw-datepicker-background, 6%);
+    margin-top: 1em;
+
+    #ui_tpicker_time_Inputfield_date {
+      color: @pw-datepicker-color;
+    }
+
+    .ui-widget-header { 
+      margin-bottom: 8px; 
+    }
+    
+    .ui-timepicker-select {
+      margin-left: 3px;
+      margin-right: 3px; 
+      font-size: @pw-tiny-font-size;
+    }
+   
+    .ui-slider-horizontal {
+      top: 4px;
+    }
+   
+    dt,
+    .ui_tpicker_time_input {
+      font-size: @pw-tiny-font-size;
+    }
+
+    .ui-tpicker-grid-label { 
+      background: none; 
+      border: none; 
+      margin: 0; 
+      padding: 0; 
+    }
+
+    .ui_tpicker_time .ui_tpicker_time_input {
+      border: none;
+    }
+
+    .ui-timepicker-rtl{ direction: rtl; }
+    .ui-timepicker-rtl dl { text-align: right; }
+    .ui-timepicker-rtl dl dd { margin: 0 65px 10px 10px; }
+  }
+}
+
+// jQuery UI layout plugin
+
+.ui-layout-resizer {
+  background-color: darken(@background-muted-background, 3%);
+  border-color: darken(@background-muted-background, 3%);
+}
+.ui-layout-pane {
+  border-color: @background-muted-background;
+}
+.ui-layout-toggler {
+  background-color: darken(@background-muted-background, 15%);
+  border-color: darken(@background-muted-background, 15%);
+}
+
+// @todo style ui-tabs to look like uk-tab
+.ui-tabs > .ui-tabs-nav > .ui-tabs-active > a.ui-tabs-anchor {
+  color: #000;
+}

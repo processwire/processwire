@@ -1,0 +1,103 @@
+/*** Inputfield color support ********************************************************/
+
+.InputfieldIsPrimary {
+  &:not(.InputfieldNoBorder){
+    /*
+    &:not(.InputfieldHideBorder) {
+      outline: @pw-inputfield-border-primary !important;
+    }
+    */
+    > .InputfieldHeader,
+    > .InputfieldContent {
+      background: @pw-inputfield-background-primary;
+    }
+  }
+  > .InputfieldHeader {
+    color: @pw-inputfield-color-primary;
+  }
+}
+
+.InputfieldIsClear {
+  > .InputfieldHeader,
+  > .InputfieldContent {
+    background: none;
+  }
+}
+
+.InputfieldIsSecondary {
+  > .InputfieldHeader,
+  > .InputfieldContent {
+    background: @pw-inputfield-background-secondary;
+  }
+}
+
+.InputfieldIsSuccess {
+  &:not(.InputfieldNoBorder) {
+    /*
+    &:not(.InputfieldHideBorder) {
+      outline: @pw-inputfield-border-success !important;
+    }
+    */
+    > .InputfieldHeader,
+    > .InputfieldContent {
+      background: @pw-inputfield-background-success;
+    }
+  }
+  > .InputfieldHeader {
+    color: @pw-inputfield-color-success;
+  }
+}
+
+.InputfieldIsHighlight {
+  &:not(.InputfieldNoBorder) {
+    /*
+    &:not(.InputfieldHideBorder) {
+      outline: @pw-inputfield-border-highlight !important;
+    }
+    */
+    > .InputfieldHeader,
+    > .InputfieldContent {
+      background: @pw-inputfield-background-highlight;
+    }
+  }
+  > .InputfieldHeader {
+    color: @pw-inputfield-color-highlight;
+  }
+}
+
+.InputfieldIsWarning {
+  &:not(.InputfieldNoBorder) {
+    /*
+    &:not(.InputfieldHideBorder) {
+      outline: @pw-inputfield-border-warning !important;
+    }
+    */
+    > .InputfieldHeader,
+    > .InputfieldContent {
+      background: @pw-inputfield-background-warning;
+    }
+  }
+  > .InputfieldHeader {
+    color: @pw-inputfield-color-warning;
+  }
+}
+
+.InputfieldStateError,
+.InputfieldIsDanger,
+.InputfieldIsError {
+  &:not(.InputfieldNoBorder) {
+    /*
+    &:not(.InputfieldHideBorder) {
+     outline: @pw-inputfield-border-danger !important;
+    }
+    */
+    > .InputfieldHeader,
+    > .InputfieldContent {
+      background: @pw-inputfield-background-danger;
+    }
+  }
+  > .InputfieldHeader {
+    color: @pw-inputfield-color-danger;
+  }
+}
+

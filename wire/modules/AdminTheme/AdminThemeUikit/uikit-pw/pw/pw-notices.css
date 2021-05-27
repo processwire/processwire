@@ -1,0 +1,13 @@
+.pw-notices {
+  list-style: none;
+  padding-left: 0;
+  margin: 0 0 3px 0;
+}
+.pw-notices li {
+  list-style: none;
+  padding-left: 0;
+  margin: 0 0 3px 0;
+}
+.pw-notices .notice-remove {
+  float: right;
+}

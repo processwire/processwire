@@ -1,0 +1,600 @@
+/**************************************************************
+ * Reno theme
+ *
+ * Adjustments to stock Uikit admin theme to make it resemble
+ * the AdminThemeReno look and colors. 
+ *  
+ */
+
+@import "../pw.less";
+
+/**************************************************************
+ * Primary variables
+ *
+ * The entire color theme can be adjusted from the @reno 
+ * variables below. 
+ *
+ */
+
+@reno-text-color: #354b60;
+@reno-link-color: #e83561;
+@reno-link-hover-color: darken(@reno-link-color, 10%);
+@reno-dark-background: #1C2836;
+@reno-muted-background: #f0f3f7;
+@reno-muted-text-color: #8d939e; 
+@reno-muted-text-color-alternate: #6c8dae; 
+@reno-primary-background: #3eb998;
+@reno-secondary-background: #e2e9ef;
+@reno-success-background: #8bccde;
+@reno-success-color: @reno-text-color;
+@reno-warning-background: #FFD15E;
+@reno-warning-color: @reno-text-color;
+@reno-danger-background: #bc283d;
+@reno-danger-color: #fff;
+@reno-alert-background: #ffd;
+@reno-alert-color: @reno-text-color;
+@reno-primary-headline-color: #1C2836;
+@reno-secondary-headline-color: lighten(@reno-primary-headline-color, 30%);
+@reno-notes-text-color: @reno-muted-text-color;
+@reno-notes-background: #ffd;
+@reno-masthead-background: @reno-dark-background;
+@reno-masthead-link-color: rgba(255, 255, 255, 0.7); 
+@reno-masthead-link-hover-color: lightblue;
+@reno-masthead-link-current-color: #fff;
+@reno-masthead-icon-color: #8d939e;
+@reno-masthead-search-text-color: #8d939e;
+@reno-masthead-search-background: transparent;
+@reno-masthead-search-border-color: lighten(#253447, 10%);
+@reno-masthead-search-focus-background: lighten(#253447, 5%);
+@reno-masthead-search-focus-text-color: #fff;
+@reno-masthead-search-focus-border-color: @reno-masthead-search-focus-background;
+@reno-masthead-search-icon-color: @reno-masthead-icon-color;
+@reno-button-text-color: #fff;
+@reno-button-background: @reno-primary-background;
+@reno-button-hover-background: @global-link-color;
+@reno-button-secondary-background: @reno-muted-text-color-alternate; 
+@reno-dropdown-background: #fff; 
+@reno-dropdown-color: @reno-text-color;
+@reno-dropdown-hover-background: #e2e9ef;
+@reno-dropdown-border-color: #d9e1ea;
+@reno-dropdown-border: 1px solid @reno-dropdown-border-color;
+@reno-dropdown-nav-icon-color: #97aab4;
+@reno-page-list-link-color: #7a002b;
+@reno-page-list-link-open-color: #bb153e;
+@reno-page-list-icon-color: @reno-link-color; // #a9adb5;
+@reno-page-list-link-active-color: @reno-link-hover-color;
+@reno-page-list-link-hover-color: @reno-link-hover-color;
+@reno-page-list-action-link-color: #fff;
+@reno-page-list-action-link-background-color: @reno-link-color; 
+@reno-page-list-action-link-hover-color: #fff;
+@reno-page-list-action-link-hover-background-color: @reno-link-hover-color;
+@reno-inputfield-border: 1px solid #d9e1ea;
+@reno-inputfield-input-background: #f0f3f7;
+@reno-inputfield-input-border-color: #b1c3d4 #cbd7e3 #cbd7e3 #cbd7e3;
+@reno-inputfield-select-background: #f0f3f7;
+@reno-inputfield-select-border-color: #cbd7e3;
+@reno-form-radio-checked-background: @reno-muted-text-color-alternate;
+@reno-offcanvas-text-color: @reno-text-color;
+@reno-offcanvas-link-color: @reno-text-color;
+@reno-offcanvas-link-hover-color: @reno-link-color;
+@reno-offcanvas-link-open-color: @reno-link-color;
+@reno-offcanvas-background: @reno-secondary-background; 
+@reno-offcanvas-search-background: #fff;
+@reno-language-tab-background: transparent;
+@reno-language-tab-color: @reno-text-color;
+@reno-language-tab-current-background: #d2dce6;
+@reno-language-tab-current-color: @reno-primary-headline-color;
+@reno-language-tab-hover-background: @reno-muted-background;
+@reno-language-tab-hover-color: @reno-text-color;
+@reno-language-tab-empty-color: @reno-muted-text-color;
+@reno-table-header-color: @reno-muted-text-color-alternate;
+@reno-table-header-current-color: @reno-primary-background;
+
+/****************************************************************
+ * General admin theme variables
+ * 
+ * These mostly map @reno variables to Uikit and @pw admin them
+ * variables. These are not likely to need edits if making 
+ * adjustments to the theme colors. 
+ *
+ */
+
+// Global colors
+@global-color: @reno-text-color;
+@global-primary-background: @reno-primary-background;
+@global-secondary-background: @reno-secondary-background;
+@global-secondary-color: @reno-text-color;
+@global-link-color: @reno-link-color;
+@global-link-hover-color: @reno-link-hover-color;
+@global-muted-background: @reno-muted-background;
+@global-muted-color: @reno-muted-text-color;
+@global-success-background: @reno-success-background;
+@global-warning-background: @reno-warning-background;
+@global-danger-background: @reno-danger-background;
+
+// Alert colors
+@alert-primary-background: @reno-alert-background;
+@alert-primary-color: @reno-alert-color;
+@alert-danger-background: @reno-danger-background;
+@alert-danger-color: @reno-danger-color;
+@alert-warning-background: @global-warning-background;
+@alert-warning-color: @reno-warning-color;
+
+// Dropdowns and primary navigation
+@dropdown-padding: 15px;
+@pw-masthead-height: 73px; // note: must also be updated in _masthead.php "data-pw-height" attribute 
+@pw-dropdown-color: @reno-dropdown-color;
+@pw-dropdown-background: @reno-dropdown-background;
+@pw-dropdown-nav-item-color: @reno-dropdown-color;
+@pw-dropdown-nav-item-hover-color: @reno-dropdown-color;
+@pw-dropdown-nav-item-hover-background: @reno-dropdown-hover-background;
+@pw-dropdown-separator-color: lighten(@reno-dropdown-border-color, 7%);
+@pw-dropdown-highlight-color: #fff; 
+@pw-dropdown-highlight-background-color: @dropdown-background;
+@pw-dropdown-nav-font-size: @dropdown-nav-font-size;
+@pw-dropdown-nav-icon-color: @reno-dropdown-nav-icon-color;
+@pw-dropdown-box-shadow: 0 1px 7px rgba(0,0,0,0.175);
+@pw-dropdown-min-width: @dropdown-min-width;
+@pw-dropdown-line-height: 1em;
+@pw-dropdown-list-padding-vertical: 10px;
+@pw-dropdown-list-padding-horizontal: 0;
+@pw-dropdown-item-padding-vertical: 0.5em;
+@pw-dropdown-item-padding-horizontal: @dropdown-padding;
+@pw-dropdown-list-border-radius: 0;
+@navbar-nav-item-text-transform: none;
+@navbar-nav-item-font-size: 16px;
+
+// Buttons
+@button-font-size: 16px; 
+@button-text-transform: capitalize;
+@button-text-color: @global-link-color; // text-only button
+@button-text-hover-color: @global-link-hover-color; // text-only button
+@pw-button-background: @reno-button-background;
+@pw-button-color: @reno-button-text-color;
+@pw-button-hover-background: @reno-button-hover-background;
+@pw-button-secondary-background: @reno-button-secondary-background;
+@pw-button-secondary-hover-background: @reno-button-hover-background;
+
+// Form and inputfields
+@pw-inputfield-border: @reno-inputfield-border;
+@pw-inputfield-repeater-background: @global-muted-background;
+@pw-inputfield-repeater-background-none: @pw-inputfield-repeater-background;
+@pw-inputfield-color-primary: @reno-primary-headline-color;
+@pw-inputfield-background-primary: lighten(@reno-primary-headline-color, 70%);
+// @pw-inputfield-border-primary: 1px solid @pw-inputfield-background-primary;
+@pw-inputfield-color-warning: @reno-warning-color;
+@pw-inputfield-background-warning: lighten(@reno-warning-background, 20%);
+@pw-inputfield-background-danger: lighten(@reno-danger-background, 50%);
+@pw-inputfield-header-color: @reno-text-color;
+@pw-inputfield-header-collapsed-color: @reno-muted-text-color-alternate;
+@pw-inputfield-header-hover-color: @reno-muted-text-color-alternate;
+@pw-inputfield-header-collapsed-hover-background: @reno-muted-background;
+@form-radio-checked-background: @reno-form-radio-checked-background;
+@form-radio-checked-focus-background: darken(@form-radio-checked-background, 7%);
+
+// jQuery UI
+@pw-ui-widget-overlay-background: rgba(0,0,0,0.8);
+@pw-datepicker-background: @reno-dark-background;
+
+// Page list
+@pw-page-list-text-color: @global-color;
+@pw-page-list-muted-text-color: @global-muted-color;
+@pw-page-list-link-color: @reno-page-list-link-color;
+@pw-page-list-link-active-color: @global-link-color;
+@pw-page-list-link-hover-color: @global-link-hover-color;
+@pw-page-list-link-open-color: @reno-page-list-link-open-color;
+@pw-page-list-link-open-background-color: inherit;
+@pw-page-list-icon-color: @reno-page-list-icon-color;
+@pw-page-list-status-icon-color: #a9adb5;
+@pw-page-list-action-link-color: @reno-page-list-action-link-color;
+@pw-page-list-action-link-background-color: @reno-page-list-action-link-background-color;
+@pw-page-list-action-link-hover-color: @reno-page-list-action-link-hover-color;
+@pw-page-list-action-link-hover-background-color: @reno-page-list-action-link-hover-background-color;
+
+// Tabs
+@tab-margin-horizontal: 0;
+@tab-item-padding-horizontal: 20px;
+@tab-item-padding-vertical: 10px;
+@tab-item-color: @global-link-color;
+@tab-item-hover-color: @global-link-hover-color;
+@tab-item-hover-text-decoration: none;
+@tab-item-active-color: @global-emphasis-color;
+@tab-item-disabled-color: @global-muted-color;
+@tab-border-width: @global-border-width;
+@tab-border: @global-border;
+@tab-item-border-width: @global-border-width;
+@tab-item-font-size: 16px;
+@tab-item-text-transform: none;
+@tab-item-active-border: @global-link-color;
+@tab-item-active-background: #fff;
+
+// Offcanvas bar
+@offcanvas-bar-color-mode: dark;
+@offcanvas-bar-padding-vertical-m: @offcanvas-bar-padding-vertical;
+@offcanvas-bar-padding-horizontal-m: @offcanvas-bar-padding-horizontal;
+
+// Sidebar
+@pw-sidebar-nav-border-color: darken(@reno-offcanvas-background, 4%);
+@pw-sidebar-nav-nested-border-color: @reno-offcanvas-background;
+@nav-parent-icon-color: darken(@reno-offcanvas-background, 12%); 
+
+// Dialog modal windows
+@pw-dialog-titlebar-background: @reno-masthead-background;
+@pw-dialog-titlebar-color: #fff;
+
+// Breadcrumb
+@breadcrumb-divider-margin-horizontal: 15px;
+
+// Table
+@pw-table-header-color: @reno-table-header-color;
+@pw-table-header-current-color: @reno-table-header-current-color;
+
+/**********************************************************************
+ * Styles
+ *
+ * Adjustments to the default Uikit admin theme styles to give more 
+ * the look and feel of AdminThemeReno. 
+ *
+ */
+
+.hook-base-h2,
+.hook-base-h3,
+.hook-base-h4 {
+  color: @reno-secondary-headline-color;
+}
+
+// Tabs ---------------------------------------------------------------
+
+.hook-tab-item {
+  border: 1px solid transparent;
+  margin-left: -1px;
+}
+
+.hook-tab-item-active() { 
+  border: @pw-inputfield-border;
+  border-bottom-color: #fff;
+  border-top-left-radius: 4px;
+  border-top-right-radius: 4px;
+}
+
+.langTabs .ui-tabs-nav,
+.langTabs .uk-tab {
+  // using a different styling for language tabs in this theme
+  > li {
+    background: transparent; 
+    border: none;
+    margin: 3px 0 3px 0;
+    padding: 0 !important;
+    &:first-child {
+      // margin-left: 1px;
+    }
+    &.langTabEmpty > a {
+      color: @reno-language-tab-empty-color;
+    }
+    > a {
+      margin: 0 1px 0 0;
+      display: inline-block;
+      border: none;
+      border-radius: 0;
+      color: @reno-language-tab-color;
+      background: @reno-language-tab-background;
+      padding: 4px 15px;
+      font-size: @pw-tiny-font-size;
+      text-transform: uppercase;
+    }
+    > a:hover {
+      color: @reno-language-tab-hover-color;
+      background: @reno-language-tab-hover-background;
+    }
+    &.uk-active > a {
+      color: @reno-language-tab-current-color;
+      background: @reno-language-tab-current-background;
+    }
+  }
+}
+
+.WireTabs.uk-tab > li.uk-active.pw-tab-muted {
+  background: @reno-muted-background;
+  > a {
+    border-bottom: none;
+  }
+}
+
+// Pagination ---------------------------------------------------------
+
+.hook-pagination-item() {
+  color: @reno-text-color; 
+  background: @reno-muted-background;
+  border: @pw-inputfield-border;
+}
+.hook-pagination-item-hover() {
+  color: @reno-text-color;
+  background: darken(@reno-muted-background, 5%); 
+  border: @pw-inputfield-border;
+}
+.hook-pagination-item-active() {
+  &, a {
+    background: @reno-link-color;
+    color: @global-inverse-color;
+    border: @pw-inputfield-border;
+    border-color: @reno-link-color;
+  }
+}
+.hook-pagination-item-disabled() {
+  padding-left: 0;
+  padding-right: 0;
+  color: @reno-muted-text-color;
+  background: none;
+}
+.uk-pagination > li,
+.PageList > .uk-pagination > li {
+  padding: 0;
+  margin-left: -1px;
+  > a {
+    border-radius: 0;
+  }
+  &:first-child > a {
+    border-top-left-radius: 3px;
+    border-bottom-left-radius: 3px;
+  }
+  &:last-child > a {
+    border-top-right-radius: 3px;
+    border-bottom-right-radius: 3px;
+  }
+  &.uk-disabled > span {
+    border: none;
+    color: @reno-muted-text-color;
+    padding-left: 5px;
+    padding-right: 5px;
+  }
+}
+.PageList > .uk-pagination > li {
+  margin: 0 0 0 -1px;
+  > .PageListLoading {
+    border: none;
+    display: inline-block;
+  }
+  &:first-child > a {
+    margin-left: 3px;
+  }
+  > a {
+    border: @pw-inputfield-border !important;
+  }
+  &.uk-active > a {
+    border-color: @reno-link-color !important;
+    background: @reno-link-color;
+  }
+}
+
+// Masthead and dropdowns ------------------------------------------
+
+#pw-masthead-mobile {
+  background-color: @reno-masthead-background;
+}
+
+#pw-masthead {
+  background-color: @reno-masthead-background;
+  .uk-navbar-nav {
+    > li {
+      position: relative;
+      &, > a {
+        color: @reno-masthead-link-color;
+        i {
+          color: @reno-masthead-icon-color;
+        }
+      }
+      &.uk-active,
+      &.uk-active > a {
+        color: @reno-masthead-link-current-color;
+      }
+      & > a.hover,
+      & > a:hover {
+        color: @reno-masthead-link-hover-color;
+        i {
+          color: @reno-masthead-link-hover-color;
+        }
+      }
+      &.uk-active > a,
+      & > a.hover,
+      & > a:hover {
+        &:after {
+          // white triangle
+          content: " ";
+          width: 0;
+          height: 0;
+          border-style: solid;
+          border-width: 0 6px 7px 6px;
+          border-color: transparent transparent @reno-dropdown-background transparent;
+          position: absolute;
+          bottom: -1px;
+          left: 40%;
+          z-index: 99;
+        }
+      }
+      & > a.hover:after,
+      & > a:hover:after {
+        // white triangle: hovered only
+        z-index: 200;
+      }
+      
+      /*
+      &.uk-active > a:not(.hover):not(:hover):after {
+        border-color: transparent transparent rgba(255,255,255,0.5) transparent;
+      }
+      */
+    }
+  }
+  
+  .pw-search-form {
+    .pw-search-input {
+      color: @reno-masthead-search-text-color;
+      background: @reno-masthead-search-background;
+      border-color: @reno-masthead-search-border-color;
+      border-radius: 5px;
+      &:focus {
+        color: @reno-masthead-search-focus-text-color;
+        border-color: @reno-masthead-search-focus-border-color;
+        background: @reno-masthead-search-focus-background;
+      }
+    }
+    .uk-form-icon {
+      color: @reno-masthead-search-icon-color;
+    }
+  }
+}
+
+ul.pw-dropdown-menu,
+ul.ui-menu {
+  border: @reno-dropdown-border;
+  margin-top: -2px;
+  // border-top: none;
+  > li.ui-menu-item > ul.ui-menu {
+    border: @reno-dropdown-border !important;
+  }
+}
+
+// Notices ----------------------------------------------------
+
+.pw-notices {
+  margin-top: 0;
+  > li {
+    margin: 0;
+  }
+  .NoticeMessage {
+    border-bottom: 1px solid @global-muted-background;
+    a.notice-remove {
+      color: @global-color;
+    }
+  }
+  .NoticeWarning,
+  .NoticeError {
+    border-bottom: 1px solid #fff;
+    a.notice-remove {
+      color: #fff;
+    }
+  }
+}
+
+// Offcanvas -------------------------------------------------
+
+#offcanvas-toggle {
+  cursor: pointer;
+  > i {
+    color: @reno-masthead-icon-color;
+  }
+  &:hover > i {
+    color: @reno-masthead-link-color;
+  }
+}
+
+#offcanvas-nav {
+  color: @reno-offcanvas-text-color;
+  .uk-offcanvas-bar {
+    background: @reno-offcanvas-background;
+    padding: 0;
+    box-shadow: 0 4px 7px rgba(0,0,0,0.175);
+    border-right: 1px solid darken(@reno-offcanvas-background, 10%); 
+  }
+  #offcanvas-nav-header {
+    display: none;
+  }
+  .pw-sidebar-nav {
+    li > a {
+      padding-left: 20px;
+      padding-right: 20px;
+      color: @reno-offcanvas-link-color;
+      &:hover {
+        color: @reno-offcanvas-link-hover-color;
+      }
+    }
+    li.uk-open {
+      padding-bottom: 0;
+      background: lighten(@reno-offcanvas-background, 3%);
+      > a {
+        color: @reno-offcanvas-link-open-color;
+      }
+    }
+    li.pw-nav-spinner {
+      padding-left: 20px;
+    }
+  }
+  .pw-search-form {
+    padding: 20px 20px 5px 20px;
+  }
+  .pw-search-input {
+    background: @reno-offcanvas-search-background;
+    border-radius: 5px;
+  }
+  .pw-logo {
+    display: none;
+  }
+}
+
+// Other ---------------------------------------------------------
+
+html.pw-sidebar-frame,
+html.pw-sidebar-frame body {
+  background: @global-muted-background;
+  #main {
+    background: @global-muted-background;
+  }
+}
+
+.Inputfields {
+  // background color for text fields
+  input:not([type=submit]):not([type=file]):not([type=checkbox]):not([type=radio]):not(.uk-form-blank),
+  textarea:not(.uk-form-blank) {
+    background-color: @reno-inputfield-input-background;
+    border: 1px solid; 
+    border-color: @reno-inputfield-input-border-color;
+    -webkit-appearance: none;
+    &:focus {
+      background-color: lighten(@reno-inputfield-input-background, 2%);
+      border-color: @reno-inputfield-input-border-color;
+    }
+  }
+  select.uk-select:not(.uk-form-blank) {
+    // border-radius: 3px;
+    background-color: @reno-inputfield-select-background;
+    border: 1px solid;
+    border-color: @reno-inputfield-select-border-color;
+    -webkit-appearance: none;
+    &:focus {
+      background-color: lighten(@reno-inputfield-select-background, 2%);
+      border-color: @reno-inputfield-select-border-color;
+    }
+  }
+  input.uk-form-blank:focus,
+  textarea.uk-form-blank:focus {
+    background-color: lighten(@reno-inputfield-select-background, 2%);
+  }
+}
+img.pw-logo {
+  max-height: 40px;
+}
+img.pw-logo-native {
+  &:hover {
+    filter: brightness(0) invert(1);
+  }
+}
+
+#pw-content-head {
+  h1 {
+    color: @reno-primary-headline-color;
+  }
+}
+
+.uk-breadcrumb {
+  padding-bottom: 0; 
+}
+
+#main .notes {
+  color: @reno-notes-text-color !important;
+  background: @reno-notes-background;
+}
+
+#pw-footer {
+  padding-top: 20px;
+  border-top: @pw-inputfield-border;
+}
+

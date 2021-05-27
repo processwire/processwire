@@ -1,0 +1,97 @@
+@pw-table-header-color: @global-muted-color;
+@pw-table-header-current-color: darken(@pw-table-header-color, 10%);
+@pw-table-header-hover-color: darken(@pw-table-header-color, 10%); 
+
+@table-header-cell-font-size: 13px; 
+@table-header-cell-font-weight: bold;
+@table-header-cell-color: @pw-table-header-color;
+
+// Uikit table definitions
+.uk-table {
+  th {
+    //font-weight: bold;
+    color: @pw-table-header-color;
+    outline: none; 
+    //font-size: @pw-table-header-font-size;
+  }
+  > tbody > tr > th {
+    vertical-align: top;
+    text-transform: none;
+    font-size: @global-font-size;
+  }
+  .sort-date, 
+  .pw-table-sort-value {
+    display: none;
+  }
+}
+
+// ProcessWire responsive tables
+.pw-table-responsive {
+  margin-top: @global-margin;
+  margin-bottom: @global-margin;
+}
+
+// ProcessWire sortable tables
+.pw-table-sortable,
+table.ProcessListerTable thead {
+  th {
+    cursor: pointer;
+  }
+  th:hover {
+    text-decoration: underline;
+  }
+}
+
+table.AdminDataTable:not(.uk-table) {
+  width: 100%;
+  .uk-table();
+}
+
+.uk-table-divider > tbody > tr:last-child {
+  border-bottom-style: solid;  
+  border-bottom-color: @table-divider-border;
+  border-bottom-width: @table-divider-border-width;
+}
+
+.uk-table.AdminDataTableSortable tr.tablesorter-headerRow {
+  
+  th:hover {
+    text-decoration: none;
+    color: @pw-table-header-hover-color;
+  }
+  th.tablesorter-headerDesc {
+    color: @pw-table-header-current-color;
+    .tablesorter-header-inner:after {
+      content: "\f0de";
+    }
+  }
+  th.tablesorter-headerAsc {
+    color: @pw-table-header-current-color;
+    .tablesorter-header-inner:after {
+      content: "\f0dd";
+    }
+  }
+  th.tablesorter-headerUnSorted .tablesorter-header-inner:after {
+    content: "\f0dc";
+  }
+  th .tablesorter-header-inner:after {
+    content: " ";
+    font-family: fontAwesome;
+    margin: 0 0 0 5px;
+    opacity: 0.4;
+    font-weight: normal;
+  }
+
+}
+
+.pw-table-resizable {
+  td, th {
+    border-left-style: solid;
+    border-left-color: @table-divider-border;
+    border-left-width: @table-divider-border-width;
+  }
+  td:first-child,
+  th:first-child {
+    border-left: none;
+  }
+}

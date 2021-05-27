@@ -1,0 +1,108 @@
+/***************************************************************************
+ * Specific Inputfield type customizations 
+ *
+ */
+
+.InputfieldPageNameURL {
+  // page name URL
+  font-size: @global-small-font-size;
+}
+
+.InputfieldCheckbox,
+.InputfieldCheckboxes,
+.InputfieldRadios {
+  .InputfieldContent label {
+    // checkboxes and radios use smaller font size for labels
+    font-size: @global-small-font-size;
+  }
+}
+
+.InputfieldHidden {
+  // hidden Inputfield type never appears in output
+  display: none !important;
+}
+
+/**
+ * PageListSelect
+ *
+ */
+
+.PageListRoot {
+  .PageListSelectActions {
+    padding: 0;
+    > li {
+      border: none;
+      padding: 0;
+      a.PageListSelectActionToggleStart:before {
+        content: "\f055";
+        font-family: fontAwesome;
+        padding-right: 4px;
+        text-decoration: none !important;
+        display: inline-block;
+      }
+      a.PageListSelectActionToggleCancel:before {
+        content: "\f057";
+        font-family: fontAwesome;
+        padding-right: 4px;
+        text-decoration: none !important;
+        display: inline-block;
+      }
+    }
+  }
+}
+
+// Targeting output as it appears on Bookmarks screen like ProcessPageAdd > Bookmarks
+.InputfieldPageListSelectMultiple {
+  > .InputfieldContent > ul.PageListActions {
+    padding: 0;
+    > li:first-child {
+      border-left: none;
+      > a {
+        padding-left: 0;
+      }
+    }
+  }
+}
+
+
+
+/****************************************************************************
+ * Render Value Mode 
+ *
+ * Used when only values are being rendered in the form (no inputs)
+ *
+ */
+
+.InputfieldRenderValueMode {
+
+  .InputfieldSelect li,
+  .InputfieldRadios li,
+  .InputfieldCheckboxes li {
+    margin-top: 0;
+    margin-bottom: 0;
+  }
+
+  .InputfieldSubmit,
+  .InputfieldButton {
+    display: none;
+  }
+}
+
+/*** Misc **********************************************************/
+
+:not(.InputfieldFieldset) > .InputfieldContent > .Inputfields > .InputfieldMarkup, 
+.InputfieldForm > .Inputfields > .InputfieldMarkup {
+  &.InputfieldHeaderHidden {
+    outline: none !important;
+    margin-top: @pw-inputfield-margin;
+    > .InputfieldContent {
+      padding-left: 0;
+      padding-right: 0;
+    }
+  }
+}
+
+.InputfieldCheckboxes ul,
+.InputfieldRadios ul {
+  margin-bottom: 0;
+}

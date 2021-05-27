@@ -1,0 +1,529 @@
+// ProcessWire Inputfield styles
+
+// general purpose
+@pw-inputfield-background: @global-background; 
+@pw-inputfield-background-none: @global-background;
+@pw-inputfield-border-color: darken(@global-muted-background, 4%);
+@pw-inputfield-border: 1px solid @pw-inputfield-border-color;
+@pw-inputfield-margin: @global-margin;
+@pw-inputfield-margin-small: @global-small-margin;
+@pw-inputfield-margin-large: @global-large-margin;
+@pw-inputfield-button-margin: @global-small-margin;
+
+// general nested
+@pw-inputfield-nested-border-color: @pw-inputfield-border-color;
+@pw-inputfield-nested-border: 1px solid @pw-inputfield-nested-border-color;
+
+// primary
+@pw-inputfield-background-primary: lighten(tint(@global-primary-background, 40%), 25%);
+// @pw-inputfield-border-primary: 1px solid lighten(@text-primary-color, 30%);
+@pw-inputfield-color-primary: @text-primary-color;
+
+// secondary
+@pw-inputfield-background-secondary: lighten(@global-muted-background, 3%);
+// @pw-inputfield-border-secondary: darken(@global-muted-background, 5%);
+@pw-inputfield-color-secondary: @global-color;
+
+// success
+@pw-inputfield-background-success: lighten(tint(@global-success-background, 40%), 25%);
+// @pw-inputfield-border-success: 1px solid lighten(@text-success-color, 10%);
+@pw-inputfield-color-success: @text-success-color;
+
+// highlight 
+@pw-inputfield-background-highlight: #ffd;
+// @pw-inputfield-border-highlight: @pw-inputfield-border;
+@pw-inputfield-color-highlight: inherit;
+
+// warning
+@pw-inputfield-background-warning: lighten(tint(@global-warning-background, 45%), 15%);
+// @pw-inputfield-border-warning: 1px solid lighten(@text-warning-color, 10%);
+@pw-inputfield-color-warning: @text-warning-color;
+
+// danger
+@pw-inputfield-background-danger: lighten(tint(@global-danger-background, 40%), 20%);
+// @pw-inputfield-border-danger: 1px solid lighten(@text-danger-color, 10%);
+@pw-inputfield-color-danger: @text-danger-color;
+
+// background when dragging in a file
+@pw-inputfield-drag-in-file-background: @pw-inputfield-background-primary;
+
+// fieldset
+@pw-inputfield-fieldset-background: @global-muted-background;
+@pw-inputfield-nested-background: lighten(@pw-inputfield-background, 5%);
+
+// header 
+@pw-inputfield-header-padding-top: @global-margin;
+@pw-inputfield-header-padding-right: @global-small-margin;
+@pw-inputfield-header-padding-bottom: @global-margin;
+@pw-inputfield-header-padding-left: @global-margin;
+@pw-inputfield-header-padding: @pw-inputfield-header-padding-top @pw-inputfield-header-padding-right @pw-inputfield-header-padding-bottom @pw-inputfield-header-padding-left;
+@pw-inputfield-header-color: @global-color;
+@pw-inputfield-header-collapsed-color: @global-muted-color;
+@pw-inputfield-header-hover-color: @global-link-color;
+@pw-inputfield-header-collapsed-hover-color: darken(@pw-inputfield-header-collapsed-color, 10%);
+@pw-inputfield-header-collapsed-hover-background: @global-muted-background;
+
+// content 
+@pw-inputfield-content-padding-top: 1px;
+@pw-inputfield-content-padding-right: @global-margin;
+@pw-inputfield-content-padding-bottom: @global-margin + 3px;
+@pw-inputfield-content-padding-left: @global-margin;
+@pw-inputfield-content-padding: @pw-inputfield-content-padding-top @pw-inputfield-content-padding-right @pw-inputfield-content-padding-bottom @pw-inputfield-content-padding-left;
+
+// cards: header padding
+@pw-inputfield-header-cards-padding-top: @global-margin; 
+@pw-inputfield-header-cards-padding-right: @global-small-margin;
+@pw-inputfield-header-cards-padding-bottom: @global-margin; 
+@pw-inputfield-header-cards-padding-left: @global-margin;
+@pw-inputfield-header-cards-padding: @pw-inputfield-header-cards-padding-top @pw-inputfield-header-cards-padding-right @pw-inputfield-header-cards-padding-bottom @pw-inputfield-header-cards-padding-left;
+
+// cards: content padding
+@pw-inputfield-content-cards-padding-top: @global-small-margin;
+@pw-inputfield-content-cards-padding-right: @global-margin;
+@pw-inputfield-content-cards-padding-bottom: @global-margin;
+@pw-inputfield-content-cards-padding-left: @global-margin;
+@pw-inputfield-content-cards-padding: @pw-inputfield-content-cards-padding-top @pw-inputfield-content-cards-padding-right @pw-inputfield-content-cards-padding-bottom @pw-inputfield-content-cards-padding-left;
+
+
+// GENERAL INPUTFIELD ALL --------------------------------------------
+
+.InputfieldForm {
+  margin-bottom: @global-margin;
+}
+
+.Inputfields {
+  // background: @pw-inputfield-background;
+  background: none;
+}
+
+/*** Inputfield *************************************************************/
+
+.Inputfield {
+  display: block;
+  color: @global-color;
+  background: @pw-inputfield-background; // required to avoid doubled outlines on columnWidth fields
+  border: none;
+  outline: @pw-inputfield-border;
+  
+  &.InputfieldSubmit,
+  &.InputfieldButton,
+  &.InputfieldNoBorder,
+  &.InputfieldWrapper,
+  &.InputfieldRepeaterItem {
+    outline: none;
+  }
+  
+  &.InputfieldHideBorder {
+    //outline-color: transparent;
+    outline: none;
+    margin-top: 1px;
+  }
+  
+  &:not(.InputfieldColumnWidth) {
+    width: 100%;
+  }
+  
+  &.ui-state-error {
+    border: none;
+  }
+
+  select + ol {
+    /* i.e. asmSelect */
+    margin-top: 0.1em;
+  }
+  
+  input[type=text]:not(.uk-input),
+  input[type=email]:not(.uk-input),
+  input[type=date]:not(.uk-input),
+  input[type=datetime]:not(.uk-input),
+  input[type=number]:not(.uk-input),
+  input[type=url]:not(.uk-input) {
+    .uk-input();
+    // width: auto;
+    &.InputfieldMaxWidth {
+      width: 100%;
+    }
+    &[size] {
+      width: auto;
+    }
+  }
+  .InputfieldDatetime input.InputfieldDatetimeDatepicker {
+    width: auto;
+  }
+  
+  .InputfieldMaxWidth {
+    width: 100%;
+  }
+  
+  select,
+  input[type=checkbox],
+  input[type=radio] {
+    font-size: @global-font-size;
+  }
+  select {
+    max-width: 100%;
+  }
+  .uk-select:not(.InputfieldSetWidth):not(.InputfieldMaxWidth) {
+    width: auto;
+  }
+  .uk-select:not([multiple]):not([size]) {
+    // to ensure the toggle icon is visible
+    padding-right: 30px !important;
+  }
+  .InputfieldContent table td .uk-select:not(.InputfieldSetWidth), // i.e. InputfieldTable
+  &.InputfieldColumnWidth > .InputfieldContent .uk-select:not(.InputfieldSetWidth) {
+    width: 100%;
+    padding-right: initial;
+  }
+  
+  textarea:not(.uk-textarea) {
+    .uk-textarea();
+  }
+  
+  input[size] {
+    width: auto;
+  }
+}
+
+@media screen and (max-width: 767px) {
+  body.AdminThemeUikitNoGrid {
+    .InputfieldColumnWidth {
+      width: 100% !important;
+    }
+  }
+}
+
+// Inputfield offsets
+.Inputfields .InputfieldIsOffset:not(.InputfieldColumnWidth) {
+  // Inputfield that is vertically offset from others via a margin
+  // By default, Inputfield elements have no margins, so this adds one
+  margin-top: @pw-inputfield-margin;
+  margin-bottom: @pw-inputfield-margin;
+  
+  &.InputfieldNoBorder {
+    // to prevent it from being overridden when no-border active
+    margin-top: @pw-inputfield-margin;
+  }
+
+  &.InputfieldIsOffsetSm {
+    // small offset option
+    margin-top: @pw-inputfield-margin-small;
+    margin-bottom: @pw-inputfield-margin-small;
+    &.InputfieldNoBorder {
+      margin-top: @pw-inputfield-margin-small;
+    }
+  }
+  
+  &.InputfieldIsOffsetLg {
+    // large offset option
+    margin-top: @pw-inputfield-margin-large;
+    margin-bottom: @pw-inputfield-margin-large;
+    &.InputfieldNoBorder {
+      margin-top: @pw-inputfield-margin-large;
+    }
+  }
+  
+  &.InputfieldRowFirst:not(.WireTab) {
+    // first row of offset fields needs no top margin
+    margin-top: 0;
+  }
+  
+  &.InputfieldRowLast:not(.InputfieldWrapper):not(.InputfieldFieldset) {
+    // last row of offset fields needs no bottom margin
+    margin-bottom: 0;
+  }
+  
+  &.InputfieldSubmit.InputfieldIsOffset,
+  &.InputfieldButton.InputfieldIsOffset {
+    // offsets don't apply to buttons
+    margin-top: 0 !important;
+  }
+  
+  + .InputfieldIsOffset {
+    margin-top: 0;
+  }
+  
+}
+
+table .InputfieldIsOffset,
+.InputfieldFieldset .InputfieldColumnWidth.InputfieldIsOffset,
+.InputfieldRepeater .InputfieldIsOffset {
+  // offsets don't apply in repeaters and some other contexts
+  margin-top: 0;
+  margin-bottom: 0;
+}
+.InputfieldNoBorder:not(.InputfieldIsOffset):not(.InputfieldColumnWidth) {
+  // ensures that a no-border field doesn't hide the outline from the previous field
+  margin-top: 1px;
+}
+
+/*** InputfieldHeader ***************************************************/
+
+.InputfieldHeader {
+  
+  .hook-form-label();
+  
+  display: block;
+  margin: 0;
+  padding: @pw-inputfield-header-padding;
+  padding-bottom: @pw-inputfield-header-padding-bottom / 2; // header when not collapsed
+  background: @pw-inputfield-background;
+  font-weight: bold;
+  font-size: @global-font-size;
+  color: @pw-inputfield-header-color;
+  
+  // prevent selection of this element 
+  -webkit-user-select: none;
+  -khtml-user-select: none;
+  -moz-user-select: none;
+  -o-user-select: none;
+  user-select: none; 
+
+  &.InputfieldHeaderHidden {
+    // header is not shown
+    display: none;
+  }
+  
+  &:hover {
+    color: @pw-inputfield-header-hover-color;
+  }
+  
+  // toggles open and collapse of Inputfield
+  &.InputfieldStateToggle {
+    cursor: pointer;
+
+    i.toggle-icon {
+      // the open/close icon that goes with most Inputfields 
+      float: right;
+      padding-right: 0.25em;
+      padding-right: 0.5em;
+      margin-right: 0;
+      color: lighten(@global-muted-color, 20%);
+      line-height: @global-line-height;
+    }
+
+    i + i {
+      margin-right: 0.5em;
+      margin-left: 0;
+    }
+  }
+}
+.Inputfield.InputfieldStateCollapsed {
+  > .InputfieldHeader {
+    color: @pw-inputfield-header-collapsed-color;  
+    &:hover {
+      color: @pw-inputfield-header-collapsed-hover-color;
+      background: @pw-inputfield-header-collapsed-hover-background;
+    }
+  }
+  > .InputfieldHeaderHidden {
+    display: block;
+  }
+  &.InputfieldNoBorder {
+    > .InputfieldHeader:hover {
+      // background color doesn't look good when no-border mode is used
+      background: transparent;
+    }
+  }
+}
+.pw-init {
+  .toggle-icon {
+    display: none;
+  }
+}
+
+/*** InputfieldContent ***************************************************/
+
+.InputfieldContent {
+  // content area of each Inputfield element
+  background: @pw-inputfield-background;
+  padding: @pw-inputfield-content-padding;
+  > .InputfieldError {
+    display: block;
+    padding: 5px 12px 5px 5px;
+  }
+}
+
+  .InputfieldContent,
+  .LanguageSupport {
+    & > textarea,
+    & > select.InputfieldMaxWidth,
+    & > input.InputfieldMaxWidth {
+      width: 100%;
+    }
+    p {
+      margin-top: @global-small-margin;
+      margin-bottom: @global-small-margin + 5px;
+      &:first-child {
+        margin-top: 0;
+      }
+      &.notes {
+        margin-top: @global-small-margin + 5px;
+      }
+    }
+    > p:last-child,
+    > ul:last-child {
+      // notes, description, radio/checkbox ul's, etc.
+      margin-bottom: 0;
+    }
+  }
+
+  .InputfieldHeaderHidden > .InputfieldContent, // applied to .Inputfield
+  .InputfieldHeaderHidden + .InputfieldContent { // applied to .InputfieldHeader
+    // when header not visible, make top padding in content consistent with other headers
+    // Example: checkbox fields lacking a description or Markup fields with no label
+    padding-top: @pw-inputfield-header-padding-top + 3px;
+  }
+
+/*** Inputfield states: collapsed & required *********************************************/
+
+.InputfieldStateCollapsed {
+  
+  > .InputfieldHeader {
+    // header when collapsed
+    padding-bottom: @pw-inputfield-header-padding-bottom;
+    background: @pw-inputfield-background-none;
+    color: @global-muted-color;
+
+    &:hover {
+      color: @global-link-color;
+    }
+
+    &:after {
+      content: " \2026"; // ellipsis
+    }
+  }
+  
+  > .InputfieldContent {
+    // collapsed Inputfields don't show their content (only header) 
+    display: none;
+  }
+}
+
+.InputfieldStateRequired > .InputfieldHeader:first-child:after {
+  // Add asterisk to indicate field is required 
+  content: ' *';
+  color: red;
+}
+
+
+/*** InputfieldFieldset ***************************************************/
+
+.InputfieldFieldset {
+  // fieldset containing other Inputfield elements
+  
+  > .InputfieldHeader,
+  > .InputfieldContent {
+    // adjust background color for fieldsets
+    background: @pw-inputfield-fieldset-background;
+  }
+  
+  &.WireTab {
+    // fieldsets that are tabs do not have a background or border/outline
+    outline: none;
+    > .InputfieldContent {
+      background: none;
+      padding-left: 0;
+      padding-right: 0;
+      > .Inputfields > .InputfieldMarkup {
+        outline: none;
+      }
+    }
+  }
+  
+  
+  &.InputfieldStateCollapsed > .InputfieldHeader {
+    // collapsed fieldset has no background color adjustment
+    background: @pw-inputfield-background-none;
+  }
+  
+  > .InputfieldContent > .Inputfields {
+    // a set of .Inputfields rendered within the content area of a Fieldset
+    // remove background so previous shows through
+    background: none;
+    .Inputfield {
+      background: @pw-inputfield-background-none;
+    }
+  }
+}
+
+/*** InputfieldNoBorder ***************************************************/
+
+.InputfieldNoBorder {
+  // An inputfield that has no borders or background 
+  &:not(.InputfieldStateCollapsed):not(.InputfieldFieldset) {
+    // Inputfield with no border that is open (not collapsed)
+    outline: none;
+    > .InputfieldHeader,
+    > .InputfieldContent {
+      padding-left: 0;
+      padding-right: 0;
+      background: none;
+    }
+    > .InputfieldHeader {
+      // half bottom padding in header
+      padding-bottom: @pw-inputfield-header-padding-bottom / 2;
+    }
+  }
+  &.InputfieldStateCollapsed {
+    // collapsed NoBorder inputfield
+    padding-left: 0;
+    > .InputfieldHeader {
+      padding-left: 0;
+    }
+  }
+  &:not(.InputfieldColumnWidth) {
+    // reduced margin when there is no border
+    margin-bottom: 0;
+    + .InputfieldNoBorder:not(.InputfieldColumnWidth) {
+      // two no-border inputfields on top of one another: reduce the margins between them
+      margin-top: 0;
+    }
+  }
+  &.InputfieldColumnWidth:not(.InputfieldColumnWidthFirst) {
+    // horizontal space between floated columns
+    padding-left: @pw-inputfield-margin;
+  }
+} // .NoBorder
+
+.InputfieldColumnWidth:not(.InputfieldNoBorder) + .InputfieldNoBorder:not(.InputfieldColumnWidth) {
+  // more margin when row of columns is followed by a 100% width NoBorder column
+  margin-top: @pw-inputfield-margin;
+}
+
+
+/*** Card style Inputfield elements *******************************************************/
+
+.Inputfield.uk-card {
+  > .InputfieldHeader {
+    padding: @pw-inputfield-header-cards-padding;
+    padding-bottom: 0;
+  }
+  > .InputfieldContent {
+    padding: @pw-inputfield-content-cards-padding;
+  }
+  &.InputfieldStateCollapsed > .InputfieldHeader {
+    padding: @pw-inputfield-header-cards-padding;
+  }
+  > .InputfieldHeaderHidden + .InputfieldContent {
+    // when header not visible, make top padding in content consistent with other headers
+    padding-top: @pw-inputfield-header-cards-padding-top;
+  }
+}
+
+
+/*** Inputfields in table, like in Lister/ListerPro *****************************************/
+
+table.AdminDataTable {
+  .Inputfields {
+    margin: 0;
+    padding: 0;
+    .Inputfield {
+      outline: none;
+      .InputfieldContent {
+        padding: 0;
+      }
+    }
+  }
+}
+
