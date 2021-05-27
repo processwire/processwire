@@ -1534,6 +1534,35 @@ $config->defaultAdminTheme = 'AdminThemeDefault';
 $config->adminEmail = '';
 
 /**
+ * Settings specific to AdminThemeUikit
+ * 
+ * The settings shown below are only configured with this setting and not with the module config.
+ * 
+ * Please note, in the `customLessFiles` and `customCssFile` settings, the paths `/site/templates/`, 
+ * `/site/assets/`, and `/site/modules/` are converted to their actual values at runtime (if different). 
+ * Any other paths are left as-is, but must be relative to the ProcessWire installation root. Meaning,
+ * anything in /site/ must start with /site/ and not /subdir/site/ or /path/to/site/, regardless of 
+ * whether ProcessWire is running from the domain root or a subdirectory.
+ * 
+ * @var array
+ * @since 3.0.179
+ * 
+ * #property string style Admin theme base style: 'reno', 'rock', blank for system default
+ * #property bool recompile Specify true for one request to force recompile of admin LESS to CSS in that request. Remember to set back to false.
+ * #property bool compress Compress compiled CSS?
+ * #property array customLessFiles Custom .less files to include, relative to PW installation root.
+ * #property string customCssFile Target custom .css file to compile custom .less file(s) to. 
+ * 
+ */
+$config->AdminThemeUikit = array(
+	'style' => '',
+	'recompile' => false,
+	'compress' => true, 
+	'customLessFiles' => array('/site/templates/admin.less'), 
+	'customCssFile' => '/site/assets/admin.css',
+);
+
+/**
  * Fatal error HTML
  * 
  * HTML used for fatal error messages in HTTP mode.
