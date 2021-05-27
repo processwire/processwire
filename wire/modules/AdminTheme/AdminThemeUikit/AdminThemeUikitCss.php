@@ -113,7 +113,8 @@ class AdminThemeUikitCss extends WireData {
 			$less->setOption('compress', $this->compress);
 			$less->addFile($this->getAdminLessFile());
 			$less->addFiles($lessFiles);
-			if(!$less->saveCss($cssFile)) throw new WireException("Compile error: $cssFile");
+			$options = array('replacements' => array('../pw/images/' => 'images/'));
+			if(!$less->saveCss($cssFile, $options)) throw new WireException("Compile error: $cssFile");
 			$this->message(sprintf($this->_('Compiled: %s'), $cssFile), Notice::noGroup);
 			$cssTime = filemtime($cssFile);
 		} catch(\Exception $e) {
