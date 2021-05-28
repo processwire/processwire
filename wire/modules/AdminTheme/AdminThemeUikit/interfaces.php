@@ -23,10 +23,11 @@ interface AdminThemeUikitLessInterface {
 
 	/**
 	 * @param string $file
+	 * @param string $url
 	 * @return self
 	 *
 	 */
-	public function addFile($file);
+	public function addFile($file, $url = '');
 
 	/**
 	 * @param array $files
@@ -37,10 +38,11 @@ interface AdminThemeUikitLessInterface {
 
 	/**
 	 * @param string $file
+	 * @param array $options
 	 * @return bool
 	 *
 	 */
-	public function saveCss($file);
+	public function saveCss($file, array $options = array());
 
 	/**
 	 * @return string

@@ -15,6 +15,8 @@
  * 
  * @property string $configPhpHash Hash used internally to detect changes to $config->AdminThemeUikit settings.
  * @property string $configPhpName Name of property in $config that holds custom settings (default='AdminThemeUikit').
+ * @property int $requireCssVersion
+ * @property int $cssVersion
  *
  * Settings that may be specified in $config->AdminThemeUikit array:
  * 
@@ -30,11 +32,11 @@
 class AdminThemeUikitCss extends WireData {
 
 	/**
-	 * @var AdminTheme
+	 * @var AdminTheme|AdminThemeUikit
 	 * 
 	 */
 	protected $adminTheme;
-
+	
 	/**
 	 * Construct
 	 * 
@@ -68,6 +70,8 @@ class AdminThemeUikitCss extends WireData {
 			'configPhpName' => $this->adminTheme->className(),
 			'configPhpHash' => $this->adminTheme->get('configPhpHash'),
 			'replacements' => array(),
+			'cssVersion' => (int) $this->adminTheme->get('cssVersion'),
+			'requireCssVersion' => 0,
 		);
 	}
 	
@@ -101,12 +105,16 @@ class AdminThemeUikitCss extends WireData {
 				if($mtime > $lessTime) $lessTime = $mtime;
 			}
 			
-			if(!count($lessFiles)) return $this->getDefaultCssFile($getPath);
+			if(!count($lessFiles) && ($this->style === '' || $this->style === $this->defaultStyle)) {
+				return $this->getDefaultCssFile($getPath);
+			}
 
 			$cssFile = $this->customFile($this->customCssFile, 'css');
-			if(!$cssFile) return $this->getDefaultCssFile();
+			if(!$cssFile) return $this->getDefaultCssFile($getPath);
+			
 			$cssTime = is_file($cssFile) ? (int) filemtime($cssFile) : 0;
-			$recompile = $this->recompile || $lessTime > $cssTime || $this->configPhpSettingsChanged();
+			$recompile = $this->recompile || $lessTime > $cssTime || $this->cssVersion < $this->requireCssVersion; 
+			if(!$recompile && $this->configPhpSettingsChanged()) $recompile = true;
 		}
 
 		if($recompile) try {
@@ -117,8 +125,14 @@ class AdminThemeUikitCss extends WireData {
 			$less->addFiles($lessFiles);
 			$options = array('replacements' => $this->replacements); 
 			if(!$less->saveCss($cssFile, $options)) throw new WireException("Compile error: $cssFile");
-			$this->message(sprintf($this->_('Compiled: %s'), $cssFile), Notice::noGroup);
+			$messages = array(sprintf($this->_('Compiled: %s'), $cssFile));
 			$cssTime = filemtime($cssFile);
+			if($this->cssVersion < $this->requireCssVersion) {
+				$messages[] = "(core CSS v$this->cssVersion => v$this->requireCssVersion)";
+				$modules->saveConfig($this->adminTheme, 'cssVersion', $this->requireCssVersion);
+				$this->adminTheme->set('cssVersion', $this->requireCssVersion);
+			}
+			$this->message(implode(' ', $messages), Notice::noGroup);
 		} catch(\Exception $e) {
 			$this->error('LESS - ' . $e->getMessage(), Notice::noGroup);
 		}

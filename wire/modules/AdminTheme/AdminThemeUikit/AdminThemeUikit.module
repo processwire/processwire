@@ -20,7 +20,8 @@
  * @property string $inputSize Size for input/select elements. One of "s" for small, "m" for medium (default), or "l" for large. 
  * @property bool|int $ukGrid When true, use uk-width classes for Inputfields (rather than CSS percentages). 
  * @property int $toggleBehavior (0=Standard, 1=Consistent)
- * property string $configPhpHash Hash used internally to detect changes to $config->AdminThemeUikit settings.
+ * @property string $configPhpHash Hash used internally to detect changes to $config->AdminThemeUikit settings.
+ * @property int $cssVersion Current version number of core CSS/LESS files
  * 
  * @method string getUikitCSS()
  * 
@@ -31,7 +32,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Uikit',
-			'version' => 32,
+			'version' => 33,
 			'summary' => 'Uikit v3 admin theme',
 			'autoload' => 'template=admin', 
 		); 
@@ -50,6 +51,14 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 	 * 
 	 */
 	const upgrade = false;
+
+	/**
+	 * Required CSS/LESS files version 
+	 * 
+	 * Increment on core less file changes that will also require a recompile of /site/assets/admin.css
+	 * 
+	 */
+	const requireCssVersion = 1;
 
 	/**
 	 * Default logo image file (relative to this dir)
@@ -93,6 +102,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		$this->set('inputSize', 'm'); // m=medium (default), s=small, l=large
 		$this->set('ukGrid', false); 
 		$this->set('configPhpHash', '');
+		$this->set('cssVersion', 0);
 		$this->setClasses(array(
 			'input' => 'uk-input',
 			'input-small' => 'uk-input uk-form-small',
@@ -1092,6 +1102,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 		
 		$settings = $config->AdminThemeUikit; 
 		if(!is_array($settings)) $settings = array();
+		$settings['requireCssVersion'] = self::requireCssVersion;
 		
 		if(self::upgrade) {
 			$settings['upgrade'] = true;
