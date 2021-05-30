@@ -121,6 +121,7 @@ class AdminThemeUikitCss extends WireData {
 			/** @var AdminThemeUikitLessInterface $less */
 			$less = $modules->get('Less');
 			$less->setOption('compress', $this->compress);
+			$less->addFile(__DIR__."/uikit-pw/pw.less");
 			$less->addFile($this->getAdminLessFile());
 			$less->addFiles($lessFiles);
 			$options = array('replacements' => $this->replacements); 
