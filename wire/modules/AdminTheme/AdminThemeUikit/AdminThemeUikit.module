@@ -1113,7 +1113,9 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 			$back = str_repeat('../', substr_count(trim($settings['customCssFile'], '/'), '/'));
 			$settings['replacements'] = array(
 				'url(../pw/images/' => "url($back$path",
-				'url("../pw/images/' => "url(\"$back$path"
+				'url("../pw/images/' => "url(\"$back$path",
+				'url(pw/images/' => "url($back$path",
+				'url("pw/images/' => "url(\"$back$path"
 			);
 		}
 		
