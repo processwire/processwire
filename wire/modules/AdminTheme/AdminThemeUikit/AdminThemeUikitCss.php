@@ -7,6 +7,7 @@
  * source files. 
  *
  * @property bool $upgrade Set to true when upgrading core Uikit version. (default=false)
+ * @property string $frameworkLessFile Full disk path to LESS file that includes the framework/Uikit.
  * @property array $baseStyles Base style options (default=[ 'reno', 'rock' ])
  * @property string $defaultStyle Default style (default='reno')
  * @property string $defaultCssFile Core CSS file to create when upgrading (relative to module root)
@@ -59,6 +60,7 @@ class AdminThemeUikitCss extends WireData {
 		return array(
 			'baseStyles' => array('reno', 'rock'),
 			'defaultStyle' => 'reno',
+			'frameworkLessFile' => __DIR__ . '/uikit-pw/pw.less',
 			'defaultCssFile' => 'uikit-pw/pw.min.css',
 			'styleDir' => 'uikit-pw/styles/', 
 			'style' => '',
@@ -121,7 +123,8 @@ class AdminThemeUikitCss extends WireData {
 			/** @var AdminThemeUikitLessInterface $less */
 			$less = $modules->get('Less');
 			$less->setOption('compress', $this->compress);
-			$less->addFile($this->getAdminLessFile());
+			$less->addFile($this->frameworkLessFile);
+			$less->addFile($this->getAdminStyleLessFile());
 			$less->addFiles($lessFiles);
 			$options = array('replacements' => $this->replacements); 
 			if(!$less->saveCss($cssFile, $options)) throw new WireException("Compile error: $cssFile");
@@ -222,12 +225,12 @@ class AdminThemeUikitCss extends WireData {
 	}
 
 	/**
-	 * Get admin base less file to use
+	 * Get admin base style file to use
 	 *
 	 * @return string
 	 *
 	 */
-	public function getAdminLessFile() {
+	public function getAdminStyleLessFile() {
 
 		$config = $this->wire()->config;
 		$files = $this->wire()->files;
