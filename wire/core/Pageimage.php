@@ -77,6 +77,7 @@
  * @method array rebuildVariations($mode = 0, array $suffix = array(), array $options = array())
  * @method install($filename)
  * @method render($markup = '', $options = array())
+ * @method void createdVariation(Pageimage $image, array $data) Called after new image variation created (3.0.180+)
  *
  */
 
@@ -745,6 +746,7 @@ class Pageimage extends Pagefile {
 		$debug = $config->debug;
 		$configOptions = $config->imageSizerOptions; 
 		$webpOptions = $config->webpOptions;
+		$createdVariationHookData = null; // populated as array only when new variation created (for createdVariation hook)
 		if(!empty($webpOptions['quality'])) $defaultOptions['webpQuality'] = $webpOptions['quality'];
 		
 		if(!is_array($configOptions)) $configOptions = array();
@@ -908,13 +910,25 @@ class Pageimage extends Pagefile {
 					} else {
 						$this->error = "ImageSizer::resize($width, $height) failed for $filenameUnvalidated";
 					}
-
+					
 					if($debug && empty($options['webpOnly'])) $this->wire('log')->save('image-sizer',
 						str_replace('ImageSizerEngine', '', $sizer->getEngine()) . ' ' . 
 						($this->error ? "FAILED Resize: " : "Resized: ") . "$originalName => " . basename($filenameFinal) . " " . 
 						"({$width}x{$height}) " . Debug::timer($timer) . " secs $originalSize => " . filesize($filenameFinal) . " bytes " . 
 						"(quality=$options[quality], sharpening=$options[sharpening]) "
 					);
+					
+					if(!$this->error) {
+						$createdVariationHookData = array(
+							'width' => $width,
+							'height' => $height,
+							'options' => $options,
+							'filenameUnvalidated' => $filenameUnvalidated,
+							'filenameFinal' => $filenameFinal,
+							'filenameUnvalidatedWebp' => $filenameUnvalidatedWebp,
+							'filenameFinalWebp' => $filenameFinalWebp,
+						);
+					}
 					
 				} catch(\Exception $e) {
 					$this->trackException($e, false); 
@@ -944,6 +958,8 @@ class Pageimage extends Pagefile {
 
 		$pageimage->setFilename($filenameFinal); 	
 		$pageimage->setOriginal($this); 
+		
+		if($createdVariationHookData) $this->createdVariation($pageimage, $createdVariationHookData); 
 
 		return $pageimage; 
 	}
@@ -1425,6 +1441,16 @@ class Pageimage extends Pagefile {
 	public function removeVariations(array $options = array()) {
 		return $this->variations()->remove($options);
 	}
+
+	/**
+	 * Hook called after successful creation of image variation
+	 * 
+	 * @param Pageimage $image The variation image that was created
+	 * @param array $data Verbose associative array of data used to create the variation 
+	 * @since 3.0.180
+	 * 
+	 */
+	protected function ___createdVariation(Pageimage $image, array $data) { }
 
 	/**
 	 * Identify this Pageimage as a variation, by setting the Pageimage it was resized from.
