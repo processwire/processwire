@@ -112,6 +112,10 @@ class InputfieldFloat extends InputfieldInteger {
 					$attributes['value'] = $this->localeConvertValue($value);
 				}
 			}
+			$precision = (int) $this->precision;
+			if($precision > 0 && (empty($attributes['step']) || $attributes['step'] === 'any')) {
+				$attributes['step'] = '.' . ($precision > 1 ? str_repeat('0', $precision - 1) : '') . '1';
+			}
 		}
 		return parent::getAttributesString($attributes);
 	}
