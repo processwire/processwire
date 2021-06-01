@@ -732,9 +732,14 @@ class PagesRawFinder extends Wire {
 		$idsCSV = &$this->ids;
 		$colSQL = $getAllCols ? '*' : '`' . implode('`,`', $getCols) . '`';
 		if(!$getAllCols && !in_array('pages_id', $getCols)) $colSQL .= ',`pages_id`';
+		
+		$orderby = array();
+		if(!count($this->nativeFields)) $orderby[] = "FIELD(pages_id, $idsCSV)";
+		if(count($sorts)) $orderby[] = implode(',', $sorts);
+		
 		$sql = "SELECT $colSQL FROM `$table` WHERE pages_id IN($idsCSV) ";
-		if(count($sorts)) $sql .= "ORDER BY " . implode(',', $sorts);
-
+		if(count($orderby)) $sql .= "ORDER BY " . implode(',', $orderby);
+		
 		$query = $database->prepare($sql);
 		$query->execute();
 
