@@ -454,7 +454,8 @@ abstract class FieldtypeMulti extends Fieldtype {
 
 		$database = $this->wire('database');
 		$table = $database->escapeTable($field->table);
-		$schema = $this->trimDatabaseSchema($this->getDatabaseSchema($field));
+		$schemaAll = $this->getDatabaseSchema($field);
+		$schema = $this->trimDatabaseSchema($schemaAll);
 		$fieldName = $database->escapeCol($field->name);
 		$sanitizer = $this->wire('sanitizer');
 		$orderByCols = array();
@@ -521,7 +522,7 @@ abstract class FieldtypeMulti extends Fieldtype {
 		if(empty($orderByCols)) {
 			// if there are no orderByCols defined, pagination & sorting not supported
 			// default sort for FieldtypeMulti fields is by column 'sort'
-			$query->orderby("$table.sort");
+			if(isset($schemaAll['sort'])) $query->orderby("$table.sort");
 
 		} else {
 			// one or more orderByCols is defined, enabling sorting and potential pagination
