@@ -930,7 +930,7 @@ class WireHttp extends Wire {
 			$setopts = $options['curl_setopt'];
 		}
 		if(is_array($setopts)) {
-			curl_setopt_array($curl, $options['curl']);
+			curl_setopt_array($curl, $setopts);
 		}
 		
 		$result = curl_exec($curl);
