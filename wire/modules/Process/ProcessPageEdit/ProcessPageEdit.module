@@ -2242,9 +2242,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				if($languages && $inputfield->getSetting('useLanguages')) {
 					$v = $this->page->get($name); 
 					if(is_object($v)) {
+						$v = clone $v;
 						$v->setFromInputfield($inputfield); 
 						$this->page->set($name, $v); 
-						$this->page->trackChange($name); 
 					} else {
 						$this->page->set($name, $inputfield->value); 
 					}
@@ -2537,9 +2537,9 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			if($languages && $inputfield->getSetting('useLanguages')) {
 				$v = $page->get($name);
 				if(is_object($v)) {
+					$v = clone $v;
 					$v->setFromInputfield($inputfield);
 					$page->set($name, $v);
-					$page->trackChange($name);
 				} else {
 					$page->set($name, $inputfield->value);
 				}
