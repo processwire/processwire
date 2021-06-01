@@ -123,6 +123,7 @@ function initInputfieldPageDependentSelects($inputfieldPage) {
 
 		var labelFieldName = $t.attr('data-label');
 		var formatName = $t.attr('data-formatname');
+		var $repeater = $t.closest('.InputfieldRepeaterItem');
 
 		if(!labelFieldName.length) $labelFieldName = 'name';
 
@@ -137,7 +138,7 @@ function initInputfieldPageDependentSelects($inputfieldPage) {
 
 			var part = parts[n]; // page matching part of the selector
 			var name = part.replace('=page.', '');
-			var $select1 = $('#Inputfield_' + name);
+			var $select1 = $repeater.length === 0 ? $('#Inputfield_' + name) : $('#Inputfield_' + name + '_repeater' + $repeater.data('page'));
 
 			if($select1.length < 1) continue;
 
