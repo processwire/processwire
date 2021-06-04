@@ -3,7 +3,7 @@
 /**
  * An Inputfield for handling "submit" buttons
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * License: MPL 2.0
  * 
@@ -12,6 +12,7 @@
  * @property bool $small Whether or not button should be small, where supported (default=false). 
  * @property string $dropdownInputName Name of input to receive selected dropdown value (default='_action_value') #pw-internal
  * @property bool $dropdownSubmit Selected dropdown value becomes submit value? (default=true) #pw-internal 
+ * @property bool $dropdownRequired Require dropdown selection, when true, click submit without selection opens dropdown @since 3.0.180 #pw-internal
  * @property string $html Button inner HTML label (default='') @since 3.0.134
  * @property string $text Button inner TEXT label, if $html not provided. (default='') @since 3.0.134
  * @property string $value Button value attribute and inner TEXT label, if $text it provided (default='Submit')
@@ -25,9 +26,9 @@ class InputfieldSubmit extends Inputfield {
 		return array(
 			'title' => 'Submit', // Module Title
 			'summary' => __('Form submit button', __FILE__), // Module Summary
-			'version' => 102,
+			'version' => 103,
 			'permanent' => true, 
-			);
+		);
 	}
 
 	/**
@@ -69,6 +70,9 @@ class InputfieldSubmit extends Inputfield {
 		// Selected dropdown value becomes submit value? If set to false, then only the 
 		// dropdownInputName above will contain the selected value
 		$this->set('dropdownSubmit', true);
+		
+		// dropdown selection required? (when true, clicking submit without dropdown selection opens dropdown)
+		$this->set('dropdownRequired', false);
 	}
 	
 	public function set($key, $value) {
@@ -168,8 +172,9 @@ class InputfieldSubmit extends Inputfield {
 	 * 
 	 */
 	public function ___render() {
+		$sanitizer = $this->wire()->sanitizer;
 		$attrs  = $this->getAttributesString();
-		$icon = $this->icon ? $this->wire('sanitizer')->name($this->icon) : '';
+		$icon = $this->icon ? $sanitizer->name($this->icon) : '';
 		$icon = $icon ? wireIconMarkup($icon) . ' ' : '';
 		$buttonText = $this->getSetting('html'); // option for non-encoded button text
 		if(empty($buttonText)) {
@@ -178,7 +183,7 @@ class InputfieldSubmit extends Inputfield {
 			$buttonText = $this->entityEncode($buttonText);
 		}
 		$buttonText = $icon . $buttonText;
-		$textClass = $this->wire('sanitizer')->entities($this->getSetting('textClass'));
+		$textClass = $sanitizer->entities($this->getSetting('textClass'));
 		if(!empty($textClass)) $buttonText = "<span class='$textClass'>$buttonText</span>";
 		$out = "<button $attrs>$buttonText</button>";
 		if($this->getSetting('small')) $out = "<small>$out</small>";
@@ -196,7 +201,7 @@ class InputfieldSubmit extends Inputfield {
 
 		if($this->wire('input')->get('modal')) return '';
 		
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$file = $config->debug ? 'dropdown.js' : 'dropdown.min.js';
 		$config->scripts->add($config->urls->InputfieldSubmit . $file);
 		$numValues = 0;
@@ -238,8 +243,9 @@ class InputfieldSubmit extends Inputfield {
 			$out = "<input $attr />" . str_replace("<ul ", "<ul data-pw-dropdown-input='#$inputID' ", $out);
 		}
 	
+		$required = $this->dropdownRequired ? 'true' : 'false';
 		// script to initialize this dropdown immediately
-		$out .= "<script" . ">InputfieldSubmitDropdown.init('#{$this->id}')</script>";
+		$out .= "<script" . ">InputfieldSubmitDropdown.init('#{$this->id}', null, $required);</script>";
 		
 		return $out; 
 	}
