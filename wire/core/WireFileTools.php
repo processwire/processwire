@@ -444,6 +444,111 @@ class WireFileTools extends Wire {
 		$options['copy'] = true;
 		return $this->rename($oldName, $newName, $options);
 	}
+
+	/**
+	 * Does the given file/link/dir exist?
+	 * 
+	 * Thie method accepts an `$options` argument that can be specified as an array
+	 * or a string (space or comma separated). The examples here demonstrate usage as 
+	 * a string since it is the simplest for readability.
+	 *
+	 * - This function may return false for symlinks pointing to non-existing 
+	 *   files, unless you specify `link` as the `type`.
+	 * - Specifying `false` for the `readable` or `writable` argument disables the 
+	 *   option from being used, it doesn’t perform a NOT condition.
+	 * - The `writable` option may also be written as `writeable`, if preferred.
+	 * 
+	 * ~~~~~
+	 * // 1. check if exists
+	 * $exists = $files->exists('/path/file.ext');
+	 * 
+	 * // 2. check if exists and is readable (or writable)
+	 * $exists = $files->exists('/path/file.ext', 'readable');
+	 * $exists = $files->exists('/path/file.ext', 'writable');
+	 * 
+	 * // 3. check if exists and is file, link or dir
+	 * $exists = $files->exists('/path/file.ext', 'file');
+	 * $exists = $files->exists('/path/file.ext', 'link');
+	 * $exists = $files->exists('/path/file.ext', 'dir');
+	 * 
+	 * // 4. check if exists and is writable file or dir
+	 * $exists = $files->exists('/path/file.ext', 'writable file');
+	 * $exists = $files->exists('/path/dir/', 'writable dir');
+	 * 
+	 * // 5. check if exists and is readable and writable file
+	 * $exists = $files->exists('/path/file.ext', 'readable writable file');
+	 * ~~~~~
+	 * 
+	 * @param string $filename
+	 * @param array|string $options Can be specified as array or string:
+	 *  - `type` (string): Verify it is of type: 'file', 'link', 'dir' (default='')
+	 *  - `readable` (bool): Verify it is readable? (default=false)
+	 *  - `writable` (bool): Also verify the file is writable? (default=false)
+	 *  - `writeable` (bool): Alias of writable (default=false)
+	 *  - When specified as string, you can use any combination of the words: 
+	 *    `readable, writable, file, link, dir` (separated by space or comma). 
+	 * @return bool
+	 * @throws WireException if given invalid or unrecognized $options
+	 * @since 3.0.180
+	 * 
+	 * 
+	 */
+	public function exists($filename, $options = '') {
+		
+		$defaults = array(
+			'type' => '',
+			'readable' => false,
+			'writable' => false,
+			'writeable' => false, // alias of writable
+		);
+	
+		if($options === '') {
+			$options = $defaults;
+			
+		} else if(is_array($options)) {
+			$options = array_merge($defaults, $options);
+			if(!empty($options['type'])) $options['type'] = strtolower(trim($options['type']));
+			
+		} else if(is_string($options)) {
+			$types = array('file', 'link', 'dir');
+			if(strpos($options, ',') !== false) $options = str_replace(',', ' ', $options);
+			foreach(explode(' ', $options) as $option) {
+				$option = strtolower(trim($option));
+				if(empty($option)) continue;
+				if(isset($defaults[$option])) {
+					// readable, writable
+					$defaults[$option] = true;
+				} else if(in_array($option, $types, true)) {
+					// file, dir, link
+					if(empty($defaults['type'])) $defaults['type'] = $option;
+				} else {
+					throw new WireException("Unrecognized option: $option");
+				}
+			}
+			$options = $defaults;
+			
+		} else {
+			throw new WireException('Invalid $options argument');
+		}
+	
+		if($options['readable'] && !is_readable($filename)) {
+			$exists = false;
+		} else if(($options['writable'] || $options['writeable']) && !is_writable($filename)) {
+			$exists = false;
+		} else if($options['type'] === '') {
+			$exists = $options['readable'] ? true : file_exists($filename);
+		} else if($options['type'] === 'file') {
+			$exists = is_file($filename);
+		} else if($options['type'] === 'link') {
+			$exists = is_link($filename);
+		} else if($options['type'] === 'dir') {
+			$exists = is_dir($filename);
+		} else {
+			throw new WireException("Unrecognized 'type' option: $options[type]"); 
+		}
+		
+		return $exists;
+	}
 	
 	/**
 	 * Allow path or filename to to be used for file manipulation actions?
@@ -588,10 +693,15 @@ class WireFileTools extends Wire {
 	 * 
 	 * @param string $path Path to start from (required). 
 	 * @param array $options Options to affect what is returned (optional):
-	 *  - `recursive` (int): How many levels of subdirectories this method should descend into (default=10). 
-	 *  - `extensions` (array): Only include files having these extensions, or omit to include all (default=[]).
+	 *  - `recursive` (int|bool): How many levels of subdirectories this method should descend into beyond the 1 given.
+	 *     Specify 1 to remain at the one directory level given, or 2+ to descend into subdirectories. (default=10)
+	 *     In 3.0.180+ you may also specify true for no limit, or false to disable descending into any subdirectories.
+	 *  - `extensions` (array|string): Only include files having these extensions, or omit to include all (default=[]).
+	 *     In 3.0.180+ the extensions argument may also be a string (space or comma separated). 
 	 *  - `excludeDirNames` (array): Do not descend into directories having these names (default=[]).
 	 *  - `excludeHidden` (bool): Exclude hidden files? (default=false). 
+	 *  - `allowDirs` (bool): Allow directories in returned files (except for '.' and '..')? Note that returned 
+	 *     directories have a trailing slash. (default=false) 3.0.180+
 	 *  - `returnRelative` (bool): Make returned array have filenames relative to given start $path? (default=false)
 	 * @return array Flat array of filenames
 	 * @since 3.0.96
@@ -605,6 +715,7 @@ class WireFileTools extends Wire {
 			'excludeExtensions' => array(), 
 			'excludeDirNames' => array(),
 			'excludeHidden' => false,
+			'allowDirs' => false, 
 			'returnRelative' => false,
 		);
 
@@ -612,48 +723,82 @@ class WireFileTools extends Wire {
 		if(!is_dir($path) || !is_readable($path)) return array();
 
 		$options = array_merge($defaults, $options);
+		
 		if(empty($options['_level'])) {
 			// this is a non-recursive call
 			$options['_startPath'] = $path;
 			$options['_level'] = 0;
-			foreach($options['extensions'] as $k => $v) $options['extensions'][$k] = strtolower($v);
+			if(!is_array($options['extensions'])) {
+				if($options['extensions']) {
+					$options['extensions'] = preg_replace('/[,;\.\s]+/', ' ', $options['extensions']);
+					$options['extensions'] = explode(' ', $options['extensions']); 
+				} else {
+					$options['extensions'] = array();
+				}
+			}
+			foreach($options['extensions'] as $k => $v) {
+				$options['extensions'][$k] = strtolower(trim($v));
+			}
 		}
+		
 		$options['_level']++;
-		if($options['recursive'] && $options['_level'] > $options['recursive']) return array();
-
+		if($options['recursive'] && $options['recursive'] !== true) {
+			if($options['_level'] > $options['recursive']) return array();
+		}
+			
 		$dirs = array();
 		$files = array();
 
 		foreach(new \DirectoryIterator($path) as $file) {
+			
 			if($file->isDot()) continue;
+			
 			$basename = $file->getBasename();
-			if($options['excludeHidden'] && strpos($basename, '.') === 0) continue;
+			$ext = strtolower($file->getExtension());
+			
 			if($file->isDir()) {
-				if(!in_array($basename, $options['excludeDirNames'])) $dirs[] = $file->getPathname();
+				$dir = $this->unixDirName($file->getPathname());
+				if($options['allowDirs']) {
+					if($options['returnRelative'] && strpos($dir, $options['_startPath']) === 0) {
+						$dir = substr($dir, strlen($options['_startPath']));
+					}
+					$files[$dir] = $dir;
+				}
+				if($options['recursive'] === false || $options['recursive'] < 1) continue;
+				if(!in_array($basename, $options['excludeDirNames'])) $dirs[$dir] = $file->getPathname();
 				continue;
 			}
-			$ext = strtolower($file->getExtension());
+			
+			if($options['excludeHidden'] && strpos($basename, '.') === 0) continue;
 			if(!empty($options['extensions']) && !in_array($ext, $options['extensions'])) continue;
 			if(!empty($options['excludeExtensions']) && in_array($ext, $options['excludeExtensions'])) continue;
+
 			$filename = $this->unixFileName($file->getPathname());
-			// make relative to provided path
-			if($options['returnRelative']) {
-				$filename = str_replace($options['_startPath'], '', $filename);
+			if($options['returnRelative'] && strpos($filename, $options['_startPath']) === 0) {
+				$filename = substr($filename, strlen($options['_startPath']));
 			}
 				
 			$files[] = $filename;
 		}
 
-		sort($files);
-
-		foreach($dirs as $dir) {
+		foreach($dirs as $key => $dir) {
 			$_files = $this->find($dir, $options);
-			foreach($_files as $name) {
-				$files[] = $name;
+			if(count($_files)) {
+				foreach($_files as $name) {
+					$files[] = $name;
+				}
+			} else {
+				// no files found in directory
+				if($options['allowDirs'] && count($options['extensions']) && isset($files[$key])) {
+					// remove directory if it didn't match any files having requested extension
+					unset($files[$key]);
+				}
 			}
 		}
 
 		$options['_level']--;
+		
+		if(!$options['_level']) sort($files);
 
 		return $files;
 	}
