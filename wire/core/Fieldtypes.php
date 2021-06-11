@@ -4,6 +4,7 @@
  * ProcessWire Fieldtypes
  *
  * #pw-summary Maintains a collection of Fieldtype modules.
+ * #pw-var $fieldtypes
  * 
  * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
  * https://processwire.com

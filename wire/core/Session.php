@@ -1477,18 +1477,25 @@ class Session extends Wire implements \IteratorAggregate {
 		
 		// prevent multiple calls, just in case
 		$this->skipMaintenance = true; 
-		
-		$historyCnt = (int) $this->config->sessionHistory;
+	
+		$config = $this->wire()->config;
+		$historyCnt = (int) ($config ? $config->sessionHistory : 0);
 		
 		if($historyCnt) {
+		
+			$sanitizer = $this->wire()->sanitizer;
+			$input = $this->wire()->input;
+			$page = $this->wire()->page;
+			
+			if(!$sanitizer || !$input || !$page) return;
 			
 			$history = $this->get('_user', 'history');
 			if(!is_array($history)) $history = array();
 
 			$item = array(
 				'time' => time(),
-				'url'  => $this->wire('sanitizer')->entities($this->wire('input')->httpUrl()),
-				'page' => $this->wire('page')->id,
+				'url'  => $sanitizer->entities($input->httpUrl()),
+				'page' => $page->id,
 			);
 
 			$cnt = count($history); 

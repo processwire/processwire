@@ -364,7 +364,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				$selector .= ", $s->value";
 			}
 			$template = $this->getSelectorTemplates($selector); 
-			if(count($template)) $this->set('template', reset($template));
+			if(count($template) === 1) $this->set('template', reset($template));
 		}
 
 		if($input->post('reset_total')) {
