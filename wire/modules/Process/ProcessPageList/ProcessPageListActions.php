@@ -100,7 +100,7 @@ class ProcessPageListActions extends Wire {
 				'url' => "{$adminUrl}page/add/?parent_id={$page->id}"
 			);
 
-			$sortable = $page->sortfield == 'sort' && $page->parent->id && $page->parent->numChildren > 1 && $page->sortable();
+			$sortable = $page->parent->sortfield() == 'sort' && $page->parent->id && $page->parent->numChildren > 1 && $page->sortable();
 
 			if($page->id > 1 && ($sortable || $page->moveable())) $actions['move'] = array(
 				'cn' => 'Move',
