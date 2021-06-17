@@ -702,7 +702,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 				if(is_object($value) && $value instanceof Page) {
 					// ok
 					$this->setParent($value);
-				} else if($value && !$this->_parent && 
+				} else if($value && !$this->_parent && (!$this->_parent_id || !$this->isLoaded) && 	
 					($key == 'parent_id' || is_int($value) || (is_string($value) && ctype_digit("$value")))) {
 					// store only parent ID so that parent is lazy loaded,
 					// but only if parent hasn't already been previously loaded
