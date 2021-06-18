@@ -1,12 +1,11 @@
 <?php namespace ProcessWire;
 
 /**
- * ProcessWire Self Profile
+ * ProcessWire User Profile Editor
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
- * 
  * @property array $profileFields Names of fields user is allowed to edit in their profile
  * @method bool|string isDisallowedUserName($value)
  *
@@ -18,10 +17,10 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		return array(
 			'title' => __('User Profile', __FILE__), // getModuleInfo title          
 			'summary' => __('Enables user to change their password, email address and other settings that you define.', __FILE__), // getModuleInfo summary 
-			'version' => 104, 
+			'version' => 105, 
 			'permanent' => true, 
 			'permission' => 'profile-edit',
-			);
+		);
 	}
 	
 	/**
@@ -67,19 +66,19 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		
 		$fieldName = '';
 		if(isset($_SERVER['HTTP_X_FIELDNAME'])) {
-			$fieldName = $this->sanitizer->fieldName($_SERVER['HTTP_X_FIELDNAME']);
+			$fieldName = $this->wire()->sanitizer->fieldName($_SERVER['HTTP_X_FIELDNAME']);
 		}
 
-		$this->user = $this->wire('user'); 
+		$this->user = $this->wire()->user; 
 		$this->headline($this->_("Profile:") . ' ' . $this->user->name); // Primary Headline (precedes the username)
 		$form = $this->buildForm($fieldName);
 		
-		if($this->input->post('submit_save_profile') || $fieldName) {
+		if($this->wire()->input->post('submit_save_profile') || $fieldName) {
 			$this->processInput($form, $fieldName); 
 			if($fieldName) {
 				// no need to redirect
 			} else {
-				$this->session->redirect("./");
+				$this->wire()->session->redirect("./");
 			}
 				
 		} else { 
@@ -99,10 +98,10 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	
 		/** @var User $user */
 		$user = $this->user;
+		$modules = $this->wire()->modules;
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get('InputfieldForm');
-
+		$form = $modules->get('InputfieldForm');
 		$form->attr('id', 'ProcessProfile'); 
 		$form->attr('action', './'); 
 		$form->attr('method', 'post'); 
@@ -118,14 +117,17 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		$passRequired = false;
 		// Inputfields where password is required to change
 		$passRequiredInputfields = array();
-		$this->wire('config')->js('ProcessProfile', array(
+		$this->wire()->config->js('ProcessProfile', array(
 			'passRequiredAlert' => $this->_('For security, please enter your current password to save these changes:')
 		));
-		$this->wire('modules')->get('JqueryUI')->use('vex');
+		
+		/** @var JqueryUI $jQueryUI */
+		$jQueryUI = $modules->get('JqueryUI');
+		$jQueryUI->use('vex');
 		
 		if(in_array('name', $this->profileFields) && empty($fieldName)) {
 			/** @var InputfieldText $f */
-			$f = $this->wire('modules')->get('InputfieldText');
+			$f = $modules->get('InputfieldText');
 			$f->attr('id+name', '_user_name');
 			$f->label = $this->userNameLabel;
 			$f->description = $this->_('User name may contain lowercase a-z, 0-9, hyphen or underscore.'); 
@@ -185,7 +187,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	
 		/** @var InputfieldHidden $f */
 		// note used for processing, present only for front-end JS compatibility with ProcessPageEdit
-		$f = $this->modules->get('InputfieldHidden');
+		$f = $modules->get('InputfieldHidden');
 		$f->attr('id', 'Inputfield_id');
 		$f->attr('name', 'id'); 
 		$f->attr('value', $user->id);
@@ -193,7 +195,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		$fieldset->add($f);
 
 		/** @var InputfieldSubmit $field */
-		$field = $this->modules->get('InputfieldSubmit');
+		$field = $modules->get('InputfieldSubmit');
 		$field->attr('id+name', 'submit_save_profile'); 
 		$field->showInHeader();
 		$form->add($field); 
@@ -202,7 +204,6 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			foreach($passRequiredInputfields as $f) {
 				$f->addClass('InputfieldPassRequired', 'wrapClass');
 				$this->passRequiredNames[$f->name] = $f->name;
-				// $f->notes = ($f->notes ? "$f->notes\n" : "") . $passRequiredNote;
 			}
 		}
 	
@@ -222,15 +223,16 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		/** @var InputfieldForm $form */
 
 		$user = $this->user; 
-		$languages = $this->wire('languages');
-		$form->processInput($this->input->post);
+		$input = $this->wire()->input;
+		$languages = $this->wire()->languages;
+		$form->processInput($input->post);
 
 		if(count($form->getErrors())) {
 			$this->error($this->_("Profile not saved")); 
 			return;
 		}
 		
-		$passValue = $this->input->post->string('_old_pass');
+		$passValue = $input->post->string('_old_pass');
 		
 		if(strlen($passValue)) {
 			$passAuthenticated = $user->pass->matches($passValue);
@@ -259,7 +261,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			if($field->name == 'roles' || !in_array($field->name, $this->profileFields)) continue;
 			if($fieldName && $field->name !== $fieldName) continue; 
 			
-			$field = $this->user->fields->getFieldContext($field);
+			$field = $user->fields->getFieldContext($field);
 			$inputfield = $form->getChildByName($field->name); 	
 			$value = $inputfield->attr('value');
 			
@@ -273,27 +275,36 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 				}
 			}
 			
-			$v = $user->get($field->name);
-			if($field->type instanceof FieldtypeModule) $v = "$v";
+			$userValue = $user->get($field->name);
+			if($field->type instanceof FieldtypeModule) $userValue = "$userValue";
+			$changed = false;
 			
-			if($inputfield->isChanged() || $v !== $value) {
+			if($inputfield->isChanged()) {
+				$changed = true;
+			} else if(is_array($value) && $userValue instanceof WireData) { // i.e. Combo
+				$userValueArray = $userValue->getArray();
+				$changed = $userValueArray != $value;
+			} else if($userValue !== $value) {
+				$changed = true;
+			}
+			
+			if(!$changed) continue;
 				
-				if(isset($this->passRequiredNames[$inputfield->name]) && !$passAuthenticated) {
-					$inputfield->error($passFailedMessage);
-					continue;	
-				}
+			if(isset($this->passRequiredNames[$inputfield->name]) && !$passAuthenticated) {
+				$inputfield->error($passFailedMessage);
+				continue;	
+			}
 
-				if($languages && $inputfield->getSetting('useLanguages')) {
-					if(is_object($v)) {
-						$v->setFromInputfield($inputfield);
-						$user->set($field->name, $v);
-						$user->trackChange($field->name);
-					} else {
-						$user->set($field->name, $value);
-					}
+			if($languages && $inputfield->getSetting('useLanguages')) {
+				if(is_object($userValue)) {
+					$userValue->setFromInputfield($inputfield);
+					$user->set($field->name, $userValue);
+					$user->trackChange($field->name);
 				} else {
 					$user->set($field->name, $value);
 				}
+			} else {
+				$user->set($field->name, $value);
 			}
 		}
 
@@ -301,18 +312,24 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			$changes = implode(', ', array_unique($user->getChanges())); 
 			$message = $this->_('Profile saved') . ' - ' . $changes; 
 			$this->message($message);
-			$this->wire('log')->message($message); 
-			$this->wire('users')->save($user);
+			$this->wire()->log->message($message); 
+			$this->wire()->users->save($user);
 		}
 
 		$user->of(true); 
 	}
-	
+
+	/**
+	 * Process username inputfield
+	 * 
+	 * @param Inputfield $f The _user_name Inputfield
+	 * @return bool Returns true if username changed allowed, false if not
+	 * 
+	 */
 	protected function processInputUsername(Inputfield $f) {
 		
 		$user = $this->user;
-		
-		$userName = $this->wire('sanitizer')->pageName($f->val());
+		$userName = $this->wire()->sanitizer->pageName($f->val());
 		
 		if(empty($userName)) return false;
 		if($f->val() === $user->name) return false; // no change
@@ -328,8 +345,8 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		
 		$user->name = $userName;
 	
-		if($this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
-			foreach($this->wire('languages') as $language) {
+		if($this->wire()->modules->isInstalled('LanguageSupportPageNames')) {
+			foreach($this->wire()->languages as $language) {
 				if(!$language->isDefault()) $user->set("name$language->id", $userName);
 			}
 		}
@@ -355,10 +372,9 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 			'nobody',
 		);
 
-		/** @var Languages $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 		$notAllowedLabel = $this->_('Not allowed');
-		$userName = $this->wire('sanitizer')->pageName($value);
+		$userName = $this->wire()->sanitizer->pageName($value);
 		
 		if($userName !== $value) {
 			return sprintf($this->_('Sanitized to “%s”, which differs from what you entered'), $userName);
@@ -376,13 +392,13 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 
 		// check if user name is already in use
 		if($languages) $languages->setDefault();
-		$u = $this->wire('users')->get("name='$userName', include=all");
+		$u = $this->wire()->users->get("name='$userName', include=all");
 		if($languages) $languages->unsetDefault();
 		if($u->id) {
 			return $this->_('Already in use');
 		}
 
-		$role = $this->wire('roles')->get("name='$userName', include=all");
+		$role = $this->wire()->roles->get("name='$userName', include=all");
 		if($role->id) {
 			return "$notAllowedLabel (#2)";
 		}
@@ -411,7 +427,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		$profileFields = isset($data['profileFields']) ? $data['profileFields'] : array();
 		$fieldOptions = array();
 		
-		foreach($this->wire('users')->getTemplates() as $template) {
+		foreach($this->wire()->users->getTemplates() as $template) {
 			foreach($template->fieldgroup as $field) {
 				$fieldOptions[$field->name] = $field;
 			}
@@ -420,7 +436,9 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		ksort($fieldOptions);
 
 		$inputfields = $this->wire(new InputfieldWrapper());
-		$f = $this->wire('modules')->get('InputfieldCheckboxes');
+		
+		/** @var InputfieldCheckboxes $f */
+		$f = $this->wire()->modules->get('InputfieldCheckboxes');
 		$f->label = $this->_("What fields can a user edit in their own profile?");
 		$f->attr('id+name', 'profileFields');
 		$f->icon = 'user-circle';
@@ -450,7 +468,7 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 	 * 
 	 */
 	public function getPage() {
-		return $this->wire('user');
+		return $this->wire()->user;
 	}
 
 

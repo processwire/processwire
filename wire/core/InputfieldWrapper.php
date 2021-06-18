@@ -3,7 +3,7 @@
 /**
  * ProcessWire InputfieldWrapper
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  * About InputfieldWrapper
@@ -25,6 +25,48 @@
  * 
  * @method string renderInputfield(Inputfield $inputfield, $renderValueMode = false) #pw-group-output
  * @method Inputfield new($typeName, $name = '', $label = '', array $settings = array()) #pw-group-manipulation
+ * 
+ * @property InputfieldAsmSelect $InputfieldAsmSelect
+ * @property InputfieldButton $InputfieldButton
+ * @property InputfieldCheckbox $InputfieldCheckbox
+ * @property InputfieldCheckboxes $InputfieldCheckboxes
+ * @property InputfieldCKEditor $InputfieldCkeditor
+ * @property InputfieldCommentsAdmin $InputfieldCommentsAdmin
+ * @property InputfieldDatetime $InputfieldDatetime
+ * @property InputfieldEmail $InputfieldEmail
+ * @property InputfieldFieldset $InputfieldFieldset
+ * @property InputfieldFieldsetClose $InputfieldlFieldsetClose
+ * @property InputfieldFieldsetOpen $InputfieldFieldsetOpen
+ * @property InputfieldFieldsetTabOpen $InputfieldFieldsetTabOpen
+ * @property InputfieldFile $InputfieldFile
+ * @property InputfieldFloat $InputfieldFloat
+ * @property InputfieldForm $InputfieldForm
+ * @property InputfieldHidden $InputfieldHidden
+ * @property InputfieldIcon $InputfieldIcon
+ * @property InputfieldImage $InputfieldImage
+ * @property InputfieldInteger $InputfieldInteger
+ * @property InputfieldMarkup $InputfieldMarkup
+ * @property InputfieldName $InputfieldName
+ * @property InputfieldPage $InputfieldPage
+ * @property InputfieldPageAutocomplete $InputfieldPageAutocomplete
+ * @property InputfieldPageListSelect $InputfieldPageListSelect
+ * @property InputfieldPageListSelectMultiple $InputfieldPageListSelectMultiple
+ * @property InputfieldPageName $InputfieldPageName
+ * @property InputfieldPageTable $InputfieldPageTable
+ * @property InputfieldPageTitle $InputfieldPageTitle
+ * @property InputfieldPassword $InputfieldPassword
+ * @property InputfieldRadios $InputfieldRadios
+ * @property InputfieldRepeater $InputfieldRepeater
+ * @property InputfieldSelect $InputfieldSelect
+ * @property InputfieldSelectMultiple $InputfieldSelectMultiple
+ * @property InputfieldSelector $InputfieldSelector
+ * @property InputfieldSubmit $InputfieldSubmit
+ * @property InputfieldText $InputfieldText
+ * @property InputfieldTextarea $InputfieldTextarea
+ * @property InputfieldTextTags $InputfieldTextTags
+ * @property InputfieldToggle $InputfieldToggle
+ * @property InputfieldURL $InputfieldURL
+ * @property InputfieldWrapper $InputfieldWrapper
  *
  */
 
@@ -197,6 +239,13 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 */
 	public function __get($key) {
 		if($key === 'children') return $this->children();
+		if(strpos($key, 'Inputfield') === 0 && strlen($key) > 10) {
+			if($key === 'InputfieldWrapper') return $this->wire(new InputfieldWrapper()); 
+			$value = $this->wire()->modules->get($key);
+			if($value && $value instanceof Inputfield) return $value;
+			if(wireClassExists($key)) return $this->wire(new $key()); 
+			$value = null;
+		}
 		$value = parent::get($key); 
 		if(is_null($value)) $value = $this->getChildByName($key);
 		return $value; 
@@ -1408,11 +1457,14 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 
 		$inputfields = parent::___getConfigInputfields();
 
-		// remove all options for 'collapsed' except collapsedYes and collapsedNo
-		foreach($inputfields as $f) {
-			if($f->attr('name') != 'collapsed') continue; 
+		/** @var InputfieldSelect $f */
+		$f = $inputfields->getChildByName('collapsed');
+		if($f) {
+			// remove all options for 'collapsed' except collapsedYes and collapsedNo
 			foreach($f->getOptions() as $value => $label) {
-				if(!in_array($value, array(Inputfield::collapsedNo, Inputfield::collapsedYes))) $f->removeOption($value); 
+				if(!in_array($value, array(Inputfield::collapsedNo, Inputfield::collapsedYes))) {
+					$f->removeOption($value);
+				}
 			}
 		}
 
