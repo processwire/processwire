@@ -80,7 +80,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 179;
+	const versionRevision = 180;
 
 	/**
 	 * Version suffix string (when applicable)
@@ -578,7 +578,6 @@ class ProcessWire extends Wire {
 		$session = $this->wire('session', new Session($this), true); 
 		$this->initVar('session', $session);
 		$this->wire('user', $users->getCurrentUser());
-		// $this->wire('inputfields', new Inputfields(), false);
 		
 		$input = $this->wire('input', new WireInput(), true); 
 		if($config->wireInputLazy) $input->setLazy(true);
