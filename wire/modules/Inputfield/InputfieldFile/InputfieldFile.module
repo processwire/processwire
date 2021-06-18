@@ -1311,8 +1311,14 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		$pagefiles = $value instanceof Pagefile ? $value->pagefiles : $value;
 		
 		if(!$pagefiles instanceof Pagefiles) {
-			// no value present on this Inputfield
-			return false;
+			if($this->hasPage && $this->hasField) {
+				$value = $this->hasPage->get($this->hasField->name);
+				$pagefiles = $value instanceof Pagefile ? $value->pagefiles : $value;
+			}
+			if(!$pagefiles instanceof Pagefiles) {
+				// no value present on this Inputfield
+				return false;
+			}
 		}
 		
 		if($this->itemFieldgroup === false) {
@@ -1328,19 +1334,18 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			$this->itemFieldgroup = $template->fieldgroup;
 		}
 
-		if($item) {
-			$page = $pagefiles->getPage();
-			if($page && method_exists($page, 'getForPage') && wireInstanceOf($page, 'RepeaterPage')) {
-				$id = '_' . $this->pagefileId($item, "repeater{$page->id}_");
-			} else {
-				$id = '_' . $this->pagefileId($item);
+		$context = '';
+		$process = $this->wire()->process; 
+		if($item && $process instanceof WirePageEditor) { 
+			$contextPage = $process->getPage();
+			if(wireInstanceOf($contextPage, 'RepeaterPage')) {
+				$context = "repeater{$contextPage->id}_";
 			}
-		} else {
-			$id = '';
 		}
 
 		/** @var Page $page */
 		$page = $pagefiles->getFieldsPage();
+		$id = $item ? ('_' . $this->pagefileId($item, $context)) : '';
 		$inputfields = $this->itemFieldgroup->getPageInputfields($page, $id, '', false); 
 		if(!$inputfields) return false;
 		

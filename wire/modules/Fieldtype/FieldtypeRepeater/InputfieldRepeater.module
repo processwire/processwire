@@ -234,13 +234,32 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 * 
 	 */
 	protected function preloadInputfieldAssets($fieldIDs = array()) {
+		
 		if(empty($fieldIDs)) $fieldIDs = $this->field->get('repeaterFields');
 		if(!is_array($fieldIDs)) return;
+		
+		$fields = $this->wire()->fields;
+		$items = $this->attr('value');
+		$item = count($items) ? $items->first() : null;
+		
 		foreach($fieldIDs as $fieldID) {
-			$field = $this->wire('fields')->get($fieldID);
+			
+			$field = $fields->get($fieldID);
+			$fieldtype = $field ? $field->type : null; /** @var Fieldtype $fieldtype */
+			
+			if(!$item && $fieldtype && $fieldtype instanceof FieldtypeFile) {
+				// repeater has no items yet and this is a file or image field
+				if($fieldtype->getFieldsTemplate($field)) {
+					// if it has custom fields, it needs a real example rather than $this->page substitute
+					// so we generate the first repeater item as a ready page. it is okay that it replaces
+					// the null $item for remaining iterations, as having a live item is always preferable
+					$item = $this->getNextReadyPage(array());
+				}
+			}
+			
 			if($field) try {
 				// the following forces assets to be loaded
-				$inputfield = $field->getInputfield($this->page);
+				$inputfield = $field->getInputfield($item ? $item : $this->page);
 				if($inputfield) $inputfield->renderReady(null, false);
 			} catch(\Exception $e) {
 				$this->warning("Repeater '$this->name' preload '$field': " . $e->getMessage(), Notice::debug);
