@@ -161,7 +161,8 @@ class ProcessPageSearchLive extends Wire {
 		if($process) {
 			$process->wire($this);
 			if($process instanceof ProcessPageSearch) $this->process = $process;
-			$a = explode(' ', $process->searchFields2);
+			$searchFields = $this->wire()->config->ajax ? $process->searchFields2 : $process->searchFields;
+			$a = explode(' ', $searchFields);
 			if(count($a)) $this->defaultPageSearchFields = $a;
 		}
 		
