@@ -985,6 +985,43 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	}
 
 	/**
+	 * Get all columns from given table
+	 * 
+	 * By default returns array of column names. If verbose option is true then it returns
+	 * an array of arrays, each having 'name', 'type', 'null', 'default', and 'extra' keys,
+	 * indicating the column name, column type, whether it can be null, what it’s default value 
+	 * is, and any extra information, such as whether it is auto_increment. The verbose option 
+	 * also makes the return value indexed by column name (associative array).
+	 * 
+	 * @param string $table
+	 * @param bool $verbose Include array of verbose information for each? (default=false)
+	 * @return array 
+	 * @since 3.0.180
+	 * 
+	 */
+	public function getColumns($table, $verbose = false) {
+		$columns[] = array();
+		$table = $this->escapeTable($table);
+		$query = $this->query("SHOW COLUMNS FROM $table");
+		while($col = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$name = $col['Field'];
+			if($verbose) {
+				$columns[$name] = array(
+					'name' => $name,
+					'type' => $col['Type'],
+					'null' => (strtoupper($col['Null']) === 'YES' ? true : false),
+					'default' => $col['Default'],
+					'extra' => $col['Extra'],
+				);
+			} else {
+				$columns[] = $name;
+			}
+		}
+		$query->closeCursor();
+		return $columns;	
+	}
+
+	/**
 	 * Does the given table exist in this database?
 	 * 
 	 * #pw-group-custom
