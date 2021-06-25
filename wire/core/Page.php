@@ -1982,7 +1982,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(!$tpl instanceof Template) throw new WireException("Invalid value sent to Page::setTemplate"); 
 		if($this->template && $this->template->id != $tpl->id && $this->isLoaded) {
 			if($this->settings['status'] & Page::statusSystem) {
-				throw new WireException("Template changes are disallowed on this page");
+				throw new WireException("Template changes are disallowed on page $this->id because it has system status");
 			}
 			if(is_null($this->templatePrevious)) $this->templatePrevious = $this->template; 
 			$this->trackChange('template', $this->template, $tpl); 
@@ -2013,7 +2013,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			$this->trackChange('parent', $this->_parent, $parent);
 			if(($this->_parent && $this->_parent->id) && $this->_parent->id != $parent->id) {
 				if($this->settings['status'] & Page::statusSystem) {
-					throw new WireException("Parent changes are disallowed on this page");
+					throw new WireException("Parent changes are disallowed on page $this->id because it has system status");
 				}
 				if(is_null($this->parentPrevious)) $this->parentPrevious = $this->_parent;
 			}
