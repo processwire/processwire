@@ -37,6 +37,7 @@
  * @method bool saveConfig($class, $data, $value = null)
  * @method InputfieldWrapper|null getModuleConfigInputfields($moduleName, InputfieldWrapper $form = null)  #pw-internal
  * @method void moduleVersionChanged(Module $module, $fromVersion, $toVersion) #pw-internal
+ * @method bool|string isUninstallable($class, $returnReason = false) hookable in 3.0.181+ #pw-internal 
  *
  */
 
@@ -1927,6 +1928,10 @@ class Modules extends WireArray {
 	public function isInstallable($class, $now = false) {
 		$installable = array_key_exists($class, $this->installable); 
 		if(!$installable) return false;
+		if(!wireInstanceOf($class, 'Module')) {
+			$nsClass = $this->getModuleClass($class, true);
+			if(!wireInstanceOf($nsClass, 'ProcessWire\\Module')) return false;
+		}
 		if($now) {
 			$requires = $this->getRequiresForInstall($class); 
 			if(count($requires)) return false;
@@ -2112,7 +2117,7 @@ class Modules extends WireArray {
 	 * @return bool|string 
 	 *
 	 */
-	public function isUninstallable($class, $returnReason = false) {
+	public function ___isUninstallable($class, $returnReason = false) {
 
 		$reason = '';
 		$reason1 = $this->_("Module is not already installed");
