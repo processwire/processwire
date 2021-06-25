@@ -3,6 +3,8 @@
 /**
  * Configuration class for the SystemNotifications module
  * 
+ * @property string $systemUserName
+ * 
  */
 
 class SystemNotificationsConfig extends ModuleConfig {

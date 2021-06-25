@@ -422,7 +422,7 @@ class PagesNames extends Wire {
 	 *
 	 * @param string|Page|array $name Name to make unique
 	 *  You may optionally substitute the $page argument or $options arguments here, if that is all you need.
-	 * @param Page||string|null|array Page to exclude from duplicate check and/or to pull $name or parent from (if not otherwise specified). 
+	 * @param Page|string|null|array Page to exclude from duplicate check and/or to pull $name or parent from (if not otherwise specified). 
 	 *  Note that specifying a Page is important if the page already exists, as it is used as the page to exclude when checking for 
 	 *  name collisions, and we want to exclude $page from that check. You may optionally substitute the $options or $name arguments
 	 *  here, if that is all you need. If $parent or $name are specified separately from this $page argument, they will override

@@ -111,10 +111,23 @@ class SystemNotifications extends WireData implements Module {
 			}
 		}
 
-		if($page->template == 'admin' && !$this->wire('input')->get('modal')) {
-			$this->addHookAfter('AdminTheme::getExtraMarkup', $this, 'hookAdminThemeGetExtraMarkup'); 
+		if($page->template == 'admin') {
+			if(!$this->wire('input')->get('modal')) {
+				$this->addHookAfter('AdminTheme::getExtraMarkup', $this, 'hookAdminThemeGetExtraMarkup');
+			}
+			if($page->process == 'ProcessModule' && !$this->disabled) {
+				$this->wire()->modules->addHookAfter('isUninstallable', function(HookEvent $event) {
+					$class = $event->arguments(0);
+					if($class !== $this->className()) return;
+					$returnReason = $event->arguments(1);
+					if($returnReason) {
+						$event->return = 'You must set “Notification status” to “Off” before uninstalling.'; 
+					} else {
+						$event->return = false;
+					}
+				}); 
+			}
 		}
-		
 	}
 	
 	/**
