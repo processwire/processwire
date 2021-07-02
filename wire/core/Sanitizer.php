@@ -293,6 +293,7 @@ class Sanitizer extends Wire {
 		'templateName' => 's',
 		'text' => 's',
 		'textarea' => 's',
+		'textdomain' => 's', 
 		'trim' => 's',
 		'truncate' => 's',
 		'unentities' => 's',
@@ -3581,6 +3582,62 @@ class Sanitizer extends Wire {
 		}
 		if(!empty($options['returnFormat'])) $value = wireDate($options['returnFormat'], $value);
 		return empty($value) ? null : $value;
+	}
+
+	/**
+	 * Sanitize as language textdomain
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $value
+	 * @return string
+	 * @since 3.0.181
+	 * 
+	 */
+	public function textdomain($value) {
+		
+		$value = $this->line($value, 1024); 
+		$value = trim(strtolower($value));
+		$slash = false;
+		$dot = false;
+		
+		if(!strlen($value)) return $value;
+		
+		if(strpos($value, '\\') !== false) {
+			$value = str_replace('\\', '/', $value);
+		}
+		
+		if(strpos($value, '/') !== false) {
+			$slash = true;
+			$config = $this->wire()->config;
+			$value = str_replace(ltrim($config->paths->root, '/'), '', $value);
+			$value = trim($value, '/');
+		}
+		
+		if(strpos($value, '.') !== false) {
+			$dot = true;
+			while(strpos($value, '..') !== false) {
+				$value = str_replace('..', '.', $value);
+			}
+		}
+
+		if($dot) {
+			$value = str_replace(array('/.', './', '-.', '.-'), array('/', '/', '.', '.'), $value);
+		}
+		
+		if($slash || $dot) {
+			$value = str_replace(array('/', '.'), array('--', '-'), $value);
+		}
+		
+		while(strpos($value, '---') !== false) {
+			$value = str_replace('---', '--', $value);
+		}
+		
+		if(!ctype_alnum(str_replace(array('-', '_'), '', $value))) {
+			$value = preg_replace('/[^-_a-z0-9]/', '_', $value);
+		}
+		
+		return trim($value, '-');
 	}
 
 	/**
