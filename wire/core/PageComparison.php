@@ -57,7 +57,7 @@ class PageComparison {
 			}
 			if($n && count($status) === $n) $is = true;
 
-		} else if(is_string($status) && $page->wire('sanitizer')->name($status) === $status) {
+		} else if(is_string($status) && $page->wire()->sanitizer->name($status) === $status) {
 			// name string (status name or template name)
 			$statuses = Page::getStatuses();
 			if(isset($statuses[$status])) {
@@ -101,8 +101,7 @@ class PageComparison {
 	 */
 	public function _if(Page $page, $key, $yes = '', $no = '') {
 
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $page->wire('sanitizer');
+		$sanitizer = $page->wire()->sanitizer;
 
 		// if only given a key argument, we will be returning a boolean
 		if($yes === '' && $no === '') list($yes, $no) = array(true, false);

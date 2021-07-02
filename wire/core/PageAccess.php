@@ -46,7 +46,7 @@ class PageAccess {
 		if(is_string($name)) {
 			// good
 		} else if(is_int($name)) {
-			$permission = $this->wire('permissions')->get($name);
+			$permission = $this->wire()->permissions->get($name);
 			$name = $permission ? $permission->name : 'edit';
 		} else if($name instanceof Permission) {
 			$name = $name->name;
@@ -68,14 +68,17 @@ class PageAccess {
 	 *
 	 */
 	public function getAccessParent(Page $page, $type = 'view', $level = 0) {
-		if(!$page->id) return $page->wire('pages')->newNullPage();
+		
+		$pages = $page->wire()->pages;
+		if(!$page->id) return $pages->newNullPage();
+		
 		if(!in_array($type, $this->types)) $type = $this->getType($type);
 		
 		if($page->id === 1 || $page->template->useRoles) {
 			// found an access parent
 			if($type != 'view' && $level > 0 && $page->template->noInherit != 0) {
 				// access parent prohibits inheritance of edit-related permissions
-				return $page->wire('pages')->newNullPage();
+				return $pages->newNullPage();
 			}
 			return $page;
 		}
@@ -84,14 +87,14 @@ class PageAccess {
 
 		if($type === 'edit' && $page->isTrash() && $page->id != $page->wire('config')->trashPageID) {
 			// pages in trash have an edit access parent as whatever it was prior to being trashed
-			$info = $page->wire('pages')->trasher()->parseTrashPageName($page->name);
-			if(!empty($info['parent_id'])) $parent = $page->wire('pages')->get((int) $info['parent_id']);
+			$info = $pages->trasher()->parseTrashPageName($page->name);
+			if(!empty($info['parent_id'])) $parent = $pages->get((int) $info['parent_id']);
 		}
 		
 		if(!$parent || !$parent->id) $parent = $page->parent();	
 		if($parent->id) return $this->getAccessParent($parent, $type, $level + 1);
 		
-		return $page->wire('pages')->newNullPage();
+		return $pages->newNullPage();
 	}
 
 	/**
@@ -122,7 +125,7 @@ class PageAccess {
 	public function getAccessRoles(Page $page, $type = 'view') {
 		$template = $this->getAccessTemplate($page, $type);
 		if($template) return $template->getRoles($this->getType($type)); 
-		return $page->wire('pages')->newPageArray();
+		return $page->wire()->pages->newPageArray();
 	}
 
 	/**

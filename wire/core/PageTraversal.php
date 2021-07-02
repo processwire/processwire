@@ -6,7 +6,7 @@
  * Provides implementation for Page traversal functions.
  * Based upon the jQuery traversal functions. 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -54,10 +54,11 @@ class PageTraversal {
 			// viewable pages only
 			$numChildren = $page->get('numChildren');
 			if(!$numChildren) return 0;
-			if($page->wire('user')->isSuperuser()) {
+			$user = $page->wire()->user;
+			if($user->isSuperuser()) {
 				if($descendants) return $this->numDescendants($page);
 				return $numChildren;
-			} else if($page->wire('user')->hasPermission('page-edit')) {
+			} else if($user->hasPermission('page-edit')) {
 				return $page->_pages('count', "$parentType=$page->id, include=unpublished");
 			} else {
 				return $page->_pages('count', "$parentType=$page->id, include=hidden");
@@ -165,7 +166,7 @@ class PageTraversal {
 	 *
 	 */
 	public function parents(Page $page, $selector = '') {
-		$parents = $page->wire('pages')->newPageArray();
+		$parents = $page->wire()->pages->newPageArray();
 		$parent = $page->parent();
 		$method = $selector === true ? 'add' : 'prepend';
 		while($parent && $parent->id) {
@@ -209,7 +210,7 @@ class PageTraversal {
 	public function parentsUntil(Page $page, $selector = '', $filter = '') {
 
 		$parents = $this->parents($page); 
-		$matches = $page->wire('pages')->newPageArray();
+		$matches = $page->wire()->pages->newPageArray();
 		$stop = false;
 
 		foreach($parents->reverse() as $parent) {
@@ -392,7 +393,7 @@ class PageTraversal {
 		);
 
 		$options = array_merge($defaults, $options);
-		$pages = $page->wire('pages');
+		$pages = $page->wire()->pages;
 		$parent = $page->parent();
 		
 		if($options['until'] || $options['qty']) $options['all'] = true;
@@ -432,7 +433,7 @@ class PageTraversal {
 			$row = reset($rows);
 			if($row && !empty($row['id'])) {
 				$result = $pages->getById(array($row['id']), array(
-					'template' => $page->wire('templates')->get($row['templates_id']),
+					'template' => $page->wire()->templates->get($row['templates_id']),
 					'parent_id' => $row['parent_id'],
 					'getOne' => true,
 					'cache' => $page->loaderCache
@@ -630,15 +631,17 @@ class PageTraversal {
 
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
 		$sanitizer = $page->wire()->sanitizer;
+		$input = $page->wire()->input;
+		$modules = $page->wire()->modules;
 		$language = null;
 		$url = null;
 		
 		if($options['urlSegments'] === true || $options['urlSegmentStr'] === true) {
-			$options['urlSegments'] = $page->wire('input')->urlSegments();
+			$options['urlSegments'] = $input->urlSegments();
 		}
 		
 		if($options['pageNum'] === true) {
-			$options['pageNum'] = $page->wire('input')->pageNum();
+			$options['pageNum'] = $input->pageNum();
 		}
 
 		if(count($options['urlSegments'])) {
@@ -658,7 +661,7 @@ class PageTraversal {
 			}
 		}
 
-		if($options['language'] && $page->wire('modules')->isInstalled('LanguageSupportPageNames')) {
+		if($options['language'] && $modules->isInstalled('LanguageSupportPageNames')) {
 			if(!is_object($options['language'])) {
 				$options['language'] = null;
 			} else if(!$options['language'] instanceof Page) {
@@ -686,14 +689,15 @@ class PageTraversal {
 
 		if($options['pageNum']) {
 			if($options['pageNum'] === '+') {
-				$options['pageNum'] = $page->wire('input')->pageNum + 1;
+				$options['pageNum'] = $input->pageNum + 1;
 			} else if($options['pageNum'] === '-' || $options['pageNum'] === -1) {
-				$options['pageNum'] = $page->wire('input')->pageNum - 1;
+				$options['pageNum'] = $input->pageNum - 1;
 			}
 			if((int) $options['pageNum'] > 1) {
 				$prefix = '';
 				if($language) {
-					$lsp = $page->wire('modules')->get('LanguageSupportPageNames');
+					/** @var LanguageSupportPageNames $lsp */
+					$lsp = $modules->get('LanguageSupportPageNames');
 					$prefix = $lsp ? $lsp->get("pageNumUrlPrefix$language") : '';
 				}
 				if(!strlen($prefix)) $prefix = $config->pageNumUrlPrefix;
@@ -763,11 +767,11 @@ class PageTraversal {
 		);
 
 		/** @var Modules $modules */
-		$modules = $page->wire('modules');
+		$modules = $page->wire()->modules;
 		$options = array_merge($defaults, $options);
-		$languages = $options['languages'] ? $page->wire('languages') : null;
+		$languages = $options['languages'] ? $page->wire()->languages : null;
 		$slashUrls = $page->template->slashUrls;
-		$httpHostUrl = $options['http'] ? $page->wire('input')->httpHostUrl() : '';
+		$httpHostUrl = $options['http'] ? $page->wire()->input->httpHostUrl() : '';
 		$urls = array();
 		
 		if($options['language'] && $languages) {
@@ -793,7 +797,7 @@ class PageTraversal {
 		if($options['past'] && $modules->isInstalled('PagePathHistory')) {
 			/** @var PagePathHistory $history */
 			$history = $modules->get('PagePathHistory');
-			$rootUrl = $page->wire('config')->urls->root;
+			$rootUrl = $page->wire()->config->urls->root;
 			$pastPaths = $history->getPathHistory($page, array(
 				'language' => $options['language'],
 				'verbose' => true	
@@ -824,6 +828,121 @@ class PageTraversal {
 		
 		return $urls;
 	}
+	
+	/**
+	 * Return the URL necessary to edit page
+	 *
+	 * - We recommend checking that the page is editable before outputting the editUrl().
+	 * - If user opens URL in their browser and is not logged in, they must login to account with edit permission.
+	 * - This method can also be accessed by property at `$page->editUrl` (without parenthesis).
+	 *
+	 * ~~~~~~
+	 * if($page->editable()) {
+	 *   echo "<a href='$page->editUrl'>Edit this page</a>";
+	 * }
+	 * ~~~~~~
+	 *
+	 * @param Page $page
+	 * @param array|bool|string $options Specify true for http option, specify name of field to find (3.0.151+), or use $options array:
+	 *  - `http` (bool): True to force scheme and hostname in URL (default=auto detect).
+	 *  - `language` (Language|bool): Optionally specify Language to start editor in, or boolean true to force current user language.
+	 *  - `find` (string): Name of field to find in the editor (3.0.151+)
+	 * @return string URL for editing this page
+	 *
+	 */
+	public function editUrl(Page $page, $options = array()) {
+
+		$config = $page->wire()->config;
+		$adminTemplate = $page->wire()->templates->get('admin'); /** @var Template $adminTemplate */
+		$https = $adminTemplate && ($adminTemplate->https > 0) && !$config->noHTTPS;
+		$url = ($https && !$config->https) ? 'https://' . $config->httpHost : '';
+		$url .= $config->urls->admin . "page/edit/?id=$page->id";
+
+		if($options === true || (is_array($options) && !empty($options['http']))) {
+			if(strpos($url, '://') === false) {
+				$url = ($https ? 'https://' : 'http://') . $config->httpHost . $url;
+			}
+		}
+
+		$languages = $page->wire()->languages;
+		if($languages) {
+			$language = $page->wire()->user->language;
+			if(empty($options['language'])) {
+				if($page->wire()->page->template->id == $adminTemplate->id) $language = null;
+			} else if($options['language'] instanceof Page) {
+				$language = $options['language'];
+			} else if($options['language'] !== true) {
+				$language = $languages->get($options['language']);
+			}
+			if($language && $language->id) $url .= "&language=$language->id";
+		}
+
+		$append = $page->wire()->session->getFor($page, 'appendEditUrl');
+
+		if($append) $url .= $append;
+
+		if($options) {
+			if(is_string($options)) {
+				$find = $options;
+			} else if(is_array($options) && !empty($options['find'])) {
+				$find = $options['find'];
+			} else $find = '';
+			if($find && strpos($url, '#') === false) {
+				$url .= '#find-' . $page->wire()->sanitizer->fieldName($find);
+			}
+		}
+
+		return $url;
+	}
+	
+	/**
+	 * Returns the URL to the page, including scheme and hostname
+	 *
+	 * - This method is just like the `$page->url()` method except that it also includes scheme and hostname.
+	 *
+	 * - This method can also be accessed at the property `$page->httpUrl` (without parenthesis).
+	 *
+	 * - It is desirable to use this method when some page templates require https while others don't.
+	 *   This ensures local links will always point to pages with the proper scheme. For other cases, it may
+	 *   be preferable to use `$page->url()` since it produces shorter output.
+	 *
+	 * ~~~~~
+	 * // Generating a link to this page using httpUrl
+	 * echo "<a href='$page->httpUrl'>$page->title</a>";
+	 * ~~~~~
+	 *
+	 * @param Page $page
+	 * @param array $options For details on usage see `Page::url()` options argument.
+	 * @return string Returns full URL to page, for example: `https://processwire.com/about/`
+	 * @see Page::url(), Page::localHttpUrl()
+	 *
+	 */
+	public function httpUrl(Page $page, $options = array()) {
+		
+		$template = $page->template();
+		if(!$template) return '';
+		
+		if(is_array($options)) unset($options['http']);
+		if($options === true || $options === false) $options = array();
+		
+		$url = $page->url($options);
+		if(strpos($url, '://')) return $url;
+		
+		$config = $page->wire()->config;
+		$mode = $template->https;
+		
+		if($mode > 0 && $config->noHTTPS) $mode = 0;
+		
+		switch($mode) {
+			case -1: $scheme = 'http'; break;
+			case 1: $scheme = 'https'; break;
+			default: $scheme = $config->https ? 'https' : 'http';
+		}
+		
+		$url = "$scheme://$config->httpHost$url";
+		
+		return $url;
+	}
 
 	/**
 	 * Return pages that are referencing the given one by way of Page references
@@ -838,7 +957,8 @@ class PageTraversal {
 	 * 
 	 */
 	public function references(Page $page, $selector = '', $field = '', $getCount = false) {
-		$fieldtype = $page->wire('fieldtypes')->get('FieldtypePage');	
+		/** @var FieldtypePage $fieldtype */
+		$fieldtype = $page->wire()->fieldtypes->get('FieldtypePage');	
 		if(!$fieldtype) throw new WireException('Unable to find FieldtypePage');
 		if($selector === true) $selector = "include=all";
 		return $fieldtype->findReferences($page, $selector, $field, $getCount); 
@@ -890,9 +1010,9 @@ class PageTraversal {
 		if(is_bool($field) || is_null($field)) {
 			$byField = $field ? true : false;
 		} else if(is_string($field)) {
-			$fieldName = $page->wire('sanitizer')->fieldName($field);
+			$fieldName = $page->wire()->sanitizer->fieldName($field);
 		} else if(is_int($field)) {
-			$field = $page->wire('fields')->get($field);
+			$field = $page->wire()->fields->get($field);
 			if($field) $fieldName = $field->name;
 		} else if($field instanceof Field) {
 			$fieldName = $field->name;
@@ -900,13 +1020,14 @@ class PageTraversal {
 
 		// results
 		$fieldCounts = array(); // counts indexed by field name (if count mode)
-		$items = $page->wire('pages')->newPageArray();
+		$pages = $page->wire()->pages;
+		$items = $pages->newPageArray();
 		$itemsByField = array();
 		
 		foreach($page->template->fieldgroup as $f) {
 			if($fieldName && $field->name != $fieldName) continue;
 			if(!$f->type instanceof FieldtypePage) continue;
-			if($byField) $itemsByField[$f->name] = $page->wire('pages')->newPageArray();
+			if($byField) $itemsByField[$f->name] = $pages->newPageArray();
 			$value = $page->get($f->name);
 			if($value instanceof Page && $value->id) {
 				$items->add($value);
@@ -956,7 +1077,7 @@ class PageTraversal {
 	 */
 	public function links(Page $page, $selector = '', $field = false, array $options = array()) {
 		/** @var FieldtypeTextarea $fieldtype */
-		$fieldtype = $page->wire('fieldtypes')->get('FieldtypeTextarea');
+		$fieldtype = $page->wire()->fieldtypes->get('FieldtypeTextarea');
 		if(!$fieldtype) throw new WireException('Unable to find FieldtypeTextarea');
 		return $fieldtype->findLinks($page, $selector, $field, $options); 
 	}
@@ -1033,7 +1154,7 @@ class PageTraversal {
 			$next = $siblings->getNext($next, false);
 			if(empty($selector) || !$next || $next->matches($selector)) break;
 		} while($next && $next->id);
-		if(is_null($next)) $next = $page->wire('pages')->newNullPage();
+		if(is_null($next)) $next = $page->wire()->pages->newNullPage();
 		return $next;
 	}
 
@@ -1077,7 +1198,7 @@ class PageTraversal {
 			$prev = $siblings->getPrev($prev, false); 
 			if(empty($selector) || !$prev || $prev->matches($selector)) break;
 		} while($prev && $prev->id); 
-		if(is_null($prev)) $prev = $page->wire('pages')->newNullPage();
+		if(is_null($prev)) $prev = $page->wire()->pages->newNullPage();
 		return $prev;
 	}
 
@@ -1099,7 +1220,7 @@ class PageTraversal {
 		}
 
 		$id = $page->id;
-		$all = $page->wire('pages')->newPageArray();
+		$all = $page->wire()->pages->newPageArray();
 		$rec = false;
 
 		foreach($siblings as $sibling) {
@@ -1133,7 +1254,7 @@ class PageTraversal {
 		}
 
 		$id = $page->id;
-		$all = $page->wire('pages')->newPageArray();
+		$all = $page->wire()->pages->newPageArray();
 
 		foreach($siblings as $sibling) {
 			if($sibling->id == $id) break;
@@ -1164,7 +1285,7 @@ class PageTraversal {
 		}
 
 		$siblings = $this->nextAllSiblings($page, '', $siblings); 
-		$all = $page->wire('pages')->newPageArray();
+		$all = $page->wire()->pages->newPageArray();
 		$stop = false;
 
 		foreach($siblings as $sibling) {
@@ -1215,7 +1336,7 @@ class PageTraversal {
 		}
 
 		$siblings = $this->prevAllSiblings($page, '', $siblings); 
-		$all = $page->wire('pages')->newPageArray();
+		$all = $page->wire()->pages->newPageArray();
 		$stop = false;
 
 		foreach($siblings->reverse() as $sibling) {
