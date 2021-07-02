@@ -18,6 +18,7 @@
 /** @var WireInput $input */
 /** @var Paths $urls */
 /** @var string $layout */
+/** @var Process $process */
 
 if(!defined("PROCESSWIRE")) die();
 

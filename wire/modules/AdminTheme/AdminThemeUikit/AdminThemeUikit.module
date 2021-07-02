@@ -23,6 +23,7 @@
  * @property string $configPhpHash Hash used internally to detect changes to $config->AdminThemeUikit settings.
  * @property int $cssVersion Current version number of core CSS/LESS files
  * 
+ * @method string renderBreadcrumbs()
  * @method string getUikitCSS()
  * 
  * 
