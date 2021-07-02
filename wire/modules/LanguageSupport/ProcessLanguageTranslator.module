@@ -496,8 +496,13 @@ class ProcessLanguageTranslator extends Process {
 		$this->breadcrumb('../add/', $this->_x('Select File(s)', 'breadcrumb'));
 		$this->headline($this->_x('Translate File', 'headline'));
 
-		$textdomain = $this->input->get('textdomain');
+		$textdomain = $this->wire()->sanitizer->textdomain($this->input->get('textdomain'));
 		$file = $this->translator->textdomainToFilename($textdomain);
+		$fragment = strpos($textdomain, 'site') === 0 ? 'find-language_files_site' : 'find-language_files';
+		$csvUploadUrl = "../../languages/edit/?id={$this->language->id}#$fragment";
+		$csvDownloadUrl = "../../languages/download/?language_id={$this->language->id}&csv=1&textdomain=$textdomain";
+		$csvViewUrl = $csvDownloadUrl . "&view=1";
+		
 		if(!$file) {
 			if($this->input->get('filename')) {
 				$this->processAdd(null, $this->input->get('filename')); 
@@ -505,9 +510,10 @@ class ProcessLanguageTranslator extends Process {
 				throw new WireException($this->_('Unable to load textdomain'));
 			}
 		}
+		
 		$file = $this->config->paths->root . $file;
 
-		if(!is_file($file)) {
+		if(!file_exists($file)) {
 			$file = str_replace($this->wire('config')->paths->root, '/', $file);
 			$this->error(
 				$this->_('File does not exist:') . " $file " .
@@ -528,8 +534,15 @@ class ProcessLanguageTranslator extends Process {
 			sprintf($this->_('The text shown immediately above each input is the text that should be translated to %s.'), $this->language->title) . ' ' .
 			$this->_('If you leave an input blank, the non-translated text will be used.') . ' ' .
 			$this->_('If the translation will be identical to the original, you may also enter a single "=" (equals sign) for the translation and it will be marked as translated.') . ' ' . 
-			sprintf($this->_('The textdomain for this file is: %s'), $textdomain) . 
+			$this->wire()->sanitizer->entitiesMarkdown(
+				sprintf(
+					$this->_('You may also [download](%1$s) or [view](%2$s) a CSV file with these translations, edit them, and then [upload them here](%3$s).'), 
+					$csvDownloadUrl, $csvViewUrl, $csvUploadUrl
+				),
+				array('linkMarkup' => "<a href='{url}'>{text}</a>")
+			) . 
 			"</p>";
+		$form->appendMarkup .= '<p class="description">' . sprintf($this->_('The textdomain for this file is: %s'), "<code>$textdomain</code>") . '</p>';
 
 		$translations = $this->translator->getTranslations($textdomain);
 
