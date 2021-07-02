@@ -139,6 +139,7 @@ class ProcessModule extends Process {
 			$this->labels['download_install'] = $this->_('Download and Install');
 		}
 		$this->labels['get_module_info'] = $this->_('Get Module Info'); 
+		$this->labels['modules'] = $this->_('Modules'); 
 		$this->labels['module_information'] = $this->_x("Module Information", 'edit');
 		$this->labels['download_now'] = $this->_('Download Now');
 		$this->labels['download_dir'] = $this->_('Add Module From Directory');
@@ -197,7 +198,17 @@ class ProcessModule extends Process {
 	 *
 	 */
 	public function ___executeNavJSON(array $options = array()) {
-		$page = $this->wire('page');
+		
+		$page = $this->wire()->page;
+		$input = $this->wire()->input;
+		$modules = $this->wire()->modules;
+		
+		$site = (int) $input->get('site');
+		$core = (int) $input->get('core');
+		$configurable = (int) $input->get('configurable');
+		$install = (int) $input->get('install');
+		$moduleNames = array();
+		
 		$data = array(
 			'url' => $page->url,
 			'label' => (string) $page->get('title|name'),
@@ -205,36 +216,32 @@ class ProcessModule extends Process {
 			'list' => array(),
 		);
 		
-		$site = $this->wire('input')->get('site');
-		$core = $this->wire('input')->get('core');
-		$configurable = $this->wire('input')->get('configurable');
-		$install = $this->wire('input')->get('install'); 
-	
 		if($site || $install) $data['add'] = array(
 			'url' => "?new#tab_new_modules",
 			'label' => __('Add New', '/wire/templates-admin/default.php'),
 			'icon' => 'plus-circle',
 		);
 		
-		$modules = $this->wire('modules'); 
-		$moduleNames = array();
 		if($install) {
 			$moduleNames = array_keys($modules->getInstallable());	
 		} else {
-			foreach($modules as $module) $moduleNames[] = $module->className();
+			foreach($modules as $module) {
+				$moduleNames[] = $module->className();
+			}
 		}
+		
 		sort($moduleNames); 
 
 		foreach($moduleNames as $moduleName) {
 			
-			$info = $this->wire('modules')->getModuleInfoVerbose($moduleName); 
+			$info = $modules->getModuleInfoVerbose($moduleName); 
 			
 			if($site && $info['core']) continue; 
 			if($core && !$info['core']) continue; 
 			
 			if($configurable) { 
 				if(!$info['configurable'] || !$info['installed']) continue;
-				$flags = $this->wire('modules')->getFlags($moduleName);
+				$flags = $modules->getFlags($moduleName);
 				if($flags & Modules::flagsNoUserConfig) continue;
 			}
 			
@@ -242,7 +249,7 @@ class ProcessModule extends Process {
 				// exclude already installed modules
 				if($info['installed']) continue; 
 				// check that it can be installed NOW (i.e. all dependencies met)
-				if(!$this->wire('modules')->isInstallable($moduleName, true)) continue; 
+				if(!$modules->isInstallable($moduleName, true)) continue; 
 			}
 			
 			$label = $info['name'];
@@ -264,7 +271,8 @@ class ProcessModule extends Process {
 		ksort($data['list']);
 		$data['list'] = array_values($data['list']); 
 
-		if($this->wire('config')->ajax) header("Content-Type: application/json");
+		if($this->wire()->config->ajax) header("Content-Type: application/json");
+		
 		return json_encode($data);
 	}
 
@@ -863,6 +871,12 @@ class ProcessModule extends Process {
 						$summary .= "<span class='notes requires'>" . $this->labels['requires'] . " - " . implode(', ', $requires) . "</span>";
 					}
 				} else $requires = array();
+				
+				$nsClassName = $modules->getModuleClass($name, true);	
+				if(!wireInstanceOf($nsClassName, 'Module')) {
+					$summary .= "<span class='notes requires'>" . $this->_('Module class must implement the “ProcessWire\Module” interface.') .  "</span>";
+					$requires[] = 'Module interface';
+				}
 
 				if(count($info['installs'])) {
 					$summary .= "<span class='detail installs'>" . $this->labels['installs'] . " - " . implode(', ', $info['installs']) . "</span>";
@@ -1697,6 +1711,13 @@ class ProcessModule extends Process {
 		if($hooksStr) {
 			$table->row(array($this->_x('Hooks To', 'edit'), $hooksStr));
 		}
+
+		$languageFiles = $languages ? $modules->getModuleLanguageFiles($moduleName) : array();
+		if(count($languageFiles)) {
+			$languages = wireIconMarkup('language') . ' ' . $sanitizer->entities(implode(', ', array_keys($languageFiles)));
+			$languages .= " - <a href='{$config->urls->admin}module/translation/?name=$moduleName'>" . $this->_('install translations') . "</a>";
+			$table->row(array($this->_x('Languages', 'edit'), $languages));
+		}
 		
 		if(!empty($moduleInfo['href'])) {
 			$table->row(array($this->_x('More Information', 'edit'), "<a target='_blank' class='label' href='$moduleInfo[href]'>$moduleInfo[href]</a>"));
@@ -1750,10 +1771,9 @@ class ProcessModule extends Process {
 	
 	public function ___executeInstallConfirm() {
 		
-		$name = $this->wire('input')->get('name');
+		$name = $this->wire('input')->get->name('name');
 		if(!$name) throw new WireException("No module name specified"); 
-		$name = $this->wire('sanitizer')->fieldName($name); 
-		if(!$this->wire('modules')->isInstallable($name, true)) throw new WireException("Module is not currently installable"); 
+		if(!$this->wire()->modules->isInstallable($name, true)) throw new WireException("Module is not currently installable"); 
 		
 		$this->headline($this->labels['install']); 
 	
@@ -1775,6 +1795,84 @@ class ProcessModule extends Process {
 		)); 
 		$form->add($markup);
 		
+		return $form->render();
+	}
+
+	/**
+	 * Languages translations import
+	 * 
+	 * @return string
+	 * @since 3.0.181
+	 * 
+	 */
+	public function ___executeTranslation() {
+	
+		$languages = $this->wire()->languages;
+		$modules = $this->wire()->modules;
+		$session = $this->wire()->session;
+		$input = $this->wire()->input;
+		$config = $this->wire()->config;
+		$moduleName = $input->get->name('name');
+		
+		if(empty($moduleName)) throw new WireException('No module name specified');
+		if(!$modules->isInstalled($moduleName)) throw new WireException("Unknown module: $moduleName");
+
+		$moduleEditUrl = $modules->getModuleEditUrl($moduleName);
+		$languageFiles = $modules->getModuleLanguageFiles($moduleName);
+		
+		if(!$languages || !count($languageFiles)){
+			$session->message($this->_('No module language files available'));
+			$session->location($moduleEditUrl);
+		}
+		
+		$this->headline($this->_('Module language translations'));
+		$this->breadcrumb($config->urls->admin . 'modules/', $this->labels['modules']); 
+		$this->breadcrumb($moduleEditUrl, $moduleName); 
+		
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
+		$form->attr('id', 'ModuleImportTranslationForm');
+		$form->attr('action', $config->urls->admin . "module/translation/?name=$moduleName");
+		$form->attr('method', 'post');
+		$form->description = sprintf($this->_('Import translations for module %s'), $moduleName);
+
+		foreach($languages as $language) {
+			/** @var InputfieldSelect $lang */
+			$langLabel = $language->get('title');
+			$langLabel .= $langLabel ? " ($language->name)" : $language->name;
+			
+			/** @var InputfieldSelect $f */
+			$f = $modules->get('InputfieldSelect');
+			$f->attr('name', "language_$language->name");
+			$f->label = sprintf($this->_('Import into %s'), $langLabel);
+			$f->addOption('');
+			foreach($languageFiles as $basename => $filename) {
+				$f->addOption($basename);
+			}
+			$form->append($f);
+		}
+
+		if($input->post('submit_import_translations')) {
+			foreach($languages as $language) {
+				$basename = $input->post->pageName("language_$language->name");
+				if(empty($basename)) continue;
+				if(empty($languageFiles[$basename])) continue;
+				$file = $languageFiles[$basename]; 
+				if(!is_file($file)) {
+					$session->error($this->_('Cannot find CSV file') . " - " . basename($file));
+					continue;
+				}
+				$languages->importTranslationsFile($language, $file);
+			}
+			$session->location($moduleEditUrl);
+		}
+
+		/** @var InputfieldSubmit $f */
+		$f = $modules->get('InputfieldSubmit');
+		$f->attr('name', 'submit_import_translations');
+		$f->showInHeader(true);
+		$form->add($f);
+
 		return $form->render();
 	}
 

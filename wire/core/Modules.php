@@ -4974,9 +4974,9 @@ class Modules extends WireArray {
 			if(!in_array($id, $this->moduleIDs)) unset($this->modulesLastVersions[$id]);
 		}
 		if(count($this->modulesLastVersions)) {
-			$this->wire('cache')->save(self::moduleLastVersionsCacheName, $this->modulesLastVersions, WireCache::expireReserved);
+			$this->wire()->cache->save(self::moduleLastVersionsCacheName, $this->modulesLastVersions, WireCache::expireReserved);
 		} else {
-			$this->wire('cache')->delete(self::moduleLastVersionsCacheName);
+			$this->wire()->cache->delete(self::moduleLastVersionsCacheName);
 		}
 	}
 
@@ -5353,6 +5353,48 @@ class Modules extends WireArray {
 		$classes[$class] = true; 
 		
 		return $cnt;
+	}
+
+	/**
+	 * Get module language translation files
+	 * 
+	 * @param Module|string $module
+	 * @return array Array of translation files including full path, indexed by basename without extension
+	 * @since 3.0.181
+	 * 
+	 */
+	public function getModuleLanguageFiles($module) {
+	
+		$module = $this->getModuleClass($module);
+		if(empty($module)) return array();
+		
+		$path = $this->wire()->config->paths($module);
+		if(empty($path)) return array();
+		
+		$pathHidden = $path . '.languages/';
+		$pathVisible = $path . 'languages/';
+		
+		if(is_dir($pathVisible)) {
+			$path = $pathVisible;
+		} else if(is_dir($pathHidden)) {
+			$path = $pathHidden;
+		} else {
+			return array();
+		}
+	
+		$items = array();
+		$options = array(
+			'extensions' => array('csv'),
+			'recursive' => false,
+			'excludeHidden' => true, 
+		);
+		
+		foreach($this->wire()->files->find($path, $options) as $file) {
+			$basename = basename($file, '.csv');
+			$items[$basename] = $file;
+		}
+		
+		return $items;
 	}
 
 	/**

@@ -253,9 +253,9 @@ class ProcessLanguage extends ProcessPageType {
 
 		$out = 	
 			"<div class='InputfieldFileData InputfieldFileLanguageInfo'>" . 
-			"<span class='InputfieldFileLanguageFilename description'>/$file &#8212;</span> <span class='notes'>$message</span> " .
-			"<a class='action' href='{$translationUrl}edit/?language_id={$page->id}&amp;textdomain=$textdomain'>&nbsp; " . 
-			"<i class='fa fa-edit'></i> $editLabel <i class='fa fa-angle-double-right hover-only'></i></a>" . 
+				"<span class='InputfieldFileLanguageFilename description'>/$file &#8212;</span> <span class='notes'>$message</span> " .
+				"<a class='action' href='{$translationUrl}edit/?language_id={$page->id}&amp;textdomain=$textdomain'>&nbsp; " . 
+				"<i class='fa fa-edit'></i> $editLabel <i class='fa fa-angle-double-right hover-only'></i></a>" . 
 			"</div>";
 
 		$page->translator->unloadTextdomain($textdomain);
@@ -347,27 +347,62 @@ class ProcessLanguage extends ProcessPageType {
 	 */
 	public function ___executeDownload() {
 		
-		$id = (int) $this->input->get('language_id'); 
+		$config = $this->wire()->config;
+		$input = $this->wire()->input;
+		
+		$id = (int) $input->get('language_id'); 
 		if(!$id) throw new WireException("No language specified"); 
 		
-		$language = $this->wire('languages')->get($id);
+		$language = $this->wire()->languages->get($id);
 		if(!$language->id) throw new WireException("Unknown language"); 
 		
-		$fieldName = $this->input->get('field') == 'language_files_site' ? 'language_files_site' : 'language_files';
-		$csv = (int) $this->wire('input')->get('csv');
+		$fieldName = $input->get('field') == 'language_files_site' ? 'language_files_site' : 'language_files';
+		$textdomain = $this->wire()->sanitizer->textdomain($input->get('textdomain')); 
+		$textdomains = array();
+		$csv = (int) $input->get('csv');
 		$path = $language->$fieldName->path();
 		$files = array();
 		
-		foreach($language->$fieldName as $file) {
-			$files[] = $file->filename;
+		if($textdomain) {
+			$file = $language->translator->textdomainToFilename($textdomain);
+			if($file) {
+				$files[] = $file;
+				$textdomains[$file] = $textdomain;
+			} else {
+				$textdomain = '';
+			}
+		}
+	
+		if(!count($files) && $fieldName) {
+			foreach($language->$fieldName as $file) {
+				$files[] = $file->filename;
+			}
+		}
+		
+		if(!count($files)) {
+			throw new WireException('No translation files specified to download');
 		}
 		
 		if($csv) {
 			// CSV
-			$filename = $language->name . "-" . (strpos($fieldName, 'site') ? 'site' : 'wire') . ".csv";
-			header("Content-type: application/force-download");
-			header("Content-Transfer-Encoding: Binary");
-			header("Content-disposition: attachment; filename=$filename");
+			if($textdomain) {
+				// i.e. es-modulename.csv
+				$parts = explode('--', $textdomain);
+				$basename = array_pop($parts);
+				$parts = explode('-', $basename);
+				$basename = array_shift($parts);
+				$filename = "$language->name-$basename.csv";
+			} else {
+				// i.e. es-site.csv or es-wire.csv
+				$filename = $language->name . "-" . (strpos($fieldName, 'site') ? 'site' : 'wire') . ".csv";
+			}
+			if($input->get('view')) {
+				header("Content-type: text/plain");
+			} else {
+				header("Content-type: application/force-download");
+				header("Content-Transfer-Encoding: Binary");
+				header("Content-disposition: attachment; filename=$filename");
+			}
 
 			$fp = fopen('php://output', 'w');
 			$defaultCol = $language->name == 'en' ? 'default' : 'en';
@@ -375,13 +410,20 @@ class ProcessLanguage extends ProcessPageType {
 			fputcsv($fp, $fields);
 			
 			foreach($files as $f) {
+			
+				if(isset($textdomains[$f])) {
+					$textdomain = $textdomains[$f];
+				} else {
+					$textdomain = basename($f, '.json');
+				}
 				
-				$textdomain = basename($f, '.json');
 				$data = $language->translator->getTextdomain($textdomain);
+				if(empty($data)) continue;
+				
 				$file = $data['file'];
-				$pathname = $this->wire('config')->paths->root . $file;
+				$pathname = $config->paths->root . $file;
 				$translated =& $data['translations'];
-				$parser = $this->wire(new LanguageParser($language->translator, $pathname));
+				$parser = $this->wire(new LanguageParser($language->translator, $pathname)); /** @var LanguageParser $parser */
 				$untranslated = $parser->getUntranslated();
 				$comments = $parser->getComments();
 
@@ -420,16 +462,26 @@ class ProcessLanguage extends ProcessPageType {
 	 * 
 	 * @param string $csvFile
 	 * @param Language $language
-	 * @return bool
+	 * @param array $options Additional options (3.0.181+)
+	 *  - `file` (string): Use this path/file (relative to install root) 
+	 *  - `quiet` (bool): Suppress generating notifications? (default=false)
+	 * @return bool|int Returns false on error or integer on success, where value is number of translations imported
 	 * @throws WireException
 	 * 
 	 */
-	public function processCSV($csvFile, Language $language) {
+	public function processCSV($csvFile, Language $language, array $options = array()) {
+		
+		$defaults = array(
+			'file' => '',
+			'quiet' => false, 
+		);
+		
+		$options = array_merge($defaults, $options);
 		
 		$fp = fopen($csvFile, "r");
 		
 		if($fp === false) {
-			$this->error($this->csvImportLabel . "Unable to open: $csvFile");
+			if(!$options['quiet']) $this->error($this->csvImportLabel . "Unable to open: $csvFile");
 			return false;
 		}
 
@@ -450,8 +502,16 @@ class ProcessLanguage extends ProcessPageType {
 		$numTotal = 0;
 		$numGross = 0;
 		$translations = null;
+		$optionsFileBasename = '';
 		$halt = false;
 		
+		$this->wire($translator);
+		
+		if(!empty($options['file'])) {
+			$options['file'] = ltrim($this->wire()->files->unixFileName($options['file']), '/');
+			$optionsFileBasename = basename($options['file']);
+		}
+
 		while(($csvData = fgetcsv($fp, 8192, ",")) !== FALSE) {
 			
 			if(++$n === 1) {
@@ -463,13 +523,16 @@ class ProcessLanguage extends ProcessPageType {
 				// make sure everything we need is present
 				foreach($keys as $k => $key) {
 					if($k > 1 && !in_array($key, $header)) {
-						$this->error($this->csvImportLabel . "CSV data missing required column '$key'");
-						$halt = true;
+						if($key === 'file' && !empty($options['file'])) {
+							// default file provided so not required in CSV data
+						} else {
+							if(!$options['quiet']) $this->error($this->csvImportLabel . "CSV data missing required column '$key'");
+							$halt = true;
+						}
 					}
 				}
 				if($halt) break;
 				continue;
-				
 			} 
 			
 			$row = array();
@@ -479,7 +542,22 @@ class ProcessLanguage extends ProcessPageType {
 				$row[$name] = $csvData[$key];
 			}
 			
-			if(empty($row['file']) || empty($row['original'])) continue;
+			if($options['file']) {
+				if(empty($row['file'])) {
+					$row['file'] = $options['file'];
+				} else {
+					$rowFileBasename = basename($row['file']); 
+					if($rowFileBasename === $optionsFileBasename) {
+						// i.e. site/modules/Hello/Hello.module
+						$row['file'] = $options['file']; 
+					} else {
+						// i.e. site/modules/Hello/World.module 
+						$row['file'] = dirname($options['file']) . '/' . $rowFileBasename;
+					}
+				}
+			}
+			
+			if(empty($row['original']) || empty($row['file'])) continue;
 			
 			$file = $row['file'];
 			$hash = $row['hash'];
@@ -489,17 +567,17 @@ class ProcessLanguage extends ProcessPageType {
 			
 			if(!$translator->textdomainFileExists($textdomain)) {
 				$textdomain = $translator->addFileToTranslate($file, false, false);
-				//$translator->loadTextdomain($textdomain);
 			}
 			
-			if(is_null($translations)) $translations = $translator->getTranslations($textdomain);
+			if(is_null($translations)) {
+				$translations = $translator->getTranslations($textdomain);
+			}
 			
 			if(!$textdomain) {
-				$this->warning($this->csvImportLabel . sprintf(
-						$this->_('Unrecognized textdomain for file: %s'), 
-						$this->wire('sanitizer')->entities($file)
-					)
-				);
+				if(!$options['quiet']) $this->warning($this->csvImportLabel . sprintf(
+					$this->_('Unrecognized textdomain for file: %s'), 
+					$this->wire()->sanitizer->entities($file)
+				));
 				continue;
 			}
 			
@@ -529,9 +607,11 @@ class ProcessLanguage extends ProcessPageType {
 		$language->save();
 		
 		fclose($fp);
-		$this->message($this->csvImportLabel . sprintf($this->_('%d total translations, %d total changes'), $numGross, $numTotal));
+		if(!$options['quiet']) {
+			$this->message($this->csvImportLabel . sprintf($this->_('%d total translations, %d total changes'), $numGross, $numTotal), Notice::noGroup);
+		}
 		
-		return $halt ? false : true;
+		return $halt ? false : $numGross; 
 	}
 
 	/**
@@ -549,7 +629,7 @@ class ProcessLanguage extends ProcessPageType {
 		if($numChanges) {
 			try {
 				$translator->saveTextdomain($textdomain);
-				$this->message($this->csvImportLabel . sprintf($this->_('Saved %d change(s) for file: %s'), $numChanges, $file));
+				$this->message($this->csvImportLabel . sprintf($this->_('Saved %d change(s) for file: %s'), $numChanges, $file), Notice::noGroup);
 			} catch(\Exception $e) {
 				$this->error($e->getMessage());
 			}

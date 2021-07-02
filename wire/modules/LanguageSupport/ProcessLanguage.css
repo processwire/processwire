@@ -8,14 +8,16 @@
 	text-transform: none; 
 }
 
-.Inputfields .InputfieldFile .InputfieldFileLanguageInfo {
+
+.AdminThemeReno .Inputfields .InputfieldFile .InputfieldFileLanguageInfo,
+.AdminThemeDefault .Inputfields .InputfieldFile .InputfieldFileLanguageInfo {
 	position: relative; 
-	margin-top: 0; 
+	margin-top: 0;
 	padding-top: 0;
 }
 
-.InputfieldFileList .InputfieldFileLanguageInfo {
-	margin-top: -1em; 
+.Inputfields .InputfieldFile a.action:hover {
+	text-decoration: none;
 }
 
 .InputfieldFileList .InputfieldFileLanguageInfo a i.hover-only {
