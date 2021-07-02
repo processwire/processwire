@@ -1840,6 +1840,29 @@ abstract class Inputfield extends WireData implements Module {
 		if(!is_null($setEditable)) $this->editable = $setEditable ? true : false;
 		return $this->editable;
 	}
+
+	/**
+	 * debugInfo PHP 5.6+ magic method
+	 *
+	 * @return array
+	 *
+	 */
+	public function __debugInfo() {
+		$info = array(
+			'className' => $this->className(),
+			'attributes' => $this->attributes,
+			'wrapAttributes' => $this->wrapAttributes,
+		);
+		if(is_object($this->parent)) {
+			$info['parent'] = array(
+				'className' => $this->parent->className(),
+				'name' => $this->parent->attr('name'), 
+				'id' => $this->parent->attr('id'), 
+			);
+		}
+		$info = array_merge($info, parent::__debugInfo());
+		return $info;
+	}
 	
 	/**
 	 * Set custom html render, see $this->html at top for reference.
