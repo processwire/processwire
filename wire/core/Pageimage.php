@@ -901,8 +901,15 @@ class Pageimage extends Pagefile {
 					if($sizer->resize($width, $height)) {
 						if($options['webpAdd'] && $options['webpOnly']) {
 							if(is_file($filenameUnvalidated)) $files->unlink($filenameUnvalidated);
-						} else if(!$files->rename($filenameUnvalidated, $filenameFinal)) {
-							$this->error = "Rename failed: $filenameUnvalidated => $filenameFinal";
+						} else {
+							clearstatcache();
+							if(!$files->rename($filenameUnvalidated, $filenameFinal)) {
+								if($files->exists($filenameFinal)) {
+									// potential race condition: another request won
+								} else {
+									$this->error = "Rename failed: $filenameUnvalidated => $filenameFinal";
+								}
+							}
 						}
 						if($options['webpAdd'] && file_exists($filenameUnvalidatedWebp)) { 
 							$files->rename($filenameUnvalidatedWebp, $filenameFinalWebp);
@@ -945,10 +952,10 @@ class Pageimage extends Pagefile {
 		// if an error occurred, that error property will be populated with details
 		if($this->error) { 
 			// error condition: unlink copied files
-			if($filenameFinal && is_file($filenameFinal)) $files->unlink($filenameFinal, true);
-			if($filenameUnvalidated && is_file($filenameUnvalidated)) $files->unlink($filenameUnvalidated);
-			if($filenameFinalWebp && is_file($filenameFinalWebp)) $files->unlink($filenameFinalWebp, true);
-			if($filenameUnvalidatedWebp && is_file($filenameUnvalidatedWebp)) $files->unlink($filenameUnvalidatedWebp);
+			if($filenameFinal && $files->exists($filenameFinal)) $files->unlink($filenameFinal, true);
+			if($filenameUnvalidated && $files->exists($filenameUnvalidated)) $files->unlink($filenameUnvalidated);
+			if($filenameFinalWebp && $files->exists($filenameFinalWebp)) $files->unlink($filenameFinalWebp, true);
+			if($filenameUnvalidatedWebp && $files->exists($filenameUnvalidatedWebp)) $files->unlink($filenameUnvalidatedWebp);
 
 			// we also tell PW about it for logging and/or admin purposes
 			$this->error($this->error);
