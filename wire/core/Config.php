@@ -132,7 +132,7 @@
  * @property string $moduleServiceURL URL where the modules web service can be accessed #pw-group-modules
  * @property string $moduleServiceKey API key for modules web service #pw-group-modules
  * @property bool $moduleCompile Allow use of compiled modules? #pw-group-modules
- * @property array $wireMail Default WireMail module settings. #pw-group-modules
+ * @property array $wireMail Default WireMail module settings. See /wire/config.php $config->wireMail for details. #pw-group-system
  * @property array $moduleInstall Admin module install options you allow. #pw-group-modules
  * 
  * @property array $substituteModules Associative array with names of substitute modules for when requested module doesn't exist #pw-group-modules
@@ -168,6 +168,7 @@
  * @property array $statusFiles File inclusions for ProcessWire’s runtime statuses/states. #pw-group-system @since 3.0.142
  * @property int $status Value of current system status/state corresponding to ProcessWire::status* constants. #pw-internal
  * @property null|bool $disableUnknownMethodException Disable the “Method does not exist or is not callable in this context” exception. (default=null) #pw-internal
+ * @property string|null $phpMailAdditionalParams Additional params to pass to PHP’s mail() function (when used), see $additional_params argument at https://www.php.net/manual/en/function.mail.php #pw-group-system
  * 
  * @property int $rootPageID Page ID of homepage (usually 1) #pw-group-system-IDs
  * @property int $adminRootPageID Page ID of admin root page #pw-group-system-IDs

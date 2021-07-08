@@ -42,6 +42,14 @@ input[disabled=disabled] {
 	margin-right: 0.5em; 
 }
 
+#wrap_fieldgroup_fields .notes {
+	display: none;
+}
+#wrap_fieldgroup_fields.field-added .notes {
+	display: block;
+}
+
+
 /**
  * Import/export 
  *

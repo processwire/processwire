@@ -351,6 +351,7 @@ function ProcessTemplateAsmSelect() {
 			// eventData is provided by a change event triggered from asmSelect plugin after a sort or select event
 			if(typeof eventData == "undefined") return;
 			if(typeof eventData.type == "undefined") return;
+			if(eventData.type === 'add') $inputfield.addClass('field-added'); 
 			if(eventData.type != 'sort') return;
 
 			// update row identifications after any changes

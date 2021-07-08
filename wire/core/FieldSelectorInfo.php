@@ -111,6 +111,7 @@ class FieldSelectorInfo extends Wire {
 
 			// skip over native properties that aren't used in selectors
 			if(in_array($name, array('pages_id', 'keys', 'xtra', 'sort'))) continue; 
+			if(!is_string($schemaType)) continue;
 
 			if($name == 'data') {
 				// base property

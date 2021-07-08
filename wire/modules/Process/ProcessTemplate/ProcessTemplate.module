@@ -1018,7 +1018,13 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		if($forField) {
 			$select->description = sprintf($this->_('Define the custom fields for “%s”. It is not necessary to configure anything else here.'), $forField->name);
 		} else {
-			$select->description = $this->_('Define the fields that are used by this template. You may also drag and drop fields to the desired order or [create a new field](../field/add).'); // Fields definition, description
+			$select->description = 
+				$this->_('Select the fields that are used by this template and drag/drop to the desired order.') . ' ' . 
+				sprintf(
+					$this->_('You may also click field name or label to edit in the context of this template, click/drag the percent indicator to adjust width, or [create a new field](%s).'),
+					'../field/add'
+				);
+			$select->notes = $this->_('Save this template to make newly added fields editable here.'); 
 		}
 		$select->icon = 'cube';
 		$select->attr('name', 'fieldgroup_fields'); 
