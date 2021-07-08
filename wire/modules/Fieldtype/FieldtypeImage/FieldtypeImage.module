@@ -15,7 +15,7 @@
  *
  */
 
-class FieldtypeImage extends FieldtypeFile {
+class FieldtypeImage extends FieldtypeFile implements FieldtypeHasFiles {
 	
 	/**
 	 * File schema is configured to store dimensions for image files 'width', 'height', 'ratio' (flag)
@@ -226,6 +226,41 @@ class FieldtypeImage extends FieldtypeFile {
 		}
 		
 		return $value; 	
+	}
+	
+	/**
+	 * Get array of full path/file for all files managed by given page and field (also includes image variations)
+	 *
+	 * #pw-internal For FieldtypeHasFiles interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return array
+	 * @since 3.0.181
+	 *
+	 */
+	public function getFiles(Page $page, Field $field) {
+		
+		$value = $page->get($field->name);
+		$files = array();
+		
+		if($value instanceof Pageimage) {
+			$value = array($value);
+		} else if(!$value instanceof Pageimages) {
+			return array();
+		}
+		
+		foreach($value as $pageimage) {
+			$file = $pageimage->filename();
+			$path = dirname($file) . '/';
+			$files[] = $file;
+			$variations = $pageimage->getVariations(array('info' => true, 'verbose' => false));
+			foreach($variations as $basename) {
+				$files[] = $path . $basename;
+			}
+		}
+		
+		return $files;
 	}
 	
 	/**

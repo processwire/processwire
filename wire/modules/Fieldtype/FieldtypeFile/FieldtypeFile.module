@@ -18,7 +18,7 @@
  *
  */
 
-class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
+class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, FieldtypeHasFiles {
 	
 	public static function getModuleInfo() {
 		return array(
@@ -1579,6 +1579,59 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule {
 			'whitelist' => $whitelistExtensions, // previously invalid extensions that have been whitelisted
 			'validators' => $validators, // file validators in use indexed by file extension
 		);
+	}
+	
+	/**
+	 * Whether or not given Page/Field has any files connected with it 
+	 * 
+	 * #pw-internal For FieldtypeHasFiles interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool
+	 * @since 3.0.181
+	 *
+	 */
+	public function hasFiles(Page $page, Field $field) {
+		if(!$field->type instanceof FieldtypeFile) return false;
+		$value = $page->get($field->name);
+		return ($value instanceof Pagefile || ($value instanceof Pagefiles && $value->count() > 0));
+	}
+
+	/**
+	 * Get array of full path/file for all files managed by given page and field
+	 * 
+	 * #pw-internal For FieldtypeHasFiles interface
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return array
+	 * @since 3.0.181
+	 *
+	 */
+	public function getFiles(Page $page, Field $field) {
+		$value = $page->get($field->name); 
+		if($value instanceof Pagefile) {
+			/** @var Pagefile $value */
+			return array($value->filename());
+		}
+		if($value instanceof Pagefiles && $value->count()) {
+			/** @var Pagefiles $value */
+			return $value->explode('filename');
+		}
+		return array();
+	}
+	
+	/**
+	 * Get path where files are (or would be) stored
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return string
+	 *
+	 */
+	public function getFilesPath(Page $page, Field $field) {
+		return PagefilesManager::_path($page);
 	}
 
 	/**
