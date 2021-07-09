@@ -45,11 +45,22 @@ class User extends Page {
 	 *
 	 */
 	public function __construct(Template $tpl = null) {
+		if(!$tpl) $this->template = $this->wire()->templates->get('user');
+		$this->_parent_id = $this->wire()->config->usersPageID; 
 		parent::__construct($tpl); 
-		if(is_null($tpl)) {
-			$this->template = $this->wire('templates')->get('user');
-		}
-		if(!$this->parent_id) $this->set('parent_id', $this->wire('config')->usersPageID); 
+	}
+
+	/**
+	 * Wired to API
+	 * 
+	 * @throws WireException
+	 * 
+	 */
+	public function wired() {
+		parent::wired();
+		$template = $this->wire()->templates->get('user');
+		if($template !== $this->template && (!$this->template || $this->template->name === 'user')) $this->template = $template;
+		$this->_parent_id = $this->wire()->config->usersPageID; 
 	}
 	
 	/**

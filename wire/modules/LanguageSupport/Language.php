@@ -30,9 +30,17 @@ class Language extends Page {
 	 */
 	public function __construct(Template $tpl = null) {
 		parent::__construct($tpl);
-		if(is_null($tpl)) {
-			$this->template = $this->wire('templates')->get('language');
-		}
+		if(!$tpl) $this->template = $this->wire()->templates->get('language'); 
+	}
+
+	/**
+	 * Wired to API
+	 * 
+	 */
+	public function wired() {
+		parent::wired();
+		$template = $this->wire()->templates->get('language');
+		if($template !== $this->template && (!$this->template || $this->template->name === 'language')) $this->template = $template;
 	}
 
 	/**

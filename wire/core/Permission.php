@@ -52,8 +52,19 @@ class Permission extends Page {
 	 */
 	public function __construct(Template $tpl = null) {
 		parent::__construct($tpl); 
-		if(is_null($tpl)) $this->template = $this->wire('templates')->get('permission'); 
-		$this->parent = $this->wire('pages')->get($this->wire('config')->permissionsPageID); 
+		if(!$tpl) $this->template = $this->wire()->templates->get('permission'); 
+		$this->_parent_id = $this->wire()->config->permissionsPageID; 
+	}
+	
+	/**
+	 * Wired to API
+	 *
+	 */
+	public function wired() {
+		parent::wired();
+		$template = $this->wire()->templates->get('permission');
+		if($template !== $this->template && (!$this->template || $this->template->name === 'permission')) $this->template = $template;
+		$this->_parent_id = $this->wire()->config->permissionsPageID;
 	}
 
 	/**

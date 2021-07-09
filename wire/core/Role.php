@@ -30,8 +30,16 @@ class Role extends Page {
 	 */
 	public function __construct(Template $tpl = null) {
 		parent::__construct($tpl); 
-		if(is_null($tpl)) $this->template = $this->getPredefinedTemplate();
-		$this->parent = $this->getPredefinedParent();
+	}
+
+	/**
+	 * Wired to API
+	 * 
+	 */
+	public function wired() {
+		parent::wired();
+		if(!$this->template) $this->template = $this->getPredefinedTemplate();
+		if(!$this->_parent) $this->setParent($this->getPredefinedParent());
 	}
 
 	/**
