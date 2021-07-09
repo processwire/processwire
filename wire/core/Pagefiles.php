@@ -373,6 +373,8 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 		
 		if($this->page && $this->field && !$this->page->isChanged($this->field->name)) return $this;
 		
+		$this->page->filesManager()->uncache();
+		
 		foreach($this->unTempQueue as $item) {
 			$item->isTemp(false);
 		}
