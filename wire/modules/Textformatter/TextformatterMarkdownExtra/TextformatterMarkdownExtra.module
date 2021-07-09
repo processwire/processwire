@@ -3,7 +3,7 @@
 /**
  * ProcessWire Markdown Textformatter
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
 
  * https://processwire.com
  *
@@ -11,6 +11,7 @@
  * Markdown invented by John Gruber.
  * 
  * @property int $flavor Markdown flavor (see flavor constants)
+ * @property bool|int $safeMode Whether or not we are in safe mode (https://github.com/erusev/parsedown#security)
  *
  */
 
@@ -19,7 +20,7 @@ class TextformatterMarkdownExtra extends Textformatter implements ConfigurableMo
 	public static function getModuleInfo() {
 		return array(
 			'title'   => 'Markdown/Parsedown Extra',
-			'version' => 130,
+			'version' => 180,
 			'summary' => "Markdown/Parsedown extra lightweight markup language by Emanuil Rusev. Based on Markdown by John Gruber.",
 		);
 	}
@@ -31,51 +32,88 @@ class TextformatterMarkdownExtra extends Textformatter implements ConfigurableMo
 	const flavorRCD = 16; // add RCD extensions to one of above, @see markdownExtensions() method (@deprecated)
 	
 	public function __construct() {
+		parent::__construct();
 		$this->set('flavor', self::flavorDefault); 
+		$this->set('safeMode', false);
 	}
 
 	public function format(&$str) {
-		$str = $this->markdown($str, $this->flavor); 
+		$str = $this->markdown($str, (int) $this->flavor); 
 	}
 	
 	public function formatValue(Page $page, Field $field, &$value) {
-		$value = $this->markdown($value, $this->flavor);
+		$value = $this->markdown($value, (int) $this->flavor);
+	}
+
+	/**
+	 * Get or set safe mode
+	 * 
+	 * “Parsedown is capable of escaping user-input within the HTML that it generates. 
+	 * Additionally Parsedown will apply sanitisation to additional scripting vectors 
+	 * (such as scripting link destinations) that are introduced by the markdown syntax 
+	 * itself. To tell Parsedown that it is processing untrusted user-input, use the 
+	 * following...” See: <https://github.com/erusev/parsedown#security>
+	 * 
+	 * @param bool|null $safeMode
+	 * @return bool
+	 * 
+	 */
+	public function safeMode($safeMode = null) {
+		if($safeMode !== null) $this->safeMode = $safeMode ? true : false;
+		return (bool) $this->safeMode; 
 	}
 
 	/**
 	 * Given a string, return a version processed with markdown
 	 * 
 	 * @param $str String to process
-	 * @param int $flavor Flavor of markdown (default=parsedown extra)
+	 * @param int|null $flavor Flavor of markdown (null=use module configured setting)
+	 * @param bool|null $safeMode Safe mode ON or OFF (null=use module configured setting)
 	 * @return string Processed string
 	 * 
 	 */
-	public function markdown($str, $flavor = 0) {
-	
-		if(!class_exists("\\Parsedown")) {
-			require_once(dirname(__FILE__) . "/parsedown/Parsedown.php");
-		}
-		
-		if($flavor & self::flavorParsedown) {
-			// regular parsedown
-			$parsedown = new \Parsedown();
-			$str = $parsedown->text($str);
-			
-		} else {
-			// parsedown extra 
-			if(!class_exists("\\ParsedownExtra")) {
-				require_once(dirname(__FILE__) . "/parsedown-extra/ParsedownExtra.php");
-			}
-			$extra = new \ParsedownExtra();
-			$str = $extra->text($str);
-		}
-		
+	public function markdown($str, $flavor = null, $safeMode = null) {
+		$parsedown = $this->getParsedown($flavor);
+		if(is_bool($safeMode)) $parsedown->setSafeMode($safeMode);
+		$str = $parsedown->text($str);
 		if($flavor & self::flavorRCD) $this->markdownExtensions($str);
-		
 		return $str; 
 	}
 
+	/**
+	 * Given a string, return a version processed with markdown in safe mode
+	 * 
+	 * https://github.com/erusev/parsedown#security
+	 *
+	 * @param $str String to process
+	 * @param int $flavor Flavor of markdown (default=parsedown extra)
+	 * @return string Processed string
+	 *
+	 */
+	public function markdownSafe($str, $flavor = 0) {
+		return $this->markdown($str, $flavor, true);
+	}
 	
+	/**
+	 * @param int|null $flavor
+	 * @return \ParsedownExtra|\Parsedown
+	 *
+	 */
+	public function getParsedown($flavor = null) {
+		if($flavor === null) $flavor = (int) $this->flavor;
+		if(!class_exists("\\Parsedown")) require_once(dirname(__FILE__) . "/parsedown/Parsedown.php");
+		if(!class_exists("\\ParsedownExtra")) require_once(dirname(__FILE__) . "/parsedown-extra/ParsedownExtra.php");
+		if($flavor & self::flavorParsedown) {
+			// regular parsedown
+			$parsedown = new \Parsedown();
+		} else {
+			// parsedown extra 
+			$parsedown = new \ParsedownExtra();
+		}
+		if($this->safeMode) $parsedown->setSafeMode(true);
+		return $parsedown;
+	}
+
 	/**
 	 * A few RCD extentions to MarkDown syntax, to be executed after Markdown has already had it's way with the text
 	 * 
@@ -98,16 +136,52 @@ class TextformatterMarkdownExtra extends Textformatter implements ConfigurableMo
 		if(strpos($str, '/*') !== false) $str = preg_replace('{/\*.*?\*/}s', '', $str); 
 		if(strpos($str, '//') !== false) $str = preg_replace('{^//.*$}m', '', $str); 
 	}
-	
-	public function getModuleConfigInputfields(array $data) {
-		$inputfields = $this->wire(new InputfieldWrapper());
-		$f = $this->wire('modules')->get('InputfieldRadios');
+
+	/**
+	 * @param InputfieldWrapper $inputfields
+	 *
+	 */
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+		$f = $inputfields->InputfieldRadios;
 		$f->attr('name', 'flavor');
 		$f->label = $this->_('Markdown flavor to use');
 		$f->addOption(self::flavorParsedownExtra, 'Parsedown Extra');
 		$f->addOption(self::flavorParsedown, 'Parsedown'); 
-		$f->attr('value', isset($data['flavor']) ? (int) $data['flavor'] : self::flavorDefault); 
+		$f->attr('value', (int) $this->flavor);
 		$inputfields->add($f);
-		return $inputfields; 
+		
+		$f = $inputfields->InputfieldToggle;
+		$f->attr('name', 'safeMode'); 
+		$f->label = $this->_('Safe mode?'); 
+		$f->description = $this->_('Enable this to Markdown that it is processing untrusted user-input.') . ' ' . 
+			"[" . $this->_('Details') . "](https://github.com/erusev/parsedown#security)";
+		$f->val((int) $this->safeMode);
+		$inputfields->add($f);
+		
+		$f = $inputfields->InputfieldTextarea;
+		$f->attr('name', '_test_markdown'); 
+		$f->label = $this->_('Test markdown'); 
+		$f->description = $this->_('Enter some markdown and click submit to test the result with your current settings.'); 
+		$f->collapsed = Inputfield::collapsedBlank;
+		$f->icon = 'flask';
+		$inputfields->add($f);
+	
+		$session = $this->wire()->session;
+		$text = $this->wire()->input->post('_test_markdown');
+		if($text) {
+			$session->setFor($this, 'text', $text);
+		} else {
+			$text = $session->getFor($this, 'text');
+			$session->removeFor($this, 'text');
+			$f->val($text);
+			if($text) {
+				$markup = $this->markdown($text);
+				$this->message("<strong>$f->label results:</strong><br />" . 
+					"<pre>" . $this->wire()->sanitizer->entities($markup) . '</pre>', 
+					Notice::allowMarkup | Notice::noGroup
+				); 
+			}
+		}
+		
 	}
 }
