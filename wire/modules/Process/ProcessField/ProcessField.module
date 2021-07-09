@@ -607,7 +607,12 @@ class ProcessField extends Process implements ConfigurableModule {
 		$table = $this->modules->get("MarkupAdminDataTable");
 		$labels = $this->labels; 
 
-		$headerRow = array($labels['name'], $labels['label'], $labels['type'], $labels['templates']); 
+		$headerRow = array(
+			$labels['name'], 
+			$labels['label'], 
+			$labels['type'], 
+			$labels['templates']
+		); 
 
 		$table->headerRow($headerRow);
 		$table->setEncodeEntities(false);
@@ -634,53 +639,77 @@ class ProcessField extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected function ___getListTableRow(Field $field) {
+		
+		$sanitizer = $this->wire()->sanitizer; 
+		$session = $this->wire()->session;
+		$editUrl = "edit?id=$field->id";
 
 		$flagDefs = array(
 			'Autojoin' => array(
-				'icon' => 'fa fa-sign-in',
-				'label' => $this->_x('autojoin', 'list notes')
-				),
+				'icon' => 'sign-in',
+				'label' => $this->_x('autojoin', 'list notes'),
+				'href' => "$editUrl#find-autojoin",
+			),
 			'Global' => array(
-				'icon' => 'fa fa-globe',
-				'label' => $this->_x('global', 'list notes')
-				),
+				'icon' => 'globe',
+				'label' => $this->_x('global', 'list notes'),
+				'href' => "$editUrl#find-global",
+			),
 			'System' => array(
-				'icon' => 'fa fa-puzzle-piece',
-				'label' => $this->_x('system', 'list notes')
-				),
+				'icon' => 'puzzle-piece',
+				'label' => $this->_x('system', 'list notes'),
+				'href' => ($this->wire()->config->advanced ? "$editUrl#find-system" : ''),
+			),
 			'Permanent' => array(
-				'icon' => 'fa fa-building-o',
+				'icon' => 'building-o',
 				'label' => $this->_x('permanent', 'list notes')
-				),
+			),
 			'Required' => array(
-				'icon' => 'fa fa-asterisk', 
-				'label' => $this->_x('required', 'list notes')
-				),
+				'icon' => 'asterisk', 
+				'label' => $this->_x('required', 'list notes'),
+				'href' => "$editUrl#find-required",
+			),
 			'Dependency' => array(
-				'icon' => 'fa fa-question-circle', 
-				'label' => $this->_x('show if...', 'list notes')
-				),
+				'icon' => 'question-circle', 
+				'label' => $this->_x('show if...', 'list notes'),
+				'href' => "$editUrl#find-showIf",
+			),
 			'Access' => array(
-				'icon' => 'fa fa-key', 
-				'label' => $this->_x('access', 'list notes')
-				),
-			);
+				'icon' => 'key', 
+				'label' => $this->_x('access', 'list notes'),
+				'href' => "$editUrl#find-useRoles",
+			),
+			'Unique' => array(
+				'icon' => 'snowflake-o',
+				'label' => $this->_x('unique', 'list notes'),
+				'href' => "$editUrl#find-flagUnique",
+			),
+			'Context' => array(
+				'icon' => 'shield',
+				'label' => $this->_x('overrides/contexts', 'list notes'),
+				'href' => "$editUrl#find-tab-overrides",
+			),
+		);
 
-		$numTemplates = 0; 
+		$numTemplates = $field->getTemplates(true);
+		$numTemplatesLink = "$editUrl#find-send_templates";
+		$numTemplatesLabel = sprintf($this->_n('%d template', '%d templates', $numTemplates), $numTemplates);
 		$flags = array();
+		$fieldName = $field->name;
 		$builtIn = false;
 		
-		$templatesID = (int) $this->session->getFor($this, 'filterTemplate'); 
+		$templatesID = (int) $session->getFor($this, 'filterTemplate'); 
 		if($templatesID && $template = $this->templates->get($templatesID)) {
 			if(!$template->fieldgroup->has($field)) return array();
 		}
-		if($fieldtype = $this->session->getFor($this, 'filterFieldtype')) {
+		if($fieldtype = $session->getFor($this, 'filterFieldtype')) {
 			if($field->type != $fieldtype) return array();
 		}
 
 		if($field->flags & Field::flagAutojoin) $flags[] = 'Autojoin';
 		if($field->flags & Field::flagGlobal) $flags[] = 'Global';
 		if($field->flags & Field::flagAccess) $flags[] = 'Access';
+		if($field->flags & Field::flagUnique) $flags[] = 'Unique';
 
 		if($field->flags & Field::flagSystem) {
 			$flags[] = 'System';
@@ -694,31 +723,47 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 		if($field->showIf) $flags[] = 'Dependency';
 		if($field->required) $flags[] = 'Required';
+		if(count($field->getContexts())) $flags[] = 'Context';
 
 		if($builtIn && !$templatesID && $field->name != 'title' && $field->name != 'email') {
-			if(!$this->session->getFor($this, 'filterShowSystem')) return array();
+			if(!$session->getFor($this, 'filterShowSystem')) return array();
 		}
 
-		foreach($field->getFieldgroups() as $fieldgroup) {
-			$numTemplates += $fieldgroup->numTemplates();
-		}
-		$numTemplatesLink = "../template/?filter_field={$field->name}&nosave=1";
 
 		$flagsOut = '';
 		foreach($flags as $flagName) {
+			if(!isset($flagDefs[$flagName])) continue;
 			$flag = $flagDefs[$flagName];
-			$icon = "<i class='$flag[icon]'></i>";
-			$flagsOut .= "<a href='#' class='fieldFlag fieldFlag$flagName tooltip' title='$flag[label]'>$icon</span></a>";
+			$icon = wireIconMarkup($flag['icon']);
+			$href = isset($flag['href']) ? $flag['href'] : '#';
+			$flagsOut .= "<a href='$href' class='fieldFlag fieldFlag$flagName tooltip' title='$flag[label]'>$icon</span></a>";
 		}
 
-		$icon = $field->icon ? "<i class='fa fa-" . str_replace(array('icon-', 'fa-'), '', $this->wire('sanitizer')->name($field->icon)) . "'></i> " : '';
-
+		$icon = $field->getIcon();
+		$icon = $icon ? wireIconMarkup($icon) : ''; 
+		$label = $sanitizer->entities($field->getLabel());
+		$typeName = $sanitizer->entities($field->type->shortName);
+		$inputName = $typeName === 'Page' ? $field->get('inputfield') : $field->get('inputfieldClass|fieldtypeClass');
+		
+		if($inputName) {
+			$inputName = $sanitizer->entities(str_replace(array('Inputfield', 'Fieldtype'), '', $inputName));
+			if(strpos($inputName, $typeName) === 0) list(,$inputName) = explode($typeName, $inputName, 2);
+			$inputName = $inputName === $typeName || !$inputName ? '' : "/$inputName";
+		} else {
+			$inputName = '';
+		}
+		
+		if($numTemplates) {
+		} else {
+			$label .= " <span class='notes'>" . $this->_('(not used)') . "</span>";
+		}
+		
 		return array(
-			$field->name => "edit?id={$field->id}",
-			$icon . $this->sanitizer->entities($field->getLabel()), 
-			$this->sanitizer->entities($field->type->shortName),
-			"$flagsOut<a href='$numTemplatesLink'>$numTemplates</a>"
-			);
+			"$fieldName" => $editUrl,
+			"$icon $label",
+			"$typeName$inputName",
+			"$flagsOut<a class='pw-tooltip' title='$numTemplatesLabel' href='$numTemplatesLink'>$numTemplates</a>"
+		);
 	}
 
 	/**
@@ -1181,7 +1226,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$f = $modules->get('InputfieldMarkup');
 		$f->attr('name', 'overrides_table');
 		$f->description = $this->_('The following settings are overridden for this field by the indicated template(s). Check the box to the right of any row to remove the setting override (restoring the original value).');
-		$f->icon = 'exchange';
+		$f->icon = 'shield';
 		if($this->fieldgroup) {
 			if($this->contextNamespace) {
 				$f->label = sprintf($this->_('Setting overrides for field namespace: %s'), $this->contextNamespace);
@@ -1407,6 +1452,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
 		$fieldset->label = $this->_('Front-end editing');
 		$fieldset->icon = 'edit';
+		$fieldset->attr('id', 'front-end-editing');
 		$fieldset->collapsed = Inputfield::collapsedYes;
 		$tab->add($fieldset);
 		

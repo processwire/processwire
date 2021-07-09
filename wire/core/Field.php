@@ -744,6 +744,24 @@ class Field extends WireData implements Saveable, Exportable {
 	}
 
 	/**
+	 * Get all contexts this field is used in
+	 * 
+	 * @return array Array of 'fieldgroup-name' => [ contexts ]
+	 * @since 3.0.182
+	 * 
+	 */
+	public function getContexts() {
+		$contexts = array();
+		foreach($this->wire()->fieldgroups as $fieldgroup) {
+			/** @var Fieldgroup $fieldgroup */
+			$context = $fieldgroup->getFieldContextArray($this->id);
+			if(empty($context)) continue;
+			$contexts[$fieldgroup->name] = $context;
+		}
+		return $contexts;	
+	}
+
+	/**
 	 * Set the roles that are allowed to view or edit this field on pages.
 	 *
 	 * Applicable only if the `Field::flagAccess` is set to this field's flags.
@@ -860,7 +878,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */ 
 	public function numFieldgroups() {
-		return count($this->getFieldgroups()); 
+		return $this->getFieldgroups(true); 
 	}
 
 	/**
@@ -868,20 +886,23 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 * #pw-group-retrieval
 	 *
-	 * @return FieldgroupsArray WireArray of Fieldgroup objects. 
+	 * @param bool $getCount Get count rather than FieldgroupsArray? (default=false) 3.0.182+
+	 * @return FieldgroupsArray|int WireArray of Fieldgroup objects or count if requested
 	 *
 	 */ 
-	public function getFieldgroups() {
-		$fieldgroups = $this->wire(new FieldgroupsArray());
-		foreach($this->wire('fieldgroups') as $fieldgroup) {
+	public function getFieldgroups($getCount = false) {
+		$fieldgroups = $getCount ? null : $this->wire(new FieldgroupsArray());
+		$count = 0;
+		foreach($this->wire()->fieldgroups as $fieldgroup) {
 			foreach($fieldgroup as $field) {
 				if($field->id == $this->id) {
-					$fieldgroups->add($fieldgroup); 
+					if($fieldgroups) $fieldgroups->add($fieldgroup); 
+					$count++;
 					break;
 				}
 			}
 		}
-		return $fieldgroups; 
+		return $getCount ? $count : $fieldgroups; 
 	}
 
 	/**
@@ -889,10 +910,18 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 * #pw-group-retrieval
 	 *
-	 * @return TemplatesArray WireArray of Template objects. 
+	 * @param bool $getCount Get count rather than FieldgroupsArray? (default=false) 3.0.182+
+	 * @return TemplatesArray|int WireArray of Template objects or count when requested. 
 	 *
 	 */ 
-	public function getTemplates() {
+	public function getTemplates($getCount = false) {
+		if($getCount) {
+			$count = 0;
+			foreach($this->templates as $template) {
+				if($template->hasField($this)) $count++;
+			}
+			return $count;
+		}
 		$templates = $this->wire(new TemplatesArray());
 		$fieldgroups = $this->getFieldgroups();
 		foreach($this->templates as $template) {

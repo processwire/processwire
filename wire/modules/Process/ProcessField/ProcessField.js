@@ -85,7 +85,9 @@ $(document).ready(function() {
 		window.location = href; 
 	});
 	
-	$("a.fieldFlag").click(function() { return false; });
+	$("a.fieldFlag").click(function() { 
+		if($(this).attr('href') === '#') return false; 
+	});
 
 	$("#export_data").click(function() { $(this).select(); });
 

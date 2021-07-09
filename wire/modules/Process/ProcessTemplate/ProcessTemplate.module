@@ -403,37 +403,45 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 	 */
 	public function ___getListTableRow(Template $template, $useLabel = true) {
 
+		$editUrl = "edit?id={$template->id}";
 		$flags = array();
 		$flagDefs = array(
 			'system' => array(
 				'label' => $this->_x('system', 'list-note'),
-				'icon' => 'puzzle-piece'
-				),
+				'icon' => 'puzzle-piece',
+				'href' => ($this->wire()->config->advanced ? "$editUrl#find-flagSystem" : $editUrl),
+			),
 			'access' => array(
 				'label' => $this->_x('access', 'list-note'),
-				'icon' => 'key'
-				),
+				'icon' => 'key',
+				'href' => "$editUrl#find-tab_access",
+			),
 			'no-file' => array(
 				'label' => $this->_x('no-file', 'list-note'),
-				'icon' => 'ban'
-				),
+				'icon' => 'ban',
+				'href' => "$editUrl#find-tab_files",
+			),
 			'cache' => array(
 				'label' => $this->_x('cache', 'list-note'),
-				'icon' => 'clock-o'
-				),
+				'icon' => 'clock-o',
+				'href' => "$editUrl#find-tab_cache",
+			),
 			'procache' => array(
 				'label' => $this->_x('ProCache', 'list-note'),
-				'icon' => 'fighter-jet'
+				'icon' => 'fighter-jet',
+				'href' => "$editUrl#find-tab_cache",
 			),
 			'url-segments' => array(
 				'label' => $this->_x('URL segments', 'list-note'),
-				'icon' => 'sitemap'
-				),
+				'icon' => 'sitemap',
+				'href' => "$editUrl#find-urlSegments",
+			),
 			'page-numbers' => array(
 				'label' => $this->_x('Page numbers', 'list-note'),
-				'icon' => 'list-ol'
-				)
-			);
+				'icon' => 'list-ol',
+				'href' => "$editUrl#find-allowPageNum",
+			)
+		);
 
 		$filterField = $this->session->getFor($this, 'filterField');
 		$filterSystem = $this->session->getFor($this, 'filterSystem');
@@ -455,7 +463,9 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			$class = 'templateFlag' . ucfirst($flag);
 			$flag = $flagDefs[$flag]; 
 			$label = str_replace('-', ' ', ucfirst($flag['label']));
-			$notes .= "<a class='tooltip templateFlag $class' title='$label'><i class='fa fa-$flag[icon]'></i>&nbsp;</a> ";
+			$href = empty($flag['href']) ? '#' : $flag['href'];
+			$icon = wireIconMarkup($flag['icon'], 'fw'); 
+			$notes .= "<a href='$href' class='tooltip templateFlag $class' title='$label'>$icon</a> ";
 		}
 
 		$numPages = $template->getNumPages();
@@ -465,7 +475,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		if($template->fieldgroup && $template->fieldgroup->name != $template->name) $numFields .= " " . $template->fieldgroup->name; 
 	
 		$row = array();
-		$row["{$template->name} "] = "edit?id={$template->id}";
+		$row["{$template->name} "] = $editUrl;
 		if($useLabel) {
 			$icon = $template->getIcon();
 			$icon = $icon ? wireIconMarkup($icon, 'fw') : '';
@@ -717,12 +727,14 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		$t->attr('title', $this->_x('URLs', 'tab'));
 		// $t->head = $this->_('Optional settings for URLs of pages using this template');
 		$t->attr('class', 'WireTab'); 
+		$t->attr('id', 'tab_urls');
 		$t->add($this->buildEditFormURLs($template)); 
 		$form->add($t);
 		
 		$t = $this->wire(new InputfieldWrapper());
 		$t->attr('title', $this->_x('Files', 'tab'));
 		$t->attr('class', 'WireTab');
+		$t->attr('id', 'tab_files');
 		$t->add($this->buildEditFormFile($template));
 		$form->add($t); 
 
@@ -738,6 +750,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		$t->attr('title', $this->_x('Advanced', 'tab'));
 		// $t->head = $this->_('Optional advanced template settings');
 		$t->attr('class', 'WireTab'); 
+		$t->attr('id', 'tab_advanced');
 		$t->add($this->buildEditFormAdvanced($template)); 
 		$form->add($t); 
 
@@ -746,6 +759,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			$t->attr('title', $this->_x('System', 'tab'));
 			// $t->head = $this->_('System-specific template settings');
 			$t->attr('class', 'WireTab'); 
+			$t->attr('id', 'tab_system');
 			$t->add($this->buildEditFormSystem($template)); 
 			$form->add($t); 
 		}
@@ -753,6 +767,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		$t = $this->wire(new InputfieldWrapper());
 		$t->attr('class', 'WireTab'); 
 		$t->attr('title', $this->_x('Actions', 'tab'));
+		$t->attr('id', 'tab_actions');
 		$t->add($this->buildEditFormActions($template));
 		$form->add($t);
 
