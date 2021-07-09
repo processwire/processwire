@@ -1,0 +1,72 @@
+<?php namespace ProcessWire;
+
+/**
+ * ProcessWire Icon Fieldtype
+ *
+ * Complements the core icon inputfield so it can be used in templates/pages
+ *
+ */
+
+class FieldtypeIcon extends FieldtypeText implements Module {
+
+	public static function getModuleInfo() {
+		return array(
+			'title' => 'Icon',
+			'version' => "0.0.1",
+			'summary' => 'Icon Field',
+			'requires' => array('InputfieldIcon')
+			);
+	}
+
+	public function init() {
+		parent::init();
+	}
+
+	/**
+	 * Return all Fieldtypes derived from FieldtypeText, which we will consider compatible
+	 *
+	 */
+	public function ___getCompatibleFieldtypes(Field $field) {
+		$fieldtypes = $this->wire(new Fieldtypes());
+		foreach($this->wire('fieldtypes') as $fieldtype) {
+			if($fieldtype instanceof FieldtypeText) {
+				$fieldtypes->add($fieldtype);
+			}
+		}
+		return $fieldtypes; 
+	}
+
+	/**
+	 * Return the associated Inputfield
+	 *
+	 */
+	public function getInputfield(Page $page, Field $field) {
+		$inputField = $this->modules->get('InputfieldIcon'); 
+		return $inputField; 
+	}
+
+	/**
+	 * Since we do not require InputfieldText's configuration options, we remove them here
+	 *
+	 */
+	public function ___getConfigInputfields(Field $field) {
+		$inputfields = new InputfieldWrapper();
+
+		return $inputfields; 
+	}
+
+	/**
+	 * Convert an array of exported data to a format that will be understood internally
+	 *
+	 * @param Field $field
+	 * @param array $data
+	 * @return array Data as given and modified as needed. Also included is $data[errors], an associative array
+	 *	indexed by property name containing errors that occurred during import of config data.
+	 *
+	 */
+	public function ___importConfigData(Field $field, array $data) {
+		return $data;
+	}
+	
+}
+
