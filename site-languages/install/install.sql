@@ -387,6 +387,7 @@ INSERT INTO `field_title` (`pages_id`, `data`, `data1012`, `data1013`) VALUES('1
 INSERT INTO `field_title` (`pages_id`, `data`, `data1012`, `data1013`) VALUES('1005', 'Site Map', 'Sitemap', 'Sivukartta');
 INSERT INTO `field_title` (`pages_id`, `data`, `data1012`, `data1013`) VALUES('1006', 'Use Page Lister', '', '');
 INSERT INTO `field_title` (`pages_id`, `data`, `data1012`, `data1013`) VALUES('1007', 'Find', '', '');
+INSERT INTO `field_title` (`pages_id`, `data`, `data1012`, `data1013`) VALUES('1008', 'Administer languages and static translation files', '', '');
 INSERT INTO `field_title` (`pages_id`, `data`, `data1012`, `data1013`) VALUES('1009', 'Languages', '', '');
 INSERT INTO `field_title` (`pages_id`, `data`, `data1012`, `data1013`) VALUES('1010', 'English', 'Englisch', 'Englanti');
 INSERT INTO `field_title` (`pages_id`, `data`, `data1012`, `data1013`) VALUES('1011', 'Language Translator', '', '');
@@ -662,6 +663,7 @@ INSERT INTO `pages` (`id`, `parent_id`, `templates_id`, `name`, `status`, `modif
 INSERT INTO `pages` (`id`, `parent_id`, `templates_id`, `name`, `status`, `modified`, `modified_users_id`, `created`, `created_users_id`, `sort`, `name1012`, `status1012`, `name1013`, `status1013`) VALUES('1005', '1', '34', 'site-map', '1', NOW(), '41', NOW(), '2', '2', 'sitemap', '1', 'sivukartta', '1');
 INSERT INTO `pages` (`id`, `parent_id`, `templates_id`, `name`, `status`, `modified`, `modified_users_id`, `created`, `created_users_id`, `sort`, `name1012`, `status1012`, `name1013`, `status1013`) VALUES('1006', '31', '5', 'page-lister', '1', NOW(), '40', NOW(), '40', '9', NULL, '1', NULL, '1');
 INSERT INTO `pages` (`id`, `parent_id`, `templates_id`, `name`, `status`, `modified`, `modified_users_id`, `created`, `created_users_id`, `sort`, `name1012`, `status1012`, `name1013`, `status1013`) VALUES('1007', '3', '2', 'lister', '1', NOW(), '40', NOW(), '40', '8', NULL, '1', NULL, '1');
+INSERT INTO `pages` (`id`, `parent_id`, `templates_id`, `name`, `status`, `modified`, `modified_users_id`, `created`, `created_users_id`, `sort`, `name1012`, `status1012`, `name1013`, `status1013`) VALUES('1008', '31', '5', 'lang-edit', '1', NOW(), '41', NOW(), '41', '14', NULL, '1', NULL, '1');
 INSERT INTO `pages` (`id`, `parent_id`, `templates_id`, `name`, `status`, `modified`, `modified_users_id`, `created`, `created_users_id`, `sort`, `name1012`, `status1012`, `name1013`, `status1013`) VALUES('1009', '22', '2', 'languages', '16', NOW(), '41', NOW(), '41', '2', NULL, '1', NULL, '1');
 INSERT INTO `pages` (`id`, `parent_id`, `templates_id`, `name`, `status`, `modified`, `modified_users_id`, `created`, `created_users_id`, `sort`, `name1012`, `status1012`, `name1013`, `status1013`) VALUES('1010', '1009', '43', 'default', '16', NOW(), '41', NOW(), '41', '0', NULL, '1', NULL, '1');
 INSERT INTO `pages` (`id`, `parent_id`, `templates_id`, `name`, `status`, `modified`, `modified_users_id`, `created`, `created_users_id`, `sort`, `name1012`, `status1012`, `name1013`, `status1013`) VALUES('1011', '22', '2', 'language-translator', '1040', NOW(), '41', NOW(), '41', '3', NULL, '1', NULL, '1');
