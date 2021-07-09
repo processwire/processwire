@@ -519,6 +519,7 @@ var Inputfields = {
 			var hasNoFocus = $inputfield.hasClass('InputfieldNoFocus');
 			// Inputfields.toggle() can call Inputfields.focus(), so prevent the focus by adding this class
 			if(!hasNoFocus) $inputfield.addClass('InputfieldNoFocus');
+			if($inputfield.hasClass('WireTab') && !$inputfield.is(':visible')) $inputfield = $inputfield.find('.Inputfield');
 			this.toggle($inputfield, true, 0, function($in, open, duration) {
 				if(level > 9) return;
 				var timeout = level > 0 ? 10 * level : 0;
@@ -848,6 +849,7 @@ var Inputfields = {
 				var $in = jQuery(':input[name=' + $inputfield + ']');
 				if(!$in.length) $in = jQuery(':input[id=' + $inputfield + ']'); 
 				if(!$in.length) $in = jQuery(':input[name="' + $inputfield + '[]"]'); // array name
+				if(!$in.length) $in = jQuery('#' + $inputfield + '.Inputfield'); 
 				$inputfield = $in;
 			} else {
 				$inputfield = jQuery($inputfield)
