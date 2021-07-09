@@ -178,7 +178,8 @@ class LanguageTranslator extends Wire {
 					// not a core module
 					$config = $this->wire()->config;
 					$filename = $this->wire()->files->unixFileName($filename);
-					if(strpos($filename, $config->urls($o)) === false && strpos($filename, "/$class/") !== false) {
+					$url = $config->urls($o);
+					if($url && strpos($filename, $url) === false && strpos($filename, "/$class/") !== false) {
 						// module likely in a symbolic link directory, so determine our own path for textdomain
 						// rather than using the one provided by ReflectionClass
 						list(, $filename) = explode("/$class/", $filename, 2);
