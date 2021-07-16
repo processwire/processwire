@@ -886,7 +886,7 @@ class CommentForm extends Wire implements CommentFormInterface {
 			if($parent) {
 				// validate that depth is in allowed limit
 				$parents = $this->commentsField->getCommentParents($this->page, $comment); 
-				if($parents->count() >= $maxDepth) {
+				if($parents->count() > $maxDepth) {
 					if($parent->parent_id) {
 						$comment->parent_id = $parent->parent_id;
 					} else {
