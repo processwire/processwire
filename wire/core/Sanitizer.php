@@ -288,6 +288,7 @@ class Sanitizer extends Wire {
 		'sanitize' => 'm',
 		'selectorField' => 's',
 		'selectorValue' => 's',
+		'selectorValueAdvanced' => 's',
 		'snakeCase' => 's',
 		'string' => 's',
 		'templateName' => 's',
@@ -2139,6 +2140,35 @@ class Sanitizer extends Wire {
 		
 		return $version > 1 ? $this->selectorValueV2($value, $options) : $this->selectorValueV1($value, $options);
 	}
+	
+	/**
+	 * Sanitize selector value for advanced text search operator (#=)
+	 * 
+	 * The [advanced text search operator](https://processwire.com/docs/selectors/operators/#contains-advanced) 
+	 * `#=` supports some characters that are typically excluded from selector values, so this method enables 
+	 * you to prepare a selector value for use with it. This method should not be used for sanitizing any other 
+	 * kinds of selector values. 
+	 * 
+	 * Characters that have meaning to the advanced text search operator include `+-*()"` and thus their 
+	 * appearance in the `$value` argument is assumed to be a command rather than text to search for. Though 
+	 * note that non-matching double quotes or parenthesis are removed. 
+	 * 
+	 * *Note: If double quotes are used in your selector value, this method will convert them to matching 
+	 * parenthesis, i.e. `+"phrase"` gets converted to `+(phrase)`.*
+	 * 
+	 * @param string|array $value
+	 * @param array $options See options for Sanitizer::selectorValue() method
+	 * @return bool|mixed|string
+	 * @since 3.0.182
+	 * @see Sanitizer::selectorValue()
+	 * @see https://processwire.com/docs/selectors/operators/#contains-advanced
+	 *
+	 */
+	public function selectorValueAdvanced($value, array $options = array()) {
+		$options['operator'] = '#=';
+		return $this->selectorValueV2($value, $options);
+	}
+
 
 	/**
 	 * Wrapper for selectorValueV2() when it receives an array
@@ -2214,12 +2244,14 @@ class Sanitizer extends Wire {
 		$options = array_merge($defaults, $options);
 		$useQuotes = $options['useQuotes'];
 		$hadQuotes = false;
+		$needsQuotes = false;
 		$maxLength = $options['maxLength'];
 		$maxBytes = $options['maxBytes'];
 		$emptyValue = $options['emptyValue'];
 		$blacklist = $options['blacklist'];
 		$quotelist = $options['quotelist'];
 		$op = $options['operator'];
+		$trims = '+,'; // non-whitespace chars to trim from beginning and end
 		
 		if($emptyValue === '' && $options['quoteEmpty']) $emptyValue = '""';
 		
@@ -2228,10 +2260,29 @@ class Sanitizer extends Wire {
 			$blacklist[] = '@'; // @ not supported by fulltext match/against in InnoDB
 			if($op === '#=') {
 				// advanced search operator allows command characters
-				foreach(array('*', '+', '(', ')', '"') as $c) {
+				foreach(array('*', '+', '(', ')') as $c) {
 					$k = array_search($c, $blacklist);
 					if($k !== false) unset($blacklist[$k]);
+					$trims = str_replace($c, '', $trims);
 				}
+				$value = trim($value);	
+				if(strpos($value, '+') === 0 || strpos($value, '-') === 0) $needsQuotes = true;
+				if(strpos($value, '(') !== false || strpos($value, ')') !== false) {
+					// if there aren't matching quantities of open/close parens then remove them
+					if(substr_count($value, '(') !== substr_count($value, ')')) {
+						$value = str_replace(array('(', ')'), ' ', $value);
+					}
+				}
+				if(strpos($value, '"') !== false) {
+					if(substr_count($value, '"') % 2 === 0) {
+						// equal number of quotes, convert to parenthesis
+						$value = preg_replace('/"([^"]+)"/s', '($1)', $value);
+						$needsQuotes = true;
+					}
+					// remove any remaining/unmatched quotes
+					$value = str_replace('"', ' ', $value);
+				}
+				if(!$needsQuotes && strpos($value, '(') !== false) $needsQuotes = true;
 			}
 		}
 	
@@ -2259,7 +2310,7 @@ class Sanitizer extends Wire {
 		$value = trim($value);
 		if(!strlen($value)) return $emptyValue;
 
-		// remove other types of whtiespace
+		// remove other types of whitespace
 		$whitespace = $this->getWhitespaceArray(false);
 		$value = trim(str_replace($whitespace, ($options['allowSpace'] ? ' ' : ''), $value));
 		if(!strlen($value)) return $emptyValue;
@@ -2322,7 +2373,8 @@ class Sanitizer extends Wire {
 		}
 		
 		$value = trim($value); // trim any kind of whitespace
-		$value = trim($value, '+, '); // chars to remove from begin and end 
+		$value = trim($value, $trims); // chars to remove from begin and end 
+		$value = trim($value); // in case whitespace introduced by above
 
 		// RETURN NOW if quotes are disallowed or value is empty		
 		if(!strlen($value)) return $emptyValue;
@@ -2331,7 +2383,7 @@ class Sanitizer extends Wire {
 		}
 
 		// if value started quoted, we keep it quoted, otherwise we determine if it needs them
-		$needsQuotes = $hadQuotes ? true : false;
+		if(!$needsQuotes) $needsQuotes = $hadQuotes ? true : false;
 	
 		if(!$needsQuotes) {
 			// see if any always-quote character triggers are present
