@@ -842,6 +842,8 @@ class Sanitizer extends Wire {
 			} else if($inBlacklist || !strlen(trim($c)) || ctype_cntrl($c)) {
 				// character does not resolve to something visible or is in blacklist
 				$replacements[] = $c;
+			} else if($whitelist === false) {
+				// whitelist disabled: allow everything that is not blacklisted
 			} else {
 				// character that is not in whitelist, double check case variants
 				$cLower = $tt->strtolower($c);
