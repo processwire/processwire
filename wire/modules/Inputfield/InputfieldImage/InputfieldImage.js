@@ -1022,8 +1022,9 @@ function InputfieldImage($) {
 			var $span = $(this).children('span');
 			var $input = $span.closest('.gridImage, .InputfieldImageEdit').find('.InputfieldFileRename');
 			var $list = $span.closest('.gridImages');
+			var sortable = $list.hasClass('ui-sortable');
 
-			$list.sortable('disable');
+			if(sortable) $list.sortable('disable');
 			$input.val($span.text());
 
 			$span.on('keypress', function(e) {
@@ -1049,7 +1050,7 @@ function InputfieldImage($) {
 					//console.log('changed to: ' + val);
 				}
 				$span.off('keypress');
-				$list.sortable('enable');
+				if(sortable) $list.sortable('enable');
 			});
 		});
 	}

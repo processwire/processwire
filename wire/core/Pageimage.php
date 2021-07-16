@@ -1756,6 +1756,39 @@ class Pageimage extends Pagefile {
 	}
 	
 	/**
+	 * Rename this file
+	 *
+	 * Remember to follow this up with a `$page->save()` for the page that the file lives on.
+	 *
+	 * #pw-group-manipulation
+	 *
+	 * @param string $basename New name to use. Must be just the file basename (no path).
+	 * @return string|bool Returns new name (basename) on success, or boolean false if rename failed.
+	 *
+	 */
+	public function rename($basename) {
+		
+		$variations = $this->getVariations();
+		$oldBasename = $this->basename;
+		$newBasename = parent::rename($basename);
+		
+		if($newBasename === false) return false;
+		
+		$ext = '.' . $this->ext();
+		$oldName = basename($oldBasename, $ext);
+		$newName = basename($newBasename, $ext); 
+		
+		foreach($variations as $pageimage) {
+			/** @var Pageimage $pageimage */
+			if(strpos($pageimage->basename, $oldName) !== 0) continue;
+			$newVariationName = $newName . substr($pageimage->basename, strlen($oldName));
+			$pageimage->rename($newVariationName);
+		}
+		
+		return $newBasename;
+	}
+	
+	/**
 	 * Replace file with another
 	 *
 	 * Should be followed up with a save() to ensure related properties are also committed to DB.
