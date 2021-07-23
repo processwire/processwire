@@ -2706,7 +2706,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 				if(!in_array($template->id, $parent->template->childTemplates)) continue; 
 			}
 
-			if(!$superAdvanced && $template->noParents < 0 && $template->getNumPages() > 0) {
+			if(!$superAdvanced && ((int) $template->noParents) < 0 && $template->getNumPages() > 0) {
 				// only one of these is allowed to exist (noParents=-1)
 				continue;
 				
