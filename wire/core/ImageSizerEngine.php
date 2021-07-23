@@ -842,22 +842,31 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			if(strpos($cropping, ',')) {
 				$cropping = explode(',', $cropping);
 			} else if(strpos($cropping, 'x') && preg_match('/^([pd])(\d+)x(\d+)(z\d+)?/', $cropping, $matches)) {
-				$cropping = array(0 => $matches[1], 1 => $matches[2]);
-				if(isset($matches[3])) $cropping[2] = (int) $matches[3]; 
-				if($matches[1] == 'p') {
+				$cropping = array(
+					0 => (int) $matches[2], // x 
+					1 => (int) $matches[3] // y
+				);
+				if(isset($matches[4])) {
+					$cropping[2] = (int) ltrim($matches[4], 'z'); // zoom
+				}
+				if($matches[1] == 'p') { // percent
 					$cropping[0] .= '%';
-					$cropping[0] .= '%';
+					$cropping[1] .= '%';
 				}
 			}
 		}
 		if(is_array($cropping)) {
 			if(strpos($cropping[0], '%') !== false) {
-				$cropping[0] = round(min(100, max(0, $cropping[0]))) . '%';
+				$v = trim($cropping[0], '%');
+				if(ctype_digit(trim($v, '-'))) $v = (int) $v;
+				$cropping[0] = round(min(100, max(0, $v))) . '%';
 			} else {
 				$cropping[0] = (int) $cropping[0];
 			}
 			if(strpos($cropping[1], '%') !== false) {
-				$cropping[1] = round(min(100, max(0, $cropping[1]))) . '%';
+				$v = trim($cropping[1], '%');
+				if(ctype_digit(trim($v, '-'))) $v = (int) $v;
+				$cropping[1] = round(min(100, max(0, $v))) . '%';
 			} else {
 				$cropping[1] = (int) $cropping[1];
 			}
@@ -867,12 +876,19 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			}
 		}
 
-		if($cropping === true) $cropping = true; // default, crop to center
-			else if(!$cropping) $cropping = false;
-			else if(is_array($cropping)) {}  // already took care of it above
-			else if(in_array($cropping, self::$croppingValues)) $cropping = array_search($cropping, self::$croppingValues);
-			else if(array_key_exists($cropping, self::$croppingValues)) {}
-			else $cropping = true; // unknown value or 'center', default to TRUE/center
+		if($cropping === true) {
+			$cropping = true; // default, crop to center
+		} else if(!$cropping) {
+			$cropping = false;
+		} else if(is_array($cropping)) {
+			// already took care of it above
+		} else if(in_array($cropping, self::$croppingValues)) {
+			$cropping = array_search($cropping, self::$croppingValues);
+		} else if(array_key_exists($cropping, self::$croppingValues)) {
+			// okay
+		} else {
+			$cropping = true; // unknown value or 'center', default to TRUE/center
+		}
 
 		return $cropping;
 	}
@@ -897,7 +913,7 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			$zoom = isset($cropping[2]) ? (int) $cropping[2] : 0;
 			$cropping = 
 				(strpos($cropping[0], '%') !== false ? 'p' : 'd') . 
-				((int) $cropping[0]) . 'x' . ((int) $cropping[1]);
+				((int) rtrim($cropping[0], '%')) . 'x' . ((int) rtrim($cropping[1], '%'));
 			if($zoom > 1 && $zoom < 100) $cropping .= "z$zoom";
 		}
 
