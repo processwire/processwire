@@ -1193,8 +1193,9 @@ class ProcessPageView extends Process {
 	/**
 	 * Called when a page is not found, sends 404 header, and displays the configured 404 page instead.
 	 *
-	 * Method is hookable, for instance if you wanted to log 404s.
-	 *
+	 * Method is hookable, for instance if you wanted to log 404s. When hooking this method note that it
+	 * must be hooked sometime before the ready state. 
+	 * 
 	 * @param Page|null $page Page that was found if applicable (like if user didn't have permission or $page's template threw the 404). If not applicable then NULL will be given instead.
 	 * @param string $url The URL that the request originated from (like $_SERVER['REQUEST_URI'] but already sanitized)
 	 * @param bool $triggerReady Whether or not the ready() hook should be triggered (default=false)
