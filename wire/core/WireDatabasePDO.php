@@ -993,19 +993,30 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * is, and any extra information, such as whether it is auto_increment. The verbose option 
 	 * also makes the return value indexed by column name (associative array).
 	 * 
-	 * @param string $table
-	 * @param bool $verbose Include array of verbose information for each? (default=false)
+	 * @param string $table Table name or or `table.column` to get for specific column (when combined with verbose=true)
+	 * @param bool|string $verbose Include array of verbose information for each? (default=false)
+	 *  - Omit or false (bool) to just get column names. 
+	 *  - True (bool) or 1 (int) to get a verbose array of information for each column, indexed by column name.
+	 *  - 2 (int) to get raw MySQL column information, indexed by column name (added 3.0.182).
+	 *  - Column name (string) to get verbose array only for only that column (added 3.0.182).
 	 * @return array 
 	 * @since 3.0.180
 	 * 
 	 */
 	public function getColumns($table, $verbose = false) {
-		$columns[] = array();
+		$columns = array();
+		$getColumn = $verbose && is_string($verbose) ? $verbose : '';
+		if(strpos($table, '.')) list($table, $getColumn) = explode('.', $table, 2);
 		$table = $this->escapeTable($table);
-		$query = $this->query("SHOW COLUMNS FROM $table");
+		$sql = "SHOW COLUMNS FROM $table " . ($getColumn ? 'WHERE Field=:column' : '');
+		$query = $this->prepare($sql);
+		if($getColumn) $query->bindValue(':column', $getColumn);
+		$query->execute();
 		while($col = $query->fetch(\PDO::FETCH_ASSOC)) {
 			$name = $col['Field'];
-			if($verbose) {
+			if($verbose === 2) {
+				$columns[$name] = $col;
+			} else if($verbose) {
 				$columns[$name] = array(
 					'name' => $name,
 					'type' => $col['Type'],
@@ -1018,7 +1029,74 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			}
 		}
 		$query->closeCursor();
+		if($getColumn) return isset($columns[$getColumn]) ? $columns[$getColumn] : array();
 		return $columns;	
+	}
+
+	/**
+	 * Get all indexes from given table
+	 * 
+	 * By default it returns an array of index names. Specify true for the verbose option to get 
+	 * index `name`, `type` and `columns` (array) for each index. 
+	 *
+	 * @param string $table Name of table to get indexes for or `table.index` (usually combined with verbose option).
+	 * @param bool $verbose Include array of verbose information for each? (default=false)
+	 *  - Omit or false (bool) to just get index names.
+	 *  - True (bool) or 1 (int) to get a verbose array of information for each index, indexed by index name.
+	 *  - 2 (int) to get regular PHP array of raw MySQL index information. 
+	 *  - Index name (string) to get verbose array only for only that index.
+	 * @return array
+	 * @since 3.0.182
+	 *
+	 */
+	public function getIndexes($table, $verbose = false) {
+		$indexes = array();
+		$getIndex = $verbose && is_string($verbose) ? $verbose : '';
+		if($verbose === 'primary') $verbose = 'PRIMARY';
+		if(strpos($table, '.')) list($table, $getIndex) = explode('.', $table, 2);
+		$table = $this->escapeTable($table);
+		$sql = "SHOW INDEX FROM `$table` " . ($getIndex ? 'WHERE Key_name=:name' : '');
+		$query = $this->prepare($sql);
+		if($getIndex) $query->bindValue(':name', $getIndex); 
+		$query->execute();
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$name = $row['Key_name'];
+			if($verbose === 2) {
+				$indexes[] = $row;
+			} else if($verbose) {
+				if(!isset($indexes[$name])) $indexes[$name] = array(
+					'name' => $name,
+					'type' => $row['Index_type'],
+					'unique' => (((int) $row['Non_unique']) ? false : true), 
+					'columns' => array(),
+				);
+				$seq = ((int) $row['Seq_in_index']) - 1;
+				$indexes[$name]['columns'][$seq] = $row['Column_name']; 
+			} else {
+				$indexes[] = $name;
+			}
+		}
+		$query->closeCursor();
+		if($getIndex) return isset($indexes[$getIndex]) ? $indexes[$getIndex] : array();
+		return $indexes;	
+		
+	}
+
+	/**
+	 * Get array of info for given table’s primary key/index
+	 * 
+	 * @param string $table
+	 * @param bool $getRaw Get raw MySQL array of info rather than simplied array? (default=false)
+	 * @return array
+	 * @since 3.0.182
+	 * 
+	 */
+	public function getPrimaryKey($table, $getRaw = false) {
+		if($getRaw) {
+			return $this->getIndexes("$table.PRIMARY", 2);
+		} else {
+			return $this->getIndexes($table, 'PRIMARY');
+		}
 	}
 
 	/**
@@ -1064,17 +1142,19 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 * @param string $table Specify table name (or table and column name in format "table.column").
 	 * @param string $column Specify column name (or omit or blank string if already specified in $table argument). 
-	 * @param bool $getInfo Return array of column info (with type info, etc.) rather than boolean?
+	 * @param bool $getInfo Return array of column info (with type info, etc.) rather than true when exists? (default=false)
+	 *   Note that the returned array is raw MySQL values from a SHOW COLUMNS command.
 	 * @return bool|array
 	 * @since 3.0.154
 	 * @throws WireDatabaseException
 	 * 
 	 */
 	public function columnExists($table, $column = '', $getInfo = false) {
-		if(empty($column)) {
-			if(!strpos($table, '.')) throw new WireDatabaseException('No column specified');
-			list($table, $column) = explode('.', $table, 2);
+		if(strpos($table, '.')) {
+			list($table, $col) = explode('.', $table, 2);
+			if(empty($column) || !is_string($column)) $column = $col;
 		}
+		if(empty($column)) throw new WireDatabaseException('No column specified');
 		$exists = false;
 		$table = $this->escapeTable($table);
 		try {
@@ -1083,6 +1163,58 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			$query->execute();
 			$numRows = (int) $query->rowCount();
 			if($numRows) $exists = $getInfo ? $query->fetch(\PDO::FETCH_ASSOC) : true;
+			$query->closeCursor();
+		} catch(\Exception $e) {
+			// most likely given table does not exist
+			$exists = false;
+		}
+		return $exists;
+	}
+
+	/**
+	 * Does table have an index with given name?
+	 * 
+	 * ~~~~
+	 * // simple index check
+	 * if($database->indexExists('my_table', 'my_index')) {
+	 *   // index named my_index exists for my_table
+	 * }
+	 * 
+	 * // index check and get array of info if it exists
+	 * $info = $database->indexExists('my_table', 'my_index', true); 
+	 * if($info) {
+	 *   // info is raw array of information about index from MySQL
+	 * } else {
+	 *   // index does not exist
+	 * }
+	 * ~~~~
+	 * 
+	 * @param string $table
+	 * @param string $indexName
+	 * @param bool $getInfo Return arrays of index information rather than boolean true? (default=false)
+	 *   Note that the verbose arrays are the raw MySQL return values from a SHOW INDEX command.
+	 * @return bool|array Returns one of the following:
+	 *   - `false`: if index does not exist (regardless of $getInfo argument).
+	 *   - `true`: if index exists and $getInfo argument is omitted or false.
+	 *   - `array`: array of arrays with verbose information if index exists and $getInfo argument is true.
+	 * @since 3.0.182
+	 * 
+	 */
+	public function indexExists($table, $indexName, $getInfo = false) {
+		$table = $this->escapeTable($table);
+		$query = $this->prepare("SHOW INDEX FROM `$table` WHERE Key_name=:name");
+		$query->bindValue(':name', $indexName, \PDO::PARAM_STR);
+		try {
+			$query->execute();
+			$numRows = (int) $query->rowCount();
+			if($numRows && $getInfo) {
+				$exists = array();
+				while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+					$exists[] = $row;
+				}
+			} else {
+				$exists = $numRows > 0;
+			}
 			$query->closeCursor();
 		} catch(\Exception $e) {
 			// most likely given table does not exist
