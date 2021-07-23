@@ -20,7 +20,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @property-read $tableField
@@ -134,6 +134,28 @@ class DatabaseQuerySelectFulltext extends Wire {
 		'matchLikeStartEnd' => array('%^=', '%$='),
 		'matchCommands' => array('#='), 
 	);
+	
+	/**
+	 * Alternate operators to substitute when LIKE match is forced due to no FULLTEXT index
+	 * 
+	 * @var array of operator to replacement operator
+	 * 
+	 */
+	protected $likeAlternateOperators = array(
+		'*=' => '%=',
+		'^=' => '%^=', 
+		'$=' => '%$=', 
+		'~=' => '~%=', 
+		'~|=' => '~|%=',
+	);
+
+	/**
+	 * Force use of LIKE?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $forceLike = false;
 
 	/**
 	 * Construct
@@ -279,6 +301,10 @@ class DatabaseQuerySelectFulltext extends Wire {
 
 		// if allowOrder has not been specifically set, then set value now
 		if($this->allowOrder === null) $this->allowOrder = $allowOrder; 
+		
+		if($this->forceLike && isset($this->likeAlternateOperators[$operator])) {
+			$operator = $this->likeAlternateOperators[$operator];
+		}
 		
 		$this->operator = $operator;
 		
@@ -1379,5 +1405,22 @@ class DatabaseQuerySelectFulltext extends Wire {
 	protected function getWordRoot($word) {
 		if($word) {}
 		return '';
+	}
+
+	/**
+	 * Call forceLike(true) to force use of LIKE, or omit argument to get current setting
+	 * 
+	 * This forces LIKE only for matching operators that have a LIKE equivalent.
+	 * This includes these operators: `*=`, `^=`, `$=`, `~=`, `~|=`.
+	 * 
+	 * @param bool|null $forceLike
+	 * @return bool
+	 * @since 3.0.182
+	 * 
+	 */
+	public function forceLike($forceLike = null) {
+		if(is_bool($forceLike)) $this->forceLike = $forceLike;
+		return $this->forceLike;
+		
 	}
 }
