@@ -3,7 +3,7 @@
 /**
  * ProcessWire Select Options Fieldtype
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @property SelectableOptionManager $manager
@@ -16,7 +16,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		return array(
 			'title' => __('Select Options', __FILE__),
 			'summary' => __('Field that stores single and multi select options.', __FILE__),
-			'version' => 1,
+			'version' => 2,
 		);
 	}
 
@@ -319,7 +319,7 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 * 
 	 */
 	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
-	
+
 		if($subfield == 'count') return parent::getMatchQuery($query, $table, $subfield, $operator, $value); 
 		if($subfield == 'data' && (ctype_digit("$value") || empty($value))) {
 			// this is fine (presumed to be an option_id)
@@ -338,22 +338,34 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		
 			if(!count($options)) {
 				if(!$subfield || !SelectableOption::isProperty($subfield)) {
-					// if empty subfield or not a subfield we recognize, just assume title
-					$subfield = 'title';
+					$s = rtrim($subfield, '0123456789');
+					if($subfield && $this->manager->useLanguages() && SelectableOption::isProperty($s)) {
+						// property and language id, i.e. title1234 or value1235
+					} else {
+						// if empty subfield or not a subfield we recognize, just assume title
+						$subfield = 'title';
+					}
 				}
 				$options = $this->manager->findOptionsByProperty($query->field, $subfield, $operator, $value);
 			}
 			
-			$option = $options->first();
-			
 			if($operator != '=' && $operator != '!=') {
 				// for fulltext operations...
 				// since we are now just matching IDs of already found options
-				$operator = '='; 
+				$operator = '=';
 			}
-			
+
 			$subfield = 'data';
-			$value = $option ? $option->id : null;
+			
+			if(count($options) < 2) {
+				$option = $options->first();
+				$value = $option ? $option->id : '';
+			} else {
+				$value = array();
+				foreach($options as $option) {
+					$value[] = $option->id;
+				}
+			}
 		}
 		
 		if($operator == '!=') {
@@ -423,11 +435,13 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 				'name' => 'title', 
 				'input' => 'text',
 				'operators' => array('%=', '=', '!=', '^=', '$=', '*=', '~='), 
+				'label' => $this->_('Title'), 
 			),
 			'value' => array(
 				'name' => 'value',
 				'input' => 'text',
 				'operators' => array('%=', '=', '!=', '^=', '$=', '*=', '~='),
+				'label' => $this->_('Value text'),
 			),
 			'id' => array(
 				'name' => 'id',
@@ -435,6 +449,25 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 				'operators' => array('=', '!=', '>', '>=' ,'<', '<='), 
 			), 
 		);
+	
+		$languages = $this->wire()->languages;
+		if($languages) {
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				
+				$subfield = $subfields['title'];
+				$subfield['name'] .= $language->id;
+				$subfield['label'] .= " ($language->name)";
+				$subfields["title$language"] = $subfield;
+				
+				$subfield = $subfields['value'];
+				$subfield['name'] .= $language->id;
+				$subfield['label'] .= " ($language->name)";
+				$subfields["value$language"] = $subfield;
+			}
+			
+			ksort($subfields);
+		}
 		
 		$info['subfields'] = array_merge($info['subfields'], $subfields); 
 		
@@ -619,6 +652,17 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 	 */
 	public function deleteOptions($field, SelectableOptionArray $options) {
 		return $this->manager->deleteOptions($this->_getField($field), $options);
+	}
+
+	/**
+	 * Upgrade module version 
+	 * 
+	 * @param string $fromVersion
+	 * @param string $toVersion
+	 * 
+	 */
+	public function upgrade($fromVersion, $toVersion) {
+		$this->manager->upgrade($fromVersion, $toVersion); 
 	}
 
 }
