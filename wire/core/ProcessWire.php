@@ -35,7 +35,6 @@ require_once(__DIR__ . '/boot.php');
  * @property Fuel $fuel
  * @property WireHooks $hooks
  * @property WireInput $input
- * @property Inputfields $inputfields
  * @property Languages $languages (present only if LanguageSupport installed)
  * @property WireLog $log
  * @property WireMailTools $mail
@@ -80,7 +79,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 181;
+	const versionRevision = 182;
 
 	/**
 	 * Version suffix string (when applicable)
