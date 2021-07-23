@@ -231,6 +231,10 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			$pages = $this->pages->find("start=$start, limit=$limit");
 			foreach($pages as $page) {
 				if(!$page->editable()) $pages->remove($page);
+				$status = ucwords($page->statusStr);
+				if($status) $page->setQuietly('_labelClass', trim(str_replace(' ', ' PageListStatus', " $status")));
+				$icon = $page->getIcon();
+				if($icon) $page->setQuietly('_labelIcon', $icon);
 			}
 			$options['items'] = $pages;
 			$parent = $this->pages->getParent();
@@ -242,8 +246,48 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 			$options['edit'] = "edit/?id={id}"; 
 		}
 		if(!isset($options['itemLabel'])) $options['itemLabel'] = $this->jsonListLabel;
+		if(!isset($options['iconKey'])) $options['iconKey'] = '_labelIcon';
+		
 		
 		return parent::___executeNavJSON($options); 
+	}
+	
+	public function x___executeNavJSON(array $options = array()) {
+
+		if(!isset($options['items'])) {
+			$sanitizer = $this->wire()->sanitizer;
+			$input = $this->wire()->input;
+			$limit = (int) $input->get('limit');
+			if(!$limit || $limit > 100) $limit = 100;
+			$start = (int) $input->get('start');
+			$options['items'] = $this->pages->find("start=$start, limit=$limit");
+			if(empty($options['itemLabel'])) $options['itemLabel'] = $this->jsonListLabel;
+
+			foreach($options['items'] as $page) {
+				if(!$page->editable()) $options['items']->remove($page);
+				$label = $page->get($options['itemLabel']);
+				$a = array();
+				foreach(explode(' ', $page->statusStr) as $status) {
+					if($status) $a[] = 'PageListStatus' . ucfirst($status);
+				}
+				$label = $sanitizer->entities1($label);
+				if(count($a)) $label = "<span class='" . implode(' ', $a) . "'>$label</span>";
+					$page->setQuietly('_itemLabel', $label);
+				$options['entityEncode'] = false;
+			}
+
+			$parent = $this->pages->getParent();
+			if($parent && $parent->id && $parent->addable()) {
+				$options['add'] = 'add/';
+			} else {
+				$options['add'] = false;
+			}
+			$options['edit'] = "edit/?id={id}";
+		}
+
+		$options['itemLabel'] = '_itemLabel';
+
+		return parent::___executeNavJSON($options);
 	}
 
 	/**

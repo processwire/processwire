@@ -437,17 +437,19 @@ abstract class Process extends WireData implements Module {
 			'iconKey' => 'icon', // property/field containing icon, when applicable
 			'icon' => '', // default icon to use for items
 			'classKey' => '_class', // property to pull additional class names from. Example class: "separator" or "highlight"
+			'labelClassKey' => '_labelClass', // property to pull class for element to wrap label
 			'sort' => true, // automatically sort items A-Z?
 			'getArray' => false, // makes this method return an array rather than JSON
-			);
+		);
 		
 		$options = array_merge($defaults, $options); 
 		$moduleInfo = $this->modules->getModuleInfo($this); 
 		if(empty($moduleInfo['useNavJSON'])) {
 			throw new Wire404Exception('No JSON nav available', Wire404Exception::codeSecondary);
 		}
-		
-		$page = $this->wire('page');
+
+		$sanitizer = $this->wire()->sanitizer;
+		$page = $this->wire()->page;
 		$data = array(
 			'url' => $page->url,
 			'label' => $this->_((string) $page->get('title|name')),
@@ -482,14 +484,26 @@ abstract class Process extends WireData implements Module {
 			}
 			if(empty($icon) && $options['icon']) $icon = $options['icon'];
 			$_label = $label;
-			$label = $this->wire('sanitizer')->entities1($label);
+			$label = $sanitizer->entities1($label);
 			while(isset($data['list'][$_label])) $_label .= "_";
 		
 			if($options['itemLabel2']) {
 				$label2 = is_array($item) ? $item[$options['itemLabel2']] : $item->{$options['itemLabel2']}; 
 				if(strlen($label2)) {
-					$label2 = $this->wire('sanitizer')->entities1($label2);
+					$label2 = $sanitizer->entities1($label2);
 					$label .= " <small>$label2</small>";
+				}
+			}
+			
+			if(!empty($options['labelClassKey'])) {
+				if(is_array($item)) {
+					$labelClass = isset($item[$options['labelClassKey']]) ? $item[$options['labelClassKey']] : '';
+				} else {
+					$labelClass = is_object($item) ? $item->{$options['labelClassKey']} : '';
+				}
+				if($labelClass) {
+					$labelClass = $sanitizer->entities($labelClass);
+					$label = "<span class='$labelClass'>$label</span>";
 				}
 			}
 			
