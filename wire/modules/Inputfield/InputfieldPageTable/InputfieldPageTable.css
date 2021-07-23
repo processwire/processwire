@@ -20,7 +20,7 @@
 	opacity: 1; 
 }
 
-.InputfieldPageTable td:not(:last-child) {
+.InputfieldPageTable .ui-sortable td:not(:last-child) {
 	cursor: move; 
 }
 

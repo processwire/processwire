@@ -120,28 +120,31 @@ function InputfieldPageTableUpdate($table) {
 	$input.val(value); 
 }
 
-function InputfieldPageTableSortable($table) {
-	
-	$table.find('tbody').sortable({
-		axis: 'y',
-		start: function(event, ui) {
-			var widths = [];
-			var n = 0;
-			$table.find('thead').find('th').each(function() {
-				widths[n] = $(this).width();
-				n++;
-			});
-			n = 0;
-			ui.helper.find('td').each(function() {
-				$(this).attr('width', widths[n]);
-				n++;
-			});
-		},
-		stop: function(event, ui) {
-			InputfieldPageTableUpdate($(this)); 
-		}
-	});
+function InputfieldPageTableSortable($tables) {
 
+	$tables.each(function() {
+		var $table = $(this);
+		if($table.closest('.InputfieldRenderValueMode').length) return;
+		$table.find('tbody').sortable({
+			axis: 'y',
+			start: function(event, ui) {
+				var widths = [];
+				var n = 0;
+				$table.find('thead').find('th').each(function() {
+					widths[n] = $(this).width();
+					n++;
+				});
+				n = 0;
+				ui.helper.find('td').each(function() {
+					$(this).attr('width', widths[n]);
+					n++;
+				});
+			},
+			stop: function(event, ui) {
+				InputfieldPageTableUpdate($(this));
+			}
+		});
+	});
 }
 
 function InputfieldPageTableDelete() {

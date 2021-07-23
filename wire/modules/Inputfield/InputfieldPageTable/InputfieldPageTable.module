@@ -7,7 +7,7 @@
  * Code by Ryan Cramer
  * Sponsored by Avoine
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add renderValue support (perhaps delegating to Fieldtype::markupValue), likewise for repeaters. 
@@ -29,7 +29,7 @@ class InputfieldPageTable extends Inputfield {
 		return array(
 			'title' => __('ProFields: Page Table', __FILE__), // Module Title
 			'summary' => __('Inputfield to accompany FieldtypePageTable', __FILE__), // Module Summary
-			'version' => 13,
+			'version' => 14,
 			'requires' => 'FieldtypePageTable'
 			);
 	}
@@ -65,6 +65,14 @@ class InputfieldPageTable extends Inputfield {
 	 * 
 	 */
 	protected $needsEditColumn = false;
+
+	/**
+	 * True when in renderValue mode
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $renderValueMode = false;
 
 	/**
 	 * Initialize and establish default values
@@ -133,6 +141,7 @@ class InputfieldPageTable extends Inputfield {
 
 		// render the table
 		$out = $this->renderTable($columns);
+		if($this->renderValueMode) return $out;
 
 		$editID = (int) $this->wire('input')->get('id');
 		if(!$editID && $this->wire('process') instanceof WirePageEditor) $editID = $this->wire('process')->getPage()->id;
@@ -176,6 +185,19 @@ class InputfieldPageTable extends Inputfield {
 		}
 
 		return $out; 
+	}
+
+	/**
+	 * Render non-editable value
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function ___renderValue() {
+		$this->renderValueMode = true;
+		$out = $this->render();
+		$this->renderValueMode = false;
+		return $out;
 	}
 
 	/**
@@ -277,7 +299,8 @@ class InputfieldPageTable extends Inputfield {
 			$out .= "<th$attr>" . $this->wire('sanitizer')->entities($label) . "</th>";
 		}
 
-		$out .= "<th>&nbsp;</th></tr></thead>";
+		if(!$this->renderValueMode) $out .= "<th>&nbsp;</th>";
+		$out .= "</tr></thead>";
 
 		return $out; 
 	}
@@ -306,7 +329,7 @@ class InputfieldPageTable extends Inputfield {
 			foreach($rows as $key => $row) {
 				list($s1, $s2) = explode('>', $row, 2);
 				$item = $items[$key];
-				$rows[$key] = "$s1><td>" . $this->renderItemLink($item, "<i class='fa fa-edit'></i>") . "</td>$s2";
+				$rows[$key] = "$s1><td>" . $this->renderItemLink($item, wireIconMarkup('edit')) . "</td>$s2";
 			}
 		}
 		
@@ -328,12 +351,16 @@ class InputfieldPageTable extends Inputfield {
 		$n = 0;
 
 		foreach($columns as $column => $width) {
-			$linkURL = $n++ ? '' : $this->getItemEditURL($item);
+			$linkURL = ($n++ && !$this->renderValueMode ? '' : $this->getItemEditURL($item));
 			$out .= $this->renderTableCol($item, $fields, $column, $width, $linkURL);
 		}
 
 		// append a delete column/link
-		$out .= "<td><a class='InputfieldPageTableDelete' href='#'><i class='fa fa-trash-o'></i></a></td>";
+		if(!$this->renderValueMode) {
+			$a = "<a class='InputfieldPageTableDelete' href='#'>" . wireIconMarkup('trash-o') . "</a>";
+			if(!$item->deletable()) $a = "&nbsp;";
+			$out .= "<td>$a</td>";
+		}
 
 		// wrap the row in a <tr>
 		$class = '';
@@ -358,7 +385,7 @@ class InputfieldPageTable extends Inputfield {
 	 */
 	protected function renderTableCol(Page $item, array $fields, $column, $width, $linkURL = '') {
 		$out = $this->getItemValue($item, $fields, $column); 
-		if($linkURL) {
+		if($linkURL && !$this->renderValueMode) {
 			if(stripos($out, '<a ') !== false || stripos($out, '<li') !== false || !strlen($out)) {
 				// table will need a separate edit column since this item doesn't work as a link
 				$this->needsEditColumn = true;
