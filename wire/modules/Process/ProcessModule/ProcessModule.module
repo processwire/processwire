@@ -885,7 +885,9 @@ class ProcessModule extends Process {
 				$class = 'not_installed';
 				if(count($uninstalledPrev) && !in_array($name, $uninstalledPrev)) {
 					$class .= " new_module";
-					if(!$input->get('uninstalled')) $this->message($this->_("Found new module") . " - $name"); // Message that precedes module name when new module is found
+					if(!$input->get('uninstalled')) {
+						$this->message($this->_("Found new module") . " - $name", Notice::noGroup); // Message that precedes module name when new module is found
+					}
 					$newModules[$name] = time();
 					$this->numFound++;
 				}
