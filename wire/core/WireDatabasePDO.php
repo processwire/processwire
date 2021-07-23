@@ -994,7 +994,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * also makes the return value indexed by column name (associative array).
 	 * 
 	 * @param string $table Table name or or `table.column` to get for specific column (when combined with verbose=true)
-	 * @param bool|string $verbose Include array of verbose information for each? (default=false)
+	 * @param bool|int|string $verbose Include array of verbose information for each? (default=false)
 	 *  - Omit or false (bool) to just get column names. 
 	 *  - True (bool) or 1 (int) to get a verbose array of information for each column, indexed by column name.
 	 *  - 2 (int) to get raw MySQL column information, indexed by column name (added 3.0.182).
@@ -1040,7 +1040,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * index `name`, `type` and `columns` (array) for each index. 
 	 *
 	 * @param string $table Name of table to get indexes for or `table.index` (usually combined with verbose option).
-	 * @param bool $verbose Include array of verbose information for each? (default=false)
+	 * @param bool|int|string $verbose Include array of verbose information for each? (default=false)
 	 *  - Omit or false (bool) to just get index names.
 	 *  - True (bool) or 1 (int) to get a verbose array of information for each index, indexed by index name.
 	 *  - 2 (int) to get regular PHP array of raw MySQL index information. 
@@ -1079,23 +1079,33 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$query->closeCursor();
 		if($getIndex) return isset($indexes[$getIndex]) ? $indexes[$getIndex] : array();
 		return $indexes;	
-		
 	}
 
 	/**
-	 * Get array of info for given table’s primary key/index
+	 * Get column(s) or info for given table’s primary key/index
+	 * 
+	 * By default it returns a string with the column name compromising the primary key, i.e. `col1`.
+	 * If the primary key is multiple columns then it returns a CSV string, like `col1,col2,col3`.
+	 * 
+	 * If you specify boolean `true` for the verbose option then it returns an simplified array of 
+	 * information about the primary key. If you specify integer `2` then it returns an array of
+	 * raw MySQL SHOW INDEX information.
 	 * 
 	 * @param string $table
-	 * @param bool $getRaw Get raw MySQL array of info rather than simplied array? (default=false)
-	 * @return array
+	 * @param bool|int $verbose Get array of info rather than column(s) string? (default=false)
+	 * @return string|array
 	 * @since 3.0.182
 	 * 
 	 */
-	public function getPrimaryKey($table, $getRaw = false) {
-		if($getRaw) {
+	public function getPrimaryKey($table, $verbose = false) {
+		if($verbose === 2) {
 			return $this->getIndexes("$table.PRIMARY", 2);
-		} else {
+		} else if($verbose) {
 			return $this->getIndexes($table, 'PRIMARY');
+		} else {
+			$a = $this->getIndexes($table, 'PRIMARY');
+			if(empty($a) || empty($a['columns'])) return '';
+			return implode(',', $a['columns']); 
 		}
 	}
 

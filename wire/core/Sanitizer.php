@@ -261,6 +261,8 @@ class Sanitizer extends Wire {
 		'intSigned' => 'i',
 		'intUnsigned' => 'i',
 		'kebabCase' => 's',
+		'line' => 's',
+		'lines' => 's',
 		'markupToLine' => 's',
 		'markupToText' => 's',
 		'max' => 'fi',
