@@ -412,7 +412,7 @@ $(document).ready(function() {
 					$newList.append($loading); 
 					$spinner.fadeIn('fast');
 					var $siblings = $newList.siblings().css('opacity', 0.5);
-					loadChildren(id, $newList.parent(), $(this).attr('href') * info.limit, false, false, true, function() {
+					loadChildren(id, $newList.parent(), start, false, false, true, function() {
 						$spinner.fadeOut('fast', function() {
 							$loading.remove();
 						});
@@ -537,11 +537,14 @@ $(document).ready(function() {
 						$listRoot.append($children); 
 						$target.append($listRoot);
 
-					} else if($target.is(".PageList")) {
+					} else if($target.hasClass('PageList')) {
 					
 						var $newChildren = $children.children(".PageListItem, .PageListActions"); 
-						if(replace) $target.children(".PageListItem, .PageListActions").replaceWith($newChildren); 
-							else $target.append($newChildren); 
+						if(replace) {
+							// $target.children(".PageListItem, .PageListActions").replaceWith($newChildren); // doesn't work w/jQuery 1.9+
+							$target.children('.PageListItem, .PageListActions').remove();
+						}
+						$target.append($newChildren);
 
 					} else {
 						$target.after($children); 
