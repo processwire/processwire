@@ -28,7 +28,7 @@
  * ~~~~~
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string getMarkup($key = null) Render a simple/default markup value for each item #pw-internal
@@ -123,14 +123,14 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 			// given item exists in this PageArray (or at least has)
 			$key = $this->keyIndex[$id];
 			if(isset($this->data[$key])) {
-				$page = $this->data[$key];
+				$page = $this->data[$key]; /** @var Page $page */
 				if($page->id === $id) {
 					// found it
 					return $key; 
 				}
 			}
-			// if this point is reached, then index needs to be rebuilt
-			// because either item is no longer here, or has moved
+			// if this (maybe unreachable) point is reached, then index needs to 
+			// be rebuilt because either item is no longer here, or has moved 
 			$this->keyIndex = array();
 			foreach($this->data as $key => $page) {
 				$this->keyIndex[$page->id] = $key;
@@ -163,7 +163,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	public function makeBlankItem() {
-		return $this->wire('pages')->newPage();
+		return $this->wire()->pages->newPage();
 	}
 	
 	/**
@@ -197,18 +197,12 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 		if(!self::iterable($pages)) return $this; 
 		foreach($pages as $page) $this->add($page); 
 		if($pages instanceof PageArray) {
-			if(count($pages) < $pages->getTotal()) $this->setTotal($this->getTotal() + ($pages->getTotal() - count($pages))); 
+			if(count($pages) < $pages->getTotal()) {
+				$this->setTotal($this->getTotal() + ($pages->getTotal() - count($pages)));
+			}
 		}
 		return $this;
 	}
-
-	/*
-	public function get($key) {
-		if(ctype_digit("$key")) return parent::get($key); 
-		@todo check if selector, then call findOne(). If it returns null, return a NullPage instead. 
-		return null;
-	}
-	*/
 
 	/**
 	 * Does this PageArray contain the given index or Page?
@@ -252,104 +246,15 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 
 		if($this->isValidItem($page)) {
 			parent::add($page); 
-			$this->numTotal++;
 
 		} else if($page instanceof PageArray || is_array($page)) {
 			return $this->import($page);
 
 		} else if(ctype_digit("$page")) {
-			$page = $this->wire('pages')->get("id=$page");
-			if($page->id) {
-				parent::add($page); 
-				$this->numTotal++;
-			}
+			$page = $this->wire()->pages->get("id=$page");
+			if($page->id) parent::add($page); 
 		}
 		return $this;
-	}
-
-
-	/**
-	 * Sets an index in the PageArray.
-	 * 
-	 * #pw-internal
-	 *
-	 * @param int $key Key of item to set.
-	 * @param Page $value Value of item. 
-	 * @return $this
-	 * 
-	 */
-	public function set($key, $value) {
-		$has = $this->has($key); 
-		parent::set($key, $value); 
-		if(!$has) $this->numTotal++;
-		return $this; 
-	}
-
-	/**
-	 * Prepend a Page to the beginning of the PageArray. 
-	 * 
-	 * #pw-internal
-	 *
-	 * @param Page|PageArray $item 
-	 * @return WireArray This instance.
-	 * 
-	 */
-	public function prepend($item) {
-		parent::prepend($item);
-		// note that WireArray::prepend does a recursive call to prepend with each item,
-		// so it's only necessary to increase numTotal if the given item is Page (vs. PageArray)
-		if($item instanceof Page) $this->numTotal++; 
-		return $this; 
-	}
-
-
-	/**
-	 * Remove the given Page or key from the PageArray. 
-	 * 
-	 * #pw-internal
-	 * 
-	 * @param int|Page $key
-	 * @return $this This PageArray instance
-	 * 
-	 */
-	public function remove($key) {
-
-		// if a Page object has been passed, determine its key
-		if($this->isValidItem($key)) {
-			$key = $this->getItemKey($key);
-		} 
-		if($this->has($key)) {
-			parent::remove($key);
-			$this->numTotal--;
-		}
-
-		return $this; 
-	}
-
-	/**
-	 * Shift the first Page off of the PageArray and return it. 
-	 * 
-	 * #pw-internal
-	 * 
-	 * @return Page|NULL
-	 * 
-	 */
-	public function shift() {
-		if($this->numTotal) $this->numTotal--; 
-		return parent::shift(); 
-	}
-
-	/**
-	 * Pop the last page off of the PageArray and return it. 
-	 * 
-	 * #pw-internal
-	 *
-	 * @return Page|NULL 
-	 * 
-	 */ 
-	public function pop() {
-		if($this->numTotal) $this->numTotal--; 
-		return parent::pop();
 	}
 
 	/**
@@ -641,7 +546,12 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 *
 	 */
 	protected function filterDataSelectors(Selectors $selectors) { 
-		// @todo make it remove references to include= statements since not applicable in-memory
+		$disallowed = array('include', 'check_access', 'checkAccess');
+		foreach($selectors as $selector) {
+			if(in_array($selector->field(), $disallowed)) {
+				$selectors->remove($selector);
+			}
+		}
 		parent::filterDataSelectors($selectors);
 	}
 
@@ -786,6 +696,9 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 */
 	protected function trackAdd($item, $key) {
 		parent::trackAdd($item, $key);
+		if(!$item instanceof Page) return;
+		/** @var Page $item */
+		if(!isset($this->keyIndex[$item->id])) $this->numTotal++;
 		$this->keyIndex[$item->id] = $key;
 	}
 
@@ -798,7 +711,12 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 */
 	protected function trackRemove($item, $key) {
 		parent::trackRemove($item, $key);
-		unset($this->keyIndex[$item->id]);
+		if(!$item instanceof Page) return;
+		/** @var Page $item */
+		if(isset($this->keyIndex[$item->id])) {
+			if($this->numTotal) $this->numTotal--;
+			unset($this->keyIndex[$item->id]);
+		}
 	}
 }
 
