@@ -1782,7 +1782,8 @@ class WireHttp extends Wire {
 	/**
 	 * Get the current user-agent header
 	 * 
-	 * To set the user agent header, use `$http->setHeader('user-agent', '...');`
+	 * To set the user agent header, use `$http->setHeader('user-agent', '...');` 
+	 * or in 3.0.183+ there is also `$http->setUserAgent('...');`
 	 * 
 	 * #pw-group-request-headers
 	 * 
@@ -1797,6 +1798,19 @@ class WireHttp extends Wire {
 			$userAgent = 'ProcessWire/' . ProcessWire::versionMajor . '.' . ProcessWire::versionMinor . ' (' . $this->className() . ')';
 		}
 		return $userAgent;
+	}
+
+	/**
+	 * Set the current user-agent header
+	 * 
+	 * #pw-group-request-headers
+	 * 
+	 * @param string $userAgent
+	 * @since 3.0.183
+	 * 
+	 */
+	public function setUserAgent($userAgent) {
+		$this->setHeader('user-agent', $userAgent); 
 	}
 
 	/**
