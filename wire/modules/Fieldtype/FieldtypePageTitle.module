@@ -35,6 +35,20 @@ class FieldtypePageTitle extends FieldtypeText implements FieldtypePageTitleComp
 		return true; 
 	}
 
+	/**
+	 * Sanitize value for storage
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @param string $value
+	 * @return string
+	 *
+	 */
+	public function sanitizeValue(Page $page, Field $field, $value) {
+		if(is_string($value)) $value = trim($value);
+		return $value;
+	}
+
 	public function ___getCompatibleFieldtypes(Field $field) {
 		$fieldtypes = $this->wire(new Fieldtypes());
 		foreach($this->wire('fieldtypes') as $fieldtype) {
