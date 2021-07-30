@@ -463,7 +463,10 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 	 */
 	public function ___execute() {
 
-		$input = $this->wire('input');
+		$input = $this->wire()->input;
+		$config = $this->wire()->config;
+		$session = $this->wire()->session;
+		
 		$this->headline($this->_('Add New')); // Headline
 
 		if(!$this->parent_id) {
@@ -480,7 +483,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 
 		$template_id = (int) $input->post('template'); // note POST uses 'template' and GET uses 'template_id'
 		if(!$template_id) $template_id = (int) $input->get('template_id');
-		if($template_id) $this->template = $this->wire('templates')->get($template_id);
+		if($template_id) $this->template = $this->wire()->templates->get($template_id);
 		
 		if(!$this->parent_id && count($this->predefinedParents)) {
 			$this->parent_id = $this->predefinedParents->first()->id;
@@ -496,12 +499,22 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			throw new WireException($this->errors('string'));
 		}
 
+		// if page has a custom ProcessPageType for editing/adding then redirect to its add URL instead
 		if($this->parent->template->name === 'admin' && $this->wire()->page->id != $this->parent->id) {
 			$process = $this->parent->process;
 			if($process && wireInstanceOf($process, 'ProcessPageType')) {
-				$this->wire()->session->location($this->parent->url . 'add/');
+				$session->location($this->parent->url . 'add/');
 			}
-		} 
+		}
+	
+		// the following does the same as the block of code above for a custom ProcessPageType
+		// but is necessary for the case of when custom $config->usersPageIDs is in use since
+		// the parent template may not be 'admin' and user pages may be outside of admin structure
+		if(in_array($this->parent_id, $config->usersPageIDs) && $this->wire()->process != 'ProcessUser') {
+			$url = $config->urls->admin . "access/users/add/?parent_id=$this->parent_id";
+			if($template_id && in_array($template_id, $config->userTemplateIDs)) $url .= "&template_id=$template_id";
+			$session->location($url);
+		}
 
 		if(count($this->parent->template->childTemplates) == 1) {
 			// only one type of template is allowed for the parent
