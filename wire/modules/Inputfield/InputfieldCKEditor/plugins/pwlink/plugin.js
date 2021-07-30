@@ -196,7 +196,8 @@
 					$a.html(selectionText);
 				}
 				var html = jQuery("<div />").append($a).html();
-				editor.insertHtml(html);
+				var el = CKEDITOR.dom.element.createFromHtml(html);
+				editor.insertElement(el); // was: editor.insertHtml(html);
 			}
 		
 			$iframe.dialog("close");

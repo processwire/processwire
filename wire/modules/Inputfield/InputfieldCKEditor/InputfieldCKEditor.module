@@ -40,7 +40,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 165, 
+			'version' => 166, 
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
 			'installs' => array('MarkupHTMLPurifier'), 
 			);
