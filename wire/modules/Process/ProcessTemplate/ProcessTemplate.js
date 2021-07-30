@@ -431,9 +431,8 @@ function ProcessTemplate() {
 			if($("#useRoles_1:checked").length > 0) {
 				$("#wrap_redirectLogin").hide();
 				$("#wrap_guestSearchable").hide();
-				$("#useRolesYes").slideDown();
-				$("#wrap_useRoles > label").click();
-				// $("input.viewRoles").attr('checked', 'checked'); // JQM
+				$("#useRolesYes").slideDown(400, function(){ $(this).css('overflow','visible') });
+				// $("#wrap_useRoles > label").click();
 				$("input.viewRoles").prop('checked', true);
 			} else {
 				$("#useRolesYes").slideUp();
