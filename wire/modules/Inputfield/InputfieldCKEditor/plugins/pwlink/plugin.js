@@ -114,13 +114,29 @@
 		var node = selection.getStartElement();
 		var nodeName = node.getName(); // will typically be 'a', 'img' or 'p' 
 		var selectionText = selection.getSelectedText();
+		var selectionHtml = editor.getSelectedHtml(true); // true=return string
 		var $existingLink = null;
 		var anchors = CKEDITOR.plugins.link.getEditorAnchors(editor); 
+		
+		if(nodeName != 'a' && nodeName != 'img') {
+			// if there is a parent <a> element then expand selection to include all of it
+			// this prevents double click on the <em> part of <a href='./'>foo <em>bar</em> baz</a> from
+			// just including the 'bar' as the link text
+			var parentNodes = node.getParents();
+			for(var n = 0; n < parentNodes.length; n++) {
+				var parentNode = parentNodes[n];
+				if(parentNode.getName() !== 'a') continue;
+				node = parentNode;
+				nodeName = parentNode.getName();
+				break;
+			}
+		}
 
 		if(nodeName == 'a') {
 			// existing link
 			$existingLink = jQuery(node.$);
-			selectionText = node.getHtml();
+			selectionText = node.getText();
+			selectionHtml = node.getHtml();
 			selection.selectElement(node);
 		} else if(nodeName == 'td' || nodeName == 'th' || nodeName == 'tr') {
 			var firstChar = selectionText.substring(0,1);
@@ -133,6 +149,7 @@
 			var $img = jQuery(node.$);
 			$existingLink = $img.parent('a'); 
 			selectionText = node.$.outerHTML;
+			selectionHtml = selectionText;
 
 		} else if (selectionText.length < 1) {
 			// If not on top of link and there is no text selected - just return (don't load iframe at all)
@@ -191,9 +208,9 @@
 			var $i = $iframe.contents();
 			var $a = jQuery(jQuery("#link_markup", $i).text());
 			if($a.attr('href') && $a.attr('href').length) {
-				// $a.html(selectionText);
-				if(!$a.text().length) {
-					$a.html(selectionText);
+				if($a.text() === selectionText || !$a.text().length) {
+					// if input text has not changed from original, then use the original HTML rather than the text
+					$a.html(selectionHtml);
 				}
 				var html = jQuery("<div />").append($a).html();
 				var el = CKEDITOR.dom.element.createFromHtml(html);
