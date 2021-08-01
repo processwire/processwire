@@ -117,20 +117,28 @@
 		var selectionHtml = editor.getSelectedHtml(true); // true=return string
 		var $existingLink = null;
 		var anchors = CKEDITOR.plugins.link.getEditorAnchors(editor); 
+		var inlineNodeNames = '/em/strong/i/b/u/s/span/small/abbr/cite/figcaption/';
 		
 		if(nodeName != 'a' && nodeName != 'img') {
-			// if there is a parent <a> element then expand selection to include all of it
-			// this prevents double click on the <em> part of <a href='./'>foo <em>bar</em> baz</a> from
-			// just including the 'bar' as the link text
 			var parentNodes = node.getParents();
 			for(var n = 0; n < parentNodes.length; n++) {
 				var parentNode = parentNodes[n];
-				if(parentNode.getName() !== 'a') continue;
-				node = parentNode;
-				nodeName = parentNode.getName();
-				break;
+				var parentNodeName = parentNode.getName();
+				if(parentNodeName === 'a') {
+					// if there is a parent <a> element then expand selection to include all of it
+					// this prevents double click on the <em> part of <a href='./'>foo <em>bar</em> baz</a> from
+					// just including the 'bar' as the link text
+					node = parentNode;
+					break;
+				} else if(inlineNodeNames.indexOf('/' + parentNodeName + '/') > -1 && node.getText() === selectionText) {
+					// include certain wrapping inline elements for formatting in the selection text
+					node = parentNode;
+					selection.selectElement(node);
+				}
 			}
 		}
+		
+		nodeName = node.getName(); // in case it changed above
 
 		if(nodeName == 'a') {
 			// existing link
