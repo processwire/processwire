@@ -1954,6 +1954,12 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 					$field1 = substr($field, 0, $dot); 
 					$field2 = substr($field, $dot+1); 
 					$hasSubfields = true;
+					/*
+				} else if($field1 === 'parent') {
+					$hasSubfields = true;
+					if($dot) $field2 = substr($field, $dot + 1);
+					//	else $field2 = '.';
+					*/
 				} else {
 					$selectorInfo = $this->getSelectorInfo($field1);
 					$hasSubfields = $selectorInfo && isset($selectorInfo['subfields']) ? count($selectorInfo['subfields']) : false;
@@ -2035,6 +2041,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 	 */
 	public function sanitizeSelectorString($selectorString, $parseVars = true) {
 		
+		$sanitizer = $this->wire()->sanitizer;
+		$users = $this->wire()->users;
+		
 		$initSelectors = $this->wire(new Selectors()); 
 		$userSelectors = $this->wire(new Selectors()); 
 		
@@ -2060,18 +2069,19 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 					$property = ctype_digit("$name") ? 'id' : 'name';
 					$operator = $s->operator === '!=' ? '=' : $s->operator;
 					if($property === 'name') {
-						$value = $this->wire('sanitizer')->selectorValue($this->wire('sanitizer')->pageNameUTF8($name));
+						$value = $sanitizer->selectorValue($sanitizer->pageNameUTF8($name));
 					} else {
 						$value = (int) $name; // id
+						if($value === 0) $value = '';
 					}
-					$ids = array_merge($ids, $this->wire('users')->findIDs("$property$operator$value"));
+					if($value !== '') $ids = array_merge($ids, $users->findIDs("$property$operator$value"));
 				}
 				if($s->operator != '=' && $s->operator != '!=') {
 					$userSelectors->remove($s);
-					$s = new SelectorEqual($s->field, count($ids) ? $ids : 0);
+					$s = new SelectorEqual($s->field, count($ids) ? $ids : '');
 					$userSelectors->add($s);
 				} else {
-					$s->value = count($ids) ? $ids : 0;
+					$s->value = count($ids) ? $ids : '';
 				}
 			}
 		}
@@ -2079,6 +2089,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 		$selector = (string) $initSelectors . ", ";
 		$selector .= (string) $userSelectors; 
 		$selector = trim($selector, ", ");
+		
 		return $selector; 
 	}
 
