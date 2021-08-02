@@ -11,7 +11,7 @@
  * 
  * FIELD CONFIGURATION
  * ===================
- * @property bool|int $inlineMode ($default=0)
+ * @property bool|int $inlineMode (default=0)
  * @property bool|int $usePurifier (default=0)
  * @property bool|int $useACF (default=1)
  * @property array $toggles
@@ -40,7 +40,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 166, 
+			'version' => 167, 
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
 			'installs' => array('MarkupHTMLPurifier'), 
 			);
@@ -548,9 +548,22 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 			return $this->renderNormal();
 		}
 		$value = $this->purifyValue($this->attr('value')); 
-
+		
+		$attrs = array(
+			'id' => "{$this->id}_ckeditor",
+			'class' => 'InputfieldCKEditorInline InputfieldCKEditorInlineEditor',
+			'tabindex' => '0', 
+			'data-configName' => $this->configName,
+		);
+	
+		if((int) $this->inlineMode > 1 && (int) $this->attr('rows') > 1) {
+			$height = (((int) $this->attr('rows')) * 2) . 'em';
+			$attrs['style'] = "overflow:auto;height:$height";
+		}
+		
+		$attrs = $this->getAttributesString($attrs);
 		$out = 	
-			"<div id='{$this->id}_ckeditor' class='InputfieldCKEditorInline InputfieldCKEditorInlineEditor' tabindex='0' data-configName='$this->configName'>$value</div>" . 
+			"<div $attrs>$value</div>" . 
 			"<input type='hidden' name='$this->name' id='$this->id' value='" . self::PLACEHOLDER_TEXT . "' />";
 
 		return $out; 
@@ -853,19 +866,21 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$wrapper->add($f); 
 
 		$purifierInstalled = $this->wire('modules')->isInstalled('MarkupHTMLPurifier'); 
+		$inlineLabel = $this->_('Inline editor');
+		$regularLabel = $this->_('Regular editor');
 
 		/** @var InputfieldRadios $f */
 		$f = $this->wire('modules')->get('InputfieldRadios'); 
 		$f->attr('name', 'inlineMode'); 
 		$f->label = $this->_('Editor Mode');
-		$f->addOption(0, $this->_('Regular Editor')); 
-		$f->addOption(1, $this->_('Inline Editor *')); 
+		$f->addOption(0, $regularLabel . ' [span.detail] ' . $this->_('(flexible height, user adjustable)') . ' [/span]');
+		$f->addOption(1, $inlineLabel . ' [span.detail] ' . $this->_('(variable height, matches content)') . ' * [/span]');
+		$f->addOption(2, $inlineLabel . ' [span.detail] ' . $this->_('(fixed height, uses rows setting)') . ' * [/span]'); 
 		$f->attr('value', (int) $this->inlineMode); 
 		$f->description = $this->_('When inline mode is enabled, the editor will not be loaded until you click in the text. This is faster and more efficient when there are numerous CKEditor fields on the page. However, it may not support as many features or editor customizations as regular mode.'); // Mode selection description
 		$f->notes = $this->_('*Inline mode requires that the HTML Purifier module is installed (MarkupHTMLPurifier).'); 
 		if($purifierInstalled) $f->notes = $this->_('*The required HTML Purifier module is installed.'); 
 			else $f->notes .= "\n" . $this->_('WARNING: it is not currently installed. You should install it before enabling inline mode.'); 
-		$f->optionColumns = 1;
 		$wrapper->add($f); 
 	
 		// character and word counter option not available for inline editors
@@ -979,7 +994,7 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		$value = $this->get('contentsInlineCss');
 		$f->collapsed = Inputfield::collapsedBlank;
 		$f->attr('value', $value);
-		$f->showIf = 'inlineMode=1';
+		$f->showIf = 'inlineMode>0';
 		$wrapper->add($f);
 
 		$f = $this->modules->get("InputfieldText");
