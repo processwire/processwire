@@ -263,9 +263,14 @@ class InputfieldForm extends InputfieldWrapper {
 						
 						if($savedChildren[$name]->getSetting('showIfSkipped')) {
 							// dependency $field does not need to be processed, so neither does this field
-							unset($delayedChildren[$child->name]);
-							$processNow = false;
-							if(self::debug) $this->debugNote("Removing field '$child->name' because '$name' it not shown."); 
+							list($val, $op) = array($selector->value, $selector->operator);
+							if(($op === '!=' && $val) || $op === '=' && empty($val)) {
+								// allow it through to match non-presence (via issue #890)
+							} else {
+								unset($delayedChildren[$child->name]);
+								$processNow = false;
+								if(self::debug) $this->debugNote("Removing field '$child->name' because '$name' it not shown."); 
+							}
 							
 						} else if(!$savedChildren[$name]->getSetting('showIfProcessed')) {
 							// dependency $field is another one in $delayedChildren, send it back to the end
@@ -585,7 +590,8 @@ class InputfieldForm extends InputfieldWrapper {
 	 *
 	 */
 	protected function debugNote($note) {
-		if(self::debug) $this->message($note);
+		static $n = 0;
+		if(self::debug) $this->message((++$n) . ". $note");
 	}
 
 	/**
