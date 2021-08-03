@@ -1754,7 +1754,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 			// this object has not yet been wired! use last known current instance as fallback
 			// note this condition is unsafe in multi-instance mode
 			$wire = ProcessWire::getCurrentInstance();
-			if(!$wire) return null;
+			if(!$wire) return is_object($name) ? $name : null; // there are no ProcessWire instances
 			if($name && $this->_wire === null) {
 				$this->_wire = false; // false prevents this from being called another time for this object
 				$wire->_objectNotWired($this, $name, $value);
@@ -1868,6 +1868,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 */
 	public function __debugInfo() {
 		/** @var WireDebugInfo $debugInfo */
+		require_once(__DIR__ . '/WireDebugInfo.php');
 		$debugInfo = $this->wire(new WireDebugInfo());
 		return $debugInfo->getDebugInfo($this, true);
 	}
