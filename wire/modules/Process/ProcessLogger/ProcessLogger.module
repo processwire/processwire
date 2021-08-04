@@ -245,8 +245,11 @@ class ProcessLogger extends Process {
 			$f = $this->wire('modules')->get('InputfieldInteger');
 			$f->attr('name', 'prune_days');
 			$f->label = $this->_('Chop To # Days');
+			$f->inputType = 'number';
+			$f->min = 1;
 			$f->icon = 'cut';
 			$f->description = $this->_('Reduce the size of the log file to contain only entries from the last [n] days.');
+			$f->notes = $this->_('Must be 1 or greater.');
 			$f->value = 30;
 			$f->showIf = "action=prune";
 			$fieldset->add($f);
