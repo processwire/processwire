@@ -670,6 +670,26 @@ class SelectableOptionManager extends Wire {
 	}
 
 	/**
+	 * Delete all options for given field
+	 * 
+	 * @param Field $field
+	 * @return int
+	 * @throws WireException
+	 * 
+	 */
+	public function deleteAllOptionsForField(Field $field) {
+		$database = $this->wire()->database;
+		$table = self::optionsTable;
+		$sql = "DELETE FROM `$table` WHERE fields_id=:fields_id";
+		$query = $database->prepare($sql);
+		$query->bindValue(':fields_id', $field->id, \PDO::PARAM_INT);
+		$query->execute();
+		$cnt = $query->rowCount();
+		$this->message("Deleted $cnt row(s) from table $table", Notice::debug);
+		return $cnt;
+	}
+
+	/**
 	 * Add the given option titles for $field
 	 *
 	 * @param Field $field

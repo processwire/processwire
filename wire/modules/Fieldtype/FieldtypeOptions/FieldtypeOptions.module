@@ -529,6 +529,25 @@ class FieldtypeOptions extends FieldtypeMulti implements Module {
 		$this->wire('fields')->addHookAfter('cloned', $this, 'hookCloned');
 		return parent::___cloneField($field);
 	}
+	
+	/**
+	 * Delete the given field
+	 *
+	 * @param Field $field Field object
+	 * @return bool True on success, false on DB delete failure.
+	 *
+	 */
+	public function ___deleteField(Field $field) {
+		$result = parent::___deleteField($field);
+		try {
+			$this->manager->deleteAllOptionsForField($field);
+		} catch(\Exception $e) {
+			$result = false;
+			$this->error($e->getMessage());
+			$this->trackException($e);
+		}
+		return $result;
+	}
 
 	/**
 	 * Hook called when field is cloned, to clone the selectable options from old field to new field
