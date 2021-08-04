@@ -977,7 +977,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 
 		if(!$this->isValidItem($item)) {
 			if($item instanceof WireArray) {
-				foreach($item as $i) $this->prepend($i); 
+				foreach(array_reverse($item->getArray()) as $i) $this->prepend($i); 
 				return $this; 
 			} else {
 				throw new WireException("Item prepend to " . get_class($this) . " is not an allowed type"); 
