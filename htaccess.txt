@@ -311,18 +311,23 @@ DirectoryIndex index.php index.html index.htm
   # 13. Optional domain redirects (O)
   # 
   # Redirect domain.com to www.domain.com redirect (or www to domain.com redirect). 
-  # If using then uncomment either 13A or 13B, do NOT uncomment both of them or nothing will work.
+  # To use, uncomment either 13A, 13B or 13C. Do not use more than one of them. 13A and 13B 
+  # redirect non-www hosts to www.domain.com, 13C redirects www.domain.com host to domain.com.
   # -----------------------------------------------------------------------------------------------
 
-  # 13A. Redirect domain.com and *.domain.com to www.domain.com (do not combine with 13B): 
+  # 13A. Redirect domain.com and *.domain.com to www.domain.com (see also 13B as alternate):
   # -----------------------------------------------------------------------------------------------
   # RewriteCond %{HTTP_HOST} !^www\. [NC]
   # RewriteCond %{SERVER_ADDR} !=127.0.0.1
   # RewriteCond %{SERVER_ADDR} !=::1
   # RewriteRule ^ %{ENV:PROTO}://www.%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
- 
   
-  # 13B. Redirect www.domain.com to domain.com (do not combine with 13A):
+  # 13B. Alternate www redirect if 13A does not work for your server: 
+  # -----------------------------------------------------------------------------------------------
+  # RewriteCond %{HTTP_HOST} !^www\. [NC]
+  # RewriteRule ^ %{ENV:PROTO}://www.%{HTTP_HOST}%{REQUEST_URI} [L,R=301]
+ 
+  # 13C. Redirect www.domain.com to domain.com (do not combine with 13A or 13B):
   # -----------------------------------------------------------------------------------------------
   # RewriteCond %{HTTP_HOST} ^www\.(.+)$ [NC]
   # RewriteRule ^ %{ENV:PROTO}://%1%{REQUEST_URI} [R=301,L]
