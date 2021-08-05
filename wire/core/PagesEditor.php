@@ -5,7 +5,7 @@
  * 
  * Implements page manipulation methods of the $pages API variable
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  */ 
@@ -37,7 +37,7 @@ class PagesEditor extends Wire {
 	public function __construct(Pages $pages) {
 		$this->pages = $pages;
 
-		$config = $pages->wire('config');
+		$config = $pages->wire()->config;
 		if($config->dbStripMB4 && strtolower($config->dbEngine) != 'utf8mb4') {
 			$this->addHookAfter('Fieldtype::sleepValue', $this, 'hookFieldtypeSleepValueStripMB4');
 		}
@@ -77,7 +77,7 @@ class PagesEditor extends Wire {
 		}
 
 		if(!is_object($template)) {
-			$template = $this->wire('templates')->get($template);
+			$template = $this->wire()->templates->get($template);
 			if(!$template) throw new WireException("Unknown template");
 		}
 
@@ -189,7 +189,7 @@ class PagesEditor extends Wire {
 		}
 
 		// check for a parent change and whether it is allowed
-		if($saveable && $page->parentPrevious && empty($options['ignoreFamily'])) {
+		if($saveable && $page->id && $page->parentPrevious && empty($options['ignoreFamily'])) {
 			// parent has changed, check that the move is allowed
 			$saveable = $this->isMoveable($page, $page->parentPrevious, $page->parent, $reason); 
 		}
@@ -211,7 +211,7 @@ class PagesEditor extends Wire {
 		
 		if($oldParent->id == $newParent->id) return true; 
 		
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$moveable = false;
 		$isSystem = $page->hasStatus(Page::statusSystem) || $page->hasStatus(Page::statusSystemID);
 		$toTrash = $newParent->id > 0 && $newParent->isTrash();
@@ -293,7 +293,7 @@ class PagesEditor extends Wire {
 			$error = "it has “system” and/or “systemID” status";
 		} else if($page->hasStatus(Page::statusLocked)) {
 			$error = "it has “locked” status";
-		} else if($page->id === $this->wire('page')->id && $this->wire('config')->installedAfter('2019-04-04')) {
+		} else if($page->id === $this->wire()->page->id && $this->wire()->config->installedAfter('2019-04-04')) {
 			$error = "it is the current page being viewed, try \$pages->trash() instead";
 		}
 	
@@ -360,7 +360,7 @@ class PagesEditor extends Wire {
 				}
 			} catch(\Exception $e) {
 				$this->trackException($e, false, true);
-				if($this->wire('database')->inTransaction()) throw $e;
+				if($this->wire()->database->inTransaction()) throw $e;
 			}
 		}
 	}
@@ -420,8 +420,8 @@ class PagesEditor extends Wire {
 
 		if(is_string($options)) $options = Selectors::keyValueStringToArray($options);
 		$options = array_merge($defaultOptions, $options);
-		$user = $this->wire('user');
-		$languages = $this->wire('languages');
+		$user = $this->wire()->user;
+		$languages = $this->wire()->languages;
 		$language = null;
 
 		// if language support active, switch to default language so that saved fields and hooks don't need to be aware of language
@@ -473,20 +473,26 @@ class PagesEditor extends Wire {
 	protected function savePageQuery(Page $page, array $options) {
 
 		$isNew = $page->isNew();
-		$database = $this->wire('database');
-		$user = $this->wire('user');
-		$config = $this->wire('config');
+		$database = $this->wire()->database;
+		$sanitizer = $this->wire()->sanitizer;
+		$config = $this->wire()->config;
+		$user = $this->wire()->user;
 		$userID = $user ? $user->id : $config->superUserPageID;
 		$systemVersion = $config->systemVersion;
+		$sql = '';
+		
 		if(!$page->created_users_id) $page->created_users_id = $userID;
-		if($page->isChanged('status') && empty($options['noHooks'])) $this->pages->statusChangeReady($page);
+		
+		if($page->isChanged('status') && empty($options['noHooks'])) {
+			$this->pages->statusChangeReady($page);
+		}
+		
 		if(empty($options['noHooks'])) {
 			$extraData = $this->pages->saveReady($page); 
 			$this->pages->savePageOrFieldReady($page);
 		} else {
 			$extraData = array();
 		}
-		$sql = '';
 
 		if($this->pages->names()->isUntitledPageName($page->name)) {
 			$this->pages->setupPageName($page);
@@ -495,7 +501,7 @@ class PagesEditor extends Wire {
 		$data = array(
 			'parent_id' => (int) $page->parent_id,
 			'templates_id' => (int) $page->template->id,
-			'name' => $this->wire('sanitizer')->pageName($page->name, Sanitizer::toAscii),
+			'name' => $sanitizer->pageName($page->name, Sanitizer::toAscii),
 			'status' => (int) $page->status,
 			'sort' =>  ($page->sort > -1 ? (int) $page->sort : 0)
 		);
@@ -576,7 +582,7 @@ class PagesEditor extends Wire {
 			}
 		} while($keepTrying && (++$tries < $maxTries));
 
-		if($result && ($isNew || !$page->id)) $page->id = $database->lastInsertId();
+		if($result && ($isNew || !$page->id)) $page->id = (int) $database->lastInsertId();
 		if($options['forceID']) $page->id = (int) $options['forceID'];
 
 		return $result;
@@ -608,10 +614,13 @@ class PagesEditor extends Wire {
 		if($errorCode != 23000) return false; 
 		
 		if(!$this->pages->names()->hasAutogenName($page) && !$options['adjustName']) return false;
+		
+		$languages = $this->wire()->languages;
+		$sanitizer = $this->wire()->sanitizer;
 
 		// account for the duplicate possibly being a multi-language name field
 		// i.e. “Duplicate entry 'bienvenido-2-1001' for key 'name1013_parent_id'”
-		if($this->wire('languages') && preg_match('/\b(name\d*)_parent_id\b/', $exception->getMessage(), $matches)) {
+		if($languages && preg_match('/\b(name\d*)_parent_id\b/', $exception->getMessage(), $matches)) {
 			$nameField = $matches[1];
 		} else {
 			$nameField = 'name';
@@ -621,7 +630,7 @@ class PagesEditor extends Wire {
 		$pageName = $page->get($nameField);
 		$pageName = $this->pages->names()->incrementName($pageName);
 		$page->set($nameField, $pageName);
-		$query->bindValue(":$nameField", $this->wire('sanitizer')->pageName($pageName, Sanitizer::toAscii));
+		$query->bindValue(":$nameField", $sanitizer->pageName($pageName, Sanitizer::toAscii));
 		
 		// indicate that page has a modified name 
 		$this->pages->names()->hasAdjustedName($page, true);
@@ -682,20 +691,21 @@ class PagesEditor extends Wire {
 
 		// save each individual Fieldtype data in the fields_* tables
 		foreach($page->fieldgroup as $field) {
+			$fieldtype = $field->type;
 			$name = $field->name;
-			if($options['noFields'] || isset($corruptedFields[$name]) || !$field->type || !$page->hasField($field)) {
+			if($options['noFields'] || isset($corruptedFields[$name]) || !$fieldtype || !$page->hasField($field)) {
 				unset($changes[$name]);
 				unset($changesValues[$name]); 
 			} else {
 				try {
-					$field->type->savePageField($page, $field);
+					$fieldtype->savePageField($page, $field);
 				} catch(\Exception $e) {
 					$label = $field->getLabel();
 					$message = $e->getMessage();
 					if(strpos($message, $label) !== false) $label = $name;
 					$error = sprintf($this->_('Error saving field "%s"'), $label) . ' — ' . $message;
 					$this->trackException($e, true, $error);
-					if($this->wire('database')->inTransaction()) throw $e;
+					if($this->wire()->database->inTransaction()) throw $e;
 				}
 			}
 		}
@@ -703,7 +713,9 @@ class PagesEditor extends Wire {
 		// return outputFormatting state
 		$page->of($of);
 
-		if(empty($page->template->sortfield)) $this->pages->sortfields()->save($page);
+		// sortfield for children
+		$templateSortfield = $page->template->sortfield;
+		if(empty($templateSortfield)) $this->pages->sortfields()->save($page);
 		
 		if($options['resetTrackChanges']) {
 			if($options['noFields']) {
@@ -826,7 +838,7 @@ class PagesEditor extends Wire {
 		}
 		
 		if($field && (is_string($field) || is_int($field))) {
-			$field = $this->wire('fields')->get($field);
+			$field = $this->wire()->fields->get($field);
 		}
 		
 		if(!$field instanceof Field) {
@@ -849,9 +861,9 @@ class PagesEditor extends Wire {
 		if($field->type->savePageField($page, $field)) {
 			$page->untrackChange($field->name);
 			if(empty($options['quiet'])) {
-				$user = $this->wire('user');
-				$userID = (int) ($user ? $user->id : $this->wire('config')->superUserPageID);
-				$database = $this->wire('database');
+				$user = $this->wire()->user;
+				$userID = (int) ($user ? $user->id : $this->wire()->config->superUserPageID);
+				$database = $this->wire()->database;
 				$query = $database->prepare("UPDATE pages SET modified_users_id=:userID, modified=NOW() WHERE id=:pageID");
 				$query->bindValue(':userID', $userID, \PDO::PARAM_INT);
 				$query->bindValue(':pageID', $page->id, \PDO::PARAM_INT);
@@ -941,8 +953,7 @@ class PagesEditor extends Wire {
 	 */
 	public function savePageStatus($pageID, $status, $recursive = false, $remove = false) {
 
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$rowCount = 0;
 		$multi = is_array($pageID) || $pageID instanceof PageArray;
 		$status = (int) $status;
@@ -1282,17 +1293,31 @@ class PagesEditor extends Wire {
 	 * Update page modified/created/published time to now (or given time)
 	 * 
 	 * @param Page|PageArray|array $pages May be Page, PageArray or array of page IDs (integers)
-	 * @param null|int|string $time Omit (null) to update to now, or specify unix timestamp or strtotime() recognized time string
+	 * @param null|int|string|array $options Omit (null) to update to now, or unix timestamp or strtotime() recognized time string, 
+	 *  or if you do not need this argument, you may optionally substitute the $type argument here, 
+	 *  or in 3.0.183+ you can also specify array of options here instead:
+	 *  - `time` (string|int|null): Unix timestamp or strtotime() recognized string to use, omit for use current time (default=null)
+	 *  - `type` (string): One of 'modified', 'created', 'published' (default='modified')
+	 *  - `user` (bool|User): True to also update modified/created user to current user, or specify User object to use (default=false)
 	 * @param string $type Date type to update, one of 'modified', 'created' or 'published' (default='modified') Added 3.0.147
+	 *  Skip this argument if using options array for previous argument or if using the default type 'modified'.
 	 * @throws WireException|\PDOException if given invalid format for $modified argument or failed database query
 	 * @return bool True on success, false on fail
 	 * 
 	 */
-	public function touch($pages, $time = null, $type = 'modified') {
+	public function touch($pages, $options = null, $type = 'modified') {
 		
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
-		
+		$defaults = array(
+			'time' => (is_string($options) || is_int($options) ? $options : null),
+			'type' => $type,
+			'user' => false,
+		);
+
+		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
+		$database = $this->wire()->database;
+		$time = $options['time']; 
+		$type = $options['type'];
+		$user = $options['user'] === true ? $this->wire()->user : $options['user'];
 		$ids = array();
 		
 		if($time === 'modified' || $time === 'created' || $time === 'published') {
@@ -1348,10 +1373,15 @@ class PagesEditor extends Wire {
 			if(!$time) throw new WireException("Unrecognized time format provided to Pages::touch()");
 			$sql .= ':time ';
 		}
+
+		if($user && $user instanceof User && ($col === 'modified' || $col === 'created')) {
+			$sql .= ", {$col}_users_id=:user ";
+		} 
 		
 		$sql .= 'WHERE id IN(' . implode(',', $ids) . ')';
 		$query = $database->prepare($sql);
 		if(strpos($sql, ':time')) $query->bindValue(':time', date('Y-m-d H:i:s', $time));
+		if(strpos($sql, ':user')) $query->bindValue(':user', $user->id, \PDO::PARAM_INT);
 		
 		return $database->execute($query);
 	}
@@ -1402,7 +1432,7 @@ class PagesEditor extends Wire {
 	 */
 	public function sortPage(Page $page, $sort = null, $after = false) {
 	
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 
 		// reorder siblings having same or greater sort value, when necessary
 		if($page->id <= 1) return 0;
@@ -1497,7 +1527,7 @@ class PagesEditor extends Wire {
 	public function sortRebuild(Page $parent) {
 		
 		if(!$parent->id || !$parent->numChildren) return 0;
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$sorts = array();
 		$sort = 0;
 		
@@ -1549,6 +1579,6 @@ class PagesEditor extends Wire {
 	 * 
 	 */
 	public function hookFieldtypeSleepValueStripMB4(HookEvent $event) {
-		$event->return = $this->wire('sanitizer')->removeMB4($event->return); 
+		$event->return = $this->wire()->sanitizer->removeMB4($event->return); 
 	}
 }
