@@ -98,6 +98,79 @@ class ProcessUser extends ProcessPageType {
 
 		return parent::___executeNavJSON($options);
 	}
+	
+	/**
+	 * Add item of this page type
+	 *
+	 * @return string
+	 *
+	 */
+	public function ___executeAdd() {
+
+		// use parent method if there are no custom user parents or templates
+		$config = $this->wire()->config;
+		if(count($config->usersPageIDs) < 2 && count($config->userTemplateIDs) < 2) return parent::___executeAdd();
+		
+		$input = $this->wire()->input;
+		$pages = $this->wire()->pages;
+		$parentId = (int) $input->get('parent_id');
+		$parent = $parentId ? $pages->get($parentId) : null;
+		$userTemplates = $this->pages->getTemplates();
+		$userParentIds = $this->pages->getParentIDs();
+
+		// if requested parent not one allowed by config.usersPageIDs then disregard it
+		if($parent && !in_array($parent->id, $userParentIds, true)) $parent = null;
+
+		// delegate to ProcessPageAdd
+		$editor = $this->wire()->modules->getModule('ProcessPageAdd'); /** @var ProcessPageAdd $editor */
+		$this->editor = $editor;
+		$editor->setEditor($this); // set us as the parent editor
+
+		// identify parent(s) allowed
+		if(count($userParentIds) > 1 && $parent) {
+			// more than one parent allowed but only one requested
+			$parents = $pages->newPageArray();
+			$parents->add($parent);
+			$editor->parent_id = $parent->id;
+			$editor->setPredefinedParents($parents);
+		} else {
+			// one or more parents allowed
+			$editor->setPredefinedParents($pages->getById($userParentIds));
+		}
+
+		// identify template(s) allowed
+		if(count($userTemplates) < 2) {
+			// only one user template allowed
+			$editor->template = $this->template;
+		} else if($parent) {
+			// parent specified, reduce to only allowed templates for parent
+			$childTemplates = $parent->template->childTemplates;
+			if(count($childTemplates)) {
+				foreach($userTemplates as $key => $template) {
+					/** @var Template $template */
+					if(!in_array($template->id, $childTemplates)) unset($userTemplates[$key]);
+				}
+			}
+			if(!count($userTemplates)) $userTemplates = array($this->template);
+		}
+
+		$editor->setPredefinedTemplates($userTemplates);
+
+		try {
+			$out = $editor->execute();
+		} catch(\Exception $e) {
+			$out = '';
+			$this->error($e->getMessage());
+			if($input->is('POST')) {
+				$this->wire()->session->location("./" . ($parentId ? "?parent_id=$parentId" : ""));
+			}
+		}
+
+		$this->browserTitle($this->page->get('title|name') . " > $this->addLabel");
+
+		return $out;
+	}
+	
 
 	/**
 	 * Hook to ProcessPageLister::execute method to adjust selector to show specific roles

@@ -765,15 +765,18 @@ class PagesNames extends Wire {
 	 */
 	public function pageNameHasConflict(Page $page) {
 		
+		$config = $this->wire()->config;
+		$usersPageIDs = $config->usersPageIDs;
+		$checkUser = in_array($page->parent_id, $usersPageIDs); 
 		$reason = '';
 		$name = $page->name;
 	
-		if($this->wire('config')->pageNameCharset == 'UTF8') {
-			$name = $this->wire('sanitizer')->pageName($name, Sanitizer::toAscii);
+		if($config->pageNameCharset == 'UTF8') {
+			$name = $this->wire()->sanitizer->pageName($name, Sanitizer::toAscii);
 		}
 		
 		$sql = "SELECT id, status, parent_id FROM pages WHERE name=:name AND id!=:id";
-		$query = $this->wire('database')->prepare($sql);
+		$query = $this->wire()->database->prepare($sql);
 		$query->bindValue(':name', $name);
 		$query->bindValue(':id', $page->id, \PDO::PARAM_INT);
 		$query->execute();
@@ -784,15 +787,27 @@ class PagesNames extends Wire {
 		}
 		
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-			if($row['status'] & Page::statusUnique) {
+			
+			$parentID = (int) $row['parent_id']; 
+			$status = (int) $row['status']; 
+			
+			if($status & Page::statusUnique) {
 				// name is already required to be unique globally
 				$reason = sprintf($this->_("Another page is using name “%s” and requires it to be globally unique"), $page->name);
+				break;
 			}
-			if((int) $row['parent_id'] === $page->parent_id) {
+			
+			if($checkUser && in_array($parentID, $usersPageIDs)) {
+				// username collision
+				$reason = sprintf($this->_('Another user is already using the name “%s”'), $page->name);
+				break;
+			}
+			
+			if($parentID === $page->parent_id) {
 				// name already consumed by another page with same parent
 				$reason = sprintf($this->_('Another page with same parent is already using name “%s”'), $page->name);
-			}
-			if($reason) break;
+				break;
+			} 
 		}
 		
 		// page requires that it be the only one with this name, so if others have it, then disallow
