@@ -1313,7 +1313,7 @@ class Session extends Wire implements \IteratorAggregate {
 		// note for 302 redirects we send no header other than 'Location: url'
 		$http = new WireHttp();
 		$this->wire($http);
-		if($status != 302) $http->sendStatusHeader($status);
+		$http->sendStatusHeader($status);
 		$http->sendHeader("Location: $url");
 		
 		exit(0);

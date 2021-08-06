@@ -70,7 +70,7 @@ if(!isset($content)) $content = '';
 				$headline = $adminTheme->getHeadline();
 				$headlinePos = strpos($content, ">$headline</h1>");
 				if(!$adminTheme->isModal && ($headlinePos === false || $headlinePos < 500)) {
-					echo "<h1 class='uk-margin-remove-top'>$headline</h1>";
+					echo "<h1 id='pw-content-title' class='uk-margin-remove-top'>$headline</h1>";
 				}
 				?>
 				
