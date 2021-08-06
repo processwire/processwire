@@ -78,4 +78,32 @@ function initPageEditForm() {
 			$(".InputfieldSubmit.pw-hidden-tmp").removeClass('pw-hidden-tmp').show();
 		}
 	});
+
+	// update title headline with changes to title input
+	var $title = $('body').hasClass('AdminThemeReno') ? $('#title') : $('#pw-content-title');
+	var $titleInput = $('#Inputfield_title');
+	if(!$titleInput.length) $titleInput = $('#Inputfield__pw_page_name');
+	if($title.length && $titleInput.length) {
+		var title = $titleInput.val();
+		$titleInput.on('input', function() {
+			var val = $(this).val();
+			$title.text(val.length > 0 ? val : title);
+		});
+	} 
+
+	/*
+	$('#ProcessPageEdit').on('submit', function() {
+		var changes = [];
+		$('.InputfieldStateChanged').each(function() {
+			var name = $(this).attr('id');
+			if(name.indexOf('wrap_Inputfield_') === 0) {
+				name = name.replace('wrap_Inputfield_', '');
+			} else if(name.indexOf('wrap_') === 0) {
+				name = name.substring(5);
+			}
+			changes.push(name);
+			$('#_page_edit_changes').val(changes.join(','));
+		}); 
+	}); 
+	*/
 }
