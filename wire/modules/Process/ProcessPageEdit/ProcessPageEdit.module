@@ -1855,6 +1855,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		/** @var MarkupAdminDataTable $table */
 		$table = $this->modules->get("MarkupAdminDataTable"); 
 		
+		$pageHasTemplateFile = $this->page->template->filenameExists();
+		
 		if($this->input->get('renderInputfieldAjax') == 'ProcessPageEditRoles') {
 			$roles = $this->page->getAccessRoles();
 			$accessTemplate = $this->page->getAccessTemplate('edit');
@@ -1884,7 +1886,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$permissions = array();
 					$roleName = $role->name;
 					if($roleName == 'guest') $roleName .= " " . $this->_('(everyone)'); // Identifies who guest is (everyone)
-					$permissions["page-view"] = 'view';
+					$permissions["page-view"] = 'view' . ($pageHasTemplateFile ? ''  : '¹'); 
 
 					$checkEditable = true;
 					if($hasPublishPermission && !$this->page->hasStatus(Page::statusUnpublished) 
@@ -1938,9 +1940,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		$accessParent = $this->page->getAccessParent();
 		if($accessParent === $this->page) {
-			$field->notes = sprintf($this->_('Access is defined with this page\'s template: %s'), $accessParent->template);	// Where access is defined: with this page's template
+			$field->notes = sprintf($this->_('Access is defined with this page’s template: %s'), $accessParent->template);	// Where access is defined: with this page's template
 		} else {
 			$field->notes = sprintf($this->_('Access is inherited from page "%1$s" and defined with template: %2$s'), $accessParent->path, $accessParent->template); // Where access is defined: inherited from a parent
+		}
+		if(!$pageHasTemplateFile) {
+			$field->notes = trim("¹ " . $this->_('Viewable by its URL if page had a template file (it does not currently).') . "\n$field->notes");
 		}
 
 		return $field;
