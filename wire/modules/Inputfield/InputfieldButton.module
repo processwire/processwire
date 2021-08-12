@@ -6,6 +6,7 @@
  * @property string $href URL to link to
  * @property string $aclass Optional class name(s) for <a> element (if href is used). 
  * @property string $target Link target
+ * @property bool $linkInner Place <a> link inside <button> rather than outside? Not admin compatible. (default=false) 3.0.184+
  *
  */
 class InputfieldButton extends InputfieldSubmit {
@@ -27,6 +28,7 @@ class InputfieldButton extends InputfieldSubmit {
 		$this->attr('value', 'Button'); 
 		$this->attr('href', ''); 
 		$this->set('aclass', ''); 
+		$this->set('linkInner', false);
 		$this->set('target', '');
 		$this->skipLabel = Inputfield::skipLabelBlank; 
 	}
@@ -35,14 +37,22 @@ class InputfieldButton extends InputfieldSubmit {
 		$href = $this->attr('href');
 		if($href) $this->attr('href', '');
 		$out = parent::___render();
-		if($href) { 
-			$out = trim($out); 
-			$attr = " class='" . trim("InputfieldButtonLink $this->aclass") . "'";
-			if($this->target) $attr .= " target='" . $this->wire('sanitizer')->entities($this->target) . "'";
-			$out = "<a$attr href='$href'>$out</a>";
-			$this->attr('href', $href); 
+		if(!$href) return $out;
+		$out = trim($out); 
+		$attrs = array(
+			'class' => trim("InputfieldButtonLink $this->aclass"), 
+			'href' => $href,
+		);
+		if($this->target) $attrs['target'] = $this->target;
+		$attrs = $this->getAttributesString($attrs);
+		if($this->linkInner) {
+			list($button, $text) = explode('>', $out, 2);
+			list($text,) = explode('</button>', $text, 2);
+			$out = "$button><a $attrs>$text</a></button>";
+		} else {
+			$out = "<a $attrs tabindex='-1'>$out</a>";
 		}
-		
+		$this->attr('href', $href);  // restore
 		return $out; 
 	}
 
