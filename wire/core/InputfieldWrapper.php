@@ -731,7 +731,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			} 
 		
 			// if inputfield produced no output, then move to next
-			if(!$ffOut) continue;
+			if(!strlen($ffOut)) continue;
 
 			// wrap the inputfield output
 			$attrs = '';
