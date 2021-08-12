@@ -45,10 +45,18 @@ class InputfieldTextTags extends Inputfield implements
 		return array(
 			'title' => __('Text Tags', __FILE__), // Module Title
 			'summary' => __('Enables input of user entered tags or selection of predefined tags.', __FILE__), // Module Summary
-			'version' => 4,
+			'version' => 5,
 			'icon' => 'tags',
 		);
 	}
+
+	/**
+	 * Cache for getRenderReadyTags() method
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $renderReadyTags = array();
 
 	/**
 	 * Tags set in 'value' attribute that were not in predefined list
@@ -498,6 +506,17 @@ class InputfieldTextTags extends Inputfield implements
 		$jQueryUI = $this->wire()->modules->get('JqueryUI');
 		$jQueryUI->use('selectize');
 		$this->addClass('InputfieldNoFocus', 'wrapClass');
+		$tags = $this->getRenderReadyTags();
+		
+		if($this->hasField) {
+			// page editor: populate selectable tags to ProcessWire.config JS
+			$config = $this->wire()->config;
+			$cfgName = $this->getJsCfgName();
+			$data = $config->$cfgName ? $config->$cfgName : array();
+			$data = array_unique(array_merge($data, $tags));
+			$config->js($cfgName, $data);
+		}
+
 		return parent::renderReady($parent, $renderValueMode);
 	}
 
@@ -527,30 +546,12 @@ class InputfieldTextTags extends Inputfield implements
 		$attrs = $this->getAttributes();
 		unset($attrs['class']);
 		
-		$language = $this->wire()->user->language;
-		$tags = $this->getTagsList($language && $language->id ? $language : null);
-		$classes = array();
-		$classes[] = count($tags) || $tagsUrl ? 'InputfieldTextTagsSelect' : 'InputfieldTextTagsInput';
-
-		if($this->allowUserTags) {
-			$value = $this->tagStringToArray($this->val());
-			foreach($value as $tag) {
-				if(!isset($tags[$tag])) $tags[$tag] = $tag;
-			}
-		} else {
-			$classes[] = 'InputfieldTextTagsSelectOnly';
-		}
+		$tags = $this->getRenderReadyTags();
+		$this->renderReadyTags = array(); // reset cache
+		$classes = (count($tags) || $tagsUrl ? array('InputfieldTextTagsSelect') : array('InputfieldTextTagsInput'));
+		
+		if(!$this->allowUserTags) $classes[] = 'InputfieldTextTagsSelectOnly';
 	
-		$a = $tags;
-		$tags = array();
-		foreach($a as $tag => $label) {
-			// ensure no digit-only tags which do not survive json_encode()
-			if(ctype_digit("$tag")) $tag = "_$tag";
-			$tags[$tag] = $label;
-		}
-		
-		$class = $this->className();
-		
 		$opts = array(
 			'allowUserTags' => $this->allowUserTags(),
 			'closeAfterSelect' => $this->closeAfterSelect,
@@ -562,11 +563,7 @@ class InputfieldTextTags extends Inputfield implements
 
 		if($this->hasField) {
 			// page editor
-			$cfgName = $class . '_' . $this->hasField->name . '__tags';
-			$data = $config->$cfgName ? $config->$cfgName : array();
-			$data = array_unique(array_merge($data, $tags));
-			$config->js($cfgName, $data);
-			$opts['cfgName'] = $cfgName;
+			$opts['cfgName'] = $this->getJsCfgName();
 		} else {
 			// other usages
 			$opts['tags'] = $tags;
@@ -575,12 +572,58 @@ class InputfieldTextTags extends Inputfield implements
 		$attrs['data-opts'] = json_encode($opts, JSON_UNESCAPED_UNICODE); 
 		$attrs['class'] = trim(implode(' ', $classes));
 		$attrs['value'] = $this->encodeNumericTags($this->val());
+		
 		if(empty($attrs['type'])) $attrs['type'] = 'text';
+		
 		$attrStr = $this->getAttributesString($attrs);
 		 
 		$out = "<input $attrStr />";
 		
 		return $out;
+	}
+
+	/**
+	 * Get JS config property name used in ProcessWire.config[propertyName]
+	 * 
+	 * @return string
+	 * 
+	 */
+	protected function getJsCfgName() {
+		return ($this->hasField ? $this->className() . '_' . $this->hasField->name . '__tags' : '');
+	}
+
+	/**
+	 * Get tags ready for use by renderReady() or render()
+	 * 
+	 * @return array|string
+	 * @throws WireException
+	 * 
+	 */
+	protected function getRenderReadyTags() {
+		
+		if(count($this->renderReadyTags)) return $this->renderReadyTags;
+	
+		$language = $this->wire()->user->language;
+		$tags = $this->getTagsList($language && $language->id ? $language : null);
+		
+		if($this->allowUserTags) {
+			$value = $this->tagStringToArray($this->val());
+			foreach($value as $tag) {
+				if(!isset($tags[$tag])) $tags[$tag] = $tag;
+			}
+		}
+		
+		$a = $tags;
+		$tags = array();
+		foreach($a as $tag => $label) {
+			// ensure no digit-only tags which do not survive json_encode()
+			if(ctype_digit("$tag")) $tag = "_$tag";
+			$tags[$tag] = $label;
+		}
+		
+		$this->renderReadyTags = $tags;
+		
+		return $tags;
 	}
 	
 	/**

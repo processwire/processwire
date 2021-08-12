@@ -64,7 +64,7 @@ function InputfieldTextTags($parent) {
 			options: tagsList,
 			createFilter: function(input) {
 				if(o.allowUserTags) return true;
-				allow = false;
+				var allow = false;
 				for(var n = 0; n < tags.length; n++) {
 					if(typeof tags[input] !== "undefined") {
 						allow = true;
@@ -147,5 +147,7 @@ function InputfieldTextTags($parent) {
 
 jQuery(document).ready(function($) {
 	InputfieldTextTags();
-	$(document).on('reloaded', '.InputfieldTextTags', function() { InputfieldTextTags($(this)); }); 
+	$(document).on('reloaded', '.InputfieldTextTags', function() { 
+		InputfieldTextTags($(this)); 
+	}); 
 }); 
