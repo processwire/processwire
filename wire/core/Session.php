@@ -807,23 +807,26 @@ class Session extends Wire implements \IteratorAggregate {
 	}
 
 	/**
-	 * Get the IP address of the current user (IPv4)
-	 * 
+	 * Get the IP address of the current user
+	 *
 	 * ~~~~~
 	 * $ip = $session->getIP();
 	 * echo $ip; // outputs 111.222.333.444
 	 * ~~~~~
-	 * 
-	 * @param bool $int Return as a long integer for DB storage? (default=false)
+	 *
+	 * @param bool $int Return as a long integer? (default=false)
+	 *  - IPv6 addresses cannot be represented as an integer, so please note that using this int option makes it return a CRC32
+	 *    integer when using IPv6 addresses (3.0.184+).
 	 * @param bool|int $useClient Give preference to client headers for IP? HTTP_CLIENT_IP and HTTP_X_FORWARDED_FOR (default=false)
-	 * 	Specify integer 2 to include potential multiple CSV separated IPs (when provided by client).
+	 * 	- Specify integer 2 to include potential multiple CSV separated IPs (when provided by client).
 	 * @return string|int Returns string by default, or integer if $int argument indicates to.
 	 *
 	 */
 	public function getIP($int = false, $useClient = false) {
-		
+
 		$ip = $this->config->sessionForceIP;
-		
+		$ipv6 = false;
+
 		if(!empty($ip)) {
 			// use IP address specified in $config->sessionForceIP and disregard other options
 			$useClient = false;
@@ -831,44 +834,75 @@ class Session extends Wire implements \IteratorAggregate {
 		} else if(empty($_SERVER['REMOTE_ADDR'])) {
 			// when accessing via CLI Interface, $_SERVER['REMOTE_ADDR'] isn't set and trying to get it, throws a php-notice
 			$ip = '127.0.0.1';
-			
-		} else if($useClient) { 
-			if(!empty($_SERVER['HTTP_CLIENT_IP'])) $ip = $_SERVER['HTTP_CLIENT_IP']; 
-				else if(!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
-				else if(!empty($_SERVER['REMOTE_ADDR'])) $ip = $_SERVER['REMOTE_ADDR']; 
-				else $ip = '0.0.0.0';
+
+		} else if($useClient) {
+			if(!empty($_SERVER['HTTP_CLIENT_IP'])) $ip = $_SERVER['HTTP_CLIENT_IP'];
+			else if(!empty($_SERVER['HTTP_X_FORWARDED_FOR'])) $ip = $_SERVER['HTTP_X_FORWARDED_FOR'];
+			else if(!empty($_SERVER['REMOTE_ADDR'])) $ip = $_SERVER['REMOTE_ADDR'];
+			else $ip = '0.0.0.0';
 			// It's possible for X_FORWARDED_FOR to have more than one CSV separated IP address, per @tuomassalo
 			if(strpos($ip, ',') !== false && $useClient !== 2) {
 				list($ip) = explode(',', $ip);
 			}
 			// sanitize: if IP contains something other than digits, periods, commas, spaces, 
 			// then don't use it and instead fallback to the REMOTE_ADDR. 
-			$test = str_replace(array('.', ',', ' '), '', $ip); 
-			if(!ctype_digit("$test")) $ip = $_SERVER['REMOTE_ADDR'];
+			$test = str_replace(array('.', ',', ' '), '', $ip);
+			if(!ctype_digit("$test")) {
+				if(strpos($test, ':') !== false) {
+					// ipv6 allowed
+					$test = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6);
+					$ip = $test === false ? $_SERVER['REMOTE_ADDR'] : $test;
+				} else {
+					$ip = $_SERVER['REMOTE_ADDR'];
+				}
+			}
 
 		} else {
-			$ip = $_SERVER['REMOTE_ADDR']; 
+			$ip = $_SERVER['REMOTE_ADDR'];
 		}
-		
+
+		if(strpos($ip, ':') !== false) {
+			// attempt to identify an IPv4 version when an integer required for return value
+			if($int && $ip === '::1') {
+				$ip = '127.0.0.1';
+			} else if($int && strpos($ip, '.') && preg_match('!(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})!', $ip, $m)) {
+				$ip = $m[1]; // i.e. 0:0:0:0:0:ffff:192.1.56.10 => 192.1.56.10
+			} else {
+				$ipv6 = true;
+			}
+		}
+
 		if($useClient === 2 && strpos($ip, ',') !== false) {
 			// return multiple IPs
-			$ips = explode(',', $ip);
-			foreach($ips as $key => $ip) {
-				$ip = ip2long(trim($ip));
-				if(!$int) $ip = long2ip($ip);
-				$ips[$key] = $ip;
+			$ips = array();
+			foreach(explode(',', $ip) as $ip) {
+				if($ipv6) {
+					$ip = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6);
+					if($ip !== false && $int) $ip = crc32($ip);
+				} else {
+					$ip = ip2long(trim($ip));
+					if(!$int) $ip = long2ip($ip);
+				}
+				if($ip !== false) $ips[] = $ip;
 			}
 			$ip = implode(',', $ips);
-			
+
+		} else if($ipv6) {
+			$ip = filter_var($ip, FILTER_VALIDATE_IP, FILTER_FLAG_IPV6);
+			if($ip === false) {
+				$ip = $int ? 0 : '0.0.0.0';
+			} else if($int) {
+				$ip = crc32($ip);
+			}
+
 		} else {
 			// sanitize by converting to and from integer
 			$ip = ip2long(trim($ip));
 			if(!$int) $ip = long2ip($ip);
 		}
-		
+
 		return $ip;
 	}
-
 	/**
 	 * Login a user with the given name and password
 	 *

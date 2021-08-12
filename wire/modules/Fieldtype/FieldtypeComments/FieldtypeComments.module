@@ -399,8 +399,10 @@ class FieldtypeComments extends FieldtypeMulti {
 	 *
 	 */
 	public function getDatabaseSchema(Field $field) {
+		
+		$database = $this->wire()->database;
 
-		$maxIndexLength = $this->wire('database')->getMaxIndexLength();
+		$maxIndexLength = $database->getMaxIndexLength();
 		$websiteSchema = "varchar($maxIndexLength) NOT NULL default ''"; 
 		$parentSchema = "int unsigned NOT NULL default 0";
 		$flagSchema = "int unsigned NOT NULL default 0";
@@ -411,13 +413,13 @@ class FieldtypeComments extends FieldtypeMulti {
 		$upvoteSchema = "int unsigned NOT NULL default 0";
 		$downvoteSchema = "int unsigned NOT NULL default 0";
 		$starsSchema = "tinyint unsigned default NULL";
+		$ipSchema = "varchar(45) NOT NULL default ''";
 		
 		$schemaVersion = (int) $field->get('schemaVersion');
 		$updateSchema = true;
 
 		if(!$schemaVersion) {
 			// add website field for PW 2.3+ 
-			$database = $this->wire('database');
 			$table = $database->escapeTable($field->getTable());
 			try { 
 				$database->query("ALTER TABLE `$table` ADD website $websiteSchema");
@@ -429,7 +431,6 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		if($schemaVersion < 2) {
 			// add parent_id and flags columns
-			$database = $this->wire('database');
 			$table = $database->escapeTable($field->getTable());
 			try { 
 				$database->query("ALTER TABLE `$table` ADD parent_id $parentSchema");
@@ -442,7 +443,6 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		if($schemaVersion < 3) {
 			// add code column (admin code)
-			$database = $this->wire('database');
 			$table = $database->escapeTable($field->getTable());
 			try {
 				$database->query("ALTER TABLE `$table` ADD `code` $codeSchema");
@@ -455,7 +455,6 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		if($schemaVersion < 4) {
 			// add subcode column (subscriber code)
-			$database = $this->wire('database');
 			$table = $database->escapeTable($field->getTable());
 			try {
 				$database->query("ALTER TABLE `$table` ADD `subcode` $subcodeSchema");
@@ -468,7 +467,6 @@ class FieldtypeComments extends FieldtypeMulti {
 		
 		if($schemaVersion < 5 && $updateSchema) {
 			// add upvote/downvote columns 
-			$database = $this->wire('database');
 			$table = $database->escapeTable($field->getTable());
 			$parentSchema = parent::getDatabaseSchema($field);
 			try {
@@ -477,7 +475,7 @@ class FieldtypeComments extends FieldtypeMulti {
 					`comment_id` int unsigned NOT NULL,
 					`vote` tinyint NOT NULL, 
 					`created` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP, 
-					`ip` VARCHAR(15) NOT NULL default '', 
+					`ip` $ipSchema, 
 					`user_id` int unsigned NOT NULL default 0, 
 					PRIMARY KEY (`comment_id`, `ip`, `vote`), 
 					INDEX `created` (`created`)
@@ -506,7 +504,6 @@ class FieldtypeComments extends FieldtypeMulti {
 		}
 
 		if($schemaVersion < 6 && $updateSchema) {
-			$database = $this->wire('database');
 			$table = $database->escapeTable($field->getTable());
 			try {
 				$database->query("ALTER TABLE `$table` ADD `stars` $starsSchema");
@@ -520,6 +517,17 @@ class FieldtypeComments extends FieldtypeMulti {
 				}
 			}
  		}
+ 		
+ 		if($schemaVersion < 7 && $updateSchema) {
+		    $table = $database->escapeTable($field->getTable());
+		    try {
+			    $database->query("ALTER TABLE `$table` MODIFY `ip` $ipSchema");
+			    $database->query("ALTER TABLE `{$table}_votes` MODIFY `ip` $ipSchema");
+			    $schemaVersion = 7;
+		    } catch(\Exception $e) {
+		    	$this->error($e->getMessage(), Notice::debug);
+		    }
+	    }
 
  		$_schemaVersion = (int) $field->get('schemaVersion');
 		if($_schemaVersion < $schemaVersion) {
@@ -538,7 +546,7 @@ class FieldtypeComments extends FieldtypeMulti {
 		$schema['sort'] = "int unsigned NOT NULL";
 		$schema['created'] = "int unsigned NOT NULL"; 	
 		$schema['created_users_id'] = "int unsigned NOT NULL";
-		$schema['ip'] = "varchar(15) NOT NULL default ''";
+		$schema['ip'] = $ipSchema;
 		$schema['user_agent'] = "varchar($maxIndexLength) NOT NULL default ''";
 
 		$schemaVersion = $field->get('schemaVersion');
