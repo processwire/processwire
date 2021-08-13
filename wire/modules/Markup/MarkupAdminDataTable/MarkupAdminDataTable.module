@@ -156,7 +156,8 @@ class MarkupAdminDataTable extends ModuleJS {
 	 * 
 	 * @param array $a Array of columns that will each be a `<td>`, where each element may be one of the following:
 	 *   - `string`: converts to `<td>string</td>`
-	 *   - `array('label' => 'url')`: converts to `<td><a href='url'>label</a></td>`
+	 *   - `$a["key"] = "value"`: converts to `<td><a href='value'>key</a></td>`
+	 *   - `array('label' => 'url')`: converts to `<td><a href='url'>label</a></td>` (same as above, but in nested array with count 1)
 	 *   - `array('label', 'class')`: converts to `<td class='class'>label</td>`
 	 * @param array $options Optionally specify any one of the following:
 	 *   - separator (bool): specify true to show a stronger visual separator above the column
@@ -193,10 +194,18 @@ class MarkupAdminDataTable extends ModuleJS {
 		$row = array();
 
 		foreach($a as $k => $v) {
+			if(is_array($v) && count($v) === 1 && is_int($k)) {
+				// array('label' => 'href')
+				$key = key($v);
+				$v = reset($v);
+				if(is_string($key)) $k = $key;
+			}
 			if(is_string($k)) {
 				// Associative arrays get converted to: 
 				// Anchor Text => URL
-				$v = "<a href='$v'>" . $this->encode($k) . "</a>";
+				$v = $this->encode($v);
+				$k = $this->encode($k);
+				$v = "<a href='$v'>$k</a>";
 			} else if(is_array($v)) {
 				// class name is specified in $v[1]
 				foreach($v as $kk => $vv) {
