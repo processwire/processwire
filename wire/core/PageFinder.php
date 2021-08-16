@@ -3317,11 +3317,23 @@ class PageFinder extends Wire {
 		$templateIDs = implode('|', $templateIDs);
 
 		// determine include=mode
-		$include = $selectors->getSelectorByField("include");
-		$include = $include ? $include->value : 'hidden';
+		$include = $selectors->getSelectorByField('include');
+		$include = $include ? $include->value : '';
+		if(!$include) $include = $this->includeMode ? $this->includeMode : 'hidden'; 
+		
+		$selectorString = "templates_id=$templateIDs, include=$include, get_total=0";
+	
+		if($include !== 'all') {
+			$checkAccess = $selectors->getSelectorByField('check_access');
+			if($checkAccess && ctype_digit($checkAccess->value)) {
+				$selectorString .= ", check_access=$checkAccess->value";
+			} else if($this->checkAccess === false) {
+				$selectorString .= ", check_access=0";
+			}
+		}
 	
 		/** @var Selectors $ownerSelectors Build selectors */
-		$ownerSelectors = $this->wire(new Selectors("templates_id=$templateIDs, include=$include, get_total=0"));
+		$ownerSelectors = $this->wire(new Selectors($selectorString));
 		$ownerSelector = clone $selector;
 
 		if(count($fields) > 1) {
