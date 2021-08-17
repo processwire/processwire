@@ -1728,6 +1728,7 @@ class PageFinder extends Wire {
 					$joinType = 'join';
 
 					if(count($fields) > 1 
+						|| !empty($options['startAfterID']) || !empty($options['stopBeforeID'])
 						|| (count($valueArray) > 1 && $numEmptyValues > 0)
 						|| ($subfield == 'count' && !$this->isRepeaterFieldtype($field->type))
 						|| ($selector->not && $selector->operator != '!=') 
@@ -1795,6 +1796,17 @@ class PageFinder extends Wire {
 			foreach(array_reverse($sortSelectors) as $s) {
 				$this->getQuerySortSelector($query, $s);
 			}
+		}
+
+		if((!empty($options['startAfterID']) || !empty($options['stopBeforeID'])) && count($query->where)) {
+			$wheres = array('(' . implode(' AND ', $query->where) . ')');
+			$query->set('where', array());
+			foreach(array('startAfterID', 'stopBeforeID') as $key) {
+				if(empty($options[$key])) continue;
+				$bindKey = $query->bindValueGetKey($options[$key], \PDO::PARAM_INT);
+				array_unshift($wheres, "pages.id=$bindKey");
+			}
+			$query->where(implode("\n OR ", $wheres));
 		}
 		
 		$this->postProcessQuery($query); 

@@ -327,8 +327,11 @@ class PageTraversal {
 		}
 
 		if(!$options['until']) return $fo;
-		
-		// all code below this specific to the 'until' option
+	
+		/***************************************************************
+		 * All code below this specific to the 'until' option
+		 * 
+		 */ 
 		
 		$until = $options['until'];
 		/** @var string $until */
@@ -352,7 +355,8 @@ class PageTraversal {
 			
 		} else {
 			// selector string
-			$stopPage = $page->_pages('find', "$selector, limit=1, $until")->first();
+			$findOptions = $options['prev'] ? array() : array('startAfterID' => $page->id);
+			$stopPage = $page->_pages('find', "$selector, limit=1, $until", $findOptions)->first();
 		}
 		
 		if($stopPage && $stopPage->id) {
