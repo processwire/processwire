@@ -17,7 +17,7 @@
  * 
  * Runtime errors are logged to: /site/assets/logs/markup-qa-errors.txt
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  */ 
@@ -409,23 +409,36 @@ class MarkupQA extends Wire {
 			}
 			if($ignored) continue;
 	
-			// get the page ID for the path
-			$pageID = $this->wire('pages')->getByPath($path, array(
-				'getID' => true,
+			// get the page for the path
+			$getByPathOptions = array(
 				'useLanguages' => $languages ? true : false,
+				'allowUrlSegments' => true,
 				'useHistory' => true
-			));
+			);
+			$page = $this->wire()->pages->getByPath($path, $getByPathOptions);
+			if(!$page->id) {
+				// if not found try again with non-urlSegment partial matching
+				$getByPathOptions['allowUrlSegments'] = false;
+				$page = $this->wire()->pages->getByPath($path, $getByPathOptions);
+			}
+			$pageID = $page->id;
 			
 			if($pageID) {
 				// resolved to a page
+				$urlSegments = $page->get('_urlSegments');
+				$urlSegmentStr = is_array($urlSegments) ? implode('/', $urlSegments) : '';
+				
 				if($languages) {
-					$page = $this->wire('pages')->get($pageID);
 					/** @var Language $language */
 					$language = $this->wire('modules')->get('LanguageSupportPageNames')->getPagePathLanguage($path, $page);
 					$pwid = !$language || $language->isDefault() ? $pageID : "$pageID-$language";
 				} else {
 					$language = null;
 					$pwid = $pageID;
+				}
+				if($urlSegmentStr) {
+					// append url segment path to the pwid
+					$pwid .= "/$urlSegmentStr";
 				}
 				$replacements[$full] = "$start\tdata-pwid=$pwid$href$path$end";
 				$counts['internal']++;
@@ -472,22 +485,23 @@ class MarkupQA extends Wire {
 	 * a potential "/subdir/" that wouldn't be recognized as a page path.
 	 * 
 	 * @param $value
+	 * @return array Returns array of replacements that were made (3.0.184+)
 	 * 
 	 */
 	public function wakeupLinks(&$value) {
 
 		// if there's no data-pwid attribute present, then there's nothing to do here
-		if(strpos($value, 'data-pwid=') === false) return;
+		if(strpos($value, 'data-pwid=') === false) return array();
 		
 		$re = '!' . 
 			'(<a[^\t<>]*?)' . // 1:"start" which includes "<a" and everything up until data-pwid attribute
-			'\tdata-pwid=([-\d]+)' . // 2:"pwid" integer of page id ($pageID) referenced by the link
+			'\tdata-pwid=([-\d]+(?:/[-_./a-z0-9]+)?)' . // 2:"pwid" integer of page id ($pageID) referenced by the link (123-11/urlSegmentStr)
 			'([\t ]+href=(?:["\'](?:https?:)?//[^/"\'\s<>]+|["\']))' . // 3:"href" attribute and optional scheme+hostname
 			'([-_./a-z0-9]+)' . // 4:"path" in PW page name format
 			'([^<>]*>)' . // 5:"end" which includes everything else and closing ">", i.e. query string, other attrs, etc.
 			'!i';
 		
-		if(!preg_match_all($re, $value, $matches)) return;
+		if(!preg_match_all($re, $value, $matches)) return array();
 		
 		$replacements = array();
 		$languages = $this->wire('languages');
@@ -497,6 +511,12 @@ class MarkupQA extends Wire {
 		$debug = $this->debug();
 		
 		foreach($matches[2] as $key => $pwid) {
+			
+			if(strpos($pwid, '/')) {
+				list($pwid, $urlSegmentStr) = explode('/', $pwid, 2);
+			} else {
+				$urlSegmentStr = '';
+			}
 			
 			if(strpos($pwid, '-')) {
 				list($pageID, $languageID) = explode('-', $pwid);
@@ -521,6 +541,11 @@ class MarkupQA extends Wire {
 			$livePath = $this->wire('pages')->getPath($pageID, array(
 				'language' => $language
 			));
+			
+			if($urlSegmentStr) {
+				$livePath = rtrim($livePath, '/') . "/$urlSegmentStr";
+				if(substr($path, '-1') === '/') $livePath .= '/';
+			}
 			
 			if(strlen($rootURL) > 1) {
 				$livePath = rtrim($rootURL, '/') . $livePath;
@@ -572,6 +597,8 @@ class MarkupQA extends Wire {
 		if(count($replacements)) {
 			$value = str_replace(array_keys($replacements), array_values($replacements), $value);
 		}
+		
+		return $replacements;
 	}
 
 	/**
@@ -708,7 +735,7 @@ class MarkupQA extends Wire {
 	 *
 	 */
 	public function checkImgTags(&$value, array $options = array()) {
-		if(strpos($value, '<img ') !== false && preg_match_all('{(<img [^>]+>)}', $value, $matches)) {
+		if(strpos($value, '<img ') !== false && preg_match_all('{(<' . 'img [^>]+>)}', $value, $matches)) {
 			foreach($matches[0] as $key => $img) {
 				$this->checkImgTag($value, $img, $options);
 			}

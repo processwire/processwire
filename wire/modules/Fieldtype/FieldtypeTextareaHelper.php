@@ -184,7 +184,7 @@ class FieldtypeTextareaHelper extends Wire {
 			$statusNote = ' ' . 
 				$this->_('There are still more pages to apply. Check the box again to apply remaining pages.') . ' ' . 
 				$this->_('Need to apply more pages at a time? You can add a %s setting to your /site/config.php file.');
-			$statusNote = '<code>' . sprintf($statusNote, '$config->applyHTMLMaxItems = ' . ($applyMax * 2)) . ';</code>';
+			$statusNote = sprintf($statusNote, '<code>$config->applyHTMLMaxItems = ' . ($applyMax * 2) . ';</code>');
 		}
 		
 		$logFile = $this->wire('config')->paths->logs . 'markup-qa-errors.txt';
@@ -202,14 +202,14 @@ class FieldtypeTextareaHelper extends Wire {
 		
 		$types = array(
 			'external' => $good . $this->_x('%d external a[href] tags', 'link-type'),
-			'href' => $good . $this->_('%d local a[href] tags', 'link-type'), 
+			'href' => $good . $this->_x('%d local a[href] tags', 'link-type'), 
 			'internal' => $good . $this->_x('%d internal/abstract page links', 'link-type'),
 			'files' => $good . $this->_x('%d file/asset references', 'link-type'),
 			'relative' => $good . $this->_x('%d relative a[href] tags updated', 'link-type'), 
 			'other' => $ques . $this->_x('%d local a[href] non-page/unrecognized tags', 'link-type'),
 			'nohttp' => $good . $this->_x('%d non-http a[href] links like mailto, tel, etc.', 'link-type'),
 			'unresolved' => $fail . $this->_x('%d unresolved a[href] tags', 'link-type'),
-			'src' => $good . $this->_('%d local img[src] tags', 'link-type'), 
+			'src' => $good . $this->_x('%d local img[src] tags', 'link-type'), 
 			'img_unresolved' => $fail . $this->_x('%d unresolved img[src] tags', 'link-type'),
 			'img_fixed' => $good . $this->_x('%d unresolved and fixed img[src] tags', 'link-type'),
 			'img_noalt' => $good . $this->_x('%d blank img[alt] tags to be populated at runtime', 'link-type'), 
