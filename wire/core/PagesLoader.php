@@ -1340,7 +1340,7 @@ class PagesLoader extends Wire {
 
 		return '/' . ltrim($path, '/');
 	}
-
+	
 	/**
 	 * Get a page by its path, similar to $pages->get('/path/to/page/') but with more options
 	 *
@@ -1351,46 +1351,85 @@ class PagesLoader extends Wire {
 	 * 2) In a multi-language environment, you must specify the $useLanguages option to be true, if you
 	 *    want a result for a $path that is (or might be) a multi-language path. Otherwise, multi-language
 	 *    paths will make this method return a NullPage (or 0 if getID option is true).
-	 * 3) Partial paths may also match, so long as the partial path is completely unique in the site. 
-	 *    If you don't want that behavior, double check the path of the returned page. 
+	 * 3) Partial paths may also match, so long as the partial path is completely unique in the site.
+	 *    If you don't want that behavior, double check the path of the returned page.
 	 *
-	 * @param $path
+	 * @param string $path
 	 * @param array|bool $options array of options (below), or specify boolean for $useLanguages option only.
-	 *  - getID: Specify true to just return the page ID (default=false)
-	 *  - useLanguages: Specify true to allow retrieval by language-specific paths (default=false)
-	 *  - useHistory: Allow use of previous paths used by the page, if PagePathHistory module is installed (default=false)
+	 *  - `getID` (bool): Specify true to just return the page ID (default=false)
+	 *  - `useLanguages` (bool): Specify true to allow retrieval by language-specific paths (default=false)
+	 *  - `useHistory` (bool): Allow use of previous paths used by the page, if PagePathHistory module is installed (default=false)
+	 *  - `allowUrl` (bool): Allow getting page by path OR url? Specify false to find only by path. This option only applies if
+	 *     the site happens to run from a subdirectory. (default=true) 3.0.184+
+	 *  - `allowPartial` (bool): Allow partial paths to match? (default=true) 3.0.184+
+	 *  - `allowUrlSegments` (bool): Allow paths with URL segments to match? When true and page match cannot be found, the closest
+	 *     parent page that allows URL segments will be returned. Found URL segments are populated to a `_urlSegments` array
+	 *     property on the returned page object. This also cancels the allowPartial setting. (default=false) 3.0.184+
 	 * @return Page|int
 	 *
 	 */
 	public function getByPath($path, $options = array()) {
 
+		$modules = $this->wire()->modules;
+		$sanitizer = $this->wire()->sanitizer;
+		$config = $this->wire()->config;
+		$database = $this->wire()->database;
+
 		$defaults = array(
 			'getID' => false,
 			'useLanguages' => false,
 			'useHistory' => false,
+			'allowUrl' => true,
+			'allowPartial' => true,
+			'allowUrlSegments' => false,
+			'_isRecursive' => false,
 		);
 
 		if(!is_array($options)) {
 			$defaults['useLanguages'] = (bool) $options;
 			$options = array();
 		}
-
+		
 		$options = array_merge($defaults, $options);
 		if(isset($options['getId'])) $options['getID'] = $options['getId']; // case alternate
-		$homepageID = (int) $this->wire('config')->rootPageID;
+		$homepageID = (int) $config->rootPageID;
+		$rootUrl = $this->wire()->config->urls->root;
+
+		if($options['allowUrl'] && $rootUrl !== '/' && strpos($path, $rootUrl) === 0) {
+			// root URL is subdirectory and path has that subdirectory
+			$rootName = trim($rootUrl, '/');
+			if(strpos($rootName, '/')) {
+				// root URL has multiple levels of subdirectories, remove them from path
+				list(,$path) = explode(rtrim($rootUrl, '/'), $path, 2);
+			} else {
+				// one subdirectory, see if a page has the same name
+				$query = $database->prepare('SELECT id FROM pages WHERE parent_id=1 AND name=:name');
+				$query->bindValue(':name', $rootName);
+				$query->execute();
+				if($query->rowCount() > 0) {
+					// leave subdirectory in path because page in site also matches subdirectory name
+				} else {
+					// remove root URL subdirectory from path 
+					list(,$path) = explode(rtrim($rootUrl, '/'), $path, 2);
+				}
+				$query->closeCursor();
+			}
+		}
 
 		if($path === '/') {
 			// this can only be homepage
 			return $options['getID'] ? $homepageID : $this->getById($homepageID, array('getOne' => true));
 		} else if(empty($path)) {
+			// path is empty and cannot match anything
 			return $options['getID'] ? 0 : $this->pages->newNullPage();
 		}
 
 		$_path = $path;
-		$path = $this->wire('sanitizer')->pagePathName($path, Sanitizer::toAscii);
+		$path = $sanitizer->pagePathName($path, Sanitizer::toAscii);
 		$pathParts = explode('/', trim($path, '/'));
-		$languages = $options['useLanguages'] ? $this->wire('languages') : null;
-		if($languages && !$this->wire('modules')->isInstalled('LanguageSupportPageNames')) $languages = null;
+		$_pathParts = $pathParts;
+		$languages = $options['useLanguages'] ? $this->wire()->languages : null;
+		if($languages && !$modules->isInstalled('LanguageSupportPageNames')) $languages = null;
 
 		$langKeys = array(':name' => 'name');
 		if($languages) foreach($languages as $language) {
@@ -1399,55 +1438,58 @@ class PagesLoader extends Wire {
 			$langKeys[":name$languageID"] = "name$languageID";
 		}
 
-		// first see if we can find a single page just having the name that's the last path part
-		// this is an optimization if the page name happens to be globally unique in the system, which is often the case
 		$pageID = 0;
 		$templatesID = 0;
 		$parentID = 0;
-		$name = end($pathParts);
-		$binds = array(':name' => $name);
-		$wheres = array();
-		$numParts = count($pathParts);
 
-		// can match 'name' or 'name123' cols where 123 is language ID
-		foreach($langKeys as $bindKey => $colName) {
-			$wheres[] = "$colName=$bindKey";
-			$binds[$bindKey] = $name;
-		}
-		$sql = 'SELECT id, templates_id, parent_id FROM pages WHERE (' . implode(' OR ', $wheres) . ') ';
+		if($options['allowPartial'] && !$options['allowUrlSegments']) {
+			// first see if we can find a single page just having the name that's the last path part
+			// this is an optimization if the page name happens to be globally unique in the system, which is often the case
+			$name = end($pathParts);
+			$binds = array(':name' => $name);
+			$wheres = array();
+			$numParts = count($pathParts);
 
-		if($numParts == 1) {
-			$sql .= ' AND (parent_id=:parent_id ';
-			$binds[':parent_id'] = $homepageID;
-			if($languages) {
-				$sql .= 'OR id=:homepage_id ';
-				$binds[':homepage_id'] = $homepageID;
+			// can match 'name' or 'name123' cols where 123 is language ID
+			foreach($langKeys as $bindKey => $colName) {
+				$wheres[] = "$colName=$bindKey";
+				$binds[$bindKey] = $name;
 			}
-			$sql .= ') ';
+			$sql = 'SELECT id, templates_id, parent_id FROM pages WHERE (' . implode(' OR ', $wheres) . ') ';
+
+			if($numParts == 1) {
+				$sql .= ' AND (parent_id=:parent_id ';
+				$binds[':parent_id'] = $homepageID;
+				if($languages) {
+					$sql .= 'OR id=:homepage_id ';
+					$binds[':homepage_id'] = $homepageID;
+				}
+				$sql .= ') ';
+			}
+
+			$sql .= 'LIMIT 2';
+			$query = $database->prepare($sql);
+			foreach($binds as $key => $value) $query->bindValue($key, $value);
+			$database->execute($query);
+			$numRows = $query->rowCount();
+			if($numRows == 1) {
+				// if only 1 page matches then we’ve found what we’re looking for
+				list($pageID, $templatesID, $parentID) = $query->fetch(\PDO::FETCH_NUM);
+			} else if($numRows == 0) {
+				// no page can possibly match last segment
+			} else if($numRows > 1) {
+				// multiple pages match
+			}
+			$query->closeCursor();
 		}
 
-		$sql .= 'LIMIT 2';
-		$database = $this->wire('database');
-		$query = $database->prepare($sql);
-		foreach($binds as $key => $value) $query->bindValue($key, $value);
-		$database->execute($query);
-		$numRows = $query->rowCount();
-
-		if(!$numRows) {
-			// no matches - no page in the system can possibly match
-			$query->closeCursor();
-
-		} else if($numRows == 1) {
-			// just one page has this name - we can stop now, avoiding further checks
-			list($pageID, $templatesID, $parentID) = $query->fetch(\PDO::FETCH_NUM);
-			$query->closeCursor();
-
-		} else {
-			// multiple pages have the name - go back and query again, joining all the path parts
-			$query->closeCursor();
-			$sql = "SELECT pages.id, pages.templates_id, pages.parent_id FROM pages ";
-			$n = 0;
+		if(!$pageID) {
+			// multiple pages have the name or partial path match is not allowed
+			// build a query joining all the path parts
+			$joins = array();
+			$wheres = array();
 			$binds = array();
+			$n = 0;
 			$lastAlias = "pages";
 			$lastPart = array_pop($pathParts);
 
@@ -1461,17 +1503,20 @@ class PagesLoader extends Wire {
 					$wheres[] = "$alias.$colName=$bindKey";
 					$binds[$bindKey] = $part;
 				}
-				$sql .= "JOIN pages AS $alias ON $lastAlias.parent_id=$alias.id AND (" . implode(' OR ', $wheres) . ') ';
+				$joins[] = "\nJOIN pages AS $alias ON $lastAlias.parent_id=$alias.id AND (" . implode(' OR ', $wheres) . ')';
 				$lastAlias = $alias;
 			}
 
-			$wheres = array();
 			foreach($langKeys as $bindKey => $colName) {
 				$wheres[] = "pages.$colName=$bindKey";
 				$binds[$bindKey] = $lastPart;
 			}
 
-			$sql .= 'WHERE (' . implode(' OR ', $wheres) . ') ';
+			$sql =
+				'SELECT pages.id, pages.templates_id, pages.parent_id '  .
+				'FROM pages ' . implode(' ', $joins) . " \n" .
+				'WHERE (' . implode(' AND ', $wheres) . ') ';
+
 			$query = $database->prepare($sql);
 			foreach($binds as $key => $value) $query->bindValue($key, $value);
 			$database->execute($query);
@@ -1481,17 +1526,49 @@ class PagesLoader extends Wire {
 			$query->closeCursor();
 		}
 
-		if(!$pageID && $options['useHistory'] && $this->wire('modules')->isInstalled('PagePathHistory')) {
+		if(!$pageID && $options['useHistory'] && $modules->isInstalled('PagePathHistory')) {
 			// if finding failed, check if there is a previous path it lived at, if history module available 
-			$page = $this->wire('modules')->get('PagePathHistory')->getPage($this->wire('sanitizer')->pagePathNameUTF8($_path));
-			return $options['getID'] ? $page->id : $page;
+			$pph = $modules->get('PagePathHistory'); /** @var PagePathHistory $pph */
+			$page = $pph->getPage($sanitizer->pagePathNameUTF8($_path));
+			if($page->id) return $options['getID'] ? $page->id : $page;
+		}
+
+		if(!$pageID && $options['allowUrlSegments'] && !$options['_isRecursive'] && count($_pathParts)) {
+			// attempt to match parent pages that allow URL segments
+			$pathParts = $_pathParts;
+			$urlSegments = array();
+			$recursiveOptions = array_merge($options, array(
+				'getID' => false,
+				'allowUrlSegments' => false,
+				'allowPartial' => false,
+				'_isRecursive' => true
+			));
+
+			do {
+				$urlSegment = array_pop($pathParts);
+				array_unshift($urlSegments, $urlSegment);
+				$path = '/' . implode('/', $pathParts);
+				$page = $this->getByPath($path, $recursiveOptions);
+			} while(count($pathParts) && !$page->id);
+
+			if($page->id) {
+				if($page->template->urlSegments) {
+					// matched page template allows URL segments
+					$page->setQuietly('_urlSegments', $urlSegments);
+					if(!$options['getID']) return $page;
+					$pageID = $page->id;
+				} else {
+					// page template does not allow URL segments, so path cannot match
+					$pageID = 0;
+				}
+			}
 		}
 
 		if($options['getID']) return (int) $pageID;
 		if(!$pageID) return $this->pages->newNullPage();
 
 		return $this->getById((int) $pageID, array(
-			'template' => $templatesID ? $this->wire('templates')->get((int) $templatesID) : null,
+			'template' => $templatesID ? $this->wire()->templates->get((int) $templatesID) : null,
 			'parent_id' => (int) $parentID,
 			'getOne' => true
 		));
