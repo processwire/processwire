@@ -3,10 +3,11 @@
 /**
  * ProcessWire Radios Inputfield
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $optionColumns Number of columns to display radios in, or 0 for vertical stacked, or 1 for inline (default=0)
+ * @property string $optionWidth Alternative to optionColumns, specify option width like '222px', '22em', etc. or '1' for auto. 3.0.184+
  * 
  */
 
@@ -16,26 +17,27 @@ class InputfieldRadios extends InputfieldSelect {
 		return array(
 			'title' => __('Radio Buttons', __FILE__), // Module Title
 			'summary' => __('Radio buttons for selection of a single item', __FILE__), // Module Summary
-			'version' => 105,
+			'version' => 106,
 			'permanent' => true, 
-			);
+		);
 	}
 
 	public function init() {
-		$this->set('optionColumns', 0); 
+		$this->set('optionColumns', 0);
+		$this->set('optionWidth', ''); 
 		parent::init();
 	}
 
 	public function ___render() {	
 	
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 
 		$defaults = array(
 			'wbr' => true, 
 			'noSelectLabels' => true,
 		);
-		$settings = $this->wire('config')->get('InputfieldRadios');
+		
+		$settings = $this->wire()->config->get('InputfieldRadios');
 		$settings = is_array($settings) ? array_merge($defaults, $settings) : $defaults;
 		
 		$this->checkDefaultValue();
@@ -43,9 +45,14 @@ class InputfieldRadios extends InputfieldSelect {
 		$columns = (int) $this->optionColumns;
 		if($columns === 1) $inline = true; 
 		$options = $this->getOptions();
+		$optionWidth = $this->getOptionWidthCSS($this->optionWidth, $options);
 		$liAttr = '';
 
-		if($columns) {
+		if($optionWidth) {
+			$liAttr = " style='width:$optionWidth'";
+			$out = "<ul class='InputfieldRadiosWidth'>"; 
+
+		} else if($columns) {
 			if(count($options) >= $columns && !$inline) {
 				$liWidth = round(100 / $columns)-1;  // 1% padding-right added from stylesheet
 				$liAttr = " style='width: {$liWidth}%;'";
@@ -116,17 +123,33 @@ class InputfieldRadios extends InputfieldSelect {
 		}
 		return parent::set($key, $value); 
 	}
+	
+	/**
+	 * Get CSS width and unit for option width
+	 *
+	 * @param string|int $optionWidth
+	 * @param array $options
+	 * @return string
+	 *
+	 */
+	public function getOptionWidthCSS($optionWidth, array &$options) {
+		if(!$optionWidth) return '';
+		/** @var InputfieldCheckboxes $f */
+		$f = $this->wire()->modules->getModule('InputfieldCheckboxes', array('noInit' => true));
+		return $f->getOptionWidthCSS($optionWidth, $options);
+	}
 
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields(); 
-		/** @var InputfieldInteger $f */
-		$f = $this->wire('modules')->get('InputfieldInteger');
-		$f->label = $this->_('Columns of Radio Buttons');
-		$f->description = $this->_('If you want the radio buttons to display in columns (rather than stacked), enter the number of columns you want to use (up to 10). To display buttons side-by-side (inline) enter 1.'); 
-		$f->notes = $this->_('If no number is specified here, then each radio button will display on its own line.'); 
-		$f->attr('name', 'optionColumns'); 
-		$f->attr('value', (int) $this->optionColumns); 
-		$inputfields->add($f);	
+		/** @var InputfieldCheckboxes $module */
+		$module = $this->wire()->modules->getModule('InputfieldCheckboxes', array('noInit' => true));
+		$fs = $module->___getConfigInputfields();
+		foreach(array('optionWidth', 'optionColumns') as $name) {
+			$f = $fs->getChildByName($name);
+			$f->val($this->getSetting($name));
+			if($f->val()) $f->collapsed = Inputfield::collapsedNo;	
+			$inputfields->add($f);
+		}
 		return $inputfields; 
 	}
 
