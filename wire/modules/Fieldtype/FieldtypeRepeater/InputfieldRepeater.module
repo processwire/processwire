@@ -235,16 +235,23 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 */
 	protected function preloadInputfieldAssets($fieldIDs = array()) {
 		
-		if(empty($fieldIDs)) $fieldIDs = $this->field->get('repeaterFields');
+		if(empty($fieldIDs) && $this->field) $fieldIDs = $this->field->get('repeaterFields');
 		if(!is_array($fieldIDs)) return;
 		
 		$fields = $this->wire()->fields;
 		$items = $this->attr('value');
 		$item = count($items) ? $items->first() : null;
 		
+		$templateId = $this->field ? (int) $this->field->get('template_id') : 0;
+		$template = $templateId ? $this->wire()->templates->get($templateId) : null;
+		$fieldgroup = $template ? $template->fieldgroup : null;
+		
 		foreach($fieldIDs as $fieldID) {
 			
-			$field = $fields->get($fieldID);
+			$field = $fields->get((int) $fieldID); 
+			if(!$field) continue;
+			
+			$fieldContext = $fieldgroup && $fieldgroup->hasFieldContext($field) ? $fieldgroup->getFieldContext($field) : $field;
 			$fieldtype = $field ? $field->type : null; /** @var Fieldtype $fieldtype */
 			
 			if(!$item && $fieldtype && $fieldtype instanceof FieldtypeFile) {
@@ -259,12 +266,37 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			
 			if($field) try {
 				// the following forces assets to be loaded
-				$inputfield = $field->getInputfield($item ? $item : $this->page);
-				if($inputfield) $inputfield->renderReady(null, false);
+				$inputfield = $fieldContext->getInputfield($item ? $item : $this->page);
+				if($inputfield) $this->renderReadyInputfield($inputfield);
 			} catch(\Exception $e) {
 				$this->warning("Repeater '$this->name' preload '$field': " . $e->getMessage(), Notice::debug);
 			}
 		}
+	}
+
+	/**
+	 * Render ready for an Inputfield within a repeater item
+	 * 
+	 * @param Inputfield $f
+	 * @param Inputfield|InputfieldWrapper|null $parent
+	 * @param bool $renderValueMode
+	 * @since 3.0.184
+	 * 
+	 */
+	protected function renderReadyInputfield(Inputfield $f, $parent = null, $renderValueMode = false) {
+		if($f instanceof InputfieldTextarea && wireInstanceOf($f, 'InputfieldCKEditor')) {
+			/** @var InputfieldCKEditor $f Keeps config in JS var so use custom to allow for context settings $f */
+			$field = $f->hasField;
+			if($f->configName) {
+				// may have already been set by descending class like matrix, so leave as-is
+			} else if($field && !($field->flags & Field::flagFieldgroupContext)) {
+				// does not have context-specific settings, so leave as-is
+			} else {
+				// use context-specific configuration settings name for this CKEditor
+				$f->configName = $f->className() . "_{$f->name}_in_{$this->name}";
+			}
+		}
+		$f->renderReady($parent, $renderValueMode);
 	}
 
 	/**
@@ -514,7 +546,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			// only rendering a single item, ajax mode
 			foreach($form->getAll() as $inputfield) {
 				$idAttr = $inputfield->attr('id');
-				$inputfield->renderReady($form, $this->renderValueMode);
+				$this->renderReadyInputfield($inputfield, $form, $this->renderValueMode);
 				$jsValue = $this->wire('config')->js($idAttr);
 				if(!empty($jsValue)) {
 					$inputfield->appendMarkup .= "<script>ProcessWire.config['$idAttr'] = " . json_encode($jsValue) . ';</script>';
