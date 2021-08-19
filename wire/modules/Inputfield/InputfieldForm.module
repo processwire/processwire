@@ -377,7 +377,7 @@ class InputfieldForm extends InputfieldWrapper {
 			if(!$child->getSetting('required') || $child->getSetting('requiredSkipped')) continue; 
 			
 			// if field was not shown, then it can't be required
-			if($child->getSetting('showIfSkipped')) {
+			if($child->getSetting('showIfSkipped') && !$child->getSetting('showIfProcessed')) {
 				$child->set('requiredSkipped', true);
 				continue;
 			}
