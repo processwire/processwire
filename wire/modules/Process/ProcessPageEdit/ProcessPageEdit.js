@@ -83,8 +83,10 @@ function initPageEditForm() {
 	var $title = $('body').hasClass('AdminThemeReno') ? $('#title') : $('#pw-content-title');
 	if($title.length) {
 		var $titleInput = null;
-		if(typeof ProcessWire.config.LanguageSupport.language.id !== "undefined") {
-			$titleInput = $('#Inputfield_title__' + ProcessWire.config.LanguageSupport.language.id);
+		if(typeof ProcessWire.config.LanguageSupport !== "undefined") {
+			if(typeof ProcessWire.config.LanguageSupport.language !== "undefined") {
+				$titleInput = $('#Inputfield_title__' + ProcessWire.config.LanguageSupport.language.id);
+			}
 		}
 		if(!$titleInput || !$titleInput.length || !$titleInput.val().length) $titleInput = $('#Inputfield_title');
 		if(!$titleInput.length || !$titleInput.val().length) $titleInput = $('#Inputfield__pw_page_name');
