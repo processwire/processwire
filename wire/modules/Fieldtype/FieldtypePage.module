@@ -1435,7 +1435,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$checkbox = $this->modules->get('InputfieldCheckbox');
 		$checkbox->attr('name', 'allowUnpub');
 		$checkbox->label = $this->_('Allow unpublished pages?');
-		$checkbox->description = $this->_('When checked, unpublished pages are allowed in the field value. Unpublished pages will not appear on the front-end, except to those with edit access.'); // Description for allowUnpub option
+		$checkbox->description = $this->_('When checked, unpublished pages will be selectable for input and allowed in the *unformatted* field value. They will still be excluded from the *formatted* field value either way.'); // Description for allowUnpub option
 		$checkbox->attr('value', 1);
 		$checkbox->attr('checked', $value ? 'checked' : '');
 		$checkbox->icon = 'eye-slash';
