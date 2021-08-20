@@ -5,7 +5,7 @@
  *
  * @see /wire/core/SessionHandler.php
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int|bool $useIP Track IP address?
@@ -21,7 +21,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Session Handler Database', 
-			'version' => 5, 
+			'version' => 6, 
 			'summary' => "Installing this module makes ProcessWire store sessions in the database rather than the file system. Note that this module will log you out after install or uninstall.",
 			'installs' => array('ProcessSessionDB')
 		);
@@ -55,7 +55,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	}
 	
 	public function wired() {
-		$this->database = $this->wire('database');
+		$this->database = $this->wire()->database;
 		parent::wired();
 	}
 	
@@ -121,12 +121,19 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	public function write($id, $data) {
 		$table = self::dbTableName;
 		$database = $this->database;
-		$user = $this->wire('user');
-		$page = $this->wire('page');
+		$user = $this->wire()->user;
+		$page = $this->wire()->page;
 		$user_id = $user && $user->id ? (int) $user->id : 0; 
 		$pages_id = $page && $page->id ? (int) $page->id : 0;
 		$ua = ($this->useUA && isset($_SERVER['HTTP_USER_AGENT'])) ? substr(strip_tags($_SERVER['HTTP_USER_AGENT']), 0, 255) : '';
-		$ip = $this->useIP ? ((int) $this->wire('session')->getIP(true)) : '';
+		$ip = ''; 
+		
+		if($this->useIP) {
+			$session = $this->wire()->session;
+			$ip = $session->getIP();
+			$ip = (strlen($ip) && strpos($ip, ':') === false ? ip2long($ip) : '');
+			// @todo DB schema for ipv6
+		}
 	
 		$binds = array(
 			':id' => $id, 
@@ -147,20 +154,28 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 		}
 		
 		$sql = "INSERT INTO $table SET id=:id, $s ON DUPLICATE KEY UPDATE $s, ts=NOW()";
-		$query = $database->prepare($sql); 
 		
-		foreach($binds as $key => $value) {
-			$type = is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR;
-			$query->bindValue($key, $value, $type);
+		try {
+			$query = $database->prepare($sql);
+			foreach($binds as $key => $value) {
+				$type = is_int($value) ? \PDO::PARAM_INT : \PDO::PARAM_STR;
+				$query->bindValue($key, $value, $type);
+			}
+			$result = $database->execute($query, false) ? true : false;
+			$query->closeCursor();
+		} catch(\Exception $e) {
+			$result = false;
+			$this->trackException($e);
 		}
 		
-		$result = $database->execute($query, false) ? true : false; 
-		$query->closeCursor();
-		
-		$query = $database->prepare("DO RELEASE_LOCK(:id)");
-		$query->bindValue(':id', $id, \PDO::PARAM_STR);
-		$database->execute($query, false);
-		$query->closeCursor();
+		try {
+			$query = $database->prepare("DO RELEASE_LOCK(:id)");
+			$query->bindValue(':id', $id, \PDO::PARAM_STR);
+			$database->execute($query, false);
+			$query->closeCursor();
+		} catch(\Exception $e) {
+			$this->trackException($e);
+		}
 		
 		return $result; 
 	}
@@ -221,7 +236,7 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	public function ___install() {
 		
 		$table = self::dbTableName;
-		$charset = $this->wire('config')->dbCharset;
+		$charset = $this->wire()->config->dbCharset;
 
 		$sql = 	"CREATE TABLE `$table` (" . 
 				"id CHAR(32) NOT NULL, " . 
@@ -358,11 +373,10 @@ class SessionHandlerDB extends WireSessionHandler implements Module, Configurabl
 	 * 
 	 */
 	public function getNumSessions($seconds = 300) {
-		$sql = "SELECT count(*) FROM " . self::dbTableName . " WHERE ts > :ts";
-		$query = $this->database->prepare($sql);
-		$query->bindValue(':ts', date('Y-m-d H:i:s', (time() - $seconds)));
-		$query->execute();
-		list($numSessions) = $query->fetch(\PDO::FETCH_NUM); 
+		$seconds = (int) $seconds;
+		$sql = "SELECT COUNT(*) FROM " . self::dbTableName . " WHERE ts > DATE_SUB(NOW(), INTERVAL $seconds SECOND)";
+		$query = $this->database->query($sql);
+		$numSessions = (int) $query->fetchColumn();
 		return $numSessions; 
 	}
 

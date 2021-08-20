@@ -5,7 +5,7 @@
  *
  * This module accompanies installation of the SessionHandlerDB module
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -16,7 +16,7 @@ class ProcessSessionDB extends Process {
 		return array(
 			'title' => __('Sessions', __FILE__), // getModuleInfo title          
 			'summary' => __('Enables you to browse active database sessions.', __FILE__), // getModuleInfo summary 
-			'version' => 4, 
+			'version' => 5, 
 			'permanent' => false, 
 			'icon' => 'dashboard', 
 			'requires' => array('SessionHandlerDB'),
@@ -40,23 +40,31 @@ class ProcessSessionDB extends Process {
 		// clean out any stray sessions that may have not yet hit the gc probability
 		// because we don't want them in the list that we display
 		
+		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
+		$session = $this->wire()->session;
+		$database = $this->wire()->database;
+		$input = $this->wire()->input;
+		$pages = $this->wire()->pages;
+		$users = $this->wire()->users;
+		
 		/** @var SessionHandlerDB $sessionHandlerDB */
 		$sessionHandlerDB = $this->modules->get('SessionHandlerDB'); 
-		$sessionHandlerDB->gc($this->wire('config')->sessionExpireSeconds); 
+		$sessionHandlerDB->gc($config->sessionExpireSeconds); 
 		
 		$useIP = $sessionHandlerDB->useIP; 
 		$useUA = $sessionHandlerDB->useUA; 
 
-		$mins = (int) $this->input->post('mins');
-		if(!$mins) $mins = (int) $this->session->get('ProcessSessionDB_mins'); 
+		$mins = (int) $input->post('mins');
+		if(!$mins) $mins = (int) $session->get('ProcessSessionDB_mins'); 
 		if(!$mins) $mins = 5; 
-		$this->session->set('ProcessSessionDB_mins', $mins);
+		$session->set('ProcessSessionDB_mins', $mins);
 
 		/** @var InputfieldForm $form */
-		$form = $this->wire('modules')->get('InputfieldForm');
+		$form = $modules->get('InputfieldForm');
 	
 		/** @var InputfieldInteger $field */
-		$field = $this->wire('modules')->get('InputfieldInteger');
+		$field = $modules->get('InputfieldInteger');
 		$field->attr('name', 'mins'); 
 		$field->attr('value', $mins);
 		$field->label = sprintf($this->_n('Sessions active in last minute', 'Sessions active in last %d minutes', $mins), $mins); 
@@ -67,7 +75,6 @@ class ProcessSessionDB extends Process {
 		$pagePaths = array();
 		$userNames = array();
 		$table = SessionHandlerDB::dbTableName;
-		$database = $this->wire('database');
 		$limit = 500; 
 		$seconds = $mins * 60;
 		
@@ -86,12 +93,13 @@ class ProcessSessionDB extends Process {
 				$numRows = $sessionHandlerDB->getNumSessions($mins * 60); 		
 			}
 
-			$table = $this->wire('modules')->get('MarkupAdminDataTable');
+			/** @var MarkupAdminDataTable $table */
+			$table = $modules->get('MarkupAdminDataTable');
 			$header = array(
 				$this->_('Time'), 
 				$this->_('User'), 
 				$this->_('Page'),
-				); 
+			); 
 			if($useIP) $header[] = $this->_('IP Addr');
 			if($useUA) $header[] = $this->_('User Agent');
 			$table->headerRow($header);
@@ -110,7 +118,7 @@ class ProcessSessionDB extends Process {
 					$userName = $userNames[$user_id]; 
 
 				} else {
-					$user = $this->wire('users')->get($user_id);
+					$user = $users->get($user_id);
 					$userName = $user && $user->id ? $user->name : '.';
 					if($userName !== '.') $userNames[$user_id] = $userName;
 				}
@@ -119,7 +127,7 @@ class ProcessSessionDB extends Process {
 					$pagePath = $pagePaths[$pages_id]; 
 
 				} else {
-					$page = $this->wire('pages')->get($pages_id);
+					$page = $pages->get($pages_id);
 					$pagePath = $page->id ? $page->path : '.';
 					if($pagePath !== '.') $pagePaths[$pages_id] = $pagePath;
 				}
@@ -149,15 +157,15 @@ class ProcessSessionDB extends Process {
 			"</h2>" .
 			$tableOut; 
 		
-		if($this->wire('config')->ajax) return $out;
+		if($config->ajax) return $out;
 
 		/** @var InputfieldMarkup $markup */
-		$markup = $this->wire('modules')->get('InputfieldMarkup');
+		$markup = $modules->get('InputfieldMarkup');
 		$markup->value = "<div id='SessionList'>$out</div>";
 		$form->add($markup);
 
 		/** @var InputfieldSubmit $submit */
-		$submit = $this->wire('modules')->get('InputfieldSubmit');
+		$submit = $modules->get('InputfieldSubmit');
 		$submit->attr('value', $this->_('Refresh'));
 		$submit->icon = 'refresh';
 		$submit->attr('id+name', 'submit_session');
