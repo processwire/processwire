@@ -8,18 +8,27 @@
  *
  * USAGE
  * ~~~~~~
- * $rss = $modules->get("MarkupRSS"); 
- * $rss->title = "Latest updates";
- * $rss->description = "The most recent pages updated on my site"; 
- * $items = $pages->find("limit=10, sort=-modified"); // or any pages you want
+ * $rss = $modules->get('MarkupRSS'); 
+ * $rss->setArray([ // specify RSS feed settings
+ *   'title' => 'Latest updates',
+ *   'description' => 'The most recent pages updated on my site',
+ *   'itemTitleField' => 'title',
+ *   'itemDateField' => 'created', // date field or 'created', 'published' or 'modified'
+ *   'itemDescriptionField' => 'summary', 
+ *   'itemDescriptionLength' => 1000, // truncate description to this max length
+ *   'itemContentField' => 'body', // optional HTML full-content, or omit to exclude
+ *   'itemAuthorField' => 'author', // optional text or Page field containing author(s)
+ * ]); 
+ * $items = $pages->find('limit=10, sort=-modified'); // or any pages you want
  * $rss->render($items); 
+ * exit; // exit now, or if you don’t then at least stop sending further output
  * ~~~~~~
  *
  * See also the $defaultConfigData below (first thing in the class) to see what
  * options you can change at runtime. 
  *
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @property string $title
@@ -31,6 +40,7 @@
  * @property int $ttl
  * @property bool $stripTags
  * @property string $itemTitleField
+ * @property string $itemContentField
  * @property string $itemDateField
  * @property string $itemDescriptionField
  * @property string $itemDescriptionLength
@@ -51,8 +61,9 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Markup RSS Feed',
-			'version' => 103,
+			'version' => 104,
 			'summary' => 'Renders an RSS feed. Given a PageArray, renders an RSS feed of them.',
+			'icon' => 'rss-square',
 		);
 	}
 
@@ -66,11 +77,12 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		'ttl' => 60,
 		'stripTags' => true, 
 		'itemTitleField' => 'title',
+		'itemContentField' => '', // for <content:encoded>
 		'itemDescriptionField' => 'summary',
 		'itemDescriptionLength' => 1024, 
 		'itemDateField' => 'created',
 		'itemAuthorField' => '', // i.e. createdUser.title or leave blank to not use
-		'itemAuthorElement' => 'dc:creator', // may be 'dc:creator' or 'author'
+		'itemAuthorElement' => 'dc:creator', // may be 'dc:creator' or 'author' (author if email address)
 		'header' => 'Content-Type: application/xml; charset=utf-8;',
 		'feedPages' => array(), 
 	); 
@@ -96,16 +108,29 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	protected function ent1($str) {
-		return $this->wire('sanitizer')->entities1($str);
+		if(strpos($str, '&') !== false) $str = $this->wire()->sanitizer->unentities($str, true);
+		return $this->ent($str);
 	}
 
 	/**
 	 * @param string $str
 	 * @return string
+	 * 
 	 *
 	 */
 	protected function ent($str) {
-		return $this->wire('sanitizer')->entities($str);
+		$str = htmlspecialchars($str, ENT_XML1, 'UTF-8');
+		$str = strtr($str, array(
+			// https://validator.w3.org/feed/
+			// recommends using hexadecimal entities here
+			'&gt;' => '&#x0003E;',
+			'&lt;' => '&#x0003C;',
+			'&amp;' => '&#x00026;',
+			'&quot;' => '&#x00022;',
+			'&apos;' => '&#x00027;',
+			'&#39;' => '&#x00027;',
+		));
+		return $str;
 	}
 
 	/**
@@ -127,15 +152,25 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		$ttl = (int) $this->ttl; 
 		$copyright = $this->ent1($this->copyright);
 
-		$out = "<?xml version='1.0' encoding='utf-8' ?>\n";
+		$out = '<?xml version="1.0" encoding="utf-8" ?>' . "\n";
 		if($xsl) $out .= "<?xml-stylesheet type='text/xsl' href='$xsl' ?>\n";
 		if($css) $out .= "<?xml-stylesheet type='text/css' href='$css' ?>\n";
 		
+		$xmlns = array(
+			'xmlns:atom="http://www.w3.org/2005/Atom"',
+			'xmlns:dc="http://purl.org/dc/elements/1.1/"'
+		);
+		if($this->itemContentField) {
+			$xmlns[] = 'xmlns:content="http://purl.org/rss/1.0/modules/content/"';
+		}
+		$xmlns = implode(' ', $xmlns);
+		
 		$out .= 
-			"<rss version='2.0' xmlns:dc='http://purl.org/dc/elements/1.1/'>\n" .
+			"<rss version=\"2.0\" $xmlns>\n" .
 			"<channel>\n" .
 			"\t<title>$title</title>\n" . 
 			"\t<link>$url</link>\n" . 
+			"\t<atom:link href=\"$url\" rel=\"self\" type=\"application/rss+xml\" />\n" . 
 			"\t<description>$description</description>\n" . 
 			"\t<pubDate>$pubDate</pubDate>\n";
 
@@ -153,36 +188,67 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	protected function renderItem(Page $page) {
-
+		
+		$sanitizer = $this->wire()->sanitizer;
 		$title = strip_tags($page->get($this->itemTitleField));
+		
 		if(empty($title)) return '';
 		
-		$title = html_entity_decode($title, ENT_QUOTES, 'UTF-8'); 
-		$title = htmlspecialchars($title, ENT_QUOTES, 'UTF-8'); 
-		$title = str_replace('&#039;', '&apos;', $title); 
+		$author = '';
+		$description = '';
+		$content = '';
+		$pubDate = '';
+		$title = $this->ent1($title);
 
 		if($this->itemDateField && ($ts = $page->getUnformatted($this->itemDateField))) {
+			// date
 			$pubDate = "\t\t<pubDate>" . date(DATE_RSS, $ts) . "</pubDate>\n";
-		} else {
-			$pubDate = '';
 		}
 	
-		$author = '';
 		if($this->itemAuthorField) {
-			$author = $page->getUnformatted($this->itemAuthorField); 
-			if($author instanceof Page) $author = $page->get('title|name');
+			// author
+			$author = $page->get($this->itemAuthorField); 
+			if($author instanceof Page) {
+				$author = $author->get('title|name');
+			} else if($author instanceof PageArray) {
+				$author = $author->implode(', ', 'title');
+			}
 			$author = (string) $author;
 			if(strlen($author)) {
-				$author = $this->ent($author); 
+				$author = $this->ent1($author); 
 				$author = "\t\t<$this->itemAuthorElement>$author</$this->itemAuthorElement>\n";	
 			} else {
 				$author = '';
 			}
 		}
-
-		$description = $page->get($this->itemDescriptionField); 
-		$description = $description === null ? '' : $this->ent1($this->truncateDescription($description)); 
-		$description = '<![CDATA[' . $description . ']]>';
+		
+		if($this->itemDescriptionField) {
+			// description summary
+			$description = $page->get($this->itemDescriptionField);
+			if($description !== null) {
+				$description = $sanitizer->unentities($description, true);
+				$description = $this->truncateDescription($description);
+				$description = '<![CDATA[' . $this->ent($description) . ']]>';
+			} else {
+				$description = '';
+			}
+		}
+		
+		if($this->itemContentField) {
+			// full HTML content, like that from CKEditor
+			$content = (string) $page->get($this->itemContentField);
+			$content = str_ireplace(array('<![CDATA[', ']]>'), array('&lt;![CDATA[', ']]&gt;'), $content);
+			$rootUrl = $this->wire()->config->urls->httpRoot;
+			if(strpos($content, '"/') !== false) {
+				// convert relative URLs to absolute with host
+				$content = str_ireplace(array(' href="/', ' src="/'), array(' href="' . $rootUrl, ' src="' . $rootUrl), $content);
+			}
+			if(strpos($content, 'href="#') !== false) {
+				// convert in-page #anchor links to page URL with anchor
+				$content = str_ireplace(' href="#', ' href="' . $page->httpUrl . '#', $content);
+			}
+			$content = "\t\t<content:encoded><![CDATA[" . $content . "]]></content:encoded>\n";
+		}
 
 		$out = 
 			"\t<item>\n" .
@@ -190,8 +256,9 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 			"\t\t<description>$description</description>\n" .
 			$pubDate . 
 			$author . 
+			$content . 
 			"\t\t<link>$page->httpUrl</link>\n" .
-			"\n\t<guid>$page->httpUrl</guid>\n" . 
+			"\t\t<guid>$page->httpUrl</guid>\n" . 
 			"\t</item>\n";
 
 		return $out; 
@@ -288,12 +355,18 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		/** @var Modules $modules */
 		$modules = $this->wire('modules');
 
-		/** @var InputfieldWrapper $inputfields */
-		$inputfields = $this->wire(new InputfieldWrapper());
+		/** @var InputfieldWrapper $form */
+		$form = $this->wire(new InputfieldWrapper());
+		/** @var InputfieldFieldset $inputfields */
+		$inputfields = $modules->get('InputfieldFieldset');
+		$inputfields->attr('name', '_defaults');
+		$inputfields->label = 'RSS feed defaults';
+		$inputfields->icon = 'rss';
 		$inputfields->description = 
 			"Select the default options for any given feed. Each of these may be overridden in the API, " . 
 			"so the options you select below should be considered defaults, unless you only have 1 feed. " . 
 			"If you only need to support 1 feed, then you will not need to override any of these in the API.";
+		$form->add($inputfields);
 
 		foreach(self::$defaultConfigData as $key => $value) {
 			if(!isset($data[$key])) $data[$key] = $value; 
@@ -303,104 +376,130 @@ class MarkupRSS extends WireData implements Module, ConfigurableModule {
 		$f = $modules->get('InputfieldText');
 		$f->attr('name', 'title');
 		$f->attr('value', $data['title']);
-		$f->label = "Default Feed Title";
+		$f->label = "Feed title";
+		$f->description = "The primary title of the RSS feed.";
+		$f->columnWidth = 50;
 		$inputfields->add($f);
 
 		/** @var InputfieldURL $f */
 		$f = $modules->get('InputfieldURL');
 		$f->attr('name', 'url');
 		$f->attr('value', $data['url']);
-		$f->label = "Default Feed URL";
-		$f->description = "The URL on your site that serves as a feed index. May also be left blank.";
+		$f->label = "Feed URL";
+		$f->description = "Optional URL on your site that serves as a feed index.";
+		$f->columnWidth = 50;
 		$inputfields->add($f);
 
 		/** @var InputfieldText $f */
 		$f = $modules->get('InputfieldText');
 		$f->attr('name', 'description');
 		$f->attr('value', $data['description']);
-		$f->label = "Default Feed Description";
-		$f->description = "The default description for a feed. May also be left blank.";
+		$f->label = "Feed description";
+		$f->description = "Optional default description for a feed.";
+		$f->columnWidth = 50;
 		$inputfields->add($f);
 
 		/** @var InputfieldURL $f */
 		$f = $modules->get('InputfieldURL');
 		$f->attr('name', 'xsl');
 		$f->attr('value', $data['xsl']);
-		$f->label = "Default Link to XSL Stylesheet";
-		$f->description = "Optional URL/link to an XSL stylesheet. Default is none.";
+		$f->label = "Link to XSL stylesheet";
+		$f->description = "Optional URL/link to an XSL stylesheet.";
+		$f->columnWidth = 50;
 		$inputfields->add($f);
 
 		$f = $modules->get('InputfieldURL');
 		$f->attr('name', 'css');
 		$f->attr('value', $data['css']);
-		$f->label = "Default Link to CSS Stylesheet";
-		$f->description = "Optional URL/link to a CSS stylesheet. Default is none.";
+		$f->label = "Link to CSS stylesheet";
+		$f->description = "Optional URL/link to a CSS stylesheet.";
+		$f->columnWidth = 50;
 		$inputfields->add($f);
 
 		/** @var InputfieldText $f */
 		$f = $modules->get('InputfieldText');
 		$f->attr('name', 'copyright');
 		$f->attr('value', $data['copyright']);
-		$f->label = "Default Feed Copyright";
-		$f->description = "The default copyright statement for a feed. Default is blank.";
+		$f->label = "Feed copyright";
+		$f->description = "Optional default copyright statement for a feed.";
+		$f->columnWidth = 50;
 		$inputfields->add($f);
-
-		/** @var InputfieldInteger $f */
-		$f = $modules->get('InputfieldInteger');
-		$f->attr('name', 'ttl');
-		$f->attr('value', (int) $data['ttl']);
-		$f->label = "Default Feed TTL";
-		$f->description = "TTL stands for \"time to live\" in minutes. It indicates how long a channel can be cached before refreshing from the source. Default is 60.";
-		$inputfields->add($f);
-
-		/** @var InputfieldSelect $f1 */
-		$f1 = $modules->get('InputfieldSelect');
-		$f1->attr('name', 'itemTitleField');
-		$f1->attr('value', $data['itemTitleField']);
-		$f1->label = "Default Feed Item Title Field";
-		$f1->description = "The default field to use as an individual feed item's title.";
-
-		/** @var InputfieldSelect $f2 */
-		$f2 = $modules->get('InputfieldSelect');
-		$f2->attr('name', 'itemDescriptionField');
-		$f2->attr('value', $data['itemDescriptionField']);
-		$f2->label = "Default Feed Item Description Field";
-		$f2->description = "The default field to use as an individual feed item's description (typically a summary or body field).";
-
-		/** @var InputfieldInteger $f2a */
-		$f2a = $modules->get('InputfieldInteger');
-		$f2a->attr('name', 'itemDescriptionLength');
-		$f2a->attr('value', (int) $data['itemDescriptionLength']);
-		$f2a->label = "Maximum Characters for Item Description Field";
-		$f2a->description = "The item description will be truncated to be no longer than the max length provided. Specify '0' for no max length. When there is no max length, markup tags will not be stripped.";
 
 		/** @var InputfieldSelect $f3 */
 		$f3 = $modules->get('InputfieldSelect');
 		$f3->attr('name', 'itemDateField');
 		$f3->attr('value', $data['itemDateField']);
-		$f3->label = "Default Feed Item Date Field";
+		$f3->label = "Feed item date field";
 		$f3->description = "The default field to use as an individual feed item's date.";
-		$f3->addOption('created'); 
+		$f3->addOption('created');
 		$f3->addOption('modified');
 		$f3->addOption('published');
+		$f3->columnWidth = 50;
 
-		foreach($this->wire('fields') as $field) {
+		/** @var InputfieldSelect $f1 */
+		$f1 = $modules->get('InputfieldSelect');
+		$f1->attr('name', 'itemTitleField');
+		$f1->attr('value', $data['itemTitleField']);
+		$f1->label = "Feed item title field";
+		$f1->description = "The default field to use as an individual feed item's title.";
+		$f1->columnWidth = 50;
 
-			if($field->type instanceof FieldtypeText) {
+		/** @var InputfieldSelect $f2 */
+		$f2 = $modules->get('InputfieldSelect');
+		$f2->attr('name', 'itemDescriptionField');
+		$f2->attr('value', $data['itemDescriptionField']);
+		$f2->label = "Feed item description field";
+		$f2->columnWidth = 50;
+		$f2->description = "The default field to use as an individual feed item's description (typically a summary or body field). Note that HTML will be stripped out.";
+
+		/** @var InputfieldInteger $f2a */
+		$f2a = $modules->get('InputfieldInteger');
+		$f2a->attr('name', 'itemDescriptionLength');
+		$f2a->attr('value', (int) $data['itemDescriptionLength']);
+		$f2a->label = "Maximum characters for item description field";
+		$f2a->columnWidth = 50;
+		$f2a->description = "The item description will be truncated to be no longer than the max length provided. Specify '0' for no max length. When there is no max length, markup tags will not be stripped.";
+
+		/** @var InputfieldSelect $f4 */
+		$f4 = $modules->get('InputfieldSelect');
+		$f4->attr('name', 'itemContentField');
+		$f4->attr('value', $data['itemContentField']);
+		$f4->label = "HTML content/body field";
+		$f4->description = "Optional field that contains the entire article/bodycopy in HTML. Select only if you intend to include the entire content in the RSS feed, otherwise use just the description field.";
+		$f4->columnWidth = 50;
+
+		/** @var InputfieldInteger $ttl */
+		$ttl = $modules->get('InputfieldInteger');
+		$ttl->attr('name', 'ttl');
+		$ttl->attr('value', (int) $data['ttl']);
+		$ttl->label = "Feed TTL";
+		$ttl->description = "TTL stands for \"time to live\" in minutes. It indicates how long a channel can be cached before refreshing from the source. Default is 60.";
+		$ttl->columnWidth = 50;
+
+		foreach($this->wire()->fields as $field) {
+			$fieldtype = $field->type; 
+
+			if($fieldtype instanceof FieldtypeTextarea) {
+				$f2->addOption($field->name); 
+				$f4->addOption($field->name); 
+				
+			} else if($fieldtype instanceof FieldtypeText) {
 				$f1->addOption($field->name); 
 				$f2->addOption($field->name); 
-
-			} else if($field->type instanceof FieldtypeDatetime) {
+				
+			} else if($fieldtype instanceof FieldtypeDatetime) {
 				$f3->addOption($field->name); 
 			}
 		}
 
 		$inputfields->add($f1);
+		$inputfields->add($f3);
 		$inputfields->add($f2);
 		$inputfields->add($f2a);
-		$inputfields->add($f3);
+		$inputfields->add($f4);
+		$inputfields->add($ttl);
 
-		return $inputfields;
+		return $form;
 
 	}
 
