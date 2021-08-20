@@ -1064,7 +1064,9 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 		foreach($inputfields->getAll() as $f) {
 			/** @var Inputfield $f */
 			foreach($f->getErrors(true) as $error) {
-				$f->error("$this->label ($pagefile->name): $error");
+				$msg = "$this->label ($pagefile->name): $error";
+				$this->error($msg);
+				$f->error($msg);
 			}
 			if(!$f->isChanged() && !$pagefile->isTemp()) {
 				continue;
