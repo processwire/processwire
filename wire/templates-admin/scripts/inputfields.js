@@ -105,6 +105,7 @@
  * - columnWidth: Triggered on .Inputfield when an API call to set column width, receives width percent after event argument.
  * 
  * Other events:
+ * - changed: Triggered on an .Inputfield that has an input element within it changed (3.0.184+)
  * - AjaxUploadDone: Triggered on an .Inputfield element after a file has been ajax-uploaded within it. 
  * 
  * ATTRIBUTES
@@ -2170,19 +2171,21 @@ function InputfieldStates($target) {
 	});
 
 	// confirm changed forms that user navigates away from before submitting
-	$(document).on('change', '.InputfieldFormConfirm :input, .InputfieldFormConfirm .Inputfield', function() {
-		var $this = $(this);	
+	$(document).on('change', '.InputfieldForm :input, .InputfieldForm .Inputfield', function() {
+		var $this = $(this);
 		if($this.hasClass('Inputfield')) {
 			// an .Inputfield element
-			if(!$this.hasClass('InputfieldIgnoreChanges')) $this.addClass('InputfieldStateChanged');
-			return false;
+			if($this.hasClass('InputfieldIgnoreChanges')) return false;
+			$this.addClass('InputfieldStateChanged').trigger('changed');
+			// .InputfieldFormConfirm forms stop change at parent .Inputfield element
+			if($this.closest('.InputfieldFormConfirm').length > 0) return false;
 		} else {
 			// an :input element
 			if($this.hasClass('InputfieldIgnoreChanges') || $this.closest('.InputfieldIgnoreChanges').length) return false;
-			$this.closest('.Inputfield').addClass('InputfieldStateChanged');
+			$this.closest('.Inputfield').addClass('InputfieldStateChanged').trigger('changed');
 		}
 	});
-	
+
 	$(document).on('submit', '.InputfieldFormConfirm', function() {
 		$(this).addClass('InputfieldFormSubmitted');
 	});
