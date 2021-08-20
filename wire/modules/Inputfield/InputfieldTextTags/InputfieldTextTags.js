@@ -147,7 +147,7 @@ function InputfieldTextTags($parent) {
 
 jQuery(document).ready(function($) {
 	InputfieldTextTags();
-	$(document).on('reloaded', '.InputfieldTextTags', function() { 
+	$(document).on('reloaded', '.InputfieldTextTags, .InputfieldPage', function() {
 		InputfieldTextTags($(this)); 
 	}); 
 }); 

@@ -1379,7 +1379,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if(!$fieldtype) return null;
 		
 		if($selector && !Selectors::stringHasSelector($selector)) {
-			// if selector argument provdied, but isn't valid, we assume it 
+			// if selector argument provided, but isn't valid, we assume it 
 			// to instead be an argument for the value's __invoke() method
 			$invokeArgument = $selector;
 			$selector = '';
