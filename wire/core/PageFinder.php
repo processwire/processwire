@@ -459,10 +459,16 @@ class PageFinder extends Wire {
 
 		foreach($selectors as $key => $selector) {
 
-			$fieldName = $selector->field; 
+			/** @var Selector $selector */
+			$fieldName = $selector->field;
+			
+			if(is_array($fieldName) || is_array($selector->value)) {
+				throw new PageFinderException("OR-condition not supported in '$selector'");
+			}
 
-			if($fieldName == 'status') {
-				$value = $selector->value; 
+			if($fieldName === 'status') {
+				// @todo add support for array value,i.e. `status=hidden|unpublished`
+				$value = $selector->value();
 				if(!ctype_digit("$value")) {
 					// allow use of some predefined labels for Page statuses
 					$statuses = Page::getStatuses();
