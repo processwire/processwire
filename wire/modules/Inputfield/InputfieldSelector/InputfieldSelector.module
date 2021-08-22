@@ -397,7 +397,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 			'page' => array('@=', '@!='), 
 			'checkbox' => array('=', '!='), 
 			'sort' => array('.=', '.=-'),
-			'status' => array('@=', '@!='), 
+			'status' => array('@=', '@!=', '<', '<=', '>', '>='), 
 			//'selector' => array('#=', '#!='),
 			'selector' => array('=', '!=', '<', '>', '<=', '>='), 
 			); 
@@ -523,7 +523,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 					'temp' => $this->_('Temp'),
 				),
 				'sanitizer' => 'integer',
-				'operators' => array('@=', '@!='),
+				'operators' => $this->operatorsByType['status'],
 			),
 			'template' => array(
 				'input' => 'select', 

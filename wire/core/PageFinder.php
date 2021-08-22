@@ -456,14 +456,26 @@ class PageFinder extends Wire {
 		$checkAccessSpecified = false;
 		$hasParents = array(); // requests for parent(s) in the selector
 		$hasSort = false; // whether or not a sort is requested
+		$noArrayFields = array_flip(array( // field names that do not accept array values
+			'status',
+			'include',
+			'check_access',
+			'checkAccess',
+			'limit',
+			'start',
+			'getTotal',
+			'get_total',
+		));
 
 		foreach($selectors as $key => $selector) {
 
 			/** @var Selector $selector */
-			$fieldName = $selector->field;
-			
-			if(is_array($fieldName) || is_array($selector->value)) {
-				throw new PageFinderException("OR-condition not supported in '$selector'");
+			$fieldName = $selector->field();
+		
+			if(isset($noArrayFields[$fieldName])) {
+				if(is_array($selector->field) || is_array($selector->value)) {
+					throw new PageFinderException("OR-condition not supported in '$selector'");
+				}
 			}
 
 			if($fieldName === 'status') {
@@ -507,6 +519,7 @@ class PageFinder extends Wire {
 				// for getTotal auto detect
 				$limit = (int) $selector->value; 	
 				$limitSelector = $selector;
+				// @todo allow for array value that specifies start and limit, i.e. '10|25'
 
 			} else if($fieldName == 'start') {
 				// for getTotal auto detect
