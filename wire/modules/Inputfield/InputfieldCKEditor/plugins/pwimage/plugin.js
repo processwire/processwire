@@ -103,6 +103,24 @@
 		var $figureCaption = null;
 		var nodeParentName = nodeParent.$.nodeName.toUpperCase(); 
 		var nodeGrandparentName = nodeGrandparent ? nodeGrandparent.$.nodeName.toUpperCase() : '';
+		var figureNodeSafari = null;
+		
+		if(selection.getType() == CKEDITOR.SELECTION_TEXT) {
+			// Safari doesn’t support independent selection of figure elements without display:block, 
+			// so restart selection after changing display property of <figure> to block which then 
+			// makes it selectable in Safari
+			if(nodeParentName == 'FIGURE') {
+				figureNodeSafari = nodeParent;
+			} else if(nodeGrandparentName == 'FIGURE') {
+				figureNodeSafari = nodeGrandparent;
+			}
+			if(figureNodeSafari) {
+				selection.reset();
+				selection.removeAllRanges();
+				figureNodeSafari.$.style.display = 'block';
+				selection.selectElement(figureNodeSafari);
+			}
+		}
 	
 		if(typeof ckeGetProcessWireConfig != "undefined") {
 			// note: ckeGetProcessWireConfig not yet present in front-end editor
@@ -263,6 +281,7 @@
 								}
 					
 								var html = $insertHTML[0].outerHTML; 
+								if(figureNodeSafari) figureNodeSafari.remove(); // Safari inserts an extra <figure>, so remove the original 
 								editor.insertHtml(html); 
 								editor.fire('change');
 								$iframe.dialog("close"); 
