@@ -3,7 +3,7 @@
 /**
  * Multi-language support fields module
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @method void languageAdded(Page $language) #pw-hooker
@@ -22,7 +22,7 @@ class LanguageSupportFields extends WireData implements Module {
 	static public function getModuleInfo() {
 		return array(
 			'title' => 'Languages Support - Fields',
-			'version' => 100,
+			'version' => 101,
 			'summary' => 'Required to use multi-language fields.',
 			'author' => 'Ryan Cramer',
 			'autoload' => true,
@@ -133,6 +133,7 @@ class LanguageSupportFields extends WireData implements Module {
 	 */
 	public function hookFieldtypeFormatValue(HookEvent $event) {
 
+		/** @var Field $field */
 		$field = $event->arguments[1]; 
 		if($field->name == 'language') return;
 
@@ -156,7 +157,7 @@ class LanguageSupportFields extends WireData implements Module {
 
 		// if the page doesn't have a populated language-specific field, then exit
 		// this will make it fallback to the default language value
-		if(empty($value)) return;
+		if($field->type->isEmptyValue($field, $value)) return;
 		if(is_object($value)) {
 			if($value instanceof WireArray && !$value->count()) return;
 			if($value instanceof NullPage) return; 
