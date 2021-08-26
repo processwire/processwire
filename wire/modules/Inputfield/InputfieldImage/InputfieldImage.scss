@@ -925,3 +925,9 @@ $focusPointCircleSize: 40px;
 	display: none;
 	white-space: nowrap;
 }
+
+/* todo: 3.0.190 improves touch support but needs further testing
+.gridImage__edit { display:block !important; }
+.gridImage__edit span { display:none; }
+.gridImage__edit:hover span { display:inline; }
+*/

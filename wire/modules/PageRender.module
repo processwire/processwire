@@ -81,7 +81,8 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function ready() {
-		if($this->wire('page')->template != 'admin') {
+		// todo 3.0.190: remove template!=admin condition: https://github.com/processwire/processwire-issues/issues/1424
+		if($this->wire()->page->template != 'admin') { 
 			$this->addHookBefore('Page::render', $this, 'beforeRenderPage', array('priority' => 1));
 		}
 	}

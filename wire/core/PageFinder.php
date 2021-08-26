@@ -992,7 +992,7 @@ class PageFinder extends Wire {
 					// first iteration only, see if it's a native column and prevent sortsAfter if so
 					break;
 				}
-				if(strpos($selector->value, '.') !== false) {
+				if(strpos($selector->value(), '.') !== false) {
 					// we don't supports sortsAfter for subfields, so abandon entirely
 					$sortsAfter = array();
 					break;
@@ -2206,6 +2206,9 @@ class PageFinder extends Wire {
 		$database = $this->database;
 		$user = $this->wire()->user; 
 		$language = $this->languages && $user->language ? $user->language : null;
+	
+		// todo 3.0.190: uncomment the line below to support `sort=a|b|c` in correct order
+		// if(count($values) > 1) $values = array_reverse($values); // because orderby prepend used below
 		
 		foreach($values as $value) {
 
