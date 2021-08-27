@@ -455,7 +455,7 @@ class Config extends WireData {
 	 * Values are set to the Javascript variable `ProcessWire.config[key]`.
 	 * 
 	 * Note: In ProcessWire 3.0.173+ when setting new values, it is preferable to use 
-	 * `$config->jsConfig()` instead, unless your intended use is to share an 
+	 * $config->jsConfig() instead, unless your intended use is to share an 
 	 * existing $config property with JS. 
 	 * 
 	 * 1. Specify a $key and $value to set a JS config value. 
@@ -544,9 +544,9 @@ class Config extends WireData {
 	 *
 	 * Values are set to the Javascript variable `ProcessWire.config[key]`.
 	 * 
-	 * Unlike `$config->js()`, values get or set are exclusive to JS config only. 
+	 * Unlike onfig->js(), values get or set are exclusive to JS config only. 
 	 * 
-	 * Values set with this method can be retrieved via `$config->js()` or `$config->jsConfig()`,
+	 * Values set with this method can be retrieved via $config->js() or $config->jsConfig(),
 	 * but they cannot be retrieved from $config->['key'] or $config->get('key').
 	 * 
 	 * If setting a new property for the JS config it is recommended that you use this

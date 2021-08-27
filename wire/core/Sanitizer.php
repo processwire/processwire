@@ -3643,7 +3643,7 @@ class Sanitizer extends Wire {
 	/**
 	 * Sanitize as language textdomain
 	 * 
-	 * #pw-internal
+	 * #pw-group-strings
 	 * 
 	 * @param string $value
 	 * @return string

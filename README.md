@@ -40,7 +40,7 @@ development branch.
 ProcessWire is a timeless tool for web professionals that has always been 
 committed to the long term. It started in 2003, gained the name ProcessWire
 in 2006, and has been in active development as an open source project since 2010. 
-Now more than a decade later (2020), we're just getting started, as ProcessWire 
+Now more than a decade later (2021), we’re just getting started, as ProcessWire 
 continues to grow and develop into the next 10 years and beyond. 
 
 While ProcessWire has been around for a long time, don’t feel bad if you haven’t 
@@ -53,7 +53,7 @@ instead focused on being best-in-class.
 
 Web developers find ProcessWire when the time is right, after they’ve tried 
 some other platforms. And once they start using ProcessWire, they tend to 
-stay—ProcessWire is addictive, easy to maintain for the long term, and doesn’t
+stay. ProcessWire is addictive, easy to maintain for the long term, and doesn’t
 have the security and upgrade woes of other platforms. But don’t take our word 
 for it; unless your livelihood depends on some other platform, find out for 
 yourself. 
@@ -63,7 +63,9 @@ yourself.
 
 ProcessWire is more than just software, it is also a friendly community
 of web professionals dedicated to building great sites and applications, and 
-helping others do so too. Please visit and join our 
+helping others do so too. 
+
+Please visit and join our 
 [friendly community](https://processwire.com/talk/)
 in the ProcessWire forums, subscribe to our
 [weekly newsletter](https://processwire.com/community/newsletter/subscribe/)
@@ -73,6 +75,12 @@ to see what others are building with ProcessWire, and read our
 [blog](https://processwire.com/blog/) 
 to stay up-to-date with the latest ProcessWire versions.
 
+Weekly ProcessWire news is posted by Teppo Koivula on his site 
+[ProcessWire Weekly](https://weekly.pw). 
+Weekly core updates and related topics are posted by Ryan Cramer in the 
+ProcessWire support forum 
+[News and Announcements](https://processwire.com/talk/forum/7-news-amp-announcements/) 
+board. 
 
 ### Learn more 
 
@@ -82,7 +90,7 @@ to stay up-to-date with the latest ProcessWire versions.
 * [Documentation](https://processwire.com/docs/)
 * [API reference](https://processwire.com/api/ref/)
 * [Downloads](https://processwire.com/download/)
-* [Modules/plugins](https://modules.processwire.com)
+* [Modules/plugins](https://processwire.com/modules/)
 * [Showcase](https://processwire.com/sites/)
 
 -----------------------------------------------------------------
@@ -98,107 +106,53 @@ details and instructions. If you run into any trouble, please see our
 
 ## Upgrading ProcessWire
 
-Before proceeding with any version upgrade, please see the
+Upgrading is easy and usually just a matter of replacing your `/wire/` directory
+with the one from the new version. But to be safe, before proceeding with any version upgrade, please see the
 [Upgrading ProcessWire](https://processwire.com/docs/start/install/upgrade/)
-guide and keep it open during your upgrade in case you need to refer back to it. 
-
-
-### Upgrading from ProcessWire 3.x (earlier version)
+guide and perhaps keep it open during your upgrade in case you need to refer back to it. 
 
 When upgrading from one 3.x version to another, please use the 
-[General Upgrade Process](https://processwire.com/docs/start/install/upgrade/#general-upgrade-process).
-This consists primarily of making sure you've got everything backed up and then
-just replacing your `/wire/` directory with the one from the newest version. 
+[general upgrade process](https://processwire.com/docs/start/install/upgrade/#general-upgrade-process).
+This consists primarily of making sure you've got everything backed up and then just 
+replacing your `/wire/` directory with the one from the newer version.
 
-In addition, if you are currently running any 3.x version prior to 3.0.135, 
-you will also want to upgrade your root `.htaccess` file to the newest version:
+- If you are upgrading from a 3.x version prior to 3.0.135 then please also follow 
+  [these instructions](https://processwire.com/docs/start/install/upgrade/from-3.x/). 
 
-#### Upgrading your .htaccess file
+- If you are upgrading from any 2.x version then please see 
+  [upgrading from ProcessWire 2.x](https://processwire.com/docs/start/install/upgrade/from-2.x/).
 
-* If you haven't made any custom modifications to your .htaccess file then you 
-  can simply replace the old one with the new one. The new one is in a file 
-  named `htaccess.txt` so you'll rename it to `.htaccess` after removing
-  your old one (all in the same directory as this README file). 
-
-* If your .htaccess file does have custom modifications, you know what they
-  are, and are comfortable applying them to the new one — go ahead and 
-  follow the step above and then make those same modifications to the new 
-  .htaccess file. 
-
-* If you aren't sure what custom modifications your .htaccess file might 
-  have, or how to apply them to the new one, please see this post which will 
-  quickly guide you through it:
-  [How to upgrade an existing .htaccess file](https://processwire.com/blog/posts/pw-3.0.135/#how-to-update-an-existing-htaccess-file)  
-
-*If you are curious what's new in this latest .htaccess file version, 
-please see [this post](https://processwire.com/blog/posts/pw-3.0.135/)
-for all the details.* 
+- If you run into any trouble upgrading, please see our 
+  [troubleshooting upgrades guide](https://processwire.com/docs/start/install/troubleshooting/#troubleshooting-upgrades).
 
 
+### Pro module version upgrade notes (if applicable)
 
-### Upgrading from ProcessWire 2.x
-
-If upgrading from ProcessWire 2.5 or older, we recommend that you upgrade
-to ProcessWire [2.7](https://github.com/ryancramerdesign/processwire) first. 
-This version includes details in the README file on how to upgrade from that
-older version of ProcessWire. To upgrade from ProcessWire 2.6 (or newer) 
-to ProcessWire 3.x, please follow the instructions below. 
-
-1. Login to the admin of your site. 
-
-2. Edit your `/site/config.php` file and set `$config->debug = true;` to ensure 
-   you can see error messages. This is optional but recommended.
-
-3. Replace your `/wire/` directory and `/index.php` file with the new ones from here.
-   
-4. Click a navigation link in your admin, such as "Pages". You may notice a delay. 
-   This is ProcessWire compiling 3rd party modules into a format that is
-   compatible with version 3.x. Keep an eye out for any error messages. 
-   If you see any issues, it's possible you may need to upgrade one or more
-   3rd party modules. If you see messages about it applying updates, keep hitting
-   reload in your browser until you no longer see any update messages. 
-   
-5. Once you've resolved error messages in your admin, you'll want to test out 
-   the front end of your site. Again, expect a delay while ProcessWire compiles
-   any files to make them compatible with 3.x. Depending on your template file 
-   strategy, updates may or may not be necessary. If you run into any pages 
-   that aren't working, see the section further down on troubleshooting. 
-   Thoroughly test every aspect if your site to ensure that everything is 
-   working as you expect. 
-   
-6. When you've confirmed a successful upgrade, remember to restore the 
-   `$config->debug` setting back to `false` in your /site/config.php file. 
-   
-**Troubleshooting a 3.x upgrade**
-If you run into any trouble upgrading, please see our 
-[troubleshooting upgrades guide](https://processwire.com/docs/start/install/troubleshooting/#troubleshooting-upgrades).
-
-
-### Pro module upgrade notes
-
-- If using [FormBuilder](https://processwire.com/store/form-builder/),
-  we recommend using only v0.3.0 or newer, but v0.4.0 or newer if possible.
-- If using [ProCache](https://processwire.com/store/pro-cache/), 
-  we recommend using only v3.1.4 or newer. 
-- If using [ListerPro](https://processwire.com/store/lister-pro/), 
-  we recommend using only v1.0.9 or newer.
-- If using [ProFields](https://processwire.com/store/pro-fields/), 
-  we recommend grabbing the latest versions in the ProFields support board. 
-- If using ProCache and you upgraded your .htaccess file, you should 
-  go to your ProCache settings after the upgrade to have it update 
-  your .htaccess file again. If no upgrades to your .htaccess file
-  are necessary, then the ProCache settings page won't mention it.
-  
+- [FormBuilder](https://processwire.com/store/form-builder/)
+  version 0.4.0 or newer required, 0.5.0 or newer recommended.
+- [ListerPro](https://processwire.com/store/lister-pro/)
+  version 1.0.9 or newer required, 1.1.3 or newer recommended. 
+- [ProFields](https://processwire.com/store/pro-fields/)
+  the latest versions of all ProFields (10 modules) are recommended.
+- [LoginRegisterPro](https://processwire.com/store/login-register-pro/)
+  all versions supported but version 5 or newer recommended.   
+- [ProCache](https://processwire.com/store/pro-cache/)
+  version 3.1.4 or newer required, 4.0.0 or newer recommended.
+  After upgrading, go to your ProCache settings in the admin (Setup > ProCache)
+  and see if it suggests any modifications to your .htaccess file.
+- For all other Pro modules not mentioned above (ProMailer, ProDrafts, 
+  ProDevTools, Likes) there are no specific version requirements but we 
+  recommend using the latest available versions when possible.
 
 ## Debug Mode
 
-Debug mode causes all errors to be reported to the screen, which can be
+Debug mode causes all errors to be reported to the screen. This can be
 helpful during development or troubleshooting. When in the admin, it also
-enables reporting of extra information in the footer. Debug mode is not
-intended for live or production sites, as the information reported could
-be a problem for security. So be sure not to leave debug mode on for
-any live/production sites. However, we think you'll find it very handy
-during development or when resolving issues. 
+enables a “Debug” link (see footer) for reporting of extra information in a 
+panel. Debug mode is not intended for live or production sites, as the 
+information reported is for the developer only. Do not leave debug mode 
+on for any live/production sites, as it could be a security concern. However, 
+we think you'll find it very handy during development or when resolving issues. 
 
 1. Edit this file: `/site/config.php`
 2. Find this line: `$config->debug = false;` 
@@ -227,5 +181,5 @@ resolved any issues.
 
 ------
 
-Copyright 2020 by Ryan Cramer / Ryan Cramer Design, LLC
+Copyright 2021 by Ryan Cramer / Ryan Cramer Design, LLC
 
