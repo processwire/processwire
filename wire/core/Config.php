@@ -544,7 +544,7 @@ class Config extends WireData {
 	 *
 	 * Values are set to the Javascript variable `ProcessWire.config[key]`.
 	 * 
-	 * Unlike onfig->js(), values get or set are exclusive to JS config only. 
+	 * Unlike $config->js(), values get or set are exclusive to JS config only. 
 	 * 
 	 * Values set with this method can be retrieved via $config->js() or $config->jsConfig(),
 	 * but they cannot be retrieved from $config->['key'] or $config->get('key').
