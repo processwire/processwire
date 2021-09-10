@@ -7,7 +7,7 @@
  * This module is also able to cache page renders.
  * It hooks into Pages and Fieldtypes to ensure cache files are cleaned/deleted when pages are saved/deleted.
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @method renderPage(HookEvent $event)
@@ -29,7 +29,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			'permanent' => true, 
 			'singular' => true, 
 			'autoload' => true, 
-			);
+		);
 	}
 
 	/**
@@ -68,11 +68,11 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 */
 	public function init() {
 		$this->useFuel(false);
-		$this->config = $this->wire('config'); 
+		$this->config = $this->wire()->config; 
 		$this->addHook('Page::render', $this, 'renderPage');
-		// $this->addHook('Page::renderField', $this, 'renderField');
-		$this->wire('pages')->addHookAfter('save', $this, 'clearCacheFile'); 
-		$this->wire('pages')->addHookAfter('delete', $this, 'clearCacheFile'); 
+		$pages = $this->wire()->pages;
+		$pages->addHookAfter('save', $this, 'clearCacheFile'); 
+		$pages->addHookAfter('delete', $this, 'clearCacheFile'); 
 		// $this->addHookAfter('Fieldtype::savePageField', $this, 'savePageField'); // removed, see note in commented function
 	}
 
@@ -81,10 +81,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function ready() {
-		// todo 3.0.190: remove template!=admin condition: https://github.com/processwire/processwire-issues/issues/1424
-		if($this->wire()->page->template != 'admin') { 
-			$this->addHookBefore('Page::render', $this, 'beforeRenderPage', array('priority' => 1));
-		}
+		$this->addHookBefore('Page::render', $this, 'beforeRenderPage', array('priority' => 1));
 	}
 
 	/**
@@ -120,36 +117,42 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 */
 	public function isCacheAllowed($page) {
 
-		if(!$page->template || ((int) $page->template->cache_time) < 1) return false; 
+		$template = $page->template;
+		if(!$template || ((int) $template->cache_time) < 1) return false; 
 
-		if(!$this->wire('user')->isGuest()) {
-			if(!$page->template->useCacheForUsers) return false; 
+		if(!$this->wire()->user->isGuest()) {
+			if(!$template->useCacheForUsers) return false; 
 			if($page->editable()) return false;
 		}
 
 		$allowed = true;
+		$noCacheGetVars = $template->noCacheGetVars;
+		$noCachePostVars = $template->noCachePostVars;
 
-		if(count($_GET) && $page->template->noCacheGetVars) {
-			if(strpos($page->template->noCacheGetVars, '*') !== false) {
+		if($noCacheGetVars && count($_GET)) {
+			if(strpos($noCacheGetVars, '*') !== false) {
 				$allowed = false;
 			} else {
-				$vars = explode(' ', $page->template->noCacheGetVars);
+				$vars = explode(' ', $noCacheGetVars);
 				foreach($vars as $name) if($name && isset($_GET[$name])) $allowed = false;
 			}
 		} 
 
-		if($allowed && count($_POST) && $page->template->noCachePostVars) {
-			if(strpos($page->template->noCachePostVars, '*') !== false) {
+		if($allowed && $noCachePostVars && count($_POST)) {
+			if(strpos($noCachePostVars, '*') !== false) {
 				$allowed = false;
 			} else {
-				$vars = explode(' ', $page->template->noCachePostVars);
+				$vars = explode(' ', $noCachePostVars);
 				foreach($vars as $name) if($name && isset($_POST[$name])) $allowed = false;
 			}
 		}
 
-		// NOTE: other modules may set a session var of PageRenderNoCachePage containing a page ID to temporarily
-		// remove caching for some page, if necessary. 
-		if($this->wire('session')->PageRenderNoCachePage && $this->wire('session')->PageRenderNoCachePage == $page->id) $allowed = false;
+		if($allowed) {
+			// NOTE: other modules may set a session var of PageRenderNoCachePage containing a page ID to temporarily
+			// remove caching for some page, if necessary. 
+			$id = (int) $this->wire()->session->get('PageRenderNoCachePage');
+			if($id && $id === $page->id) $allowed = false;
+		}
 
 		return $allowed; 
 	}
@@ -172,7 +175,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			'prependFile' => '',
 			'appendFile' => '', 
 			'filename' => '', 
-			);
+		);
 
 		$options = array_merge($defaults, $options); 
 		$path = $config->paths->cache . self::cacheDirName . "/";
@@ -185,21 +188,23 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		}
 		
 		if(!is_dir($path)) {
-			if(!$this->wire('files')->mkdir($path, true)) throw new WireException("Cache path does not exist: $path");
-			if($config->chmodDir) chmod($path, octdec($config->chmodDir));
+			if(!$this->wire()->files->mkdir($path, true)) throw new WireException("Cache path does not exist: $path");
 		}
 
 		$cacheFile = new CacheFile($path, $id, $cacheTime);
+		$this->wire($cacheFile);
 
-		if($this->wire('page') === $page) {
+		if($this->wire()->page === $page) {
 			// this part is skipped if arguments provided an id (int) rather than a Page object
 			$secondaryID = '';
-			$pageNum = $this->wire('input')->pageNum; 
-			$urlSegments = $this->wire('input')->urlSegments; 
+			$input = $this->wire()->input;
+			$sanitizer = $this->wire()->sanitizer;
+			$pageNum = $input->pageNum; 
+			$urlSegments = $input->urlSegments; 
 
 			if(count($urlSegments)) {
 				foreach($urlSegments as $urlSegment) {
-					$secondaryID .= $this->wire('sanitizer')->pageName($urlSegment) . '+';
+					$secondaryID .= $sanitizer->pageName($urlSegment) . '+';
 				}
 			}
 
@@ -210,8 +215,8 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			if($config->https) $secondaryID .= 'https+';
 			if($pageNum > 1) $secondaryID .= "page{$pageNum}";
 			$secondaryID = rtrim($secondaryID, '+'); 
-			if($this->wire('languages')) { 
-				$language = $this->wire('user')->language; 
+			if($this->wire()->languages) { 
+				$language = $this->wire()->user->language; 
 				if($language && $language->id && !$language->isDefault()) $secondaryID .= "_" . $language->id;
 			}
 			if($secondaryID) $cacheFile->setSecondaryID($secondaryID);
@@ -252,7 +257,6 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			if(((int) $p->template->cache_time) < 1) continue;
 			$cf = $this->getCacheFile($p);
 			if($cf->exists()) $cf->remove();
-			// if($this->config->debug) $this->message(sprintf($this->_('Cleared cache file: %s'), $cf));
 		}
 	}
 
@@ -263,14 +267,21 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function clearCacheFile($event) {
-		
+	
+		/** @var Page $page */
 		$page = $event->arguments[0]; 
-		if(((int) $page->template->cache_time) == 0) return;
-		$cacheExpire = $page->template->cacheExpire; 
+		$template = $page->template;
+		
+		if(((int) $template->cache_time) == 0) return;
+		
+		$cacheExpire = $template->cacheExpire; 
 
 		if($cacheExpire == Template::cacheExpireNone) {
-			if($event->method == 'delete') $cacheExpire = Template::cacheExpirePage; 
-				else return;
+			if($event->method == 'delete') {
+				$cacheExpire = Template::cacheExpirePage;
+			} else {
+				return;
+			}
 		}
 
 		if($cacheExpire == Template::cacheExpireSite) {
@@ -280,7 +291,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		} else {
 	
 			// clear the page that was saved
-			if($page->template->cache_time > 0) {
+			if($template->cache_time > 0) {
 				$cacheFile = $this->getCacheFile($page);
 				if($cacheFile->exists()) {
 					$cacheFile->remove();
@@ -293,16 +304,20 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			if($cacheExpire == Template::cacheExpireParents || $cacheExpire == Template::cacheExpireSpecific) {
 				// expire specific pages or parents
 				if($cacheExpire == Template::cacheExpireParents) {
-					foreach($page->parents as $parent) $pageIDs[] = $parent->id;
+					foreach($page->parents as $parent) {
+						$pageIDs[] = $parent->id;
+					}
 
-				} else if(is_array($page->template->cacheExpirePages) && count($page->template->cacheExpirePages)) {
-					$pageIDs = $page->template->cacheExpirePages;
+				} else if(is_array($template->cacheExpirePages) && count($template->cacheExpirePages)) {
+					$pageIDs = $template->cacheExpirePages;
 				}
-			} else if($cacheExpire == Template::cacheExpireSelector && $page->template->cacheExpireSelector) {
+			} else if($cacheExpire == Template::cacheExpireSelector && $template->cacheExpireSelector) {
 				// expire pages matching a selector
+				/** @var PageFinder $finder */
 				$finder = $this->wire(new PageFinder());
 				$selectors = new Selectors();
-				$selectors->init($page->template->cacheExpireSelector);
+				$this->wire($selectors);
+				$selectors->init($template->cacheExpireSelector);
 				$pageIDs = $finder->findIDs($selectors, array(
 					'getTotal'   => false,
 					'findHidden' => true
@@ -310,7 +325,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			}
 		
 			if(count($pageIDs)) {
-				$items = $this->wire('pages')->getById($pageIDs, array(
+				$items = $this->wire()->pages->getById($pageIDs, array(
 					'cache'          => false,
 					'getNumChildren' => false,
 					'autojoin'       => false,
@@ -320,6 +335,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 				if(!$items->has($page)) $items->add($page);
 			} else {
 				$items = new PageArray();
+				$this->wire($items);
 				$items->add($page);
 			}
 			if(count($items)) {
@@ -355,7 +371,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 */
 	public function beforeRenderPage(HookEvent $event) {
 		$fieldName = $event->arguments(0);
-		if($fieldName && is_string($fieldName) && $this->wire('sanitizer')->fieldName($fieldName) === $fieldName) {
+		if($fieldName && is_string($fieldName) && $this->wire()->sanitizer->fieldName($fieldName) === $fieldName) {
 			// render field requested, cancel page render and hooks, and delegate to renderField
 			$file = $event->arguments(1); // optional basename of file to use for render
 			if(!is_string($file)) $file = null;
@@ -422,16 +438,17 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		/** @var Template $template */
 		$template = $page->template;
 		
-		$this->wire('pages')->setOutputFormatting(true);
+		$this->wire()->pages->setOutputFormatting(true);
 
 		if($page->status >= Page::statusUnpublished && !$page->viewable()) {
 			throw new WirePermissionException("Page '{$page->url}' is not currently viewable.");
 		}
 
-		$_page = $this->wire('page'); // just in case one page is rendering another, save the previous
-		$config = $this->wire('config');
-		$compiler = null;
+		$_page = $this->wire()->page; // just in case one page is rendering another, save the previous
+		$config = $this->wire()->config;
+		$compiler = null; /** @var FileCompiler|null $compiler */
 		$compilerOptions = array();
+		
 		if($config->templateCompile && $template->compile) {
 			$compilerOptions = array(
 				'namespace' => strlen(__NAMESPACE__) > 0, 
@@ -466,7 +483,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			'allowCache' => true, 
 			'forceBuildCache' => false,
 			'pageStack' => array(), // set after array_merge
-			);
+		);
 
 		$options = array_merge($defaultOptions, $options);
 		$options['pageStack'] = $this->pageStack;
@@ -558,7 +575,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			}
 		}
 
-		if($this->wire('config')->useMarkupRegions) {
+		if($config->useMarkupRegions) {
 			$contentType = $template->contentType; 
 			if(empty($contentType) || stripos($contentType, 'html') !== false) {
 				$this->populateMarkupRegions($data);
@@ -610,7 +627,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		$htmlBefore = substr($html, 0, $pos);
 		$html = substr($html, $pos);
 		$options = array('useClassActions' => true); 
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
 		$version = (int) $config->useMarkupRegions;
 		
 		if($config->installed >= 1498132609 || $version >= 2) {
@@ -636,15 +653,12 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function renderField(Page $page, $fieldName, $file = '', $value = null) {
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$config = $this->wire()->config;
 
-		/*
-		if(strpos($fieldName, '/') && empty($file)) {
-			$file = $fieldName;
-			$fieldName = '';	
-		}
-		*/
 		if(strlen($fieldName)) {
-			$fieldName = $this->wire('sanitizer')->fieldName($fieldName);
+			$fieldName = $sanitizer->fieldName($fieldName);
 		}
 	
 		if(is_null($value) && $fieldName) $value = $page->getFormatted($fieldName);
@@ -652,14 +666,14 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 
 		if($fieldName) {
 			$field = $page->getField($fieldName);
-			if(!$field) $field = $this->wire('fields')->get($fieldName);
+			if(!$field) $field = $this->wire()->fields->get($fieldName);
 			$fieldtypeName = $field && $field->type ? $field->type->className() : '';
 		} else {
 			$field = null;
 			$fieldtypeName = '';
 		}
 		
-		$path = $this->wire('config')->paths->fieldTemplates;
+		$path = $config->paths->fieldTemplates;
 		$files = array();
 		
 		if($file) {
@@ -680,7 +694,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 				// file includes a directory off of fields/[dir]
 				$parts = explode('/', $file);
 				foreach($parts as $key => $part) {
-					$parts[$key] = $this->wire('sanitizer')->name($part);
+					$parts[$key] = $sanitizer->name($part);
 				}
 				$file = implode('/', $parts);
 				$file = str_replace('..', '', $file);
@@ -749,10 +763,11 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			}
 		}
 	
-		if($this->wire('config')->templateCompile) {
-			$renderFile = $this->wire('files')->compile($renderFile, array('skipIfNamespace' => true));
+		if($config->templateCompile) {
+			$renderFile = $this->wire()->files->compile($renderFile, array('skipIfNamespace' => true));
 		}
-		
+	
+		/** @var TemplateFile $tpl */
 		$tpl = $this->wire(new TemplateFile($renderFile));
 		$tpl->set('page', $page);
 		$tpl->set('value', $value);
@@ -769,14 +784,19 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function getModuleConfigInputfields(array $data) {
+		
+		$config = $this->wire()->config;
+		$input = $this->wire()->input;
+		$files = $this->wire()->files;
+		$modules = $this->wire()->modules;
 
 		if($data) {}
-		$path = $this->wire('config')->paths->cache . self::cacheDirName . '/';
+		$path = $config->paths->cache . self::cacheDirName . '/';
 		$numPages = 0;
 		$numFiles = 0;
 		$inputfields = $this->wire(new InputfieldWrapper());
 		$dir = null;
-		$clearNow = $this->wire('input')->post->clearCache ? true : false; 
+		$clearNow = $input->post('_clearCache') ? true : false; 
 
 		try { $dir = new \DirectoryIterator($path); } catch(\Exception $e) { }
 
@@ -788,10 +808,10 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			foreach($d as $f) {
 				if(!$f->isDir() && preg_match('/\.cache$/D', $f->getFilename())) {
 					$numFiles++; 
-					$this->wire('files')->unlink($f->getPathname()); 
+					$files->unlink($f->getPathname()); 
 				}
 			}
-			$this->wire('files')->rmdir($file->getPathname()); 
+			$files->rmdir($file->getPathname()); 
 		}
 
 		if($clearNow) {
@@ -799,9 +819,9 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			$numPages = 0;
 		}
 
-		$name = "clearCache";
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
-		$f->attr('name', $name);
+		/** @var InputfieldCheckbox $f */
+		$f = $modules->get('InputfieldCheckbox');
+		$f->attr('name', '_clearCache');
 		$f->attr('value', 1);
 		$f->label = $this->_('Clear the Page Render Disk Cache?'); 
 		$f->description = sprintf($this->_('There are currently %d pages cached in %s'), $numPages, $path);
@@ -809,7 +829,6 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 		$inputfields->append($f);
 
 		return $inputfields;
-
 	}
 
 }
