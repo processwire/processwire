@@ -5,7 +5,7 @@
  *
  * Matches selector strings to pages
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  * Hookable methods: 
@@ -426,7 +426,7 @@ class PageFinder extends Wire {
 		$this->pageArrayData = array();
 
 		$options = array_merge($this->defaultOptions, $options);
-		$options = $this->initStatusChecks($selectors, $options);
+		$options = $this->initSelectors($selectors, $options);
 
 		// move getTotal option to a class property, after initStatusChecks
 		$this->getTotal = $options['getTotal'];
@@ -447,136 +447,155 @@ class PageFinder extends Wire {
 	 * @return array
 	 *
 	 */
-	protected function initStatusChecks(Selectors $selectors, array $options) {
+	protected function initSelectors(Selectors $selectors, array $options) {
 
 		$maxStatus = null; 
 		$limit = 0; // for getTotal auto detection
 		$start = 0;
 		$limitSelector = null;
-		$checkAccessSpecified = false;
+		$startSelector = null;
+		$addSelectors = array();
 		$hasParents = array(); // requests for parent(s) in the selector
 		$hasSort = false; // whether or not a sort is requested
-		$noArrayFields = array_flip(array( // field names that do not accept array values
-			'status',
-			'include',
-			'check_access',
-			'checkAccess',
-			'limit',
-			'start',
-			'getTotal',
-			'get_total',
-		));
+		
+		// field names that do not accept array values
+		$noArrayFields = array( 
+			'status' => 1, // 1: array not allowed for field only
+			'include' => 2, // 2: array not allowed for field or value
+			'check_access' => 2,
+			'checkAccess' => 2,
+			'limit' => 1,
+			'start' => 2,
+			'getTotal' => 2,
+			'get_total' => 2,
+		);
+	
+		// include mode names to option names
+		$includeOptions = array(
+			'hidden' => 'findHidden', 
+			'unpublished' => 'findUnpublished',
+			'trash' => 'findTrash',
+			'all' => 'findAll', 
+		);
 
 		foreach($selectors as $key => $selector) {
-
 			/** @var Selector $selector */
-			$fieldName = $selector->field();
-		
-			if(isset($noArrayFields[$fieldName])) {
-				if(is_array($selector->field) || is_array($selector->value)) {
-					throw new PageFinderException("OR-condition not supported in '$selector'");
+			
+			$fieldName = $selector->field;
+			$operator = $selector->operator;
+			$value = $selector->value;
+			$disallow = '';
+			
+			if(is_array($fieldName)) {
+				foreach($fieldName as $name) {
+					if(isset($noArrayFields[$name])) $disallow = "field:$name";
+					if($disallow) break;
 				}
+				$fieldName = $selector->field(); // force string
+			} else if(isset($noArrayFields[$fieldName]) && is_array($value)) {
+				if($noArrayFields[$fieldName] > 1) $disallow = 'value';
 			}
 
-			if($fieldName === 'status') {
-				// @todo add support for array value,i.e. `status=hidden|unpublished`
-				$value = $selector->value();
-				if(!ctype_digit("$value")) {
-					// allow use of some predefined labels for Page statuses
-					$statuses = Page::getStatuses();
-					$selector->value = isset($statuses[$value]) ? $statuses[$value] : 1;
-				}
-				$not = false;
-				if(($selector->operator == '!=' && !$selector->not) || ($selector->not && $selector->operator == '=')) {
-					$s = $this->wire(new SelectorBitwiseAnd('status', $selector->value));
-					$s->not = true;
-					$not = true;
-					$selectors[$key] = $s;
-	
-				} else if($selector->operator == '=' || ($selector->operator == '!=' && $selector->not)) {
-					$selectors[$key] = $this->wire(new SelectorBitwiseAnd('status', $selector->value));
-					
+			if($disallow) {
+				$this->syntaxError("OR-condition not supported for $disallow in '$selector'");
+			}
+			
+			if($fieldName === 'include') { 
+				$value = strtolower($value);
+				if($operator !== '=') {
+					// disallowed operator for include
+					$this->syntaxError("Unsupported operator '$operator' in '$selector'");
+				} else if(!isset($includeOptions[$value])) {
+					// unrecognized include option
+					$useOnly = implode(', ', array_keys($includeOptions));
+					$this->syntaxError("Unrecognized '$value' in '$selector' - use only: $useOnly");
 				} else {
-					// some other operator like: >, <, >=, <=
-					$not = $selector->not;
+					// i.e. hidden=findHidden, findUnpublished, findTrash, findAll
+					$option = $includeOptions[$value]; 
+					$options[$option] = true;
+					$this->includeMode = $value;
+					$selectors->remove($key);
 				}
-				if(!$not && (is_null($maxStatus) || $selector->value > $maxStatus)) $maxStatus = (int) $selector->value; 
-				
-			} else if($fieldName == 'include' && $selector->operator == '=' && in_array($selector->value, array('hidden', 'all', 'unpublished', 'trash'))) {
-				$this->includeMode = $selector->value;
-				if($selector->value == 'hidden') $options['findHidden'] = true;
-					else if($selector->value == 'unpublished') $options['findUnpublished'] = true;
-					else if($selector->value == 'trash') $options['findTrash'] = true; 
-					else if($selector->value == 'all') $options['findAll'] = true; 
-				$selectors->remove($key);
 
-			} else if($fieldName == 'check_access' || $fieldName == 'checkAccess') { 
-				$this->checkAccess = ((int) $selector->value) > 0 ? true : false;
-				$checkAccessSpecified = true;
-				$selectors->remove($key); 
-
-			} else if($fieldName == 'limit') {
+			} else if($fieldName === 'limit') {
 				// for getTotal auto detect
-				$limit = (int) $selector->value; 	
+				if(is_array($value)) {
+					if(count($value) === 2) {
+						// limit and start, i.e. limit=20,10 means start at 20 and limit to 10
+						$limit = (int) $value[1];
+						if(!$startSelector) {
+							// use start value only if it was not previously specified
+							$start = (int) $value[0];
+							$startSelector = new SelectorEqual('start', $start);
+							$addSelectors['start'] = $startSelector;
+						}
+					} else {
+						$limit = (int) $value[0];
+					}
+					$selector->value = $limit;
+				} else {
+					$limit = (int) $value;
+				}
 				$limitSelector = $selector;
-				// @todo allow for array value that specifies start and limit, i.e. '10|25'
 
-			} else if($fieldName == 'start') {
+			} else if($fieldName === 'start') {
 				// for getTotal auto detect
-				$start = (int) $selector->value; 	
+				$start = (int) $value; 	
+				$startSelector = $selector;
+				unset($addSelectors['start']); // just in case specified twice
 
-			} else if($fieldName == 'sort') {
+			} else if($fieldName === 'sort') {
 				// sorting is not needed if we are only retrieving totals
 				if($options['loadPages'] === false) $selectors->remove($selector);
 				$hasSort = true;
 
-			} else if($fieldName == 'parent' || $fieldName == 'parent_id') {
-				$hasParents[] = $selector->value;
+			} else if($fieldName === 'parent' || $fieldName === 'parent_id') {
+				$hasParents[] = $value;
 
-			} else if($fieldName == 'getTotal' || $fieldName == 'get_total') {
+			} else if($fieldName === 'getTotal' || $fieldName === 'get_total') {
 				// whether to retrieve the total, and optionally what type: calc or count
 				// this applies only if user hasn't themselves created a field called getTotal or get_total
-				if(!$this->fields->get($fieldName)) {
-					if(ctype_digit("$selector->value")) {
-						$options['getTotal'] = (bool) $selector->value; 
-					} else if(in_array($selector->value, array('calc', 'count'))) {
+				if($this->fields->get($fieldName)) {
+					// user has created a field having name 'getTotal' or 'get_total'
+					// so we do not provide the getTotal option
+				} else {
+					if(ctype_digit("$value")) {
+						$options['getTotal'] = (bool) ((int) $value);
+					} else if($value === 'calc' || $value === 'count') {
 						$options['getTotal'] = true; 
-						$options['getTotalType'] = $selector->value; 
+						$options['getTotalType'] = $value; 
+					} else {
+						// warning: unknown getTotal type
+						$options['getTotal'] = $value ? true : false;
 					}
 					$selectors->remove($selector); 
 				}
+			} else if($fieldName === 'children' || $fieldName === 'child') {
+				// i.e. children=/path/to/page|/another/path - convert to IDs
+				$values = is_array($value) ? $value : array($value);
+				foreach($values as $k => $v) {
+					if(ctype_digit("$v")) continue;
+					if(strpos($v, '/') !== 0) continue;
+					$child = $this->pages->get($v);
+					$values[$k] = $child->id;
+				}
+				$selector->value = count($values) > 1 ? $values : reset($values);
 			}
 		} // foreach($selectors)
-
-		if(!is_null($maxStatus) && empty($options['findAll']) && empty($options['findUnpublished'])) {
-			// if a status was already present in the selector, without a findAll/findUnpublished, then just make sure the page isn't unpublished
-			if($maxStatus < Page::statusUnpublished) {
-				$selectors->add(new SelectorLessThan('status', Page::statusUnpublished));
-			}
-
-		} else if($options['findAll']) { 
-			// findAll option means that unpublished, hidden, trash, system may be included
-			if(!$checkAccessSpecified) $this->checkAccess = false;
-
-		} else if($options['findHidden']) {
-			// findHidden option, apply optimizations enabling hidden pages to be loaded
-			$selectors->add(new SelectorLessThan('status', Page::statusUnpublished));
-			
-		} else if($options['findUnpublished']) {
-			$selectors->add(new SelectorLessThan('status', Page::statusTrash)); 
-			
-		} else if($options['findTrash']) { 
-			$selectors->add(new SelectorLessThan('status', Page::statusDeleted)); 
-
-		} else {
-			// no status is present, so exclude everything hidden and above
-			$selectors->add(new SelectorLessThan('status', Page::statusHidden)); 
+		
+		foreach($addSelectors as $selector) {
+			$selectors->add($selector);
 		}
+
+		// find max status, and update selector to bitwise when needed
+		$this->initStatus($selectors, $options);
 
 		if($options['findOne']) {
 			// findOne option is never paginated, always starts at 0
+			if($startSelector) $selectors->remove($startSelector);
 			$selectors->add(new SelectorEqual('start', 0)); 
 			if(empty($options['startAfterID']) && empty($options['stopBeforeID'])) {
+				if($limitSelector) $selectors->remove($limitSelector);
 				$selectors->add(new SelectorEqual('limit', 1));
 			}
 			// getTotal default is false when only finding 1 page
@@ -591,7 +610,7 @@ class PageFinder extends Wire {
 			if(is_null($options['getTotal'])) $options['getTotal'] = true; 
 		}
 		
-		if(count($hasParents) == 1 && !$hasSort) {
+		if(count($hasParents) === 1 && !$hasSort) {
 			// if single parent specified and no sort requested, default to the sort specified with the requested parent
 			try {
 				$parent = $this->pages->get(reset($hasParents));
@@ -607,11 +626,118 @@ class PageFinder extends Wire {
 		}
 		
 		if(!$options['findOne'] && $limitSelector && ($options['startAfterID'] || $options['stopBeforeID'])) {
-			$options['softLimit'] = $limitSelector->value;
+			$options['softLimit'] = $limit;
 			$selectors->remove($limitSelector);
 		}
 		
 		return $options;
+	}
+
+	/**
+	 * Initialize status checks
+	 * 
+	 * @param Selectors $selectors
+	 * @param array $options
+	 * 
+	 */
+	protected function initStatus(Selectors $selectors, array $options) {
+		
+		$maxStatus = null;
+		$lessStatus = 0;
+		$statuses = array(); // i.e. [ 'hidden' => 1024, 'unpublished' => 2048, ], etc
+		$checkAccessSpecified = false;
+		$findAll = $options['findAll'];
+		$findTrash = $options['findTrash'];
+		$findHidden = $options['findHidden'];
+		$findUnpublished = $options['findUnpublished'];
+
+		foreach($selectors as $key => $selector) {
+			$fieldName = $selector->field();
+			
+			if($fieldName === 'check_access' || $fieldName === 'checkAccess') {
+				if($fieldName === 'checkAccess') $selector->field = 'check_access';
+				$this->checkAccess = ((int) $selector->value()) > 0 ? true : false;
+				$checkAccessSpecified = true;
+				$selectors->remove($key);
+				continue;
+			} else if($fieldName !== 'status') {
+				continue;
+			}
+
+			$operator = $selector->operator;
+			$values = $selector->values();
+			$qty = count($values);
+			$not = false;
+
+			// convert status name labels to status integers
+			foreach($values as $k => $v) {
+				if(ctype_digit("$v")) {
+					$v = (int) $v;
+				} else {
+					// allow use of some predefined labels for Page statuses
+					$v = strtolower($v);
+					if(empty($statuses)) $statuses = Page::getStatuses();
+					$v = isset($statuses[$v]) ? $statuses[$v] : 1;
+				}
+				$values[$k] = $v;
+			}
+
+			if(($operator === '!=' && !$selector->not) || ($selector->not && $operator === '=')) {
+				// NOT MATCH condition: replace with bitwise AND NOT selector
+				$s = $this->wire(new SelectorBitwiseAnd('status', $qty > 1 ? $values : reset($values)));
+				$s->not = true;
+				$not = true;
+				$selectors[$key] = $s;
+
+			} else if($operator === '=' || ($operator === '!=' && $selector->not)) {
+				// MATCH condition: replace with bitwise AND selector
+				$selectors[$key] = $this->wire(new SelectorBitwiseAnd('status', $qty > 1 ? $values : reset($values)));
+
+			} else {
+				// some other operator like: >, <, >=, <=, &
+				$not = $selector->not;
+			}
+
+			if($not) {
+				// NOT condition does not apply to maxStatus
+			} else {
+				foreach($values as $v) {
+					if($maxStatus === null || $v > $maxStatus) $maxStatus = (int) $v;
+				}
+			}
+		}
+
+		if($findAll) {
+			// findAll option means that unpublished, hidden, trash, system may be included
+			if(!$checkAccessSpecified) $this->checkAccess = false;
+			
+		} else if($findHidden) {
+			$lessStatus = Page::statusUnpublished;
+			
+		} else if($findUnpublished) {
+			$lessStatus = Page::statusTrash;
+			
+		} else if($findTrash) {
+			$lessStatus = Page::statusDeleted;
+			
+		} else if($maxStatus !== null) {
+			// status already present in the selector, without a findAll/findUnpublished/findHidden: use maxStatus value
+			if($maxStatus < Page::statusHidden) {
+				$lessStatus = Page::statusHidden;
+			} else if($maxStatus < Page::statusUnpublished) {
+				$lessStatus = Page::statusUnpublished;
+			} else if($maxStatus < Page::statusTrash) {
+				$lessStatus = Page::statusTrash;
+			}
+			
+		} else {
+			// no status is present, so exclude everything hidden and above
+			$lessStatus = Page::statusHidden;
+		}
+
+		if($lessStatus) {
+			$selectors->add(new SelectorLessThan('status', $lessStatus));
+		}
 	}
 
 	/**
@@ -657,7 +783,9 @@ class PageFinder extends Wire {
 	public function ___find($selectors, array $options = array()) {
 		
 		if(is_string($selectors) || is_array($selectors)) {
-			$selectors = new Selectors($selectors);
+			$selectors = new Selectors();
+			$this->wire($selectors);
+			$selectors->init($selectors);
 		} else if(!$selectors instanceof Selectors) {
 			throw new PageFinderException("find() requires Selectors object, string or array");
 		}
@@ -671,7 +799,7 @@ class PageFinder extends Wire {
 		
 		if($options['returnQuery']) return $query; 
 
-		if($options['loadPages'] || $this->getTotalType == 'calc') {
+		if($options['loadPages'] || $this->getTotalType === 'calc') {
 
 			try {
 				$stmt = $query->prepare();
@@ -680,7 +808,6 @@ class PageFinder extends Wire {
 			} catch(\Exception $e) {
 				$this->trackException($e, true);
 				$error = $e->getMessage();
-				//if($this->config->debug) $error .= " - " . $query->getQuery() . ' ' . print_r($query->bindValues, true);
 				$stmt = null;
 			}
 		
@@ -703,7 +830,7 @@ class PageFinder extends Wire {
 					
 					if($stopBeforeID && $row['id'] == $stopBeforeID) {
 						if($options['findOne']) {
-							$matches = array(end($matches));
+							$matches = count($matches) ? array(end($matches)) : array();
 						} else if($options['softLimit']) {
 							$matches = array_slice($matches, -1 * $options['softLimit']);
 						}
@@ -949,7 +1076,7 @@ class PageFinder extends Wire {
 			} else if($field === 'start') {
 				$start = (int) $selector->value; 
 				
-			} else if($field == 'eq' || $field == 'index') { 
+			} else if($field === 'eq' || $field === 'index') { 
 				if($this->fields->get($field)) continue;
 				$value = $selector->value; 
 				if($value === 'first') {
@@ -1438,7 +1565,8 @@ class PageFinder extends Wire {
 				}
 			}
 		}
-		
+	
+		/** @var PageFinder $pageFinder */
 		$pageFinder = $this->wire(new PageFinder());
 		$ids = $pageFinder->findIDs($selectors);
 		$fieldNames = $selector->fields;
@@ -1544,7 +1672,7 @@ class PageFinder extends Wire {
 			}
 			if(!empty($opts['joinFields'])) {
 				foreach($opts['joinFields'] as $joinField) {
-					$joinField = $this->wire()->fields->get($joinField);
+					$joinField = $this->fields->get($joinField);
 					if(!$joinField || !$joinField instanceof Field) continue;
 					$joinTable = $database->escapeTable($joinField->getTable());
 					if(!$joinTable || !$joinField->type) continue;
@@ -1580,9 +1708,8 @@ class PageFinder extends Wire {
 				continue;
 			}
 			
-			$fields = $selector->field; 
+			$fields = $selector->fields(); 
 			$group = $selector->group; // i.e. @field
-			$fields = is_array($fields) ? $fields : array($fields); 
 			if(count($fields) > 1) $fields = $this->arrangeFields($fields); 
 			$field1 = reset($fields); // first field including optional subfield
 			$this->numAltOperators += count($selector->altOperators);
@@ -2207,8 +2334,8 @@ class PageFinder extends Wire {
 		$user = $this->wire()->user; 
 		$language = $this->languages && $user->language ? $user->language : null;
 	
-		// todo 3.0.190: uncomment the line below to support `sort=a|b|c` in correct order
-		// if(count($values) > 1) $values = array_reverse($values); // because orderby prepend used below
+		// support `sort=a|b|c` in correct order (because orderby prepend used below)
+		if(count($values) > 1) $values = array_reverse($values); 
 		
 		foreach($values as $value) {
 
@@ -2514,6 +2641,7 @@ class PageFinder extends Wire {
 		$SQL = '';
 		$database = $this->database;
 		$sanitizer = $this->sanitizer;
+		$datetime = $this->wire()->datetime;
 
 		foreach($fields as $field) { 
 
@@ -2638,7 +2766,7 @@ class PageFinder extends Wire {
 				} else if(in_array($field, array('created', 'modified', 'published'))) {
 					// prepare value for created, modified or published date fields
 					if(!ctype_digit($value)) {
-						$value = $this->wire()->datetime->strtotime($value); 
+						$value = $datetime->strtotime($value); 
 					}
 					if(empty($value)) {
 						$value = null;
