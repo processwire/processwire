@@ -526,31 +526,36 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	/**
 	 * Return correct PDO instance type (reader or writer) based on given statement
 	 *
-	 * @param string|\PDOStatement $statement
+	 * @param string|\PDOStatement $query
 	 * @param bool $getName Get name of PDO type rather than instance? (default=false)
 	 * @return \PDO|string
 	 *
 	 */
-	protected function pdoType(&$statement, $getName = false) {
+	protected function pdoType(&$query, $getName = false) {
 
 		$reader = 'reader';
 		$writer = 'writer';
 
-		if(!$this->reader['has']) return $getName ? $writer : $this->pdoWriter();
+		if(!$this->reader['has'] || !is_string($query)) {
+			// no reader available or query is PDOStatement, or other: always return writer
+			// todo support for inspecting PDOStatement?
+			return $getName ? $writer : $this->pdoWriter();
+		}
+		
+		// statement is just first 40 characters of query
+		$statement = trim(str_replace(array("\n", "\t", "\r"), " ", substr($query, 0, 40)));
 
 		if($statement === $writer || $statement === $reader) {
+			// reader or writer requested by name
 			$type = $statement;
-		} else if(!$this->reader['has']) {
-			$type = $writer;
-		} else if(!is_string($statement)) {
-			// PDOStatement or other, always return write
-			// @todo add support for inspection of PDOStatement
-			$type = $writer;
 		} else if(stripos($statement, 'select') === 0) {
+			// select query is always reader
 			$type = $reader;
 		} else if(stripos($statement, 'insert') === 0) {
+			// insert query is always writer
 			$type = $writer;
 		} else {
+			// other query to inspect further
 			$pos = strpos($statement, ' ');
 			$word = strtolower(($pos ? substr($statement, 0, $pos) : $statement));
 			if($word === 'set') {
