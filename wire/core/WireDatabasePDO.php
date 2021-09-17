@@ -1003,6 +1003,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *  - Omit or false (bool) to just get column names. 
 	 *  - True (bool) or 1 (int) to get a verbose array of information for each column, indexed by column name.
 	 *  - 2 (int) to get raw MySQL column information, indexed by column name (added 3.0.182).
+	 *  - 3 (int) to get column types as used in a CREATE TABLE statement (added 3.0.185). 
 	 *  - Column name (string) to get verbose array only for only that column (added 3.0.182).
 	 * @return array 
 	 * @since 3.0.180
@@ -1010,9 +1011,20 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 */
 	public function getColumns($table, $verbose = false) {
 		$columns = array();
+		$table = $this->escapeTable($table);
+		if($verbose === 3) {
+			$query = $this->query("SHOW CREATE TABLE $table");
+			if(!$query->rowCount()) return array();
+			$row = $query->fetch(\PDO::FETCH_NUM);
+			$query->closeCursor();
+			if(!preg_match_all('/`([_a-z0-9]+)`\s+([a-z][^\r\n]+)/i', $row[1], $matches)) return array();
+			foreach($matches[1] as $key => $name) {
+				$columns[$name] = trim(rtrim($matches[2][$key], ','));
+			}
+			return $columns;
+		}
 		$getColumn = $verbose && is_string($verbose) ? $verbose : '';
 		if(strpos($table, '.')) list($table, $getColumn) = explode('.', $table, 2);
-		$table = $this->escapeTable($table);
 		$sql = "SHOW COLUMNS FROM $table " . ($getColumn ? 'WHERE Field=:column' : '');
 		$query = $this->prepare($sql);
 		if($getColumn) $query->bindValue(':column', $getColumn);
@@ -1236,6 +1248,63 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 			$exists = false;
 		}
 		return $exists;
+	}
+
+	/**
+	 * Rename table columns without changing type
+	 * 
+	 * @param string $table
+	 * @param array $columns Associative array with one or more of `[ 'old_name' => 'new_name' ]`
+	 * @return int Number of columns renamed
+	 * @since 3.0.185
+	 * @throws \PDOException|WireException
+	 * 
+	 */
+	public function renameColumns($table, array $columns) {
+		
+		$qty = 0;
+		
+		if(version_compare($this->getVersion(true), '8.0.0', '>=')) {
+			$mysql8 = $this->getServerType() === 'MySQL';
+		} else {
+			$mysql8 = false;
+		}
+	
+		$table = $this->escapeTable($table);
+		$colTypes = $mysql8 ? array() : $this->getColumns($table, 3);
+		
+		foreach($columns as $oldName => $newName) {
+			$oldName = $this->escapeCol($oldName);
+			$newName = $this->escapeCol($newName);
+			if(empty($oldName) || empty($newName)) continue;
+			if($mysql8) {
+				$sql = "ALTER TABLE `$table` RENAME COLUMN `$oldName` TO `$newName`";
+			} else if(isset($colTypes[$oldName])) {
+				$colType = $colTypes[$oldName];
+				$sql = "ALTER TABLE `$table` CHANGE `$oldName` `$newName` $colType";
+			} else {
+				continue;
+			}
+			if($this->exec($sql)) $qty++;
+		}
+	
+		return $qty;
+	}
+	
+	/**
+	 * Rename a table column without changing type
+	 * 
+	 * @param string $table
+	 * @param string $oldName
+	 * @param string $newName
+	 * @return bool
+	 * @throws \PDOException|WireException
+	 * @since 3.0.185
+	 * 
+	 */
+	public function renameColumn($table, $oldName, $newName) {
+		$columns = array($oldName => $newName);
+		return $this->renameColumns($table, $columns) > 0;
 	}
 
 	/**
@@ -1502,7 +1571,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * @param string $name Name of MySQL variable you want to retrieve
 	 * @param bool $cache Allow use of cached values? (default=true)
 	 * @param bool $sub Allow substitution of MyISAM variable names to InnoDB equivalents when InnoDB is engine? (default=true)
-	 * @return string|int
+	 * @return string|null
 	 * 
 	 */
 	public function getVariable($name, $cache = true, $sub = true) {
@@ -1512,8 +1581,12 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 		$query->bindValue(':name', $name);
 		$query->execute();
 		/** @noinspection PhpUnusedLocalVariableInspection */
-		list($varName, $value) = $query->fetch(\PDO::FETCH_NUM);
-		$this->variableCache[$name] = $value;
+		if($query->rowCount()) {
+			list(,$value) = $query->fetch(\PDO::FETCH_NUM);
+			$this->variableCache[$name] = $value;
+		} else {
+			$value = null;
+		}
 		$query->closeCursor();
 		return $value;
 	}
@@ -1527,11 +1600,36 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 *  - 10.1.34-MariaDB
 	 * 
 	 * @return string
+	 * @param bool $getNumberOnly Get only version number, exclude any vendor specific suffixes? (default=false) 3.0.185+
 	 * @since 3.0.166
 	 * 
 	 */
-	public function getVersion() {
-		return $this->getVariable('version', true, false); 
+	public function getVersion($getNumberOnly = false) {
+		$version = $this->getVariable('version', true, false); 
+		if($getNumberOnly && preg_match('/^([\d.]+)/', $version, $matches)) $version = $matches[1];
+		return $version;
+	}
+
+	/**
+	 * Get server type, one of MySQL, MariDB, Percona, etc.
+	 * 
+	 * @return string
+	 * @since 3.0.185
+	 * 
+	 */
+	public function getServerType() {
+		$serverType = '';
+		$serverTypes = array('MariaDB', 'Percona', 'OurDelta', 'Drizzle', 'MySQL');
+		foreach(array('version', 'version_comment') as $name) {
+			$value = $this->getVariable($name);
+			if($value === null) continue;
+			foreach($serverTypes as $type) {
+				if(stripos($value, $type) !== false) $serverType = $type;
+				if($serverType) break;
+			}
+			if($serverType) break;
+		}
+		return $serverType ? $serverType : 'MySQL';
 	}
 	
 	/**
