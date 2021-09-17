@@ -609,6 +609,10 @@ class PagesLoader extends Wire {
 		$pageArray = $rows['pageArray'];
 		$pageArray->setTrackChanges(false);
 		$paginationTotal = $pageArray->getTotal();
+	
+		/** @var array $joinResults PageFinder sets which fields supported autojoin true|false */
+		$joinResults = $pageArray->data('joinFields');
+		
 		unset($rows['pageArray']);
 
 		foreach($rows as $row) {
@@ -667,6 +671,7 @@ class PagesLoader extends Wire {
 			// set blank values where joinField didn't appear on page row 
 			foreach($joinFields as $joinField) {
 				if(isset($row["{$joinField}__data"])) continue;
+				if(empty($joinResults[$joinField])) continue; // field did not support autojoin
 				if(!$template->fieldgroup->hasField($joinField)) continue;
 				$field = $page->getField($joinField);
 				if(!$field || !$field->type) continue;

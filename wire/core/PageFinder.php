@@ -345,12 +345,18 @@ class PageFinder extends Wire {
 	protected $reverseAfter = false;
 
 	/**
-	 * Data that should be populated back to any resulting PageArray’s data() method
+	 * Data that should be conditionally populated back to any resulting PageArray’s data() method
 	 * 
 	 * @var array
 	 * 
 	 */
-	protected $pageArrayData = array();
+	protected $pageArrayData = array(
+		/* may include: 
+		'fields' => array()
+		'extends' => array()
+		'joinFields' => array()
+		*/
+	);
 
 	/**
 	 * The fully parsed/final selectors used in the last find() operation
@@ -1670,13 +1676,19 @@ class PageFinder extends Wire {
 				$query->leftjoin('pages_paths ON pages_paths.pages_id=pages.id'); 
 			}
 			if(!empty($opts['joinFields'])) {
+				$this->pageArrayData['joinFields'] = array(); // identify whether each field supported autojoin
 				foreach($opts['joinFields'] as $joinField) {
 					$joinField = $this->fields->get($joinField);
 					if(!$joinField || !$joinField instanceof Field) continue;
 					$joinTable = $database->escapeTable($joinField->getTable());
 					if(!$joinTable || !$joinField->type) continue;
-					if(!$joinField->type->getLoadQueryAutojoin($joinField, $query)) continue;
-					$autojoinTables[$joinTable] = $joinTable; // added at end if not already joined
+					if($joinField->type->getLoadQueryAutojoin($joinField, $query)) {
+						$autojoinTables[$joinTable] = $joinTable; // added at end if not already joined
+						$this->pageArrayData['joinFields'][$joinField->name] = true;
+					} else {
+						// fieldtype does not support autojoin
+						$this->pageArrayData['joinFields'][$joinField->name] = false;
+					}
 				}
 			}
 		} else if($options['returnVerbose']) {
