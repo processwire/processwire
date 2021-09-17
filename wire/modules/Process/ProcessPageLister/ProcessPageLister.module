@@ -1567,6 +1567,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		} else if(strpos($name, '.data') && preg_match('/\.data(\d+)$/', $name, $matches)) {
 			// i.e. title.data1234 or categories.title.data1234
 			$language = $languages->get((int) $matches[1]); 
+		} else {
+			// no language identified in field name
+			$language = $this->wire()->user->language;
 		}
 		
 		//if(!wireInstanceOf($field->type, 'FieldtypeLanguageInterface')) return null;
