@@ -3,19 +3,17 @@
 /**
  * ProcessWire WireMail
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary A module type that handles sending of email in ProcessWire
  * #pw-var $m
  * #pw-body = 
  *
- * Below are 3 different ways you can get a new instance of WireMail. 
- * When possible we recommend using option A or B below.  
+ * Below are 2 different ways you can get a new instance of WireMail. 
  * ~~~~~
- * $m = $mail->new(); // option A
- * $m = wireMail(); // option B
- * $m = new WireMail(); // option C
+ * $m = $mail->new(); // option A: use $mail API variable
+ * $m = wireMail(); // option B: use wireMail() function
  * ~~~~~
  * Once you have an instance of WireMail (`$m`), you can use it to send email like in these examples below. 
  * ~~~~~
@@ -23,7 +21,8 @@
  * $m->to('user@domain.com')
  *   ->from('you@company.com')
  *   ->subject('Message Subject')
- *   ->body('Message Body')
+ *   ->body('Optional message body in plain text')
+ *   ->bodyHTML('<html><body><p>Optional message body in HTML</p></body></html>')
  *   ->send();
  *
  * // separate method call usage
@@ -38,10 +37,11 @@
  * $m->from('you@company.com', 'Mary Jane'); 
  *
  * // other methods or properties you might set (or get)
- * $m->bodyHTML('<html><body><h1>Message Body</h1></body></html>'); 
- * $m->attachment('/path/to/file.ext'); 
  * $m->fromName('Mary Jane');
  * $m->toName('John Smith');
+ * $m->replyTo('somebody@somewhere.com'); 
+ * $m->replyToName('Joe Somebody');
+ * $m->attachment('/path/to/file.ext'); 
  * $m->header('X-Mailer', 'ProcessWire'); 
  * $m->param('-f you@company.com'); // PHP mail() param (envelope from example)
  *

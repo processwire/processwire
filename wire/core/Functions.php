@@ -1056,7 +1056,7 @@ function wireClassParents($className, $autoload = true) {
 				if($ns) $className = $ns . $_className;
 			}
 		}
-		$parents = class_parents(ltrim($className, "\\"), $autoload);
+		$parents = @class_parents(ltrim($className, "\\"), $autoload);
 	}
 	$a = array();
 	if(is_array($parents)) foreach($parents as $k => $v) {
