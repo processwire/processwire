@@ -310,7 +310,7 @@ class TemplateFile extends WireData {
 			foreach($this->prependFilename as $_filename) {
 				if($this->halt) break;
 				$this->fileReady($_filename);
-				require($_filename);
+				require_once($_filename);
 				$this->fileFinished();
 			}
 		} catch(\Exception $e) {
@@ -336,7 +336,7 @@ class TemplateFile extends WireData {
 			foreach($this->appendFilename as $_filename) {
 				if($this->halt) break;
 				$this->fileReady($_filename);
-				require($_filename);
+				require_once($_filename);
 				$this->fileFinished();
 			}
 		} catch(\Exception $e) {
