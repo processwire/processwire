@@ -574,6 +574,19 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		} else {
 			$path = rtrim($path, '/') . '/' . $page->name;
 		}
+	
+		// do not save paths that reference recovery format used by trash
+		// example: /blog/posts/5134.3096.83_page-name
+		if(strpos($path, '.') !== false && strpos($path, '_') !== false) {
+			if(preg_match('!/\d+\.\d+\.\d+_!', $path)) return;
+		}
+	
+		// do not save paths that match any untitled page name
+		// example: /blog/posts/untitled-123123
+		$untitled = $this->wire()->pages->names()->untitledPageName();
+		if(strpos($path, $untitled) !== false) {
+			if(preg_match('!/' . preg_quote($untitled) . '[-]!', $path)) return;
+		}
 		
 		if($languages) $languages->setDefault();
 		$this->setPathHistory($page, $path);
@@ -615,8 +628,10 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		$languages = $this->getLanguages();
 		if($languages) {
 			// the LanguageSupportPageNames may change the original requested path, so we ask it for the original
-			$path = $this->wire('modules')->get('LanguageSupportPageNames')->getRequestPath();
-			$path = $path ? $this->wire('sanitizer')->pagePathName($path) : $event->arguments(1);
+			/** @var LanguageSupportPageNames $lspn */
+			$lspn = $this->wire()->modules->get('LanguageSupportPageNames');
+			$path = $lspn->getRequestPath();
+			$path = $path ? $this->wire()->sanitizer->pagePathName($path) : $event->arguments(1);
 		} else {
 			$path = $event->arguments(1);
 		}
@@ -637,6 +652,177 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
+	 * Get array of info about a path if it is in history
+	 * 
+	 * If path is found in history, the returned array `id` value will be populated with a positive 
+	 * integer of the found page ID. If not found, it will be populated with integer 0. 
+	 * 
+	 * By default this method attempts to perform exact path matches only. To enable partial matches
+	 * of paths that may be appended with additional URL segments, set the `allowUrlSegments` option
+	 * to true. Note that it will only apply to matched pages that have templates allowing URL 
+	 * segments. 
+	 * 
+	 * Return array includes:
+	 * 
+	 * - `id` (int): ID of matched page or 0 if no match.
+	 * - `path` (string): Path that was matched.
+	 * - `language_id` (int): ID of language for path, if applicable.
+	 * - `templates_id` (int): ID of template for page that was matched.
+	 * - `parent_id (int): ID of parent for page that was matched.
+	 * - `status` (int): Status of the page that was matched.
+	 * - `created` (string): Date that this entry was created (ISO-8601 date/time string).
+	 * - `name` (string): Name of page that was matched in default language.
+	 * - `urlSegmentStr` (string): Portion of path that was identified as URL segments (for partial match).
+	 * - `matchType` (string): Contains value “exact” when exact match, “partial” when partial/URL segments 
+	 *    match, or blank string when no match.
+	 * 
+	 * Note that the `urlSegmentStr` and `matchType` properties may only be of interest if the
+	 * given `allowUrlSegments` option is set to `true`. 
+	 * 
+	 * @param string $path
+	 * @param array $options
+	 *  - `allowUrlSegments` (bool): Allow matching paths with URL segments? (default=false)
+	 *     When used, the `urlSegmentStr` return value property will be populated with slash
+	 *     separated URL segments that were not part of the matched path, and the `matchType`
+	 *     property will contain the value “partial”. 
+	 * @return array
+	 * @since 3.0.186
+	 * 
+	 */
+	public function getPathInfo($path, array $options = array()) {
+		
+		$defaults = array(
+			'allowUrlSegments' => false,
+		);
+	
+		$options = array_merge($defaults, $options);
+		$sanitizer = $this->wire()->sanitizer;
+		$templates = $this->wire()->templates;
+		$database = $this->wire()->database;
+		$config = $this->wire()->config;
+		$table = self::dbTableName;
+		$path = '/' . trim($path, '/');
+		$originalPath = $path; // original path (without ascii conversion)
+		$namesUTF8 = $config->pageNameCharset === 'UTF8';
+		
+		$result = array(
+			'id' => 0,
+			'path' => $path,
+			'language_id' => 0,
+			'templates_id' => 0,
+			'parent_id' => 0,
+			'created' => '',
+			'status' => 0,
+			'name' => '',
+			'matchType' => '',
+			'urlSegmentStr' => '',
+		);
+		
+		if($namesUTF8) $path = $sanitizer->pagePathName($path, Sanitizer::toAscii);
+		$requestPath = $path; // path that was requested (with ascii conversion)
+
+		$wheres = array("$table.path=:path");
+		$binds['path'] = $requestPath;
+		
+		if($options['allowUrlSegments']) {
+			$n = 0;
+			while(strlen($path)) {
+				$pos = strrpos($path, '/'); 
+				if(!$pos) break;
+				$path = substr($path, 0, $pos);
+				$wheres[] = "$table.path=:path$n";
+				$binds["path$n"] = rtrim($path, '/');
+				$n++;
+			}
+		}
+	
+		$sql = 
+			"SELECT $table.path AS path, $table.pages_id AS id, $table.created AS created, $table.language_id AS language_id, " . 
+			"pages.templates_id AS templates_id, pages.parent_id AS parent_id, pages.status AS status, pages.name AS name " . 
+			"FROM $table " . 
+			"LEFT JOIN pages ON $table.pages_id=pages.id " . 
+			"WHERE " . implode(' OR ', $wheres);
+		
+		$query = $database->prepare($sql);
+		
+		foreach($binds as $bindKey => $bindValue) {
+			$query->bindValue(":$bindKey", $bindValue);
+		}
+		
+		$query->execute();
+		$rowCount = $query->rowCount();
+		
+		if(!$rowCount) {
+			$query->closeCursor();
+			return $result;
+		}
+		
+		$rows = array();
+		$pathCounts = array();
+		$matchRow = null;
+		
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			
+			$path = $row['path'];
+			
+			if($path === $requestPath) {
+				// found exact match
+				$matchRow = $row;
+				break;
+			} else {
+				// path with urlSegments match
+				$rows[$path] = $row;
+				$pathCounts[$path] = substr_count($path, '/');
+			}
+		}
+		
+		$query->closeCursor();
+		
+		if($matchRow) {
+			// ok found
+			$result['matchType'] = 'exact';
+		} else if($rowCount) {
+			// select from multiple matched rows (urlSegments mode only)
+			// order by quantity of slashes (most to least)
+			arsort($pathCounts);
+			// find first row that has a template allowing URL segments
+			foreach($pathCounts as $path => $count) {
+				$row = $rows[$path];
+				$template = $templates->get((int) $row['templates_id']);
+				if(!$template || !$template->urlSegments) continue;
+				$matchRow = $row;
+				$result['matchType'] = 'partial';
+				break;
+			}
+		} else {
+			// no match
+		}
+		
+		if($matchRow) {
+			$result = array_merge($result, $matchRow);
+		}
+	
+		// if no match return now
+		if(!$result['id']) return $result;
+		
+		foreach($result as $key => $value) {
+			if($key === 'id' || $key === 'status' || strpos($key, '_id')) {
+				$result[$key] = (int) $value;
+			} else if($key === 'path' && $namesUTF8) {
+				$result['path'] = $sanitizer->pagePathName($value, Sanitizer::toUTF8);
+			} else if($key === 'name' && $namesUTF8) {
+				$result['name'] = $sanitizer->pageName($value, Sanitizer::toUTF8);
+			}
+		}
+		
+		if($result['matchType'] === 'partial') {
+			$result['urlSegmentStr'] = trim(substr($originalPath, strlen($result['path'])+1), '/');
+		}
+		
+		return $result;
+	}
+
+	/**
 	 * Given a previously existing path, return the matching Page object or NullPage if not found.
 	 * 
 	 * If the path is for a specific language, this method also sets a $page->_language property
@@ -649,14 +835,16 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 */
 	public function getPage($path, $level = 0) {
 		
-		$page = $this->wire('pages')->newNullPage();
+		$pages = $this->wire()->pages;
+		$page = $pages->newNullPage();
+		$sanitizer = $this->wire()->sanitizer;
+		$languages = $this->getLanguages();
+		$database = $this->wire()->database;
+		$table = self::dbTableName;
 		$pathRemoved = '';
 		$cnt = 0;
-		$database = $this->wire('database');
-		$table = self::dbTableName;
-		$languages = $this->getLanguages();
 		
-		if(!$level) $path = $this->wire('sanitizer')->pagePathName($path, Sanitizer::toAscii);
+		if(!$level) $path = $sanitizer->pagePathName($path, Sanitizer::toAscii);
 		$path = '/' . trim($path, '/');
 
 		while(strlen($path) && !$page->id && $cnt < self::maxSegments) {
@@ -672,7 +860,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 				$query->execute();
 			} catch(\Exception $e) {
 				if(strpos($e->getMessage(), '1054') !== false) $this->upgrade(1, 2);
-				$this->wire('log')->error('PagePathHistory::getPage() - ' . $e->getMessage());
+				$this->wire()->log->error('PagePathHistory::getPage() - ' . $e->getMessage());
 				$error = true;
 			}
 			
@@ -705,14 +893,16 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			// use the new parent path and add the removed components back on to it
 			$path = rtrim($parent->path, '/') . $pathRemoved; 
 			// see if it might exist at the new parent's URL
-			$page = $this->wire('pages')->getByPath($path, array(
+			$page = $pages->getByPath($path, array(
 				'useHistory' => false,
 				'useLanguages' => $languages ? true : false
 			)); 
 			if($page->id) {
 				// found a page
 				if($languages) {
-					$language = $this->wire('modules')->get('LanguageSupportPageNames')->getPagePathLanguage($path, $page);
+					/** @var LanguageSupportPageNames $lspn */
+					$lspn = $this->wire()->modules->get('LanguageSupportPageNames');
+					$language = $lspn->getPagePathLanguage($path, $page);
 					if($language) $page->setQuietly('_language', $language);
 				}
 			} else if($level < self::maxSegments) {
