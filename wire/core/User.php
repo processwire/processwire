@@ -466,6 +466,36 @@ class User extends Page {
 	}
 
 	/**
+	 * Set language for user (quietly)
+	 * 
+	 * - Sets the language without tracking it as a change to the user. 
+	 * - If language support is not installed this method silently does nothing.
+	 * 
+	 * @param Language|string|int $language Language object, name, or ID
+	 * @return self
+	 * @throws WireException if language support is installed and given an invalid/unknown language
+	 * @since 3.0.186
+	 * 
+	 */
+	public function setLanguage($language) {
+		
+		if(!is_object($language)) {
+			$languages = $this->wire()->languages;
+			// if multi-language support not available exit now
+			if(!$languages) return $this; 
+			// convert string or int to Language object
+			$language = $languages->get($language);
+			if(!is_object($language)) $language = null;
+		}
+		
+		if($language && ($language->className() === 'Language' || wireInstanceOf($language, 'Language'))) {
+			return $this->setQuietly('language', $language);
+		} else {
+			throw new WireException("Unknown language set to user $this->name");
+		}
+	}
+
+	/**
 	 * Get the value for a non-native User field
 	 * 
 	 * @param string $key
