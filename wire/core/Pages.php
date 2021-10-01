@@ -153,6 +153,18 @@ class Pages extends Wire {
 	 *
 	 */
 	protected $raw;
+	
+	/**
+	 * @var PagesRequest
+	 *
+	 */
+	protected $request;
+	
+	/**
+	 * @var PagesPathFinder
+	 *
+	 */
+	protected $pathFinder;
 
 	/**
 	 * Array of PagesType managers
@@ -1065,7 +1077,7 @@ class Pages extends Wire {
 	 * 
 	 * #pw-internal
 	 *
-	 * @param array|WireArray|string $_ids Array of Page IDs or CSV string of Page IDs.
+	 * @param array|WireArray|string|int $_ids Array of Page IDs, CSV string of Page IDs, or single page ID. 
 	 * @param Template|array|null $template Specify a template to make the load faster, because it won't have to attempt to join all possible fields... just those used by the template. 
 	 *	Optionally specify an $options array instead, see the method notes above. 
 	 * @param int|null $parent_id Specify a parent to make the load faster, as it reduces the possibility for full table scans. 
@@ -1077,6 +1089,24 @@ class Pages extends Wire {
 	public function getById($_ids, $template = null, $parent_id = null) {
 		return $this->loader->getById($_ids, $template, $parent_id);
 	}
+
+	/**
+	 * Get one page by ID
+	 * 
+	 * This is the same as `getById()` with the `getOne` option. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param int $id
+	 * @param array $options
+	 * @return Page|NullPage
+	 * @since 3.0.186
+	 * 
+	 */
+	public function getOneById($id, array $options = array()) {
+		$options['getOne'] = true;
+		return $this->loader->getById((int) $id, $options);
+	}	
 	
 	/**
 	 * Given an ID, return a path to a page, without loading the actual page
@@ -1167,6 +1197,89 @@ class Pages extends Wire {
 	 */
 	public function getByPath($path, $options = array()) {
 		return $this->loader->getByPath($path, $options);
+	}
+
+	/**
+	 * Get verbose array of info about a given page path
+	 * 
+	 * This method accepts a page path (not URL) with optional language segment
+	 * prefix, additional URL segments and/or pagination number. It translates
+	 * the given path to information about what page it matches, what type of 
+	 * request it would result in.
+	 *
+	 * If the `response` property in the return value is 301 or 302, then the
+	 * `redirect` property will be populated with a recommend redirect path. 
+	 * 
+	 * If given a `$path` argument of `/en/foo/bar/page3` on a site that has default
+	 * language homepage segment of `en`, a page living at `/foo/` that accepts 
+	 * URL segment `bar` and has pagination enabled, it will return the following:
+	 * ~~~~~
+	 * [
+	 *   'request' => '/en/foo/bar/page3', 
+	 *   'response' => 200, // one of 200, 301, 302, 404, 414
+	 *   'type' => 'ok', // response type name
+	 *   'errors' => [], // array of error messages indexed by error name
+	 *   'redirect` => '/redirect/path/', // suggested path to redirect to or blank
+	 *   'page' => [
+	 *      'id' => 123, // ID of the page that was found
+	 *      'parent_id' => 456,
+	 *      'templates_id' => 12,
+	 *      'status' => 1, 
+	 *      'name' => 'foo',
+	 *   ],
+	 *   'language' => [
+	 *      'name' => 'default', // name of language detected
+	 *      'segment' => 'en', // segment prefix in path (if any)
+	 *      'status' => 1, // language status where 1 is on, 0 is off
+	 *    ],
+	 *   'parts' => [ // all the parts of the path identified
+	 *     [
+	 *       'type' => 'language', 
+	 *       'value' => 'en',
+	 *       'language' => 'default' 
+	 *     ],
+	 *     [
+	 *       'type' => 'pageName',
+	 *       'value' => 'foo',
+	 *       'language' => 'default'
+	 *     ],
+	 *     [
+	 *       'type' => 'urlSegment',
+	 *       'value' => 'bar',
+	 *       'language' => ''
+	 *     ],
+	 *     [
+	 *       'type' => 'pageNum',
+	 *       'value' => 'page3',
+	 *       'language' => 'default'
+	 *     ],
+	 *   ],
+	 *   'urlSegments' => [ // URL segments identified in order
+	 *      'bar',
+	 *   ],
+	 *   'urlSegmentStr' => 'bar', // URL segment string
+	 *   'pageNum' => 3, // requested pagination number
+	 *   'pageNumPrefix' => 'page', // prefix used in pagination number
+	 *   'scheme' => 'https', // blank if no scheme required, https or http if one of those is required
+	 *   'method' => 'pagesRow', // method(s) that were used to find the page
+	 * ]
+	 * ~~~~~
+	 * 
+	 * @param string $path Page path optionally including URL segments, language prefix, pagination number
+	 * @param array $options
+	 *  - `useLanguages` (bool): Allow use of multi-language page names? (default=true)
+	 *     Requires LanguageSupportPageNames module installed.
+	 *  - `useShortcuts` (bool): Allow use of shortcut methods for optimization? (default=true)
+	 *     Recommend PagePaths module installed.
+	 *  - `useHistory` (bool): Allow use historical path names? (default=true)
+	 *     Requires PagePathHistory module installed.
+	 *  - `verbose` (bool): Return verbose array of information? (default=true)
+	 *     If false, some optional information will be omitted in return value. 
+	 * @return array
+	 * 
+	 */
+	public function getInfoByPath($path, array $options = array()) {
+		return $this->pathFinder()->get($path, $options);
 	}
 	
 	/**
@@ -1814,6 +1927,30 @@ class Pages extends Wire {
 	public function raw() {
 		if(!$this->raw) $this->raw = $this->wire(new PagesRaw($this));
 		return $this->raw;
+	}
+	
+	/**
+	 * @return PagesRequest
+	 * @since 3.0.186
+	 *
+	 * #pw-internal
+	 *
+	 */
+	public function request() {
+		if(!$this->request) $this->request = $this->wire(new PagesRequest($this));
+		return $this->request;
+	}
+
+	/**
+	 * @return PagesPathFinder
+	 * @since 3.0.186
+	 *
+	 * #pw-internal
+	 *
+	 */
+	public function pathFinder() {
+		if(!$this->pathFinder) $this->pathFinder = $this->wire(new PagesPathFinder($this));
+		return $this->pathFinder;
 	}
 
 	/**
