@@ -98,6 +98,12 @@ class Languages extends PagesType {
 	protected $editableCache = array();
 
 	/**
+	 * @var LanguageSupportPageNames|null|false
+	 * 
+	 */
+	protected $languageSupportPageNames = null;
+
+	/**
 	 * Construct
 	 *
 	 * @param ProcessWire $wire
@@ -107,7 +113,7 @@ class Languages extends PagesType {
 	 */
 	public function __construct(ProcessWire $wire, $templates = array(), $parents = array()) {
 		parent::__construct($wire, $templates, $parents);
-		$this->wire('database')->addHookAfter('unknownColumnError', $this, 'hookUnknownColumnError');
+		$this->wire()->database->addHookAfter('unknownColumnError', $this, 'hookUnknownColumnError');
 	}
 
 	/**
@@ -347,16 +353,16 @@ class Languages extends PagesType {
 		if(is_int($language)) {
 			$language = $this->get($language);
 		} else if(is_string($language)) {
-			$language = $this->get($this->wire('sanitizer')->pageNameUTF8($language));	
+			$language = $this->get($this->wire()->sanitizer->pageNameUTF8($language));	
 		} 
 		if(!$language instanceof Language || !$language->id) throw new WireException("Unknown language");
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
 		$this->savedLanguage2 = null;
 		if($user->language && $user->language->id) {
 			if($language->id == $user->language->id) return false; // no change necessary
 			$this->savedLanguage2 = $user->language;
 		}
-		$user->language = $language;
+		$user->setQuietly('language', $language);
 		return true;
 	}
 
@@ -386,10 +392,10 @@ class Languages extends PagesType {
 	 * 
 	 */
 	public function unsetLanguage() {
-		$user = $this->wire('user');
+		$user = $this->wire()->user;
 		if(!$this->savedLanguage2) return false;
 		if($user->language && $user->language->id == $this->savedLanguage2->id) return false;
-		$user->language = $this->savedLanguage2;
+		$user->setQuietly('language', $this->savedLanguage2);
 		return true;
 	}
 	
@@ -602,6 +608,24 @@ class Languages extends PagesType {
 		} else {
 			return parent::getParents();
 		}
+	}
+
+	/**
+	 * Get LanguageSupportPageNames module if installed, false if not
+	 * 
+	 * @return LanguageSupportPageNames|bool
+	 * 
+	 */
+	public function pageNames() {
+		if($this->languageSupportPageNames === null) {
+			$modules = $this->wire()->modules;
+			if($modules->isInstalled('LanguageSupportPageNames')) {
+				$this->languageSupportPageNames = $modules->getModule('LanguageSupportPageNames');
+			} else {
+				$this->languageSupportPageNames = false;
+			}
+		}
+		return $this->languageSupportPageNames;
 	}
 
 	/**
