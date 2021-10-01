@@ -887,8 +887,8 @@ class PagesLoader extends Wire {
 	 *
 	 * @param array|WireArray|string|int $_ids Array of page IDs, comma or pipe-separated string of IDs, or single page ID (string or int)
 	 *  or in 3.0.156+ array of associative arrays where each in format: [ 'id' => 123, 'templates_id' => 456 ]
-	 * @param Template|array|null $template Specify a template to make the load faster, because it won't have to attempt to join all possible fields... just those used by the template.
-	 *	Optionally specify an $options array instead, see the method notes above.
+	 * @param Template|array|string|int|null $template Specify a template to make the load faster, because it won't have to attempt to join all possible fields... 
+	 *  just those used by the template. Optionally specify an $options array instead, see the method notes above.
 	 * @param int|null $parent_id Specify a parent to make the load faster, as it reduces the possibility for full table scans.
 	 *	This argument is ignored when an options array is supplied for the $template.
 	 * @return PageArray|Page Returns Page only if the 'getOne' option is specified, otherwise always returns a PageArray.
@@ -1220,6 +1220,121 @@ class PagesLoader extends Wire {
 	}
 
 	/**
+	 * Find page(s) by name
+	 * 
+	 * This method is optimized just for finding pages by name and it does
+	 * not perform any filtering or access checking. 
+	 * 
+	 * @param string $name Match this page name
+	 * @param array $options
+	 *  - `parent' (int|Page): Match this parent ID (default=0)
+	 *  - `parentName` (string): Match this parent name (default='')
+	 *  - `getArray` (bool): Get PHP info array rather than Page|NullPage|PageArray? (default=false)
+	 *  - `getOne` (bool|int): Get just one match of Page or NullPage? (default=false)
+	 *     When true, if multiple pages match then NullPage will be returned. To instead return
+	 *     the first match, specify int `1` instead of boolean true.
+	 * @return array|NullPage|Page|PageArray
+	 * 
+	 */
+	public function findByName($name, array $options = array()) {
+		
+		$defaults = array(
+			'parent' => 0, 
+			'parentName' => '',
+			'getArray' => false,
+			'getOne' => false,
+		);
+		
+		$options = array_merge($defaults, $options);
+		$getArray = $options['getArray'];
+		$getOne = $options['getOne'];
+		
+		$blankRow = array(
+			'id' => 0,
+			'templates_id' => 0,
+			'parent_id' => 0,
+		);
+		
+		$joins = array();
+		
+		$selects = array(
+			'pages.id',
+			'pages.parent_id',
+			'pages.templates_id',
+		);
+		
+		$wheres = array(
+			'pages.name=:name',
+		);
+		
+		$binds = array(
+			'name' => $name,
+		);
+		
+		if($options['parent']) {
+			$wheres[] = 'pages.parent_id=:parentId';
+			$binds['parentId'] = (int) "$options[parent]";
+		}
+			
+		if($options['parentName']) {
+			$joins[] = 'JOIN pages AS parent ON pages.parent_id=parent.id AND parent.name=:parentName';
+			$binds['parentName'] = $options['parentName'];
+		}
+		
+		$sql = 
+			'SELECT ' . implode(', ', $selects) . ' ' . 
+			'FROM pages ' . implode(' ', $joins) . ' ' . 
+			'WHERE ' . implode(' AND ', $wheres) . ' ';
+		
+		if($getOne) $sql .= 'LIMIT 2';
+		
+		$query = $this->wire()->database->prepare($sql);
+		foreach($binds as $bindKey => $bindValue) {
+			$query->bindValue(":$bindKey", $bindValue);
+		}
+		
+		$query->execute();
+		$rowCount = (int) $query->rowCount();
+		$rows = array();
+		
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$rows[] = $row;
+		}
+		
+		$query->closeCursor();
+		
+		if($getOne === 1 && $rowCount > 1) {
+			// multiple rows found but only first one requested
+			$rowCount = 1;
+		}
+	
+		if($rowCount === 0) {
+			// no rows matched
+			if($getOne) {
+				return $getArray ? $blankRow : $this->pages->newNullPage();
+			} else {
+				return $getArray ? array() : $this->pages->newPageArray();
+			}
+		} else if($rowCount === 1) {
+			// one row matched
+			if($getOne) {
+				return $getArray ? reset($rows) : $this->pages->getByIDs($rows, array('getOne' => true));
+			} else {
+				return $getArray ? $rows : $this->pages->getByIDs($rows);
+			}
+		} else {
+			// multiple rows matched
+			if($getOne) {
+				// return blank (multiple not allowed here)
+				return $getArray ? $blankRow : $this->pages->newNullPage();
+			} else {
+				// return all
+				return $getArray ? $rows : $this->pages->getByIDs($rows);
+			}
+		}
+	}
+
+	/**
 	 * Given an ID return a path to a page, without loading the actual page
 	 *
 	 * Please note
@@ -1502,20 +1617,24 @@ class PagesLoader extends Wire {
 				$n++;
 				$alias = "_pages$n";
 				$part = array_pop($pathParts);
-				$wheres = array();
+				$whereORs = array();
 				foreach($langKeys as $bindKey => $colName) {
 					$bindKey .= "_$n";
-					$wheres[] = "$alias.$colName=$bindKey";
+					$whereORs[] = "$alias.$colName=$bindKey";
 					$binds[$bindKey] = $part;
 				}
-				$joins[] = "\nJOIN pages AS $alias ON $lastAlias.parent_id=$alias.id AND (" . implode(' OR ', $wheres) . ')';
+				$where = '(' . implode(' OR ', $whereORs) . ')';
+				$joins[] = "\nJOIN pages AS $alias ON $lastAlias.parent_id=$alias.id AND $where";
+				//$wheres[] = $where; // appears to be redundant as where only needed in join
 				$lastAlias = $alias;
 			}
 
+			$whereORs = array();
 			foreach($langKeys as $bindKey => $colName) {
-				$wheres[] = "pages.$colName=$bindKey";
+				$whereORs[] = "pages.$colName=$bindKey";
 				$binds[$bindKey] = $lastPart;
 			}
+			$wheres[] = '(' . implode(' OR ', $whereORs) . ')';
 
 			$sql =
 				'SELECT pages.id, pages.templates_id, pages.parent_id '  .
