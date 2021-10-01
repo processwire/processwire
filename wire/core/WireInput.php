@@ -673,8 +673,10 @@ class WireInput extends Wire {
 	 *
 	 */
 	public function setUrlSegment($num, $value) {
+		$config = $this->wire()->config;
+		$sanitizer = $this->wire()->sanitizer;
 		$num = (int) $num; 
-		$maxLength = $this->wire('config')->maxUrlSegmentLength;
+		$maxLength = $config->maxUrlSegmentLength;
 		if($maxLength < 1) $maxLength = 128;
 		if(is_null($value)) {
 			// unset
@@ -687,14 +689,31 @@ class WireInput extends Wire {
 			$this->urlSegments = $urlSegments;
 		} else {
 			// sanitize to standard PW name format
-			$urlSegment = $this->wire('sanitizer')->name($value, false, $maxLength);
+			$urlSegment = $sanitizer->name($value, false, $maxLength);
 			// if UTF-8 mode and value changed during name sanitization, try pageNameUTF8 instead
-			if($urlSegment !== $value && $this->wire('config')->pageNameCharset == 'UTF8') {
-				$urlSegment = $this->wire('sanitizer')->pageNameUTF8($value, $maxLength);
+			if($urlSegment !== $value && $config->pageNameCharset == 'UTF8') {
+				$urlSegment = $sanitizer->pageNameUTF8($value, $maxLength);
 			}
 			$this->urlSegments[$num] = $urlSegment;
 		}
-		
+	}
+
+	/**
+	 * Set/replace all URL segments
+	 *
+	 * #pw-group-URL-segments
+	 * #pw-internal
+	 *
+	 * @param array $urlSegments Regular/non-indexed PHP array where first element is first URL segment
+	 * @since 3.0.186
+	 *
+	 */
+	public function setUrlSegments(array $urlSegments) {
+		$n = 1;
+		foreach($urlSegments as $urlSegment) {
+			$this->setUrlSegment($n, $urlSegment);
+			$n++;
+		}
 	}
 	
 	/**
