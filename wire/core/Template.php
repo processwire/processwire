@@ -852,6 +852,42 @@ class Template extends WireData implements Saveable, Exportable {
 		
 		return $value; 
 	}
+	
+	/**
+	 * Is the given URL segment string allowed according to this template’s settings?
+	 * 
+	 * #pw-group-URLs
+	 *
+	 * @param string $urlSegmentStr
+	 * @return bool
+	 * @since 3.0.186
+	 *
+	 */
+	public function isValidUrlSegmentStr($urlSegmentStr) {
+
+		$rules = $this->urlSegments();
+		$valid = false;
+
+		if(is_array($rules)) {
+			// only specific URL segments are allowed
+			$urlSegmentStr = trim($urlSegmentStr, '/');
+			foreach($rules as $rule) {
+				if(stripos($rule, 'regex:') === 0) {
+					$regex = '{' . trim(substr($rule, 6)) . '}';
+					$valid = preg_match($regex, $urlSegmentStr);
+				} else if($urlSegmentStr === $rule) {
+					$valid = true;
+				}
+				if($valid) break;
+			}
+		} else if($rules > 0 || $this->name === 'admin') {
+			// all URL segments are allowed
+			$valid = true;
+		}
+
+		return $valid;
+	}
+
 
 	/**
 	 * Set the flags for this Template
