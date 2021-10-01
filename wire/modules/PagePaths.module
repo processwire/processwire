@@ -6,23 +6,21 @@
  * Keeps a cache of page paths to improve performance and 
  * make paths more queryable by selectors.
  *
- * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
- * 
  *
  */
 
-class PagePaths extends WireData implements Module {
+class PagePaths extends WireData implements Module, ConfigurableModule {
 
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Paths', 
-			'version' => 1, 
-			'summary' => "Enables page paths/urls to be queryable by selectors. Also offers potential for improved load performance. Builds an index at install (may take time on a large site). Currently supports only single languages sites.",
+			'version' => 2, 
+			'summary' => "Enables page paths/urls to be queryable by selectors. Also offers potential for improved load performance. Builds an index at install (may take time on a large site).",
 			'singular' => true, 
 			'autoload' => true, 
-			);
+		);
 	}
 
 	/**
@@ -42,51 +40,24 @@ class PagePaths extends WireData implements Module {
 	 *
 	 */
 	public function init() {
-		$this->pages->addHook('moved', $this, 'hookPageMoved'); 
-		$this->pages->addHook('renamed', $this, 'hookPageMoved'); 
-		$this->pages->addHook('added', $this, 'hookPageMoved'); 
-		$this->pages->addHook('deleted', $this, 'hookPageDeleted');
+		$pages = $this->wire()->pages;
+		$pages->addHook('moved', $this, 'hookPageMoved'); 
+		$pages->addHook('renamed', $this, 'hookPageMoved'); 
+		$pages->addHook('added', $this, 'hookPageMoved'); 
+		$pages->addHook('deleted', $this, 'hookPageDeleted');
+	}
+
+	/**
+	 * API ready
+	 * 
+	 */
+	public function ready() {
+		if($this->wire()->languages) {
+			$this->addHookBefore('LanguageSupportFields::languageDeleted', $this, 'hookLanguageDeleted');
+		}
 	}
 	
-	public function ready() {
-		$page = $this->wire('page');
-		if($page->template == 'admin' && $page->name == 'module') {
-			$this->wire('modules')->addHookAfter('refresh', $this, 'hookModulesRefresh');
-		}
-	}
-
-	/**
-	 * Returns Languages object or false if not available
-	 *
-	 * @return Languages|null
-	 *
-	 */
-	public function getLanguages() {
-		if(!is_null($this->languages)) return $this->languages;
-		$languages = $this->wire('languages');
-		if(!$languages) return null;
-		if(!$this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
-			$this->languages = false;
-		} else {
-			$this->languages = $this->wire('languages');
-		}
-		return $this->languages;
-	}
-
-	/**
-	 * Hook to ProcessModule::refresh
-	 * 
-	 * @param HookEvent $event
-	 * 
-	 */
-	public function hookModulesRefresh(HookEvent $event) {
-		if($event) {} // ignore
-		if($this->getLanguages()) {
-			$this->wire('session')->warning(
-				$this->_('Please uninstall the Core > PagePaths module (it is not compatible with LanguageSupportPageNames)')
-			);
-		}
-	}
+	/*** HOOKS ******************************************************************************************/
 
 	/**
 	 * Hook called when a page is moved or renamed
@@ -96,7 +67,8 @@ class PagePaths extends WireData implements Module {
 	 */
 	public function hookPageMoved(HookEvent $event) {
 		$page = $event->arguments[0];
-		$this->updatePagePath($page->id, $page->path); 
+		// $this->updatePagePath($page->id, $page->path);
+		$this->updatePagePaths($page); 
 	}
 
 
@@ -107,31 +79,102 @@ class PagePaths extends WireData implements Module {
 	 *
 	 */
 	public function hookPageDeleted(HookEvent $event) {
+		$table = self::dbTableName;
 		$page = $event->arguments[0];
-		$database = $this->wire('database');
-		$query = $database->prepare("DELETE FROM " . self::dbTableName . " WHERE pages_id=:pages_id"); 
+		$database = $this->wire()->database;
+		$query = $database->prepare("DELETE FROM $table WHERE pages_id=:pages_id"); 
 		$query->bindValue(":pages_id", $page->id, \PDO::PARAM_INT);
 		$query->execute();
 	}
 
 	/**
+	 * When a language is deleted
+	 * 
+	 * @param HookEvent $event
+	 * 
+	 */
+	public function hookLanguageDeleted(HookEvent $event) {
+		$languages = $this->getLanguages();
+		if(!$languages) return;
+		$language = $event->arguments[0]; /** @var Language $language */
+		if(!$language->id || $language->isDefault()) return;
+		$table = self::dbTableName;
+		$database = $this->wire()->database;
+		$sql = "DELETE FROM $table WHERE language_id=:language_id";
+		$query = $database->prepare($sql);
+		$query->bindValue(':language_id', $language->id, \PDO::PARAM_INT);
+		$query->execute();
+	}
+	
+	/*** PUBLIC API *************************************************************************************/
+
+	/**
 	 * Given a page ID, return the page path, NULL if not found, or boolean false if cannot be determined.
 	 *
-	 * @param int $id
-	 * @return string|null|false
+	 * @param int $pageId Page ID
+	 * @param int $languageId Optionally specify language ID for path or 0 for default language
+	 * @return string|null Returns path or null if not found
 	 *
 	 */
-	public function getPath($id) {
-		if($this->getLanguages()) return false; // we do not support multi-language yet for this module
+	public function getPath($pageId, $languageId = 0) {
+		
 		$table = self::dbTableName;
-		$database = $this->wire('database');
-		$query = $database->prepare("SELECT path FROM `$table` WHERE pages_id=:pages_id"); 
-		$query->bindValue(":pages_id", $id, \PDO::PARAM_INT);
+		$database = $this->wire()->database;
+		$sanitizer = $this->wire()->sanitizer;
+		
+		$languageId = $this->languageId($languageId);
+		
+		$sql = "SELECT path FROM `$table` WHERE pages_id=:pages_id AND language_id=:language_id";
+		$query = $database->prepare($sql); 
+		$query->bindValue(":pages_id", $pageId, \PDO::PARAM_INT);
+		$query->bindValue(":language_id", $languageId, \PDO::PARAM_INT);
+		
 		$query->execute();
-		if(!$query->rowCount()) return null;
-		$path = $query->fetchColumn();
-		$path = strlen($path) ? $this->wire('sanitizer')->pagePathName("/$path/", Sanitizer::toUTF8) : "/";
+		
+		if($query->rowCount()) {
+			$path = $query->fetchColumn();
+			$path = strlen($path) ? $sanitizer->pagePathName("/$path/", Sanitizer::toUTF8) : '/';
+		} else {
+			$path = null;
+		}
+		
+		$query->closeCursor();
+		
 		return $path;
+	}
+	
+	/**
+	 * Given a page ID, return all paths found for page 
+	 * 
+	 * Return value is indexed by language ID (and index 0 for default language)
+	 *
+	 * @param int $pageId Page ID
+	 * @return array
+	 *
+	 */
+	public function getPaths($pageId) {
+
+		$table = self::dbTableName;
+		$database = $this->wire()->database;
+		$sanitizer = $this->wire()->sanitizer;
+		$paths = array();
+
+		$sql = "SELECT path, language_id FROM `$table` WHERE pages_id=:pages_id ";
+
+		$query = $database->prepare($sql);
+		$query->bindValue(":pages_id", $pageId, \PDO::PARAM_INT);
+		$query->execute();
+
+		while($row = $query->fetch(\PDO::FETCH_NUM)) {
+			$path = $row[0];
+			$languageId = (int) $row[1];
+			$path = strlen($path) ? $sanitizer->pagePathName("/$path/", Sanitizer::toUTF8) : '/';
+			$paths[$languageId] = $path; 
+		}
+
+		$query->closeCursor();
+
+		return $paths;
 	}
 
 	/**
@@ -142,16 +185,153 @@ class PagePaths extends WireData implements Module {
 	 *
 	 */
 	public function getID($path) {
+		$id = $this->getPageId($path);
+		return $id ? $id : null;
+	}
+
+	/**
+	 * Given a page path, return the page ID or 0 if not found.
+	 *
+	 * @param string|array $path
+	 * @return int|null
+	 * @since 3.0.186
+	 *
+	 */
+	public function getPageID($path) {
+		$a = $this->getPageAndLanguageId($path);
+		return $a[0];
+	}
+
+	/**
+	 * Given a page path return array of [ page_id, language_id ]
+	 * 
+	 * If not found, returned page_id and language_id will be 0. 
+	 * 
+	 * @param string|array $path
+	 * @return array
+	 * @since 3.0.186
+	 * 
+	 */
+	public function getPageAndLanguageID($path) {
+		
 		$table = self::dbTableName;
-		$database = $this->wire('database');
-		$path = $this->wire('sanitizer')->pagePathName($path, Sanitizer::toAscii);
-		$path = trim($path, '/');
-		$query = $database->prepare("SELECT pages_id FROM $table WHERE path=:path");
-		$query->bindValue(":path", $path); 
+		$database = $this->wire()->database;
+		$paths = is_array($path) ? array_values($path) : array($path);
+		$bindValues = array();
+		$wheres = array();
+		
+		foreach($paths as $n => $path) {
+			$path = $this->wire()->sanitizer->pagePathName($path, Sanitizer::toAscii);
+			$path = trim($path, '/');
+			$wheres[] = "path=:path$n";
+			$bindValues["path$n"] = $path;
+		}
+
+		$where = implode(' OR ', $wheres);
+		$sql = "SELECT pages_id, language_id FROM $table WHERE $where LIMIT 1";
+		$query = $database->prepare($sql);
+		
+		foreach($bindValues as $bindKey => $bindValue) {
+			$query->bindValue(":$bindKey", $bindValue);
+		}
+		
 		$query->execute();
-		if(!$query->rowCount()) return null;
-		$id = $query->fetchColumn(); 
-		return (int) $id;
+		
+		if($query->rowCount()) {
+			$row = $query->fetch(\PDO::FETCH_NUM);
+		} else {
+			$row = array(0, 0);
+		}
+		
+		$query->closeCursor();
+		
+		return array((int) $row[0], (int) $row[1]); 
+	}
+	
+	/**
+	 * Get page information about a given path
+	 * 
+	 * Returned array includes the following:
+	 * 
+	 *  - `id` (int): ID of page for given path
+	 *  - `language_id` (int): ID of language path was for, or 0 for default language
+	 *  - `templates_id` (int): ID of template used by page
+	 *  - `parent_id` (int): ID of parent page
+	 *  - `status` (int): Status value for page ($page->status)
+	 *  - `path` (string): Path that was found
+	 *
+	 * @param string $path
+	 * @return array|bool Returns info array on success, boolean false if not found
+	 * @since 3.0.186
+	 *
+	 */
+	public function getPageInfo($path) {
+
+		$sanitizer = $this->wire()->sanitizer;
+		$database = $this->wire()->database;
+		$config = $this->wire()->config;
+		$table = self::dbTableName;
+		$useUTF8 = $config->pageNameCharset === 'UTF8';
+		
+		if($useUTF8) {
+			$path = $sanitizer->pagePathName($path, Sanitizer::toAscii);
+		}
+		
+		$columns = array(
+			'pages_paths.path AS path', 
+			'pages_paths.pages_id AS id', 
+			'pages_paths.language_id AS language_id',
+			'pages.templates_id AS templates_id',
+			'pages.parent_id AS parent_id', 
+			'pages.status AS status'
+		);
+		
+		$cols = implode(', ', $columns);
+
+		$sql =
+			"SELECT $cols FROM $table " .
+			"JOIN pages ON pages_paths.pages_id=pages.id " .
+			"WHERE pages_paths.path=:path";
+
+		$query = $database->prepare($sql);
+		$query->bindValue(':path', trim($path, '/'));
+		$query->execute();
+
+		$row = $query->fetch(\PDO::FETCH_ASSOC);
+		$query->closeCursor();
+		
+		if(!$row) return false;
+	
+		foreach($row as $key => $value) {
+			if($key === 'id' || $key === 'status' || strpos($key, '_id')) {
+				$row[$key] = (int) $value;
+			}
+		}
+
+		if($useUTF8 && $row) {
+			$row['path'] = $sanitizer->pagePathName($row['path'], Sanitizer::toUTF8);
+		}
+				
+		return $row;
+	}
+	
+	/**
+	 * Rebuild all paths table starting with $page and descending to its children
+	 *
+	 * @param Page|null $page Page to start rebuild from or omit to rebuild all
+	 * @return int Number of paths added
+	 * @since 3.0.186
+	 *
+	 */
+	public function rebuild(Page $page = null) {
+		set_time_limit(3600);
+		$table = self::dbTableName;
+		if($page === null) {
+			// rebuild all
+			$this->wire()->database->exec("DELETE FROM $table");
+			$page = $this->wire()->pages->get('/');
+		}
+		return $this->updatePagePaths($page, true);
 	}
 
 	/**
@@ -165,88 +345,266 @@ class PagePaths extends WireData implements Module {
 	public function getMatchQuery(DatabaseQuerySelect $query, Selector $selector) {
 
 		static $n = 0;
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$database = $this->wire()->database;
+		
 		$n++;
 		$table = self::dbTableName;
 		$alias = "$table$n";
 		$value = $selector->value;
+		$operator = $selector->operator;
 		// $joinType = $selector->not ? 'leftjoin' : 'join';
 
 		$query->join("$table AS $alias ON pages.id=$alias.pages_id"); 
 
-		if(in_array($selector->operator, array('=', '!=', '<>', '>', '<', '>=', '<='))) {
+		if(in_array($operator, array('=', '!=', '<>', '>', '<', '>=', '<='))) {
 			if(!is_array($value)) $value = array($value);
 			$where = '';
 			foreach($value as $path) {
 				if($where) $where .= $selector->not ? " AND " : " OR ";
-				$path = $this->wire('sanitizer')->pagePathName($path, Sanitizer::toAscii);
-				$path = $this->wire('database')->escapeStr(trim($path, '/')); 
-				$where .= ($selector->not ? "NOT " : "") . "$alias.path{$selector->operator}'$path'";
+				$path = $sanitizer->pagePathName($path, Sanitizer::toAscii);
+				$path = $database->escapeStr(trim($path, '/')); 
+				$where .= ($selector->not ? "NOT " : "") . "$alias.path{$operator}'$path'";
 			}
 			$query->where("($where)");
 
 		} else {
 			if(is_array($value)) {
-				$error = "Multi value using '|' is not supported with path/url and '$selector->operator' operator";
+				$error = "Multi value using '|' is not supported with path/url and '$operator' operator";
 				throw new PageFinderSyntaxException($error);
 			}
 			if($selector->not) {
-				$error = "NOT mode isn't yet supported with path/url and '$selector->operator' operator";
+				$error = "NOT mode isn't yet supported with path/url and '$operator' operator";
 				throw new PageFinderSyntaxException($error);
 			}
 			/** @var DatabaseQuerySelectFulltext $ft */
 			$ft = $this->wire(new DatabaseQuerySelectFulltext($query));
-			$ft->match($alias, 'path', $selector->operator, trim($value, '/'));
+			$ft->match($alias, 'path', $operator, trim($value, '/'));
 		}
+	}
+	
+	/*** PROTECTED API **********************************************************************************/
+	
+	/**
+	 * Updates path for page and all children
+	 *
+	 * @param Page|int $page
+	 * @param bool|null $hasChildren Does this page have children? Specify false if known not to have children, true otherwise.
+	 * @param array $paths Paths indexed by language ID, use index 0 for default language. 
+	 * @return int Number of paths updated
+	 * @since 3.0.186
+	 *
+	 */
+	protected function updatePagePaths($page, $hasChildren = null, array $paths = array()) {
+		
+		static $level = 0;
+
+		$database = $this->wire()->database;
+		$sanitizer = $this->wire()->sanitizer;
+		$languages = $this->getLanguages();
+		$table = self::dbTableName;
+		$numUpdated = 1;
+		$homeDefaultName = '';
+		$level++;
+		
+		if($hasChildren === null) {
+			$hasChildren = $page instanceof Page ? $page->numChildren > 0 : true;
+		}
+
+		if(empty($paths)) {
+			// determine the paths
+			if(!is_object($page) || !$page instanceof Page) {
+				throw new WireException('Page object required on first call to updatePagePaths');
+			}
+			$pageId = $page->id;
+			if($languages) {
+				// multi-language
+				foreach($languages as $language) {
+					$languageId = $language->isDefault() ? 0 : $language->id;
+					$paths[$languageId] = $page->localPath($language);
+					if($pageId === 1 && !$languageId) $homeDefaultName = $page->name;
+				}
+			} else {
+				// single language
+				$paths[0] = $page->path();
+			}
+		} else {
+			// $paths already populated
+			$pageId = (int) "$page";
+		}
+
+		// sanitize and prepare paths for DB storage
+		foreach($paths as $languageId => $path) {
+			$path = $sanitizer->pagePathName($path, Sanitizer::toAscii);
+			$paths[$languageId] = trim($path, '/');
+		}
+		
+		$sql = 	
+			"INSERT INTO $table (pages_id, language_id, path) " . 
+			"VALUES(:pages_id, :language_id, :path) " .
+			"ON DUPLICATE KEY UPDATE " . 
+			"pages_id=VALUES(pages_id), language_id=VALUES(language_id), path=VALUES(path)";
+
+		$query = $database->prepare($sql);
+		$query->bindValue(":pages_id", $pageId, \PDO::PARAM_INT);
+		
+		foreach($paths as $languageId => $path) {
+			$query->bindValue(":language_id", $languageId, \PDO::PARAM_INT);
+			$query->bindValue(":path", $path);
+			$query->execute();
+			$numUpdated += $query->rowCount();
+		}
+
+		if($hasChildren) {
+			if($homeDefaultName && $homeDefaultName !== 'home' && empty($paths[0])) {
+				// for when homepage has a name (lang segment) but it isn’t used on actual homepage
+				// but is used on children
+				$paths[0] = $homeDefaultName;
+			}
+			$numUpdated += $this->updatePagePathsChildren($pageId, $paths);
+		}
+		
+		if($level === 1 && $numUpdated > 0) {
+			$this->message(
+				sprintf($this->_n('Updated %d path', 'Updated %d paths', $numUpdated), $numUpdated),
+				Notice::admin
+			);
+		}
+		
+		$level--;
+
+		return $numUpdated;
 	}
 
 	/**
-	 * Updates path for $page and all children
-	 *
-	 * @param int $id 
-	 * @param string $path
-	 * @param bool $hasChildren Omit if true or unknown
-	 * @param int $level Recursion level, you should omit this param
-	 * @return int Number of paths updated
+	 * Companion to updatePagePaths method to handle children 
+	 * 
+	 * @param int $pageId
+	 * @param array $paths Paths indexed by language ID, index 0 for default language
+	 * @return int
+	 * @since 3.0.186
 	 *
 	 */
-	protected function updatePagePath($id, $path, $hasChildren = true, $level = 0) {
-
-		$table = self::dbTableName;
-		$id = (int) $id;
-		$database = $this->wire('database');
-		$path = $this->wire('sanitizer')->pagePathName($path, Sanitizer::toAscii);
-		$path = trim($path, '/');
-		$_path = $database->escapeStr($path);
-		$numUpdated = 1;
-
-		$sql = 	"INSERT INTO $table (pages_id, path) VALUES(:id, :path) " . 
-				"ON DUPLICATE KEY UPDATE pages_id=VALUES(pages_id), path=VALUES(path)"; 
+	protected function updatePagePathsChildren($pageId, array $paths) {
 	
-		$query = $database->prepare($sql);
-		$query->bindValue(":id", $id, \PDO::PARAM_INT);	
-		$query->bindValue(":path", $_path); 
-		$query->execute();
-
-		if($hasChildren) {
-
-			$sql = 	"SELECT pages.id, pages.name, COUNT(children.id) FROM pages " . 
-					"LEFT JOIN pages AS children ON children.id=pages.parent_id " . 
-					"WHERE pages.parent_id=:id " . 
-					"GROUP BY pages.id ";
+		$database = $this->wire()->database;
+		$languages = $this->getLanguages();
+		$nameColumns = array('pages.name AS name');
+		$numUpdated = 0;
 		
-			$query = $database->prepare($sql);
-			$query->bindValue(":id", $id, \PDO::PARAM_INT);
-			$query->execute();	
-			
-			while($row = $query->fetch(\PDO::FETCH_NUM)) {
-				list($id, $name, $numChildren) = $row;
-				$numUpdated += $this->updatePagePath($id, "$path/$name", $numChildren > 0, $level+1);
+		if($languages) {
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				$nameColumns[] = "pages.name$language->id AS name$language->id";
 			}
 		}
+		
+		$sql =
+			"SELECT pages.id AS id, " . implode(', ', $nameColumns) . ", " .
+			"COUNT(children.id) AS kids " .
+			"FROM pages " .
+			"LEFT JOIN pages AS children ON children.id=pages.parent_id " .
+			"WHERE pages.parent_id=:id " .
+			"GROUP BY pages.id ";
 
-		if(!$level) $this->message(sprintf($this->_n('Updated %d path', 'Updated %d paths', $numUpdated), $numUpdated)); 
+		$query = $database->prepare($sql);
+		$query->bindValue(":id", $pageId, \PDO::PARAM_INT);
+		$query->execute();
+		$rows = array();
 
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$rows[] = $row;
+		}
+
+		$query->closeCursor();
+
+		foreach($rows as $row) {
+			$childPaths = array();
+			foreach($paths as $languageId => $path) {
+				$key = $languageId ? "name$languageId" : "name";
+				$name = !empty($row[$key]) ? $row[$key] : $row["name"];
+				$childPaths[$languageId] = "$path/$name";
+			}
+			$numUpdated += $this->updatePagePaths((int) $row['id'], $row['kids'] > 0, $childPaths);
+		}
+		
 		return $numUpdated;
+	}
+	
+	/*** LANGUAGES **********************************************************************************/
+	
+	/**
+	 * Returns Languages object or false if not available
+	 *
+	 * @return Languages|null|false
+	 *
+	 */
+	public function getLanguages() {
+		if($this->languages !== null) return $this->languages;
+		$languages = $this->wire()->languages;
+		if(!$languages) {
+			$this->languages = false;
+		} else if($this->wire()->modules->isInstalled('LanguageSupportPageNames')) {
+			$this->languages = $languages;
+		} else {
+			$this->languages = false;
+		}
+		return $this->languages;
+	}
+
+
+	/**
+	 * @param Language|int|string $language
+	 * @return int Returns language ID or 0 for default language
+	 * @since 3.0.186
+	 * 
+	 */
+	protected function languageId($language) {
+		$language = $this->language($language);	
+		if(!$language->id || $language->isDefault()) return 0;
+		return $language->id;
+	}
+
+	/**
+	 * @param Language|int|string $language
+	 * @return Language|NullPage
+	 * @since 3.0.186
+	 * 
+	 */
+	protected function language($language) {
+		$languages = $this->getLanguages();
+		if(!$languages) return new NullPage();
+		if(is_object($language)) return ($language instanceof Language ? $language : new NullPage());
+		return $languages->get($language);
+	}
+	
+	/*** MODULE MAINT *******************************************************************************/
+
+	/**
+	 * Upgrade module
+	 * 
+	 * @param $fromVersion
+	 * @param $toVersion
+	 * @since 3.0.186
+	 * 
+	 */
+	public function ___upgrade($fromVersion, $toVersion) {
+		if($fromVersion && $toVersion) {} // ignore
+		$table = self::dbTableName;
+		$database = $this->wire()->database;
+		if(!$database->columnExists($table, 'language_id')) {
+			$sqls = array(
+				"ALTER TABLE $table ADD language_id INT UNSIGNED NOT NULL DEFAULT 0 AFTER pages_id",
+				"ALTER TABLE $table DROP PRIMARY KEY, ADD PRIMARY KEY(pages_id, language_id)",
+				"ALTER TABLE $table ADD INDEX language_id (language_id)",
+				"ALTER TABLE $table DROP INDEX path, ADD UNIQUE KEY path(path(500), language_id)",
+			);
+			foreach($sqls as $sql) {
+				$database->exec($sql);
+			}
+			$this->message("Added language_id column to table $table", Notice::admin);
+		}
 	}
 
 	/**
@@ -256,23 +614,24 @@ class PagePaths extends WireData implements Module {
 	public function ___install() {
 		
 		$table = self::dbTableName;
-		$database = $this->wire('database');
-		$engine = $this->wire('config')->dbEngine;
-		$charset = $this->wire('config')->dbCharset;
+		$database = $this->wire()->database;
+		$engine = $this->wire()->config->dbEngine;
+		$charset = $this->wire()->config->dbCharset;
 
 		$database->query("DROP TABLE IF EXISTS $table"); 
 
-		$sql = 	"CREATE TABLE $table (" . 
-				"pages_id int(10) unsigned NOT NULL, " . 
-				"path text CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL, " . 
-				"PRIMARY KEY pages_id (pages_id), " .
-				"UNIQUE KEY path (path(500)), " . 
-				"FULLTEXT KEY path_fulltext (path)" . 
-				") ENGINE=$engine DEFAULT CHARSET=$charset";
+		$sql = 	
+			"CREATE TABLE $table (" .
+				"pages_id int(10) unsigned NOT NULL, " .
+				"language_id int unsigned NOT NULL DEFAULT 0, " . 
+				"path text CHARACTER SET ascii COLLATE ascii_general_ci NOT NULL, " .
+				"PRIMARY KEY (pages_id, language_id), " .
+				"UNIQUE KEY path (path(500), language_id), " .
+				"INDEX language_id (language_id), " . 
+				"FULLTEXT KEY path_fulltext (path)" .
+			") ENGINE=$engine DEFAULT CHARSET=$charset";
 
 		$database->query($sql); 
-		$numUpdated = $this->updatePagePath(1, '/');
-		if($numUpdated) {} // ignore
 	}
 
 	/**
@@ -280,7 +639,43 @@ class PagePaths extends WireData implements Module {
 	 *
 	 */
 	public function ___uninstall() {
-		$this->wire('database')->query("DROP TABLE " . self::dbTableName); 
+		$this->wire()->database->query("DROP TABLE " . self::dbTableName); 
+	}
+
+	/**
+	 * Module config
+	 * 
+	 * @param InputfieldWrapper $inputfields
+	 * 
+	 */
+	public function getModuleConfigInputfields(InputfieldWrapper $inputfields) {
+	
+		$session = $this->wire()->session;
+		$input = $this->wire()->input;
+		
+		if($input->requestMethod('POST')) {
+			if($input->post('_rebuild')) $session->setFor($this, 'rebuild', true);
+			$numPages = 0;
+			$eta = 0;
+		} else {
+			$numPages = $this->wire()->pages->count("id>0, include=all");
+			$eta = ($numPages / 1000) * 1.1;
+			if($session->getFor($this, 'rebuild')) {
+				$session->removeFor($this, 'rebuild');
+				$timer = Debug::timer();
+				$this->rebuild();
+				$elapsed = Debug::timer($timer);
+				$this->message(sprintf($this->_('Completed rebuild in %d seconds'), $elapsed), Notice::noGroup);
+			}
+		}
+		
+		
+		$f = $inputfields->InputfieldCheckbox;
+		$f->attr('name', '_rebuild');
+		$f->label = sprintf($this->_('Rebuild page paths index for %d pages'), $numPages); 
+		$f->label2 = $this->_('Rebuild now');
+		$f->description = sprintf($this->_('Estimated rebuild time is roughly %01.1f seconds.'), $eta);
+		$inputfields->add($f);
 	}
 
 }
