@@ -2343,7 +2343,7 @@ class PageFinder extends Wire {
 		$pages = $this->pages;
 		$database = $this->database;
 		$user = $this->wire()->user; 
-		$language = $this->languages && $user->language ? $user->language : null;
+		$language = $this->languages && $user && $user->language ? $user->language : null;
 	
 		// support `sort=a|b|c` in correct order (because orderby prepend used below)
 		if(count($values) > 1) $values = array_reverse($values); 

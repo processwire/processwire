@@ -1124,9 +1124,10 @@ class Sanitizer extends Wire {
 		if($charset === 'UTF8' && $beautify === self::okUTF8) {
 			$value = $this->pagePathNameUTF8($value);
 		} else {
-			if(in_array($beautify, array(self::okUTF8, self::toUTF8, self::toAscii))) $beautify = false;
+			$b = $beautify;
+			if(in_array($beautify, array(self::okUTF8, self::toUTF8, self::toAscii))) $b = false;
 			// regular ascii path
-			$value = $this->name($value, $beautify, $maxLength, '-', $options);
+			$value = $this->name($value, $b, $maxLength, '-', $options);
 		}
 		
 		// disallow double slashes
@@ -1137,7 +1138,7 @@ class Sanitizer extends Wire {
 		
 		// disallow names that start with a period
 		while(strpos($value, '/.') !== false) $value = str_replace('/.', '/', $value);
-	
+
 		// ascii to UTF8 conversion, when requested
 		if($charset === 'UTF8' && $beautify === self::toUTF8) {
 			if(strpos($value, 'xn-') === false) return $value;

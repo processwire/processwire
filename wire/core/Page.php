@@ -3826,7 +3826,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * 
 	 */
 	public function status($value = false, $status = null) {
-		if($value !== true) return $this->setStatus($value);
+		if($value !== true && $value !== false) return $this->setStatus($value);
 		if($status === null) $status = $this->status; 
 		if($value === false) return $status; 
 		return PageProperties::statusToNames($status);
@@ -4021,7 +4021,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 */
 	public function secureFiles() {
 		if($this->wire()->config->pagefileSecure && !$this->isPublic()) return true;
-		$template = $this->template();
+		$template = $this->getAccessTemplate();
 		if(!$template) return null;
 		$value = $template->pagefileSecure;
 		if($value < 1) return false; // 0: disabled
