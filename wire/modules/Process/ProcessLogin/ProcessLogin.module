@@ -537,6 +537,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 	public function ___login($name, $pass) {
 		
 		$session = $this->wire()->session;
+		$input = $this->wire()->input;
 		
 		if($name && $pass) {
 			$loginUser = $session->login($name, $pass);
@@ -546,7 +547,8 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		
 		if($loginUser && $loginUser->id) {
 			$this->loginSuccess($loginUser); 
-			$this->afterLoginRedirect('./'); 
+			$url = $input->urlSegment1 === 'navJSON' ? '../' : './';
+			$this->afterLoginRedirect($url); 
 			
 		} else {
 			$this->loginFailed($this->submitLoginName ? $this->submitLoginName : $name); 
@@ -865,6 +867,7 @@ class ProcessLogin extends Process implements ConfigurableModule {
 		$session->removeFor($this, 'afterLoginPageId');
 		$session->removeFor('ProcessPageView', 'loginRequestPageID');
 		$session->removeFor('ProcessPageView', 'loginRequestURL');
+		if(strpos($url, '/navJSON') !== false) $url = str_replace(array('/navJSON/', '/navJSON'), '/', $url);
 		$session->redirect($url, false);
 	}
 
