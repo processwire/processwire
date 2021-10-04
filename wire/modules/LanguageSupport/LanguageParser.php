@@ -351,7 +351,11 @@ class LanguageParser extends Wire {
 	 */
 	protected function unescapeText($text) {
 		if(strpos($text, '\\') !== false) {
-			$text = str_replace(array('\\"', '\\\'', '\\$', '\\'), array('"', "'", '$', '\\'), $text);
+			$text = str_replace(
+				array('\\"', '\\\'', '\\$', '\\n', '\\'), 
+				array('"', "'", '$', "\n", '\\'), 
+				$text
+			);
 		}
 		return $text;
 	}

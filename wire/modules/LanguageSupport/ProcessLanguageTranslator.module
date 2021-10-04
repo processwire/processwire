@@ -377,9 +377,15 @@ class ProcessLanguageTranslator extends Process {
 
 	protected function executeEditField($hash, $untranslated, $translated, $alternates) {
 
-		/** @var InputfieldText $field */
+		/** @var InputfieldText|InputfieldTextarea $field */
 
-		if(strlen($untranslated) < 128) {
+		if(strpos($untranslated, "\n") !== false) {
+			$qty = substr_count($untranslated, "\n")+1;
+			$qty2 = substr_count($translated, "\n")+1; 
+			if($qty2 > $qty) $qty = $qty2;
+			$field = $this->modules->get("InputfieldTextarea");
+			$field->attr('rows', $qty > 2 ? $qty : 2);
+		} else if(strlen($untranslated) < 128) {
 			$field = $this->modules->get("InputfieldText");
 		} else {
 			$field = $this->modules->get("InputfieldTextarea");

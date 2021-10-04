@@ -467,6 +467,7 @@ class LanguageTranslator extends Wire {
 	 *
 	 */
 	protected function getTextHash($text) {
+		if(strpos($text, '\\n') !== false) $text = str_replace('\\n', "\n", $text);
 		return md5($text); 
 	}
 
@@ -597,15 +598,15 @@ class LanguageTranslator extends Wire {
 	/**
 	 * JSON encode language translation data
 	 * 
-	 * @param string $str
+	 * @param array|string $value
 	 * @return string
 	 *
 	 */
-	public function encodeJSON($str) {
+	public function encodeJSON($value) {
 		if(defined("JSON_PRETTY_PRINT")) {
-			return json_encode($str, JSON_PRETTY_PRINT); 
+			return json_encode($value, JSON_PRETTY_PRINT); 
 		} else {
-			return json_encode($str); 
+			return json_encode($value); 
 		}
 	}
 
