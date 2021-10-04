@@ -371,6 +371,7 @@ DROP TABLE IF EXISTS `page_path_history`;
 CREATE TABLE `page_path_history` (
   `path` varchar(250) NOT NULL,
   `pages_id` int(10) unsigned NOT NULL,
+  `language_id` int(10) unsigned NOT NULL DEFAULT 0,
   `created` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
   PRIMARY KEY (`path`),
   KEY `pages_id` (`pages_id`),
