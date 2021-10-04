@@ -648,8 +648,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$template = $this->template;
 		$customFields = array();
 		$languages = $this->wire('languages'); /** @var Languages $languages */
-		$modules = $this->wire('modules'); /** @var @var Modules $modules */
-		$languagePageNames = $languages && $modules->isInstalled('LanguageSupportPageNames') && method_exists($this, '___executeSave'); 
+		$languagePageNames = $languages && $languages->hasPageNames() && method_exists($this, '___executeSave'); 
 		$asmParents = array('name', 'path', 'url', 'httpUrl');
 		$asmParentValueSuffix = ' …';
 		
@@ -1363,7 +1362,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		$hooks = $this->wire('hooks');
 		
 		if($languages && $p->template->noLang) $languages = null;
-		$langPageNames = $languages && $this->wire('modules')->isInstalled('LanguageSupportPageNames');
+		$langPageNames = $languages && $languages->hasPageNames();
 
 		$subname = '';
 		$fullname = $name; 

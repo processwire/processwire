@@ -444,7 +444,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		// optional language GET var
 		$languages = $this->wire()->languages;
 		if($languages) {
-			$this->hasLanguagePageNames = $this->modules->isInstalled('LanguageSupportPageNames');
+			$this->hasLanguagePageNames = $languages->hasPageNames();
 			if($this->hasLanguagePageNames) {
 				$languageID = (int) $this->input->get('language');
 				if($languageID > 0) {
@@ -1491,7 +1491,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			'virtual' => true
 		));
 		
-		$multilang = $languages && $modules->isInstalled('LanguageSupportPageNames');
+		$multilang = $languages && $languages->hasPageNames();
 		$slashUrls = $this->page->template->slashUrls;
 		$deleteIDs = array();
 		$rootUrl = $this->wire('config')->urls->root;

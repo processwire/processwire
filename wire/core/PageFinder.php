@@ -2586,8 +2586,7 @@ class PageFinder extends Wire {
 				}
 			}
 			if($langNames) {
-				/** @var LanguageSupportPageNames $module */
-				$module = $modules->getModule('LanguageSupportPageNames');
+				$module = $this->languages->pageNames();
 				if($module) $selectorValue = $module->updatePath($selectorValue);
 			}
 			$parts = explode('/', rtrim($selectorValue, '/')); 
@@ -3369,8 +3368,8 @@ class PageFinder extends Wire {
 	 */
 	protected function supportsLanguagePageNames() {
 		if($this->supportsLanguagePageNames === null) {
-			$modules = $this->wire()->modules;
-			$this->supportsLanguagePageNames = $this->languages && $modules->isInstalled('LanguageSupportPageNames'); 
+			$languages = $this->languages;
+			$this->supportsLanguagePageNames = $languages && $languages->hasPageNames();
 		}
 		return $this->supportsLanguagePageNames;
 	}

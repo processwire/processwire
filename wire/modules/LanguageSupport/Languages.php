@@ -18,13 +18,14 @@
  * 
  * #pw-body
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @property LanguageTabs|null $tabs Current LanguageTabs module instance, if installed #pw-internal
  * @property Language $default Get default language
  * @property Language $getDefault Get default language (alias of $default)
  * @property LanguageSupport $support Instance of LanguageSupport module #pw-internal
+ * @property LanguageSupportPageNames|false $pageNames Instance of LanguageSupportPageNames module or false if not installed 3.0.186+ #pw-internal
  * 
  * @method added(Page $language) Hook called when Language is added #pw-hooker
  * @method deleted(Page $language) Hook called when Language is deleted #pw-hooker
@@ -98,10 +99,14 @@ class Languages extends PagesType {
 	protected $editableCache = array();
 
 	/**
-	 * @var LanguageSupportPageNames|null|false
+	 * LanguageSupportPageNames module instance or boolean install state
+	 * 
+	 * Populated as a cache by the pageNames() or hasPageNames() methods
+	 * 
+	 * @var LanguageSupportPageNames|null|bool
 	 * 
 	 */
-	protected $languageSupportPageNames = null;
+	protected $pageNames = null;
 
 	/**
 	 * Construct
@@ -613,19 +618,41 @@ class Languages extends PagesType {
 	/**
 	 * Get LanguageSupportPageNames module if installed, false if not
 	 * 
-	 * @return LanguageSupportPageNames|bool
+	 * @return LanguageSupportPageNames|false
+	 * @since 3.0.186
 	 * 
 	 */
 	public function pageNames() {
-		if($this->languageSupportPageNames === null) {
+		// null when not known, true when previously detected as installed but instance not yet loaded
+		if($this->pageNames === null || $this->pageNames === true) {
 			$modules = $this->wire()->modules;
 			if($modules->isInstalled('LanguageSupportPageNames')) {
-				$this->languageSupportPageNames = $modules->getModule('LanguageSupportPageNames');
+				// installed: load instance
+				$this->pageNames = $modules->getModule('LanguageSupportPageNames');
 			} else {
-				$this->languageSupportPageNames = false;
+				// not installed
+				$this->pageNames = false;
 			}
 		}
-		return $this->languageSupportPageNames;
+		// object instance or boolean false
+		return $this->pageNames;
+	}
+
+	/**
+	 * Is LanguageSupportPageNames installed?
+	 * 
+	 * @return bool
+	 * @since 3.0.186
+	 * 
+	 */
+	public function hasPageNames() {
+		// if previously identified as installed or instance loaded, return true
+		if($this->pageNames) return true;
+		// if previously identified as NOT installed, return false
+		if($this->pageNames=== false) return false;
+		// populate with installed status boolean and return it
+		$this->pageNames = $this->wire()->modules->isInstalled('LanguageSupportPageNames');
+		return $this->pageNames;
 	}
 
 	/**
@@ -771,9 +798,18 @@ class Languages extends PagesType {
 	 * 
 	 */
 	public function __get($key) {
-		if($key === 'tabs') return $this->wire()->modules->get('LanguageSupport')->getLanguageTabs();
-		if($key === 'default') return $this->getDefault();
-		if($key === 'support') return $this->wire()->modules->get('LanguageSupport');
+		if($key === 'tabs') {
+			$ls = $this->wire()->modules->get('LanguageSupport'); /** @var LanguageSupport $ls */
+			return $ls->getLanguageTabs();
+		} else if($key === 'default') {
+			return $this->getDefault();
+		} else if($key === 'support') {
+			return $this->wire()->modules->get('LanguageSupport');
+		} else if($key === 'pageNames') {
+			return $this->pageNames();
+		} else if($key === 'hasPageNames') {
+			return $this->hasPageNames();
+		}
 		return parent::__get($key);
 	}
 	

@@ -545,7 +545,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		$languages = $this->wire()->languages;
 		if(!$languages) {
 			$this->languages = false;
-		} else if($this->wire()->modules->isInstalled('LanguageSupportPageNames')) {
+		} else if($languages->hasPageNames()) {
 			$this->languages = $languages;
 		} else {
 			$this->languages = false;
@@ -652,29 +652,43 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	
 		$session = $this->wire()->session;
 		$input = $this->wire()->input;
+		$numPages = 0;
+		$numRows = -1;
 		
 		if($input->requestMethod('POST')) {
 			if($input->post('_rebuild')) $session->setFor($this, 'rebuild', true);
-			$numPages = 0;
-			$eta = 0;
 		} else {
 			$numPages = $this->wire()->pages->count("id>0, include=all");
-			$eta = ($numPages / 1000) * 1.1;
 			if($session->getFor($this, 'rebuild')) {
 				$session->removeFor($this, 'rebuild');
 				$timer = Debug::timer();
 				$this->rebuild();
 				$elapsed = Debug::timer($timer);
 				$this->message(sprintf($this->_('Completed rebuild in %d seconds'), $elapsed), Notice::noGroup);
+			} else {
+				$table = self::dbTableName;
+				try {
+					$query = $this->wire()->database->prepare("SELECT COUNT(*) FROM $table");
+					$query->execute();
+					$numRows = (int) $query->fetchColumn();
+				} catch(\Exception $e) {
+				}
 			}
 		}
-		
 		
 		$f = $inputfields->InputfieldCheckbox;
 		$f->attr('name', '_rebuild');
 		$f->label = sprintf($this->_('Rebuild page paths index for %d pages'), $numPages); 
 		$f->label2 = $this->_('Rebuild now');
-		$f->description = sprintf($this->_('Estimated rebuild time is roughly %01.1f seconds.'), $eta);
+		if($numPages) $f->description =
+			$this->_('Estimated rebuild time is up to 5 seconds per 1000 pages.') . ' ' . 
+			sprintf($this->_('There are %d pages to process.'), $numPages); 
+		if($numRows > 0) {
+			$f->notes = sprintf($this->_('There are currently %d rows stored by this module (path paths and versions of path paths).'), $numRows);
+		} else if($numRows === 0 && $input->requestMethod('GET')) {
+			$this->warning($this->_('Please choose the “rebuild now” option to create your page paths index.'));
+		}
+			
 		$inputfields->add($f);
 	}
 

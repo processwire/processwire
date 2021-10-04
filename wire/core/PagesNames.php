@@ -613,8 +613,8 @@ class PagesNames extends Wire {
 		);
 
 		$options = array_merge($defaults, $options);
-		$languages = $options['multilang'] || $options['language'] ? $this->wire('languages') : null;
-		if($languages && !$this->wire('modules')->isInstalled('LanguageSupportPageNames')) $languages = null;
+		$languages = $options['multilang'] || $options['language'] ? $this->wire()->languages : null;
+		if($languages && !$languages->hasPageNames()) $languages = null;
 		
 		if($this->wire('config')->pageNameCharset == 'UTF8') {
 			$name = $this->wire('sanitizer')->pageName($name, Sanitizer::toAscii);

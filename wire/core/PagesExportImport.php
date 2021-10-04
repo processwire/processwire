@@ -391,7 +391,7 @@ class PagesExportImport extends Wire {
 		}
 		
 		// include multi-language page names and statuses when applicable
-		if($languages && $this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
+		if($languages && $languages->hasPageNames()) {
 			foreach($languages as $language) {
 				if($language->isDefault()) continue;
 				$settings["name_$language->name"] = $page->get("name$language->id");
@@ -542,8 +542,10 @@ class PagesExportImport extends Wire {
 			throw new WireException('Invalid array provided to arrayToPage() method');
 		}
 	
-		/** @var Config $config */
-		$config = $this->wire('config');
+		$config = $this->wire()->config;
+		$pages = $this->wire()->pages;
+		$languages = $this->wire()->languages;
+		$fields = $this->wire()->fields;
 
 		$defaults = array(
 			'id' => 0, // ID that new Page should use, or update, if it already exists. (0=create new). Sets update=true.
@@ -573,8 +575,6 @@ class PagesExportImport extends Wire {
 		$errors = array(); // fatal errors
 		$warnings = array(); // non-fatal warnings
 		$messages = array(); // informational
-		$pages = $this->wire('pages');
-		$languages = $this->wire('languages');
 		$missingFields = array();
 		
 		if($options['id']) {
@@ -623,7 +623,7 @@ class PagesExportImport extends Wire {
 			if(count($options['fieldNames']) && !in_array($name, $options['fieldNames'])) continue;
 			if(isset($options['replaceFields'][$name])) $name = $options['replaceFields'][$name];
 			
-			$field = $this->wire('fields')->get($name); 
+			$field = $fields->get($name); 
 			
 			if(!$field) {
 				if(is_array($value) && !count($value)) continue;

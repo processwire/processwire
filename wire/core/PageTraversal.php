@@ -636,7 +636,7 @@ class PageTraversal {
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
 		$sanitizer = $page->wire()->sanitizer;
 		$input = $page->wire()->input;
-		$modules = $page->wire()->modules;
+		$languages = $page->wire()->languages;
 		$language = null;
 		$url = null;
 		
@@ -665,7 +665,7 @@ class PageTraversal {
 			}
 		}
 
-		if($options['language'] && $modules->isInstalled('LanguageSupportPageNames')) {
+		if($options['language'] && $languages && $languages->hasPageNames()) {
 			if(!is_object($options['language'])) {
 				$options['language'] = null;
 			} else if(!$options['language'] instanceof Page) {
@@ -699,10 +699,8 @@ class PageTraversal {
 			}
 			if((int) $options['pageNum'] > 1) {
 				$prefix = '';
-				if($language) {
-					/** @var LanguageSupportPageNames $lsp */
-					$lsp = $modules->get('LanguageSupportPageNames');
-					$prefix = $lsp ? $lsp->get("pageNumUrlPrefix$language") : '';
+				if($language && $languages && $languages->hasPageNames()) {
+					$prefix = $languages->pageNames()->get("pageNumUrlPrefix$language");
 				}
 				if(!strlen($prefix)) $prefix = $config->pageNumUrlPrefix;
 				$url = rtrim($url, '/') . '/' . $prefix . ((int) $options['pageNum']);
@@ -788,7 +786,7 @@ class PageTraversal {
 		}
 
 		// include other language URLs
-		if($languages && $modules->isInstalled('LanguageSupportPageNames')) {
+		if($languages && $languages->hasPageNames()) {
 			foreach($languages as $language) {
 				if(!$language->isDefault() && !$page->get("status$language")) continue;
 				$urls[$language->name] = $page->localUrl($language);

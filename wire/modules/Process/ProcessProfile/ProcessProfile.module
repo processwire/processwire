@@ -344,9 +344,10 @@ class ProcessProfile extends Process implements ConfigurableModule, WirePageEdit
 		}
 		
 		$user->name = $userName;
-	
-		if($this->wire()->modules->isInstalled('LanguageSupportPageNames')) {
-			foreach($this->wire()->languages as $language) {
+
+		$languages = $this->wire()->languages;
+		if($languages && $languages->hasPageNames()) {
+			foreach($languages as $language) {
 				if(!$language->isDefault()) $user->set("name$language->id", $userName);
 			}
 		}

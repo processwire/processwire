@@ -1219,7 +1219,7 @@ class Pages extends Wire {
 	 *   'response' => 200, // one of 200, 301, 302, 404, 414
 	 *   'type' => 'ok', // response type name
 	 *   'errors' => [], // array of error messages indexed by error name
-	 *   'redirect` => '/redirect/path/', // suggested path to redirect to or blank
+	 *   'redirect' => '/redirect/path/', // suggested path to redirect to or blank
 	 *   'page' => [
 	 *      'id' => 123, // ID of the page that was found
 	 *      'parent_id' => 456,

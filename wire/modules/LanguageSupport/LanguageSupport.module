@@ -736,7 +736,8 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		
 		if($field == 'name') {
 			// set page name
-			if(!$this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
+			$languages = $this->wire()->languages;
+			if($languages && !$languages->hasPageNames()) {
 				throw new WireException("Please install LanguageSupportPageNames module before attempting to set multi-language names/paths/URLs."); 
 			}
 			if($language->isDefault()) {

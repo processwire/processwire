@@ -1245,7 +1245,7 @@ class PagesPathFinder extends Wire {
 			$this->useLanguages = array();
 			return array();
 		}
-		if(!$this->wire()->modules->isInstalled('LanguageSupportPageNames')) {
+		if(!$languages->hasPageNames()) {
 			$this->useLanguages = array();
 			return array();
 		}

@@ -98,8 +98,8 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 */
 	protected function getLanguages() {
 		if($this->getVersion() < 2) return false;
-		if(!$this->wire('modules')->isInstalled('LanguageSupportPageNames')) return false;
-		return $this->wire('languages');
+		$languages = $this->wire()->languages;
+		return $languages && $languages->hasPageNames() ? $languages : false;
 	}
 
 	/**
@@ -265,11 +265,9 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			'virtual' => true, 
 		);
 		
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
-		
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$database = $this->wire()->database;
+		$sanitizer = $this->wire()->sanitizer;
+		$languages = $this->wire()->languages;
 		
 		$paths = array();
 		$options = is_array($options) ? array_merge($defaults, $options) : $defaults;
@@ -278,7 +276,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			$options['language'] = null;
 			$allowLanguage = false;
 		} else {
-			$allowLanguage = $this->wire('languages') && $this->wire('modules')->isInstalled('LanguageSupportPageNames');
+			$allowLanguage = $languages && $languages->hasPageNames();
 		}
 		
 		$language = $options['language'] && $allowLanguage ? $this->getLanguage($options['language']) : null;
@@ -529,7 +527,7 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		$languages = $this->getLanguages();
 
 		$age = time() - $page->created;
-		if($page->template == 'admin' || $this->wire('pages')->cloning || $age < $this->minimumAge) return;
+		if($page->template->name === 'admin' || $this->wire()->pages->cloning || $age < $this->minimumAge) return;
 
 		// note that the paths we store have no trailing slash
 		
@@ -626,11 +624,10 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 		}
 		
 		$languages = $this->getLanguages();
-		if($languages) {
+		$languagePageNames = $languages ? $languages->pageNames() : null;
+		if($languagePageNames) {
 			// the LanguageSupportPageNames may change the original requested path, so we ask it for the original
-			/** @var LanguageSupportPageNames $lspn */
-			$lspn = $this->wire()->modules->get('LanguageSupportPageNames');
-			$path = $lspn->getRequestPath();
+			$path = $languagePageNames->getRequestPath();
 			$path = $path ? $this->wire()->sanitizer->pagePathName($path) : $event->arguments(1);
 		} else {
 			$path = $event->arguments(1);
@@ -743,19 +740,22 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			"LEFT JOIN pages ON $table.pages_id=pages.id " . 
 			"WHERE " . implode(' OR ', $wheres);
 		
-		$query = $database->prepare($sql);
 		
-		foreach($binds as $bindKey => $bindValue) {
-			$query->bindValue(":$bindKey", $bindValue);
-		}
-		
-		$query->execute();
-		$rowCount = $query->rowCount();
-		
-		if(!$rowCount) {
+		try {
+			$query = $database->prepare($sql);
+			foreach($binds as $bindKey => $bindValue) {
+				$query->bindValue(":$bindKey", $bindValue);
+			}
+			$query->execute();
+			$rowCount = $query->rowCount();
 			$query->closeCursor();
-			return $result;
+		} catch(\Exception $e) {
+			if(!$this->checkTableSchema()) throw $e;
+			$rowCount = 0;
+			$query = null;
 		}
+		
+		if(!$rowCount || $query) return $result;
 		
 		$rows = array();
 		$pathCounts = array();
@@ -899,10 +899,9 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 			)); 
 			if($page->id) {
 				// found a page
-				if($languages) {
-					/** @var LanguageSupportPageNames $lspn */
-					$lspn = $this->wire()->modules->get('LanguageSupportPageNames');
-					$language = $lspn->getPagePathLanguage($path, $page);
+				$languagePageNames = $languages ? $languages->pageNames() : null;
+				if($languagePageNames) {
+					$language = $languagePageNames->getPagePathLanguage($path, $page);
 					if($language) $page->setQuietly('_language', $language);
 				}
 			} else if($level < self::maxSegments) {
@@ -976,6 +975,31 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	}
 
 	/**
+	 * Check table schema and update as needed
+	 * 
+	 * @return bool True if schema updated, false if not
+	 * 
+	 */
+	protected function checkTableSchema() {
+		
+		$database = $this->wire()->database;
+		$table = self::dbTableName;
+		$updated = false;
+		
+		if(!$database->columnExists($table, 'language_id')) {
+			try {
+				$database->exec("ALTER TABLE $table ADD language_id INT UNSIGNED DEFAULT 0");
+				$this->message("Added 'language_id' column to table $table", Notice::debug); 
+				$updated = true;
+			} catch(\Exception $e) {
+				$this->error($e->getMessage(), Notice::superuser | Notice::log);
+			}
+		}
+		
+		return $updated;
+	}
+
+	/**
 	 * Install
 	 * 
 	 */
@@ -1013,24 +1037,9 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function ___upgrade($fromVersion, $toVersion) {
-		
-		if($fromVersion == 1) {
-		
-			$messagePrefix = "PagePathHistory v$fromVersion => v$toVersion: ";
-			$database = $this->wire('database');
-			$table = self::dbTableName;
-			
-			try {
-				$database->exec("ALTER TABLE $table ADD language_id INT UNSIGNED DEFAULT 0");
-				$message = "Added 'language_id' column";
-				$error = false;
-			} catch(\Exception $e) {
-				$error = true;
-				$message = $e->getMessage();
-			}
-			
-			$message = $messagePrefix . $message;
-			$error ? $this->error($message) : $this->message($message);
+		if($fromVersion != $toVersion) {
+			$this->checkTableSchema();
+			$this->message("PagePathHistory v$fromVersion => v$toVersion");
 		}
 	}
 

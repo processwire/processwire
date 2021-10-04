@@ -190,8 +190,10 @@ class ProcessPageClone extends Process {
 			'n' => $n
 		);
 		
-		if($this->wire('modules')->isInstalled('LanguageSupportPageNames')) {
-			foreach($this->wire('languages') as $language) {
+	
+		$languages = $this->wire()->languages;
+		if($languages && $languages->hasPageNames()) {
+			foreach($languages as $language) {
 				if($language->isDefault()) continue;
 				$value = $page->get("name$language");
 				if(!strlen($value)) continue;
@@ -243,7 +245,7 @@ class ProcessPageClone extends Process {
 			$titleUseLanguages = $title 
 				&& $page->template->fieldgroup->hasField($title) 
 				&& $title->getInputfield($page)->getSetting('useLanguages');
-			$nameUseLanguages = $this->wire('modules')->isInstalled('LanguageSupportPageNames'); 
+			$nameUseLanguages = $languages->hasPageNames();
 			if($titleUseLanguages) $titleField->useLanguages = true;
 			if($nameUseLanguages) $nameField->useLanguages = true; 
 			foreach($languages as $language) {

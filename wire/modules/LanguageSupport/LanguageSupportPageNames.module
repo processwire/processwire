@@ -1331,9 +1331,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$modules = $this->wire()->modules;
 		$config = $this->wire()->config;
 	
-		/** @var LanguageSupportPageNames $module */
-		$module = $modules->get('LanguageSupportPageNames'); 
-		$module->checkModuleVersion(true); 
+		$this->checkModuleVersion(true); 
 		
 		$defaultUrlPrefix = $config->get('_pageNumUrlPrefix|pageNumUrlPrefix');
 		

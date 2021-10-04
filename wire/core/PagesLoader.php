@@ -1378,11 +1378,12 @@ class PagesLoader extends Wire {
 		$id = (int) $id;
 		if(!$id || $id < 0) return '';
 
-		$languages = $this->wire('languages');
-		if($languages && !$this->wire('modules')->isInstalled('LanguageSupportPageNames')) $languages = null;
+		$languages = $this->wire()->languages;
+		if($languages && !$languages->hasPageNames()) $languages = null;
+		
 		$language = $options['language'];
 		$languageID = 0;
-		$homepageID = (int) $this->wire('config')->rootPageID;
+		$homepageID = (int) $this->wire()->config->rootPageID;
 
 		if(!empty($language) && $languages) {
 			if(is_string($language) || is_int($language)) $language = $languages->get($language);
@@ -1548,8 +1549,9 @@ class PagesLoader extends Wire {
 		$path = $sanitizer->pagePathName($path, Sanitizer::toAscii);
 		$pathParts = explode('/', trim($path, '/'));
 		$_pathParts = $pathParts;
+		
 		$languages = $options['useLanguages'] ? $this->wire()->languages : null;
-		if($languages && !$modules->isInstalled('LanguageSupportPageNames')) $languages = null;
+		if($languages && !$languages->hasPageNames()) $languages = null;
 
 		$langKeys = array(':name' => 'name');
 		if($languages) foreach($languages as $language) {
