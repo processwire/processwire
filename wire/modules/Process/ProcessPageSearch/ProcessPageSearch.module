@@ -337,12 +337,13 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 				
 			} else {
 
-				$operator = substr($name, -1) . '=';
-
-				if(isset($this->operators[$operator])) {
-					$name = substr($name, 0, -1); 
-				} else {
-					$operator = '=';
+				$operator = '=';
+				$operatorChars = preg_quote(implode('', Selectors::getOperatorChars()));
+				if(preg_match('/^(.+?)([' . $operatorChars . ']+)$/', $name, $matches)) {
+					$name = $matches[1];
+					$operator = $matches[2] . '=';
+					// if unsupported operator requested, substitute '='
+					if(!isset($this->operators[$operator])) $operator = '=';
 				}
 			}
 
