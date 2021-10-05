@@ -20,11 +20,11 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Path History', 
-			'version' => 6, 
+			'version' => 7, 
 			'summary' => "Keeps track of past URLs where pages have lived and automatically redirects (301 permament) to the new location whenever the past URL is accessed.",
 			'singular' => true, 
 			'autoload' => true, 
-			);
+		);
 	}
 
 	/**
@@ -325,7 +325,9 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 				$paths[$path] = $value;
 			}
 		} catch(\Exception $e) {
-			// intentionally blank
+			if(!$this->checkTableSchema()) {
+				$this->error($e->getMessage(), Notice::superuser | Notice::log);
+			}
 		}
 		
 		if($options['virtual']) {
@@ -1037,9 +1039,8 @@ class PagePathHistory extends WireData implements Module, ConfigurableModule {
 	 * 
 	 */
 	public function ___upgrade($fromVersion, $toVersion) {
-		if($fromVersion != $toVersion) {
-			$this->checkTableSchema();
-			$this->message("PagePathHistory v$fromVersion => v$toVersion");
+		if($this->checkTableSchema()) { 
+			if($fromVersion != $toVersion) $this->message("PagePathHistory v$fromVersion => v$toVersion");
 		}
 	}
 

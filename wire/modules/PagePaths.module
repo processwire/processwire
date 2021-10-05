@@ -16,7 +16,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Page Paths', 
-			'version' => 2, 
+			'version' => 3, 
 			'summary' => "Enables page paths/urls to be queryable by selectors. Also offers potential for improved load performance. Builds an index at install (may take time on a large site).",
 			'singular' => true, 
 			'autoload' => true, 
@@ -103,7 +103,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		$sql = "DELETE FROM $table WHERE language_id=:language_id";
 		$query = $database->prepare($sql);
 		$query->bindValue(':language_id', $language->id, \PDO::PARAM_INT);
-		$query->execute();
+		$this->executeQuery($query);
 	}
 	
 	/*** PUBLIC API *************************************************************************************/
@@ -128,14 +128,13 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		$query = $database->prepare($sql); 
 		$query->bindValue(":pages_id", $pageId, \PDO::PARAM_INT);
 		$query->bindValue(":language_id", $languageId, \PDO::PARAM_INT);
+		$path = null;
 		
-		$query->execute();
+		if(!$this->executeQuery($query)) return $path;
 		
 		if($query->rowCount()) {
 			$path = $query->fetchColumn();
 			$path = strlen($path) ? $sanitizer->pagePathName("/$path/", Sanitizer::toUTF8) : '/';
-		} else {
-			$path = null;
 		}
 		
 		$query->closeCursor();
@@ -163,7 +162,8 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 
 		$query = $database->prepare($sql);
 		$query->bindValue(":pages_id", $pageId, \PDO::PARAM_INT);
-		$query->execute();
+		
+		if(!$this->executeQuery($query)) return $paths;
 
 		while($row = $query->fetch(\PDO::FETCH_NUM)) {
 			$path = $row[0];
@@ -230,17 +230,16 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		$where = implode(' OR ', $wheres);
 		$sql = "SELECT pages_id, language_id FROM $table WHERE $where LIMIT 1";
 		$query = $database->prepare($sql);
+		$row = array(0, 0);
 		
 		foreach($bindValues as $bindKey => $bindValue) {
 			$query->bindValue(":$bindKey", $bindValue);
 		}
-		
-		$query->execute();
+	
+		if(!$this->executeQuery($query)) return $row;
 		
 		if($query->rowCount()) {
 			$row = $query->fetch(\PDO::FETCH_NUM);
-		} else {
-			$row = array(0, 0);
 		}
 		
 		$query->closeCursor();
@@ -295,7 +294,8 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 
 		$query = $database->prepare($sql);
 		$query->bindValue(':path', trim($path, '/'));
-		$query->execute();
+		
+		if(!$this->executeQuery($query)) return false;
 
 		$row = $query->fetch(\PDO::FETCH_ASSOC);
 		$query->closeCursor();
@@ -452,8 +452,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		foreach($paths as $languageId => $path) {
 			$query->bindValue(":language_id", $languageId, \PDO::PARAM_INT);
 			$query->bindValue(":path", $path);
-			$query->execute();
-			$numUpdated += $query->rowCount();
+			if($this->executeQuery($query)) $numUpdated += $query->rowCount();
 		}
 
 		if($hasChildren) {
@@ -510,13 +509,14 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 
 		$query = $database->prepare($sql);
 		$query->bindValue(":id", $pageId, \PDO::PARAM_INT);
-		$query->execute();
 		$rows = array();
-
+		
+		if(!$this->executeQuery($query)) return $numUpdated;
+		
 		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
 			$rows[] = $row;
 		}
-
+		
 		$query->closeCursor();
 
 		foreach($rows as $row) {
@@ -582,15 +582,34 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 	/*** MODULE MAINT *******************************************************************************/
 
 	/**
-	 * Upgrade module
+	 * Execute a query/PDOStatement
 	 * 
-	 * @param $fromVersion
-	 * @param $toVersion
-	 * @since 3.0.186
+	 * @param \PDOStatement $query
+	 * @param bool $throw Allow exceptions to be thrown? (default=true)
+	 * @return bool
+	 * @throws \PDOException|WireException
 	 * 
 	 */
-	public function ___upgrade($fromVersion, $toVersion) {
-		if($fromVersion && $toVersion) {} // ignore
+	protected function executeQuery($query, $throw = true) {
+		try {
+			$result = $query->execute();
+		} catch(\Exception $e) {
+			if(!$this->checkTableSchema()) {
+				if($throw) throw $e;
+				$this->error($e->getMessage(), Notice::superuser | Notice::log);
+			}
+			$result = false;
+		}
+		return $result;
+	}
+
+	/**
+	 * Check db schema
+	 * 
+	 * @return bool True if changes made, false if not
+	 * 
+	 */
+	protected function checkTableSchema() {
 		$table = self::dbTableName;
 		$database = $this->wire()->database;
 		if(!$database->columnExists($table, 'language_id')) {
@@ -604,7 +623,22 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 				$database->exec($sql);
 			}
 			$this->message("Added language_id column to table $table", Notice::admin);
+			return true;
 		}
+		return false;
+	}
+
+	/**
+	 * Upgrade module
+	 * 
+	 * @param $fromVersion
+	 * @param $toVersion
+	 * @since 3.0.186
+	 * 
+	 */
+	public function ___upgrade($fromVersion, $toVersion) {
+		if($fromVersion && $toVersion) {} // ignore
+		$this->checkTableSchema();
 	}
 
 	/**
@@ -667,11 +701,10 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 				$this->message(sprintf($this->_('Completed rebuild in %d seconds'), $elapsed), Notice::noGroup);
 			} else {
 				$table = self::dbTableName;
-				try {
-					$query = $this->wire()->database->prepare("SELECT COUNT(*) FROM $table");
-					$query->execute();
+				$query = $this->wire()->database->prepare("SELECT COUNT(*) FROM $table");
+				if($this->executeQuery($query, false)) {
 					$numRows = (int) $query->fetchColumn();
-				} catch(\Exception $e) {
+					$query->closeCursor();
 				}
 			}
 		}
