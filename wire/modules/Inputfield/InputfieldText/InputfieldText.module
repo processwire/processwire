@@ -134,8 +134,10 @@ class InputfieldText extends Inputfield {
 			}
 		}
 		
-		if(!strlen($attrs['value']) && $this->initValue) {
-			$attrs['value'] = $this->initValue; 
+		if($this->initValue) { 
+			if(!strlen($attrs['value'])) {
+				$attrs['value'] = $this->initValue;
+			}
 		}
 
 		if(isset($attrs['minlength'])) {
