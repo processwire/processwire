@@ -34,6 +34,8 @@ class PagesPathFinder extends Wire {
 	protected $defaults = array(
 		'useLanguages' => true,
 		'useShortcuts' => true, 
+		'usePagePaths' => true,
+		'useGlobalUnique' => true, 
 		'useHistory' => true,
 		'verbose' => true,
 	);
@@ -63,19 +65,16 @@ class PagesPathFinder extends Wire {
 	protected $result = array();
 
 	/**
-	 * Response type codes to response type names
-	 * 
-	 * @var array
+	 * @var Template|null
 	 * 
 	 */
-	protected $responseTypes = array(
-		200 => 'ok',
-		301 => 'permRedirect',
-		302 => 'tempRedirect',
-		400 => 'pagePathError',
-		404 => 'pageNotFound',
-		414 => 'pathTooLong',
-	);
+	protected $template = null;
+
+	/**
+	 * @var bool|null
+	 * 
+	 */
+	protected $admin = null;
 
 	/**
 	 * URL part types (for reference)
@@ -114,6 +113,8 @@ class PagesPathFinder extends Wire {
 		$this->verbose = $this->options['verbose'];
 		$this->methods = array();
 		$this->result = $this->getBlankResult(array('request' => $path));
+		$this->template = null;
+		$this->admin = null;
 		
 		if(empty($this->pageNameCharset)) {
 			$this->pageNameCharset = $this->wire()->config->pageNameCharset;
@@ -243,9 +244,8 @@ class PagesPathFinder extends Wire {
 		if($result['response'] >= 400) {
 			$page = $this->pages->newNullPage();
 		} else {
-			$template = $this->wire()->templates->get($result['page']['templates_id']);
 			$page = $this->pages->getOneById($result['page']['id'], array(
-				'template' => $template,
+				'template' => $this->template(),
 				'parent_id' => $result['page']['parent_id'],
 			));
 		}
@@ -398,7 +398,8 @@ class PagesPathFinder extends Wire {
 				/** @var Language $language */
 				if($language->isDefault()) continue;
 				$nameLanguage = $this->pageNameToUTF8($row["{$key}_name$language->id"]);
-				$statusByLanguage[$language->name] = (int) $row["{$key}_status$language->id"];
+				$statusLanguage = (int) $row["{$key}_status$language->id"];
+				$statusByLanguage[$language->name] = $statusLanguage;
 				if($nameLanguage != $nameDefault && $nameLanguage === $name) {
 					if($this->verbose) {
 						$result['parts'][] = array(
@@ -426,6 +427,12 @@ class PagesPathFinder extends Wire {
 		if(!isset($namesByLanguage[$langName])) $langName = 'default';
 		
 		$path = '/' . implode('/', $namesByLanguage[$langName]);
+
+		if($langName === 'default') {
+			$result['page']['path'] = $path;
+		} else {
+			$result['page']['path'] = '/' . implode('/', $namesByLanguage['default']);
+		}
 
 		if(count($this->useLanguages)) {
 			if($langName === 'default') {
@@ -516,11 +523,15 @@ class PagesPathFinder extends Wire {
 		if(!count($languages)) return null;
 	
 		$firstPart = reset($parts);
-		$key = array_search($firstPart, $this->languageSegments());
-		if($key === false) return $languages->getDefault();
+		$languageKey = array_search($firstPart, $this->languageSegments());
 		
-		$segment = array_shift($parts);
-		$language = $languages->get($key);
+		if($languageKey === false) {
+			$language = $languages->getDefault();
+			$segment = $this->languageSegment('default');
+		} else {
+			$segment = array_shift($parts);
+			$language = $languages->get($languageKey);
+		}
 		
 		if(!$language || !$language->id) return null;
 
@@ -528,7 +539,7 @@ class PagesPathFinder extends Wire {
 		$result['language']['segment'] = $segment;
 		$result['language']['name'] = $language->name;
 		
-		if($this->verbose) {
+		if($this->verbose && $languageKey !== false) {
 			$result['parts'][] = array(
 				'type' => 'language',
 				'value' => $segment,
@@ -565,6 +576,7 @@ class PagesPathFinder extends Wire {
 				'parent_id' => 0,
 				'templates_id' => 0,
 				'status' => 0,
+				'path' => '',
 			),
 			'language' => array(
 				'name' => '', // intentionally blank
@@ -576,6 +588,7 @@ class PagesPathFinder extends Wire {
 			'urlSegmentStr' => '',
 			'pageNum' => 1,
 			'pageNumPrefix' => '',
+			'pathAdd' => '', // valid URL segments, page numbers, trailing slash, etc.
 			'scheme' => '',
 			'method' => '',
 		);
@@ -596,7 +609,6 @@ class PagesPathFinder extends Wire {
 	 */
 	protected function applyResultTemplate($path) {
 
-		$templates = $this->wire()->templates;
 		$config = $this->wire()->config;
 		$fail = false;
 		$result = &$this->result;
@@ -605,10 +617,11 @@ class PagesPathFinder extends Wire {
 			$this->applyResultHome();
 		}
 
-		$template = $result['page']['templates_id'] ? $templates->get($result['page']['templates_id']) : null;
+		$template = $this->template();
 		$slashUrls = $template ? (int) $template->slashUrls : 0;
 		$useTrailingSlash = $slashUrls ? 1 : -1; // 1=yes, 0=either, -1=no
 		$https = $template ? (int) $template->https : 0;
+		$appendPath = '';
 
 		// populate urlSegmentStr property if applicable
 		if(empty($result['urlSegmentStr']) && !empty($result['urlSegments'])) {
@@ -620,7 +633,7 @@ class PagesPathFinder extends Wire {
 		if(strlen($result['urlSegmentStr'])) {
 			if($template && ($template->urlSegments || $template->name === 'admin')) {
 				if($template->isValidUrlSegmentStr($result['urlSegmentStr'])) {
-					$path = rtrim($path, '/') . "/$result[urlSegmentStr]";
+					$appendPath .= "/$result[urlSegmentStr]";
 					if($result['pageNum'] < 2) $useTrailingSlash = (int) $template->slashUrlSegments;
 				} else {
 					// ERROR: URL segments did not validate
@@ -643,7 +656,9 @@ class PagesPathFinder extends Wire {
 					$fail = true;
 				}
 				$segment = $this->pageNumUrlSegment($result['pageNum'], $result['language']['name']);
-				if(strlen($segment)) $path = rtrim($path, '/') . "/$segment";
+				if(strlen($segment)) {
+					$appendPath .= "/$segment";
+				}
 				$useTrailingSlash = (int) $template->slashPageNum;
 			} else {
 				// template does not allow page numbers
@@ -653,18 +668,20 @@ class PagesPathFinder extends Wire {
 		}
 
 		// determine whether path should end with a trailing slash or not
-		$path = rtrim($path, '/');
 		if($useTrailingSlash > 0) {
 			// trailing slash required
-			$path .= '/';
+			$appendPath .= '/';
 		} else if($useTrailingSlash < 0) {
 			// trailing slash disallowed
 		} else if(substr($result['request'], -1) === '/') {
 			// either acceptable, add slash if request had it
-			$path .= '/';
+			$appendPath .= '/';
 		}
-
+		
+		$path = rtrim($path, '/') . $appendPath;
+		
 		$result['redirect'] = $path;
+		$result['pathAdd'] = $appendPath;
 
 		// determine if page requires specific https vs. http scheme
 		if($https > 0 && !$config->noHTTPS) {
@@ -685,10 +702,10 @@ class PagesPathFinder extends Wire {
 	protected function applyResultHome() {
 		$config = $this->wire()->config;
 		$home = $this->pages->get($config->rootPageID);
-		$template = $home->template;
+		$this->template = $home->template;
 		$this->result['page'] = array_merge($this->result['page'], array(
 			'id' => $config->rootPageID,
-			'templates_id' => $template->id,
+			'templates_id' => $this->template->id,
 			'parent_id' => 0,
 			'status' => $home->status
 		));
@@ -707,30 +724,28 @@ class PagesPathFinder extends Wire {
 		$result = &$this->result;
 
 		if(!count($this->useLanguages)) return $path;
-		if(empty($result['language']['name'])) return $path;
+		if(empty($result['language']['name']) && $path != '/') return $path;
+		if($this->admin()) return $path;
 
 		// if there were any non-default language segments, let that dictate the language
 		if(empty($result['language']['segment'])) {
-			$useLangName = '';
+			$useLangName = 'default';
 			foreach($result['parts'] as $key => $part) {
 				$langName = $part['language'];
 				if(empty($langName) || $langName === 'default') continue;
 				$useLangName = $langName;
 				break;
 			}
-			if($useLangName) {
-				$segment = $this->languageSegment($useLangName);
-				if($segment) $result['language']['segment'] = $segment;
-				$result['language']['name'] = $useLangName;
-			}
+			$segment = $this->languageSegment($useLangName);
+			if($segment) $result['language']['segment'] = $segment;
+			$result['language']['name'] = $useLangName;
 		}
 
 		// prepend the path with the language segment
 		if(!empty($result['language']['segment'])) {
-			$segment = $result['language']['segment'];
-			if($path != "/$segment" && strpos($path, "/$segment/") !== 0) {
-				$path = "/$segment$path";
-			}
+			$path = $this->updatePathForLanguage($path);
+			$redirect = &$result['redirect']; 
+			if(!empty($redirect)) $redirect = $this->updatePathForLanguage($redirect);
 		}
 
 		return $path;
@@ -784,7 +799,7 @@ class PagesPathFinder extends Wire {
 	protected function finishResult($path) {
 
 		$result = &$this->result;
-		$types = &$this->responseTypes;
+		$types = $this->pages->request()->getResponseCodeNames();
 
 		if($path !== false) $path = $this->applyResultLanguage($path);
 		if($path !== false) $path = $this->applyResultTemplate($path);
@@ -792,7 +807,8 @@ class PagesPathFinder extends Wire {
 
 		$response = &$result['response'];
 		$language = &$result['language'];
-
+		$errors = &$result['errors'];
+		
 		if($response === 404) {
 			// page not found
 			if(empty($result['errors'])) $result['errors']['pageNotFound'] = "Page not found";
@@ -813,30 +829,42 @@ class PagesPathFinder extends Wire {
 			$response = 301;
 		}
 
+		if(empty($language['name'])) {
+			// set language property (likely for non-multi-language install)
+			$language['name'] = 'default';
+			$language['status'] = 1;
+			
+		} else if($language['name'] != 'default' && !$language['status'] && $result['page']['id']) {
+			// page found but not published in language (needs later decision)
+			$response = 300; // 300 Multiple Choice
+			$errors['languageOFF'] = "Page not active in request language ($language[name])";
+			if(!empty($result['page']['path'])) {
+				$result['redirect'] = $this->updatePathForLanguage(
+					rtrim($result['page']['path'], '/') . $result['pathAdd'],
+					$this->languageSegment('default')
+				);
+			}
+		}
+		
 		if(empty($result['type']) && isset($types[$response])) {
 			if($result['response'] === 404 && !empty($result['redirect'])) {
 				// when page found but path not use the 400 response type name w/404
-				$result['type'] = 'pagePathError'; 
+				$result['type'] = $types[400];
 			} else {
 				$result['type'] = $types[$response];
 			}
-		}
-
-		if(empty($language['name'])) {
-			$language['name'] = 'default';
-			$language['status'] = 1;
 		}
 
 		$result['method'] = implode(',', $this->methods);
 
 		if(!$this->verbose) unset($result['parts']);
 
-		if(empty($result['errors'])) {
+		if(empty($errors)) {
 			// force errors placeholder to end if there aren’t any
 			unset($result['errors']);
 			$result['errors'] = array();
 		}
-
+		
 		return $result;
 	}
 
@@ -881,6 +909,7 @@ class PagesPathFinder extends Wire {
 	 */
 	protected function getShortcutPagePaths(&$path) {
 
+		if(!$this->options['usePagePaths']) return false;
 		$module = $this->pagePathsModule();
 		if(!$module) return false;
 
@@ -890,17 +919,23 @@ class PagesPathFinder extends Wire {
 		if(!$info) return false;
 
 		$language = $this->language((int) $info['language_id']);
+		
 		$path = "/$info[path]";
 
 		unset($info['language_id'], $info['path']);
 
-		$result['page'] = array_merge($result['page'], $info);
+		$result['page']['id'] = $info['id'];
+		$result['page']['status'] = $info['status'];
+		$result['page']['templates_id'] = $info['templates_id'];
+		$result['page']['parent_id'] = $info['parent_id'];
+
 		$result['response'] = 200;
 
 		if($language && $language->id) {
+			$status = $language->isDefault() ? $info['status'] : $info["status$language->id"];
 			$result['language'] = array_merge($result['language'], array(
 				'name' => $language->name,
-				'status' => $language->status,
+				'status' => ($language->status < Page::statusUnpublished ? $status : 0),
 				'segment' => $this->languageSegment($language)
 			));
 		}
@@ -916,6 +951,8 @@ class PagesPathFinder extends Wire {
 	 *
 	 */
 	protected function getShortcutGlobalUnique(&$path) {
+		
+		if(!$this->options['useGlobalUnique']) return false;
 
 		$database = $this->wire()->database;
 		$unique = Page::statusUnique;
@@ -1136,6 +1173,37 @@ class PagesPathFinder extends Wire {
 	}
 
 	/**
+	 * @return null|Template
+	 * 
+	 */
+	protected function template() {
+		if(!$this->template && !empty($this->result['page']['templates_id'])) {
+			$this->template = $this->wire()->templates->get($this->result['page']['templates_id']); 
+		}
+		return $this->template;
+	}
+
+	/**
+	 * Is matched result in admin?
+	 * 
+	 * @return bool
+	 * 
+	 */
+	protected function admin() {
+		if($this->admin !== null) return $this->admin;
+		$config = $this->wire()->config;
+		if($this->result['page']['templates_id'] === 2) {
+			$this->admin = true;
+		} else if($this->result['page']['id'] === $config->adminRootPageID) {
+			$this->admin = true;
+		} else {
+			$template = $this->template();
+			$this->admin = $template && in_array($template->name, $config->adminTemplates, true); 
+		}
+		return $this->admin;
+	}
+
+	/**
 	 * Get string length, using mb_strlen() if available, strlen() if not
 	 *
 	 * @param string $str
@@ -1144,16 +1212,6 @@ class PagesPathFinder extends Wire {
 	 */
 	protected function strlen($str) {
 		return function_exists('mb_strlen') ? mb_strlen($str) : strlen($str);
-	}
-
-	/**
-	 * Get array of all possible response types indexed by http response code
-	 * 
-	 * @return array
-	 * 
-	 */
-	public function getResponseTypes() {
-		return $this->responseTypes;
 	}
 
 	/*** MODULES **********************************************************************************/
@@ -1267,20 +1325,25 @@ class PagesPathFinder extends Wire {
 	 * 
 	 */
 	protected function language($value) {
+	
+		$language = null;
 		
 		if($value instanceof Page) {
 			if($value->className() === 'Language' || wireInstanceOf($value, 'Language')) {
-				return $value;
+				$language = $value;
 			}
+		} else {
+			/** @var Languages|array $languages */
+			$languages = $this->languages();
+			if(!count($languages)) return null;
+
+			$id = $this->languageId($value);
+			$language = $id ? $languages->get($id) : null;
 		}
 		
-		/** @var Languages|array $languages */
-		$languages = $this->languages();
-		if(!count($languages)) return null;
+		if(!$language || !$language->id) return null;
 		
-		$id = $this->languageId($value);
-		
-		return $languages->get($id);
+		return $language;
 	}
 
 	/**
@@ -1311,7 +1374,7 @@ class PagesPathFinder extends Wire {
 		if($homepage) {
 			foreach($columns as $name => $languageId) {
 				$value = $homepage->get($name);
-				if($name === 'name' && $value === 'home') $value = '';
+				if($name === 'name' && $value === Pages::defaultRootName) $value = '';
 				$this->languageSegments[$languageId] = $value;
 			}
 			
@@ -1333,7 +1396,7 @@ class PagesPathFinder extends Wire {
 			foreach($row as $name => $value) {
 				$languageId = $columns[$name];
 				$value = $this->pageNameToUTF8($value);
-				if($name === 'name' && $value === 'home') $value = '';
+				if($name === 'name' && $value === Pages::defaultRootName) $value = '';
 				$this->languageSegments[$languageId] = $value;
 			}
 		}
@@ -1433,6 +1496,35 @@ class PagesPathFinder extends Wire {
 			$language = $language ? $language->id : 0;
 		}
 		return (int) $language;
+	}
+
+	/**
+	 * Update given path for result language and return it
+	 *
+	 * @param string $path
+	 * @param string $segment
+	 * @return string
+	 *
+	 */
+	protected function updatePathForLanguage($path, $segment = '') {
+		$result = &$this->result;	
+		$config = $this->wire()->config;
+		$template = $this->template;
+		if($template && in_array($template->name, $config->adminTemplates)) return $path;
+		if(!strlen($segment)) {
+			$segment = $result['language']['segment'];
+		}
+		if(!strlen($segment) || $segment === Pages::defaultRootName) {
+			return $path;
+		}
+		if($result['page']['id'] === 1 || $path === '/') {
+			$pageNames = $this->wire()->languages->pageNames();
+			if(!$pageNames || !$pageNames->useHomeSegment) return $path;
+		}
+		if($path != "/$segment" && strpos($path, "/$segment/") !== 0) {
+			$path = "/$segment$path";
+		}
+		return $path;
 	}
 
 

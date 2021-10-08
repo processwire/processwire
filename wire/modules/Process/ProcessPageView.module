@@ -19,6 +19,7 @@
  * @method sendFile($page, $basename)
  * @method string pageNotFound($page, $url, $triggerReady = false, $reason = '', \Exception $e = null)
  * @method string|bool|array|Page pathHooks($path, $out)
+ * @method void userNotAllowed(User $user, $page, PagesRequest $request)
  *
  */
 class ProcessPageView extends Process {
@@ -27,7 +28,7 @@ class ProcessPageView extends Process {
 		return array(
 			'title' => __('Page View', __FILE__), // getModuleInfo title
 			'summary' => __('All page views are routed through this Process', __FILE__), // getModuleInfo summary 
-			'version' => 105, 
+			'version' => 106, 
 			'permanent' => true, 
 			'permission' => 'page-view',
 		);
@@ -116,7 +117,6 @@ class ProcessPageView extends Process {
 		}
 	}
 
-
 	/**
 	 * Render Page
 	 * 
@@ -135,6 +135,11 @@ class ProcessPageView extends Process {
 		$page->of(true);
 		$originalPage = $page;
 		$page = $request->getPageForUser($page, $user);
+		$code = $request->getResponseCode();
+	
+		if($code == 401 || $code == 403) {
+			$this->userNotAllowed($user, $page, $request); 
+		}
 		
 		if(!$page || !$page->id || $originalPage->id == $config->http404PageID) {
 			$s = 'access not allowed';
@@ -154,12 +159,11 @@ class ProcessPageView extends Process {
 		}
 
 		try {
-			$requestFile = $request->getRequestFile();
-
-			if($requestFile) {
+			$file = $request->getFile();
+			if($file) {
 				$this->responseType = self::responseTypeFile;
-				$this->wire()->setStatus(ProcessWire::statusDownload, array('downloadFile' => $requestFile));
-				$this->sendFile($page, $requestFile);
+				$this->wire()->setStatus(ProcessWire::statusDownload, array('downloadFile' => $file));
+				$this->sendFile($page, $file);
 
 			} else {
 				$contentType = $this->contentTypeHeader($page, true);
@@ -209,42 +213,27 @@ class ProcessPageView extends Process {
 		);
 		
 		$options = count($options) ? array_merge($defaults, $options) : $defaults;
+		
 		$config = $this->wire()->config;
 		$hooks = $this->wire()->hooks;
 		$input = $this->wire()->input; 
 		$pages = $this->wire()->pages;
+		
 		$requestPath = $request->getRequestPath();
-		$pageNum = $request->getPageNum();
 		$pageNumPrefix = $request->getPageNumPrefix();
-		$setPageNum = 0;
 		$pageNumSegment = '';
+		$setPageNum = 0;
 		$page = null;
 		$out = false;
 		
 		$this->setResponseType(self::responseTypeNoPage);
 		
-		if($pageNum > 0 && $pageNumPrefix !== null) {
-			// there is a pagination segment present in the request path
-			$slash = substr($requestPath, -1) === '/' ? '/' : '';
-			$requestPath = rtrim($requestPath, '/');
-			$pageNumSegment = $pageNumPrefix . $pageNum;
-			if(substr($requestPath, -1 * strlen($pageNumSegment)) === $pageNumSegment) {
-				// remove pagination segment from request path
-				$requestPath = substr($requestPath, 0, -1 * strlen($pageNumSegment));
-				$setPageNum = $pageNum;
-				// disallow specific "/page1" in URL as it is implied by the lack of pagination segment
-				if($setPageNum === 1) $this->redirect($config->urls->root . ltrim($requestPath, '/'));
-				// enforce no trailing slashes for pagination numbers
-				if($slash) $this->redirect($config->urls->root . ltrim($requestPath, '/') . $pageNumSegment);
-				$input->setPageNum($pageNum);
-			} else {
-				// not a pagination segment
-				// add the slash back to restore requestPath
-				$requestPath .= $slash;
-				$pageNumSegment = '';
-			}
+		if($pageNumPrefix !== null) {
+			// request may have a pagination segment
+			$pageNumSegment = $this->renderNoPagePagination($requestPath, $pageNumPrefix, $request->getPageNum());
+			$setPageNum = $input->pageNum();
 		}
-		
+			
 		if(!$options['ready']) $this->wire('page', $options['page']);
 
 		// run up to 2 times, once before ready state and once after
@@ -330,6 +319,102 @@ class ProcessPageView extends Process {
 		}
 		
 		return $out;
+	}
+
+	/**
+	 * Check for pagination in a no-page request (helper to renderNoPage method)
+	 * 
+	 * - Updates given request path to remove pagination segment.
+	 * - Returns found pagination segment or blank if none.
+	 * - Redirects to non-slash version if pagination segment found with trailing slash.
+	 * 
+	 * @param string $requestPath
+	 * @param string|null $pageNumPrefix
+	 * @param int $pageNum
+	 * @return string Return found pageNum segment or blank if none
+	 * 
+	 */
+	protected function renderNoPagePagination(&$requestPath, $pageNumPrefix, $pageNum) {
+		
+		$config = $this->wire()->config;
+		
+		if($pageNum < 1 || $pageNumPrefix === null) return '';
+
+		// there is a pagination segment present in the request path
+		$slash = substr($requestPath, -1) === '/' ? '/' : '';
+		$requestPath = rtrim($requestPath, '/');
+		$pageNumSegment = $pageNumPrefix . $pageNum;
+		
+		if(substr($requestPath, -1 * strlen($pageNumSegment)) === $pageNumSegment) {
+			// remove pagination segment from request path
+			$requestPath = substr($requestPath, 0, -1 * strlen($pageNumSegment));
+			$setPageNum = $pageNum;
+			// disallow specific "/page1" in URL as it is implied by the lack of pagination segment
+			if($setPageNum === 1) $this->redirect($config->urls->root . ltrim($requestPath, '/'));
+			// enforce no trailing slashes for pagination numbers
+			if($slash) {
+				$this->redirect($config->urls->root . ltrim($requestPath, '/') . $pageNumSegment);
+			}
+			$this->wire()->input->setPageNum($pageNum);
+			
+		} else {
+			// not a pagination segment
+			// add the slash back to restore requestPath
+			$requestPath .= $slash;
+			$pageNumSegment = '';
+		}
+		
+		return $pageNumSegment;
+	}
+
+	/**
+	 * Called when a 401 unauthorized or 403 forbidden request 
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param User $user
+	 * @param Page|NullPage|null $page
+	 * @param PagesRequest $request
+	 * @since 3.0.186
+	 * 
+	 */
+	protected function ___userNotAllowed(User $user, $page, PagesRequest $request) {
+		
+		$input = $this->wire()->input;
+		$config = $this->wire()->config;
+		$session = $this->wire()->session;
+
+		if(!$session || !$page || !$page->id) return;
+		if($user->isLoggedin()) return;
+
+		$loginRequestURL = $request->getRedirectUrl();
+		$ns = 'ProcessPageView'; // session namespace
+
+		if(empty($loginRequestURL) && $session) {
+			$loginRequestURL = $session->getFor($ns, 'loginRequestURL');
+		}
+
+		if(!empty($loginRequestURL)) return;
+		if($page->id == $config->loginPageID) return;
+		if($input->get('loggedout')) return;
+
+		$loginRequestURL = $input->url(array('page' => $page));
+
+		if(!empty($_GET)) {
+			$queryString = $input->queryStringClean(array(
+				'maxItems' => 10,
+				'maxLength' => 500,
+				'maxNameLength' => 20,
+				'maxValueLength' => 200,
+				'sanitizeName' => 'fieldName',
+				'sanitizeValue' => 'name',
+				'entityEncode' => false,
+			));
+			if(strlen($queryString)) $loginRequestURL .= "?$queryString";
+		}
+
+		$session->setFor($ns, 'loginRequestPageID', $page->id);
+		$session->setFor($ns, 'loginRequestURL', $loginRequestURL);
 	}
 	
 	/**

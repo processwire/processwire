@@ -2587,7 +2587,7 @@ class PageFinder extends Wire {
 			}
 			if($langNames) {
 				$module = $this->languages->pageNames();
-				if($module) $selectorValue = $module->updatePath($selectorValue);
+				if($module) $selectorValue = $module->removeLanguageSegment($selectorValue);
 			}
 			$parts = explode('/', rtrim($selectorValue, '/')); 
 			$part = $sanitizer->pageName(array_pop($parts), Sanitizer::toAscii); 

@@ -24,7 +24,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	static public function getModuleInfo() {
 		return array(
 			'title' => 'Languages Support - Page Names',
-			'version' => 12,
+			'version' => 13,
 			'summary' => 'Required to use multi-language page names.',
 			'author' => 'Ryan Cramer',
 			'autoload' => true,
@@ -119,8 +119,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$pageNumUrlPrefixes = array();
 
 		$this->addHookBefore('ProcessPageView::execute', $this, 'hookProcessPageViewExecute');
-		$this->addHookBefore('PagesRequest::getPage', $this, 'hookBeforePagesRequestGetPage');
-		// $this->addHookAfter('PagesRequest::getPage', $this, 'hookBeforePagesRequestGetPage'); // @todo
+		$this->addHookAfter('PagesRequest::getPage', $this, 'hookAfterPagesRequestGetPage');
 		$this->addHookAfter('PageFinder::getQuery', $this, 'hookPageFinderGetQuery'); 
 
 		// identify the pageNum URL prefixes for each language
@@ -158,10 +157,10 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		// note that the hooks above are added before this so that 404s can still be handled properly
 		if($this->bypass) return;
 		
-		$session = $this->wire()->session;
-
 		// verify that page path doesn't have mixed languages where it shouldn't
 		// @todo this can be replaced since logic is now in PagesRequest/PagesPathFinder
+		/*
+		$session = $this->wire()->session;
 		$redirectUrl = $this->verifyPath($this->requestPath);
 		
 		if($redirectUrl) {
@@ -174,6 +173,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			}
 			return;
 		}
+		*/
 
 		$language = $this->wire()->user->language; 
 		$pages = $this->wire()->pages;
@@ -241,31 +241,50 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * @return string
 	 *
 	 */
-	public function updatePath($path) {
+	public function removeLanguageSegment($path) {
 		
 		if($path === '/' || !strlen($path)) return $path;
 	
-		$languages = $this->wire()->languages;
 		$trailingSlash = substr($path, -1) == '/';
 		$testPath = trim($path, '/') . '/';
-		$home = $this->wire()->pages->get(1);
+		$segments = $this->wire()->pages->pathFinder()->languageSegments();
 		
+		foreach($segments as $languageId => $segment) {
+			if(!strlen($segment)) continue;
+			$name = "$segment/";
+			if(strpos($testPath, $name) !== 0) continue;
+			$path = substr($testPath, strlen($name));
+			break;
+		}
+	
+		/*
 		foreach($languages as $language) {
 			$name = $language->isDefault() ? $home->get("name") : $home->get("name$language"); 
 			if($name == Pages::defaultRootName) continue;
 			if(!strlen($name)) continue; 
 			$name = "$name/"; 
 			if(strpos($testPath, $name) === 0) {
-				$this->setLanguage = $language; 
+				// $this->setLanguage = $language; 
 				$path = substr($testPath, strlen($name)); 
 			}
 		}	
+		*/
 		
 		if(!$trailingSlash && $path != '/') {
 			$path = rtrim($path, '/');
 		}
 		
 		return '/' . ltrim($path, '/'); 
+	}
+
+	/**
+	 * @param string $path
+	 * @return string
+	 * @deprecated use removeLanguageSegment instead
+	 * 
+	 */
+	public function updatePath($path) {
+		return $this->removeLanguageSegment($path);
 	}
 
 	/**
@@ -281,7 +300,6 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * 
 	 * @todo this can be replaced/removed since logic is now in PagesRequest/PagesPathFinder
 	 *
-	 */
 	protected function verifyPath($requestPath) {
 
 		$languages = $this->wire()->languages;
@@ -303,7 +321,6 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		// determine if we should set the current language based on requested URL
 		if(!$setLanguage) {
 			foreach($parentsAndPage as $p) {
-				/** @var Page $p */
 				$requestedPart = strtolower(array_shift($requestedParts));
 				if($requestedPart === $p->name) continue;
 
@@ -403,6 +420,21 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 		return $redirectURL; 	
 	}
+	 */
+
+	/**
+	 * Set the request language
+	 * 
+	 * @param Language|null $language
+	 * 
+	 */
+	public function setLanguage(Language $language = null) {
+		$languages = $this->wire()->languages;
+		if(!$language) $language = $languages->getDefault();
+		$this->setLanguage = $language;
+		$this->wire()->user->setLanguage($language);
+		$languages->setLocale();
+	}
 
 	/**
 	 * Called when page is not available in a given language
@@ -424,7 +456,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * @since 3.0.186
 	 * 
 	 */
-	protected function ___pageNotAvailableInLanguage(Page $page, Language $language) {
+	public function ___pageNotAvailableInLanguage(Page $page, Language $language) {
 		if($language) {} // ignore
 		if($page->editable()) return true;
 		if($page->id == $this->wire()->config->http404PageID) return true;
@@ -492,18 +524,16 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * @since 3.0.186
 	 * @todo this can be replaced with an after() hook as PagesRequest can figure out language on its own now
 	 *
-	 */
 	public function hookBeforePagesRequestGetPage(HookEvent $event) {
 		
 		if($this->requestPath) return; // execute only once
 
-		/** @var PagesRequest $request */		
 		$request = $event->object;
 		$requestPath = $request->getRequestPath();
 		$this->requestPath = $requestPath;
 		
 		if($this->isAssetPath($requestPath)) {
-			// bypass means the request was to something in /site/*/
+			// bypass means the request was to something in /site/
 			// that has no possibilty of language support
 			$this->bypass = true;
 		} else {
@@ -519,6 +549,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		
 		$event->removeHook($event);
 	}
+	*/
 	
 	/**
 	 * Hook in after PagesRequest::getPage 
@@ -526,25 +557,25 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 	 * @param HookEvent $event
 	 * @since 3.0.186
 	 *
+	 */
 	public function hookAfterPagesRequestGetPage(HookEvent $event) {
 
+		/** @var PagesRequest $request */
 		$request = $event->object;
-		$requestPath = $request->getRequestPath();
-		$this->requestPath = $requestPath;
+		$this->requestPath = $request->getRequestPath();
 		$languageName = $request->getLanguageName();
 
-		if($this->isAssetPath($requestPath)) {
+		if($this->isAssetPath($this->requestPath)) {
 			// bypass means the request was to something in /site/...
 			// that has no possibilty of language support
 			$this->bypass = true;
 		} else if($languageName) {
 			$language = $this->wire()->languages->get($languageName);
-			if($language && $language->id) $this->setLanguage = $language;
+			if($language && $language->id) $this->setLanguage($language);
 		}
 
 		$event->removeHook($event);
 	}
-	*/
 
 
 	/**
@@ -959,7 +990,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		}
 
 		if(!$language || !$language->id || !$language instanceof Language) {
-			$language = $languages->get('default'); 
+			$language = $languages->getDefault();
 		}
 
 		return $language; 

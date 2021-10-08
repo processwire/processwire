@@ -268,9 +268,13 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 
 		$sanitizer = $this->wire()->sanitizer;
 		$database = $this->wire()->database;
+		$languages = $this->wire()->languages;
 		$config = $this->wire()->config;
+		
 		$table = self::dbTableName;
 		$useUTF8 = $config->pageNameCharset === 'UTF8';
+		
+		if($languages && !$languages->hasPageNames()) $languages = null;
 		
 		if($useUTF8) {
 			$path = $sanitizer->pagePathName($path, Sanitizer::toAscii);
@@ -284,6 +288,13 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 			'pages.parent_id AS parent_id', 
 			'pages.status AS status'
 		);
+		
+		if($languages) {
+			foreach($languages as $language) {
+				if($language->isDefault()) continue;
+				$columns[] = "pages.status$language->id AS status$language->id";
+			}
+		}
 		
 		$cols = implode(', ', $columns);
 
@@ -303,7 +314,7 @@ class PagePaths extends WireData implements Module, ConfigurableModule {
 		if(!$row) return false;
 	
 		foreach($row as $key => $value) {
-			if($key === 'id' || $key === 'status' || strpos($key, '_id')) {
+			if($key === 'id' || strpos($key, 'status') === 0 || strpos($key, '_id')) {
 				$row[$key] = (int) $value;
 			}
 		}

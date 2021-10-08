@@ -8,8 +8,10 @@
  * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
- * @method Page|null getPage()
+ * @method Page|NullPage getPage()
  * @method Page|null getPageForUser(Page $page, User $user)
+ * @method Page|NullPage getClosestPage()
+ * @method Page|string getLoginPageOrUrl(Page $page)
  *
  */
 
@@ -32,6 +34,22 @@ class PagesRequest extends Wire {
 	 *
 	 */
 	protected $page = null;
+
+	/**
+	 * Closest page to one requested, when getPage() didn’t resolve
+	 * 
+	 * @var null|Page
+	 * 
+	 */
+	protected $closestPage = null;
+
+	/**
+	 * Page that access was requested to and denied
+	 * 
+	 * @var Page|null
+	 * 
+	 */
+	protected $requestPage = null;
 
 	/**
 	 * @var array
@@ -80,6 +98,28 @@ class PagesRequest extends Wire {
 	 *
 	 */
 	protected $pageNumPrefix = null;
+	
+	/**
+	 * Response type codes to response type names
+	 *
+	 * @var array
+	 *
+	 */
+	protected $responseCodeNames = array(
+		0 => 'unknown',
+		200 => 'ok',
+		300 => 'maybeRedirect',
+		301 => 'permRedirect',
+		302 => 'tempRedirect',
+		307 => 'tempRedo',
+		308 => 'permRedo',
+		400 => 'badRequest',
+		401 => 'unauthorized',
+		403 => 'forbidden',
+		404 => 'pageNotFound',
+		405 => 'methodNotAllowed',
+		414 => 'pathTooLong',
+	);
 
 	/**
 	 * Response http code
@@ -89,14 +129,6 @@ class PagesRequest extends Wire {
 	 */
 	protected $responseCode = 0;
 	
-	/**
-	 * Response type name
-	 * 
-	 * @var string
-	 *
-	 */
-	protected $responseName = '';
-
 	/**
 	 * URL that should be redirected to for this request
 	 *
@@ -126,12 +158,14 @@ class PagesRequest extends Wire {
 	protected $prevGetIt = null;
 
 	/**
-	 * Error from getPage() method, if it could not identify a valid Page
+	 * Optional message provided to setResponseCode() with additional detail
 	 * 
 	 * @var string
 	 * 
 	 */
-	protected $error = '';
+	protected $responseMessage = '';
+	
+	/*************************************************************************************/
 
 	/**
 	 * Construct
@@ -208,17 +242,36 @@ class PagesRequest extends Wire {
 	}
 	
 	/**
-	 * Get the requested page and populate identified urlSegments or page numbers
-	 *
+	 * Get the requested page 
+	 * 
+	 * - Populates identified urlSegments or page numbers to $input.
+	 * - Returns NullPage for error, call getResponseCode() and/or getResponseMessage() for details.
+	 * - Returned page should be validated with getPageForUser() method before rendering it. 
+	 * - Call getFile() method afterwards to see if request resolved to file managed by returned page.
+	 * 
+	 * @param array $options
+	 *  - `useShortcuts` (bool): Allow use PagePaths module and global-unique shortcuts? (default=true)
+	 *  - `useHistory` (bool): Allow use historical path names via PagePathHistory? (default=true)
 	 * @return Page|NullPage
 	 *
 	 */
-	public function ___getPage() {
+	public function ___getPage(array $options = array()) {
+		
+		$defaults = array(
+			'verbose' => false,
+			'useShortcuts' => true,
+			'useHistory' => true, 
+			'usePagePaths' => false, // needs more testing before setting true
+			'useGlobalUnique' => true
+		);
+		
+		$options = empty($options) ? $defaults : array_merge($defaults, $options);
 
 		// perform this work only once unless reset by setPage or setRequestPath
 		if($this->page && $this->requestPath === $this->processedPath) return $this->page;
 
 		$input = $this->wire()->input;
+		$languages = $this->wire()->languages;
 		$page = null;
 
 		// get the requested path
@@ -233,12 +286,13 @@ class PagesRequest extends Wire {
 			$page = $this->checkRequestFile($path); // can modify $path directly
 			if(is_object($page)) {
 				// Page (success) or NullPage (404)
-				if($page->id) {
-					$this->setResponse(200, 'fileOk');
-				} else {
-					$this->setResponse(404, 'fileNotFound');
-				}
+				$this->setResponseCode($page->id ? 200 : 404, 'Secure pagefile request');
 				return $this->setPage($page);
+			} else if($page === false) {
+				// $path is unrelated to /site/assets/files/
+			} else if($page === true) {
+				// $path was to a file using config.pageFileUrlPrefix prefix method
+				// $this->requestFile is populated and $path is now updated to be the page path
 			}
 		}
 		
@@ -250,12 +304,12 @@ class PagesRequest extends Wire {
 			// this will force pathFinder to detect a redirect condition
 			$path = rtrim($path, '/') . '/index.php';
 		}
-
+		
 		// get info about requested path
-		$info = $this->pages->pathFinder()->get($path, array('verbose' => false));
+		$info = $this->pages->pathFinder()->get($path, $options);
 		$this->pageInfo = &$info;
 		$this->languageName = $info['language']['name'];
-		$this->setResponse($info['response'], $info['type']); 
+		$this->setResponseCode($info['response']);
 	
 		// URL segments
 		if(count($info['urlSegments'])) {
@@ -278,27 +332,54 @@ class PagesRequest extends Wire {
 		} else {
 			$page = $this->pages->newNullPage();
 		}
-	
-		// just in case (not likely)
-		if(!$page->id && $this->responseCode < 300) $this->responseCode = 404;
 		
-		// the first version of PW populated first URL segment to $page 
-		if($page->id && !empty($info['urlSegments'])) {
-			// undocumented behavior retained for backwards compatibility
-			$page->setQuietly('urlSegment', $input->urlSegment1);
+		$this->requestPage = $page;
+		
+		if($page->id) {
+			if(!empty($info['urlSegments'])) {
+				// the first version of PW populated first URL segment to $page 
+				// undocumented behavior retained for backwards compatibility
+				$page->setQuietly('urlSegment', $input->urlSegment1);
+			}
+			if(!$this->checkRequestMethod($page)) {
+				// request method not allowed
+				$page = $this->pages->newNullPage();
+			}
+		} else if($this->responseCode < 300) {
+			// just in case (not likely)
+			$this->setResponseCode(404);
+		}
+		
+		if($this->responseCode === 300) {
+			// 300 maybe redirect: page not available in requested language
+			if($languages && $languages->hasPageNames()) {
+				$language = $languages->get($info['language']['name']); 
+				$result = $languages->pageNames()->pageNotAvailableInLanguage($page, $language);
+				if(is_array($result)) {
+					$this->setResponseCode($result[0]);
+					$this->setRedirectUrl($result[1], $result[0]); 
+				} else if(is_bool($result)) {
+					$this->setResponseCode($result ? 200 : 404);
+				}
+			} else if(!empty($info['redirect'])) {
+				$this->setResponseCode(301);
+			}
 		}
 
-		if($this->responseCode < 300) {
-			// 200 ok
-			
-		} else if($this->responseCode >= 300 && $this->responseCode < 400) {
+		if($this->responseCode >= 300 && $this->responseCode < 400) {
 			// 301 permRedirect or 302 tempRedirect 
 			$this->setRedirectPath($info['redirect'], $info['response']);
+		}
 			
-		} else if($this->responseCode >= 400) {
-			// 404 pageNotFound or 414 pathTooLong
-			if(!empty($info['redirect'])) {} // todo: pathFinder suggests a redirect may still be possible
-			if($page->id) $this->wire('closestPage', $page); // set a $closestPage API in case 404 page wants it
+		if($this->responseCode >= 400) {
+			// 400 badRequest, 401 unauthorized, 403 forbidden,
+			// 404 pageNotFound, 405 methodNotallowed, 414 pathTooLong
+			if(!empty($info['redirect'])) {
+				// pathFinder suggests a redirect may still be possible
+			} 
+			if($page->id) {
+				$this->closestPage = $page;
+			}
 			$page = $this->pages->newNullPage();
 		}
 			
@@ -311,11 +392,12 @@ class PagesRequest extends Wire {
 	 * Update/get page for given user
 	 * 
 	 * Must be called once the current $user is known as it may change the $page.
-	 * Returns NullPage or login page if user lacks access.
+	 * Returns NullPage if user lacks access or page out of bounds.
+	 * Returns different page if it should be substituted due to lack of access (like login page). 
 	 *
 	 * @param Page $page
 	 * @param User $user
-	 * @return Page|NullPage|null
+	 * @return Page|NullPage
 	 *
 	 */
 	public function ___getPageForUser(Page $page, User $user) {
@@ -332,6 +414,8 @@ class PagesRequest extends Wire {
 				$this->redirectUrl = '';
 			}
 		}
+		
+		$requestPage = $page;
 
 		// enforce max pagination number when user is not logged in
 		$pageNum = $this->wire()->input->pageNum();
@@ -345,14 +429,73 @@ class PagesRequest extends Wire {
 
 		if($page->id) {
 			$page = $this->checkAccess($page, $user);
+			if(!$page || !$page->id) {
+				// 404
+				$page = $this->pages->newNullPage();
+			} if(is_string($page)) {
+				// redirect URL
+				$this->setRedirectUrl($page);
+				$page = $this->pages->newNullPage();
+			} else {
+				// login Page or Page to render
+			}
+			if($page && $page->id) {
+				// access allowed
+			} else if($user->isLoggedin()) {
+				$this->setResponseCode(403, 'Authenticated user lacks access');
+			} else {
+				$this->setResponseCode(401, 'User must login for access');
+			}
 		}
 
-		if($page && $page->id) {
+		if($page->id) {
 			$this->checkScheme($page);
 			$this->setPage($page);
 			$page->of(true);
 		}
+	
+		// if $page was changed as a result of above remember the requested one
+		if($requestPage->id != $page->id) {
+			$this->requestPage = $requestPage;
+		}
 		
+		return $page;
+	}
+
+	/**
+	 * Get closest matching page when getPage() returns an error/NullPage
+	 * 
+	 * This is useful for a 404 page to suggest if maybe the user intended a different page 
+	 * and give them a link to it. For instance, you might have the following code in the 
+	 * template file used by your 404 page:
+	 * ~~~~~
+	 * echo "<h1>404 Page Not Found</h1>";
+	 * $p = $pages->request()->getClosestPage();
+	 * if($p->id) {
+	 *   echo "<p>Are you looking for <a href='$p->url'>$p->title</a>?</p>";
+	 * }
+	 * ~~~~~
+	 * 
+	 * @return Page|NullPage
+	 * 
+	 */
+	public function ___getClosestPage() {
+		return $this->closestPage ? $this->closestPage : $this->pages->newNullPage();
+	}
+
+	/**
+	 * Get page that was requested
+	 * 
+	 * If this is different from the Page returned by getPageForUser() then it would
+	 * represent the page that the user lacked access to. 
+	 * 
+	 * @return NullPage|Page
+	 * 
+	 */
+	public function getRequestPage() {
+		if($this->requestPage) return $this->requestPage;
+		$page = $this->getPage();
+		if($this->requestPage) return $this->requestPage; // duplication from above intentional
 		return $page;
 	}
 
@@ -362,7 +505,7 @@ class PagesRequest extends Wire {
 	 * @return bool|string Return false on fail, path on success
 	 *
 	 */
-	protected function getPageRequestPath() {
+	protected function getRequestPagePath() {
 		
 		$config = $this->config;
 		$sanitizer = $this->wire()->sanitizer;
@@ -385,7 +528,7 @@ class PagesRequest extends Wire {
 					$shit = substr($shit, strlen($rootUrl) - 1);
 				} else {
 					// request URL outside of our root directory
-					$this->setResponse(404, 'pageNotFound', 'Request URL outside of our web root');
+					$this->setResponseCode(404, 'Request URL outside of our web root');
 					return false;
 				}
 			}
@@ -409,21 +552,21 @@ class PagesRequest extends Wire {
 			}
 			if($shit !== $it) {
 				// if still does not match then fail
-				$this->setResponse(400, 'pagePathError', 'Request URL contains invalid/unsupported characters');
+				$this->setResponseCode(400, 'Request URL contains invalid/unsupported characters');
 				return false;
 			}
 		}
 
 		$maxUrlDepth = $config->maxUrlDepth;
 		if($maxUrlDepth > 0 && substr_count($it, '/') > $config->maxUrlDepth) {
-			$this->setResponse(414, 'pathTooLong', 'Request URL exceeds max depth set in $config->maxUrlDepth');
+			$this->setResponseCode(414, 'Request URL exceeds max depth set in $config->maxUrlDepth');
 			return false;
 		}
 
 		if(!isset($it[0]) || $it[0] != '/') $it = "/$it";
 		
 		if(strpos($it, '//') !== false) {
-			$this->setResponse(400, 'pagePathError', 'Request URL contains a blank segment “//”');
+			$this->setResponseCode(400, 'Request URL contains a blank segment “//”');
 			return false;
 		}
 		
@@ -439,7 +582,7 @@ class PagesRequest extends Wire {
 	 * - This function sets $this->requestFile when it finds one.
 	 * - Returns Page when a pagefile was found and matched to a page.
 	 * - Returns NullPage when request should result in a 404.
-	 * - Returns true, and updates $it, when pagefile was found using old/deprecated method.
+	 * - Returns true and updates $path, when pagefile was found using deprecated prefix method.
 	 * - Returns false when none found.
 	 *
 	 * @param string $path Request path
@@ -455,85 +598,151 @@ class PagesRequest extends Wire {
 		$url = rtrim($config->urls->root, '/') . $path;
 
 		// check for secured filename, method 1: actual file URL, minus leading "." or "-"
-		if(strpos($url, $config->urls->files) === 0) {
-			// request is for file in site/assets/files/...
-			$idAndFile = substr($url, strlen($config->urls->files));
+		if(strpos($url, $config->urls->files) !== 0) {
+			// if URL is not to files, check if it might be using legacy prefix
+			if($config->pagefileUrlPrefix) return $this->checkRequestFilePrefix($path);
+			// request is not for a file
+			return false;
+		}
+		
+		// request is for file in site/assets/files/...
+		$idAndFile = substr($url, strlen($config->urls->files));
 
-			// matching in $idAndFile: 1234/file.jpg, 1/2/3/4/file.jpg, 1234/subdir/file.jpg, 1/2/3/4/subdir/file.jpg, etc. 
-			if(preg_match('{^(\d[\d\/]*)/([-_a-zA-Z0-9][-_./a-zA-Z0-9]+)$}', $idAndFile, $matches) && strpos($matches[2], '.')) {
-				// request is consistent with those that would match to a file
-				$idPath = trim($matches[1], '/');
-				$file = trim($matches[2], '.');
+		// matching in $idAndFile: 1234/file.jpg, 1/2/3/4/file.jpg, 1234/subdir/file.jpg, 1/2/3/4/subdir/file.jpg, etc. 
+		$regex = '{^(\d[\d\/]*)/([-_a-zA-Z0-9][-_./a-zA-Z0-9]+)$}';
+		if(!preg_match($regex, $idAndFile, $matches) && strpos($matches[2], '.')) {
+			// request was to something in /site/assets/files/ but we don't recognize it
+			// tell caller that this should be a 404
+			return $pages->newNullPage();
+		}
+		
+		// request is consistent with those that would match to a file
+		$idPath = trim($matches[1], '/');
+		$file = trim($matches[2], '.');
 
-				if(!strpos($file, '.')) return $pages->newNullPage();
+		if(!strpos($file, '.')) return $pages->newNullPage();
 
-				if(!ctype_digit("$idPath")) {
-					// extended paths where id separated by slashes, i.e. 1/2/3/4
-					if($config->pagefileExtendedPaths) {
-						// allow extended paths
-						$idPath = str_replace('/', '', $matches[1]);
-						if(!ctype_digit("$idPath")) return $pages->newNullPage();
-					} else {
-						// extended paths not allowed
-						return $pages->newNullPage();
-					}
-				}
-
-				if(strpos($file, '/') !== false) {
-					// file in subdirectory (for instance ProDrafts uses subdirectories for draft files)
-					list($subdir, $file) = explode('/', $file, 2);
-
-					if(strpos($file, '/') !== false) {
-						// there is more than one subdirectory, which we do not allow
-						return $pages->newNullPage();
-
-					} else if(strpos($subdir, '.') !== false || strlen($subdir) > 128) {
-						// subdirectory has a "." in it or subdir length is too long
-						return $pages->newNullPage();
-
-					} else if(!preg_match('/^[a-zA-Z0-9][-_a-zA-Z0-9]+$/', $subdir)) {
-						// subdirectory not in expected format  
-						return $pages->newNullPage();
-					}
-
-					$file = trim($file, '.');
-					$this->requestFile = "$subdir/$file";
-
-				} else {
-					// file without subdirectory
-					$this->requestFile = $file;
-				}
-
-				return $pages->get((int) $idPath); // Page or NullPage
-
+		if(!ctype_digit("$idPath")) {
+			// extended paths where id separated by slashes, i.e. 1/2/3/4
+			if($config->pagefileExtendedPaths) {
+				// allow extended paths
+				$idPath = str_replace('/', '', $matches[1]);
+				if(!ctype_digit("$idPath")) return $pages->newNullPage();
 			} else {
-				// request was to something in /site/assets/files/ but we don't recognize it
-				// tell caller that this should be a 404
+				// extended paths not allowed
 				return $pages->newNullPage();
 			}
 		}
 
-		// check for secured filename: method 2 (deprecated), used only if $config->pagefileUrlPrefix is defined
-		$filePrefix = $config->pagefileUrlPrefix;
-		if($filePrefix && strpos($path, '/' . $filePrefix) !== false) {
-			if(preg_match('{^(.*/)' . $filePrefix . '([-_.a-zA-Z0-9]+)$}', $path, $matches) && strpos($matches[2], '.')) {
-				$path = $matches[1];
-				$this->requestFile = $matches[2];
-				return true;
+		if(strpos($file, '/') !== false) {
+			// file in subdirectory (for instance ProDrafts uses subdirectories for draft files)
+			list($subdir, $file) = explode('/', $file, 2);
+
+			if(strpos($file, '/') !== false) {
+				// there is more than one subdirectory, which we do not allow
+				return $pages->newNullPage();
+
+			} else if(strpos($subdir, '.') !== false || strlen($subdir) > 128) {
+				// subdirectory has a "." in it or subdir length is too long
+				return $pages->newNullPage();
+
+			} else if(!preg_match('/^[a-zA-Z0-9][-_a-zA-Z0-9]+$/', $subdir)) {
+				// subdirectory not in expected format  
+				return $pages->newNullPage();
 			}
+
+			$file = trim($file, '.');
+			$this->requestFile = "$subdir/$file";
+
+		} else {
+			// file without subdirectory
+			$this->requestFile = $file;
 		}
 
-		return false;
+		return $pages->get((int) $idPath); // Page or NullPage
+	}
+
+	/**
+	 * Check for secured filename: method 2 (deprecated)
+	 * 
+	 * Used only if $config->pagefileUrlPrefix is defined
+	 * 
+	 * @param string $path
+	 * @return bool
+	 * 
+	 */
+	protected function checkRequestFilePrefix(&$path) {
+		$filePrefix = $this->wire()->config->pagefileUrlPrefix;
+		if(empty($filePrefix)) return false;
+		if(!strpos($path, '/' . $filePrefix)) return false;
+		$regex = '{^(.*/)' . $filePrefix . '([-_.a-zA-Z0-9]+)$}';
+		if(!preg_match($regex, $path, $matches)) return false; 
+		if(!strpos($matches[2], '.')) return false;
+		$path = $matches[1];
+		$this->requestFile = $matches[2];
+		return true;
+	}
+
+	/**
+	 * Get login Page object or URL to redirect to for login needed to access given $page
+	 * 
+	 * - When a Page is returned, it is suggested the Page be rendered in this request.
+	 * - When a string/URL is returned, it is suggested you redirect to it. 
+	 * - When null is returned no login page or URL could be identified and 404 should render.
+	 * 
+	 * @param Page|null $page Page that access was requested to or omit to get admin login page
+	 * @return string|Page|null Login page object or string w/redirect URL, null if 404
+	 * 
+	 */
+	public function ___getLoginPageOrUrl(Page $page = null) {
+		
+		$config = $this->wire()->config;
+
+		// if no $page given return default login page
+		if($page === null) return $this->pages->get((int) $config->loginPageID);
+	
+		// if NullPage given return URL to default login page
+		if(!$page->id) return $this->pages->get((int) $config->loginPageID)->httpUrl();
+	
+		// if given page is one that cannot be accessed regardless of login return null
+		if($page->id === $config->trashPageID) return null;
+
+		// get redirectLogin setting from the template
+		$accessTemplate = $page->getAccessTemplate();
+		$redirectLogin = $accessTemplate ? $accessTemplate->redirectLogin : false;
+		
+		if(empty($redirectLogin)) {
+			// no setting for template.redirectLogin means 404 
+			return null;
+
+		} else if(ctype_digit("$redirectLogin")) {
+			// Page ID provided in template.redirectLogin
+			$loginID = (int) $redirectLogin;
+			if($loginID < 2) $loginID = (int) $config->loginPageID;
+			$loginPage = $this->pages->get($loginID);
+			if(!$loginPage->id && $loginID != $config->loginPageID) {
+				$loginPage = $this->pages->get($config->loginPageID);
+			}
+			if(!$loginPage->id) $loginPage = null;
+			return $loginPage;
+			
+		} else if(strlen($redirectLogin)) {
+			// redirect URL provided in template.redirectLogin
+			$redirectUrl = str_replace('{id}', $page->id, $redirectLogin);
+			return $redirectUrl;
+		}
+		
+		return null;
 	}
 
 	/**
 	 * Check that the current user has access to the page and return it
 	 *
-	 * If the user doesn't have access, then a login Page or NULL (for 404) is returned instead.
+	 * If the user doesn’t have access, then a login Page or NULL (for 404) is returned instead.
 	 * 
 	 * @param Page $page
 	 * @param User $user
-	 * @return Page|null
+	 * @return Page|string|null Page to render, URL to redirect to, or null for 404
 	 * 
 	 *
 	 */
@@ -542,14 +751,19 @@ class PagesRequest extends Wire {
 		if($this->requestFile) {
 			// if a file was requested, we still allow view even if page doesn't have template file
 			if($page->viewable($this->requestFile) === false) return null;
-			if($page->viewable(false)) return $page;
+			if($page->viewable(false)) return $page; // false=viewable without template file check
 			if($this->checkAccessDelegated($page)) return $page;
-			if($page->status < Page::statusUnpublished && $user->hasPermission('page-view', $page)) return $page;
-
-		} else if($page->viewable()) {
+			// below seems to be redundant with the above $page->viewable(false) check
+			// if($page->status < Page::statusUnpublished && $user->hasPermission('page-view', $page)) return $page;
+			return null;
+		} 
+		
+		if($page->viewable()) {
+			// regular page view
 			return $page;
+		}
 
-		} else if($page->parent_id && $page->parent->template->name === 'admin' && $page->parent->viewable()) {
+		if($page->parent_id && $page->parent->template->name === 'admin' && $page->parent->viewable()) {
 			// check for special case in admin when Process::executeSegment() collides with page name underneath
 			// example: a role named "edit" is created and collides with ProcessPageType::executeEdit()
 			$input = $this->wire()->input;
@@ -558,66 +772,15 @@ class PagesRequest extends Wire {
 				return $page->parent;
 			}
 		}
-
-		$accessTemplate = $page->getAccessTemplate();
-		$redirectLogin = $accessTemplate ? $accessTemplate->redirectLogin : false;
-
-		// if we won’t be presenting a login form then $page converts to null (404)
-		if(!$redirectLogin) return null;
-
-		$config = $this->config;
-		$session = $this->wire()->session;
-		$input = $this->wire()->input;
 		
-		$disallowIDs = array($config->trashPageID); // don't allow login redirect for these pages
-		$loginRequestURL = $this->redirectUrl;
-		$loginPageID = $config->loginPageID;
-		$requestPage = $page;
-		$ns = 'ProcessPageView';
+		// if we reach this point, page is not viewable
+		// get login Page or URL to redirect to for login (Page, string or null)
+		$result = $this->getLoginPageOrUrl($page);
 
-		if($page->id && in_array($page->id, $disallowIDs)) {
-			// don't allow login redirect when matching disallowIDs
-			$page = null;
+		// if we won’t be presenting a login or redirect then return null (404)
+		if(empty($result)) return null;
 
-		} else if(ctype_digit("$redirectLogin")) {
-			// redirect login provided as a page ID
-			$redirectLogin = (int) $redirectLogin;
-			// if given ID 1 then this maps to the admin login page
-			if($redirectLogin === 1) $redirectLogin = $loginPageID;
-			$page = $this->pages->get($redirectLogin);
-
-		} else {
-			// redirect login provided as a URL, optionally with an {id} tag for requested page ID
-			$redirectLogin = str_replace('{id}', $page->id, $redirectLogin);
-			$this->setRedirectUrl($redirectLogin);
-		}
-
-		if(empty($loginRequestURL) && $session) {
-			$loginRequestURL = $session->getFor($ns, 'loginRequestURL');
-		}
-
-		// in case anything after login needs to know the originally requested page/URL
-		if(empty($loginRequestURL) && $page && $requestPage && $requestPage->id && $session) {
-			if($requestPage->id != $loginPageID && !$input->get('loggedout')) {
-				$loginRequestURL = $input->url(array('page' => $requestPage));
-				if(!empty($_GET)) {
-					$queryString = $input->queryStringClean(array(
-						'maxItems' => 10,
-						'maxLength' => 500,
-						'maxNameLength' => 20,
-						'maxValueLength' => 200,
-						'sanitizeName' => 'fieldName',
-						'sanitizeValue' => 'name',
-						'entityEncode' => false,
-					));
-					if(strlen($queryString)) $loginRequestURL .= "?$queryString";
-				}
-				$session->setFor($ns, 'loginRequestPageID', $requestPage->id);
-				$session->setFor($ns, 'loginRequestURL', $loginRequestURL);
-			}
-		}
-
-		return $page;
+		return $result;
 	}
 
 	/**
@@ -747,6 +910,30 @@ class PagesRequest extends Wire {
 	}
 
 	/**
+	 * Check current request method
+	 * 
+	 * @param Page $page
+	 * @return bool True if current request method allowed, false if not
+	 * 
+	 */
+	private function checkRequestMethod(Page $page) {
+		// @todo replace static allowMethods array with template setting like below
+		// $allowMethods = $page->template->get('requestMethods'); 
+		// $allowMethods = array('GET', 'HEAD', 'POST', 'PUT', 'DELETE', 'CONNECT', 'OPTIONS', 'TRACE', 'PATCH');
+		$allowMethods = array(); // feature disabled until further development
+		if(empty($allowMethods)) return true; // all allowed when none selected
+		$method = isset($_SERVER['REQUEST_METHOD']) ? strtoupper($_SERVER['REQUEST_METHOD']) : '';
+		if(empty($method)) return true;
+		if(in_array($method, $allowMethods, true)) return true;
+		if($method === 'GET' || $method === 'POST') {
+			if($page->template->name === 'admin') return true; 
+			if($page->id == $this->wire()->config->http404PageID) return true;
+		}
+		$this->setResponseCode(405, "Request method $method not allowed by $page->template");
+		return false;
+	}
+
+	/**
 	 * Are secure pagefiles possible on this system and url?
 	 *
 	 * @param string $url
@@ -782,14 +969,22 @@ class PagesRequest extends Wire {
 	 * Set response code and type
 	 * 
 	 * @param int $code
-	 * @param string $name
-	 * @param string $error Optional error string
+	 * @param string $message Optional message string
 	 * 
 	 */
-	protected function setResponse($code, $name , $error = '') {
+	protected function setResponseCode($code, $message = '') {
 		$this->responseCode = (int) $code;
-		$this->responseName = $name;
-		if($error) $this->error = $error;
+		if($message) $this->responseMessage = $message;
+	}
+
+	/**
+	 * Get all possible response code names indexed by http response code
+	 *
+	 * @return array
+	 *
+	 */
+	public function getResponseCodeNames() {
+		return $this->responseCodeNames;
 	}
 
 	/**
@@ -801,18 +996,23 @@ class PagesRequest extends Wire {
 	 * - ok: successful request (200)
 	 * - fileOk: successful file request (200) 
 	 * - fileNotFound: requested file not found (404)
+	 * - maybeRedirect: needs decision about whether to redirect (300)
 	 * - permRedirect: permanent redirect (301)
 	 * - tempRedirect: temporary redirect (302)
-	 * - pagePathError: page path error (400)
+	 * - tempRedo: temporary redirect and redo using same method (307)
+	 * - permRedo: permanent redirect and redo using same method (308)
+	 * - badRequest: bad request/page path error (400)
+	 * - unauthorized: login required (401)
+	 * - forbidden: authenticated user lacks access (403)
 	 * - pageNotFound: page not found (404)
-	 * - pathTooLong: path too long or segment too long
+	 * - methodNotAllowed: request method is not allowed by template (405)
+	 * - pathTooLong: path too long or segment too long (414)
 	 * 
 	 * @return string
 	 * 
 	 */
-	public function getResponseName() {
-		if(!$this->responseName) return 'unknown';
-		return $this->responseName;
+	public function getResponseCodeName() {
+		return $this->responseCodeNames[$this->responseCode];
 	}
 	
 	/**
@@ -820,12 +1020,18 @@ class PagesRequest extends Wire {
 	 * 
 	 * Returns integer, one of:
 	 * 
-	 * - 0: request not yet analyzed
+	 * - 0: unknown/request not yet analyzed
 	 * - 200: successful request
+	 * - 300: maybe redirect (needs decision)
 	 * - 301: permanent redirect
 	 * - 302: temporary redirect
-	 * - 400: page path error
+	 * - 307: temporary redirect and redo using same method
+	 * - 308: permanent redirect and redo using same method
+	 * - 400: bad request/page path error
+	 * - 401: unauthorized/login required
+	 * - 403: forbidden/authenticated user lacks access
 	 * - 404: page not found
+	 * - 405: method not allowed
 	 * - 414: request path too long or segment too long
 	 *
 	 * @return int
@@ -852,7 +1058,7 @@ class PagesRequest extends Wire {
 	 * 
 	 */
 	public function getRequestPath() {
-		if(empty($this->requestPath)) $this->requestPath = $this->getPageRequestPath();
+		if(empty($this->requestPath)) $this->requestPath = $this->getRequestPagePath();
 		return $this->requestPath;
 	}
 
@@ -901,13 +1107,13 @@ class PagesRequest extends Wire {
 	}
 
 	/**
-	 * Get the redirect type (0, 301 or 302)
+	 * Get the redirect type (0, 301, 302, 307, 308)
 	 * 
 	 * @return int
 	 * 
 	 */
 	public function getRedirectType() {
-		return $this->redirectType;
+		return $this->redirectType === 300 ? 301 : $this->redirectType;
 	}
 
 	/**
@@ -923,7 +1129,7 @@ class PagesRequest extends Wire {
 	/**
 	 * Get the requested pagination number prefix
 	 * 
-	 * @return null
+	 * @return null|string
 	 * 
 	 */
 	public function getPageNumPrefix() {
@@ -951,13 +1157,43 @@ class PagesRequest extends Wire {
 	}
 
 	/**
-	 * Get error message
+	 * Get message about response only if response was an error, blank otherwise
 	 * 
 	 * @return string
 	 * 
 	 */
-	public function getPageError() {
-		return $this->error;
+	public function getResponseError() {
+		return ($this->responseCode >= 400 ? $this->getResponseMessage() : '');
 	}
 
+	/**
+	 * Set response message
+	 * 
+	 * @param string $message
+	 * @param bool $append Append to existing message?
+	 * 
+	 */
+	public function setResponseMessage($message, $append = false) {
+		if($append && $this->responseMessage) $message = "$this->responseMessage \n$message";
+		$this->responseMessage = $message;
+	}
+
+	/**
+	 * Get message string about response
+	 * 
+	 * @return string
+	 * 
+	 */
+	public function getResponseMessage() {
+		$code = $this->getResponseCode();
+		$value = $this->getResponseCodeName();
+		if(empty($value)) $value = "unknown";
+		$value = "$code $value";
+		if($this->responseMessage) $value .= ": $this->responseMessage";
+		$attrs = array();
+		if(!empty($this->pageInfo['urlSegments'])) $attrs[] = 'urlSegments';
+		if($this->pageNum > 1) $attrs[] = 'pageNum';
+		if($this->requestFile) $attrs[] = 'file';
+		return $value;
+	}
 }
