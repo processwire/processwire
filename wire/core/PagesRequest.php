@@ -250,8 +250,6 @@ class PagesRequest extends Wire {
 	 * - Call getFile() method afterwards to see if request resolved to file managed by returned page.
 	 * 
 	 * @param array $options
-	 *  - `useShortcuts` (bool): Allow use PagePaths module and global-unique shortcuts? (default=true)
-	 *  - `useHistory` (bool): Allow use historical path names via PagePathHistory? (default=true)
 	 * @return Page|NullPage
 	 *
 	 */
@@ -259,10 +257,8 @@ class PagesRequest extends Wire {
 		
 		$defaults = array(
 			'verbose' => false,
-			'useShortcuts' => true,
-			'useHistory' => true, 
-			'usePagePaths' => false, // needs more testing before setting true
-			'useGlobalUnique' => true
+			'useHistory' => false, // disabled because redundant with hook in PagePathHistory module
+			'useExcludeRoot' => false,
 		);
 		
 		$options = empty($options) ? $defaults : array_merge($defaults, $options);
@@ -292,7 +288,8 @@ class PagesRequest extends Wire {
 				// $path is unrelated to /site/assets/files/
 			} else if($page === true) {
 				// $path was to a file using config.pageFileUrlPrefix prefix method
-				// $this->requestFile is populated and $path is now updated to be the page path
+				// $this->requestFile is populated and $path is now updated to be
+				// the page path without the filename in it
 			}
 		}
 		
@@ -307,6 +304,7 @@ class PagesRequest extends Wire {
 		
 		// get info about requested path
 		$info = $this->pages->pathFinder()->get($path, $options);
+		$pageId = $info['page']['id'];
 		$this->pageInfo = &$info;
 		$this->languageName = $info['language']['name'];
 		$this->setResponseCode($info['response']);
@@ -324,8 +322,8 @@ class PagesRequest extends Wire {
 		}
 		
 		// check if we have matched a page
-		if($info['page']['id']) {
-			$page = $this->pages->getOneById($info['page']['id'], array(
+		if($pageId) {
+			$page = $this->pages->getOneById($pageId, array(
 				'template' => $info['page']['templates_id'],
 				'parent_id' => $info['page']['parent_id'],
 			));
@@ -337,8 +335,8 @@ class PagesRequest extends Wire {
 		
 		if($page->id) {
 			if(!empty($info['urlSegments'])) {
-				// the first version of PW populated first URL segment to $page 
-				// undocumented behavior retained for backwards compatibility
+				// the first version of PW populated first URL segment to $page,
+				// this undocumented behavior retained for backwards compatibility
 				$page->setQuietly('urlSegment', $input->urlSegment1);
 			}
 			if(!$this->checkRequestMethod($page)) {
@@ -346,19 +344,21 @@ class PagesRequest extends Wire {
 				$page = $this->pages->newNullPage();
 			}
 		} else if($this->responseCode < 300) {
-			// just in case (not likely)
+			// no page ID found but got success code (this should not be possible)
 			$this->setResponseCode(404);
 		}
 		
 		if($this->responseCode === 300) {
-			// 300 maybe redirect: page not available in requested language
+			// 300 “maybe” redirect: page not available in requested language
 			if($languages && $languages->hasPageNames()) {
 				$language = $languages->get($info['language']['name']); 
 				$result = $languages->pageNames()->pageNotAvailableInLanguage($page, $language);
 				if(is_array($result)) {
+					// array returned where index 0=301|302, 1=redirect URL
 					$this->setResponseCode($result[0]);
 					$this->setRedirectUrl($result[1], $result[0]); 
 				} else if(is_bool($result)) {
+					// bool returned where true=200 (render anyway), false=404 (fail)
 					$this->setResponseCode($result ? 200 : 404);
 				}
 			} else if(!empty($info['redirect'])) {
@@ -366,18 +366,23 @@ class PagesRequest extends Wire {
 			}
 		}
 
+		// check for redirect
 		if($this->responseCode >= 300 && $this->responseCode < 400) {
-			// 301 permRedirect or 302 tempRedirect 
+			// 301 permRedirect, 302 tempRedirect, 307 or 308
 			$this->setRedirectPath($info['redirect'], $info['response']);
 		}
-			
+		
+		// check for error 
 		if($this->responseCode >= 400) {
 			// 400 badRequest, 401 unauthorized, 403 forbidden,
 			// 404 pageNotFound, 405 methodNotallowed, 414 pathTooLong
 			if(!empty($info['redirect'])) {
 				// pathFinder suggests a redirect may still be possible
+				// currently not implemented
 			} 
 			if($page->id) {
+				// if a page was found but with an error code then set the
+				// closestPage property for optional later inspection
 				$this->closestPage = $page;
 			}
 			$page = $this->pages->newNullPage();
@@ -582,7 +587,7 @@ class PagesRequest extends Wire {
 	 * - This function sets $this->requestFile when it finds one.
 	 * - Returns Page when a pagefile was found and matched to a page.
 	 * - Returns NullPage when request should result in a 404.
-	 * - Returns true and updates $path, when pagefile was found using deprecated prefix method.
+	 * - Returns true and updates $path when pagefile was found using deprecated prefix method.
 	 * - Returns false when none found.
 	 *
 	 * @param string $path Request path
