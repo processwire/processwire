@@ -3,7 +3,7 @@
 /**
  * RepeaterPage represents an individual repeater page item
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -114,7 +114,7 @@ class RepeaterPage extends Page {
 		$grandparentName = $grandparent->name;
 		$prefix = FieldtypeRepeater::fieldPageNamePrefix;  // for-field-
 		$forField = null;
-		$fields = $this->wire('fields'); /** @var Fields $fields */
+		$fields = $this->wire()->fields;
 
 		if(strpos($grandparentName, $prefix) === 0) {
 			// determine field from grandparent name in format: for-field-1234

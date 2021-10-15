@@ -42,9 +42,14 @@
 				.InputfieldRepeaterClone,
 				.InputfieldRepeaterToggle,
 				.InputfieldRepeaterTrash,
+				.InputfieldRepeaterInsertBefore,
+				.InputfieldRepeaterInsertAfter,
 				.toggle-icon {
 					cursor: pointer;
 					float: right;
+					&:hover {
+						opacity: 0.8;
+					}
 				}
 				.InputfieldRepeaterTrash {
 					padding-right: 3px;
@@ -53,6 +58,12 @@
 					margin-right: 1em;
 				}
 				.InputfieldRepeaterClone {
+					margin-right: 1em;
+				}
+				.InputfieldRepeaterInsertBefore {
+					margin-right: 0.75em;
+				}
+				.InputfieldRepeaterInsertAfter {
 					margin-right: 1em;
 				}
 				.InputfieldRepeaterSettingsToggle {
@@ -69,6 +80,10 @@
 			}
 		}
 		
+	}
+
+	& > .InputfieldContent > .Inputfields > .InputfieldRepeaterInsertItem {
+		opacity: 0.5;
 	}
 	
 	.InputfieldStateCollapsed .InputfieldRepeaterSettingsToggle {

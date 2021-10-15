@@ -33,6 +33,18 @@ function InputfieldRepeater($) {
 	 */
 	var doubleClickTimer = null;
 
+	/**
+	 * True when an ajax request is currently processing a newly added item
+	 * 
+	 */
+	var currentlyAddingItem = false;
+
+	/**
+	 * Timeout tracker for insert actions
+	 * 
+	 */
+	var insertTimeout = null;
+
 	
 	/*** EVENTS ********************************************************************************************/
 
@@ -313,6 +325,8 @@ function InputfieldRepeater($) {
 	 * 
 	 */
 	var eventAddLinkClick = function() {
+		currentlyAddingItem = true;
+		
 		var $addLink = $(this);
 		var $inputfields = $addLink.parent('p').prev('ul.Inputfields');
 		var $inputfieldRepeater = $addLink.closest('.InputfieldRepeater');
@@ -320,13 +334,25 @@ function InputfieldRepeater($) {
 		var newItemTotal = 0; // for noAjaxAdd mode
 		var useAjax = $addLink.attr('data-noajax').length == 0;
 		var cloneID = $addLink.attr('data-clone');
+		var depth = 0;
+		var redoSortAll = false;
 
 		function addRepeaterItem($addItem) {
 			// make sure it has a unique ID
 			var id = $addItem.attr('id') + '_';
 			while($('#' + id).length > 0) id += '_';
 			$addItem.attr('id', id);
-			$inputfields.append($addItem);
+			var $insertItem = $inputfields.children('.InputfieldRepeaterInsertItem');
+			if($insertItem.length) {
+				depth = getItemDepth($insertItem);
+				$addItem.addClass('InputfieldStateCollapsed')
+				var $toggleIcon = $addItem.children('.InputfieldHeader').find('.toggle-icon');
+				$toggleIcon.toggleClass($toggleIcon.attr('data-to')); 
+				$insertItem.replaceWith($addItem);
+				redoSortAll = true;
+			} else {
+				$inputfields.append($addItem);
+			}
 			$addItem.css('display', 'block');
 			adjustItemLabel($addItem, true);
 			$addLink.trigger('repeateradd', [ $addItem ]);
@@ -341,10 +367,12 @@ function InputfieldRepeater($) {
 			if(newItemTotal > 0) {
 				if(newItemTotal > 1) $newItem = $newItem.slice(0, 1);
 				var $addItem = $newItem.clone(true);
+				if(depth) setItemDepth($addItem, depth);
 				addRepeaterItem($addItem);
 				$numAddInput.attr('value', newItemTotal);
 				checkMinMax($inputfieldRepeater);
 			}
+			currentlyAddingItem = false;
 			return false;
 		}
 
@@ -390,10 +418,21 @@ function InputfieldRepeater($) {
 				// next line can remove 9/2019, as 'cloned' support will have been in InputfieldTable for awhile
 				$addItem.find('.InputfieldTableRowID').val(0); 
 			}
-			$addItem.find('.InputfieldRepeaterSort').val($inputfields.children().length);
-			$('html, body').animate({
-				scrollTop: $addItem.offset().top
-			}, 500, 'swing');
+			if(redoSortAll) {
+				$inputfields.children('.InputfieldRepeaterItem').each(function(n) {
+					setItemSort($(this), n);
+				}); 
+			} else {
+				setItemSort($addItem, $inputfields.children().length); 
+			}
+			if(depth) setItemDepth($addItem, depth);
+			if($addItem.hasClass('InputfieldStateCollapsed')) {
+				// ok
+			} else {
+				$('html, body').animate({
+					scrollTop: $addItem.offset().top
+				}, 500, 'swing');
+			}
 			updateState($addItem);
 			checkMinMax($inputfieldRepeater);
 			updateAccordion($addItem);
@@ -404,6 +443,8 @@ function InputfieldRepeater($) {
 				});
 			}
 			runScripts(data);
+			
+			setTimeout(function() { currentlyAddingItem = false; }, 500);
 		});
 
 		return false;
@@ -445,6 +486,131 @@ function InputfieldRepeater($) {
 		});
 		return false;
 	};
+
+	/**
+	 * Click the "insert before" button event
+	 * 
+	 */
+	var eventInsertBeforeClick = function(e) {
+		var $item = $(this).closest('.InputfieldRepeaterItem');
+		eventInsertClick($item, true);
+		e.stopPropagation();
+	};
+
+	/**
+	 * Click the "insert after" button event
+	 * 
+	 */
+	var eventInsertAfterClick = function(e) {
+		var $item = $(this).closest('.InputfieldRepeaterItem');
+		eventInsertClick($item, false);
+		e.stopPropagation();
+	};
+
+	/**
+	 * Handler for either insert before or insert after click events
+	 * 
+	 */
+	function eventInsertClick($item, insertBefore) {
+		if(currentlyAddingItem) return false;
+		currentlyAddingItem = true;
+		if(insertTimeout) clearTimeout(insertTimeout);
+		var depth = getInsertItemDepth($item, insertBefore);
+		var $insertItem = $item.siblings('.InputfieldRepeaterInsertItem');
+		if($insertItem.length) {
+			$insertItem.remove();
+		}
+		var $placeholder = $item.siblings('.InputfieldRepeaterNewItem').clone()
+			.removeClass('.InputfieldRepeaterNewItem').addClass('InputfieldRepeaterInsertItem');
+		$placeholder.attr('id', $placeholder.attr('id') + '-placeholder');
+		$placeholder.find('.InputfieldHeader').html("<i class='fa fa-spin fa-spinner'></i>");
+		if(insertBefore) {
+			$placeholder.insertBefore($item);
+		} else {
+			$placeholder.insertAfter($item);
+		}
+		if(depth > 0) setItemDepth($placeholder, depth);
+		$placeholder.show();
+		if(!insertBefore && !$item.hasClass('InputfieldStateCollapsed')) scrollToItem($placeholder);
+		$placeholder.children('.InputfieldHeader').effect('highlight', {}, 500);
+		// @todo the following line will need to be updated for matrix support
+		$item.parent('.Inputfields').siblings('.InputfieldRepeaterAddItem').find('.InputfieldRepeaterAddLink:eq(0)').click();
+	}
+
+	/**
+	 * Event when mouseout of insert before/after action
+	 * 
+	 */
+	var eventInsertMouseout = function(e) {
+		if(currentlyAddingItem) return;
+		if(insertTimeout) clearTimeout(insertTimeout);
+		var $action = $(this);
+		var $newItem = $action.data('newItem');
+		$action.removeClass('hov');
+		// var $newItem = $action.closest('.Inputfields').children('.InputfieldRepeaterInsertItem');
+		if($newItem && $newItem.length) {
+			if($newItem.hasClass('hov')) return;
+			$newItem.remove();
+		}
+	};
+
+	/**
+	 * Event when mouseover of insert before/after action
+	 * 
+	 */
+	var eventInsertMouseover = function(e) {
+		
+		if(currentlyAddingItem) return;
+		if(insertTimeout) clearTimeout(insertTimeout);
+		
+		var $action = $(this);
+		var insertBefore = $action.hasClass('InputfieldRepeaterInsertBefore');
+		var $item = $(this).closest('.InputfieldRepeaterItem');
+		var depth = 0;
+		
+		$item.siblings('.InputfieldRepeaterInsertItem').remove();
+		
+		var $newItem = $item.siblings('.InputfieldRepeaterNewItem').clone();
+		$newItem.addClass('InputfieldRepeaterInsertItem').attr('id', $newItem.attr('id') + '-insert'); 
+		
+		if(insertBefore) {
+			depth = getInsertBeforeItemDepth($item);
+			$newItem.addClass('InputfieldRepeaterInsertItemBefore');//.insertBefore($item);
+		} else {
+			depth = getInsertAfterItemDepth($item);
+			$newItem.addClass('InputfieldRepeaterInsertItemAfter');//.insertAfter($item);
+		}
+		
+		$newItem.find('.InputfieldRepeaterItemControls').hide();
+		$newItem.find('.InputfieldRepeaterItemLabel').text(ProcessWire.config.InputfieldRepeater.labels.insertHere);
+		
+		$action.addClass('hov').data('newItem', $newItem);
+		
+		setItemDepth($newItem, depth);
+		
+		insertTimeout = setTimeout(function() {
+			insertTimeout = null;
+			if(!$action.hasClass('hov')) {
+				$newItem.remove();
+				return;
+			} else if(insertBefore) {
+				$newItem.insertBefore($item);
+			} else {
+				$newItem.addClass('hov').insertAfter($item);
+			}
+			//$newItem.addClass('hov');
+			$newItem.on('mouseover', function() {
+				$(this).addClass('hov');
+			}).on('click', function(e) {
+				e.stopPropagation();
+				eventInsertClick($item, insertBefore);
+			}).on('mouseout', function() {
+				$(this).removeClass('hov').remove();
+			});
+			$newItem.slideDown();
+		}, 1000); 
+	};
+	
 	
 	/*** GENERAL FUNCTIONS **********************************************************************************/
 	
@@ -487,7 +653,7 @@ function InputfieldRepeater($) {
 		});
 		
 		if(useScroll && hasOpen) {
-			$('html, body').animate({scrollTop: $item.offset().top - 10}, 0);
+			scrollToItem($item);
 		}
 		
 		return true;
@@ -526,6 +692,25 @@ function InputfieldRepeater($) {
 				$label.html(labelHTML);
 			}
 		}
+	}
+	
+	/*** SORT FUNCTIONS ***********************************************************************************/
+	
+	function setItemSort($item, sort) {
+		var $input = getItemSortInput($item);
+		if($input.length) $input.val(sort);
+	}
+	
+	function getItemSort($item) {
+		var $input = getItemSortInput($item);
+		if($input.length) return parseInt($input.val());
+		return -1;
+	}
+	
+	function getItemSortInput($item) {
+		if(!$item.hasClass('InputfieldRepeaterItem')) $item = $item.closest('.InputfieldRepeaterItem');
+		return $item.children('.InputfieldContent').children('.Inputfields')
+			.children('.InputfieldRepeaterItemSort').find('.InputfieldRepeaterSort');
 	}
 
 	/*** DEPTH FUNCTIONS **********************************************************************************/
@@ -586,7 +771,7 @@ function InputfieldRepeater($) {
 		var $depthInput = $item.children('.InputfieldContent').children('.Inputfields')
 			.children('.InputfieldRepeaterItemDepth').find('input');
 		
-		if(!$depthInput.length) {
+		if(!$depthInput.length && !$item.hasClass('InputfieldRepeaterNewItem')) {
 			console.log('Cannot find depth input for ' + $item.attr('id'));
 		}
 
@@ -623,6 +808,39 @@ function InputfieldRepeater($) {
 		if(!$item.hasClass('InputfieldRepeaterItem')) $item = $item.closest('.InputfieldRepeaterItem');
 		if(!$item.length) return -1;
 		return parseInt($item.attr('data-depth'));
+	}
+
+	/**
+	 * Get depth for a new item if it were to be inserted before/after given $contextItem
+	 * 
+	 * @param $contextItem
+	 * @param insertBefore
+	 * @returns {Number}
+	 * 
+	 */
+	function getInsertItemDepth($contextItem, insertBefore) {
+		var depth = 0;
+		if(insertBefore) {
+			depth = getItemDepth($contextItem);
+		} else {
+			var $nextItem = $contextItem.next('.InputfieldRepeaterItem');
+			depth = getItemDepth($contextItem);
+			if($nextItem.hasClass('InputfieldRepeaterNewItem')) {
+				// the default hidden new item is not useful for identifying depth
+				if(!$nextItem.hasClass('InputfieldRepeaterInsertItem')) $nextItem = null;
+			}
+			var nextDepth = $nextItem && $nextItem.length ? getItemDepth($nextItem) : depth;
+			if(nextDepth > depth) depth = nextDepth;
+		}
+		return depth;
+	}
+	
+	function getInsertBeforeItemDepth($item) {
+		return getInsertItemDepth($item, true);
+	}
+	
+	function getInsertAfterItemDepth($item) {
+		return getInsertItemDepth($item, false);
 	}
 
 	/**
@@ -815,6 +1033,8 @@ function InputfieldRepeater($) {
 		var $clone = $("<i class='fa fa-copy InputfieldRepeaterClone'></i>").css('display', 'block');
 		var $delete = $("<i class='fa fa-trash InputfieldRepeaterTrash'></i>");
 		var $toggle = $("<i class='fa InputfieldRepeaterToggle' data-on='fa-toggle-on' data-off='fa-toggle-off'></i>");
+		var $insertAfter = $("<i class='fa fa-download xfa-arrow-circle-down InputfieldRepeaterInsertAfter'></i>");
+		var $insertBefore = $("<i class='fa fa-upload xfa-arrow-circle-up InputfieldRepeaterInsertBefore'></i>"); 
 		var cfg = ProcessWire.config.InputfieldRepeater;
 		var allowClone = !$inputfieldRepeater.hasClass('InputfieldRepeaterNoAjaxAdd');
 		var allowSettings = $inputfieldRepeater.hasClass('InputfieldRepeaterHasSettings');
@@ -823,6 +1043,8 @@ function InputfieldRepeater($) {
 			$toggle.attr('title', cfg.labels.toggle);
 			$delete.attr('title', cfg.labels.remove);
 			$clone.attr('title', cfg.labels.clone);
+			$insertBefore.attr('title', cfg.labels.insertBefore);
+			$insertAfter.attr('title', cfg.labels.insertAfter);
 		}
 		
 		if(allowSettings) {
@@ -836,7 +1058,7 @@ function InputfieldRepeater($) {
 			var $item = $t.parent();
 			if($item.hasClass('InputfieldRepeaterNewItem')) {
 				// noAjaxAdd mode
-				icon = 'fa-plus';
+				icon = 'fa-plus-circle';
 				$t.addClass('ui-priority-secondary');
 			}
 			$t.addClass('ui-state-default InputfieldRepeaterHeaderInit');
@@ -847,7 +1069,11 @@ function InputfieldRepeater($) {
 					.addClass($t.parent().hasClass('InputfieldRepeaterOff') ? 'fa-toggle-off' : 'fa-toggle-on');
 				var $deleteControl = $delete.clone(true);
 				var $collapseControl = $t.find('.toggle-icon');
+				var $insertBeforeControl = $insertBefore.clone(true);
+				var $insertAfterControl = $insertAfter.clone(true);
 				$controls.prepend($collapseControl);
+				$controls.prepend($insertBeforeControl);
+				$controls.prepend($insertAfterControl);
 				if($t.closest('.InputfieldRepeater').hasClass('InputfieldRepeaterHasSettings')) { // intentionally not using allowSettings var
 					var $settingsToggle = $("<i class='fa fa-gear InputfieldRepeaterSettingsToggle ui-priority-secondary'></i>")
 						.attr('title', cfg.labels.settings); 
@@ -858,7 +1084,6 @@ function InputfieldRepeater($) {
 				$controls.prepend($deleteControl);
 				$t.prepend($controls);
 				$controls.css('background-color', $t.css('background-color'));
-				
 			}
 			adjustItemLabel($item, false);
 		});
@@ -1014,6 +1239,15 @@ function InputfieldRepeater($) {
 	}
 
 	/**
+	 * Scroll to repeater item
+	 * 
+	 * @param $item
+	 */
+	function scrollToItem($item) {
+		$('html, body').animate({scrollTop: $item.offset().top - 10}, 250, 'swing');
+	}
+
+	/**
 	 * Run any scripts in the given HTML ajax data since jQuery will strip them
 	 * 
 	 * @param data
@@ -1071,7 +1305,12 @@ function InputfieldRepeater($) {
 			.on('click', '.InputfieldRepeaterToggle', eventToggleClick)
 			.on('opened', '.InputfieldRepeaterItem', eventItemOpened)
 			.on('closed', '.InputfieldRepeaterItem', eventItemClosed)
-			.on('openReady', '.InputfieldRepeaterItem', eventItemOpenReady);
+			.on('openReady', '.InputfieldRepeaterItem', eventItemOpenReady)
+			.on('click', '.InputfieldRepeaterInsertBefore', eventInsertBeforeClick)
+			.on('click', '.InputfieldRepeaterInsertAfter', eventInsertAfterClick)
+			.on('mouseover', '.InputfieldRepeaterInsertBefore', eventInsertMouseover)
+			.on('mouseover', '.InputfieldRepeaterInsertAfter', eventInsertMouseover)
+			.on('mouseout', '.InputfieldRepeaterInsertAfter', eventInsertMouseout);
 	}
 	
 	init();

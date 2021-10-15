@@ -5,7 +5,7 @@
  *
  * Special PageArray for use by repeaters that includes a getNewItem() method
  *
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -28,15 +28,49 @@ class RepeaterPageArray extends PageArray {
 	 */
 	protected $field = null;
 
+	/**
+	 * Construct
+	 *
+	 * @param Page $parent
+	 * @param Field $field
+	 * 
+	 */
 	public function __construct(Page $parent, Field $field) {
 		$this->setParent($parent);
 		$this->setField($field); 
 		parent::__construct();
 	}
 
+	/**
+	 * Set parent
+	 * 
+	 * @param Page $parent
+	 * 
+	 */
 	public function setParent(Page $parent) { $this->parent = $parent; }
+
+	/**
+	 * Get parent
+	 * 
+	 * @return Page
+	 * 
+	 */
 	public function getParent() { return $this->parent; }
+
+	/**
+	 * Set field
+	 * 
+	 * @param Field $field
+	 * 
+	 */
 	public function setField(Field $field) { $this->field = $field; }
+
+	/**
+	 * Get field
+	 * 
+	 * @return Field
+	 * 
+	 */
 	public function getField() { return $this->field; }
 
 	/**
@@ -132,6 +166,12 @@ class RepeaterPageArray extends PageArray {
 		parent::trackRemove($item, $key);
 	}
 
+	/**
+	 * Debug info
+	 * 
+	 * @return array
+	 * 
+	 */
 	public function __debugInfo() {
 		$info = array(
 			'field' => $this->field ? $this->field->debugInfoSmall() : '', 
