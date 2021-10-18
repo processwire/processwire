@@ -178,7 +178,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$language = $this->wire()->user->language; 
 		$pages = $this->wire()->pages;
 		$page = $this->wire()->page; 
-		$process = $page->process;
+		$process = $page ? $page->process : null;
 		$pageNumUrlPrefix = $this->get("pageNumUrlPrefix$language"); 
 
 		if($process && $page->template->name === 'admin' && in_array('WirePageEditor', wireClassImplements($process))) { 
@@ -461,14 +461,27 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		if($page->editable()) return true;
 		if($page->id == $this->wire()->config->http404PageID) return true;
 		$redirect404 = (int) $this->redirect404;
-		if(!$redirect404 || $redirect404 === 404) return false;
+		if(!$redirect404 || $redirect404 === 404 || $language->isDefault()) return false;
 		$default = $this->wire()->languages->getDefault();
 		if(!$page->viewable($default)) return false;
 		if($redirect404 === 200) return true;
-		$url = $page->localUrl($default);
-		if($redirect404 === 301) return array(301, $url);
-		if($redirect404 === 302) return array(302, $url);
+		$url = $this->getPageUrl($page, $default);
+		if($redirect404 === 302 || $redirect404 === 301) return array($redirect404, $url);
 		return false;
+	}
+
+	/**
+	 * Given a page and language, return the URL to the page in that language
+	 *
+	 * @param Page $page
+	 * @param Language $language
+	 * @return string
+	 * @since 3.0.187
+	 *
+	 */
+	public function getPageUrl(Page $page, Language $language) {
+		$path = $this->getPagePath($page, $language);
+		return $this->wire()->config->urls->root . ltrim($path, '/');
 	}
 
 	/**

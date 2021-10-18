@@ -367,7 +367,7 @@ class PagesRequest extends Wire {
 		}
 
 		// check for redirect
-		if($this->responseCode >= 300 && $this->responseCode < 400) {
+		if(empty($this->redirectUrl) && $this->responseCode >= 300 && $this->responseCode < 400) {
 			// 301 permRedirect, 302 tempRedirect, 307 or 308
 			$this->setRedirectPath($info['redirect'], $info['response']);
 		}
