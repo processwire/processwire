@@ -26,7 +26,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Repeats fields from another template. Provides the input for FieldtypeRepeater.', __FILE__), // Module Summary
-			'version' => 108,
+			'version' => 109,
 			'requires' => 'FieldtypeRepeater',
 		);
 	}
@@ -456,7 +456,8 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 
 			/** @var InputfieldFieldset $wrap */
 			$wrap = $modules->get('InputfieldFieldset'); 
-			$wrap->addClass('InputfieldRepeaterItem InputfieldNoFocus');
+			$wrapClasses = array_unique(array('InputfieldRepeaterItem', $this->className() . 'Item', 'InputfieldNoFocus'));
+			$wrap->addClass(implode(' ', $wrapClasses));
 			if(!$isPost) {
 				$wrap->entityEncodeLabel = false;
 				$wrap->label =
