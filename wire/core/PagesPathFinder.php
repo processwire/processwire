@@ -1163,9 +1163,12 @@ class PagesPathFinder extends Wire {
 		$result['page'] = array_merge($result['page'], $row);
 		$result['response'] = 200;
 		$result['language']['name'] = 'default';
-
+		
 		if($row['parent_id'] === 1) {
-			$path = "/$path/";
+			$template = $this->wire()->templates->get($row['templates_id']); 
+			$slashUrls = $template ? (int) $template->slashUrls : 0;
+			$slash = ($slashUrls ? $slashUrls > 0 : substr($path, -1) === '/');
+			$path = "/$path" . ($slash ? '/' : '');
 		} else {
 			// global unique, must redirect to its actual path
 			$page = $this->pages->getOneById((int) $row['id'], array(
