@@ -46,7 +46,8 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 	public function getConfigInputfields(InputfieldWrapper $inputfields, Template $template, Page $parent) {
 
 		$field = $this->field;
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
+		$modules = $this->wire()->modules;
 
 		if(count($template->fieldgroup)) {
 			foreach($template->fieldgroup as $f) {
@@ -63,13 +64,13 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		}
 
 		/** @var InputfieldHidden $f */
-		$f = $this->modules->get('InputfieldHidden');
+		$f = $modules->get('InputfieldHidden');
 		$f->attr('name', 'template_id');
 		$f->label = 'Repeater Template ID';
 		$f->attr('value', $template->id);
 		$inputfields->add($f);
 
-		$f = $this->modules->get('InputfieldHidden');
+		$f = $modules->get('InputfieldHidden');
 		$f->attr('name', 'parent_id');
 		$f->label = 'Repeater Parent ID';
 		$f->attr('value', $parent->id);
@@ -78,7 +79,7 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		// -------------------------------------------------
 
 		/** @var InputfieldAsmSelect $select */
-		$select = $this->modules->get('InputfieldAsmSelect');
+		$select = $modules->get('InputfieldAsmSelect');
 		$select->label = $this->_x('Repeater fields', 'field-label');
 		$select->icon = 'cube';
 		$select->description = $this->_('Define the fields that are used by this repeater. You may also drag and drop fields to the desired order.'); // Fields definition, description
@@ -130,7 +131,8 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 
 		// -------------------------------------------------
 
-		$f = $this->wire('modules')->get('InputfieldText');
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
 		$f->attr('name', 'repeaterTitle');
 		$f->attr('value', $field->get('repeaterTitle'));
 		$f->label = $this->_('Repeater item labels');
@@ -143,8 +145,57 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$inputfields->add($f);
 
 		// -------------------------------------------------
+		
+		/** @var InputfieldFieldset $fs */
+		$fs = $modules->get('InputfieldFieldset');
+		$fs->label = $this->_('Repeater depths/indents');
+		$fs->attr('name', '_repeaterDepthSettings');
+		$fs->collapsed =  Inputfield::collapsedYes;
+		$fs->icon = 'indent';
+		$fs->themeOffset = 1;
+		$inputfields->add($fs);
 
-		$f = $this->wire('modules')->get('InputfieldText');
+		$value = (int) $field->get('repeaterDepth');
+		$f = $modules->get('InputfieldInteger');
+		$f->attr('name', 'repeaterDepth');
+		$f->attr('value', $value > 0 ? $value : '');
+		$f->label = $this->_('Item depth');
+		$f->collapsed = Inputfield::collapsedBlank;
+		$f->description = $this->_('To support items with depth, enter the max allowed depth, or leave blank to disable.');
+		$f->description .= ' ' . $this->_('When editing a repeater, you can change item depth by clicking the repeater item drag arrows and dragging the item right or left.');
+		$f->notes = $this->_('Depths are zero-based, meaning a depth of 3 allows depths 0, 1, 2 and 3.');
+		$f->notes .= ' ' . $this->_('Depth can be accessed from a repeater page item via `$item->depth`.');
+		$f->columnWidth = 50;
+		$fs->add($f);
+
+		/** @var InputfieldToggle $f */
+		$f = $modules->get('InputfieldToggle');
+		$f->attr('name', 'familyFriendly');
+		$f->label = $this->_('Use family-friendly item depth?');
+		$f->description =
+			$this->_('This setting makes the admin page editor treat item depth as a parent/child relationship.') . ' ' .
+			$this->_('This means that moving/sorting an item includes child items too.') . ' ' .
+			$this->_('It also prevents a child item from being dragged to have a depth that exceeds its parent by more than 1.');
+		$f->val((int) $field->get('familyFriendly'));
+		$f->columnWidth = 50;
+		$fs->add($f);
+
+		// -------------------------------------------------
+
+
+		/** @var InputfieldFieldset $fs */	
+		$fs = $modules->get('InputfieldFieldset');
+		$fs->label = $this->_('Repeater editor settings');
+		$fs->attr('name', '_repeaterEditorSettings');
+		$fs->collapsed =  Inputfield::collapsedYes;
+		$fs->icon = 'sliders';
+		$fs->themeOffset = 1;
+		$inputfields->add($fs);
+		
+		// -------------------------------------------------
+	
+		/** @var InputfieldText $f */
+		$f = $modules->get('InputfieldText');
 		$f->attr('name', 'repeaterAddLabel');
 		$f->attr('value', $field->get('repeaterAddLabel'));
 		$f->label = $this->_('Label for adding new item');
@@ -158,12 +209,12 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 				$f->set("value$language", $field->get("repeaterAddLabel$language"));
 			}
 		}
-		$inputfields->add($f);
+		$fs->add($f);
 
 		// -------------------------------------------------
 
 		/** @var InputfieldRadios $f */
-		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'repeaterCollapse');
 		$f->label = $this->_('Repeater item visibility in editor');
 		$f->description = $this->_('Repeater items can be open or collapsed (requiring a click to open). Collapsed mode is more convenient for sorting and seeing all your items together.');
@@ -175,11 +226,11 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		if($value == 2) $value = FieldtypeRepeater::collapseExisting; // to account for previous version selection
 		if($value == 1) $value = FieldtypeRepeater::collapseAll; // to account for prev
 		$f->attr('value', $value);
-		$inputfields->add($f);
+		$fs->add($f);
 
 		// -------------------------------------------------
 
-		$f = $this->wire('modules')->get('InputfieldRadios');
+		$f = $modules->get('InputfieldRadios');
 		$f->attr('name', 'repeaterLoading');
 		$f->label = $this->_('Repeater dynamic loading (AJAX) in editor');
 		$f->description = $this->_('Which items should be dynamically loaded with AJAX in the page editor? If you find your repeater uses a field that does not work with dynamic loading, it may be necessary to turn this feature off.');
@@ -188,87 +239,66 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$f->addOption(FieldtypeRepeater::loadingOff, $this->_('Off'));
 		$f->icon = 'refresh';
 		$value = $field->get('repeaterLoading');
-		if($field->get('noAjaxAdd') && is_null($value)) $value = FieldtypeRepeater::loadingOff; // to account for previous noAjaxAdd option
-			else if(is_null($value)) $value = FieldtypeRepeater::loadingAll;
+		if($field->get('noAjaxAdd') && is_null($value)) {
+			$value = FieldtypeRepeater::loadingOff; // to account for previous noAjaxAdd option
+		} else if(is_null($value)) {
+			$value = FieldtypeRepeater::loadingAll;
+		}
 		$f->attr('value', (int) $value);
-		$inputfields->add($f);
+		$fs->add($f);
 		
 		// -------------------------------------------------
-		
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
+	
+		/** @var InputfieldCheckbox $f */	
+		$f = $modules->get('InputfieldCheckbox');
 		$f->attr('name', 'rememberOpen');
 		$f->label = $this->_('Remember which repeater items are open?');
 		$f->description = $this->_('When checked, opened repeater items remain open after saving or reloading from the page editor (unless the user closes them).');
 		$f->icon = 'lightbulb-o';
-		if((int) $field->get('rememberOpen')) $f->attr('checked', 'checked');
+		if((int) $field->get('rememberOpen')) {
+			$f->attr('checked', 'checked');
+		}
 		$f->columnWidth = 50;
-		$inputfields->add($f);
+		$fs->add($f);
 		
 		// -------------------------------------------------
 		
-		$f = $this->wire('modules')->get('InputfieldCheckbox');
+		$f = $modules->get('InputfieldCheckbox');
 		$f->attr('name', 'accordionMode');
 		$f->label = $this->_('Use accordion mode?');
 		$f->description = $this->_('When checked, only one repeater item will be open at a time.');
 		$f->icon = 'map-o';
-		if((int) $field->get('accordionMode')) $f->attr('checked', 'checked');
+		if((int) $field->get('accordionMode')) {
+			$f->attr('checked', 'checked');
+		}
 		$f->columnWidth = 50;
-		$inputfields->add($f);
+		$fs->add($f);
 
 		// -------------------------------------------------
 	
-		$value = (int) $field->get('repeaterMaxItems');
-		$f = $this->wire('modules')->get('InputfieldInteger');
+		$maxItems = (int) $field->get('repeaterMaxItems');
+		$minItems = (int) $field->get('repeaterMinItems');
+		/** @var InputfieldInteger $f */
+		$f = $modules->get('InputfieldInteger');
 		$f->attr('name', 'repeaterMaxItems');
-		$f->attr('value', $value > 0 ? $value : '');
+		$f->attr('value', $maxItems > 0 ? $maxItems : '');
 		$f->label = $this->_('Maximum number of items');
 		$f->description = $this->_('If you need to limit the number of items allowed, enter the limit here (0=no limit).');
 		$f->icon = 'hand-stop-o';
 		$f->columnWidth = 50;
-		$inputfields->add($f);
+		$fs->add($f);
 		
 		// -------------------------------------------------
 		
-		$value = (int) $field->get('repeaterMinItems');
-		$f = $this->wire('modules')->get('InputfieldInteger');
+		$f = $modules->get('InputfieldInteger');
 		$f->attr('name', 'repeaterMinItems');
-		$f->attr('value', $value > 0 ? $value : '');
+		$f->attr('value', $minItems > 0 ? $minItems : '');
 		$f->label = $this->_('Minimum number of items');
 		$f->description = $this->_('This many items will always be open and ready-to-edit (0=no minimum).');
 		$f->icon = 'hand-peace-o';
 		$f->columnWidth = 50;
-		$inputfields->add($f);
+		$fs->add($f);
 		
-		// -------------------------------------------------
-		
-		$value = (int) $field->get('repeaterDepth');
-		$f = $this->wire('modules')->get('InputfieldInteger');
-		$f->attr('name', 'repeaterDepth');
-		$f->attr('value', $value > 0 ? $value : '');
-		$f->label = $this->_('Item depth');
-		$f->collapsed = Inputfield::collapsedBlank;
-		$f->description = $this->_('To support items with depth, enter the max allowed depth, or leave blank to disable.');
-		$f->description .= ' ' . $this->_('When editing a repeater, you can change item depth by clicking the repeater item drag arrows and dragging the item right or left.');
-		$f->notes = $this->_('Depths are zero-based, meaning a depth of 3 allows depths 0, 1, 2 and 3.');
-		$f->notes .= ' ' . $this->_('Depth can be accessed from a repeater page item via `$item->depth`.');
-		$f->icon = 'indent';
-		$f->columnWidth = 50;
-		$inputfields->add($f);
-	
-		/** @var InputfieldToggle $f */
-		$f = $this->wire()->modules->get('InputfieldToggle'); 
-		$f->attr('name', 'familyFriendly');
-		$f->label = $this->_('Use family-friendly item depth?'); 
-		$f->description = 
-			$this->_('This setting makes the admin page editor treat item depth as a parent/child relationship.') . ' ' . 
-			$this->_('This means that moving/sorting an item includes child items too.') . ' ' . 
-			$this->_('It also prevents a child item from being dragged to have a depth that exceeds its parent by more than 1.'); 
-		$f->val((int) $field->get('familyFriendly'));
-		$f->icon = 'indent';
-		$f->showIf = 'repeaterDepth>1';
-		$f->columnWidth = 50;
-		$inputfields->add($f);
-
 		// -------------------------------------------------
 
 		/** @var FieldtypeRepeater $fieldtype */
@@ -276,7 +306,7 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$numOldReady = $fieldtype->countOldReadyPages($field);
 		if($numOldReady) {
 			// @todo: should we just do this automatically?
-			$f = $this->wire('modules')->get('InputfieldCheckbox');
+			$f = $modules->get('InputfieldCheckbox');
 			$f->attr('name', '_deleteOldReady');
 			$f->label = $this->_('Delete old/unused repeater items?');
 			$f->description = sprintf($this->_('There are **%d** old/unused repeater item(s), check this box to delete them.'), $numOldReady);

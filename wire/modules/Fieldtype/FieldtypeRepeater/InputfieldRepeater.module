@@ -211,6 +211,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		if($page) {}
 		return 1;
 	}
+	
 
 	/**
 	 * Get the name of the repeater item type (if used)
@@ -455,15 +456,21 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$loaded->class = 'InputfieldRepeaterLoaded';
 
 			/** @var InputfieldFieldset $wrap */
-			$wrap = $modules->get('InputfieldFieldset'); 
+			$wrap = $modules->get('InputfieldFieldset');
+			$wrapIcon = '';
 			$wrapClasses = array_unique(array('InputfieldRepeaterItem', $this->className() . 'Item', 'InputfieldNoFocus'));
 			$wrap->addClass(implode(' ', $wrapClasses));
 			if(!$isPost) {
 				$wrap->entityEncodeLabel = false;
-				$wrap->label =
+				$wrapLabel =
 					"<span class='InputfieldRepeaterItemLabel'>" .
 					$this->entityEncode($this->renderRepeaterLabel($label, ++$cnt, $page)) .
 					"</span>";
+				if(strpos($wrapLabel, 'icon-') !== false && preg_match('/\bicon[-]([a-z][-a-z0-9]+)\b\s*/', $wrapLabel, $matches)) {
+					$wrapLabel = str_replace($matches[0], '', $wrapLabel);
+					$wrapIcon = $matches[1];
+				}
+				$wrap->label = $wrapLabel;
 			} else {
 				$wrap->label = "$label " . (++$cnt);
 			}
@@ -475,6 +482,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$wrap->wrapAttr('data-typeName', $itemTypeName);
 			$wrap->wrapAttr('data-fnsx', "_repeater$page->id");  // fnsx=field name suffix
 			$wrap->wrapAttr('data-depth', $depth ? $depth->val() : '0'); 
+			if($wrapIcon) $wrap->wrapAttr('data-icon', $wrapIcon);
 			//$wrap->wrapAttr('data-editorPage', $this->page->id);
 			//$wrap->wrapAttr('data-parentPage', $page->parent->id);
 			$wrap->wrapAttr('data-editUrl', $page->editUrl()); // if needed by any Inputfields within like InputfieldFile/InputfieldImage

@@ -1107,8 +1107,10 @@ function InputfieldRepeater($) {
 		$headers.each(function() {
 			var $t = $(this);
 			if($t.hasClass('InputfieldRepeaterHeaderInit')) return;
-			var icon = 'fa-arrows';
 			var $item = $t.parent();
+			var icon = $item.attr('data-icon'); 
+			if(typeof icon === "undefined" || !icon.length) icon = 'fa-arrows';
+			if(icon.indexOf('fa-') !== 0) icon = 'fa-' + icon;
 			if($item.hasClass('InputfieldRepeaterNewItem')) {
 				// noAjaxAdd mode
 				icon = 'fa-plus-circle';
