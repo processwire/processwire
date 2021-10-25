@@ -3,7 +3,7 @@
 /**
  * Serves as a multi-language value placeholder for field values that contain a value in more than one language. 
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -42,40 +42,54 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 
 	/**
 	 * Reference to Field that this value is for
+	 * 
+	 * @var Field|null
 	 *
 	 */
-	protected $field;
+	protected $field = null;
 
 	/**
 	 * Reference to Page that this value is for
 	 * 
-	 * @var Page
+	 * @var Page|null
 	 * 
 	 */
-	protected $page; 
+	protected $page = null; 
 
 	/**
 	 * Construct the multi language value
 	 *
-	 * @param Page $page
-	 * @param Field $field
+	 * @param Page|null $page
+	 * @param Field|null $field
  	 * @param array|string $values
 	 *
 	 */
-	public function __construct(Page $page, Field $field, $values = null) { // #98
+	public function __construct($page = null, $field = null, $values = null) { // #98
 	
-		$page->wire($this);
-		$this->setPage($page);
-		$this->setField($field);
-
-		$this->languageSupport = $this->wire('modules')->get('LanguageSupport');
-		$this->defaultLanguagePageID = $this->languageSupport->defaultLanguagePageID; 
+		if($page) $this->setPage($page);
+		if($field) $this->setField($field);
 		
+		if($page) {
+			$page->wire($this);
+		} else if($field) {
+			$field->wire($this);
+		}
+
 		if(!is_array($values)) {
 			$values = array('data' => $values); 
 		}
 		
 		$this->importArray($values); 
+	}
+
+	/**
+	 * Wired to API
+	 * 
+	 */
+	public function wired() {
+		parent::wired();
+		$this->languageSupport = $this->wire()->modules->get('LanguageSupport');
+		$this->defaultLanguagePageID = $this->languageSupport->defaultLanguagePageID;
 	}
 
 	/**
@@ -106,7 +120,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 			$_values = array();
 			foreach($values as $key => $value) {
 				if(ctype_digit("$key")) $key = (int) $key;
-				$language = $this->wire('languages')->get($key);
+				$language = $this->wire()->languages->get($key);
 				if($language && $language->id) {
 					$dataKey = $language->isDefault() ? "data" : "data$language->id";
 					$_values[$dataKey] = $value;
@@ -137,7 +151,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 */
 	public function setLanguageValue($languageID, $value) {
 		if(is_object($languageID) && $languageID instanceof Language) $languageID = $languageID->id;
-		if(is_string($languageID) && !ctype_digit("$languageID")) $languageID = $this->wire('languages')->get($languageID)->id;
+		if(is_string($languageID) && !ctype_digit("$languageID")) $languageID = $this->wire()->languages->get($languageID)->id;
 		$existingValue = isset($this->data[$languageID]) ? $this->data[$languageID] : '';
 		if($value instanceof LanguagesPageFieldValue) {
 			// to avoid potential recursion 
@@ -159,7 +173,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 */
 	public function setFromInputfield(Inputfield $inputfield) {
 
-		foreach($this->wire('languages') as $language) {
+		foreach($this->wire()->languages as $language) {
 			if($language->isDefault) {
 				$key = 'value';
 			} else {
@@ -192,7 +206,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 */
 	public function getLanguageValue($languageID) {
 		if(is_object($languageID) && $languageID instanceof Language) $languageID = $languageID->id; 
-		if(is_string($languageID) && !ctype_digit("$languageID")) $languageID = $this->wire('languages')->get($languageID)->id;
+		if(is_string($languageID) && !ctype_digit("$languageID")) $languageID = $this->wire()->languages->get($languageID)->id;
 		$languageID = (int) $languageID; 
 		return isset($this->data[$languageID]) ? $this->data[$languageID] : '';
 	}
@@ -233,16 +247,26 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 
 	/**
 	 * The string value is the value in the current user's language
+	 * 
+	 * @return string
 	 *
 	 */
 	public function __toString() {
-		if($this->wire('hooks')->isHooked('LanguagesPageFieldValue::getStringValue()')) {
+		if($this->wire()->hooks->isHooked('LanguagesPageFieldValue::getStringValue()')) {
 			return $this->__call('getStringValue', array());
 		} else {
 			return $this->___getStringValue();
 		}	
 	}
 
+	/**
+	 * Get string value (for hooks)
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @return string
+	 * 
+	 */
 	protected function ___getStringValue() {
 		
 		$template = $this->page->template;
@@ -267,28 +291,87 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		return $languageValue; 
 	}
 
+	/**
+	 * Set field that value is for
+	 * 
+	 * @param Field $field
+	 * 
+	 */
 	public function setField(Field $field) {
 		$this->field = $field; 
 	}
-	
+
+	/**
+	 * Set page that value is for
+	 * 
+	 * @param Page $page
+	 * 
+	 */
 	public function setPage(Page $page) {
 		$this->page = $page; 
 	}
-	
+
+	/**
+	 * Get page that value is for
+	 * 
+	 * @return Page|null
+	 * 
+	 */
 	public function getPage() {
 		return $this->page; 
 	}
-	
+
+	/**
+	 * Get field that value is for
+	 * 
+	 * @return Field|null
+	 * 
+	 */
 	public function getField() {
 		return $this->field;
 	}
-	
+
+	/**
+	 * Debug info
+	 * 
+	 * @return array
+	 * 
+	 */
 	public function __debugInfo() {
 		$info = parent::__debugInfo();
-		foreach($this->wire('languages') as $language) {
+		foreach($this->wire()->languages as $language) {
 			$info[$language->name] = isset($this->data[$language->id]) ? $this->data[$language->id] : '';
 		}
 		return $info;	
+	}
+
+	/**
+	 * Get array of language values stored in here
+	 * 
+	 * @return array
+	 * @since 3.0.188
+	 * 
+	 */
+	public function getArray() {
+		return $this->data;
+	}
+
+	/**
+	 * Get hash of all language values stored in here
+	 * 
+	 * @param bool $verbose Specify true for the hash to also include page and field
+	 * @return string
+	 * @since 3.0.188
+	 * 
+	 */
+	public function getHash($verbose = false) {
+		$str = '';
+		if($verbose) $str .= "[$this->page,$this->field]\n";
+		foreach($this->data as $k => $v) {
+			if(!is_string($v)) continue;
+			$str .= "$k:$v\n";
+		}
+		return sha1($str);
 	}
 
 	/**
