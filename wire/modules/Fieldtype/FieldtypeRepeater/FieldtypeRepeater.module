@@ -37,7 +37,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			'version' => 107,
 			'autoload' => true,
 			'installs' => 'InputfieldRepeater'
-			);
+		);
 	}
 
 	const templateNamePrefix = 'repeater_';
@@ -244,7 +244,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function hookPagePermissionsPageEditableAjax(HookEvent $event) {
 		
 		if($event->return) return;
-		
+	
+		/** @var Page|RepeaterPage $page */
 		$page = $event->arguments(0);
 		if(!$page instanceof RepeaterPage) return;
 		
@@ -257,33 +258,48 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			if(++$n > 20) break;
 		}
 		
-		if(!$page instanceof RepeaterPage) {
-			// found the original owning page (forPage)
-			
-			$editable = null;
-			/** @var User $user */
-			$user = $this->wire('user');
-			/** @var WireInput $input */
-			$input = $this->wire('input');
-			/** @var Field|null $field */
-			$field = $input->get('field') ? $this->wire('fields')->get($input->get->fieldName('field')) : $forField;
-		
-			if($page instanceof User && $field && $field->type instanceof FieldtypeRepeater) {
-				// editing a repeater field in a User
-				if($user->hasPermission('user-admin')) {
-					$editable = true;
-				} else if($page->id === $user->id) {
-					// user editing themself, repeater field
-					/** @var PagePermissions $pagePermissions */
-					$pagePermissions = $this->wire('modules')->get('PagePermissions');
-					$editable = $pagePermissions->userFieldEditable($field);
-				}
-			}
-			
-			if($editable === null) $editable = $page->editable();
-			
-			$event->return = $editable;
+		if(!$page || !$page->id || $page instanceof RepeaterPage) {
+			// no owning forPage found
+			$event->return = false;
+			return;
 		}
+		
+		// found the original owning page (forPage)
+		
+		$editable = null;
+		$user = $this->wire()->user;
+		$input = $this->wire()->input;
+		$fieldName = $input->get('field');
+		
+		if($fieldName) {
+			$field = null;
+			$_fieldName = $fieldName;
+			$fieldName = $this->wire()->sanitizer->fieldName($fieldName);
+			if($fieldName === $_fieldName) {
+				$field = $this->wire()->fields->get($fieldName);
+			} else {
+				$field = null;
+				$editable = false;
+			}
+		} else {
+			$field = $forField;
+		}
+		
+		if($page instanceof User && $field && $field->type instanceof FieldtypeRepeater) {
+			// editing a repeater field in a User
+			if($user->hasPermission('user-admin')) {
+				$editable = true;
+			} else if($page->id === $user->id) {
+				// user editing themself, repeater field
+				/** @var PagePermissions $pagePermissions */
+				$pagePermissions = $this->wire()->modules->get('PagePermissions');
+				$editable = $pagePermissions->userFieldEditable($field);
+			}
+		}
+		
+		if($editable === null) $editable = $page->editable();
+		
+		$event->return = $editable;
 	}
 
 	/**
@@ -311,7 +327,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		// determine which fields are used in repeaters
 		if(is_null($fieldsUsedInRepeaters)) {
 			$fieldsUsedInRepeaters = array('title'); // title used by admin template (repeater parents)
-			foreach($this->wire('templates') as $template) {
+			foreach($this->wire()->templates as $template) {
 				if(strpos($template->name, self::templateNamePrefix) === 0) {
 					$templatesUsedByRepeaters[] = $template->id; 
 					foreach($template->fieldgroup as $field) {
@@ -328,7 +344,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$includeAll = !empty($pageFinderOptions['findAll']);
 
 		// if user is guest, then repeater pages will already be excluded (since they don't have view access to them) so no need for extra filter
-		if(!$includeAll && $this->wire('user')->isGuest()) $includeAll = true; 
+		if(!$includeAll && $this->wire()->user->isGuest()) $includeAll = true; 
 
 		// determine if any of the fields used in the selector are also used in a repeater
 		// and set $found and $includeAll as appropriate
@@ -389,8 +405,10 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function hookProcessPageEditAjaxSave(HookEvent $event) {
 
 		// if this isn't a repeater field we're dealing with, then abort
-		if(!isset($_SERVER['HTTP_X_FIELDNAME']) || !preg_match('/^(.+)(_repeater(\d+))$/', $_SERVER['HTTP_X_FIELDNAME'], $matches)) return;
-		$fieldName = $this->wire('sanitizer')->fieldName($matches[1]); 
+		if(!isset($_SERVER['HTTP_X_FIELDNAME'])) return; 
+		if(!preg_match('/^(.+)(_repeater(\d+))$/', $_SERVER['HTTP_X_FIELDNAME'], $matches)) return;
+		
+		$fieldName = $this->wire()->sanitizer->fieldName($matches[1]); 
 		$repeaterPageID = (int) $matches[3]; 
 		if($repeaterPageID < 1) return;
 
@@ -400,7 +418,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		if(!$ownerPage->editable()) return;
 
 		// make sure it's a valid repeaterPage
-		$repeaterPage = $this->wire('pages')->get($repeaterPageID); 
+		$repeaterPage = $this->wire()->pages->get($repeaterPageID); 
 		if(!$repeaterPage->id) return; 
 
 		// check that the given repeaterPage is actually a repeater component of the ownerPage
@@ -415,7 +433,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$event->arguments = $args; 
 
 		// repopulate the server header to be the fieldName (sans _repeater\d+)
-		$this->ajaxFieldName = $this->wire('sanitizer')->fieldName($_SERVER['HTTP_X_FIELDNAME']);
+		$this->ajaxFieldName = $this->wire()->sanitizer->fieldName($_SERVER['HTTP_X_FIELDNAME']);
 		$_SERVER['HTTP_X_FIELDNAME'] = $fieldName;
 
 		// save a copy for comparison in our hookPageEditable function 
@@ -492,7 +510,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function hookProcessPageEditAjaxEditable(HookEvent $event) {
 		/** @var Page $page */
 		$page = $event->arguments[0]; 
-		$fieldName = isset($event->arguments[1]) ? $this->wire('sanitizer')->fieldName($event->arguments[1]) : '';
+		$fieldName = isset($event->arguments[1]) ? $this->wire()->sanitizer->fieldName($event->arguments[1]) : '';
 		if($page->id && $this->ajaxPage && $this->ajaxPage->id == $page->id) {
 			$event->return = true; 
 		}
@@ -535,17 +553,18 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function hookPagesDelete(HookEvent $event) {
 
 		$page = $event->arguments[0];
+		$pages = $this->wire()->pages;
 
 		foreach($page->template->fieldgroup as $field) {
 			if(!$field->type instanceof FieldtypeRepeater) continue; 
-			$fieldParent = $this->wire('pages')->get($field->parent_id); 	
+			$fieldParent = $pages->get($field->parent_id); 	
 			if(!$fieldParent->id) continue; 
 			$p = $fieldParent->child('include=all, name=' . self::repeaterPageNamePrefix . $page->id); 	
 			if(!$p->id) continue; 
 			$p->addStatus(Page::statusSystemOverride); 
 			$p->removeStatus(Page::statusSystem);
 			$this->message("Deleted page {$p->path}", Notice::debug); 
-			$this->wire('pages')->delete($p, true);
+			$pages->delete($p, true);
 		}
 	}
 
@@ -608,7 +627,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	public function getInputfield(Page $page, Field $field) {
 
-		$inputfield = $this->wire('modules')->get($this->getInputfieldClass()); 
+		/** @var InputfieldRepeater $inputfield */
+		$inputfield = $this->wire()->modules->get($this->getInputfieldClass()); 
 		$inputfield->set('page', $page); 
 		$inputfield->set('field', $field);
 		$inputfield->set('repeaterMaxItems', (int) $field->get('repeaterMaxItems'));
@@ -645,6 +665,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * 
 	 */
 	public function getNextReadyPage(Page $page, Field $field, $value = null, array $notIDs = array()) {
+		$database = $this->wire()->database;
 		$readyPage = null;
 		if($value) {
 			if($value instanceof Page) $value = array($value); 
@@ -658,7 +679,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 					// existing/unused ready item that we will reuse	
 					$readyPage = $item;
 					// touch the modified date for existing page to identify it as still current
-					$query = $this->wire('database')->prepare('UPDATE pages SET modified=NOW(), modified_users_id=:user_id WHERE id=:id');
+					$query = $database->prepare('UPDATE pages SET modified=NOW(), modified_users_id=:user_id WHERE id=:id');
 					$query->bindValue(':id', $readyPage->id, \PDO::PARAM_INT);
 					$query->bindValue(':user_id', $this->wire('user')->id, \PDO::PARAM_INT);
 					$query->execute();
@@ -703,6 +724,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		if($this->deletePageField === $field->get('parent_id')) $this->deletePageField = 0;
 		$parent = $this->getRepeaterPageParent($page, $field); 
 		$class = $this->getPageClass();
+		/** @var RepeaterPage $readyPage */
 		$readyPage = $this->wire(new $class());
 		$readyPage->template = $this->getRepeaterTemplate($field);
 		if($parent->id) $readyPage->parent = $parent; 
@@ -772,8 +794,9 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		}
 		*/
 		
-		$template = $this->wire('templates')->get((int) $template_id);
+		$template = $this->wire()->templates->get((int) $template_id);
 		$pageArrayClass = $this->getPageArrayClass();
+		/** @var RepeaterPageArray $pageArray */
 		$pageArray = $this->wire(new $pageArrayClass($page, $field)); 
 
 		// load the repeater pages
@@ -789,7 +812,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			)
 		);
 		
-		$pageArray = $this->wire('pages')->find($selector, $options);
+		$pageArray = $this->wire()->pages->find($selector, $options);
 		$pageArray->resetTrackChanges(true); 
 
 		return $pageArray; 
@@ -817,7 +840,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		// if $value isn't a PageArray, then abort	
 		if(!$value instanceof PageArray) return array();
 		
-		/** @var PageArray $value */
+		/** @var RepeaterPageArray $value */
 
 		$count = 0; 
 		$ids = array();
@@ -836,7 +859,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			'data' => implode(',', $ids),
 			'count' => $count,
 			'parent_id' => $this->getRepeaterPageParent($page, $field)->id, 
-			);	
+		);	
 
 		return $sleepValue;
 	}
@@ -923,6 +946,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$existingValue = $existingValue->id ? array($existingValue) : array();
 		}
 		
+		$pages = $this->wire()->pages;
+		
 		// update paths for local
 		foreach($value['pages'] as $key => $item) {
 			$name = $item['settings']['name'];
@@ -933,7 +958,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$path = $parentPath . $name . '/';
 			$importItemNames[$name] = $name;
 			$value['pages'][$key]['path'] = $path;
-			$p = $this->wire('pages')->get($path); 
+			$p = $pages->get($path); 
 			if($p->id) continue; // already exists
 			
 			// from this point forward, it is assumed we are creating a new repeater item
@@ -988,12 +1013,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				if(!isset($changesByField[$fieldName])) $changesByField[$fieldName] = 0;
 				$changesByField[$fieldName]++;
 			}
-			$this->wire('notices')->move($p, $pageArray, array('prefix' => "$field->name (id=$p->id): ")); 
+			$this->wire()->notices->move($p, $pageArray, array('prefix' => "$field->name (id=$p->id): ")); 
 		}
 		
 		if($numDeleted && $commit) {
 			foreach($itemsDeleted as $p) {
-				$this->wire('pages')->delete($p); 
+				$pages->delete($p); 
 			}
 		}
 		
@@ -1047,7 +1072,9 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	public function ___getSelectorInfo(Field $field, array $data = array()) {
-		$info = $this->wire('modules')->get('FieldtypePage')->getSelectorInfo($field, $data);
+		/** @var FieldtypePage $fieldtype */
+		$fieldtype = $this->wire()->modules->get('FieldtypePage');
+		$info = $fieldtype->getSelectorInfo($field, $data);
 		$info['operators'] = array(); // force it to be non selectable, subfields only
 		return $info;
 	}
@@ -1055,7 +1082,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	/**
 	 * Return the parent used by the repeater pages for the given Page and Field
 	 *
-	 * i.e. /processwire/repeaters/for-field-name/for-page-name/
+	 * i.e. /processwire/repeaters/for-field-12/for-page-123/
 	 *
 	 * @param Page $page
 	 * @param Field $field
@@ -1065,12 +1092,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	protected function getRepeaterPageParent(Page $page, Field $field) {
 
 		$repeaterParent = $this->getRepeaterParent($field);
-		$parent = $repeaterParent->child('name=' . self::repeaterPageNamePrefix . $page->id . ', include=all');
+		$parentName = self::repeaterPageNamePrefix . $page->id; // for-page-123
+		$parent = $repeaterParent->child("name=$parentName, include=all");
 		if($parent->id) return $parent;
 
-		$parent = $this->wire('pages')->newPage($repeaterParent->template);
+		$parent = $this->wire()->pages->newPage($repeaterParent->template);
 		$parent->parent = $repeaterParent; 
-		$parent->name = self::repeaterPageNamePrefix . $page->id;
+		$parent->name = $parentName;
 		$parent->title = $page->name;
 		$parent->addStatus(Page::statusSystem);
 
@@ -1085,7 +1113,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	}
 
 	/**
-	 * Return the repeater parent used by $field, i.e. /processwire/repeaters/for-field-name/
+	 * Return the repeater parent used by $field, i.e. /processwire/repeaters/for-field-123/
 	 * 
 	 * Auto generate a repeater parent page named 'for-field-[id]', if it doesn't already exist
 	 *
@@ -1095,16 +1123,17 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	protected function getRepeaterParent(Field $field) {
-
+		
+		$pages = $this->wire()->pages;
 		$parentID = (int) $field->get('parent_id');
+		
 		if($parentID) {
-			$parent = $this->wire('pages')->get($parentID); 
+			$parent = $pages->get($parentID); 
 			if($parent->id) return $parent; 
 		}
 
-		
-		$repeatersRootPage = $this->wire('pages')->get((int) $this->repeatersRootPageID); 
-		$parentName = self::fieldPageNamePrefix . $field->id; 
+		$repeatersRootPage = $pages->get((int) $this->repeatersRootPageID); 
+		$parentName = self::fieldPageNamePrefix . $field->id; // for-field-123
 
 		// we call this just to ensure it exists, so template is created if it doesn't exist yet
 		if(!$field->get('template_id')) $this->getRepeaterTemplate($field); 
@@ -1112,7 +1141,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$parent = $repeatersRootPage->child("name=$parentName, include=all"); 
 
 		if(!$parent->id) {
-			$parent = $this->wire('pages')->newPage($repeatersRootPage->template);
+			$parent = $pages->newPage($repeatersRootPage->template);
 			$parent->parent = $repeatersRootPage; 
 			$parent->name = $parentName;
 			$parent->title = $field->name; 
@@ -1143,7 +1172,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	protected function updateRepeaterTemplateName(Template $template, $name) {
 	
-		if($template->name != $name && !$this->wire('templates')->get($name)) {
+		if($template->name != $name && !$this->wire()->templates->get($name)) {
 			$this->message("Renamed repeater template from '$template->name' to '$name'", Notice::debug); 
 			$flags = $template->flags;
 			$template->flags = Template::flagSystemOverride;
@@ -1154,7 +1183,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$template->save();
 		}
 	
-		if($template->fieldgroup && $template->fieldgroup->name != $name && !$this->wire('fieldgroups')->get($name)) {
+		if($template->fieldgroup && $template->fieldgroup->name != $name && !$this->wire()->fieldgroups->get($name)) {
 			$template->fieldgroup->name = $name;
 			$template->fieldgroup->save();
 		}
@@ -1172,12 +1201,15 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	protected function getRepeaterTemplate(Field $field) {
 
+		$templates = $this->wire()->templates;
+		$fieldgroups = $this->wire()->fieldgroups;
+		
 		$template = null;
 		$templateID = (int) $field->get('template_id');
 		$templateName = self::templateNamePrefix . $field->name; 
 		
 		if($templateID) {
-			$template = $this->wire('templates')->get($templateID);
+			$template = $templates->get($templateID);
 			if($template && $template->name !== $templateName) {
 				// repeater has been renamed, update the template and fieldgroup names
 				$this->updateRepeaterTemplateName($template, $templateName);
@@ -1189,19 +1221,19 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		// make sure the template name isn't already in use, make a unique one if it is
 		$n = 0; 
-		while($this->wire('templates')->get($templateName) || $this->wire('fieldgroups')->get($templateName)) {
+		while($templates->get($templateName) || $fieldgroups->get($templateName)) {
 			$templateName = self::templateNamePrefix . $field->name . (++$n); 
 		}
 
 		// create the fieldgroup
-		$fieldgroup = $this->wire(new Fieldgroup());
+		$fieldgroup = $this->wire(new Fieldgroup()); /** @var Fieldgroup $fieldgroup */
 		$fieldgroup->name = $templateName;
 		$fieldgroup->save();	
 
 		if(!$fieldgroup->id) throw new WireException("Unable to create repeater fieldgroup: $templateName"); 
 
 		// create the template
-		$template = $this->wire(new Template()); 
+		$template = $this->wire(new Template()); /** @var Template $template */
 		$template->name = $templateName; 
 		$template->fieldgroup = $fieldgroup; 
 		$this->populateRepeaterTemplateSettings($template); 
@@ -1237,7 +1269,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * @param Page $page
 	 * @param Field $field
 	 * @param mixed $value
-	 * @return PageArray
+	 * @return PageArray|RepeaterPageArray
 	 *
 	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
@@ -1246,7 +1278,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		if($value instanceof PageArray) return $value; 
 
 		// otherwise, lets get the current value so we can add to it or return it
-		$pageArray = $page->get($field->name); 
+		$pageArray = $page->get($field->name); /** @var RepeaterPageArray $pageArray */
 
 		// if no value was provided, then return the existing value already in the page
 		if(!$value) return $pageArray; 
@@ -1285,13 +1317,14 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	protected function sanitizeValueString(Page $page, Field $field, $value) {
-
+		
+		$pages = $this->wire()->pages;
 		if($page) {} // ignore
 		$result = false;
 
 		if(ctype_digit("$value")) {
 			// single page ID
-			$result = $this->wire('pages')->get((int) $value); 
+			$result = $pages->get((int) $value); 
 
 		} else if(strpos($value, ',')) {
 			// csv string of page IDs
@@ -1301,17 +1334,17 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				$v = (int) $v; 
 				if($v) $result[] = $v; 
 			}
-			$result = $this->wire('pages')->getById($result, $this->getRepeaterTemplate($field), $field->get('parent_id')); 
+			$result = $pages->getById($result, $this->getRepeaterTemplate($field), $field->get('parent_id')); 
 
 		} else if(Selectors::stringHasOperator($value)) {
 			// selector
 			$parentID = $field->get('parent_id');
 			$templateID = $field->get('template_id');
-			$result = $this->wire('pages')->find("parent_id=$parentID, templates_id=$templateID, $value");
+			$result = $pages->find("parent_id=$parentID, templates_id=$templateID, $value");
 
 		} else if(strlen($value) && $value[0] == '/') {
 			// path
-			$result = $this->wire('pages')->get($value); 
+			$result = $pages->get($value); 
 		}
 
 		return $result; 
@@ -1433,14 +1466,17 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			}
 			
 		} else {
-			$f = $this->wire('fields')->get($subfield);
+			$f = $this->wire()->fields->get($subfield);
 			if(!$f) return $query; // unknown subfield
 			
 			// match fields from the repeater template
 			// perform a separate find() operation for the subfield
-			$pageFinder = $this->wire(new PageFinder());
-			$value = $this->wire('sanitizer')->selectorValue($value);
+			
+			/** @var PageFinder $pageFinder */
+			$pageFinder = $this->wire(new PageFinder()); 
+			$value = $this->wire()->sanitizer->selectorValue($value);
 			$templateID = $field->get('template_id');
+			/** @var Selectors $selectors */
 			$selectors = $this->wire(new Selectors("templates_id=$templateID, check_access=0, $f->name$operator$value"));
 			$matches = $pageFinder->find($selectors);
 
@@ -1499,6 +1535,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function ___savePageField(Page $page, Field $field) {
 
 		if(!$page->id || !$field->id) return false;
+	
+		$pages = $this->wire()->pages;
 		$value = $page->get($field->name); 
 		
 		if($value instanceof RepeaterPage) {
@@ -1527,9 +1565,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		// iterate through each page in the pageArray value
 		// and determine which need to be saved 
 		foreach($value as $key => $p) {
-			
-			/** @var Page $p */
-
+			/** @var Page|RepeaterPage $p */
 			if($p->template->id != $template_id) {
 				$value->remove($p);
 				$this->message("Removed invalid template ({$p->template->name}) page {$p->path} from field $field", Notice::debug); 
@@ -1539,7 +1575,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			if($p->parent->id != $parent_id) {
 				// clone the individual repeater pages
 				$value->remove($p); 
-				$p = $this->wire('pages')->clone($p, $repeaterParent, false, $saveOptions);
+				$p = $pages->clone($p, $repeaterParent, false, $saveOptions);
 				$value->add($p);
 				$this->message("Cloned to {$p->path} from field $field", Notice::debug); 
 				continue; 
@@ -1564,7 +1600,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		// iterate the pages that had changes and need to be saved
 		foreach($savePages as $p) {
-			
+			/** @var Page|RepeaterPage $p */
 			if($p->id) {
 				// existing page
 				$isHidden = $p->isHidden();
@@ -1588,21 +1624,24 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			}
 
 			// save the repeater page
-			$this->wire('pages')->save($p, $saveOptions);				
+			$pages->save($p, $saveOptions);				
 		}
 
 		// iterate through the pages that were removed
 		foreach($deletePages as $p) {
+			/** @var Page|RepeaterPage $p */
 			// if the deleted value is still present in the pageArray, then don't delete it
 			if($value->has($p)) continue; 
 			// $this->message("Deleted Repeater", Notice::debug); 
 			// delete the repeater page
-			$this->wire('pages')->delete($p, $saveOptions);
+			$pages->delete($p, $saveOptions);
 		}
 
 		$result = parent::___savePageField($page, $field);
+		
 		// ensure that any of our cloned page replacements (removes) don't get recorded any follow-up saves
 		$value->resetTrackChanges();
+		
 		return $result;
 	}
 
@@ -1618,9 +1657,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	public function ___deleteField(Field $field) {
+		$pages = $this->wire()->pages;
+		$templates = $this->wire()->templates;
 
-		$template = $this->wire('templates')->get((int) $field->get('template_id')); 
-		$parent = $this->wire('pages')->get((int) $field->get('parent_id')); 
+		$template = $templates->get((int) $field->get('template_id')); 
+		$parent = $pages->get((int) $field->get('parent_id')); 
 
 		// delete the pages used by this field
 		// check that the parent really is still in our repeaters structure before deleting anything
@@ -1639,7 +1680,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			}
 
 			// resursively delete the field parent and everything below it 
-			$this->wire('pages')->delete($parent, true); 
+			$pages->delete($parent, true); 
 
 			$this->message("Deleted '$field' parent: $parentPath", Notice::debug); 
 		}
@@ -1655,11 +1696,12 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 			$template->flags = 0;
 
 			// delete the template
-			$this->wire('templates')->delete($template); 	
+			$templates->delete($template); 	
 
 			// delete the fieldgroup
-			$fieldgroup = $this->wire('fieldgroups')->get($templateName); 
-			if($fieldgroup) $this->wire('fieldgroups')->delete($fieldgroup); 
+			$fieldgroups = $this->wire()->fieldgroups;
+			$fieldgroup = $fieldgroups->get($templateName); 
+			if($fieldgroup) $fieldgroups->delete($fieldgroup); 
 
 			$this->message("Deleted '$field' template: $templateName", Notice::debug); 
 		}
@@ -1677,21 +1719,24 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	public function ___deletePageField(Page $page, Field $field) {
 
+		$pages = $this->wire()->pages;
+		
 		$result = parent::___deletePageField($page, $field); 
 		$this->deletePageField = $field->get('parent_id');
-		$fieldParent = $this->wire('pages')->get((int) $field->get('parent_id'));
+		$fieldParent = $pages->get((int) $field->get('parent_id'));
 
 		// confirm that this field parent page is still part of the pages we manage
 		if($fieldParent->parent_id == $this->repeatersRootPageID) {
 			// locate the repeater page parent
-			$parent = $fieldParent->child('name=' . self::repeaterPageNamePrefix . $page->id . ', include=all'); 
+			$parentName = self::repeaterPageNamePrefix . $page->id; 
+			$parent = $fieldParent->child("name=$parentName, include=all"); 
 			if($parent->id) { 
 				// remove system status from repeater page parent
 				$parent->addStatus(Page::statusSystemOverride);
 				$parent->removeStatus(Page::statusSystem);
 				$this->message("Deleted {$parent->path}", Notice::debug); 
 				// delete the repeater page parent and all the repeater pages in it
-				$this->wire('pages')->delete($parent, true); 
+				$pages->delete($parent, true); 
 			}
 		}
 
@@ -1717,7 +1762,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$modified = time() - $secondsOld;
 		$selector = "has_parent=$parent, template=$template, status>=$status, modified<=$modified, include=all";
 		if($delete) {
-			$items = $this->wire('pages')->find($selector);
+			$items = $this->wire()->pages->find($selector);
 			foreach($items as $item) {
 				try {
 					if($item->delete()) $cnt++;
@@ -1726,7 +1771,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 				}
 			}
 		} else {
-			$cnt = $this->wire('pages')->count($selector);
+			$cnt = $this->wire()->pages->count($selector);
 		}
 		return $cnt;
 	}
@@ -1765,7 +1810,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		
 		$data = parent::___exportConfigData($field, $data); 
 		
-		$template = $this->wire('templates')->get((int) $data['template_id']); 
+		$template = $this->wire()->templates->get((int) $data['template_id']); 
 		
 		$data['template_id'] = 0;
 		$data['parent_id'] = 0;
@@ -1776,7 +1821,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		if(!is_array($a)) $a = array();
 		
 		foreach($a as $fid) {
-			$f = $this->wire('fields')->get((int) $fid); 
+			$f = $this->wire()->fields->get((int) $fid); 
 			if(!$f) continue;
 			$data['repeaterFields'][] = $f->name;
 			$data['fieldContexts'][$f->name] = $template->fieldgroup->getFieldContextArray($f->id);
@@ -1802,6 +1847,8 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	public function ___importConfigData(Field $field, array $data) {
 		
 		if(!$field->type instanceof FieldtypeRepeater) return $data;
+		
+		$fields = $this->wire()->fields;
 	
 		$errors = array();
 		$repeaterFields = array();
@@ -1811,7 +1858,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	
 		if(!empty($data['repeaterFields'])) {
 			foreach($data['repeaterFields'] as $name) {
-				$f = $this->wire('fields')->get($name);
+				$f = $fields->get($name);
 				if(!$f || !$f instanceof Field) {
 					$errors[] = "Unable to locate field to add to repeater: $name";
 					continue;
@@ -1823,7 +1870,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		
 		if($template && !empty($data['fieldContexts'])) {
 			foreach($data['fieldContexts'] as $name => $contextData) {
-				$f = $this->wire('fields')->get($name);
+				$f = $fields->get($name);
 				if(!$f || !$f instanceof Field) continue;
 				if($template->fieldgroup->hasField($f)) {
 					$f = $template->fieldgroup->getFieldContext($f->name);
@@ -1856,6 +1903,30 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		
 		return $data; 
 	}
+	
+	/*** CONFIG **************************************************************************/
+
+	/**
+	 * @var FieldtypeRepeaterConfigHelper|null
+	 * 
+	 */
+	protected $repeaterConfigHelper = null;
+
+	/**
+	 * @param Field $field
+	 * @return FieldtypeRepeaterConfigHelper
+	 * @since 3.0.188
+	 * 
+	 */
+	public function getRepeaterConfigHelper(Field $field) {
+		if($this->repeaterConfigHelper && $this->repeaterConfigHelper->getField()->id == $field->id) {
+			return $this->repeaterConfigHelper;
+		}
+		require_once(__DIR__ . '/config.php');
+		$this->repeaterConfigHelper = new FieldtypeRepeaterConfigHelper($field);
+		$this->wire($this->repeaterConfigHelper);
+		return $this->repeaterConfigHelper;
+	}
 
 	/**
 	 * Return configuration fields definable for each FieldtypePage
@@ -1870,13 +1941,13 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		$template = $this->getRepeaterTemplate($field); 
 		$parent = $this->getRepeaterParent($field); 
 
-		if($this->wire('input')->post->repeaterFields) {
+		if($this->wire()->input->post->repeaterFields) {
 			$this->saveConfigInputfields($field, $template, $parent);
 		}
 		
-		require_once(__DIR__ . '/config.php');
-		$helper = new FieldtypeRepeaterConfigHelper($field);
+		$helper = $this->getRepeaterConfigHelper($field);
 		$inputfields = $helper->getConfigInputfields($inputfields, $template, $parent);
+		
 		return $inputfields; 
 	}
 
@@ -1890,8 +1961,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	protected function ___saveConfigInputfields(Field $field, Template $template, Page $parent) {
 		if($parent) {} // ignore
-		require_once(__DIR__ . '/config.php');
-		$helper = new FieldtypeRepeaterConfigHelper($field);
+		$helper = $this->getRepeaterConfigHelper($field);
 		$helper->saveConfigInputfields($template);
 	}
 
@@ -1928,10 +1998,11 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 */
 	public function ___install() {
 	
-		/** @var Pages $pages */
-		$pages = $this->wire('pages');
+		$pages = $this->wire()->pages;
+		$config = $this->wire()->config;
+		$modules = $this->wire()->modules;
 
-		$adminRoot = $pages->get($this->wire('config')->adminRootPageID); 
+		$adminRoot = $pages->get($config->adminRootPageID); 
 		$page = $adminRoot->child("name=repeaters, template=admin, include=all"); 
 		
 		if(!$page->id) {
@@ -1946,7 +2017,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		}
 
 		$configData = array('repeatersRootPageID' => $page->id); 
-		$this->wire('modules')->saveModuleConfigData($this, $configData);
+		$modules->saveModuleConfigData($this, $configData);
 	}
 
 	/**
@@ -1954,17 +2025,20 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 *
 	 */
 	public function ___uninstall() {
+		$pages = $this->wire()->pages;
 
 		// don't delete repeaters page unless actually for FieldtypeRepeater
 		if($this->className() != 'FieldtypeRepeater') return;
-		$page = $this->wire('pages')->get($this->repeatersRootPageID); 
-		if($page->id && $page->name == 'repeaters' && $page->template == 'admin') { 
+		
+		$page = $pages->get($this->repeatersRootPageID); 
+		
+		if($page->id && $page->name === 'repeaters' && $page->template->name === 'admin') { 
 			$page->addStatus(Page::statusSystemOverride); 
 			$page->removeStatus(Page::statusSystem); 
 			$page->removeStatus(Page::statusSystemID); 
 			$page->removeStatus(Page::statusSystemOverride);
 			$page->removeStatus(Page::statusLocked); 
-			$this->wire('pages')->delete($page); 
+			$pages->delete($page); 
 			$this->message("Removed page {$page->path}", Notice::debug); 
 		}
 	}

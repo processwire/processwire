@@ -23,6 +23,16 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 	 */
 	public function __construct(Field $field) {
 		$this->field = $field;
+		parent::__construct();
+	}
+
+	/**
+	 * @return Field
+	 * @since 3.0.188
+	 * 
+	 */
+	public function getField() {
+		return $this->field;
 	}
 
 	/**
@@ -156,6 +166,7 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$inputfields->add($fs);
 
 		$value = (int) $field->get('repeaterDepth');
+		/** @var InputfieldInteger $f */
 		$f = $modules->get('InputfieldInteger');
 		$f->attr('name', 'repeaterDepth');
 		$f->attr('value', $value > 0 ? $value : '');
@@ -181,7 +192,6 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$fs->add($f);
 
 		// -------------------------------------------------
-
 
 		/** @var InputfieldFieldset $fs */	
 		$fs = $modules->get('InputfieldFieldset');
@@ -262,7 +272,8 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$fs->add($f);
 		
 		// -------------------------------------------------
-		
+
+		/** @var InputfieldCheckbox $f */	
 		$f = $modules->get('InputfieldCheckbox');
 		$f->attr('name', 'accordionMode');
 		$f->label = $this->_('Use accordion mode?');
@@ -278,6 +289,7 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 	
 		$maxItems = (int) $field->get('repeaterMaxItems');
 		$minItems = (int) $field->get('repeaterMinItems');
+		
 		/** @var InputfieldInteger $f */
 		$f = $modules->get('InputfieldInteger');
 		$f->attr('name', 'repeaterMaxItems');
@@ -317,23 +329,6 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 
 		// -------------------------------------------------
 
-		/** TBA
-		if(is_null($field->repeaterMaxItems)) $field->repeaterMaxItems = self::defaultRepeaterMaxItems; 
-		$input = wire('modules')->get('InputfieldInteger'); 
-		$input->attr('id+name', 'repeaterMaxItems'); 
-		$input->attr('value', (int) abs($field->repeaterMaxItems)); 
-		$input->label = $this->_('Max Repeater Items') . " ({$field->repeaterMaxItems})";
-		$input->description = $this->_('The maximum number of repeater items allowed.');
-		$input->notes = 
-		$this->_('If set to 0, there will be no maximum limit.') . " \n" . 
-		$this->_('If set to 1, this field will act as a single item [Page] rather than multiple items [PageArray].') . " \n" . 
-		$this->_('Note that when outputFormatting is off, it will always behave as a PageArray regardless of the setting here.');
-		$input->collapsed = Inputfield::collapsedYes;
-		$inputfields->add($input); 
-		 */
-
-		// -------------------------------------------------
-
 		/* TBA
 		$input = wire('modules')->get('InputfieldRadios'); 
 		$input->attr('id+name', 'repeaterDetached'); 
@@ -358,13 +353,16 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 	 *
 	 */
 	public function saveConfigInputfields(Template $template) {
+		
+		$input = $this->wire()->input;
+		$fields = $this->wire()->fields;
 
 		$field = $this->field;
 		$fieldgroup = $template->fieldgroup;
-		$ids = $this->wire('input')->post->repeaterFields;
+		$ids = $input->post('repeaterFields');
 
 		foreach($ids as $id) {
-			if(!$f = $this->wire('fields')->get((int) $id)) continue;
+			if(!$f = $fields->get((int) $id)) continue;
 			if(!$fieldgroup->has($f)) $this->message(sprintf($this->_('Added Field "%1$s" to "%2$s"'), $f, $field));
 			$fieldgroup->add($f);
 		}
@@ -377,7 +375,7 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 
 		$fieldgroup->save();
 
-		if($this->wire('input')->post('_deleteOldReady')) {
+		if($input->post('_deleteOldReady')) {
 			/** @var FieldtypeRepeater $fieldtype */
 			$fieldtype = $this->field->type;
 			$cnt = $fieldtype->countOldReadyPages($field, true);
