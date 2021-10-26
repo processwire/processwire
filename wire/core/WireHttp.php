@@ -752,6 +752,8 @@ class WireHttp extends Wire {
 			$request .= "$key: $value\r\n";
 		}
 
+		$request .= "Connection: close\r\n";
+
 		$response = '';
 		$errno = '';
 		$errstr = '';
