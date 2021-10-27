@@ -18,7 +18,7 @@ class RepeaterPageArray extends PageArray {
 	 * @var Page
 	 *
 	 */ 
-	protected $parent = null;
+	protected $forPage = null;
 
 	/**
 	 * The repeater field (from $this->fields API var)
@@ -36,8 +36,8 @@ class RepeaterPageArray extends PageArray {
 	 * 
 	 */
 	public function __construct(Page $parent, Field $field) {
-		$this->setParent($parent);
-		$this->setField($field); 
+		$this->setForPage($parent);
+		$this->setForField($field); 
 		parent::__construct();
 	}
 
@@ -45,20 +45,49 @@ class RepeaterPageArray extends PageArray {
 	 * Set parent
 	 * 
 	 * @param Page $parent
+	 * @deprecated use setForPage() instead
 	 * 
 	 */
-	public function setParent(Page $parent) { $this->parent = $parent; }
+	public function setParent(Page $parent) { $this->forPage = $parent; }
+
+	/**
+	 * Set for page
+	 *
+	 * @param Page $forPage
+	 * @since 3.0.188
+	 *
+	 */
+	public function setForPage(Page $forPage) { $this->forPage = $forPage; }
 
 	/**
 	 * Get parent
 	 * 
 	 * @return Page
+	 * @deprecated use getForPage() insteada
 	 * 
 	 */
-	public function getParent() { return $this->parent; }
+	public function getParent() { return $this->forPage; }
 
 	/**
+	 * Get for page
+	 * 
+	 * @return Page
+	 * @since 3.0.188
+	 * 
+	 */
+	public function getForPage() { return $this->forPage; }
+	
+	/**
 	 * Set field
+	 *
+	 * @param Field $field
+	 * @since 3.0.188
+	 *
+	 */
+	public function setForField(Field $field) { $this->field = $field; }
+
+	/**
+	 * Set field (alias of setForField)
 	 * 
 	 * @param Field $field
 	 * 
@@ -69,12 +98,25 @@ class RepeaterPageArray extends PageArray {
 	 * Get field
 	 * 
 	 * @return Field
+	 * @since 3.0.188
 	 * 
+	 */
+	public function getForField() {
+		return $this->field;
+	}
+	
+	/**
+	 * Get field (alias of getForField)
+	 *
+	 * @return Field
+	 *
 	 */
 	public function getField() { return $this->field; }
 
 	/**
 	 * Alias of getNewItem() kept for backwards compatibility
+	 * 
+	 * @return Page
 	 *
 	 */
 	public function getNew() { return $this->getNewItem(); }
@@ -98,7 +140,7 @@ class RepeaterPageArray extends PageArray {
 		/** @var FieldtypeRepeater $fieldtype */
 		$fieldtype = $this->field->type;
 		$page = null;
-		$of = $this->parent->of(false); 
+		$of = $this->forPage->of(false); 
 
 		// first try to get a ready item, if available
 		foreach($this as $item) {
@@ -110,7 +152,7 @@ class RepeaterPageArray extends PageArray {
 
 		if(is_null($page)) { 
 			// no ready item available, get a new one
-			$page = $fieldtype->getBlankRepeaterPage($this->parent, $this->field); 
+			$page = $fieldtype->getBlankRepeaterPage($this->forPage, $this->field); 
 			$this->add($page);
 		} else {
 			$this->trackChange('add');
@@ -121,7 +163,7 @@ class RepeaterPageArray extends PageArray {
 		$page->removeStatus(Page::statusHidden); 
 		$page->sort = $this->count();
 
-		if($of) $this->parent->of(true);
+		if($of) $this->forPage->of(true);
 
 		return $page;
 	}
@@ -136,7 +178,7 @@ class RepeaterPageArray extends PageArray {
 	 */
 	public function makeNew() {
 		$class = get_class($this);
-		$newArray = $this->wire(new $class($this->parent, $this->field));
+		$newArray = $this->wire(new $class($this->forPage, $this->field));
 		return $newArray;
 	}
 	
@@ -167,6 +209,18 @@ class RepeaterPageArray extends PageArray {
 	}
 
 	/**
+	 * Get direct property
+	 * 
+	 * @param int|string $key
+	 * @return bool|mixed|Page|Wire|WireData
+	 * 
+	 */
+	public function __get($key) {
+		if($key === 'parent') return $this->getForPage();
+		return parent::__get($key);
+	}
+
+	/**
 	 * Debug info
 	 * 
 	 * @return array
@@ -176,8 +230,8 @@ class RepeaterPageArray extends PageArray {
 		$info = array(
 			'field' => $this->field ? $this->field->debugInfoSmall() : '', 
 		);
-		if($this->parent && $this->parent->id) {
-			$info['parent'] = $this->parent->debugInfoSmall(); 
+		if($this->forPage && $this->forPage->id) {
+			$info['forPage'] = $this->forPage->debugInfoSmall(); 
 		}
 		$info = array_merge($info, parent::__debugInfo());
 		return $info;

@@ -7,7 +7,7 @@ require_once(dirname(__FILE__) . '/FieldtypeRepeater.module');
  *
  * Maintains a collection of fields as a fieldset via an independent Page.
  *
- * ProcessWire 3.x, Copyright 2017 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  * @property int $repeatersRootPageID
@@ -137,7 +137,7 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 		$hasField = $page->hasField($field->name);
 		
 		/** @var InputfieldRepeater $inputfield */
-		$inputfield = $this->wire('modules')->get($this->getInputfieldClass());
+		$inputfield = $this->wire()->modules->get($this->getInputfieldClass());
 		$inputfield->set('page', $page);
 		$inputfield->set('field', $field);
 		$inputfield->set('repeaterDepth', 0); 
@@ -261,13 +261,13 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 
 		} else {
 
-			$f = $this->wire('fields')->get($subfield);
+			$f = $this->wire()->fields->get($subfield);
 			if(!$f) return $query; // unknown subfield
 
 			// match fields from the repeater template, perform a separate find() operation for the subfield
 			$templateID = $field->get('template_id');
-			$value = $this->wire('sanitizer')->selectorValue($value);
-			$ids = $this->wire('pages')->findIDs("templates_id=$templateID, include=all, $f->name$operator$value");
+			$value = $this->wire()->sanitizer->selectorValue($value);
+			$ids = $this->wire()->pages->findIDs("templates_id=$templateID, include=all, $f->name$operator$value");
 
 			// use the IDs found from the separate find() as our getMatchQuery
 			if(count($ids)) {
@@ -328,10 +328,11 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	 *
 	 * @param Page $page
 	 * @param Field $field
+	 * @param bool $create
 	 * @return Page
 	 *
 	 */
-	protected function getRepeaterPageParent(Page $page, Field $field) {
+	protected function getRepeaterPageParent(Page $page, Field $field, $create = true) {
 		return $this->getRepeaterParent($field);
 	}
 
@@ -440,15 +441,16 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 			if($value->isHidden()) $value->removeStatus(Page::statusHidden); 
 		}
 		
-		$this->wire('pages')->save($value, array('uncacheAll' => false));
+		$this->wire()->pages->save($value, array('uncacheAll' => false));
 
-		$table = $this->wire('database')->escapeTable($field->table);
+		$database = $this->wire()->database;
+		$table = $database->escapeTable($field->table);
 		
 		$sql = 
 			"INSERT INTO `$table` (pages_id, data) VALUES(:pages_id, :data) " . 
 			"ON DUPLICATE KEY UPDATE `data`=VALUES(`data`)";
 		
-		$query = $this->wire('database')->prepare($sql);
+		$query = $database->prepare($sql);
 		$query->bindValue(':pages_id', $page->id, \PDO::PARAM_INT);
 		$query->bindValue(':data', $value->id, \PDO::PARAM_INT);
 		$result = $query->execute();
@@ -459,14 +461,15 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	/**
 	 * Return configuration fields definable for each FieldtypePage
 	 *
-	 * @param Field $field
+	 * @param Field|RepeaterField $field
 	 * @return InputfieldWrapper
 	 *
 	 */
 	public function ___getConfigInputfields(Field $field) {
 		
 		$inputfields = parent::___getConfigInputfields($field);
-		
+	
+		/** @var InputfieldAsmSelect $f */
 		$f = $inputfields->getChildByName('repeaterFields');
 		$f->label = $this->_('Fields in fieldset'); 
 		$f->description = $this->_('Define the fields that are used by this fieldset. You may also drag and drop fields to the desired order.');
