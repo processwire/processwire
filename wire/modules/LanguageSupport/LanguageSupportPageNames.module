@@ -200,8 +200,10 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		
 		if(strlen($pageNumUrlPrefix)) {
 			$config = $this->wire()->config;
-			$config->set('_pageNumUrlPrefix', $config->pageNumUrlPrefix); // original/backup url prefix
-			$config->pageNumUrlPrefix = $pageNumUrlPrefix;
+			if(!$config->admin) {
+				$config->set('_pageNumUrlPrefix', $config->pageNumUrlPrefix); // original/backup url prefix
+				$config->pageNumUrlPrefix = $pageNumUrlPrefix;
+			}
 		}
 	}
 
