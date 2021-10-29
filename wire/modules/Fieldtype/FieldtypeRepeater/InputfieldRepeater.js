@@ -214,7 +214,7 @@ function InputfieldRepeater($) {
 		var note = '';
 		
 		if(pasteID > 0) {
-			note = "<div><i class='fa fa-paste fa-fw'></i>" + labels.copyInMemory + ' (id ' + pasteID + ')</div>';
+			note = "<div style='margin-top:8px'><i class='fa fa-paste fa-fw'></i>" + labels.copyInMemory + ' (id ' + pasteID + ')</div>';
 		}
 		
 		var input = 
