@@ -26,7 +26,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Repeats fields from another template. Provides the input for FieldtypeRepeater.', __FILE__), // Module Summary
-			'version' => 109,
+			'version' => 110,
 			'requires' => 'FieldtypeRepeater',
 		);
 	}
@@ -620,14 +620,16 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	 * Render a new item for ajax after 'add new' link clicked
 	 * 
 	 * @param int $cloneItemID
+	 * @param int $cloneToParentID
 	 * @return string
 	 * 
 	 */
-	public function renderAjaxNewItem($cloneItemID = 0) {
+	public function renderAjaxNewItem($cloneItemID = 0, $cloneToParentID = 0) {
 
 		/** @var PageArray $value */
 		$value = $this->attr('value');
 		$clonePage = null;
+		$cloneToParent = null;
 		$readyPage = null;
 	
 		if($cloneItemID) {
@@ -637,12 +639,23 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 					break;
 				}
 			}
+			if($cloneToParentID && $cloneToParentID != $this->page->id) {
+				$cloneToParent = $this->wire()->pages->get((int) $cloneToParentID);
+				if($cloneToParent->id && $cloneToParent->hasField($this->field) && $cloneToParent->editable($this->field)) {
+					// ok
+					$fieldtype = $this->field->type; /** @var FieldtypeRepeater $fieldtype */
+					// convert from /path/to/page having repeater to /processwire/repeaters/for-field-123/for-page-456/
+					$cloneToParent = $fieldtype->getRepeaterPageParent($cloneToParent, $this->field); 
+				} else {
+					$cloneToParent = null;
+				}
+			}
 		}
 		
 		if($clonePage && $clonePage->id) {
 			/** @var FieldtypeRepeater $fieldtype */
 			$fieldtype = $this->field->type;
-			$readyPage = $this->wire()->pages->clone($clonePage, null, true,
+			$readyPage = $this->wire()->pages->clone($clonePage, $cloneToParent, true,
 				array('set' => array(
 					'name' => $fieldtype->getUniqueRepeaterPageName() . 'c', // trailing "c" indicates clone
 					'sort' => count($value)+1,
@@ -684,6 +697,17 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		}
 		if(!strlen($addLabel)) $addLabel = $this->_('Add New');
 		return $addLabel;
+	}
+	
+	protected function renderPasteLabel() {
+		return $this->_('Paste');
+	}
+
+	protected function renderPasteLink() {
+		$icon = wireIconMarkup('paste', 'fw');
+		$label = $this->renderPasteLabel();
+		$out = "<a class='InputfieldRepeaterPaste' href='#'>$icon $label</a>";
+		return $out;
 	}
 
 	/**
@@ -730,6 +754,11 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		if($this->accordionMode) {
 			$this->addClass('InputfieldRepeaterAccordion', 'wrapClass');
 		}
+		if(!empty($_COOKIE[$this->copyPasteCookieName()])) {
+			$this->addClass('InputfieldRepeaterCanPaste', 'wrapClass'); 
+		}
+		
+		$this->wrapAttr('data-name', $this->field->name);
 		$this->wrapAttr('data-page', $this->page->id);
 		$this->wrapAttr('data-max', (int) $this->repeaterMaxItems);
 		$this->wrapAttr('data-min', (int) $this->repeaterMinItems);
@@ -757,7 +786,15 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 				'insertBefore' => $this->_x('Insert new item before this one', 'repeater-item-action'),
 				'insertAfter' => $this->_x('Insert new item after this one', 'repeater-item-action'),
 				'insertHere' => $this->_x('Insert new item here', 'repeater-item-action'),
-				'disabledMinMax' => $this->_('This action is disabled per min and/or max item settings.')
+				'disabledMinMax' => $this->_('This action is disabled per min and/or max item settings.'),
+				'selectAction' => $this->_x('Select an action for this item ', 'dialog-header'), 
+				'copy' => $this->_x('COPY this item in memory to paste elsewhere', 'repeater-item-action'),
+				'copyInMemory' => $this->_x('Item in copy/paste memory', 'dialog-note'), 
+				'cloneBefore' => $this->_x('CLONE this item and insert ABOVE this', 'repeater-item-action'), 
+				'cloneAfter' => $this->_x('CLONE this item and insert BELOW this', 'repeater-item-action'), 
+				'pasteBefore' => $this->_x('PASTE copied item ABOVE this', 'repeater-item-action'),
+				'pasteAfter' => $this->_x('PASTE copied item BELOW this', 'repeater-item-action'),
+				'clear' => $this->_x('CLEAR copy/paste memory', 'repeater-item-action'), 
 			)
 		));
 
@@ -774,6 +811,13 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 	protected function renderFooter($noAjaxAdd) {
 		// a hidden checkbox with link that we use to identify when items have been added
 		if($this->singleMode) return '';
+		
+		if(!empty($_COOKIE[$this->copyPasteCookieName()])) {
+			$paste = ' &nbsp; ' . $this->renderPasteLink();
+		} else {
+			$paste = '';
+		}
+
 		$out =
 			"<p class='InputfieldRepeaterAddItem'>" .
 				"<input class='InputfieldRepeaterAddItemsQty' type='text' name='_{$this->name}_add_items' value='0' />" . // for noAjaxAdd
@@ -781,8 +825,9 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 					"<i class='fa fa-fw fa-plus-circle InputfieldRepeaterSpinner' " .
 						"data-on='fa-spin fa-spinner' data-off='fa-plus-circle'></i>" .
 					$this->renderAddLabel() .
-				"</a>" .
+				"</a>" . $paste . 
 			"</p>";
+		
 		return $out;
 	}
 
@@ -802,9 +847,10 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			$repeaterAdd = $input->get('repeater_add');
 			$repeaterEdit = (int) $input->get('repeater_edit');
 			$repeaterClone = (int) $input->get('repeater_clone');
+			$repeaterCloneTo = (int) $input->get('repeater_clone_to');
 			if($input->get('inrvm')) $this->renderValueMode = true; 
 			if($repeaterClone) {
-				return $this->renderValueMode ? '' : $this->renderAjaxNewItem($repeaterClone);
+				return $this->renderValueMode ? '' : $this->renderAjaxNewItem($repeaterClone, $repeaterCloneTo);
 			} else if($repeaterAdd !== null && !$noAjaxAdd) {
 				return $this->renderValueMode ? '' : $this->renderAjaxNewItem();
 			} else if($repeaterEdit) {
@@ -1137,6 +1183,17 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			return isset($this->wrappers[$key]) ? $this->wrappers[$key] : null;
 		}
 		return $this->wrappers;
+	}
+
+	/**
+	 * Get the copy/paste cookie name
+	 * 
+	 * @return string
+	 * @since 3.0.188
+	 * 
+	 */
+	public function copyPasteCookieName() {
+		return $this->field->name . '_copy';
 	}
 
 	/**

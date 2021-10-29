@@ -189,7 +189,76 @@ function InputfieldRepeater($) {
 		});
 		return false;
 	};
-	
+
+	/**
+	 * Event when the copy/clone/paste action is clicked
+	 * 
+	 * @returns {boolean}
+	 * 
+	 */
+	var eventCopyCloneClick = function() {
+
+		if(isActionDisabled($(this))) return false;
+
+		var labels = ProcessWire.config.InputfieldRepeater.labels;
+		var $item = $(this).closest('.InputfieldRepeaterItem');
+		var itemID = $item.attr('data-page');
+		var $inputfield = $item.closest('.InputfieldRepeater');
+		var fieldName = $inputfield.attr('data-name');
+		var cookieName = copyPasteCookieName(fieldName); 
+		var copyValue = jQuery.cookie(cookieName);
+		var itemLabel = getItemLabel($item).text();
+		var pasteID = copyValue ? parseInt(copyValue.item) : '';
+		var pasteDisabled = copyValue ? '' : 'disabled ';
+		var pasteSelected = pasteID > 0 ? 'selected ' : '';
+		var note = '';
+		
+		if(pasteID > 0) {
+			note = "<div><i class='fa fa-paste fa-fw'></i>" + labels.copyInMemory + ' (id ' + pasteID + ')</div>';
+		}
+		
+		var input = 
+			'<option value="copy">' + labels.copy + '</option>' + 
+			'<option value="clone-before">' + labels.cloneBefore + '</option>' +
+			'<option value="clone-after">' + labels.cloneAfter + '</option>' + 
+			'<option ' + pasteDisabled + 'value="paste-before">' + labels.pasteBefore + '</option>' + 
+			'<option ' + pasteDisabled + pasteSelected + 'value="paste-after">' + labels.pasteAfter + '</option>' + 
+			'<option ' + pasteDisabled + 'value="clear">' + labels.clear + '</option>';
+		
+		if(note.length) note = "<span class='detail'>" + note + "</span>";
+		
+		var options = {
+			message: labels.selectAction + ' (id ' + itemID + ')', // message displayed at top
+			input: '<select name="action" class="uk-select">' + input + '</select>' + note, // HTML content that is to be displayed
+			callback: function(value) {
+				var action = value.action;
+				if(action === 'copy') {
+					copyRepeaterItem($item);
+					$item.fadeOut('fast', function() { $item.fadeIn('fast') }); 
+					$inputfield.addClass('InputfieldRepeaterCanPaste');
+				} else if(action === 'clone-before') {
+					cloneRepeaterItem($item, true);
+				} else if(action === 'clone-after') {
+					cloneRepeaterItem($item, false);
+				} else if(action === 'paste-before') {
+					pasteRepeaterItem($item, true);
+				} else if(action === 'paste-after') {
+					pasteRepeaterItem($item, false);
+				} else if(action === 'clear') {
+					jQuery.cookie(cookieName, null);
+					$inputfield.removeClass('InputfieldRepeaterCanPaste');
+				} else {
+					console.log('unknown action: ' + action);
+				}
+			},
+		};
+		
+		// open the add-type selection dialog
+		vex.dialog.open(options);
+		
+		return false;
+	};
+
 	var eventSettingsClick = function(e) {
 		var $this = $(this);
 		var $item = $this.closest('.InputfieldRepeaterItem');
@@ -357,8 +426,10 @@ function InputfieldRepeater($) {
 		var newItemTotal = 0; // for noAjaxAdd mode
 		var useAjax = $addLink.attr('data-noajax').length == 0;
 		var cloneID = $addLink.attr('data-clone');
+		var pageID = 0;
 		var depth = 0;
 		var redoSortAll = false;
+		var inputfieldPageID = parseInt($inputfieldRepeater.attr('data-page'));
 
 		function addRepeaterItem($addItem) {
 			// make sure it has a unique ID
@@ -382,7 +453,16 @@ function InputfieldRepeater($) {
 		}
 
 		if(typeof cloneID == "undefined" || !cloneID) cloneID = null;
-		if(cloneID) $addLink.removeAttr('data-clone');
+		
+		if(cloneID) {
+			$addLink.removeAttr('data-clone');
+			// when data-clone contains pageID:itemID it is from a previous copy operation
+			if(cloneID.indexOf(':') > 0) {
+				var a = cloneID.split(':');
+				pageID = parseInt(a[0]); // for copy/paste
+				cloneID = parseInt(a[1]);
+			}
+		}
 
 		if(!useAjax) {
 			var $newItem = $inputfields.children('.InputfieldRepeaterNewItem'); // for noAjaxAdd mode, non-editable new item
@@ -399,8 +479,9 @@ function InputfieldRepeater($) {
 			return false;
 		}
 
+		
 		// get addItem from ajax
-		var pageID = $inputfieldRepeater.attr('data-page');
+		if(!pageID) pageID = inputfieldPageID;
 		var fieldName = $inputfieldRepeater.attr('id').replace('wrap_Inputfield_', '');
 		var $spinner = $addLink.parent().find('.InputfieldRepeaterSpinner');
 		var ajaxURL = ProcessWire.config.InputfieldRepeater.editorUrl + '?id=' + pageID + '&field=' + fieldName;
@@ -408,7 +489,7 @@ function InputfieldRepeater($) {
 		$spinner.removeClass($spinner.attr('data-off')).addClass($spinner.attr('data-on'));
 
 		if(cloneID) {
-			ajaxURL += '&repeater_clone=' + cloneID;
+			ajaxURL += '&repeater_clone=' + cloneID + '&repeater_clone_to=' + inputfieldPageID;
 		} else {
 			ajaxURL += '&repeater_add=' + $addLink.attr('data-type');
 		}
@@ -567,6 +648,18 @@ function InputfieldRepeater($) {
 			currentlyAddingItem = false;
 		}
 	}
+
+	/**
+	 * Event called when the "Paste" link in the footer is clicked
+	 * 
+	 */
+	var eventPasteClick = function(e) {
+		var $inputfield = $(this).closest('.InputfieldRepeater');
+		// use the InputfieldRepeaterNewItem as our substitute for a contextual item
+		var $newItem = $inputfield.children('.InputfieldContent').children('.Inputfields').children('.InputfieldRepeaterNewItem');	
+		pasteRepeaterItem($newItem, false);
+		return false;
+	}; 
 
 	/**
 	 * Event when mouseout of insert before/after action
@@ -1084,10 +1177,11 @@ function InputfieldRepeater($) {
 	function initHeaders($headers, $inputfieldRepeater, renderValueMode) {
 		
 		var $clone = $("<i class='fa fa-copy InputfieldRepeaterClone'></i>").css('display', 'block');
+		// var $paste = $("<i class='fa fa-paste InputfieldRepeaterPaste'></i>").css('display', 'block');
 		var $delete = $("<i class='fa fa-trash InputfieldRepeaterTrash'></i>");
 		var $toggle = $("<i class='fa InputfieldRepeaterToggle' data-on='fa-toggle-on' data-off='fa-toggle-off'></i>");
-		var $insertAfter = $("<i class='fa fa-download xfa-arrow-circle-down InputfieldRepeaterInsertAfter'></i>");
-		var $insertBefore = $("<i class='fa fa-upload xfa-arrow-circle-up InputfieldRepeaterInsertBefore'></i>"); 
+		var $insertAfter = $("<i class='fa fa-download InputfieldRepeaterInsertAfter'></i>");
+		var $insertBefore = $("<i class='fa fa-upload InputfieldRepeaterInsertBefore'></i>"); 
 		var cfg = ProcessWire.config.InputfieldRepeater;
 		var allowClone = !$inputfieldRepeater.hasClass('InputfieldRepeaterNoAjaxAdd');
 		var allowSettings = $inputfieldRepeater.hasClass('InputfieldRepeaterHasSettings');
@@ -1096,6 +1190,7 @@ function InputfieldRepeater($) {
 			$toggle.attr('title', cfg.labels.toggle);
 			$delete.attr('title', cfg.labels.remove);
 			$clone.attr('title', cfg.labels.clone);
+			// $paste.attr('title', 'Paste'); // @todo
 			$insertBefore.attr('title', cfg.labels.insertBefore);
 			$insertAfter.attr('title', cfg.labels.insertAfter);
 		}
@@ -1134,7 +1229,10 @@ function InputfieldRepeater($) {
 						.attr('title', cfg.labels.settings); 
 					$controls.prepend($settingsToggle);
 				}
-				if(allowClone) $controls.prepend($clone.clone(true));
+				if(allowClone) {
+					$controls.prepend($clone.clone(true));
+					// $controls.prepend($paste.clone(true));
+				}
 				$controls.prepend($toggleControl);
 				$controls.prepend($deleteControl);
 				$t.prepend($controls);
@@ -1341,6 +1439,107 @@ function InputfieldRepeater($) {
 	}
 
 	/**
+	 * Clone a repeater item in place
+	 * 
+	 * @param $item
+	 * @param pasteValue Optional cookie object value that was previously copied
+	 * 
+	 */
+	function cloneRepeaterItem($item, insertBefore, pasteValue) {
+		
+		if(typeof pasteValue === "undefined") pasteValue = null;
+		
+		var actionName = pasteValue === null ? 'clone' : 'paste';
+		var $addLink = $item.closest('.InputfieldRepeater').children('.InputfieldContent')
+			.children('.InputfieldRepeaterAddItem').find('.InputfieldRepeaterAddLink:eq(0)');
+		// $('html, body').animate({ scrollTop: $addLink.offset().top - 100}, 250, 'swing');
+
+		$item.siblings('.InputfieldRepeaterInsertItem').remove();
+		
+		var depth = getItemDepth($item);
+		var $newItem = $item.hasClass('InputfieldRepeaterNewItem') ? $item.clone() : $item.siblings('.InputfieldRepeaterNewItem').clone();
+		var $nextItem = $item.next('.InputfieldRepeaterItem');
+		var nextItemDepth = $nextItem.length ? getItemDepth($nextItem) : depth;
+		var $prevItem = $item.prev('.InputfieldRepeaterItem');
+		var prevItemDepth = $prevItem.length ? getItemDepth($prevItem) : depth;
+	
+		if(typeof insertBefore === "undefined") {
+			insertBefore = depth < nextItemDepth;
+		}
+		
+		$newItem.addClass('InputfieldRepeaterInsertItem').attr('id', $newItem.attr('id') + '-' + actionName); // .removeClass('InputfieldRepeaterNewItem); ?
+		$newItem.find('.InputfieldHeader').html("<i class='fa fa-spin fa-spinner'></i>");
+		
+		if(insertBefore) {
+			depth = getInsertBeforeItemDepth($item);
+			$newItem.addClass('InputfieldRepeaterInsertItemBefore');
+			$newItem.insertBefore($item);
+		} else {
+			depth = getInsertAfterItemDepth($item);
+			$newItem.addClass('InputfieldRepeaterInsertItemAfter');
+			$newItem.insertAfter($item);
+		}
+		
+		setItemDepth($newItem, depth);
+		
+		$newItem.show();
+		
+		if(actionName === 'paste') {
+			// data-clone attribute with 'pageID:itemID' indicates page ID and item ID to clone
+			$addLink.attr('data-clone', pasteValue.page + ':' + pasteValue.item).click();
+		} else {
+			// current page ID is implied when only itemID is supplied
+			$addLink.attr('data-clone', $item.attr('data-page')).click();
+		}
+	}
+
+	/**
+	 * Paste previously copied item
+	 * 
+	 * @param $item Item to insert before or after
+	 * @param insertBefore True to insert before, false to insert after
+	 * 
+	 */
+	function pasteRepeaterItem($item, insertBefore) {
+		var $inputfield = $item.closest('.InputfieldRepeater');
+		var fieldName = $inputfield.attr('data-name');
+		var cookieName = copyPasteCookieName(fieldName);
+		var copyValue = jQuery.cookie(cookieName); 
+		if(copyValue) cloneRepeaterItem($item, insertBefore, copyValue);
+	}
+
+	/**
+	 * Copy a repeater item to memory
+	 * 
+	 * @param $item
+	 * 
+	 */
+	function copyRepeaterItem($item) {
+		var $title = $('#Inputfield_title');
+		var $name = $('#Inputfield__pw_page_name');
+		var $inputfield = $item.closest('.InputfieldRepeater');
+		var fieldName = $inputfield.attr('data-name');
+		var copyValue = {
+			page: parseInt($inputfield.attr('data-page')),
+			item: parseInt($item.attr('data-page')),
+			field: fieldName,
+		};
+		var cookieName = copyPasteCookieName(fieldName);
+		jQuery.cookie(cookieName, copyValue);
+	}
+
+	/**
+	 * Get the copy/paste cookie name
+	 * 
+	 * @param fieldName
+	 * @returns {string}
+	 * 
+	 */
+	function copyPasteCookieName(fieldName) {
+		return fieldName + '_copy';
+	}
+
+	/**
 	 * Initialization for document.ready
 	 * 
 	 */
@@ -1354,7 +1553,9 @@ function InputfieldRepeater($) {
 			.on('reloaded', '.InputfieldRepeater', eventReloaded)
 			.on('click', '.InputfieldRepeaterTrash', eventDeleteClick)
 			.on('dblclick', '.InputfieldRepeaterTrash', eventDeleteDblClick)
-			.on('click', '.InputfieldRepeaterClone', eventCloneClick)
+			//.on('click', '.InputfieldRepeaterClone', eventCloneClick)
+			.on('click', '.InputfieldRepeaterClone', eventCopyCloneClick)
+			.on('click', '.InputfieldRepeaterPaste', eventPasteClick)
 			.on('click', '.InputfieldRepeaterSettingsToggle', eventSettingsClick)
 			.on('dblclick', '.InputfieldRepeaterToggle', eventOpenAllClick)
 			.on('click', '.InputfieldRepeaterToggle', eventToggleClick)

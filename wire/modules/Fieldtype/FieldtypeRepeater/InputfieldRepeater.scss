@@ -7,6 +7,21 @@
 		}
 	}
 	
+	.InputfieldRepeaterPaste {
+		display: none;
+	}
+	&.InputfieldRepeaterCanPaste {
+		.InputfieldRepeaterPaste {
+			display: inline-block;
+		}
+	}
+
+	// prevents longer item headers from going outside Inputfield box horizontally 
+	.InputfieldRepeaterItem {
+		max-width: 100%;
+		overflow-x: hidden;
+	}
+	
 	.InputfieldRepeaterItem  > .InputfieldHeader {
 		line-height: 1em;
 		padding: 0.5em 0 0.5em 0.4em;

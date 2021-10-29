@@ -332,7 +332,7 @@ class FieldtypeFieldsetPage extends FieldtypeRepeater implements ConfigurableMod
 	 * @return Page
 	 *
 	 */
-	protected function getRepeaterPageParent(Page $page, Field $field, $create = true) {
+	public function getRepeaterPageParent(Page $page, Field $field, $create = true) {
 		return $this->getRepeaterParent($field);
 	}
 

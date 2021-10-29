@@ -33,7 +33,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Maintains a collection of fields that are repeated for any number of times.', __FILE__), // Module Summary
-			'version' => 108,
+			'version' => 110,
 			'autoload' => true,
 			'installs' => 'InputfieldRepeater'
 		);
@@ -1114,7 +1114,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * @return Page|NullPage
 	 *
 	 */
-	protected function getRepeaterPageParent(Page $page, Field $field, $create = true) {
+	public function getRepeaterPageParent(Page $page, Field $field, $create = true) {
 
 		$repeaterParent = $this->getRepeaterParent($field);
 		$parentName = self::repeaterPageNamePrefix . $page->id; // for-page-123
@@ -1149,7 +1149,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * @throws WireException
 	 *
 	 */
-	protected function getRepeaterParent(Field $field) {
+	public function getRepeaterParent(Field $field) {
 		
 		$pages = $this->wire()->pages;
 		$parentID = (int) $field->get('parent_id');
