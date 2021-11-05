@@ -1384,24 +1384,10 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___deletePageField(Page $page, Field $field) {
-
-		if(!$field->id) throw new WireException("Unable to delete from '{$field->table}' for field that doesn't exist in fields table"); 
-
 		// no need to delete on a new Page because it's not in the table yet
-		if($page->isNew()) return true; 
-
-		// clear the value from the page
-		// $page->set($field->name, $this->getBlankValue($page, $field)); 
-		unset($page->{$field->name}); 
-
-		// Delete all instances of it from the field table
-		$database = $this->wire('database');
-		$table = $database->escapeTable($field->table);
-		$page_id = (int) $page->id; 
-		$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id"); 
-		$query->bindValue(":page_id", $page_id, \PDO::PARAM_INT);
-		$result = $query->execute();
-		return $result;
+		if($page->isNew()) return true;
+		unset($page->{$field->name}); // clear the value from the page
+		return $this->emptyPageFieldTable($page, $field);
 	}
 	
 	/**
@@ -1419,13 +1405,29 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function ___emptyPageField(Page $page, Field $field) {
-		if(!$field->id) throw new WireException("Unable to empty from '{$field->table}' for field that doesn't exist in fields table");
-		$table = $this->wire('database')->escapeTable($field->table);
-		$query = $this->wire('database')->prepare("DELETE FROM `$table` WHERE pages_id=:page_id");
+		return $this->emptyPageFieldTable($page, $field);
+	}
+
+	/**
+	 * Empty DB table of page field
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool
+	 * @throws WireException
+	 * @since 3.0.189
+	 * 
+	 */
+	protected function emptyPageFieldTable(Page $page, Field $field) {
+		if(!$field->id) {
+			throw new WireException("Unable to empty table '$field->table' for field that doesn’t have an id");
+		}
+		$database = $this->wire()->database;
+		$table = $database->escapeTable($field->table);
+		$query = $database->prepare("DELETE FROM `$table` WHERE pages_id=:page_id");
 		$query->bindValue(":page_id", $page->id, \PDO::PARAM_INT);
 		return $query->execute();
 	}
-
 	
 	/**
 	 * Move this field’s data from one page to another.
@@ -1441,7 +1443,7 @@ abstract class Fieldtype extends WireData implements Module {
 	public function ___replacePageField(Page $src, Page $dst, Field $field) {
 		$database = $this->wire()->database;
 		$table = $database->escapeTable($field->table);
-		$this->emptyPageField($dst, $field); 
+		$this->deletePageField($dst, $field); 
 		// move the data
 		$sql = "UPDATE `$table` SET pages_id=:dstID WHERE pages_id=:srcID";
 		$query = $database->prepare($sql);
