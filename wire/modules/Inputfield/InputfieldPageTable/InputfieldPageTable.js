@@ -142,6 +142,9 @@ function InputfieldPageTableSortable($tables) {
 			},
 			stop: function(event, ui) {
 				InputfieldPageTableUpdate($(this));
+			},
+			update: function(e, ui) {
+				$table.closest('.Inputfield').trigger('sorted', [ ui.item ]); 
 			}
 		});
 	});

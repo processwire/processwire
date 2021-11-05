@@ -78,6 +78,9 @@ $(document).ready(function() {
 					// so we keep a 500ms class here to keep a handle on what was a lightbox trigger and what was a sort
 					$inputfield.addClass('InputfieldFileJustSorted InputfieldStateChanged'); 
 					setTimeout(function() { $inputfield.removeClass('InputfieldFileJustSorted'); }, 500); 
+				},
+				update: function(e, ui) {
+					$inputfield.trigger('sorted', [ ui.item ]); 
 				}
 			});
 

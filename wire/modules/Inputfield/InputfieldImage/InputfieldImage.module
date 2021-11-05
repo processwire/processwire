@@ -282,7 +282,7 @@ class InputfieldImage extends InputfieldFile implements InputfieldItemList, Inpu
 			}
 		}
 
-		$class = 'gridImages ui-helper-clearfix';
+		$class = 'InputfieldImageList gridImages ui-helper-clearfix';
 		if($this->uploadOnlyMode) $class .= " InputfieldImageUploadOnly";
 		if($this->overwrite && !$this->renderValueMode) $class .= " InputfieldFileOverwrite";
 		$out = "<ul class='$class' data-gridSize='$this->gridSize' data-gridMode='$this->gridMode'>$out</ul>";

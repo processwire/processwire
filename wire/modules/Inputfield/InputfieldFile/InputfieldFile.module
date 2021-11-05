@@ -1025,7 +1025,8 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 			if($inputfields && $this->processItemInputfields($pagefile, $inputfields, $id, $input)) $changed = true;
 		}
 
-		if(isset($input['delete_' . $id])) {
+		$delete = isset($input['delete_' . $id]) ? (int) $input['delete_' . $id] : 0;
+		if(!empty($delete)) {
 			$this->processInputDeleteFile($pagefile); 
 			$changed = true; 
 			

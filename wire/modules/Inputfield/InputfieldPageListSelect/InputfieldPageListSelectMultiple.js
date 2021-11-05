@@ -38,6 +38,7 @@ var InputfieldPageListSelectMultiple = {
 				axis: 'y',
 				update: function(e, data) {
 					InputfieldPageListSelectMultiple.rebuildInput($(this)); 
+					$ol.trigger('sorted', [ data.item ]); 
 				},
 				start: function(e, data) {
 					data.item.addClass('ui-state-highlight');

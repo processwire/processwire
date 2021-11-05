@@ -128,6 +128,9 @@ function InputfieldImage($) {
 				});
 				$el.removeClass('InputfieldImageSorting');
 			},
+			update: function(e, ui) {
+				$el.trigger('sorted', [ ui.item ]); 
+			}, 
 			cancel: ".InputfieldImageEdit,.focusArea,input,textarea,button,select,option"
 		};
 
