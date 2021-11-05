@@ -37,6 +37,7 @@
  * @method InputfieldMarkup buildFormRoles()
  * @method void processInput(InputfieldWrapper $form, $level = 0, $formRoot = null)
  * @method void ajaxSave(Page $page)
+ * @method bool ajaxSaveDone(Page $page, array $data)
  * @method bool ajaxEditable(Page $page, $fieldName = '')
  * @method array getTabs()
  * 
@@ -54,7 +55,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		return array(
 			'title' => 'Page Edit',
 			'summary' => 'Edit a Page',
-			'version' => 110,
+			'version' => 111,
 			'permanent' => true,
 			'permission' => 'page-edit',
 			'icon' => 'edit',
@@ -585,7 +586,8 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * 
 	 */
 	protected function renderEdit() {
-		
+
+		$config = $this->config;
 		$class = '';
 		$numFields = count($this->fields);
 		// $out = "<p id='PageIDIndicator' class='$class'>" . ($this->page->id ? $this->page->id : "New") . "</p>";
@@ -609,7 +611,6 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if(!$numFields) {
 			$submitActions = $this->getSubmitActions();
 			if(count($submitActions)) {
-				$config = $this->config;
 				$file = $config->debug ? 'dropdown.js' : 'dropdown.min.js';
 				$config->scripts->add($config->urls('InputfieldSubmit') . $file);
 				$input = "<input type='hidden' id='after-submit-action' name='_after_submit_action' value='' />";
@@ -930,7 +931,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			$tabViewable = null;
 			
 			foreach($contentTab as $inputfield) {
-				if(!$tabOpen && $inputfield->className == 'InputfieldFieldsetTabOpen') {
+				if(!$tabOpen && $inputfield->className() === 'InputfieldFieldsetTabOpen') {
 					// open new tab
 					$showable = $this->isTrash ? 'editable' : 'viewable';
 					$tabViewable = $this->page->$showable($inputfield->attr('name'));
@@ -958,13 +959,15 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 							"data-buttons='#ProcessPageEdit button[type=submit]' " . 
 							"data-autoclose='1' " . 
 							"href='$href'>" . 
-							$this->sanitizer->entities1($tabOpen->label) . "</a>");
+							$this->sanitizer->entities1($tabOpen->label) . "</a>", 
+							$tabWrap
+						);
 						/** @var JqueryUI $jqueryUI */
 						$jqueryUI = $this->modules->get('JqueryUI');
 						$jqueryUI->use('modal');
 						$tabOpen = null;
 					} else {
-						$this->addTab($tabOpen->id, $this->sanitizer->entities1($tabOpen->label));
+						$this->addTab($tabOpen->id, $this->sanitizer->entities1($tabOpen->label), $tabWrap);
 					}
 					
 				} else if($tabOpen && !$this->isPost) {
@@ -1064,8 +1067,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$fields->attr('id', $id); 
 		$fields->attr('title', $title); 
-		$fields->addClass('WireTab');
-		$this->addTab($id, $title);
+		$this->addTab($id, $title, $fields);
 
 		if($this->page->template->nameContentTab) {
 			$fields->prepend($this->buildFormPageName());
@@ -1090,9 +1092,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$defaultTitle = $this->_('Children'); // Tab Label: Children
 		$title = $this->page->template->getTabLabel('children'); 
 		if(!$title) $title = $defaultTitle;
-		if($page->numChildren) $wrapper->attr('title', "<em>$title</em>"); 
-			else $wrapper->attr('title', $title); 
-		$this->addTab($id, $title);
+		if($page->numChildren) {
+			$wrapper->attr('title', "<em>$title</em>");
+		} else {
+			$wrapper->attr('title', $title);
+		}
+		$this->addTab($id, $title, $wrapper);
 		$templateSortfield = $this->page->template->sortfield;
 		
 		if(!$this->isPost) { 
@@ -1222,7 +1227,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$title = $this->_('Settings'); // Tab Label: Settings
 		$wrapper->attr('id', $id); 
 		$wrapper->attr('title', $title); 
-		$this->addTab($id, $title);
+		$this->addTab($id, $title, $wrapper);
 
 		// name
 		if(($this->page->id > 1 || $this->hasLanguagePageNames) && !$this->page->template->nameContentTab) {
@@ -1735,7 +1740,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$deleteLabel = $this->_('Delete'); // Tab Label: Delete
 		$wrapper->attr('id', $id); 
 		$wrapper->attr('title', $deleteLabel); 
-		$this->addTab($id, $deleteLabel);
+		$this->addTab($id, $deleteLabel, $wrapper);
 
 		if($trashable) {
 
@@ -1790,7 +1795,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$restoreLabel2 = $this->_('Move out of trash and restore to original location'); 
 		$wrapper->attr('id', $id);
 		$wrapper->attr('title', $restoreLabel);
-		$this->addTab($id, $restoreLabel);
+		$this->addTab($id, $restoreLabel, $wrapper);
 		/** @var Page $parent */
 		$parent = $info['parent'];
 		$newPath = $parent->path() . $info['name'] . '/';
@@ -2476,23 +2481,29 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if($this->config->demo) throw new WireException("Ajax save is disabled in demo mode");
 		if($page->hasStatus(Page::statusLocked)) throw new WireException($this->noticeLocked);
 		if(!$this->ajaxEditable($page)) throw new WirePermissionException($this->noticeNoAccess);
-		$this->session->CSRF->validate(); // throws exception when invalid
+		
+		$this->wire()->session->CSRF->validate(); // throws exception when invalid
 
 		/** @var InputfieldWrapper $form */
 		$form = $this->wire(new InputfieldWrapper());
 		$form->useDependencies = false;
 		$keys = array();
+		$error = '';
+		$message = '';
 
 		if(isset($_SERVER['HTTP_X_FIELDNAME'])) {
 			$keys[] = $this->sanitizer->fieldName($_SERVER['HTTP_X_FIELDNAME']);
-
+			
+		} else if(count($this->fields)) {
+			$keys = array_keys($this->fields);
+			
 		} else {
 			foreach($this->input->post as $key => $unused) {
-				if($key == 'id') continue;
+				if($key === 'id') continue;
 				$keys[] = $this->sanitizer->fieldName($key);
 			}
 		}
-
+		
 		foreach($keys as $key) {
 
 			if(!$field = $page->template->fieldgroup->getFieldContext($key)) continue;
@@ -2507,12 +2518,16 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 		$form->processInput($this->input->post);
 		$page->setTrackChanges(true);
+		$pageClass = $page->className();
 		$numFields = 0;
 		$lastFieldName = null;
-		$languages = $this->wire('languages');
+		$savedNames = array();
+		$saved = false; // was page saved?
+		$languages = $this->wire()->languages;
+		$changes = array();
 
 		foreach($form->children() as $inputfield) {
-			$name = $inputfield->name;
+			$name = $inputfield->attr('name');
 			if($languages && $inputfield->getSetting('useLanguages')) {
 				$v = $page->get($name);
 				if(is_object($v)) {
@@ -2527,19 +2542,74 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 			}
 			$numFields++;
 			$lastFieldName = $inputfield->name;
+			$savedNames[] = $lastFieldName;
+			if($inputfield instanceof InputfieldFile) $page->trackChange($name);
 		}
 
 		if($page->isChanged()) {
+			$changes = $page->getChanges();
 			if($numFields === 1) {
-				$page->save((string)$lastFieldName);
-				$this->message("AJAX Saved page '{$page->id}' field '$lastFieldName'");
+				if($page->save((string) $lastFieldName)) {
+					$saved = true;
+					$message = "Ajax saved $pageClass $page->id field: $lastFieldName";
+				} else {
+					$error = "Ajax error saving $pageClass $page->id field: $lastFieldName";
+				}
 			} else {
-				$page->save();
-				$this->message("AJAX Saved page '{$page->id}' multiple fields");
+				if($page->save()) {
+					$saved = true;
+					$message = "Ajax saved $pageClass $page->id fields: " . implode(', ', $savedNames);
+				} else {
+					$error = "Ajax error saving $pageClass $page->id fields: " . implode(', ', $savedNames);
+				}
 			}
 		} else {
-			$this->message("AJAX Page not saved (no changes)");
+			$message = "Ajax $pageClass $page->id not saved (no changes)";
+			$savedNames = array();
 		}
+	
+		$data = array(
+			'fields' => $savedNames, 
+			'changes' => $changes, 
+			'error' => strlen($error) > 0, 
+			'message' => ($error ? $error : $message), 
+			'saved' => $saved,
+		);
+		
+		if(!$this->ajaxSaveDone($page, $data)) {
+			if($message) $this->message($message);
+			if($error) $this->error($error);
+		}
+	}
+
+	/**
+	 * Ajax save done - send output
+	 * 
+	 * When a hook overrides this, it should hook after and set `$event->return = true;`
+	 * to indicate that it has handled the output. 
+	 * ~~~~~
+	 * $wire->addHookAfter('ProcessPageEdit::ajaxSaveDone', function($event) {
+	 *   if($event->return === true) return; // another hook already handled output
+	 *   $page = $event->arguments(0); // Page
+	 *   $data = $event->arguments(1); // array
+	 *   $data['page'] = $page->id; 
+	 *   header('Content-Type', 'application/json');
+	 *   echo json_encode($data); 
+	 *   $event->return = true; // tell ProcessPageEdit we handled output 
+	 * }); 
+	 * ~~~~~
+	 * 
+	 * #pw-hooker
+	 * 
+	 * @param Page $page
+	 * @param array $data
+	 * @return bool Return true if hook has handled output, false if not (default)
+	 * @since 3.0.188
+	 * 
+	 */
+	protected function ___ajaxSaveDone(Page $page, array $data) {
+		if($page && $data) {} // ignore
+		return false;
 	}
 
 
@@ -2916,10 +2986,12 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * 
 	 * @param string $id
 	 * @param string $label
+	 * @param InputfieldWrapper|null $wrapper
 	 * 
 	 */
-	public function addTab($id, $label) {
+	public function addTab($id, $label, $wrapper = null) {
 		$this->tabs[$id] = $label; 
+		if($wrapper) $wrapper->addClass('WireTab');
 	}
 
 	/**
