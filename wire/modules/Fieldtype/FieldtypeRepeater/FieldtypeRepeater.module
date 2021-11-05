@@ -1788,6 +1788,37 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 
 		return $result;
 	}
+
+	/**
+	 * Move this field’s data from one page to another.
+	 *
+	 * #pw-group-saving
+	 *
+	 * @param Page $src Source Page
+	 * @param Page $dst Destination Page
+	 * @param Field $field
+	 * @return bool
+	 *
+	 */
+	public function ___replacePageField(Page $src, Page $dst, Field $field) {
+		
+		$pages = $this->wire()->pages;
+		$srcParentName = self::repeaterPageNamePrefix . $src->id;
+		$dstParentName = self::repeaterPageNamePrefix . $dst->id;
+		$parentId = (int) $field->get('parent_id');
+		
+		if(!parent::___replacePageField($src, $dst, $field)) return false;
+		
+		$srcParent = $pages->get("parent_id=$parentId, name=$srcParentName");
+		$dstParent = $pages->get("parent_id=$parentId, name=$dstParentName");
+		
+		if($dstParent->id) $pages->delete($dstParent, true);
+		
+		$srcParent->name = $dstParentName;
+		$srcParent->save();
+	
+		return true;
+	}
 	
 	/**
 	 * Create a cloned copy of Field
