@@ -315,6 +315,7 @@ function InputfieldRepeater($) {
 					.addClass('InputfieldRepeaterWasUnpublished');
 				$input.val('1');
 			}
+			$input.trigger('change');
 			checkMinMax($item.closest('.InputfieldRepeater'));
 		}, 250); 
 			
@@ -1136,6 +1137,7 @@ function InputfieldRepeater($) {
 					tinyMCE.execCommand('mceAddControl', false, $(this).attr('id'));
 				});
 				
+				$(this).closest('.InputfieldRepeater').trigger('sorted', [ ui.item ]);
 			}
 		};
 
