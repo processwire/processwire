@@ -207,6 +207,7 @@
 					update: function(e, data) {
 						if(data.item.hasClass('asmFieldsetStart')) return;
 						sortableUpdate(jQuery(this), e, data);
+						$ol.trigger('sorted', [ data.item ]);
 					},
 					start: function(e, data) {
 						if(options.jQueryUI) data.item.addClass('ui-state-highlight'); 
