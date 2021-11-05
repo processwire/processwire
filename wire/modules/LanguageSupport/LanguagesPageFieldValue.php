@@ -88,8 +88,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 */
 	public function wired() {
 		parent::wired();
-		$this->languageSupport = $this->wire()->modules->get('LanguageSupport');
-		$this->defaultLanguagePageID = $this->languageSupport->defaultLanguagePageID;
+		$this->languageSupport();
 	}
 
 	/**
@@ -131,13 +130,16 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		
 		if(array_key_exists('data', $values)) {
 			if(is_null($values['data'])) $values['data'] = '';
-			$this->data[$this->defaultLanguagePageID] = $values['data'];
+			$this->data[$this->defaultLanguagePageID()] = $values['data'];
 		}
 
-		foreach($this->languageSupport->otherLanguagePageIDs as $id) {
-			$key = 'data' . $id;
-			$value = empty($values[$key]) ? '' : $values[$key];
-			$this->data[$id] = $value;
+		$languageSupport = $this->languageSupport();
+		if($languageSupport) {
+			foreach($languageSupport->otherLanguagePageIDs as $id) {
+				$key = 'data' . $id;
+				$value = empty($values[$key]) ? '' : $values[$key];
+				$this->data[$id] = $value;
+			}
 		}
 	}
 
@@ -213,10 +215,13 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 
 	/**
 	 * Returns the value in the default language
+	 * 
+	 * @return string
 	 *
 	 */
 	public function getDefaultValue() {
-		return $this->data[$this->defaultLanguagePageID];
+		$id = $this->defaultLanguagePageID();
+		return isset($this->data[$id]) ? $this->data[$id] : '';
 	}
 
 	/**
@@ -271,7 +276,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		
 		$template = $this->page->template;
 		$language = $this->wire()->user->language; 	
-		$defaultValue = (string) $this->data[$this->defaultLanguagePageID];
+		$defaultValue = (string) $this->data[$this->defaultLanguagePageID()];
 		
 		if(!$language || !$language->id || $language->isDefault()) return $defaultValue;
 		if($template && $template->noLang) return $defaultValue;
@@ -281,7 +286,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 		if(!strlen($languageValue)) {
 			// value is blank
 			if($this->field) { 
-				if($this->field->langBlankInherit == self::langBlankInheritDefault) {
+				if($this->field->get('langBlankInherit') == self::langBlankInheritDefault) {
 					// inherit value from default language
 					$languageValue = $defaultValue; 
 				}
@@ -384,6 +389,28 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 */
 	public function getIterator() {
 		return new \ArrayObject($this->data);
+	}
+
+	/**
+	 * @return null|LanguageSupport
+	 * @throws WireException
+	 * @throws WirePermissionException
+	 * 
+	 */
+	protected function languageSupport() {
+		if($this->languageSupport) return $this->languageSupport;
+		$this->languageSupport = $this->wire()->modules->get('LanguageSupport');
+		$this->defaultLanguagePageID = $this->languageSupport->defaultLanguagePageID;
+		return $this->languageSupport;
+	}
+
+	/**
+	 * @return int
+	 * 
+	 */
+	protected function defaultLanguagePageID() {
+		if(!$this->defaultLanguagePageID) $this->languageSupport();
+		return $this->defaultLanguagePageID; 
 	}
 }
 
