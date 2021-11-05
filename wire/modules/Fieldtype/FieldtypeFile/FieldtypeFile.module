@@ -1209,10 +1209,10 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 	 */
 	public function ___deletePageField(Page $page, Field $field) {
 
-		// if($this->config->debug) $this->message("deletePageField, Page:$page, Field:$field"); 
+		/** @var Pagefiles|Pagefile $pagefiles */	
+		$pagefiles = $page->get($field->name);
 
-		if($pagefiles = $page->get($field->name)) {
-
+		if($pagefiles) {
 			$dvpID = $field->get('defaultValuePage'); 
 			
 			if($dvpID && $dvpID != $page->id && $pagefiles->page->id != $page->id) {
@@ -1221,24 +1221,56 @@ class FieldtypeFile extends FieldtypeMulti implements ConfigurableModule, Fieldt
 			} else if($pagefiles instanceof Pagefiles) {
 				// $pagefiles->removeAll() not used here because it queues delete to $page->save(),
 				// which does not occur when a field is removed from a template
-				foreach($pagefiles as $pagefile) $pagefile->unlink();
+				foreach($pagefiles as $pagefile) {
+					$pagefile->unlink();
+				}
 
 			} else if($pagefiles instanceof Pagefile) {
 				$pagefiles->unlink();
 
-			} else if($page->hasField($field) && $this->config->debug) {
+			} else if($page->hasField($field) && $this->wire()->config->debug) {
 				$this->error("Not Pagefiles or Pagefile"); 
 			}
 
-		} else if($page->hasField($field) && $this->config->debug) {
+		} else if($page->hasField($field) && $this->wire()->config->debug) {
 			$this->error("Unable to retreive $page.{$field->name}"); 			
 		}
 
 		parent::___deletePageField($page, $field); 
 
 		return true; 
-		
 	}
+	
+	/**
+	 * Empty field from page
+	 *
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool
+	 *
+	 */
+	public function ___emptyPageField(Page $page, Field $field) {
+		return $this->deletePageField($page, $field);
+	}
+	
+	/**
+	 * Move this field’s data from one page to another.
+	 *
+	 * #pw-group-saving
+	 *
+	 * @param Page $src Source Page
+	 * @param Page $dst Destination Page
+	 * @param Field $field
+	 * @return bool
+	 *
+	 */
+	public function ___replacePageField(Page $src, Page $dst, Field $field) {
+		$dstPath = $dst->filesManager()->path();
+		if(!parent::___replacePageField($src, $dst, $field)) return false;
+		$src->filesManager()->moveFiles($dstPath);
+		return true;
+	}
+
 
 	/**
 	 * Delete field
