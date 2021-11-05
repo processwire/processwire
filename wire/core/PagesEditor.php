@@ -1101,26 +1101,8 @@ class PagesEditor extends Wire {
 		// trigger a hook to indicate delete is ready and WILL occur
 		$this->pages->deleteReady($page, $options);
 
-		foreach($page->fieldgroup as $field) {
-			if(!$field->type->deletePageField($page, $field)) {
-				$this->error("Unable to delete field '$field' from page '$page'");
-			}
-		}
-
-		try {
-			if(PagefilesManager::hasPath($page)) $page->filesManager->emptyAllPaths();
-		} catch(\Exception $e) {
-		}
-
-		$page->meta()->removeAll();
+		$this->clear($page);
 		
-		/** @var PagesAccess $access */
-		$access = $this->wire(new PagesAccess());
-		$access->deletePage($page);
-	
-		// delete entirely from pages_parents table
-		$this->pages->parents()->delete($page);
-
 		$database = $this->wire()->database;
 		$query = $database->prepare("DELETE FROM pages WHERE id=:page_id LIMIT 1"); // QA
 		$query->bindValue(":page_id", $page->id, \PDO::PARAM_INT);
@@ -1568,6 +1550,165 @@ class PagesEditor extends Wire {
 		$query->execute();
 		
 		return count($sorts);
+	}
+
+	/**
+	 * Replace one page with another (work in progress)
+	 * 
+	 * @param Page $oldPage
+	 * @param Page $newPage
+	 * @return Page
+	 * @throws WireException
+	 * @since 3.0.189 But not yet available in public API
+	 * 
+	 */
+	protected function replace(Page $oldPage, Page $newPage) {
+		
+		if($newPage->numChildren) {
+			throw new WireException('Page with children cannot replace another');
+		}
+
+		$database = $this->wire()->database;
+		
+		$this->pages->cacher()->uncache($oldPage);
+		$this->pages->cacher()->uncache($newPage);
+		
+		$prevId = $newPage->id;
+		$id = $oldPage->id;
+		$parent = $oldPage->parent;
+		$prevTemplate = $oldPage->template;
+		
+		$newPage->parent = $parent;
+		$newPage->templatePrevious = $prevTemplate;
+
+		$this->clear($oldPage, array(
+			'clearParents' => false, 
+			'clearAccess' => $prevTemplate->id != $newPage->template->id, 
+			'clearSortfield' => false,
+		)); 
+		
+		$binds = array(
+			':id' => $id, 
+			':parent_id' => $parent->id, 
+			':prev_id' => $prevId, 
+		);
+		
+		$sqls = array();
+		$sqls[] = 'UPDATE pages SET id=:id, parent_id=:parent_id WHERE id=:prev_id';
+	
+		foreach($newPage->template->fieldgroup as $field) {
+			/** @var Field $field */
+			$field->type->replacePageField($newPage, $oldPage, $field);
+		}
+		
+		foreach($sqls as $sql) {
+			$query = $database->prepare($sql);
+			foreach($binds as $bindKey => $bindValue) {
+				if(strpos($sql, $bindKey) === false) continue;
+				$query->bindValue($bindKey, $bindValue);
+				$query->execute();
+			}
+		}
+
+		$newPage->id = $id;
+		
+		$this->save($newPage);
+		
+		$page = $this->pages->getById($id, $newPage->template, $parent->id);
+		
+		return $page;
+	}
+
+	/**
+	 * Clear a page of its data
+	 * 
+	 * @param Page $page
+	 * @param array $options
+	 * @return bool
+	 * @throws WireException
+	 * @since 3.0.189
+	 * 
+	 */
+	public function clear(Page $page, array $options = array()) {
+		
+		$defaults = array(
+			'clearMethod' => 'delete', // 'delete' or 'empty'
+			'haltOnError' => false,
+			'clearFields' => true,
+			'clearFiles' => true, 
+			'clearMeta' => true, 
+			'clearAccess' => true, 
+			'clearSortfield' => true,
+			'clearParents' => true,
+		);
+
+		$options = array_merge($defaults, $options);
+		$errors = array();
+		$halt = false;
+
+		if($options['clearFields']) {
+			foreach($page->fieldgroup as $field) {
+				/** @var Field $field  */
+				if($options['clearMethod'] === 'delete') {
+						$result = $field->type->deletePageField($page, $field);
+					} else {
+						$result = $field->type->emptyPageField($page, $field);
+					}
+				if(!$result) {	
+					$errors[] = "Unable to clear field '$field' from page $page";
+					$halt = $options['haltOnError'];
+					if($halt) break;
+				}
+			}
+		}
+		
+		if($options['clearFiles'] && !$halt) {
+			$error = "Error clearing files for page $page"; 
+			try {
+				if(PagefilesManager::hasPath($page)) {
+					if(!$page->filesManager->emptyAllPaths()) {
+						$errors[] = $error;
+						$halt = $options['haltOnError'];
+					}
+				}
+			} catch(\Exception $e) {
+				$errors[] = $error . ' - ' . $e->getMessage();
+				$halt = $options['haltOnError'];
+			}
+		}
+
+		if($options['clearMeta'] && !$halt) {
+			try {
+				$page->meta()->removeAll();
+			} catch(\Exception $e) {
+				$errors[] = "Error clearing meta for page $page";
+				$halt = $options['haltOnError'];
+			}
+		}
+
+		if($options['clearAccess'] && !$halt) {
+			/** @var PagesAccess $access */
+			$access = $this->wire(new PagesAccess());
+			$access->deletePage($page);
+		}
+
+		if($options['clearParents'] && !$halt) {
+			// delete entirely from pages_parents table
+			$this->pages->parents()->delete($page);
+		}
+
+		if($options['clearSortfield'] && !$halt) {
+			$this->pages->sortfields()->delete($page);
+		}
+		
+		if(count($errors) || $halt) {
+			foreach($errors as $error) {
+				$this->error($error);
+			}
+			return false;
+		}
+
+		return true;
 	}
 
 	/**
