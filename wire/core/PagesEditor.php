@@ -102,6 +102,11 @@ class PagesEditor extends Wire {
 			unset($values['title']);
 		}
 
+		if(isset($values['status'])) {
+			$page->status = $values['status'];
+			unset($values['status']);
+		}
+
 		// save page before setting $values just in case any fieldtypes
 		// require the page to have an ID already (like file-based)
 		if(!$this->pages->save($page)) throw new WireException($exceptionMessage);
@@ -111,6 +116,15 @@ class PagesEditor extends Wire {
 			unset($values['id'], $values['parent'], $values['template']); // fields that may not be set from this array
 			foreach($values as $key => $value) $page->set($key, $value);
 			$this->pages->save($page);
+		}
+		
+		// get a fresh copy of the page
+		if($page->id) {
+			$of = $this->pages->outputFormatting;
+			if($of) $this->pages->setOutputFormatting(false);
+			$p = $this->pages->getById($page->id, $template, $page->parent_id);
+			if($p->id) $page = $p;
+			if($of) $this->pages->setOutputFormatting(true);
 		}
 
 		return $page;
