@@ -575,46 +575,48 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if(isset($this->data[$key])) return $this->data[$key];
 
 		// check if key contains something other than numbers, letters, underscores, hyphens
-		if(is_string($key) && !ctype_alnum($key) && !ctype_alnum(strtr($key, '-_', 'ab'))) {
-			
-			// check if key contains a selector
-			if(Selectors::stringHasSelector($key)) {
-				$item = $this->findOne($key);
-				if($item === false) $item = null;
-				return $item;
-			}
+		if(is_string($key)) { 
+			if(!ctype_alnum($key) && !ctype_alnum(strtr($key, '-_', 'ab'))) {
 
-			if(strpos($key, '{') !== false && strpos($key, '}')) {
-				// populate a formatted string with {tag} vars
-				return wirePopulateStringTags($key, $this);
-			}
-
-			// check if key is requesting a property array: i.e. "name[]"
-			if(strpos($key, '[]') !== false && substr($key, -2) == '[]') {
-				return $this->explode(substr($key, 0, -2));
-			}
-		
-			// check if key is asking for first match in "a|b|c"
-			if(strpos($key, '|') !== false) {
-				$numericKeys = $this->usesNumericKeys();
-				foreach(explode('|', $key) as $k) {
-					if(isset($this->data[$k])) {
-						$match = $this->data[$k];
-					} else if($numericKeys) {
-						$match = $this->getItemThatMatches('name', $k);
-					}
-					if($match) break;
+				// check if key contains a selector
+				if(Selectors::stringHasSelector($key)) {
+					$item = $this->findOne($key);
+					if($item === false) $item = null;
+					return $item;
 				}
-				return $match;
+
+				if(strpos($key, '{') !== false && strpos($key, '}')) {
+					// populate a formatted string with {tag} vars
+					return wirePopulateStringTags($key, $this);
+				}
+
+				// check if key is requesting a property array: i.e. "name[]"
+				if(strpos($key, '[]') !== false && substr($key, -2) == '[]') {
+					return $this->explode(substr($key, 0, -2));
+				}
+
+				// check if key is asking for first match in "a|b|c"
+				if(strpos($key, '|') !== false) {
+					$numericKeys = $this->usesNumericKeys();
+					foreach(explode('|', $key) as $k) {
+						if(isset($this->data[$k])) {
+							$match = $this->data[$k];
+						} else if($numericKeys) {
+							$match = $this->getItemThatMatches('name', $k);
+						}
+						if($match) break;
+					}
+					return $match;
+				}
 			}
 
 			// if the WireArray uses numeric keys, then it's okay to
 			// match a 'name' field if the provided key is a string
-			if($this->usesNumericKeys()) {
+			if(is_string($key) && $this->usesNumericKeys()) {
 				$match = $this->getItemThatMatches('name', $key);
 			}
 		}
-
+		
 		return $match; 
 	}
 
