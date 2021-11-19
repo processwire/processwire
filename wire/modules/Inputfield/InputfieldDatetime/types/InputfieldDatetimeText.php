@@ -311,7 +311,7 @@ class InputfieldDatetimeText extends InputfieldDatetimeType {
 			if($timeInputFormat == $format) $f->attr('value', $format);
 		}
 		$f->attr('onchange', "$('#Inputfield_timeInputFormat').val($(this).val());");
-		$f->collapsed = Inputfield::collapsedBlank;
+		// $f->collapsed = Inputfield::collapsedBlank;
 		$f->columnWidth = 50;
 		$fieldset->add($f);
 
