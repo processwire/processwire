@@ -1476,6 +1476,7 @@ class Selectors extends WireArray {
 		static $digits = '_0123456789';
 
 		$has = false;
+		$str = (string) $str;
 
 		foreach(self::$selectorTypes as $operator => $unused) {
 

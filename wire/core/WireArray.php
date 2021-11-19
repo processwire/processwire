@@ -575,7 +575,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		if(isset($this->data[$key])) return $this->data[$key];
 
 		// check if key contains something other than numbers, letters, underscores, hyphens
-		if(!ctype_alnum("$key") && !ctype_alnum(strtr("$key", '-_', 'ab'))) {
+		if(is_string($key) && !ctype_alnum($key) && !ctype_alnum(strtr($key, '-_', 'ab'))) {
 			
 			// check if key contains a selector
 			if(Selectors::stringHasSelector($key)) {
@@ -607,12 +607,12 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 				}
 				return $match;
 			}
-		}
 
-		// if the WireArray uses numeric keys, then it's okay to
-		// match a 'name' field if the provided key is a string
-		if(is_string($key) && $this->usesNumericKeys()) {
-			$match = $this->getItemThatMatches('name', $key);
+			// if the WireArray uses numeric keys, then it's okay to
+			// match a 'name' field if the provided key is a string
+			if($this->usesNumericKeys()) {
+				$match = $this->getItemThatMatches('name', $key);
+			}
 		}
 
 		return $match; 

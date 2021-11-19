@@ -94,6 +94,7 @@ class PagesSortfields extends Wire {
 	public function decode($sortfield, $default = 'sort') {
 
 		$reverse = false;
+		$sortfield = (string) $sortfield;
 
 		if(substr($sortfield, 0, 1) == '-') {
 			$sortfield = substr($sortfield, 1); 
@@ -101,13 +102,15 @@ class PagesSortfields extends Wire {
 		}
 
 		if(ctype_digit("$sortfield") || !Fields::isNativeName($sortfield)) {
-			$field = $this->wire('fields')->get($sortfield);
-			if($field) $sortfield = $field->name; 
-				else $sortfield = '';
+			$field = $this->wire()->fields->get(ctype_digit($sortfield) ? (int) $sortfield : $sortfield);
+			$sortfield = $field ? $field->name : '';
 		}
 
-		if(!$sortfield) $sortfield = $default;
-			else if($reverse) $sortfield = "-$sortfield";
+		if(!$sortfield) {
+			$sortfield = $default;
+		} else if($reverse) {
+			$sortfield = "-$sortfield";
+		}
 
 		return $sortfield; 
 	}

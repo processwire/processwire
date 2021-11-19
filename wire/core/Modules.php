@@ -4343,7 +4343,7 @@ class Modules extends WireArray {
 		
 		if($isModule && $namespace) {
 			$actualNamespace = $this->getModuleNamespace($moduleName);
-			if(trim($namespace, '\\') != trim($actualNamespace, '\\')) {
+			if(trim("$namespace", '\\') != trim("$actualNamespace", '\\')) {
 				$isModule = false;
 			}
 		}
