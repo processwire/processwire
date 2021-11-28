@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see:
  * /wire/core/Process.php
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  * 
  * @method string findReady($selector)
@@ -31,10 +31,10 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		return array(
 			'title' => 'Page Search',
 			'summary' => 'Provides a page search engine for admin use.',
-			'version' => 106,
+			'version' => 107,
 			'permanent' => true,
 			'permission' => 'page-edit',
-			);
+		);
 	}
 
 	/**
@@ -398,7 +398,8 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			// replace URL-compatible comma separators with selector-compatible pipes
 			if(strpos($name, ',')) $name = str_replace(',', '|', $name); 
 
-			if(!$this->isSelectableFieldName($name)) continue; 
+			$name = $this->filterSelectableFieldName($name);
+			if(!strlen($name)) continue;
 			
 			if(strpos($value, ',')) {
 				// commas between words: split one key=value, into multiple key=value, key=value
@@ -944,25 +945,44 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 		$is = false;
 
 		if(!$level && strpos($name, '|') !== false) {
+			// a|b|c
+			// note: use filterSelectableFieldName to instead remove non-selectable fields
 			$names = explode('|', $name); 
 			$cnt = 0;
 			foreach($names as $n) {
 				if(!$this->isSelectableFieldName($n, $level + 1)) $cnt++;
 			}
 			return $cnt == 0; 
-
-		} else if(strpos($name, '.')) {
-			list($name, $subname) = explode('.', $name, 2); 
+		} 
+		
+		if(strpos($name, '.')) {
+			// field.subfield
+			list($name, $subname) = explode('.', $name, 2);
 			if(strpos($subname, '.') !== false) return false;
 			if(in_array(strtolower($subname), $noSubnames)) return false;
-			if(!$this->isSelectableFieldName($subname, $level)) return false;	
+			if(in_array(strtolower($subname), $notSelectable)) return false;
+			if(!$this->isSelectableFieldName($name, $level + 1)) return false;
+			$field = isset($this->fieldOptions[$name]) ? $this->wire()->fields->get($name) : null;
+			if($field && $field->type) {
+				if(!$field->viewable()) return false;
+				$info = $field->type->getSelectorInfo($field);
+				if(isset($info['subfields'][$subname])) return true;
+				if($field->type instanceof FieldtypePage) return $this->isSelectableFieldName($subname, $level + 1);
+			} else if($name === 'parent' || $name === 'children') {
+				if(in_array($subname, $selectable)) return true;
+				if(isset($this->nativeSorts[$subname])) return true;
+				return $this->isSelectableFieldName($subname, $level + 1);
+			}
+			return false;
 		}
 		
 		$lowerName = strtolower($name);
 		
-		if($lowerName == 'path' && (!$this->wire('modules')->isInstalled('PagePaths') || $this->wire('languages'))) {
-			$name = 'name';
-			$lowerName = $name;
+		if($lowerName == 'path') {
+			if($this->wire()->languages || !$this->wire()->modules->isInstalled('PagePaths')) {
+				$name = 'name';
+				$lowerName = $name;
+			}
 		}
 
 		if(isset($this->nativeSorts[$name])) {
@@ -976,14 +996,39 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 			$is = true;
 		} else if(isset($this->fieldOptions[$name])) {
 			// custom fields
-			$is = true;
+			$field = $this->wire()->fields->get($name);
+			$is = $field && $field->viewable();
 		}
 
-		if(in_array($lowerName, $notSelectable)) {
+		if($is && in_array($lowerName, $notSelectable)) {
 			$is = false;
 		}
 		
 		return $is; 
+	}
+	
+	/**
+	 * Given string 'name' or 'name1|name2|name3' remove any 'name(s)' that are not selectable and return
+	 * 
+	 * @param string $name
+	 * @return string
+	 * @since 3.0.190
+	 * 
+	 */
+	protected function filterSelectableFieldName($name) {
+		if(!strlen($name)) return '';
+		$onlySingles = array('include', 'check_access', 'checkaccess', 'status');
+		$names = strpos($name, '|') !== false ? explode('|', $name) : array($name);
+		$qty = count($names);
+		foreach($names as $key => $name) {
+			$lowerName = strtolower($name);	
+			if(empty($name) || ($qty > 1 && in_array($lowerName,  $onlySingles))) {
+				unset($names[$key]); 
+			} else if(!$this->isSelectableFieldName($name)) {
+				unset($names[$key]);
+			}
+		}
+		return count($names) ? implode('|', $names) : '';
 	}
 
 	protected function renderFullSearchForm() {
