@@ -667,7 +667,7 @@ class PagesRawFinder extends Wire {
 		$table = $database->escapeTable($field->getTable());
 		$sorts = array();
 
-		if(empty($table)) return;
+		if(empty($table) || empty($schema) || $fieldtype instanceof FieldtypeFieldsetOpen) return;
 
 		if(empty($cols)) { 
 			// no cols specified
