@@ -2643,7 +2643,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		/** @var Session $session */
 		$session = $this->wire('session');
 		$session->CSRF->validate();
-	
+		
+		$changedTemplates = array();
 		$isFieldset = false;
 		$fields = array($this->field);
 		if($this->field->type instanceof FieldtypeFieldsetOpen) {
@@ -2656,6 +2657,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		
 		// first handle additions, since it's possible for removals to take a long time or remote chance of timeout
 		foreach($this->wire('templates') as $template) {
+			$templateChanged = false;
 	
 			foreach($fields as $key => $field) {
 					
@@ -2696,17 +2698,24 @@ class ProcessField extends Process implements ConfigurableModule {
 							$field->name, $template->name, $f->name));
 					} else {
 						$template->fieldgroup->insertAfter($field, $f);
+						$changedTemplates[$template->id] = $template;
 						$this->message(sprintf($this->_('Added field "%1$s" to template "%2$s" after "%3$s"'),
 							$field->name, $template->name, $f->name));
 					}
+					$templateChanged = true;
 				}
 			}
-			$template->fieldgroup->save();
+			
+			if($templateChanged) {
+				$template->fieldgroup->save();
+				$template->save();
+			}
 		}
 		
 		// next handle removals
 		foreach($this->wire('templates') as $template) {
 			$removeFieldID = (int) $this->wire('input')->post("remove_{$this->field->id}_template_$template->id");
+			$templateChanged = false;
 			if($removeFieldID && $removeFieldID === (int) $this->field->id) {
 				$template->fieldgroup->remove($this->field);
 				if($this->field->type instanceof FieldtypeFieldsetOpen) {
@@ -2715,6 +2724,7 @@ class ProcessField extends Process implements ConfigurableModule {
 				}
 				try {
 					$template->fieldgroup->save();
+					$templateChanged = true;
 					$this->message(sprintf($this->_('Removed field "%1$s" from template "%2$s"'), $this->field->name, $template->name));
 				} catch(\Exception $e) {
 					$this->error(
@@ -2724,6 +2734,7 @@ class ProcessField extends Process implements ConfigurableModule {
 					); 
 				}
 			}
+			if($templateChanged) $template->save();
 		}
 		
 		$this->wire('session')->redirect("./edit?id={$this->field->id}"); 
