@@ -2747,6 +2747,9 @@ class PageFinder extends Wire {
 						$field = $subfield;
 					}
 				}
+			} else if($field === 'id' && count($values) > 1 && $selector->operator === '=' && !$selector->not) {
+				$IDs = $values;
+				
 			} else {
 				// primary field is not 'parent', 'children' or 'pages'
 			}
@@ -2756,7 +2759,10 @@ class PageFinder extends Wire {
 				$in = $selector->not ? "NOT IN" : "IN"; 
 				$sql .= in_array($field, array('parent', 'parent_id')) ? "$table.parent_id " : "$table.id ";
 				$IDs = $sanitizer->intArray($IDs);
-				$sql .= "$in(" . implode(',', $IDs) . ")";
+				$strIDs = implode(',', $IDs);
+				$sql .= "$in($strIDs)";
+				if($subfield === 'sort') $query->orderby("FIELD($table.id, $strIDs)");
+				unset($strIDs);
 
 			} else foreach($values as $value) { 
 
