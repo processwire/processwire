@@ -12,8 +12,9 @@
  * @property int $repeaterMinItems
  * @property int $repeaterDepth
  * @property bool|int $familyFriendly
- * @property bool $accordionMode
- * @property bool $singleMode
+ * @property bool|int $accordionMode
+ * @property bool|int $singleMode
+ * @property bool|int $loudControls Always show controls regardless of hover?
  * 
  * @method string renderRepeaterLabel($label, $cnt, Page $page)
  * 
@@ -26,7 +27,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Repeats fields from another template. Provides the input for FieldtypeRepeater.', __FILE__), // Module Summary
-			'version' => 110,
+			'version' => 111,
 			'requires' => 'FieldtypeRepeater',
 		);
 	}
@@ -104,6 +105,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		$this->set('familyFriendly', 0); 
 		$this->set('accordionMode', false);
 		$this->set('singleMode', false); 
+		$this->set('loudControls', false);
 	}
 
 	/**
@@ -479,10 +481,10 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 					// background-color definition
 					if(strlen($matches[1]) === 3 || strlen($matches[1]) === 6) {
 						$wrapLabel = str_replace($matches[0], '', $wrapLabel);
-						$typeStyles[] = 
+						$typeStyles[$itemTypeName] = 
 							".Inputfield_$this->name .InputfieldContent " . 
-							".InputfieldRepeaterItem[data-typeName=$itemTypeName] > .InputfieldHeader " . 
-							"{ background-color: #$matches[1] }";
+							".InputfieldRepeaterItem[data-typeName=\"$itemTypeName\"] > .InputfieldHeader " . 
+							"{ background-color: #$matches[1]; outline-color: #$matches[1] }";
 					}
 				}
 
@@ -772,6 +774,9 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 		}
 		if($this->accordionMode) {
 			$this->addClass('InputfieldRepeaterAccordion', 'wrapClass');
+		}
+		if($this->loudControls || $this->wire()->session->get('touch')) {
+			$this->addClass('InputfieldRepeaterLoudControls', 'wrapClass');
 		}
 		if(!empty($_COOKIE[$this->copyPasteCookieName()])) {
 			$this->addClass('InputfieldRepeaterCanPaste', 'wrapClass'); 

@@ -33,7 +33,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		return array(
 			'title' => __('Repeater', __FILE__), // Module Title
 			'summary' => __('Maintains a collection of fields that are repeated for any number of times.', __FILE__), // Module Summary
-			'version' => 110,
+			'version' => 111,
 			'autoload' => true,
 			'installs' => 'InputfieldRepeater'
 		);

@@ -934,9 +934,11 @@ function InputfieldRepeater($) {
 		$item.attr('data-depth', depth);
 		
 		if(depth > 0) {
-			$item.css('margin-left', (depth * depthSize) + 'px');
+			$item.css('padding-left', (depth * depthSize) + 'px');
+			$item.addClass('InputfieldRepeaterItemHasDepth');
 		} else {
-			$item.css('margin-left', 0);
+			$item.css('padding-left', 0);
+			$item.removeClass('InputfieldRepeaterItemHasDepth');
 		}
 		
 		return depth;
@@ -1044,12 +1046,17 @@ function InputfieldRepeater($) {
 			var $depth = $wrap.find('input');
 			var depth = $depth.val();
 			var $item = $depth.closest('.InputfieldRepeaterItem');
-			var currentLeft = $item.css('margin-left');
+			var currentLeft = $item.css('padding-left');
 			if(currentLeft == 'auto') currentLeft = 0;
 			currentLeft = parseInt(currentLeft);
 			var targetLeft = depth * depthSize;
 			if(targetLeft != currentLeft) {
-				$item.css('margin-left', targetLeft + 'px');
+				$item.css('padding-left', targetLeft + 'px');
+			}
+			if(targetLeft > 0) {
+				$item.addClass('InputfieldRepeaterItemHasDepth');
+			} else {
+				$item.removeClass('InputfieldRepeaterItemHasDepth');
 			}
 		});
 		$inputfieldRepeater.children('.InputfieldContent').css('position', 'relative');
@@ -1149,10 +1156,10 @@ function InputfieldRepeater($) {
 				var $header = ui.item.children('.InputfieldHeader');
 				if(depth > maxDepth) {
 					// beyond max depth allowed
-					$header.addClass('ui-state-error');
+					$header.addClass('ui-state-error InputfieldRepeaterItemOOB'); // OOB: Out Of Bounds
 				} else if($header.hasClass('ui-state-error')) {
 					// no problems
-					$header.removeClass('ui-state-error');
+					$header.removeClass('ui-state-error InputfieldRepeaterItemOOB');
 				}
 			};
 		} else {
@@ -1266,6 +1273,7 @@ function InputfieldRepeater($) {
 		}
 
 		if($inputfields.hasClass('InputfieldRepeaterInit')) return;
+		if($('body').hasClass('touch-device')) $inputfieldRepeater.addClass('InputfieldRepeaterLoudControls');
 		
 		var renderValueMode = $inputfields.closest('.InputfieldRenderValueMode').length > 0;
 

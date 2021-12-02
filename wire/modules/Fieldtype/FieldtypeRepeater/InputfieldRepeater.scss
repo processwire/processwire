@@ -16,10 +16,9 @@
 		}
 	}
 
-	// prevents longer item headers from going outside Inputfield box horizontally 
-	.InputfieldRepeaterItem {
-		max-width: 100%;
-		overflow-x: hidden;
+	.InputfieldRepeaterItemHasDepth {
+		// avoids white left background where indent is
+		background: transparent;
 	}
 	
 	.InputfieldRepeaterItem  > .InputfieldHeader {
@@ -41,6 +40,7 @@
 			}
 			.InputfieldRepeaterItemControls {
 				display: block;
+				opacity: 1.0;
 				padding-right: 0.5em;
 				padding-left: 0.5em;
 				margin-top: 0.5em;
@@ -48,10 +48,8 @@
 				top: 0;
 				right: 0;
 				z-index: 1;
-				display: block;
 				white-space: nowrap;
 				height: 100%;
-
 				
 				.InputfieldRepeaterSettingsToggle,
 				.InputfieldRepeaterClone,
@@ -88,15 +86,54 @@
 					opacity: 0.3;	
 				}
 			}
-
+			
+			&:hover .InputfieldRepeaterItemControls {
+				opacity: 1.0;
+				transition: opacity 300ms;
+			}
+		
+			&.InputfieldRepeaterItemOOB .InputfieldRepeaterItemControls {
+				// items out of bounds (OOB) hide controls
+				display: none;
+			}
+			
 			.toggle-icon {
 				line-height: 1em;
 				margin-right: 0.5em;
 			}
 		}
+
+	}
+	
+	.InputfieldRepeaterItem {
+		// prevents longer item headers from going outside Inputfield box horizontally 
+		max-width: 100%;
+		box-sizing: border-box;
 		
+		// repeater item that has DELETE pending
+		&.InputfieldRepeaterDeletePending {
+			> .InputfieldRepeaterHeaderInit > .InputfieldRepeaterItemControls {
+				// keep just the trash icon visible when item marked for deletion
+				display: block;
+				opacity: 1.0;
+				*:not(.InputfieldRepeaterTrash):not(.toggle-icon) {
+					display: none !important;
+				}
+			}
+		}
+	}
+	
+	&:not(.InputfieldRepeaterLoudControls) > .InputfieldContent > .Inputfields > .InputfieldRepeaterItem {
+		// repeater item that does NOT have delete pending
+		&:not(.InputfieldRepeaterDeletePending) {
+			> .InputfieldRepeaterHeaderInit:not(:hover) > .InputfieldRepeaterItemControls {
+				opacity: 0;
+				transition: opacity 500ms;
+			}
+		}
 	}
 
+	
 	& > .InputfieldContent > .Inputfields > .InputfieldRepeaterInsertItem {
 		opacity: 0.5;
 	}

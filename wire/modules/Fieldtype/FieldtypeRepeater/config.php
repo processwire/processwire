@@ -260,32 +260,41 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		
 		// -------------------------------------------------
 	
-		/** @var InputfieldCheckbox $f */	
-		$f = $modules->get('InputfieldCheckbox');
+		/** @var InputfieldToggle $f */	
+		$f = $modules->get('InputfieldToggle');
 		$f->attr('name', 'rememberOpen');
 		$f->label = $this->_('Remember which repeater items are open?');
-		$f->description = $this->_('When checked, opened repeater items remain open after saving or reloading from the page editor (unless the user closes them).');
+		$f->description = $this->_('When enabled, opened repeater items remain open after saving or reloading from the page editor (unless the user closes them).');
 		$f->icon = 'lightbulb-o';
-		if((int) $field->get('rememberOpen')) {
-			$f->attr('checked', 'checked');
-		}
-		$f->columnWidth = 50;
+		$f->val((int) $field->get('rememberOpen'));
 		$fs->add($f);
 		
 		// -------------------------------------------------
 
-		/** @var InputfieldCheckbox $f */	
-		$f = $modules->get('InputfieldCheckbox');
+		/** @var InputfieldToggle $f */	
+		$f = $modules->get('InputfieldToggle');
 		$f->attr('name', 'accordionMode');
 		$f->label = $this->_('Use accordion mode?');
-		$f->description = $this->_('When checked, only one repeater item will be open at a time.');
+		$f->description = $this->_('When enabled, only one repeater item will be open at a time.');
 		$f->icon = 'map-o';
-		if((int) $field->get('accordionMode')) {
-			$f->attr('checked', 'checked');
-		}
-		$f->columnWidth = 50;
+		$f->val((int) $field->get('accordionMode'));
 		$fs->add($f);
+		
+		// -------------------------------------------------
 
+		/** @var InputfieldToggle $f */
+		$f = $modules->get('InputfieldToggle');
+		$f->attr('name', 'loudControls');
+		$f->label = $this->_('When to show repeater item controls/actions');
+		$f->labelType = InputfieldToggle::labelTypeCustom;
+		$f->yesLabel = $this->_('Always');
+		$f->noLabel = $this->_('Hover');
+		$f->description = $this->_('The hover option can reduce clutter in the interface by showing the repeater item actions/controls (clone, insert, delete, etc.) only when the item header is hovered.');
+		$f->notes = $this->_('Note that controls are always shown for touch devices regardless of this setting.'); 
+		$f->icon = 'sliders';
+		$f->val((int) $field->get('loudControls'));
+		$fs->add($f);
+		
 		// -------------------------------------------------
 	
 		$maxItems = (int) $field->get('repeaterMaxItems');
