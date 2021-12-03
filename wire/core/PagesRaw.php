@@ -67,7 +67,166 @@ class PagesRaw extends Wire {
 		$values = $this->find($selector, $field, $options);
 		return reset($values);
 	}
-	
+
+	/**
+	 * Get native pages table column value for given page ID
+	 *
+	 * This can only be used for native 'pages' table columns,
+	 * i.e. id, name, templates_id, status, parent_id, etc.
+	 *
+	 * #pw-internal
+	 *
+	 * @param int|array $pageId Page ID or array of page IDs
+	 * @param string|array $col Column name you want to get
+	 * @return int|string|array|null Returns column value or array of column values if $pageId was an array.
+	 *   When array is returned, it is indexed by page ID.
+	 * @param array $options
+	 *  - `cache` (bool): Allow use of memory cache to retrieve column value when available? (default=true)
+	 *     Used only if $pageId is an integer (not used when array of page IDs).
+	 * @throws WireException
+	 * @since 3.0.190
+	 *
+	 *
+	 */
+	public function col($pageId, $col, array $options = array()) {
+
+		$defaults = array(
+			'cache' => true
+		);
+
+		$options = array_merge($defaults, $options);
+
+		// delegate to cols() method when arguments require it
+		if(is_array($col)) {
+			return $this->cols($pageId, $col, $options);
+		} else if(is_array($pageId)) {
+			$value = array();
+			foreach($this->cols($pageId, $col) as $id => $a) {
+				$value[$id] = $a[$col];
+			}
+			return $value;
+		}
+
+		if(!ctype_alnum($col)) {
+			$sanitizer = $this->wire()->sanitizer;
+			if($sanitizer->fieldName($col) !== $col) {
+				throw new WireException("Invalid column name: $col");
+			}
+		}
+
+		$pageId = (int) $pageId;
+
+		// use cached value when available
+		if($options['cache']) {
+			$page = $this->pages->cacher()->getCache($pageId);
+			if($page) return $page->getUnformatted($col);
+		}
+
+		$database = $this->wire()->database;
+		$col = $database->escapeCol($col);
+
+		$query = $database->prepare("SELECT `$col` FROM pages WHERE id=:id");
+		$query->bindValue(':id', $pageId, (int) \PDO::PARAM_INT);
+		$query->execute();
+		$value = $query->rowCount() ? $query->fetchColumn() : null;
+		$query->closeCursor();
+
+		return $value;
+	}
+
+	/**
+	 * Get native pages table columns (plural) for given page ID
+	 *
+	 * This can only be used for native 'pages' table columns,
+	 * i.e. id, name, templates_id, status, parent_id, etc.
+	 *
+	 * #pw-internal
+	 *
+	 * @param int|array $pageId Page ID or array of page IDs
+	 * @param array|string $cols Names of columns to get or omit to get all columns
+	 * @param array $options
+	 *  - `cache` (bool): Allow use of memory cache to retrieve column value when available? (default=true)
+	 *     Used only if $pageId is an integer (not used when array of page IDs).
+	 * @return array Returns associative array on success or empty array if not found
+	 *   If $pageId argument was an array then it returns a page ID indexed array of
+	 *   associative arrays, one for each page.
+	 * @throws WireException
+	 * @since 3.0.190
+	 *
+	 */
+	public function cols($pageId, $cols = array(), array $options = array()) {
+
+		$defaults = array(
+			'cache' => true,
+		);
+
+		$options = array_merge($defaults, $options);
+		$sanitizer = $this->wire()->sanitizer;
+		$database = $this->wire()->database;
+		$query = null;
+		$removeIdInReturn = false;
+
+		if(!is_array($cols)) $cols = empty($cols) ? array() : array($cols);
+
+		foreach($cols as $key => $col) {
+			if(!ctype_alnum($col) && $sanitizer->fieldName($col) !== $col) {
+				unset($cols[$key]);
+			} else {
+				$cols[$key] = $database->escapeCol($col);
+			}
+		}
+
+		if(count($cols)) {
+			$colStr = '`' . implode('`,`', $cols) . '`';
+			if(is_array($pageId) && !in_array('id', $cols)) {
+				$colStr .= ', id';
+				$removeIdInReturn = true;
+			}
+		} else {
+			$colStr = '*';
+		}
+
+		if(is_array($pageId)) {
+			// multi page
+			$ids = array();
+			foreach($pageId as $id) {
+				$id = (int) $id;
+				if($id > 0) $ids[$id] = $id;
+			}
+			$ids = implode(',', $ids);
+			$query = $database->prepare("SELECT $colStr FROM pages WHERE id IN($ids)");
+			$query->execute();
+			$value = array();
+			while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+				$id = (int) $row['id'];
+				if($removeIdInReturn) unset($row['id']);
+				foreach($row as $k => $v) {
+					if(ctype_digit("$v")) $row[$k] = (int) $v;
+				}
+				$value[$id] = $row;
+			}
+
+		} else {
+			// single page
+			$pageId = (int) $pageId;
+			$page = ($options['cache'] ? $this->pages->cacher()->getCache($pageId) : null);
+			if($page) {
+				$value = array();
+				foreach($cols as $col) {
+					$value[$col] = $page->get($col);
+				}
+			} else {
+				$query = $database->prepare("SELECT $colStr FROM pages WHERE id=:id");
+				$query->bindValue(':id', $pageId, (int) \PDO::PARAM_INT);
+				$query->execute();
+				$value = $query->rowCount() ? $query->fetch(\PDO::FETCH_ASSOC) : array();
+			}
+		}
+
+		if($query) $query->closeCursor();
+
+		return $value;
+	}
 }
 
 /**
