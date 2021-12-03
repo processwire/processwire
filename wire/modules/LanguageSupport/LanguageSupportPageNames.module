@@ -133,7 +133,9 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 
 		// tell ProcessPageView which segments are allowed for pagination
 		if(count($pageNumUrlPrefixes)) {
-			$pageNumUrlPrefixes['default'] = $config->pageNumUrlPrefix; // original/fallback prefix
+			if(empty($pageNumUrlPrefixes['default'])) {
+				$pageNumUrlPrefixes['default'] = $config->pageNumUrlPrefix; // original/fallback prefix
+			}
 			$config->set('pageNumUrlPrefixes', $pageNumUrlPrefixes);
 		}
 	}
