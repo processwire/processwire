@@ -1828,6 +1828,9 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 				throw new WireException('initTemplate must be a Template or null');
 			}
 		}
+		if($key === 'limitFields' && !is_array($value)) {
+			$value = $this->wire()->sanitizer->array($value);
+		}
 		return parent::set($key, $value);
 	}
 

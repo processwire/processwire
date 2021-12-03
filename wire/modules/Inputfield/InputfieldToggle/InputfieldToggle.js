@@ -32,7 +32,7 @@ function InputfieldToggleInit() {
 
 		// allow for labels as prev sibling of input or label as parent element of input
 		var $label = getLabelFromInput($input);
-		var $prevInput = $input.closest('.Inputfield').find('input.' + inputCheckedClass);
+		var $prevInput = $input.closest('.InputfieldToggle').find('input.' + inputCheckedClass);
 		var $prevLabel = $prevInput.length ? getLabelFromInput($prevInput) : null; 
 
 		// check of another item was clicked when an existing selection was in place
