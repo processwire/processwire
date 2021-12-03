@@ -3992,6 +3992,7 @@ class Sanitizer extends Wire {
 	 * @param array $options Optional modifications to default behavior:
 	 * 	- `maxItems` (int): Maximum items allowed in each array (default=0, which means no limit)
 	 *  - `maxDepth` (int): Max nested array depth (default=0, which means no nesting allowed) Since 3.0.160
+	 *  - `trim` (bool): Trim whitespace from front/back of each string item in array? (default=true) Since 3.0.190 
 	 * 	- `sanitizer` (string): Optionally specify sanitizer for array values as option rather than argument (default='') Since 3.0.165
 	 * 	- `keySanitizer` (string): Optionally sanitize associative array keys with this method (default='') Since 3.0.167
 	 * 	- The following options are only used if the provided $value is a string: 
@@ -4009,11 +4010,12 @@ class Sanitizer extends Wire {
 		
 		$defaults = array(
 			'maxItems' => 0,
-			'maxDepth' => 0, 
+			'maxDepth' => 0,
 			'csv' => true,
 			'delimiter' => null, 
 			'delimiters' => array('|', ','),
-			'enclosure' => '"', 
+			'enclosure' => '"',
+			'trim' => true, 
 			'sanitizer' => null, 
 			'keySanitizer' => null,
 		);
@@ -4036,22 +4038,27 @@ class Sanitizer extends Wire {
 					$value = array(get_class($value));
 				}
 			}
-			if(is_string($value) && $options['csv']) {
+			if(is_string($value)) {
 				// value is string
-				$hasDelimiter = null;
-				$delimiters = is_null($options['delimiter']) ? $options['delimiters'] : array($options['delimiter']);
-				foreach($delimiters as $delimiter) {
-					if(strpos($value, $delimiter)) {
-						$hasDelimiter = $delimiter;
-						break;
+				if($options['trim']) $value = trim($value);
+				if(!strlen($value)) {
+					return array();
+				} else if($options['csv']) {
+					$hasDelimiter = null;
+					$delimiters = is_null($options['delimiter']) ? $options['delimiters'] : array($options['delimiter']);
+					foreach($delimiters as $delimiter) {
+						if(strpos($value, $delimiter)) {
+							$hasDelimiter = $delimiter;
+							break;
+						}
+					}
+					if($hasDelimiter !== null) {
+						$value = str_getcsv($value, $hasDelimiter, $options['enclosure']);
+					} else {
+						$value = array($value);
 					}
 				}
-				if($hasDelimiter !== null) {
-					$value = str_getcsv($value, $hasDelimiter, $options['enclosure']);
-				} else {
-					$value = array($value);
-				}
-			}
+			}	
 			if(!is_array($value)) {
 				$value = array($value);
 			}	
@@ -4059,13 +4066,16 @@ class Sanitizer extends Wire {
 
 		$depth++;
 		foreach($value as $k => $v) {
-			if(!is_array($v)) continue;
-			if($depth <= $options['maxDepth']) {
-				// sanitize nested array recursively
-				$value[$k] = $this->___array($v, $sanitizer, $options); 
-			} else {
-				// remove nested array
-				unset($value[$k]);
+			if(is_array($v)) {
+				if($depth <= $options['maxDepth']) {
+					// sanitize nested array recursively
+					$value[$k] = $this->___array($v, $sanitizer, $options);
+				} else {
+					// remove nested array
+					unset($value[$k]);
+				}
+			} else if(is_string($v)) {
+				if($options['trim']) $value[$k] = trim($v);
 			}
 		}
 		$depth--;
