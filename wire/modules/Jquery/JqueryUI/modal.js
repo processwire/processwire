@@ -121,22 +121,53 @@ function pwModalWindowSettings(name) {
 				.css('padding-top', 0)
 				.prepend("<i class='fa fa-times'></i>")
 				.find('.ui-icon').remove();
-			
-			if(frameElement && parent.jQuery != "undefined" && parent.jQuery('.ui-dialog').length) {
+			if(frameElement) {
 				// dialog on top of dialog
-				parent.jQuery('.ui-dialog .ui-button').addClass('pw-modal-hidden').hide();
-				parent.jQuery('.ui-dialog-buttonpane').css('margin-top', '-10px');
-				jQuery('body').css('overflow', 'hidden');
+				if(typeof parent.jQuery !== 'undefined') {
+					// jQuery available in parent
+					if(parent.jQuery('.ui-dialog').length) {
+						parent.jQuery('.ui-dialog .ui-button').addClass('pw-modal-hidden').hide();
+						parent.jQuery('.ui-dialog-buttonpane').css('margin-top', '-10px');
+						jQuery('body').css('overflow', 'hidden');
+					}
+				} else {
+					// jQuery NOT available in parent
+					if(parent.document.querySelector('.ui-dialog')) {
+						var parentButtons = parent.document.querySelectorAll('.ui-dialog .ui-button');
+						var i;
+						for(i = 0; i < parentButtons.length; i++) {
+							parentButtons[i].classList.add('pw-modal-hidden');
+							parentButtons[i].style.display = 'none';
+						}
+						var parentPanes = parent.document.querySelectorAll('.ui-dialog-buttonpane');
+						for(i = 0; i < parentPanes.length; i++) {
+							parentPanes[i].style.marginTop = '-10px';
+						}
+						document.querySelector('body').style.overflow = 'hidden';
+					}
+				}
 			}
 		},
 		beforeClose: function(event, ui) {
-			if(parent.jQuery != "undefined" && parent.jQuery('.ui-dialog').length) {
+			if(typeof parent.jQuery != 'undefined') { 
+				if(parent.jQuery('.ui-dialog').length) {
+					if(frameElement) {
+						// dialog on top of another dialog
+						parent.jQuery('.pw-modal-hidden').show();
+						jQuery('body').css('overflow', '');
+					} else if(options.hideOverflow) {
+						parent.jQuery('body').css('overflow', '');
+					}
+				}
+			} else {
+				// no jQuery available
 				if(frameElement) {
 					// dialog on top of another dialog
-					parent.jQuery(".pw-modal-hidden").show();
-					jQuery('body').css('overflow', '');
+					var parentModalHidden = parent.document.querySelector('.pw-modal-hidden');
+					if(parentModalHidden) parentModalHidden.style.display = 'block';
+					document.querySelector('body').style.overflow = '';
 				} else if(options.hideOverflow) {
-					parent.jQuery('body').css('overflow', '');
+					parent.document.querySelector('body').style.overflow = '';
 				}
 			}
 		}
