@@ -494,8 +494,7 @@ class ProcessLanguageTranslator extends Process {
 
 		$this->addBreadcrumbs();
 		$this->breadcrumb('../add/', $this->_x('Select File(s)', 'breadcrumb'));
-		$this->headline($this->_x('Translate File', 'headline'));
-
+		
 		$textdomain = $this->wire()->sanitizer->textdomain($this->input->get('textdomain'));
 		$file = $this->translator->textdomainToFilename($textdomain);
 		$fragment = strpos($textdomain, 'site') === 0 ? 'find-language_files_site' : 'find-language_files';
@@ -523,13 +522,26 @@ class ProcessLanguageTranslator extends Process {
 		}
 
 		$this->parseTranslatableFile($file);
+		$this->headline(sprintf($this->_('Translate %1$s to %2$s'), basename($file), $this->language->title));
+
+		// get links to other languages
+		$alternativeLanguageUrls = $this->getAlternativeLanguageUrls(); 
+		$alternativeLanguages = '';
+		foreach($alternativeLanguageUrls as $languageTitle => $url) {
+			if($url) {
+				$alternativeLanguages .= sprintf('<a href="?%s">%s</a> ', $url, $languageTitle);	
+			}
+			else {
+				$alternativeLanguages .= sprintf('<strong>%s</strong> ', $languageTitle);
+			}
+		};
 
 		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
 		$form->attr('action', "./?textdomain=$textdomain&language_id={$this->language->id}");
 		$form->attr('method', 'post');
-		$form->description = sprintf($this->_('Translate %1$s to %2$s'), basename($file), $this->language->title);
-		$form->value = "<p>" .
+		$form->value = "<p>$alternativeLanguages</p>";
+		$form->value .= "<p>" .
 			$this->_('Each of the inputs below represents a block of text to translate.') . ' ' .
 			sprintf($this->_('The text shown immediately above each input is the text that should be translated to %s.'), $this->language->title) . ' ' .
 			$this->_('If you leave an input blank, the non-translated text will be used.') . ' ' .
@@ -828,6 +840,35 @@ class ProcessLanguageTranslator extends Process {
 		}
 		
 		return $abandoned;
+	}
+	
+	/**
+	 * Get links to the page editing this file in other languages.
+	 * 
+	 * @return array
+	 */
+	private function getAlternativeLanguageUrls()
+	{
+		$result = [];
+		$currentLanguageId = $this->input->get('language_id');
+		$this->translator->textdomainToFilename($textdomain);
+		foreach ($this->languages as $language) {
+			// get link only for alternative pages
+			if($language->id != $currentLanguageId) {
+				$url = $this->input->queryString([
+					'language_id' => $language->id
+				]);
+			}
+			else {
+				$url = null;
+			}
+
+			$languageTitle = $language->getLanguageValue($this->user->language, 'title');
+			
+			$result[$languageTitle] = $url;
+		}
+		
+		return $result;
 	}
 }
 
