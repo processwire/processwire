@@ -452,12 +452,13 @@ abstract class FieldtypeMulti extends Fieldtype {
 	 */
 	public function getLoadQuery(Field $field, DatabaseQuerySelect $query) {
 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
+		$sanitizer = $this->wire()->sanitizer;
+		
 		$table = $database->escapeTable($field->table);
 		$schemaAll = $this->getDatabaseSchema($field);
 		$schema = $this->trimDatabaseSchema($schemaAll);
 		$fieldName = $database->escapeCol($field->name);
-		$sanitizer = $this->wire('sanitizer');
 		$orderByCols = array();
 		$start = null;
 		$limit = null;

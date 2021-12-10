@@ -81,8 +81,12 @@ class PagesEditor extends Wire {
 			if(!$template) throw new WireException("Unknown template");
 		}
 
-		$page = $this->pages->newPage($template); 
-		$page->parent = $parent;
+		$options = array('template' => $template, 'parent' => $parent);
+		if(isset($values['pageClass'])) {
+			$options['pageClass'] = $values['pageClass'];
+			unset($values['pageClass']);
+		}
+		$page = $this->pages->newPage($options); 
 
 		$exceptionMessage = "Unable to add new page using template '$template' and parent '{$page->parent->path}'.";
 
@@ -120,11 +124,13 @@ class PagesEditor extends Wire {
 		
 		// get a fresh copy of the page
 		if($page->id) {
+			$inserted = $page->_inserted;
 			$of = $this->pages->outputFormatting;
 			if($of) $this->pages->setOutputFormatting(false);
 			$p = $this->pages->getById($page->id, $template, $page->parent_id);
 			if($p->id) $page = $p;
 			if($of) $this->pages->setOutputFormatting(true);
+			$page->setQuietly('_inserted', $inserted);
 		}
 
 		return $page;
@@ -596,7 +602,11 @@ class PagesEditor extends Wire {
 			}
 		} while($keepTrying && (++$tries < $maxTries));
 
-		if($result && ($isNew || !$page->id)) $page->id = (int) $database->lastInsertId();
+		if($result && ($isNew || !$page->id)) {
+			$page->id = (int) $database->lastInsertId();
+			$page->setQuietly('_inserted', time());
+		}
+		
 		if($options['forceID']) $page->id = (int) $options['forceID'];
 
 		return $result;
@@ -1723,6 +1733,149 @@ class PagesEditor extends Wire {
 		}
 
 		return true;
+	}
+	
+	/**
+	 * Prepare options for Pages::new(), Pages::newPage() 
+	 * 
+	 * Converts given array, selector string, template name, object or int to array of options. 
+	 * 
+	 * #pw-internal
+	 *
+	 * @param array|string|int $options
+	 * @return array
+	 * @since 3.0.191
+	 *
+	 */
+	public function newPageOptions($options) {
+		
+		if(empty($options)) return array(); 
+
+		$template = null; /** @var Template|null $template */
+		$parent = null;
+		$class = '';
+
+		if(is_array($options)) {
+			// ok
+		} else if(is_string($options)) {
+			if(strpos($options, '=') !== false) {
+				$selectors = new Selectors($options);
+				$this->wire($selectors);
+				$options = array();
+				foreach($selectors as $selector) {
+					$options[$selector->field()] = $selector->value;
+				}
+			} else if(strpos($options, '/') === 0) {
+				$options = array('path' => $options);
+			} else {
+				$options = array('template' => $options);
+			}
+		} else if(is_object($options)) {
+			$options = $options instanceof Template ? array('template' => $options) : array();
+		} else if(is_int($options)) {
+			$template = $this->wire()->templates->get($options);
+			$options = $template ? array('template' => $template) : array();
+		} else {
+			$options = array();
+		}
+
+		// only use property 'parent' rather than 'parent_id'
+		if(!empty($options['parent_id']) && empty($options['parent'])) {
+			$options['parent'] = $options['parent_id'];
+			unset($options['parent_id']);
+		}
+
+		// only use property 'template' rather than 'templates_id'
+		if(!empty($options['templates_id']) && empty($options['template'])) {
+			$options['template'] = $options['templates_id'];
+			unset($options['templates_id']);
+		}
+
+		// page class (pageClass)
+		if(!empty($options['pageClass'])) {
+			// ok
+			$class = $options['pageClass'];
+			unset($options['pageClass']); 
+		} else if(!empty($options['class']) && !$this->wire()->fields->get('class')) {
+			// alias for pageClass, so long as there is not a field named 'class'
+			$class = $options['class'];
+			unset($options['class']);
+		}
+
+		// identify requested template
+		if(isset($options['template'])) {
+			$template = $options['template'];
+			if(!is_object($template)) {
+				$template = empty($template) ? null : $this->wire()->templates->get($template);
+			}
+			unset($options['template']);
+		}
+
+		// convert parent path to parent page object
+		if(!empty($options['parent'])) {
+			if(is_object($options['parent'])) {
+				$parent = $options['parent'];
+			} else if(ctype_digit("$options[parent]")) {
+				$parent = (int) $options['parent'];
+			} else {
+				$parent = $this->pages->getByPath($options['parent']);
+				if(!$parent->id) $parent = null;
+			}
+			unset($options['parent']);
+		}
+
+		// name and parent can be detected from path, when specified
+		if(!empty($options['path'])) {
+			$path = trim($options['path'], '/');
+			if(strpos($path, '/') === false) $path = "/$path";
+			$parts = explode('/', $path); // note index[0] is blank
+			$name = array_pop($parts);
+			if(empty($options['name']) && !empty($name)) {
+				// detect name from path
+				$options['name'] = $name;
+			}
+			if(empty($parent)) {
+				// detect parent from path
+				$parentPath = count($parts) ? implode('/', $parts) : '/';
+				$parent = $this->pages->getByPath($parentPath);
+				if(!$parent->id) $parent = null;
+			}
+			unset($options['path']);
+		}
+
+		// detect template from parent (when possible)
+		if(!$template && !empty($parent)) {
+			$parent = is_object($parent) ? $parent : $this->pages->get($parent);
+			if($parent->id) {
+				if(count($parent->template->childTemplates) === 1) {
+					$template = $parent->template->childTemplates()->first();
+				}
+			} else {
+				$parent = null;
+			}
+		}
+
+		// detect parent from template (when possible)
+		if($template && empty($parent) && count($template->parentTemplates) === 1) {
+			$parentTemplates = $template->parentTemplates();
+			if($parentTemplates->count()) {
+				$numParents = $this->pages->count("template=$parentTemplates, include=all");
+				if($numParents === 1) {
+					$parent = $this->pages->get("template=$parentTemplates");
+				}
+			}
+		}
+	
+		// detect class from template
+		if(empty($class) && $template) $class = $template->getPageClass();
+
+		if($parent) $options['parent'] = $parent;
+		if($template) $options['template'] = $template;
+		if($class) $options['pageClass'] = $class;
+		
+		unset($options['id']); // just in case it was there
+
+		return $options;
 	}
 
 	/**

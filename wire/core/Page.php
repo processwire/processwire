@@ -97,6 +97,7 @@
  * 
  * 
  * @property Page|null $_cloning Internal runtime use, contains Page being cloned (source), when this Page is the new copy (target). #pw-internal
+ * @property int |null $_inserted Populated with time() value of when new page was inserted into DB, only for page created in this request. #pw-internal
  * @property bool|null $_hasAutogenName Internal runtime use, set by Pages class when page as auto-generated name. #pw-internal
  * @property bool|null $_forceSaveParents Internal runtime/debugging use, force a page to refresh its pages_parents DB entries on save(). #pw-internal
  * @property float|null $_pfscore Internal PageFinder fulltext match score when page found/loaded from relevant query. #pw-internal

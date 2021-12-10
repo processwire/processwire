@@ -841,7 +841,9 @@ class Pages extends Wire {
 	/**
 	 * Add a new page using the given template and parent
 	 *
-	 * If no page "name" is specified, one will be automatically assigned. 
+	 * If no page “name” is specified, one will be automatically assigned. 
+	 * 
+	 * For an alternate interface for adding new pages, see the `$pages->new()` method. 
 	 * 
 	 * ~~~~~
 	 * // Add new page using 'skyscraper' template into Atlanta
@@ -859,7 +861,7 @@ class Pages extends Wire {
 	 * ]);
 	 * ~~~~~
 	 * 
-	 * #pw-group-manipulation
+	 * #pw-group-creation
 	 *
 	 * @param string|Template $template Template name or Template object
 	 * @param string|int|Page $parent Parent path, ID or Page object
@@ -868,10 +870,82 @@ class Pages extends Wire {
 	 * @param array $values Field values to assign to page (optional). If $name is omitted, this may also be 3rd param.
 	 * @return Page New page ready to populate. Note that this page has output formatting off.
 	 * @throws WireException When some criteria prevents the page from being saved.
+	 * @see Pages::new(), Pages::newPage()
 	 *
 	 */
 	public function ___add($template, $parent, $name = '', array $values = array()) {
 		return $this->editor()->add($template, $parent, $name, $values);
+	}
+
+	/**
+	 * Create a new Page populated from selector string or array
+	 * 
+	 * This is similar to the `$pages->add()` method but with a simpler 1-argument (selector) interface. 
+	 * This method can also auto-detect some properties that the add() method cannot. 
+	 * 
+	 * To create a new page without saving to the database use the `$pages->newPage()` method instead. 
+	 * It accepts the same arguments as this method. 
+	 * 
+	 * Minimum requirements to create a new page that is saved in database:
+	 * 
+	 * - A `template` must be specified, unless it can be auto-detected from a given `parent`. 
+	 * - A `parent` must be specified, unless it can be auto-detected from a given `template` or `path`.
+	 * 
+	 * Please note the following: 
+	 *
+	 * - If a `path` is specified but not a `name` or `parent` then both will be derived from the `path`. 
+	 * - If a `title` is specified but not a `name` or `path` then the `name` will be derived from the `title`.
+	 * - If given `parent` or `path` only allows one template (via family settings) then `template` becomes optional.
+	 * - If given `template` only allows one parent (via family settings) then `parent` becomes optional. 
+	 * - If given selector string starts with a `/` it is assumed to be the `path` property. 
+	 * - If new page has name that collides with an existing page (i.e. “foo”), new page name will increment (i.e. “foo-1”).
+	 * - If no `name`, `path` or `title` is given (that name can be derived from) then an “untitled-page” name will be used. 
+	 * 
+	 * ~~~~~
+	 * // Creating a page via selector string
+	 * $p = $pages->new("template=category, parent=/categories/, title=New Category");
+	 * 
+	 * // Creating a page via selector using path, which implies parent and name
+	 * $p = $pages->new("template=category, path=/categories/new-category");
+	 * 
+	 * // Creating a page via array
+	 * $p = $pages->new([
+	 *   'template' => 'category',
+	 *   'parent' => '/categories/',
+	 *   'title' => 'New Category'
+	 * ]);
+	 * 
+	 * // Parent and name can be auto-detected when you specify path…
+	 * $p = $pages->new('path=/blog/posts/foo-bar-baz');
+	 * 
+	 * // …and even 'path=' is optional if slash '/' is at beginning
+	 * $p = $pages->new('/blog/posts/foo-bar-baz');
+	 * ~~~~~
+	 * 
+	 * #pw-group-creation
+	 * 
+	 * @param string|array $selector Selector string or array of properties to set
+	 * @return Page
+	 * @since 3.0.191
+	 * @see Pages::add(), Pages::newPage()
+	 * 
+	 */
+	public function ___new($selector = '') {
+	
+		$options = $this->editor()->newPageOptions($selector);
+		$error = 'Cannot save new page without a %s';
+		$template = isset($options['template']) ? $options['template'] : null;
+		$parent = isset($options['parent']) ? $options['parent'] : null;
+		$name = isset($options['name']) ? $options['name'] : '';
+		
+		if(!$template) throw new WireException(sprintf($error, 'template'));
+		if(!$parent) throw new WireException(sprintf($error, 'parent'));
+		
+		unset($options['template'], $options['parent'], $options['name']);
+		
+		$page = $this->editor()->add($template, $parent, $name, $options);
+		
+		return $page;
 	}
 	
 	/**
@@ -897,7 +971,7 @@ class Pages extends Wire {
 	 * $copy->save();
 	 * ~~~~~
 	 * 
-	 * #pw-group-manipulation
+	 * #pw-group-creation
 	 *
 	 * @param Page $page Page that you want to clone
 	 * @param Page|null $parent New parent, if different (default=null, which implies same parent)
@@ -1714,6 +1788,7 @@ class Pages extends Wire {
 	 * 
 	 * @param array $options Optionally specify ONE of the following: 
 	 *  - `pageArrayClass` (string): Name of PageArray class to use (if not “PageArray”).
+	 *  - `class` (string): Alias of pageArrayClass supported in 3.0.191+.
 	 *  - `pageArray` (PageArray): Wire and return this given PageArray, rather than instantiating a new one. 
 	 * @return PageArray
 	 * 
@@ -1724,7 +1799,11 @@ class Pages extends Wire {
 			return $options['pageArray'];
 		}
 		$class = 'PageArray';
-		if(!empty($options['pageArrayClass'])) $class = $options['pageArrayClass'];
+		if(!empty($options['pageArrayClass'])) {
+			$class = $options['pageArrayClass'];
+		} else if(!empty($options['class'])) {
+			$class = $options['class'];
+		}
 		$class = wireClassName($class, true);
 		$pageArray = $this->wire(new $class());
 		if(!$pageArray instanceof PageArray) $pageArray = $this->wire(new PageArray());
@@ -1732,54 +1811,70 @@ class Pages extends Wire {
 	}
 
 	/**
-	 * Return a new/blank Page object (in memory only)
+	 * Return a new Page object without saving it to the database
 	 * 
-	 * #pw-internal
+	 * To create a new Page object and save it the database, use the `$pages->new()` or `$pages->add()` methods, 
+	 * or call `save()` on the Page object returned from this method. 
 	 *
-	 * @param array|string|Template $options Optionally specify array of any of the following:
-	 *  - `template` (Template|id|string): Template to use via object, ID or name. 
-	 *  - `pageClass` (string): Class to use for Page. If not specified, default is from template setting, or 'Page' if no template.
-	 *  - Any other Page properties or fields you want to set (parent, name, title, etc.). Note that most page fields will need to
+	 *  - When a template is specified, the `pageClass` can be auto-detected from the template. 
+	 *  - In 3.0.152+ you may specify the Template object, name or ID instead of an $options array.
+	 *  - In 3.0.191+ you may specify a selector string for the $options argument (alternative to array),
+	 *    see the `$pages->new()` method `$selector` argument for details. 
+	 *  - In 3.0.191+ the `pageClass` can also be specified as `class`, assuming that doesn’t collide 
+	 *    with an existing field name. 
+	 * 
+	 * ~~~~~
+	 * // Create a new blank Page object
+	 * $p = $pages->newPage();
+	 * 
+	 * // Create a new Page object and specify properties to set with an array 
+	 * $p = $pages->newPage([
+	 *   'template' => 'blog-post',
+	 *   'parent' => '/blog/posts/',
+	 *   'title' => 'Hello world', 
+	 * ]);
+	 * 
+	 * // Same as above but using selector string (3.0.191+)
+	 * $p = $pages->newPage('template=blog-post, parent=/blog/posts, title=Hello world'); 
+	 * 
+	 * // Create new Page object using 'blog-post' template
+	 * $p = $pages->newPage('blog-post'); 
+	 * 
+	 * // Create new Page object with parent and name implied by given path (3.0.191+)
+	 * $p = $pages->newPage('/blog/posts/hello-world'); 
+	 * ~~~~~
+	 * 
+	 * #pw-group-creation
+	 * 
+	 * @param array|string|Template $options Optionally specify array (or selector string in 3.0.191+) with any of the following:
+	 *  - `template` (Template|id|string): Template to use via object, ID or name. The `pageClass` will be auto-detected. 
+	 *  - `parent` (Page|int|string): Parent page object, ID or path. 
+	 *  - `name` (string): Name of page. 
+	 *  - `path` (string): Specify /path/for/page/, name and parent (and maybe template) can be auto-detected. 3.0.191+
+	 *  - `pageClass` (string): Class to use for Page. If not specified, default is from template setting, or `Page` if no template.
+	 *  - Specify any other Page properties or fields you want to set (name, title, etc.). Note that most page fields will need to
 	 *    have a `template` set first, so make sure to include it in your options array when providing other fields.
-	 *  - In PW 3.0.152+ you may specify the Template object, name or ID instead of an $options array. 
 	 * @return Page
 	 *
 	 */
 	public function newPage($options = array()) {
-		if(!is_array($options)) {
-			if(is_object($options) && $options instanceof Template) {
-				$options = array('template' => $options); 
-			} else if($options && (is_string($options) || is_int($options))) {
-				$options = array('template' => $options); 
-			} else {
-				$options = array();
-			}
-		}
-		if(!empty($options['pageClass'])) {
-			$class = $options['pageClass'];
-		} else {
-			$class = 'Page';
-		}
-		if(!empty($options['template'])) {
-			$template = $options['template'];
-			if(!is_object($template)) {
-				$template = empty($template) ? null : $this->wire('templates')->get($template);
-			}
-			if($template && empty($options['pageClass'])) {
-				$class = $template->getPageClass();
-			}
-		} else {
-			$template = null;
-		}
 		
+		if(empty($options)) return $this->wire(new Page());
+	
+		$options = $this->editor()->newPageOptions($options);
+		$template = isset($options['template']) ? $options['template'] : null;
+		$parent = isset($options['parent']) ? $options['parent']  : null;
+		$class = empty($options['pageClass']) ? 'Page' : $options['pageClass'];
+
+		unset($options['template'], $options['parent'], $options['pageClass']); 
+	
 		if(strpos($class, "\\") === false) $class = wireClassName($class, true);
-		$page = $this->wire(new $class($template));
-		if(!$page instanceof Page) $page = $this->wire(new Page($template));
 		
-		unset($options['pageClass'], $options['template']); 
-		foreach($options as $name => $value) {
-			$page->set($name, $value);
-		}
+		$page = $this->wire(new $class($template));
+		
+		if(!$page instanceof Page) $page = $this->wire(new Page($template));
+		if($parent && $parent->id) $page->parent = $parent;
+		if(count($options)) $page->setArray($options);
 		
 		return $page;
 	}
@@ -2280,8 +2375,10 @@ class Pages extends Wire {
 		$status = $page->status; 
 		$statusPrevious = $page->statusPrevious; 
 		$isPublished = !$page->isUnpublished();
+		$isInserted = $page->_inserted > 0;
 		$wasPublished = !($statusPrevious & Page::statusUnpublished);
-		if($isPublished && !$wasPublished) $this->published($page);
+		
+		if($isPublished && (!$wasPublished || $isInserted)) $this->published($page);
 		if(!$isPublished && $wasPublished) $this->unpublished($page);
 	
 		$from = array();
