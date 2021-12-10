@@ -446,7 +446,8 @@ class WireDateTime extends Wire {
 			$test = trim(preg_replace('/[^\d]/', '', $str), '0');
 			if(!strlen($test)) return $options['emptyReturnValue'];
 		}
-		return strtotime($str, $options['baseTimestamp']); 
+		if($options['baseTimestamp'] === null) return strtotime($str);
+		return strtotime($str, $options['baseTimestamp']) ;
 	}
 
 
