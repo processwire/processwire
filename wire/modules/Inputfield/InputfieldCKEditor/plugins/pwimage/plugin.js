@@ -78,10 +78,11 @@
 	function loadIframeImagePicker(editor) {
 
 		var $in = jQuery("#Inputfield_id"); 
+		var page_id;
 		if($in.length) {
-			var page_id = $in.val();
+			page_id = $in.val();
 		} else {
-			var page_id = jQuery("#" + editor.name).closest('.Inputfield').attr('data-pid');
+			page_id = jQuery("#" + editor.name).closest('.Inputfield').attr('data-pid');
 		}
 		var edit_page_id = page_id; 
 		var file = '';
@@ -104,6 +105,7 @@
 		var nodeParentName = nodeParent.$.nodeName.toUpperCase(); 
 		var nodeGrandparentName = nodeGrandparent ? nodeGrandparent.$.nodeName.toUpperCase() : '';
 		var figureNodeSafari = null;
+		var $repeaterItem = jQuery("#" + editor.name).closest('.InputfieldRepeaterItem');
 		
 		if(selection.getType() == CKEDITOR.SELECTION_TEXT) {
 			// Safari doesn’t support independent selection of figure elements without display:block, 
@@ -121,12 +123,19 @@
 				selection.selectElement(figureNodeSafari);
 			}
 		}
-	
-		if(typeof ckeGetProcessWireConfig != "undefined") {
+
+		if($repeaterItem.length && $repeaterItem.find('.InputfieldImage').length) {
+			var dataPageAttr = $repeaterItem.attr('data-page');
+			if(typeof dataPageAttr !== 'undefined') page_id = parseInt(dataPageAttr);
+		} 
+		/*
+		// pwAssetPageID for potential future use	
+		else if(typeof ckeGetProcessWireConfig != "undefined") {
 			// note: ckeGetProcessWireConfig not yet present in front-end editor
 			var pwCkeSettings = ckeGetProcessWireConfig(editor);
 			if(pwCkeSettings && pwCkeSettings['pwAssetPageID']) page_id = pwCkeSettings['pwAssetPageID'];
 		}
+		*/
 	
 		selection.lock();
 		editor.lockSelection();
@@ -202,11 +211,12 @@
 
 			// when iframe loads, pull the contents into $i 
 			var $i = $iframe.contents();
+			var buttons;
 		
 			if($i.find("#selected_image").length > 0) {
 				// if there is a #selected_image element on the page...
 
-				var buttons = [
+				buttons = [
 					{ 
 						html: "<i class='fa fa-camera'></i> " + ProcessWire.config.InputfieldCKEditor.pwimage.insertBtn, // "Insert This Image",
 						click:  function() {
@@ -345,7 +355,7 @@
 				$iframe.setTitle("<i class='fa fa-fw fa-picture-o'></i> " + $i.find('title').html());
 
 			} else {
-				var buttons = [];
+				buttons = [];
 				jQuery("button.pw-modal-button, button[type=submit]:visible", $i).each(function() {
 					var $button = jQuery(this);
 					var button = {
