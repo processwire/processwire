@@ -346,7 +346,9 @@ class InputfieldTextTags extends Inputfield implements
 			$key = $this->languageKey($language, 'tagsList');
 			if($key !== 'tagsList') {
 				$langTags = parent::get($key); /** @var array $langTags */
-				$tags = array_merge($tags, $langTags);
+				foreach($langTags as $key => $value) {
+					$tags[$key] = $value;
+				}
 			}
 		}
 		if(!$getArray) return $this->tagsListArrayToString($tags);
