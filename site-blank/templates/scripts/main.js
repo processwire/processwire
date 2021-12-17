@@ -1,1 +1,1 @@
-// Blank
+// Example JS file

@@ -1,9 +1,0 @@
-{
-    "file": "wire\/core\/Fields.php",
-    "textdomain": "wire--core--fields-php",
-    "translations": {
-        "af612cfedc5c2ba10ff82e4ccf69e936": {
-            "text": "Daten von Feld \"%s\" von %d Seiten gel\u00f6scht."
-        }
-    }
-}

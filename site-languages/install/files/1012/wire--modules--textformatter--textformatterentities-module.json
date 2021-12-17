@@ -1,9 +1,0 @@
-{
-   "file":"wire\/modules\/Textformatter\/TextformatterEntities.module",
-   "textdomain":"wire--modules--textformatter--textformatterentities-module",
-   "translations":{
-      "f34604edab8aa5bdc9e452d3e4693952":{
-         "text":"Enkodiert kaufm\u00e4nnisches Und, Anf\u00fchrungszeichen (einfach und doppelt) und die Zeichen gr\u00f6\u00dfer\/kleiner als mittels htmlspecialchars(str, ENT_QUOTES) in Entit\u00e4ten. Es wird empfohlen, dies auf alle Text\/Textarea-Felder mit Ausnahme derer, die einen Rich-Text-Editor wie TinyMCE oder eine Markup-Sprache wie Markdown verwenden, anzuwenden."
-      }
-   }
-}

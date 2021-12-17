@@ -1,9 +1,0 @@
-{
-    "file": "wire\\modules\\Inputfield\\InputfieldPageTitle\\InputfieldPageTitle.module",
-    "textdomain": "wire--modules--inputfield--inputfieldpagetitle--inputfieldpagetitle-module",
-    "translations": {
-        "dc643f0a55e724a742f7bcc43fa5b84e": {
-            "text": "Verwaltet die Eingabe des Seitentitels und automatische Erstellung des Seitennamens (wenn Name leer ist)"
-        }
-    }
-}

@@ -56,6 +56,12 @@ class Installer {
 	const TEST_MODE = false;
 
 	/**
+	 * Default profile name
+	 * 
+	 */
+	const DEFAULT_PROFILE = 'site-blank';
+
+	/**
 	 * File permissions, determined in the dbConfig function
 	 *
 	 * Below are worst case scenario, last resort defaults
@@ -85,7 +91,7 @@ class Installer {
 	protected $colors = array(
 		'classic',
 		'warm',
-		);
+	);
 
 
 	/**
@@ -162,21 +168,21 @@ class Installer {
 	 */
 	protected function findProfiles() {
 		$profiles = array(
-			'site-beginner' => null,
-			'site-default' => null, // preferred starting order
-			'site-languages' => null, 
-			'site-blank' => null
-			); 
+			//'site-blank' => null,
+			//'site-default' => null, // preferred starting order
+			//'site-beginner' => null,
+			//'site-languages' => null, 
+		); 
 		$dirTests = array(
 			'install', 
 			'templates',
 			'assets',
-			);
+		);
 		$fileTests = array(
 			'config.php',
 			'templates/admin.php',
 			'install/install.sql',
-			);
+		);
 		foreach(new \DirectoryIterator(dirname(__FILE__)) as $dir) {
 			if($dir->isDot() || !$dir->isDir()) continue; 
 			$name = $dir->getBasename();
@@ -226,12 +232,16 @@ class Installer {
 			}
 			$out .= "</div>";
 		}
-		
-		echo "
-			<p>A site installation profile is a ready-to-use and modify site for ProcessWire. 
+	
+		/*
+		<p>A site installation profile is a ready-to-use and modify site for ProcessWire. 
 			If you are just getting started with ProcessWire, we recommend choosing the <em>Regular</em> 
 			or <em>Default</em> site profile. If you already know what you are doing,
 			you might prefer the <em>Blank</em> site profile. 
+		*/
+		
+		echo "
+			<p>A site installation profile is a ready-to-use and modify site for ProcessWire.</p> 
 			<p style='width: 240px;'>
 				<select class='uk-select' name='profile' id='select-profile'>
 					<option value=''>Installation Profiles</option>
@@ -240,7 +250,7 @@ class Installer {
 			</p>
 			<p class='detail'>
 				<i class='fa fa-angle-up'></i> 
-				Select each installation profile to see more information and a preview.
+				Select an installation profile to see more information.
 			</p>
 			$out
 			<script type='text/javascript'>
@@ -933,8 +943,11 @@ class Installer {
 
 			$this->profileImportSQL($database, "./wire/core/install.sql", $profile . "install.sql", $options); 
 			
-			if(is_dir($profile . "files")) $this->profileImportFiles($profile);
-				else $this->mkdir("./site/assets/files/"); 
+			if(is_dir($profile . "files")) {
+				$this->profileImportFiles($profile);
+			} else {
+				$this->mkdir("./site/assets/files/");
+			}
 			
 			$this->mkdir("./site/assets/cache/", true, true); 
 			$this->mkdir("./site/assets/logs/", true, true);
@@ -947,7 +960,7 @@ class Installer {
 
 		// copy default site modules /site-default/modules/ to /site/modules/
 		$dir = "./site/modules/";
-		$defaultDir = "./site-default/modules/"; 
+		$defaultDir = "./" . self::DEFAULT_PROFILE . "/modules/"; 
 		if(!is_dir($dir)) $this->mkdir($dir);
 		if(is_dir($defaultDir)) {
 			if(is_writable($dir)) {
@@ -962,12 +975,12 @@ class Installer {
 				$this->warn("$dir is not writable, unable to install default site modules (recommended, but not required)"); 
 			}
 		} else {
-			// they are installing site-default already 
+			// they are installing site-default already or site-default is not available
 		}
 
 		// install the site/.htaccess (not really required but potentially useful fallback)
 		$dir = "./site/";
-		$defaultDir = "./site-default/"; 
+		$defaultDir = "./" . self::DEFAULT_PROFILE . "/"; 
 		if(is_file($dir . 'htaccess.txt')) {
 			$this->renameFile($dir . 'htaccess.txt', $dir . '.htaccess'); 
 		} else if(is_file($defaultDir . 'htaccess.txt')) {

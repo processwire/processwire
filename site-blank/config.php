@@ -17,31 +17,31 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  *
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  */
 
 if(!defined("PROCESSWIRE")) die();
 
-/*** SITE CONFIG *************************************************************************/
-
 /** @var Config $config */
 
-/**
- * Allow core API variables to also be accessed as functions?
- *
- * Recommended. This enables API varibles like $pages to also be accessed as pages(),
- * as an example. And so on for most other core variables.
- *
- * Benefits are better type hinting, always in scope, and potentially shorter API calls.
- * See the file /wire/core/FunctionsAPI.php for details on these functions.
- *
- * @var bool
- *
- */
+/*** SITE CONFIG *************************************************************************/
+
+// Let core API vars also be functions? So you can use $page or page(), for example.
 $config->useFunctionsAPI = true;
 
+// Use Markup Regions? (https://processwire.com/docs/front-end/output/markup-regions/)
+$config->useMarkupRegions = true;
+
+// Prepend this file in /site/templates/ to any rendered template files
+$config->prependTemplateFile = '_init.php';
+
+// Append this file in /site/templates/ to any rendered template files
+$config->appendTemplateFile = '_main.php';
+
+// Allow template files to be compiled for backwards compatibility?
+$config->templateCompile = false;
 
 /*** INSTALLER CONFIG ********************************************************************/
 
