@@ -85,16 +85,6 @@ class Installer {
 	protected $inSection = false;
 
 	/**
-	 * Available color themes
-	 *
-	 */
-	protected $colors = array(
-		'classic',
-		'warm',
-	);
-
-
-	/**
 	 * Execution controller
 	 *
 	 */
@@ -143,8 +133,16 @@ class Installer {
 	 */
 	protected function welcome() {
 		$this->h("Welcome. This tool will guide you through the installation process."); 
-		$this->p("Thanks for choosing ProcessWire! If you downloaded this copy of ProcessWire from somewhere other than <a href='https://processwire.com/'>processwire.com</a> or <a href='https://github.com/processwire/processwire' target='_blank'>our GitHub page</a>, please download a fresh copy before installing. If you need help or have questions during installation, please stop by our <a href='https://processwire.com/talk/' target='_blank'>support board</a> and we'll be glad to help.");
-		$this->btn("Get Started", 0, 'sign-in'); 
+		$this->p(
+			"Thanks for choosing ProcessWire! " . 
+			"If you downloaded this copy of ProcessWire from somewhere other than " . 
+			"<a target='_blank' href='https://processwire.com/'>processwire.com</a> or " . 
+			"<a href='https://github.com/processwire/processwire' target='_blank'>our GitHub page</a>, " . 
+			"please download a fresh copy before installing. " . 
+			"If you need help or have questions during installation, please stop by our " . 
+			"<a href='https://processwire.com/talk/' target='_blank'>support board</a> and we'll be glad to help."
+		);
+		$this->btn("Get Started", array('icon' => 'sign-in')); 
 	}
 
 
@@ -209,7 +207,11 @@ class Installer {
 		}
 		return $profiles; 
 	}
-	
+
+	/**
+	 * Select profile
+	 * 
+	 */
 	protected function selectProfile() {
 		$options = '';
 		$out = '';
@@ -218,7 +220,6 @@ class Installer {
 		
 		foreach($profiles as $name => $profile) {
 			$title = empty($profile['title']) ? ucfirst($profile['name']) : $profile['title'];
-			//$selected = $name == 'site-default' ? " selected='selected'" : "";
 			$options .= "<option value='$name'>$title</option>"; 
 			$out .= "<div class='profile-preview' id='$name' style='display: none;'>";
 			if(!empty($profile['summary'])) $out .= "<p>$profile[summary]</p>";
@@ -233,15 +234,19 @@ class Installer {
 			$out .= "</div>";
 		}
 	
-		/*
-		<p>A site installation profile is a ready-to-use and modify site for ProcessWire. 
-			If you are just getting started with ProcessWire, we recommend choosing the <em>Regular</em> 
-			or <em>Default</em> site profile. If you already know what you are doing,
-			you might prefer the <em>Blank</em> site profile. 
-		*/
-		
+		$path = rtrim(str_replace('install.php', '', $_SERVER['REQUEST_URI']), '/') . '/';
+		$url = htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . 'site-name/';
+			
 		echo "
-			<p>A site installation profile is a ready-to-use and modify site for ProcessWire.</p> 
+			<p>
+			A site installation profile is a ready-to-use and modify site for ProcessWire.
+			</p>
+			<p>
+			If you want something other than the included “blank” profile, please 
+			<a target='_blank' href='https://processwire.com/download/site-profiles/'>download another site profile</a>, 
+			unzip and place its files in <code>$url</code> (replacing <code>name</code> with the profile name) 
+			and click the “Refresh” button to make it available here.
+			</p> 
 			<p style='width: 240px;'>
 				<select class='uk-select' name='profile' id='select-profile'>
 					<option value=''>Installation Profiles</option>
@@ -259,7 +264,7 @@ class Installer {
 				$('#' + $(this).val()).fadeIn('fast');
 			}).change();
 			</script>
-			";
+		";
 		
 	}
 	
@@ -277,30 +282,30 @@ class Installer {
 		} else if(is_dir("./site/")) {
 			$this->alertOk("Found /site/ — already installed? ");
 
-		} else if($this->post('profile')) {
+		} else if($this->post('profile') && $this->post('step') !== '000') {
 			
 			$profiles = $this->findProfiles();
 			$profile = $this->post('profile', 'name'); 
 			if(empty($profile) || !isset($profiles[$profile]) || !is_dir(dirname(__FILE__) . "/$profile")) {
 				$this->alertErr("Profile not found");
 				$this->selectProfile();
-				$this->btn("Continue", 0);
+				$this->btnContinue();
 				return;
 			}
-			// $info = $profiles[$profile];
-			// $this->h(empty($info['title']) ? ucfirst($info['name']) : $info['title']);
 			
 			if(@rename("./$profile", "./site")) {
 				$this->alertOk("Renamed /$profile => /site");
 			} else {
 				$this->alertErr("File system is not writable by this installer. Before continuing, please rename '/$profile' to '/site'");
-				$this->btn("Continue", 0);
+				$this->btnContinue();
 				return;
 			}
 
 		} else {
+			if($this->post('step') === '000') $this->alertOk('Refreshed profiles');
 			$this->selectProfile();
-			$this->btn("Continue", 0);
+			$this->btn('Refresh', array('value' => '000', 'icon' => 'refresh', 'secondary' => true, 'float' => true));
+			$this->btnContinue();
 			return;
 		}
 		
@@ -371,7 +376,7 @@ class Installer {
 			// directory => required?
 			'./site/assets/' => true,
 			'./site/modules/' => false, 
-			);
+		);
 		foreach($dirs as $dir => $required) {
 			$d = ltrim($dir, '.'); 
 			if(!file_exists($dir)) {
@@ -385,12 +390,18 @@ class Installer {
 			}
 		}
 		
-		if(is_writable("./site/config.php")) $this->ok("/site/config.php is writable"); 
-			else $this->err("/site/config.php must be writable. Please adjust the server permissions before continuing."); 
+		if(is_writable("./site/config.php")) {
+			$this->ok("/site/config.php is writable");
+		} else {
+			$this->err("/site/config.php must be writable. Please adjust the server permissions before continuing.");
+		}
 		
 		if(!is_file("./.htaccess") || !is_readable("./.htaccess")) {
-			if(@rename("./htaccess.txt", "./.htaccess")) $this->ok("Installed .htaccess"); 
-				else $this->err("/.htaccess doesn't exist. Before continuing, you should rename the included htaccess.txt file to be .htaccess (with the period in front of it, and no '.txt' at the end)."); 
+			if(@rename("./htaccess.txt", "./.htaccess")) {
+				$this->ok("Installed .htaccess");
+			} else {
+				$this->err("/.htaccess doesn't exist. Before continuing, you should rename the included htaccess.txt file to be .htaccess (with the period in front of it, and no '.txt' at the end).");
+			}
 
 		} else if(!strpos(file_get_contents("./.htaccess"), "PROCESSWIRE")) {
 			$this->err("/.htaccess file exists, but is not for ProcessWire. Please overwrite or combine it with the provided /htaccess.txt file (i.e. rename /htaccess.txt to /.htaccess, with the period in front)."); 
@@ -401,11 +412,11 @@ class Installer {
 		$this->sectionStop();
 
 		if($this->numErrors) {
-			$this->p("One or more errors were found above. We recommend you correct these issues before proceeding or <a href='http://processwire.com/talk/'>contact ProcessWire support</a> if you have questions or think the error is incorrect. But if you want to proceed anyway, click Continue below.");
-			$this->btn("Check Again", 1, 'refresh', false, true); 
-			$this->btn("Continue to Next Step", 2, 'angle-right', true); 
+			$this->p("One or more errors were found above. We recommend you correct these issues before proceeding or <a href='https://processwire.com/talk/'>contact ProcessWire support</a> if you have questions or think the error is incorrect. But if you want to proceed anyway, click Continue below.");
+			$this->btn("Check Again", array('value' => 1, 'icon' => 'refresh', 'float' => true)); 
+			$this->btn("Continue to Next Step", array('value' => 2, 'icon' => 'angle-right', 'secondary' => true)); 
 		} else {
-			$this->btn("Continue to Next Step", 2, 'angle-right', false); 
+			$this->btn("Continue to Next Step", array('value' => 2, 'icon' => 'angle-right')); 
 		}
 	}
 
@@ -530,7 +541,7 @@ class Installer {
 			"The safest setting to use varies from server to server. " . 
 			"If you are not on a dedicated or private server, or are in any kind of shared environment, you may want to contact your web host to advise on what are the best permissions to use in your environment. " . 
 			"<a target='_blank' href='https://processwire.com/docs/security/file-permissions/'>Read more about securing file permissions</a>"
-			);
+		);
 
 		$this->p("Permissions must be 3 digits each. Should you opt to use the defaults provided, you can also adjust these permissions later if desired by editing <u>/site/config.php</u>.", "detail");
 
@@ -571,10 +582,14 @@ class Installer {
 		$noChecked = empty($values['debugMode']) ? "checked='checked'" : "";
 		$yesChecked = empty($noChecked) ? "checked='checked'" : "";
 		$this->p(
-			"<label><input type='radio' name='debugMode' $yesChecked value='1'> <strong>Enabled</strong> " . 
-				"<span class='uk-text-small uk-text-muted'>(recommended while sites are in development or while testing ProcessWire)</span></label><br />" .
-			"<label><input type='radio' name='debugMode' $noChecked value='0'> <strong>Disabled</strong> " . 
-				"<span class='uk-text-small uk-text-muted'>(recommended once a site goes live or becomes publicly accessible)</span></label> " 
+			"<label>" . 
+				"<input type='radio' name='debugMode' $yesChecked value='1'> <strong>Enabled</strong> " . 
+				"<span class='uk-text-small uk-text-muted'>(recommended while sites are in development or while testing ProcessWire)</span>" . 
+			"</label><br />" .
+			"<label>" . 
+				"<input type='radio' name='debugMode' $noChecked value='0'> <strong>Disabled</strong> " . 
+				"<span class='uk-text-small uk-text-muted'>(recommended once a site goes live or becomes publicly accessible)</span>" . 
+			"</label> " 
 		);
 		$this->p(
 			"You can also enable or disable debug mode at any time by editing the <u>/site/config.php</u> file and setting " .
@@ -582,7 +597,7 @@ class Installer {
 		);
 		$this->sectionStop();
 		
-		$this->btn("Continue", 4); 
+		$this->btnContinue(array('value' => 4)); 
 		$this->p("Note: After you click the button above, be patient &hellip; it may take a minute.", "detail");
 	}
 
@@ -662,7 +677,7 @@ class Installer {
 			$driver_options = array(
 				\PDO::MYSQL_ATTR_INIT_COMMAND => "SET NAMES 'UTF8'",
 				\PDO::ATTR_ERRMODE => \PDO::ERRMODE_EXCEPTION
-				);
+			);
 			
 			try {
 				$database = new \PDO($dsn, $values['dbUser'], $values['dbPass'], $driver_options);
@@ -1043,14 +1058,13 @@ class Installer {
 		$defaults = array(
 			'dbEngine' => 'MyISAM',
 			'dbCharset' => 'utf8', 
-			);
+		);
 		$options = array_merge($defaults, $options); 
 		if(self::TEST_MODE) return;
 		$restoreOptions = array();
 		$replace = array();
 		if($options['dbEngine'] != 'MyISAM') {
 			$replace['ENGINE=MyISAM'] = "ENGINE=$options[dbEngine]";
-			// $this->alertWarn("Engine changed to '$options[dbEngine]', please keep an eye out for issues."); 
 		}
 		if($options['dbCharset'] != 'utf8') {
 			$replace['CHARSET=utf8'] = "CHARSET=$options[dbCharset]";
@@ -1062,7 +1076,6 @@ class Installer {
 					$replace['(255)'] = '(250)'; // max ley length in utf8mb4 is 1000 (250 * 4)
 				}
 			}
-			// $this->alertWarn("Character set has been changed to '$options[dbCharset]', please keep an eye out for issues."); 
 		}
 		if(count($replace)) $restoreOptions['findReplaceCreateTable'] = $replace; 
 		require("./wire/core/WireDatabaseBackup.php"); 
@@ -1090,7 +1103,7 @@ class Installer {
 			'userpass' => '',
 			'userpass_confirm' => '',
 			'useremail' => '',
-			);
+		);
 
 		$clean = array();
 
@@ -1102,12 +1115,6 @@ class Installer {
 
 		$this->sectionStart("fa-sign-in Admin Panel");
 		$this->input("admin_name", "Admin Login URL", $clean['admin_name'], false, "name"); 
-		/*
-		$js = "$('link#colors').attr('href', $('link#colors').attr('href').replace(/main-.*$/, 'main-' + $(this).val() + '.css'))";
-		echo "<p class='ui-helper-clearfix'><label>Color Theme<br /><select name='colors' id='colors' onchange=\"$js\">";
-		foreach($this->colors as $color) echo "<option value='$color'>" . ucfirst($color) . "</option>";
-		echo "</select></label> <span class='detail'><i class='fa fa-angle-left'></i> Change for a live preview</span></p>";
-		*/
 		$this->clear();
 		
 		$this->p(
@@ -1119,7 +1126,7 @@ class Installer {
 		$this->sectionStart("fa-user-circle Admin Account"); 
 		$this->p(
 			"You will use this account to login to your ProcessWire admin. It will have superuser access, so please make sure " . 
-			"to create a <a target='_blank' href='http://en.wikipedia.org/wiki/Password_strength'>strong password</a>."
+			"to create a <a target='_blank' href='https://en.wikipedia.org/wiki/Password_strength'>strong password</a>."
 		);
 		$this->input("username", "User", $clean['username'], false, "name"); 
 		$this->input("userpass", "Password", $clean['userpass'], false, "password"); 
@@ -1136,7 +1143,7 @@ class Installer {
 		$this->p($this->getRemoveableItems(true)); 
 		$this->sectionStop();
 			
-		$this->btn("Continue", 5); 
+		$this->btnContinue(array('value' => 5)); 
 	}
 
 	/**
@@ -1159,17 +1166,17 @@ class Installer {
 				'label' => 'Remove installer (install.php) when finished', 
 				'file' => "/install.php", 
 				'path' => $root . "install.php", 
-				),
+			),
 			'install-dir' => array(
 				'label' => 'Remove installer site profile assets (/site/install/)',
 				'path' => $root . "site/install/", 
 				'file' => '/site/install/', 
-				), 
+			), 
 			'gitignore' => array(
 				'label' => 'Remove .gitignore file',
 				'path' => $root . ".gitignore",
 				'file' => '/.gitignore',
-				)
+			)
 		);
 		
 		foreach($this->findProfiles() as $name => $profile) {
@@ -1294,16 +1301,6 @@ class Installer {
 		$this->sectionStart("fa-user-circle Admin Account Saved");
 		$this->ok("User account saved: <b>{$user->name}</b>"); 
 
-		/*	
-		$colors = $wire->sanitizer->pageName($input->post('colors')); 
-		if(!in_array($colors, $this->colors)) $colors = reset($this->colors); 
-		$theme = $wire->modules->getInstall('AdminThemeDefault'); 
-		if($theme) {} // ignore
-		$configData = $wire->modules->getModuleConfigData('AdminThemeDefault'); 
-		$configData['colors'] = $colors;
-		$wire->modules->saveModuleConfigData('AdminThemeDefault', $configData); 
-		$this->ok("Saved admin color set <b>$colors</b> - you will see this when you login."); 
-		*/
 		$this->sectionStop();
 
 		$this->sectionStart("fa-life-buoy Complete &amp; Secure Your Installation");
@@ -1338,9 +1335,9 @@ class Installer {
 			"with new versions and important updates."
 		);
 		$this->sectionStop();
-		
-		$this->btn("Login to Admin", 1, 'sign-in', false, true, "./$adminName/"); 
-		$this->btn("View Site ", 1, 'angle-right', true, false, "./"); 
+
+		$this->btn("Login to Admin", array('value' => 1, 'icon' => 'sign-in', 'float' => true, 'href' => "./$adminName/")); 
+		$this->btn("View Site ", array('value' => 1, 'icon' => 'angle-right', 'secondary' => true, 'href' => "./")); 
 
 		// set a define that indicates installation is completed so that this script no longer runs
 		if(!self::TEST_MODE) {
@@ -1447,27 +1444,49 @@ class Installer {
 	}
 
 	/**
-	 * Output a button 
-	 * 
+	 * Output a button
+	 *
 	 * @param string $label
-	 * @param string $value
-	 * @param string $icon
-	 * @param bool $secondary
-	 * @param bool $float
-	 * @param string $href
+	 * @param array $options
 	 *
 	 */
-	protected function btn($label, $value, $icon = 'angle-right', $secondary = false, $float = false, $href = '') {
-		$class = $secondary ? 'ui-priority-secondary' : '';
-		if($float) $class .= " uk-float-left";
-		$type = 'submit';
-		if($href) $type = 'button';
-		if($href) echo "<a href='$href' target='_blank'>";
-		echo "\n<p><button name='step' type='$type' class='ui-button ui-widget ui-state-default $class ui-corner-all' value='$value'>";
-		echo "<span class='ui-button-text'><i class='fa fa-$icon'></i> $label</span>";
-		echo "</button></p>";
-		if($href) echo "</a>";
+	protected function btn($label, array $options = array()) {
+		$defaults = array(
+			'name' => 'step',
+			'value' => '0',
+			'icon' => 'angle-right',
+			'secondary' => false,
+			'float' => false,
+			'href' => '',
+			'type' => 'submit',
+			'class' => '',
+		);
+		$options = array_merge($defaults, $options);
+		$options['class'] = trim($options['class'] . ' ' . ($options['secondary'] ? 'ui-priority-secondary' : ''));
+		if($options['float']) $options['class'] = trim("$options[class] uk-float-left");
+		if($options['href']) {
+			$options['type'] = 'button';
+			echo "<a href='$options[href]' target='_blank'>";
+		}
+		echo "\n" . 
+			"<p>" . 
+			"<button name='$options[name]' type='$options[type]' value='$options[value]' " . 
+			"class='ui-button ui-widget ui-state-default $options[class] ui-corner-all'>" . 
+			"<span class='ui-button-text'><i class='fa fa-$options[icon]'></i> $label</span>" . 
+			"</button>" . 
+			"</p>";
+		if($options['href']) echo "</a>";
 		echo " ";
+	}
+
+	/**
+	 * Output a continue button
+	 * 
+	 * @param array $options
+	 * 
+	 */
+	protected function btnContinue(array $options = array()) {
+		$this->btn('Continue', $options);
 	}
 
 	/**
@@ -1533,7 +1552,6 @@ class Installer {
 			$type = 'text';
 			$pattern = "pattern='[-_a-z0-9]{2,50}' ";
 			if($name == 'admin_name') $width = ($width*2);
-			//$note = "<small class='detail' style='font-weight: normal;'>(a-z 0-9)</small>";
 			$note = "<span class='uk-text-small uk-text-muted'>(a-z 0-9)</span>";
 		}
 		$inputWidth = $width - 15; 
