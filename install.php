@@ -154,8 +154,11 @@ class Installer {
 	 *
 	 */
 	protected function checkFunction($name, $label) {
-		if(function_exists($name)) $this->ok("$label"); 
-			else $this->err("Fail: $label"); 
+		if(function_exists($name)) {
+			$this->ok("$label");
+		} else {
+			$this->err("Fail: $label");
+		}
 	}
 
 	/**
@@ -236,6 +239,7 @@ class Installer {
 	
 		$path = rtrim(str_replace('install.php', '', $_SERVER['REQUEST_URI']), '/') . '/';
 		$url = htmlspecialchars($path, ENT_QUOTES, 'UTF-8') . 'site-name/';
+		$angleUpIcon = $this->icon('angle-up', false);
 			
 		echo "
 			<p>
@@ -254,7 +258,7 @@ class Installer {
 				</select>
 			</p>
 			<p class='detail'>
-				<i class='fa fa-angle-up'></i> 
+				$angleUpIcon
 				Select an installation profile to see more information.
 			</p>
 			$out
@@ -479,8 +483,8 @@ class Installer {
 		
 		$this->input('dbName', 'DB Name', $values['dbName']); 
 		$this->input('dbUser', 'DB User', $values['dbUser']);
-		$this->input('dbPass', 'DB Pass', $values['dbPass'], false, 'password', false); 
-		$this->input('dbHost', 'DB Host', $values['dbHost'], false); 
+		$this->input('dbPass', 'DB Pass', $values['dbPass'], array('type' => 'password', 'required' => false)); 
+		$this->input('dbHost', 'DB Host', $values['dbHost']); 
 		$this->input('dbPort', 'DB Port', $values['dbPort']);
 	
 		$this->select('dbCharset', 'DB Charset', $values['dbCharset'], array('utf8', 'utf8mb4'));
@@ -546,7 +550,7 @@ class Installer {
 		$this->p("Permissions must be 3 digits each. Should you opt to use the defaults provided, you can also adjust these permissions later if desired by editing <u>/site/config.php</u>.", "detail");
 
 		$this->input('chmodDir', 'Directories', $values['chmodDir']); 
-		$this->input('chmodFile', 'Files', $values['chmodFile'], true); 
+		$this->input('chmodFile', 'Files', $values['chmodFile'], array('clear' => true)); 
 
 		if($cgi) {
 			$this->p(
@@ -583,11 +587,11 @@ class Installer {
 		$yesChecked = empty($noChecked) ? "checked='checked'" : "";
 		$this->p(
 			"<label>" . 
-				"<input type='radio' name='debugMode' $yesChecked value='1'> <strong>Enabled</strong> " . 
+				"<input type='radio' class='uk-radio' name='debugMode' $yesChecked value='1'> <strong>Enabled</strong> " . 
 				"<span class='uk-text-small uk-text-muted'>(recommended while sites are in development or while testing ProcessWire)</span>" . 
 			"</label><br />" .
 			"<label>" . 
-				"<input type='radio' name='debugMode' $noChecked value='0'> <strong>Disabled</strong> " . 
+				"<input type='radio' class='uk-radio' name='debugMode' $noChecked value='0'> <strong>Disabled</strong> " . 
 				"<span class='uk-text-small uk-text-muted'>(recommended once a site goes live or becomes publicly accessible)</span>" . 
 			"</label> " 
 		);
@@ -1039,8 +1043,11 @@ class Installer {
 				$result = $this->copyRecursive($pathname, "./site/assets/$dirname/"); 
 			}
 
-			if($result) $this->ok("Imported: $pathname => ./site/assets/$dirname/"); 
-				else $this->err("Error Importing: $pathname => ./site/assets/$dirname/"); 
+			if($result) {
+				$this->ok("Imported: $pathname => ./site/assets/$dirname/");
+			} else {
+				$this->err("Error Importing: $pathname => ./site/assets/$dirname/");
+			}
 			
 		}
 	}
@@ -1108,13 +1115,13 @@ class Installer {
 		$clean = array();
 
 		foreach($values as $key => $value) {
-			if($wire && $wire->input->post->$key) $value = $wire->input->post->$key;
+			if($wire && $wire->input->post($key)) $value = $wire->input->post($key);
 			$value = htmlentities($value, ENT_QUOTES, "UTF-8"); 
 			$clean[$key] = $value;
 		}
 
 		$this->sectionStart("fa-sign-in Admin Panel");
-		$this->input("admin_name", "Admin Login URL", $clean['admin_name'], false, "name"); 
+		$this->input("admin_name", "Admin Login URL", $clean['admin_name'], array('type' => 'name')); 
 		$this->clear();
 		
 		$this->p(
@@ -1128,10 +1135,10 @@ class Installer {
 			"You will use this account to login to your ProcessWire admin. It will have superuser access, so please make sure " . 
 			"to create a <a target='_blank' href='https://en.wikipedia.org/wiki/Password_strength'>strong password</a>."
 		);
-		$this->input("username", "User", $clean['username'], false, "name"); 
-		$this->input("userpass", "Password", $clean['userpass'], false, "password"); 
-		$this->input("userpass_confirm", "Password <small class='detail'>(again)</small>", $clean['userpass_confirm'], false, "password"); 
-		$this->input("useremail", "Email Address", $clean['useremail'], true, "email"); 
+		$this->input("username", "User", $clean['username'], array('type' => 'name')); 
+		$this->input("userpass", "Password", $clean['userpass'], array('type' => 'password')); 
+		$this->input("userpass_confirm", "Password <small class='detail'>(again)</small>", $clean['userpass_confirm'], array('type' => 'password')); 
+		$this->input("useremail", "Email Address", $clean['useremail'], array('clear' => true, 'type' => 'email')); 
 		$this->p(
 			"fa-warning Please remember the password you enter above as you will not be able to retrieve it again.", 
 			array('class' => 'detail', 'style' => 'margin-top:0')
@@ -1302,6 +1309,8 @@ class Installer {
 		$this->ok("User account saved: <b>{$user->name}</b>"); 
 
 		$this->sectionStop();
+		
+		$this->finish($wire, $user); 
 
 		$this->sectionStart("fa-life-buoy Complete &amp; Secure Your Installation");
 		$this->getRemoveableItems(false, true); 
@@ -1313,7 +1322,7 @@ class Installer {
 			
 		$this->p(
 			"<a target='_blank' href='https://processwire.com/docs/security/'>" . 
-			"Lean more about securing your ProcessWire installation <i class='fa fa-angle-right'></i></a>"
+			"Lean more about securing your ProcessWire installation " . $this->icon('angle-right', false) . "</a>"
 		);
 		$this->sectionStop();
 		
@@ -1346,12 +1355,43 @@ class Installer {
 
 	}
 
+	/**
+	 * Process custom theme finish.php file
+	 * 
+	 * @param ProcessWire $wire
+	 * @param User $user
+	 * 
+	 */
+	protected function finish($wire, $user) {
+		$file = __DIR__ . '/site/install/finish.php';
+		if(is_file($file)) {
+			$fuel = array_merge($wire->wire('all')->getArray(), array('user' => $user));
+			$installer = $this;
+			if($installer) {} // ignore
+			extract($fuel);
+			include($file);
+		}
+	}
+
 	/******************************************************************************************************************
 	 * OUTPUT FUNCTIONS
 	 *
 	 */
 
 	/**
+	 * @param string $str
+	 * @param string $type
+	 * @param string $icon
+	 * 
+	 */
+	protected function alert($str, $type = 'primary', $icon = 'check') {
+		$icon = $this->icon($icon);
+		echo "\n<div class='uk-alert uk-alert-$type'>$icon $str</div>";
+	}
+
+	/**
+	 * Status/ok alert
+	 * 
 	 * @param string $str
 	 * @param string $icon
 	 * 
@@ -1360,11 +1400,13 @@ class Installer {
 		if($this->inSection) {
 			$this->ok($str);
 		} else {
-			echo "\n<div class='uk-alert uk-alert-primary'><i class='fa fa-fw fa-$icon'></i> $str</div>";
+			$this->alert($str, 'primary', $icon);
 		}
 	}
 	
 	/**
+	 * Warning alert
+	 * 
 	 * @param string $str
 	 *
 	 */
@@ -1373,11 +1415,13 @@ class Installer {
 			$this->warn($str);
 		} else {
 			$this->numErrors++;
-			echo "\n<div class='uk-alert uk-alert-warning'><i class='fa fa-fw fa-exclamation-triangle'></i> $str</div>";
+			$this->alert($str, 'warning', 'exclamation-triangle');
 		}
 	}
 	
 	/**
+	 * Error alert
+	 * 
 	 * @param string $str
 	 *
 	 */
@@ -1386,7 +1430,7 @@ class Installer {
 			$this->err($str);
 		} else {
 			$this->numErrors++;
-			echo "\n<div class='uk-alert uk-alert-danger'><i class='fa fa-fw fa-exclamation-triangle'></i> $str</div>";
+			$this->alert($str, 'danger', 'exclamation-triangle');
 		}
 	}
 	
@@ -1397,13 +1441,13 @@ class Installer {
 	 * @return bool
 	 *
 	 */
-	protected function err($str) {
+	public function err($str) {
 		if(!$this->inSection) {
 			$this->alertErr($str);
 		} else {
 			$this->numErrors++;
-			//echo "\n<li class='ui-state-error'><i class='fa fa-exclamation-triangle'></i> $str</li>";
-			echo "\n<div class='uk-text-danger'><i class='fa fa-fw fa-exclamation-triangle'></i> $str</div>";
+			$icon = $this->icon('exclamation-triangle');
+			echo "\n<div class='uk-text-danger'>$icon $str</div>";
 		}
 		return false;
 	}
@@ -1415,32 +1459,69 @@ class Installer {
 	 * @return bool
 	 *
 	 */
-	protected function warn($str) {
+	public function warn($str) {
 		if(!$this->inSection) {
 			$this->alertWarn($str);
 		} else {
 			$this->numErrors++;
-			//echo "\n<li class='ui-state-error ui-priority-secondary'><i class='fa fa-asterisk'></i> $str</li>";
-			echo "\n<div class='uk-text-danger'><i class='fa fa-fw fa-asterisk'></i> $str</div>";
+			$icon = $this->icon('asterisk');
+			echo "\n<div class='uk-text-danger'>$icon $str</div>";
 		}
 		return false;
 	}
 	
 	/**
-	 * Report success
+	 * Report a status/ok message
 	 * 
 	 * @param string $str
 	 * @param string $icon
 	 * @return bool
 	 *
 	 */
-	protected function ok($str, $icon = 'check') {
+	public function ok($str, $icon = 'check') {
 		if(!$this->inSection) {
 			$this->alertOk($str);
 		} else {
-			echo "\n<div class=''><i class='fa fa-fw fa-$icon'></i> $str</div>";
+			$icon = $this->icon($icon);
+			echo "\n<div>$icon $str</div>";
 		}
 		return true; 
+	}
+
+	/**
+	 * Return markup for an icon
+	 * 
+	 * @param string $name
+	 * @param bool $fw Fixed width?
+	 * @return string
+	 * 
+	 */
+	public function icon($name, $fw = true) {
+		if(strpos($name, 'icon-') === 0 || strpos($name, 'fa-') === 0) {
+			list(,$name) = explode('-', $name, 2);
+		}
+		$class = 'fa' . ($fw ? ' fa-fw' : '');
+		return "<i class='$class fa-$name'></i>";
+	}
+
+	/**
+	 * Given label with 'icon-name' or 'fa-name' at the beginning convert to rendered icon with label
+	 *
+	 * @param string $label
+	 * @param string $icon
+	 * @return string
+	 *
+	 */
+	protected function iconize($label, $icon = '') {
+		if(empty($icon)) {
+			if(strpos($label, 'fa-') === 0 || strpos($label, 'icon-') === 0) {
+				list($icon, $label) = explode(' ', $label, 2);
+			}
+		}
+		if($icon) {
+			$label = $this->icon($icon) . ' ' . $label;
+		}
+		return $label;
 	}
 
 	/**
@@ -1450,7 +1531,7 @@ class Installer {
 	 * @param array $options
 	 *
 	 */
-	protected function btn($label, array $options = array()) {
+	public function btn($label, array $options = array()) {
 		$defaults = array(
 			'name' => 'step',
 			'value' => '0',
@@ -1468,11 +1549,12 @@ class Installer {
 			$options['type'] = 'button';
 			echo "<a href='$options[href]' target='_blank'>";
 		}
+		$icon = $this->icon($options['icon'], false); 
 		echo "\n" . 
 			"<p>" . 
 			"<button name='$options[name]' type='$options[type]' value='$options[value]' " . 
 			"class='ui-button ui-widget ui-state-default $options[class] ui-corner-all'>" . 
-			"<span class='ui-button-text'><i class='fa fa-$options[icon]'></i> $label</span>" . 
+			"<span class='ui-button-text'>$icon $label</span>" . 
 			"</button>" . 
 			"</p>";
 		if($options['href']) echo "</a>";
@@ -1485,7 +1567,7 @@ class Installer {
 	 * @param array $options
 	 * 
 	 */
-	protected function btnContinue(array $options = array()) {
+	public function btnContinue(array $options = array()) {
 		$this->btn('Continue', $options);
 	}
 
@@ -1496,15 +1578,9 @@ class Installer {
 	 * @param string $icon
 	 *
 	 */
-	protected function h($label, $icon = '') {
-		if(strpos($label, 'fa-') === 0) {
-			list($icon, $label) = explode(' ', $label, 2);
-		}
-		if($icon) {
-			if(strpos($icon, 'fa-') !== 0) $icon = "fa-$icon";
-			$icon = "<i class='fa fa-fw $icon'></i> ";
-		}
-		echo "\n<h2>$icon$label</h2>";
+	public function h($label, $icon = '') {
+		$label = $this->iconize($label, $icon);
+		echo "\n<h2>$label</h2>";
 	}
 
 	/**
@@ -1514,51 +1590,55 @@ class Installer {
 	 * @param string|array $class Class name, or array of attributes
 	 *
 	 */
-	protected function p($text, $class = '') {
-		$icon = '';
-		if(strpos($text, 'fa-') === 0) list($icon, $text) = explode(' ', $text, 2);
-		if($icon) $icon = "<i class='fa fa-fw $icon'></i> ";
+	public function p($text, $class = '') {
+		$text = $this->iconize($text);
 		if(is_array($class)) {
 			echo "\n<p";
 			foreach($class as $k => $v) echo " $k='$v'";
-			echo ">$icon$text</p>";
+			echo ">$text</p>";
 		} else if($class) {
-			echo "\n<p class='$class'>$icon$text</p>";
+			echo "\n<p class='$class'>$text</p>";
 		} else {
-			echo "\n<p>$icon$text</p>";
+			echo "\n<p>$text</p>";
 		}
 	}
 
 	/**
 	 * Output an <input type='text'>
-	 * 
+	 *
 	 * @param string $name
 	 * @param string $label
 	 * @param string $value
-	 * @param bool $clear
-	 * @param string $type
-	 * @param bool $required
+	 * @param array $options
 	 *
 	 */
-	protected function input($name, $label, $value, $clear = false, $type = "text", $required = true) {
-		$width = 150; 
-		$required = $required ? "required='required'" : "";
+	public function input($name, $label, $value, array $options = array()) {
+		$defaults = array(
+			'clear' => false, 
+			'type' => 'text', 
+			'required' => true,
+			'width' => 150, 
+		);
+		$options = array_merge($defaults, $options);
+		$width = $options['width'];
+		$required = $options['required'] ? "required='required'" : "";
 		$pattern = '';
 		$note = '';
-		if($type == 'email') {
-			$width = ($width*2); 
+		if($options['type'] === 'email') {
+			$width = ($width*2);
 			$required = '';
-		} else if($type == 'name') {
-			$type = 'text';
+		} else if($options['type'] === 'name') {
+			$options['type'] = 'text';
 			$pattern = "pattern='[-_a-z0-9]{2,50}' ";
 			if($name == 'admin_name') $width = ($width*2);
 			$note = "<span class='uk-text-small uk-text-muted'>(a-z 0-9)</span>";
 		}
-		$inputWidth = $width - 15; 
-		$value = htmlentities($value, ENT_QUOTES, "UTF-8"); 
+		$inputWidth = $width - 15;
+		$value = htmlentities($value, ENT_QUOTES, "UTF-8");
 		echo "\n<p style='width: {$width}px; float: left; margin-top: 0;'><label>$label $note<br />";
-		echo "<input class='uk-input' type='$type' name='$name' value='$value' $required $pattern style='width: {$inputWidth}px;' /></label></p>";
-		if($clear) $this->clear();
+		echo "<input class='uk-input' type='$options[type]' name='$name' value='$value' $required $pattern style='width:{$inputWidth}px;' />";
+		echo "</label></p>";
+		if($options['clear']) $this->clear();
 	}
 	
 	/**
@@ -1567,11 +1647,11 @@ class Installer {
 	 * @param string $name
 	 * @param string $label
 	 * @param string $value
-	 * @param array $options
+	 * @param array $options Array of selectable options in format [ 'value' => 'label' ]
 	 * @param int $width
 	 *
 	 */
-	protected function select($name, $label, $value, array $options, $width = 150) {
+	public function select($name, $label, $value, array $options, $width = 150) {
 		
 		if($width) {
 			$inputWidth = $width - 15;
@@ -1594,7 +1674,13 @@ class Installer {
 		echo "\n\t</select>";
 		echo "\n</p>";
 	}
-	
+
+	/**
+	 * Render a timezone select
+	 * 
+	 * @param $value
+	 * 
+	 */
 	protected function selectTimezone($value) {
 		echo "\n<p style='width:240px'>";
 		echo "\n\t<select class='uk-select' name='timezone'>";
@@ -1607,8 +1693,17 @@ class Installer {
 		}
 		echo "\n\t</select>\n</p>";
 	}
-	
-	protected function textarea($name, $label, $value, $rows = 0) {
+
+	/**
+	 * Render a textarea input
+	 * 
+	 * @param string $name
+	 * @param string $label
+	 * @param string $value
+	 * @param int $rows
+	 * 
+	 */
+	public function textarea($name, $label, $value, $rows = 0) {
 		$rows = $rows ? " rows='$rows'" : "";
 		$value = htmlentities($value, ENT_QUOTES, 'UTF-8');
 		echo "\n<p>";
@@ -1616,29 +1711,53 @@ class Installer {
 		echo "\n\t<textarea class='uk-textarea' id='textarea_$name' name='$name'$rows style='width: 100%;'>$value</textarea>";
 		echo "\n</p>";
 	}
-	
-	protected function sectionStart($headline = '', $type = 'muted') {
+
+	/**
+	 * Start section
+	 * 
+	 * @param string $headline
+	 * @param string $type
+	 * 
+	 */
+	public function sectionStart($headline = '', $type = 'muted') {
 		echo "\n<div class='uk-section uk-section-small uk-section-$type uk-padding uk-margin'>";
 		echo "\n\t<div class='uk-container'>";
-		$icon = '';
-		if(strpos($headline, 'fa-') === 0) {
-			list($icon, $headline) = explode(' ', $headline, 2);
-			$icon = "<i class='fa fa-fw $icon'></i> ";
+		if($headline) {
+			$headline = $this->iconize($headline);
+			echo "<h2>$headline</h2>";
 		}
-		if($headline) echo "<h2>$icon$headline</h2>"; 
 		$this->inSection = true;
 	}
-	
-	protected function sectionStop() {
+
+	/**
+	 * Stop section
+	 * 
+	 */
+	public function sectionStop() {
 		echo "\n\t</div>\n</div>";
 		$this->inSection = false;
 	}
-	
-	protected function clear() {
+
+	/**
+	 * Clear floated elements
+	 * 
+	 */
+	public function clear() {
 		echo "\n<div style='clear: both;'></div>";
 	}
-	
-	protected function post($key, $sanitizer = '') {
+
+	/**
+	 * Get a POST variable, optionally sanitized name sanitizer
+	 * 
+	 * Options for $sanitizer argument:
+	 * int, intSigned, text, textarea, string, pageName, name, fieldName, bool, array
+	 * 
+	 * @param string $key
+	 * @param string $sanitizer
+	 * @return int|mixed|null|string
+	 * 
+	 */
+	public function post($key, $sanitizer = '') {
 		
 		$value = isset($_POST[$key]) ? $_POST[$key] : null;
 		
@@ -1720,7 +1839,7 @@ class Installer {
 	 * @return bool
 	 *
 	 */
-	protected function mkdir($path, $showNote = true, $block = false) {
+	public function mkdir($path, $showNote = true, $block = false) {
 		if(self::TEST_MODE) return true;
 		$path = rtrim($path, '/') . '/';
 		$isDir = is_dir($path);
@@ -1751,8 +1870,16 @@ class Installer {
 		}
 		return $result;
 	}
-	
-	protected function copyFile($src, $dst) {
+
+	/**
+	 * Copy a file
+	 * 
+	 * @param string $src
+	 * @param string $dst
+	 * @return bool
+	 * 
+	 */
+	public function copyFile($src, $dst) {
 		if(!@copy($src, $dst)) {
 			$this->alertErr("Unable to copy $src => $dst (please copy manually if possible)"); 
 			return false;
@@ -1760,8 +1887,16 @@ class Installer {
 		chmod($dst, octdec($this->chmodFile));
 		return true;
 	}
-	
-	protected function renameFile($src, $dst) {
+
+	/**
+	 * Rename a file
+	 * 
+	 * @param string $src
+	 * @param string $dst
+	 * @return bool
+	 * 
+	 */
+	public function renameFile($src, $dst) {
 		if(!@rename($src, $dst)) {
 			$this->alertErr("Unable to rename $src => $dst (please rename manually if possible)");
 			return false;
@@ -1779,7 +1914,7 @@ class Installer {
 	 * @return bool
 	 *
 	 */
-	protected function copyRecursive($src, $dst, $overwrite = true) {
+	public function copyRecursive($src, $dst, $overwrite = true) {
 
 		if(self::TEST_MODE) return true;
 
