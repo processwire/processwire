@@ -251,7 +251,8 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 		
 		return parent::___executeNavJSON($options); 
 	}
-	
+
+	/*
 	public function x___executeNavJSON(array $options = array()) {
 
 		if(!isset($options['items'])) {
@@ -289,6 +290,7 @@ class ProcessPageType extends Process implements ConfigurableModule, WirePageEdi
 
 		return parent::___executeNavJSON($options);
 	}
+	*/
 
 	/**
 	 * Get an instanceof ProcessPageLister or null if not applicable
