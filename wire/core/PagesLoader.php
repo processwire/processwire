@@ -662,7 +662,11 @@ class PagesLoader extends Wire {
 
 			foreach($row as $key => $value) {
 				if(strpos($key, '__')) {
-					$page->setFieldValue($key, $value, false);
+					if($value === null) {
+						$row[$key] = 'null'; // ensure detected by later isset in foreach($joinFields)
+					} else {
+						$page->setFieldValue($key, $value, false);
+					}
 				} else {
 					$page->setForced($key, $value);
 				}
