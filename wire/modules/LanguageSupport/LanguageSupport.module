@@ -725,25 +725,25 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$language = $event->arguments(0);	
 		$field = $event->arguments(1);
 		$value = $event->arguments(2);
+		$languages = $this->wire()->languages;
 		$event->return = $page; 
 		
 		if(!is_object($language)) {
 			if(ctype_digit("$language")) $language = (int) $language; 
-			$language = $this->wire('languages')->get($language); 
+			$language = $languages ? $languages->get($language) : null; 
 		}
 		
 		if(!$language instanceof Language) throw new WireException('Unknown language set to Page::setLanguageValue'); 
 		
-		if($field == 'name') {
-			// set page name
-			$languages = $this->wire()->languages;
+		if($field === 'name' || $field === 'status') {
+			// set page name or status
 			if($languages && !$languages->hasPageNames()) {
-				throw new WireException("Please install LanguageSupportPageNames module before attempting to set multi-language names/paths/URLs."); 
+				throw new WireException("Please install LanguageSupportPageNames module before attempting to set multi-language names/paths/status/URLs."); 
 			}
 			if($language->isDefault()) {
-				$page->set("name", $value); 
+				$page->set($field, $value); 
 			} else {
-				$page->set("name$language->id", $value); 
+				$page->set("$field$language->id", $value); 
 			}
 			
 		} else {
