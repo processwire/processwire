@@ -8,7 +8,7 @@
  *
  * This is the most used object in the ProcessWire API. 
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
  * https://processwire.com
  *
  * @link http://processwire.com/api/variables/pages/ Offical $pages Documentation
@@ -18,9 +18,22 @@
  * 
  * PROPERTIES
  * ==========
- * @property bool $cloning Whether or not a clone() operation is currently active #pw-internal
- * @property bool $outputFormatting Current default output formatting mode. #pw-internal
- * @property bool $autojoin Whether or not autojoin is allowed (typically true) #pw-internal
+ * @property-read bool $autojoin Whether or not autojoin is allowed (typically true) #pw-internal
+ * @property-read bool $cloning Whether or not a clone() operation is currently active #pw-internal
+ * @property-read bool $outputFormatting Current default output formatting mode. #pw-internal
+ * @property-read bool $of Current default output formatting mode, alias of outputFormatting property. #pw-internal 3.0.191+
+ * @property-read PagesLoader $loader PagesLoader instance #pw-internal 3.0.191+
+ * @property-read PagesEditor $editor PagesEditor instance #pw-internal 3.0.191+
+ * @property-read PagesNames $names PagesNames instance #pw-internal 3.0.191+
+ * @property-read PagesLoaderCache $cacher PagesLoaderCache instance #pw-internal 3.0.191+
+ * @property-read PagesTrash $trasher PagesTrash instance #pw-internal 3.0.191+
+ * @property-read PagesRaw $raw PagesRaw instance #pw-internal 3.0.191+
+ * @property-read PagesRequest $request PagesRequest instance #pw-internal 3.0.191+
+ * @property-read PagesPathFinder $pathFinder PagesPathFinder instance #pw-internal 3.0.191+
+ * @property-read PagesType[] $types Array of all pages type managers. #pw-internal 3.0.191+
+ * @property-read Page $newPage Returns new Page instance. #pw-internal 3.0.191+
+ * @property-read Page $newPageArray Returns new PageArray instance. #pw-internal 3.0.191+
+ * @property-read Page $newNullPage Returns new NullPage instance. #pw-internal 3.0.191+
  * 
  * HOOKABLE METHODS
  * ================
@@ -1659,9 +1672,26 @@ class Pages extends Wire {
 	 *
 	 */
 	public function __get($key) {
-		if($key == 'outputFormatting') return $this->loader->getOutputFormatting(); 
-		if($key == 'cloning') return $this->editor()->isCloning(); 
-		if($key == 'autojoin') return $this->loader->getAutojoin();
+		switch($key) {
+			// A-Z
+			case 'autojoin': return $this->loader->getAutojoin();
+			case 'cacher': return $this->cacher();
+			case 'cloning': return $this->editor()->isCloning();
+			case 'editor': return $this->editor();
+			case 'loader': return $this->loader();
+			case 'names': return $this->names();
+			case 'newNullPage': return $this->newNullPage();
+			case 'newPage': return $this->newPage();
+			case 'newPageArray': return $this->newPageArray();
+			case 'of': return $this->of();
+			case 'outputFormatting': return $this->loader->getOutputFormatting();
+			case 'parents': return $this->parents();
+			case 'pathFinder': return $this->pathFinder();
+			case 'raw': return $this->raw();
+			case 'request': return $this->request();
+			case 'trasher': return $this->trasher();
+			case 'types': return $this->types();
+		}
 		return parent::__get($key); 
 	}
 
@@ -1860,11 +1890,13 @@ class Pages extends Wire {
 	public function newPage($options = array()) {
 		
 		if(empty($options)) return $this->wire(new Page());
-	
+
+		$id = isset($options['id']) && $options['id'] > 0 ? (int) $options['id'] : null;
 		$options = $this->editor()->newPageOptions($options);
 		$template = isset($options['template']) ? $options['template'] : null;
-		$parent = isset($options['parent']) ? $options['parent']  : null;
+		$parent = isset($options['parent']) ? $options['parent'] : null;
 		$class = empty($options['pageClass']) ? 'Page' : $options['pageClass'];
+		if($id !== null) $options['id'] = $id;
 
 		unset($options['template'], $options['parent'], $options['pageClass']); 
 	
@@ -1873,7 +1905,7 @@ class Pages extends Wire {
 		$page = $this->wire(new $class($template));
 		
 		if(!$page instanceof Page) $page = $this->wire(new Page($template));
-		if($parent && $parent->id) $page->parent = $parent;
+		if($parent) $page->parent = $parent;
 		if(count($options)) $page->setArray($options);
 		
 		return $page;
