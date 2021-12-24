@@ -1558,6 +1558,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			$field->pattern = '^[_a-zA-Z][_a-zA-Z0-9]*$';
 			$field->placeholder = 'a-z A-Z 0-9 _';
 			$field->icon = 'code';
+			$field->attr('required', 'required');
 			$nameField = $field;
 			$form->add($field); 
 
@@ -1566,6 +1567,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			$field->label = $this->labels['type'];
 			$field->attr('name', 'type'); 
 			$field->required = true; 
+			$field->attr('required', 'required');
 			$field->columnWidth = $languages ? 50 : 34;
 			$field->icon = 'database';
 			if($this->field->type) {
