@@ -1891,12 +1891,10 @@ class Pages extends Wire {
 		
 		if(empty($options)) return $this->wire(new Page());
 
-		$id = isset($options['id']) && $options['id'] > 0 ? (int) $options['id'] : null;
 		$options = $this->editor()->newPageOptions($options);
 		$template = isset($options['template']) ? $options['template'] : null;
 		$parent = isset($options['parent']) ? $options['parent'] : null;
 		$class = empty($options['pageClass']) ? 'Page' : $options['pageClass'];
-		if($id !== null) $options['id'] = $id;
 
 		unset($options['template'], $options['parent'], $options['pageClass']); 
 	

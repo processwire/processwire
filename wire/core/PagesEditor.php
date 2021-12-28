@@ -1873,7 +1873,11 @@ class PagesEditor extends Wire {
 		if($template) $options['template'] = $template;
 		if($class) $options['pageClass'] = $class;
 		
-		unset($options['id']); // just in case it was there
+		if(isset($options['id']) && ctype_digit("$options[id]") && (int) $options['id'] > 0) {
+			$options['id'] = (int) $options['id'];
+		} else {
+			unset($options['id']);
+		}
 
 		return $options;
 	}
