@@ -405,7 +405,7 @@ class PagesRawFinder extends Wire {
 		if(is_array($selector)) {
 			$val = reset($selector);
 			$key = key($selector);
-			if(ctype_digit("$key") && ctype_digit("$val")) $this->selectorIsPageIDs = true;
+			if(ctype_digit("$key") && !is_array($val) && ctype_digit("$val")) $this->selectorIsPageIDs = true;
 		} else {
 			$selectorString = (string) $selector;
 		}
@@ -1049,7 +1049,7 @@ class PagesRawFinder extends Wire {
 		}
 
 		// if selector is not array of page IDs then let pages.findIDs handle it
-		if(!is_array($selector) || !isset($selector[0]) || !ctype_digit((string) $selector[0])) {
+		if(!is_array($selector) || !isset($selector[0]) || is_array($selector[0]) || !ctype_digit((string) $selector[0])) {
 			return $this->pages->findIDs($selector, $options);
 		}
 		
