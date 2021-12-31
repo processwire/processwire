@@ -155,7 +155,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			
 			if(strpos($repeaterTitle, '{') !== false) {
 				// formatted {label}
-				$out = $page->getMarkup($repeaterTitle);
+				$out = $page->getText($repeaterTitle, true);
 
 			} else if(!$hasCnt && $this->wire()->sanitizer->fieldName($repeaterTitle) === $repeaterTitle) {
 				// just a single field name
