@@ -597,6 +597,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 	 * @return Page[]|\ArrayObject|PageArrayIterator
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		if($this->lazyLoad) return new PageArrayIterator($this->data, $this->finderOptions);	
 		return parent::getIterator();

@@ -386,6 +386,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		return $this->getAll()->find($selectors); 
 	}
 
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return $this->getAll();
 	}

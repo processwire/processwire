@@ -256,6 +256,7 @@ class Permissions extends PagesType {
 	 * @return \ArrayObject
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return parent::getIterator();
 	}

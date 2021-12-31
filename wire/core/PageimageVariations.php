@@ -45,6 +45,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 		parent::__construct();
 	}
 
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return $this->find();
 	}
@@ -58,6 +59,7 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 	 * @return int
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function count($options = array()) {
 		if($this->variations) {
 			$count = $this->variations->count();
@@ -227,9 +229,26 @@ class PageimageVariations extends Wire implements \IteratorAggregate, \Countable
 		);
 
 		foreach($this->pageimage->extras() as $name => $extra) {
-			if(!$extra->exists()) continue;
-			$info["{$name}Url"] = $extra->url(false);
-			$info["{$name}Path"] = $extra->filename();
+			
+			if($extra->exists()) {
+				$info["{$name}Url"] = $extra->url(false);
+				$info["{$name}Path"] = $extra->filename();
+				continue;
+			} 
+			
+			$f = "$basename.$extra->ext"; // useSrcExt, i.e. file.png.webp
+			if(is_readable($this->pagefiles->path . $f)) {
+				$info["{$name}Url"] = $this->pagefiles->url . $f;
+				$info["{$name}Path"] = $this->pagefiles->path . $f;
+				continue;
+			}
+			
+			$f = basename($basename, '.' . $this->pageimage->ext()) . ".$extra->ext";
+			if(is_readable($this->pagefiles->path . $f)) {
+				$info["{$name}Url"] = $this->pagefiles->url . $f;
+				$info["{$name}Path"] = $this->pagefiles->path . $f;
+				continue;
+			}
 		}
 
 		if(empty($info['crop'])) {

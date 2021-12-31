@@ -81,6 +81,7 @@ class FilenameArray implements \IteratorAggregate, \Countable {
 	 * @return \ArrayObject
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return new \ArrayObject($this->data); 
 	}
@@ -138,6 +139,7 @@ class FilenameArray implements \IteratorAggregate, \Countable {
 	 * @return int
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function count() {
 		return count($this->data);
 	}

@@ -378,6 +378,7 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * @return \ArrayObject
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return new \ArrayObject($this->data); 
 	}
@@ -482,6 +483,7 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * @param int|string|array|object $value Value of item.
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function offsetSet($key, $value) {
 		$this->set($key, $value);
 	}
@@ -495,6 +497,7 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * @return int|string|array|object Value of item requested, or false if it doesn't exist.
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function offsetGet($key) {
 		$value = $this->get($key);
 		return is_null($value) ? false : $value;
@@ -511,6 +514,7 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * @return bool True if item existed and was unset. False if item didn't exist.
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function offsetUnset($key) {
 		if($this->__isset($key)) {
 			$this->remove($key);
@@ -519,7 +523,6 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 			return false;
 		}
 	}
-
 
 	/**
 	 * Determines if the given index exists in this WireData.
@@ -532,6 +535,7 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * @return bool True if the item exists, false if not.
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function offsetExists($key) {
 		return $this->__isset($key);
 	}

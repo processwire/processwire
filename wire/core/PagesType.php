@@ -494,6 +494,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 * #pw-internal
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return $this->find("id>0, sort=name", array(
 			'caller' => $this->className() . '.getIterator()'

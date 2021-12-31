@@ -123,6 +123,7 @@ class WireDatabasePDOStatement extends \PDOStatement {
 	 * @return bool
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function bindValue($parameter, $value, $data_type = \PDO::PARAM_STR) {
 		$result = parent::bindValue($parameter, $value, $data_type);
 		if($this->debugMode && strpos($parameter, ':') === 0) {
@@ -141,6 +142,7 @@ class WireDatabasePDOStatement extends \PDOStatement {
 	 * @throws \PDOException
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function execute($input_parameters = NULL) {
 		if($this->debugMode) {
 			return $this->executeDebug($input_parameters);

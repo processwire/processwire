@@ -130,6 +130,7 @@ class Fuel implements \IteratorAggregate {
 		return isset($this->data[$key]) ? $this->data[$key] : null;
 	}
 
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return new \ArrayObject($this->data); 
 	}

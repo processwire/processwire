@@ -862,7 +862,7 @@ class PageTraversal {
 
 		if($options === true || (is_array($options) && !empty($options['http']))) {
 			if(strpos($url, '://') === false) {
-				$url = ($https ? 'https://' : 'http://') . $config->httpHost . $url;
+				$url = ($https || $config->https ? 'https://' : 'http://') . $config->httpHost . $url;
 			}
 		}
 

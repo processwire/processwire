@@ -243,6 +243,7 @@ class PagerNav implements \IteratorAggregate {
 		return $this->pager; 	
 	}
 
+	#[\ReturnTypeWillChange] 
 	public function getIterator() { return new \ArrayObject($this->getPager()); }
 	public function getFirstItem() { return $this->firstItem; }
 	public function getItemsPerPage() { return $this->itemsPerPage; }

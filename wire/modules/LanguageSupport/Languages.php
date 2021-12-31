@@ -251,6 +251,7 @@ class Languages extends PagesType {
 	 * @return PageArray
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		if($this->languages && count($this->languages)) return $this->languages; 
 		$languages = $this->wire('pages')->newPageArray();

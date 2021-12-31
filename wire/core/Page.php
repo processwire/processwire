@@ -2922,6 +2922,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @see Page::hasChildren(), Page::numChildren()
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function count() {
 		if($this->outputFormatting) return $this->numChildren(true);
 		return $this->numChildren(false);
@@ -2945,6 +2946,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * @return \ArrayObject
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		$a = $this->settings; 
 		$template = $this->template();

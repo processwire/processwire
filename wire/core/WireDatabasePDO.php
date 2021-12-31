@@ -1551,6 +1551,7 @@ class WireDatabasePDO extends Wire implements WireDatabase {
 	 * 
 	 */
 	public function closeConnection() {
+		$this->pdoLast = null;
 		$this->reader['pdo'] = null;
 		$this->writer['pdo'] = null;
 		$this->reader['init'] = false;

@@ -1401,6 +1401,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 
 			// check for items that resolve to blank
 			if(is_null($key) || (is_string($key) && !strlen(trim($key)))) {
+				// @todo option to allow for these to be sorted regularly
 				$unidentified[] = $item;
 				continue; 
 			}
@@ -1758,6 +1759,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * @return \ArrayObject|Wire[]
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return new \ArrayObject($this->data); 
 	}
@@ -1778,6 +1780,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * @return int
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function count() {
 		return count($this->data); 
 	}
@@ -1793,6 +1796,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * @param Wire|mixed $value Value of item. 
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function offsetSet($key, $value) {
 		$this->set($key, $value); 
 	}
@@ -1806,6 +1810,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * @return Wire|mixed|bool Value of item requested, or false if it doesn't exist. 
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function offsetGet($key) {
 		if($this->offsetExists($key)) {
 			return $this->data[$key];
@@ -1825,6 +1830,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * @return bool True if item existed and was unset. False if item didn't exist. 
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function offsetUnset($key) {
 		if($this->offsetExists($key)) {
 			$this->remove($key); 
@@ -1845,6 +1851,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * @return bool True if the item exists, false if not.
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function offsetExists($key) {
 		return array_key_exists($key, $this->data);
 	}

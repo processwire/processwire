@@ -1372,6 +1372,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * @return InputfieldsArray
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return $this->children(); 
 	}
@@ -1384,6 +1385,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 	 * @return int
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function count() {
 		return count($this->children());
 	}

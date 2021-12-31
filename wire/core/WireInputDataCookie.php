@@ -445,6 +445,7 @@ class WireInputDataCookie extends WireInputData {
 	 * @param mixed $key
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function offsetUnset($key) {
 		if(!$this->allowSetCookie($key)) return;
 		parent::offsetUnset($key);

@@ -387,6 +387,7 @@ class LanguagesPageFieldValue extends Wire implements LanguagesValueInterface, \
 	 * @return \ArrayObject
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return new \ArrayObject($this->data);
 	}

@@ -224,6 +224,7 @@ class Fieldtypes extends WireArray {
 	protected function filterData($selectors, $not = false) { $this->preload(); return parent::filterData($selectors, $not); }
 	public function makeCopy() { $this->preload(); return parent::makeCopy(); }
 	public function makeNew() { $this->preload(); return parent::makeNew(); }
+	#[\ReturnTypeWillChange] 
 	public function getIterator() { $this->preload(); return parent::getIterator(); }
 	public function getNext($item, $strict = true) { $this->preload(); return parent::getNext($item, $strict); }
 	public function getPrev($item, $strict = true) { $this->preload(); return parent::getPrev($item, $strict); }

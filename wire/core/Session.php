@@ -801,6 +801,7 @@ class Session extends Wire implements \IteratorAggregate {
 	 * @return \ArrayObject
 	 *
 	 */
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		$data = $this->sessionInit ? $_SESSION[$this->sessionKey] : $this->data;
 		return new \ArrayObject($data); 
@@ -1291,9 +1292,14 @@ class Session extends Wire implements \IteratorAggregate {
 	 * ~~~~~
 	 * 
 	 * @param string $url URL to redirect to
-	 * @param bool|int $status Specify true for 301 permanent redirect, false for 302 temporary redirect, or 
-	 *   in 3.0.166+ you can also specify the status code (integer) rather than boolean. 
-	 *   Default is 301 (permanent). 
+	 * @param bool|int $status One of the following (or omit for 301):
+	 * - `true` (bool): Permanent redirect (same as 301).
+	 * - `false` (bool): Temporary redirect (same as 302).
+	 * - `301` (int): Permanent redirect using GET. (3.0.166+)
+	 * - `302` (int): “Found”, Temporary redirect using GET. (3.0.166+)
+	 * - `303` (int): “See other”, Temporary redirect using GET. (3.0.166+)
+	 * - `307` (int): Temporary redirect using current request method such as POST (repeat that request). (3.0.166+)
+	 * @see Session::location()
 	 *
 	 */
 	public function ___redirect($url, $status = 301) {
@@ -1354,17 +1360,22 @@ class Session extends Wire implements \IteratorAggregate {
 	}
 
 	/**
-	 * Perform a temporary (302) redirect
+	 * Perform a temporary redirect
 	 * 
 	 * This is an alias of `$session->redirect($url, false);` that sends only the
 	 * location header, which translates to a 302 redirect. 
 	 * 
 	 * @param string $url
+	 * @param int $status One of the following HTTP status codes, or omit for 302 (added 3.0.192): 
+	 * - `302` (int): “Found”, Temporary redirect using GET. (default)
+	 * - `303` (int): “See other”, Temporary redirect using GET.
+	 * - `307` (int): Temporary redirect using current request method such as POST (repeat that request).
 	 * @since 3.0.166 
+	 * @see Session::redirect()
 	 * 
 	 */
-	public function location($url) {
-		$this->redirect($url, false); 
+	public function location($url, $status = 302) {
+		$this->redirect($url, $status); 
 	}
 
 	/**

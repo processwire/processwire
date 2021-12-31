@@ -415,6 +415,7 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 		return $value;
 	}
 
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		if($this->lazy) {
 			$data = $this->getArray();
@@ -424,23 +425,28 @@ class WireInputData extends Wire implements \ArrayAccess, \IteratorAggregate, \C
 		}
 	}
 
+	#[\ReturnTypeWillChange] 
 	public function offsetExists($key) {
 		return isset($this->data[$key]);
 	}
 
+	#[\ReturnTypeWillChange] 
 	public function offsetGet($key) {
 		return $this->__get($key);
 	}
 
+	#[\ReturnTypeWillChange] 
 	public function offsetSet($key, $value) {
 		$this->__set($key, $value);
 	}
 
+	#[\ReturnTypeWillChange] 
 	public function offsetUnset($key) {
 		unset($this->data[$key]);
 		if($this->lazy && isset($this->unlazyKeys[$key])) unset($this->unlazyKeys[$key]); 
 	}
 
+	#[\ReturnTypeWillChange] 
 	public function count() {
 		return count($this->data);
 	}

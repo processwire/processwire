@@ -253,6 +253,7 @@ class WireDataDB extends WireData implements \Countable {
 	 * @return int
 	 * 
 	 */
+	#[\ReturnTypeWillChange] 
 	public function count() {
 		$table = $this->table();
 		$sql = "SELECT COUNT(*) FROM `$table` WHERE source_id=:source_id";
@@ -354,7 +355,8 @@ class WireDataDB extends WireData implements \Countable {
 		$this->wire('database')->exec("DROP TABLE `$table`"); 
 		return true;
 	}
-	
+
+	#[\ReturnTypeWillChange] 
 	public function getIterator() {
 		return new \ArrayObject($this->getArray());
 	}
