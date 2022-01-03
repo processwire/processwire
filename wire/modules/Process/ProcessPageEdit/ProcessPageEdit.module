@@ -2948,7 +2948,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	 * 
 	 */
 	public function getRedirectUrl(array $extras = array()) {
-		$url = $this->redirectUrl;
+		$url = (string) $this->redirectUrl;
 		if(!strlen($url)) $url = "./?id=$this->id";
 		if($this->requestModal && strpos($url, 'modal=') === false) {
 			$extras[] = "modal=$this->requestModal";

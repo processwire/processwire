@@ -443,7 +443,7 @@ class InputfieldToggle extends Inputfield {
 
 		$prevValue = $this->val();
 		$value = $input[$this->name];
-		$intValue = strlen($value) && ctype_digit("$value") ? (int) $value : null;
+		$intValue = strlen("$value") && ctype_digit("$value") ? (int) $value : null;
 		
 		if($value === null && $input["_{$this->name}_"] === null) {
 			// input was not rendered in the submitted post, so should be ignored

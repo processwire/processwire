@@ -958,18 +958,20 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	
 		// rename (currently only used by InputfieldImage)
 		$key = "rename_$id";
-		$rename = $input->$key;
+		$rename = (string) $input->$key;
 		if(strlen($rename) && $rename != $pagefile->basename(false)) {
 			$name = $pagefile->basename();
 			$rename .= "." . $pagefile->ext();
 			// cleanBasename($basename, $originalize = false, $allowDots = true, $translate = false) 
 			$rename = $pagefile->pagefiles->cleanBasename($rename, true, true, true);
-			$message = sprintf($this->_('Renamed file "%1$s" to "%2$s"'), $name, $rename);
-			if($pagefile->rename($rename) !== false) {
-				$this->message($message);
-				$changed = true; 
-			} else {
-				$this->warning($this->_('Failed') . " - $message"); 
+			if(strlen($rename)) {
+				$message = sprintf($this->_('Renamed file "%1$s" to "%2$s"'), $name, $rename);
+				if($pagefile->rename($rename) !== false) {
+					$this->message($message);
+					$changed = true;
+				} else {
+					$this->warning($this->_('Failed') . " - $message");
+				}
 			}
 		}
 	

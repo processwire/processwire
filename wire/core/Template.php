@@ -1313,12 +1313,14 @@ class Template extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function getLabel($language = null) {
-		if(is_null($language)) $language = $this->wire('languages') ? $this->wire('user')->language : null;
+		if(is_null($language)) {
+			$language = $this->wire()->languages ? $this->wire()->user->language : null;
+		}
 		if($language) {
-			$label = $this->get("label$language"); 
+			$label = (string) $this->get("label$language"); 
 			if(!strlen($label)) $label = $this->label;
 		} else {
-			$label = $this->label;
+			$label = (string) $this->label;
 		}
 		if(!strlen($label)) $label = $this->name;
 		return $label;

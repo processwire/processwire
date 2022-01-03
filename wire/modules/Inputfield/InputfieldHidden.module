@@ -15,7 +15,7 @@ class InputfieldHidden extends Inputfield {
 			'version' => 101,
 			'summary' => __('Hidden value in a form', __FILE__), // Module Summary
 			'permanent' => true, 
-			);
+		);
 	}
 
 	public function __construct() {
@@ -39,7 +39,7 @@ class InputfieldHidden extends Inputfield {
 
 	public function getAttributes() {
 		$attrs = parent::getAttributes();
-		if(!strlen($attrs['value']) && $this->initValue) $attrs['value'] = $this->initValue; 
+		if(!strlen("$attrs[value]") && $this->initValue) $attrs['value'] = (string) $this->initValue; 
 		return $attrs; 
 	}
 
@@ -60,6 +60,7 @@ class InputfieldHidden extends Inputfield {
 		$field->description = $this->_('Value to be populated in this hidden field.'); 
 		$field->setAttribute('value', $this->initValue); 
 		$inputfields->append($field);
+		
 		return $inputfields; 
 	}
 	

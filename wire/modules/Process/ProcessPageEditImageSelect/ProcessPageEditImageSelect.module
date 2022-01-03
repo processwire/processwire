@@ -920,7 +920,7 @@ class ProcessPageEditImageSelect extends Process implements ConfigurableModule {
 		$classOptions = '';
 		foreach($optionalClasses as $class => $label) {
 			$labelKey = array_search($label, $labels); 
-			$selected = strpos($input->get('class'), $class) !== false ? " selected='selected'" : '';
+			$selected = strpos((string) $input->get('class'), $class) !== false ? " selected='selected'" : '';
 			if($selected) $attrs['class'] .= " $class";
 			$classOptions .= "<option$selected data-label='$labelKey' value='$class'>$label</option>";
 		}

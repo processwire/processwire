@@ -106,13 +106,14 @@ class InputfieldTextarea extends InputfieldText {
 	 */
 	protected function setAttributeValue($value) {
 		$maxlength = $this->attr('maxlength');
+		$value = (string) $value;
 		if($maxlength > 0 && $this->hasFieldtype === false) { 
-			$value = $this->wire('sanitizer')->textarea($value, array(
+			$value = $this->wire()->sanitizer->textarea($value, array(
 				'maxLength' => $maxlength, 
 				'maxBytes' => $maxlength*4, 
 				'stripTags' => false, 
 				'trim' => $this->noTrim ? false : true
-				)); 
+			)); 
 		} else {
 			if(strpos($value, "\r\n") !== false) {
 				$value = str_replace("\r\n", "\n", $value); 

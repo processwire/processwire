@@ -1802,7 +1802,7 @@ class Sanitizer extends Wire {
 		if(!strlen($value)) return '';
 
 		$scheme = parse_url($value, PHP_URL_SCHEME);
-		if($scheme !== false && strlen($scheme)) {
+		if(is_string($scheme) && strlen($scheme)) {
 			$_scheme = $scheme;
 			$scheme = strtolower($scheme);
 			$schemeError = false;

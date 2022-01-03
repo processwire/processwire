@@ -88,6 +88,7 @@ class InputfieldEmail extends InputfieldText {
 	 * 
 	 */
 	protected function setAttributeValue($value) {
+		$value = (string) $value;
 		if(strlen($value)) { 
 			$value = $this->wire()->sanitizer->email($value); 	
 			if(!strlen($value)) $this->error($this->_("Please enter a valid e-mail address")); // Error message when email address is invalid

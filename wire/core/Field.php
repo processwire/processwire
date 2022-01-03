@@ -1243,14 +1243,16 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	protected function getText($property, $language = null) {
-		if(is_null($language)) $language = $this->wire('languages') ? $this->wire('user')->language : null;
-		if($language) {
-			$value = $this->get("$property$language");
-			if(!strlen($value)) $value = $this->$property;
-		} else {
-			$value = $this->$property;
+		if(is_null($language)) {
+			$language = $this->wire()->languages ? $this->wire()->user->language : null;
 		}
-		if($property == 'label' && !strlen($value)) $value = $this->name;
+		if($language) {
+			$value = (string) $this->get("$property$language");
+			if(!strlen($value)) $value = (string) $this->$property;
+		} else {
+			$value = (string) $this->$property;
+		}
+		if($property === 'label' && !strlen($value)) $value = $this->name;
 		return $value;
 	}
 	

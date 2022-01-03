@@ -518,9 +518,10 @@ class LanguageSupportFields extends WireData implements Module {
 	 * 
 	 */
 	public function isAlternateField($name) {
+		$name = (string) $name;
 		if(isset($this->multilangAlternateFields[$name])) {
 			// default language for an alternate field set
-			return $this->wire('languages')->getDefault();
+			return $this->wire()->languages->getDefault();
 		}
 		if(!strpos($name, '_')) return false;
 		$language = $this->getAlternateFieldParent($name, true);

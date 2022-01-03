@@ -96,6 +96,7 @@ class InputfieldInteger extends Inputfield {
 	 */
 	protected function sanitizeValue($value) {
 		if(is_int($value)) return $value;
+		$value = (string) $value;
 		$value = trim($value);
 		if(!strlen("$value")) return '';
 		$negative = substr($value, 0, 1) === '-';

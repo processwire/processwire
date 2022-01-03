@@ -143,54 +143,61 @@ class ProcessLogger extends Process {
 	
 	public function ___executeView() {
 		
-		$name = $this->wire('input')->urlSegment2;
-		if(!$name) $this->wire('session')->redirect('../');
-		$logs = $this->wire('log')->getLogs();
+		$input = $this->wire()->input;
+		$session = $this->wire()->session;
+		$config = $this->wire()->config;
+		$modules = $this->wire()->modules;
+		$sanitizer = $this->wire()->sanitizer;
+		$log = $this->wire()->log;
+		
+		$name = $input->urlSegment2;
+		if(!$name) $session->redirect('../');
+		$logs = $log->getLogs();
 		if(!isset($logs[$name])) {
 			$this->error(sprintf('Unknown log: %s', $name));
-			$this->wire('session')->redirect('../');
+			$session->redirect('../');
 		}
-		$action = $this->wire('input')->post('action'); 
+		$action = $input->post('action'); 
 		if($action) $this->processAction($action, $name);
 		$limit = 100;
 		$options = array('limit' => $limit); 
 		
-		$q = $this->wire('input')->get('q');
-		if(strlen($q)) {
-			$options['text'] = $this->wire('sanitizer')->text($q);
-			$this->wire('input')->whitelist('q', $options['text']); 
+		$q = $input->get('q');
+		if($q !== null && strlen($q)) {
+			$options['text'] = $sanitizer->text($q);
+			$input->whitelist('q', $options['text']); 
 		}
 		
-		$dateFrom = $this->wire('input')->get('date_from');
-		if(strlen($dateFrom)) {
+		$dateFrom = $input->get('date_from');
+		if($dateFrom !== null && strlen($dateFrom)) {
 			$options['dateFrom'] = ctype_digit("$dateFrom") ? (int) $dateFrom : strtotime("$dateFrom 00:00:00");
-			$this->wire('input')->whitelist('date_from', $options['dateFrom']); 
+			$input->whitelist('date_from', $options['dateFrom']); 
 		}
 		
-		$dateTo = $this->wire('input')->get('date_to');
-		if(strlen($dateTo)) {
+		$dateTo = $input->get('date_to');
+		if($dateTo !== null && strlen($dateTo)) {
 			$options['dateTo'] = ctype_digit("$dateTo") ? (int) $dateTo : strtotime("$dateTo 23:59:59");
-			$this->wire('input')->whitelist('date_to', $options['dateTo']); 
+			$input->whitelist('date_to', $options['dateTo']); 
 		}
 
-		$options['pageNum'] = $this->wire('input')->pageNum; 
+		$options['pageNum'] = (int) $input->pageNum; 
 		
 		do {
 			// since the total count the pagination is based on may not always be accurate (dups, etc.)
 			// we migrate to the last populated pagination when items turn up empty
-			$items = $this->wire('log')->getEntries($name, $options);
+			$items = $log->getEntries($name, $options);
 			if(count($items)) break;
 			if($options['pageNum'] < 2) break;
 			$options['pageNum']--;
 		} while(1);
 		
-		if($this->wire('config')->ajax) return $this->renderLogAjax($items, $name); 
+		if($config->ajax) return $this->renderLogAjax($items, $name); 
 	
 		/** @var InputfieldForm $form */
-		$form = $this->wire('modules')->get('InputfieldForm');
+		$form = $modules->get('InputfieldForm');
 		
 		/** @var InputfieldFieldset $fieldset */
-		$fieldset = $this->wire('modules')->get('InputfieldFieldset');
+		$fieldset = $modules->get('InputfieldFieldset');
 		$fieldset->attr('id', 'FieldsetTools'); 
 		$fieldset->label = $this->_('Helpers');
 		$fieldset->collapsed = Inputfield::collapsedYes; 
@@ -198,7 +205,7 @@ class ProcessLogger extends Process {
 		$form->add($fieldset);
 	
 		/** @var InputfieldText $f */
-		$f = $this->wire('modules')->get('InputfieldText'); 
+		$f = $modules->get('InputfieldText'); 
 		$f->attr('name', 'q');
 		$f->label = $this->_('Text Search');
 		$f->icon = 'search';
@@ -206,7 +213,7 @@ class ProcessLogger extends Process {
 		$fieldset->add($f);
 
 		/** @var InputfieldDatetime $f */
-		$f = $this->wire('modules')->get('InputfieldDatetime');
+		$f = $modules->get('InputfieldDatetime');
 		$f->attr('name', 'date_from');
 		$f->label = $this->_('Date From'); 
 		$f->icon = 'calendar';
@@ -216,7 +223,7 @@ class ProcessLogger extends Process {
 		$fieldset->add($f);
 	
 		/** @var InputfieldDatetime $f */
-		$f = $this->wire('modules')->get('InputfieldDatetime');
+		$f = $modules->get('InputfieldDatetime');
 		$f->attr('name', 'date_to');
 		$f->icon = 'calendar';
 		$f->label = $this->_('Date To'); 
@@ -226,7 +233,7 @@ class ProcessLogger extends Process {
 		$fieldset->add($f);
 	
 		/** @var InputfieldSelect $f */
-		$f = $this->modules->get('InputfieldSelect');
+		$f = $modules->get('InputfieldSelect');
 		$f->attr('name', 'action');
 		$f->label = $this->_('Actions');
 		$f->description = $this->_('Select an action below. You will be asked to click a button before the action is executed.'); 
@@ -235,14 +242,14 @@ class ProcessLogger extends Process {
 		$f->addOption('download', $this->_('Download'));
 		$fieldset->add($f);
 		
-		if($this->wire('user')->hasPermission('logs-edit')) {
+		if($this->wire()->user->hasPermission('logs-edit')) {
 			
 			$f->addOption('add', $this->_('Grow (Add Entry)'));
 			$f->addOption('prune', $this->_('Chop (Prune)'));
 			$f->addOption('delete', $this->_('Burn (Delete)'));
 		
 			/** @var InputfieldInteger $f */
-			$f = $this->wire('modules')->get('InputfieldInteger');
+			$f = $modules->get('InputfieldInteger');
 			$f->attr('name', 'prune_days');
 			$f->label = $this->_('Chop To # Days');
 			$f->inputType = 'number';
@@ -255,7 +262,7 @@ class ProcessLogger extends Process {
 			$fieldset->add($f);
 
 			/** @var InputfieldText $f */
-			$f = $this->wire('modules')->get('InputfieldText');
+			$f = $modules->get('InputfieldText');
 			$f->attr('name', 'add_text');
 			$f->label = $this->_('New Log Entry');
 			$f->icon = 'leaf';
@@ -263,29 +270,30 @@ class ProcessLogger extends Process {
 			$fieldset->add($f);
 
 			/** @var InputfieldSubmit $f */
-			$f = $this->wire('modules')->get('InputfieldSubmit');
+			$f = $modules->get('InputfieldSubmit');
 			$f->value = $this->_('Chop this log file now');
 			$f->icon = 'cut';
 			$f->attr('name', 'submit_prune');
 			$f->showIf = 'action=prune';
 			$fieldset->add($f);
 
-			$f = $this->wire('modules')->get('InputfieldSubmit');
+			$f = $modules->get('InputfieldSubmit');
 			$f->value = $this->_('Burn this log now (permanently delete)');
 			$f->icon = 'fire';
 			$f->attr('name', 'submit_delete');
 			$f->showIf = 'action=delete';
 			$fieldset->add($f);
 
-			$f = $this->wire('modules')->get('InputfieldSubmit');
+			$f = $modules->get('InputfieldSubmit');
 			$f->value = $this->_('Add this log entry');
 			$f->icon = 'leaf';
 			$f->attr('name', 'submit_add');
 			$f->showIf = 'action=add';
 			$fieldset->add($f);
 		}
-		
-		$f = $this->wire('modules')->get('InputfieldSubmit');
+	
+		/** @var InputfieldSubmit $f */
+		$f = $modules->get('InputfieldSubmit');
 		$f->value = $this->_('Download this log file now');
 		$f->icon = 'download';
 		$f->attr('name', 'submit_download');
@@ -293,17 +301,19 @@ class ProcessLogger extends Process {
 		$fieldset->add($f);
 
 		$this->headline(ucfirst($name)); 
-		$this->breadcrumb('../../', $this->wire('page')->title); 
+		$this->breadcrumb('../../', $this->wire()->page->title); 
 	
-		$out = $form->render() . 
+		return 
+			$form->render() . 
 			"<div id='ProcessLogEntries'>" . 
 			$this->renderLog($items, $name) . 
 			"</div>";
-		return $out; 
 	}
 	
 	protected function renderLogAjax(array $items, $name) {
-		$time = (int) $this->wire('input')->get('time');
+		$input = $this->wire()->input;
+		
+		$time = (int) $input->get('time');
 		$render = true;
 		$qtyNew = 0;
 		$note = '';
@@ -324,7 +334,7 @@ class ProcessLogger extends Process {
 			'out' => '',
 			'note' => $note,
 			'time' => time(),
-			'url' => $this->wire('input')->url() . '?' . $this->wire('input')->queryString()
+			'url' => $input->url() . '?' . $input->queryString()
 		);
 		if($render) {
 			$data = array_merge($data, array(

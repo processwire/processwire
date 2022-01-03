@@ -574,18 +574,20 @@ class Pagefiles extends WireArray implements PageFieldValueInterface {
 	 */ 
 	public function cleanBasename($basename, $originalize = false, $allowDots = true, $translate = false) {
 
+		$sanitizer = $this->wire()->sanitizer;
 		$basename = function_exists('mb_strtolower') ? mb_strtolower($basename) : strtolower($basename);
 		$dot = strrpos($basename, '.'); 
-		$ext = $dot ? substr($basename, $dot) : ''; 
+		$ext = $dot ? substr($basename, $dot) : '';
 		$basename = basename($basename, $ext);
+		while(strpos($basename, '..') !== false) $basename = str_replace('..', '', $basename);
 		$test = str_replace(array('-', '_', '.'), '', $basename);
 		
 		if(!ctype_alnum($test)) {
 			if($translate) {
-				$basename = $this->wire('sanitizer')->filename($basename, Sanitizer::translate); 
+				$basename = $sanitizer->filename($basename, Sanitizer::translate); 
 			} else {
 				$basename = preg_replace('/[^-_.a-z0-9]/', '_', $basename);
-				$basename = $this->wire('sanitizer')->filename($basename);
+				$basename = $sanitizer->filename($basename);
 			}
 		}
 		

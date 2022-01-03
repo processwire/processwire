@@ -42,7 +42,7 @@ class InputfieldMarkup extends InputfieldWrapper {
 	public function ___render() {
 		
 		$out = '';
-		$value = $this->attr('value');
+		$value = (string) $this->attr('value');
 		
 		if(strlen($value)) {
 			$out .= "\n" . $value;
@@ -63,9 +63,9 @@ class InputfieldMarkup extends InputfieldWrapper {
 
 		if(wireCount($textformatters)) {
 			foreach($textformatters as $className) {
-				$t = $this->wire('modules')->get($className);
+				$t = $this->wire()->modules->get($className);
 				if(!$t) continue; 
-				$t->formatValue($this->wire('page'), $this->wire(new Field()), $out);
+				$t->formatValue($this->wire()->page, $this->wire(new Field()), $out);
 			}	
 		}
 
@@ -101,22 +101,25 @@ class InputfieldMarkup extends InputfieldWrapper {
 	}
 
 	public function ___getConfigInputfields() {
-
+		
+		$modules = $this->wire()->modules;
 		$inputfields = parent::___getConfigInputfields();		
 		if($this->hasFieldtype) return $inputfields;
 
-		$f = $this->wire('modules')->get('InputfieldTextarea');
+		/** @var InputfieldTextarea $f */
+		$f = $modules->get('InputfieldTextarea');
 		$f->attr('id+name', 'markupText'); 
 		$f->attr('value', $this->markupText);
 		$f->attr('rows', 10);
 		$f->label = $this->_('Markup Text');
 		$inputfields->add($f);
 
-		$f = $this->modules->get('InputfieldAsmSelect');
+		/** @var InputfieldAsmSelect $f */
+		$f = $modules->get('InputfieldAsmSelect');
 		$f->attr('id+name', 'textformatters');
 		$f->label = $this->_('Text Formatters');
 
-		foreach($this->modules->find("className^=Textformatter") as $textformatter) {
+		foreach($modules->find("className^=Textformatter") as $textformatter) {
 			$info = $textformatter->getModuleInfo();
 			$f->addOption($textformatter->className(), "$info[title]");
 		}
