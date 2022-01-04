@@ -61,6 +61,47 @@ class WireFileTools extends Wire {
 	}
 
 	/**
+	 * Given a filepath/url of a file/folder return the url relative to pw root
+	 * 
+	 * Note that this method does not check wether the file exists or not!
+	 * It uses simple string comparisons.
+	 * 
+	 * Usage:
+	 * 
+	 * $files->url("/var/www/html/site/assets/demo.jpg");
+	 * --> /site/assets/demo.jpg
+	 * $files->url("/site/assets/demo.jpg"); // with leading slash
+	 * --> /site/assets/demo.jpg
+	 * $files->url("site/assets/demo.jpg"); // no leading slash
+	 * --> /site/assets/demo.jpg
+	 * 
+	 * @param string $path Filepath
+	 * @return string
+	 */
+	public function url($path) {
+		$path = $this->path($path);
+		$config = $this->wire->config;
+		return str_replace($config->paths->root, $config->urls->root, $path);
+	}
+
+	/**
+	 * Given any file or directory path or url convert it to an absolute path
+	 * @param string $path
+	 * @return string
+	 */
+	public function path($path) {
+		$path = Paths::normalizeSeparators($path);
+		$config = $this->wire->config;
+		if(strpos($path, $config->paths->root) !== 0) {
+			// path is not within pw root
+			// so we assume it is a relative path and add the pw root
+			$url = ltrim($path, "/");
+			$path = $config->paths->root.$url;
+		}
+		return $path;
+	}
+
+	/**
 	 * Remove a directory and optionally everything within it (recursively)
 	 * 
 	 * Unlike PHP's `rmdir()` function, this method provides a recursive option, which can be enabled by specifying true 
