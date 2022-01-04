@@ -26,6 +26,8 @@
  * @property bool $compress Compress compiled CSS? (default=true)
  * @property array $customLessFiles Custom .less file(s) to include, relative to PW root.
  * @property string $customCssFile Custom target .css file to compile custom .less file(s) to, relative to PW root.
+ * @property array $vars LESS variables to be used when compiling. Eg ['rock-primary' => '#FF0000']
+ * @property string $parse LESS string to parse, eg "@rock-primary: #FF0000;"
  * 
  * @since 3.0.179
  * 
@@ -74,6 +76,8 @@ class AdminThemeUikitCss extends WireData {
 			'replacements' => array(),
 			'cssVersion' => (int) $this->adminTheme->get('cssVersion'),
 			'requireCssVersion' => 0,
+			'vars' => array(),
+			'parse' => '',
 		);
 	}
 	
@@ -126,6 +130,8 @@ class AdminThemeUikitCss extends WireData {
 			$less->addFile($this->frameworkLessFile);
 			$less->addFile($this->getAdminStyleLessFile());
 			$less->addFiles($lessFiles);
+			if(!empty($this->vars)) $less->parser()->ModifyVars($this->vars);
+			if(!empty($this->parse)) $less->parser()->parse($this->parse);
 			$options = array('replacements' => $this->replacements); 
 			if(!$less->saveCss($cssFile, $options)) throw new WireException("Compile error: $cssFile");
 			$messages = array(sprintf($this->_('Compiled: %s'), $cssFile));
