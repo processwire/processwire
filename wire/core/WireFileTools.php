@@ -61,6 +61,47 @@ class WireFileTools extends Wire {
 	}
 
 	/**
+	 * Given a filepath/url of a file/folder return the url relative to pw root
+	 * 
+	 * Note that this method does not check wether the file exists or not!
+	 * It uses simple string comparisons.
+	 * 
+	 * Usage:
+	 * 
+	 * $files->url("/var/www/html/site/assets/demo.jpg");
+	 * --> /site/assets/demo.jpg
+	 * $files->url("/site/assets/demo.jpg"); // with leading slash
+	 * --> /site/assets/demo.jpg
+	 * $files->url("site/assets/demo.jpg"); // no leading slash
+	 * --> /site/assets/demo.jpg
+	 * 
+	 * @param string $path Filepath
+	 * @return string
+	 */
+	public function url($path) {
+		$path = $this->path($path);
+		$config = $this->wire->config;
+		return str_replace($config->paths->root, $config->urls->root, $path);
+	}
+
+	/**
+	 * Given any file or directory path or url convert it to an absolute path
+	 * @param string $path
+	 * @return string
+	 */
+	public function path($path) {
+		$path = Paths::normalizeSeparators($path);
+		$config = $this->wire->config;
+		if(strpos($path, $config->paths->root) !== 0) {
+			// path is not within pw root
+			// so we assume it is a relative path and add the pw root
+			$url = ltrim($path, "/");
+			$path = $config->paths->root.$url;
+		}
+		return $path;
+	}
+
+	/**
 	 * Remove a directory and optionally everything within it (recursively)
 	 * 
 	 * Unlike PHP's `rmdir()` function, this method provides a recursive option, which can be enabled by specifying true 
@@ -213,12 +254,10 @@ class WireFileTools extends Wire {
 	 * @param string $src Path to copy files from, or filename to copy. 
 	 * @param string $dst Path (or filename) to copy file(s) to. Directory is created if it doesn't already exist.
 	 * @param bool|array $options Array of options: 
-	 *  - `recursive` (bool): Whether to copy directories within recursively. (default=true)
+	 *  - `recursive` (boolean): Whether to copy directories within recursively. (default=true)
 	 *  - `allowEmptyDirs` (boolean): Copy directories even if they are empty? (default=true)
-	 *  - `limitPath` (bool|string|array): Limit copy to within path given here, or true for site assets path.
-	 *     The limitPath option requires core 3.0.118+. (default=false).
-	 *  - `hidden` (bool): Also copy hidden files/directories within given $src directory? (applies only if $src is dir)
-	 *     The hidden option requires core 3.0.180+. (default=true)
+	 *  - `limitPath` (bool|string|array): Limit copy to within path given here, or true for site assets path (default=false).
+	 *  - Note that the limitPath option was added in 3.0.118. 
 	 *  - If a boolean is specified for $options, it is assumed to be the `recursive` option.
 	 * @return bool True on success, false on failure.
 	 * @throws WireException if `limitPath` option is used and either $src or $dst is not allowed
@@ -228,7 +267,6 @@ class WireFileTools extends Wire {
 
 		$defaults = array(
 			'recursive' => true,
-			'hidden' => true, 
 			'allowEmptyDirs' => true,
 			'limitPath' => false, 
 		);
@@ -267,7 +305,6 @@ class WireFileTools extends Wire {
 			$isEmpty = true;
 			while(false !== ($file = readdir($dir))) {
 				if($file == '.' || $file == '..') continue;
-				if(!$options['hidden'] && strpos(basename($file), '.') === 0) continue;
 				$isEmpty = false;
 				break;
 			}
@@ -278,7 +315,6 @@ class WireFileTools extends Wire {
 
 		while(false !== ($file = readdir($dir))) {
 			if($file == '.' || $file == '..') continue;
-			if(!$options['hidden'] && strpos(basename($file), '.') === 0) continue;
 			$isDir = is_dir($src . $file);
 			if($options['recursive'] && $isDir) {
 				$this->copy($src . $file, $dst . $file, $options);
@@ -1237,7 +1273,7 @@ class WireFileTools extends Wire {
 	 * @throws WireException if file doesn’t exist or is not allowed
 	 *
 	 */
-	public function ___include($filename, array $vars = array(), array $options = array()) {
+	function ___include($filename, array $vars = array(), array $options = array()) {
 
 		$paths = $this->wire('config')->paths;
 		$defaults = array(
@@ -1327,7 +1363,7 @@ class WireFileTools extends Wire {
 	 * @since 3.0.96
 	 * 
 	 */
-	public function includeOnce($filename, array $vars = array(), array $options = array()) {
+	function includeOnce($filename, array $vars = array(), array $options = array()) {
 		$options['func'] = 'include_once';
 		return $this->include($filename, $vars, $options);
 	}	
