@@ -5,7 +5,7 @@
  *
  * This is the process assigned to the processwire/setup/language-translator/ page.
  *
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * 
@@ -24,7 +24,7 @@ class ProcessLanguageTranslator extends Process {
 		return array(
 			'title' => __('Language Translator', __FILE__),
 			'summary' => __('Provides language translation capabilities for ProcessWire core and modules.', __FILE__),
-			'version' => 101,
+			'version' => 102,
 			'author' => 'Ryan Cramer',
 			'requires' => 'LanguageSupport',
 			'permission' => 'lang-edit'
@@ -497,50 +497,69 @@ class ProcessLanguageTranslator extends Process {
 	 *
 	 */
 	public function ___executeEdit() {
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$input = $this->wire()->input;
+		$config = $this->wire()->config;
+		$modules = $this->wire()->modules;
+		$session = $this->wire()->session;
 
 		$this->addBreadcrumbs();
 		$this->breadcrumb('../add/', $this->_x('Select File(s)', 'breadcrumb'));
-		$this->headline($this->_x('Translate File', 'headline'));
 
-		$textdomain = $this->wire()->sanitizer->textdomain($this->input->get('textdomain'));
-		$file = $this->translator->textdomainToFilename($textdomain);
+		$textdomain = $sanitizer->textdomain($input->get('textdomain'));
+		if(empty($textdomain)) throw new WireException("Missing textdomain");
+		
+		$fileUrl = $this->translator->textdomainToFilename($textdomain);
 		$fragment = strpos($textdomain, 'site') === 0 ? 'find-language_files_site' : 'find-language_files';
 		$csvUploadUrl = "../../languages/edit/?id={$this->language->id}#$fragment";
 		$csvDownloadUrl = "../../languages/download/?language_id={$this->language->id}&csv=1&textdomain=$textdomain";
 		$csvViewUrl = $csvDownloadUrl . "&view=1";
 		
-		if(!$file) {
-			if($this->input->get('filename')) {
-				$this->processAdd(null, $this->input->get('filename')); 
+		if(!$fileUrl) {
+			$filename = $input->get('filename');
+			$test = $filename ? $this->translator->filenameToTextdomain($filename) : '';
+			if($textdomain && $test === $textdomain) {
+				$this->processAdd(null, $filename); 
 			} else {
 				throw new WireException($this->_('Unable to load textdomain'));
 			}
 		}
 		
-		$file = $this->config->paths->root . $file;
+		$file = $config->paths->root . $fileUrl;
 
 		if(!file_exists($file)) {
-			$file = str_replace($this->wire('config')->paths->root, '/', $file);
 			$this->error(
-				$this->_('File does not exist:') . " $file " .
+				$this->_('File does not exist:') . " $fileUrl " .
 				sprintf($this->_('(translation file not needed? textdomain: %s)'), $textdomain)
 			);
-			$this->session->redirect('../add/');
+			$session->redirect('../add/');
 		}
 
 		$this->parseTranslatableFile($file);
+		$this->headline(sprintf($this->_('Translate %1$s to %2$s'), basename($file), $this->language->get('title|name')));
+
+		// get links to other languages
+		$links = array();
+		foreach($this->wire()->languages as $lang) {
+			$url = "./?textdomain=$textdomain&amp;language_id=$lang&amp;filename=" . urlencode($fileUrl);
+			$label = $sanitizer->entities1($lang->get('title|name'));
+			$links[] = "$lang" === "$this->language" ? $label : "<a href='$url'>$label</a>"; 
+		}
 
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get('InputfieldForm');
+		$form = $modules->get('InputfieldForm');
+		$form->addClass('InputfieldFormConfirm');
 		$form->attr('action', "./?textdomain=$textdomain&language_id={$this->language->id}");
 		$form->attr('method', 'post');
-		$form->description = sprintf($this->_('Translate %1$s to %2$s'), basename($file), $this->language->title);
-		$form->value = "<p>" .
+		$form->value = 
+			(count($links) > 1 ? "<p>" . implode(' &nbsp;|&nbsp; ', $links) . "</p>" : "") . 
+			"<p>" .
 			$this->_('Each of the inputs below represents a block of text to translate.') . ' ' .
 			sprintf($this->_('The text shown immediately above each input is the text that should be translated to %s.'), $this->language->title) . ' ' .
 			$this->_('If you leave an input blank, the non-translated text will be used.') . ' ' .
 			$this->_('If the translation will be identical to the original, you may also enter a single "=" (equals sign) for the translation and it will be marked as translated.') . ' ' . 
-			$this->wire()->sanitizer->entitiesMarkdown(
+			$sanitizer->entitiesMarkdown(
 				sprintf(
 					$this->_('You may also [download](%1$s) or [view](%2$s) a CSV file with these translations, edit them, and then [upload them here](%3$s).'), 
 					$csvDownloadUrl, $csvViewUrl, $csvUploadUrl
@@ -567,14 +586,14 @@ class ProcessLanguageTranslator extends Process {
 		$this->executeEditAbandoned($translations, $form);
 
 		/** @var InputfieldCheckbox $field */
-		$field = $this->modules->get('InputfieldCheckbox');
+		$field = $modules->get('InputfieldCheckbox');
 		$field->attr('id+name', 'untranslated');
 		$field->label = $this->_('Only show blocks that are not yet translated');
-		if($this->session->getFor($this, 'untranslated')) $field->attr('checked', 'checked');
+		if($session->getFor($this, 'untranslated')) $field->attr('checked', 'checked');
 		$form->prepend($field);
 
 		/** @var InputfieldSubmit $submit */
-		$submit = $this->modules->get("InputfieldSubmit");
+		$submit = $modules->get("InputfieldSubmit");
 		$submit->attr('id+name', 'save_translations');
 		$submit->value = $this->_x('Save', 'button');
 		$submit->showInHeader();
@@ -582,7 +601,7 @@ class ProcessLanguageTranslator extends Process {
 		$submit->addActionValue('next', $this->_('Save + Next'), 'edit');
 		$form->add($submit);
 
-		if($this->input->post('save_translations')) $this->processEdit($form, $textdomain, $translations);
+		if($input->post('save_translations')) $this->processEdit($form, $textdomain, $translations);
 
 		return $form->render();
 	}
