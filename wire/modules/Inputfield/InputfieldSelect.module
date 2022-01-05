@@ -8,7 +8,7 @@
  * Sublcasses will want to override the render method, but it's not necessary to override processInput().
  * Subclasses that select multiple values should implement the InputfieldHasArrayValue interface.
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @property string|int $defaultValue
@@ -164,8 +164,10 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 * 
 	 */
 	public function optionLanguageLabel($language, $key = null, $label = null) {
+		$languages = $this->wire()->languages;
+		if(!$languages) return $this;
 		if(is_string($language) && !ctype_digit("$language")) {
-			$language = $this->wire('languages')->get($language);
+			$language = $languages->get($language);
 		}
 		$languageID = (int) "$language"; // converts Page or string to id
 		if(!isset($this->optionLanguageLabels[$languageID])) {
@@ -676,17 +678,20 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 * 
 	 */
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
-		if(!empty($this->optionLanguageLabels) && $this->wire('languages') && $this->hasFieldtype === false) {
-			// make option labels use use language where available
-			$language = $this->wire('user')->language;
-			$defaultLanguage = $this->wire('languages')->getDefault();
-			if(!empty($this->optionLanguageLabels[$language->id])) {
-				$labels = $this->optionLanguageLabels[$language->id];
-				foreach($this->options as $key => $defaultLabel) {
-					if(empty($labels[$key])) continue;
-					$this->options[$key] = $labels[$key];
-					if($language->id != $defaultLanguage->id) {
-						$this->optionLanguageLabel($defaultLanguage, $key, $defaultLabel);
+		if(!empty($this->optionLanguageLabels) && $this->hasFieldtype === false) {
+			$languages = $this->wire()->languages;
+			if($languages) {
+				// make option labels use use language where available
+				$language = $this->wire()->user->language;
+				$defaultLanguage = $languages->getDefault();
+				if(!empty($this->optionLanguageLabels[$language->id])) {
+					$labels = $this->optionLanguageLabels[$language->id];
+					foreach($this->options as $key => $defaultLabel) {
+						if(empty($labels[$key])) continue;
+						$this->options[$key] = $labels[$key];
+						if($language->id != $defaultLanguage->id) {
+							$this->optionLanguageLabel($defaultLanguage, $key, $defaultLabel);
+						}
 					}
 				}
 			}
@@ -705,12 +710,10 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 		$attrs = $this->getAttributes();
 		unset($attrs['value']); 
 
-		$out =	
+		return
 			"<select " . $this->getAttributesString($attrs) . ">" . 
-			$this->renderOptions($this->options) . 
+				$this->renderOptions($this->options) . 
 			"</select>";
-
-		return $out; 
 	}
 
 	/**
@@ -722,6 +725,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	public function ___renderValue() {
 		
 		$out = '';
+		$sanitizer = $this->wire()->sanitizer;
 		
 		foreach($this->options as $value => $label) {
 			
@@ -738,11 +742,13 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 			}
 			
 			if(strlen($o)) {
-				$out .= "<li>" . $this->wire('sanitizer')->entities($o) . "</li>";
+				$out .= "<li>" . $sanitizer->entities($o) . "</li>";
 			}
 		}
 	
-		if(strlen($out)) $out = "<ul class='pw-bullets'>$out</ul>";
+		if(strlen($out)) {
+			$out = "<ul class='pw-bullets'>$out</ul>";
+		}
 		
 		return $out; 
 	}
@@ -779,10 +785,10 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 
 		if($this instanceof InputfieldHasArrayValue) {
 			/** @var InputfieldSelect $this */
+			if(!is_array($value)) $value = array();
 			foreach($value as $k => $v) {
 				if(!$this->isOption($v)) {
-					// $this->message("Removing invalid option: " . wire('sanitizer')->entities($value[$k]), Notice::debug); 
-					unset($value[$k]); 
+					unset($value[$k]); // remove invalid option
 				}
 			}
 
@@ -805,8 +811,8 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	 * 
 	 */
 	public function get($key) {
-		if($key == 'options') return $this->options; 
-		if($key == 'optionAttributes') return $this->optionAttributes;
+		if($key === 'options') return $this->options; 
+		if($key === 'optionAttributes') return $this->optionAttributes;
 		return parent::get($key); 
 	}
 
@@ -874,7 +880,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 						}
 					}
 				} else {
-					if(strlen($value) && !$this->isOption($value)) {
+					if(strlen("$value") && !$this->isOption($value)) {
 						$this->addOption($value);
 					}
 				}
@@ -901,7 +907,7 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 		} else if($value === null || $value === false) {
 			return true; 
 
-		} else if($value == "0") {
+		} else if("$value" === "0") {
 			if(!array_key_exists("$value", $this->options)) return true; 
 
 		} else {
@@ -920,12 +926,15 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 	public function ___getConfigInputfields() {
 
 		$inputfields = parent::___getConfigInputfields();
+		$modules = $this->wire()->modules;
 
 		if($this instanceof InputfieldHasArrayValue) {
-			$f = $this->wire('modules')->get('InputfieldTextarea');
+			/** @var InputfieldTextarea $f */
+			$f = $modules->get('InputfieldTextarea');
 			$f->description = $this->_('To have pre-selected default value(s), enter the option values (one per line) below.'); 
 		} else {
-			$f = $this->wire('modules')->get('InputfieldText');
+			/** @var InputfieldText $f */
+			$f = $modules->get('InputfieldText');
 			$f->description = $this->_('To have a pre-selected default value, enter the option value below.'); 
 		}
 		$f->attr('name', 'defaultValue'); 
@@ -943,10 +952,10 @@ class InputfieldSelect extends Inputfield implements InputfieldHasSelectableOpti
 
 		// the following configuration specific to non-Fieldtype use of single/multi-selects
 		$isInputfieldSelect = $this->className() == 'InputfieldSelect';
-		/** @var Languages|null $languages */
-		$languages = $this->wire('languages');
+		$languages = $this->wire()->languages;
 
-		$f = $this->wire('modules')->get('InputfieldTextarea'); 
+		/** @var InputfieldTextarea $f */
+		$f = $modules->get('InputfieldTextarea'); 
 		$f->attr('name', 'options');
 		$f->label = $this->_('Options');
 		$value = '';

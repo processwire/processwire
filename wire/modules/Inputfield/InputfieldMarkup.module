@@ -3,6 +3,9 @@
 /**
  * Intended just for outputting markup as help or commentary among other Inputfields
  * 
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * https://processwire.com
+ * 
  * @property callable|string|null $markupFunction
  * @property array $textformatters
  * @property string $markupText
@@ -11,25 +14,49 @@
 
 class InputfieldMarkup extends InputfieldWrapper {
 
+	/**
+	 * Get module info
+	 * 
+	 * @return array
+	 * 
+	 */
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Markup', __FILE__),
 			'summary' => __('Contains any other markup and optionally child Inputfields', __FILE__),
 			'version' => 102,
 			'permanent' => true, 
-			);
+		);
 	}
-	
+
+	/**
+	 * Whether render() has been called from renderValue() 
+	 * 
+	 * @var bool
+	 * 
+	 */
 	protected $renderValueMode = false;
 
+	/**
+	 * Init
+	 * 
+	 */
 	public function init() {
 		$this->set('markupText', '');
 		$this->set('markupFunction', null); // closure or name of function that returns markup, receives $this as arg0.
 		$this->set('textformatters', array());
 		$this->skipLabel = Inputfield::skipLabelBlank;
 		parent::init();
-	}	
-	
+	}
+
+	/**
+	 * Render ready
+	 * 
+	 * @param Inputfield|null $parent
+	 * @param bool $renderValueMode
+	 * @return bool
+	 * 
+	 */
 	public function renderReady(Inputfield $parent = null, $renderValueMode = false) {
 		$label = $this->getSetting('label');
 		
@@ -39,8 +66,15 @@ class InputfieldMarkup extends InputfieldWrapper {
 		return parent::renderReady($parent, $renderValueMode);
 	}
 
+	/**
+	 * Render
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___render() {
-		
+	
+		$modules = $this->wire()->modules;
 		$out = '';
 		$value = (string) $this->attr('value');
 		
@@ -63,7 +97,8 @@ class InputfieldMarkup extends InputfieldWrapper {
 
 		if(wireCount($textformatters)) {
 			foreach($textformatters as $className) {
-				$t = $this->wire()->modules->get($className);
+				/** @var Textformatter $t */
+				$t = $modules->get($className);
 				if(!$t) continue; 
 				$t->formatValue($this->wire()->page, $this->wire(new Field()), $out);
 			}	
@@ -74,7 +109,7 @@ class InputfieldMarkup extends InputfieldWrapper {
 			if($this->getSetting('entityEncodeText') !== false && $textFormat != Inputfield::textFormatNone) {
 				if($textFormat == Inputfield::textFormatBasic) {
 					$description = $this->entityEncode($description, Inputfield::textFormatBasic);
-					$out = "<p class='description'>{$description}</p>$out";
+					$out = "<p class='description'>$description</p>$out";
 				} else if($textFormat == Inputfield::textFormatMarkdown) {
 					$out = "<div class='description'>" . $this->entityEncode($description, Inputfield::textFormatMarkdown) . "</div>$out";
 				}
@@ -93,13 +128,25 @@ class InputfieldMarkup extends InputfieldWrapper {
 		return $out; 
 	}
 
+	/**
+	 * Render value
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___renderValue() {
 		$this->renderValueMode = true; 
 		$out = $this->render();
 		$this->renderValueMode = false;
 		return $out; 
 	}
-
+	
+	/** 
+	 * Configure Inputfield
+	 * 
+	 * @return InputfieldWrapper
+     * 
+	 */
 	public function ___getConfigInputfields() {
 		
 		$modules = $this->wire()->modules;
@@ -119,13 +166,13 @@ class InputfieldMarkup extends InputfieldWrapper {
 		$f->attr('id+name', 'textformatters');
 		$f->label = $this->_('Text Formatters');
 
-		foreach($modules->find("className^=Textformatter") as $textformatter) {
-			$info = $textformatter->getModuleInfo();
-			$f->addOption($textformatter->className(), "$info[title]");
+		foreach($modules->findByPrefix('Textformatter') as $moduleName) {
+			$info = $modules->getModuleInfo($moduleName);
+			$title = $info['title'] ? $info['title'] : $moduleName;
+			$f->addOption($moduleName, $title);
 		}
 
 		$f->attr('value', $this->textformatters);
-
 		$f->description = $this->_('Select the format that your Markup Text is in, or the formatters that you want to be applied to it, in the order you want them applied.'); 
 		$f->notes = $this->_('If your Markup Text is plain HTML, you may not want to select any Text Formatters.');
 		$inputfields->add($f);

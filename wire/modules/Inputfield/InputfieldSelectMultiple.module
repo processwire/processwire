@@ -1,18 +1,45 @@
 <?php namespace ProcessWire;
 
+/**
+ * Select Multiple Inputfield
+ * 
+ * An Inputfield for handling multiple selection using HTML `<select multiple>`.
+ * Also a base type for other multiple selection types (checkboxes, asmSelect, etc.)
+ * 
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * https://processwire.com
+ *
+ * @property int $size
+ * 
+ */
+
 class InputfieldSelectMultiple extends InputfieldSelect implements InputfieldHasArrayValue {
 
-	const defaultSize = 10; 
+	/**
+	 * Default 'size' attribute value
+	 * 
+	 */
+	const defaultSize = 10;
 
+	/**
+	 * Get module info
+	 * 
+	 * @return array
+	 * 
+	 */
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('Select Multiple', __FILE__), // Module Title
 			'summary' => __('Select multiple items from a list', __FILE__), // Module Summary
 			'version' => 101,
 			'permanent' => true, 
-			);
+		);
 	}
 
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		parent::__construct();
 		$this->setAttribute('multiple', 'multiple'); 
@@ -23,6 +50,11 @@ class InputfieldSelectMultiple extends InputfieldSelect implements InputfieldHas
 	 * Add options only if they are non-blank
 	 *
 	 * We don't need blank options in a select multiple since the unselected state involves no selected options
+	 * 
+	 * @param string|int $value
+	 * @param string|null $label
+	 * @param array|null $attributes
+	 * @return InputfieldSelect|InputfieldSelectMultiple|self
 	 *
 	 */
 	public function addOption($value, $label = null, array $attributes = null) {
@@ -30,11 +62,18 @@ class InputfieldSelectMultiple extends InputfieldSelect implements InputfieldHas
 		return parent::addOption($value, $label, $attributes); 
 	}
 
+	/**
+	 * Configure Inputfield
+	 * 
+	 * @return InputfieldWrapper
+	 * 
+	 */
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();	
-		if($this->className() == 'InputfieldSelectMultiple') {
+		if($this->className() === 'InputfieldSelectMultiple') {
 			// descending classes may null out the 'size' attribute if they don't need it
-			$f = $this->wire('modules')->get('InputfieldInteger'); 
+			/** @var InputfieldInteger $f */
+			$f = $this->wire()->modules->get('InputfieldInteger'); 
 			$f->label = $this->_('Size: number of rows visible at once in the select multiple'); 
 			$f->attr('name', 'size'); 
 			$f->attr('value', (int) $this->attr('size')); 
@@ -42,6 +81,4 @@ class InputfieldSelectMultiple extends InputfieldSelect implements InputfieldHas
 		}
 		return $inputfields; 
 	}
-
-
 }

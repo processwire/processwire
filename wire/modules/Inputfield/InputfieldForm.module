@@ -3,7 +3,7 @@
 /**
  * InputfieldForm: An Inputfield for containing form elements
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @property string $prependMarkup Optional markup to prepend to the form output
@@ -75,7 +75,7 @@ class InputfieldForm extends InputfieldWrapper {
 			'summary' => __('Contains one or more fields in a form', __FILE__), // Module Summary
 			'version' => 107,
 			'permanent' => true, 
-			);
+		);
 	}
 
 	const debug = false; // set to true to enable debug mode for field dependencies
@@ -233,6 +233,8 @@ class InputfieldForm extends InputfieldWrapper {
 			}
 
 			if(self::debug) $this->debugNote("showIf selector: $selectorString"); 
+			
+			/** @var Selectors $selectors */
 			$selectors = $this->wire(new Selectors($selectorString)); 
 			
 			// whether we should process $child now or not
@@ -387,7 +389,8 @@ class InputfieldForm extends InputfieldWrapper {
 
 			if(strlen($selectorString)) {
 				if(self::debug) $this->debugNote("requiredIf selector: $selectorString");
-					
+				
+				/** @var Selectors $selectors */
 				$selectors = $this->wire(new Selectors($selectorString));
 		
 				foreach($selectors as $selector) {

@@ -3,6 +3,9 @@
 /**
  * An Inputfield for handling HTML “hidden” form inputs
  * 
+ * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * https://processwire.com
+ * 
  * @property bool $renderValueAsInput Render the hidden input, even when in renderValue mode (default=false)
  * @property string $initValue Initial populated value if value attribute not separately populated (default='')
  *
@@ -18,6 +21,10 @@ class InputfieldHidden extends Inputfield {
 		);
 	}
 
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		parent::__construct();
 		$this->setAttribute('type', 'hidden'); 
@@ -25,10 +32,22 @@ class InputfieldHidden extends Inputfield {
 		$this->initValue = '';
 	}
 
+	/**
+	 * Render
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___render() {
 		return "<input " . $this->getAttributesString() . " />"; 
 	}
-	
+
+	/**
+	 * Render value
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___renderValue() {
 		if($this->renderValueAsInput) {
 			return $this->render();
@@ -37,12 +56,24 @@ class InputfieldHidden extends Inputfield {
 		}
 	}
 
+	/**
+	 * Get attributes
+	 * 
+	 * @return array
+	 * 
+	 */
 	public function getAttributes() {
 		$attrs = parent::getAttributes();
 		if(!strlen("$attrs[value]") && $this->initValue) $attrs['value'] = (string) $this->initValue; 
 		return $attrs; 
 	}
 
+	/**
+	 * Configure Inputfield
+	 * 
+	 * @return InputfieldWrapper
+	 * 
+	 */
 	public function ___getConfigInputfields() {
 
 		$inputfields = parent::___getConfigInputfields();
@@ -54,7 +85,7 @@ class InputfieldHidden extends Inputfield {
 		$inputfields->remove($f); 
 
 		/** @var InputfieldText $field */
-		$field = $this->modules->get('InputfieldText');
+		$field = $this->wire()->modules->get('InputfieldText');
 		$field->setAttribute('name', 'initValue'); 
 		$field->label = $this->_('Value');
 		$field->description = $this->_('Value to be populated in this hidden field.'); 

@@ -1,9 +1,12 @@
 <?php namespace ProcessWire;
 
 /**
- * Class InputfieldURL
+ * URL Inputfield Module
  * 
- * An Inputfield for handling input of URLs
+ * An Inputfield for handling input of URLs in ProcessWire forms.
+ * 
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
+ * https://processwire.com
  * 
  * @property int|bool $noRelative Whether relative URLs are disabled
  * @property int|bool $addRoot Whether to prepend root path
@@ -17,10 +20,14 @@ class InputfieldURL extends InputfieldText {
 		return array(
 			'title' => __('URL', __FILE__), // Module Title
 			'summary' => __('URL in valid format', __FILE__), // Module Summary
-			'version' => 102,
-			);
+			'version' => 103,
+		);
 	}
 
+	/**
+	 * Construct
+	 * 
+	 */
 	public function __construct() {
 		parent::__construct();
 		$this->setAttribute('type', 'text'); 
@@ -34,44 +41,75 @@ class InputfieldURL extends InputfieldText {
 		$this->set('allowQuotes', 0); // whether to allow quote characters in URLs
 	}
 
+	/**
+	 * Render Inputfield
+	 * 
+	 * @return string
+	 * 
+	 */
 	public function ___render() {
-		$rootUrl = $this->config->urls->root;
+		$rootUrl = $this->wire()->config->urls->root;
 		if($this->addRoot && !$this->noRelative && !$this->notes && strlen($rootUrl) > 1) {
-			$this->notes = sprintf($this->_("Start local URLs with \"/\" and leave off the \"%s\" part."), $rootUrl); // Instruction for local URLs displayed when site is running from a subdirectory
+			$this->notes = sprintf(
+				$this->_("Start local URLs with “/” and leave off the “%s” part."), // Instruction for local URLs displayed when site is running from a subdirectory
+				$rootUrl
+			); 
 		}
 		return parent::___render();
 	}
 
+	/**
+	 * Set value attribute
+	 * 
+	 * @param string $value
+	 * @return string
+	 * 
+	 */
 	protected function setAttributeValue($value) {
 
-		if(strlen($value)) {
-			$value = trim($value); 
-			$unsanitized = $value; 
-			$value = $this->wire('sanitizer')->url($value, array(
-				'allowRelative' => $this->noRelative ? false : true,
-				'allowIDN' => $this->allowIDN ? true : false,
-				'stripQuotes' => $this->allowQuotes ? false : true,
-			));
-
-			if(!$value || $unsanitized != $value && "http://$unsanitized" != $value) {
-				$error = true;
-				if($value && strpos($unsanitized, '%') !== false) {
-					$test = rawurldecode($unsanitized);
-					if($value == $test || $value == "http://$test") $error = false;
-				}
-				if($error) {
-					$this->error($this->name . ': ' . $this->_("Error found - please check that it is a valid URL")); // Error message when invalid URL found
-				}
-
-			} else if($value != $unsanitized && $value == "http://$unsanitized") {
-				$this->message($this->name . ': ' . $this->_("Note that \"http://\" was added")); // Message displayed when http scheme was automatically added to the URL
+		$value = trim((string) $value);
+		$dirty = $value; 
+		$label = $this->label ? $this->label : $this->name;
+		
+		if(!strlen($dirty)) return '';
+		
+		$value = $this->wire()->sanitizer->url($dirty, array(
+			'allowRelative' => $this->noRelative ? false : true,
+			'allowIDN' => $this->allowIDN ? true : false,
+			'stripQuotes' => $this->allowQuotes ? false : true,
+		));
+		
+		if(empty($value) || ($dirty !== $value && "http://$dirty" !== $value && "https://$dirty" !== $value)) {
+			$error = true;
+			if(strpos($dirty, '%') !== false) {
+				$test = rawurldecode($dirty);
+				if($value === $test || $value === "http://$test" || $value === "https://$test") $error = false;
+			}
+			if($error) {
+				$this->error("$label - " . $this->_("Error found - please check that it is a valid URL")); // Error message when invalid URL found
 			}
 
-		} else $value = '';
+		} else if($value !== $dirty) { 
+			$scheme = '';
+			foreach(array('http', 'https') as $s) {
+				if($value !== "$s://$dirty") continue;
+				$scheme = "$s://";
+				break;
+			}
+			if($scheme) {
+				$this->message("$label - " . sprintf($this->_("Note that %s was added"), $scheme)); // Message displayed when scheme was automatically added to the URL
+			}
+		}
 
 		return $value; 
 	}
 
+	/**
+	 * Configure Inputfield
+	 * 
+	 * @return InputfieldWrapper
+	 * 
+	 */
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();
 		$f = $inputfields->get('stripTags');
