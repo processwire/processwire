@@ -176,8 +176,8 @@ class LanguageTabs extends WireData implements Module, ConfigurableModule {
 		$settings = $this->getSettings();
 		$liClasses = array();
 		$aClasses = array('langTabLink', 'langTab' . $language->id);
-		$title = $language->get($this->tabField);
-		if(empty($title)) $title = $language->get('name');
+		$title = $language->get(empty($settings['tabField']) ? $this->tabField : $settings['tabField']);
+		if(empty($title)) $title = $language->get("$this->tabField|name");
 		$title = $this->wire()->sanitizer->entities1($title);
 		if(!$this->wire()->languages->editable($language)) {
 			$title = "<s>$title</s>";
