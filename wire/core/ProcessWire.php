@@ -404,7 +404,7 @@ class ProcessWire extends Wire {
 			$config->debug = $debugIf;
 		}
 
-		if($config->useFunctionsAPI) {
+		if($config->useFunctionsAPI && !function_exists("\\ProcessWire\\pages")) {
 			$file = $config->paths->core . 'FunctionsAPI.php';
 			/** @noinspection PhpIncludeInspection */
 			include_once($file);
