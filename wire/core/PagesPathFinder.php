@@ -1907,7 +1907,8 @@ class PagesPathFinder extends Wire {
 		if(strpos($path, '/') !== 0) $path = "/$path";
 		$segment = $this->languageSegment($language);
 		if(!strlen($segment)) return $path;
-		if($path === "/$segment" || strpos($path, "/$segment/") === 0) return $path;
+		if($path === "/$segment" && $this->result['page']['id'] < 2) return $path;
+		if(strpos($path, "/$segment/") === 0) return $path;
 		return "/$segment$path";
 	}
 
