@@ -17,7 +17,7 @@ require_once(__DIR__ . '/boot.php');
  * ~~~~~
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * Default API vars (A-Z) 
@@ -79,7 +79,7 @@ class ProcessWire extends Wire {
 	 * Reversion revision number
 	 * 
 	 */
-	const versionRevision = 191;
+	const versionRevision = 192;
 
 	/**
 	 * Version suffix string (when applicable)
