@@ -1185,6 +1185,46 @@ function wireCount($value) {
 }
 
 /**
+ * Returns string length of any type (string, array, object, bool, int, etc.)
+ * 
+ * - If given a string it returns the multibyte string length. 
+ * - If given a bool, returns 1 for true or 0 for false.
+ * - If given an int or float, returns its length when typecast to string.
+ * - If given array or object it duplicates the behavior of `wireCount()`. 
+ * - If given null returns 0.
+ * 
+ * @param string|array|object|int|bool|null $value
+ * @param bool $mb Use multibyte string length when available (default=true)
+ * @return int
+ * @since 3.0.192
+ * 
+ */
+function wireLength($value, $mb = true) {
+	if($value === null || $value === '' || $value === false) return 0; 
+	if($value === true) return 1;
+	if(is_string($value)) return ($mb && function_exists('mb_strlen') ? mb_strlen($value) : strlen($value));
+	if(is_array($value) || is_object($value)) return wireCount($value);
+	return strlen("$value"); // int, float, other: returns length of string typecast
+}
+
+/**
+ * Returns string byte length of any type (string, array, object, bool, int, etc.)
+ * 
+ * This is identical to the `wireLength()` function except that it does not use
+ * multibyte string lengths on strings, so it returns a byte length when given
+ * a multibyte string rather than a visual character length. So on strings
+ * it uses strlen() rather than mb_strlen(). 
+ *
+ * @param string|array|object|int|bool|null $value
+ * @return int
+ * @since 3.0.192
+ *
+ */
+function wireLen($value) {
+	return wireLength($value, false);
+}
+
+/**
  * Is the given value empty according to ProcessWire standards?
  * 
  * This works the same as PHP’s empty() function except for the following: 
