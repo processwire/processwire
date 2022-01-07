@@ -433,7 +433,7 @@ class FieldtypeFileConfiguration extends Wire {
 				$f->val(0);
 			} else if(!$customTpl) {
 				// create custom template
-				$customTpl = $templates->add($customTplEnabledName);
+				$customTpl = $templates->add($customTplEnabledName, array('noGlobal' => true));
 				$this->message(sprintf($this->_('Created custom fields template: %s'), $customTpl->name));
 			}
 			
