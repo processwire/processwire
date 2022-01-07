@@ -1844,7 +1844,7 @@ class PagesEditor extends Wire {
 		}
 
 		// detect template from parent (when possible)
-		if(!$template && !empty($parent)) {
+		if(!$template && !empty($parent) && empty($options['id'])) {
 			$parent = is_object($parent) ? $parent : $this->pages->get($parent);
 			if($parent->id) {
 				if(count($parent->template->childTemplates) === 1) {
@@ -1856,7 +1856,7 @@ class PagesEditor extends Wire {
 		}
 
 		// detect parent from template (when possible)
-		if($template && empty($parent) && count($template->parentTemplates) === 1) {
+		if($template && empty($parent) && empty($options['id']) && count($template->parentTemplates) === 1) {
 			$parentTemplates = $template->parentTemplates();
 			if($parentTemplates->count()) {
 				$numParents = $this->pages->count("template=$parentTemplates, include=all");
@@ -1875,6 +1875,7 @@ class PagesEditor extends Wire {
 		
 		if(isset($options['id']) && ctype_digit("$options[id]") && (int) $options['id'] > 0) {
 			$options['id'] = (int) $options['id'];
+			if($parent && "$options[id]" === "$parent") unset($options['parent']); 
 		} else {
 			unset($options['id']);
 		}
