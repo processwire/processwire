@@ -3913,9 +3913,23 @@ class Sanitizer extends Wire {
 			
 			$str = trim($value);
 			$prepend = '';
-			if(strpos($str, '-') === 0) {
+			$append = '';
+			
+			$c = substr($str, 0, 1);
+			while($c !== '' && $c !== '-' && $c !== '.' && $c !== ',' && !ctype_digit($c)) {
+				// trim off leading non-number content like currency symbols, names, etc.
+				$str = ltrim($str, $c);
+				$c = substr($str, 0, 1);
+			}
+		
+			if($c === '-') {
 				$prepend = '-';
 				$str = ltrim($str, '-');
+			}
+			
+			if(stripos($str, 'E-') && preg_match('/^([0-9., ]+\d)(E\-\d+)/i', $str, $m)) {
+				$str = $m[1];
+				$append = $m[2];
 			}
 		
 			if(!strlen($str)) return $options['blankValue'];
@@ -3959,7 +3973,7 @@ class Sanitizer extends Wire {
 					preg_replace('/[^0-9]/', '', substr($str, $pos + 1));
 			}
 
-			$value = $prepend . $value;
+			$value = $prepend . $value . $append;
 			if(!$options['getString']) $value = floatval($value);
 		}
 		
@@ -3967,7 +3981,14 @@ class Sanitizer extends Wire {
 		if(!is_null($options['min']) && ((float) $value) < ((float) $options['min'])) $value = $options['min'];
 		if(!is_null($options['max']) && ((float) $value) > ((float) $options['max'])) $value = $options['max'];
 		if(!is_null($options['precision'])) $value = round((float) $value, (int) $options['precision'], (int) $options['mode']);
-		if($options['getString']) $value = "$value";
+		
+		if($options['getString']) {
+			if($options['precision'] === null) {
+				$value = strpos($value, 'E-') ? rtrim(sprintf('%.20f', (float) $value), '0') : "$value";
+			} else {
+				$value = sprintf('%.' . $options['precision'] . 'f', (float) $value);
+			}
+		}
 		
 		return $value;
 	}
