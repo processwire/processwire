@@ -3927,7 +3927,7 @@ class Sanitizer extends Wire {
 				$str = ltrim($str, '-');
 			}
 			
-			if(stripos($str, 'E-') && preg_match('/^([0-9., ]+\d)(E\-\d+)/i', $str, $m)) {
+			if((stripos($str, 'E-') || stripos($str, 'E+')) && preg_match('/^([0-9., ]+\d)(E[-+]\d+)/i', $str, $m)) {
 				$str = $m[1];
 				$append = $m[2];
 			}
@@ -3984,7 +3984,7 @@ class Sanitizer extends Wire {
 		
 		if($options['getString']) {
 			if($options['precision'] === null) {
-				$value = strpos($value, 'E-') ? rtrim(sprintf('%.20f', (float) $value), '0') : "$value";
+				$value = strpos($value, 'E-') || strpos($value, 'E+') ? rtrim(sprintf('%.20f', (float) $value), '0') : "$value";
 			} else {
 				$value = sprintf('%.' . $options['precision'] . 'f', (float) $value);
 			}

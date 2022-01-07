@@ -117,7 +117,7 @@ class InputfieldFloat extends InputfieldInteger {
 				$attributes['step'] = '.' . ($precision > 1 ? str_repeat('0', $precision - 1) : '') . '1';
 			}
 		}
-		if($attributes && isset($attributes['value']) && strpos($attributes['value'], 'E-')) {
+		if($attributes && isset($attributes['value']) && stripos($attributes['value'], 'E')) {
 			$attributes['value'] = $this->wire()->sanitizer->float($attributes['value'], array(
 				'getString' => true,
 			));
