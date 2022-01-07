@@ -8,22 +8,37 @@
  * For documentation about the fields used in this class, please see:  
  * /wire/core/Fieldtype.php
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
- *
+ * 
  */
 
 class FieldtypeModule extends Fieldtype {
 
+	/**
+	 * Get module info
+	 * 
+	 * @return array
+	 * 
+	 */
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'Module Reference',
-			'version' => 101,
+			'version' => 102,
 			'summary' => 'Field that stores a reference to another module',
 			'permanent' => true, 
 		);
 	}
 
+	/**
+	 * Get blank value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return bool|int|null|ModulePlaceholder
+	 * @throws WireException
+	 * 
+	 */
 	public function getBlankValue(Page $page, Field $field) {
 		$blankType = $field->get('blankType');
 		if($blankType === 'zero') {
@@ -38,17 +53,42 @@ class FieldtypeModule extends Fieldtype {
 		return $value;
 	}
 
+	/**
+	 * Should this Fieldtype only be allowed for new fields in advanced mode?
+	 * 
+	 * @return bool
+	 *
+	 */
 	public function isAdvanced() {
 		return true; 
 	}
 
+	/**
+	 * Sanitize value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param int|object|WireArray|string $value
+	 * @return int|bool|null|Module
+	 * 
+	 */
 	public function sanitizeValue(Page $page, Field $field, $value) {
 		if(!$value) return $this->getBlankValue($page, $field);
-		if($field->get('instantiateModule')) return $value instanceof Module ? $value : $this->modules->get($value); 
-		if(ctype_digit("$value")) return $this->modules->getModuleClass((int) $value); 
-		return $this->modules->getModuleID($value) ? $value : $this->getBlankValue($page, $field);
+		$modules = $this->wire()->modules;
+		if($field->get('instantiateModule')) return $value instanceof Module ? $value : $modules->get($value); 
+		if(ctype_digit("$value")) return $modules->getModuleClass((int) $value); 
+		return $modules->getModuleID($value) ? $value : $this->getBlankValue($page, $field);
 	}
 
+	/**
+	 * Wakeup value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|int|string $value
+	 * @return string
+	 * 
+	 */
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 		if(empty($value)) return $this->getBlankValue($page, $field);
 		$modules = $this->wire()->modules;
@@ -56,15 +96,124 @@ class FieldtypeModule extends Fieldtype {
 		return $modules->getModuleClass((int) $value); 
 	}
 
+	/**
+	 * Sleep value
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @param array|float|int|object|string $value
+	 * @return int
+	 * 
+	 */
 	public function ___sleepValue(Page $page, Field $field, $value) {
 		$blankValue = $this->getBlankValue($page, $field);
 		if(!$value || "$blankValue" == "$value") {
 			return 0;
 		} else {
-			return $this->modules->getModuleID($value);
+			return $this->wire()->modules->getModuleID($value);
 		}
 	}
 
+	/**
+	 * Get all selectable modules for given field
+	 * 
+	 * @param Field $field
+	 * @return array Returns array of associative arrays with class, title, label, summary.
+	 * 
+	 */
+	public function getSelectableModules(Field $field) {
+		
+		$modules = $this->wire()->modules;
+		$options = array();
+		$moduleTypes = $field->get('moduleTypes');
+		$inputfieldClass = $field->get('inputfieldClass');
+		$labelField = $field->get('labelField');
+		$matchType = $field->get('matchType'); // verbose or prefix
+		
+		if($matchType !== 'prefix' || empty($moduleTypes)) {
+			$checkModules = $modules;
+		} else {
+			$checkModules = array();
+			foreach($moduleTypes as $prefix) {
+				foreach($modules->findByPrefix($prefix, false) as $moduleName) {
+					$checkModules[] = $moduleName;
+				}
+			}
+		}
+
+		foreach($checkModules as $module) {
+			
+			if($matchType != 'prefix' && !empty($moduleTypes)) {
+				$ns = $modules->getModuleNamespace($module);
+				$parents = wireClassParents($ns ? "$ns$module" : "$module");
+				$found = false;
+				foreach($moduleTypes as $moduleType) {
+					if(!in_array($moduleType, $parents)) continue;
+					$found = true;
+					break;
+				}
+				if(!$found) continue;
+			}
+			
+			$class = (string) $module;
+			$summary = '';
+			$title = '';
+			
+			if($labelField === 'title') {
+				$info = $modules->getModuleInfo($module);
+				$id = $info['id'];
+				$label = !empty($info['title']) ? $info['title'] : (string) $module;
+				$title = $label;
+				$keyType = 'title';
+				
+			} else if($labelField === 'title-summary') {
+				$info = $modules->getModuleInfoVerbose($module);
+				$id = $info['id'];
+				$title = $info['title'];
+				$label = !empty($title) ? $title : (string) $module;
+				$keyType = 'title';
+				if(!empty($info['summary'])) {
+					$summary = $info['summary'];
+					if($inputfieldClass === 'InputfieldRadios') {
+						$label .= " [span.detail] • $summary [/span]";
+					} else {
+						$label .= " • $summary";
+					}
+				}
+				
+			} else {
+				$info = $modules->getModuleInfo($module);
+				$id = $info['id'];
+				$keyType = 'class';
+				$label = $class;
+			}
+
+			$option = array(
+				'id' => $id, 
+				'class' => $class,
+				'label' => $label,
+				'title' => $title,
+				'summary' => $summary,
+			);
+			
+			$key = $option[$keyType];
+			while(isset($options[$key])) $key .= ' '; // just in case
+			$options[$key] = $option;
+		}
+
+		ksort($options);
+		
+		return array_values($options);
+	}
+
+	/**
+	 * Get Inputfield
+	 * 
+	 * @param Page $page
+	 * @param Field $field
+	 * @return Inputfield
+	 * 
+	 */
 	public function getInputfield(Page $page, Field $field) {
 	
 		$modules = $this->wire()->modules;
@@ -78,69 +227,43 @@ class FieldtypeModule extends Fieldtype {
 
 		$inputfield->attr('name', $field->name); 
 		$inputfield->class = $this->className();
-		$options = array();
-
-		foreach($modules as $module) {
-			$found = false; 
-			$ns = $modules->getModuleNamespace($module);
-			$parents = wireClassParents($ns ? "$ns$module" : "$module"); 
-			$moduleTypes = $field->get('moduleTypes');
-			if($moduleTypes) foreach($moduleTypes as $moduleType) {
-				if(in_array($moduleType, $parents)) { 
-					$found = true; 
-					break;
-				}
-			}
-			if(!$found) continue; 
-			$labelField = $field->get('labelField');
-			if($labelField === 'title') {
-				$info = $modules->getModuleInfo($module);
-				$label = !empty($info['title']) ? $info['title'] : (string) $module;
-			} else if($labelField === 'title-summary') {
-				$info = $modules->getModuleInfoVerbose($module);
-				$label = !empty($info['title']) ? $info['title'] : (string) $module;
-				if(!empty($info['summary'])) {
-					if($inputfieldClass === 'InputfieldRadios') {
-						$label .= " [span.detail] • $info[summary] [/span]";
-					} else {
-						$label .= " • $info[summary]";
-					}
-				}
-			} else {
-				$label = (string) $module; 
-			}
-
-			$options[$label] = $module; 
-		}
-
-		ksort($options); 
 		
 		if($inputfieldClass == 'InputfieldRadios' && $field->get('showNoneOption')) {
 			$inputfield->addOption(0, $this->_('None'));
 		}
 
-		foreach($options as $label => $module) {
-			$inputfield->addOption((string) $module, $label); 
+		foreach($this->getSelectableModules($field) as $info) {
+			$inputfield->addOption($info['class'], $info['label']); 
 		}
 
 		return $inputfield; 
 	}
 
+	/**
+	 * Get database schema
+	 * 
+	 * @param Field $field
+	 * @return array
+	 * 
+	 */
 	public function getDatabaseSchema(Field $field) {
 		$schema = parent::getDatabaseSchema($field); 
 		$schema['data'] = 'int NOT NULL';
 		return $schema;
 	}
 
+	/**
+	 * Configure field
+	 * 
+	 * @param Field $field
+	 * @return InputfieldWrapper
+	 * 
+	 */
 	public function ___getConfigInputfields(Field $field) {
 
 		$modules = $this->wire()->modules;
-		$inputfields = parent::___getConfigInputfields($field); 
-		$lastType = '';
-
-		/** @var InputfieldCheckboxes $f */
-		$f = $modules->get("InputfieldCheckboxes"); 
-		$f->attr('name', 'moduleTypes'); 
+		$inputfields = parent::___getConfigInputfields($field);
+		$moduleTypes = array();
 		
 		foreach($modules as $module) {
 			if(strpos($module->className(), 'AdminTheme') === 0) {
@@ -149,18 +272,32 @@ class FieldtypeModule extends Fieldtype {
 				if(!preg_match('/^([A-Za-z][a-z0-9_]+)/', $module->className(), $matches)) continue;
 			}
 			$moduleType = $matches[1];
-			if($moduleType == $lastType) continue; 	
-			$f->addOption($moduleType); 
-			$lastType = $moduleType; 
+			$moduleTypes[$moduleType] = $moduleType;
 		}
+		ksort($moduleTypes);
 
-		$moduleTypes = $field->get('moduleTypes');
-		if(!is_array($moduleTypes)) $moduleTypes = array();
-		
-		$f->attr('value', $moduleTypes);
+		/** @var InputfieldCheckboxes $f */
+		$f = $modules->get("InputfieldCheckboxes"); 
+		$f->attr('name', 'moduleTypes'); 
+		$f->addOptions($moduleTypes);
+		$value = $field->get('moduleTypes');
+		if(!is_array($value)) $value = array();
+		$f->attr('value', $value);
 		$f->label = $this->_('Module Types');
 		$f->description = $this->_('Check all of the module types that may be selectable in this field.');
+		$f->optionWidth = 250;
 		$inputfields->append($f); 
+	
+		/** @var InputfieldRadios $f */
+		$f = $modules->get('InputfieldRadios');
+		$f->attr('name', 'matchType'); 
+		$f->label = $this->_('Module matching type');
+		$f->addOption('prefix', $this->_('Prefix')); 
+		$f->addOption('verbose', $this->_('Inheritance'));
+		$f->notes = $this->_('The prefix option is recommended for better performance unless it fails to match a module you intend.');
+		$value = $field->get('matchType');
+		$f->val($value ? $value : 'verbose');
+		$inputfields->add($f);
 
 		/** @var InputfieldCheckbox $f */
 		$f = $modules->get("InputfieldCheckbox"); 
@@ -215,12 +352,88 @@ class FieldtypeModule extends Fieldtype {
 		return $inputfields; 			
 	}
 
+	/**
+	 * Get compatible Fieldtypes
+	 * 
+	 * @param Field $field
+	 * @return Fieldtypes 
+	 * 
+	 */
 	public function ___getCompatibleFieldtypes(Field $field) {
 		$fieldtypes = $this->wire(new Fieldtypes());
 		foreach($this->wire()->fieldtypes as $fieldtype) {
 			if($fieldtype instanceof FieldtypeModule) $fieldtypes->add($fieldtype);
 		}
 		return $fieldtypes;
+	}
+	
+	/**
+	 * Render a markup string of the value.
+	 *
+	 * @param Page $page Page that $value comes from
+	 * @param Field $field Field that $value comes from
+	 * @param mixed $value Optionally specify the value returned by `$page->getFormatted('field')`.
+	 *  When specified, value must be a formatted value.
+	 * 	If null or not specified (recommended), it will be retrieved automatically.
+	 * @param string $property Optionally specify the property or index to render. If omitted, entire value is rendered.
+	 * @return string|MarkupFieldtype Returns a string or object that can be output as a string, ready for output.
+	 * 	Return a MarkupFieldtype value when suitable so that the caller has potential specify additional
+	 * 	config options before typecasting it to a string.
+	 *
+	 */
+	public function ___markupValue(Page $page, Field $field, $value = null, $property = '') {
+		if($value === null) $value = $page->getFormatted($field->name);
+		$value = (string) $value;
+		if(empty($value)) $value = '';
+		return $value;
+	}
+	
+	/**
+	 * Return array with information about what properties and operators can be used with this field.
+	 *
+	 * @param Field $field
+	 * @param array $data Array of extra data, when/if needed
+	 * @return array See `FieldSelectorInfo` class for details.
+	 *
+	 */
+	public function ___getSelectorInfo(Field $field, array $data = array()) {
+		if($data) {}
+		$selectorInfo = $this->wire(new FieldSelectorInfo());
+		$labelField = $field->get('labelField');
+		$info = $selectorInfo->getSelectorInfo($field);
+		$info['input'] = 'select';
+		$info['operators'] = array('=', '!=');
+		$selectableModules = $this->getSelectableModules($field);
+		foreach($selectableModules as $m) {
+			$id = (int) $m['id'];
+			if($labelField === 'title' || $labelField === 'title-summary') {
+				$label = $m['title'];
+			} else {
+				$label = $m['class'];
+			}
+			$info['options'][$id] = $label;
+		}
+		return $info;
+	}
+	
+	/**
+	 * Get the database query that matches a Fieldtype table’s data with a given value.
+	 *
+	 * @param PageFinderDatabaseQuerySelect $query
+	 * @param string $table The table name to use
+	 * @param string $subfield Name of the subfield (typically 'data', unless selector explicitly specified another)
+	 * @param string $operator The comparison operator.
+	 * @param mixed $value Value to find.
+	 * @return PageFinderDatabaseQuerySelect|DatabaseQuerySelect $query
+	 * @throws WireException
+	 *
+	 */
+	public function getMatchQuery($query, $table, $subfield, $operator, $value) {
+		if(empty($subfield)) $subfield = 'data';
+		if(!empty($value) && !ctype_digit("$value") && $subfield = 'data') {
+			$value = $this->wire()->modules->getModuleID($value); // convert class name to ID
+		}
+		return parent::getMatchQuery($query, $table, $subfield, $operator, $value);
 	}
 }
 
