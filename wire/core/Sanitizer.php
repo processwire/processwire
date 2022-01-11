@@ -3917,6 +3917,7 @@ class Sanitizer extends Wire {
 	
 		if($value === null || $value === false) return $options['blankValue'];
 		if(!is_float($value) && !is_string($value)) $value = $this->string($value);
+		$e = 0;
 
 		if(is_string($value)) {
 			
@@ -3936,10 +3937,10 @@ class Sanitizer extends Wire {
 				$str = ltrim($str, '-');
 			}
 
-			if(stripos($str, 'E') && preg_match('/^([0-9., ]*\d)(E[-+]?\d+)/i', $str, $m)) {
+			if(stripos($str, 'E') && preg_match('/^([-]?[0-9., ]*\d)(E[-+]?\d+)/i', $str, $m)) {
 				$str = $m[1];
 				$append = $m[2];
-				if($options['precision'] === null) $options['precision'] = ((int) ltrim($append, '-+eE')); 
+				$e = ((int) ltrim($append, '-+eE')); 
 			}
 		
 			if(!strlen($str)) return $options['blankValue'];
@@ -3987,16 +3988,22 @@ class Sanitizer extends Wire {
 			if(!$options['getString']) $value = floatval($value);
 			
 		} else if(is_float($value)) {
-			if($options['precision'] === null) {
-				$str = strtoupper("$value"); 
-				if(strpos($str, 'E')) $options['precision'] = (int) ltrim(stristr("$value", 'E'), 'E-+'); 
-			}
+			$str = strtoupper("$value"); 
+			if(strpos($str, 'E')) $e = (int) ltrim(stristr("$str", 'E'), 'E-+'); 
 		}	
+		
+		if($options['precision'] === null && $e) {
+			$options['precision'] = $e;
+			if(strpos("$value", '.') !== false && preg_match('!\.(\d+)!', $value, $m)) {
+				$options['precision'] += strlen($m[1]);
+			}
+		}
 		
 		if(!$options['getString'] && !is_float($value)) $value = (float) $value;
 		if(!is_null($options['min']) && ((float) $value) < ((float) $options['min'])) $value = $options['min'];
 		if(!is_null($options['max']) && ((float) $value) > ((float) $options['max'])) $value = $options['max'];
 		if(!is_null($options['precision'])) $value = round((float) $value, (int) $options['precision'], (int) $options['mode']);
+		$value = (float) $value;
 		
 		if($options['getString']) {
 			$f = $options['getString'];
@@ -4004,7 +4011,7 @@ class Sanitizer extends Wire {
 			if($options['precision'] === null) {
 				$value = stripos("$value", 'E') ? rtrim(sprintf("%.15$f", (float) $value), '0') : "$value";
 			} else {
-				$value = sprintf("%.$options[precision]$f", (float) $value);
+				$value = rtrim(sprintf("%.$options[precision]$f", (float) $value), '0');
 			}
 			$value = rtrim($value, '.');
 		}
