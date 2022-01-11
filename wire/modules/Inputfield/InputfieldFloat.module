@@ -6,7 +6,7 @@
  * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
- * @property int $precision Decimals precision 
+ * @property int $precision Decimals precision (or -1 to disable rounding in 3.0.193+)
  * @property int $digits Total digits, for when used in decimal mode (default=0)
  * @property string $inputType Input type to use, one of "text" or "number"
  * @property int|float $min
@@ -25,7 +25,7 @@ class InputfieldFloat extends InputfieldInteger {
 		return array(
 			'title' => __('Float', __FILE__), // Module Title
 			'summary' => __('Floating point number with precision', __FILE__), // Module Summary
-			'version' => 104,
+			'version' => 105,
 			'permanent' => true, 
 		);
 	}
@@ -59,7 +59,7 @@ class InputfieldFloat extends InputfieldInteger {
 	protected function getPrecision($value = null) {
 		if($value !== null) return FieldtypeFloat::getPrecision($value);
 		$precision = $this->precision;
-		return $precision === null || $precision === '' ? '' : (int) $precision;
+		return $precision === null || $precision === '' || $precision < 0 ? '' : (int) $precision;
 	}
 
 	/**
@@ -78,10 +78,8 @@ class InputfieldFloat extends InputfieldInteger {
 			if(!strlen("$value")) return '';
 		}
 		$precision = $this->precision;
-		if($precision === null || $precision === '') {
-			$precision = FieldtypeFloat::getPrecision($value);
-		}
-		return round((float) $value, $precision);
+		if($precision === null || $precision === '') $precision = $this->getPrecision($value);
+		return is_int($precision) && $precision > 0 ? round((float) $value, $precision) : $value;
 	}
 	
 	/**
@@ -96,6 +94,23 @@ class InputfieldFloat extends InputfieldInteger {
 	}
 
 	/**
+	 * Is value in scientific notation? 
+	 * 
+	 * @param string $value
+	 * @return bool
+	 * @since 3.0.193
+	 * 
+	 */
+	public function isScientific($value) {
+		$value = strtoupper((string) $value);
+		if(strpos($value, 'E') === false) return false;
+		$value = str_replace('.', '', $value);
+		list($a, $b) = explode('E', $value, 2);
+		$b = trim($b, '+-');
+		return ctype_digit("$a$b"); 
+	}
+
+	/**
 	 * Override method from Inputfield to convert locale specific decimals for input[type=number]
 	 * 
 	 * @param array $attributes
@@ -105,8 +120,8 @@ class InputfieldFloat extends InputfieldInteger {
 	public function getAttributesString(array $attributes = null) {
 		if($attributes && $attributes['type'] === 'number') { 
 			$value = isset($attributes['value']) ? $attributes['value'] : null;
-			if(is_float($value) || is_string($value)) {
-				if(strlen("$value") && !ctype_digit(str_replace('.', '', ltrim($value, '-')))) {
+			if(is_float($value) || (is_string($value) && strlen($value))) {
+				if(!$this->isScientific($value) && !ctype_digit(str_replace('.', '', ltrim($value, '-')))) {
 					// float value is using a non "." as decimal point, needs conversion because
 					// the HTML5 number input type requires "." as the decimal
 					$attributes['value'] = $this->localeConvertValue($value);
@@ -117,10 +132,8 @@ class InputfieldFloat extends InputfieldInteger {
 				$attributes['step'] = '.' . ($precision > 1 ? str_repeat('0', $precision - 1) : '') . '1';
 			}
 		}
-		if($attributes && isset($attributes['value']) && stripos($attributes['value'], 'E')) {
-			$attributes['value'] = $this->wire()->sanitizer->float($attributes['value'], array(
-				'getString' => true,
-			));
+		if($attributes && isset($attributes['value']) && $this->isScientific($attributes['value'])) {
+			$attributes['value'] = $this->wire()->sanitizer->float($attributes['value']);
 		}
 		return parent::getAttributesString($attributes);
 	}
@@ -152,10 +165,12 @@ class InputfieldFloat extends InputfieldInteger {
 	public function getConfigInputfields() {
 		$inputfields = parent::getConfigInputfields();
 		if($this->hasFieldtype === false) {
+			// when used without FieldtypeFloat
 			/** @var InputfieldInteger $f */
 			$f = $this->wire()->modules->get('InputfieldInteger');
 			$f->attr('name', 'precision');
 			$f->label = $this->_('Number of decimal digits to round to');
+			$f->description = $this->_('Or use a negative number like `-1` to disable rounding.');
 			$f->attr('value', $this->precision);
 			$f->attr('size', 8);
 			$inputfields->add($f);

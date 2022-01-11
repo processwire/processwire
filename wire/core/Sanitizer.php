@@ -3880,6 +3880,15 @@ class Sanitizer extends Wire {
 	/**
 	 * Sanitize to floating point value
 	 * 
+	 * Values for `getString` argument:
+	 * 
+	 * - `false` (bool): do not return string value (default). 3.0.171+
+	 * - `true` (bool): locale aware floating point number string. 3.0.171+
+	 * - `f` (string): locale aware floating point number string (same as true). 3.0.193+
+	 * - `F` (string): non-locale aware floating point number string. 3.0.193+
+	 * - `e` (string): lowercase scientific notation (e.g. 1.2e+2). 3.0.193+
+	 * - `E` (string): uppercase scientific notation (e.g. 1.2E+2). 3.0.193+
+	 * 
 	 * #pw-group-numbers
 	 * 
 	 * @param float|string|int $value
@@ -3889,8 +3898,8 @@ class Sanitizer extends Wire {
 	 * 	- `blankValue` (null|int|string|float): Value to return (whether float or non-float) if provided $value is an empty non-float (default=0.0)
 	 * 	- `min` (float|null): Minimum allowed value, excluding blankValue (default=null)
 	 * 	- `max` (float|null): Maximum allowed value, excluding blankValue (default=null)
-	 *  - `getString (bool): Return a string rather than float value? (default=false) added 3.0.171
-	 * @return float
+	 *  - `getString (bool|string): Return a string rather than float value? 3.0.171+ (default=false). See value options in method description. 
+	 * @return float|string
 	 * 
 	 */
 	public function float($value, array $options = array()) {
@@ -3901,7 +3910,7 @@ class Sanitizer extends Wire {
 			'blankValue' => 0.0, // Value to return (whether float or non-float) if provided $value is an empty non-float (default=0.0)
 			'min' => null, // Minimum allowed value (excluding blankValue)
 			'max' => null, // Maximum allowed value (excluding blankValue)
-			'getString' => false, // Return a string rather than float value?
+			'getString' => false, // Return a string rather than float value? bool or f, F, e, E
 		);
 		
 		$options = array_merge($defaults, $options);
@@ -3926,10 +3935,11 @@ class Sanitizer extends Wire {
 				$prepend = '-';
 				$str = ltrim($str, '-');
 			}
-			
-			if((stripos($str, 'E-') || stripos($str, 'E+')) && preg_match('/^([0-9., ]+\d)(E[-+]\d+)/i', $str, $m)) {
+
+			if(stripos($str, 'E') && preg_match('/^([0-9., ]*\d)(E[-+]?\d+)/i', $str, $m)) {
 				$str = $m[1];
 				$append = $m[2];
+				if($options['precision'] === null) $options['precision'] = ((int) ltrim($append, '-+eE')); 
 			}
 		
 			if(!strlen($str)) return $options['blankValue'];
@@ -3975,7 +3985,13 @@ class Sanitizer extends Wire {
 
 			$value = $prepend . $value . $append;
 			if(!$options['getString']) $value = floatval($value);
-		}
+			
+		} else if(is_float($value)) {
+			if($options['precision'] === null) {
+				$str = strtoupper("$value"); 
+				if(strpos($str, 'E')) $options['precision'] = (int) ltrim(stristr("$value", 'E'), 'E-+'); 
+			}
+		}	
 		
 		if(!$options['getString'] && !is_float($value)) $value = (float) $value;
 		if(!is_null($options['min']) && ((float) $value) < ((float) $options['min'])) $value = $options['min'];
@@ -3983,11 +3999,14 @@ class Sanitizer extends Wire {
 		if(!is_null($options['precision'])) $value = round((float) $value, (int) $options['precision'], (int) $options['mode']);
 		
 		if($options['getString']) {
+			$f = $options['getString'];
+			$f = is_string($f) && in_array($f, array('f', 'F', 'e', 'E')) ? $f : 'f';
 			if($options['precision'] === null) {
-				$value = strpos($value, 'E-') || strpos($value, 'E+') ? rtrim(sprintf('%.20f', (float) $value), '0') : "$value";
+				$value = stripos("$value", 'E') ? rtrim(sprintf("%.15$f", (float) $value), '0') : "$value";
 			} else {
-				$value = sprintf('%.' . $options['precision'] . 'f', (float) $value);
+				$value = sprintf("%.$options[precision]$f", (float) $value);
 			}
+			$value = rtrim($value, '.');
 		}
 		
 		return $value;
