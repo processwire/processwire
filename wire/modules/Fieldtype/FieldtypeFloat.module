@@ -134,19 +134,34 @@ class FieldtypeFloat extends Fieldtype {
 	 * Get precision of given value 
 	 * 
 	 * @param string|float $value
+	 * @param int $min minimum precision to return
 	 * @return int
 	 * 
 	 */
-	public static function getPrecision($value) {
+	public static function getPrecision($value, $min = 1) {
 		$value = (float) $value;
-		if(stripos("$value", 'E')) {
-			list(,$precision) = explode('E', strtoupper("$value"), 2);
-			$precision = (int) ltrim($precision, '+-'); 
+		if(stripos("$value", 'E-')) {
+			// negative exponent
+			list($v, $precision) = explode('E-', strtoupper("$value"), 2);
+			$precision = (int) $precision;
+			if(strpos($v, '.') !== false) $precision += strlen(strstr($v, '.'))-1;
+		} else if(stripos("$value", 'E')) {
+			// positive exponent
+			list($v, $precision) = explode('E', strtoupper("$value"), 2);
+			$precision = (int) ltrim($precision, '+');
+			if(strpos($v, '.') !== false) $precision = (strlen(strstr($v, '.')) - 1) - $precision;
+		} else if(strpos("$value", '.') === false) {
+			$precision = 0;
 		} else {
+			// decimal
+			/*
 			$remainder = ceil($value) - $value;
 			$precision = strlen(ltrim("$remainder", '0., '));
+			*/
+			list(, $v) = explode('.', "$value");
+			$precision = strlen(rtrim($v, '0'));
 		}
-		if(!$precision) $precision = 1; 
+		if($precision < $min) $precision = $min; 
 		return $precision;
 	}
 

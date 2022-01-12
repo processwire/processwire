@@ -16,6 +16,7 @@
  * @property string $placeholder
  * @property int|float $initValue Initial/default value (when used as independent Inputfield)
  * @property int|float|string $defaultValue Initial/default value (when used with FieldtypeInteger)
+ * @property bool|int $noE Convert “123E-3” and “123E3” type numbers to real numbers in the <input>? 3.0.193+
  * 
  */
 
@@ -37,6 +38,7 @@ class InputfieldFloat extends InputfieldInteger {
 	public function __construct() {
 		$this->set('precision', 2); 
 		$this->set('digits', 0);
+		$this->set('noE', 0);
 		parent::__construct();
 	}
 
@@ -94,17 +96,17 @@ class InputfieldFloat extends InputfieldInteger {
 	}
 
 	/**
-	 * Is value in scientific notation? 
+	 * Does the value have an E in it like ”123E-3” or "123E3” ?
 	 * 
 	 * @param string $value
 	 * @return bool
 	 * @since 3.0.193
 	 * 
 	 */
-	public function isScientific($value) {
+	public function hasE($value) {
 		$value = strtoupper((string) $value);
 		if(strpos($value, 'E') === false) return false;
-		$value = str_replace('.', '', $value);
+		$value = str_replace(array('-', '.', ',', ' '), '', $value);
 		list($a, $b) = explode('E', $value, 2);
 		$b = trim($b, '+-');
 		return ctype_digit("$a$b"); 
@@ -121,19 +123,20 @@ class InputfieldFloat extends InputfieldInteger {
 		if($attributes && $attributes['type'] === 'number') { 
 			$value = isset($attributes['value']) ? $attributes['value'] : null;
 			if(is_float($value) || (is_string($value) && strlen($value))) {
-				if(!$this->isScientific($value) && !ctype_digit(str_replace('.', '', ltrim($value, '-')))) {
-					// float value is using a non "." as decimal point, needs conversion because
-					// the HTML5 number input type requires "." as the decimal
-					$attributes['value'] = $this->localeConvertValue($value);
+				// the HTML5 number input type requires "." as the decimal
+				$value = $this->localeConvertValue($value);
+				$attributes['value'] = $value;
+			}
+			if(empty($attributes['step']) || $attributes['step'] === 'any') {
+				$precision = (int) $this->precision;
+				if($precision < 1 && $value !== null) $precision = $this->getPrecision($value);
+				if($precision > 0) {
+					$attributes['step'] = '.' . ($precision > 1 ? str_repeat('0', $precision - 1) : '') . '1';
 				}
 			}
-			$precision = (int) $this->precision;
-			if($precision > 0 && (empty($attributes['step']) || $attributes['step'] === 'any')) {
-				$attributes['step'] = '.' . ($precision > 1 ? str_repeat('0', $precision - 1) : '') . '1';
-			}
 		}
-		if($attributes && isset($attributes['value']) && $this->isScientific($attributes['value'])) {
-			$attributes['value'] = $this->wire()->sanitizer->float($attributes['value']);
+		if($attributes && !empty($attributes['value']) && $this->noE && $this->hasE($attributes['value'])) {
+			$attributes['value'] = $this->wire()->sanitizer->float($attributes['value'], array('getString' => true));
 		}
 		return parent::getAttributesString($attributes);
 	}
@@ -147,7 +150,7 @@ class InputfieldFloat extends InputfieldInteger {
 	 */
 	protected function localeConvertValue($value) {
 		if(!strlen("$value")) return $value; 
-		if(ctype_digit(str_replace('.', '', ltrim($value, '-')))) return $value;
+		if(ctype_digit(str_replace(array('.', 'E', 'e', '-', '+'), '', "$value"))) return $value;
 		$locale = localeconv();
 		$decimal = $locale['decimal_point'];
 		if($decimal === '.' || strpos($value, $decimal) === false) return $value;
@@ -177,6 +180,7 @@ class InputfieldFloat extends InputfieldInteger {
 		} else {
 			// precision is configured with FieldtypeFloat
 		}
+		// @todo anyone other than me want a config setting for $noE ?
 		return $inputfields;
 	}
 
