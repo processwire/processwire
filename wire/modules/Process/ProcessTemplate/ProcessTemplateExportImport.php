@@ -1,7 +1,16 @@
 <?php namespace ProcessWire;
 
+/**
+ * @method string buildExport()
+ * @method InputfieldForm buildInputDataForm()
+ * @method string buildImport()
+ * @method void processImport()
+ * 
+ */
+
 class ProcessTemplateExportImport extends Wire {
-	
+
+	/** @var Templates $items */
 	protected $items; 
 	
 	public function __construct() {
@@ -129,12 +138,16 @@ class ProcessTemplateExportImport extends Wire {
 	 */
 	protected function ___buildInputDataForm() {
 		
-		$form = $this->modules->get('InputfieldForm');
+		$modules = $this->wire()->modules;
+	
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
 		$form->action = './';
 		$form->method = 'post';
 		$form->attr('id', 'import_form');
-		
-		$f = $this->modules->get('InputfieldTextarea');
+	
+		/** @var InputfieldTextarea $f */
+		$f = $modules->get('InputfieldTextarea');
 		$f->attr('name', 'import_data');
 		$f->label = $this->_x('Import', 'input');
 		$f->icon = 'paste';
@@ -143,7 +156,8 @@ class ProcessTemplateExportImport extends Wire {
 		$f->notes = $this->_('Copy the export data from another installation and then paste into the box above with CTRL-V or CMD-V.');
 		$form->add($f);
 
-		$f = $this->wire('modules')->get('InputfieldSubmit') ;
+		/** @var InputfieldSubmit $f */
+		$f = $modules->get('InputfieldSubmit') ;
 		$f->attr('name', 'submit_import');
 		$f->attr('value', $this->_('Preview'));
 		$form->add($f);
@@ -160,7 +174,10 @@ class ProcessTemplateExportImport extends Wire {
 	 */
 	public function ___buildImport() {
 		
-		if($this->input->post('submit_commit')) return $this->processImport();
+		if($this->input->post('submit_commit')) {
+			$this->processImport();
+			return '';
+		}
 		
 		$verify = (int) $this->input->get('verify');
 
@@ -174,6 +191,7 @@ class ProcessTemplateExportImport extends Wire {
 		$data = is_array($json) ? $json : wireDecodeJSON($json);
 		if(!$data) throw new WireException("Invalid import data");
 
+		/** @var InputfieldForm $form */
 		$form = $this->modules->get('InputfieldForm');
 		$form->action = './';
 		$form->method = 'post';
@@ -209,6 +227,7 @@ class ProcessTemplateExportImport extends Wire {
 			$name = $this->wire('sanitizer')->name($name);
 			$template = $this->wire('templates')->get($name);
 			$numChangesTemplate = 0;
+			/** @var InputfieldFieldset $fieldset */
 			$fieldset = $this->modules->get('InputfieldFieldset');
 			$fieldset->label = $name;
 			$form->add($fieldset);
@@ -223,6 +242,7 @@ class ProcessTemplateExportImport extends Wire {
 				$fieldset->icon = 'moon-o';
 			}
 
+			/** @var InputfieldMarkup $markup */
 			$markup = $this->modules->get('InputfieldMarkup');
 			$markup->addClass('InputfieldCheckboxes');
 			$markup->value = "";
@@ -233,6 +253,7 @@ class ProcessTemplateExportImport extends Wire {
 				$changes = $template->setImportData($templateData);
 				$template->setImportData($savedTemplateData); // restore
 			} catch(\Exception $e) {
+				$changes = array();
 				$this->error($e->getMessage());
 			}
 
@@ -334,7 +355,8 @@ class ProcessTemplateExportImport extends Wire {
 			} else {
 				$form->description = $this->_('No changes were found');
 			}
-			
+		
+			/** @var InputfieldButton $f */
 			$f = $this->modules->get('InputfieldButton');
 			$f->href = './';
 			$f->value = $this->_x('Ok', 'button'); 
@@ -418,13 +440,20 @@ class ProcessTemplateExportImport extends Wire {
 		if($numSkippedItems) $this->message(sprintf($this->_n('Skipped %d item', 'Skipped %d items', $numSkippedItems), $numSkippedItems));
 		$this->session->redirect("./?verify=1");
 	}
-	
+
+	/**
+	 * @param Template $item
+	 * @param array $changes
+	 * 
+	 */
 	public function saveItem($item, array $changes) {
+		if($changes) {} // ignore
+		/** @var Fieldgroup $fieldgroup */
 		$fieldgroup = $item->fieldgroup;
 		$fieldgroup->save();
 		$fieldgroup->saveContext();
 		$item->save();
-		if(!$item->fieldgroup_id) {
+		if(!$item->fieldgroup) {
 			$item->setFieldgroup($fieldgroup);
 			$item->save();
 		}
