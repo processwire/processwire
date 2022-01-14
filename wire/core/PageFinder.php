@@ -2699,8 +2699,9 @@ class PageFinder extends Wire {
 					}
 					$this->parent_id = null;
 					if($isParent) {
+						if($operator === '=') $IDs = $values;
 						$field = 'parent_id'; 
-						if(count($values) == 1 && count($fields) == 1 && $selector->operator() === '=') {
+						if(count($values) == 1 && count($fields) == 1 && $operator === '=') {
 							$this->parent_id = reset($values);
 						} 
 					}
@@ -2747,7 +2748,7 @@ class PageFinder extends Wire {
 						$field = $subfield;
 					}
 				}
-			} else if($field === 'id' && count($values) > 1 && $selector->operator === '=' && !$selector->not) {
+			} else if($field === 'id' && count($values) > 1 && $operator === '=' && !$selector->not) {
 				$IDs = $values;
 				
 			} else {
@@ -2776,7 +2777,7 @@ class PageFinder extends Wire {
 					// convert templates specified as a name to the numeric template ID
 					// allows selectors like 'template=my_template_name'
 					$field = 'templates_id';
-					if(count($values) == 1 && $selector->operator() === '=') $this->templates_id = reset($values);
+					if(count($values) == 1 && $operator === '=') $this->templates_id = reset($values);
 					if(!ctype_digit("$value")) $value = (($template = $this->templates->get($value)) ? $template->id : 0); 
 					
 				} else if(in_array($field, array('created', 'modified', 'published'))) {

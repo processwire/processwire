@@ -565,15 +565,25 @@ class Pages extends Wire {
 	 * $a = $pages->findRaw("template=blog, options=objects|entities"); 
 	 * ~~~~~
 	 * 
+	 * In 3.0.193 the following additional options were added for the `$field` argument:
+	 * 
+	 *  - Specify `parent.field_name` or `parent.parent.field_name`, etc. to return values from parent(s).
+	 *  - Specify `references` or `references.field_name`, etc. to also return values from pages referencing found pages.
+	 *  - Specify `meta` or `meta.name` to also return values from page meta data.
+	 * 
 	 * #pw-advanced
 	 * #pw-group-retrieval
 	 *
 	 * @param string|array|Selectors|int $selector Page matching selector or page ID
-	 * @param string|array|Field $field Name of field/property to get, or array of them, or omit to get all (default='')
-	 *   Note: this argument may also be specified in the $selector argument as "field=foo" or "field=foo|bar|baz" (3.0.173+).
+	 * @param string|array|Field $field Name of field/property to get, or array of them, CSV string, or omit to get all (default='')
+	 *  - Optionally use associative array to rename fields in returned value, i.e. `['title' => 'label']` returns 'title' as 'label' in return value.
+	 *  - Note: this argument may also be specified in the $selector argument as "field=foo" or "field=foo|bar|baz" (3.0.173+).
 	 * @param array $options Options to adjust behavior (may also be specified in selector, i.e. “objects=1, entities=foo|bar”)
 	 *  - `objects` (bool): Use objects rather than associative arrays? (default=false) 3.0.174+
 	 *  - `entities` (bool|array): Entity encode string values? True or 1 to enable, or specify array of field names. (default=false) 3.0.174+
+	 *  - `flat` (bool|string): Flatten return value as `["field.subfield" => "value"]` rather than `["field" => ["subfield" => "value"]]`?
+	 *     Optionally specify field delimiter for the value, otherwise a period `.` will be used as the delimiter. (default=false) 3.0.193+
+	 *  - Note the `objects` and `flat` options are not meant to be used together.
 	 * @return array
 	 * @since 3.0.172
 	 *
