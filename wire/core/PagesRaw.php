@@ -952,6 +952,7 @@ class PagesRawFinder extends Wire {
 
 		$this->ids(true); // converts this->ids to CSV string
 		$idsCSV = &$this->ids;
+		if(empty($idsCSV)) return;
 		$colSQL = $getAllCols ? '*' : '`' . implode('`,`', $getCols) . '`';
 		if(!$getAllCols && !in_array('pages_id', $getCols)) $colSQL .= ',`pages_id`';
 		
@@ -1282,9 +1283,13 @@ class PagesRawFinder extends Wire {
 		$database = $this->wire()->database;
 		$pageFields = array();
 		
+		if(empty($this->ids)) return;
+		
 		foreach($this->wire()->fields as $field) {
 			if($field->type instanceof FieldtypePage) $pageFields[$field->name] = $field;
 		}
+		
+		if(empty($pageFields)) return;
 		
 		foreach($this->values as $id => $data) {
 			$this->values[$id]['references'] = array();
