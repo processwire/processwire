@@ -2036,7 +2036,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 		if($parent->id && $this->id == $parent->id || $parent->parents->has($this)) {
 			throw new WireException("Page cannot be its own parent");
 		}
-		if($this->isLoaded) {
+		if($this->isLoaded && $this->id) {
 			if(!$this->_parent) $this->parent(); // force it to load
 			$this->trackChange('parent', $this->_parent, $parent);
 			if(($this->_parent && $this->_parent->id) && $this->_parent->id != $parent->id) {
