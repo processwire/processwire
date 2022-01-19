@@ -1203,6 +1203,9 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	/**
 	 * Removes the given item or index from the WireArray (if it exists).
 	 * 
+	 * You can also use a selector to remove items:
+	 * $myWireArray->remove("property=value");
+	 *
 	 * #pw-group-manipulation
 	 * 
 	 * @param int|string|Wire $key Item to remove (object), or index of that item. 
@@ -1213,6 +1216,12 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 
 		if(is_object($key)) {
 			$key = $this->getItemKey($key); 
+		}
+
+		// if key is a selector find elements and remove them
+		if(is_string($key) AND !(int)$key) {
+			$items = $this->find($key);
+			foreach($items as $item) $this->remove($item);
 		}
 
 		if(array_key_exists($key, $this->data)) {
