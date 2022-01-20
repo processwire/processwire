@@ -22,14 +22,13 @@
  * 
  * Thanks to @horst for his assistance with several methods in this class.
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @method bool|string send($url, $data = array(), $method = 'POST', array $options = array())
  * @method int sendFile($filename, array $options = array(), array $headers = array())
  * @method string download($fromURL, $toFile, array $options = array())
  * 
- * @todo add proxy server support (3.0.150+)
  *
  */
 
@@ -51,7 +50,13 @@ class WireHttp extends Wire {
 	 * #pw-internal
 	 *
 	 */
-	const defaultDownloadTimeout = 50; 
+	const defaultDownloadTimeout = 50;
+
+	/**
+	 * Default content-type header for POST requests
+	 * 
+	 */
+	const defaultPostContentType = 'application/x-www-form-urlencoded; charset=utf-8';
 
 	/**
 	 * Default value for request $headers, when reset
@@ -307,7 +312,7 @@ class WireHttp extends Wire {
 	 *
 	 */
 	public function post($url, $data = array(), array $options = array()) {
-		if(!isset($this->headers['content-type'])) $this->setHeader('content-type', 'application/x-www-form-urlencoded; charset=utf-8');
+		if(!isset($this->headers['content-type'])) $this->setHeader('content-type', self::defaultPostContentType);
 		return $this->send($url, $data, 'POST', $options);
 	}
 
@@ -652,6 +657,8 @@ class WireHttp extends Wire {
 		$this->lastSendType = 'curl';
 		$timeout = isset($options['timeout']) ? (float) $options['timeout'] : $this->getTimeout();
 		$postMethods = array('POST', 'PUT', 'DELETE', 'PATCH'); // methods for CURLOPT_POSTFIELDS
+		$isPost = in_array($method, $postMethods);
+		$contentType = isset($this->headers['content-type']) ? $this->headers['content-type'] : '';
 		$proxy = '';
 		
 		if(!empty($options['proxy'])) {
@@ -681,6 +688,10 @@ class WireHttp extends Wire {
 		}
 		
 		if(count($this->headers)) {
+			if($isPost && !empty($this->data) && $contentType === self::defaultPostContentType) {
+				// CURL does not work w/default POST content-type when sending POST variables array
+				$this->headers['content-type'] = 'multipart/form-data; charset=utf-8';
+			}
 			$headers = array();
 			foreach($this->headers as $name => $value) {
 				$headers[] = "$name: $value";
@@ -700,19 +711,19 @@ class WireHttp extends Wire {
 		// note: CURLOPT_PUT removed because it also requires CURLOPT_INFILE and CURLOPT_INFILESIZE.
 	
 		if($proxy) curl_setopt($curl, CURLOPT_PROXY, $proxy);
-		
+	
 		if(!empty($this->data)) {
-			if(in_array($method, $postMethods)) {
+			if($isPost) {
 				curl_setopt($curl, CURLOPT_POSTFIELDS, $this->data);
 			} else {
 				$content = http_build_query($this->data);
 				if(strlen($content)) $url .= (strpos($url, '?') === false ? '?' : '&') . $content;
 			}
 		} else if(!empty($this->rawData)) {
-			if(in_array($method, $postMethods)) {
+			if($isPost) {
 				curl_setopt($curl, CURLOPT_POSTFIELDS, $this->rawData);
 			} else {
-				throw new WireException("Raw data option with CURL not supported for $method"); 
+				throw new WireException("Raw data option with CURL not supported for $method");
 			}
 		}
 
