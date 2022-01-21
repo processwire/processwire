@@ -2958,7 +2958,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			$template->noParents = 1;
 			$template->parentTemplates = array();
 		} else {
-			$template->noParents = 0;
+			if($template->noParents != 0) $template->noParents = 0;
 		}
 
 		$sortfield = $sanitizer->name($input->post('sortfield'));

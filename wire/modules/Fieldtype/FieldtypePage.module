@@ -1055,7 +1055,7 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			$value = date('Y-m-d H:i:s', $value); 
 
 		} else if(in_array($subfield, array('template', 'templates_id'))) {
-			$template = $this->templates->get($subfield); 
+			$template = $this->templates->get($value); 
 			$value = $template ? $template->id : 0; 
 			$subfield = 'templates_id';
 			
@@ -1235,6 +1235,9 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 	 *
 	 */
 	public function ___getSelectorInfo(Field $field, array $data = array()) {
+		
+		$pages = $this->wire()->pages;
+		$templates = $this->wire()->templates;
 
 		$info = parent::___getSelectorInfo($field, $data); 
 		if(!isset($data['level'])) $data['level'] = 0;
@@ -1245,29 +1248,34 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		$fieldgroups = array();
 		$template_ids = self::getTemplateIDs($field);
 		$parent_id = $field->get('parent_id');
+		$templateOptions = array();
 
 		if($template_ids) {
 			// determine fieldgroup(s) from template setting
 			// template_id can be int or array of ints
 			foreach($template_ids as $tid) {
-				$template = $this->wire('templates')->get((int) $tid);
-				if($template) $fieldgroups[] = $template->fieldgroup; 
+				$template = $templates->get((int) $tid);
+				if(!$template) continue;
+				$fieldgroups[] = $template->fieldgroup; 
+				$templateOptions[$template->id] = $template->getLabel();
 			}
 
 		} else if($parent_id) {
 			// determine fieldgroup(s) from family settings
-			$parent = $this->wire('pages')->get((int) $parent_id); 
+			$parent = $pages->get((int) $parent_id); 
 			if($parent->id) {
 				foreach($parent->template->childTemplates as $template_id) {
-					$template = $this->wire('templates')->get((int) $template_id); 		
+					$template = $templates->get((int) $template_id); 		
 					if(!$template) continue; 
 					$fieldgroups[$template->fieldgroup->id] = $template->fieldgroup;
+					$templateOptions[$template->id] = $template->getLabel();
 				}
 	
-				foreach($this->wire('templates') as $template) {
+				foreach($templates as $template) {
 					if(!in_array($parent->template->id, $template->parentTemplates)) continue; 
-					if(!$this->wire('pages')->count("parent=$parent_id, template=$template->id, include=all")) continue; 
-					$fieldgroups[$template->fieldgroup->id] = $template->fieldgroup; 
+					if(!$pages->count("parent=$parent_id, template=$template->id, include=all")) continue; 
+					$fieldgroups[$template->fieldgroup->id] = $template->fieldgroup;
+					$templateOptions[$template->id] = $template->getLabel();
 				}
 			}
 		}
@@ -1275,6 +1283,12 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 		if(!count($fieldgroups)) {
 			// if no fieldgorups found, then we have no choice but to use all fields
 			//$fieldgroups[] = $this->wire('fields'); 
+		}
+		
+		if(!count($templateOptions)) {
+			foreach($templates as $template) {
+				$templateOptions[$template->id] = $template->getLabel();
+			}
 		}
 
 		foreach($fieldgroups as $fieldgroup) {
@@ -1290,7 +1304,14 @@ class FieldtypePage extends FieldtypeMulti implements Module, ConfigurableModule
 			'name' => 'count', 
 			'label' => $this->_('Count'), // Label for 'count' property of a PageArray
 			'input' => 'number', 
-			);
+		);
+		
+		$subfields['templates_id'] = array(
+			'name' => 'templates_id',
+			'label' => $this->_('Template'), // Label for 'template' property of a Page
+			'input' => 'select',
+			'options' => $templateOptions,
+		);
 
 		$info['subfields'] = $subfields;
 

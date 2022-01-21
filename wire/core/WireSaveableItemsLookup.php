@@ -5,7 +5,7 @@
  *
  * Provides same functionality as WireSaveableItems except that this class includes joining/modification of a related lookup table
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -40,12 +40,13 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 	 */
 	protected function getLoadQuery($selectors = null) {
 		$query = parent::getLoadQuery($selectors); 
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$table = $database->escapeTable($this->getTable());
 		$lookupTable = $database->escapeTable($this->getLookupTable());	
 		$lookupField = $database->escapeCol($this->getLookupField()); 
 		$query->select("$lookupTable.$lookupField"); // QA 
-		$query->leftjoin("$lookupTable ON $lookupTable.{$table}_id=$table.id ")->orderby("sort"); // QA
+		$query->leftjoin("$lookupTable ON $lookupTable.{$table}_id=$table.id ")->orderby("sort");
+		// $query->leftjoin("$lookupTable ON $lookupTable.{$table}_id=$table.id ")->orderby("$table.id, $lookupTable.sort");
 		return $query; 
 	}
 
@@ -60,9 +61,9 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 	 *
 	 */
 	protected function ___load(WireArray $items, $selectors = null) {
-		
+
+		$database = $this->wire()->database;
 		$query = $this->getLoadQuery($selectors);
-		$database = $this->wire('database');
 		$sql = $query->getQuery();
 		$stmt = $database->prepare($sql);
 		$stmt->execute();
@@ -70,6 +71,7 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 
 		while($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
 
+			/** @var HasLookupItems $item */
 			$item = $this->makeBlankItem();
 			$lookupValue = $row[$lookupField];
 			unset($row[$lookupField]);
@@ -93,6 +95,7 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 		
 		$stmt->closeCursor();
 		$items->setTrackChanges(true);
+		
 		return $items; 
 	}
 
@@ -125,7 +128,7 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 			throw new WireException("$class::save() requires an item that implements HasLookupItems interface");
 		}
 	
-		$database = $this->wire('database'); 	
+		$database = $this->wire()->database; 	
 		$lookupTable = $database->escapeTable($this->getLookupTable());
 		$lookupField = $database->escapeCol($this->getLookupField());
 		$table = $database->escapeTable($this->getTable());
@@ -141,15 +144,18 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 		$item_id = (int) $item->id; // reload, in case it was 0 before
 
 		$sort = 0; 
-		if($item_id) foreach($item->getLookupItems() as $key => $value) {
-			$value_id = (int) $value->id; 
-			$query = $database->prepare("INSERT INTO $lookupTable SET {$table}_id=:item_id, $lookupField=:value_id, sort=:sort"); 
-			$query->bindValue(":item_id", $item_id);
-			$query->bindValue(":value_id", $value_id);
-			$query->bindValue(":sort", $sort); 
-			$query->execute();
+		if($item_id) {
+			$sql = "INSERT INTO $lookupTable SET {$table}_id=:item_id, $lookupField=:value_id, sort=:sort";
+			$query = $database->prepare($sql);
+			foreach($item->getLookupItems() as $key => $value) {
+				$value_id = (int) $value->id;
+				$query->bindValue(":item_id", $item_id, \PDO::PARAM_INT);
+				$query->bindValue(":value_id", $value_id, \PDO::PARAM_INT);
+				$query->bindValue(":sort", $sort, \PDO::PARAM_INT);
+				$query->execute();
+				$sort++;
+			}
 			$this->resetTrackChanges();
-			$sort++; 
 		}
 
 		return $result;	
@@ -163,7 +169,7 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 	 * 
 	 */
 	public function ___delete(Saveable $item) {
-		$database = $this->wire('database');
+		$database = $this->wire()->database;
 		$lookupTable = $database->escapeTable($this->getLookupTable()); 
 		$table = $database->escapeTable($this->getTable()); 
 		$item_id = (int) $item->id; 

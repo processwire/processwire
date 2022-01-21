@@ -6,7 +6,7 @@
  * Wire Data Access Object, provides reusable capability for loading, saving, creating, deleting, 
  * and finding items of descending class-defined types. 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @method WireArray load(WireArray $items, $selectors = null)
@@ -20,6 +20,8 @@
  * @method void added(Saveable $item) #pw-hooker
  * @method void deleted(Saveable $item) #pw-hooker
  * @method void cloned(Saveable $item, Saveable $copy) #pw-hooker
+ * @method void renameReady(Saveable $item, $oldName, $newName)
+ * @method void renamed(Saveable $item, $oldName, $newName)
  *
  * 
  */
@@ -256,6 +258,17 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		$this->saveReady($item); 
 		$data = $item->getTableData();
 		$binds = array();
+		$namePrevious = false;
+		
+		if($id && $item->isChanged('name')) {
+			$query = $database->prepare("SELECT name FROM `$table` WHERE id=:id");
+			$query->bindValue(':id', $id, \PDO::PARAM_INT);
+			$query->execute();
+			$oldName = $query->fetchColumn();
+			$query->closeCursor();
+			if($oldName != $item->name) $namePrevious = $oldName;
+			if($namePrevious) $this->renameReady($item, $namePrevious, $item->name);
+		}
 
 		foreach($data as $key => $value) {
 			if(!$this->saveItemKey($key)) continue; 
@@ -292,6 +305,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		}
 
 		if($result) {
+			if($namePrevious) $this->renamed($item, $namePrevious, $item->name);
 			$this->saved($item); 
 			$this->resetTrackChanges();
 		} else {
@@ -476,6 +490,16 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	public function ___cloneReady(Saveable $item, Saveable $copy) { }
 	
 	/**
+	 * Hook that runs right before item is to be renamed.
+	 *
+	 * @param Saveable $item
+	 * @param string $oldName
+	 * @param string $newName
+	 *
+	 */
+	public function ___renameReady(Saveable $item, $oldName, $newName) { }
+	
+	/**
 	 * Hook that runs right after an item has been saved. 
 	 *
 	 * Unlike after(save), when this runs, it has already been confirmed that the item has been saved (no need to error check).
@@ -517,14 +541,24 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	/**
 	 * Hook that runs right after an item has been cloned. 
 	 *
-	 * Unlike after(delete), it has already been confirmed that the item was indeed deleted.
-	 *
 	 * @param Saveable $item
 	 * @param Saveable $copy
 	 *
 	 */
 	public function ___cloned(Saveable $item, Saveable $copy) {
 		$this->log("Cloned '$item->name' to '$copy->name'", $item); 
+	}
+	
+	/**
+	 * Hook that runs right after an item has been renamed.
+	 *
+	 * @param Saveable $item
+	 * @param string $oldName
+	 * @param string $newName
+	 *
+	 */
+	public function ___renamed(Saveable $item, $oldName, $newName) {
+		$this->log("Renamed $oldName to $newName", $item);
 	}
 
 	/**

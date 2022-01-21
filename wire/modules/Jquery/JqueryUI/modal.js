@@ -270,7 +270,7 @@ function pwModalWindow(href, options, size) {
 		$iframe.refresh();
 	};
 	$iframe.setTitle = function(title) {
-		$iframe.dialog('option', 'title', title); 
+		$iframe.dialog('option', 'title', jQuery('<textarea />').text(title).html()); 
 	}; 
 
 	return $iframe; 
