@@ -11,7 +11,7 @@
  * This version also lifts several pieces of code from Soma's Modules Manager
  * specific to the parts involved with downloading modules from the directory.
  * 
- * ProcessWire 3.x, Copyright 2020 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @todo add support for module configuration inputfields with useLanguages option
@@ -32,7 +32,7 @@ class ProcessModule extends Process {
 		return array(
 			'title' => __('Modules', __FILE__), // getModuleInfo title          
 			'summary' => __('List, edit or install/uninstall modules', __FILE__), // getModuleInfo summary
-			'version' => 119, 
+			'version' => 120, 
 			'permanent' => true, 
 			'permission' => 'module-admin', 
 			'useNavJSON' => true,
@@ -133,11 +133,7 @@ class ProcessModule extends Process {
 	 */
 	public function __construct() {
 		$this->labels['download'] = $this->_('Download'); 
-		if($this->input->get('update')) {
-			$this->labels['download_install'] = $this->_('Download and Update');
-		} else { 
-			$this->labels['download_install'] = $this->_('Download and Install');
-		}
+		$this->labels['download_install'] = $this->_('Download and Install');
 		$this->labels['get_module_info'] = $this->_('Get Module Info'); 
 		$this->labels['modules'] = $this->_('Modules'); 
 		$this->labels['module_information'] = $this->_x("Module Information", 'edit');
@@ -149,8 +145,8 @@ class ProcessModule extends Process {
 		$this->labels['download_zip'] = $this->_('Add Module From URL');
 		$this->labels['check_new'] = $this->_('Check for New Modules'); 
 		$this->labels['installed_date'] = $this->_('Installed');
-		$this->labels['requires'] = $this->_x("Requires", 'list'); // Label that precedes list of required prerequisite modules
-		$this->labels['installs'] = $this->_x("Also Installs", 'list'); // Label that precedes list of other modules a given one installs
+		$this->labels['requires'] = $this->_x('Requires', 'list'); // Label that precedes list of required prerequisite modules
+		$this->labels['installs'] = $this->_x('Also Installs', 'list'); // Label that precedes list of other modules a given one installs
 		$this->labels['reset'] = $this->_('Refresh'); 
 		$this->labels['core'] = $this->_('Core');
 		$this->labels['site'] = $this->_('Site');
@@ -159,13 +155,23 @@ class ProcessModule extends Process {
 		$this->labels['install'] = $this->_('Install'); // Label for Install tab
 		$this->labels['cancel'] = $this->_('Cancel'); // Label for Cancel button
 	
-		if($this->wire('languages') && !$this->wire('user')->language->isDefault()) {
+		require(dirname(__FILE__) . '/ProcessModuleInstall.php'); 
+	}
+
+	/**
+	 * Wired to API
+	 * 
+	 */
+	public function wired() {
+		parent::wired();
+		if($this->wire()->languages && !$this->wire()->user->language->isDefault()) {
 			// Use previous translations when new labels aren't available (can be removed in PW 2.6+ when language packs assumed updated)
 			if($this->labels['install'] == 'Install') $this->labels['install'] = $this->labels['install_btn'];
 			if($this->labels['reset'] == 'Refresh') $this->labels['reset'] = $this->labels['check_new'];
 		}
-
-		require(dirname(__FILE__) . '/ProcessModuleInstall.php'); 
+		if($this->wire()->input->get('update')) {
+			$this->labels['download_install'] = $this->_('Download and Update');
+		}
 	}
 
 	/**
@@ -185,7 +191,7 @@ class ProcessModule extends Process {
 	 *
 	 */
 	protected function formatVersion($version) {
-		return $this->wire('modules')->formatVersion($version); 
+		return $this->wire()->modules->formatVersion($version); 
 	}
 
 	/**
@@ -473,13 +479,13 @@ class ProcessModule extends Process {
 		$markup->icon = 'folder-open-o';
 		$markup->value .= 
 			$this->renderListTable($siteModulesArray, array('allowDelete' => true)) . 
-			"<p class='detail'><i class='fa fa-fw fa-star'></i> " . 
+			"<p class='detail'>" . wireIconMarkup('star', 'fw') . " " . 
 				sprintf($this->_('Browse the modules directory at %s'), "<a target='_blank' href='https://processwire.com/modules/'>processwire.com/modules</a>") . 
 			"</p>" . 
-			"<p class='detail'><i class='fa fa-fw fa-eraser'></i> " .  
+			"<p class='detail'>" . wireIconMarkup('eraser', 'fw') . " " . 
 				$this->_("To remove a module, click the module to edit, check the Uninstall box, then save. Once uninstalled, the module's file(s) may be removed from /site/modules/. If it still appears in the list above, you may need to click the Refresh button for ProcessWire to see the change.") . // Instructions on how to remove a module
 			"</p>" . 
-			"<p class='detail'><i class='fa fa-fw fa-info-circle'></i> " . 
+			"<p class='detail'>" . wireIconMarkup('info-circle') . " " . 
 			   $this->_('The button below clears compiled site modules and template files, forcing them to be re-compiled the next time they are accessed. Note that this may cause a temporary delay for one or more requests while files are re-compiled.') . 
 			"</p>" . 
 			"<p class='detail'>" . $button->render() . "</p>";
@@ -842,7 +848,7 @@ class ProcessModule extends Process {
 			$configurable = $info['configurable'];
 			$title = !empty($info['title']) ? $sanitizer->entities1($info['title']) : substr($name, strlen($section));
 			if($options['allowClasses']) $title .= "<br /><small class='ModuleClass ui-priority-secondary'>$name</small>";
-			if($info['icon']) $title = "<i class='fa fa-fw fa-$info[icon]'></i> $title"; 
+			if($info['icon']) $title = wireIconMarkup($info['icon'], 'fw') . " $title";
 			$class = $configurable ? 'ConfigurableModule' : '';
 			if(!empty($info['permanent'])) $class .= ($class ? ' ' : '') . 'PermanentModule';
 			if($class) $title = "<span class='$class'>$title</span>";
@@ -901,15 +907,15 @@ class ProcessModule extends Process {
 				$buttonWarning = '';
 				if(count($requires)) {
 					$buttonWarning = " onclick=\"$confirmInstallJS\"";
-					$icon = 'fa-warning';
+					$icon = 'warning';
 				} else {
-					$icon = 'fa-sign-in';
+					$icon = 'sign-in';
 				}
 				$buttons .=
 					"<button type='$buttonType' name='install' $buttonWarning data-install='$name' " . 
 						"class='install_$name $buttonState ui-button $buttonPriority' value='$name'>" .
 						"<span class='ui-button-text'>" . 
-							"<i class='fa $icon'></i> " . 
+							wireIconMarkup($icon) . " " . 
 							$this->labels['install_btn'] . 
 						"</span>" . 
 					"</button>"; 
@@ -918,7 +924,7 @@ class ProcessModule extends Process {
 				if($isConfirm) $buttons .=
 					"<button type='$buttonType' name='cancel' class='cancel_$name ui-button ui-priority-secondary' value='$name'>" .
 						"<span class='ui-button-text'>" . 
-							"<i class='fa fa-times-circle'></i> " . 
+							wireIconMarkup('times-circle') . " " . 
 							$this->labels['cancel'] . 
 						"</span>" . 
 					"</button>"; 
@@ -928,7 +934,7 @@ class ProcessModule extends Process {
 						"class='delete_$name ui-state-default ui-priority-secondary ui-button' " . 
 						"value='$name' onclick=\"$confirmDeleteJS\">" . 
 						"<span class='ui-button-text'>" . 
-							"<i class='fa fa-eraser'></i> " . 
+							wireIconMarkup('eraser') . " " . 
 							$this->_x('Delete', 'button') . 
 						"</span>" . 
 					"</button>";
@@ -940,7 +946,11 @@ class ProcessModule extends Process {
 				if(!($flags & Modules::flagsNoUserConfig)) {
 					$buttons .=
 						"<button type='button' class='ProcessModuleSettings ui-state-default ui-button'>" .
-						"<span class='ui-button-text'><i class='fa fa-cog'></i> " . $this->_x('Settings', 'button') . "</span></button>"; // Text for 'Settings' button
+							"<span class='ui-button-text'>" . 
+								wireIconMarkup('cog') . " " . 
+								$this->_x('Settings', 'button') . 
+							"</span>" . 
+						"</button>"; // Text for 'Settings' button
 				}
 			}
 
@@ -957,7 +967,7 @@ class ProcessModule extends Process {
 				$title => $editUrl,
 				$version,
 				$summary . $buttons,
-				);
+			);
 
 			$table->row($row);
 			$total++;
@@ -1139,17 +1149,23 @@ class ProcessModule extends Process {
 				$label = $ver ? $sanitizer->entities("$name $op $ver") : $sanitizer->entities($name);
 				if($modules->isInstalled("$name$op$ver") || in_array($name, $data['installs'])) {
 					// installed
-					$requiresVersions[] = "$label <i class='fa fa-fw fa-thumbs-up'></i>";
+					$requiresVersions[] = "$label " . wireIconMarkup('thumbs-up', 'fw');
 				} else if($modules->isInstalled($name)) {
 					// installed, but version isn't adequate
 					$installable = false;
 					$info = $modules->getModuleInfo($name);
 					$requiresVersions[] = $sanitizer->entities($name) . " " . $modules->formatVersion($info['version']) . " " . 
-						"<span class='ui-state-error-text'>" . $sanitizer->entities("$op $ver") . " " . 
-						"<i class='fa fa-fw fa-thumbs-down'></i></span>";
+						"<span class='ui-state-error-text'>" . 
+							$sanitizer->entities("$op $ver") . " " . 
+							wireIconMarkup('thumbs-down', 'fw') . 
+						"</span>";
 				} else {
 					// not installed at all
-					$requiresVersions[] = "<span class='ui-state-error-text'>$label <i class='fa fa-fw fa-thumbs-down'></i></span>";
+					$requiresVersions[] = 
+						"<span class='ui-state-error-text'>" . 
+							"$label " . 
+							wireIconMarkup('thumbs-down', 'fw') . 
+						"</span>";
 					$installable = false; 
 				}
 			}
@@ -1235,32 +1251,34 @@ class ProcessModule extends Process {
 	 * 
 	 */
 	public function ___executeDownload() {
+		
+		$session = $this->wire()->session;
 
-		if(!$this->input->post('godownload')) {
+		if(!$this->wire()->input->post('godownload')) {
 			$this->message($this->_('Download cancelled')); 
-			$this->session->redirect('../'); 
+			$session->redirect('../'); 
 			return '';
 		}
 		
-		$this->session->CSRF->validate();
-		$this->modules->refresh();
+		$session->CSRF->validate();
+		$this->wire()->modules->refresh();
 
-		$url = $this->session->get('ProcessModuleDownloadURL');
-		$className = $this->session->get('ProcessModuleClassName');
+		$url = $session->get('ProcessModuleDownloadURL');
+		$className = $session->get('ProcessModuleClassName');
 		
-		$this->session->remove('ProcessModuleDownloadURL');
-		$this->session->remove('ProcessModuleClassName'); 
+		$session->remove('ProcessModuleDownloadURL');
+		$session->remove('ProcessModuleClassName'); 
 		
 		if(!$url) throw new WireException("No download URL specified"); 
 		if(!$className) throw new WireException("No class name specified");
 
-		$destinationDir = $this->wire('config')->paths->siteModules . $className . '/';
+		$destinationDir = $this->wire()->config->paths->siteModules . $className . '/';
 		
 		$completedDir = $this->installer()->downloadModule($url, $destinationDir);
 		if($completedDir) {
 			return $this->buildDownloadSuccessForm($className)->render();
 		} else {
-			$this->session->redirect('../'); 
+			$session->redirect('../'); 
 			return '';
 		}
 	}
@@ -1273,21 +1291,23 @@ class ProcessModule extends Process {
 	 * 
 	 */
 	protected function ___buildDownloadSuccessForm($className) {
+		
+		$modules = $this->wire()->modules;
 	
 		/** @var InputfieldForm $form */
-		$form = $this->modules->get('InputfieldForm');
+		$form = $modules->get('InputfieldForm');
 
 		// check if modules isn't already installed and this isn't an update
-		if(!$this->modules->isInstalled($className)) {
+		if(!$modules->isInstalled($className)) {
 			
-			$info = $this->wire('modules')->getModuleInfoVerbose($className);
+			$info = $modules->getModuleInfoVerbose($className);
 			$requires = array();
-			if(count($info['requires'])) $requires = $this->modules->getRequiresForInstall($className);
+			if(count($info['requires'])) $requires = $modules->getRequiresForInstall($className);
 			if(count($requires)) { 
 				foreach($requires as $moduleName) {
 					$this->warning("$className - " . sprintf($this->_('Requires module "%s" before it can be installed'), $moduleName), Notice::allowMarkup); 
 				}
-				$this->wire('session')->redirect('../'); 
+				$this->wire()->session->redirect('../'); 
 			}
 
 			$this->headline($this->_('Downloaded:') . ' ' . $className);
@@ -1298,13 +1318,13 @@ class ProcessModule extends Process {
 			$form->attr('id', 'install_confirm_form');
 
 			/** @var InputfieldHidden $f */
-			$f = $this->modules->get('InputfieldHidden');
+			$f = $modules->get('InputfieldHidden');
 			$f->attr('name', 'install');
 			$f->attr('value', $className);
 			$form->add($f);
 	
 			/** @var InputfieldSubmit $submit */
-			$submit = $this->modules->get('InputfieldSubmit');
+			$submit = $modules->get('InputfieldSubmit');
 			$submit->attr('name', 'submit');
 			$submit->attr('id', 'install_now');
 			$submit->attr('value', $this->_('Install Now'));
@@ -1312,7 +1332,7 @@ class ProcessModule extends Process {
 			$form->add($submit);
 
 			/** @var InputfieldButton $button */
-			$button = $this->modules->get('InputfieldButton');
+			$button = $modules->get('InputfieldButton');
 			$button->attr('href', '../');
 			$button->attr('value', $this->_('Leave Uninstalled'));
 			$button->class .= " ui-priority-secondary";
@@ -1325,7 +1345,7 @@ class ProcessModule extends Process {
 			$this->headline($this->_('Updated:') . ' ' . $className);
 			$form->description = sprintf($this->_('%s was updated successfully.'), $className);
 			/** @var InputfieldButton $button */
-			$button = $this->modules->get('InputfieldButton');
+			$button = $modules->get('InputfieldButton');
 			$button->attr('href', "../?reset=1&edit=$className");
 			$button->attr('value', $this->_('Continue to module settings'));
 			$button->attr('id', 'gosettings');
@@ -1340,13 +1360,13 @@ class ProcessModule extends Process {
 	public function ___executeUpload($inputName = '') {
 		if(!$inputName) throw new WireException("This URL may not be accessed directly"); 
 		$this->installer()->uploadModule($inputName);
-		$this->session->redirect('./?reset=1'); 
+		$this->wire()->session->redirect('./?reset=1'); 
 	}
 	
 	public function ___executeDownloadURL($url = '') {
 		if(!$url) throw new WireException("This URL may not be accessed directly");
 		$this->installer()->downloadModuleFromUrl($url);
-		$this->session->redirect('./?reset=1'); 
+		$this->wire()->session->redirect('./?reset=1'); 
 	}
 
 	/**********************************************************************************************************************************************************/
@@ -1356,24 +1376,196 @@ class ProcessModule extends Process {
 	 *
 	 */
 	public function ___executeEdit() {
+		
+		$input = $this->wire()->input;
+		$session = $this->wire()->session;
+		$modules = $this->wire()->modules;
+		$sanitizer = $this->wire()->sanitizer;
 
-		$info = null; 
-		$moduleName = '';
+		$moduleName = $input->post('name');
+		if($moduleName === null) $moduleName = $input->get('name');
+		
+		$moduleName = $sanitizer->name($moduleName); 
+		$info = $moduleName ? $modules->getModuleInfoVerbose($moduleName) : array();
 
-		if(isset($_POST['name'])) $moduleName = $_POST['name']; 
-			else if(isset($_GET['name'])) $moduleName = $_GET['name'];
-
-		$moduleName = $this->sanitizer->name($moduleName); 
-
-		if(!$moduleName || !$info = $this->modules->getModuleInfoVerbose($moduleName)) {
-			$this->session->message($this->_("No module specified")); 
-			$this->session->redirect("./"); 
+		if(!$moduleName || empty($info)) {
+			$session->message($this->_("No module specified")); 
+			$session->redirect('./'); 
 		}
+		
+		if($input->get('edit_raw')) return $this->renderEditRaw($moduleName);
+		if($input->get('info_raw')) return $this->renderInfoRaw($moduleName, $info);
 
 		return $this->renderEdit($moduleName, $info); 
 
 	}
 
+	/**
+	 * View module info in raw/JSON mode
+	 * 
+	 * @param string $moduleName
+	 * @param array $moduleInfoVerbose
+	 * @return string
+	 * 
+	 */
+	protected function renderInfoRaw($moduleName, $moduleInfoVerbose) {
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$modules = $this->wire()->modules;
+		
+		if(!$this->wire()->user->isSuperuser()) throw new WirePermissionException('Superuser required');
+		if(!$this->wire()->config->advanced) throw new WireException('This feature requires config.advanced=true;');
+
+		$moduleInfo = $modules->getModuleInfo($moduleName);
+		$sinfo = self::getModuleInfo();
+	
+		// reduce module info to remove empty runtime added properties
+		foreach($moduleInfo as $key => $value) {
+			if(isset($moduleInfoVerbose[$key]) && $moduleInfoVerbose[$key] !== $value) {
+				unset($moduleInfo[$key]);
+				continue;
+			} else if(empty($value)) {
+				if($value === "0" || $value === 0 || $value === false) continue;
+				unset($moduleInfo[$key]);
+			}
+		}
+
+		$this->headline(sprintf($this->_('%s module info'), $moduleName));
+		$this->breadcrumb("./", $sinfo['title']);
+		$this->breadcrumb("./edit?name=$moduleName", $moduleName);
+
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
+		$form->attr('id', 'ModuleInfoRawForm');
+		$form->attr('action', "edit?name=$moduleName&info_raw=1");
+		$form->attr('method', 'post');
+
+		$jsonFlags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+		$moduleInfoJSON = json_encode($moduleInfo, $jsonFlags);
+		$moduleInfoVerboseJSON = json_encode($moduleInfoVerbose, $jsonFlags);
+		$moduleInfoLabel = $this->_('Module info');
+		
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldMarkup');
+		$f->attr('name', 'module_info');
+		$f->label = $moduleInfoLabel . ' ' . $this->_('(regular)');
+		$f->value = "<pre>" . $sanitizer->entities($moduleInfoJSON) . "</pre>";
+		$f->icon = 'code';
+		$f->themeOffset = 1;
+		$form->add($f);
+
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldMarkup');
+		$f->attr('name', 'module_info_verbose');
+		$f->label = $moduleInfoLabel . ' ' . $this->_('(verbose)');
+		$f->icon = 'code';
+		$f->value = "<pre>" . $sanitizer->entities($moduleInfoVerboseJSON) . "</pre>";
+		$f->themeOffset = 1;
+		$form->add($f);
+		
+		$form->prependMarkup = 
+			"<p class='description'>" . 
+			$this->_('This data comes from the module or is determined at runtime, so it is not editable here.') . 
+			"</p>";
+
+		return $form->render();
+	}
+
+	/**
+	 * Edit module in raw/JSON mode
+	 * 
+	 * @param string $moduleName
+	 * @throws WireException
+	 * @throws WirePermissionException
+	 * @return string
+	 * 
+	 */
+	protected function renderEditRaw($moduleName) {
+		
+		$modules = $this->wire()->modules;
+		$session = $this->wire()->session;
+		$config = $this->wire()->config;
+		$input = $this->wire()->input;
+		$user = $this->wire()->user;
+		
+		if(!$user->isSuperuser()) throw new WirePermissionException('Superuser required');
+		if(!$config->advanced) throw new WireException('This feature requires config.advanced=true;');
+	
+		$moduleData = $modules->getModuleConfigData($moduleName);
+		$sinfo = self::getModuleInfo();
+		
+		$this->headline(sprintf($this->_('%s raw config data'), $moduleName));
+		$this->breadcrumb("./", $sinfo['title']); 
+		$this->breadcrumb("./edit?name=$moduleName", $moduleName);
+		
+		/** @var InputfieldForm $form */
+		$form = $modules->get('InputfieldForm');
+		$form->attr('id', 'ModuleEditRawForm');
+		$form->attr('action', "edit?name=$moduleName&edit_raw=1");
+		$form->attr('method', 'post'); 
+
+		if(empty($moduleData) && !$input->is('post')) $this->warning($this->_('This module has no configuration data'));
+		$moduleData['_name'] = $moduleName . ' (' . $this->_('do not remove this') . ')';
+		unset($moduleData['submit_save_module'], $moduleData['uninstall']); 
+		$jsonFlags = JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES;
+		$moduleDataJSON = is_array($moduleData) ? json_encode($moduleData, $jsonFlags) : array();
+		$rows = substr_count($moduleDataJSON, "\n") + 2;
+		
+		/** @var InputfieldMarkup $f */
+		$f = $modules->get('InputfieldTextarea');
+		$f->attr('name', 'module_config_json');
+		$f->label = $this->_('Module config (raw/JSON)');
+		$f->icon = 'code';
+		$f->value = $moduleDataJSON;
+		$f->attr('style', 'font-family:monospace;white-space:nowrap');
+		$f->attr('rows', $rows > 5 ? $rows : 5);
+		$form->add($f);
+
+		/** @var InputfieldSubmit $submit */
+		$submit = $modules->get('InputfieldSubmit');
+		$submit->attr('name', 'submit_save_module_config_json');
+		$submit->showInHeader(true);
+		$submit->val($this->_('Save'));
+		$form->add($submit);
+
+		if(!$input->post('submit_save_module_config_json')) return $form->render();
+		
+		$form->processInput($input->post);
+		$json = $f->val();
+		$data = json_decode($json, true);
+		
+		if($data === null) {
+			$this->error($this->_('Cannot save because JSON could not be parsed (invalid JSON)'));
+			return $form->render();
+		}
+		
+		if(empty($data['_name']) || strpos($data['_name'], "$moduleName ") !== 0) {
+			$this->error($this->_('Cannot save because JSON not recognized as valid for module'));
+			return $form->render();
+		}
+			
+		$changes = array();
+		unset($data['_name'], $moduleData['_name']); 
+		
+		foreach($moduleData as $key => $value) {
+			if(!array_key_exists($key, $data) || $data[$key] !== $value) $changes[$key] = $key;
+		}
+		
+		foreach($data as $key => $value) {
+			if(!array_key_exists($key, $moduleData) || $moduleData[$key] !== $value) $changes[$key] = $key;
+		}
+		
+		if(count($changes)) {
+			$modules->saveModuleConfigData($moduleName, $data);
+			$this->message($this->_('Updated module config data') . ' (' . implode(', ', $changes) . ')');
+		} else {
+			$this->message($this->_('No changes detected'));
+		}
+
+		$session->location($form->action);
+		
+		return '';
+	}
 	/**
 	 * Build and render for the form for editing a module's settings
 	 *
@@ -1405,7 +1597,7 @@ class ProcessModule extends Process {
 		}
 		
 		if(!$moduleId) {
-			$this->error("Unknown module"); 
+			$this->error($this->_('Unknown module')); 
 			$session->redirect('./'); 
 			return '';
 		}
@@ -1579,6 +1771,7 @@ class ProcessModule extends Process {
 			if(wireCount($fields)) foreach($fields->getAll() as $field) {
 				// note field names beginning with '_' will not be stored	
 				if(($name = $field->attr('name')) && strpos($name, '_') !== 0) {
+					if($name === 'submit_save_module') continue;
 					$value = $field->attr('value');
 					if(!isset($data[$name]) || $value != $data[$name]) $updatedNames[] = $name;
 					$data[$name] = $value;
@@ -1608,6 +1801,7 @@ class ProcessModule extends Process {
 				$redirectURL = './?deleted=1';
 				
 			} else {
+				unset($data['submit_save_module'], $data['uninstall']);
 				$modules->saveModuleConfigData($moduleName, $data);
 				$updatedNames = count($updatedNames) ? ' (' . implode(', ', $updatedNames) . ')' : '';
 				$this->message($this->_("Saved Module") . " - $moduleName $updatedNames"); // Message shown before the name of a module that was just saved
@@ -1728,7 +1922,7 @@ class ProcessModule extends Process {
 		if($allowDisabledFlag) {
 			$checkboxClass = $adminTheme ? $adminTheme->getClass('input-checkbox') : '';
 			$checked = ($flags & Modules::flagsDisabled ? " checked='checked'" : "");
-			$table->row(array($this->_x('Debug', 'edit'), 
+			$table->row(array('* ' . $this->_x('Debug', 'edit'), 
 				"<label class='checkbox'>" . 
 					"<input class='$checkboxClass' type='checkbox' name='_flags_disabled' value='1' $checked /> " . 
 					$this->_('Autoload disabled?') . ' ' .  
@@ -1738,6 +1932,15 @@ class ProcessModule extends Process {
 				"</label>"
 			));
 		}
+		
+		if($config->advanced && $this->wire()->user->isSuperuser()) {
+			$table->row(array(
+				'* ' . $this->_x('Advanced', 'edit'),
+				"<a href='./edit?name=$moduleName&amp;edit_raw=1'>" . wireIconMarkup('pencil') . ' ' . $this->_('Raw config') . "</a> &nbsp; &nbsp; " .
+				"<a href='./edit?name=$moduleName&amp;info_raw=1'>" . wireIconMarkup('info-circle') . ' ' . $this->_('Raw info') . "</a>" 
+			));
+		}
+
 
 		/** @var InputfieldMarkup $field */
 		$field = $modules->get("InputfieldMarkup"); 
@@ -1745,6 +1948,9 @@ class ProcessModule extends Process {
 		$field->attr('value', $table->render()); 
 		$field->label = $this->labels['module_information'];
 		$field->icon = 'info-circle';
+		if($config->advanced) {
+			$field->appendMarkup .= "<p class='detail' style='text-align:right'>* " . $this->_('Options available in advanced mode only.') . "</p>";
+		}
 		if($collapseInfo) $field->collapsed = Inputfield::collapsedYes;
 		$form->prepend($field); 
 		
@@ -1755,7 +1961,7 @@ class ProcessModule extends Process {
 	
 	protected function renderModuleHooks($moduleName) {
 		$out = '';
-		$hooks = array_merge($this->wire()->getHooks('*'), $this->wire('hooks')->getAllLocalHooks());
+		$hooks = array_merge($this->wire()->getHooks('*'), $this->wire()->hooks->getAllLocalHooks());
 		foreach($hooks as $hook) {
 			$toObject = !empty($hook['toObject']) ? $hook['toObject'] : '';
 			if(empty($toObject) || wireClassName($toObject, false) != $moduleName) continue;
@@ -1773,7 +1979,7 @@ class ProcessModule extends Process {
 	
 	public function ___executeInstallConfirm() {
 		
-		$name = $this->wire('input')->get->name('name');
+		$name = $this->wire()->input->get->name('name');
 		if(!$name) throw new WireException("No module name specified"); 
 		if(!$this->wire()->modules->isInstallable($name, true)) throw new WireException("Module is not currently installable"); 
 		
