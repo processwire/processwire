@@ -746,13 +746,21 @@ class PagesLoader extends Wire {
 		if($page && !$page->viewable(false)) {
 			// page found but is not viewable, check if include mode was specified and would allow the page
 			$selectors = $items->getSelectors();
-			$include = $selectors ? $selectors->getSelectorByField('include') : null;
+			if($selectors) {
+				$include = $selectors->getSelectorByField('include');
+				$checkAccess = $selectors->getSelectorByField('check_access');
+				if(!$checkAccess) $checkAccess = $selectors->getSelectorByField('checkAccess');
+				$checkAccess = $checkAccess ? (bool) $checkAccess->value() : true;
+			} else {
+				$include = null;
+				$checkAccess = true;
+			}
 			if(!$include) {
 				// there was no “include=” selector present
-				$page = null;
+				if($checkAccess === true) $page = null;
 			} else if($include->value() === 'all') {
 				// allow $page to pass through with include=all mode
-			} else if($include->value() === 'unpublished' && $page->hasStatus(Page::statusUnpublished)) {
+			} else if($include->value() === 'unpublished' && $page->hasStatus(Page::statusUnpublished) && $checkAccess) {
 				// check if user would have access without unpublished status
 				$status = $page->status;
 				$page->setQuietly('status', $status & ~Page::statusUnpublished);
@@ -760,7 +768,7 @@ class PagesLoader extends Wire {
 				$page->setQuietly('status', $status); // restore
 				if(!$viewable) $page = null;
 			} else {
-				$page = null;
+				if($checkAccess === true) $page = null;
 			}
 		}
 
