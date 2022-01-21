@@ -16,7 +16,6 @@
  * 
  * @method void fieldRemoved(Fieldgroup $fieldgroup, Field $field)
  * @method void fieldAdded(Fieldgroup $fieldgroup, Field $field)
- * @method void sorted(Fieldgroup $fieldgroup, array $oldOrder, array $newOrder)
  *
  *
  */
