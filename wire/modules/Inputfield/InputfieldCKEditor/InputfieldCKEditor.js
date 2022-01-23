@@ -219,6 +219,26 @@ function ckeSaveReadyNormal($inputfield) {
 }
 
 /**
+ * Get CKEditor configuration data when $editor element is available
+ * 
+ * @param $editor Regular editor <textarea> or inline editor <div> having data-configName attribute
+ * @returns {*}
+ * 
+ */
+function ckeGetConfigData($editor) {
+	var configName = $editor.attr('data-configName');
+	if(typeof ProcessWire.config[configName] === 'undefined') {
+		// get from data-configdata attribute and populate to ProcessWire.config
+		if(typeof $editor.attr('data-configdata') !== 'undefined') {
+			ProcessWire.config[configName] = JSON.parse($editor.attr('data-configdata'));
+		}
+	}
+	var configData = ProcessWire.config[configName];
+	if(typeof configData === 'undefined') configData = {};
+	return configData;
+}
+
+/**
  * Mouseover or focus event that activates inline CKEditor instances
  * 
  * @param event
@@ -234,14 +254,13 @@ function ckeInlineMouseoverEvent(event) {
 	if($t.hasClass("InputfieldCKEditorLoaded")) return;
 	$t.effect('highlight', {}, 500);
 	$t.attr('contenteditable', 'true');
-	var configName = $t.attr('data-configName');
 	if(event.type == 'focusin') {
 		CKEDITOR.once('instanceReady', function(event) {
 			$(':focus').blur();
 			event.editor.focus();
 		});
 	}
-	var editor = CKEDITOR.inline($(this).attr('id'), ProcessWire.config[configName]);
+	var editor = CKEDITOR.inline($t.attr('id'), ckeGetConfigData($t));
 	ckeInitEvents(editor);
 	$t.addClass("InputfieldCKEditorLoaded"); 
 }
@@ -274,12 +293,12 @@ function ckeInitNormal(editorID) {
 
 	var $editor = $('#' + editorID);
 	var $parent = $editor.parent();
-	
+	var configName;
 	
 	if(typeof ProcessWire.config.InputfieldCKEditor.editors[editorID] != "undefined") {
-		var configName = ProcessWire.config.InputfieldCKEditor.editors[editorID];
+		configName = ProcessWire.config.InputfieldCKEditor.editors[editorID];
 	} else {
-		var configName = $editor.attr('data-configName');
+		configName = $editor.attr('data-configName');
 	}
 
 	if($parent.hasClass('ui-tabs-panel') && $parent.css('display') == 'none') {
@@ -290,16 +309,8 @@ function ckeInitNormal(editorID) {
 		$parent.closest('.ui-tabs, .langTabs').on('tabsactivate', ckeInitTab);
 	} else {
 		// visible CKEditor
-		var editor;
-		if(typeof ProcessWire.config[configName] != "undefined") {
-			var editor = CKEDITOR.replace(editorID, ProcessWire.config[configName]);
-		} else if(typeof $editor.attr('data-configdata') != "undefined") {
-			// allow for alternate option of config data being passed through a data attribute
-			// useful for some dynamic/ajax situations
-			var configData = JSON.parse($editor.attr('data-configdata'));
-			ProcessWire.config[configName] = configData;
-			var editor = CKEDITOR.replace(editorID, configData);
-		}
+		var configData = ckeGetConfigData($editor);
+		var editor = CKEDITOR.replace(editorID, configData);
 		if(editor) {
 			ckeInitEvents(editor);
 			$editor.addClass('InputfieldCKEditorLoaded');

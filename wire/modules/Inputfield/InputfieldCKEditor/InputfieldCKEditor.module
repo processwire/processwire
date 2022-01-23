@@ -40,10 +40,10 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 	public static function getModuleInfo() {
 		return array(
 			'title' => 'CKEditor',
-			'version' => 168, 
+			'version' => 169, 
 			'summary' => __('CKEditor textarea rich text editor.', __FILE__),
 			'installs' => array('MarkupHTMLPurifier'), 
-			);
+		);
 	}
 
 	const toggleCleanDIV = 2;  	// remove <div>s
@@ -529,11 +529,12 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		//$out = parent::___render() . "<script>CKEDITOR.replace('$this->id', config.$this->configName);</script>";
 		$this->addClass('InputfieldCKEditorNormal');
 		$this->attr('data-configName', $this->configName); 
+		$script = 'script';
 		$out = parent::___render() . 
-			"<script>" . 
+			"<$script>" . 
 			"ProcessWire.config.InputfieldCKEditor.editors.$this->id = '$this->configName';" .
 			"config.InputfieldCKEditor.editors.$this->id = '$this->configName';" . 
-			"</script>";
+			"</$script>";
 		return $out; 
 	}
 
@@ -559,6 +560,13 @@ class InputfieldCKEditor extends InputfieldTextarea implements ConfigModule {
 		if((int) $this->inlineMode > 1 && (int) $this->attr('rows') > 1) {
 			$height = (((int) $this->attr('rows')) * 2) . 'em';
 			$attrs['style'] = "overflow:auto;height:$height";
+		}
+		
+		// allow for custom data attributes
+		foreach($this->getAttributes() as $attrName => $attrVal) {
+			if(strpos($attrName, 'data-') !== 0) continue;
+			if(isset($attrs[$attrName])) continue;
+			$attrs[$attrName] = $attrVal;
 		}
 		
 		$attrs = $this->getAttributesString($attrs);
