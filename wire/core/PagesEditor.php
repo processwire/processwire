@@ -369,7 +369,7 @@ class PagesEditor extends Wire {
 		foreach($page->template->fieldgroup as $field) {
 			if($page->isLoaded($field->name)) continue; // value already set
 			if(!$page->hasField($field)) continue; // field not valid for page
-			if(!strlen($field->defaultValue)) continue; // no defaultValue property defined with Fieldtype config inputfields
+			if(!strlen("$field->defaultValue")) continue; // no defaultValue property defined with Fieldtype config inputfields
 			try {
 				$blankValue = $field->type->getBlankValue($page, $field);
 				if(is_object($blankValue) || is_array($blankValue)) continue; // we don't currently handle complex types

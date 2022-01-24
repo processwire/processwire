@@ -266,7 +266,7 @@ class WireDateTime extends Wire {
 	public function formatDate($value, $format) {
 
 		if(!$value) return '';
-		if(!strlen($format) || $format == 'U' || $format == '%s') return (int) $value; // unix timestamp
+		if(!strlen("$format") || $format === 'U' || $format === '%s') return (int) $value; // unix timestamp
 		$relativeStr = '';
 
 		if(strpos($format, '!') !== false) {

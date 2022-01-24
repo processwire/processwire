@@ -135,6 +135,7 @@ class PageArrayIterator extends Wire implements \Iterator {
 	 * Rewind to beginning
 	 * 
 	 */
+	#[\ReturnTypeWillChange]
 	public function rewind() {
 		$this->pagesPosition = 0;
 		$this->position = 0;
@@ -149,6 +150,7 @@ class PageArrayIterator extends Wire implements \Iterator {
 	 * @return Page
 	 * 
 	 */
+	#[\ReturnTypeWillChange]
 	public function current() {
 		return $this->pages[$this->pagesPosition];
 	}
@@ -159,6 +161,7 @@ class PageArrayIterator extends Wire implements \Iterator {
 	 * @return int
 	 * 
 	 */
+	#[\ReturnTypeWillChange]
 	public function key() {
 		return $this->position;
 	}
@@ -167,6 +170,7 @@ class PageArrayIterator extends Wire implements \Iterator {
 	 * Update current position to next
 	 * 
 	 */
+	#[\ReturnTypeWillChange]
 	public function next() {
 		$this->pagesPosition++;
 		$this->position++;
@@ -178,6 +182,7 @@ class PageArrayIterator extends Wire implements \Iterator {
 	 * @return bool
 	 * 
 	 */
+	#[\ReturnTypeWillChange]
 	public function valid() {
 		if($this->position === 0 || $this->pagesPosition >= $this->pagesCount) {
 			// If we have just been rewound or if we have reached the end of the buffer,

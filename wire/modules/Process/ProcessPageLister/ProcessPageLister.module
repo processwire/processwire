@@ -504,7 +504,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 		if(in_array('disableFilters', $this->toggles)) {
 			$s->attr('disabled', 'disabled');
 		}
-		$selector = $this->sessionGet('selector');
+		$selector = (string) $this->sessionGet('selector');
 		if($this->initSelector) {
 			if(strpos($selector, $this->initSelector) !== false) {
 				$selector = str_replace($this->initSelector, '', $selector); // ensure that $selector does not contain initSelector

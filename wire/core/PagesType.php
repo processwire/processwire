@@ -622,6 +622,7 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	 * @see Pages::count()
 	 * 
 	 */
+	#[\ReturnTypeWillChange]
 	public function count($selectorString = '', array $options = array()) {
 		if(empty($selectorString) && empty($options) && count($this->parents) == 1) {
 			return $this->getParent()->numChildren();
