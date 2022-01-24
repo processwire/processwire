@@ -80,7 +80,7 @@ class PageComparison {
 			$is = true; 
 		}
 
-		return $is;
+		return (bool) $is;
 	}
 
 	/**
