@@ -461,21 +461,15 @@ class PagesRawFinder extends Wire {
 		} else if(is_string($field) && strpos($field, ',') !== false) {
 			// multiple fields requested in CSV string, we will return an array for each page
 			$this->requestFields = explode(',', $field);
+			foreach($this->requestFields as $k => $v) {
+				$this->requestFields[$k] = trim($v);
+			}
 			
 		} else if(is_array($field)) {
 			// one or more fields requested in array, we will return an array for each page
-			$requestFields = array();
-			$renameFields = array();
-			foreach($field as $key => $value) {
-				if(is_string($key) && !ctype_digit($key) && !is_array($value)) {
-					$requestFields[] = $key;
-					$renameFields[$key] = $value;
-				} else {
-					$requestFields[] = $value;
-				}
-			}
-			$this->requestFields = $requestFields;
-			$this->renameFields = $renameFields;
+			$this->requestFields = array();
+			$this->renameFields = array();
+			$this->processRequestFieldsArray($field);
 			
 		} else {
 			// one field requested in string or Field object
@@ -911,10 +905,10 @@ class PagesRawFinder extends Wire {
 			
 		} else {
 			foreach($cols as $key => $col) {
-				$col = $sanitizer->fieldName($col);
-				$col = $database->escapeCol($col);
+				$col = $sanitizer->name($col);
+				if(empty($col)) continue;
 				if(isset($schema[$col])) {
-					$getCols[$col] = $col;
+					$getCols[$col] = $database->escapeCol($sanitizer->fieldName($col));
 				} else if($fieldtypePage || $fieldtypeRepeater) {
 					$pageRefCols[$col] = $col;
 				} else {
@@ -1569,7 +1563,15 @@ class PagesRawFinder extends Wire {
 		foreach($values as $key => $value) {
 			
 			if(!is_array($value)) {
-				$flat["$prefix$key"] = $value;
+				if(ctype_digit("$key") && $prefix) {
+					// integer keys map to array values
+					$k = rtrim($prefix, $delimiter);
+					if(!isset($flat[$k])) $flat[$k] = array();
+					if(!is_array($flat[$k])) $flat[$k] = array($flat[$k]);
+					$flat[$k][$key] = $value;
+				} else {
+					$flat["$prefix$key"] = $value;
+				}	
 				continue;
 			}
 			
@@ -1598,6 +1600,38 @@ class PagesRawFinder extends Wire {
 		return $flat;
 	}
 
+
+	/**
+	 * Process given array of values to populate $this->requestFields and $this->renameFields
+	 * 
+	 * @param array $values
+	 * @param string $prefix Prefix for recursive use
+	 * @since 3.0.194
+	 * 
+	 */
+	protected function processRequestFieldsArray(array $values, $prefix = '') {
+		
+		if($prefix) $prefix = rtrim($prefix, '.') . '.';
+		
+		foreach($values as $key => $value) {
+			if(ctype_digit("$key")) {
+				// i.e. [ 0 => 'field_name', 1 => 'another_field' ]
+				if(is_string($value) && !ctype_digit("$value")) {
+					$this->requestFields[] = $prefix . $value;
+				} else {
+					// error, not supported 
+				}
+			} else if(is_array($value)) {
+				// i.e. [ 'field_name' => [ 'id', 'title' ]
+				$this->processRequestFieldsArray($value, $prefix . $key);
+				
+			} else {
+				// rename i.e. [ 'field_name' => 'new_field_name' ]
+				$this->requestFields[] = $prefix . $key;
+				$this->renameFields[$prefix . $key] = $value;
+			}
+		}
+	}
 
 	protected function unknownFieldsException(array $fieldNames, $context = '') {
 		if($context) $context = " $context";
