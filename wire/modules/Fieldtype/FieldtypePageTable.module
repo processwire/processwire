@@ -266,7 +266,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	/**
 	 * Get the match query for page selection, delegated to FieldtypePage
 	 * 
-	 * @param DatabaseQuerySelect $query
+	 * @param DatabaseQuerySelect|PageFinderDatabaseQuerySelect $query
 	 * @param string $table
 	 * @param string $subfield
 	 * @param string $operator
@@ -470,7 +470,7 @@ class FieldtypePageTable extends FieldtypeMulti implements Module {
 	 */
 	public function ___exportConfigData(Field $field, array $data) {
 		$data = $this->wire('fieldtypes')->get('FieldtypePage')->exportConfigData($field, $data);
-		if(is_array($data['template_id'])) {
+		if(isset($data['template_id']) && is_array($data['template_id'])) {
 			// convert template IDs to names
 			$names = array();
 			foreach($data['template_id'] as $id) {
