@@ -5,7 +5,7 @@ how to upgrade the core Uikit version.
 
 ## Customization
 
-### Short version
+### Customizing CSS (style) - Short version
 
 You can easily customize AdminThemeUikit in 3 simple steps:
 
@@ -15,9 +15,38 @@ You can easily customize AdminThemeUikit in 3 simple steps:
 
 Either step 2 or 3 can be optional too, more details below. 
 
+### Customizing Markup
+
+You can overwrite any of the markup files located in `wire/modules/AdminTheme/AdminThemeUikit/` by placing a file with the same name in `/site/templates/AdminThemeUikit`. You could for example overwrite the footer by adding the file `/site/templates/AdminThemeUikit/_footer.php` to your installation:
+
+```html
+<div>My custom footer</div>
+```
+
+You can also hook into rendering of the admin theme partials:
+
+```php
+$wire->addHookAfter("AdminThemeUikit::render", function($event) {
+  $file = $event->arguments(0);
+  if($file == '_footer.php') {
+    $event->return = str_replace(
+      "ProcessWire",
+      "ProcessWire is the best CMS",
+      $event->return
+    );
+  }
+});
+```
+
+You have a third option that has always been there: `addExtraMarkup($name, $value)`
+
+```php
+$adminTheme->addExtraMarkup("head", "<script>alert('test!');</script>");
+```
+
 ---
 
-### Long version
+### Customizing CSS (style) - Long version
 
 Now that you know what to do, let’s run through 3 steps above again, but with more details: 
 
