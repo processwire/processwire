@@ -580,18 +580,24 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 
 	/**
 	 * Render file
-	 * 
+	 *
 	 * You can either place custom files in /site/templates/AdminThemeUikit or you
 	 * can specify a custom folder via $config->AdminThemeUikitTemplates
-	 * 
+	 *
 	 * Usage:
 	 * $adminTheme->render('_head.php');
+	 *
+	 * @param string $file Name of the partial file to render, eg "_head.php"
 	 * @return string
 	 */
 	public function ___render($file) {
 		$config = $this->wire->config;
 		$path = $config->paths->templates."AdminThemeUikit/$file";
-		if(!is_file($path)) $path = rtrim($config->AdminThemeUikitTemplates,"/")."/$file";
+		if(!is_file($path)) {
+			$dir = $config->AdminThemeUikitTemplates
+				? rtrim(Paths::normalizeSeparators($config->AdminThemeUikitTemplates),"/")
+				: '';
+			$path = "$dir/$file";
 		if(!is_file($path)) $path = __DIR__."/$file";
 		return $this->wire->files->render($path, $this->vars);
 	}
