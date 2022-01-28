@@ -1156,7 +1156,10 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 		
 		if($parentID) {
 			$parent = $pages->get($parentID); 
-			if($parent->id) return $parent; 
+			if($parent->id) {
+				if($parent->title != $field->name) $parent->setAndSave('title', $field->name);
+				return $parent;
+			}
 		}
 
 		$repeatersRootPage = $this->getRepeatersRootPage();
