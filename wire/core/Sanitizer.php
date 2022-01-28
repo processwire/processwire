@@ -227,6 +227,14 @@ class Sanitizer extends Wire {
 	/**
 	 * Sanitizer method names (A-Z) and type(s) they return 
 	 * 
+	 * a: array
+	 * b: boolean
+	 * f: float
+	 * i: integer
+	 * m: mixed
+	 * n: null
+	 * s: string
+	 * 
 	 * @var array
 	 * 
 	 */
@@ -247,6 +255,8 @@ class Sanitizer extends Wire {
 		'emailHeader' => 's',
 		'entities' => 's',
 		'entities1' => 's',
+		'entitiesA' => 'asifb',
+		'entitiesA1' => 'asifb',
 		'entitiesMarkdown' => 's',
 		'fieldName' => 's',
 		'fieldSubfield' => 's',
@@ -2572,6 +2582,72 @@ class Sanitizer extends Wire {
 	public function entities1($str, $flags = ENT_QUOTES, $encoding = 'UTF-8') {
 		if(!is_string($str)) $str = $this->string($str);
 		return htmlentities($str, $flags, $encoding, false);
+	}
+
+	/**
+	 * Entity encode with support for [A]rrays and other non-string values
+	 * 
+	 * This is similar to the existing entities() method with the following differences:
+	 * 
+	 * - Array values that are strings are encoded recursively to any depth and array is returned. 
+	 * - Associative array keys (strings) are entity encoded, integer keys are left as-is.
+	 * - Objects that implement __toString() are converted to string and entity encoded. 
+	 * - Objects that do not implement __toString() are converted to a class name.
+	 * - If given an int, float, bool, array or string, that is also the type returned.
+	 * 
+	 * #pw-group-arrays
+	 * #pw-group-strings
+	 * 
+	 * @param array|string|int|float|object|bool $value
+	 * @param int $flags
+	 * @param string $encoding
+	 * @param bool $doubleEncode
+	 * @return array|string|int|float|bool
+	 * @since 3.0.194
+	 * @see Sanitizer::entitiesA1(), Sanitizer::entities()
+	 * 
+	 */
+	public function entitiesA($value, $flags = ENT_QUOTES, $encoding = 'UTF-8', $doubleEncode = true) {
+		
+		if(!is_array($value)) {
+			if(is_string($value)) {
+				// value will be encoded below
+			} else if(is_object($value)) {
+				$value = method_exists($value, '__toString') ? "$value" : get_class($value);
+			} else if(is_int($value) || is_float($value) || is_bool($value)) {
+				// leave int, float, bool values as they are
+				return $value; 
+			}
+			return $this->entities($value, $flags, $encoding, $doubleEncode);
+		}
+		
+		$a = array();
+		
+		foreach($value as $k => $v) {
+			if(is_string($k)) $k = $this->entities($k, $flags, $encoding, $doubleEncode);
+			if(isset($a[$k])) continue;
+			$a[$k] = $this->entitiesA($v, $flags, $encoding, $doubleEncode);
+		}
+		
+		return $a;
+	}
+
+	/**
+	 * Same as entitiesA() but does not double encode
+	 * 
+	 * #pw-group-arrays
+	 * #pw-group-strings
+	 * 
+	 * @param array|string|int|float|object|bool $value
+	 * @param int $flags
+	 * @param string $encoding
+	 * @return array|string|int|float|bool
+	 * @since 3.0.194
+	 * @see Sanitizer::entitiesA(), Sanitizer::entities1()
+	 * 
+	 */
+	public function entitiesA1($value, $flags = ENT_QUOTES, $encoding = 'UTF-8') {
+		return $this->entitiesA($value, $flags, $encoding, false);
 	}
 	
 	/**
