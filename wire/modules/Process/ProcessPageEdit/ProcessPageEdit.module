@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property string $noticeUnknown
@@ -33,6 +33,7 @@
  * @method InputfieldWrapper buildFormChildren()
  * @method InputfieldWrapper buildFormSettings()
  * @method InputfieldWrapper buildFormDelete()
+ * @method Inputfield buildFormCreatedUser() hookable in 3.0.194+
  * @method void buildFormView($url)
  * @method InputfieldMarkup buildFormRoles()
  * @method void processInput(InputfieldWrapper $form, $level = 0, $formRoot = null)
@@ -1380,21 +1381,34 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 
 	/**
 	 * Build the created user selection
+	 * 
+	 * Hookable as of 3.0.194
+	 * 
+	 * #pw-hooker 
 	 *
-	 * @return InputfieldPageListSelect
+	 * @return Inputfield
 	 *
 	 */
-	protected function buildFormCreatedUser() {
-		/** @var InputfieldPageListSelect $field */
-		$field = $this->modules->get('InputfieldPageListSelect');
-		$field->label = $this->_('Created by User');
-		$field->attr('id+name', 'created_users_id');
-		$field->attr('value', $this->page->created_users_id);
-		$field->parent_id = $this->config->usersPageID; // @todo support $config->usersPageIDs (array)
-		$field->showPath = false;
-		$field->required = true;
-
-		return $field;
+	protected function ___buildFormCreatedUser() {
+		$modules = $this->wire()->modules;
+		$config = $this->wire()->config;
+		$pages = $this->wire()->pages;
+		$selector = "parent_id=$config->usersPageID, include=all, limit=100";
+		if(count($config->usersPageIDs) < 2 && $pages->count($selector) < 100) {
+			/** @var InputfieldPageListSelect $f */
+			$f = $modules->get('InputfieldPageListSelect');
+			$f->parent_id = $this->config->usersPageID;
+			$f->showPath = false;
+		} else {
+			$f = $modules->get('InputfieldInteger');
+			$f->description = $this->_('Enter the created user’s ID.'); 
+			$f->notes = "{$this->page->created_users_id} = {$this->page->createdUser->name}";
+		}
+		$f->label = $this->_('Created by User');
+		$f->attr('id+name', 'created_users_id');
+		$f->attr('value', $this->page->created_users_id);
+		$f->required = true;
+		return $f;
 	}
 	
 	/**
@@ -2331,6 +2345,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		if(!$userID) return;
 		if($userID == $this->page->created_users_id) return; // no change
 		$user = $this->pages->get($userID); 
+		if(!$user->id) return;
 		if(!in_array($user->template->id, $this->config->userTemplateIDs)) return; // invalid user template
 		if(!in_array($user->parent_id, $this->config->usersPageIDs)) return; // invalid user parent
 		$this->page->created_users_id = $userID; 
