@@ -598,7 +598,7 @@ class AdminThemeUikit extends AdminThemeFramework implements Module, Configurabl
 				? rtrim(Paths::normalizeSeparators($config->AdminThemeUikitTemplates),"/")
 				: '';
 			$path = "$dir/$file";
-		if(!is_file($path)) $path = __DIR__."/$file";
+		if(!is_file($path)) $path = $config->paths($this).$file;
 		return $this->wire->files->render($path, $this->vars);
 	}
 
