@@ -275,6 +275,52 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		}
 		return $this; 
 	}
+	
+	/**
+	 * Add a new item after an existing item
+	 * 
+	 * Usage:
+	 * $form->addAfter('title', [
+	 *   'type' => 'markup',
+	 *   'value' => 'foo bar',
+	 * ]);
+	 * 
+	 * @param string|Inputfield $existingItem
+	 * @param Inputfield|array|string $item
+	 * @return self
+	 */
+	public function addAfter($existingItem, $newItem) {
+		if(is_string($existingItem)) {
+			$existingItem = $this->getChildByName($existingItem);
+		}
+		$this->add($newItem);
+		$f = $this->children()->last();
+		$this->children()->remove($f);
+		$this->insertAfter($f, $existingItem);
+	}
+	
+	/**
+	 * Add a new item before an existing item
+	 * 
+	 * Usage:
+	 * $form->addBefore('title', [
+	 *   'type' => 'markup',
+	 *   'value' => 'foo bar',
+	 * ]);
+	 * 
+	 * @param string|Inputfield $existingItem
+	 * @param Inputfield|array|string $item
+	 * @return self
+	 */
+	public function addBefore($existingItem, $newItem) {
+		if(is_string($existingItem)) {
+			$existingItem = $this->getChildByName($existingItem);
+		}
+		$this->add($newItem);
+		$f = $this->children()->last();
+		$this->children()->remove($f);
+		$this->insertAfter($f, $existingItem);
+	}
 
 	/**
 	 * Create a new Inputfield, add it to this InputfieldWrapper, and return the new Inputfield
