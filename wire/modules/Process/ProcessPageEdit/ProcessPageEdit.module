@@ -317,6 +317,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		'confirm' => true,
 		'ajaxChildren' => true,
 		'ajaxParent' => true,
+		'ajaxTemplate' => true, 
 		'editCrumbs' => false,
 	);
 
@@ -1187,12 +1188,14 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		$field->addOption(__('Native Fields', __FILE__), $options); // Optgroup label for sorting by fields native to ProcessWire
 
 		$customOptions = array();
+		$fields = $caller->wire()->fields;
+		$fieldsInfo = $fields->getAllValues(array('flags', 'type'), 'name');
 
-		foreach($caller->wire('fields') as $f) {
+		foreach($fieldsInfo as $name => $f) {
 			//if(!($f->flags & Field::flagAutojoin)) continue; 
-			if($f->flags & Field::flagSystem && $f->name != 'title' && $f->name != 'email') continue; 
-			if($f->type instanceof FieldtypeFieldsetOpen) continue; 
-			$customOptions[$f->name] = $f->name; 
+			if($f['flags'] & Field::flagSystem && $name != 'title' && $name != 'email') continue; 
+			if(wireInstanceOf($f['type'], 'FieldtypeFieldsetOpen')) continue;
+			$customOptions[$name] = $name; 
 		}
 
 		ksort($customOptions); 
@@ -1316,31 +1319,33 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 	protected function buildFormTemplate() {
 
 		if($this->page->editable('template', false)) {
-			/** @var Languages $languages */
-			$languages = $this->wire('languages');
-			/** @var Language $language */
-			$language = $this->user->language;
+			$languages = $this->wire()->languages;
+			$language = $this->user->language; /** @var Language|null $language */
+			$input = $this->wire()->input;
+			$ajax = $this->configSettings['ajaxTemplate'];
 
 			/** @var InputfieldSelect $field */
 			$field = $this->modules->get('InputfieldSelect');
 			$field->attr('id+name', 'template');
 			$field->attr('value', $this->page->template->id);
 			$field->required = true;
-
-			foreach($this->getAllowedTemplates() as $template) {
-				/** @var Template $template */
-				$label = '';
-				if($languages && $language) $label = $template->get('label' . $language->id);
-				if(!$label) $label = $template->label ? $template->label : $template->name;
-				$field->addOption($template->id, $label);
+			$field->collapsed = Inputfield::collapsedYesAjax;
+			if(!$ajax || $input->get('renderInputfieldAjax') === 'template' || $input->post('template') !== null) {
+				foreach($this->getAllowedTemplates() as $template) {
+					/** @var Template $template */
+					$label = '';
+					if($languages && $language) $label = $template->get('label' . $language->id);
+					if(!$label) $label = $template->label ? $template->label : $template->name;
+					$field->addOption($template->id, $label);
+				}
 			}
 		} else {
 			/** @var InputfieldMarkup $field */
 			$field = $this->modules->get('InputfieldMarkup');
-			$field->attr('value', "<p>" . $this->page->template->getLabel() . "</p>");
+			$field->attr('value', "<p>" . $this->wire()->sanitizer->entities1($this->page->template->getLabel()) . "</p>");
 		}
 
-		$field->label = $this->_('Template'); // Settings: Template field label
+		$field->label = $this->_('Template') . ' (' . $this->page->template->getLabel() . ')'; // Settings: Template field label
 		$field->icon = 'cubes';
 
 		return $field;
@@ -2182,21 +2187,23 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
  	 *
 	 */
 	protected function ___processInput(InputfieldWrapper $form, $level = 0, $formRoot = null) {
+		
+		$input = $this->wire()->input;
+		$languages = $this->wire()->languages; 
 
 		static $skipFields = array(
 			'sortfield_reverse', 
 			'submit_publish', 
 			'submit_save',
 			'delete_page',
-			);
+		);
 
 		if(!$level) {
-			$form->processInput($this->input->post);
+			$form->processInput($input->post);
 			$formRoot = $form;
 			$this->page->setQuietly('_forceAddStatus', 0);
 		}
 
-		$languages = $this->wire()->languages; 
 		$errorAction = (int) $this->page->template->errorAction;
 
 		foreach($form as $inputfield) {
@@ -2772,6 +2779,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 		
 		$allTemplates = count($this->predefinedTemplates) ? $this->predefinedTemplates : $this->wire('templates'); 
 
+		// note: this triggers load of all templates, fieldgroups and fields
 		foreach($allTemplates as $template) {
 			/** @var Template $template */
 
