@@ -8,9 +8,10 @@
  * #pw-summary-paths-only These properties are only useful when accessed from `$config->paths` as they are not HTTP accessible as URLs. 
  * #pw-summary-urls-only These properties apply only to the `$urls` or `$config->urls`. Do not use them with `$config->paths`. 
  * #pw-summary-pagination These properties apply only to the `$urls` or `$config->urls` and only when pagination is active for the current request.
+ * #pw-var $var
  * 
  * #pw-body = 
- * The Paths class is used by `$config->paths` and `$config->urls`. The `$config->paths` refers to server disk paths
+ * The Paths class is used by `$config->paths` and `$config->urls` (or just `$urls`). The `$config->paths` refers to server disk paths
  * while `$config->urls` refers to web server URLs. All of the same properties are present on both, though several properties
  * are only useful on one or the other (as outlined below). You can access a path or URL like this:
  * ~~~~~
@@ -45,6 +46,10 @@
  * 
  * In the examples on this page, you can replace the `$urls` variable with `$config->paths` if you need to get the server path
  * instead of a URL. As indicated earlier, `$urls` can aso be accessed at the more verbose `$config->urls` if you prefer. 
+ * 
+ * > Please note in the property/method descriptions below that the placeholder `$var` refers to either `$config->paths` or 
+ * `$config->urls` (or the shorter alias `$urls`). So `$var->files` (for example) refers to either `$config->paths->files` 
+ * or `$config->urls->files` (or the shorter alias `$urls->files`).
  * 
  * #pw-body
  * 

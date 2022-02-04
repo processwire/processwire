@@ -746,14 +746,14 @@ class Template extends WireData implements Saveable, Exportable {
 	 */
 	protected function setSetting($key, $value) {
 		
-		if($key == 'id') {
+		if($key === 'id') {
 			$value = (int) $value;
 			
-		} else if($key == 'name') {
-			$value = $this->loaded ? $this->wire('sanitizer')->name($value) : $value;
+		} else if($key === 'name') {
+			$value = $this->loaded ? $this->wire()->sanitizer->templateName($value) : $value;
 			
-		} else if($key == 'fieldgroups_id' && $value) {
-			$fieldgroup = $this->wire('fieldgroups')->get($value);
+		} else if($key === 'fieldgroups_id' && $value) {
+			$fieldgroup = $this->wire()->fieldgroups->get($value);
 			if($fieldgroup) {
 				$this->setFieldgroup($fieldgroup);
 			} else {
@@ -776,6 +776,28 @@ class Template extends WireData implements Saveable, Exportable {
 		}
 
 		$this->settings[$key] = $value; 
+	}
+
+	/**
+	 * Set setting value without processing
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @since 3.0.194
+	 * 
+	 */
+	public function setRaw($key, $value) {
+		if($key === 'fieldgroups_id') {
+			$fieldgroup = $this->wire()->fieldgroups->get($value);
+			if($fieldgroup) {
+				$this->settings['fieldgroups_id'] = (int) $value;
+				$this->fieldgroup = $fieldgroup;
+			}
+		} else if(isset($this->settings[$key])) {
+			$this->settings[$key] = $value;
+		} else {
+			parent::set($key, $value);
+		}
 	}
 
 	/**

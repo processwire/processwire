@@ -974,7 +974,7 @@ abstract class Wire implements WireTranslatable, WireFuelable, WireTrackable {
 	 * @var int Bitmask
 	 *
 	 */
-	private $trackChanges = 0;
+	protected $trackChanges = 0;
 
 	/**
 	 * Array containing the names of properties (as array keys) that were changed while change tracking was ON.
