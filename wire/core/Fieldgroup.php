@@ -13,7 +13,7 @@
  * are separated in the API in case want want to have fieldgroups used by 
  * multiple templates in the future (like ProcessWire 1.x).
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $id Fieldgroup database ID #pw-group-retrieval
@@ -37,7 +37,7 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	protected $settings = array(
 		'id' => 0, 
 		'name' => '', 
-		);
+	);
 
 	/**
 	 * Any fields that were removed from this instance are noted so that Fieldgroups::save() can delete unused data
@@ -122,10 +122,12 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 	 *
 	 */
 	public function add($field) {
-		if(!is_object($field)) $field = $this->wire('fields')->get($field); 
+		if(!is_object($field)) $field = $this->wire()->fields->get($field); 
 
 		if($field && $field instanceof Field) {
-			if(!$field->id) throw new WireException("You must save field '$field' before adding to Fieldgroup '{$this->name}'"); 
+			if(!$field->id) {
+				throw new WireException("You must save field '$field' before adding to Fieldgroup '$this->name'");
+			}
 			parent::add($field); 
 		} else {
 			// throw new WireException("Unable to add field '$field' to Fieldgroup '{$this->name}'"); 
@@ -371,7 +373,10 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 		if($item) $this->add($item); 
 		if(!empty($row['data'])) {
 			// set field context for this fieldgroup
-			$this->fieldContexts[(int)$item] = wireDecodeJSON($row['data']); 
+			$data = $row['data'];
+			if(is_string($data)) $data = wireDecodeJSON($data); 
+			if(!is_array($data)) $row['data'] = array();
+			$this->fieldContexts[(int) "$item"] = $data;
 		}
 		return $this; 
 	}
@@ -392,15 +397,17 @@ class Fieldgroup extends WireArray implements Saveable, Exportable, HasLookupIte
 
 		if($key == 'data') return $this; // we don't have a data field here
 
-		if($key == 'id') {
+		if($key === 'id') {
 			$value = (int) $value; 
 			
-		} else if($key == 'name') {
-			$value = $this->wire('sanitizer')->name($value); 
+		} else if($key === 'name') {
+			$value = $this->wire()->sanitizer->templateName($value);
 		}
 
 		if(isset($this->settings[$key])) {
-			if($this->settings[$key] !== $value) $this->trackChange($key, $this->settings[$key], $value); 
+			if($this->trackChanges && $this->settings[$key] !== $value) {
+				$this->trackChange($key, $this->settings[$key], $value);
+			}
 			$this->settings[$key] = $value; 
 
 		} else {

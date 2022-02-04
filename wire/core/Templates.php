@@ -5,7 +5,7 @@
  *
  * Manages and provides access to all the Template instances
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Manages and provides access to all the Templates.
@@ -36,7 +36,7 @@ class Templates extends WireSaveableItems {
 	 * @var TemplatesArray
 	 *
 	 */
-	protected $templatesArray;
+	protected $templatesArray = null;
 	
 	/**
 	 * Templates that had changed files during this request
@@ -61,9 +61,9 @@ class Templates extends WireSaveableItems {
 	 *
 	 */
 	public function __construct(Fieldgroups $fieldgroups) {
+		parent::__construct();
 		$fieldgroups->wire($this);
-		$this->fieldgroups = $fieldgroups; 
-		$this->templatesArray = $this->wire(new TemplatesArray());
+		$this->fieldgroups = $fieldgroups;
 	}
 
 	/**
@@ -73,8 +73,7 @@ class Templates extends WireSaveableItems {
 	 *
 	 */
 	public function init() {
-		$this->wire($this->templatesArray);
-		$this->load($this->templatesArray); 
+		$this->getWireArray();
 	}
 
 	/**
@@ -84,6 +83,23 @@ class Templates extends WireSaveableItems {
 	 *
 	 */
 	public function getAll() {
+		return $this->getWireArray();
+	}
+	
+	/**
+	 * Get WireArray container that items are stored in
+	 * 
+	 * #pw-internal
+	 *
+	 * @return WireArray
+	 * @since 3.0.194
+	 *
+	 */
+	public function getWireArray() {
+		if($this->templatesArray === null) {
+			$this->templatesArray = $this->wire(new TemplatesArray());
+			$this->load($this->templatesArray); 
+		}
 		return $this->templatesArray;
 	}
 
@@ -99,16 +115,45 @@ class Templates extends WireSaveableItems {
 	 */
 	public function makeItem(array $a = array()) {
 
-		/** @var Template $item */
+		/** @var Template $template */
 		$template = $this->wire(new Template());
 		$template->loaded(false);
+	
+		if(!empty($a['data'])) { 
+			if(is_string($a['data'])) $a['data'] = $this->decodeData($a['data']);
+		} else {
+			unset($a['data']);
+		}
+		
+		foreach(array('id', 'name', 'fieldgroups_id', 'flags', 'cache_time') as $key) {
+			if(!isset($a[$key])) continue;
+			$value = $key === 'name' ? $a[$key] : (int) $a[$key];
+			$template->setRaw($key, $value); 
+			unset($a[$key]);
+		}
+		
 		foreach($a as $key => $value) {
 			$template->set($key, $value);
 		}
+		
 		$template->loaded(true);
 		$template->resetTrackChanges(true);
 		
 		return $template;
+	}
+
+	/**
+	 * Load all lazy items
+	 * 
+	 * #pw-internal
+	 * 
+	 * @since 3.0.194
+	 * 
+	 */
+	public function loadAllLazyItems() {
+		if(!$this->useLazy()) return;
+		$this->wire()->fieldgroups->loadAllLazyItems();
+		parent::loadAllLazyItems();
 	}
 
 	/**
@@ -200,8 +245,8 @@ class Templates extends WireSaveableItems {
 	 *
 	 */
 	public function get($key) {
-		if($key == 'path') return $this->wire('config')->paths->templates;
-		$value = $this->templatesArray->get($key); 
+		if($key === 'path') return $this->wire()->config->paths->templates;
+		$value = $this->getWireArray()->get($key); 
 		if(is_null($value)) $value = parent::get($key);
 		return $value; 
 	}
@@ -224,14 +269,22 @@ class Templates extends WireSaveableItems {
 
 		$isNew = $item->id < 1; 
 
-		if(!$item->fieldgroup) throw new WireException("Template '$item' cannot be saved because it has no fieldgroup assigned"); 
-		if(!$item->fieldgroup->id) throw new WireException("You must save Fieldgroup '{$item->fieldgroup->name}' before adding to Template '{$item}'"); 
+		if(!$item->fieldgroup) {
+			throw new WireException("Template '$item' cannot be saved because it has no fieldgroup assigned");
+		}
+		if(!$item->fieldgroup->id) {
+			throw new WireException("You must save Fieldgroup '{$item->fieldgroup->name}' before adding to Template '{$item}'");
+		}
 
 		$rolesChanged = $item->isChanged('useRoles');
 
-		if($this->wire('pages')->get("/")->template->id == $item->id) {
-			if(!$item->useRoles) throw new WireException("Template '{$item}' is used by the homepage and thus must manage access"); 
-			if(!$item->hasRole("guest")) throw new WireException("Template '{$item}' is used by the homepage and thus must have the 'guest' role assigned."); 
+		if($this->wire()->pages->get('/')->template->id == $item->id) {
+			if(!$item->useRoles) {
+				throw new WireException("Template '{$item}' is used by the homepage and thus must manage access");
+			}
+			if(!$item->hasRole('guest')) {
+				throw new WireException("Template '{$item}' is used by the homepage and thus must have the 'guest' role assigned.");
+			}
 		}
 		
 		if(!$item->isChanged('modified')) $item->modified = time();

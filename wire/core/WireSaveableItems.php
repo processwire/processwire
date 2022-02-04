@@ -45,10 +45,26 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	abstract public function makeBlankItem();
 
 	/**
+	 * Get WireArray container that items are stored in 
+	 * 
+	 * This is the same as the getAll() method except that it is guaranteed not to load
+	 * additional items as part of the call. 
+	 * 
+	 * #pw-internal
+	 * 
+	 * @return WireArray
+	 * @since 3.0.194
+	 * 
+	 */
+	public function getWireArray() {
+		return $this->getAll();
+	}
+
+	/**
 	 * Make an item and populate with given data
 	 * 
 	 * @param array $a Associative array of data to populate
-	 * @return Saveable|Wire
+	 * @return Saveable|WireData|Wire
 	 * @throws WireException
 	 * @since 3.0.146
 	 * 
@@ -71,7 +87,6 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 */
 	abstract public function getTable();
 	
-
 	/**
 	 * Return the default name of the field that load() should sort by (default is none)
 	 *
@@ -93,7 +108,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 */
 	protected function getLoadQuerySelectors($selectors, DatabaseQuerySelect $query) {
 
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 
 		if(is_object($selectors) && $selectors instanceof Selectors) {
 			// iterable selectors
@@ -165,7 +180,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 
 		$item = $this->makeBlankItem();
 		$fields = array_keys($item->getTableData());
-		$database = $this->wire('database'); 
+		$database = $this->wire()->database; 
 		
 		$table = $database->escapeTable($this->getTable());
 		
@@ -195,29 +210,59 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 */
 	protected function ___load(WireArray $items, $selectors = null) {
 
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$useLazy = $this->useLazy();
+		$database = $this->wire()->database;
 		$sql = $this->getLoadQuery($selectors)->getQuery();
-		
-		$query = $database->prepare($sql);	
+
+		$query = $database->prepare($sql);
 		$query->execute();
-		
-		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
-			if(isset($row['data'])) {
-				if($row['data']) {
-					$row['data'] = $this->decodeData($row['data']);
-				} else {
-					unset($row['data']);
-				}
+		$rows = $query->fetchAll(\PDO::FETCH_ASSOC);
+		$n = 0;
+
+		foreach($rows as $row) {
+			if($useLazy) {
+				$this->lazyItems[$n] = $row;
+				$this->lazyNameIndex[$row['name']] = $n;
+				$this->lazyIdIndex[$row['id']] = $n;
+				$n++;
+			} else {
+				$this->initItem($row, $items);
 			}
-			$item = $this->makeItem($row);
-			if($item) $items->add($item);
 		}
 		
 		$query->closeCursor();
 		$items->setTrackChanges(true); 
 		
 		return $items; 
+	}
+
+	/**
+	 * Create a new Saveable item from a raw array ($row) and add it to $items
+	 * 
+	 * @param array $row
+	 * @param WireArray|null $items
+	 * @return Saveable|WireData|Wire
+	 * @since 3.0.194
+	 * 
+	 */
+	protected function initItem(array &$row, WireArray $items = null) {
+
+		if(!empty($row['data'])) {
+			if(is_string($row['data'])) $row['data'] = $this->decodeData($row['data']);
+		} else {
+			unset($row['data']);
+		}
+		
+		if($items === null) $items = $this->getWireArray();
+		
+		$item = $this->makeItem($row);
+		
+		if($item) {
+			if($this->useLazy() && $item->id) $this->unsetLazy($item);
+			$items->add($item);
+		}
+
+		return $item;
 	}
 
 	/**
@@ -230,7 +275,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	protected function saveItemKey($key) {
-		if($key == 'id') return false;
+		if($key === 'id') return false;
 		return true; 
 	}
 
@@ -299,7 +344,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 			$result = $query->execute();
 			if($result) {
 				$item->id = (int) $database->lastInsertId();
-				$this->getAll()->add($item);
+				$this->getWireArray()->add($item);
 				$this->added($item);
 			}
 		}
@@ -334,7 +379,7 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		$database = $this->wire('database'); 
 		
 		$this->deleteReady($item);
-		$this->getAll()->remove($item); 
+		$this->getWireArray()->remove($item); 
 		$table = $database->escapeTable($this->getTable());
 		
 		$query = $database->prepare("DELETE FROM `$table` WHERE id=:id LIMIT 1"); 
@@ -397,30 +442,141 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	 *
 	 */
 	public function ___find($selectors) {
+		if($this->useLazy()) $this->loadAllLazyItems();
 		return $this->getAll()->find($selectors); 
 	}
 
 	#[\ReturnTypeWillChange] 
 	public function getIterator() {
+		if($this->useLazy()) $this->loadAllLazyItems();
 		return $this->getAll();
 	}
 
+	/**
+	 * Get an item
+	 * 
+	 * @param string|int $key
+	 * @return array|mixed|null|Page|Saveable|Wire|WireData
+	 * 
+	 */
 	public function get($key) {
-		return $this->getAll()->get($key); 
+		$value = $this->getWireArray()->get($key);
+		if($value === null && $this->useLazy() && $key !== null) $value = $this->getLazy($key);
+		return $value;
 	}
 
 	public function __get($key) {
 		$value = $this->get($key);
-		if(is_null($value)) $value = parent::__get($key);
+		if($value === null) $value = parent::__get($key);
 		return $value; 
 	}
 
+	/**
+	 * Do we have the given item or item by given key?
+	 * 
+	 * @param string|int|Saveable|WireData $item
+	 * @return bool
+	 * 
+	 */
 	public function has($item) {
-		return $this->getAll()->has($item); 
+		if($this->useLazy() && !empty($this->lazyItems)) $this->get($item); // ensure lazy item present
+		return $this->getAll()->has($item);
 	}
 
+	/**
+	 * Isset
+	 * 
+	 * @param string|int $key
+	 * @return bool
+	 * 
+	 */
 	public function __isset($key) {
 		return $this->get($key) !== null;	
+	}
+
+	/**
+	 * Get all property values for items 
+	 * 
+	 * This is useful for getting all property values without triggering lazy loaded items to load. 
+	 * 
+	 * #pw-internal
+	 *
+	 * @param string $valueType|array Name of property value you want to get, or array of them, i.e. 'id', 'name', etc. (default='id')
+	 * @param string $indexType One of 'name', 'id' or blank string for no index (default='')
+	 * @param string $matchType Optionally match this property, also requires $matchValue argument (default='')
+	 * @param string|int|array $matchValue Match this value for $matchType property, use array for OR values (default=null)
+	 * @return array
+	 * @since 3.0.194
+	 *
+	 */
+	public function getAllValues($valueType = 'id', $indexType = '', $matchType = '', $matchValue = null) {
+		
+		$values = array();
+		$useValueArray = is_array($valueType);
+		$matchArray = is_array($matchValue) ? array_flip($matchValue) : false;
+		$items = $this->getWireArray();
+		
+		if($this->useLazy()) {
+			foreach($this->lazyItems as $row) {
+				$index = null;
+				if($matchValue !== null) {
+					if($matchArray) {
+						$v = isset($row[$matchType]) ? $row[$matchType] : null;
+						if(!$v === null || !isset($matchArray[$v])) continue;
+					} else {
+						if($row[$matchType] != $matchValue) continue;
+					}
+				}
+				if($indexType) {
+					$index = isset($row[$indexType]) ? $row[$indexType] : $row['id'];
+				}
+				if($useValueArray) {
+					/** @var array $valueType */
+					$value = array();
+					foreach($valueType as $key) {
+						$value[$key] = isset($row[$key]) ? $row[$key] : null;
+					}
+				} else {
+					$value = isset($row[$valueType]) ? $row[$valueType] : null;
+				}
+				if($index !== null) {
+					$values[$index] = $value;
+				} else {
+					$values[] = $value;
+				}
+			}
+		}
+		
+		foreach($items as $field) {
+			$index = null;
+			if($matchValue !== null) {
+				if($matchArray) {
+					$v = $field->get($matchType); 
+					if($v === null || !isset($matchArray[$v])) continue;
+				} else {
+					if($field->get($matchType) != $matchValue) continue;
+				}
+			}
+			if($indexType) {
+				$index = $field->get($indexType);
+			}
+			if($useValueArray) {
+				/** @var array $valueType */
+				$value = array();
+				foreach($valueType as $key) {
+					$value[$key] = $field->get($key);
+				}
+			} else {
+				$value = $field->get($valueType);
+			}
+			if($index !== null) {
+				$values[$index] = $value;
+			} else {
+				$values[] = $value;
+			}
+		}
+		
+		return $values;
 	}
 
 	/**
@@ -459,6 +615,11 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	public function useFuel($useFuel = null) {
 		return false;
 	}
+	
+	/**************************************************************************************
+	 * HOOKERS
+	 *
+	 */
 
 	/**
 	 * Hook that runs right before item is to be saved.
@@ -561,6 +722,12 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 		$this->log("Renamed $oldName to $newName", $item);
 	}
 
+	
+	/**************************************************************************************
+	 * OTHER
+	 *
+	 */
+
 	/**
 	 * Enables use of $apivar('name') or wire()->apivar('name')
 	 * 
@@ -601,6 +768,191 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	public function error($text, $flags = 0) {
 		$this->log($text); 
 		return parent::error($text, $flags); 
+	}
+
+	/**
+	 * debugInfo PHP 5.6+ magic method
+	 *
+	 * This is used when you print_r() an object instance.
+	 *
+	 * @return array
+	 *
+	 */
+	public function __debugInfo() {
+		$info = array(); // parent::__debugInfo();
+		$info['loaded'] = array();
+		$info['notLoaded'] = array();
+		foreach($this->getWireArray() as $item) {
+			/** @var WireData|Saveable $item */
+			$when = $item->get('_lazy');
+			$value = $item->get('name|id');
+			$value = $value ? "$value ($when)" : $item;
+			$info['loaded'][] = $value;
+		}
+		foreach($this->lazyItems as $row) {
+			$value = null;
+			if(isset($row['name'])) $value = $row['name'];
+			if(!$value && isset($row['id'])) $value = $row['id'];
+			if(!$value) $value = &$row;
+			$info['notLoaded'][] = $value;
+		}
+		return $info;
+	}
+	
+	/**************************************************************************************
+	 * LAZY LOADING
+	 * 
+	 */
+	
+	/**
+	 * Lazy loaded raw item data from database
+	 *
+	 * @var array
+	 *
+	 */
+	protected $lazyItems = array(); // [ 0 => [ ... ], 1 => [ ... ], etc. ]
+	protected $lazyNameIndex = array(); // [ 'name' => 123 ] where 123 is key in $lazyItems
+	protected $lazyIdIndex = array(); // [ 3 => 123 ] where 3 is ID and 123 is key in $lazyItems
+
+	/**
+	 * @var bool|null
+	 *
+	 */
+	protected $useLazy = null;
+
+
+	/**
+	 * Use lazy loading for this type?
+	 *
+	 * @return bool
+	 * @since 3.0.194
+	 *
+	 */
+	public function useLazy() {
+		if($this->useLazy !== null) return $this->useLazy;
+		$this->useLazy = $this->wire()->config->useLazyLoading;
+		if(is_array($this->useLazy)) $this->useLazy = in_array(strtolower($this->className()), $this->useLazy);
+		return $this->useLazy;
+	}
+
+	/**
+	 * Remove item from lazy loading data/indexes
+	 * 
+	 * @param Saveable $item
+	 * @return bool
+	 * 
+	 */
+	protected function unsetLazy(Saveable $item) {
+		if(!isset($this->lazyIdIndex[$item->id])) return false;
+		$key = $this->lazyIdIndex[$item->id];
+		unset($this->lazyItems[$key], $this->lazyNameIndex[$item->name], $this->lazyIdIndex[$item->id]);
+		return true;
+	}
+
+	/**
+	 * Load all pending lazy-loaded items
+	 *
+	 * #pw-internal
+	 *
+	 */
+	public function loadAllLazyItems() {
+
+		if(!$this->useLazy()) return;
+
+		$debug = $this->wire()->config->debug;
+		$items = $this->getWireArray();
+
+		foreach(array_keys($this->lazyItems) as $key) {
+			if(!isset($this->lazyItems[$key])) continue; // required
+			$row = &$this->lazyItems[$key];
+			$item = $this->initItem($row, $items);
+			if($debug) $item->setQuietly('_lazy', '*');
+		}
+
+		$this->lazyItems = array();
+		$this->lazyNameIndex = array();
+		$this->lazyIdIndex = array();
+		
+		// if you want to identify what triggered a “load all”, uncomment below:
+		// bd(Debug::backtrace());
+	}
+
+	/**
+	 * Lazy load items by property value
+	 * 
+	 * #pw-internal
+	 *
+	 * @param string $key i.e. fieldgroups_id
+	 * @param string|int $value
+	 * @todo I don't think we need this method, but leaving it here temporarily for reference
+	 * @deprecated
+	 *
+	 */
+	private function loadLazyItemsByValue($key, $value) {
+
+		$debug = $this->wire()->config->debug;
+		$items = $this->getWireArray();
+
+		foreach($this->lazyItems as $lazyKey => $lazyItem) {
+			if($lazyItem[$key] != $value) continue;
+			$item = $this->initItem($lazyItem, $items);
+			unset($this->lazyItems[$lazyKey]);
+			if($debug) $item->setQuietly('_lazy', '=');
+		}
+	}
+
+	/**
+	 * Get a lazy loaded item, companion to get() method
+	 *
+	 * #pw-internal
+	 *
+	 * @param string|int $value
+	 * @return Saveable|Wire|WireData|null
+	 * @since 3.0.194
+	 *
+	 */
+	protected function getLazy($value) {
+
+		$property = ctype_digit("$value") ? 'id' : 'name';
+		$value = $property === 'id' ? (int) $value : "$value";
+		$item = null;
+		$lazyItem = null;
+		$lazyKey = null;
+
+		if(!empty($this->lazyIdIndex)) {
+			if($property === 'id') {
+				$index = &$this->lazyIdIndex;
+			} else {
+				$index = &$this->lazyNameIndex;
+			}
+			if(isset($index[$value])) {
+				$lazyKey = $index[$value];
+				$lazyItem = $this->lazyItems[$lazyKey];
+			}
+		} else {
+			foreach($this->lazyItems as $key => $row) {
+				if(!isset($row[$property]) || $row[$property] != $value) continue;
+				$lazyKey = $key;
+				$lazyItem = $row;
+				break;
+			}
+		}
+
+		if($lazyItem) {
+			$item = $this->initItem($lazyItem);
+			$this->getWireArray()->add($item);
+			unset($this->lazyItems[$lazyKey]);
+			if($this->wire()->config->debug) $item->setQuietly('_lazy', '1');
+		}
+
+		if($item === null && $property === 'name' && !ctype_alnum($value)) {
+			if(Selectors::stringHasOperator("$value") || strpos("$value", '|')) {
+				$this->loadAllLazyItems();
+				$item = $this->getWireArray()->get($value);
+			}
+		}
+
+		return $item;
 	}
 
 

@@ -1,5 +1,6 @@
-<?php namespace ProcessWire; 
+<?php namespace ProcessWire;
 
+/** @var ProcessWire $wire */
 /** @var Config $config */
 /** @var Pages $pages */
 /** @var Sanitizer $sanitizer */
@@ -14,7 +15,9 @@
 /** @var WireCache $cache */
 /** @var WireClassLoader $classLoader */
 
-if(!defined("PROCESSWIRE")) die(); 
+if(!defined("PROCESSWIRE")) die();
+Debug::saveTimer('all');
+Debug::saveTimer("page.$page.render");
 $debugToolsLabel = __('Debug Mode Tools', __FILE__);
 
 echo 
@@ -412,6 +415,43 @@ Debug::saveTimer('timer-name', 'optional notes'); // stop and save timer
 		</div>
 	<?php endif; ?>	
 	
+	<?php if($tool == 'lazyload' && $config->useLazyLoading): ?>
+		<?php
+		$o = "<table class=''><thead><th>Class</th><th>Loaded</th><th>Not Loaded</th><tbody>";
+		$numTotal = 0;
+		$numLoadedTotal = 0;
+		$numNotLoadedTotal = 0;
+		foreach(array('fields', 'templates', 'fieldgroups') as $key) {
+			/** @var WireSaveableItems $var */
+			$var = $wire->$key;
+			if(empty($var)) continue;
+			$debugInfo = $var->__debugInfo();
+			$numLoaded = count($debugInfo['loaded']); 
+			$numNotLoaded = count($debugInfo['notLoaded']);
+			$numEither = $numLoaded + $numNotLoaded;
+			$numTotal += $numEither;
+			$numLoadedTotal += $numLoaded;
+			$numNotLoadedTotal += $numNotLoaded;
+			sort($debugInfo['loaded']);
+			sort($debugInfo['notLoaded']); 
+			$o .= 
+				"<tr>" . 
+				"<td>" . $var->className()  . "&nbsp;<span class='detail'>($numLoaded/$numNotLoaded/$numEither)</span></td>" . 
+				"<td>" . implode("<br />", $debugInfo['loaded']) . "</td>" . 
+				"<td>" . implode("<br />", $debugInfo['notLoaded']) . "</td>" . 
+				"</tr>";
+		}
+		$o .= "</tbody></table><br />";
+		?>
+		<div class="container">
+			<h3><a href='#'><?php echo __('Lazy load') . " <span class='ui-priority-secondary'>($numLoadedTotal/$numNotLoadedTotal/$numTotal)</span>"; ?></a></h3>
+			<div>
+				<?php echo $o; unset($o, $var, $debugInfo, $numLoaded, $numNotLoaded, $numEither, $numTotal, $numLoadedTotal, $numNotLoadedTotal); ?>
+			</div>
+		</div>
+	<?php endif; ?>
+
+
 <?php endforeach; ?>
 	
 <p class='detail' style='margin: 0; padding: 0.25em 1em;'>

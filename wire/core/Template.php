@@ -781,6 +781,8 @@ class Template extends WireData implements Saveable, Exportable {
 	/**
 	 * Set setting value without processing
 	 * 
+	 * #pw-internal
+	 * 
 	 * @param string $key
 	 * @param mixed $value
 	 * @since 3.0.194

@@ -12,7 +12,7 @@
  * #pw-body Field objects are managed by the `$fields` API variable. 
  * #pw-use-constants
  * 
- * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @property int $id Numeric ID of field in the database #pw-group-properties
@@ -256,7 +256,6 @@ class Field extends WireData implements Saveable, Exportable {
 	 */
 	static protected $lowercaseTables = null;
 
-
 	/**
 	 * Set a native setting or a dynamic data property for this Field
 	 * 
@@ -270,40 +269,27 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function set($key, $value) {
-
-		if($key == 'name') {
-			return $this->setName($value);
-		} else if($key == 'type' && $value) {
-			return $this->setFieldtype($value);
-		} else if($key == 'prevTable') {
-			$this->prevTable = $value;
-			return $this;
-		} else if($key == 'prevName') {
-			$this->prevName = $value;
-			return $this;
-		} else if($key == 'prevFieldtype') {
-			$this->prevFieldtype = $value;
-			return $this;
-		} else if($key == 'flags') {
-			$this->setFlags($value);
-			return $this;
-		} else if($key == 'flagsAdd') {
-			return $this->addFlag($value);
-		} else if($key == 'flagsDel') {
-			return $this->removeFlag($value);
-		} else if($key == 'id') {
-			$value = (int) $value;
+		
+		switch($key) {
+			case 'id': $this->settings['id'] = (int) $value; return $this;
+			case 'name': return $this->setName($value);
+			case 'data': return empty($value) ? $this : parent::set($key, $value);
+			case 'type': return ($value ? $this->setFieldtype($value) : $this);
+			case 'label': $this->settings['label'] = $value; return $this;
+			case 'prevTable': $this->prevTable = $value; return $this;
+			case 'prevName': $this->prevName = $value; return $this;
+			case 'prevFieldtype': $this->prevFieldtype = $value; return $this;
+			case 'flags': $this->setFlags($value); return $this;
+			case 'flagsAdd': return $this->addFlag($value);
+			case 'flagsDel': return $this->removeFlag($value);
+			case 'icon': $this->setIcon($value); return $this;
+			case 'editRoles': $this->setRoles('edit', $value); return $this; 
+			case 'viewRoles': $this->setRoles('view', $value); return $this;
 		}
-
+		
 		if(isset($this->settings[$key])) {
 			$this->settings[$key] = $value;
-		} else if($key == 'icon') {
-			$this->setIcon($value);
-		} else if($key == 'editRoles') {
-			$this->setRoles('edit', $value);
-		} else if($key == 'viewRoles') {
-			$this->setRoles('view', $value);
-		} else if($key == 'useRoles') {
+		} else if($key === 'useRoles') {
 			$flags = $this->flags;
 			if($value) {
 				$flags = $flags | self::flagAccess; // add flag
@@ -316,6 +302,26 @@ class Field extends WireData implements Saveable, Exportable {
 		}
 
 		return $this;
+	}
+
+	/**
+	 * Set raw setting or other value with no validation/processing
+	 * 
+	 * This is for use when a field is loading and needs no validation.
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param string $key
+	 * @param mixed $value
+	 * @since 3.0.194
+	 * 
+	 */
+	public function setRawSetting($key, $value) {
+		if($key === 'data') {
+			if(!empty($value)) parent::set($key, $value);
+		} else {
+			$this->settings[$key] = $value;
+		}
 	}
 
 	/**
@@ -391,29 +397,41 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function get($key) {
-		
-		if($key === 'type' && isset($this->settings['type'])) {
-			$value = $this->settings['type'];
-			if($value) $value->setLastAccessField($this);
-			return $value;
+	
+		if($key === 'type') { 
+			if(!empty($this->settings['type'])) {
+				$value = $this->settings['type'];
+				if($value) $value->setLastAccessField($this);
+				return $value;
+			}
+			return null;
+		} 
+	
+		switch($key) {
+			case 'id':
+			case 'name':	
+			case 'type':	
+			case 'flags':	
+			case 'label': return $this->settings[$key];
+			case 'table': return $this->getTable();
+			case 'flagsStr': return $this->wire()->fields->getFlagNames($this->settings['flags'], true);
+			case 'viewRoles': 
+			case 'editRoles': return $this->$key;
+			case 'useRoles': return ($this->settings['flags'] & self::flagAccess) ? true : false;
+			case 'prevTable':	
+			case 'prevName':	
+			case 'prevFieldtype': return $this->$key;
+			case 'icon': return $this->getIcon(true);
+			case 'tags': return $this->getTags(true);
+			case 'tagList':	return $this->getTags();
 		}
-		if($key == 'viewRoles') return $this->viewRoles;
-			else if($key == 'editRoles') return $this->editRoles;
-			else if($key == 'table') return $this->getTable();
-			else if($key == 'prevTable') return $this->prevTable;
-			else if($key == 'prevName') return $this->prevName;
-			else if($key == 'prevFieldtype') return $this->prevFieldtype;
-			else if(isset($this->settings[$key])) return $this->settings[$key];
-			else if($key == 'icon') return $this->getIcon(true);
-			else if($key == 'useRoles') return ($this->settings['flags'] & self::flagAccess) ? true : false;
-			else if($key == 'flags') return $this->settings['flags'];
-			else if($key == 'flagsStr') return $this->wire('fields')->getFlagNames($this->settings['flags'], true);
-			else if($key == 'tagList') return $this->getTags();
-			else if($key == 'tags') return $this->getTags(true);
 
+		if(isset($this->settings[$key])) return $this->settings[$key];
 		$value = parent::get($key);
+		
 		if($key === 'allowContexts' && !is_array($value)) $value = array();
-		if(is_array($this->trackGets)) $this->trackGets($key);
+		if($this->trackGets && is_array($this->trackGets)) $this->trackGets($key);
+		
 		return $value;
 	}
 
@@ -610,21 +628,25 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function setName($name) {
-		$name = $this->wire('sanitizer')->fieldName($name);
 
-		if($this->wire('fields')->isNative($name)) {
-			throw new WireException("Field may not be named '$name' because it is a reserved word");
+		$fields = $this->wire()->fields;
+		
+		if($fields) {
+			if(!ctype_alnum("$name")) {
+				$name = $this->wire()->sanitizer->fieldName($name);
+			}
+			if($fields->isNative($name)) {
+				throw new WireException("Field may not be named '$name' because it is a reserved word");
+			}
+			if(($f = $fields->get($name)) && $f->id != $this->id) {
+				throw new WireException("Field may not be named '$name' because it is already used by another field ($f->id: $f->name)");
+			}
+			if(strpos($name, '__') !== false) {
+				throw new WireException("Field name '$name' may not have double underscores because this usage is reserved by the core");
+			}
 		}
-
-		if($this->wire('fields') && ($f = $this->wire('fields')->get($name)) && $f->id != $this->id) {
-			throw new WireException("Field may not be named '$name' because it is already used by another field");
-		}
-
-		if(strpos($name, '__') !== false) {
-			throw new WireException("Field name '$name' may not have double underscores because this usage is reserved by the core");
-		}
-
-		if($this->settings['name'] != $name) {
+		
+		if(!empty($this->settings['name']) && $this->settings['name'] != $name) {
 			if($this->settings['name'] && ($this->settings['flags'] & Field::flagSystem)) {
 				throw new WireException("You may not change the name of field '{$this->settings['name']}' because it is a system field.");
 			}
@@ -657,8 +679,8 @@ class Field extends WireData implements Saveable, Exportable {
 
 		} else if(is_string($type)) {
 			$typeStr = $type;
-			$fieldtypes = $this->wire('fieldtypes'); /** @var Fieldtypes $fieldtypes */
-			if(!$type = $fieldtypes->get($type)) {
+			$type = $this->wire()->fieldtypes->get($type);
+			if(!$type) {
 				$this->error("Fieldtype '$typeStr' does not exist");
 				return $this;
 			}
@@ -666,10 +688,13 @@ class Field extends WireData implements Saveable, Exportable {
 			throw new WireException("Invalid field type in call to Field::setFieldType");
 		}
 
-		if(!$this->type || ($this->type->name != $type->name)) {
-			$this->trackChange("type:{$type->name}");
-			if($this->type) $this->prevFieldtype = $this->type;
+		$thisType = $this->settings['type'];
+			
+		if($thisType && "$thisType" != "$type") {
+			if($this->trackChanges) $this->trackChange("type:$type");
+			$this->prevFieldtype = $thisType;
 		}
+		
 		$this->settings['type'] = $type;
 
 		return $this;
@@ -682,7 +707,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 * #pw-group-retrieval
 	 * 
-	 * @return Fieldtype|null
+	 * @return Fieldtype|null|string
 	 * @since 3.0.16 Added for consistency, but all versions can still use $field->type. 
 	 * 
 	 */
@@ -796,7 +821,7 @@ class Field extends WireData implements Saveable, Exportable {
 			}
 		}
 		if($type == 'view') {
-			$guestID = $this->wire('config')->guestUserRolePageID;
+			$guestID = $this->wire()->config->guestUserRolePageID;
 			// if guest is present, then that's inclusive of all, no need to store others in viewRoles
 			if(in_array($guestID, $ids)) $ids = array($guestID); 
 			if($this->viewRoles != $ids) {
@@ -829,7 +854,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function ___viewable(Page $page = null, User $user = null) {
-		return $this->wire('fields')->_hasPermission($this, 'view', $page, $user);
+		return $this->wire()->fields->_hasPermission($this, 'view', $page, $user);
 	}
 
 	/**
@@ -848,7 +873,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function ___editable(Page $page = null, User $user = null) {
-		return $this->wire('fields')->_hasPermission($this, 'edit', $page, $user);
+		return $this->wire()->fields->_hasPermission($this, 'edit', $page, $user);
 	}
 	
 	/**
@@ -862,10 +887,8 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */
 	public function save() {
-		$fields = $this->wire('fields'); 
-		return $fields->save($this); 
+		return $this->wire()->fields->save($this); 
 	}
-
 
 	/**
 	 * Return the number of Fieldgroups this field is used in.
@@ -891,18 +914,29 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */ 
 	public function getFieldgroups($getCount = false) {
-		$fieldgroups = $getCount ? null : $this->wire(new FieldgroupsArray());
+
+		$fieldgroups = $this->wire()->fieldgroups;
+		$items = $getCount ? null : $this->wire(new FieldgroupsArray()); /** @var FieldgroupsArray $items */
 		$count = 0;
-		foreach($this->wire()->fieldgroups as $fieldgroup) {
+
+		/*
+		 * note: all fieldgroups load on the foreach($fieldgroups) so this code doesn't seem necessary?
+		if($fieldgroups->useLazy()) {
+			$fieldgroups->loadLazyItemsByValue('fields_id', $this->settings['id']);
+		}
+		*/
+		
+		foreach($fieldgroups as $fieldgroup) {
 			foreach($fieldgroup as $field) {
 				if($field->id == $this->id) {
-					if($fieldgroups) $fieldgroups->add($fieldgroup); 
+					if($items) $items->add($fieldgroup); 
 					$count++;
 					break;
 				}
 			}
 		}
-		return $getCount ? $count : $fieldgroups; 
+		
+		return $getCount ? $count : $items; 
 	}
 
 	/**
@@ -915,24 +949,26 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */ 
 	public function getTemplates($getCount = false) {
+		$templates = $this->wire()->templates;
 		if($getCount) {
 			$count = 0;
-			foreach($this->templates as $template) {
+			foreach($templates as $template) {
 				if($template->hasField($this)) $count++;
 			}
 			return $count;
 		}
-		$templates = $this->wire(new TemplatesArray());
+		/** @var TemplatesArray $items */
+		$items = $this->wire(new TemplatesArray());
 		$fieldgroups = $this->getFieldgroups();
-		foreach($this->templates as $template) {
+		foreach($templates as $template) {
 			foreach($fieldgroups as $fieldgroup) {
 				if($template->fieldgroups_id == $fieldgroup->id) {
-					$templates->add($template);	
+					$items->add($template);	
 					break;
 				}
 			}
 		}
-		return $templates; 
+		return $items; 
 	}
 
 
@@ -1196,7 +1232,9 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function getTable() {
-		if(is_null(self::$lowercaseTables)) self::$lowercaseTables = $this->config->dbLowercaseTables ? true : false;
+		if(self::$lowercaseTables === null) {
+			self::$lowercaseTables = $this->wire()->config->dbLowercaseTables ? true : false;
+		}
 		if(!empty($this->setTable)) {
 			$table = $this->setTable;
 		} else {
@@ -1217,7 +1255,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 * 
 	 */
 	public function setTable($table = null) {
-		$table = empty($table) ? '' : $this->wire('sanitizer')->fieldName($table);
+		$table = empty($table) ? '' : $this->wire()->sanitizer->fieldName($table);
 		$this->setTable = $table;
 	}
 
@@ -1390,10 +1428,12 @@ class Field extends WireData implements Saveable, Exportable {
 	 */
 	public function setIcon($icon) {
 		// store the non-prefixed version
-		if(strpos($icon, 'icon-') === 0) $icon = str_replace('icon-', '', $icon);
-		if(strpos($icon, 'fa-') === 0) $icon = str_replace('fa-', '', $icon); 
-		$icon = $this->wire('sanitizer')->pageName($icon); 
-		parent::set('icon', $icon); 
+		if(strlen("$icon")) {
+			if(strpos($icon, 'icon-') === 0) $icon = str_replace('icon-', '', $icon);
+			if(strpos($icon, 'fa-') === 0) $icon = str_replace('fa-', '', $icon);
+			$icon = $this->wire()->sanitizer->pageName($icon);
+		}
+		parent::set('icon', "$icon"); 
 		return $this; 
 	}
 
@@ -1446,7 +1486,7 @@ class Field extends WireData implements Saveable, Exportable {
 		if($this->tagList !== $tagList) {
 			$this->tagList = $tagList;
 			parent::set('tags', implode(' ', $tagList)); 
-			$this->wire('fields')->getTags('reset');
+			$this->wire()->fields->getTags('reset');
 		}
 		return $tagList;
 	}
@@ -1509,9 +1549,9 @@ class Field extends WireData implements Saveable, Exportable {
 		if(is_string($options)) $options = array('find' => $options);
 		if(is_bool($options)) $options = array('http' => $options);
 		if(!is_array($options)) $options = array();
-		$url = $this->wire('config')->urls(empty($options['http']) ? 'admin' : 'httpAdmin');
+		$url = $this->wire()->config->urls(empty($options['http']) ? 'admin' : 'httpAdmin');
 		$url .= "setup/field/edit?id=$this->id";
-		if(!empty($options['find'])) $url .= '#find-' . $this->wire('sanitizer')->fieldName($options['find']);
+		if(!empty($options['find'])) $url .= '#find-' . $this->wire()->sanitizer->fieldName($options['find']);
 		return $url;
 	}
 

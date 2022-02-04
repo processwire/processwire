@@ -12,7 +12,7 @@
  * You may also make up your own configuration options by assigning them 
  * in /site/config.php 
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * 
@@ -76,12 +76,15 @@ $config->debugIf = '';
 /**
  * Tools, and their order, to show in debug mode (admin)
  * 
- * Options include: pages, api, session, modules, hooks, database, db, timers, user, input, cache, autoload
+ * Options include: pages, api, session, modules, hooks, database, db, timers, user, input, cache, autoload, lazyload
+ * 
+ * Note: when used, lazyload option should be placed first beause its results can be affected by later debug tools.
  * 
  * @var array
  * 
  */
 $config->debugTools = array(
+	//'lazyload',
 	'pages',
 	'api',
 	'session',
@@ -193,6 +196,23 @@ $config->useMarkupRegions = false;
  *
  */
 $config->usePageClasses = false;
+
+/**
+ * Use lazy loading of fields (plus templates and fieldgroups) for faster boot times?
+ * 
+ * This delays loading of fields, templates and fieldgroups until they are requested.
+ * This can improve performance on systems with hundreds of fields or templates, as 
+ * individual fields, templates/fieldgroups won't get constructed until they are needed.
+ * 
+ * Specify `true` to use lazy loading for all types, `false` to disable all lazy loading, 
+ * or specify array with one or more of the following for lazy loading only certain types:
+ * `[ 'fields', 'templates', 'fieldgroups' ]`
+ * 
+ * @var bool|array
+ * @since 3.0.194
+ * 
+ */
+$config->useLazyLoading = true;
 
 /**
  * Disable all HTTPS requirements?

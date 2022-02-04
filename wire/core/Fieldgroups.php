@@ -23,20 +23,19 @@
 class Fieldgroups extends WireSaveableItemsLookup {
 
 	/**
-	 * Instances of FieldgroupsArray
+	 * Instance of FieldgroupsArray
 	 * 
 	 * @var FieldgroupsArray
 	 *
 	 */
-	protected $fieldgroupsArray;
+	protected $fieldgroupsArray = null;
 
 	/**
 	 * Init
 	 * 
 	 */
 	public function init() {
-		$this->fieldgroupsArray = $this->wire(new FieldgroupsArray());
-		$this->load($this->fieldgroupsArray);
+		$this->getWireArray();
 	}
 
 	/**
@@ -48,7 +47,7 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 */
 	protected function getLoadQuery($selectors = null) {
 		$query = parent::getLoadQuery($selectors); 
-		$lookupTable = $this->wire('database')->escapeTable($this->getLookupTable()); 
+		$lookupTable = $this->wire()->database->escapeTable($this->getLookupTable()); 
 		$query->select("$lookupTable.data"); // QA
 		return $query; 
 	}
@@ -76,6 +75,19 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 *
 	 */
 	public function getAll() {
+		return $this->getWireArray();
+	}
+	
+	/**
+	 * @return WireArray|FieldgroupsArray
+	 *
+	 */
+	public function getWireArray() {
+		if($this->fieldgroupsArray === null) {
+			$this->fieldgroupsArray = new FieldgroupsArray();
+			$this->wire($this->fieldgroupsArray);
+			$this->load($this->fieldgroupsArray);
+		}
 		return $this->fieldgroupsArray;
 	}
 
@@ -119,7 +131,14 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 *
 	 */
 	public function getNumTemplates(Fieldgroup $fieldgroup) {
-		return count($this->getTemplates($fieldgroup)); 
+		$templates = $this->wire()->templates;
+		$num = 0;
+		
+		foreach($templates->getAllValues('fieldgroups_id', 'id') as $templateId => $fieldgroupId) {
+			if($fieldgroupId == $fieldgroup->id) $num++;
+		}
+		
+		return $num;
 	}
 
 	/**
@@ -130,11 +149,59 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 *
 	 */
 	public function getTemplates(Fieldgroup $fieldgroup) {
-		$templates = $this->wire(new TemplatesArray());
-		foreach($this->wire('templates') as $tpl) {
-			if($tpl->fieldgroup->id == $fieldgroup->id) $templates->add($tpl); 
+		$templates = $this->wire()->templates;
+		$items = $this->wire(new TemplatesArray()); /** @var TemplatesArray $items */
+		
+		foreach($templates->getAllValues('fieldgroups_id', 'id') as $templateId => $fieldgroupId) {
+			if($fieldgroupId == $fieldgroup->id) {
+				$template = $templates->get($templateId);
+				$items->add($template);
+			}
 		}
-		return $templates; 
+		
+		return $items; 
+	}
+
+	/**
+	 * Get all field names used by given fieldgroup
+	 * 
+	 * Use this when you want to identify the field names (or IDs) without loading the fieldgroup or fields in it.
+	 * 
+	 * @param string|int|Fieldgroup $fieldgroup Fieldgroup name, ID or object
+	 * @return array Returned array of field names indexed by field ID
+	 * @since 3.0.194
+	 * 
+	 */
+	public function getFieldNames($fieldgroup) {
+		$fieldNames = array();
+		$useLazy = $this->useLazy();
+		if(!$useLazy && !is_object($fieldgroup)) $fieldgroup = $this->get($fieldgroup);
+		if($fieldgroup instanceof Fieldgroup) {
+			foreach($fieldgroup as $field) {
+				$fieldNames[$field->id] = $field->name;
+			}
+			return $fieldNames;
+		}
+		$fieldIds = array();
+		if(ctype_digit("$fieldgroup") && $useLazy) {
+			foreach(array_keys($this->lazyItems) as $key) {
+				$row = &$this->lazyItems[$key];
+				if("$row[id]" === "$fieldgroup" && $row['fields_id']) {
+					$fieldIds[] = (int) $row['fields_id'];
+				}
+			}
+		} else if($fieldgroup) {
+			foreach(array_keys($this->lazyItems) as $key) {
+				$row = &$this->lazyItems[$key];
+				if("$row[name]" === "$fieldgroup" && $row['fields_id']) {
+					$fieldIds[] = (int) $row['fields_id'];
+				}
+			}
+		}
+		if(count($fieldIds)) {
+			$fieldNames = $this->wire()->fields->getAllValues('name', 'id', 'id', $fieldIds);
+		}
+		return $fieldNames;
 	}
 
 	/**

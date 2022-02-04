@@ -5,7 +5,7 @@
  *
  * This module is the front door to all the other language modules and files. 
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property int $languagesPageID
@@ -120,10 +120,16 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function init() {
+		
+		$pages = $this->wire()->pages;
+		$user = $this->wire()->user;
+		$config = $this->wire()->config;
+		$templates = $this->wire()->templates;
+		$modules = $this->wire()->modules;
 
 		// document which pages were already cached at this point, as their values may need 
 		// to be reloaded to account for language fields. 
-		foreach($this->wire('pages')->getCache() as $id => $value) $this->earlyCachedPages[$id] = $value;
+		foreach($pages->getCache() as $id => $value) $this->earlyCachedPages[$id] = $value;
 
 		// prevent possible double init
 		if($this->initialized) return; 
@@ -134,17 +140,18 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$defaultLanguagePageID = $this->defaultLanguagePageID; 
 
 		// create the $languages API var
-		$languageTemplate = $this->templates->get('language'); 
+		$languageTemplate = $templates->get('language'); 
 		if(!$languageTemplate) return;
 		
 		if(!$this->languagesPageID) {
 			// fallback if LanguageSupport config lost or not accessible for some reason
-			$this->languagesPageID = $this->wire('pages')->get("template=admin, name=languages"); 
+			$this->languagesPageID = $pages->get("template=admin, name=languages"); 
 		}
 	
 		// prevent fields like 'title' from autojoining until languages are fully loaded
-		$this->wire('pages')->setAutojoin(false); 
-		
+		$pages->setAutojoin(false); 
+	
+		/** @var Languages $languages */
 		$languages = $this->wire(new Languages($this->wire('wire'), $languageTemplate, $this->languagesPageID)); 
 		$_default = null; // just in case
 
@@ -153,7 +160,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		foreach($languages as $language) {
 			if($language->id == $defaultLanguagePageID) {
 				$this->defaultLanguagePage = $language; 
-			} else if($language->name == 'default') {
+			} else if($language->name === 'default') {
 				$_default = $language; // backup plan
 			} else {
 				$numOtherLanguages++;
@@ -169,6 +176,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 				$this->defaultLanguagePage = $languages->getAll()->first();
 			}
 		}
+		
 		$this->defaultLanguagePage->setIsDefaultLanguage();
 		$languages->setDefault($this->defaultLanguagePage);
 		
@@ -176,14 +184,14 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$this->wire('languages', $languages); 
 
 		// identify the current language from the user, or set one if it's not already
-		if($this->user->language && $this->user->language->id) {
+		if($user->language && $user->language->id) {
 			// $language = $this->user->language; 
 		} else {
 			$language = $this->defaultLanguagePage; 
-			$this->user->language = $language; 
+			$user->language = $language; 
 		}
 
-		$this->wire('config')->dateFormat = $this->_('Y-m-d H:i:s'); // Sortable date format used in the admin
+		$config->dateFormat = $this->_('Y-m-d H:i:s'); // Sortable date format used in the admin
 		$locale = $this->_('C'); // Value to pass to PHP's setlocale(LC_ALL, 'value') function when initializing this language // Default is 'C'. Specify '0' to skip the setlocale() call (and carry on system default). Specify CSV string of locales to try multiple locales in order.
 		if($locale != '0') $languages->setLocale(LC_ALL, $locale); 
 
@@ -201,10 +209,10 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		$this->addHook('Page::getLanguageValue', $this, 'hookPageGetLanguageValue'); 
 		
 
-		if($this->wire('modules')->isInstalled('LanguageSupportFields')) {
-			$this->LanguageSupportFields = $this->wire('modules')->get('LanguageSupportFields'); 
+		if($modules->isInstalled('LanguageSupportFields')) {
+			$this->LanguageSupportFields = $modules->get('LanguageSupportFields'); 
 			$this->LanguageSupportFields->LS_init();
-			if($languages->getPageEditPermissions('none') && !$this->user->hasPermission('page-edit-lang-none')) {
+			if($languages->getPageEditPermissions('none') && !$user->hasPermission('page-edit-lang-none')) {
 				$this->addHookBefore('InputfieldWrapper::renderInputfield', $this, 'hookInputfieldWrapperBeforeRenderInputfield');
 			}
 		}
@@ -214,7 +222,7 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 		}
 		
 		// restore autojoin state for pages
-		$this->wire('pages')->setAutojoin(true);
+		$pages->setAutojoin(true);
 	}
 
 	/**
@@ -222,29 +230,31 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 	 *
 	 */
 	public function ready() {
+		$page = $this->wire()->page;
+		
 		// styles used by our Inputfield hooks
-		if($this->wire('page')->template == 'admin') { 
-			$this->config->styles->add($this->config->urls('LanguageSupport') . "LanguageSupport.css"); 
-			$language = $this->wire('user')->language;
-			if($language) $this->config->js('LanguageSupport', array(
+		if($page->template->name === 'admin') { 
+			$config = $this->wire()->config;
+			$config->styles->add($config->urls('LanguageSupport') . "LanguageSupport.css"); 
+			$language = $this->wire()->user->language;
+			if($language) $config->js('LanguageSupport', array(
 				'language' => array(
 					'id' => $language->id, 
 					'name' => $language->name,
 					'title' => (string) $language->title, 
-					)
+				)
 			));
-			if($this->wire('modules')->isInstalled('LanguageTabs')) {
-				$this->languageTabs = $this->wire('modules')->get('LanguageTabs');
+			$modules = $this->wire()->modules;
+			if($modules->isInstalled('LanguageTabs')) {
+				$this->languageTabs = $modules->get('LanguageTabs');
 			}
 		}
 
 		// if languageSupportFields is here, then we have to deal with pages that loaded before this module did
 		if($this->LanguageSupportFields) {
-			$fieldNames = array();
 			// save the names of all fields that support languages
-			foreach($this->wire('fields') as $field) {
-				if($field->type instanceof FieldtypeLanguageInterface) $fieldNames[] = $field->name;
-			}
+			$fieldNames = $this->LanguageSupportFields->getMultilangFieldNames();
+			
 			// unset the values from all the early cached pages since they didn't recognize languages
 			// this will force them to reload when accessed
 			foreach($this->earlyCachedPages as $id => $p) {
@@ -254,11 +264,11 @@ class LanguageSupport extends WireData implements Module, ConfigurableModule {
 				if($t) $p->setTrackChanges(true); 
 			}
 		}
+		
 		// release this as we don't need it anymore
 		$this->earlyCachedPages = array();
 
 		if($this->LanguageSupportFields) $this->LanguageSupportFields->LS_ready(); 
-
 	}
 
 	/**

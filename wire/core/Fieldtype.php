@@ -99,6 +99,7 @@ abstract class Fieldtype extends WireData implements Module {
 	 *
 	 */
 	public function init() { }
+	public function ready() { }
 
 	/**
 	 * Set last access field
@@ -773,6 +774,18 @@ abstract class Fieldtype extends WireData implements Module {
 	public function getMatchQuerySort(Field $field, $query, $table, $subfield, $desc) {
 		if($query && $table && $field && $subfield && $desc) {}
 		return false;
+	}
+	
+	/**
+	 * Called when field of this type is initialized at boot or after lazy loaded
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Field $field
+	 * @since 3.0.194
+	 *
+	 */
+	public function initField(Field $field) {
 	}
 
 	/**

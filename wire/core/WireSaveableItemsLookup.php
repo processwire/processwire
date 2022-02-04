@@ -19,6 +19,14 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 	abstract public function getLookupTable();
 
 	/**
+	 * Cache of value returned from getLookupField() method
+	 * 
+	 * @var string|null
+	 * 
+	 */
+	protected $lookupField = null;
+
+	/**
 	 * If a lookup table should be left joined, this method returns the name of the array field in $data that contains multiple values
 	 * 
 	 * i.e. roles_permissions becomes permissions_id if getTable() returns roles
@@ -26,9 +34,11 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 	 *
 	 */
 	public function getLookupField() { 
+		if($this->lookupField) return $this->lookupField;
 		$lookupTable = $this->getLookupTable();
 		if(!$lookupTable) return ''; 
-		return preg_replace('/_?' . $this->getTable() . '_?/', '', $lookupTable) . '_id';
+		$this->lookupField = preg_replace('/_?' . $this->getTable() . '_?/', '', $lookupTable) . '_id';
+		return $this->lookupField;
 	}
 
 	/**
@@ -62,41 +72,82 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 	 */
 	protected function ___load(WireArray $items, $selectors = null) {
 
+		$useLazy = $this->useLazy();
 		$database = $this->wire()->database;
 		$query = $this->getLoadQuery($selectors);
 		$sql = $query->getQuery();
+		
+		$this->getLookupField(); // preload
+		
 		$stmt = $database->prepare($sql);
 		$stmt->execute();
-		$lookupField = $this->getLookupField();
-
-		while($row = $stmt->fetch(\PDO::FETCH_ASSOC)) {
-
-			/** @var HasLookupItems $item */
-			$item = $this->makeBlankItem();
-			$lookupValue = $row[$lookupField];
-			unset($row[$lookupField]);
-			$item->addLookupItem($lookupValue, $row);
-
-			foreach($row as $field => $value) {
-				$item->$field = $value;
-			}
-
-			if($items->has($item)) {
-				// LEFT JOIN is adding more elements of the same item, i.e. from lookup table
-				// if the item is already present in $items, then use the existing one rather 
-				// and throw out the one we just created
-				$item = $items->get($item);
-				$item->addLookupItem($lookupValue, $row);
+		$rows = $stmt->fetchAll(\PDO::FETCH_ASSOC);
+		
+		// note: non-use of lazyNameIndex/lazyIdIndex is intentional
+	
+		foreach($rows as $row) {
+			if($useLazy) {
+				$this->lazyItems[] = $row;
 			} else {
-				// add a new item
-				$items->add($item);
+				/** @var HasLookupItems $item */
+				$this->initItem($row, $items);
 			}
 		}
-		
+
 		$stmt->closeCursor();
 		$items->setTrackChanges(true);
 		
 		return $items; 
+	}
+
+	/**
+	 * Create a new Saveable/Lookup item from a raw array ($row) and add it to $items
+	 *
+	 * @param array $row
+	 * @param WireArray|null $items
+	 * @return Saveable|HasLookupItems|WireData|Wire
+	 * @since 3.0.194
+	 *
+	 */
+	protected function initItem(array &$row, WireArray $items = null) {
+		
+		$lookupField = $this->getLookupField();
+		$lookupValue = $row[$lookupField];
+		$item = $this->makeBlankItem(); /** @var HasLookupItems $item */
+		
+		if($items === null) $items = $this->getWireArray();
+		
+		unset($row[$lookupField]);
+		
+		$item->addLookupItem($lookupValue, $row);
+
+		foreach($row as $key => $value) {
+			$item->$key = $value;
+		}
+		
+		if($this->useLazy) {
+			$items->add($item);
+			foreach($this->lazyItems as $key => $a) {
+				if($a['id'] != $row['id']) continue;
+				if(!isset($a[$lookupField])) continue;
+				$lookupValue = $a[$lookupField];
+				unset($a[$lookupField]); 
+				$item->addLookupItem($lookupValue, $a);
+				unset($this->lazyItems[$key]);
+			}
+
+		} else if($items->has($item)) {
+			// LEFT JOIN is adding more elements of the same item, i.e. from lookup table
+			// if the item is already present in $items, then use the existing one rather 
+			// and throw out the one we just created
+			$item = $items->get($item);
+			$item->addLookupItem($lookupValue, $row);
+		} else {
+			// add a new item
+			$items->add($item);
+		}
+
+		return $item;
 	}
 
 	/**
@@ -178,4 +229,20 @@ abstract class WireSaveableItemsLookup extends WireSaveableItems {
 		$query->execute();
 		return parent::___delete($item); 
 	}
+	
+	/**
+	 * debugInfo PHP 5.6+ magic method
+	 *
+	 * This is used when you print_r() an object instance.
+	 *
+	 * @return array
+	 *
+	 */
+	public function __debugInfo() {
+		$info = parent::__debugInfo();
+		$info['loaded'] = array_unique($info['loaded']);
+		$info['notLoaded'] = array_unique($info['notLoaded']);
+		return $info;
+	}
+
 }

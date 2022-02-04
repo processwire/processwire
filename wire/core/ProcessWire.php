@@ -291,6 +291,7 @@ class ProcessWire extends Wire {
 		$config->setWire($this);
 		
 		$this->debug = $config->debug; 
+		if($this->debug) Debug::timer('all');
 		$this->instanceID = self::addInstance($this);
 		$this->setWire($this);
 		
@@ -552,9 +553,11 @@ class ProcessWire extends Wire {
 		$pages = $this->wire('pages', new Pages($this), true);
 
 		$this->initVar('fieldtypes', $fieldtypes);
+		if($this->debug) Debug::timer('init.fields.templates.fieldgroups');
 		$this->initVar('fields', $fields);
 		$this->initVar('fieldgroups', $fieldgroups);
 		$this->initVar('templates', $templates);
+		if($this->debug) Debug::saveTimer('init.fields.templates.fieldgroups');
 		$this->initVar('pages', $pages);
 	
 		if($this->debug) Debug::timer('boot.load.permissions'); 

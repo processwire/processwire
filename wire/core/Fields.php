@@ -5,7 +5,7 @@
  *
  * Manages collection of ALL Field instances, not specific to any particular Fieldgroup
  * 
- * ProcessWire 3.x, Copyright 2018 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * #pw-summary Manages all custom fields in ProcessWire, independently of any Fieldgroup. 
@@ -34,6 +34,8 @@ class Fields extends WireSaveableItems {
 
 	/**
 	 * Instance of FieldsArray
+	 * 
+	 * @var FieldsArray
 	 *
 	 */
 	protected $fieldsArray = null;
@@ -96,6 +98,12 @@ class Fields extends WireSaveableItems {
 		'_custom',
 	);
 
+	/**
+	 * Flag names in format [ flagInt => 'flagName' ]
+	 * 
+	 * @var array
+	 * 
+	 */
 	protected $flagNames = array();
 
 	/**
@@ -120,12 +128,18 @@ class Fields extends WireSaveableItems {
 	 */
 	protected $tableTools = null;
 
+	/** 
+	 * @var Fieldtypes|null  
+	 * 
+	 */
+	protected $fieldtypes = null;
+
 	/**
 	 * Construct
 	 *
 	 */
 	public function __construct() {
-		$this->fieldsArray = new FieldsArray();
+		parent::__construct();
 		$this->flagNames = array(
 			Field::flagAutojoin => 'autojoin',
 			Field::flagGlobal => 'global',
@@ -138,7 +152,9 @@ class Fields extends WireSaveableItems {
 			Field::flagSystemOverride => 'system-override',
 		);
 		// convert so that keys are names so that isset() can be used rather than in_array()
-		if(isset(self::$nativeNamesSystem[0])) self::$nativeNamesSystem = array_flip(self::$nativeNamesSystem);
+		if(isset(self::$nativeNamesSystem[0])) {
+			self::$nativeNamesSystem = array_flip(self::$nativeNamesSystem);
+		}
 	}
 
 	/**
@@ -148,8 +164,7 @@ class Fields extends WireSaveableItems {
 	 *
 	 */
 	public function init() {
-		$this->wire($this->fieldsArray);
-		$this->load($this->fieldsArray); 
+		$this->getWireArray();
 	}
 
 	/**
@@ -174,32 +189,66 @@ class Fields extends WireSaveableItems {
 	public function makeItem(array $a = array()) {
 		
 		if(empty($a['type'])) return parent::makeItem($a);
-		
-		/** @var Fieldtypes $fieldtypes */
-		$fieldtypes = $this->wire('fieldtypes');
-		if(!$fieldtypes) return parent::makeItem($a);
+		if($this->fieldtypes === null) $this->fieldtypes = $this->wire()->fieldtypes;
+		if(!$this->fieldtypes) return parent::makeItem($a);
 		
 		/** @var Fieldtype $fieldtype */
-		$fieldtype = $fieldtypes->get($a['type']);
-		if(!$fieldtype) return parent::makeItem($a);
+		$fieldtype = $this->fieldtypes->get($a['type']);
+		if(!$fieldtype) {
+			if($this->useLazy) {
+				$this->error("Fieldtype module '$a[type]' for field '$a[name]' is missing");
+				$fieldtype = $this->fieldtypes->get('FieldtypeText');
+			} else {
+				return parent::makeItem($a);
+			}
+		}
 		
-		$class = $fieldtype->getFieldClass($a);
-		if(empty($class) || $class === 'Field') return parent::makeItem($a);
-		
-		if(strpos($class, "\\") === false) $class = wireClassName($class, true);
-		if(!class_exists($class)) return parent::makeItem($a);
+		$a['type'] = $fieldtype;
+		$a['id'] = (int) $a['id'];
+		$a['flags'] = (int) $a['flags'];
 	
-		/** @var Field $field */
-		$field = new $class();
+		$class = $fieldtype->getFieldClass($a);
+		
+		if(empty($class) || $class === 'Field') {
+			$class = '';
+		} else if(strpos($class, "\\") === false) {
+			$class = wireClassName($class, true);
+			if(!class_exists($class)) $class = '';
+		}
+		
+		if(empty($class)) {
+			$field = new Field();
+		} else {
+			$field = new $class(); /** @var Field $field */
+		}
+	
 		$this->wire($field);
+		$field->setTrackChanges(false);
 		
 		foreach($a as $key => $value) {
-			$field->$key = $value;
+			$field->setRawSetting($key, $value);
 		}
 		
 		$field->resetTrackChanges(true);
 		
 		return $field;
+	}
+	
+	/**
+	 * Create a new Saveable item from a raw array ($row) and add it to $items
+	 *
+	 * @param array $row
+	 * @param WireArray|null $items
+	 * @return Saveable|WireData|Wire
+	 * @since 3.0.194
+	 *
+	 */
+	protected function initItem(array &$row, WireArray $items = null) {
+		/** @var Field $item */
+		$item = parent::initItem($row, $items);
+		$fieldtype = $item ? $item->type : null;
+		if($fieldtype) $fieldtype->initField($item);
+		return $item;
 	}
 
 	/**
@@ -207,11 +256,27 @@ class Fields extends WireSaveableItems {
 	 * 
 	 * #pw-internal
 	 * 
-	 * @return FieldsArray
+	 * @return FieldsArray|WireArray
 	 *
 	 */
 	public function getAll() {
-		return $this->fieldsArray; 
+		return $this->getWireArray();
+	}
+
+	/**
+	 * Get WireArray container that items are stored in
+	 *
+	 * @return WireArray
+	 * @since 3.0.194
+	 *
+	 */
+	public function getWireArray() {
+		if($this->fieldsArray === null) {
+			$this->fieldsArray = new FieldsArray();
+			$this->wire($this->fieldsArray);
+			$this->load($this->fieldsArray); 
+		}
+		return $this->fieldsArray;
 	}
 
 	/**
@@ -354,22 +419,29 @@ class Fields extends WireSaveableItems {
 	 */
 	public function ___delete(Saveable $item) {
 
-		if(!$this->fieldsArray->isValidItem($item)) throw new WireException("Fields::delete(item) only accepts items of type Field"); 
+		if(!$this->getWireArray()->isValidItem($item)) {
+			throw new WireException("Fields::delete(item) only accepts items of type Field");
+		}
 
 		// if the field doesn't have an ID, so it's not one that came from the DB
-		if(!$item->id) throw new WireException("Unable to delete from '" . $item->getTable() . "' for field that doesn't exist in fields table"); 
+		if(!$item->id) {
+			$table = $item->getTable();
+			throw new WireException("Unable to delete from '$table' for field that doesn't exist in fields table");
+		}
 
 		// if it's in use by any fieldgroups, then we don't allow it to be deleted
 		if($item->numFieldgroups()) {
 			$names = $item->getFieldgroups()->implode("', '", (string) "name");
-			throw new WireException("Unable to delete field '{$item->name}' because it is in use by these fieldgroups: '$names'");
+			throw new WireException("Unable to delete field '$item->name' because it is in use by these fieldgroups: '$names'");
 		}
 
 		// if it's a system field, it may not be deleted
-		if($item->flags & Field::flagSystem) throw new WireException("Unable to delete field '{$item->name}' because it is a system field."); 
+		if($item->flags & Field::flagSystem) {
+			throw new WireException("Unable to delete field '$item->name' because it is a system field.");
+		}
 
 		// delete entries in fieldgroups_fields table. Not really necessary since the above exception prevents this, but here in case that changes. 
-		$this->wire('fieldgroups')->deleteField($item); 
+		$this->wire()->fieldgroups->deleteField($item); 
 
 		// drop the field's table
 		if($item->type) $item->type->deleteField($item); 
@@ -988,6 +1060,102 @@ class Fields extends WireSaveableItems {
 		}
 		ksort($items);
 		return $items;
+	}
+
+	/**
+	 * Find fields by type
+	 * 
+	 * @param string|Fieldtype $type Fieldtype class name or object
+	 * @param array $options
+	 *  - `inherit` (bool): Also find types that inherit from given type? (default=true) 
+	 *  - `valueType` (string): Value type to return, one of 'field', 'id', or 'name' (default='field')
+	 *  - `indexType` (string): Index type to use, one of 'name', 'id', or '' blank for non-associative array (default='name')
+	 * @return array|Field[]
+	 * @since 3.0.194
+	 * 
+	 */
+	public function findByType($type, array $options = array()) {
+		
+		$defaults = array(
+			'inherit' => true, // also find fields using type inherited from given type or interface?
+			'valueType' => 'field', // one of 'field', 'id', or 'name'
+			'indexType' => 'name', // one of 'name', 'id', or '' blank for non associative array
+		);
+		
+		$options = array_merge($defaults, $options);
+		$valueType = $options['valueType'];
+		$indexType = $options['indexType'];
+		$inherit = $options['inherit'];
+		$matchTypes = array();
+		$matches = array();
+		
+		if($inherit) {
+			$typeName = wireClassName($type, true);
+			foreach($this->wire()->fieldtypes as $fieldtype) {
+				if($fieldtype instanceof $typeName) $matchTypes[$fieldtype->className()] = true;
+			}
+		} else {
+			$typeName = wireClassName($type);
+			$matchTypes[$typeName] = true;
+		}
+		
+		foreach($this->getWireArray() as $field) {
+			$fieldtype = $field->type;
+
+			if(!$fieldtype) continue;
+			if(!isset($matchTypes[$fieldtype->className()])) continue;
+
+			if($valueType === 'field') {
+				$value = $field;
+			} else if($valueType === 'name') {
+				$value = $field->name;
+			} else {
+				$value = $field->id;
+			}
+			if($indexType) {
+				$index = $field->get($options['indexType']);
+				$matches[$index] = $value;
+			} else {
+				$matches[] = $value;
+			}
+		}
+
+		if($this->useLazy()) {
+			foreach(array_keys($this->lazyItems) as $key) {
+				if(!isset($this->lazyItems[$key])) continue;
+				$row = $this->lazyItems[$key];
+				if(empty($row['type'])) continue;
+				$type = $row['type'];
+				if(!isset($matchTypes[$type])) continue;
+				if($valueType === 'field') {
+					$value = $this->getLazy((int) $row['id']);
+				} else if($valueType === 'name') {
+					$value = $row['name'];
+				} else {
+					$value = $row['id'];
+				}
+				if($indexType) {
+					$index = isset($data[$indexType]) ? $row[$indexType] : $row['id'];
+					$matches[$index] = $value;
+				} else {
+					$matches[] = $value;
+				}
+			}
+		}
+	
+		return $matches;
+	}
+
+	/**
+	 * Get all field names
+	 *
+	 * @param string $indexType One of 'name', 'id' or blank string for no index (default='')
+	 * @return array
+	 * @since 3.0.194
+	 *
+	 */
+	public function getAllNames($indexType = '') {
+		return $this->getAllValues('name', $indexType); 
 	}
 
 	/**
