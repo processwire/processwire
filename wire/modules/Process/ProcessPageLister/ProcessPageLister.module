@@ -1225,6 +1225,23 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	}
 
 	/**
+	 * Is field or field+subfield sortable in the table?
+	 * 
+	 * @param Field $field
+	 * @param string $subfield
+	 * @return bool
+	 * @since 3.0.194
+	 * 
+	 */
+	protected function isSortableCol(Field $field, $subfield = '') {
+		if($subfield === 'data' || empty($subfield) || $subfield === 'count') return true;
+		if($subfield === 'keys' || $subfield === 'xtra') return false;
+		$fieldtype = $field->type;
+		$schema = $fieldtype->getDatabaseSchema($field);
+		return isset($schema[$subfield]);
+	}
+
+	/**
 	 * Build the Lister table containing results
 	 *
 	 * @param PageArray $results
@@ -1232,15 +1249,19 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 *
 	 */
 	protected function buildListerTable(PageArray $results) {
+		
+		$sanitizer = $this->wire()->sanitizer;
+		$modules = $this->wire()->modules;
+		$fields = $this->wire()->fields;
 
 		/** @var Languages $languages */
 		$columns = $this->sessionGet('columns');
 		$systemLabels = $this->getSystemLabels();
-		$fields = array();
+		$tableFields = array();
 		$header = array();
 		
 		/** @var MarkupAdminDataTable $table */
-		$table = $this->modules->get('MarkupAdminDataTable');
+		$table = $modules->get('MarkupAdminDataTable');
 		$table->setSortable(false);
 		$table->setResizable(true);
 		$table->setResponsive($this->responsiveTable);
@@ -1256,8 +1277,8 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$subname = '';
 			
 			if(strpos($name, '.')) list($name, $subname) = explode('.', $name);
-			$field = $this->template ? $this->template->fieldgroup->getField($name, true) : $this->fields->get($name);
-			if(!$field && $this->template) $field = $this->fields->get($name);
+			$field = $this->template ? $this->template->fieldgroup->getField($name, true) : $fields->get($name);
+			if(!$field && $this->template) $field = $fields->get($name);
 			
 			$label = $field ? $field->getLabel() : '';
 			if(!$label) $label = isset($systemLabels[$name]) ? $systemLabels[$name] : $name;
@@ -1268,7 +1289,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$label = str_replace($sep1, ' ', $label);
 			
 			if($subname) {
-				$subfield = $this->fields->get($subname);
+				$subfield = $fields->get($subname);
 
 				if($subfield) {
 					$sublabel = $subfield->getLabel();
@@ -1288,7 +1309,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				$label = $this->addLanguageLabel($label, $language);
 			}
 			
-			$label = $this->wire('sanitizer')->entities1($label);
+			$label = $sanitizer->entities1($label);
 			$label = str_replace($sep1, "$sep2<wbr>", $label);
 			
 			if($icon) {
@@ -1304,16 +1325,27 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			} else if($subname) {
 				$label = "<strong>" . str_replace($sep2, "$sep2</strong>", $label); 
 			}
-			
-			$sortKey = $subname ? "$name.$subname" : $name;
-			$header[$key] = "$icon$label<b>$sortKey</b>";
-			$fields[$name] = $field; 
+		
+			$thClass = '';
+			if($subname) {
+				$sortKey = "<b>$name.$subname</b>";
+				if($field && !$this->isSortableCol($field, $subname)) {
+					$thClass = 'not_sortable';
+				}
+			} else {
+				$sortKey = "<b>$name</b>";
+			}
+		
+			$th = "$icon$label$sortKey";
+			if($thClass) $th = array($th, $thClass);
+			$header[$key] = $th;
+			$tableFields[$name] = $field; 
 		}
 
 		$table->headerRow($header); 
 
 		foreach($results as $p) {
-			$table->row($this->buildListerTableRow($p, $fields, $columns), array(
+			$table->row($this->buildListerTableRow($p, $tableFields, $columns), array(
 				'attrs' => array('data-pid' => $p->id)
 			)); 
 		}

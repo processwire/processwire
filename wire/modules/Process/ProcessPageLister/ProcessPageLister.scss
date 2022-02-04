@@ -39,6 +39,12 @@
 					// icons
 					font-size: 14px;
 				}
+				&.not_sortable {
+					cursor: not-allowed;
+					&:hover {
+						text-decoration:  none;
+					}
+				}
 			}
 			th strong {
 				// icon + first word of label 

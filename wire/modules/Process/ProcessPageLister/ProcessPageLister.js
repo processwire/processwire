@@ -114,13 +114,17 @@ var ProcessLister = {
 	 *
 	 */
 	columnSort: function() {
-		$(this).find("span").remove();
-		var name = $(this).find('b').text();
+		
+		if($(this).hasClass('not_sortable')) return false;
+		$(this).find('span').remove();
+		
+		var $b = $(this).find('b');
+		var name = $b.text();
 		var val = $("#lister_sort").val();
 
 		if(val == name) name = '-' + name; // reverse
 		if(name.length < 1) name = val;
-		$("#lister_sort").val(name);
+		$('#lister_sort').val(name);
 
 		ProcessLister.submit();
 	},
