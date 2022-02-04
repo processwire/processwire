@@ -446,8 +446,11 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 
 		$_page = $this->wire()->page; // just in case one page is rendering another, save the previous
 		$config = $this->wire()->config;
+		$timerKey = $config->debug ? "page.$page.render" : "";
 		$compiler = null; /** @var FileCompiler|null $compiler */
 		$compilerOptions = array();
+		
+		if($timerKey) Debug::timer($timerKey);
 		
 		if($config->templateCompile && $template->compile) {
 			$compilerOptions = array(
@@ -496,6 +499,7 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 			if(!$options['forceBuildCache'] && ($data = $cacheFile->get()) !== false) {
 				$event->return = $data;
 				if($_page) $this->wire('page', $_page);
+				if($timerKey) Debug::saveTimer($timerKey);
 				return;
 			}
 		}
@@ -581,6 +585,8 @@ class PageRender extends WireData implements Module, ConfigurableModule {
 				$this->populateMarkupRegions($data);
 			}
 		}
+		
+		if($timerKey) Debug::saveTimer($timerKey);
 
 		if($data && $cacheAllowed && $cacheFile) {
 			$data = $this->saveCacheFileReady($page, $data);
