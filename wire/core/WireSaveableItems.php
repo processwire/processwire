@@ -858,9 +858,11 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 	public function loadAllLazyItems() {
 
 		if(!$this->useLazy()) return;
+		if(empty($this->lazyItems)) return;
 
 		$debug = $this->wire()->config->debug;
 		$items = $this->getWireArray();
+		$sortable = !empty($this->lazyNameIndex);
 
 		foreach(array_keys($this->lazyItems) as $key) {
 			if(!isset($this->lazyItems[$key])) continue; // required
@@ -868,13 +870,16 @@ abstract class WireSaveableItems extends Wire implements \IteratorAggregate {
 			$item = $this->initItem($row, $items);
 			if($debug) $item->setQuietly('_lazy', '*');
 		}
+		
+		if($sortable) $items->sort('name'); // a-z
 
 		$this->lazyItems = array();
 		$this->lazyNameIndex = array();
 		$this->lazyIdIndex = array();
 		
-		// if you want to identify what triggered a “load all”, uncomment below:
+		// if you want to identify what triggered a “load all”, uncomment one of below:
 		// bd(Debug::backtrace());
+		// $this->warning(Debug::backtrace());
 	}
 
 	/**
