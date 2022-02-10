@@ -36,7 +36,6 @@
  * #pw-body
  *
  */
-
 class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Countable {
 
 	/**
@@ -1319,16 +1318,19 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	protected function _sort($properties, $numNeeded = null) {
 
 		// string version is used for change tracking
-		$propertiesStr = is_array($properties) ? implode(',', $properties) : $properties;
-		if(!is_array($properties)) $properties = preg_split('/\s*,\s*/', $properties);
+		$isArray = is_array($properties);
+		$propertiesStr = $isArray ? implode(',', $properties) : $properties;
+		if(!$isArray) $properties = explode(',', $properties);
+		
+		if(empty($properties)) return $this;
 
 		// shortcut for random (only allowed as the sole sort property)
 		// no warning/error for issuing more properties though
 		// TODO: warning for random+more properties (and trackChange() too)
-		if($properties[0] == 'random') return $this->shuffle();
+		if($properties[0] === 'random') return $this->shuffle();
 		
 		$data = $this->stableSort($this, $properties, $numNeeded);
-		$this->trackChange("sort:$propertiesStr", $this->data, $data);
+		if($this->trackChanges) $this->trackChange("sort:$propertiesStr", $this->data, $data);
 		$this->data = $data; 
 
 		return $this;
@@ -1345,6 +1347,10 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * - `SORT_LOCALE_STRING` compare items as strings, based on the current locale
 	 * - `SORT_NATURAL` compare items as strings using “natural ordering” like natsort()
 	 * - `SORT_FLAG_CASE` can be combined (bitwise OR) with SORT_STRING or SORT_NATURAL to sort strings case-insensitively
+	 * - `SORT_APPEND_NULLS` can be used on its own or combined with any of above (bitwise OR) to specify that null 
+	 *    or blank values should be treated as unsortable and appended to the end of the sortable set rather than sorted as 
+	 *    blank values. This duplicates the behavior prior to 3.0.194 (available only in 3.0.194+). Note that this flag
+	 *    is unique to ProcessWire only and is not in PHP. 
 	 *
 	 * For more details, see `$sort_flags` argument at: https://www.php.net/manual/en/function.sort.php
 	 * 
@@ -1372,22 +1378,28 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 */
 	protected function stableSort(&$data, $properties, $numNeeded = null) {
 
-		$property = array_shift($properties);
-
-		$unidentified = array();
+		$property = trim(array_shift($properties));
+		$nullable = array();
 		$sortable = array();
 		$reverse = false;
 		$subProperty = '';
-
-		if(substr($property, 0, 1) == '-' || substr($property, -1) == '-') {
-			$reverse = true; 
-			$property = trim($property, '-'); 
+		$sortFlags = $this->sortFlags;
+		$sortNulls = true;
+		
+		if($sortFlags >= SORT_APPEND_NULLS && ($sortFlags & SORT_APPEND_NULLS)) {
+			$sortNulls = false;
+			$sortFlags -= SORT_APPEND_NULLS;
+		}
+	
+		$pos = strpos($property, '-');
+		if($pos !== false && ($pos === 0 || substr($property, -1) == '-')) {
+			$reverse = true;
+			$property = trim($property, '-');
 		}
 
-		$pos = strpos($property, ".");
+		$pos = strpos($property, '.');
 		if($pos) {
-			$subProperty = substr($property, $pos+1); 
-			$property = substr($property, 0, $pos); 
+			list($property, $subProperty) = explode('.', $property, 2);
 		}
 
 		foreach($data as $item) {
@@ -1399,34 +1411,55 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 				$key = $this->getItemPropertyValue($key, $subProperty);
 			}
 
-			// check for items that resolve to blank
-			if(is_null($key) || (is_string($key) && !strlen(trim($key)))) {
-				// @todo option to allow for these to be sorted regularly
-				$unidentified[] = $item;
-				continue; 
+			if($key === null) {
+				if($sortNulls) {
+					$key = "\0"; // sort as ascii null
+				} else {
+					$nullable[] = $item;
+					continue; 
+				}
+			} else if($key === false) {
+				$key = 0;
+			} else if($key === true) {
+				$key = 1;
+			} else if(is_int($key)) {
+				// ok
+			} else if(ctype_digit("$key")) {
+				$key = (int) $key;
+			} else {
+				$key = (string) $key;
+				if(trim($key) === '') {
+					if($sortNulls) {
+						$key = ' '; // ensure sort value higher than \0
+					} else {
+						$nullable[] = $item;
+						continue; 
+					}
+				}
 			}
-
-			$key = (string) $key; 
-
-			// ensure numeric sorting if the key is a number
-			if(ctype_digit("$key")) $key = (int) $key; 
 
 			if(isset($sortable[$key])) {
 				// key resolved to the same value that another did, so keep them together by converting this index to an array
 				// this makes the algorithm stable (for equal keys the order would be undefined)
-				if(is_array($sortable[$key])) $sortable[$key][] = $item; 
-					else $sortable[$key] = array($sortable[$key], $item); 
+				if(is_array($sortable[$key])) {
+					$sortable[$key][] = $item;
+				} else {
+					$sortable[$key] = array($sortable[$key], $item);
+				}
 			} else { 
 				$sortable[$key] = $item; 
 			}
 		}
 
 		// sort the items by the keys we collected
-		if($reverse) krsort($sortable, $this->sortFlags);
-			else ksort($sortable, $this->sortFlags); 
+		if($reverse) {
+			krsort($sortable, $sortFlags);
+		} else {
+			ksort($sortable, $sortFlags);
+		}
 
 		// add the items that resolved to no key to the end, as an array
-		$sortable[] = $unidentified; 
+		if(!empty($nullable)) $sortable[] = $nullable; 
 
 		// restore sorted array to lose sortable keys and restore proper keys
 		$a = array();
@@ -1435,7 +1468,9 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 				// if more properties to sort by exist, use them for this sub-array
 				$n = null;
 				if($numNeeded) $n = $numNeeded - count($a); 
-				if(count($properties)) $value = $this->stableSort($value, $properties, $n);
+				if(count($properties)) {
+					$value = $this->stableSort($value, $properties, $n);
+				}
 				foreach($value as $k => $v) {
 					$newKey = $this->getItemKey($v); 
 					$a[$newKey] = $v; 
@@ -2658,3 +2693,5 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 		return $a;
 	}
 }
+
+define('SORT_APPEND_NULLS', 32);
