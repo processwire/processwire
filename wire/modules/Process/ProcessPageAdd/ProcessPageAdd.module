@@ -168,20 +168,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$sanitizer = $this->wire()->sanitizer;
 		
 		$data = $session->getFor($this, 'nav');
-		
-		if(!empty($data)) {
-			// check that session cache data is still current
-			foreach($templates as $template) {
-				if($template->modified > $data['modified']) {
-					$data = array();
-					$session->remove($this, 'nav');
-					$session->remove($this, 'numAddable');
-					$this->message("Clearing 'Add New' page cache", Notice::debug);
-					break;
-				}
-			}
-		}
-		
+
 		if(empty($data)) {
 
 			$data = array(
@@ -282,6 +269,19 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		if($config->ajax) header("Content-Type: application/json");
 		
 		return json_encode($data);
+	}
+
+	/**
+	 * Clear "add new" session caches
+	 * 
+	 * @since 3.0.194
+	 * 
+	 */
+	public function clearSessionCaches() {
+		$session = $this->wire()->session;
+		$session->removeFor($this, 'nav');
+		$session->removeFor($this, 'numAddable');
+		$this->message("Clearing 'Add New' page cache", Notice::debug);
 	}
 
 	/**

@@ -3050,6 +3050,11 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 				sprintf($this->_('Saved template: %s'), $template->name) . ' ' . 
 				($config->debug && count($changes) ? '(' . implode(', ', $changes) . ')' : '')
 			);
+			if(count($changes)) {
+				/** @var ProcessPageAdd $ppa */
+				$ppa = $modules->get('ProcessPageAdd');
+				$ppa->clearSessionCaches();
+			}
 		} catch(\Exception $e) {
 			$this->error($e->getMessage());
 		}
