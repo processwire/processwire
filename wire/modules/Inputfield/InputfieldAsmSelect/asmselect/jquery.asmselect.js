@@ -115,6 +115,9 @@
 
 				// initialize the alternate select multiple
 				if(options.deletable && !options.addable) options.hideDeleted = false;
+			
+				// identify which items were already selected in the original 
+				$original.find('option[selected]').addClass('asmOriginalSelected');
 
 				// this loop ensures uniqueness, in case of existing asmSelects placed by ajax (1.0.3)
 				while($("#" + options.containerClass + index).length > 0) index++; 
@@ -789,7 +792,7 @@
 
 				var $O = $('#' + optionId); 
 
-				if(options.hideDeleted) {
+				if(options.hideDeleted || !$O.hasClass('asmOriginalSelected')) {
 
 					if(typeof highlightItem == "undefined") highlightItem = true; 
 

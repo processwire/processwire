@@ -3,7 +3,7 @@
 /**
  * AsmSelect is a sortable multiple-select Inputfield
  * 
- * Copyright (c) 2009-2020 by Ryan Cramer
+ * Copyright (c) 2009-2022 by Ryan Cramer
  * 
  * @property bool $addable Can items be added to selection? (default=true)
  * @property string $addItemTarget Where to place new selected items in list: top or bottom (default='bottom')
@@ -40,7 +40,7 @@ class InputfieldAsmSelect extends InputfieldSelectMultiple implements Inputfield
 	public static function getModuleInfo() {
 		return array(
 			'title' => __('asmSelect', __FILE__),
-			'version' => 202,
+			'version' => 203,
 			'summary' => __('Multiple selection, progressive enhancement to select multiple', __FILE__), // Module Summary
 			'permanent' => true,
 		);
