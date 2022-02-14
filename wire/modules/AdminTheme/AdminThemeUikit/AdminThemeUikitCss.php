@@ -141,9 +141,9 @@ class AdminThemeUikitCss extends WireData {
 				$modules->saveConfig($this->adminTheme, 'cssVersion', $this->requireCssVersion);
 				$this->adminTheme->set('cssVersion', $this->requireCssVersion);
 			}
-			$this->message(implode(' ', $messages), Notice::noGroup);
+			$this->message(implode(' ', $messages), Notice::noGroup | Notice::superuser);
 		} catch(\Exception $e) {
-			$this->error('LESS - ' . $e->getMessage(), Notice::noGroup);
+			$this->error('LESS - ' . $e->getMessage(), Notice::noGroup | Notice::superuser);
 		}
 	
 		return $getPath ? $cssFile : $this->fileToUrl($cssFile) . "?v=$cssTime";
