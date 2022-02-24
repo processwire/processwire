@@ -1834,7 +1834,7 @@ class PagesEditor extends Wire {
 				// detect name from path
 				$options['name'] = $name;
 			}
-			if(empty($parent)) {
+			if(empty($parent) && !$this->pages->loader()->isLoading()) {
 				// detect parent from path
 				$parentPath = count($parts) ? implode('/', $parts) : '/';
 				$parent = $this->pages->getByPath($parentPath);
@@ -1844,7 +1844,7 @@ class PagesEditor extends Wire {
 		}
 
 		// detect template from parent (when possible)
-		if(!$template && !empty($parent) && empty($options['id'])) {
+		if(!$template && !empty($parent) && empty($options['id']) && !$this->pages->loader()->isLoading()) {
 			$parent = is_object($parent) ? $parent : $this->pages->get($parent);
 			if($parent->id) {
 				if(count($parent->template->childTemplates) === 1) {
@@ -1856,14 +1856,17 @@ class PagesEditor extends Wire {
 		}
 
 		// detect parent from template (when possible)
-		if($template && empty($parent) && empty($options['id']) && count($template->parentTemplates) === 1) {
-			$parentTemplates = $template->parentTemplates();
-			if($parentTemplates->count()) {
-				$numParents = $this->pages->count("template=$parentTemplates, include=all");
-				if($numParents === 1) {
-					$parent = $this->pages->get("template=$parentTemplates");
+		if($template && empty($parent) && empty($options['id']) && !$this->pages->loader()->isLoading()) { 
+			if(count($template->parentTemplates) === 1) {
+				$parentTemplates = $template->parentTemplates();
+				if($parentTemplates->count()) {
+					$numParents = $this->pages->count("template=$parentTemplates, include=all");
+					if($numParents === 1) {
+						$parent = $this->pages->get("template=$parentTemplates");
+						if(!$parent->id) $parent = null;
+					}
 				}
-			}
+			}	
 		}
 	
 		// detect class from template

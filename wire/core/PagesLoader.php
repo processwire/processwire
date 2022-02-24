@@ -65,6 +65,14 @@ class PagesLoader extends Wire {
 	protected $debug = false;
 
 	/**
+	 * Are we currenty loading pages?
+	 * 
+	 * @var bool
+	 * 
+	 */
+	protected $loading = false;
+
+	/**
 	 * Page instance ID
 	 * 
 	 * @var int
@@ -415,7 +423,9 @@ class PagesLoader extends Wire {
 			$cachePages = false;
 			$template = null;
 			$templatesByID = array();
+			$loading = $this->loading;
 
+			if(!$loading) $this->loading = true;
 			foreach($pagesIDs as $id => $templateID) {
 				if(isset($templatesByID[$templateID])) {
 					$template = $templatesByID[$templateID];
@@ -429,6 +439,7 @@ class PagesLoader extends Wire {
 				$pages->add($page);
 			}
 
+			if(!$loading) $this->loading = false;
 			$pages->setDuplicateChecking(true);
 			if(count($pagesIDs)) $pages->_lazy(true);
 			unset($template, $templatesByID);
@@ -934,6 +945,7 @@ class PagesLoader extends Wire {
 		/** @var WireDatabasePDO $database */
 		$database = $this->wire('database');
 		$idsByTemplate = array();
+		$loading = $this->loading;
 
 		if(is_array($template)) {
 			// $template property specifies an array of options
@@ -1045,6 +1057,7 @@ class PagesLoader extends Wire {
 			return $pages;
 		}
 
+		if(!$loading) $this->loading = true;
 
 		if(count($idsByTemplate)) {
 			// ok
@@ -1205,11 +1218,16 @@ class PagesLoader extends Wire {
 			$template = null;
 		}
 
-		if($options['getOne']) return count($loaded) ? reset($loaded) : $this->pages->newNullPage();
+		if($options['getOne']) {
+			if(!$loading) $this->loading = false;
+			return count($loaded) ? reset($loaded) : $this->pages->newNullPage();
+		}
+		
 		$pages = $this->pages->newPageArray($options);
 		$pages->setDuplicateChecking(false);
 		$pages->import($loaded);
 		$pages->setDuplicateChecking(true);
+		if(!$loading) $this->loading = false;
 
 		// debug mode only
 		if($this->debug) {
@@ -1230,6 +1248,7 @@ class PagesLoader extends Wire {
 				}
 			}
 		}
+		
 
 		return $pages;
 	}
@@ -1920,6 +1939,18 @@ class PagesLoader extends Wire {
 	 */
 	public function getLastPageFinder() {
 		return $this->lastPageFinder;
+	}
+
+	/**
+	 * Are we currently loading pages?
+	 * 
+	 * @return bool
+	 * @since 3.0.195
+	 * 
+	 * 
+	 */
+	public function isLoading() {
+		return $this->loading;
 	}
 	
 }
