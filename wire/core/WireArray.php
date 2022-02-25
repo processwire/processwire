@@ -1425,7 +1425,7 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			} else if(is_int($key)) {
 				// ok
 			} else if(ctype_digit("$key")) {
-				$key = (int) $key;
+				$key = (int) "$key";
 			} else {
 				$key = (string) $key;
 				if(trim($key) === '') {
