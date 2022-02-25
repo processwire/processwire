@@ -17,7 +17,7 @@
  * This file is licensed under the MIT license
  * https://processwire.com/about/license/mit/
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -30,6 +30,9 @@ if(!defined("PROCESSWIRE")) die();
 
 // Let core API vars also be functions? So you can use $page or page(), for example.
 $config->useFunctionsAPI = true;
+
+// Use custom Page classes in /site/classes/ ? (i.e. template "home" => HomePage.php)
+$config->usePageClasses = true;
 
 // Use Markup Regions? (https://processwire.com/docs/front-end/output/markup-regions/)
 $config->useMarkupRegions = true;
