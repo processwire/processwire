@@ -1876,11 +1876,15 @@ class PagesEditor extends Wire {
 		if($template) $options['template'] = $template;
 		if($class) $options['pageClass'] = $class;
 		
-		if(isset($options['id']) && ctype_digit("$options[id]") && (int) $options['id'] > 0) {
-			$options['id'] = (int) $options['id'];
-			if($parent && "$options[id]" === "$parent") unset($options['parent']); 
-		} else {
-			unset($options['id']);
+		if(isset($options['id'])) {
+			if(ctype_digit("$options[id]") && (int) $options['id'] > 0) {
+				$options['id'] = (int) $options['id'];
+				if($parent && "$options[id]" === "$parent") unset($options['parent']);
+			} else if(((int) $options['id']) === -1) {
+				$options['id'] = (int) $options['id']; // special case allowed for access control tests
+			} else {
+				unset($options['id']);
+			}
 		}
 
 		return $options;
