@@ -527,7 +527,7 @@ class WireCache extends Wire {
 
 			if($expire instanceof Page) {
 				// page object
-				$expire = $expire->template->id;
+				$expire = $expire->templates_id;
 
 			} else if($expire instanceof Template) {
 				// template object
@@ -983,6 +983,9 @@ class WireCache extends Wire {
 	 */
 	public function getInfo($verbose = true, $names = array(), $exclude = array()) {
 		
+		$templates = $this->wire()->templates;
+		$database = $this->wire()->database;
+		
 		if(is_string($names)) $names = empty($names) ? array() : array($names);
 		if(is_string($exclude)) $exclude = empty($exclude) ? array() : array($exclude);
 		
@@ -1011,7 +1014,7 @@ class WireCache extends Wire {
 			$sql .= "WHERE " . implode(' AND ', $wheres);
 		}
 		
-		$query = $this->wire('database')->prepare($sql);
+		$query = $database->prepare($sql);
 		
 		foreach($binds as $key => $val) {
 			$query->bindValue($key, $val);
@@ -1050,20 +1053,20 @@ class WireCache extends Wire {
 			}
 			
 			if(empty($info['expires'])) {
-				if($row['expires'] == self::expireNever) {
+				if($row['expires'] === self::expireNever) {
 					$info['expires'] = $verbose ? 'never' : '';
-				} else if($row['expires'] == self::expireReserved) {
+				} else if($row['expires'] === self::expireReserved) {
 					$info['expires'] = $verbose ? 'reserved' : '';
-				} else if($row['expires'] == self::expireSave) {
+				} else if($row['expires'] === self::expireSave) {
 					$info['expires'] = $verbose ? 'when any page or template is modified' : 'save';
-				} else if($row['expires'] < time()) {
-					$t = strtotime($row['expires']); 
-					foreach($this->wire('templates') as $template) {
-						if($template->id == $t) {
-							$info['expires'] = $verbose ? "when '$template->name' page or template is modified" : 'save';
-							$info['template'] = $template->id;
-							break;
-						}
+				} else if($row['expires'] < self::expireSave) {
+					// potential template ID encoded as date string
+					$templateId = strtotime($row['expires']); 
+					$template = $templates->get($templateId);
+					if($template) {
+						$info['expires'] = $verbose ? "when '$template->name' page or template is modified" : 'save';
+						$info['template'] = $template->id;
+						break;
 					}
 				}
 				if(empty($info['expires'])) {
