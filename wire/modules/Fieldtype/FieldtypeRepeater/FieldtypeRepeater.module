@@ -75,7 +75,7 @@ class FieldtypeRepeater extends Fieldtype implements ConfigurableModule {
 	 * @var bool
 	 *
 	 */
-	static protected $isReady = false;
+	static protected $isReady = array();
 
 	/**
 	 * When non-zero, a deletePageField function call occurred and we shouldn't re-create any repeater parents

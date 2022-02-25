@@ -512,7 +512,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 			// special case: homepage
 			$name = $isDefault ? '' : $page->get("name$language"); 
 			if($isDefault && $this->useHomeSegment) $name = $page->name;
-			if($name == Pages::defaultRootName || !strlen($name)) return '/';
+			if($name == Pages::defaultRootName || $name === null || !strlen($name)) return '/';
 			return $template->slashUrls ? "/$name/" : "/$name";
 		}
 

@@ -90,7 +90,7 @@ class InputfieldMarkup extends InputfieldWrapper {
 		if($markupFunction !== null & is_callable($markupFunction)) {
 			$out .= "\n" . call_user_func($markupFunction, $this);
 		}
-		if(strlen($markupText)) {
+		if(is_string($markupText) && strlen($markupText)) {
 			$out .= "\n" . $markupText;
 		}
 		$out = trim($out);

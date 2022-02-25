@@ -1925,7 +1925,7 @@ class PagesPathFinder extends Wire {
 		$segments = $this->languageSegments();
 		$segments[] = Pages::defaultRootName;
 		foreach($segments as $segment) {
-			if(!strlen($segment)) continue;
+			if($segment === null || !strlen($segment)) continue;
 			if($path !== "/$segment" && strpos($path, "/$segment/") !== 0) continue;
 			list(,$path) = explode("/$segment", $path, 2); 
 			if($path === '') $path = '/';
