@@ -914,29 +914,7 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */ 
 	public function getFieldgroups($getCount = false) {
-
-		$fieldgroups = $this->wire()->fieldgroups;
-		$items = $getCount ? null : $this->wire(new FieldgroupsArray()); /** @var FieldgroupsArray $items */
-		$count = 0;
-
-		/*
-		 * note: all fieldgroups load on the foreach($fieldgroups) so this code doesn't seem necessary?
-		if($fieldgroups->useLazy()) {
-			$fieldgroups->loadLazyItemsByValue('fields_id', $this->settings['id']);
-		}
-		*/
-		
-		foreach($fieldgroups as $fieldgroup) {
-			foreach($fieldgroup as $field) {
-				if($field->id == $this->id) {
-					if($items) $items->add($fieldgroup); 
-					$count++;
-					break;
-				}
-			}
-		}
-		
-		return $getCount ? $count : $items; 
+		return $this->wire()->fields->getFieldgroups($this, $getCount);
 	}
 
 	/**
@@ -949,28 +927,8 @@ class Field extends WireData implements Saveable, Exportable {
 	 *
 	 */ 
 	public function getTemplates($getCount = false) {
-		$templates = $this->wire()->templates;
-		if($getCount) {
-			$count = 0;
-			foreach($templates as $template) {
-				if($template->hasField($this)) $count++;
-			}
-			return $count;
-		}
-		/** @var TemplatesArray $items */
-		$items = $this->wire(new TemplatesArray());
-		$fieldgroups = $this->getFieldgroups();
-		foreach($templates as $template) {
-			foreach($fieldgroups as $fieldgroup) {
-				if($template->fieldgroups_id == $fieldgroup->id) {
-					$items->add($template);	
-					break;
-				}
-			}
-		}
-		return $items; 
+		return $this->wire()->fields->getTemplates($this, $getCount);
 	}
-
 
 	/**
 	 * Return the default value for this field (if set), or null otherwise. 

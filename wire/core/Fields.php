@@ -260,6 +260,7 @@ class Fields extends WireSaveableItems {
 	 *
 	 */
 	public function getAll() {
+		if($this->useLazy()) $this->loadAllLazyItems();
 		return $this->getWireArray();
 	}
 
@@ -1309,6 +1310,116 @@ class Fields extends WireSaveableItems {
 	public function tableTools() {
 		if($this->tableTools === null) $this->tableTools = $this->wire(new FieldsTableTools());
 		return $this->tableTools;
+	}
+	
+	/**
+	 * Return the list of Fieldgroups using given field.
+	 *
+	 * #pw-internal
+	 *
+	 * @param Field|int|string Field to get fieldgroups for
+	 * @param bool $getCount Get count rather than FieldgroupsArray? (default=false) 3.0.182+
+	 * @return FieldgroupsArray|int WireArray of Fieldgroup objects or count if requested
+	 *
+	 */
+	public function getFieldgroups($field, $getCount = false) {
+
+		$fieldId = $this->_fieldId($field);
+		$fieldgroups = $this->wire()->fieldgroups;
+		$items = $getCount ? null : $this->wire(new FieldgroupsArray()); /** @var FieldgroupsArray $items */
+		$ids = array();
+		$count = 0;
+
+		$sql = "SELECT fieldgroups_id FROM fieldgroups_fields WHERE fields_id=:fields_id";
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':fields_id', $fieldId, \PDO::PARAM_INT);
+		$query->execute();
+
+		while($row = $query->fetch(\PDO::FETCH_NUM)) {
+			$id = (int) $row[0];
+			$ids[$id] = $id;
+		}
+
+		$query->closeCursor();
+
+		foreach($ids as $id) {
+			$fieldgroup = $fieldgroups->get($id);
+			if(!$fieldgroup) continue;
+			if($items) $items->add($fieldgroup);
+			$count++;
+		}
+
+		return $getCount ? $count : $items;
+	}
+
+	/**
+	 * Return the list of of Templates using given field.
+	 *
+	 * #pw-internal
+	 *
+	 * @param Field|int|string Field to get templates for
+	 * @param bool $getCount Get count rather than FieldgroupsArray? (default=false)
+	 * @return TemplatesArray|int WireArray of Template objects or count when requested.
+	 * @since 3.0.195
+	 *
+	 */ 
+	public function getTemplates($field, $getCount = false) {
+		
+		$fieldId = $this->_fieldId($field);
+		$templates = $this->wire()->templates;
+		$items = $getCount ? null : $this->wire(new TemplatesArray()); /** @var TemplatesArray $items */
+		$count = 0;
+		$ids = array();
+		
+		if(!$fieldId) return $items;
+
+		$sql =
+			"SELECT fieldgroups_fields.fieldgroups_id, templates.id AS templates_id " .
+			"FROM fieldgroups_fields " .
+			"JOIN templates ON templates.fieldgroups_id=fieldgroups_fields.fieldgroups_id " .
+			"WHERE fieldgroups_fields.fields_id=:fields_id";
+
+		$query = $this->wire()->database->prepare($sql);
+		$query->bindValue(':fields_id', $fieldId, \PDO::PARAM_INT);
+		$query->execute();
+
+		while($row = $query->fetch(\PDO::FETCH_ASSOC)) {
+			$id = (int) $row['templates_id'];
+			$ids[$id] = $id;
+		}
+
+		$query->closeCursor();
+
+		foreach($ids as $id) {
+			$template = $templates->get($id);
+			if(!$template) continue;
+			if($items) $items->add($template);
+			$count++;
+		}
+
+		return $getCount ? $count : $items;
+	}
+
+	/**
+	 * Return field ID for given value (Field, field name, field ID) or 0 if none
+	 * 
+	 * #pw-internal
+	 * 
+	 * @param Field|string|int $field
+	 * @return int
+	 * @since 3.0.195
+	 * 
+	 */
+	public function _fieldId($field) {
+		if($field instanceof Field) {
+			$fieldId = $field->id;
+		} else if(ctype_digit("$field")) {
+			$fieldId = (int) $field;
+		} else {
+			$field = $this->get($field);
+			$fieldId = $field ? $field->id : 0;
+		}
+		return $fieldId;
 	}
 
 }
