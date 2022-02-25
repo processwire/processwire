@@ -75,6 +75,7 @@ class Fieldgroups extends WireSaveableItemsLookup {
 	 *
 	 */
 	public function getAll() {
+		if($this->useLazy()) $this->loadAllLazyItems();
 		return $this->getWireArray();
 	}
 	

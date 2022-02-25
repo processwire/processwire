@@ -83,6 +83,7 @@ class Templates extends WireSaveableItems {
 	 *
 	 */
 	public function getAll() {
+		if($this->useLazy()) $this->loadAllLazyItems();
 		return $this->getWireArray();
 	}
 	
