@@ -9,6 +9,9 @@
  * ProcessWire 3.x, Copyright 2019 by Ryan Cramer
  * https://processwire.com
  *
+ * @method string execute()
+ * @method string executeDownload()
+ * @method bool|int processCSV($csvFile, Language $language, array $options = array())
  *
  */
 
@@ -467,9 +470,10 @@ class ProcessLanguage extends ProcessPageType {
 	 *  - `quiet` (bool): Suppress generating notifications? (default=false)
 	 * @return bool|int Returns false on error or integer on success, where value is number of translations imported
 	 * @throws WireException
+	 * @since 3.0.195 Previously was not hookable
 	 * 
 	 */
-	public function processCSV($csvFile, Language $language, array $options = array()) {
+	public function ___processCSV($csvFile, Language $language, array $options = array()) {
 		
 		$defaults = array(
 			'file' => '',
