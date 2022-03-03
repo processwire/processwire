@@ -400,7 +400,9 @@ class Sanitizer extends Wire {
 
 		// remove leading or trailing dashes, underscores, dots
 		if($beautify) {
-			if(strpos($extras, $replacementChar) === false) $extras .= $replacementChar;
+			if($replacementChar !== null && strlen($replacementChar)) {
+				if(strpos($extras, $replacementChar) === false) $extras .= $replacementChar;
+			}
 			$value = trim($value, $extras);
 		}
 
@@ -1307,17 +1309,101 @@ class Sanitizer extends Wire {
 	 *  - `keepChars` (array): Specify any of these to also keep as part of words ['.', ',', ';', '/', '*', ':', '+', '<', '>', '_', '-' ] (default=[])
 	 *  - `minWordLength` (int): Minimum word length (default=1)
 	 *  - `maxWordLength` (int): Maximum word length (default=80)
+	 *  - `maxWords` (int): Maximum words (default=1 or 99 if a seperator option is specified)
+	 *  - `maxLength` (int): Maximum returned string length (default=1024)
 	 *  - `stripTags` (bool): Strip markup tags so they don’t contribute to returned word? (default=true)
+	 *  - `separator' (string): Merge multiple words into one word split by this character? (default='', disabled) 3.0.195+
+	 *  - `ascii` (bool): Allow only ASCII word characters? (default=false)
+	 *  - `beautify` (bool): Make ugly strings more pretty? This collapses and trims redundant separators (default=false)
 	 * @return string
 	 * @see Sanitizer::wordsArray()
 	 * @since 3.0.162
 	 *
 	 */
 	public function word($value, array $options = array()) {
+		
 		if(!is_string($value)) $value = $this->string($value);
-		$options['maxWords'] = 1;
+		
+		$separator = isset($options['separator']) ? $options['separator'] : null;
+		$keepChars = isset($options['keepChars']) ? $options['keepChars'] : array();
+		$maxLength = isset($options['maxLength']) ? (int) $options['maxLength'] : 1024;
+		$minWordLength = isset($options['minWordLength']) ? $options['minWordLength'] : 1;
+	
+		if(empty($options['maxWords'])) $options['maxWords'] = $separator !== null ? 99 : 1;
+		if(!empty($options['keepHyphen']) && !in_array('-', $keepChars)) $keepChars[] = '-';
+		if(!empty($options['keepUnderscore']) && !in_array('_', $keepChars)) $keepChars[] = '_';
+		
+		$options['keepChars'] = $keepChars;
+
 		$a = $this->wordsArray($value, $options);
-		return count($a) ? reset($a) : '';
+		$count = count($a);
+		if(!$count) return '';
+		
+		if($separator !== null && $count > 1) {
+			$value = implode($separator, $a);
+		} else if($count) {
+			$value = reset($a); 
+		}
+		
+		if(!empty($options['ascii'])) {
+			$sep = $separator === null ? '' : $separator;
+			$value = $this->nameFilter($value, $keepChars, $sep, Sanitizer::translate, $maxLength); 
+		} else if($maxLength) {
+			$length = $this->multibyteSupport ? mb_strlen($value) : strlen($value);
+			if($length > $maxLength) {
+				$value = $this->multibyteSupport ? mb_substr($value, 0, $maxLength) : substr($value, 0, $maxLength);
+			}
+		}
+		
+		if(!empty($options['beautify'])) {
+			foreach($keepChars as $s) {
+				while(strpos($value, "$s$s") !== false) $value = str_replace("$s$s", $s, $value);
+			}
+			$value = trim($value, implode('', $keepChars));
+		}
+		
+		if($minWordLength > 1 && strlen($value) < $minWordLength) $value = '';
+		
+		return $value;
+	}
+
+	/**
+	 * Given string return a new string containing only words
+	 * 
+	 * #pw-group-strings
+	 * 
+	 * @param $value
+	 * @param array $options
+	 *  - `separator` (string): String to use to separate words (default=' ')
+	 *  - `ascii` (string): Only allow ASCII characters in words? (default=false)
+	 *  - `keepUnderscore` (bool): Keep underscores as part of words? (default=false)
+	 *  - `keepHyphen` (bool): Keep hyphenated words? (default=false)
+	 *  - `keepChars` (array): Additional non word characters to keep (default=[]) 
+	 *  - `maxWordLength` (int): Maximum word length (default=80)
+	 *  - `minWordLength` (int): Minimum word length (default=1)
+	 *  - `maxLength` (int): Maximum return value length (default=1024)
+	 *  - `beautify` (bool): Make ugly strings more pretty? This collapses and trims redundant separators (default=true)
+	 * @since 3.0.195
+	 * @return string
+	 * 
+	 */
+	public function words($value, array $options = array()) {
+		
+		$defaults = array(
+			'ascii' => false,
+			'separator' => ' ', 
+			'keepHyphen' => true, 
+			'keepUnderscore' => true, 
+			'keepChars' => array(),
+			'maxWordLength' => 255,
+			'maxLength' => 1024, 
+			'beautify' => true, 
+		);
+		
+		$options = array_merge($defaults, $options);
+		$value = $this->word($value, $options);
+		
+		return $value;
 	}
 
 	/**
@@ -4621,8 +4707,18 @@ class Sanitizer extends Wire {
 		// pC=Other (control, format, surrogate)
 		// p{Pd}=Dash punctuation
 		// pP=Punctuation (all)
+		// pPs=Open punctuation
+		// pPe=Close punctuation
+		// pPf=Final punctuation
+		// pPo=Other punctuation
+		// pPi=Initial punctuation
+		// pM=Mark
+		// pMc=Spacing mark
+		// pMe=Enclosing mark
+		// pMn=Non-spacing mark
 
-		$splitWith = '.,;/*:+<>\s\pZ\pS\pC\p{Pd}\\\\';
+		//$splitWith = '.,;/*:+<>\s\pZ\pS\pC\p{Pd}\\\\';
+		$splitWith = '.,;/*:+<>\s\pZ\pS\pC\p{Pd}\p{Ps}\p{Pe}\p{Pf}\p{Pi}\p{Po}\\\\';
 		$regex = '!\pP*[' . $splitWith . ']\pP*!u';
 		$words = preg_split($regex, "$value ", -1, PREG_SPLIT_NO_EMPTY);
 
