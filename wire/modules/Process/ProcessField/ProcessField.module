@@ -461,8 +461,8 @@ class ProcessField extends Process implements ConfigurableModule {
 		$this->breadcrumb('../', $labels['fields']);
 		
 		$tags = $fields->getTags();
-		$editTag = $input->get->name('edit_tag');
-		$saveTag = $input->post->name('save_tag');
+		$editTag = $sanitizer->words($input->get->text('edit_tag'), array('separator' => '-'));
+		$saveTag = $sanitizer->words($input->post->text('save_tag'), array('separator' => '-'));
 		
 		$collapsedTags = $modules->getConfig($this, 'collapsedTags');
 		if(!is_array($collapsedTags)) $collapsedTags = array();
@@ -473,8 +473,9 @@ class ProcessField extends Process implements ConfigurableModule {
 			$this->headline("$labels[tag] - " . (isset($tags[$editTag]) ? $tags[$editTag] : $editTag));
 			
 			/** @var InputfieldName $f */
-			$f = $modules->get('InputfieldName');
+			$f = $modules->get('InputfieldText');
 			$f->attr('name', 'rename_tag');
+			$f->label = $this->_('Tag name');
 			$f->attr('value', isset($tags[$editTag]) ? $tags[$editTag] : $editTag);
 			$f->collapsed = Inputfield::collapsedYes;
 			$f->addClass('InputfieldIsSecondary', 'wrapClass');
@@ -515,8 +516,9 @@ class ProcessField extends Process implements ConfigurableModule {
 			
 		} else if($saveTag) {
 			// save tag
+			
 			$tagFields = $sanitizer->names($input->post('tag_fields'));
-			$renameTag = $input->post->templateName('rename_tag');
+			$renameTag = $sanitizer->words($input->post->text('rename_tag'), array('separator' => '-')); 
 			$isCollapsed = (int) $input->post('tag_collapsed');
 			$removeTag = '';
 			if($renameTag && $renameTag != $saveTag) {
@@ -578,9 +580,10 @@ class ProcessField extends Process implements ConfigurableModule {
 
 			$form->attr('method', 'get');
 			/** @var InputfieldName $f */
-			$f = $modules->get('InputfieldName');
+			$f = $modules->get('InputfieldText');
 			$f->attr('name', 'edit_tag');
 			$f->label = $this->_('Add new tag');
+			$f->description = $this->_('You may use letters, digits or underscore.'); 
 			$f->icon = 'tag';
 			$f->addClass('InputfieldIsSecondary', 'wrapClass');
 			$form->add($f);
@@ -2217,6 +2220,7 @@ class ProcessField extends Process implements ConfigurableModule {
 
 		/** @var Languages $languages */
 		$languages = $this->wire('languages');
+		$sanitizer = $this->wire()->sanitizer;
 	
 		foreach($wrapper->children() as $inputfield) {
 
@@ -2271,6 +2275,10 @@ class ProcessField extends Process implements ConfigurableModule {
 			
 			if(($name == 'showIf' || $name == 'requiredIf') && strlen($value)) {
 				$this->checkInputfieldDependencySetting($inputfield);
+			}
+			
+			if($name === 'tags') {
+				$value = $sanitizer->words($value);
 			}
 
 			$this->field->set($name, $value); 
@@ -3025,7 +3033,7 @@ class ProcessField extends Process implements ConfigurableModule {
 			);
 		} else if($segment === 'tags') {
 			$data = array(
-				'edit_tag' => $input->get->name('edit_tag'), 
+				'edit_tag' => $sanitizer->word($input->get->text('edit_tag')), 
 			);
 		} else if($segment === 'edit') {
 			$data = array(
@@ -3057,6 +3065,7 @@ class ProcessField extends Process implements ConfigurableModule {
 		} else {
 			$segment = '';
 		}
+		foreach($data as $key => $value) $data[$key] = urlencode($value);
 		return $page->url() . $segment . (count($data) ? '?' . implode('&', $data) : '');
 	}
 

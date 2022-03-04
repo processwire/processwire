@@ -2803,7 +2803,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			'noPrependTemplateFile' => 'post-int', // field may not be present on all submissions
 			'noAppendTemplateFile' => 'post-int', // field may not be present on all submissions
 			'compile' => 'post-int',
-			'tags' => 'text',
+			'tags' => 'words',
 			'contentType' => 'none',
 			'noShortcut' => 'post-1',
 			'noMove' => 'int',
@@ -2823,6 +2823,8 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 					$value = (int) $value;
 				} else if($sanitizerName = 'text') {
 					$value = $sanitizer->text($value);
+				} else if($sanitizerName = 'words') {
+					$value = $sanitizer->words($value);
 				} else {
 					// use as-is
 				}
@@ -3648,8 +3650,8 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		$this->breadcrumb('../', $labels['templates']);
 
 		$templateNamesByTag = $templates->getTags(true);
-		$editTag = $input->get->name('edit_tag');
-		$saveTag = $input->post->name('save_tag');
+		$editTag = $sanitizer->words($input->get->text('edit_tag'), array('separator' => '-'));
+		$saveTag = $sanitizer->words($input->post->text('save_tag'), array('separator' => '-'));
 
 		$tags = array();
 		foreach(array_keys($templateNamesByTag) as $tag) {
@@ -3665,8 +3667,9 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 			$this->headline("$labels[tags] - " . (isset($tags[$editTag]) ? $tags[$editTag] : $editTag));
 
 			/** @var InputfieldName $f */
-			$f = $modules->get('InputfieldName');
+			$f = $modules->get('InputfieldText');
 			$f->attr('name', 'rename_tag');
+			$f->label = $this->_('Tag name');
 			$f->attr('value', isset($tags[$editTag]) ? $tags[$editTag] : $editTag);
 			$f->collapsed = Inputfield::collapsedYes;
 			$f->addClass('InputfieldIsSecondary', 'wrapClass');
@@ -3710,7 +3713,7 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 		} else if($saveTag) {
 			// save tag
 			$tagTemplates = $sanitizer->names($input->post('tag_templates'));
-			$renameTag = $input->post->templateName('rename_tag');
+			$renameTag = $sanitizer->word($input->post->text('rename_tag'), array('separator' => '-'));
 			$isCollapsed = (int) $input->post('tag_collapsed');
 			$removeTag = '';
 			if($renameTag && $renameTag != $saveTag) {
@@ -3767,9 +3770,10 @@ class ProcessTemplate extends Process implements ConfigurableModule {
 
 			$form->attr('method', 'get');
 			/** @var InputfieldName $f */
-			$f = $modules->get('InputfieldName');
+			$f = $modules->get('InputfieldText');
 			$f->attr('name', 'edit_tag');
 			$f->label = $this->_('Add new tag');
+			$f->description = $this->_('You may use letters, digits, hyphens, underscores.');
 			$f->icon = 'tag';
 			$f->addClass('InputfieldIsSecondary', 'wrapClass');
 			$form->add($f);
