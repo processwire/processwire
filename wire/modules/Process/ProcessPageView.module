@@ -149,10 +149,11 @@ class ProcessPageView extends Process {
 		$code = $request->getResponseCode();
 	
 		if($code == 401 || $code == 403) {
-			$this->userNotAllowed($user, $page, $request); 
+			$this->userNotAllowed($user, $originalPage, $request);
 		}
 		
 		if(!$page || !$page->id || $originalPage->id == $config->http404PageID) {
+			$this->checkForRedirect($request);
 			$s = 'access not allowed';
 			$e = new Wire404Exception($s, Wire404Exception::codePermission);
 			return $this->pageNotFound($originalPage, $request->getRequestPath(), true, $s, $e);

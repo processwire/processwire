@@ -431,15 +431,15 @@ class PagesRequest extends Wire {
 				$page = $this->pages->newNullPage();
 			}
 		}
-
+		
 		if($page->id) {
 			$page = $this->checkAccess($page, $user);
-			if(!$page || !$page->id) {
-				// 404
-				$page = $this->pages->newNullPage();
-			} if(is_string($page)) {
+			if(is_string($page)) {
 				// redirect URL
-				$this->setRedirectUrl($page);
+				if(strlen($page)) $this->setRedirectUrl($page, 302);
+				$page = $this->pages->newNullPage();
+			} else if(!$page || !$page->id) {
+				// 404
 				$page = $this->pages->newNullPage();
 			} else {
 				// login Page or Page to render
@@ -734,6 +734,18 @@ class PagesRequest extends Wire {
 		} else if(strlen($redirectLogin)) {
 			// redirect URL provided in template.redirectLogin
 			$redirectUrl = str_replace('{id}', $page->id, $redirectLogin);
+			list($path, $query) = array($redirectUrl, '');
+			if(strpos($redirectUrl, '?') !== false) list($path, $query) = explode('?', $redirectUrl, 2);
+			if(strlen($path) && strpos($path, '/') === 0 && strpos($path, '//') === false) {
+				// attempt to match to page so we can use URL with scheme and relative to installation url
+				$p = $this->wire()->pages->get($path);
+				if($p->id && $p->viewable()) {
+					$redirectUrl = $p->httpUrl() . ($query ? "?$query" : "");
+				}
+			} else if(strpos($path, '//') === 0 && strpos($path, '://') === false) {
+				// double slash at beginning force path without checking if it maps to page
+				$redirectUrl = '/' . ltrim($redirectUrl, '/');
+			}
 			return $redirectUrl;
 		}
 		
