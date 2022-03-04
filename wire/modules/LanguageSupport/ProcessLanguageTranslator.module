@@ -142,7 +142,7 @@ class ProcessLanguageTranslator extends Process {
 		$out = '';
 
 		foreach(array('language_files', 'language_files_site') as $fieldName) {
-			if(!$this->language->$fieldName) continue; // language_files_site not installed
+			if(!$this->language || !$this->language->$fieldName) continue; // language_files_site not installed
 			if(count($this->language->$fieldName)) {
 				$table->headerRow(array(
 					$this->_x('file', 'table-header'),
