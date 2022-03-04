@@ -578,7 +578,7 @@ class PageArray extends PaginatedArray implements WirePaginatable {
 			$value = $item->getProperty($property); 
 			if(is_null($value)) {
 				$value = $item->first();
-				$value = $this->getItemPropertyValue($value, $property);
+				if($value) $value = $this->getItemPropertyValue($value, $property);
 			}
 		} else {
 			$value = $item->$property;
