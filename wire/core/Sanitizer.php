@@ -314,6 +314,8 @@ class Sanitizer extends Wire {
 		'valid' => 'b',
 		'validate' => 'm',
 		'varName' => 's',
+		'word' => 's', 
+		'words' => 's', 
 		'wordsArray' => 'a',
 	);
 
