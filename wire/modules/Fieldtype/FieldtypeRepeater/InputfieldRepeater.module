@@ -477,7 +477,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 					$wrapLabel = str_replace($matches[0], '', $wrapLabel);
 					$wrapIcon = $matches[1];
 				}
-				if(strpos($wrapLabel, '#') !== false && preg_match('/#([0-9a-fA-F]{3,})/', $wrapLabel, $matches)) {
+				if(strpos($wrapLabel, '#') !== false && preg_match('/(?<!&)#([0-9a-fA-F]{3,})/', $wrapLabel, $matches)) {
 					// background-color definition
 					if(strlen($matches[1]) === 3 || strlen($matches[1]) === 6) {
 						$wrapLabel = str_replace($matches[0], '', $wrapLabel);
