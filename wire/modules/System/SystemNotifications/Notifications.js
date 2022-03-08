@@ -654,7 +654,11 @@ var Notifications = {
 	 */
 	clickBug: function(e) {
 		if($(e.target).hasClass('closeAll')) {
-			$('.NotificationRemove').click();
+			$.each($('.NotificationRemove'), function(i, el) {
+				setTimeout(() => {
+					$(el).click();
+				}, i*100);
+			});
 			return false;
 		}
 
