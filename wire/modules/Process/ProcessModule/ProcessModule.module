@@ -847,6 +847,7 @@ class ProcessModule extends Process {
 			$info = $modules->getModuleInfoVerbose($name); 
 			$configurable = $info['configurable'];
 			$title = !empty($info['title']) ? $sanitizer->entities1($info['title']) : substr($name, strlen($section));
+			$title = "<span title='$name' uk-tooltip='delay:1000'>$title</span>";
 			if($options['allowClasses']) $title .= "<br /><small class='ModuleClass ui-priority-secondary'>$name</small>";
 			if($info['icon']) $title = wireIconMarkup($info['icon'], 'fw') . " $title";
 			$class = $configurable ? 'ConfigurableModule' : '';
