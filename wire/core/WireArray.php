@@ -1204,13 +1204,14 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 	 * 
 	 * #pw-group-manipulation
 	 * 
-	 * @param int|string|Wire $key Item to remove (object), or index of that item. 
+	 * @param int|string|Wire $key Item to remove (object), or index of that item, or (3.0.196+) selector string. 
 	 * @return $this This instance.
 	 *
 	 */
 	public function remove($key) {
 
-		if(is_object($key)) {
+		$obj = is_object($key);
+		if($obj) {
 			$key = $this->getItemKey($key); 
 		}
 
@@ -1219,6 +1220,10 @@ class WireArray extends Wire implements \IteratorAggregate, \ArrayAccess, \Count
 			unset($this->data[$key]); 
 			$this->trackChange("remove", $item, null); 
 			$this->trackRemove($item, $key); 
+		} else if(!$obj && is_string($key) && Selectors::stringHasSelector($key)) {
+			foreach($this->find($key) as $item) {
+				$this->remove($item);
+			}
 		}
 
 		return $this;
