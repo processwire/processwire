@@ -652,7 +652,11 @@ var Notifications = {
 	 * Click event for notification bug element (small red counter)
 	 *
 	 */
-	clickBug: function() {
+	clickBug: function(e) {
+		if($(e.target).hasClass('closeAll')) {
+			$('.NotificationRemove').click();
+			return false;
+		}
 
 		var $menu = Notifications.$menu;
 

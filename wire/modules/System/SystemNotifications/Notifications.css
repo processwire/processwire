@@ -109,6 +109,11 @@
 	font-family: Arial, sans-serif;
 	font-size: 14px; 
 }
+.NotificationBug .closeAll {
+	padding-left: 10px;
+	padding-right: 5px;
+	font-weight: normal;
+}
 
 .NotificationBug.open,
 .NotificationBug:hover {

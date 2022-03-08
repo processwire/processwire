@@ -469,6 +469,7 @@ class SystemNotifications extends WireData implements Module {
 		$extras['masthead'] .=
 			"<div id='NotificationBug' class='NotificationBug qty$qty' data-qty='$qty'>" . 
 			"<span class='qty fa fa-fw'>$qty</span>" . 
+			"<span class='closeAll'>x</span>".
 			"<i class='NotificationSpinner fa fa-fw fa-spin fa-spinner'></i>" . 
 			"</div>";
 
