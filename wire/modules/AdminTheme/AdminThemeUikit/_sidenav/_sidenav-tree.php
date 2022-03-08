@@ -8,6 +8,7 @@
 /** @var Config $config */
 /** @var AdminThemeUikit $adminTheme */
 /** @var User $user */
+/** @var string $layout */
 
 if(!defined("PROCESSWIRE")) die();
 
@@ -17,7 +18,7 @@ if(!isset($content)) $content = '';
 <html class="pw pw-sidebar-frame" lang="<?php echo $adminTheme->_('en');
 	/* this intentionally on a separate line */ ?>">
 <head>
-	<?php include(__DIR__ . '/_head.php'); ?>
+	<?php $adminTheme->includeFile('_head.php', array('layout' => $layout)); ?>
 	<script>
 		var pageListRefresh = {
 			refreshPage: function(id) {

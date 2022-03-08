@@ -22,7 +22,7 @@ if(!defined("PROCESSWIRE")) die();
 			</a>
 			<img class='pw-logo' width='200' style='margin-left:-5px' src='<?php echo $adminTheme->url(); ?>uikit-pw/images/logo.png' />
 		</p>	
-		<?php include(__DIR__ . '/_search-form.php'); ?>
+		<?php $adminTheme->includeFile('_search-form.php'); ?>
 		<ul class='pw-sidebar-nav uk-nav uk-nav-parent-icon uk-margin-small-top' data-uk-nav='animation: false; multiple: true;'>
 			<?php echo $adminTheme->renderSidebarNavItems(); ?>
 		</ul>	

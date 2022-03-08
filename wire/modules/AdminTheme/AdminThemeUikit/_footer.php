@@ -9,7 +9,7 @@ if(!defined("PROCESSWIRE")) die();
 /** @var array $extras */
 
 ?>
-<!-- FOOTER -->
+
 <footer id='pw-footer' class='uk-margin'>
 	<div class='pw-container uk-container uk-container-expand'>
 		<div class='uk-grid' uk-grid>

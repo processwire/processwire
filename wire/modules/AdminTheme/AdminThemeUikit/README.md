@@ -1,11 +1,96 @@
 # AdminThemeUikit
 
-This document currently covers customization of Uikit styles and instructions on
-how to upgrade the core Uikit version.
+This document currently covers customization of the Uikit styles, overriding admin theme
+template files and markup, and instructions on how to upgrade the core Uikit version.
 
-## Customization
+## Customizing Markup
 
-### Short version
+### Overriding markup files
+
+You can overwrite any of the markup files located in `wire/modules/AdminTheme/AdminThemeUikit/` 
+by placing a file with the same name in `/site/templates/AdminThemeUikit/`. You could for example 
+overwrite the footer by adding the file `/site/templates/AdminThemeUikit/_footer.php` to your 
+installation:
+
+```html
+<div>My custom footer</div>
+```
+
+The files you can replace include:
+
+ - `_head.php*` - Document `<head>`.
+ - `_masthead.php` - Masthead and primary navigation.
+ - `_search-form.php` - Search form that appears in the masthead. 
+ - `_content.php` -  Main content area.
+ - `_content-head.php` - Main content header, including breadcrumbs, headline, etc.
+ - `_content-body.php` - Main content body where most output goes. 
+ - `_footer.php` -  Footer area.
+ - `_offcanvas.php` - Offcanvas navigation bar. 
+ - `_body-scripts.php` - Scripts that appear before `</body>`.
+ - `_main.php` - The main markup file that includes all the others above. 
+ 
+For example, let's say you wanted to replace the main content `#pw-content-body`
+with "Hello World", add file `/site/templates/AdminThemeUikit/_content-body.php`
+and place the following in it:
+
+```html
+<p>Hello World</p>
+```
+
+This replaces all the content of every admin page with your Hello World message. That's not
+very useful so let's instead copy the contents of the default `_content-body.php` and use 
+that as our starting point, and append our Hello World message within it:
+
+```php
+<?php namespace ProcessWire;
+if(!defined("PROCESSWIRE")) die(); ?>
+<div id='pw-content-body'>
+  <?php echo $page->get('body') . $content; ?>
+  <p>Hello World</p>
+</div>	
+```
+
+### Customizing markup with hooks
+
+You can hook into rendering of the admin theme partials:
+
+```php
+$wire->addHookAfter('AdminThemeUikit::renderFile', function($event) {
+  $file = $event->arguments(0); // full path/file being rendered 
+  $vars = $event->arguments(1); // assoc array of vars sent to file
+  if(basename($file) === '_footer.php') {
+    $event->return = str_replace(
+      "ProcessWire",
+      "ProcessWire is the best CMS",
+      $event->return
+    );
+  }
+});
+```
+
+### Additional recognized extra markup regions
+
+You can use `$adminTheme->addExtraMarkup($name, $value)` to add additional markup to
+several recognized regions. 
+
+```php
+$adminTheme->addExtraMarkup("head", "<script>alert('test!');</script>");
+```
+
+The `$value` can be any additional markup that you want to insert and the `$name` can be 
+any of the following (in order of appearance): 
+
+- `head` - Inserted before `</head>`.
+- `masthead` - Inserted at the end of `div#pw-mastheads`.
+- `notices` - Inserted after notifications `ul#notices`.
+- `content` - Inserted at end of `div#pw-content-body`. 
+- `footer` - Inserted at end of `footer#pw-footer`. 
+- `body` - Inserted before `</body>`. 
+---
+
+## Customizing CSS
+
+### Summary
 
 You can easily customize AdminThemeUikit in 3 simple steps:
 
@@ -15,9 +100,7 @@ You can easily customize AdminThemeUikit in 3 simple steps:
 
 Either step 2 or 3 can be optional too, more details below. 
 
----
-
-### Long version
+### Full instructions
 
 Now that you know what to do, let’s run through 3 steps above again, but with more details: 
 

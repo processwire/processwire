@@ -55,4 +55,3 @@ $scripts->append($themeUrl . "scripts/main.js?v=$version");
 	foreach($scripts as $file) {
 		echo "\n\t<script type='text/javascript' src='$file'></script>";
 	}
-	?>

@@ -8,6 +8,7 @@ if(!defined("PROCESSWIRE")) die();
 /** @var WireInput $input */
 /** @var Sanitizer $sanitizer */
 /** @var Page $page */
+/** @var string $layout */
 
 // whether or not page tree should be used for left sidebar 
 $treePaneLeft = $adminTheme->layout == 'sidenav-tree';
@@ -52,7 +53,7 @@ $panes = array(
 	
 	<link rel="stylesheet" href="<?php echo $themeURL; ?>layout/source/stable/layout-default.css">
 	
-	<?php require(__DIR__ . '/_head.php'); ?>
+	<?php $adminTheme->includeFile('_head.php', array('layout' => $layout)); ?>
 	
 	<style type='text/css'>
 		html, body {
@@ -85,7 +86,7 @@ $panes = array(
 	<?php
 	if($treePane) {
 		echo "<div id='pw-admin-head'>";
-		include(__DIR__ . '/_masthead.php');
+		$adminTheme->includeFile('_masthead.php'); 
 		echo "</div>";
 	}
 	?>
@@ -94,7 +95,9 @@ $panes = array(
 		<?php
 		echo $panes['main'];
 		echo $treePane ? $panes['tree'] : $panes['side'] . $panes['tree'];
-		if($adminTheme->isLoggedIn) include(__DIR__ . '/_offcanvas.php');
+		if($adminTheme->isLoggedIn) {
+			$adminTheme->includeFile('_offcanvas.php'); 
+		}
 		?>
 	</div>	
     

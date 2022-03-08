@@ -7,6 +7,8 @@
  * 
  */
 
+if(!defined("PROCESSWIRE")) die();
+
 /** @var Config $config */
 /** @var AdminThemeUikit $adminTheme */
 /** @var User $user */
@@ -17,8 +19,7 @@
 /** @var Sanitizer $sanitizer */
 /** @var WireInput $input */
 /** @var Paths $urls */
-
-if(!defined("PROCESSWIRE")) die();
+/** @var string $content */
 
 if($adminTheme->isModal) {
 	$layout = 'modal';
@@ -28,28 +29,19 @@ if($adminTheme->isModal) {
 	$layout = '';
 }
 
-if($layout === 'sidenav-init' || $layout === 'sidenav-tree-init') {
-	// sidenav main loader
-	include(__DIR__ . "/_sidenav-init.php");
-	
-} else if($layout === 'sidenav-side') {
-	// sidenav sidebar pane
-	$adminTheme->addBodyClass("pw-layout-sidenav-side");
-	include(__DIR__ . "/_sidenav-side.php");
+$content .= $adminTheme->renderExtraMarkup('content');
+$vars = array('layout' => $layout, 'content' => &$content);
 
-} else if($layout === 'sidenav-tree') {
-	// sidenav tree pane
-	$adminTheme->addBodyClass("pw-layout-sidenav-tree");
-	include(__DIR__ . "/_sidenav-tree.php");
-	
+if(strpos($layout, 'sidenav') === 0 && $layout != 'sidenav-main') {
+	include(__DIR__ . '/_sidenav/default.php');
 } else {
 	// main markup file
 	if($user->isLoggedin() && $adminTheme->layout && !$adminTheme->isModal) {
-		$layout = $adminTheme->layout;
-		$adminTheme->addBodyClass("pw-layout-$layout");
+		$vars['layout'] = $adminTheme->layout;
+		$adminTheme->addBodyClass("pw-layout-$vars[layout]");
 	} else if($layout != 'modal') {
-		$layout = '';
+		$vars['layout'] = '';
 	}
-	include(__DIR__ . "/_main.php");
+	$adminTheme->includeFile('_main.php', $vars); 
 }
 

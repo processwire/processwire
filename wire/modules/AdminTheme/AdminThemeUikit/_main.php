@@ -7,20 +7,20 @@
  *
  */
 
+if(!defined("PROCESSWIRE")) die();
+
 /** @var Config $config */
 /** @var AdminThemeUikit $adminTheme */
 /** @var User $user */
 /** @var Modules $modules */
 /** @var Notices $notices */
 /** @var Page $page */
-/** @var Process $proc;ess */
+/** @var Process $process */
 /** @var Sanitizer $sanitizer */
 /** @var WireInput $input */
 /** @var Paths $urls */
 /** @var string $layout */
 /** @var Process $process */
-
-if(!defined("PROCESSWIRE")) die();
 
 $adminTheme->renderExtraMarkup('x'); // forces it to cache
 if(!isset($content)) $content = '';
@@ -30,7 +30,7 @@ if(!isset($content)) $content = '';
 	/* this intentionally on a separate line */ ?>">
 <head>
 	<?php 
-	include(__DIR__ . '/_head.php');
+	$adminTheme->includeFile('_head.php', array('layout' => $layout));
 	echo $adminTheme->renderExtraMarkup('head'); 
 	?>
 </head>
@@ -38,7 +38,7 @@ if(!isset($content)) $content = '';
 
 	<?php
 	if($layout == 'sidenav') {
-		include(__DIR__ . "/_sidenav-masthead.php");
+		$adminTheme->includeFile('_sidenav-masthead.php');
 		
 	} else if($layout == 'sidenav-tree' || $layout == 'sidenav-tree-alt') {
 		// masthead not rendered in this frame
@@ -50,68 +50,30 @@ if(!isset($content)) $content = '';
 		echo $adminTheme->renderNotices($notices);
 		
 	} else {
-		include(__DIR__ . "/_masthead.php");
+		$adminTheme->includeFile('_masthead.php');
 	}
-	?>
-
-	<!-- MAIN CONTENT -->
-	<main id='main' class='pw-container uk-container uk-container-expand uk-margin uk-margin-large-bottom'>
-		<div class='pw-content' id='content'>
-			
-			<header id='pw-content-head'>
-				
-				<?php if($layout != 'sidenav' && $layout != 'modal') echo $adminTheme->renderBreadcrumbs(); ?>
-
-				<div id='pw-content-head-buttons' class='uk-float-right uk-visible@s'>
-					<?php echo $adminTheme->renderAddNewButton(); ?>
-				</div>
-
-				<?php 
-				$headline = $adminTheme->getHeadline();
-				$headlinePos = strpos($content, ">$headline</h1>");
-				if(!$adminTheme->isModal && ($headlinePos === false || $headlinePos < 500)) {
-					echo "<h1 id='pw-content-title' class='uk-margin-remove-top'>$headline</h1>";
-				}
-				?>
-				
-			</header>	
-			
-			<div id='pw-content-body'>
-				<?php
-				echo $page->get('body');
-				echo $content;
-				echo $adminTheme->renderExtraMarkup('content');
-				?>
-			</div>	
-			
-		</div>
-	</main>
-
-	<?php
+	
+	$headline = $adminTheme->getHeadline();
+	$headlinePos = strpos($content, "$headline</h1>");
+	if($headlinePos && $headlinePos > 500) $headline = '';
+	
+	$adminTheme->includeFile('_content.php', array(
+		'headline' => $headline, 
+		'content' => &$content, 
+		'layout' => $layout
+	));
+	
 	if(!$adminTheme->isModal) {
-		include(__DIR__ . '/_footer.php');
-		if($adminTheme->isLoggedIn && strpos($layout, 'sidenav') !== 0) include(__DIR__ . '/_offcanvas.php');
+		$adminTheme->includeFile('_footer.php');
+		if($adminTheme->isLoggedIn && strpos($layout, 'sidenav') !== 0) {
+			$adminTheme->includeFile('_offcanvas.php');
+		}
 	}
+	
 	echo $adminTheme->renderExtraMarkup('body');
+	$adminTheme->includeFile('_body-scripts.php', array('layout' => $layout));
 	?>
 	
-	<script>
-		<?php	
-		if(strpos($layout, 'sidenav-tree') === 0) {
-			echo "if(typeof parent.isPresent != 'undefined'){";
-			if(strpos($process, 'ProcessPageList') === 0) {
-				echo "parent.hideTreePane();";
-			} else {
-				echo "if(!parent.isMobileWidth() && parent.treePaneHidden()) parent.showTreePane();";
-			}
-			if($process == 'ProcessPageEdit' && ($input->get('s') || $input->get('new'))) {
-				echo "parent.refreshTreePane(" . ((int) $input->get('id')) . ");";
-			}
-			echo "}";
-		}
-		?>
-		ProcessWireAdminTheme.init();
-	</script>
-
 </body>
-</html>
+</html><?php
+

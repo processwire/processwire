@@ -24,7 +24,7 @@ if(!defined("PROCESSWIRE")) die();
 <html class="pw pw-sidebar-frame" lang="<?php echo $adminTheme->_('en');
 	/* this intentionally on a separate line */ ?>">
 <head>
-	<?php include(__DIR__ . '/_head.php'); ?>
+	<?php $adminTheme->includeFile('_head.php'); ?>
 	<style type='text/css'>
 		#pw-sidenav-bar .pw-search-form .uk-inline, 
 		#pw-sidenav-bar .pw-search-input {

@@ -53,7 +53,7 @@ $logoOptions = array('height' => '40px');
 						</li>
 					</ul>	
 				
-					<?php include(__DIR__ . '/_search-form.php'); ?>
+					<?php $adminTheme->includeFile('_search-form.php'); ?>
 					
 				</div>
 				<?php endif; // loggedin ?>

@@ -9,7 +9,7 @@
  * This file is licensed under the MIT license.
  * https://processwire.com/about/license/mit/
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  * @property bool $isSuperuser
@@ -19,6 +19,7 @@
  * @property bool|int $useAsLogin
  * @method array getUserNavArray()
  * @method array getPrimaryNavArray()
+ * @method string renderFile($basename, array $vars = array())
  *
  */
 abstract class AdminThemeFramework extends AdminTheme {
@@ -60,6 +61,30 @@ abstract class AdminThemeFramework extends AdminTheme {
 	 * 
 	 */
 	protected $sanitizer;
+
+	/**
+	 * Custom template path when it exists, i.e. /site/templates/AdminThemeUikit/
+	 *
+	 * @var string|null Null when not yet known, blank '' when it does not exist, populated when it exists
+	 *
+	 */
+	protected $customTemplatePath = null;
+
+	/**
+	 * Default template path
+	 * 
+	 * @var string|null
+	 * 
+	 */
+	protected $defaultTemplatePath = null;
+
+	/**
+	 * Is the renderFile() method hooked? Null when not known, bool when known
+	 *
+	 * @var bool|null
+	 *
+	 */
+	protected $renderFileHooked = null;
 
 	/**
 	 * Construct
@@ -765,6 +790,88 @@ abstract class AdminThemeFramework extends AdminTheme {
 		static $extras = array();
 		if(empty($extras)) $extras = $this->getExtraMarkup();
 		return isset($extras[$for]) ? $extras[$for] : '';
+	}
+	
+	/**
+	 * Render a admin theme template file
+	 *
+	 * This method is only used if it is hooked
+	 *
+	 * #pw-hooker
+	 *
+	 * @param string $file Full path and filename
+	 * @param array $vars Associative array of variables to populate in rendered file
+	 * @return string Returns blank string when $echo is true
+	 * @since 3.0.196
+	 *
+	 */
+	protected function ___renderFile($file, array $vars = array()) {
+		extract($vars);
+		ob_start();
+		include($file);
+		$out = ob_get_contents();
+		ob_end_clean();
+		return $out;
+	}
+
+	/**
+	 * Include an admin theme file
+	 *
+	 * @param string $basename
+	 * @param array $vars
+	 * @since 3.0.196
+	 *
+	 */
+	public function includeFile($basename, array $vars = array()) {
+
+		$file = '';
+
+		if($this->renderFileHooked === null) {
+			$this->renderFileHooked = $this->hasHook('renderFile()');
+		}
+
+		if($this->defaultTemplatePath === null) {
+			$this->defaultTemplatePath = $this->wire()->config->paths($this);
+		}
+		
+		if($this->customTemplatePath === null) {
+			$path = $this->wire()->config->paths->templates . $this->className() . '/';
+			$this->customTemplatePath = is_dir($path) ? $path : '';
+		}
+
+		if($this->customTemplatePath) {
+			$file = $this->customTemplatePath . $basename;
+			if(file_exists($file)) $this->warning($file);
+			if(!file_exists($file)) $file = '';
+		}
+
+		if($file === '') $file = $this->defaultTemplatePath . $basename;
+
+		$fuel = $this->wire()->fuel;
+		$vars['fuel'] = $fuel;
+		$vars = array_merge($fuel->getArray(), $vars);
+		unset($vars['file'], $vars['vars']); // just in case either was set
+
+		if($this->renderFileHooked) {
+			echo $this->renderFile($file, $vars);
+		} else {
+			extract($vars);
+			include($file);
+		}
+	}
+	
+	/**
+	 * Set custom path for admin theme templates
+	 * 
+	 * This is for modules to optionally set a custom template path. If not set then the default
+	 * in /site/templates/AdminTheme[Class]/ is used. 
+	 * 
+	 * @param string $path
+	 * @since 3.0.196
+	 * 
+	 */
+	public function setCustomTemplatePath($path) {
+		$this->customTemplatePath = $path;
 	}
 
 	/**
