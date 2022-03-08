@@ -2,6 +2,8 @@
 
 if(!defined("PROCESSWIRE")) die();
 
+/** @var Wire $wire */
+
 /**
  * ProcessWire Request Finished
  * ============================
