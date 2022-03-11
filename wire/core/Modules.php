@@ -1000,7 +1000,7 @@ class Modules extends WireArray {
 		// check if module has already been loaded, or maybe we've got duplicates
 		if(wireClassExists($basename, false)) { 
 			$module = parent::get($basename);
-			$dir = rtrim($this->wire('config')->paths->$basename, '/');
+			$dir = rtrim((string) $this->wire()->config->paths->$basename, '/');
 			if($module && $dir && $dirname != $dir) {
 				$duplicates->recordDuplicate($basename, $pathname, "$dir/$filename", $installed);
 				return '';

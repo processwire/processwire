@@ -210,6 +210,7 @@ class SelectableOptionConfig extends Wire {
 			$f->label = $this->_('What options do you want pre-selected? (if any)'); 
 			$f->collapsed = Inputfield::collapsedBlank;
 			$f->description = sprintf($this->_('This field also serves as a preview of your selected input type (%s) and options.'), $inputfieldClass); 
+			if(!$f instanceof InputfieldHasArrayValue) $f->addOption('', $this->_('None'));
 			foreach($options as $option) {
 				$f->addOption($option->id, $option->title); 
 			}
