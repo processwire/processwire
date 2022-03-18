@@ -1783,7 +1783,7 @@ class ProcessField extends Process implements ConfigurableModule {
 	 */
 	protected function buildEditFormAccess() {
 		
-		if($this->field->type instanceof FieldtypeFieldsetOpen) return null;
+		if(!$this->allowAccessTab()) return null;	
 
 		$config = $this->wire()->config;
 		$adminTheme = $this->wire()->adminTheme;
@@ -1800,6 +1800,9 @@ class ProcessField extends Process implements ConfigurableModule {
 		$f->attr('name', 'useRoles');
 		$f->label = $this->_('Do you want to manage access control for this field?');
 		$f->description = $this->_('When enabled, you can limit view and edit access to this field by user role.');
+		if($this->field->hasFlag(Field::flagSystem)) {
+			$f->notes = $this->_('This is a system field, enabling access control is NOT recommend.');
+		}
 		$f->icon = 'key';
 		$f->addOption(1, $this->labels['yes']);
 		$f->addOption(0, $this->labels['no']);
@@ -3067,6 +3070,23 @@ class ProcessField extends Process implements ConfigurableModule {
 		}
 		foreach($data as $key => $value) $data[$key] = urlencode($value);
 		return $page->url() . $segment . (count($data) ? '?' . implode('&', $data) : '');
+	}
+
+	/**
+	 * Allow use of the “Access” tab?
+	 * 
+	 * @return bool
+	 * @since 3.0.197
+	 * 
+	 */
+	protected function allowAccessTab() {
+		if(!$this->field) return false;
+		if($this->field->type instanceof FieldtypeFieldsetOpen) return false;
+		if(!$this->wire()->user->isSuperuser()) return false;
+		if($this->field->useRoles) return true; // access control already enabled
+		if(!$this->field->hasFlag(Field::flagSystem)) return true;
+		if($this->wire()->config->advanced) return true;
+		return false;
 	}
 
 	/**
