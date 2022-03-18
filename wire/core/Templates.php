@@ -380,7 +380,7 @@ class Templates extends WireSaveableItems {
 
 		if($fieldgroup->name == $item->name) {
 			// if the fieldgroup and the item have the same name, we'll also clone the fieldgroup
-			$fieldgroup = $this->wire('fieldgroups')->clone($fieldgroup, $name); 	
+			$fieldgroup = $this->wire()->fieldgroups->clone($fieldgroup, $name); 	
 			$item->fieldgroup = $fieldgroup;
 		}
 
@@ -388,10 +388,13 @@ class Templates extends WireSaveableItems {
 
 		if($item && $item->id && !$item->altFilename) { 
 			// now that we have a clone, lets also clone the template file, if it exists
-			$path = $this->wire('config')->paths->templates; 
-			$file = $path . $item->name . '.' . $this->wire('config')->templateExtension; 
-			if($original->filenameExists() && is_writable($path) && !file_exists($file)) { 
-				if(copy($original->filename, $file)) $item->filename = $file;
+			$config = $this->wire()->config;
+			$files = $this->wire()->files;
+			$path = $config->paths->templates; 
+			$ext = $config->templateExtension ? $config->templateExtension : 'php';
+			$file = "$path$item->name.$ext";
+			if($original->filenameExists() && is_writable($path) && !$files->exists($file)) { 
+				if($files->copy($original->filename, $file)) $item->filename = $file;
 			}
 		}
 

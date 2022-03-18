@@ -9,7 +9,8 @@
  * 
  * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
- * 
+ *
+ * @method Fieldgroup clone(Saveable $item, $name = '')
  * @method int saveContext(Fieldgroup $fieldgroup)
  * @method array getExportData(Fieldgroup $fieldgroup)
  * @method array setImportData(Fieldgroup $fieldgroup, array $data)
