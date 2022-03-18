@@ -550,6 +550,13 @@ class ProcessModuleInstall extends Wire {
 	public function installDisabledLabel($type) {
 		$config = $this->wire()->config;
 		$a = $config->moduleInstall;
+		
+		if(!is_writable($config->paths->siteModules)) {
+			return
+				sprintf($this->_('Your %s path is currently not writable.'), $config->urls->siteModules) . ' ' .
+				$this->_('It must be made writable to ProcessWire before you can enable this module installation option.');
+		}
+
 		$debug = !empty($a[$type]) && $a[$type] === 'debug';
 		$opt1 = "`\$config->moduleInstall('$type', true);` " . $this->_('to enable always');
 		$opt2 = "`\$config->debug = true;` " . $this->_('temporarily');
