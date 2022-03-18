@@ -761,7 +761,8 @@ class ProcessLanguageTranslator extends Process {
 		foreach($dirIterator as $file) {
 
 			if($file->isDot()) continue;
-			if(substr($file->getBasename(), 0, 1) == '.') continue; // skip hidden;
+			$c = substr($file->getBasename(), 0, 1);
+			if($c === '.' || $c === '-' || $c === '\\') continue; // skip hidden
 			if($file->isDir()) {
 				$pathname = $file->getPathname();
 				if(strpos($pathname, $assetsDir) !== false) continue; // avoid descending into /site/assets/
