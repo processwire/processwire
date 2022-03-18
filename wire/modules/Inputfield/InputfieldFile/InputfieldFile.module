@@ -1411,7 +1411,7 @@ class InputfieldFile extends Inputfield implements InputfieldItemList, Inputfiel
 	 */
 	public function ___getConfigInputfields() {
 		$inputfields = parent::___getConfigInputfields();
-		require_once(__DIR__ . '/config.php');
+		require_once($this->wire()->config->paths('InputfieldFile') . 'config.php');
 		$configuration = new InputfieldFileConfiguration();
 		$this->wire($configuration);
 		$configuration->getConfigInputfields($this, $inputfields);

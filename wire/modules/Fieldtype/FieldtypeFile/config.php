@@ -110,7 +110,7 @@ class FieldtypeFileConfiguration extends Wire {
 
 		$this->getConfigInputfieldsOutputFormat($field, $fs);
 
-		require_once($this->wire()->config->paths->modules . 'Inputfield/InputfieldFile/config.php');
+		require_once($this->wire()->config->paths('InputfieldFile') . 'config.php');
 		$configuration = new InputfieldFileConfiguration();
 		$this->wire($configuration);
 		$descriptionFieldset = $configuration->getConfigInputfieldsDescription($field); 
