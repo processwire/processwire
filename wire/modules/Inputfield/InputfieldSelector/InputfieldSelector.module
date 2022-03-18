@@ -1888,7 +1888,7 @@ class InputfieldSelector extends Inputfield implements ConfigurableModule {
 
 		// convert the value attribute to a Selectors object
 		try {
-			$value = trim($this->attr('value')); 
+			$value = trim((string) $this->attr('value')); 
 			$this->selectors = $this->wire(new Selectors()); 
 			if(!$this->parseVars) $this->selectors->setParseVars(false);
 			$this->selectors->setSelectorString($value); 

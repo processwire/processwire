@@ -371,8 +371,8 @@ class SelectableOptionManager extends Wire {
 		$out = '';
 		
 		foreach($options as $option) {
-			$title = trim($option->get("title$language"));
-			$value = trim($option->get("value$language"));
+			$title = trim((string) $option->get("title$language"));
+			$value = trim((string) $option->get("value$language"));
 			$titleLength = strlen($title);
 			$valueLength = strlen($value);
 			if(!$titleLength && !$valueLength) continue;

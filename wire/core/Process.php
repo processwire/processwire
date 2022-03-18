@@ -483,14 +483,14 @@ abstract class Process extends WireData implements Module {
 				$id = $item->id;
 				$name = $item->name; 
 				$label = (string) $item->{$options['itemLabel']};
-				$icon = str_replace(array('icon-', 'fa-'),'', $item->{$options['iconKey']});
+				$icon = str_replace(array('icon-', 'fa-'),'', (string) $item->{$options['iconKey']});
 				$class = $item->{$options['classKey']};
 			} else if(is_array($item)) {
 				$id = isset($item['id']) ? $item['id'] : '';
 				$name = isset($item['name']) ? $item['name'] : '';
 				$label = isset($item[$options['itemLabel']]) ? $item[$options['itemLabel']] : '';
 				$class = isset($item[$options['classKey']]) ? $item[$options['classKey']] : '';	
-				if(isset($item[$options['iconKey']])) $icon = str_replace(array('icon-', 'fa-'),'', $item[$options['iconKey']]);
+				if(isset($item[$options['iconKey']])) $icon = str_replace(array('icon-', 'fa-'),'', (string) $item[$options['iconKey']]);
 			} else {
 				$this->error("Item must be object or array: $item"); 
 				continue;

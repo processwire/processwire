@@ -111,7 +111,7 @@ class SelectableOption extends WireData { // implements LanguagesValueInterface 
 			} else {
 				$value = parent::get("$property$language"); 
 				// fallback to default language title if no title present for language
-				if(!strlen($value)) $value = parent::get($property); 
+				if(!strlen("$value")) $value = parent::get($property); 
 			}
 		} else {
 			$value = parent::get($property); 

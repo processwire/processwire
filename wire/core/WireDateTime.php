@@ -286,7 +286,7 @@ class WireDateTime extends Wire {
 			} else {
 				$TRIM0 = false;
 			}
-			$value = strftime($format, $value);
+			$value = $this->strftime($format, $value);
 			if($TRIM0) $value = str_replace(array('TRIM00', 'TRIM0'), '', $value);
 
 		} else {
@@ -412,7 +412,7 @@ class WireDateTime extends Wire {
 			else if($format == 'r') $value = $this->relativeTimeStr($ts, 1);
 			else if($format == 'r-') $value = $this->relativeTimeStr($ts, 1, false);
 			else if($format == 'ts') $value = $ts;
-			else if(strpos($format, '%') !== false) $value = strftime($format, $ts);
+			else if(strpos($format, '%') !== false && version_compare(PHP_VERSION, '8.1.0', '<')) $value = $this->strftime($format, $ts);
 			else $value = date($format, $ts);
 		return $value;
 	}
@@ -448,6 +448,84 @@ class WireDateTime extends Wire {
 		}
 		if($options['baseTimestamp'] === null) return strtotime($str);
 		return strtotime($str, $options['baseTimestamp']) ;
+	}
+
+	/**
+	 * strftime() replacement function that works in PHP 8.1+ (though not locale aware)
+	 * 
+	 * @param string $format
+	 * @param null|int|string $timestamp
+	 * @return string|false
+	 * @since 3.0.197
+	 * 
+	 */
+	public function strftime($format, $timestamp = null) {
+		
+		$format = (string) $format;
+		
+		if(is_string($timestamp)) {
+			if(empty($timestamp)) {
+				$timestamp = null;
+			} else if(ctype_digit($timestamp)) {
+				$timestamp = (int) $timestamp;
+			} else {
+				$timestamp = $this->strtotime($timestamp);
+			}
+		}
+		
+		if($timestamp === null) $timestamp = time();
+		
+		if(version_compare(PHP_VERSION, '8.1.0', '<')) {
+			return strftime($format, $timestamp);
+		}
+		
+		$format = $this->strftimeToDateFormat($format);
+
+		return date($format, $timestamp);
+	}
+
+	/**
+	 * Convert strftime() format to date() format
+	 * 
+	 * @param string $format
+	 * @return string
+	 * @since 3.0.197
+	 * 
+	 */
+	protected function strftimeToDateFormat($format) {
+		
+		// replacements, in addition to those specified in self::$dateConversion
+		// strftime format => date format
+		$replacements = array(
+			'%e' => 'j', // Day of the month without leading zeros
+			'%j' => 'z', // Day of the year, 3 digits with leading zeros
+			'%U' => '_', // Week number of the given year, starting with the first Sunday as the first week (not implemented)
+			'%h' => 'M', // Abbreviated month name
+			'%C' => '_', // Two digit representation of the century (year divided by 100, truncated to an integer) (not implemented)
+			'%g' => 'y', // Two digit representation of the year going by ISO-8601:1988 standards (see %V)
+			'%G' => 'Y', // 4 digit year
+			'%k' => 'G', // Hour in 24-hour format
+			'%l' => 'g', // Hour in 12-hour format
+			'%r' => 'h:i:s A', // Example: 09:34:17 PM
+			'%R' => 'G:i', // Example: 00:35 for 12:35 AM
+			'%T' => 'G:i:s', // Example: 21:34:17 for 09:34:17 PM
+			'%X' => 'G:i:s', // Preferred time representation based on locale, without the date, Example: 03:59:16 or 15:59:16
+			'%Z' => 'T', // The time zone abbreviation. Example: EST for Eastern Time
+			'%c' => 'Y-m-d H:i:s', // Preferred date and time stamp based on locale
+			'%D' => 'm/d/y', // Example: 02/05/09 for February 5, 2009
+			'%F' => 'Y-m-d', // Example: 2009-02-05 for February 5, 2009
+			'%n' => '\\n', // newline
+			'%t' => '\\t', // tab
+			'%%' => '%', // literal percent
+		);
+
+		foreach(self::$dateConversion as $dateFormat => $formats) {
+			$strftimeFormat = $formats[0];
+			if(empty($strftimeFormat)) continue;
+			if(strpos($format, $strftimeFormat) !== false) $replacements[$strftimeFormat] = $dateFormat;
+		}
+		
+		return strtr($format, $replacements);
 	}
 
 

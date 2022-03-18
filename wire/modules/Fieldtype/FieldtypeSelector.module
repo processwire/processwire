@@ -61,7 +61,7 @@ class FieldtypeSelector extends Fieldtype {
 
 	public function ___wakeupValue(Page $page, Field $field, $value) {
 		$value = parent::___wakeupValue($page, $field, $value); 
-		$initValue = trim($field->get('initValue'));
+		$initValue = trim((string) $field->get('initValue'));
 		if(strlen($initValue) && strpos($value, $initValue) === false) {
 			$value = "$initValue, $value";
 		}

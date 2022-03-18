@@ -62,7 +62,7 @@ class InputfieldPageTableAjax extends Wire {
 		if($itemID) $this->addItem($page, $field, $this->wire('pages')->get($itemID)); 
 		
 		$sort = $input->get('InputfieldPageTableSort'); 
-		if(strlen($sort)) $this->sortItems($page, $field, $sort); 
+		if(strlen("$sort")) $this->sortItems($page, $field, $sort); 
 
 		$this->renderAjax($page, $field); 
 	}

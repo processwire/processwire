@@ -181,7 +181,7 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 		$pages = $this->wire()->pages;
 		$page = $this->wire()->page; 
 		$process = $page ? $page->process : null;
-		$pageNumUrlPrefix = $this->get("pageNumUrlPrefix$language"); 
+		$pageNumUrlPrefix = (string) $this->get("pageNumUrlPrefix$language"); 
 
 		if($process && $page->template->name === 'admin' && in_array('WirePageEditor', wireClassImplements($process))) { 
 			// when in admin, add inputs for each language's page name
@@ -526,10 +526,10 @@ class LanguageSupportPageNames extends WireData implements Module, ConfigurableM
 				// avoid having default language name inherited at homepage level
 				// if($isDefault && $name === $parent->get("name")) continue; 
 			}
-			if(strlen($name)) $path .= "/" . $name;
+			if(strlen("$name")) $path .= "/" . $name;
 		}
 
-		$name = $page->get("name$language|name"); 
+		$name = (string) $page->get("name$language|name"); 
 		$path = strlen($name) ? "$path/$name/" : "$path/";
 		
 		if(!$template->slashUrls && $path != '/') $path = rtrim($path, '/'); 

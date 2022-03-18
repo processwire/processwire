@@ -300,7 +300,7 @@ class MarkupAdminDataTable extends ModuleJS {
 				foreach($row as $td) {
 					$class = '';
 					if(is_array($td)) list($td, $class) = $td;
-					if(strlen($td) == 0 || $td === '&nbsp;') $class .= ($class ? ' ' : '') . 'blank';
+					if(strlen("$td") == 0 || $td === '&nbsp;') $class .= ($class ? ' ' : '') . 'blank';
 					if($class) $class = " class='$class'";
 					$out .= "\n\t\t\t<td$class>$td</td>"; 
 				}

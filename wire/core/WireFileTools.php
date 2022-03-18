@@ -38,7 +38,7 @@ class WireFileTools extends Wire {
 	 *
 	 */
 	public function mkdir($path, $recursive = false, $chmod = null) {
-		if(!strlen($path)) return false;
+		if(!strlen("$path")) return false;
 		
 		if(is_string($recursive) && strlen($recursive) > 2) {
 			// chmod argument specified as $recursive argument or arguments swapped

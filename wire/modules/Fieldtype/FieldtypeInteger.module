@@ -225,7 +225,7 @@ class FieldtypeInteger extends Fieldtype {
 		$f->label = $this->_('Default value'); 
 		$f->description = $this->_('This value is assigned as the default for this field on pages with no value entered.');
 		$f->collapsed = Inputfield::collapsedBlank;
-		$f->attr('value', strlen($field->get('defaultValue')) ? (int) $field->get('defaultValue') : ''); 
+		$f->attr('value', strlen((string) $field->get('defaultValue')) ? (int) $field->get('defaultValue') : ''); 
 		$inputfields->add($f);
 		
 		return $inputfields; 

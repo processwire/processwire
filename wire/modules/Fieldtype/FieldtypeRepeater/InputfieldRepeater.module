@@ -686,7 +686,7 @@ class InputfieldRepeater extends Inputfield implements InputfieldItemList {
 			);
 			$readyPage->set('_repeater_clone', $clonePage->id); 
 		} else if(!$cloneItemID) {
-			$notIDs = $this->wire()->sanitizer->intArray(explode(',', trim($this->wire()->input->get('repeater_not'), ',')));
+			$notIDs = $this->wire()->sanitizer->intArray(explode(',', trim((string) $this->wire()->input->get('repeater_not'), ',')));
 			$readyPage = $this->getNextReadyPage($notIDs);
 			$readyPage->removeStatus(Page::statusHidden);
 		} 

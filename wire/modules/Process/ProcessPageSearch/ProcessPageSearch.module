@@ -509,10 +509,10 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 */
 	protected function getDisplayFields() {
 		
-		$display = $this->input->get('display');
+		$display = (string) $this->input->get('display');
 		
-		if(!strlen($display)) $display = $this->input->get('get'); // as required by ProcessPageSearch API 
-		if(!strlen($display)) $display = $this->displayField;
+		if(!strlen($display)) $display = (string) $this->input->get('get'); // as required by ProcessPageSearch API 
+		if(!strlen($display)) $display = (string) $this->displayField;
 		if(!strlen($display)) $display = 'title path';
 		
 		$display = str_replace(',', ' ', $display);
@@ -1354,7 +1354,7 @@ class ProcessPageSearch extends Process implements ConfigurableModule {
 	 */
 	public function renderSearchForm($placeholder = '') {
 
-		$q = substr($this->input->get('q'), 0, 128);
+		$q = substr((string) $this->input->get('q'), 0, 128);
 		$q = $this->wire('sanitizer')->entities($q); 
 		$adminURL = $this->wire('config')->urls->admin; 
 		

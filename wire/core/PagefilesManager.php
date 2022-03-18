@@ -31,7 +31,7 @@
  * 
  * #pw-body
  * 
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @method save() #pw-hooker
@@ -301,7 +301,8 @@ class PagefilesManager extends Wire {
 	 *
 	 */
 	protected function _createPath($path) {
-		if(is_dir($path)) return true; 
+		if(empty($path)) return false;
+		if(is_dir("$path")) return true; 
 		return $this->wire('files')->mkdir($path, true); 
 	}
 

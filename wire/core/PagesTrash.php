@@ -79,7 +79,7 @@ class PagesTrash extends Wire {
 			if($languages && $languages->hasPageNames()) {
 				foreach($languages as $language) {
 					if($language->isDefault()) continue;
-					$langName = $page->get("name$language->id");
+					$langName = (string) $page->get("name$language->id");
 					if(!strlen($langName)) continue; 
 					$page->set("name$language->id", $name . "_" . $langName);
 				}
@@ -227,7 +227,7 @@ class PagesTrash extends Wire {
 		foreach($languages as $language) {
 			/** @var Language $language */
 			if($language->isDefault()) continue;
-			$langName = $page->get("name$language->id");
+			$langName = (string) $page->get("name$language->id");
 			if(!strlen($langName)) continue;
 			if(strpos($langName, $trashPrefix) === 0) {
 				list(,$langName) = explode('_', $langName);

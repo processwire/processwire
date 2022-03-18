@@ -2864,8 +2864,8 @@ class ProcessField extends Process implements ConfigurableModule {
 				$valueStr = ((int) $value) ? $labels['on'] : $labels['off'];
 			}
 			
-			$originalValueStr = str_replace('|', ' ', $originalValueStr);
-			$valueStr = str_replace('|', ' ', $valueStr);
+			$originalValueStr = str_replace('|', ' ', (string) $originalValueStr);
+			$valueStr = str_replace('|', ' ', (string) $valueStr);
 			$change = array(
 				"name" => $name, 
 				"value" => $valueStr,

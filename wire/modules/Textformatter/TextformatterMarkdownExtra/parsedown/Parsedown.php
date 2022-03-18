@@ -40,7 +40,7 @@ class Parsedown
         $this->DefinitionData = array();
 
         # standardize line breaks
-        $text = str_replace(array("\r\n", "\r"), "\n", $text);
+        $text = str_replace(array("\r\n", "\r"), "\n", (string) $text);
 
         # remove surrounding line breaks
         $text = trim($text, "\n");
@@ -1135,7 +1135,7 @@ class Parsedown
     protected function lineElements($text, $nonNestables = array())
     {
         # standardize line breaks
-        $text = str_replace(array("\r\n", "\r"), "\n", $text);
+        $text = str_replace(array("\r\n", "\r"), "\n", (string) $text);
 
         $Elements = array();
 

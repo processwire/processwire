@@ -75,7 +75,8 @@ class InputfieldDatetimeSelect extends InputfieldDatetimeType {
 		$yearLock = $this->getSetting('yearLock');
 		$format = $this->getSetting('dateSelectFormat');
 		$select = $this->modules->get('InputfieldSelect'); /** @var InputfieldSelect $select */
-		$sanitizer = $this->wire('sanitizer'); /** @var Sanitizer $sanitizer */
+		$sanitizer = $this->wire()->sanitizer;
+		$datetime = $this->wire()->datetime;
 		$monthLabel = $this->_('Month');
 		$yearLabel = $this->_('Year');
 		$dayLabel = $this->_('Day');
@@ -90,7 +91,7 @@ class InputfieldDatetimeSelect extends InputfieldDatetimeType {
 
 		for($n = 1; $n <= 12; $n++) {
 			$monthFormat = $abbreviate ? '%b' : '%B';
-			$monthLabel = $sanitizer->entities(strftime($monthFormat, mktime(0, 0, 0, $n, 1)));
+			$monthLabel = $sanitizer->entities($datetime->strftime($monthFormat, mktime(0, 0, 0, $n, 1)));
 			$months->addOption($n, $monthLabel);
 		}
 
@@ -211,7 +212,8 @@ class InputfieldDatetimeSelect extends InputfieldDatetimeType {
 	public function getConfigInputfields(InputfieldWrapper $inputfields) {
 		
 		list($y, $d, $h, $hh, $i, $a) = explode(' ', date('Y d h H i A'));
-		list($m, $mm) = explode(' ', strftime('%b %B'));
+		// list($m, $mm) = explode(' ', strftime('%b %B')); // strftime deprecated
+		list($m, $mm) = explode(' ', date('M F'));
 		$none = $this->_('None');
 		if($m === $mm && $m === 'May') list($m, $mm) = array('Apr', 'April');
 

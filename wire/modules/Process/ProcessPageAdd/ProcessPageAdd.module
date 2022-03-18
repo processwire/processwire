@@ -1094,7 +1094,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 
 		$this->deleteOldTempPages();
 		// allow for nameFormat to come from a name_format GET variable
-		$nameFormat = $input->get('name_format');
+		$nameFormat = (string) $input->get('name_format');
 		if(strlen($nameFormat)) {
 			$nameFormat = $sanitizer->chars($sanitizer->text($nameFormat), '-_:./| [alpha][digit]', '-');
 		} else {

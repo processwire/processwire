@@ -95,6 +95,7 @@ class Database extends \mysqli implements WireDatabase {
 	 * @throws WireDatabaseException
 	 *
 	 */
+	#[\ReturnTypeWillChange]
 	public function query($sql, $resultmode = MYSQLI_STORE_RESULT) {
 
 		static $timerTotalQueryTime = 0;
