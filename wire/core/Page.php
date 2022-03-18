@@ -2867,7 +2867,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	 * #pw-group-manipulation
 	 *
 	 * @param bool $recursive If set to true, then this will attempt to delete all children too.
-	 * @return bool True on success, false on failure.
+	 * @return bool|int True on success, false on failure, or int quantity of pages deleted when recursive option is true.
 	 * @throws WireException when attempting to delete a page with children and $recursive option is not specified.
 	 * @see Pages::delete()
 	 *
