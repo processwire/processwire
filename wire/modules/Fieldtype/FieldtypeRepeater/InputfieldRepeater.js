@@ -1233,12 +1233,13 @@ function InputfieldRepeater($) {
 				$controls.prepend($collapseControl);
 				$controls.prepend($insertBeforeControl);
 				$controls.prepend($insertAfterControl);
-				if($t.closest('.InputfieldRepeater').hasClass('InputfieldRepeaterHasSettings')) { // intentionally not using allowSettings var
+				var $closestRepeater = $t.closest('.InputfieldRepeater');
+				if($closestRepeater.hasClass('InputfieldRepeaterHasSettings')) { // intentionally not using allowSettings var
 					var $settingsToggle = $("<i class='fa fa-gear InputfieldRepeaterSettingsToggle ui-priority-secondary'></i>")
 						.attr('title', cfg.labels.settings); 
 					$controls.prepend($settingsToggle);
 				}
-				if(allowClone) {
+				if(allowClone || !$closestRepeater.hasClass('InputfieldRepeaterNoAjaxAdd')) {
 					$controls.prepend($clone.clone(true));
 					// $controls.prepend($paste.clone(true));
 				}
