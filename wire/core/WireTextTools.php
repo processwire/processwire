@@ -40,15 +40,20 @@ class WireTextTools extends Wire {
 	 * Like PHP’s strip_tags but with some small improvements in HTML-to-text conversion that
 	 * improves the readability of the text. 
 	 * 
+	 * In 3.0.197+ inner content of script, style and object tags is now removed, rather than just the tags. 
+	 * To revert this behavior or to remove content of additional tags, see the `clearTags` option. 
+	 * 
 	 * #pw-internal
 	 * 
 	 * @param string $str String to convert to text
 	 * @param array $options 
 	 *  - `keepTags` (array): Tag names to keep in returned value, i.e. [ "em", "strong" ]. (default=none)
+	 *  - `clearTags` (array): Tags that should also have their content cleared. (default=[ "script", "style", "object" ]) Since 3.0.197
 	 *  - `splitBlocks` (string): String to split paragraph and header elements. (default="\n\n")
 	 *  - `convertEntities` (bool): Convert HTML entities to plain text equivalents? (default=true)
 	 *  - `listItemPrefix` (string): Prefix for converted list item `<li>` elements. (default='• ')
-	 *  - `linksToUrls` (bool): Convert links to "(url)" rather than removing entirely? (default=true) Since 3.0.132
+	 *  - `linksToUrls` (bool): Convert links to `(url)` rather than removing? (default=true) Since 3.0.132
+	 *  - `linksToMarkdown` (bool): Convert links to `[text](url)` rather than removing? (default=false) Since 3.0.197
 	 *  - `uppercaseHeadlines` (bool): Convert headline tags to uppercase? (default=false) Since 3.0.132
 	 *  - `underlineHeadlines` (bool): Underline headlines with "=" or "-"? (default=true) Since 3.0.132
 	 *  - `collapseSpaces` (bool): Collapse extra/redundant extra spaces to single space? (default=true) Since 3.0.132
@@ -58,9 +63,13 @@ class WireTextTools extends Wire {
 	 */
 	public function markupToText($str, array $options = array()) {
 		
+		$sanitizer = $this->wire()->sanitizer;
+		
 		$defaults = array(
-			'keepTags' => array(), 
+			'keepTags' => array(),
+			'clearTags' => array('script', 'style', 'object'), 
 			'linksToUrls' => true, // convert links to just URL rather than removing entirely
+			'linksToMarkdown' => false, // convert links to Markdown style links
 			'splitBlocks' => "\n\n",
 			'uppercaseHeadlines' => false, 
 			'underlineHeadlines' => true, 
@@ -102,14 +111,20 @@ class WireTextTools extends Wire {
 
 			// ensure paragraphs and headers are followed by two newlines
 			if(stripos($str, '</p') || stripos($str, '</h') || stripos($str, '</li') || stripos($str, '</bl') || stripos($str, '</div')) {
-				$str = preg_replace('!(</(?:p|h\d|ul|ol|pre|blockquote|div)>)!i', '$1' . $options['splitBlocks'], $str);
+				$str = preg_replace('!(</?(?:p|h\d|ul|ol|pre|blockquote|div)>)!i', '$1' . $options['splitBlocks'], $str);
 			}
 
 			// ensure list items are on their own line and prefixed with a bullet
 			if(stripos($str, '<li') !== false) {
 				$prefix = in_array('li', $options['keepTags']) ? '' : $options['listItemPrefix'];
 				$str = preg_replace('![\s\r\n]+<li[^>]*>[\s\r\n]*!i', "\n<li>$prefix", $str);
-				if($prefix) $options['replacements']["\n$prefix "] = "\n$prefix"; // prevent extra space
+				if($prefix) {
+					$options['replacements']["\n$prefix "] = "\n$prefix"; // prevent extra space
+					$prefix = trim($prefix); 
+					$options['finishReplacements']["\n$prefix\n$prefix"] = ""; // prevent blank items
+					$options['finishReplacements']["\n$prefix\n"] = "";
+					
+				}
 			}
 
 			// convert <br> tags to be just a single newline
@@ -135,29 +150,31 @@ class WireTextTools extends Wire {
 						$fullMatch = $matches[0][$key];
 						$tagName = strtolower($matches[1][$key]);
 						$underline = '';
+						//$headline = trim($headline);
 						if($options['underlineHeadlines']) {
 							$char = $tagName === $topHtag ? '=' : '-';
-							$underline = "\n" . str_repeat($char, $this->strlen($headline));
+							$underline = "\n" . str_repeat($char, $this->strlen(trim(strip_tags($headline))));
 						}
 						if($options['uppercaseHeadlines']) $headline = strtoupper($headline);
-						$str = str_replace($fullMatch, "<$tagName>$headline</$tagName>$underline", $str);
+						$str = str_replace($fullMatch, "\n\n<$tagName>$headline</$tagName>$underline", $str);
 					}
 				}
 			}
 		
 			// convert "<a href='url'>text</a>" tags to "text (url)"
-			if($options['linksToUrls'] && stripos($str, '<a ') !== false) {
+			if(($options['linksToUrls'] || $options['linksToMarkdown']) && stripos($str, '<a ') !== false) {
 				if(preg_match_all('!<a\s[^<>]*href=([^\s>]+)[^<>]*>(.+?)</a>!is', $str, $matches)) {
 					$links = array();
 					foreach($matches[0] as $key => $fullMatch) {
 						$href = trim($matches[1][$key], '"\'');
 						if(strpos($href, '#') === 0) continue; // do not convert jumplinks
-						$anchorText = $matches[2][$key];
-						$links[$fullMatch] = "$anchorText ($href)";
+						$anchorText = trim($matches[2][$key]);
+						$links[$fullMatch] = "[$anchorText]($href)";
 					}
 					if(count($links)) {
 						$str = str_replace(array_keys($links), array_values($links), $str); 
 					}
+					unset($links);
 				}
 			}
 		
@@ -171,11 +188,30 @@ class WireTextTools extends Wire {
 						}
 						$str = str_replace($fullMatch, implode("\n", $lines), $str); 
 						$options['finishReplacements'][':preIndent:'] = $options['preIndent'];
+						unset($lines);
 					}
 				}
 			}
-		}
 		
+			// strip tags AND their contents for specified tags
+			foreach($options['clearTags'] as $s) {
+				$s = strtolower($s);
+				if(stripos($str, "<$s") === false) continue;
+				$str = str_ireplace(array("<$s", "</$s"), array("<$s", "</$s"), $str); // adjust case
+				$parts = explode("<$s", $str); 
+				foreach($parts as $key => $part) {
+					if(strpos($part, "</$s>") === false) {
+						if($key > 0) unset($parts[$key]); // remove nested inner content
+					} else {
+						$endparts = explode("</$s>", $part);
+						$parts[$key] = array_pop($endparts); // convert to content after last </s>
+					}
+				}
+				$str = implode("", $parts);
+				unset($parts, $endparts, $s);
+			}
+		}
+
 		// strip tags
 		if(count($options['keepTags'])) {
 			// some tags will be allowed to remain
@@ -199,7 +235,7 @@ class WireTextTools extends Wire {
 
 		// convert entities to plain text equivalents
 		if($options['convertEntities'] && strpos($str, '&') !== false) {
-			$str = $this->wire('sanitizer')->unentities($str);
+			$str = $sanitizer->unentities($str);
 		}
 	
 		// collapse any redundant/extra whitespace
@@ -211,7 +247,19 @@ class WireTextTools extends Wire {
 		while(strpos($str, " \n") !== false) $str = str_replace(" \n", "\n", $str);
 		while(strpos($str, "\n ") !== false) $str = str_replace("\n ", "\n", $str);
 		while(strpos($str, "\n\n\n") !== false) $str = str_replace("\n\n\n", "\n\n", $str);
-		
+
+		if(strpos($str, '](')) {
+			// contains links
+			if(strpos($str, '[](') !== false || strpos($str, '[ ](') !== false) {
+				// remove links that lack anchor text
+				$str = preg_replace('!\[\s*\]\([^)]*\)!', '', $str);
+			}
+			if($options['linksToUrls']) {
+				// convert markdown style "[text](url)" to "text (url)"
+				if(!$options['linksToMarkdown']) $str = preg_replace('!\[\s*(.+?)\]\(!', '$1 (', $str);
+			}
+		}
+
 		if(count($options['finishReplacements'])) {
 			$str = str_replace(array_keys($options['finishReplacements']), array_values($options['finishReplacements']), $str); 
 		}
