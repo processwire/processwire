@@ -2140,6 +2140,7 @@ class Pages extends Wire {
 	 * @param Page $page The page that was saved
 	 * @param array $changes Array of field names that changed
 	 * @param array $values Array of values that changed, if values were being recorded, see Wire::getChanges(true) for details.
+	 * @see Pages::savedPageOrField(), Pages::savedField()
 	 *
 	 */
 	public function ___saved(Page $page, array $changes = array(), $values = array()) { 
@@ -2253,6 +2254,7 @@ class Pages extends Wire {
 	 *
 	 * @param Page $page The page about to be saved
 	 * @return array Optional extra data to add to pages save query, which the hook can populate. 
+	 * @see Pages::savePageOrFieldReady(), Pages::saveFieldReady()
 	 *
 	 */
 	public function ___saveReady(Page $page) {
@@ -2525,6 +2527,7 @@ class Pages extends Wire {
 	 * 
 	 * @param Page $page
 	 * @param Field $field
+	 * @see Pages::savePageOrFieldReady()
 	 * 
 	 */
 	public function ___saveFieldReady(Page $page, Field $field) { }
@@ -2536,6 +2539,7 @@ class Pages extends Wire {
 	 * 
 	 * @param Page $page
 	 * @param Field $field
+	 * @see Pages::savedPageOrField()
 	 * 
 	 */
 	public function ___savedField(Page $page, Field $field) { 
@@ -2549,6 +2553,7 @@ class Pages extends Wire {
 	 *
 	 * @param Page $page
 	 * @param string $fieldName Populated only if call originates from saveField
+	 * @see Pages::saveReady(), Pages::saveFieldReady()
 	 *
 	 */
 	public function ___savePageOrFieldReady(Page $page, $fieldName = '') { }
@@ -2560,6 +2565,7 @@ class Pages extends Wire {
 	 *
 	 * @param Page $page
 	 * @param array $changes Names of fields
+	 * @see Pages::saved(), Pages::savedField()
 	 *
 	 */
 	public function ___savedPageOrField(Page $page, array $changes = array()) { }

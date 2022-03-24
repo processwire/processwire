@@ -136,7 +136,6 @@ class WireData extends Wire implements \IteratorAggregate, \ArrayAccess {
 	 * 
 	 * @param string $key
 	 * @param mixed $value
-	 * return $this
 	 *
 	 */
 	public function __set($key, $value) {
