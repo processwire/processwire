@@ -5,7 +5,7 @@
  *
  * A Page List Selector for selecting multiple pages
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property string $removeLabel
@@ -27,9 +27,9 @@ class InputfieldPageListSelectMultiple extends Inputfield
 		return array(
 			'title' => __('Page List Select Multiple', __FILE__), // Module Title
 			'summary' => __('Selection of multiple pages from a ProcessWire page tree list', __FILE__), // Module Summary
-			'version' => 102,
+			'version' => 103,
 			'permanent' => true, 
-			);
+		);
 	}
 
 	public function init() {
@@ -94,8 +94,9 @@ class InputfieldPageListSelectMultiple extends Inputfield
 		$attrs['data-root'] = $this->parent_id; // rootPageID
 		$attrs['data-href'] = "#wrap_{$this->id}"; // selectSelectHref
 		$attrs['data-start'] = $this->startLabel; // selectStartLabel
-		$attrs['data-cancel'] = $this->cancelLabel; // selectCancelLabel
+		$attrs['data-cancel'] = $this->_('Close'); // $this->cancelLabel; // selectCancelLabel
 		$attrs['data-select'] = $this->selectLabel; // selectSelectLabel
+		$attrs['data-selected'] = $this->_('Selected'); 
 		$attrs['data-unselect'] = $this->unselectLabel; // selectUnselectLabel
 		$attrs['data-more'] = $this->moreLabel; // moreLabel
 		$attrs['data-labelName'] = $this->attr('name');

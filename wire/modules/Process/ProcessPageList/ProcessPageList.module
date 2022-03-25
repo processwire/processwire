@@ -8,7 +8,7 @@
  * For more details about how Process modules work, please see: 
  * /wire/core/Process.php 
  * 
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  * 
  * @property bool $showRootPage Whether root page (like home) should be shown.
@@ -41,7 +41,7 @@ class ProcessPageList extends Process implements ConfigurableModule {
 		return array(
 			'title' => 'Page List',
 			'summary' => 'List pages in a hierarchical tree structure',
-			'version' => 123,
+			'version' => 124,
 			'permanent' => true,
 			'permission' => 'page-edit',
 			'icon' => 'sitemap',

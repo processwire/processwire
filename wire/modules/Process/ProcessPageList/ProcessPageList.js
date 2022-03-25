@@ -60,6 +60,9 @@ $(document).ready(function() {
 
 			// show the parent path in the selected page label?
 			selectShowPath: true, 
+		
+			// use multiple mode enhancements when select mode enabled?	
+			selectMultiple: false, 
 
 			// the label to click on to change the currently selected page
 			selectStartLabel: 'Change', 
@@ -560,10 +563,12 @@ $(document).ready(function() {
 						$children.show();
 						loaded();
 						if(callback != undefined) callback();
+						$container.trigger('pageListChildrenDone', data);
 					} else { 
 						$children.slideDown(options.speed, function() {
 							loaded();
 							if(callback != undefined) callback();
+							$container.trigger('pageListChildrenDone', data);
 						}); 
 					}
 					
@@ -803,11 +808,12 @@ $(document).ready(function() {
 			 * 
 			 */
 			function getNumChildren($item, getTotal) {
-				if(typeof getTotal == "undefined") var getTotal = false;
+				if(typeof getTotal == "undefined") getTotal = false;
+				var n;
 				if(getTotal) {
-					var n = $item.attr('data-numTotal');
+					n = $item.attr('data-numTotal');
 				} else {
-					var n = $item.attr('data-numChild');
+					n = $item.attr('data-numChild');
 				}
 				return n && n.length > 0 ? parseInt(n) : 0;
 			}
@@ -822,8 +828,8 @@ $(document).ready(function() {
 			 */
 			function setNumChildren($item, numChildren, numTotal, addNew) {
 				
-				if(typeof numTotal == "undefined") var numTotal = numChildren;
-				if(typeof addNew == "undefined") var addNew = false;
+				if(typeof numTotal == "undefined") numTotal = numChildren;
+				if(typeof addNew == "undefined") addNew = false;
 			
 				var $numChildren = addNew ? '' : $item.children('.PageListNumChildren');
 				var n = numChildren === false ? numTotal : numChildren;
@@ -854,16 +860,17 @@ $(document).ready(function() {
 				}
 
 				var numLabel = '';
+				var slash; 
 				switch(options.qtyType) {
 					case 'total':
 						numLabel = numTotal;
 						break;
 					case 'total/children':
-						var slash = "<span class='ui-priority-secondary'>/</span>";
+						slash = "<span class='ui-priority-secondary'>/</span>";
 						numLabel = numTotal > 0 && numTotal != numChildren ? numTotal + slash + numChildren : numTotal;
 						break;
 					case 'children/total':
-						var slash = "<span class='ui-priority-secondary'>/</span>";
+						slash = "<span class='ui-priority-secondary'>/</span>";
 						numLabel = numTotal > 0 && numTotal != numChildren ? numChildren + slash + numTotal : numTotal;
 						break;
 					case 'id':
@@ -1162,7 +1169,7 @@ $(document).ready(function() {
 					if(typeof start == "undefined" || start === null) {
 						start = 0;
 					} else {
-						var start = parseInt(start);
+						start = parseInt(start);
 					}
 					if(jQuery.inArray(id, currentOpenPageIDs) == -1) {
 						currentOpenPageIDs.push(id + '-' + start); // id.start
@@ -1479,17 +1486,19 @@ $(document).ready(function() {
 					id: id, 
 					url: url, 
 					title: title, 
-					a: $a 
+					a: $a,  
+					actionLink: $t
 				}); 	
 
-
-				$header.find(".PageListSelectActionToggle").click(); // close the list
+				if(!options.selectMultiple) {
+					$header.find(".PageListSelectActionToggle").click(); // close the list
+				}
 
 				// jump to specified anchor, if provided
-				if(options.selectSelectHref == '#') return false; 
+				if(options.selectMultiple || options.selectSelectHref == '#') return false; 
+				
 				return true; 
 			}
-
 
 			// initialize the plugin
 			init(); 

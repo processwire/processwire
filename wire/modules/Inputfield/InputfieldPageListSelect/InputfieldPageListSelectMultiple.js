@@ -1,18 +1,25 @@
 
 var InputfieldPageListSelectMultiple = {
+
+	selectLabel: 'Select',
+	selectedLabel: 'Selected',
 	
 	init: function($inputfield) {
+		var $t;
 		if($inputfield.hasClass('InputfieldPageListSelectMultipleData')) {
-			var $t = $inputfield;
+			$t = $inputfield;
 		} else {
-			var $t = $inputfield.find(".InputfieldPageListSelectMultipleData");
+			$t = $inputfield.find(".InputfieldPageListSelectMultipleData");
 		}
 		if(!$t.length) return;
 		if($t.hasClass('InputfieldPageListSelectMultipleInit')) return;
+		InputfieldPageListSelectMultiple.selectLabel = $t.attr('data-select');
+		InputfieldPageListSelectMultiple.selectedLabel = $t.attr('data-selected'); 
 		$t.ProcessPageList({
 			mode: 'select',
 			rootPageID: $t.attr('data-root'),
 			showRootPage: true, 
+			selectMultiple: true, 
 			selectShowPageHeader: false,
 			selectSelectHref: $t.attr('data-href'),
 			selectStartLabel: $t.attr('data-start'),
@@ -23,6 +30,7 @@ var InputfieldPageListSelectMultiple = {
 			labelName: $t.attr('data-labelName')
 		}).hide().addClass('InputfieldPageListSelectMultipleInit');
 		$t.bind('pageSelected', $t, InputfieldPageListSelectMultiple.pageSelected);
+		$t.bind('pageListChildrenDone', $t, InputfieldPageListSelectMultiple.pageListChildrenDone);
 		InputfieldPageListSelectMultiple.initList($('#' + $t.attr('id') + '_items'));
 	},
 
@@ -63,12 +71,34 @@ var InputfieldPageListSelectMultiple = {
 			var $ol = $li.parent();
 			var id = $li.children(".itemValue").text();
 			$li.remove();
+			$ol.closest('.InputfieldPageListSelectMultiple').find('.pw-iplsm-disabled-' + id)
+				.removeClass('ui-state-disabled pw-iplsm-disabled-' + id)
+				.text(InputfieldPageListSelectMultiple.selectLabel);
 			InputfieldPageListSelectMultiple.rebuildInput($ol);
 			return false;
 		});
 
 	},
-	
+
+	/**
+	 * Callback when children have been listed in the pageList
+	 * 
+	 * @param e
+	 * @param data
+	 */
+	pageListChildrenDone: function(e, data) {
+		var $t = $(this);
+		var $inputfield = $t.closest('.Inputfield');
+		var ids = $t.val().split(',');
+		for(var n = 0; n < ids.length; n++) {
+			var id = ids[n];
+			var $item = $inputfield.find('.PageListID' + id); 
+			// mark items already selected
+			if($item.length) $item.find('.PageListActionSelect').children('a')
+				.addClass('ui-state-disabled pw-iplsm-disabled-' + id)
+				.text(InputfieldPageListSelectMultiple.selectedLabel);
+		}
+	},
 
 	/**
 	 * Callback function executed when a page is selected from PageList
@@ -80,6 +110,10 @@ var InputfieldPageListSelectMultiple = {
 
 		var $ol = $('#' + $input.attr('id') + '_items');
 		var $li = $ol.children(".itemTemplate").clone();
+		
+		page.actionLink
+			.addClass('ui-state-disabled pw-iplsm-disabled-' + page.id)
+			.text(InputfieldPageListSelectMultiple.selectedLabel);
 
 		$li.removeClass("itemTemplate"); 
 		$li.children('.itemValue').text(page.id); 
