@@ -344,7 +344,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	public function ___getSelectablePages(Page $page) {
 	
 		$pages = $this->wire()->pages;
-		$lockedModes = array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked);
+		$lockedModes = array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked, Inputfield::collapsedBlankLocked);
 		$statusUnder = $this->allowUnpub ? Page::statusTrash : Page::statusUnpublished; 
 		$children = null;
 		$templateIDs = $this->getTemplateIDs(true);

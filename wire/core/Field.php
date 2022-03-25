@@ -1002,11 +1002,18 @@ class Field extends WireData implements Saveable, Exportable {
 		} else if($locked) {
 			// Inputfield is locked as a result of access control
 			$collapsed = $inputfield->getSetting('collapsed'); 
-			$ignoreCollapsed = array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked, Inputfield::collapsedHidden);
+			$ignoreCollapsed = array(
+				Inputfield::collapsedNoLocked, 
+				Inputfield::collapsedBlankLocked, 
+				Inputfield::collapsedYesLocked, 
+				Inputfield::collapsedHidden
+			);
 			if(!in_array($collapsed, $ignoreCollapsed)) {
 				// Inputfield is not already locked or hidden, convert to locked equivalent
-				if($collapsed == Inputfield::collapsedYes || $collapsed == Inputfield::collapsedBlank) {
+				if($collapsed == Inputfield::collapsedYes) {
 					$collapsed = Inputfield::collapsedYesLocked;
+				} else if($collapsed == Inputfield::collapsedBlank) {
+					$collapsed = Inputfield::collapsedBlankLocked;
 				} else if($collapsed == Inputfield::collapsedNo) {
 					$collapsed = Inputfield::collapsedNoLocked;
 				} else {

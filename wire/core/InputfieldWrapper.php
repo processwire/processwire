@@ -684,6 +684,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 		$classes = array();
 		$useColumnWidth = $this->useColumnWidth;
 		$renderAjaxInputfield = $this->wire()->config->ajax ? $this->wire()->input->get('renderInputfieldAjax') : null;
+		$lockedStates = array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked, Inputfield::collapsedBlankLocked);
 		
 		if($useColumnWidth === true && isset($_classes['form']) && strpos($_classes['form'], 'InputfieldFormNoWidths') !== false) {
 			$useColumnWidth = false;
@@ -718,7 +719,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			$showIf = $inputfield->getSetting('showIf'); 
 			
 			if($collapsed == Inputfield::collapsedHidden) continue; 
-			if($collapsed == Inputfield::collapsedNoLocked || $collapsed == Inputfield::collapsedYesLocked) $renderValueMode = true;
+			if(in_array($collapsed, $lockedStates)) $renderValueMode = true;
 
 			$ffOut = $this->renderInputfield($inputfield, $renderValueMode);
 			if(!strlen($ffOut)) continue;
@@ -797,7 +798,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 					$collapsed === Inputfield::collapsedYesAjax ||
 					($isEmpty && $collapsed === Inputfield::collapsedBlank) ||
 					($isEmpty && $collapsed === Inputfield::collapsedBlankAjax) ||
-					($isEmpty && $collapsed === Inputfield::collapsedNoLocked) || // collapsedNoLocked assumed to be like a collapsedBlankLocked
+					($isEmpty && $collapsed === Inputfield::collapsedBlankLocked) ||
 					(!$isEmpty && $collapsed === Inputfield::collapsedPopulated)) {
 						$ffAttrs['class'] .= ' ' . $classes['item_collapsed'];
 					}
@@ -1157,6 +1158,7 @@ class InputfieldWrapper extends Inputfield implements \Countable, \IteratorAggre
 			Inputfield::collapsedHidden,
 			Inputfield::collapsedLocked,
 			Inputfield::collapsedNoLocked,
+			Inputfield::collapsedBlankLocked,
 			Inputfield::collapsedYesLocked
 		);
 		$collapsed = (int) $inputfield->getSetting('collapsed');

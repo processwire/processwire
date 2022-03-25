@@ -829,6 +829,8 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 		$pages = $this->wire()->pages;
 		$fields = $this->wire()->fields;
 		$user = $this->wire()->user;
+		
+		$lockedStates = array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked, Inputfield::collapsedBlankLocked);
 
 		/** @var InputfieldForm $form */
 		$form = $modules->get('InputfieldForm');
@@ -847,7 +849,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 						$_field = $this->template->fieldgroup->getField($field->id, true); // get in context of fieldgroup
 						if($_field) $field = $_field;
 					}
-					if(in_array($field->collapsed, array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked))) continue;
+					if(in_array($field->collapsed, $lockedStates)) continue;
 					$inputfield = $field->getInputfield($page);
 					if($inputfield) {
 						if($this->template && $this->template->noLang) $inputfield->useLanguages = false;
@@ -861,7 +863,7 @@ class ProcessPageAdd extends Process implements ConfigurableModule, WirePageEdit
 			/** @var Field $field */
 			$field = $this->template->fieldgroup->getField('title', true);
 			if($field) {
-				if(in_array($field->collapsed, array(Inputfield::collapsedNoLocked, Inputfield::collapsedYesLocked))) {
+				if(in_array($field->collapsed, $lockedStates)) {
 					// skip it
 				} else {
 					$inputfield = $field->getInputfield($page);

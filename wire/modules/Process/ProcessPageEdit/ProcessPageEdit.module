@@ -912,6 +912,7 @@ class ProcessPageEdit extends Process implements WirePageEditor, ConfigurableMod
 					$skipCollapsed = array(
 						Inputfield::collapsedHidden,
 						Inputfield::collapsedNoLocked,
+						Inputfield::collapsedBlankLocked,
 						Inputfield::collapsedYesLocked,
 					);
 					$collapsed = $inputfield->getSetting('collapsed');
