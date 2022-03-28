@@ -1183,7 +1183,8 @@ class PagesLoader extends Wire {
 					if($_page) {
 						// populate provided Page object
 						$page = $_page;
-						$page->set('template', $template ? $template : $row['templates_id']);
+						$page->set('template', $template ? $template : (int) $row['templates_id']);
+						if(!$page->get('parent_id')) $page->set('parent_id', (int) $row['parent_id']); 
 					} else {
 						// create new Page object
 						$pageTemplate = $template ? $template : $templates->get((int) $row['templates_id']); 
