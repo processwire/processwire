@@ -170,9 +170,9 @@ class WireDateTime extends Wire {
 		if(empty($str)) return '';
 
 		// already a timestamp
-		if(ctype_digit(ltrim($str, '-'))) return (int) $str;
+		if(ctype_digit(ltrim("$str", '-'))) return (int) $str;
 
-		$format = trim($format);
+		$format = trim("$format");
 		if(!strlen($format)) return strtotime($str);
 
 		// use PHP 5.3's date parser if its available
