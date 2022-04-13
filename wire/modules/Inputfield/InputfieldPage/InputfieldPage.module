@@ -365,7 +365,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			
 		} else if($findPagesSelector) { 
 			// a find() selector
-			$instance = $this->processInputMode ? $this : null;
+			$instance = $this->processInputMode || strpos($findPagesSelector, '=page.') ? $this : null;
 			$selector = self::populateFindPagesSelector($page, $findPagesSelector, $instance);
 			$children = $pages->find($selector); 
 
@@ -424,16 +424,23 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 	
 		// if an $inputfield is passed in, then we want to retrieve dependent values directly
 		// from the form, rather than from the $page
+		$repeaterWrappers = array(); // 0, 1, or 2+ if nested repeaters
 		/** @var InputfieldWrapper $form */
 		if($inputfield) {
 			// locate the $form
 			$n = 0;
 			$form = $inputfield;
 			do {
-				$form = $form->getParent();
+				if($form instanceof InputfieldWrapper && $form->hasClass('InputfieldRepeaterItem')) {
+					$repeaterWrappers[] = $form;
+				}
+				$f = $form->getParent();
+				if($f) $form = $f;
 				if(++$n > 10) break;
-			} while($form && $form->className() != 'InputfieldForm'); 
-		} else $form = null;
+			} while($f && $f->className() != 'InputfieldForm'); 
+		} else {
+			$form = null;
+		}
 
 		// find variables identified by: page.field or page.field.subfield
 		if(strpos($selector, '=page.') !== false) {
@@ -445,8 +452,22 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 				$value = null;
 				if($form && (!$subfield || $subfield == 'id')) {
 					// attempt to get value from the form, to account for ajax changes that would not yet be reflected on the page
-					$in = $form->getChildByName($field); 
-					if($in) $value = $in->attr('value');
+					$in = $form instanceof InputfieldWrapper ? $form->getChildByName($field) : null; 
+					if($in) {
+						$value = $in->attr('value');
+					} else if(count($repeaterWrappers)) {
+						// fields in repeaters use a namespaced name attribute so match by hasField instead
+						foreach($repeaterWrappers as $repeaterWrapper) {
+							/** @var InputfieldWrapper $repeaterWrapper */
+							$value = null;
+							foreach($repeaterWrapper->getAll() as $in) {
+								if("$in->hasField" !== $field) continue;
+								$value = $in->val();
+								break;
+							}
+							if($value !== null) break;
+						}
+					}
 				}
 				if(is_null($value)) $value = $page->get($field); 
 				if(is_object($value) && $subfield) $value = $value->$subfield;
@@ -646,6 +667,13 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 
 		} else if(method_exists($inputfield, 'addOption') || $inputfield instanceof InputfieldHasSelectableOptions) {
 			// All selectable options types
+			if($this->hasPage && $this->hasPage->id != $page->id && wireInstanceOf($this->hasPage, 'RepeaterPage')) {
+				if($this->hasField && !$page->hasField($this->hasField) && $this->hasPage->hasField($this->hasField)) {
+					// replace page with RepeaterPage
+					$page = $this->hasPage; 
+					$inputfield->set('hasPage', $page);
+				}
+			}
 			
 			$children = $this->getSelectablePages($page);
 			
@@ -681,7 +709,7 @@ class InputfieldPage extends Inputfield implements ConfigurableModule {
 			if(!empty($template_ids)) $inputfield->set('template_ids', $template_ids);
 			
 			if($findPagesSelector) {
-				$inputfield->set('findPagesSelector', self::populateFindPagesSelector($page, $findPagesSelector)); 
+				$inputfield->set('findPagesSelector', self::populateFindPagesSelector($page, $findPagesSelector, $this)); 
 			}
 			
 			if(strlen($labelFieldFormat) && $labelFieldName === '.') {
