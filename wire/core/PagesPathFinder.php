@@ -881,6 +881,11 @@ class PagesPathFinder extends Wire {
 			// redirect suggested
 			$response = 301;
 		}
+		
+		if($result['pageNum'] > 1 && ($response === 301 || $response === 302)) {
+			// redirect where pageNum is greater than 1
+			$response = $this->finishResultRedirectPageNum($response, $result);
+		}
 
 		if(empty($language['name'])) {
 			// set language property (likely for non-multi-language install)
@@ -1932,6 +1937,60 @@ class PagesPathFinder extends Wire {
 			break;
 		}
 		return $path;
+	}
+	
+	
+	/*** ADDITIONAL/HELPER LOGIC ****************************************************************/
+	
+	/**
+	 * Update result for cases where a redirect was determined that involved pagination
+	 *
+	 * Most of the logic here allows for the special case of admin URLs, which work with either
+	 * a custom pageNumUrlPrefix or the original/default one. This is a helper for the
+	 * finishResult() method. 
+	 *
+	 * @param int $response
+	 * @var array $result
+	 * @return int
+	 * @since 3.0.198
+	 *
+	 */
+	protected function finishResultRedirectPageNum($response, &$result) {
+
+		if($result['pageNum'] < 2) return $response;
+
+		if(empty($result['page']['templates_id'])) return $response;
+		if($result['page']['status'] >= Page::statusUnpublished) return $response;
+
+		// The config[_pageNumUrlPrefix] property is set by LanguageSupportPageNames
+		$pageNumUrlPrefix = $this->wire()->config->get('_pageNumUrlPrefix');
+		if(empty($pageNumUrlPrefix)) $pageNumUrlPrefix = 'page';
+
+		// if default/original pageNum prefix not in use then do nothing further
+		if($result['pageNumPrefix'] !== $pageNumUrlPrefix) return $response;
+
+		// if request is not for something in the admin then do nothing further
+		$adminTemplate = $this->wire()->templates->get('admin');
+		if(!$adminTemplate || $result['page']['templates_id'] != $adminTemplate->id) return $response;
+
+		// request is for pagination within admin, where we allow either custom or original/default prefix
+		$requestParts = explode('/', trim($result['request'], '/'));
+		$redirectParts = explode('/', trim($result['redirect'], '/'));
+
+		$requestPrefix = array_pop($requestParts);
+		$redirectPrefix = array_pop($redirectParts);
+
+		$requestPath = implode('/', $requestParts);
+		$redirectPath = implode('/', $redirectParts);
+
+		// if something other than pagination prefix differs then do nothing further
+		if($requestPath != $redirectPath || $requestPrefix === $redirectPrefix) return $response;
+
+		// only the pagination prefix differs, allow it when in admin
+		$result['notes'][] = "Default pagination prefix '$pageNumUrlPrefix' allowed for admin template";
+		$response = 200;
+
+		return $response;
 	}
 
 }
