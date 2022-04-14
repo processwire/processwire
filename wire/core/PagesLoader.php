@@ -5,7 +5,7 @@
  * 
  * Implements page finding/loading methods of the $pages API variable
  *
- * ProcessWire 3.x, Copyright 2016 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -319,8 +319,14 @@ class PagesLoader extends Wire {
 		$debug = $this->debug && !$lazy;
 		$allowShortcuts = $loadPages && !$lazy && (!$findIDs || $findIDs === 4); 
 		$joinFields = isset($options['joinFields']) ? $options['joinFields'] : array();
-		$cachePages = isset($options['cache']) ? (bool) $options['cache'] : true;
-		if(!$cachePages && !isset($loadOptions['cache'])) $loadOptions['cache'] = false;
+		$cachePages = isset($options['cache']) ? $options['cache'] : true;
+		
+		if($cachePages) {
+			$options['cache'] = $cachePages;
+			$loadOptions['cache'] = $cachePages;
+		} else if(!isset($loadOptions['cache'])) {
+			$loadOptions['cache'] = false;
+		}
 		
 		if($allowShortcuts) {
 			$pages = $this->findShortcut($selector, $options, $loadOptions);
@@ -940,10 +946,8 @@ class PagesLoader extends Wire {
 			'caller' => '', 
 		);
 	
-		/** @var Templates $templates */
-		$templates = $this->wire('templates');
-		/** @var WireDatabasePDO $database */
-		$database = $this->wire('database');
+		$templates = $this->wire()->templates;
+		$database = $this->wire()->database;
 		$idsByTemplate = array();
 		$loading = $this->loading;
 
@@ -952,6 +956,7 @@ class PagesLoader extends Wire {
 			$options = array_merge($options, $template);
 			$template = $options['template'];
 			$parent_id = $options['parent_id'];
+			if("$options[cache]" === "1") $options['cache'] = true;
 		} else if(!is_null($template) && !$template instanceof Template) {
 			throw new WireException('getById argument 2 must be Template or $options array');
 		}
@@ -1107,7 +1112,7 @@ class PagesLoader extends Wire {
 			if($template) {
 				$fields = $template->fieldgroup;
 			} else {
-				$fields = $this->wire('fields');
+				$fields = $this->wire()->fields;
 			}
 
 			/** @var DatabaseQuerySelect $query */
@@ -1196,22 +1201,26 @@ class PagesLoader extends Wire {
 						));
 					}
 					unset($row['templates_id'], $row['parent_id']);
+					$page->loaderCache = $options['cache'];
 					foreach($row as $key => $value) $page->set($key, $value);
-					if($options['cache'] === false) $page->loaderCache = false;
 					$page->instanceID = ++self::$pageInstanceID;
 					$page->setIsLoaded(true);
 					$page->setIsNew(false);
 					$page->resetTrackChanges(true);
 					$page->setOutputFormatting($this->outputFormatting);
 					$loaded[$page->id] = $page;
-					if($options['cache']) $this->pages->cache($page);
+					if($options['cache'] === true) {
+						$this->pages->cache($page);
+					} else if($options['cache']) {
+						$this->pages->cacher()->cacheGroup($page, $options['cache']);
+					}
 					$this->totalPagesLoaded++;
 				}
 			} catch(\Exception $e) {
 				$error = $e->getMessage() . " [pageClass=$class, template=$template]";
 				$user = $this->wire('user');
 				if($user && $user->isSuperuser()) $this->error($error);
-				$this->wire('log')->error($error);
+				$this->wire()->log->error($error);
 				$this->trackException($e, false);
 			}
 
@@ -1232,7 +1241,7 @@ class PagesLoader extends Wire {
 
 		// debug mode only
 		if($this->debug) {
-			$page = $this->wire('page');
+			$page = $this->wire()->page;
 			if($page && $page->template == 'admin') {
 				if(empty($options['caller'])) {
 					$_template = is_null($template) ? '' : ", $template";

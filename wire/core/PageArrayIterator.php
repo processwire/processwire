@@ -74,6 +74,12 @@ class PageArrayIterator extends Wire implements \Iterator {
 	 * 
 	 */ 
 	protected $chunkSize = 250;
+
+	/**
+	 * @var string
+	 * 
+	 */
+	protected $cacheGroup = '';
 	
 	/**
 	 * Construct
@@ -92,23 +98,25 @@ class PageArrayIterator extends Wire implements \Iterator {
 	 * 
 	 */
 	protected function loadChunk() {
-		$this->chunkSize = (int) $this->wire('config')->lazyPageChunkSize;
+		$this->chunkSize = (int) $this->wire()->config->lazyPageChunkSize;
 		$this->pagesPosition = 0;
 		$start = $this->currentChunk++ * $this->chunkSize;
+		$pages = $this->wire()->pages;
+		
+		if($this->cacheGroup) {
+			$this->wire()->pages->cacher()->uncacheGroup($this->cacheGroup);
+		}
 
 		// If the starting position exceeds the amount of placeholder objects, we just issue an empty
 		// PageArray, which causes the loop to stop (because valid() will return false)
 		if(!isset($this->lazypages[$start])) {
 			
-			$this->pages = $this->wire('pages')->newPageArray();
+			$this->pages = $pages->newPageArray();
 			
 		} else {
 			
 			// Check if the user gave options for the loading
 			$options = isset($this->options['loadOptions']) ? $this->options['loadOptions'] : array();
-
-			// Always disable the cache
-			$options['cache'] = false;
 
 			// Here we retrieve a chunk of Page objects and loop over them to retrieve the IDs of the Pages.
 			$lazypages = array_slice($this->lazypages, $start, $this->chunkSize);
@@ -120,8 +128,10 @@ class PageArrayIterator extends Wire implements \Iterator {
 				// of real Page-objects from Pages::getById()
 				$ids[] = $page->id;
 			}
+			
+			$this->cacheGroup = 'lazy' . md5(implode(',', $ids));
+			$options['cache'] = $this->cacheGroup;
 
-			$pages = $this->wire('pages');
 			$debug = $pages->debug();
 			if($debug) $pages->debug(false);
 			$this->pages = $pages->getById($ids, $options);

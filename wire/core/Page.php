@@ -81,7 +81,7 @@
  * @property string $editUrl URL that this page can be edited at. #pw-group-urls
  * @property string $editURL Alias of $editUrl. #pw-internal
  * @property PageRender $render May be used for field markup rendering like $page->render->title. #pw-advanced
- * @property bool $loaderCache Whether or not pages loaded as a result of this one may be cached by PagesLoaderCache. #pw-internal
+ * @property bool|string $loaderCache Whether or not pages loaded as a result of this one may be cached by PagesLoaderCache. #pw-internal
  * @property PageArray $references Return pages that are referencing the given one by way of Page references. #pw-group-traversal
  * @property int $numReferences Total number of pages referencing this page with Page reference fields. #pw-group-traversal
  * @property int $hasReferences Number of visible pages (to current user) referencing this page with page reference fields. #pw-group-traversal
@@ -462,7 +462,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 	/**
 	 * Whether or not pages loaded by this one are allowed to be cached by PagesLoaderCache class
 	 * 
-	 * @var bool
+	 * @var bool|string Bool for yes/no or string for yes w/group name where page cached/cleared with others having same group name.
 	 * 
 	 */
 	protected $loaderCache = true;
@@ -764,7 +764,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 				self::$instanceIDs[$value] = $this->settings['id']; 
 				break;
 			case 'loaderCache':
-				$this->loaderCache = (bool) $value;	
+				$this->loaderCache = is_bool($value) || ctype_digit("$value") ? (bool) $value : (string) $value;	
 				break;
 			default:
 				if(isset(PageProperties::$languageProperties[$key])) {
@@ -4451,7 +4451,7 @@ class Page extends WireData implements \Countable, WireMatchable {
 			if(!is_int($this->lazyLoad) || $this->lazyLoad < 1) return false;
 			$this->lazyLoad = true;
 			$page = $this->wire()->pages->getById($this->id, array(
-				'cache' => false,
+				'cache' => (is_string($this->loaderCache) ? $this->loaderCache : false),
 				'getOne' => true,
 				'page' => $this // This. Just This.
 			));
