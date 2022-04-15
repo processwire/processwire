@@ -1533,10 +1533,10 @@ abstract class ImageSizerEngine extends WireData implements Module, Configurable
 			'2' => array(0, 1),
 			'3' => array(180, 0),
 			'4' => array(0, 2),
-			'5' => array(270, 1),
-			'6' => array(270, 0),
-			'7' => array(90, 1),
-			'8' => array(90, 0)
+			'5' => array(90, 1),    // OLD: 270
+			'6' => array(90, 0),    // OLD: 270
+			'7' => array(270, 1),   // OLD: 90
+			'8' => array(270, 0)    // OLD: 90
 		);
 		
 		if(!isset($this->info['orientation']) || !isset($corrections[strval($this->info['orientation'])])) {
