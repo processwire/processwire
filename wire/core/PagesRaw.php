@@ -3,7 +3,7 @@
 /**
  * ProcessWire Pages Raw Tools
  *
- * ProcessWire 3.x, Copyright 2021 by Ryan Cramer
+ * ProcessWire 3.x, Copyright 2022 by Ryan Cramer
  * https://processwire.com
  *
  */
@@ -38,10 +38,12 @@ class PagesRaw extends Wire {
 	 * @param array $options See options for Pages::find
 	 *  - `objects` (bool): Use objects rather than associative arrays? (default=false)
 	 *  - `entities` (bool|array): Entity encode string values? True, or specify array of field names. (default=false)
+	 *  - `nulls` (bool): Populate nulls for field values that are not present, rather than omitting them? (default=false) 3.0.198+
 	 *  - `indexed` (bool): Index by page ID? (default=true)
 	 *  - `flat` (bool|string): Flatten return value as `["field.subfield" => "value"]` rather than `["field" => ["subfield" => "value"]]`?
 	 *     Optionally specify field delimiter, otherwise a period `.` will be used as the delimiter. (default=false) 3.0.193+
 	 *  - Note the `objects` and `flat` options are not meant to be used together. 
+	 * 
 	 * @return array
 	 * @since 3.0.172
 	 *
@@ -262,7 +264,8 @@ class PagesRawFinder extends Wire {
 	protected $defaults = array(
 		'indexed' => true,
 		'objects' => false, 
-		'entities' => false, 
+		'entities' => false,
+		'nulls' => false,
 		'findOne' => false,
 		'flat' => false,
 	);
@@ -488,9 +491,9 @@ class PagesRawFinder extends Wire {
 			$this->splitFields();
 		}
 		
-		// detect 'objects' and 'entities' options in selector
+		// detect options in selector
 		$optionsValues = array();
-		foreach(array('objects', 'entities', 'flat', 'options') as $name) {
+		foreach(array('objects', 'entities', 'flat', 'nulls', 'options') as $name) {
 			if($this->selectorIsPageIDs) continue;
 			if($selectorString && strpos($selectorString, "$name=") === false) continue;
 			if($fields->get($name)) continue; // if maps to a real field then ignore
@@ -617,6 +620,10 @@ class PagesRawFinder extends Wire {
 			foreach($this->values as $key => $value) {
 				$this->values[$key] = $this->flattenValues($value, '', $delimiter);
 			}
+		}
+
+		if($this->options['nulls']) {
+			$this->populateNullValues($this->values);
 		}
 
 		if($this->options['objects']) {
@@ -1600,6 +1607,49 @@ class PagesRawFinder extends Wire {
 		return $flat;
 	}
 
+	/**
+	 * Populate null values for requested fields that were not present (the 'nulls' option)
+	 * 
+	 * Applies only if specific fields were requested. 
+	 * 
+	 * @var array $values
+	 * @since 3.0.198
+	 * 
+	 */
+	protected function populateNullValues(&$values) {
+		$emptyValue = array();
+		if(count($this->requestFields)) {
+			// specific fields requested
+			foreach($this->requestFields as $name) {
+				if(isset($this->renameFields[$name])) $name = $this->renameFields[$name];
+				if(!$this->options['flat'] && strpos($name, '.')) list($name,) = explode('.', $name, 2);
+				$emptyValue[$name] = null;
+			}
+			foreach($values as $key => $value) {
+				$values[$key] = array_merge($emptyValue, $value);
+			}
+		} else {
+			// all fields requested
+			$templates = $this->wire()->templates;
+			$emptyValues = array();
+			foreach($values as $key => $value) {
+				if(!isset($value['templates_id'])) continue;
+				$tid = (int) $value['templates_id'];
+				if(isset($emptyValues[$tid])) {
+					$emptyValue = $emptyValues[$tid];
+				} else {
+					$template = $templates->get((int) $value['templates_id']);
+					if(!$template) continue;
+					$emptyValue = array();
+					foreach($template->fieldgroup as $field) {
+						$emptyValue[$field->name] = null;
+					}
+					$emptyValues[$tid] = $emptyValue;
+				}
+				$values[$key] = array_merge($emptyValue, $value);
+			}
+		}
+	}
 
 	/**
 	 * Process given array of values to populate $this->requestFields and $this->renameFields

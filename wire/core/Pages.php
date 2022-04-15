@@ -581,8 +581,11 @@ class Pages extends Wire {
 	 * @param array $options Options to adjust behavior (may also be specified in selector, i.e. “objects=1, entities=foo|bar”)
 	 *  - `objects` (bool): Use objects rather than associative arrays? (default=false) 3.0.174+
 	 *  - `entities` (bool|array): Entity encode string values? True or 1 to enable, or specify array of field names. (default=false) 3.0.174+
+	 *  - `nulls` (bool): Populate nulls for field values that are not present, rather than omitting them? (default=false) 3.0.198+
+	 *  - `indexed` (bool): Index by page ID? (default=true)
 	 *  - `flat` (bool|string): Flatten return value as `["field.subfield" => "value"]` rather than `["field" => ["subfield" => "value"]]`?
 	 *     Optionally specify field delimiter for the value, otherwise a period `.` will be used as the delimiter. (default=false) 3.0.193+
+	 *  - Any of these options above can be specified in the $selector argument as a string, i.e. `…, flat=1, entities=1`. 
 	 *  - Note the `objects` and `flat` options are not meant to be used together.
 	 * @return array
 	 * @since 3.0.172
