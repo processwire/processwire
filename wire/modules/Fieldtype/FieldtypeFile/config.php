@@ -195,7 +195,7 @@ class FieldtypeFileConfiguration extends Wire {
 		$example = array(
 			'// ' . $this->_('Display all files with tag “sidebar”'), 
 			'foreach($page->images as $file) {',
-			'  if($file->hasTag("sidebar") {', 
+			'  if($file->hasTag("sidebar")) {', 
 			'    echo "<img src=\'$file->url\' alt=\'$file->description\'>";',
 			'  }',
 			'}',
