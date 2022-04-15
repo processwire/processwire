@@ -841,7 +841,6 @@ abstract class AdminThemeFramework extends AdminTheme {
 
 		if($this->customTemplatePath) {
 			$file = $this->customTemplatePath . $basename;
-			if(file_exists($file)) $this->warning($file);
 			if(!file_exists($file)) $file = '';
 		}
 
