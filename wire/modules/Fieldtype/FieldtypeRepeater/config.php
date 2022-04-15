@@ -87,6 +87,9 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		$inputfields->add($f);
 
 		// -------------------------------------------------
+	
+		/** @var ProcessTemplate $processTemplate */	
+		$processTemplate = $modules->getModule('ProcessTemplate', array('noInit' => true));
 
 		/** @var InputfieldAsmSelect $select */
 		$select = $modules->get('InputfieldAsmSelect');
@@ -104,15 +107,8 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 		foreach($template->fieldgroup as $f) {
 			/** @var Field $f */
 			$f = $template->fieldgroup->getField($f->id, true); // get in context
-			$columnWidth = (int) $f->get('columnWidth');
-
-			$attrs = array(
-				'selected' => 'selected',
-				'data-status' => str_replace('Fieldtype', '', $f->type) . ' ' . ($columnWidth > 0 ? $columnWidth . '%': '100%'),
-				'data-desc' => $f->getLabel(),
-			);
-			$icon = $f->getIcon();
-			if($icon) $attrs['data-handle'] = "<i class='fa fa-fw fa-$icon'></i>";
+			$attrs = $processTemplate->getAsmListAttrs($f);
+			$attrs['selected'] = 'selected';
 			$select->addOption($f->id, $f->name, $attrs);
 		}
 
@@ -122,13 +118,7 @@ class FieldtypeRepeaterConfigHelper extends Wire {
 			if(($f->flags & Field::flagPermanent) && !$this->wire('config')->advanced) continue;
 			$name = $f->name;
 			if($f->flags & Field::flagSystem) $name .= "*";
-			$columnWidth = (int) $f->get('columnWidth');
-			$attrs = array(
-				'data-desc' => $f->getLabel(),
-				'data-status' => str_replace('Fieldtype', '', $f->type) . ' ' . ($columnWidth > 0 ? $columnWidth . '%': '100%'),
-			);
-			$icon = $f->getIcon();
-			if($icon) $attrs['data-handle'] = "<i class='fa fa-fw fa-$icon'></i>";
+			$attrs = $processTemplate->getAsmListAttrs($f);
 			$select->addOption($f->id, $name, $attrs);
 		}
 
