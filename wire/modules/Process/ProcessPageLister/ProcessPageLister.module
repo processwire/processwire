@@ -344,14 +344,15 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	public function init() {
 		if(!$this->wire('page')) return;
 		
-		/** @var WireInput $input */
-		$input = $this->wire('input');
+		$input = $this->wire()->input;
+		$config = $this->wire()->config;
+		$config->admin = true;
 		
 		$this->checkSessionBookmark();
 		
 		$columns = $this->sessionGet('columns'); 
 		if($columns) $this->columns = $columns; 
-		$ajax = $this->wire('config')->ajax;
+		$ajax = $config->ajax;
 		
 		$this->renderResults = $ajax && $input->post('render_results') > 0;
 		
@@ -1927,8 +1928,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	protected function ___renderResults($selector = null) {
 		
-		/** @var Sanitizer $sanitizer */
-		$sanitizer = $this->wire('sanitizer');
+		$sanitizer = $this->wire()->sanitizer;
 
 		if(is_null($selector)) $selector = $this->getSelector();
 		if(!count($this->columns)) $this->columns = $this->defaultColumns; 
@@ -1948,7 +1948,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			$headline = sprintf($this->_('%1$d to %2$d of %3$d'), $start+1, $end, $total); 
 			if($total > $limit) {
 				/** @var MarkupPagerNav $pager */
-				$pager = $this->modules->get('MarkupPagerNav'); 
+				$pager = $this->wire()->modules->get('MarkupPagerNav'); 
 				$pagerOut = $pager->render($results);
 				$pageURL = $this->wire('page')->url; 
 				$pagerOut = str_replace($pageURL . "'", $pageURL . "?pageNum=1'", $pagerOut); // specifically identify page1
@@ -2059,7 +2059,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 */
 	public function ___execute() {
 		if(!$this->wire('page')) return '';
-		$modules = $this->wire('modules');
+		
+		$modules = $this->wire()->modules;
+		$input = $this->wire()->input;
 	
 		$this->setupOpenPageIDs();
 	
@@ -2073,7 +2075,7 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 			return $out;
 		}
 		
-		if($this->wire('input')->get('reset')) {
+		if($input->get('reset')) {
 			return $this->executeReset();
 		}
 
@@ -2082,15 +2084,19 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 
 		$modules->get('JqueryWireTabs');
 		$modules->get('MarkupAdminDataTable'); // to ensure css/js load
-		$modules->get('JqueryTableSorter')->use('widgets');
+		
+		$jQueryTableSorter = $modules->get('JqueryTableSorter'); /** @var JqueryTableSorter $jQueryTableSorter */
+		$jQueryTableSorter->use('widgets');
+		
 		$modules->get('JqueryMagnific');
 		
-		if($this->wire('input')->get('modal') == 'inline') {
-			$modules->get('JqueryCore')->use('iframe-resizer-frame');
+		if($input->get('modal') == 'inline') {
+			$jQueryCore = $modules->get('JqueryCore'); /** @var JqueryCore $jQueryCore */
+			$jQueryCore->use('iframe-resizer-frame');
 		}
 
 		$out = '';
-		if(!$this->wire('input')->get('minimal')) {
+		if(!$input->get('minimal')) {
 			$out .= $this->buildFiltersForm()->render();
 			if(!in_array('disableColumns', $this->toggles)) {
 				$out .= $this->buildColumnsForm()->render();

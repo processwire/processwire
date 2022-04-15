@@ -199,15 +199,15 @@ class PagesType extends Wire implements \IteratorAggregate, \Countable {
 	
 		$validTemplate = $this->hasValidTemplate($page);
 		if(!$validTemplate && count($this->templates)) {
-			$validTemplates = implode(', ', array_keys($this->templates));
-			$this->error("Page $page->path must have template: $validTemplates");
+			// $validTemplates = implode(', ', array_keys($this->templates));
+			// $this->error("Page $page->path ($page->template) must have template: $validTemplates");
 			return false;
 		}
 		
 		$validParent = $this->hasValidParent($page);
 		if(!$validParent && count($this->parents)) {
-			$validParents = implode(', ', $this->parents);
-			$this->error("Page $page->path must have parent: $validParents");
+			// $validParents = implode(', ', $this->parents);
+			// $this->error("Page $page->path must have parent: $validParents");
 			return false;
 		}
 		

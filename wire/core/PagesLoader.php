@@ -1054,7 +1054,10 @@ class PagesLoader extends Wire {
 		$idCnt = count($ids); // idCnt contains quantity of remaining page ids to load
 		if(!$idCnt) {
 			// if there are no more pages left to load, we can return what we've got
-			if($options['getOne']) return count($loaded) ? reset($loaded) : $this->pages->newNullPage();
+			if($options['getOne']) {
+				$page = count($loaded) ? reset($loaded) : null;
+				return $page instanceof Page ? $page : $this->pages->newNullPage();
+			}
 			$pages = $this->pages->newPageArray($options);
 			$pages->setDuplicateChecking(false);
 			$pages->import($loaded);
@@ -1230,7 +1233,8 @@ class PagesLoader extends Wire {
 
 		if($options['getOne']) {
 			if(!$loading) $this->loading = false;
-			return count($loaded) ? reset($loaded) : $this->pages->newNullPage();
+			$page = count($loaded) ? reset($loaded) : null;
+			return $page instanceof Page ? $page : $this->pages->newNullPage();
 		}
 		
 		$pages = $this->pages->newPageArray($options);

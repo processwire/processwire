@@ -36,6 +36,14 @@ class Users extends PagesType {
 	protected $guestUser = null;
 
 	/**
+	 * Cached guest role id
+	 * 
+	 * @var int|null
+	 * 
+	 */
+	protected $guestRoleId = 0;
+
+	/**
 	 * Validated custom page class cache for getPageClass method
 	 * 
 	 * @var string
@@ -54,6 +62,7 @@ class Users extends PagesType {
 	public function __construct(ProcessWire $wire, $templates = array(), $parents = array()) {
 		parent::__construct($wire, $templates, $parents);
 		$this->setPageClass('User'); 
+		$this->guestRoleId = (int) $wire->config->guestUserRolePageID;
 	}
 	
 	/**
@@ -61,6 +70,7 @@ class Users extends PagesType {
 	 * 
 	 * @param string $selectorString
 	 * @return Page|NullPage|null
+	 * 
 	 */
 	public function get($selectorString) {
 		$user = parent::get($selectorString);
@@ -74,22 +84,7 @@ class Users extends PagesType {
 	 *
 	 */
 	public function setCurrentUser(User $user) {
-		
-		$hasGuest = false;
-		$guestRoleID = $this->wire('config')->guestUserRolePageID; 
-		
-		if($user->roles) foreach($user->roles as $role) {
-			if($role->id == $guestRoleID) {
-				$hasGuest = true; 	
-				break;
-			}
-		}
-		
-		if(!$hasGuest && $user->roles) {
-			$guestRole = $this->wire('roles')->getGuestRole();
-			$user->roles->add($guestRole);
-		}
-		
+		$this->checkGuestRole($user);
 		$this->currentUser = $user; 
 		$this->wire('user', $user); 
 	}
@@ -101,10 +96,28 @@ class Users extends PagesType {
 	 *
 	 */
 	protected function loaded(Page $page) {
-		static $guestID = null;
-		if(is_null($guestID)) $guestID = $this->wire('config')->guestUserRolePageID; 
-		$roles = $page->get('roles'); 
-		if(!$roles->has("id=$guestID")) $page->get('roles')->add($this->wire('roles')->getGuestRole());
+		if($page instanceof User) $this->checkGuestRole($page);
+	}
+
+	/**
+	 * Check that given user has guest role and add it if not 
+	 * 
+	 * @param User $user
+	 * @since 3.0.198
+	 * 
+	 */
+	protected function checkGuestRole(User $user) {
+		$hasGuestRole = false;
+		$userRoles = $user->roles;
+		if(!$userRoles) return;
+		foreach($userRoles as $role) {
+			if($role->id != $this->guestRoleId) continue;
+			$hasGuestRole = true;
+			break;
+		}
+		if(!$hasGuestRole) {
+			$user->addRole($this->wire()->roles->getGuestRole());
+		}
 	}
 
 	/**
@@ -126,7 +139,7 @@ class Users extends PagesType {
 	 */
 	public function getGuestUser() {
 		if($this->guestUser) return $this->guestUser; 
-		$this->guestUser = $this->get($this->config->guestUserPageID); 
+		$this->guestUser = $this->get($this->wire()->config->guestUserPageID); 
 		if(defined("PROCESSWIRE_UPGRADE") && !$this->guestUser || !$this->guestUser->id) {
 			$this->guestUser = $this->newUser(); // needed during upgrade
 		}
@@ -211,12 +224,9 @@ class Users extends PagesType {
 	 */
 	public function ___saveReady(Page $page) {
 		/** @var User $user */
-		$user = $page; 		
-		if(!$user->id && $user instanceof User) {
-			// add guest role if user doesn't already have it
-			$role = $this->wire('roles')->get($this->wire('config')->guestUserRolePageID);
-			if($role->id && !$user->hasRole($role)) $user->addRole($role);
-		}
+		$user = $page;
+		// add guest role if user doesn't already have it
+		if(!$user->id && $user instanceof User) $this->checkGuestRole($user);
 		return parent::___saveReady($user);
 	}
 
