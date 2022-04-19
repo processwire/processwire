@@ -534,7 +534,7 @@ class ProcessPageListerBookmarks extends Wire {
 		$bookmarkSelector = str_replace(', , ', ', ', $bookmarkSelector);
 		$bookmarkSelector = trim($bookmarkSelector, ', ');
 
-		if($bookmarkID) {
+		if($bookmarkID && $this->user->isSuperuser()) {
 			$bookmarkColumns = $input->post('bookmark_columns');
 			foreach($bookmarkColumns as $cnt => $column) {
 				$column = $sanitizer->name($column);
@@ -545,6 +545,8 @@ class ProcessPageListerBookmarks extends Wire {
 				}
 			}
 			$bookmarkColumns = array_values($bookmarkColumns);
+		} else if($bookmarkID && $existingBookmark) {
+			$bookmarkColumns = $existingBookmark['columns'];
 		} else {
 			$bookmarkColumns = $this->lister->columns;
 		}
