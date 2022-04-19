@@ -1235,11 +1235,27 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 	 * 
 	 */
 	protected function isSortableCol(Field $field, $subfield = '') {
+		if(!$this->isSortableField($field)) return false;
 		if($subfield === 'data' || empty($subfield) || $subfield === 'count') return true;
 		if($subfield === 'keys' || $subfield === 'xtra') return false;
 		$fieldtype = $field->type;
 		$schema = $fieldtype->getDatabaseSchema($field);
 		return isset($schema[$subfield]);
+	}
+
+	/**
+	 * Is field sortable? 
+	 * 
+	 * @param Field $field
+	 * @return bool
+	 * @since 3.0.199
+	 * 
+	 */
+	protected function isSortableField(Field $field) {
+		$table = $field->getTable();
+		if(empty($table)) return false;
+		if(!$this->wire()->database->tableExists($field->getTable())) return false;
+		return true;
 	}
 
 	/**
@@ -1333,6 +1349,9 @@ class ProcessPageLister extends Process implements ConfigurableModule {
 				if($field && !$this->isSortableCol($field, $subname)) {
 					$thClass = 'not_sortable';
 				}
+			} else if($field && !$this->isSortableField($field)) {
+				$sortKey = "<b>$name</b>";
+				$thClass = 'not_sortable';
 			} else {
 				$sortKey = "<b>$name</b>";
 			}
