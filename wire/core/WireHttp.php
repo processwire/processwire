@@ -229,6 +229,14 @@ class WireHttp extends Wire {
 	 *
 	 */
 	protected $responseHeaderArrays = array();
+
+	/**
+	 * Cookies to set for next curl get/post request
+	 * 
+	 * @var array
+	 * 
+	 */
+	protected $setCookies = array();
 	
 	/**
 	 * Error messages
@@ -745,6 +753,12 @@ class WireHttp extends Wire {
 		});
 
 		curl_setopt($curl, CURLOPT_URL, $url); 
+
+		$cookie = empty($options['cookie']) ? $this->setCookies : $options['cookie'];
+		if(!empty($cookie)) {
+			if(is_array($cookie)) $cookie = http_build_query($cookie, '', '; ', PHP_QUERY_RFC3986);
+			if(is_string($cookie) && !empty($cookie)) curl_setopt($curl, CURLOPT_COOKIE, $cookie);
+		}
 		
 		// custom CURL options provided in $options array
 		if(!empty($options['curl']) && !empty($options['curl']['setopt'])) {
@@ -1146,6 +1160,31 @@ class WireHttp extends Wire {
 	 */
 	public function getHeaders() {
 		return $this->headers;
+	}
+	
+	/**
+	 * Set cookie(s) for http GET/POST/etc. request (currently used by curl option only)
+	 *
+	 * ~~~~~
+	 * $http->setCookie('PHPSESSID', 'f3943z12339jz93j39iafai3f9393g');
+	 * $http->post('http://domain.com', [ 'foo' => 'bar' ], [ 'use' => 'curl' ]);
+	 * ~~~~~
+	 * 
+	 * #pw-group-request-headers
+	 *
+	 * @param string $name Name of cookie to set
+	 * @param string|int|null $value Specify value to set or null to remove
+	 * @return self
+	 * @since 3.0.199
+	 *
+	 */
+	public function setCookie($name, $value) {
+		if($value === null) {
+			unset($this->setCookies[$name]);
+		} else {
+			$this->setCookies[$name] = $value;
+		}
+		return $this;
 	}
 
 	/**
