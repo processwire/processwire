@@ -206,7 +206,7 @@ class Selectors extends WireArray {
 		$not = false;
 		if(!isset(self::$selectorTypes[$operator])) {
 			// unrecognized operator, see if it's an alternate placement for NOT "!" statement
-			$op = ltrim($operator, '!');
+			$op = ltrim("$operator", '!');
 			if(isset(self::$selectorTypes[$op])) {
 				$operator = $op;
 				$not = true;

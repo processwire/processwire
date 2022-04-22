@@ -1046,7 +1046,7 @@ class DatabaseQuerySelectFulltext extends Wire {
 			}
 		}
 		
-		if(strlen($lastWord)) {
+		if(strlen("$lastWord")) {
 			// only last word allowed to be a partial match word
 			$lastRequired = isset($stopWords[$lastWord]) || isset($shortWords[$lastWord]) ? '' : $required;
 			$booleanValues[$lastWord] = $lastRequired . $lastWord . '*';
